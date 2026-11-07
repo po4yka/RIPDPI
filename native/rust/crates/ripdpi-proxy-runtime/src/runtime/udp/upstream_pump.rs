@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::io;
-use std::net::UdpSocket;
+use std::net::{IpAddr, SocketAddr, UdpSocket};
 #[cfg(unix)]
 use std::os::fd::{AsRawFd, RawFd};
 use std::time::Instant;
 
+use ripdpi_proxy_runtime_adapter::model::session::parse_upstream_socks5_udp_packet;
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 
 use super::encode_socks5_udp_packet_with_resolved_host_into;
@@ -12,6 +13,9 @@ use super::feedback::note_udp_first_response_success;
 use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::migration::maybe_rebind_udp_source_port;
 use crate::runtime::state::RuntimeState;
+
+#[cfg(all(test, not(feature = "loom")))]
+mod tests;
 
 #[derive(Default)]
 pub(super) struct UdpUpstreamPollScratch {
@@ -39,20 +43,19 @@ pub(super) fn pump_udp_upstream_responses(
         match entry.upstream.recv(upstream_buffer) {
             Ok(n) => {
                 made_progress = true;
-                let now = Instant::now();
-                entry.last_used = now;
-                // Upstream-SOCKS5 relays wrap each reply in an RFC 1928 UDP
-                // header; strip it so downstream logic sees the bare payload,
-                // exactly as the direct path already does. A relay reply we
-                // cannot parse is dropped rather than forwarded as garbage.
                 let response = if entry.socks_framed() {
-                    let Some(payload) = strip_socks5_udp_header(&upstream_buffer[..n]) else {
+                    let Some(payload) = validated_socks5_udp_payload(
+                        &upstream_buffer[..n],
+                        entry.current_target,
+                        entry.host.as_deref(),
+                    ) else {
                         continue;
                     };
                     payload
                 } else {
                     &upstream_buffer[..n]
                 };
+                entry.last_used = Instant::now();
                 entry.session.observe_upstream_response(response);
                 entry.answered = true;
                 note_udp_first_response_success(state, entry)?;
@@ -93,23 +96,19 @@ pub(super) fn pump_udp_upstream_responses(
     Ok(made_progress)
 }
 
-/// Strip the RFC 1928 UDP reply header (`RSV=0 FRAG=0 ATYP DST.ADDR DST.PORT`)
-/// from a SOCKS5 relay datagram, returning the bare payload. Returns `None` for
-/// non-zero `FRAG` (fragmentation unsupported) or a malformed/truncated header.
-fn strip_socks5_udp_header(packet: &[u8]) -> Option<&[u8]> {
-    if packet.len() < 4 || packet[0] != 0 || packet[1] != 0 || packet[2] != 0 {
-        return None;
-    }
-    let payload_offset = match packet[3] {
-        0x01 => 10,
-        0x04 => 22,
-        0x03 => {
-            let len = *packet.get(4)? as usize;
-            5 + len + 2
-        }
-        _ => return None,
-    };
-    packet.get(payload_offset..)
+fn validated_socks5_udp_payload<'a>(
+    packet: &'a [u8],
+    target: SocketAddr,
+    known_host: Option<&str>,
+) -> Option<&'a [u8]> {
+    // Reply names may confirm the selected authority, but must not trigger a new DNS lookup.
+    let parsed = parse_upstream_socks5_udp_packet(packet, |host, _| {
+        let known = known_host.is_some_and(|known| host.eq_ignore_ascii_case(known.strip_suffix('.').unwrap_or(known)));
+        let numeric = host.parse::<IpAddr>().is_ok_and(|ip| ip.to_canonical() == target.ip().to_canonical());
+        (!host.is_empty() && (known || numeric)).then_some(target)
+    })?;
+    (parsed.target.ip().to_canonical() == target.ip().to_canonical() && parsed.target.port() == target.port())
+        .then_some(parsed.payload)
 }
 
 #[cfg(unix)]

@@ -432,10 +432,15 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     let client_relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("client relay");
     let client_addr = client_receiver.local_addr().expect("client addr");
     let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
+    let logical_target = SocketAddr::from(([198, 51, 100, 40], 443));
 
     let mut flow_state = HashMap::new();
-    let flow_key =
-        UdpFlowKey { client: client_addr, target, preserve_host_in_response: false, authoritative_host: None };
+    let flow_key = UdpFlowKey {
+        client: client_addr,
+        target: logical_target,
+        preserve_host_in_response: false,
+        authoritative_host: None,
+    };
     flow_state.insert(
         flow_key.clone(),
         UdpFlowActivationState {
@@ -455,7 +460,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
             answered: false,
             upstream,
             quic_migrated: false,
-            logical_target: target,
+            logical_target,
             current_target: target,
             target_candidates: vec![target],
             target_index: 0,
@@ -504,7 +509,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     let (n, _) = client_receiver.recv_from(&mut client_buffer).expect("client response");
     let (decoded_target, payload) =
         parse_socks5_udp_packet(&client_buffer[..n], &state).expect("parse client response");
-    assert_eq!(decoded_target, target);
+    assert_eq!(decoded_target, logical_target);
     assert_eq!(payload, b"relayed");
 
     let entry = flow_state.get_mut(&flow_key).expect("flow entry");

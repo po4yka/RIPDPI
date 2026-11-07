@@ -35,6 +35,30 @@ pub struct ParsedSocks5UdpPacket<'a> {
 pub fn parse_socks5_udp_packet_with_host<'a>(
     packet: &'a [u8],
     config: &RuntimeConfig,
+    resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+) -> Option<ParsedSocks5UdpPacket<'a>> {
+    parse_udp_packet_with_policy(
+        packet,
+        ipv6_enabled(config),
+        name_resolution_enabled(config),
+        private_resolved_targets_allowed(config),
+        resolve_name,
+    )
+}
+
+/// Decode a standard upstream reply independently of the local listener's address gates.
+pub fn parse_upstream_socks5_udp_packet<'a>(
+    packet: &'a [u8],
+    resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+) -> Option<ParsedSocks5UdpPacket<'a>> {
+    parse_udp_packet_with_policy(packet, true, true, false, resolve_name)
+}
+
+fn parse_udp_packet_with_policy<'a>(
+    packet: &'a [u8],
+    allow_ipv6: bool,
+    allow_domains: bool,
+    allow_resolved_targets: bool,
     mut resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
 ) -> Option<ParsedSocks5UdpPacket<'a>> {
     if packet.len() < 4 || validate_udp_rsv_frag(packet).is_err() {
@@ -56,7 +80,7 @@ pub fn parse_socks5_udp_packet_with_host<'a>(
             })
         }
         S_ATP_I6 => {
-            if packet.len() < 22 || !ipv6_enabled(config) {
+            if packet.len() < 22 || !allow_ipv6 {
                 return None;
             }
             let mut raw = [0u8; 16];
@@ -72,7 +96,7 @@ pub fn parse_socks5_udp_packet_with_host<'a>(
         S_ATP_ID => {
             let len = *packet.get(4)? as usize;
             let offset = 5 + len;
-            if packet.len() < offset + 2 || !name_resolution_enabled(config) {
+            if packet.len() < offset + 2 || !allow_domains {
                 return None;
             }
             let host = std::str::from_utf8(&packet[5..offset]).ok()?;
@@ -86,7 +110,7 @@ pub fn parse_socks5_udp_packet_with_host<'a>(
                 payload: &packet[offset + 2..],
             })
         }
-        S_ATP_RESOLVED_ID if private_resolved_targets_allowed(config) => parse_resolved_udp_target(packet),
+        S_ATP_RESOLVED_ID if allow_resolved_targets => parse_resolved_udp_target(packet),
         _ => None,
     }
 }
@@ -449,5 +473,33 @@ mod tests {
         let parsed = parse_socks5_udp_packet(&packet, &config, |_, _| None);
 
         assert_eq!(parsed, None);
+    }
+
+    #[test]
+    fn upstream_reply_parser_does_not_inherit_listener_address_gates() {
+        let mut config = RuntimeConfig::default();
+        config.network.ipv6 = false;
+        config.network.resolve = false;
+        let ipv6 = b"\0\0\0\x04\x20\x01\x0d\xb8\0\0\0\0\0\0\0\0\0\0\0\x07\x01\xbbdata";
+        assert!(parse_socks5_udp_packet_with_host(ipv6, &config, |_, _| None).is_none());
+        let parsed = parse_upstream_socks5_udp_packet(ipv6, |_, _| panic!("numeric reply needs no resolver"))
+            .expect("upstream IPv6 reply");
+        assert_eq!(parsed.target, "[2001:db8::7]:443".parse().unwrap());
+        assert_eq!(parsed.payload, b"data");
+
+        let domain = b"\0\0\0\x03\x0dknown.example\x01\xbbdata";
+        assert!(parse_socks5_udp_packet_with_host(domain, &config, |_, _| None).is_none());
+        let parsed = parse_upstream_socks5_udp_packet(domain, |host, _| {
+            (host == "known.example").then_some(SocketAddr::from(([203, 0, 113, 7], 0)))
+        })
+        .expect("known upstream domain reply");
+        assert_eq!(parsed.target, SocketAddr::from(([203, 0, 113, 7], 443)));
+        assert_eq!(parsed.payload, b"data");
+    }
+
+    #[test]
+    fn upstream_reply_parser_rejects_private_resolved_targets() {
+        let private = b"\0\0\0\x05\x01a\x01\xcb\0\x71\x07\x01\xbbdata";
+        assert!(parse_upstream_socks5_udp_packet(private, |_, _| panic!("private reply must be rejected")).is_none());
     }
 }
