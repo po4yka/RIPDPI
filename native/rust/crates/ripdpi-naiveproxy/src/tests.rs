@@ -1,3 +1,5 @@
+mod http_front;
+
 use std::ffi::OsString;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
@@ -339,83 +341,6 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
     assert_eq!(observed.padding_type_request.as_deref(), Some("1, 0"));
     assert!(observed.request_padding_len.is_some_and(|len| (16..=32).contains(&len)));
     assert!(observed.decoded_payload_bytes >= "ping-through-h2-naive".len());
-
-    server.abort();
-}
-
-/// The HTTP front only serves `CONNECT`: an authenticated plain absolute-form
-/// request gets 405 and never opens an upstream connection.
-///
-/// # Cancel safety:
-/// cancel-safe: the test owns its sockets and aborts the listener.
-#[tokio::test]
-async fn http_front_refuses_plain_requests_without_opening_upstream() {
-    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
-        .await
-        .expect("start naive h2 fixture");
-    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
-    let local_addr = local_listener.local_addr().expect("local addr");
-    let server = tokio::spawn(serve_listener(local_listener, Arc::new(fixture_config(&fixture))));
-
-    let mut client = TcpStream::connect(local_addr).await.expect("connect local http front");
-    client
-        .write_all(b"GET http://example.com/index.html HTTP/1.1\r\nHost: example.com\r\nProxy-Authorization: Basic bG9jYWwtdXNlcjpsb2NhbC1wYXNz\r\n\r\n")
-        .await
-        .expect("write plain request");
-    let mut response = Vec::new();
-    client.read_to_end(&mut response).await.expect("read refusal");
-
-    assert!(String::from_utf8_lossy(&response).starts_with("HTTP/1.1 405 Method Not Allowed\r\n"), "{response:?}");
-    assert_eq!(fixture.observed().tls_connections, 0, "a refused request must not reach the upstream");
-    server.abort();
-}
-
-#[tokio::test]
-/// # Cancel safety:
-/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
-async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
-    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
-        .await
-        .expect("start naive h2 fixture");
-    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
-    let local_addr = local_listener.local_addr().expect("local addr");
-    let config = NaiveProxyConfig {
-        listen: local_addr.to_string(),
-        server: "127.0.0.1".to_owned(),
-        server_port: fixture.port(),
-        server_name: fixture.server_name().to_owned(),
-        username: Some("naive-user".to_owned()),
-        password: Some("naive-pass".to_owned()),
-        path: None,
-        tls_config: fixture.client_tls_config(),
-        protect_socket_path: None,
-        sessions: Arc::default(),
-        local_username: "local-user".to_owned(),
-        local_password: "local-pass".to_owned(),
-        extra_headers: Vec::new(),
-    };
-
-    let server = tokio::spawn(async move {
-        serve_listener(local_listener, Arc::new(config)).await.expect("serve listener");
-    });
-
-    let mut client = TcpStream::connect(local_addr).await.expect("connect local http front");
-    client
-        .write_all(b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\nProxy-Authorization: Basic bG9jYWwtdXNlcjpsb2NhbC1wYXNz\r\n\r\n")
-        .await
-        .expect("write connect request");
-    let response = read_http_headers(&mut client).await.expect("read connect response");
-    assert!(response.starts_with("HTTP/1.1 200"), "unexpected CONNECT response: {response:?}");
-
-    client.write_all(b"ping-through-http-front").await.expect("write tunneled payload");
-    let mut echoed = vec![0u8; "ping-through-http-front".len()];
-    client.read_exact(&mut echoed).await.expect("read echo");
-    assert_eq!(&echoed, b"ping-through-http-front");
-
-    let observed = fixture.observed();
-    assert_eq!(observed.proxy_authorization.as_deref(), Some("Basic bmFpdmUtdXNlcjpuYWl2ZS1wYXNz"));
-    assert_eq!(observed.padding_type_request.as_deref(), Some("1, 0"));
-    assert!(observed.request_padding_len.is_some_and(|len| (16..=32).contains(&len)));
 
     server.abort();
 }

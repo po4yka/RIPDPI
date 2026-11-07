@@ -32,6 +32,13 @@ The owning writer updates all callers and tests in this slice. Prerequisites: No
 - Cancellation and persistence can lose resources or state: exercise the stated failure case, not only round trips.
 - Dependency changes can affect size, licensing, and Android support: review actual direct and transitive edges before adoption. No baseline relaxation or unrelated compatibility layer is permitted.
 
+## Implementation decisions
+
+- Keep the exact byte-at-a-time head boundary and 16 KiB limit. Keep UTF-8 rejection and case-insensitive CONNECT and Basic scheme handling. Do not add a fixed header-count cap.
+- Allocate parser header slots from the bounded input length divided by three, the minimum field size with an LF line ending. This permits many short headers that the old reader accepted.
+- Parse the HTTP grammar before authentication. Keep 407 for missing, incorrect, or duplicate authentication; keep 405 for authenticated non-CONNECT methods. Malformed grammar and CONNECT authorities receive 400. Oversized or interrupted reads keep the existing close/error path.
+- Require an explicit numeric port and reject user information and malformed IP literals before upstream creation. Error text does not include the peer-supplied method, authority, or port.
+
 ## Migration Plan
 
 First reproduce the specified uncovered behavior or establish a passing contract baseline for mechanical cases. Then replace only the owning infrastructure, keep existing stored and wire formats, and run the gates below. No persisted-data or schema migration is planned. If that assumption fails, revise this plan before editing that contract. Roll back the owning implementation commit if required, without deleting user data.

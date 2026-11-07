@@ -2,7 +2,7 @@
 id: PRX-1794036614727167
 title: Parse NaiveProxy CONNECT heads with httparse
 kind: bug
-status: todo
+status: review
 area: proxy
 priority: medium
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: parse-naive-connect-with-httparse
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal

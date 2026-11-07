@@ -6164,6 +6164,7 @@ dependencies = [
  "h2",
  "http",
  "http-body-util",
+ "httparse",
  "hyper",
  "hyper-util",
  "local-network-fixture",
