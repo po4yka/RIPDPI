@@ -1,0 +1,11 @@
+{
+  "change": "resolve-socks5-connect-hypotheses",
+  "evidence_summary": "445 local tests passed on explicit Rust1.98.1 at b278654715a2401457d5e9ea01efd1cc821ebdfe; four independently reviewed fixes; pinned ci-gates and architecture/metadata passed; hypothesis limits recorded",
+  "execution_sha256": "f4bd248b94da12bdeb8aad7c4017be03009dc1dc9e2a715a8c546c0c4e0342d1",
+  "issue_sha256": "a203707491f51891d6fe12eea392d9bd6af9133f2f3392d4b1459264b62dd739",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T18:27:43Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794074402219640"
+}
