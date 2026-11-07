@@ -1,6 +1,10 @@
-use std::io::{self, Write};
+mod setup_io;
+
+use crate::sync::{AtomicBool, Ordering};
+use setup_io::UdpSetupIo;
+use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ripdpi_proxy_runtime_adapter::platform::connect as connect_platform;
 
@@ -32,18 +36,24 @@ pub(super) fn open_upstream_udp_associate(
     protect_path: Option<&str>,
     connect_timeout: Option<Duration>,
     state: &RuntimeState,
+    running: &AtomicBool,
 ) -> io::Result<UpstreamUdpSocks> {
     let bind_ip = match upstream {
         SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
     };
+    let deadline = connect_timeout.map(|timeout| Instant::now() + timeout);
+    let cancelled = || !running.load(Ordering::Relaxed) || state.shutdown_requested();
     let mut control =
-        connect_platform::connect_tcp_stream(upstream, bind_ip, protect_path, false, connect_timeout, None)
+        connect_platform::connect_tcp_stream_cancellable(upstream, bind_ip, protect_path, connect_timeout, &cancelled)
             .map_err(|err| err.source)?;
-    control.set_read_timeout(connect_timeout)?;
-    control.set_write_timeout(connect_timeout)?;
-
-    let mut relay_endpoint = run_udp_associate_handshake(&mut control, upstream, state)?;
+    let _active_upstream = state.register_active_upstream_tcp_socket(&control)?;
+    let control_peer_ip = control.peer_addr()?.ip();
+    let mut checked = UdpSetupIo::new(&mut control, state, running, deadline);
+    let setup_cancelled = || cancelled() || deadline.is_some_and(|deadline| Instant::now() >= deadline);
+    let relay_endpoint = run_udp_associate_handshake(&mut checked, upstream, state, control_peer_ip, &setup_cancelled);
+    checked.check_running()?;
+    let mut relay_endpoint = relay_endpoint?;
     if relay_endpoint.ip().is_unspecified() {
         relay_endpoint.set_ip(control.peer_addr()?.ip());
     }
@@ -54,9 +64,11 @@ pub(super) fn open_upstream_udp_associate(
 }
 
 fn run_udp_associate_handshake(
-    control: &mut TcpStream,
+    control: &mut (impl Read + Write),
     upstream: SocketAddr,
     state: &RuntimeState,
+    control_peer_ip: IpAddr,
+    should_cancel: &dyn Fn() -> bool,
 ) -> io::Result<SocketAddr> {
     state.negotiate_upstream_socks_auth(control, upstream)?;
 
@@ -65,7 +77,7 @@ fn run_udp_associate_handshake(
     if !RuntimeState::upstream_socks_connect_succeeded(&reply) {
         return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks udp associate failed"));
     }
-    parse_associate_relay_endpoint(&reply, state, control.peer_addr()?.ip())
+    parse_associate_relay_endpoint(&reply, state, control_peer_ip, should_cancel)
 }
 
 /// RFC 1928 UDP ASSOCIATE request: `VER=5, CMD=3, RSV=0, ATYP=IPv4, 0.0.0.0:0`.
@@ -78,6 +90,7 @@ fn parse_associate_relay_endpoint(
     reply: &[u8],
     state: &RuntimeState,
     control_peer_ip: IpAddr,
+    should_cancel: &dyn Fn() -> bool,
 ) -> io::Result<SocketAddr> {
     let invalid = || io::Error::new(io::ErrorKind::InvalidData, "malformed udp associate reply");
     match reply.get(3).copied().ok_or_else(invalid)? {
@@ -102,7 +115,7 @@ fn parse_associate_relay_endpoint(
                 control_peer_ip
             } else {
                 state
-                    .resolve_handshake_name(host)
+                    .resolve_udp_name_with_cancel(host, should_cancel)
                     .ok_or_else(|| {
                         io::Error::new(
                             io::ErrorKind::AddrNotAvailable,
@@ -173,7 +186,8 @@ mod tests {
         let (upstream, server) = spawn_associate_server([127, 0, 0, 1], 5300);
         let state = test_state(false, true);
         let session =
-            open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state).expect("associate ok");
+            open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state, &AtomicBool::new(true))
+                .expect("associate ok");
         assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
         drop(session);
         server.join().expect("join associate server");
@@ -208,8 +222,9 @@ mod tests {
         });
         let state = RuntimeState::test(config);
 
-        let session = open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state)
-            .expect("authenticated associate");
+        let session =
+            open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state, &AtomicBool::new(true))
+                .expect("authenticated associate");
 
         assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
         drop(session);
@@ -223,7 +238,8 @@ mod tests {
         let (upstream, server) = spawn_associate_server([0, 0, 0, 0], 5300);
         let state = test_state(false, true);
         let session =
-            open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state).expect("associate ok");
+            open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state, &AtomicBool::new(true))
+                .expect("associate ok");
         assert_eq!(session.relay_endpoint, SocketAddr::from(([127, 0, 0, 1], 5300)));
         drop(session);
         server.join().expect("join associate server");
@@ -236,8 +252,9 @@ mod tests {
         let relay_addr = relay.local_addr().expect("relay addr");
         let (upstream, server) = spawn_associate_server_with_reply(domain_reply(b"localhost", relay_addr.port()));
         let state = test_state(true, true);
-        let session = open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state)
-            .expect("associate domain relay");
+        let session =
+            open_upstream_udp_associate(upstream, None, Some(Duration::from_secs(2)), &state, &AtomicBool::new(true))
+                .expect("associate domain relay");
         assert_eq!(session.relay_endpoint, relay_addr);
         let socket =
             super::super::sockets::build_udp_upstream_socket(session.relay_endpoint, None, false).expect("udp socket");
@@ -256,7 +273,8 @@ mod tests {
             parse_associate_relay_endpoint(
                 &domain_reply(b"localhost", 5300),
                 &ipv6_state,
-                IpAddr::V6(Ipv6Addr::LOCALHOST)
+                IpAddr::V6(Ipv6Addr::LOCALHOST),
+                &|| false
             )
             .expect("IPv6 relay"),
             SocketAddr::from((Ipv6Addr::LOCALHOST, 5300)),
@@ -267,7 +285,8 @@ mod tests {
             parse_associate_relay_endpoint(
                 &domain_reply(b"example.invalid", 5300),
                 &disabled_state,
-                IpAddr::V4(Ipv4Addr::LOCALHOST)
+                IpAddr::V4(Ipv4Addr::LOCALHOST),
+                &|| false
             )
             .expect_err("disabled resolution must fail")
             .kind(),
@@ -278,7 +297,8 @@ mod tests {
                 parse_associate_relay_endpoint(
                     &domain_reply(host, 5300),
                     &disabled_state,
-                    IpAddr::V4(Ipv4Addr::LOCALHOST)
+                    IpAddr::V4(Ipv4Addr::LOCALHOST),
+                    &|| false
                 )
                 .expect_err("invalid relay domain must fail")
                 .kind(),
@@ -294,6 +314,7 @@ mod tests {
                 &[0x05, 0x00, 0x00, 0x01, 127, 0, 0],
                 &test_state(false, true),
                 IpAddr::V4(Ipv4Addr::LOCALHOST),
+                &|| false,
             )
             .is_err()
         );

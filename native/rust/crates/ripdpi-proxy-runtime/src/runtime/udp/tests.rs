@@ -123,8 +123,17 @@ fn blocked_destination_creates_no_udp_flow_or_egress_socket() {
     let mut flows = HashMap::new();
 
     assert!(
-        !ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now(), None)
-            .expect("blocked selection")
+        !ensure_udp_flow_selected(
+            &state,
+            None,
+            &mut flows,
+            8,
+            &packet,
+            Instant::now(),
+            None,
+            &crate::sync::Arc::new(crate::sync::AtomicBool::new(true))
+        )
+        .expect("blocked selection")
     );
     assert!(flows.is_empty());
 }
@@ -157,7 +166,17 @@ fn direct_destination_bypasses_group_udp_socks_associate() {
     let mut flows = HashMap::new();
 
     assert!(
-        ensure_udp_flow_selected(&state, None, &mut flows, 8, &packet, Instant::now(), None).expect("direct selection")
+        ensure_udp_flow_selected(
+            &state,
+            None,
+            &mut flows,
+            8,
+            &packet,
+            Instant::now(),
+            None,
+            &crate::sync::Arc::new(crate::sync::AtomicBool::new(true))
+        )
+        .expect("direct selection")
     );
     let flow = flows.get(&flow_key).expect("direct flow");
     assert_eq!(flow.destination_egress, DestinationEgress::Direct);
@@ -324,6 +343,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
     flow_state.insert(
         flow_key,
         UdpFlowActivationState {
+            running: crate::sync::Arc::new(crate::sync::AtomicBool::new(true)),
             lua_flow: None,
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
@@ -421,9 +441,14 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     });
 
     let state = test_runtime_state(RuntimeConfig::default());
-    let session =
-        super::upstream_socks::open_upstream_udp_associate(upstream_socks, None, Some(Duration::from_secs(2)), &state)
-            .expect("udp associate");
+    let session = super::upstream_socks::open_upstream_udp_associate(
+        upstream_socks,
+        None,
+        Some(Duration::from_secs(2)),
+        &state,
+        &crate::sync::AtomicBool::new(true),
+    )
+    .expect("udp associate");
     assert_eq!(session.relay_endpoint, relay_addr);
     let upstream = sockets::build_udp_upstream_socket(session.relay_endpoint, None, false).expect("relay socket");
 
@@ -444,6 +469,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
     flow_state.insert(
         flow_key.clone(),
         UdpFlowActivationState {
+            running: crate::sync::Arc::new(crate::sync::AtomicBool::new(true)),
             lua_flow: None,
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
@@ -823,6 +849,7 @@ fn lua_nonroot_udp_modify_uses_existing_datagram_socket() {
     let target = peer.local_addr().unwrap();
     upstream.connect(target).unwrap();
     let mut entry = UdpFlowActivationState {
+        running: crate::sync::Arc::new(crate::sync::AtomicBool::new(true)),
         lua_flow: state.new_lua_flow(),
         session: UdpFlowSession::new(),
         last_used: Instant::now(),
@@ -893,6 +920,7 @@ fn association_worker_exit_clears_running_so_the_control_connection_closes() {
 
 fn flow_entry_for(upstream: UdpSocket, target: SocketAddr) -> UdpFlowActivationState {
     UdpFlowActivationState {
+        running: crate::sync::Arc::new(crate::sync::AtomicBool::new(true)),
         lua_flow: None,
         session: UdpFlowSession::new(),
         last_used: Instant::now(),
@@ -952,6 +980,7 @@ fn one_flow_send_error_retires_only_that_flow() {
         &mut client_buffer,
         &mut pinned,
         super::client_receive::UdpClientReceiveConfig {
+            running: crate::sync::Arc::new(crate::sync::AtomicBool::new(true)),
             control_peer_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
             requested_udp_source: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
             flow_limit: 16,
@@ -1006,6 +1035,7 @@ fn flow_send_error_moves_to_the_next_target_candidate() {
         &mut client_buffer,
         &mut pinned,
         super::client_receive::UdpClientReceiveConfig {
+            running: crate::sync::Arc::new(crate::sync::AtomicBool::new(true)),
             control_peer_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
             requested_udp_source: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
             flow_limit: 16,
@@ -1088,10 +1118,32 @@ fn hostless_follow_up_datagram_stays_on_the_flow_of_its_quic_initial() {
     let handshake = UdpClientPacket { payload: b"handshake-without-sni", host: None, ..initial };
     let mut flows = HashMap::new();
 
-    assert!(ensure_udp_flow_selected(&state, None, &mut flows, 8, &initial, Instant::now(), None).expect("initial"));
+    assert!(
+        ensure_udp_flow_selected(
+            &state,
+            None,
+            &mut flows,
+            8,
+            &initial,
+            Instant::now(),
+            None,
+            &crate::sync::Arc::new(crate::sync::AtomicBool::new(true))
+        )
+        .expect("initial")
+    );
     let source_port = flows.values().next().expect("flow").upstream.local_addr().expect("source").port();
     assert!(
-        ensure_udp_flow_selected(&state, None, &mut flows, 8, &handshake, Instant::now(), None).expect("follow-up")
+        ensure_udp_flow_selected(
+            &state,
+            None,
+            &mut flows,
+            8,
+            &handshake,
+            Instant::now(),
+            None,
+            &crate::sync::Arc::new(crate::sync::AtomicBool::new(true))
+        )
+        .expect("follow-up")
     );
 
     assert_eq!(flows.len(), 1, "one QUIC connection must keep one upstream flow");
@@ -1117,7 +1169,19 @@ fn socks_named_hosts_on_one_address_keep_separate_flows() {
     let mut flows = HashMap::new();
 
     for packet in [&first, &second, &first] {
-        assert!(ensure_udp_flow_selected(&state, None, &mut flows, 8, packet, Instant::now(), None).expect("select"));
+        assert!(
+            ensure_udp_flow_selected(
+                &state,
+                None,
+                &mut flows,
+                8,
+                packet,
+                Instant::now(),
+                None,
+                &crate::sync::Arc::new(crate::sync::AtomicBool::new(true))
+            )
+            .expect("select")
+        );
     }
 
     assert_eq!(flows.len(), 2, "two names on one address are two flows");

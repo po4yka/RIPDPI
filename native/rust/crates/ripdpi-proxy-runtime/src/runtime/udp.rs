@@ -54,8 +54,11 @@ pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState
 fn parse_socks5_udp_packet_with_host<'a>(
     packet: &'a [u8],
     state: &RuntimeState,
+    should_cancel: &dyn Fn() -> bool,
 ) -> Option<ripdpi_proxy_runtime_adapter::model::session::ParsedSocks5UdpPacket<'a>> {
-    state.parse_socks5_udp_packet_with_host(packet, |host, socket_type| state.resolve_proxy_name(host, socket_type))
+    state.parse_socks5_udp_packet_with_host(packet, |host, _socket_type| {
+        state.resolve_udp_name_with_cancel(host, should_cancel)
+    })
 }
 
 pub(super) fn udp_associate_loop(
@@ -80,7 +83,7 @@ pub(super) fn udp_associate_loop(
     let mut upstream_poll_scratch = UdpUpstreamPollScratch::default();
     let flow_limit = state.udp_flow_limit();
 
-    while running.load(Ordering::Relaxed) {
+    while running.load(Ordering::Relaxed) && !state.shutdown_requested() {
         emit_due_direct_path_learning_timeouts(&state)?;
         let now = Instant::now();
         if expiry_schedule.is_due(now) {
@@ -91,12 +94,15 @@ pub(super) fn udp_associate_loop(
             &client_relay,
             &mut client_buffer,
             &mut udp_client_addr,
-            UdpClientReceiveConfig { control_peer_ip, requested_udp_source, flow_limit },
+            UdpClientReceiveConfig { running: running.clone(), control_peer_ip, requested_udp_source, flow_limit },
             &mut flow_state,
             &state,
             protect_path.as_deref(),
             attempt_token.as_ref(),
         )?;
+        if !running.load(Ordering::Relaxed) || state.shutdown_requested() {
+            break;
+        }
 
         if expiry_schedule.next_deadline().is_none() && !flow_state.is_empty() {
             // A new flow starts at the current time, so while a deadline is
@@ -122,7 +128,6 @@ pub(super) fn udp_associate_loop(
         }
     }
 
-    expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now(), &mut expired_flow_keys)?;
     Ok(())
 }
 

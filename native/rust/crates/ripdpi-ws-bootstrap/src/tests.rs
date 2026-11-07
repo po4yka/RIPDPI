@@ -14,6 +14,8 @@ use crate::resolver::{
 };
 use crate::{resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr};
 
+mod cancel;
+
 /// Lazily-started fixture shared across all tests in this binary.
 ///
 /// Each test only reads from the fixture (DNS lookups, hostname resolution),

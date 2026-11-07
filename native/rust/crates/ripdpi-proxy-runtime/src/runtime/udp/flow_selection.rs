@@ -3,6 +3,8 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
+use crate::sync::{Arc, AtomicBool, Ordering};
+
 use super::client_receive::UdpClientPacket;
 use super::flow::{UdpFlowActivationState, UdpFlowKey, udp_flow_at_capacity};
 use super::session::UdpFlowSession;
@@ -54,12 +56,15 @@ fn build_udp_flow_upstream(
     target: SocketAddr,
     protect_path: Option<&str>,
     group_policy: &UdpFlowGroupPolicy,
+    running: &Arc<AtomicBool>,
 ) -> io::Result<(UdpSocket, Option<UpstreamUdpSocks>)> {
+    ensure_running(state, running)?;
     let Some(upstream_socks_addr) = group_policy.upstream_socks_addr else {
         let socket = build_udp_upstream_socket(target, protect_path, group_policy.socket.bind_low_port)?;
         return Ok((socket, None));
     };
-    let session = open_upstream_udp_associate(upstream_socks_addr, protect_path, group_policy.connect_timeout, state)?;
+    let session =
+        open_upstream_udp_associate(upstream_socks_addr, protect_path, group_policy.connect_timeout, state, running)?;
     let socket = build_udp_upstream_socket(session.relay_endpoint, protect_path, group_policy.socket.bind_low_port)?;
     Ok((socket, Some(session)))
 }
@@ -72,6 +77,7 @@ pub(super) fn ensure_udp_flow_selected(
     packet: &UdpClientPacket<'_>,
     now: Instant,
     attempt_token: Option<&AttemptCorrelationId>,
+    running: &Arc<AtomicBool>,
 ) -> io::Result<bool> {
     let flow_key = packet.flow_key();
     if udp_flow_at_capacity(flow_state, &flow_key, flow_limit) {
@@ -89,7 +95,8 @@ pub(super) fn ensure_udp_flow_selected(
     let entry = match flow_state.entry(flow_key) {
         std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
         std::collections::hash_map::Entry::Vacant(entry) => {
-            let Some(initial_entry) = build_initial_udp_flow_entry(state, protect_path, packet, now, attempt_token)?
+            let Some(initial_entry) =
+                build_initial_udp_flow_entry(state, protect_path, packet, now, attempt_token, running)?
             else {
                 return Ok(false);
             };
@@ -105,10 +112,11 @@ pub(super) fn select_udp_flow_target(
     host: Option<&str>,
     payload: &[u8],
     target_candidates: &[SocketAddr],
-    start_index: usize,
-    phase: &'static str,
+    start: (usize, &'static str),
     egress: DestinationEgress,
+    running: &Arc<AtomicBool>,
 ) -> io::Result<Option<UdpFlowSelection>> {
+    let (start_index, phase) = start;
     if egress == DestinationEgress::Block {
         return Ok(None);
     }
@@ -126,7 +134,9 @@ pub(super) fn select_udp_flow_target(
         let packet_settings = group_policy.packet;
         let source_rebind_policy = group_policy.source_rebind;
         let execution_family = group_policy.execution_family;
-        let Ok((upstream, upstream_socks)) = build_udp_flow_upstream(state, target, protect_path, &group_policy) else {
+        let Ok((upstream, upstream_socks)) =
+            build_udp_flow_upstream(state, target, protect_path, &group_policy, running)
+        else {
             continue;
         };
         return Ok(Some(UdpFlowSelection {
@@ -151,11 +161,20 @@ pub(super) fn reselect_udp_flow_target(
     payload: &[u8],
     host: Option<&str>,
     egress: DestinationEgress,
+    running: &Arc<AtomicBool>,
 ) -> io::Result<Option<UdpFlowSelectionWithCandidates>> {
     let target_candidates =
         preferred_targets_for_transport(state, original_target, host, RuntimeTransportProtocol::Udp);
-    let Some(selection) =
-        select_udp_flow_target(state, protect_path, host, payload, &target_candidates, 0, "payload_reselect", egress)?
+    let Some(selection) = select_udp_flow_target(
+        state,
+        protect_path,
+        host,
+        payload,
+        &target_candidates,
+        (0, "payload_reselect"),
+        egress,
+        running,
+    )?
     else {
         return Ok(None);
     };
@@ -199,9 +218,9 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.host.as_deref(),
         payload.as_slice(),
         &entry.target_candidates,
-        next_index,
-        "edge_fallback",
+        (next_index, "edge_fallback"),
         entry.destination_egress,
+        &entry.running,
     )? {
         entry.route = selection.route;
         entry.socket_settings = selection.socket_settings;
@@ -215,6 +234,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.quic_migrated = false;
         entry.answered = false;
         store_udp_route_hint(state, entry)?;
+        ensure_running(state, &entry.running)?;
         match send_udp_flow_payload(state, entry, payload.as_slice(), now, protect_path) {
             Ok(()) => return Ok(true),
             Err(_) => next_index = entry.target_index + 1,
@@ -229,6 +249,7 @@ fn build_initial_udp_flow_entry(
     packet: &UdpClientPacket<'_>,
     now: Instant,
     attempt_token: Option<&AttemptCorrelationId>,
+    running: &Arc<AtomicBool>,
 ) -> io::Result<Option<UdpFlowActivationState>> {
     let destination_egress =
         state.destination_egress(packet.original_target, packet.host.as_deref(), RuntimeTransportProtocol::Udp);
@@ -247,14 +268,15 @@ fn build_initial_udp_flow_entry(
         packet.host.as_deref(),
         packet.payload,
         &target_candidates,
-        0,
-        "initial",
+        (0, "initial"),
         destination_egress,
+        running,
     )?
     else {
         return Ok(None);
     };
     let entry = UdpFlowActivationState {
+        running: running.clone(),
         lua_flow: state.new_lua_flow(),
         session: UdpFlowSession::new(),
         last_used: now,
@@ -305,6 +327,7 @@ fn update_udp_flow_selection(
             packet.payload,
             packet.host.as_deref(),
             entry.destination_egress,
+            &entry.running,
         )?
         else {
             return Ok(false);
@@ -324,4 +347,11 @@ fn update_udp_flow_selection(
         store_udp_route_hint(state, entry)?;
     }
     Ok(true)
+}
+
+fn ensure_running(state: &RuntimeState, running: &AtomicBool) -> io::Result<()> {
+    if !running.load(Ordering::Relaxed) || state.shutdown_requested() {
+        return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "UDP association stopped"));
+    }
+    Ok(())
 }

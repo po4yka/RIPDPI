@@ -296,7 +296,7 @@ fn handle_socks5_udp_associate(
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
             Err(_) => break,
         }
-        if !running.load(Ordering::Relaxed) {
+        if !running.load(Ordering::Relaxed) || state.shutdown_requested() {
             break;
         }
     }

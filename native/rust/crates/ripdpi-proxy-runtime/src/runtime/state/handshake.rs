@@ -173,8 +173,25 @@ impl RuntimeState {
         encode_http_connect_failure(failure)
     }
     pub(in crate::runtime) fn resolve_proxy_name(&self, host: &str, _socket_type: SocketType) -> Option<SocketAddr> {
+        self.resolve_proxy_name_with_cancellation(host, None)
+    }
+    pub(in crate::runtime) fn resolve_udp_name_with_cancel(
+        &self,
+        host: &str,
+        should_cancel: &dyn Fn() -> bool,
+    ) -> Option<SocketAddr> {
+        self.resolve_proxy_name_with_cancellation(host, Some(should_cancel))
+    }
+    fn resolve_proxy_name_with_cancellation(
+        &self,
+        host: &str,
+        should_cancel: Option<&dyn Fn() -> bool>,
+    ) -> Option<SocketAddr> {
         use std::net::IpAddr;
 
+        if should_cancel.is_some_and(|cancelled| cancelled()) {
+            return None;
+        }
         if let Ok(ip) = host.parse::<IpAddr>() {
             return Some(SocketAddr::new(ip, 0));
         }
@@ -188,7 +205,17 @@ impl RuntimeState {
         }
 
         let protect_path = self.handshake_protect_path();
-        self.resolve_encrypted_dns_host(host, protect_path.as_deref(), session_config.ipv6).ok()
+        match should_cancel {
+            Some(cancelled) => runtime_resolve_host_via_encrypted_dns_with_cancel(
+                host,
+                self.runtime_context.as_ref(),
+                protect_path.as_deref(),
+                session_config.ipv6,
+                cancelled,
+            ),
+            None => self.resolve_encrypted_dns_host(host, protect_path.as_deref(), session_config.ipv6),
+        }
+        .ok()
     }
     pub(in crate::runtime) fn resolve_handshake_name(&self, host: &str) -> Option<SocketAddr> {
         self.resolve_proxy_name(host, SocketType::Stream)

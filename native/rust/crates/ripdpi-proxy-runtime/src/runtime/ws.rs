@@ -5,8 +5,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{WsTunnelSettings, ws_tunnel_co
 use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     EncryptedDnsIpAnswers, MtprotoSeedClassification, TelegramDc, WsTransport, WsTunnelConfig, detect_telegram_dc,
-    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
-    should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host,
+    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_host_via_encrypted_dns_with_cancel,
+    resolve_ws_tunnel_addr, should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host,
 };
 
 pub(super) type RuntimeEncryptedDnsIpAnswers = EncryptedDnsIpAnswers;
@@ -39,6 +39,16 @@ pub(super) fn runtime_resolve_host_via_encrypted_dns(
     ipv6_enabled: bool,
 ) -> io::Result<SocketAddr> {
     resolve_host_via_encrypted_dns(host, runtime_context, protect_path, ipv6_enabled)
+}
+
+pub(super) fn runtime_resolve_host_via_encrypted_dns_with_cancel(
+    host: &str,
+    runtime_context: Option<&ProxyRuntimeContext>,
+    protect_path: Option<&str>,
+    ipv6_enabled: bool,
+    should_cancel: &dyn Fn() -> bool,
+) -> io::Result<SocketAddr> {
+    resolve_host_via_encrypted_dns_with_cancel(host, runtime_context, protect_path, ipv6_enabled, should_cancel)
 }
 
 pub(super) fn runtime_encrypted_dns_ip_answers_for_host(

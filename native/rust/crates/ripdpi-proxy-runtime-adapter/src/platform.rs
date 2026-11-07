@@ -14,6 +14,8 @@ pub mod relay {
 }
 
 pub mod connect {
+    mod cancel;
+
     use std::io;
     use std::net::{IpAddr, SocketAddr, TcpStream};
     use std::time::Duration;
@@ -74,6 +76,51 @@ pub mod connect {
         pre_connect_rcvbuf: Option<u32>,
         observer: Option<&dyn TcpConnectObserver>,
     ) -> Result<TcpStream, TcpConnectError> {
+        connect_tcp_stream_inner(
+            target,
+            bind_ip,
+            protect_path,
+            tfo,
+            connect_timeout,
+            pre_connect_rcvbuf,
+            ConnectControl { observer, cancelled: None },
+        )
+    }
+
+    /// Connects one owned socket while polling association cancellation.
+    pub fn connect_tcp_stream_cancellable(
+        target: SocketAddr,
+        bind_ip: IpAddr,
+        protect_path: Option<&str>,
+        connect_timeout: Option<Duration>,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<TcpStream, TcpConnectError> {
+        connect_tcp_stream_inner(
+            target,
+            bind_ip,
+            protect_path,
+            false,
+            connect_timeout,
+            None,
+            ConnectControl { observer: None, cancelled: Some(cancelled) },
+        )
+    }
+
+    struct ConnectControl<'a> {
+        observer: Option<&'a dyn TcpConnectObserver>,
+        cancelled: Option<&'a dyn Fn() -> bool>,
+    }
+
+    fn connect_tcp_stream_inner(
+        target: SocketAddr,
+        bind_ip: IpAddr,
+        protect_path: Option<&str>,
+        tfo: bool,
+        connect_timeout: Option<Duration>,
+        pre_connect_rcvbuf: Option<u32>,
+        control: ConnectControl<'_>,
+    ) -> Result<TcpStream, TcpConnectError> {
+        let observer = control.observer;
         let socket = new_tcp_socket(target, tfo)?;
         if let Some(observer) = observer {
             observer.on_socket_created();
@@ -115,7 +162,9 @@ pub mod connect {
             protected = protect_path.is_some(),
             "ripdpi upstream connect start"
         );
-        let connect_result = if let Some(timeout) = connect_timeout {
+        let connect_result = if let Some(cancelled) = control.cancelled {
+            cancel::connect(&socket, target, connect_timeout, cancelled)
+        } else if let Some(timeout) = connect_timeout {
             socket.connect_timeout(&SockAddr::from(target), timeout)
         } else {
             socket.connect(&SockAddr::from(target))

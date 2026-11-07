@@ -271,13 +271,46 @@ impl EncryptedDnsResolver {
         &self,
         query_bytes: &[u8],
     ) -> Result<EncryptedDnsExchangeSuccess, EncryptedDnsError> {
+        self.blocking_runtime()?.get().block_on(self.exchange_with_metadata(query_bytes))
+    }
+
+    /// Run a blocking exchange until the caller cancels it.
+    /// The callback must return quickly and stay true after cancellation.
+    pub fn exchange_blocking_with_cancel(
+        &self,
+        query_bytes: &[u8],
+        should_cancel: &dyn Fn() -> bool,
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
+        self.blocking_runtime()?.get().block_on(self.exchange_until_cancel(query_bytes, should_cancel))
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the owned exchange future is dropped on cancellation, including its partial stream.
+    async fn exchange_until_cancel(
+        &self,
+        query_bytes: &[u8],
+        should_cancel: &dyn Fn() -> bool,
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
+        let mut exchange = std::pin::pin!(self.exchange_with_metadata(query_bytes));
+        loop {
+            if should_cancel() {
+                return Err(EncryptedDnsError::Request("encrypted DNS exchange cancelled".to_string()));
+            }
+            // Timeout drops only this borrow; the same exchange keeps its progress between checks.
+            if let Ok(result) = tokio::time::timeout(Duration::from_millis(100), exchange.as_mut()).await {
+                return result.map(|success| success.response_bytes);
+            }
+        }
+    }
+
+    fn blocking_runtime(&self) -> Result<&state::BlockingRuntime, EncryptedDnsError> {
         if tokio::runtime::Handle::try_current().is_ok() {
             return Err(EncryptedDnsError::TaskJoin(
                 "blocking encrypted DNS exchange cannot run inside a Tokio runtime".to_string(),
             ));
         }
 
-        let runtime = match self.inner.blocking_runtime.get() {
+        Ok(match self.inner.blocking_runtime.get() {
             Some(runtime) => runtime,
             None => {
                 let runtime = Builder::new_current_thread().enable_all().build().map_err(|err| {
@@ -286,8 +319,7 @@ impl EncryptedDnsResolver {
                 // A concurrent first call may win the race; its runtime is used and this one is dropped.
                 self.inner.blocking_runtime.get_or_init(|| state::BlockingRuntime::new(runtime))
             }
-        };
-        runtime.get().block_on(self.exchange_with_metadata(query_bytes))
+        })
     }
 
     pub fn exchange_blocking(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {

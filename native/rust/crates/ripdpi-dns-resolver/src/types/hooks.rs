@@ -67,6 +67,19 @@ impl EncryptedDnsConnectHooks {
         self
     }
 
+    /// Create and protect an unconnected socket before its asynchronous connect.
+    /// The factory must not block indefinitely; a pending connect owns and drops its socket on cancellation.
+    /// The factory runs synchronously, so cancellation cannot interrupt it.
+    pub fn with_direct_tcp_socket<F>(self, socket_factory: F) -> Self
+    where
+        F: Fn(SocketAddr) -> io::Result<TcpStream> + Send + Sync + 'static,
+    {
+        let socket_factory = Arc::new(socket_factory);
+        self.with_direct_tcp_connector(move |target, _timeout| {
+            connect_created_tcp_socket(Arc::clone(&socket_factory), target)
+        })
+    }
+
     pub fn require_direct_tcp_connector(mut self) -> Self {
         self.direct_tcp_connector_required = true;
         self
@@ -108,6 +121,19 @@ impl EncryptedDnsConnectHooks {
     pub(crate) fn requires_direct_udp_binder(&self) -> bool {
         self.direct_udp_binder_required
     }
+}
+
+/// # Cancel safety:
+/// cancel-safe: the connect future owns its socket and closes it when dropped; the factory runs before the await.
+async fn connect_created_tcp_socket<F>(socket_factory: Arc<F>, target: SocketAddr) -> io::Result<TcpStream>
+where
+    F: Fn(SocketAddr) -> io::Result<TcpStream> + Send + Sync + 'static,
+{
+    let socket = socket_factory(target)?;
+    socket.set_nonblocking(true)?;
+    let stream = tokio::net::TcpSocket::from_std_stream(socket).connect(target).await?;
+    stream.set_nodelay(true)?;
+    stream.into_std()
 }
 
 impl fmt::Debug for EncryptedDnsConnectHooks {

@@ -1,6 +1,5 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
-use std::time::Duration;
 
 use ripdpi_dns_resolver::EncryptedDnsConnectHooks;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -18,10 +17,7 @@ pub(crate) fn build_direct_connect_hooks(protect_path: Option<&str>) -> Encrypte
     hooks
         .require_direct_tcp_connector()
         .require_direct_udp_binder()
-        .with_direct_tcp_connector(move |target, timeout| {
-            let tcp_protect_path = tcp_protect_path.clone();
-            async move { connect_protected_tcp_socket(target, &tcp_protect_path, timeout) }
-        })
+        .with_direct_tcp_socket(move |target| create_protected_tcp_socket(target, &tcp_protect_path))
         .with_direct_udp_binder(move |bind_addr| bind_protected_udp_socket(bind_addr, &udp_protect_path))
 }
 
@@ -31,17 +27,14 @@ fn encrypted_dns_connect_hooks() -> EncryptedDnsConnectHooks {
     })
 }
 
-fn connect_protected_tcp_socket(target: SocketAddr, protect_path: &str, timeout: Duration) -> io::Result<TcpStream> {
+fn create_protected_tcp_socket(target: SocketAddr, protect_path: &str) -> io::Result<TcpStream> {
     let domain = match target {
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
     };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
     platform::vpn::protect_proxy_socket(&socket, Some(protect_path))?;
-    socket.connect_timeout(&SockAddr::from(target), timeout)?;
-    let stream: TcpStream = socket.into();
-    stream.set_nodelay(true)?;
-    Ok(stream)
+    Ok(socket.into())
 }
 
 fn bind_protected_udp_socket(bind_addr: SocketAddr, protect_path: &str) -> io::Result<UdpSocket> {

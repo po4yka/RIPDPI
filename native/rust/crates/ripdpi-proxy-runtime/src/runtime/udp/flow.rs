@@ -3,6 +3,8 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
+use crate::sync::{Arc, AtomicBool};
+
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
 use super::session::UdpFlowSession;
@@ -28,6 +30,8 @@ pub(super) struct UdpFlowKey {
 }
 
 pub(super) struct UdpFlowActivationState {
+    // This stop flag publishes no data; its readers only need relaxed loads.
+    pub(super) running: Arc<AtomicBool>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
     pub(super) session: UdpFlowSession,
     pub(super) last_used: Instant,

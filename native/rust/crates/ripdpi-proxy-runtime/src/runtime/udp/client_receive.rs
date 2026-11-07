@@ -9,6 +9,7 @@ use super::parse_socks5_udp_packet_with_host;
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::handshake::is_device_local_target_for;
 use crate::runtime::state::RuntimeState;
+use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 pub(super) struct UdpClientPacket<'a> {
@@ -34,6 +35,7 @@ impl UdpClientPacket<'_> {
 }
 
 pub(super) struct UdpClientReceiveConfig {
+    pub(super) running: Arc<AtomicBool>,
     pub(super) control_peer_ip: IpAddr,
     pub(super) requested_udp_source: SocketAddr,
     pub(super) flow_limit: usize,
@@ -59,6 +61,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
                 config.requested_udp_source,
                 udp_client_addr,
                 state,
+                &config.running,
             ) else {
                 return Ok(true);
             };
@@ -70,8 +73,12 @@ pub(super) fn receive_and_forward_udp_client_packet(
                 &packet,
                 now,
                 attempt_token,
+                &config.running,
             )? {
                 return Ok(true);
+            }
+            if !config.running.load(Ordering::Relaxed) || state.shutdown_requested() {
+                return Ok(false);
             }
             let entry = flow_state
                 .get_mut(&packet.flow_key())
@@ -102,6 +109,7 @@ fn decode_udp_client_packet<'a>(
     requested_udp_source: SocketAddr,
     udp_client_addr: &mut Option<SocketAddr>,
     state: &RuntimeState,
+    running: &AtomicBool,
 ) -> Option<UdpClientPacket<'a>> {
     // For an unspecified port, retain the first-valid-datagram pinning policy.
     if sender.ip() != control_peer_ip
@@ -112,7 +120,11 @@ fn decode_udp_client_packet<'a>(
         return None;
     }
 
-    let parsed = parse_socks5_udp_packet_with_host(packet, state)?;
+    let cancelled = || !running.load(Ordering::Relaxed) || state.shutdown_requested();
+    if cancelled() {
+        return None;
+    }
+    let parsed = parse_socks5_udp_packet_with_host(packet, state, &cancelled)?;
     // Same rule as TCP targets: an off-device client may not reach device-local services.
     if is_device_local_target_for(control_peer_ip, parsed.target.ip()) {
         return None;
@@ -147,11 +159,36 @@ mod tests {
         let spoofed = SocketAddr::from(([127, 0, 0, 2], 4001));
         let mut pinned = None;
         let wildcard = SocketAddr::from(([0, 0, 0, 0], 0));
-        assert!(decode_udp_client_packet(b"bad", legitimate, peer_ip, wildcard, &mut pinned, &state).is_none());
+        assert!(
+            decode_udp_client_packet(
+                b"bad",
+                legitimate,
+                peer_ip,
+                wildcard,
+                &mut pinned,
+                &state,
+                &AtomicBool::new(true)
+            )
+            .is_none()
+        );
         assert_eq!(pinned, None);
-        assert!(decode_udp_client_packet(&valid, spoofed, peer_ip, wildcard, &mut pinned, &state).is_none());
+        assert!(
+            decode_udp_client_packet(&valid, spoofed, peer_ip, wildcard, &mut pinned, &state, &AtomicBool::new(true))
+                .is_none()
+        );
         assert_eq!(pinned, None);
-        assert!(decode_udp_client_packet(&valid, legitimate, peer_ip, wildcard, &mut pinned, &state).is_some());
+        assert!(
+            decode_udp_client_packet(
+                &valid,
+                legitimate,
+                peer_ip,
+                wildcard,
+                &mut pinned,
+                &state,
+                &AtomicBool::new(true)
+            )
+            .is_some()
+        );
         assert_eq!(pinned, Some(legitimate));
     }
 
@@ -163,11 +200,28 @@ mod tests {
         let declared = SocketAddr::from(([127, 0, 0, 1], 4000));
         let wrong_port = SocketAddr::from(([127, 0, 0, 1], 4001));
         let mut pinned = None;
-        assert!(decode_udp_client_packet(&valid, wrong_port, peer_ip, declared, &mut pinned, &state).is_none());
+        assert!(
+            decode_udp_client_packet(
+                &valid,
+                wrong_port,
+                peer_ip,
+                declared,
+                &mut pinned,
+                &state,
+                &AtomicBool::new(true)
+            )
+            .is_none()
+        );
         assert_eq!(pinned, None);
         let wrong_ip = SocketAddr::from(([127, 0, 0, 2], 4000));
-        assert!(decode_udp_client_packet(&valid, declared, peer_ip, wrong_ip, &mut pinned, &state).is_none());
-        assert!(decode_udp_client_packet(&valid, declared, peer_ip, declared, &mut pinned, &state).is_some());
+        assert!(
+            decode_udp_client_packet(&valid, declared, peer_ip, wrong_ip, &mut pinned, &state, &AtomicBool::new(true))
+                .is_none()
+        );
+        assert!(
+            decode_udp_client_packet(&valid, declared, peer_ip, declared, &mut pinned, &state, &AtomicBool::new(true))
+                .is_some()
+        );
     }
 
     #[test]
@@ -178,12 +232,31 @@ mod tests {
         for target in ["127.0.0.1:53", "0.0.0.0:53", "169.254.1.1:53", "[::1]:53", "[fe80::1]:53"] {
             let packet = RuntimeState::encode_socks5_udp_packet(target.parse().expect("target"), b"dns");
             let mut pinned = None;
-            let decoded = decode_udp_client_packet(&packet, lan_peer, lan_peer.ip(), wildcard, &mut pinned, &state);
+            let decoded = decode_udp_client_packet(
+                &packet,
+                lan_peer,
+                lan_peer.ip(),
+                wildcard,
+                &mut pinned,
+                &state,
+                &AtomicBool::new(true),
+            );
             assert!(decoded.is_none(), "{target} must be refused");
             assert_eq!(pinned, None, "a refused datagram must not pin the client");
         }
         let public = RuntimeState::encode_socks5_udp_packet(SocketAddr::from(([93, 184, 216, 34], 53)), b"dns");
         let mut pinned = None;
-        assert!(decode_udp_client_packet(&public, lan_peer, lan_peer.ip(), wildcard, &mut pinned, &state).is_some());
+        assert!(
+            decode_udp_client_packet(
+                &public,
+                lan_peer,
+                lan_peer.ip(),
+                wildcard,
+                &mut pinned,
+                &state,
+                &AtomicBool::new(true)
+            )
+            .is_some()
+        );
     }
 }

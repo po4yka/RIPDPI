@@ -1,3 +1,4 @@
+mod blocking_cancel;
 mod burst;
 mod dnscrypt_certs;
 mod doh_endpoint;
