@@ -197,9 +197,9 @@ fn reconnect_target_with_tfo_mode(
     }
 }
 
-/// Stops connect and route-retry loops once the runtime stops. Their sockets are not in the
-/// forced-close registry yet, so without this a worker kept connecting after drain returned.
-fn refuse_after_shutdown(state: &RuntimeState) -> io::Result<()> {
+/// Stops connect, retry, and upstream negotiation after shutdown. A connect can finish
+/// after the forced-close sweep, so the next wire stage must also check the stop flag.
+pub(super) fn refuse_after_shutdown(state: &RuntimeState) -> io::Result<()> {
     if state.shutdown_requested() {
         return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "proxy runtime is shutting down"));
     }

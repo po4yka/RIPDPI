@@ -2,6 +2,7 @@ use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
+use super::super::retry::refuse_after_shutdown;
 use super::error::ConnectAttemptError;
 use crate::runtime::state::RuntimeState;
 pub(in crate::runtime::routing::connect) fn connect_via_socks(
@@ -23,15 +24,19 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
         state,
     )
     .map_err(ConnectAttemptError::into_io_error)?;
+    let _active_upstream = state.register_active_upstream_tcp_socket(&stream)?;
+    refuse_after_shutdown(state)?;
     stream.set_read_timeout(connect_timeout)?;
     stream.set_write_timeout(connect_timeout)?;
 
     let handshake_result = (|| {
         state.negotiate_upstream_socks_auth(&mut stream, upstream)?;
 
+        refuse_after_shutdown(state)?;
         let request = RuntimeState::encode_upstream_socks_connect(target);
         stream.write_all(&request)?;
         let reply = RuntimeState::read_upstream_socks_reply(&mut stream)?;
+        refuse_after_shutdown(state)?;
         if !RuntimeState::upstream_socks_connect_succeeded(&reply) {
             return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks connect failed"));
         }
@@ -51,6 +56,45 @@ mod tests {
     use std::net::{Ipv4Addr, TcpListener};
     use std::thread;
     use std::time::Instant;
+
+    #[test]
+    fn shutdown_during_upstream_auth_sends_no_connect() {
+        use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
+        use std::sync::Arc;
+
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream");
+        let upstream = listener.local_addr().expect("upstream address");
+        let control = Arc::new(EmbeddedProxyControl::new(None));
+        let state = RuntimeState::new(
+            crate::runtime::config::RuntimeConfig::default(),
+            Some(control.clone()),
+            Arc::new(ripdpi_ws_tunnel::TelegramWsTransport),
+        )
+        .expect("runtime state");
+        let peer = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept upstream");
+            stream.set_read_timeout(Some(Duration::from_secs(2))).expect("read timeout");
+            let mut greeting = [0; 3];
+            stream.read_exact(&mut greeting).expect("upstream greeting");
+            assert_eq!(greeting, [5, 1, 0]);
+            control.request_shutdown();
+            stream.write_all(&[5, 0]).expect("delayed auth success");
+            let mut request = [0; 10];
+            stream.read(&mut request).expect("read shutdown result")
+        });
+        let err = connect_via_socks(
+            SocketAddr::from(([127, 0, 0, 1], 80)),
+            upstream,
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+            None,
+            false,
+            Some(Duration::from_secs(2)),
+            &state,
+        )
+        .expect_err("shutdown must stop negotiation");
+        assert_eq!(err.kind(), io::ErrorKind::ConnectionAborted);
+        assert_eq!(peer.join().expect("join upstream"), 0, "shutdown must not send CONNECT");
+    }
 
     #[test]
     fn upstream_socks_auth_timeout_uses_connect_timeout() {
