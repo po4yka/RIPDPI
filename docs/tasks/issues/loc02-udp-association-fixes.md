@@ -2,7 +2,7 @@
 id: PRX-1794076309764211
 title: Fix SOCKS5 UDP association audit findings
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: LOC-02 integration
