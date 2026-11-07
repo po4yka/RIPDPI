@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T17:47:15Z",
+  "change": "fix-socks5-connect-contracts",
+  "commit_sha": "5f895598e682425ccdffca9b082951657590ea6c",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "PRX-1794071497680636"
+}

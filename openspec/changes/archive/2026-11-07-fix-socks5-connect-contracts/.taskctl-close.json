@@ -1,0 +1,11 @@
+{
+  "change": "fix-socks5-connect-contracts",
+  "evidence_summary": "418 local tests and ci-gates passed on 5f895598e682425ccdffca9b082951657590ea6c; independent review passed; device and external compatibility not claimed",
+  "execution_sha256": "711fb6a037660be877994fb88647a265541b2c62948076d8970f3fd0bf32002e",
+  "issue_sha256": "bb87f389f066f5657cee6f513497b0c69d6d8e5035e0583abf3319c88bdd48fa",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T17:47:15Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794071497680636"
+}
