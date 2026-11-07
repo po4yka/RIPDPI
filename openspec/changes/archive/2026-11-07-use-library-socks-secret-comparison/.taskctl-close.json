@@ -1,0 +1,11 @@
+{
+  "change": "use-library-socks-secret-comparison",
+  "evidence_summary": "Implementation 2fb2483c2 passed the complete serial gate: 572 tests passed, 16 existing opt-in tests ignored, no failures. Clippy, formatting, locked metadata, all cargo-deny checks, ci-gates, and independent review passed. Original parallel Tor fixture race remains documented.",
+  "execution_sha256": "8e6e9313f892a4abbc2a011152b0cd8ac30e23a9ad1ec89138a9893ab8c28424",
+  "issue_sha256": "9162de480f46aac02cf09f091aae47134608ce92c45a7545efc16aaf7088ffb7",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T09:07:15Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1794036580419313"
+}

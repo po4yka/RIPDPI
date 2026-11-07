@@ -2,7 +2,7 @@
 id: RLY-1794036580419313
 title: Use library constant-time SOCKS credential comparison
 kind: chore
-status: review
+status: done
 area: relay
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: use-library-socks-secret-comparison
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T09:07:15Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation 2fb2483c2 passed the complete serial gate: 572 tests passed, 16 existing opt-in tests ignored, no failures. Clippy, formatting, locked metadata, all cargo-deny checks, ci-gates, and independent review passed. Original parallel Tor fixture race remains documented."
 ---
 
 ## Goal
