@@ -3,6 +3,7 @@ use std::io;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::runtime::handshake) enum ConnectPolicyRejection {
     OwnedStackRequired,
+    RulesetDenied,
 }
 
 pub(in crate::runtime::handshake) struct ConnectRelayError {
@@ -23,6 +24,15 @@ impl ConnectRelayError {
         seed_request: Option<Vec<u8>>,
     ) -> Self {
         Self { error, success_reply_sent, seed_request, policy_rejection: None }
+    }
+
+    pub(in crate::runtime::handshake::connect_relay) fn ruleset_denied(reason: &'static str) -> Self {
+        Self {
+            error: io::Error::new(io::ErrorKind::PermissionDenied, reason),
+            success_reply_sent: false,
+            seed_request: None,
+            policy_rejection: Some(ConnectPolicyRejection::RulesetDenied),
+        }
     }
 
     pub(in crate::runtime::handshake) fn owned_stack_required() -> Self {

@@ -44,7 +44,9 @@ pub(super) fn connect_and_relay(
     attempt_token: Option<AttemptCorrelationId>,
     reply: SuccessReply,
 ) -> Result<(), ConnectRelayError> {
-    super::reject_forbidden_target(client, target).map_err(|err| ConnectRelayError::new(err, false))?;
+    if let Some(reason) = super::forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target) {
+        return Err(ConnectRelayError::ruleset_denied(reason));
+    }
     connect_and_relay_with(
         client,
         target,
@@ -120,10 +122,7 @@ where
 {
     let destination_egress = state.destination_egress(target, host_hint.as_deref(), RuntimeTransportProtocol::Tcp);
     if destination_egress == DestinationEgress::Block {
-        return Err(ConnectRelayError::new(
-            io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"),
-            false,
-        ));
+        return Err(ConnectRelayError::ruleset_denied("destination blocked by routing policy"));
     }
     if state.owned_stack_required_for_transparent_target(
         target,
