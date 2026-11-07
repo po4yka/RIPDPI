@@ -74,3 +74,5 @@ Child records are added below in creation order. Their own records remain the so
 - [PRX-1794036614727167](parse-naive-connect-with-httparse.md): audit 9; priority band 2; Parse NaiveProxy CONNECT heads with httparse.
 
 - [DNS-1794036623422123](use-hickory-for-ech-dns-wire.md): audit 10; priority band 2; Use Hickory for ECH DNS wire messages.
+
+- [RST-1794036632883567](replace-bounded-heap-with-binary-heap.md): audit 11 (attachment 1); priority band 2; Replace BoundedHeap with the standard BinaryHeap.
