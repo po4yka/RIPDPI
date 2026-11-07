@@ -1,0 +1,11 @@
+{
+  "change": "parse-import-deep-links-with-uri",
+  "evidence_summary": "Implementation 0d99822ab: 45 planned tests passed with no skips; staticAnalysis and ci-gates passed after preparing variant KSP outputs; independent re-review passed.",
+  "execution_sha256": "f09f78928cae9bd24c60011e3e26be128625f228ddd50cccf1718d58b7945f87",
+  "issue_sha256": "7160d62f48e60d622f5e6300e32f3d3a62c4d16eadc7e29f9ef89f00c8605c3e",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T08:10:50Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1794036523065646"
+}

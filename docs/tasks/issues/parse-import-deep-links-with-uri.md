@@ -2,7 +2,7 @@
 id: AND-1794036523065646
 title: Parse import deep links with standard URI components
 kind: bug
-status: review
+status: done
 area: android
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: parse-import-deep-links-with-uri
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Targeted tests, staticAnalysis, ci-gates, and independent re-review passed.
+closed_at: "2026-11-07T08:10:50Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation 0d99822ab: 45 planned tests passed with no skips; staticAnalysis and ci-gates passed after preparing variant KSP outputs; independent re-review passed."
 ---
 
 ## Goal

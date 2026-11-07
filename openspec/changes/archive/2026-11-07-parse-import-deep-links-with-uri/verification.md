@@ -1,7 +1,7 @@
 ---
 task_id: AND-1794036523065646
 change: parse-import-deep-links-with-uri
-commit_sha: null
+commit_sha: 0d99822abbf6e579925e2e7e06f60330e3935778
 local: passed
 local_evidence: "Initial regression gate: 44 tests, five failures before the fix. Review regression: 45 tests, one raw-remarks failure before normalization. Final planned app gate: 45 tests passed, zero failures/skips. staticAnalysis and ci-gates passed; independent re-review found no actionable issues."
 remote_ci: not_applicable
@@ -25,4 +25,4 @@ deployment_evidence: No deployment is owned by this change.
 
 ## Evidence boundary
 
-Both regression failures were observed before their fixes. Final targeted tests and all named gates passed. The closure commit records the implementation SHA. An intermediate lint run could not read a generated KSP factory from another variant; both variant KSP outputs were prepared before the successful full rerun. Remote CI, device, artifact, and deployment results are not inferred.
+Both regression failures were observed before their fixes. Final targeted tests and all named gates passed. The exact implementation SHA is recorded above. An intermediate lint run could not read a generated KSP factory from another variant; both variant KSP outputs were prepared before the successful full rerun. Remote CI, device, artifact, and deployment results are not inferred.
