@@ -54,3 +54,5 @@ Each child records named targeted gates. Validate the combined source and depend
 ## Linked child tasks
 
 Child records are added below in creation order. Their own records remain the source of truth for state and acceptance.
+
+- [DAT-1794036514216544](normalize-profile-uri-fragments.md): audit 1 (attachment 2); priority band 1; Decode profile URI fragments exactly once.
