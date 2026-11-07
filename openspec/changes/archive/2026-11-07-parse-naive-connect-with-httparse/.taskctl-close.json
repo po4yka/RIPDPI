@@ -1,0 +1,11 @@
+{
+  "change": "parse-naive-connect-with-httparse",
+  "evidence_summary": "Implementation f5c537e19 passed 94 tests, 4 existing opt-in ignores, fmt, Clippy, metadata, cargo-deny, ci-gates, and independent correctness and cancellation reviews. E2E checks prove no upstream on malformed input and preserve head/payload boundaries.",
+  "execution_sha256": "4be6d5ae895a6da4b9ab4b50edfad7bcc13f2f92aed13f2fcc89d42eaa68f7de",
+  "issue_sha256": "1db6978a12caa7c4af78a2875b000e375be3017e88b2232656d3687362098cb8",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T10:26:45Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794036614727167"
+}

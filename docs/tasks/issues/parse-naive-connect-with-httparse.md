@@ -2,7 +2,7 @@
 id: PRX-1794036614727167
 title: Parse NaiveProxy CONNECT heads with httparse
 kind: bug
-status: review
+status: done
 area: proxy
 priority: medium
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: parse-naive-connect-with-httparse
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T10:26:45Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation f5c537e19 passed 94 tests, 4 existing opt-in ignores, fmt, Clippy, metadata, cargo-deny, ci-gates, and independent correctness and cancellation reviews. E2E checks prove no upstream on malformed input and preserve head/payload boundaries.
 ---
 
 ## Goal
