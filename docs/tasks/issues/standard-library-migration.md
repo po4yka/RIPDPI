@@ -82,3 +82,5 @@ Child records are added below in creation order. Their own records remain the so
 - [RST-1794036651029797](use-tempfile-for-native-atomic-writes.md): audit 13; priority band 2; Use tempfile for native atomic file replacement.
 
 - [DGN-1794036659395595](use-flume-for-worker-reaper-queue.md): audit 14; priority band 2; Use a bounded flume queue for WorkerReaper.
+
+- [DAT-1794036667822479](replace-custom-hex-codecs.md): audit 15; priority band 3; Replace custom hex codecs with standard library functions.
