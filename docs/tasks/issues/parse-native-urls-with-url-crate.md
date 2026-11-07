@@ -2,7 +2,7 @@
 id: DNS-1794036588840800
 title: Resolve native redirects and DNS endpoints with url
 kind: bug
-status: review
+status: done
 area: dns
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: parse-native-urls-with-url-crate
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T09:16:14Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation 596ce660e passed 98 tests, formatting, both-package Clippy, locked metadata, cargo-deny, ci-gates, and independent correctness and cancellation reviews.
 ---
 
 ## Goal

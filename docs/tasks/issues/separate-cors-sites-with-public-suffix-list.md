@@ -2,7 +2,7 @@
 id: RLY-1794036597359685
 title: Separate CORS sites with the Public Suffix List
 kind: bug
-status: blocked
+status: todo
 area: relay
 priority: high
 owner: Standard-library migration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: separate-cors-sites-with-public-suffix-list
 created: 2026-11-07
 updated: 2026-11-07
-status_detail: Wait for the prerequisite contracts recorded in blocked_by; this is a planned implementation task.
+status_detail: The prerequisite DNS-1794036588840800 is complete.
 ---
 
 ## Goal
@@ -32,9 +32,9 @@ PSL domain grouping must not itself grant credential access. Define scheme and p
 ## Acceptance criteria
 
 - An explicitly permitted origin receives only the CORS headers allowed by the documented policy.
-- Independent github.io and fly.io tenants do not receive credential permission solely because they share a public suffix.
+- Independent github.io and fly.dev tenants do not receive credential permission solely because they share a public suffix.
 - Existing supported same-site cases are reviewed against the explicit policy; malformed or unsupported origins fail closed without network PSL lookup.
-- Extend CORS tests for alice.github.io versus bob.github.io, independent fly.io tenants, co.uk, same-origin, approved same-site cases, scheme/port changes, IP literals, and malformed Origin.
+- Extend CORS tests for alice.github.io versus bob.github.io, independent fly.dev tenants, co.uk, same-origin, approved same-site cases, scheme/port changes, IP literals, and malformed Origin.
 - Named local gates and repository-required independent review pass; record exact implementation SHA and command results. Commit each complete atomic implementation unit on main.
 
 ## Dependencies and order

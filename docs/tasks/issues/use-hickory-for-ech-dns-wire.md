@@ -2,7 +2,7 @@
 id: DNS-1794036623422123
 title: Use Hickory for ECH DNS wire messages
 kind: chore
-status: blocked
+status: todo
 area: dns
 priority: medium
 owner: Standard-library migration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: use-hickory-for-ech-dns-wire
 created: 2026-11-07
 updated: 2026-11-07
-status_detail: Wait for the prerequisite contracts recorded in blocked_by; this is a planned implementation task.
+status_detail: The prerequisite DNS-1794036588840800 is complete.
 ---
 
 ## Goal

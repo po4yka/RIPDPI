@@ -1,0 +1,11 @@
+{
+  "change": "parse-native-urls-with-url-crate",
+  "evidence_summary": "Implementation 596ce660e passed 98 tests, formatting, both-package Clippy, locked metadata, cargo-deny, ci-gates, and independent correctness and cancellation reviews.",
+  "execution_sha256": "bf6e0947c3bd110cebc3f6065cc14c411bc0415ce8dd071dc168ddf14405c77f",
+  "issue_sha256": "a342c9004acb07b4886064781d9ca5dd4e80d141405d1f0557f798ddb2899611",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T09:16:14Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DNS-1794036588840800"
+}
