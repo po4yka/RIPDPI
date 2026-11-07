@@ -76,3 +76,5 @@ Child records are added below in creation order. Their own records remain the so
 - [DNS-1794036623422123](use-hickory-for-ech-dns-wire.md): audit 10; priority band 2; Use Hickory for ECH DNS wire messages.
 
 - [RST-1794036632883567](replace-bounded-heap-with-binary-heap.md): audit 11 (attachment 1); priority band 2; Replace BoundedHeap with the standard BinaryHeap.
+
+- [DGN-1794036642254618](persist-probe-cache-with-atomic-file.md): audit 12 (attachment 5); priority band 2; Persist the probe cache with AtomicFile.
