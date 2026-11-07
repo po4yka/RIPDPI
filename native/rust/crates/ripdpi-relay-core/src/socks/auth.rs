@@ -3,6 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
+use constant_time_eq::constant_time_eq;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
@@ -220,12 +221,6 @@ where
     }
 }
 
-/// Compares secrets without an early exit on the first differing byte.
-fn constant_time_eq(candidate: &[u8], expected: &[u8]) -> bool {
-    candidate.len() == expected.len()
-        && candidate.iter().zip(expected).fold(0u8, |diff, (left, right)| diff | (left ^ right)) == 0
-}
-
 /// Reads the SOCKS5 target address (IPv4 / domain / IPv6) following the request
 /// header, per RFC 1928 §4.
 ///
@@ -424,19 +419,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn credentialed_listener_rejects_wrong_password() {
-        let (mut client_end, mut server_end) = duplex(128);
-        let mut handshake = vec![0x05, 0x01, 0x02];
-        handshake.extend(userpass_request(b"session-user", b"guessed-pass"));
-        client_end.write_all(&handshake).await.expect("write wrong credentials");
+    async fn credentialed_listener_rejects_invalid_credentials() {
+        let cases: &[(&[u8], &[u8])] = &[
+            (b"Session-user", b"session-pass"),
+            (b"session-useR", b"session-pass"),
+            (b"session-use", b"session-pass"),
+            (b"session-user!", b"session-pass"),
+            (b"session-user", b"Session-pass"),
+            (b"session-user", b"session-pasS"),
+            (b"session-user", b"session-pas"),
+            (b"session-user", b"session-pass!"),
+            (b"wrong-user", b"wrong-pass"),
+            (b"", b""),
+        ];
+        for (username, password) in cases {
+            let (mut client_end, mut server_end) = duplex(128);
+            let mut handshake = vec![0x05, 0x01, 0x02];
+            handshake.extend(userpass_request(username, password));
+            client_end.write_all(&handshake).await.expect("write invalid credentials");
 
-        let auth = session_auth();
-        let error = negotiate_method(&mut server_end, Some(&auth)).await.expect_err("wrong password must fail");
+            let auth = session_auth();
+            let error =
+                negotiate_method(&mut server_end, Some(&auth)).await.expect_err("invalid credentials must fail");
 
-        assert_eq!(io::ErrorKind::PermissionDenied, error.kind());
-        let mut replies = [0u8; 4];
-        client_end.read_exact(&mut replies).await.expect("read method and auth replies");
-        assert_eq!(replies, [0x05, 0x02, 0x01, 0x01], "RFC 1929 failure status must be non-zero");
+            assert_eq!(io::ErrorKind::PermissionDenied, error.kind());
+            assert_eq!(error.to_string(), "SOCKS5 client presented invalid credentials");
+            let mut replies = [0u8; 4];
+            client_end.read_exact(&mut replies).await.expect("read method and auth replies");
+            assert_eq!(replies, [0x05, 0x02, 0x01, 0x01], "RFC 1929 failure status must be non-zero");
+        }
     }
 
     #[derive(Default)]

@@ -6366,6 +6366,7 @@ version = "0.1.0"
 dependencies = [
  "android-support",
  "arc-swap",
+ "constant_time_eq 0.6.1",
  "local-network-fixture",
  "ripdpi-failure-classifier",
  "ripdpi-hysteria2",

@@ -2,8 +2,8 @@
 task_id: RLY-1794036580419313
 change: use-library-socks-secret-comparison
 commit_sha: null
-local: required
-local_evidence: null
+local: passed
+local_evidence: "The new credential boundary table passed before replacement. Full relay-core and proxy-runtime cargo test --locked --jobs 4 -- --test-threads=1 passed with a command-owned temporary directory. The first parallel run failed in a Tor fixture with SQLite CannotOpen; read-only triage found shared cache paths in two Tor tests and a likely creation race. Serial execution keeps every test; the existing fixture race remains outside this change. cargo fmt --check, relay-core clippy --all-targets -- -D warnings, locked metadata, cargo-deny 0.19.8 all four checks, and just ci-gates passed. Lockfile adds only the relay-core edge to existing constant_time_eq 0.6.1. Independent pr-reviewer found no actionable issues. Logs: /tmp/ripdpi-socks-baseline.log, /tmp/ripdpi-socks-tests.log, /tmp/ripdpi-socks-tests-serial.log, /tmp/ripdpi-socks-clippy.log, /tmp/ripdpi-socks-deny.log, /tmp/ripdpi-socks-ci.log. Existing interoperability and transport opt-in tests remain ignored by their owning suites; no test was newly ignored."
 remote_ci: not_applicable
 remote_ci_evidence: This scope authorizes local work and main commits; remote publication is not owned by this task.
 device: not_applicable
@@ -20,9 +20,11 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-LIBRARY-SOCKS-SECRET-COMPARISON-BEHAVIOR | RLY-1794036582896469 | Pending implementation and named gates | Required |
-| REQ-LIBRARY-SOCKS-SECRET-COMPARISON-COMPAT | RLY-1794036583340440 | Pending implementation and named gates | Required |
+| REQ-LIBRARY-SOCKS-SECRET-COMPARISON-BEHAVIOR | RLY-1794036582896469 | Observed local checks and independent review below | Passed |
+| REQ-LIBRARY-SOCKS-SECRET-COMPARISON-COMPAT | RLY-1794036583340440 | Observed local checks and independent review below | Passed |
 
-## Evidence boundary
+## Observed evidence
 
-Planning artifacts are complete; implementation evidence is pending. Record the exact implementation SHA and observed outputs before acceptance. A planning commit does not satisfy the local requirement. Update applicability if the actual diff adds device or artifact contracts.
+The new credential boundary table passed before replacement. Full relay-core and proxy-runtime cargo test --locked --jobs 4 -- --test-threads=1 passed with a command-owned temporary directory. The first parallel run failed in a Tor fixture with SQLite CannotOpen; read-only triage found shared cache paths in two Tor tests and a likely creation race. Serial execution keeps every test; the existing fixture race remains outside this change. cargo fmt --check, relay-core clippy --all-targets -- -D warnings, locked metadata, cargo-deny 0.19.8 all four checks, and just ci-gates passed. Lockfile adds only the relay-core edge to existing constant_time_eq 0.6.1. Independent pr-reviewer found no actionable issues. Logs: /tmp/ripdpi-socks-baseline.log, /tmp/ripdpi-socks-tests.log, /tmp/ripdpi-socks-tests-serial.log, /tmp/ripdpi-socks-clippy.log, /tmp/ripdpi-socks-deny.log, /tmp/ripdpi-socks-ci.log. Existing interoperability and transport opt-in tests remain ignored by their owning suites; no test was newly ignored.
+
+The closure commit records the implementation SHA. Local checks do not establish remote CI, device, artifact, or deployment acceptance.
