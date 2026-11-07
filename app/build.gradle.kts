@@ -482,6 +482,7 @@ dependencies {
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp.tls)
     testImplementation(project(":core:diagnostics-data"))
     testImplementation(testFixtures(project(":core:service")))
     androidTestImplementation(testFixtures(project(":core:service")))

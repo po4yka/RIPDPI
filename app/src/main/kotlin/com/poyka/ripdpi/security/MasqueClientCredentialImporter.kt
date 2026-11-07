@@ -18,7 +18,6 @@ import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
-import java.security.cert.X509Certificate
 import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -107,19 +106,7 @@ class AndroidMasqueClientCredentialImporter
             } ?: throw IllegalArgumentException("Unable to read the selected document.")
 
         private fun normalizeCertificatePem(bytes: ByteArray): String {
-            val text = bytes.decodeStrictUtf8()
-            val pemBlocks = CertificatePemRegex.findAll(text).map { it.groupValues[1] }.toList()
-            if (pemBlocks.isNotEmpty()) {
-                return pemBlocks.joinToString(separator = "\n") { block ->
-                    val certificate =
-                        certificateFactory().generateCertificate(
-                            ByteArrayInputStream(Base64.getMimeDecoder().decode(block)),
-                        ) as X509Certificate
-                    certificateToPem(certificate)
-                }
-            }
-
-            val certificates = certificateFactory().generateCertificates(ByteArrayInputStream(bytes)).toList()
+            val certificates = certificateFactory().generateCertificates(ByteArrayInputStream(bytes))
             require(certificates.isNotEmpty()) {
                 "The selected certificate file did not contain any X.509 certificates."
             }
@@ -172,11 +159,6 @@ class AndroidMasqueClientCredentialImporter
         }
 
         private companion object {
-            val CertificatePemRegex =
-                Regex(
-                    "-----BEGIN CERTIFICATE-----\\s*(.*?)\\s*-----END CERTIFICATE-----",
-                    setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
-                )
             val PrivateKeyPemRegex =
                 Regex(
                     "-----BEGIN ([A-Z0-9 ]*PRIVATE KEY)-----\\s*(.*?)\\s*-----END \\1-----",

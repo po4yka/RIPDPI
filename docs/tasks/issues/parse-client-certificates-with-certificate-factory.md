@@ -2,7 +2,7 @@
 id: AND-1794036563799026
 title: Parse client certificates with CertificateFactory
 kind: bug
-status: todo
+status: review
 area: android
 priority: high
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: parse-client-certificates-with-certificate-factory
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Six importer tests, staticAnalysis, ci-gates, and independent review passed.
 ---
 
 ## Goal
@@ -45,6 +46,7 @@ No dependency is implied by priority alone. Shared Cargo and Gradle files use on
 ## Ownership
 
 - `app/src/main/kotlin/com/poyka/ripdpi/security/MasqueClientCredentialImporter.kt`
+- `app/build.gradle.kts` (test dependency only)
 
 The same writer owns related module tests, direct dependency declarations, and task artifacts. Shared dependency and generated-output lanes follow the epic. The user directed work on main on 2026-11-07. Work directly on main and commit each completed atomic unit. This instruction overrides worktree-isolation guidance for this programme. Do not push, publish, or deploy without separate authorization.
 

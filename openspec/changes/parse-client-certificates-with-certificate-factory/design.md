@@ -9,6 +9,8 @@ Audit finding 3 (attachment 3) at 202f970 is owned by portfolio task AND-1794036
 
 ## Decisions
 
+- Use the existing pinned okhttp-tls only as an app test dependency to build real DER and signed-chain fixtures. It does not enter the APK dependency graph.
+
 - Pass bounded bytes to the platform X.509 CertificateFactory. Remove certificate regex and manual Base64 input decoding; keep PEM output normalization.
 - Use only existing platform or workspace libraries. Check the direct module dependency before editing.
 - Extend MasqueClientCredentialImporterTest with independent DER and PEM certificate fixtures, multiple certificates, malformed bytes, empty input, and size boundaries.
@@ -16,6 +18,7 @@ Audit finding 3 (attachment 3) at 202f970 is owned by portfolio task AND-1794036
 ## Contracts and ownership
 
 - `app/src/main/kotlin/com/poyka/ripdpi/security/MasqueClientCredentialImporter.kt`
+- `app/build.gradle.kts` (test dependency only)
 
 Keep the 256 KiB input limit, explicit empty or invalid certificate rejection, certificate order, and existing private-key and PKCS12 import contracts.
 
