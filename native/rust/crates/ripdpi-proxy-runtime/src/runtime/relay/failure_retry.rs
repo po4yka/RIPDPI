@@ -3,3 +3,5 @@ pub(super) mod retry_logic;
 
 pub(super) use first_outbound::{PreparedRelay, prepare_relay};
 pub(super) use retry_logic::record_stream_relay_success;
+
+pub(in crate::runtime) use first_outbound::payload::{FirstOutboundRead, read_first_client_payload};

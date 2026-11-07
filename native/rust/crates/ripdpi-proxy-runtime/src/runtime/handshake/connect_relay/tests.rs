@@ -22,7 +22,7 @@ fn runtime_state(config: RuntimeConfig, telemetry: Option<StdArc<dyn RuntimeTele
     RuntimeState::test_with_telemetry(config, telemetry)
 }
 
-fn owned_stack_context() -> ProxyRuntimeContext {
+pub(super) fn owned_stack_context() -> ProxyRuntimeContext {
     ProxyRuntimeContext {
         direct_path_capabilities: vec![ProxyDirectPathCapability {
             authority: "example.org:443".to_string(),

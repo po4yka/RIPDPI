@@ -29,6 +29,19 @@ pub(super) fn connect_immediate_route(
     Ok(UpstreamRoute { upstream, route, seed_request: None, cap_guard, same_sni_guard })
 }
 
+pub(super) fn connect_provisional_route(
+    target: SocketAddr,
+    state: &RuntimeState,
+    route: RuntimeConnectionRoute,
+    host: Option<String>,
+) -> Result<UpstreamRoute, ConnectRelayError> {
+    let same_sni_guard = acquire_same_sni_guard(state, host.as_deref());
+    let (upstream, route, cap_guard) =
+        super::super::super::routing::connect_target_with_route(target, state, route, None, host)
+            .map_err(|err| ConnectRelayError::new(err, false))?;
+    Ok(UpstreamRoute { upstream, route, cap_guard, same_sni_guard, seed_request: None })
+}
+
 pub(super) fn connect_delayed_route(
     target: SocketAddr,
     state: &RuntimeState,
@@ -61,7 +74,7 @@ pub(super) fn connect_ws_seed_route(
 /// Pass-through flows carry the client's own TLS stack, so the learned
 /// same-SNI/profile cap (which targets owned-stack fingerprints) is advisory
 /// here, like the per-exit-IP cap: at cap the flow proceeds without a slot.
-fn acquire_same_sni_guard(state: &RuntimeState, host: Option<&str>) -> Option<SameSniProfileGuard> {
+pub(super) fn acquire_same_sni_guard(state: &RuntimeState, host: Option<&str>) -> Option<SameSniProfileGuard> {
     let guard = state.try_acquire_pass_through_sni_session(host?);
     if guard.is_none() {
         // Privacy: never log the host (network-fingerprint-privacy rule).

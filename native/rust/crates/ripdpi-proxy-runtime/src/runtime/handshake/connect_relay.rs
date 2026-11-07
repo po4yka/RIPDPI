@@ -6,6 +6,9 @@ mod error;
 mod relay;
 mod reply;
 mod routes;
+mod socks5_delay;
+#[cfg(all(test, not(feature = "loom")))]
+mod socks5_delay_tests;
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
 mod ws_fallback;
@@ -154,6 +157,9 @@ where
             }
             DelayConnect::Delayed { route, payload } => {
                 delayed_connect_relay_fn(client, target, state, host_hint, route, payload, attempt_token)
+            }
+            DelayConnect::Connected(upstream) => {
+                relay::connected_relay(client, target, state, *upstream, attempt_token)
             }
             DelayConnect::Closed => Ok(()),
         };

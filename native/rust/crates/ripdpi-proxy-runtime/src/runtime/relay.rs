@@ -7,6 +7,8 @@ mod platform;
 mod session;
 mod stream_copy;
 
+pub(in crate::runtime) use failure_retry::{FirstOutboundRead, read_first_client_payload};
+
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 

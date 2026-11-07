@@ -17,7 +17,7 @@ use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 mod execution;
-mod payload;
+pub(super) mod payload;
 mod response;
 mod route_retry;
 

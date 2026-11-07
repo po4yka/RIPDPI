@@ -659,7 +659,7 @@ This enables proxy chaining: client -> RIPDPI (desync) -> upstream SOCKS -> inte
 
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
-| `delay_conn` | `bool` | false | Delay upstream connection until first client data received |
+| `delay_conn` | `bool` | false | Select the route from the first client payload. SOCKS5 connects through the IP/default route before success, then reuses or replaces that socket before it sends application bytes. |
 | `tfo` | `bool` | false | Enable TCP Fast Open for faster handshakes |
 | `max_route_retries` | `usize` | 8 | Maximum retry attempts across desync groups before giving up |
 

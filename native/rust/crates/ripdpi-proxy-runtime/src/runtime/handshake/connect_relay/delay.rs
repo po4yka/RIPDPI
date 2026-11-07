@@ -10,6 +10,7 @@ use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 pub(super) enum DelayConnect {
     Immediate { success_reply_sent: bool },
     Delayed { route: RuntimeConnectionRoute, payload: Vec<u8> },
+    Connected(Box<super::routes::UpstreamRoute>),
     Closed,
 }
 
@@ -48,6 +49,10 @@ pub(super) fn maybe_delay_connect(
         state.route_requires_delay_payload(route.group_index).map_err(|err| ConnectRelayError::new(err, false))?;
     if !requires_delay && !destination_policy_requires_host {
         return Ok(DelayConnect::Immediate { success_reply_sent: false });
+    }
+
+    if matches!(handshake, Some(HandshakeKind::Socks5)) {
+        return super::socks5_delay::connect(client, state, target, route, host_hint);
     }
 
     if let Some(handshake) = handshake {
@@ -154,9 +159,9 @@ mod tests {
         let client_addr = listener.local_addr().expect("client listener addr");
         let writer = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 10];
+            let mut reply = [0_u8; 8];
             client.read_exact(&mut reply).expect("read SOCKS5 success");
-            assert_eq!(&reply[..2], &[5, 0]);
+            assert_eq!(&reply[..2], &[0, 0x5a]);
             client.write_all(b"GET / HTTP/1.1\r\nHost: direct.example\r\n\r\n").expect("write first payload");
         });
         let (mut accepted, _) = listener.accept().expect("accept client");
@@ -181,7 +186,7 @@ mod tests {
         };
 
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
                 .expect("policy delay");
 
         assert!(matches!(delayed, DelayConnect::Delayed { .. }));
@@ -194,9 +199,9 @@ mod tests {
         let client_addr = listener.local_addr().expect("client listener addr");
         let client = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 10];
+            let mut reply = [0_u8; 8];
             client.read_exact(&mut reply).expect("read SOCKS5 success");
-            assert_eq!(&reply[..2], &[5, 0]);
+            assert_eq!(&reply[..2], &[0, 0x5a]);
             std::thread::sleep(Duration::from_millis(250));
         });
         let (mut accepted, _) = listener.accept().expect("accept client");
@@ -222,7 +227,7 @@ mod tests {
 
         let started = std::time::Instant::now();
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
                 .expect("policy probe");
 
         assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: true }));
@@ -238,7 +243,7 @@ mod tests {
         let writer = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
             client.set_nodelay(true).expect("nodelay");
-            let mut reply = [0_u8; 10];
+            let mut reply = [0_u8; 8];
             client.read_exact(&mut reply).expect("read SOCKS5 success");
             client.write_all(&sent[..20]).expect("write first ClientHello segment");
             std::thread::sleep(Duration::from_millis(20));
@@ -266,7 +271,7 @@ mod tests {
         let target = SocketAddr::from(([192, 0, 2, 10], 443));
 
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
                 .expect("policy delay");
 
         let DelayConnect::Delayed { payload, .. } = delayed else {
@@ -283,7 +288,7 @@ mod tests {
         let sent = hello.clone();
         let writer = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 10];
+            let mut reply = [0_u8; 8];
             client.read_exact(&mut reply).expect("read SOCKS5 success");
             // A pooled or preconnected socket writes its ClientHello later than the probe.
             std::thread::sleep(DELAY_CONN_SERVER_FIRST_PROBE + Duration::from_millis(500));
@@ -296,7 +301,7 @@ mod tests {
         let target = SocketAddr::from(([192, 0, 2, 10], 443));
 
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
                 .expect("late client");
 
         let DelayConnect::Delayed { payload, .. } = delayed else {
@@ -313,7 +318,7 @@ mod tests {
         let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
         let client = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 10];
+            let mut reply = [0_u8; 8];
             client.read_exact(&mut reply).expect("read SOCKS5 success");
             // A server-first client waits for the banner and sends nothing.
             let _ = done_rx.recv_timeout(Duration::from_secs(10));
@@ -326,7 +331,7 @@ mod tests {
 
         let started = std::time::Instant::now();
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks5))
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
                 .expect("server-first flow must not fail");
 
         assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: true }));

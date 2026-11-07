@@ -42,9 +42,19 @@ pub(super) fn delayed_connect_relay(
     attempt_token: Option<AttemptCorrelationId>,
 ) -> Result<(), ConnectRelayError> {
     let upstream_route = connect_delayed_route(target, state, host_hint, route, payload)?;
-    let seed_request = upstream_route.seed_request.clone();
-    relay_upstream(client, state, target, upstream_route, true, attempt_token)
-        .map_err(|err| ConnectRelayError::with_seed_request(err.into_io_error(), true, seed_request))
+    connected_relay(client, target, state, upstream_route, attempt_token)
+}
+
+pub(super) fn connected_relay(
+    client: &mut TcpStream,
+    target: SocketAddr,
+    state: &RuntimeState,
+    upstream: UpstreamRoute,
+    attempt_token: Option<AttemptCorrelationId>,
+) -> Result<(), ConnectRelayError> {
+    let seed = upstream.seed_request.clone();
+    relay_upstream(client, state, target, upstream, true, attempt_token)
+        .map_err(|err| ConnectRelayError::with_seed_request(err.into_io_error(), true, seed))
 }
 
 pub(super) fn connect_after_ws_attempt(

@@ -14,7 +14,7 @@ pub(super) struct FirstPayload {
 
 /// Outcome of waiting for the first client payload of a relayed TCP flow.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum FirstOutboundRead<T> {
+pub(in crate::runtime) enum FirstOutboundRead<T> {
     /// The client sent its first payload (or a seed request was supplied).
     Payload(T),
     /// The client closed the connection before it sent any byte.
@@ -51,7 +51,7 @@ pub(super) fn prepare_first_payload(
     }))
 }
 
-fn read_first_client_payload(
+pub(in crate::runtime) fn read_first_client_payload(
     client: &mut TcpStream,
     upstream: &TcpStream,
     buffer_size: usize,
