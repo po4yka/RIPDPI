@@ -1,0 +1,11 @@
+{
+  "change": "loc02-udp-association-fixes",
+  "evidence_summary": "Six independent fix commits passed review; 893 library, 25 UDP integration and 8 network tests passed; Clippy, workspace check, locked metadata and ci-gates passed. Device/external compatibility and Miri success are not claimed.",
+  "execution_sha256": "0ac215c80d2cfc1e8d581e08076182153a09c96ea3deb3c855eb47018142e3ff",
+  "issue_sha256": "c966b9e1bc9e9854b20284bcc859a2b64d224a55fbc3ebd122789e5bccdabe20",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T19:42:15Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794076309764211"
+}

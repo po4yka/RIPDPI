@@ -2,7 +2,7 @@
 id: PRX-1794076309764211
 title: Fix SOCKS5 UDP association audit findings
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: LOC-02 integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: loc02-udp-association-fixes
 created: 2026-11-07
 updated: 2026-11-07
+closed_at: "2026-11-07T19:42:15Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Six independent fix commits passed review; 893 library, 25 UDP integration and 8 network tests passed; Clippy, workspace check, locked metadata and ci-gates passed. Device/external compatibility and Miri success are not claimed.
 ---
 
 ## Goal
