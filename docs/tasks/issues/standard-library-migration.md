@@ -72,3 +72,5 @@ Child records are added below in creation order. Their own records remain the so
 - [RLY-1794036606000501](parse-relay-uuids-with-uuid-crate.md): audit 8 (attachment 4); priority band 2; Parse relay UUIDs with the uuid crate.
 
 - [PRX-1794036614727167](parse-naive-connect-with-httparse.md): audit 9; priority band 2; Parse NaiveProxy CONNECT heads with httparse.
+
+- [DNS-1794036623422123](use-hickory-for-ech-dns-wire.md): audit 10; priority band 2; Use Hickory for ECH DNS wire messages.
