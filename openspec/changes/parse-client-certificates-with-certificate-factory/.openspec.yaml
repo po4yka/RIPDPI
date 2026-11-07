@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-07
+goal: AND-1794036563799026 Parse client certificates with CertificateFactory

@@ -58,3 +58,5 @@ Child records are added below in creation order. Their own records remain the so
 - [DAT-1794036514216544](normalize-profile-uri-fragments.md): audit 1 (attachment 2); priority band 1; Decode profile URI fragments exactly once.
 
 - [AND-1794036523065646](parse-import-deep-links-with-uri.md): audit 2; priority band 1; Parse import deep links with standard URI components.
+
+- [AND-1794036563799026](parse-client-certificates-with-certificate-factory.md): audit 3 (attachment 3); priority band 1; Parse client certificates with CertificateFactory.
