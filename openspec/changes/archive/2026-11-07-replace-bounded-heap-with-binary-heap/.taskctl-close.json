@@ -1,0 +1,11 @@
+{
+  "change": "replace-bounded-heap-with-binary-heap",
+  "evidence_summary": "Implementation e3d4d710e accepted: 361 tests, workspace and owning Clippy, graph and dependency checks, source gates and independent correctness/cancellation reviews passed.",
+  "execution_sha256": "e5ea39d1f93bbc84bad5aa8d9c9bbe68b03f5940e653b9edbcf79488ba2d5cfa",
+  "issue_sha256": "9c62c802ed6e66f9dd72c4dba2bb620180a8ddf3eba22cb9a757db9cd65640af",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T11:18:22Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794036632883567"
+}

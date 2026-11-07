@@ -2,7 +2,7 @@
 id: RST-1794036632883567
 title: Replace BoundedHeap with the standard BinaryHeap
 kind: chore
-status: review
+status: done
 area: rust-native
 priority: medium
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: replace-bounded-heap-with-binary-heap
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T11:18:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation e3d4d710e accepted: 361 tests, workspace and owning Clippy, graph and dependency checks, source gates and independent correctness/cancellation reviews passed."
 ---
 
 ## Goal

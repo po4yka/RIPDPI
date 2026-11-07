@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T11:18:22Z",
+  "change": "replace-bounded-heap-with-binary-heap",
+  "commit_sha": "e3d4d710e961087a4b169705a6da88ecfbd59d1b",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1794036632883567"
+}
