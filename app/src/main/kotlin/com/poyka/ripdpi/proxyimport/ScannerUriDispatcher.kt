@@ -54,9 +54,12 @@ object ImportPayloadClassifier {
 
     /** `v2rayng://install-config?url=vless://…` carries a share link, not a subscription URL. */
     private fun embeddedShareLink(text: String): String? =
-        (SingBoxDeepLinkParser.parse(text) as? SingBoxDeepLinkResult.Success)
-            ?.url
-            ?.takeUnless { it.startsWith("http://", ignoreCase = true) || it.startsWith("https://", ignoreCase = true) }
+        parseImportDeepLinkUri(text)
+            ?.takeIf {
+                it.scheme.equals("v2rayng", ignoreCase = true) &&
+                    it.rawAuthority.equals("install-config", ignoreCase = true)
+            }?.importQueryParameters()
+            ?.get("url")
 
     private fun looksLikeWireGuardConf(text: String): Boolean {
         val sections = text.lineSequence().map { it.trim().lowercase() }.toSet()

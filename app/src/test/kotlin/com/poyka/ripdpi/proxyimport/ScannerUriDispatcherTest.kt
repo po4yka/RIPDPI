@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
 import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -126,10 +127,59 @@ class ScannerUriDispatcherTest {
 
     @Test
     fun `a share link inside a v2rayng install link imports as that profile`() {
-        val link =
-            "v2rayng://install-config?url=" + java.net.URLEncoder.encode("trojan://pw@example.com:443#T", "UTF-8")
+        val target = "trojan://p%2Bw%25@example.com:8443?sni=edge.example#T%252B"
+        val link = "v2rayng://install-config?url=" + java.net.URLEncoder.encode(target, "UTF-8")
 
-        assertTrue(recognized(link) is ImportPayload.Profile)
+        val profile = (recognized(link) as ImportPayload.Profile).request.profile as ProxyProfile.Trojan
+
+        assertEquals("example.com", profile.server)
+        assertEquals(8443, profile.serverPort)
+        assertEquals("p+w%", profile.password)
+        assertEquals("edge.example", profile.serverName)
+        assertEquals("T%2B", profile.displayName)
+        assertNull(SubscriptionLinkClassifier.classify(link))
+    }
+
+    @Test
+    fun `nested share links keep the first query value and accept wrapper case`() {
+        val target = java.net.URLEncoder.encode("trojan://pw@example.com:443#T", "UTF-8")
+        val link = "V2RAYNG://INSTALL-CONFIG?url=$target&url=invalid"
+        val profile = (recognized(link) as ImportPayload.Profile).request.profile as ProxyProfile.Trojan
+
+        assertEquals("pw", profile.password)
+        assertEquals("T", profile.displayName)
+        assertTrue(
+            ScannerUriDispatcher.dispatch("v2rayng://install-config?url=&url=$target") is ScannerScanResult.Invalid,
+        )
+    }
+
+    @Test
+    fun `nested share links reject malformed wrappers and unsupported targets`() {
+        val target = java.net.URLEncoder.encode("trojan://pw@example.com:443#T", "UTF-8")
+        val invalid =
+            listOf(
+                "other://install-config?url=$target",
+                "v2rayng://unknown?url=$target",
+                "v2rayng://user@install-config?url=$target",
+                "v2rayng://install-config:1234?url=$target",
+                "v2rayng://install-config?url=trojan%3A%2F%2F",
+                "v2rayng://install-config?url=file%3A%2F%2F%2Ftmp%2Fprivate",
+                "v2rayng://install-config?url=http%3A%2F%2Fplain.example",
+                "v2rayng://install-config?url=%ZZ",
+                "v2rayng://install-config?url=" + java.net.URLEncoder.encode(target, "UTF-8"),
+            )
+        invalid.forEach { assertTrue(ScannerUriDispatcher.dispatch(it) is ScannerScanResult.Invalid) }
+    }
+
+    @Test
+    fun `HTTPS install targets remain subscriptions`() {
+        val link = "v2rayng://install-config?url=https%3A%2F%2Fsub.example%2Fbootstrap%2Ftoken&name=Fleet"
+        val payload = recognized(link) as ImportPayload.Subscription
+
+        assertEquals(
+            PendingSubscriptionImportRequest("https://sub.example/bootstrap/token", "Fleet", true),
+            payload.request,
+        )
     }
 
     private fun recognized(text: String): ImportPayload =
