@@ -31,9 +31,9 @@ Fix the six confirmed LOC-02 UDP association defects with one fix commit per fin
 
 ## Parallel ownership
 
-- Lifetime worker: F1 and F2; proxy-runtime UDP setup/control lifecycle, udp.rs loop and new lifecycle integration tests. It owns upstream_socks.rs. It does not edit upstream_pump.rs or udp/tests.rs.
-- Datagram worker: F3 and F6; proxy-runtime upstream_pump.rs, migration.rs, existing udp/tests.rs and new datagram integration tests. It does not edit upstream_socks.rs or udp.rs.
+- Lifetime worker: F1 and F2; proxy-runtime UDP setup/control lifecycle, the adapter cancellable TCP connector, udp.rs loop and new lifecycle integration tests. It owns upstream_socks.rs. It does not edit upstream_pump.rs or udp/tests.rs.
+- Datagram worker: F3 and F6; proxy-runtime upstream_pump.rs, migration.rs, the adapter UDP codec policy wrapper, existing udp/tests.rs and new datagram integration tests. It does not edit upstream_socks.rs or udp.rs.
 - Relay worker: F4 and F5; relay-core UDP admission/capabilities and relay-tls-transports SS2022 send limits/error handling, with owning tests.
 - Integrator: portfolio/OpenSpec artifacts, conflict resolution, combined checks, review, integration and push.
-- Cargo.lock, dependency manifests, wire schemas, locale sets, baselines and registries are serialized to the integrator; no change is planned to those files.
+- Cargo.lock, dependency manifests, wire schemas, locale sets, baselines and registries are serialized to the integrator; only the integrator may add the existing libc dependency edge for SS2022 error classification; no version or other serialized-file change is planned.
 - All writers use separate worktrees. No writer changes main directly. Audit hypotheses are not presumed defects.

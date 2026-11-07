@@ -13,7 +13,7 @@ The LOC-02 audit reproduced six UDP association defects: setup can send after st
 - Enforce the profile UDP flag before relay carrier work.
 - Drop oversized datagrams without closing healthy associations.
 - Keep the UDP endpoint stable for pinned SOCKS upstreams.
-- No wire schema or stored profile format changes. No new dependency.
+- No wire schema or stored profile format changes. No new third-party package or version; the SS2022 transport reuses the existing workspace libc dependency.
 
 ## Capabilities
 
@@ -27,5 +27,5 @@ None.
 
 ## Impact
 
-- Rust proxy-runtime, relay-core and relay-tls-transports; owning tests and local source gates.
+- Rust proxy-runtime and its adapter, relay-core and relay-tls-transports; owning tests and local source gates.
 - Kotlin admission remains in place. No JNI, protobuf, configuration schema, locale or baseline change.

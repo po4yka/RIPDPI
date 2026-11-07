@@ -57,4 +57,3 @@ The implementation MUST ensure that source-port rebind does not replace the endp
 
 - **WHEN** rebind policy is enabled with an upstream SOCKS hop
 - **THEN** later datagrams continue to use a valid upstream association.
-
