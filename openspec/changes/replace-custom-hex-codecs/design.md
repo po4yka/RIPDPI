@@ -9,7 +9,7 @@ Audit finding 15 at 202f970 is owned by portfolio task DAT-1794036667822479. Rea
 
 ## Decisions
 
-- Use Kotlin ByteArray.toHexString and String.hexToByteArray, and existing Rust hex::decode_to_slice for the 32-byte shared-priors key.
+- Use Kotlin ByteArray.toHexString and String.hexToByteArray, and existing Rust hex::decode_to_slice for the 32-byte shared-priors key and manifest hash.
 - Use only existing platform or workspace libraries. Check the direct module dependency before editing.
 - Use existing digest, fingerprint, migration, and key tests with independent fixed byte vectors; cover empty values, mixed case, odd length, invalid digits, and zero keys. Do not bless changed identity fixtures.
 
@@ -22,6 +22,7 @@ Audit finding 15 at 202f970 is owned by portfolio task DAT-1794036667822479. Rea
 - `core/service/src/main/kotlin/com/poyka/ripdpi/hosts/HostPackCatalogRepository.kt`
 - `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/DeviceMigrationContract.kt`
 - `native/rust/crates/ripdpi-shared-priors/src/key_hex.rs`
+- `native/rust/crates/ripdpi-shared-priors/src/manifest.rs`
 
 Keep lowercase, prefixes, lengths, case acceptance, malformed-input errors, unset-key semantics, and all-zero-key rejection. Do not change hash/MAC algorithms or stored identity values.
 
@@ -47,3 +48,9 @@ First reproduce the specified uncovered behavior or establish a passing contract
 - `just ci-gates`
 
 Run the named targeted checks first. Run staticAnalysis for Kotlin cross-module or security changes and just ci-gates for affected source contracts. Native dependency changes also require locked metadata and cargo-deny. Obtain the repository-required independent review; add async, JNI, or unsafe review only when the actual diff meets those rules. Record exact commands, results, and the implementation SHA. Commit only the finished task slice on main.
+
+## Codec inventory completion
+
+The same shared-priors crate also has a duplicate manual manifest-hash decoder. Include it in this codec consolidation. Add a direct normal hex edge as well as the required build edge; hex 0.4.3 already occurs in both main and relay production graphs. No package, version, license policy, or platform feature changes. The package declares MIT OR Apache-2.0.
+
+Keep manifest hash length and digit checks, case acceptance, no whitespace trimming, BadHashFormat priority, and HashMismatch for a valid zero hash. Only the configured public key rejects all-zero bytes. Pin these differences through public manifest verification before replacing the duplicate. The signing input, original hash text, signature checks, and Kotlin identity recipes stay unchanged.

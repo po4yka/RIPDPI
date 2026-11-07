@@ -70,6 +70,8 @@ class NetworkStrategyMemoryTest {
         val key1 = fingerprint.scopeKey()
         val key2 = fingerprint.scopeKey()
         assertEquals(key1, key2)
+        // SHA-256 of the fixed UTF-8 canonical input, computed independently.
+        assertEquals("45c917f8b354b7548d90d7a3de2eff6fca47f65c8251c7897714180b4ade1b3b", key1)
         assertEquals(64, key1.length) // SHA-256 hex
     }
 

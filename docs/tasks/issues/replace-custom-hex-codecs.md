@@ -2,7 +2,7 @@
 id: DAT-1794036667822479
 title: Replace custom hex codecs with standard library functions
 kind: chore
-status: todo
+status: review
 area: data
 priority: low
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: replace-custom-hex-codecs
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal
@@ -24,7 +25,7 @@ Audit finding 15, 2026-11-07, baseline 202f970bb3574980dd2eb87fea002cac8fbe29f7.
 
 ## Scope
 
-Use Kotlin ByteArray.toHexString and String.hexToByteArray, and existing Rust hex::decode_to_slice for the 32-byte shared-priors key.
+Use Kotlin ByteArray.toHexString and String.hexToByteArray, and existing Rust hex::decode_to_slice for the 32-byte shared-priors key and manifest hash.
 
 Keep lowercase, prefixes, lengths, case acceptance, malformed-input errors, unset-key semantics, and all-zero-key rejection. Do not change hash/MAC algorithms or stored identity values.
 
@@ -51,6 +52,7 @@ No dependency is implied by priority alone. Shared Cargo and Gradle files use on
 - `core/service/src/main/kotlin/com/poyka/ripdpi/hosts/HostPackCatalogRepository.kt`
 - `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/DeviceMigrationContract.kt`
 - `native/rust/crates/ripdpi-shared-priors/src/key_hex.rs`
+- `native/rust/crates/ripdpi-shared-priors/src/manifest.rs`
 
 The same writer owns related module tests, direct dependency declarations, and task artifacts. Shared dependency and generated-output lanes follow the epic. The user directed work on main on 2026-11-07. Work directly on main and commit each completed atomic unit. This instruction overrides worktree-isolation guidance for this programme. Do not push, publish, or deploy without separate authorization.
 

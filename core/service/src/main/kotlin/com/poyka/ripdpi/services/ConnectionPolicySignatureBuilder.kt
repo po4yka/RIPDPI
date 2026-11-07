@@ -112,15 +112,7 @@ internal fun connectionPolicyDnsMaterial(activeDns: ActiveDnsSettings): List<Str
         )
     }
 
-private const val HexRadix = 16
-private const val HexNibbleShift = 4
-
 private fun String.encodeSha256(): String {
     val bytes = MessageDigest.getInstance("SHA-256").digest(toByteArray())
-    return buildString(bytes.size * 2) {
-        bytes.forEach { byte ->
-            append(((byte.toInt() shr HexNibbleShift) and 0xF).toString(HexRadix))
-            append((byte.toInt() and 0xF).toString(HexRadix))
-        }
-    }
+    return bytes.toHexString()
 }

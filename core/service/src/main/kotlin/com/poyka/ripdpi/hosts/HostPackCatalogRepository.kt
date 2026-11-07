@@ -34,10 +34,6 @@ import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val byteUnsignedMask = 0xff
-private const val hexByteBase = 0x100
-private const val hexRadix = 16
-
 interface HostPackCatalogRepository {
     suspend fun loadSnapshot(): HostPackCatalogLoadResult
 
@@ -283,11 +279,6 @@ internal fun InputStream.copyToAndDigest(
     }
     return digest.digest().toHexString()
 }
-
-fun ByteArray.toHexString(): String =
-    joinToString(separator = "") { byte ->
-        ((byte.toInt() and byteUnsignedMask) + hexByteBase).toString(hexRadix).substring(1)
-    }
 
 internal fun formatHostPackGeneratedAt(epochMillis: Long): String =
     Instant

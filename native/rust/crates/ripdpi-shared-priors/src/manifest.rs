@@ -166,23 +166,9 @@ fn decode_hex_32(s: &str) -> Option<[u8; 32]> {
     if s.len() != 64 {
         return None;
     }
-    let bytes = s.as_bytes();
     let mut out = [0u8; 32];
-    for (i, slot) in out.iter_mut().enumerate() {
-        let hi = hex_digit(bytes[2 * i])?;
-        let lo = hex_digit(bytes[2 * i + 1])?;
-        *slot = (hi << 4) | lo;
-    }
+    hex::decode_to_slice(s, &mut out).ok()?;
     Some(out)
-}
-
-fn hex_digit(c: u8) -> Option<u8> {
-    match c {
-        b'0'..=b'9' => Some(c - b'0'),
-        b'a'..=b'f' => Some(c - b'a' + 10),
-        b'A'..=b'F' => Some(c - b'A' + 10),
-        _ => None,
-    }
 }
 
 fn decode_base64_64(s: &str) -> Option<[u8; 64]> {
@@ -223,10 +209,7 @@ pub mod test_support {
         let signed_input = build_signing_input(&priors_hash, issued_at_unix);
         let signature = key.keypair.sign(&signed_input);
         let signature_b64 = base64::engine::general_purpose::STANDARD.encode(signature.as_ref());
-        let priors_sha256_hex = priors_hash.iter().fold(String::with_capacity(64), |mut acc, byte| {
-            acc.push_str(&format!("{byte:02x}"));
-            acc
-        });
+        let priors_sha256_hex = hex::encode(priors_hash);
         let version = SHARED_PRIORS_MANIFEST_VERSION;
         let hash = priors_sha256_hex;
         let ts = issued_at_unix;
@@ -319,5 +302,29 @@ mod tests {
         );
         let err = verify_manifest(manifest.as_bytes(), b"", &[1u8; 32]).expect_err("short signature must fail");
         assert!(matches!(err, ManifestError::BadSignatureFormat), "got {err:?}");
+    }
+    #[test]
+    fn manifest_hash_codec_retains_case_and_error_boundaries() {
+        let key = generate_test_key();
+        let manifest = sign_manifest_bytes(&key, SAMPLE_PRIORS, 1_745_798_400, "https://example/priors.ndjson");
+        let mut value: serde_json::Value = serde_json::from_str(&manifest).unwrap();
+        let uppercase = value["priors_sha256"].as_str().unwrap().to_ascii_uppercase();
+        value["priors_sha256"] = uppercase.clone().into();
+        let parsed = verify_manifest(&serde_json::to_vec(&value).unwrap(), SAMPLE_PRIORS, &key.public_bytes).unwrap();
+        assert_eq!(parsed.priors_sha256_hex, uppercase);
+        for malformed in
+            ["1".repeat(63), "1".repeat(65), "g".repeat(64), "Ā".repeat(32), format!(" {}", "1".repeat(64))]
+        {
+            value["priors_sha256"] = malformed.into();
+            assert!(matches!(
+                verify_manifest(&serde_json::to_vec(&value).unwrap(), SAMPLE_PRIORS, &key.public_bytes),
+                Err(ManifestError::BadHashFormat)
+            ));
+        }
+        value["priors_sha256"] = "0".repeat(64).into();
+        assert!(matches!(
+            verify_manifest(&serde_json::to_vec(&value).unwrap(), SAMPLE_PRIORS, &key.public_bytes),
+            Err(ManifestError::HashMismatch)
+        ));
     }
 }

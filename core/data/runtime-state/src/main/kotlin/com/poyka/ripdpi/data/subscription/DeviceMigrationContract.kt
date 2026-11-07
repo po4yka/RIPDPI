@@ -13,7 +13,6 @@ private val MigrationUuid = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 private val MigrationHex = Regex("[0-9a-f]{64}")
 private val MigrationTag = Regex("[A-Za-z0-9_.:-]{1,128}")
 private const val MaximumMigrationTargets = 128
-private const val MigrationHexRadix = 16
 private val MigrationKeys =
     setOf("schema_version", "migration_id", "delivery_id", "target_tags", "receipt_key", "awg_previous_tags")
 
@@ -99,14 +98,10 @@ fun MigrationDelivery.exportReceipt(): String {
             testedTag,
             "",
         ).joinToString("\n")
-    val key =
-        metadata.receiptKey
-            .chunked(2)
-            .map { it.toInt(MigrationHexRadix).toByte() }
-            .toByteArray()
+    val key = metadata.receiptKey.hexToByteArray()
     val mac = Mac.getInstance("HmacSHA256")
     mac.init(SecretKeySpec(key, "HmacSHA256"))
-    val proof = mac.doFinal(message.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+    val proof = mac.doFinal(message.toByteArray(Charsets.UTF_8)).toHexString()
     return buildJsonObject {
         put("schema_version", 1)
         put("migration_id", metadata.migrationId)

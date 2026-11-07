@@ -38,10 +38,23 @@ class FieldTelemetryTest {
         val rotated =
             FileBackedTelemetryInstallSaltStoreDelegate(
                 saltFile = saltFile,
-                secureRandom = seededSecureRandom(0x10, 0x20, 0x30, 0x40),
+                secureRandom =
+                    object : SecureRandom() {
+                        override fun nextBytes(bytes: ByteArray) {
+                            val fixed =
+                                ByteArray(32) { it.toByte() }.apply {
+                                    this[2] = 0x7f
+                                    this[3] = 0x80.toByte()
+                                    this[4] = 0xff.toByte()
+                                }
+                            assertEquals(fixed.size, bytes.size)
+                            fixed.copyInto(bytes)
+                        }
+                    },
             ).loadSalt()
 
-        assertNotEquals("persisted-salt", rotated)
+        assertEquals("00017f80ff05060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f", rotated)
+        assertEquals(rotated, saltFile.readText())
     }
 
     @Test
@@ -99,6 +112,7 @@ class FieldTelemetryTest {
         val second = hasher.hash(fingerprint)
 
         assertEquals(first, second)
+        assertEquals("v1:79af2d8a93726cb8e0d23d89d721ee4a777e95499a1b4c80410c60707b026a95", first)
         assertTrue(first?.startsWith("v1:") == true)
         assertNotEquals(fingerprint.scopeKey(), first)
     }

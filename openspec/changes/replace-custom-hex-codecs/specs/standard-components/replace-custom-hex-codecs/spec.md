@@ -27,3 +27,10 @@ The implementation MUST preserve its existing unaffected contracts. Keep lowerca
 - **WHEN** existing supported data and callers use the replacement
 - **THEN** Previously stored fingerprints, digests, receipts, and keys remain identical; build.rs receives the required direct hex build dependency.
 - **AND** Keep lowercase, prefixes, lengths, case acceptance, malformed-input errors, unset-key semantics, and all-zero-key rejection. Do not change hash/MAC algorithms or stored identity values.
+
+#### Scenario: Retain manifest hash validation
+
+- **WHEN** a signed manifest contains an uppercase valid hash
+- **THEN** verification accepts the same bytes and retains the original hash text.
+- **AND** wrong lengths, invalid digits, and surrounding whitespace produce BadHashFormat.
+- **AND** a well-formed all-zero hash reaches payload comparison and produces HashMismatch for a nonzero payload hash; only a configured public key rejects all-zero bytes as a key error.

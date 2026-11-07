@@ -8,7 +8,7 @@ Hex representations of existing fingerprints, digests, receipts, and configured 
 
 ## What Changes
 
-- Use Kotlin ByteArray.toHexString and String.hexToByteArray, and existing Rust hex::decode_to_slice for the 32-byte shared-priors key.
+- Use Kotlin ByteArray.toHexString and String.hexToByteArray, and existing Rust hex::decode_to_slice for the 32-byte shared-priors key and manifest hash.
 - Each known byte vector produces exactly the previous lowercase hex string including leading zero bytes and existing prefixes.
 - Malformed keys, wrong lengths, and explicitly all-zero shared-priors keys remain rejected with existing error categories.
 - Correct only the specified defect or infrastructure duplication. No other breaking change is planned; Keep lowercase, prefixes, lengths, case acceptance, malformed-input errors, unset-key semantics, and all-zero-key rejection. Do not change hash/MAC algorithms or stored identity values.
@@ -32,5 +32,6 @@ Hex representations of existing fingerprints, digests, receipts, and configured 
 - `core/service/src/main/kotlin/com/poyka/ripdpi/hosts/HostPackCatalogRepository.kt`
 - `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/DeviceMigrationContract.kt`
 - `native/rust/crates/ripdpi-shared-priors/src/key_hex.rs`
+- `native/rust/crates/ripdpi-shared-priors/src/manifest.rs`
 
 Use only existing platform or workspace libraries. Check the direct module dependency before editing. The parent epic owns programme order and shared lanes. No external publication, deployment, or unrelated protocol change is included.

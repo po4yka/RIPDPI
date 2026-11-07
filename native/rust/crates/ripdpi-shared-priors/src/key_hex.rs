@@ -36,25 +36,11 @@ pub(crate) fn resolve_pub_key(env: Option<&str>) -> Result<[u8; 32], KeyHexError
         return Err(KeyHexError::BadLength);
     }
     let mut out = [0u8; 32];
-    let (pairs, _) = bytes.as_chunks::<2>();
-    for (slot, pair) in out.iter_mut().zip(pairs) {
-        let hi = hex_digit(pair[0]).ok_or(KeyHexError::BadHexDigit)?;
-        let lo = hex_digit(pair[1]).ok_or(KeyHexError::BadHexDigit)?;
-        *slot = (hi << 4) | lo;
-    }
+    hex::decode_to_slice(hex, &mut out).map_err(|_| KeyHexError::BadHexDigit)?;
     if out == [0u8; 32] {
         return Err(KeyHexError::AllZero);
     }
     Ok(out)
-}
-
-fn hex_digit(c: u8) -> Option<u8> {
-    match c {
-        b'0'..=b'9' => Some(c - b'0'),
-        b'a'..=b'f' => Some(c - b'a' + 10),
-        b'A'..=b'F' => Some(c - b'A' + 10),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -65,9 +51,17 @@ mod tests {
     fn accepts_valid_hex_in_either_case() {
         let key =
             resolve_pub_key(Some("00112233445566778899aabbccddeeff00112233445566778899AABBCCDDEEFF")).expect("valid");
-        assert_eq!(key[1], 0x11);
-        assert_eq!(key[15], 0xff);
-        assert_eq!(key[31], 0xff);
+        assert_eq!(
+            key,
+            [
+                0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00,
+                0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+            ]
+        );
+        assert_eq!(
+            resolve_pub_key(Some(" \n00112233445566778899aabbccddeeff00112233445566778899AABBCCDDEEFF\t ")),
+            Ok(key)
+        );
     }
 
     #[test]
@@ -79,7 +73,10 @@ mod tests {
 
     #[test]
     fn malformed_or_zero_values_are_errors() {
-        assert_eq!(resolve_pub_key(Some("abcd")), Err(KeyHexError::BadLength));
+        for length in [4, 63, 65] {
+            assert_eq!(resolve_pub_key(Some(&"1".repeat(length))), Err(KeyHexError::BadLength));
+        }
+        assert_eq!(resolve_pub_key(Some(&"Ā".repeat(32))), Err(KeyHexError::BadHexDigit));
         assert_eq!(resolve_pub_key(Some(&"g".repeat(64))), Err(KeyHexError::BadHexDigit));
         assert_eq!(resolve_pub_key(Some(&"0".repeat(64))), Err(KeyHexError::AllZero));
     }

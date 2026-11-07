@@ -64,6 +64,22 @@ class AssetHostPackCatalogRepositoryTest {
     }
 
     @Test
+    fun `stream digests retain exact lowercase hex`() {
+        val vectors =
+            listOf(
+                byteArrayOf() to "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                byteArrayOf(0x00, 0x01, 0x7f, 0x80.toByte(), 0xff.toByte()) to
+                    "0150a92bb1212cd00516b65fde0704614760000963874fcbb11eaa734ee87809",
+            )
+        vectors.forEach { (bytes, expected) ->
+            val output = java.io.ByteArrayOutputStream()
+            val digest = bytes.inputStream().use { it.copyToAndDigest(output) }
+            assertEquals(expected, digest)
+            org.junit.Assert.assertArrayEquals(bytes, output.toByteArray())
+        }
+    }
+
+    @Test
     fun `loads bundled host pack catalog from assets when cache is absent`() =
         runTest {
             val repository = createRepository(service = FakeHostPackCatalogDownloadService())

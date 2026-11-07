@@ -34,9 +34,6 @@ import javax.inject.Singleton
 private const val MinValidRssiDbm = -127
 private const val MaxValidRssiDbm = 0
 private const val MinimumLinkSpeedMbps = 1
-private const val HexNibbleBitShift = 4
-private const val HexNibbleMask = 0xF
-private const val HexRadix = 16
 private val WifiBandRanges =
     listOf(
         2400..2500 to "2.4ghz",
@@ -250,12 +247,7 @@ class NetworkSnapshotFactory
         private fun hashSsid(ssid: String): String {
             if (ssid.isBlank() || ssid == "unknown") return ""
             val bytes = MessageDigest.getInstance("SHA-256").digest(ssid.toByteArray())
-            return buildString(bytes.size * 2) {
-                bytes.forEach { byte ->
-                    append(((byte.toInt() shr HexNibbleBitShift) and HexNibbleMask).toString(HexRadix))
-                    append((byte.toInt() and HexNibbleMask).toString(HexRadix))
-                }
-            }
+            return bytes.toHexString()
         }
 
         private fun invokeInt(

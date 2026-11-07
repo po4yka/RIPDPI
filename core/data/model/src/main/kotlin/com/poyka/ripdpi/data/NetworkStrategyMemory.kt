@@ -5,10 +5,6 @@ import kotlinx.serialization.Transient
 import java.security.MessageDigest
 import java.util.Locale
 
-private const val HexRadix = 16
-private const val HexNibbleShift = 4
-private const val HexNibbleMask = 0xF
-
 const val RememberedNetworkPolicyStatusObserved = "observed"
 const val RememberedNetworkPolicyStatusValidated = "validated"
 const val RememberedNetworkPolicyStatusSuppressed = "suppressed"
@@ -241,10 +237,5 @@ private fun String.normalizeFingerprintValue(): String = trim().lowercase(Locale
 
 private fun String.encodeSha256(): String {
     val bytes = MessageDigest.getInstance("SHA-256").digest(toByteArray())
-    return buildString(bytes.size * 2) {
-        bytes.forEach { byte ->
-            append(((byte.toInt() shr HexNibbleShift) and HexNibbleMask).toString(HexRadix))
-            append((byte.toInt() and HexNibbleMask).toString(HexRadix))
-        }
-    }
+    return bytes.toHexString()
 }
