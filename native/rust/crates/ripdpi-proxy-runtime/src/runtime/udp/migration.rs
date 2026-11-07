@@ -10,12 +10,15 @@ pub(super) fn maybe_rebind_udp_source_port(
     inbound_payload: &[u8],
     protect_path: Option<&str>,
 ) -> io::Result<()> {
-    if !RuntimeState::should_rebind_udp_flow_source_port(
-        entry.source_rebind_policy,
-        entry.quic_migrated,
-        entry.session.round_count(),
-        inbound_payload,
-    ) {
+    // An upstream SOCKS association pins its UDP sender for the lifetime of its control TCP.
+    if entry.socks_framed()
+        || !RuntimeState::should_rebind_udp_flow_source_port(
+            entry.source_rebind_policy,
+            entry.quic_migrated,
+            entry.session.round_count(),
+            inbound_payload,
+        )
+    {
         return Ok(());
     }
 
@@ -40,8 +43,7 @@ pub(super) fn maybe_rebind_udp_source_port(
     // application.  Packets already in flight on the old socket are
     // not replayed on the new socket; the QUIC stack in the client
     // application is responsible for retransmission.
-    let endpoint = entry.upstream_socks.as_ref().map_or(entry.current_target, |socks| socks.relay_endpoint);
-    match build_udp_upstream_socket(endpoint, protect_path, entry.socket_settings.bind_low_port) {
+    match build_udp_upstream_socket(entry.current_target, protect_path, entry.socket_settings.bind_low_port) {
         Ok(new_socket) => {
             entry.upstream = new_socket;
             entry.quic_migrated = true;
