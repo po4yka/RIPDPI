@@ -2,7 +2,7 @@
 id: EPC-1794036260770217
 title: Replace confirmed custom infrastructure with standard components
 kind: epic
-status: doing
+status: review
 area: epic
 priority: high
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: standard-library-migration
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal
