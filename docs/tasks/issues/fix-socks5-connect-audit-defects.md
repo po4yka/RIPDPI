@@ -2,7 +2,7 @@
 id: PRX-1794071497680636
 title: Fix SOCKS5 CONNECT audit defects
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: Proxy runtime maintainer
