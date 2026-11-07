@@ -2,7 +2,7 @@
 id: AND-1794036523065646
 title: Parse import deep links with standard URI components
 kind: bug
-status: blocked
+status: todo
 area: android
 priority: high
 owner: Standard-library migration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: parse-import-deep-links-with-uri
 created: 2026-11-07
 updated: 2026-11-07
-status_detail: Wait for the prerequisite contracts recorded in blocked_by; this is a planned implementation task.
+status_detail: Profile fragment normalization is complete; import URI work can start.
 ---
 
 ## Goal

@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T07:51:38Z",
+  "change": "normalize-profile-uri-fragments",
+  "commit_sha": "4cbb4f47f64e1150ade42c96941fdcbf19f485d0",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DAT-1794036514216544"
+}

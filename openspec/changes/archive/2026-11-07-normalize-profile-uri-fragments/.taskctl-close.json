@@ -1,0 +1,11 @@
+{
+  "change": "normalize-profile-uri-fragments",
+  "evidence_summary": "Implementation 4cbb4f47f: regression failed before fix; 1338 tests passed without skips; staticAnalysis, ci-gates, and independent review passed.",
+  "execution_sha256": "2085b54ad0a318903270b71765ed4c25547d6cc60e9f5df2a6a61fb534d6284c",
+  "issue_sha256": "058ad2b82c7de4c53c29617f2b367ac6306f0bb99801054fa0fd825bb0257b2a",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T07:51:38Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1794036514216544"
+}

@@ -2,7 +2,7 @@
 id: DAT-1794036514216544
 title: Decode profile URI fragments exactly once
 kind: bug
-status: review
+status: done
 area: data
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: normalize-profile-uri-fragments
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation 4cbb4f47f passed targeted tests, static analysis, source gates, and independent review.
+closed_at: "2026-11-07T07:51:38Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation 4cbb4f47f: regression failed before fix; 1338 tests passed without skips; staticAnalysis, ci-gates, and independent review passed."
 ---
 
 ## Goal
