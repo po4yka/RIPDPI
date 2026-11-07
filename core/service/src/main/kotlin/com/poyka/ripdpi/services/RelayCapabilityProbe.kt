@@ -9,12 +9,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runInterruptible
-import kotlinx.coroutines.suspendCancellableCoroutine
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.coroutines.executeAsync
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
@@ -28,7 +26,6 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
-import kotlin.coroutines.resume
 
 data class RelayProbeEndpoint(
     val host: String,
@@ -221,56 +218,43 @@ internal class OkHttpRelayTcpProbe(
                     .get()
                     .build(),
             )
-        return suspendCancellableCoroutine { continuation ->
-            continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(
-                object : Callback {
-                    override fun onFailure(
-                        call: Call,
-                        e: IOException,
-                    ) {
-                        if (continuation.isActive) {
-                            continuation.resume(
-                                RelayTcpProbeResult(
-                                    succeeded = false,
-                                    failure = RelayProbeFailure.TcpConnect,
-                                ),
-                            )
-                        }
-                    }
+        return coroutineScope {
+            val reader =
+                async(Dispatchers.IO) {
+                    try {
+                        call.executeAsync().use { response ->
+                            when {
+                                response.code !in SuccessfulStatusRange ||
+                                    (expectedPayload != null && response.code != PayloadSuccessStatus) -> {
+                                    RelayTcpProbeResult(false, response.code, RelayProbeFailure.TcpHttpStatus)
+                                }
 
-                    override fun onResponse(
-                        call: Call,
-                        response: Response,
-                    ) {
-                        val result =
-                            response.use {
-                                when {
-                                    response.code !in SuccessfulStatusRange ||
-                                        (expectedPayload != null && response.code != PayloadSuccessStatus) -> {
-                                        RelayTcpProbeResult(false, response.code, RelayProbeFailure.TcpHttpStatus)
-                                    }
-
-                                    else -> {
-                                        val complete =
-                                            try {
-                                                expectedPayload?.let { consumeVerifiedPayload(response, it) }
-                                                    ?: consumeBoundedPayload(response)
-                                            } catch (_: IOException) {
-                                                false
-                                            }
-                                        RelayTcpProbeResult(
-                                            complete,
-                                            response.code,
-                                            if (complete) null else RelayProbeFailure.TcpConnect,
-                                        )
-                                    }
+                                else -> {
+                                    val complete =
+                                        try {
+                                            expectedPayload?.let { consumeVerifiedPayload(response, it) }
+                                                ?: consumeBoundedPayload(response)
+                                        } catch (_: IOException) {
+                                            false
+                                        }
+                                    RelayTcpProbeResult(
+                                        complete,
+                                        response.code,
+                                        if (complete) null else RelayProbeFailure.TcpConnect,
+                                    )
                                 }
                             }
-                        if (continuation.isActive) continuation.resume(result)
+                        }
+                    } catch (_: IOException) {
+                        RelayTcpProbeResult(succeeded = false, failure = RelayProbeFailure.TcpConnect)
                     }
-                },
-            )
+                }
+            try {
+                reader.await()
+            } finally {
+                // Cancellation must close the socket while the IO child is still reading its body.
+                if (!reader.isCompleted) call.cancel()
+            }
         }
     }
 }

@@ -26,6 +26,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kermit)
     implementation(libs.okhttp)
+    implementation(libs.okhttp.coroutines)
     implementation(libs.brotli.dec)
     implementation(libs.zstd.jni)
 

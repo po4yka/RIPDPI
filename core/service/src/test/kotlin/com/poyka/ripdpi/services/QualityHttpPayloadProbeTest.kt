@@ -103,7 +103,7 @@ class QualityHttpPayloadProbeTest {
                 val pending = async { fixture.probe().measure(fixture.endpoint, fixture.control, 0) }
                 yield()
                 assertTrue(withContext(Dispatchers.IO) { fixture.bodyStarted.await(3, TimeUnit.SECONDS) })
-                pending.cancelAndJoin()
+                kotlinx.coroutines.withTimeout(2_000) { pending.cancelAndJoin() }
                 assertTrue(pending.isCancelled)
                 assertTrue(withContext(Dispatchers.IO) { fixture.bodyClosed.await(3, TimeUnit.SECONDS) })
             }

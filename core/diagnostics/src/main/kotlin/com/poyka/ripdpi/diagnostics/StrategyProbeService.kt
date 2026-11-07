@@ -21,20 +21,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.EventListener
 import okhttp3.Handshake
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
-import okhttp3.Response
+import okhttp3.coroutines.executeAsync
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.InetAddress
@@ -45,7 +43,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
-import kotlin.coroutines.resume
 import kotlin.math.roundToInt
 
 private const val DefaultProbeTimeoutMs = 10_000L
@@ -326,53 +323,33 @@ class OkHttpStrategyProbeTransport
     constructor(
         private val baseClient: OkHttpClient,
     ) : StrategyProbeTransport {
-        override suspend fun probe(request: StrategyProbeConnectionRequest): StrategyProbeConnectionResult =
-            suspendCancellableCoroutine { continuation ->
-                val startedAt = System.nanoTime()
-                val listener = ProbeEventListener(startedAt)
-                val client =
-                    baseClient
-                        .newBuilder()
-                        .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(request.endpoint.host, request.endpoint.port)))
-                        .callTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-                        .connectTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-                        .readTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-                        .eventListener(listener)
-                        .build()
-                val call =
-                    client.newCall(
-                        Request
-                            .Builder()
-                            .url("https://${request.domain}/")
-                            .head()
-                            .build(),
-                    )
-                continuation.invokeOnCancellation { call.cancel() }
-                call.enqueue(
-                    object : Callback {
-                        override fun onFailure(
-                            call: Call,
-                            e: IOException,
-                        ) {
-                            if (!continuation.isActive) {
-                                return
-                            }
-                            continuation.resume(e.toConnectionFailure(startedAt))
-                        }
-
-                        override fun onResponse(
-                            call: Call,
-                            response: Response,
-                        ) {
-                            response.close()
-                            if (!continuation.isActive) {
-                                return
-                            }
-                            continuation.resume(listener.toResult())
-                        }
-                    },
+        override suspend fun probe(request: StrategyProbeConnectionRequest): StrategyProbeConnectionResult {
+            val startedAt = System.nanoTime()
+            val listener = ProbeEventListener(startedAt)
+            val client =
+                baseClient
+                    .newBuilder()
+                    .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(request.endpoint.host, request.endpoint.port)))
+                    .callTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
+                    .connectTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
+                    .readTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
+                    .eventListener(listener)
+                    .build()
+            val call =
+                client.newCall(
+                    Request
+                        .Builder()
+                        .url("https://${request.domain}/")
+                        .head()
+                        .build(),
                 )
+            return try {
+                call.executeAsync().use { }
+                listener.toResult()
+            } catch (error: IOException) {
+                error.toConnectionFailure(startedAt)
             }
+        }
 
         private class ProbeEventListener(
             private val startedAt: Long,

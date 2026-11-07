@@ -7,22 +7,35 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.SocketEffect
+import okhttp3.Dispatcher
 import okhttp3.Dns
 import okhttp3.HttpUrl
+import okhttp3.MediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody
+import okio.Buffer
+import okio.BufferedSource
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetAddress
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultProbeReplayServiceTest {
@@ -45,6 +58,79 @@ class DefaultProbeReplayServiceTest {
                     ?: error("test fixture diagnostics/replay_recommendations.json missing from classpath"),
             ),
         )
+
+    @Test
+    fun cancellationAfterCallbackBeforeDispatch_closesUndeliveredResponse() =
+        runTest {
+            val releaseResponse = CountDownLatch(1)
+            val closed = AtomicBoolean(false)
+            val executor = Executors.newSingleThreadExecutor()
+            val body =
+                object : ResponseBody() {
+                    private val buffer = Buffer()
+
+                    override fun contentType(): MediaType? = null
+
+                    override fun contentLength(): Long = 0
+
+                    override fun source(): BufferedSource = buffer
+
+                    override fun close() {
+                        closed.set(true)
+                        buffer.close()
+                    }
+                }
+            val client =
+                OkHttpClient
+                    .Builder()
+                    .dispatcher(Dispatcher(executor))
+                    .addInterceptor { chain ->
+                        check(releaseResponse.await(3, TimeUnit.SECONDS))
+                        Response
+                            .Builder()
+                            .request(chain.request())
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(200)
+                            .message("OK")
+                            .body(body)
+                            .build()
+                    }.build()
+            val factory =
+                ReplayHttpClientFactory { _, listener ->
+                    ReplayHttpClient(
+                        client.newBuilder().eventListener(listener).build(),
+                        HttpUrl
+                            .Builder()
+                            .scheme("https")
+                            .host("example.test")
+                            .build(),
+                    )
+                }
+            val collector =
+                launch {
+                    DefaultProbeReplayService(factory, recommendationEngine)
+                        .run(ReplayProbeRequest("example.test", "split", 5_000))
+                        .toList()
+                }
+            try {
+                runCurrent()
+                releaseResponse.countDown()
+                // This executor barrier proves onResponse finished while coroutine dispatch is still paused.
+                executor.submit {}.get(3, TimeUnit.SECONDS)
+                assertFalse(closed.get())
+                collector.cancel()
+                runCurrent()
+                assertTrue("the undelivered response must be closed", closed.get())
+            } finally {
+                releaseResponse.countDown()
+                collector.cancel()
+                runCurrent()
+                body.close()
+                client.dispatcher.cancelAll()
+                client.connectionPool.evictAll()
+                executor.shutdownNow()
+            }
+        }
 
     @Test
     fun successfulProbe_emitsDnsTcpFirstByteThenSuccessFinished() =

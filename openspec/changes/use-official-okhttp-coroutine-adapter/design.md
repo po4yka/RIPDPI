@@ -9,6 +9,11 @@ Audit finding 4 at 202f970 is owned by portfolio task DGN-1794036571954184. Read
 
 ## Decisions
 
+- Use executeAsync for callback delivery and undelivered-response cleanup. Close HEAD responses before reading listener results.
+- Payload reads remain blocking IO. Run the full response.use operation in an IO child and await its DTO in a coroutineScope. If cancellation leaves the child in flight, cancel its Call in the awaiting scope's finally block before the scope waits for that child. Return no open Response from the lexical scope.
+- Catch only IOException in the existing network-failure paths. Preserve cancellation and programming exceptions, response status on body failure, payload bounds, and normal EventListener completion.
+- The official module is Apache-2.0 and follows the existing OkHttp version pin. Coroutines and Okio are already in these modules; inspect the resolved graph for version changes.
+
 - Use okhttp-coroutines Call.executeAsync with response.use in the repeated probe adapters. Keep response-body processing on an appropriate IO dispatcher.
 - Add the official okhttp-coroutines module at the version pinned for OkHttp in gradle/libs.versions.toml. Verify publication, licenses, transitive dependencies, and Android compatibility. One writer owns the version catalog and affected build files.
 - Extend existing probe tests with deterministic cancellation after onResponse and before dispatch; assert response closure and test normal and failed payloads with MockWebServer.

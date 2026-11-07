@@ -4,9 +4,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.EventListener
 import okhttp3.Handshake
 import okhttp3.HttpUrl
@@ -14,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.coroutines.executeAsync
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -22,7 +21,6 @@ import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.net.ssl.SSLException
-import kotlin.coroutines.resume
 
 /**
  * OkHttp-backed [ProbeReplayService]. Runs a HEAD request through an
@@ -32,15 +30,11 @@ import kotlin.coroutines.resume
  * [EventListener] and emitting [ReplayStepEvent] as each step
  * transitions.
  *
- * Cancel-safety: cancellation of the collecting coroutine cancels the
- * underlying OkHttp [Call] via [suspendCancellableCoroutine.invokeOnCancellation],
- * mirroring `OkHttpStrategyProbeTransport` in StrategyProbeService.kt:299-344.
- * The async [Call.enqueue] callback path is used (NOT the blocking
- * [Call.execute]) so cancellation propagates synchronously through
- * [Call.cancel] without depending on `Dispatchers.IO` thread interruption.
+ * Cancellation uses OkHttp's [executeAsync] adapter, which cancels the [Call]
+ * and closes a response that cannot be delivered to the collector.
  *
  * Strategy activation: callers must wrap the [run] call in their own
- * activate-finally-restore block per StrategyProbeService.kt:201-234.
+ * activate-finally-restore block in StrategyProbeService.
  * This service does NOT mutate AppSettings.
  */
 class DefaultProbeReplayService
@@ -70,43 +64,13 @@ class DefaultProbeReplayService
                         }
                     }
 
-                // cancel-safe: Call is dispatched asynchronously; cancellation
-                // of the collector cancels the suspended coroutine, which
-                // invokes Call.cancel() via invokeOnCancellation. OkHttp
-                // surfaces the cancel as an IOException on Callback.onFailure,
-                // but we already resumed-on-cancellation, so onFailure is a
-                // no-op against an inactive continuation.
-                val result: Result<Response> =
-                    suspendCancellableCoroutine { continuation ->
-                        continuation.invokeOnCancellation { call.cancel() }
-                        call.enqueue(
-                            object : Callback {
-                                override fun onResponse(
-                                    call: Call,
-                                    response: Response,
-                                ) {
-                                    if (!continuation.isActive) {
-                                        response.close()
-                                        return
-                                    }
-                                    continuation.resume(Result.success(response))
-                                }
-
-                                override fun onFailure(
-                                    call: Call,
-                                    e: IOException,
-                                ) {
-                                    if (!continuation.isActive) {
-                                        return
-                                    }
-                                    continuation.resume(Result.failure(e))
-                                }
-                            },
-                        )
+                val result =
+                    try {
+                        call.executeAsync().use { }
+                        Result.success(Unit)
+                    } catch (error: IOException) {
+                        Result.failure(error)
                     }
-
-                // Drop the response body — we issued a HEAD, but be defensive.
-                result.getOrNull()?.close()
 
                 val verdict =
                     result.fold(

@@ -4,17 +4,15 @@ import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.ProfileQualityMeasurement
 import com.poyka.ripdpi.data.ProfileQualityReason
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.suspendCancellableCoroutine
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.coroutines.executeAsync
 import java.io.IOException
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
 
 /** Authenticated transaction timings; no bandwidth throttling is used to manufacture overlap. */
 internal class QualityHttpPayloadProbe(
@@ -105,7 +103,7 @@ internal class QualityHttpPayloadProbe(
         head: Boolean,
         consume: (Response) -> T?,
     ): T? =
-        suspendCancellableCoroutine { continuation ->
+        coroutineScope {
             val request =
                 Request
                     .Builder()
@@ -114,30 +112,20 @@ internal class QualityHttpPayloadProbe(
                     .apply { if (head) head() else get() }
                     .build()
             val call = client.newCall(request)
-            continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(
-                object : Callback {
-                    override fun onFailure(
-                        call: Call,
-                        e: IOException,
-                    ) {
-                        if (continuation.isActive) continuation.resume(null)
+            val reader =
+                async(Dispatchers.IO) {
+                    try {
+                        call.executeAsync().use(consume)
+                    } catch (_: IOException) {
+                        null
                     }
-
-                    override fun onResponse(
-                        call: Call,
-                        response: Response,
-                    ) {
-                        val result =
-                            try {
-                                response.use(consume)
-                            } catch (_: IOException) {
-                                null
-                            }
-                        if (continuation.isActive) continuation.resume(result)
-                    }
-                },
-            )
+                }
+            try {
+                reader.await()
+            } finally {
+                // Unblock the socket before this scope waits for its blocking reader child.
+                if (!reader.isCompleted) call.cancel()
+            }
         }
 
     private data class TimedInterval(

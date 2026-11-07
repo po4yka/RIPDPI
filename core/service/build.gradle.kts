@@ -113,6 +113,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kermit)
     implementation(libs.okhttp)
+    implementation(libs.okhttp.coroutines)
     implementation(libs.retrofit)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
