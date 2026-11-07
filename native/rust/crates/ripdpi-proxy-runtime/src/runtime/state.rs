@@ -60,7 +60,7 @@ use super::response::{RuntimeTriggerEvent, runtime_response_trigger_flag, runtim
 use super::session::{
     FirstOutboundPayloadPolicy, HttpConnectFailure, OutboundPayloadInfo, ParsedSocks5UdpPacket, PayloadHostExtractor,
     ProxyReply, RuntimeSessionProjection, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD,
-    S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET, S_ER_TTL, S_VER5, SocketType, UdpPacketParser, UdpPayloadClassifier,
+    S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET, S_VER5, SocketType, UdpPacketParser, UdpPayloadClassifier,
     UdpPayloadInfo, encode_http_connect_failure, encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply,
     encode_upstream_socks_connect, extract_payload_host_with, has_inbound_payload, new_session_state,
     observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
@@ -689,7 +689,8 @@ mod state_coverage_tests {
         assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::ConnectionRefused), S_ER_CONN);
         assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::HostUnreachable), S_ER_HOST);
         assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::NetworkUnreachable), S_ER_NET);
-        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::TimedOut), S_ER_TTL);
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::TimedOut), S_ER_GEN);
+        assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::WouldBlock), S_ER_GEN);
         // Unclassified kinds fall back to general failure.
         assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::PermissionDenied), S_ER_GEN);
         assert_eq!(RuntimeState::socks5_reply_code_for_kind(ErrorKind::Other), S_ER_GEN);

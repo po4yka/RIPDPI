@@ -822,3 +822,20 @@ fn socks5_userpass_rejects_empty_fields_and_accepts_boundary_lengths() {
         assert_eq!(reply, [5, 2, 1, u8::from(!valid)]);
     }
 }
+
+#[test]
+fn local_connect_deadlines_do_not_claim_ip_ttl_expiration() {
+    for kind in [ErrorKind::TimedOut, ErrorKind::WouldBlock] {
+        let (mut writer, mut reader) = connected_pair();
+        reader.set_read_timeout(Some(Duration::from_secs(1))).expect("bound reply read");
+        let error = super::handle_socks5_connect_error(
+            &mut writer,
+            std::io::Error::new(kind, "local connection deadline expired").into(),
+        )
+        .expect_err("deadline remains an error");
+        let mut reply = [0_u8; 10];
+        reader.read_exact(&mut reply).expect("read deadline failure reply");
+        assert_eq!(reply, [5, 1, 0, 1, 0, 0, 0, 0, 0, 0], "local deadline is not TTL expiry");
+        assert_eq!(error.kind(), kind);
+    }
+}
