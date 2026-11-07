@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T11:32:29Z",
+  "change": "persist-probe-cache-with-atomic-file",
+  "commit_sha": "ab392ea0cb52712b535d1154d6db47ad772d152c",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DGN-1794036642254618"
+}

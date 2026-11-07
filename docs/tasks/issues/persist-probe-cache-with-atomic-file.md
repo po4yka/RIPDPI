@@ -2,7 +2,7 @@
 id: DGN-1794036642254618
 title: Persist the probe cache with AtomicFile
 kind: chore
-status: review
+status: done
 area: diagnostics
 priority: medium
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: persist-probe-cache-with-atomic-file
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T11:32:29Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation ab392ea0c accepted with 1677 diagnostics tests (16 cache cases across27/35), staticAnalysis, source gates and independent review; host-only storage evidence limits recorded.
 ---
 
 ## Goal

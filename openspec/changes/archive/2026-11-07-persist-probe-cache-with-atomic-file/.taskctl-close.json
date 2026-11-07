@@ -1,0 +1,11 @@
+{
+  "change": "persist-probe-cache-with-atomic-file",
+  "evidence_summary": "Implementation ab392ea0c accepted with 1677 diagnostics tests (16 cache cases across27/35), staticAnalysis, source gates and independent review; host-only storage evidence limits recorded.",
+  "execution_sha256": "30a89549501c17737a9a77e25cca6b9a719837de50d46949b90b24e4fada7c97",
+  "issue_sha256": "4309e346cc7b6034eb854177319f14ccbe5401906e20c825368b2d28b584b111",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T11:32:29Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1794036642254618"
+}
