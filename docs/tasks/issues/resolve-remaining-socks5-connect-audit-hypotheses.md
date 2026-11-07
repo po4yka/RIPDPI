@@ -2,7 +2,7 @@
 id: PRX-1794074402219640
 title: Resolve remaining SOCKS5 CONNECT audit hypotheses
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: Proxy runtime maintainer
