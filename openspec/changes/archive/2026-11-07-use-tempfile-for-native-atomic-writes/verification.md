@@ -1,7 +1,7 @@
 ---
 task_id: RST-1794036651029797
 change: use-tempfile-for-native-atomic-writes
-commit_sha: null
+commit_sha: 419cf6fd66a6286e54af51f7ae7f2368f03417e6
 local: passed
 local_evidence: "Old writers failed three new cleanup/private-mode cases. Final locked policy/adaptive tests: 154 passed, no ignored tests; owning Clippy, locked metadata, cargo-deny and just ci-gates passed. Independent storage review passed. User-approved tempfile3.27 defaults promoted to normal dependencies with unchanged lockfile versions. Android arm64 dev native owner build passed; copied/normalized libripdpi.so grew25928104 to25961824 bytes (+33720,0.130%). Source digests and ELF hashes recorded in design.md. Preserve existing permissions, new0600, same-parent persist and sync order; no cache mkdir. Test-only policy fixture nonce retained; runtime writers use NamedTempFile. No SIGKILL, release/APK, all-ABI or device acceptance claim."
 remote_ci: not_applicable
@@ -27,4 +27,4 @@ deployment_evidence: No deployment is owned by this change.
 
 Old writers failed three new cleanup/private-mode cases. Final locked policy/adaptive tests: 154 passed, no ignored tests; owning Clippy, locked metadata, cargo-deny and just ci-gates passed. Independent storage review passed. User-approved tempfile3.27 defaults promoted to normal dependencies with unchanged lockfile versions. Android arm64 dev native owner build passed; copied/normalized libripdpi.so grew25928104 to25961824 bytes (+33720,0.130%). Source digests and ELF hashes recorded in design.md. Preserve existing permissions, new0600, same-parent persist and sync order; no cache mkdir. Test-only policy fixture nonce retained; runtime writers use NamedTempFile. No SIGKILL, release/APK, all-ABI or device acceptance claim.
 
-The closure commit records the implementation SHA. Local checks do not establish remote CI, device, artifact, or deployment acceptance.
+The exact implementation SHA is recorded above. Local checks do not establish remote CI, device, artifact, or deployment acceptance.

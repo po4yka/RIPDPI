@@ -2,7 +2,7 @@
 id: RST-1794036651029797
 title: Use tempfile for native atomic file replacement
 kind: chore
-status: review
+status: done
 area: rust-native
 priority: medium
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: use-tempfile-for-native-atomic-writes
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T11:40:18Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation419cf6fd6 accepted:154 tests, Clippy/dependency/source gates, independent storage review and measured arm64 dev ELF delta+33720bytes; user approval and limits recorded."
 ---
 
 ## Goal

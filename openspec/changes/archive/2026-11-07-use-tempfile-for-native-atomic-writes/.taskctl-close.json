@@ -1,0 +1,11 @@
+{
+  "change": "use-tempfile-for-native-atomic-writes",
+  "evidence_summary": "Implementation419cf6fd6 accepted:154 tests, Clippy/dependency/source gates, independent storage review and measured arm64 dev ELF delta+33720bytes; user approval and limits recorded.",
+  "execution_sha256": "af5f87afe04b3cde51125748b92781a5c4b6268bd00f6e0d052e7c96d023e9eb",
+  "issue_sha256": "2c2d2a6cb48d11165b6cfce439c29eb640658bfb41c485fd6d0ebbcf34ba7eee",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T11:40:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794036651029797"
+}

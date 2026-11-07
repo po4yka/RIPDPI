@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T11:40:18Z",
+  "change": "use-tempfile-for-native-atomic-writes",
+  "commit_sha": "419cf6fd66a6286e54af51f7ae7f2368f03417e6",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1794036651029797"
+}
