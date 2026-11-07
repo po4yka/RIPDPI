@@ -1,0 +1,11 @@
+{
+  "change": "parse-client-certificates-with-certificate-factory",
+  "evidence_summary": "Implementation d04032b88: valid DER regression reproduced; all six importer tests passed; staticAnalysis, ci-gates and independent review passed. Device provider was not tested.",
+  "execution_sha256": "1d7a70debbd4b826534e5232792482c11193a9e1a942fa2f1eef6a052e38c0a5",
+  "issue_sha256": "1784bbe9ee1a0ead5a496583b891feccec70fa85ed93255cb4ecb5180b866dfa",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T08:25:39Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1794036563799026"
+}

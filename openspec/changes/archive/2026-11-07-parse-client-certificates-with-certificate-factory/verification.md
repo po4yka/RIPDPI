@@ -1,7 +1,7 @@
 ---
 task_id: AND-1794036563799026
 change: parse-client-certificates-with-certificate-factory
-commit_sha: null
+commit_sha: d04032b88f86cbccde8fa464cbe3766a0731042e
 local: passed
 local_evidence: "Confirmed regression: six tests, one valid-DER failure before production change. After replacement: all six MasqueClientCredentialImporter tests passed, no failures or skips; staticAnalysis and ci-gates passed; independent review found no actionable issue."
 remote_ci: not_applicable
@@ -25,4 +25,4 @@ deployment_evidence: No deployment is owned by this change.
 
 ## Evidence boundary
 
-Valid DER failed the former UTF-8 preparse and passes with the platform parser. DER/PEM equivalence, ordered signed chain, exact size limit, oversize, malformed inputs, and private-key UTF-8 checks passed. The closure commit records the implementation SHA. The actual device certificate provider was not tested; this is local JVM/Robolectric evidence.
+Valid DER failed the former UTF-8 preparse and passes with the platform parser. DER/PEM equivalence, ordered signed chain, exact size limit, oversize, malformed inputs, and private-key UTF-8 checks passed. The exact implementation SHA is recorded above. The actual device certificate provider was not tested; this is local JVM/Robolectric evidence.

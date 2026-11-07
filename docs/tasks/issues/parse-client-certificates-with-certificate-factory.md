@@ -2,7 +2,7 @@
 id: AND-1794036563799026
 title: Parse client certificates with CertificateFactory
 kind: bug
-status: review
+status: done
 area: android
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: parse-client-certificates-with-certificate-factory
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Six importer tests, staticAnalysis, ci-gates, and independent review passed.
+closed_at: "2026-11-07T08:25:39Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation d04032b88: valid DER regression reproduced; all six importer tests passed; staticAnalysis, ci-gates and independent review passed. Device provider was not tested."
 ---
 
 ## Goal

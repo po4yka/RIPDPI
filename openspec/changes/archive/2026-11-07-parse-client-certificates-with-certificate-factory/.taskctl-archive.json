@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T08:25:38Z",
+  "change": "parse-client-certificates-with-certificate-factory",
+  "commit_sha": "d04032b88f86cbccde8fa464cbe3766a0731042e",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "AND-1794036563799026"
+}
