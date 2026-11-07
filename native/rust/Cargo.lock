@@ -5718,7 +5718,6 @@ name = "ripdpi-cloudflare-origin"
 version = "0.1.0"
 dependencies = [
  "bytes",
- "hex",
  "http",
  "http-body-util",
  "hyper",
@@ -5727,6 +5726,7 @@ dependencies = [
  "ripdpi-subprocess-protect",
  "ripdpi-vless",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -6957,6 +6957,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+ "uuid",
  "x25519-dalek 3.0.0",
  "yamux",
  "zeroize",
@@ -7110,6 +7111,7 @@ dependencies = [
  "tokio",
  "tokio-boring",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

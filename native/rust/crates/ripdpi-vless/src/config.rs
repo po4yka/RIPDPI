@@ -191,16 +191,12 @@ impl VlessRealityConfig {
     }
 }
 
-/// Parse a UUID string (with or without dashes) into 16 bytes.
-fn parse_uuid(s: &str) -> Result<[u8; 16], ()> {
-    let hex_only: String = s.chars().filter(|c| *c != '-').collect();
-    if hex_only.len() != 32 {
+/// Parse a canonical or compact UUID into its 16 wire bytes.
+fn parse_uuid(value: &str) -> Result<[u8; 16], ()> {
+    if !matches!(value.len(), 32 | 36) {
         return Err(());
     }
-    let bytes = hex::decode(&hex_only).map_err(|_| ())?;
-    let mut uuid = [0u8; 16];
-    uuid.copy_from_slice(&bytes);
-    Ok(uuid)
+    uuid::Uuid::parse_str(value).map(uuid::Uuid::into_bytes).map_err(|_| ())
 }
 
 fn decode_reality_public_key(value: &str) -> Result<Vec<u8>, ()> {
@@ -214,17 +210,21 @@ fn decode_reality_public_key(value: &str) -> Result<Vec<u8>, ()> {
 mod tests {
     use super::*;
 
+    const RFC_UUID_BYTES: [u8; 16] =
+        [0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4, 0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00, 0x00];
+
     #[test]
     fn parse_uuid_with_dashes() {
-        let uuid = parse_uuid("550e8400-e29b-41d4-a716-446655440000").unwrap();
-        assert_eq!(uuid[0], 0x55);
-        assert_eq!(uuid[15], 0x00);
+        for value in ["550e8400-e29b-41d4-a716-446655440000", "550E8400-E29b-41D4-a716-446655440000"] {
+            assert_eq!(parse_uuid(value).expect("canonical UUID"), RFC_UUID_BYTES);
+        }
     }
 
     #[test]
     fn parse_uuid_without_dashes() {
-        let uuid = parse_uuid("550e8400e29b41d4a716446655440000").unwrap();
-        assert_eq!(uuid[0], 0x55);
+        for value in ["550e8400e29b41d4a716446655440000", "550E8400E29b41D4a716446655440000"] {
+            assert_eq!(parse_uuid(value).expect("compact UUID"), RFC_UUID_BYTES);
+        }
     }
 
     #[test]
@@ -443,5 +443,23 @@ mod tests {
         assert!(!joined.contains("www.example.com"), "tracing event exposes Reality SNI: {joined}");
         assert!(!joined.contains("443"), "tracing event exposes relay port: {joined}");
         assert!(joined.contains("<redacted>"), "tracing event must carry the redaction marker: {joined}");
+    }
+    #[test]
+    fn uuid_parser_rejects_invalid_forms() {
+        for value in [
+            "-550e8400e29b41d4a716446655440000",
+            "550e8400e-29b-41d4-a716-446655440000",
+            "550e8400--e29b-41d4-a716-446655440000",
+            "urn:uuid:550e8400-e29b-41d4-a716-446655440000",
+            "{550e8400-e29b-41d4-a716-446655440000}",
+            " 550e8400-e29b-41d4-a716-446655440000 ",
+            "",
+            "0",
+            "550e8400e29b41d4a71644665544000",
+            "550e8400-e29b-41d4-a716-44665544000g",
+            "550e8400-e29b-41d4-a716-44665544000é",
+        ] {
+            assert!(parse_uuid(value).is_err(), "unsupported UUID syntax must fail");
+        }
     }
 }

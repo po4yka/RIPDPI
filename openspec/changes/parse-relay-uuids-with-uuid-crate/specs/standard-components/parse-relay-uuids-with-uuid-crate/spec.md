@@ -1,6 +1,6 @@
 ## Purpose
 
-VLESS, xHTTP, Cloudflare origin, and TUIC must validate the same supported UUID forms. This capability defines the behavior, failure boundary, and compatibility checks required for the audited replacement.
+Use the uuid crate for VLESS, xHTTP, and Cloudflare origin parsing. Keep their canonical and compact forms and preserve existing TUIC syntax. This capability defines the behavior, failure boundary, and compatibility checks required for the audited replacement.
 
 ## ADDED Requirements
 
@@ -20,10 +20,10 @@ The implementation MUST satisfy the following observable behavior: Canonical and
 
 ### Requirement: REQ-RELAY-UUIDS-WITH-UUID-CRATE-COMPAT — Preserve bounded compatibility and privacy
 
-The implementation MUST preserve its existing unaffected contracts. Keep supported canonical and compact forms and byte order. Do not silently add URN or braced forms; reject misplaced dashes with redacted errors.
+The implementation MUST preserve its existing unaffected contracts. The three migrated parsers accept canonical-dashed and compact input without trimming. They reject URN and braced forms and misplaced dashes. TUIC keeps Uuid::parse_str(config.uuid.trim()), including existing URN and braced forms. Preserve credential bytes and error redaction.
 
 #### Scenario: Retain existing behavior
 
 - **WHEN** existing supported data and callers use the replacement
 - **THEN** All four relays follow the documented input forms without changing credential serialization or byte order.
-- **AND** Keep supported canonical and compact forms and byte order. Do not silently add URN or braced forms; reject misplaced dashes with redacted errors.
+- **AND** The three migrated parsers accept canonical-dashed and compact input without trimming. They reject URN and braced forms and misplaced dashes. TUIC keeps Uuid::parse_str(config.uuid.trim()), including existing URN and braced forms. Preserve credential bytes and error redaction.

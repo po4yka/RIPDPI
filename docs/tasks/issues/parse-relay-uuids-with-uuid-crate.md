@@ -2,7 +2,7 @@
 id: RLY-1794036606000501
 title: Parse relay UUIDs with the uuid crate
 kind: chore
-status: todo
+status: review
 area: relay
 priority: medium
 owner: Standard-library migration
@@ -12,11 +12,12 @@ spec_mode: required
 openspec_change: parse-relay-uuids-with-uuid-crate
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal
 
-VLESS, xHTTP, Cloudflare origin, and TUIC must validate the same supported UUID forms.
+Use the uuid crate for VLESS, xHTTP, and Cloudflare origin parsing. Keep their canonical and compact forms and preserve existing TUIC syntax.
 
 ## Audit evidence
 
@@ -26,7 +27,7 @@ Audit finding 8 (attachment 4), 2026-11-07, baseline 202f970bb3574980dd2eb87fea0
 
 Replace arbitrary dash removal and hex decoding with Uuid::parse_str and explicit canonical-dashed or compact input-shape checks.
 
-Keep supported canonical and compact forms and byte order. Do not silently add URN or braced forms; reject misplaced dashes with redacted errors.
+The three migrated parsers accept canonical-dashed and compact input without trimming. They reject URN and braced forms and misplaced dashes. TUIC keeps Uuid::parse_str(config.uuid.trim()), including existing URN and braced forms. Preserve credential bytes and error redaction.
 
 ## Acceptance criteria
 

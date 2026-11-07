@@ -4,7 +4,7 @@ Audit finding 8 (attachment 4) at 202f970 is owned by portfolio task RLY-1794036
 
 ## Goals / Non-Goals
 
-- Goal: VLESS, xHTTP, Cloudflare origin, and TUIC must validate the same supported UUID forms.
+- Goal: Use the uuid crate for VLESS, xHTTP, and Cloudflare origin parsing. Keep their canonical and compact forms and preserve existing TUIC syntax.
 - Non-goal: Change unrelated protocols, stored identities, UI text, lifecycle behavior, or the conditional audit proposals.
 
 ## Decisions
@@ -20,7 +20,7 @@ Audit finding 8 (attachment 4) at 202f970 is owned by portfolio task RLY-1794036
 - `native/rust/crates/ripdpi-cloudflare-origin/src/config.rs`
 - `native/rust/crates/ripdpi-tuic/src/protocol.rs`
 
-Keep supported canonical and compact forms and byte order. Do not silently add URN or braced forms; reject misplaced dashes with redacted errors.
+The three migrated parsers accept canonical-dashed and compact input without trimming. They reject URN and braced forms and misplaced dashes. TUIC keeps Uuid::parse_str(config.uuid.trim()), including existing URN and braced forms. Preserve credential bytes and error redaction.
 
 The user directed work on main on 2026-11-07. Work directly on main and commit each completed atomic unit. This instruction overrides worktree-isolation guidance for this programme. Do not push, publish, or deploy without separate authorization.
 
@@ -33,6 +33,10 @@ The owning writer updates all callers and tests in this slice. Prerequisites: No
 - Standard parsers can accept or reject different input forms: enforce the task's explicit contract with independent boundary vectors.
 - Cancellation and persistence can lose resources or state: exercise the stated failure case, not only round trips.
 - Dependency changes can affect size, licensing, and Android support: review actual direct and transitive edges before adoption. No baseline relaxation or unrelated compatibility layer is permitted.
+
+## Compatibility correction before implementation
+
+Current source inspection shows that TUIC already accepts URN, braced, and surrounding-whitespace forms through the uuid crate. The three handwritten parsers reject these forms. Do not make their accepted syntax identical: that would expand three contracts or break TUIC configurations. Replace only the three handwritten parsers and inherit the existing TUIC dependency from the workspace. Keep the TUIC authentication implementation unchanged. Test common canonical and compact inputs against independent 16-byte vectors and preserve TUIC-specific forms through its real authentication fixture.
 
 ## Migration Plan
 

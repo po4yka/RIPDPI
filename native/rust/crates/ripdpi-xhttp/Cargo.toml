@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+uuid = { workspace = true }
 prost = { workspace = true }
 bytes = { workspace = true }
 hex = { workspace = true }
