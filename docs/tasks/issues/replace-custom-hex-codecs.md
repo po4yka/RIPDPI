@@ -2,7 +2,7 @@
 id: DAT-1794036667822479
 title: Replace custom hex codecs with standard library functions
 kind: chore
-status: review
+status: done
 area: data
 priority: low
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: replace-custom-hex-codecs
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T12:03:01Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation f1043178d accepted: 5081 full Kotlin module tests,35 Rust tests,staticAnalysis,source/dependency gates and independent compatibility review passed;identity fixtures unchanged."
 ---
 
 ## Goal

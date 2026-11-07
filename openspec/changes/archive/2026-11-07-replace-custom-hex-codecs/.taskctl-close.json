@@ -1,0 +1,11 @@
+{
+  "change": "replace-custom-hex-codecs",
+  "evidence_summary": "Implementation f1043178d accepted: 5081 full Kotlin module tests,35 Rust tests,staticAnalysis,source/dependency gates and independent compatibility review passed;identity fixtures unchanged.",
+  "execution_sha256": "1209ce352d7db8ffb16ce083b1e783704855c08598fbd0158a9c4d52cedbbe26",
+  "issue_sha256": "90caae2a8765d22f4481bc13985e3c7dcdbe00473f7008aaedbb2cd62037dafb",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T12:03:01Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1794036667822479"
+}
