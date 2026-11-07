@@ -1,7 +1,7 @@
 ---
 task_id: DAT-1794036514216544
 change: normalize-profile-uri-fragments
-commit_sha: null
+commit_sha: 4cbb4f47f64e1150ade42c96941fdcbf19f485d0
 local: passed
 local_evidence: "Regression reproduced before the fix (32 tests, one failure). After the fix: runtime-state 371 and core:data 967 tests passed, zero failures or skips; staticAnalysis and just ci-gates passed; independent pr-reviewer found no actionable issue."
 remote_ci: not_applicable
@@ -25,4 +25,4 @@ deployment_evidence: No deployment is owned by this change.
 
 ## Evidence boundary
 
-The regression failed before the fix and passed after it. Full owning and consumer module tests, staticAnalysis, ci-gates, and independent review passed. The closure record will set the exact implementation SHA after this implementation commit. No device, release artifact, remote CI, or deployment result is inferred.
+The regression failed before the fix and passed after it. Full owning and consumer module tests, staticAnalysis, ci-gates, and independent review passed. The exact implementation SHA is recorded above. No device, release artifact, remote CI, or deployment result is inferred.

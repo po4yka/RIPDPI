@@ -2,7 +2,7 @@
 id: DAT-1794036514216544
 title: Decode profile URI fragments exactly once
 kind: bug
-status: doing
+status: review
 area: data
 priority: high
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: normalize-profile-uri-fragments
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation 4cbb4f47f passed targeted tests, static analysis, source gates, and independent review.
 ---
 
 ## Goal
