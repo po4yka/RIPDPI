@@ -1,7 +1,6 @@
-use std::sync::mpsc::{self, SyncSender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub(super) static WORKER_REAPER: std::sync::LazyLock<WorkerReaper> = std::sync::LazyLock::new(WorkerReaper::new);
 
@@ -12,7 +11,7 @@ const REAPER_ENQUEUE_BUDGET: Duration = Duration::from_millis(5);
 // Drop order: sender drops before workers are joined, closing their receiver
 // loops so every worker can exit before WorkerReaper releases shared pending state.
 pub(super) struct WorkerReaper {
-    sender: Option<SyncSender<JoinHandle<()>>>,
+    sender: Option<flume::Sender<JoinHandle<()>>>,
     workers: Vec<JoinHandle<()>>,
     pending: Arc<(Mutex<usize>, Condvar)>,
 }
@@ -23,20 +22,15 @@ impl WorkerReaper {
     }
 
     fn new_with_limits(worker_count: usize, queue_capacity: usize) -> Self {
-        let (sender, receiver) = mpsc::sync_channel::<JoinHandle<()>>(queue_capacity);
-        let receiver = Arc::new(Mutex::new(receiver));
+        let (sender, receiver) = flume::bounded::<JoinHandle<()>>(queue_capacity);
         let pending = Arc::new((Mutex::new(0usize), Condvar::new()));
         let mut workers = Vec::with_capacity(worker_count);
         for index in 0..worker_count {
-            let receiver = Arc::clone(&receiver);
+            let receiver = receiver.clone();
             let pending = Arc::clone(&pending);
             match thread::Builder::new().name(format!("ripdpi-monitor-reaper-{index}")).spawn(move || {
                 loop {
-                    let handle = {
-                        let receiver = receiver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-                        receiver.recv()
-                    };
-                    let Ok(handle) = handle else {
+                    let Ok(handle) = receiver.recv() else {
                         break;
                     };
                     let _ = handle.join();
@@ -60,19 +54,11 @@ impl WorkerReaper {
         };
         let (count, _) = &*self.pending;
         *count.lock().unwrap_or_else(std::sync::PoisonError::into_inner) += 1;
-        let deadline = Instant::now() + REAPER_ENQUEUE_BUDGET;
-        let mut handle = handle;
-        loop {
-            match sender.try_send(handle) {
-                Ok(()) => return Ok(()),
-                Err(mpsc::TrySendError::Full(returned)) if Instant::now() < deadline => {
-                    handle = returned;
-                    thread::yield_now();
-                }
-                Err(mpsc::TrySendError::Full(returned) | mpsc::TrySendError::Disconnected(returned)) => {
-                    finish_reap(&self.pending);
-                    return Err(returned);
-                }
+        match sender.send_timeout(handle, REAPER_ENQUEUE_BUDGET) {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                finish_reap(&self.pending);
+                Err(error.into_inner())
             }
         }
     }
@@ -110,6 +96,8 @@ fn finish_reap(pending: &Arc<(Mutex<usize>, Condvar)>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
+    use std::time::Instant;
 
     #[test]
     fn worker_reaper_joins_workers_concurrently_without_head_of_line_blocking() {
@@ -162,5 +150,49 @@ mod tests {
         release_third_tx.send(()).expect("release rejected worker");
         third.join().expect("join rejected worker in test");
         assert!(reaper.wait_for_pending_at_most(0, Duration::from_secs(1)), "accepted workers must be joined");
+    }
+
+    #[test]
+    fn disconnected_queue_returns_original_handle_and_restores_pending() {
+        let (sender, receiver) = flume::bounded(1);
+        drop(receiver);
+        let reaper = WorkerReaper {
+            sender: Some(sender),
+            workers: Vec::new(),
+            pending: Arc::new((Mutex::new(0), Condvar::new())),
+        };
+        let handle = thread::spawn(|| ());
+        let expected_id = handle.thread().id();
+        let returned = reaper.reap(handle).expect_err("disconnected queue");
+        assert_eq!(returned.thread().id(), expected_id);
+        assert!(reaper.wait_for_pending_at_most(0, Duration::ZERO));
+        returned.join().unwrap();
+    }
+
+    #[test]
+    fn zero_workers_returns_original_handle() {
+        let reaper = WorkerReaper::new_with_limits(0, 1);
+        let handle = thread::spawn(|| ());
+        let expected_id = handle.thread().id();
+        let returned = reaper.reap(handle).expect_err("no worker available");
+        assert_eq!(returned.thread().id(), expected_id);
+        assert!(reaper.wait_for_pending_at_most(0, Duration::ZERO));
+        returned.join().unwrap();
+    }
+
+    #[test]
+    fn shutdown_joins_accepted_work() {
+        let reaper = WorkerReaper::new_with_limits(2, 4);
+        let (completed, completed_rx) = mpsc::channel();
+        let (release, wait) = mpsc::channel();
+        reaper
+            .reap(thread::spawn(move || {
+                wait.recv().unwrap();
+                completed.send(()).unwrap();
+            }))
+            .unwrap();
+        release.send(()).unwrap();
+        drop(reaper);
+        assert_eq!(completed_rx.try_recv(), Ok(()));
     }
 }

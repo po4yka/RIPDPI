@@ -40,3 +40,7 @@ First reproduce the specified uncovered behavior or establish a passing contract
 - `just ci-gates`
 
 Run the named targeted checks first. Run staticAnalysis for Kotlin cross-module or security changes and just ci-gates for affected source contracts. Native dependency changes also require locked metadata and cargo-deny. Obtain the repository-required independent review; add async, JNI, or unsafe review only when the actual diff meets those rules. Record exact commands, results, and the implementation SHA. Commit only the finished task slice on main.
+
+## Queue ownership
+
+Use the existing workspace flume 0.12 package without version changes. Each worker owns a receiver clone. Increment pending before send_timeout; on rejection decrement it and return the original handle through into_inner. Worker join decrements accepted work. Keep the pending Mutex/Condvar and sender-close-before-worker-join shutdown. The 5 ms budget applies to enqueue, not full shutdown. Tests cover saturation, disconnected receiver, zero-worker fallback, concurrent joining, and shutdown; no scheduler-sensitive exact wall-clock assertion or thread-spawn fault seam is added.

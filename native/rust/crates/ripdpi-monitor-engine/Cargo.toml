@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+flume = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
 ripdpi-config = { workspace = true }

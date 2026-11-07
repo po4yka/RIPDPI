@@ -2,7 +2,7 @@
 id: DGN-1794036659395595
 title: Use a bounded flume queue for WorkerReaper
 kind: chore
-status: todo
+status: review
 area: diagnostics
 priority: medium
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: use-flume-for-worker-reaper-queue
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal

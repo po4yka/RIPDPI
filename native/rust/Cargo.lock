@@ -6102,6 +6102,7 @@ dependencies = [
 name = "ripdpi-monitor-engine"
 version = "0.1.0"
 dependencies = [
+ "flume",
  "golden-test-support",
  "local-network-fixture",
  "log",
