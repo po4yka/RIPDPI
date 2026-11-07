@@ -60,3 +60,5 @@ Child records are added below in creation order. Their own records remain the so
 - [AND-1794036523065646](parse-import-deep-links-with-uri.md): audit 2; priority band 1; Parse import deep links with standard URI components.
 
 - [AND-1794036563799026](parse-client-certificates-with-certificate-factory.md): audit 3 (attachment 3); priority band 1; Parse client certificates with CertificateFactory.
+
+- [DGN-1794036571954184](use-official-okhttp-coroutine-adapter.md): audit 4; priority band 1; Use the official OkHttp coroutine adapter.
