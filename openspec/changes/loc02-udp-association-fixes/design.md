@@ -9,9 +9,9 @@ See proposal.md and task PRX-1794076309764211. The audit uses independent loopba
 
 ## Decisions
 
-- Keep the synchronous proxy worker model. Reuse active-socket registration and checked handshake I/O. Add a narrow cancellable nonblocking connector on the existing protected socket path so a pending connect cannot outlive stop; do not introduce a second async runtime.
+- Keep the synchronous proxy worker model. Reuse active-socket registration and checked handshake I/O. Add a narrow cancellable nonblocking connector on the existing protected socket path so a pending connect cannot outlive stop. Pass the same caller cancellation through UDP name resolution into the existing blocking DNS runtime; cancellation drops the owned exchange future. Do not introduce detached DNS threads or a second async runtime.
 - Validate the actual upstream peer against the selected target before applying the existing logical preferred-edge mapping. Drop mismatched peers. Decode replies with standard address types independent of inbound listener flags; match only known or numeric domain authority without DNS, and reject private ATYP5.
-- Apply the common profile UDP flag at admission and capability projection. Keep cipher/transport/flow gates.
+- Apply the common profile UDP flag at admission and capability projection. Keep cipher/transport/flow gates. The UDP payload gate does not disable a shared QUIC carrier used for TCP.
 - Treat carrier size errors as per-datagram loss, and account for SS2022 overhead where the owning API exposes it.
 - Preserve the UDP endpoint when an upstream SOCKS control owns a pinned binding. Direct-path rebind remains available.
 

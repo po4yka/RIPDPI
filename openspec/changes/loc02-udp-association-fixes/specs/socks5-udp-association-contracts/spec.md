@@ -33,12 +33,12 @@ The implementation MUST ensure that an unexpected upstream reply peer is not map
 
 ### Requirement: REQ-UDP-UDP-GATE — Apply the profile UDP gate
 
-The implementation MUST ensure that a disabled profile rejects UDP before opening its carrier.
+The implementation MUST ensure that a disabled profile rejects UDP ASSOCIATE before opening or using a UDP association session.
 
 #### Scenario: Apply the profile UDP gate
 
 - **WHEN** udpEnabled is false for any relay kind
-- **THEN** UDP ASSOCIATE is rejected without carrier traffic.
+- **THEN** UDP ASSOCIATE is rejected without opening or using a UDP association session.
 
 ### Requirement: REQ-UDP-DATAGRAM-SIZE — Isolate oversized datagrams
 
