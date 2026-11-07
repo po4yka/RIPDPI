@@ -80,3 +80,5 @@ Child records are added below in creation order. Their own records remain the so
 - [DGN-1794036642254618](persist-probe-cache-with-atomic-file.md): audit 12 (attachment 5); priority band 2; Persist the probe cache with AtomicFile.
 
 - [RST-1794036651029797](use-tempfile-for-native-atomic-writes.md): audit 13; priority band 2; Use tempfile for native atomic file replacement.
+
+- [DGN-1794036659395595](use-flume-for-worker-reaper-queue.md): audit 14; priority band 2; Use a bounded flume queue for WorkerReaper.
