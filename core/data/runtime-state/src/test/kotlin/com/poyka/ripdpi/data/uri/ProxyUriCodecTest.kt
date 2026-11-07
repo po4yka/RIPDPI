@@ -8,6 +8,34 @@ import org.junit.Test
 
 class ProxyUriCodecTest {
     @Test
+    fun `profile names decode URI fragments once across share formats`() {
+        val names =
+            mapOf(
+                "A+B" to "A+B",
+                "A%2BB" to "A+B",
+                "100%25%20ready" to "100% ready",
+                "%252B" to "%2B",
+                "%E6%9D%B1%E4%BA%AC" to "東京",
+            )
+        for (base in fragmentTestUris) {
+            for ((fragment, expected) in names) {
+                val profile = ProxyUriCodec.parse("$base#$fragment")
+                assertEquals("$base#$fragment", expected, profile?.displayName)
+                assertEquals(expected, profile?.let { ProxyUriCodec.parse(ProxyUriCodec.encode(it)) }?.displayName)
+            }
+        }
+    }
+
+    @Test
+    fun `profile names keep subscription remarks and fall back for blank fragments`() {
+        for (base in fragmentTestUris) {
+            assertEquals("100% ready", ProxyUriCodec.parse("$base#100% ready")?.displayName)
+            assertEquals("h.example", ProxyUriCodec.parse("$base#%20")?.displayName)
+        }
+        assertNull(ProxyUriCodec.parse("trojan://fixture%zz@h.example:443#name"))
+    }
+
+    @Test
     fun `vless reality uri without pbk is rejected`() {
         assertNull(
             ProxyUriCodec.parse(
@@ -364,6 +392,19 @@ class ProxyUriCodecTest {
     }
 
     private companion object {
+        val fragmentTestUris =
+            listOf(
+                "vless://11111111-2222-3333-4444-555555555555@h.example:443",
+                "vless://11111111-2222-3333-4444-555555555555@h.example:443?security=reality&pbk=PUBLICKEY123",
+                "ss://aes-256-gcm:fixture@h.example:8388",
+                "ss://YWVzLTI1Ni1nY206Zml4dHVyZQ@h.example:8388",
+                "trojan://fixture@h.example:443",
+                "hy2://fixture@h.example:443",
+                "anytls://fixture@h.example:443",
+                "tuic://11111111-2222-3333-4444-555555555555:fixture@h.example:443",
+                "mieru://user:fixture@h.example:443",
+                "ssh://user:fixture@h.example:22",
+            )
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")
     }

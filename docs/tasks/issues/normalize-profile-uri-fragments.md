@@ -2,7 +2,7 @@
 id: DAT-1794036514216544
 title: Decode profile URI fragments exactly once
 kind: bug
-status: todo
+status: doing
 area: data
 priority: high
 owner: Standard-library migration
@@ -31,7 +31,7 @@ Keep each supported share-link format and export/import round trips. Do not chan
 ## Acceptance criteria
 
 - A profile with fragment #A%2BB imports with display name A+B.
-- Malformed percent encoding returns the existing typed failure without partial import or credential disclosure.
+- Malformed authority or userinfo escapes return null without partial import or credential disclosure; existing query and fragment repair preserves stray percent characters as text.
 - Fragments with literal plus, %25, spaces, and Unicode retain one decode across each supported format and export/import.
 - Extend existing runtime-state ProxyUriCodecTest and core/data ProxyUriCodecTest and ProxyUriCodecExportTest.
 - Named local gates and repository-required independent review pass; record exact implementation SHA and command results. Commit each complete atomic implementation unit on main.

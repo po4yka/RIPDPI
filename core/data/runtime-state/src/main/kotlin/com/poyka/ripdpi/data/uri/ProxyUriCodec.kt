@@ -472,7 +472,7 @@ object ProxyUriCodec {
         //   or    ss://method:password@host:port#tag (plain userinfo)
         val body = uri.removePrefix("ss://")
         val fragmentIndex = body.indexOf('#')
-        val fragment = if (fragmentIndex >= 0) body.substring(fragmentIndex + 1) else null
+        val fragment = if (fragmentIndex >= 0) URI(body.substring(fragmentIndex)).fragment else null
         val core = if (fragmentIndex >= 0) body.substring(0, fragmentIndex) else body
         val atIndex = core.lastIndexOf('@')
         if (atIndex <= 0) return null
@@ -556,7 +556,7 @@ object ProxyUriCodec {
         val pinSha256 = rawPin?.let { normalizeHysteria2PinSha256(it) ?: return null }
         return ProxyProfile.Hysteria2(
             id = newId(),
-            displayName = displayName(parsed.rawFragment, host),
+            displayName = displayName(parsed.fragment, host),
             groupId = "",
             server = host,
             serverPort = port,
@@ -650,12 +650,9 @@ object ProxyUriCodec {
     }
 
     private fun displayName(
-        fragment: String?,
+        decodedFragment: String?,
         host: String,
-    ): String {
-        val decoded = fragment?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrNull() ?: it }
-        return decoded?.takeIf { it.isNotBlank() } ?: host
-    }
+    ): String = decodedFragment?.takeIf { it.isNotBlank() } ?: host
 
     private fun queryValue(
         rawQuery: String?,

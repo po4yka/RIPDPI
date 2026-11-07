@@ -2,7 +2,7 @@
 id: EPC-1794036260770217
 title: Replace confirmed custom infrastructure with standard components
 kind: epic
-status: todo
+status: doing
 area: epic
 priority: high
 owner: Standard-library migration

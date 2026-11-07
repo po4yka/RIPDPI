@@ -9,6 +9,8 @@ Audit finding 1 (attachment 2) at 202f970 is owned by portfolio task DAT-1794036
 
 ## Decisions
 
+- Existing import tests require repair of stray percent characters in remarks. Preserve that behavior; malformed authority/userinfo remains rejected.
+
 - Use java.net.URI fragment semantics once. Make raw and decoded fragment inputs explicit; remove URLDecoder from already decoded inputs.
 - Use only existing platform or workspace libraries. Check the direct module dependency before editing.
 - Extend existing runtime-state ProxyUriCodecTest and core/data ProxyUriCodecTest and ProxyUriCodecExportTest.

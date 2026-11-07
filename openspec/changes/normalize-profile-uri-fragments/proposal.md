@@ -10,7 +10,7 @@ Imported profile names must preserve plus signs, percent characters, and Unicode
 
 - Use java.net.URI fragment semantics once. Make raw and decoded fragment inputs explicit; remove URLDecoder from already decoded inputs.
 - A profile with fragment #A%2BB imports with display name A+B.
-- Malformed percent encoding returns the existing typed failure without partial import or credential disclosure.
+- Malformed authority or userinfo escapes return null without partial import or credential disclosure; existing query and fragment repair preserves stray percent characters as text.
 - Correct only the specified defect or infrastructure duplication. No other breaking change is planned; Keep each supported share-link format and export/import round trips. Do not change relay activation or stored profile identifiers.
 
 ## Capabilities

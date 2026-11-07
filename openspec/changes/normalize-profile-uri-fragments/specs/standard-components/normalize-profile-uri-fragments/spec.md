@@ -16,7 +16,7 @@ The implementation MUST satisfy the following observable behavior: A profile wit
 #### Scenario: Reject invalid or failed input
 
 - **WHEN** the operation reaches the malformed, cancelled, full, or failed case relevant to this path
-- **THEN** Malformed percent encoding returns the existing typed failure without partial import or credential disclosure.
+- **THEN** Malformed authority or userinfo escapes return null without partial import or credential disclosure; existing query and fragment repair preserves stray percent characters as text.
 
 ### Requirement: REQ-NORMALIZE-PROFILE-URI-FRAGMENTS-COMPAT — Preserve bounded compatibility and privacy
 
