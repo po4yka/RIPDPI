@@ -2,7 +2,7 @@
 id: RST-1794036651029797
 title: Use tempfile for native atomic file replacement
 kind: chore
-status: todo
+status: review
 area: rust-native
 priority: medium
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: use-tempfile-for-native-atomic-writes
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal

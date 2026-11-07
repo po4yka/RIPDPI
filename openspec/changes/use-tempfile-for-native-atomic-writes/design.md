@@ -43,3 +43,21 @@ First reproduce the specified uncovered behavior or establish a passing contract
 - `just ci-gates`
 
 Run the named targeted checks first. Run staticAnalysis for Kotlin cross-module or security changes and just ci-gates for affected source contracts. Native dependency changes also require locked metadata and cargo-deny. Obtain the repository-required independent review; add async, JNI, or unsafe review only when the actual diff meets those rules. Record exact commands, results, and the implementation SHA. Commit only the finished task slice on main.
+
+## Approved dependency choice (2026-11-07)
+
+The user approved direct use of tempfile 3.27.0 with default features in policy and adaptive runtime crates. Keep the existing lockfile versions. This crate is already in the production relay graph through arti-client. The main runtime gains the normal tempfile, rustix, errno, and linux-raw-sys edges; no new package version is required. The declared licenses permit an MIT or Apache-2.0 choice under the existing repository policy. The Unix backend creates new named files with mode 0600; Android uses the rustix libc backend and system randomness. Keep default getrandom reseeding.
+
+Source review found no tempfile build script or network actions in the relevant existing build scripts. The cached tempfile archive is 44780 bytes and its unpacked source is 187854 bytes. These sizes do not measure native binary growth. Compare the affected Android binary with the same profile and ABI before acceptance; do not update a size baseline to hide a regression.
+
+## Observed Android size
+
+The owning `:core:engine:buildRustNativeLibs` task passed for arm64-v8a with both profile properties set to android-jni-dev and no prebuilt input. Normalize only copies with NDK29 llvm-strip --strip-all and removal of .debug_gdb_scripts. The baseline build had the same native sources after heap removal; the intervening probe-cache commits changed Kotlin and task records only.
+
+- Before libripdpi.so: 25928104 bytes; text 24836905, data 1085360, bss 21376; SHA256 66b9fd084aec3896cbdf1a2d037525db55c8172f2a8d159897d2d0e9354fa9f8.
+- After libripdpi.so: 25961824 bytes; text 24872447, data 1086136, bss 24504; SHA256 858b8d8e5884bb793a54368796bdad9498903b58828672517ec03e9e2868083c.
+- Whole-task normalized ELF delta: +33720 bytes (0.130%). This is not an isolated dependency cost or a release APK measurement.
+- Before native-input digest: 6529501932a53c8bd2b5b60635bd0f0c65c367d42516559325b27200e3370f82.
+- After native-input digest: 912cf77bed9ae5f33cde596e35fa6e4d7a97c83407e8ce58fc3e0b72b6f77a68.
+
+All three writers retain file sync before atomic replacement and best-effort directory sync after it. Only autolearn/adaptive create missing parents. Policy fixture nonce helpers remain under cfg(test); no runtime write uses them. RAII cleanup is tested on failure, not after SIGKILL. No native size baseline changes are needed.

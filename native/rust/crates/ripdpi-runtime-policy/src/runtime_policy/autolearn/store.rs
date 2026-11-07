@@ -12,8 +12,7 @@ use crate::runtime_policy::types::{
     LearnedHostRecord, LearnedHostStore, LearnedNetworkScopeStore, LoadLearnedHostStoreError,
 };
 use crate::runtime_policy::{
-    AUTOLEARN_PERSIST_DEBOUNCE_MS, DEFAULT_NETWORK_SCOPE_KEY, HOST_AUTOLEARN_STORE_VERSION, RuntimePolicy,
-    next_temp_file_nonce, now_millis,
+    AUTOLEARN_PERSIST_DEBOUNCE_MS, DEFAULT_NETWORK_SCOPE_KEY, HOST_AUTOLEARN_STORE_VERSION, RuntimePolicy, now_millis,
 };
 
 /// Same bound as the adaptive tuning store: a larger file is treated as invalid and replaced.
@@ -136,25 +135,49 @@ pub(super) fn network_scope_key(config: &RuntimeConfig) -> &str {
 }
 
 fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
-    let Some(parent) = path.parent() else {
-        return fs::write(path, payload);
-    };
+    let parent = path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
     fs::create_dir_all(parent)?;
-    let tmp_name = format!(
-        ".{}.tmp-{}-{}",
-        path.file_name().and_then(|name| name.to_str()).unwrap_or("autolearn"),
-        std::process::id(),
-        next_temp_file_nonce()
-    );
-    let tmp_path = parent.join(&tmp_name);
-    {
-        let mut file = fs::File::create(&tmp_path)?;
-        file.write_all(payload)?;
-        file.sync_all()?;
+    let mut file = tempfile::NamedTempFile::new_in(parent)?;
+    file.write_all(payload)?;
+    match fs::metadata(path) {
+        Ok(metadata) => file.as_file().set_permissions(metadata.permissions())?,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
     }
-    fs::rename(&tmp_path, path)?;
-    // Best-effort: fsync the parent directory so the rename itself is durable.
-    // Some filesystems/platforms reject fsync on directories; ignore that gracefully.
+    file.as_file().sync_all()?;
+    file.persist(path).map_err(|error| error.error)?;
+    // Best-effort directory sync keeps the existing durability contract.
     let _ = fs::File::open(parent).and_then(|dir| dir.sync_all());
     Ok(())
+}
+
+#[cfg(test)]
+mod atomic_file_tests {
+    use super::*;
+
+    #[test]
+    fn failed_replacement_keeps_destination_and_removes_temporary_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("store.json");
+        fs::create_dir(&destination).unwrap();
+        fs::write(destination.join("marker"), b"old state").unwrap();
+        assert!(atomic_write(&destination, b"new state").is_err());
+        assert_eq!(fs::read(destination.join("marker")).unwrap(), b"old state");
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn replacement_is_private_and_preserves_existing_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("store.json");
+        atomic_write(&destination, b"first").unwrap();
+        assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o600);
+        fs::set_permissions(&destination, fs::Permissions::from_mode(0o640)).unwrap();
+        atomic_write(&destination, b"replacement").unwrap();
+        assert_eq!(fs::read(&destination).unwrap(), b"replacement");
+        assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o640);
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
+    }
 }

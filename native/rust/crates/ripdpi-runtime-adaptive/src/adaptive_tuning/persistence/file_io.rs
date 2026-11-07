@@ -3,7 +3,6 @@ use std::io::{self, Read, Write};
 use std::path::Path;
 
 use super::schema::StoredAdaptivePlannerStore;
-use crate::adaptive_tuning::key::now_millis;
 
 const MAX_ADAPTIVE_STORE_BYTES: u64 = 8 * 1024 * 1024;
 
@@ -29,35 +28,18 @@ pub(super) fn write_store(path: &Path, store: &StoredAdaptivePlannerStore) -> io
 fn atomic_write(path: &Path, payload: &[u8]) -> io::Result<()> {
     let parent = path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
     fs::create_dir_all(parent)?;
-    let tmp_name = format!(
-        ".{}.tmp-{}-{}",
-        path.file_name().and_then(|value| value.to_str()).unwrap_or("adaptive-tuning"),
-        std::process::id(),
-        next_temp_file_nonce()
-    );
-    let tmp_path = parent.join(tmp_name);
-    let result = (|| {
-        let mut file = fs::File::create(&tmp_path)?;
-        file.write_all(payload)?;
-        file.sync_all()?;
-        drop(file);
-        fs::rename(&tmp_path, path)
-    })();
-    if result.is_err() {
-        let _ = fs::remove_file(&tmp_path);
-    } else {
-        let _ = fs::File::open(parent).and_then(|dir| dir.sync_all());
+    let mut file = tempfile::NamedTempFile::new_in(parent)?;
+    file.write_all(payload)?;
+    match fs::metadata(path) {
+        Ok(metadata) => file.as_file().set_permissions(metadata.permissions())?,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
     }
-    result
-}
-
-fn next_temp_file_nonce() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static TEMP_FILE_NONCE: AtomicU64 = AtomicU64::new(0);
-    let timestamp = now_millis() << 16;
-    let sequence = TEMP_FILE_NONCE.fetch_add(1, Ordering::Relaxed) & 0xFFFF;
-    timestamp | sequence
+    file.as_file().sync_all()?;
+    file.persist(path).map_err(|error| error.error)?;
+    // Best-effort directory sync keeps the existing durability contract.
+    let _ = fs::File::open(parent).and_then(|dir| dir.sync_all());
+    Ok(())
 }
 
 #[cfg(test)]
@@ -82,5 +64,18 @@ mod tests {
         let path = temp.path().join("store.json");
         fs::File::create(&path).expect("create store").set_len(MAX_ADAPTIVE_STORE_BYTES + 1).expect("size store");
         assert_eq!(read_store(&path).expect_err("oversized store must fail").kind(), std::io::ErrorKind::InvalidData);
+    }
+    #[cfg(unix)]
+    #[test]
+    fn replacement_is_private_and_preserves_existing_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("store.json");
+        atomic_write(&destination, b"first").unwrap();
+        assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o600);
+        fs::set_permissions(&destination, fs::Permissions::from_mode(0o640)).unwrap();
+        atomic_write(&destination, b"replacement").unwrap();
+        assert_eq!(fs::read(&destination).unwrap(), b"replacement");
+        assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o640);
     }
 }

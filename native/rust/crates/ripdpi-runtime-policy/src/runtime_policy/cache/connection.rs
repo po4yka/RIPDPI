@@ -8,8 +8,8 @@ use ripdpi_config::{RuntimeConfig, dump_cache_entries, load_cache_entries_from_p
 
 use super::route_from_record;
 use crate::runtime_policy::ConnectionRoute;
+use crate::runtime_policy::now_unix;
 use crate::runtime_policy::types::CacheRecord;
-use crate::runtime_policy::{next_temp_file_nonce, now_unix};
 
 pub(super) fn load_records(config: &RuntimeConfig) -> Vec<CacheRecord> {
     let mut records = Vec::new();
@@ -88,35 +88,17 @@ pub(super) fn persist_records_for_group(records: &[CacheRecord], config: &Runtim
 }
 
 fn write_cache_file(path: &Path, payload: &[u8]) -> io::Result<()> {
-    let name = path.file_name().and_then(|name| name.to_str()).unwrap_or("route-cache");
-    let tmp_path = path.with_file_name(format!(".{name}.tmp-{}-{}", std::process::id(), next_temp_file_nonce()));
-    let mut options = fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600);
-    }
-    let mut file = options.open(&tmp_path)?;
-    let write_result = (|| {
-        file.write_all(payload)?;
-        file.sync_all()?;
-        match fs::metadata(path) {
-            Ok(metadata) => {
-                file.set_permissions(metadata.permissions())?;
-                file.sync_all()?;
-            }
-            Err(err) if err.kind() == io::ErrorKind::NotFound => {}
-            Err(err) => return Err(err),
-        }
-        Ok(())
-    })();
-    drop(file);
-    if let Err(err) = write_result.and_then(|()| fs::rename(&tmp_path, path)) {
-        let _ = fs::remove_file(&tmp_path);
-        return Err(err);
-    }
     let parent = path.parent().filter(|parent| !parent.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let mut file = tempfile::NamedTempFile::new_in(parent)?;
+    file.write_all(payload)?;
+    match fs::metadata(path) {
+        Ok(metadata) => file.as_file().set_permissions(metadata.permissions())?,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    file.as_file().sync_all()?;
+    file.persist(path).map_err(|error| error.error)?;
+    // Best-effort directory sync keeps the existing durability contract.
     let _ = fs::File::open(parent).and_then(|dir| dir.sync_all());
     Ok(())
 }
@@ -144,5 +126,36 @@ pub(super) fn cache_bits(config: &RuntimeConfig, ip: IpAddr) -> u16 {
         IpAddr::V4(_) if config.adaptive.cache_prefix != 0 => (32 - config.adaptive.cache_prefix as u16).max(1),
         IpAddr::V4(_) => 32,
         IpAddr::V6(_) => 128,
+    }
+}
+
+#[cfg(test)]
+mod atomic_file_tests {
+    use super::*;
+
+    #[test]
+    fn failed_replacement_keeps_destination_and_removes_temporary_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("store.json");
+        fs::create_dir(&destination).unwrap();
+        fs::write(destination.join("marker"), b"old state").unwrap();
+        assert!(write_cache_file(&destination, b"new state").is_err());
+        assert_eq!(fs::read(destination.join("marker")).unwrap(), b"old state");
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn replacement_is_private_and_preserves_existing_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let destination = temp.path().join("store.json");
+        write_cache_file(&destination, b"first").unwrap();
+        assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o600);
+        fs::set_permissions(&destination, fs::Permissions::from_mode(0o640)).unwrap();
+        write_cache_file(&destination, b"replacement").unwrap();
+        assert_eq!(fs::read(&destination).unwrap(), b"replacement");
+        assert_eq!(fs::metadata(&destination).unwrap().permissions().mode() & 0o777, 0o640);
+        assert_eq!(fs::read_dir(temp.path()).unwrap().count(), 1);
     }
 }

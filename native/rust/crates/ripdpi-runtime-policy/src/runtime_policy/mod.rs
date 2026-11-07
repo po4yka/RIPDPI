@@ -10,6 +10,7 @@ mod test_support;
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::LazyLock;
+#[cfg(test)]
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -54,6 +55,7 @@ pub(super) fn now_millis() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
 
+#[cfg(test)]
 pub(super) fn next_temp_file_nonce() -> u64 {
     static TEMP_FILE_NONCE: AtomicU64 = AtomicU64::new(0);
     let sequence = TEMP_FILE_NONCE.fetch_add(1, Ordering::Relaxed);
@@ -70,6 +72,7 @@ pub(super) fn next_temp_file_nonce() -> u64 {
 /// `sequence` values and collide on a shared temp-file path. The pid occupies
 /// the top 16 bits so each process owns a disjoint nonce space regardless of
 /// wall-clock collisions.
+#[cfg(test)]
 fn mix_temp_file_nonce(now_ms: u64, pid: u32, sequence: u64) -> u64 {
     let pid_bits = u64::from(pid) << 48;
     let timestamp = (now_ms << 16) & 0x0000_FFFF_FFFF_0000;
