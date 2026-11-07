@@ -26,27 +26,27 @@ fn relay_transport_descriptor_for(config: &ResolvedRelayRuntimeConfig) -> Option
 ///
 /// The generic TCP / UDP / connection-reuse capabilities are read from the
 /// [`RelayTransportDescriptor`] table — the single source of truth for these
-/// `relay_kind`-keyed facts. Both VLESS kinds then apply their profile-local
-/// `udp_enabled`, transport, and flow gates to that kind capability. Shadowsocks
+/// `relay_kind`-keyed facts. Every kind applies the profile UDP flag; both VLESS
+/// kinds also apply transport and flow gates to that capability. Shadowsocks
 /// UDP additionally requires an SS2022 method. The `Unsupported` catch-all has no descriptor row and reports the empty
 /// [`RelayCapabilities::default`] profile.
 pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> RelayCapabilities {
     let Some(descriptor) = relay_transport_descriptor_for(config) else {
         return RelayCapabilities::default();
     };
-    let udp = if let RelayBackendConfig::VlessReality(vless) = &config.backend {
-        descriptor.udp && config.common.udp_enabled && vless_udp_supported(&vless.vless_transport, &vless.vless_flow)
-    } else if let RelayBackendConfig::Vless(vless) = &config.backend {
-        // Plain VLESS (TLS) has a native backend only for xHTTP.
-        descriptor.udp
-            && config.common.udp_enabled
-            && vless.vless_transport == "xhttp"
-            && vless_udp_supported(&vless.vless_transport, &vless.vless_flow)
-    } else if let RelayBackendConfig::Shadowsocks(shadowsocks) = &config.backend {
-        descriptor.udp && ripdpi_relay_tls_transports::ShadowsocksSessionFactory::supports_udp(&shadowsocks.method)
-    } else {
-        descriptor.udp
-    };
+    let udp = config.common.udp_enabled
+        && descriptor.udp
+        && match &config.backend {
+            RelayBackendConfig::VlessReality(vless) => vless_udp_supported(&vless.vless_transport, &vless.vless_flow),
+            // Plain VLESS (TLS) has a native backend only for xHTTP.
+            RelayBackendConfig::Vless(vless) => {
+                vless.vless_transport == "xhttp" && vless_udp_supported(&vless.vless_transport, &vless.vless_flow)
+            }
+            RelayBackendConfig::Shadowsocks(shadowsocks) => {
+                ripdpi_relay_tls_transports::ShadowsocksSessionFactory::supports_udp(&shadowsocks.method)
+            }
+            _ => true,
+        };
     // The per-kind descriptor cannot express sub-modes: VLESS Reality pools
     // its carrier only in the xhttp sub-mode (the factory reports
     // `reusable = mux.is_some()`), while reality_tcp stays single-carrier.

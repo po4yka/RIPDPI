@@ -482,18 +482,18 @@ fn assert_outbound_bind_ip_support(kind_id: &str, base: &ResolvedRelayRuntimeCon
 fn relay_planned_capabilities_are_pinned_for_every_kind() {
     // kind_id, tcp, udp, reusable, supports_outbound_bind_ip
     let pinned: [(&str, bool, bool, bool, bool); 15] = [
-        ("hysteria2", true, true, true, false),
-        ("tuic_v5", true, true, true, true),
+        ("hysteria2", true, false, true, false),
+        ("tuic_v5", true, false, true, true),
         ("vless", true, false, true, true),
         ("vless_reality", true, false, false, true),
         ("mieru", true, false, false, false),
         ("ssh", true, false, false, false),
         ("cloudflare_tunnel", true, false, true, true),
         ("chain_relay", true, false, false, true),
-        ("masque", true, true, true, false),
+        ("masque", true, false, true, false),
         ("shadowtls_v3", true, false, false, true),
-        ("trojan", true, true, false, true),
-        ("anytls", true, true, true, true),
+        ("trojan", true, false, false, true),
+        ("anytls", true, false, true, true),
         ("shadowsocks", true, false, false, true), // the sample profile uses legacy AEAD
         ("tor", true, false, true, false),
         ("naiveproxy", true, false, false, false),

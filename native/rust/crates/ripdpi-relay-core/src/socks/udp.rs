@@ -80,6 +80,8 @@ impl ClientUdpSocket for UdpSocket {
     }
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: reply writes can be partial; the caller awaits this future through teardown.
 pub(crate) async fn handle_udp_associate<T>(
     mut client: TcpStream,
     backend: Arc<RelayBackend>,
@@ -90,7 +92,7 @@ pub(crate) async fn handle_udp_associate<T>(
 where
     T: SocksTelemetry + ?Sized,
 {
-    if !backend.udp_capable() {
+    if !config.udp_enabled || !backend.udp_capable() {
         write_reply(&mut client, 0x07, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
@@ -518,6 +520,7 @@ mod tests {
         SocksSessionConfig {
             local_socks_host: "127.0.0.1".to_string(),
             backend_kind: "trojan".to_string(),
+            udp_enabled: true,
             confirm_good_eligible: false,
             timeouts: RelaySessionTimeouts {
                 connect_deadline: Duration::from_secs(30),

@@ -30,6 +30,7 @@ pub(super) fn spawn_socks_session(
             let socks_config = SocksSessionConfig {
                 local_socks_host: session_runtime.config.common.local_socks_host.clone(),
                 backend_kind: session_runtime.config.kind_id().to_string(),
+                udp_enabled: session_runtime.config.common.udp_enabled,
                 confirm_good_eligible: session_runtime.confirm_good_dpi_eligible(),
                 timeouts: RelaySessionTimeouts::production(),
                 local_socks_auth: session_runtime.config.common.local_socks_auth.clone(),

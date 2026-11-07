@@ -9,8 +9,9 @@ use crate::telemetry::{ChainHopTelemetrySnapshot, RelayTelemetry, now_ms};
 
 pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
     let backend = runtime.state.backend();
-    let capabilities =
+    let mut capabilities =
         backend.map_or_else(|| planned_backend_capabilities(&runtime.config), |backend| backend.capabilities());
+    capabilities.udp &= runtime.config.common.udp_enabled;
     let (quic_migration_status, quic_migration_reason) =
         backend.map_or((None, None), |backend| backend.quic_migration_snapshot());
     let is_running = runtime.state.is_running();

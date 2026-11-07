@@ -51,6 +51,7 @@ impl RelaySessionTimeouts {
 pub(crate) struct SocksSessionConfig {
     pub(crate) local_socks_host: String,
     pub(crate) backend_kind: String,
+    pub(crate) udp_enabled: bool,
     pub(crate) confirm_good_eligible: bool,
     pub(crate) timeouts: RelaySessionTimeouts,
     /// Credentials every client must present; `None` keeps NO-AUTH.

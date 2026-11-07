@@ -137,13 +137,10 @@ fn relay_transport_registry_is_consistent() {
         assert!(registered.contains(descriptor.kind_id), "registration kind {} is unreachable", descriptor.kind_id);
 
         let mut capability_config = sample_config(descriptor.kind_id);
-        if descriptor.kind_id == "vless_reality" {
-            // The descriptor says the kind can carry UDP; the effective
-            // profile capability additionally requires the existing opt-in.
-            capability_config.common.udp_enabled = true;
-        } else if descriptor.kind_id == "vless" {
+        // A kind's descriptor is intrinsic; a profile must also enable UDP.
+        capability_config.common.udp_enabled = true;
+        if descriptor.kind_id == "vless" {
             // Plain VLESS carries XUDP over xHTTP with the empty flow only.
-            capability_config.common.udp_enabled = true;
             plain_vless_config_mut(&mut capability_config).vless_flow = String::new();
         } else if descriptor.kind_id == "shadowsocks" {
             shadowsocks_config_mut(&mut capability_config).method = "2022-blake3-aes-128-gcm".to_owned();

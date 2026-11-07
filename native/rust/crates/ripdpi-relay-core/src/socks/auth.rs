@@ -484,6 +484,7 @@ mod tests {
         let config = SocksSessionConfig {
             local_socks_host: "127.0.0.1".to_string(),
             backend_kind: "trojan".to_string(),
+            udp_enabled: true,
             confirm_good_eligible: false,
             timeouts: RelaySessionTimeouts::production(),
             local_socks_auth: None,

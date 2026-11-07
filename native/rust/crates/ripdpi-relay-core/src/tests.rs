@@ -19,6 +19,7 @@ mod shutdown_drain;
 mod shutdown_leak;
 mod tls_in_tls_exposure;
 mod transport_registry;
+mod udp_profile_gate;
 
 use crate::backend::RelayBackend;
 use crate::backend::builder::build_backend;
