@@ -39,3 +39,7 @@ First reproduce the specified uncovered behavior or establish a passing contract
 - `just ci-gates`
 
 Run the named targeted checks first. Run staticAnalysis for Kotlin cross-module or security changes and just ci-gates for affected source contracts. Native dependency changes also require locked metadata and cargo-deny. Obtain the repository-required independent review; add async, JNI, or unsafe review only when the actual diff meets those rules. Record exact commands, results, and the implementation SHA. Commit only the finished task slice on main.
+
+## Observed verification scope
+
+Test backup recovery, successful replacement, corrupt JSON, clear, TTL, and eviction on Robolectric SDK 27 and 35. Test the .new layout and blocked startWrite on SDK 35. The initial default-SDK .new blocker did not cause a write failure under the legacy backup layout; use an explicit SDK for this layout-specific fixture. These host tests do not establish mid-write rollback, process-kill, or device filesystem acceptance. Cleanup after an acquired write stream uses finally; no generic exception catch or quality suppression is needed.

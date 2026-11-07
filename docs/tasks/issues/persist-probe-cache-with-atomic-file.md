@@ -2,7 +2,7 @@
 id: DGN-1794036642254618
 title: Persist the probe cache with AtomicFile
 kind: chore
-status: todo
+status: review
 area: diagnostics
 priority: medium
 owner: Standard-library migration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: persist-probe-cache-with-atomic-file
 created: 2026-11-07
 updated: 2026-11-07
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal

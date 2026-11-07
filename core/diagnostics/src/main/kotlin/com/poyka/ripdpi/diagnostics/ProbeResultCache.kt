@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
+import android.util.AtomicFile
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.TrimmableCache
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -11,6 +12,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.FileNotFoundException
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -50,7 +52,7 @@ class DefaultProbeResultCache
             private val log = Logger.withTag("ProbeResultCache")
         }
 
-        private val cacheFile = File(context.filesDir, "probe_result_cache.json")
+        private val cacheFile = AtomicFile(File(context.filesDir, "probe_result_cache.json"))
         private val mutex = Mutex()
 
         @Volatile
@@ -60,17 +62,17 @@ class DefaultProbeResultCache
             entries?.let { return it }
             val loaded =
                 runCatching {
-                    if (cacheFile.exists()) {
+                    cacheFile.openRead().bufferedReader(Charsets.UTF_8).use { reader ->
                         json
                             .decodeFromString(
                                 MapSerializer(String.serializer(), CachedProbeOutcome.serializer()),
-                                cacheFile.readText(),
+                                reader.readText(),
                             ).toMutableMap()
-                    } else {
-                        mutableMapOf()
                     }
                 }.getOrElse { error ->
-                    log.w(error) { "Failed to load probe result cache, starting fresh" }
+                    if (error !is FileNotFoundException) {
+                        log.w(error) { "Failed to load probe result cache, starting fresh" }
+                    }
                     mutableMapOf()
                 }
             entries = loaded
@@ -79,12 +81,23 @@ class DefaultProbeResultCache
 
         private fun persist(map: Map<String, CachedProbeOutcome>) {
             runCatching {
-                cacheFile.writeText(
-                    json.encodeToString(
-                        MapSerializer(String.serializer(), CachedProbeOutcome.serializer()),
-                        map,
-                    ),
-                )
+                val payload =
+                    json
+                        .encodeToString(
+                            MapSerializer(String.serializer(), CachedProbeOutcome.serializer()),
+                            map,
+                        ).toByteArray(Charsets.UTF_8)
+                val output = cacheFile.startWrite()
+                var completed = false
+                try {
+                    output.write(payload)
+                    cacheFile.finishWrite(output)
+                    completed = true
+                } finally {
+                    if (!completed) {
+                        cacheFile.failWrite(output)
+                    }
+                }
             }.onFailure { error ->
                 log.w(error) { "Failed to persist probe result cache" }
             }
