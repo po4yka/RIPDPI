@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T09:38:57Z",
+  "change": "separate-cors-sites-with-public-suffix-list",
+  "commit_sha": "873d4a3457a164fef502096e62a2f7ab07b5328a",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RLY-1794036597359685"
+}

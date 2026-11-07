@@ -1,0 +1,11 @@
+{
+  "change": "separate-cors-sites-with-public-suffix-list",
+  "evidence_summary": "Implementation 873d4a345 passed 68 tests, formatting, Clippy with await-holding lints, metadata, all cargo-deny checks, ci-gates, independent reviews, and arm64 owner builds. Normalized dev ELF delta +1218616 bytes (+3.29%); release/APK size not checked.",
+  "execution_sha256": "2296c3fc506866ccada547f873cb1c35c804395423dde1b2f6c74a86e38d7a64",
+  "issue_sha256": "c72afefd21eedd1c643fdc8a963b58c413b3f13a1b3dcafde1f9e03358a197c7",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T09:38:57Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1794036597359685"
+}

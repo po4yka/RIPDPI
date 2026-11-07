@@ -2,7 +2,7 @@
 id: RLY-1794036597359685
 title: Separate CORS sites with the Public Suffix List
 kind: bug
-status: review
+status: done
 area: relay
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: separate-cors-sites-with-public-suffix-list
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T09:38:57Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation 873d4a345 passed 68 tests, formatting, Clippy with await-holding lints, metadata, all cargo-deny checks, ci-gates, independent reviews, and arm64 owner builds. Normalized dev ELF delta +1218616 bytes (+3.29%); release/APK size not checked.
 ---
 
 ## Goal
