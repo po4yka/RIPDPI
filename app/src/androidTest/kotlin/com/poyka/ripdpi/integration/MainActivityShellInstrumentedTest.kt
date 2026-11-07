@@ -411,6 +411,7 @@ class MainActivityShellInstrumentedTest {
 
     @Test
     fun tappingShareSupportBundleRoutesToHost() {
+        waitForMainShellReady()
         composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Settings)).performClick()
         composeRule
             .onNode(
