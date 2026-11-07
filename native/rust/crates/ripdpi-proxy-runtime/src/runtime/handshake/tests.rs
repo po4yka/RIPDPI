@@ -786,3 +786,14 @@ fn socks5_request_header_is_rejected_before_reading_the_address() {
         assert_eq!(reply, [5, 0], "no CONNECT success may follow negotiation");
     }
 }
+
+#[test]
+fn unsupported_socks5_address_type_sends_reply_then_closes() {
+    let (mut client, server) = connected_pair();
+    client.write_all(&[5, 1, 0, 5, 1, 0, 9]).expect("write negotiation and unknown address header");
+    let result = super::handle_client(server, &runtime_state(RuntimeConfig::default()));
+    result.expect("unsupported address type has a protocol failure reply");
+    let mut reply = Vec::new();
+    client.read_to_end(&mut reply).expect("read unsupported address reply and EOF");
+    assert_eq!(reply, [5, 0, 5, 8, 0, 1, 0, 0, 0, 0, 0, 0]);
+}

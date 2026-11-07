@@ -95,9 +95,8 @@ fn read_socks5_request_inner(client: &mut TcpStream, deadline: Instant) -> io::R
         let mut tail = vec![0u8; tail_len];
         read_exact_by(client, &mut tail, deadline)?;
         out.extend_from_slice(&tail);
-    } else {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported SOCKS5 address type"));
     }
+    // The session parser rejects unknown types from the header, without reading an unknown body length.
     Ok(out)
 }
 

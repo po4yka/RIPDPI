@@ -2,8 +2,8 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 
 use crate::types::{
     ClientRequest, NameResolver, S_ATP_I4, S_ATP_I6, S_ATP_ID, S_ATP_RESOLVED_ID, S_CMD_AUDP, S_CMD_CONN, S_ER_ATP,
-    S_ER_CMD, S_ER_GEN, S_ER_HOST, S_SIZE_I4, S_SIZE_I6, S_SIZE_ID, S_SIZE_MIN, SessionConfig, SessionError,
-    SocketType, TargetAddr, read_be_u16,
+    S_ER_CMD, S_ER_GEN, S_ER_HOST, S_SIZE_I4, S_SIZE_I6, S_SIZE_ID, SessionConfig, SessionError, SocketType,
+    TargetAddr, read_be_u16,
 };
 
 pub fn parse_socks5_request(
@@ -12,7 +12,7 @@ pub fn parse_socks5_request(
     config: SessionConfig,
     resolver: &dyn NameResolver,
 ) -> Result<ClientRequest, SessionError> {
-    if buffer.len() < S_SIZE_MIN || buffer[0] != 0x05 || buffer[2] != 0 {
+    if buffer.len() < 4 || buffer[0] != 0x05 || buffer[2] != 0 {
         return Err(SessionError::socks5(S_ER_GEN));
     }
     let atyp = buffer[3];
@@ -52,7 +52,7 @@ pub fn parse_socks5_request(
             raw.copy_from_slice(&buffer[4..20]);
             (TargetAddr { addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), 0), host: None }, S_SIZE_I6)
         }
-        _ => return Err(SessionError::socks5(S_ER_GEN)),
+        _ => return Err(SessionError::socks5(S_ER_ATP)),
     };
     let port = read_be_u16(buffer, offset - 2).ok_or_else(|| SessionError::socks5(S_ER_GEN))?;
     let target = TargetAddr { addr: SocketAddr::new(target.addr.ip(), port), host: target.host };
@@ -248,11 +248,37 @@ mod tests {
     }
 
     #[test]
+    fn truncated_known_addresses_are_rejected() {
+        let requests: &[&[u8]] = &[
+            &[5, 1, 0, 1, 127, 0, 0, 1, 0, 80],
+            &[5, 1, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 80],
+            &[5, 1, 0, 3, 3, b'a', b'.', b'b', 0, 80],
+            &[5, 1, 0, 5, 1, b'a', 1, 127, 0, 0, 1, 0, 80],
+        ];
+        for request in requests {
+            for end in 0..request.len() {
+                assert!(
+                    parse_socks5_request(&request[..end], SocketType::Stream, SessionConfig::default(), &resolver)
+                        .is_err(),
+                    "truncated request {request:?} at {end} must fail"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn unsupported_address_header_is_rejected_without_an_address_body() {
+        let error = parse_socks5_request(&[5, 1, 0, 9], SocketType::Stream, SessionConfig::default(), &resolver)
+            .expect_err("unknown address type must not require a body");
+        assert_eq!(error.code, S_ER_ATP);
+    }
+
+    #[test]
     fn parse_socks5_request_unknown_address_type() {
         let request = vec![S_VER5, S_CMD_CONN, 0, 0xff, 0, 0, 0, 0, 0, 0];
         let result = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code, S_ER_GEN);
+        assert_eq!(result.unwrap_err().code, S_ER_ATP);
     }
 
     #[test]
