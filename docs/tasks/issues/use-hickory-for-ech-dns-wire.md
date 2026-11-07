@@ -2,7 +2,7 @@
 id: DNS-1794036623422123
 title: Use Hickory for ECH DNS wire messages
 kind: chore
-status: review
+status: done
 area: dns
 priority: medium
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: use-hickory-for-ech-dns-wire
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T11:12:24Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation b6957913b accepted with 217 passing tests, Clippy, metadata, cargo-deny, ci-gates, independent review, ASan fuzz and mutation evidence recorded in verification.md.
 ---
 
 ## Goal

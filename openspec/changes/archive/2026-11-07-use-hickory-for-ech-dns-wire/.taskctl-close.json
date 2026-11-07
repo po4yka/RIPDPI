@@ -1,0 +1,11 @@
+{
+  "change": "use-hickory-for-ech-dns-wire",
+  "evidence_summary": "Implementation b6957913b accepted with 217 passing tests, Clippy, metadata, cargo-deny, ci-gates, independent review, ASan fuzz and mutation evidence recorded in verification.md.",
+  "execution_sha256": "ec64cf6c4cfcb9d59b32e7a5bc4d7c365f083dd4e95c99408dfd23c704d6999d",
+  "issue_sha256": "4b0e13d984a024ce3cbdef145e795796927ddf12d661b21f1cc420973dbeac95",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T11:12:24Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DNS-1794036623422123"
+}

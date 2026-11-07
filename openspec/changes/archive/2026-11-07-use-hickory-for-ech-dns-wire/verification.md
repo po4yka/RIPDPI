@@ -1,7 +1,7 @@
 ---
 task_id: DNS-1794036623422123
 change: use-hickory-for-ech-dns-wire
-commit_sha: null
+commit_sha: b6957913bfd6cd9e89c0478a683489f92078d145
 local: passed
 local_evidence: "Two regressions failed before implementation. Final locked tests: 217 passed, no ignored tests; fmt and owning Clippy passed. Locked metadata and cargo-deny passed. just ci-gates passed (Linux-owned runtime-platform snapshot is skipped by the Darwin recipe). Independent pr-reviewer found no actionable issue. Canonical single-shard ASan fuzz: 5 input tests passed, 98276 parser runs in 16 seconds, no crashes, unchanged fuzz lock hash. Mutation run: 17 caught, one mutant caused five test failures plus an existing server-test timeout, one error-category gap fixed; focused repeat caught that mutant with exit 0. Production code did not change after review or fuzz. No device, release, or remote CI claim."
 remote_ci: not_applicable
@@ -27,4 +27,4 @@ deployment_evidence: No deployment is owned by this change.
 
 Two regressions failed before implementation. Final locked tests: 217 passed, no ignored tests; fmt and owning Clippy passed. Locked metadata and cargo-deny passed. just ci-gates passed (Linux-owned runtime-platform snapshot is skipped by the Darwin recipe). Independent pr-reviewer found no actionable issue. Canonical single-shard ASan fuzz: 5 input tests passed, 98276 parser runs in 16 seconds, no crashes, unchanged fuzz lock hash. Mutation run: 17 caught, one mutant caused five test failures plus an existing server-test timeout, one error-category gap fixed; focused repeat caught that mutant with exit 0. Production code did not change after review or fuzz. No device, release, or remote CI claim.
 
-The closure commit records the implementation SHA. Local checks do not establish remote CI, device, artifact, or deployment acceptance.
+The exact implementation SHA is recorded above. Local checks do not establish remote CI, device, artifact, or deployment acceptance.

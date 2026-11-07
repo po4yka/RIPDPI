@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T11:12:24Z",
+  "change": "use-hickory-for-ech-dns-wire",
+  "commit_sha": "b6957913bfd6cd9e89c0478a683489f92078d145",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DNS-1794036623422123"
+}
