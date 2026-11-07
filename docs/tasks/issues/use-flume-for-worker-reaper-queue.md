@@ -2,7 +2,7 @@
 id: DGN-1794036659395595
 title: Use a bounded flume queue for WorkerReaper
 kind: chore
-status: review
+status: done
 area: diagnostics
 priority: medium
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: use-flume-for-worker-reaper-queue
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T11:44:10Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Implementation 057140af3 accepted: 293 monitor-engine tests, two existing opt-in soak exclusions, owning/dependency/source gates and independent concurrency review passed."
 ---
 
 ## Goal

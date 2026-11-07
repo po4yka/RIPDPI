@@ -1,0 +1,11 @@
+{
+  "change": "use-flume-for-worker-reaper-queue",
+  "evidence_summary": "Implementation 057140af3 accepted: 293 monitor-engine tests, two existing opt-in soak exclusions, owning/dependency/source gates and independent concurrency review passed.",
+  "execution_sha256": "1ea3079ddd8072ecda74e787f37276ce7c08d1034827b36c79c0ea2f9d0f5fd5",
+  "issue_sha256": "26684271eb562697c0bc9c92871c3c571f5961f627d9c9777708b1f239cbc92a",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T11:44:10Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1794036659395595"
+}

@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1794036659395595
 change: use-flume-for-worker-reaper-queue
-commit_sha: null
+commit_sha: 057140af317b62ff480471a0626d6bf3fadcad53
 local: passed
 local_evidence: "Existing two reaper tests passed as baseline. Final locked monitor-engine suite:293 passed,2 pre-existing opt-in soak tests ignored. All five reaper cases passed including saturation/concurrent joins/disconnect/zero workers/shutdown; rejection preserves original thread ID and pending0. Owning fmt/Clippy, locked metadata, cargo-deny and just ci-gates passed. Independent concurrency review found no issue. flume0.12 already workspace-pinned; lock diff only direct edge. Queue64/workers4/5ms enqueue preserved, no new async/unsafe/JNI behavior. Exact scheduler wall time and injected OS thread-spawn failure not claimed."
 remote_ci: not_applicable
@@ -27,4 +27,4 @@ deployment_evidence: No deployment is owned by this change.
 
 Existing two reaper tests passed as baseline. Final locked monitor-engine suite:293 passed,2 pre-existing opt-in soak tests ignored. All five reaper cases passed including saturation/concurrent joins/disconnect/zero workers/shutdown; rejection preserves original thread ID and pending0. Owning fmt/Clippy, locked metadata, cargo-deny and just ci-gates passed. Independent concurrency review found no issue. flume0.12 already workspace-pinned; lock diff only direct edge. Queue64/workers4/5ms enqueue preserved, no new async/unsafe/JNI behavior. Exact scheduler wall time and injected OS thread-spawn failure not claimed.
 
-The closure commit records the implementation SHA. Local checks do not establish remote CI, device, artifact, or deployment acceptance.
+The exact implementation SHA is recorded above. Local checks do not establish remote CI, device, artifact, or deployment acceptance.
