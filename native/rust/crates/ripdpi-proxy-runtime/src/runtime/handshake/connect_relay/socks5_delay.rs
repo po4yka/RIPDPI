@@ -26,7 +26,9 @@ pub(super) fn connect(
         RuntimeTransportProtocol::Tcp,
     );
     let initial_egress = state.destination_egress(target, host_hint, RuntimeTransportProtocol::Tcp);
-    let mut connected = connect_provisional_route(target, state, route, host_hint.map(str::to_owned))?;
+    let provisional_route =
+        crate::runtime::routing::select_route(state, target, None, host_hint, false).unwrap_or_else(|_| route.clone());
+    let mut connected = connect_provisional_route(target, state, provisional_route, host_hint.map(str::to_owned))?;
     let active = state
         .register_active_upstream_tcp_socket(&connected.upstream)
         .map_err(|err| ConnectRelayError::new(err, false))?;
@@ -56,12 +58,12 @@ pub(super) fn connect(
         err.mark_success_reply_sent();
         return Err(err);
     }
-    let route = if state.delayed_route_matches_payload(connected.route.group_index, target, &payload, host.as_deref()) {
-        connected.route.clone()
+    let route = if state.delayed_route_matches_payload(route.group_index, target, &payload, host.as_deref()) {
+        route
     } else {
         state
             .select_next_route(
-                &connected.route,
+                &route,
                 target,
                 Some(&payload),
                 host.as_deref(),

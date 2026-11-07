@@ -1045,6 +1045,19 @@ fn hosts_filter_only_routes_matching_domain_via_upstream(fixture: &FixtureStack)
         upstream_after_ip, upstream_after_domain,
         "non-matching IP target should not traverse the upstream relay"
     );
+    // An IP-only handshake uses the direct fallback until the payload identifies the host.
+    // The earlier host-filtered group must still win once that information arrives.
+    let mut discovered_host = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
+    let request = b"GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+    discovered_host.write_all(request).expect("write discovered-host payload");
+    assert_eq!(recv_exact(&mut discovered_host, request.len()), request);
+    assert_eq!(
+        upstream_telemetry.snapshot().accepted,
+        upstream_after_domain + 1,
+        "a discovered matching host must select the earlier upstream group"
+    );
+    drop(discovered_host);
+    drop(ip_stream);
     drop(proxy);
     drop(upstream);
 }

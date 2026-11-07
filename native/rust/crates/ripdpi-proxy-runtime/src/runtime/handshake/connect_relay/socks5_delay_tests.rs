@@ -144,6 +144,7 @@ fn a_payload_route_change_replaces_the_provisional_connection() {
     config.network.delay_conn = true;
     config.groups[0].matches.proto = ripdpi_packets::IS_HTTPS;
     let mut fallback = DesyncGroup::new(1);
+    fallback.matches.proto = ripdpi_packets::IS_HTTP;
     fallback.policy.ext_socks = Some(UpstreamSocksConfig { addr: upstream.local_addr().unwrap(), auth: None });
     config.groups.push(fallback);
     let (mut peer, worker) = socks_client(origin.local_addr().unwrap(), config);
@@ -151,7 +152,7 @@ fn a_payload_route_change_replaces_the_provisional_connection() {
     provisional.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
     let mut success = [0; 10];
     peer.read_exact(&mut success).unwrap();
-    peer.write_all(b"route change").unwrap();
+    peer.write_all(b"GET / HTTP/1.0\r\n\r\n").unwrap();
     let mut initial_data = Vec::new();
     provisional.read_to_end(&mut initial_data).unwrap();
     assert!(initial_data.is_empty());
@@ -165,12 +166,12 @@ fn a_payload_route_change_replaces_the_provisional_connection() {
     final_route.read_exact(&mut request).unwrap();
     assert_eq!(&request[..8], &[5, 1, 0, 1, 127, 0, 0, 1]);
     final_route.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, 0, 1]).unwrap();
-    let mut payload = [0; 12];
+    let mut payload = [0; 18];
     final_route.read_exact(&mut payload).unwrap();
-    assert_eq!(&payload, b"route change");
+    assert_eq!(&payload, b"GET / HTTP/1.0\r\n\r\n");
     final_route.write_all(&payload).unwrap();
     drop(final_route);
-    let mut response = [0; 12];
+    let mut response = [0; 18];
     peer.read_exact(&mut response).unwrap();
     assert_eq!(response, payload);
     drop(peer);
