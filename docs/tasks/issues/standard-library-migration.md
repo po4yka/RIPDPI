@@ -66,3 +66,5 @@ Child records are added below in creation order. Their own records remain the so
 - [RLY-1794036580419313](use-library-socks-secret-comparison.md): audit 7; priority band 1; Use library constant-time SOCKS credential comparison.
 
 - [DNS-1794036588840800](parse-native-urls-with-url-crate.md): audit 5; priority band 1; Resolve native redirects and DNS endpoints with url.
+
+- [RLY-1794036597359685](separate-cors-sites-with-public-suffix-list.md): audit 6; priority band 1; Separate CORS sites with the Public Suffix List.
