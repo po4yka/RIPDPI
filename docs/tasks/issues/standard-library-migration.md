@@ -62,3 +62,5 @@ Child records are added below in creation order. Their own records remain the so
 - [AND-1794036563799026](parse-client-certificates-with-certificate-factory.md): audit 3 (attachment 3); priority band 1; Parse client certificates with CertificateFactory.
 
 - [DGN-1794036571954184](use-official-okhttp-coroutine-adapter.md): audit 4; priority band 1; Use the official OkHttp coroutine adapter.
+
+- [RLY-1794036580419313](use-library-socks-secret-comparison.md): audit 7; priority band 1; Use library constant-time SOCKS credential comparison.
