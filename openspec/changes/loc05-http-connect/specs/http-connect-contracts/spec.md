@@ -13,6 +13,11 @@ The implementation MUST send no successful CONNECT response before a direct or t
 - **WHEN** a delayed HTTP CONNECT targets a closed local port
 - **THEN** the client receives 502 before any success and no second HTTP response follows a successful tunnel.
 
+#### Scenario: HTTP WS bootstrap fails before classification
+
+- **WHEN** HTTP CONNECT selects a known target-DC WebSocket and its bootstrap fails before the waiting client sends a seed
+- **THEN** the listener returns 502 before any success, without a speculative direct connection; seed fallback remains available after successful WS setup.
+
 ### Requirement: REQ-LOC05-FRAMING — Reject invalid CONNECT framing
 
 The implementation MUST reject invalid Content-Length, conflicting lengths, Transfer-Encoding and request content framing before dial.
@@ -66,4 +71,3 @@ The implementation MUST bound header buffering to 64 KiB and send an HTTP 4xx re
 
 - **WHEN** a complete CONNECT head has 65537 bytes
 - **THEN** the client receives 431 and closes; a legal 65536-byte head still works.
-
