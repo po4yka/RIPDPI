@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-08
+goal: PRX-1794125331192374 Repair SOCKS5 client audit defects
