@@ -122,6 +122,9 @@ fn is_field_name_byte(byte: u8) -> bool {
 
 fn split_host_port(value: &str) -> Option<(&str, u16)> {
     let (host, port) = value.rsplit_once(':')?;
+    if port.is_empty() || !port.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
     let port = port.parse::<u16>().ok().filter(|port| *port != 0)?;
     let host = if let Some(host) = host.strip_prefix('[') {
         let host = host.strip_suffix(']')?;
@@ -367,6 +370,28 @@ mod tests {
     #[test]
     fn split_host_port_invalid_port() {
         assert_eq!(split_host_port("example.com:notaport"), None);
+    }
+
+    #[test]
+    fn parse_http_connect_request_requires_decimal_port_digits() {
+        for port in ["+443", "++443", "-1", "443x"] {
+            let request = format!("CONNECT example.com:{port} HTTP/1.1\r\nHost: example.com:{port}\r\n\r\n");
+            assert_eq!(
+                parse_http_connect_request(request.as_bytes(), &resolver).err().map(|error| error.code),
+                Some(crate::S_ER_GEN),
+                "{port}"
+            );
+        }
+        for (wire_port, expected_port) in [("1", 1), ("00443", 443), ("65535", 65535)] {
+            let request = format!("CONNECT example.com:{wire_port} HTTP/1.1\r\nHost: example.com\r\n\r\n");
+            assert_eq!(
+                parse_http_connect_request(request.as_bytes(), &resolver).expect("parse decimal authority"),
+                ClientRequest::HttpConnect(TargetAddr {
+                    addr: SocketAddr::from(([198, 51, 100, 10], expected_port)),
+                    host: Some("example.com".to_string()),
+                })
+            );
+        }
     }
 
     #[test]
