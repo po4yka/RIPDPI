@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.system.Os
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
+import java.io.FileDescriptor
 
 internal class ProtectSocketFdProtector(
     private val protectFailureMonitor: VpnProtectFailureMonitor,
@@ -28,30 +29,36 @@ internal class ProtectSocketFdProtector(
             return false
         }
 
-        beforeProtectAncillaryFds()
+        return try {
+            beforeProtectAncillaryFds()
 
-        var allProtected = true
-        for (fd in fds) {
-            when (val extracted = fileDescriptorIntExtractor.extract(fd)) {
-                is ProtectSocketFdExtractionResult.Extracted -> {
-                    if (!protectFd(extracted.value)) {
-                        allProtected = false
-                    }
-                }
-
-                is ProtectSocketFdExtractionResult.Failed -> {
-                    reportProtectFailure(
-                        fd = -1,
-                        reason = FailureReason.NativeError(extracted.error.detail),
-                        detail = extracted.error.detail,
-                    )
+            var allProtected = true
+            for (fd in fds) {
+                if (!protectAncillaryFd(fd)) {
                     allProtected = false
                 }
             }
-            runCatching { Os.close(fd) }
+            allProtected
+        } finally {
+            fds.forEach { fd -> runCatching { Os.close(fd) } }
         }
-        return allProtected
     }
+
+    private fun protectAncillaryFd(fd: FileDescriptor): Boolean =
+        when (val extracted = fileDescriptorIntExtractor.extract(fd)) {
+            is ProtectSocketFdExtractionResult.Extracted -> {
+                protectFd(extracted.value)
+            }
+
+            is ProtectSocketFdExtractionResult.Failed -> {
+                reportProtectFailure(
+                    fd = -1,
+                    reason = FailureReason.NativeError(extracted.error.detail),
+                    detail = extracted.error.detail,
+                )
+                false
+            }
+        }
 
     private fun protectFd(fdInt: Int): Boolean {
         val protectResult =

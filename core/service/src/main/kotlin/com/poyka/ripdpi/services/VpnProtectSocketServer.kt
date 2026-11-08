@@ -151,6 +151,7 @@ internal class VpnProtectSocketServer(
     internal fun dispatchClientSession(session: ProtectSocketClientSession): Boolean =
         sessionDispatcher.submit(session, ::handleClientSession)
 
+    @Suppress("TooGenericExceptionCaught")
     internal fun handleClientSession(session: ProtectSocketClientSession) {
         try {
             session.use { client ->
@@ -164,6 +165,8 @@ internal class VpnProtectSocketServer(
             log.w(e) { "protect socket handler interrupted" }
         } catch (e: IOException) {
             log.w(e) { "protect socket handle error" }
+        } catch (e: Exception) {
+            log.w(e) { "protect socket handler failed" }
         }
     }
 
