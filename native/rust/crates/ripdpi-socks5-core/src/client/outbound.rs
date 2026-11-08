@@ -217,12 +217,19 @@ where
     }
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: authentication can be partially sent or read; discard the stream on cancellation.
 async fn negotiate_password<S>(stream: &mut S, creds: &Credentials) -> Result<(), OutboundError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let user = creds.username.as_bytes();
     let pass = creds.password.as_bytes();
+    if user.is_empty() || pass.is_empty() {
+        return Err(
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "SOCKS5 credentials must not be empty").into()
+        );
+    }
 
     if user.len() > 255 || pass.len() > 255 {
         return Err(OutboundError::CredentialTooLong(user.len().max(pass.len())));
@@ -238,7 +245,7 @@ where
 
     let mut reply = [0u8; 2];
     stream.read_exact(&mut reply).await?;
-    // reply[0] is the sub-negotiation version (we accept any); reply[1] is the status.
+    // The sub-negotiation version and status must both match RFC 1929.
     if reply[0] != 0x01 || reply[1] != consts::SOCKS5_REPLY_SUCCEEDED {
         return Err(OutboundError::AuthRejected);
     }
@@ -786,3 +793,6 @@ mod tests {
 
 #[cfg(test)]
 mod reply_contract_tests;
+
+#[cfg(test)]
+mod credential_contract_tests;

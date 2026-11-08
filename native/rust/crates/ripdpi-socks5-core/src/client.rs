@@ -1,6 +1,8 @@
 pub mod outbound;
 
 #[cfg(test)]
+mod credential_contract_tests;
+#[cfg(test)]
 mod reply_contract_tests;
 
 use crate::read_exact;
@@ -178,6 +180,8 @@ where
         Ok(())
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: authentication can be partially sent or read; discard the stream on cancellation.
     async fn use_password_auth(&mut self, methods: Vec<AuthenticationMethod>) -> Result<()> {
         debug!("Password will be used");
         let (username, password) = match methods.get(1) {
@@ -188,6 +192,9 @@ where
 
         let user_bytes = username.as_bytes();
         let pass_bytes = password.as_bytes();
+        if user_bytes.is_empty() || pass_bytes.is_empty() {
+            return Err(SocksError::ArgumentInputError("SOCKS5 credentials must not be empty"));
+        }
 
         // The username/password sub-negotiation (RFC 1929) encodes each length
         // as a single byte (ULEN/PLEN). A credential longer than 255 bytes

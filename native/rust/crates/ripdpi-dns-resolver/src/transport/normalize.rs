@@ -3,10 +3,18 @@ use url::Url;
 use crate::dnscrypt::dnscrypt_verifying_key;
 use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport};
 
+#[cfg(test)]
+mod socks5_contract_tests;
+
 pub(crate) fn normalize_endpoint(
     mut endpoint: EncryptedDnsEndpoint,
     transport: &EncryptedDnsTransport,
 ) -> Result<EncryptedDnsEndpoint, EncryptedDnsError> {
+    if let EncryptedDnsTransport::Socks5 { credentials: Some(credentials), .. } = transport
+        && [&credentials.username, &credentials.password].iter().any(|value| !(1..=255).contains(&value.len()))
+    {
+        return Err(EncryptedDnsError::InvalidEndpoint("SOCKS5 credentials must contain 1..=255 bytes".into()));
+    }
     if matches!(transport, EncryptedDnsTransport::Direct) && endpoint.bootstrap_ips.is_empty() {
         return Err(EncryptedDnsError::MissingBootstrapIps);
     }
