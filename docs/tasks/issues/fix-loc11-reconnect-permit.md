@@ -2,7 +2,7 @@
 id: PRX-1794127562206266
 title: Keep exit session permits with reconnected sockets
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: session-accounting
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-11-08
 updated: 2026-11-08
 spec_reason: regression-tested-single-module
+closed_at: "2026-11-08T09:08:01Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: LOC-11 P2-01 fixed at cbedaf8a833707c59ef3b2f1cd5fe338cee8589a. No-TFO red 0/1 then green 1/1; real first-response retry and failed replacement 2/2; combined proxy library 351/351. All-target clippy, independent review, just ci-gates, and locked metadata passed. Android and external peers were not run.
 ---
 
 ## Goal

@@ -2,7 +2,7 @@
 id: TST-1794128447029776
 title: Bound delayed socket replacement fixture readiness
 kind: bug
-status: review
+status: done
 area: testing
 priority: medium
 owner: tcp-fixture
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-11-08
 updated: 2026-11-08
 spec_reason: test-only
+closed_at: "2026-11-08T09:08:02Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Accept readiness fixture fixed at cbedaf8a833707c59ef3b2f1cd5fe338cee8589a. Baseline without P2-01 reproduced 348/1 with correct new socket, selected group and seed before WouldBlock. Narrow test 1/1; isolated worktree full proxy 349/349 and combined tree 351/351. Async cancellation audit, strict all-target clippy, task contracts and just ci-gates passed.
 ---
 
 ## Goal

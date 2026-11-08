@@ -2,7 +2,7 @@
 id: TST-1794127602775562
 title: Preserve carrier reuse traces during parallel tests
 kind: bug
-status: review
+status: done
 area: testing
 priority: medium
 owner: relay-trace
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-11-08
 updated: 2026-11-08
 spec_reason: test-only
+closed_at: "2026-11-08T09:08:02Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Trace capture fixed at cbedaf8a833707c59ef3b2f1cd5fe338cee8589a. Deterministic red 0 vs 1; trace tests 4/4 and original mux group 4/4 with five fresh-process repeats. Combined relay-core 218 passed and two existing external-peer tests ignored; relay-mux 72/72, session-limit 8/8. Independent review, all-target clippy and source gates passed.
 ---
 
 ## Goal

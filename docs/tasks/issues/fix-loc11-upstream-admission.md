@@ -2,7 +2,7 @@
 id: PRX-1794127562446757
 title: Restrict exit session accounting to the direct path
 kind: bug
-status: review
+status: done
 area: proxy
 priority: medium
 owner: session-accounting
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-11-08
 updated: 2026-11-08
 spec_reason: regression-tested-single-module
+closed_at: "2026-11-08T09:08:01Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: LOC-11 P2-02 fixed at cbedaf8a833707c59ef3b2f1cd5fe338cee8589a. Real SOCKS regression failed before direct-only admission; six wiring tests and combined proxy library 351/351 passed. Direct policy bypass keeps its permit. Independent review, clippy, just ci-gates, and locked metadata passed.
 ---
 
 ## Goal

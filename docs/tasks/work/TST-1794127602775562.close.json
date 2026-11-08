@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Trace capture fixed at cbedaf8a833707c59ef3b2f1cd5fe338cee8589a. Deterministic red 0 vs 1; trace tests 4/4 and original mux group 4/4 with five fresh-process repeats. Combined relay-core 218 passed and two existing external-peer tests ignored; relay-mux 72/72, session-limit 8/8. Independent review, all-target clippy and source gates passed.",
+  "execution_sha256": "d3d49b16f08424b6ffc6aaac65800c5709119fdf970b90163935ed53962eca17",
+  "issue_sha256": "9d4c41c3528e1924f2c015aaefb08305396d79826bbc235266f45b75424b0ba6",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T09:08:02Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1794127602775562"
+}
