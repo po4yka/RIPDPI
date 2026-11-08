@@ -37,13 +37,7 @@ pub(super) fn relay(
         success_host,
         success_payload,
         success_strategy_family,
-        client_closed,
     } = prepare_relay(&mut client, upstream, state, target, route, seed_request, attempt_token)?;
-
-    if client_closed {
-        let _ = (upstream.shutdown(std::net::Shutdown::Both), client.shutdown(std::net::Shutdown::Both));
-        return Ok(());
-    }
 
     let _active_upstream = state.register_active_tcp_socket(&upstream)?;
 

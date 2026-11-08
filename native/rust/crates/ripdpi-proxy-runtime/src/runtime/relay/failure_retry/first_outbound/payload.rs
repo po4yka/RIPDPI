@@ -17,11 +17,10 @@ pub(super) struct FirstPayload {
 pub(in crate::runtime) enum FirstOutboundRead<T> {
     /// The client sent its first payload (or a seed request was supplied).
     Payload(T),
-    /// The client closed the connection before it sent any byte.
+    /// The client sent FIN before any byte; the relay can still forward a response.
     ClientClosed,
-    /// The upstream sent bytes before the client sent any byte
-    /// (server-speaks-first protocols such as SMTP, IMAP, FTP, or SSH).
-    /// The upstream bytes stay unread in the upstream socket for the relay.
+    /// The upstream sent bytes or FIN before the client sent any byte.
+    /// The upstream bytes or EOF stay unread in the socket for the relay.
     ServerFirst,
 }
 
@@ -70,10 +69,10 @@ pub(in crate::runtime) fn read_first_client_payload(
             match wait_for_first_readable(client, upstream, timeout) {
                 Ok(FirstReadable::Client) => {}
                 Ok(FirstReadable::Upstream) => {
-                    if upstream_has_payload(upstream) {
+                    if upstream.peek(&mut [0u8; 1]).is_ok() {
                         break Ok(FirstOutboundRead::ServerFirst);
                     }
-                    // Upstream EOF or error before any byte: keep the
+                    // Upstream error before any byte: keep the
                     // client-first path, which surfaces the failure on the
                     // first write and lets route retry handle it.
                     watch_upstream = false;
@@ -102,14 +101,6 @@ pub(in crate::runtime) fn read_first_client_payload(
     };
     let _ = client.set_read_timeout(original_timeout);
     result
-}
-
-/// Returns true when the upstream has at least one unread byte. The peek
-/// leaves the byte in the socket so the relay forwards it to the client.
-/// Callers invoke this only after readiness was reported, so the peek does
-/// not block.
-fn upstream_has_payload(upstream: &TcpStream) -> bool {
-    matches!(upstream.peek(&mut [0u8; 1]), Ok(read) if read > 0)
 }
 
 enum FirstReadable {
@@ -254,20 +245,15 @@ mod tests {
     }
 
     #[test]
-    fn read_first_client_payload_keeps_waiting_for_client_after_upstream_eof() {
-        let (mut client, mut app) = connected_pair();
+    fn read_first_client_payload_leaves_upstream_eof_for_the_relay() {
+        let (mut client, _app) = connected_pair();
         let (upstream, server) = connected_pair();
         drop(server);
 
-        let writer = thread::spawn(move || {
-            thread::sleep(Duration::from_millis(100));
-            app.write_all(b"EHLO client\r\n").expect("write client command");
-        });
-
         let read = read_first_client_payload(&mut client, &upstream, 64).expect("read first payload");
-        writer.join().expect("writer thread");
 
-        assert_eq!(read, FirstOutboundRead::Payload(b"EHLO client\r\n".to_vec()));
+        assert_eq!(read, FirstOutboundRead::ServerFirst);
+        assert_eq!(upstream.peek(&mut [0]).expect("upstream EOF stays available"), 0);
     }
 
     #[test]

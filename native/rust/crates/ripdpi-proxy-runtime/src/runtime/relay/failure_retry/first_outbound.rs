@@ -29,7 +29,6 @@ pub(crate) struct PreparedRelay {
     pub(crate) success_host: Option<String>,
     pub(crate) success_payload: Option<Vec<u8>>,
     pub(crate) success_strategy_family: Option<&'static str>,
-    pub(crate) client_closed: bool,
 }
 
 impl PreparedRelay {
@@ -37,7 +36,6 @@ impl PreparedRelay {
         upstream: TcpStream,
         route: RuntimeConnectionRoute,
         session: FirstOutboundSession,
-        client_closed: bool,
     ) -> Self {
         Self {
             upstream,
@@ -47,7 +45,6 @@ impl PreparedRelay {
             success_host: None,
             success_payload: None,
             success_strategy_family: None,
-            client_closed,
         }
     }
 }
@@ -75,28 +72,19 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let first_payload = match prepare_first_payload(client, &upstream, self.state, self.seed_request)? {
             FirstOutboundRead::Payload(first_payload) => first_payload,
             FirstOutboundRead::ClientClosed => {
-                return Ok(PreparedRelay::without_first_payload(
-                    upstream,
-                    self.route,
-                    FirstOutboundSession::new(),
-                    true,
-                ));
+                return Ok(PreparedRelay::without_first_payload(upstream, self.route, FirstOutboundSession::new()));
             }
             FirstOutboundRead::ServerFirst => {
-                // Server-speaks-first protocols (SMTP, IMAP, FTP, SSH, ...)
-                // wait for the upstream greeting before they send anything.
-                // Skip the first-write exchange (first-response inspection and
-                // route retry) and relay both directions. The greeting is
-                // still unread in `upstream`. Client payloads then use the
-                // steady-state relay desync path, with the same Lua flow that
-                // a first write would open.
+                // Skip the first-write exchange for server-first traffic and EOF.
+                // The relay forwards the unread bytes or FIN. Later client payload
+                // uses steady-state desync with the same Lua flow as a first write.
                 tracing::debug!(
                     group_index = self.route.group_index,
-                    "upstream spoke first; relaying without the first-write exchange"
+                    "upstream became readable first; relaying without the first-write exchange"
                 );
                 let mut session = FirstOutboundSession::new();
                 session.lua_flow = self.state.new_lua_flow();
-                return Ok(PreparedRelay::without_first_payload(upstream, self.route, session, false));
+                return Ok(PreparedRelay::without_first_payload(upstream, self.route, session));
             }
         };
 
@@ -208,7 +196,6 @@ impl<'a> FirstOutboundCoordinator<'a> {
             success_host: first_payload.host,
             success_payload: Some(first_payload.original_request),
             success_strategy_family,
-            client_closed: false,
         })
     }
 }
