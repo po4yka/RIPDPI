@@ -83,6 +83,23 @@ internal fun decideAttribution(
  * digest). See the completed `attribute-direct-mode-flows-to-app-package` task in git history.
  */
 interface FlowAppAttributionStore {
+    /** Start a new TUN ownership epoch. */
+    fun beginSession(): Long = 0L
+
+    /** Retire only the epoch which owns this token. */
+    fun endSession(session: Long) = clear()
+
+    /** Resolve a request only while its TUN epoch remains current. */
+    fun resolveSessionFlowUid(
+        session: Long,
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+        requestKind: Int,
+    ): Int = resolveFlowRequest(this, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
+
     /**
      * Record a freshly seen flow's owning app. Called (via JNI) from the tun2socks
      * session when a new destination is first observed. Resolves UID -> package ->
@@ -138,6 +155,9 @@ private const val FlowAttributionCacheCapacity = 4096
 internal class FlowAttributionCache(
     private val capacity: Int,
 ) {
+    private var nextSession = 0L
+    private var activeSession = 0L
+    private var revision = 0L
     private val entries =
         object : LinkedHashMap<String, FlowAttribution>(16, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, FlowAttribution>?): Boolean =
@@ -145,6 +165,45 @@ internal class FlowAttributionCache(
         }
 
     val size: Int get() = synchronized(entries) { entries.size }
+
+    fun beginSession(): Long =
+        synchronized(entries) {
+            activeSession = ++nextSession
+            revision++
+            entries.clear()
+            activeSession
+        }
+
+    fun endSession(session: Long) {
+        synchronized(entries) {
+            if (activeSession == session) {
+                activeSession = 0L
+                revision++
+                entries.clear()
+            }
+        }
+    }
+
+    fun currentSession(): Long = synchronized(entries) { activeSession }
+
+    fun resolutionRevision(session: Long): Long? =
+        synchronized(entries) {
+            revision.takeIf { session != 0L && activeSession == session }
+        }
+
+    fun commitResolution(
+        session: Long,
+        observedRevision: Long,
+        attribution: Pair<String, FlowAttribution>?,
+    ): Boolean =
+        synchronized(entries) {
+            if (session == 0L || activeSession != session || revision != observedRevision) {
+                false
+            } else {
+                attribution?.let { (digest, value) -> entries[digest] = value }
+                true
+            }
+        }
 
     fun get(digest: String): FlowAttribution? = synchronized(entries) { entries[digest] }
 
@@ -156,11 +215,17 @@ internal class FlowAttributionCache(
     }
 
     fun removeIf(predicate: (FlowAttribution) -> Boolean) {
-        synchronized(entries) { entries.values.removeIf(predicate) }
+        synchronized(entries) {
+            revision++
+            entries.values.removeIf(predicate)
+        }
     }
 
     fun clear() {
-        synchronized(entries) { entries.clear() }
+        synchronized(entries) {
+            revision++
+            entries.clear()
+        }
     }
 }
 
@@ -171,6 +236,30 @@ class DefaultFlowAppAttributionStore
         @param:ApplicationContext private val context: Context,
     ) : FlowAppAttributionStore {
         private val attributions = FlowAttributionCache(FlowAttributionCacheCapacity)
+
+        override fun beginSession(): Long = attributions.beginSession()
+
+        override fun endSession(session: Long) = attributions.endSession(session)
+
+        override fun resolveSessionFlowUid(
+            session: Long,
+            protocol: Int,
+            localIp: String,
+            localPort: Int,
+            remoteIp: String,
+            remotePort: Int,
+            requestKind: Int,
+        ): Int {
+            val revision = attributions.resolutionRevision(session) ?: return InvalidUid
+            val (uid, attribution) =
+                if (requestKind == AdmissionOnlyFlowRequest) {
+                    resolveOwnerUid(protocol, localIp, localPort, remoteIp, remotePort) to null
+                } else {
+                    resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
+                }
+            val record = attribution?.let { flowAttributionDigest(remoteIp) to it }
+            return if (attributions.commitResolution(session, revision, record)) uid else InvalidUid
+        }
 
         override fun noteFlow(
             protocol: Int,
@@ -188,16 +277,8 @@ class DefaultFlowAppAttributionStore
             localPort: Int,
             remoteIp: String,
             remotePort: Int,
-        ): Int {
-            val digest = flowAttributionDigest(remoteIp)
-            // Overwrite rather than putIfAbsent: the native queue already dedupes
-            // noteFlow calls per destination (one per dest until evict_flow_if_current on
-            // close), so a fresh call here means the destination was re-seen and
-            // must be re-resolved -- e.g. after a different app reuses the IP.
-            val (uid, attribution) = resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
-            attributions.put(digest, attribution)
-            return uid
-        }
+        ): Int =
+            resolveSessionFlowUid(attributions.currentSession(), protocol, localIp, localPort, remoteIp, remotePort, 0)
 
         override fun resolveFlowUidOnly(
             protocol: Int,
@@ -205,7 +286,16 @@ class DefaultFlowAppAttributionStore
             localPort: Int,
             remoteIp: String,
             remotePort: Int,
-        ): Int = resolveOwnerUid(protocol, localIp, localPort, remoteIp, remotePort)
+        ): Int =
+            resolveSessionFlowUid(
+                attributions.currentSession(),
+                protocol,
+                localIp,
+                localPort,
+                remoteIp,
+                remotePort,
+                AdmissionOnlyFlowRequest,
+            )
 
         override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? =
             attributions.get(ipSetDigest) as? FlowAttribution.Attributed

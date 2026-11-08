@@ -425,15 +425,16 @@ internal class VpnTunnelRuntime(
         try {
             val tunnelBridge = tun2SocksBridgeFactory.create()
             createdBridge = tunnelBridge
-            flowAttributionBridge?.activateUidPolicy(
-                NativeUidPolicy(
-                    mode = pendingTunnel.config.uidPolicyMode,
-                    uids = pendingTunnel.config.uidPolicyUids,
-                ),
-            )
+            val attributionCallback =
+                flowAttributionBridge?.activateUidPolicy(
+                    NativeUidPolicy(
+                        mode = pendingTunnel.config.uidPolicyMode,
+                        uids = pendingTunnel.config.uidPolicyUids,
+                    ),
+                )
             vpnHost.finishDirectDnsUnderlay(pendingTunnel.directDnsPrepareToken, DirectDnsUnderlayAction.Commit)
             withTimeout(NativeTunnelStartTimeoutMillis) {
-                tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, flowAttributionBridge)
+                tunnelBridge.start(pendingTunnel.config, pendingTunnel.session.tunFd, attributionCallback)
             }
             startSucceeded = true
             publishBridgeReady(pendingTunnel, tunnelBridge)

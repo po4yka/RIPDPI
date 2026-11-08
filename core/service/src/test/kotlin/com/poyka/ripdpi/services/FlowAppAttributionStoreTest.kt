@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class FlowAppAttributionStoreTest {
     @Test
@@ -15,6 +17,116 @@ class FlowAppAttributionStoreTest {
         assertEquals(10123, uid)
         assertEquals(0, store.attributionCalls)
         assertEquals(1, store.uidOnlyCalls)
+    }
+
+    @Test
+    fun `retired resolver cannot record into replacement qualification epoch`() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val store =
+            object : FlowAppAttributionStore by RecordingResolutionStore() {
+                override fun resolveSessionFlowUid(
+                    session: Long,
+                    protocol: Int,
+                    localIp: String,
+                    localPort: Int,
+                    remoteIp: String,
+                    remotePort: Int,
+                    requestKind: Int,
+                ): Int = resolveFlowUidOnly(protocol, localIp, localPort, remoteIp, remotePort)
+
+                override fun resolveFlowUidOnly(
+                    protocol: Int,
+                    localIp: String,
+                    localPort: Int,
+                    remoteIp: String,
+                    remotePort: Int,
+                ): Int {
+                    entered.countDown()
+                    check(release.await(5, TimeUnit.SECONDS))
+                    return 10123
+                }
+            }
+        val bridge =
+            FlowAttributionBridge(
+                store,
+                null,
+                SoBindToDeviceUidPolicyEligibility.forTest(
+                    sdkInt = android.os.Build.VERSION_CODES.S,
+                    kernelRelease = "6.1.99-android",
+                    probe = { BindToDeviceProbeOutcome.Supported },
+                ),
+            )
+        bridge.activateUidPolicy(NativeUidPolicy("allowlist", listOf(10123)))
+        val resolver =
+            Thread {
+                bridge.noteFlow(17, "10.0.0.2", 53000, "203.0.113.7", 443, AdmissionOnlyFlowRequest)
+            }
+        resolver.start()
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            bridge.deactivateUidPolicy()
+            bridge.activateUidPolicy(NativeUidPolicy("denylist", listOf(10123)))
+        } finally {
+            release.countDown()
+            resolver.join(5000)
+        }
+        assertFalse(resolver.isAlive)
+        assertEquals(0L, bridge.snapshot().uidResolvedCount)
+    }
+
+    @Test
+    fun `ended session rejects late writes and stale teardown preserves its replacement`() {
+        val cache = FlowAttributionCache(2)
+        val first = cache.beginSession()
+        val firstRevision = requireNotNull(cache.resolutionRevision(first))
+        val appA = FlowAttribution.Attributed("com.example.a", 1)
+        assertTrue(cache.commitResolution(first, firstRevision, "destination" to appA))
+        cache.endSession(first)
+        assertEquals(null, cache.get("destination"))
+
+        val replacement = cache.beginSession()
+        val replacementRevision = requireNotNull(cache.resolutionRevision(replacement))
+        val appB = FlowAttribution.Attributed("com.example.b", 2)
+        assertTrue(cache.commitResolution(replacement, replacementRevision, "destination" to appB))
+        assertFalse(cache.commitResolution(first, firstRevision, "destination" to appA))
+        cache.endSession(first)
+        assertEquals(appB, cache.get("destination"))
+    }
+
+    @Test
+    fun `package invalidation fences a resolver which has not committed yet`() {
+        val cache = FlowAttributionCache(2)
+        val session = cache.beginSession()
+        val beforeUpdate = requireNotNull(cache.resolutionRevision(session))
+        cache.removeIf { false }
+        val oldApp = FlowAttribution.Attributed("com.example.a", 1)
+
+        assertFalse(cache.commitResolution(session, beforeUpdate, "destination" to oldApp))
+        assertEquals(null, cache.get("destination"))
+        val afterUpdate = requireNotNull(cache.resolutionRevision(session))
+        val updatedApp = FlowAttribution.Attributed("com.example.a", 2)
+        assertTrue(cache.commitResolution(session, afterUpdate, "destination" to updatedApp))
+        assertEquals(updatedApp, cache.get("destination"))
+    }
+
+    @Test
+    fun `callback invoked after replacement cannot resolve for the new epoch`() {
+        val bridge =
+            FlowAttributionBridge(
+                RecordingResolutionStore(),
+                null,
+                SoBindToDeviceUidPolicyEligibility.forTest(
+                    sdkInt = android.os.Build.VERSION_CODES.S,
+                    kernelRelease = "6.1.99-android",
+                    probe = { BindToDeviceProbeOutcome.Supported },
+                ),
+            )
+        val retired = bridge.activateUidPolicy(NativeUidPolicy("allowlist", listOf(10123)))
+        bridge.activateUidPolicy(NativeUidPolicy("denylist", listOf(10123)))
+
+        assertEquals(InvalidUid, retired.noteFlow(17, "10.0.0.2", 53000, "203.0.113.7", 443, AdmissionOnlyFlowRequest))
+        assertEquals(0L, bridge.snapshot().uidResolvedCount)
     }
 
     @Test

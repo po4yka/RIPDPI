@@ -69,15 +69,7 @@ internal object EmptyRemoteDeviceUidPolicyQualificationSource : RemoteDeviceUidP
 }
 
 /**
- * The Kotlin object the tun2socks native worker calls over JNI (`noteFlow`) to
- * report a freshly seen flow's 5-tuple. It delegates straight to
- * [FlowAppAttributionStore], which resolves the owning app off the hot path and
- * owns the in-memory attribution map.
- *
- * `@Keep` (on the class and the method) is load-bearing: `noteFlow` is invoked
- * only via JNI, so without it R8 would rename or strip the method in release
- * builds and the native `call_method` lookup would fail. The JNI signature the
- * native side resolves is `(ILjava/lang/String;ILjava/lang/String;II)I`.
+ * Owns the current TUN attribution epoch and creates its JNI callback object.
  */
 @Keep
 @Singleton
@@ -89,6 +81,7 @@ class FlowAttributionBridge
         private val eligibility: SoBindToDeviceUidPolicyEligibility,
     ) : RemoteDeviceUidPolicyQualificationSource {
         private val qualificationEpoch = AtomicReference(UidPolicyQualificationEpoch(NativeUidPolicy.Disarmed))
+        private val sessionCallback = AtomicReference<SessionFlowAttributionCallback?>(null)
 
         internal fun nativeUidPolicy(plan: VpnAppRoutingPlan): NativeUidPolicy {
             val packageManager = context?.packageManager
@@ -107,12 +100,20 @@ class FlowAttributionBridge
             return policy
         }
 
-        internal fun activateUidPolicy(policy: NativeUidPolicy) {
-            qualificationEpoch.set(UidPolicyQualificationEpoch(policy))
+        @Synchronized
+        internal fun activateUidPolicy(policy: NativeUidPolicy): SessionFlowAttributionCallback {
+            val session = store.beginSession()
+            val epoch = UidPolicyQualificationEpoch(policy)
+            val callback = SessionFlowAttributionCallback(store, session, epoch) { qualificationEpoch.get() === epoch }
+            qualificationEpoch.set(epoch)
+            sessionCallback.set(callback)
+            return callback
         }
 
+        @Synchronized
         internal fun deactivateUidPolicy() {
             qualificationEpoch.set(UidPolicyQualificationEpoch(NativeUidPolicy.Disarmed))
+            sessionCallback.getAndSet(null)?.close()
         }
 
         @Keep
@@ -123,11 +124,9 @@ class FlowAttributionBridge
             remoteIp: String,
             remotePort: Int,
             requestKind: Int,
-        ): Int {
-            val uid = resolveFlowRequest(store, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
-            qualificationEpoch.get().record(protocol, uid, requestKind)
-            return uid
-        }
+        ): Int =
+            sessionCallback.get()?.noteFlow(protocol, localIp, localPort, remoteIp, remotePort, requestKind)
+                ?: InvalidUid
 
         override fun snapshot(): RemoteDeviceUidPolicyQualification {
             val epoch = qualificationEpoch.get()
@@ -143,6 +142,33 @@ class FlowAttributionBridge
                 ).privacySafe()
         }
     }
+
+/** A retired native worker retains this old epoch, never the replacement callback. */
+@Keep
+internal class SessionFlowAttributionCallback(
+    private val store: FlowAppAttributionStore,
+    private val session: Long,
+    private val epoch: UidPolicyQualificationEpoch,
+    private val isCurrent: () -> Boolean,
+) {
+    @Keep
+    fun noteFlow(
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+        requestKind: Int,
+    ): Int {
+        if (!isCurrent()) return InvalidUid
+        val uid = store.resolveSessionFlowUid(session, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
+        if (!isCurrent()) return InvalidUid
+        epoch.record(protocol, uid, requestKind)
+        return uid
+    }
+
+    fun close() = store.endSession(session)
+}
 
 internal class UidPolicyQualificationEpoch(
     val policy: NativeUidPolicy,
