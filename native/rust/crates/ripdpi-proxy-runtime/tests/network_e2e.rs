@@ -1358,13 +1358,15 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
     // The first connection hits the one-shot TCP reset fault.
     // The proxy should classify the failure and advance to group 1.
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
-    config.groups[0].matches.detect = ripdpi_proxy_runtime_adapter::model::config::DETECT_TCP_RESET
-        | ripdpi_proxy_runtime_adapter::model::config::DETECT_SILENT_DROP;
+    // Replace the implicit CLI fallback with this test's explicit fallback.
+    config.groups.truncate(1);
     config.timeouts.timeout_ms = 500;
 
     // Add a second fallback group
     let mut fallback = DesyncGroup::new(1);
     fallback.matches.proto = IS_TCP;
+    fallback.matches.detect = ripdpi_proxy_runtime_adapter::model::config::DETECT_TCP_RESET
+        | ripdpi_proxy_runtime_adapter::model::config::DETECT_SILENT_DROP;
     config.groups.push(fallback);
 
     let proxy = start_proxy(config, Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>));
@@ -1385,12 +1387,10 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
 
     let snapshot = telemetry.snapshot();
 
-    // Verify route advancement was triggered
-    let advanced_events: Vec<_> = snapshot.routes.iter().filter(|r| r.phase == "advanced").collect();
+    let routes: Vec<_> = snapshot.routes.iter().map(|route| (route.phase, route.group_index)).collect();
     assert!(
-        !advanced_events.is_empty(),
-        "expected at least one route advancement event after TCP reset, routes: {:?}",
-        snapshot.routes
+        routes.windows(2).any(|pair| pair == [("initial", 0), ("advanced", 1)]),
+        "expected initial group 0 followed by fallback group 1 after TCP reset, routes: {routes:?}"
     );
 
     // The fault should have been recorded by the fixture
