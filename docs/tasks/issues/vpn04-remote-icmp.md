@@ -2,7 +2,7 @@
 id: VPN-1794144829236231
 title: Forward remote UDP ICMP errors through the local SOCKS path
 kind: feature
-status: review
+status: done
 area: vpn
 priority: high
 owner: VPN remote UDP errors
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: vpn04-remote-icmp
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T14:34:28Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Feature d893cee: 976 unit and 17 integration tests, real non-root Linux dual-family proxy-to-TUN regression, Clippy, ci-gates and independent reviews passed."
 ---
 
 ## Goal

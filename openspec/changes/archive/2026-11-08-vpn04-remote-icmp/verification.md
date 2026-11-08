@@ -1,9 +1,9 @@
 ---
 task_id: VPN-1794144829236231
 change: vpn04-remote-icmp
-commit_sha: null
+commit_sha: d893cee212ea096b4e9089c1df9d75b6ae9e055a
 local: passed
-local_evidence: 920 host unit tests and 9 tunnel integration tests passed; real non-root Linux dual-family proxy-to-TUN test passed; baseline test failed as expected; Clippy, cargo-deny, formatting, ci-gates and independent reviews passed before integration. Final rebased evidence is recorded below.
+local_evidence: Final d893cee passes 976 host unit and 17 host integration tests, real non-root Linux dual-family proxy-to-TUN test, Clippy including three await lints, formatting, ci-gates and architecture checks. Initial baseline RED and cargo-deny pass are recorded below. One transient existing UDP endpoint test failure is disclosed.
 remote_ci: not_applicable
 remote_ci_evidence: No hosted dispatch is owned; automatic push checks reported separately.
 device: not_applicable
@@ -48,3 +48,19 @@ RFC 1928 section 7 defines standard UDP ASSOCIATE without network-layer feedback
 C: production owners and Android local-auth/ephemeral-listener callers are traced. V: host and Linux loopback kernel-to-TUN runs only. S: the listed wire requirements and private extension are checked. E: concrete Linux local-kernel and old-peer fallback fixtures only; no external server or Android application delivery is claimed.
 
 Parameter Problem pointers, echo, carrier translation and cross-family translation are not implemented. Unsupported or ambiguous errors are dropped. Feedback can stop for a flow after bounded history exhaustion or a transformed/untracked write; UDP data continues. Actual PMTU/error-router interoperability and non-root Android app-visible errors plus permission revoke remain separate acceptance checks. No physical device, real secret, privileged activation or external active probe was used.
+
+## Final acceptance after concurrent repair integration
+
+The feature commit is `d893cee212ea096b4e9089c1df9d75b6ae9e055a`, rebased onto origin/main `029c0d226ff9ff0be38a2c1a25730269c3060724`. It preserves the concurrent TCP, DNS and UDP repairs. The merge keeps live destination leases, pointer identity checks, full UDP receive buffers with a sentinel, MTU-based reply fragmentation and the fair receive/send selector. Remote errors retain the same destination lease; closed-channel replacement updates both that lease and the registration. The private wire ceiling returns EMSGSIZE so one oversized datagram does not close the association. Independent pr-reviewer and async-cancel-safety integration reviews are clear.
+
+Final commands used `RUSTUP_TOOLCHAIN=1.98.1 CARGO_TARGET_DIR=/tmp/vpn04-remote-host-target`:
+
+- `cargo test --locked -p ripdpi-socks5-core -p ripdpi-proxy-runtime-adapter -p ripdpi-proxy-runtime --lib`: 76 + 75 + 376 passed, two existing external-network tests ignored.
+- `cargo test --locked -p ripdpi-tunnel-core`: 449 unit and 17 integration passed; macOS Linux-only targets contain zero tests.
+- `cargo clippy --locked -p ripdpi-socks5-core -p ripdpi-proxy-runtime-adapter -p ripdpi-proxy-runtime -p ripdpi-tunnel-core --all-targets -- -D warnings -D clippy::await_holding_lock -D clippy::await_holding_refcell_ref -D clippy::await_holding_invalid_type`: passed.
+- `cargo fmt --all -- --check`, `just ci-gates`, locked metadata and architecture health: passed. No baseline or API snapshot changed.
+- The real Linux E2E command was rerun on this commit: 6 passed, including both kernel ICMP families, live neighbor flow, original quote/checksum and bounded stop/revoke. Actual proxy feedback unit tests: 2 passed; actual kernel error queue unit tests: 3 passed. Their proxy/codec/adapter source inputs are unchanged by the rebase. No device or external-network acceptance is inferred.
+
+The first final combined host run had one failure in unchanged codec `server::udp_endpoint_tests::listener_udp_reply_is_reachable_and_released_on_control_eof` at the immediate bind assertion on line 76. The exact isolated test, full codec suite and original full combined command then passed without edits. Root cause is not established; transient ephemeral-port reuse is only a hypothesis. Tests were not weakened or skipped. Logs: `/tmp/vpn04-rebased-host-tests.log`, `/tmp/vpn04-rebased-host-tests-retry.log`, `/tmp/vpn04-rebased-{tunnel-tests,clippy,fmt}.log`, `/tmp/vpn04-rebased2-{ci-gates,architecture,linux-e2e}.log`.
+
+A host pre-commit Clippy attempt also observed stale shared-worktree codec artifacts (unresolved udp_feedback export). The commit hooks and final checks passed with the private session target above; no shared cache or user output was removed. Earlier disk exhaustion was recovered by removing only this session's temporary build outputs; Docker was restarted with no running containers and the Linux image rebuilt. These environment failures are not test passes or application findings.

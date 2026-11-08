@@ -1,0 +1,11 @@
+{
+  "change": "vpn04-remote-icmp",
+  "evidence_summary": "Feature d893cee: 976 unit and 17 integration tests, real non-root Linux dual-family proxy-to-TUN regression, Clippy, ci-gates and independent reviews passed.",
+  "execution_sha256": "44387bcfc2d902929683264fdaf5cf71206011d54df36c6592e013e9c0fe4fbd",
+  "issue_sha256": "ef70fc30ed94aa898f0960152d6bd1bfcccb628673599fbcbf722f3dc6cbe5ca",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T14:34:28Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "VPN-1794144829236231"
+}
