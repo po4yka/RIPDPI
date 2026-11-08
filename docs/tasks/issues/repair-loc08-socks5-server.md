@@ -2,7 +2,7 @@
 id: PRX-1794125341062166
 title: Repair LOC-08 test-only SOCKS5 server contracts
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: SOCKS5 repair team
@@ -14,6 +14,9 @@ created: 2026-11-08
 updated: 2026-11-08
 spec_reason: test-only
 status_detail: F1-F7 regressions, local gates, and independent reviews passed; ready for main integration.
+closed_at: "2026-11-08T08:23:32Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "F1-F7 repaired in seven separate fix commits through feacd7304. Owning crate: 63 passed, 2 existing external tests ignored; Clippy, fmt, doctests, locked metadata, ci-gates and independent code/async reviews passed. Server remains test-only; Android and external interoperability not tested."
 ---
 
 ## Goal
