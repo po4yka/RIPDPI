@@ -20,6 +20,7 @@ LOC-05 covers the local HTTP CONNECT listener. It shares routing and relay code 
 ## Contracts and ownership
 
 - Follow the portfolio Ownership section: parser worker owns session/auth; connect worker owns connect_relay; primary owns header limits, planning and integration.
+- The connect worker removes the obsolete protocol_io success-reply forwarding helper after every handshake uses the established-upstream reply owner, and keeps literal socket-response coverage at that owner.
 - No Kotlin, JNI, protobuf, persisted configuration or wire schema version changes. Reuse the upstream PreparedWsTunnel/open interface; its implementation owns the established WebSocket through relay and observes cancellation.
 - No serialized dependency, locale, baseline or golden files are changed. The connect worker owns protocol documentation and reuses the existing WS API. API snapshots must remain unchanged unless a necessary reviewed contract delta is generated.
 - H01 and H02 need evidence and an owning contract before implementation; adjacent work must not be duplicated.

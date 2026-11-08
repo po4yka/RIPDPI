@@ -30,7 +30,7 @@ Repair all seven confirmed LOC-05 findings while preserving real TCP/TLS tunnels
 ## Ownership
 
 - Parser worker: ripdpi-session/src/http_connect.rs and its tests, ripdpi-proxy-runtime-adapter/src/model/protocol_auth.rs. Owns F02, F03, F04, F05 and F06, in separate commits.
-- Connect worker: ripdpi-proxy-runtime/src/runtime/handshake/connect_relay/** runtime WS state/glue, ripdpi-ws-transport-port, ripdpi-ws-tunnel connection readiness, docs/native/proxy-engine.md, and dedicated HTTP connect-order integration tests. Owns F01; must preserve payload routing and WS behavior.
+- Connect worker: ripdpi-proxy-runtime/src/runtime/handshake/connect_relay/** runtime WS state/glue, obsolete protocol_io success-reply helper/reexport and its owning socket test, docs/native/proxy-engine.md, and dedicated HTTP connect-order integration tests. Owns F01; must preserve payload routing and WS behavior.
 - Primary: handshake/protocol_io/readers.rs, handshake.rs, replies.rs and dedicated header-limit tests for F07; all task/OpenSpec records and combined gates/integration.
 - Reviewer: read-only review of each prepared fix, no file changes.
 - Serialized lanes: primary owns integration, task records and generated board. No Cargo.lock, dependency, schema, locale, baseline or golden changes are planned. Reuse the current PreparedWsTunnel API. Any necessary API snapshot delta requires generation through its owner and primary review. No baseline extensions.
