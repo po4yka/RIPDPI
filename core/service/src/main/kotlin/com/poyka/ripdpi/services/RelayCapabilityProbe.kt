@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.LocalSocks5Client
 import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
@@ -420,7 +421,7 @@ internal fun openUdpAssociation(
         input.readUnsignedByte() == SocksReserved.toInt(),
         "SOCKS UDP ASSOCIATE reserved byte is invalid",
     )
-    val relayAddress = readSocksAddress(input)
+    val relayAddress = readSocksAddress(input, controlRemoteAddress)
     val relayPort = input.readUnsignedShort()
     requireSocksProtocol(relayPort != SocksPortZero, "SOCKS UDP ASSOCIATE returned port zero")
     val effectiveAddress = effectiveUdpRelayAddress(relayAddress, controlRemoteAddress)
@@ -444,11 +445,32 @@ private fun requireSocksProtocol(
     if (!condition) throw ProtocolException(message)
 }
 
-private fun readSocksAddress(input: DataInputStream): InetAddress =
+private fun readSocksAddress(
+    input: DataInputStream,
+    controlRemoteAddress: InetAddress,
+): InetAddress =
     when (input.readUnsignedByte()) {
-        AddressIpv4.toInt() -> InetAddress.getByAddress(input.readNBytesExact(Ipv4AddressBytes))
-        AddressIpv6.toInt() -> InetAddress.getByAddress(input.readNBytesExact(Ipv6AddressBytes))
-        else -> throw ProtocolException("SOCKS address type is unsupported")
+        AddressIpv4.toInt() -> {
+            InetAddress.getByAddress(input.readNBytesExact(Ipv4AddressBytes))
+        }
+
+        AddressIpv6.toInt() -> {
+            InetAddress.getByAddress(input.readNBytesExact(Ipv6AddressBytes))
+        }
+
+        AddressDomain.toInt() -> {
+            val name = input.readNBytesExact(input.readUnsignedByte()).toString(Charsets.UTF_8)
+            if (name.equals("localhost", ignoreCase = true) || name.equals("localhost.", ignoreCase = true)) {
+                controlRemoteAddress
+            } else {
+                NumericIp.parseAddress(name)?.toInetAddress()
+                    ?: throw ProtocolException("SOCKS relay name requires a resolver policy")
+            }
+        }
+
+        else -> {
+            throw ProtocolException("SOCKS address type is unsupported")
+        }
     }
 
 private fun dnsQuery(payloadSizeBytes: Int? = null): ByteArray {
@@ -476,6 +498,7 @@ private const val SocksPortZero = 0
 private const val UdpAssociateCommand: Byte = 3
 private const val ReplySucceeded = 0
 private const val AddressIpv4: Byte = 1
+private const val AddressDomain: Byte = 3
 private const val AddressIpv6: Byte = 4
 private val SuccessfulStatusRange = 200..299
 private const val DnsNonceAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"

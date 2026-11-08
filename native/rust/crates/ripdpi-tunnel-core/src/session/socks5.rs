@@ -16,3 +16,6 @@ mod tests;
 
 #[cfg(test)]
 mod reply_validation_tests;
+
+#[cfg(test)]
+mod endpoint_tests;

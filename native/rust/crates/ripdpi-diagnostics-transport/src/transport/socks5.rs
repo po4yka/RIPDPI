@@ -153,6 +153,34 @@ pub fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, Transp
             stream.read_exact(&mut port)?;
             Ok(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::from(addr)), u16::from_be_bytes(port)))
         }
+        0x03 => {
+            let mut length = [0];
+            stream.read_exact(&mut length)?;
+            if length[0] == 0 {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "empty SOCKS5 relay host").into());
+            }
+            let mut host = vec![0; usize::from(length[0])];
+            stream.read_exact(&mut host)?;
+            let host = String::from_utf8(host)
+                .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 relay host"))?;
+            let mut port = [0; 2];
+            stream.read_exact(&mut port)?;
+            let port = u16::from_be_bytes(port);
+            if port == 0 {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 relay port").into());
+            }
+            if host.eq_ignore_ascii_case("localhost") || host.eq_ignore_ascii_case("localhost.") {
+                return Ok(SocketAddr::new(stream.peer_addr()?.ip(), port));
+            }
+            if let Ok(ip) = host.parse() {
+                return Ok(SocketAddr::new(ip, port));
+            }
+            let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+            super::resolve_addresses_with_timeout(&TargetAddress::Host(host), port, timeout)?
+                .into_iter()
+                .next()
+                .ok_or(TransportError::NoSocketAddrs)
+        }
         atyp => Err(TransportError::SocksUdpAssociateAtypUnsupported(atyp)),
     }
 }

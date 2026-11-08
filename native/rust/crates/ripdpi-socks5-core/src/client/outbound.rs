@@ -148,6 +148,9 @@ where
 /// The returned `SocketAddr` is the relay the caller binds a (protected) UDP
 /// socket to; the TCP `stream` MUST be kept alive for the lifetime of the
 /// association.
+///
+/// This low-level helper accepts numeric BND addresses only. It has no relay
+/// name resolver policy; callers that need domain endpoints must own resolution.
 pub async fn associate<S>(stream: &mut S, credentials: Option<Credentials>) -> Result<SocketAddr, OutboundError>
 where
     S: AsyncRead + AsyncWrite + Unpin,

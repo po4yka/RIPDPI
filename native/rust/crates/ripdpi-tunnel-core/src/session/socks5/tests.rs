@@ -141,7 +141,7 @@ async fn userpass_invalid_response_version_stops_connect_and_associate() {
                 let result = async {
                     handshake(&mut stream, &auth).await?;
                     if udp {
-                        associate(&mut stream).await?;
+                        associate(&mut stream, std::net::Ipv4Addr::LOCALHOST.into()).await?;
                     } else {
                         connect(&mut stream, &TargetAddr::Ip("127.0.0.1:9".parse().unwrap())).await?;
                     }
@@ -367,6 +367,8 @@ async fn connect_server_error_returns_err() {
 // -------------------------------------------------------------------------
 
 /// Happy path: server returns relay addr 127.0.0.1:1080.
+/// # Cancel safety:
+/// cancel-safe: the test owns and discards each exchange stream.
 #[tokio::test]
 async fn associate_returns_relay_addr() {
     let associate_req = [0x05u8, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0];
@@ -375,13 +377,15 @@ async fn associate_returns_relay_addr() {
 
     let mut mock = Builder::new().write(&associate_req).read(&associate_reply).build();
 
-    let relay = associate(&mut mock).await.unwrap();
+    let relay = associate(&mut mock, std::net::Ipv4Addr::LOCALHOST.into()).await.unwrap();
     assert_eq!(relay.ip().to_string(), "127.0.0.1");
     assert_eq!(relay.port(), 1080);
 }
 
 /// Non-zero REP byte must return an error.
 /// Only 4 header bytes are provided - we error before reading BND.ADDR.
+/// # Cancel safety:
+/// cancel-safe: the test owns and discards each exchange stream.
 #[tokio::test]
 async fn associate_fails_on_server_error() {
     let associate_req = [0x05u8, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0];
@@ -390,7 +394,7 @@ async fn associate_fails_on_server_error() {
 
     let mut mock = Builder::new().write(&associate_req).read(&associate_reply).build();
 
-    assert!(associate(&mut mock).await.is_err());
+    assert!(associate(&mut mock, std::net::Ipv4Addr::LOCALHOST.into()).await.is_err());
 }
 
 // -------------------------------------------------------------------------

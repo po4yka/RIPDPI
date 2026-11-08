@@ -23,3 +23,29 @@ fn socks5_associate_rejects_invalid_fixed_header() {
         server.join().unwrap();
     }
 }
+
+#[test]
+fn socks5_associate_accepts_domain_relay_endpoints() {
+    for (host, expected) in [
+        ("localhost", "127.0.0.1:5353"),
+        ("LOCALHOST.", "127.0.0.1:5353"),
+        ("127.0.0.1", "127.0.0.1:5353"),
+        ("::1", "[::1]:5353"),
+    ] {
+        let mut reply = vec![5, 0, 0, 3, host.len() as u8];
+        reply.extend_from_slice(host.as_bytes());
+        reply.extend_from_slice(&[0x14, 0xe9]);
+        let (mut stream, server) = reply_stream(reply);
+        assert_eq!(socks5_udp_associate(&mut stream).unwrap(), expected.parse().unwrap());
+        server.join().unwrap();
+    }
+}
+
+#[test]
+fn socks5_associate_rejects_invalid_domain_relay() {
+    for reply in [vec![5, 0, 0, 3, 0], vec![5, 0, 0, 3, 1, 255], vec![5, 0, 0, 3, 1, b'a', 0, 0]] {
+        let (mut stream, server) = reply_stream(reply);
+        assert!(socks5_udp_associate(&mut stream).is_err());
+        server.join().unwrap();
+    }
+}

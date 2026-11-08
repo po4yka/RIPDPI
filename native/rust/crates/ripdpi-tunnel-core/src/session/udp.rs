@@ -163,7 +163,8 @@ impl UdpSession {
         protect_socket_if_available(&ctrl_socket, proxy_addr.ip(), protect_path)?;
         let mut ctrl = ctrl_socket.connect(proxy_addr).await?;
         handshake(&mut ctrl, &auth).await?;
-        let relay_addr = associate(&mut ctrl).await?;
+        let control_peer = ctrl.peer_addr()?.ip();
+        let relay_addr = associate(&mut ctrl, control_peer).await?;
 
         // Relay socket: create + protect + bind + connect, in that order, so the
         // fd is protected before any traffic can leave it.
@@ -574,7 +575,8 @@ mod tests {
         async fn connect(proxy_addr: SocketAddr, auth: Auth) -> io::Result<Self> {
             let mut ctrl = turmoil::net::TcpStream::connect(proxy_addr).await?;
             handshake(&mut ctrl, &auth).await?;
-            let relay_addr = associate(&mut ctrl).await?;
+            let control_peer = ctrl.peer_addr()?.ip();
+            let relay_addr = associate(&mut ctrl, control_peer).await?;
 
             let bind_addr: SocketAddr =
                 if relay_addr.is_ipv4() { "0.0.0.0:0".parse().unwrap() } else { "[::]:0".parse().unwrap() };

@@ -241,6 +241,16 @@ The drained event ring records:
 - clean tunnel stop
 - worker errors and worker panic fallback
 
+## SOCKS5 relay endpoint scope
+
+The TUN client accepts IPv4 and IPv6 UDP relay addresses. A domain-form relay
+address can contain an IP literal or `localhost` (with an optional root dot,
+case-insensitive). `localhost` and unspecified addresses use the control peer
+address. Port zero is invalid. Other relay names fail closed: this caller has
+no relay-name resolver policy and does not fall back to system DNS. The Kotlin
+owned-listener UDP probe uses the same scope. Diagnostics can resolve other
+relay names through its existing bounded resolver.
+
 ## Current Test Coverage
 
 The tunnel stack is currently covered by:
