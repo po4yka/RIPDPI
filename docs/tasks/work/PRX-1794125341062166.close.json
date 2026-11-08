@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "F1-F7 repaired in seven separate fix commits through feacd7304. Owning crate: 63 passed, 2 existing external tests ignored; Clippy, fmt, doctests, locked metadata, ci-gates and independent code/async reviews passed. Server remains test-only; Android and external interoperability not tested.",
+  "execution_sha256": "8d8b06ca35735c81c54be9624e6f11381f7fc9299c7d10ee358c02f39b29a5dc",
+  "issue_sha256": "b8335f6ffff8a9f793ee4449afaeb3d6126596b14cfb0f2d44ac0e9ced647dde",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T08:23:32Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794125341062166"
+}
