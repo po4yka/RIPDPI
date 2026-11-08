@@ -4,8 +4,8 @@ change: vpn07-socket-protection
 commit_sha: 145387cae23bd1e8d39ac35eda3f9f016d0ebee8
 local: passed
 local_evidence: Targeted Rust and Kotlin regressions, Linux UDS timeout tests, Clippy, ktlint, detekt, locked metadata, cargo deny and combined source gates passed. Independent source review passed.
-remote_ci: required
-remote_ci_evidence: CI run 42504685684 is still in progress for this SHA. CodeQL and the five other guard workflows passed. No failed CI job was observed at receipt time.
+remote_ci: blocked
+remote_ci_evidence: CI run 42504685684 failed twice on the same API 35 Xray DNS recovery case. The other jobs and CodeQL passed. Targeted diagnosis is in progress; no VPN-07 cause is established.
 device: passed
 device_evidence: Five instrumented tests passed on an owned API 37 arm64-v8a temporary emulator with shell UID 2000. The source SHA and clean status stayed unchanged. The temporary AVD was removed.
 artifact: passed
@@ -82,7 +82,7 @@ The first test checks real Android UDS recovery. The next three use real transfe
 
 The seven fix commits were fast-forwarded into main and pushed to origin. Remote main was confirmed at 145387cae23bd1e8d39ac35eda3f9f016d0ebee8. GitHub accepted the explicit direct-main push and reported its configured bypass of the PR, pending ci-required and pending CodeQL requirements. No repository protection setting was changed.
 
-[CI run for the source SHA](https://github.com/po4yka/RIPDPI/actions/runs/42504685684) is still running at this receipt. [CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/42504685761), Secret Scan, harness-checks, Monitor-engine dependency guard, L7 adversarial dry-run and fleet-fixtures passed. The portfolio task stays in review until required remote evidence is complete.
+[CI run for the source SHA](https://github.com/po4yka/RIPDPI/actions/runs/42504685684) completed with failure in attempts 1 and 2. Both attempts failed in the first recovered TCP-provider encrypted DNS query in XrayProviderE2ETest.peerLossAndRecoveryPreservesTunAndRejectsDirectBypass. The unchanged 3000 ms probe timed out. Four other Xray methods and the other CI jobs passed. Successful protected TCP recovery preceded the timeout; protection unregister happened during cleanup after the assertion. These observations do not establish a VPN-07 cause. [CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/42504685761), Secret Scan, harness-checks, Monitor-engine dependency guard, L7 adversarial dry-run and fleet-fixtures passed. The portfolio task remains open until required remote evidence is complete.
 
 ## Limits and failure history
 
@@ -91,3 +91,21 @@ C is source evidence. V is an observed execution and is limited to the stated ho
 The audit's H1, H2 and H4 remain hypotheses or scope limits. Peer authentication was not redesigned without a confirmed private-directory trust defect. Native pending-stop fault injection on an actual device and platform netd stalls remain separate acceptance checks.
 
 Initial local attempts hit disk pressure, including a literal Rust ENOSPC and Gradle cache-write failure. A later full build passed after space recovered. Lint issues were fixed without suppressions or baseline changes. One test incorrectly required Throwable object identity across a coroutine boundary; it now checks type, message and the original object directly or as cause. A WebSocket fixture now keeps its accepted peer alive through the assertions. None of these failed setup or fixture runs was counted as product acceptance.
+
+## Bounded investigation of the adjacent Xray CI failure
+
+Six Android test-source files add observations from the actual native tunnel and test UID. They retain the 3000 ms timeout and all assertions. Native counter deltas are unknown if the session generation changes or a counter decreases. Network-state observations run before socket creation and after closure. Error text is redacted and bounded. This is diagnostic code, not a production DNS repair. Independent source review approved it.
+
+The first local diagnostic attempt failed before baseline DNS send. DEX and javap showed that the new standalone helper referenced kotlin.Result, which the standalone test APK does not contain. Its catch referenced the same missing runtime. The helper now uses ordinary try/catch and the Binder service supplies its Context. Actual compiled helper bytecode has zero Kotlin runtime references. The app APK stayed unchanged; only the test APK changed.
+
+A real pinned Xray AAR from CI producer artifact 13625999984 passed the repository release verifier, including all four ABIs, 16 KiB alignment and Java API checks. The local arm64 app and test APK built successfully. A separately built pinned Go peer passed loopback startup and manifest checks. These are ARM counterpart artifacts; the sealed CI bundle contains x86_64 only.
+
+On an owned API 35 arm64 emulator, shell UID 2000, the single recovery method passed: TCP and xHTTP, encrypted DNS recovery, raw UDP DNS and direct-bypass assertions all passed. The five-method CI selector then returned four passes and one failure. The latter happened later in the recovery method, on raw UDP DNS to 192.0.2.53:53 after three successful recovered xHTTP encrypted DNS queries. It was a 3000 ms timeout. It is not the first recovered TCP encrypted DNS failure from either remote attempt.
+
+For the three successful recovered xHTTP encrypted queries, peer DoH receipts advanced 14 to 17, UID policy was armed, unresolved and denied-UDP deltas were zero, and parse/interceptor/queue drops were zero. The final encrypted query had zero policy drops. The later raw query reported VPN default network before creation and after closure. The current observations do not locate the loss of that raw query; no packet-admission conclusion is inferred from DNS completion counters.
+
+Both owned AVDs from failed boot attempts and the two booted test AVDs were removed after their leases. No physical device, root activation or external-server probe ran. The first two boot attempts executed zero tests because available space did not meet the emulator userdata requirement.
+
+The original remote failure remains unresolved. No causal VPN-07 regression is established. The diagnostic commit enables the same counter evidence on exact CI x86_64 artifacts; it does not increase a timeout or bypass a gate. The next acceptance check is the unchanged API 35 CI selector, including the first recovered encrypted DNS request and the later raw UDP DNS request.
+
+The diagnostic sources were committed separately as 765b0a8c1. App ktlintCheck and detekt passed, followed by all just ci-gates checks. The production app APK SHA-256 was bfed342078c64771e3bbc5579fb026d6fb611b7788889ea813d9d1e2254f7dba. The final test APK SHA-256 was f97f5f98a78530cdfbe20c2bc45bbb8ed78b8731fc8853018b8bccaef476fc06. These hashes describe the local counterpart before integration with later main changes.
