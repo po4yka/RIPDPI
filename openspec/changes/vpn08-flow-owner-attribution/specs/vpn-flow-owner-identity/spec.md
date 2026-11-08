@@ -97,6 +97,11 @@ The implementation MUST keep unknown or ambiguous packages unattributed. A disar
 - **WHEN** the owner resolver is unavailable or slow
 - **THEN** armed admission remains fail-closed and disarmed traffic remains usable without guessed app identity.
 
+#### Scenario: Preserve disarmed UDP when the attribution queue has no room
+
+- **WHEN** a valid reassembled UDP datagram exceeds the attribution wait-buffer capacity, or the queue is full, while admission is disarmed
+- **THEN** it forwards without waiting for app scope, without growing the wait buffers, evicting an earlier queued packet or recording a false traffic drop. Armed admission keeps its fail-closed limits.
+
 ### Requirement: REQ-VPN08-PRIVACY — Keep identity opaque
 
 The implementation MUST keep package names and UID values out of emitted app-scope tokens and runtime exports. Scope state MUST remain bounded and session-local.

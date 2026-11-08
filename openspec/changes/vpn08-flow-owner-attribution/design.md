@@ -17,6 +17,7 @@ VPN-08 has an exact UID cache but joins app learning by destination IP. The Andr
 - Resolve before constructing scoped SOCKS transports. Armed policy retains fail-closed admission. Disarmed traffic gets a bounded short grace (100 ms) and otherwise proceeds unscoped; an unscoped connection never borrows a later app identity. Use bounded UDP associations keyed by source and app scope so distinct known owners sharing a local endpoint can coexist. Retire obsolete exact-tuple response and error context before Pending or Denied admission. Keep an empty transport available during refresh: the same confirmed owner reuses its socket and NAT port; a different owner uses another keyed transport. Existing idle, capacity and stop cleanup bound empty transports.
 - F2 and F5 share the scope implementation. F5 receives a separate regression commit for synthetic TCP/UDP; no duplicate IP alias implementation is added.
 - Synchronize the mapping generation before acquiring a packet pin. A stale unleased mapping must remain rejected; existing association and queue pins protect active mappings through a reset. A mapped UDP packet then holds a temporary pin through retirement, admission and forwarding. A queued owner wait holds its own pin until retry, rejection or expiry. The forwarding association acquires its lease before packet pins are released. Empty transports do not keep orphan mapping pins.
+- Optional disarmed attribution cannot discard supported UDP traffic when the wait queue has no room. Oversized reassembled packets and queue pressure bypass the grace with conservative identity. This does not enlarge buffers or relax armed admission.
 
 ## Contracts and ownership
 
@@ -26,6 +27,7 @@ VPN-08 has an exact UID cache but joins app learning by destination IP. The Andr
 - Correlation/session writer: all remaining F3/F2/F5 changes, including FlowAppAttributionStore/Bridge, VpnTunnelRuntime, Kotlin telemetry models, native TUN/proxy/runtime-policy/ports/adapters and their tests. This writer owns serialized JNI files. Integration owns lower policy ports, telemetry adapters and the additive NativeRuntimeSnapshot contract; the startup writer takes proxy-runtime propagation after its startup commit. It starts from the UDP-age commit when touching the shared attribution crate. No concurrent writes to that crate.
 - Cargo.lock, dependency catalog, proto files, locales, baselines and golden fixtures are not planned. Any required contract snapshot is regenerated through its owner, without weakening gates.
 - After its UDP handoff, the UDP writer owns the F6 Lua host regression and minimal raw-hook ordering patch in its isolated worktree. The correlation writer retains pending-packet mapping leases and integrates F6 only after the F2 commit. No shared worktree writes are permitted.
+- The correlation writer owns the F8 disarmed queue-budget repair and its real-wire regression on `fix/vpn08-attribution-grace`, based on the final integration code. Integration retains all Kotlin formatting and verification records.
 
 ## Risks / Trade-offs
 

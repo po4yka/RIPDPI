@@ -23,6 +23,7 @@ Fix VPN-08 findings F1 through F5, package-invalidation races and the discovered
 - Ordinary UDP UID age expires despite continuous traffic.
 - Same-IP apps and synthetic DNS flows keep independent app identity.
 - UID refresh preserves the same owner's UDP source port and pending mapping leases.
+- Disarmed attribution grace does not discard supported UDP when the wait queue has no room.
 - Consuming UDP hooks and STUN policy drops retire obsolete reply context before returning, without a root probe.
 - Late session/package results cannot alter current state.
 - Resolver registration precedes TUN packet handling.
