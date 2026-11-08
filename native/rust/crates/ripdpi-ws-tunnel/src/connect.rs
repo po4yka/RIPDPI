@@ -562,8 +562,9 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         let accept_tx = tx.clone();
         let accept_thread = thread::spawn(move || {
-            let (_stream, _peer) = listener.accept().expect("accept connection");
+            let (stream, _peer) = listener.accept().expect("accept connection");
             accept_tx.send("accept").expect("record accept");
+            stream
         });
 
         let stream = connect_tcp_socket_with(target, Some("/tmp/protect.sock"), &test_bootstrap(None), |_, path| {

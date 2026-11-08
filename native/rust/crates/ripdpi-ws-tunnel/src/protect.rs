@@ -8,15 +8,19 @@ use std::io;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
     use nix::sys::socket::{ControlMessage, MsgFlags, sendmsg};
+    use socket2::{Domain, SockAddr, Socket, Type};
     use std::io::IoSlice;
     use std::io::Read;
     use std::os::fd::AsRawFd;
     use std::os::unix::net::UnixStream;
     use std::time::Duration;
 
-    let stream = UnixStream::connect(path)?;
-    stream.set_read_timeout(Some(Duration::from_secs(1)))?;
-    stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+    let channel = Socket::new(Domain::UNIX, Type::STREAM, None)?;
+    channel.set_read_timeout(Some(Duration::from_secs(1)))?;
+    // A full AF_UNIX accept queue can block connect, so set its timeout first.
+    channel.set_write_timeout(Some(Duration::from_secs(1)))?;
+    channel.connect(&SockAddr::unix(path)?)?;
+    let stream = UnixStream::from(channel);
 
     let payload = *b"1";
     let iov = [IoSlice::new(&payload)];
@@ -42,6 +46,41 @@ pub fn protect_socket<T>(_socket: &T, _path: &str) -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn protect_connect_times_out_when_the_accept_queue_is_full() {
+        use std::os::unix::net::UnixStream;
+        use std::sync::mpsc;
+        use std::time::{Duration, Instant};
+
+        use socket2::{Domain, SockAddr, Socket, Type};
+
+        let path = std::env::temp_dir().join(format!("ripdpi-ws-protect-backlog-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let listener = Socket::new(Domain::UNIX, Type::STREAM, None).expect("UDS listener");
+        listener.bind(&SockAddr::unix(&path).expect("UDS address")).expect("bind UDS");
+        listener.listen(0).expect("listen without spare queue slots");
+        let queued = UnixStream::connect(&path).expect("fill the accept queue");
+        let (finished, result) = mpsc::channel();
+        let worker_path = path.clone();
+        let started = Instant::now();
+        let worker = std::thread::spawn(move || {
+            let outbound = Socket::new(Domain::IPV4, Type::STREAM, None).expect("outbound socket");
+            let protected = super::protect_socket(&outbound, worker_path.to_str().expect("UTF-8 path"));
+            let _ = finished.send(protected);
+        });
+        let observed = result.recv_timeout(Duration::from_millis(2_500));
+        let elapsed = started.elapsed();
+        drop(listener);
+        drop(queued);
+        worker.join().expect("protect worker exits after queue teardown");
+        std::fs::remove_file(&path).expect("remove UDS path");
+
+        let error = observed.expect("connect must finish before the deadline").expect_err("full queue cannot protect");
+        assert!(matches!(error.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut));
+        assert!(elapsed < Duration::from_millis(2_500), "connect took {elapsed:?}");
+    }
+
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     #[test]
     fn protect_socket_reports_unsupported_off_android() {
