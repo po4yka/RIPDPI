@@ -123,15 +123,16 @@ fn resolve_opportunistic_ech(target: &TargetAddress) -> Option<&'static CdnEchCo
 }
 
 pub fn make_server_name(name: &str, target: &TargetAddress) -> Result<ServerName<'static>, String> {
-    if !name.is_empty()
-        && let Ok(server_name) = ServerName::try_from(name.to_string())
-    {
-        return Ok(server_name);
-    }
-    match target {
-        TargetAddress::Ip(ip) => Ok(ServerName::IpAddress((*ip).into())),
-        TargetAddress::Host(host) => ServerName::try_from(host.clone()).map_err(|err| err.to_string()),
-    }
+    let name = if name.is_empty() {
+        match target {
+            TargetAddress::Ip(ip) => return Ok(ServerName::IpAddress((*ip).into())),
+            TargetAddress::Host(host) => host,
+        }
+    } else {
+        name
+    };
+    let name = ripdpi_tls_profiles::normalize_server_name(name).map_err(|error| error.to_string())?;
+    ServerName::try_from(name).map_err(|error| error.to_string())
 }
 
 pub fn default_root_store() -> RootCertStore {
