@@ -12,6 +12,10 @@ pub enum Auth {
 /// Perform SOCKS5 handshake (method negotiation + optional auth).
 ///
 /// On success the stream is ready for a CONNECT/ASSOCIATE request.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: partial reads or writes leave the stream mid-handshake.
+/// Drop the stream if this future is cancelled; do not reuse it.
 pub async fn handshake<S>(stream: &mut S, auth: &Auth) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -60,6 +64,9 @@ where
         let mut auth_resp = [0u8; 2];
         stream.read_exact(&mut auth_resp).await?;
 
+        if auth_resp[0] != 0x01 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: invalid authentication version"));
+        }
         if auth_resp[1] != 0x00 {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5: authentication rejected"));
         }

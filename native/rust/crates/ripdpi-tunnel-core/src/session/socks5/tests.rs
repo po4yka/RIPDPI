@@ -112,6 +112,52 @@ async fn userpass_handshake_fails_on_auth_rejection() {
     assert!(result.is_err(), "expected error when server rejects credentials");
 }
 
+/// # Cancel safety:
+/// cancel-safe: cancellation drops both loopback streams owned by the test.
+#[tokio::test(flavor = "current_thread")]
+async fn userpass_invalid_response_version_stops_connect_and_associate() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    for version in [0x00, 0x02, 0x05, 0xff] {
+        for udp in [false, true] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let peer = async {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut greeting = [0; 3];
+                stream.read_exact(&mut greeting).await.unwrap();
+                assert_eq!(greeting, [0x05, 0x01, 0x02]);
+                stream.write_all(&[0x05, 0x02]).await.unwrap();
+                let mut credentials = [0; 5];
+                stream.read_exact(&mut credentials).await.unwrap();
+                assert_eq!(credentials, [0x01, 0x01, b'u', 0x01, b'p']);
+                stream.write_all(&[version, 0x00]).await.unwrap();
+                let mut next = [0];
+                assert_eq!(stream.read(&mut next).await.unwrap(), 0, "invalid auth reply must stop setup");
+            };
+            let client = async {
+                let mut stream = tokio::net::TcpStream::connect(address).await.unwrap();
+                let auth = Auth::UserPass { username: "u".into(), password: "p".into() };
+                let result = async {
+                    handshake(&mut stream, &auth).await?;
+                    if udp {
+                        associate(&mut stream).await?;
+                    } else {
+                        connect(&mut stream, &TargetAddr::Ip("127.0.0.1:9".parse().unwrap())).await?;
+                    }
+                    Ok::<(), std::io::Error>(())
+                }
+                .await;
+                drop(stream);
+                assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+            };
+            tokio::time::timeout(std::time::Duration::from_secs(2), async { tokio::join!(peer, client) })
+                .await
+                .expect("loopback exchange must finish");
+        }
+    }
+}
+
 #[tokio::test]
 async fn userpass_handshake_rejects_server_selecting_noauth() {
     let mut mock = Builder::new().write(&[0x05, 0x01, 0x02]).read(&[0x05, 0x00]).build();
