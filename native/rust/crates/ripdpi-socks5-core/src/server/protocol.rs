@@ -656,6 +656,8 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Authenti
     ///
     /// It the request is correct, it should returns a ['SocketAddr'].
     ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can consume part of a command; discard the stream.
     pub async fn read_command(
         mut self,
     ) -> Result<(Socks5ServerProtocol<T, states::CommandRead>, Socks5Command, TargetAddr), SocksServerError> {
@@ -674,8 +676,18 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Authenti
 
         let mut proto = Socks5ServerProtocol::new(self.inner);
 
+        if rsv != 0 {
+            proto.reply_error(&ReplyError::GeneralFailure).await?;
+            return Err(SocksServerError::InvalidReserved(rsv));
+        }
+
         // Guess address type
         let target_addr = try_notify!(proto, read_address(&mut proto.inner, address_type).await);
+
+        if matches!(&target_addr, TargetAddr::Domain(domain, _) if domain.is_empty()) {
+            proto.reply_error(&ReplyError::GeneralFailure).await?;
+            return Err(SocksServerError::EmptyDomain);
+        }
 
         debug!("SOCKS request target_kind={}", target_addr.logging_kind());
 

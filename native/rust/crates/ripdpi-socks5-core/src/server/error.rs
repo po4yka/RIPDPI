@@ -22,6 +22,10 @@ pub enum SocksServerError {
     UnknownCommand(u8),
     #[error("Unexpected garbage received on TCP stream used for UDP proxy keep-alive: `{0}`")]
     UnexpectedUdpControlGarbage(u8),
+    #[error("Invalid reserved request byte `{0}`")]
+    InvalidReserved(u8),
+    #[error("Empty domain received")]
+    EmptyDomain,
     #[error("Empty username received")]
     EmptyUsername,
     #[error("Empty password received")]

@@ -36,3 +36,7 @@ include!("server/tests.rs");
 #[cfg(test)]
 #[path = "server/auth_tests.rs"]
 mod auth_tests;
+
+#[cfg(test)]
+#[path = "server/request_tests.rs"]
+mod request_tests;
