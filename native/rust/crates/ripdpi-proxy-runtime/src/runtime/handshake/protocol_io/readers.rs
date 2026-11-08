@@ -5,6 +5,9 @@ use std::time::Instant;
 use crate::runtime::state::{HANDSHAKE_TIMEOUT, RuntimeState};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
+// Both fields share this budget; a final NUL can use one additional byte.
+const MAX_SOCKS4_UNTERMINATED_REQUEST_LEN: usize = 4096;
+
 /// Every read in this module is bounded by one absolute `deadline`, not by a
 /// per-syscall timeout, so a peer that trickles one byte per timeout period
 /// cannot hold a handshake open. The client read timeout returns to
@@ -213,7 +216,7 @@ fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>, deadline: Instant) 
         if byte[0] == 0 {
             return Ok(());
         }
-        if out.len() > 4096 {
+        if out.len() > MAX_SOCKS4_UNTERMINATED_REQUEST_LEN {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "request too large"));
         }
     }

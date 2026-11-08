@@ -4,6 +4,7 @@ mod http_header_limits;
 mod policy_reply;
 mod socks4_boundary;
 mod socks4_family;
+mod socks4_limits;
 mod upstream_reply;
 
 use super::protocol_io::*;
