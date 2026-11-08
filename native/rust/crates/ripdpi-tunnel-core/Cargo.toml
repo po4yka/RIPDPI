@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+getrandom = "0.4"
 ipnet = { workspace = true }
 libc = { workspace = true }
 ripdpi-tunnel-config = { workspace = true }

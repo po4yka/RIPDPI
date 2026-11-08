@@ -124,7 +124,9 @@ where
 
     // Initialise the smoltcp interface.  `set_any_ip(true)` makes smoltcp
     // accept packets addressed to any IP — matching the TUN catch-all design.
-    let iface_cfg = IfaceConfig::new(HardwareAddress::Ip);
+    let mut iface_cfg = IfaceConfig::new(HardwareAddress::Ip);
+    iface_cfg.random_seed = getrandom::u64()
+        .map_err(|error| io::Error::other(format!("initialize tunnel TCP sequence entropy: {error}")))?;
     let mut iface = Interface::new(iface_cfg, &mut device, Instant::now());
     iface.set_any_ip(true);
 
