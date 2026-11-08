@@ -196,6 +196,8 @@ impl<T, S> PasswordAuthenticationImpl<T, S> {
 
 impl<T: AsyncRead + Unpin> PasswordAuthenticationImpl<T, password_states::Started> {
     /// Handle the username and password sent by the client.
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can consume partial credentials; discard the stream.
     pub async fn read_username_password(
         self,
     ) -> Result<(String, String, PasswordAuthenticationImpl<T, password_states::Received>), SocksServerError> {
@@ -203,6 +205,10 @@ impl<T: AsyncRead + Unpin> PasswordAuthenticationImpl<T, password_states::Starte
         trace!("PasswordAuthenticationStarted: read_username_password()");
         let [version, user_len] = read_exact!(socket, [0u8; 2]).err_when("reading user len")?;
         debug!("Auth: [version: {version}, user len: {len}]", version = version, len = user_len,);
+
+        if version != 1 {
+            return Err(SocksServerError::UnsupportedAuthenticationVersion(version));
+        }
 
         if user_len < 1 {
             return Err(SocksServerError::EmptyUsername);

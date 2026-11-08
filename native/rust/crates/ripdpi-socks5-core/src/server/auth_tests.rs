@@ -57,3 +57,30 @@ async fn password_status_flushes_buffered_transport() {
         tokio::join!(handling, reply(client, [1, if accepted { 0 } else { 255 }]));
     }
 }
+
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the local test streams and protocol state.
+#[tokio::test(flavor = "current_thread")]
+async fn password_subversion_is_checked_before_authentication() {
+    for version in [0, 5, 255, 1] {
+        let (mut client, server) = pair().await;
+        client.write_all(&[5, 1, 2, version, 1, b'u', 1, b'p']).await.unwrap();
+        let handling =
+            async { Socks5ServerProtocol::accept_password_auth(server, |u, p| u == "u" && p == "p").await.map(|_| ()) };
+        let reading = async {
+            let mut wire = Vec::new();
+            let result = tokio::time::timeout(Duration::from_secs(1), client.read_to_end(&mut wire)).await.unwrap();
+            if let Err(error) = result {
+                assert_eq!(error.kind(), io::ErrorKind::ConnectionReset);
+            }
+            wire
+        };
+        let (result, wire) = tokio::join!(handling, reading);
+        assert_eq!(result.is_ok(), version == 1, "password VER={version}");
+        if version == 1 {
+            assert_eq!(wire, [5, 2, 1, 0]);
+        } else {
+            assert_eq!(wire, [5, 2], "invalid version must not authenticate");
+        }
+    }
+}

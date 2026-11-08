@@ -16,6 +16,8 @@ pub enum SocksServerError {
     AuthMethodUnacceptable(Vec<u8>),
     #[error("Unsupported SOCKS version `{0}`.")]
     UnsupportedSocksVersion(u8),
+    #[error("Unsupported password authentication version `{0}`.")]
+    UnsupportedAuthenticationVersion(u8),
     #[error("Unsupported SOCKS command `{0}`.")]
     UnknownCommand(u8),
     #[error("Unexpected garbage received on TCP stream used for UDP proxy keep-alive: `{0}`")]
