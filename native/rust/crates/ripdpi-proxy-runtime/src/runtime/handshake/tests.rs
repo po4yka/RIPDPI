@@ -1,5 +1,6 @@
 mod absolute_domain;
 mod auth_correlation;
+mod http_header_limits;
 mod policy_reply;
 mod upstream_reply;
 
@@ -169,7 +170,10 @@ fn read_http_connect_request_reads_delimiter_split_across_chunks() {
     request.extend_from_slice(b"\r\n\r\n");
     writer.write_all(&request).expect("write http connect request");
 
-    assert_eq!(read_http_connect_request(&mut reader, test_deadline()).expect("read http connect request"), request);
+    assert_eq!(
+        read_http_connect_request(&mut reader, test_deadline()).expect("read http connect request"),
+        Some(request)
+    );
 }
 
 #[test]
@@ -233,7 +237,10 @@ fn read_http_connect_request_preserves_early_tunnel_data() {
     reader.set_read_timeout(Some(Duration::from_secs(1))).expect("read timeout");
     let request = b"CONNECT example.com:443 HTTP/1.1\r\n\r\n";
     writer.write_all(&[request.as_slice(), b"early-data"].concat()).expect("write request and data");
-    assert_eq!(read_http_connect_request(&mut reader, test_deadline()).expect("read request"), request);
+    assert_eq!(
+        read_http_connect_request(&mut reader, test_deadline()).expect("read request").as_deref(),
+        Some(request.as_slice())
+    );
     let mut data = [0; 10];
     reader.read_exact(&mut data).expect("read early data");
     assert_eq!(&data, b"early-data");

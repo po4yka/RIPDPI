@@ -124,16 +124,17 @@ fn read_socks4_request_inner(client: &mut TcpStream, version: u8, deadline: Inst
     Ok(out)
 }
 
+/// Returns `None` if the terminated header cannot fit in the size limit.
 pub(in crate::runtime::handshake) fn read_http_connect_request(
     client: &mut TcpStream,
     deadline: Instant,
-) -> io::Result<Vec<u8>> {
+) -> io::Result<Option<Vec<u8>>> {
     let result = read_http_connect_request_inner(client, deadline);
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     result
 }
 
-fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
+fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) -> io::Result<Option<Vec<u8>>> {
     const MAX_HEADER: usize = 64 * 1024;
     let mut out = Vec::new();
     let mut chunk = [0u8; 512];
@@ -149,12 +150,12 @@ fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) ->
             .position(|window| window == b"\r\n\r\n")
             .map(|offset| consumed.saturating_sub(3) + offset + 4);
         if end.is_some_and(|end| end > MAX_HEADER) || (end.is_none() && out.len() >= MAX_HEADER) {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "http connect request too large"));
+            return Ok(None);
         }
         out.truncate(end.unwrap_or(out.len()));
         read_exact_by(client, &mut out[consumed..], deadline)?;
         if end.is_some() {
-            return Ok(out);
+            return Ok(Some(out));
         }
     }
 }

@@ -41,6 +41,8 @@ pub enum HttpConnectFailure {
     Forbidden,
     /// A method other than CONNECT.
     MethodNotAllowed,
+    /// The CONNECT header exceeds the listener limit.
+    HeaderFieldsTooLarge,
     /// The target name did not resolve, or the upstream connection failed.
     BadGateway,
     /// The upstream connection timed out.
@@ -68,6 +70,7 @@ pub fn encode_http_connect_failure(failure: HttpConnectFailure) -> ProxyReply {
         HttpConnectFailure::BadRequest => "400 Bad Request",
         HttpConnectFailure::Forbidden => "403 Forbidden",
         HttpConnectFailure::MethodNotAllowed => "405 Method Not Allowed\r\nAllow: CONNECT",
+        HttpConnectFailure::HeaderFieldsTooLarge => "431 Request Header Fields Too Large",
         HttpConnectFailure::BadGateway => "502 Bad Gateway",
         HttpConnectFailure::GatewayTimeout => "504 Gateway Timeout",
     };

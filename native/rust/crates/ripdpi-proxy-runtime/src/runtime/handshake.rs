@@ -203,7 +203,14 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
 }
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: Instant) -> io::Result<()> {
-    let request = read_http_connect_request(&mut client, deadline)?;
+    let Some(request) = read_http_connect_request(&mut client, deadline)? else {
+        client.write_all(
+            RuntimeState::encode_http_connect_failure(HttpConnectFailure::HeaderFieldsTooLarge).as_bytes(),
+        )?;
+        // Send FIN before closing with unread request bytes.
+        client.shutdown(std::net::Shutdown::Write)?;
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "http connect request too large"));
+    };
     let Ok(head) = HttpConnectHead::parse(&request) else {
         client.write_all(RuntimeState::encode_http_connect_failure(HttpConnectFailure::BadRequest).as_bytes())?;
         return Ok(());
