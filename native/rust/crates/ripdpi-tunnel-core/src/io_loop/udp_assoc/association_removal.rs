@@ -1,18 +1,21 @@
-use std::collections::HashMap;
+use crate::io_loop::udp_assoc::UdpAssociations;
 use std::net::SocketAddr;
 
 use crate::dns_cache::DnsCache;
 
-use super::association_state::UdpAssociation;
+use super::association_state::UdpAssociationKey;
 
 pub(super) fn remove_association(
-    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    associations: &mut UdpAssociations,
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
-    src: SocketAddr,
+    key: impl Into<UdpAssociationKey>,
 ) {
-    if let Some(association) = associations.remove(&src) {
-        closed_sources.push(src);
+    let key = key.into();
+    if let Some(association) = associations.remove(&key) {
+        if !associations.contains_key(&key.src) {
+            closed_sources.push(key.src);
+        }
         association.cancel.cancel();
         for destination in association.destinations.values() {
             destination.retire();

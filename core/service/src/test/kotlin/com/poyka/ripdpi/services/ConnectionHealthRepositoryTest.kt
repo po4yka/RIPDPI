@@ -11,6 +11,32 @@ import org.junit.Test
 
 class ConnectionHealthRepositoryTest {
     @Test
+    fun `a signal with no app scope is never counted as attributed`() {
+        val accumulator = ConnectionHealthAccumulator()
+        val snapshot =
+            accumulator.consume(
+                ServiceTelemetrySnapshot(
+                    proxyTelemetry =
+                        NativeRuntimeSnapshot(
+                            source = "proxy",
+                            directPathLearningSignals =
+                                listOf(
+                                    DirectPathLearningSignal(
+                                        "youtube.com",
+                                        "known-digest",
+                                        DirectPathLearningEvent.QUIC_SUCCESS,
+                                        capturedAt = 1_000L,
+                                    ),
+                                ),
+                        ),
+                    updatedAt = 1_000L,
+                ),
+                isAttributed = { true },
+            )
+        assertEquals(0L, snapshot.buckets.sumOf { it.attributedCount })
+    }
+
+    @Test
     fun `accumulator folds direct path signals by destination class and strategy`() {
         val accumulator = ConnectionHealthAccumulator()
 
@@ -26,6 +52,7 @@ class ConnectionHealthRepositoryTest {
                                         DirectPathLearningSignal(
                                             authority = "www.youtube.com",
                                             ipSetDigest = "yt",
+                                            appScope = "youtube-owner",
                                             event = DirectPathLearningEvent.QUIC_SUCCESS,
                                             strategyFamily = "quic:sni_split",
                                             capturedAt = 1_000L,
@@ -43,7 +70,7 @@ class ConnectionHealthRepositoryTest {
                         runtimeFieldTelemetry = RuntimeFieldTelemetry(winningTcpStrategyFamily = "tcp:fallback"),
                         updatedAt = 1_200L,
                     ),
-                isAttributed = { digest -> digest == "yt" },
+                isAttributed = { scope -> scope == "youtube-owner" },
             )
 
         val youtube = snapshot.buckets.single { it.destinationClass == ConnectionHealthDestinationClass.YOUTUBE }

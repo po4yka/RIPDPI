@@ -9,8 +9,9 @@ impl DirectPathLearningObserver for RuntimeTelemetryDirectPathObserver<'_> {
         ip_set_digest: &str,
         event: &'static str,
         strategy_family: Option<&str>,
+        app_scope: Option<&str>,
     ) {
-        self.0.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family);
+        self.0.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family, app_scope);
     }
 }
 
@@ -21,7 +22,13 @@ impl RuntimeState {
         targets: &[SocketAddr],
         transport: RuntimeTransportProtocol,
     ) {
-        DirectPathLearningPort::note_direct_path_transport_attempt(&self.services, host, targets, transport);
+        DirectPathLearningPort::note_direct_path_transport_attempt(
+            &self.services,
+            host,
+            targets,
+            transport,
+            self.app_scope.as_deref(),
+        );
     }
     pub(in crate::runtime) fn preferred_targets_for_transport(
         &self,
@@ -70,6 +77,7 @@ impl RuntimeState {
             Some(host),
             &decision.suppressed_targets,
             observer.as_ref().map(|observer| observer as &dyn DirectPathLearningObserver),
+            self.app_scope.as_deref(),
         );
         true
     }
@@ -79,10 +87,16 @@ impl RuntimeState {
         targets: &[SocketAddr],
         now_ms: u64,
     ) {
-        DirectPathLearningPort::note_direct_path_udp_suppressed(&self.services, host, targets, now_ms);
+        DirectPathLearningPort::note_direct_path_udp_suppressed(
+            &self.services,
+            host,
+            targets,
+            now_ms,
+            self.app_scope.as_deref(),
+        );
     }
     pub(in crate::runtime) fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr]) {
-        DirectPathLearningPort::note_direct_path_udp_failure(&self.services, host, targets);
+        DirectPathLearningPort::note_direct_path_udp_failure(&self.services, host, targets, self.app_scope.as_deref());
     }
     pub(in crate::runtime) fn note_direct_path_quic_success(&self, host: Option<&str>, targets: &[SocketAddr]) {
         let observer = self.direct_path_observer();
@@ -91,6 +105,7 @@ impl RuntimeState {
             host,
             targets,
             observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+            self.app_scope.as_deref(),
         );
     }
     pub(in crate::runtime) fn note_direct_path_tcp_success(
@@ -106,6 +121,7 @@ impl RuntimeState {
             targets,
             strategy_family,
             observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+            self.app_scope.as_deref(),
         );
     }
     pub(in crate::runtime) fn note_direct_path_tls_post_client_hello_failure(
@@ -113,7 +129,12 @@ impl RuntimeState {
         host: Option<&str>,
         targets: &[SocketAddr],
     ) {
-        DirectPathLearningPort::note_direct_path_tls_post_client_hello_failure(&self.services, host, targets);
+        DirectPathLearningPort::note_direct_path_tls_post_client_hello_failure(
+            &self.services,
+            host,
+            targets,
+            self.app_scope.as_deref(),
+        );
     }
     pub(in crate::runtime) fn note_direct_path_all_ips_failed(&self, host: Option<&str>, targets: &[SocketAddr]) {
         let observer = self.direct_path_observer();
@@ -122,6 +143,7 @@ impl RuntimeState {
             host,
             targets,
             observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+            self.app_scope.as_deref(),
         );
     }
     pub(in crate::runtime) fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64) {

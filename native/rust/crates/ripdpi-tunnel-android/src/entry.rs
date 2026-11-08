@@ -27,8 +27,8 @@
 //! underlay binder registered by the VPN service.
 //!
 //! ## Blocking and errors
-//! `jniStart` returns after the worker thread is spawned (it does not run
-//! packet IO on the caller thread); `jniStop` blocks until the worker joins.
+//! `jniStart` returns after the worker completes packet-loop setup and reports
+//! readiness; packet IO remains on that worker. `jniStop` joins a running worker.
 //! Failures surface as Java exceptions (`IllegalArgumentException`,
 //! `IllegalStateException`, `IOException`); a contained panic yields the
 //! panic-default sentinel (`0` handle, null `jstring`/`jlongArray`).
@@ -144,7 +144,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniDes
 /// Register the Kotlin flow-attribution bridge and start the worker that pushes
 /// per-flow `noteFlow` notifications up to Kotlin. Returns a generation token
 /// (`0` on failure) that Kotlin threads back to `jniUnregisterFlowAttribution`.
-/// Register after `jniStart`, unregister before `jniStop`/`jniDestroy`.
+/// Register before `jniStart`, unregister before `jniStop`/`jniDestroy`.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_Tun2SocksNativeBindings_jniRegisterFlowAttribution(
     env: EnvUnowned<'_>,

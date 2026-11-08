@@ -192,6 +192,7 @@ mod tests {
     mod checksum_validation;
     mod ipv6_extensions;
     mod udp_errors;
+    mod udp_owner_reuse;
     mod uid_admission;
 
     struct GenerationBinder(u64);
@@ -904,7 +905,7 @@ mod tests {
             loop_iteration: 0,
             udp_tx,
             udp_rx,
-            udp_associations: HashMap::new(),
+            udp_associations: crate::io_loop::udp_assoc::UdpAssociations::new(),
             closed_udp_sources: Vec::new(),
             udp_eviction_heap: BinaryHeap::<Reverse<UdpEvictionEntry>>::with_capacity(UDP_EVICTION_HEAP_CAPACITY),
             udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
@@ -933,16 +934,16 @@ mod tests {
         let captured_at = std::time::Instant::now();
 
         for byte in 0..=PENDING_UID_CAPACITY {
-            assert!(packets.retain(&[byte as u8; 32], registration_id, captured_at, true).is_stored());
+            assert!(packets.retain(&[byte as u8; 32], registration_id, captured_at, true, &mut None).is_stored());
         }
         assert_eq!(packets.len(), PENDING_UID_CAPACITY);
         assert_eq!(packets.free_len(), 1);
 
         let packet = packets.pop_front().expect("queued packet");
         let allocation = packet.bytes.as_ptr();
-        packets.recycle(packet);
+        packets.recycle(packet, &mut None);
         assert_eq!(packets.free_len(), 2);
-        assert!(packets.retain(&[7; 32], registration_id, captured_at, true).is_stored());
+        assert!(packets.retain(&[7; 32], registration_id, captured_at, true, &mut None).is_stored());
         assert_eq!(packets.back_ptr(), Some(allocation), "retention must reuse a preallocated buffer");
         assert_eq!(packets.free_len() + packets.len(), PENDING_UID_POOL_CAPACITY);
         drop(packets);

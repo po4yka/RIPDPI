@@ -41,7 +41,9 @@ impl LoopState {
             self.runtime.tun_egress_interceptor.close_flow(flow.protocol, flow.local, flow.remote);
         }
         for src in self.closed_udp_sources.drain(..) {
-            self.runtime.tun_egress_interceptor.close_udp_source(src);
+            if !self.udp_associations.contains_key(&src) {
+                self.runtime.tun_egress_interceptor.close_udp_source(src);
+            }
         }
     }
 }

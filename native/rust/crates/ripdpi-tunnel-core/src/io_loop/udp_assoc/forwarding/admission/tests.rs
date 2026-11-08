@@ -1,14 +1,15 @@
 use super::*;
+use crate::io_loop::udp_assoc::UdpAssociations;
 use crate::io_loop::udp_assoc::shutdown::shutdown_udp_associations;
 use crate::io_loop::udp_assoc::worker::spawn_udp_association;
 use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
 use tokio_util::sync::CancellationToken;
 
-fn associations(src: SocketAddr) -> HashMap<SocketAddr, UdpAssociation> {
+fn associations(src: SocketAddr) -> UdpAssociations {
     let (events, _events_rx) = tokio::sync::mpsc::channel(1);
     let destination: SocketAddr = "203.0.113.1:443".parse().unwrap();
-    HashMap::from([(
+    UdpAssociations::from([(
         src,
         spawn_udp_association(
             "127.0.0.1:9".parse().unwrap(),
@@ -34,7 +35,7 @@ async fn idle_current_destination_gets_a_fresh_identity_before_enqueue() {
     let dst: SocketAddr = "203.0.113.1:443".parse().unwrap();
     let mut associations = associations(src);
     let retired = Arc::new(UdpDestination::new_at(TargetAddr::Ip(dst), dst, dst, None, 100));
-    associations.get_mut(&src).unwrap().destinations.insert(dst, Arc::clone(&retired));
+    associations.get_mut(src).unwrap().destinations.insert(dst, Arc::clone(&retired));
 
     let current = prepare_udp_destination(
         &mut associations,
@@ -71,7 +72,7 @@ async fn full_destination_admission_reclaims_only_expired_entries() {
         if port == 1 {
             first = Some(Arc::clone(&destination));
         }
-        associations.get_mut(&src).unwrap().destinations.insert(dst, destination);
+        associations.get_mut(src).unwrap().destinations.insert(dst, destination);
     }
     let excess: SocketAddr = "203.0.113.2:443".parse().unwrap();
     assert!(

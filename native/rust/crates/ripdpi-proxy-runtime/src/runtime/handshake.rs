@@ -165,7 +165,10 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
     if !RuntimeState::is_socks5_version(version) {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
-    let attempt_token = negotiate_socks5(&mut client, state.proxy_auth_token(), deadline)?;
+    let identity = negotiate_socks5(&mut client, state.proxy_auth_token(), deadline)?;
+    let scoped_state = state.with_app_scope(identity.app_scope);
+    let state = &scoped_state;
+    let attempt_token = identity.attempt_token;
     let mut request = read_socks5_request(&mut client, deadline)?;
     let private_udp = request.get(1).copied() == Some(udp_feedback::COMMAND);
     if private_udp {

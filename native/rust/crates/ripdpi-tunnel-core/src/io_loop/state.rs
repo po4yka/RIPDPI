@@ -15,9 +15,9 @@ use crate::{ActiveSessions, Stats, TunDevice};
 use super::dns_intercept::{DnsRequest, DnsResponse};
 use super::packet::TcpFlowKey;
 use super::retransmit::RetransmitTracker;
-use super::udp_assoc::{UdpAssociation, UdpEvent, UdpEvictionEntry};
+use super::udp_assoc::{UdpAssociations, UdpEvent, UdpEvictionEntry};
 
-mod pending_uid;
+pub(super) mod pending_uid;
 mod runtime;
 
 #[cfg(test)]
@@ -39,7 +39,7 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) loop_iteration: u32,
     pub(in crate::io_loop) udp_tx: Sender<UdpEvent>,
     pub(in crate::io_loop) udp_rx: Receiver<UdpEvent>,
-    pub(in crate::io_loop) udp_associations: HashMap<SocketAddr, UdpAssociation>,
+    pub(in crate::io_loop) udp_associations: UdpAssociations,
     pub(in crate::io_loop) closed_udp_sources: Vec<SocketAddr>,
     pub(in crate::io_loop) udp_eviction_heap: BinaryHeap<Reverse<UdpEvictionEntry>>,
     pub(in crate::io_loop) udp_memory_budget: UdpMemoryBudget,

@@ -1,5 +1,6 @@
 use super::*;
 use crate::io_loop::packet::UdpErrorQuote;
+use crate::io_loop::udp_assoc::UdpAssociations;
 use crate::uid_policy::{UidFlowPolicy, Verdict};
 
 /// # Cancel safety:
@@ -45,7 +46,7 @@ async fn remote_error_requires_live_destination_registration_uid_and_session() {
             info: 0,
         };
         let raw = UdpErrorQuote::capture(&original).unwrap().build_remote(&error).unwrap();
-        let mut associations = HashMap::from([(src, association)]);
+        let mut associations = UdpAssociations::from([(src, association)]);
         let mut device = TunDevice::new(1500);
         handle_udp_event(
             &mut device,
@@ -64,7 +65,7 @@ async fn remote_error_requires_live_destination_registration_uid_and_session() {
             |id| !cancel.is_cancelled() && policy.admit_registration(id) == Verdict::Allow,
         );
         assert_eq!(device.tx_queue.len(), usize::from(rejected == "none"), "must gate {rejected}");
-        let association = associations.remove(&src).expect("remote error does not close association");
+        let association = associations.remove(src).expect("remote error does not close association");
         association.cancel.cancel();
         association.worker.abort();
         let _ = association.worker.await;

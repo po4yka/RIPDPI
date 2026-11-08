@@ -1,4 +1,5 @@
 use std::io;
+use std::net::SocketAddr;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -7,6 +8,18 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 pub enum Auth {
     NoAuth,
     UserPass { username: String, password: String },
+}
+
+impl Auth {
+    /// Keep owner scopes inside the authenticated loopback transport.
+    pub(crate) fn with_app_scope(&self, proxy: SocketAddr, app_scope: Option<&str>) -> Self {
+        match (self, app_scope) {
+            (Self::UserPass { password, .. }, Some(scope)) if proxy.ip().to_canonical().is_loopback() => {
+                Self::UserPass { username: format!("vpn08:{scope}"), password: password.clone() }
+            }
+            _ => self.clone(),
+        }
+    }
 }
 
 /// Perform SOCKS5 handshake (method negotiation + optional auth).

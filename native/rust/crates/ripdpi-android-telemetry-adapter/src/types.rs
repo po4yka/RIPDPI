@@ -59,6 +59,8 @@ pub(crate) struct DirectPathLearningSignal {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) strategy_family: Option<String>,
     pub(crate) captured_at: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) app_scope: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

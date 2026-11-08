@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use crate::io_loop::udp_assoc::UdpAssociations;
+use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -7,7 +8,7 @@ use crate::dns_cache::DnsCache;
 use super::association_state::{UdpAssociation, now_millis};
 
 pub(in crate::io_loop) fn expire_udp_destinations(
-    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    associations: &mut UdpAssociations,
     cache: &mut Option<DnsCache>,
     idle_timeout: Duration,
 ) {
@@ -15,13 +16,22 @@ pub(in crate::io_loop) fn expire_udp_destinations(
 }
 
 pub(super) fn expire_udp_destinations_at(
-    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    associations: &mut UdpAssociations,
     cache: &mut Option<DnsCache>,
     idle_timeout: Duration,
     now: u64,
 ) {
-    for (&src, association) in associations {
-        expire_udp_source_destinations_at(src, association, cache, idle_timeout, now);
+    let mut expired = Vec::new();
+    for (key, association) in associations.iter_mut() {
+        let id = association.id;
+        expired.extend(
+            expire_udp_source_destinations_at(key.src, association, cache, idle_timeout, now)
+                .into_iter()
+                .map(|request| (request, id)),
+        );
+    }
+    for (request, id) in expired {
+        associations.forget_destination(&request, id);
     }
 }
 
@@ -31,7 +41,8 @@ pub(super) fn expire_udp_source_destinations_at(
     cache: &mut Option<DnsCache>,
     idle_timeout: Duration,
     now: u64,
-) {
+) -> Vec<ripdpi_flow_app_attribution::FlowResolveRequest> {
+    let mut expired = Vec::new();
     let mut retired_ips = HashSet::new();
     let attribution_ids = &mut association.attribution_ids;
     association.destinations.retain(|&dst, destination| {
@@ -43,6 +54,7 @@ pub(super) fn expire_udp_source_destinations_at(
             retired_ips.insert(ip);
         }
         let request = ripdpi_flow_app_attribution::FlowResolveRequest { protocol: 17, local: src, remote: dst };
+        expired.push(request);
         if let Some(registration_id) = attribution_ids.pop(&request) {
             ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
         }
@@ -60,4 +72,5 @@ pub(super) fn expire_udp_source_destinations_at(
             cache.unpin(ip);
         }
     }
+    expired
 }

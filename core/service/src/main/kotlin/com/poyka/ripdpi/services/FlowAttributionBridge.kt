@@ -125,7 +125,7 @@ class FlowAttributionBridge
             remotePort: Int,
             requestKind: Int,
         ): Int =
-            sessionCallback.get()?.noteFlow(protocol, localIp, localPort, remoteIp, remotePort, requestKind)
+            sessionCallback.get()?.noteFlow(protocol, localIp, localPort, remoteIp, remotePort, requestKind)?.uid
                 ?: InvalidUid
 
         override fun snapshot(): RemoteDeviceUidPolicyQualification {
@@ -159,12 +159,12 @@ internal class SessionFlowAttributionCallback(
         remoteIp: String,
         remotePort: Int,
         requestKind: Int,
-    ): Int {
-        if (!isCurrent()) return InvalidUid
-        val uid = store.resolveSessionFlowUid(session, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
-        if (!isCurrent()) return InvalidUid
-        epoch.record(protocol, uid, requestKind)
-        return uid
+    ): FlowOwnerResolution {
+        if (!isCurrent()) return FlowOwnerResolution(InvalidUid)
+        val owner = store.resolveSessionOwner(session, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
+        if (!isCurrent()) return FlowOwnerResolution(InvalidUid)
+        epoch.record(protocol, owner.uid, requestKind)
+        return owner
     }
 
     fun close() = store.endSession(session)

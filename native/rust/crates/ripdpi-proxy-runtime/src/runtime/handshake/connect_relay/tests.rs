@@ -142,6 +142,7 @@ struct TestTelemetry {
     ws_escalations: StdMutex<Vec<(SocketAddr, u8, bool)>>,
     ws_fake_sni_active: StdMutex<Vec<(SocketAddr, u8)>>,
     direct_path_signals: StdMutex<Vec<(String, String, String)>>,
+    scoped_signals: StdMutex<Vec<(String, Option<String>)>>,
 }
 
 impl RuntimeTelemetrySink for TestTelemetry {
@@ -196,7 +197,12 @@ impl RuntimeTelemetrySink for TestTelemetry {
         ip_set_digest: &str,
         event: &'static str,
         _strategy_family: Option<&str>,
+        app_scope: Option<&str>,
     ) {
+        self.scoped_signals
+            .lock()
+            .expect("scoped signals lock")
+            .push((event.to_string(), app_scope.map(str::to_owned)));
         self.direct_path_signals.lock().expect("direct path signals lock").push((
             authority.to_string(),
             ip_set_digest.to_string(),
@@ -695,3 +701,5 @@ fn pass_through_same_host_connections_beyond_default_cap_are_all_admitted() {
     assert_eq!(slotted, DEFAULT_EXIT_IP_SESSION_CAP);
     drop(listener);
 }
+
+mod app_scope;

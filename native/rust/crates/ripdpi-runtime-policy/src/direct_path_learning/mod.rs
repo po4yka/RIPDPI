@@ -31,8 +31,14 @@ pub struct DirectPathLearningState {
 }
 
 impl DirectPathLearningState {
-    pub fn note_transport_attempt(&mut self, host: Option<&str>, targets: &[SocketAddr], transport: TransportProtocol) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+    pub fn note_transport_attempt(
+        &mut self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        transport: TransportProtocol,
+        app_scope: Option<&str>,
+    ) {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         // Only existing state has anything to clear; a new default entry would carry no information.
@@ -62,8 +68,14 @@ impl DirectPathLearningState {
         entry
     }
 
-    pub fn note_udp_suppressed(&mut self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+    pub fn note_udp_suppressed(
+        &mut self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        now_ms: u64,
+        app_scope: Option<&str>,
+    ) {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         let entry = self.tuple_entry(tuple_key);
@@ -73,8 +85,8 @@ impl DirectPathLearningState {
             Some(self.earliest_pending_udp_suppressed_ms.map_or(pending_since, |earliest| earliest.min(pending_since)));
     }
 
-    pub fn note_udp_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+    pub fn note_udp_failure(&mut self, host: Option<&str>, targets: &[SocketAddr], app_scope: Option<&str>) {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         let entry = self.tuple_entry(tuple_key);
@@ -87,8 +99,9 @@ impl DirectPathLearningState {
         observer: Option<&dyn DirectPathLearningObserver>,
         host: Option<&str>,
         targets: &[SocketAddr],
+        app_scope: Option<&str>,
     ) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         let entry = self.tuple_entry(tuple_key.clone());
@@ -99,8 +112,13 @@ impl DirectPathLearningState {
         emit_learning_signal(observer, &tuple_key, "OWNED_STACK_REQUIRED", None);
     }
 
-    pub fn note_tls_post_client_hello_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+    pub fn note_tls_post_client_hello_failure(
+        &mut self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        app_scope: Option<&str>,
+    ) {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         let entry = self.tuple_entry(tuple_key);
@@ -113,8 +131,9 @@ impl DirectPathLearningState {
         observer: Option<&dyn DirectPathLearningObserver>,
         host: Option<&str>,
         targets: &[SocketAddr],
+        app_scope: Option<&str>,
     ) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         let entry = self.tuple_entry(tuple_key.clone());
@@ -132,8 +151,9 @@ impl DirectPathLearningState {
         host: Option<&str>,
         targets: &[SocketAddr],
         strategy_family: Option<&str>,
+        app_scope: Option<&str>,
     ) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         let Some(entry) = self.tuples.get_mut(&tuple_key) else {
@@ -155,8 +175,9 @@ impl DirectPathLearningState {
         observer: Option<&dyn DirectPathLearningObserver>,
         host: Option<&str>,
         targets: &[SocketAddr],
+        app_scope: Option<&str>,
     ) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets, app_scope) else {
             return;
         };
         let entry = self.tuple_entry(tuple_key.clone());
@@ -203,3 +224,6 @@ impl DirectPathLearningState {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod scope_tests;

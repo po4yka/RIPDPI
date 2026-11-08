@@ -363,9 +363,10 @@ impl RuntimeTelemetrySink for CompositeProxyTelemetrySink {
         ip_set_digest: &str,
         event: &'static str,
         strategy_family: Option<&str>,
+        app_scope: Option<&str>,
     ) {
-        self.primary.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family);
-        self.quality.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family);
+        self.primary.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family, app_scope);
+        self.quality.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family, app_scope);
     }
 
     fn on_runtime_decision_snapshot(&self, snapshot: &RuntimeDecisionSnapshot) {

@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
+use crate::runtime::client_identity::Socks5ClientIdentity;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use super::{negotiate_socks5, test_deadline};
@@ -12,7 +12,7 @@ fn authenticate_loopback(
     connect_ip: IpAddr,
     frame: &[u8],
     expected_status: [u8; 2],
-) -> io::Result<Option<AttemptCorrelationId>> {
+) -> io::Result<Socks5ClientIdentity> {
     let domain = if bind_ip.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).expect("create auth listener");
     if bind_ip.is_ipv6() {
@@ -49,8 +49,9 @@ fn authenticated_loopback_representations_preserve_the_attempt_id() {
     ];
     for (bind_ip, connect_ip) in cases {
         let id = authenticate_loopback(bind_ip, connect_ip, b"\x01\x07attempt\x06secret", [1, 0])
-            .expect("authenticate valid token")
-            .expect("all loopback representations retain correlation");
+            .expect("authenticate valid token");
+        assert!(id.app_scope.is_none(), "diagnostics correlation is not app identity");
+        let id = id.attempt_token.expect("all loopback representations retain correlation");
         assert_eq!(id.as_opaque_str(), "attempt");
     }
 }
@@ -64,5 +65,40 @@ fn mapped_loopback_still_requires_the_token_and_a_valid_utf8_id() {
     assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
     let id = authenticate_loopback(bind_ip, connect_ip, b"\x01\x01\xff\x06secret", [1, 0])
         .expect("username encoding does not change valid password authentication");
-    assert!(id.is_none(), "invalid UTF-8 never becomes an attempt ID");
+    assert!(id.attempt_token.is_none(), "invalid UTF-8 never becomes an attempt ID");
+}
+
+#[test]
+fn reserved_app_scope_is_not_diagnostic_correlation() {
+    let id = authenticate_loopback(
+        IpAddr::V4(Ipv4Addr::LOCALHOST),
+        IpAddr::V4(Ipv4Addr::LOCALHOST),
+        b"\x01\x2avpn08:11111111-1111-4111-8111-111111111111\x06secret",
+        [1, 0],
+    )
+    .expect("authenticate app scope");
+    assert!(id.attempt_token.is_none(), "app identity must not become a diagnostic attempt token");
+    assert_eq!(id.app_scope.as_deref(), Some("11111111-1111-4111-8111-111111111111"));
+}
+
+#[test]
+fn malformed_reserved_app_scopes_do_not_become_diagnostic_tokens() {
+    for username in [
+        "vpn08:",
+        "vpn08:11111111-1111-4111-8111-11111111111",
+        "vpn08:11111111-1111-4111-8111-1111111111111",
+        "vpn08:AAAAAAAA-1111-4111-8111-111111111111",
+        "vpn08:11111111_1111-4111-8111-111111111111",
+        "vpn08:11111111-1111-4111-8111-11111111111g",
+        "vpn08:11111111-1111-4111-8111-111111111111 ",
+    ] {
+        let mut frame = vec![1, username.len() as u8];
+        frame.extend_from_slice(username.as_bytes());
+        frame.extend_from_slice(b"\x06secret");
+        let id =
+            authenticate_loopback(IpAddr::V4(Ipv4Addr::LOCALHOST), IpAddr::V4(Ipv4Addr::LOCALHOST), &frame, [1, 0])
+                .expect("a metadata error must not reject valid password authentication");
+        assert!(id.attempt_token.is_none(), "reserved metadata must not become a diagnostic attempt token");
+        assert!(id.app_scope.is_none(), "malformed reserved metadata must stay unattributed");
+    }
 }

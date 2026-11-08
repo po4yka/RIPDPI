@@ -1,4 +1,5 @@
-use std::collections::{BinaryHeap, HashMap};
+use crate::io_loop::udp_assoc::UdpAssociations;
+use std::collections::BinaryHeap;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -39,7 +40,7 @@ async fn idle_destination_releases_lease_without_retiring_active_peer() {
         cancel.clone(),
         events.clone(),
     );
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut cache = Some(DnsCache::new(0xc612_0000, 0xfffe_0000, 2).unwrap());
     let mut heap = BinaryHeap::new();
     let stats = Arc::new(Stats::new());
@@ -138,11 +139,11 @@ async fn mapping_stays_leased_until_its_last_live_destination_expires() {
         CancellationToken::new(),
         events,
     );
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut cache = Some(DnsCache::new(0xc612_0000, 0xfffe_0000, 1).unwrap());
     let ip = cache.as_mut().unwrap().find("shared.example", 0xcb00_7101).unwrap().0;
     cache.as_mut().unwrap().pin(ip);
-    associations.get_mut(&src).unwrap().leased_synthetic_ips.insert(ip);
+    associations.get_mut(src).unwrap().leased_synthetic_ips.insert(ip);
     for (port, last) in [(443, 100), (8443, 150)] {
         let dst = SocketAddr::new(Ipv4Addr::from(ip).into(), port);
         let target = SocketAddr::new(resolved.ip(), port);
@@ -153,7 +154,7 @@ async fn mapping_stays_leased_until_its_last_live_destination_expires() {
             Some(ip),
         ));
         destination.last_activity.store(last, Ordering::Relaxed);
-        associations.get_mut(&src).unwrap().destinations.insert(dst, destination);
+        associations.get_mut(src).unwrap().destinations.insert(dst, destination);
     }
 
     expire_udp_destinations_at(&mut associations, &mut cache, Duration::from_millis(75), 200);

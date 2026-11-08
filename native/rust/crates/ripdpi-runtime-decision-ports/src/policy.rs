@@ -91,6 +91,7 @@ pub trait DirectPathLearningObserver {
         ip_set_digest: &str,
         event: &'static str,
         strategy_family: Option<&str>,
+        app_scope: Option<&str>,
     );
 }
 
@@ -106,17 +107,25 @@ pub trait DirectPathLearningPort: Send + Sync {
         host: Option<&str>,
         targets: &[SocketAddr],
         transport: TransportProtocol,
+        app_scope: Option<&str>,
     );
 
-    fn note_direct_path_udp_suppressed(&self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64);
+    fn note_direct_path_udp_suppressed(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        now_ms: u64,
+        app_scope: Option<&str>,
+    );
 
-    fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr]);
+    fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr], app_scope: Option<&str>);
 
     fn note_direct_path_owned_stack_required(
         &self,
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     );
 
     fn note_direct_path_quic_success(
@@ -124,6 +133,7 @@ pub trait DirectPathLearningPort: Send + Sync {
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     );
 
     fn note_direct_path_tcp_success(
@@ -132,15 +142,22 @@ pub trait DirectPathLearningPort: Send + Sync {
         targets: &[SocketAddr],
         strategy_family: Option<&str>,
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     );
 
-    fn note_direct_path_tls_post_client_hello_failure(&self, host: Option<&str>, targets: &[SocketAddr]);
+    fn note_direct_path_tls_post_client_hello_failure(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        app_scope: Option<&str>,
+    );
 
     fn note_direct_path_all_ips_failed(
         &self,
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     );
 
     fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64, observer: Option<&dyn DirectPathLearningObserver>);

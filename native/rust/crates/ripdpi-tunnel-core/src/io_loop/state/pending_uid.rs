@@ -1,7 +1,10 @@
 use std::collections::VecDeque;
+use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, Instant};
 
 use ripdpi_flow_app_attribution::FlowRegistrationId;
+
+use crate::dns_cache::DnsCache;
 
 pub(in crate::io_loop) const PENDING_UID_CAPACITY: usize = 256;
 pub(in crate::io_loop) const PENDING_UID_POOL_CAPACITY: usize = PENDING_UID_CAPACITY + 1;
@@ -13,6 +16,21 @@ pub(crate) struct PendingUidPacket {
     pub(crate) registration_id: FlowRegistrationId,
     pub(crate) captured_at: Instant,
     pub(crate) original_wire_packet: bool,
+    pinned_synthetic_ip: Option<u32>,
+}
+
+/// Each returned IP owns one lease in this loop state's DNS cache.
+pub(in crate::io_loop) fn pin_packet_mapping(cache: &mut Option<DnsCache>, remote: SocketAddr) -> Option<u32> {
+    let IpAddr::V4(ip) = remote.ip() else { return None };
+    let cache = cache.as_mut()?;
+    let ip = u32::from(ip);
+    (cache.contains_mapped_ip(ip) && cache.pin(ip)).then_some(ip)
+}
+
+pub(in crate::io_loop) fn unpin_packet_mapping(cache: &mut Option<DnsCache>, ip: Option<u32>) {
+    if let (Some(cache), Some(ip)) = (cache.as_mut(), ip) {
+        cache.unpin(ip);
+    }
 }
 
 impl PendingUidPacket {
@@ -53,18 +71,33 @@ impl PendingUidPackets {
         registration_id: FlowRegistrationId,
         captured_at: Instant,
         original_wire_packet: bool,
+        cache: &mut Option<DnsCache>,
     ) -> PendingUidRetainOutcome {
         if packet.len() > self.packet_capacity {
             return PendingUidRetainOutcome::Rejected;
         }
         let evicted_oldest = self.queued.len() == PENDING_UID_CAPACITY;
-        let buffer = if evicted_oldest { self.queued.pop_front().map(|packet| packet.bytes) } else { self.free.pop() };
+        let buffer = if evicted_oldest {
+            self.queued.pop_front().map(|packet| {
+                unpin_packet_mapping(cache, packet.pinned_synthetic_ip);
+                packet.bytes
+            })
+        } else {
+            self.free.pop()
+        };
         let Some(mut buffer) = buffer else {
             return PendingUidRetainOutcome::Rejected;
         };
         buffer.clear();
         buffer.extend_from_slice(packet);
-        self.queued.push_back(PendingUidPacket { bytes: buffer, registration_id, captured_at, original_wire_packet });
+        let pinned_synthetic_ip = pin_packet_mapping(cache, registration_id.request().remote);
+        self.queued.push_back(PendingUidPacket {
+            bytes: buffer,
+            registration_id,
+            captured_at,
+            original_wire_packet,
+            pinned_synthetic_ip,
+        });
         if evicted_oldest { PendingUidRetainOutcome::EvictedOldest } else { PendingUidRetainOutcome::Stored }
     }
 
@@ -72,9 +105,16 @@ impl PendingUidPackets {
         self.queued.pop_front()
     }
 
-    pub(in crate::io_loop) fn recycle(&mut self, mut packet: PendingUidPacket) {
+    pub(in crate::io_loop) fn recycle(&mut self, mut packet: PendingUidPacket, cache: &mut Option<DnsCache>) {
+        unpin_packet_mapping(cache, packet.pinned_synthetic_ip);
         packet.bytes.clear();
         self.free.push(packet.bytes);
+    }
+
+    pub(in crate::io_loop) fn clear(&mut self, cache: &mut Option<DnsCache>) {
+        while let Some(packet) = self.pop_front() {
+            self.recycle(packet, cache);
+        }
     }
 
     pub(in crate::io_loop) fn len(&self) -> usize {

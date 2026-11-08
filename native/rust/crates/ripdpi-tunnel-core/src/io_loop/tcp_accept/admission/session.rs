@@ -47,12 +47,14 @@ pub(super) fn admit_session(
     let target = pending.target_host.as_ref().map_or(TargetAddr::Ip(pending.target_addr), |host| {
         TargetAddr::ResolvedDomain(host.clone(), pending.target_addr)
     });
+    let app_scope = ripdpi_flow_app_attribution::lookup_registered_app_scope(&attribution_id);
+    let scoped_auth = auth.with_app_scope(proxy_sockaddr, app_scope.as_deref());
     let session = if pending.dns_intercept {
         create_tcp_dns_duplex(pending.target_addr, dns_req_tx, split_dns_policy, cancel, stats)
     } else {
         create_session_duplex(
             proxy_sockaddr,
-            auth,
+            &scoped_auth,
             target,
             protect_path,
             connect_timeout,

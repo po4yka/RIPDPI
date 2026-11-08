@@ -1,35 +1,17 @@
 //! Process-global per-flow app-attribution cache.
 //!
-//! Bridges the two halves of RIPDPI's data plane. The TUN core
-//! (`ripdpi-tunnel-core`) is the only place that knows the *originating* app's
-//! 5-tuple; the proxy-runtime policy layer (`ripdpi-runtime-policy`) is where
-//! direct-path learning verdicts (`NO_TCP_FALLBACK`, …) are decided — but it
-//! only sees a loopback socket, never the app. This crate is the shared,
-//! process-global side-channel both halves consult. App attribution is keyed by
-//! the **destination IP** (the one value both sides can compute), while native
-//! admission keeps a separate full-5-tuple UID cache:
+//! The TUN core records the originating protocol/local/remote tuple. A background
+//! Android worker resolves its UID and optional opaque app scope. Native admission
+//! uses only that exact registration; app learning carries the scope through the
+//! authenticated local SOCKS transport to the Kotlin session-owned identity map.
 //!
-//! * TUN core, at flow birth, calls [`note_flow`] with the originating 5-tuple.
-//!   On a cache miss the request is enqueued for asynchronous resolution and
-//!   `None` is returned immediately — **never** blocking the per-flow / per-packet
-//!   path (see `.claude/rules/vpnservice-protect-invariant.md`).
-//! * A background worker (the JNI adapter) drains [`pop_pending_request`],
-//!   resolves UID → package → version off the hot path, and calls
-//!   [`store_flow_resolution`] plus [`store_uid_resolution`].
-//! * The policy layer calls [`lookup_flow`] (read-only, no enqueue) for each of
-//!   its candidate destination IPs to attribute a learning signal.
+//! Each `.so` links its own copy. State is bounded, evicted on flow close, and
+//! cleared on session teardown. UDP UID results also have an absolute lifetime.
 //!
-//! Like `ripdpi-native-protect`, each `.so` links its own copy, so the cache is
-//! per-`.so`. State is bounded (LRU) and additionally evicted on flow close
-//! ([`evict_flow_if_current`]) and cleared on session teardown ([`end_attribution_session_if`]).
-//!
-//! ## Conservative by default
-//!
-//! A `Resolved(None)` entry is the deliberate "unattributed" verdict — shared
-//! UID, multiple packages behind one UID, or a failed lookup. The policy layer
-//! treats a missing or `None` attribution as "no per-app verdict", so the system
-//! degrades to authority/IP-scoped policy rather than guessing. Two apps to the
-//! same destination IP collide on the key; that too resolves conservatively.
+//! The older destination-context helpers remain library APIs. Their IP cache is
+//! best-effort and is not an owning-app authority: concurrent owners can collide.
+//! The Android worker never stores package context there, and the Android policy
+//! path never uses a destination IP to infer application identity.
 //!
 //! ## Generation guard
 //!
@@ -109,12 +91,13 @@ enum UidResolutionState {
     Resolved(Option<u32>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct UidResolution {
     generation: u64,
     state: UidResolutionState,
     kind: FlowResolutionKind,
     created_at: Instant,
+    app_scope: Option<std::sync::Arc<str>>,
 }
 
 /// Cached UID lookup state for one complete flow tuple.
@@ -299,7 +282,7 @@ fn note_flow_at(request: FlowResolveRequest, now: Instant) -> FlowObservation {
     if !guard.cache.contains(&key) {
         guard.cache.put(key, Resolution::Pending);
     }
-    if let Some(resolution) = guard.uid_cache.get(&request).copied() {
+    if let Some(resolution) = guard.uid_cache.get(&request) {
         return FlowObservation {
             context,
             registration_id: FlowRegistrationId { request, generation: resolution.generation },
@@ -314,6 +297,7 @@ fn note_flow_at(request: FlowResolveRequest, now: Instant) -> FlowObservation {
             state: UidResolutionState::Pending,
             kind: FlowResolutionKind::Attribution,
             created_at: now,
+            app_scope: None,
         },
     );
     if guard.pending.len() >= PENDING_CAPACITY
@@ -355,6 +339,7 @@ fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) -> FlowRe
             state: UidResolutionState::Pending,
             kind: FlowResolutionKind::AdmissionOnly,
             created_at: now,
+            app_scope: None,
         },
     );
     if guard.pending.len() >= PENDING_CAPACITY
@@ -415,9 +400,14 @@ fn remove_expired_uid(guard: &mut State, request: FlowResolveRequest, now: Insta
 
 /// Store the UID result produced by the background JNI worker.
 pub fn store_uid_resolution(job: &FlowResolutionJob, uid: Option<u32>) {
+    store_uid_and_scope_resolution(job, uid, None);
+}
+
+/// Store an opaque application scope alongside this exact generation's UID.
+pub fn store_uid_and_scope_resolution(job: &FlowResolutionJob, uid: Option<u32>, app_scope: Option<&str>) {
     let mut guard = lock();
     remove_expired_uid(&mut guard, job.request, Instant::now());
-    let current = guard.uid_cache.peek(&job.request).copied();
+    let current = guard.uid_cache.peek(&job.request).cloned();
     if let Some(current) = current
         && current.generation == job.generation
         && current.state == UidResolutionState::Pending
@@ -429,9 +419,48 @@ pub fn store_uid_resolution(job: &FlowResolutionJob, uid: Option<u32>) {
                 state: UidResolutionState::Resolved(uid),
                 kind: job.kind,
                 created_at: current.created_at,
+                app_scope: app_scope
+                    .filter(|_| uid.is_some() && job.kind == FlowResolutionKind::Attribution)
+                    .filter(|scope| valid_app_scope(scope))
+                    .map(std::sync::Arc::from),
             },
         );
     }
+}
+
+fn valid_app_scope(scope: &str) -> bool {
+    scope.len() == 36
+        && scope.bytes().enumerate().all(|(index, byte)| {
+            if matches!(index, 8 | 13 | 18 | 23) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_digit() || matches!(byte, b'a'..=b'f')
+            }
+        })
+}
+
+/// Get only the immutable scope resolved for this registration, never a successor.
+#[must_use]
+pub fn lookup_registered_app_scope(registration_id: &FlowRegistrationId) -> Option<std::sync::Arc<str>> {
+    let mut guard = lock();
+    remove_expired_uid(&mut guard, registration_id.request, Instant::now());
+    guard
+        .uid_cache
+        .get(&registration_id.request)
+        .filter(|entry| entry.generation == registration_id.generation)
+        .and_then(|entry| entry.app_scope.clone())
+}
+
+/// Whether a live Android attribution session is still within its initial grace.
+#[must_use]
+pub fn awaiting_flow_attribution(registration_id: &FlowRegistrationId, grace: Duration) -> bool {
+    let guard = lock();
+    guard.generation != 0
+        && guard.uid_cache.peek(&registration_id.request).is_some_and(|entry| {
+            entry.generation == registration_id.generation
+                && entry.state == UidResolutionState::Pending
+                && entry.created_at.elapsed() < grace
+        })
 }
 
 /// Store destination attribution only while the originating flow generation is current.
@@ -579,6 +608,61 @@ mod tests {
 
     fn sock(a: u8, b: u8, c: u8, d: u8, port: u16) -> SocketAddr {
         SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(a, b, c, d), port))
+    }
+
+    #[test]
+    fn app_scope_is_bound_to_the_exact_resolved_registration() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        let session = begin_attribution_session();
+        let local = sock(10, 0, 0, 2, 55101);
+        let remote = sock(203, 0, 113, 7, 443);
+        let first = note_flow(6, local, remote).registration_id;
+        let job = take_pending_request(first.request()).expect("first job");
+        let scope = "e1b35e2a-d892-456f-b073-0422d4c8a141";
+        store_uid_and_scope_resolution(&job, Some(10123), Some(scope));
+        assert_eq!(lookup_registered_app_scope(&first).as_deref(), Some(scope));
+
+        assert!(evict_flow_if_current(first));
+        let replacement = note_flow(6, local, remote).registration_id;
+        store_uid_and_scope_resolution(&job, Some(10123), Some(scope));
+        assert!(lookup_registered_app_scope(&replacement).is_none());
+        assert_eq!(lookup_registered_flow_uid(&replacement), FlowUidLookup::Pending);
+        assert!(end_attribution_session_if(session));
+    }
+
+    #[test]
+    fn optional_attribution_grace_is_bounded_and_requires_an_active_session() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        let session = begin_attribution_session();
+        let local = sock(10, 0, 0, 2, 55102);
+        let remote = sock(203, 0, 113, 7, 443);
+        let registration = note_flow(17, local, remote).registration_id;
+        let grace = Duration::from_millis(100);
+        assert!(awaiting_flow_attribution(&registration, grace));
+        lock().uid_cache.get_mut(&registration.request()).expect("registered flow").created_at = Instant::now() - grace;
+        assert!(!awaiting_flow_attribution(&registration, grace));
+        let job = take_pending_request(registration.request()).expect("owner job");
+        store_uid_and_scope_resolution(&job, None, Some("must-not-be-used"));
+        assert!(lookup_registered_app_scope(&registration).is_none());
+        assert!(!awaiting_flow_attribution(&registration, grace));
+        assert!(end_attribution_session_if(session));
+    }
+
+    #[test]
+    fn malformed_scope_does_not_replace_a_valid_uid_verdict() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        let session = begin_attribution_session();
+        for (index, scope) in ["", "not-a-scope", "e1B35e2a-d892-456f-b073-0422d4c8a141"].iter().enumerate() {
+            let local = sock(10, 0, 0, 2, 55103 + u16::try_from(index).expect("fixture index"));
+            let remote = sock(203, 0, 113, 7, 443);
+            let registration = note_flow(6, local, remote).registration_id;
+            let job = take_pending_request(registration.request()).expect("owner job");
+            store_uid_and_scope_resolution(&job, Some(10123), Some(scope));
+            assert_eq!(lookup_registered_flow_uid(&registration), FlowUidLookup::Resolved(Some(10123)));
+            assert!(lookup_registered_app_scope(&registration).is_none());
+            assert!(evict_flow_if_current(registration));
+        }
+        assert!(end_attribution_session_if(session));
     }
 
     #[test]

@@ -153,6 +153,7 @@ data class DirectPathLearningSignal(
     val event: DirectPathLearningEvent,
     val strategyFamily: String? = null,
     val capturedAt: Long = 0,
+    val appScope: String? = null,
 )
 
 @Serializable

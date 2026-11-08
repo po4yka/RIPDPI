@@ -1,5 +1,6 @@
+use crate::io_loop::udp_assoc::UdpAssociations;
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -8,7 +9,6 @@ use crate::{Stats, TunDevice};
 
 use super::super::super::bridge::enqueue_tun_packet;
 use super::super::association_removal::remove_association;
-use super::super::association_state::UdpAssociation;
 use super::super::eviction::{UdpEvictionEntry, record_udp_activity};
 use super::event::UdpEvent;
 
@@ -16,7 +16,7 @@ use super::event::UdpEvent;
 pub(in crate::io_loop) fn handle_udp_event(
     device: &mut TunDevice,
     stats: &Stats,
-    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    associations: &mut UdpAssociations,
     eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
@@ -25,8 +25,9 @@ pub(in crate::io_loop) fn handle_udp_event(
 ) {
     match event {
         UdpEvent::Packet { src, association_id, destination, raw } => {
-            if destination.is_live()
-                && associations.get(&src).is_some_and(|association| {
+            if associations.key_by_id(association_id).is_some_and(|key| key.src == src)
+                && destination.is_live()
+                && associations.get_by_id(association_id).is_some_and(|association| {
                     association.id == association_id
                         && association
                             .destinations
@@ -35,13 +36,16 @@ pub(in crate::io_loop) fn handle_udp_event(
                 })
             {
                 destination.touch();
-                record_udp_activity(associations, eviction_heap, src);
+                if let Some(key) = associations.key_by_id(association_id).cloned() {
+                    record_udp_activity(associations, eviction_heap, key);
+                }
                 enqueue_tun_packet(device, stats, raw);
             }
         }
         UdpEvent::RemoteError { src, association_id, registration_id, destination, raw } => {
-            if destination.is_live()
-                && associations.get(&src).is_some_and(|association| {
+            if associations.key_by_id(association_id).is_some_and(|key| key.src == src)
+                && destination.is_live()
+                && associations.get_by_id(association_id).is_some_and(|association| {
                     association.id == association_id
                         && association
                             .destinations
@@ -59,7 +63,8 @@ pub(in crate::io_loop) fn handle_udp_event(
             }
         }
         UdpEvent::SetupFailed { src, association_id } => {
-            if let Some(association) = associations.get_mut(&src).filter(|association| association.id == association_id)
+            if associations.key_by_id(association_id).is_some_and(|key| key.src == src)
+                && let Some(association) = associations.get_by_id_mut(association_id)
             {
                 if let Some((registration_id, raw)) = association.pending_error.take()
                     && association.attribution_ids.peek(&registration_id.request()) == Some(&registration_id)
@@ -71,12 +76,14 @@ pub(in crate::io_loop) fn handle_udp_event(
                 {
                     enqueue_tun_packet(device, stats, raw);
                 }
-                remove_association(associations, dns_cache, closed_sources, src);
+                if let Some(key) = associations.key_by_id(association_id).cloned() {
+                    remove_association(associations, dns_cache, closed_sources, key);
+                }
             }
         }
         UdpEvent::Closed { src, association_id } => {
-            if associations.get(&src).is_some_and(|association| association.id == association_id) {
-                remove_association(associations, dns_cache, closed_sources, src);
+            if let Some(key) = associations.key_by_id(association_id).filter(|key| key.src == src).cloned() {
+                remove_association(associations, dns_cache, closed_sources, key);
             }
         }
     }

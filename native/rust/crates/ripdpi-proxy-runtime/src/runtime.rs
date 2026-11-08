@@ -1,4 +1,5 @@
 mod adaptive;
+mod client_identity;
 mod config;
 mod destination_routing;
 mod desync;

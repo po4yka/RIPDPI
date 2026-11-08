@@ -77,7 +77,7 @@ async fn reassembled_udp_never_supplies_a_fabricated_original_quote() {
     for fragment in ipv4_fragments(&packet, 24) {
         route_tun_packet(&fragment, &mut state);
     }
-    let retained = state.udp_associations.get(&src).is_some_and(|a| a.pending_error.is_some());
+    let retained = state.udp_associations.get_source(&src).is_some_and(|a| a.pending_error.is_some());
     let forwarded = state.udp_associations.contains_key(&src);
     state.cancel.cancel();
     state.shutdown().await;

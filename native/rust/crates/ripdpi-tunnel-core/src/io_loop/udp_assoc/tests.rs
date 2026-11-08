@@ -1,5 +1,6 @@
+use crate::io_loop::udp_assoc::UdpAssociations;
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -325,6 +326,8 @@ async fn mapdns_udp_response_uses_synthetic_source_tuple() {
     association.worker.abort();
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn handle_udp_event_queues_matching_association_packet() {
     let proxy_addr = spawn_udp_associate_stub().await;
@@ -345,10 +348,10 @@ async fn handle_udp_event_queues_matching_association_packet() {
         udp_tx,
     );
     let worker = association.worker.abort_handle();
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let dst: SocketAddr = "203.0.113.20:443".parse().unwrap();
     let destination = Arc::new(UdpDestination::new(crate::session::TargetAddr::Ip(dst), dst, dst, None));
-    associations.get_mut(&src).unwrap().destinations.insert(dst, Arc::clone(&destination));
+    associations.get_mut(src).unwrap().destinations.insert(dst, Arc::clone(&destination));
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
     let mut eviction_heap = BinaryHeap::with_capacity(4);
@@ -366,12 +369,14 @@ async fn handle_udp_event_queues_matching_association_packet() {
 
     assert_eq!(device.tx_queue.front().expect("queued udp packet"), &vec![1, 2, 3, 4]);
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 0);
-    if let Some(association) = associations.remove(&src) {
+    if let Some(association) = associations.remove(src) {
         association.cancel.cancel();
         worker.abort();
     }
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn handle_udp_event_ignores_stale_association_id() {
     let proxy_addr = spawn_udp_associate_stub().await;
@@ -392,10 +397,10 @@ async fn handle_udp_event_ignores_stale_association_id() {
         udp_tx,
     );
     let worker = association.worker.abort_handle();
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let dst: SocketAddr = "203.0.113.20:443".parse().unwrap();
     let destination = Arc::new(UdpDestination::new(crate::session::TargetAddr::Ip(dst), dst, dst, None));
-    associations.get_mut(&src).unwrap().destinations.insert(dst, Arc::clone(&destination));
+    associations.get_mut(src).unwrap().destinations.insert(dst, Arc::clone(&destination));
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
     let mut eviction_heap = BinaryHeap::with_capacity(4);
@@ -412,12 +417,14 @@ async fn handle_udp_event_ignores_stale_association_id() {
     );
 
     assert!(device.tx_queue.is_empty(), "stale association_id should not enqueue packet");
-    if let Some(association) = associations.remove(&src) {
+    if let Some(association) = associations.remove(src) {
         association.cancel.cancel();
         worker.abort();
     }
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn handle_udp_event_removes_closed_association() {
     let proxy_addr = spawn_udp_associate_stub().await;
@@ -438,7 +445,7 @@ async fn handle_udp_event_removes_closed_association() {
         udp_tx,
     );
     let worker = association.worker.abort_handle();
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
     let mut eviction_heap = BinaryHeap::with_capacity(4);
@@ -460,6 +467,8 @@ async fn handle_udp_event_removes_closed_association() {
     worker.abort();
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn handle_udp_event_ignores_stale_close() {
     let proxy_addr = spawn_udp_associate_stub().await;
@@ -480,7 +489,7 @@ async fn handle_udp_event_ignores_stale_close() {
         udp_tx,
     );
     let worker = association.worker.abort_handle();
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
     let mut eviction_heap = BinaryHeap::with_capacity(4);
@@ -497,12 +506,14 @@ async fn handle_udp_event_ignores_stale_close() {
     );
 
     assert_eq!(associations.len(), 1, "stale close should not remove current association");
-    if let Some(association) = associations.remove(&src) {
+    if let Some(association) = associations.remove(src) {
         association.cancel.cancel();
         worker.abort();
     }
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53110);
@@ -520,7 +531,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         destinations: std::collections::HashMap::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut eviction_heap = BinaryHeap::with_capacity(4);
     let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let _reserved = memory_budget.try_reserve_queued_bytes(4 * 1024 * 1024).expect("reserve full queued-byte budget");
@@ -554,9 +565,11 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
     );
 
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
-    associations.remove(&src).expect("association").worker.abort();
+    associations.remove(src).expect("association").worker.abort();
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53111);
@@ -581,7 +594,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         destinations: std::collections::HashMap::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut eviction_heap = BinaryHeap::with_capacity(4);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let stats = Arc::new(Stats::new());
@@ -613,7 +626,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
     );
 
     assert_eq!(stats.tun_forwarding_evidence_snapshot().tun_queue_drops, 1);
-    associations.remove(&src).expect("association").worker.abort();
+    associations.remove(src).expect("association").worker.abort();
 }
 
 /// # Cancel safety
@@ -638,7 +651,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         destinations: std::collections::HashMap::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut eviction_heap = BinaryHeap::with_capacity(4);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let stats = Arc::new(Stats::new());
@@ -647,7 +660,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
 
     let original_id = ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).registration_id;
     // Model a flow already owned by the transport that is being replaced.
-    associations.get_mut(&src).unwrap().attribution_ids.put(original_id.request(), original_id);
+    associations.get_mut(src).unwrap().attribution_ids.put(original_id.request(), original_id);
     let forwarded = super::forward_udp_payload(
         "127.0.0.1:1080".parse().expect("proxy"),
         &Auth::NoAuth,
@@ -673,12 +686,12 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         original_id,
     );
 
-    assert_eq!(associations.get(&src).expect("replacement association").id, 13);
+    assert_eq!(associations.get(src).expect("replacement association").id, 13);
     assert!(closed_sources.is_empty(), "replacing transport must preserve the app flow");
     let registration_id = forwarded.expect("queued replacement datagram");
-    assert_ne!(registration_id, original_id);
+    assert_eq!(registration_id, original_id, "a transport retry keeps the packet already admitted");
     let raw = vec![1, 2, 3];
-    associations.get_mut(&src).unwrap().pending_error = Some((registration_id, raw.clone()));
+    associations.get_mut(src).unwrap().pending_error = Some((registration_id, raw.clone()));
     let mut device = TunDevice::new(1500);
     handle_udp_event(
         &mut device,
@@ -710,13 +723,15 @@ fn touch_udp_activity_updates_timestamp() {
     assert_eq!(last_activity.load(Ordering::Relaxed), 70_000, "an older concurrent update must not move activity back");
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53100);
     let dest = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443);
     let (association, _alive, started) = stalled_udp_association(41, dest);
     started.await.expect("stalled association should start");
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut dns_cache = Some(DnsCache::new(0xC612_0000, 0xFFFE_0000, 1).expect("valid cache"));
     let synthetic_ip = dns_cache
         .as_mut()
@@ -751,8 +766,7 @@ async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
 }
 
 /// # Cancel safety:
-/// cancel-safe: cancellation at worker-start awaits drops this test runtime and
-/// its workers before any synchronous heap mutation.
+/// NOT cancel-safe: interruption at a worker-start await can detach workers until runtime teardown.
 #[tokio::test]
 async fn capacity_eviction_skips_stale_activity_generations() {
     let older = "10.0.0.2:53200".parse().expect("older source");
@@ -764,7 +778,7 @@ async fn capacity_eviction_skips_stale_activity_generations() {
     older_started.await.expect("older worker started");
     newer_started.await.expect("newer worker started");
     older_association.activity_generation = 1;
-    let mut associations = HashMap::from([(older, older_association), (newer, newer_association)]);
+    let mut associations = UdpAssociations::from([(older, older_association), (newer, newer_association)]);
     let mut eviction_heap = BinaryHeap::with_capacity(4);
     eviction_heap.push(Reverse(UdpEvictionEntry {
         last_activity_epoch: 1,
@@ -791,15 +805,14 @@ async fn capacity_eviction_skips_stale_activity_generations() {
     assert!(associations.contains_key(&older), "refreshed association must survive its stale heap entry");
     assert!(!associations.contains_key(&newer), "least-recent current association should be evicted");
     assert_eq!(closed_sources, vec![newer]);
-    if let Some(association) = associations.remove(&older) {
+    if let Some(association) = associations.remove(older) {
         association.cancel.cancel();
         association.worker.abort();
     }
 }
 
 /// # Cancel safety:
-/// cancel-safe: cancellation at either worker-start await ends the dedicated test
-/// runtime, which drops both spawned workers and local state.
+/// NOT cancel-safe: interruption at a worker-start await can detach workers until runtime teardown.
 #[tokio::test]
 async fn activity_history_stays_bounded_and_skips_reused_source_ids() {
     let reused: SocketAddr = "10.0.0.2:53202".parse().unwrap();
@@ -811,7 +824,7 @@ async fn activity_history_stays_bounded_and_skips_reused_source_ids() {
     // Logical timestamps keep the eviction order independent of the clock origin and test speed.
     replacement.last_activity.store(1, Ordering::Relaxed);
     older.last_activity.store(0, Ordering::Relaxed);
-    let mut associations = HashMap::from([(reused, replacement), (oldest, older)]);
+    let mut associations = UdpAssociations::from([(reused, replacement), (oldest, older)]);
     let mut heap = BinaryHeap::with_capacity(UDP_EVICTION_HEAP_CAPACITY);
     for _ in 0..UDP_EVICTION_HEAP_CAPACITY * 3 {
         record_udp_activity(&mut associations, &mut heap, reused);
@@ -834,7 +847,7 @@ async fn activity_history_stays_bounded_and_skips_reused_source_ids() {
     evict_if_at_capacity(&mut associations, &mut heap, &mut None, &mut closed, 2);
     assert_eq!(closed, vec![oldest]);
     assert!(associations.contains_key(&reused));
-    let survivor = associations.remove(&reused).unwrap();
+    let survivor = associations.remove(reused).unwrap();
     survivor.cancel.cancel();
     survivor.worker.abort();
 }
@@ -854,6 +867,8 @@ fn idle_detection_false_when_fresh() {
     );
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption can detach test-owned workers until runtime teardown.
 #[tokio::test]
 async fn shutdown_cancels_all_associations() {
     let proxy_addr = spawn_udp_associate_stub().await;
@@ -893,7 +908,7 @@ async fn shutdown_cancels_all_associations() {
 
     let cancel1 = a1.cancel.clone();
     let cancel2 = a2.cancel.clone();
-    let mut associations = HashMap::from([(src1, a1), (src2, a2)]);
+    let mut associations = UdpAssociations::from([(src1, a1), (src2, a2)]);
 
     shutdown_udp_associations(&mut associations, &mut None).await;
 
@@ -902,6 +917,8 @@ async fn shutdown_cancels_all_associations() {
     assert!(cancel2.is_cancelled(), "association 2 cancel token should be cancelled");
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: interruption at a worker-start await can detach workers until runtime teardown.
 #[tokio::test(start_paused = true)]
 async fn shutdown_uses_one_grace_period_and_aborts_stalled_association_tasks() {
     let src1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53012);
@@ -910,7 +927,7 @@ async fn shutdown_uses_one_grace_period_and_aborts_stalled_association_tasks() {
     let (a2, alive2, started2) = stalled_udp_association(2, "203.0.113.42:443".parse().expect("valid test address"));
     let cancel1 = a1.cancel.clone();
     let cancel2 = a2.cancel.clone();
-    let mut associations = HashMap::from([(src1, a1), (src2, a2)]);
+    let mut associations = UdpAssociations::from([(src1, a1), (src2, a2)]);
     started1.await.expect("first stalled task should start");
     started2.await.expect("second stalled task should start");
 

@@ -193,8 +193,16 @@ impl RuntimeDecisionEngine {
         targets: &[SocketAddr],
         strategy_family: Option<&str>,
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     ) {
-        DirectPathLearningPort::note_direct_path_tcp_success(&self.services, host, targets, strategy_family, observer);
+        DirectPathLearningPort::note_direct_path_tcp_success(
+            &self.services,
+            host,
+            targets,
+            strategy_family,
+            observer,
+            app_scope,
+        );
     }
 
     /// Direct-path QUIC-success observation hook. See
@@ -204,8 +212,9 @@ impl RuntimeDecisionEngine {
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     ) {
-        DirectPathLearningPort::note_direct_path_quic_success(&self.services, host, targets, observer);
+        DirectPathLearningPort::note_direct_path_quic_success(&self.services, host, targets, observer, app_scope);
     }
 
     /// Direct-path "all IPs failed" observation hook. See
@@ -215,8 +224,9 @@ impl RuntimeDecisionEngine {
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     ) {
-        DirectPathLearningPort::note_direct_path_all_ips_failed(&self.services, host, targets, observer);
+        DirectPathLearningPort::note_direct_path_all_ips_failed(&self.services, host, targets, observer, app_scope);
     }
 }
 

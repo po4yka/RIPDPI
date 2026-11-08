@@ -6,11 +6,20 @@ use ring::digest;
 pub(super) struct TupleKey {
     pub(super) authority: String,
     pub(super) ip_set_digest: String,
+    pub(super) app_scope: Option<String>,
 }
 
-pub(super) fn tuple_key_for_targets(host: Option<&str>, targets: &[SocketAddr]) -> Option<TupleKey> {
+pub(super) fn tuple_key_for_targets(
+    host: Option<&str>,
+    targets: &[SocketAddr],
+    app_scope: Option<&str>,
+) -> Option<TupleKey> {
     let first = *targets.first()?;
-    Some(TupleKey { authority: normalize_authority(host, first), ip_set_digest: direct_path_ip_set_digest(targets) })
+    Some(TupleKey {
+        authority: normalize_authority(host, first),
+        ip_set_digest: direct_path_ip_set_digest(targets),
+        app_scope: app_scope.map(str::to_owned),
+    })
 }
 
 fn normalize_authority(host: Option<&str>, target: SocketAddr) -> String {

@@ -384,6 +384,33 @@ session. The sibling root-helper registry
 fully Rust-internally — its register/unregister callers are RAII guards that
 hold the token, so no JNI round-trip is needed there.
 
+### Flow owner attribution
+
+The TUN bridge registers a fresh Kotlin callback before native packet processing
+starts. The callback captures one TUN session epoch. Session end clears transient
+app identity; a retired callback cannot write into a replacement session or
+restore a result after package invalidation.
+
+The background resolver calls `noteFlow` with the original kernel-visible
+protocol, local endpoint, remote endpoint, and request kind. Its JNI descriptor is
+`(ILjava/lang/String;ILjava/lang/String;II)Lcom/poyka/ripdpi/services/FlowOwnerResolution;`.
+The kept result has `uid: Int` and `appScope: String?` fields. Unknown owners use
+UID `-1`; unknown or ambiguous packages have no app scope. Package names and
+versions stay in Kotlin memory. Native caches hold UID and an opaque scope only.
+
+An app scope is random and valid only within its TUN session. Authenticated local
+SOCKS transports carry it separately from diagnostic attempt correlation. Learning
+keys include the scope, so TCP from another app cannot clear a UDP fallback
+deadline. The optional `appScope` telemetry field is additive within schema 3;
+unscoped traffic does not use a destination-IP fallback for app identity.
+
+UDP owner results have an absolute five-second lifetime that traffic cannot
+renew. Armed admission remains fail-closed while a fresh result is pending.
+Disarmed traffic waits at most a short attribution grace before it proceeds
+without an app scope. UID resolution runs on the background worker, not through
+a per-packet JNI call. Synthetic DNS translation preserves the original lookup
+tuple and carries scope independently of the real destination IP.
+
 ---
 
 ## 9. TUN fd and socket fd ownership
@@ -500,7 +527,8 @@ granularity.
   hot path**.
 - The boundary is crossed only for: **lifecycle** (`create`/`start`/`stop`/
   `destroy`), **~1 Hz telemetry polling**, **network-snapshot updates**, and
-  **per-socket** (not per-packet) `protect()` calls.
+  **per-socket** (not per-packet) `protect()` calls, and background flow-owner
+  resolution.
 - **Telemetry is pull-model.** `:core:service` polls `jniPollTelemetry` /
   `jniGetTelemetry` / `jniPollProgress` once per second; Rust accumulates into
   a bounded event ring drained on poll. Do **not** add a callback-per-event

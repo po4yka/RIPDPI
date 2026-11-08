@@ -31,6 +31,8 @@ mod state;
 mod state_shutdown;
 mod task_shutdown;
 mod tcp_accept;
+#[cfg(test)]
+mod test_isolation;
 mod udp_assoc;
 mod udp_errors;
 mod wait;

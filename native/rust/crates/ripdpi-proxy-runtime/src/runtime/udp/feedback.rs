@@ -236,6 +236,7 @@ mod tests {
             _ip_set_digest: &str,
             event: &'static str,
             _strategy_family: Option<&str>,
+            _app_scope: Option<&str>,
         ) {
             self.signals.lock().expect("learner signals lock").push(event);
         }

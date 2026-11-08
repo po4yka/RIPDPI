@@ -14,6 +14,7 @@ pub(super) fn emit_learning_signal(
             tuple_key.ip_set_digest.as_str(),
             event,
             strategy_family,
+            tuple_key.app_scope.as_deref(),
         );
     }
 }

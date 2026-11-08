@@ -2,8 +2,8 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::time::Instant;
 
+use crate::runtime::client_identity::Socks5ClientIdentity;
 use crate::runtime::state::{HANDSHAKE_TIMEOUT, RuntimeState};
-use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 // Both fields share this budget; a final NUL can use one additional byte.
 const MAX_SOCKS4_UNTERMINATED_REQUEST_LEN: usize = 4096;
@@ -17,7 +17,7 @@ pub(in crate::runtime::handshake) fn negotiate_socks5(
     client: &mut TcpStream,
     auth_token: Option<&str>,
     deadline: Instant,
-) -> io::Result<Option<AttemptCorrelationId>> {
+) -> io::Result<Socks5ClientIdentity> {
     let result = negotiate_socks5_inner(client, auth_token, deadline);
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     result
@@ -27,7 +27,7 @@ fn negotiate_socks5_inner(
     client: &mut TcpStream,
     auth_token: Option<&str>,
     deadline: Instant,
-) -> io::Result<Option<AttemptCorrelationId>> {
+) -> io::Result<Socks5ClientIdentity> {
     let mut count = [0u8; 1];
     read_exact_by(client, &mut count, deadline)?;
     let mut methods = vec![0u8; count[0] as usize];
@@ -40,13 +40,13 @@ fn negotiate_socks5_inner(
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks5 auth method"));
         }
 
-        let allow_attempt_token = client.peer_addr().is_ok_and(|addr| addr.ip().to_canonical().is_loopback());
-        read_socks5_userpass_auth(client, token, allow_attempt_token, deadline)
+        let allow_identity = client.peer_addr().is_ok_and(|addr| addr.ip().to_canonical().is_loopback());
+        read_socks5_userpass_auth(client, token, allow_identity, deadline)
     } else {
         if !accepted {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks auth method"));
         }
-        Ok(None)
+        Ok(Socks5ClientIdentity::default())
     }
 }
 
@@ -166,9 +166,9 @@ fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) ->
 fn read_socks5_userpass_auth(
     client: &mut TcpStream,
     token: &str,
-    allow_attempt_token: bool,
+    allow_identity: bool,
     deadline: Instant,
-) -> io::Result<Option<AttemptCorrelationId>> {
+) -> io::Result<Socks5ClientIdentity> {
     let mut sub_ver = [0u8; 1];
     read_exact_by(client, &mut sub_ver, deadline)?;
     if sub_ver[0] != 0x01 {
@@ -197,11 +197,10 @@ fn read_socks5_userpass_auth(
     }
 
     client.write_all(&[0x01, 0x00])?;
-    if !allow_attempt_token {
-        return Ok(None);
+    if !allow_identity {
+        return Ok(Socks5ClientIdentity::default());
     }
-    let username = String::from_utf8(username).ok();
-    Ok(username.and_then(AttemptCorrelationId::new))
+    Ok(Socks5ClientIdentity::from_username(&username))
 }
 
 fn constant_time_bytes_eq(candidate: &[u8], expected: &[u8]) -> bool {

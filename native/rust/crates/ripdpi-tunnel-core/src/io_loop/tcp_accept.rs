@@ -370,8 +370,18 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn spawn_new_tcp_sessions_waits_for_handshake_and_uid_resolution() {
+    #[test]
+    fn spawn_new_tcp_sessions_waits_for_handshake_and_uid_resolution() {
+        crate::io_loop::test_isolation::run_isolated_test(
+            module_path!(),
+            "spawn_new_tcp_sessions_waits_for_handshake_and_uid_resolution",
+            tcp_handshake_and_uid_resolution_fixture,
+        );
+    }
+
+    fn tcp_handshake_and_uid_resolution_fixture() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("test runtime");
+        let _runtime_guard = runtime.enter();
         let _guard = UID_ADMISSION_TEST_GUARD.lock().expect("UID admission test guard");
         ripdpi_flow_app_attribution::clear();
         let mut device = TunDevice::new(1500);
@@ -501,8 +511,18 @@ mod tests {
         ripdpi_flow_app_attribution::clear();
     }
 
-    #[tokio::test]
-    async fn denied_uid_tcp_admission_emits_reset_before_socket_removal() {
+    #[test]
+    fn denied_uid_tcp_admission_emits_reset_before_socket_removal() {
+        crate::io_loop::test_isolation::run_isolated_test(
+            module_path!(),
+            "denied_uid_tcp_admission_emits_reset_before_socket_removal",
+            denied_tcp_uid_fixture,
+        );
+    }
+
+    fn denied_tcp_uid_fixture() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("test runtime");
+        let _runtime_guard = runtime.enter();
         let _guard = UID_ADMISSION_TEST_GUARD.lock().expect("UID admission test guard");
         ripdpi_flow_app_attribution::clear();
         let mut device = TunDevice::new(1500);

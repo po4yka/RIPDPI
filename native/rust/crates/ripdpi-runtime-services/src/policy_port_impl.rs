@@ -154,25 +154,32 @@ impl DirectPathLearningPort for ServicesStateHandle {
         host: Option<&str>,
         targets: &[SocketAddr],
         transport: TransportProtocol,
+        app_scope: Option<&str>,
     ) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_transport_attempt(host, targets, transport);
+        dpl.note_transport_attempt(host, targets, transport, app_scope);
     }
 
-    fn note_direct_path_udp_suppressed(&self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {
+    fn note_direct_path_udp_suppressed(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        now_ms: u64,
+        app_scope: Option<&str>,
+    ) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_udp_suppressed(host, targets, now_ms);
+        dpl.note_udp_suppressed(host, targets, now_ms, app_scope);
     }
 
-    fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr]) {
+    fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr], app_scope: Option<&str>) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_udp_failure(host, targets);
+        dpl.note_udp_failure(host, targets, app_scope);
     }
 
     fn note_direct_path_owned_stack_required(
@@ -180,11 +187,12 @@ impl DirectPathLearningPort for ServicesStateHandle {
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     ) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_owned_stack_required(observer, host, targets);
+        dpl.note_owned_stack_required(observer, host, targets, app_scope);
     }
 
     fn note_direct_path_quic_success(
@@ -192,11 +200,12 @@ impl DirectPathLearningPort for ServicesStateHandle {
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     ) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_quic_success(observer, host, targets);
+        dpl.note_quic_success(observer, host, targets, app_scope);
     }
 
     fn note_direct_path_tcp_success(
@@ -205,18 +214,24 @@ impl DirectPathLearningPort for ServicesStateHandle {
         targets: &[SocketAddr],
         strategy_family: Option<&str>,
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     ) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_tcp_success(observer, host, targets, strategy_family);
+        dpl.note_tcp_success(observer, host, targets, strategy_family, app_scope);
     }
 
-    fn note_direct_path_tls_post_client_hello_failure(&self, host: Option<&str>, targets: &[SocketAddr]) {
+    fn note_direct_path_tls_post_client_hello_failure(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        app_scope: Option<&str>,
+    ) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_tls_post_client_hello_failure(host, targets);
+        dpl.note_tls_post_client_hello_failure(host, targets, app_scope);
     }
 
     fn note_direct_path_all_ips_failed(
@@ -224,11 +239,12 @@ impl DirectPathLearningPort for ServicesStateHandle {
         host: Option<&str>,
         targets: &[SocketAddr],
         observer: Option<&dyn DirectPathLearningObserver>,
+        app_scope: Option<&str>,
     ) {
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };
-        dpl.note_all_ips_failed(observer, host, targets);
+        dpl.note_all_ips_failed(observer, host, targets, app_scope);
     }
 
     fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64, observer: Option<&dyn DirectPathLearningObserver>) {

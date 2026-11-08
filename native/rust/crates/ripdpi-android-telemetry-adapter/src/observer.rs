@@ -199,8 +199,9 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         ip_set_digest: &str,
         event: &'static str,
         strategy_family: Option<&str>,
+        app_scope: Option<&str>,
     ) {
-        self.state.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family);
+        self.state.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family, app_scope);
     }
 }
 

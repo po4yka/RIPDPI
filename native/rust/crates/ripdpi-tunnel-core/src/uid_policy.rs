@@ -60,9 +60,9 @@ impl Verdict {
 /// `ripdpi_flow_app_attribution::AppUidResolver`: this crate never calls it on the
 /// per-packet hot path — resolution is cached / driven off-path.
 pub trait FlowUidSource: Send + Sync {
-    /// The owning UID, or `None` if unattributable (shared/unknown UID, multiple
-    /// owners, or lookup failure). `None` is handled per
-    /// [`UidFlowPolicy::admit`]'s unresolved policy.
+    /// The owning UID, or `None` when the platform reports an unknown owner or
+    /// lookup failure. A known shared UID can be admitted while its application
+    /// scope remains unknown. `None` follows [`UidFlowPolicy::admit`]'s policy.
     fn uid_for(&self, protocol: u8, local: SocketAddr, remote: SocketAddr) -> UidLookup;
 }
 
@@ -183,7 +183,16 @@ impl UidFlowPolicy {
         registration_id: &ripdpi_flow_app_attribution::FlowRegistrationId,
     ) -> Verdict {
         if !self.is_enforcing() {
-            return Verdict::Allow;
+            // Attribution can delay a new transport briefly; a slow platform
+            // resolver must not stop ordinary traffic in a disarmed policy.
+            return if ripdpi_flow_app_attribution::awaiting_flow_attribution(
+                registration_id,
+                std::time::Duration::from_millis(100),
+            ) {
+                Verdict::Pending
+            } else {
+                Verdict::Allow
+            };
         }
         use ripdpi_flow_app_attribution::FlowUidLookup;
         let protocol = registration_id.request().protocol;

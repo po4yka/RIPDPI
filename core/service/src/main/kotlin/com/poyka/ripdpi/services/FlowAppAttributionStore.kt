@@ -26,7 +26,7 @@ private const val DigestPrefixBytes = 8
 private const val UnsignedByteMask = 0xFF
 
 /**
- * The owning-app attribution for a flow's destination.
+ * The owning-app attribution for a resolved flow.
  *
  * The package name is held **in memory only** for the per-app direct-mode policy
  * decision; it is never persisted or exported (see
@@ -43,14 +43,11 @@ sealed interface FlowAttribution {
 }
 
 /**
- * Destination digest for the cross-`.so` join, mirroring the Rust
+ * Destination digest for telemetry parity, mirroring the Rust
  * `direct_path_ip_set_digest` for a single destination IP: the lowercase hex of
  * the first [DigestPrefixBytes] bytes of `SHA-256(ip_string)`.
  *
- * The TUN `.so` passes the destination as a Rust `IpAddr::to_string()` string, so
- * hashing that exact string here yields the same digest the proxy `.so` derives
- * from a single-IP target set. Multi-IP target sets produce a different digest
- * and therefore fall back to unattributed — a documented limitation.
+ * App identity is never inferred from this digest.
  */
 fun flowAttributionDigest(destIp: String): String {
     val bytes = MessageDigest.getInstance("SHA-256").digest(destIp.toByteArray(Charsets.UTF_8))
@@ -77,10 +74,7 @@ internal fun decideAttribution(
 }
 
 /**
- * Process-wide map of `destination-IP digest -> owning app`, the Kotlin join point
- * between the tun2socks `.so` (which knows the originating app 5-tuple) and the
- * proxy `.so`'s direct-path learning signals (which carry only the destination
- * digest). See the completed `attribute-direct-mode-flows-to-app-package` task in git history.
+ * Session-owned map from opaque application scopes to transient package identities.
  */
 interface FlowAppAttributionStore {
     /** Start a new TUN ownership epoch. */
@@ -100,11 +94,22 @@ interface FlowAppAttributionStore {
         requestKind: Int,
     ): Int = resolveFlowRequest(this, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
 
+    /** Resolve the owning UID and an optional opaque application scope. */
+    fun resolveSessionOwner(
+        session: Long,
+        protocol: Int,
+        localIp: String,
+        localPort: Int,
+        remoteIp: String,
+        remotePort: Int,
+        requestKind: Int,
+    ): FlowOwnerResolution =
+        FlowOwnerResolution(
+            resolveSessionFlowUid(session, protocol, localIp, localPort, remoteIp, remotePort, requestKind),
+        )
+
     /**
-     * Record a freshly seen flow's owning app. Called (via JNI) from the tun2socks
-     * session when a new destination is first observed. Resolves UID -> package ->
-     * version and stores the result keyed by the destination digest. A repeated
-     * destination is a no-op (already resolved).
+     * Resolve a freshly seen flow in the active TUN session.
      */
     fun noteFlow(
         protocol: Int,
@@ -126,7 +131,7 @@ interface FlowAppAttributionStore {
         return InvalidUid
     }
 
-    /** Resolve only the owning UID without recording destination attribution. */
+    /** Resolve only the owning UID without allocating an application scope. */
     fun resolveFlowUidOnly(
         protocol: Int,
         localIp: String,
@@ -135,8 +140,8 @@ interface FlowAppAttributionStore {
         remotePort: Int,
     ): Int
 
-    /** Look up the attribution for a learning signal's `ipSetDigest`. */
-    fun lookup(ipSetDigest: String): FlowAttribution.Attributed?
+    /** Look up an opaque application scope; a missing scope has no IP fallback. */
+    fun lookup(appScope: String): FlowAttribution.Attributed?
 
     /** Drop remembered attributions for [packageName] whose version differs from [newVersionCode]. */
     fun invalidateOnAppUpdate(
@@ -150,84 +155,6 @@ interface FlowAppAttributionStore {
 
 // Matches the native attribution cache bound (ripdpi-flow-app-attribution CACHE_CAPACITY).
 private const val FlowAttributionCacheCapacity = 4096
-
-/** Thread-safe LRU map of destination digest to attribution, bounded to [capacity] entries. */
-internal class FlowAttributionCache(
-    private val capacity: Int,
-) {
-    private var nextSession = 0L
-    private var activeSession = 0L
-    private var revision = 0L
-    private val entries =
-        object : LinkedHashMap<String, FlowAttribution>(16, 0.75f, true) {
-            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, FlowAttribution>?): Boolean =
-                size > capacity
-        }
-
-    val size: Int get() = synchronized(entries) { entries.size }
-
-    fun beginSession(): Long =
-        synchronized(entries) {
-            activeSession = ++nextSession
-            revision++
-            entries.clear()
-            activeSession
-        }
-
-    fun endSession(session: Long) {
-        synchronized(entries) {
-            if (activeSession == session) {
-                activeSession = 0L
-                revision++
-                entries.clear()
-            }
-        }
-    }
-
-    fun currentSession(): Long = synchronized(entries) { activeSession }
-
-    fun resolutionRevision(session: Long): Long? =
-        synchronized(entries) {
-            revision.takeIf { session != 0L && activeSession == session }
-        }
-
-    fun commitResolution(
-        session: Long,
-        observedRevision: Long,
-        attribution: Pair<String, FlowAttribution>?,
-    ): Boolean =
-        synchronized(entries) {
-            if (session == 0L || activeSession != session || revision != observedRevision) {
-                false
-            } else {
-                attribution?.let { (digest, value) -> entries[digest] = value }
-                true
-            }
-        }
-
-    fun get(digest: String): FlowAttribution? = synchronized(entries) { entries[digest] }
-
-    fun put(
-        digest: String,
-        attribution: FlowAttribution,
-    ) {
-        synchronized(entries) { entries[digest] = attribution }
-    }
-
-    fun removeIf(predicate: (FlowAttribution) -> Boolean) {
-        synchronized(entries) {
-            revision++
-            entries.values.removeIf(predicate)
-        }
-    }
-
-    fun clear() {
-        synchronized(entries) {
-            revision++
-            entries.clear()
-        }
-    }
-}
 
 @Singleton
 class DefaultFlowAppAttributionStore
@@ -249,16 +176,25 @@ class DefaultFlowAppAttributionStore
             remoteIp: String,
             remotePort: Int,
             requestKind: Int,
-        ): Int {
-            val revision = attributions.resolutionRevision(session) ?: return InvalidUid
+        ): Int = resolveSessionOwner(session, protocol, localIp, localPort, remoteIp, remotePort, requestKind).uid
+
+        override fun resolveSessionOwner(
+            session: Long,
+            protocol: Int,
+            localIp: String,
+            localPort: Int,
+            remoteIp: String,
+            remotePort: Int,
+            requestKind: Int,
+        ): FlowOwnerResolution {
+            val revision = attributions.resolutionRevision(session) ?: return FlowOwnerResolution(InvalidUid)
             val (uid, attribution) =
                 if (requestKind == AdmissionOnlyFlowRequest) {
                     resolveOwnerUid(protocol, localIp, localPort, remoteIp, remotePort) to null
                 } else {
                     resolveAttribution(protocol, localIp, localPort, remoteIp, remotePort)
                 }
-            val record = attribution?.let { flowAttributionDigest(remoteIp) to it }
-            return if (attributions.commitResolution(session, revision, record)) uid else InvalidUid
+            return attributions.commitOwner(session, revision, uid, attribution)
         }
 
         override fun noteFlow(
@@ -297,8 +233,8 @@ class DefaultFlowAppAttributionStore
                 AdmissionOnlyFlowRequest,
             )
 
-        override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? =
-            attributions.get(ipSetDigest) as? FlowAttribution.Attributed
+        override fun lookup(appScope: String): FlowAttribution.Attributed? =
+            attributions.get(appScope) as? FlowAttribution.Attributed
 
         override fun invalidateOnAppUpdate(
             packageName: String,

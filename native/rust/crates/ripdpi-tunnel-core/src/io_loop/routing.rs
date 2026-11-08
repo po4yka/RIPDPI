@@ -1,3 +1,4 @@
+use std::net::{IpAddr, SocketAddr};
 use std::time::Instant;
 
 use ripdpi_flow_app_attribution::FlowRegistrationId;
@@ -14,10 +15,10 @@ use super::packet::{
     Ipv6OptionDisposition, TcpFlowKey, build_ipv6_option_error, build_tcp_reset, ipv6_option_disposition,
     is_injected_rst, normalize_ipv6_tcp_packet, tcp_packet_endpoints,
 };
-use super::state::LoopState;
-use super::state::PendingUidRetainOutcome;
+use super::state::pending_uid::{pin_packet_mapping, unpin_packet_mapping};
+use super::state::{LoopState, PendingUidRetainOutcome};
 use super::tcp_accept::ensure_pending_listen_for_syn;
-use super::udp_assoc::{forward_udp_payload, release_unowned_udp_attribution};
+use super::udp_assoc::{forward_udp_payload, release_unowned_udp_attribution, retire_obsolete_udp_registration};
 
 const STUN_HEADER_LEN: usize = 20;
 const STUN_MAGIC_COOKIE: [u8; 4] = 0x2112_A442_u32.to_be_bytes();
@@ -212,84 +213,105 @@ fn route_tun_packet_inner(
             if !state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
                 return;
             }
-            let registration_id = pending.map_or_else(
-                || ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, dst).registration_id,
-                |(registration_id, _)| *registration_id,
+            if let IpAddr::V4(ip) = dst.ip()
+                && state.dns_cache.as_ref().is_some_and(|cache| cache.contains_mapped_ip(u32::from(ip)))
+            {
+                sync_direct_dns_mapping_generation(state.dns_cache.as_mut(), &mut state.active_direct_dns_generation);
+            }
+            let mapping_pin = pin_packet_mapping(&mut state.dns_cache, dst);
+            route_registered_udp_packet(packet, state, pending, original_wire_packet, src, dst, payload);
+            unpin_packet_mapping(&mut state.dns_cache, mapping_pin);
+        }
+    }
+}
+
+fn route_registered_udp_packet(
+    packet: &[u8],
+    state: &mut LoopState,
+    pending: Option<(&FlowRegistrationId, Instant)>,
+    original_wire_packet: bool,
+    src: SocketAddr,
+    dst: SocketAddr,
+    payload: &[u8],
+) {
+    let registration_id = pending.map_or_else(
+        || ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, dst).registration_id,
+        |(registration_id, _)| *registration_id,
+    );
+    retire_obsolete_udp_registration(&mut state.udp_associations, &mut state.dns_cache, registration_id);
+    match state.runtime.uid_policy.admit_registration(&registration_id) {
+        Verdict::Pending => {
+            retain_pending_uid_packet(
+                packet,
+                state,
+                registration_id,
+                pending.map(|(_, time)| time),
+                original_wire_packet,
             );
-            match state.runtime.uid_policy.admit_registration(&registration_id) {
-                Verdict::Pending => {
-                    retain_pending_uid_packet(
-                        packet,
-                        state,
-                        registration_id,
-                        pending.map(|(_, time)| time),
-                        original_wire_packet,
-                    );
-                    return;
-                }
-                Verdict::DropUdp | Verdict::ResetTcp => {
-                    ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
-                    state.stats.record_tun_policy_drop();
-                    return;
-                }
-                Verdict::Allow => {}
+            return;
+        }
+        Verdict::DropUdp | Verdict::ResetTcp => {
+            ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
+            state.stats.record_tun_policy_drop();
+            return;
+        }
+        Verdict::Allow => {}
+    }
+    // A raw hook can send even when it does not consume the packet.
+    if state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
+        release_unowned_udp_attribution(&state.udp_associations, src, registration_id);
+        return;
+    }
+    state.stats.record_dht_trigger_destination(dst);
+    let synthetic_ip = match dst.ip() {
+        std::net::IpAddr::V4(ip)
+            if state.dns_cache.as_ref().is_some_and(|cache| cache.contains_mapped_ip(u32::from(ip))) =>
+        {
+            Some(u32::from(ip))
+        }
+        _ => None,
+    };
+    if let Some(resolved) = resolve_mapped_destination(
+        &state.stats,
+        &mut state.dns_cache,
+        // The outer packet scope synced the generation before acquiring its pin.
+        None,
+        dst,
+    ) {
+        let queued = forward_udp_payload(
+            state.runtime.proxy_sockaddr,
+            &state.runtime.auth,
+            src,
+            dst,
+            resolved.addr,
+            resolved.host.as_deref(),
+            synthetic_ip,
+            payload,
+            (original_wire_packet && state.runtime.udp_error_originator.can_originate(src.ip(), dst.ip()))
+                .then_some(packet),
+            &mut state.dns_cache,
+            &mut state.closed_udp_sources,
+            &mut state.udp_associations,
+            &mut state.udp_eviction_heap,
+            &state.udp_memory_budget,
+            &mut state.next_udp_association_id,
+            state.runtime.udp_idle_timeout,
+            state.runtime.tcp_connect_timeout,
+            state.runtime.protect_path.as_deref(),
+            &state.cancel,
+            &state.udp_tx,
+            &state.stats,
+            registration_id,
+        );
+        if let Some(registration_id) = queued {
+            if let Some(association) = state.udp_associations.get_registration_mut(&registration_id)
+                && original_wire_packet
+                && association.pending_error.is_none()
+            {
+                association.pending_error =
+                    state.runtime.udp_error_originator.capture(packet).map(|raw| (registration_id, raw));
             }
-            // A raw hook can send even when it does not consume the packet.
-            if state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
-                release_unowned_udp_attribution(&state.udp_associations, src, registration_id);
-                return;
-            }
-            state.stats.record_dht_trigger_destination(dst);
-            let synthetic_ip = match dst.ip() {
-                std::net::IpAddr::V4(ip)
-                    if state.dns_cache.as_ref().is_some_and(|cache| cache.contains_mapped_ip(u32::from(ip))) =>
-                {
-                    Some(u32::from(ip))
-                }
-                _ => None,
-            };
-            if let Some(resolved) = resolve_mapped_destination(
-                &state.stats,
-                &mut state.dns_cache,
-                Some(&mut state.active_direct_dns_generation),
-                dst,
-            ) {
-                let queued = forward_udp_payload(
-                    state.runtime.proxy_sockaddr,
-                    &state.runtime.auth,
-                    src,
-                    dst,
-                    resolved.addr,
-                    resolved.host.as_deref(),
-                    synthetic_ip,
-                    payload,
-                    (original_wire_packet && state.runtime.udp_error_originator.can_originate(src.ip(), dst.ip()))
-                        .then_some(packet),
-                    &mut state.dns_cache,
-                    &mut state.closed_udp_sources,
-                    &mut state.udp_associations,
-                    &mut state.udp_eviction_heap,
-                    &state.udp_memory_budget,
-                    &mut state.next_udp_association_id,
-                    state.runtime.udp_idle_timeout,
-                    state.runtime.tcp_connect_timeout,
-                    state.runtime.protect_path.as_deref(),
-                    &state.cancel,
-                    &state.udp_tx,
-                    &state.stats,
-                    registration_id,
-                );
-                if let Some(registration_id) = queued {
-                    if let Some(association) = state.udp_associations.get_mut(&src)
-                        && original_wire_packet
-                        && association.pending_error.is_none()
-                    {
-                        association.pending_error =
-                            state.runtime.udp_error_originator.capture(packet).map(|raw| (registration_id, raw));
-                    }
-                    state.runtime.tun_egress_interceptor.mark_udp_associated(src, dst);
-                }
-            }
+            state.runtime.tun_egress_interceptor.mark_udp_associated(src, dst);
         }
     }
 }
@@ -329,6 +351,7 @@ fn retain_pending_uid_packet(
         registration_id,
         captured_at.unwrap_or_else(Instant::now),
         original_wire_packet,
+        &mut state.dns_cache,
     ) {
         PendingUidRetainOutcome::Stored => {}
         PendingUidRetainOutcome::EvictedOldest | PendingUidRetainOutcome::Rejected => {
@@ -367,7 +390,7 @@ pub(in crate::io_loop) fn retry_pending_uid_packets(state: &mut LoopState) {
                 packet.original_wire_packet,
             );
         }
-        state.pending_uid_packets.recycle(packet);
+        state.pending_uid_packets.recycle(packet, &mut state.dns_cache);
     }
 }
 

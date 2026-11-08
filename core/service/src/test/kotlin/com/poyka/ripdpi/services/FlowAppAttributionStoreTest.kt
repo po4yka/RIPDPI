@@ -9,6 +9,14 @@ import java.util.concurrent.TimeUnit
 
 class FlowAppAttributionStoreTest {
     @Test
+    fun `owner result debug text does not expose UID or scope`() {
+        val scope = "e1b35e2a-d892-456f-b073-0422d4c8a141"
+        val text = FlowOwnerResolution(10123, scope).toString()
+        assertFalse(text.contains("10123"))
+        assertFalse(text.contains(scope))
+    }
+
+    @Test
     fun `admission-only request resolves uid without destination attribution`() {
         val store = RecordingResolutionStore()
 
@@ -25,7 +33,7 @@ class FlowAppAttributionStoreTest {
         val release = CountDownLatch(1)
         val store =
             object : FlowAppAttributionStore by RecordingResolutionStore() {
-                override fun resolveSessionFlowUid(
+                override fun resolveSessionOwner(
                     session: Long,
                     protocol: Int,
                     localIp: String,
@@ -33,7 +41,8 @@ class FlowAppAttributionStoreTest {
                     remoteIp: String,
                     remotePort: Int,
                     requestKind: Int,
-                ): Int = resolveFlowUidOnly(protocol, localIp, localPort, remoteIp, remotePort)
+                ): FlowOwnerResolution =
+                    FlowOwnerResolution(resolveFlowUidOnly(protocol, localIp, localPort, remoteIp, remotePort))
 
                 override fun resolveFlowUidOnly(
                     protocol: Int,
@@ -81,17 +90,18 @@ class FlowAppAttributionStoreTest {
         val first = cache.beginSession()
         val firstRevision = requireNotNull(cache.resolutionRevision(first))
         val appA = FlowAttribution.Attributed("com.example.a", 1)
-        assertTrue(cache.commitResolution(first, firstRevision, "destination" to appA))
+        val ownerA = cache.commitOwner(first, firstRevision, 10123, appA)
+        assertEquals(appA, cache.get(requireNotNull(ownerA.appScope)))
         cache.endSession(first)
-        assertEquals(null, cache.get("destination"))
+        assertEquals(null, cache.get(ownerA.appScope))
 
         val replacement = cache.beginSession()
         val replacementRevision = requireNotNull(cache.resolutionRevision(replacement))
         val appB = FlowAttribution.Attributed("com.example.b", 2)
-        assertTrue(cache.commitResolution(replacement, replacementRevision, "destination" to appB))
-        assertFalse(cache.commitResolution(first, firstRevision, "destination" to appA))
+        val ownerB = cache.commitOwner(replacement, replacementRevision, 10124, appB)
+        assertEquals(InvalidUid, cache.commitOwner(first, firstRevision, 10123, appA).uid)
         cache.endSession(first)
-        assertEquals(appB, cache.get("destination"))
+        assertEquals(appB, cache.get(requireNotNull(ownerB.appScope)))
     }
 
     @Test
@@ -102,12 +112,14 @@ class FlowAppAttributionStoreTest {
         cache.removeIf { false }
         val oldApp = FlowAttribution.Attributed("com.example.a", 1)
 
-        assertFalse(cache.commitResolution(session, beforeUpdate, "destination" to oldApp))
-        assertEquals(null, cache.get("destination"))
+        val rejected = cache.commitOwner(session, beforeUpdate, 10123, oldApp)
+        assertEquals(InvalidUid, rejected.uid)
+        assertEquals(null, rejected.appScope)
+        assertEquals(0, cache.size)
         val afterUpdate = requireNotNull(cache.resolutionRevision(session))
         val updatedApp = FlowAttribution.Attributed("com.example.a", 2)
-        assertTrue(cache.commitResolution(session, afterUpdate, "destination" to updatedApp))
-        assertEquals(updatedApp, cache.get("destination"))
+        val updated = cache.commitOwner(session, afterUpdate, 10123, updatedApp)
+        assertEquals(updatedApp, cache.get(requireNotNull(updated.appScope)))
     }
 
     @Test
@@ -125,30 +137,77 @@ class FlowAppAttributionStoreTest {
         val retired = bridge.activateUidPolicy(NativeUidPolicy("allowlist", listOf(10123)))
         bridge.activateUidPolicy(NativeUidPolicy("denylist", listOf(10123)))
 
-        assertEquals(InvalidUid, retired.noteFlow(17, "10.0.0.2", 53000, "203.0.113.7", 443, AdmissionOnlyFlowRequest))
+        assertEquals(
+            InvalidUid,
+            retired.noteFlow(17, "10.0.0.2", 53000, "203.0.113.7", 443, AdmissionOnlyFlowRequest).uid,
+        )
         assertEquals(0L, bridge.snapshot().uidResolvedCount)
     }
 
     @Test
-    fun `attribution cache evicts the least recently used destination at capacity`() {
-        val cache = FlowAttributionCache(capacity = 2)
-        val app = FlowAttribution.Attributed("com.example.app", 1L)
-        cache.put("a", app)
-        cache.put("b", app)
-        assertEquals(app, cache.get("a"))
-
-        cache.put("c", app)
+    fun `app scopes remain independent and bounded by least recent use`() {
+        val cache = FlowAttributionCache(2)
+        val session = cache.beginSession()
+        val revision = requireNotNull(cache.resolutionRevision(session))
+        val appA = FlowAttribution.Attributed("com.example.a", 1)
+        val appB = FlowAttribution.Attributed("com.example.b", 1)
+        val appC = FlowAttribution.Attributed("com.example.c", 1)
+        val ownerA = cache.commitOwner(session, revision, 10123, appA)
+        val ownerB = cache.commitOwner(session, revision, 10124, appB)
+        val scopeA = requireNotNull(ownerA.appScope)
+        val scopeB = requireNotNull(ownerB.appScope)
+        assertFalse(scopeA == scopeB)
+        assertEquals(appA, cache.get(scopeA))
+        val ownerC = cache.commitOwner(session, revision, 10125, appC)
 
         assertEquals(2, cache.size)
-        assertEquals(app, cache.get("a"))
-        assertEquals(null, cache.get("b"))
-        assertEquals(app, cache.get("c"))
+        assertEquals(null, cache.get(scopeB))
+        assertEquals(appC, cache.get(requireNotNull(ownerC.appScope)))
+        val renewedB = cache.commitOwner(session, revision, 10124, appB)
+        assertFalse(scopeB == renewedB.appScope)
+    }
+
+    @Test
+    fun `same application reuses its opaque scope across flows and unknown owners do not`() {
+        val cache = FlowAttributionCache(3)
+        val session = cache.beginSession()
+        val revision = requireNotNull(cache.resolutionRevision(session))
+        val app = FlowAttribution.Attributed("com.example.a", 1)
+        val tcp = cache.commitOwner(session, revision, 10123, app)
+        val udp = cache.commitOwner(session, revision, 10123, app)
+        assertEquals(tcp.appScope, udp.appScope)
+        assertEquals(
+            4,
+            java.util.UUID
+                .fromString(tcp.appScope)
+                .version(),
+        )
+        assertEquals(null, cache.commitOwner(session, revision, 10124, FlowAttribution.Unattributed).appScope)
+        assertEquals(null, cache.commitOwner(session, revision, InvalidUid, app).appScope)
+        cache.endSession(session)
+        val replacement = cache.beginSession()
+        val updated = cache.commitOwner(replacement, requireNotNull(cache.resolutionRevision(replacement)), 10123, app)
+        assertFalse(tcp.appScope == updated.appScope)
+    }
+
+    @Test
+    fun `different UIDs cannot share a scope for the same package and version`() {
+        val cache = FlowAttributionCache(2)
+        val session = cache.beginSession()
+        val revision = requireNotNull(cache.resolutionRevision(session))
+        val app = FlowAttribution.Attributed("com.example.a", 1)
+        val first = requireNotNull(cache.commitOwner(session, revision, 10123, app).appScope)
+        val second = requireNotNull(cache.commitOwner(session, revision, 110123, app).appScope)
+
+        assertFalse(first == second)
+        assertEquals(app, cache.get(first))
+        assertEquals(app, cache.get(second))
     }
 
     // ── Digest parity ─────────────────────────────────────────────────────────
     // These vectors are the lowercase hex of the first 8 bytes of SHA-256(ipString),
     // identical to the Rust `direct_path_ip_set_digest` for a single destination IP.
-    // They MUST match the proxy `.so`'s digest so the Kotlin join correlates.
+    // These vectors check destination telemetry parity, never application identity.
 
     @Test
     fun `digest matches the rust single-ip vectors`() {
@@ -373,7 +432,7 @@ private class RecordingResolutionStore : FlowAppAttributionStore {
         return 10123
     }
 
-    override fun lookup(ipSetDigest: String): FlowAttribution.Attributed? = null
+    override fun lookup(appScope: String): FlowAttribution.Attributed? = null
 
     override fun invalidateOnAppUpdate(
         packageName: String,

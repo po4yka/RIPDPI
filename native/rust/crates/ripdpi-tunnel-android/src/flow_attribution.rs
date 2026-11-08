@@ -6,10 +6,10 @@
 //! process-global `ripdpi-flow-app-attribution` queue (a non-blocking,
 //! hot-path-safe push). A **dedicated background worker thread** owned by this
 //! module drains the queue and, for each request, calls a Kotlin bridge method
-//! `noteFlow(int, String, int, String, int, int): int` via JNI — entirely off the per-flow
+//! `noteFlow(int, String, int, String, int, int): FlowOwnerResolution` via JNI — entirely off the per-flow
 //! / per-packet path (see `.claude/rules/vpnservice-protect-invariant.md`).
 //! Kotlin resolves UID → package → version and owns the attribution map; only
-//! the numeric UID returns to the native full-5-tuple admission cache, while no
+//! the numeric UID and an opaque session scope return to the native cache, while no
 //! package identity is held natively.
 //!
 //! Registration mirrors `ripdpi-android-vpn-protect-adapter`: Kotlin calls
@@ -28,13 +28,13 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use android_support::SharedJvm;
-use jni::objects::{JObject, JValue};
+use jni::objects::{JObject, JString, JValue};
 use jni::refs::Global;
 use jni::{EnvUnowned, JavaVM, Outcome};
 
 use ripdpi_flow_app_attribution::{
     AttributionGeneration, FlowResolutionKind, FlowResolveRequest, begin_attribution_session,
-    end_attribution_session_if, pop_pending_request_for_session, store_flow_resolution, store_uid_resolution,
+    end_attribution_session_if, pop_pending_request_for_session, store_flow_resolution, store_uid_and_scope_resolution,
 };
 
 /// How long the worker blocks waiting for a queued request before re-checking the
@@ -44,7 +44,7 @@ const WORKER_POLL: Duration = Duration::from_millis(250);
 /// Sink the worker forwards resolved-flow notifications into. Abstracted so the
 /// worker drain logic is unit-testable without a live JVM.
 trait FlowNotifier: Send {
-    fn note(&self, request: FlowResolveRequest, kind: FlowResolutionKind) -> Option<u32>;
+    fn note(&self, request: FlowResolveRequest, kind: FlowResolutionKind) -> (Option<u32>, Option<String>);
 }
 
 /// Calls the Kotlin flow-attribution bridge's `noteFlow` over JNI. Holds the
@@ -63,7 +63,7 @@ struct JniFlowNotifier {
 // instead of being silently forced thread-safe.
 
 impl FlowNotifier for JniFlowNotifier {
-    fn note(&self, request: FlowResolveRequest, kind: FlowResolutionKind) -> Option<u32> {
+    fn note(&self, request: FlowResolveRequest, kind: FlowResolutionKind) -> (Option<u32>, Option<String>) {
         let local_ip = request.local.ip().to_string();
         let remote_ip = request.remote.ip().to_string();
         let protocol = i32::from(request.protocol);
@@ -82,33 +82,50 @@ impl FlowNotifier for JniFlowNotifier {
         // Android owns the process-wide JVM for the lifetime of this library. A retired
         // worker may finish an in-flight callback asynchronously, then its TLS attach
         // guard detaches at thread exit.
-        let result: Result<i32, jni::errors::Error> =
-            self.vm.attach_current_thread(|env| -> jni::errors::Result<i32> {
+        let result: Result<(Option<u32>, Option<String>), jni::errors::Error> =
+            self.vm.attach_current_thread(|env| -> jni::errors::Result<_> {
                 let local = env.new_string(&local_ip)?;
                 let remote = env.new_string(&remote_ip)?;
-                env.call_method(
-                    &self.bridge,
-                    jni::jni_str!("noteFlow"),
-                    jni::jni_sig!("(ILjava/lang/String;ILjava/lang/String;II)I"),
-                    &[
-                        JValue::Int(protocol),
-                        JValue::Object(&local),
-                        JValue::Int(local_port),
-                        JValue::Object(&remote),
-                        JValue::Int(remote_port),
-                        JValue::Int(request_kind),
-                    ],
-                )?
-                .i()
+                let owner = env
+                    .call_method(
+                        &self.bridge,
+                        jni::jni_str!("noteFlow"),
+                        jni::jni_sig!(
+                            "(ILjava/lang/String;ILjava/lang/String;II)Lcom/poyka/ripdpi/services/FlowOwnerResolution;"
+                        ),
+                        &[
+                            JValue::Int(protocol),
+                            JValue::Object(&local),
+                            JValue::Int(local_port),
+                            JValue::Object(&remote),
+                            JValue::Int(remote_port),
+                            JValue::Int(request_kind),
+                        ],
+                    )?
+                    .l()?;
+                let uid = env.get_field(&owner, jni::jni_str!("uid"), jni::jni_sig!("I"))?.i()?;
+                let Ok(uid) = u32::try_from(uid) else {
+                    return Ok((None, None));
+                };
+                let scope =
+                    env.get_field(&owner, jni::jni_str!("appScope"), jni::jni_sig!("Ljava/lang/String;"))?.l()?;
+                let scope = if scope.is_null() {
+                    None
+                } else {
+                    let scope = env.cast_local::<JString>(scope)?;
+                    let value = scope.mutf8_chars(env)?.to_str().into_owned();
+                    Some(value)
+                };
+                Ok((Some(uid), scope))
             });
 
         match result {
-            Ok(uid) => u32::try_from(uid).ok(),
+            Ok(owner) => owner,
             Err(err) => {
                 // Off the hot path; a failed attribution just leaves the flow
                 // unattributed (conservative). Never propagate across the worker loop.
                 tracing::warn!("flow-attribution noteFlow JNI call failed: {err}");
-                None
+                (None, None)
             }
         }
     }
@@ -121,8 +138,8 @@ fn drain_once(notifier: &dyn FlowNotifier, generation: AttributionGeneration) ->
     match pop_pending_request_for_session(generation, WORKER_POLL) {
         Some(job) => {
             let request = job.request();
-            let uid = notifier.note(request, job.kind());
-            store_uid_resolution(&job, uid);
+            let (uid, app_scope) = notifier.note(request, job.kind());
+            store_uid_and_scope_resolution(&job, uid, app_scope.as_deref());
             if job.kind() == FlowResolutionKind::Attribution {
                 // Mark the destination "notified". The authoritative attribution lives
                 // in the Kotlin map; the native cache only needs the dedupe marker.
@@ -200,7 +217,7 @@ fn register_with_notifier(notifier: Box<dyn FlowNotifier>) -> std::io::Result<At
 /// Register the Kotlin flow-attribution bridge and start the worker.
 ///
 /// `bridge` is a global ref to a Kotlin object exposing
-/// `int noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort, int requestKind)`.
+/// `FlowOwnerResolution noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort, int requestKind)`.
 /// Returns the generation token Kotlin threads back to
 /// [`unregister_flow_attribution`].
 fn register_flow_attribution(vm: &JavaVM, bridge: Global<JObject<'static>>) -> i64 {
@@ -286,9 +303,9 @@ mod tests {
     }
 
     impl FlowNotifier for RecordingNotifier {
-        fn note(&self, request: FlowResolveRequest, kind: FlowResolutionKind) -> Option<u32> {
+        fn note(&self, request: FlowResolveRequest, kind: FlowResolutionKind) -> (Option<u32>, Option<String>) {
             self.seen.lock().expect("seen lock").push((request, kind));
-            Some(10_123)
+            (Some(10_123), None)
         }
     }
 
@@ -366,12 +383,12 @@ mod tests {
     }
 
     impl FlowNotifier for BlockingNotifier {
-        fn note(&self, _request: FlowResolveRequest, _kind: FlowResolutionKind) -> Option<u32> {
+        fn note(&self, _request: FlowResolveRequest, _kind: FlowResolutionKind) -> (Option<u32>, Option<String>) {
             let _ = self.started.send(());
             let (released, wake) = &*self.release;
             let guard = released.lock().unwrap_or_else(PoisonError::into_inner);
             drop(wake.wait_while(guard, |released| !*released));
-            Some(10_123)
+            (Some(10_123), None)
         }
     }
 

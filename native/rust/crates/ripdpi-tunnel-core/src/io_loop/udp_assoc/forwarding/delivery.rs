@@ -1,5 +1,6 @@
+use crate::io_loop::udp_assoc::UdpAssociations;
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::BinaryHeap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -12,10 +13,9 @@ use crate::Stats;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
-use crate::uid_policy::PROTO_UDP;
 
 use super::super::association_removal::remove_association;
-use super::super::association_state::{OutboundDatagram, UdpAssociation, UdpDestination};
+use super::super::association_state::{OutboundDatagram, UdpAssociationKey, UdpDestination};
 use super::super::event_handling::UdpEvent;
 use super::super::eviction::UdpEvictionEntry;
 use super::ensure::ensure_udp_association;
@@ -24,13 +24,13 @@ use super::ensure::ensure_udp_association;
 pub(super) fn deliver_udp_datagram(
     proxy_addr: SocketAddr,
     auth: &Auth,
-    src: SocketAddr,
+    key: &UdpAssociationKey,
     destination: Arc<UdpDestination>,
     payload: &[u8],
     original: Option<&[u8]>,
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
-    associations: &mut HashMap<SocketAddr, UdpAssociation>,
+    associations: &mut UdpAssociations,
     eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     memory_budget: &UdpMemoryBudget,
     next_id: &mut u64,
@@ -42,7 +42,8 @@ pub(super) fn deliver_udp_datagram(
     stats: &Arc<Stats>,
     admitted_id: ripdpi_flow_app_attribution::FlowRegistrationId,
 ) -> Option<(ripdpi_flow_app_attribution::FlowRegistrationId, Arc<UdpDestination>)> {
-    let outbound = associations.get(&src)?.outbound.clone();
+    let src = key.src;
+    let outbound = associations.get(key)?.outbound.clone();
     let Some(mut datagram) =
         OutboundDatagram::try_new_for_destination(Arc::clone(&destination), payload, memory_budget)
     else {
@@ -62,8 +63,12 @@ pub(super) fn deliver_udp_datagram(
         }
         Err(TrySendError::Closed(mut datagram)) => {
             // The app's UDP source remains live while its transport association is replaced.
-            remove_association(associations, dns_cache, &mut Vec::new(), src);
-            let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, destination.response_source);
+            // The current packet was already admitted; replacing a failed transport
+            // must preserve that generation instead of borrowing a new lookup.
+            if let Some(association) = associations.get_mut(key) {
+                association.attribution_ids.pop(&admitted_id.request());
+            }
+            remove_association(associations, dns_cache, &mut Vec::new(), key);
             ensure_udp_association(
                 associations,
                 eviction_heap,
@@ -71,7 +76,7 @@ pub(super) fn deliver_udp_datagram(
                 next_id,
                 proxy_addr,
                 auth,
-                src,
+                key,
                 destination.resolved_dest,
                 &datagram.payload,
                 dns_cache,
@@ -91,15 +96,15 @@ pub(super) fn deliver_udp_datagram(
             ));
             datagram.destination = Arc::clone(&destination);
             if let Some(context) = &mut datagram.error_context {
-                context.registration_id = replacement.registration_id;
+                context.registration_id = admitted_id;
                 context.destination = Arc::clone(&destination);
             }
-            if let Some(association) = associations.get(&src)
+            if let Some(association) = associations.get(key)
                 && association.outbound.try_send(datagram).is_ok()
             {
-                return Some((replacement.registration_id, destination));
+                return Some((admitted_id, destination));
             }
-            super::super::release_unowned_udp_attribution(associations, src, replacement.registration_id);
+            super::super::release_unowned_udp_attribution(associations, src, admitted_id);
             stats.record_tun_queue_drop();
             None
         }

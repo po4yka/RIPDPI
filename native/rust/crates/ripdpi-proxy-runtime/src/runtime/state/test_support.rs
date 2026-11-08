@@ -108,6 +108,7 @@ impl RuntimeState {
             candidate_refusal_trials: std::sync::Arc::new(CandidateRefusalTrials::default()),
             telemetry,
             reports_failures: true,
+            app_scope: None,
             lua_strategies: ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaStrategies::load(
                 runtime_context.as_ref(),
             )

@@ -140,6 +140,8 @@ pub(super) struct RuntimeState {
     candidate_refusal_trials: std::sync::Arc<CandidateRefusalTrials>,
     telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     reports_failures: bool,
+    /// Identity of this control connection, never shared through the service handle.
+    app_scope: Option<String>,
     runtime_context: Option<ProxyRuntimeContext>,
     lua_strategies: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaStrategies>>,
     control: Option<std::sync::Arc<EmbeddedProxyControl>>,
@@ -204,6 +206,10 @@ pub(in crate::runtime) fn now_epoch_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or_default()
 }
 impl RuntimeState {
+    pub(in crate::runtime) fn with_app_scope(&self, app_scope: Option<String>) -> Self {
+        Self { app_scope, ..self.clone() }
+    }
+
     pub(super) fn validate_runtime_requirements(config: &RuntimeConfig) -> io::Result<()> {
         Self::validate_upstream_socks_auth(config)?;
         validate_ip_fragmentation_support(&raw_packet_requirements(config))?;
@@ -342,6 +348,7 @@ impl RuntimeState {
             candidate_refusal_trials: std::sync::Arc::new(CandidateRefusalTrials::default()),
             telemetry,
             reports_failures: true,
+            app_scope: None,
             runtime_context,
             lua_strategies,
             control,

@@ -87,7 +87,7 @@ class DefaultConnectionHealthRepository
                     mutableSnapshots.value =
                         accumulator.consume(
                             telemetry = telemetry,
-                            isAttributed = { digest -> flowAppAttributionStore.lookup(digest) != null },
+                            isAttributed = { scope -> flowAppAttributionStore.lookup(scope) != null },
                         )
                 }
             }
@@ -176,7 +176,7 @@ private fun DirectPathLearningSignal.toObservation(
         destinationClass = classifyDestination(authority),
         activeStrategy = strategyFamily?.takeIf(String::isNotBlank) ?: fallbackStrategy,
         succeeded = succeeded,
-        attributed = isAttributed(ipSetDigest),
+        attributed = appScope?.let(isAttributed) ?: false,
         capturedAt = capturedAt,
     )
 }

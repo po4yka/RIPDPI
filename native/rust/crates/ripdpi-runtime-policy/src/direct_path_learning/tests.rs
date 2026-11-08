@@ -14,6 +14,7 @@ impl DirectPathLearningObserver for RecordingTelemetry {
         ip_set_digest: &str,
         event: &'static str,
         strategy_family: Option<&str>,
+        _app_scope: Option<&str>,
     ) {
         self.signals.lock().expect("signals").push((
             authority.to_string(),
@@ -30,8 +31,8 @@ fn udp_failure_then_tcp_success_emits_quic_blocked_signal() {
     let targets = vec!["203.0.113.10:443".parse().expect("target"), "203.0.113.11:443".parse().expect("target")];
     let mut learner = DirectPathLearningState::default();
 
-    learner.note_udp_failure(Some("example.org"), &targets);
-    learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("tlsrec_split"));
+    learner.note_udp_failure(Some("example.org"), &targets, None);
+    learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("tlsrec_split"), None);
 
     let signals = telemetry.signals.lock().expect("signals");
     assert_eq!(signals.len(), 1);
@@ -44,8 +45,8 @@ fn tls_failure_then_tcp_success_emits_post_client_hello_signal_with_family() {
     let targets = vec!["203.0.113.10:443".parse().expect("target")];
     let mut learner = DirectPathLearningState::default();
 
-    learner.note_tls_post_client_hello_failure(Some("example.org"), &targets);
-    learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("tlsrec_split"));
+    learner.note_tls_post_client_hello_failure(Some("example.org"), &targets, None);
+    learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("tlsrec_split"), None);
 
     let signals = telemetry.signals.lock().expect("signals");
     assert_eq!(signals.len(), 1);
@@ -59,8 +60,8 @@ fn learner_emits_all_ips_failed_once_per_transition() {
     let targets = vec!["203.0.113.10:443".parse().expect("target")];
     let mut learner = DirectPathLearningState::default();
 
-    learner.note_all_ips_failed(Some(&telemetry), Some("example.org"), &targets);
-    learner.note_all_ips_failed(Some(&telemetry), Some("example.org"), &targets);
+    learner.note_all_ips_failed(Some(&telemetry), Some("example.org"), &targets, None);
+    learner.note_all_ips_failed(Some(&telemetry), Some("example.org"), &targets, None);
 
     let signals = telemetry.signals.lock().expect("signals");
     assert_eq!(signals.len(), 1);
@@ -73,8 +74,8 @@ fn owned_stack_required_signal_emits_once_per_tuple() {
     let targets = vec!["203.0.113.10:443".parse().expect("target")];
     let mut learner = DirectPathLearningState::default();
 
-    learner.note_owned_stack_required(Some(&telemetry), Some("example.org"), &targets);
-    learner.note_owned_stack_required(Some(&telemetry), Some("example.org"), &targets);
+    learner.note_owned_stack_required(Some(&telemetry), Some("example.org"), &targets, None);
+    learner.note_owned_stack_required(Some(&telemetry), Some("example.org"), &targets, None);
 
     let signals = telemetry.signals.lock().expect("signals");
     assert_eq!(signals.len(), 1);
@@ -87,12 +88,12 @@ fn no_tcp_fallback_timeout_emits_signal_and_tcp_attempt_clears_pending_state() {
     let targets = vec!["203.0.113.10:443".parse().expect("target")];
     let mut learner = DirectPathLearningState::default();
 
-    learner.note_udp_suppressed(Some("example.org"), &targets, 10);
-    learner.note_transport_attempt(Some("example.org"), &targets, TransportProtocol::Tcp);
+    learner.note_udp_suppressed(Some("example.org"), &targets, 10, None);
+    learner.note_transport_attempt(Some("example.org"), &targets, TransportProtocol::Tcp, None);
     learner.emit_due_timeouts(Some(&telemetry), 3_100);
     assert!(telemetry.signals.lock().expect("signals").is_empty());
 
-    learner.note_udp_suppressed(Some("example.org"), &targets, 10);
+    learner.note_udp_suppressed(Some("example.org"), &targets, 10, None);
     learner.emit_due_timeouts(Some(&telemetry), 3_100);
 
     let signals = telemetry.signals.lock().expect("signals");
@@ -106,10 +107,10 @@ fn quic_success_clears_negative_state_and_allows_future_relearning() {
     let targets = vec!["203.0.113.10:443".parse().expect("target")];
     let mut learner = DirectPathLearningState::default();
 
-    learner.note_udp_failure(Some("example.org"), &targets);
-    learner.note_quic_success(Some(&telemetry), Some("example.org"), &targets);
-    learner.note_udp_failure(Some("example.org"), &targets);
-    learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("split"));
+    learner.note_udp_failure(Some("example.org"), &targets, None);
+    learner.note_quic_success(Some(&telemetry), Some("example.org"), &targets, None);
+    learner.note_udp_failure(Some("example.org"), &targets, None);
+    learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("split"), None);
 
     let signals = telemetry.signals.lock().expect("signals");
     assert_eq!(signals.len(), 2);
@@ -123,9 +124,9 @@ fn attempts_and_successes_without_negative_state_do_not_create_tuples() {
     let mut learner = DirectPathLearningState::default();
     for port in 1..=64u16 {
         let targets = vec![SocketAddr::from(([203, 0, 113, 10], port))];
-        learner.note_transport_attempt(None, &targets, TransportProtocol::Tcp);
-        learner.note_transport_attempt(None, &targets, TransportProtocol::Udp);
-        learner.note_tcp_success(Some(&telemetry), None, &targets, None);
+        learner.note_transport_attempt(None, &targets, TransportProtocol::Tcp, None);
+        learner.note_transport_attempt(None, &targets, TransportProtocol::Udp, None);
+        learner.note_tcp_success(Some(&telemetry), None, &targets, None, None);
     }
     assert!(learner.tuples.is_empty());
     assert!(telemetry.signals.lock().expect("signals").is_empty());
@@ -136,7 +137,7 @@ fn tuple_map_is_bounded() {
     let mut learner = DirectPathLearningState::default();
     for index in 0..(MAX_DIRECT_PATH_TUPLES as u32 + 16) {
         let targets = vec![SocketAddr::from((std::net::Ipv4Addr::from(0x0A00_0000 + index), 443))];
-        learner.note_udp_failure(None, &targets);
+        learner.note_udp_failure(None, &targets, None);
     }
     assert_eq!(learner.tuples.len(), MAX_DIRECT_PATH_TUPLES);
 }
@@ -146,13 +147,13 @@ fn tuple_cap_evicts_the_least_recently_written_tuple() {
     let mut learner = DirectPathLearningState::default();
     let target = |index: u32| vec![SocketAddr::from((std::net::Ipv4Addr::from(0x0A00_0000 + index), 443))];
     for index in 0..MAX_DIRECT_PATH_TUPLES as u32 {
-        learner.note_udp_failure(None, &target(index));
+        learner.note_udp_failure(None, &target(index), None);
     }
-    learner.note_tls_post_client_hello_failure(None, &target(0));
-    learner.note_udp_failure(None, &target(MAX_DIRECT_PATH_TUPLES as u32));
+    learner.note_tls_post_client_hello_failure(None, &target(0), None);
+    learner.note_udp_failure(None, &target(MAX_DIRECT_PATH_TUPLES as u32), None);
 
-    let survivor = tuple_key_for_targets(None, &target(0)).expect("key");
-    let evicted = tuple_key_for_targets(None, &target(1)).expect("key");
+    let survivor = tuple_key_for_targets(None, &target(0), None).expect("key");
+    let evicted = tuple_key_for_targets(None, &target(1), None).expect("key");
     assert!(learner.tuples[&survivor].tls_post_client_hello_failed, "recently written tuple survives");
     assert!(!learner.tuples.contains_key(&evicted), "oldest write is evicted");
     assert_eq!(learner.tuples.len(), MAX_DIRECT_PATH_TUPLES);
@@ -166,8 +167,8 @@ fn due_timeout_check_tracks_the_earliest_pending_suppression() {
     let mut learner = DirectPathLearningState::default();
     assert!(!learner.has_due_timeouts(u64::MAX));
 
-    learner.note_udp_suppressed(Some("a.example"), &first, 1_000);
-    learner.note_udp_suppressed(Some("b.example"), &second, 2_000);
+    learner.note_udp_suppressed(Some("a.example"), &first, 1_000, None);
+    learner.note_udp_suppressed(Some("b.example"), &second, 2_000, None);
     assert!(!learner.has_due_timeouts(3_999));
     assert!(learner.has_due_timeouts(4_000));
 

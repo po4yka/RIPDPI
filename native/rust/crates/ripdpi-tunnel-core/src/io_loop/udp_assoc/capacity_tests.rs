@@ -1,4 +1,5 @@
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use crate::io_loop::udp_assoc::UdpAssociations;
+use std::collections::{BinaryHeap, HashSet};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
@@ -35,7 +36,7 @@ async fn excess_destination_is_rejected_before_queueing_or_pinning() {
         destinations: std::collections::HashMap::new(),
         attribution_ids: LruCache::new(UDP_ATTRIBUTION_ID_CAPACITY),
     };
-    let mut associations = HashMap::from([(src, association)]);
+    let mut associations = UdpAssociations::from([(src, association)]);
     let mut cache = Some(DnsCache::new(0xc612_0000, 0xfffe_0000, 300).unwrap());
     let mut heap = BinaryHeap::new();
     let budget = UdpMemoryBudget::for_tunnel_mtu(1500);

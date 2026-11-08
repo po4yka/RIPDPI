@@ -160,6 +160,7 @@ pub trait RuntimeTelemetrySink: Send + Sync {
         _ip_set_digest: &str,
         _event: &'static str,
         _strategy_family: Option<&str>,
+        _app_scope: Option<&str>,
     ) {
     }
 
