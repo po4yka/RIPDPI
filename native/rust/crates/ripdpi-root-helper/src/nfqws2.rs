@@ -352,7 +352,10 @@ fn validate_args(args: &[String], base: &Path, directory: &Path) -> io::Result<(
             "hostlist" | "hostlist-exclude" | "hostlist-auto" | "ipset" | "ipset-exclude" => {
                 validate_file_arg(value, base, directory)?;
             }
-            "lua-init" if value.starts_with('@') => validate_file_arg(&value[1..], base, directory)?,
+            "lua-init" if value.starts_with('@') => {
+                validate_file_arg(&value[1..], base, directory)?;
+                validate_file_arg(&format!("{}.gz", &value[1..]), base, directory)?;
+            }
             "blob" => {
                 if let Some(file) = blob_file(value) {
                     validate_file_arg(file, base, directory)?;
@@ -384,12 +387,14 @@ fn validate_file_arg(value: &str, base: &Path, directory: &Path) -> io::Result<(
     }
     let candidate = directory.join(value);
     // Writable host lists need not exist yet. Their parent must already be private.
-    let canonical = if candidate.exists() {
-        fs::canonicalize(&candidate)?
-    } else {
-        let parent = candidate.parent().ok_or_else(|| invalid("nfqws2 file has no parent"))?;
-        let filename = candidate.file_name().ok_or_else(|| invalid("nfqws2 file has no name"))?;
-        fs::canonicalize(parent)?.join(filename)
+    let canonical = match fs::symlink_metadata(&candidate) {
+        Ok(_) => fs::canonicalize(&candidate)?,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            let parent = candidate.parent().ok_or_else(|| invalid("nfqws2 file has no parent"))?;
+            let filename = candidate.file_name().ok_or_else(|| invalid("nfqws2 file has no name"))?;
+            fs::canonicalize(parent)?.join(filename)
+        }
+        Err(error) => return Err(error),
     };
     if !canonical.starts_with(base) || canonical == base {
         return Err(invalid("nfqws2 file argument escapes the app directory"));
@@ -1066,6 +1071,34 @@ mod tests {
         for file in ["/etc/passwd", "../../outside.txt", "outside/new.txt"] {
             assert!(validate_args(&[format!("--lua-init=@{file}")], &base, &work).is_err());
         }
+        fs::remove_dir_all(dir).expect("remove test dir");
+    }
+
+    #[test]
+    fn lua_fallback_checks_compressed_and_dangling_paths() {
+        let dir = std::env::temp_dir().join(format!("nfqws2-compressed-test-{}", std::process::id()));
+        fs::create_dir_all(dir.join("private/work")).expect("test dir");
+        fs::write(dir.join("outside.lua"), "return true").expect("outside script");
+        let base = fs::canonicalize(dir.join("private")).expect("base");
+        let work = base.join("work");
+        let args = ["--lua-init=@script.lua".to_owned()];
+
+        fs::write(work.join("script.lua.gz"), "return true").expect("compressed-only script");
+        validate_args(&args, &base, &work).expect("private compressed fallback");
+        fs::remove_file(work.join("script.lua.gz")).expect("remove compressed script");
+        std::os::unix::fs::symlink(dir.join("outside.lua"), work.join("script.lua.gz")).expect("outside symlink");
+        assert!(validate_args(&args, &base, &work).is_err(), "compressed fallback escaped");
+        fs::write(work.join("script.lua"), "return true").expect("plain script");
+        assert!(validate_args(&args, &base, &work).is_err(), "plain file hid unsafe fallback");
+
+        fs::remove_file(work.join("script.lua.gz")).expect("remove outside symlink");
+        std::os::unix::fs::symlink(work.join("missing.lua"), work.join("script.lua.gz")).expect("dangling fallback");
+        assert!(validate_args(&args, &base, &work).is_err(), "dangling fallback accepted");
+        fs::remove_file(work.join("script.lua.gz")).expect("remove dangling fallback");
+        validate_args(&args, &base, &work).expect("plain script without compressed fallback");
+        fs::remove_file(work.join("script.lua")).expect("remove plain script");
+        std::os::unix::fs::symlink(work.join("missing.lua"), work.join("script.lua")).expect("dangling plain script");
+        assert!(validate_args(&args, &base, &work).is_err(), "dangling plain script accepted");
         fs::remove_dir_all(dir).expect("remove test dir");
     }
 
