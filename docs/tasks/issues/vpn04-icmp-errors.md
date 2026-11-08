@@ -2,7 +2,7 @@
 id: VPN-1794142179721255
 title: Fix TUN UDP error generation and ICMP quotes
 kind: bug
-status: review
+status: done
 area: vpn
 priority: high
 owner: VPN error implementation
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: vpn04-icmp-errors
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T13:17:01Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: F1-F3 committed separately; 384 unit, 8 TUN E2E and 1 dual-family ICMP test passed; Clippy, fmt, ci-gates and independent wire/runtime/async reviews passed. Android and remote ICMP relay are not claimed.
 ---
 
 ## Goal

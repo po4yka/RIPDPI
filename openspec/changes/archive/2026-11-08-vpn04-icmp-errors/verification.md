@@ -1,7 +1,7 @@
 ---
 task_id: VPN-1794142179721255
 change: vpn04-icmp-errors
-commit_sha: null
+commit_sha: a49da91f262c9ab79293f0758b906c934eaff36b
 local: passed
 local_evidence: 384 unit tests, 8 tun_e2e tests and 1 IPv4/IPv6 ICMP runtime test passed. Clippy, formatting, ci-gates and independent wire/runtime/async reviews passed; see requirement rows for commands.
 remote_ci: not_applicable

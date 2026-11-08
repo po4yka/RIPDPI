@@ -1,0 +1,11 @@
+{
+  "change": "vpn04-icmp-errors",
+  "evidence_summary": "F1-F3 committed separately; 384 unit, 8 TUN E2E and 1 dual-family ICMP test passed; Clippy, fmt, ci-gates and independent wire/runtime/async reviews passed. Android and remote ICMP relay are not claimed.",
+  "execution_sha256": "4eb1a85a010cc7e60a528359d71849ce2b7b404aa2a7f0357c981b1523ea596e",
+  "issue_sha256": "7ddd5354ef2866370ef4519ea1c7132aa21b950427b332ea2593a43873e1c76a",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T13:17:01Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "VPN-1794142179721255"
+}
