@@ -20,14 +20,14 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-VPN08-UDP-AGE | VPN-1794152941836461 | F1 6750957fb: genuine stale-generation RED after 5 s, then 18 owning tests passed; final owning suite has 21 tests. TTL is absolute and traffic does not renew it. Reuse within 5 s remains a known limit. | Passed (host) |
-| REQ-VPN08-START | VPN-1794152942868249 | F4 9b4b4ada0: first-flow and registration-error RED; 59 targeted engine tests passed, including cancellation rollback. Final engine suite: 309 passed. | Passed (host) |
-| REQ-VPN08-SESSION | VPN-1794152943919544 | F3 53decadb4: stale-counter RED, then 42 targeted tests passed. Final service suite: 2109 passed. Session and package revision fence commits after external lookups. | Passed (host) |
-| REQ-VPN08-DESTINATION | VPN-1794152944925858 | F2 9d6d05278: learning RED 3 failed/1 passed, then 92 passed; authority and same-package/different-UID regressions passed. Real-loopback proxy suite: 380 passed. Scope follows the original owner through transport and learning; no destination IP identity join remains. | Passed (host) |
-| REQ-VPN08-UNKNOWN | VPN-1794152944925858 | Slow/unknown owner uses bounded 100 ms soft grace; armed admission stays closed. F8 570d41094: two genuine RED cases for oversized reassembly and full queue; three isolated real-wire cases passed, including unchanged armed rejection. Final core: 502 unit and 18 integration passed. | Passed (host) |
+| REQ-VPN08-UDP-AGE | VPN-1794152941836461 | F1 bca3a756d: genuine stale-generation RED after 5 s, then 18 owning tests passed; final owning suite has 21 tests. TTL is absolute and traffic does not renew it. Reuse within 5 s remains a known limit. | Passed (host) |
+| REQ-VPN08-START | VPN-1794152942868249 | F4 d6a776445: first-flow and registration-error RED; 59 targeted engine tests passed, including cancellation rollback. Final engine suite: 309 passed. | Passed (host) |
+| REQ-VPN08-SESSION | VPN-1794152943919544 | F3 0bc4b154e: stale-counter RED, then 42 targeted tests passed. Final service suite: 2109 passed. Session and package revision fence commits after external lookups. | Passed (host) |
+| REQ-VPN08-DESTINATION | VPN-1794152944925858 | F2 6d2be816e: learning RED 3 failed/1 passed, then 92 passed; authority and same-package/different-UID regressions passed. Real-loopback proxy suite: 380 passed. Scope follows the original owner through transport and learning; no destination IP identity join remains. | Passed (host) |
+| REQ-VPN08-UNKNOWN | VPN-1794152944925858 | Slow/unknown owner uses bounded 100 ms soft grace; armed admission stays closed. F8 f20e37d10: two genuine RED cases for oversized reassembly and full queue; three isolated real-wire cases passed, including unchanged armed rejection. Final core: 502 unit and 18 integration passed. | Passed (host) |
 | REQ-VPN08-PRIVACY | VPN-1794152944925858 | Opaque session-local UUID uses private UID/package/version lookup, redacted object strings and bounded cache. Shared UID packages do not produce guessed app scope. RFC1929 literal frames and optional telemetry field passed. Scope is carried only by authenticated loopback transport. Device logcat/export inspection was not run. | Passed (host); device unverified |
-| REQ-VPN08-MAPDNS | VPN-1794152945958197 | F5 9dec74641: actual smoltcp TCP handshake and production UDP route/retry reach literal SOCKS auth with the original scope and independently expected real target. F6 6d5e1cc2a: mapping pin handoff, reset, overflow and fast-Allow RED/GREEN; stale unleased mapping still fails after underlay change. | Passed (host) |
-| REQ-VPN08-RAW | VPN-1794152944925858 | F6 6d5e1cc2a: actual Lua VM Drop and non-root STUN policy DROP retire old response context before return. Exact-generation and neighbor cases passed. Real UDP/TCP peer oracle checks same-owner port and control connection reuse. No raw socket, root helper or device root activation ran. | Passed (host); privileged execution unverified |
+| REQ-VPN08-MAPDNS | VPN-1794152945958197 | F5 23e726f00: actual smoltcp TCP handshake and production UDP route/retry reach literal SOCKS auth with the original scope and independently expected real target. F6 a84806f8e: mapping pin handoff, reset, overflow and fast-Allow RED/GREEN; stale unleased mapping still fails after underlay change. | Passed (host) |
+| REQ-VPN08-RAW | VPN-1794152944925858 | F6 a84806f8e: actual Lua VM Drop and non-root STUN policy DROP retire old response context before return. Exact-generation and neighbor cases passed. Real UDP/TCP peer oracle checks same-owner port and control connection reuse. No raw socket, root helper or device root activation ran. | Passed (host); privileged execution unverified |
 
 ## Review and combined gates
 
@@ -35,11 +35,15 @@ Correctness, JNI, async and final integration reviewers passed. F8 received sepa
 
 The full eleven-crate run passed 1354 cases with 14 pre-existing ignored cases. F8 changes only tunnel-core; its complete Rust subtree matches the tested candidate (tree 3637abc08a56a11d4a3923415810780610fd0eed). Final core passed 502 unit plus 18 integration cases, all-target async-lock Clippy and complete ci-gates. Final root ci-gates also passed after the two Kotlin style changes. These results are not load, interoperability or device acceptance.
 
-The initial combined run found a Darwin forced-drain test failure. An independent loopback oracle distinguished FIN/EOF from abortive RST. Test-only dda6aa2d3 sets the timeout before shutdown and accepts only EOF or ConnectionReset; it still rejects timeout, invalid socket and nonempty data. The narrow test and full eleven-crate rerun passed. Production shutdown code did not change.
+The initial combined run found a Darwin forced-drain test failure. An independent loopback oracle distinguished FIN/EOF from abortive RST. Test-only 97fb903d0 sets the timeout before shutdown and accepts only EOF or ConnectionReset; it still rejects timeout, invalid socket and nonempty data. The narrow test and full eleven-crate rerun passed. Production shutdown code did not change.
 
 Final commands and outputs are captured in the external audit supplement:
 `/Users/npochaev/Downloads/RIPDPI_network_audits/VPN-08-fixes-2026-11-08.md`.
 Primary local logs: `/tmp/vpn08-final-owning-tests.log`, `/tmp/vpn08-final-owning-clippy.log`, `/tmp/vpn08-final-kotlin-complete.log`, `/tmp/vpn08-final-complete-ci-gates.log`, `/tmp/vpn08-final-android-native.log`. Artifact SHA-256 values and paths: `/tmp/vpn08-final-native-artifacts.json`.
+
+## Integration base
+
+The job was rebased without conflict onto a49ced806b43f381d28e7c3bf868d2df3c26e872. Incoming changes affect app instrumentation tests and other task verification records. Native Rust, core/service, core/engine and their build and gate inputs are byte-identical to the tested source SHA above. The native tree remains 3637abc08a56a11d4a3923415810780610fd0eed. No Android instrumentation execution is claimed.
 
 ## Remaining acceptance
 
