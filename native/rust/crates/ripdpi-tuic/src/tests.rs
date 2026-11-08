@@ -39,6 +39,39 @@ fn unsupported_congestion_control_fails_before_connect() {
     assert!(error.to_string().contains("unsupported TUIC congestion control"));
 }
 
+/// # Cancel safety:
+/// cancel-safe: validation owns no sockets; the test closes its loopback listener.
+#[tokio::test]
+async fn unsupported_zero_rtt_fails_before_network_activity() {
+    let listener = tokio::net::UdpSocket::bind("127.0.0.1:0").await.expect("loopback listener");
+    let config = Config {
+        server: "127.0.0.1".to_owned(),
+        server_port: i32::from(listener.local_addr().expect("listener address").port()),
+        server_name: "localhost".to_owned(),
+        uuid: "00000000-0000-0000-0000-000000000000".to_owned(),
+        password: "secret".to_owned(),
+        zero_rtt: true,
+        congestion_control: "bbr".to_owned(),
+        udp_enabled: false,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        outbound_bind_ip: None,
+        keepalive_interval_ms: 0,
+        root_certificate_pem: None,
+    };
+    let result = tokio::time::timeout(Duration::from_secs(1), TuicClient::connect(config))
+        .await
+        .expect("unsupported mode must be rejected without waiting for a peer");
+    let Err(error) = result else {
+        panic!("unsupported early data must not establish a connection");
+    };
+    assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
+    assert!(error.to_string().contains("TUIC 0-RTT"), "unexpected error: {error}");
+    let mut datagram = [0; 1500];
+    assert!(matches!(listener.try_recv(&mut datagram), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock));
+}
+
 #[test]
 fn packet_header_round_trips() {
     let header = PacketHeader {
@@ -202,7 +235,7 @@ async fn tuic_client_relays_tcp_and_udp() {
             udp.expect("UDP server task");
         });
 
-        let tls_config = build_tls_config(false, Some(vec![cert_der])).expect("tls config");
+        let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
         let client = TuicClient::connect_with_tls(
             Config {
                 server: server_addr.ip().to_string(),
@@ -260,6 +293,10 @@ async fn tuic_client_relays_tcp_and_udp() {
 /// TUIC v5 SPEC "Heartbeat": the client sends `VER 0x05, TYPE 0x04`
 /// datagrams periodically while relay tasks are active, so a server with a
 /// short idle timeout (tuic-server default 10 s) keeps idle flows open.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: the fixture task is joined on normal completion; an interrupted
+/// test relies on its dedicated runtime to tear down the detached fixture task.
 #[tokio::test]
 async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
     ensure_crypto_provider();
@@ -293,7 +330,7 @@ async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
         assert_eq!(heartbeat.as_ref(), [TUIC_VERSION, 0x04]);
     });
 
-    let tls_config = build_tls_config(false, Some(vec![cert_der])).expect("tls config");
+    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
     let client = TuicClient::connect_with_tls(
         Config {
             server: server_addr.ip().to_string(),
@@ -341,12 +378,15 @@ fn fixture_server() -> (Endpoint, rustls::pki_types::CertificateDer<'static>) {
     (server, cert_der)
 }
 
+/// # Cancel safety:
+/// cancel-safe: the pending handshake owns its endpoint and socket; cancellation
+/// drops them before any authenticated client or background task is published.
 async fn fixture_client(
     server_addr: SocketAddr,
     cert_der: rustls::pki_types::CertificateDer<'static>,
     migrate: bool,
 ) -> TuicClient {
-    let tls_config = build_tls_config(false, Some(vec![cert_der])).expect("tls config");
+    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
     TuicClient::connect_with_tls(
         Config {
             server: server_addr.ip().to_string(),

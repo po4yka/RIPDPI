@@ -10,6 +10,9 @@ Selected by `relay_kind = "tuic_v5"`. The TUIC v5 protocol (authentication,
 TCP/UDP relay framing, migration) is a fixed protocol contract that must
 interoperate with external TUIC servers. Congestion control and 0-RTT are
 exposed as typed settings (`relay_tuic_congestion_control`, `relay_tuic_zero_rtt`).
+The current provider rejects `relay_tuic_zero_rtt = true` before network activity.
+Early data needs a shared ticket cache and a replay-safe authentication contract;
+it is not implemented by reusing an established QUIC connection.
 
 ## Dependency direction
 

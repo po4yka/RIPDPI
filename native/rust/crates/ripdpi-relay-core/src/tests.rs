@@ -1317,13 +1317,6 @@ fn hysteria_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Hysteria
     }
 }
 
-fn tuic_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut TuicRelayConfig {
-    match &mut config.backend {
-        RelayBackendConfig::TuicV5(tuic) => tuic,
-        _ => panic!("expected TUIC config"),
-    }
-}
-
 fn chain_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut ChainRelayConfig {
     match &mut config.backend {
         RelayBackendConfig::ChainRelay(chain) => chain,
@@ -1418,10 +1411,9 @@ fn relay_runtime_allows_hysteria_udp_and_salamander() {
 }
 
 #[test]
-fn relay_runtime_allows_tuic_udp_and_zero_rtt() {
+fn relay_runtime_allows_tuic_udp() {
     let mut config = sample_config("tuic_v5");
     config.common.udp_enabled = true;
-    tuic_config_mut(&mut config).zero_rtt = true;
 
     let capabilities = planned_backend_capabilities(&config);
     assert!(capabilities.tcp, "TUIC should report TCP capability");

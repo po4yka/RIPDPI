@@ -10,6 +10,9 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     let RelayBackendConfig::TuicV5(tuic) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected TUIC config"));
     };
+    if tuic.zero_rtt {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "TUIC 0-RTT is not supported"));
+    }
     let uuid = required_secret(tuic.uuid.as_deref(), "TUIC UUID")?.to_string();
     let password = required_secret(tuic.password.as_deref(), "TUIC password")?.to_string();
     Ok(RelayBackend::Tuic(PooledRelayBackend::new(
@@ -116,5 +119,20 @@ mod tests {
             Ok(RelayBackend::Tuic(_)) => {}
             other => panic!("valid credentials must build a TUIC backend, got {:?}", std::mem::discriminant(&other)),
         }
+    }
+
+    #[test]
+    fn build_rejects_unsupported_zero_rtt() {
+        let mut config =
+            tuic_config(Some("00000000-0000-0000-0000-000000000000".to_string()), Some("tuic-secret".to_string()));
+        let RelayBackendConfig::TuicV5(tuic) = &mut config.backend else {
+            unreachable!("TUIC config");
+        };
+        tuic.zero_rtt = true;
+        let Err(error) = build(&config, &build_context()) else {
+            panic!("unsupported early data must not build a usable backend");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+        assert!(error.to_string().contains("TUIC 0-RTT"), "unexpected error: {error}");
     }
 }

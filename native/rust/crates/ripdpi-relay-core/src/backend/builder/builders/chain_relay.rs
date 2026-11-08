@@ -380,6 +380,9 @@ fn resolved_hop_tuic_factory(
     socket_protection: SocketProtectionPolicy,
     quic_migration: QuicMigrationTelemetryState,
 ) -> io::Result<crate::protocols::TuicSessionFactory> {
+    if hop.tuic_zero_rtt {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, format!("chain {label}: TUIC 0-RTT is not supported")));
+    }
     let server_port = u16::try_from(hop.server_port).map_err(|_| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: TUIC server port must fit u16"))
     })?;
@@ -534,6 +537,26 @@ mod credential_tests {
             missing_password.to_string().contains("TUIC password is required"),
             "unexpected error: {missing_password}"
         );
+    }
+
+    #[test]
+    fn chain_tuic_hop_rejects_unsupported_zero_rtt() {
+        let mut hop = hop("tuic_v5");
+        hop.server_port = 443;
+        hop.tuic_uuid = Some("00000000-0000-0000-0000-000000000000".to_string());
+        hop.tuic_password = Some("secret".to_string());
+        hop.tuic_zero_rtt = true;
+        let Err(error) = resolved_hop_tuic_factory(
+            &hop,
+            "entry",
+            None,
+            SocketProtectionPolicy::Inactive,
+            QuicMigrationTelemetryState::default(),
+        ) else {
+            panic!("unsupported early data must not build a usable hop");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+        assert!(error.to_string().contains("chain entry") && error.to_string().contains("TUIC 0-RTT"));
     }
 
     #[test]

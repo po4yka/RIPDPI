@@ -103,7 +103,6 @@ fn try_bind_low_port(socket: &Socket, bind_ip: std::net::IpAddr) -> io::Result<(
 }
 
 pub(crate) fn build_tls_config(
-    enable_early_data: bool,
     additional_roots: Option<Vec<CertificateDer<'static>>>,
 ) -> io::Result<RustlsClientConfig> {
     ensure_crypto_provider();
@@ -120,7 +119,6 @@ pub(crate) fn build_tls_config(
             .map_err(io::Error::other)?
             .with_no_client_auth();
     tls_config.alpn_protocols = vec![b"h3".to_vec()];
-    tls_config.enable_early_data = enable_early_data;
     Ok(tls_config)
 }
 
@@ -130,26 +128,21 @@ pub(crate) fn ensure_crypto_provider() {
     });
 }
 
+/// # Cancel safety:
+/// cancel-safe: the caller owns the endpoint and drops the pending connection on cancellation.
 pub(crate) async fn establish_connection(
     endpoint: &Endpoint,
     config: &Config,
     server_addr: SocketAddr,
 ) -> io::Result<quinn::Connection> {
     let connecting = endpoint.connect(server_addr, &config.server_name).map_err(io::Error::other)?;
-    if config.zero_rtt {
-        match connecting.into_0rtt() {
-            Ok((connection, accepted)) => {
-                let _ = accepted.await;
-                Ok(connection)
-            }
-            Err(connecting) => Ok(connecting.await.map_err(io::Error::other)?),
-        }
-    } else {
-        Ok(connecting.await.map_err(io::Error::other)?)
-    }
+    connecting.await.map_err(io::Error::other)
 }
 
 pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
+    if config.zero_rtt {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "TUIC 0-RTT is not supported"));
+    }
     if config.server.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC server"));
     }

@@ -44,9 +44,12 @@ pub struct TuicClient {
 }
 
 impl TuicClient {
+    /// # Cancel safety:
+    /// cancel-safe: validation opens no sockets; the pending carrier is owned until publication.
     pub async fn connect(config: Config) -> io::Result<Self> {
+        validate_config(&config)?;
         let additional_roots = additional_roots_from_pem(config.root_certificate_pem.as_deref())?;
-        let tls_config = build_tls_config(config.zero_rtt, additional_roots)?;
+        let tls_config = build_tls_config(additional_roots)?;
         Self::connect_with_tls(config, tls_config).await
     }
 

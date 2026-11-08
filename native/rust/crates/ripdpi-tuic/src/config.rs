@@ -10,6 +10,7 @@ pub struct Config {
     pub server_name: String,
     pub uuid: String,
     pub password: String,
+    /// Retained for stored profiles; `true` is rejected until replay-safe early data is implemented.
     pub zero_rtt: bool,
     pub congestion_control: String,
     pub udp_enabled: bool,
