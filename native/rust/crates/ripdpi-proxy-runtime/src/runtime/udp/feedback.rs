@@ -143,6 +143,7 @@ mod tests {
             awaiting_response,
             answered: false,
             upstream: UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind udp upstream"),
+            remote_feedback: crate::runtime::udp::remote_feedback::FlowFeedback::default(),
             quic_migrated: false,
             logical_target: current_target,
             current_target,

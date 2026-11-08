@@ -45,6 +45,7 @@ pub(super) fn maybe_rebind_udp_source_port(
     // application is responsible for retransmission.
     match build_udp_upstream_socket(entry.current_target, protect_path, entry.socket_settings.bind_low_port) {
         Ok(new_socket) => {
+            entry.remote_feedback.reset_socket();
             entry.upstream = new_socket;
             entry.quic_migrated = true;
             state.note_quic_migration_status(

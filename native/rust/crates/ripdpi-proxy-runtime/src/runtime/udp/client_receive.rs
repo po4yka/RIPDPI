@@ -6,6 +6,7 @@ use std::time::Instant;
 use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::flow_selection::ensure_udp_flow_selected;
 use super::parse_socks5_udp_packet_with_host;
+use super::remote_feedback::{self, FeedbackBudget, Nonce, udp_feedback};
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::handshake::is_device_local_target_for;
 use crate::runtime::state::RuntimeState;
@@ -34,18 +35,21 @@ impl UdpClientPacket<'_> {
     }
 }
 
-pub(super) struct UdpClientReceiveConfig {
+pub(super) struct UdpClientReceiveConfig<'a> {
     pub(super) running: Arc<AtomicBool>,
     pub(super) control_peer_ip: IpAddr,
     pub(super) requested_udp_source: SocketAddr,
     pub(super) flow_limit: usize,
+    pub(super) feedback_nonce: Option<&'a Nonce>,
+    pub(super) feedback_budget: FeedbackBudget,
+    pub(super) last_feedback_id: &'a mut u64,
 }
 
 pub(super) fn receive_and_forward_udp_client_packet(
     client_relay: &UdpSocket,
     client_buffer: &mut [u8],
     udp_client_addr: &mut Option<SocketAddr>,
-    config: UdpClientReceiveConfig,
+    config: UdpClientReceiveConfig<'_>,
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     state: &RuntimeState,
     protect_path: Option<&str>,
@@ -54,8 +58,20 @@ pub(super) fn receive_and_forward_udp_client_packet(
     match client_relay.recv_from(client_buffer) {
         Ok((n, sender)) => {
             let now = Instant::now();
+            let (packet_bytes, datagram_id) = if let Some(nonce) = config.feedback_nonce {
+                let Ok(udp_feedback::Frame::Request { id, payload }) = udp_feedback::decode(&client_buffer[..n], nonce)
+                else {
+                    return Ok(true);
+                };
+                if id <= *config.last_feedback_id {
+                    return Ok(true);
+                }
+                (payload, Some(id))
+            } else {
+                (&client_buffer[..n], None)
+            };
             let Some(packet) = decode_udp_client_packet(
-                &client_buffer[..n],
+                packet_bytes,
                 sender,
                 config.control_peer_ip,
                 config.requested_udp_source,
@@ -65,6 +81,9 @@ pub(super) fn receive_and_forward_udp_client_packet(
             ) else {
                 return Ok(true);
             };
+            if let Some(id) = datagram_id {
+                *config.last_feedback_id = id;
+            }
             if !ensure_udp_flow_selected(
                 state,
                 protect_path,
@@ -83,11 +102,19 @@ pub(super) fn receive_and_forward_udp_client_packet(
             let entry = flow_state
                 .get_mut(&packet.flow_key())
                 .ok_or_else(|| io::Error::other("udp flow entry missing after selection"))?;
+            if datagram_id.is_some() && !entry.socks_framed() {
+                entry.remote_feedback.begin(&entry.upstream, datagram_id, &config.feedback_budget);
+                remote_feedback::drain_errors(state, client_relay, &packet.flow_key(), entry, config.feedback_nonce)?;
+            }
             let send_result = send_udp_flow_payload(state, entry, packet.payload, now, protect_path);
             if send_result.is_ok() {
                 state.note_application_traffic(packet.payload.len() as u64, 0);
             }
             if let Err(err) = send_result {
+                if remote_feedback::drain_errors(state, client_relay, &packet.flow_key(), entry, config.feedback_nonce)?
+                {
+                    return Ok(true);
+                }
                 // A send error belongs to this flow only (EAGAIN on a saturated uplink, a
                 // pending ICMP error): drop the datagram and keep the other flows going.
                 tracing::debug!(target = %packet.original_target, "UDP flow send failed: {err}");

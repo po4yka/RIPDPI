@@ -12,7 +12,9 @@ use super::encode_socks5_udp_packet_with_resolved_host_into;
 use super::feedback::note_udp_first_response_success;
 use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::migration::maybe_rebind_udp_source_port;
+use super::remote_feedback::{self, Nonce, udp_feedback};
 use crate::runtime::state::RuntimeState;
+use ripdpi_proxy_runtime_adapter::udp_desync::UdpDesyncAction;
 
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
@@ -34,6 +36,7 @@ pub(super) fn pump_udp_upstream_responses(
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
     poll_scratch: &mut UdpUpstreamPollScratch,
     protect_path: Option<&str>,
+    feedback_nonce: Option<&Nonce>,
 ) -> io::Result<bool> {
     let mut made_progress = false;
     for key in ready_udp_flow_keys(flow_state, poll_scratch)?.to_vec() {
@@ -44,6 +47,7 @@ pub(super) fn pump_udp_upstream_responses(
             flow_state.remove(&key);
             continue;
         }
+        made_progress |= remote_feedback::drain_errors(state, client_relay, &key, entry, feedback_nonce)?;
         match entry.upstream.recv(upstream_buffer) {
             Ok(n) => {
                 made_progress = true;
@@ -82,7 +86,15 @@ pub(super) fn pump_udp_upstream_responses(
                 }
                 // A full client socket buffer drops this datagram, as UDP may. So does a
                 // datagram that no longer fits once the SOCKS5 header is added (EMSGSIZE).
-                match client_relay.send_to(encode_buffer, key.client) {
+                let framed;
+                let encoded = if let Some(nonce) = feedback_nonce {
+                    let Ok(frame) = udp_feedback::encode_response(nonce, encode_buffer) else { continue };
+                    framed = frame;
+                    framed.as_slice()
+                } else {
+                    encode_buffer.as_slice()
+                };
+                match client_relay.send_to(encoded, key.client) {
                     Ok(_) => state.note_application_traffic(0, response.len() as u64),
                     Err(err)
                         if err.kind() != io::ErrorKind::WouldBlock && err.raw_os_error() != Some(libc::EMSGSIZE) =>
@@ -191,6 +203,7 @@ pub(super) fn send_udp_flow_payload(
         && let Some(plan) =
             flow.plan(entry.upstream.local_addr()?, entry.current_target, "udp", payload, entry.host.as_deref(), None)?
     {
+        entry.remote_feedback.poison();
         ensure_udp_flow_active(state, entry)?;
         let outcome = RuntimeState::execute_lua_udp_plan(
             &entry.upstream,
@@ -211,6 +224,9 @@ pub(super) fn send_udp_flow_payload(
         entry.current_target,
         entry.packet_settings.default_ttl,
     )?;
+    if !feedback_safe_actions(&actions, payload) {
+        entry.remote_feedback.poison();
+    }
     ensure_udp_flow_active(state, entry)?;
     let outcome = match RuntimeState::execute_udp_desync_actions(
         &entry.upstream,
@@ -223,6 +239,7 @@ pub(super) fn send_udp_flow_payload(
     ) {
         Ok(outcome) => outcome,
         Err(error) => {
+            entry.remote_feedback.execution_failed(error.outcome.real_writes_committed);
             state.record_udp_desync_failure_evidence(
                 entry.attempt_token.as_ref(),
                 entry.execution_family,
@@ -231,8 +248,21 @@ pub(super) fn send_udp_flow_payload(
             return Err(error.into_io_error());
         }
     };
+    entry.remote_feedback.record_send(payload);
     state.record_udp_desync_execution_evidence(entry.attempt_token.as_ref(), entry.execution_family, outcome);
     Ok(())
+}
+
+fn feedback_safe_actions(actions: &[UdpDesyncAction], payload: &[u8]) -> bool {
+    let mut writes = 0;
+    for action in actions {
+        match action {
+            UdpDesyncAction::Write(bytes) if bytes == payload => writes += 1,
+            UdpDesyncAction::SetTtl(_) | UdpDesyncAction::Delay(_) | UdpDesyncAction::RestoreDefaultTtl => {}
+            _ => return false,
+        }
+    }
+    writes == 1
 }
 
 fn ensure_udp_flow_active(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {

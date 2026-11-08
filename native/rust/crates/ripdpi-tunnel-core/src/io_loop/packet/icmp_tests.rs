@@ -155,3 +155,39 @@ fn ipv6_errors_quote_up_to_minimum_mtu_budget() {
         assert_checksums(&response, destination.into(), source.into());
     }
 }
+
+#[test]
+fn remote_types_codes_mtu_and_original_quotes_have_independent_checksums() {
+    use ripdpi_socks5_core::udp_feedback::RemoteError;
+    for (input, source, cases) in [
+        (ORIGINALS[1], "192.0.2.1", vec![(3, 3, 0), (3, 4, 1400), (3, 13, 0), (11, 0, 0)]),
+        (ORIGINALS[4], "2001:db8::1", vec![(1, 4, 0), (1, 1, 0), (2, 0, 1200), (3, 1, 0)]),
+    ] {
+        let original = hex::decode(input).unwrap();
+        let quote = UdpErrorQuote::capture(&original).unwrap();
+        let source: IpAddr = source.parse().unwrap();
+        let offset = if source.is_ipv4() { 20 } else { 40 };
+        for (icmp_type, icmp_code, info) in cases {
+            let error = RemoteError {
+                source,
+                target: std::net::SocketAddr::new(quote.destination(), 443),
+                icmp_type,
+                icmp_code,
+                info,
+            };
+            let raw = quote.build_remote(&error).unwrap();
+            assert_eq!(&raw[offset..offset + 2], &[icmp_type, icmp_code]);
+            assert_eq!(&raw[offset + 4..offset + 8], &info.to_be_bytes());
+            assert_eq!(&raw[offset + 8..], &original[..raw.len() - offset - 8]);
+            assert_checksums(&raw, source, quote.source());
+        }
+        let invalid = RemoteError {
+            source,
+            target: std::net::SocketAddr::new(quote.destination(), 443),
+            icmp_type: if source.is_ipv4() { 12 } else { 4 },
+            icmp_code: 0,
+            info: 0,
+        };
+        assert!(quote.build_remote(&invalid).is_none());
+    }
+}

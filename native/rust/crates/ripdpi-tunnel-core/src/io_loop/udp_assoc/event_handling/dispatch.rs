@@ -39,6 +39,25 @@ pub(in crate::io_loop) fn handle_udp_event(
                 enqueue_tun_packet(device, stats, raw);
             }
         }
+        UdpEvent::RemoteError { src, association_id, registration_id, destination, raw } => {
+            if destination.is_live()
+                && associations.get(&src).is_some_and(|association| {
+                    association.id == association_id
+                        && association
+                            .destinations
+                            .get(&destination.response_source)
+                            .is_some_and(|current| Arc::ptr_eq(current, &destination))
+                        && association.attribution_ids.peek(&registration_id.request()) == Some(&registration_id)
+                })
+                && !matches!(
+                    ripdpi_flow_app_attribution::lookup_registered_flow_uid(&registration_id),
+                    ripdpi_flow_app_attribution::FlowUidLookup::Missing
+                )
+                && error_allowed(&registration_id)
+            {
+                enqueue_tun_packet(device, stats, raw);
+            }
+        }
         UdpEvent::SetupFailed { src, association_id } => {
             if let Some(association) = associations.get_mut(&src).filter(|association| association.id == association_id)
             {

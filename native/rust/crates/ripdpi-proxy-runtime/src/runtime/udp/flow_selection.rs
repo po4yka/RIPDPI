@@ -233,6 +233,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.packet_settings = selection.packet_settings;
         entry.source_rebind_policy = selection.source_rebind_policy;
         entry.execution_family = selection.execution_family;
+        entry.remote_feedback.reset_socket();
         entry.upstream = selection.upstream;
         entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;
@@ -298,6 +299,7 @@ fn build_initial_udp_flow_entry(
         awaiting_response: true,
         answered: false,
         upstream: selection.upstream,
+        remote_feedback: crate::runtime::udp::remote_feedback::FlowFeedback::default(),
         quic_migrated: false,
         logical_target: packet.original_target,
         current_target: selection.target,
@@ -343,6 +345,7 @@ fn update_udp_flow_selection(
         entry.packet_settings = selection.packet_settings;
         entry.source_rebind_policy = selection.source_rebind_policy;
         entry.execution_family = selection.execution_family;
+        entry.remote_feedback.reset_socket();
         entry.upstream = selection.upstream;
         entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;

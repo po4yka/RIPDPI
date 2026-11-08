@@ -10,6 +10,7 @@ use crate::session::udp::UdpMemoryBudget;
 pub(in crate::io_loop::udp_assoc) struct OutboundDatagram {
     pub(in crate::io_loop::udp_assoc) destination: Arc<UdpDestination>,
     pub(in crate::io_loop::udp_assoc) payload: Vec<u8>,
+    pub(in crate::io_loop::udp_assoc) error_context: Option<super::super::worker::RemoteErrorContext>,
     _queued_bytes: tokio::sync::OwnedSemaphorePermit,
 }
 
@@ -35,6 +36,6 @@ impl OutboundDatagram {
         memory_budget: &UdpMemoryBudget,
     ) -> Option<Self> {
         let queued_bytes = memory_budget.try_reserve_queued_bytes(payload.len())?;
-        Some(Self { destination, payload: payload.to_vec(), _queued_bytes: queued_bytes })
+        Some(Self { destination, payload: payload.to_vec(), error_context: None, _queued_bytes: queued_bytes })
     }
 }

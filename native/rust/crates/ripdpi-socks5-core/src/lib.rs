@@ -64,6 +64,7 @@ extern crate log;
 pub mod client;
 #[cfg(test)]
 pub mod server;
+pub mod udp_feedback;
 pub mod util;
 
 use std::fmt;

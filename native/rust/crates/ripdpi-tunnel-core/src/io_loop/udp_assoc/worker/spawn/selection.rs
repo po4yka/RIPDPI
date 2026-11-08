@@ -4,11 +4,12 @@ use std::task::Poll;
 use tokio_util::sync::CancellationToken;
 
 use crate::io_loop::udp_assoc::association_state::OutboundDatagram;
-use crate::session::{TargetAddr, UdpSession};
+use crate::session::UdpSession;
+use crate::session::udp::UdpSessionEvent;
 
 pub(super) enum UdpWork {
     Outbound(Option<OutboundDatagram>),
-    Received(std::io::Result<Option<(Vec<u8>, TargetAddr)>>),
+    Received(std::io::Result<Option<UdpSessionEvent>>),
 }
 
 /// # Cancel safety:
@@ -23,7 +24,7 @@ pub(super) async fn next_udp_work(
     if cancel.is_cancelled() {
         return None;
     }
-    let mut received = std::pin::pin!(session.recv_from_target(cancel.clone()));
+    let mut received = std::pin::pin!(session.recv_event(cancel.clone()));
     let mut outbound = std::pin::pin!(outbound.recv());
     let mut cancelled = std::pin::pin!(cancel.cancelled());
     std::future::poll_fn(|cx| {

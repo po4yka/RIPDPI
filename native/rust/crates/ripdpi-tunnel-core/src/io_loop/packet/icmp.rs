@@ -3,6 +3,7 @@ use std::net::IpAddr;
 use etherparse::{Icmpv4Type, Icmpv6Type, PacketBuilder};
 
 mod quote;
+mod remote;
 pub(crate) use quote::UdpErrorQuote;
 
 #[derive(Clone, Copy)]

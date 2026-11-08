@@ -27,6 +27,7 @@ pub(super) fn deliver_udp_datagram(
     src: SocketAddr,
     destination: Arc<UdpDestination>,
     payload: &[u8],
+    original: Option<&[u8]>,
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
@@ -42,12 +43,16 @@ pub(super) fn deliver_udp_datagram(
     admitted_id: ripdpi_flow_app_attribution::FlowRegistrationId,
 ) -> Option<(ripdpi_flow_app_attribution::FlowRegistrationId, Arc<UdpDestination>)> {
     let outbound = associations.get(&src)?.outbound.clone();
-    let Some(datagram) = OutboundDatagram::try_new_for_destination(Arc::clone(&destination), payload, memory_budget)
+    let Some(mut datagram) =
+        OutboundDatagram::try_new_for_destination(Arc::clone(&destination), payload, memory_budget)
     else {
         debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
         stats.record_tun_queue_drop();
         return None;
     };
+    datagram.error_context = original.and_then(|packet| {
+        super::super::worker::RemoteErrorContext::capture(packet, admitted_id, Arc::clone(&destination), memory_budget)
+    });
     match outbound.try_send(datagram) {
         Ok(()) => Some((admitted_id, destination)),
         Err(TrySendError::Full(_)) => {
@@ -85,6 +90,10 @@ pub(super) fn deliver_udp_datagram(
                 destination.synthetic_ip,
             ));
             datagram.destination = Arc::clone(&destination);
+            if let Some(context) = &mut datagram.error_context {
+                context.registration_id = replacement.registration_id;
+                context.destination = Arc::clone(&destination);
+            }
             if let Some(association) = associations.get(&src)
                 && association.outbound.try_send(datagram).is_ok()
             {

@@ -6,7 +6,8 @@ use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::session::udp::UdpMemoryBudget;
+use super::remote_errors::PendingErrors;
+use crate::session::udp::{UdpMemoryBudget, UdpSessionEvent};
 use crate::session::{Auth, UdpSession};
 
 use super::super::super::packet::build_udp_response_fragments;
@@ -122,6 +123,8 @@ pub(super) fn spawn_udp_worker(
                     return;
                 }
             };
+        let mut pending_errors = PendingErrors::default();
+        let mut next_datagram_id = 1u64;
         let mut response_sources = HashMap::new();
         let mut prefer_receive = true;
 
@@ -129,16 +132,28 @@ pub(super) fn spawn_udp_worker(
             if cancel.is_cancelled() {
                 break;
             }
-            let Some(work) = next_udp_work(&session, &mut outbound_rx, &cancel, &mut prefer_receive).await else {
-                break;
+            let expiry = pending_errors.next_expiry();
+            // Cancel safety: the selector consumes only the winning complete datagram; expiry consumes no socket data.
+            let work = tokio::select! {
+                biased;
+                _ = cancel.cancelled() => None,
+                _ = tokio::time::sleep_until(expiry.unwrap_or_else(tokio::time::Instant::now)), if expiry.is_some() => {
+                    pending_errors.expire();
+                    continue;
+                }
+                work = next_udp_work(&session, &mut outbound_rx, &cancel, &mut prefer_receive) => work,
             };
+            let Some(work) = work else { break };
             prefer_receive = matches!(&work, UdpWork::Outbound(_));
             match work {
                 UdpWork::Outbound(outbound) => {
-                    let Some(outbound) = outbound else { break };
+                    let Some(mut outbound) = outbound else { break };
                     if !remember_destination(&mut response_sources, &outbound.destination) {
                         continue;
                     }
+                    let id = next_datagram_id;
+                    let Some(next) = next_datagram_id.checked_add(1) else { break };
+                    next_datagram_id = next;
                     outbound.destination.touch();
                     touch_udp_activity(&last_activity);
                     // send_to is message-atomic and cancel-safe. The explicit
@@ -147,13 +162,14 @@ pub(super) fn spawn_udp_worker(
                     let sent = tokio::select! {
                         biased;
                         _ = cancel.cancelled() => break,
-                        result = session.send_to_target(&outbound.destination.target, &outbound.payload) => result,
+                        result = session.send_tagged(&outbound.destination.target, &outbound.payload, id) => result,
                     };
                     if let Err(err) = sent {
                         if err.raw_os_error() == Some(libc::EMSGSIZE) {
                             continue;
                         }
                         debug!("UDP association {} for {} send failed: {}", association_id, src, err);
+                        pending_errors.clear();
                         // One reconnect, with the same bounds as the first setup.
                         session = match connect_session(
                             proxy_addr,
@@ -178,7 +194,7 @@ pub(super) fn spawn_udp_worker(
                         let retried = tokio::select! {
                             biased;
                             _ = cancel.cancelled() => break,
-                            result = session.send_to_target(&outbound.destination.target, &outbound.payload) => result,
+                            result = session.send_tagged(&outbound.destination.target, &outbound.payload, id) => result,
                         };
                         if let Err(retry_err) = retried {
                             if retry_err.raw_os_error() == Some(libc::EMSGSIZE) {
@@ -188,9 +204,24 @@ pub(super) fn spawn_udp_worker(
                             break;
                         }
                     }
+                    if session.has_feedback() {
+                        pending_errors.remember(id, outbound.error_context.take());
+                    }
                 }
                 UdpWork::Received(received) => match received {
-                    Ok(Some((resp_payload, from))) => {
+                    Ok(Some(UdpSessionEvent::RemoteError { id, error })) => {
+                        if let Some((registration_id, destination, raw)) = pending_errors.take(id, &error)
+                            && !send_event(
+                                &udp_tx,
+                                &cancel,
+                                UdpEvent::RemoteError { src, association_id, registration_id, destination, raw },
+                            )
+                            .await
+                        {
+                            break;
+                        }
+                    }
+                    Ok(Some(UdpSessionEvent::Datagram { payload: resp_payload, target: from })) => {
                         let Some(destination) = destination_for_target(&response_sources, from) else {
                             continue;
                         };

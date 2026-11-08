@@ -223,6 +223,8 @@ fn route_tun_packet_inner(
                     resolved.host.as_deref(),
                     synthetic_ip,
                     payload,
+                    (original_wire_packet && state.runtime.udp_error_originator.can_originate(src.ip(), dst.ip()))
+                        .then_some(packet),
                     &mut state.dns_cache,
                     &mut state.closed_udp_sources,
                     &mut state.udp_associations,

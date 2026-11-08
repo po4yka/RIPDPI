@@ -1,5 +1,7 @@
 pub use ripdpi_runtime_platform::*;
 
+pub mod udp_error_queue;
+
 pub mod relay {
     use std::io;
     use std::net::TcpStream;

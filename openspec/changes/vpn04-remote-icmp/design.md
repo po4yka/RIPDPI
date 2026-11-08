@@ -17,6 +17,12 @@ Standard SOCKS5 (RFC 1928 section 7) has no network-layer error transport. Linux
 - Carry the logical target and actual ICMP offender. The tunnel maps the ID to an original quote and registration. It suppresses stale or cross-family errors, charges quote bytes to the global memory budget, and retains current UID/rate/lifecycle checks.
 - Allow IPv4 type 3 codes 0..15 and type 11 code 0; IPv6 type 1 codes 0..6, type 2 code 0 and type 3 codes 0..1. Preserve MTU info only where defined. Parameter Problem needs upstream-to-original pointer translation and is suppressed.
 
+## Wire and memory limits
+
+The preface is `RUF1` plus 16 nonce bytes. The 32-byte UDP header is magic[4], kind[1], reserved-zero[1], body-length-BE[2], nonce[16], ID-BE[8]. Kinds are request 1, response 2 and error 3. A data body is an ordinary SOCKS UDP frame. An error body is family[1], type[1], code[1], zero[1], info-BE[4], source-IP[4 or 16], target-family[1], target-IP[4 or 16], target-port-BE[2]. Error bodies are 19 or 43 bytes. The complete UDP envelope is at most 65507 bytes.
+
+Proxy history keeps the first 64 payload bytes, at most 64 records per flow, with a conservative 256-byte charge per record against a 256 KiB association limit. Exhaustion or an untracked send disables feedback for that flow generation; data forwarding continues. Reported records remain in history to prevent duplicate late errors from becoming unique again. The tunnel retains at most 64 quotes per association for five seconds, charges their bytes to the existing global 4 MiB UDP budget and expires idle quotes with an independent timer.
+
 ## Contracts and ownership
 
 - Root: task/spec artifacts, tunnel core, adapter codec re-export and combined validation. No lockfile edit is planned.

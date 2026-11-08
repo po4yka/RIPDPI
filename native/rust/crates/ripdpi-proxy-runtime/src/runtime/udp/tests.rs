@@ -359,6 +359,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
             awaiting_response: true,
             answered: false,
             upstream,
+            remote_feedback: crate::runtime::udp::remote_feedback::FlowFeedback::default(),
             quic_migrated: false,
             logical_target: original_target,
             current_target: preferred_edge,
@@ -383,6 +384,7 @@ fn udp_preferred_edge_response_keeps_original_socks5_source_identity() {
             &mut encode_buffer,
             &mut flow_state,
             &mut poll_scratch,
+            None,
             None,
         )
         .expect("pump upstream response");
@@ -485,6 +487,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
             awaiting_response: false,
             answered: false,
             upstream,
+            remote_feedback: crate::runtime::udp::remote_feedback::FlowFeedback::default(),
             quic_migrated: false,
             logical_target,
             current_target: target,
@@ -521,6 +524,7 @@ fn udp_flow_round_trips_through_upstream_socks5_relay() {
             &mut encode_buffer,
             &mut flow_state,
             &mut poll_scratch,
+            None,
             None,
         )
         .expect("pump upstream response");
@@ -865,6 +869,7 @@ fn lua_nonroot_udp_modify_uses_existing_datagram_socket() {
         awaiting_response: false,
         answered: false,
         upstream,
+        remote_feedback: crate::runtime::udp::remote_feedback::FlowFeedback::default(),
         quic_migrated: false,
         logical_target: target,
         current_target: target,
@@ -907,6 +912,7 @@ fn association_worker_exit_clears_running_so_the_control_connection_closes() {
             state,
             worker_running,
             None,
+            None,
         );
         let _ = done_tx.send(result.is_err());
     });
@@ -936,6 +942,7 @@ fn flow_entry_for(upstream: UdpSocket, target: SocketAddr) -> UdpFlowActivationS
         awaiting_response: false,
         answered: false,
         upstream,
+        remote_feedback: crate::runtime::udp::remote_feedback::FlowFeedback::default(),
         quic_migrated: false,
         logical_target: target,
         current_target: target,
@@ -984,6 +991,9 @@ fn one_flow_send_error_retires_only_that_flow() {
             control_peer_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
             requested_udp_source: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
             flow_limit: 16,
+            feedback_nonce: None,
+            feedback_budget: super::remote_feedback::new_budget(),
+            last_feedback_id: &mut 0,
         },
         &mut flow_state,
         &state,
@@ -1039,6 +1049,9 @@ fn flow_send_error_moves_to_the_next_target_candidate() {
             control_peer_ip: IpAddr::V4(Ipv4Addr::LOCALHOST),
             requested_udp_source: SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
             flow_limit: 16,
+            feedback_nonce: None,
+            feedback_budget: super::remote_feedback::new_budget(),
+            last_feedback_id: &mut 0,
         },
         &mut flow_state,
         &state,
@@ -1088,6 +1101,7 @@ fn answered_flow_is_not_rearmed_as_unanswered_by_later_client_datagrams() {
         &mut encode_buffer,
         &mut flow_state,
         &mut poll_scratch,
+        None,
         None,
     )
     .expect("pump response")
@@ -1243,6 +1257,7 @@ fn oversized_upstream_datagram_is_dropped_without_ending_the_association() {
         &mut encode_buffer,
         &mut flow_state,
         &mut poll_scratch,
+        None,
         None,
     );
 

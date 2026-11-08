@@ -24,6 +24,9 @@ daemonize = ["ripdpi-proxy-runtime-adapter/daemonize"]
 loom = ["dep:loom", "ripdpi-proxy-runtime-adapter/loom"]
 
 [dev-dependencies]
+ripdpi-tunnel-config = { workspace = true }
+tokio-util = { workspace = true }
+smoltcp = { workspace = true }
 socket2 = { workspace = true }
 aes = { workspace = true }
 base64 = { workspace = true }

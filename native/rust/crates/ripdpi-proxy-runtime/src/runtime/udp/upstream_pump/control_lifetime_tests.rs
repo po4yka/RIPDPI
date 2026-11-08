@@ -36,6 +36,7 @@ fn queued_downlink_is_not_delivered_after_control_fin() {
         &mut flows,
         &mut UdpUpstreamPollScratch::default(),
         None,
+        None,
     )
     .expect("closed flow is discarded");
     assert_no_datagram(&client);

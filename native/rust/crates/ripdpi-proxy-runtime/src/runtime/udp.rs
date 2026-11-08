@@ -3,6 +3,7 @@ mod feedback;
 mod flow;
 mod flow_selection;
 mod migration;
+mod remote_feedback;
 mod session;
 mod settings;
 mod sockets;
@@ -69,6 +70,7 @@ pub(super) fn udp_associate_loop(
     state: RuntimeState,
     running: Arc<AtomicBool>,
     attempt_token: Option<AttemptCorrelationId>,
+    feedback_nonce: Option<remote_feedback::Nonce>,
 ) -> io::Result<()> {
     // Every exit, including an error or a panic, tells the SOCKS5 control loop to close the
     // TCP connection, so the client does not keep sending into a dead relay port.
@@ -82,6 +84,8 @@ pub(super) fn udp_associate_loop(
     let mut expired_flow_keys = Vec::new();
     let mut upstream_poll_scratch = UdpUpstreamPollScratch::default();
     let flow_limit = state.udp_flow_limit();
+    let feedback_budget = remote_feedback::new_budget();
+    let mut last_feedback_id = 0;
 
     while running.load(Ordering::Relaxed) && !state.shutdown_requested() {
         emit_due_direct_path_learning_timeouts(&state)?;
@@ -96,7 +100,15 @@ pub(super) fn udp_associate_loop(
             &client_relay,
             &mut client_buffer,
             &mut udp_client_addr,
-            UdpClientReceiveConfig { running: running.clone(), control_peer_ip, requested_udp_source, flow_limit },
+            UdpClientReceiveConfig {
+                running: running.clone(),
+                control_peer_ip,
+                requested_udp_source,
+                flow_limit,
+                feedback_nonce: feedback_nonce.as_ref(),
+                feedback_budget: feedback_budget.clone(),
+                last_feedback_id: &mut last_feedback_id,
+            },
             &mut flow_state,
             &state,
             protect_path.as_deref(),
@@ -123,6 +135,7 @@ pub(super) fn udp_associate_loop(
             &mut flow_state,
             &mut upstream_poll_scratch,
             protect_path.as_deref(),
+            feedback_nonce.as_ref(),
         )?;
 
         if !made_progress {

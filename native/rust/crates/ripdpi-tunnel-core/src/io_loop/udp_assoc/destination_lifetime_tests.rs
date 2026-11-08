@@ -61,6 +61,7 @@ async fn idle_destination_releases_lease_without_retiring_active_peer() {
                 Some(host),
                 Some(ip),
                 b"x",
+                None,
                 &mut cache,
                 &mut Vec::new(),
                 &mut associations,

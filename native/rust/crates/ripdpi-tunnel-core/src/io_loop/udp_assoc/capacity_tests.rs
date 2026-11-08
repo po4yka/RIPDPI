@@ -60,6 +60,7 @@ async fn excess_destination_is_rejected_before_queueing_or_pinning() {
             Some(&host),
             Some(ip),
             b"x",
+            None,
             &mut cache,
             &mut Vec::new(),
             &mut associations,

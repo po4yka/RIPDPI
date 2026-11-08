@@ -537,6 +537,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         None,
         None,
         b"drop",
+        None,
         &mut None,
         &mut Vec::new(),
         &mut associations,
@@ -595,6 +596,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         None,
         None,
         b"second",
+        None,
         &mut None,
         &mut Vec::new(),
         &mut associations,
@@ -655,6 +657,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         None,
         None,
         b"retry",
+        None,
         &mut None,
         &mut closed_sources,
         &mut associations,
@@ -948,3 +951,5 @@ fn record_quic_sni_leaves_stats_unchanged_for_non_quic_datagram() {
     let snapshot = stats.dns_snapshot();
     assert!(snapshot.last_host.is_none(), "non-QUIC datagram should not set last_host");
 }
+
+mod remote_errors;

@@ -18,24 +18,59 @@ pub async fn associate<S>(stream: &mut S, control_peer: IpAddr) -> io::Result<So
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    // CMD=3 (UDP ASSOCIATE), bind 0.0.0.0:0
-    let req = [
-        0x05u8, 0x03, 0x00, // VER CMD RSV
-        0x01, // ATYP = IPv4
-        0x00, 0x00, 0x00, 0x00, // 0.0.0.0
-        0x00, 0x00, // port 0
-    ];
+    request(stream, control_peer, None)
+        .await?
+        .ok_or_else(|| io::Error::new(io::ErrorKind::ConnectionRefused, "SOCKS5: UDP ASSOCIATE unsupported"))
+}
+
+/// Negotiate the owned local extension. `None` means an explicit REP 7 only.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: drop the stream after a partial exchange or unsupported reply.
+pub(crate) async fn associate_feedback<S>(
+    stream: &mut S,
+    control_peer: IpAddr,
+    source: SocketAddr,
+) -> io::Result<Option<(SocketAddr, ripdpi_socks5_core::udp_feedback::Nonce)>>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let Some(relay) = request(stream, control_peer, Some(source)).await? else { return Ok(None) };
+    if !relay.ip().is_loopback() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: private relay is not loopback"));
+    }
+    let mut preface = [0; ripdpi_socks5_core::udp_feedback::PREFACE_LEN];
+    stream.read_exact(&mut preface).await?;
+    Ok(Some((relay, ripdpi_socks5_core::udp_feedback::decode_preface(&preface)?)))
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: a request and its reply are one non-repeatable control exchange.
+async fn request<S>(stream: &mut S, control_peer: IpAddr, source: Option<SocketAddr>) -> io::Result<Option<SocketAddr>>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let mut req = vec![5, if source.is_some() { ripdpi_socks5_core::udp_feedback::COMMAND } else { 3 }, 0];
+    let source = source.unwrap_or_else(|| SocketAddr::from(([0, 0, 0, 0], 0)));
+    match source.ip() {
+        IpAddr::V4(ip) => {
+            req.push(1);
+            req.extend_from_slice(&ip.octets());
+        }
+        IpAddr::V6(ip) => {
+            req.push(4);
+            req.extend_from_slice(&ip.octets());
+        }
+    }
+    req.extend_from_slice(&source.port().to_be_bytes());
     stream.write_all(&req).await?;
-
-    // Read reply header: [VER, REP, RSV, ATYP]
-    let mut hdr = [0u8; 4];
+    let mut hdr = [0; 4];
     stream.read_exact(&mut hdr).await?;
-
-    if hdr[0] != 0x05 || hdr[2] != 0x00 {
+    if hdr[0] != 5 || hdr[2] != 0 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: invalid ASSOCIATE reply header"));
     }
-
-    if hdr[1] != 0x00 {
+    let unsupported = hdr[1] == 7;
+    if hdr[1] != 0 && !unsupported {
         return Err(io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("SOCKS5: UDP ASSOCIATE failed with REP={:#04x}", hdr[1]),
@@ -88,11 +123,14 @@ where
         }
     };
 
+    if unsupported {
+        return Ok(None);
+    }
     if relay.port() == 0 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: relay port is zero"));
     }
     if relay.ip().is_unspecified() {
         relay.set_ip(control_peer);
     }
-    Ok(relay)
+    Ok(Some(relay))
 }

@@ -5,6 +5,7 @@ mod policy_reply;
 mod socks4_boundary;
 mod socks4_family;
 mod socks4_limits;
+mod udp_feedback;
 mod upstream_reply;
 
 use super::protocol_io::*;

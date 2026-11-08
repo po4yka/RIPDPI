@@ -74,6 +74,10 @@ impl UdpErrorQuote {
         Some(Self { original, source, destination })
     }
 
+    pub(crate) fn len(&self) -> usize {
+        self.original.len()
+    }
+
     pub(crate) fn source(&self) -> IpAddr {
         self.source
     }

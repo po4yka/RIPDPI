@@ -49,6 +49,7 @@ pub(super) struct UdpFlowActivationState {
     /// never re-arm `awaiting_response`, so idle expiry cannot judge the flow unanswered.
     pub(super) answered: bool,
     pub(super) upstream: UdpSocket,
+    pub(super) remote_feedback: super::remote_feedback::FlowFeedback,
     pub(super) quic_migrated: bool,
     pub(super) logical_target: SocketAddr,
     pub(super) current_target: SocketAddr,

@@ -9,7 +9,9 @@ use tokio_util::sync::CancellationToken;
 use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
 
+mod remote_errors;
 mod replies;
+pub(super) use remote_errors::RemoteErrorContext;
 mod spawn;
 
 use super::association_state::{

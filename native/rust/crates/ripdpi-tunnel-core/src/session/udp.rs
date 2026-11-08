@@ -4,15 +4,18 @@ use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
-use tokio::net::{TcpSocket, TcpStream, UdpSocket};
+use tokio::net::{TcpStream, UdpSocket};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use super::protect::protect_socket_if_available;
-use super::socks5::{Auth, TargetAddr, associate, decode_udp_target_frame, encode_udp_target_frame, handshake};
+use super::socks5::{Auth, TargetAddr, decode_udp_target_frame, encode_udp_target_frame};
 #[cfg(test)]
-use super::socks5::{decode_udp_frame, encode_udp_frame};
+use super::socks5::{associate, decode_udp_frame, encode_udp_frame, handshake};
+
+mod feedback;
+mod setup;
+pub(crate) use feedback::UdpSessionEvent;
 
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
@@ -120,6 +123,9 @@ pub struct UdpSession {
     udp: Arc<UdpSocket>,
     memory_budget: UdpMemoryBudget,
     recv_timeout: Duration,
+    feedback: Option<ripdpi_socks5_core::udp_feedback::Nonce>,
+    #[cfg(test)]
+    next_datagram_id: Arc<std::sync::atomic::AtomicU64>,
 }
 
 impl UdpSession {
@@ -138,14 +144,8 @@ impl UdpSession {
     ///
     /// # Cancel safety
     ///
-    /// NOT cancel-safe. The association is a multi-step sequence — connect the
-    /// control TCP socket, SOCKS5 handshake, `ASSOCIATE`, then bind/connect the
-    /// relay UDP socket — with no rollback. Dropping the future partway leaves a
-    /// half-built association (e.g. a control connection past handshake but with
-    /// no usable relay socket); the dropped values close their fds, but the proxy
-    /// may briefly see a torn `ASSOCIATE`. The tunnel association worker runs it
-    /// outside the single TUN/smoltcp owner task and drops it only on
-    /// cancellation or its connect timeout, when that torn setup is the intent.
+    /// cancel-safe: setup owns the control and relay sockets. Cancellation drops
+    /// both sockets, including a partial negotiation or rejected private attempt.
     pub async fn connect(proxy_addr: SocketAddr, auth: Auth, protect_path: Option<&str>) -> io::Result<Self> {
         Self::connect_with_memory_budget(
             proxy_addr,
@@ -164,38 +164,7 @@ impl UdpSession {
         protect_path: Option<&str>,
         memory_budget: UdpMemoryBudget,
     ) -> io::Result<Self> {
-        // Control connection: create the socket, protect it, *then* connect.
-        let ctrl_socket = match proxy_addr {
-            SocketAddr::V4(_) => TcpSocket::new_v4()?,
-            SocketAddr::V6(_) => TcpSocket::new_v6()?,
-        };
-        protect_socket_if_available(&ctrl_socket, proxy_addr.ip(), protect_path)?;
-        let mut ctrl = ctrl_socket.connect(proxy_addr).await?;
-        handshake(&mut ctrl, &auth).await?;
-        let control_peer = ctrl.peer_addr()?.ip();
-        let relay_addr = associate(&mut ctrl, control_peer).await?;
-
-        // Relay socket: create + protect + bind + connect, in that order, so the
-        // fd is protected before any traffic can leave it.
-        let (domain, bind_addr): (Domain, SocketAddr) = if relay_addr.is_ipv4() {
-            (Domain::IPV4, "0.0.0.0:0".parse().unwrap())
-        } else {
-            (Domain::IPV6, "[::]:0".parse().unwrap())
-        };
-        let relay_socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-        protect_socket_if_available(&relay_socket, relay_addr.ip(), protect_path)?;
-        relay_socket.bind(&SockAddr::from(bind_addr))?;
-        relay_socket.set_nonblocking(true)?;
-        let udp = UdpSocket::from_std(relay_socket.into())?;
-        udp.connect(relay_addr).await?;
-
-        Ok(Self {
-            control: Arc::new(ctrl),
-            invalidated: CancellationToken::new(),
-            udp: Arc::new(udp),
-            memory_budget,
-            recv_timeout: DEFAULT_RECV_TIMEOUT,
-        })
+        setup::connect(proxy_addr, auth, protect_path, memory_budget).await
     }
 
     /// Override the receive timeout (default 10 s).
@@ -239,9 +208,33 @@ impl UdpSession {
     ///
     /// # Cancel safety:
     /// cancel-safe: datagram sends are message-atomic and control readiness consumes no UDP data.
+    #[cfg(test)]
     pub(crate) async fn send_to_target(&self, dst: &TargetAddr, payload: &[u8]) -> io::Result<()> {
+        let id = self
+            .next_datagram_id
+            .fetch_update(std::sync::atomic::Ordering::Relaxed, std::sync::atomic::Ordering::Relaxed, |id| {
+                id.checked_add(1)
+            })
+            .map_err(|_| io::Error::other("SOCKS5 UDP datagram IDs exhausted"))?;
+        self.send_tagged(dst, payload, id).await
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the complete tagged datagram is sent atomically.
+    pub(crate) async fn send_tagged(&self, dst: &TargetAddr, payload: &[u8], id: u64) -> io::Result<()> {
         self.check_control()?;
         let frame = encode_udp_target_frame(dst, payload)?;
+        let frame = match &self.feedback {
+            Some(nonce) => {
+                if frame.len()
+                    > ripdpi_socks5_core::udp_feedback::MAX_WIRE_LEN - ripdpi_socks5_core::udp_feedback::HEADER_LEN
+                {
+                    return Err(io::Error::from_raw_os_error(libc::EMSGSIZE));
+                }
+                ripdpi_socks5_core::udp_feedback::encode_request(nonce, id, &frame)?
+            }
+            None => frame,
+        };
         tokio::select! {
             biased;
             error = self.control_failure() => Err(error),
@@ -275,6 +268,7 @@ impl UdpSession {
     ///
     /// # Cancel safety:
     /// cancel-safe: UDP receives are message-atomic; detected control failure invalidates every clone.
+    #[cfg(test)]
     pub(crate) async fn recv_from_target(
         &self,
         cancel: CancellationToken,
@@ -300,6 +294,7 @@ impl UdpSession {
     ///
     /// # Cancel safety:
     /// cancel-safe: readiness and buffer acquisition consume nothing; receive and decode are synchronous.
+    #[cfg(test)]
     async fn recv_frame<T>(
         &self,
         decode: impl for<'a> Fn(&'a [u8]) -> io::Result<(T, &'a [u8])>,
@@ -1345,3 +1340,6 @@ mod lifetime_tests;
 
 #[cfg(test)]
 mod receive_size_tests;
+
+#[cfg(test)]
+mod feedback_tests;

@@ -67,3 +67,15 @@ fn invalid_reply_headers_and_truncation_are_dropped() {
         assert_eq!(validated_socks5_udp_payload(&ipv6[..end], "[2001:db8::7]:443".parse().unwrap(), None), None);
     }
 }
+
+#[test]
+fn only_one_unmodified_datagram_is_eligible_for_remote_error_correlation() {
+    use super::{UdpDesyncAction as Action, feedback_safe_actions};
+    let write = || Action::Write(b"payload".to_vec());
+    assert!(feedback_safe_actions(&[write()], b"payload"));
+    assert!(feedback_safe_actions(&[Action::SetTtl(10), write(), Action::Delay(0)], b"payload"));
+    assert!(!feedback_safe_actions(&[], b"payload"));
+    assert!(!feedback_safe_actions(&[write(), write()], b"payload"));
+    assert!(!feedback_safe_actions(&[Action::Write(b"fake".to_vec()), write()], b"payload"));
+    assert!(!feedback_safe_actions(&[Action::Write(b"replacement".to_vec())], b"payload"));
+}

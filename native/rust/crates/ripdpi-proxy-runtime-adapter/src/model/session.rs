@@ -21,3 +21,5 @@ pub use state::{
     observe_inbound_payload, observe_outbound_payload, observe_retry_response_payload,
     outbound_payload_count_this_round,
 };
+
+pub use ripdpi_socks5_core::udp_feedback;

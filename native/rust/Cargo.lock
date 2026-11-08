@@ -6285,14 +6285,17 @@ dependencies = [
  "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
  "ripdpi-session-limit",
+ "ripdpi-tunnel-config",
  "ripdpi-tunnel-core",
  "ripdpi-ws-transport-port",
  "ripdpi-ws-tunnel",
  "rustls",
  "serde_json",
+ "smoltcp",
  "socket2",
  "tempfile",
  "tokio",
+ "tokio-util",
  "tracing",
 ]
 

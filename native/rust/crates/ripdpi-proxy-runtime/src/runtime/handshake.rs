@@ -2,6 +2,7 @@ mod connect_relay;
 mod protocol_io;
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
+mod udp_feedback;
 mod ws_tunnel;
 
 use std::io::{self, Read, Write};
@@ -165,7 +166,14 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
     let attempt_token = negotiate_socks5(&mut client, state.proxy_auth_token(), deadline)?;
-    let request = read_socks5_request(&mut client, deadline)?;
+    let mut request = read_socks5_request(&mut client, deadline)?;
+    let private_udp = request.get(1).copied() == Some(udp_feedback::COMMAND);
+    if private_udp {
+        if !udp_feedback::allowed(&client, state) || !matches!(request.get(3), Some(1 | 4)) {
+            return udp_feedback::reject(&mut client);
+        }
+        request[1] = 3;
+    }
     if request.get(3).copied().is_some_and(RuntimeState::is_socks5_resolved_domain_address_type)
         && (!client.peer_addr()?.ip().is_loopback() || !state.resolved_domain_targets_allowed())
     {
@@ -193,7 +201,10 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
                 )?;
                 return Ok(());
             }
-            handle_socks5_udp_associate(client, state, attempt_token, requested_udp_source)
+            if private_udp && !udp_feedback::exact_source(&client, requested_udp_source)? {
+                return udp_feedback::reject(&mut client);
+            }
+            handle_socks5_udp_associate(client, state, attempt_token, requested_udp_source, private_udp)
         }
         Ok(_) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
@@ -269,13 +280,18 @@ fn handle_socks5_udp_associate(
     state: &RuntimeState,
     attempt_token: Option<AttemptCorrelationId>,
     requested_udp_source: SocketAddr,
+    private_udp: bool,
 ) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
     let control_peer_ip = client.peer_addr()?.ip();
     let protect_path = state.handshake_protect_path();
     let relay = super::udp::build_udp_relay_sockets(local_ip)?;
     let reply_addr = relay.client.local_addr()?;
+    let feedback_nonce = private_udp.then(udp_feedback::new_nonce).transpose()?;
     client.write_all(RuntimeState::encode_socks5_reply(0, reply_addr).as_bytes())?;
+    if let Some(nonce) = &feedback_nonce {
+        client.write_all(&udp_feedback::encode_preface(nonce))?;
+    }
 
     let running = Arc::new(AtomicBool::new(true));
     let worker_running = running.clone();
@@ -292,6 +308,7 @@ fn handle_socks5_udp_associate(
                 worker_state,
                 worker_running,
                 attempt_token,
+                feedback_nonce,
             )
         })
         .map_err(|err| io::Error::other(format!("failed to spawn UDP relay thread: {err}")))?;

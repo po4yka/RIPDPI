@@ -32,18 +32,25 @@ impl UdpErrorOriginator {
 
     pub(super) fn capture(&self, packet: &[u8]) -> Option<Vec<u8>> {
         let quote = UdpErrorQuote::capture(packet)?;
-        let local = match (quote.source(), quote.destination()) {
+        quote.build(self.local_for(quote.source(), quote.destination())?, UdpErrorReason::LocalForwardingFailure)
+    }
+
+    pub(super) fn can_originate(&self, source: IpAddr, destination: IpAddr) -> bool {
+        self.local_for(source, destination).is_some()
+    }
+
+    fn local_for(&self, source: IpAddr, destination: IpAddr) -> Option<IpAddr> {
+        match (source, destination) {
             (IpAddr::V4(src), IpAddr::V4(dst)) => {
                 let network = self.ipv4?;
                 if network.prefix_len() < 31 && (src == network.broadcast() || dst == network.broadcast()) {
                     return None;
                 }
-                IpAddr::V4(network.addr())
+                Some(IpAddr::V4(network.addr()))
             }
-            (IpAddr::V6(_), IpAddr::V6(_)) => IpAddr::V6(self.ipv6?.addr()),
-            _ => return None,
-        };
-        quote.build(local, UdpErrorReason::LocalForwardingFailure)
+            (IpAddr::V6(_), IpAddr::V6(_)) => Some(IpAddr::V6(self.ipv6?.addr())),
+            _ => None,
+        }
     }
 
     pub(super) fn allow(&mut self, now: Instant) -> bool {
