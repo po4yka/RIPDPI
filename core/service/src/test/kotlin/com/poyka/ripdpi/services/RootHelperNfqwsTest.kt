@@ -143,6 +143,72 @@ class RootHelperNfqwsTest {
         }
 
     @Test
+    fun `a helper that exits before monitor registration reports one failure`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val process = ProcessBuilder("sh", "-c", "exec sleep 30").start()
+            val failures = mutableListOf<IOException>()
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { File(context.filesDir, "helper") },
+                    processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
+                    readinessProbe = { _, _, _ -> true },
+                    shutdownRequester = { _, _ -> },
+                    rootProcessTerminator = {},
+                    nfqwsExtractor = { context.filesDir },
+                    nfqwsRequester = { _, _, _, _ -> buildJsonObject { put("running", true) } },
+                    nfqwsDispatcher = StandardTestDispatcher(testScheduler),
+                )
+            try {
+                manager.start(context)
+                manager.syncNfqws(context, settings())
+                process.destroy()
+                assertTrue(process.waitFor(5, TimeUnit.SECONDS))
+
+                manager.monitorNfqws(backgroundScope) { failures += it }
+                runCurrent()
+                advanceTimeBy(2_000)
+                runCurrent()
+
+                assertEquals(1, failures.size)
+                assertFalse(manager.nfqwsActive)
+            } finally {
+                manager.stop()
+                process.destroyForcibly()
+            }
+        }
+
+    @Test
+    fun `a stopped session does not report a queued helper failure`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val process = NfqwsTestProcess()
+            val failures = mutableListOf<IOException>()
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { File(context.filesDir, "helper") },
+                    processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
+                    readinessProbe = { _, _, _ -> true },
+                    shutdownRequester = { _, _ -> },
+                    rootProcessTerminator = {},
+                    nfqwsExtractor = { context.filesDir },
+                    nfqwsRequester = { _, _, _, _ -> buildJsonObject { put("running", true) } },
+                    nfqwsDispatcher = StandardTestDispatcher(testScheduler),
+                )
+            manager.start(context)
+            manager.syncNfqws(context, settings())
+            process.destroy()
+
+            manager.monitorNfqws(backgroundScope) { failures += it }
+            manager.stop()
+            runCurrent()
+            advanceTimeBy(2_000)
+            runCurrent()
+
+            assertTrue(failures.isEmpty())
+        }
+
+    @Test
     fun `planned backend stop cancels monitoring and retains ownership on failure`() =
         runTest {
             val context = RuntimeEnvironment.getApplication()

@@ -174,28 +174,32 @@ open class RootHelperManager
             backendMonitor?.cancel()
             val observed = backendSession.get()
             val socket = activeSocketPath
-            if (observed?.running != true || socket == null || !isRunning()) return
+            if (observed?.running != true) return
             val nonce = observed.noncePath
             backendMonitor =
                 scope.launch(nfqwsDispatcher) {
                     while (isActive && backendSession.get() === observed) {
-                        delay(BACKEND_POLL_INTERVAL_MS)
                         val failure =
-                            try {
-                                val status =
-                                    nfqwsRequester(
-                                        socket,
-                                        nonce,
-                                        "v3/nfqws2_status",
-                                        buildJsonObject {},
-                                    )
-                                if (status["running"]?.jsonPrimitive?.booleanOrNull == true) {
-                                    null
-                                } else {
-                                    IOException("nfqws2 exited unexpectedly")
+                            if (socket == null || !isRunning()) {
+                                IOException("nfqws2 root helper exited unexpectedly")
+                            } else {
+                                delay(BACKEND_POLL_INTERVAL_MS)
+                                try {
+                                    val status =
+                                        nfqwsRequester(
+                                            socket,
+                                            nonce,
+                                            "v3/nfqws2_status",
+                                            buildJsonObject {},
+                                        )
+                                    if (status["running"]?.jsonPrimitive?.booleanOrNull == true) {
+                                        null
+                                    } else {
+                                        IOException("nfqws2 exited unexpectedly")
+                                    }
+                                } catch (error: IOException) {
+                                    error
                                 }
-                            } catch (error: IOException) {
-                                error
                             }
                         if (!isActive) return@launch
                         if (failure != null && backendSession.compareAndSet(observed, observed.copy(running = false))) {
