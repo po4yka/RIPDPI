@@ -42,7 +42,7 @@ pub(crate) async fn create_connection(
                 ),
                 &config.finalmask,
             )?;
-            let tls = ripdpi_vless::reality::connect_reality_tls_over(transport, &config.vless).await?;
+            let tls = ripdpi_vless::reality::connect_reality_h2_tls_over(transport, &config.vless).await?;
             Box::new(tls)
         }
         XhttpMode::Tls(config) => {
@@ -66,6 +66,9 @@ pub(crate) async fn create_connection(
             // applied AFTER profile resolution and BEFORE `.build()`.
             let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
                 .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+            builder
+                .set_alpn_protos(b"\x02h2")
+                .map_err(|error| io::Error::other(format!("xHTTP ALPN configuration: {error}")))?;
             if let Some(kem_groups) = config.kem_groups.as_deref() {
                 ripdpi_tls_profiles::apply_kem_groups(&mut builder, kem_groups)
                     .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?;
@@ -83,6 +86,9 @@ pub(crate) async fn create_connection(
                 }
                 io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
             })?;
+            if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "xHTTP TLS peer did not negotiate h2"));
+            }
             // PQ-KEM negotiation telemetry: increments `tls.pq_kem_negotiated`
             // iff the negotiated group is the hybrid X25519MLKEM768.
             // Privacy-safe (no authority / SNI / IP in the event).

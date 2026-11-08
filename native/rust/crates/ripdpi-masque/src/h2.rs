@@ -115,6 +115,8 @@ pub(crate) async fn attempt_h2_connect_tcp(
     attempt_h2_connect_tcp_over_transport(config, tcp, target, auth_header).await
 }
 
+/// # Cancel safety:
+/// cancel-safe: the attempt owns its carrier and publishes no reusable session before return.
 pub(crate) async fn attempt_h2_connect_tcp_over_transport<S>(
     config: &MasqueConfig,
     transport: S,
@@ -127,6 +129,9 @@ where
     let proxy_origin = parse_proxy_origin(config)?;
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
+    connector_builder
+        .set_alpn_protos(b"\x02h2")
+        .map_err(|error| io::Error::other(format!("H2 ALPN configuration failed: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
     apply_h2_root_certificate(&mut connector_builder, config)?;
     // Test-only: relax verification for the loopback fixture's self-signed cert
@@ -152,6 +157,10 @@ where
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake failed: {error}"))
     })?;
 
+    if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 peer did not negotiate h2").into());
+    }
+
     let io = TokioIo::new(tls);
     let (mut sender, connection) =
         hyper::client::conn::http2::handshake(hyper_util::rt::TokioExecutor::new(), io).await.map_err(|error| {
@@ -175,6 +184,8 @@ where
     Ok(TokioIo::new(upgraded))
 }
 
+/// # Cancel safety:
+/// cancel-safe: the attempt owns its carrier and publishes no reusable session before return.
 pub(crate) async fn attempt_h2_connect_udp(
     config: &MasqueConfig,
     target: &str,
@@ -189,6 +200,9 @@ pub(crate) async fn attempt_h2_connect_udp(
 
     let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
+    connector_builder
+        .set_alpn_protos(b"\x02h2")
+        .map_err(|error| io::Error::other(format!("H2 ALPN configuration failed: {error}")))?;
     apply_h2_client_auth(&mut connector_builder, config)?;
     apply_h2_root_certificate(&mut connector_builder, config)?;
     // Test-only: relax verification for the loopback fixture's self-signed cert
@@ -213,6 +227,10 @@ pub(crate) async fn attempt_h2_connect_udp(
         }
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake failed: {error}"))
     })?;
+
+    if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 peer did not negotiate h2").into());
+    }
 
     let (mut sender, connection) =
         hyper::client::conn::http2::handshake(hyper_util::rt::TokioExecutor::new(), TokioIo::new(tls)).await.map_err(

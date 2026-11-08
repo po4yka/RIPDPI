@@ -10,7 +10,7 @@
 //!    temporary certificate (see [`crate::reality_server`]; clients must use
 //!    [`crate::reality_fixture_public_key`]); a strict rustls server rejects the
 //!    uTLS REALITY ClientHello with `DECODE_ERROR`;
-//! 2. an HTTP/2 server (the xHTTP transport is H2 with prior knowledge);
+//! 2. an HTTP/2 server with negotiated `h2` ALPN;
 //! 3. the xray-core **stream-up** wire shape — a `GET /<path>/<sid>` whose
 //!    response body is the download channel, plus a `POST /<path>/<sid>` whose
 //!    request body is the upload channel, correlated by the shared URL path;
@@ -31,7 +31,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 use boring::pkey::{PKey, Private};
-use boring::ssl::{SslAcceptor, SslMethod, SslVerifyMode};
+use boring::ssl::{AlpnError, SslAcceptor, SslMethod, SslVerifyMode, select_next_proto};
 use boring::x509::X509;
 use bytes::Bytes;
 use http_body_util::combinators::BoxBody;
@@ -148,6 +148,7 @@ fn build_acceptor() -> io::Result<SslAcceptor> {
     acceptor.set_certificate(&cert).map_err(|error| io::Error::other(error.to_string()))?;
     acceptor.set_private_key(&key).map_err(|error| io::Error::other(error.to_string()))?;
     crate::reality_server::install_reality_server_auth(&mut acceptor)?;
+    acceptor.set_alpn_select_callback(|_, offered| select_next_proto(b"\x02h2", offered).ok_or(AlpnError::ALERT_FATAL));
     acceptor.set_verify(SslVerifyMode::NONE);
     Ok(acceptor.build())
 }

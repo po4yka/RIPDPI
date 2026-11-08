@@ -210,16 +210,13 @@ where
 /// that it holds the REALITY private key, and other errors when the TCP or
 /// TLS handshake fails.
 ///
-/// # Cancel safety
-///
-/// conditionally cancel-safe: cancellation may leave a partial TLS handshake
-/// at the peer, but this future exclusively owns and drops the incomplete TCP
-/// stream, which is never resumed or pooled.
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the owned incomplete TCP stream; it is never resumed or pooled.
 pub async fn connect_reality_tls(
     tcp: TcpStream,
     config: &VlessRealityConfig,
 ) -> io::Result<RealityTlsStream<TcpStream>> {
-    connect_reality_tls_inner(tcp, config).await
+    connect_reality_tls_inner(tcp, config, false).await
 }
 
 /// Connect Reality TLS over an arbitrary async transport. Used for
@@ -230,16 +227,38 @@ pub async fn connect_reality_tls(
 ///
 /// Same as [`connect_reality_tls`].
 ///
-/// # Cancel safety
-///
-/// conditionally cancel-safe: cancellation may leave partial TLS bytes on the
-/// supplied transport; the caller must discard it and must not resume or pool
-/// it.
+/// # Cancel safety:
+/// NOT cancel-safe: borrowed transports must be discarded after cancellation.
+/// Owned transports drop safely; no incomplete stream may be resumed or pooled.
 pub async fn connect_reality_tls_over<S>(transport: S, config: &VlessRealityConfig) -> io::Result<RealityTlsStream<S>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    connect_reality_tls_inner(transport, config).await
+    connect_reality_tls_inner(transport, config, false).await
+}
+
+/// Connect authenticated REALITY TLS for an HTTP/2 carrier.
+///
+/// Offers only `h2` and refuses a peer that does not negotiate it before the
+/// caller can send application data. Raw REALITY callers use
+/// [`connect_reality_tls_over`] to keep their existing protocol policy.
+///
+/// # Errors
+///
+/// Returns [`io::ErrorKind::InvalidData`] when REALITY authentication or H2
+/// negotiation fails, and other errors when the TLS handshake fails.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: borrowed transports must be discarded after cancellation.
+/// Owned transports drop safely; no incomplete stream may be resumed or pooled.
+pub async fn connect_reality_h2_tls_over<S>(
+    transport: S,
+    config: &VlessRealityConfig,
+) -> io::Result<RealityTlsStream<S>>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    connect_reality_tls_inner(transport, config, true).await
 }
 
 /// Puts `X25519MLKEM768:X25519` first in a BoringSSL curve list and keeps the
@@ -262,12 +281,14 @@ fn warn_kem_override_without_hybrid() {
     });
 }
 
-/// # Cancel safety
-///
-/// conditionally cancel-safe: this function exclusively owns the in-progress
-/// TLS stream. Dropping it discards that stream, and a retry starts from a
-/// fresh transport; no shared TLS state is published before completion.
-async fn connect_reality_tls_inner<S>(stream: S, config: &VlessRealityConfig) -> io::Result<RealityTlsStream<S>>
+/// # Cancel safety:
+/// NOT cancel-safe: borrowed transports must be discarded after cancellation.
+/// Owned transports drop safely, and the TLS stream drops before its callback state.
+async fn connect_reality_tls_inner<S>(
+    stream: S,
+    config: &VlessRealityConfig,
+    require_h2: bool,
+) -> io::Result<RealityTlsStream<S>>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -285,6 +306,12 @@ where
         ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
     let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
         .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+
+    if require_h2 {
+        builder
+            .set_alpn_protos(b"\x02h2")
+            .map_err(|error| io::Error::other(format!("REALITY H2 ALPN configuration: {error}")))?;
+    }
 
     // REALITY's authenticated server flight uses an ephemeral Ed25519
     // certificate and hard-codes Ed25519 for CertificateVerify. Some of the
@@ -408,6 +435,10 @@ where
         &auth_key,
     )?;
 
+    if require_h2 && tls_stream.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "REALITY H2 peer did not negotiate h2"));
+    }
+
     // PQ-KEM negotiation telemetry: increments `tls.pq_kem_negotiated` iff the
     // negotiated group is the hybrid X25519MLKEM768. Privacy-safe (no authority
     // / SNI / IP in the event).
@@ -422,6 +453,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    mod h2_alpn;
+
     use super::{DropOrdered, RealityRecordStream, connect_reality_tls};
     use crate::reality_seal::derive_auth_key;
     use base64::Engine;
@@ -478,7 +511,7 @@ mod tests {
         RealityAuth([u8; 32]),
     }
 
-    fn fixture_context(certificate: FixtureCertificate) -> SslContext {
+    fn fixture_context(certificate: FixtureCertificate, alpn: Option<&'static [u8]>) -> SslContext {
         let key_der = hex::decode(ED25519_PRIVATE_KEY_DER).expect("decode Ed25519 fixture key");
         let signing_key = rcgen::KeyPair::try_from(key_der.as_slice()).expect("rcgen Ed25519 fixture key");
         let params = rcgen::CertificateParams::new(vec!["reality.test".to_string()]).expect("fixture cert params");
@@ -488,6 +521,11 @@ mod tests {
         context.set_min_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 minimum");
         context.set_max_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 maximum");
         context.set_curves_list("X25519").expect("fixture X25519 curve");
+        if let Some(protocols) = alpn {
+            context.set_alpn_select_callback(move |_, offered| {
+                boring::ssl::select_next_proto(protocols, offered).ok_or(boring::ssl::AlpnError::NOACK)
+            });
+        }
         match certificate {
             FixtureCertificate::PlainSelfSigned => {
                 let cert = boring::x509::X509::from_der(&template).expect("BoringSSL fixture cert");
@@ -549,16 +587,22 @@ mod tests {
     /// Runs one REALITY handshake against a fixture server and reads its
     /// two-byte reply. It sets an explicit X25519-only KEM override, which
     /// the client must still extend with the hybrid share the server requires.
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation before accept may leave the fixture peer waiting; normal runs join the peer.
     async fn connect_to_fixture_with_x25519_override(certificate: FixtureCertificate) -> io::Result<[u8; 2]> {
-        connect_to_fixture_with(certificate, "chrome_stable", Some(vec!["X25519".to_string()])).await
+        connect_to_fixture_with(certificate, "chrome_stable", Some(vec!["X25519".to_string()]), None, false).await
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation before accept may leave the fixture peer waiting; normal runs join the peer.
     async fn connect_to_fixture_with(
         certificate: FixtureCertificate,
         profile: &str,
         kem_groups: Option<Vec<String>>,
+        alpn: Option<&'static [u8]>,
+        require_h2: bool,
     ) -> io::Result<[u8; 2]> {
-        let context = fixture_context(certificate);
+        let context = fixture_context(certificate, alpn);
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind Reality TLS fixture");
         let address = listener.local_addr().expect("Reality TLS fixture address");
         let server = thread::spawn(move || {
@@ -591,7 +635,12 @@ mod tests {
         };
 
         let tcp = tokio::net::TcpStream::connect(address).await.expect("connect Reality TLS fixture");
-        let result = match connect_reality_tls(tcp, &config).await {
+        let handshake = if require_h2 {
+            super::connect_reality_h2_tls_over(tcp, &config).await
+        } else {
+            connect_reality_tls(tcp, &config).await
+        };
+        let result = match handshake {
             Ok(mut tls) => {
                 let mut response = [0_u8; 2];
                 tls.read_exact(&mut response).await.map(|_| response)
@@ -622,10 +671,15 @@ mod tests {
         // firefox_stable, firefox_ech_stable and safari_stable list only
         // classical curves; current REALITY servers reject such a ClientHello.
         for profile in ["chrome_stable", "firefox_stable", "firefox_ech_stable", "safari_stable"] {
-            let response =
-                connect_to_fixture_with(FixtureCertificate::RealityAuth(REALITY_SERVER_SECRET), profile, None)
-                    .await
-                    .unwrap_or_else(|error| panic!("{profile}: REALITY handshake failed: {error}"));
+            let response = connect_to_fixture_with(
+                FixtureCertificate::RealityAuth(REALITY_SERVER_SECRET),
+                profile,
+                None,
+                None,
+                false,
+            )
+            .await
+            .unwrap_or_else(|error| panic!("{profile}: REALITY handshake failed: {error}"));
             assert_eq!(response, *b"ok", "{profile}");
         }
     }
