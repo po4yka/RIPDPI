@@ -4,6 +4,15 @@ Use valid TLS names and negotiated application protocols in existing native clie
 
 ## ADDED Requirements
 
+### Requirement: REQ-STD02-ALPN-LENGTH — Validate profile ALPN lengths
+
+Profile validation SHALL reject empty protocol identifiers, identifiers longer than 255 octets, and a protocol list that cannot fit in TLS extension data. Valid catalog profiles SHALL retain their current wire representation.
+
+#### Scenario: Reject an invalid future profile
+
+- **WHEN** a profile contains an invalid identifier or an overlong list
+- **THEN** validation fails before a length cast can encode different identifiers
+
 ### Requirement: REQ-STD02-DOT — Apply DoT ALPN
 
 The DoT client MUST offer dot after the selected builder factory. It SHALL accept dot or a legacy peer without ALPN and reject any other selected protocol before DNS bytes. Certificate checks and pooled stream ownership SHALL stay intact.

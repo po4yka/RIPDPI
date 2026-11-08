@@ -14,15 +14,18 @@ Task TRN-1794158969509887 repairs STD-02 F1-F3 and checks H1. Base source is 145
 - MASQUE H2 and plain xHTTP offer only h2 and check the result before Hyper. A dedicated REALITY H2 entry uses the same authenticated inner routine with h2 policy; existing direct entries stay intact.
 - A small normalize_server_name helper in tls-profiles uses current dependencies. It strips one DNS root dot, validates ASCII LDH label and total lengths, canonicalizes bare IP and unwraps valid bracketed IPv6. It rejects raw Unicode overrides. URL parser IDNA remains available for URL domains.
 - TLS identity and HTTP authority remain separate. Existing formatting helpers preserve IPv6 brackets. Fake-SNI callers keep certificate identity separate.
+- HTTPS root-dot normalization applies to TLS names only. Fetch, WARP and MASQUE keep the parsed URL host spelling for HTTP Host or authority; WebTunnel already keeps those fields separate.
 - Diagnostic fallback is used only for empty input. A nonempty invalid override is an error. The owning public helper regression must prove the previous substitution first.
+- Profile validation checks each ALPN identifier and the encoded list size before the builder encodes their lengths.
 - No production dependency or test-only production trust seam is added. Test peers use synthetic credentials and local trust anchors.
+- The dedicated local-network-fixture xHTTP REALITY peer selects h2. The generic REALITY peer keeps its existing behavior.
 
 ## Contracts and ownership
 
 - Kotlin and JNI payload shapes do not change; native final validation protects all current ingress routes.
-- Rust crates: tls-profiles, dns-resolver, masque, xhttp, vless, anytls, trojan, webtunnel, ws-tunnel, android-fetch-adapter, warp-android and diagnostics-tls. The writer checks other common-builder callers for missed names.
+- Rust crates: android-support, android-fetch-adapter, tls-profiles, dns-resolver, masque, xhttp, vless, anytls, trojan, webtunnel, ws-tunnel, warp-android, monitor-engine, relay-core and diagnostics-tls. Other common-builder callers were checked for missed names.
 - Ownership and serialized file lanes are recorded in the portfolio task. Primary owns Cargo.lock, root manifests, API snapshots, OpenSpec and task state; workers own the named source slices in separate worktrees. SNI changes in ALPN-owned production files follow ALPN lane completion.
-- Additive Rust helper APIs require generated API snapshots when the owning check selects the crate. No protobuf, storage, locale, golden or dependency-version migration.
+- The new Rust helper and InvalidServerName error variant require a generated tls-profiles API snapshot. The variant adds an exhaustive-match case to the internal workspace API. No protobuf, storage, locale, golden or dependency-version migration.
 
 ## Risks / Trade-offs
 

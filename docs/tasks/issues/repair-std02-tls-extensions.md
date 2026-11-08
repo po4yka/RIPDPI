@@ -2,7 +2,7 @@
 id: TRN-1794158969509887
 title: Repair TLS extension contracts from STD-02 audit
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: TLS transport maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: std02-tls-extensions
 created: 2026-11-08
 updated: 2026-11-08
+status_detail: All local repair tests and source gates pass; exact-source remote CI remains pending.
 ---
 
 ## Goal
@@ -24,6 +25,7 @@ Repair the three confirmed STD-02 TLS extension defects. Keep certificate verifi
 - F2: MASQUE H2 TCP/UDP and xHTTP use h2 and require h2 before application bytes. Direct REALITY behavior stays intact.
 - F3: TLS names are canonical ASCII DNS names or IP identities; invalid input cannot become malformed SNI. URL IPv6 brackets remain in HTTP authority only.
 - H1: Validate the diagnostic override hypothesis and fix a confirmed identity substitution separately.
+- Profile validation rejects empty or overlong ALPN identifiers and encoded lists that exceed the TLS extension limit.
 - Existing and new targeted regressions, independent review, affected package checks and combined offline CI gates pass or report exact blockers.
 - Each confirmed problem has a separate fix commit integrated into main and pushed to origin, as authorized by the user.
 
