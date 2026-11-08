@@ -78,20 +78,25 @@ impl<'a> HttpConnectHead<'a> {
             return Err(SessionError::socks5(S_ER_CMD));
         }
         let authority = parts.next().ok_or_else(SessionError::generic)?;
-        if !matches!(parts.next(), Some("HTTP/1.0" | "HTTP/1.1")) || parts.next().is_some() {
+        let version = parts.next();
+        if !matches!(version, Some("HTTP/1.0" | "HTTP/1.1")) || parts.next().is_some() {
             return Err(SessionError::generic());
         }
         let (name, port) = split_host_port(authority).ok_or_else(SessionError::generic)?;
         let mut hosts = self.fields().filter(|(name, _)| name.eq_ignore_ascii_case(b"Host"));
-        let (_, host) = hosts.next().ok_or_else(SessionError::generic)?;
+        let host = hosts.next();
         if hosts.next().is_some() {
             return Err(SessionError::generic());
         }
-        let host = std::str::from_utf8(host).map_err(|_| SessionError::generic())?.trim();
-        let unbracketed_host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
-        let (host_name, host_port) =
-            split_host_port(host).map_or((unbracketed_host, None), |(name, port)| (name, Some(port)));
-        if !host_name.eq_ignore_ascii_case(name) || host_port.is_some_and(|host_port| host_port != port) {
+        if let Some((_, host)) = host {
+            let host = std::str::from_utf8(host).map_err(|_| SessionError::generic())?.trim();
+            let unbracketed_host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
+            let (host_name, host_port) =
+                split_host_port(host).map_or((unbracketed_host, None), |(name, port)| (name, Some(port)));
+            if !host_name.eq_ignore_ascii_case(name) || host_port.is_some_and(|host_port| host_port != port) {
+                return Err(SessionError::generic());
+            }
+        } else if version == Some("HTTP/1.1") {
             return Err(SessionError::generic());
         }
         let addr = resolver
@@ -138,6 +143,26 @@ mod tests {
     use crate::{ClientRequest, SocketType, TargetAddr};
 
     use super::*;
+
+    #[test]
+    fn parse_http_connect_request_http10_host_is_optional() {
+        let request = b"CONNECT example.com:8443 HTTP/1.0\r\n\r\n";
+        assert_eq!(
+            parse_http_connect_request(request, &resolver).expect("parse HTTP/1.0 authority"),
+            ClientRequest::HttpConnect(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 10], 8443)),
+                host: Some("example.com".to_string()),
+            })
+        );
+        for fields in ["Host:\r\n", "Host: other.example\r\n", "Host: example.com\r\nHost: example.com\r\n"] {
+            let request = format!("CONNECT example.com:8443 HTTP/1.0\r\n{fields}\r\n");
+            assert_eq!(
+                parse_http_connect_request(request.as_bytes(), &resolver).err().map(|error| error.code),
+                Some(crate::S_ER_GEN),
+                "{fields:?}"
+            );
+        }
+    }
 
     #[test]
     fn parse_http_connect_request_rejects_invalid_field_lines() {
