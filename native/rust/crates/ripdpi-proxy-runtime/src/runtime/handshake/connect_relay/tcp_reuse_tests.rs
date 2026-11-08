@@ -146,8 +146,12 @@ fn delayed_http_tls_group_completes_on_a_single_accepted_connection() {
     assert!(result.is_ok(), "relay result: {result:?}");
 }
 
-#[test]
-fn changed_pre_connect_receive_buffer_replaces_the_socket() {
+/// # Cancel safety
+///
+/// cancel-safe: the test owns both listener and connected sockets; cancellation
+/// drops them without reusing a partially accepted connection.
+#[tokio::test]
+async fn changed_pre_connect_receive_buffer_replaces_the_socket() {
     use ripdpi_proxy_runtime_adapter::model::config::WsizeConfig;
 
     let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
@@ -167,7 +171,11 @@ fn changed_pre_connect_receive_buffer_replaces_the_socket() {
     provisional.set_read_timeout(Some(TIMEOUT)).unwrap();
     assert_eq!(provisional.read(&mut [0; 1]).unwrap(), 0);
     origin.set_nonblocking(true).unwrap();
-    let (_, final_source) = origin.accept().unwrap();
+    let origin = tokio::net::TcpListener::from_std(origin).unwrap();
+    let (_, final_source) = tokio::time::timeout(TIMEOUT, origin.accept())
+        .await
+        .expect("replacement must become accept-ready before the deadline")
+        .unwrap();
     assert_ne!(final_source, source);
     assert_eq!(connected.upstream.local_addr().unwrap(), final_source);
     assert_eq!(connected.route.group_index, 0);
