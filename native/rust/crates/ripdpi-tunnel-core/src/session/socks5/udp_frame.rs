@@ -93,8 +93,8 @@ pub fn decode_udp_frame(frame: &[u8]) -> io::Result<(SocketAddr, &[u8])> {
 }
 
 pub(crate) fn decode_udp_target_frame(frame: &[u8]) -> io::Result<(TargetAddr, &[u8])> {
-    // Minimum: RSV(2) + FRAG(1) + ATYP(1) + IPv4(4) + PORT(2) = 10
-    if frame.len() < 10 {
+    // Address variants have different minimum lengths; validate each tail below.
+    if frame.len() < 4 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP frame too short"));
     }
 
@@ -103,6 +103,9 @@ pub(crate) fn decode_udp_target_frame(frame: &[u8]) -> io::Result<(TargetAddr, &
 
     let (target, data_start) = match frame[3] {
         0x01 => {
+            if frame.len() < 10 {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP IPv4 frame too short"));
+            }
             let ip = Ipv4Addr::new(frame[4], frame[5], frame[6], frame[7]);
             let port = u16::from_be_bytes([frame[8], frame[9]]);
             (TargetAddr::Ip(SocketAddr::new(IpAddr::V4(ip), port)), 10)
@@ -121,6 +124,9 @@ pub(crate) fn decode_udp_target_frame(frame: &[u8]) -> io::Result<(TargetAddr, &
             let len =
                 *frame.get(4).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing domain length"))?
                     as usize;
+            if len == 0 {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "empty domain"));
+            }
             let end = 5 + len;
             let domain = std::str::from_utf8(
                 frame.get(5..end).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "truncated domain"))?,
@@ -143,6 +149,9 @@ pub(crate) fn decode_udp_target_frame(frame: &[u8]) -> io::Result<(TargetAddr, &
 fn decode_resolved_domain_target(frame: &[u8]) -> io::Result<(TargetAddr, usize)> {
     let len =
         *frame.get(4).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing domain length"))? as usize;
+    if len == 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "empty resolved domain"));
+    }
     let host_end = 5 + len;
     let host = std::str::from_utf8(
         frame.get(5..host_end).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "truncated domain"))?,
@@ -172,4 +181,23 @@ fn decode_resolved_domain_target(frame: &[u8]) -> io::Result<(TargetAddr, usize)
         .map(|bytes| u16::from_be_bytes([bytes[0], bytes[1]]))
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "truncated resolved-domain port"))?;
     Ok((TargetAddr::ResolvedDomain(host, SocketAddr::new(ip, port)), port_offset + 2))
+}
+
+#[cfg(test)]
+mod short_domain_tests {
+    use super::*;
+    #[test]
+    fn loc09_short_domain_frame_preserves_empty_payload() {
+        let frame = [0, 0, 0, 3, 2, b'a', b'.', 0, 53];
+        let (target, payload) = decode_udp_target_frame(&frame).unwrap();
+        assert_eq!(target, TargetAddr::Domain("a.".to_owned(), 53));
+        assert!(payload.is_empty());
+    }
+
+    #[test]
+    fn empty_or_truncated_short_domain_frames_are_rejected() {
+        for frame in [&[0, 0, 0, 3, 0, 0, 53][..], &[0, 0, 0, 3, 2, b'a'][..], &[0, 0, 0, 1][..]] {
+            assert!(decode_udp_target_frame(frame).is_err());
+        }
+    }
 }
