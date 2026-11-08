@@ -1,5 +1,5 @@
 use boring::ssl::SslConnectorBuilder;
-use boring::x509::{X509, X509StoreContextRef};
+use boring::x509::{X509, X509StoreContextRef, X509VerifyError};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use tokio::time::timeout;
 
@@ -119,9 +119,12 @@ fn configure_dot_pin_callback(
 ) -> Result<(), EncryptedDnsError> {
     let server_name = ServerName::try_from(tls_name.clone())
         .map_err(|error| EncryptedDnsError::Tls(format!("DoT TLS server name {tls_name}: {error}")))?;
-    builder.set_cert_verify_callback(move |context| match context.verify_cert() {
-        Ok(true) => true,
-        Ok(false) | Err(_) => dot_pin_verifier_accepts(context, &verifier, &server_name),
+    builder.set_cert_verify_callback(move |context| {
+        let accepted = dot_pin_verifier_accepts(context, &verifier, &server_name);
+        if !accepted {
+            context.set_error(Err(X509VerifyError::CERT_REJECTED));
+        }
+        accepted
     });
     Ok(())
 }

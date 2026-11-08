@@ -88,6 +88,9 @@ impl EncryptedDnsResolver {
         )
     }
 
+    /// Uses the supplied pinned verifier as the peer identity policy, including for DoT.
+    /// It replaces default CA/name validation; the TLS handshake still verifies
+    /// possession of the leaf private key.
     pub fn with_pinned_tls_verifier(
         endpoint: EncryptedDnsEndpoint,
         transport: EncryptedDnsTransport,
@@ -101,6 +104,7 @@ impl EncryptedDnsResolver {
         )
     }
 
+    /// Applies the same pin-only policy as [`Self::with_pinned_tls_verifier`] with transport hooks.
     pub fn with_pinned_tls_verifier_and_connect_hooks(
         endpoint: EncryptedDnsEndpoint,
         transport: EncryptedDnsTransport,
