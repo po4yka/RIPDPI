@@ -2,7 +2,7 @@
 id: PRX-1794114937480022
 title: Enforce SOCKS5 token authentication contracts
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: Native protocol team
