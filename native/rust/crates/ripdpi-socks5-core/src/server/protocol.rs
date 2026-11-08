@@ -2,7 +2,7 @@
 pub struct Socks5Socket<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> {
     inner: T,
     config: Arc<Config<A>>,
-    auth: AuthenticationMethod,
+    auth: Option<u8>,
     target_addr: Option<TargetAddr>,
     cmd: Option<Socks5Command>,
     /// Socket address which will be used in the reply message.
@@ -395,7 +395,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
         Socks5Socket {
             inner: socket,
             config,
-            auth: AuthenticationMethod::None,
+            auth: None,
             target_addr: None,
             cmd: None,
             reply_ip: None,
@@ -437,11 +437,20 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
                 debug!("skipping auth");
                 Socks5ServerProtocol::skip_auth_this_is_not_rfc_compliant(self.inner)
             }
-            None => Socks5ServerProtocol::start(self.inner).negotiate_auth(&[NoAuthentication]).await?.finish_auth(),
+            None => {
+                let auth = Socks5ServerProtocol::start(self.inner).negotiate_auth(&[NoAuthentication]).await?;
+                self.auth = Some(consts::SOCKS5_AUTH_METHOD_NONE);
+                auth.finish_auth()
+            }
             Some(auth_callback) => {
                 let methods = StandardAuthentication::allow_no_auth(self.config.allow_no_auth);
                 let auth = Socks5ServerProtocol::start(self.inner).negotiate_auth(methods).await?;
+                let method = match &auth {
+                    StandardAuthenticationStarted::NoAuthentication(_) => consts::SOCKS5_AUTH_METHOD_NONE,
+                    StandardAuthenticationStarted::PasswordAuthentication(_) => consts::SOCKS5_AUTH_METHOD_PASSWORD,
+                };
                 let (proto, creds) = authenticate_callback(auth_callback.as_ref(), auth).await?;
+                self.auth = Some(method);
                 self.credentials = Some(creds);
                 proto
             }
@@ -519,8 +528,10 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
         self.target_addr.as_ref()
     }
 
-    pub fn auth(&self) -> &AuthenticationMethod {
-        &self.auth
+    /// Return the selected wire method ID without retaining credentials.
+    /// `None` means negotiation was skipped or has not completed.
+    pub fn auth(&self) -> Option<u8> {
+        self.auth
     }
 
     pub fn cmd(&self) -> &Option<Socks5Command> {

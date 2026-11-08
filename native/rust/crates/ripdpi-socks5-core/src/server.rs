@@ -1,8 +1,7 @@
 use crate::util::stream::{ConnectError, tcp_connect_with_timeout};
 use crate::util::target_addr::{AddrError, TargetAddr, read_address};
 use crate::{
-    AuthenticationMethod, ReplyError, Socks5Command, SocksError, UdpHeaderError, consts, new_udp_header,
-    parse_udp_request, read_exact, ready,
+    ReplyError, Socks5Command, SocksError, UdpHeaderError, consts, new_udp_header, parse_udp_request, read_exact, ready,
 };
 use anyhow::Context;
 use socket2::{Domain, Socket, Type};
@@ -40,3 +39,7 @@ mod auth_tests;
 #[cfg(test)]
 #[path = "server/request_tests.rs"]
 mod request_tests;
+
+#[cfg(test)]
+#[path = "server/metadata_tests.rs"]
+mod metadata_tests;
