@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-08
+goal: VPN-1794140727483999 Repair VPN-02 TCP stack regressions
