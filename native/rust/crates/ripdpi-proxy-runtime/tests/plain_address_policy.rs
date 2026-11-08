@@ -1,3 +1,5 @@
+#![cfg(not(feature = "loom"))]
+
 mod support;
 
 use std::io::{Read, Write};

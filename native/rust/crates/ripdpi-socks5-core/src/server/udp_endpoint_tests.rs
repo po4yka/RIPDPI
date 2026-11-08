@@ -73,8 +73,8 @@ async fn listener_udp_reply_is_reachable_and_released_on_control_eof() {
         };
         let (result, (relay, outbound)) = tokio::time::timeout(Duration::from_secs(2), exchange).await.unwrap();
         drop(result.unwrap());
-        assert!(std::net::UdpSocket::bind(relay).is_ok(), "control EOF must release the relay port");
-        assert!(std::net::UdpSocket::bind(outbound).is_ok(), "control EOF must release the outbound port");
+        assert!(UdpSocket::bind(relay).await.is_ok(), "control EOF must release the relay port");
+        assert!(UdpSocket::bind(outbound).await.is_ok(), "control EOF must release the outbound port");
     }
 }
 

@@ -376,7 +376,7 @@ impl RuntimeState {
     }
 
     /// Number of in-flight outbound sessions counted for `exit_ip` (test/diagnostic).
-    #[cfg(all(test, not(feature = "loom")))]
+    #[cfg(test)]
     pub(super) fn active_exit_sessions(&self, exit_ip: IpAddr) -> usize {
         self.exit_ip_session_limiter.active(exit_ip, EXIT_SESSION_TRANSPORT_TCP)
     }

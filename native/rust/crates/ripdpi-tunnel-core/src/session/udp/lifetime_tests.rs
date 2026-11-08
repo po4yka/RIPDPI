@@ -76,7 +76,13 @@ async fn loc09_unexpected_control_data_invalidates_all_clones() {
     let (session, mut control, _) = association().await;
     let other = session.clone();
     control.write_all(&[0x7f]).await.unwrap();
-    tokio::time::sleep(Duration::from_millis(20)).await;
+    let mut byte = [0];
+    let received = tokio::time::timeout(Duration::from_secs(1), session.control.peek(&mut byte))
+        .await
+        .expect("control data must reach the association")
+        .unwrap();
+    assert_eq!(received, 1);
+    assert_eq!(byte, [0x7f]);
     let target = "127.0.0.1:53".parse().unwrap();
     assert!(session.send_to(target, b"first").await.is_err());
     assert!(other.send_to(target, b"second").await.is_err());
