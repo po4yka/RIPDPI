@@ -22,13 +22,18 @@ const STUN_MAGIC_COOKIE: [u8; 4] = 0x2112_A442_u32.to_be_bytes();
 pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
     // UDP fragments wait here until the datagram is whole: the UDP path proxies whole datagrams.
     match state.ip_defrag.accept(packet, Instant::now()) {
-        Reassembly::NotFragment => route_tun_packet_inner(packet, state, None),
-        Reassembly::Complete(datagram) => route_tun_packet_inner(&datagram, state, None),
+        Reassembly::NotFragment => route_tun_packet_inner(packet, state, None, true),
+        Reassembly::Complete(datagram) => route_tun_packet_inner(&datagram, state, None, false),
         Reassembly::Held => {}
     }
 }
 
-fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<(&FlowRegistrationId, Instant)>) {
+fn route_tun_packet_inner(
+    packet: &[u8],
+    state: &mut LoopState,
+    pending: Option<(&FlowRegistrationId, Instant)>,
+    original_wire_packet: bool,
+) {
     let (ip_class, parsed_ip) = classify_ip_packet_with_parse_status(packet, state.runtime.mapdns_classify);
     if !parsed_ip {
         state.stats.record_tun_parse_failure();
@@ -64,7 +69,13 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                 );
                 match state.runtime.uid_policy.admit_registration(&registration_id) {
                     Verdict::Pending => {
-                        retain_pending_uid_packet(packet, state, registration_id, pending.map(|(_, time)| time));
+                        retain_pending_uid_packet(
+                            packet,
+                            state,
+                            registration_id,
+                            pending.map(|(_, time)| time),
+                            original_wire_packet,
+                        );
                         return;
                     }
                     Verdict::ResetTcp | Verdict::DropUdp => {
@@ -111,7 +122,13 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                 );
                 match state.runtime.uid_policy.admit_registration(&registration_id) {
                     Verdict::Pending => {
-                        retain_pending_uid_packet(packet, state, registration_id, pending.map(|(_, time)| time));
+                        retain_pending_uid_packet(
+                            packet,
+                            state,
+                            registration_id,
+                            pending.map(|(_, time)| time),
+                            original_wire_packet,
+                        );
                         return;
                     }
                     Verdict::DropUdp | Verdict::ResetTcp => {
@@ -153,7 +170,13 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
             );
             match state.runtime.uid_policy.admit_registration(&registration_id) {
                 Verdict::Pending => {
-                    retain_pending_uid_packet(packet, state, registration_id, pending.map(|(_, time)| time));
+                    retain_pending_uid_packet(
+                        packet,
+                        state,
+                        registration_id,
+                        pending.map(|(_, time)| time),
+                        original_wire_packet,
+                    );
                     return;
                 }
                 Verdict::DropUdp | Verdict::ResetTcp => {
@@ -183,7 +206,7 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                 Some(&mut state.active_direct_dns_generation),
                 dst,
             ) {
-                forward_udp_payload(
+                let queued = forward_udp_payload(
                     state.runtime.proxy_sockaddr,
                     &state.runtime.auth,
                     src,
@@ -206,7 +229,14 @@ fn route_tun_packet_inner(packet: &[u8], state: &mut LoopState, pending: Option<
                     &state.stats,
                     registration_id,
                 );
-                if state.udp_associations.contains_key(&src) {
+                if let Some(association) = state.udp_associations.get_mut(&src) {
+                    if let Some(registration_id) = queued
+                        && original_wire_packet
+                        && association.pending_error.is_none()
+                    {
+                        association.pending_error =
+                            state.runtime.udp_error_originator.capture(packet).map(|raw| (registration_id, raw));
+                    }
                     state.runtime.tun_egress_interceptor.mark_udp_associated(src, dst);
                 }
             }
@@ -242,8 +272,14 @@ fn retain_pending_uid_packet(
     state: &mut LoopState,
     registration_id: FlowRegistrationId,
     captured_at: Option<Instant>,
+    original_wire_packet: bool,
 ) {
-    match state.pending_uid_packets.retain(packet, registration_id, captured_at.unwrap_or_else(Instant::now)) {
+    match state.pending_uid_packets.retain(
+        packet,
+        registration_id,
+        captured_at.unwrap_or_else(Instant::now),
+        original_wire_packet,
+    ) {
         PendingUidRetainOutcome::Stored => {}
         PendingUidRetainOutcome::EvictedOldest | PendingUidRetainOutcome::Rejected => {
             state.stats.record_tun_queue_drop();
@@ -274,7 +310,12 @@ pub(in crate::io_loop) fn retry_pending_uid_packets(state: &mut LoopState) {
         {
             state.stats.record_tun_policy_drop();
         } else {
-            route_tun_packet_inner(&packet.bytes, state, Some((&packet.registration_id, packet.captured_at)));
+            route_tun_packet_inner(
+                &packet.bytes,
+                state,
+                Some((&packet.registration_id, packet.captured_at)),
+                packet.original_wire_packet,
+            );
         }
         state.pending_uid_packets.recycle(packet);
     }

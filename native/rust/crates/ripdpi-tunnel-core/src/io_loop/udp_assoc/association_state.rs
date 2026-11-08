@@ -27,6 +27,7 @@ pub(crate) const UDP_ATTRIBUTION_ID_CAPACITY: NonZeroUsize = match NonZeroUsize:
 pub(in crate::io_loop) struct UdpAssociation {
     pub(super) id: u64,
     pub(super) activity_generation: u64,
+    pub(in crate::io_loop) pending_error: Option<(ripdpi_flow_app_attribution::FlowRegistrationId, Vec<u8>)>,
     pub(super) outbound: tokio::sync::mpsc::Sender<OutboundDatagram>,
     pub(super) cancel: CancellationToken,
     pub(super) last_activity: Arc<AtomicU64>,

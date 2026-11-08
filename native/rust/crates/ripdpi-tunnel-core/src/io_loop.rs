@@ -32,6 +32,7 @@ mod state_shutdown;
 mod task_shutdown;
 mod tcp_accept;
 mod udp_assoc;
+mod udp_errors;
 mod wait;
 
 use self::bridge::enqueue_tun_packet;

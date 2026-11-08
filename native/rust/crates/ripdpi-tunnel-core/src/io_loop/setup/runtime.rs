@@ -46,6 +46,7 @@ pub(super) fn build_loop_runtime(
         webrtc_protection_enabled: config.misc.webrtc_protection_enabled,
         uid_policy,
         uid_policy_allow_icmp: config.misc.uid_policy_allow_icmp,
+        udp_error_originator: super::super::udp_errors::UdpErrorOriginator::new(&config.tunnel),
         tun_ingress_interceptor: TunIngressInterceptor::new(
             SynAckStrategy::from_yaml(config.misc.strategy_chain_yaml.as_deref()),
             RawSynAckPacketInjector::new(config.misc.protect_path.clone()),

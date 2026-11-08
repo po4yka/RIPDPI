@@ -149,7 +149,21 @@ pub(super) fn spawn_udp_worker(
                 }
                 Err(err) => {
                     debug!("UDP association {} for {} failed during setup: {}", association_id, src, err);
-                    send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
+                    let event = if matches!(
+                        err.kind(),
+                        std::io::ErrorKind::ConnectionRefused
+                            | std::io::ErrorKind::NotConnected
+                            | std::io::ErrorKind::NetworkUnreachable
+                            | std::io::ErrorKind::HostUnreachable
+                            | std::io::ErrorKind::ConnectionReset
+                            | std::io::ErrorKind::ConnectionAborted
+                            | std::io::ErrorKind::BrokenPipe
+                    ) {
+                        UdpEvent::SetupFailed { src, association_id }
+                    } else {
+                        UdpEvent::Closed { src, association_id }
+                    };
+                    send_event(&udp_tx, &cancel, event).await;
                     return;
                 }
             };

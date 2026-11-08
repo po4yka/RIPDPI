@@ -152,7 +152,12 @@ fn expired_pending_packet_cannot_reach_raw_egress() {
     .registration_id;
     let job = ripdpi_flow_app_attribution::take_pending_request(registration_id.request()).expect("UID job");
     ripdpi_flow_app_attribution::store_uid_resolution(&job, Some(10_123));
-    state.pending_uid_packets.retain(&packet, registration_id, std::time::Instant::now() - Duration::from_secs(6));
+    state.pending_uid_packets.retain(
+        &packet,
+        registration_id,
+        std::time::Instant::now() - Duration::from_secs(6),
+        true,
+    );
     retry_pending_uid_packets(&mut state);
     assert!(seen.lock().expect("seen packets").is_empty());
     assert!(state.pending_uid_packets.is_empty());

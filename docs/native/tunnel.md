@@ -272,3 +272,28 @@ The tunnel stack is currently covered by:
 - Linux-only privileged real-TUN E2E in `ripdpi-tunnel-core --test linux_tun_e2e` (requires `RIPDPI_RUN_TUN_E2E=1` and `CAP_NET_ADMIN`); the separate `tests/linux_tun_soak.rs` entrypoint runs `soak_real_tun_start_stop_handover` for 50 smoke or 500 full start/stop/handover iterations (additionally requires `RIPDPI_RUN_SOAK=1`)
 
 See [../testing.md](../testing.md) for commands, CI lanes, and soak profiles.
+
+## UDP failure feedback
+
+The TUN owner can return an ICMP error for a deterministic local SOCKS5 UDP
+association setup failure. The response uses the configured local tunnel address:
+IPv4 Destination Unreachable / Host Unreachable (3/1), or IPv6 Destination
+Unreachable / Address Unreachable (1/3). A local proxy failure does not establish
+that the remote UDP port is closed. Standard SOCKS5 UDP has no remote ICMP error
+feedback frame; remote Port Unreachable, echo relay and PMTU relay remain outside
+this path.
+
+Only the first successfully queued, admitted datagram with a valid original
+quote supplies error context for an association. The quote preserves its original
+kernel-visible address and header bytes, including MapDNS addresses. The context
+is bounded to one error packet per association. The single TUN owner checks the
+association and flow generation, current UID admission, cancellation and a token
+bucket (burst 10, refill 10 errors/second) before output.
+
+Timeouts, congestion, policy drops and uncorrelated send/receive failures do not
+create these errors. Reassembled datagrams continue forwarding, but do not supply
+error context: their rebuilt headers are not an original wire quote. Invalid
+checksums or lengths, multicast/broadcast addresses, fragments and IPv6 routing
+headers also suppress error generation. IPv4 quotes fit within a 576-byte error;
+IPv6 quotes use up to 1232 bytes within the minimum 1280-byte IPv6 MTU. No root,
+extra backend, payload logging or packet persistence is required.

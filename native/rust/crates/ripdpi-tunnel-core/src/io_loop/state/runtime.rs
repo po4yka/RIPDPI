@@ -22,6 +22,7 @@ pub(in crate::io_loop) struct LoopRuntime {
     pub(in crate::io_loop) webrtc_protection_enabled: bool,
     pub(in crate::io_loop) uid_policy: UidFlowPolicy,
     pub(in crate::io_loop) uid_policy_allow_icmp: bool,
+    pub(in crate::io_loop) udp_error_originator: super::super::udp_errors::UdpErrorOriginator,
     pub(in crate::io_loop) tun_ingress_interceptor: TunIngressInterceptor<RawSynAckPacketInjector>,
     pub(in crate::io_loop) tun_egress_interceptor: Box<dyn TunEgressPacketHandler>,
     pub(in crate::io_loop) udp_idle_timeout: Duration,

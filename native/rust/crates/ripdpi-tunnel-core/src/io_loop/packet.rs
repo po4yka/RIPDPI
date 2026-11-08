@@ -10,10 +10,10 @@ pub(crate) use tcp_flags::{TcpFlowKey, is_injected_rst, tcp_syn_flow_key};
 pub(crate) use tcp_reset::build_tcp_reset;
 pub(crate) use udp_response::build_udp_response;
 
-#[cfg(test)]
 mod icmp;
 #[cfg(test)]
 pub(crate) use icmp::build_udp_port_unreachable;
+pub(crate) use icmp::{UdpErrorQuote, UdpErrorReason};
 #[cfg(test)]
 pub(crate) use parse::tcp_dst_port;
 #[cfg(test)]

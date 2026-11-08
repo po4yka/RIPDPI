@@ -140,6 +140,7 @@ mod tests {
         UdpAssociation {
             id: 1,
             activity_generation: 0,
+            pending_error: None,
             outbound,
             cancel: tokio_util::sync::CancellationToken::new(),
             last_activity: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),

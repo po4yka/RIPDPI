@@ -16,6 +16,12 @@ pub(super) fn drain_udp_events(state: &mut LoopState) {
                 &mut state.dns_cache,
                 &mut state.closed_udp_sources,
                 event,
+                |registration_id| {
+                    !state.cancel.is_cancelled()
+                        && state.runtime.uid_policy.admit_registration(registration_id)
+                            == crate::uid_policy::Verdict::Allow
+                        && state.runtime.udp_error_originator.allow(std::time::Instant::now())
+                },
             );
         },
     );

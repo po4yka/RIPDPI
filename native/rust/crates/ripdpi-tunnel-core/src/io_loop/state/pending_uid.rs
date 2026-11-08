@@ -12,6 +12,7 @@ pub(crate) struct PendingUidPacket {
     // The TCP listener/session or UID cache owns the lifetime, not this queued packet.
     pub(crate) registration_id: FlowRegistrationId,
     pub(crate) captured_at: Instant,
+    pub(crate) original_wire_packet: bool,
 }
 
 impl PendingUidPacket {
@@ -51,6 +52,7 @@ impl PendingUidPackets {
         packet: &[u8],
         registration_id: FlowRegistrationId,
         captured_at: Instant,
+        original_wire_packet: bool,
     ) -> PendingUidRetainOutcome {
         if packet.len() > self.packet_capacity {
             return PendingUidRetainOutcome::Rejected;
@@ -62,7 +64,7 @@ impl PendingUidPackets {
         };
         buffer.clear();
         buffer.extend_from_slice(packet);
-        self.queued.push_back(PendingUidPacket { bytes: buffer, registration_id, captured_at });
+        self.queued.push_back(PendingUidPacket { bytes: buffer, registration_id, captured_at, original_wire_packet });
         if evicted_oldest { PendingUidRetainOutcome::EvictedOldest } else { PendingUidRetainOutcome::Stored }
     }
 

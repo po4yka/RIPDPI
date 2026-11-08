@@ -194,6 +194,7 @@ mod tests {
     use super::super::wait::{WaitEvent, WaitOutcome, handle_wait_event};
     use super::*;
 
+    mod udp_errors;
     mod uid_admission;
 
     struct GenerationBinder(u64);
@@ -858,6 +859,9 @@ mod tests {
                 webrtc_protection_enabled: false,
                 uid_policy: crate::uid_policy::UidFlowPolicy::disarmed(),
                 uid_policy_allow_icmp: false,
+                udp_error_originator: super::super::udp_errors::UdpErrorOriginator::new(
+                    &ripdpi_tunnel_config::TunnelConfig::default(),
+                ),
                 tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
                 tun_egress_interceptor,
                 udp_idle_timeout: Duration::from_secs(1),
@@ -899,7 +903,7 @@ mod tests {
         let captured_at = std::time::Instant::now();
 
         for byte in 0..=PENDING_UID_CAPACITY {
-            assert!(packets.retain(&[byte as u8; 32], registration_id, captured_at).is_stored());
+            assert!(packets.retain(&[byte as u8; 32], registration_id, captured_at, true).is_stored());
         }
         assert_eq!(packets.len(), PENDING_UID_CAPACITY);
         assert_eq!(packets.free_len(), 1);
@@ -908,7 +912,7 @@ mod tests {
         let allocation = packet.bytes.as_ptr();
         packets.recycle(packet);
         assert_eq!(packets.free_len(), 2);
-        assert!(packets.retain(&[7; 32], registration_id, captured_at).is_stored());
+        assert!(packets.retain(&[7; 32], registration_id, captured_at, true).is_stored());
         assert_eq!(packets.back_ptr(), Some(allocation), "retention must reuse a preallocated buffer");
         assert_eq!(packets.free_len() + packets.len(), PENDING_UID_POOL_CAPACITY);
         drop(packets);

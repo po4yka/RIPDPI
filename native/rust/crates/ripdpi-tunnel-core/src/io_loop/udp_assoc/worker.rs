@@ -62,6 +62,7 @@ pub(super) fn spawn_udp_association(
     UdpAssociation {
         id: association_id,
         activity_generation: 0,
+        pending_error: None,
         outbound,
         cancel,
         last_activity,

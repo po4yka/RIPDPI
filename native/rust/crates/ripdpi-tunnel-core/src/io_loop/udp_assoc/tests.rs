@@ -49,6 +49,7 @@ fn stalled_udp_association(
     let association = UdpAssociation {
         id,
         activity_generation: 0,
+        pending_error: None,
         outbound,
         cancel,
         last_activity: Arc::new(AtomicU64::new(now_millis())),
@@ -355,6 +356,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
         &mut None,
         &mut Vec::new(),
         UdpEvent::Packet { src, association_id: 7, raw: vec![1, 2, 3, 4] },
+        |_| true,
     );
 
     assert_eq!(device.tx_queue.front().expect("queued udp packet"), &vec![1, 2, 3, 4]);
@@ -398,6 +400,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
         &mut None,
         &mut Vec::new(),
         UdpEvent::Packet { src, association_id: 99, raw: vec![5, 6, 7] },
+        |_| true,
     );
 
     assert!(device.tx_queue.is_empty(), "stale association_id should not enqueue packet");
@@ -441,6 +444,7 @@ async fn handle_udp_event_removes_closed_association() {
         &mut None,
         &mut closed_sources,
         UdpEvent::Closed { src, association_id: 20 },
+        |_| true,
     );
 
     assert!(associations.is_empty(), "closed event should remove association");
@@ -481,6 +485,7 @@ async fn handle_udp_event_ignores_stale_close() {
         &mut None,
         &mut Vec::new(),
         UdpEvent::Closed { src, association_id: 999 },
+        |_| true,
     );
 
     assert_eq!(associations.len(), 1, "stale close should not remove current association");
@@ -498,6 +503,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
     let association = UdpAssociation {
         id: 11,
         activity_generation: 0,
+        pending_error: None,
         outbound,
         cancel: CancellationToken::new(),
         last_activity: Arc::new(AtomicU64::new(now_millis())),
@@ -513,7 +519,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
     let stats = Arc::new(Stats::new());
     let mut next_id = 1;
 
-    super::forward_udp_payload(
+    let _ = super::forward_udp_payload(
         "127.0.0.1:1080".parse().expect("proxy"),
         &Auth::NoAuth,
         src,
@@ -556,6 +562,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
     let association = UdpAssociation {
         id: 12,
         activity_generation: 0,
+        pending_error: None,
         outbound,
         cancel: CancellationToken::new(),
         last_activity: Arc::new(AtomicU64::new(now_millis())),
@@ -569,7 +576,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
     let stats = Arc::new(Stats::new());
     let mut next_id = 1;
 
-    super::forward_udp_payload(
+    let _ = super::forward_udp_payload(
         "127.0.0.1:1080".parse().expect("proxy"),
         &Auth::NoAuth,
         src,
@@ -610,6 +617,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
     let association = UdpAssociation {
         id: 12,
         activity_generation: 0,
+        pending_error: None,
         outbound,
         cancel: CancellationToken::new(),
         last_activity: Arc::new(AtomicU64::new(now_millis())),
@@ -624,7 +632,8 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
     let mut next_id = 13;
     let mut closed_sources = Vec::new();
 
-    super::forward_udp_payload(
+    let original_id = ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).registration_id;
+    let forwarded = super::forward_udp_payload(
         "127.0.0.1:1080".parse().expect("proxy"),
         &Auth::NoAuth,
         src,
@@ -645,14 +654,28 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         &CancellationToken::new(),
         &udp_tx,
         &stats,
-        ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).registration_id,
+        original_id,
     );
 
     assert_eq!(associations.get(&src).expect("replacement association").id, 13);
     assert!(closed_sources.is_empty(), "replacing transport must preserve the app flow");
-    let association = associations.remove(&src).expect("replacement association");
-    association.cancel.cancel();
-    association.worker.abort();
+    let registration_id = forwarded.expect("queued replacement datagram");
+    assert_ne!(registration_id, original_id);
+    let raw = vec![1, 2, 3];
+    associations.get_mut(&src).unwrap().pending_error = Some((registration_id, raw.clone()));
+    let mut device = TunDevice::new(1500);
+    handle_udp_event(
+        &mut device,
+        &stats,
+        &mut associations,
+        &mut eviction_heap,
+        &mut None,
+        &mut closed_sources,
+        UdpEvent::SetupFailed { src, association_id: 13 },
+        |_| true,
+    );
+    assert_eq!(device.tx_queue.pop_front(), Some(raw));
+    assert!(associations.is_empty());
 }
 
 #[test]
@@ -699,6 +722,7 @@ async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
         &mut dns_cache,
         &mut Vec::new(),
         UdpEvent::Closed { src, association_id: 41 },
+        |_| true,
     );
     assert_eq!(dns_cache.as_ref().expect("cache").lease_count(synthetic_ip), 0);
     dns_cache

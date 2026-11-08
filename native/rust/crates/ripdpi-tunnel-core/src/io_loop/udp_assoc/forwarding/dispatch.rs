@@ -41,7 +41,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
     stats: &Arc<Stats>,
     admitted_id: ripdpi_flow_app_attribution::FlowRegistrationId,
-) {
+) -> Option<ripdpi_flow_app_attribution::FlowRegistrationId> {
     // The routing boundary admitted this exact packet before invoking raw hooks.
     // Do not resolve again: cache churn must not replay an already-admitted packet.
     ensure_udp_association(
@@ -88,5 +88,6 @@ pub(in crate::io_loop) fn forward_udp_payload(
         cancel,
         udp_tx,
         stats,
-    );
+        admitted_id,
+    )
 }

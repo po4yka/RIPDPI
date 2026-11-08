@@ -44,10 +44,9 @@ pub(super) fn deliver_udp_datagram(
     cancel: &CancellationToken,
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
     stats: &Arc<Stats>,
-) {
-    let Some(outbound) = associations.get(&src).map(|association| association.outbound.clone()) else {
-        return;
-    };
+    admitted_id: ripdpi_flow_app_attribution::FlowRegistrationId,
+) -> Option<ripdpi_flow_app_attribution::FlowRegistrationId> {
+    let outbound = associations.get(&src).map(|association| association.outbound.clone())?;
     record_udp_activity(associations, eviction_heap, src);
     let target = target_host
         .map_or(TargetAddr::Ip(resolved_dst), |host| TargetAddr::ResolvedDomain(host.to_owned(), resolved_dst));
@@ -55,13 +54,14 @@ pub(super) fn deliver_udp_datagram(
     else {
         debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
         stats.record_tun_queue_drop();
-        return;
+        return None;
     };
     match outbound.try_send(datagram) {
-        Ok(()) => {}
+        Ok(()) => Some(admitted_id),
         Err(TrySendError::Full(_)) => {
             debug!("UDP association queue full for {src}; dropping datagram");
             stats.record_tun_queue_drop();
+            None
         }
         Err(TrySendError::Closed(datagram)) => {
             // The app's UDP source remains live while its transport association is replaced.
@@ -88,12 +88,11 @@ pub(super) fn deliver_udp_datagram(
             );
             lease_udp_attribution(associations, src, replacement.registration_id);
             lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
-            if let Some(association) = associations.get(&src) {
-                if association.outbound.try_send(datagram).is_err() {
-                    stats.record_tun_queue_drop();
-                }
+            if associations.get(&src).is_some_and(|association| association.outbound.try_send(datagram).is_ok()) {
+                Some(replacement.registration_id)
             } else {
                 stats.record_tun_queue_drop();
+                None
             }
         }
     }
