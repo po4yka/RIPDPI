@@ -730,7 +730,7 @@ fn proxy_target_equal_to_the_listener_is_rejected_for_a_local_client() {
         super::reject_forbidden_target(&server_side, other_loopback_port).is_ok(),
         "the tunnel hop may use loopback"
     );
-    // A wildcard listener also answers on other local addresses with its port.
+    // An unspecified destination of the same family can reach this listener.
     let wildcard_self = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), listener_addr.port());
     assert!(super::reject_forbidden_target(&server_side, wildcard_self).is_err(), "0.0.0.0 reaches the listener");
     let lan_ip = std::net::UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))
@@ -739,7 +739,8 @@ fn proxy_target_equal_to_the_listener_is_rejected_for_a_local_client() {
         .map(|addr| addr.ip());
     if let Ok(lan_ip) = lan_ip {
         let lan_self = SocketAddr::new(lan_ip, listener_addr.port());
-        assert!(super::reject_forbidden_target(&server_side, lan_self).is_err(), "{lan_self} reaches the listener");
+        assert!(super::reject_forbidden_target(&server_side, lan_self).is_ok(), "an exact loopback bind is distinct");
+        assert!(RuntimeState::is_listener_target(wildcard_self, lan_self), "a wildcard bind covers {lan_self}");
     }
     let foreign = SocketAddr::new(Ipv4Addr::new(192, 0, 2, 1).into(), listener_addr.port());
     assert!(super::reject_forbidden_target(&server_side, foreign).is_ok(), "a foreign host may share the port");

@@ -90,13 +90,14 @@ pub(super) fn run_proxy_with_listener_internal(
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
     let mut config = config;
     super::validate_proxy_config(&config)?;
-    RuntimeState::validate_listener_auth(&config, listener.local_addr()?.ip())?;
+    let listener_addr = listener.local_addr()?;
+    RuntimeState::validate_listener_auth(&config, listener_addr.ip())?;
     RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let _root_helper = RootHelperRegistration::for_config(&config);
     let embedded_candidate_runtime = control.is_some();
-    let state = RuntimeState::new(config, control.clone(), ws_transport)?;
+    let mut state = RuntimeState::new(config, control.clone(), ws_transport)?;
+    state.set_listener_address(listener_addr);
     let client_capacity = state.listener_client_capacity();
-    let listener_addr = listener.local_addr()?;
     state.note_listener_started(listener_addr, client_capacity, state.listener_route_group_count());
     // Drain any autolearn events accumulated during policy load so that
     // telemetry reflects the initial state before any connections arrive.

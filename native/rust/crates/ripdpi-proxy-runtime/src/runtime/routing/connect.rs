@@ -1,3 +1,5 @@
+#[cfg(all(test, not(feature = "loom")))]
+mod candidate_guard_tests;
 mod error;
 mod plan;
 mod post_connect;

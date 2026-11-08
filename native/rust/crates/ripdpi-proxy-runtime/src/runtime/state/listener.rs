@@ -49,6 +49,34 @@ impl Drop for ActiveSocketGuard {
 }
 
 impl RuntimeState {
+    pub(in crate::runtime) fn set_listener_address(&mut self, address: SocketAddr) {
+        self.listener_settings.bind_addr = address;
+    }
+    pub(in crate::runtime) fn is_listener_target(local: SocketAddr, target: SocketAddr) -> bool {
+        if target.port() != local.port() {
+            return false;
+        }
+        let local_ip = local.ip().to_canonical();
+        let target_ip = target.ip().to_canonical();
+        if target_ip == local_ip {
+            return true;
+        }
+        if local_ip.is_unspecified() {
+            if local_ip.is_ipv4() && target_ip.is_ipv6() {
+                return false;
+            }
+            // IPv6 wildcard listeners may also accept IPv4, depending on socket defaults.
+            // The UDP bind only probes address ownership; it sends no traffic.
+            return target_ip.is_unspecified() || std::net::UdpSocket::bind((target_ip, 0)).is_ok();
+        }
+        target_ip.is_unspecified() && local_ip.is_ipv4() == target_ip.is_ipv4()
+    }
+    pub(in crate::runtime) fn reject_listener_target(&self, target: SocketAddr) -> io::Result<()> {
+        if Self::is_listener_target(self.listener_settings.bind_addr, target) {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "proxy target is the proxy listener itself"));
+        }
+        Ok(())
+    }
     pub(in crate::runtime) fn listener_client_capacity(&self) -> usize {
         self.listener_settings.client_capacity
     }

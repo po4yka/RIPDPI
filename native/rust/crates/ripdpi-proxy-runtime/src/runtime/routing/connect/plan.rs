@@ -88,6 +88,13 @@ fn connect_target_via_group_with_policy(
     group_index: usize,
     policy: &RouteConnectPolicy,
 ) -> Result<TcpStream, ConnectAttemptError> {
+    for endpoint in std::iter::once(target).chain(policy.upstream_socks_addr) {
+        state.reject_listener_target(endpoint).map_err(|source| ConnectAttemptError {
+            source,
+            tcp_total_retransmissions: None,
+            tcp_fast_open_enabled: false,
+        })?;
+    }
     let started = std::time::Instant::now();
     let connect_result = if let Some(upstream_addr) = policy.upstream_socks_addr {
         connect_via_socks(

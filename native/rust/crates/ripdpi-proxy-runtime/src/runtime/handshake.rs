@@ -328,18 +328,10 @@ fn reject_forbidden_target(client: &TcpStream, target: SocketAddr) -> io::Result
 
 fn forbidden_target_reason(peer: SocketAddr, local: SocketAddr, target: SocketAddr) -> Option<&'static str> {
     let target_ip = target.ip().to_canonical();
-    // A listener on a wildcard address also answers on every other local address,
-    // so any local address with the listener port is a self-connect too.
-    if target.port() == local.port() && (target_ip == local.ip().to_canonical() || is_local_address(target_ip)) {
+    if RuntimeState::is_listener_target(local, target) {
         return Some("proxy target is the proxy listener itself");
     }
     is_device_local_target_for(peer.ip(), target_ip).then_some("proxy target is device-local and the client is not")
-}
-
-/// True when `ip` is assigned to this device: a bind to a foreign address fails.
-/// The bind sends no traffic, so it needs no VPN protection.
-fn is_local_address(ip: IpAddr) -> bool {
-    std::net::UdpSocket::bind((ip, 0)).is_ok()
 }
 
 /// True when a client at `peer_ip`, which is not on this device, targets a loopback,
