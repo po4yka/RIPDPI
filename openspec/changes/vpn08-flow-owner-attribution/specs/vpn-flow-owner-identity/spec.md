@@ -69,14 +69,24 @@ The implementation MUST retain the original kernel tuple for UID lookup and carr
 - **WHEN** a mapped UDP packet waits for its owner verdict during cache pressure or an underlay reset
 - **THEN** its mapping remains leased until forwarding acquires its own lease or the queued packet is dropped. Queue expiry and capacity limits release unused leases.
 
-### Requirement: REQ-VPN08-RAW — Retire obsolete context before consuming UDP hooks
+#### Scenario: Reject an old unleased mapping
 
-The implementation MUST retire an obsolete exact-tuple response context before a consuming UDP raw hook returns. A disarmed consuming hook MUST NOT wait for attribution grace. Root-only Lua remains opt-in.
+- **WHEN** an unleased synthetic mapping belongs to an older underlay generation
+- **THEN** generation synchronization removes it before packet pin acquisition, and the packet cannot create a SOCKS transport through that stale mapping.
+
+### Requirement: REQ-VPN08-RAW — Retire obsolete context before UDP policy drops
+
+The implementation MUST retire an obsolete exact-tuple response context before a consuming UDP raw hook or STUN policy filter returns for a valid UDP packet. A disarmed consuming hook or STUN drop MUST NOT wait for attribution grace. Root-only Lua remains opt-in.
 
 #### Scenario: Consume a successor packet in an opt-in Lua path
 
 - **WHEN** Lua passes a UDP packet through SOCKS and consumes a later packet of the same tuple after its owner registration changes
 - **THEN** the previous registration cannot deliver data or errors to TUN, and the consumed packet creates no SOCKS transport.
+
+#### Scenario: Drop a successor STUN packet without a stale response path
+
+- **WHEN** a valid STUN packet is policy-dropped after the exact tuple receives a new owner registration
+- **THEN** the prior registration cannot deliver data or errors to TUN, and the STUN packet creates no SOCKS transport or owner-wait queue entry.
 
 ### Requirement: REQ-VPN08-UNKNOWN — Keep unknown owners unattributed
 
