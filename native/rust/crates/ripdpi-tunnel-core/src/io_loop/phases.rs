@@ -194,6 +194,7 @@ mod tests {
     mod udp_errors;
     mod udp_mapdns_scope_wire;
     mod udp_owner_reuse;
+    mod udp_raw_owner;
     mod uid_admission;
 
     struct GenerationBinder(u64);

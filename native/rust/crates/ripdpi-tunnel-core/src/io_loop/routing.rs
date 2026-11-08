@@ -206,13 +206,6 @@ fn route_tun_packet_inner(
             );
         }
         IpClass::Udp { src, dst, payload } => {
-            if state.runtime.webrtc_protection_enabled && is_stun_datagram(payload) {
-                state.stats.record_tun_policy_drop();
-                return;
-            }
-            if !state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
-                return;
-            }
             if let IpAddr::V4(ip) = dst.ip()
                 && state.dns_cache.as_ref().is_some_and(|cache| cache.contains_mapped_ip(u32::from(ip)))
             {
@@ -239,6 +232,15 @@ fn route_registered_udp_packet(
         |(registration_id, _)| *registration_id,
     );
     retire_obsolete_udp_registration(&mut state.udp_associations, &mut state.dns_cache, registration_id);
+    if state.runtime.webrtc_protection_enabled && is_stun_datagram(payload) {
+        state.stats.record_tun_policy_drop();
+        return;
+    }
+    if !state.runtime.uid_policy.is_enforcing() && intercept_packet(packet, state) {
+        // Retain the finite-age UID result so repeated raw decisions do not
+        // create a new resolver job for each datagram.
+        return;
+    }
     match state.runtime.uid_policy.admit_registration(&registration_id) {
         Verdict::Pending => {
             retain_pending_uid_packet(
