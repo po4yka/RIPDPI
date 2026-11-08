@@ -16,7 +16,8 @@ use crate::session::udp::UdpMemoryBudget;
 use crate::{Stats, TunDevice};
 
 use super::association_state::{
-    OutboundDatagram, UdpAssociation, now_millis, touch_udp_activity, udp_association_is_idle,
+    OutboundDatagram, UdpAssociation, UdpDestination, activity_is_idle_at, now_millis, touch_activity_at,
+    udp_association_is_idle,
 };
 use super::event_handling::{UdpEvent, handle_udp_event};
 use super::eviction::{UDP_EVICTION_HEAP_CAPACITY, UdpEvictionEntry, evict_if_at_capacity, record_udp_activity};
@@ -55,7 +56,7 @@ fn stalled_udp_association(
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker,
         leased_synthetic_ips: std::collections::HashSet::new(),
-        destinations: std::collections::HashSet::new(),
+        destinations: std::collections::HashMap::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     (association, alive, started_rx)
@@ -345,6 +346,9 @@ async fn handle_udp_event_queues_matching_association_packet() {
     );
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
+    let dst: SocketAddr = "203.0.113.20:443".parse().unwrap();
+    let destination = Arc::new(UdpDestination::new(crate::session::TargetAddr::Ip(dst), dst, dst, None));
+    associations.get_mut(&src).unwrap().destinations.insert(dst, Arc::clone(&destination));
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
     let mut eviction_heap = BinaryHeap::with_capacity(4);
@@ -356,7 +360,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
         &mut eviction_heap,
         &mut None,
         &mut Vec::new(),
-        UdpEvent::Packet { src, association_id: 7, raw: vec![1, 2, 3, 4] },
+        UdpEvent::Packet { src, association_id: 7, destination, raw: vec![1, 2, 3, 4] },
         |_| true,
     );
 
@@ -389,6 +393,9 @@ async fn handle_udp_event_ignores_stale_association_id() {
     );
     let worker = association.worker.abort_handle();
     let mut associations = HashMap::from([(src, association)]);
+    let dst: SocketAddr = "203.0.113.20:443".parse().unwrap();
+    let destination = Arc::new(UdpDestination::new(crate::session::TargetAddr::Ip(dst), dst, dst, None));
+    associations.get_mut(&src).unwrap().destinations.insert(dst, Arc::clone(&destination));
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
     let mut eviction_heap = BinaryHeap::with_capacity(4);
@@ -400,7 +407,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
         &mut eviction_heap,
         &mut None,
         &mut Vec::new(),
-        UdpEvent::Packet { src, association_id: 99, raw: vec![5, 6, 7] },
+        UdpEvent::Packet { src, association_id: 99, destination, raw: vec![5, 6, 7] },
         |_| true,
     );
 
@@ -510,7 +517,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
-        destinations: std::collections::HashSet::new(),
+        destinations: std::collections::HashMap::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
@@ -570,7 +577,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
-        destinations: std::collections::HashSet::new(),
+        destinations: std::collections::HashMap::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
@@ -626,7 +633,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
-        destinations: std::collections::HashSet::new(),
+        destinations: std::collections::HashMap::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
@@ -684,16 +691,18 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
 
 #[test]
 fn touch_udp_activity_updates_timestamp() {
-    let last_activity = Arc::new(AtomicU64::new(now_millis() - 60_000));
+    let last_activity = Arc::new(AtomicU64::new(10_000));
     // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
     let before = last_activity.load(Ordering::Relaxed);
 
-    touch_udp_activity(&last_activity);
+    touch_activity_at(&last_activity, 70_000);
 
     // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
     let after = last_activity.load(Ordering::Relaxed);
     assert!(after > before, "timestamp should be refreshed after touch");
-    assert!(now_millis().saturating_sub(after) < 1_000, "timestamp should be very recent");
+    assert_eq!(after, 70_000);
+    touch_activity_at(&last_activity, 30_000);
+    assert_eq!(last_activity.load(Ordering::Relaxed), 70_000, "an older concurrent update must not move activity back");
 }
 
 #[tokio::test]
@@ -794,6 +803,9 @@ async fn activity_history_stays_bounded_and_skips_reused_source_ids() {
     let (older, _, older_started) = stalled_udp_association(63, oldest);
     replacement_started.await.unwrap();
     older_started.await.unwrap();
+    // Logical timestamps keep the eviction order independent of the clock origin and test speed.
+    replacement.last_activity.store(1, Ordering::Relaxed);
+    older.last_activity.store(0, Ordering::Relaxed);
     let mut associations = HashMap::from([(reused, replacement), (oldest, older)]);
     let mut heap = BinaryHeap::with_capacity(UDP_EVICTION_HEAP_CAPACITY);
     for _ in 0..UDP_EVICTION_HEAP_CAPACITY * 3 {
@@ -808,7 +820,7 @@ async fn activity_history_stays_bounded_and_skips_reused_source_ids() {
         addr: reused,
     }));
     heap.push(Reverse(UdpEvictionEntry {
-        last_activity_epoch: 1,
+        last_activity_epoch: 0,
         association_id: 63,
         activity_generation: 0,
         addr: oldest,
@@ -824,8 +836,8 @@ async fn activity_history_stays_bounded_and_skips_reused_source_ids() {
 
 #[test]
 fn idle_detection_true_after_timeout() {
-    let last_activity = Arc::new(AtomicU64::new(now_millis() - 60_000));
-    assert!(udp_association_is_idle(&last_activity, Duration::from_secs(30)), "should be idle after timeout");
+    let last_activity = AtomicU64::new(10_000);
+    assert!(activity_is_idle_at(&last_activity, Duration::from_secs(30), 70_000), "should be idle after timeout");
 }
 
 #[test]

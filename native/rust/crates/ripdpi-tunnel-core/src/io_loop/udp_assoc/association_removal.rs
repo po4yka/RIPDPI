@@ -14,6 +14,9 @@ pub(super) fn remove_association(
     if let Some(association) = associations.remove(&src) {
         closed_sources.push(src);
         association.cancel.cancel();
+        for destination in association.destinations.values() {
+            destination.retire();
+        }
         if let Some(cache) = dns_cache.as_mut() {
             for ip in association.leased_synthetic_ips {
                 cache.unpin(ip);

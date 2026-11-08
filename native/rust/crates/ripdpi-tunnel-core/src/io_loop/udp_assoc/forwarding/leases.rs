@@ -146,7 +146,7 @@ mod tests {
             last_activity: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
             worker: tokio::spawn(std::future::pending()),
             leased_synthetic_ips: std::collections::HashSet::new(),
-            destinations: std::collections::HashSet::new(),
+            destinations: std::collections::HashMap::new(),
             attribution_ids: lru::LruCache::new(
                 crate::io_loop::udp_assoc::association_state::UDP_ATTRIBUTION_ID_CAPACITY,
             ),

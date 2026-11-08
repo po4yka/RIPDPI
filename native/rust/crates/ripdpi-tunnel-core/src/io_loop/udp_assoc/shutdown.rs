@@ -12,6 +12,9 @@ pub(in crate::io_loop) fn take_udp_association_tasks(
     let mut tasks = Vec::with_capacity(udp_associations.len());
     for (_src, association) in udp_associations.drain() {
         association.cancel.cancel();
+        for destination in association.destinations.values() {
+            destination.retire();
+        }
         if let Some(cache) = dns_cache.as_mut() {
             for ip in association.leased_synthetic_ips {
                 cache.unpin(ip);

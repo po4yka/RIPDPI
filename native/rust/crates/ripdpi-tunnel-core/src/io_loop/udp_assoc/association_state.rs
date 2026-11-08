@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
@@ -10,9 +10,13 @@ use ripdpi_flow_app_attribution::{FlowRegistrationId, FlowResolveRequest};
 
 mod activity;
 mod datagram;
+mod destination;
 
+#[cfg(test)]
+pub(super) use activity::{activity_is_idle_at, touch_activity_at};
 pub(super) use activity::{now_millis, touch_udp_activity, udp_association_is_idle};
 pub(super) use datagram::OutboundDatagram;
+pub(in crate::io_loop) use destination::UdpDestination;
 
 pub(super) const UDP_OUTBOUND_QUEUE_CAPACITY: usize = 16;
 pub(super) const UDP_DESTINATION_CAPACITY: usize = 256;
@@ -34,9 +38,8 @@ pub(in crate::io_loop) struct UdpAssociation {
     pub(super) last_activity: Arc<AtomicU64>,
     pub(super) worker: tokio::task::JoinHandle<()>,
     /// Kernel-visible destinations admitted before allocating per-target resources.
-    pub(super) destinations: HashSet<std::net::SocketAddr>,
-    /// Synthetic MapDNS addresses used by this association. Each entry owns
-    /// one cache lease until association removal or shutdown.
+    pub(super) destinations: HashMap<std::net::SocketAddr, Arc<UdpDestination>>,
+    /// One lease for each synthetic address used by a current destination.
     pub(super) leased_synthetic_ips: HashSet<u32>,
     /// One current generation per exact tuple, bounded independently of association lifetime.
     pub(super) attribution_ids: LruCache<FlowResolveRequest, FlowRegistrationId>,

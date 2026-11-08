@@ -31,7 +31,7 @@ async fn excess_destination_is_rejected_before_queueing_or_pinning() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker,
         leased_synthetic_ips: HashSet::new(),
-        destinations: HashSet::new(),
+        destinations: std::collections::HashMap::new(),
         attribution_ids: LruCache::new(UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);

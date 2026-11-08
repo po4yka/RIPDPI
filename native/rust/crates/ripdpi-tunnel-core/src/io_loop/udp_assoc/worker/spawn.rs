@@ -1,64 +1,18 @@
 use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::session::TargetAddr;
 use crate::session::udp::UdpMemoryBudget;
 use crate::session::{Auth, UdpSession};
 
 use super::super::super::packet::build_udp_response;
-use super::super::association_state::{
-    OutboundDatagram, UDP_DESTINATION_CAPACITY, touch_udp_activity, udp_association_is_idle,
-};
+use super::super::association_state::{OutboundDatagram, touch_udp_activity, udp_association_is_idle};
 use super::super::event_handling::UdpEvent;
-
-type ResponseAuthority = (String, IpAddr, u16);
-
-fn response_authority(host: &str, pinned: SocketAddr) -> ResponseAuthority {
-    (host.strip_suffix('.').unwrap_or(host).to_ascii_lowercase(), pinned.ip(), pinned.port())
-}
-
-fn remember_response_source(
-    response_sources: &mut HashMap<ResponseAuthority, SocketAddr>,
-    host: &str,
-    pinned: SocketAddr,
-    source: SocketAddr,
-) -> bool {
-    let authority = response_authority(host, pinned);
-    if response_sources.len() >= UDP_DESTINATION_CAPACITY && !response_sources.contains_key(&authority) {
-        return false;
-    }
-    response_sources.insert(authority, source);
-    true
-}
-
-fn response_source_for_target(
-    response_sources: &HashMap<ResponseAuthority, SocketAddr>,
-    target: TargetAddr,
-) -> Option<SocketAddr> {
-    match target {
-        TargetAddr::Ip(source) => Some(source),
-        TargetAddr::Domain(host, port) => {
-            let host = host.trim_end_matches('.').to_ascii_lowercase();
-            let mut source = None;
-            for ((known_host, _, known_port), candidate) in response_sources {
-                if *known_host == host && *known_port == port {
-                    let candidate = SocketAddr::new(candidate.ip(), port);
-                    if source.is_some() && source != Some(candidate) {
-                        return None;
-                    }
-                    source = Some(candidate);
-                }
-            }
-            source
-        }
-        TargetAddr::ResolvedDomain(host, pinned) => response_sources.get(&response_authority(&host, pinned)).copied(),
-    }
-}
+use super::replies::{destination_for_target, remember_destination};
 
 pub(super) struct UdpWorkerConfig {
     pub(super) proxy_addr: SocketAddr,
@@ -165,7 +119,7 @@ pub(super) fn spawn_udp_worker(
                     return;
                 }
             };
-        let mut response_sources = HashMap::<ResponseAuthority, SocketAddr>::new();
+        let mut response_sources = HashMap::new();
 
         loop {
             // Cancel safety: recv_from, mpsc::Receiver::recv, and
@@ -176,19 +130,18 @@ pub(super) fn spawn_udp_worker(
                 _ = cancel.cancelled() => break,
                 outbound = outbound_rx.recv() => {
                     let Some(outbound) = outbound else { break };
-                    touch_udp_activity(&last_activity);
-                    if let TargetAddr::ResolvedDomain(host, pinned) = &outbound.dest
-                        && !remember_response_source(&mut response_sources, host, *pinned, outbound.response_source)
-                    {
+                    if !remember_destination(&mut response_sources, &outbound.destination) {
                         continue;
                     }
+                    outbound.destination.touch();
+                    touch_udp_activity(&last_activity);
                     // send_to is message-atomic and cancel-safe. The explicit
                     // cancellation arm keeps shutdown bounded if the socket is
                     // not currently writable.
                     let sent = tokio::select! {
                         biased;
                         _ = cancel.cancelled() => break,
-                        result = session.send_to_target(&outbound.dest, &outbound.payload) => result,
+                        result = session.send_to_target(&outbound.destination.target, &outbound.payload) => result,
                     };
                     if let Err(err) = sent {
                         debug!("UDP association {} for {} send failed: {}", association_id, src, err);
@@ -216,7 +169,7 @@ pub(super) fn spawn_udp_worker(
                         let retried = tokio::select! {
                             biased;
                             _ = cancel.cancelled() => break,
-                            result = session.send_to_target(&outbound.dest, &outbound.payload) => result,
+                            result = session.send_to_target(&outbound.destination.target, &outbound.payload) => result,
                         };
                         if let Err(retry_err) = retried {
                             debug!("UDP association {} for {} retry failed: {}", association_id, src, retry_err);
@@ -226,13 +179,14 @@ pub(super) fn spawn_udp_worker(
                 }
                 received = session.recv_from_target(cancel.clone()) => match received {
                     Ok(Some((resp_payload, from))) => {
-                        touch_udp_activity(&last_activity);
-                        let Some(response_source) = response_source_for_target(&response_sources, from) else {
+                        let Some(destination) = destination_for_target(&response_sources, from) else {
                             continue;
                         };
-                        let raw = build_udp_response(response_source, src, &resp_payload);
+                        destination.touch();
+                        touch_udp_activity(&last_activity);
+                        let raw = build_udp_response(destination.response_source, src, &resp_payload);
                         if !raw.is_empty()
-                            && !send_event(&udp_tx, &cancel, UdpEvent::Packet { src, association_id, raw }).await
+                            && !send_event(&udp_tx, &cancel, UdpEvent::Packet { src, association_id, destination, raw }).await
                         {
                             break;
                         }
@@ -251,113 +205,4 @@ pub(super) fn spawn_udp_worker(
         }
         send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn domain_responses_are_attributed_by_host_not_arrival_order() {
-        let first: SocketAddr = "198.18.0.1:1001".parse().unwrap();
-        let second: SocketAddr = "198.18.0.2:1002".parse().unwrap();
-        let first_pinned: SocketAddr = "203.0.113.7:443".parse().unwrap();
-        let second_pinned: SocketAddr = "203.0.113.7:53".parse().unwrap();
-        let mut sources = HashMap::new();
-        remember_response_source(&mut sources, "one.example", first_pinned, first);
-        remember_response_source(&mut sources, "two.example", second_pinned, second);
-
-        assert_eq!(
-            response_source_for_target(&sources, TargetAddr::ResolvedDomain("two.example".into(), second_pinned)),
-            Some(second)
-        );
-        assert_eq!(
-            response_source_for_target(&sources, TargetAddr::ResolvedDomain("one.example".into(), first_pinned)),
-            Some(first)
-        );
-        assert_eq!(
-            response_source_for_target(&sources, TargetAddr::ResolvedDomain("unknown.example".into(), first_pinned)),
-            None
-        );
-    }
-
-    #[test]
-    fn resolved_responses_distinguish_multi_a_records_and_canonicalize_host_case() {
-        let first_pinned: SocketAddr = "203.0.113.10:443".parse().unwrap();
-        let second_pinned: SocketAddr = "203.0.113.11:443".parse().unwrap();
-        let first_source: SocketAddr = "198.18.0.10:443".parse().unwrap();
-        let second_source: SocketAddr = "198.18.0.11:443".parse().unwrap();
-        let mut sources = HashMap::new();
-        remember_response_source(&mut sources, "Multi.Example.", first_pinned, first_source);
-        remember_response_source(&mut sources, "MULTI.EXAMPLE", second_pinned, second_source);
-
-        assert_eq!(
-            response_source_for_target(&sources, TargetAddr::ResolvedDomain("multi.example".into(), second_pinned)),
-            Some(second_source)
-        );
-        assert_eq!(
-            response_source_for_target(&sources, TargetAddr::ResolvedDomain("MULTI.EXAMPLE.".into(), first_pinned)),
-            Some(first_source)
-        );
-    }
-
-    #[test]
-    fn ambiguous_domain_response_has_no_source() {
-        let mut sources = HashMap::new();
-        let first_pinned: SocketAddr = "203.0.113.10:443".parse().unwrap();
-        let second_pinned: SocketAddr = "203.0.113.11:443".parse().unwrap();
-        let first_source: SocketAddr = "198.18.0.10:443".parse().unwrap();
-        let second_source: SocketAddr = "198.18.0.11:443".parse().unwrap();
-        remember_response_source(&mut sources, "multi.example", first_pinned, first_source);
-        assert_eq!(
-            response_source_for_target(&sources, TargetAddr::Domain("multi.example".into(), 443)),
-            Some(first_source)
-        );
-        remember_response_source(&mut sources, "multi.example", second_pinned, second_source);
-        assert_eq!(response_source_for_target(&sources, TargetAddr::Domain("multi.example".into(), 443)), None);
-    }
-
-    #[test]
-    fn response_source_table_remains_bounded() {
-        let mut sources = HashMap::new();
-        for index in 0..(UDP_DESTINATION_CAPACITY + 32) {
-            let source: SocketAddr = format!("198.18.0.1:{}", index + 1).parse().unwrap();
-            let pinned: SocketAddr = format!("203.0.113.1:{}", index + 1).parse().unwrap();
-            remember_response_source(&mut sources, &format!("host-{index}.example"), pinned, source);
-        }
-
-        assert_eq!(sources.len(), UDP_DESTINATION_CAPACITY);
-    }
-
-    #[test]
-    fn full_response_table_preserves_admitted_sources() {
-        let mut sources = HashMap::new();
-        for index in 0..=UDP_DESTINATION_CAPACITY {
-            let source = SocketAddr::new("198.18.0.1".parse().unwrap(), index as u16 + 1);
-            let pinned = SocketAddr::new("203.0.113.1".parse().unwrap(), index as u16 + 1);
-            remember_response_source(&mut sources, &format!("host-{index}.example"), pinned, source);
-        }
-
-        for index in 0..UDP_DESTINATION_CAPACITY {
-            let pinned = SocketAddr::new("203.0.113.1".parse().unwrap(), index as u16 + 1);
-            let source = SocketAddr::new("198.18.0.1".parse().unwrap(), index as u16 + 1);
-            assert_eq!(
-                response_source_for_target(
-                    &sources,
-                    TargetAddr::ResolvedDomain(format!("host-{index}.example"), pinned)
-                ),
-                Some(source),
-                "admitting a new target must not evict an admitted response identity"
-            );
-        }
-        let excess = SocketAddr::new("203.0.113.1".parse().unwrap(), UDP_DESTINATION_CAPACITY as u16 + 1);
-        assert_eq!(
-            response_source_for_target(
-                &sources,
-                TargetAddr::ResolvedDomain(format!("host-{UDP_DESTINATION_CAPACITY}.example"), excess)
-            ),
-            None,
-            "the excess target must not displace a live mapping"
-        );
-    }
 }

@@ -1,5 +1,6 @@
 mod association_removal;
 mod association_state;
+mod destination_expiry;
 mod event_handling;
 mod eviction;
 mod forwarding;
@@ -7,6 +8,7 @@ mod shutdown;
 mod worker;
 
 pub(super) use association_state::UdpAssociation;
+pub(super) use destination_expiry::expire_udp_destinations;
 pub(super) use event_handling::{UdpEvent, handle_udp_event};
 pub(super) use eviction::{UDP_EVICTION_HEAP_CAPACITY, UdpEvictionEntry};
 pub(super) use forwarding::forward_udp_payload;
@@ -17,6 +19,9 @@ mod tests;
 
 #[cfg(test)]
 mod capacity_tests;
+
+#[cfg(test)]
+mod destination_lifetime_tests;
 
 /// Release an observation only when it is not owned by a live association.
 pub(crate) fn release_unowned_udp_attribution(

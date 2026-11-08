@@ -1,6 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap};
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
@@ -23,8 +24,17 @@ pub(in crate::io_loop) fn handle_udp_event(
     mut error_allowed: impl FnMut(&ripdpi_flow_app_attribution::FlowRegistrationId) -> bool,
 ) {
     match event {
-        UdpEvent::Packet { src, association_id, raw } => {
-            if associations.get(&src).is_some_and(|association| association.id == association_id) {
+        UdpEvent::Packet { src, association_id, destination, raw } => {
+            if destination.is_live()
+                && associations.get(&src).is_some_and(|association| {
+                    association.id == association_id
+                        && association
+                            .destinations
+                            .get(&destination.response_source)
+                            .is_some_and(|current| Arc::ptr_eq(current, &destination))
+                })
+            {
+                destination.touch();
                 record_udp_activity(associations, eviction_heap, src);
                 enqueue_tun_packet(device, stats, raw);
             }

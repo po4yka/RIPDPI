@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
 
+mod replies;
 mod spawn;
 
 use super::association_state::{
@@ -68,7 +69,7 @@ pub(super) fn spawn_udp_association(
         last_activity,
         worker,
         leased_synthetic_ips: HashSet::new(),
-        destinations: HashSet::new(),
+        destinations: std::collections::HashMap::new(),
         attribution_ids: LruCache::new(UDP_ATTRIBUTION_ID_CAPACITY),
     }
 }

@@ -9,12 +9,13 @@ use tokio_util::sync::CancellationToken;
 use crate::Stats;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
+use crate::session::TargetAddr;
 use crate::session::udp::UdpMemoryBudget;
 
-use super::super::association_state::UdpAssociation;
+use super::super::association_state::{UdpAssociation, now_millis};
 use super::super::event_handling::UdpEvent;
 use super::super::eviction::{UdpEvictionEntry, record_udp_activity};
-use super::admission::can_admit_udp_destination;
+use super::admission::prepare_udp_destination;
 use super::delivery::deliver_udp_datagram;
 use super::ensure::ensure_udp_association;
 use super::leases::{lease_udp_attribution, lease_udp_mapping};
@@ -65,19 +66,29 @@ pub(in crate::io_loop) fn forward_udp_payload(
         stats,
     );
 
-    if !can_admit_udp_destination(associations, src, attribution_dst) {
+    let target = target_host
+        .map_or(TargetAddr::Ip(resolved_dst), |host| TargetAddr::ResolvedDomain(host.to_owned(), resolved_dst));
+    let Some(destination) = prepare_udp_destination(
+        associations,
+        dns_cache,
+        src,
+        target,
+        resolved_dst,
+        attribution_dst,
+        synthetic_ip,
+        idle_timeout,
+        now_millis(),
+    ) else {
         super::super::release_unowned_udp_attribution(associations, src, admitted_id);
         stats.record_tun_queue_drop();
         return None;
-    }
+    };
 
-    let Some(registration_id) = deliver_udp_datagram(
+    let Some((registration_id, destination)) = deliver_udp_datagram(
         proxy_addr,
         auth,
         src,
-        attribution_dst,
-        resolved_dst,
-        target_host,
+        destination,
         payload,
         dns_cache,
         closed_sources,
@@ -96,8 +107,9 @@ pub(in crate::io_loop) fn forward_udp_payload(
         super::super::release_unowned_udp_attribution(associations, src, admitted_id);
         return None;
     };
+    destination.touch();
     if let Some(association) = associations.get_mut(&src) {
-        association.destinations.insert(attribution_dst);
+        association.destinations.insert(attribution_dst, destination);
     }
     record_udp_activity(associations, eviction_heap, src);
     lease_udp_attribution(associations, src, registration_id);

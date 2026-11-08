@@ -11,12 +11,11 @@ use tracing::debug;
 use crate::Stats;
 use crate::dns_cache::DnsCache;
 use crate::session::Auth;
-use crate::session::TargetAddr;
 use crate::session::udp::UdpMemoryBudget;
 use crate::uid_policy::PROTO_UDP;
 
 use super::super::association_removal::remove_association;
-use super::super::association_state::{OutboundDatagram, UdpAssociation};
+use super::super::association_state::{OutboundDatagram, UdpAssociation, UdpDestination};
 use super::super::event_handling::UdpEvent;
 use super::super::eviction::UdpEvictionEntry;
 use super::ensure::ensure_udp_association;
@@ -26,9 +25,7 @@ pub(super) fn deliver_udp_datagram(
     proxy_addr: SocketAddr,
     auth: &Auth,
     src: SocketAddr,
-    attribution_dst: SocketAddr,
-    resolved_dst: SocketAddr,
-    target_host: Option<&str>,
+    destination: Arc<UdpDestination>,
     payload: &[u8],
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
@@ -43,27 +40,25 @@ pub(super) fn deliver_udp_datagram(
     udp_tx: &tokio::sync::mpsc::Sender<UdpEvent>,
     stats: &Arc<Stats>,
     admitted_id: ripdpi_flow_app_attribution::FlowRegistrationId,
-) -> Option<ripdpi_flow_app_attribution::FlowRegistrationId> {
+) -> Option<(ripdpi_flow_app_attribution::FlowRegistrationId, Arc<UdpDestination>)> {
     let outbound = associations.get(&src)?.outbound.clone();
-    let target = target_host
-        .map_or(TargetAddr::Ip(resolved_dst), |host| TargetAddr::ResolvedDomain(host.to_owned(), resolved_dst));
-    let Some(datagram) = OutboundDatagram::try_new(target, resolved_dst, attribution_dst, payload, memory_budget)
+    let Some(datagram) = OutboundDatagram::try_new_for_destination(Arc::clone(&destination), payload, memory_budget)
     else {
         debug!("UDP aggregate queue byte budget exhausted for {src}; dropping datagram");
         stats.record_tun_queue_drop();
         return None;
     };
     match outbound.try_send(datagram) {
-        Ok(()) => Some(admitted_id),
+        Ok(()) => Some((admitted_id, destination)),
         Err(TrySendError::Full(_)) => {
             debug!("UDP association queue full for {src}; dropping datagram");
             stats.record_tun_queue_drop();
             None
         }
-        Err(TrySendError::Closed(datagram)) => {
+        Err(TrySendError::Closed(mut datagram)) => {
             // The app's UDP source remains live while its transport association is replaced.
             remove_association(associations, dns_cache, &mut Vec::new(), src);
-            let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, attribution_dst);
+            let replacement = ripdpi_flow_app_attribution::note_flow(PROTO_UDP, src, destination.response_source);
             ensure_udp_association(
                 associations,
                 eviction_heap,
@@ -72,7 +67,7 @@ pub(super) fn deliver_udp_datagram(
                 proxy_addr,
                 auth,
                 src,
-                datagram.resolved_dest,
+                destination.resolved_dest,
                 &datagram.payload,
                 dns_cache,
                 closed_sources,
@@ -83,10 +78,17 @@ pub(super) fn deliver_udp_datagram(
                 udp_tx,
                 stats,
             );
+            let destination = Arc::new(UdpDestination::new(
+                destination.target.clone(),
+                destination.resolved_dest,
+                destination.response_source,
+                destination.synthetic_ip,
+            ));
+            datagram.destination = Arc::clone(&destination);
             if let Some(association) = associations.get(&src)
                 && association.outbound.try_send(datagram).is_ok()
             {
-                return Some(replacement.registration_id);
+                return Some((replacement.registration_id, destination));
             }
             super::super::release_unowned_udp_attribution(associations, src, replacement.registration_id);
             stats.record_tun_queue_drop();
