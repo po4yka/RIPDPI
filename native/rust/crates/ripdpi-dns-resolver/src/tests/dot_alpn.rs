@@ -53,7 +53,7 @@ fn dot_alpn_exchange(
     let mut hooks = EncryptedDnsConnectHooks::new();
     if custom_builder {
         hooks = hooks.with_dot_tls_connector_builder(|| {
-            ripdpi_tls_profiles::configure_builder("chrome_stable").map_err(|error| error.to_string())
+            ripdpi_tls_profiles::configure_builder("firefox_stable").map_err(|error| error.to_string())
         });
     }
     let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
@@ -88,9 +88,18 @@ fn dot_alpn_negotiates_dot_with_default_and_custom_builders() {
 
 #[test]
 fn dot_alpn_preserves_legacy_peers_without_alpn() {
-    let (result, selected) = dot_alpn_exchange(DotPath::Direct, true, None, &rustls::version::TLS13);
-    assert_eq!(extract_ip_answers(&result.expect("legacy DNS exchange")).expect("answers"), vec!["198.18.0.61"]);
-    assert_eq!(selected.expect("server exchanges DNS"), None);
+    for version in [&rustls::version::TLS12, &rustls::version::TLS13] {
+        for path in [DotPath::Direct, DotPath::Socks5] {
+            for custom_builder in [false, true] {
+                let (result, selected) = dot_alpn_exchange(path, custom_builder, None, version);
+                assert_eq!(
+                    extract_ip_answers(&result.expect("legacy DNS exchange")).expect("answers"),
+                    vec!["198.18.0.61"],
+                );
+                assert_eq!(selected.expect("server exchanges DNS"), None);
+            }
+        }
+    }
 }
 
 #[test]
