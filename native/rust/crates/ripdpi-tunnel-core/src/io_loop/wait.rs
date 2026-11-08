@@ -1,3 +1,4 @@
+use std::io;
 use std::time::Duration;
 
 use crate::device::PacketFd;
@@ -27,9 +28,9 @@ pub(super) enum WaitEvent {
     Cancelled,
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// Cancel-safe. Every `select!` arm uses a cancel-safe primitive (`readable`,
+/// cancel-safe: every `select!` arm uses a cancel-safe primitive (`readable`,
 /// timer, or channel receive), and the DNS receiver remains borrowed in
 /// `LoopState` while suspended instead of being removed and restored around the
 /// await. Dropping this future therefore cannot disable DNS responses.
@@ -37,7 +38,7 @@ pub(in crate::io_loop) async fn wait_for_next_event(
     tun: &PacketFd,
     state: &mut LoopState,
     work_pending: bool,
-) -> WaitOutcome {
+) -> io::Result<WaitOutcome> {
     let smol_delay = state
         .iface
         .poll_delay(Instant::now(), &state.socket_set)
@@ -54,12 +55,15 @@ pub(in crate::io_loop) async fn wait_for_next_event(
         biased;
         _ = state.cancel.cancelled() => WaitEvent::Cancelled,
         _ = std::future::ready(()), if work_pending => WaitEvent::PollTimer,
-        _ = tun.readable() => WaitEvent::TunReadable,
+        result = tun.readable() => {
+            result?;
+            WaitEvent::TunReadable
+        },
         _ = state.sessions.bridge_ready() => WaitEvent::PollTimer,
         _ = tokio::time::sleep(smol_delay) => WaitEvent::PollTimer,
         udp_event = state.udp_rx.recv() => WaitEvent::Udp(udp_event),
         dns_result = recv_dns_response(&mut state.dns_resp_rx), if dns_enabled => WaitEvent::Dns(dns_result),
     };
 
-    handle_wait_event(state, event)
+    Ok(handle_wait_event(state, event))
 }

@@ -15,28 +15,29 @@ use super::{IO_PHASE_WORK_BUDGET, LOSS_EMIT_INTERVAL, PENDING_LISTEN_GC_INTERVAL
 /// cap matches the existing maximum TUN write batch, keeping packet work
 /// symmetric while guaranteeing every tick reaches timers and cancellation.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// Cancel-safe: this function has no suspension point and finishes routing
+/// cancel-safe: this function has no suspension point and finishes routing
 /// each packet before it returns.
-pub(in crate::io_loop) async fn drain_tun(tun: &PacketFd, state: &mut LoopState) {
-    drain_tun_with(state, |buffer| tun.try_recv(buffer));
+pub(in crate::io_loop) async fn drain_tun(tun: &PacketFd, state: &mut LoopState) -> io::Result<()> {
+    drain_tun_with(state, |buffer| tun.try_recv(buffer)).map(|_| ())
 }
 
-fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::Result<usize>) -> usize {
+fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::Result<usize>) -> io::Result<usize> {
     let mut tun_read_buf = std::mem::take(&mut state.tun_read_buf);
     let mut drained = 0;
 
-    while drained < IO_PHASE_WORK_BUDGET {
+    let result = loop {
+        if drained == IO_PHASE_WORK_BUDGET {
+            break Ok(drained);
+        }
         let n = match recv(&mut tun_read_buf) {
-            Ok(0) => break,
+            Ok(0) => break Err(io::Error::new(io::ErrorKind::UnexpectedEof, "TUN packet device reached EOF")),
             Ok(n) => n,
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
-            Err(e) => {
-                warn!("TUN read error: {}", e);
-                state.stats.record_tun_read_error();
-                break;
+            Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted) => {
+                break Ok(drained);
             }
+            Err(error) => break Err(error),
         };
 
         state.stats.record_tun_read_success(n);
@@ -53,10 +54,14 @@ fn drain_tun_with(state: &mut LoopState, mut recv: impl FnMut(&mut [u8]) -> io::
         state.retransmit_tracker.observe(packet);
         route_tun_packet(packet, state);
         state.release_closed_strategy_flows();
-    }
+    };
 
     state.tun_read_buf = tun_read_buf;
-    drained
+    if let Err(error) = &result {
+        warn!("TUN read error: {error}");
+        state.stats.record_tun_read_error();
+    }
+    result
 }
 
 pub(in crate::io_loop) fn drain_dns(state: &mut LoopState) {
@@ -336,7 +341,8 @@ mod tests {
             reads += 1;
             buffer[..packet.len()].copy_from_slice(&packet);
             Ok(packet.len())
-        });
+        })
+        .expect("drain packet budget without failure");
 
         assert_eq!(drained, IO_PHASE_WORK_BUDGET);
         assert_eq!(reads, IO_PHASE_WORK_BUDGET);

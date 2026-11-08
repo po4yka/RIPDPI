@@ -167,7 +167,7 @@ where
                 break;
             }
             state.release_closed_strategy_flows();
-            phases::drain_tun(tun, &mut state).await;
+            phases::drain_tun(tun, &mut state).await?;
             phases::retry_pending_udp_admission(&mut state);
             phases::drain_dns(&mut state);
             phases::poll_smoltcp(&mut state);
@@ -182,7 +182,7 @@ where
                 bridge::TunFlushOutcome::Cancelled => break,
             };
 
-            if matches!(wait_for_next_event(tun, &mut state, tx_pending).await, WaitOutcome::Cancelled) {
+            if matches!(wait_for_next_event(tun, &mut state, tx_pending).await?, WaitOutcome::Cancelled) {
                 break;
             }
         }

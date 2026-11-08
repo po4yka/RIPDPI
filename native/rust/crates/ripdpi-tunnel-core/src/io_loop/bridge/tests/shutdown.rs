@@ -117,6 +117,43 @@ async fn shutdown_uses_one_grace_period_and_aborts_stalled_session_tasks() {
 async fn terminal_tun_write_error_retires_owned_session_socket() {
     use std::os::unix::net::UnixDatagram;
 
+    let (tun, closed_peer) = UnixDatagram::pair().expect("packet fd pair");
+    drop(closed_peer);
+    assert_packet_failure_retires_session(tun.into(), true).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+/// # Cancel safety:
+///
+/// NOT cancel-safe: the helper must cancel and join all owned tasks before the test returns.
+async fn packet_input_eof_retires_owned_session_socket() {
+    let (tun, peer) = std::os::unix::net::UnixStream::pair().expect("packet fd pair");
+    drop(peer);
+    let error = assert_packet_failure_retires_session(tun.into(), false).await;
+    assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+/// # Cancel safety:
+///
+/// NOT cancel-safe: the helper must cancel and join all owned tasks before the test returns.
+async fn terminal_packet_read_error_retires_owned_session_socket() {
+    use tokio::net::{TcpListener, TcpStream};
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind packet input peer");
+    let tun =
+        TcpStream::connect(listener.local_addr().expect("packet input address")).await.expect("connect packet fd");
+    let (peer, _) = listener.accept().await.expect("accept packet input peer");
+    socket2::SockRef::from(&peer).set_linger(Some(Duration::ZERO)).expect("set abortive packet close");
+    drop(peer);
+    let error = assert_packet_failure_retires_session(tun.into_std().expect("take packet fd").into(), false).await;
+    assert_eq!(error.kind(), io::ErrorKind::ConnectionReset);
+}
+
+/// # Cancel safety:
+///
+/// NOT cancel-safe: this helper must cancel and join the tunnel and its owned socket task before it returns.
+async fn assert_packet_failure_retires_session(tun: std::os::fd::OwnedFd, queue_output: bool) -> io::Error {
     use ripdpi_tunnel_config::{Config, MiscConfig, Socks5Config, TunnelConfig};
     use tokio::io::AsyncReadExt;
     use tokio::net::{TcpListener, TcpStream};
@@ -155,15 +192,15 @@ async fn terminal_tun_write_error_retires_owned_session_socket() {
             attribution_id: None,
         },
     );
-    let mut packet = Vec::new();
-    etherparse::PacketBuilder::ipv4([127, 0, 0, 1], [10, 0, 0, 99], 64)
-        .udp(53, 40000)
-        .write(&mut packet, b"terminal write")
-        .expect("build output packet");
-    assert!(device.tx_queue.push_back(packet));
-    let (tun, closed_peer) = UnixDatagram::pair().expect("packet fd pair");
-    let tun = crate::device::PacketFd::new(tun.into()).expect("register packet fd");
-    drop(closed_peer);
+    if queue_output {
+        let mut packet = Vec::new();
+        etherparse::PacketBuilder::ipv4([127, 0, 0, 1], [10, 0, 0, 99], 64)
+            .udp(53, 40000)
+            .write(&mut packet, b"terminal write")
+            .expect("build output packet");
+        assert!(device.tx_queue.push_back(packet));
+    }
+    let tun = crate::device::PacketFd::new(tun).expect("register packet fd");
     let config = Arc::new(Config {
         tunnel: TunnelConfig::default(),
         socks5: Socks5Config {
@@ -204,8 +241,9 @@ async fn terminal_tun_write_error_retires_owned_session_socket() {
         worker.await.expect("join cancelled worker").expect("cancelled worker exits cleanly");
     }
     child_cancel.cancel();
-    assert!(finished.is_ok(), "terminal output error must end the packet loop without external cancellation");
-    let _error = finished.expect("worker finished").expect("worker did not panic").expect_err("terminal packet error");
+    assert!(finished.is_ok(), "terminal packet failure must end the loop without external cancellation");
+    let error = finished.expect("worker finished").expect("worker did not panic").expect_err("terminal packet error");
     assert!(session_cancelled, "the loop must cancel owned sessions before it returns the packet error");
     assert!(matches!(socket_read, Ok(Ok(0))), "the owned loopback socket must close before the loop returns");
+    error
 }
