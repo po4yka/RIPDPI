@@ -63,6 +63,8 @@ impl EncryptedDnsResolver {
         }
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: this call owns the socket and TLS stream until validation succeeds.
     async fn connect_dot_session(&self) -> Result<DotTlsStream, EncryptedDnsError> {
         if self.inner.dot_unpinned_custom_verifier_requested {
             return Err(EncryptedDnsError::Tls(
@@ -72,6 +74,9 @@ impl EncryptedDnsResolver {
         let tcp_stream = self.connect_plain_tcp().await?;
         let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
         let mut builder = build_dot_connector_builder(&self.inner.connect_hooks)?;
+        builder
+            .set_alpn_protos(b"\x03dot")
+            .map_err(|error| EncryptedDnsError::Tls(format!("DoT TLS ALPN: {error}")))?;
         for root_der in &self.inner.dot_extra_roots {
             let x509 = X509::from_der(root_der.as_ref())
                 .map_err(|e| EncryptedDnsError::Tls(format!("DoT extra root cert: {e}")))?;
@@ -87,7 +92,10 @@ impl EncryptedDnsResolver {
         let config_ssl =
             connector.configure().map_err(|e| EncryptedDnsError::Tls(format!("DoT TLS configure: {e}")))?;
         match timeout(self.inner.timeout, tokio_boring::connect(config_ssl, &tls_name, tcp_stream)).await {
-            Ok(Ok(stream)) => Ok(stream),
+            Ok(Ok(stream)) => match stream.ssl().selected_alpn_protocol() {
+                None | Some(b"dot") => Ok(stream),
+                Some(_) => Err(EncryptedDnsError::Tls("DoT TLS negotiated an unexpected ALPN protocol".to_string())),
+            },
             Ok(Err(err)) => Err(EncryptedDnsError::Tls(format!("DoT TLS handshake to {tls_name}: {err}"))),
             Err(_) => Err(EncryptedDnsError::Tls(format!("DoT TLS handshake to {tls_name} timed out"))),
         }

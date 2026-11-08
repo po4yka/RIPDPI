@@ -3,6 +3,7 @@ mod burst;
 mod dnscrypt_certs;
 mod doh_endpoint;
 mod doq_transport;
+mod dot_alpn;
 mod https_service_binding;
 mod pipeline;
 mod stream_matching;
