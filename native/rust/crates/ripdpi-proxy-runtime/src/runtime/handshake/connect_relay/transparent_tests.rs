@@ -40,6 +40,8 @@ fn raw_exchange(origin_ip: IpAddr, mapped: bool, ipv6_enabled: bool, allowed: bo
         loop {
             match origin.accept() {
                 Ok((mut stream, _)) => {
+                    // Darwin inherits the listener's nonblocking mode on accept.
+                    stream.set_nonblocking(false).expect("blocking origin stream");
                     stream.set_read_timeout(Some(Duration::from_secs(2))).expect("origin read timeout");
                     let mut request = vec![0; REQUEST.len()];
                     stream.read_exact(&mut request).expect("read raw request");
