@@ -10,6 +10,18 @@ use tracing_subscriber::prelude::*;
 
 use super::{RelayTargetAddr, build_backend, sample_config, valid_reality_public_key, vless_config_mut};
 
+fn trace_dispatches(buffers: &android_support::EventRingBuffers) -> (tracing::Dispatch, tracing::Dispatch) {
+    // tracing-core's single-dispatch fast path can cache another test thread's
+    // no-subscriber interest. Keep both observed and unobserved dispatchers
+    // registered while our scoped capture is alive.
+    let unobserved = tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default());
+    let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
+    (tracing::Dispatch::new(subscriber), unobserved)
+}
+
+/// # Cancel safety
+///
+/// cancel-safe: the test owns its fixture and transports, which close on drop.
 #[tokio::test]
 async fn vless_reality_success_exports_observed_handshake_and_first_response_stages() {
     let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality fixture");
@@ -25,8 +37,7 @@ async fn vless_reality_success_exports_observed_handshake_and_first_response_sta
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
 
     let buffers = android_support::EventRingBuffers::default();
-    let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
-    let dispatch = tracing::Dispatch::new(subscriber);
+    let (dispatch, _unobserved_dispatch) = trace_dispatches(&buffers);
     let attempt = tracing::dispatcher::with_default(&dispatch, || {
         tracing::info_span!(
             "relay_attempt",
@@ -69,6 +80,9 @@ async fn vless_reality_success_exports_observed_handshake_and_first_response_sta
     );
 }
 
+/// # Cancel safety
+///
+/// cancel-safe: the test owns its fixture and transports, which close on drop.
 #[tokio::test]
 async fn vless_reality_handshake_close_exports_only_observed_stage_prefix() {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind closing Reality peer");
@@ -87,8 +101,7 @@ async fn vless_reality_handshake_close_exports_only_observed_stage_prefix() {
     let target = RelayTargetAddr::Domain("target.test".to_string(), 443);
 
     let buffers = android_support::EventRingBuffers::default();
-    let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
-    let dispatch = tracing::Dispatch::new(subscriber);
+    let (dispatch, _unobserved_dispatch) = trace_dispatches(&buffers);
     let attempt = tracing::dispatcher::with_default(&dispatch, || {
         tracing::info_span!(
             "relay_attempt",
@@ -138,6 +151,9 @@ async fn vless_reality_handshake_close_exports_only_observed_stage_prefix() {
     );
 }
 
+/// # Cancel safety
+///
+/// cancel-safe: the test owns its fixture and transports, which close on drop.
 #[tokio::test]
 async fn vless_reality_mux_reuse_marks_carrier_without_replaying_handshake_stages() {
     let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality mux fixture");
@@ -157,8 +173,7 @@ async fn vless_reality_mux_reuse_marks_carrier_without_replaying_handshake_stage
     assert_eq!(backend.pool_health().map(|health| health.idle_streams), Some(1));
 
     let buffers = android_support::EventRingBuffers::default();
-    let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
-    let dispatch = tracing::Dispatch::new(subscriber);
+    let (dispatch, _unobserved_dispatch) = trace_dispatches(&buffers);
     let attempt = tracing::dispatcher::with_default(&dispatch, || {
         tracing::info_span!(
             "relay_attempt",
@@ -186,4 +201,32 @@ async fn vless_reality_mux_reuse_marks_carrier_without_replaying_handshake_stage
         events.iter().all(|event| !matches!(event.stage.as_deref(), Some("tcp_connect" | "reality_tls"))),
         "a reused carrier must not fabricate TCP connect or Reality TLS stages for the new logical attempt",
     );
+}
+
+#[test]
+fn trace_capture_records_a_callsite_first_used_without_a_subscriber() {
+    fn emit_reuse() {
+        tracing::info!(carrier_disposition = "carrier_reused", "reused carrier");
+    }
+
+    let buffers = android_support::EventRingBuffers::default();
+    let (dispatch, _unobserved_dispatch) = trace_dispatches(&buffers);
+    std::thread::spawn(emit_reuse).join().expect("join unobserved emitter");
+
+    tracing::dispatcher::with_default(&dispatch, || {
+        let attempt = tracing::info_span!(
+            "relay_attempt",
+            ring = "relay",
+            source = "ripdpi-relay-core",
+            runtime_id = "runtime-callsite-registration",
+            attempt_id = 9_u64,
+        );
+        let _entered = attempt.enter();
+        emit_reuse();
+    });
+
+    let events = buffers.drain_relay_for_runtime("runtime-callsite-registration").events;
+    assert_eq!(events.len(), 1, "the scoped subscriber must observe the reused callsite");
+    assert_eq!(events[0].carrier_disposition.as_deref(), Some("carrier_reused"));
+    assert_eq!(events[0].attempt_id, Some(9));
 }
