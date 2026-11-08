@@ -23,6 +23,7 @@ ripdpi-tls-profiles = { workspace = true }
 webpki-roots = { workspace = true }
 
 [dev-dependencies]
+nix = { workspace = true }
 golden-test-support = { workspace = true }
 local-network-fixture = { workspace = true }
 rcgen = { workspace = true }

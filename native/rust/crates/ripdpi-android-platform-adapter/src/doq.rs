@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, UdpSocket};
+use std::net::IpAddr;
 use std::os::fd::AsRawFd;
 use std::time::Duration;
 
@@ -14,6 +14,7 @@ use ripdpi_dns_resolver::{
 };
 use ripdpi_runtime_platform::protect::{has_protect_callback, protect_socket_via_callback};
 use serde::{Deserialize, Serialize};
+use socket2::{Domain, Protocol, Socket, Type};
 use tokio::time::timeout;
 
 pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jstring {
@@ -111,12 +112,13 @@ async fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeD
 
 fn doq_connect_hooks() -> EncryptedDnsConnectHooks {
     EncryptedDnsConnectHooks::new().with_direct_udp_binder(|bind_addr| {
-        let socket = UdpSocket::bind(bind_addr)?;
+        let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
         if has_protect_callback() {
             protect_socket_via_callback(socket.as_raw_fd())
                 .map_err(|error| io::Error::new(error.kind(), format!("protect native DoQ socket: {error}")))?;
         }
-        Ok(socket)
+        socket.bind(&bind_addr.into())?;
+        Ok(socket.into())
     })
 }
 
@@ -186,6 +188,37 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
+
+    #[test]
+    fn doq_udp_is_protected_before_bind() {
+        struct UnboundSocketRequired;
+        impl ripdpi_runtime_platform::protect::ProtectCallback for UnboundSocketRequired {
+            fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
+                let local =
+                    nix::sys::socket::getsockname::<nix::sys::socket::SockaddrStorage>(fd).map_err(io::Error::from)?;
+                let port = local
+                    .as_sockaddr_in()
+                    .map(nix::sys::socket::SockaddrIn::port)
+                    .or_else(|| local.as_sockaddr_in6().map(nix::sys::socket::SockaddrIn6::port))
+                    .expect("IP socket");
+                if port != 0 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "protect received an already bound socket",
+                    ));
+                }
+                Ok(())
+            }
+        }
+        ripdpi_runtime_platform::protect::register_protect_callback(std::sync::Arc::new(UnboundSocketRequired));
+        let hooks = doq_connect_hooks();
+        let binder = hooks.direct_udp_binder.as_ref().expect("DoQ binder");
+        let results = ["0.0.0.0:0", "[::]:0"].map(|address| binder(address.parse().expect("bind address")));
+        ripdpi_runtime_platform::protect::unregister_protect_callback();
+        for result in results {
+            assert_ne!(result.expect("protect before bind").local_addr().expect("bound").port(), 0);
+        }
+    }
 
     #[test]
     fn cloudflare_doq_exchange_is_available_when_network_tests_enabled() {

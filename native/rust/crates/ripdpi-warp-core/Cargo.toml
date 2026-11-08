@@ -35,6 +35,7 @@ tokio-tungstenite = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+nix = { workspace = true }
 # The carrier integration test drives a real boringtun handshake over a local
 # WS relay -> UDP responder, needing UDP sockets, select!, and timeout.
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }

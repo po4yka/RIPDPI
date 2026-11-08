@@ -19,6 +19,7 @@ use shadowsocks::{
         },
     },
 };
+use socket2::{Domain, Protocol, Socket, Type};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
 
@@ -106,8 +107,7 @@ impl RelaySession for ShadowsocksSession {
         .ok_or_else(|| {
             io::Error::new(io::ErrorKind::AddrNotAvailable, "no UDP server address matches socket family")
         })?;
-        let socket = bind_udp(config.outbound_bind_ip, server_addr).await?;
-        crate::protect::protect_carrier_socket(&socket, server_addr, config.socket_protection)?;
+        let socket = bind_udp(config.outbound_bind_ip, server_addr, config.socket_protection)?;
         socket.connect(server_addr).await?;
         let socket = ProxySocket::from_socket(
             UdpSocketType::Client,
@@ -281,15 +281,21 @@ async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStrea
     socket.connect(server_addr).await
 }
 
-/// # Cancel safety:
-///
-/// cancel-safe: cancellation drops the unconnected UDP socket.
-async fn bind_udp(bind_ip: Option<IpAddr>, server_addr: SocketAddr) -> io::Result<UdpSocket> {
+fn bind_udp(
+    bind_ip: Option<IpAddr>,
+    server_addr: SocketAddr,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<UdpSocket> {
     let ip = bind_ip.unwrap_or(match server_addr {
         SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
         SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
     });
-    UdpSocket::bind(SocketAddr::new(ip, 0)).await
+    let bind_addr = SocketAddr::new(ip, 0);
+    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+    crate::protect::protect_carrier_socket(&socket, server_addr, socket_protection)?;
+    socket.bind(&bind_addr.into())?;
+    socket.set_nonblocking(true)?;
+    UdpSocket::from_std(socket.into())
 }
 
 #[cfg(test)]

@@ -50,11 +50,12 @@ fn connect_protected_tcp(target: SocketAddr, timeout: Duration, protect_path: Op
 }
 
 fn bind_protected_udp(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
-    let socket = UdpSocket::bind(bind_addr)?;
+    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
     // The bind address is unspecified and does not reveal the remote, so we cannot prove
     // a loopback destination here; the binder always requires protection (fail closed).
     protect_non_loopback_socket(&socket, protect_path)?;
-    Ok(socket)
+    socket.bind(&bind_addr.into())?;
+    Ok(socket.into())
 }
 
 /// Protects a socket whose traffic targets a non-loopback address under the active TUN.
@@ -78,4 +79,42 @@ fn protect_non_loopback_socket<T: AsRawFd>(socket: &T, protect_path: Option<&str
     ripdpi_privileged_ops::protect_socket(socket, Some(protect_path)).map_err(|error| {
         io::Error::new(error.kind(), format!("protect encrypted DNS socket via socket server: {error}"))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_runtime_platform::protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
+    use std::sync::Arc;
+
+    struct UnboundSocketRequired;
+    impl ProtectCallback for UnboundSocketRequired {
+        fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
+            let local =
+                nix::sys::socket::getsockname::<nix::sys::socket::SockaddrStorage>(fd).map_err(io::Error::from)?;
+            let port = local
+                .as_sockaddr_in()
+                .map(nix::sys::socket::SockaddrIn::port)
+                .or_else(|| local.as_sockaddr_in6().map(nix::sys::socket::SockaddrIn6::port))
+                .expect("IP socket");
+            if port != 0 {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "protect received an already bound socket"));
+            }
+            Ok(())
+        }
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: no socket outlives this current-thread test runtime.
+    #[tokio::test(flavor = "current_thread")]
+    async fn encrypted_dns_udp_is_protected_before_bind() {
+        let _guard = crate::PROTECT_CALLBACK_TEST_LOCK.lock().await;
+        register_protect_callback(Arc::new(UnboundSocketRequired));
+        let results =
+            ["0.0.0.0:0", "[::]:0"].map(|address| bind_protected_udp(address.parse().expect("bind address"), None));
+        unregister_protect_callback();
+        for result in results {
+            assert_ne!(result.expect("protect before bind").local_addr().expect("bound").port(), 0);
+        }
+    }
 }

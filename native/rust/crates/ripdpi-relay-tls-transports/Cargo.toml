@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+socket2 = { workspace = true }
 libc = { workspace = true }
 shadowsocks = { workspace = true }
 ripdpi-relay-mux = { workspace = true }
@@ -23,3 +24,6 @@ tokio = { workspace = true, features = ["io-util", "net", "sync"] }
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+nix = { workspace = true }

@@ -33,16 +33,12 @@ pub(crate) fn protect_carrier_socket<T: AsRawFd>(
 mod tests {
     use std::net::{Ipv4Addr, TcpListener};
     use std::os::fd::RawFd;
+    use std::sync::Arc;
     use std::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{Arc, Mutex};
 
     use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
 
     use super::*;
-
-    // The protect callback slot is process-global; serialize the tests that
-    // register/clear it.
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     struct RecordingCallback {
         last_fd: AtomicI32,
@@ -61,7 +57,7 @@ mod tests {
 
     #[test]
     fn loopback_target_is_not_protected() {
-        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _g = crate::PROTECT_CALLBACK_TEST_LOCK.blocking_lock();
         unregister_protect_callback();
         let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
@@ -80,7 +76,7 @@ mod tests {
 
     #[test]
     fn non_loopback_without_callback_fails_closed() {
-        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _g = crate::PROTECT_CALLBACK_TEST_LOCK.blocking_lock();
         unregister_protect_callback();
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
 
@@ -95,7 +91,7 @@ mod tests {
 
     #[test]
     fn non_loopback_is_protected_via_callback() {
-        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let _g = crate::PROTECT_CALLBACK_TEST_LOCK.blocking_lock();
         unregister_protect_callback();
         let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);

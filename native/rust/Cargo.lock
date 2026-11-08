@@ -5553,6 +5553,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "jni",
+ "nix 0.31.3",
  "ripdpi-diagnostics-dns",
  "ripdpi-dns-resolver",
  "ripdpi-packets",
@@ -5561,6 +5562,7 @@ dependencies = [
  "ripdpi-shared-priors",
  "serde",
  "serde_json",
+ "socket2",
  "tokio",
 ]
 
@@ -6033,6 +6035,7 @@ dependencies = [
  "h3-quinn",
  "http",
  "local-network-fixture",
+ "nix 0.31.3",
  "quinn",
  "rand 0.10.3",
  "rcgen",
@@ -6423,6 +6426,7 @@ name = "ripdpi-relay-tls-transports"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "nix 0.31.3",
  "rand 0.10.3",
  "ripdpi-anytls",
  "ripdpi-mieru",
@@ -6436,6 +6440,7 @@ dependencies = [
  "ripdpi-trojan",
  "ripdpi-vless",
  "shadowsocks",
+ "socket2",
  "tokio",
 ]
 
@@ -6818,6 +6823,7 @@ version = "0.1.0"
 dependencies = [
  "bytes",
  "local-network-fixture",
+ "nix 0.31.3",
  "quinn",
  "rcgen",
  "ripdpi-native-protect",
@@ -6896,6 +6902,7 @@ dependencies = [
  "libc",
  "local-network-fixture",
  "lru",
+ "nix 0.31.3",
  "proptest",
  "quinn",
  "rcgen",
@@ -7007,6 +7014,7 @@ dependencies = [
  "chacha20 0.10.2",
  "chacha20poly1305 0.11.0",
  "getrandom 0.4.3",
+ "nix 0.31.3",
  "ripdpi-packets",
  "ripdpi-wireguard-ws",
  "serde",

@@ -35,11 +35,11 @@ pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) 
         send_error = ?send_request.err(),
         "WARP tunnel socket buffers"
     );
-    socket.bind(&bind_addr.into())?;
     // Fail-closed: a protect rejection drops `socket` here (closing the fd) and
     // fails tunnel construction rather than letting an unprotected WireGuard
     // socket loop back into the TUN (vpnservice-protect-invariant).
     protect_socket_if_configured(&socket, platform)?;
+    socket.bind(&bind_addr.into())?;
     socket.set_nonblocking(true)?;
     Ok(UdpSocket::from_std(socket.into())?)
 }
@@ -47,6 +47,31 @@ pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io;
+
+    /// # Cancel safety:
+    /// cancel-safe: the current-thread runtime owns each socket until the assertion ends.
+    #[tokio::test(flavor = "current_thread")]
+    async fn carrier_socket_is_protected_before_bind() {
+        let platform = WarpPlatform::new().with_socket_protector(|fd| {
+            let local =
+                nix::sys::socket::getsockname::<nix::sys::socket::SockaddrStorage>(fd).map_err(io::Error::from)?;
+            let port = local
+                .as_sockaddr_in()
+                .map(nix::sys::socket::SockaddrIn::port)
+                .or_else(|| local.as_sockaddr_in6().map(nix::sys::socket::SockaddrIn6::port))
+                .expect("IP socket");
+            if port != 0 {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "protect received an already bound socket"));
+            }
+            Ok(())
+        });
+        for endpoint in ["203.0.113.7:51820", "[2001:db8::7]:51820"] {
+            let socket =
+                bind_tunnel_socket(endpoint.parse().expect("endpoint"), &platform).expect("protect before bind");
+            assert_ne!(socket.local_addr().expect("bound address").port(), 0);
+        }
+    }
 
     #[tokio::test]
     async fn tunnel_socket_asks_for_buffers_beyond_the_kernel_default() {

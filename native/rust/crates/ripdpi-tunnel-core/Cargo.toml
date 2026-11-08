@@ -36,6 +36,7 @@ ripdpi-geo = { workspace = true }
 [features]
 
 [dev-dependencies]
+nix = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "test-util", "time"] }
 tokio-test = "0.4"
 proptest = { workspace = true }

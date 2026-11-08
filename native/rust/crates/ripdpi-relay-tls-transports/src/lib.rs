@@ -37,3 +37,6 @@ pub use trojan::{
     TrojanClientConfig, TrojanSession, TrojanSessionFactory, TrojanUdpSession, connect_trojan_tcp,
     connect_trojan_tcp_over, trojan_proxy_target,
 };
+
+#[cfg(test)]
+pub(crate) static PROTECT_CALLBACK_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());

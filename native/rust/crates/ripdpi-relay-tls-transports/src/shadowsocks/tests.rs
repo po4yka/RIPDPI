@@ -355,3 +355,48 @@ async fn split_reader_does_not_steal_pending_writers_wakeup() {
         .expect(method);
     }
 }
+
+/// # Cancel safety:
+/// cancel-safe except for fairness: cancelling lock().await loses its queue
+/// position; after registration, cancellation drops the owned datagram and
+/// unregisters the callback before releasing the test lock.
+#[tokio::test(flavor = "current_thread")]
+async fn ss2022_udp_is_protected_before_bind() {
+    let _lock = crate::PROTECT_CALLBACK_TEST_LOCK.lock().await;
+    struct Registration(ripdpi_native_protect::ProtectGeneration);
+    impl Drop for Registration {
+        fn drop(&mut self) {
+            let _ = ripdpi_native_protect::unregister_protect_callback_if(self.0);
+        }
+    }
+    struct UnboundSocketRequired;
+    impl ripdpi_native_protect::ProtectCallback for UnboundSocketRequired {
+        fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
+            let local =
+                nix::sys::socket::getsockname::<nix::sys::socket::SockaddrStorage>(fd).map_err(io::Error::from)?;
+            let port = local
+                .as_sockaddr_in()
+                .map(nix::sys::socket::SockaddrIn::port)
+                .or_else(|| local.as_sockaddr_in6().map(nix::sys::socket::SockaddrIn6::port))
+                .expect("IP socket");
+            if port != 0 {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "protect received an already bound socket"));
+            }
+            Ok(())
+        }
+    }
+    let _registration =
+        Registration(ripdpi_native_protect::register_protect_callback_versioned(Arc::new(UnboundSocketRequired)));
+    let factory = ShadowsocksSessionFactory::new(
+        "203.0.113.7".into(),
+        443,
+        METHODS[3].0.into(),
+        METHODS[3].1.into(),
+        None,
+        ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
+    )
+    .expect("SS2022 factory");
+    let session = factory.create_session().await.expect("SS2022 session");
+    let result = session.open_datagram().await;
+    assert!(result.is_ok(), "protect must run before UDP bind: {:?}", result.err());
+}

@@ -45,26 +45,13 @@ pub fn build_client_udp_socket_with_policy(
     if ipv6 {
         let _ = socket.set_only_v6(false);
     }
+    // Every new or rebound carrier is protected before the kernel assigns its local port.
+    socket_protection.protect(socket.as_raw_fd())?;
     if bind_low_port {
         try_bind_low_port(&socket, bind_addr.ip())?;
     } else {
         socket.bind(&SockAddr::from(bind_addr))?;
     }
-    // VpnService.protect() invariant: this QUIC carrier socket binds to a
-    // wildcard local address (0.0.0.0:0 / [::]:0) and is connected to the
-    // non-loopback Hysteria2 server later by `quinn` — the remote is not known
-    // here, so the WARP UDP pattern applies rather than the fail-closed TCP
-    // helper. Protect the fd BEFORE handing the socket to `quinn`
-    // (`Endpoint::new` / the Salamander `new_with_abstract_socket` path), so the
-    // datagrams `quinn` later sends on it are kept out of the TUN route instead
-    // of looping back into the tunnel the VPN owns. `quinn` keeps this exact fd
-    // for the endpoint's lifetime, and every migration / port-hopping rebind
-    // re-enters this same function, so protecting here covers them too. The
-    // explicit runtime policy is a no-op outside VPN mode and fails closed when
-    // VPN mode has no registered callback.
-    // See .claude/rules/vpnservice-protect-invariant.md and
-    // ripdpi-warp-core/src/wireguard/socket.rs.
-    socket_protection.protect(socket.as_raw_fd())?;
     Ok(socket.into())
 }
 
@@ -208,13 +195,23 @@ pub(crate) mod protect_tests {
 
     impl ProtectCallback for RecordingCallback {
         fn protect(&self, fd: RawFd) -> io::Result<()> {
+            let local =
+                nix::sys::socket::getsockname::<nix::sys::socket::SockaddrStorage>(fd).map_err(io::Error::from)?;
+            let port = local
+                .as_sockaddr_in()
+                .map(nix::sys::socket::SockaddrIn::port)
+                .or_else(|| local.as_sockaddr_in6().map(nix::sys::socket::SockaddrIn6::port))
+                .expect("IP socket");
+            if port != 0 {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "protect received an already bound socket"));
+            }
             self.fds.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(fd);
             Ok(())
         }
     }
 
     #[test]
-    fn carrier_socket_is_protected_with_its_own_fd_before_quinn() {
+    fn carrier_socket_is_protected_before_bind() {
         let _guard = PROTECT_TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let cb = RecordingCallback::new();
         register_protect_callback(cb.clone());

@@ -82,25 +82,13 @@ pub(crate) fn build_client_udp_socket(socket_spec: ClientSocketSpec) -> io::Resu
     if ipv6 {
         let _ = socket.set_only_v6(false);
     }
+    // Rebinds use this constructor too, so every carrier is protected before bind.
+    socket_spec.socket_protection.protect(socket.as_raw_fd())?;
     if socket_spec.bind_low_port {
         try_bind_low_port(&socket, bind_addr.ip())?;
     } else {
         socket.bind(&SockAddr::from(bind_addr))?;
     }
-    // VpnService.protect() invariant (vpnservice-protect-invariant.md): the TUIC
-    // QUIC carrier is a UDP socket bound locally to 0.0.0.0:0 (or a low port);
-    // its remote server address is NOT known here — quinn connects/sends on it
-    // later. Protect the fd now, AFTER bind and BEFORE handing the socket to
-    // quinn (`.into()`), so the socket is kept out of the TUN route before the
-    // kernel ever uses it. quinn keeps this exact fd for the whole endpoint, and
-    // `Endpoint::rebind` re-enters this same function for migration, so every
-    // carrier socket is covered. The `try_clone()` at the call sites dups this
-    // fd (same kernel socket), so protecting the original protects the clone.
-    //
-    // The explicit inactive policy is a no-op for proxy/host paths. The
-    // VPN-required policy consults the callback and propagates missing/rejected
-    // protection, dropping the socket here before Quinn can perform I/O.
-    socket_spec.socket_protection.protect(socket.as_raw_fd())?;
     Ok(socket.into())
 }
 
@@ -264,6 +252,16 @@ mod protect_tests {
 
     impl ProtectCallback for RecordingCallback {
         fn protect(&self, fd: RawFd) -> io::Result<()> {
+            let local =
+                nix::sys::socket::getsockname::<nix::sys::socket::SockaddrStorage>(fd).map_err(io::Error::from)?;
+            let port = local
+                .as_sockaddr_in()
+                .map(nix::sys::socket::SockaddrIn::port)
+                .or_else(|| local.as_sockaddr_in6().map(nix::sys::socket::SockaddrIn6::port))
+                .expect("IP socket");
+            if port != 0 {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "protect received an already bound socket"));
+            }
             self.last_fd.store(fd, Ordering::SeqCst);
             self.calls.fetch_add(1, Ordering::SeqCst);
             match self.fail_with {
@@ -284,14 +282,14 @@ mod protect_tests {
         ClientSocketSpec { socket_protection: SocketProtectionPolicy::Inactive, ..SPEC };
 
     #[test]
-    fn carrier_socket_is_protected_before_quinn_owns_it() {
+    fn carrier_socket_is_protected_before_bind() {
         let _guard = PROTECT_TEST_LOCK.lock().expect("test lock");
         let cb = RecordingCallback::new(None);
         register_protect_callback(cb.clone());
 
         let socket = build_client_udp_socket(SPEC).expect("bind + protect carrier socket");
         // The callback recorded the live fd of the bound socket — proving protect
-        // ran after bind and before the socket was returned to quinn.
+        // ran before bind and before the socket was returned to quinn.
         assert_eq!(cb.calls.load(Ordering::SeqCst), 1, "protect callback must fire exactly once");
         assert_eq!(
             cb.last_fd.load(Ordering::SeqCst),
