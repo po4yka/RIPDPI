@@ -17,12 +17,12 @@ use super::socks5::{decode_udp_frame, encode_udp_frame};
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_UDP_DATAGRAM_LEN: usize = 65_535;
-const MAX_SOCKS5_UDP_HEADER_LEN: usize = 261;
 const DEFAULT_RECEIVE_POOL_CONCURRENCY: usize = 64;
 const DEFAULT_QUEUED_UDP_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Clone)]
 pub(crate) struct UdpMemoryBudget {
+    tunnel_mtu: usize,
     receive_pool: Arc<UdpReceiveBufferPool>,
     queued_bytes: Arc<Semaphore>,
 }
@@ -42,15 +42,22 @@ struct PooledUdpBuffer {
 
 impl UdpMemoryBudget {
     pub(crate) fn for_tunnel_mtu(mtu: usize) -> Self {
-        let receive_len = mtu.saturating_add(MAX_SOCKS5_UDP_HEADER_LEN).min(MAX_UDP_DATAGRAM_LEN);
-        Self::new(receive_len, DEFAULT_RECEIVE_POOL_CONCURRENCY, DEFAULT_QUEUED_UDP_BYTES)
+        Self {
+            tunnel_mtu: mtu,
+            ..Self::new(MAX_UDP_DATAGRAM_LEN, DEFAULT_RECEIVE_POOL_CONCURRENCY, DEFAULT_QUEUED_UDP_BYTES)
+        }
+    }
+
+    pub(crate) fn tunnel_mtu(&self) -> usize {
+        self.tunnel_mtu
     }
 
     fn new(receive_len: usize, receive_concurrency: usize, queued_bytes: usize) -> Self {
         let receive_concurrency = receive_concurrency.max(1);
         Self {
+            tunnel_mtu: MAX_UDP_DATAGRAM_LEN,
             receive_pool: Arc::new(UdpReceiveBufferPool {
-                buffer_len: receive_len.max(1),
+                buffer_len: receive_len.clamp(1, MAX_UDP_DATAGRAM_LEN),
                 max_cached: receive_concurrency,
                 permits: Arc::new(Semaphore::new(receive_concurrency)),
                 buffers: StdMutex::new(Vec::new()),
@@ -66,6 +73,8 @@ impl UdpMemoryBudget {
 }
 
 impl UdpReceiveBufferPool {
+    /// # Cancel safety:
+    /// cancel-safe: waiting for a permit consumes no datagram; the buffer owns its permit after acquisition.
     async fn acquire(self: &Arc<Self>) -> io::Result<PooledUdpBuffer> {
         let permit = Arc::clone(&self.permits)
             .acquire_owned()
@@ -76,7 +85,7 @@ impl UdpReceiveBufferPool {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .pop()
-            .unwrap_or_else(|| vec![0; self.buffer_len]);
+            .unwrap_or_else(|| vec![0; self.buffer_len + 1]);
         Ok(PooledUdpBuffer { pool: Arc::clone(self), buffer: Some(buffer), _permit: permit })
     }
 }
@@ -305,9 +314,8 @@ impl UdpSession {
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
                 Err(error) => return Err(error),
             };
-            // recv cuts a longer datagram to the buffer without an error. A full buffer may hold
-            // such a cut payload, which build_udp_response would deliver with a valid checksum.
-            if n == buf.as_mut_slice().len() {
+            // The spare byte distinguishes a complete exact-fit frame from a truncated larger one.
+            if n > self.memory_budget.receive_pool.buffer_len {
                 continue;
             }
             // RFC 1928 section 7: drop a datagram this client cannot use (FRAG != 0, unknown ATYP,
@@ -354,14 +362,16 @@ mod tests {
     // Helpers
     // -------------------------------------------------------------------------
 
+    /// # Cancel safety:
+    /// cancel-safe: acquisition consumes no datagram; dropping the buffer returns its permit.
     #[tokio::test]
-    async fn tunnel_receive_pool_allocates_mtu_sized_buffers_on_demand() {
+    async fn tunnel_receive_pool_allocates_complete_frame_buffers_on_demand() {
         let budget = UdpMemoryBudget::for_tunnel_mtu(1500);
         assert!(budget.receive_pool.buffers.lock().expect("buffer pool").is_empty());
 
         let buffer = budget.receive_pool.acquire().await.expect("receive buffer");
 
-        assert_eq!(buffer.buffer.as_ref().expect("pooled buffer").len(), 1500 + MAX_SOCKS5_UDP_HEADER_LEN);
+        assert_eq!(buffer.buffer.as_ref().expect("pooled buffer").len(), MAX_UDP_DATAGRAM_LEN + 1);
         drop(buffer);
         assert_eq!(budget.receive_pool.buffers.lock().expect("buffer pool").len(), 1);
     }
@@ -413,10 +423,12 @@ mod tests {
         assert_eq!(from, TargetAddr::Ip(target));
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can leave fixture tasks until the test runtime tears down.
     #[tokio::test]
     async fn relay_datagrams_larger_than_the_receive_buffer_are_dropped_not_truncated() {
         let target: SocketAddr = "203.0.113.9:443".parse().unwrap();
-        let budget = UdpMemoryBudget::for_tunnel_mtu(64);
+        let budget = UdpMemoryBudget::new(325, DEFAULT_RECEIVE_POOL_CONCURRENCY, DEFAULT_QUEUED_UDP_BYTES);
         let oversized = encode_udp_frame(target, &[0x5a; 400]);
         assert!(oversized.len() > budget.receive_pool.buffer_len);
         let replies = vec![oversized, encode_udp_frame(target, b"good")];
@@ -736,6 +748,8 @@ mod tests {
         assert_eq!(accepted_tcp_connections.load(Ordering::Relaxed), 1);
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can leave fixture tasks until the test runtime tears down.
     #[tokio::test]
     async fn recv_from_reuses_the_session_receive_buffer() {
         let (proxy_addr, echo_addr, _accepted_tcp_connections) = spawn_stub_proxy(2, false).await;
@@ -764,7 +778,7 @@ mod tests {
         let buffers =
             session.memory_budget.receive_pool.buffers.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let final_buf = buffers.last().expect("receive buffer returned to pool");
-        assert_eq!(final_buf.len(), MAX_UDP_DATAGRAM_LEN);
+        assert_eq!(final_buf.len(), MAX_UDP_DATAGRAM_LEN + 1);
         assert_eq!(final_buf.as_ptr(), initial_ptr, "the pooled receive allocation must be reused across datagrams");
     }
 
@@ -1328,3 +1342,6 @@ mod tests {
 
 #[cfg(test)]
 mod lifetime_tests;
+
+#[cfg(test)]
+mod receive_size_tests;

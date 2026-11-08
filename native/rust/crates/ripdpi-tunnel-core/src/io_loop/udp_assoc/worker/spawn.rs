@@ -9,7 +9,7 @@ use tracing::debug;
 use crate::session::udp::UdpMemoryBudget;
 use crate::session::{Auth, UdpSession};
 
-use super::super::super::packet::build_udp_response;
+use super::super::super::packet::build_udp_response_fragments;
 use super::super::association_state::{OutboundDatagram, touch_udp_activity, udp_association_is_idle};
 use super::super::event_handling::UdpEvent;
 use super::replies::{destination_for_target, remember_destination};
@@ -144,6 +144,9 @@ pub(super) fn spawn_udp_worker(
                         result = session.send_to_target(&outbound.destination.target, &outbound.payload) => result,
                     };
                     if let Err(err) = sent {
+                        if err.raw_os_error() == Some(libc::EMSGSIZE) {
+                            continue;
+                        }
                         debug!("UDP association {} for {} send failed: {}", association_id, src, err);
                         // One reconnect, with the same bounds as the first setup.
                         session = match connect_session(
@@ -172,6 +175,9 @@ pub(super) fn spawn_udp_worker(
                             result = session.send_to_target(&outbound.destination.target, &outbound.payload) => result,
                         };
                         if let Err(retry_err) = retried {
+                            if retry_err.raw_os_error() == Some(libc::EMSGSIZE) {
+                                continue;
+                            }
                             debug!("UDP association {} for {} retry failed: {}", association_id, src, retry_err);
                             break;
                         }
@@ -184,10 +190,14 @@ pub(super) fn spawn_udp_worker(
                         };
                         destination.touch();
                         touch_udp_activity(&last_activity);
-                        let raw = build_udp_response(destination.response_source, src, &resp_payload);
-                        if !raw.is_empty()
-                            && !send_event(&udp_tx, &cancel, UdpEvent::Packet { src, association_id, destination, raw }).await
-                        {
+                        let mut delivery_failed = false;
+                        for raw in build_udp_response_fragments(destination.response_source, src, &resp_payload, memory_budget.tunnel_mtu()) {
+                            if !send_event(&udp_tx, &cancel, UdpEvent::Packet { src, association_id, destination: destination.clone(), raw }).await {
+                                delivery_failed = true;
+                                break;
+                            }
+                        }
+                        if delivery_failed {
                             break;
                         }
                     }
@@ -206,3 +216,6 @@ pub(super) fn spawn_udp_worker(
         send_event(&udp_tx, &cancel, UdpEvent::Closed { src, association_id }).await;
     })
 }
+
+#[cfg(test)]
+mod datagram_tests;
