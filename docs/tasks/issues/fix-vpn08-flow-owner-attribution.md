@@ -2,7 +2,7 @@
 id: VPN-1794152738556618
 title: Fix VPN flow owner attribution boundaries
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: VPN flow attribution integration
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: vpn08-flow-owner-attribution
 created: 2026-11-08
-updated: 2026-11-08
+updated: 2026-11-09
+status_detail: Implementation, host gates, independent reviews and arm64 native artifacts passed; physical acceptance remains unverified.
 ---
 
 ## Goal
