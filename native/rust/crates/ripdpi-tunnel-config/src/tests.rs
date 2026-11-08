@@ -237,6 +237,46 @@ fn test_both_credentials_accepted() {
 }
 
 #[test]
+fn credential_byte_bounds_apply_to_yaml_and_runtime_validation() {
+    for invalid in [String::new(), "x".repeat(256), "é".repeat(128)] {
+        for invalid_username in [false, true] {
+            let (username, password, field) = if invalid_username {
+                (invalid.clone(), "password".into(), "socks5.username")
+            } else {
+                ("username".into(), invalid.clone(), "socks5.password")
+            };
+            let yaml = format!("{MINIMAL_VALID}  username: {username:?}\n  password: {password:?}\n");
+            assert!(matches!(
+                Config::from_str(&yaml),
+                Err(ConfigError::InvalidValue { field: rejected, .. }) if rejected == field
+            ));
+            let mut cfg = Config::from_str(MINIMAL_VALID).unwrap();
+            cfg.socks5.username = Some(username);
+            cfg.socks5.password = Some(password);
+            assert!(matches!(
+                cfg.validate(),
+                Err(ConfigError::InvalidValue { field: rejected, .. }) if rejected == field
+            ));
+        }
+    }
+}
+
+#[test]
+fn credential_validation_preserves_valid_byte_boundaries_and_absent_auth() {
+    let mut cfg = Config::from_str(MINIMAL_VALID).unwrap();
+    assert!(cfg.validate().is_ok());
+    for value in
+        ["x".to_string(), "x".repeat(255), "é".repeat(127), format!("{}x", "é".repeat(127)), " ".into(), "\0".into()]
+    {
+        cfg.socks5.username = Some(value.clone());
+        cfg.socks5.password = Some(value.clone());
+        cfg.validate().expect("credentials within byte bounds must remain valid");
+        assert_eq!(cfg.socks5.username.as_deref(), Some(value.as_str()));
+        assert_eq!(cfg.socks5.password.as_deref(), Some(value.as_str()));
+    }
+}
+
+#[test]
 fn test_config_is_send_sync() {
     fn assert_send_sync<T: Send + Sync>() {}
 

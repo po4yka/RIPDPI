@@ -32,6 +32,13 @@ pub(crate) fn validate_values(config: &Config) -> Result<(), ConfigError> {
     non_zero("socks5.port", u32::from(config.socks5.port))?;
     match (&config.socks5.username, &config.socks5.password) {
         (Some(_), None) | (None, Some(_)) => return Err(ConfigError::MismatchedCredentials),
+        (Some(username), Some(password)) => {
+            for (field, value) in [("socks5.username", username), ("socks5.password", password)] {
+                if !(1..=u8::MAX as usize).contains(&value.len()) {
+                    return invalid(field, "must contain between 1 and 255 bytes");
+                }
+            }
+        }
         _ => {}
     }
 

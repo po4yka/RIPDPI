@@ -167,13 +167,85 @@ async fn userpass_handshake_rejects_server_selecting_noauth() {
     assert!(result.is_err(), "expected error when the server does not select username/password auth");
 }
 
+/// # Cancel safety:
+/// cancel-safe: invalid credentials return before the mock stream is used.
 #[tokio::test]
 async fn userpass_handshake_rejects_oversized_username() {
     let auth = Auth::UserPass { username: "u".repeat(256), password: "secret".to_string() };
-    let mut mock = Builder::new().write(&[0x05, 0x01, 0x02]).read(&[0x05, 0x02]).build();
+    let mut mock = Builder::new().build();
 
     let result = handshake(&mut mock, &auth).await;
     assert!(result.is_err(), "expected error when the username exceeds the SOCKS5 one-byte length field");
+}
+
+/// # Cancel safety:
+/// cancel-safe: cancellation drops both loopback streams owned by the test.
+#[tokio::test(flavor = "current_thread")]
+async fn userpass_invalid_field_lengths_fail_before_sending_bytes() {
+    use tokio::io::AsyncReadExt;
+
+    for invalid in [String::new(), "x".repeat(256), "é".repeat(128)] {
+        for invalid_username in [false, true] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let peer = async {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut next = [0];
+                assert_eq!(stream.read(&mut next).await.unwrap(), 0, "invalid credentials must not reach the wire");
+            };
+            let client = async {
+                let mut stream = tokio::net::TcpStream::connect(address).await.unwrap();
+                let (username, password) = if invalid_username {
+                    (invalid.clone(), "password".into())
+                } else {
+                    ("username".into(), invalid.clone())
+                };
+                let error = handshake(&mut stream, &Auth::UserPass { username, password }).await.unwrap_err();
+                assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+                drop(stream);
+            };
+            tokio::time::timeout(std::time::Duration::from_secs(2), async { tokio::join!(peer, client) })
+                .await
+                .expect("loopback exchange must finish");
+        }
+    }
+}
+
+/// # Cancel safety:
+/// cancel-safe: cancellation drops both loopback streams owned by the test.
+#[tokio::test(flavor = "current_thread")]
+async fn userpass_valid_byte_boundaries_preserve_wire_credentials() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let mut maximum_wire = vec![0x01, 0xff];
+    maximum_wire.extend([0xc3, 0xa9].repeat(127));
+    maximum_wire.extend([b'x', 0xff]);
+    maximum_wire.extend([b'p'; 255]);
+    for (username, password, expected) in [
+        (format!("{}x", "é".repeat(127)), "p".repeat(255), maximum_wire),
+        ("\0".into(), " ".into(), vec![0x01, 0x01, 0x00, 0x01, b' ']),
+    ] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let peer = async {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut greeting = [0; 3];
+            stream.read_exact(&mut greeting).await.unwrap();
+            assert_eq!(greeting, [0x05, 0x01, 0x02]);
+            stream.write_all(&[0x05, 0x02]).await.unwrap();
+            let mut credentials = vec![0; expected.len()];
+            stream.read_exact(&mut credentials).await.unwrap();
+            assert_eq!(credentials, expected);
+            stream.write_all(&[0x01, 0x00]).await.unwrap();
+        };
+        let client = async {
+            let mut stream = tokio::net::TcpStream::connect(address).await.unwrap();
+            handshake(&mut stream, &Auth::UserPass { username, password }).await.unwrap();
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(2), async { tokio::join!(peer, client) })
+            .await
+            .expect("loopback exchange must finish");
+    }
 }
 
 // -------------------------------------------------------------------------

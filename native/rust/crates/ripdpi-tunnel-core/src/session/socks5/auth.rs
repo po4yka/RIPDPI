@@ -20,7 +20,20 @@ pub async fn handshake<S>(stream: &mut S, auth: &Auth) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let method = auth_method(auth);
+    let request = match auth {
+        Auth::NoAuth => None,
+        Auth::UserPass { username, password } => {
+            let ulen = checked_auth_field_len(username, "username")?;
+            let plen = checked_auth_field_len(password, "password")?;
+            let mut request = Vec::with_capacity(3 + username.len() + password.len());
+            request.extend_from_slice(&[0x01, ulen]);
+            request.extend_from_slice(username.as_bytes());
+            request.push(plen);
+            request.extend_from_slice(password.as_bytes());
+            Some(request)
+        }
+    };
+    let method = if request.is_some() { 0x02 } else { 0x00 };
 
     // Send greeting: VER=5, NMETHODS=1, METHOD
     stream.write_all(&[0x05, 0x01, method]).await?;
@@ -48,17 +61,8 @@ where
     }
 
     // Sub-authentication for USERNAME_PASSWORD
-    if let Auth::UserPass { username, password } = auth {
-        let ulen = checked_auth_field_len(username, "username")?;
-        let plen = checked_auth_field_len(password, "password")?;
-
-        let mut req = Vec::with_capacity(3 + username.len() + password.len());
-        req.push(0x01); // sub-negotiation version
-        req.push(ulen);
-        req.extend_from_slice(username.as_bytes());
-        req.push(plen);
-        req.extend_from_slice(password.as_bytes());
-        stream.write_all(&req).await?;
+    if let Some(request) = request {
+        stream.write_all(&request).await?;
 
         // Read sub-auth response: [VER, STATUS]
         let mut auth_resp = [0u8; 2];
@@ -75,14 +79,10 @@ where
     Ok(())
 }
 
-fn auth_method(auth: &Auth) -> u8 {
-    match auth {
-        Auth::NoAuth => 0x00,
-        Auth::UserPass { .. } => 0x02,
-    }
-}
-
 fn checked_auth_field_len(field: &str, label: &str) -> io::Result<u8> {
+    if field.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("SOCKS5: {label} must not be empty")));
+    }
     u8::try_from(field.len())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, format!("SOCKS5: {label} must be at most 255 bytes")))
 }
