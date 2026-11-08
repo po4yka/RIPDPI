@@ -2,7 +2,7 @@
 id: VPN-1794152786002343
 title: Repair IPv4 and IPv6 TUN packet contracts
 kind: bug
-status: review
+status: done
 area: vpn
 priority: high
 owner: VPN packet team
@@ -13,6 +13,9 @@ openspec_change: vpn06-packet-contracts
 created: 2026-11-08
 updated: 2026-11-08
 status_detail: F1-F8 repaired and independently reviewed; 547 host tests, Clippy and ci-gates passed. Android, privileged raw and external compatibility are not claimed.
+closed_at: "2026-11-08T16:39:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "F1-F8 repaired in separate fix commits with reviewed fragment-policy followup. Exact source 34437b3a909a4c992e8f904508c3b0e96376d106: 547 host tests, all-target Clippy and ci-gates passed. Android/raw-device and external compatibility not claimed."
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "vpn06-packet-contracts",
+  "evidence_summary": "F1-F8 repaired in separate fix commits with reviewed fragment-policy followup. Exact source 34437b3a909a4c992e8f904508c3b0e96376d106: 547 host tests, all-target Clippy and ci-gates passed. Android/raw-device and external compatibility not claimed.",
+  "execution_sha256": "13982a31ec23d1bb72e492367215fe9f2315c00692f8620f436986372efbdca9",
+  "issue_sha256": "5e4aedf93f4d2e4f41fa4d076d279d9d0218d7062ebca91eb19e184d23f1faa6",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T16:39:22Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "VPN-1794152786002343"
+}
