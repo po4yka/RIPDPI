@@ -27,3 +27,6 @@ pub(crate) fn release_unowned_udp_attribution(
         ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
     }
 }
+
+#[cfg(test)]
+mod control_lifetime_tests;

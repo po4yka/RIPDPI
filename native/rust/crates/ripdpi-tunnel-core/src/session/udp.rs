@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
-use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use super::protect::protect_socket_if_available;
@@ -106,7 +106,8 @@ impl Drop for PooledUdpBuffer {
 /// multiple replies over the same association.
 #[derive(Clone)]
 pub struct UdpSession {
-    _ctrl: Arc<Mutex<TcpStream>>,
+    control: Arc<TcpStream>,
+    invalidated: CancellationToken,
     udp: Arc<UdpSocket>,
     memory_budget: UdpMemoryBudget,
     recv_timeout: Duration,
@@ -146,6 +147,8 @@ impl UdpSession {
         .await
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: setup owns both sockets and drops them on cancellation.
     pub(crate) async fn connect_with_memory_budget(
         proxy_addr: SocketAddr,
         auth: Auth,
@@ -177,7 +180,8 @@ impl UdpSession {
         udp.connect(relay_addr).await?;
 
         Ok(Self {
-            _ctrl: Arc::new(Mutex::new(ctrl)),
+            control: Arc::new(ctrl),
+            invalidated: CancellationToken::new(),
             udp: Arc::new(udp),
             memory_budget,
             recv_timeout: DEFAULT_RECV_TIMEOUT,
@@ -190,85 +194,91 @@ impl UdpSession {
         self
     }
 
+    fn check_control(&self) -> io::Result<()> {
+        if !self.invalidated.is_cancelled()
+            && self.control.try_read(&mut [0; 1]).is_err_and(|error| error.kind() == io::ErrorKind::WouldBlock)
+        {
+            return Ok(());
+        }
+        self.invalidated.cancel();
+        Err(io::Error::new(io::ErrorKind::ConnectionAborted, "SOCKS5 UDP association control closed"))
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: readiness consumes no data; a detected control failure is terminal for all clones.
+    async fn control_failure(&self) -> io::Error {
+        loop {
+            if let Err(error) = self.check_control() {
+                return error;
+            }
+            if let Err(error) = self.control.readable().await {
+                self.invalidated.cancel();
+                return error;
+            }
+        }
+    }
+
     #[cfg(test)]
-    /// Send a UDP datagram through the established SOCKS5 relay.
-    ///
-    /// # Cancel safety
-    ///
-    /// Cancel-safe. The single `.await` is one `UdpSocket::send`, which is
-    /// message-atomic: it either queues the whole datagram or none of it. A
-    /// cancel before completion sends nothing and leaves no partial datagram and
-    /// no torn relay state. The frame is built synchronously before the await.
+    /// # Cancel safety:
+    /// cancel-safe: the production send is message-atomic and observes control invalidation.
     pub async fn send_to(&self, dst: SocketAddr, payload: &[u8]) -> io::Result<()> {
-        let frame = encode_udp_frame(dst, payload);
-        let _ = self.udp.send(&frame).await?;
-        Ok(())
+        self.send_to_target(&TargetAddr::Ip(dst), payload).await
     }
 
     /// Send a UDP datagram with its logical SOCKS5 destination authority intact.
     ///
-    /// # Cancel safety
-    ///
-    /// cancel-safe: frame construction is synchronous and the only `.await` is
-    /// one message-atomic `UdpSocket::send`; cancellation cannot leave a partial
-    /// datagram or mutate the established relay association.
+    /// # Cancel safety:
+    /// cancel-safe: datagram sends are message-atomic and control readiness consumes no UDP data.
     pub(crate) async fn send_to_target(&self, dst: &TargetAddr, payload: &[u8]) -> io::Result<()> {
+        self.check_control()?;
         let frame = encode_udp_target_frame(dst, payload)?;
-        let _ = self.udp.send(&frame).await?;
-        Ok(())
+        tokio::select! {
+            biased;
+            error = self.control_failure() => Err(error),
+            sent = self.udp.send(&frame) => sent.map(|_| ()),
+        }
     }
 
     #[cfg(test)]
-    /// Receive a UDP datagram from the established SOCKS5 relay.
+    /// Receive a datagram, or stop when control fails, cancellation fires, or the timeout expires.
     ///
-    /// - `cancel`: signals early termination (returns `Ok(None)`).
-    ///
-    /// Returns `Ok(Some((payload, from)))` on success, `Ok(None)` if
-    /// cancelled or timed out, `Err` on I/O failure.
-    ///
-    /// # Cancel safety
-    ///
-    /// Cancel-safe. The `recv` arm is one message-atomic `UdpSocket::recv`
-    /// followed by a synchronous decode (no `.await` between consuming the
-    /// datagram and returning it), so dropping this future never consumes-then-
-    /// loses a datagram. The `cancel`/`timeout` arms are pure timers. The
-    /// internal `select!` is intentionally unbiased: recv, timeout, and cancel
-    /// are mutually exclusive single-shot outcomes with no teardown arm to
-    /// protect from starvation.
+    /// # Cancel safety:
+    /// cancel-safe: UDP receives are message-atomic; detected control failure invalidates every clone.
     pub async fn recv_from(&self, cancel: CancellationToken) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
         let recv_fut = self.recv_frame(decode_udp_frame);
 
         let timeout_fut = tokio::time::sleep(self.recv_timeout);
 
         tokio::select! {
+            biased;
+            _ = cancel.cancelled() => Ok(None),
+            error = self.control_failure() => Err(error),
             result = recv_fut => {
                 let (from, data) = result?;
                 Ok(Some((data, from)))
             }
             _ = timeout_fut => Ok(None),
-            _ = cancel.cancelled() => Ok(None),
         }
     }
 
-    /// Receive a UDP datagram while retaining the SOCKS target identity.
+    /// Receive a datagram while retaining its SOCKS authority.
     ///
-    /// # Cancel safety
-    ///
-    /// Cancel-safe. The socket receive is message-atomic and target decoding is
-    /// synchronous, so cancellation cannot consume and lose a datagram.
-    /// Timeout and cancellation arms do not mutate session state.
+    /// # Cancel safety:
+    /// cancel-safe: UDP receives are message-atomic; detected control failure invalidates every clone.
     pub(crate) async fn recv_from_target(
         &self,
         cancel: CancellationToken,
     ) -> io::Result<Option<(Vec<u8>, TargetAddr)>> {
         let recv_fut = self.recv_frame(decode_udp_target_frame);
         tokio::select! {
+            biased;
+            _ = cancel.cancelled() => Ok(None),
+            error = self.control_failure() => Err(error),
             result = recv_fut => {
                 let (from, data) = result?;
                 Ok(Some((data, from)))
             }
             _ = tokio::time::sleep(self.recv_timeout) => Ok(None),
-            _ = cancel.cancelled() => Ok(None),
         }
     }
 
@@ -278,16 +288,14 @@ impl UdpSession {
     /// idle association waiting for a reply does not hold one of the tunnel-wide
     /// buffers that other associations need to read replies that have arrived.
     ///
-    /// # Cancel safety
-    ///
-    /// Cancel-safe. `readable` and the buffer acquisition consume nothing, and
-    /// `try_recv` plus the decode are synchronous, so cancellation cannot consume
-    /// and lose a datagram.
+    /// # Cancel safety:
+    /// cancel-safe: readiness and buffer acquisition consume nothing; receive and decode are synchronous.
     async fn recv_frame<T>(
         &self,
         decode: impl for<'a> Fn(&'a [u8]) -> io::Result<(T, &'a [u8])>,
     ) -> io::Result<(T, Vec<u8>)> {
         loop {
+            self.check_control()?;
             self.udp.readable().await?;
             let mut buf = self.memory_budget.receive_pool.acquire().await?;
             let n = match self.udp.try_recv(buf.as_mut_slice()) {
@@ -306,6 +314,7 @@ impl UdpSession {
             let Ok((from, data)) = decode(&buf.as_mut_slice()[..n]) else {
                 continue;
             };
+            self.check_control()?;
             return Ok((from, data.to_vec()));
         }
     }
@@ -338,6 +347,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
+    use tokio::sync::Mutex;
 
     // -------------------------------------------------------------------------
     // Helpers
@@ -559,6 +569,8 @@ mod tests {
     }
 
     impl TurmoilUdpSession {
+        /// # Cancel safety:
+        /// cancel-safe: the simulated setup owns and drops both sockets on cancellation.
         async fn connect(proxy_addr: SocketAddr, auth: Auth) -> io::Result<Self> {
             let mut ctrl = turmoil::net::TcpStream::connect(proxy_addr).await?;
             handshake(&mut ctrl, &auth).await?;
@@ -1311,3 +1323,6 @@ mod tests {
         sim.run()
     }
 }
+
+#[cfg(test)]
+mod lifetime_tests;

@@ -76,11 +76,10 @@ pub(super) struct UdpWorkerConfig {
 /// Runs the SOCKS5 UDP ASSOCIATE setup, bounded by `connect_timeout` and `cancel`. Returns
 /// `Ok(None)` when cancelled.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// cancel-safe: `UdpSession::connect_with_memory_budget` is not, but this worker owns everything it
-/// builds. A setup dropped on cancel or timeout closes its half-built control connection and relay
-/// socket, so the proxy only sees the control connection close.
+/// cancel-safe: setup owns its pending sockets. Cancellation or timeout drops
+/// the future and closes any partial control connection and relay socket.
 async fn connect_session(
     proxy_addr: SocketAddr,
     auth: &Auth,
