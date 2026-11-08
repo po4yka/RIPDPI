@@ -19,13 +19,30 @@ impl<'a> HttpConnectHead<'a> {
         if !valid_header_line_endings(head.bytes) {
             return Err(SessionError::generic());
         }
+        let request_line = head.lines().next().ok_or_else(SessionError::generic)?;
+        if !request_line.is_ascii() || request_line.iter().any(|byte| byte.is_ascii_control() && *byte != b'\t') {
+            return Err(SessionError::generic());
+        }
+        let mut proxy_authorization_seen = false;
         for line in head.lines().skip(1) {
             let colon = line.iter().position(|byte| *byte == b':').ok_or_else(SessionError::generic)?;
             let name = &line[..colon];
             if name.is_empty() || !name.iter().copied().all(is_field_name_byte) {
                 return Err(SessionError::generic());
             }
-            let value = line[colon + 1..].trim_ascii();
+            let value = &line[colon + 1..];
+            if value.iter().any(|byte| *byte != b'\t' && (*byte < b' ' || *byte == 0x7f))
+                || (name.eq_ignore_ascii_case(b"Host") && !value.is_ascii())
+            {
+                return Err(SessionError::generic());
+            }
+            if name.eq_ignore_ascii_case(b"Proxy-Authorization") {
+                if proxy_authorization_seen {
+                    return Err(SessionError::generic());
+                }
+                proxy_authorization_seen = true;
+            }
+            let value = value.trim_ascii();
             if name.eq_ignore_ascii_case(b"Transfer-Encoding")
                 || (name.eq_ignore_ascii_case(b"Content-Length")
                     && (value.is_empty() || value.iter().any(|byte| *byte != b'0')))
@@ -121,6 +138,48 @@ mod tests {
     use crate::{ClientRequest, SocketType, TargetAddr};
 
     use super::*;
+
+    #[test]
+    fn parse_http_connect_request_rejects_invalid_field_lines() {
+        for field in [
+            &b"Ignored : value\r\n"[..],
+            b"Host : other.invalid\r\n",
+            b"X-Test: a\x00b\r\n",
+            b"X-Test: a\rb\r\n",
+            b"X-Test: a\x1fb\r\n",
+            b"X-Test: a\x7fb\r\n",
+            b"no colon here\r\n",
+            b": no name\r\n",
+            b"X-Test: one\r\n two\r\n",
+            b"X-Test: value\n",
+            b"Proxy-Authorization: Basic one\r\nProxy-Authorization: Basic two\r\n",
+        ] {
+            let mut request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n".to_vec();
+            request.extend_from_slice(field);
+            request.extend_from_slice(b"\r\n");
+            assert_eq!(
+                HttpConnectHead::parse(&request).err().map(|error| error.code),
+                Some(crate::S_ER_GEN),
+                "head {field:?}"
+            );
+            assert_eq!(
+                parse_http_connect_request(&request, &resolver).err().map(|error| error.code),
+                Some(crate::S_ER_GEN),
+                "{field:?}"
+            );
+        }
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: \xc2\xa0example.com\r\n\r\n";
+        assert_eq!(parse_http_connect_request(request, &resolver).err().map(|error| error.code), Some(crate::S_ER_GEN));
+        let request = b"CONNECT example.com\x00:443 HTTP/1.1\r\nHost: example.com\x00\r\n\r\n";
+        assert_eq!(parse_http_connect_request(request, &resolver).err().map(|error| error.code), Some(crate::S_ER_GEN));
+    }
+
+    #[test]
+    fn parse_http_connect_request_accepts_field_tokens_and_ows() {
+        let request =
+            b"CONNECT example.com:443 HTTP/1.1\r\nHost:\texample.com \t\r\nX!#$%&'*+-.^_`|~: \t\x80\xff\t \r\n\r\n";
+        assert!(parse_http_connect_request(request, &resolver).is_ok());
+    }
 
     #[test]
     fn parse_http_connect_request_rejects_content_framing() {

@@ -8,10 +8,10 @@ pub fn validate_http_connect_auth(head: HttpConnectHead<'_>, token: &str) -> boo
     use base64::engine::{Engine, general_purpose::STANDARD};
 
     let Some(value) = head.proxy_authorization() else { return false };
-    let mut parts = value.split_ascii_whitespace();
-    if let (Some(scheme), Some(encoded), None) = (parts.next(), parts.next(), parts.next())
-        && scheme.eq_ignore_ascii_case("Basic")
-        && let Ok(decoded) = STANDARD.decode(encoded)
+    let value = value.trim_matches([' ', '\t']);
+    let Some((scheme, encoded)) = value.split_once(' ') else { return false };
+    if scheme.eq_ignore_ascii_case("Basic")
+        && let Ok(decoded) = STANDARD.decode(encoded.trim_start_matches(' '))
     {
         let mut expected = Vec::with_capacity("ripdpi:".len() + token.len());
         expected.extend_from_slice(b"ripdpi:");
@@ -24,6 +24,22 @@ pub fn validate_http_connect_auth(head: HttpConnectHead<'_>, token: &str) -> boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejects_ambiguous_or_invalid_basic_fields() {
+        for field in [
+            "Proxy-Authorization: Basic cmlwZHBpOnMzY3IzdA==\r\nProxy-Authorization: Basic !!!\r\n",
+            "Proxy-Authorization: Basic cmlwZHBpOnMzY3IzdA==\r\nproxy-authorization: Basic cmlwZHBpOnMzY3IzdA==\r\n",
+            "Proxy-Authorization: Basic\tcmlwZHBpOnMzY3IzdA==\r\n",
+            "Proxy-Authorization: Basic \tcmlwZHBpOnMzY3IzdA==\r\n",
+        ] {
+            let request = format!("CONNECT example.com:443 HTTP/1.1\r\n{field}\r\n");
+            assert!(!validate_http_proxy_auth(request.as_bytes(), "s3cr3t"), "{field:?}");
+        }
+        let request =
+            b"CONNECT example.com:443 HTTP/1.1\r\nProxy-Authorization:\tBasic   cmlwZHBpOnMzY3IzdA== \t\r\n\r\n";
+        assert!(validate_http_proxy_auth(request, "s3cr3t"));
+    }
 
     #[test]
     fn validates_credentials_with_opaque_field_octets() {
