@@ -107,7 +107,7 @@ interface Tun2SocksBindings {
      * `noteFlow(int protocol, String localIp, int localPort, String remoteIp, int remotePort, int requestKind)`.
      * Returns a generation token (`0` on failure) threaded back to
      * [unregisterFlowAttribution]. Process-global on the native side, so register
-     * once per tunnel session after [start] and release on [stop].
+     * once per tunnel session before [start] and release on [stop].
      */
     fun registerFlowAttribution(bridge: Any): Long
 
@@ -291,11 +291,6 @@ class Tun2SocksTunnel(
                 if (config.uidPolicyMode != "disarmed" && flowAttributionBridge == null) {
                     throw NativeError.SessionCreationFailed("tunnel flow attribution")
                 }
-                startAttempted = true
-                withContext(Dispatchers.IO) {
-                    nativeBindings.start(createdHandle, tunFd)
-                }
-                Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
                 if (flowAttributionBridge != null) {
                     val registrationToken =
                         withContext(NonCancellable) {
@@ -307,6 +302,12 @@ class Tun2SocksTunnel(
                         throw NativeError.SessionCreationFailed("tunnel flow attribution")
                     }
                 }
+                currentCoroutineContext().ensureActive()
+                startAttempted = true
+                withContext(Dispatchers.IO) {
+                    nativeBindings.start(createdHandle, tunFd)
+                }
+                Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
                 currentCoroutineContext().ensureActive()
             } catch (error: Exception) {
                 withContext(NonCancellable) {

@@ -471,7 +471,8 @@ class NativeBridgeWrappersTest {
                 }.exceptionOrNull()
 
             assertTrue(error is NativeError.SessionCreationFailed)
-            assertEquals(1L, bindings.lastStopHandle)
+            assertEquals(null, bindings.lastStartHandle)
+            assertEquals(null, bindings.lastStopHandle)
             assertEquals(1L, bindings.lastDestroyedHandle)
         }
 

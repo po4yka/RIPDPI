@@ -16,6 +16,35 @@ import java.io.IOException
 
 class Tun2SocksTunnelTest {
     @Test
+    fun firstFlowLookupSurvivesTunnelStartup() =
+        runTest {
+            val pendingLookups = mutableSetOf<String>()
+            val delegate = FakeTun2SocksBindings()
+            val bindings =
+                object : Tun2SocksBindings by delegate {
+                    override fun start(
+                        handle: Long,
+                        tunFd: Int,
+                    ) {
+                        delegate.start(handle, tunFd)
+                        pendingLookups += "first-tcp-flow"
+                    }
+
+                    override fun registerFlowAttribution(bridge: Any): Long {
+                        // A new native attribution session clears the preceding queue.
+                        pendingLookups.clear()
+                        return delegate.registerFlowAttribution(bridge)
+                    }
+                }
+            val tunnel = Tun2SocksTunnel(bindings)
+
+            tunnel.start(Tun2SocksConfig(socks5Port = 1080), tunFd = 7, flowAttributionBridge = Any())
+
+            assertEquals(setOf("first-tcp-flow"), pendingLookups)
+            tunnel.stop()
+        }
+
+    @Test
     fun cancelledCreateStillDestroysReturnedHandle() =
         runTest {
             val entered = CompletableDeferred<Unit>()
@@ -59,7 +88,8 @@ class Tun2SocksTunnelTest {
             startJob.join()
 
             assertEquals(bindings.flowAttributionTokenResult, bindings.flowAttributionUnregisteredToken)
-            assertEquals(listOf(1L), bindings.stoppedHandles)
+            assertTrue(bindings.startedHandles.isEmpty())
+            assertTrue(bindings.stoppedHandles.isEmpty())
             assertEquals(listOf(1L), bindings.destroyedHandles)
         }
 
