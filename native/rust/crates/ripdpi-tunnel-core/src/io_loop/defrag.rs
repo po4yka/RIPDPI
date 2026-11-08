@@ -19,7 +19,7 @@ const MAX_REASSEMBLIES: usize = 32;
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(in crate::io_loop) enum Reassembly {
-    /// The packet is not a fragment; route it as it is.
+    /// The packet is outside UDP reassembly; route it as it is.
     NotFragment,
     /// The fragment is kept, or dropped because it is malformed or over the limits.
     Held,
@@ -61,6 +61,20 @@ impl IpDefrag {
             return Reassembly::NotFragment;
         };
         self.pending.retain(|_, pending| now.duration_since(pending.first_seen) < REASSEMBLY_TIMEOUT);
+        let other_transport = fragment
+            .ipv6_headers
+            .as_ref()
+            .is_some_and(|headers| headers.first_fragment == Some(ipv6::FirstFragment::Other));
+        if other_transport
+            && !self
+                .pending
+                .get(&fragment.id)
+                .is_some_and(|pending| pending.buf.is_none() || pending.ipv6_prefix.is_some())
+        {
+            // Offset zero identifies the transport; discard its provisional UDP candidate.
+            self.pending.remove(&fragment.id);
+            return Reassembly::NotFragment;
+        }
         if !self.pending.contains_key(&fragment.id) && self.pending.len() >= MAX_REASSEMBLIES {
             return Reassembly::Held;
         }
@@ -75,7 +89,7 @@ impl IpDefrag {
         };
         let ipv6 = matches!(fragment.id.ip, IpFragVersionSpecId::Ipv6 { .. });
         if let Some(headers) = &fragment.ipv6_headers
-            && !headers.valid_first_fragment
+            && matches!(headers.first_fragment, Some(ipv6::FirstFragment::Invalid | ipv6::FirstFragment::Other))
         {
             pending.buf = None;
             pending.ipv6_prefix = None;

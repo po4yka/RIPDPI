@@ -54,7 +54,7 @@ fn first_fragment_must_include_the_udp_header_after_destination_options() {
 #[test]
 fn only_the_offset_zero_fragment_selects_the_next_header() {
     // RFC 8200 section 4.5 permits non-first fragments to carry a different Next Header.
-    for next_header in [IpNumber::TCP.0, IpNumber::UDP.0, 255] {
+    for next_header in [IpNumber::TCP.0, IpNumber::UDP.0, IpNumber::IPV6_ICMP.0, 255] {
         let first = decode(POST_FIRST);
         let mut last = decode(POST_LAST);
         last[40] = next_header;
@@ -68,4 +68,27 @@ fn only_the_offset_zero_fragment_selects_the_next_header() {
             assert_eq!(packet, decode(POST_COMPLETE));
         }
     }
+}
+
+// Scapy 2.6.1: complete ICMPv6 Echo header in the first fragment.
+const ICMP_FIRST: &str = "6000000000202c40fd00000000000000000000000000000220010db80000000000000000000000073a0000010000007d800073d70001000107070707070707070707070707070707";
+const ICMP_LAST: &str = "6000000000382c40fd00000000000000000000000000000220010db80000000000000000000000073a0000180000007d070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707070707";
+
+#[test]
+fn known_first_icmp_fragment_uses_the_legacy_path() {
+    let mut defrag = IpDefrag::default();
+    assert!(matches!(defrag.accept(&decode(ICMP_FIRST), Instant::now()), Reassembly::NotFragment));
+}
+
+#[test]
+fn non_udp_first_fragment_discards_the_unknown_candidate() {
+    let mut defrag = IpDefrag::default();
+    let now = Instant::now();
+    assert!(matches!(defrag.accept(&decode(ICMP_LAST), now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&decode(ICMP_FIRST), now), Reassembly::NotFragment));
+    let datagram = udp_datagram_v6(&[7; 64]);
+    let first = fragment_v6(125, &datagram, 0, 24);
+    let last = fragment_v6(125, &datagram, 24, datagram.len() - 24);
+    assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&last, now), Reassembly::Complete(_)));
 }

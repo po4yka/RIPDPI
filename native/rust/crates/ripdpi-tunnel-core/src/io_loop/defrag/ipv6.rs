@@ -3,11 +3,18 @@ use etherparse::{IpNumber, Ipv6FragmentHeaderSlice, Ipv6Header, Ipv6HeaderSlice,
 
 use super::{Fragment, FragmentId};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum FirstFragment {
+    Udp,
+    Other,
+    Invalid,
+}
+
 pub(super) struct Headers<'a> {
     prefix: &'a [u8],
     next_header_offset: usize,
     pub(super) next_header: IpNumber,
-    pub(super) valid_first_fragment: bool,
+    pub(super) first_fragment: Option<FirstFragment>,
 }
 
 impl Headers<'_> {
@@ -65,19 +72,23 @@ pub(super) fn parse_fragment(packet: &[u8]) -> Option<Fragment<'_>> {
             prefix: &packet[..offset],
             next_header_offset,
             next_header,
-            valid_first_fragment: fragment.fragment_offset().byte_offset() != 0
-                || includes_udp_header(next_header, payload),
+            first_fragment: (fragment.fragment_offset().byte_offset() == 0)
+                .then(|| first_fragment_protocol(next_header, payload)),
         }),
     })
 }
 
-fn includes_udp_header(mut next: IpNumber, mut payload: &[u8]) -> bool {
+fn first_fragment_protocol(mut next: IpNumber, mut payload: &[u8]) -> FirstFragment {
     while next == IpNumber::IPV6_DESTINATION_OPTIONS {
-        let Some(header) = payload.get(..2) else { return false };
+        let Some(header) = payload.get(..2) else { return FirstFragment::Invalid };
         let len = (usize::from(header[1]) + 1) * 8;
-        let Some(rest) = payload.get(len..) else { return false };
+        let Some(rest) = payload.get(len..) else { return FirstFragment::Invalid };
         next = IpNumber(header[0]);
         payload = rest;
     }
-    next == IpNumber::UDP && payload.len() >= UdpHeader::LEN
+    match next {
+        IpNumber::UDP if payload.len() >= UdpHeader::LEN => FirstFragment::Udp,
+        IpNumber::UDP => FirstFragment::Invalid,
+        _ => FirstFragment::Other,
+    }
 }

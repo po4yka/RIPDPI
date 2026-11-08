@@ -40,6 +40,16 @@ The tunnel MUST reassemble UDP bytes from the Fragment header boundary and retai
 - **WHEN** a valid UDP datagram has Destination Options after its Fragment header
 - **THEN** the original UDP payload reaches forwarding once in any fragment order.
 
+#### Scenario: Keep unresolved fragments away from packet owners
+
+- **WHEN** a non-first IPv6 fragment arrives before its offset-zero fragment
+- **THEN** it remains bounded and unclassified, reaches neither the interceptor nor smoltcp, and does not bypass UID admission.
+
+#### Scenario: Preserve known ICMP policy
+
+- **WHEN** an offset-zero fragment establishes ICMP instead of UDP
+- **THEN** the existing ICMP policy handles that fragment and provisional bytes do not become a UDP datagram.
+
 ### Requirement: REQ-VPN06-F5 — Accept supported IPv6 TCP extensions
 
 The tunnel MUST accept padding Destination Options and atomic Fragment headers without altering TCP data.

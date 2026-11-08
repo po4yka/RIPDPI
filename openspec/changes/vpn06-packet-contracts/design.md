@@ -10,7 +10,7 @@ The current TUN path uses etherparse 0.21.0, vendored smoltcp 0.14.0 and a custo
 ## Decisions
 
 - Validate IPv4 headers before the UDP reassembly split. Validate IPv6 option policy after complete reassembly as well as for ordinary packets.
-- Reassembly must retain the supported pre-fragment chain and fragmentable bytes. It must not parse non-first fragment data as extension headers.
+- Reassembly must retain the supported pre-fragment chain and fragmentable bytes. It must not parse non-first fragment data as extension headers. An orphan has no known transport until offset-zero arrives. Hold it without exposing it to the interceptor or smoltcp; do not count it as ICMP from its non-authoritative Next Header. Known non-UDP first fragments retain the existing policy path.
 - Use bounded interval and rejection state for IPv6 overlap. Use a fixed lifetime so duplicate traffic cannot pin the pool.
 - Normalize only supported safe IPv6 extensions for smoltcp. Reject active Routing Header semantics rather than compute a checksum with the wrong destination. Keep unsupported AH/ESP outside scope.
 - Raw egress uses checked packet and transport ranges. Preserve declared data boundaries and the existing original-packet fallback.

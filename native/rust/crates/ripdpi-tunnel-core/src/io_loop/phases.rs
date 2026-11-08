@@ -257,7 +257,6 @@ mod tests {
             ipv4_icmp_fragment(true),
             ipv4_icmp_fragment(false),
             ipv6_icmp_fragment(true),
-            ipv6_icmp_fragment(false),
         ] {
             let seen_packets = Arc::new(Mutex::new(Vec::new()));
             let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
@@ -269,6 +268,35 @@ mod tests {
             assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_policy_drops, 1);
             assert!(seen_packets.lock().expect("seen packets").is_empty());
             assert!(state.device.rx_queue.is_empty());
+        }
+    }
+
+    #[test]
+    fn orphan_ipv6_fragments_do_not_reach_policy_sensitive_packet_owners() {
+        for (enforcing, allow_icmp) in [(false, false), (true, false), (true, true)] {
+            let seen_packets = Arc::new(Mutex::new(Vec::new()));
+            let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::clone(&seen_packets))));
+            if enforcing {
+                state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
+            }
+            state.runtime.uid_policy_allow_icmp = allow_icmp;
+
+            // RFC 8200 uses the offset-zero header; this orphan may still belong to UDP.
+            route_tun_packet(&ipv6_icmp_fragment(false), &mut state);
+            assert_eq!(state.stats.icmp_ingress_packets(), 0);
+            assert!(seen_packets.lock().expect("seen packets").is_empty());
+            assert!(state.device.rx_queue.is_empty());
+            assert!(state.device.tx_queue.is_empty());
+            assert!(state.udp_associations.is_empty());
+            assert!(state.pending_listens.is_empty());
+
+            if enforcing && !allow_icmp {
+                route_tun_packet(&ipv6_icmp_fragment(true), &mut state);
+                assert_eq!(state.stats.icmp_ingress_packets(), 1);
+                assert_eq!(state.stats.tun_forwarding_evidence_snapshot().tun_policy_drops, 1);
+                assert!(seen_packets.lock().expect("seen packets").is_empty());
+                assert!(state.device.rx_queue.is_empty());
+            }
         }
     }
 
