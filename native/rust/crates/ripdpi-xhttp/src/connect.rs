@@ -46,6 +46,8 @@ pub(crate) async fn create_connection(
             Box::new(tls)
         }
         XhttpMode::Tls(config) => {
+            let server_name = ripdpi_tls_profiles::normalize_server_name(&config.server_name)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
             let transport = finalmask::wrap_tcp_stream(
                 OwnedIo::new(
                     connect_tcp_stream(&config.server, config.port, config.bind_ip, config.socket_protector.as_ref())
@@ -59,7 +61,7 @@ pub(crate) async fn create_connection(
             // otherwise the configured profile is used as-is. (The Reality branch
             // above inherits rotation through `connect_reality_tls_over`.)
             let profile_name =
-                ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
+                ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &server_name);
             // Equivalent to `build_connector(profile_name, true)` (cert
             // verification stays ON — `configure_builder` does not disable it),
             // but split so an optional post-quantum KEM group override can be
@@ -77,7 +79,7 @@ pub(crate) async fn create_connection(
             let mut ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
             ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
                 .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP ECH: {error}")))?;
-            let tls = tokio_boring::connect(ssl, &config.server_name, transport).await.map_err(|error| {
+            let tls = tokio_boring::connect(ssl, &server_name, transport).await.map_err(|error| {
                 if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
                     return io::Error::new(
                         io::ErrorKind::InvalidData,
@@ -200,6 +202,35 @@ mod tests {
 
     use super::*;
     use crate::config::{FinalmaskConfig, XhttpProtocolMode, XhttpRealityConfig, XhttpSocketProtector, XmuxConfig};
+
+    /// # Cancel safety:
+    /// cancel-safe: the test owns the listener and connection capacity; no peer task is spawned.
+    #[tokio::test]
+    async fn invalid_tls_identity_is_rejected_before_a_tcp_connection() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("loopback listener");
+        listener.set_nonblocking(true).expect("nonblocking listener");
+        let config = crate::config::XhttpTlsConfig::from_strings(
+            "127.0.0.1",
+            i32::from(listener.local_addr().expect("listener address").port()),
+            "bücher.test",
+            "550e8400-e29b-41d4-a716-446655440000",
+            "/",
+            "",
+            "chrome_stable",
+        )
+        .expect("TLS configuration");
+        let mode = XhttpMode::Tls(config);
+        let capacity = Arc::new(tokio::sync::Semaphore::new(1)).acquire_owned().await.expect("capacity");
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            create_connection(&mode, 1, Arc::new(Notify::new()), capacity),
+        )
+        .await
+        .expect("invalid identity must not wait for a peer");
+        let Err(error) = result else { panic!("invalid TLS identity was accepted") };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(listener.accept().expect_err("no TCP connection").kind(), io::ErrorKind::WouldBlock);
+    }
 
     /// Server half that goes silent on demand: reads never complete and writes
     /// vanish, like a path whose NAT mapping expired without a RST.

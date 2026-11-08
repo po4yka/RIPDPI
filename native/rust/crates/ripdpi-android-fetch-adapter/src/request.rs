@@ -18,6 +18,8 @@ use crate::url_endpoint::{UrlEndpoint, parse_url_endpoint};
 
 pub(crate) const MAX_RESPONSE_BODY_BYTES: usize = 8 * 1024 * 1024;
 
+/// # Cancel safety:
+/// NOT cancel-safe: the peer may apply a request before cancellation; cancellation does not prove rollback.
 pub(crate) async fn execute_once(
     method: &Method,
     url: &Url,
@@ -40,12 +42,22 @@ pub(crate) async fn execute_once(
     if https {
         execute_once_https(method, &endpoint, request, tcp).await
     } else {
-        send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, false, request, TokioIo::new(tcp))
-            .await
+        send_request(
+            method,
+            &endpoint.target_path,
+            &endpoint.http_host,
+            endpoint.port,
+            false,
+            request,
+            TokioIo::new(tcp),
+        )
+        .await
     }
 }
 
 #[inline(never)]
+/// # Cancel safety:
+/// NOT cancel-safe: the peer may apply a request before cancellation; cancellation does not prove rollback.
 async fn execute_once_https(
     method: &Method,
     endpoint: &UrlEndpoint,
@@ -53,7 +65,8 @@ async fn execute_once_https(
     tcp: TcpStream,
 ) -> io::Result<RawHttpResponse> {
     let tls = connect_tls(&endpoint.host, tcp, request.connect_timeout_ms, &request.tls_profile_id).await?;
-    send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, true, request, TokioIo::new(tls)).await
+    send_request(method, &endpoint.target_path, &endpoint.http_host, endpoint.port, true, request, TokioIo::new(tls))
+        .await
 }
 
 async fn send_request<T>(

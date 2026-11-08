@@ -292,6 +292,8 @@ async fn connect_reality_tls_inner<S>(
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    let server_name = ripdpi_tls_profiles::normalize_server_name(&config.server_name)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     // 1. Build a fresh SSL connector for this connection. Each
     //    Reality connect gets its own SSL_CTX so the
     //    `client_hello_cb` slot on the CTX is single-use.
@@ -302,8 +304,7 @@ where
     //    the configured profile. The same resolved name MUST feed both the
     //    connector build and the ECH-parity decision below, so a rotated
     //    connection's ClientHello is internally consistent.
-    let profile_name =
-        ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &config.server_name);
+    let profile_name = ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &server_name);
     let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
         .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
 
@@ -362,16 +363,14 @@ where
     // / `prepare_ech_retry`) is intentionally NOT used on the REALITY path.
     match ripdpi_tls_profiles::reality_ech_parity(
         ripdpi_tls_profiles::selected_profile_config(profile_name),
-        &config.server_name,
+        &server_name,
         ripdpi_tls_profiles::CoverEchEvidence::Unknown,
     ) {
         ripdpi_tls_profiles::RealityEchParity::Grease => config_ssl.set_enable_ech_grease(true),
         ripdpi_tls_profiles::RealityEchParity::Off => {}
     }
 
-    let ssl = config_ssl
-        .into_ssl(&config.server_name)
-        .map_err(|error| io::Error::other(format!("SSL configure: {error}")))?;
+    let ssl = config_ssl.into_ssl(&server_name).map_err(|error| io::Error::other(format!("SSL configure: {error}")))?;
 
     // 2. Install the Reality `client_hello_cb` hook on the SSL_CTX
     //    backing `ssl`. The callback fires once per
@@ -454,6 +453,7 @@ where
 #[cfg(test)]
 mod tests {
     mod h2_alpn;
+    mod server_name;
 
     use super::{DropOrdered, RealityRecordStream, connect_reality_tls};
     use crate::reality_seal::derive_auth_key;

@@ -32,13 +32,13 @@ pub(crate) fn parse_proxy_origin(config: &MasqueConfig) -> io::Result<ProxyOrigi
     if parsed.scheme() != "https" {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL must use https"));
     }
-    let host = parsed
-        .host_str()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))?
-        .to_string();
+    let authority_host =
+        parsed.host_str().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))?;
+    let host = ripdpi_tls_profiles::normalize_server_name(authority_host)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let udp_base_path = derive_udp_base_path(parsed.path());
     let port = parsed.port().unwrap_or(443);
-    let authority = if port == 443 { host.clone() } else { format!("{host}:{port}") };
+    let authority = if port == 443 { authority_host.to_owned() } else { format!("{authority_host}:{port}") };
     Ok(ProxyOrigin { host, authority, udp_base_path })
 }
 
@@ -137,5 +137,43 @@ mod bare_ipv6_rejection_tests {
         let domain = parse_target("example.com:443").expect("domain target parses");
         assert_eq!(domain.host, "example.com");
         assert_eq!(domain.port, 443);
+    }
+}
+
+#[cfg(test)]
+mod tls_identity_tests {
+    use super::*;
+
+    #[test]
+    fn proxy_origin_separates_ipv6_tls_name_from_http_authority() {
+        let mut config = MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            url: String::new(),
+            proxy_socket_addr: None,
+            tcp_protocol: crate::config::MasqueTcpProtocol::Http2,
+            use_http2_fallback: false,
+            auth_mode: None,
+            auth_token: None,
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
+            privacy_pass_provider_url: None,
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".into(),
+            root_certificate_pem: None,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            ech_config: None,
+        };
+        for (url, expected_name, expected) in [
+            ("https://[::1]/", "::1", "[::1]"),
+            ("https://[::1]:8443/", "::1", "[::1]:8443"),
+            ("https://example.test.:8443/", "example.test", "example.test.:8443"),
+        ] {
+            config.url = url.into();
+            let origin = parse_proxy_origin(&config).expect("IPv6 origin");
+            assert_eq!(origin.host, expected_name);
+            assert_eq!(origin.authority, expected);
+        }
     }
 }

@@ -148,3 +148,14 @@ fn webtunnel_client_checks_the_certificate_against_cert_domain() {
     bridge.cert_domain = Some("localhost".to_owned());
     connect_webtunnel(&bridge).expect("the certificate names cert-domain");
 }
+
+#[test]
+fn tls_identity_normalizes_absolute_dns_name_before_verified_upgrade() {
+    let fixture = WebTunnelFixture::start("/secret").expect("WebTunnel fixture");
+    let bridge = trusted_fixture_bridge(&fixture, "localhost.");
+    let mut stream = connect_webtunnel(&bridge).expect("verified TLS with canonical DNS identity");
+    stream.write_all(b"root-dot").expect("write payload");
+    let mut echoed = [0_u8; 8];
+    stream.read_exact(&mut echoed).expect("echo payload");
+    assert_eq!(&echoed, b"root-dot");
+}

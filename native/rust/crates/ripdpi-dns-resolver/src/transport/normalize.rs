@@ -31,6 +31,30 @@ pub(crate) fn normalize_endpoint(
         EncryptedDnsProtocol::DnsCrypt => normalize_dnscrypt_endpoint(&endpoint)?,
     }
 
+    let uses_tls = match endpoint.protocol {
+        EncryptedDnsProtocol::Dot | EncryptedDnsProtocol::Doq => true,
+        EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh => super::client::doh_uses_tls(&endpoint),
+        EncryptedDnsProtocol::DnsCrypt => false,
+    };
+    if uses_tls {
+        if matches!(endpoint.protocol, EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh) {
+            // reqwest uses the URL identity even when the manual TLS path has an override.
+            let url_host = super::client::request_url_host(&endpoint).ok_or(EncryptedDnsError::MissingHost)?;
+            ripdpi_tls_profiles::normalize_server_name(&url_host)
+                .map_err(|error| EncryptedDnsError::InvalidEndpoint(error.to_string()))?;
+        }
+        if let Some(ip) = endpoint.host.strip_prefix('[').and_then(|host| host.strip_suffix(']'))
+            && let Ok(ip) = ip.parse::<std::net::Ipv6Addr>()
+        {
+            endpoint.host = ip.to_string();
+        }
+        endpoint.tls_server_name = endpoint
+            .tls_server_name
+            .as_deref()
+            .map(ripdpi_tls_profiles::normalize_server_name)
+            .transpose()
+            .map_err(|error| EncryptedDnsError::InvalidEndpoint(error.to_string()))?;
+    }
     Ok(endpoint)
 }
 
@@ -107,3 +131,6 @@ fn normalize_dnscrypt_endpoint(endpoint: &EncryptedDnsEndpoint) -> Result<(), En
     dnscrypt_verifying_key(endpoint)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tls_identity_tests;

@@ -369,12 +369,13 @@ fn execute_cell(
     execute_cell_with(target, cohort_id, address, profile, parallelism, deadline, |host, address, profile| {
         let timeout =
             ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
+        let host = ripdpi_tls_profiles::normalize_server_name(host).map_err(|error| error.to_string())?;
         let connector = ripdpi_tls_profiles::build_connector(profile, true).map_err(|error| error.to_string())?;
         let stream =
             protected_tcp_connect(address, timeout, diagnostics_session_id).map_err(|error| error.to_string())?;
         stream.set_read_timeout(Some(timeout)).map_err(|error| error.to_string())?;
         stream.set_write_timeout(Some(timeout)).map_err(|error| error.to_string())?;
-        connector.connect(host, stream).map_err(|error| error.to_string())
+        connector.connect(&host, stream).map_err(|error| error.to_string())
     })
 }
 

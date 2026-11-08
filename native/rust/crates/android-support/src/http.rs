@@ -28,8 +28,9 @@
 /// assert_eq!(authority_header_value("example.com", 443, false), "example.com:443");
 /// ```
 pub fn authority_header_value(host: &str, port: u16, https: bool) -> String {
+    let host = if host.parse::<std::net::Ipv6Addr>().is_ok() { format!("[{host}]") } else { host.to_owned() };
     let default_port = if https { 443 } else { 80 };
-    if port == default_port { host.to_string() } else { format!("{host}:{port}") }
+    if port == default_port { host } else { format!("{host}:{port}") }
 }
 
 #[cfg(test)]
@@ -61,5 +62,20 @@ mod tests {
     fn http_port_443_not_default_included() {
         // Port 443 is NOT the default for HTTP — must appear in the header.
         assert_eq!(authority_header_value("example.com", 443, false), "example.com:443");
+    }
+}
+
+#[cfg(test)]
+mod ipv6_authority_tests {
+    #[test]
+    fn tls_identity_ipv6_authority_retains_brackets() {
+        for (host, port, https, expected) in [
+            ("::1", 443, true, "[::1]"),
+            ("::1", 8443, true, "[::1]:8443"),
+            ("[::1]", 443, true, "[::1]"),
+            ("127.0.0.1", 443, true, "127.0.0.1"),
+        ] {
+            assert_eq!(super::authority_header_value(host, port, https), expected);
+        }
     }
 }

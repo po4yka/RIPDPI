@@ -751,10 +751,16 @@ impl Drop for AnyTlsStream {
     }
 }
 
+/// # Cancel safety:
+///
+/// NOT cancel-safe: a partial TLS handshake can remain on a borrowed transport;
+/// discard the underlying transport if the future is cancelled.
 async fn connect_tls<S>(config: &AnyTlsClientConfig, transport: S) -> Result<SslStream<S>, AnyTlsError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    let server_name = ripdpi_tls_profiles::normalize_server_name(&config.server_name)
+        .map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
     // Keep the profile's version range: forcing TLS 1.3 only drops the TLS 1.2
     // suites and extensions the browser sends, so the ClientHello would match no
     // real browser. The server still negotiates TLS 1.3.
@@ -767,7 +773,7 @@ where
 
     let connector = builder.build();
     let ssl = connector.configure().map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
-    tokio_boring::connect(ssl, &config.server_name, transport)
+    tokio_boring::connect(ssl, &server_name, transport)
         .await
         .map_err(|error| AnyTlsError::TlsHandshake(error.to_string()))
 }

@@ -85,14 +85,17 @@ fn default_root_store(extra_roots: &[CertificateDer<'static>]) -> Result<RootCer
     Ok(roots)
 }
 
-fn doh_uses_tls(endpoint: &EncryptedDnsEndpoint) -> bool {
+pub(super) fn doh_uses_tls(endpoint: &EncryptedDnsEndpoint) -> bool {
     endpoint_doh_url(endpoint)
         .and_then(|value| Url::parse(value).ok())
         .is_none_or(|url| url.scheme().eq_ignore_ascii_case("https"))
 }
 
 fn endpoint_doh_url(endpoint: &EncryptedDnsEndpoint) -> Option<&str> {
-    endpoint.odoh.as_ref().map(|config| config.proxy_url.as_str()).or(endpoint.doh_url.as_deref())
+    match &endpoint.odoh {
+        Some(odoh) if endpoint.protocol == EncryptedDnsProtocol::Odoh => Some(odoh.proxy_url.as_str()),
+        _ => endpoint.doh_url.as_deref(),
+    }
 }
 
 fn doh_tls_config(
@@ -172,12 +175,8 @@ fn configure_direct_transport(
     }
 }
 
-fn request_url_host(endpoint: &EncryptedDnsEndpoint) -> Option<String> {
-    let url = match &endpoint.odoh {
-        Some(odoh) if endpoint.protocol == EncryptedDnsProtocol::Odoh => odoh.proxy_url.as_str(),
-        _ => endpoint.doh_url.as_deref()?,
-    };
-    Url::parse(url).ok()?.host_str().map(str::to_string)
+pub(super) fn request_url_host(endpoint: &EncryptedDnsEndpoint) -> Option<String> {
+    Url::parse(endpoint_doh_url(endpoint)?).ok()?.host_str().map(str::to_string)
 }
 
 fn configure_socks5_transport(

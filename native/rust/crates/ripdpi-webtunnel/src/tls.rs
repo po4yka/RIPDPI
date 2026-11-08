@@ -74,8 +74,13 @@ pub fn configure_connection(
     if config.cert.is_none()
         && let Some(domain) = &config.cert_domain
     {
+        let domain = ripdpi_tls_profiles::normalize_server_name(domain)?;
         connection.set_verify_hostname(false);
-        connection.param_mut().set_host(domain).map_err(WebTunnelTlsError::Configure)?;
+        match domain.parse() {
+            Ok(ip) => connection.param_mut().set_ip(ip),
+            Err(_) => connection.param_mut().set_host(&domain),
+        }
+        .map_err(WebTunnelTlsError::Configure)?;
     }
     Ok(connection)
 }

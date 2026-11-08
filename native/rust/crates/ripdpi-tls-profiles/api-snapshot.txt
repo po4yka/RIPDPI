@@ -124,6 +124,8 @@ pub ripdpi_tls_profiles::EchSetup::Grease
 pub ripdpi_tls_profiles::EchSetup::OptedOut
 pub ripdpi_tls_profiles::EchSetup::Real(ripdpi_tls_profiles::ech::OutboundEchConfig)
 pub enum ripdpi_tls_profiles::Error
+pub ripdpi_tls_profiles::Error::InvalidServerName
+pub ripdpi_tls_profiles::Error::InvalidServerName::reason: &'static str
 pub ripdpi_tls_profiles::Error::Invariant
 pub ripdpi_tls_profiles::Error::Invariant::profile: &'static str
 pub ripdpi_tls_profiles::Error::Invariant::reason: &'static str
@@ -262,6 +264,7 @@ pub fn ripdpi_tls_profiles::extract_boring_ech_rejection<S>(&boring::ssl::MidHan
 pub fn ripdpi_tls_profiles::fingerprint_rotation_count() -> u64
 pub fn ripdpi_tls_profiles::is_rotating_profile(&str) -> bool
 pub fn ripdpi_tls_profiles::normalize_kem_groups(&[alloc::string::String]) -> core::result::Result<alloc::string::String, ripdpi_tls_profiles::Error>
+pub fn ripdpi_tls_profiles::normalize_server_name(&str) -> core::result::Result<alloc::string::String, ripdpi_tls_profiles::Error>
 pub fn ripdpi_tls_profiles::note_pq_kem_negotiation(core::option::Option<u16>)
 pub fn ripdpi_tls_profiles::plan_first_flight(&str, &[u8]) -> core::option::Option<ripdpi_tls_profiles::TlsTemplateFirstFlightPlan>
 pub fn ripdpi_tls_profiles::planned_record_payload_boundaries(&str, &[u8]) -> core::option::Option<alloc::vec::Vec<usize>>

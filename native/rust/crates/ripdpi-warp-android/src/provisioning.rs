@@ -97,14 +97,17 @@ where
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "WARP provisioning request timed out"))?
 }
 
+/// # Cancel safety:
+///
 /// NOT cancel-safe: the remote registration or refresh may already be applied when a deadline drops the local exchange, so a timeout is an indeterminate remote outcome and does not prove server-side rollback.
 async fn execute_async(request: NativeWarpProvisioningHttpRequest) -> io::Result<NativeWarpProvisioningHttpResponse> {
     let parsed = Url::parse(&request.url)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid URL: {error}")))?;
-    let host = parsed
+    let http_host = parsed
         .host_str()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "WARP provisioning URL has no host"))?
-        .to_string();
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "WARP provisioning URL has no host"))?;
+    let host = ripdpi_tls_profiles::normalize_server_name(http_host)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let port = parsed.port_or_known_default().unwrap_or(443);
     let path = parsed.path().to_string();
     let query_suffix = parsed.query().map(|query| format!("?{query}")).unwrap_or_default();
@@ -147,7 +150,7 @@ async fn execute_async(request: NativeWarpProvisioningHttpRequest) -> io::Result
         builder = builder.header(name.as_str(), value.as_str());
     }
     if !has_host_header {
-        builder = builder.header(HOST, authority_header_value(&host, port, true));
+        builder = builder.header(HOST, authority_header_value(http_host, port, true));
     }
     let request = builder
         .body(Full::new(body))

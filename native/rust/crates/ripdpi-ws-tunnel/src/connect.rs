@@ -255,7 +255,10 @@ fn open_ws_tunnel_with_timeout_and_connector(
     }
     bootstrap.check()?;
     let (host, target) = resolve_ws_target(dc, resolved_addr, worker_route)?;
-    let tls_host = fake_sni.unwrap_or(&host);
+    let host = ripdpi_tls_profiles::normalize_server_name(&host)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let tls_host = ripdpi_tls_profiles::normalize_server_name(fake_sni.unwrap_or(&host))
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let tcp = connect_tcp_socket_with(target, protect_path, &bootstrap, protect::protect_socket)?;
     bootstrap.check()?;
     tcp.set_nonblocking(true)?;
@@ -271,10 +274,14 @@ fn open_ws_tunnel_with_timeout_and_connector(
         tls_config.set_verify_hostname(false);
         let param = tls_config.param_mut();
         param.set_hostflags(X509CheckFlags::NO_PARTIAL_WILDCARDS);
-        param.set_host(&host).map_err(|e| io::Error::other(format!("boring TLS gateway name: {e}")))?;
+        match host.parse() {
+            Ok(ip) => param.set_ip(ip),
+            Err(_) => param.set_host(&host),
+        }
+        .map_err(|e| io::Error::other(format!("boring TLS gateway name: {e}")))?;
     }
     bootstrap.check()?;
-    let mut tls_handshake = tls_config.connect(tls_host, tcp);
+    let mut tls_handshake = tls_config.connect(&tls_host, tcp);
     let tls_stream = loop {
         bootstrap.check()?;
         match tls_handshake {
@@ -475,7 +482,7 @@ mod tests {
             Some(fixture.addr),
             None,
             test_bootstrap(Some(Duration::from_secs(2))),
-            Some("cover.example"),
+            Some("cover.example."),
             None,
             |_fake_sni, worker_route| test_tls_connector(&fixture.root_der, None, worker_route),
         )
@@ -488,6 +495,24 @@ mod tests {
         let observed = fixture.observed.recv().expect("fixture observation");
         fixture.handle.join().expect("fixture thread");
         assert_eq!(observed.sni.as_deref(), Some("cover.example"));
+    }
+
+    #[test]
+    fn tls_identity_rejects_invalid_fake_sni_before_connecting() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("listener");
+        listener.set_nonblocking(true).expect("nonblocking listener");
+        let error = open_ws_tunnel_with_timeout_and_connector(
+            TelegramDc::production(2),
+            Some(listener.local_addr().expect("listener address")),
+            None,
+            test_bootstrap(Some(Duration::from_secs(2))),
+            Some("bücher.test"),
+            None,
+            |_, _| build_tls_connector(),
+        )
+        .expect_err("raw Unicode cover must fail validation");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(listener.accept().expect_err("no socket may connect").kind(), io::ErrorKind::WouldBlock);
     }
 
     #[test]

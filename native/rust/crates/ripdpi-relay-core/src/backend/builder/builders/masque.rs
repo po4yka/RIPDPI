@@ -96,10 +96,12 @@ fn build_masque_client_config_with_ech_lookup(
 
 fn masque_url_host(url: &str) -> io::Result<String> {
     let parsed = url::Url::parse(url).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-    parsed
-        .host_str()
-        .map(str::to_owned)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))
+    let host =
+        parsed.host().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))?;
+    Ok(match host {
+        url::Host::Ipv6(ip) => ip.to_string(),
+        host => host.to_string(),
+    })
 }
 
 #[cfg(test)]
@@ -107,6 +109,11 @@ mod tests {
     use super::*;
     use crate::config::{CommonRelayConfig, MasqueRelayConfig, ResolvedRelayFinalmaskConfig};
     use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn masque_ech_lookup_uses_the_bare_ipv6_host() {
+        assert_eq!(masque_url_host("https://[::1]:8443/path").expect("IPv6 MASQUE URL"), "::1");
+    }
 
     const BORING_ECH_CONFIG_LIST: &[u8] = &[
         0x00, 0x3e, 0xfe, 0x0d, 0x00, 0x3a, 0x00, 0x00, 0x20, 0x00, 0x20, 0xbb, 0x2f, 0x29, 0xe3, 0xe3, 0x05, 0x7e,

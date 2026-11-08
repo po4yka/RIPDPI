@@ -16,6 +16,7 @@ mod reality_ech;
 mod record_choreography;
 mod rotation;
 mod safari;
+mod server_name;
 mod trust;
 
 #[cfg(test)]
@@ -47,6 +48,7 @@ pub use rotation::{
     ROTATING_PROFILE_MARKER, RotatingProfileSelector, fingerprint_rotation_count, is_rotating_profile,
     resolve_connection_profile, select_profile_for_connection, select_rotated_profile, select_rotated_profile_with_set,
 };
+pub use server_name::normalize_server_name;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -54,6 +56,8 @@ pub enum Error {
     Ssl(#[from] boring::error::ErrorStack),
     #[error("TLS profile invariant failed for {profile}: {reason}")]
     Invariant { profile: &'static str, reason: &'static str },
+    #[error("invalid TLS server name: {reason}")]
+    InvalidServerName { reason: &'static str },
 }
 
 pub fn profile_catalog_version() -> &'static str {

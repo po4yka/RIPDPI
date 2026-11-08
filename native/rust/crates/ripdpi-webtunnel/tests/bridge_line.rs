@@ -69,3 +69,25 @@ fn sni_imitation_sets_the_sni_name_and_checks_the_url_host() {
     assert_eq!(overridden.servername, "sni.example");
     assert_eq!(overridden.cert_domain.as_deref(), Some("cert.example"));
 }
+
+#[test]
+fn tls_identity_is_separate_from_url_authority() {
+    let bridge = parse_bridge_line("webtunnel 192.0.2.3:1 url=https://[::1]:8443/secret").expect("IPv6 bridge");
+    assert_eq!(bridge.servername, "::1");
+    assert_eq!(bridge.http_host, "[::1]");
+    assert_eq!(bridge.addr, "[::1]:8443");
+    let bridge = parse_bridge_line(
+        "webtunnel 192.0.2.3:1 url=https://bridge.example/secret servername=cover.example. cert-domain=verify.example.",
+    )
+    .expect("absolute DNS names");
+    assert_eq!(bridge.servername, "cover.example");
+    assert_eq!(bridge.cert_domain.as_deref(), Some("verify.example"));
+}
+
+#[test]
+fn tls_identity_rejects_invalid_explicit_names() {
+    for name in ["bücher.test".to_owned(), "bad..test".into(), format!("{}.test", "a".repeat(64))] {
+        let line = format!("webtunnel 192.0.2.3:1 url=https://bridge.example/secret servername={name}");
+        assert!(parse_bridge_line(&line).is_err(), "{name}");
+    }
+}

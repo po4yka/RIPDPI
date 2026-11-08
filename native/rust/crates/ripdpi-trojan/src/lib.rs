@@ -446,9 +446,10 @@ impl TrojanClient {
 /// TLS, then a TCP CONNECT request: sent now with a first payload, or
 /// deferred to the first write without one.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// cancel-safe: the future owns the transport; dropping it closes it.
+/// NOT cancel-safe: a partial TLS handshake can remain on a borrowed transport;
+/// discard the underlying transport if the future is cancelled.
 async fn connect_stream_over<S>(
     config: &TrojanClientConfig,
     transport: S,
@@ -478,9 +479,10 @@ where
 
 /// TLS, then the request frame, written now.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// cancel-safe: the future owns the transport; dropping it closes it.
+/// NOT cancel-safe: a partial TLS handshake or request can remain on a borrowed
+/// transport; discard the underlying transport if the future is cancelled.
 async fn connect_with_request_over<S>(
     config: &TrojanClientConfig,
     transport: S,
@@ -498,13 +500,16 @@ where
     Ok(stream)
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// cancel-safe: the future owns the transport; dropping it closes it.
+/// NOT cancel-safe: a partial TLS handshake can remain on a borrowed transport;
+/// discard the underlying transport if the future is cancelled.
 async fn tls_connect<S>(config: &TrojanClientConfig, transport: S) -> Result<SslStream<S>, TrojanError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    let server_name = ripdpi_tls_profiles::normalize_server_name(&config.server_name)
+        .map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| TrojanError::TlsProfile(error.to_string()))?;
     if let Some(root_pem) = &config.root_certificate_pem {
@@ -514,7 +519,7 @@ where
 
     let connector = builder.build();
     let config_ssl = connector.configure().map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
-    tokio_boring::connect(config_ssl, &config.server_name, transport)
+    tokio_boring::connect(config_ssl, &server_name, transport)
         .await
         .map_err(|error| TrojanError::TlsHandshake(error.to_string()))
 }

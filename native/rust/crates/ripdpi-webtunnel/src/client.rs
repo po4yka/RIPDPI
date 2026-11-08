@@ -75,6 +75,10 @@ fn connect_webtunnel_with(
     config: &WebTunnelBridgeConfig,
     offer: AlpnOffer,
 ) -> Result<WebTunnelStream, WebTunnelClientError> {
+    let servername =
+        ripdpi_tls_profiles::normalize_server_name(&config.servername).map_err(WebTunnelTlsError::Profile)?;
+    let connector = connector_for(config, offer)?;
+    let ssl = configure_connection(&connector, config)?;
     let tcp = ripdpi_subprocess_protect::protected_tcp_connect_blocking(&config.addr, config.protect_path.as_deref())
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
     tcp.set_read_timeout(Some(IO_TIMEOUT))
@@ -82,10 +86,7 @@ fn connect_webtunnel_with(
     tcp.set_write_timeout(Some(IO_TIMEOUT))
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
 
-    let connector = connector_for(config, offer)?;
-    let tls = configure_connection(&connector, config)?
-        .connect(&config.servername, tcp)
-        .map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;
+    let tls = ssl.connect(&servername, tcp).map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;
     reject_h2(tls.ssl())?;
     let request = HttpUpgradeRequest { host: config.http_host.clone(), secret_path: config.secret_path.clone() };
     perform_http_upgrade(tls, &request).map_err(WebTunnelClientError::from)
@@ -110,21 +111,23 @@ pub async fn connect_webtunnel_async(
     }
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: see [`connect_webtunnel_async`].
 async fn connect_webtunnel_async_with(
     config: &WebTunnelBridgeConfig,
     offer: AlpnOffer,
 ) -> Result<WebTunnelAsyncStream, WebTunnelClientError> {
+    let servername =
+        ripdpi_tls_profiles::normalize_server_name(&config.servername).map_err(WebTunnelTlsError::Profile)?;
+    let connector = connector_for(config, offer)?;
+    let ssl = configure_connection(&connector, config)?;
     let tcp = ripdpi_subprocess_protect::protected_tcp_connect(&config.addr, config.protect_path.as_deref())
         .await
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
     tcp.set_nodelay(true).map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
 
-    let connector = connector_for(config, offer)?;
-    let ssl = configure_connection(&connector, config)?;
-    let tls = tokio_boring::connect(ssl, &config.servername, tcp)
+    let tls = tokio_boring::connect(ssl, &servername, tcp)
         .await
         .map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;
     reject_h2(tls.ssl())?;
