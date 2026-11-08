@@ -1,0 +1,11 @@
+{
+  "change": "repair-shared-listener",
+  "evidence_summary": "Eight fixes with regression tests; the independent LOC-06 wire and DNS probes, the Android settings and lint gates, and the source gates passed.",
+  "execution_sha256": "cb6b004393f4fb45ae6ee76af61cec70c16be43646d57efae0a017ca9a2e7c6f",
+  "issue_sha256": "80a58e73d095b605564a19ecff42945b992ec1bef44eff21dcd1f6380b6a0760",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T06:43:37Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794118808814556"
+}
