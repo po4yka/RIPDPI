@@ -1,0 +1,38 @@
+## Context
+
+The LOC-04 audit at 3e6e2dd2c870c20749c4184348a6da6ba2336a56 reproduced six defects.
+Use the existing blocking TCP worker runtime and its local network fixtures.
+
+## Goals / Non-Goals
+
+- Goal: repair F1 through F6 with a focused commit and regression evidence for each.
+- Non-goal: BIND, UDP, IDENT, new resolver transports, dependencies, or provider changes.
+
+## Decisions
+
+- Reuse the established connected-before-ACK route for SOCKS4 delayed requests. Preserve route selection and server-first operation.
+- Treat pre-payload FIN as a directional close. Keep the other direction in the existing relay.
+- Validate the final address family and the exact SOCKS4a sentinel in the session owner.
+- Pass runtime cancellation and the remaining handshake deadline to the existing cancellable DNS resolver. A FIN alone is not operation cancellation.
+- Keep request size bounds and map a recognized SOCKS4 size rejection to its wire failure reply.
+- Add behavior tests to owning crates; compare wire output with literal protocol bytes and real loopback origins.
+
+## Contracts and ownership
+
+- Affected crates: ripdpi-session, ripdpi-proxy-runtime, and existing resolver callers through ripdpi-ws-bootstrap.
+- Kotlin, JNI, protobuf, storage and configuration schemas remain unchanged.
+- The portfolio task records independent worker paths. Root serializes planning, snapshots and integration. Do not edit Cargo.lock, version catalogs, baselines or golden fixtures.
+- Each worker uses a dedicated worktree. Root transfers each reviewed commit separately into the integration branch.
+
+## Risks / Trade-offs
+
+- Shared relay code affects SOCKS5 and HTTP: run their existing tests and duplex tests.
+- ACK timing can affect delayed routing and WS: test refused targets, no duplicate connects, and server-first traffic; preserve payload policy checks.
+- DNS cancellation can break half-close if FIN is treated as disconnect: cancel on owner stop and deadline only.
+- Limits must not grow: exercise both sides of USERID and domain bounds.
+
+## Migration Plan
+
+No data migration is needed. Revert the relevant fix commit to roll back that behavior.
+Before integration run targeted regression tests, affected crate suites, Rust format and clippy, independent review, just ci-gates, architecture health, and locked Cargo metadata.
+Only host and loopback validation is required for these Rust repairs; hosted CI and Android/device/provider acceptance are separate evidence and are not claimed.
