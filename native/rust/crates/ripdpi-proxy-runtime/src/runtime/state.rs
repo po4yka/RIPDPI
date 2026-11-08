@@ -228,6 +228,15 @@ impl RuntimeState {
                 "proxy auth token is incompatible with listener mode",
             ));
         }
+        if token.is_some_and(|value| value.is_empty() || value.len() > u8::MAX as usize)
+            && matches!(
+                ripdpi_proxy_runtime_adapter::model::config::proxy_protocol_mode(config),
+                ProxyProtocolMode::Mixed { shadowsocks_enabled: false }
+                    | ProxyProtocolMode::BytePrefixed { shadowsocks_enabled: false }
+            )
+        {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "socks5 auth token must contain 1..=255 bytes"));
+        }
         Ok(())
     }
     pub(super) fn listener_bind_addr(config: &RuntimeConfig) -> SocketAddr {

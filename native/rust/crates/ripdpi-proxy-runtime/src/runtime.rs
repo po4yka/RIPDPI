@@ -128,6 +128,74 @@ mod tests {
     }
 
     #[test]
+    fn listener_rejects_unrepresentable_socks5_tokens_before_bind() {
+        let occupied = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve listener address");
+        for mixed in [false, true] {
+            for token in [String::new(), "t".repeat(256), "é".repeat(128)] {
+                let mut config = RuntimeConfig::default();
+                config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+                config.network.listen.listen_port = occupied.local_addr().expect("reserved address").port();
+                config.network.listen.auth_token = Some(token.clone());
+                config.network.mixed = mixed;
+
+                let err = create_listener(&config).expect_err("invalid token must fail before bind");
+                assert_eq!(err.kind(), io::ErrorKind::InvalidInput, "mixed={mixed}, bytes={}", token.len());
+                if !token.is_empty() {
+                    assert!(!err.to_string().contains(&token), "validation must not expose the token");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn listener_authenticates_valid_socks5_token_byte_boundaries() {
+        for mixed in [false, true] {
+            for token in ["t".to_string(), "t".repeat(255), "é".repeat(127), format!("{}t", "é".repeat(127))] {
+                let mut config = RuntimeConfig::default();
+                config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+                config.network.listen.listen_port = 0;
+                config.network.listen.auth_token = Some(token.clone());
+                config.network.mixed = mixed;
+                let listener = create_listener(&config).expect("valid token listener");
+                listener.set_nonblocking(false).expect("blocking listener");
+                let address = listener.local_addr().expect("listener address");
+                let worker = thread::spawn(move || {
+                    let (client, _) = listener.accept().expect("accept authenticated client");
+                    super::handshake::handle_client(client, &RuntimeState::test(config))
+                });
+                let mut client = TcpStream::connect(address).expect("connect client");
+                client.set_read_timeout(Some(Duration::from_secs(2))).expect("client read deadline");
+                client.write_all(&[5, 1, 2]).expect("offer username/password");
+                let mut reply = [0; 2];
+                client.read_exact(&mut reply).expect("read selected method");
+                assert_eq!(reply, [5, 2]);
+                let mut request = vec![1, 1, b'u', token.len() as u8];
+                request.extend_from_slice(token.as_bytes());
+                client.write_all(&request).expect("send literal authentication frame");
+                client.read_exact(&mut reply).expect("read authentication result");
+                assert_eq!(reply, [1, 0], "mixed={mixed}, bytes={}", token.len());
+                drop(client);
+                assert_eq!(
+                    worker.join().expect("join authentication worker").expect_err("no target request").kind(),
+                    io::ErrorKind::UnexpectedEof
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn listener_preserves_http_only_token_lengths() {
+        for token in [String::new(), "t".repeat(256), "é".repeat(128)] {
+            let mut config = RuntimeConfig::default();
+            config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
+            config.network.listen.listen_port = 0;
+            config.network.listen.auth_token = Some(token);
+            config.network.http_connect = true;
+            create_listener(&config).expect("HTTP-only token length is not restricted by RFC 1929");
+        }
+    }
+
+    #[test]
     fn prebound_lan_listener_cannot_bypass_auth_validation() {
         let config = RuntimeConfig::default();
         let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).expect("bind LAN listener");
