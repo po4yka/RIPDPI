@@ -1,4 +1,5 @@
 mod absolute_domain;
+mod auth_correlation;
 mod policy_reply;
 mod upstream_reply;
 

@@ -37,7 +37,7 @@ fn negotiate_socks5_inner(
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks5 auth method"));
         }
 
-        let allow_attempt_token = client.peer_addr().is_ok_and(|addr| addr.ip().is_loopback());
+        let allow_attempt_token = client.peer_addr().is_ok_and(|addr| addr.ip().to_canonical().is_loopback());
         read_socks5_userpass_auth(client, token, allow_attempt_token, deadline)
     } else {
         if !accepted {
