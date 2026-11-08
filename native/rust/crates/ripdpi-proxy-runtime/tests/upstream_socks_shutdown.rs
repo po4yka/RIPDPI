@@ -85,6 +85,8 @@ fn check_forced_drain(phase: Phase) {
     } else {
         None
     };
+    // Darwin can reject SO_RCVTIMEO after a reset; set it while the peer is connected.
+    upstream.set_read_timeout(Some(Duration::from_millis(250))).expect("bound terminal EOF check");
     let stopped_at = Instant::now();
     control.request_shutdown();
     let receipt =
@@ -93,12 +95,17 @@ fn check_forced_drain(phase: Phase) {
     assert!(receipt.forced_abort(), "{phase:?} must use forced drain");
     assert!(!receipt.worker_panicked(), "{phase:?} must not panic");
     assert!(stopped_at.elapsed() < Duration::from_secs(5));
-    upstream.set_read_timeout(Some(Duration::from_millis(250))).expect("bound terminal EOF check");
     let mut tail = [0; 10];
     let terminal_read = upstream.read(&mut tail);
     if let Some((stop, handle)) = drip {
         let _ = stop.send(());
         handle.join().expect("join drip writer");
     }
-    assert_eq!(terminal_read.expect("negotiation socket must close before terminal return"), 0, "{phase:?}");
+    assert!(
+        match &terminal_read {
+            Ok(length) => *length == 0,
+            Err(error) => error.kind() == std::io::ErrorKind::ConnectionReset,
+        },
+        "{phase:?} negotiation socket must close with EOF or reset before terminal return: {terminal_read:?}"
+    );
 }
