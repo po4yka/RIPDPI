@@ -259,21 +259,9 @@ fn handle_shadowsocks(
     deadline: Instant,
 ) -> io::Result<()> {
     let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
-    let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, state, resolver, deadline)?;
-    reject_forbidden_target(&client, target.addr)?;
-    let host = target.host.or_else(|| state.extract_relay_payload_host(&first_request));
-    let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
-    let (upstream, route, cap_guard) = super::routing::connect_target(target.addr, state, payload, false, host)?;
-    super::relay::relay(
-        client,
-        upstream,
-        state,
-        target.addr,
-        route,
-        if first_request.is_empty() { None } else { Some(first_request) },
-        None,
-        cap_guard,
-    )
+    let target = read_shadowsocks_request(&mut client, first_byte, state, resolver, deadline)?;
+    connect_and_relay(&mut client, target.addr, state, target.host, None, SuccessReply::PlainAddress)
+        .map_err(ConnectRelayError::into_io_error)
 }
 
 fn handle_socks5_udp_associate(
@@ -330,6 +318,7 @@ fn handle_socks5_udp_associate(
 /// the listener's own address (a self-connect loop) for every peer, and loopback,
 /// unspecified or link-local targets for a peer that is not on this device, so an
 /// Allow-LAN client cannot reach services that trust loopback (RFC 9110 section 9.3.6).
+#[cfg(test)]
 fn reject_forbidden_target(client: &TcpStream, target: SocketAddr) -> io::Result<()> {
     match forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target) {
         Some(reason) => Err(io::Error::new(io::ErrorKind::PermissionDenied, reason)),

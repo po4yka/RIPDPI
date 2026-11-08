@@ -1,3 +1,7 @@
+mod request;
+
+pub use request::OutboundRequestAssembler;
+
 use ripdpi_packets::{TlsFakeProfile, tls_fake_profile_bytes, tune_tls_padding_size_into};
 use std::time::{Duration, Instant};
 

@@ -8,6 +8,8 @@ use crate::runtime::state::RuntimeState;
 pub(in crate::runtime::handshake) enum SuccessReply {
     /// Transparent proxy: no reply needed.
     None,
+    /// Plaintext address input: no acknowledgement or WS escalation.
+    PlainAddress,
     /// SOCKS4: fixed success reply.
     Socks4,
     /// SOCKS5: reply includes the upstream bind address.
@@ -22,12 +24,12 @@ impl SuccessReply {
             SuccessReply::Socks4 => Some(HandshakeKind::Socks4),
             SuccessReply::Socks5 => Some(HandshakeKind::Socks5),
             SuccessReply::HttpConnect => Some(HandshakeKind::HttpConnect),
-            SuccessReply::None => None,
+            SuccessReply::None | SuccessReply::PlainAddress => None,
         }
     }
 
     pub(super) fn requires_client_ack(&self) -> bool {
-        !matches!(self, SuccessReply::None)
+        !matches!(self, SuccessReply::None | SuccessReply::PlainAddress)
     }
 }
 
@@ -38,7 +40,7 @@ pub(super) fn write_success_reply(
     upstream: Option<&TcpStream>,
 ) -> io::Result<()> {
     match reply {
-        SuccessReply::None => Ok(()),
+        SuccessReply::None | SuccessReply::PlainAddress => Ok(()),
         SuccessReply::Socks4 => client.write_all(RuntimeState::encode_socks4_reply(true).as_bytes()),
         SuccessReply::Socks5 => {
             let reply_addr = upstream

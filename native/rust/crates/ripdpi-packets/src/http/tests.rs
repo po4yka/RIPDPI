@@ -270,3 +270,13 @@ proptest::proptest! {
         let _ = is_http_redirect(&data, &data);
     }
 }
+
+#[test]
+fn request_prefix_uses_supported_methods_and_preserves_other_protocols() {
+    for prefix in [&b"G"[..], &b"GET /"[..], &b"\r\nPOST / HTTP/1.1"[..], &b"CO"[..]] {
+        assert!(is_http_request_prefix(prefix));
+    }
+    for other in [&b"PING"[..], &b"EHLO host\r\n"[..], &b"get /"[..], &b"\x16\x03"[..]] {
+        assert!(!is_http_request_prefix(other));
+    }
+}

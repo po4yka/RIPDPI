@@ -44,8 +44,8 @@ use super::failure::{
     runtime_should_track_strategy_target,
 };
 use super::payload::{
-    RuntimeFirstResponseBoundaryTracker, RuntimeOutboundTlsClientHelloAssembler, runtime_build_probe_client_hello,
-    runtime_first_response_boundary_tracker, runtime_outbound_tls_client_hello_assembler,
+    RuntimeFirstResponseBoundaryTracker, runtime_build_probe_client_hello, runtime_first_response_boundary_tracker,
+    runtime_outbound_request_assembler,
 };
 use super::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyLearningPort,

@@ -1,8 +1,19 @@
-use super::parse::{http_method_start, parse_http_parts};
+use super::parse::{METHODS, http_method_start, parse_http_parts};
 use crate::types::{HttpHost, HttpMarkerInfo};
 
 pub fn is_http(buffer: &[u8]) -> bool {
     http_method_start(buffer).is_some()
+}
+
+/// True while bytes can be a supported HTTP request, including a split method.
+pub fn is_http_request_prefix(buffer: &[u8]) -> bool {
+    let mut buffer = buffer;
+    for _ in 0..2 {
+        if matches!(buffer.first(), Some(b'\r' | b'\n')) {
+            buffer = &buffer[1..];
+        }
+    }
+    METHODS.iter().any(|method| method.starts_with(buffer) || buffer.starts_with(method))
 }
 
 pub fn parse_http(buffer: &[u8]) -> Option<HttpHost<'_>> {

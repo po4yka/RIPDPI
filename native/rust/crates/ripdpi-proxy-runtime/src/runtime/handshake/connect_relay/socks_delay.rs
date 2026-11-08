@@ -1,5 +1,5 @@
-use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::io::{self, Read, Write};
+use std::net::{Shutdown, SocketAddr, TcpStream};
 
 use super::ConnectRelayError;
 use super::delay::DelayConnect;
@@ -19,7 +19,33 @@ pub(super) fn connect(
     reply: &SuccessReply,
 ) -> Result<DelayConnect, ConnectRelayError> {
     connect_with(client, state, target, route, host_hint, reply, |client, upstream, buffer_size| {
-        read_first_client_payload(client, Some(upstream), buffer_size)
+        let mut watched_upstream = Some(upstream);
+        loop {
+            match read_first_client_payload(
+                client,
+                watched_upstream,
+                buffer_size,
+                state.destination_policy_may_need_host(),
+            )? {
+                FirstOutboundRead::ServerFirst if !state.destination_policy_may_need_host() => {
+                    return Ok(FirstOutboundRead::ServerFirst);
+                }
+                FirstOutboundRead::ServerFirst => {
+                    // A greeting does not release the first client write from hostname policy.
+                    let mut banner = vec![0; buffer_size];
+                    let mut reader = upstream;
+                    let count = reader.read(&mut banner)?;
+                    if count == 0 {
+                        client.shutdown(Shutdown::Write)?;
+                        watched_upstream = None;
+                    } else {
+                        client.write_all(&banner[..count])?;
+                        state.note_application_traffic(0, count as u64);
+                    }
+                }
+                payload => return Ok(payload),
+            }
+        }
     })
 }
 

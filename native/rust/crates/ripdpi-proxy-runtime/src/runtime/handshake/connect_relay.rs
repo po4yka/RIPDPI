@@ -36,7 +36,7 @@ use ws_first::{AlwaysWsOutcome, run_ws_always_first};
 pub(super) use error::{ConnectPolicyRejection, ConnectRelayError};
 pub(super) use reply::SuccessReply;
 
-/// Common connect-relay-WS fallback flow used by all protocol handlers except shadowsocks.
+/// Common connect/relay policy flow; plaintext address input does not use WS escalation.
 ///
 /// Handles:
 /// 1. WS tunnel Always mode attempt
@@ -143,7 +143,8 @@ where
     let defer_ws_for_destination = destination_egress == DestinationEgress::Direct
         || (host_hint.is_none() && state.destination_policy_may_need_host());
 
-    if !defer_ws_for_destination
+    if !matches!(reply, SuccessReply::PlainAddress)
+        && !defer_ws_for_destination
         && let Some(outcome) =
             run_ws_always_first(client, target, state, &reply, &mut write_success_reply_fn, &mut run_ws_tunnel_fn)?
     {
@@ -177,7 +178,13 @@ where
         Ok(()) => Ok(()),
         // A stopped runtime refuses new connects; that is a stop, not a desync failure,
         // so it must not open a WS fallback connection after the drain.
-        Err(err) if defer_ws_for_destination || state.shutdown_requested() => Err(err),
+        Err(err)
+            if matches!(reply, SuccessReply::PlainAddress)
+                || defer_ws_for_destination
+                || state.shutdown_requested() =>
+        {
+            Err(err)
+        }
         Err(err) => run_ws_fallback_after_desync(
             client,
             target,

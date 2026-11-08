@@ -6,7 +6,7 @@ Keep the local plaintext address input safe, reachable, and independent of TCP r
 
 ### Requirement: REQ-PLAIN-POLICY — Gate application bytes after payload classification
 
-The runtime MUST apply destination policy before forwarding application bytes. It SHALL preserve the complete first TLS request across address and payload fragmentation. It MAY open a provisional connection under IP/default policy to support server-first traffic, but MUST recheck payload policy before the first application write.
+The runtime MUST apply destination policy before forwarding client application bytes. It SHALL preserve the complete first TLS request across address and payload fragmentation. It MAY open a provisional connection under IP/default policy to support server-first traffic, but MUST recheck payload policy before the first upstream application write.
 
 #### Scenario: Late blocked HTTP payload
 

@@ -1,5 +1,8 @@
 use crate::util::parse_u16_ascii;
 
+pub(super) const METHODS: &[&[u8]] =
+    &[b"HEAD ", b"GET ", b"POST ", b"PUT ", b"DELETE ", b"OPTIONS ", b"CONNECT ", b"TRACE ", b"PATCH "];
+
 /// Return the byte offset just past the last header byte, before the blank
 /// line that separates headers from body. Searches for `\r\n\r\n` or `\n\n`.
 /// If no terminator is found the entire buffer is treated as headers.
@@ -49,8 +52,6 @@ pub(super) fn http_method_start(buffer: &[u8]) -> Option<usize> {
             _ => break,
         }
     }
-    const METHODS: &[&[u8]] =
-        &[b"HEAD ", b"GET ", b"POST ", b"PUT ", b"DELETE ", b"OPTIONS ", b"CONNECT ", b"TRACE ", b"PATCH "];
     METHODS.iter().any(|method| buffer[start..].starts_with(method)).then_some(start)
 }
 

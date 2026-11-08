@@ -273,16 +273,13 @@ fn read_shadowsocks_request_returns_fragmented_target_and_first_payload() {
     writer.write_all(payload).expect("write first payload");
     reader.set_read_timeout(Some(Duration::from_secs(1))).expect("read timeout");
 
-    let (target, mut first_payload) =
-        read_shadowsocks_request(&mut reader, S_ATP_I4, &state, resolve_ip_literal, test_deadline())
-            .expect("read shadowsocks request");
+    let target = read_shadowsocks_request(&mut reader, S_ATP_I4, &state, resolve_ip_literal, test_deadline())
+        .expect("read shadowsocks request");
 
     assert_eq!(target.addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443));
-    assert!(payload.starts_with(&first_payload));
-    let mut remaining = vec![0; payload.len() - first_payload.len()];
+    let mut remaining = vec![0; payload.len()];
     reader.read_exact(&mut remaining).expect("read remaining payload");
-    first_payload.extend(remaining);
-    assert_eq!(first_payload, payload);
+    assert_eq!(remaining, payload);
 }
 
 #[test]

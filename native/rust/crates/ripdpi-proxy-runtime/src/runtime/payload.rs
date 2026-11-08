@@ -2,13 +2,14 @@ use ripdpi_proxy_runtime_adapter::model::config::FirstResponseSettings;
 #[cfg(test)]
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
     DEFAULT_FAKE_TLS, FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT, FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
-    TlsRecordBoundaryTracker,
+    OutboundTlsClientHelloAssembler, TlsRecordBoundaryTracker,
 };
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
-    FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler, build_probe_client_hello,
+    FirstResponseBoundaryTracker, OutboundRequestAssembler, build_probe_client_hello,
 };
 
 pub(super) type RuntimeFirstResponseBoundaryTracker = FirstResponseBoundaryTracker;
+#[cfg(test)]
 pub(super) type RuntimeOutboundTlsClientHelloAssembler = OutboundTlsClientHelloAssembler;
 #[cfg(test)]
 pub(super) type RuntimeTlsRecordBoundaryTracker = TlsRecordBoundaryTracker;
@@ -27,8 +28,8 @@ pub(super) fn runtime_first_response_boundary_tracker(
     FirstResponseBoundaryTracker::for_request(request, settings)
 }
 
-pub(super) fn runtime_outbound_tls_client_hello_assembler() -> RuntimeOutboundTlsClientHelloAssembler {
-    OutboundTlsClientHelloAssembler::new()
+pub(super) fn runtime_outbound_request_assembler(hostname_policy: bool) -> OutboundRequestAssembler {
+    OutboundRequestAssembler::new(hostname_policy)
 }
 
 pub(super) fn runtime_build_probe_client_hello(domain: &str) -> Vec<u8> {

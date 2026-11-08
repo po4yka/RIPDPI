@@ -16,7 +16,7 @@ The current plaintext handler bypasses the common connect/relay control flow and
 
 ## Contracts and ownership
 
-- Primary: handshake, protocol reader, first-payload/policy path and its regression tests; portfolio, OpenSpec and final gates.
+- Primary: handshake, protocol reader, first-payload/policy path, opt-in bounded HTTP/TLS request assembly in proxy-runtime-desync-adapter and its canonical packet-method prefix helper, and its regression tests; portfolio, OpenSpec and final gates.
 - F2 writer: runtime state listener endpoint and routing candidate guard, self-loop tests. Primary applies the coordinated handshake predicate replacement.
 - F3 writer: shared configuration option/tests, CLI help/binary test, proxy-config public integration test, proxy-engine docs.
 - Separate worktrees for each writer. No serialized dependency, locale, protobuf, JNI, golden or baseline changes. Generated API/architecture output has one combined-tree owner: primary.
@@ -24,6 +24,7 @@ The current plaintext handler bypasses the common connect/relay control flow and
 ## Risks / Trade-offs
 
 - Server-first and delayed hostname policy compete: provisional connections may precede hostname discovery, but application bytes remain gated.
+- Hostname-policy request assembly is opt-in, with a 64 KiB HTTP-head bound and the existing 75 ms assembly deadline. Partial recognized headers fail closed; canonical non-HTTP methods and policy-off binary flows retain passthrough.
 - Header reads must not consume payload or reclassify ATYP=04 as SOCKS4.
 - Actual ephemeral port must replace requested port zero before candidate validation.
 - A new explicit flag must not imply encrypted Shadowsocks support or silently read Android environment.

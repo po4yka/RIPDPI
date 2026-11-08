@@ -27,7 +27,7 @@ Repair the three confirmed LOC-10 findings without changing its plaintext wire f
 
 ## Ownership
 
-- Primary writer: plaintext handshake/reader and shared first-payload policy flow, task/OpenSpec files, combined validation.
+- Primary writer: plaintext handshake/reader, opt-in request assembler in proxy-runtime-desync-adapter and canonical HTTP method-prefix helper in ripdpi-packets, and shared first-payload policy flow, task/OpenSpec files, combined validation.
 - F2 writer: runtime/state/listener.rs, runtime/listeners.rs, runtime/routing/connect/plan.rs and its child tests, plus public self-loop integration tests. The primary writer applies the small handshake self-target predicate replacement.
 - F3 writer: shared CLI runtime options/parser tests, CLI help/binary integration tests, proxy-config integration tests, docs/native/proxy-engine.md.
 - Each writer uses a separate worktree. Cargo.lock, dependencies, locales, protobuf/JNI/wire schemas, golden fixtures, and baselines have no writer and must not change.

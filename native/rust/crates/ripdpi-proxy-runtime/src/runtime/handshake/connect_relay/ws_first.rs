@@ -74,7 +74,12 @@ pub(super) fn normal_after_carrier_failure(
             use crate::runtime::ws::{WsSeedClassification, runtime_exact_telegram_dc};
             let mut watched_upstream = Some(upstream);
             let mut seed = loop {
-                match read_first_client_payload(client, watched_upstream, buffer_size)? {
+                match read_first_client_payload(
+                    client,
+                    watched_upstream,
+                    buffer_size,
+                    state.destination_policy_may_need_host(),
+                )? {
                     FirstOutboundRead::Payload(payload) => break payload,
                     FirstOutboundRead::ClientClosed => return Ok(FirstOutboundRead::ClientClosed),
                     FirstOutboundRead::ServerFirst => {

@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use super::super::super::state::RuntimeState;
 use super::super::protocol_io::HandshakeKind;
 use super::ConnectRelayError;
-use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeProxyProtocolMode, RuntimeTransportProtocol};
 
 pub(super) enum DelayConnect {
     Immediate { success_reply_sent: bool },
@@ -69,12 +69,22 @@ pub(super) fn maybe_delay_connect(
     } else {
         DELAY_CONN_READ_TIMEOUT
     };
-    let first_request = read_first_request(client, state.delayed_connect_buffer_size(), probe)
-        .map_err(|err| ConnectRelayError::new(err, true))?;
+    let first_request =
+        read_first_request(client, state.delayed_connect_buffer_size(), probe, destination_policy_requires_host)
+            .map_err(|err| ConnectRelayError::new(err, true))?;
     let payload = match first_request {
         FirstRequestRead::Payload(payload) => payload,
         FirstRequestRead::Closed => return Ok(DelayConnect::Closed),
-        FirstRequestRead::Pending => return Ok(DelayConnect::Immediate { success_reply_sent: handshake.is_some() }),
+        FirstRequestRead::Pending
+            if matches!(
+                state.proxy_protocol_mode(),
+                RuntimeProxyProtocolMode::Mixed { shadowsocks_enabled: true }
+                    | RuntimeProxyProtocolMode::BytePrefixed { shadowsocks_enabled: true }
+            ) =>
+        {
+            return super::socks_delay::connect(client, state, target, route, host_hint, &super::SuccessReply::None);
+        }
+        FirstRequestRead::Pending => return Ok(DelayConnect::Immediate { success_reply_sent: false }),
     };
 
     let host = state.extract_relay_payload_host(&payload).or_else(|| host_hint.map(ToOwned::to_owned));
@@ -110,33 +120,36 @@ fn read_first_request(
     client: &mut TcpStream,
     buffer_size: usize,
     idle_timeout: Duration,
+    hostname_policy: bool,
 ) -> io::Result<FirstRequestRead> {
     let original_timeout = client.read_timeout()?;
     let mut buffer = vec![0u8; buffer_size];
-    let mut assembler = RuntimeState::first_outbound_tls_client_hello_assembler();
-    let result = loop {
-        let now = Instant::now();
-        if let Err(err) = client.set_read_timeout(Some(assembler.timeout(now).unwrap_or(idle_timeout))) {
-            break Err(err);
-        }
-        match client.read(&mut buffer) {
-            Ok(0) => break Ok(assembler.finish().map_or(FirstRequestRead::Closed, FirstRequestRead::Payload)),
-            Ok(n) => {
-                if let Some(payload) = assembler.push(&buffer[..n], now) {
-                    break Ok(FirstRequestRead::Payload(payload));
-                }
+    let mut assembler = RuntimeState::first_outbound_request_assembler(hostname_policy);
+    let result = (|| {
+        loop {
+            let now = Instant::now();
+            if let Err(err) = client.set_read_timeout(Some(assembler.timeout(now).unwrap_or(idle_timeout))) {
+                break Err(err);
             }
-            Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-                if let Some(payload) = assembler.flush_on_timeout(Instant::now()) {
-                    break Ok(FirstRequestRead::Payload(payload));
+            match client.read(&mut buffer) {
+                Ok(0) => break Ok(assembler.finish()?.map_or(FirstRequestRead::Closed, FirstRequestRead::Payload)),
+                Ok(n) => {
+                    if let Some(payload) = assembler.push(&buffer[..n], Instant::now())? {
+                        break Ok(FirstRequestRead::Payload(payload));
+                    }
                 }
-                if !assembler.is_buffering() {
-                    break Ok(FirstRequestRead::Pending);
+                Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
+                    if let Some(payload) = assembler.flush_on_timeout(Instant::now())? {
+                        break Ok(FirstRequestRead::Payload(payload));
+                    }
+                    if !assembler.is_buffering() {
+                        break Ok(FirstRequestRead::Pending);
+                    }
                 }
+                Err(err) => break Err(err),
             }
-            Err(err) => break Err(err),
         }
-    };
+    })();
     let restore = client.set_read_timeout(original_timeout);
     match (result, restore) {
         (Err(err), _) | (_, Err(err)) => Err(err),
