@@ -37,6 +37,9 @@ fn route_tun_packet_inner(
     let (ip_class, parsed_ip) = classify_ip_packet_with_parse_status(packet, state.runtime.mapdns_classify);
     if !parsed_ip {
         state.stats.record_tun_parse_failure();
+        if matches!(ip_class, IpClass::Udp { .. } | IpClass::UdpDns { .. }) {
+            return;
+        }
     }
     let is_icmp = matches!(ip_class, IpClass::Icmp);
     if is_icmp {

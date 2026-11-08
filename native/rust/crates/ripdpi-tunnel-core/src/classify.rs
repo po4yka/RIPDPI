@@ -2,6 +2,8 @@ use std::net::{IpAddr, SocketAddr};
 
 use etherparse::{IpNumber, NetSlice, SlicedPacket, TransportSlice};
 
+mod checksum;
+
 #[derive(Debug)]
 pub enum IpClass<'a> {
     TcpOrOther,
@@ -30,7 +32,11 @@ pub(crate) fn classify_ip_packet_with_parse_status<'a>(
         return (IpClass::TcpOrOther, false);
     };
 
-    (classify_parsed_packet(net, parsed.transport, mapdns), true)
+    let valid = match parsed.transport.as_ref() {
+        Some(TransportSlice::Udp(udp)) => checksum::udp_checksum_is_valid(&net, udp),
+        _ => true,
+    };
+    (classify_parsed_packet(net, parsed.transport, mapdns), valid)
 }
 
 fn classify_parsed_packet<'a>(
@@ -165,6 +171,15 @@ mod tests {
         pkt[42..44].copy_from_slice(&dst_port.to_be_bytes());
         pkt[44..46].copy_from_slice(&payload_len.to_be_bytes());
         pkt[48..48 + payload.len()].copy_from_slice(payload);
+        let checksum = etherparse::UdpHeader {
+            source_port: src_port,
+            destination_port: dst_port,
+            length: payload_len,
+            checksum: 0,
+        }
+        .calc_checksum_ipv6_raw(src_ip.octets(), dst_ip.octets(), payload)
+        .expect("fixture UDP checksum");
+        pkt[46..48].copy_from_slice(&checksum.to_be_bytes());
         pkt
     }
 
@@ -425,3 +440,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod checksum_tests;

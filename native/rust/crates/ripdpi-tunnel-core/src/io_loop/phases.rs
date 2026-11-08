@@ -197,6 +197,7 @@ mod tests {
     use super::super::wait::{WaitEvent, WaitOutcome, handle_wait_event};
     use super::*;
 
+    mod checksum_validation;
     mod udp_errors;
     mod uid_admission;
 
