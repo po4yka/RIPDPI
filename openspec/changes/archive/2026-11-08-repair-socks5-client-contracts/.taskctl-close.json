@@ -1,0 +1,11 @@
+{
+  "change": "repair-socks5-client-contracts",
+  "evidence_summary": "Nine separate source commits; final source bdb4f8353d59ee46d1115b3f28933188e351a184 passed 1171 Rust tests, 2143 Kotlin tests, staticAnalysis, Clippy, formatting, locked metadata and ci-gates; independent code and async reviews approved. Host-only evidence and remaining external/device scope are recorded in archived verification.",
+  "execution_sha256": "f95fb293c54e03944b9cc50cc042e492bc32badc34c0cbdde6cac2dfd23db26e",
+  "issue_sha256": "e1a8dd81457fbb3ef9abad2f21566268ddc334cbc8d5ad4316450ebb000c015d",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T09:36:54Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794125331192374"
+}

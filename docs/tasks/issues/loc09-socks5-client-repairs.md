@@ -2,7 +2,7 @@
 id: PRX-1794125331192374
 title: Repair SOCKS5 client audit defects
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: Network client repair coordinator
@@ -13,6 +13,9 @@ openspec_change: repair-socks5-client-contracts
 created: 2026-11-08
 updated: 2026-11-08
 status_detail: Nine atomic source repairs passed independent review, 1171 Rust tests, 2143 Kotlin tests and required source gates.
+closed_at: "2026-11-08T09:36:54Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Nine separate source commits; final source bdb4f8353d59ee46d1115b3f28933188e351a184 passed 1171 Rust tests, 2143 Kotlin tests, staticAnalysis, Clippy, formatting, locked metadata and ci-gates; independent code and async reviews approved. Host-only evidence and remaining external/device scope are recorded in archived verification.
 ---
 
 ## Goal
