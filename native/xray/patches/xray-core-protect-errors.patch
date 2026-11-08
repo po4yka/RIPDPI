@@ -44,3 +44,234 @@
 -					errors.LogInfoInner(ctx, err, "failed to apply external controller")
 -				}
 -			}
+--- a/proxy/socks/server.go
++++ b/proxy/socks/server.go
+@@ -222,0 +223,5 @@
++	var managed *managedUDPDispatch
++	if s.acceptsManagedUDP(ctx) {
++		managed = &managedUDPDispatch{entries: make(map[managedUDPAuthority]*managedUDPEntry), dispatcher: dispatcher, conn: conn}
++		defer managed.close()
++	}
+@@ -238,0 +244,4 @@
++			if managed != nil && payload.Len() >= 4 && payload.Byte(3) == 5 {
++				managed.dispatch(ctx, payload)
++				continue
++			}
+--- /dev/null
++++ b/proxy/socks/managed_udp.go
+@@ -0,0 +1,150 @@
++package socks
++
++import (
++	"context"
++	"encoding/binary"
++	"strings"
++	"sync"
++
++	"github.com/xtls/xray-core/common/buf"
++	"github.com/xtls/xray-core/common/errors"
++	"github.com/xtls/xray-core/common/net"
++	udp_proto "github.com/xtls/xray-core/common/protocol/udp"
++	"github.com/xtls/xray-core/common/session"
++	"github.com/xtls/xray-core/features/routing"
++	"github.com/xtls/xray-core/transport/internet/stat"
++	"github.com/xtls/xray-core/transport/internet/udp"
++)
++
++const managedInboundTag = "ripdpi-managed-socks-in-v1"
++const maxManagedUDPAuthorities = 256
++
++// The private local hop carries both DNS authority and the admitted numeric pin.
++type managedUDPAuthority struct {
++	host        string
++	destination net.Destination
++}
++
++func (s *Server) acceptsManagedUDP(ctx context.Context) bool {
++	inbound := session.InboundFromContext(ctx)
++	return s.config.AuthType == AuthType_PASSWORD && inbound != nil && inbound.Tag == managedInboundTag &&
++		inbound.Gateway.IsValid() && inbound.Gateway.Address.Family().IsIP() && inbound.Gateway.Address.IP().IsLoopback()
++}
++
++func decodeManagedUDP(packet *buf.Buffer) (managedUDPAuthority, []byte, error) {
++	var authority managedUDPAuthority
++	frame := packet.Bytes()
++	if len(frame) < 6 || frame[0] != 0 || frame[1] != 0 || frame[2] != 0 || frame[3] != 5 || frame[4] == 0 {
++		return authority, nil, errors.New("invalid managed UDP header")
++	}
++	hostEnd := 5 + int(frame[4])
++	if len(frame) <= hostEnd {
++		return authority, nil, errors.New("truncated managed UDP host")
++	}
++	host := strings.ToLower(strings.TrimSuffix(string(frame[5:hostEnd]), "."))
++	if host == "" {
++		return authority, nil, errors.New("empty managed UDP host")
++	}
++	for _, c := range host {
++		if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '.' || c == '-' || c == '_') {
++			return authority, nil, errors.New("invalid managed UDP host")
++		}
++	}
++	ipLen := 0
++	switch frame[hostEnd] {
++	case 1:
++		ipLen = 4
++	case 4:
++		ipLen = 16
++	default:
++		return authority, nil, errors.New("invalid managed UDP pin family")
++	}
++	end := hostEnd + 1 + ipLen + 2
++	if len(frame) < end {
++		return authority, nil, errors.New("truncated managed UDP pin")
++	}
++	authority = managedUDPAuthority{
++		host:        host,
++		destination: net.UDPDestination(net.IPAddress(frame[hostEnd+1:hostEnd+1+ipLen]), net.Port(binary.BigEndian.Uint16(frame[end-2:end]))),
++	}
++	// Preserve the admitted authority in the reply even when the relay returns a numeric source.
++	header := append([]byte(nil), frame[:end]...)
++	packet.Advance(int32(end))
++	return authority, header, nil
++}
++
++type managedUDPEntry struct {
++	sync.Mutex
++	dispatcher *udp.Dispatcher
++	closed     bool
++}
++
++func (e *managedUDPEntry) close() {
++	e.Lock()
++	e.closed = true
++	e.Unlock()
++	e.dispatcher.RemoveRay()
++}
++
++type managedUDPDispatch struct {
++	entries    map[managedUDPAuthority]*managedUDPEntry
++	dispatcher routing.Dispatcher
++	conn       stat.Connection
++}
++
++func (d *managedUDPDispatch) close() {
++	for _, entry := range d.entries {
++		entry.close()
++	}
++}
++
++func (d *managedUDPDispatch) dispatch(ctx context.Context, payload *buf.Buffer) {
++	authority, header, err := decodeManagedUDP(payload)
++	if err != nil || ctx.Err() != nil {
++		payload.Release()
++		return
++	}
++	entry := d.entries[authority]
++	if entry != nil && !entry.dispatcher.IsActive() {
++		entry.close()
++		delete(d.entries, authority)
++		entry = nil
++	}
++	if entry == nil {
++		// Idle rays own their existing timeout. Prune only rays that have already closed.
++		if len(d.entries) >= maxManagedUDPAuthorities {
++			for key, stale := range d.entries {
++				if !stale.dispatcher.IsActive() {
++					stale.close()
++					delete(d.entries, key)
++				}
++			}
++		}
++		if len(d.entries) >= maxManagedUDPAuthorities {
++			payload.Release()
++			return
++		}
++		entry = &managedUDPEntry{}
++		entry.dispatcher = udp.NewDispatcher(d.dispatcher, func(responseCtx context.Context, packet *udp_proto.Packet) {
++			defer packet.Payload.Release()
++			entry.Lock()
++			defer entry.Unlock()
++			if entry.closed || responseCtx.Err() != nil || !packet.Source.IsValid() ||
++				packet.Source.Network != net.Network_UDP || packet.Source.Port != authority.destination.Port ||
++				!packet.Source.Address.Family().IsIP() || !packet.Source.Address.IP().Equal(authority.destination.Address.IP()) {
++				return
++			}
++			response := make([]byte, 0, len(header)+int(packet.Payload.Len()))
++			response = append(response, header...)
++			response = append(response, packet.Payload.Bytes()...)
++			d.conn.Write(response)
++		})
++		d.entries[authority] = entry
++	}
++	// The route uses the domain. The outbound socket uses the exact admitted IP.
++	ctx = session.ContextWithOutbounds(ctx, []*session.Outbound{{
++		RouteTarget: net.UDPDestination(net.DomainAddress(authority.host), authority.destination.Port),
++	}})
++	payload.UDP = &authority.destination
++	entry.dispatcher.Dispatch(ctx, authority.destination, payload)
++}
+--- a/transport/internet/udp/dispatcher.go
++++ b/transport/internet/udp/dispatcher.go
+@@ -7,0 +8 @@
++	"sync/atomic"
+@@ -27 +28 @@
+-	closed bool
++	closed atomic.Bool
+@@ -36 +37 @@
+-	if c.closed {
++	if !c.closed.CompareAndSwap(false, true) {
+@@ -39 +39,0 @@
+-	c.closed = true
+@@ -60,0 +61,7 @@
++// IsActive reports whether this dispatcher still owns a live ray.
++func (v *Dispatcher) IsActive() bool {
++	v.RLock()
++	defer v.RUnlock()
++	return v.conn != nil && !v.conn.closed.Load()
++}
++
+@@ -80 +87 @@
+-		if v.conn.closed {
++		if v.conn.closed.Load() {
+@@ -114,0 +122 @@
++		payload.Release()
+--- a/common/buf/multi_buffer.go
++++ b/common/buf/multi_buffer.go
+@@ -251 +251 @@
+-// IsEmpty returns true if the MultiBuffer has no content.
++// IsEmpty returns true if the MultiBuffer has neither bytes nor UDP datagrams.
+@@ -254 +254 @@
+-		if !b.IsEmpty() {
++		if !b.IsEmpty() || b != nil && b.UDP != nil {
+--- a/common/buf/reader.go
++++ b/common/buf/reader.go
+@@ -3,0 +4 @@
++	"github.com/xtls/xray-core/common/net"
+@@ -4,0 +6 @@
++	stdnet "net"
+@@ -19,0 +22,8 @@
++		}
++		// A successful zero-byte UDP receive is a datagram, not an empty stream read.
++		if peer, ok := r.(interface{ RemoteAddr() stdnet.Addr }); ok {
++			if address, ok := peer.RemoteAddr().(*stdnet.UDPAddr); ok {
++				destination := net.DestinationFromAddr(address)
++				b.UDP = &destination
++				return b, nil
++			}
+--- a/transport/pipe/impl.go
++++ b/transport/pipe/impl.go
+@@ -55,0 +56,11 @@
++// Empty UDP packets still own buffers and must consume the pipe budget.
++func (p *pipe) bufferedSize() int32 {
++	size := p.data.Len()
++	for _, b := range p.data {
++		if b != nil && b.UDP != nil && b.IsEmpty() {
++			size += max(b.Cap(), 1)
++		}
++	}
++	return size
++}
++
+@@ -59 +70 @@
+-		if !forRead && p.option.isFull(p.data.Len()) {
++		if !forRead && p.option.isFull(p.bufferedSize()) {

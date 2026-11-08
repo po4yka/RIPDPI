@@ -177,7 +177,7 @@ class XrayConfigRenderer(
         password: String?,
     ): JsonObject =
         buildJsonObject {
-            put("tag", "socks-in")
+            put("tag", "ripdpi-managed-socks-in-v1")
             put("listen", inbound.listen)
             put("port", inbound.port)
             put("protocol", "socks")

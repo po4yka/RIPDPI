@@ -25,6 +25,26 @@ the patches in isolated source copies. The artifact verifier binds the AAR,
 build recipe, patch manifest, `build-go.mod`, and `build-go.sum` by digest.
 A matching version label alone is insufficient.
 
+The managed SOCKS inbound uses tag `ripdpi-managed-socks-in-v1`, loopback binding,
+and password authentication. Only this inbound accepts the private UDP address
+type `5` from the TUN path. The frame carries the domain and its numeric DNS pin.
+Xray uses the domain for routing and the pin for the outbound destination. Each
+authority has a separate UDP ray. The inbound admits at most 256 live authorities
+per UDP source. It rejects new authorities at the limit and can remove only closed
+rays. A reply must have the exact numeric source address and port of the pin.
+Accepted replies retain the original domain and pin for the TUN reverse mapping.
+The existing ray timeout owns idle cleanup. Ordinary SOCKS listeners keep the
+standard address types. The host tests use real loopback sockets; Android AAR
+and device acceptance remain separate checks.
+
+Empty UDP datagrams are part of the local managed hop contract. The host tests
+cover direct freedom and standard SOCKS forwarding, including empty replies.
+The pinned VLESS length writers and XUDP packet writer reject zero-length
+payloads. This patch does not change those remote protocol paths or prove empty
+datagram compatibility with a VLESS/XUDP peer. Their owning codecs are
+`proxy/vless/encoding/addons.go` and `common/xudp/xudp.go` in the pinned Xray-core
+source. Keep this relay boundary separate from local TUN acceptance.
+
 > **Versioning note (verified upstream 2026-05-30).** libXray uses **CalVer**
 > git tags (`vYY.M.D`, e.g. `v26.3.27`) that track xray-core — there is no
 > semver `1.x` line. The `xray-core` pin is the **go.mod module version** that

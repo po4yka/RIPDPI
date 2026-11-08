@@ -45,8 +45,10 @@ class CandidateConfigurationProofTest {
             port: Int,
             password: String,
             server: String = "192.0.2.1",
-        ) = """{"inbounds":[{"tag":"socks-in","listen":"127.0.0.1","port":$port,"protocol":"socks",""" +
-            """"settings":{"auth":"password","accounts":[{"user":"u-$password","pass":"$password"}],"udp":true}}],""" +
+        ) = """{"inbounds":[{"tag":"ripdpi-managed-socks-in-v1","listen":"127.0.0.1",""" +
+            """"port":$port,"protocol":"socks",""" +
+            """"settings":{"auth":"password",""" +
+            """"accounts":[{"user":"u-$password","pass":"$password"}],"udp":true}}],""" +
             """"outbounds":[{"tag":"proxy","settings":{"vnext":[{"address":"$server"}]}}]}"""
         val measured = CandidateConfigurationProofs.xray(rendered(41_000, "candidate"))
 

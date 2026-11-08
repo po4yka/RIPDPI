@@ -25,6 +25,8 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="ripdpi-libxray-test-") as directory:
         source = Path(directory) / "libxray"
         shutil.copytree(args.libxray, source, ignore=shutil.ignore_patterns(".git"))
+        xray_core = Path(directory) / "xray-core"
+        shutil.copytree(args.xray_core, xray_core, ignore=shutil.ignore_patterns(".git"))
         for original, replacement in (
             ("android_wrapper.go", "managed_android_wrapper.go"),
             ("controller/controller_android.go", "controller/managed_controller.go"),
@@ -36,10 +38,17 @@ def main() -> None:
         for name in ("dns_other.go", "dns_linux.go", "dns_windows.go"):
             (source / "dns" / name).unlink()
         for test in (repository / "scripts/tests/libxray").glob("*.go"):
-            target = source / ("xray" if test.name.startswith("lifecycle_") else "") / ("managed_" + test.name)
+            if test.name.startswith("socks_"):
+                target = xray_core / "proxy/socks" / ("managed_" + test.name)
+            elif test.name.startswith("buf_"):
+                target = xray_core / "common/buf" / ("managed_" + test.name)
+            elif test.name.startswith("pipe_"):
+                target = xray_core / "transport/pipe" / ("managed_" + test.name)
+            else:
+                target = source / ("xray" if test.name.startswith("lifecycle_") else "") / ("managed_" + test.name)
             shutil.copyfile(test, target)
         subprocess.run(
-            ["go", "mod", "edit", "-replace", f"github.com/xtls/xray-core={args.xray_core.resolve()}"],
+            ["go", "mod", "edit", "-replace", f"github.com/xtls/xray-core={xray_core}"],
             cwd=source, check=True, timeout=30,
         )
         if args.grpc:
@@ -47,7 +56,13 @@ def main() -> None:
                            cwd=source, check=True, timeout=30)
         environment = dict(os.environ, GOFLAGS="-p=2")
         subprocess.run(
-            ["go", "test", "-mod=mod", "-count=1", "-timeout=90s", "-run", "TestManaged", "-v", ".", "./xray"],
+            ["go", "test", "-mod=mod", "-count=1", "-timeout=90s", "-run", "TestManaged", "-v",
+             ".", "./xray", "github.com/xtls/xray-core/proxy/socks"],
+            cwd=source, env=environment, check=True, timeout=900,
+        )
+        subprocess.run(
+            ["go", "test", "-mod=mod", "-count=1", "-timeout=90s", "-v",
+             "github.com/xtls/xray-core/common/buf", "github.com/xtls/xray-core/transport/pipe"],
             cwd=source, env=environment, check=True, timeout=900,
         )
 

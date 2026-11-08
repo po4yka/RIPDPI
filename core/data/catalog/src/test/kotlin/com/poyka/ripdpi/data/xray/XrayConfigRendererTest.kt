@@ -109,7 +109,7 @@ class XrayConfigRendererTest {
               },
               "inbounds": [
                 {
-                  "tag": "socks-in",
+                  "tag": "ripdpi-managed-socks-in-v1",
                   "listen": "127.0.0.1",
                   "port": 10808,
                   "protocol": "socks",
@@ -184,7 +184,7 @@ class XrayConfigRendererTest {
               },
               "inbounds": [
                 {
-                  "tag": "socks-in",
+                  "tag": "ripdpi-managed-socks-in-v1",
                   "listen": "127.0.0.1",
                   "port": 10808,
                   "protocol": "socks",

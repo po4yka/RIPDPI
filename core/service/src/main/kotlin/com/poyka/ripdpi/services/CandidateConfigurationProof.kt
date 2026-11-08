@@ -50,7 +50,7 @@ internal object CandidateConfigurationProofs {
             JsonArray(
                 inbounds.map { value ->
                     val inbound = value.jsonObject
-                    if (inbound["tag"] == JsonPrimitive("socks-in")) {
+                    if (inbound["tag"] == JsonPrimitive("ripdpi-managed-socks-in-v1")) {
                         // Listener address and per-session credentials do not identify the measured path.
                         val settings = (inbound["settings"] as? JsonObject)?.let { JsonObject(it - "accounts") }
                         JsonObject(
