@@ -158,6 +158,8 @@ class PausedServiceReconstructionTest {
             initializeVpn(service, fixture)
             lifecycle.create()
             val earlierTeardown = Job()
+            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
+            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
             RipDpiVpnService.previousInstanceTeardown.set(earlierTeardown)
             try {
                 lifecycle.destroy()
@@ -168,34 +170,77 @@ class PausedServiceReconstructionTest {
                 earlierTeardown.complete()
                 awaitTrackedDestruction(service)
             } finally {
+                RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
                 earlierTeardown.complete()
+                awaitTrackedDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
         }
 
     @Test
-    fun `vpn attach goes ahead when the previous instance teardown hangs`() =
+    fun `vpn attach rejects unfinished teardown and can retry after it completes`() =
         runBlocking {
             val fixture = Fixture(Mode.VPN)
             shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
             initializeVpn(service, fixture)
-            val factoryCalls = AtomicInteger()
-            service.sessionComponentBuilderProvider =
-                Provider {
-                    factoryCalls.incrementAndGet()
-                    error("graph is not needed for this test")
-                }
+            val graphFailure = IllegalStateException("graph is not needed for this test")
+            service.sessionComponentBuilderProvider = Provider { throw graphFailure }
             lifecycle.create()
             val hungTeardown = Job()
             val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
             RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
             RipDpiVpnService.previousInstanceTeardown.set(hungTeardown)
             try {
-                withTimeout(5_000) { runCatching { initializeActiveSession(service) } }
+                val failure = withTimeout(5_000) { runCatching { initializeActiveSession(service) }.exceptionOrNull() }
 
-                assertEquals("a hung teardown must not block the new instance", 1, factoryCalls.get())
+                assertTrue("a pending predecessor must reject acquisition", failure is RuntimeCleanupPendingException)
+                assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
+
+                hungTeardown.complete()
+                assertSame(graphFailure, runCatching { initializeActiveSession(service) }.exceptionOrNull())
+            } finally {
+                RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
+                hungTeardown.complete()
+                lifecycle.destroy()
+                awaitTrackedDestruction(service)
+                service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+            }
+        }
+
+    @Test
+    fun `vpn rejected predecessor wait completes the start generation and stops the idle service`() =
+        runBlocking {
+            val fixture = Fixture(Mode.VPN)
+            val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
+            val service = lifecycle.get()
+            initializeVpn(service, fixture)
+            lifecycle.create()
+            val hungTeardown = Job()
+            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
+            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
+            RipDpiVpnService.previousInstanceTeardown.set(hungTeardown)
+            try {
+                val receipt = fixture.authority.reserveStart(Mode.VPN)
+                val lease = checkNotNull(fixture.arbiter.dispatchExplicit(receipt))
+                fixture.arbiter.dispatchVpnStart { ServiceStartResult.Accepted(receipt) }
+                val start =
+                    Intent(RuntimeEnvironment.getApplication(), RipDpiVpnService::class.java).apply {
+                        action = startAction
+                        stampRuntimeActivation(receipt)
+                        putExtra(explicitUserIntentGenerationExtra, lease.processGeneration)
+                        putExtra(durableIntentGenerationExtra, receipt.authority.generation)
+                        putExtra(vpnStartGenerationExtra, fixture.arbiter.captureVpnStartGeneration())
+                    }
+
+                service.onStartCommand(start, 0, 7)
+
+                withTimeout(5_000) {
+                    while (!shadowOf(service).isStoppedBySelf) delay(10)
+                }
+                assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
+                checkNotNull(fixture.arbiter.tryReserveDoqSave { true }).close()
             } finally {
                 RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
                 hungTeardown.complete()

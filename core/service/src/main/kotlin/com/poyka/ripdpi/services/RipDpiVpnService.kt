@@ -164,13 +164,11 @@ class RipDpiVpnService :
 
     private suspend fun ensureActiveSession() {
         if (activeOwnership.attached) return
-        // Selector loops, route observation and the root helper are process singletons owned by
-        // mode, not by instance: let a destroyed instance release them before this one claims them.
-        // The wait is bounded: callers hold entryMutex, and a hung teardown must not block STOP commands.
+        // A predecessor can still release process singletons. Reject a bounded wait instead of
+        // acquiring them while its cleanup remains active; STOP must not wait without a bound.
         previousInstanceTeardown.get()?.takeUnless { it === destroyCleanupJob }?.let { previous ->
             kotlinx.coroutines.withTimeoutOrNull(previousInstanceTeardownTimeoutMillis) { previous.join() }
-                ?: co.touchlab.kermit.Logger
-                    .w { "Previous VPN instance teardown did not finish; attaching anyway" }
+                ?: throw RuntimeCleanupPendingException()
         }
         runCatching {
             activeOwnership.attach {
@@ -281,11 +279,7 @@ class RipDpiVpnService :
                     withContext(NonCancellable) {
                         // Only the latest job is published: chain it after the earlier ones, so a newer
                         // instance never attaches while an older teardown can still stop shared singletons.
-                        earlierTeardown?.let { earlier ->
-                            kotlinx.coroutines.withTimeoutOrNull(previousInstanceTeardownTimeoutMillis) {
-                                earlier.join()
-                            }
-                        }
+                        earlierTeardown?.join()
                         entryMutex.withLock {
                             if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
                             val outcome = runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
