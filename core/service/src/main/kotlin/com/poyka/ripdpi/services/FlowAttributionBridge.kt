@@ -162,9 +162,12 @@ internal class SessionFlowAttributionCallback(
     ): FlowOwnerResolution {
         if (!isCurrent()) return FlowOwnerResolution(InvalidUid)
         val owner = store.resolveSessionOwner(session, protocol, localIp, localPort, remoteIp, remotePort, requestKind)
-        if (!isCurrent()) return FlowOwnerResolution(InvalidUid)
-        epoch.record(protocol, owner.uid, requestKind)
-        return owner
+        return if (isCurrent()) {
+            epoch.record(protocol, owner.uid, requestKind)
+            owner
+        } else {
+            FlowOwnerResolution(InvalidUid)
+        }
     }
 
     fun close() = store.endSession(session)
