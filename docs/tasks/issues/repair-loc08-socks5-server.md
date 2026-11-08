@@ -2,7 +2,7 @@
 id: PRX-1794125341062166
 title: Repair LOC-08 test-only SOCKS5 server contracts
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: SOCKS5 repair team
@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-11-08
 updated: 2026-11-08
 spec_reason: test-only
+status_detail: F1-F7 regressions, local gates, and independent reviews passed; ready for main integration.
 ---
 
 ## Goal
@@ -57,7 +58,7 @@ Audit: `/Users/npochaev/Downloads/RIPDPI_network_audits/LOC-08.md`. Base commit:
 | F6 | `1115496b7` | Reserved bytes fail before address reads; empty domains fail before routing. |
 | F7 | `e4cccb029` | Selected-method metadata distinguishes skipped, NoAuth, and Password without storing passwords. |
 
-All new regressions were observed failing before their fixes. The final crate result is 63 passed, 0 failed, and 2 existing external-network tests ignored. Each intermediate fix commit passed the owning crate suite and normal pre-commit hooks. Final Clippy with all targets and warnings denied, workspace format check, and crate doctests passed (one doctest passed; two existing examples ignored).
+Each finding has a regression observed failing before its fix. Additional positive guards also passed. The final crate result is 63 passed, 0 failed, and 2 existing external-network tests ignored. Each intermediate fix commit passed the owning crate suite and normal pre-commit hooks. Final Clippy with all targets and warnings denied, workspace format check, and crate doctests passed (one doctest passed; two existing examples ignored).
 
 `just ci-gates` passed architecture health, file and hotspot budgets, runtime and fixture contracts, diagnostics boundaries, route coverage, locale parity, translation export, and Rust API snapshots. The API check retains its normal Linux-owned snapshot skip on macOS. No baseline or snapshot was changed.
 
