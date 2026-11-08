@@ -24,7 +24,7 @@ Subprocess and WebSocket protection clients MUST bound connect, send and ACK wai
 
 ### Requirement: REQ-VPN07-CLEANUP — Retain ownership through terminal cleanup
 
-Session teardown MUST preserve pending native cleanup ownership until socket-opening workers have stopped. Stop failures MUST run required cleanup and preserve the original failure. Old session cleanup MUST NOT release a new session's registration.
+Session teardown MUST preserve pending native cleanup ownership until socket-opening workers have stopped. Stop failures MUST preserve the original failure and retain a retry owner when native completion is unconfirmed. Protection release MUST require an explicit FullyReleased outcome. Old session cleanup MUST NOT release a new session's registration.
 
 #### Scenario: Native cleanup is pending
 
@@ -34,7 +34,7 @@ Session teardown MUST preserve pending native cleanup ownership until socket-ope
 #### Scenario: Stop raises an unexpected exception
 
 - **WHEN** stop fails before cleanup completes
-- **THEN** required teardown runs and the original failure remains observable
+- **THEN** the original failure remains observable, protection stays owned, and a later successful stop completes teardown
 
 ### Requirement: REQ-VPN07-PROFILE-CHECK — Protect active VPN profile checks
 

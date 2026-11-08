@@ -12,7 +12,7 @@ The VPN-07 audit found missing proxy protection policy, unbounded local protecti
 - Bound local protection handshakes and close transferred descriptors on failure.
 - Preserve native cleanup ownership until workers stop.
 - Protect UDP sockets before bind and preserve inactive and loopback behavior.
-- Keep one fix commit for each finding. No wire format or dependency change is planned.
+- Keep one fix commit for each finding. No wire format, dependency version or package inventory change is planned. Existing workspace dependency edges may be added where an unbound socket is required.
 
 ## Capabilities
 

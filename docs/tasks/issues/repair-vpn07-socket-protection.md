@@ -2,7 +2,7 @@
 id: VPN-1794152756242597
 title: Repair outbound socket protection from VPN-07 audit
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: VPN protection maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: vpn07-socket-protection
 created: 2026-11-08
 updated: 2026-11-08
+status_detail: Seven reviewed fixes are committed. Final rebased-source, Android artifact and non-root emulator validation remain in progress.
 ---
 
 ## Goal
@@ -35,5 +36,5 @@ Protect every in-scope VPN outbound socket before routing decisions, bound prote
 - Lifecycle worker: F3 service session cleanup/lifecycle and their tests; F4 Naive profile checker/configuration and their tests.
 - Server worker: F6 protect server/client-session/dispatcher and tests; verify H3 ancillary-fd exception ownership in this same area.
 - Primary: F5 UDP factories and tests; portfolio/OpenSpec/docs, integration, gates and commits.
-- Serialized files: primary alone owns task records, OpenSpec artifacts and generated board. No worker changes Cargo.lock, dependency versions, schemas, locale sets, baselines, snapshots or golden fixtures.
+- Serialized files: primary alone owns task records, OpenSpec artifacts, generated board, Cargo.lock and required existing-workspace dependency edges. No worker changes dependency versions, schemas, locale sets, baselines, snapshots or golden fixtures.
 - Each writer uses its named worktree. Workers do not commit before independent review and do not push or edit main. Changes from other writers must be preserved.
