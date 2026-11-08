@@ -2,7 +2,7 @@
 id: PRX-1794116241356560
 title: Repair SOCKS4 and SOCKS4a protocol contracts
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: LOC-04 repair team
