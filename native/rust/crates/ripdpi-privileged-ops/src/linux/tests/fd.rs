@@ -1,6 +1,6 @@
 use std::io::{self, Read, Write};
 use std::mem::zeroed;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
 use std::os::fd::{AsFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 
@@ -48,18 +48,21 @@ fn storage_to_socket_addr_parses_ipv4_and_ipv6_sockaddrs() {
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 8)), 443)
     );
 
-    // SAFETY: see the IPv4 storage initialization above.
-    let mut storage6 = unsafe { zeroed::<libc::sockaddr_storage>() };
-    // SAFETY: sockaddr_storage has sufficient size/alignment for sockaddr_in6;
-    // this test immediately sets the AF_INET6 fields before parsing.
-    let sin6 = unsafe { &mut *(&mut storage6 as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in6>() };
-    sin6.sin6_family = libc::AF_INET6 as libc::sa_family_t;
-    sin6.sin6_port = 8443u16.to_be();
-    sin6.sin6_addr = libc::in6_addr { s6_addr: Ipv6Addr::LOCALHOST.octets() };
-    assert_eq!(
-        storage_to_socket_addr(&storage6).expect("parse ipv6 sockaddr"),
-        SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8443)
-    );
+    for (ip, scope_id) in [(Ipv6Addr::LOCALHOST, 0), (Ipv6Addr::new(0xfe80, 0, 0, 0, 0, 0, 0, 0x1234), 42)] {
+        // SAFETY: see the IPv4 storage initialization above.
+        let mut storage6 = unsafe { zeroed::<libc::sockaddr_storage>() };
+        // SAFETY: sockaddr_storage has sufficient size/alignment for sockaddr_in6;
+        // this test immediately sets the AF_INET6 fields before parsing.
+        let sin6 = unsafe { &mut *(&mut storage6 as *mut libc::sockaddr_storage).cast::<libc::sockaddr_in6>() };
+        sin6.sin6_family = libc::AF_INET6 as libc::sa_family_t;
+        sin6.sin6_port = 8443u16.to_be();
+        sin6.sin6_addr = libc::in6_addr { s6_addr: ip.octets() };
+        sin6.sin6_scope_id = scope_id;
+        assert_eq!(
+            storage_to_socket_addr(&storage6).expect("parse ipv6 sockaddr"),
+            SocketAddr::V6(SocketAddrV6::new(ip, 8443, 0, scope_id))
+        );
+    }
 }
 
 #[test]

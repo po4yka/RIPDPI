@@ -5,7 +5,7 @@
 
 use std::io::{self, Read};
 use std::mem::{size_of, zeroed};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6, TcpStream};
 use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
@@ -130,7 +130,7 @@ pub(crate) fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Re
             let sin6 = unsafe { &*(storage as *const libc::sockaddr_storage).cast::<libc::sockaddr_in6>() };
             let ip = Ipv6Addr::from(sin6.sin6_addr.s6_addr);
             let port = u16::from_be(sin6.sin6_port);
-            Ok(SocketAddr::new(IpAddr::V6(ip), port))
+            Ok(SocketAddr::V6(SocketAddrV6::new(ip, port, 0, sin6.sin6_scope_id)))
         }
         _ => {
             Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported socket family in original destination lookup"))
