@@ -265,6 +265,10 @@ that the session owns and that unauthenticated loopback clients can use.
 Every installed app can connect to loopback. Thus the native relay listener and
 the Xray SOCKS inbound require RFC 1929 username/password credentials.
 
+DNS and diagnostics SOCKS clients offer only the configured authentication
+method. Configured credentials do not permit a downgrade to NO-AUTH. Each
+credential field must contain 1 to 255 UTF-8 bytes.
+
 - Kotlin makes a new `LocalSocksCredentials` pair (CSPRNG) for each native relay
   runtime and each Xray provider session. Xray restart and handover keep the
   pair while the provider stays active. Do not log, persist, export, or put the

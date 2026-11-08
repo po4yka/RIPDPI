@@ -1,6 +1,8 @@
 pub mod outbound;
 
 #[cfg(test)]
+mod auth_contract_tests;
+#[cfg(test)]
 mod credential_contract_tests;
 #[cfg(test)]
 mod reply_contract_tests;
@@ -65,16 +67,13 @@ where
 {
     /// Possibility to use a stream already created rather than
     /// creating a whole new `TcpStream::connect()`.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: negotiation can be partially sent or read; cancellation drops the owned stream.
     pub async fn use_stream(socket: S, auth: Option<AuthenticationMethod>, config: Config) -> Result<Self> {
         let mut stream = Socks5Stream { socket, config, target_addr: None };
 
-        // Auth none is always used by default.
-        let mut methods = vec![AuthenticationMethod::None];
-
-        if let Some(method) = auth {
-            // add any other method if supplied
-            methods.push(method);
-        }
+        let methods = vec![auth.unwrap_or(AuthenticationMethod::None)];
 
         // Handshake Lifecycle
         if !stream.config.skip_auth {
@@ -155,12 +154,17 @@ where
     ///     eg. (non-acceptable)  {5, 0xff}
     /// ```
     ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: negotiation can be partially read; discard the stream on cancellation.
     async fn which_method_accepted(&mut self, methods: Vec<AuthenticationMethod>) -> Result<()> {
         let [version, method] = read_exact!(self.socket, [0u8; 2]).context("Can't get chosen auth method")?;
         debug!("Socks version ({version}), method chosen: {method}.", version = version, method = method,);
 
         if version != consts::SOCKS5_VERSION {
             return Err(SocksError::UnsupportedSocksVersion(version));
+        }
+        if !methods.iter().any(|offered| offered.as_u8() == method) {
+            return Err(SocksError::AuthMethodUnacceptable(vec![method]));
         }
 
         match method {
@@ -184,11 +188,13 @@ where
     /// NOT cancel-safe: authentication can be partially sent or read; discard the stream on cancellation.
     async fn use_password_auth(&mut self, methods: Vec<AuthenticationMethod>) -> Result<()> {
         debug!("Password will be used");
-        let (username, password) = match methods.get(1) {
-            Some(AuthenticationMethod::None) => unreachable!(),
-            Some(AuthenticationMethod::Password { username, password }) => Ok((username, password)),
-            None => Err(SocksError::AuthenticationRejected(format!("Authentication rejected, missing user pass"))),
-        }?;
+        let (username, password) = methods
+            .iter()
+            .find_map(|method| match method {
+                AuthenticationMethod::Password { username, password } => Some((username, password)),
+                AuthenticationMethod::None => None,
+            })
+            .ok_or_else(|| SocksError::AuthenticationRejected("Authentication rejected, missing user pass".into()))?;
 
         let user_bytes = username.as_bytes();
         let pass_bytes = password.as_bytes();

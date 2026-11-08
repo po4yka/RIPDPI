@@ -74,8 +74,10 @@ impl From<SocksError> for OutboundError {
 ///
 /// - If `credentials` is `None`, only the no-auth method (`0x00`) is
 ///   advertised.
-/// - If `credentials` is `Some`, both username/password (`0x02`) and no-auth
-///   (`0x00`) are advertised, in that order of preference.
+/// - If `credentials` is `Some`, only username/password (`0x02`) is advertised.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: setup can be partially sent or read; discard the stream on cancellation.
 pub async fn connect<S>(
     stream: &mut S,
     target: OutboundTarget,
@@ -97,16 +99,16 @@ where
 
 /// Perform the SOCKS5 greeting + authentication over `stream`, identical to the
 /// first half of [`connect`]. Shared by [`connect`] and [`associate`].
+///
+/// # Cancel safety:
+/// NOT cancel-safe: negotiation can be partially sent or read; discard the stream on cancellation.
 async fn greet_and_authenticate<S>(stream: &mut S, credentials: Option<&Credentials>) -> Result<(), OutboundError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     // ── 1. Greeting ──────────────────────────────────────────────────────────
-    let methods: &[u8] = if credentials.is_some() {
-        &[consts::SOCKS5_AUTH_METHOD_PASSWORD, consts::SOCKS5_AUTH_METHOD_NONE]
-    } else {
-        &[consts::SOCKS5_AUTH_METHOD_NONE]
-    };
+    let methods: &[u8] =
+        if credentials.is_some() { &[consts::SOCKS5_AUTH_METHOD_PASSWORD] } else { &[consts::SOCKS5_AUTH_METHOD_NONE] };
 
     let mut greeting = Vec::with_capacity(2 + methods.len());
     greeting.push(consts::SOCKS5_VERSION);
@@ -120,6 +122,9 @@ where
     let [ver, chosen] = sel;
     if ver != consts::SOCKS5_VERSION {
         return Err(OutboundError::BadVersion(ver));
+    }
+    if !methods.contains(&chosen) {
+        return Err(OutboundError::UnacceptableMethod(chosen));
     }
 
     // ── 3. Sub-negotiation ────────────────────────────────────────────────────
@@ -151,6 +156,9 @@ where
 ///
 /// This low-level helper accepts numeric BND addresses only. It has no relay
 /// name resolver policy; callers that need domain endpoints must own resolution.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: setup can be partially sent or read; discard the stream on cancellation.
 pub async fn associate<S>(stream: &mut S, credentials: Option<Credentials>) -> Result<SocketAddr, OutboundError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -796,3 +804,6 @@ mod reply_contract_tests;
 
 #[cfg(test)]
 mod credential_contract_tests;
+
+#[cfg(test)]
+mod auth_contract_tests;
