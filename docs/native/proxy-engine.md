@@ -644,7 +644,24 @@ When a filter does not match, the step is silently skipped. This enables differe
 | SOCKS5 | default | Local SOCKS5 proxy (RFC 1928) with optional auth |
 | SOCKS4/4a | built-in | SOCKS4 protocol family support |
 | HTTP CONNECT | `http_connect` | HTTPS CONNECT method proxy |
-| Shadowsocks | `shadowsocks` | Shadowsocks protocol support |
+| Plaintext address input | `shadowsocks` / `--shadowsocks-plain` | Open Shadowsocks address header followed by a TCP stream |
+
+### Plaintext address input
+
+Use `--shadowsocks-plain` to select the local plaintext input in the CLI or in the
+`args` of an Android command-line configuration. The wire format is
+`ATYP | address | port (two bytes, big-endian) | payload`. The address types are
+`01` for IPv4, `03` for a length-prefixed domain, and `04` for IPv6. The input adds
+no encryption or protocol acknowledgement. Encrypted Shadowsocks outbound uses
+the separate relay configuration.
+
+Only loopback binds are allowed. An auth token is incompatible with this input
+and causes startup to fail. VPN sessions require a token, so this input is not a
+VPN/TUN input. `SS_LOCAL_PORT` and `SS_PLUGIN_OPTIONS` are not read by the CLI or
+Android configuration entry points.
+
+With `--mixed`, this input remains exclusive. Without `--mixed`, `--http-connect`
+takes precedence; `--transparent` always takes precedence.
 
 ### External SOCKS upstream (`ext_socks`)
 

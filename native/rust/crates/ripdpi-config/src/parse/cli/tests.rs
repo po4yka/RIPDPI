@@ -294,6 +294,24 @@ fn parse_cli_uses_shadowsocks_startup_port_and_protect_path() {
 }
 
 #[test]
+fn parse_cli_explicitly_selects_plaintext_shadowsocks_input() {
+    for mixed in [false, true] {
+        let mut args = vec!["--shadowsocks-plain".to_string()];
+        if mixed {
+            args.push("--mixed".to_string());
+        }
+        let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("explicit plaintext input")
+        else {
+            panic!("expected runnable config");
+        };
+        assert!(config.network.shadowsocks);
+        assert_eq!(config.network.mixed, mixed);
+        assert!(config.network.listen.listen_ip.is_loopback());
+        assert_eq!(config.network.listen.auth_token, None);
+    }
+}
+
+#[test]
 fn parse_cli_reads_geo_database_paths() {
     let args = vec![
         "--geoip-db".to_string(),
