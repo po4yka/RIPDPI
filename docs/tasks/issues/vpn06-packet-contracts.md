@@ -2,7 +2,7 @@
 id: VPN-1794152786002343
 title: Repair IPv4 and IPv6 TUN packet contracts
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: VPN packet team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: vpn06-packet-contracts
 created: 2026-11-08
 updated: 2026-11-08
+status_detail: F1-F8 repaired and independently reviewed; 547 host tests, Clippy and ci-gates passed. Android, privileged raw and external compatibility are not claimed.
 ---
 
 ## Goal
