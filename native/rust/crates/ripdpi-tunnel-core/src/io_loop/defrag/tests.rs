@@ -137,3 +137,75 @@ fn reassembly_is_bounded_in_count_and_time() {
     assert!(matches!(defrag.accept(&fragment_v4(extra, &datagram, 0, 1480), later), Reassembly::Held));
     assert!(matches!(defrag.accept(&fragment_v4(extra, &datagram, 1480, 1480), later), Reassembly::Complete(_)));
 }
+
+#[test]
+fn ipv6_partial_overlap_abandons_the_datagram_until_its_original_deadline() {
+    let datagram = udp_datagram_v6(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
+    let now = Instant::now();
+    let mut defrag = IpDefrag::default();
+    let first = fragment_v6(41, &datagram, 0, 24);
+    let overlapping_last = fragment_v6(41, &datagram, 16, datagram.len() - 16);
+    let last = fragment_v6(41, &datagram, 24, datagram.len() - 24);
+
+    assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&overlapping_last, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&last, now), Reassembly::Held));
+
+    let later = now + REASSEMBLY_TIMEOUT + Duration::from_secs(1);
+    assert!(matches!(defrag.accept(&first, later), Reassembly::Held));
+    let Reassembly::Complete(packet) = defrag.accept(&last, later) else {
+        panic!("a new datagram may use the identity after the fixed deadline");
+    };
+    assert_udp_payload(
+        &packet,
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+        IpAddr::V6(Ipv6Addr::from(SRC6)),
+        IpAddr::V6(Ipv6Addr::from(DST6)),
+    );
+}
+
+#[test]
+fn ipv6_exact_duplicates_use_the_same_strict_overlap_policy() {
+    let datagram = udp_datagram_v6(&[7; 64]);
+    let now = Instant::now();
+    let mut defrag = IpDefrag::default();
+    let first = fragment_v6(42, &datagram, 0, 24);
+    let last = fragment_v6(42, &datagram, 24, datagram.len() - 24);
+
+    assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&last, now), Reassembly::Held));
+}
+
+#[test]
+fn repeated_fragments_do_not_extend_the_reassembly_deadline() {
+    let datagram = udp_datagram_v4(&[9; 2000]);
+    let now = Instant::now();
+    let mut defrag = IpDefrag::default();
+    let first = fragment_v4(43, &datagram, 0, 1480);
+    let last = fragment_v4(43, &datagram, 1480, 1480);
+
+    assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&first, now + REASSEMBLY_TIMEOUT - Duration::from_secs(1)), Reassembly::Held));
+    assert!(matches!(defrag.accept(&last, now + REASSEMBLY_TIMEOUT + Duration::from_secs(1)), Reassembly::Held));
+}
+
+#[test]
+fn rejected_ipv6_identities_share_the_bounded_reassembly_pool() {
+    let datagram = udp_datagram_v6(&[7; 64]);
+    let now = Instant::now();
+    let mut defrag = IpDefrag::default();
+    for id in 0..MAX_REASSEMBLIES as u32 {
+        let first = fragment_v6(id, &datagram, 0, 24);
+        assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+        assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    }
+    let first = fragment_v6(100, &datagram, 0, 24);
+    let last = fragment_v6(100, &datagram, 24, datagram.len() - 24);
+    assert!(matches!(defrag.accept(&first, now), Reassembly::Held));
+    assert!(matches!(defrag.accept(&last, now), Reassembly::Held));
+    let later = now + REASSEMBLY_TIMEOUT;
+    assert!(matches!(defrag.accept(&first, later), Reassembly::Held));
+    assert!(matches!(defrag.accept(&last, later), Reassembly::Complete(_)));
+}

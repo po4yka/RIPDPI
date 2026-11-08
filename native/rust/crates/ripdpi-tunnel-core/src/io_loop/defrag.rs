@@ -15,7 +15,7 @@ use etherparse::{
 
 /// Datagrams in reassembly at one time. Each one holds at most 64 KiB.
 const MAX_REASSEMBLIES: usize = 32;
-/// A datagram whose fragments stop arriving for this long is dropped.
+/// A datagram or rejected identity expires this long after its first fragment.
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub(in crate::io_loop) enum Reassembly {
@@ -28,9 +28,10 @@ pub(in crate::io_loop) enum Reassembly {
 }
 
 struct Pending {
-    buf: IpDefragBuf,
+    // None retains a rejected IPv6 identity without its packet bytes.
+    buf: Option<IpDefragBuf>,
     hop_limit: u8,
-    last_seen: Instant,
+    first_seen: Instant,
 }
 
 #[derive(Default)]
@@ -51,28 +52,44 @@ impl IpDefrag {
         let Some(fragment) = parse_fragment(packet) else {
             return Reassembly::NotFragment;
         };
-        self.pending.retain(|_, pending| now.duration_since(pending.last_seen) <= REASSEMBLY_TIMEOUT);
+        self.pending.retain(|_, pending| now.duration_since(pending.first_seen) < REASSEMBLY_TIMEOUT);
         if !self.pending.contains_key(&fragment.id) && self.pending.len() >= MAX_REASSEMBLIES {
             return Reassembly::Held;
         }
         let pending = self.pending.entry(fragment.id.clone()).or_insert_with(|| Pending {
-            buf: IpDefragBuf::new(fragment.id.payload_ip_number, Vec::new(), Vec::new()),
+            buf: Some(IpDefragBuf::new(fragment.id.payload_ip_number, Vec::new(), Vec::new())),
             hop_limit: fragment.hop_limit,
-            last_seen: now,
+            first_seen: now,
         });
-        pending.last_seen = now;
-        let added = pending.buf.add(fragment.offset, fragment.more, fragment.payload);
-        if added.is_ok() && !pending.buf.is_complete() {
+        let Some(buf) = pending.buf.as_mut() else {
+            return Reassembly::Held;
+        };
+        let ipv6 = matches!(fragment.id.ip, IpFragVersionSpecId::Ipv6 { .. });
+        let start = usize::from(fragment.offset.byte_offset());
+        let end = start + fragment.payload.len();
+        if ipv6 && buf.sections().iter().any(|range| start < usize::from(range.end) && usize::from(range.start) < end) {
+            // RFC 8200 permits dropping exact duplicates with all other overlaps.
+            pending.buf = None;
             return Reassembly::Held;
         }
-        // Complete or malformed: either way the datagram leaves the pool.
+        if buf.add(fragment.offset, fragment.more, fragment.payload).is_err() {
+            if ipv6 {
+                pending.buf = None;
+            } else {
+                self.pending.remove(&fragment.id);
+            }
+            return Reassembly::Held;
+        }
+        if !buf.is_complete() {
+            return Reassembly::Held;
+        }
         let Some(pending) = self.pending.remove(&fragment.id) else {
             return Reassembly::Held;
         };
-        if added.is_err() {
+        let Some(buf) = pending.buf else {
             return Reassembly::Held;
-        }
-        let (payload, _) = pending.buf.take_bufs();
+        };
+        let (payload, _) = buf.take_bufs();
         rebuild_packet(&fragment.id, pending.hop_limit, &payload).map_or(Reassembly::Held, Reassembly::Complete)
     }
 }
