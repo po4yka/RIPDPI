@@ -2,7 +2,7 @@
 id: PRX-1794124642980782
 title: Reuse compatible TCP connections after payload routing
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: Proxy runtime maintainer

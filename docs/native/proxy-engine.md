@@ -738,9 +738,12 @@ but validated MTProto is never sent raw after a failed carrier. Other ingress
 protocols keep the order above. The diagram shows seed and route selection.
 
 With delayed TCP routing, the runtime can select a different group from the
-payload after CONNECT success. It then closes the provisional connection and
-opens another connection. A server that accepts only one connection can fail
-in this case.
+payload after CONNECT success. It keeps the established TCP connection when
+the effective connect policy, egress and preferred target list are unchanged,
+and applies the selected group to the payload and relay. A discovered SNI alone
+does not require another connection. A changed upstream, socket setup, target
+list or payload-in-SYN requirement still requires a new connection. Payload
+block and owned-stack rules run before any application bytes reach upstream.
 
 ```mermaid
 flowchart TD
