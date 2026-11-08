@@ -60,10 +60,10 @@ const CACHE_CAPACITY: usize = 4096;
 /// conservative) rather than growing without bound.
 const PENDING_CAPACITY: usize = 1024;
 
-/// Absolute lifetime for an admission-only DNS UID verdict. Five seconds spans
-/// a DNS transaction burst without allowing traffic to renew a stale socket
+/// Absolute lifetime for a UDP UID verdict or an admission-only lookup. Five seconds spans
+/// a transaction burst without allowing traffic to renew a stale socket
 /// owner indefinitely after the kernel reuses the exact UDP tuple.
-const ADMISSION_ABSOLUTE_TTL: Duration = Duration::from_secs(5);
+const UID_ABSOLUTE_TTL: Duration = Duration::from_secs(5);
 
 /// Resolved owning-app identity for a flow's destination IP.
 ///
@@ -158,7 +158,7 @@ impl FlowResolveRequest {
 ///
 /// The generation prevents a delayed cleanup from removing a later flow that reused the same protocol/local/remote tuple.
 /// Copying or discarding the ID does not retain or unregister the flow. The
-/// cache may invalidate it through eviction, admission expiry, or session end.
+/// cache may invalidate it through eviction, UID expiry, or session end.
 /// TCP session and UDP association containers perform explicit cleanup using
 /// [`evict_flow_if_current`] when their flow lifetime ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -282,10 +282,16 @@ fn lock() -> std::sync::MutexGuard<'static, State> {
 /// Record a flow and return cached attribution plus its non-owning registration ID.
 ///
 /// Non-blocking and hot-path safe: on a cache miss this marks the destination IP `Pending`, enqueues a [`FlowResolveRequest`] for the worker, and returns no context. A later flow to the same destination picks up the resolved answer.
+/// UDP owner results expire after five seconds even while packets keep arriving.
 pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObservation {
-    let key = remote.ip();
     let request = FlowResolveRequest { protocol, local, remote };
+    note_flow_at(request, Instant::now())
+}
+
+fn note_flow_at(request: FlowResolveRequest, now: Instant) -> FlowObservation {
+    let key = request.key();
     let mut guard = lock();
+    remove_expired_uid(&mut guard, request, now);
     let context = match guard.cache.get(&key) {
         Some(Resolution::Resolved(ctx)) => ctx.clone(),
         Some(Resolution::Pending) | None => None,
@@ -307,7 +313,7 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
             generation,
             state: UidResolutionState::Pending,
             kind: FlowResolutionKind::Attribution,
-            created_at: Instant::now(),
+            created_at: now,
         },
     );
     if guard.pending.len() >= PENDING_CAPACITY
@@ -326,7 +332,7 @@ pub fn note_flow(protocol: u8, local: SocketAddr, remote: SocketAddr) -> FlowObs
 /// creating or updating destination-level app attribution.
 ///
 /// Repeated calls reuse the bounded full-5-tuple UID cache and therefore do not
-/// enqueue a second Android lookup within [`ADMISSION_ABSOLUTE_TTL`]. Cache hits
+/// enqueue a second Android lookup within [`UID_ABSOLUTE_TTL`]. Cache hits
 /// never renew that security bound: the exact tuple is forcibly re-resolved
 /// after five seconds in case the kernel assigned it to a different socket
 /// owner. The cache is also bounded by LRU and cleared at session shutdown.
@@ -337,7 +343,7 @@ pub fn request_uid_admission(protocol: u8, local: SocketAddr, remote: SocketAddr
 
 fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) -> FlowRegistrationId {
     let mut guard = lock();
-    remove_expired_admission(&mut guard, request, now);
+    remove_expired_uid(&mut guard, request, now);
     if let Some(entry) = guard.uid_cache.get(&request) {
         return FlowRegistrationId { request, generation: entry.generation };
     }
@@ -367,7 +373,7 @@ fn request_uid_admission_at(request: FlowResolveRequest, now: Instant) -> FlowRe
 #[must_use]
 pub fn lookup_registered_flow_uid(registration_id: &FlowRegistrationId) -> FlowUidLookup {
     let mut guard = lock();
-    remove_expired_admission(&mut guard, registration_id.request, Instant::now());
+    remove_expired_uid(&mut guard, registration_id.request, Instant::now());
     match guard.uid_cache.get(&registration_id.request) {
         Some(entry) if entry.generation == registration_id.generation => match entry.state {
             UidResolutionState::Pending => FlowUidLookup::Pending,
@@ -386,7 +392,7 @@ pub fn lookup_flow_uid(protocol: u8, local: SocketAddr, remote: SocketAddr) -> F
 
 fn lookup_flow_uid_at(request: FlowResolveRequest, now: Instant) -> FlowUidLookup {
     let mut guard = lock();
-    remove_expired_admission(&mut guard, request, now);
+    remove_expired_uid(&mut guard, request, now);
     match guard.uid_cache.get(&request) {
         Some(UidResolution { state: UidResolutionState::Pending, .. }) => FlowUidLookup::Pending,
         Some(UidResolution { state: UidResolutionState::Resolved(uid), .. }) => FlowUidLookup::Resolved(*uid),
@@ -394,13 +400,15 @@ fn lookup_flow_uid_at(request: FlowResolveRequest, now: Instant) -> FlowUidLooku
     }
 }
 
-fn remove_expired_admission(guard: &mut State, request: FlowResolveRequest, now: Instant) {
+fn remove_expired_uid(guard: &mut State, request: FlowResolveRequest, now: Instant) {
     let expired = guard.uid_cache.peek(&request).is_some_and(|entry| {
-        entry.kind == FlowResolutionKind::AdmissionOnly
-            && now.saturating_duration_since(entry.created_at) >= ADMISSION_ABSOLUTE_TTL
+        (request.protocol == 17 || entry.kind == FlowResolutionKind::AdmissionOnly)
+            && now.saturating_duration_since(entry.created_at) >= UID_ABSOLUTE_TTL
     });
     if expired {
-        guard.uid_cache.pop(&request);
+        if guard.uid_cache.pop(&request).is_some_and(|entry| entry.kind == FlowResolutionKind::Attribution) {
+            guard.cache.pop(&request.key());
+        }
         guard.pending.retain(|job| job.request != request);
     }
 }
@@ -408,6 +416,7 @@ fn remove_expired_admission(guard: &mut State, request: FlowResolveRequest, now:
 /// Store the UID result produced by the background JNI worker.
 pub fn store_uid_resolution(job: &FlowResolutionJob, uid: Option<u32>) {
     let mut guard = lock();
+    remove_expired_uid(&mut guard, job.request, Instant::now());
     let current = guard.uid_cache.peek(&job.request).copied();
     if let Some(current) = current
         && current.generation == job.generation
@@ -428,6 +437,7 @@ pub fn store_uid_resolution(job: &FlowResolutionJob, uid: Option<u32>) {
 /// Store destination attribution only while the originating flow generation is current.
 pub fn store_flow_resolution(job: &FlowResolutionJob, context: Option<FlowAppContext>) {
     let mut guard = lock();
+    remove_expired_uid(&mut guard, job.request, Instant::now());
     if guard.uid_cache.peek(&job.request).is_some_and(|entry| entry.generation == job.generation) {
         guard.cache.put(job.request.key(), Resolution::Resolved(context));
     }
@@ -672,21 +682,82 @@ mod tests {
         let allowed = pop_pending_request(Duration::ZERO).expect("allowed owner lookup");
         store_uid_resolution(&allowed, Some(10_123));
 
-        let last_cache_hit = started + ADMISSION_ABSOLUTE_TTL - Duration::from_millis(1);
+        let last_cache_hit = started + UID_ABSOLUTE_TTL - Duration::from_millis(1);
         assert_eq!(lookup_flow_uid_at(request, last_cache_hit), FlowUidLookup::Resolved(Some(10_123)));
         assert_eq!(
-            lookup_flow_uid_at(request, started + ADMISSION_ABSOLUTE_TTL),
+            lookup_flow_uid_at(request, started + UID_ABSOLUTE_TTL),
             FlowUidLookup::Missing,
             "cache hits must not renew the absolute tuple-owner security bound"
         );
 
-        let rebound_at = started + ADMISSION_ABSOLUTE_TTL;
+        let rebound_at = started + UID_ABSOLUTE_TTL;
         request_uid_admission_at(request, rebound_at);
         let denied = pop_pending_request(Duration::ZERO).expect("rebound owner lookup");
         assert_ne!(denied.generation, allowed.generation);
         store_uid_resolution(&denied, Some(20_000));
         assert_eq!(lookup_flow_uid_at(request, rebound_at), FlowUidLookup::Resolved(Some(20_000)));
         assert_eq!(pending_len(), 0);
+    }
+
+    #[test]
+    fn ordinary_udp_owner_age_is_absolute_and_rejects_the_previous_generation() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        for (local, remote) in [
+            (sock(10, 0, 0, 2, 53_002), sock(203, 0, 113, 7, 443)),
+            ("[2001:db8::2]:53002".parse().expect("local IPv6"), "[2001:db8::7]:443".parse().expect("remote IPv6")),
+        ] {
+            for old_uid in [Some(10_123), None] {
+                clear();
+                let request = FlowResolveRequest { protocol: 17, local, remote };
+                let started = Instant::now();
+                let original = note_flow_at(request, started);
+                let old_job = pop_pending_request(Duration::ZERO).expect("original owner lookup");
+                store_uid_resolution(&old_job, old_uid);
+                store_flow_resolution(&old_job, Some(FlowAppContext::new("com.old", 1)));
+
+                for elapsed_ms in [1_000, 3_000, 4_999] {
+                    let hit = note_flow_at(request, started + Duration::from_millis(elapsed_ms));
+                    assert_eq!(hit.registration_id, original.registration_id);
+                    assert_eq!(lookup_flow_uid_at(request, started), FlowUidLookup::Resolved(old_uid));
+                    assert_eq!(pending_len(), 0);
+                }
+
+                let refreshed = note_flow_at(request, started + Duration::from_secs(5));
+                assert_ne!(refreshed.registration_id, original.registration_id, "traffic must not renew UDP owner age");
+                assert!(refreshed.context.is_none(), "expired owner context must not label the new flow");
+                assert_eq!(lookup_registered_flow_uid(&original.registration_id), FlowUidLookup::Missing);
+                assert_eq!(lookup_registered_flow_uid(&refreshed.registration_id), FlowUidLookup::Pending);
+                store_uid_resolution(&old_job, Some(10_123));
+                store_flow_resolution(&old_job, Some(FlowAppContext::new("com.old", 1)));
+                assert_eq!(lookup_registered_flow_uid(&refreshed.registration_id), FlowUidLookup::Pending);
+                assert!(lookup_flow(remote.ip()).is_none());
+                assert!(!evict_flow_if_current(original.registration_id));
+
+                let new_job = pop_pending_request(Duration::ZERO).expect("new owner lookup");
+                store_uid_resolution(&new_job, Some(20_000));
+                assert_eq!(
+                    lookup_registered_flow_uid(&refreshed.registration_id),
+                    FlowUidLookup::Resolved(Some(20_000))
+                );
+                assert_eq!(pending_len(), 0);
+            }
+        }
+        clear();
+    }
+
+    #[test]
+    fn ordinary_udp_late_result_cannot_restore_expired_owner_context() {
+        let _g = TEST_GUARD.lock().expect("test guard");
+        clear();
+        let request =
+            FlowResolveRequest { protocol: 17, local: sock(10, 0, 0, 2, 53_003), remote: sock(203, 0, 113, 8, 443) };
+        let observation = note_flow_at(request, Instant::now() - Duration::from_secs(5));
+        let job = pop_pending_request(Duration::ZERO).expect("late owner lookup");
+        store_uid_resolution(&job, Some(10_123));
+        store_flow_resolution(&job, Some(FlowAppContext::new("com.old", 1)));
+
+        assert!(lookup_flow(request.key()).is_none(), "an expired callback must not publish app identity");
+        assert_eq!(lookup_registered_flow_uid(&observation.registration_id), FlowUidLookup::Missing);
     }
 
     #[test]
