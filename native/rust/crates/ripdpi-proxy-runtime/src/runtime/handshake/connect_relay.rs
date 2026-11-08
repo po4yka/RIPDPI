@@ -6,9 +6,11 @@ mod error;
 mod relay;
 mod reply;
 mod routes;
-mod socks5_delay;
+#[cfg(all(test, not(feature = "loom")))]
+mod socks4_delay_tests;
 #[cfg(all(test, not(feature = "loom")))]
 mod socks5_delay_tests;
+mod socks_delay;
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
 mod ws_fallback;
@@ -147,6 +149,9 @@ where
                 connect_after_ws_attempt_fn(client, target, state, host_hint, seed_request)
             }
             AlwaysWsOutcome::Failed(err) => Err(err),
+            AlwaysWsOutcome::CarrierFailed(err) => {
+                ws_first::normal_after_carrier_failure(client, target, state, host_hint, err)
+            }
         };
     }
 

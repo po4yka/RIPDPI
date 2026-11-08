@@ -68,6 +68,14 @@ pub fn classify_target(ip: IpAddr) -> WsTunnelDecision {
     dc.map_or(WsTunnelDecision::Passthrough, WsTunnelDecision::Tunnel)
 }
 
+/// A ready WebSocket carrier owned until relay or drop.
+///
+/// Dropping this value must close the carrier without starting detached work.
+pub trait PreparedWsTunnel {
+    /// Relay a validated seed and own all relay work until it finishes.
+    fn relay(self: Box<Self>, client: TcpStream, seed_request: Vec<u8>) -> io::Result<()>;
+}
+
 /// Object-safe boundary between runtime orchestration and the L7 WS tunnel.
 ///
 /// Implementations are synchronous because the underlying relay owns blocking
@@ -75,6 +83,17 @@ pub fn classify_target(ip: IpAddr) -> WsTunnelDecision {
 pub trait WsTransport: Send + Sync {
     /// Classify the initial MTProto bytes without transferring socket ownership.
     fn classify_mtproto_seed(&self, seed: &[u8]) -> MtprotoSeedClassification;
+
+    /// Complete the carrier handshake without waiting for client application bytes.
+    ///
+    /// Observe `should_cancel` during bootstrap and release all sockets on failure.
+    /// `config.connect_timeout` is the remaining shared DNS/transport budget.
+    fn open(
+        &self,
+        dc: TelegramDc,
+        config: &WsTunnelConfig,
+        should_cancel: &dyn Fn() -> bool,
+    ) -> io::Result<Box<dyn PreparedWsTunnel>>;
 
     /// Own and relay `client` until the connection finishes.
     ///
@@ -102,6 +121,15 @@ mod tests {
     struct TestTransport;
 
     impl WsTransport for TestTransport {
+        fn open(
+            &self,
+            _dc: TelegramDc,
+            _config: &WsTunnelConfig,
+            _should_cancel: &dyn Fn() -> bool,
+        ) -> io::Result<Box<dyn PreparedWsTunnel>> {
+            Err(io::Error::new(io::ErrorKind::Unsupported, "test transport has no carrier"))
+        }
+
         fn classify_mtproto_seed(&self, _seed: &[u8]) -> MtprotoSeedClassification {
             MtprotoSeedClassification::NotMtproto
         }

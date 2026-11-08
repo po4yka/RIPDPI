@@ -32,6 +32,18 @@ impl ripdpi_ws_transport_port::WsTransport for TelegramWsTransport {
         classify_mtproto_seed(seed)
     }
 
+    fn open(
+        &self,
+        dc: TelegramDc,
+        config: &WsTunnelConfig,
+        should_cancel: &dyn Fn() -> bool,
+    ) -> io::Result<Box<dyn ripdpi_ws_transport_port::PreparedWsTunnel>> {
+        let ws = open_ws_tunnel_with(dc, config, |dc, addr, protect, timeout, sni, worker| {
+            connect::open_ws_tunnel_with_timeout_and_cancel(dc, addr, protect, timeout, sni, worker, should_cancel)
+        })?;
+        Ok(Box::new(PreparedTunnel(ws)))
+    }
+
     fn relay(
         &self,
         client: TcpStream,
@@ -41,6 +53,25 @@ impl ripdpi_ws_transport_port::WsTransport for TelegramWsTransport {
     ) -> io::Result<()> {
         relay_ws_tunnel(client, dc, seed_request, config)
     }
+}
+
+struct PreparedTunnel(connect::WsStream);
+
+impl ripdpi_ws_transport_port::PreparedWsTunnel for PreparedTunnel {
+    fn relay(self: Box<Self>, client: TcpStream, seed_request: Vec<u8>) -> io::Result<()> {
+        validate_seed(&seed_request)?;
+        relay::ws_relay(client, self.0, &seed_request)
+    }
+}
+
+fn validate_seed(seed_request: &[u8]) -> io::Result<()> {
+    if seed_request.len() < 64 {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            format!("WS tunnel seed request must contain 64-byte init, got {}", seed_request.len()),
+        ));
+    }
+    Ok(())
 }
 
 /// Execute a WebSocket tunnel relay for a Telegram connection.
@@ -76,13 +107,22 @@ where
     ) -> io::Result<Ws>,
     RelayWs: FnOnce(TcpStream, Ws, &[u8]) -> io::Result<()>,
 {
-    if seed_request.len() < 64 {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            format!("WS tunnel seed request must contain 64-byte init, got {}", seed_request.len()),
-        ));
-    }
+    validate_seed(&seed_request)?;
+    let ws = open_ws_tunnel_with(dc, config, open_ws)?;
+    relay_ws(client, ws, &seed_request)
+}
 
+fn open_ws_tunnel_with<OpenWs, Ws>(dc: TelegramDc, config: &WsTunnelConfig, open_ws: OpenWs) -> io::Result<Ws>
+where
+    OpenWs: FnOnce(
+        TelegramDc,
+        Option<SocketAddr>,
+        Option<&str>,
+        Option<Duration>,
+        Option<&str>,
+        Option<&CloudflareWorkerRoute>,
+    ) -> io::Result<Ws>,
+{
     // fake-SNI mode verifies the certificate against the gateway name rather than
     // the name it sends (see connect.rs). Refuse the connection when the operator
     // has not explicitly acknowledged the cover via allow_insecure_sni, so a
@@ -101,15 +141,14 @@ where
         ));
     }
 
-    let ws = open_ws(
+    open_ws(
         dc,
         config.resolved_addr,
         config.protect_path.as_deref(),
         config.connect_timeout,
         effective_fake_sni,
         config.worker_route.as_ref(),
-    )?;
-    relay_ws(client, ws, &seed_request)
+    )
 }
 
 #[cfg(test)]

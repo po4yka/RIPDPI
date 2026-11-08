@@ -42,7 +42,7 @@ pub(super) fn prepare_first_payload(
 ) -> io::Result<FirstOutboundRead<FirstPayload>> {
     let read = match seed_request {
         Some(seed) => FirstOutboundRead::Payload(seed),
-        None => read_first_client_payload(client, upstream, state.first_outbound_payload_buffer_size())?,
+        None => read_first_client_payload(client, Some(upstream), state.first_outbound_payload_buffer_size())?,
     };
     Ok(read.map(|original_request| {
         let info = state.classify_first_outbound_payload(&original_request);
@@ -52,7 +52,7 @@ pub(super) fn prepare_first_payload(
 
 pub(in crate::runtime) fn read_first_client_payload(
     client: &mut TcpStream,
-    upstream: &TcpStream,
+    upstream: Option<&TcpStream>,
     buffer_size: usize,
 ) -> io::Result<FirstOutboundRead<Vec<u8>>> {
     let original_timeout = client.read_timeout()?;
@@ -65,7 +65,10 @@ pub(in crate::runtime) fn read_first_client_payload(
         // Only a flow whose client has sent nothing yet can be server-first.
         // After the client has sent bytes, the TLS ClientHello reassembly
         // path below owns the wait, so no client bytes are dropped.
-        if watch_upstream && !assembler.is_buffering() {
+        if watch_upstream
+            && !assembler.is_buffering()
+            && let Some(upstream) = upstream
+        {
             match wait_for_first_readable(client, upstream, timeout) {
                 Ok(FirstReadable::Client) => {}
                 Ok(FirstReadable::Upstream) => {
@@ -179,7 +182,7 @@ mod tests {
             }
         });
 
-        let assembled = read_first_client_payload(&mut client, &upstream, 64).expect("read payload");
+        let assembled = read_first_client_payload(&mut client, Some(&upstream), 64).expect("read payload");
         writer.join().expect("writer thread");
 
         assert_eq!(assembled, FirstOutboundRead::Payload(payload));
@@ -193,7 +196,7 @@ mod tests {
         server.write_all(b"220 ready\r\n").expect("write greeting");
 
         let started = Instant::now();
-        let read = read_first_client_payload(&mut client, &upstream, 64).expect("read first payload");
+        let read = read_first_client_payload(&mut client, Some(&upstream), 64).expect("read first payload");
 
         assert_eq!(read, FirstOutboundRead::ServerFirst);
         assert!(started.elapsed() < Duration::from_secs(2), "server-first detection took {:?}", started.elapsed());
@@ -211,7 +214,7 @@ mod tests {
         server.write_all(b"220 ready\r\n").expect("write greeting");
         thread::sleep(Duration::from_millis(50));
 
-        let read = read_first_client_payload(&mut client, &upstream, 256).expect("read first payload");
+        let read = read_first_client_payload(&mut client, Some(&upstream), 256).expect("read first payload");
 
         assert_eq!(read, FirstOutboundRead::Payload(b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n".to_vec()));
     }
@@ -235,7 +238,7 @@ mod tests {
             server
         });
 
-        let read = read_first_client_payload(&mut client, &upstream, 64).expect("read first payload");
+        let read = read_first_client_payload(&mut client, Some(&upstream), 64).expect("read first payload");
         let _server = writer.join().expect("writer thread");
 
         assert_eq!(read, FirstOutboundRead::Payload(payload));
@@ -250,7 +253,7 @@ mod tests {
         let (upstream, server) = connected_pair();
         drop(server);
 
-        let read = read_first_client_payload(&mut client, &upstream, 64).expect("read first payload");
+        let read = read_first_client_payload(&mut client, Some(&upstream), 64).expect("read first payload");
 
         assert_eq!(read, FirstOutboundRead::ServerFirst);
         assert_eq!(upstream.peek(&mut [0]).expect("upstream EOF stays available"), 0);
@@ -262,7 +265,7 @@ mod tests {
         let (upstream, _server) = connected_pair();
         drop(app);
 
-        let read = read_first_client_payload(&mut client, &upstream, 64).expect("read first payload");
+        let read = read_first_client_payload(&mut client, Some(&upstream), 64).expect("read first payload");
 
         assert_eq!(read, FirstOutboundRead::ClientClosed);
     }

@@ -13,6 +13,14 @@ impl RuntimeState {
     pub(in crate::runtime) fn classify_mtproto_seed(&self, seed: &[u8]) -> WsSeedClassification {
         runtime_classify_mtproto_seed(self.ws_transport.as_ref(), seed)
     }
+    pub(in crate::runtime) fn open_ws_tunnel(
+        &self,
+        dc: RuntimeTelegramDc,
+        config: &RuntimeWsTunnelConfig,
+        should_cancel: &dyn Fn() -> bool,
+    ) -> io::Result<Box<dyn ripdpi_ws_transport_port::PreparedWsTunnel>> {
+        self.ws_transport.open(dc.into_adapter(), config.as_adapter(), should_cancel)
+    }
     pub(in crate::runtime) fn relay_ws_tunnel(
         &self,
         client: TcpStream,
@@ -53,6 +61,27 @@ impl RuntimeState {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_ws_tunnel_fake_sni_active(target, dc);
         }
+    }
+    pub(in crate::runtime) fn resolve_ws_tunnel_addr_with_cancel(
+        &self,
+        dc: RuntimeTelegramDc,
+        should_cancel: &dyn Fn() -> bool,
+    ) -> io::Result<SocketAddr> {
+        let (host, port) = if let Some(route) = &self.ws_tunnel_settings.worker_route {
+            (route.host().to_owned(), route.port())
+        } else {
+            let host = ripdpi_ws_transport_port::ws_host(dc.into_adapter())
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "WS carrier requires a tunnelable DC"))?;
+            (host, 443)
+        };
+        let resolved = runtime_resolve_host_via_encrypted_dns_with_cancel(
+            &host,
+            self.runtime_context.as_ref(),
+            self.ws_tunnel_settings.protect_path.as_deref(),
+            false,
+            should_cancel,
+        )?;
+        Ok(SocketAddr::new(resolved.ip(), port))
     }
     pub(in crate::runtime) fn resolve_ws_tunnel_addr(&self, dc: RuntimeTelegramDc) -> io::Result<SocketAddr> {
         if let Some(worker_route) = &self.ws_tunnel_settings.worker_route {

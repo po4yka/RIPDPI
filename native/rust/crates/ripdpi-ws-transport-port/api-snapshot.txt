@@ -47,8 +47,11 @@ pub ripdpi_ws_transport_port::WsTunnelConfig::resolved_addr: core::option::Optio
 pub ripdpi_ws_transport_port::WsTunnelConfig::worker_route: core::option::Option<ripdpi_ws_transport_port::CloudflareWorkerRoute>
 pub const ripdpi_ws_transport_port::TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED: &str
 pub const ripdpi_ws_transport_port::TELEGRAM_DC_IPV4_TABLE_SOURCE: &str
+pub trait ripdpi_ws_transport_port::PreparedWsTunnel
+pub fn ripdpi_ws_transport_port::PreparedWsTunnel::relay(alloc::boxed::Box<Self>, std::net::tcp::TcpStream, alloc::vec::Vec<u8>) -> std::io::error::Result<()>
 pub trait ripdpi_ws_transport_port::WsTransport: core::marker::Send + core::marker::Sync
 pub fn ripdpi_ws_transport_port::WsTransport::classify_mtproto_seed(&self, &[u8]) -> ripdpi_ws_transport_port::MtprotoSeedClassification
+pub fn ripdpi_ws_transport_port::WsTransport::open(&self, ripdpi_ws_transport_port::TelegramDc, &ripdpi_ws_transport_port::WsTunnelConfig, &dyn core::ops::function::Fn() -> bool) -> std::io::error::Result<alloc::boxed::Box<dyn ripdpi_ws_transport_port::PreparedWsTunnel>>
 pub fn ripdpi_ws_transport_port::WsTransport::relay(&self, std::net::tcp::TcpStream, ripdpi_ws_transport_port::TelegramDc, alloc::vec::Vec<u8>, &ripdpi_ws_transport_port::WsTunnelConfig) -> std::io::error::Result<()>
 pub fn ripdpi_ws_transport_port::classify_target(core::net::ip_addr::IpAddr) -> ripdpi_ws_transport_port::WsTunnelDecision
 pub fn ripdpi_ws_transport_port::dc_from_ip(core::net::ip_addr::Ipv4Addr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>

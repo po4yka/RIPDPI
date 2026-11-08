@@ -16,6 +16,21 @@ pub(super) fn connect(
     target: SocketAddr,
     route: crate::runtime::types::RuntimeConnectionRoute,
     host_hint: Option<&str>,
+    reply: &SuccessReply,
+) -> Result<DelayConnect, ConnectRelayError> {
+    connect_with(client, state, target, route, host_hint, reply, |client, upstream, buffer_size| {
+        read_first_client_payload(client, Some(upstream), buffer_size)
+    })
+}
+
+pub(super) fn connect_with(
+    client: &mut TcpStream,
+    state: &RuntimeState,
+    target: SocketAddr,
+    route: crate::runtime::types::RuntimeConnectionRoute,
+    host_hint: Option<&str>,
+    reply: &SuccessReply,
+    read_payload: impl FnOnce(&mut TcpStream, &TcpStream, usize) -> io::Result<FirstOutboundRead<Vec<u8>>>,
 ) -> Result<DelayConnect, ConnectRelayError> {
     // Standard clients wait for CONNECT success before sending the payload.
     // The first SYN follows IP/default policy; payload policy gates application bytes.
@@ -32,14 +47,14 @@ pub(super) fn connect(
     let active = state
         .register_active_upstream_tcp_socket(&connected.upstream)
         .map_err(|err| ConnectRelayError::new(err, false))?;
-    write_success_reply(client, &SuccessReply::Socks5, Some(&connected.upstream))
-        .map_err(|err| ConnectRelayError::new(err, false))?;
-    let payload = match read_first_client_payload(client, &connected.upstream, state.delayed_connect_buffer_size())
+    write_success_reply(client, reply, Some(&connected.upstream)).map_err(|err| ConnectRelayError::new(err, false))?;
+    let payload = match read_payload(client, &connected.upstream, state.delayed_connect_buffer_size())
         .map_err(|err| ConnectRelayError::new(err, true))?
     {
         FirstOutboundRead::Payload(payload) => payload,
-        FirstOutboundRead::ClientClosed => return Ok(DelayConnect::Closed),
-        FirstOutboundRead::ServerFirst => return Ok(DelayConnect::Connected(Box::new(connected))),
+        FirstOutboundRead::ClientClosed | FirstOutboundRead::ServerFirst => {
+            return Ok(DelayConnect::Connected(Box::new(connected)));
+        }
     };
     let host = state.extract_relay_payload_host(&payload).or_else(|| host_hint.map(str::to_owned));
     let egress = state.destination_egress(target, host.as_deref(), RuntimeTransportProtocol::Tcp);

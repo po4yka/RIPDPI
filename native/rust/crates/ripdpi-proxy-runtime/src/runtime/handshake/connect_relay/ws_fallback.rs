@@ -21,8 +21,22 @@ where
     RunWsTunnel: FnMut(TcpStream, &RuntimeState) -> WsTunnelResult,
     RunWsTunnelWithSeed: FnMut(TcpStream, Vec<u8>, &RuntimeState) -> WsTunnelResult,
 {
-    if should_ws_tunnel_fallback(target, state).is_none() {
+    let Some(dc) = should_ws_tunnel_fallback(target, state) else {
         return Err(err);
+    };
+    if matches!(reply, SuccessReply::Socks4) && !err.success_reply_sent() {
+        let seed_request = err.seed_request().map(ToOwned::to_owned);
+        let result = super::ws_first::run_socks4_ws_before_reply(
+            client,
+            target,
+            state,
+            dc,
+            seed_request,
+            write_success_reply_fn,
+        )
+        .map_err(super::ws_first::WsBeforeReplyError::into_relay_error)?;
+        err.mark_success_reply_sent();
+        return if handle_ws_fallback_result(target, state, result) { Ok(()) } else { Err(err) };
     }
 
     let ws_result = if let Some(seed_request) = err.seed_request().map(ToOwned::to_owned) {

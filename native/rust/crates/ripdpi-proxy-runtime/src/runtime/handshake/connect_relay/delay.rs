@@ -51,8 +51,13 @@ pub(super) fn maybe_delay_connect(
         return Ok(DelayConnect::Immediate { success_reply_sent: false });
     }
 
-    if matches!(handshake, Some(HandshakeKind::Socks5)) {
-        return super::socks5_delay::connect(client, state, target, route, host_hint);
+    if let Some(handshake @ (HandshakeKind::Socks4 | HandshakeKind::Socks5)) = handshake {
+        let reply = match handshake {
+            HandshakeKind::Socks4 => super::SuccessReply::Socks4,
+            HandshakeKind::Socks5 => super::SuccessReply::Socks5,
+            HandshakeKind::HttpConnect => unreachable!("only SOCKS handshakes enter this branch"),
+        };
+        return super::socks_delay::connect(client, state, target, route, host_hint, &reply);
     }
 
     if let Some(handshake) = handshake {
@@ -159,9 +164,6 @@ mod tests {
         let client_addr = listener.local_addr().expect("client listener addr");
         let writer = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 8];
-            client.read_exact(&mut reply).expect("read SOCKS5 success");
-            assert_eq!(&reply[..2], &[0, 0x5a]);
             client.write_all(b"GET / HTTP/1.1\r\nHost: direct.example\r\n\r\n").expect("write first payload");
         });
         let (mut accepted, _) = listener.accept().expect("accept client");
@@ -186,8 +188,7 @@ mod tests {
         };
 
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
-                .expect("policy delay");
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, None).expect("policy delay");
 
         assert!(matches!(delayed, DelayConnect::Delayed { .. }));
         writer.join().expect("writer");
@@ -198,10 +199,7 @@ mod tests {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client listener");
         let client_addr = listener.local_addr().expect("client listener addr");
         let client = std::thread::spawn(move || {
-            let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 8];
-            client.read_exact(&mut reply).expect("read SOCKS5 success");
-            assert_eq!(&reply[..2], &[0, 0x5a]);
+            let _client = TcpStream::connect(client_addr).expect("connect client");
             std::thread::sleep(Duration::from_millis(250));
         });
         let (mut accepted, _) = listener.accept().expect("accept client");
@@ -227,10 +225,9 @@ mod tests {
 
         let started = std::time::Instant::now();
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
-                .expect("policy probe");
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, None).expect("policy probe");
 
-        assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: true }));
+        assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: false }));
         assert!(started.elapsed() < Duration::from_millis(200));
         client.join().expect("client");
     }
@@ -243,8 +240,6 @@ mod tests {
         let writer = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
             client.set_nodelay(true).expect("nodelay");
-            let mut reply = [0_u8; 8];
-            client.read_exact(&mut reply).expect("read SOCKS5 success");
             client.write_all(&sent[..20]).expect("write first ClientHello segment");
             std::thread::sleep(Duration::from_millis(20));
             client.write_all(&sent[20..]).expect("write rest of ClientHello");
@@ -271,8 +266,7 @@ mod tests {
         let target = SocketAddr::from(([192, 0, 2, 10], 443));
 
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
-                .expect("policy delay");
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, None).expect("policy delay");
 
         let DelayConnect::Delayed { payload, .. } = delayed else {
             panic!("a ClientHello must be read before the egress connect");
@@ -288,8 +282,6 @@ mod tests {
         let sent = hello.clone();
         let writer = std::thread::spawn(move || {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 8];
-            client.read_exact(&mut reply).expect("read SOCKS5 success");
             // A pooled or preconnected socket writes its ClientHello later than the probe.
             std::thread::sleep(DELAY_CONN_SERVER_FIRST_PROBE + Duration::from_millis(500));
             client.write_all(&sent).expect("write late ClientHello");
@@ -301,8 +293,7 @@ mod tests {
         let target = SocketAddr::from(([192, 0, 2, 10], 443));
 
         let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
-                .expect("late client");
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, None).expect("late client");
 
         let DelayConnect::Delayed { payload, .. } = delayed else {
             panic!("a client that writes after 1.5 s must keep payload-based routing");
@@ -317,9 +308,7 @@ mod tests {
         let client_addr = listener.local_addr().expect("client listener addr");
         let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
         let client = std::thread::spawn(move || {
-            let mut client = TcpStream::connect(client_addr).expect("connect client");
-            let mut reply = [0_u8; 8];
-            client.read_exact(&mut reply).expect("read SOCKS5 success");
+            let _client = TcpStream::connect(client_addr).expect("connect client");
             // A server-first client waits for the banner and sends nothing.
             let _ = done_rx.recv_timeout(Duration::from_secs(10));
         });
@@ -330,11 +319,10 @@ mod tests {
         let target = SocketAddr::from(([192, 0, 2, 25], 25));
 
         let started = std::time::Instant::now();
-        let delayed =
-            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, Some(HandshakeKind::Socks4))
-                .expect("server-first flow must not fail");
+        let delayed = maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, None)
+            .expect("server-first flow must not fail");
 
-        assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: true }));
+        assert!(matches!(delayed, DelayConnect::Immediate { success_reply_sent: false }));
         assert!(started.elapsed() < Duration::from_secs(3), "waited {:?} for a server-first client", started.elapsed());
         done_tx.send(()).expect("release client");
         client.join().expect("client");

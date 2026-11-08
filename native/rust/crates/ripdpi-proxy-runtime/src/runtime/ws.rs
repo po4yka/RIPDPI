@@ -135,7 +135,20 @@ impl RuntimeWsTunnelConfig {
         }
     }
 
-    fn as_adapter(&self) -> &WsTunnelConfig {
+    pub(super) fn connect_timeout(&self) -> Option<std::time::Duration> {
+        self.inner.connect_timeout
+    }
+
+    pub(super) fn with_connect_timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.inner.connect_timeout = Some(timeout);
+        #[cfg(test)]
+        {
+            self.connect_timeout = Some(timeout);
+        }
+        self
+    }
+
+    pub(super) fn as_adapter(&self) -> &WsTunnelConfig {
         &self.inner
     }
 }

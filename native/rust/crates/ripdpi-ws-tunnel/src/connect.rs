@@ -1,10 +1,13 @@
+mod bootstrap;
+
+use bootstrap::Bootstrap;
 use std::io;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-use boring::ssl::{SslConnector, SslStream};
+use boring::ssl::{HandshakeError as TlsHandshakeError, SslConnector, SslStream};
 use boring::x509::verify::X509CheckFlags;
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use socket2::{Domain, Protocol, Socket, Type};
 use tungstenite::WebSocket;
 use tungstenite::protocol::WebSocketConfig;
 
@@ -73,28 +76,10 @@ fn resolve_ws_target(
 fn connect_tcp_socket_with(
     target: SocketAddr,
     protect_path: Option<&str>,
-    connect_timeout: Option<Duration>,
+    bootstrap: &Bootstrap<'_>,
     mut protect_socket: impl FnMut(&Socket, &str) -> io::Result<()>,
 ) -> io::Result<TcpStream> {
-    connect_tcp_socket_with_impl(
-        target,
-        protect_path,
-        connect_timeout,
-        &mut protect_socket,
-        |socket, target, timeout| match timeout {
-            Some(timeout) => socket.connect_timeout(&SockAddr::from(target), timeout),
-            None => socket.connect(&SockAddr::from(target)),
-        },
-    )
-}
-
-fn connect_tcp_socket_with_impl(
-    target: SocketAddr,
-    protect_path: Option<&str>,
-    connect_timeout: Option<Duration>,
-    mut protect_socket: impl FnMut(&Socket, &str) -> io::Result<()>,
-    mut connect_socket: impl FnMut(&Socket, SocketAddr, Option<Duration>) -> io::Result<()>,
-) -> io::Result<TcpStream> {
+    bootstrap.check()?;
     let domain = match target {
         std::net::SocketAddr::V4(_) => Domain::IPV4,
         std::net::SocketAddr::V6(_) => Domain::IPV6,
@@ -107,25 +92,12 @@ fn connect_tcp_socket_with_impl(
     if let Some(path) = protect_path {
         protect_socket(&socket, path)?;
     }
-    connect_socket(&socket, target, connect_timeout)
+    bootstrap
+        .connect(&socket, target)
         .map_err(|e| io::Error::new(e.kind(), format!("WS tunnel TCP connect to {target}: {e}")))?;
     let tcp: TcpStream = socket.into();
     tcp.set_nodelay(true)?;
     Ok(tcp)
-}
-
-fn connect_tcp_socket(
-    target: SocketAddr,
-    protect_path: Option<&str>,
-    connect_timeout: Option<Duration>,
-) -> io::Result<TcpStream> {
-    connect_tcp_socket_with(target, protect_path, connect_timeout, protect::protect_socket)
-}
-
-fn configure_bootstrap_socket(tcp: &TcpStream, connect_timeout: Option<Duration>) -> io::Result<()> {
-    tcp.set_read_timeout(connect_timeout)?;
-    tcp.set_write_timeout(connect_timeout)?;
-    Ok(())
 }
 
 /// Bound on one blocking write to the gateway. A black-holed path then fails
@@ -152,7 +124,9 @@ fn ws_config() -> WebSocketConfig {
 }
 
 fn configure_established_ws_stream(ws: &mut WsStream) -> io::Result<()> {
-    configure_relay_socket(ws.get_mut().get_ref())
+    let tcp = ws.get_mut().get_ref();
+    tcp.set_nonblocking(false)?;
+    configure_relay_socket(tcp)
 }
 
 fn build_tls_connector() -> io::Result<SslConnector> {
@@ -225,11 +199,36 @@ pub(crate) fn open_ws_tunnel_with_timeout(
     fake_sni: Option<&str>,
     worker_route: Option<&CloudflareWorkerRoute>,
 ) -> io::Result<WsStream> {
-    open_ws_tunnel_with_timeout_and_connector(
+    open_ws_tunnel_with_timeout_and_cancel(
         dc,
         resolved_addr,
         protect_path,
         connect_timeout,
+        fake_sni,
+        worker_route,
+        &|| false,
+    )
+}
+
+/// Open a tunnel with one deadline for TCP, TLS, and the HTTP upgrade.
+///
+/// Cancellation returns `Interrupted` and drops the bootstrap socket. Pass a
+/// resolved address when DNS must also obey the caller's cancellation policy.
+/// The cancellation callback must return promptly and must not block.
+pub(crate) fn open_ws_tunnel_with_timeout_and_cancel(
+    dc: TelegramDc,
+    resolved_addr: Option<SocketAddr>,
+    protect_path: Option<&str>,
+    connect_timeout: Option<Duration>,
+    fake_sni: Option<&str>,
+    worker_route: Option<&CloudflareWorkerRoute>,
+    should_cancel: &dyn Fn() -> bool,
+) -> io::Result<WsStream> {
+    open_ws_tunnel_with_timeout_and_connector(
+        dc,
+        resolved_addr,
+        protect_path,
+        Bootstrap::new(connect_timeout, should_cancel)?,
         fake_sni,
         worker_route,
         |_fake_sni, _worker_route| build_tls_connector(),
@@ -240,7 +239,7 @@ fn open_ws_tunnel_with_timeout_and_connector(
     dc: TelegramDc,
     resolved_addr: Option<SocketAddr>,
     protect_path: Option<&str>,
-    connect_timeout: Option<Duration>,
+    bootstrap: Bootstrap<'_>,
     fake_sni: Option<&str>,
     worker_route: Option<&CloudflareWorkerRoute>,
     build_connector: impl FnOnce(Option<&str>, Option<&CloudflareWorkerRoute>) -> io::Result<SslConnector>,
@@ -254,10 +253,12 @@ fn open_ws_tunnel_with_timeout_and_connector(
             "Cloudflare Worker WS tunnel route requires verified Worker TLS and cannot be combined with fake_sni",
         ));
     }
+    bootstrap.check()?;
     let (host, target) = resolve_ws_target(dc, resolved_addr, worker_route)?;
     let tls_host = fake_sni.unwrap_or(&host);
-    let tcp = connect_tcp_socket(target, protect_path, connect_timeout)?;
-    configure_bootstrap_socket(&tcp, connect_timeout)?;
+    let tcp = connect_tcp_socket_with(target, protect_path, &bootstrap, protect::protect_socket)?;
+    bootstrap.check()?;
+    tcp.set_nonblocking(true)?;
 
     // BoringSSL TLS handshake -- produces Chrome-native cipher suite ordering,
     // GREASE values, and extension layout for DPI fingerprint evasion.
@@ -272,22 +273,50 @@ fn open_ws_tunnel_with_timeout_and_connector(
         param.set_hostflags(X509CheckFlags::NO_PARTIAL_WILDCARDS);
         param.set_host(&host).map_err(|e| io::Error::other(format!("boring TLS gateway name: {e}")))?;
     }
-    let tls_stream = tls_config
-        .connect(tls_host, tcp)
-        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {e}")))?;
+    bootstrap.check()?;
+    let mut tls_handshake = tls_config.connect(tls_host, tcp);
+    let tls_stream = loop {
+        bootstrap.check()?;
+        match tls_handshake {
+            Ok(stream) => break stream,
+            Err(TlsHandshakeError::WouldBlock(pending)) => {
+                bootstrap.wait()?;
+                tls_handshake = pending.handshake();
+            }
+            Err(error) => {
+                return Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {error}")));
+            }
+        }
+    };
 
     let request = build_ws_request_for_route(dc, worker_route)?;
 
     // WebSocket handshake over the pre-established BoringSSL stream.
-    let (mut ws, _response) = tungstenite::client::client_with_config(request, tls_stream, Some(ws_config()))
-        .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
+    bootstrap.check()?;
+    let mut ws_handshake = tungstenite::client::client_with_config(request, tls_stream, Some(ws_config()));
+    let mut ws = loop {
+        bootstrap.check()?;
+        match ws_handshake {
+            Ok((ws, _response)) => break ws,
+            Err(tungstenite::handshake::HandshakeError::Interrupted(pending)) => {
+                bootstrap.wait()?;
+                ws_handshake = pending.handshake();
+            }
+            Err(error) => {
+                return Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {error}")));
+            }
+        }
+    };
     configure_established_ws_stream(&mut ws)?;
+    bootstrap.check()?;
 
     Ok(ws)
 }
 
 #[cfg(test)]
 mod tests {
+    mod bootstrap_tests;
+
     use super::*;
 
     use boring::pkey::{PKey, Private};
@@ -302,6 +331,10 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::mpsc;
     use std::thread;
+
+    fn test_bootstrap(timeout: Option<Duration>) -> Bootstrap<'static> {
+        Bootstrap::new(timeout, &|| false).expect("bootstrap policy")
+    }
 
     #[test]
     fn build_ws_request_includes_binary_subprotocol() {
@@ -423,7 +456,7 @@ mod tests {
             TelegramDc::production(2),
             Some(fixture.addr),
             None,
-            Some(Duration::from_secs(2)),
+            test_bootstrap(Some(Duration::from_secs(2))),
             Some("cover.example"),
             None,
             |_fake_sni, worker_route| test_tls_connector(&fixture.root_der, None, worker_route),
@@ -441,7 +474,7 @@ mod tests {
             TelegramDc::production(2),
             Some(fixture.addr),
             None,
-            Some(Duration::from_secs(2)),
+            test_bootstrap(Some(Duration::from_secs(2))),
             Some("cover.example"),
             None,
             |_fake_sni, worker_route| test_tls_connector(&fixture.root_der, None, worker_route),
@@ -466,7 +499,7 @@ mod tests {
             TelegramDc::production(2),
             Some(fixture.addr),
             None,
-            Some(Duration::from_secs(2)),
+            test_bootstrap(Some(Duration::from_secs(2))),
             None,
             Some(&route),
             |fake_sni, worker_route| test_tls_connector(&fixture.root_der, fake_sni, worker_route),
@@ -490,12 +523,15 @@ mod tests {
             TelegramDc::production(2),
             Some(fixture.addr),
             None,
-            Some(Duration::from_secs(2)),
+            test_bootstrap(Some(Duration::from_secs(2))),
             None,
             Some(&route),
             |fake_sni, worker_route| test_tls_connector(&fixture.root_der, fake_sni, worker_route),
         )
         .expect("open worker websocket");
+        let tcp = ws.get_ref().get_ref();
+        assert_eq!(tcp.read_timeout().expect("relay read timeout"), Some(WS_READ_TIMEOUT));
+        assert_eq!(tcp.write_timeout().expect("relay write timeout"), Some(WS_WRITE_TIMEOUT));
         ws.send(tungstenite::Message::Binary(Bytes::from_static(b"ping"))).expect("send binary");
         let echoed = ws.read().expect("read echo");
         ws.close(None).expect("close websocket");
@@ -530,7 +566,7 @@ mod tests {
             accept_tx.send("accept").expect("record accept");
         });
 
-        let stream = connect_tcp_socket_with(target, Some("/tmp/protect.sock"), None, |_, path| {
+        let stream = connect_tcp_socket_with(target, Some("/tmp/protect.sock"), &test_bootstrap(None), |_, path| {
             assert_eq!(path, "/tmp/protect.sock");
             tx.send("protect").expect("record protect");
             Ok(())
@@ -554,7 +590,7 @@ mod tests {
         let called_flag = called.clone();
         let accept_thread = thread::spawn(move || listener.accept().expect("accept connection"));
 
-        let _stream = connect_tcp_socket_with(target, None, None, |_, _| {
+        let _stream = connect_tcp_socket_with(target, None, &test_bootstrap(None), |_, _| {
             called_flag.store(true, Ordering::SeqCst);
             Ok(())
         })
@@ -777,30 +813,5 @@ mod tests {
 
     fn header_string(headers: &tungstenite::http::HeaderMap, name: &str) -> Option<String> {
         headers.get(name).and_then(|value| value.to_str().ok()).map(ToOwned::to_owned)
-    }
-
-    #[test]
-    fn connect_tcp_socket_passes_configured_connect_timeout() {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
-        let target = listener.local_addr().expect("listener addr");
-        let accept_thread = thread::spawn(move || listener.accept().expect("accept connection"));
-        let observed_timeout = Cell::new(None);
-        let expected_timeout = Duration::from_millis(321);
-
-        let stream = connect_tcp_socket_with_impl(
-            target,
-            None,
-            Some(expected_timeout),
-            |_socket, _path| unreachable!("protect should not run"),
-            |socket, target, timeout| {
-                observed_timeout.set(timeout);
-                socket.connect_timeout(&SockAddr::from(target), timeout.expect("connect timeout"))
-            },
-        )
-        .expect("connect socket");
-
-        assert_eq!(observed_timeout.get(), Some(expected_timeout));
-        assert!(stream.nodelay().expect("nodelay"));
-        accept_thread.join().expect("join accept thread");
     }
 }

@@ -12,6 +12,7 @@ Use the existing blocking TCP worker runtime and its local network fixtures.
 
 - Reuse the established connected-before-ACK route for SOCKS4 delayed requests. Preserve route selection and server-first operation.
 - For the SOCKS4 Always-WS branch, prepare the real WS carrier for the DC inferred from the requested target before ACK. Reuse that session after seed classification when the DC matches; otherwise release it and retain the existing classified route/fallback. Do not require direct TCP reachability to the target. Extend the WS transport port with an object-safe prepared session only as needed; existing relay entry points remain available.
+- The prepared WS stage has one deadline across DNS, TCP, TLS, and HTTP upgrade. Borrow an owner-stop callback during open, cancel stalled bootstrap without detached work, and check stop before ACK. Retain normal-route fallback for non-MTProto traffic if a provisional WS endpoint fails.
 - Treat pre-payload FIN as a directional close. Keep the other direction in the existing relay.
 - Validate the final address family and the exact SOCKS4a sentinel in the session owner.
 - Pass runtime cancellation and the remaining handshake deadline to the existing cancellable DNS resolver. A FIN alone is not operation cancellation.
@@ -30,6 +31,8 @@ Use the existing blocking TCP worker runtime and its local network fixtures.
 - Shared relay code affects SOCKS5 and HTTP: run their existing tests and duplex tests.
 - ACK timing can affect delayed routing and WS: test refused targets, no duplicate connects, and server-first traffic; preserve payload policy checks.
 - DNS cancellation can break half-close if FIN is treated as disconnect: cancel on owner stop and deadline only.
+- A closed upstream in WS normal fallback must stop being polled after FIN. Preserve client writes with the shared first-payload reader and its TLS assembly.
+- The existing Android protect IPC is outside the new network bootstrap loop. Count its elapsed time and recheck cancellation before outbound connect. Its Unix connect bound and device behavior are not established by host evidence.
 - Limits must not grow: exercise both sides of USERID and domain bounds.
 
 ## Migration Plan

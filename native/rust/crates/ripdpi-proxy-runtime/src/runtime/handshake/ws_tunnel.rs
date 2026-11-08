@@ -38,6 +38,39 @@ pub(super) fn run_ws_tunnel(client: TcpStream, state: &RuntimeState) -> WsTunnel
     )
 }
 
+/// Use the ready carrier when the seed selects its provisional DC.
+pub(super) fn run_ws_tunnel_prepared(
+    mut client: TcpStream,
+    target: SocketAddr,
+    provisional_dc: RuntimeTelegramDc,
+    prepared: Box<dyn ripdpi_ws_transport_port::PreparedWsTunnel>,
+    seed_request: Option<Vec<u8>>,
+    state: &RuntimeState,
+) -> WsTunnelResult {
+    let seed_request = match seed_request.map_or_else(|| read_mtproto_seed(&mut client), Ok) {
+        Ok(seed) => seed,
+        Err(error) => return WsTunnelResult::ShortInit { seed_request: error.seed_request, error: error.error },
+    };
+    let dc = match state.classify_mtproto_seed(&seed_request) {
+        WsSeedClassification::ValidatedMtproto { dc } => Some(dc),
+        WsSeedClassification::UnmappableDc { dc: None, .. } => runtime_exact_telegram_dc(target),
+        WsSeedClassification::NotMtproto | WsSeedClassification::UnmappableDc { dc: Some(_), .. } => None,
+    };
+    if dc != Some(provisional_dc) {
+        drop(prepared);
+        let fallback_client = match client.try_clone() {
+            Ok(client) => client,
+            Err(error) => return WsTunnelResult::WsOpenOrRelayFailed { dc: provisional_dc, seed_request, error },
+        };
+        let result = run_ws_tunnel_with_seed(client, seed_request, state);
+        return with_dialed_dc_fallback(result, &fallback_client, target, state);
+    }
+    match prepared.relay(client, seed_request.clone()) {
+        Ok(()) => WsTunnelResult::ValidatedMtproto { dc: provisional_dc },
+        Err(error) => WsTunnelResult::WsOpenOrRelayFailed { dc: provisional_dc, seed_request, error },
+    }
+}
+
 /// Execute the WebSocket tunnel relay with a first request already preserved by
 /// the desync pipeline.
 pub(super) fn run_ws_tunnel_with_seed(
@@ -230,7 +263,7 @@ fn read_mtproto_seed(client: &mut TcpStream) -> Result<Vec<u8>, SeedReadError> {
 }
 
 #[cfg(all(test, not(feature = "loom")))]
-mod tests {
+pub(super) mod tests {
     use super::*;
 
     use crate::runtime::config::{RuntimeConfig, WsTunnelMode};
@@ -261,7 +294,7 @@ mod tests {
 
     /// An init as tdesktop writes it: the DC is a signed 16-bit LE value at
     /// [60..62] and [62..64] is random.
-    fn build_test_init_packet(raw_dc: i32) -> Vec<u8> {
+    pub(in crate::runtime::handshake) fn build_test_init_packet(raw_dc: i32) -> Vec<u8> {
         let raw_dc = i16::try_from(raw_dc).expect("test dc fits in i16");
         let mut dc_field = [0x9c, 0x3f, 0x9c, 0x3f];
         dc_field[..2].copy_from_slice(&raw_dc.to_le_bytes());
@@ -292,6 +325,74 @@ mod tests {
         ciphertext[8..40].copy_from_slice(&key);
         ciphertext[40..56].copy_from_slice(&iv);
         ciphertext.to_vec()
+    }
+
+    struct PreparedCarrier(TcpStream);
+
+    impl ripdpi_ws_transport_port::PreparedWsTunnel for PreparedCarrier {
+        fn relay(self: Box<Self>, mut client: TcpStream, seed_request: Vec<u8>) -> io::Result<()> {
+            use std::io::Write;
+            let mut carrier = self.0;
+            carrier.write_all(&seed_request)?;
+            client.write_all(b"prepared response")
+        }
+    }
+
+    #[test]
+    fn prepared_carrier_keeps_non_mtproto_seed_for_normal_fallback() {
+        use std::io::Write;
+        let carrier = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let ready = TcpStream::connect(carrier.local_addr().unwrap()).unwrap();
+        let (mut origin, _) = carrier.accept().unwrap();
+        origin.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+        let (mut peer, client) = connected_pair();
+        let mut http = [b' '; 64];
+        http[..16].copy_from_slice(b"GET / HTTP/1.1\r\n");
+        peer.write_all(&http).unwrap();
+        let result = run_ws_tunnel_prepared(
+            client,
+            SocketAddr::from(([149, 154, 167, 51], 443)),
+            RuntimeTelegramDc::production(2),
+            Box::new(PreparedCarrier(ready)),
+            None,
+            &runtime_state(),
+        );
+        let WsTunnelResult::NotMtproto { seed_request } = result else {
+            panic!("HTTP must return to the normal route");
+        };
+        assert_eq!(seed_request, http);
+        assert_eq!(origin.read(&mut [0; 1]).unwrap(), 0, "HTTP must not enter the WS carrier");
+    }
+
+    #[test]
+    fn prepared_carrier_reuses_the_socket_for_seed_and_dialed_dc_fallback() {
+        use std::io::Write;
+        for seed in [build_test_init_packet(2), build_android_direct_init_packet()] {
+            let carrier = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+            let ready = TcpStream::connect(carrier.local_addr().unwrap()).unwrap();
+            let (mut origin, _) = carrier.accept().unwrap();
+            origin.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            let (mut peer, client) = connected_pair();
+            peer.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            peer.write_all(&seed).unwrap();
+            let result = run_ws_tunnel_prepared(
+                client,
+                SocketAddr::from(([149, 154, 167, 51], 443)),
+                RuntimeTelegramDc::production(2),
+                Box::new(PreparedCarrier(ready)),
+                None,
+                &runtime_state(),
+            );
+            assert!(matches!(result, WsTunnelResult::ValidatedMtproto { .. }));
+            let mut received = [0; 64];
+            origin.read_exact(&mut received).unwrap();
+            assert_eq!(received.as_slice(), seed);
+            let mut response = Vec::new();
+            peer.read_to_end(&mut response).unwrap();
+            assert_eq!(response, b"prepared response");
+            carrier.set_nonblocking(true).unwrap();
+            assert_eq!(carrier.accept().unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        }
     }
 
     #[test]
