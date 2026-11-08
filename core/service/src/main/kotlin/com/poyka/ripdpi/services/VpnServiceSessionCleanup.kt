@@ -1,16 +1,16 @@
 package com.poyka.ripdpi.services
 
-import kotlinx.coroutines.CancellationException
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.withTimeoutOrNull
 
 internal class VpnServiceSessionCleanup {
     private var nativeProtectUnregistered = false
     private var protectSocketServerStopped = false
-    private val coordinatorDestroyed = AtomicBoolean(false)
+    private var coordinatorDestroyed = false
 
     @Synchronized
     fun cleanupNativeProtect(
@@ -33,75 +33,70 @@ internal class VpnServiceSessionCleanup {
         failure?.let { throw it }
     }
 
+    @Synchronized
     fun destroyCoordinator(destroy: () -> Unit) {
-        if (!coordinatorDestroyed.compareAndSet(false, true)) return
+        if (coordinatorDestroyed) return
         destroy()
+        coordinatorDestroyed = true
     }
 
+    @Synchronized
     fun destroySession(
         destroyCoordinator: () -> Unit,
         cleanupSocketProtection: () -> Unit,
     ) {
-        try {
-            destroyCoordinator(destroyCoordinator)
-        } finally {
-            cleanupSocketProtection()
-        }
+        destroyCoordinator(destroyCoordinator)
+        cleanupSocketProtection()
     }
 
-    // Any stop failure must be captured verbatim so the guaranteed teardown
-    // below still runs before the original error is rethrown; narrowing the
-    // type would let an unexpected stop error orphan the native session.
-    @Suppress("TooGenericExceptionCaught")
     suspend fun revokeSession(
-        stopRuntime: suspend () -> Unit,
+        stopRuntime: suspend () -> RuntimeStopOutcome,
         destroyCoordinator: () -> Unit,
         cleanupSocketProtection: () -> Unit,
     ) {
-        // A stop that fails on its own must not orphan the native session:
-        // the coordinator destroy and the protect registration cleanup are
-        // both idempotent, so they run before the stop failure is rethrown
-        // for the caller to record. Outer cancellation still propagates
-        // immediately; the destroyRunningSession path owns guaranteed
-        // teardown for that case.
-        var stopError: Throwable? = null
-        try {
-            stopRuntime()
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (
-            @Suppress("TooGenericExceptionCaught") stopFailure: Throwable,
-        ) {
-            stopError = stopFailure
-        }
+        // A timeout or failed stop leaves native completion unknown. Keep its protection for retry.
+        if (stopRuntime() != RuntimeStopOutcome.FullyReleased) throw RuntimeCleanupPendingException()
         destroySession(destroyCoordinator, cleanupSocketProtection)
-        stopError?.let { throw it }
     }
 
     fun destroyRunningSession(
-        stopRuntime: suspend () -> Unit,
+        stopRuntime: suspend () -> RuntimeStopOutcome,
         destroyCoordinator: () -> Unit,
         cleanupSocketProtection: () -> Unit,
         timeoutMillis: Long,
     ) {
         runBlocking(Dispatchers.IO) {
-            // A stop that outlives the budget must not orphan the native
-            // session: the coordinator destroy and the protect registration
-            // cleanup are both idempotent, so they run unconditionally and the
-            // timeout is rethrown afterwards for the caller to record.
-            // revokeSession applies the same guarantee for stops that fail on
-            // their own; only outer cancellation skips teardown here.
-            val stopTimeout: TimeoutCancellationException? =
-                try {
-                    withTimeout(timeoutMillis) {
-                        stopRuntime()
-                    }
-                    null
-                } catch (timeout: TimeoutCancellationException) {
-                    timeout
-                }
-            destroySession(destroyCoordinator, cleanupSocketProtection)
-            stopTimeout?.let { throw it }
+            withTimeout(timeoutMillis) {
+                revokeSession(stopRuntime, destroyCoordinator, cleanupSocketProtection)
+            }
         }
     }
 }
+
+// Keep protection and the old owner until native teardown is confirmed, including after failure.
+internal suspend fun awaitVpnRuntimeRelease(
+    timeoutMillis: Long,
+    release: suspend () -> RuntimeStopOutcome,
+) {
+    var reportedPending = false
+    while (true) {
+        var pendingFailure: Exception? = null
+        val outcome =
+            try {
+                withTimeoutOrNull(timeoutMillis) { release() }
+            } catch (
+                @Suppress("TooGenericExceptionCaught") failure: Exception,
+            ) {
+                pendingFailure = failure
+                RuntimeStopOutcome.CleanupPending
+            }
+        if (outcome == RuntimeStopOutcome.FullyReleased) return
+        if (!reportedPending) {
+            Logger.e(pendingFailure) { "VPN destruction retained cleanup ownership" }
+            reportedPending = true
+        }
+        delay(VpnDestructionRetryDelayMillis)
+    }
+}
+
+private const val VpnDestructionRetryDelayMillis = 250L

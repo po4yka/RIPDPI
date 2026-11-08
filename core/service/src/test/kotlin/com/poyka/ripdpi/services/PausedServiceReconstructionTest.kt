@@ -1,23 +1,18 @@
 package com.poyka.ripdpi.services
 
 import android.Manifest
-import android.app.Service
 import android.content.Intent
-import com.poyka.ripdpi.data.DefaultDeviceRuntimeEvidenceStore
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DefaultServiceStateStore
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PausePhase
-import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
-import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
-import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
-import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
+import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.startAction
-import com.poyka.ripdpi.data.testPauseAuthority
-import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
-import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import dagger.hilt.internal.GeneratedComponent
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -25,8 +20,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -42,12 +35,10 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.util.ReflectionHelpers
-import java.lang.reflect.InvocationTargetException
-import java.util.Optional
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Provider
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.intrinsics.suspendCoroutineUninterceptedOrReturn
 
 /** Executes the real Android service lifecycle with active-session factories forbidden. */
 @RunWith(RobolectricTestRunner::class)
@@ -56,10 +47,10 @@ class PausedServiceReconstructionTest {
     @Test
     fun `proxy paused recovery creates no active session native root or selector graph`() =
         runBlocking {
-            val fixture = Fixture(Mode.Proxy)
+            val fixture = PausedServiceReconstructionFixture(Mode.Proxy)
             val lifecycle = Robolectric.buildService(RipDpiProxyService::class.java)
             val service = lifecycle.get()
-            skipGeneratedInjection(service)
+            skipPausedServiceInjection(service)
             service.serviceStateStore = fixture.state
             service.pauseAuthority = fixture.authority
             service.pauseController = fixture.pause
@@ -75,7 +66,7 @@ class PausedServiceReconstructionTest {
             assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
             assertNull(ReflectionHelpers.getField<Any?>(service, "sessionComponent"))
             lifecycle.destroy()
-            awaitTrackedDestruction(service)
+            awaitPausedServiceDestruction(service)
             service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             assertEquals(0, fixture.constructions.get())
         }
@@ -83,10 +74,10 @@ class PausedServiceReconstructionTest {
     @Test
     fun `vpn paused recovery creates no JNI TUN protect native or selector session graph`() =
         runBlocking {
-            val fixture = Fixture(Mode.VPN)
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
-            skipGeneratedInjection(service)
+            skipPausedServiceInjection(service)
             service.serviceStateStore = fixture.state
             service.pauseAuthority = fixture.authority
             service.pauseController = fixture.pause
@@ -110,7 +101,7 @@ class PausedServiceReconstructionTest {
             assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
             assertNull(service.activeProtectSocketPathProvider.current())
             lifecycle.destroy()
-            awaitTrackedDestruction(service)
+            awaitPausedServiceDestruction(service)
             service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             assertEquals(0, fixture.constructions.get())
         }
@@ -118,11 +109,11 @@ class PausedServiceReconstructionTest {
     @Test
     fun `vpn attach waits for the previous service instance teardown`() =
         runBlocking {
-            val fixture = Fixture(Mode.VPN)
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
             shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
-            initializeVpn(service, fixture)
+            initializePausedVpnService(service, fixture)
             val factoryCalls = AtomicInteger()
             service.sessionComponentBuilderProvider =
                 Provider {
@@ -133,7 +124,7 @@ class PausedServiceReconstructionTest {
             val previousTeardown = Job()
             RipDpiVpnService.previousInstanceTeardown.set(previousTeardown)
             try {
-                val attach = async(Dispatchers.Default) { runCatching { initializeActiveSession(service) } }
+                val attach = async(Dispatchers.Default) { runCatching { attachPausedServiceSession(service) } }
                 delay(200)
                 assertEquals("attach must wait until the old instance released its singletons", 0, factoryCalls.get())
 
@@ -144,18 +135,145 @@ class PausedServiceReconstructionTest {
             } finally {
                 previousTeardown.complete()
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+            }
+        }
+
+    @Test
+    fun `revoke requests destruction and retains its failure reason through pending cleanup`() =
+        runBlocking {
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
+            val controller = Robolectric.buildService(RipDpiVpnService::class.java)
+            val service = controller.get()
+            initializePausedVpnService(service, fixture)
+            val store = DefaultServiceStateStore()
+            service.serviceStateStore = store
+            controller.create()
+            val initializer = ServiceSessionStateInitializer(store)
+            val session = initializer.initialize(Mode.VPN)
+            session.setStatus(AppStatus.Running, Mode.VPN)
+            val sessionLifecycle =
+                VpnServiceSessionLifecycle(
+                    service,
+                    service.sessionComponentBuilderProvider,
+                    service.activeProtectSocketPathProvider,
+                    service.runtimeResumeIntentTracker,
+                    service.serviceIntentArbiter,
+                    service.acceptedUserStopRecorder,
+                    service.transportFailoverApplyTracker,
+                    service.serviceStopProvenanceRecorder,
+                )
+            ReflectionHelpers.setField(service, "sessionLifecycle", sessionLifecycle)
+            ReflectionHelpers.setField(sessionLifecycle, "stateInitializer", initializer)
+            ReflectionHelpers.setField(sessionLifecycle, "sessionStateStore", session)
+            val protection = service.activeProtectSocketPathProvider
+            val path = "/tmp/revoked-vpn-protection.sock"
+            ReflectionHelpers.setField(sessionLifecycle, "protectPathLease", protection.set(path) { true })
+            val attempted = CompletableDeferred<Unit>()
+            val allowRelease = CompletableDeferred<Unit>()
+            val ownership = ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership")
+            var destroyed = false
+            ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
+                ownership.own {
+                    attempted.complete(Unit)
+                    if (!allowRelease.isCompleted) throw RuntimeCleanupPendingException()
+                    runtime.close()
+                    sessionLifecycle.destroy()
+                }
+                try {
+                    service.onRevoke()
+                    assertTrue(shadowOf(service).isStoppedBySelf)
+                    assertEquals(AppStatus.Running to Mode.VPN, store.status.value)
+                    destroyed = true
+                    controller.destroy()
+                    withTimeout(5_000) { attempted.await() }
+                    val teardown = checkNotNull(ReflectionHelpers.getField<Job?>(service, "destroyCleanupJob"))
+                    assertFalse(teardown.isCompleted)
+                    assertFalse(runtime.isClosed)
+                    assertEquals(path, protection.current())
+
+                    allowRelease.complete(Unit)
+                    awaitPausedServiceDestruction(service)
+                    assertTrue(runtime.isClosed)
+                    assertNull(protection.current())
+                    val failure = withTimeout(1_000) { store.events.first() } as ServiceEvent.Failed
+                    assertEquals(FailureReason.PermissionLost("VPN"), failure.reason)
+                    assertEquals(Sender.VPN, failure.sender)
+                } finally {
+                    allowRelease.complete(Unit)
+                    if (!destroyed) controller.destroy()
+                    awaitPausedServiceDestruction(service)
+                    service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+                }
+            }
+        }
+
+    @Test
+    fun `vpn destruction retains and retries cleanup before a replacement can attach`() =
+        runBlocking {
+            shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
+            val oldLifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
+            val old = oldLifecycle.get()
+            initializePausedVpnService(old, PausedServiceReconstructionFixture(Mode.VPN))
+            oldLifecycle.create()
+            val replacementLifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
+            val replacement = replacementLifecycle.get()
+            initializePausedVpnService(replacement, PausedServiceReconstructionFixture(Mode.VPN))
+            val graphFailure = IllegalStateException("replacement graph is not needed")
+            val constructions = AtomicInteger()
+            replacement.sessionComponentBuilderProvider =
+                Provider {
+                    constructions.incrementAndGet()
+                    throw graphFailure
+                }
+            replacementLifecycle.create()
+            val attempted = CompletableDeferred<Unit>()
+            val allowRelease = CompletableDeferred<Unit>()
+            val ownership = ReflectionHelpers.getField<ActiveSessionOwnership>(old, "activeOwnership")
+            val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
+            RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
+            ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
+                ownership.own {
+                    attempted.complete(Unit)
+                    if (!allowRelease.isCompleted) throw RuntimeCleanupPendingException()
+                    runtime.close()
+                }
+                try {
+                    oldLifecycle.destroy()
+                    withTimeout(5_000) { attempted.await() }
+                    val teardown = checkNotNull(ReflectionHelpers.getField<Job?>(old, "destroyCleanupJob"))
+                    assertFalse(teardown.isCompleted)
+                    assertFalse(runtime.isClosed)
+                    val blocked = runCatching { attachPausedServiceSession(replacement) }.exceptionOrNull()
+                    assertTrue(blocked is RuntimeCleanupPendingException)
+                    assertEquals(0, constructions.get())
+
+                    allowRelease.complete(Unit)
+                    awaitPausedServiceDestruction(old)
+                    assertTrue(runtime.isClosed)
+                    assertFalse(ownership.hasOwnership)
+                    assertSame(graphFailure, runCatching { attachPausedServiceSession(replacement) }.exceptionOrNull())
+                    assertEquals(1, constructions.get())
+                } finally {
+                    allowRelease.complete(Unit)
+                    RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
+                    awaitPausedServiceDestruction(old)
+                    replacementLifecycle.destroy()
+                    awaitPausedServiceDestruction(replacement)
+                    old.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+                    replacement.serviceScope.coroutineContext[Job]?.cancelAndJoin()
+                }
             }
         }
 
     @Test
     fun `vpn teardown finishes only after the earlier instance teardown`() =
         runBlocking {
-            val fixture = Fixture(Mode.VPN)
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
-            initializeVpn(service, fixture)
+            initializePausedVpnService(service, fixture)
             lifecycle.create()
             val earlierTeardown = Job()
             val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
@@ -168,11 +286,11 @@ class PausedServiceReconstructionTest {
                 assertFalse("the published job must cover the earlier teardown", teardown.isCompleted)
 
                 earlierTeardown.complete()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
             } finally {
                 RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
                 earlierTeardown.complete()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
         }
@@ -180,11 +298,11 @@ class PausedServiceReconstructionTest {
     @Test
     fun `vpn attach rejects unfinished teardown and can retry after it completes`() =
         runBlocking {
-            val fixture = Fixture(Mode.VPN)
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
             shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
-            initializeVpn(service, fixture)
+            initializePausedVpnService(service, fixture)
             val graphFailure = IllegalStateException("graph is not needed for this test")
             service.sessionComponentBuilderProvider = Provider { throw graphFailure }
             lifecycle.create()
@@ -193,18 +311,19 @@ class PausedServiceReconstructionTest {
             RipDpiVpnService.previousInstanceTeardownTimeoutMillis = 100L
             RipDpiVpnService.previousInstanceTeardown.set(hungTeardown)
             try {
-                val failure = withTimeout(5_000) { runCatching { initializeActiveSession(service) }.exceptionOrNull() }
+                val failure =
+                    withTimeout(5_000) { runCatching { attachPausedServiceSession(service) }.exceptionOrNull() }
 
                 assertTrue("a pending predecessor must reject acquisition", failure is RuntimeCleanupPendingException)
                 assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
 
                 hungTeardown.complete()
-                assertSame(graphFailure, runCatching { initializeActiveSession(service) }.exceptionOrNull())
+                assertSame(graphFailure, runCatching { attachPausedServiceSession(service) }.exceptionOrNull())
             } finally {
                 RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
                 hungTeardown.complete()
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
         }
@@ -212,10 +331,10 @@ class PausedServiceReconstructionTest {
     @Test
     fun `vpn rejected predecessor wait completes the start generation and stops the idle service`() =
         runBlocking {
-            val fixture = Fixture(Mode.VPN)
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
-            initializeVpn(service, fixture)
+            initializePausedVpnService(service, fixture)
             lifecycle.create()
             val hungTeardown = Job()
             val defaultTimeout = RipDpiVpnService.previousInstanceTeardownTimeoutMillis
@@ -245,7 +364,7 @@ class PausedServiceReconstructionTest {
                 RipDpiVpnService.previousInstanceTeardownTimeoutMillis = defaultTimeout
                 hungTeardown.complete()
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
         }
@@ -253,10 +372,10 @@ class PausedServiceReconstructionTest {
     @Test
     fun `vpn start dropped before the shell still completes its start generation`() =
         runBlocking {
-            val fixture = Fixture(Mode.VPN)
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
-            initializeVpn(service, fixture)
+            initializePausedVpnService(service, fixture)
             lifecycle.create()
             try {
                 fixture.arbiter.dispatchVpnStart {
@@ -283,7 +402,7 @@ class PausedServiceReconstructionTest {
                 }
             } finally {
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
         }
@@ -291,21 +410,21 @@ class PausedServiceReconstructionTest {
     @Test
     fun `proxy throwing graph factory releases attempted ownership without accessing unrelated providers`() =
         runBlocking {
-            val fixture = Fixture(Mode.Proxy)
+            val fixture = PausedServiceReconstructionFixture(Mode.Proxy)
             val lifecycle = Robolectric.buildService(RipDpiProxyService::class.java)
             val service = lifecycle.get()
-            initializeProxy(service, fixture)
+            initializePausedProxyService(service, fixture)
             val original = IllegalStateException("graph factory failed")
             service.sessionComponentBuilderProvider = Provider { throw original }
             lifecycle.create()
             try {
-                assertSame(original, runCatching { initializeActiveSession(service) }.exceptionOrNull())
+                assertSame(original, runCatching { attachPausedServiceSession(service) }.exceptionOrNull())
                 assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
                 assertNull(ReflectionHelpers.getField<Any?>(service, "sessionComponent"))
                 assertEquals(0, fixture.constructions.get())
             } finally {
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
             assertEquals(0, fixture.constructions.get())
@@ -314,10 +433,10 @@ class PausedServiceReconstructionTest {
     @Test
     fun `proxy runtime constructor failure closes the real initialized state before clearing references`() =
         runBlocking {
-            val fixture = Fixture(Mode.Proxy)
+            val fixture = PausedServiceReconstructionFixture(Mode.Proxy)
             val lifecycle = Robolectric.buildService(RipDpiProxyService::class.java)
             val service = lifecycle.get()
-            initializeProxy(service, fixture)
+            initializePausedProxyService(service, fixture)
             val initializer = ServiceSessionStateInitializer(fixture.state)
             val original = IllegalStateException("runtime constructor failed")
             val component =
@@ -342,7 +461,7 @@ class PausedServiceReconstructionTest {
                 }
             lifecycle.create()
             try {
-                assertSame(original, runCatching { initializeActiveSession(service) }.exceptionOrNull())
+                assertSame(original, runCatching { attachPausedServiceSession(service) }.exceptionOrNull())
                 assertTrue(runCatching { initializer.requireInitialized() }.exceptionOrNull() is IllegalStateException)
                 assertFalse(ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership").hasOwnership)
                 assertNull(ReflectionHelpers.getField<Any?>(service, "sessionComponent"))
@@ -350,7 +469,7 @@ class PausedServiceReconstructionTest {
                 assertEquals(0, fixture.constructions.get())
             } finally {
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
         }
@@ -358,11 +477,11 @@ class PausedServiceReconstructionTest {
     @Test
     fun `vpn throwing graph factory unregisters already started underlay and route callbacks`() =
         runBlocking {
-            val fixture = Fixture(Mode.VPN)
+            val fixture = PausedServiceReconstructionFixture(Mode.VPN)
             shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.ACCESS_NETWORK_STATE)
             val lifecycle = Robolectric.buildService(RipDpiVpnService::class.java)
             val service = lifecycle.get()
-            initializeVpn(service, fixture)
+            initializePausedVpnService(service, fixture)
             val original = IllegalStateException("VPN graph factory failed")
             val routes = service.vpnRouteObservationAuthority
             var factoryCalls = 0
@@ -375,7 +494,7 @@ class PausedServiceReconstructionTest {
                 }
             lifecycle.create()
             try {
-                assertSame(original, runCatching { initializeActiveSession(service) }.exceptionOrNull())
+                assertSame(original, runCatching { attachPausedServiceSession(service) }.exceptionOrNull())
                 assertEquals(1, factoryCalls)
                 assertNull(ReflectionHelpers.getField<Any?>(service.underlyingNetworkBinder, "callback"))
                 assertNull(ReflectionHelpers.getField<Any?>(routes, "registeredCallback"))
@@ -384,7 +503,7 @@ class PausedServiceReconstructionTest {
                 assertEquals(0, fixture.constructions.get())
             } finally {
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
         }
@@ -392,16 +511,16 @@ class PausedServiceReconstructionTest {
     @Test
     fun `throwing selector startup releases earlier and partially started listeners plus real session graph`() =
         runBlocking {
-            val fixture = Fixture(Mode.Proxy)
+            val fixture = PausedServiceReconstructionFixture(Mode.Proxy)
             val lifecycle = Robolectric.buildService(RipDpiProxyService::class.java)
             val service = lifecycle.get()
-            initializeProxy(service, fixture)
+            initializePausedProxyService(service, fixture)
             val initializer = ServiceSessionStateInitializer(fixture.state)
-            val runtime = proxyCoordinator(service, fixture)
-            service.sessionComponentBuilderProvider = componentProvider(service, initializer, runtime)
+            val runtime = pausedProxyCoordinator(service, fixture)
+            service.sessionComponentBuilderProvider = pausedProxyComponentProvider(service, initializer, runtime)
             val events = mutableListOf<String>()
-            val first = FaultListener("first", events)
-            val second = FaultListener("second", events, failStart = true)
+            val first = ReconstructionFaultListener("first", events)
+            val second = ReconstructionFaultListener("second", events, failStart = true)
             val reads = AtomicInteger()
             service.selectorRuntimeLifecycleListenersProvider =
                 Provider {
@@ -410,7 +529,7 @@ class PausedServiceReconstructionTest {
                 }
             lifecycle.create()
             try {
-                val failure = runCatching { initializeActiveSession(service) }.exceptionOrNull()
+                val failure = runCatching { attachPausedServiceSession(service) }.exceptionOrNull()
                 assertSame(second.startFailure, failure)
                 assertEquals(listOf("start first", "start second", "stop second", "stop first"), events)
                 assertTrue(runCatching { initializer.requireInitialized() }.exceptionOrNull() is IllegalStateException)
@@ -420,7 +539,7 @@ class PausedServiceReconstructionTest {
                 assertEquals(1, reads.get())
             } finally {
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
             assertEquals(1, reads.get())
@@ -429,16 +548,16 @@ class PausedServiceReconstructionTest {
     @Test
     fun `failed listener rollback retains foreground ownership and Stop retries without losing handles`() =
         runBlocking {
-            val fixture = Fixture(Mode.Proxy)
+            val fixture = PausedServiceReconstructionFixture(Mode.Proxy)
             val lifecycle = Robolectric.buildService(RipDpiProxyService::class.java)
             val service = lifecycle.get()
-            initializeProxy(service, fixture)
+            initializePausedProxyService(service, fixture)
             val initializer = ServiceSessionStateInitializer(fixture.state)
-            val runtime = proxyCoordinator(service, fixture)
-            service.sessionComponentBuilderProvider = componentProvider(service, initializer, runtime)
+            val runtime = pausedProxyCoordinator(service, fixture)
+            service.sessionComponentBuilderProvider = pausedProxyComponentProvider(service, initializer, runtime)
             val events = mutableListOf<String>()
-            val first = FaultListener("first", events)
-            val second = FaultListener("second", events, failStart = true, failStop = true)
+            val first = ReconstructionFaultListener("first", events)
+            val second = ReconstructionFaultListener("second", events, failStart = true, failStop = true)
             val reads = AtomicInteger()
             service.selectorRuntimeLifecycleListenersProvider =
                 Provider {
@@ -447,7 +566,7 @@ class PausedServiceReconstructionTest {
                 }
             lifecycle.create()
             try {
-                val failure = runCatching { initializeActiveSession(service) }.exceptionOrNull()
+                val failure = runCatching { attachPausedServiceSession(service) }.exceptionOrNull()
                 assertTrue(failure is ActiveSessionCleanupPendingException)
                 assertSame(second.startFailure, failure?.cause)
                 val ownership = ReflectionHelpers.getField<ActiveSessionOwnership>(service, "activeOwnership")
@@ -471,271 +590,9 @@ class PausedServiceReconstructionTest {
                 assertEquals(1, reads.get())
             } finally {
                 lifecycle.destroy()
-                awaitTrackedDestruction(service)
+                awaitPausedServiceDestruction(service)
                 service.serviceScope.coroutineContext[Job]?.cancelAndJoin()
             }
             assertEquals(1, reads.get())
         }
-
-    private fun componentProvider(
-        service: RipDpiProxyService,
-        initializer: ServiceSessionStateInitializer,
-        runtime: ProxyServiceRuntimeCoordinator,
-    ): Provider<ProxyServiceSessionComponentBuilder> {
-        val component =
-            object : ProxyServiceSessionComponent, ProxyServiceSessionEntryPoint, GeneratedComponent {
-                override fun stateInitializer() = initializer
-
-                override fun coordinator() = runtime
-            }
-        return Provider {
-            object : ProxyServiceSessionComponentBuilder {
-                override fun host(host: ServiceCoordinatorHost): ProxyServiceSessionComponentBuilder {
-                    assertSame(service, host)
-                    return this
-                }
-
-                override fun build(): ProxyServiceSessionComponent = component
-            }
-        }
-    }
-
-    private fun proxyCoordinator(
-        service: RipDpiProxyService,
-        fixture: Fixture,
-    ): ProxyServiceRuntimeCoordinator {
-        val dispatcher = Dispatchers.IO
-        val root = RootHelperManager()
-        service.rootHelperManagerProvider = Provider { root }
-        val supervisors =
-            ProxyRuntimeSupervisorBundle(
-                UpstreamRelaySupervisor(
-                    scope = service.serviceScope,
-                    dispatcher = dispatcher,
-                    relayFactory = TestRipDpiRelayFactory(),
-                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
-                ),
-                WarpRuntimeSupervisor(
-                    scope = service.serviceScope,
-                    dispatcher = dispatcher,
-                    warpFactory = TestRipDpiWarpFactory(),
-                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
-                ),
-                AmneziaWgRuntimeSupervisor(
-                    scope = service.serviceScope,
-                    dispatcher = dispatcher,
-                    amneziaWgFactory = NoOpRipDpiAmneziaWgFactory(),
-                    runtimeConfigResolver = TestAmneziaWgRuntimeConfigResolver(),
-                    activeRegistry = ActiveAwgRuntimeRegistry(),
-                ),
-                ProxyRuntimeSupervisor(
-                    scope = service.serviceScope,
-                    dispatcher = dispatcher,
-                    ripDpiProxyFactory = TestRipDpiProxyFactory(),
-                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
-                ),
-            )
-        return ProxyServiceRuntimeCoordinator(
-            host = service,
-            connectionPolicyResolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy)),
-            serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
-            rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-            networkHandoverMonitor = TestNetworkHandoverMonitor(),
-            policyHandoverEventStore = TestPolicyHandoverEventStore(),
-            permissionWatchdog = TestPermissionWatchdog(),
-            supervisors = supervisors,
-            autolearnActivationReceiptPublisher = testAutolearnActivationReceiptPublisher(),
-            statusReporter =
-                ServiceStatusReporter(
-                    mode = Mode.Proxy,
-                    sender = com.poyka.ripdpi.data.Sender.Proxy,
-                    serviceStateStore = fixture.state,
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
-                    runtimeExperimentSelectionProvider =
-                        object : RuntimeExperimentSelectionProvider {
-                            override fun current() = RuntimeExperimentSelection()
-                        },
-                    clock = TestServiceClock(1_000),
-                ),
-            configurationLifecycle =
-                RuntimeConfigurationLifecycle(
-                    AppliedRuntimeConfigurationStore(testRuntimeAppliedReceiptConsumer(fixture.authority)),
-                    RuntimeConfigurationIdentityFactory(),
-                ),
-            screenStateObserver = TestScreenStateObserver(),
-            ioDispatcher = dispatcher,
-            clock = TestServiceClock(1_000),
-            rootHelperManager = root,
-        )
-    }
-
-    private class FaultListener(
-        private val name: String,
-        private val events: MutableList<String>,
-        private val failStart: Boolean = false,
-        var failStop: Boolean = false,
-    ) : SelectorRuntimeLifecycleListener {
-        val startFailure = IllegalStateException("selector startup failed")
-        var stops = 0
-            private set
-
-        override fun start(owner: Mode) {
-            assertEquals(Mode.Proxy, owner)
-            events += "start $name"
-            if (failStart) throw startFailure
-        }
-
-        override fun stop(owner: Mode) {
-            assertEquals(Mode.Proxy, owner)
-            stops += 1
-            events += "stop $name"
-            check(!failStop) { "selector cleanup failed" }
-        }
-    }
-
-    private fun initializeProxy(
-        service: RipDpiProxyService,
-        fixture: Fixture,
-    ) {
-        skipGeneratedInjection(service)
-        service.serviceStateStore = fixture.state
-        service.pauseAuthority = fixture.authority
-        service.pauseController = fixture.pause
-        service.profileRecovery = fixture.recovery
-        service.runtimeEvidenceReporter = fixture.reporter
-        service.sessionComponentBuilderProvider = fixture.forbidden("proxy graph")
-        service.selectorRuntimeLifecycleListenersProvider = fixture.forbidden("selectors")
-        service.rootHelperManagerProvider = fixture.forbidden("root helper")
-        service.runtimeResumeIntentTracker = RuntimeResumeIntentTracker(fixture.authority)
-        service.serviceIntentArbiter = fixture.arbiter
-        service.acceptedUserStopRecorder =
-            AcceptedUserStopRecorder(
-                InMemoryBootSessionStateStore(),
-                service.runtimeResumeIntentTracker,
-                service.serviceIntentArbiter,
-                fixture.recovery,
-                fixture.authority,
-            )
-        service.serviceStopProvenanceRecorder = stopProvenanceRecorder()
-    }
-
-    private fun initializeVpn(
-        service: RipDpiVpnService,
-        fixture: Fixture,
-    ) {
-        skipGeneratedInjection(service)
-        service.serviceStateStore = fixture.state
-        service.pauseAuthority = fixture.authority
-        service.pauseController = fixture.pause
-        service.profileMutationCoordinator = fixture.recovery
-        service.runtimeEvidenceReporter = fixture.reporter
-        service.liveVpnLockdownReader = LiveVpnLockdownReader()
-        service.hardKillSwitchStateStore =
-            SharedPreferencesAndroidHardKillSwitchStateStore(RuntimeEnvironment.getApplication())
-        service.recoveryReceiptCollector =
-            RemoteDeviceRecoveryReceiptCollector(
-                SharedPreferencesRemoteDeviceRecoveryReceiptPersistence(RuntimeEnvironment.getApplication()),
-            )
-        service.activeProtectSocketPathProvider = ActiveProtectSocketPathProvider()
-        service.directDnsUnderlayAuthority = DirectDnsUnderlayAuthority()
-        service.vpnRouteObservationAuthority =
-            VpnRouteObservationAuthority(RuntimeEnvironment.getApplication(), VpnRouteLifecycleReceiptStore())
-        service.runtimeResumeIntentTracker = RuntimeResumeIntentTracker(fixture.authority)
-        service.serviceIntentArbiter = fixture.arbiter
-        service.acceptedUserStopRecorder =
-            AcceptedUserStopRecorder(
-                InMemoryBootSessionStateStore(),
-                service.runtimeResumeIntentTracker,
-                service.serviceIntentArbiter,
-                fixture.recovery,
-                fixture.authority,
-            )
-        service.transportFailoverApplyTracker = TransportFailoverApplyTracker()
-        service.explicitUserStartPreparer = Optional.empty()
-        service.serviceRecoveryStartGate = Optional.empty()
-        service.serviceStopProvenanceRecorder = stopProvenanceRecorder()
-        service.sessionComponentBuilderProvider = fixture.forbidden("VPN graph")
-        service.selectorRuntimeLifecycleListenersProvider = fixture.forbidden("selectors")
-        service.rootHelperManagerProvider = fixture.forbidden("root helper")
-    }
-
-    private fun stopProvenanceRecorder(): RoomServiceStopProvenanceRecorder =
-        RoomServiceStopProvenanceRecorder(
-            object : DiagnosticsArtifactWriteStore {
-                override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) = Unit
-
-                override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) = Unit
-
-                override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) = Unit
-
-                override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) = Unit
-
-                override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit
-            },
-            AndroidRuntimeEvidenceClock { 1_000 },
-        )
-
-    private suspend fun awaitTrackedDestruction(service: Service) {
-        val cleanupJob = checkNotNull(ReflectionHelpers.getField<Job?>(service, "destroyCleanupJob"))
-        withTimeout(5_000) { cleanupJob.join() }
-        assertTrue(cleanupJob.isCompleted)
-        assertFalse(cleanupJob.isCancelled)
-    }
-
-    private suspend fun initializeActiveSession(service: Service) {
-        val mutex = ReflectionHelpers.getField<Mutex>(service, "entryMutex")
-        mutex.withLock {
-            suspendCoroutineUninterceptedOrReturn<Unit> { continuation ->
-                val method =
-                    service.javaClass.getDeclaredMethod("ensureActiveSession", Continuation::class.java).apply {
-                        isAccessible =
-                            true
-                    }
-                try {
-                    method.invoke(service, continuation)
-                } catch (failure: InvocationTargetException) {
-                    throw failure.targetException
-                }
-            }
-        }
-    }
-
-    private fun skipGeneratedInjection(service: Service) {
-        // Unit construction supplies the shell explicitly; Full/Simple Hilt compilation verifies production injection.
-        ReflectionHelpers.setField(service, "injected", true)
-    }
-
-    private class Fixture(
-        mode: Mode,
-    ) {
-        val constructions = AtomicInteger()
-        val authority =
-            testPauseAuthority().apply {
-                val intent = begin(mode, 300_000, snapshotAuthority())
-                check(transition(intent, PausePhase.Paused, null))
-                checkNotNull(claimResume(intent, true))
-            }
-        val arbiter = ServiceIntentArbiter(authority)
-        val state = TestServiceStateStore()
-        val recovery = RecoveryOnlyProfileMutationCoordinator {}
-        val reporter =
-            AndroidRuntimeEvidenceReporter(DefaultDeviceRuntimeEvidenceStore(), AndroidRuntimeEvidenceClock { 1_000 })
-        val pause =
-            TimedPauseController(
-                RuntimeEnvironment.getApplication(),
-                authority,
-                recovery,
-                state,
-                LiveVpnLockdownReader(),
-                arbiter,
-            )
-
-        fun <T> forbidden(name: String): Provider<T> =
-            Provider {
-                constructions.incrementAndGet()
-                error("Paused shell constructed $name")
-            }
-    }
 }

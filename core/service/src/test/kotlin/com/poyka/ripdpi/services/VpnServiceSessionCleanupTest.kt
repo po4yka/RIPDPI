@@ -6,12 +6,110 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.net.InetAddress
+import java.net.ServerSocket
 
 class VpnServiceSessionCleanupTest {
+    @Test
+    fun pendingRuntimeKeepsProtectionUntilAReleaseRetryCompletes() =
+        runTest {
+            val cleanup = VpnServiceSessionCleanup()
+            val endpoint = File.createTempFile("vpn-protect-owner", ".marker")
+            ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
+                var pending = true
+                val stop: suspend () -> RuntimeStopOutcome = {
+                    if (pending) RuntimeStopOutcome.CleanupPending else RuntimeStopOutcome.FullyReleased
+                }
+                try {
+                    val failure =
+                        runCatching {
+                            cleanup.revokeSession({ stop() }, runtime::close) { check(endpoint.delete()) }
+                        }.exceptionOrNull()
+                    assertTrue(failure is RuntimeCleanupPendingException)
+                    assertFalse(runtime.isClosed)
+                    assertTrue(endpoint.exists())
+
+                    pending = false
+                    cleanup.revokeSession({ stop() }, runtime::close) { check(endpoint.delete()) }
+                    assertTrue(runtime.isClosed)
+                    assertFalse(endpoint.exists())
+                } finally {
+                    endpoint.delete()
+                }
+            }
+        }
+
+    @Test
+    fun unexpectedStopFailureKeepsResourcesForAnExplicitReleaseRetry() {
+        val cleanup = VpnServiceSessionCleanup()
+        val stopFailure = IllegalStateException("stop failed")
+        val endpoint = File.createTempFile("vpn-protect-owner", ".marker")
+        ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
+            var stopFails = true
+            val stop: suspend () -> RuntimeStopOutcome = {
+                if (stopFails) throw stopFailure
+                RuntimeStopOutcome.FullyReleased
+            }
+            try {
+                val failure =
+                    runCatching {
+                        cleanup.destroyRunningSession(
+                            stopRuntime = { stop() },
+                            destroyCoordinator = runtime::close,
+                            cleanupSocketProtection = { check(endpoint.delete()) },
+                            timeoutMillis = 1_000L,
+                        )
+                    }.exceptionOrNull()
+                assertEquals(stopFailure.javaClass, failure?.javaClass)
+                assertEquals(stopFailure.message, failure?.message)
+                assertSame(stopFailure, failure?.cause ?: failure)
+                assertFalse(runtime.isClosed)
+                assertTrue(endpoint.exists())
+
+                stopFails = false
+                cleanup.destroyRunningSession(
+                    stopRuntime = { stop() },
+                    destroyCoordinator = runtime::close,
+                    cleanupSocketProtection = { check(endpoint.delete()) },
+                    timeoutMillis = 1_000L,
+                )
+                assertTrue(runtime.isClosed)
+                assertFalse(endpoint.exists())
+            } finally {
+                endpoint.delete()
+            }
+        }
+    }
+
+    @Test
+    fun coordinatorDestroyFailureKeepsProtectionAndCanRetry() {
+        val cleanup = VpnServiceSessionCleanup()
+        val destroyFailure = IllegalStateException("destroy failed")
+        val endpoint = File.createTempFile("vpn-protect-owner", ".marker")
+        ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { runtime ->
+            try {
+                val failure =
+                    runCatching {
+                        cleanup.destroySession({ throw destroyFailure }) { check(endpoint.delete()) }
+                    }.exceptionOrNull()
+                assertSame(destroyFailure, failure)
+                assertTrue(endpoint.exists())
+
+                cleanup.destroySession(runtime::close) { check(endpoint.delete()) }
+                assertTrue(runtime.isClosed)
+                assertFalse(endpoint.exists())
+            } finally {
+                endpoint.delete()
+            }
+        }
+    }
+
     @Test
     fun nativeProtectCleanupIsIdempotent() {
         val calls = mutableListOf<String>()
@@ -123,7 +221,10 @@ class VpnServiceSessionCleanupTest {
         val cleanup = VpnServiceSessionCleanup()
 
         cleanup.destroyRunningSession(
-            stopRuntime = { calls += "runtime-stop" },
+            stopRuntime = {
+                calls += "runtime-stop"
+                RuntimeStopOutcome.FullyReleased
+            },
             destroyCoordinator = { calls += "runtime-destroy" },
             cleanupSocketProtection = { calls += "protect-cleanup" },
             timeoutMillis = 1_000L,
@@ -133,7 +234,7 @@ class VpnServiceSessionCleanupTest {
     }
 
     @Test
-    fun runtimeStopTimeoutStillDestroysCoordinatorAndRemovesSocketProtection() {
+    fun runtimeStopTimeoutRetainsCoordinatorAndSocketProtection() {
         val calls = mutableListOf<String>()
         val cleanup = VpnServiceSessionCleanup()
 
@@ -154,8 +255,8 @@ class VpnServiceSessionCleanupTest {
 
         assertTrue(thrown is TimeoutCancellationException)
         assertEquals(
-            "a timed-out runtime stop must not skip the idempotent coordinator destroy and protection cleanup",
-            listOf("runtime-stop", "runtime-destroy", "protect-cleanup"),
+            "a timed-out runtime has not confirmed release and must keep protection",
+            listOf("runtime-stop"),
             calls,
         )
     }
@@ -167,7 +268,10 @@ class VpnServiceSessionCleanupTest {
             val cleanup = VpnServiceSessionCleanup()
 
             cleanup.revokeSession(
-                stopRuntime = { calls += "runtime-stop" },
+                stopRuntime = {
+                    calls += "runtime-stop"
+                    RuntimeStopOutcome.FullyReleased
+                },
                 destroyCoordinator = { calls += "runtime-destroy" },
                 cleanupSocketProtection = {
                     cleanup.cleanupNativeProtect(
@@ -184,7 +288,7 @@ class VpnServiceSessionCleanupTest {
         }
 
     @Test
-    fun runtimeStopFailureStillDestroysCoordinatorAndRemovesSocketProtection() =
+    fun runtimeStopFailureRetainsCoordinatorAndSocketProtection() =
         runTest {
             val calls = mutableListOf<String>()
             val cleanup = VpnServiceSessionCleanup()
@@ -209,8 +313,8 @@ class VpnServiceSessionCleanupTest {
 
             assertSame(stopFailure, result.exceptionOrNull())
             assertEquals(
-                "a failed runtime stop must still run the idempotent teardown before surfacing the failure",
-                listOf("runtime-stop", "runtime-destroy", "protect-unregister", "protect-stop"),
+                "a failed runtime stop keeps protection until a later confirmed release",
+                listOf("runtime-stop"),
                 calls,
             )
         }
@@ -259,7 +363,10 @@ class VpnServiceSessionCleanupTest {
             }
 
             cleanup.revokeSession(
-                stopRuntime = { calls += "runtime-stop" },
+                stopRuntime = {
+                    calls += "runtime-stop"
+                    RuntimeStopOutcome.FullyReleased
+                },
                 destroyCoordinator = { calls += "runtime-destroy" },
                 cleanupSocketProtection = cleanupSocketProtection,
             )

@@ -117,6 +117,10 @@ class RipDpiVpnService :
     @Volatile private var lastPausedStartId = 0
 
     @Volatile private var latestStartId = 0
+
+    @Volatile
+    internal var permissionRevoked = false
+        private set
     private val entryMutex = kotlinx.coroutines.sync.Mutex()
     private var destroyCleanupJob: kotlinx.coroutines.Job? = null
 
@@ -280,12 +284,10 @@ class RipDpiVpnService :
                         // Only the latest job is published: chain it after the earlier ones, so a newer
                         // instance never attaches while an older teardown can still stop shared singletons.
                         earlierTeardown?.join()
-                        entryMutex.withLock {
-                            if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
-                            val outcome = runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
-                            if (outcome != RuntimeStopOutcome.FullyReleased) {
-                                co.touchlab.kermit.Logger
-                                    .e { "VPN destruction retained cleanup ownership" }
+                        awaitVpnRuntimeRelease(previousInstanceTeardownTimeoutMillis) {
+                            entryMutex.withLock {
+                                if (::sessionLifecycle.isInitialized) sessionLifecycle.closeRefreshReceiver()
+                                runtimeCommands.releaseActiveSession(RuntimeStopGuard(isCurrent = { true }))
                             }
                         }
                     }
@@ -336,18 +338,24 @@ class RipDpiVpnService :
     }
 
     override fun onRevoke() {
-        refreshHardKillSwitchState()
-        if (activeSessionAttached) {
-            // A revoke can land while ensureActiveSession is still building the delegate on IO.
-            shellDelegate.onRevoke()
-        } else {
-            pauseAuthority.snapshot()?.let {
-                pauseAuthority.transition(
-                    it,
-                    com.poyka.ripdpi.data.PausePhase.Deferred,
-                    com.poyka.ripdpi.data.PauseFailure.ConsentRequired,
-                )
+        permissionRevoked = true
+        try {
+            refreshHardKillSwitchState()
+            if (activeSessionAttached) {
+                // A revoke can land while ensureActiveSession is still building the delegate on IO.
+                shellDelegate.onRevoke()
+            } else {
+                pauseAuthority.snapshot()?.let {
+                    pauseAuthority.transition(
+                        it,
+                        com.poyka.ripdpi.data.PausePhase.Deferred,
+                        com.poyka.ripdpi.data.PauseFailure.ConsentRequired,
+                    )
+                }
             }
+        } finally {
+            // The platform requests destruction; its retained-owner job completes pending cleanup.
+            super.onRevoke()
         }
     }
 

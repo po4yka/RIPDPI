@@ -121,11 +121,10 @@ internal class VpnServiceSessionLifecycle(
                 isStopAllowed = service::isUserStopAllowed,
                 intentCallbacks = intentCallbacks,
                 isCompensatingStopCurrent = runtimeResumeIntentTracker::isCurrentIntentStopped,
-                onRevoke = { revokeSession(initializer, runtimeCoordinator) },
+                onRevoke = { revokeSession(runtimeCoordinator) },
             )
         }.onFailure {
-            stateInitializer?.close()
-            clearSessionReferences()
+            // ActiveSessionOwnership retains this lifecycle until destroy confirms cleanup.
             hardKillSwitchRefreshBroadcastLifecycle.close()
         }.getOrThrow()
     }
@@ -150,7 +149,7 @@ internal class VpnServiceSessionLifecycle(
                 try {
                     cleanup.destroySession(current::onDestroy, ::cleanupNativeProtect)
                     hardKillSwitchRefreshBroadcastLifecycle.close()
-                    stateInitializer?.close()
+                    closeSessionState()
                     clearSessionReferences()
                     RuntimeStopOutcome.FullyReleased
                 } catch (_: IllegalStateException) {
@@ -163,28 +162,26 @@ internal class VpnServiceSessionLifecycle(
     fun destroy() {
         hardKillSwitchRefreshBroadcastLifecycle.close()
         val runtimeCoordinator = coordinator
-        val failure =
-            runCatching {
-                cleanup.destroyRunningSession(
-                    stopRuntime = { runtimeCoordinator?.stop() },
-                    destroyCoordinator = { runtimeCoordinator?.onDestroy() },
-                    cleanupSocketProtection = ::cleanupNativeProtect,
-                    timeoutMillis = DESTROY_TIMEOUT_MS,
-                )
-            }.exceptionOrNull()
-        // Cleared regardless of the teardown outcome: this service instance is
-        // going away, and after a timed-out stop the coordinator destroy and
-        // protection cleanup have already run inside destroyRunningSession.
-        if (failure != null) {
-            stateInitializer?.close(Sender.VPN, FailureReason.Unexpected(failure))
-        } else {
-            stateInitializer?.close()
-        }
+        cleanup.destroyRunningSession(
+            stopRuntime = { runtimeCoordinator?.stop() ?: RuntimeStopOutcome.FullyReleased },
+            destroyCoordinator = { runtimeCoordinator?.onDestroy() },
+            cleanupSocketProtection = ::cleanupNativeProtect,
+            timeoutMillis = DESTROY_TIMEOUT_MS,
+        )
+        closeSessionState()
         clearSessionReferences()
     }
 
     val stateStore: ServiceStateStore
         get() = checkNotNull(sessionStateStore) { "VPN service session has not been created" }
+
+    private fun closeSessionState() {
+        if (service.permissionRevoked) {
+            stateInitializer?.close(Sender.VPN, FailureReason.PermissionLost("VPN"))
+        } else {
+            stateInitializer?.close()
+        }
+    }
 
     private fun clearSessionReferences() {
         protectSocketServer = null
@@ -194,19 +191,13 @@ internal class VpnServiceSessionLifecycle(
         sessionComponent = null
     }
 
-    private suspend fun revokeSession(
-        initializer: ServiceSessionStateInitializer,
-        runtimeCoordinator: VpnServiceRuntimeCoordinator,
-    ) {
-        initializer.close(
-            sender = Sender.VPN,
-            reason = FailureReason.PermissionLost("VPN"),
-        )
+    private suspend fun revokeSession(runtimeCoordinator: VpnServiceRuntimeCoordinator) {
         cleanup.revokeSession(
             stopRuntime = runtimeCoordinator::stop,
             destroyCoordinator = runtimeCoordinator::onDestroy,
             cleanupSocketProtection = ::cleanupNativeProtect,
         )
+        closeSessionState()
     }
 
     private companion object {
