@@ -88,7 +88,7 @@ Implementation:
 
 Start path:
 
-`RipDpiVpnService.startTun2Socks()` -> `Tun2SocksTunnel.start(config, tunFd)` -> `jniCreate(configJson)` -> `jniStart(handle, tunFd)` -> native worker thread -> `ripdpi_tunnel_core::run_tunnel()`
+`VpnTunnelRuntime.startBridge()` -> `Tun2SocksBridge.start(config, tunFd, ...)` -> `Tun2SocksTunnel.start(...)` -> `jniCreate(configJson)` -> `jniStart(handle, tunFd)` -> native worker thread -> `ripdpi_tunnel_core::run_tunnel_with_ready()`
 
 `jniStart` does not declare the data plane ready merely because the worker was
 spawned. The worker signals a bounded readiness barrier only after fd adoption,
@@ -101,10 +101,10 @@ before orchestrated cleanup closes the pending TUN.
 
 Normal stop path:
 
-`RipDpiVpnService.stopTun2Socks()` -> `Tun2SocksTunnel.stop()` -> `jniStop(handle)` -> `CancellationToken::cancel()` -> worker thread join
+`VpnTunnelRuntime.stop()` -> `Tun2SocksBridge.stop()` -> `Tun2SocksTunnel.stop()` -> `jniStop(handle)` -> `CancellationToken::cancel()` -> bounded worker thread join
 
 If the five-second readiness deadline expires, `jniStart` requests cancellation
-and moves the worker join to a shared-runtime reaper instead of blocking the JNI
+and moves the worker join to a separate reaper thread instead of blocking the JNI
 caller past the deadline. The session becomes destroyable while that reaper owns
 the worker and its duplicated TUN fd.
 
@@ -126,7 +126,9 @@ The TUN fd travels through two independent ownership tiers that must never alias
   `pendingSession` until the coordinator publishes `Failed`; orchestrated
   `stop()` then closes it. This keeps Android routing fail-closed throughout
   the error transition.
-- Normal stop, cancel, handover-restart: `VpnTunnelRuntime.stop()` finally block calls `session.close()` and immediately nulls `tunSession`. The null-guard prevents any second close.
+- Normal stop, cancel, handover restart: `VpnTunnelRuntime.stop()` attempts
+  bridge shutdown and then closes the original session. It clears the session
+  reference only after close succeeds. A close failure retains ownership for retry.
 
 **Tier 2 — Rust / dup (one dup per session, independent fd number)**
 
@@ -140,10 +142,16 @@ Required Kotlin API at the call site: `.fd()` peek (NOT `detachFd()`). If `detac
 adopt_tun_fd() → OwnedFd (RAII live)
   → WorkerLaunch.owned_fd: OwnedFd (RAII live through thread spawn)
     → run_tunnel(tun_fd: OwnedFd)
-        let raw = tun_fd.into_raw_fd();   // RAII disarmed; raw lives in async frame
-        let tun_async = AsyncDevice::from_fd(raw)?;  // tun-rs Fd{borrow:false} takes ownership
-          → tun_async dropped at run_tunnel return → tun-rs Fd::Drop → libc::close(raw)
+        PacketFd::new(tun_fd)
+          → File::from(OwnedFd) owns the descriptor
+            → AsyncFd<File> owns File after nonblocking registration
+              → PacketFd drop closes File and the descriptor
 ```
+
+`PacketFd` is owned by this repository. It reads and writes raw IP packets
+without creating an interface or adding a PI header. The Android packet path
+does not use `tun-rs::AsyncDevice`. Native setup, normal return, and panic unwind
+keep the descriptor under Rust ownership without an `into_raw_fd()` handoff.
 
 **Failure modes and close responsibility:**
 
@@ -152,12 +160,15 @@ adopt_tun_fd() → OwnedFd (RAII live)
 | `fstat` validation fails in `adopt_tun_fd` | `OwnedFd` drop in `adopt_tun_fd` |
 | `ensure_tunnel_start_allowed` fails | explicit `drop(owned_fd)` in `session/lifecycle/start.rs::start_session` |
 | thread spawn fails in `launch_tunnel_worker` | `WorkerLaunch` drop in the `launch_tunnel_worker` error arm of `session/lifecycle/start.rs::start_session` |
-| `AsyncDevice::from_fd` fails inside `run_tunnel` | tun-rs `Fd{borrow:false}` drop inside `DeviceImpl::from_fd` before Err propagates |
-| Route setup (`add_default_ipv4/ipv6_route`) fails | `tun_async` (AsyncDevice) drop at run_tunnel return |
+| `PacketFd::new` fails during flag setup or Tokio registration | The local `File`, or its `AsyncFd<File>` owner, drops before the error returns |
+| Route setup (`add_default_ipv4/ipv6_route`) fails | `tun_async` (`PacketFd`) drops at `run_tunnel_with_ready` return |
 | `CancellationToken::cancel()` (normal stop or cancel path) | `tun_async` drop after io_loop_task returns `WaitOutcome::Cancelled` |
-| Panic inside `catch_unwind` in worker.rs | async future drop during panic unwind drops `tun_async` → Fd::Drop |
+| Panic inside the worker's `catch_unwind` | Async future drop during panic unwind drops `PacketFd` and its `File` |
 
-**O_CLOEXEC requirement:** The dup is issued with `O_CLOEXEC` (via `F_DUPFD_CLOEXEC`). `root_helper::register_for_worker` in `worker.rs` may spawn a child process immediately after the dup is created and before `AsyncDevice::from_fd` registers the fd with the tokio reactor. Without `O_CLOEXEC`, the child inherits the TUN fd, which remains open in the child process after `run_tunnel` returns and the parent closes its copy.
+**O_CLOEXEC requirement:** The dup is issued with `O_CLOEXEC` (via
+`F_DUPFD_CLOEXEC`). Root-helper setup can spawn a child after duplication and
+before `PacketFd::new` registers the fd with Tokio. Without `O_CLOEXEC`, that
+child could keep the TUN fd open after the worker closes its own copy.
 
 **Consistency with the proxy/pcap fd contract:** The pcap path in `session/pcap.rs` uses `ParcelFileDescriptor.detachFd()` (Kotlin surrenders ownership) + immediate `OwnedFd::from_raw_fd` wrap (Rust takes sole ownership, no dup). The TUN path uses `.fd()` peek (Kotlin retains ownership) + atomic dup-with-CLOEXEC (Rust owns an independent fd). Both patterns share the same invariant: from the moment native code receives a raw fd integer, it is wrapped in an RAII owner before any code path (including panic and early return) can exit without closing it.
 

@@ -23,7 +23,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-VPN-PREDECESSOR | VPN-1794133860638505 | Existing audit reproducer fails before repair; service-path regression and retry/chain tests pending | Pending |
 | REQ-TUN-WRITE-RETIRE | VPN-1794133861060047 | Real packet-fd write failure with an owned live session, then full native suite | Pending |
 | REQ-TUN-READ-TERMINATE | VPN-1794133861459291 | Real fd EOF/error regression and bounded worker exit, then full native suite | Pending |
-| REQ-VPN-COMPATIBILITY | VPN-1794133861855078 | Physical-network-handover-authority REQ-PHYSICAL-UNAVAILABLE and existing legacy tests; PacketFd documentation | Pending |
+| REQ-VPN-COMPATIBILITY | VPN-1794133861855078 | Source comparison confirms REQ-PHYSICAL-UNAVAILABLE; PacketFd ownership and caller documentation corrected; diff check and task validation passed. Legacy JVM suites remain in the combined gate. | Source/documentation passed |
 | REQ-VPN-COMPATIBILITY | VPN-1794133862255291 | Combined JVM/Rust tests, staticAnalysis, ci-gates, architecture health, metadata, independent reviews | Pending |
 
 ## Evidence boundary
