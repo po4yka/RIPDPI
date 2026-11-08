@@ -94,6 +94,7 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
         RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
         None,
         None,
+        None,
     )
     .expect("prepare must hand off unread continuation");
     let rotation = RelaySession::rotation_controller(state.relay_rotation_seed(0).expect("seed"))

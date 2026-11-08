@@ -110,7 +110,7 @@ pub(in crate::runtime) fn reconnect_target(
     route: RuntimeConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
-) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     reconnect_target_with_tfo_mode(target, state, route, host, payload, true)
 }
 
@@ -120,7 +120,7 @@ pub(in crate::runtime) fn reconnect_target_without_tfo(
     route: RuntimeConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
-) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     reconnect_target_with_tfo_mode(target, state, route, host, payload, false)
 }
 
@@ -139,7 +139,7 @@ fn reconnect_target_with_tfo_mode(
     host: Option<String>,
     payload: Option<&[u8]>,
     allow_tfo: bool,
-) -> io::Result<(TcpStream, RuntimeConnectionRoute)> {
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     let egress = state.destination_egress(target, host.as_deref(), RuntimeTransportProtocol::Tcp);
     if egress == DestinationEgress::Block {
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"));
@@ -157,10 +157,10 @@ fn reconnect_target_with_tfo_mode(
             route.group_index,
             payload,
             allow_tfo,
-            false,
+            true,
             egress,
         ) {
-            Ok((stream, _)) => return Ok((stream, route)),
+            Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
                 retries += 1;
                 if retries > state.max_route_retries() {
@@ -176,10 +176,10 @@ fn reconnect_target_with_tfo_mode(
                         route.group_index,
                         payload,
                         false,
-                        false,
+                        true,
                         egress,
                     ) {
-                        Ok((stream, _)) => return Ok((stream, route)),
+                        Ok((stream, guard)) => return Ok((stream, route, guard)),
                         Err(fallback_err) => {
                             err = fallback_err;
                             failure = RuntimeState::classify_connect_transport_error(&err.source);
@@ -328,13 +328,16 @@ mod tests {
         let state = RuntimeState::test(config);
         let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
 
-        let (stream, actual_route) =
+        let (stream, actual_route, cap_guard) =
             reconnect_target_without_tfo(target, &state, route, Some("example.com".to_string()), None)
                 .expect("reconnect succeeds");
 
         assert_eq!(actual_route.group_index, 0);
         assert_eq!(stream.peer_addr().expect("peer addr"), target);
+        assert_eq!(state.active_exit_sessions(target.ip()), 1, "the physical replacement must hold its own slot");
         drop(stream);
+        drop(cap_guard);
+        assert_eq!(state.active_exit_sessions(target.ip()), 0);
         release_tx.send(()).expect("release accept thread");
         accept_thread.join().expect("accept thread finished");
     }

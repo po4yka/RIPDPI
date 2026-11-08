@@ -76,19 +76,17 @@ fn relay_upstream(
     success_reply_sent: bool,
     attempt_token: Option<AttemptCorrelationId>,
 ) -> Result<(), ConnectRelayError> {
-    // Hold the per-exit-IP session slot for the entire relay so the cap counts
-    // this connection as in-flight; it is freed when `_cap_guard` drops at the
-    // end of this function, after `relay()` returns.
-    let _cap_guard = upstream_route.cap_guard;
+    let client = client.try_clone().map_err(|err| ConnectRelayError::new(err, success_reply_sent))?;
     let _same_sni_guard = upstream_route.same_sni_guard;
     super::super::super::relay::relay(
-        client.try_clone().map_err(|err| ConnectRelayError::new(err, success_reply_sent))?,
+        client,
         upstream_route.upstream,
         state,
         target,
         upstream_route.route,
         upstream_route.seed_request,
         attempt_token,
+        upstream_route.cap_guard,
     )
     .map_err(|err| ConnectRelayError::new(err, success_reply_sent))
 }

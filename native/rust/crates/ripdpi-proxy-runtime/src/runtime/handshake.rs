@@ -263,7 +263,7 @@ fn handle_shadowsocks(
     reject_forbidden_target(&client, target.addr)?;
     let host = target.host.or_else(|| state.extract_relay_payload_host(&first_request));
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
-    let (upstream, route, _cap_guard) = super::routing::connect_target(target.addr, state, payload, false, host)?;
+    let (upstream, route, cap_guard) = super::routing::connect_target(target.addr, state, payload, false, host)?;
     super::relay::relay(
         client,
         upstream,
@@ -272,6 +272,7 @@ fn handle_shadowsocks(
         route,
         if first_request.is_empty() { None } else { Some(first_request) },
         None,
+        cap_guard,
     )
 }
 

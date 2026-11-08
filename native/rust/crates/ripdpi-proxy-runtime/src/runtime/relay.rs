@@ -5,6 +5,8 @@ mod half_close;
 mod pending_response;
 mod platform;
 mod session;
+#[cfg(all(test, not(feature = "loom")))]
+mod session_limit_tests;
 mod stream_copy;
 
 pub(in crate::runtime) use failure_retry::{FirstOutboundRead, read_first_client_payload};
@@ -13,6 +15,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
+use ripdpi_session_limit::ExitIpSessionGuard;
 
 use self::execution::{RelayResultContext, record_relay_result, relay_established_streams};
 use self::failure_retry::{PreparedRelay, prepare_relay};
@@ -28,16 +31,20 @@ pub(super) fn relay(
     route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
     attempt_token: Option<AttemptCorrelationId>,
+    cap_guard: Option<ExitIpSessionGuard>,
 ) -> io::Result<()> {
+    let prepared = prepare_relay(&mut client, upstream, state, target, route, seed_request, attempt_token, cap_guard)?;
+    let _cap_guard = prepared.cap_guard;
     let PreparedRelay {
         upstream,
+        cap_guard: _,
         route,
         session_state,
         success_recorded,
         success_host,
         success_payload,
         success_strategy_family,
-    } = prepare_relay(&mut client, upstream, state, target, route, seed_request, attempt_token)?;
+    } = prepared;
 
     let _active_upstream = state.register_active_tcp_socket(&upstream)?;
 

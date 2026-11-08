@@ -15,6 +15,7 @@ use crate::runtime::relay::session::{FirstOutboundSession, RelaySession};
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
+use ripdpi_session_limit::ExitIpSessionGuard;
 
 mod execution;
 pub(super) mod payload;
@@ -23,6 +24,7 @@ mod route_retry;
 
 pub(crate) struct PreparedRelay {
     pub(crate) upstream: TcpStream,
+    pub(crate) cap_guard: Option<ExitIpSessionGuard>,
     pub(crate) route: RuntimeConnectionRoute,
     pub(crate) session_state: RelaySession,
     pub(crate) success_recorded: bool,
@@ -36,9 +38,11 @@ impl PreparedRelay {
         upstream: TcpStream,
         route: RuntimeConnectionRoute,
         session: FirstOutboundSession,
+        cap_guard: Option<ExitIpSessionGuard>,
     ) -> Self {
         Self {
             upstream,
+            cap_guard,
             route,
             session_state: session.into_relay_session(),
             success_recorded: false,
@@ -68,11 +72,24 @@ impl<'a> FirstOutboundCoordinator<'a> {
         Self { state, target, route, seed_request, attempt_token }
     }
 
-    fn run(self, client: &mut TcpStream, mut upstream: TcpStream) -> io::Result<PreparedRelay> {
+    fn run(
+        self,
+        client: &mut TcpStream,
+        upstream: TcpStream,
+        cap_guard: Option<ExitIpSessionGuard>,
+    ) -> io::Result<PreparedRelay> {
+        let mut cap_guard = cap_guard;
+        // Close the socket before releasing its physical-session permit on errors.
+        let mut upstream = upstream;
         let first_payload = match prepare_first_payload(client, &upstream, self.state, self.seed_request)? {
             FirstOutboundRead::Payload(first_payload) => first_payload,
             FirstOutboundRead::ClientClosed => {
-                return Ok(PreparedRelay::without_first_payload(upstream, self.route, FirstOutboundSession::new()));
+                return Ok(PreparedRelay::without_first_payload(
+                    upstream,
+                    self.route,
+                    FirstOutboundSession::new(),
+                    cap_guard,
+                ));
             }
             FirstOutboundRead::ServerFirst => {
                 // Skip the first-write exchange for server-first traffic and EOF.
@@ -84,7 +101,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 );
                 let mut session = FirstOutboundSession::new();
                 session.lua_flow = self.state.new_lua_flow();
-                return Ok(PreparedRelay::without_first_payload(upstream, self.route, session));
+                return Ok(PreparedRelay::without_first_payload(upstream, self.route, session, cap_guard));
             }
         };
 
@@ -97,7 +114,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let inspect_first_response = needs_first_exchange(self.state)?;
 
         loop {
-            let _active_upstream = self.state.register_active_upstream_tcp_socket(&upstream)?;
+            let active_upstream = self.state.register_active_upstream_tcp_socket(&upstream)?;
             session_state = FirstOutboundSession::new();
             let tls_send_start = first_payload.is_tls.then(Instant::now);
             match execute_first_write(
@@ -128,8 +145,11 @@ impl<'a> FirstOutboundCoordinator<'a> {
                         err,
                         &mut retry_state,
                     )?;
+                    // The registry owns a cloned descriptor for the old socket.
+                    drop(active_upstream);
                     route = retry.route;
                     upstream = retry.upstream;
+                    cap_guard = retry.cap_guard;
                     continue;
                 }
             }
@@ -182,14 +202,18 @@ impl<'a> FirstOutboundCoordinator<'a> {
                         session_state.reject_first_response();
                         break;
                     };
+                    // The registry owns a cloned descriptor for the old socket.
+                    drop(active_upstream);
                     route = retry.route;
                     upstream = retry.upstream;
+                    cap_guard = retry.cap_guard;
                 }
             }
         }
 
         Ok(PreparedRelay {
             upstream,
+            cap_guard,
             route,
             session_state: session_state.into_relay_session(),
             success_recorded,
@@ -209,6 +233,7 @@ pub(crate) fn prepare_relay(
     route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
     attempt_token: Option<AttemptCorrelationId>,
+    cap_guard: Option<ExitIpSessionGuard>,
 ) -> io::Result<PreparedRelay> {
-    FirstOutboundCoordinator::new(state, target, route, seed_request, attempt_token).run(client, upstream)
+    FirstOutboundCoordinator::new(state, target, route, seed_request, attempt_token).run(client, upstream, cap_guard)
 }

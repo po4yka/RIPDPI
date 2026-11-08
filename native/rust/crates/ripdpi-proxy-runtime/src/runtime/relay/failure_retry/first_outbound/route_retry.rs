@@ -1,6 +1,8 @@
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
+use ripdpi_session_limit::ExitIpSessionGuard;
+
 use crate::runtime::desync::OutboundSendError;
 use crate::runtime::failure::{RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass};
 use crate::runtime::relay::failure_retry::retry_logic::{
@@ -21,6 +23,7 @@ pub(super) struct RouteRetryState {
 
 pub(super) struct ReconnectedRoute {
     pub(super) upstream: TcpStream,
+    pub(super) cap_guard: Option<ExitIpSessionGuard>,
     pub(super) route: RuntimeConnectionRoute,
 }
 
@@ -134,8 +137,9 @@ fn reconnect_without_tfo(
     retry_state: &mut RouteRetryState,
 ) -> io::Result<ReconnectedRoute> {
     retry_state.syn_data_retry_attempted = true;
-    let upstream = reconnect_target_without_tfo(target, state, route.clone(), host, Some(original_request))?.0;
-    Ok(ReconnectedRoute { upstream, route: route.clone() })
+    let (upstream, route, cap_guard) =
+        reconnect_target_without_tfo(target, state, route.clone(), host, Some(original_request))?;
+    Ok(ReconnectedRoute { upstream, cap_guard, route })
 }
 
 fn reconnect_route(
@@ -145,8 +149,8 @@ fn reconnect_route(
     host: Option<String>,
     original_request: &[u8],
 ) -> io::Result<ReconnectedRoute> {
-    let upstream = reconnect_target(target, state, route.clone(), host, Some(original_request))?.0;
-    Ok(ReconnectedRoute { upstream, route })
+    let (upstream, route, cap_guard) = reconnect_target(target, state, route, host, Some(original_request))?;
+    Ok(ReconnectedRoute { upstream, cap_guard, route })
 }
 
 #[cfg(test)]

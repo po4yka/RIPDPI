@@ -10,9 +10,8 @@ pub(super) struct UpstreamRoute {
     pub(super) upstream: TcpStream,
     pub(super) route: RuntimeConnectionRoute,
     pub(super) seed_request: Option<Vec<u8>>,
-    /// Per-exit-IP concurrent-session slot held for this connection. Travels
-    /// with `upstream` so RAII keeps the slot reserved for the whole relay
-    /// session and frees it when this struct is dropped after `relay()` returns.
+    /// Physical-session slot transferred with `upstream` into the relay and
+    /// replaced together with the socket when the first exchange retries.
     pub(super) cap_guard: Option<ExitIpSessionGuard>,
     pub(super) same_sni_guard: Option<SameSniProfileGuard>,
 }

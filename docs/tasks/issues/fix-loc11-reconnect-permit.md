@@ -2,7 +2,7 @@
 id: PRX-1794127562206266
 title: Keep exit session permits with reconnected sockets
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: session-accounting
@@ -35,3 +35,5 @@ Keep each direct TCP session permit with its physical socket during the first-ex
 ## Evidence
 
 LOC-11 P2-01 was reproduced at base `9673571bba07581f2b99cd02014645af96bd8a88`: one logical target switches from a closed preferred IPv4 socket to its IPv6 fallback while the old IP count stays one and the new count stays zero. The audit report is `/Users/npochaev/Downloads/RIPDPI_network_audits/LOC-11.md`.
+
+The existing no-TFO reconnect test failed before the fix because the live replacement count was zero instead of one. It passes after guard propagation. Two real first-response relay tests pass: an HTTP 451 retry moves the physical socket and permit to the fallback IP, and a failed replacement closes the old socket and releases both IP budgets. The tests check peer EOF, live counts, replayed HTTP bytes, and empty socket registries after close. Independent review found no unresolved correctness issue. All-target clippy passes with warnings denied. The full proxy library gate twice reported 348 passes and one failure in the existing receive-buffer replacement test: its immediate nonblocking accept returned WouldBlock. This failure is retained as a separate fixture investigation; the combined module and source gates must pass before integration.

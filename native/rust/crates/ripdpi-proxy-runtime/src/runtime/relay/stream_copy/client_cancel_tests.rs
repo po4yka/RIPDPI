@@ -105,7 +105,7 @@ fn run(scenario: Scenario) -> Vec<String> {
     let telemetry = std::sync::Arc::new(Recorder::default());
     let state = RuntimeState::test_with_telemetry(config, Some(telemetry.clone()));
     let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
-    match prepare_relay(&mut client, upstream, &state, target, route.clone(), None, None) {
+    match prepare_relay(&mut client, upstream, &state, target, route.clone(), None, None, None) {
         Ok(prepared) => {
             let settings = RelayStreamSettings {
                 group: state.relay_group(0).unwrap(),
