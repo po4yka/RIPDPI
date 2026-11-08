@@ -45,6 +45,9 @@ pub fn parse_socks4_request(
     } else {
         TargetAddr { addr: SocketAddr::new(IpAddr::V4(ip), port), host: None }
     };
+    if target.addr.is_ipv6() && !config.ipv6 {
+        return Err(SessionError::generic());
+    }
     Ok(ClientRequest::Socks4Connect(target))
 }
 
@@ -71,7 +74,8 @@ mod tests {
         request.extend_from_slice(b"example.com");
         request.push(0);
 
-        let parsed = parse_socks4_request(&request, SessionConfig::default(), &resolver).expect("parse socks4");
+        let config = SessionConfig { resolve: true, ipv6: false };
+        let parsed = parse_socks4_request(&request, config, &resolver).expect("parse socks4");
 
         assert_eq!(
             parsed,
@@ -80,6 +84,29 @@ mod tests {
                 host: Some("example.com".to_string()),
             })
         );
+    }
+
+    #[test]
+    fn parse_socks4_request_applies_ipv6_policy_to_resolved_targets() {
+        for domain in ["::1", "example.com"] {
+            let mut request = vec![4, 1, 0x01, 0xbb, 0, 0, 0, 1, 0];
+            request.extend_from_slice(domain.as_bytes());
+            request.push(0);
+            let ipv6_resolver = |_: &str, _: SocketType| Some("[::1]:0".parse::<SocketAddr>().expect("IPv6 target"));
+
+            let rejected = parse_socks4_request(&request, SessionConfig { resolve: true, ipv6: false }, &ipv6_resolver);
+            assert!(rejected.is_err(), "IPv6 target for {domain} must be rejected: {rejected:?}");
+
+            let accepted = parse_socks4_request(&request, SessionConfig::default(), &ipv6_resolver)
+                .expect("IPv6 target is allowed when IPv6 is enabled");
+            assert_eq!(
+                accepted,
+                ClientRequest::Socks4Connect(TargetAddr {
+                    addr: "[::1]:443".parse().expect("expected target"),
+                    host: Some(domain.to_string()),
+                })
+            );
+        }
     }
 
     #[test]
