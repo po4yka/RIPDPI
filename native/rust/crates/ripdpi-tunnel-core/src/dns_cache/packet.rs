@@ -26,6 +26,7 @@ pub(super) fn rewrite_response(
     let mut cache_misses = 0u64;
     let mut response_leases = Vec::new();
     let result = (|| {
+        let mut changed = false;
         for record in &mut message.answers {
             let replacement = match &record.data {
                 RData::A(address) => {
@@ -44,6 +45,7 @@ pub(super) fn rewrite_response(
             };
             if let Some(data) = replacement {
                 record.data = data;
+                changed = true;
                 // The reverse map is owned by this native tunnel session. Android's
                 // resolver cache can outlive that session (and even the app
                 // process), so caching a synthetic address would let a later
@@ -55,7 +57,10 @@ pub(super) fn rewrite_response(
         }
 
         if !cache.ipv6_enabled {
-            strip_aaaa_records(&mut message);
+            changed |= strip_aaaa_records(&mut message);
+        }
+        if changed {
+            message.metadata.authentic_data = false;
         }
 
         Ok(DnsRewriteResult {
@@ -90,11 +95,13 @@ pub(super) fn servfail_response(query: &[u8]) -> Result<Vec<u8>, DnsCacheError> 
     Ok(response)
 }
 
-fn strip_aaaa_records(message: &mut Message) {
+fn strip_aaaa_records(message: &mut Message) -> bool {
     // Strip AAAA records from answers, additionals, and name-servers so
     // Android's Happy Eyeballs algorithm cannot select an address family that
     // the active VPN interface does not route.
+    let record_count = message.answers.len() + message.additionals.len() + message.authorities.len();
     message.answers.retain(|record| !matches!(&record.data, RData::AAAA(_)));
     message.additionals.retain(|record| !matches!(&record.data, RData::AAAA(_)));
     message.authorities.retain(|record| !matches!(&record.data, RData::AAAA(_)));
+    record_count != message.answers.len() + message.additionals.len() + message.authorities.len()
 }

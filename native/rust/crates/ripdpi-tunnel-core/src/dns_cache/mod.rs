@@ -5,6 +5,8 @@ mod parser;
 mod state;
 
 #[cfg(test)]
+mod authenticity_tests;
+#[cfg(test)]
 mod response_lease_tests;
 
 pub use self::packet::DnsRewriteResult;
