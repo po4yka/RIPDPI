@@ -1,10 +1,15 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayProfileRecord
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -12,11 +17,13 @@ import org.junit.Test
 import java.io.File
 import java.nio.file.Files
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicReference
 
 class NaiveProxyProfileCheckerTest {
     private val dir = Files.createTempDirectory("naive-check").toFile().apply { deleteOnExit() }
     private val argvFile = File(dir, "argv")
     private val stdinFile = File(dir, "stdin")
+    private val protectPathFile = File(dir, "protect-path")
     private val config =
         sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
             naiveUsername = "alice",
@@ -26,7 +33,10 @@ class NaiveProxyProfileCheckerTest {
     /** A stand-in helper that records argv and stdin, then runs [body]. */
     private fun helper(body: String): File =
         File(dir, "helper").apply {
-            writeText("#!/bin/sh\necho \"$@\" > '$argvFile'\ncat > '$stdinFile'\n$body\n")
+            writeText(
+                "#!/bin/sh\necho \"$@\" > '$argvFile'\ncat > '$stdinFile'\n" +
+                    "printf '%s' \"\${RIPDPI_PROTECT_PATH-}\" > '$protectPathFile'\n$body\n",
+            )
             setExecutable(true)
         }
 
@@ -42,6 +52,65 @@ class NaiveProxyProfileCheckerTest {
 
     private val profile = RelayProfileRecord(id = "draft", kind = RelayKindNaiveProxy)
     private val credentials = RelayCredentialRecord(profileId = "draft")
+
+    @Test
+    fun `VPN check receives the captured endpoint in the helper environment`() =
+        runTest {
+            val checker =
+                NaiveProxyProfileChecker(
+                    prepare = { _, _ -> config.copy(socketProtection = RelaySocketProtection.VpnRequired) },
+                    binary = { helper("echo 'RIPDPI-CHECK|naiveproxy|ok'") },
+                    ioDispatcher = Dispatchers.IO,
+                    protectPath = { "/tmp/vpn-profile-protect.sock" },
+                )
+
+            assertEquals(NaiveProxyCheckOutcome.Ok, checker.check(profile, credentials))
+            assertEquals("/tmp/vpn-profile-protect.sock", protectPathFile.readText())
+        }
+
+    @Test
+    fun `VPN check rejects a result after its protection owner changes`() =
+        runTest {
+            val release = File(dir, "release")
+            val currentPath = AtomicReference("/tmp/vpn-profile-old.sock")
+            val checker =
+                NaiveProxyProfileChecker(
+                    prepare = { _, _ -> config.copy(socketProtection = RelaySocketProtection.VpnRequired) },
+                    binary = {
+                        helper("while [ ! -f '$release' ]; do sleep 0.01; done\necho 'RIPDPI-CHECK|naiveproxy|ok'")
+                    },
+                    ioDispatcher = Dispatchers.IO,
+                    protectPath = currentPath::get,
+                )
+            val check = async(Dispatchers.IO) { checker.check(profile, credentials) }
+            try {
+                withContext(Dispatchers.IO) {
+                    withTimeout(5_000) { while (!protectPathFile.exists()) delay(10) }
+                }
+                currentPath.set("/tmp/vpn-profile-new.sock")
+                release.writeText("")
+
+                assertEquals(NaiveProxyCheckOutcome.Failed, check.await())
+                assertEquals("/tmp/vpn-profile-old.sock", protectPathFile.readText())
+            } finally {
+                release.writeText("")
+                check.cancel()
+            }
+        }
+
+    @Test
+    fun `VPN check refuses to start without an active protect endpoint`() =
+        runTest {
+            val checker =
+                NaiveProxyProfileChecker(
+                    prepare = { _, _ -> config.copy(socketProtection = RelaySocketProtection.VpnRequired) },
+                    binary = { helper("echo 'RIPDPI-CHECK|naiveproxy|ok'") },
+                    ioDispatcher = Dispatchers.IO,
+                )
+
+            assertEquals(NaiveProxyCheckOutcome.Failed, checker.check(profile, credentials))
+            assertFalse(argvFile.exists())
+        }
 
     @Test
     fun `the helper result line maps to an outcome and credentials stay off argv`() =
