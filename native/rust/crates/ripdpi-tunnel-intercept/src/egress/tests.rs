@@ -123,18 +123,11 @@ fn udp_packet(ipv6: bool, src: u16, dst: u16, payload: &[u8]) -> Vec<u8> {
     if !ipv6 {
         return ipv4_udp_packet(src, dst, payload);
     }
-    let udp_len = 8 + payload.len();
-    let mut packet = vec![0; IPV6_HEADER_LEN + udp_len];
-    packet[0] = 0x60;
-    packet[4..6].copy_from_slice(&(udp_len as u16).to_be_bytes());
-    packet[6] = UDP_PROTO;
-    packet[7] = 64;
-    packet[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
-    packet[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
-    packet[40..42].copy_from_slice(&src.to_be_bytes());
-    packet[42..44].copy_from_slice(&dst.to_be_bytes());
-    packet[44..46].copy_from_slice(&(udp_len as u16).to_be_bytes());
-    packet[48..].copy_from_slice(payload);
+    let mut packet = Vec::new();
+    etherparse::PacketBuilder::ipv6(Ipv6Addr::LOCALHOST.octets(), Ipv6Addr::LOCALHOST.octets(), 64)
+        .udp(src, dst)
+        .write(&mut packet, payload)
+        .unwrap();
     packet
 }
 
@@ -418,6 +411,11 @@ fn lua_consumed_tcp_fin_releases_state() {
     assert!(interceptor.handle_packet(&packet));
     let mut fin = ipv4_tcp_packet(20_000, 443, b"");
     fin[33] = 0x11;
+    let checksum = etherparse::TcpHeaderSlice::from_slice(&fin[20..])
+        .unwrap()
+        .calc_checksum_ipv4_raw([10, 0, 0, 2], [93, 184, 216, 34], &[])
+        .unwrap();
+    fin[36..38].copy_from_slice(&checksum.to_be_bytes());
     assert!(interceptor.handle_packet(&fin));
     assert!(interceptor.handle_packet(&packet));
     assert_eq!(packet_payload(interceptor.injector.packets.last().expect("reused flow packet")), b"1");
@@ -875,58 +873,42 @@ fn expected_quic_marker_end(layout: &QuicInitialLayout, crypto_offset: usize) ->
 }
 
 fn packet_payload(packet: &[u8]) -> &[u8] {
-    let meta = PacketMeta::parse(packet).expect("packet metadata");
-    meta.payload(packet)
+    // Decoys can deliberately change UDP Length without changing the packet bytes.
+    match etherparse::LaxSlicedPacket::from_ip(packet).unwrap().transport.unwrap() {
+        etherparse::TransportSlice::Tcp(tcp) => tcp.payload(),
+        etherparse::TransportSlice::Udp(udp) => udp.payload(),
+        _ => panic!("expected transport payload"),
+    }
 }
 
 fn ipv4_udp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
-    let total_len = IPV4_MIN_HEADER_LEN + 8 + payload.len();
-    let mut packet = vec![0u8; total_len];
-    packet[0] = 0x45;
-    packet[2..4].copy_from_slice(&(total_len as u16).to_be_bytes());
-    packet[8] = 64;
-    packet[9] = UDP_PROTO;
-    packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
-    packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
-    packet[20..22].copy_from_slice(&src_port.to_be_bytes());
-    packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
-    packet[24..26].copy_from_slice(&((8 + payload.len()) as u16).to_be_bytes());
-    packet[28..].copy_from_slice(payload);
+    let mut packet = Vec::new();
+    etherparse::PacketBuilder::ipv4([10, 0, 0, 2], [93, 184, 216, 34], 64)
+        .udp(src_port, dst_port)
+        .write(&mut packet, payload)
+        .unwrap();
     packet
 }
 
 fn ipv4_tcp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
-    let total_len = IPV4_MIN_HEADER_LEN + 20 + payload.len();
-    let mut packet = vec![0u8; total_len];
-    packet[0] = 0x45;
-    packet[2..4].copy_from_slice(&(total_len as u16).to_be_bytes());
-    packet[8] = 64;
-    packet[9] = TCP_PROTO;
-    packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
-    packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
-    packet[20..22].copy_from_slice(&src_port.to_be_bytes());
-    packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
-    packet[32] = 0x50;
-    packet[33] = 0x18;
-    packet[34..36].copy_from_slice(&65535u16.to_be_bytes());
-    packet[40..].copy_from_slice(payload);
-    recompute_ipv4_header_checksum(&mut packet[..IPV4_MIN_HEADER_LEN]);
+    let mut packet = Vec::new();
+    etherparse::PacketBuilder::ipv4([10, 0, 0, 2], [93, 184, 216, 34], 64)
+        .tcp(src_port, dst_port, 0, 65535)
+        .psh()
+        .ack(0)
+        .write(&mut packet, payload)
+        .unwrap();
     packet
 }
 
 fn ipv6_tcp_packet() -> Vec<u8> {
-    let mut packet = vec![0u8; IPV6_HEADER_LEN + 20];
-    packet[0] = 0x60;
-    packet[4..6].copy_from_slice(&20u16.to_be_bytes());
-    packet[6] = TCP_PROTO;
-    packet[7] = 64;
-    packet[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
-    packet[24..40].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
-    packet[40..42].copy_from_slice(&49152u16.to_be_bytes());
-    packet[42..44].copy_from_slice(&443u16.to_be_bytes());
-    packet[52] = 0x50;
-    packet[53] = 0x18;
-    packet[54..56].copy_from_slice(&65535u16.to_be_bytes());
+    let mut packet = Vec::new();
+    etherparse::PacketBuilder::ipv6(Ipv6Addr::LOCALHOST.octets(), Ipv6Addr::LOCALHOST.octets(), 64)
+        .tcp(49152, 443, 0, 65535)
+        .psh()
+        .ack(0)
+        .write(&mut packet, &[])
+        .unwrap();
     packet
 }
 
@@ -1046,14 +1028,36 @@ fn lua_rawsend_wraps_bytes_that_are_not_a_packet_of_the_current_flow() {
 
 #[test]
 fn lua_rawsend_injects_a_complete_packet_of_the_current_flow_verbatim() {
-    let own = ipv4_tcp_packet(49152, 443, b"own-flow");
-    let mut payload = b"xx".to_vec();
-    payload.extend_from_slice(&own);
-    let packet = ipv4_tcp_packet(49152, 443, &payload);
-    let (_script, mut interceptor) =
-        lua_interceptor("lua-egress-rawsend-own", "desync.rawsend(desync.payload:sub(3))\nreturn VERDICT_MODIFY");
+    for udp_decoy in [false, true] {
+        let own = if udp_decoy {
+            let mut decoy = ipv4_udp_packet(49152, 443, b"own-flow");
+            // The strategy deliberately makes UDP Length exceed the complete IP payload.
+            decoy[24..26].copy_from_slice(&1000u16.to_be_bytes());
+            decoy
+        } else {
+            ipv4_tcp_packet(49152, 443, b"own-flow")
+        };
+        let mut payload = b"xx".to_vec();
+        payload.extend_from_slice(&own);
+        let packet =
+            if udp_decoy { ipv4_udp_packet(49152, 443, &payload) } else { ipv4_tcp_packet(49152, 443, &payload) };
+        let (_script, mut interceptor) =
+            lua_interceptor("lua-egress-rawsend-own", "desync.rawsend(desync.payload:sub(3))\nreturn VERDICT_MODIFY");
 
-    assert!(interceptor.handle_packet(&packet));
+        assert!(interceptor.handle_packet(&packet));
+        assert_eq!(interceptor.injector.packets, vec![own]);
+    }
+}
 
-    assert_eq!(interceptor.injector.packets, vec![own]);
+#[test]
+fn malformed_input_cannot_execute_a_tun_strategy() {
+    use super::upstream_vectors::*;
+    let yaml = "version: 1\nstrategies:\n  - id: reject-invalid\n    steps:\n      - type: udplen\n        delta: 4\n";
+    for input in [IPV4_UDP, IPV6_HOP_UDP] {
+        let mut packet = decode(input);
+        *packet.last_mut().unwrap() ^= 1;
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+        assert!(!interceptor.handle_packet(&packet));
+        assert!(interceptor.injector.packets.is_empty());
+    }
 }

@@ -1,13 +1,11 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
+
+use etherparse::{Ipv6ExtensionSlice, LaxNetSlice, LaxSlicedPacket, NetSlice, SlicedPacket, TransportSlice};
 
 pub(crate) const IPV4_MIN_HEADER_LEN: usize = 20;
 pub(crate) const IPV6_HEADER_LEN: usize = 40;
 pub(crate) const TCP_PROTO: u8 = 6;
 pub(crate) const UDP_PROTO: u8 = 17;
-const IPV6_HOP_BY_HOP: u8 = 0;
-const IPV6_ROUTING: u8 = 43;
-const IPV6_FRAGMENT: u8 = 44;
-const IPV6_DESTINATION_OPTIONS: u8 = 60;
 const TCP_SEQUENCE_OFFSET: usize = 4;
 const TCP_CHECKSUM_OFFSET: usize = 16;
 const UDP_LEN_OFFSET: usize = 4;
@@ -23,17 +21,21 @@ pub(crate) struct PacketMeta {
     dst_ip: IpAddr,
     transport_offset: usize,
     payload_offset: usize,
+    payload_end: usize,
+    pub(super) packet_end: usize,
 }
 
 impl PacketMeta {
     pub(crate) fn parse(packet: &[u8]) -> Option<Self> {
-        transport_endpoint(packet).map(|endpoint| Self {
+        transport_endpoint(packet).filter(|endpoint| endpoint.valid_checksums).map(|endpoint| Self {
             transport: endpoint.transport,
             is_ipv6: endpoint.is_ipv6,
             src_ip: endpoint.src_ip,
             dst_ip: endpoint.dst_ip,
             transport_offset: endpoint.transport_offset,
             payload_offset: endpoint.payload_offset,
+            payload_end: endpoint.payload_end,
+            packet_end: endpoint.packet_end,
             src_port: endpoint.src_port,
             dst_port: endpoint.dst_port,
         })
@@ -57,24 +59,20 @@ impl PacketMeta {
     }
 
     pub(crate) fn payload(self, packet: &[u8]) -> &[u8] {
-        packet.get(self.payload_offset..).unwrap_or_default()
+        packet.get(self.payload_offset..self.payload_end).unwrap_or_default()
     }
 
     /// Whether `candidate` is a whole IP packet of this packet's flow: same transport, addresses and
     /// ports, and an IP length field that covers exactly `candidate`. Bytes that only parse as a
     /// packet header (an app payload slice, a crafted string) do not qualify.
     pub(crate) fn is_complete_packet_of_flow(self, candidate: &[u8]) -> bool {
-        let Some(endpoint) = transport_endpoint(candidate) else { return false };
-        let declared_len = if endpoint.is_ipv6 {
-            candidate.get(4..6).map(|len| IPV6_HEADER_LEN + usize::from(u16::from_be_bytes([len[0], len[1]])))
-        } else {
-            candidate.get(2..4).map(|len| usize::from(u16::from_be_bytes([len[0], len[1]])))
+        let Some((transport, source, destination, declared_len)) = output_packet_flow(candidate) else {
+            return false;
         };
-        declared_len == Some(candidate.len())
-            && endpoint.transport == self.transport
-            && endpoint.is_ipv6 == self.is_ipv6
-            && SocketAddr::new(endpoint.src_ip, endpoint.src_port) == self.src_addr()
-            && SocketAddr::new(endpoint.dst_ip, endpoint.dst_port) == self.dst_addr()
+        declared_len == candidate.len()
+            && transport == self.transport
+            && source == self.src_addr()
+            && destination == self.dst_addr()
     }
 }
 
@@ -95,19 +93,50 @@ pub(crate) fn flow_id(transport: Transport, src: SocketAddr, dst: SocketAddr) ->
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct TransportEndpoint {
+    valid_checksums: bool,
     transport: Transport,
     is_ipv6: bool,
     src_ip: IpAddr,
     dst_ip: IpAddr,
     transport_offset: usize,
     payload_offset: usize,
+    payload_end: usize,
+    packet_end: usize,
     src_port: u16,
     dst_port: u16,
 }
 
 pub(crate) fn packet_destination(packet: &[u8]) -> Option<SocketAddr> {
-    let endpoint = transport_endpoint(packet)?;
-    Some(SocketAddr::new(endpoint.dst_ip, endpoint.dst_port))
+    output_packet_flow(packet).map(|(_, _, destination, _)| destination)
+}
+
+fn output_packet_flow(packet: &[u8]) -> Option<(Transport, SocketAddr, SocketAddr, usize)> {
+    // Trusted strategy outputs can deliberately alter transport lengths or checksums.
+    let parsed = LaxSlicedPacket::from_ip(packet).ok()?;
+    let (source, destination, declared_len) = match parsed.net? {
+        LaxNetSlice::Ipv4(ip) => (
+            IpAddr::V4(ip.header().source_addr()),
+            IpAddr::V4(ip.header().destination_addr()),
+            usize::from(ip.header().total_len()),
+        ),
+        LaxNetSlice::Ipv6(ip) => (
+            IpAddr::V6(ip.header().source_addr()),
+            IpAddr::V6(ip.header().destination_addr()),
+            IPV6_HEADER_LEN + usize::from(ip.header().payload_length()),
+        ),
+        LaxNetSlice::Arp(_) => return None,
+    };
+    let (transport, source_port, destination_port) = match parsed.transport? {
+        TransportSlice::Tcp(tcp) => (Transport::Tcp, tcp.source_port(), tcp.destination_port()),
+        TransportSlice::Udp(udp) => (Transport::Udp, udp.source_port(), udp.destination_port()),
+        _ => return None,
+    };
+    Some((
+        transport,
+        SocketAddr::new(source, source_port),
+        SocketAddr::new(destination, destination_port),
+        declared_len,
+    ))
 }
 
 pub(crate) fn packet_with_payload(
@@ -153,21 +182,143 @@ pub(crate) fn set_packet_hop_limit(packet: &mut [u8], ttl: u8) -> Option<()> {
 }
 
 pub(crate) fn transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
-    let version = packet.first()? >> 4;
-    match version {
-        4 => ipv4_transport_endpoint(packet),
-        6 => ipv6_transport_endpoint(packet),
-        _ => None,
+    let parsed = SlicedPacket::from_ip(packet).ok()?;
+    let net = parsed.net?;
+    let (src_ip, dst_ip, packet_end, valid_ip_checksum) = match &net {
+        NetSlice::Ipv4(ip) => {
+            if ip.header().is_fragmenting_payload() || ![TCP_PROTO, UDP_PROTO].contains(&packet[9]) {
+                return None;
+            }
+            (
+                IpAddr::V4(ip.header().source_addr()),
+                IpAddr::V4(ip.header().destination_addr()),
+                usize::from(ip.header().total_len()),
+                checksum_matches(ip.header().to_header().calc_header_checksum(), ip.header().header_checksum()),
+            )
+        }
+        NetSlice::Ipv6(ip) => {
+            // Jumbograms are outside the TUN packet contract; do not use the parser's fallback.
+            if ip.header().payload_length() == 0 {
+                return None;
+            }
+            for extension in ip.extensions().clone() {
+                match extension {
+                    Ipv6ExtensionSlice::HopByHop(options) | Ipv6ExtensionSlice::DestinationOptions(options) => {
+                        if !options_are_forwardable(&options.slice()[2..]) {
+                            return None;
+                        }
+                    }
+                    Ipv6ExtensionSlice::Routing(routing) if routing.slice()[3] != 0 => return None,
+                    Ipv6ExtensionSlice::Fragment(fragment) if fragment.is_fragmenting_payload() => return None,
+                    Ipv6ExtensionSlice::Authentication(_) => return None,
+                    _ => {}
+                }
+            }
+            (
+                IpAddr::V6(ip.header().source_addr()),
+                IpAddr::V6(ip.header().destination_addr()),
+                IPV6_HEADER_LEN + usize::from(ip.header().payload_length()),
+                true,
+            )
+        }
+        NetSlice::Arp(_) => return None,
+    };
+    let (transport, bytes, header_len, src_port, dst_port, valid_transport_checksum) = match parsed.transport? {
+        TransportSlice::Tcp(tcp) => {
+            let header = tcp.to_header();
+            let expected = match &net {
+                NetSlice::Ipv4(ip) => {
+                    header.calc_checksum_ipv4_raw(ip.header().source(), ip.header().destination(), tcp.payload())
+                }
+                NetSlice::Ipv6(ip) => {
+                    header.calc_checksum_ipv6_raw(ip.header().source(), ip.header().destination(), tcp.payload())
+                }
+                NetSlice::Arp(_) => return None,
+            }
+            .ok()?;
+            (
+                Transport::Tcp,
+                tcp.slice(),
+                tcp.header_slice().len(),
+                tcp.source_port(),
+                tcp.destination_port(),
+                checksum_matches(expected, tcp.checksum()),
+            )
+        }
+        TransportSlice::Udp(udp) => {
+            if usize::from(udp.length()) < etherparse::UdpHeader::LEN {
+                return None;
+            }
+            let header = udp.to_header();
+            let valid = match &net {
+                NetSlice::Ipv4(ip) => {
+                    udp.checksum() == 0
+                        || header
+                            .calc_checksum_ipv4_raw(ip.header().source(), ip.header().destination(), udp.payload())
+                            .is_ok_and(|checksum| checksum == udp.checksum())
+                }
+                NetSlice::Ipv6(ip) => {
+                    udp.checksum() != 0
+                        && header
+                            .calc_checksum_ipv6_raw(ip.header().source(), ip.header().destination(), udp.payload())
+                            .is_ok_and(|checksum| checksum == udp.checksum())
+                }
+                NetSlice::Arp(_) => false,
+            };
+            (Transport::Udp, udp.slice(), etherparse::UdpHeader::LEN, udp.source_port(), udp.destination_port(), valid)
+        }
+        _ => return None,
+    };
+    let transport_offset = (bytes.as_ptr() as usize).checked_sub(packet.as_ptr() as usize)?;
+    let payload_offset = transport_offset.checked_add(header_len)?;
+    let payload_end = transport_offset.checked_add(bytes.len())?;
+    if payload_end > packet_end || packet_end > packet.len() {
+        return None;
     }
+    Some(TransportEndpoint {
+        transport,
+        is_ipv6: src_ip.is_ipv6(),
+        src_ip,
+        dst_ip,
+        transport_offset,
+        payload_offset,
+        payload_end,
+        packet_end,
+        src_port,
+        dst_port,
+        valid_checksums: valid_ip_checksum && valid_transport_checksum,
+    })
+}
+
+fn checksum_matches(expected: u16, actual: u16) -> bool {
+    // A computed zero can use either one's-complement zero encoding on the wire.
+    expected == actual || (expected == 0 && actual == u16::MAX)
+}
+
+fn options_are_forwardable(mut options: &[u8]) -> bool {
+    while let Some(&kind) = options.first() {
+        if kind == 0 {
+            options = &options[1..];
+            continue;
+        }
+        let Some(&length) = options.get(1) else { return false };
+        let Some(rest) = options.get(usize::from(length) + 2..) else { return false };
+        if kind & 0xc0 != 0 {
+            return false;
+        }
+        options = rest;
+    }
+    true
 }
 
 pub(crate) fn low_ttl_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
-    let version = packet.first()? >> 4;
-    match version {
-        4 => low_ttl_ipv4_tcp_copy(packet, ttl),
-        6 => low_ttl_ipv6_tcp_copy(packet, ttl),
-        _ => None,
+    let meta = PacketMeta::parse(packet)?;
+    if meta.transport != Transport::Tcp {
+        return None;
     }
+    let mut modified = packet[..meta.packet_end].to_vec();
+    set_packet_hop_limit(&mut modified, ttl)?;
+    Some(modified)
 }
 
 fn ip_hash(ip: IpAddr) -> u64 {
@@ -264,146 +415,6 @@ fn recompute_transport_checksum(packet: &mut [u8], meta: PacketMeta, next_header
     Some(())
 }
 
-fn ipv4_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
-    if packet.len() < IPV4_MIN_HEADER_LEN {
-        return None;
-    }
-    let ihl = usize::from(packet[0] & 0x0f) * 4;
-    if ihl < IPV4_MIN_HEADER_LEN || packet.len() < ihl + 4 {
-        return None;
-    }
-    if u16::from_be_bytes([packet[6], packet[7]]) & 0x3fff != 0 {
-        return None;
-    }
-    let transport = match packet[9] {
-        TCP_PROTO => Transport::Tcp,
-        UDP_PROTO => Transport::Udp,
-        _ => return None,
-    };
-    let payload_offset = match transport {
-        Transport::Tcp => {
-            if packet.len() < ihl + 20 {
-                return None;
-            }
-            let tcp_header_len = usize::from(packet[ihl + 12] >> 4) * 4;
-            if tcp_header_len < 20 || packet.len() < ihl + tcp_header_len {
-                return None;
-            }
-            ihl + tcp_header_len
-        }
-        Transport::Udp => {
-            if packet.len() < ihl + 8 {
-                return None;
-            }
-            ihl + 8
-        }
-    };
-    Some(TransportEndpoint {
-        transport,
-        is_ipv6: false,
-        src_ip: IpAddr::V4(Ipv4Addr::new(packet[12], packet[13], packet[14], packet[15])),
-        dst_ip: IpAddr::V4(Ipv4Addr::new(packet[16], packet[17], packet[18], packet[19])),
-        transport_offset: ihl,
-        payload_offset,
-        src_port: u16::from_be_bytes([packet[ihl], packet[ihl + 1]]),
-        dst_port: u16::from_be_bytes([packet[ihl + 2], packet[ihl + 3]]),
-    })
-}
-
-fn ipv6_transport_endpoint(packet: &[u8]) -> Option<TransportEndpoint> {
-    if packet.len() < IPV6_HEADER_LEN {
-        return None;
-    }
-    let src = Ipv6Addr::from(<[u8; 16]>::try_from(&packet[8..24]).ok()?);
-    let dst = Ipv6Addr::from(<[u8; 16]>::try_from(&packet[24..40]).ok()?);
-    let mut next_header = packet[6];
-    let mut offset = IPV6_HEADER_LEN;
-    for _ in 0..8 {
-        let transport = match next_header {
-            TCP_PROTO => Transport::Tcp,
-            UDP_PROTO => Transport::Udp,
-            IPV6_HOP_BY_HOP | IPV6_ROUTING | IPV6_DESTINATION_OPTIONS => {
-                if packet.len() < offset + 2 {
-                    return None;
-                }
-                next_header = packet[offset];
-                let header_len = (usize::from(packet[offset + 1]) + 1) * 8;
-                offset = offset.checked_add(header_len)?;
-                continue;
-            }
-            IPV6_FRAGMENT => {
-                if packet.len() < offset + 8 {
-                    return None;
-                }
-                if u16::from_be_bytes([packet[offset + 2], packet[offset + 3]]) & 0xfff9 != 0 {
-                    return None;
-                }
-                next_header = packet[offset];
-                offset = offset.checked_add(8)?;
-                continue;
-            }
-            _ => return None,
-        };
-        if packet.len() < offset + 4 {
-            return None;
-        }
-        let payload_offset = match transport {
-            Transport::Tcp => {
-                if packet.len() < offset + 20 {
-                    return None;
-                }
-                let tcp_header_len = usize::from(packet[offset + 12] >> 4) * 4;
-                if tcp_header_len < 20 || packet.len() < offset + tcp_header_len {
-                    return None;
-                }
-                offset + tcp_header_len
-            }
-            Transport::Udp => {
-                if packet.len() < offset + 8 {
-                    return None;
-                }
-                offset + 8
-            }
-        };
-        return Some(TransportEndpoint {
-            transport,
-            is_ipv6: true,
-            src_ip: IpAddr::V6(src),
-            dst_ip: IpAddr::V6(dst),
-            transport_offset: offset,
-            payload_offset,
-            src_port: u16::from_be_bytes([packet[offset], packet[offset + 1]]),
-            dst_port: u16::from_be_bytes([packet[offset + 2], packet[offset + 3]]),
-        });
-    }
-    None
-}
-
-fn low_ttl_ipv4_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
-    if packet.len() < IPV4_MIN_HEADER_LEN || packet[9] != TCP_PROTO {
-        return None;
-    }
-    let ihl = usize::from(packet[0] & 0x0f) * 4;
-    if ihl < IPV4_MIN_HEADER_LEN || packet.len() < ihl {
-        return None;
-    }
-
-    let mut modified = packet.to_vec();
-    modified[8] = ttl.max(1);
-    recompute_ipv4_header_checksum(&mut modified[..ihl]);
-    Some(modified)
-}
-
-fn low_ttl_ipv6_tcp_copy(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
-    if packet.len() < IPV6_HEADER_LEN || packet[6] != TCP_PROTO {
-        return None;
-    }
-
-    let mut modified = packet.to_vec();
-    modified[7] = ttl.max(1);
-    Some(modified)
-}
-
 pub(crate) fn recompute_ipv4_header_checksum(header: &mut [u8]) {
     header[10] = 0;
     header[11] = 0;
@@ -477,9 +488,9 @@ mod tests {
         assert!(PacketMeta::parse(&ipv6).is_none());
 
         ipv4[6..8].copy_from_slice(&0x4000u16.to_be_bytes());
-        assert!(PacketMeta::parse(&ipv4).is_some());
+        assert!(super::transport_endpoint(&ipv4).is_some());
         ipv6[42..44].copy_from_slice(&0u16.to_be_bytes());
-        assert!(PacketMeta::parse(&ipv6).is_some());
+        assert!(super::transport_endpoint(&ipv6).is_some());
     }
     #[test]
     fn upstream_option_packets_preserve_headers_and_recompute_checksums() {
@@ -548,3 +559,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod boundary_tests;

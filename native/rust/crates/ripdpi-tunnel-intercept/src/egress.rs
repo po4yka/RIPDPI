@@ -28,9 +28,7 @@ use self::packet::{
 };
 
 #[cfg(test)]
-use self::packet::{
-    IPV4_MIN_HEADER_LEN, IPV6_HEADER_LEN, TCP_PROTO, UDP_PROTO, recompute_ipv4_header_checksum, transport_endpoint,
-};
+use self::packet::{IPV4_MIN_HEADER_LEN, TCP_PROTO, recompute_ipv4_header_checksum, transport_endpoint};
 
 pub trait TunPacketInjector {
     fn inject_packet(&mut self, packet: &[u8]) -> io::Result<()>;
@@ -110,6 +108,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         let Some(meta) = PacketMeta::parse(packet) else {
             return false;
         };
+        let packet = &packet[..meta.packet_end];
         let udp_protocol = if meta.transport == Transport::Udp {
             ripdpi_protocol_detect::classify_l7(meta.payload(packet), meta.src_port, meta.dst_port, true)
         } else {
