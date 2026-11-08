@@ -4,6 +4,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
 };
 
 fn assert_policy_reply(config: RuntimeConfig, self_target: bool) {
+    assert_http_policy_reply(&config, self_target);
     let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind origin");
     origin.set_nonblocking(true).expect("nonblocking origin");
     let (mut client, server) = connected_pair();
@@ -24,6 +25,26 @@ fn assert_policy_reply(config: RuntimeConfig, self_target: bool) {
     assert_eq!(response, [5, 0, 5, 2, 0, 1, 0, 0, 0, 0, 0, 0]);
     assert_eq!(client.read(&mut [0]).expect("read closure"), 0);
     assert_eq!(origin.accept().expect_err("no blocked origin connection").kind(), ErrorKind::WouldBlock);
+}
+
+fn assert_http_policy_reply(config: &RuntimeConfig, self_target: bool) {
+    for mixed in [false, true] {
+        let mut config = config.clone();
+        config.network.mixed = mixed;
+        config.network.http_connect = !mixed;
+        let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind origin");
+        origin.set_nonblocking(true).expect("nonblocking origin");
+        let (mut client, server) = connected_pair();
+        client.set_read_timeout(Some(Duration::from_secs(1))).expect("bound reply read");
+        let target = if self_target { server.local_addr() } else { origin.local_addr() }.expect("target");
+        write!(client, "CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n").expect("request");
+        let error = super::super::handle_client(server, &runtime_state(config)).expect_err("policy denial");
+        assert_eq!(error.kind(), ErrorKind::PermissionDenied);
+        let mut response = Vec::new();
+        client.read_to_end(&mut response).expect("read policy refusal");
+        assert_eq!(response, b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        assert_eq!(origin.accept().expect_err("no blocked origin connection").kind(), ErrorKind::WouldBlock);
+    }
 }
 
 #[test]

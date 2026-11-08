@@ -371,12 +371,15 @@ fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
 
 fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
-        if err.policy_rejection() == Some(ConnectPolicyRejection::OwnedStackRequired) {
-            client.write_all(OWNED_STACK_REQUIRED_HTTP_REPLY)?;
-        } else {
-            let failure = HttpConnectFailure::for_connect_error(err.kind());
-            client.write_all(RuntimeState::encode_http_connect_failure(failure).as_bytes())?;
-        }
+        let failure = match err.policy_rejection() {
+            Some(ConnectPolicyRejection::OwnedStackRequired) => {
+                client.write_all(OWNED_STACK_REQUIRED_HTTP_REPLY)?;
+                return Err(err.into_io_error());
+            }
+            Some(ConnectPolicyRejection::RulesetDenied) => HttpConnectFailure::Forbidden,
+            None => HttpConnectFailure::for_connect_error(err.kind()),
+        };
+        client.write_all(RuntimeState::encode_http_connect_failure(failure).as_bytes())?;
     }
     Err(err.into_io_error())
 }

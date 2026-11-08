@@ -37,6 +37,8 @@ pub fn encode_http_connect_reply(success: bool) -> ProxyReply {
 pub enum HttpConnectFailure {
     /// A malformed request line, a missing, duplicate or mismatched Host, or an invalid port.
     BadRequest,
+    /// Local policy rejected this tunnel.
+    Forbidden,
     /// A method other than CONNECT.
     MethodNotAllowed,
     /// The target name did not resolve, or the upstream connection failed.
@@ -64,6 +66,7 @@ impl HttpConnectFailure {
 pub fn encode_http_connect_failure(failure: HttpConnectFailure) -> ProxyReply {
     let status = match failure {
         HttpConnectFailure::BadRequest => "400 Bad Request",
+        HttpConnectFailure::Forbidden => "403 Forbidden",
         HttpConnectFailure::MethodNotAllowed => "405 Method Not Allowed\r\nAllow: CONNECT",
         HttpConnectFailure::BadGateway => "502 Bad Gateway",
         HttpConnectFailure::GatewayTimeout => "504 Gateway Timeout",
