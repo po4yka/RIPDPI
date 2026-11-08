@@ -2,7 +2,7 @@
 id: PRX-1794125405826480
 title: Repair Transparent TCP ingress contracts
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: Transparent ingress integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: loc07-transparent-contracts
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T10:49:02Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Four separately reviewed repairs are on main; push 5e4ceb124d87005eb871f892a28e3053fde2d713 verified against origin. Host 448 units and 76 network tests pass, required Linux cases and Clippy pass. Environment failures, six relay-lane ignores and unrun REDIRECT/Android/remote CI are documented.
 ---
 
 ## Goal

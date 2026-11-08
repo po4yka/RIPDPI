@@ -1,0 +1,11 @@
+{
+  "change": "loc07-transparent-contracts",
+  "evidence_summary": "Four separately reviewed repairs are on main; push 5e4ceb124d87005eb871f892a28e3053fde2d713 verified against origin. Host 448 units and 76 network tests pass, required Linux cases and Clippy pass. Environment failures, six relay-lane ignores and unrun REDIRECT/Android/remote CI are documented.",
+  "execution_sha256": "ffd5ae9d9c941313f85e648aa4a6fd8441c3e7e6b33550b389328b5db84d848a",
+  "issue_sha256": "9b7c33e886d1eeb603aa3de4ccdd303138d875514c96e6f9890f3caa3420ad5c",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T10:49:02Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794125405826480"
+}

@@ -7,4 +7,4 @@
 - [x] PRX-1794125541322538 Match actual listener coverage and preserve local address policy #bug !high @item:PRX-1794125405826480
 - [x] PRX-1794125541790164 Cancel pending TCP connect with deterministic shutdown regression #bug !high @item:PRX-1794125405826480
 - [x] PRX-1794125542204978 Run combined gates and independent reviews then commit each repair #chore !high @item:PRX-1794125405826480
-- [ ] PRX-1794125542637208 Verify local source and integrate separate fixes into main with remote push #chore !high @item:PRX-1794125405826480
+- [x] PRX-1794125542637208 Verify local source and integrate separate fixes into main with remote push #chore !high @item:PRX-1794125405826480

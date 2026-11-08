@@ -282,4 +282,8 @@ The temporary client sends the recorded 16 bytes only after readiness, reads unt
 
 ## Main integration
 
-The user authorized separate fix commits, main integration and a remote push. Integration and remote-SHA evidence will be recorded after the first push; this section is not a push receipt yet.
+The user authorized separate fix commits, main integration and a remote push. The clean main checkout fast-forwarded from `930c537c89638614c7e19e6b5bbb3e5c18bab5a3` to `5e4ceb124d87005eb871f892a28e3053fde2d713`. `git push origin main` returned 0. `git ls-remote origin refs/heads/main` independently returned the same SHA. Logs: `main-code-integration.log`, `main-code-push.log` in the evidence directory.
+
+GitHub reported bypassed rules for the direct main push: a pull request was required, `ci-required` was expected and CodeQL was waiting. No success of those remote gates is claimed. The user explicitly requested the direct main push; branch rules were not edited. The source fixes each retain a separate commit on main.
+
+Later commits archive and close this local task; their final push is verified separately in the handoff. They do not change the tested Rust tree.
