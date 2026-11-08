@@ -80,6 +80,8 @@ mod tests {
 
     static UID_ADMISSION_TEST_GUARD: Mutex<()> = Mutex::new(());
 
+    mod synthetic_scope_tests;
+
     #[test]
     fn socketaddr_to_listen_endpoint_preserves_ip_and_port() {
         let ipv4 = socketaddr_to_listen_endpoint(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443));
