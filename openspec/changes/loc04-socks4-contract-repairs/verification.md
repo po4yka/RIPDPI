@@ -1,9 +1,9 @@
 ---
 task_id: PRX-1794116241356560
 change: loc04-socks4-contract-repairs
-commit_sha: 190d8eaa7e8fdfc451985bb06945bf3c86331589
+commit_sha: 8a03d855834009059d2f61d0fe18d038c8ab604f
 local: passed
-local_evidence: 653 tests passed with zero failures; 14 pre-existing tests remain ignored. Workspace all-targets clippy, format, ci-gates, architecture health, locked metadata, and independent general/API reviews passed.
+local_evidence: 656 tests passed with zero failures; 14 pre-existing tests remain ignored. Workspace all-targets clippy, format, ci-gates, architecture health, locked metadata, and independent general/API reviews passed.
 remote_ci: not_applicable
 remote_ci_evidence: No hosted CI success is claimed or required for this local repair. Main integration and push are recorded separately below.
 device: not_applicable
@@ -16,7 +16,7 @@ deployment_evidence: No deployment is owned by this change.
 
 # Verification
 
-The exact source tree is commit `190d8eaa7e8fdfc451985bb06945bf3c86331589`. Later lifecycle commits change documentation only.
+The exact source tree is commit `8a03d855834009059d2f61d0fe18d038c8ab604f`. Later lifecycle commits change documentation only.
 
 ## Requirement evidence
 
@@ -38,7 +38,7 @@ and `CMAKE_BUILD_PARALLEL_LEVEL=4`.
 
 | Command | Result |
 |---|---|
-| `cargo test --locked --jobs 4 -p ripdpi-session -p ripdpi-proxy-runtime -p ripdpi-ws-tunnel -p ripdpi-ws-transport-port` | 653 passed, 0 failed, 14 pre-existing ignored; 23 suite reports |
+| `cargo test --locked --jobs 4 -p ripdpi-session -p ripdpi-proxy-runtime -p ripdpi-ws-tunnel -p ripdpi-ws-transport-port` | 656 passed, 0 failed, 14 pre-existing ignored; 23 suite reports |
 | `cargo clippy --workspace --all-targets --no-deps --jobs 4 --locked -- -D warnings` | Passed |
 | `cargo fmt --all -- --check` | Passed |
 | `python3 scripts/ci/check_rust_api_snapshots.py --update` | Only the three new prepared-WS API lines changed |
@@ -52,19 +52,20 @@ General review approved each fix before commit. A separate Rust API audit approv
 prepared-session ownership, the borrowed cancellation callback, and cleanup.
 All required pre-commit hooks passed without skips or bypass flags.
 
-The final checks were repeated after rebasing onto token-authentication repairs
-at `2a77b128ab039838ba87ab1f604b15a880ff06ac`. Those parallel changes are preserved.
+The final checks were repeated after rebasing onto origin/main `fd4d0338542957fd2df7c510be41e82396cdb804`.
+Parallel token-authentication and shared-listener repairs are preserved. F4 was
+already integrated by the shared-listener task, so rebase removed the duplicate patch.
 
 ## Fix commits
 
 | Finding | Commit |
 |---|---|
-| F1 | `190d8eaa7e8fdfc451985bb06945bf3c86331589` |
-| F2 | `5f37fd302ac27bab9bc649d00ba1a15be0adaf05` |
-| F3 | `bd7b225ccec4336874374bcb118880c4bf0d417d` |
-| F4 | `d8129617c29cc7be4dc385916f1f5cbd39c05752` |
-| F5 | `66ca6fab0b0c2bd998f3866b05f86f41d7a42a35` |
-| F6 | `0bae8d2b5c0104a2aa71b4be1486d4d9d34190ad` |
+| F1 | `8a03d855834009059d2f61d0fe18d038c8ab604f` |
+| F2 | `bd99f2d523236cb05605e6e2492b08f304b96337` |
+| F3 | `3c5673f4d3ab2921063fdac4846bad7aa4cbe20d` |
+| F4 | `9af11c6bbdccd3ee9ef4e86a579a7193153d01be` |
+| F5 | `f802c3610d400ff9e0b577ca9e8ba2bf1da3447a` |
+| F6 | `62ee445f770ae5b153a5cfefd7ab4d04d2a741ae` |
 
 ## Scope and residual evidence
 
@@ -74,7 +75,8 @@ and directional TCP close requirements passed; this is not full protocol certifi
 E: no external-provider or device interoperability is claimed for this tree.
 
 CONNECT-only behavior, token rejection, domain limits, and request storage bounds remain.
-No dependencies, baselines, locale resources, schemas, or network registry were changed.
+These LOC-04 commits do not change dependencies, baselines, locale resources,
+schemas, or the network registry. Parallel main changes remain intact.
 The snapshot check intentionally leaves the Linux-owned runtime-platform snapshot to Linux.
 
 The existing Android protect IPC has a Unix connect without an explicit deadline,
