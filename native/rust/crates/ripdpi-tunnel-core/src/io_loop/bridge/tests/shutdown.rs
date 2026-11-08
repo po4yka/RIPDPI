@@ -9,7 +9,7 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 
-use crate::{ActiveSessions, SessionEntry, TunDevice};
+use crate::{ActiveSessions, SessionEntry, Stats, TunDevice};
 
 use super::super::shutdown_active_sessions;
 use super::support::establish_tcp_connection;
@@ -108,4 +108,104 @@ async fn shutdown_uses_one_grace_period_and_aborts_stalled_session_tasks() {
     assert!(!alive1.load(Ordering::Acquire), "first stalled task must be aborted and joined");
     assert!(!alive2.load(Ordering::Acquire), "second stalled task must be aborted and joined");
     assert!(sessions.is_empty(), "all sessions should be removed after shutdown");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+/// # Cancel safety:
+///
+/// NOT cancel-safe: the test must cancel and join the tunnel and its owned socket task before it returns.
+async fn terminal_tun_write_error_retires_owned_session_socket() {
+    use std::os::unix::net::UnixDatagram;
+
+    use ripdpi_tunnel_config::{Config, MiscConfig, Socks5Config, TunnelConfig};
+    use tokio::io::AsyncReadExt;
+    use tokio::net::{TcpListener, TcpStream};
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind observed session peer");
+    let mut peer = TcpStream::connect(listener.local_addr().expect("session address")).await.expect("connect peer");
+    let (session_socket, _) = listener.accept().await.expect("accept session socket");
+    let cancel = CancellationToken::new();
+    let child_cancel = cancel.child_token();
+    let task_cancel = child_cancel.clone();
+    let (smoltcp_side, session_side) = tokio::io::duplex(crate::io_loop::DUPLEX_BUF);
+    let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+    let session_task = tokio::spawn(async move {
+        let _socket = session_socket;
+        let _local = session_side;
+        started_tx.send(()).expect("report owned task start");
+        task_cancel.cancelled().await;
+        Ok(())
+    });
+    started_rx.await.expect("owned task starts before packet failure");
+
+    let mut device = TunDevice::new(1500);
+    let (iface, socket_set, socket_handle, _) = establish_tcp_connection(&mut device);
+    let mut sessions = ActiveSessions::new(8);
+    sessions.insert(
+        socket_handle,
+        SessionEntry {
+            smoltcp_side,
+            cancel: child_cancel.clone(),
+            handle: session_task,
+            pending_to_session: Vec::new(),
+            pending_to_smoltcp: Vec::new(),
+            upstream_closed: false,
+            upstream_failed: Arc::default(),
+            pinned_synthetic_ip: None,
+            attribution_id: None,
+        },
+    );
+    let mut packet = Vec::new();
+    etherparse::PacketBuilder::ipv4([127, 0, 0, 1], [10, 0, 0, 99], 64)
+        .udp(53, 40000)
+        .write(&mut packet, b"terminal write")
+        .expect("build output packet");
+    assert!(device.tx_queue.push_back(packet));
+    let (tun, closed_peer) = UnixDatagram::pair().expect("packet fd pair");
+    let tun = crate::device::PacketFd::new(tun.into()).expect("register packet fd");
+    drop(closed_peer);
+    let config = Arc::new(Config {
+        tunnel: TunnelConfig::default(),
+        socks5: Socks5Config {
+            address: "127.0.0.1".into(),
+            port: 1080,
+            udp: None,
+            udp_address: None,
+            pipeline: None,
+            username: None,
+            password: None,
+            mark: None,
+        },
+        mapdns: None,
+        split_dns_policy: None,
+        misc: MiscConfig::default(),
+    });
+    let loop_cancel = cancel.clone();
+    let mut worker = tokio::spawn(async move {
+        crate::io_loop::io_loop_task(
+            &tun,
+            device,
+            iface,
+            socket_set,
+            sessions,
+            config,
+            loop_cancel,
+            Arc::new(Stats::default()),
+            None,
+        )
+        .await
+    });
+    let finished = tokio::time::timeout(Duration::from_secs(1), &mut worker).await;
+    let session_cancelled = child_cancel.is_cancelled();
+    let mut byte = [0];
+    let socket_read = tokio::time::timeout(Duration::from_millis(200), peer.read(&mut byte)).await;
+    cancel.cancel();
+    if finished.is_err() {
+        worker.await.expect("join cancelled worker").expect("cancelled worker exits cleanly");
+    }
+    child_cancel.cancel();
+    assert!(finished.is_ok(), "terminal output error must end the packet loop without external cancellation");
+    let _error = finished.expect("worker finished").expect("worker did not panic").expect_err("terminal packet error");
+    assert!(session_cancelled, "the loop must cancel owned sessions before it returns the packet error");
+    assert!(matches!(socket_read, Ok(Ok(0))), "the owned loopback socket must close before the loop returns");
 }

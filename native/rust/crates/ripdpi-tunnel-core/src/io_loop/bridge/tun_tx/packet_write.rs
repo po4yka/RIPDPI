@@ -15,7 +15,7 @@ pub(in crate::io_loop) enum TunFlushOutcome {
     Cancelled,
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: the packet remains borrowed while waiting for write readiness.
 /// A successful synchronous write returns without another await.
@@ -26,6 +26,9 @@ pub(super) async fn write_tun_packet(
     cancel: &CancellationToken,
 ) -> io::Result<bool> {
     loop {
+        if cancel.is_cancelled() {
+            return Ok(false);
+        }
         match tun.try_send(packet) {
             Ok(_) => {
                 stats.record_tun_write_success(packet.len());
@@ -36,10 +39,11 @@ pub(super) async fn write_tun_packet(
                     return Ok(false);
                 }
             }
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => {
-                warn!("TUN write error: {error} (packet dropped)");
+                warn!("TUN write error: {error}");
                 stats.record_tun_write_error();
-                return Ok(true);
+                return Err(error);
             }
         }
     }

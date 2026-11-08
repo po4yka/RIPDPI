@@ -130,7 +130,7 @@ pub async fn io_loop_task(
 }
 
 #[allow(clippy::too_many_arguments)]
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// NOT cancel-safe: after `on_ready` runs, dropping this future directly or
 /// letting it lose a `select!`/`timeout` race can lose a packet already removed
@@ -141,7 +141,8 @@ pub async fn io_loop_task(
 /// Graceful stop requires calling [`CancellationToken::cancel`] on `cancel` and
 /// continuing to poll this future until it returns. All fallible setup
 /// completes before `on_ready`; after the callback, the loop observes the token
-/// and runs normal shutdown.
+/// and runs normal shutdown. Terminal I/O errors also cancel and retire the
+/// owned sessions before they return to the lifecycle owner.
 pub(crate) async fn io_loop_task_with_ready<F>(
     tun: &PacketFd,
     device: TunDevice,
@@ -160,33 +161,40 @@ where
     let mut state = setup_io_loop(device, iface, socket_set, sessions, config, cancel, stats, dns_cache)?;
     on_ready();
 
-    loop {
-        if state.cancel.is_cancelled() {
-            break;
-        }
-        state.release_closed_strategy_flows();
-        phases::drain_tun(tun, &mut state).await;
-        phases::retry_pending_udp_admission(&mut state);
-        phases::drain_dns(&mut state);
-        phases::poll_smoltcp(&mut state);
-        phases::gc_pending_listens(&mut state);
-        phases::emit_loss_sample(&mut state);
-        phases::admit_tcp_sessions(&mut state);
-        phases::pump_bridges(&mut state).await;
-        state.release_closed_strategy_flows();
-        let tx_pending = match phases::flush_tun(tun, &mut state).await? {
-            bridge::TunFlushOutcome::Drained => false,
-            bridge::TunFlushOutcome::Pending => true,
-            bridge::TunFlushOutcome::Cancelled => break,
-        };
+    let result: io::Result<()> = async {
+        loop {
+            if state.cancel.is_cancelled() {
+                break;
+            }
+            state.release_closed_strategy_flows();
+            phases::drain_tun(tun, &mut state).await;
+            phases::retry_pending_udp_admission(&mut state);
+            phases::drain_dns(&mut state);
+            phases::poll_smoltcp(&mut state);
+            phases::gc_pending_listens(&mut state);
+            phases::emit_loss_sample(&mut state);
+            phases::admit_tcp_sessions(&mut state);
+            phases::pump_bridges(&mut state).await;
+            state.release_closed_strategy_flows();
+            let tx_pending = match phases::flush_tun(tun, &mut state).await? {
+                bridge::TunFlushOutcome::Drained => false,
+                bridge::TunFlushOutcome::Pending => true,
+                bridge::TunFlushOutcome::Cancelled => break,
+            };
 
-        if matches!(wait_for_next_event(tun, &mut state, tx_pending).await, WaitOutcome::Cancelled) {
-            break;
+            if matches!(wait_for_next_event(tun, &mut state, tx_pending).await, WaitOutcome::Cancelled) {
+                break;
+            }
         }
+        Ok(())
     }
+    .await;
 
+    state.cancel.cancel();
     state.shutdown().await;
 
-    info!("io_loop exited cleanly");
-    Ok(())
+    if result.is_ok() {
+        info!("io_loop exited cleanly");
+    }
+    result
 }
