@@ -44,3 +44,21 @@ All writers use separate worktrees. Changes to shared `protocol.rs`, `server.rs`
 ## Evidence
 
 Audit: `/Users/npochaev/Downloads/RIPDPI_network_audits/LOC-08.md`. Base commit: `993d6dc5dc062d1e21500c29b23c17c54eddb798`. The initial audit reproduced all seven failures with raw loopback clients. Implementation evidence will record new regression names and command results.
+
+### Verified repairs
+
+| Finding | Commit | Regression evidence |
+|---|---|---|
+| F1 | `c2a3df3c8` | Buffered METHOD and password status replies complete without caller flush. |
+| F2 | `feacd7304` | Seven deadline tests cover incomplete stages, pending auth, one absolute budget, blocked replies, overflow, and established TCP/UDP lifetime. |
+| F3 | `ea8d4b9cd` | IPv4/IPv6 BND matches the real target peer endpoint; half-close preserves the response. |
+| F4 | `69e5d2e03` | Listener UDP round trips work for IPv4/IPv6 and release both ports; generic missing setup returns failure. |
+| F5 | `0bb4bcf61` | Password versions 00/05/ff fail; version 01 succeeds. |
+| F6 | `1115496b7` | Reserved bytes fail before address reads; empty domains fail before routing. |
+| F7 | `e4cccb029` | Selected-method metadata distinguishes skipped, NoAuth, and Password without storing passwords. |
+
+All new regressions were observed failing before their fixes. The final crate result is 63 passed, 0 failed, and 2 existing external-network tests ignored. Each intermediate fix commit passed the owning crate suite and normal pre-commit hooks. Final Clippy with all targets and warnings denied, workspace format check, and crate doctests passed (one doctest passed; two existing examples ignored).
+
+`just ci-gates` passed architecture health, file and hotspot budgets, runtime and fixture contracts, diagnostics boundaries, route coverage, locale parity, translation export, and Rust API snapshots. The API check retains its normal Linux-owned snapshot skip on macOS. No baseline or snapshot was changed.
+
+Independent code review found no actionable findings. Independent async review found no remaining actionable findings after the borrowed-transport and authentication-future drop contracts were documented. The committed crate matches the reviewed combined tree. The server remains under `cfg(test)`; production clients, production inbound handling, dependencies, and Cargo.lock are unchanged. Android/device and external-client compatibility were not tested. Intentional unsupported modes and optional audit hypotheses were not implemented.
