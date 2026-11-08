@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: vpn07-socket-protection
 created: 2026-11-08
 updated: 2026-11-08
-status_detail: Seven reviewed fixes are committed. Final rebased-source, Android artifact and non-root emulator validation remain in progress.
+status_detail: Seven fix commits are on main and origin. Local, artifact and non-root device checks passed. Full remote CI remains in progress.
 ---
 
 ## Goal
