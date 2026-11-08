@@ -65,6 +65,10 @@ impl PendingUidPackets {
         Self { queued: VecDeque::with_capacity(PENDING_UID_CAPACITY), free, packet_capacity }
     }
 
+    pub(in crate::io_loop) fn can_retain_without_evicting(&self, packet_len: usize) -> bool {
+        packet_len <= self.packet_capacity && self.queued.len() < PENDING_UID_CAPACITY && !self.free.is_empty()
+    }
+
     pub(in crate::io_loop) fn retain(
         &mut self,
         packet: &[u8],

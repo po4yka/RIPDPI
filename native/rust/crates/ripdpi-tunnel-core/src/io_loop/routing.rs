@@ -243,14 +243,19 @@ fn route_registered_udp_packet(
     }
     match state.runtime.uid_policy.admit_registration(&registration_id) {
         Verdict::Pending => {
-            retain_pending_uid_packet(
-                packet,
-                state,
-                registration_id,
-                pending.map(|(_, time)| time),
-                original_wire_packet,
-            );
-            return;
+            // Optional attribution must not drop this packet or evict an older one.
+            if state.runtime.uid_policy.is_enforcing()
+                || state.pending_uid_packets.can_retain_without_evicting(packet.len())
+            {
+                retain_pending_uid_packet(
+                    packet,
+                    state,
+                    registration_id,
+                    pending.map(|(_, time)| time),
+                    original_wire_packet,
+                );
+                return;
+            }
         }
         Verdict::DropUdp | Verdict::ResetTcp => {
             ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);

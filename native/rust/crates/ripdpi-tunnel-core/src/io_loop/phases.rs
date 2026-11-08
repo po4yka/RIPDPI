@@ -191,6 +191,7 @@ mod tests {
 
     mod checksum_validation;
     mod ipv6_extensions;
+    mod udp_attribution_grace;
     mod udp_errors;
     mod udp_mapdns_scope_wire;
     mod udp_owner_reuse;
