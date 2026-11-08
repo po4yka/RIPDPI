@@ -26,6 +26,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn validates_credentials_with_opaque_field_octets() {
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\nX-Opaque: \x80\xff\r\nProxy-Authorization: Basic cmlwZHBpOnMzY3IzdA==\r\n\r\n";
+        assert!(validate_http_proxy_auth(request, "s3cr3t"));
+        assert!(!validate_http_proxy_auth(request, "other"));
+    }
+
+    #[test]
+    fn credentials_are_limited_to_the_connect_head() {
+        let credentials = b"Proxy-Authorization: Basic cmlwZHBpOnMzY3IzdA==\r\n";
+        let mut payload_credentials = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n\r\n".to_vec();
+        payload_credentials.extend_from_slice(credentials);
+        assert!(!validate_http_proxy_auth(&payload_credentials, "s3cr3t"));
+
+        let mut binary_payload = b"CONNECT example.com:443 HTTP/1.1\r\n".to_vec();
+        binary_payload.extend_from_slice(credentials);
+        binary_payload.extend_from_slice(b"\r\n\x16\x03\xff");
+        assert!(validate_http_proxy_auth(&binary_payload, "s3cr3t"));
+    }
+
+    #[test]
     fn ignores_credentials_beyond_the_http_header_boundary() {
         for boundary in ["\r\n", "\n"] {
             let request = format!(

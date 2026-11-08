@@ -9,35 +9,46 @@ pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) ->
 /// One complete CRLF-delimited CONNECT header. Tunnel bytes are excluded.
 #[derive(Clone, Copy)]
 pub struct HttpConnectHead<'a> {
-    text: &'a str,
+    bytes: &'a [u8],
 }
 
 impl<'a> HttpConnectHead<'a> {
     pub fn parse(buffer: &'a [u8]) -> Result<Self, SessionError> {
         let end = buffer.windows(4).position(|part| part == b"\r\n\r\n").ok_or_else(SessionError::generic)?;
-        let text = std::str::from_utf8(&buffer[..end]).map_err(|_| SessionError::generic())?;
-        if text.split("\r\n").any(|line| line.contains(['\r', '\n'])) {
+        let head = Self { bytes: &buffer[..end] };
+        if !valid_header_line_endings(head.bytes) {
             return Err(SessionError::generic());
         }
-        for line in text.split("\r\n").skip(1) {
-            let (name, _) = line.split_once(':').ok_or_else(SessionError::generic)?;
-            if name.is_empty() || !name.bytes().all(is_field_name_byte) {
+        for line in head.lines().skip(1) {
+            let colon = line.iter().position(|byte| *byte == b':').ok_or_else(SessionError::generic)?;
+            let name = &line[..colon];
+            if name.is_empty() || !name.iter().copied().all(is_field_name_byte) {
                 return Err(SessionError::generic());
             }
         }
-        Ok(Self { text })
+        Ok(head)
     }
 
-    fn fields(self) -> impl Iterator<Item = (&'a str, &'a str)> {
-        self.text.split("\r\n").skip(1).filter_map(|line| line.split_once(':'))
+    fn lines(self) -> impl Iterator<Item = &'a [u8]> {
+        self.bytes.split(|byte| *byte == b'\n').map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+    }
+
+    fn fields(self) -> impl Iterator<Item = (&'a [u8], &'a [u8])> {
+        self.lines().skip(1).filter_map(|line| {
+            let colon = line.iter().position(|byte| *byte == b':')?;
+            Some((&line[..colon], &line[colon + 1..]))
+        })
     }
 
     pub fn proxy_authorization(self) -> Option<&'a str> {
-        self.fields().find(|(name, _)| name.eq_ignore_ascii_case("Proxy-Authorization")).map(|(_, value)| value)
+        self.fields()
+            .find(|(name, _)| name.eq_ignore_ascii_case(b"Proxy-Authorization"))
+            .and_then(|(_, value)| std::str::from_utf8(value).ok())
     }
 
     pub fn resolve(self, resolver: &dyn NameResolver) -> Result<ClientRequest, SessionError> {
-        let request_line = self.text.split("\r\n").next().ok_or_else(SessionError::generic)?;
+        let request_line = std::str::from_utf8(self.lines().next().ok_or_else(SessionError::generic)?)
+            .map_err(|_| SessionError::generic())?;
         let mut parts = request_line.split_ascii_whitespace();
         if parts.next() != Some("CONNECT") {
             return Err(SessionError::socks5(S_ER_CMD));
@@ -47,12 +58,12 @@ impl<'a> HttpConnectHead<'a> {
             return Err(SessionError::generic());
         }
         let (name, port) = split_host_port(authority).ok_or_else(SessionError::generic)?;
-        let mut hosts =
-            self.fields().filter(|(name, _)| name.eq_ignore_ascii_case("Host")).map(|(_, value)| value.trim());
-        let host = hosts.next().ok_or_else(SessionError::generic)?;
+        let mut hosts = self.fields().filter(|(name, _)| name.eq_ignore_ascii_case(b"Host"));
+        let (_, host) = hosts.next().ok_or_else(SessionError::generic)?;
         if hosts.next().is_some() {
             return Err(SessionError::generic());
         }
+        let host = std::str::from_utf8(host).map_err(|_| SessionError::generic())?.trim();
         let unbracketed_host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
         let (host_name, host_port) =
             split_host_port(host).map_or((unbracketed_host, None), |(name, port)| (name, Some(port)));
@@ -65,6 +76,14 @@ impl<'a> HttpConnectHead<'a> {
             .ok_or(SessionError::socks5(S_ER_HOST))?;
         Ok(ClientRequest::HttpConnect(TargetAddr { addr, host: Some(name.to_string()) }))
     }
+}
+
+fn valid_header_line_endings(header: &[u8]) -> bool {
+    header.iter().enumerate().all(|(index, byte)| match byte {
+        b'\r' => header.get(index + 1) == Some(&b'\n'),
+        b'\n' => index > 0 && header[index - 1] == b'\r',
+        _ => true,
+    })
 }
 
 // RFC 9110 section 5.1: each field name is an HTTP token.
@@ -95,6 +114,19 @@ mod tests {
     use crate::{ClientRequest, SocketType, TargetAddr};
 
     use super::*;
+
+    #[test]
+    fn parse_http_connect_request_accepts_opaque_field_octets() {
+        let request = b"CONNECT example.com:8443 HTTP/1.1\r\nX-Opaque: \x80\xff\r\nHost: example.com\r\n\r\n";
+        let parsed = parse_http_connect_request(request, &resolver).expect("parse opaque field value");
+        assert_eq!(
+            parsed,
+            ClientRequest::HttpConnect(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 10], 8443)),
+                host: Some("example.com".to_string()),
+            })
+        );
+    }
 
     fn resolver(host: &str, socket_type: SocketType) -> Option<SocketAddr> {
         match (host, socket_type) {
