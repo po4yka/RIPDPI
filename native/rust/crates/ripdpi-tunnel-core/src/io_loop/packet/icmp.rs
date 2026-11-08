@@ -2,6 +2,8 @@ use std::net::IpAddr;
 
 use etherparse::{Icmpv4Type, Icmpv6Type, Ipv6ExtensionSlice, NetSlice, PacketBuilder, SlicedPacket, TransportSlice};
 
+const IPV6_ERROR_QUOTE_LEN: usize = 1280 - 40 - 8;
+
 #[derive(Clone, Copy)]
 pub(crate) enum UdpErrorReason {
     PortUnreachable,
@@ -64,7 +66,7 @@ impl UdpErrorQuote {
                     IpAddr::V6(ip_header.source_addr()),
                     IpAddr::V6(ip_header.destination_addr()),
                     len,
-                    (len - ip.payload().payload.len() + 16).min(1232),
+                    IPV6_ERROR_QUOTE_LEN,
                 )
             }
             NetSlice::Arp(_) => return None,

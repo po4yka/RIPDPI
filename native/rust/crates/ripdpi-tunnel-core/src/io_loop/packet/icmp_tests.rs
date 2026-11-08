@@ -137,3 +137,21 @@ fn fragments_and_invalid_outer_sources_are_rejected() {
     fragment.extend_from_slice(&original[40..]);
     assert!(UdpErrorQuote::capture(&fragment).is_none());
 }
+
+#[test]
+fn ipv6_errors_quote_up_to_minimum_mtu_budget() {
+    for original_len in [48usize, 49, 1231, 1232, 1233, 65575] {
+        let source: std::net::Ipv6Addr = "fd00::2".parse().unwrap();
+        let destination: std::net::Ipv6Addr = "2001:db8::9".parse().unwrap();
+        let mut original = Vec::new();
+        PacketBuilder::ipv6(source.octets(), destination.octets(), 37)
+            .udp(53000, 443)
+            .write(&mut original, &vec![0xa5; original_len - 48])
+            .unwrap();
+        let quote = UdpErrorQuote::capture(&original).unwrap();
+        let response = quote.build(destination.into(), UdpErrorReason::PortUnreachable).unwrap();
+        assert_eq!(response.len(), 48 + original_len.min(1232));
+        assert_eq!(&response[48..], &original[..original_len.min(1232)]);
+        assert_checksums(&response, destination.into(), source.into());
+    }
+}
