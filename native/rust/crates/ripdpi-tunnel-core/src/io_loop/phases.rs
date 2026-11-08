@@ -677,6 +677,7 @@ mod tests {
             &syn,
             &mut state.pending_listens,
             &mut state.socket_set,
+            crate::io_loop::TCP_SOCKET_BUF,
         );
         state.device.rx_queue.push_back(syn);
         state.iface.poll(Instant::now(), &mut state.device, &mut state.socket_set);
@@ -866,6 +867,7 @@ mod tests {
                 tun_ingress_interceptor: TunIngressInterceptor::new(None, RawSynAckPacketInjector::new(None)),
                 tun_egress_interceptor,
                 udp_idle_timeout: Duration::from_secs(1),
+                tcp_buffer_size: crate::io_loop::TCP_SOCKET_BUF,
                 tcp_connect_timeout: Duration::from_secs(10),
                 tcp_read_write_timeout: Duration::from_secs(300),
                 protect_path: None,

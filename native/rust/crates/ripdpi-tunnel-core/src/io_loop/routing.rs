@@ -57,7 +57,12 @@ fn route_tun_packet_inner(
                 let key = TcpFlowKey { src, dst };
                 // Allocate a parked listener before queuing UID work. It owns
                 // the generation, but no unadmitted bytes reach smoltcp.
-                ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
+                ensure_pending_listen_for_syn(
+                    packet,
+                    &mut state.pending_listens,
+                    &mut state.socket_set,
+                    state.runtime.tcp_buffer_size,
+                );
                 let registration_id = pending.map_or_else(
                     || {
                         state.pending_listens.get(&key).map_or_else(
@@ -327,7 +332,12 @@ fn route_tcp_or_other_packet(packet: &[u8], state: &mut LoopState) {
         return;
     }
 
-    ensure_pending_listen_for_syn(packet, &mut state.pending_listens, &mut state.socket_set);
+    ensure_pending_listen_for_syn(
+        packet,
+        &mut state.pending_listens,
+        &mut state.socket_set,
+        state.runtime.tcp_buffer_size,
+    );
     if !state.device.push_rx(packet.to_vec()) {
         state.stats.record_tun_queue_drop();
     }

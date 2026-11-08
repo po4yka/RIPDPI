@@ -100,7 +100,7 @@ mod tests {
 
         for offset in 0..=128u16 {
             let syn = build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_000 + offset, 443);
-            ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+            ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set, crate::io_loop::TCP_SOCKET_BUF);
         }
 
         let oldest = tcp_syn_flow_key(&build_ipv4_tcp_syn_packet(client_ip, target_ip, 50_000, 443))
@@ -312,7 +312,7 @@ mod tests {
         let client_port = 51_053;
 
         let syn = build_ipv4_tcp_syn_packet(client_ip, Ipv4Addr::new(198, 18, 0, 53), client_port, 53);
-        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set, crate::io_loop::TCP_SOCKET_BUF);
         device.rx_queue.push_back(syn);
         iface.poll(Instant::now(), &mut device, &mut socket_set);
         let syn_ack = device.tx_queue.pop_front().expect("syn-ack");
@@ -407,7 +407,7 @@ mod tests {
         let target_port = 443;
 
         let syn = build_ipv4_tcp_syn_packet(client_ip, target_ip, client_port, target_port);
-        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set, crate::io_loop::TCP_SOCKET_BUF);
         device.rx_queue.push_back(syn);
         iface.poll(Instant::now(), &mut device, &mut socket_set);
 
@@ -534,7 +534,7 @@ mod tests {
         let target_port = 443;
 
         let syn = build_ipv4_tcp_syn_packet(client_ip, target_ip, client_port, target_port);
-        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+        ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set, crate::io_loop::TCP_SOCKET_BUF);
         device.rx_queue.push_back(syn);
         iface.poll(Instant::now(), &mut device, &mut socket_set);
         let syn_ack = device.tx_queue.pop_front().expect("syn-ack");

@@ -128,7 +128,7 @@ pub(super) fn establish_tcp_connection(
 
     // SYN -> creates pending listen -> smoltcp accepts
     let syn = build_ipv4_tcp_syn_packet(client_ip, target_ip, 51000, 443);
-    ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+    ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set, crate::io_loop::TCP_SOCKET_BUF);
     device.rx_queue.push_back(syn);
     iface.poll(Instant::now(), device, &mut socket_set);
 

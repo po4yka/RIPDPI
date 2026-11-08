@@ -261,7 +261,12 @@ fn pending_three_cycle_reconciles_before_gc() {
     let destination = Ipv4Addr::new(93, 184, 216, 34);
     for port in [55_643, 55_644, 55_645] {
         let syn = build_ipv4_tcp_syn_packet(source, destination, port, 443);
-        ensure_pending_listen_for_syn(&syn, &mut state.pending_listens, &mut state.socket_set);
+        ensure_pending_listen_for_syn(
+            &syn,
+            &mut state.pending_listens,
+            &mut state.socket_set,
+            crate::io_loop::TCP_SOCKET_BUF,
+        );
     }
     // Deliberately accept each source in a different destination-only listener.
     for port in [55_644, 55_645, 55_643] {

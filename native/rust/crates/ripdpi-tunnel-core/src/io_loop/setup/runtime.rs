@@ -59,6 +59,7 @@ pub(super) fn build_loop_runtime(
             RawTunPacketInjector::new(config.misc.protect_path.clone()),
         )),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
+        tcp_buffer_size: config.misc.tcp_buffer_size as usize,
         tcp_connect_timeout: Duration::from_millis(u64::from(config.misc.connect_timeout)),
         tcp_read_write_timeout: Duration::from_millis(u64::from(config.misc.tcp_read_write_timeout)),
         protect_path: config.misc.protect_path.clone(),

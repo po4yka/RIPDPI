@@ -46,7 +46,8 @@ use self::wait::{WaitOutcome, wait_for_next_event};
 /// Buffer size for each `tokio::io::duplex()` pair (Decision A).
 const DUPLEX_BUF: usize = 65536;
 
-/// Rx/Tx buffer size for each smoltcp TcpSocket.
+/// Expected default capacity used by packet-level tests.
+#[cfg(test)]
 const TCP_SOCKET_BUF: usize = 65536;
 
 /// Maximum chunk size for duplex bridge pumping (smoltcp <-> session).

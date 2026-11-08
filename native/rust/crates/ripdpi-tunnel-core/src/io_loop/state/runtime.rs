@@ -26,6 +26,7 @@ pub(in crate::io_loop) struct LoopRuntime {
     pub(in crate::io_loop) tun_ingress_interceptor: TunIngressInterceptor<RawSynAckPacketInjector>,
     pub(in crate::io_loop) tun_egress_interceptor: Box<dyn TunEgressPacketHandler>,
     pub(in crate::io_loop) udp_idle_timeout: Duration,
+    pub(in crate::io_loop) tcp_buffer_size: usize,
     pub(in crate::io_loop) tcp_connect_timeout: Duration,
     pub(in crate::io_loop) tcp_read_write_timeout: Duration,
     /// UDS socket-server path for the privileged `VpnService.protect` fallback

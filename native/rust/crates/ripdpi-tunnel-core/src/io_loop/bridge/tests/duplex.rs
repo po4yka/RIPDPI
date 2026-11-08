@@ -121,7 +121,7 @@ fn u18_flush_pending_to_smoltcp_drains() {
     let mut pending_listens = std::collections::HashMap::new();
 
     let syn = build_ipv4_tcp_syn_packet(Ipv4Addr::new(10, 0, 0, 99), Ipv4Addr::new(127, 0, 0, 1), 51000, 443);
-    ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set);
+    ensure_pending_listen_for_syn(&syn, &mut pending_listens, &mut socket_set, crate::io_loop::TCP_SOCKET_BUF);
     device.rx_queue.push_back(syn);
     iface.poll(Instant::now(), &mut device, &mut socket_set);
 
