@@ -24,42 +24,51 @@ pub(super) fn rewrite_response(
     let mut message = Message::from_vec(upstream).map_err(|err| DnsCacheError::DnsParse(err.to_string()))?;
     let mut cache_hits = 0u64;
     let mut cache_misses = 0u64;
-
-    for record in &mut message.answers {
-        let replacement = match &record.data {
-            RData::A(address) => {
-                let (mapped, hit) = cache.find(&host, u32::from(address.0))?;
-                if hit {
-                    cache_hits += 1;
-                } else {
-                    cache_misses += 1;
+    let mut response_leases = Vec::new();
+    let result = (|| {
+        for record in &mut message.answers {
+            let replacement = match &record.data {
+                RData::A(address) => {
+                    let (mapped, hit) = cache.find(&host, u32::from(address.0))?;
+                    // Keep earlier answers live until the complete response is encoded.
+                    cache.pin(mapped);
+                    response_leases.push(mapped);
+                    if hit {
+                        cache_hits += 1;
+                    } else {
+                        cache_misses += 1;
+                    }
+                    Some(RData::A(A(Ipv4Addr::from(mapped))))
                 }
-                Some(RData::A(A(Ipv4Addr::from(mapped))))
+                _ => None,
+            };
+            if let Some(data) = replacement {
+                record.data = data;
+                // The reverse map is owned by this native tunnel session. Android's
+                // resolver cache can outlive that session (and even the app
+                // process), so caching a synthetic address would let a later
+                // session receive an address it cannot reverse. Keep the mapping in
+                // our LRU for live flows, but require the platform resolver to ask
+                // again after a tunnel restart.
+                record.ttl = 0;
             }
-            _ => None,
-        };
-        if let Some(data) = replacement {
-            record.data = data;
-            // The reverse map is owned by this native tunnel session. Android's
-            // resolver cache can outlive that session (and even the app
-            // process), so caching a synthetic address would let a later
-            // session receive an address it cannot reverse. Keep the mapping in
-            // our LRU for live flows, but require the platform resolver to ask
-            // again after a tunnel restart.
-            record.ttl = 0;
         }
-    }
 
-    if !cache.ipv6_enabled {
-        strip_aaaa_records(&mut message);
-    }
+        if !cache.ipv6_enabled {
+            strip_aaaa_records(&mut message);
+        }
 
-    Ok(DnsRewriteResult {
-        response: message.to_vec().map_err(|err| DnsCacheError::DnsEncode(err.to_string()))?,
-        host,
-        cache_hits,
-        cache_misses,
-    })
+        Ok(DnsRewriteResult {
+            response: message.to_vec().map_err(|err| DnsCacheError::DnsEncode(err.to_string()))?,
+            host,
+            cache_hits,
+            cache_misses,
+        })
+    })();
+    for mapped in response_leases {
+        cache.unpin(mapped);
+    }
+    result
 }
 
 pub(super) fn servfail_response(query: &[u8]) -> Result<Vec<u8>, DnsCacheError> {

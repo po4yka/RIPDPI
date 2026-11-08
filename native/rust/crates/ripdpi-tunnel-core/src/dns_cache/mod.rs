@@ -4,6 +4,9 @@ mod packet;
 mod parser;
 mod state;
 
+#[cfg(test)]
+mod response_lease_tests;
+
 pub use self::packet::DnsRewriteResult;
 pub use self::state::DnsCache;
 
