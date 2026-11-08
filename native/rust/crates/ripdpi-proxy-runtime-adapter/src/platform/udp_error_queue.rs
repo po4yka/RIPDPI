@@ -124,11 +124,9 @@ mod linux {
                     remote = Some(error);
                 }
             }
-            if !duplicate {
-                if let Some(mut remote) = remote {
-                    remote.payload_prefix.extend_from_slice(&payload[..length]);
-                    events.push(remote);
-                }
+            if !duplicate && let Some(mut remote) = remote {
+                remote.payload_prefix.extend_from_slice(&payload[..length]);
+                events.push(remote);
             }
         }
         Ok(events)
