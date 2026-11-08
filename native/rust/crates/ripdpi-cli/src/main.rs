@@ -92,6 +92,9 @@ fn print_help() {
          Options:\n  \
            -i, --ip <IP[:PORT]>   Listen address (default: 127.0.0.1)\n  \
            -p, --port <PORT>      Listen port (default: 1080)\n  \
+           --mixed                Accept SOCKS4, SOCKS5 and HTTP CONNECT on one port\n  \
+           -G, --http-connect     Accept HTTP CONNECT only\n  \
+           -E, --transparent      Use the original TCP destination (Linux/Android)\n  \
            -b, --buf-size <SIZE>  Socket buffer size (default: 16384)\n  \
            -c, --max-conn <N>     Max concurrent connections (default: 512)\n  \
            -x, --debug <LEVEL>    Debug verbosity (0=warn, 1=info, 2+=debug)\n  \
