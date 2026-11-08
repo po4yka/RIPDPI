@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-08
+goal: PRX-1794124642980782 Reuse compatible TCP connections after payload routing
