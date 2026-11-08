@@ -40,6 +40,8 @@ pub enum DnsCacheError {
     AllocationFailed { size: usize },
     #[error("all synthetic DNS mappings are leased by active flows")]
     AllMappingsLeased,
+    #[error("all synthetic network addresses have already been issued in this tunnel session")]
+    SyntheticNetworkExhausted,
     #[error("response buffer smaller than request")]
     BufferTooSmall,
     #[error("truncated or malformed DNS packet")]
@@ -249,7 +251,8 @@ mod tests {
         let second_ip = a_answers(&second.response)[0];
 
         let remapped = cache.lookup(u32::from(second_ip)).expect("reverse lookup remains present");
-        assert_eq!(first_ip, second_ip);
+        assert_ne!(first_ip, second_ip);
+        assert!(cache.lookup(u32::from(first_ip)).is_none(), "an evicted address must not change owners");
         assert_eq!(remapped.host, "b.test");
         assert_eq!(Ipv4Addr::from(remapped.real_ip), Ipv4Addr::new(203, 0, 113, 20));
     }
@@ -285,7 +288,7 @@ mod tests {
     }
 
     #[test]
-    fn generation_reset_drops_unleased_mappings_without_overwriting_pinned_holes() {
+    fn generation_reset_drops_unleased_mappings_without_overwriting_active_leases() {
         let mut cache = DnsCache::new(NET, MASK, 3).expect("valid cache");
         let first = cache
             .rewrite_response(
@@ -312,8 +315,8 @@ mod tests {
                 &build_query("new.test"),
                 &build_response("new.test", &[Ipv4Addr::new(203, 0, 113, 3)], false),
             )
-            .expect("empty hole is reusable");
-        assert_eq!(cache.lookup(pinned_ip).expect("pinned slot not overwritten").host, "pinned.test");
+            .expect("new mapping fits in live cache");
+        assert_eq!(cache.lookup(pinned_ip).expect("active mapping not overwritten").host, "pinned.test");
     }
 
     #[test]
@@ -330,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn reclaimed_large_cache_slot_is_allocated_in_one_step_without_scanning_pinned_prefix() {
+    fn allocation_after_large_cache_reset_does_not_scan_active_leases() {
         let mut cache = DnsCache::new(NET, MASK, 10_000).expect("default-sized cache");
         let mut pinned = Vec::new();
         for index in 0..128_u32 {
@@ -345,7 +348,7 @@ mod tests {
 
         cache.find("reclaimed.test", 0xcb00_71ff).expect("reclaimed mapping");
 
-        assert_eq!(cache.allocation_step_count() - before, 1, "reclaimed allocation must be O(1)");
+        assert_eq!(cache.allocation_step_count() - before, 1, "address allocation must be O(1)");
         for ip in pinned {
             assert!(cache.lookup(ip).is_some(), "pinned mapping must survive reset and reclaimed allocation");
         }

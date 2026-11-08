@@ -6,20 +6,17 @@ use lru::LruCache;
 
 /// LRU DNS cache that maps real IPv4 answers to synthetic IPv4 addresses.
 ///
-/// The cache allocates addresses from the range `[net, net+max)` and preserves
-/// a reverse mapping so later flows in the same tunnel session can turn a
-/// synthetic destination back into the original upstream IPv4 address.
+/// Live mappings are bounded by the cache capacity. Issued addresses are never
+/// reused within this session, so a delayed flow cannot select another owner.
 pub struct DnsCache {
-    lru: LruCache<DnsCacheKey, usize>,
+    lru: LruCache<DnsCacheKey, u32>,
     rev: HashMap<u32, DnsCacheEntry>,
-    records: Vec<Option<DnsCacheKey>>,
     /// Active TCP/UDP mapping leases keyed by synthetic IP.
     leases: HashMap<u32, usize>,
     net: u32,
     mask: u32,
     max: usize,
-    next_free: usize,
-    free_slots: Vec<usize>,
+    next_offset: u64,
     /// True only when the active TUN owns an IPv6 address and default route.
     pub(super) ipv6_enabled: bool,
     #[cfg(test)]
@@ -41,19 +38,16 @@ impl DnsCache {
         if (max as u64) > u64::from(inverted) {
             return Err(DnsCacheError::CapacityExceedsNetwork { size: max, available: inverted });
         }
-        let mut records = Vec::new();
-        records.try_reserve_exact(max).map_err(|_| DnsCacheError::AllocationFailed { size: max })?;
-        records.resize_with(max, || None);
+        let mut rev = HashMap::new();
+        rev.try_reserve(max).map_err(|_| DnsCacheError::AllocationFailed { size: max })?;
         Ok(Self {
             lru: LruCache::new(capacity),
-            rev: HashMap::new(),
-            records,
+            rev,
             leases: HashMap::new(),
             net,
             mask,
             max,
-            next_free: 0,
-            free_slots: Vec::new(),
+            next_offset: 0,
             ipv6_enabled: false,
             #[cfg(test)]
             reset_inspections: 0,
@@ -111,82 +105,54 @@ impl DnsCache {
         let stale = self
             .lru
             .iter()
-            .filter_map(|(key, &index)| {
-                let ip = self.net | index as u32;
-                (!self.leases.contains_key(&ip)).then(|| (key.clone(), index))
-            })
+            .filter(|&(_, &ip)| !self.leases.contains_key(&ip))
+            .map(|(key, &ip)| (key.clone(), ip))
             .collect::<Vec<_>>();
-        for (key, index) in stale {
-            self.reclaim_slot(&key, index);
+        for (key, ip) in stale {
+            self.remove_mapping(&key, ip);
         }
     }
 
     pub(crate) fn find(&mut self, host: &str, real_ip: u32) -> Result<(u32, bool), DnsCacheError> {
-        if self.max == 0 {
-            return Err(DnsCacheError::EmptyCache);
-        }
-
         let canonical_host = host.strip_suffix('.').unwrap_or(host).to_ascii_lowercase();
         let key = DnsCacheKey { host: canonical_host, real_ip };
 
-        if let Some(&idx) = self.lru.get(&key) {
-            return Ok((self.net | idx as u32, true));
+        if let Some(&ip) = self.lru.get(&key) {
+            return Ok((ip, true));
         }
 
+        if self.next_offset >= u64::from(!self.mask) {
+            return Err(DnsCacheError::SyntheticNetworkExhausted);
+        }
+        if self.lru.len() == self.max {
+            self.evict_mapping()?;
+        }
         #[cfg(test)]
         {
             self.allocation_steps = self.allocation_steps.saturating_add(1);
         }
-        let idx = if let Some(idx) = self.free_slots.pop() {
-            idx
-        } else if self.next_free < self.max {
-            let idx = self.next_free;
-            self.next_free += 1;
-            idx
-        } else {
-            self.evict_slot()?
-        };
-
-        let fake_ip = self.net | idx as u32;
-        self.lru.put(key.clone(), idx);
-        self.records[idx] = Some(key.clone());
+        let fake_ip = self.net | self.next_offset as u32;
+        self.next_offset += 1;
+        self.lru.put(key.clone(), fake_ip);
         self.rev.insert(fake_ip, DnsCacheEntry { host: key.host, real_ip });
         Ok((fake_ip, false))
     }
 
-    fn evict_slot(&mut self) -> Result<usize, DnsCacheError> {
-        let candidate = self
-            .lru
-            .iter()
-            .rev()
-            .find(|&(_, &slot)| {
-                let candidate_ip = self.net | slot as u32;
-                !self.leases.contains_key(&candidate_ip)
-            })
-            .map(|(key, &slot)| (key.clone(), slot));
+    fn evict_mapping(&mut self) -> Result<(), DnsCacheError> {
+        let candidate =
+            self.lru.iter().rev().find(|&(_, &ip)| !self.leases.contains_key(&ip)).map(|(key, &ip)| (key.clone(), ip));
 
-        if let Some((evicted_key, evicted_idx)) = candidate {
-            self.clear_slot(&evicted_key, evicted_idx);
-            return Ok(evicted_idx);
+        if let Some((key, ip)) = candidate {
+            self.remove_mapping(&key, ip);
+            return Ok(());
         }
 
         Err(DnsCacheError::AllMappingsLeased)
     }
 
-    fn reclaim_slot(&mut self, key: &DnsCacheKey, idx: usize) {
-        self.clear_slot(key, idx);
-        self.free_slots.push(idx);
-    }
-
-    fn clear_slot(&mut self, key: &DnsCacheKey, idx: usize) {
+    fn remove_mapping(&mut self, key: &DnsCacheKey, ip: u32) {
         self.lru.pop(key);
-        self.remove_record(idx);
-    }
-
-    fn remove_record(&mut self, idx: usize) {
-        let evicted_ip = self.net | idx as u32;
-        self.rev.remove(&evicted_ip);
-        self.records[idx] = None;
+        self.rev.remove(&ip);
     }
 
     #[cfg(test)]
@@ -204,3 +170,6 @@ impl DnsCache {
         self.allocation_steps
     }
 }
+
+#[cfg(test)]
+mod ownership_tests;
