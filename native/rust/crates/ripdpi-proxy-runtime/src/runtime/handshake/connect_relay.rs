@@ -3,6 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 
 mod delay;
 mod error;
+#[cfg(all(test, not(feature = "loom")))]
+mod http_connect_tests;
 mod relay;
 mod reply;
 mod routes;

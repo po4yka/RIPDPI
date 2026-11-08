@@ -15,8 +15,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::model::protocol_auth::validate_http_proxy_auth;
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::{
-    S_ATP_I4, S_ATP_I6, S_CMD_AUDP, S_CMD_CONN, S_ER_DENY, S_VER4, S_VER5, S4_OK, encode_http_connect_reply,
-    encode_socks4_reply, encode_socks5_reply,
+    S_ATP_I4, S_ATP_I6, S_CMD_AUDP, S_CMD_CONN, S_ER_DENY, S_VER4, S_VER5, S4_OK, encode_socks4_reply,
 };
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -85,29 +84,6 @@ fn dynamic_fixture_config() -> FixtureConfig {
         socks5_port: 0,
         control_port: 0,
         ..FixtureConfig::default()
-    }
-}
-
-#[test]
-fn send_success_reply_emits_protocol_specific_payloads() {
-    let cases = [
-        (HandshakeKind::Socks4, encode_socks4_reply(true).as_bytes().to_vec()),
-        (
-            HandshakeKind::Socks5,
-            encode_socks5_reply(0, SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0)).as_bytes().to_vec(),
-        ),
-        (HandshakeKind::HttpConnect, encode_http_connect_reply(true).as_bytes().to_vec()),
-    ];
-
-    for (handshake, expected) in cases {
-        let (mut writer, mut reader) = connected_pair();
-        reader.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
-
-        send_success_reply(&mut writer, handshake).expect("send success reply");
-
-        let mut actual = vec![0u8; expected.len()];
-        reader.read_exact(&mut actual).expect("read success reply");
-        assert_eq!(actual, expected);
     }
 }
 

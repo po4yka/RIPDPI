@@ -30,11 +30,12 @@ where
     let Some(dc) = should_ws_tunnel_first(target, state) else {
         return Ok(None);
     };
-    if matches!(reply, SuccessReply::Socks4) {
-        return Ok(Some(match run_socks4_ws_before_reply(client, target, state, dc, None, write_success_reply_fn) {
+    if matches!(reply, SuccessReply::Socks4 | SuccessReply::HttpConnect) {
+        return Ok(Some(match run_ws_before_reply(client, target, state, dc, reply, None, write_success_reply_fn) {
             Ok(result) => always_ws_outcome(result),
             Err(WsBeforeReplyError::Carrier(err))
-                if !state.shutdown_requested()
+                if matches!(reply, SuccessReply::Socks4)
+                    && !state.shutdown_requested()
                     && !matches!(err.kind(), io::ErrorKind::Interrupted | io::ErrorKind::TimedOut) =>
             {
                 AlwaysWsOutcome::CarrierFailed(ConnectRelayError::new(err, false))
@@ -135,11 +136,12 @@ impl WsBeforeReplyError {
     }
 }
 
-pub(super) fn run_socks4_ws_before_reply<Write>(
+pub(super) fn run_ws_before_reply<Write>(
     client: &mut TcpStream,
     target: SocketAddr,
     state: &RuntimeState,
     dc: crate::runtime::ws::RuntimeTelegramDc,
+    reply: &SuccessReply,
     seed_request: Option<Vec<u8>>,
     write: &mut Write,
 ) -> Result<WsTunnelResult, WsBeforeReplyError>
@@ -165,7 +167,7 @@ where
     };
     run_prepared_ws_first(
         client,
-        &SuccessReply::Socks4,
+        reply,
         &mut guarded_write,
         || {
             check_stage()?;
@@ -423,11 +425,12 @@ mod tests {
             });
             let (mut peer, mut client) = pair();
             let started = Instant::now();
-            let error = run_socks4_ws_before_reply(
+            let error = run_ws_before_reply(
                 &mut client,
                 SocketAddr::from(([149, 154, 167, 51], 443)),
                 &state,
                 RuntimeTelegramDc::production(2),
+                &SuccessReply::Socks4,
                 None,
                 &mut write_success_reply,
             )

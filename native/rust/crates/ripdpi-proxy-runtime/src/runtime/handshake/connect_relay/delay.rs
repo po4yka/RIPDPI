@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 
 use super::super::super::state::RuntimeState;
-use super::super::protocol_io::{HandshakeKind, send_success_reply};
+use super::super::protocol_io::HandshakeKind;
 use super::ConnectRelayError;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
@@ -51,18 +51,15 @@ pub(super) fn maybe_delay_connect(
         return Ok(DelayConnect::Immediate { success_reply_sent: false });
     }
 
-    if let Some(handshake @ (HandshakeKind::Socks4 | HandshakeKind::Socks5)) = handshake {
+    if let Some(handshake) = handshake {
         let reply = match handshake {
             HandshakeKind::Socks4 => super::SuccessReply::Socks4,
             HandshakeKind::Socks5 => super::SuccessReply::Socks5,
-            HandshakeKind::HttpConnect => unreachable!("only SOCKS handshakes enter this branch"),
+            HandshakeKind::HttpConnect => super::SuccessReply::HttpConnect,
         };
         return super::socks_delay::connect(client, state, target, route, host_hint, &reply);
     }
 
-    if let Some(handshake) = handshake {
-        send_success_reply(client, handshake).map_err(|err| ConnectRelayError::new(err, false))?;
-    }
     // A server-first protocol (SMTP, IMAP, FTP) sends nothing until the server speaks, so a
     // silent client falls back to the immediate path and its server-first handling.
     let probe = if !requires_delay {

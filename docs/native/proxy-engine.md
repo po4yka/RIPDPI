@@ -727,6 +727,16 @@ The proxy runtime can tunnel Telegram MTProto traffic through Telegram's officia
 5. **Protocol tag validation** -- must match Telegram allowed MTProto tags
 6. **DC normalization** -- production (1-5), test (10001-10005), media/CDN (-1 to -5, recognized but not tunnelable)
 
+
+SOCKS4 and HTTP CONNECT complete the target DC TLS and WebSocket HTTP 101
+handshake before proxy success and then read the init. After setup, matching
+seed DCs reuse that carrier; normal seed fallback and DC selection still apply.
+HTTP CONNECT rejects bootstrap failure with HTTP 502, or HTTP 504 for a timeout,
+without a direct connection just to classify a waiting client. SOCKS4 retains its
+carrier-failure path: a provisional normal connection can classify the seed,
+but validated MTProto is never sent raw after a failed carrier. Other ingress
+protocols keep the order above. The diagram shows seed and route selection.
+
 ```mermaid
 flowchart TD
     A["Incoming connection"] --> B{"Known Telegram DC IP?"}
@@ -736,7 +746,7 @@ flowchart TD
     D -- "Not MTProto" --> SEED["Preserve seed bytes\nnormal relay path"]
     D -- "Unmappable DC\n(media/CDN)" --> SEED
     D -- "Valid MTProto\nDC 1-5 or test" --> E{"WsTunnelMode?"}
-    E -- always --> WSS["Open WSS to\nkws{dc}.web.telegram.org/apiws\nrelay MTProto over WebSocket"]
+    E -- always --> WSS["Use prepared WSS or open WSS to\nkws{dc}.web.telegram.org/apiws\nrelay MTProto over WebSocket"]
     E -- fallback --> F["Run desync first"]
     F -- "Desync succeeds" --> G["Normal relay"]
     F -- "Desync fails" --> WSS

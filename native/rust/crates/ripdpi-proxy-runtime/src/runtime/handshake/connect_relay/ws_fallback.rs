@@ -24,13 +24,14 @@ where
     let Some(dc) = should_ws_tunnel_fallback(target, state) else {
         return Err(err);
     };
-    if matches!(reply, SuccessReply::Socks4) && !err.success_reply_sent() {
+    if matches!(reply, SuccessReply::Socks4 | SuccessReply::HttpConnect) && !err.success_reply_sent() {
         let seed_request = err.seed_request().map(ToOwned::to_owned);
-        let result = super::ws_first::run_socks4_ws_before_reply(
+        let result = super::ws_first::run_ws_before_reply(
             client,
             target,
             state,
             dc,
+            reply,
             seed_request,
             write_success_reply_fn,
         )

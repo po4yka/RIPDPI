@@ -49,3 +49,38 @@ pub(super) fn write_success_reply(
         SuccessReply::HttpConnect => client.write_all(RuntimeState::encode_http_connect_reply(true).as_bytes()),
     }
 }
+
+#[cfg(all(test, not(feature = "loom")))]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::time::Duration;
+
+    fn pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        (peer, listener.accept().unwrap().0)
+    }
+
+    #[test]
+    fn successful_connect_reply_has_exact_protocol_bytes() {
+        let (upstream, _origin) = pair();
+        let port = upstream.local_addr().unwrap().port().to_be_bytes();
+        let cases = [
+            (SuccessReply::None, vec![]),
+            (SuccessReply::Socks4, vec![0, 0x5a, 0, 0, 0, 0, 0, 0]),
+            (SuccessReply::Socks5, vec![5, 0, 0, 1, 127, 0, 0, 1, port[0], port[1]]),
+            (SuccessReply::HttpConnect, b"HTTP/1.1 200 OK\r\n\r\n".to_vec()),
+        ];
+        for (reply, expected) in cases {
+            let (mut writer, mut reader) = pair();
+            reader.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+            write_success_reply(&mut writer, &reply, Some(&upstream)).unwrap();
+            drop(writer);
+            let mut actual = Vec::new();
+            reader.read_to_end(&mut actual).unwrap();
+            assert_eq!(actual, expected);
+        }
+    }
+}
