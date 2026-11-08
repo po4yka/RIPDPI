@@ -2,7 +2,7 @@
 id: PRX-1794127994095690
 title: Repair plaintext address inbound routing and activation
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: Network runtime maintainers
