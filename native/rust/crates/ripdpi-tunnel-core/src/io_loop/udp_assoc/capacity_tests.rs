@@ -26,6 +26,7 @@ async fn excess_destination_is_rejected_before_queueing_or_pinning() {
     let association = UdpAssociation {
         id: 1,
         activity_generation: 0,
+        pending_error: None,
         outbound,
         cancel: CancellationToken::new(),
         last_activity: Arc::new(AtomicU64::new(now_millis())),

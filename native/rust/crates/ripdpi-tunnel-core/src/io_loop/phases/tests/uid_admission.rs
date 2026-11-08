@@ -1,3 +1,5 @@
+use crate::io_loop::tcp_accept::gc_stale_pending_listens;
+
 use super::*;
 
 #[test]

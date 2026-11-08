@@ -51,29 +51,32 @@ async fn idle_destination_releases_lease_without_retiring_active_peer() {
         let dst = SocketAddr::new(Ipv4Addr::from(ip).into(), 443);
         destinations.push(dst);
         let registration = ripdpi_flow_app_attribution::note_flow(17, src, dst).registration_id;
-        assert!(forward_udp_payload(
-            proxy,
-            &Auth::NoAuth,
-            src,
-            dst,
-            resolved,
-            Some(host),
-            Some(ip),
-            b"x",
-            &mut cache,
-            &mut Vec::new(),
-            &mut associations,
-            &mut heap,
-            &budget,
-            &mut next_id,
-            Duration::from_secs(60),
-            Duration::from_secs(5),
-            None,
-            &cancel,
-            &events,
-            &stats,
-            registration,
-        ));
+        assert!(
+            forward_udp_payload(
+                proxy,
+                &Auth::NoAuth,
+                src,
+                dst,
+                resolved,
+                Some(host),
+                Some(ip),
+                b"x",
+                &mut cache,
+                &mut Vec::new(),
+                &mut associations,
+                &mut heap,
+                &budget,
+                &mut next_id,
+                Duration::from_secs(60),
+                Duration::from_secs(5),
+                None,
+                &cancel,
+                &events,
+                &stats,
+                registration,
+            )
+            .is_some()
+        );
     }
     let idle = Arc::clone(&associations[&src].destinations[&destinations[0]]);
     let active = Arc::clone(&associations[&src].destinations[&destinations[1]]);
@@ -95,7 +98,7 @@ async fn idle_destination_releases_lease_without_retiring_active_peer() {
     assert!(!idle.is_live());
     assert!(active.is_live());
     let replacement = cache.as_mut().unwrap().find("replacement.example", 0xcb00_7102).unwrap().0;
-    assert_eq!(replacement, idle_ip, "only the retired destination's cache slot may be reused");
+    assert_ne!(replacement, idle_ip, "a retired synthetic address must not be reassigned");
     assert_eq!(associations[&src].destinations.len(), 1);
     let mut device = TunDevice::new(1500);
     let old_response = crate::io_loop::packet::build_udp_response(destinations[0], src, b"old");
@@ -107,6 +110,7 @@ async fn idle_destination_releases_lease_without_retiring_active_peer() {
         &mut cache,
         &mut Vec::new(),
         UdpEvent::Packet { src, association_id: 1, destination: idle, raw: old_response },
+        |_| true,
     );
     assert!(device.tx_queue.is_empty(), "an old queued reply must not use a reassigned synthetic mapping");
     shutdown_udp_associations(&mut associations, &mut cache).await;

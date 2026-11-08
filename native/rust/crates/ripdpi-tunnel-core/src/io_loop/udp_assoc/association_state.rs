@@ -1,20 +1,14 @@
-use std::collections::{HashMap, HashSet};
 use std::num::NonZeroUsize;
-use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
-
-use lru::LruCache;
-use tokio_util::sync::CancellationToken;
-
-use ripdpi_flow_app_attribution::{FlowRegistrationId, FlowResolveRequest};
 
 mod activity;
+mod association;
 mod datagram;
 mod destination;
 
 #[cfg(test)]
 pub(super) use activity::{activity_is_idle_at, touch_activity_at};
 pub(super) use activity::{now_millis, touch_udp_activity, udp_association_is_idle};
+pub(in crate::io_loop) use association::UdpAssociation;
 pub(super) use datagram::OutboundDatagram;
 pub(in crate::io_loop) use destination::UdpDestination;
 
@@ -28,19 +22,3 @@ pub(crate) const UDP_ATTRIBUTION_ID_CAPACITY: NonZeroUsize = match NonZeroUsize:
     // Infallible: the literal capacity 64 is non-zero.
     None => panic!("UDP attribution capacity must be non-zero"),
 };
-
-pub(in crate::io_loop) struct UdpAssociation {
-    pub(super) id: u64,
-    pub(super) activity_generation: u64,
-    pub(in crate::io_loop) pending_error: Option<(ripdpi_flow_app_attribution::FlowRegistrationId, Vec<u8>)>,
-    pub(super) outbound: tokio::sync::mpsc::Sender<OutboundDatagram>,
-    pub(super) cancel: CancellationToken,
-    pub(super) last_activity: Arc<AtomicU64>,
-    pub(super) worker: tokio::task::JoinHandle<()>,
-    /// Kernel-visible destinations admitted before allocating per-target resources.
-    pub(super) destinations: HashMap<std::net::SocketAddr, Arc<UdpDestination>>,
-    /// One lease for each synthetic address used by a current destination.
-    pub(super) leased_synthetic_ips: HashSet<u32>,
-    /// One current generation per exact tuple, bounded independently of association lifetime.
-    pub(super) attribution_ids: LruCache<FlowResolveRequest, FlowRegistrationId>,
-}

@@ -644,6 +644,8 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
     let mut closed_sources = Vec::new();
 
     let original_id = ripdpi_flow_app_attribution::note_flow(crate::uid_policy::PROTO_UDP, src, dst).registration_id;
+    // Model a flow already owned by the transport that is being replaced.
+    associations.get_mut(&src).unwrap().attribution_ids.put(original_id.request(), original_id);
     let forwarded = super::forward_udp_payload(
         "127.0.0.1:1080".parse().expect("proxy"),
         &Auth::NoAuth,
