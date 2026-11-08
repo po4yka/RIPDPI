@@ -31,7 +31,7 @@ Repair the confirmed LOC-07 TCP ingress failures and verify shutdown while direc
 ## Ownership and serialized lanes
 
 - Integration owner: planning, task lifecycle, docs/native/proxy-engine.md, combined checks, review and main integration in the job worktree.
-- Integration owner also owns the network_e2e route-advancement fixture repair found by the combined gate; no routing production change is included.
+- Integration owner owns the network_e2e fixture repairs found by the combined gate. The cancellation worker repaired the repeated-reset case in network_e2e.rs and its existing block_signal module as the sole source/index writer in the job worktree while the integration owner was read-only. No routing or learning production change is included.
 - Ingress worker: F1 and F3 in ripdpi-proxy-runtime and listener projections; one commit per finding. It owns handshake.rs and its tests.
 - Sockaddr worker: F2 in ripdpi-privileged-ops/src/linux/fd.rs and src/linux/tests/fd.rs.
 - Cancellation worker: confirmed H1 in ripdpi-proxy-runtime-adapter connect functions and runtime/routing/connect/{socket,error,plan}.rs plus routing/retry.rs, with real pending-connect and cancellation-telemetry regressions. It owns only the connect section of platform.rs.
