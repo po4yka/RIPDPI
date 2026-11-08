@@ -29,7 +29,7 @@ LOC-05 covers the local HTTP CONNECT listener. It shares routing and relay code 
 
 - Stricter input rejection changes behavior for malformed clients; preserve valid HTTP/1.0 and field octets.
 - HTTP CONNECT to a known WS target returns 502 for failure or 504 for timeout if target-DC WS bootstrap fails before any seed. Classifying a waiting client first would require a false 200; speculative direct SYNs would change privacy. Retain non-MTProto/CDN fallback after successful WS setup and retain non-HTTP flow.
-- Provisional connections can affect payload-based routes; retain policy checks before application bytes and cover route changes and server-first behavior.
+- Provisional connections can affect payload-based routes; retain policy checks before application bytes and cover route changes and server-first behavior. A later group change opens another TCP connection; a server that accepts only one connection can fail. This follows the existing shared routing contract.
 - Machine-wide builds share one RIPDPI lane; use worktree outputs, sccache and at most four jobs.
 
 ## Migration Plan

@@ -737,6 +737,11 @@ carrier-failure path: a provisional normal connection can classify the seed,
 but validated MTProto is never sent raw after a failed carrier. Other ingress
 protocols keep the order above. The diagram shows seed and route selection.
 
+With delayed TCP routing, the runtime can select a different group from the
+payload after CONNECT success. It then closes the provisional connection and
+opens another connection. A server that accepts only one connection can fail
+in this case.
+
 ```mermaid
 flowchart TD
     A["Incoming connection"] --> B{"Known Telegram DC IP?"}

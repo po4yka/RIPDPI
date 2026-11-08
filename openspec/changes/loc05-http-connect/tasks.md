@@ -9,7 +9,7 @@
 - [x] PRX-1794118936564724 Fix F06 decimal authority port validation with regressions #bug !high @item:PRX-1794118814905211
 - [x] PRX-1794118937259707 Fix F01 upstream success ordering with loopback regressions #bug !high @item:PRX-1794118814905211
 - [x] PRX-1794118938174073 Fix F07 excessive header response with loopback regressions #bug !high @item:PRX-1794118814905211
-- [ ] PRX-1794118938962416 Review combined fixes and run source gates before integration #bug !high @item:PRX-1794118814905211
+- [x] PRX-1794118938962416 Review combined fixes and run source gates before integration #bug !high @item:PRX-1794118814905211
 
 ## Ownership
 

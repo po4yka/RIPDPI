@@ -2,7 +2,7 @@
 id: PRX-1794118814905211
 title: Repair HTTP CONNECT audit defects
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: HTTP CONNECT maintainers
