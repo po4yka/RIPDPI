@@ -7,7 +7,9 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -225,7 +227,10 @@ class RootHelperNfqwsTest {
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, command, _ ->
                         if (command == "v3/stop_nfqws2" && rejectStop) throw IOException("rule removal pending")
-                        buildJsonObject { put("running", command == "v3/start_nfqws2") }
+                        buildJsonObject {
+                            put("running", command == "v3/start_nfqws2")
+                            put("cleanup_pending", false)
+                        }
                     },
                     nfqwsDispatcher = StandardTestDispatcher(testScheduler),
                 )
@@ -242,6 +247,92 @@ class RootHelperNfqwsTest {
             rejectStop = false
             manager.syncNfqws(context, AppSettings.getDefaultInstance())
             manager.stop()
+        }
+
+    @Test
+    fun `ordinary root policy rejects startup cleanup debt without a prior nfqws session`() =
+        runTest {
+            val uncleanResponses =
+                listOf(
+                    null,
+                    """{"running":true,"cleanup_pending":false}""",
+                    """{"running":false,"cleanup_pending":true}""",
+                    """{"running":false}""",
+                    """{"cleanup_pending":false}""",
+                    """{"running":"false","cleanup_pending":false}""",
+                    """{"running":false,"cleanup_pending":"false"}""",
+                    """{"running":null,"cleanup_pending":false}""",
+                    """{"running":false,"cleanup_pending":null}""",
+                    """{"running":{},"cleanup_pending":false}""",
+                    """{"running":false,"cleanup_pending":{}}""",
+                )
+            for (uncleanResponse in uncleanResponses) {
+                val context = RuntimeEnvironment.getApplication()
+                val process = NfqwsTestProcess()
+                var cleanupPending = true
+                val manager =
+                    RootHelperManager(
+                        binaryExtractor = { File(context.filesDir, "helper") },
+                        processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
+                        readinessProbe = { _, _, _ -> true },
+                        shutdownRequester = { _, _ -> },
+                        endpointCleanup = { _, _ -> },
+                        nfqwsRequester = { _, _, _, _ ->
+                            if (cleanupPending) {
+                                if (uncleanResponse == null) throw IOException("startup firewall cleanup is pending")
+                                Json.parseToJsonElement(uncleanResponse).jsonObject
+                            } else {
+                                buildJsonObject {
+                                    put("running", false)
+                                    put("cleanup_pending", false)
+                                }
+                            }
+                        },
+                        nfqwsDispatcher = StandardTestDispatcher(testScheduler),
+                    )
+                val ordinarySettings = AppSettings.newBuilder().setRootModeEnabled(true).build()
+                val socketPath = manager.start(context)
+                val nonceFile = File(context.filesDir, "root_helper.sock.nonce")
+                val nonce = nonceFile.readText()
+                try {
+                    val failure = runCatching { manager.syncNfqws(context, ordinarySettings) }.exceptionOrNull()
+                    if (uncleanResponse == null) {
+                        assertTrue(failure is IOException)
+                    } else {
+                        assertTrue(failure is RuntimeCleanupPendingException)
+                    }
+                    assertEquals(socketPath, manager.socketPath)
+                    assertEquals(nonce, nonceFile.readText())
+                    assertTrue(manager.isRunning())
+                    assertFalse(manager.nfqwsActive)
+
+                    cleanupPending = false
+                    manager.syncNfqws(context, ordinarySettings)
+                    assertTrue(manager.isRunning())
+                    assertFalse(manager.nfqwsActive)
+                } finally {
+                    cleanupPending = false
+                    manager.stop()
+                }
+            }
+        }
+
+    @Test
+    fun `ordinary settings without a helper do not require root or helper IPC`() =
+        runTest {
+            val manager =
+                RootHelperManager(
+                    binaryExtractor = { throw AssertionError("ordinary settings must not extract a helper") },
+                    processLaunchAttempts = { _, _, _ -> throw AssertionError("ordinary settings must not launch su") },
+                    readinessProbe = { _, _, _ -> throw AssertionError("ordinary settings must not probe a helper") },
+                    nfqwsRequester = { _, _, _, _ -> throw AssertionError("no helper endpoint is active") },
+                )
+
+            manager.syncNfqws(RuntimeEnvironment.getApplication(), AppSettings.getDefaultInstance())
+
+            assertNull(manager.socketPath)
+            assertFalse(manager.isRunning())
+            assertFalse(manager.nfqwsActive)
         }
 
     private fun settings(): AppSettings =

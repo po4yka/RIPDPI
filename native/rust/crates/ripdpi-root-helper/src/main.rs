@@ -116,7 +116,7 @@ fn main() {
             None
         }
     });
-    if let Some(backend) = backend.as_ref() {
+    if let Some(backend) = backend.as_mut() {
         backend.reap_stale_state();
     }
     info!(path = %socket_path.display(), "listening for connections");
@@ -126,7 +126,7 @@ fn main() {
         if let Some(backend) = backend.as_mut() {
             if stopping {
                 backend.request_shutdown();
-                backend.stop();
+                backend.poll();
             } else {
                 backend.poll();
             }

@@ -54,6 +54,7 @@ pub(crate) struct Nfqws2Backend {
     shutdown_requested: bool,
     cleanup_backoff: Duration,
     cleanup_retry_at: Option<Instant>,
+    stale_cleanup: Option<stale::Cleanup>,
 }
 
 impl Nfqws2Backend {
@@ -71,6 +72,7 @@ impl Nfqws2Backend {
             shutdown_requested: false,
             cleanup_backoff: Duration::ZERO,
             cleanup_retry_at: None,
+            stale_cleanup: None,
         })
     }
 
@@ -80,6 +82,9 @@ impl Nfqws2Backend {
             let mut status = self.status();
             status.capability_error = Some("root helper shutdown is pending".to_owned());
             return status;
+        }
+        if self.stale_cleanup.is_some() {
+            return self.status();
         }
         let config = match self.validate(params) {
             Ok(config) => config,
@@ -94,6 +99,10 @@ impl Nfqws2Backend {
         }
         self.stop();
         if self.active.is_some() {
+            return self.status();
+        }
+        self.begin_stale_cleanup(stale::Cleanup::discover());
+        if self.stale_cleanup.is_some() {
             return self.status();
         }
         self.last_error = None;
@@ -137,6 +146,12 @@ impl Nfqws2Backend {
 
     pub(crate) fn stop(&mut self) -> Nfqws2Status {
         self.last_error = None;
+        if let Some(cleanup) = self.stale_cleanup.as_mut() {
+            match cleanup.run(&self.files_dir, self.uid, firewall_programs) {
+                Ok(()) => self.stale_cleanup = None,
+                Err(error) => self.last_error = Some(format!("nfqws2 stale cleanup failed: {error}")),
+            }
+        }
         let Some(mut active) = self.active.take() else {
             return self.status();
         };
@@ -160,7 +175,10 @@ impl Nfqws2Backend {
     }
 
     pub(crate) fn poll(&mut self) {
-        if self.active.is_some() && self.last_error.is_some() {
+        if self.shutdown_requested
+            || self.stale_cleanup.is_some()
+            || (self.active.is_some() && self.last_error.is_some())
+        {
             self.retry_cleanup();
             return;
         }
@@ -191,7 +209,7 @@ impl Nfqws2Backend {
             return;
         }
         self.stop();
-        if self.active.is_some() {
+        if self.active.is_some() || self.stale_cleanup.is_some() {
             self.cleanup_backoff = (self.cleanup_backoff * 2).clamp(CLEANUP_RETRY_MIN, CLEANUP_RETRY_MAX);
             self.cleanup_retry_at = Some(Instant::now() + self.cleanup_backoff);
         } else {
@@ -200,17 +218,21 @@ impl Nfqws2Backend {
         }
     }
 
-    /// Removes chains and an nfqws2 process that an earlier helper of this app
-    /// left when it died without cleanup. Call once at startup, before this
-    /// helper owns any nfqws2 state.
-    pub(crate) fn reap_stale_state(&self) {
-        // The reaper treats chains that name this helper's PID as stale.
-        if self.active.is_some() {
+    /// Recover old state only when both firewall families can be inspected.
+    /// Android creates files/nfqws2 only when it extracts explicit backend assets.
+    /// Every explicit start still recovers state, including a custom working directory.
+    pub(crate) fn reap_stale_state(&mut self) {
+        if self.active.is_some() || self.stale_cleanup.is_some() || !self.files_dir.join("nfqws2").is_dir() {
             return;
         }
-        let programs: Vec<PathBuf> =
-            ["iptables", "ip6tables"].into_iter().filter_map(|name| firewall_program(name).ok()).collect();
-        stale::reap_stale_state(&self.files_dir, self.uid, &programs);
+        self.begin_stale_cleanup(stale::Cleanup::discover());
+    }
+
+    fn begin_stale_cleanup(&mut self, cleanup: stale::Cleanup) {
+        self.stale_cleanup = Some(cleanup);
+        self.cleanup_backoff = Duration::ZERO;
+        self.cleanup_retry_at = None;
+        self.retry_cleanup();
     }
 
     pub(crate) fn request_shutdown(&mut self) {
@@ -218,7 +240,7 @@ impl Nfqws2Backend {
     }
 
     pub(crate) fn shutdown_complete(&self) -> bool {
-        self.shutdown_requested && self.active.is_none()
+        self.shutdown_requested && self.active.is_none() && self.stale_cleanup.is_none()
     }
 
     pub(crate) fn status(&self) -> Nfqws2Status {
@@ -227,7 +249,7 @@ impl Nfqws2Backend {
             running: active.is_some_and(|active| active.child.is_some() && self.last_error.is_none()),
             pid: active.and_then(|active| active.child.as_ref().map(Child::id)),
             owner_pid: active.map(|active| active.config.owner_pid),
-            cleanup_pending: active.is_some() && self.last_error.is_some(),
+            cleanup_pending: self.stale_cleanup.is_some() || (active.is_some() && self.last_error.is_some()),
             capability_error: self.last_error.clone(),
         }
     }
@@ -420,13 +442,17 @@ fn owner_identity(pid: u32, uid: u32) -> io::Result<String> {
 }
 
 fn owner_start_from_stat(stat: &str) -> io::Result<String> {
+    process_start_from_stat(stat)?.ok_or_else(|| invalid("nfqws2 app owner has exited"))
+}
+
+fn process_start_from_stat(stat: &str) -> io::Result<Option<String>> {
     // comm can contain spaces and parentheses; fields after its final ')' start at field 3.
     let (_, fields) = stat.rsplit_once(')').ok_or_else(|| invalid("invalid app process stat"))?;
     let fields: Vec<_> = fields.split_whitespace().collect();
     if matches!(fields.first(), Some(&"Z" | &"X")) {
-        return Err(invalid("nfqws2 app owner has exited"));
+        return Ok(None);
     }
-    fields.get(19).map(|value| (*value).to_owned()).ok_or_else(|| invalid("missing app process start time"))
+    fields.get(19).map(|value| Some((*value).to_owned())).ok_or_else(|| invalid("missing app process start time"))
 }
 
 fn await_ready(active: &mut ActiveBackend, uid: u32) -> io::Result<()> {
@@ -485,6 +511,10 @@ fn firewall_program(name: &str) -> io::Result<PathBuf> {
         .into_iter()
         .find(|path| path.is_file())
         .ok_or_else(|| io::Error::new(io::ErrorKind::Unsupported, "IPv4 and IPv6 iptables are required for nfqws2"))
+}
+
+fn firewall_programs() -> io::Result<Vec<PathBuf>> {
+    ["iptables", "ip6tables"].into_iter().map(firewall_program).collect()
 }
 
 fn firewall_commands(uid: u32, helper_pid: u32) -> io::Result<Vec<FirewallCommand>> {
@@ -586,7 +616,7 @@ fn existence_check(command: &FirewallCommand) -> io::Result<FirewallCommand> {
     let Some(operation) = check.args.get_mut(2) else { return Err(invalid("missing firewall operation")) };
     *operation = match operation.as_str() {
         "-D" => "-C",
-        "-X" => "-S",
+        "-X" | "-F" => "-S",
         _ => return Err(invalid("unsupported firewall cleanup operation")),
     }
     .to_owned();
@@ -704,6 +734,9 @@ fn nonblocking_drain(pipe: Option<&mut std::process::ChildStdout>, output: Optio
 fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)
 }
+
+#[cfg(test)]
+mod recovery_tests;
 
 #[cfg(test)]
 mod tests {
@@ -938,6 +971,7 @@ mod tests {
             shutdown_requested: false,
             cleanup_backoff: Duration::ZERO,
             cleanup_retry_at: None,
+            stale_cleanup: None,
             active: Some(ActiveBackend {
                 config: ValidatedStart {
                     binary: PathBuf::new(),

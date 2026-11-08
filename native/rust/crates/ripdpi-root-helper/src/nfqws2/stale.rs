@@ -8,6 +8,7 @@
 //! this helper creates any state, so a chain or nfqws2 that names this helper's
 //! own PID belongs to an earlier helper whose PID the kernel reused.
 
+use std::collections::VecDeque;
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
@@ -17,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
-use tracing::{info, warn};
+use tracing::info;
 
 use super::{FirewallCommand, QUEUE, run_firewall, run_firewall_output};
 
@@ -25,40 +26,169 @@ use super::{FirewallCommand, QUEUE, run_firewall, run_firewall_output};
 /// hung iptables or a long-held xtables lock must not stall the helper.
 const REAP_TIMEOUT: Duration = Duration::from_secs(3);
 
-/// Removes stale nfqws2 chains and their jumps with each of `programs`
-/// (iptables, ip6tables), then kills an orphan nfqws2.
-pub(super) fn reap_stale_state(files_dir: &Path, uid: u32, programs: &[PathBuf]) {
-    let deadline = Instant::now() + REAP_TIMEOUT;
-    let own_pid = std::process::id();
-    let own_comm = fs::read_to_string("/proc/self/comm").unwrap_or_default();
-    let helper_alive = |pid: u32| {
-        fs::read_to_string(format!("/proc/{pid}/comm")).is_ok_and(|comm| !own_comm.is_empty() && comm == own_comm)
-    };
-    for program in programs {
-        let rules = match list_mangle_rules(program, deadline) {
-            Ok(rules) => rules,
-            Err(error) => {
-                warn!(%error, program = %program.display(), "could not list firewall rules for stale nfqws2 chains");
-                continue;
-            }
+pub(super) struct Cleanup {
+    programs: VecDeque<PathBuf>,
+    commands: VecDeque<FirewallCommand>,
+    discovery_pending: bool,
+    orphans: Option<VecDeque<Orphan>>,
+}
+
+struct Orphan {
+    pid: i32,
+    start: String,
+    signalled: bool,
+}
+
+impl Cleanup {
+    pub(super) fn new(programs: Vec<PathBuf>) -> Self {
+        Self { programs: programs.into(), commands: VecDeque::new(), discovery_pending: false, orphans: None }
+    }
+
+    pub(super) fn discover() -> Self {
+        Self { discovery_pending: true, ..Self::new(Vec::new()) }
+    }
+
+    pub(super) fn run(
+        &mut self,
+        files_dir: &Path,
+        uid: u32,
+        resolve_programs: impl FnOnce() -> io::Result<Vec<PathBuf>>,
+    ) -> io::Result<()> {
+        let deadline = Instant::now() + REAP_TIMEOUT;
+        if self.discovery_pending {
+            self.programs = resolve_programs()?.into();
+            self.discovery_pending = false;
+        }
+        let own_pid = std::process::id();
+        let own_comm = fs::read_to_string("/proc/self/comm").unwrap_or_default();
+        let helper_alive = |pid: u32| {
+            fs::read_to_string(format!("/proc/{pid}/comm")).is_ok_and(|comm| !own_comm.is_empty() && comm == own_comm)
         };
-        for command in stale_chain_cleanup(program, &rules, uid, own_pid, helper_alive) {
-            if let Err(error) = run_firewall(&command, deadline) {
-                warn!(%error, args = ?command.args, "stale nfqws2 firewall cleanup failed");
+        self.finish_commands(deadline)?;
+        while let Some(program) = self.programs.front() {
+            let rules = list_mangle_rules(program, deadline)?;
+            self.commands.extend(stale_chain_cleanup(program, &rules, uid, own_pid, helper_alive));
+            self.programs.pop_front();
+            self.finish_commands(deadline)?;
+        }
+        if self.orphans.is_none() {
+            self.orphans = Some(discover_orphans(files_dir, uid, own_pid, helper_alive, deadline)?);
+        }
+        if let Some(orphans) = self.orphans.as_mut() {
+            finish_orphans(
+                orphans,
+                deadline,
+                |pid| read_process_identity(&Path::new("/proc").join(pid.to_string()), uid),
+                signal_orphan,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn finish_commands(&mut self, deadline: Instant) -> io::Result<()> {
+        while let Some(command) = self.commands.front() {
+            if let Err(error) = run_firewall(command, deadline) {
+                let check = super::existence_check(command)?;
+                if !run_firewall(&check, deadline).is_err_and(|error| super::target_absent(&error)) {
+                    return Err(error);
+                }
             }
+            self.commands.pop_front();
+        }
+        Ok(())
+    }
+}
+
+fn discover_orphans(
+    files_dir: &Path,
+    uid: u32,
+    own_pid: u32,
+    helper_alive: impl Fn(u32) -> bool,
+    deadline: Instant,
+) -> io::Result<VecDeque<Orphan>> {
+    let processes = match fs::read_dir("/proc") {
+        Ok(processes) => processes,
+        Err(error)
+            if !cfg!(any(target_os = "linux", target_os = "android")) && error.kind() == io::ErrorKind::NotFound =>
+        {
+            return Ok(VecDeque::new());
+        }
+        Err(error) => return Err(error),
+    };
+    let mut orphans = VecDeque::new();
+    for process in processes {
+        if Instant::now() >= deadline {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "nfqws2 orphan discovery timed out"));
+        }
+        let process = process?;
+        let Some(pid) = process.file_name().to_str().and_then(|name| name.parse::<i32>().ok()).filter(|pid| *pid > 0)
+        else {
+            continue;
+        };
+        let Some(start) = read_process_identity(&process.path(), uid)? else { continue };
+        let identified = match orphan_nfqws2_of_uid(&process.path(), files_dir, uid) {
+            Ok(identified) => identified,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(error),
+        };
+        let Some((helper_pid, parent_pid)) = identified else { continue };
+        if nfqws2_is_stale(helper_pid, parent_pid, own_pid, &helper_alive) {
+            orphans.push_back(Orphan { pid, start, signalled: false });
         }
     }
-    let Ok(processes) = fs::read_dir("/proc") else { return };
-    for process in processes.flatten() {
-        let Some(pid) = process.file_name().to_str().and_then(|name| name.parse::<i32>().ok()) else { continue };
-        let Some((helper_pid, parent_pid)) = orphan_nfqws2_of_uid(&process.path(), files_dir, uid) else { continue };
-        if nfqws2_is_stale(helper_pid, parent_pid, own_pid, helper_alive) {
-            match kill(Pid::from_raw(pid), Signal::SIGKILL) {
-                Ok(()) => info!(pid, helper_pid, "stopped an nfqws2 left by an earlier helper"),
-                Err(error) => warn!(pid, %error, "could not stop an nfqws2 left by an earlier helper"),
-            }
+    Ok(orphans)
+}
+
+fn finish_orphans(
+    orphans: &mut VecDeque<Orphan>,
+    deadline: Instant,
+    mut identity: impl FnMut(i32) -> io::Result<Option<String>>,
+    mut signal: impl FnMut(i32) -> io::Result<()>,
+) -> io::Result<()> {
+    while let Some(orphan) = orphans.front_mut() {
+        if Instant::now() >= deadline {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "nfqws2 orphan exit timed out"));
         }
+        let current = identity(orphan.pid)?;
+        if current.as_deref() != Some(orphan.start.as_str()) {
+            orphans.pop_front();
+            continue;
+        }
+        if !orphan.signalled {
+            signal(orphan.pid)?;
+            orphan.signalled = true;
+        }
+        std::thread::sleep(Duration::from_millis(5));
     }
+    Ok(())
+}
+
+fn signal_orphan(pid: i32) -> io::Result<()> {
+    match kill(Pid::from_raw(pid), Signal::SIGKILL) {
+        Ok(()) => {
+            info!(pid, "stopped an nfqws2 left by an earlier helper");
+            Ok(())
+        }
+        Err(nix::errno::Errno::ESRCH) => Ok(()),
+        Err(error) => Err(io::Error::from(error)),
+    }
+}
+
+fn read_process_identity(process: &Path, uid: u32) -> io::Result<Option<String>> {
+    let (actual_uid, _) = match process_ids(process) {
+        Ok(ids) => ids,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    if actual_uid != uid {
+        return Ok(None);
+    }
+    let stat = match fs::read_to_string(process.join("stat")) {
+        Ok(stat) => stat,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    super::process_start_from_stat(&stat)
 }
 
 /// Removes chains that already carry this helper's names, and the jumps into
@@ -160,14 +290,14 @@ fn orphan_nfqws2_helper_pid(cmdline: &[u8], files_dir: &Path) -> Option<u32> {
 /// lock, which a stuck process of any uid can hold for good. The owner of
 /// `/proc/<pid>` cannot serve: nfqws2 drops root without PR_SET_DUMPABLE, so its
 /// entry is owned by root.
-fn orphan_nfqws2_of_uid(process: &Path, files_dir: &Path, uid: u32) -> Option<(u32, u32)> {
+fn orphan_nfqws2_of_uid(process: &Path, files_dir: &Path, uid: u32) -> io::Result<Option<(u32, u32)>> {
     let (process_uid, parent_pid) = process_ids(process)?;
     // A running nfqws2 has dropped root to the app uid, so the app could stop it too.
     if process_uid != uid {
-        return None;
+        return Ok(None);
     }
-    let cmdline = fs::read(process.join("cmdline")).ok()?;
-    Some((orphan_nfqws2_helper_pid(&cmdline, files_dir)?, parent_pid))
+    let cmdline = fs::read(process.join("cmdline"))?;
+    Ok(orphan_nfqws2_helper_pid(&cmdline, files_dir).map(|helper_pid| (helper_pid, parent_pid)))
 }
 
 /// Returns whether an nfqws2 whose pidfile names `helper_pid` has no live owner.
@@ -178,12 +308,14 @@ fn nfqws2_is_stale(helper_pid: u32, parent_pid: u32, own_pid: u32, helper_alive:
 }
 
 /// Returns the real uid and the parent PID of a `/proc/<pid>` entry.
-fn process_ids(process: &Path) -> Option<(u32, u32)> {
-    let status = fs::read_to_string(process.join("status")).ok()?;
+fn process_ids(process: &Path) -> io::Result<(u32, u32)> {
+    let status = fs::read_to_string(process.join("status"))?;
     let field = |name: &str| -> Option<u32> {
         status.lines().find_map(|line| line.strip_prefix(name))?.split_whitespace().next()?.parse().ok()
     };
-    Some((field("Uid:")?, field("PPid:")?))
+    let uid = field("Uid:").ok_or_else(|| super::invalid("missing process UID"))?;
+    let parent = field("PPid:").ok_or_else(|| super::invalid("missing process parent PID"))?;
+    Ok((uid, parent))
 }
 
 #[cfg(test)]
@@ -204,6 +336,77 @@ mod tests {
         -A OUTPUT -j netd_owned\n\
         -A INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27fa1c8I\n\
         -A RDP27fa1c8O -j NFQUEUE --queue-num 49379 --queue-bypass\n";
+
+    #[test]
+    fn an_orphan_exit_timeout_retains_identity_without_resignalling() {
+        use std::collections::VecDeque;
+        use std::io;
+        use std::time::{Duration, Instant};
+        let mut orphans = VecDeque::from([super::Orphan { pid: 123, start: "100".to_owned(), signalled: false }]);
+        let mut signals = 0;
+        for _ in 0..2 {
+            let error = super::finish_orphans(
+                &mut orphans,
+                Instant::now() + Duration::from_millis(20),
+                |_| Ok(Some("100".to_owned())),
+                |_| {
+                    signals += 1;
+                    Ok(())
+                },
+            )
+            .expect_err("the original process still owns its resources");
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            assert_eq!(orphans.len(), 1);
+        }
+        assert_eq!(signals, 1);
+        super::finish_orphans(
+            &mut orphans,
+            Instant::now() + Duration::from_secs(1),
+            |_| Ok(Some("101".to_owned())),
+            |_| {
+                signals += 1;
+                Ok(())
+            },
+        )
+        .expect("a replaced identity has released the old resources");
+        assert!(orphans.is_empty());
+        assert_eq!(signals, 1, "the replacement was signalled");
+    }
+
+    #[test]
+    fn an_unproven_orphan_identity_stays_pending_without_a_signal() {
+        use std::collections::VecDeque;
+        use std::io;
+        use std::time::{Duration, Instant};
+        let mut orphans = VecDeque::from([super::Orphan { pid: 123, start: "100".to_owned(), signalled: false }]);
+        let error = super::finish_orphans(
+            &mut orphans,
+            Instant::now() + Duration::from_secs(1),
+            |_| Err(io::Error::new(io::ErrorKind::PermissionDenied, "cannot inspect identity")),
+            |_| panic!("an unproven identity must not be signalled"),
+        )
+        .expect_err("identity failure is not a completed cleanup");
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+        assert_eq!(orphans.len(), 1);
+        assert!(!orphans[0].signalled);
+    }
+
+    #[test]
+    fn process_identity_treats_zombies_and_other_uids_as_released() {
+        let dir = std::env::temp_dir().join(format!("nfqws2-orphan-identity-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test dir");
+        let status = |uid: u32| format!("Uid:\t{uid}\t{uid}\t{uid}\t{uid}\nPPid:\t1\n");
+        let stat = |state: &str, start: &str| format!("123 (nfqws2) {state} {} {start} 0", ["0"; 18].join(" "));
+        std::fs::write(dir.join("status"), status(10196)).expect("status");
+        std::fs::write(dir.join("stat"), stat("S", "100")).expect("stat");
+        assert_eq!(super::read_process_identity(&dir, 10196).expect("live identity"), Some("100".to_owned()));
+        std::fs::write(dir.join("stat"), stat("Z", "100")).expect("zombie stat");
+        assert_eq!(super::read_process_identity(&dir, 10196).expect("zombie identity"), None);
+        std::fs::write(dir.join("status"), status(2610196)).expect("foreign status");
+        std::fs::write(dir.join("stat"), stat("S", "101")).expect("replacement stat");
+        assert_eq!(super::read_process_identity(&dir, 10196).expect("other uid"), None);
+        std::fs::remove_dir_all(dir).expect("remove test dir");
+    }
 
     #[test]
     fn legacy_chains_of_a_uid_with_a_shared_hex_prefix_are_not_removed() {
@@ -287,7 +490,7 @@ mod tests {
             // Unblock the reader before the assertion fails.
             drop(std::fs::OpenOptions::new().write(true).open(dir.join("cmdline")));
         }
-        assert_eq!(skipped.expect("the cmdline of another uid was read"), None);
+        assert_eq!(skipped.expect("the cmdline of another uid was read").expect("process status"), None);
 
         std::fs::remove_file(dir.join("cmdline")).expect("remove fifo");
         std::fs::write(
@@ -296,7 +499,7 @@ mod tests {
         )
         .expect("cmdline");
         std::fs::write(dir.join("status"), status(10234)).expect("status");
-        assert_eq!(super::orphan_nfqws2_of_uid(&dir, files, 10234), Some((456, 1)));
+        assert_eq!(super::orphan_nfqws2_of_uid(&dir, files, 10234).expect("owned process"), Some((456, 1)));
         std::fs::remove_dir_all(dir).expect("remove test dir");
     }
 
@@ -357,7 +560,9 @@ mod tests {
 
         let started = Instant::now();
         // Two hung programs share one deadline instead of one each.
-        super::reap_stale_state(&dir, 10234, &[script.clone(), script]);
+        super::Cleanup::new(vec![script.clone(), script])
+            .run(&dir, 10234, || Ok(Vec::new()))
+            .expect_err("listing deadline");
         let waited = started.elapsed();
 
         assert!(waited >= super::REAP_TIMEOUT, "the listing ended early: {waited:?}");
@@ -383,7 +588,7 @@ mod tests {
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).expect("script mode");
 
         // PIDs 0x1c8 and 0x2d0 run no helper in the test environment.
-        super::reap_stale_state(&dir, 10234, &[script]);
+        super::Cleanup::new(vec![script]).run(&dir, 10234, || Ok(Vec::new())).expect("stale state removed");
 
         let log = std::fs::read_to_string(dir.join("log")).expect("log");
         let calls: Vec<&str> = log.lines().collect();

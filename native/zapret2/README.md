@@ -141,3 +141,19 @@ jumps into them) whose helper PID is no longer a running helper, and stops an
 nfqws2 of the app UID whose pidfile names such a helper. Recovery of old names
 requires an exact OUTPUT owner rule for the app UID. Unproven old chains stay
 unchanged because their names do not prove the owner.
+
+Startup recovery retains failed scans and the remaining commands after partial
+cleanup. It retries with bounded work and backoff. A new nfqws2 consumer starts
+only after both firewall families have completed recovery. Once a family is
+owed, a missing executable keeps cleanup pending. Initial program discovery
+failures also remain pending once recovery starts. Orphan consumers are stopped
+only after rule cleanup succeeds. Recovery waits for each signalled process to
+exit or become a zombie before a new fixed-queue consumer starts. The recorded
+UID and start time prevent a retry from signalling a replacement process;
+unknown identities and exit timeouts keep cleanup pending.
+
+The Android caller creates the private `nfqws2` asset directory only for explicit
+backend use. An ordinary root helper with no such assets does not probe netfilter
+at startup. Missing firewall tools do not block that baseline. Every explicit
+nfqws2 start still requires both tools and complete recovery, including starts
+with a custom private working directory.

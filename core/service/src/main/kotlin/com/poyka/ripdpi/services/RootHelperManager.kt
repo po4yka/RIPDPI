@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
@@ -128,10 +129,8 @@ open class RootHelperManager
             if (requested == null) {
                 val pending = backendSession.updateAndGet { it?.copy(running = false) }
                 backendMonitor?.cancel()
-                if (pending != null && socket != null && nonce != null) {
-                    withContext(nfqwsDispatcher) {
-                        nfqwsRequester(socket, nonce, "v3/stop_nfqws2", buildJsonObject {})
-                    }
+                if (socket != null && nonce != null) {
+                    stopNfqwsBackend(socket, nonce)
                 }
                 backendSession.compareAndSet(pending, null)
                 return
@@ -166,6 +165,18 @@ open class RootHelperManager
                 if (!backendSession.compareAndSet(pending, pending.copy(running = true))) {
                     throw RuntimeCleanupPendingException()
                 }
+            }
+        }
+
+        private suspend fun stopNfqwsBackend(
+            socket: String,
+            nonce: String,
+        ) = withContext(nfqwsDispatcher) {
+            val status = nfqwsRequester(socket, nonce, "v3/stop_nfqws2", buildJsonObject {})
+            if (status["running"] != JsonPrimitive(false) ||
+                status["cleanup_pending"] != JsonPrimitive(false)
+            ) {
+                throw RuntimeCleanupPendingException()
             }
         }
 
