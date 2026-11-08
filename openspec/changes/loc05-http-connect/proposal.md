@@ -12,7 +12,7 @@ The local CONNECT listener accepts invalid HTTP input, rejects supported clients
 - Accept HTTP/1.0 without Host and legal field octets with valid Basic credentials.
 - Send success only after upstream establishment and return an HTTP error for excessive headers.
 - BREAKING: malformed requests that previously opened a tunnel now fail.
-- BREAKING: HTTP WS bootstrap failures return 502 before payload classification instead of a false 200; no speculative direct connection is added.
+- BREAKING: HTTP WS bootstrap failures return 502 or 504 before payload classification instead of a false 200; no speculative direct connection is added.
 
 ## Capabilities
 

@@ -16,7 +16,7 @@ The implementation MUST send no successful CONNECT response before a direct or t
 #### Scenario: HTTP WS bootstrap fails before classification
 
 - **WHEN** HTTP CONNECT selects a known target-DC WebSocket and its bootstrap fails before the waiting client sends a seed
-- **THEN** the listener returns 502 before any success, without a speculative direct connection; seed fallback remains available after successful WS setup.
+- **THEN** the listener returns 502 for a connection failure or 504 for a timeout before any success, without a speculative direct connection; seed fallback remains available after successful WS setup.
 
 ### Requirement: REQ-LOC05-FRAMING — Reject invalid CONNECT framing
 
