@@ -73,7 +73,8 @@ class RootHelperManagerTest {
                         assertEquals(launchedSocket, socket)
                         true
                     },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
+                    shutdownRequester = { _, _ -> },
                 )
 
             val result = manager.start(context)
@@ -110,6 +111,8 @@ class RootHelperManagerTest {
                         assertTrue(socket.exists())
                         false
                     },
+                    shutdownRequester = { _, _ -> },
+                    endpointCleanup = { socket, _ -> socket.delete() },
                 )
 
             val result = manager.start(context)
@@ -139,7 +142,8 @@ class RootHelperManagerTest {
                         )
                     },
                     readinessProbe = { _, _, _ -> true },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
+                    shutdownRequester = { _, _ -> },
                 )
 
             val result = manager.start(context)
@@ -149,7 +153,7 @@ class RootHelperManagerTest {
             assertNull(manager.socketPath)
             assertTrue(fakeProcess.destroyed)
             assertTrue(fakeProcess.forceDestroyed)
-            assertEquals(1, fakeProcess.waitForTimeoutCalls)
+            assertEquals(2, fakeProcess.waitForTimeoutCalls)
         }
 
     @Test
@@ -179,6 +183,8 @@ class RootHelperManagerTest {
                         )
                     },
                     readinessProbe = { _, _, _ -> readinessResults.removeFirst() },
+                    shutdownRequester = { _, _ -> },
+                    endpointCleanup = { socket, _ -> socket.delete() },
                 )
 
             val result = manager.start(context)
@@ -214,7 +220,8 @@ class RootHelperManagerTest {
                         )
                     },
                     readinessProbe = { _, _, _ -> true },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
+                    shutdownRequester = { _, _ -> },
                 )
 
             val result = manager.start(context)
@@ -239,7 +246,8 @@ class RootHelperManagerTest {
                         listOf(RootHelperLaunchAttempt("test root helper launcher") { fakeProcess })
                     },
                     readinessProbe = { _, _, _ -> true },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
+                    shutdownRequester = { _, _ -> },
                 )
 
             val result = manager.start(context)
@@ -273,7 +281,7 @@ class RootHelperManagerTest {
                     },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { socketPath, noncePath -> shutdownRequests += socketPath to noncePath },
-                    rootProcessTerminator = { rootTerminated = true },
+                    endpointCleanup = { _, _ -> rootTerminated = true },
                 )
 
             val result = requireNotNull(manager.start(context))
@@ -303,7 +311,7 @@ class RootHelperManagerTest {
                     },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> },
-                    rootProcessTerminator = { events += "reap" },
+                    endpointCleanup = { _, _ -> events += "reap" },
                 )
 
             manager.start(context)
@@ -328,7 +336,7 @@ class RootHelperManagerTest {
                     },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> shutdownRequests += 1 },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
                 )
             val enabled = RootSettingsSection(rootModeEnabled = true)
             manager.claimedBy = Mode.Proxy
@@ -365,7 +373,7 @@ class RootHelperManagerTest {
                     },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> shutdownRequests += 1 },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
                 )
 
             assertNotNull(manager.syncRootMode(context, RootSettingsSection(rootModeEnabled = true)))
@@ -395,7 +403,8 @@ class RootHelperManagerTest {
                     },
                     // The helper only serves IPC once its log writes return; a full pipe stalls it here.
                     readinessProbe = { _, _, _ -> chattyProcess.awaitOutputWritten(ChattyTimeoutMs) },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
+                    shutdownRequester = { _, _ -> },
                 )
 
             val result = manager.start(context)
@@ -425,7 +434,8 @@ class RootHelperManagerTest {
                         )
                     },
                     readinessProbe = { _, _, _ -> processes.last().awaitOutputWritten(ChattyTimeoutMs) },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
+                    shutdownRequester = { _, _ -> },
                 )
 
             repeat(2) {
@@ -557,7 +567,7 @@ private class RecordingProcess(
         unit: TimeUnit,
     ): Boolean {
         waitForTimeoutCalls += 1
-        return waitForTimeoutResult
+        return forceDestroyed || waitForTimeoutResult
     }
 
     override fun exitValue(): Int {

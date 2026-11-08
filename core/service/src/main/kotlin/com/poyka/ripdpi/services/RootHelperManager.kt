@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
-import android.net.LocalSocket
-import android.net.LocalSocketAddress
 import android.os.Build
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.RootSettingsSection
@@ -51,7 +49,7 @@ open class RootHelperManager
             processLaunchAttempts: (File, File, File) -> List<RootHelperLaunchAttempt>,
             readinessProbe: suspend (File, Long, Long) -> Boolean,
             shutdownRequester: ((String, String?) -> Unit)? = null,
-            rootProcessTerminator: (() -> Unit)? = null,
+            endpointCleanup: ((File, File) -> Unit)? = null,
             nfqwsRequester: ((String, String, String, JsonObject) -> JsonObject)? = null,
             nfqwsExtractor: ((Context) -> File)? = null,
             nfqwsDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -60,7 +58,7 @@ open class RootHelperManager
             this.processLaunchAttempts = processLaunchAttempts
             this.readinessProbe = readinessProbe
             this.shutdownRequester = shutdownRequester ?: RootHelperIpc::shutdown
-            this.rootProcessTerminator = rootProcessTerminator ?: ::terminateRootHelperProcesses
+            endpointCleanup?.let { this.endpointCleanup = it }
             this.nfqwsRequester = nfqwsRequester ?: RootHelperIpc::request
             this.nfqwsExtractor = nfqwsExtractor ?: NfqwsBackendAssets::extract
             this.nfqwsDispatcher = nfqwsDispatcher
@@ -73,8 +71,11 @@ open class RootHelperManager
         private var nfqwsDispatcher: CoroutineDispatcher = Dispatchers.IO
         private var helperProcess: Process? = null
         private var helperOutput: RootHelperOutputDrainer? = null
-        private var activeSocketPath: String? = null
-        private var activeNoncePath: String? = null
+        private var helperEndpoint: RootHelperEndpoint? = null
+        private val activeSocketPath: String?
+            get() = helperEndpoint?.takeIf { it.ready }?.socket?.absolutePath
+        private val activeNoncePath: String?
+            get() = helperEndpoint?.takeIf { it.ready }?.nonceFile?.absolutePath
         private var binaryExtractor: (Context) -> File = { context -> extractBinary(context) }
         private var processLaunchAttempts: (File, File, File) -> List<RootHelperLaunchAttempt> =
             { binary, socket, nonceFile -> buildRootHelperLaunchAttempts(binary, socket, nonceFile) }
@@ -82,7 +83,9 @@ open class RootHelperManager
             awaitSocketReady(socket, timeoutMs, pollIntervalMs)
         }
         private var shutdownRequester: (String, String?) -> Unit = RootHelperIpc::shutdown
-        private var rootProcessTerminator: () -> Unit = ::terminateRootHelperProcesses
+        private var endpointCleanup: (File, File) -> Unit = { socket, nonceFile ->
+            shutdownRootHelperEndpoint(socket, nonceFile)
+        }
 
         @Volatile private var predecessorsReaped = false
 
@@ -98,7 +101,6 @@ open class RootHelperManager
             private const val HELPER_BINARY_NAME = "ripdpi-root-helper"
             private const val SOCKET_NAME = "root_helper.sock"
             private const val NONCE_FILE_NAME = "$SOCKET_NAME.nonce"
-            private const val ROOT_TERMINATION_TIMEOUT_MS = 1000L
             private const val SESSION_NONCE_BYTES = 32
             private const val READY_POLL_INTERVAL_MS = 100L
             private const val READY_TIMEOUT_MS = 3000L
@@ -261,19 +263,16 @@ open class RootHelperManager
                     val socket = File(context.filesDir, SOCKET_NAME)
                     val nonceFile = File(context.filesDir, NONCE_FILE_NAME)
 
-                    removeStaleIpcFiles(socket, nonceFile)
-                    // A helper from an earlier app process is not our child and has no owner-death exit,
-                    // and this process never learns its socket path, so stop() cannot reach it.
+                    helperEndpoint = RootHelperEndpoint(socket, nonceFile)
                     if (!predecessorsReaped) {
+                        endpointCleanup(socket, nonceFile)
                         predecessorsReaped = true
-                        runCatching { rootProcessTerminator() }.onFailure { error ->
-                            log.w(error) { "failed to terminate root helpers from an earlier app process" }
-                        }
                     }
-                    writeSessionNonce(nonceFile, generateSessionNonce())
-
+                    removeStaleIpcFiles(socket, nonceFile)
                     for (attempt in processLaunchAttempts(binary, socket, nonceFile)) {
+                        helperEndpoint = RootHelperEndpoint(socket, nonceFile)
                         removeStaleSocket(socket)
+                        writeSessionNonce(nonceFile, generateSessionNonce())
 
                         log.i { "starting root helper: ${attempt.description}" }
                         val process =
@@ -294,8 +293,7 @@ open class RootHelperManager
                         helperOutput = RootHelperOutputDrainer.start(process) { line -> log.d { "helper: $line" } }
 
                         if (readinessProbe(socket, READY_TIMEOUT_MS, READY_POLL_INTERVAL_MS)) {
-                            activeSocketPath = socket.absolutePath
-                            activeNoncePath = nonceFile.absolutePath
+                            helperEndpoint = RootHelperEndpoint(socket, nonceFile, ready = true)
                             log.i { "root helper started, socket: ${socket.absolutePath}" }
                             return@withContext socket.absolutePath
                         }
@@ -320,55 +318,35 @@ open class RootHelperManager
             backendMonitor?.cancel()
             backendMonitor = null
             val process = helperProcess
-            val socketPath = activeSocketPath
-            val noncePath = activeNoncePath
+            val endpoint = helperEndpoint
+            val socketPath = endpoint?.socket?.absolutePath
+            val noncePath = endpoint?.nonceFile?.absolutePath
             // A dead helper cannot answer, so a failed shutdown request must not wedge every later stop.
             var helperDied = false
-            if (socketPath != null) {
-                val shutdownFailure = runCatching { shutdownRequester(socketPath, noncePath) }.exceptionOrNull()
+            if (endpoint != null && (endpoint.ready || endpoint.socket.exists())) {
+                val shutdownFailure =
+                    runCatching {
+                        shutdownRequester(endpoint.socket.absolutePath, endpoint.nonceFile.absolutePath)
+                    }.exceptionOrNull()
                 if (shutdownFailure != null) {
                     log.w(shutdownFailure) { "failed to request root helper shutdown" }
                     helperDied = !isRunning()
-                    // A live but unresponsive helper may still own the backend: keep cleanup pending.
-                    if (ownedBackend != null && !helperDied) throw RuntimeCleanupPendingException(shutdownFailure)
+                    // A startup reaper can own cleanup even before the app starts an NFQUEUE session.
+                    if (!helperDied) throw RuntimeCleanupPendingException(shutdownFailure)
                 }
             }
             val output = helperOutput
+            if (process != null) stopOwnedHelperProcess(process, STOP_TIMEOUT_MS)
+            val endpointNeedsCleanup = process == null || ownedBackend == null || helperDied
+            if (endpoint != null && endpointNeedsCleanup) {
+                endpointCleanup(endpoint.socket, endpoint.nonceFile)
+            }
             helperProcess = null
             helperOutput = null
-            activeSocketPath = null
-            activeNoncePath = null
+            helperEndpoint = null
             backendSession.set(null)
-            if (process == null) {
-                removeIpcFiles(socketPath, noncePath)
-                return
-            }
-
-            try {
-                process.destroy()
-                val exited =
-                    runCatching {
-                        process.waitFor(STOP_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    }.getOrDefault(false)
-
-                if (!exited) {
-                    process.destroyForcibly()
-                }
-            } catch (e: IOException) {
-                log.w(e) { "error stopping root helper" }
-            } catch (e: SecurityException) {
-                log.w(e) { "error stopping root helper" }
-            } finally {
-                if (socketPath != null && (ownedBackend == null || helperDied)) {
-                    runCatching {
-                        rootProcessTerminator()
-                    }.onFailure { error ->
-                        log.w(error) { "failed to terminate detached root helper process" }
-                    }
-                }
-                output?.close()
-                removeIpcFiles(socketPath, noncePath)
-            }
+            output?.close()
+            removeIpcFiles(socketPath, noncePath)
             log.i { "root helper stopped" }
         }
 
@@ -463,56 +441,40 @@ open class RootHelperManager
             noncePath?.let { runCatching { File(it).delete() } }
         }
 
-        private fun terminateRootHelperProcesses() {
-            val command =
-                "killall -TERM $HELPER_BINARY_NAME 2>/dev/null || true; " +
-                    "killall -KILL $HELPER_BINARY_NAME 2>/dev/null || true"
-            launchableSuCommands().firstOrNull { suCommand ->
-                runCatching {
-                    val process = Runtime.getRuntime().exec(arrayOf(suCommand, "-c", command))
-                    val exited = process.waitFor(ROOT_TERMINATION_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                    if (!exited) {
-                        process.destroyForcibly()
-                    }
-                    exited
-                }.getOrDefault(false)
-            }
-        }
-
         private suspend fun awaitSocketReady(
             socket: File,
             timeoutMs: Long,
             pollIntervalMs: Long,
         ): Boolean {
             var ready = false
+            val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
             withTimeoutOrNull<Unit>(timeoutMs) {
                 while (!ready) {
-                    ready = (socket.exists() && canConnect(socket))
+                    ready = (socket.exists() && canConnect(socket, deadlineNanos))
                     if (!ready) {
                         delay(pollIntervalMs)
                     }
                 }
             }
-            return ready || (socket.exists() && canConnect(socket))
+            return ready || (socket.exists() && canConnect(socket, deadlineNanos))
         }
 
-        private fun canConnect(socket: File): Boolean {
-            val localSocket = LocalSocket()
-            return try {
-                localSocket.connect(
-                    LocalSocketAddress(
-                        socket.absolutePath,
-                        LocalSocketAddress.Namespace.FILESYSTEM,
-                    ),
-                )
-                true
+        private fun canConnect(
+            socket: File,
+            deadlineNanos: Long,
+        ): Boolean =
+            try {
+                withRootHelperSocket(socket.absolutePath, deadlineNanos) { true }
             } catch (_: IOException) {
                 false
-            } finally {
-                runCatching { localSocket.close() }
             }
-        }
     }
+
+private data class RootHelperEndpoint(
+    val socket: File,
+    val nonceFile: File,
+    val ready: Boolean = false,
+)
 
 internal class RootHelperLaunchAttempt(
     val description: String,
@@ -555,4 +517,29 @@ internal fun installRootHelperBinary(
     } finally {
         pending.delete()
     }
+}
+
+private fun stopOwnedHelperProcess(
+    process: Process,
+    timeoutMillis: Long,
+) {
+    val failure =
+        try {
+            process.destroy()
+            val exited =
+                process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS) ||
+                    run {
+                        process.destroyForcibly()
+                        process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)
+                    }
+            if (exited) null else IOException("Root-helper launcher did not exit")
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            error
+        } catch (error: IOException) {
+            error
+        } catch (error: SecurityException) {
+            error
+        }
+    if (failure != null) throw RuntimeCleanupPendingException(failure)
 }

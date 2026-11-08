@@ -44,7 +44,7 @@ class RootHelperNfqwsTest {
                         processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
                         readinessProbe = { _, _, _ -> true },
                         shutdownRequester = { _, _ -> if (rejectShutdown) throw IOException("cleanup pending") },
-                        rootProcessTerminator = { globalKills++ },
+                        endpointCleanup = { _, _ -> globalKills++ },
                         nfqwsExtractor = { context.filesDir },
                         nfqwsRequester = { _, _, _, _ ->
                             if (startFails) throw IOException("lost startup response")
@@ -84,7 +84,7 @@ class RootHelperNfqwsTest {
                     processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> throw IOException("connection refused") },
-                    rootProcessTerminator = { globalKills++ },
+                    endpointCleanup = { _, _ -> globalKills++ },
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, _, _ -> buildJsonObject { put("running", true) } },
                     nfqwsDispatcher = StandardTestDispatcher(testScheduler),
@@ -115,7 +115,7 @@ class RootHelperNfqwsTest {
                     processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, command, params ->
                         commands += command
@@ -154,7 +154,7 @@ class RootHelperNfqwsTest {
                     processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, _, _ -> buildJsonObject { put("running", true) } },
                     nfqwsDispatcher = StandardTestDispatcher(testScheduler),
@@ -190,7 +190,7 @@ class RootHelperNfqwsTest {
                     processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, _, _ -> buildJsonObject { put("running", true) } },
                     nfqwsDispatcher = StandardTestDispatcher(testScheduler),
@@ -221,7 +221,7 @@ class RootHelperNfqwsTest {
                     processLaunchAttempts = { _, _, _ -> listOf(RootHelperLaunchAttempt("test") { process }) },
                     readinessProbe = { _, _, _ -> true },
                     shutdownRequester = { _, _ -> },
-                    rootProcessTerminator = {},
+                    endpointCleanup = { _, _ -> },
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, command, _ ->
                         if (command == "v3/stop_nfqws2" && rejectStop) throw IOException("rule removal pending")

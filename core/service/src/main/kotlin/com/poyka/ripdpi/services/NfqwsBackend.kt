@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
-import android.net.LocalSocket
-import android.net.LocalSocketAddress
 import android.os.Build
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.utility.shellSplit
@@ -19,6 +17,7 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.TimeUnit
 
 internal data class NfqwsBackendSession(
     val args: List<String>,
@@ -110,6 +109,26 @@ internal object RootHelperIpc {
         command: String,
         params: JsonObject,
     ): JsonObject {
+        val timeoutMillis = if (command == "v3/start_nfqws2") StartTimeoutMillis else RequestTimeoutMillis
+        val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis.toLong())
+        return requestBefore(socketPath, noncePath, command, params, deadlineNanos)
+    }
+
+    fun shutdownBefore(
+        socketPath: String,
+        noncePath: String?,
+        deadlineNanos: Long,
+    ) {
+        noncePath?.let { requestBefore(socketPath, it, "v3/shutdown", buildJsonObject {}, deadlineNanos) }
+    }
+
+    private fun requestBefore(
+        socketPath: String,
+        noncePath: String,
+        command: String,
+        params: JsonObject,
+        deadlineNanos: Long,
+    ): JsonObject {
         val nonce = File(noncePath).readText(Charsets.US_ASCII).trim()
         if (!ValidNonce.matches(nonce)) throw IOException("Invalid root-helper nonce")
         val payload =
@@ -119,11 +138,9 @@ internal object RootHelperIpc {
                 put("session_nonce", nonce)
                 put("params", params)
             }.toString().toByteArray(Charsets.UTF_8)
-        LocalSocket().use { socket ->
-            socket.connect(LocalSocketAddress(socketPath, LocalSocketAddress.Namespace.FILESYSTEM))
-            socket.soTimeout = if (command == "v3/start_nfqws2") StartTimeoutMillis else RequestTimeoutMillis
+        return withRootHelperSocket(socketPath, deadlineNanos) { socket ->
             writeFrame(socket.outputStream, payload)
-            return parseResponse(readFrame(socket.inputStream))
+            parseResponse(readFrame(socket.inputStream))
         }
     }
 
