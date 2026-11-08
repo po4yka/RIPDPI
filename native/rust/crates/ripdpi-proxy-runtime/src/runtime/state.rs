@@ -653,7 +653,7 @@ mod state_coverage_tests {
             RuntimeState::read_upstream_socks_reply(&mut socks_reply).expect("read reply").starts_with(&[S_VER5, 0])
         );
         assert!(state.resolve_proxy_name("localhost", SocketType::Stream).is_some());
-        assert!(state.resolve_handshake_name("localhost").is_some());
+        assert!(state.resolve_handshake_name("localhost", std::time::Instant::now() + HANDSHAKE_TIMEOUT).is_some());
         assert!(
             RuntimeState::parse_http_connect_client_request(
                 b"CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1:443\r\n\r\n",

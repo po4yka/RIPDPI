@@ -129,7 +129,7 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "socks4 cannot authenticate"));
     }
     let request = read_socks4_request(&mut client, version, deadline)?;
-    let resolver = |host: &str| state.resolve_handshake_name(host);
+    let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
     let parsed = state.parse_socks4_client_request(&request, resolver);
     match parsed {
         Ok(RuntimeClientRequest::Socks4Connect(target)) => {
@@ -165,7 +165,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
             "RIPDPI resolved-domain address type is restricted to the local tunnel hop",
         ));
     }
-    let resolver = |host: &str| state.resolve_handshake_name(host);
+    let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
 
     match state.parse_socks5_client_request(&request, resolver) {
         Ok(RuntimeClientRequest::Socks5Connect(target)) => {
@@ -210,7 +210,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: In
         let _ = client.write_all(reply);
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing or invalid http proxy credentials"));
     }
-    let resolver = |host: &str| state.resolve_handshake_name(host);
+    let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
     match RuntimeState::parse_http_connect_client_request(&request, resolver) {
         Ok(RuntimeClientRequest::HttpConnect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
@@ -238,7 +238,7 @@ fn handle_shadowsocks(
     first_byte: u8,
     deadline: Instant,
 ) -> io::Result<()> {
-    let resolver = |host: &str| state.resolve_handshake_name(host);
+    let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
     let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, state, resolver, deadline)?;
     reject_forbidden_target(&client, target.addr)?;
     let host = target.host.or_else(|| state.extract_relay_payload_host(&first_request));

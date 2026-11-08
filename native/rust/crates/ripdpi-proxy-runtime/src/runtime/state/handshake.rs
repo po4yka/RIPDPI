@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::time::Instant;
 
 use super::*;
 
@@ -172,6 +173,7 @@ impl RuntimeState {
     pub(in crate::runtime) fn encode_http_connect_failure(failure: HttpConnectFailure) -> ProxyReply {
         encode_http_connect_failure(failure)
     }
+    #[cfg(test)]
     pub(in crate::runtime) fn resolve_proxy_name(&self, host: &str, _socket_type: SocketType) -> Option<SocketAddr> {
         self.resolve_proxy_name_with_cancellation(host, None)
     }
@@ -217,8 +219,11 @@ impl RuntimeState {
         }
         .ok()
     }
-    pub(in crate::runtime) fn resolve_handshake_name(&self, host: &str) -> Option<SocketAddr> {
-        self.resolve_proxy_name(host, SocketType::Stream)
+    pub(in crate::runtime) fn resolve_handshake_name(&self, host: &str, deadline: Instant) -> Option<SocketAddr> {
+        self.resolve_proxy_name_with_cancellation(
+            host,
+            Some(&|| self.shutdown_requested() || Instant::now() >= deadline),
+        )
     }
     pub(in crate::runtime) fn parse_socks4_client_request(
         &self,

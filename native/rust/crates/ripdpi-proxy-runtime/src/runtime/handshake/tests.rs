@@ -331,7 +331,7 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
     let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
     let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
     let state = runtime_state_with_context(RuntimeConfig::default(), Some(runtime_context));
-    let resolver = |host: &str| state.resolve_handshake_name(host);
+    let resolver = |host: &str| state.resolve_handshake_name(host, test_deadline());
     let expected_ip = stack.manifest().dns_answer_ipv4.parse::<IpAddr>().expect("fixture ip");
 
     let socks4_request = [
@@ -381,7 +381,10 @@ fn localhost_resolves_to_loopback_without_runtime_context() {
     config.network.ipv6 = false;
     let state = runtime_state(config);
 
-    assert_eq!(state.resolve_handshake_name("localhost"), Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)));
+    assert_eq!(
+        state.resolve_handshake_name("localhost", test_deadline()),
+        Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0))
+    );
 }
 
 #[test]
@@ -392,7 +395,7 @@ fn localhost_prefers_ipv6_loopback_when_enabled() {
     let state = runtime_state(config);
 
     assert_eq!(
-        state.resolve_handshake_name("LOCALHOST."),
+        state.resolve_handshake_name("LOCALHOST.", test_deadline()),
         Some(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 0))
     );
 }
