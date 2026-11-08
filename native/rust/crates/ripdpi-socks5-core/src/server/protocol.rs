@@ -268,21 +268,29 @@ mod tests {
 
 impl<T: AsyncWrite + Unpin> PasswordAuthenticationImpl<T, password_states::Received> {
     /// Notify the client with a "SUCCEEDED" reply and proceed to finish the authentication.
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can leave a partial reply; discard the stream.
     pub async fn accept(
         mut self,
     ) -> Result<PasswordAuthenticationImpl<T, password_states::Finished>, SocksServerError> {
         self.inner.write_all(&[1, consts::SOCKS5_REPLY_SUCCEEDED]).await.err_when("replying auth success")?;
+
+        self.inner.flush().await.err_when("flushing auth success")?;
 
         debug!("Password authentication accepted.");
         Ok(PasswordAuthenticationImpl::new(self.inner))
     }
 
     /// Notify the client with a "NOT_ACCEPTABLE" reply and drop the socket.
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can leave a partial reply; discard the stream.
     pub async fn reject(mut self) -> Result<(), SocksServerError> {
         self.inner
             .write_all(&[1, consts::SOCKS5_AUTH_METHOD_NOT_ACCEPTABLE])
             .await
             .err_when("replying with auth method not acceptable")?;
+
+        self.inner.flush().await.err_when("flushing auth rejection")?;
 
         debug!("Password authentication rejected.");
         Ok(())
@@ -461,16 +469,15 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
                     proto.reply_error(&ReplyError::GeneralFailure).await?;
                     return Err(SocksServerError::Bug("missing control peer ip").into());
                 };
-                self.inner =
-                    run_udp_proxy(
-                        proto,
-                        &target_addr,
-                        control_peer_ip,
-                        None,
-                        self.reply_ip.context("invalid reply ip")?,
-                        None,
-                    )
-                    .await?;
+                self.inner = run_udp_proxy(
+                    proto,
+                    &target_addr,
+                    control_peer_ip,
+                    None,
+                    self.reply_ip.context("invalid reply ip")?,
+                    None,
+                )
+                .await?;
             }
             _ => {
                 proto.reply_error(&ReplyError::CommandNotSupported).await?;
@@ -536,6 +543,8 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Opened> 
     ///
     /// If none of the auth methods requested by the client are in `server_methods`,
     /// returns a `SocksServerError::AuthMethodUnacceptable`.
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can consume a partial greeting or reply; discard the stream.
     pub async fn negotiate_auth<M: AuthMethod<T>>(
         mut self,
         server_methods: &[M],
@@ -564,6 +573,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Opened> 
                         .write_all(&[consts::SOCKS5_VERSION, *client_method_id])
                         .await
                         .err_when("replying with auth method")?;
+                    self.inner.flush().await.err_when("flushing auth method")?;
                     return Ok(server_method.new(self.inner));
                 }
             }
@@ -574,6 +584,7 @@ impl<T: AsyncRead + AsyncWrite + Unpin> Socks5ServerProtocol<T, states::Opened> 
             .write_all(&[consts::SOCKS5_VERSION, consts::SOCKS5_AUTH_METHOD_NOT_ACCEPTABLE])
             .await
             .err_when("replying with method not acceptable")?;
+        self.inner.flush().await.err_when("flushing method rejection")?;
         Err(SocksServerError::AuthMethodUnacceptable(methods))
     }
 }

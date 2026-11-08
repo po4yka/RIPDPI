@@ -32,3 +32,7 @@ include!("server/udp.rs");
 include!("server/stream.rs");
 include!("server/reply.rs");
 include!("server/tests.rs");
+
+#[cfg(test)]
+#[path = "server/auth_tests.rs"]
+mod auth_tests;
