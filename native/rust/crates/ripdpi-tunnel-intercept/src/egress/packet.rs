@@ -149,7 +149,10 @@ pub(crate) fn packet_with_payload(
     if packet.len() < meta.payload_offset {
         return None;
     }
-    let mut output = Vec::with_capacity(meta.payload_offset + payload.len());
+    let output_len = meta.payload_offset.checked_add(payload.len())?;
+    let ip_length = if meta.is_ipv6 { output_len.checked_sub(IPV6_HEADER_LEN)? } else { output_len };
+    u16::try_from(ip_length).ok()?;
+    let mut output = Vec::with_capacity(output_len);
     output.extend_from_slice(&packet[..meta.payload_offset]);
     output.extend_from_slice(payload);
     update_ip_lengths_and_ttl(&mut output, meta, ttl)?;
@@ -337,8 +340,8 @@ fn update_ip_lengths_and_ttl(packet: &mut [u8], meta: PacketMeta, ttl: Option<u8
         if packet.len() < IPV6_HEADER_LEN {
             return None;
         }
-        let payload_len = packet.len().checked_sub(IPV6_HEADER_LEN)?;
-        packet[4..6].copy_from_slice(&(payload_len as u16).to_be_bytes());
+        let payload_len = u16::try_from(packet.len().checked_sub(IPV6_HEADER_LEN)?).ok()?;
+        packet[4..6].copy_from_slice(&payload_len.to_be_bytes());
         if let Some(ttl) = ttl {
             packet[7] = ttl.max(1);
         }
@@ -562,3 +565,6 @@ mod tests {
 
 #[cfg(test)]
 mod boundary_tests;
+
+#[cfg(test)]
+mod output_size_tests;
