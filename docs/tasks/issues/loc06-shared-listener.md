@@ -2,7 +2,7 @@
 id: PRX-1794118808814556
 title: Repair shared proxy listener dispatch contracts
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: Proxy runtime
