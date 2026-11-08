@@ -37,7 +37,7 @@ pub fn runtime_config_envelope_from_payload(
     // Covers payloads built outside `parse_proxy_config_json` (e.g. constructed
     // directly or via `serde_json::from_value`).
     validate_schema_version(&payload)?;
-    match payload {
+    let mut envelope = match payload {
         ProxyConfigPayload::CommandLine {
             args,
             host_autolearn_store_path,
@@ -66,12 +66,12 @@ pub fn runtime_config_envelope_from_payload(
                     "Non-loopback proxy listeners require listen.authToken".to_string(),
                 ));
             }
-            Ok(RuntimeConfigEnvelope {
+            RuntimeConfigEnvelope {
                 config,
                 runtime_context: adaptive_runtime_context::sanitize_runtime_context(runtime_context),
                 log_context: adaptive_runtime_context::sanitize_log_context(log_context),
                 native_log_level: None,
-            })
+            }
         }
         ProxyConfigPayload::Ui {
             strategy_preset,
@@ -92,14 +92,19 @@ pub fn runtime_config_envelope_from_payload(
             presets::apply_runtime_preset(runtime_preset_id, &mut runtime_config)?;
             adaptive_runtime_context::apply_session_overrides(&mut runtime_config, session_overrides)?;
 
-            Ok(RuntimeConfigEnvelope {
+            RuntimeConfigEnvelope {
                 config: runtime_config,
                 runtime_context: adaptive_runtime_context::sanitize_runtime_context(runtime_context),
                 log_context: adaptive_runtime_context::sanitize_log_context(log_context),
                 native_log_level,
-            })
+            }
         }
+    };
+    if envelope.config.process.protect_path.is_none() {
+        envelope.config.process.protect_path =
+            envelope.runtime_context.as_ref().and_then(|context| context.protect_path.clone());
     }
+    Ok(envelope)
 }
 
 pub fn runtime_config_from_command_line(mut args: Vec<String>) -> Result<RuntimeConfig, ProxyConfigError> {

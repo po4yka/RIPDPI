@@ -668,6 +668,7 @@ fn kotlin_ui_json_session_overrides_apply_ephemeral_port_and_auth_token() {
 
     assert_eq!(envelope.config.network.listen.listen_port, 0);
     assert_eq!(envelope.config.network.listen.auth_token.as_deref(), Some("alpha-123"));
+    assert_eq!(envelope.config.process.protect_path.as_deref(), Some("/tmp/protect.sock"));
     assert_eq!(envelope.runtime_context.and_then(|context| context.protect_path).as_deref(), Some("/tmp/protect.sock"),);
     assert_eq!(envelope.log_context.and_then(|context| context.runtime_id).as_deref(), Some("runtime-1"),);
 }
