@@ -55,7 +55,17 @@ class NativeRuntimeTelemetryCodecTest {
         val snapshots =
             listOf("", " ,\"appScope\":\"e0d09c2c-56cb-4e60-a168-0e069aa6be15\"").map { scope ->
                 json.decodeNativeRuntimeSnapshot(
-                    """{"source":"proxy","schemaVersion":3,"directPathLearningSignals":[{"authority":"shared.example:443","ipSetDigest":"digest","event":"QUIC_SUCCESS"$scope}]}""",
+                    """
+                    {
+                      "source": "proxy",
+                      "schemaVersion": 3,
+                      "directPathLearningSignals": [{
+                        "authority": "shared.example:443",
+                        "ipSetDigest": "digest",
+                        "event": "QUIC_SUCCESS"$scope
+                      }]
+                    }
+                    """.trimIndent(),
                 )
             }
 
