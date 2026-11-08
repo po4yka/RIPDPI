@@ -179,7 +179,7 @@ fn build_udp_port_unreachable_supports_ipv4() {
         IpAddr::V6(_) => panic!("expected ipv4"),
     };
 
-    let pkt = build_udp_port_unreachable(src, dst, b"quic");
+    let pkt = build_udp_port_unreachable(&build_udp_response(src, dst, b"quic"));
 
     assert_eq!(pkt[0] >> 4, 4);
     assert_eq!(pkt[9], 1);
@@ -195,7 +195,7 @@ fn build_udp_port_unreachable_supports_ipv6() {
     let src = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 53000);
     let dst = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443);
 
-    let pkt = build_udp_port_unreachable(src, dst, b"quic");
+    let pkt = build_udp_port_unreachable(&build_udp_response(src, dst, b"quic"));
 
     assert_eq!(pkt[0] >> 4, 6);
     assert_eq!(pkt[6], 58);
@@ -395,4 +395,14 @@ fn build_udp_response_ipv6_oversized_rejects() {
     let dst = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 5353);
 
     assert!(build_udp_response(src, dst, &payload).is_empty());
+}
+
+#[test]
+fn udp_unreachable_preserves_original_header_fields() {
+    // Independent input: Scapy 2.6.1, TOS 0xb8, ID 0x4321, DF, TTL 37.
+    let original =
+        hex::decode("45b8002c432140002511cbdc0a000002cb007109cf0801bb00181a1830313233343536373839414243444546")
+            .unwrap();
+    let response = build_udp_port_unreachable(&original);
+    assert_eq!(&response[28..], &original[..response.len() - 28]);
 }
