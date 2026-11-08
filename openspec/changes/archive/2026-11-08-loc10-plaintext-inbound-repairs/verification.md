@@ -20,10 +20,10 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-PLAIN-POLICY | PRX-1794128118834975 | `plain_address_policy` tests; assembler timeout/EOF/limit tests; canonical HTTP prefix tests | Passed on the exact SHA above |
-| REQ-PLAIN-CANDIDATE | PRX-1794128119346710 | `candidate_guard_tests` and `final_listener_candidate`; primary/fallback, mapped IP, actual port zero, distinct local service and upstream endpoint | Passed on the exact SHA above |
-| REQ-PLAIN-ACTIVATION | PRX-1794128119943997 | Shared parser, actual CLI binary and public Android command-line JSON conversion tests; help and LAN rejection | Passed on the exact SHA above |
-| Combined validation | PRX-1794128120543062 | Six affected packages, local interoperability, clippy, format, ci-gates, locked metadata, task contracts and independent review | Passed on the exact SHA above |
+| REQ-PLAIN-POLICY | PRX-1794128118834975 | `plain_address_policy` tests; assembler timeout/EOF/limit tests; canonical HTTP prefix tests | passed |
+| REQ-PLAIN-CANDIDATE | PRX-1794128119346710 | `candidate_guard_tests` and `final_listener_candidate`; primary/fallback, mapped IP, actual port zero, distinct local service and upstream endpoint | passed |
+| REQ-PLAIN-ACTIVATION | PRX-1794128119943997 | Shared parser, actual CLI binary and public Android command-line JSON conversion tests; help and LAN rejection | passed |
+| Combined validation | PRX-1794128120543062 | Six affected packages, local interoperability, clippy, format, ci-gates, locked metadata, task contracts and independent review | passed |
 
 ## Observed checks
 

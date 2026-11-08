@@ -2,7 +2,7 @@
 id: PRX-1794127994095690
 title: Repair plaintext address inbound routing and activation
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: Network runtime maintainers
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: loc10-plaintext-inbound-repairs
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T09:36:16Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Confirmed plaintext input findings repaired in three fix commits; rebased six-package tests passed 1154 executions, six local interoperability tests, scoped clippy, formatting, ci-gates, locked metadata and independent review passed.
 ---
 
 ## Goal

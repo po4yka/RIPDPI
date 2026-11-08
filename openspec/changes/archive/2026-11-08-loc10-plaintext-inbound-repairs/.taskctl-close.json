@@ -1,0 +1,11 @@
+{
+  "change": "loc10-plaintext-inbound-repairs",
+  "evidence_summary": "Confirmed plaintext input findings repaired in three fix commits; rebased six-package tests passed 1154 executions, six local interoperability tests, scoped clippy, formatting, ci-gates, locked metadata and independent review passed.",
+  "execution_sha256": "37238a99c1834582758e3c7abea82ef0445052a899e902a4cf846302205ebb39",
+  "issue_sha256": "8d9c2e5ee804c5fed8c91b8649d611b511e77796916e52bf425f9cbde7fbe6b1",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T09:36:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794127994095690"
+}
