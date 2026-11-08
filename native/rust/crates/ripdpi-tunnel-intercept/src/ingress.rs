@@ -177,25 +177,27 @@ fn with_low_ttl(packet: &[u8], ttl: u8) -> Option<Vec<u8>> {
 }
 
 fn with_sequence_delta(packet: &[u8], sequence_delta: u32) -> Option<Vec<u8>> {
-    let tcp_offset = tcp_header_offset(packet)?;
+    let tcp_range = tcp_packet_range(packet)?;
+    let tcp_offset = tcp_range.start;
     let sequence_offset = tcp_offset.checked_add(TCP_SEQUENCE_OFFSET)?;
     let sequence_end = sequence_offset.checked_add(4)?;
     if packet.len() < sequence_end {
         return None;
     }
 
-    let mut modified = packet.to_vec();
+    let mut modified = packet[..tcp_range.end].to_vec();
     let sequence = u32::from_be_bytes(modified[sequence_offset..sequence_end].try_into().ok()?);
     modified[sequence_offset..sequence_end].copy_from_slice(&sequence.wrapping_add(sequence_delta).to_be_bytes());
     recompute_tcp_checksum(&mut modified, tcp_offset)?;
     Some(modified)
 }
 
-fn tcp_header_offset(packet: &[u8]) -> Option<usize> {
+fn tcp_packet_range(packet: &[u8]) -> Option<std::ops::Range<usize>> {
     let (_, tcp) = parse_tcp_slices(packet)?;
     let packet_start = packet.as_ptr() as usize;
     let tcp_start = tcp.slice().as_ptr() as usize;
-    tcp_start.checked_sub(packet_start)
+    let start = tcp_start.checked_sub(packet_start)?;
+    Some(start..start.checked_add(tcp.slice().len())?)
 }
 
 fn recompute_tcp_checksum(packet: &mut [u8], tcp_offset: usize) -> Option<()> {
@@ -204,7 +206,7 @@ fn recompute_tcp_checksum(packet: &mut [u8], tcp_offset: usize) -> Option<()> {
         V6 { source: [u8; 16], destination: [u8; 16], payload_length: usize },
     }
 
-    let (family, tcp_header_len) = {
+    let (family, tcp_header_len, tcp_len) = {
         let (net, tcp) = parse_tcp_slices(packet)?;
         let family = match net {
             NetSlice::Ipv4(ipv4) => {
@@ -217,9 +219,8 @@ fn recompute_tcp_checksum(packet: &mut [u8], tcp_offset: usize) -> Option<()> {
             },
             NetSlice::Arp(_) => return None,
         };
-        (family, tcp.slice().len())
+        (family, tcp.header_slice().len(), tcp.slice().len())
     };
-    let tcp_len = packet.len().checked_sub(tcp_offset)?;
     let checksum_offset = tcp_offset.checked_add(TCP_CHECKSUM_OFFSET)?;
     let checksum_end = checksum_offset.checked_add(2)?;
     if packet.len() < checksum_end {
@@ -232,7 +233,8 @@ fn recompute_tcp_checksum(packet: &mut [u8], tcp_offset: usize) -> Option<()> {
     if packet.len() < payload_offset {
         return None;
     }
-    let payload = &packet[payload_offset..];
+    let payload_end = tcp_offset.checked_add(tcp_len)?;
+    let payload = packet.get(payload_offset..payload_end)?;
     let checksum = match family {
         IpFamily::V4 { source, destination } => tcp_header.calc_checksum_ipv4_raw(source, destination, payload).ok()?,
         IpFamily::V6 { source, destination, payload_length } => {
@@ -461,3 +463,6 @@ mod tests {
         u32::from_be_bytes(packet[24..28].try_into().expect("sequence bytes"))
     }
 }
+
+#[cfg(test)]
+mod checksum_tests;
