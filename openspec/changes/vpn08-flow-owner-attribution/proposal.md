@@ -13,7 +13,7 @@ The VPN-08 audit found stale UDP owners, destination collisions, stale callbacks
 - Start the attribution worker before TUN packet processing.
 - Carry an opaque app scope through authenticated local SOCKS and learning signals. Separate learning state by app scope.
 - Preserve app attribution through synthetic DNS address translation.
-- BREAKING internal JNI callback result and optional runtime telemetry field change together. No user configuration or stored-record migration.
+- BREAKING internal JNI callback result changes with its callers. Runtime telemetry adds an optional backward-compatible appScope field within schema 3. No user configuration or stored-record migration.
 
 ## Capabilities
 
