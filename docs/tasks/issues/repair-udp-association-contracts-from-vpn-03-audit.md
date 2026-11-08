@@ -2,7 +2,7 @@
 id: VPN-1794141873537976
 title: Repair UDP association contracts from VPN-03 audit
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: VPN repair coordinator
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: vpn03-udp-association-repairs
 created: 2026-11-08
 updated: 2026-11-08
+status_detail: All repair steps, host regression tests and local gates passed; remote CI evidence remains pending.
 ---
 
 ## Goal

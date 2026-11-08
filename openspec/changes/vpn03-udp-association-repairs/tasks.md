@@ -14,9 +14,9 @@ Use targeted RED/GREEN tests, affected crate suites and lint, task validation, c
 
 ## Execution
 
-- [ ] VPN-1794142081038544 Repair managed Xray UDP authority handoff #bug !high @item:VPN-1794141873537976
-- [ ] VPN-1794142081837995 Retain admitted UDP reply mappings at capacity #bug !high @item:VPN-1794141873537976
-- [ ] VPN-1794142082448229 Expire historical UDP destination leases safely #bug !high @item:VPN-1794141873537976
-- [ ] VPN-1794142083191753 Deliver complete large UDP replies within the TUN MTU #bug !high @item:VPN-1794141873537976
-- [ ] VPN-1794142083879816 Reject invalid UDP ingress checksums #bug @item:VPN-1794141873537976
-- [ ] VPN-1794142084413873 Verify hypotheses and combined repair gates #bug !high @item:VPN-1794141873537976
+- [x] VPN-1794142081038544 Repair managed Xray UDP authority handoff #bug !high @item:VPN-1794141873537976
+- [x] VPN-1794142081837995 Retain admitted UDP reply mappings at capacity #bug !high @item:VPN-1794141873537976
+- [x] VPN-1794142082448229 Expire historical UDP destination leases safely #bug !high @item:VPN-1794141873537976
+- [x] VPN-1794142083191753 Deliver complete large UDP replies within the TUN MTU #bug !high @item:VPN-1794141873537976
+- [x] VPN-1794142083879816 Reject invalid UDP ingress checksums #bug @item:VPN-1794141873537976
+- [x] VPN-1794142084413873 Verify hypotheses and combined repair gates #bug !high @item:VPN-1794141873537976

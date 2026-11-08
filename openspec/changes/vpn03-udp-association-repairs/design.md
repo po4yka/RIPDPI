@@ -15,7 +15,8 @@ Task ID: `VPN-1794141873537976`. The audit baseline is 28eeb212e804f8adcee3daeba
 - F4: separate receive frame size from TUN MTU. Use a lazy bounded receive pool with one spare truncation-detection byte. Build the complete UDP checksum before splitting return IP packets into valid IPv4 or IPv6 fragments. Preserve existing accepted MTU configuration.
 - F5: validate IP/UDP input at the routing boundary. Keep IPv4 zero UDP checksum permitted. Repair malformed test fixtures instead of weakening negative checks.
 - F1: retain the managed host plus pinned-IP wire contract. Extend only the managed pinned Xray SOCKS path, preserve the domain as route authority and the numeric endpoint as delivery target, and isolate dispatch/reply identity by authority. Standard numeric-only or domain-only conversion cannot preserve this contract. Prefer existing Xray dispatcher primitives; do not change the shared TUN source key if the managed dispatcher can isolate destinations.
-- Reproduce starvation and source-lifetime hypotheses before making additional behavior changes. Do not alter Android app policy based only on a possible late UDP response.
+- H2: a controlled real-worker test reproduced receive starvation across the full outbound queue. Alternate outbound and inbound polling, retain cancellation priority, and rotate on Pending polls to avoid a reverse bias when malformed frames consume the cooperative budget.
+- Do not alter Android app policy based only on a possible late UDP response. The same-source cross-UID hypothesis still needs device evidence.
 
 ## Contracts and ownership
 
@@ -31,7 +32,7 @@ Task ID: `VPN-1794141873537976`. The audit baseline is 28eeb212e804f8adcee3daeba
 - Fragmentation can corrupt checksums or offsets. Use independent reassembly and checksum oracles for both IP families.
 - Xray may cache one dispatch ray for several authorities. Test two domains at one IP and port, with distinct routes and reversed replies.
 - A bounded receive pool does not alone bound decoded worker payloads. Retain association/event/TUN queue limits and describe all retained storage accurately.
-- The baseline has two unrelated VPN-02 host test failures. Report them separately; do not disable them or change quality baselines.
+- Earlier shared-output runs reported two VPN-02 failures. An isolated unchanged library run passed all 378 tests. The cause of the earlier discrepancy is unknown; it is not treated as a current baseline defect.
 
 ## Migration Plan
 

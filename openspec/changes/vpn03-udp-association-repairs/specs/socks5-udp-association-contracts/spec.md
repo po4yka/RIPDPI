@@ -16,7 +16,7 @@ The tunnel MUST retain the response identity of each admitted UDP destination un
 
 ### Requirement: REQ-VPN03-LEASE-LIFETIME — Expire idle destinations independently
 
-The tunnel MUST bound DNS mapping ownership per UDP source. An idle destination MUST release its mapping lease independently of activity at another destination. Queued or late responses from a retired destination MUST NOT use a reassigned synthetic mapping.
+The tunnel MUST bound DNS mapping ownership per UDP source. An idle destination MUST release its mapping lease independently of activity at another destination. Queued responses from a retired destination MUST be rejected. A wire-late response MUST NOT use a synthetic mapping reassigned to a different authority. The contract does not distinguish late and new payloads for the same host, pinned IP, and port.
 
 #### Scenario: Churn with one active destination
 
@@ -42,3 +42,14 @@ The tunnel MUST discard invalid UDP checksums before admitting an association. I
 
 - **WHEN** an IPv6 UDP packet has a zero or incorrect checksum
 - **THEN** no association is admitted and no payload reaches the upstream socket.
+
+
+### Requirement: REQ-VPN03-DUPLEX — Give ready replies a turn
+
+The worker MUST service both ready inbound and outbound datagrams without draining the complete outbound queue first. Cancellation MUST keep priority. A Pending poll MUST NOT retain one direction's permanent priority.
+
+#### Scenario: Ready reply with queued outbound traffic
+
+- **WHEN** a valid relay reply and the production outbound queue are both ready
+- **THEN** the reply reaches the event channel before all outbound work drains
+- **AND** cancellation can stop the worker while event delivery is blocked.
