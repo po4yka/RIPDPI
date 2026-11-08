@@ -2,7 +2,7 @@
 id: DNS-1794142176893534
 title: Repair VPN-05 DNS mapping ownership and response integrity
 kind: bug
-status: doing
+status: review
 area: dns
 priority: high
 owner: Network engineering
