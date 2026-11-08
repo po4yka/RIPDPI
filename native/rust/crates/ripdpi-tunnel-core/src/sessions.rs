@@ -74,6 +74,8 @@ pub struct ActiveSessions {
     /// duplex end, so the io loop pumps that data at once instead of at its next poll timer.
     bridge_ready: Arc<Notify>,
     bridge_waker: Waker,
+    /// Handles still to visit after a shared wake; one notification can cover many sessions.
+    bridge_remaining: usize,
 }
 
 struct NotifyWake(Arc<Notify>);
@@ -104,12 +106,21 @@ impl ActiveSessions {
             time_wait_sockets: VecDeque::new(),
             bridge_ready,
             bridge_waker,
+            bridge_remaining: 0,
         }
     }
 
     /// The waker the bridge pump gives to every session duplex poll.
     pub fn bridge_waker(&self) -> &Waker {
         &self.bridge_waker
+    }
+
+    pub(crate) fn start_bridge_sweep(&mut self) {
+        self.bridge_remaining = self.entries.len();
+    }
+
+    pub(crate) fn bridge_work_pending(&self) -> bool {
+        self.bridge_remaining > 0
     }
 
     /// Completes when a session duplex end woke [`Self::bridge_waker`]; a wake with no waiter is kept
@@ -201,6 +212,7 @@ impl ActiveSessions {
         let order_entry = SessionOrderEntry { handle, sequence: seq };
         self.eviction_order.push_back(order_entry);
         self.work_order.push_back(order_entry);
+        self.start_bridge_sweep();
         evicted_handle
     }
 
@@ -212,6 +224,7 @@ impl ActiveSessions {
     /// Remove a session by socket handle, returning it if present.
     pub fn remove(&mut self, handle: SocketHandle) -> Option<SessionEntry> {
         let entry = self.entries.remove(&handle)?;
+        self.bridge_remaining = self.bridge_remaining.min(self.entries.len());
         self.sequences.remove(&handle);
         if let Some(registration_id) = entry.attribution_id {
             self.closed_flows.push(registration_id.request());
@@ -269,6 +282,7 @@ impl ActiveSessions {
                 handles.push(entry.handle);
             }
         }
+        self.bridge_remaining = self.bridge_remaining.saturating_sub(handles.len()).min(self.entries.len());
         handles
     }
 
@@ -417,7 +431,9 @@ mod tests {
         assert_eq!(sessions.pop_oldest_live().map(|entry| entry.handle), Some(long_lived));
     }
 
-    #[tokio::test]
+    /// # Cancel safety:
+    /// cancel-safe: the isolated runtime owns all test tasks, and the body does not suspend.
+    #[tokio::test(flavor = "current_thread")]
     async fn work_batches_are_bounded_rotating_and_skip_removed_generations() {
         let mut socket_set = SocketSet::new(vec![]);
         let handles: Vec<_> = (0..3).map(|_| socket_set.add(make_tcp_socket())).collect();
@@ -427,8 +443,11 @@ mod tests {
             assert!(sessions.insert(*handle, entry).is_none());
         }
 
+        sessions.start_bridge_sweep();
         assert_eq!(sessions.next_work_batch(2), handles[..2]);
+        assert!(sessions.bridge_work_pending());
         assert_eq!(sessions.next_work_batch(2), vec![handles[2], handles[0]]);
+        assert!(!sessions.bridge_work_pending(), "a full sweep must return to waiting");
         sessions.remove(handles[1]).expect("remove middle session");
 
         let batch = sessions.next_work_batch(3);
@@ -436,5 +455,14 @@ mod tests {
         assert!(batch.contains(&handles[0]));
         assert!(batch.contains(&handles[2]));
         assert!(!batch.contains(&handles[1]));
+        sessions.start_bridge_sweep();
+        sessions.remove(handles[0]);
+        sessions.remove(handles[2]);
+        assert!(!sessions.bridge_work_pending(), "removal of all sessions must clear scheduled work");
+        let (entry, _) = make_entry();
+        sessions.insert(handles[0], entry);
+        assert!(sessions.bridge_work_pending(), "new admission must schedule its initial bridge work");
+        assert_eq!(sessions.next_work_batch(1), vec![handles[0]]);
+        assert!(!sessions.bridge_work_pending(), "handle reuse must not inherit extra work from a removed sweep");
     }
 }

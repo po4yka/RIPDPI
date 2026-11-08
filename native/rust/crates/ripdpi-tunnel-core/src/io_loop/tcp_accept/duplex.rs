@@ -1,6 +1,7 @@
 use std::io;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::task::Waker;
 use tokio::io::DuplexStream;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -10,6 +11,11 @@ mod tcp_dns;
 
 pub(super) use launch::create_session_duplex;
 pub(super) use tcp_dns::create_tcp_dns_duplex;
+
+pub(super) struct SessionLifecycle {
+    pub(super) cancel: CancellationToken,
+    pub(super) bridge_waker: Waker,
+}
 
 pub(super) struct SessionDuplex {
     pub(super) smoltcp_side: DuplexStream,

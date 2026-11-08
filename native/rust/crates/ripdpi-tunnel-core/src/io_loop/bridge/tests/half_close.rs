@@ -28,7 +28,9 @@ pub(super) fn completed_entry() -> SessionEntry {
     }
 }
 
-fn close_connection(device: &mut TunDevice) -> (Interface, SocketSet<'static>, SocketHandle, Instant, Vec<u8>) {
+pub(super) fn close_connection(
+    device: &mut TunDevice,
+) -> (Interface, SocketSet<'static>, SocketHandle, Instant, Vec<u8>) {
     let (mut iface, mut sockets, handle, server_seq) = establish_tcp_connection(device);
     sockets.get_mut::<TcpSocket>(handle).close();
     let now = Instant::now();

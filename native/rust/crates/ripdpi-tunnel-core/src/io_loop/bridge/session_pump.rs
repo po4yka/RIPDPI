@@ -33,6 +33,12 @@ pub(in crate::io_loop) async fn pump_active_sessions(
             to_remove.push(handle);
             continue;
         }
+        // A terminal failure can follow an earlier directional EOF. Acquire pairs with the
+        // session task's Release store, including when no further app packet arrives.
+        if session.upstream_closed && session.upstream_failed.load(Ordering::Acquire) {
+            to_remove.push(handle);
+            continue;
+        }
 
         if from_app::pump_from_app(tcp, session, &waker).is_err() {
             to_remove.push(handle);

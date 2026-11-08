@@ -15,7 +15,7 @@ use crate::session::{Auth, TargetAddr};
 use crate::split_dns::SplitDnsPolicy;
 use crate::{ActiveSessions, SessionEntry, Stats};
 
-use super::super::duplex::{create_session_duplex, create_tcp_dns_duplex};
+use super::super::duplex::{SessionLifecycle, create_session_duplex, create_tcp_dns_duplex};
 use super::super::eviction::remove_evicted_session_socket;
 use super::super::eviction::remove_pending_listen;
 use super::super::target::pin_synthetic_ip;
@@ -57,7 +57,7 @@ pub(super) fn admit_session(
             protect_path,
             connect_timeout,
             read_write_timeout,
-            cancel,
+            SessionLifecycle { cancel: cancel.child_token(), bridge_waker: sessions.bridge_waker().clone() },
             stats,
         )
     };

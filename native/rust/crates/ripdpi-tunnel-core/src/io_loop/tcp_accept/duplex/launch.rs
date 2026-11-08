@@ -1,16 +1,16 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::task::Waker;
 use std::time::Duration;
 
 use tokio::io::{DuplexStream, duplex};
-use tokio_util::sync::CancellationToken;
 
 use crate::Stats;
 use crate::io_loop::DUPLEX_BUF;
 use crate::session::{Auth, TargetAddr, TcpSession};
 
-use super::SessionDuplex;
+use super::{SessionDuplex, SessionLifecycle};
 
 pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
     proxy_sockaddr: SocketAddr,
@@ -19,11 +19,11 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
     protect_path: Option<&str>,
     connect_timeout: Duration,
     read_write_timeout: Duration,
-    parent_cancel: &CancellationToken,
+    lifecycle: SessionLifecycle,
     stats: &Arc<Stats>,
 ) -> SessionDuplex {
     let (smoltcp_side, session_side) = duplex(DUPLEX_BUF);
-    let cancel = parent_cancel.child_token();
+    let SessionLifecycle { cancel, bridge_waker } = lifecycle;
     let session_inst = TcpSession::with_stats(
         proxy_sockaddr,
         auth.clone(),
@@ -37,7 +37,7 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
     let upstream_failed = Arc::new(AtomicBool::new(false));
     let task_failed = Arc::clone(&upstream_failed);
     let handle = tokio::spawn(async move {
-        let mut end = SessionEnd { stream: session_side, upstream_failed: task_failed, failed: true };
+        let mut end = SessionEnd { stream: session_side, upstream_failed: task_failed, bridge_waker, failed: true };
         let result = session_inst.run(&mut end.stream, session_cancel).await;
         end.failed = result.is_err();
         drop(end);
@@ -51,14 +51,18 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
 struct SessionEnd {
     stream: DuplexStream,
     upstream_failed: Arc<AtomicBool>,
+    bridge_waker: Waker,
     failed: bool,
 }
 
 impl Drop for SessionEnd {
     fn drop(&mut self) {
-        // Release pairs with the pump's Acquire load: the flag is published before `stream` drops
-        // after this body, and the pump reads it only after it sees that drop as EOF.
+        // Release pairs with the pump's Acquire load: publish the outcome before the notification
+        // and before `stream` drops after this body.
         self.upstream_failed.store(self.failed, Ordering::Release);
+        // Directional EOF can clear the duplex read waker before the relay task ends. Publish an
+        // explicit completion wake so a long native TCP timer cannot delay terminal cleanup.
+        self.bridge_waker.wake_by_ref();
     }
 }
 
@@ -67,11 +71,20 @@ mod tests {
     use super::*;
     use tokio::io::AsyncReadExt;
 
-    #[tokio::test]
+    /// # Cancel safety:
+    /// cancel-safe: task.await borrows no shared state; read and the timed Notify wait are
+    /// cancel-safe. The isolated runtime owns the task and both duplex ends.
+    #[tokio::test(flavor = "current_thread")]
     async fn a_panicking_session_reports_failure_before_its_duplex_end_closes() {
         let (mut smoltcp_side, session_side) = duplex(64);
         let upstream_failed = Arc::new(AtomicBool::new(false));
-        let end = SessionEnd { stream: session_side, upstream_failed: Arc::clone(&upstream_failed), failed: true };
+        let sessions = crate::ActiveSessions::new(1);
+        let end = SessionEnd {
+            stream: session_side,
+            upstream_failed: Arc::clone(&upstream_failed),
+            bridge_waker: sessions.bridge_waker().clone(),
+            failed: true,
+        };
 
         let task = tokio::spawn(async move {
             let _end = end;
@@ -82,5 +95,8 @@ mod tests {
         let mut byte = [0u8; 1];
         assert_eq!(smoltcp_side.read(&mut byte).await.expect("EOF after the panic"), 0);
         assert!(upstream_failed.load(Ordering::Acquire), "a panicked session must not close with FIN");
+        tokio::time::timeout(Duration::from_secs(1), sessions.bridge_ready())
+            .await
+            .expect("terminal panic wakes the bridge even without a duplex reader");
     }
 }

@@ -5,4 +5,5 @@ mod session_flow;
 mod session_lifecycle;
 mod shutdown;
 mod support;
+mod sweep;
 mod tun_tx;

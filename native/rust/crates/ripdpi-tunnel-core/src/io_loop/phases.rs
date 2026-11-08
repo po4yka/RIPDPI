@@ -1,6 +1,7 @@
 use std::io;
 
 use crate::device::PacketFd;
+use smoltcp::iface::PollResult;
 use smoltcp::time::Instant;
 use tracing::warn;
 
@@ -72,7 +73,9 @@ pub(in crate::io_loop) fn retry_pending_udp_admission(state: &mut LoopState) {
 }
 
 pub(in crate::io_loop) fn poll_smoltcp(state: &mut LoopState) {
-    state.iface.poll(Instant::now(), &mut state.device, &mut state.socket_set);
+    if state.iface.poll(Instant::now(), &mut state.device, &mut state.socket_set) == PollResult::SocketStateChanged {
+        state.sessions.start_bridge_sweep();
+    }
     state.sessions.remove_retired_sockets(&mut state.socket_set);
     reconcile_pending_listeners(&mut state.pending_listens, &state.socket_set);
 }

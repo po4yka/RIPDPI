@@ -23,6 +23,7 @@ pub(in crate::io_loop) enum WaitOutcome {
 pub(super) enum WaitEvent {
     TunReadable,
     PollTimer,
+    BridgeReady,
     Udp(Option<UdpEvent>),
     Dns(Option<DnsResponse>),
     Cancelled,
@@ -31,7 +32,7 @@ pub(super) enum WaitEvent {
 /// # Cancel safety:
 ///
 /// cancel-safe: every `select!` arm uses a cancel-safe primitive (`readable`,
-/// timer, or channel receive), and the DNS receiver remains borrowed in
+/// timer, channel receive, or `bridge_ready`'s `Notified`), and the DNS receiver remains borrowed in
 /// `LoopState` while suspended instead of being removed and restored around the
 /// await. Dropping this future therefore cannot disable DNS responses.
 pub(in crate::io_loop) async fn wait_for_next_event(
@@ -46,7 +47,7 @@ pub(in crate::io_loop) async fn wait_for_next_event(
 
     drain_udp_events(state);
     // Drained UDP replies sit in the TX queue after this iteration's flush and wake nothing.
-    let work_pending = work_pending || !state.device.tx_queue.is_empty();
+    let work_pending = work_pending || !state.device.tx_queue.is_empty() || state.sessions.bridge_work_pending();
 
     let dns_enabled = state.dns_resp_rx.is_some();
     // biased; checks the cancellation arm first on every poll so shutdown is prompt
@@ -59,7 +60,7 @@ pub(in crate::io_loop) async fn wait_for_next_event(
             result?;
             WaitEvent::TunReadable
         },
-        _ = state.sessions.bridge_ready() => WaitEvent::PollTimer,
+        _ = state.sessions.bridge_ready() => WaitEvent::BridgeReady,
         _ = tokio::time::sleep(smol_delay) => WaitEvent::PollTimer,
         udp_event = state.udp_rx.recv() => WaitEvent::Udp(udp_event),
         dns_result = recv_dns_response(&mut state.dns_resp_rx), if dns_enabled => WaitEvent::Dns(dns_result),
