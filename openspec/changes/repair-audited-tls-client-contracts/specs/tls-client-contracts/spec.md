@@ -51,12 +51,12 @@ A timed-out or cancelled DoQ transaction MUST cancel only its own streams with t
 
 ### Requirement: REQ-STD01-F06 — Bounded TLS diagnostic workers
 
-Every connection-concurrency TLS worker MUST stop on the earliest cell or scan deadline or scan cancellation. Joining workers MUST NOT bypass those bounds. Administrative cancellation MUST NOT become evidence of network blocking.
+After its bounded protected TCP connect, every connection-concurrency TLS worker MUST stop its TLS handshake on the earliest cell or scan deadline or scan cancellation. Joining workers MUST NOT bypass those bounds. Administrative cancellation MUST NOT become evidence of network blocking.
 
 #### Scenario: Bounded TLS diagnostic workers
 
 - **WHEN** a peer is silent or sends partial TLS records below the per-read timeout and the scan is cancelled or expires
-- **THEN** the worker closes its socket and the cell returns within the polling tolerance without a network-blocking verdict.
+- **THEN** the TLS handshake closes its socket and the cell returns within the polling tolerance without a network-blocking verdict.
 
 ### Requirement: REQ-STD01-F07 — Explicit unsupported TUIC early data
 

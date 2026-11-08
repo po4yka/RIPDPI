@@ -13,7 +13,7 @@ The confirmed findings are consumer-policy and ownership faults. Shared TLS libr
 - Set DoT ALPN to dot at the consumer, including custom-builder hooks. Accept dot or no ALPN, and reject a different selection before DNS bytes.
 - Check h2 after TLS and before Hyper in both MASQUE H2 paths and xHTTP. A narrow read-only REALITY negotiated-ALPN accessor is allowed if the wrapper needs it.
 - Cancel/reset only the owned DoQ request streams with DOQ_REQUEST_CANCELLED=3; keep the shared connection alive. Review each await and Drop edge.
-- Give synchronous TLS classifier I/O a short polling interval and an absolute cell/scan deadline plus scan cancellation. Keep the helper private to monitor-engine. Use existing administrative result classification, not a network failure verdict.
+- Give synchronous TLS classifier I/O a short polling interval and an absolute cell/scan deadline plus scan cancellation. Keep the helper private to monitor-engine. This polling bound applies after the existing bounded protected TCP connect; it does not promise immediate cancellation of a synchronous protection callback or kernel connect. Use existing administrative result classification, not a network failure verdict.
 - Reject unsupported TUIC early data before network activity. A real implementation would need shared credential/trust-bound tickets, exporter authentication and a separate replay policy; it is outside this repair. Do not add a silent fallback or a misleading active mode.
 
 ## Ownership and order
