@@ -25,6 +25,13 @@ impl<'a> HttpConnectHead<'a> {
             if name.is_empty() || !name.iter().copied().all(is_field_name_byte) {
                 return Err(SessionError::generic());
             }
+            let value = line[colon + 1..].trim_ascii();
+            if name.eq_ignore_ascii_case(b"Transfer-Encoding")
+                || (name.eq_ignore_ascii_case(b"Content-Length")
+                    && (value.is_empty() || value.iter().any(|byte| *byte != b'0')))
+            {
+                return Err(SessionError::generic());
+            }
         }
         Ok(head)
     }
@@ -114,6 +121,43 @@ mod tests {
     use crate::{ClientRequest, SocketType, TargetAddr};
 
     use super::*;
+
+    #[test]
+    fn parse_http_connect_request_rejects_content_framing() {
+        for fields in [
+            "Content-Length: xyz\r\n",
+            "Content-Length: 1\r\n",
+            "Content-Length: 1\r\nContent-Length: 2\r\n",
+            "Content-Length: 0\r\nContent-Length: 2\r\n",
+            "Transfer-Encoding: gzip\r\n",
+            "Transfer-Encoding: chunked\r\n",
+            "Transfer-Encoding: chunked\r\nContent-Length: 0\r\n",
+            "Transfer-Encoding:\r\n",
+        ] {
+            for version in ["HTTP/1.0", "HTTP/1.1"] {
+                let request = format!("CONNECT example.com:443 {version}\r\nHost: example.com\r\n{fields}\r\n");
+                assert_eq!(
+                    HttpConnectHead::parse(request.as_bytes()).err().map(|error| error.code),
+                    Some(crate::S_ER_GEN),
+                    "head {version}: {fields:?}"
+                );
+                assert_eq!(
+                    parse_http_connect_request(request.as_bytes(), &resolver).err().map(|error| error.code),
+                    Some(crate::S_ER_GEN),
+                    "{version}: {fields:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn parse_http_connect_request_accepts_explicit_zero_content_length() {
+        let request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\nContent-Length: 0\r\n\r\n";
+        assert!(matches!(
+            parse_http_connect_request(request, &resolver),
+            Ok(ClientRequest::HttpConnect(TargetAddr { addr, .. })) if addr == SocketAddr::from(([198, 51, 100, 10], 443))
+        ));
+    }
 
     #[test]
     fn parse_http_connect_request_accepts_opaque_field_octets() {
