@@ -1,9 +1,11 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use crate::types::{
-    ClientRequest, NameResolver, S_CMD_CONN, SessionConfig, SessionError, SocketType, TargetAddr, read_be_u16,
+    ClientRequest, NameResolver, S_CMD_CONN, S_VER4, SessionConfig, SessionError, SocketType, TargetAddr, read_be_u16,
 };
 
+/// Parses the request prefix through the USERID NUL and, for SOCKS4a, the domain NUL.
+/// Bytes after that boundary are application data and do not affect request parsing.
 pub fn parse_socks4_request(
     buffer: &[u8],
     config: SessionConfig,
@@ -12,18 +14,18 @@ pub fn parse_socks4_request(
     if buffer.len() < 9 {
         return Err(SessionError::generic());
     }
-    if buffer[1] != S_CMD_CONN {
+    if buffer[0] != S_VER4 || buffer[1] != S_CMD_CONN {
         return Err(SessionError::generic());
     }
     let port = read_be_u16(buffer, 2).ok_or_else(SessionError::generic)?;
     let ip = Ipv4Addr::new(buffer[4], buffer[5], buffer[6], buffer[7]);
+    let id_end = buffer[8..].iter().position(|&byte| byte == 0).map(|pos| pos + 8).ok_or_else(SessionError::generic)?;
+    let is_domain = buffer[4] == 0 && buffer[5] == 0 && buffer[6] == 0 && buffer[7] != 0;
 
-    let target = if u32::from(ip) <= 255 {
-        if !config.resolve || *buffer.last().unwrap_or(&1) != 0 {
+    let target = if is_domain {
+        if !config.resolve {
             return Err(SessionError::generic());
         }
-        let id_end =
-            buffer[8..].iter().position(|&byte| byte == 0).map(|pos| pos + 8).ok_or_else(SessionError::generic)?;
         let domain_start = id_end + 1;
         if domain_start >= buffer.len() {
             return Err(SessionError::generic());
@@ -130,6 +132,66 @@ mod tests {
             parsed,
             ClientRequest::Socks4Connect(TargetAddr { addr: SocketAddr::from(([10, 0, 0, 1], 80)), host: None })
         );
+    }
+
+    #[test]
+    fn parse_socks4_request_uses_only_nonzero_socks4a_sentinels() {
+        for (ip, expected_ip, expected_host) in [
+            ([0, 0, 0, 0], [0, 0, 0, 0], None),
+            ([0, 0, 0, 1], [198, 51, 100, 10], Some("example.com".to_string())),
+            ([0, 0, 0, 255], [198, 51, 100, 10], Some("example.com".to_string())),
+            ([0, 0, 1, 0], [0, 0, 1, 0], None),
+        ] {
+            let mut request = vec![4, 1, 0, 80];
+            request.extend_from_slice(&ip);
+            request.extend_from_slice(b"\0example.com\0");
+            let parsed = parse_socks4_request(&request, SessionConfig::default(), &resolver).expect("parse target");
+            assert_eq!(
+                parsed,
+                ClientRequest::Socks4Connect(TargetAddr {
+                    addr: SocketAddr::from((expected_ip, 80)),
+                    host: expected_host,
+                }),
+                "sentinel classification for {ip:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_socks4_request_rejects_wrong_version() {
+        let request = [5, 1, 0, 80, 127, 0, 0, 1, 0];
+        assert!(parse_socks4_request(&request, SessionConfig::default(), &resolver).is_err());
+    }
+
+    #[test]
+    fn parse_socks4_request_rejects_unterminated_userid() {
+        let request = [4, 1, 0, 80, 127, 0, 0, 1, b'u'];
+        assert!(parse_socks4_request(&request, SessionConfig::default(), &resolver).is_err());
+    }
+
+    #[test]
+    fn parse_socks4_request_accepts_application_bytes_after_domain_terminator() {
+        let request = b"\x04\x01\x00\x50\x00\x00\x00\x01\0example.com\0application\0bytes";
+        let parsed = parse_socks4_request(request, SessionConfig::default(), &resolver).expect("parse request prefix");
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks4Connect(TargetAddr {
+                addr: SocketAddr::from(([198, 51, 100, 10], 80)),
+                host: Some("example.com".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn parse_socks4_request_preserves_domain_length_bounds() {
+        for (length, accepted) in [(3, true), (255, true), (256, false)] {
+            let mut request = vec![4, 1, 0, 80, 0, 0, 0, 1, 0];
+            request.extend(vec![b'a'; length]);
+            request.push(0);
+            let resolver = |_: &str, _: SocketType| Some(SocketAddr::from(([198, 51, 100, 10], 0)));
+            let parsed = parse_socks4_request(&request, SessionConfig::default(), &resolver);
+            assert_eq!(parsed.is_ok(), accepted, "domain length {length}: {parsed:?}");
+        }
     }
 
     #[test]

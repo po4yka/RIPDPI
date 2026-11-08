@@ -2,6 +2,7 @@ mod absolute_domain;
 mod auth_correlation;
 mod http_header_limits;
 mod policy_reply;
+mod socks4_boundary;
 mod socks4_family;
 mod upstream_reply;
 
