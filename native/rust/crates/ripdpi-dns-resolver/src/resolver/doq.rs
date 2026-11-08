@@ -12,6 +12,22 @@ use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsE
 /// How long after a failed connect (every bootstrap IP) further queries fail without retrying.
 /// Short, so a recovered upstream is retried soon, but long enough to cover a queued burst.
 const DOQ_CONNECT_FAILURE_BACKOFF: Duration = Duration::from_secs(2);
+const DOQ_REQUEST_CANCELLED: quinn::VarInt = quinn::VarInt::from_u32(3);
+
+struct DoqQueryStreams {
+    send: quinn::SendStream,
+    recv: quinn::RecvStream,
+    complete: bool,
+}
+
+impl Drop for DoqQueryStreams {
+    fn drop(&mut self) {
+        if !self.complete {
+            let _ = self.send.reset(DOQ_REQUEST_CANCELLED);
+            let _ = self.recv.stop(DOQ_REQUEST_CANCELLED);
+        }
+    }
+}
 
 impl EncryptedDnsResolver {
     /// # Cancel safety:
@@ -36,21 +52,16 @@ impl EncryptedDnsResolver {
     }
 
     /// # Cancel safety:
-    /// Dropping the query releases its dedicated QUIC stream; the connection stays usable.
+    /// cancel-safe: dropping the query cancels its dedicated streams; the connection stays usable.
     async fn exchange_doq_on(
         &self,
         conn: &quinn::Connection,
         query_bytes: &[u8],
         len_prefix: [u8; 2],
     ) -> Result<Vec<u8>, EncryptedDnsError> {
-        match timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes, len_prefix)).await {
-            Ok(result) => result,
-            Err(_) => {
-                // A closed connection is replaced on the next query.
-                conn.close(0u32.into(), b"DoQ query timeout");
-                Err(EncryptedDnsError::Request("DoQ query timeout".to_string()))
-            }
-        }
+        timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes, len_prefix))
+            .await
+            .map_err(|_| EncryptedDnsError::Request("DoQ query timeout".to_string()))?
     }
 
     /// Returns the cached connection, or connects on an endpoint driven by the current runtime.
@@ -141,14 +152,15 @@ fn doq_length_prefix(message_len: usize) -> Result<[u8; 2], EncryptedDnsError> {
 }
 
 /// # Cancel safety:
-/// Each call owns one bidirectional stream. Dropping it aborts that exchange without reusing partial framing.
+/// cancel-safe: owned streams send DOQ_REQUEST_CANCELLED on drop without closing the shared connection.
 async fn exchange_doq_query(
     conn: quinn::Connection,
     query_bytes: &[u8],
     len_prefix: [u8; 2],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
-    let (mut send, mut recv) =
-        conn.open_bi().await.map_err(|e| EncryptedDnsError::Request(format!("DoQ open_bi: {e}")))?;
+    let (send, recv) = conn.open_bi().await.map_err(|e| EncryptedDnsError::Request(format!("DoQ open_bi: {e}")))?;
+    let mut streams = DoqQueryStreams { send, recv, complete: false };
+    let send = &mut streams.send;
 
     // RFC 9250: DNS wire format with 2-byte length prefix (same as DNS-over-TCP).
     send.write_all(&len_prefix).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
@@ -157,6 +169,7 @@ async fn exchange_doq_query(
     send.write_all(&query_bytes[2..]).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
     send.finish().map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
 
+    let recv = &mut streams.recv;
     let mut len_buf = [0u8; 2];
     recv.read_exact(&mut len_buf).await.map_err(|e| doq_read_error(&conn, "DoQ read len", e))?;
     let resp_len = u16::from_be_bytes(len_buf) as usize;
@@ -176,6 +189,7 @@ async fn exchange_doq_query(
         return Err(EncryptedDnsError::DnsParse("DoQ response stream has trailing data or was reset".to_string()));
     }
     response[..2].copy_from_slice(&query_bytes[..2]);
+    streams.complete = true;
     Ok(response)
 }
 
