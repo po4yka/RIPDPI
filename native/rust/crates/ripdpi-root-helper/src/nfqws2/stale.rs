@@ -81,9 +81,6 @@ fn list_mangle_rules(program: &Path, deadline: Instant) -> io::Result<String> {
 
 /// Builds the commands that remove stale chains of `uid` from `iptables -S` output:
 /// first every jump into them, then their rules, then the chains.
-// shortcut: names have no separator between the uid and PID hex, so a uid whose hex
-// starts with this uid's hex could match; real app uids (10000..19999 and per-user
-// offsets) do not collide in practice. Add a separator to the name if that changes.
 fn stale_chain_cleanup(
     program: &Path,
     rules: &str,
@@ -91,16 +88,12 @@ fn stale_chain_cleanup(
     own_pid: u32,
     helper_alive: impl Fn(u32) -> bool,
 ) -> Vec<FirewallCommand> {
-    let prefix = format!("RDP{uid:x}");
     let stale: Vec<&str> = rules
         .lines()
         .filter_map(|line| line.strip_prefix("-N "))
         .map(str::trim)
         .filter(|chain| {
-            chain
-                .strip_prefix(&prefix)
-                .and_then(|rest| rest.strip_suffix('O').or_else(|| rest.strip_suffix('I')))
-                .and_then(|pid| u32::from_str_radix(pid, 16).ok())
+            owned_chain_pid(chain, rules, uid)
                 // Chains that name this helper's PID are the ones it is about to create.
                 .is_some_and(|pid| pid == own_pid || !helper_alive(pid))
         })
@@ -126,6 +119,23 @@ fn stale_chain_cleanup(
         commands.push(command(vec!["-X".to_owned(), (*chain).to_owned()]));
     }
     commands
+}
+
+// Legacy names need an OUTPUT owner rule because their UID and PID have no delimiter.
+fn owned_chain_pid(chain: &str, rules: &str, uid: u32) -> Option<u32> {
+    let stem = chain.strip_suffix('O').or_else(|| chain.strip_suffix('I'))?;
+    let prefix = format!("RDP{uid:x}");
+    let remainder = stem.strip_prefix(&prefix)?;
+    if let Some(pid) = remainder.strip_prefix('_') {
+        let parsed = u32::from_str_radix(pid, 16).ok()?;
+        return (pid == format!("{parsed:x}")).then_some(parsed);
+    }
+    let pid = u32::from_str_radix(remainder, 16).ok()?;
+    if remainder != format!("{pid:x}") {
+        return None;
+    }
+    let owner_rule = format!("-A OUTPUT ! -o lo -m owner --uid-owner {uid} -j {stem}O");
+    rules.lines().any(|line| line.trim() == owner_rule).then_some(pid)
 }
 
 /// Returns the helper PID named by the pidfile of an nfqws2 command line that
@@ -194,6 +204,31 @@ mod tests {
         -A OUTPUT -j netd_owned\n\
         -A INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27fa1c8I\n\
         -A RDP27fa1c8O -j NFQUEUE --queue-num 49379 --queue-bypass\n";
+
+    #[test]
+    fn legacy_chains_of_a_uid_with_a_shared_hex_prefix_are_not_removed() {
+        let rules = "-N RDP27d4141234O\n-N RDP27d4141234I\n\
+            -A OUTPUT ! -o lo -m owner --uid-owner 2610196 -j RDP27d4141234O\n\
+            -A INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27d4141234I\n";
+        let commands = stale_chain_cleanup(Path::new("iptables"), rules, 10196, 999, |pid| pid == 0x1234);
+        assert!(commands.is_empty(), "foreign rules were selected: {commands:?}");
+    }
+
+    #[test]
+    fn delimited_names_are_owned_by_one_uid_even_without_an_output_jump() {
+        let rules = "-N RDP27d4_1234O\n-N RDP27d4_1234I\n-N RDP27d414_1234O\n\
+            -A INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27d4_1234I\n";
+        let commands = stale_chain_cleanup(Path::new("iptables"), rules, 10196, 999, |_| false);
+        assert_eq!(commands.len(), 5);
+        assert!(commands.iter().all(|command| !command.args.iter().any(|arg| arg.contains("RDP27d414_"))));
+    }
+
+    #[test]
+    fn unproven_legacy_chains_are_preserved() {
+        let rules = "-N RDP27d41234O\n-N RDP27d41234I\n\
+            -A INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27d41234I\n";
+        assert!(stale_chain_cleanup(Path::new("iptables"), rules, 10196, 999, |_| false).is_empty());
+    }
 
     #[test]
     fn only_chains_of_dead_helpers_of_this_uid_are_removed() {

@@ -491,8 +491,8 @@ fn firewall_commands(uid: u32, helper_pid: u32) -> io::Result<Vec<FirewallComman
 }
 
 fn family_commands(program: PathBuf, uid: u32, helper_pid: u32) -> Vec<FirewallCommand> {
-    let outgoing = format!("RDP{uid:x}{helper_pid:x}O");
-    let incoming = format!("RDP{uid:x}{helper_pid:x}I");
+    let outgoing = format!("RDP{uid:x}_{helper_pid:x}O");
+    let incoming = format!("RDP{uid:x}_{helper_pid:x}I");
     let make = |args: Vec<String>| {
         // Omit -w: a netd lock conflict fails at once, run_firewall retries it until
         // its deadline, and cleanup stays retryable.
@@ -721,6 +721,14 @@ mod tests {
                 .all(|rule| rule.args.contains(&"--queue-bypass".to_owned()))
         );
         assert!(rules.iter().all(|rule| !rule.args.contains(&"-F".to_owned())));
+    }
+
+    #[test]
+    fn rule_names_do_not_collide_for_distinct_uid_and_pid_pairs() {
+        let short_uid = family_commands(PathBuf::from("iptables"), 10196, 0x141234);
+        let long_uid = family_commands(PathBuf::from("iptables"), 2610196, 0x1234);
+        assert_ne!(short_uid[0].args, long_uid[0].args, "outgoing chain names collided");
+        assert_ne!(short_uid[1].args, long_uid[1].args, "incoming chain names collided");
     }
 
     #[test]
