@@ -60,6 +60,16 @@ PY
   bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo test --locked \
     --manifest-path "$repo_root/native/rust/vendor/boringtun/Cargo.toml" --lib
 
+  echo "==> tests (smoltcp IPv4 TCP)"
+  bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo test --locked \
+    --manifest-path "$repo_root/native/rust/vendor/smoltcp/Cargo.toml" --lib \
+    --no-default-features --features std,medium-ip,proto-ipv4,socket-tcp socket::tcp::test
+
+  echo "==> tests (smoltcp IPv6 TCP)"
+  bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo test --locked \
+    --manifest-path "$repo_root/native/rust/vendor/smoltcp/Cargo.toml" --lib \
+    --no-default-features --features std,medium-ip,proto-ipv6,socket-tcp socket::tcp::test
+
   if [[ "$(uname -s)" == "Linux" ]]; then
     echo "==> socket-filter tests (runner UID with CAP_NET_ADMIN)"
     python3 "$repo_root/scripts/ci/run-linux-bpf-tests.py"

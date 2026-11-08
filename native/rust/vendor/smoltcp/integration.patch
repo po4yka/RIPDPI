@@ -1,0 +1,179 @@
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,3 +1,2 @@
+ /target
+-Cargo.lock
+ *.pcap
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -564,3 +564,6 @@
+ 
+ [profile.release]
+ debug = 2
++
++# Keep upstream test dependencies outside the application workspace.
++[workspace]
+--- a/src/socket/tcp.rs
++++ b/src/socket/tcp.rs
+@@ -1875,6 +1875,23 @@
+             control = TcpControl::None;
+         }
+ 
++        if control == TcpControl::Syn && matches!(self.state, State::Listen | State::SynSent) {
++            // RFC 9293 section 3.7.1: an absent or zero MSS uses the IP-family default.
++            let default_mss = match ip_repr.src_addr() {
++                #[cfg(feature = "proto-ipv4")]
++                IpAddress::Ipv4(_) => DEFAULT_MSS,
++                #[cfg(feature = "proto-ipv6")]
++                IpAddress::Ipv6(_) => 1220,
++            };
++            self.remote_mss = repr
++                .max_seg_size
++                .filter(|mss| *mss != 0)
++                .map_or(default_mss, |mss| usize::from(mss).max(MIN_REMOTE_MSS));
++            self.congestion_controller
++                .inner_mut()
++                .set_mss(self.remote_mss);
++        }
++
+         // Validate and update the state.
+         match (self.state, control) {
+             // RSTs are not accepted in the LISTEN state.
+@@ -1902,15 +1919,6 @@
+             // SYN packets in the LISTEN state change it to SYN-RECEIVED.
+             (State::Listen, TcpControl::Syn) => {
+                 tcp_trace!("received SYN");
+-                if let Some(max_seg_size) = repr.max_seg_size {
+-                    // Treat a zero MSS as if the option were absent, like Linux does.
+-                    if max_seg_size != 0 {
+-                        self.remote_mss = (max_seg_size as usize).max(MIN_REMOTE_MSS);
+-                        self.congestion_controller
+-                            .inner_mut()
+-                            .set_mss(self.remote_mss);
+-                    }
+-                }
+ 
+                 self.tuple = Some(Tuple {
+                     local: IpEndpoint::new(ip_repr.dst_addr(), repr.dst_port),
+@@ -1954,15 +1962,6 @@
+                     tcp_trace!("received SYN|ACK");
+                 } else {
+                     tcp_trace!("received SYN");
+-                }
+-                if let Some(max_seg_size) = repr.max_seg_size {
+-                    // Treat a zero MSS as if the option were absent, like Linux does.
+-                    if max_seg_size != 0 {
+-                        self.remote_mss = (max_seg_size as usize).max(MIN_REMOTE_MSS);
+-                        self.congestion_controller
+-                            .inner_mut()
+-                            .set_mss(self.remote_mss);
+-                    }
+                 }
+ 
+                 self.remote_seq_no = repr.seq_number + 1;
+@@ -3452,6 +3451,87 @@
+     }
+ 
+     #[test]
++    fn test_syn_mss_controls_passive_payload_size() {
++        for (option, expected) in [
++            (None, family_default_mss()),
++            (Some(0), family_default_mss()),
++            (Some(1000), 1000),
++            (Some(10), 48),
++        ] {
++            let mut s = socket_with_buffer_sizes(2048, 2048);
++            s.listen(LOCAL_PORT).unwrap();
++            send!(
++                s,
++                TcpRepr {
++                    control: TcpControl::Syn,
++                    seq_number: REMOTE_SEQ,
++                    ack_number: None,
++                    max_seg_size: option,
++                    window_len: 4096,
++                    ..SEND_TEMPL
++                }
++            );
++            recv(&mut s, Instant::ZERO, |packet| {
++                assert_eq!(packet.unwrap().control, TcpControl::Syn)
++            });
++            send!(
++                s,
++                TcpRepr {
++                    seq_number: REMOTE_SEQ + 1,
++                    ack_number: Some(LOCAL_SEQ + 1),
++                    window_len: 4096,
++                    ..SEND_TEMPL
++                }
++            );
++            s.send_slice(&[0x5a; 2048]).unwrap();
++            recv(&mut s, Instant::ZERO, |packet| {
++                let packet = packet.unwrap();
++                assert_eq!(packet.payload, &[0x5a; 2048][..expected]);
++            });
++        }
++    }
++
++    #[test]
++    fn test_syn_mss_controls_active_payload_size() {
++        for (option, expected) in [
++            (None, family_default_mss()),
++            (Some(0), family_default_mss()),
++            (Some(1000), 1000),
++            (Some(10), 48),
++        ] {
++            let mut s = socket_syn_sent_with_buffer_sizes(2048, 2048);
++            recv(&mut s, Instant::ZERO, |packet| {
++                assert_eq!(packet.unwrap().control, TcpControl::Syn)
++            });
++            send!(
++                s,
++                TcpRepr {
++                    control: TcpControl::Syn,
++                    seq_number: REMOTE_SEQ,
++                    ack_number: Some(LOCAL_SEQ + 1),
++                    max_seg_size: option,
++                    window_len: 4096,
++                    ..SEND_TEMPL
++                }
++            );
++            s.send_slice(&[0x5a; 2048]).unwrap();
++            recv(&mut s, Instant::ZERO, |packet| {
++                let packet = packet.unwrap();
++                assert_eq!(packet.payload, &[0x5a; 2048][..expected]);
++            });
++        }
++    }
++
++    fn family_default_mss() -> usize {
++        // RFC 9293 section 3.7.1, independently specified IPv4/IPv6 defaults.
++        if cfg!(feature = "proto-ipv4") {
++            536
++        } else {
++            1220
++        }
++    }
++
++    #[test]
+     fn test_listen_syn_tiny_mss_is_clamped() {
+         let mut s = socket_listen();
+         send!(
+@@ -3482,7 +3562,7 @@
+             }
+         );
+         assert_eq!(s.state, State::SynReceived);
+-        assert_eq!(s.remote_mss, DEFAULT_MSS);
++        assert_eq!(s.remote_mss, family_default_mss());
+     }
+ 
+     #[test]
+@@ -3960,7 +4040,7 @@
+             }
+         );
+         assert_eq!(s.state, State::Established);
+-        assert_eq!(s.remote_mss, DEFAULT_MSS);
++        assert_eq!(s.remote_mss, family_default_mss());
+     }
+ 
+     #[test]
