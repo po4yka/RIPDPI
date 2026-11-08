@@ -109,3 +109,9 @@ Both owned AVDs from failed boot attempts and the two booted test AVDs were remo
 The original remote failure remains unresolved. No causal VPN-07 regression is established. The diagnostic commit enables the same counter evidence on exact CI x86_64 artifacts; it does not increase a timeout or bypass a gate. The next acceptance check is the unchanged API 35 CI selector, including the first recovered encrypted DNS request and the later raw UDP DNS request.
 
 The diagnostic sources were committed separately as 765b0a8c1. App ktlintCheck and detekt passed, followed by all just ci-gates checks. The production app APK SHA-256 was bfed342078c64771e3bbc5579fb026d6fb611b7788889ea813d9d1e2254f7dba. The final test APK SHA-256 was f97f5f98a78530cdfbe20c2bc45bbb8ed78b8731fc8853018b8bccaef476fc06. These hashes describe the local counterpart before integration with later main changes.
+
+## Post-rebase integration check
+
+The three unpublished commits were rebased onto main 4d9147f807d0f75f99f2749950e76ae16a2029c7. range-diff reported identical content for all three. The diagnostic commit is now 9dbe0c8c6; 765b0a8c1 is its pre-rebase local identity. On source 55da3e94d, AndroidTest Kotlin compilation, app ktlintCheck and detekt passed in 53 s. All just ci-gates checks, locked Cargo metadata, task validation and task verification also passed. The compilation used skipNativeBuild only for the Kotlin check. It is not a new native-build or device-run claim for this later main revision.
+
+At this check, the separate current-main CI run 42515183510 had failures in relay-interoperability and both Rust workspace test shards; its instrumentation APK job was still running. Their causes were not inspected in this VPN-07 scope, and no attribution is made. The earlier source-145 CI failure remains recorded separately above. The portfolio task is intentionally not archived: archive-ready verification rejects the blocked remote CI evidence.
