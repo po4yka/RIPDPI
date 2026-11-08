@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-08
+goal: VPN-1794152786002343 Repair IPv4 and IPv6 TUN packet contracts
