@@ -29,3 +29,5 @@ Fix VPN-08 findings F1 through F5 and fence package-invalidation races without r
 ## Parallel ownership
 
 Integration owns portfolio/spec records. UDP writer owns attribution expiry until its commit. Startup writer owns engine tunnel lifecycle files. Correlation/session writer owns Store/Bridge, service lifecycle, scope transport, learning and all serialized JNI/telemetry contracts after the UDP handoff. Each writer uses an isolated worktree. No shared dependency, locale, baseline or golden writer is assigned.
+
+Integration also owns the runtime-policy direct_path_learning module, runtime-decision-ports policy.rs, runtime-services policy_port_impl.rs, runtime-api telemetry_sink.rs, Android telemetry/proxy sink adapters and NativeRuntimeSnapshot.kt contracts. The correlation writer retains proxy-runtime and TUN/JNI/service changes and receives this contract patch for combined validation. Startup ownership includes NativeBridgeWrappersTest.kt.
