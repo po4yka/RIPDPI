@@ -2,7 +2,7 @@
 id: PRX-1794127562446757
 title: Restrict exit session accounting to the direct path
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: medium
 owner: session-accounting
@@ -28,9 +28,11 @@ Apply the proxy direct-path session budget only to a direct physical connection.
 
 ## Ownership
 
-- The session-accounting writer changes the proxy routing plan and its owning tests only after the reconnect fix is committed.
-- The integration owner owns the task records and generated board. There are no parallel writes to the proxy crate or serialized dependency/contract files.
+- The session-accounting writer owns the routing plan and its tests in the separate `fix/loc11-direct-budget` worktree. Integration follows the reconnect fix; the writers do not share working files.
+- The integration owner owns the task records and generated board. No parallel writer changes this worktree or serialized dependency/contract files.
 
 ## Evidence
 
 LOC-11 P2-02 was reproduced at base `9673571bba07581f2b99cd02014645af96bd8a88`: nine physical connections to one SOCKS upstream each acquired a slot under a different destination IP. The normative policy assigns this limiter to the proxy direct path; this fix does not add a new upstream or global hard cap.
+
+The new real-socket regression failed before the change because upstream targets received direct permits. After the change, `cargo test -p ripdpi-proxy-runtime --lib --locked runtime::routing::connect::plan::exit_ip_cap_wiring_tests` passed all six tests. The tests cover nine upstream sessions, direct destination-policy bypass, direct permit release, alternate candidates, advisory fallback, and connect failure. Full combined module and source gates are required before integration.

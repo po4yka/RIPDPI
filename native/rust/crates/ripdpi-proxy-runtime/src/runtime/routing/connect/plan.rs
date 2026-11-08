@@ -24,6 +24,8 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
             tcp_total_retransmissions: None,
             tcp_fast_open_enabled: false,
         })?;
+    // This budget counts direct sockets; relay carriers own a separate limiter.
+    let acquire_cap_slot = acquire_cap_slot && policy.upstream_socks_addr.is_none();
     let mut last_error = None;
     let mut any_capped = false;
     for &candidate in targets {
@@ -162,8 +164,9 @@ mod tests {
 mod exit_ip_cap_wiring_tests {
     use super::*;
     use crate::runtime::config::RuntimeConfig;
-    use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+    use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, UpstreamSocksConfig};
     use ripdpi_session_limit::DEFAULT_EXIT_IP_SESSION_CAP;
+    use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::sync::mpsc;
     use std::thread;
@@ -334,5 +337,96 @@ mod exit_ip_cap_wiring_tests {
         assert_eq!(state.active_exit_sessions(addr_b.ip()), 0, "a failed connect frees its slot");
 
         drop(held);
+    }
+
+    #[test]
+    fn upstream_socks_targets_do_not_consume_direct_session_slots() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream SOCKS listener");
+        let upstream = listener.local_addr().expect("upstream address");
+        let flows = DEFAULT_EXIT_IP_SESSION_CAP + 1;
+        let server = thread::spawn(move || {
+            let mut peers = Vec::new();
+            for octet in 1..=flows as u8 {
+                let (mut peer, _) = listener.accept().expect("accept upstream connection");
+                peer.set_read_timeout(Some(std::time::Duration::from_secs(2))).expect("peer read timeout");
+                let mut greeting = [0; 3];
+                peer.read_exact(&mut greeting).expect("read SOCKS greeting");
+                assert_eq!(greeting, [5, 1, 0]);
+                peer.write_all(&[5, 0]).expect("accept no-auth method");
+                let mut request = [0; 10];
+                peer.read_exact(&mut request).expect("read CONNECT request");
+                assert_eq!(request, [5, 1, 0, 1, 198, 51, 100, octet, 1, 187]);
+                peer.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, 0, 0]).expect("accept CONNECT");
+                let mut payload = [0; 4];
+                peer.read_exact(&mut payload).expect("read payload");
+                assert_eq!(&payload, b"ping");
+                peer.write_all(b"pong").expect("reply payload");
+                peers.push(peer);
+            }
+            peers
+        });
+        let mut config = RuntimeConfig::default();
+        config.groups[0].policy.ext_socks = Some(UpstreamSocksConfig { addr: upstream, auth: None });
+        let state = RuntimeState::test(config);
+        let mut connections = Vec::new();
+        for octet in 1..=flows as u8 {
+            let target = SocketAddr::from(([198, 51, 100, octet], 443));
+            let (mut stream, guard) = connect_target_candidates_via_group(
+                &[target],
+                None,
+                &state,
+                0,
+                None,
+                false,
+                true,
+                DestinationEgress::Tunneled,
+            )
+            .expect("connect through upstream SOCKS");
+            stream.set_read_timeout(Some(std::time::Duration::from_secs(2))).expect("read timeout");
+            assert_eq!(stream.peer_addr().expect("physical peer"), upstream);
+            stream.write_all(b"ping").expect("send payload");
+            let mut reply = [0; 4];
+            stream.read_exact(&mut reply).expect("read payload reply");
+            assert_eq!(&reply, b"pong");
+            connections.push((stream, guard));
+        }
+        let peers = server.join().expect("upstream server finished");
+        assert_eq!(peers.len(), flows);
+        assert!(connections.iter().all(|(_, guard)| guard.is_none()), "upstream destinations are not direct peers");
+        for octet in 1..=flows as u8 {
+            assert_eq!(state.active_exit_sessions(IpAddr::V4(Ipv4Addr::new(198, 51, 100, octet))), 0);
+        }
+        assert_eq!(state.active_exit_sessions(upstream.ip()), 0, "the relay owner has a separate budget");
+    }
+
+    #[test]
+    fn direct_egress_keeps_admission_when_an_upstream_is_configured() {
+        let (target, release, server) = accept_once();
+        let unused_upstream = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind unused upstream");
+        unused_upstream.set_nonblocking(true).expect("nonblocking upstream");
+        let mut config = RuntimeConfig::default();
+        config.groups[0].policy.ext_socks =
+            Some(UpstreamSocksConfig { addr: unused_upstream.local_addr().expect("upstream address"), auth: None });
+        let state = RuntimeState::test(config);
+        let (stream, guard) = connect_target_candidates_via_group(
+            &[target],
+            None,
+            &state,
+            0,
+            None,
+            false,
+            true,
+            DestinationEgress::Direct,
+        )
+        .expect("connect directly");
+        assert_eq!(stream.peer_addr().expect("direct peer"), target);
+        assert!(guard.is_some());
+        assert_eq!(state.active_exit_sessions(target.ip()), 1);
+        assert_eq!(unused_upstream.accept().expect_err("upstream must be unused").kind(), io::ErrorKind::WouldBlock);
+        drop(stream);
+        drop(guard);
+        assert_eq!(state.active_exit_sessions(target.ip()), 0);
+        release.send(()).expect("release direct peer");
+        server.join().expect("direct peer finished");
     }
 }
