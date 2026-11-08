@@ -66,4 +66,3 @@ The current TUIC provider MUST reject zero_rtt=true as unsupported before networ
 
 - **WHEN** a caller supplies a TUIC profile with zero_rtt=true
 - **THEN** validation returns an explicit unsupported error before resolution or connection; zero_rtt=false retains the normal path.
-

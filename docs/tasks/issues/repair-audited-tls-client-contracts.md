@@ -2,7 +2,7 @@
 id: TRN-1794158908788387
 title: Repair audited TLS client contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: tls-client-audit
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: repair-audited-tls-client-contracts
 created: 2026-11-08
 updated: 2026-11-08
+status_detail: Seven finding commits are complete. Rebased ten-package tests, independent reviews and local gates passed; exact-source hosted CI remains unobserved.
 ---
 
 ## Goal
