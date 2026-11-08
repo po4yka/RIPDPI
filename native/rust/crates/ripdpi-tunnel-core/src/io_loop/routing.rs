@@ -237,8 +237,8 @@ fn route_tun_packet_inner(
                     &state.stats,
                     registration_id,
                 );
-                if let Some(association) = state.udp_associations.get_mut(&src) {
-                    if let Some(registration_id) = queued
+                if let Some(registration_id) = queued {
+                    if let Some(association) = state.udp_associations.get_mut(&src)
                         && original_wire_packet
                         && association.pending_error.is_none()
                     {

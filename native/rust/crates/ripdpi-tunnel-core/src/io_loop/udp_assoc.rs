@@ -15,6 +15,9 @@ pub(super) use shutdown::{drain_udp_association_tasks, take_udp_association_task
 #[cfg(test)]
 mod tests;
 
+#[cfg(test)]
+mod capacity_tests;
+
 /// Release an observation only when it is not owned by a live association.
 pub(crate) fn release_unowned_udp_attribution(
     associations: &std::collections::HashMap<std::net::SocketAddr, UdpAssociation>,

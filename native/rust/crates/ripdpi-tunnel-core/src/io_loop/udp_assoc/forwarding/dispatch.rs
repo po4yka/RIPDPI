@@ -13,7 +13,8 @@ use crate::session::udp::UdpMemoryBudget;
 
 use super::super::association_state::UdpAssociation;
 use super::super::event_handling::UdpEvent;
-use super::super::eviction::UdpEvictionEntry;
+use super::super::eviction::{UdpEvictionEntry, record_udp_activity};
+use super::admission::can_admit_udp_destination;
 use super::delivery::deliver_udp_datagram;
 use super::ensure::ensure_udp_association;
 use super::leases::{lease_udp_attribution, lease_udp_mapping};
@@ -64,17 +65,19 @@ pub(in crate::io_loop) fn forward_udp_payload(
         stats,
     );
 
-    lease_udp_attribution(associations, src, admitted_id);
-    lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
+    if !can_admit_udp_destination(associations, src, attribution_dst) {
+        super::super::release_unowned_udp_attribution(associations, src, admitted_id);
+        stats.record_tun_queue_drop();
+        return None;
+    }
 
-    deliver_udp_datagram(
+    let Some(registration_id) = deliver_udp_datagram(
         proxy_addr,
         auth,
         src,
         attribution_dst,
         resolved_dst,
         target_host,
-        synthetic_ip,
         payload,
         dns_cache,
         closed_sources,
@@ -89,5 +92,15 @@ pub(in crate::io_loop) fn forward_udp_payload(
         udp_tx,
         stats,
         admitted_id,
-    )
+    ) else {
+        super::super::release_unowned_udp_attribution(associations, src, admitted_id);
+        return None;
+    };
+    if let Some(association) = associations.get_mut(&src) {
+        association.destinations.insert(attribution_dst);
+    }
+    record_udp_activity(associations, eviction_heap, src);
+    lease_udp_attribution(associations, src, registration_id);
+    lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
+    Some(registration_id)
 }

@@ -18,9 +18,8 @@ use crate::uid_policy::PROTO_UDP;
 use super::super::association_removal::remove_association;
 use super::super::association_state::{OutboundDatagram, UdpAssociation};
 use super::super::event_handling::UdpEvent;
-use super::super::eviction::{UdpEvictionEntry, record_udp_activity};
+use super::super::eviction::UdpEvictionEntry;
 use super::ensure::ensure_udp_association;
-use super::leases::{lease_udp_attribution, lease_udp_mapping};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn deliver_udp_datagram(
@@ -30,7 +29,6 @@ pub(super) fn deliver_udp_datagram(
     attribution_dst: SocketAddr,
     resolved_dst: SocketAddr,
     target_host: Option<&str>,
-    synthetic_ip: Option<u32>,
     payload: &[u8],
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
@@ -46,8 +44,7 @@ pub(super) fn deliver_udp_datagram(
     stats: &Arc<Stats>,
     admitted_id: ripdpi_flow_app_attribution::FlowRegistrationId,
 ) -> Option<ripdpi_flow_app_attribution::FlowRegistrationId> {
-    let outbound = associations.get(&src).map(|association| association.outbound.clone())?;
-    record_udp_activity(associations, eviction_heap, src);
+    let outbound = associations.get(&src)?.outbound.clone();
     let target = target_host
         .map_or(TargetAddr::Ip(resolved_dst), |host| TargetAddr::ResolvedDomain(host.to_owned(), resolved_dst));
     let Some(datagram) = OutboundDatagram::try_new(target, resolved_dst, attribution_dst, payload, memory_budget)
@@ -86,14 +83,14 @@ pub(super) fn deliver_udp_datagram(
                 udp_tx,
                 stats,
             );
-            lease_udp_attribution(associations, src, replacement.registration_id);
-            lease_udp_mapping(associations, dns_cache, src, synthetic_ip);
-            if associations.get(&src).is_some_and(|association| association.outbound.try_send(datagram).is_ok()) {
-                Some(replacement.registration_id)
-            } else {
-                stats.record_tun_queue_drop();
-                None
+            if let Some(association) = associations.get(&src)
+                && association.outbound.try_send(datagram).is_ok()
+            {
+                return Some(replacement.registration_id);
             }
+            super::super::release_unowned_udp_attribution(associations, src, replacement.registration_id);
+            stats.record_tun_queue_drop();
+            None
         }
     }
 }

@@ -68,6 +68,7 @@ pub(super) fn spawn_udp_association(
         last_activity,
         worker,
         leased_synthetic_ips: HashSet::new(),
+        destinations: HashSet::new(),
         attribution_ids: LruCache::new(UDP_ATTRIBUTION_ID_CAPACITY),
     }
 }

@@ -55,6 +55,7 @@ fn stalled_udp_association(
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker,
         leased_synthetic_ips: std::collections::HashSet::new(),
+        destinations: std::collections::HashSet::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     (association, alive, started_rx)
@@ -509,6 +510,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
+        destinations: std::collections::HashSet::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
@@ -568,6 +570,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
+        destinations: std::collections::HashSet::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
@@ -623,6 +626,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         last_activity: Arc::new(AtomicU64::new(now_millis())),
         worker: tokio::spawn(std::future::pending()),
         leased_synthetic_ips: std::collections::HashSet::new(),
+        destinations: std::collections::HashSet::new(),
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);

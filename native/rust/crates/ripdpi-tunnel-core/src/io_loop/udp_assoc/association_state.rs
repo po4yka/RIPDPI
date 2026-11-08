@@ -15,6 +15,7 @@ pub(super) use activity::{now_millis, touch_udp_activity, udp_association_is_idl
 pub(super) use datagram::OutboundDatagram;
 
 pub(super) const UDP_OUTBOUND_QUEUE_CAPACITY: usize = 16;
+pub(super) const UDP_DESTINATION_CAPACITY: usize = 256;
 
 // At most 512 associations retain 32,768 tuple leases in total. Removing a lease
 // only forces a fresh UID lookup; it never grants admission to an unknown flow.
@@ -32,6 +33,8 @@ pub(in crate::io_loop) struct UdpAssociation {
     pub(super) cancel: CancellationToken,
     pub(super) last_activity: Arc<AtomicU64>,
     pub(super) worker: tokio::task::JoinHandle<()>,
+    /// Kernel-visible destinations admitted before allocating per-target resources.
+    pub(super) destinations: HashSet<std::net::SocketAddr>,
     /// Synthetic MapDNS addresses used by this association. Each entry owns
     /// one cache lease until association removal or shutdown.
     pub(super) leased_synthetic_ips: HashSet<u32>,

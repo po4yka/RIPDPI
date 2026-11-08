@@ -11,10 +11,10 @@ use crate::session::udp::UdpMemoryBudget;
 use crate::session::{Auth, UdpSession};
 
 use super::super::super::packet::build_udp_response;
-use super::super::association_state::{OutboundDatagram, touch_udp_activity, udp_association_is_idle};
+use super::super::association_state::{
+    OutboundDatagram, UDP_DESTINATION_CAPACITY, touch_udp_activity, udp_association_is_idle,
+};
 use super::super::event_handling::UdpEvent;
-
-const MAX_RESPONSE_HOSTS: usize = 256;
 
 type ResponseAuthority = (String, IpAddr, u16);
 
@@ -27,15 +27,13 @@ fn remember_response_source(
     host: &str,
     pinned: SocketAddr,
     source: SocketAddr,
-) {
+) -> bool {
     let authority = response_authority(host, pinned);
-    if response_sources.len() >= MAX_RESPONSE_HOSTS
-        && !response_sources.contains_key(&authority)
-        && let Some(evicted) = response_sources.keys().next().cloned()
-    {
-        response_sources.remove(&evicted);
+    if response_sources.len() >= UDP_DESTINATION_CAPACITY && !response_sources.contains_key(&authority) {
+        return false;
     }
     response_sources.insert(authority, source);
+    true
 }
 
 fn response_source_for_target(
@@ -179,8 +177,10 @@ pub(super) fn spawn_udp_worker(
                 outbound = outbound_rx.recv() => {
                     let Some(outbound) = outbound else { break };
                     touch_udp_activity(&last_activity);
-                    if let TargetAddr::ResolvedDomain(host, pinned) = &outbound.dest {
-                        remember_response_source(&mut response_sources, host, *pinned, outbound.response_source);
+                    if let TargetAddr::ResolvedDomain(host, pinned) = &outbound.dest
+                        && !remember_response_source(&mut response_sources, host, *pinned, outbound.response_source)
+                    {
+                        continue;
                     }
                     // send_to is message-atomic and cancel-safe. The explicit
                     // cancellation arm keeps shutdown bounded if the socket is
@@ -320,12 +320,44 @@ mod tests {
     #[test]
     fn response_source_table_remains_bounded() {
         let mut sources = HashMap::new();
-        for index in 0..(MAX_RESPONSE_HOSTS + 32) {
+        for index in 0..(UDP_DESTINATION_CAPACITY + 32) {
             let source: SocketAddr = format!("198.18.0.1:{}", index + 1).parse().unwrap();
             let pinned: SocketAddr = format!("203.0.113.1:{}", index + 1).parse().unwrap();
             remember_response_source(&mut sources, &format!("host-{index}.example"), pinned, source);
         }
 
-        assert_eq!(sources.len(), MAX_RESPONSE_HOSTS);
+        assert_eq!(sources.len(), UDP_DESTINATION_CAPACITY);
+    }
+
+    #[test]
+    fn full_response_table_preserves_admitted_sources() {
+        let mut sources = HashMap::new();
+        for index in 0..=UDP_DESTINATION_CAPACITY {
+            let source = SocketAddr::new("198.18.0.1".parse().unwrap(), index as u16 + 1);
+            let pinned = SocketAddr::new("203.0.113.1".parse().unwrap(), index as u16 + 1);
+            remember_response_source(&mut sources, &format!("host-{index}.example"), pinned, source);
+        }
+
+        for index in 0..UDP_DESTINATION_CAPACITY {
+            let pinned = SocketAddr::new("203.0.113.1".parse().unwrap(), index as u16 + 1);
+            let source = SocketAddr::new("198.18.0.1".parse().unwrap(), index as u16 + 1);
+            assert_eq!(
+                response_source_for_target(
+                    &sources,
+                    TargetAddr::ResolvedDomain(format!("host-{index}.example"), pinned)
+                ),
+                Some(source),
+                "admitting a new target must not evict an admitted response identity"
+            );
+        }
+        let excess = SocketAddr::new("203.0.113.1".parse().unwrap(), UDP_DESTINATION_CAPACITY as u16 + 1);
+        assert_eq!(
+            response_source_for_target(
+                &sources,
+                TargetAddr::ResolvedDomain(format!("host-{UDP_DESTINATION_CAPACITY}.example"), excess)
+            ),
+            None,
+            "the excess target must not displace a live mapping"
+        );
     }
 }
