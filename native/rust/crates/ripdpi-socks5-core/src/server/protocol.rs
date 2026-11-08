@@ -38,6 +38,8 @@ impl<T, S> Socks5ServerProtocol<T, S> {
 
 impl<T> Socks5ServerProtocol<T, states::Opened> {
     /// Start handling the SOCKS5 protocol flow, wrapping a client socket.
+    /// The caller must set a deadline for this low-level API and close a borrowed
+    /// transport after cancellation or a protocol failure.
     pub fn start(inner: T) -> Self {
         Self::new(inner)
     }
@@ -426,49 +428,55 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
 
     /// Process clients SOCKS requests
     /// This is the entry point where a whole request is processed.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: cancellation drops the owned request state and sockets. A caller
+    /// that supplies a borrowed transport must close it after cancellation.
     pub async fn upgrade_to_socks5(mut self) -> Result<Socks5Socket<T, A>, SocksError> {
         trace!("upgrading to socks5...");
 
-        // NOTE: this cannot be split in two without making self.inner an Option
+        let deadline = request_deadline(self.config.request_timeout)?;
+        let (proto, cmd, target_addr) = request_until(deadline, async {
+            let proto = match self.config.auth.as_ref() {
+                _ if self.config.skip_auth => {
+                    debug!("skipping auth");
+                    Socks5ServerProtocol::skip_auth_this_is_not_rfc_compliant(self.inner)
+                }
+                None => {
+                    let auth = Socks5ServerProtocol::start(self.inner).negotiate_auth(&[NoAuthentication]).await?;
+                    self.auth = Some(consts::SOCKS5_AUTH_METHOD_NONE);
+                    auth.finish_auth()
+                }
+                Some(auth_callback) => {
+                    let methods = StandardAuthentication::allow_no_auth(self.config.allow_no_auth);
+                    let auth = Socks5ServerProtocol::start(self.inner).negotiate_auth(methods).await?;
+                    let method = match &auth {
+                        StandardAuthenticationStarted::NoAuthentication(_) => consts::SOCKS5_AUTH_METHOD_NONE,
+                        StandardAuthenticationStarted::PasswordAuthentication(_) => consts::SOCKS5_AUTH_METHOD_PASSWORD,
+                    };
+                    let (proto, creds) = authenticate_callback(auth_callback.as_ref(), auth).await?;
+                    self.auth = Some(method);
+                    self.credentials = Some(creds);
+                    proto
+                }
+            };
 
-        // Handshake
-        let proto = match self.config.auth.as_ref() {
-            _ if self.config.skip_auth => {
-                debug!("skipping auth");
-                Socks5ServerProtocol::skip_auth_this_is_not_rfc_compliant(self.inner)
-            }
-            None => {
-                let auth = Socks5ServerProtocol::start(self.inner).negotiate_auth(&[NoAuthentication]).await?;
-                self.auth = Some(consts::SOCKS5_AUTH_METHOD_NONE);
-                auth.finish_auth()
-            }
-            Some(auth_callback) => {
-                let methods = StandardAuthentication::allow_no_auth(self.config.allow_no_auth);
-                let auth = Socks5ServerProtocol::start(self.inner).negotiate_auth(methods).await?;
-                let method = match &auth {
-                    StandardAuthenticationStarted::NoAuthentication(_) => consts::SOCKS5_AUTH_METHOD_NONE,
-                    StandardAuthenticationStarted::PasswordAuthentication(_) => consts::SOCKS5_AUTH_METHOD_PASSWORD,
-                };
-                let (proto, creds) = authenticate_callback(auth_callback.as_ref(), auth).await?;
-                self.auth = Some(method);
-                self.credentials = Some(creds);
-                proto
-            }
-        };
+            let request = {
+                let triple = proto.read_command().await?;
 
-        let (proto, cmd, target_addr) = {
-            let triple = proto.read_command().await?;
-
-            // UDP ASSOCIATE describes the client's expected UDP source.
-            // Resolving it here is unnecessary and can cause DNS I/O before
-            // we validate the source of any datagram.
-            if self.config.dns_resolve && triple.1 != Socks5Command::UDPAssociate {
-                triple.resolve_dns().await?
-            } else {
-                debug!("Domain won't be resolved because `dns_resolve`'s config has been turned off.");
-                triple
-            }
-        };
+                // UDP ASSOCIATE describes the client's expected UDP source.
+                // Resolving it here is unnecessary and can cause DNS I/O before
+                // we validate the source of any datagram.
+                if self.config.dns_resolve && triple.1 != Socks5Command::UDPAssociate {
+                    triple.resolve_dns().await?
+                } else {
+                    debug!("Domain won't be resolved because `dns_resolve`'s config has been turned off.");
+                    triple
+                }
+            };
+            Ok(request)
+        })
+        .await?;
 
         match cmd {
             cmd if !self.config.execute_command => {
@@ -476,22 +484,23 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
                 self.inner = proto.inner;
             }
             Socks5Command::TCPConnect => {
-                self.inner =
-                    run_tcp_proxy(proto, &target_addr, self.config.request_timeout, self.config.nodelay).await?;
+                self.inner = run_tcp_proxy_until(proto, &target_addr, deadline, self.config.nodelay).await?;
             }
             Socks5Command::UDPAssociate if self.config.allow_udp => {
                 let Some(control_peer_ip) = self.control_peer_ip else {
-                    proto.reply_error(&ReplyError::GeneralFailure).await?;
+                    request_until(deadline, proto.reply_error(&ReplyError::GeneralFailure)).await?;
                     return Err(SocksServerError::Bug("missing control peer ip").into());
                 };
                 let Some(reply_ip) = self.reply_ip else {
-                    proto.reply_error(&ReplyError::GeneralFailure).await?;
+                    request_until(deadline, proto.reply_error(&ReplyError::GeneralFailure)).await?;
                     return Err(SocksServerError::Bug("missing reply ip").into());
                 };
-                self.inner = run_udp_proxy(proto, &target_addr, control_peer_ip, None, reply_ip, None).await?;
+                self.inner =
+                    run_udp_proxy_until(proto, &target_addr, control_peer_ip, None, reply_ip, None, Some(deadline))
+                        .await?;
             }
             _ => {
-                proto.reply_error(&ReplyError::CommandNotSupported).await?;
+                request_until(deadline, proto.reply_error(&ReplyError::CommandNotSupported)).await?;
                 return Err(ReplyError::CommandNotSupported.into());
             }
         };

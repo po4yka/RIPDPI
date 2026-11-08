@@ -1,6 +1,7 @@
 #[derive(Clone)]
 pub struct Config<A: Authentication = DenyAuthentication> {
-    /// Timeout of the command request
+    /// One timeout for authentication, command parsing, DNS, and relay setup.
+    /// Established TCP and UDP relays are not limited by this timeout.
     request_timeout: Duration,
     /// Avoid useless roundtrips if we don't need the Authentication layer
     skip_auth: bool,
@@ -35,7 +36,8 @@ impl<A: Authentication> Default for Config<A> {
 }
 
 impl<A: Authentication> Config<A> {
-    /// How much time it should wait until the request timeout.
+    /// Set the total time allowed before the command reply completes.
+    /// Established relays remain active until their transport closes.
     pub fn set_request_timeout(&mut self, d: Duration) -> &mut Self {
         self.request_timeout = d;
         self

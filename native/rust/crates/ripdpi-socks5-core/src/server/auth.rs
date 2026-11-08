@@ -9,6 +9,8 @@
 pub trait Authentication: Send + Sync {
     type Item;
 
+    /// The server can drop this future when the request deadline expires.
+    /// Release request resources on drop and do not leave partial external authentication state.
     fn authenticate(
         &self,
         credentials: Option<(String, String)>,

@@ -22,6 +22,7 @@ use tokio_stream::Stream;
 include!("server/error.rs");
 include!("server/auth.rs");
 include!("server/config.rs");
+include!("server/deadline.rs");
 include!("server/listener.rs");
 include!("server/protocol.rs");
 include!("server/dns.rs");
@@ -42,3 +43,7 @@ mod request_tests;
 #[cfg(test)]
 #[path = "server/metadata_tests.rs"]
 mod metadata_tests;
+
+#[cfg(test)]
+#[path = "server/deadline_tests.rs"]
+mod deadline_tests;

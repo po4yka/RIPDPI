@@ -21,6 +21,10 @@ fn udp_bind_random_port(addr: Option<IpAddr>) -> io::Result<Socket> {
 /// Handle the associate command by running a UDP proxy until the connection is done.
 /// `control_peer_ip` must come from the authenticated TCP control connection.
 /// The request's DST.ADDR and DST.PORT constrain the UDP sender when concrete.
+/// This low-level API relies on its caller to bound setup time.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation ends the association; close any borrowed control stream.
 pub async fn run_udp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
     proto: Socks5ServerProtocol<T, states::CommandRead>,
     addr: &TargetAddr,
@@ -29,8 +33,22 @@ pub async fn run_udp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
     reply_ip: IpAddr,
     outbound_bind_ip: Option<IpAddr>,
 ) -> Result<T, SocksServerError> {
+    run_udp_proxy_until(proto, addr, control_peer_ip, peer_bind_ip, reply_ip, outbound_bind_ip, None).await
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation ends setup or association; close any borrowed control stream.
+async fn run_udp_proxy_until<T: AsyncRead + AsyncWrite + Unpin>(
+    proto: Socks5ServerProtocol<T, states::CommandRead>,
+    addr: &TargetAddr,
+    control_peer_ip: IpAddr,
+    peer_bind_ip: Option<IpAddr>,
+    reply_ip: IpAddr,
+    outbound_bind_ip: Option<IpAddr>,
+    deadline: Option<tokio::time::Instant>,
+) -> Result<T, SocksServerError> {
     let source = UdpSourceConstraint::new(control_peer_ip, addr);
-    run_udp_proxy_custom(proto, peer_bind_ip, reply_ip, move |inbound| async move {
+    run_udp_proxy_custom(proto, peer_bind_ip, reply_ip, deadline, move |inbound| async move {
         let outbound = udp_bind_random_port(outbound_bind_ip).err_when("binding outbound udp socket")?;
 
         transfer_udp_with_source(inbound, outbound, source).await
@@ -41,10 +59,14 @@ pub async fn run_udp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
 /// Handle the associate command by running a UDP proxy until the connection is done.
 ///
 /// This version allows passing in a custom transfer function while reusing the initialization code.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation drops setup or association sockets; close any borrowed stream.
 pub(crate) async fn run_udp_proxy_custom<T, F, R>(
     proto: Socks5ServerProtocol<T, states::CommandRead>,
     peer_bind_ip: Option<IpAddr>,
     reply_ip: IpAddr,
+    deadline: Option<tokio::time::Instant>,
     transfer: F,
 ) -> Result<T, SocksServerError>
 where
@@ -52,16 +74,24 @@ where
     F: FnOnce(Socket) -> R,
     R: Future<Output = Result<(), SocksServerError>>,
 {
-    // By default, listen on a UDP6 socket, so that the client can connect
-    // to it with either IPv4 or IPv6.
-    let peer_sock = try_notify!(proto, udp_bind_random_port(peer_bind_ip).err_when("binding client udp socket"));
+    let setup = async {
+        // By default, listen on a UDP6 socket, so that the client can connect
+        // to it with either IPv4 or IPv6.
+        let peer_sock = try_notify!(proto, udp_bind_random_port(peer_bind_ip).err_when("binding client udp socket"));
 
-    let peer_addr = try_notify!(proto, peer_sock.local_addr().err_when("getting peer's local addr"));
+        let peer_addr = try_notify!(proto, peer_sock.local_addr().err_when("getting peer's local addr"));
 
-    let reply_port = peer_addr.as_socket().ok_or(SocksServerError::Bug("addr not IP"))?.port();
+        let reply_port = peer_addr.as_socket().ok_or(SocksServerError::Bug("addr not IP"))?.port();
 
-    // Respect the pre-populated reply IP address.
-    let mut inner = proto.reply_success(SocketAddr::new(reply_ip, reply_port)).await?;
+        // Respect the pre-populated reply IP address.
+        let inner = proto.reply_success(SocketAddr::new(reply_ip, reply_port)).await?;
+
+        Ok((inner, peer_sock))
+    };
+    let (mut inner, peer_sock) = match deadline {
+        Some(deadline) => request_until(deadline, setup).await?,
+        None => setup.await?,
+    };
 
     let udp_fut = transfer(peer_sock);
     let tcp_fut = wait_on_tcp(&mut inner);
@@ -139,11 +169,8 @@ async fn handle_udp_request(
     }
 
     debug!("SOCKS UDP request target_kind={}", target_addr.logging_kind());
-    let mut target_addr = target_addr
-        .resolve_dns()
-        .await?
-        .socket_addr()
-        .ok_or(SocksServerError::Bug("unresolved UDP target address"))?;
+    let mut target_addr =
+        target_addr.resolve_dns().await?.socket_addr().ok_or(SocksServerError::Bug("unresolved UDP target address"))?;
 
     if outbound_v6 {
         target_addr.set_ip(match target_addr.ip() {
@@ -174,7 +201,11 @@ fn same_peer_ip(source: IpAddr, control: IpAddr) -> bool {
 /// Larger than any UDP payload (65 527 bytes over IPv6), so recv_from never truncates a datagram.
 const UDP_RELAY_BUFFER_LEN: usize = 65_535;
 
-async fn handle_udp_requests(inbound: &UdpSocket, outbound: &UdpSocket, source: UdpSourceConstraint) -> Result<(), SocksServerError> {
+async fn handle_udp_requests(
+    inbound: &UdpSocket,
+    outbound: &UdpSocket,
+    source: UdpSourceConstraint,
+) -> Result<(), SocksServerError> {
     let mut buf = vec![0u8; UDP_RELAY_BUFFER_LEN];
     let outbound_v6 = outbound.local_addr().err_when("udp outbound local addr")?.is_ipv6();
     loop {
@@ -195,9 +226,10 @@ async fn handle_udp_response(
 
     // Clients don't tend to expect v6-mapped addresses when they connect to v4 ones
     if let std::net::IpAddr::V6(v6) = remote_addr.ip()
-        && let Some(v4) = v6.to_ipv4_mapped() {
-            remote_addr.set_ip(std::net::IpAddr::V4(v4));
-        }
+        && let Some(v4) = v6.to_ipv4_mapped()
+    {
+        remote_addr.set_ip(std::net::IpAddr::V4(v4));
+    }
 
     let mut data = new_udp_header(remote_addr)?;
     data.extend_from_slice(&buf[..size]);
@@ -226,14 +258,23 @@ async fn handle_udp_responses(inbound: &UdpSocket, outbound: &UdpSocket) -> Resu
 /// # Cancel safety
 ///
 /// NOT cancel-safe: cancellation drops the relay sockets and ends the association.
-pub async fn transfer_udp(inbound: Socket, outbound: Socket, control_peer_ip: IpAddr, declared: &TargetAddr) -> Result<(), SocksServerError> {
+pub async fn transfer_udp(
+    inbound: Socket,
+    outbound: Socket,
+    control_peer_ip: IpAddr,
+    declared: &TargetAddr,
+) -> Result<(), SocksServerError> {
     transfer_udp_with_source(inbound, outbound, UdpSourceConstraint::new(control_peer_ip, declared)).await
 }
 
 /// # Cancel safety
 ///
 /// NOT cancel-safe: cancellation drops the relay sockets and ends the association.
-async fn transfer_udp_with_source(inbound: Socket, outbound: Socket, source: UdpSourceConstraint) -> Result<(), SocksServerError> {
+async fn transfer_udp_with_source(
+    inbound: Socket,
+    outbound: Socket,
+    source: UdpSourceConstraint,
+) -> Result<(), SocksServerError> {
     let inbound = UdpSocket::from_std(inbound.into()).err_when("wrapping inbound socket")?;
     let outbound = UdpSocket::from_std(outbound.into()).err_when("wrapping outbound socket")?;
     let req_fut = handle_udp_requests(&inbound, &outbound, source);
@@ -266,15 +307,11 @@ mod udp_peer_tests {
             IpAddr::V6(Ipv6Addr::LOCALHOST),
             &TargetAddr::Ip(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0)),
         );
-        handle_udp_request(&inbound, &outbound, false, source, &mut buf)
-            .await
-            .unwrap();
+        handle_udp_request(&inbound, &outbound, false, source, &mut buf).await.unwrap();
         assert!(inbound.peer_addr().is_err(), "rogue source must not lock the relay");
 
         valid.send_to(&request, (Ipv6Addr::LOCALHOST, port)).await.unwrap();
-        handle_udp_request(&inbound, &outbound, false, source, &mut buf)
-            .await
-            .unwrap();
+        handle_udp_request(&inbound, &outbound, false, source, &mut buf).await.unwrap();
         assert_eq!(inbound.peer_addr().unwrap(), valid.local_addr().unwrap());
         let mut echoed = [0u8; 1];
         let (size, _) = target.recv_from(&mut echoed).await.unwrap();
@@ -292,7 +329,8 @@ mod udp_peer_tests {
         let outbound = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let target = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let client = UdpSocket::bind("127.0.0.1:0").await.unwrap();
-        let source = UdpSourceConstraint::new(IpAddr::V4(Ipv4Addr::LOCALHOST), &TargetAddr::Ip(client.local_addr().unwrap()));
+        let source =
+            UdpSourceConstraint::new(IpAddr::V4(Ipv4Addr::LOCALHOST), &TargetAddr::Ip(client.local_addr().unwrap()));
         let mut request = new_udp_header(target.local_addr().unwrap()).unwrap();
         request.extend_from_slice(&payload);
         client.send_to(&request, inbound.local_addr().unwrap()).await.unwrap();
@@ -335,7 +373,8 @@ mod udp_peer_tests {
     /// cancel-safe: cancellation drops only local test sockets.
     #[tokio::test(flavor = "current_thread")]
     async fn declared_source_port_rejects_same_ip_before_pin_and_forward() {
-        let inbound = UdpSocket::from_std(udp_bind_random_port(Some(IpAddr::V4(Ipv4Addr::LOCALHOST))).unwrap().into()).unwrap();
+        let inbound =
+            UdpSocket::from_std(udp_bind_random_port(Some(IpAddr::V4(Ipv4Addr::LOCALHOST))).unwrap().into()).unwrap();
         let outbound = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let target = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let rogue = UdpSocket::bind("127.0.0.1:0").await.unwrap();
