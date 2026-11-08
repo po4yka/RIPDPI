@@ -13,6 +13,16 @@ The implementation MUST expire UDP UID results after an absolute bounded age. Tr
 - **WHEN** A permitted owner closes a socket and a denied owner reuses the exact UDP tuple
 - **THEN** admission requests a fresh UID after the age bound and does not forward before its verdict.
 
+#### Scenario: Stop obsolete responses before the successor verdict
+
+- **WHEN** a new exact-tuple registration is Pending or Denied
+- **THEN** the prior registration has no live response or error context, while neighboring destinations remain valid.
+
+#### Scenario: Preserve UDP transport when the owner is unchanged
+
+- **WHEN** a UID refresh confirms the same UID and app scope for a live UDP tuple
+- **THEN** the flow reuses its association, proxy socket and source port with fresh destination context. Empty transports remain bounded while resolution is pending.
+
 ### Requirement: REQ-VPN08-DESTINATION — Keep concurrent owners separate
 
 The implementation MUST NOT infer app identity from destination IP. Learning state MUST separate opaque app scopes while preserving TCP fallback across flows of the same app scope.
@@ -21,6 +31,11 @@ The implementation MUST NOT infer app identity from destination IP. Learning sta
 
 - **WHEN** two apps use the same destination and one app succeeds over TCP
 - **THEN** the other app cannot receive that success or its package mark.
+
+#### Scenario: Separate equal packages owned by different UIDs
+
+- **WHEN** distinct UIDs resolve to the same package name and version
+- **THEN** they receive distinct opaque transport scopes.
 
 ### Requirement: REQ-VPN08-SESSION — Fence session and package results
 
@@ -48,6 +63,20 @@ The implementation MUST retain the original kernel tuple for UID lookup and carr
 
 - **WHEN** TCP or UDP targets a synthetic address mapped to a real peer
 - **THEN** learning uses the original app scope without an IP alias or cross-app join.
+
+#### Scenario: Keep a queued mapping during owner resolution
+
+- **WHEN** a mapped UDP packet waits for its owner verdict during cache pressure or an underlay reset
+- **THEN** its mapping remains leased until forwarding acquires its own lease or the queued packet is dropped. Queue expiry and capacity limits release unused leases.
+
+### Requirement: REQ-VPN08-RAW — Retire obsolete context before consuming UDP hooks
+
+The implementation MUST retire an obsolete exact-tuple response context before a consuming UDP raw hook returns. A disarmed consuming hook MUST NOT wait for attribution grace. Root-only Lua remains opt-in.
+
+#### Scenario: Consume a successor packet in an opt-in Lua path
+
+- **WHEN** Lua passes a UDP packet through SOCKS and consumes a later packet of the same tuple after its owner registration changes
+- **THEN** the previous registration cannot deliver data or errors to TUN, and the consumed packet creates no SOCKS transport.
 
 ### Requirement: REQ-VPN08-UNKNOWN — Keep unknown owners unattributed
 

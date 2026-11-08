@@ -27,6 +27,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-VPN08-UNKNOWN | VPN-1794152944925858 | Unknown and bounded slow resolver paths | Pending |
 | REQ-VPN08-PRIVACY | VPN-1794152944925858 | Opaque scope serialization and transient Kotlin identity tests | Pending |
 | REQ-VPN08-MAPDNS | VPN-1794152945958197 | Synthetic TCP/UDP identity regressions | Pending |
+| REQ-VPN08-RAW | VPN-1794152944925858 | Production root/Lua consuming path is reachable; non-root excludes consuming Lua. A separate host regression and ordering fix are pending. No root activation is authorized. | Pending |
 
 ## Review and combined gates
 
