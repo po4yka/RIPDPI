@@ -655,6 +655,10 @@ Chains traffic through an external SOCKS proxy before applying desync. Configura
 
 This enables proxy chaining: client -> RIPDPI (desync) -> upstream SOCKS -> internet.
 
+The upstream TCP connect timeout covers socket connection, method negotiation,
+authentication, and the CONNECT reply with one deadline. Individual response
+bytes do not restart the budget.
+
 ### Connection behavior
 
 | Field | Type | Default | Description |

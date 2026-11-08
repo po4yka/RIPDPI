@@ -1,6 +1,11 @@
+#[cfg(all(test, not(feature = "loom")))]
+mod setup_tests;
+
+mod setup_io;
+
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::super::retry::refuse_after_shutdown;
 use super::error::ConnectAttemptError;
@@ -14,6 +19,13 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
     connect_timeout: Option<Duration>,
     state: &RuntimeState,
 ) -> io::Result<TcpStream> {
+    let deadline = connect_timeout
+        .map(|timeout| {
+            Instant::now().checked_add(timeout).ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidInput, "upstream SOCKS timeout exceeds clock range")
+            })
+        })
+        .transpose()?;
     let mut stream = super::socket::connect_socket_detailed_observed(
         upstream,
         bind_ip,
@@ -26,24 +38,20 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
     .map_err(ConnectAttemptError::into_io_error)?;
     let _active_upstream = state.register_active_upstream_tcp_socket(&stream)?;
     refuse_after_shutdown(state)?;
-    stream.set_read_timeout(connect_timeout)?;
-    stream.set_write_timeout(connect_timeout)?;
-
-    let handshake_result = (|| {
-        state.negotiate_upstream_socks_auth(&mut stream, upstream)?;
+    {
+        let mut setup = setup_io::SocksSetupIo::new(&mut stream, deadline);
+        state.negotiate_upstream_socks_auth(&mut setup, upstream)?;
 
         refuse_after_shutdown(state)?;
         let request = RuntimeState::encode_upstream_socks_connect(target);
-        stream.write_all(&request)?;
-        let reply = RuntimeState::read_upstream_socks_reply(&mut stream)?;
+        setup.write_all(&request)?;
+        let reply = RuntimeState::read_upstream_socks_reply(&mut setup)?;
+        setup.check_deadline()?;
         refuse_after_shutdown(state)?;
         if !RuntimeState::upstream_socks_connect_succeeded(&reply) {
             return Err(RuntimeState::upstream_socks_connect_error(&reply));
         }
-        Ok(())
-    })();
-
-    handshake_result?;
+    }
     stream.set_read_timeout(None)?;
     stream.set_write_timeout(None)?;
     Ok(stream)
