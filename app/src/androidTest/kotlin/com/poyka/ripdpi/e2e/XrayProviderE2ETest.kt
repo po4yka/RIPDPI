@@ -13,6 +13,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import androidx.test.uiautomator.UiDevice
+import com.poyka.ripdpi.core.DefaultTun2SocksBridgeFactory
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.Tun2SocksBridgeFactoryModule
 import com.poyka.ripdpi.core.XrayBridgeModule
 import com.poyka.ripdpi.core.XrayDatDir
 import com.poyka.ripdpi.core.XrayNativeBridge
@@ -61,6 +64,7 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
 import com.poyka.ripdpi.services.CandidateXrayMeasurements
+import com.poyka.ripdpi.services.FlowAttributionBridge
 import com.poyka.ripdpi.services.MeasuredProfileActivationCoordinator
 import com.poyka.ripdpi.services.PhysicalNetworkObserver
 import com.poyka.ripdpi.services.ServiceController
@@ -120,7 +124,7 @@ import javax.inject.Singleton
 
 /** Real VpnService, Keystore, gomobile engine and TUN; independent host peer, never a public server. */
 @HiltAndroidTest
-@UninstallModules(VpnTunnelSessionProviderModule::class, XrayBridgeModule::class)
+@UninstallModules(VpnTunnelSessionProviderModule::class, XrayBridgeModule::class, Tun2SocksBridgeFactoryModule::class)
 class XrayProviderE2ETest {
     @BindValue
     @JvmField
@@ -147,6 +151,11 @@ class XrayProviderE2ETest {
     @Module
     @InstallIn(SingletonComponent::class)
     object DiagnosticXrayBridgeModule {
+        @Provides
+        @Singleton
+        fun provideObservedTunnelBridgeFactory(factory: DefaultTun2SocksBridgeFactory): Tun2SocksBridgeFactory =
+            ObservedNativeTunnelBridgeFactory(factory)
+
         @Provides
         @Singleton
         @XrayDatDir
@@ -194,6 +203,10 @@ class XrayProviderE2ETest {
     @Inject lateinit var settings: AppSettingsRepository
 
     @Inject lateinit var state: ServiceStateStore
+
+    @Inject lateinit var tunnelBridgeFactory: Tun2SocksBridgeFactory
+
+    @Inject lateinit var flowAttributionBridge: FlowAttributionBridge
 
     @Inject lateinit var profiles: DurableXrayProfileStore
 
@@ -1266,6 +1279,8 @@ class XrayProviderE2ETest {
 
     private fun assertOwnedEncryptedDnsThroughProvider(label: String) {
         val before = readControl("dns-http-receipts").getInt("count")
+        val countersBefore =
+            observeXrayRecoveryCounters(tunnelBridgeFactory, flowAttributionBridge, state.telemetry.value)
         val startedAt = SystemClock.elapsedRealtime()
         val response =
             testProcessDnsProbe(
@@ -1273,12 +1288,19 @@ class XrayProviderE2ETest {
                 serverHost = "198.18.0.53",
                 timeoutMs = 3_000L,
             )
+        val countersAfter =
+            observeXrayRecoveryCounters(tunnelBridgeFactory, flowAttributionBridge, state.telemetry.value)
         val after = readControl("dns-http-receipts").getInt("count")
         logRecoveryObservation(
             "encrypted-dns-$label",
             "startedAt=$startedAt query=${response.queryHost} ok=${response.ok} rcode=${response.rcode} " +
                 "latencyMs=${response.latencyMs} answers=${response.answers.size} " +
-                "failure=${response.failureKind}/${response.failureStage} dohBefore=$before dohAfter=$after",
+                "failure=${response.failureKind}/${response.failureStage} dohBefore=$before dohAfter=$after " +
+                "errorClass=${boundedRecoveryText(response.errorClass)} " +
+                "errorMessage=${boundedRecoveryText(response.errorMessage)} " +
+                "local=${response.localAddress}:${response.localPort} remote=${response.serverHost}:${response.serverPort}",
+            before = countersBefore,
+            after = countersAfter,
         )
         assertTrue(
             "Encrypted DNS must originate from a distinct test UID",
@@ -1299,29 +1321,6 @@ class XrayProviderE2ETest {
             before + 1,
             readControl("dns-http-receipts").getInt("count"),
         )
-    }
-
-    private fun logRecoveryObservation(
-        phase: String,
-        detail: String,
-    ) {
-        val telemetry = state.telemetry.value.tunnelTelemetry
-        Log.i(
-            "XrayPeerRecovery",
-            "phase=$phase observedAt=${SystemClock.elapsedRealtime()} $detail " +
-                "dnsQueries=${telemetry.dnsQueriesTotal} dnsFailures=${telemetry.dnsFailuresTotal} " +
-                "endpoint=${boundedRecoveryText(telemetry.resolverEndpoint)} " +
-                "lastDnsError=${boundedRecoveryText(telemetry.lastDnsError)}",
-        )
-    }
-
-    private fun boundedRecoveryText(value: String?): String {
-        val redacted = XrayProfileRedactor.redactText(value.orEmpty()).replace('\n', ' ').replace('\r', ' ')
-        return if (redacted.length > RecoveryTextLimit) {
-            redacted.take(RecoveryTextLimit) + "[truncated]"
-        } else {
-            redacted
-        }
     }
 
     private fun assertOwnedDnsThroughProvider() {
@@ -1644,7 +1643,6 @@ class XrayProviderE2ETest {
     }
 
     private companion object {
-        const val RecoveryTextLimit = 512
         const val AttributionLogTag = "XrayNegativeProbe"
         const val ProfileId = "xray-provider-acceptance"
     }

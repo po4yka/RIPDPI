@@ -106,7 +106,7 @@ class TestNetworkProbeService : Service() {
                 val resultCode =
                     try {
                         try {
-                            TestNetworkProbeReceiver().runDnsProbe(request, extras)
+                            TestNetworkProbeReceiver().runDnsProbe(request, extras, this@TestNetworkProbeService)
                             Activity.RESULT_OK
                         } catch (error: Throwable) {
                             extras.putBoolean(ExtraOk, false)

@@ -4,8 +4,6 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.os.IBinder
 import android.os.Parcel
@@ -48,7 +46,7 @@ internal const val ExtraProbeSignalId = "probe_signal_id"
 internal const val ExtraProbeSignalBinder = "probe_signal_binder"
 internal const val ProbeSignalDnsDatagramSentCode = 1
 internal const val ExtraOk = "ok"
-private const val ExtraLocalAddress = "local_address"
+internal const val ExtraLocalAddress = "local_address"
 internal const val ExtraLocalPort = "local_port"
 internal const val ExtraResponse = "response"
 internal const val ExtraBoundDevice = "bound_device"
@@ -66,9 +64,6 @@ private const val ExtraDefaultNetworkStateBefore = "default_network_state_before
 private const val ExtraDefaultNetworkStateAfter = "default_network_state_after"
 private const val ExtraSocketConstructionStartedAtElapsedMs = "socket_construction_started_at_elapsed_ms"
 private const val ExtraExchangeCompletedAtElapsedMs = "exchange_completed_at_elapsed_ms"
-private const val DefaultNetworkStateVpn = 1
-private const val DefaultNetworkStateNonVpn = 2
-private const val DefaultNetworkStateUnknown = 3
 private const val ProbeThreadName = "test-network-probe"
 private const val DefaultConnectTimeoutMs = 3_000
 private const val DefaultReadTimeoutMs = 5_000
@@ -141,7 +136,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         val resultCode =
             try {
                 when {
-                    ActionProbeDns.equals(action) -> runDnsProbe(intent, extras)
+                    ActionProbeDns.equals(action) -> runDnsProbe(intent, extras, context)
                     ActionProbeUdp.equals(action) -> runUdpProbe(intent, extras)
                     ActionProbeIcmp.equals(action) -> runIcmpProbe(intent, extras)
                     else -> runTcpProbe(context, intent, extras)
@@ -253,32 +248,6 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun putDefaultNetworkState(
-        extras: Bundle,
-        key: String,
-        state: Int,
-    ) {
-        extras.putInt(key, state)
-    }
-
-    private fun defaultNetworkStateCode(context: Context?): Int {
-        val connectivityManager =
-            context?.getSystemService(ConnectivityManager::class.java)
-                ?: return DefaultNetworkStateUnknown
-        val capabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-        return when {
-            capabilities == null -> DefaultNetworkStateUnknown
-
-            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
-                !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) -> DefaultNetworkStateVpn
-
-            !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) -> DefaultNetworkStateNonVpn
-
-            else -> DefaultNetworkStateUnknown
-        }
-    }
-
     private fun runUdpProbe(
         intent: Intent,
         extras: Bundle,
@@ -336,6 +305,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
     internal fun runDnsProbe(
         intent: Intent,
         extras: Bundle,
+        context: Context? = null,
     ) {
         val serverHost = intent.getStringExtra(ExtraHost)
         val serverPort = intent.getIntExtra(ExtraPort, -1)
@@ -390,6 +360,7 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             }
             return
         }
+        logDnsProbeSocket("before-create", context, requestId, serverHost, serverPort, extras)
         val socket = DatagramSocket()
         try {
             socket.soTimeout = timeoutMs
@@ -411,7 +382,11 @@ class TestNetworkProbeReceiver : BroadcastReceiver() {
             extras.putStringArrayList(ExtraDnsAnswers, answers)
             extras.putLong(ExtraDnsLatencyMs, SystemClock.elapsedRealtime() - startedAt)
         } finally {
-            socket.close()
+            try {
+                socket.close()
+            } finally {
+                logDnsProbeSocket("finally", context, requestId, serverHost, serverPort, extras)
+            }
         }
     }
 
