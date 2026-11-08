@@ -209,3 +209,5 @@ fn rejected_ipv6_identities_share_the_bounded_reassembly_pool() {
     assert!(matches!(defrag.accept(&first, later), Reassembly::Held));
     assert!(matches!(defrag.accept(&last, later), Reassembly::Complete(_)));
 }
+
+mod chains;
