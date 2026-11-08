@@ -46,7 +46,7 @@ The TCP guard MUST reject destinations covered by the actual listening socket. I
 
 ### Requirement: REQ-LOC07-CANCEL — Cancel pending TCP connect
 
-A pending TCP connect MUST observe runtime shutdown within the existing forced drain budget, close its socket, and release its worker and client slot. It MUST preserve connect deadlines, protection, TCP options and observer events.
+A pending TCP connect MUST observe runtime shutdown within the existing forced drain budget, close its socket, and release its worker and client slot. It MUST preserve connect deadlines, protection, TCP options and observer events. A shutdown cancellation MUST NOT produce a failed-connect quality signal or route fallback. Genuine connection failures MUST remain visible.
 
 #### Scenario: Shutdown with a pending connection
 

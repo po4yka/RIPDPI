@@ -13,13 +13,13 @@ Task PRX-1794125405826480 repairs the audited Transparent path. Accepted sockets
 - Apply IPv6 policy to the logical Transparent destination. Canonical IPv4 remains IPv4; do not apply this flag to relay carrier endpoints.
 - Preserve the kernel-provided IPv6 scope. Do not infer a missing interface or change flow information without a verified ABI need.
 - Use actual listening socket coverage for self checks. Do not infer listener ownership from a successful UDP bind. Preserve private resolved-domain admission and separate remote-peer restrictions.
-- Reuse the existing cancellable socket connect loop for synchronous TCP. Keep protection before connect, observer callbacks, deadlines and socket options. Do not create an async runtime or an extra thread per connect.
+- Reuse the existing cancellable socket connect loop for synchronous TCP. Keep protection before connect, observer callbacks, deadlines and socket options. Report genuine failures; classify cancellation during shutdown as an intentional stop before quality scoring or route fallback. Do not create an async runtime or an extra thread per connect.
 - Default network and token behavior stays fail closed. No source rule, fixture or baseline gate is removed.
 
 ## Contracts and ownership
 
 - Ingress worker owns F1 and F3 in proxy-runtime and necessary listener projections. Sockaddr worker owns privileged-ops fd conversion and its existing tests.
-- Cancellation worker owns adapter connect control and runtime connect wiring after ingress work. platform.rs is a serialized lane.
+- Cancellation owns only adapter TCP connect control and runtime connect wiring. Ingress owns platform.rs listener metadata. The two sections are independent in separate worktrees; integration serializes their commits and validates the combined file.
 - Integration owns planning, docs, combined checks and merges. Every writer uses an isolated worktree. Audit and review agents do not write.
 - Cargo.lock, versions, public schemas, locales, API snapshots and golden fixtures are unchanged unless a required gate identifies a real owning change. Never extend a baseline to hide a regression.
 

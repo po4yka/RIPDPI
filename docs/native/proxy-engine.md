@@ -35,6 +35,19 @@ Relevant sources:
 - `native/rust/crates/ripdpi-cli/src/main.rs`
 - `native/rust/crates/ripdpi-cli/src/telemetry.rs`
 
+### Transparent TCP ingress
+
+`-E` / `--transparent` selects raw TCP ingress on Linux and Android. The OS supplies the original destination through `SO_ORIGINAL_DST` or `IP6T_SO_ORIGINAL_DST`. The listener does not read a SOCKS or HTTP request and sends no proxy success reply.
+
+- Bind this mode to loopback with no inbound auth token. A non-loopback bind or a token with Transparent is rejected.
+- Install redirect rules outside the proxy. Exclude the proxy's own outbound sockets from those rules to prevent recursive capture. Starting the proxy does not install firewall rules or enable root mode.
+- `-X` rejects logical IPv6 destinations. IPv4-mapped addresses use their canonical IPv4 family. A separately configured relay carrier retains its own address family.
+- The Linux adapter retains a returned IPv6 scope ID. It does not infer a missing interface.
+- The self-connect check uses the actual listener coverage. A separate local service can use the same port on another address; actual wildcard and dual-stack self targets remain denied.
+- Runtime shutdown cancels a pending TCP connect as well as active relay sockets.
+
+Android Proxy command-line preferences can select this mode, but usable traffic still requires working OS redirect rules and kernel support. The normal Android VPN path uses an authenticated TUN-to-SOCKS session and cannot select Transparent. Other host platforms reject connections when original-destination lookup is unavailable.
+
 ### Android Proxy mode
 
 `RipDpiProxyService.startProxy()` -> `ConnectionPolicyResolver.resolve()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `runtime::create_listener()` -> `runtime::run_proxy_with_embedded_control()`

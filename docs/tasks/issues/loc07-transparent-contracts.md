@@ -33,8 +33,8 @@ Repair the confirmed LOC-07 TCP ingress failures and verify shutdown while direc
 - Integration owner: planning, task lifecycle, docs/native/proxy-engine.md, combined checks, review and main integration in the job worktree.
 - Ingress worker: F1 and F3 in ripdpi-proxy-runtime and listener projections; one commit per finding. It owns handshake.rs and its tests.
 - Sockaddr worker: F2 in ripdpi-privileged-ops/src/linux/fd.rs and src/linux/tests/fd.rs.
-- Cancellation worker: confirmed H1 in ripdpi-proxy-runtime-adapter connect functions and runtime/routing/connect/socket.rs with regression coverage. It starts from the reviewed ingress result if platform.rs overlaps.
-- platform.rs and listener state are serialized: ingress changes first, cancellation changes after rebase. Integration owns conflict resolution.
+- Cancellation worker: confirmed H1 in ripdpi-proxy-runtime-adapter connect functions and runtime/routing/connect/{socket,error,plan}.rs plus routing/retry.rs, with real pending-connect and cancellation-telemetry regressions. It owns only the connect section of platform.rs.
+- platform.rs has separate function owners: ingress owns listener metadata; cancellation owns TCP connect control. These writers use separate worktrees. Integration serializes their commits, resolves any overlap and validates the combined file. Listener state belongs only to ingress.
 - Review agents are read-only. Each writer uses a separate worktree. Workers do not edit planning, generated boards, Cargo.lock, dependency manifests, baselines, locales, contracts or golden fixtures.
 
 ## Scope limits
