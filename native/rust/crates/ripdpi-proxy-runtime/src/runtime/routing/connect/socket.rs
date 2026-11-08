@@ -66,6 +66,7 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed_observed(
     state: &RuntimeState,
 ) -> Result<TcpStream, ConnectAttemptError> {
     let observer = RuntimeConnectObserver { state };
+    let cancelled = || state.shutdown_requested();
     connect_platform::connect_tcp_stream_observed(
         target,
         bind_ip,
@@ -73,7 +74,7 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed_observed(
         tfo,
         connect_timeout,
         pre_connect_rcvbuf,
-        Some(&observer),
+        connect_platform::TcpConnectControl { observer: Some(&observer), cancelled: Some(&cancelled) },
     )
     .map_err(|err| ConnectAttemptError {
         source: err.source,

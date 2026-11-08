@@ -125,6 +125,9 @@ fn connect_target_via_group_with_policy(
     let stream = match connect_result {
         Ok(stream) => stream,
         Err(err) => {
+            if err.is_shutdown_cancelled(state.shutdown_requested()) {
+                return Err(err);
+            }
             // Emit failure-path timing symmetrically with the success-path
             // `record_connect_telemetry` path so QualityWindow sees both arms.
             let rtt_ms = started.elapsed().as_millis() as u64;

@@ -64,7 +64,15 @@ pub mod connect {
         connect_timeout: Option<Duration>,
         pre_connect_rcvbuf: Option<u32>,
     ) -> Result<TcpStream, TcpConnectError> {
-        connect_tcp_stream_observed(target, bind_ip, protect_path, tfo, connect_timeout, pre_connect_rcvbuf, None)
+        connect_tcp_stream_observed(
+            target,
+            bind_ip,
+            protect_path,
+            tfo,
+            connect_timeout,
+            pre_connect_rcvbuf,
+            TcpConnectControl { observer: None, cancelled: None },
+        )
     }
 
     pub fn connect_tcp_stream_observed(
@@ -74,17 +82,9 @@ pub mod connect {
         tfo: bool,
         connect_timeout: Option<Duration>,
         pre_connect_rcvbuf: Option<u32>,
-        observer: Option<&dyn TcpConnectObserver>,
+        control: TcpConnectControl<'_>,
     ) -> Result<TcpStream, TcpConnectError> {
-        connect_tcp_stream_inner(
-            target,
-            bind_ip,
-            protect_path,
-            tfo,
-            connect_timeout,
-            pre_connect_rcvbuf,
-            ConnectControl { observer, cancelled: None },
-        )
+        connect_tcp_stream_inner(target, bind_ip, protect_path, tfo, connect_timeout, pre_connect_rcvbuf, control)
     }
 
     /// Connects one owned socket while polling association cancellation.
@@ -102,13 +102,14 @@ pub mod connect {
             false,
             connect_timeout,
             None,
-            ConnectControl { observer: None, cancelled: Some(cancelled) },
+            TcpConnectControl { observer: None, cancelled: Some(cancelled) },
         )
     }
 
-    struct ConnectControl<'a> {
-        observer: Option<&'a dyn TcpConnectObserver>,
-        cancelled: Option<&'a dyn Fn() -> bool>,
+    /// Observation and cancellation for one TCP connection attempt.
+    pub struct TcpConnectControl<'a> {
+        pub observer: Option<&'a dyn TcpConnectObserver>,
+        pub cancelled: Option<&'a dyn Fn() -> bool>,
     }
 
     fn connect_tcp_stream_inner(
@@ -118,7 +119,7 @@ pub mod connect {
         tfo: bool,
         connect_timeout: Option<Duration>,
         pre_connect_rcvbuf: Option<u32>,
-        control: ConnectControl<'_>,
+        control: TcpConnectControl<'_>,
     ) -> Result<TcpStream, TcpConnectError> {
         let observer = control.observer;
         let socket = new_tcp_socket(target, tfo)?;
@@ -171,14 +172,20 @@ pub mod connect {
         };
         if let Err(source) = connect_result {
             let tcp_total_retransmissions = tcp_total_retransmissions(&socket).ok().flatten();
-            tracing::warn!(
-                target = %target,
-                bind_ip = %bind_ip,
-                tcp_fast_open = tfo,
-                protected = protect_path.is_some(),
-                elapsed_ms = connect_started.elapsed().as_millis() as u64,
-                "ripdpi upstream connect failed: {source}"
-            );
+            if source.kind() == io::ErrorKind::ConnectionAborted
+                && control.cancelled.is_some_and(|cancelled| cancelled())
+            {
+                tracing::trace!("ripdpi upstream connect cancelled");
+            } else {
+                tracing::warn!(
+                    target = %target,
+                    bind_ip = %bind_ip,
+                    tcp_fast_open = tfo,
+                    protected = protect_path.is_some(),
+                    elapsed_ms = connect_started.elapsed().as_millis() as u64,
+                    "ripdpi upstream connect failed: {source}"
+                );
+            }
             return Err(TcpConnectError { source, tcp_total_retransmissions, tcp_fast_open_enabled: tfo });
         }
         tracing::debug!(

@@ -66,6 +66,9 @@ fn connect_target_with_route_and_egress(
         ) {
             Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
+                if err.is_shutdown_cancelled(state.shutdown_requested()) {
+                    return Err(err.into_io_error());
+                }
                 retries += 1;
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
                 if RuntimeState::connect_failure_retries_without_tfo(err.tcp_fast_open_enabled, &failure) {
@@ -82,6 +85,9 @@ fn connect_target_with_route_and_egress(
                     ) {
                         Ok((stream, guard)) => return Ok((stream, route, guard)),
                         Err(fallback_err) => {
+                            if fallback_err.is_shutdown_cancelled(state.shutdown_requested()) {
+                                return Err(fallback_err.into_io_error());
+                            }
                             err = fallback_err;
                             failure = RuntimeState::classify_connect_transport_error(&err.source);
                         }
@@ -162,6 +168,9 @@ fn reconnect_target_with_tfo_mode(
         ) {
             Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
+                if err.is_shutdown_cancelled(state.shutdown_requested()) {
+                    return Err(err.into_io_error());
+                }
                 retries += 1;
                 if retries > state.max_route_retries() {
                     return Err(err.into_io_error());
@@ -181,6 +190,9 @@ fn reconnect_target_with_tfo_mode(
                     ) {
                         Ok((stream, guard)) => return Ok((stream, route, guard)),
                         Err(fallback_err) => {
+                            if fallback_err.is_shutdown_cancelled(state.shutdown_requested()) {
+                                return Err(fallback_err.into_io_error());
+                            }
                             err = fallback_err;
                             failure = RuntimeState::classify_connect_transport_error(&err.source);
                         }

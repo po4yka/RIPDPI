@@ -14,7 +14,12 @@ pub(super) fn connect(
     check_cancelled(cancelled)?;
     socket.set_nonblocking(true)?;
     match socket.connect(&SockAddr::from(target)) {
-        Ok(()) => {}
+        Ok(()) => {
+            // Fast Open can defer its SYN until the first write after successful connect.
+            check_cancelled(cancelled)?;
+            socket.set_nonblocking(false)?;
+            return Ok(());
+        }
         Err(error) if error.kind() == io::ErrorKind::WouldBlock || error.raw_os_error() == Some(libc::EINPROGRESS) => {}
         Err(error) => return Err(error),
     }
