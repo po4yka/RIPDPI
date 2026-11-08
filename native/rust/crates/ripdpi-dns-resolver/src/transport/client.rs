@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,6 +13,9 @@ use crate::health::HealthRegistry;
 use crate::types::{
     EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport, ResolverNetworkScope,
 };
+
+#[cfg(test)]
+mod socks5_contract_tests;
 
 pub(crate) fn build_client_config(
     verifier: Option<&Arc<dyn ServerCertVerifier>>,
@@ -183,8 +186,10 @@ fn configure_socks5_transport(
     port: u16,
     credentials: Option<&crate::types::EncryptedDnsSocks5Credentials>,
 ) -> Result<reqwest::ClientBuilder, EncryptedDnsError> {
-    let proxy = Proxy::all(format!("socks5h://{host}:{port}"))
-        .map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))?;
+    let authority =
+        host.parse::<IpAddr>().map_or_else(|_| format!("{host}:{port}"), |ip| SocketAddr::new(ip, port).to_string());
+    let proxy =
+        Proxy::all(format!("socks5h://{authority}")).map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))?;
     let proxy = if let Some(credentials) = credentials {
         proxy.basic_auth(&credentials.username, &credentials.password)
     } else {
