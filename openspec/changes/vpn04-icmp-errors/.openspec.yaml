@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-08
+goal: VPN-1794142179721255 Fix TUN UDP error generation and ICMP quotes
