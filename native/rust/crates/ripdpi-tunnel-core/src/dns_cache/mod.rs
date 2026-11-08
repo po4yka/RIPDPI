@@ -44,6 +44,10 @@ pub enum DnsCacheError {
     AllMappingsLeased,
     #[error("all synthetic network addresses have already been issued in this tunnel session")]
     SyntheticNetworkExhausted,
+    #[error("DNS interceptor address has already been issued as a synthetic address")]
+    ReservedAddressAlreadyIssued,
+    #[error("DNS cache already reserves a different interceptor address")]
+    ConflictingReservedAddress,
     #[error("response buffer smaller than request")]
     BufferTooSmall,
     #[error("truncated or malformed DNS packet")]

@@ -9,6 +9,8 @@ use super::super::protect_hooks::encrypted_dns_connect_hooks;
 use super::super::{build_encrypted_dns_resolver, mapdns_resolver_transport, parse_dns_cache, parse_mapdns_runtime};
 use super::support::{empty_split_dns_policy, mapdns_config, tunnel_config_with_mapdns};
 
+mod reservation_tests;
+
 #[test]
 fn parse_mapdns_runtime_uses_address_defaults_for_network_and_mask() {
     let mut mapdns = mapdns_config(8);

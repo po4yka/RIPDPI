@@ -17,6 +17,7 @@ pub struct DnsCache {
     mask: u32,
     max: usize,
     next_offset: u64,
+    reserved_ip: Option<u32>,
     /// True only when the active TUN owns an IPv6 address and default route.
     pub(super) ipv6_enabled: bool,
     #[cfg(test)]
@@ -48,6 +49,7 @@ impl DnsCache {
             mask,
             max,
             next_offset: 0,
+            reserved_ip: None,
             ipv6_enabled: false,
             #[cfg(test)]
             reset_inspections: 0,
@@ -58,6 +60,26 @@ impl DnsCache {
 
     pub(crate) fn set_ipv6_enabled(&mut self, enabled: bool) {
         self.ipv6_enabled = enabled;
+    }
+
+    /// Keep the DNS listener out of synthetic address allocation.
+    pub(crate) fn reserve_ip(&mut self, ip: u32) -> Result<(), DnsCacheError> {
+        if !self.contains_mapped_ip(ip) || ip == self.net | !self.mask {
+            return Ok(());
+        }
+        if let Some(reserved) = self.reserved_ip {
+            return if reserved == ip { Ok(()) } else { Err(DnsCacheError::ConflictingReservedAddress) };
+        }
+        // An evicted or reset answer may still be held by a client.
+        if u64::from(ip & !self.mask) < self.next_offset {
+            return Err(DnsCacheError::ReservedAddressAlreadyIssued);
+        }
+        let available = (!self.mask).saturating_sub(1);
+        if self.max as u64 > u64::from(available) {
+            return Err(DnsCacheError::CapacityExceedsNetwork { size: self.max, available });
+        }
+        self.reserved_ip = Some(ip);
+        Ok(())
     }
 
     pub fn lookup(&mut self, ip: u32) -> Option<DnsCacheEntry> {
@@ -121,7 +143,11 @@ impl DnsCache {
             return Ok((ip, true));
         }
 
-        if self.next_offset >= u64::from(!self.mask) {
+        let mut offset = self.next_offset;
+        if self.reserved_ip.is_some_and(|ip| u64::from(ip & !self.mask) == offset) {
+            offset += 1;
+        }
+        if offset >= u64::from(!self.mask) {
             return Err(DnsCacheError::SyntheticNetworkExhausted);
         }
         if self.lru.len() == self.max {
@@ -131,8 +157,8 @@ impl DnsCache {
         {
             self.allocation_steps = self.allocation_steps.saturating_add(1);
         }
-        let fake_ip = self.net | self.next_offset as u32;
-        self.next_offset += 1;
+        let fake_ip = self.net | offset as u32;
+        self.next_offset = offset + 1;
         self.lru.put(key.clone(), fake_ip);
         self.rev.insert(fake_ip, DnsCacheEntry { host: key.host, real_ip });
         Ok((fake_ip, false))

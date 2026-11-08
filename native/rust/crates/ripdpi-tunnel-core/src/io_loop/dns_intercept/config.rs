@@ -54,22 +54,28 @@ pub(in crate::io_loop) fn parse_dns_cache(
     config: &Config,
     dns_cache: Option<DnsCache>,
 ) -> io::Result<Option<DnsCache>> {
-    if let Some(mut dns_cache) = dns_cache {
-        dns_cache.set_ipv6_enabled(config.tunnel.ipv6.is_some());
-        return Ok(Some(dns_cache));
-    }
-
-    let Some(runtime) = parse_mapdns_runtime(config)? else {
-        return Ok(None);
+    let runtime = parse_mapdns_runtime(config)?;
+    let mut dns_cache = if let Some(dns_cache) = dns_cache {
+        dns_cache
+    } else {
+        let Some(runtime) = runtime else {
+            return Ok(None);
+        };
+        let cache_size = config.mapdns.as_ref().map(|value| value.cache_size as usize).unwrap_or_default();
+        if cache_size == 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "mapdns.cache_size must be greater than zero"));
+        }
+        DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size).map_err(|err| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid mapdns cache configuration: {err}"))
+        })?
     };
-    let cache_size = config.mapdns.as_ref().map(|value| value.cache_size as usize).unwrap_or_default();
-    if cache_size == 0 {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "mapdns.cache_size must be greater than zero"));
+    if let Some(runtime) = runtime
+        && let IpAddr::V4(ip) = runtime.intercept_addr.ip()
+    {
+        dns_cache.reserve_ip(u32::from(ip)).map_err(|err| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid mapdns cache configuration: {err}"))
+        })?;
     }
-
-    let mut dns_cache = DnsCache::new(runtime.synthetic_net, runtime.synthetic_mask, cache_size).map_err(|err| {
-        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid mapdns cache configuration: {err}"))
-    })?;
     dns_cache.set_ipv6_enabled(config.tunnel.ipv6.is_some());
     Ok(Some(dns_cache))
 }
