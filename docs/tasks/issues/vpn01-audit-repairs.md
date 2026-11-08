@@ -2,7 +2,7 @@
 id: VPN-1794133736183612
 title: Repair VPN lifecycle and packet I/O failure handling
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: vpn01-integration
