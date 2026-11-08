@@ -14,6 +14,9 @@ use super::super::association_state::{OutboundDatagram, touch_udp_activity, udp_
 use super::super::event_handling::UdpEvent;
 use super::replies::{destination_for_target, remember_destination};
 
+mod selection;
+use selection::{UdpWork, next_udp_work};
+
 pub(super) struct UdpWorkerConfig {
     pub(super) proxy_addr: SocketAddr,
     pub(super) auth: Auth,
@@ -120,15 +123,18 @@ pub(super) fn spawn_udp_worker(
                 }
             };
         let mut response_sources = HashMap::new();
+        let mut prefer_receive = true;
 
         loop {
-            // Cancel safety: recv_from, mpsc::Receiver::recv, and
-            // CancellationToken::cancelled are all cancel-safe, so select may
-            // drop either losing arm without losing a datagram or queue item.
-            tokio::select! {
-                biased;
-                _ = cancel.cancelled() => break,
-                outbound = outbound_rx.recv() => {
+            if cancel.is_cancelled() {
+                break;
+            }
+            let Some(work) = next_udp_work(&session, &mut outbound_rx, &cancel, &mut prefer_receive).await else {
+                break;
+            };
+            prefer_receive = matches!(&work, UdpWork::Outbound(_));
+            match work {
+                UdpWork::Outbound(outbound) => {
                     let Some(outbound) = outbound else { break };
                     if !remember_destination(&mut response_sources, &outbound.destination) {
                         continue;
@@ -183,7 +189,7 @@ pub(super) fn spawn_udp_worker(
                         }
                     }
                 }
-                received = session.recv_from_target(cancel.clone()) => match received {
+                UdpWork::Received(received) => match received {
                     Ok(Some((resp_payload, from))) => {
                         let Some(destination) = destination_for_target(&response_sources, from) else {
                             continue;
@@ -191,8 +197,19 @@ pub(super) fn spawn_udp_worker(
                         destination.touch();
                         touch_udp_activity(&last_activity);
                         let mut delivery_failed = false;
-                        for raw in build_udp_response_fragments(destination.response_source, src, &resp_payload, memory_budget.tunnel_mtu()) {
-                            if !send_event(&udp_tx, &cancel, UdpEvent::Packet { src, association_id, destination: destination.clone(), raw }).await {
+                        for raw in build_udp_response_fragments(
+                            destination.response_source,
+                            src,
+                            &resp_payload,
+                            memory_budget.tunnel_mtu(),
+                        ) {
+                            if !send_event(
+                                &udp_tx,
+                                &cancel,
+                                UdpEvent::Packet { src, association_id, destination: destination.clone(), raw },
+                            )
+                            .await
+                            {
                                 delivery_failed = true;
                                 break;
                             }
@@ -219,3 +236,6 @@ pub(super) fn spawn_udp_worker(
 
 #[cfg(test)]
 mod datagram_tests;
+
+#[cfg(test)]
+mod duplex_tests;
