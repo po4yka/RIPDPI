@@ -1,7 +1,11 @@
+mod handshake_io;
+#[cfg(test)]
+mod handshake_tests;
+
 use std::io;
 use std::net::{IpAddr, SocketAddr, TcpStream, ToSocketAddrs};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::atomic::{AtomicU16, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
@@ -32,6 +36,7 @@ const MAX_PENDING_SYSTEM_RESOLUTIONS: usize = 4;
 const LOCAL_WORKER_FAILURE_SIGNAL: &str = "local_worker_failure";
 /// `bounded_scan_io_timeout` error: the local scan or stage deadline passed, which is not network evidence.
 const SCAN_DEADLINE_SIGNAL: &str = "scan_deadline_exceeded";
+const SCAN_CANCELLED_SIGNAL: &str = "scan_cancelled";
 
 static SYSTEM_RESOLUTION_LIMITER: LazyLock<Arc<ResolutionLimiter>> =
     LazyLock::new(|| Arc::new(ResolutionLimiter::new(MAX_PENDING_SYSTEM_RESOLUTIONS)));
@@ -99,7 +104,16 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
                 &profiles,
                 || runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline(),
                 |profile, level| {
-                    execute_cell(target, &metadata.cohort_id, address, profile, level, deadline, &plan.session_id)
+                    execute_cell(
+                        target,
+                        &metadata.cohort_id,
+                        address,
+                        profile,
+                        level,
+                        deadline,
+                        &plan.session_id,
+                        runtime.cancel_token(),
+                    )
                 },
             );
             for cell in &target_matrix.cells {
@@ -365,17 +379,28 @@ fn execute_cell(
     parallelism: u16,
     deadline: Option<Instant>,
     diagnostics_session_id: &str,
+    cancel: &AtomicBool,
 ) -> ClassifierCell {
-    execute_cell_with(target, cohort_id, address, profile, parallelism, deadline, |host, address, profile| {
+    let cell_deadline = Instant::now() + CELL_RESULT_DEADLINE;
+    let deadline = deadline.map_or(cell_deadline, |value| value.min(cell_deadline));
+    execute_cell_with(target, cohort_id, address, profile, parallelism, Some(deadline), |host, address, profile| {
+        if let Some(reason) = handshake_io::interruption(cancel, deadline) {
+            return Err(reason.to_string());
+        }
         let timeout =
             ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
         let host = ripdpi_tls_profiles::normalize_server_name(host).map_err(|error| error.to_string())?;
         let connector = ripdpi_tls_profiles::build_connector(profile, true).map_err(|error| error.to_string())?;
-        let stream =
-            protected_tcp_connect(address, timeout, diagnostics_session_id).map_err(|error| error.to_string())?;
-        stream.set_read_timeout(Some(timeout)).map_err(|error| error.to_string())?;
-        stream.set_write_timeout(Some(timeout)).map_err(|error| error.to_string())?;
-        connector.connect(&host, stream).map_err(|error| error.to_string())
+        let stream = protected_tcp_connect(address, timeout, diagnostics_session_id);
+        if let Some(reason) = handshake_io::interruption(cancel, deadline) {
+            return Err(reason.to_string());
+        }
+        let io = handshake_io::HandshakeIo::new(stream.map_err(|error| error.to_string())?, cancel, deadline, timeout);
+        let result = connector.connect(&host, io).map_err(|error| error.to_string());
+        if let Some(reason) = handshake_io::interruption(cancel, deadline) {
+            return Err(reason.to_string());
+        }
+        result
     })
 }
 
@@ -464,9 +489,17 @@ where
                             }
                             Ok(Err(error))
                                 if error == SCAN_DEADLINE_SIGNAL
+                                    || error == SCAN_CANCELLED_SIGNAL
                                     || (clamped && classify_error(&error) == "silent_drop") =>
                             {
-                                let _ = outcome_tx.send((usize::from(index), Err(SCAN_DEADLINE_SIGNAL.to_string())));
+                                let _ = outcome_tx.send((
+                                    usize::from(index),
+                                    Err(if error == SCAN_CANCELLED_SIGNAL {
+                                        SCAN_CANCELLED_SIGNAL.to_string()
+                                    } else {
+                                        SCAN_DEADLINE_SIGNAL.to_string()
+                                    }),
+                                ));
                             }
                             Ok(Err(error)) => {
                                 let signal = classify_error(&error).to_string();
@@ -525,6 +558,12 @@ where
                 outcomes[index] = Some(Err(LOCAL_WORKER_FAILURE_SIGNAL.to_string()));
             }
         }
+        // A worker may publish its terminal interruption as the receive window closes.
+        for (index, outcome) in outcome_rx.try_iter() {
+            if outcomes.get(index).is_some_and(Option::is_none) {
+                outcomes[index] = Some(outcome);
+            }
+        }
         let outcomes = outcomes
             .into_iter()
             .map(|outcome| outcome.unwrap_or_else(|| Err("connection_freeze".to_string())))
@@ -536,6 +575,9 @@ where
     }
     if outcomes.iter().any(|outcome| matches!(outcome, Err(error) if error == LOCAL_WORKER_FAILURE_SIGNAL)) {
         return skipped_cell(target, cohort_id, profile, parallelism, "local concurrency worker failed");
+    }
+    if outcomes.iter().any(|outcome| matches!(outcome, Err(error) if error == SCAN_CANCELLED_SIGNAL)) {
+        return skipped_cell(target, cohort_id, profile, parallelism, "scan cancelled during cell");
     }
     if outcomes.iter().any(|outcome| matches!(outcome, Err(error) if error == SCAN_DEADLINE_SIGNAL)) {
         return skipped_cell(target, cohort_id, profile, parallelism, "scan deadline reached during cell");
