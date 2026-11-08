@@ -17,6 +17,7 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext
 use ripdpi_proxy_runtime_adapter::model::session::{
     S_ATP_I4, S_ATP_I6, S_CMD_AUDP, S_CMD_CONN, S_ER_DENY, S_VER4, S_VER5, S4_OK, encode_socks4_reply,
 };
+use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::thread;
@@ -719,35 +720,50 @@ fn handle_http_connect_rejects_missing_proxy_auth_when_token_required() {
 
 #[test]
 fn proxy_target_equal_to_the_listener_is_rejected_for_a_local_client() {
-    let (_client, server_side) = connected_pair();
-    let listener_addr = server_side.local_addr().expect("listener addr");
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+    let listener_addr = listener.local_addr().expect("listener addr");
+    let _client = TcpStream::connect(listener_addr).expect("connect client");
+    let (server_side, _) = listener.accept().expect("accept client");
+    let mut state = runtime_state(RuntimeConfig::default());
+    let (bound_addr, ipv6_only) = listener_platform::tcp_listener_binding(&listener).expect("actual listener binding");
+    state.set_listener_binding(bound_addr, ipv6_only);
 
-    let err = super::reject_forbidden_target(&server_side, listener_addr).expect_err("self-connect must be refused");
+    let err =
+        super::reject_forbidden_target(&server_side, listener_addr, &state).expect_err("self-connect must be refused");
 
     assert_eq!(err.kind(), ErrorKind::PermissionDenied);
     let other_loopback_port = SocketAddr::new(listener_addr.ip(), listener_addr.port().wrapping_add(1));
     assert!(
-        super::reject_forbidden_target(&server_side, other_loopback_port).is_ok(),
+        super::reject_forbidden_target(&server_side, other_loopback_port, &state).is_ok(),
         "the tunnel hop may use loopback"
     );
-    // An unspecified destination of the same family can reach this listener.
+    // Unspecified local targets on this port stay rejected.
     let wildcard_self = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), listener_addr.port());
-    assert!(super::reject_forbidden_target(&server_side, wildcard_self).is_err(), "0.0.0.0 reaches the listener");
+    assert!(
+        super::reject_forbidden_target(&server_side, wildcard_self, &state).is_err(),
+        "0.0.0.0 reaches the listener"
+    );
     let lan_ip = std::net::UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0))
         .and_then(|probe| probe.connect((Ipv4Addr::new(192, 0, 2, 1), 9)).map(|()| probe))
         .and_then(|probe| probe.local_addr())
         .map(|addr| addr.ip());
     if let Ok(lan_ip) = lan_ip {
         let lan_self = SocketAddr::new(lan_ip, listener_addr.port());
-        assert!(super::reject_forbidden_target(&server_side, lan_self).is_ok(), "an exact loopback bind is distinct");
-        assert!(RuntimeState::is_listener_target(wildcard_self, lan_self), "a wildcard bind covers {lan_self}");
+        assert!(
+            super::reject_forbidden_target(&server_side, lan_self, &state).is_ok(),
+            "an exact bind does not cover {lan_self}"
+        );
+        let mut wildcard_state = state.clone();
+        wildcard_state.set_listener_binding(wildcard_self, false);
+        assert!(wildcard_state.listener_covers_target(wildcard_self, lan_self), "a wildcard bind covers {lan_self}");
     }
     let foreign = SocketAddr::new(Ipv4Addr::new(192, 0, 2, 1).into(), listener_addr.port());
-    assert!(super::reject_forbidden_target(&server_side, foreign).is_ok(), "a foreign host may share the port");
+    assert!(super::reject_forbidden_target(&server_side, foreign, &state).is_ok(), "a foreign host may share the port");
 }
 
 #[test]
 fn lan_client_cannot_reach_device_local_targets() {
+    let state = runtime_state(RuntimeConfig::default());
     let lan_peer: SocketAddr = "192.168.1.20:40000".parse().expect("peer");
     let listener: SocketAddr = "192.168.1.5:1080".parse().expect("listener");
     for target in [
@@ -761,11 +777,17 @@ fn lan_client_cannot_reach_device_local_targets() {
         "192.168.1.5:1080",
     ] {
         let target: SocketAddr = target.parse().expect("target");
-        assert!(super::forbidden_target_reason(lan_peer, listener, target).is_some(), "{target} must be refused");
+        assert!(
+            super::forbidden_target_reason(lan_peer, listener, target, &state).is_some(),
+            "{target} must be refused"
+        );
     }
     for target in ["93.184.216.34:443", "192.168.1.1:80", "[2001:db8::1]:443", "192.168.1.5:8080"] {
         let target: SocketAddr = target.parse().expect("target");
-        assert!(super::forbidden_target_reason(lan_peer, listener, target).is_none(), "{target} must be allowed");
+        assert!(
+            super::forbidden_target_reason(lan_peer, listener, target, &state).is_none(),
+            "{target} must be allowed"
+        );
     }
 }
 

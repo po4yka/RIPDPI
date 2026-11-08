@@ -521,6 +521,13 @@ pub mod listener {
         Ok(listener)
     }
 
+    /// Returns the actual bind address and the IPv6-only socket option.
+    pub fn tcp_listener_binding(listener: &TcpListener) -> io::Result<(SocketAddr, bool)> {
+        let addr = listener.local_addr()?;
+        let ipv6_only = addr.is_ipv6() && SockRef::from(listener).only_v6()?;
+        Ok((addr, ipv6_only))
+    }
+
     pub fn close_rejected_client(client: &TcpStream) {
         let _ = SockRef::from(client).set_linger(Some(Duration::ZERO));
     }

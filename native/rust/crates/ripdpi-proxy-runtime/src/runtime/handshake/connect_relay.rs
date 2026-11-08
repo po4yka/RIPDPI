@@ -58,7 +58,7 @@ pub(super) fn connect_and_relay(
     if !state.transparent_target_allowed(target) {
         return Err(ConnectRelayError::ruleset_denied("IPv6 is disabled for transparent proxy destinations"));
     }
-    if let Some(reason) = super::forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target) {
+    if let Some(reason) = super::forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target, state) {
         return Err(ConnectRelayError::ruleset_denied(reason));
     }
     connect_and_relay_with(

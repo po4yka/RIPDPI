@@ -108,6 +108,7 @@ pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 #[derive(Clone)]
 pub(super) struct RuntimeState {
     listener_settings: ListenerSettings,
+    listener_binding: Option<listener::ListenerBinding>,
     handshake_settings: ProxyHandshakeSettings,
     delayed_connect_settings: DelayedConnectSettings,
     network_reprobe_settings: NetworkReprobeSettings,
@@ -309,6 +310,7 @@ impl RuntimeState {
 
         Ok(Self {
             listener_settings,
+            listener_binding: None,
             handshake_settings,
             delayed_connect_settings,
             network_reprobe_settings,

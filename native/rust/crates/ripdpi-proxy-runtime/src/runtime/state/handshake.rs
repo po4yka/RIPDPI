@@ -162,7 +162,7 @@ impl RuntimeState {
         address_type == 0x05
     }
     pub(in crate::runtime) fn resolved_domain_targets_allowed(&self) -> bool {
-        self.listener_settings.bind_addr.ip().is_loopback()
+        self.listener_bound_to_loopback()
             && self.listener_settings.bind_addr.port() == 0
             && self.handshake_settings.auth_token.is_some()
     }

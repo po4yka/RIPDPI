@@ -319,16 +319,21 @@ fn handle_socks5_udp_associate(
 /// unspecified or link-local targets for a peer that is not on this device, so an
 /// Allow-LAN client cannot reach services that trust loopback (RFC 9110 section 9.3.6).
 #[cfg(test)]
-fn reject_forbidden_target(client: &TcpStream, target: SocketAddr) -> io::Result<()> {
-    match forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target) {
+fn reject_forbidden_target(client: &TcpStream, target: SocketAddr, state: &RuntimeState) -> io::Result<()> {
+    match forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target, state) {
         Some(reason) => Err(io::Error::new(io::ErrorKind::PermissionDenied, reason)),
         None => Ok(()),
     }
 }
 
-fn forbidden_target_reason(peer: SocketAddr, local: SocketAddr, target: SocketAddr) -> Option<&'static str> {
+fn forbidden_target_reason(
+    peer: SocketAddr,
+    local: SocketAddr,
+    target: SocketAddr,
+    state: &RuntimeState,
+) -> Option<&'static str> {
     let target_ip = target.ip().to_canonical();
-    if RuntimeState::is_listener_target(local, target) {
+    if state.listener_covers_target(local, target) {
         return Some("proxy target is the proxy listener itself");
     }
     is_device_local_target_for(peer.ip(), target_ip).then_some("proxy target is device-local and the client is not")

@@ -1,5 +1,29 @@
 use super::*;
 
+#[derive(Clone, Copy)]
+pub(super) struct ListenerBinding {
+    addr: SocketAddr,
+    ipv6_only: bool,
+}
+
+fn same_local_address(local: SocketAddr, target: SocketAddr) -> bool {
+    if local.ip().to_canonical() != target.ip().to_canonical() {
+        return false;
+    }
+    match (local, target) {
+        (SocketAddr::V6(local), SocketAddr::V6(target)) if local.ip().is_unicast_link_local() => {
+            local.scope_id() == 0 || target.scope_id() == 0 || local.scope_id() == target.scope_id()
+        }
+        _ => true,
+    }
+}
+
+/// The bind sends no traffic and retains the target's IPv6 interface scope.
+fn is_local_address(mut addr: SocketAddr) -> bool {
+    addr.set_port(0);
+    UdpSocket::bind(addr).is_ok()
+}
+
 #[derive(Default)]
 struct ActiveSocketRegistryState {
     next_id: u64,
@@ -49,30 +73,38 @@ impl Drop for ActiveSocketGuard {
 }
 
 impl RuntimeState {
-    pub(in crate::runtime) fn set_listener_address(&mut self, address: SocketAddr) {
-        self.listener_settings.bind_addr = address;
+    pub(in crate::runtime) fn set_listener_binding(&mut self, addr: SocketAddr, ipv6_only: bool) {
+        self.listener_binding = Some(ListenerBinding { addr, ipv6_only });
     }
-    pub(in crate::runtime) fn is_listener_target(local: SocketAddr, target: SocketAddr) -> bool {
-        if target.port() != local.port() {
+    pub(in crate::runtime) fn listener_bound_to_loopback(&self) -> bool {
+        self.listener_binding
+            .map_or(self.listener_settings.bind_addr, |binding| binding.addr)
+            .ip()
+            .to_canonical()
+            .is_loopback()
+    }
+    pub(in crate::runtime) fn listener_covers_target(&self, local: SocketAddr, target: SocketAddr) -> bool {
+        let binding = self.listener_binding.unwrap_or(ListenerBinding { addr: local, ipv6_only: false });
+        if target.port() != binding.addr.port() {
             return false;
         }
-        let local_ip = local.ip().to_canonical();
+        let bind_ip = binding.addr.ip().to_canonical();
         let target_ip = target.ip().to_canonical();
-        if target_ip == local_ip {
+        let family_covered = match bind_ip {
+            IpAddr::V4(_) => target_ip.is_ipv4(),
+            IpAddr::V6(bind_ip) => target_ip.is_ipv6() || (bind_ip.is_unspecified() && !binding.ipv6_only),
+        };
+        if !family_covered {
+            return false;
+        }
+        if same_local_address(local, target) || target_ip.is_unspecified() {
             return true;
         }
-        if local_ip.is_unspecified() {
-            if local_ip.is_ipv4() && target_ip.is_ipv6() {
-                return false;
-            }
-            // IPv6 wildcard listeners may also accept IPv4, depending on socket defaults.
-            // The UDP bind only probes address ownership; it sends no traffic.
-            return target_ip.is_unspecified() || std::net::UdpSocket::bind((target_ip, 0)).is_ok();
-        }
-        target_ip.is_unspecified() && local_ip.is_ipv4() == target_ip.is_ipv4()
+        bind_ip.is_unspecified() && is_local_address(target)
     }
     pub(in crate::runtime) fn reject_listener_target(&self, target: SocketAddr) -> io::Result<()> {
-        if Self::is_listener_target(self.listener_settings.bind_addr, target) {
+        let local = self.listener_binding.map_or(self.listener_settings.bind_addr, |binding| binding.addr);
+        if self.listener_covers_target(local, target) {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "proxy target is the proxy listener itself"));
         }
         Ok(())
@@ -170,12 +202,44 @@ impl Drop for ClientSlotGuard {
 #[cfg(test)]
 mod tests {
     use std::io::Read;
-    use std::net::{Ipv4Addr, TcpListener, TcpStream};
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV6, TcpListener, TcpStream};
     use std::time::Duration;
 
     use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+    use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
     use super::RuntimeState;
+
+    #[test]
+    fn actual_mapped_listener_has_loopback_identity() {
+        let socket = Socket::new(Domain::IPV6, Type::STREAM, Some(Protocol::TCP)).expect("create mapped listener");
+        socket.set_only_v6(false).expect("allow mapped IPv4 bind");
+        let addr: SocketAddr = "[::ffff:127.0.0.1]:0".parse().expect("mapped bind address");
+        socket.bind(&SockAddr::from(addr)).expect("bind mapped listener");
+        socket.listen(1).expect("listen on mapped address");
+        let listener: TcpListener = socket.into();
+        let (addr, ipv6_only) = ripdpi_proxy_runtime_adapter::platform::listener::tcp_listener_binding(&listener)
+            .expect("read actual listener binding");
+        let mut config = RuntimeConfig::default();
+        config.network.listen.listen_ip = std::net::Ipv6Addr::UNSPECIFIED.into();
+        let mut state = RuntimeState::test(config);
+        state.set_listener_binding(addr, ipv6_only);
+
+        assert!(state.listener_bound_to_loopback(), "actual mapped bind is a loopback identity");
+    }
+
+    #[test]
+    fn exact_scoped_listener_keeps_interface_zones_distinct() {
+        let ip = "fe80::1".parse().expect("link-local address");
+        let local = SocketAddr::V6(SocketAddrV6::new(ip, 1080, 0, 42));
+        let mut state = RuntimeState::test(RuntimeConfig::default());
+        state.set_listener_binding(local, true);
+
+        let same_zone = SocketAddr::V6(SocketAddrV6::new(ip, 1080, 123, 42));
+        let other_zone = SocketAddr::V6(SocketAddrV6::new(ip, 1080, 0, 43));
+        assert!(state.listener_covers_target(local, same_zone), "flow info does not select another listener");
+        assert!(!state.listener_covers_target(local, other_zone), "another interface is a separate endpoint");
+    }
 
     #[test]
     fn forced_shutdown_closes_tracked_upstream_socket() {

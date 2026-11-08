@@ -76,6 +76,7 @@ impl RuntimeState {
 
         Self {
             listener_settings,
+            listener_binding: None,
             handshake_settings,
             delayed_connect_settings,
             network_reprobe_settings,

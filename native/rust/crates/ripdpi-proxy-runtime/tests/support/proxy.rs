@@ -33,13 +33,21 @@ pub fn start_proxy(
     config: ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
 ) -> RunningProxy {
+    let listener = create_listener(&config).expect("create listener");
+    start_proxy_with_listener(config, listener, telemetry)
+}
+
+pub fn start_proxy_with_listener(
+    config: ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
+    listener: std::net::TcpListener,
+    telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+) -> RunningProxy {
     prepare_embedded();
     clear_runtime_telemetry();
     let startup = Arc::new(StartupLatch::default());
     let harness_telemetry: Arc<dyn RuntimeTelemetrySink> =
         Arc::new(ProxyHarnessTelemetry { startup: startup.clone(), delegate: telemetry });
     let control = Arc::new(EmbeddedProxyControl::new(Some(harness_telemetry)));
-    let listener = create_listener(&config).expect("create listener");
     let port = listener.local_addr().expect("listener addr").port();
     let control_for_thread = control.clone();
     let thread = thread::spawn(move || {
