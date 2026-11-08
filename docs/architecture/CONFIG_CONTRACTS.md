@@ -223,10 +223,10 @@ a set of `AppSettings` proto fields. All are additive (Kotlin default + Rust
   Turns the single local listener into a *mixed* inbound that serves SOCKS5,
   SOCKS4 **and** HTTP CONNECT, dispatched by peeking the first request byte
   (`0x05`→SOCKS5, `0x04`→SOCKS4, `'C'`→HTTP CONNECT). Mode precedence in the
-  adapter is `transparent > mixed > http_connect > byte_prefixed`. When mixed is
-  on and the user has not set an explicit port, the Kotlin mapper
-  (`buildListenConfig`) defaults the port to **2080** (mirroring the reference
-  `mixedPort`), leaving the plain-SOCKS **1080** default and its goldens intact.
+  adapter is `transparent > mixed > http_connect > byte_prefixed`. Mixed uses the
+  configured proxy port, including the **1080** port in the initial app
+  settings. If the stored port is zero or negative, `buildListenConfig`
+  uses **2080** for Mixed and **1080** for plain SOCKS.
 - **`listen.authToken`** (`String?`, default `null`) → listener auth token. The
   native `apply_listen_section` **rejects any non-loopback `listen.ip` without a
   non-empty `authToken`** — this guard is load-bearing and must not be removed.
@@ -246,7 +246,7 @@ not call `VpnService.Builder.setHttpProxy`, even when the setting is on
 
 - In VPN mode the local listener binds an ephemeral port (`listenPortOverride = 0`)
   and requires a per-session token (`VpnRuntimeCompositionCoordinator`). The
-  settings port (`proxy_port`, or the 2080/1080 defaults) is not bound, so
+  configured proxy port is not bound, so
   advertising it sends proxied requests to any local app that binds that port.
 - `ProxyInfo` cannot carry credentials, so system-proxy clients cannot use the
   session listener either. The listener answers them with `407`.

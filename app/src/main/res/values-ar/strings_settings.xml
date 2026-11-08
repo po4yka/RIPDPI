@@ -256,7 +256,7 @@
     <string name="backup_reset_confirm_action">المسح وإعادة التشغيل</string>
     <string name="backup_reset_cancel_action">إلغاء</string>
     <string name="settings_mixed_inbound_title">الدخول المختلط (SOCKS5 + HTTP)</string>
-    <string name="settings_mixed_inbound_body">يقبل مستمع محلي واحد اتصالات SOCKS5 و HTTP CONNECT معاً؛ المنفذ الافتراضي هو 2080.</string>
+    <string name="settings_mixed_inbound_body">يستخدم SOCKS5 وHTTP CONNECT منفذ الوكيل نفسه.</string>
     <string name="settings_append_http_proxy_title">الإعلان عن وكيل HTTP للنظام</string>
     <string name="settings_append_http_proxy_body">في وضع VPN على Android 10 وما فوق، يوجّه النظام حركة مرور وكيل HTTP عبر المستمع المحلي. لا تأثير له في وضع الوكيل.</string>
     <string name="settings_proxy_allow_lan_title">السماح بوصول LAN</string>

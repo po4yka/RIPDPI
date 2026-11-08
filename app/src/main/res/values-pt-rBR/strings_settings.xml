@@ -31,7 +31,7 @@
     <string name="theme_settings">Tema</string>
     <string name="about_category">Sobre</string>
     <string name="settings_mixed_inbound_title">Entrada mista (SOCKS5 + HTTP)</string>
-    <string name="settings_mixed_inbound_body">Um único listener local aceita conexões SOCKS5 e HTTP CONNECT; a porta padrão é 2080.</string>
+    <string name="settings_mixed_inbound_body">SOCKS5 e HTTP CONNECT usam a mesma porta do proxy.</string>
     <string name="settings_append_http_proxy_title">Anunciar proxy HTTP ao sistema</string>
     <string name="settings_append_http_proxy_body">Em modo VPN no Android 10 ou superior, informa ao sistema para rotear o tráfego do proxy HTTP pelo listener local. Não tem efeito no modo proxy.</string>
     <string name="settings_proxy_allow_lan_title">Permitir acesso à rede local</string>

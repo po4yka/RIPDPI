@@ -100,7 +100,7 @@
     <string name="data_transparency_no_external_servers">不会自动向外部服务器发送任何数据</string>
     <string name="data_transparency_retention_period">可配置保留期(1–365 天)</string>
     <string name="settings_mixed_inbound_title">混合入站 (SOCKS5 + HTTP)</string>
-    <string name="settings_mixed_inbound_body">单个本地 listener 同时接受 SOCKS5 和 HTTP CONNECT 连接，默认端口为 2080。</string>
+    <string name="settings_mixed_inbound_body">SOCKS5 和 HTTP CONNECT 使用同一个代理端口。</string>
     <string name="settings_append_http_proxy_title">向系统通告 HTTP 代理</string>
     <string name="settings_append_http_proxy_body">在 Android 10+ 的 VPN 模式下，告知系统通过本地 listener 路由 HTTP 代理流量。代理模式下无效。</string>
     <string name="settings_proxy_allow_lan_title">允许局域网访问</string>

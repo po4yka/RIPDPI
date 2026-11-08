@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.toSettingsSections
 import com.poyka.ripdpi.proto.AppSettings
 import org.junit.Assert.assertEquals
@@ -50,6 +51,20 @@ class ListenConfigSectionTest {
 
         assertEquals(false, listen.customTtl)
         assertEquals(0, listen.defaultTtl)
+    }
+
+    @Test
+    fun `enabling mixed inbound keeps the stock or user configured proxy port`() {
+        val defaults = AppSettingsSerializer.defaultValue
+        val custom = defaults.toBuilder().setProxyPort(8181).build()
+
+        for ((settings, expectedPort) in listOf(defaults to 1080, custom to 8181)) {
+            val mixed = settings.toBuilder().setMixedInboundEnabled(true).build()
+            val listen = RipDpiProxyUIPreferences.fromSettings(mixed).listen
+
+            assertEquals(true, listen.mixed)
+            assertEquals(expectedPort, listen.port)
+        }
     }
 
     @Test

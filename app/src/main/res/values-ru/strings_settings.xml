@@ -18,7 +18,7 @@
     <string name="theme_settings">Тема</string>
     <string name="about_category">О приложении</string>
     <string name="settings_mixed_inbound_title">Смешанный входящий (SOCKS5 + HTTP)</string>
-    <string name="settings_mixed_inbound_body">Единый локальный listener принимает соединения SOCKS5 и HTTP CONNECT; порт по умолчанию — 2080.</string>
+    <string name="settings_mixed_inbound_body">SOCKS5 и HTTP CONNECT используют один порт прокси.</string>
     <string name="settings_append_http_proxy_title">Объявить HTTP-прокси системе</string>
     <string name="settings_append_http_proxy_body">В режиме VPN на Android 10+ сообщает системе маршрутизировать трафик HTTP-прокси через локальный listener. В режиме прокси не действует.</string>
     <string name="settings_proxy_allow_lan_title">Разрешить доступ из локальной сети</string>

@@ -96,7 +96,7 @@
     <string name="data_transparency_performance_metrics">معیارهای عملکرد: اندازه‌گیری RTT، تعداد تلاش‌های مجدد، آمار ترافیک</string>
     <string name="data_transparency_what_we_do_not_collect_section">آنچه ما جمع‌آوری نمی‌کنیم</string>
     <string name="settings_mixed_inbound_title">ورودی ترکیبی (SOCKS5 + HTTP)</string>
-    <string name="settings_mixed_inbound_body">یک listener محلی واحد اتصالات SOCKS5 و HTTP CONNECT را می‌پذیرد؛ پورت پیش‌فرض ۲۰۸۰ است.</string>
+    <string name="settings_mixed_inbound_body">SOCKS5 و HTTP CONNECT از یک پورت پروکسی استفاده می‌کنند.</string>
     <string name="settings_append_http_proxy_title">اعلام پروکسی HTTP به سیستم</string>
     <string name="settings_append_http_proxy_body">در حالت VPN روی Android 10+، به سیستم می‌گوید ترافیک پروکسی HTTP را از طریق listener محلی مسیریابی کند. در حالت پروکسی تأثیری ندارد.</string>
     <string name="settings_proxy_allow_lan_title">اجازه دسترسی شبکه محلی</string>

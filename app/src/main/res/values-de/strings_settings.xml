@@ -49,7 +49,7 @@
     <string name="language_name_es">Español</string>
     <string name="language_picker_native_format">%1$s</string>
     <string name="settings_mixed_inbound_title">Gemischter Eingang (SOCKS5 + HTTP)</string>
-    <string name="settings_mixed_inbound_body">Ein einzelner lokaler Listener akzeptiert SOCKS5- und HTTP-CONNECT-Verbindungen; Standardport ist 2080.</string>
+    <string name="settings_mixed_inbound_body">SOCKS5 und HTTP CONNECT verwenden denselben Proxy-Port.</string>
     <string name="settings_append_http_proxy_title">HTTP-Proxy dem System ankündigen</string>
     <string name="settings_append_http_proxy_body">Im VPN-Modus auf Android 10+ weist das System an, HTTP-Proxy-Verkehr über den lokalen Listener zu leiten. Im Proxy-Modus ohne Wirkung.</string>
     <string name="settings_proxy_allow_lan_title">LAN-Zugriff erlauben</string>

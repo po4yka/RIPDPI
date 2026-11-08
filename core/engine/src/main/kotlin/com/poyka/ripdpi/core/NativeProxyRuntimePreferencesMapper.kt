@@ -12,9 +12,6 @@ internal fun buildListenConfig(proxy: ProxySettingsSection): RipDpiListenConfig 
     val allowLan = proxy.proxyAllowLan && lanToken != null
     return RipDpiListenConfig(
         ip = if (allowLan) "0.0.0.0" else proxy.proxyIp.ifEmpty { "127.0.0.1" },
-        // The mixed inbound mirrors the reference implementation's mixedPort
-        // default (2080) so it does not collide with the plain SOCKS default
-        // (1080); an explicit user-set port always wins.
         port = proxy.proxyPort.takeIf { it > 0 } ?: if (proxy.mixedInboundEnabled) 2080 else 1080,
         maxConnections = proxy.maxConnections.takeIf { it > 0 } ?: 512,
         bufferSize = proxy.bufferSize.takeIf { it > 0 } ?: 16384,
