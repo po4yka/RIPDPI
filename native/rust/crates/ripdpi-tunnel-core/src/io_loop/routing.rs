@@ -10,7 +10,10 @@ use super::defrag::Reassembly;
 use super::dns_intercept::{
     dns_query_name, resolve_mapped_destination, route_dns_packet, sync_direct_dns_mapping_generation,
 };
-use super::packet::{TcpFlowKey, build_tcp_reset, is_injected_rst, tcp_packet_endpoints};
+use super::packet::{
+    Ipv6OptionDisposition, TcpFlowKey, build_ipv6_option_error, build_tcp_reset, ipv6_option_disposition,
+    is_injected_rst, tcp_packet_endpoints,
+};
 use super::state::LoopState;
 use super::state::PendingUidRetainOutcome;
 use super::tcp_accept::ensure_pending_listen_for_syn;
@@ -26,11 +29,39 @@ pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState)
         state.stats.record_tun_parse_failure();
         return;
     }
+    if drop_invalid_ipv6_options(packet, state, true) {
+        return;
+    }
     // UDP fragments wait here until the datagram is whole: the UDP path proxies whole datagrams.
     match state.ip_defrag.accept(packet, Instant::now()) {
         Reassembly::NotFragment => route_tun_packet_inner(packet, state, None, true),
         Reassembly::Complete(datagram) => route_tun_packet_inner(&datagram, state, None, false),
         Reassembly::Held => {}
+    }
+}
+
+fn drop_invalid_ipv6_options(packet: &[u8], state: &mut LoopState, original_wire_packet: bool) -> bool {
+    match ipv6_option_disposition(packet) {
+        Ipv6OptionDisposition::Accept => false,
+        disposition => {
+            state.stats.record_tun_parse_failure();
+            if let Ipv6OptionDisposition::ParameterProblem(pointer) = disposition
+                && original_wire_packet
+                && !state.cancel.is_cancelled()
+                && !state.runtime.uid_policy.is_enforcing()
+                && let Some(source) = state.iface.ip_addrs().iter().find_map(|address| match address.address() {
+                    smoltcp::wire::IpAddress::Ipv6(source) if !source.is_unspecified() && !source.is_multicast() => {
+                        Some(source)
+                    }
+                    _ => None,
+                })
+                && let Some(error) = build_ipv6_option_error(packet, pointer, source, state.device.mtu)
+                && state.runtime.udp_error_originator.allow(Instant::now())
+            {
+                state.device.tx_queue.push_back(error);
+            }
+            true
+        }
     }
 }
 
@@ -40,6 +71,9 @@ fn route_tun_packet_inner(
     pending: Option<(&FlowRegistrationId, Instant)>,
     original_wire_packet: bool,
 ) {
+    if drop_invalid_ipv6_options(packet, state, original_wire_packet) {
+        return;
+    }
     let (ip_class, parsed_ip) = classify_ip_packet_with_parse_status(packet, state.runtime.mapdns_classify);
     if !parsed_ip {
         state.stats.record_tun_parse_failure();
