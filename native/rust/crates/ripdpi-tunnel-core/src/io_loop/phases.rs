@@ -590,6 +590,7 @@ mod tests {
 
             let mut packet = ipv4_udp_packet(55_125, 3478, b"stun");
             packet[16..20].copy_from_slice(&synthetic_ip.to_be_bytes());
+            fill_ipv4_checksum(&mut packet);
             let local = "10.0.0.2:55125".parse().expect("local endpoint");
             let synthetic_remote = SocketAddr::new(Ipv4Addr::from(synthetic_ip).into(), 3478);
 
@@ -629,6 +630,7 @@ mod tests {
         let registration_b = register_direct_dns_socket_binder(Arc::new(GenerationBinder(32))).expect("B registration");
         let mut packet = ipv4_udp_packet(55_130, 443, b"stale");
         packet[16..20].copy_from_slice(&synthetic_ip.to_be_bytes());
+        fill_ipv4_checksum(&mut packet);
 
         route_tun_packet(&packet, &mut state);
 
@@ -975,7 +977,12 @@ mod tests {
         let query = mapdns_dns_query();
         let mut packet = ipv4_udp_packet(src_port, 53, &query);
         packet[16..20].copy_from_slice(&[198, 18, 0, 10]);
+        fill_ipv4_checksum(&mut packet);
         packet
+    }
+
+    fn fill_ipv4_checksum(packet: &mut [u8]) {
+        smoltcp::wire::Ipv4Packet::new_checked(packet).expect("fixture header").fill_checksum();
     }
 
     fn ipv4_udp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
@@ -992,6 +999,7 @@ mod tests {
         packet[22..24].copy_from_slice(&dst_port.to_be_bytes());
         packet[24..26].copy_from_slice(&(udp_len as u16).to_be_bytes());
         packet[28..].copy_from_slice(payload);
+        fill_ipv4_checksum(&mut packet);
         packet
     }
 
@@ -1007,6 +1015,7 @@ mod tests {
                 let more = if offset + chunk < payload.len() { 0x2000 } else { 0 };
                 fragment[6..8].copy_from_slice(&(more | (offset / 8) as u16).to_be_bytes());
                 fragment.extend_from_slice(part);
+                fill_ipv4_checksum(&mut fragment);
                 fragment
             })
             .collect()
@@ -1043,6 +1052,7 @@ mod tests {
         packet[32] = 0x50;
         packet[33] = 0x18;
         packet[34..36].copy_from_slice(&65535u16.to_be_bytes());
+        fill_ipv4_checksum(&mut packet);
         packet
     }
 
@@ -1055,6 +1065,7 @@ mod tests {
         packet[12..16].copy_from_slice(&[10, 0, 0, 2]);
         packet[16..20].copy_from_slice(&[93, 184, 216, 34]);
         packet[20] = 8;
+        fill_ipv4_checksum(&mut packet);
         packet
     }
 
@@ -1073,6 +1084,7 @@ mod tests {
     fn ipv4_icmp_fragment(first_fragment: bool) -> Vec<u8> {
         let mut packet = ipv4_icmp_packet();
         packet[6..8].copy_from_slice(&(if first_fragment { 0x2000_u16 } else { 0x0001_u16 }).to_be_bytes());
+        fill_ipv4_checksum(&mut packet);
         packet
     }
 

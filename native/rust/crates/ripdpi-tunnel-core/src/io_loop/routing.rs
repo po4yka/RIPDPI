@@ -20,6 +20,12 @@ const STUN_HEADER_LEN: usize = 20;
 const STUN_MAGIC_COOKIE: [u8; 4] = 0x2112_A442_u32.to_be_bytes();
 
 pub(in crate::io_loop) fn route_tun_packet(packet: &[u8], state: &mut LoopState) {
+    if packet.first().is_some_and(|byte| byte >> 4 == 4)
+        && !smoltcp::wire::Ipv4Packet::new_checked(packet).is_ok_and(|ip| ip.verify_checksum())
+    {
+        state.stats.record_tun_parse_failure();
+        return;
+    }
     // UDP fragments wait here until the datagram is whole: the UDP path proxies whole datagrams.
     match state.ip_defrag.accept(packet, Instant::now()) {
         Reassembly::NotFragment => route_tun_packet_inner(packet, state, None, true),
