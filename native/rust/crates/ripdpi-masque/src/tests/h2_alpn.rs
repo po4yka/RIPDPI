@@ -48,35 +48,54 @@ fn start_non_h2_peer(protocol: Option<&[u8]>) -> (SocketAddr, String, thread::Jo
     (address, certificate_pem, peer)
 }
 
+#[derive(Clone, Copy, Debug)]
+enum H2Carrier {
+    Udp,
+    TcpOverTransport,
+    TcpDial,
+}
+
 /// # Cancel safety:
 /// NOT cancel-safe: cancellation before accept may leave the fixture peer waiting; normal runs join the peer.
 #[tokio::test]
 async fn h2_carriers_reject_non_h2_peers_before_application_bytes() {
-    for udp in [false, true] {
+    for carrier in [H2Carrier::Udp, H2Carrier::TcpOverTransport, H2Carrier::TcpDial] {
         for protocol in [None, Some(b"http/1.1".as_slice())] {
             let (address, root, peer) = start_non_h2_peer(protocol);
             let mut config = grease_test_config(MasqueTcpProtocol::Http2);
             config.url = format!("https://localhost:{}/", address.port());
             config.proxy_socket_addr = Some(address);
             config.root_certificate_pem = Some(root);
-            let attempt = if udp {
-                let (incoming, _receiver) = tokio::sync::mpsc::channel(1);
-                let attempt = tokio::time::timeout(
-                    Duration::from_secs(3),
-                    crate::h2::attempt_h2_connect_udp(&config, "example.test:443", None, incoming),
-                )
-                .await
-                .expect("bounded UDP attempt");
-                attempt.map(|_| ())
-            } else {
-                let socket = tokio::net::TcpStream::connect(address).await.expect("carrier");
-                let attempt = tokio::time::timeout(
-                    Duration::from_secs(3),
-                    crate::h2::attempt_h2_connect_tcp_over_transport(&config, socket, "example.test:443", None),
-                )
-                .await
-                .expect("bounded TCP attempt");
-                attempt.map(|_| ())
+            let attempt = match carrier {
+                H2Carrier::Udp => {
+                    let (incoming, _receiver) = tokio::sync::mpsc::channel(1);
+                    let attempt = tokio::time::timeout(
+                        Duration::from_secs(3),
+                        crate::h2::attempt_h2_connect_udp(&config, "example.test:443", None, incoming),
+                    )
+                    .await
+                    .expect("bounded UDP attempt");
+                    attempt.map(|_| ())
+                }
+                H2Carrier::TcpOverTransport => {
+                    let socket = tokio::net::TcpStream::connect(address).await.expect("carrier");
+                    let attempt = tokio::time::timeout(
+                        Duration::from_secs(3),
+                        crate::h2::attempt_h2_connect_tcp_over_transport(&config, socket, "example.test:443", None),
+                    )
+                    .await
+                    .expect("bounded TCP-over-transport attempt");
+                    attempt.map(|_| ())
+                }
+                H2Carrier::TcpDial => {
+                    let attempt = tokio::time::timeout(
+                        Duration::from_secs(3),
+                        crate::h2::attempt_h2_connect_tcp(&config, "example.test:443", None),
+                    )
+                    .await
+                    .expect("bounded TCP dialing attempt");
+                    attempt.map(|_| ())
+                }
             };
             let error = match attempt {
                 Err(AttemptError::Io(error)) => error,
@@ -90,7 +109,7 @@ async fn h2_carriers_reject_non_h2_peers_before_application_bytes() {
             );
             assert!(
                 peer.join().expect("peer thread").is_empty(),
-                "H2 bytes sent without h2 ALPN: UDP={udp} protocol={protocol:?}"
+                "H2 bytes sent without h2 ALPN: carrier={carrier:?} protocol={protocol:?}"
             );
         }
     }
