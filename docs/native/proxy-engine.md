@@ -655,6 +655,10 @@ Chains traffic through an external SOCKS proxy before applying desync. Configura
 
 This enables proxy chaining: client -> RIPDPI (desync) -> upstream SOCKS -> internet.
 
+Groups that share an upstream socket address must use the same authentication
+policy and credentials. Startup rejects conflicting pairs, including a mixture
+of credentials and NO-AUTH, before binding the listener.
+
 The upstream TCP connect timeout covers socket connection, method negotiation,
 authentication, and the CONNECT reply with one deadline. Individual response
 bytes do not restart the budget.

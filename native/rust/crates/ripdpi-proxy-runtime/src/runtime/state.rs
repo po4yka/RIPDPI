@@ -193,6 +193,7 @@ mod session;
 mod telemetry;
 mod test_support;
 mod udp;
+mod upstream_socks;
 mod warmup;
 mod ws;
 
@@ -203,6 +204,7 @@ pub(in crate::runtime) fn now_epoch_ms() -> u64 {
 }
 impl RuntimeState {
     pub(super) fn validate_runtime_requirements(config: &RuntimeConfig) -> io::Result<()> {
+        Self::validate_upstream_socks_auth(config)?;
         validate_ip_fragmentation_support(&raw_packet_requirements(config))?;
         Self::validate_listener_auth(config, config.network.listen.listen_ip)
     }
@@ -252,6 +254,7 @@ impl RuntimeState {
         control: Option<std::sync::Arc<EmbeddedProxyControl>>,
         ws_transport: std::sync::Arc<dyn WsTransport>,
     ) -> io::Result<Self> {
+        Self::validate_upstream_socks_auth(&config)?;
         let telemetry = control.as_ref().and_then(|c| c.telemetry_sink()).or_else(current_runtime_telemetry);
         let runtime_context = control.as_ref().and_then(|c| c.runtime_context());
         let lua_strategies =
