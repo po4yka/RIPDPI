@@ -159,13 +159,6 @@ fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) ->
     }
 }
 
-/// Validate HTTP `Proxy-Authorization: Basic` header against the expected auth token.
-///
-/// Expected encoding: `Basic base64("ripdpi:<token>")`.
-pub(in crate::runtime::handshake) fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
-    crate::runtime::state::RuntimeState::validate_http_proxy_auth(request, token)
-}
-
 fn read_socks5_userpass_auth(
     client: &mut TcpStream,
     token: &str,

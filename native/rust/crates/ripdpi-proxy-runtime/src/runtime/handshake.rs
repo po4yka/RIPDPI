@@ -10,8 +10,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
+use ripdpi_proxy_runtime_adapter::model::protocol_auth::validate_http_connect_auth;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
-use ripdpi_proxy_runtime_adapter::model::session::{HttpConnectFailure, S_ER_DENY};
+use ripdpi_proxy_runtime_adapter::model::session::{HttpConnectFailure, HttpConnectHead, S_ER_DENY};
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
@@ -203,15 +204,19 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: Instant) -> io::Result<()> {
     let request = read_http_connect_request(&mut client, deadline)?;
+    let Ok(head) = HttpConnectHead::parse(&request) else {
+        client.write_all(RuntimeState::encode_http_connect_failure(HttpConnectFailure::BadRequest).as_bytes())?;
+        return Ok(());
+    };
     if let Some(token) = state.proxy_auth_token()
-        && !protocol_io::validate_http_proxy_auth(&request, token)
+        && !validate_http_connect_auth(head, token)
     {
         let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
         let _ = client.write_all(reply);
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing or invalid http proxy credentials"));
     }
     let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
-    match RuntimeState::parse_http_connect_client_request(&request, resolver) {
+    match RuntimeState::parse_http_connect_client_request(head, resolver) {
         Ok(RuntimeClientRequest::HttpConnect(target)) => {
             let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);

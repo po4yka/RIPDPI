@@ -8,6 +8,7 @@ use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeClientRequest;
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RuntimeConfig};
+use ripdpi_proxy_runtime_adapter::model::protocol_auth::validate_http_proxy_auth;
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::{
     S_ATP_I4, S_ATP_I6, S_CMD_AUDP, S_CMD_CONN, S_ER_DENY, S_VER4, S_VER5, S4_OK, encode_http_connect_reply,
@@ -357,9 +358,11 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
     assert_eq!(socks5_target.addr.ip(), expected_ip);
 
     let http_request = b"CONNECT fixture.test:443 HTTP/1.1\r\nHost: fixture.test:443\r\n\r\n";
-    let RuntimeClientRequest::HttpConnect(http_target) =
-        RuntimeState::parse_http_connect_client_request(http_request, resolver).expect("parse http connect request")
-    else {
+    let RuntimeClientRequest::HttpConnect(http_target) = RuntimeState::parse_http_connect_client_request(
+        super::HttpConnectHead::parse(http_request).expect("HTTP head"),
+        resolver,
+    )
+    .expect("parse http connect request") else {
         panic!("expected HTTP CONNECT request");
     };
     assert_eq!(http_target.addr.ip(), expected_ip);

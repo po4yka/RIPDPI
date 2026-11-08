@@ -58,16 +58,15 @@ use super::response::{
 #[cfg(test)]
 use super::response::{RuntimeTriggerEvent, runtime_response_trigger_flag, runtime_response_trigger_supported};
 use super::session::{
-    FirstOutboundPayloadPolicy, HttpConnectFailure, OutboundPayloadInfo, ParsedSocks5UdpPacket, PayloadHostExtractor,
-    ProxyReply, RuntimeSessionProjection, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD,
-    S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET, S_VER5, SocketType, UdpPacketParser, UdpPayloadClassifier,
-    UdpPayloadInfo, encode_http_connect_failure, encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply,
-    encode_upstream_socks_connect, extract_payload_host_with, has_inbound_payload, new_session_state,
-    observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
+    FirstOutboundPayloadPolicy, HttpConnectFailure, HttpConnectHead, OutboundPayloadInfo, ParsedSocks5UdpPacket,
+    PayloadHostExtractor, ProxyReply, RuntimeSessionProjection, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE,
+    S_AUTH_USERPASS, S_ER_CMD, S_ER_CONN, S_ER_GEN, S_ER_HOST, S_ER_NET, S_VER5, SocketType, UdpPacketParser,
+    UdpPayloadClassifier, UdpPayloadInfo, encode_http_connect_failure, encode_http_connect_reply, encode_socks4_reply,
+    encode_socks5_reply, encode_upstream_socks_connect, extract_payload_host_with, has_inbound_payload,
+    new_session_state, observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
-    parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
-    read_upstream_socks_reply, runtime_classify_udp_payload, runtime_parse_socks5_udp_packet_with_host,
-    runtime_session_projection, validate_http_proxy_auth,
+    parse_shadowsocks_target, parse_socks4_request, parse_socks5_request, read_upstream_socks_reply,
+    runtime_classify_udp_payload, runtime_parse_socks5_udp_packet_with_host, runtime_session_projection,
 };
 #[cfg(test)]
 use super::session::{encode_socks5_udp_packet, runtime_parse_socks5_udp_packet};
@@ -656,12 +655,12 @@ mod state_coverage_tests {
         assert!(state.resolve_handshake_name("localhost", std::time::Instant::now() + HANDSHAKE_TIMEOUT).is_some());
         assert!(
             RuntimeState::parse_http_connect_client_request(
-                b"CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1:443\r\n\r\n",
+                super::HttpConnectHead::parse(b"CONNECT 127.0.0.1:443 HTTP/1.1\r\nHost: 127.0.0.1:443\r\n\r\n")
+                    .expect("HTTP head"),
                 |host| host.parse::<IpAddr>().ok().map(|ip| SocketAddr::new(ip, 0))
             )
             .is_ok()
         );
-        assert!(!RuntimeState::validate_http_proxy_auth(b"", "token"));
         assert!(
             state
                 .parse_shadowsocks_target(&[S_ATP_I4, 127, 0, 0, 1, 0, 80], |_| None)

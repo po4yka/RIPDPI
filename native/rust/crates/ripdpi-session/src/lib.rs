@@ -8,7 +8,7 @@ mod state;
 mod triggers;
 mod types;
 
-pub use http_connect::parse_http_connect_request;
+pub use http_connect::{HttpConnectHead, parse_http_connect_request};
 pub use replies::{
     HttpConnectFailure, encode_http_connect_failure, encode_http_connect_reply, encode_socks4_reply,
     encode_socks5_reply,

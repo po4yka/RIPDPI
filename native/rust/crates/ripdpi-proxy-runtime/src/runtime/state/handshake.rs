@@ -252,17 +252,14 @@ impl RuntimeState {
             .map_err(runtime_session_error)
     }
     pub(in crate::runtime) fn parse_http_connect_client_request(
-        request: &[u8],
+        head: HttpConnectHead<'_>,
         resolve_name: impl Fn(&str) -> Option<SocketAddr>,
     ) -> Result<RuntimeClientRequest, RuntimeSessionError> {
         let resolver = |host: &str, socket_type: SocketType| {
             let _ = socket_type;
             resolve_name(host)
         };
-        parse_http_connect_request(request, &resolver).map(runtime_client_request).map_err(runtime_session_error)
-    }
-    pub(in crate::runtime) fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
-        validate_http_proxy_auth(request, token)
+        head.resolve(&resolver).map(runtime_client_request).map_err(runtime_session_error)
     }
     pub(in crate::runtime) fn parse_shadowsocks_target(
         &self,

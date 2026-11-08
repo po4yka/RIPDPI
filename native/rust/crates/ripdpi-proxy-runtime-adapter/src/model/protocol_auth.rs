@@ -1,23 +1,22 @@
+use ripdpi_session::HttpConnectHead;
+
 pub fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
+    HttpConnectHead::parse(request).is_ok_and(|head| validate_http_connect_auth(head, token))
+}
+
+pub fn validate_http_connect_auth(head: HttpConnectHead<'_>, token: &str) -> bool {
     use base64::engine::{Engine, general_purpose::STANDARD};
 
-    let Ok(request_str) = std::str::from_utf8(request) else { return false };
-    for line in request_str.lines() {
-        if let Some((name, value)) = line.split_once(':')
-            && name.eq_ignore_ascii_case("Proxy-Authorization")
-        {
-            let mut parts = value.split_ascii_whitespace();
-            if let (Some(scheme), Some(encoded), None) = (parts.next(), parts.next(), parts.next())
-                && scheme.eq_ignore_ascii_case("Basic")
-                && let Ok(decoded) = STANDARD.decode(encoded)
-            {
-                let mut expected = Vec::with_capacity("ripdpi:".len() + token.len());
-                expected.extend_from_slice(b"ripdpi:");
-                expected.extend_from_slice(token.as_bytes());
-                return constant_time_eq::constant_time_eq(&decoded, &expected);
-            }
-            return false;
-        }
+    let Some(value) = head.proxy_authorization() else { return false };
+    let mut parts = value.split_ascii_whitespace();
+    if let (Some(scheme), Some(encoded), None) = (parts.next(), parts.next(), parts.next())
+        && scheme.eq_ignore_ascii_case("Basic")
+        && let Ok(decoded) = STANDARD.decode(encoded)
+    {
+        let mut expected = Vec::with_capacity("ripdpi:".len() + token.len());
+        expected.extend_from_slice(b"ripdpi:");
+        expected.extend_from_slice(token.as_bytes());
+        return constant_time_eq::constant_time_eq(&decoded, &expected);
     }
     false
 }
@@ -25,6 +24,16 @@ pub fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ignores_credentials_beyond_the_http_header_boundary() {
+        for boundary in ["\r\n", "\n"] {
+            let request = format!(
+                "CONNECT 127.0.0.1:80 HTTP/1.1\r\nHost: 127.0.0.1:80\r\n{boundary}Proxy-Authorization: Basic cmlwZHBpOnMzY3IzdA==\r\n\r\n"
+            );
+            assert!(!validate_http_proxy_auth(request.as_bytes(), "s3cr3t"));
+        }
+    }
 
     #[test]
     fn validates_basic_proxy_authorization_token() {

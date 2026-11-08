@@ -3,41 +3,62 @@ use std::net::SocketAddr;
 use crate::types::{ClientRequest, NameResolver, S_ER_CMD, S_ER_HOST, SessionError, SocketType, TargetAddr};
 
 pub fn parse_http_connect_request(buffer: &[u8], resolver: &dyn NameResolver) -> Result<ClientRequest, SessionError> {
-    let header_end = buffer
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .map(|position| position + 4)
-        .ok_or_else(SessionError::generic)?;
-    let text = std::str::from_utf8(&buffer[..header_end]).map_err(|_| SessionError::generic())?;
-    let mut lines = text.lines();
-    let request_line = lines.next().ok_or_else(SessionError::generic)?;
-    let mut parts = request_line.split_ascii_whitespace();
-    if parts.next() != Some("CONNECT") {
-        return Err(SessionError::socks5(S_ER_CMD));
+    HttpConnectHead::parse(buffer)?.resolve(resolver)
+}
+
+/// One complete CRLF-delimited CONNECT header. Tunnel bytes are excluded.
+#[derive(Clone, Copy)]
+pub struct HttpConnectHead<'a> {
+    text: &'a str,
+}
+
+impl<'a> HttpConnectHead<'a> {
+    pub fn parse(buffer: &'a [u8]) -> Result<Self, SessionError> {
+        let end = buffer.windows(4).position(|part| part == b"\r\n\r\n").ok_or_else(SessionError::generic)?;
+        let text = std::str::from_utf8(&buffer[..end]).map_err(|_| SessionError::generic())?;
+        if text.split("\r\n").any(|line| line.contains(['\r', '\n'])) {
+            return Err(SessionError::generic());
+        }
+        Ok(Self { text })
     }
-    let authority = parts.next().ok_or_else(SessionError::generic)?;
-    if !matches!(parts.next(), Some("HTTP/1.0" | "HTTP/1.1")) || parts.next().is_some() {
-        return Err(SessionError::generic());
+
+    fn fields(self) -> impl Iterator<Item = (&'a str, &'a str)> {
+        self.text.split("\r\n").skip(1).filter_map(|line| line.split_once(':'))
     }
-    let (name, port) = split_host_port(authority).ok_or_else(SessionError::generic)?;
-    let mut hosts = lines.take_while(|line| !line.is_empty()).filter_map(|line| {
-        line.split_once(':').filter(|(field, _)| field.eq_ignore_ascii_case("host")).map(|(_, value)| value.trim())
-    });
-    let host = hosts.next().ok_or_else(SessionError::generic)?;
-    if hosts.next().is_some() {
-        return Err(SessionError::generic());
+
+    pub fn proxy_authorization(self) -> Option<&'a str> {
+        self.fields().find(|(name, _)| name.eq_ignore_ascii_case("Proxy-Authorization")).map(|(_, value)| value)
     }
-    let unbracketed_host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
-    let (host_name, host_port) =
-        split_host_port(host).map_or((unbracketed_host, None), |(name, port)| (name, Some(port)));
-    if !host_name.eq_ignore_ascii_case(name) || host_port.is_some_and(|host_port| host_port != port) {
-        return Err(SessionError::generic());
+
+    pub fn resolve(self, resolver: &dyn NameResolver) -> Result<ClientRequest, SessionError> {
+        let request_line = self.text.split("\r\n").next().ok_or_else(SessionError::generic)?;
+        let mut parts = request_line.split_ascii_whitespace();
+        if parts.next() != Some("CONNECT") {
+            return Err(SessionError::socks5(S_ER_CMD));
+        }
+        let authority = parts.next().ok_or_else(SessionError::generic)?;
+        if !matches!(parts.next(), Some("HTTP/1.0" | "HTTP/1.1")) || parts.next().is_some() {
+            return Err(SessionError::generic());
+        }
+        let (name, port) = split_host_port(authority).ok_or_else(SessionError::generic)?;
+        let mut hosts =
+            self.fields().filter(|(name, _)| name.eq_ignore_ascii_case("Host")).map(|(_, value)| value.trim());
+        let host = hosts.next().ok_or_else(SessionError::generic)?;
+        if hosts.next().is_some() {
+            return Err(SessionError::generic());
+        }
+        let unbracketed_host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
+        let (host_name, host_port) =
+            split_host_port(host).map_or((unbracketed_host, None), |(name, port)| (name, Some(port)));
+        if !host_name.eq_ignore_ascii_case(name) || host_port.is_some_and(|host_port| host_port != port) {
+            return Err(SessionError::generic());
+        }
+        let addr = resolver
+            .resolve(name, SocketType::Stream)
+            .map(|resolved| SocketAddr::new(resolved.ip(), port))
+            .ok_or(SessionError::socks5(S_ER_HOST))?;
+        Ok(ClientRequest::HttpConnect(TargetAddr { addr, host: Some(name.to_string()) }))
     }
-    let addr = resolver
-        .resolve(name, SocketType::Stream)
-        .map(|resolved| SocketAddr::new(resolved.ip(), port))
-        .ok_or(SessionError::socks5(S_ER_HOST))?;
-    Ok(ClientRequest::HttpConnect(TargetAddr { addr, host: Some(name.to_string()) }))
 }
 
 fn split_host_port(value: &str) -> Option<(&str, u16)> {
