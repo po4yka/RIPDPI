@@ -1,4 +1,7 @@
 /// Handle the connect command by running a TCP proxy until the connection is done.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation ends the relay; callers must close any borrowed inbound stream.
 pub async fn run_tcp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
     proto: Socks5ServerProtocol<T, states::CommandRead>,
     addr: &TargetAddr,
@@ -21,7 +24,8 @@ pub async fn run_tcp_proxy<T: AsyncRead + AsyncWrite + Unpin>(
 
     debug!("Connected to remote destination");
 
-    let mut inner = proto.reply_success(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 0)).await?;
+    let bound_addr = try_notify!(proto, outbound.local_addr().err_when("reading outbound local address"));
+    let mut inner = proto.reply_success(bound_addr).await?;
 
     transfer(&mut inner, outbound).await;
     Ok(inner)
@@ -38,4 +42,11 @@ where
         Ok(res) => debug!("transfer closed ({}, {})", res.0, res.1),
         Err(_) => error!("SOCKS TCP transfer failed"),
     };
+}
+
+#[cfg(test)]
+mod tcp_endpoint_tests {
+    use super::*;
+
+    include!("tcp_endpoint_tests.rs");
 }
