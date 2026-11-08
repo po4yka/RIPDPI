@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 
 use smoltcp::iface::{SocketHandle, SocketSet};
-use smoltcp::socket::tcp::Socket as TcpSocket;
+use smoltcp::socket::tcp::{Socket as TcpSocket, State};
 use std::io;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -62,12 +62,14 @@ pub struct ActiveSessions {
     work_order: VecDeque<SessionOrderEntry>,
     /// Monotonic counter for insertion ordering.
     next_sequence: u64,
-    /// Maximum number of concurrent sessions; 0 = unlimited.
+    /// Maximum live sessions plus retained TIME-WAIT sockets; 0 = unlimited.
     max: usize,
     /// Exact flows removed since the tunnel last released strategy state.
     closed_flows: Vec<ripdpi_flow_app_attribution::FlowResolveRequest>,
     /// Aborted sockets to remove once an interface poll sent their RST, with the polls they waited.
     retired_sockets: Vec<(SocketHandle, u8)>,
+    /// Normal close state, counted against `max` after relay resources are released.
+    time_wait_sockets: VecDeque<SocketHandle>,
     /// Woken through [`Self::bridge_waker`] when a session writes into, reads from, or closes its
     /// duplex end, so the io loop pumps that data at once instead of at its next poll timer.
     bridge_ready: Arc<Notify>,
@@ -99,6 +101,7 @@ impl ActiveSessions {
             max,
             closed_flows: Vec::new(),
             retired_sockets: Vec::new(),
+            time_wait_sockets: VecDeque::new(),
             bridge_ready,
             bridge_waker,
         }
@@ -119,15 +122,16 @@ impl ActiveSessions {
         self.bridge_ready.notified()
     }
 
-    /// Resets an active smoltcp socket and keeps it until [`Self::remove_retired_sockets`]; removes
-    /// an inactive socket at once.
+    /// Resets an active socket, retains normal TIME-WAIT, and removes other inactive sockets.
     ///
     /// smoltcp sends a queued RST or FIN only from `Interface::poll`; a socket removed before that
     /// poll goes away silently, and the app's connection stays open with no peer. An inactive socket
     /// has no RST to send, and a `Listen` one kept through the poll could accept another flow's SYN.
     pub fn retire_socket(&mut self, socket_set: &mut SocketSet<'static>, handle: SocketHandle) {
         let tcp = socket_set.get_mut::<TcpSocket>(handle);
-        if tcp.is_active() {
+        if tcp.state() == State::TimeWait && !tcp.can_recv() {
+            self.time_wait_sockets.push_back(handle);
+        } else if tcp.is_active() {
             tcp.abort();
             self.retired_sockets.push((handle, 0));
         } else {
@@ -149,11 +153,19 @@ impl ActiveSessions {
             socket_set.remove(*handle);
             false
         });
+        self.time_wait_sockets.retain(|handle| {
+            if socket_set.get::<TcpSocket>(*handle).state() != State::Closed {
+                return true;
+            }
+            socket_set.remove(*handle);
+            false
+        });
     }
 
     /// Insert a new session.
     ///
-    /// If `max > 0` and the table is full, the oldest entry is evicted:
+    /// If `max > 0` and capacity is full, evict the oldest TIME-WAIT socket first,
+    /// or the oldest live entry when none remain:
     /// its `cancel` token is cancelled and its `smoltcp_side` is dropped
     /// (belt-and-suspenders EOF to the session task).
     ///
@@ -164,18 +176,20 @@ impl ActiveSessions {
         let seq = self.next_sequence;
         self.next_sequence = self.next_sequence.wrapping_add(1);
 
-        let evicted_handle = if self.max > 0 && self.entries.len() >= self.max {
-            self.pop_oldest_live().and_then(|evicted| {
-                self.sequences.remove(&evicted.handle);
-                self.entries.remove(&evicted.handle).map(|oldest| {
-                    oldest.cancel.cancel();
-                    if let Some(registration_id) = oldest.attribution_id {
-                        self.closed_flows.push(registration_id.request());
-                        ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
-                    }
-                    drop(oldest.smoltcp_side);
-                    oldest.handle.abort();
-                    (evicted.handle, oldest.pinned_synthetic_ip)
+        let evicted_handle = if self.max > 0 && self.entries.len() + self.time_wait_sockets.len() >= self.max {
+            self.time_wait_sockets.pop_front().map(|handle| (handle, None)).or_else(|| {
+                self.pop_oldest_live().and_then(|evicted| {
+                    self.sequences.remove(&evicted.handle);
+                    self.entries.remove(&evicted.handle).map(|oldest| {
+                        oldest.cancel.cancel();
+                        if let Some(registration_id) = oldest.attribution_id {
+                            self.closed_flows.push(registration_id.request());
+                            ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
+                        }
+                        drop(oldest.smoltcp_side);
+                        oldest.handle.abort();
+                        (evicted.handle, oldest.pinned_synthetic_ip)
+                    })
                 })
             })
         } else {

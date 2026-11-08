@@ -474,6 +474,7 @@ pub struct Socket<'a> {
     assembler: Assembler,
     rx_buffer: SocketBuffer<'a>,
     rx_fin_received: bool,
+    closed_normally: bool,
     tx_buffer: SocketBuffer<'a>,
     /// Interval after which, if no inbound packets are received, the connection is aborted.
     timeout: Option<Duration>,
@@ -594,6 +595,7 @@ impl<'a> Socket<'a> {
             tx_buffer,
             rx_buffer,
             rx_fin_received: false,
+            closed_normally: false,
             timeout: None,
             keep_alive: None,
             hop_limit: None,
@@ -901,6 +903,14 @@ impl<'a> Socket<'a> {
         self.state
     }
 
+    /// Return whether the socket reached CLOSED through a normal TCP close.
+    ///
+    /// The outcome survives TIME-WAIT expiry until reset, reuse, or abort. It does not
+    /// imply that the application consumed all received bytes; use [`Self::can_recv`].
+    pub fn is_closed_normally(&self) -> bool {
+        self.state == State::Closed && self.closed_normally
+    }
+
     fn reset(&mut self) {
         let rx_cap_log2 =
             mem::size_of::<usize>() * 8 - self.rx_buffer.capacity().leading_zeros() as usize;
@@ -912,6 +922,7 @@ impl<'a> Socket<'a> {
         self.tx_buffer.clear();
         self.rx_buffer.clear();
         self.rx_fin_received = false;
+        self.closed_normally = false;
         self.listen_endpoint = IpListenEndpoint::default();
         self.tuple = None;
         self.local_seq_no = TcpSeqNumber::default();
@@ -1420,6 +1431,7 @@ impl<'a> Socket<'a> {
         }
 
         self.state = state;
+        self.closed_normally = false;
 
         #[cfg(feature = "async")]
         {
@@ -2040,6 +2052,7 @@ impl<'a> Socket<'a> {
                 if ack_of_fin {
                     // Clear the remote endpoint, or we'll send an RST there.
                     self.set_state(State::Closed);
+                    self.closed_normally = true;
                     self.tuple = None;
                 } else if ack_len == 0 {
                     // Duplicate ACK; our FIN has not been acknowledged.
@@ -2535,9 +2548,14 @@ impl<'a> Socket<'a> {
         } else if self.timer.should_zero_window_probe(cx.now()) {
             tcp_trace!("sending zero-window probe");
         } else if self.timer.should_close(cx.now()) {
-            // If we have spent enough time in the TIME-WAIT state, close the socket.
-            tcp_trace!("TIME-WAIT timer expired");
-            self.reset();
+            if self.can_recv() {
+                // Keep accepted bytes under application backpressure without a busy poll timer.
+                self.timer.set_for_close(cx.now());
+            } else {
+                tcp_trace!("TIME-WAIT timer expired");
+                self.reset();
+                self.closed_normally = true;
+            }
             return Ok(());
         } else {
             return Ok(());
@@ -5886,6 +5904,48 @@ mod test {
         assert_eq!(s.state, State::TimeWait);
         recv_nothing!(s, time 60_000);
         assert_eq!(s.state, State::Closed);
+        assert!(s.is_closed_normally());
+        s.listen(LOCAL_END).unwrap();
+        assert!(!s.is_closed_normally(), "listen must clear the previous close outcome");
+    }
+
+    #[test]
+    fn test_time_wait_timeout_keeps_unread_accepted_data() {
+        let mut s = socket_fin_wait_2();
+        send!(s, time 1_000, TcpRepr {
+            control: TcpControl::Fin,
+            seq_number: REMOTE_SEQ + 1,
+            ack_number: Some(LOCAL_SEQ + 2),
+            payload: b"pending",
+            ..SEND_TEMPL
+        });
+        recv!(s, time 1_000, [TcpRepr {
+            seq_number: LOCAL_SEQ + 2,
+            ack_number: Some(REMOTE_SEQ + 9),
+            window_len: 57,
+            ..RECV_TEMPL
+        }]);
+        recv_nothing!(s, time 12_000);
+        assert_eq!(s.state, State::TimeWait);
+        assert!(matches!(s.socket.poll_at(&mut s.cx), PollAt::Time(time) if time > Instant::from_millis(12_000)));
+        let mut payload = [0; 7];
+        assert_eq!(s.recv_slice(&mut payload), Ok(7));
+        assert_eq!(&payload, b"pending");
+        recv_nothing!(s, time 23_000);
+        assert!(s.is_closed_normally());
+    }
+
+    #[test]
+    fn test_time_wait_reset_is_not_a_normal_closed_outcome() {
+        let mut s = socket_time_wait(false);
+        send!(s, TcpRepr {
+            control: TcpControl::Rst,
+            seq_number: REMOTE_SEQ + 2,
+            ack_number: Some(LOCAL_SEQ + 2),
+            ..SEND_TEMPL
+        });
+        assert_eq!(s.state, State::Closed);
+        assert!(!s.is_closed_normally());
     }
 
     // =========================================================================================//
@@ -5948,6 +6008,28 @@ mod test {
             }
         );
         assert_eq!(s.state, State::Closed);
+        assert!(s.is_closed_normally());
+        s.abort();
+        assert!(!s.is_closed_normally(), "an explicit abort must clear a previous normal close");
+    }
+
+    #[test]
+    fn test_last_ack_reset_is_not_a_normal_close() {
+        let mut s = socket_last_ack();
+        recv!(s, [TcpRepr {
+            control: TcpControl::Fin,
+            seq_number: LOCAL_SEQ + 1,
+            ack_number: Some(REMOTE_SEQ + 2),
+            ..RECV_TEMPL
+        }]);
+        send!(s, TcpRepr {
+            control: TcpControl::Rst,
+            seq_number: REMOTE_SEQ + 2,
+            ack_number: Some(LOCAL_SEQ + 2),
+            ..SEND_TEMPL
+        });
+        assert_eq!(s.state, State::Closed);
+        assert!(!s.is_closed_normally());
     }
 
     #[test]

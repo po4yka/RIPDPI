@@ -36,7 +36,6 @@ pub(super) fn take_session_task(
         ripdpi_flow_app_attribution::evict_flow_if_current(registration_id);
     }
     entry.cancel.cancel();
-    drop(entry.smoltcp_side);
     remove_tcp_socket(socket_set, sessions, handle);
-    Some(entry.handle)
+    (!entry.handle.is_finished()).then_some(entry.handle)
 }

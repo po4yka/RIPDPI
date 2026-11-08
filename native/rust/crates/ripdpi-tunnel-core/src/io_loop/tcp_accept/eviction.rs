@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use smoltcp::iface::{SocketHandle, SocketSet};
+use smoltcp::socket::tcp::{Socket as TcpSocket, State};
 use tracing::debug;
 
 use crate::ActiveSessions;
@@ -13,9 +14,12 @@ pub(super) fn remove_evicted_session_socket(
     evicted_handle: Option<SocketHandle>,
 ) {
     if let Some(evicted_handle) = evicted_handle {
-        // The evicted flow is still open on the app side: reset it so the app reconnects.
-        sessions.retire_socket(socket_set, evicted_handle);
-        debug!("Evicted session socket {:?} reset and retired", evicted_handle);
+        if socket_set.get::<TcpSocket>(evicted_handle).state() == State::TimeWait {
+            socket_set.remove(evicted_handle);
+        } else {
+            sessions.retire_socket(socket_set, evicted_handle);
+        }
+        debug!("Evicted session socket {:?} retired", evicted_handle);
     }
 }
 

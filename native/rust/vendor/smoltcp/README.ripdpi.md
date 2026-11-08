@@ -25,6 +25,21 @@ and zero MSS, explicit MSS, and the minimum clamp. The application test
 `crates/ripdpi-tunnel-core/tests/tcp_mss.rs` sends raw packets through the full
 packet loop and checks exact bytes from a loopback SOCKS peer.
 
+The TCP socket also exposes `is_closed_normally()`. A private outcome bit records
+normal LAST-ACK completion and TIME-WAIT expiry. Reset, reuse, abort, accepted RST,
+and timeout clear the outcome. The TUN bridge can therefore drain accepted bytes
+after normal TCP closure without treating an application reset as a normal EOF.
+The outcome does not mean that the application has consumed the receive buffer.
+
+TIME-WAIT expiry retains unread accepted bytes and rearms its existing close timer.
+This avoids both data loss under backpressure and an expired-timer busy loop. The
+bridge retains the live relay in its existing session budget until the task ends;
+normal forwarding does not use the shorter cancellation grace. Cancellation and
+failure discard unread close state. No extra receive storage or wire rewrite is
+introduced. Upstream tests cover the close outcome, reuse, reset, abort, and unread
+data across expiry; application tests cover both half-close orders and a blocked
+writer beyond the five-second stop grace and ten-second TCP close timer.
+
 ## Reproduce and verify
 
 Download the archive above, verify its SHA-256, and extract it into an empty
