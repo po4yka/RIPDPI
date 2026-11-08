@@ -2,7 +2,7 @@
 id: VPN-1794140727483999
 title: Repair VPN-02 TCP stack regressions
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: VPN TCP repair coordinator
@@ -29,7 +29,7 @@ Repair the five confirmed VPN-02 audit defects without changing the Android non-
 
 ## Parallel ownership
 
-- Lifecycle worker: tunnel-core bridge, sessions, TCP task completion, private admission/session.rs and duplex/launch.rs completion notifications, io_loop/tcp_accept/eviction.rs, and lifecycle regression tests. After the MSS commit, this lane also owns the minimal smoltcp close-outcome/timer source patch and its provenance. F1 and F2 are serialized in this lane.
+- Lifecycle worker: tunnel-core bridge, sessions, TCP task completion, private admission/session.rs and duplex/launch.rs completion notifications, io_loop/phases.rs and wait control, io_loop/tcp_accept/eviction.rs, and lifecycle regression tests. After the MSS commit, this lane also owns the minimal smoltcp close-outcome/timer source patch and its provenance. F1 and F2 are serialized in this lane.
 - Entropy worker: tunnel-core tunnel_api.rs, its manifest, and fresh-interface tests. This lane owns Cargo.lock until F3 is reviewed and committed.
 - Upstream worker: vendor/smoltcp and its provenance, workspace patch entry, tests/tcp_mss.rs, scripts/ci/run-rust-workspace-tests.sh family suites, and upstream MSS regression. Cargo.lock ownership transfers only after the entropy commit.
 - Coordinator: TCP buffer admission/runtime callers and tests, planning artifacts, generated board, combined validation, integration and push.
