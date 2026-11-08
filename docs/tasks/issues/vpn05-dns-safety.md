@@ -32,6 +32,6 @@ Fix the five confirmed VPN-05 defects: issued-address ownership, per-response ma
 
 - Mapping writer: `ripdpi-tunnel-core/src/dns_cache/state.rs`, mapping tests, and `dns_intercept/config.rs` for F1/F4. F1 then F4 are separate commits.
 - Rewrite writer: `ripdpi-tunnel-core/src/dns_cache/packet.rs` and rewrite/authenticity tests for F2/F5. F2 then F5 are separate commits.
-- Primary writer: `dns_intercept/response_processing.rs`, stale-result tests, DNS documentation, task and OpenSpec artifacts, combined validation and integration.
+- Primary writer: `dns_intercept/response_processing.rs`, the existing stale-result regression in `io_loop/phases.rs`, and new stale-result tests, DNS documentation, task and OpenSpec artifacts, combined validation and integration.
 - `dns_cache/mod.rs` test-module declarations are serialized by the primary writer during integration. No Cargo.lock, dependency manifest, schema, locale, baseline, or golden changes are planned.
 - Each writer uses a separate worktree. Review agents are read-only. The primary writer alone updates task state and integrates branches.

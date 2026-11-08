@@ -747,7 +747,7 @@ mod tests {
         state.active_direct_dns_generation = Some(12);
         let query = mapdns_dns_query();
 
-        let queue_stale_a = |state: &mut LoopState, host: &str| {
+        let queue_stale_a = |state: &mut LoopState, host: &str, mapping_survives: bool| {
             state
                 .dns_cache
                 .as_mut()
@@ -771,19 +771,20 @@ mod tests {
                 ),
                 WaitOutcome::Continue
             ));
-            assert!(
-                state.dns_cache.as_mut().expect("DNS cache").lookup(u32::from(Ipv4Addr::new(198, 18, 0, 0))).is_none(),
-                "stale wait-path response must clear unleased MapDNS entries",
+            assert_eq!(
+                state.dns_cache.as_mut().expect("DNS cache").lookup(u32::from(Ipv4Addr::new(198, 18, 0, 0))).is_some(),
+                mapping_survives,
+                "only a generation transition may clear the mapping",
             );
         };
 
-        queue_stale_a(&mut state, "replaced.test");
+        queue_stale_a(&mut state, "replaced.test", true);
         assert_eq!(state.stats.direct_dns_outcomes(), (0, 1));
         assert_eq!(state.device.tx_queue.len(), 1, "stale response after A -> B must become SERVFAIL");
         assert_eq!(state.active_direct_dns_generation, Some(12));
 
         assert!(unregister_direct_dns_socket_binder_if(registration_b));
-        queue_stale_a(&mut state, "lost.test");
+        queue_stale_a(&mut state, "lost.test", false);
         assert_eq!(state.stats.direct_dns_outcomes(), (0, 2));
         assert_eq!(state.device.tx_queue.len(), 2, "stale response after underlay loss must become SERVFAIL");
         assert_eq!(

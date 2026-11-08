@@ -56,7 +56,6 @@ pub(in crate::io_loop) fn handle_dns_response(
         .is_some_and(|generation| !crate::tunnel_api::direct_dns_binding::is_direct_dns_generation_current(generation))
     {
         stats.record_direct_dns_stale_response();
-        cache.reset_unleased();
         handle_dns_failure(device, stats, mapdns, cache, response, "direct DNS generation stale");
     } else {
         if response.direct_generation.is_some() && !response.direct_fallback && response.upstream.is_ok() {

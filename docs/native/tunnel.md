@@ -6,7 +6,7 @@ The TUN-to-SOCKS tunnel is used only in VPN mode. It takes the Android TUN file 
 
 When encrypted DNS is enabled, the tunnel also intercepts DNS with a mapped-DNS listener (`198.18.0.53` over the synthetic `198.18.0.0/15` pool), resolves those queries through the shared encrypted resolver, and rewrites follow-up traffic back to the real upstream IPv4 targets before opening SOCKS sessions. The active encrypted DNS path can come from the user's current settings or from a validated remembered VPN policy that replays an exact DoH/DoT/DNSCrypt/DoQ endpoint for the current network.
 
-Supported encrypted DNS protocols: DoH (DNS over HTTPS), DoT (DNS over TLS), DNSCrypt, and DoQ (DNS over QUIC, RFC 9250). DoQ can reduce connection-setup latency versus DoT by folding the transport and crypto handshake into a single QUIC round-trip (an RFC 9250 design property); RIPDPI ships no benchmark substantiating a specific percentage. DoQ is unavailable when the encrypted resolver runs over the SOCKS5 transport (SOCKS5 is TCP-only) — only the Direct/VPN transport reaches the DoQ engine.
+Supported encrypted DNS protocols: DoH (DNS over HTTPS), DoT (DNS over TLS), DNSCrypt, DoQ (DNS over QUIC, RFC 9250), and ODoH (Oblivious DoH). DoQ can reduce connection-setup latency versus DoT by folding the transport and crypto handshake into a single QUIC round-trip (an RFC 9250 design property); RIPDPI ships no benchmark substantiating a specific percentage. DoQ is unavailable when the encrypted resolver runs over the SOCKS5 transport (SOCKS5 is TCP-only) — only the Direct/VPN transport reaches the DoQ engine.
 
 The built shared library is `libripdpi-tunnel.so`.
 
@@ -57,19 +57,41 @@ See [../packet-strategy-runtime.md](../packet-strategy-runtime.md) for the actio
 ```mermaid
 flowchart TD
     A["DNS query from app"] --> B["MapDNS intercept\n198.18.0.53"]
-    B --> C{"Synthetic IP\nin LRU cache?"}
-    C -- Hit --> D["Return cached\nreal-to-synthetic mapping"]
-    C -- Miss --> E["Forward to encrypted\nresolver"]
+    B --> E["Forward query to selected\nresolver plane"]
     E --> F{"Resolver protocol"}
     F -- DoH --> G["HTTPS query"]
     F -- DoT --> H["TLS query\nport 853"]
     F -- DNSCrypt --> I["DNSCrypt v2 query"]
     F -- DoQ --> J["QUIC query\nRFC 9250"]
-    G & H & I & J --> K["Real IP response"]
-    K --> L["Allocate synthetic IP\nfrom 198.18.0.0/15 pool"]
-    L --> M["Store in LRU cache\nreal <-> synthetic"]
+    F -- ODoH --> O["Oblivious HTTPS query"]
+    F -- DIRECT --> P["Leased underlay\nUDP / TCP"]
+    G & H & I & J & O & P --> K["Real IP response"]
+    K --> L["Reuse live mapping or issue\na new synthetic IPv4"]
+    L --> M["Keep bounded LRU mappings\nand active flow leases"]
     M --> N["Return synthetic IP\nto app"]
 ```
+
+The LRU stores address mappings, not DNS responses. Each query goes to the
+selected resolver. Synthetic A records have TTL zero. CNAME and negative
+response metadata remain in the reply. AAAA records are removed when IPv6
+routing is disabled and remain real IPv6 addresses when it is enabled.
+
+An issued synthetic IP is never assigned to another mapping within the same
+native session. Eviction and generation reset can retire an address, so a late
+flow can fail its reverse lookup, but cannot select a different owner. The
+listener address is reserved. With the default `/15`, at most 131,070 distinct
+addresses can be issued in one session; exhaustion returns SERVFAIL and needs
+a new native session. Live mapping memory remains limited by the cache size.
+
+All A mappings in one reply hold temporary leases until rewrite and encoding
+finish. A reply that cannot retain every mapping fails with SERVFAIL. Content
+changes clear AD; this is not DNSSEC validation or transparent compatibility
+with signed DNS messages.
+
+Direct split-DNS requests require the current validated underlay lease. Missing
+leases and direct transport failures return SERVFAIL without changing resolver
+plane. A generation transition clears unleased mappings once. A later stale
+result fails its own query without clearing mappings from newer replies.
 
 ### LRU Eviction Protection for Active Sessions
 

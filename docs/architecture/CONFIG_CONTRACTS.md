@@ -599,8 +599,10 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   a validated, non-VPN, non-captive default-network lease whose numeric DNS set
   and binder-issued callback generation exactly match the policy. That
   generation is runtime-only: it is excluded from persistence, scope hashes,
-  and the canonical routing digest. Missing, rejected, or stale leases use the
-  configured encrypted resolver instead of the system default. This is
+  and the canonical routing digest. A DIRECT decision with a missing, rejected,
+  or stale lease fails with SERVFAIL. A direct transport failure also fails
+  that query; it does not switch to the encrypted or system resolver. TUNNELED
+  decisions continue to use the configured encrypted resolver. This is
   intentionally distinct from the standalone `ripdpi-tunnel-config` YAML file
   format, which remains schema `2`; changing the JNI envelope does not change
   the YAML schema.
