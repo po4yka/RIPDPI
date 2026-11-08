@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-08
+goal: VPN-1794144829236231 Forward remote UDP ICMP errors through the local
+  SOCKS path
