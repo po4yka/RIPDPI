@@ -28,6 +28,11 @@ impl RuntimeState {
             }
         }
     }
+    pub(in crate::runtime) fn transparent_target_allowed(&self, target: SocketAddr) -> bool {
+        !matches!(self.proxy_protocol_mode(), RuntimeProxyProtocolMode::Transparent)
+            || self.handshake_settings.session_config.ipv6
+            || target.ip().to_canonical().is_ipv4()
+    }
     pub(in crate::runtime) fn proxy_auth_token(&self) -> Option<&str> {
         self.handshake_settings.auth_token.as_deref()
     }

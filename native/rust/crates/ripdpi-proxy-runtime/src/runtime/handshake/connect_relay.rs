@@ -17,6 +17,8 @@ mod socks_delay;
 mod tcp_reuse_tests;
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
+#[cfg(all(test, not(feature = "loom")))]
+mod transparent_tests;
 mod ws_fallback;
 mod ws_first;
 
@@ -53,6 +55,9 @@ pub(super) fn connect_and_relay(
     attempt_token: Option<AttemptCorrelationId>,
     reply: SuccessReply,
 ) -> Result<(), ConnectRelayError> {
+    if !state.transparent_target_allowed(target) {
+        return Err(ConnectRelayError::ruleset_denied("IPv6 is disabled for transparent proxy destinations"));
+    }
     if let Some(reason) = super::forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target) {
         return Err(ConnectRelayError::ruleset_denied(reason));
     }
