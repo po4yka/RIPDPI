@@ -547,7 +547,11 @@ fn tcp_probe_reports_threshold_cutoff() {
 #[test]
 fn tcp_probe_reports_whitelist_sni_success() {
     let _serial = lock_network_probes();
-    let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
+    // This diagnostic deliberately uses its explicit no-verify policy with a synthetic TLS peer.
+    let server = TlsHttpServer::start(
+        TlsMode::Single("allow.example".to_string()),
+        FatServerMode::AllowHost("allow.example".to_string()),
+    );
     let target = TcpTarget {
         id: "test".to_string(),
         provider: "tls-fat".to_string(),
@@ -563,12 +567,23 @@ fn tcp_probe_reports_whitelist_sni_success() {
     let result =
         run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &direct_transport(), None);
     assert_eq!(result.outcome, "whitelist_sni_ok");
+    assert_eq!(
+        result.details.iter().find(|detail| detail.key == "selectedSni").map(|detail| detail.value.as_str()),
+        Some("allow.example"),
+    );
+    let attempts = result.details.iter().find(|detail| detail.key == "attempts").expect("attempts detail");
+    assert!(attempts.value.contains("deny.example:"), "the initial TLS probe must run: {}", attempts.value);
+    assert!(attempts.value.contains("allow.example:ok"), "the allowed TLS candidate must succeed: {}", attempts.value);
 }
 
 #[test]
 fn tcp_probe_reports_whitelist_sni_failure() {
     let _serial = lock_network_probes();
-    let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
+    // This diagnostic deliberately uses its explicit no-verify policy with a synthetic TLS peer.
+    let server = TlsHttpServer::start(
+        TlsMode::Single("allow.example".to_string()),
+        FatServerMode::AllowHost("allow.example".to_string()),
+    );
     let target = TcpTarget {
         id: "test".to_string(),
         provider: "tls-fat".to_string(),
@@ -588,7 +603,11 @@ fn tcp_probe_reports_whitelist_sni_failure() {
 #[test]
 fn cancelled_tcp_probe_skips_the_whitelist_candidates() {
     let _serial = lock_network_probes();
-    let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
+    // This diagnostic deliberately uses its explicit no-verify policy with a synthetic TLS peer.
+    let server = TlsHttpServer::start(
+        TlsMode::Single("allow.example".to_string()),
+        FatServerMode::AllowHost("allow.example".to_string()),
+    );
     let target = TcpTarget {
         id: "test".to_string(),
         provider: "tls-fat".to_string(),

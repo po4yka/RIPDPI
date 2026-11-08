@@ -1,6 +1,4 @@
-use super::super::types::{
-    ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult, TlsClientProfile,
-};
+use super::super::types::{ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult};
 use super::capture::{CaptureTlsHandshakeOptions, capture_tls_handshake};
 use crate::platform_ttl;
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
@@ -56,7 +54,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
         .map_err(|err| stream_error(ProbeStreamFailureStage::StreamSetup, err, started, Some(&opened)))?;
 
     match tls_name {
-        Some(name) if should_run_tls_handshake(options.verify_certificates, port, options.profile) => {
+        Some(name) => {
             let tcp_connect_ms = opened.tcp_connect_ms;
             let connected_addr = opened.connected_addr;
             let captured = capture_tls_handshake(
@@ -141,10 +139,6 @@ fn open_transport_stream(
         cdn_provider,
         route_report: transport_result.route_report,
     })
-}
-
-fn should_run_tls_handshake(verify_certificates: bool, port: u16, profile: TlsClientProfile) -> bool {
-    verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto)
 }
 
 fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult, ProbeStreamError> {

@@ -359,3 +359,34 @@ fn http_10_keep_alive_is_read_from_combined_connection_headers() {
     assert_eq!(observation.responses_seen, 2);
     assert_eq!(observation.status, FatHeaderStatus::Success);
 }
+
+#[test]
+fn std01_tls_name_on_a_custom_port_sends_client_hello_before_http() {
+    use std::io::{Read, Write};
+    use std::time::Duration;
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind peer");
+    let port = listener.local_addr().expect("peer address").port();
+    let server = std::thread::spawn(move || {
+        let (mut peer, _) = listener.accept().expect("accept probe");
+        peer.set_read_timeout(Some(Duration::from_secs(2))).expect("peer timeout");
+        let mut first_bytes = [0u8; 6];
+        peer.read_exact(&mut first_bytes).expect("read first flight");
+        // A plaintext answer must never establish a successful TLS diagnostic.
+        let _ = peer.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+        first_bytes
+    });
+    let mut target = local_target(port, "TLS fixture");
+    target.sni = Some("fixture.test".to_string());
+    target.fat_header_requests = Some(1);
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+
+    let observation = run_fat_header_attempt(&target, &transport, "fixture.test", "fixture.test");
+
+    let first_bytes = server.join().expect("peer thread");
+    assert_eq!(&first_bytes[..2], &[0x16, 0x03], "first flight must be a TLS handshake record");
+    assert_eq!(first_bytes[5], 0x01, "first handshake message must be ClientHello");
+    assert_eq!(observation.status, FatHeaderStatus::HandshakeFailed);
+    assert_eq!(observation.responses_seen, 0);
+    assert_eq!(observation.bytes_sent, 0, "no HTTP payload may be sent before TLS");
+}
