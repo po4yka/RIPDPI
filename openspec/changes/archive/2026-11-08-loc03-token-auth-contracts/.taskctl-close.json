@@ -1,0 +1,11 @@
+{
+  "change": "loc03-token-auth-contracts",
+  "evidence_summary": "F1-F4 committed separately and pushed to main at e393ef831; 707 local tests, Clippy, metadata, source gates and independent reviews passed. GitHub accepted the direct push with existing bypass; hosted ci-required/CodeQL results remain unverified.",
+  "execution_sha256": "811723a2d078812058b8d348fb6df159deb4cd945ed322e2ad1b18dbf0a4b91b",
+  "issue_sha256": "b6b620aa82fb896249f72e19d7f9d053bc52e855c4dca68c53ee0f8e58bb43ff",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T05:41:04Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794114937480022"
+}

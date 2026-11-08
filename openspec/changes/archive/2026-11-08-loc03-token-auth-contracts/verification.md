@@ -5,7 +5,7 @@ commit_sha: 5e5fe76d34a89fd30e8360d01f7af1e8c0356148
 local: passed
 local_evidence: 707 affected Rust library tests passed; all-target Clippy with await lints, formatting, locked metadata and just ci-gates passed. Independent correctness and async cancellation reviews approved every fix.
 remote_ci: not_applicable
-remote_ci_evidence: Hosted CI is not an acceptance gate for these host-reproduced native regressions; no hosted result is claimed.
+remote_ci_evidence: Local acceptance does not claim hosted CI. GitHub accepted the requested direct main push with existing PR/ci-required bypass; CodeQL results were still pending.
 device: not_applicable
 device_evidence: No Android lifecycle or platform interface change; real host loopback tests cover the changed boundaries. Android acceptance was not run.
 artifact: not_applicable
@@ -55,3 +55,9 @@ Before each fix, the new tests reproduced the defect: invalid token reached bind
 Local logs are under /tmp/ripdpi-loc03-fix-logs: f1-red/green/commit, f2-red/green/commit, f3-helper-red, f3-config-red, f3-green/commit, f4-red/green/commit, combined-tests, combined-clippy, combined-fmt, metadata.json and ci-gates. Temporary logs are supplementary; checked-in regression tests and the exact source commit above retain the verification inputs.
 
 The original audit remains a historical record of its base commit. Timing recovery, raw Debug logging, account authentication, local TLS, GSSAPI and additional relay support were not confirmed defects in this scope and were not added. Physical devices, external servers, release artifacts, deployment and Android acceptance were not run or claimed.
+
+## Integration evidence
+
+The user requested main integration and a remote push. The integration worktree was up to date after `git fetch origin` and `git rebase origin/main`. Main was clean and received a fast-forward to e393ef831059cfdf78219ba9b4b2336f7450aade. `git push origin main` succeeded; `git ls-remote origin refs/heads/main` returned the same exact SHA.
+
+GitHub reported that the direct push used existing bypass rights for the pull-request and ci-required rules, with CodeQL still waiting for results. No hosted CI or CodeQL pass is claimed. Follow-up commits only close the local task and archive its verified specification.

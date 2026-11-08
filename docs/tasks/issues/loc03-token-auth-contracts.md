@@ -2,7 +2,7 @@
 id: PRX-1794114937480022
 title: Enforce SOCKS5 token authentication contracts
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: Native protocol team
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: loc03-token-auth-contracts
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T05:41:04Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: F1-F4 committed separately and pushed to main at e393ef831; 707 local tests, Clippy, metadata, source gates and independent reviews passed. GitHub accepted the direct push with existing bypass; hosted ci-required/CodeQL results remain unverified.
 ---
 
 ## Goal
