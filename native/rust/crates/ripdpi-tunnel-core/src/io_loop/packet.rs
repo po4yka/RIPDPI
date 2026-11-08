@@ -1,5 +1,6 @@
 mod endpoint;
 mod ipv6_options;
+mod ipv6_tcp;
 mod parse;
 mod tcp_flags;
 mod tcp_reset;
@@ -7,6 +8,7 @@ mod udp_response;
 
 pub(crate) use endpoint::endpoint_to_socketaddr;
 pub(crate) use ipv6_options::{Ipv6OptionDisposition, build_ipv6_option_error, ipv6_option_disposition};
+pub(crate) use ipv6_tcp::normalize_ipv6_tcp_packet;
 pub(crate) use parse::tcp_packet_endpoints;
 pub(crate) use tcp_flags::{TcpFlowKey, is_injected_rst, tcp_syn_flow_key};
 pub(crate) use tcp_reset::build_tcp_reset;

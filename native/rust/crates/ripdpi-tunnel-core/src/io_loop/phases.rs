@@ -190,6 +190,7 @@ mod tests {
     use super::*;
 
     mod checksum_validation;
+    mod ipv6_extensions;
     mod udp_errors;
     mod uid_admission;
 

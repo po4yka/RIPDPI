@@ -12,7 +12,7 @@ use super::dns_intercept::{
 };
 use super::packet::{
     Ipv6OptionDisposition, TcpFlowKey, build_ipv6_option_error, build_tcp_reset, ipv6_option_disposition,
-    is_injected_rst, tcp_packet_endpoints,
+    is_injected_rst, normalize_ipv6_tcp_packet, tcp_packet_endpoints,
 };
 use super::state::LoopState;
 use super::state::PendingUidRetainOutcome;
@@ -372,6 +372,8 @@ pub(in crate::io_loop) fn retry_pending_uid_packets(state: &mut LoopState) {
 }
 
 fn route_tcp_or_other_packet(packet: &[u8], state: &mut LoopState) {
+    let normalized = normalize_ipv6_tcp_packet(packet);
+    let packet = normalized.as_deref().unwrap_or(packet);
     if state.runtime.filter_injected_resets && is_injected_rst(packet) {
         state.stats.record_tun_policy_drop();
         return;
