@@ -14,6 +14,8 @@ mod socks4_delay_tests;
 mod socks5_delay_tests;
 mod socks_delay;
 #[cfg(all(test, not(feature = "loom")))]
+mod tcp_reuse_tests;
+#[cfg(all(test, not(feature = "loom")))]
 mod tests;
 mod ws_fallback;
 mod ws_first;

@@ -162,7 +162,7 @@ pub(super) struct RuntimeState {
     ws_transport: std::sync::Arc<dyn WsTransport>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(super) struct RouteConnectPolicy {
     pub(super) tfo_enabled: bool,
     pub(super) upstream_socks_addr: Option<SocketAddr>,

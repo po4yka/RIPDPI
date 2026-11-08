@@ -101,14 +101,22 @@ pub(super) fn connect_with(
         RuntimeTransportProtocol::Tcp,
     );
     let payload_connect_required = state.route_uses_direct_syn_data_tfo(&route, Some(&payload));
-    if route.group_index == connected.route.group_index
+    let compatible_connect_policy = matches!(
+        (
+            state.route_connect_policy(connected.route.group_index, None, true, initial_egress),
+            state.route_connect_policy(route.group_index, Some(&payload), true, egress),
+        ),
+        (Some(initial), Some(selected)) if initial == selected
+    );
+    if compatible_connect_policy
         && egress == initial_egress
-        && host.as_deref() == host_hint
         && original_targets == payload_targets
         && !payload_connect_required
     {
+        connected.route = route;
         connected.seed_request = Some(payload);
-        if host_hint.is_none() {
+        if host.as_deref() != host_hint {
+            drop(connected.same_sni_guard.take());
             connected.same_sni_guard = acquire_same_sni_guard(state, host.as_deref());
         }
     } else {
