@@ -1,0 +1,68 @@
+## Purpose
+
+Preserve the originating application identity across the local VPN data plane without stale owners or destination collisions.
+
+## ADDED Requirements
+
+### Requirement: REQ-VPN08-UDP-AGE — Bound ordinary UDP owner age
+
+The implementation MUST expire UDP UID results after an absolute bounded age. Traffic MUST NOT renew this age.
+
+#### Scenario: Bound ordinary UDP owner age
+
+- **WHEN** A permitted owner closes a socket and a denied owner reuses the exact UDP tuple
+- **THEN** admission requests a fresh UID after the age bound and does not forward before its verdict.
+
+### Requirement: REQ-VPN08-DESTINATION — Keep concurrent owners separate
+
+The implementation MUST NOT infer app identity from destination IP. Learning state MUST separate opaque app scopes while preserving TCP fallback across flows of the same app scope.
+
+#### Scenario: Keep concurrent owners separate
+
+- **WHEN** two apps use the same destination and one app succeeds over TCP
+- **THEN** the other app cannot receive that success or its package mark.
+
+### Requirement: REQ-VPN08-SESSION — Fence session and package results
+
+The implementation MUST reject results from a retired TUN session or superseded package revision. It MUST clear transient app identity on session end.
+
+#### Scenario: Fence session and package results
+
+- **WHEN** a blocked resolver returns after stop or package invalidation
+- **THEN** its result cannot populate the current cache or current qualification counters.
+
+### Requirement: REQ-VPN08-START — Register before packet processing
+
+The implementation MUST register the owner resolver before starting TUN packet processing and release it on cancellation or startup failure.
+
+#### Scenario: Register before packet processing
+
+- **WHEN** a first packet is available at native readiness
+- **THEN** its live registration is not cleared by later resolver registration.
+
+### Requirement: REQ-VPN08-MAPDNS — Preserve identity across address translation
+
+The implementation MUST retain the original kernel tuple for UID lookup and carry app scope independently of synthetic or real target IP.
+
+#### Scenario: Preserve identity across address translation
+
+- **WHEN** TCP or UDP targets a synthetic address mapped to a real peer
+- **THEN** learning uses the original app scope without an IP alias or cross-app join.
+
+### Requirement: REQ-VPN08-UNKNOWN — Keep unknown owners unattributed
+
+The implementation MUST keep unknown or ambiguous packages unattributed. A disarmed policy MAY forward after a bounded attribution grace without an app scope. It MUST NOT upgrade an already unscoped transport with another flow identity.
+
+#### Scenario: Keep unknown owners unattributed
+
+- **WHEN** the owner resolver is unavailable or slow
+- **THEN** armed admission remains fail-closed and disarmed traffic remains usable without guessed app identity.
+
+### Requirement: REQ-VPN08-PRIVACY — Keep identity opaque
+
+The implementation MUST keep package names and UID values out of emitted app-scope tokens and runtime exports. Scope state MUST remain bounded and session-local.
+
+#### Scenario: Keep identity opaque
+
+- **WHEN** an app scope crosses the local SOCKS and telemetry boundary
+- **THEN** only an opaque token crosses and package identity remains transient in Kotlin.
