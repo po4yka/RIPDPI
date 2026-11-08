@@ -167,7 +167,7 @@ where
                 break;
             }
             state.release_closed_strategy_flows();
-            phases::drain_tun(tun, &mut state).await?;
+            phases::drain_tun(&mut state, |buffer| tun.try_recv(buffer))?;
             phases::retry_pending_udp_admission(&mut state);
             phases::drain_dns(&mut state);
             phases::poll_smoltcp(&mut state);
