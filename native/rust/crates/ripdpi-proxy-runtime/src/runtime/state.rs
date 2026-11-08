@@ -662,7 +662,12 @@ mod state_coverage_tests {
             .is_ok()
         );
         assert!(!RuntimeState::validate_http_proxy_auth(b"", "token"));
-        assert!(state.parse_shadowsocks_target(&[S_ATP_I4, 127, 0, 0, 1, 0, 80], |_| None).is_some());
+        assert!(
+            state
+                .parse_shadowsocks_target(&[S_ATP_I4, 127, 0, 0, 1, 0, 80], |_| None)
+                .expect("valid address")
+                .is_some()
+        );
 
         let mut session = RuntimeState::new_session_state();
         assert!(!RuntimeState::session_has_inbound_payload(&session));

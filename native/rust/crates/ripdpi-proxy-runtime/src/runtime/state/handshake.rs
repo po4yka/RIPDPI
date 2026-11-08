@@ -263,7 +263,7 @@ impl RuntimeState {
         &self,
         request: &[u8],
         mut resolve_name: impl FnMut(&str) -> Option<SocketAddr>,
-    ) -> Option<(TargetAddr, usize)> {
+    ) -> io::Result<Option<(TargetAddr, usize)>> {
         parse_shadowsocks_target(request, self.handshake_settings.shadowsocks_target_policy, |host, socket_type| {
             let _ = socket_type;
             resolve_name(host)

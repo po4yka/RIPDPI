@@ -280,56 +280,44 @@ pub fn read_upstream_socks_reply(reader: &mut impl Read) -> io::Result<Vec<u8>> 
     Ok(out)
 }
 
+/// Returns `Ok(None)` only while more address bytes could complete the request.
 pub fn parse_shadowsocks_target(
     packet: &[u8],
     policy: ShadowsocksTargetPolicy,
     mut resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
-) -> Option<(TargetAddr, usize)> {
-    let atyp = *packet.first()?;
-    match atyp {
-        S_ATP_I4 => parse_ipv4_target(packet),
-        S_ATP_I6 => parse_ipv6_target(packet, policy.ipv6_enabled),
-        S_ATP_ID => parse_domain_target(packet, policy.resolve_enabled, &mut resolve_name),
-        _ => None,
-    }
-}
-
-fn parse_ipv4_target(packet: &[u8]) -> Option<(TargetAddr, usize)> {
-    if packet.len() < 7 {
-        return None;
-    }
-
-    let ip = Ipv4Addr::new(packet[1], packet[2], packet[3], packet[4]);
-    let port = u16::from_be_bytes([packet[5], packet[6]]);
-    Some((TargetAddr { addr: SocketAddr::new(IpAddr::V4(ip), port), host: None }, 7))
-}
-
-fn parse_ipv6_target(packet: &[u8], ipv6_enabled: bool) -> Option<(TargetAddr, usize)> {
-    if packet.len() < 19 || !ipv6_enabled {
-        return None;
-    }
-
-    let mut raw = [0u8; 16];
-    raw.copy_from_slice(&packet[1..17]);
-    let port = u16::from_be_bytes([packet[17], packet[18]]);
-    Some((TargetAddr { addr: SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), port), host: None }, 19))
-}
-
-fn parse_domain_target(
-    packet: &[u8],
-    resolve_enabled: bool,
-    mut resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
-) -> Option<(TargetAddr, usize)> {
-    let len = *packet.get(1)? as usize;
-    if packet.len() < 2 + len + 2 || !resolve_enabled {
-        return None;
-    }
-
-    let host = std::str::from_utf8(&packet[2..2 + len]).ok()?;
-    let canonical_host = host.strip_suffix('.').unwrap_or(host).to_ascii_lowercase();
-    let port = u16::from_be_bytes([packet[2 + len], packet[3 + len]]);
-    let resolved = resolve_name(&canonical_host, SocketType::Stream)?;
-    Some((TargetAddr { addr: SocketAddr::new(resolved.ip(), port), host: Some(canonical_host) }, 2 + len + 2))
+) -> io::Result<Option<(TargetAddr, usize)>> {
+    let invalid = |reason| io::Error::new(io::ErrorKind::InvalidData, reason);
+    let Some((&atyp, tail)) = packet.split_first() else { return Ok(None) };
+    let (ip, host, addr_end) = match atyp {
+        S_ATP_I4 => {
+            let Some(bytes) = tail.first_chunk::<4>() else { return Ok(None) };
+            (IpAddr::V4(Ipv4Addr::from(*bytes)), None, 5)
+        }
+        S_ATP_I6 if policy.ipv6_enabled => {
+            let Some(bytes) = tail.first_chunk::<16>() else { return Ok(None) };
+            (IpAddr::V6(Ipv6Addr::from(*bytes)), None, 17)
+        }
+        S_ATP_ID if policy.resolve_enabled => {
+            let Some(&len) = tail.first() else { return Ok(None) };
+            if len == 0 {
+                return Err(invalid("empty shadowsocks domain"));
+            }
+            let end = 2 + usize::from(len);
+            // Wait for the port as well: DNS is a one-time side effect of a complete header.
+            if packet.len() < end + 2 {
+                return Ok(None);
+            }
+            let name = std::str::from_utf8(&packet[2..end]).map_err(|_| invalid("invalid shadowsocks domain"))?;
+            let host = name.strip_suffix('.').unwrap_or(name).to_ascii_lowercase();
+            let addr =
+                resolve_name(&host, SocketType::Stream).ok_or_else(|| invalid("unresolved shadowsocks domain"))?;
+            (addr.ip(), Some(host), end)
+        }
+        _ => return Err(invalid("unsupported shadowsocks address type")),
+    };
+    let Some(port) = packet[addr_end..].first_chunk::<2>() else { return Ok(None) };
+    let addr = SocketAddr::new(ip, u16::from_be_bytes(*port));
+    Ok(Some((TargetAddr { addr, host }, addr_end + 2)))
 }
 
 #[cfg(test)]

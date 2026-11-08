@@ -28,7 +28,7 @@ fn read_shadowsocks_request_inner(
     let mut request = vec![first_byte];
     let mut chunk = [0u8; 4096];
     loop {
-        if let Some((target, header_len)) = state.parse_shadowsocks_target(&request, &mut resolver) {
+        if let Some((target, header_len)) = state.parse_shadowsocks_target(&request, &mut resolver)? {
             return Ok((target, request[header_len..].to_vec()));
         }
         let n = read_by(client, &mut chunk, deadline)?;
@@ -36,8 +36,5 @@ fn read_shadowsocks_request_inner(
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected eof during shadowsocks request"));
         }
         request.extend_from_slice(&chunk[..n]);
-        if request.len() > 64 * 1024 {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "shadowsocks request too large"));
-        }
     }
 }
