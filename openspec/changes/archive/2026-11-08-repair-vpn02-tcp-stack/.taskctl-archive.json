@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-08T14:10:43Z",
+  "change": "repair-vpn02-tcp-stack",
+  "commit_sha": "2fc84afab75b55e15a99027625729b548e8dc5b3",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "VPN-1794140727483999"
+}

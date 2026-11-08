@@ -1,0 +1,11 @@
+{
+  "change": "repair-vpn02-tcp-stack",
+  "evidence_summary": "Five reviewed TCP repair commits; 754 native host tests passed, workspace Clippy and ci-gates passed on 2fc84afab75b55e15a99027625729b548e8dc5b3; Miri blocked before test body by macOS kqueue; device acceptance not claimed.",
+  "execution_sha256": "3d468d4a53d200e4a9dd9b1917dd6c5717b7819357e3bcfc37506ea4ee73a6a3",
+  "issue_sha256": "e6ff2267b18be908ce929307c168971bb1d7e04783702bac1903bc7df731e7a1",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T14:11:32Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "VPN-1794140727483999"
+}

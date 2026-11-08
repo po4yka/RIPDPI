@@ -2,7 +2,7 @@
 id: VPN-1794140727483999
 title: Repair VPN-02 TCP stack regressions
 kind: bug
-status: review
+status: done
 area: vpn
 priority: high
 owner: VPN TCP repair coordinator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-vpn02-tcp-stack
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T14:11:32Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Five reviewed TCP repair commits; 754 native host tests passed, workspace Clippy and ci-gates passed on 2fc84afab75b55e15a99027625729b548e8dc5b3; Miri blocked before test body by macOS kqueue; device acceptance not claimed.
 ---
 
 ## Goal
