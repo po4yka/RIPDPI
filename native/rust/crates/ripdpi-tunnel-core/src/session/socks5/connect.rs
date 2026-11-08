@@ -17,14 +17,9 @@ use super::TargetAddr;
 /// - IPv6:   `[0x05, 0x01, 0x00, 0x04, <16 bytes>, ph, pl]`
 /// - Domain: `[0x05, 0x01, 0x00, 0x03, len, <domain bytes>, ph, pl]`
 ///
-/// # Cancel safety
-///
-/// NOT cancel-safe. It writes the CONNECT request then reads the reply header
-/// and bound-address fields; dropping the future between the write and the full
-/// read leaves the proxy stream mid-CONNECT (partially consumed reply), which a
-/// subsequent reuse would mis-parse. The only caller, `TcpSession::run_with_proxy`,
-/// awaits it to completion *before* entering the `cancel`-aware splice `select!`,
-/// so it is never cancelled mid-exchange. Do not call it inside a `select!`/`timeout`.
+/// # Cancel safety:
+/// NOT cancel-safe: partial request or reply bytes leave the stream mid-exchange.
+/// The owner must drop the stream on cancellation or timeout.
 pub async fn connect<S>(stream: &mut S, target: &TargetAddr) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -70,6 +65,8 @@ fn encode_resolved_domain_connect(domain: &str, addr: SocketAddr) -> io::Result<
     Ok(req)
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: a partial reply read leaves the stream mid-frame.
 async fn read_connect_reply<S>(stream: &mut S) -> io::Result<()>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -77,6 +74,10 @@ where
     // Read reply header: [VER, REP, RSV, ATYP]
     let mut header = [0u8; 4];
     stream.read_exact(&mut header).await?;
+
+    if header[0] != 0x05 || header[2] != 0x00 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: invalid CONNECT reply header"));
+    }
 
     let rep = header[1];
     let atyp = header[3];

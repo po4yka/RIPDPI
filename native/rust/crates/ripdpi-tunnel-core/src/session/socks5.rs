@@ -13,3 +13,6 @@ pub use udp_frame::{decode_udp_frame, encode_udp_frame, encode_udp_target_frame}
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod reply_validation_tests;

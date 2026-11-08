@@ -173,16 +173,22 @@ where
 }
 
 /// Read the UDP ASSOCIATE reply and return the relay `BND.ADDR:BND.PORT`.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: partial reply bytes can be consumed; discard the stream on cancellation.
 async fn read_associate_reply<S>(stream: &mut S) -> Result<SocketAddr, OutboundError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let mut header = [0u8; 4];
     stream.read_exact(&mut header).await?;
-    let [ver, rep, _rsv, atyp] = header;
+    let [ver, rep, rsv, atyp] = header;
 
     if ver != consts::SOCKS5_VERSION {
         return Err(OutboundError::BadVersion(ver));
+    }
+    if rsv != 0 {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 reserved byte").into());
     }
     if rep != consts::SOCKS5_REPLY_SUCCEEDED {
         return Err(OutboundError::AssociateFailed(ReplyError::from_u8(rep)));
@@ -270,16 +276,22 @@ pub fn encode_connect_request(target: &OutboundTarget) -> Result<Vec<u8>, Outbou
 }
 
 /// Read the CONNECT reply and drain the BND address/port fields.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: partial reply bytes can be consumed; discard the stream on cancellation.
 async fn read_connect_reply<S>(stream: &mut S) -> Result<(), OutboundError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let mut header = [0u8; 4];
     stream.read_exact(&mut header).await?;
-    let [ver, rep, _rsv, atyp] = header;
+    let [ver, rep, rsv, atyp] = header;
 
     if ver != consts::SOCKS5_VERSION {
         return Err(OutboundError::BadVersion(ver));
+    }
+    if rsv != 0 {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 reserved byte").into());
     }
     if rep != consts::SOCKS5_REPLY_SUCCEEDED {
         return Err(OutboundError::ConnectFailed(ReplyError::from_u8(rep)));
@@ -768,3 +780,6 @@ mod tests {
         assert!(matches!(result, Err(OutboundError::CredentialTooLong(256))), "got {result:?}");
     }
 }
+
+#[cfg(test)]
+mod reply_contract_tests;

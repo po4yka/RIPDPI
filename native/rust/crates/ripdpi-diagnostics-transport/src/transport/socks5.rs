@@ -13,6 +13,9 @@ use super::types::{
     TransportFailureStage,
 };
 
+#[cfg(test)]
+mod reply_contract_tests;
+
 pub(super) fn connect_via_socks5_observed(
     targets: &[TargetAddress],
     port: u16,
@@ -129,6 +132,9 @@ pub fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, Transp
     stream.write_all(&request)?;
     let mut header = [0u8; 4];
     stream.read_exact(&mut header)?;
+    if header[0] != 0x05 || header[2] != 0 {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 reply header").into());
+    }
     if header[1] != 0x00 {
         return Err(TransportError::SocksUdpAssociateFailed(header[1]));
     }

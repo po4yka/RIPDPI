@@ -144,7 +144,7 @@ object LocalSocks5Client {
         output.write(connectRequest(target))
         output.flush()
         requireConnectSucceeded(input)
-        input.readByte()
+        if (input.readUnsignedByte() != 0) throw ProtocolException("SOCKS CONNECT reply reserved byte is invalid")
         val boundAddressBytes =
             when (input.readByte()) {
                 AddressIpv4 -> Ipv4Bytes

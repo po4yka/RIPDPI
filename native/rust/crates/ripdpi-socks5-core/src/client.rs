@@ -1,5 +1,8 @@
 pub mod outbound;
 
+#[cfg(test)]
+mod reply_contract_tests;
+
 use crate::read_exact;
 use crate::util::stream::{tcp_connect, tcp_connect_with_timeout};
 use crate::util::target_addr::{TargetAddr, ToTargetAddr, read_address};
@@ -307,6 +310,9 @@ where
 
     /// The server send a confirmation (reply) that he had successfully connected (or not) to the
     /// remote server.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: partial reply bytes can be consumed; discard the stream on cancellation.
     async fn read_request_reply(&mut self) -> Result<TargetAddr> {
         let [version, reply, rsv, address_type] =
             read_exact!(self.socket, [0u8; 4]).context("Received malformed reply")?;
@@ -321,6 +327,10 @@ where
 
         if version != consts::SOCKS5_VERSION {
             return Err(SocksError::UnsupportedSocksVersion(version));
+        }
+
+        if rsv != 0 {
+            return Err(SocksError::InvalidHeader { expected: "RSV=0".into(), found: format!("RSV={rsv}") });
         }
 
         if reply != consts::SOCKS5_REPLY_SUCCEEDED {

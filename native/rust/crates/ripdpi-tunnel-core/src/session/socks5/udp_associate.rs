@@ -8,6 +8,10 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 /// The stream MUST have completed a successful [`handshake`](super::handshake)
 /// before calling this function. Bind address `0.0.0.0:0` signals "any source"
 /// per RFC 1928.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: a partial request or reply leaves the stream mid-exchange.
+/// The owner must drop the stream on cancellation or timeout.
 pub async fn associate<S>(stream: &mut S) -> io::Result<SocketAddr>
 where
     S: AsyncRead + AsyncWrite + Unpin,
@@ -24,6 +28,10 @@ where
     // Read reply header: [VER, REP, RSV, ATYP]
     let mut hdr = [0u8; 4];
     stream.read_exact(&mut hdr).await?;
+
+    if hdr[0] != 0x05 || hdr[2] != 0x00 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: invalid ASSOCIATE reply header"));
+    }
 
     if hdr[1] != 0x00 {
         return Err(io::Error::new(
