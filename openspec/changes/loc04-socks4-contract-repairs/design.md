@@ -11,6 +11,7 @@ Use the existing blocking TCP worker runtime and its local network fixtures.
 ## Decisions
 
 - Reuse the established connected-before-ACK route for SOCKS4 delayed requests. Preserve route selection and server-first operation.
+- For the SOCKS4 Always-WS branch, prepare the real WS carrier for the DC inferred from the requested target before ACK. Reuse that session after seed classification when the DC matches; otherwise release it and retain the existing classified route/fallback. Do not require direct TCP reachability to the target. Extend the WS transport port with an object-safe prepared session only as needed; existing relay entry points remain available.
 - Treat pre-payload FIN as a directional close. Keep the other direction in the existing relay.
 - Validate the final address family and the exact SOCKS4a sentinel in the session owner.
 - Pass runtime cancellation and the remaining handshake deadline to the existing cancellable DNS resolver. A FIN alone is not operation cancellation.
@@ -19,7 +20,7 @@ Use the existing blocking TCP worker runtime and its local network fixtures.
 
 ## Contracts and ownership
 
-- Affected crates: ripdpi-session, ripdpi-proxy-runtime, and existing resolver callers through ripdpi-ws-bootstrap.
+- Affected crates: ripdpi-session, ripdpi-proxy-runtime, existing resolver callers through ripdpi-ws-bootstrap, ripdpi-ws-transport-port, and ripdpi-ws-tunnel.
 - Kotlin, JNI, protobuf, storage and configuration schemas remain unchanged.
 - The portfolio task records independent worker paths. Root serializes planning, snapshots and integration. Do not edit Cargo.lock, version catalogs, baselines or golden fixtures.
 - Each worker uses a dedicated worktree. Root transfers each reviewed commit separately into the integration branch.

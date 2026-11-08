@@ -27,7 +27,7 @@ Repair all six confirmed LOC-04 findings and retain one commit per finding.
 ## Parallel ownership
 
 - Root: planning, task state, integration, F4 handshake DNS cancellation and deadline, combined validation, and push.
-- Connect worker: F1; runtime/handshake/connect_relay subtree and its tests only.
+- Connect worker: F1; runtime/handshake/connect_relay, handshake/ws_tunnel.rs, runtime/ws.rs, state/ws.rs, ripdpi-ws-transport-port/src/lib.rs, ripdpi-ws-tunnel/src/lib.rs, and associated tests.
 - Relay worker: F2; runtime/relay subtree, runtime/relay.rs, and dedicated TCP regression tests only.
 - Parser worker: F3, F5, F6; ripdpi-session/src/socks4.rs, protocol_io/readers.rs, the SOCKS4 reader error branch in handshake.rs, and dedicated tests. One commit per finding.
 - All workers use separate worktrees. Root resolves any handshake.rs overlap after commit transfer.

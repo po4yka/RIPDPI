@@ -30,6 +30,7 @@ and missing failure replies at the request size limit.
 
 ## Impact
 
-- Rust session parser, proxy handshake, TCP relay, and handshake DNS callers.
+- Rust session parser, proxy handshake, TCP relay, handshake DNS callers, and the WS transport port.
+- Add a prepared WS session contract so the carrier can open before SOCKS4 ACK.
 - No JNI, protobuf, storage, configuration schema, dependency, or locale changes.
 - Numeric IPv6 targets now fail when IPv6 is disabled. This repairs a policy bypass.
