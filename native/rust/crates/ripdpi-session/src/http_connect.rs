@@ -19,6 +19,12 @@ impl<'a> HttpConnectHead<'a> {
         if text.split("\r\n").any(|line| line.contains(['\r', '\n'])) {
             return Err(SessionError::generic());
         }
+        for line in text.split("\r\n").skip(1) {
+            let (name, _) = line.split_once(':').ok_or_else(SessionError::generic)?;
+            if name.is_empty() || !name.bytes().all(is_field_name_byte) {
+                return Err(SessionError::generic());
+            }
+        }
         Ok(Self { text })
     }
 
@@ -59,6 +65,11 @@ impl<'a> HttpConnectHead<'a> {
             .ok_or(SessionError::socks5(S_ER_HOST))?;
         Ok(ClientRequest::HttpConnect(TargetAddr { addr, host: Some(name.to_string()) }))
     }
+}
+
+// RFC 9110 section 5.1: each field name is an HTTP token.
+fn is_field_name_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_|~`".contains(&byte)
 }
 
 fn split_host_port(value: &str) -> Option<(&str, u16)> {
@@ -128,6 +139,15 @@ mod tests {
     fn parse_http_connect_request_ignores_tunneled_host_text() {
         let request = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n\r\nHost: tunneled.example\r\n";
         assert!(parse_http_connect_request(request, &resolver).is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_names_even_on_unrelated_fields() {
+        for field in ["X-Test : value", "X-Test\t: value", ": empty name", "X/Test: value", "no-colon"] {
+            let request = format!("CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\n{field}\r\n\r\n");
+            let result = parse_http_connect_request(request.as_bytes(), &resolver);
+            assert_eq!(result.err().map(|error| error.code), Some(crate::S_ER_GEN), "{field}");
+        }
     }
 
     #[test]
