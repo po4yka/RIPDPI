@@ -12,15 +12,18 @@ Task VPN-1794158885036621 repairs five audit findings in the existing root backe
 ## Decisions
 
 - Install backend monitoring before checking helper liveness. Deliver an immediate failure through the existing session guard when needed.
+- Bound blocking shutdown and probe operations by closing their owned socket at the deadline; retain an unready launcher until its exit is confirmed.
 - Stop predecessors through their exact private socket and existing nonce before replacing either file. Wait within a bounded interval. A live or uncertain predecessor blocks startup; no global process-name kill or unverified PID signal is allowed.
-- Store stale cleanup debt in the helper. Retry failed discovery and deletion with bounded work and backoff. New activation and completed shutdown require this debt to be clear.
+- Store stale cleanup debt and the remaining proven cleanup commands in the helper. Keep this ownership proof after a partial deletion removes the legacy OUTPUT owner rule. Retry failed discovery and deletion with bounded work and backoff. New activation and completed shutdown require this debt to be clear.
+- Start unsolicited ordinary root recovery only when the canonical nfqws2 asset directory exists and both firewall tools are available. The Android activation caller creates this directory before explicit backend start. Explicit nfqws2 activation must resolve both tools and complete fresh recovery before child spawn. Once cleanup commands are known, a missing tool remains pending rather than dropping that family.
+- Reconcile native stop for an ordinary root profile whenever a helper endpoint exists, even without a local backend session. Startup recovery debt must block policy activation until native cleanup completes. The Kotlin writer prepares this caller patch; the integration writer combines it with the Rust recovery change in one F2 commit.
 - Encode UID and PID with a delimiter in new firewall chain names. Legacy names require an exact owned OUTPUT owner rule; an incoming pair uses the same proven stem. Leave unproven legacy state unchanged.
 - Validate plain and compressed Lua candidates, including dangling symlinks, without changing trusted upstream Lua semantics.
 - Keep one commit per finding. Implement Kotlin and Rust independently in isolated worktrees and integrate only after review.
 
 ## Contracts and ownership
 
-- Kotlin writer: RootHelperManager, scoped predecessor helper code, and owning tests in :core:service; F1 and F3 separate commits.
+- Kotlin writer: RootHelperManager, RootHelperIpc in NfqwsBackend.kt, scoped predecessor and deadline helper code, and owning tests in :core:service; F1 and F3 separate commits.
 - Rust writer: ripdpi-root-helper nfqws2.rs, nfqws2 children, main.rs startup caller, and relevant native/zapret2/README.md lifecycle text; F4, F5, F2 separate commits.
 - Integration writer: portfolio, OpenSpec, combined validation, and integration. No parallel writer edits these files.
 - The protocol remains v3. No protobuf, JNI, configuration, storage schema, locale, lockfile, dependency, baseline, generated asset, or upstream source change is planned.

@@ -2,7 +2,7 @@
 id: VPN-1794158885036621
 title: Repair VPN-10 root backend lifecycle and ownership
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: vpn10-integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: repair-nfqws2-lifecycle
 created: 2026-11-08
 updated: 2026-11-08
+status_detail: Five separate repair commits passed combined local checks and independent review; hosted CI and authorized root/device acceptance remain open.
 ---
 
 ## Goal
@@ -32,6 +33,6 @@ Repair the five confirmed VPN-10 audit findings without changing the non-root pa
 ## Parallel ownership
 
 - vpn10-integration owns this task, OpenSpec artifacts, combined validation, review fixes, and main integration.
-- kotlin-repairs owns RootHelperManager lifecycle, scoped predecessor termination, and their Kotlin tests. Findings F1 and F3 are separate commits.
+- kotlin-repairs owns RootHelperManager lifecycle, scoped predecessor termination, and their Kotlin tests. Findings F1 and F3 are separate commits. After F3, this writer also prepares the F2 ordinary-profile reconciliation patch; the integration writer combines it with the Rust F2 patch in one commit.
 - rust-repairs owns ripdpi-root-helper nfqws2 lifecycle, chain ownership, file validation, and their Rust tests. Findings F2, F4, and F5 are separate commits.
 - Each writer uses a separate worktree. Native files shared by F2/F4/F5 have one writer. No changes to Cargo.lock, dependencies, locales, baselines, upstream assets, JNI/protobuf schemas, or harness files are planned.

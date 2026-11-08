@@ -15,7 +15,7 @@ An active backend MUST report helper loss to its current session even when the h
 
 ### Requirement: REQ-NFQ-REAP — Retain stale cleanup until confirmed
 
-The helper MUST retain failed stale-rule discovery and deletion as pending cleanup, retry it with bounded work, and reject backend activation until the debt is cleared.
+The helper MUST retain failed stale-rule discovery and deletion as pending cleanup, retain discovered ownership and remaining commands after partial deletion, retry with bounded work, and reject backend activation until the debt is cleared.
 
 #### Scenario: Firewall lock exceeds startup cleanup deadline
 
