@@ -58,15 +58,25 @@ impl<'a, A: Authentication> Stream for Incoming<'a, A> {
                 // Drop the finished future before an error returns: polling it again panics.
                 self.1 = None;
                 let (socket, peer_addr) = accepted?;
+                let reply_ip = socket.local_addr()?.ip().to_canonical();
 
                 debug!("SOCKS incoming connection accepted");
 
                 // Wrap the TcpStream into Socks5Socket
                 let mut socket = Socks5Socket::new(socket, self.0.config.clone());
                 socket.set_control_peer_ip(peer_addr.ip());
+                socket.set_reply_ip(reply_ip);
 
                 return Poll::Ready(Some(Ok(socket)));
             }
         }
     }
+}
+
+#[cfg(test)]
+mod udp_endpoint_tests {
+    use super::*;
+    use tokio_stream::StreamExt;
+
+    include!("udp_endpoint_tests.rs");
 }

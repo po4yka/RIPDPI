@@ -3,7 +3,6 @@ use crate::util::target_addr::{AddrError, TargetAddr, read_address};
 use crate::{
     ReplyError, Socks5Command, SocksError, UdpHeaderError, consts, new_udp_header, parse_udp_request, read_exact, ready,
 };
-use anyhow::Context;
 use socket2::{Domain, Socket, Type};
 use std::future::Future;
 use std::io;

@@ -484,15 +484,11 @@ impl<T: AsyncRead + AsyncWrite + Unpin, A: Authentication> Socks5Socket<T, A> {
                     proto.reply_error(&ReplyError::GeneralFailure).await?;
                     return Err(SocksServerError::Bug("missing control peer ip").into());
                 };
-                self.inner = run_udp_proxy(
-                    proto,
-                    &target_addr,
-                    control_peer_ip,
-                    None,
-                    self.reply_ip.context("invalid reply ip")?,
-                    None,
-                )
-                .await?;
+                let Some(reply_ip) = self.reply_ip else {
+                    proto.reply_error(&ReplyError::GeneralFailure).await?;
+                    return Err(SocksServerError::Bug("missing reply ip").into());
+                };
+                self.inner = run_udp_proxy(proto, &target_addr, control_peer_ip, None, reply_ip, None).await?;
             }
             _ => {
                 proto.reply_error(&ReplyError::CommandNotSupported).await?;
