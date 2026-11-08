@@ -1,11 +1,11 @@
 ---
 task_id: VPN-1794141873537976
 change: vpn03-udp-association-repairs
-commit_sha: 53a3a84bafb8a38ba0d20d43467b36f05e73ee4e
+commit_sha: d50f65714ea559a856c3633e72b7870a20f482cb
 local: passed
-local_evidence: Final tunnel 429 unit and 9 integration tests passed; Clippy, format, ci-gates, architecture, metadata, pinned Xray and Kotlin checks passed.
+local_evidence: Final tunnel 440 unit and 17 integration tests passed; Clippy, format, ci-gates, architecture, metadata, pinned Xray and Kotlin checks passed.
 remote_ci: required
-remote_ci_evidence: Pending push of the integrated candidate.
+remote_ci_evidence: Not established by local runs; inspect workflows for the pushed main revision.
 device: not_applicable
 device_evidence: This repair task uses host and loopback validation. Physical device and external-network acceptance remain unverified.
 artifact: not_applicable
@@ -71,22 +71,27 @@ No release artifact is built or published. Required remaining artifact check: re
 
 ## Final local acceptance
 
-- `cargo test -p ripdpi-tunnel-core --locked`: 429 library unit tests and 9 integration tests passed; zero failed and zero ignored. Doc tests ran zero. Linux-only TUN, soak and SO_BINDTODEVICE binaries contain zero tests on this macOS host and are not Linux acceptance. Log: `/tmp/vpn03-final-tunnel-tests2.log`.
-- `cargo clippy -p ripdpi-tunnel-core --locked --all-targets -- -D warnings`: exit 0, `/tmp/vpn03-final-clippy.log`; final commit hooks also passed after the fixture adjustment.
-- `cargo fmt --all --check`: exit 0. `just ci-gates`: exit 0, `/tmp/vpn03-final-ci-gates3.log`. The Linux-owned runtime-platform API snapshot is explicitly skipped on Darwin; other eligible snapshots match.
-- `python3 scripts/ci/check_architecture_health.py`: exit 0, `/tmp/vpn03-final-architecture.log`; the ci-gates `--check` mode also passed. `check_file_loc_limits.py` after the last test change: no new or baseline growth violations, `/tmp/vpn03-final-fileloc.log`.
-- `cargo metadata --locked --format-version 1 --no-deps`: exit 0, `/tmp/vpn03-final-metadata.json`.
+- `cargo test -p ripdpi-tunnel-core --locked`: 440 library unit tests and 17 integration tests passed; zero failed and zero ignored. Doc tests ran zero. Linux-only TUN, soak and SO_BINDTODEVICE binaries contain zero tests on this macOS host and are not Linux acceptance. Log: `/tmp/vpn03-latest-main-tests.log`.
+- `cargo clippy -p ripdpi-tunnel-core --locked --all-targets -- -D warnings`: exit 0, `/tmp/vpn03-latest-main-clippy.log`; final commit hooks also passed after the fixture adjustment.
+- `cargo fmt --all --check`: exit 0. `just ci-gates`: exit 0, `/tmp/vpn03-latest-main-ci-gates.log`. The Linux-owned runtime-platform API snapshot is explicitly skipped on Darwin; other eligible snapshots match.
+- `python3 scripts/ci/check_architecture_health.py`: exit 0, `/tmp/vpn03-latest-main-architecture.log`; the ci-gates `--check` mode also passed. `check_file_loc_limits.py` after the last test change: no new or baseline growth violations, `/tmp/vpn03-final-fileloc.log`.
+- `cargo metadata --locked --format-version 1 --no-deps`: exit 0, `/tmp/vpn03-latest-main-metadata.json`.
 - `just checkout-doctor`: ready after rebase. General review covered each repair, the F3/F4 seam, current-main DNS/ICMP integration, state moves and H2 port. The async specialist reviewed the lifetime and polling paths. No finding remains open from those reviews.
 
 ## Repair commits
 
 | Finding | Commit | Change |
 |---|---|---|
-| F1 | 00b98fae0 | Managed Xray destination authority, exact source validation and empty UDP |
-| F2 | 467413351 | Stable bounded destination admission and reply ownership |
-| F3 and H3 | b67790a47 | Independent leases, retired event identities and monotonic activity |
-| F4 | 7c6675bf6 | Complete receive, IPv4/IPv6 return fragments and EMSGSIZE isolation |
-| F5 | 7d6d4a7ae | UDP ingress checksum validation |
-| H2 | 53a3a84ba | Cancel-first fair duplex polling |
+| F1 | 2f0e1e86b | Managed Xray destination authority, exact source validation and empty UDP |
+| F2 | bf2c8a274 | Stable bounded destination admission and reply ownership |
+| F3 and H3 | 9ea3f78fa | Independent leases, retired event identities and monotonic activity |
+| F4 | 1f4d99df9 | Complete receive, IPv4/IPv6 return fragments and EMSGSIZE isolation |
+| F5 | 9759768bc | UDP ingress checksum validation |
+| H2 | d50f65714 | Cancel-first fair duplex polling |
 
-`6f1e41614` retains the merged DNS/ICMP test contracts and splits state/housekeeping to meet existing source budgets. Planning and verification use separate documentation commits. Integration uses a fast-forward to main; push is explicitly authorized by the user. Remote CI is not inferred from these local results.
+`d77931e83` retains the merged DNS/ICMP test contracts and splits state/housekeeping to meet existing source budgets. Planning and verification use separate documentation commits. Integration uses a fast-forward to main; push is explicitly authorized by the user. Remote CI is not inferred from these local results.
+
+
+## Final main synchronization
+
+Before integration, origin/main advanced to `c5784f140f3789c82d0e9d24ed6448927362289b` with VPN-02 TCP repairs and vendored smoltcp. All nine UDP commits rebased without conflicts. Independent seam review confirmed the new TCP cleanup, bridge sweep, signatures, UID checks and timeouts remain intact. The UDP repair diff changes no Cargo manifest, lockfile or vendored source relative to this main. The final 440-unit / 17-integration run, Clippy, source gates and locked metadata were repeated on this base; earlier runs are retained as historical evidence.
