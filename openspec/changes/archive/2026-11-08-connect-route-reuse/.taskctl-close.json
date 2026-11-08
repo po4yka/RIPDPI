@@ -1,0 +1,11 @@
+{
+  "change": "connect-route-reuse",
+  "evidence_summary": "Source 8f73cfac55033e844986caebc4bf1f6028e00040: 397 tests passed, zero failed, six existing interop ignores; three independent single-accept verified TLS cases passed; Clippy, fmt, locked metadata, ci-gates and independent review passed.",
+  "execution_sha256": "c4ac9f1b433f484fc4fc3728d8b53790a00615af72114efc433d874d53fb74a8",
+  "issue_sha256": "05bd739adeba6b4f14e682a36f23d9ba7c7a2669627b10a7431d576db1fbdeda",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T08:11:35Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794124642980782"
+}

@@ -2,7 +2,7 @@
 id: PRX-1794124642980782
 title: Reuse compatible TCP connections after payload routing
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: Proxy runtime maintainer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: connect-route-reuse
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T08:11:35Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source 8f73cfac55033e844986caebc4bf1f6028e00040: 397 tests passed, zero failed, six existing interop ignores; three independent single-accept verified TLS cases passed; Clippy, fmt, locked metadata, ci-gates and independent review passed."
 ---
 
 ## Goal
