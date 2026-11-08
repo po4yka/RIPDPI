@@ -1,0 +1,11 @@
+{
+  "change": "loc04-socks4-contract-repairs",
+  "evidence_summary": "All six LOC-04 repairs are present in origin/main; affected Rust suites, workspace clippy, source gates and independent reviews passed.",
+  "execution_sha256": "e669171e55647af9e97e73cf2be6f0f226f2c16d89c9bb25e135afea707a82e1",
+  "issue_sha256": "a0183f4e53593f858b8be01d4b08720d244d298640fdff04c2d79b8dc934160d",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T07:00:48Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794116241356560"
+}

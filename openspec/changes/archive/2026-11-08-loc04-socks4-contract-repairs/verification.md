@@ -86,5 +86,6 @@ strict IPC wall-clock bound or Android device acceptance.
 
 ## Integration
 
-Main integration and push are pending. Do not close the portfolio task until the
-requested repair commits are observed in origin/main.
+The reviewed repair commits were integrated into main and pushed.
+`git ls-remote origin refs/heads/main` confirmed `5f38ad0ea97a72ee15f69e2d5858aea3fa98edfa`.
+The following archive commit changes documentation only.

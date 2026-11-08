@@ -2,7 +2,7 @@
 id: PRX-1794116241356560
 title: Repair SOCKS4 and SOCKS4a protocol contracts
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: LOC-04 repair team
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: loc04-socks4-contract-repairs
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T07:00:48Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All six LOC-04 repairs are present in origin/main; affected Rust suites, workspace clippy, source gates and independent reviews passed.
 ---
 
 ## Goal
