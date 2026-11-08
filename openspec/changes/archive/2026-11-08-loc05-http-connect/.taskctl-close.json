@@ -1,0 +1,11 @@
+{
+  "change": "loc05-http-connect",
+  "evidence_summary": "Six reviewed source commits plus upstream F07; 682 Rust tests and 35 independent loopback observations passed, Clippy/fmt/locked metadata/ci-gates passed. Seven existing optional tests were ignored; device, external WSS and hosted CI were not claimed.",
+  "execution_sha256": "2c6e3caa6f0ff2c4e386a3997530de2d0b4cec3c74135649b2af1705365fb709",
+  "issue_sha256": "5e69e3ce8f40c8ced205447d4387fa709a6e38b065478c66c9e7307ed4ce2180",
+  "outcome": "done",
+  "prepared_at": "2026-11-08T07:34:37Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794118814905211"
+}

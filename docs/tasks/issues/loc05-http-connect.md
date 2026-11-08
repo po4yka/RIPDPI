@@ -2,7 +2,7 @@
 id: PRX-1794118814905211
 title: Repair HTTP CONNECT audit defects
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: HTTP CONNECT maintainers
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: loc05-http-connect
 created: 2026-11-08
 updated: 2026-11-08
+closed_at: "2026-11-08T07:34:37Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Six reviewed source commits plus upstream F07; 682 Rust tests and 35 independent loopback observations passed, Clippy/fmt/locked metadata/ci-gates passed. Seven existing optional tests were ignored; device, external WSS and hosted CI were not claimed.
 ---
 
 ## Goal
