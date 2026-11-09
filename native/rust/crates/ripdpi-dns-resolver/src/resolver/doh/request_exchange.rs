@@ -2,7 +2,7 @@ use reqwest::header::{ACCEPT, CONTENT_TYPE};
 
 use super::{MAX_DOH_RESPONSE_BYTES, http1_exchange};
 use crate::resolver::EncryptedDnsResolver;
-use crate::transport::{DNS_MESSAGE_MEDIA_TYPE, format_error_chain};
+use crate::transport::{DNS_MESSAGE_MEDIA_TYPE, format_error_chain, tls_version_refused};
 use crate::types::EncryptedDnsError;
 
 /// # Cancel safety:
@@ -11,31 +11,17 @@ pub(super) async fn exchange_doh(
     resolver: &EncryptedDnsResolver,
     query_bytes: &[u8],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
-    if resolver.uses_direct_tcp_connector() || resolver.requires_direct_tcp_connector() {
-        return http1_exchange::exchange_doh_with_connector(resolver, query_bytes).await;
-    }
-
-    let client = resolver
-        .inner
-        .doh_client
-        .as_ref()
-        .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("DoH client not initialized".to_string()))?;
-    let base_url = resolver.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
-
-    let response = client
-        .post(base_url)
-        .header(CONTENT_TYPE, DNS_MESSAGE_MEDIA_TYPE)
-        .header(ACCEPT, DNS_MESSAGE_MEDIA_TYPE)
-        .body(query_bytes.to_vec())
-        .send()
-        .await
-        .map_err(|err| EncryptedDnsError::Request(format_error_chain(&err)))?;
-
-    if !response.status().is_success() {
-        return Err(EncryptedDnsError::HttpStatus(response.status()));
-    }
-
-    read_limited_response_body(response).await
+    let body = match &resolver.inner.doh_client {
+        None => http1_exchange::exchange_doh_with_connector(resolver, query_bytes).await?,
+        Some(client) => {
+            let base_url = resolver.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
+            post_reqwest(resolver, client, base_url, query_bytes, DNS_MESSAGE_MEDIA_TYPE, DNS_MESSAGE_MEDIA_TYPE)
+                .await?
+        }
+    };
+    // RFC 8484 section 4.2: the body must answer this query.
+    crate::transport::ensure_response_matches_query(query_bytes, &body)?;
+    Ok(body)
 }
 
 /// # Cancel safety:
@@ -47,37 +33,53 @@ pub(super) async fn exchange_binary_post(
     content_type: &str,
     accept: &str,
 ) -> Result<Vec<u8>, EncryptedDnsError> {
-    if resolver.uses_direct_tcp_connector() || resolver.requires_direct_tcp_connector() {
-        return http1_exchange::exchange_binary_post_with_connector(resolver, url, body, content_type, accept).await;
+    match &resolver.inner.doh_client {
+        None => http1_exchange::exchange_binary_post_with_connector(resolver, url, body, content_type, accept).await,
+        Some(client) => post_reqwest(resolver, client, url, body, content_type, accept).await,
     }
+}
 
-    let client = resolver
-        .inner
-        .doh_client
-        .as_ref()
-        .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("DoH client not initialized".to_string()))?;
-
-    let response = client
-        .post(url)
-        .header(CONTENT_TYPE, content_type)
-        .header(ACCEPT, accept)
-        .body(body.to_vec())
-        .send()
-        .await
-        .map_err(|err| EncryptedDnsError::Request(format_error_chain(&err)))?;
+/// Sends one POST through reqwest. A server that refuses the TLS 1.3-only
+/// (GREASE ECH) handshake gets one retry on the client that also allows TLS 1.2.
+///
+/// # Cancel safety:
+/// cancel-safe: a drop at either `send().await` or in the body read discards the request;
+/// hyper returns a connection to the pool only when idle. The TLS 1.2 retry runs only after a
+/// handshake refusal, before request bytes were sent. A cancelled POST outcome stays unknown.
+async fn post_reqwest(
+    resolver: &EncryptedDnsResolver,
+    client: &reqwest::Client,
+    url: &str,
+    body: &[u8],
+    content_type: &str,
+    accept: &str,
+) -> Result<Vec<u8>, EncryptedDnsError> {
+    let send = |client: &reqwest::Client| {
+        client.post(url).header(CONTENT_TYPE, content_type).header(ACCEPT, accept).body(body.to_vec()).send()
+    };
+    let first = send(client).await;
+    let result = match (first, &resolver.inner.doh_fallback_client) {
+        (Err(err), Some(fallback)) if tls_version_refused(&err) => send(fallback).await,
+        (result, _) => result,
+    };
+    let response = result.map_err(|err| EncryptedDnsError::Request(format_error_chain(&err)))?;
 
     if !response.status().is_success() {
         return Err(EncryptedDnsError::HttpStatus(response.status()));
     }
 
-    read_limited_response_body(response).await
+    read_limited_response_body(response, accept).await
 }
 
 /// # Cancel safety:
 ///
 /// cancel-safe: the response and accumulated bytes are owned by this call and dropped on cancellation.
-async fn read_limited_response_body(mut response: reqwest::Response) -> Result<Vec<u8>, EncryptedDnsError> {
+async fn read_limited_response_body(
+    mut response: reqwest::Response,
+    accept: &str,
+) -> Result<Vec<u8>, EncryptedDnsError> {
     super::http1_response::validate_response_headers(response.headers())?;
+    super::http1_response::validate_response_content_type(response.headers(), accept)?;
     if response.content_length().is_some_and(|length| length > MAX_DOH_RESPONSE_BYTES as u64) {
         return Err(EncryptedDnsError::Request("DoH response Content-Length exceeds maximum size".to_string()));
     }
@@ -132,7 +134,9 @@ mod tests {
             .send()
             .await
             .expect("local HTTP response");
-        let error = read_limited_response_body(response).await.expect_err("oversized body must fail");
+        let error = read_limited_response_body(response, "application/dns-message")
+            .await
+            .expect_err("oversized body must fail");
         assert!(matches!(error, EncryptedDnsError::Request(message) if message.contains("exceeds maximum size")));
         server.await.expect("server task");
     }

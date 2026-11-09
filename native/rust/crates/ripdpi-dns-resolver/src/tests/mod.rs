@@ -1018,7 +1018,7 @@ fn h2_only_doh_server_is_supported() {
     let server_config = Arc::new(server_config);
 
     let expected_query = build_query("fixture.test");
-    let expected_response = expected_query.clone();
+    let expected_response = build_response(&expected_query, Ipv4Addr::new(198, 18, 0, 62));
     let server_query = expected_query.clone();
     let server_response = expected_response.clone();
     let server = thread::spawn(move || {

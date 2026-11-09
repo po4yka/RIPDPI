@@ -62,6 +62,21 @@ fn normalize_doh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), Enc
     let doh_url = endpoint.doh_url.clone().ok_or(EncryptedDnsError::MissingDohUrl)?;
     let parsed = Url::parse(&doh_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
     let url_host = parsed.host_str().ok_or(EncryptedDnsError::MissingHost)?.to_string();
+    // RFC 8484 section 5: DoH runs over HTTPS. Plain HTTP is allowed only for a loopback
+    // fixture: the URL host, the connect host and every bootstrap IP must stay on the device.
+    let is_loopback_name = |name: &str| {
+        name.eq_ignore_ascii_case("localhost")
+            || name.trim_matches(['[', ']']).parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+    };
+    let loopback = is_loopback_name(&url_host)
+        && (endpoint.host.is_empty() || is_loopback_name(&endpoint.host))
+        && endpoint.bootstrap_ips.iter().all(std::net::IpAddr::is_loopback);
+    // `Url::parse` lowercases the scheme.
+    match parsed.scheme() {
+        "https" => {}
+        "http" if loopback => {}
+        _ => return Err(EncryptedDnsError::InvalidUrl("DoH URL must use https (RFC 8484 section 5)".into())),
+    }
     if endpoint.host.is_empty() {
         endpoint.host = url_host.clone();
     }

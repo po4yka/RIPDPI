@@ -205,3 +205,105 @@ async fn hooked_doh_retries_without_grease_ech_for_a_tls12_only_server() {
     assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
     server.join().expect("server joins");
 }
+
+#[tokio::test]
+async fn reqwest_doh_retries_without_grease_ech_for_a_tls12_only_server() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 63);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_protocol_versions(&[&rustls::version::TLS12])
+            .expect("ring provider supports TLS 1.2")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let server_query = query.clone();
+    let server_response = build_response(&query, answer_ip);
+    let server = thread::spawn(move || {
+        // The GREASE ECH ClientHello offers only TLS 1.3 and is refused.
+        let (refused, _) = listener.accept().expect("accept first");
+        tolerate_dot_handshake_failure(refused, server_config.clone());
+        let (stream, _) = listener.accept().expect("accept retry");
+        serve_https_doh(stream, server_config, &server_query, &server_response);
+    });
+    // No connect hooks: the reqwest client, the same one the SOCKS5 transport uses.
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: Some("fixture".to_string()),
+            host: "fixture.test".to_string(),
+            port,
+            tls_server_name: Some("fixture.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        },
+        EncryptedDnsTransport::Direct,
+        DEFAULT_TIMEOUT,
+        vec![certificate_der],
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange(&query).await.expect("TLS 1.2 DoH server answers");
+    assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
+    server.join().expect("server joins");
+}
+
+#[tokio::test]
+async fn hooked_doh_verifies_the_url_host_not_the_tls_server_name() {
+    let query = build_query("fixture.test");
+    let answer_ip = Ipv4Addr::new(198, 18, 0, 64);
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
+    let certificate_der: CertificateDer<'static> = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()));
+    let server_config = Arc::new(
+        ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_safe_default_protocol_versions()
+            .expect("ring provider supports default TLS versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![certificate_der.clone()], key_der)
+            .expect("server config"),
+    );
+    let server_query = query.clone();
+    let server_response = build_response(&query, answer_ip);
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().expect("accept");
+        serve_https_doh(stream, server_config, &server_query, &server_response);
+    });
+    let hooks = EncryptedDnsConnectHooks::new()
+        .with_direct_tcp_connector(|target, timeout| async move { TcpStream::connect_timeout(&target, timeout) });
+    // RFC 8484 section 3 / RFC 2818: the DoH URI host is the identity, as on the reqwest path.
+    let resolver = EncryptedDnsResolver::with_extra_tls_roots_and_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: Some("fixture".to_string()),
+            host: "fixture.test".to_string(),
+            port,
+            tls_server_name: Some("other.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: Some(format!("https://fixture.test:{port}/dns-query")),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        },
+        EncryptedDnsTransport::Direct,
+        DEFAULT_TIMEOUT,
+        vec![certificate_der],
+        hooks,
+    )
+    .expect("resolver builds");
+
+    let response = resolver.exchange(&query).await.expect("URL host identity verifies");
+    assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
+    server.join().expect("server joins");
+}

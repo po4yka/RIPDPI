@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -11,7 +12,9 @@ use tokio::sync::Mutex as AsyncMutex;
 use super::connection::ConnectionPool;
 use super::doq;
 use crate::health::HealthRegistry;
-use crate::transport::{build_client_config, build_doh_client, build_manual_doh_tls_config, normalize_endpoint};
+use crate::transport::{
+    build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config, normalize_endpoint,
+};
 use crate::types::{
     DnsCryptCachedCertificate, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol,
     EncryptedDnsTransport, ResolverNetworkScope,
@@ -25,7 +28,10 @@ pub(crate) struct ResolverInner {
     pub(crate) endpoint: EncryptedDnsEndpoint,
     pub(crate) transport: EncryptedDnsTransport,
     pub(crate) timeout: Duration,
+    /// `None` selects the manual HTTP/1.1 path (hooked or protect-required connects).
     pub(crate) doh_client: Option<reqwest::Client>,
+    /// The reqwest client without GREASE ECH (TLS 1.2 allowed), for a server that refuses TLS 1.3 only.
+    pub(crate) doh_fallback_client: Option<reqwest::Client>,
     pub(crate) connect_hooks: EncryptedDnsConnectHooks,
     pub(crate) dot_tls_config: Arc<ClientConfig>,
     /// TLS of the manual (hooked) DoH and ODoH path; the DoT config for other protocols.
@@ -105,7 +111,7 @@ pub(crate) fn build_inner(
 ) -> Result<ResolverInner, EncryptedDnsError> {
     let normalized = normalize_endpoint(endpoint, &transport)?;
     let dot_tls_config = build_client_config(tls_verifiers.tls_verifier.as_ref(), &tls_roots)?;
-    let doh_client = build_doh_client_for_endpoint(
+    let (doh_client, doh_fallback_client) = build_doh_client_for_endpoint(
         &normalized,
         &transport,
         timeout,
@@ -135,6 +141,7 @@ pub(crate) fn build_inner(
         transport,
         timeout,
         doh_client,
+        doh_fallback_client,
         connect_hooks,
         dot_tls_config,
         manual_doh_tls_config,
@@ -152,6 +159,9 @@ pub(crate) fn build_inner(
     })
 }
 
+/// The reqwest DoH client and its TLS 1.2 fallback, or `(None, None)` for the manual HTTP/1.1 path.
+/// The manual path is the one whose connects go through the hooks: direct transport, or a
+/// SOCKS5 proxy that is not a loopback IP literal (a hostname takes the hooked path too).
 fn build_doh_client_for_endpoint(
     endpoint: &EncryptedDnsEndpoint,
     transport: &EncryptedDnsTransport,
@@ -161,15 +171,34 @@ fn build_doh_client_for_endpoint(
     network_scope: &ResolverNetworkScope,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     connect_hooks: &EncryptedDnsConnectHooks,
-) -> Result<Option<reqwest::Client>, EncryptedDnsError> {
-    if !matches!(endpoint.protocol, EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh)
-        || matches!(transport, EncryptedDnsTransport::Direct)
-            && (connect_hooks.has_direct_tcp_connector() || connect_hooks.requires_direct_tcp_connector())
-    {
-        return Ok(None);
+) -> Result<(Option<reqwest::Client>, Option<reqwest::Client>), EncryptedDnsError> {
+    if !matches!(endpoint.protocol, EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh) {
+        return Ok((None, None));
+    }
+    let hooked = connect_hooks.has_direct_tcp_connector() || connect_hooks.requires_direct_tcp_connector();
+    let needs_hook = match transport {
+        EncryptedDnsTransport::Direct => true,
+        EncryptedDnsTransport::Socks5 { host, .. } => {
+            host.trim_matches(['[', ']']).parse::<IpAddr>().map_or(true, |ip| !ip.is_loopback())
+        }
+    };
+    if hooked && needs_hook {
+        return Ok((None, None));
     }
 
-    build_doh_client(endpoint, transport, timeout, tls_roots, health, network_scope, tls_verifier).map(Some)
+    let client = build_doh_client(
+        endpoint,
+        transport,
+        timeout,
+        tls_roots,
+        health,
+        network_scope,
+        tls_verifier,
+        &EchSetup::Grease,
+    )?;
+    let fallback =
+        build_doh_fallback_client(endpoint, transport, timeout, tls_roots, health, network_scope, tls_verifier)?;
+    Ok((Some(client), fallback))
 }
 
 /// One DoQ response: its 2-byte length prefix plus the largest DNS message.
