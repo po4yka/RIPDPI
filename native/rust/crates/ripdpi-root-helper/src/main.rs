@@ -11,6 +11,8 @@
 mod dispatch;
 mod handlers;
 mod nfqws2;
+#[cfg(test)]
+mod request_deadline_tests;
 
 use std::ffi::CString;
 use std::fs;
@@ -285,9 +287,9 @@ impl RequestDeadline {
         *self.lock() = Some((stream.try_clone()?, Instant::now() + timeout));
         self.wake.notify_one();
         let received = protocol::recv_message(stream, "peer closed connection");
-        // An empty slot means the watchdog shut the connection down: no response
-        // can reach the client, so the command must not run.
-        if self.lock().take().is_none() {
+        // The reader also checks the deadline in case the watchdog wakes late.
+        if self.lock().take().is_none_or(|(_, deadline)| Instant::now() >= deadline) {
+            let _ = stream.shutdown(std::net::Shutdown::Both);
             return Err(io::Error::new(io::ErrorKind::TimedOut, "root-helper request deadline expired"));
         }
         received
