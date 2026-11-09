@@ -2,13 +2,15 @@
 
 This crate is a thin SOCKS5 ↔ HTTPS-CONNECT helper. The wire formats involved are RFC standards rather than vendored upstream wire, but the helper subprocess contract with the Android service is versioned.
 
-The APK ships only this repository-owned Rust helper (`ripdpi-naiveproxy`, packaged as a jniLib). It ships no klzgrad/naiveproxy or Chromium binary. The pins below are the sources this helper's wire behavior was checked against, not distributed artifacts.
+The APK ships this repository-owned Rust helper (`ripdpi-naiveproxy`) and a separate pinned Chromium client (`ripdpi-naive-chromium`), both packaged as jniLibs. `NaiveProxyManager` uses the Rust helper when the profile has a server certificate pin. Without a pin, it uses the Chromium client. The Rust helper supports HTTP/2 only; the Chromium client supports HTTP/2 and HTTP/3. Pinned profiles with HTTP/3 or concurrency other than one are rejected before launch.
+
+The pins below define the Rust helper's protocol reference. The Chromium artifact version, commit and per-ABI digests are recorded separately in `native/naiveproxy-upstream/sources.json` and checked before packaging. A matching artifact digest is not evidence of a successful HTTP/3 exchange.
 
 - **Upstream repo:** https://github.com/klzgrad/naiveproxy (protocol reference: padding framer, padding socket, proxy delegate, HTTP proxy server socket)
 - **Upstream tag:** v154.0.8037.49-5
 - **Upstream commit:** d04efe1ea4477c2db24a7d0e2f068b3bee931e45
 - **Server interop reference:** https://github.com/klzgrad/forwardproxy, tag `v2.11.7-naive2`, commit `e747854e78743dba85c039b38ed185fb11d93667`, built on Caddy `v2.11.7` (`72dd0fb067f6d7826c7f79907670ba4a713bfe37`) with the fork's `caddy-sing-quic-bbrv1.patch` and `caddy-read-idle-timeout.patch`. The `independent-naiveproxy-*` acceptance scenarios build and run exactly this server (`test-lab/acceptance/peers/naiveproxy.py`).
-- **Last reviewed:** 2026-10-30
+- **Last reviewed:** 2026-11-09
 - **Owner:** RIPDPI native transport maintainers
 
 ## Scope
@@ -40,7 +42,7 @@ This crate implements:
 - Result: one stdout line `RIPDPI-CHECK|naiveproxy|<class>` and exit 0. `<class>` is `ok` when the server answers the CONNECT without a 407, `timeout`, or a `RIPDPI-ERROR` class such as `auth`, `tls`, `dns` or `connect`. A server with probe resistance answers a wrong password like a web site, which also gives `ok`.
 - Invalid arguments: one stderr `RIPDPI-ERROR` line and a non-zero exit, as in relay mode.
 
-The crate is RIPDPI's repo-owned helper. It is intentionally not a Chromium-derived native naiveproxy binary.
+The crate is RIPDPI's repository-owned Rust helper, separate from the Chromium client. The editor's server check uses this Rust HTTP/2 path, including for a profile that will use Chromium HTTP/3 at runtime. A successful check does not prove that the profile's HTTP/3 route works.
 
 ## Drift policy
 
