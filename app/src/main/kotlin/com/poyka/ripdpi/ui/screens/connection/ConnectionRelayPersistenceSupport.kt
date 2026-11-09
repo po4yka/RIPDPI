@@ -156,10 +156,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         xhttpPath = relayXhttpPath,
         xhttpHost = relayXhttpHost,
         xhttpMode = relayXhttpMode,
-        xhttpMaxConnections =
-            source?.xhttpMaxConnections?.takeIf {
-                relayVlessTransport == RelayVlessTransportXhttp && relayXhttpMode == RelayXhttpModeStreamUp
-            },
+        xhttpMaxConnections = preservedXhttpMaxConnections(source),
         cloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode),
         cloudflarePublishLocalOriginUrl = relayCloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef =
@@ -307,6 +304,11 @@ private fun ConnectionDraft.kindCredential(
 
 private fun String.preserveRelayLines(previous: List<String>?): List<String> =
     if (previous != null && this == previous.joinToString("\n")) previous else relayLines()
+
+private fun ConnectionDraft.preservedXhttpMaxConnections(source: RelayProfileRecord?): Int? =
+    source?.xhttpMaxConnections?.takeIf {
+        relayVlessTransport == RelayVlessTransportXhttp && relayXhttpMode == RelayXhttpModeStreamUp
+    }
 
 private fun ConnectionDraft.matchingSourceRelayProfile(profileId: String): RelayProfileRecord? =
     sourceRelayProfile?.takeIf { it.id == profileId && it.kind == relayKind }
