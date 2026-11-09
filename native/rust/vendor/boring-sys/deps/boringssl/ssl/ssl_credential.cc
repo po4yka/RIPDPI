@@ -448,7 +448,7 @@ SSL_CREDENTIAL *SSL_CREDENTIAL_new_delegated() {
   return New<SSLCredential>(SSLCredentialType::kDelegated);
 }
 
-SSL_CREDENTIAL *SSL_CREDENTIAL_new_raw_public_key(EVP_PKEY *pkey) {
+SSL_CREDENTIAL *SSL_CREDENTIAL_new_raw_public_key(const EVP_PKEY *pkey) {
   if (!EVP_PKEY_has_public(pkey) || !EVP_PKEY_has_private(pkey)) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_MISSING_KEY);
     return nullptr;
@@ -464,7 +464,7 @@ SSL_CREDENTIAL *SSL_CREDENTIAL_new_raw_public_key(EVP_PKEY *pkey) {
 }
 
 SSL_CREDENTIAL *SSL_CREDENTIAL_new_raw_public_key_custom(
-    EVP_PKEY *pubkey, const SSL_PRIVATE_KEY_METHOD *method) {
+    const EVP_PKEY *pubkey, const SSL_PRIVATE_KEY_METHOD *method) {
   if (!EVP_PKEY_has_public(pubkey)) {
     OPENSSL_PUT_ERROR(SSL, SSL_R_MISSING_KEY);
     return nullptr;
@@ -484,11 +484,10 @@ void SSL_CREDENTIAL_up_ref(SSL_CREDENTIAL *cred) {
 }
 
 SSL_CREDENTIAL *SSL_CREDENTIAL_dup_ref(const SSL_CREDENTIAL *cred) {
-  // Safety: we do not mutate the internal state of `cred` other than the
-  // ref-count atomic variable.
-  auto *cred_impl = FromOpaque(const_cast<SSL_CREDENTIAL *>(cred));
-  cred_impl->UpRefInternal();
-  return const_cast<SSL_CREDENTIAL *>(cred);
+  if (cred == nullptr) {
+    return nullptr;
+  }
+  return FromOpaque(cred)->DupRefInternal();
 }
 
 void SSL_CREDENTIAL_free(SSL_CREDENTIAL *cred) {
@@ -501,7 +500,7 @@ int SSL_CREDENTIAL_is_complete(const SSL_CREDENTIAL *cred) {
   return FromOpaque(cred)->IsComplete();
 }
 
-int SSL_CREDENTIAL_set1_private_key(SSL_CREDENTIAL *cred, EVP_PKEY *key) {
+int SSL_CREDENTIAL_set1_private_key(SSL_CREDENTIAL *cred, const EVP_PKEY *key) {
   auto *cred_impl = FromOpaque(cred);
   if (!cred_impl->UsesPrivateKey()) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
@@ -558,7 +557,7 @@ int SSL_CREDENTIAL_set1_cert_chain(SSL_CREDENTIAL *cred,
 }
 
 int SSL_CREDENTIAL_set1_delegated_credential(SSL_CREDENTIAL *cred,
-                                             CRYPTO_BUFFER *dc) {
+                                             const CRYPTO_BUFFER *dc) {
   auto *cred_impl = FromOpaque(cred);
   if (cred_impl->type != SSLCredentialType::kDelegated) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
@@ -613,7 +612,7 @@ int SSL_CREDENTIAL_set1_delegated_credential(SSL_CREDENTIAL *cred,
 }
 
 int SSL_CREDENTIAL_set1_ocsp_response(SSL_CREDENTIAL *cred,
-                                      CRYPTO_BUFFER *ocsp) {
+                                      const CRYPTO_BUFFER *ocsp) {
   auto *cred_impl = FromOpaque(cred);
   if (!cred_impl->UsesX509()) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
@@ -624,8 +623,8 @@ int SSL_CREDENTIAL_set1_ocsp_response(SSL_CREDENTIAL *cred,
   return 1;
 }
 
-int SSL_CREDENTIAL_set1_signed_cert_timestamp_list(SSL_CREDENTIAL *cred,
-                                                   CRYPTO_BUFFER *sct_list) {
+int SSL_CREDENTIAL_set1_signed_cert_timestamp_list(
+    SSL_CREDENTIAL *cred, const CRYPTO_BUFFER *sct_list) {
   auto *cred_impl = FromOpaque(cred);
   if (!cred_impl->UsesX509()) {
     OPENSSL_PUT_ERROR(SSL, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
@@ -786,6 +785,11 @@ void SSL_CREDENTIAL_set_must_match_issuer(SSL_CREDENTIAL *cred, int match) {
 
 int SSL_CREDENTIAL_set1_trust_anchor_id(SSL_CREDENTIAL *cred, const uint8_t *id,
                                         size_t id_len) {
+  if (!ssl_is_valid_trust_anchor_id(Span(id, id_len))) {
+    OPENSSL_PUT_ERROR(SSL, SSL_R_INVALID_TRUST_ANCHOR_ID);
+    return 0;
+  }
+
   auto *cred_impl = FromOpaque(cred);
   // For now, this is only valid for X.509.
   if (!cred_impl->UsesX509()) {
@@ -817,7 +821,7 @@ int SSL_CREDENTIAL_add1_trust_anchor_group(SSL_CREDENTIAL *cred,
 }
 
 int SSL_CREDENTIAL_set1_certificate_properties(
-    SSL_CREDENTIAL *cred, CRYPTO_BUFFER *cert_property_list) {
+    SSL_CREDENTIAL *cred, const CRYPTO_BUFFER *cert_property_list) {
   auto *cred_impl = FromOpaque(cred);
   // For now, this is only valid for X.509.
   if (!cred_impl->UsesX509()) {
@@ -847,18 +851,16 @@ int SSL_CREDENTIAL_set1_certificate_properties(
 
     switch (type) {
       case 0:  // trust_anchor_id
-        // See draft-ietf-tls-trust-anchor-ids-05, Section 7.1.
-        if (!CBS_len(&data)) {
-          OPENSSL_PUT_ERROR(SSL, SSL_R_INVALID_TRUST_ANCHOR_LIST);
-          return 0;
-        }
+        // See draft-ietf-tls-trust-anchor-ids-06, Section 7.1.
+        // `SSL_CREDENTIAL_set1_trust_anchor_id` will check that `data` is
+        // valid.
         if (!SSL_CREDENTIAL_set1_trust_anchor_id(cred_impl, CBS_data(&data),
                                                  CBS_len(&data))) {
           return 0;
         }
         break;
       case 1: {  // trust_anchor_groups
-        // See draft-ietf-tls-trust-anchor-ids-05, Section 7.2.
+        // See draft-ietf-tls-trust-anchor-ids-06, Section 7.2.
         CBS pattern_list;
         if (!CBS_get_u16_length_prefixed(&data, &pattern_list) ||
             CBS_len(&data) != 0 || CBS_len(&pattern_list) == 0) {
@@ -879,7 +881,7 @@ int SSL_CREDENTIAL_set1_certificate_properties(
         break;
       }
       case 2: {  // trust_anchor_negotiation
-        // See draft-ietf-tls-trust-anchor-ids-05, Section 7.3.
+        // See draft-ietf-tls-trust-anchor-ids-06, Section 7.3.
         if (CBS_len(&data) != 0) {
           OPENSSL_PUT_ERROR(SSL, SSL_R_INVALID_CERTIFICATE_PROPERTY_LIST);
           return 0;
