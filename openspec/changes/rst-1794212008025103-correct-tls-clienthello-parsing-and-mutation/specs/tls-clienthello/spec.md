@@ -57,3 +57,12 @@ The Tor directory cache MUST use a bundled SQLite version that fixes RUSTSEC-202
 
 - **WHEN** the locked dependency graph is audited for known advisories
 - **THEN** the Tor SQLite dependency is fixed and the existing gate stays enabled
+
+### Requirement: REQ-CI-ECH-DIAGNOSTICS — Preserve diagnostics while passing static checks
+
+ECH diagnostics MUST preserve cancellation, error propagation, and request cleanup while satisfying the existing static checks.
+
+#### Scenario: Cancellation races with connection failure
+
+- **WHEN** an ECH connection fails while its caller is cancelled
+- **THEN** the request is released once and cancellation semantics are preserved

@@ -36,3 +36,7 @@ No data migration. Revert the relevant commits to roll back. Run targeted locked
 
 - The Tor directory manager uses bundled SQLite. Upgrade to a version that fixes RUSTSEC-2026-0459 without weakening the advisory gate. If the published manager constrains the fixed rusqlite version, carry a narrow provenance-recorded dependency patch and test its compatibility.
 - Keep the Tor cache contract and Android targets. Vet every added package before compilation and reconcile both Cargo lockfiles.
+
+## Diagnostics CI blocker
+
+- Resolve the existing diagnostics Detekt findings without suppressions or baseline changes. Preserve ECH cancellation and request release behavior, including cancellation racing with a connection failure, and retain HTTPS RR parsing and alias limits.

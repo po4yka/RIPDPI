@@ -34,3 +34,8 @@ Inspect and mutate TLS ClientHello without crossing SNI boundaries, losing fragm
 
 - Tor dependency owner: `native/rust/Cargo.toml`, `native/rust/Cargo.lock`, `native/rust/fuzz/Cargo.lock`, and the minimal `tor-dirmgr` vendor patch. Serialize these files.
 - Integrator owns task and OpenSpec records and combined validation.
+
+## Diagnostics CI blocker ownership
+
+- Diagnostics owner: `core/diagnostics/` Kotlin sources and tests for ECH and HTTPS RR. No baseline changes.
+- Integrator owns task and OpenSpec records and combined validation.

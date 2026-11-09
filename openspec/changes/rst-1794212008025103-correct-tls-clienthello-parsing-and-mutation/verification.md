@@ -26,3 +26,4 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-TLS-ECH-ID | RST-1794214443209399 | ECH adapter tests, host JNI facade check, scanner and two independent reviews | passed |
 | REQ-TLS-FUZZ-LOCK | RST-1794214442322852 | Locked metadata and full fuzz smoke with local ARM cargo-fuzz | passed |
 | REQ-CI-TOR-SQLITE | RST-1794220081392995 | Pending | required |
+| REQ-CI-ECH-DIAGNOSTICS | RST-1794220142663069 | Pending | required |
