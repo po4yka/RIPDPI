@@ -9,7 +9,7 @@ use crate::{
     HttpsServiceSelection, parse_https_service_bindings, select_https_service_bindings,
 };
 use hickory_proto::rr::rdata::https::HTTPS;
-use hickory_proto::rr::rdata::svcb::{Alpn, EchConfigList, SVCB, SvcParamKey, SvcParamValue};
+use hickory_proto::rr::rdata::svcb::{Alpn, EchConfigList, Mandatory, SVCB, SvcParamKey, SvcParamValue, Unknown};
 
 fn build_service_binding_response(
     query: &[u8],
@@ -162,6 +162,73 @@ fn select_https_service_bindings_orders_by_priority_and_ignores_foreign_owners()
     let selection = select_https_service_bindings(&response).expect("bindings select");
 
     assert_eq!(ech_public_names(selection), vec!["first.example".to_string(), "second.example".to_string()]);
+}
+
+fn select_ech_with_preferred_params(mut params: Vec<(SvcParamKey, SvcParamValue)>) -> Vec<String> {
+    params.push((
+        SvcParamKey::EchConfigList,
+        SvcParamValue::EchConfigList(EchConfigList(build_ech_config_list(vec![build_ech_config_entry_v18(
+            1,
+            "preferred.example",
+        )]))),
+    ));
+    params.sort_by_key(|(key, _)| *key);
+    let query = build_query_for_type("fixture.test", RecordType::HTTPS);
+    let preferred = build_service_binding_response(&query, RecordType::HTTPS, 1, ".", params);
+    let mut response = Message::from_vec(&preferred).expect("preferred response parses");
+    let alternative = https_answer(&[("fixture.test.", 2, ".", Some("alternative.example"))], &[]);
+    response.answers.extend(Message::from_vec(&alternative).expect("alternative response parses").answers);
+    ech_public_names(select_https_service_bindings(&response.to_vec().expect("encodes")).expect("bindings select"))
+}
+
+#[test]
+fn select_https_service_bindings_ignores_unknown_mandatory_key() {
+    let selected = select_ech_with_preferred_params(vec![
+        (SvcParamKey::Mandatory, SvcParamValue::Mandatory(Mandatory(vec![SvcParamKey::Key(65400)]))),
+        (SvcParamKey::Key(65400), SvcParamValue::Unknown(Unknown(vec![1]))),
+    ]);
+
+    assert_eq!(selected, vec!["alternative.example"]);
+}
+
+#[test]
+fn select_https_service_bindings_keeps_known_mandatory_and_unknown_optional_keys() {
+    let selected = select_ech_with_preferred_params(vec![
+        (SvcParamKey::Mandatory, SvcParamValue::Mandatory(Mandatory(vec![SvcParamKey::EchConfigList]))),
+        (SvcParamKey::Key(65400), SvcParamValue::Unknown(Unknown(vec![1]))),
+    ]);
+
+    assert_eq!(selected, vec!["preferred.example", "alternative.example"]);
+}
+
+#[test]
+fn select_https_service_bindings_ignores_inconsistent_mandatory_keys() {
+    for mandatory in [
+        vec![SvcParamKey::Port],
+        vec![SvcParamKey::Mandatory],
+        vec![SvcParamKey::EchConfigList, SvcParamKey::EchConfigList],
+    ] {
+        let selected = select_ech_with_preferred_params(vec![(
+            SvcParamKey::Mandatory,
+            SvcParamValue::Mandatory(Mandatory(mandatory.clone())),
+        )]);
+        assert_eq!(selected, vec!["alternative.example"], "mandatory: {mandatory:?}");
+    }
+}
+
+#[test]
+fn select_https_service_bindings_requires_alpn_for_no_default_alpn() {
+    assert_eq!(
+        select_ech_with_preferred_params(vec![(SvcParamKey::NoDefaultAlpn, SvcParamValue::NoDefaultAlpn)]),
+        vec!["alternative.example"]
+    );
+    assert_eq!(
+        select_ech_with_preferred_params(vec![
+            (SvcParamKey::Alpn, SvcParamValue::Alpn(Alpn(vec!["h2".to_string()]))),
+            (SvcParamKey::NoDefaultAlpn, SvcParamValue::NoDefaultAlpn),
+        ]),
+        vec!["preferred.example", "alternative.example"]
+    );
 }
 
 #[test]

@@ -13,7 +13,8 @@ import org.xbill.DNS.Type
 import java.io.IOException
 
 object Rfc9460HttpsRecordCodec {
-    fun parseHttpsRdata(rdata: ByteArray): HttpsRrRecord? = DnsMessages.httpsRecord(rdata)?.toHttpsRrRecord()
+    fun parseHttpsRdata(rdata: ByteArray): HttpsRrRecord? =
+        DnsMessages.httpsRecord(rdata)?.takeIf { it.hasCompatibleServiceParams() }?.toHttpsRrRecord()
 }
 
 internal object HttpsDnsWireParser {
@@ -44,9 +45,18 @@ internal object HttpsDnsWireParser {
         return message
             .getSection(Section.ANSWER)
             .filterIsInstance<HTTPSRecord>()
-            .filter { it.dClass == DClass.IN }
+            .filter { it.dClass == DClass.IN && it.hasCompatibleServiceParams() }
             .map { it.toHttpsRrRecord() ?: throw IOException("Invalid HTTPS record") }
     }
+}
+
+private fun HTTPSRecord.hasCompatibleServiceParams(): Boolean {
+    if (svcPriority == 0) return true
+    if (getSvcParamValue(SVCBBase.NO_DEFAULT_ALPN) != null && getSvcParamValue(SVCBBase.ALPN) == null) return false
+    val mandatory = getSvcParamValue(SVCBBase.MANDATORY) as? SVCBBase.ParameterMandatory ?: return true
+    val keys = mandatory.values
+    return keys.isNotEmpty() && keys.distinct().size == keys.size &&
+        keys.all { key -> key in SVCBBase.ALPN..SVCBBase.IPV6HINT && getSvcParamValue(key) != null }
 }
 
 private fun HTTPSRecord.toHttpsRrRecord(): HttpsRrRecord? {

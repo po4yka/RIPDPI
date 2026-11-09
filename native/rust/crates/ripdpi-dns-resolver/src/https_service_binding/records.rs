@@ -67,6 +67,9 @@ pub fn select_https_service_bindings(packet: &[u8]) -> Result<HttpsServiceSelect
                 HttpsServiceSelection::Alias(svcb.target_name.to_ascii())
             });
         }
+        if !service_params_are_compatible(&svcb.svc_params) {
+            continue;
+        }
         bindings.push(parse_service_binding_record(
             record,
             record_type,
@@ -78,6 +81,21 @@ pub fn select_https_service_bindings(packet: &[u8]) -> Result<HttpsServiceSelect
     // shortcut: equal priorities keep wire order instead of RFC 9460's random order.
     bindings.sort_by_key(|binding| binding.service_priority);
     Ok(HttpsServiceSelection::Service(bindings))
+}
+
+fn service_params_are_compatible(params: &[(SvcParamKey, SvcParamValue)]) -> bool {
+    // Hickory validates parameter order and wire formats, but not RFC 9460 self-consistency.
+    let has_key = |key| params.binary_search_by_key(&key, |(key, _)| *key).is_ok();
+    if has_key(SvcParamKey::NoDefaultAlpn) && !has_key(SvcParamKey::Alpn) {
+        return false;
+    }
+    params.iter().all(|(_, value)| {
+        let SvcParamValue::Mandatory(mandatory) = value else {
+            return true;
+        };
+        mandatory.0.windows(2).all(|keys| keys[0] < keys[1])
+            && mandatory.0.iter().all(|key| matches!(u16::from(*key), 1..=6 | ODOHCONFIG_SVCB_KEY) && has_key(*key))
+    })
 }
 
 fn parse_service_binding_record(
