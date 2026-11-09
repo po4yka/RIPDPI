@@ -120,8 +120,10 @@ impl SocketLuaFlow {
         };
         // The stream peer can be an upstream SOCKS server after the first write.
         let dst = if tcp { *self.tcp_target.get_or_init(|| dst) } else { dst };
-        let inspect_http = tcp && !payload.is_empty() && self.tcp_payload_seen.set(()).is_ok();
-        let (mut dissect, protocol, detected_host) = dissect_payload(src, dst, tcp, payload, inspect_http);
+        // Only the first non-empty stream payload is client protocol data; later
+        // writes are mid-stream bytes (often ciphertext) and must not be classified.
+        let classify = !tcp || (!payload.is_empty() && self.tcp_payload_seen.set(()).is_ok());
+        let (mut dissect, protocol, detected_host) = dissect_payload(src, dst, tcp, payload, classify);
         dissect.tcp_mss = if tcp { tcp_mss } else { None };
         let host = host.or(detected_host.as_deref()).map(|host| host.trim_end_matches('.').to_ascii_lowercase());
         let conn =
@@ -196,12 +198,15 @@ fn dissect_payload(
     dst: SocketAddr,
     tcp: bool,
     payload: &[u8],
-    inspect_http: bool,
+    classify: bool,
 ) -> (Dissect, Option<ProtocolName>, Option<String>) {
     let mut dissect =
         Dissect { src_port: src.port(), dst_port: dst.port(), is_ipv6: dst.is_ipv6(), ..Dissect::default() };
     dissect.markers.insert(MarkerName::Data, 0);
     dissect.markers.insert(MarkerName::End, payload.len());
+    if !classify {
+        return (dissect, None, None);
+    }
     dissect.proto = ripdpi_protocol_detect::classify_l7(payload, src.port(), dst.port(), !tcp);
     let mut protocol = protocol_name(&dissect.proto);
     let mut hostname = None;
@@ -224,8 +229,7 @@ fn dissect_payload(
                 dissect.markers.insert(MarkerName::ExtLen, info.ext_len_start);
                 dissect.markers.insert(MarkerName::SniExt, info.sni_ext_start);
             }
-        } else if inspect_http
-            && ripdpi_packets::http_request_head_end(payload).is_some()
+        } else if ripdpi_packets::http_request_head_end(payload).is_some()
             && let Some(info) = http_marker_info(payload)
         {
             hostname = ripdpi_packets::http_request_authority(payload)
@@ -320,7 +324,7 @@ mod tests {
         bytes.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
         bytes.extend_from_slice(&body[split..]);
         let (src, dst) = endpoints();
-        let (dissect, protocol, host) = dissect_payload(src, dst, true, &bytes, false);
+        let (dissect, protocol, host) = dissect_payload(src, dst, true, &bytes, true);
         assert_eq!(protocol, Some(ProtocolName::Tls));
         assert_eq!(host.as_deref(), Some("example.com"));
         for marker in
@@ -345,7 +349,7 @@ mod tests {
         contiguous.extend_from_slice(&[0x16, 0x03, 0x03]);
         contiguous.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
         contiguous.extend_from_slice(&body[split..]);
-        let (dissect, _, host) = dissect_payload(src, dst, true, &contiguous, false);
+        let (dissect, _, host) = dissect_payload(src, dst, true, &contiguous, true);
         assert_eq!(host.as_deref(), Some("example.com"));
         assert_eq!(dissect.markers.get(&MarkerName::Host), Some(&(host_start + 5)));
         assert_eq!(dissect.markers.get(&MarkerName::HostEnd), Some(&(host_start + 5 + 11)));
@@ -501,6 +505,62 @@ mod tests {
             let plan = flow.plan(src, dst, proto, b"x", None, supplied).unwrap().unwrap();
             assert_eq!(plan.actions, vec![DesyncAction::Write(expected.as_bytes().to_vec())]);
         }
+    }
+}
+
+#[cfg(test)]
+mod stream_window_regressions {
+    use super::*;
+
+    const HELLO: &[u8] = include_bytes!("../../ripdpi-packets/tests/fixtures/curl_tls13_example_com.bin");
+
+    fn pseudo_random(len: usize) -> Vec<u8> {
+        let mut state: u32 = 0x9E37_79B9;
+        (0..len)
+            .map(|_| {
+                state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                (state >> 24) as u8
+            })
+            .collect()
+    }
+
+    fn load(tag: &str, matcher: &str) -> (Arc<SocketLuaStrategies>, std::path::PathBuf) {
+        let dir = std::env::temp_dir().join(format!(
+            "ripdpi-window-{tag}-{}-{}",
+            std::process::id(),
+            NEXT_FLOW_ID.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("candidate.lua"), "function report(d) return d.l7payload end").unwrap();
+        let yaml = format!(
+            "version: 1\nstrategies:\n  - id: report\n    on_fail: drop\n{matcher}    steps:\n      - type: lua\n        function: report\n        script_paths: [candidate.lua]\n"
+        );
+        (SocketLuaStrategies::from_yaml(&yaml, &dir).unwrap().unwrap(), dir)
+    }
+
+    fn write(flow: &SocketLuaFlow, payload: &[u8]) -> Option<Vec<u8>> {
+        let src = "127.0.0.1:1234".parse().unwrap();
+        let dst = "127.0.0.1:443".parse().unwrap();
+        flow.plan(src, dst, "tcp", payload, None, None).unwrap().map(|plan| match plan.actions.as_slice() {
+            [DesyncAction::Write(bytes)] => bytes.clone(),
+            other => panic!("unexpected actions {other:?}"),
+        })
+    }
+
+    #[test]
+    fn later_ciphertext_writes_are_not_classified() {
+        let noise = pseudo_random(1400);
+        let (mtproto, dir) = load("mtproto", "    match:\n      proto: [mtproto]\n");
+        let flow = mtproto.open_flow();
+        assert_eq!(write(&flow, HELLO), None);
+        assert_eq!(write(&flow, &noise), None);
+        std::fs::remove_dir_all(dir).unwrap();
+
+        let (report, dir) = load("report", "");
+        let flow = report.open_flow();
+        assert_eq!(write(&flow, HELLO).as_deref(), Some(b"tls_client_hello".as_slice()));
+        assert_eq!(write(&flow, &noise).as_deref(), Some(b"unknown".as_slice()));
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }
 
