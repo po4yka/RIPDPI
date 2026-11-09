@@ -8,7 +8,6 @@ class SingBoxPlainVlessXhttpImportTest {
     @Test
     fun `plain vless xhttp with enabled verified tls imports as a native profile`() {
         assertTrue(parse(""""tls":{"enabled":true,"server_name":"relay.example"},""") is ProxyProfile.Vless)
-        assertTrue(parse(""""tls":{"server_name":"relay.example"},""") is ProxyProfile.Vless)
     }
 
     @Test
@@ -16,6 +15,7 @@ class SingBoxPlainVlessXhttpImportTest {
         listOf(
             "",
             """"tls":{"enabled":false,"server_name":"relay.example"},""",
+            """"tls":{"server_name":"relay.example"},""",
             """"tls":{"enabled":true,"server_name":"relay.example","insecure":true},""",
             """"tls":{"enabled":true,"server_name":"relay.example","ech":{"enabled":true}},""",
             """"tls":{"enabled":true,"server_name":"relay.example","certificate":"pem"},""",

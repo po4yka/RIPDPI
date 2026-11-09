@@ -7,12 +7,11 @@ import kotlinx.serialization.json.booleanOrNull
 /**
  * Native xHTTP needs TLS and verifies the certificate without ECH, so a sing-box plain VLESS xHTTP node
  * that disables TLS or asks for insecure, ECH or custom certificates stays inert instead of losing that
- * option. A tls object without "enabled" counts as TLS, as in the committed RIPDPI bundles
- * (scripts/fixtures/embedded-relay-bundle/ci-fixture.json).
+ * option. As in sing-box, a tls object without "enabled": true means TLS is off.
  */
 internal fun JsonObject?.isNativeXhttpTls(): Boolean =
     this != null &&
-        flag("enabled") != false &&
+        flag("enabled") == true &&
         flag("insecure") != true &&
         (this["ech"] as? JsonObject)?.flag("enabled") != true &&
         this["certificate"] == null &&
