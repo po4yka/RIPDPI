@@ -139,6 +139,7 @@ private fun Nat64DiscoveryStatus?.labelResource(): Int =
         Nat64DiscoveryStatus.FAILED -> R.string.diagnostics_ip_failed
         Nat64DiscoveryStatus.INVALID -> R.string.diagnostics_ip_invalid
         Nat64DiscoveryStatus.TIMEOUT -> R.string.diagnostics_ip_timeout
+        Nat64DiscoveryStatus.CANCELLED -> R.string.diagnostics_ip_cancelled
         Nat64DiscoveryStatus.NOT_RUN, null -> R.string.diagnostics_ip_missing
     }
 

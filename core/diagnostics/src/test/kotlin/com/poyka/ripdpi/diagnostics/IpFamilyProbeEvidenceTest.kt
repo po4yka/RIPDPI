@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -138,5 +140,27 @@ class IpFamilyProbeEvidenceTest {
         assertFalse(summary.contains("64:ff9b"))
         org.junit.Assert.assertTrue(summary.contains("status=TIMEOUT"))
         org.junit.Assert.assertTrue(summary.contains("providerInterference=unverified"))
+    }
+
+    @Test
+    fun `cancelled discovery is a cancelled DNS stage and not a timeout`() {
+        val cancelled =
+            evidence.copy(
+                stage = IpProbeStage.DNS64_DISCOVERY,
+                status = IpProbeStatus.CANCELLED,
+                reason = "cancelled",
+                discoveryStatus = Nat64DiscoveryStatus.CANCELLED,
+            )
+        val json = Json.encodeToString(IpFamilyProbeEvidence.serializer(), cancelled)
+        assertEquals(
+            "CANCELLED",
+            Json
+                .parseToJsonElement(json)
+                .jsonObject["discoveryStatus"]
+                ?.jsonPrimitive
+                ?.content,
+        )
+        val stages = ipFamilyConnectionLane(listOf(ProbeDetail("ipFamilyEvidence", json))).stages
+        assertEquals(ConnectionStageState.CANCELLED, stages.single { it.stage == ConnectionStage.DNS }.state)
     }
 }

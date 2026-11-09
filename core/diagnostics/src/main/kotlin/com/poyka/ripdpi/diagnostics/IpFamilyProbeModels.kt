@@ -33,7 +33,7 @@ enum class IpProbeStage { TCP_CONNECT, DNS64_DISCOVERY }
 enum class IpProbeStatus { REACHABLE, FAILED, TIMEOUT, NOT_OBSERVED, UNSUPPORTED, CANCELLED, INVALID }
 
 @Serializable
-enum class Nat64DiscoveryStatus { NOT_RUN, DISCOVERED, NO_PREFIX, FAILED, INVALID, TIMEOUT }
+enum class Nat64DiscoveryStatus { NOT_RUN, DISCOVERED, NO_PREFIX, FAILED, INVALID, TIMEOUT, CANCELLED }
 
 @Serializable
 enum class IpProbePathScope { RAW_PATH, UNSUPPORTED_PROXY }

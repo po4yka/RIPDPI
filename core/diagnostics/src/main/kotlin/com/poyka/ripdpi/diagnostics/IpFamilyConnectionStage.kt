@@ -29,6 +29,7 @@ internal fun ipFamilyConnectionLane(details: List<ProbeDetail>): ConnectionStage
         when (evidence?.discoveryStatus) {
             Nat64DiscoveryStatus.DISCOVERED -> ConnectionStageState.SUCCEEDED
             Nat64DiscoveryStatus.TIMEOUT -> ConnectionStageState.TIMED_OUT
+            Nat64DiscoveryStatus.CANCELLED -> ConnectionStageState.CANCELLED
             Nat64DiscoveryStatus.FAILED, Nat64DiscoveryStatus.INVALID -> ConnectionStageState.FAILED
             Nat64DiscoveryStatus.NO_PREFIX -> ConnectionStageState.OBSERVED
             else -> ConnectionStageState.UNKNOWN

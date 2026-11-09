@@ -160,7 +160,12 @@ fn discover_with(
     let total = targets.len();
     for (index, server) in targets.into_iter().enumerate() {
         if let Some(reason) = interrupted(cancel) {
-            return Nat64Discovery { prefixes: vec![], status: "TIMEOUT", reason: Some(reason), attempts };
+            return Nat64Discovery {
+                prefixes: vec![],
+                status: interrupted_status(reason),
+                reason: Some(reason),
+                attempts,
+            };
         }
         let Ok(query) = build_dns_query_with_type("ipv4only.arpa", (now_ms() as u16).max(1), 28) else {
             return Nat64Discovery {
@@ -178,7 +183,12 @@ fn discover_with(
         });
         let response = with_scan_io_deadline(share, || exchange(server, &query));
         if let Some(reason) = interrupted(cancel) {
-            return Nat64Discovery { prefixes: vec![], status: "TIMEOUT", reason: Some(reason), attempts };
+            return Nat64Discovery {
+                prefixes: vec![],
+                status: interrupted_status(reason),
+                reason: Some(reason),
+                attempts,
+            };
         }
         let response = match response {
             Ok(response) => response,
@@ -269,6 +279,9 @@ fn resolver_endpoint(literal: &str) -> Option<SocketAddr> {
         None => 0,
     };
     Some(SocketAddr::V6(SocketAddrV6::new(v6, 53, 0, scope_id)))
+}
+fn interrupted_status(reason: &str) -> &'static str {
+    if reason == "cancelled" { "CANCELLED" } else { "TIMEOUT" }
 }
 fn interrupted(cancel: &AtomicBool) -> Option<&'static str> {
     if cancel.load(Ordering::Acquire) {

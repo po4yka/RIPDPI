@@ -68,9 +68,11 @@ fn no_resolver_cancel_and_deadline_do_not_send_requests() {
     assert_eq!(missing.attempts, 0);
     let stopped = discover_with(&["1.1.1.1".into()], &AtomicBool::new(true), |_, _| panic!("cancelled query"));
     assert_eq!(stopped.reason, Some("cancelled"));
+    assert_eq!(stopped.status, "CANCELLED");
     with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
         let result = discover_with(&["1.1.1.1".into()], &AtomicBool::new(false), |_, _| panic!("expired query"));
         assert_eq!(result.reason, Some("deadline_exceeded"));
+        assert_eq!(result.status, "TIMEOUT");
     });
 }
 
