@@ -2,7 +2,7 @@
 id: TRN-1794198826397434
 title: Repair STD-05 profile and rotation contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: tls-profile-integrator
