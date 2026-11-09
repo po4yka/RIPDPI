@@ -2,10 +2,16 @@ package com.poyka.ripdpi.integration
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.poyka.ripdpi.diagnostics.dpi.DatagramSocketQuicUdpProbe
 import com.poyka.ripdpi.diagnostics.dpi.NativeQuicInitialPacketBindings
+import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -59,6 +65,45 @@ class QuicInitialResponseValidationInstrumentedTest {
         assertFalse(bindings.validate(reserved, wrongId, true))
         assertFalse(bindings.validate(byteArrayOf(), response, true))
     }
+
+    @Test
+    fun nativeBindingValidatesCompleteLargeUdpResponses() =
+        runBlocking<Unit> {
+            for (rfc in listOf("9001", "9369")) {
+                val request = fixture("rfc$rfc-client-initial.bin")
+                val expected = fixture("rfc$rfc-server-initial-3000.bin")
+                assertTrue(bindings.validate(request, expected, false))
+                assertFalse(bindings.validate(request, expected.copyOf(2_048), false))
+                val loopback = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
+                DatagramSocket(0, loopback).use { server ->
+                    server.soTimeout = 3_000
+                    val responder =
+                        async(Dispatchers.IO) {
+                            val received = DatagramPacket(ByteArray(2_048), 2_048)
+                            server.receive(received)
+                            assertArrayEquals(request, received.data.copyOf(received.length))
+                            server.send(DatagramPacket(expected, expected.size, received.socketAddress))
+                        }
+                    try {
+                        val sample =
+                            DatagramSocketQuicUdpProbe().sendInitial(
+                                "127.0.0.1",
+                                server.localPort,
+                                QuicFingerprint.GENERIC_V1,
+                                request,
+                                3_000,
+                            )
+                        responder.await()
+                        val response = requireNotNull(sample.response)
+                        assertArrayEquals(expected, response)
+                        assertTrue(bindings.validate(request, response, false))
+                    } finally {
+                        server.close()
+                        responder.cancelAndJoin()
+                    }
+                }
+            }
+        }
 
     @Test
     fun malformedLoopbackRepliesDoNotProduceQuicOkWithNativeGenerationAndValidation() =

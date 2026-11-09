@@ -89,7 +89,7 @@ class DatagramSocketQuicUdpProbe internal constructor(
     }
 
     private companion object {
-        private const val MaxDatagramBytes = 2_048
+        private const val MaxDatagramBytes = 65_535
         private const val NanosPerMillis = 1_000_000L
         private const val MaxConcurrentLookups = 2
 

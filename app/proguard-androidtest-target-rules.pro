@@ -14,3 +14,13 @@
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict {
     public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict QUIC_DROPPED;
 }
+-keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.DatagramSocketQuicUdpProbe {
+    public <init>();
+    public java.lang.Object sendInitial(java.lang.String,int,com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint,byte[],int,kotlin.coroutines.Continuation);
+}
+-keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.QuicProbeSample {
+    public byte[] getResponse();
+}
+-keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint {
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint GENERIC_V1;
+}

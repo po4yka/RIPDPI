@@ -10,24 +10,28 @@ fn rfc_request(version: u32) -> Vec<u8> {
 }
 
 #[test]
-fn validates_rfc_server_initial_and_retry_integrity() {
-    // Independent wire vectors: RFC 9001 A.3/A.4 and RFC 9369 A.3/A.4.
+fn validates_independent_server_initial_and_retry_integrity() {
+    // RFC packets and independently protected 3000-byte derivatives; see the fixture README.
     // https://www.rfc-editor.org/rfc/rfc9001.html#appendix-A.3
     // https://www.rfc-editor.org/rfc/rfc9369.html#appendix-A.3
-    for (version, initial, retry) in [
+    for (version, initial, retry, large) in [
         (
             QUIC_V1_VERSION,
             include_bytes!("../../../tests/fixtures/quic/rfc9001-server-initial.bin").as_slice(),
             include_bytes!("../../../tests/fixtures/quic/rfc9001-retry.bin").as_slice(),
+            include_bytes!("../../../tests/fixtures/quic/rfc9001-server-initial-3000.bin").as_slice(),
         ),
         (
             QUIC_V2_VERSION,
             include_bytes!("../../../tests/fixtures/quic/rfc9369-server-initial.bin").as_slice(),
             include_bytes!("../../../tests/fixtures/quic/rfc9369-retry.bin").as_slice(),
+            include_bytes!("../../../tests/fixtures/quic/rfc9369-server-initial-3000.bin").as_slice(),
         ),
     ] {
         let request = rfc_request(version);
-        for (wire, kind) in [(initial, QuicResponseKind::Initial), (retry, QuicResponseKind::Retry)] {
+        for (wire, kind) in
+            [(initial, QuicResponseKind::Initial), (retry, QuicResponseKind::Retry), (large, QuicResponseKind::Initial)]
+        {
             let mut response = wire.to_vec();
             assert_eq!(validate_quic_response(&request, &response), Some(kind));
             let last = response.len() - 1;

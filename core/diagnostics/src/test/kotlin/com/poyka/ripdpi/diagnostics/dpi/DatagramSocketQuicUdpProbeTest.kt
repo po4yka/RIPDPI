@@ -5,11 +5,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -25,6 +27,38 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.system.measureTimeMillis
 
 class DatagramSocketQuicUdpProbeTest {
+    @Test(timeout = 10_000)
+    fun receivesTheWholeSingleDatagram() =
+        runBlocking<Unit> {
+            for (size in listOf(3_000, 8_192)) {
+                DatagramSocket(0, loopback).use { server ->
+                    server.soTimeout = 3_000
+                    val reply = ByteArray(size) { (it * 17).toByte() }
+                    val responder =
+                        async(Dispatchers.IO) {
+                            val request = DatagramPacket(ByteArray(16), 16)
+                            server.receive(request)
+                            server.send(DatagramPacket(reply, reply.size, request.socketAddress))
+                        }
+                    try {
+                        val sample =
+                            DatagramSocketQuicUdpProbe().sendInitial(
+                                "127.0.0.1",
+                                server.localPort,
+                                QuicFingerprint.GENERIC_V1,
+                                byteArrayOf(1),
+                                3_000,
+                            )
+                        responder.await()
+                        assertArrayEquals("single UDP response of $size bytes", reply, sample.response)
+                    } finally {
+                        server.close()
+                        responder.cancelAndJoin()
+                    }
+                }
+            }
+        }
+
     @Test(timeout = 10_000)
     fun cancellationClosesTheSocketBeforeItsReceiveTimeout() =
         runBlocking {
