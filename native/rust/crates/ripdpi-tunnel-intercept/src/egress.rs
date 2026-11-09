@@ -493,6 +493,7 @@ fn dissect_packet(meta: PacketMeta, payload: &[u8], inspect_http: bool) -> Disse
         src_port: meta.src_port,
         dst_port: meta.dst_port,
         is_ipv6: meta.is_ipv6,
+        is_udp: Some(meta.transport == Transport::Udp),
         tcp_mss: None,
         markers: HashMap::new(),
     };

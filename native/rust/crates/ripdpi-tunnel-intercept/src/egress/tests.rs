@@ -93,6 +93,25 @@ fn tun_lua_receives_existing_udp_protocol_and_subtype() {
     }
 }
 
+#[test]
+fn tun_lua_gets_known_transport_and_shared_tcp_class() {
+    let script = write_lua_script(
+        "lua-transport-class",
+        "function candidate(d) local t = d.dis.udp and ('udp:' .. d.dis.udp.uh_sport .. ':' .. d.dis.udp.uh_dport) or (d.dis.tcp and 'tcp' or 'none'); return t .. '/' .. d.dis.proto .. '/' .. tostring(d.dis.tcp == nil) end",
+    );
+    let yaml = format!(
+        "version: 1\nstrategies:\n  - id: transport\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{}]\n",
+        script.display()
+    );
+    let mut interceptor =
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+    assert!(interceptor.handle_packet(&ipv4_udp_packet(49152, 3478, &[0xAA; 20])));
+    assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"udp:49152:3478/unknown/true");
+    let hello = [0x16, 0x03, 0x01, 0x00, 0x20, 0x01, 0x00, 0x00, 0x1c];
+    assert!(interceptor.handle_packet(&tcp_stream_packet(1, false, &hello)));
+    assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"tcp/unknown/false");
+}
+
 fn udp_protocol_payloads() -> Vec<(&'static str, Vec<u8>, &'static str)> {
     let mut payloads = vec![
         ("quic", build_realistic_quic_initial(QUIC_V1_VERSION, Some("example.org")).unwrap(), "quic_initial"),

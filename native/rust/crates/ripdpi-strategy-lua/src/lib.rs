@@ -1133,8 +1133,9 @@ mod enabled {
         desync
             .set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
             .map_err(|error| LuaError::Call(error.to_string()))?;
-        // A socket strategy knows its transport; a TUN packet only has its class.
-        let udp = socket_tcp.map_or_else(|| is_udp_classified(&ctx.dissect.proto), |tcp| !tcp);
+        // Prefer the socket transport, then the backend-reported one, then the L7 class.
+        let udp =
+            socket_tcp.map(|tcp| !tcp).or(ctx.dissect.is_udp).unwrap_or_else(|| is_udp_classified(&ctx.dissect.proto));
         let dis = create_dis_table(lua, ctx, udp)?;
         desync.set("dis", dis.clone()).map_err(to_call)?;
         desync.set("caps", create_caps_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
@@ -1398,10 +1399,8 @@ mod enabled {
         }
     }
 
-    /// Protocols that only run over UDP.
-    /// Classes that only the UDP classifiers produce. The TUN TCP classifier
-    /// yields only TLS, HTTP or unknown, so STUN and DNS here come from UDP.
-    /// An unknown class can be either transport and keeps `dis.tcp`.
+    /// Fallback for callers that leave `Dissect::is_udp` unset: classes that only
+    /// the UDP classifiers produce. An unknown class keeps `dis.tcp`.
     fn is_udp_classified(proto: &L7Protocol) -> bool {
         matches!(
             proto,

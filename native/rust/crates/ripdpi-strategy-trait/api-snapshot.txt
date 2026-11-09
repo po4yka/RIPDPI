@@ -97,6 +97,7 @@ pub struct ripdpi_strategy_trait::DiscordDissect
 pub struct ripdpi_strategy_trait::Dissect
 pub ripdpi_strategy_trait::Dissect::dst_port: u16
 pub ripdpi_strategy_trait::Dissect::is_ipv6: bool
+pub ripdpi_strategy_trait::Dissect::is_udp: core::option::Option<bool>
 pub ripdpi_strategy_trait::Dissect::markers: std::collections::hash::map::HashMap<ripdpi_strategy_trait::MarkerName, usize>
 pub ripdpi_strategy_trait::Dissect::proto: ripdpi_strategy_trait::L7Protocol
 pub ripdpi_strategy_trait::Dissect::src_port: u16
