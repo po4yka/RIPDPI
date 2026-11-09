@@ -85,9 +85,15 @@ internal class VpnEncryptedDnsFailoverController(
         synchronizeNetworkScope(state, networkScopeKey)
         observeResolverChange(state, currentPath, currentDnsSignature, networkScopeKey, telemetry)
         resetRolledBackCounters(state, telemetry)
-        return if (dnsUsesSharedProxy && isAmbiguousProxyFailure(telemetry.lastDnsError.orEmpty())) {
-            // A shared proxy failure cannot identify a blocked DNS endpoint.
-            // Consume its counters so it cannot trigger a later endpoint failover.
+        val lastDnsError = telemetry.lastDnsError.orEmpty()
+        val keepCurrentPath =
+            // ODoH fails closed: every built-in candidate would reveal the client address to the resolver.
+            encryptedDns.isOdoh ||
+                isLocalTunnelDnsFailure(lastDnsError) ||
+                (dnsUsesSharedProxy && isAmbiguousProxyFailure(lastDnsError))
+        return if (keepCurrentPath) {
+            // These failures cannot identify a blocked DNS endpoint (or failover is not allowed).
+            // Consume their counters so they cannot trigger a later endpoint failover.
             state.lastObservedDnsFailuresTotal = telemetry.dnsFailuresTotal
             state.pathStartQueries = telemetry.dnsQueriesTotal
             state.pathStartFailures = telemetry.dnsFailuresTotal
@@ -203,14 +209,18 @@ internal class VpnEncryptedDnsFailoverController(
         val failureObserved = observeFailureThreshold(state, telemetry)
         if (!failureObserved || state.exhausted) return false
 
-        recordBlockedPath(state, currentPath.pathKey(), networkScopeKey, telemetry.lastDnsError.orEmpty())
+        // The session scope lags a deferred (captive-portal) handover; use the live network.
+        val liveScopeKey = networkFingerprintProvider.capture()?.scopeKey()
+        if (liveScopeKey == networkScopeKey) {
+            recordBlockedPath(state, currentPath.pathKey(), networkScopeKey, telemetry.lastDnsError.orEmpty())
+        }
         val nextPath = selectNextPath(state, encryptedDns, currentPath.pathKey())
         return if (nextPath == null) {
             log.w { "all candidates exhausted after ${state.attemptedPathKeys.size} attempts" }
             state.exhausted = true
             false
         } else {
-            activatePath(state, nextPath, telemetry.lastDnsError.orEmpty())
+            activatePath(state, nextPath, telemetry.lastDnsError.orEmpty(), liveScopeKey)
             true
         }
     }
@@ -269,9 +279,14 @@ internal class VpnEncryptedDnsFailoverController(
         state: VpnEncryptedDnsFailoverState,
         nextPath: EncryptedDnsPathCandidate,
         lastDnsError: String,
+        networkScopeKey: String?,
     ) {
         resolverOverrideStore.setTemporaryOverride(
-            nextPath.toTemporaryResolverOverride(buildAutoFailoverReason(lastDnsError), clock.nowMillis()),
+            nextPath.toTemporaryResolverOverride(
+                reason = buildAutoFailoverReason(lastDnsError),
+                appliedAt = clock.nowMillis(),
+                networkScopeKey = networkScopeKey,
+            ),
         )
         state.expectedPathKey = nextPath.pathKey()
         log.i { "switching to ${nextPath.pathKey()} (attempt #${state.attemptedPathKeys.size})" }
@@ -288,6 +303,18 @@ internal class VpnEncryptedDnsFailoverController(
             lower.startsWith("tls:") ||
             isCatastrophicDnsError(error) || "socks5" in lower || "timeout" in lower || "timed out" in lower ||
             "unexpected eof" in lower || "end of file" in lower || "connection closed" in lower
+    }
+
+    /**
+     * Transient failures that the tunnel produces locally say nothing about the resolver path.
+     * The strings match `ripdpi-tunnel-core` `DnsCacheError` and its SERVFAIL reasons.
+     * shortcut: session-fatal local errors (pool issued, worker gone) still fail over, because the
+     * resulting rebuild is their only recovery; upgrade when the tunnel can rebuild without an override.
+     */
+    internal fun isLocalTunnelDnsFailure(error: String): Boolean {
+        val lower = error.lowercase()
+        return "synthetic dns mappings are leased by active flows" in lower ||
+            "dns worker queue full" in lower || "response buffer smaller than request" in lower
     }
 
     internal fun buildAutoFailoverReason(lastDnsError: String): String {
