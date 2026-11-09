@@ -60,7 +60,8 @@ internal data class NativeRelayConfig(
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = "bbr",
-    val tuicRootCertificatePem: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tuicRootCertificatePem: String? = null,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
