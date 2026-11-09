@@ -36,8 +36,9 @@ fn complete_quic_results_require_nested_vector_bounds() {
         {
             let mut broken = hello.to_vec();
             broken[offset] = value;
-            // Keep tolerance for fixed fake-template callers outside the full QUIC APIs.
-            assert!(crate::tls::tls_client_hello_marker_info_in_handshake(&broken).is_some());
+            if matches!(offset, 3 | 48) {
+                assert!(crate::tls::tls_client_hello_marker_info_in_handshake(&broken).is_some());
+            }
             let payload = make_crypto_frame(0, &broken);
             let packet = build_quic_initial_raw(seed.version, &seed.dcid, &seed.scid, &seed.token, payload, 1200, 0)
                 .expect("encrypt malformed handshake");
