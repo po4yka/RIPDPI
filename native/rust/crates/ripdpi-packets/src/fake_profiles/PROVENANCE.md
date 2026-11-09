@@ -11,7 +11,7 @@ Binary blobs used by `TlsFakeProfile`, `HttpFakeProfile`, and `UdpFakeProfile` t
 | `tls_clienthello_www_google_com.bin` | `GoogleChrome` | `www.google.com` | Chrome ~115-120 | No | No | Yes | 1.3, 1.2 | 17 | 681 | Unknown |
 | `tls_clienthello_vk_com.bin` | `VkChrome` | `vk.com` | Chrome ~110-124 | Yes | No | No | 1.3, 1.2 | 16 (incl. GREASE) | 517 | Unknown |
 | `tls_clienthello_sberbank_ru.bin` | `SberbankChrome` | `online.sberbank.ru` | Chrome ~110-124 | Yes | No | No | 1.3, 1.2 | 16 (incl. GREASE) | 517 | Unknown |
-| `tls_clienthello_rutracker_org_kyber.bin` | `RutrackerKyber` | `rutracker.org` | Chrome >= 124 | Yes | Yes (ML-KEM-768) | Yes | 1.3, 1.2 | 16 (incl. GREASE) | 1787 | Unknown |
+| `tls_clienthello_rutracker_org_kyber.bin` | `RutrackerKyber` | `rutracker.org` | Chrome >= 124 | Yes | Legacy X25519/Kyber768 hybrid | Yes | 1.3, 1.2 | 16 (incl. GREASE) | 1787 | Unknown |
 
 ### JA3 pre-hash strings
 
@@ -36,8 +36,11 @@ ClientHello, so it has no JA3 string.)
 
 `GoogleChrome` and `GoogleChromeHrr` map to the same blob, so their JA3 strings
 are byte-identical; the drift guard asserts this explicitly. The `RutrackerKyber`
-supported-groups field leads with `25497` (ML-KEM-768, `0x6399`), consistent with
-the post-quantum attribution above.
+supported-groups field leads with `25497` (`X25519Kyber768Draft00`, `0x6399`).
+This obsolete draft group is distinct from the standard `X25519MLKEM768`
+hybrid (`0x11ec`) and standalone `MLKEM768` (`0x0201`); see the
+[IANA Supported Groups registry](https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8).
+The frozen blob records an offer, not a completed key exchange or peer authentication.
 
 ### Identification methodology
 
@@ -45,7 +48,7 @@ Browser attribution is based on the following TLS fingerprint signals:
 
 - **Firefox**: no GREASE values, `TLS_CHACHA20_POLY1305_SHA256` (`ccaa`) in cipher list, x448 (`0x001e`) in supported groups, four TLS versions in `supported_versions`, no ALPS extension (`0x4469`).
 - **Chrome**: GREASE values in ciphers / extensions / supported groups / versions, ALPS extension (`0x4469`), `compress_certificate` (`0x001b`), typically two TLS versions (1.3, 1.2) plus a GREASE value in `supported_versions`.
-- **Post-quantum**: ML-KEM-768 (`0x6399`) in `key_share` and `supported_groups`. Present only in Chrome >= 124.
+- **Post-quantum offer**: identify the group by its codepoint in `key_share` and `supported_groups`. The Rutracker blob offers legacy `X25519Kyber768Draft00` (`0x6399`), not standard `X25519MLKEM768` or standalone `MLKEM768`.
 - **ECH**: extension `0xfe0d` (`encrypted_client_hello`). Present in the Google and Rutracker blobs.
 
 ### Notes on specific profiles
