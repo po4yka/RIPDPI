@@ -85,11 +85,11 @@ pub fn send_ordered_tcp_segments(
     ipv4_identifications: &[u16],
     wait: TcpStageWait,
 ) -> io::Result<()> {
+    let genuine_payload = genuine_ordered_payload(segments, original_payload_len)?;
     if segments.is_empty() {
         return Ok(());
     }
 
-    let genuine_payload = genuine_ordered_payload(segments, original_payload_len)?;
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     let fd = stream.as_raw_fd();
@@ -146,16 +146,33 @@ pub fn send_ordered_tcp_segments(
 /// without the fake timestamp, so the kernel can queue them for
 /// retransmission.
 fn genuine_ordered_payload(segments: &[OrderedTcpSegment<'_>], len: usize) -> io::Result<Vec<u8>> {
-    let mut payload = vec![0_u8; len];
-    let mut covered = vec![false; len];
+    let mut available = 0_usize;
     for segment in segments.iter().filter(|segment| !segment.use_fake_timestamp) {
-        let end = segment.sequence_offset.checked_add(segment.payload.len()).filter(|end| *end <= len);
-        let Some(end) = end else {
+        if segment.sequence_offset.checked_add(segment.payload.len()).is_none_or(|end| end > len) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "genuine TCP segment exceeds the original payload",
             ));
-        };
+        }
+        available = available
+            .checked_add(segment.payload.len())
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "genuine TCP payload length overflow"))?;
+    }
+    if len > available {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "genuine TCP segments must cover the original payload",
+        ));
+    }
+
+    // The advertised length cannot allocate more memory than the received genuine bytes.
+    let mut payload = Vec::new();
+    let mut covered = Vec::new();
+    payload.try_reserve_exact(len).and_then(|()| covered.try_reserve_exact(len)).map_err(io::Error::other)?;
+    payload.resize(len, 0_u8);
+    covered.resize(len, false);
+    for segment in segments.iter().filter(|segment| !segment.use_fake_timestamp) {
+        let end = segment.sequence_offset + segment.payload.len();
         payload[segment.sequence_offset..end].copy_from_slice(segment.payload);
         covered[segment.sequence_offset..end].fill(true);
     }
@@ -271,4 +288,28 @@ pub fn send_seqovl_tcp(
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
     let _ = disable_tcp_repair(fd);
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::genuine_ordered_payload;
+    use crate::{OrderedTcpSegment, TcpFlagOverrides};
+
+    fn segment(payload: &[u8], sequence_offset: usize, use_fake_timestamp: bool) -> OrderedTcpSegment<'_> {
+        OrderedTcpSegment { payload, ttl: 64, flags: TcpFlagOverrides::default(), sequence_offset, use_fake_timestamp }
+    }
+
+    #[test]
+    fn genuine_ordered_payload_keeps_overlaps_and_ignores_fake_segments() {
+        let segments = [segment(b"ab", 0, false), segment(b"fake", usize::MAX, true), segment(b"bc", 1, false)];
+
+        assert_eq!(genuine_ordered_payload(&segments, 3).expect("covered genuine bytes"), b"abc");
+    }
+
+    #[test]
+    fn genuine_ordered_payload_accepts_empty_and_fake_only_zero_length_batches() {
+        assert!(genuine_ordered_payload(&[], 0).expect("empty batch").is_empty());
+        let segments = [segment(b"fake", usize::MAX, true)];
+        assert!(genuine_ordered_payload(&segments, 0).expect("fake-only batch").is_empty());
+    }
 }

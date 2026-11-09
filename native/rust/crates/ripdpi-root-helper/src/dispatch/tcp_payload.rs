@@ -121,4 +121,56 @@ mod tests {
         assert!(outcome.reply_fd.is_none(), "no reply fd on a decode failure");
         assert!(fd_is_closed(fd), "inbound fd must be closed (EBADF) after a decode failure — it leaked");
     }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn impossible_ordered_length_closes_the_received_socket_and_keeps_the_handler_usable() {
+        use std::io::Read;
+        use std::net::{TcpListener, TcpStream};
+        use std::os::fd::AsFd;
+        use std::os::unix::net::UnixStream;
+        use std::time::Duration;
+
+        use ripdpi_root_helper_protocol::{HelperResponse, recv_message, send_message};
+
+        let nonce = "abcdefghijklmnopqrstuvwxyzABCDEF";
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind payload listener");
+        let passed = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect payload");
+        let (mut peer, _) = listener.accept().expect("accept payload");
+        peer.set_read_timeout(Some(Duration::from_secs(1))).expect("set payload timeout");
+        let (sender, receiver) = UnixStream::pair().expect("IPC pair");
+        let request = serde_json::json!({
+            "protocol_version": PROTOCOL_VERSION,
+            "command": "v3/send_ordered_tcp_segments",
+            "session_nonce": nonce,
+            "params": {
+                "segments": [{"payload": [], "ttl": 64, "sequence_offset": 0}],
+                "original_payload_len": usize::MAX,
+                "default_ttl": 64,
+            },
+        });
+        let bytes = serde_json::to_vec(&request).expect("encode request");
+        send_message(&sender, &bytes, Some(passed.as_fd())).expect("pass payload socket");
+        drop(passed);
+
+        crate::handle_connection(&receiver, nonce).expect("reject malformed request without unwinding");
+        let (bytes, reply_fd) = recv_message(&sender, "helper closed").expect("error response");
+        let response: HelperResponse = serde_json::from_slice(&bytes).expect("decode error response");
+        assert!(!response.ok);
+        assert!(reply_fd.is_none());
+        assert_eq!(peer.read(&mut [0_u8]).expect("all received copies must close"), 0);
+
+        let (sender, receiver) = UnixStream::pair().expect("next IPC pair");
+        let request = serde_json::json!({
+            "protocol_version": PROTOCOL_VERSION,
+            "command": "v3/protocol_preflight",
+            "session_nonce": nonce,
+        });
+        send_message(&sender, &serde_json::to_vec(&request).expect("encode preflight"), None).expect("send preflight");
+        crate::handle_connection(&receiver, nonce).expect("handle next request");
+        let (bytes, reply_fd) = recv_message(&sender, "helper closed").expect("preflight response");
+        let response: HelperResponse = serde_json::from_slice(&bytes).expect("decode preflight response");
+        assert!(response.ok);
+        assert!(reply_fd.is_none());
+    }
 }

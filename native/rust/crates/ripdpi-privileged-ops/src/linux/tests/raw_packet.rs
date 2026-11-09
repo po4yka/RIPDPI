@@ -356,6 +356,42 @@ fn send_ordered_tcp_segments_rejects_genuine_segments_that_leave_a_gap() {
 }
 
 #[test]
+fn send_ordered_tcp_segments_rejects_unbacked_lengths_and_invalid_ranges() {
+    use std::time::Duration;
+
+    let (client, _server) = connected_pair();
+    let segment = |payload: &'static [u8], sequence_offset, use_fake_timestamp| crate::OrderedTcpSegment {
+        payload,
+        ttl: 64,
+        flags: TcpFlagOverrides::default(),
+        sequence_offset,
+        use_fake_timestamp,
+    };
+    let cases = [
+        (vec![segment(b"", 0, false)], usize::MAX),
+        (Vec::new(), 1),
+        (vec![segment(b"x", usize::MAX, false)], 1),
+        (vec![segment(b"ab", 0, false)], 3),
+        (vec![segment(b"fake", 0, true)], 4),
+    ];
+    for (segments, original_payload_len) in cases {
+        let error = raw_packet::send_ordered_tcp_segments(
+            &client,
+            &segments,
+            original_payload_len,
+            64,
+            None,
+            false,
+            None,
+            &[],
+            (false, Duration::ZERO),
+        )
+        .expect_err("invalid coverage must fail before privileged operations or allocation");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+}
+
+#[test]
 fn raw_ipv6_sends_accept_a_target_with_a_transport_port() {
     let source = SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, 40_000));
     let target = SocketAddr::from((std::net::Ipv6Addr::LOCALHOST, 443));
