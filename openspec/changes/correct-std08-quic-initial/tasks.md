@@ -9,4 +9,4 @@
 - [x] DGN-1794211433260336 F5: Reassemble compatible coalesced Initial packets within one datagram and verify markers #bug !high @item:DGN-1794211297803022
 - [x] DGN-1794211433822597 F6: Reject incomplete ClientHello results at QUIC parse layout and seed boundaries #bug !high @item:DGN-1794211297803022
 - [x] DGN-1794211434635760 F7: Cancel active UDP sockets and bound DNS and exchange; run real loopback regressions #bug !high @item:DGN-1794211297803022
-- [ ] DGN-1794211435343133 Review combined fixes and run native Kotlin JNI and ci-gates; integrate seven commits and push main #bug !high @item:DGN-1794211297803022
+- [x] DGN-1794211435343133 Review combined fixes and run native Kotlin JNI and ci-gates; integrate seven commits and push main #bug !high @item:DGN-1794211297803022

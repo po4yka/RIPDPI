@@ -2,7 +2,7 @@
 id: DGN-1794211297803022
 title: Correct STD-08 QUIC Initial parsing and probes
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: QUIC audit repair team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: correct-std08-quic-initial
 created: 2026-11-09
 updated: 2026-11-09
+status_detail: Nine STD-08 fix commits were fast-forwarded and pushed to main at 7c475b8720; local tests and gates passed. Required remote CI and CodeQL evidence is pending.
 ---
 
 ## Goal

@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1794211297803022
 change: correct-std08-quic-initial
-commit_sha: 847a0dfc5aa439143eb45c49ea2cd1e4334a2388
+commit_sha: 7c475b8720d854ed87ee1e0e7c2af341a5be7e4c
 local: required
-local_evidence: "Rebased source 847a0dfc5 passed 560 native tests, full staticAnalysis, 26 selected JVM tests, architecture health and locked metadata. Its workspace Clippy failed with query-depth overflow in the published XHTTP connect_reality future; the separate XHTTP check reproduced it. XHTTP source and Cargo configuration match origin/main. Earlier source 972f610c9 passed workspace Clippy and ci-gates. Final source-gate and scoped Clippy receipts are recorded below. No limit, suppression or dependency was changed."
+local_evidence: "All 560 native tests passed on the rebased QUIC sources, as did full staticAnalysis, JVM 26, architecture health and locked metadata. After published XHTTP fix 6f3aa74b65 changed only one private future body, exact workspace all-targets Clippy and isolated offline ci-gates passed on 7c475b8720. Actual minified ARM64 Android acceptance passed four methods on the identical QUIC/JNI/Kotlin/test sources. Earlier failures remain historical evidence below."
 remote_ci: required
-remote_ci_evidence: Pending the authorized push.
+remote_ci_evidence: "Push to origin/main at 7c475b8720 was accepted and confirmed with ls-remote. The server reported existing PR/ci-required rule bypass and pending CodeQL results. Remote CI and CodeQL success are not observed; do not archive."
 device: required
 device_evidence: Source 2cbf12155a (runtime source 972f610c9 plus a test-only responder repair) passed all four minified ARM64 API 37 methods with real JNI, zero failures or skips. Each method ran exactly once. The actual ARM64 ELF has 41 exports with no inventory difference. No physical device or external server acceptance is claimed.
 artifact: not_applicable
@@ -194,3 +194,19 @@ On this rebased tree, all 560 native tests passed again, zero failures or ignore
 Workspace Clippy returned 101: `queries overflow the depth limit` while computing the layout of `client::connect_reality()` in `ripdpi-xhttp`. The single-package `cargo clippy -p ripdpi-xhttp --locked --all-targets -- -D warnings` reproduced the same error. The entire XHTTP crate, workspace manifest/lock/toolchain, .cargo/config.toml and clippy.toml have no diff from published origin/main. Logs: `/tmp/std08-publish-final-workspace-clippy.log` and `/tmp/std08-xhttp-triage-xhttp.log`. This published-source blocker does not replace the earlier passing workspace result. No recursion limit, gate, baseline or dependency was changed to hide it. Remote CI and any XHTTP repair remain outside this STD-08 repair evidence.
 
 The exact affected-crate Clippy passed in 44.84s: `cargo clippy --locked -p ripdpi-packets -p ripdpi-desync -p ripdpi-tunnel-intercept -p ripdpi-android-platform-adapter -p ripdpi-diagnostics-runner -p ripdpi-android --all-targets -- -D warnings`, with the same build-gate, sccache and task target. Log: `/tmp/std08-xhttp-triage-std08.log`. This is scoped lint evidence, not a passing workspace gate. All native processes ended and no source or compiler limits were changed.
+
+## Final source gates and publication receipt
+
+The first final `ci-gates` attempt used the global `/Users/npochaev/.cache/cargo-target` and reported a packets API JSON missing exactly the six new QUIC exports. Source re-exports and compiled consumers were present. No API snapshot was reduced. The full owning gate was repeated with an isolated target and offline dependency resolution; it passed with all host-owned snapshots matching and the Linux-only snapshot excluded. Its log is `/tmp/std08-publish-final-ci-gates-isolated.log`.
+
+While those checks ran, published main added `6f3aa74b65` to box the private XHTTP carrier future. The first fast-forward attempt refused divergence and changed nothing. Rebase onto that commit was clean. No QUIC, JNI, Kotlin, test, R8, manifest or lock input changed. On the resulting 7c475b8720 source, workspace Clippy passed in 28.99s, exact ci-gates passed again, architecture health and locked metadata passed. Logs are `/tmp/std08-publish-xhttp-fixed-{workspace-clippy,ci-gates,architecture-health}.log` and `cargo-metadata.json`. The XHTTP blocker above is resolved by published upstream work.
+
+Exact final source-gate command:
+
+```sh
+build-gate --lane ripdpi -- env CARGO_TARGET_DIR=/tmp/ripdpi-std08-api-publish-target CARGO_NET_OFFLINE=true just ci-gates
+```
+
+Main was fast-forwarded from 6f3aa74b65 to `7c475b8720d854ed87ee1e0e7c2af341a5be7e4c`. `git push origin main` returned zero, and `git ls-remote origin refs/heads/main` returned this exact SHA. The remote accepted the direct main push with its existing rule bypass and reported that ci-required and CodeQL evidence were still expected. No repository rule or credential setting was changed. The portfolio stays in review until required remote evidence is available.
+
+Published fix mapping: F1 `4360b28ba4`, F1b `189ef83079`, F2 `8b073f2e4d`, F2b `d976579354`, F3 `ddf0a1dd9b`, F4 `59c2386da9`, F5 `549227ec60`, F6 `fc48f0d85c`, F7 `e2c5ecc093`. Each is a separate fix commit. The following documentation-only commit records task and publication evidence; it does not change validated runtime inputs.
