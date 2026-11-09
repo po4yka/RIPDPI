@@ -1,3 +1,4 @@
+import com.google.devtools.ksp.gradle.KspAATask
 import org.gradle.api.artifacts.VersionCatalogsExtension
 
 plugins {
@@ -6,6 +7,15 @@ plugins {
 }
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+
+// shortcut: KSP 2.3.13 races between tasks; remove after google/ksp#3286 is fixed.
+val kspExecutionLock =
+    gradle.sharedServices.registerIfAbsent("ripdpiKspExecutionLock", KspExecutionLock::class.java) {
+        maxParallelUsages.set(1)
+    }
+tasks.withType<KspAATask>().configureEach {
+    usesService(kspExecutionLock)
+}
 
 dependencies {
     add("implementation", libs.findLibrary("hilt-android").get())
