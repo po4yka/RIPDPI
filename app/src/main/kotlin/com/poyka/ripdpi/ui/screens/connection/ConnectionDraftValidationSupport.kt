@@ -47,6 +47,7 @@ import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
+import com.poyka.ripdpi.data.isValidTuicUuid
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
@@ -149,7 +150,7 @@ private fun validateRelayKindDraft(
                 draft = draft,
                 credentialsMissing =
                     draft.relayServerName.isBlank() ||
-                        draft.relayTuicUuid.isBlank() ||
+                        !isValidTuicUuid(draft.relayTuicUuid) ||
                         draft.relayTuicPassword.isBlank(),
             )
         }
