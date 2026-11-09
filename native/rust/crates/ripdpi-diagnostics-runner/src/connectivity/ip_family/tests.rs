@@ -239,3 +239,39 @@ fn well_known_prefix_cannot_carry_private_ipv4_to_tcp() {
     assert_eq!((facts.status.as_str(), facts.reason.as_deref()), ("INVALID", Some("invalid_config")));
     assert_eq!(facts.attempt_count, 1);
 }
+
+#[test]
+fn discovery_gets_half_the_family_budget_and_leaves_time_for_tcp() {
+    let started = Instant::now();
+    let mut facts = nat64_evidence();
+    let mut connects = 0;
+    with_scan_io_deadline(Some(started + Duration::from_millis(1000)), || {
+        execute_with(
+            &nat64_config(),
+            &[],
+            &AtomicBool::new(false),
+            &mut facts,
+            |_, _| {
+                let deadline = active_scan_io_deadline().expect("discovery deadline");
+                assert!(deadline.saturating_duration_since(started) <= Duration::from_millis(600));
+                Nat64Discovery {
+                    prefixes: vec![ripdpi_diagnostics_dns::dns::Nat64Prefix {
+                        address: "64:ff9b::".parse().unwrap(),
+                        length: 96,
+                    }],
+                    status: "DISCOVERED",
+                    reason: None,
+                    attempts: 2,
+                }
+            },
+            |_| {
+                connects += 1;
+                assert!(
+                    active_scan_io_deadline().unwrap().saturating_duration_since(started) > Duration::from_millis(900)
+                );
+                Ok(())
+            },
+        );
+    });
+    assert_eq!((connects, facts.status.as_str(), facts.attempt_count), (1, "REACHABLE", 3));
+}

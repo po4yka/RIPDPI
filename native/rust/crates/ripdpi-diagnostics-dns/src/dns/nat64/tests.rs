@@ -241,3 +241,21 @@ fn well_known_prefix_rejects_non_global_ipv4_but_nsp_does_not() {
     let nsp = Nat64Prefix { address: "2001:db8::".parse().unwrap(), length: 96 };
     assert_eq!(nsp.synthesize(Ipv4Addr::new(10, 0, 0, 1)).unwrap().to_string(), "2001:db8::a00:1");
 }
+
+#[test]
+fn silent_resolver_cannot_consume_the_whole_discovery_budget() {
+    let started = Instant::now();
+    let mut waits = Vec::new();
+    let mut calls = 0;
+    let result = with_scan_io_deadline(Some(started + Duration::from_millis(900)), || {
+        discover_with(&["1.2.3.4".into(), "5.6.7.8".into()], &AtomicBool::new(false), |_, query| {
+            calls += 1;
+            let deadline = active_scan_io_deadline().expect("a per-resolver deadline");
+            waits.push(deadline.saturating_duration_since(started));
+            if calls == 1 { Err("dns_timeout") } else { Ok(reply(query, 0x8180, Some("64:ff9b::c000:aa"))) }
+        })
+    });
+    assert_eq!(result.status, "DISCOVERED");
+    assert!(waits[0] <= Duration::from_millis(500), "first share {:?}", waits[0]);
+    assert!(waits[1] <= Duration::from_millis(900));
+}

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use ripdpi_diagnostics_contracts::types::DnsResponseOutcome;
-use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, now_ms};
+use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, now_ms, with_scan_io_deadline};
 use ripdpi_ech_dns::build_dns_query_with_type;
 
 use super::parse_dns_response_semantics;
@@ -156,7 +156,9 @@ fn discover_with(
     let mut attempts = 0;
     let mut failure = None;
     let mut clean_negative = false;
-    for server in resolver_targets(servers) {
+    let targets = resolver_targets(servers);
+    let total = targets.len();
+    for (index, server) in targets.into_iter().enumerate() {
         if let Some(reason) = interrupted(cancel) {
             return Nat64Discovery { prefixes: vec![], status: "TIMEOUT", reason: Some(reason), attempts };
         }
@@ -169,7 +171,12 @@ fn discover_with(
             };
         };
         attempts += 1;
-        let response = exchange(server, &query);
+        // Each resolver waits for a fair share of the remaining time, so a silent one leaves time for the next.
+        let share = active_scan_io_deadline().map(|deadline| {
+            let now = Instant::now();
+            now + deadline.saturating_duration_since(now) / u32::try_from(total - index).unwrap_or(1)
+        });
+        let response = with_scan_io_deadline(share, || exchange(server, &query));
         if let Some(reason) = interrupted(cancel) {
             return Nat64Discovery { prefixes: vec![], status: "TIMEOUT", reason: Some(reason), attempts };
         }

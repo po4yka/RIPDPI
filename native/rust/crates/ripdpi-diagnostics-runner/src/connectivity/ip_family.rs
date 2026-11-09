@@ -69,7 +69,12 @@ fn execute_with(
     }
     if evidence.family == "NAT64" {
         evidence.stage = "DNS64_DISCOVERY".into();
-        let discovery = discover(servers, cancel);
+        // Discovery may use half of the remaining family budget; the rest stays for TCP.
+        let discovery_deadline = active_scan_io_deadline().map(|deadline| {
+            let now = Instant::now();
+            now + deadline.saturating_duration_since(now) / 2
+        });
+        let discovery = with_scan_io_deadline(discovery_deadline, || discover(servers, cancel));
         evidence.attempt_count = discovery.attempts;
         evidence.discovery_status = Some(discovery.status.into());
         if stop(cancel, evidence) {
