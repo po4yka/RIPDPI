@@ -31,9 +31,22 @@ impl std::fmt::Display for ServerRefusal {
 
 impl std::error::Error for ServerRefusal {}
 
+/// Keeps the kind a timed-out or unroutable target had before refusals were
+/// marked, so callers still tell them apart from a plain refusal.
+fn refusal_kind(message: &str) -> io::ErrorKind {
+    let message = message.to_ascii_lowercase();
+    if message.contains("timed out") || message.contains("timeout") {
+        io::ErrorKind::TimedOut
+    } else if message.contains("no route") || message.contains("unreachable") {
+        io::ErrorKind::HostUnreachable
+    } else {
+        io::ErrorKind::ConnectionRefused
+    }
+}
+
 fn map_session_error(error: ripdpi_hysteria2::HysteriaError) -> io::Error {
     let kind = match &error {
-        ripdpi_hysteria2::HysteriaError::TcpConnect(_) => io::ErrorKind::ConnectionRefused,
+        ripdpi_hysteria2::HysteriaError::TcpConnect(message) => refusal_kind(message),
         ripdpi_hysteria2::HysteriaError::UdpNotSupported => io::ErrorKind::Unsupported,
         _ => return to_io_error(error),
     };
@@ -80,5 +93,19 @@ impl RelaySessionFactory for Hysteria2SessionFactory {
         let client = ripdpi_hysteria2::connect(&config).await.map_err(to_io_error)?;
         sync_quic_migration_state(&migration, client.quic_migration_snapshot());
         Ok(Arc::new(Hysteria2Session { client, migration }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn server_refusal_kind_follows_the_message() {
+        let kind =
+            |message: &str| map_session_error(ripdpi_hysteria2::HysteriaError::TcpConnect(message.to_owned())).kind();
+        assert_eq!(kind("dial tcp: i/o Timed Out"), io::ErrorKind::TimedOut);
+        assert_eq!(kind("connect: network is unreachable"), io::ErrorKind::HostUnreachable);
+        assert_eq!(kind("refused"), io::ErrorKind::ConnectionRefused);
     }
 }
