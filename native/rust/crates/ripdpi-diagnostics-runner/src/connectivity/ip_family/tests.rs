@@ -255,7 +255,8 @@ fn discovery_gets_half_the_family_budget_and_leaves_time_for_tcp() {
             &mut facts,
             |_, _| {
                 let deadline = active_scan_io_deadline().expect("discovery deadline");
-                assert!(deadline.saturating_duration_since(started) <= Duration::from_millis(600));
+                let discovery = deadline.saturating_duration_since(started);
+                assert!(discovery >= Duration::from_millis(400) && discovery <= Duration::from_millis(600));
                 Nat64Discovery {
                     prefixes: vec![ripdpi_diagnostics_dns::dns::Nat64Prefix {
                         address: "64:ff9b::".parse().unwrap(),

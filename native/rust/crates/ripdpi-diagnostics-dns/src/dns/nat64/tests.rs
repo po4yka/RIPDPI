@@ -258,6 +258,28 @@ fn silent_resolver_cannot_consume_the_whole_discovery_budget() {
         })
     });
     assert_eq!(result.status, "DISCOVERED");
-    assert!(waits[0] <= Duration::from_millis(500), "first share {:?}", waits[0]);
-    assert!(waits[1] <= Duration::from_millis(900));
+    assert!(
+        waits[0] >= Duration::from_millis(350) && waits[0] <= Duration::from_millis(500),
+        "first share {:?}",
+        waits[0]
+    );
+    assert!(waits[1] > waits[0] && waits[1] <= Duration::from_millis(900));
+}
+#[test]
+fn silent_last_resolver_keeps_an_earlier_clean_negative_answer() {
+    let started = Instant::now();
+    let mut calls = 0;
+    let result = with_scan_io_deadline(Some(started + Duration::from_millis(200)), || {
+        discover_with(&["1.2.3.4".into(), "5.6.7.8".into()], &AtomicBool::new(false), |_, query| {
+            calls += 1;
+            if calls == 1 {
+                return Ok(reply(query, 0x8180, None));
+            }
+            // A silent resolver: the receive wait ends exactly at the active deadline.
+            let deadline = active_scan_io_deadline().expect("a per-resolver deadline");
+            std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
+            Err("dns_timeout")
+        })
+    });
+    assert_eq!((result.status, result.reason, result.attempts), ("NO_PREFIX", Some("no_prefix"), 2));
 }

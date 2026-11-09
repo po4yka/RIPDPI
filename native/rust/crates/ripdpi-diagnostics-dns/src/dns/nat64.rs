@@ -160,6 +160,10 @@ fn discover_with(
     let total = targets.len();
     for (index, server) in targets.into_iter().enumerate() {
         if let Some(reason) = interrupted(cancel) {
+            // An expired budget keeps a clean negative answer already received; cancellation always wins.
+            if reason != "cancelled" && clean_negative {
+                break;
+            }
             return Nat64Discovery {
                 prefixes: vec![],
                 status: interrupted_status(reason),
@@ -182,13 +186,10 @@ fn discover_with(
             now + deadline.saturating_duration_since(now) / u32::try_from(total - index).unwrap_or(1)
         });
         let response = with_scan_io_deadline(share, || exchange(server, &query));
-        if let Some(reason) = interrupted(cancel) {
-            return Nat64Discovery {
-                prefixes: vec![],
-                status: interrupted_status(reason),
-                reason: Some(reason),
-                attempts,
-            };
+        // Only cancellation discards this reply. A deadline that expired during the exchange is
+        // judged after the reply is classified, so an earlier clean negative answer is not lost.
+        if cancel.load(Ordering::Acquire) {
+            return Nat64Discovery { prefixes: vec![], status: "CANCELLED", reason: Some("cancelled"), attempts };
         }
         let response = match response {
             Ok(response) => response,
@@ -223,7 +224,8 @@ fn discover_with(
                     Ok(prefixes) if !prefixes.is_empty() => {
                         return Nat64Discovery { prefixes, status: "DISCOVERED", reason: None, attempts };
                     }
-                    Ok(_) => clean_negative = true,
+                    // An Answer always carries AAAA data, so an empty prefix list is not a clean negative.
+                    Ok(_) => failure = Some("dns_error"),
                     // A well-formed answer that fails the Pref64 heuristic is a verdict, not a resolver fault.
                     Err(reason) => {
                         return Nat64Discovery { prefixes: vec![], status: "INVALID", reason: Some(reason), attempts };
@@ -231,9 +233,19 @@ fn discover_with(
                 }
             }
             DnsResponseOutcome::Nodata | DnsResponseOutcome::Nxdomain => clean_negative = true,
-            // SERVFAIL, REFUSED, truncation, and unobserved replies are one resolver's fault: try the next.
-            _ => failure = Some("dns_error"),
+            // One resolver's fault: try the next.
+            DnsResponseOutcome::Servfail
+            | DnsResponseOutcome::Refused
+            | DnsResponseOutcome::OtherRcode
+            | DnsResponseOutcome::Truncated
+            | DnsResponseOutcome::Timeout
+            | DnsResponseOutcome::TransportError
+            | DnsResponseOutcome::Malformed
+            | DnsResponseOutcome::NotObserved => failure = Some("dns_error"),
         }
+    }
+    if let Some(reason) = interrupted(cancel).filter(|reason| *reason == "cancelled" || !clean_negative) {
+        return Nat64Discovery { prefixes: vec![], status: interrupted_status(reason), reason: Some(reason), attempts };
     }
     Nat64Discovery {
         prefixes: vec![],
