@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 
 use hyper::client::conn::http2;
-use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore, oneshot};
+use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore};
 use tokio::task::JoinHandle;
 
 use crate::client::XhttpClientInner;
@@ -14,15 +14,13 @@ pub(crate) struct PooledConnection {
     pub(crate) sender: Mutex<http2::SendRequest<XhttpBody>>,
     permits: Arc<Semaphore>,
     closed: AtomicBool,
-    closing: AtomicBool,
     pool_changed: Arc<Notify>,
     driver: StdMutex<Option<AbortOnDrop>>,
 }
 
-// Drop order: abort task before dropping stop so the owned H2 driver cannot detach.
+// Abort the owned H2 driver when the pooled connection is dropped.
 struct AbortOnDrop {
     task: JoinHandle<()>,
-    stop: Option<oneshot::Sender<()>>,
 }
 
 impl Drop for AbortOnDrop {
@@ -68,16 +66,15 @@ impl PooledConnection {
             sender: Mutex::new(sender),
             permits: Arc::new(Semaphore::new(max_concurrent_streams)),
             closed: AtomicBool::new(false),
-            closing: AtomicBool::new(false),
             pool_changed,
             driver: StdMutex::new(None),
         }
     }
 
-    pub(crate) fn attach_driver(&self, driver: JoinHandle<()>, stop: Option<oneshot::Sender<()>>) {
+    pub(crate) fn attach_driver(&self, driver: JoinHandle<()>) {
         let mut guard = self.driver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         debug_assert!(guard.is_none(), "xHTTP connection driver attached twice");
-        *guard = Some(AbortOnDrop { task: driver, stop });
+        *guard = Some(AbortOnDrop { task: driver });
     }
 
     pub(crate) fn mark_closed(&self) {
@@ -86,18 +83,8 @@ impl PooledConnection {
         self.pool_changed.notify_waiters();
     }
 
-    pub(crate) fn request_close(&self) {
-        // This flag carries only admission state; the lock and oneshot order driver cleanup.
-        self.closing.store(true, Ordering::Relaxed);
-        self.permits.close();
-        let mut driver = self.driver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        if let Some(stop) = driver.as_mut().and_then(|driver| driver.stop.take()) {
-            let _ = stop.send(());
-        }
-    }
-
     pub(crate) fn is_usable(&self) -> bool {
-        !self.is_closed() && !self.closing.load(Ordering::Relaxed)
+        !self.is_closed()
     }
 
     pub(crate) fn is_closed(&self) -> bool {
@@ -274,14 +261,11 @@ mod tests {
         let pooled = Arc::new(PooledConnection::new(sender, 1, Arc::new(Notify::new())));
         let (started_tx, started_rx) = oneshot::channel();
         let (dropped_tx, dropped_rx) = oneshot::channel();
-        pooled.attach_driver(
-            tokio::spawn(async move {
-                let _notice = DropNotice(Some(dropped_tx));
-                let _ = started_tx.send(());
-                std::future::pending::<()>().await;
-            }),
-            None,
-        );
+        pooled.attach_driver(tokio::spawn(async move {
+            let _notice = DropNotice(Some(dropped_tx));
+            let _ = started_tx.send(());
+            std::future::pending::<()>().await;
+        }));
         started_rx.await.expect("driver started");
 
         drop(pooled);
@@ -401,3 +385,6 @@ mod tests {
         Request::builder().uri("https://example.com/xhttp").body(body).expect("request")
     }
 }
+
+#[cfg(test)]
+mod cancellation_tests;

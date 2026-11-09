@@ -7,7 +7,7 @@ use std::time::Duration;
 use hyper::client::conn::http2;
 use hyper_util::rt::{TokioIo, TokioTimer};
 use tokio::net::{TcpSocket, TcpStream};
-use tokio::sync::{Notify, OwnedSemaphorePermit, oneshot};
+use tokio::sync::{Notify, OwnedSemaphorePermit};
 
 use crate::config::{AsyncIo, XhttpMode, XhttpSocketProtector};
 use crate::finalmask;
@@ -79,26 +79,16 @@ where
 
     let pooled = Arc::new(PooledConnection::new(sender, max_concurrent_streams, pool_changed));
     let pooled_for_task = Arc::downgrade(&pooled);
-    let (stop_tx, stop_rx) = oneshot::channel();
     let driver = tokio::spawn(async move {
-        // Drop the H2 future and its socket before the pool can reuse this capacity.
-        {
-            tokio::pin!(connection);
-            tokio::select! {
-                result = &mut connection => {
-                    if let Err(error) = result {
-                        tracing::debug!(error = %error, "xHTTP H2 connection closed");
-                    }
-                }
-                _ = stop_rx => {}
-            }
+        if let Err(error) = connection.await {
+            tracing::debug!(error = %error, "xHTTP H2 connection closed");
         }
         owned_tasks.close().await;
         if let Some(pooled) = pooled_for_task.upgrade() {
             pooled.mark_closed();
         }
     });
-    pooled.attach_driver(driver, Some(stop_tx));
+    pooled.attach_driver(driver);
     Ok(pooled)
 }
 
