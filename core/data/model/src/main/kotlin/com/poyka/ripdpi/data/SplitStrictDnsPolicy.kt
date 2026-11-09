@@ -110,9 +110,9 @@ data class SplitStrictResolverSpec(
 /**
  * Top-level split-strict DNS policy.
  *
- * Ties together the four resolver planes with an [IPv6 policy][ipv6Policy] and
- * an explicit [directAllowlist] — the set of domain suffixes / CIDR prefixes
- * whose connect route is DIRECT and therefore may use the [direct] resolver.
+ * Ties together the four resolver planes with an explicit [directAllowlist] — the set of
+ * domain suffixes / CIDR prefixes whose connect route is DIRECT and therefore may use the
+ * [direct] resolver.
  *
  * Design invariant: the [proxy] plane's [SplitStrictResolverSpec.allowPlaintextFallback]
  * is always `false`. Callers constructing a policy with `allowPlaintextFallback = true`
@@ -126,7 +126,6 @@ data class SplitStrictResolverSpec(
  * @param block           BLOCK/refuse plane spec; `null` means no domain blocking.
  * @param directAllowlist Domain suffixes and CIDR prefixes whose connect route is DIRECT.
  *                        Only these domains may be resolved via the [direct] plane.
- * @param ipv6Policy      How AAAA records and IPv6 connectivity are handled.
  */
 @Serializable
 data class SplitStrictDnsPolicy(
@@ -135,5 +134,4 @@ data class SplitStrictDnsPolicy(
     val direct: SplitStrictResolverSpec? = null,
     val block: SplitStrictResolverSpec? = null,
     val directAllowlist: List<String> = emptyList(),
-    val ipv6Policy: Ipv6Policy = Ipv6Policy.ALLOW,
 )

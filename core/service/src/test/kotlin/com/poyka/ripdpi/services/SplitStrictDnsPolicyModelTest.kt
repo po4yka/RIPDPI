@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.DnsResolverPlane
-import com.poyka.ripdpi.data.Ipv6Policy
 import com.poyka.ripdpi.data.SplitStrictDnsPolicy
 import com.poyka.ripdpi.data.SplitStrictResolverSpec
 import com.poyka.ripdpi.data.StrictEncryptedDnsProtocol
@@ -119,48 +118,7 @@ class SplitStrictDnsPolicyModelTest {
     }
 
     // ------------------------------------------------------------------
-    // 4. AAAA / IPv6 interaction
-    // ------------------------------------------------------------------
-
-    @Test
-    fun `SplitStrictDnsPolicy carries an IPv6Policy field`() {
-        val policy = SplitStrictDnsPolicy(ipv6Policy = Ipv6Policy.BLOCK)
-        assertEquals(Ipv6Policy.BLOCK, policy.ipv6Policy)
-    }
-
-    @Test
-    fun `default SplitStrictDnsPolicy ipv6Policy is ALLOW`() {
-        val policy = SplitStrictDnsPolicy()
-        assertEquals(Ipv6Policy.ALLOW, policy.ipv6Policy)
-    }
-
-    @Test
-    fun `ipv6Policy BLOCK means AAAA suppressed — policy surface captures the intent`() {
-        val policy = SplitStrictDnsPolicy(ipv6Policy = Ipv6Policy.BLOCK)
-        // The model surface exposes the intent; actual AAAA filtering is downstream.
-        assertEquals(Ipv6Policy.BLOCK, policy.ipv6Policy)
-    }
-
-    @Test
-    fun `ipv6Policy NATIVE means AAAA queries are forwarded unchanged`() {
-        val policy = SplitStrictDnsPolicy(ipv6Policy = Ipv6Policy.NATIVE)
-        assertEquals(Ipv6Policy.NATIVE, policy.ipv6Policy)
-    }
-
-    @Test
-    fun `ipv6Policy TRANSLATED means NAT64 synthesis path is enabled`() {
-        val policy = SplitStrictDnsPolicy(ipv6Policy = Ipv6Policy.TRANSLATED)
-        assertEquals(Ipv6Policy.TRANSLATED, policy.ipv6Policy)
-    }
-
-    @Test
-    fun `Ipv6Policy has NATIVE and TRANSLATED variants for split-strict use`() {
-        assertNotNull(Ipv6Policy.NATIVE)
-        assertNotNull(Ipv6Policy.TRANSLATED)
-    }
-
-    // ------------------------------------------------------------------
-    // 5. Serialization: DoH POST, DoT strict, DoQ, pinned bootstrap IP, direct allowlists
+    // 4. Serialization: DoH POST, DoT strict, DoQ, pinned bootstrap IP, direct allowlists
     // ------------------------------------------------------------------
 
     @Test
@@ -282,7 +240,6 @@ class SplitStrictDnsPolicyModelTest {
                         allowPlaintextFallback = false,
                     ),
                 directAllowlist = listOf("lan.example.com", "10.0.0.0/8"),
-                ipv6Policy = Ipv6Policy.NATIVE,
             )
         val encoded = json.encodeToString(SplitStrictDnsPolicy.serializer(), policy)
         val decoded = json.decodeFromString(SplitStrictDnsPolicy.serializer(), encoded)
@@ -297,7 +254,6 @@ class SplitStrictDnsPolicyModelTest {
         assertNotNull(decoded.block)
         assertEquals(DnsResolverPlane.BLOCK, decoded.block!!.plane)
         assertEquals(listOf("lan.example.com", "10.0.0.0/8"), decoded.directAllowlist)
-        assertEquals(Ipv6Policy.NATIVE, decoded.ipv6Policy)
     }
 
     @Test
