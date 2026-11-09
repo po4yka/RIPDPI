@@ -307,7 +307,11 @@ class XrayProviderE2ETest {
         ensureVpnConsentGranted(context)
         manifest = readControl("manifest")
         udpBridge = TestUdpBridge.fromArguments()
-        val dnsHttpPort = manifest.getInt("dnsHttpPort").also { require(it in 1..65_535) }
+        val dnsHttpsPort = manifest.getInt("dnsHttpsPort").also { require(it in 1..65_535) }
+        val certificate = manifest.getString("qualityCertificate")
+        val dnsTlsRoots =
+            (listOf("-----BEGIN CERTIFICATE-----") + certificate.chunked(64) + "-----END CERTIFICATE-----")
+                .joinToString("\n", postfix = "\n")
         runBlocking {
             settings.update {
                 ripdpiMode = Mode.VPN.preferenceValue
@@ -322,20 +326,19 @@ class XrayProviderE2ETest {
                 desyncHttps = false
                 desyncUdp = false
                 setStrategyChains(emptyList(), emptyList())
-                // Same test-only HTTP DoH pattern as applyFixtureEncryptedDns.
                 setDnsMode(DnsModeEncrypted)
                 setDnsProviderId(DnsProviderCustom)
                 setDnsIp(fixtureHost)
                 setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
-                setEncryptedDnsHost(fixtureHost)
-                setEncryptedDnsPort(dnsHttpPort)
-                setEncryptedDnsTlsServerName(fixtureHost)
+                setEncryptedDnsHost("fixture.test")
+                setEncryptedDnsPort(dnsHttpsPort)
+                setEncryptedDnsTlsServerName("fixture.test")
                 clearEncryptedDnsBootstrapIps()
                 addEncryptedDnsBootstrapIps(fixtureHost)
-                setEncryptedDnsDohUrl("http://$fixtureHost:$dnsHttpPort/dns-query")
+                setEncryptedDnsDohUrl("https://fixture.test:$dnsHttpsPort/dns-query")
                 setEncryptedDnsDnscryptProviderName("")
                 setEncryptedDnsDnscryptPublicKey("")
-                setEncryptedDnsTlsRootsPem("")
+                setEncryptedDnsTlsRootsPem(dnsTlsRoots)
                 clearEncryptedDnsOdohProxyUrl()
                 clearEncryptedDnsOdohProxyOperatorId()
                 clearEncryptedDnsOdohTargetHost()

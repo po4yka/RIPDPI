@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,6 +19,64 @@ import (
 
 	"golang.org/x/net/dns/dnsmessage"
 )
+
+func TestOwnedDNSHTTPSRequiresTrustedCertificateThroughXray(t *testing.T) {
+	p, _ := startDNSHTTPTestPeer(t)
+	if p.manifest.DNSHTTPSPort == 0 {
+		t.Fatal("manifest must expose the owned HTTPS DoH port")
+	}
+	der, err := base64.StdEncoding.DecodeString(p.manifest.QualityCertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(cert)
+	endpoint := fmt.Sprintf("https://%s:%d/dns-query", serverName, p.manifest.DNSHTTPSPort)
+	for _, network := range []string{"tcp", "xhttp"} {
+		t.Run(network, func(t *testing.T) {
+			client := dnsHTTPRealityClient(t, p, network)
+			transport := client.Transport.(*http.Transport)
+			transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, ServerName: serverName}
+			query := dnsHTTPQuery(t, "peer-owned-secure.test.", dnsmessage.TypeA)
+			// EDNS(0), DO and RFC 7830 padding as sent by the native resolver.
+			query[11] = 1
+			query = append(query, 0, 0, 41, 4, 208, 0, 0, 128, 0, 0, 8, 0, 12, 0, 4, 0, 0, 0, 0)
+			payload := readDNSHTTPAnswer(t, client, dnsHTTPRequest(t, http.MethodPost, endpoint, query), query)
+			var answer dnsmessage.Message
+			if err := answer.Unpack(payload); err != nil || len(answer.Additionals) != 1 ||
+				answer.Additionals[0].Header.Type != dnsmessage.TypeOPT || answer.Additionals[0].Header.TTL&0x8000 == 0 {
+				t.Fatalf("DoH response must include EDNS(0) and preserve DO: %+v %v", answer.Additionals, err)
+			}
+			transport.CloseIdleConnections()
+			transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: x509.NewCertPool(), ServerName: serverName}
+			if response, err := client.Do(dnsHTTPRequest(t, http.MethodPost, endpoint, query)); err == nil {
+				response.Body.Close()
+				t.Fatal("untrusted DoH certificate accepted")
+			}
+			transport.CloseIdleConnections()
+			transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, ServerName: "wrong.test"}
+			if response, err := client.Do(dnsHTTPRequest(t, http.MethodPost, endpoint, query)); err == nil {
+				response.Body.Close()
+				t.Fatal("wrong DoH server name accepted")
+			}
+			transport.CloseIdleConnections()
+			transport.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}
+			for _, target := range []string{
+				fmt.Sprintf("https://%s:%d/dns-query", serverName, p.manifest.DirectPort),
+				fmt.Sprintf("https://quality-a.example.test:%d/dns-query", p.manifest.DNSHTTPSPort),
+			} {
+				if response, err := client.Do(dnsHTTPRequest(t, http.MethodPost, target, query)); err == nil {
+					response.Body.Close()
+					t.Fatal("DoH route accepted an unrelated name or port")
+				}
+			}
+		})
+	}
+}
 
 func TestOwnedDNSHTTPManifestAndRoundTrips(t *testing.T) {
 	p, endpoint := startDNSHTTPTestPeer(t)
@@ -81,6 +141,8 @@ func TestOwnedDNSHTTPRejectsInvalidRequestsWithoutReceiptPollution(t *testing.T)
 	wrongClass := message
 	wrongClass.Questions = []dnsmessage.Question{message.Questions[0]}
 	wrongClass.Questions[0].Class = dnsmessage.ClassCHAOS
+	malformedOPT := append(append([]byte{}, valid...), 0, 0, 41, 4, 208, 0, 0, 0, 0, 0, 4, 0, 12, 0, 5)
+	malformedOPT[11] = 1
 	for _, test := range []struct {
 		name        string
 		method      string
@@ -97,6 +159,7 @@ func TestOwnedDNSHTTPRejectsInvalidRequestsWithoutReceiptPollution(t *testing.T)
 		{"missing-question", http.MethodPost, pack(noQuestion), "application/dns-message", http.StatusBadRequest},
 		{"multiple-questions", http.MethodPost, pack(multiple), "application/dns-message", http.StatusBadRequest},
 		{"wrong-class", http.MethodPost, pack(wrongClass), "application/dns-message", http.StatusBadRequest},
+		{"malformed-edns-option", http.MethodPost, malformedOPT, "application/dns-message", http.StatusBadRequest},
 		{"malformed-get", http.MethodGet, []byte{0xde, 0xad}, "", http.StatusBadRequest},
 		{"wrong-method", http.MethodPut, valid, "application/dns-message", http.StatusMethodNotAllowed},
 		{"wrong-content-type", http.MethodPost, valid, "application/json", http.StatusUnsupportedMediaType},
@@ -360,7 +423,7 @@ func configuredHTTPClient(t *testing.T, p *peer, network string, xmux, tlsSettin
 		}
 		ip := net.ParseIP(host).To4()
 		targetPort, err := strconv.Atoi(portText)
-		if (ip == nil && host != "quality-a.example.test" && host != "quality-b.example.test") || err != nil || targetPort < 1 || targetPort > 65535 {
+		if (ip == nil && host != "quality-a.example.test" && host != "quality-b.example.test" && host != serverName) || err != nil || targetPort < 1 || targetPort > 65535 {
 			return nil, fmt.Errorf("routing fixture requires literal IPv4 or an owned quality origin")
 		}
 		conn, err := (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, "tcp4", fmt.Sprintf("127.0.0.1:%d", socksPort))

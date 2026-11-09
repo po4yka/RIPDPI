@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -18,6 +19,14 @@ import (
 const maxDNSHTTPMessage = 65535
 
 func (p *peer) startOwnedDNSHTTP() (net.Listener, error) {
+	return p.startOwnedDNSServer(nil)
+}
+
+func (p *peer) startOwnedDNSHTTPS(certificate tls.Certificate) (net.Listener, error) {
+	return p.startOwnedDNSServer(&certificate)
+}
+
+func (p *peer) startOwnedDNSServer(certificate *tls.Certificate) (net.Listener, error) {
 	host := p.options.BindHost
 	if host == "" {
 		host = "127.0.0.1"
@@ -37,7 +46,12 @@ func (p *peer) startOwnedDNSHTTP() (net.Listener, error) {
 	}
 	// Own the listener even if close races with the Serve goroutine starting.
 	p.closers = append(p.closers, listener, server)
-	go func() { _ = server.Serve(listener) }()
+	if certificate != nil {
+		server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{*certificate}}
+		go func() { _ = server.ServeTLS(listener, "", "") }()
+	} else {
+		go func() { _ = server.Serve(listener) }()
+	}
 	return listener, nil
 }
 
@@ -126,19 +140,9 @@ func buildDNSHTTPResponse(packet []byte) ([]byte, bool) {
 		if additional.Header.Type != dnsmessage.TypeOPT || additional.Header.Name.String() != "." || additional.Header.TTL>>16 != 0 {
 			return nil, false
 		}
-		options, ok := additional.Body.(*dnsmessage.UnknownResource)
-		if !ok {
+		// The complete frame and sole-OPT checks bound the options parsed by Unpack.
+		if _, ok := additional.Body.(*dnsmessage.OPTResource); !ok {
 			return nil, false
-		}
-		for data := options.Data; len(data) != 0; {
-			if len(data) < 4 {
-				return nil, false
-			}
-			length := int(binary.BigEndian.Uint16(data[2:4]))
-			if length > len(data)-4 {
-				return nil, false
-			}
-			data = data[4+length:]
 		}
 	}
 	if len(query.Additionals) == 0 && !query.Header.CheckingDisabled {
@@ -164,7 +168,7 @@ func buildDNSHTTPResponse(packet []byte) ([]byte, bool) {
 				Name: additional.Header.Name, Type: dnsmessage.TypeOPT,
 				Class: dnsmessage.Class(4096), TTL: additional.Header.TTL & 0x8000,
 			},
-			Body: &dnsmessage.UnknownResource{Type: dnsmessage.TypeOPT},
+			Body: &dnsmessage.OPTResource{},
 		}}
 	}
 	// Every name is answered locally. Background lookups receive reserved

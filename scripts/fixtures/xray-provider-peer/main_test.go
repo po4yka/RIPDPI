@@ -653,8 +653,27 @@ func TestControlPortIsDistinctFromPublishedDataPorts(t *testing.T) {
 	}
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
-	if port == p.manifest.TCPPort || port == p.manifest.XHTTPPort || port == p.manifest.DirectPort || port == p.manifest.DNSHTTPPort {
+	if port == p.manifest.TCPPort || port == p.manifest.XHTTPPort || port == p.manifest.DirectPort || port == p.manifest.DNSHTTPPort || port == p.manifest.DNSHTTPSPort {
 		t.Fatal("control listener overlaps the data plane")
+	}
+}
+
+func TestControlRejectsPublishedDNSHTTPSPort(t *testing.T) {
+	reservation, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := reservation.Addr().(*net.TCPAddr).Port
+	if err := reservation.Close(); err != nil {
+		t.Fatal(err)
+	}
+	p := &peer{manifest: peerManifest{DNSHTTPSPort: port}}
+	listener, err := p.listenControl("127.0.0.1", port)
+	if listener != nil {
+		listener.Close()
+	}
+	if err == nil || !strings.Contains(err.Error(), "control port overlaps a published data port") {
+		t.Fatalf("control port collision: got %v", err)
 	}
 }
 
