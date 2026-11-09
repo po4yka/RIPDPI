@@ -54,7 +54,14 @@ pub(crate) async fn attempt_h3_connect_udp(
                 format!("failed to receive H3 CONNECT-UDP response: {error}"),
             )
         })?;
-        validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())?;
+        if let Err(error) =
+            validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())
+        {
+            if matches!(&error, AttemptError::Io(error) if error.kind() == io::ErrorKind::InvalidData) {
+                stream.stop_stream(Code::H3_MESSAGE_ERROR);
+            }
+            return Err(error);
+        }
         Ok::<_, AttemptError>(stream)
     };
     let stream = tokio::select! {

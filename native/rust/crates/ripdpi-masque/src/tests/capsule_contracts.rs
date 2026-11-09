@@ -152,3 +152,37 @@ async fn h3_unknown_capsules_and_contexts_preserve_valid_payload() {
     done_tx.send(()).expect("server alive");
     let _peer_state = server.await.expect("server completes");
 }
+
+/// # Cancel safety:
+/// NOT cancel-safe: the raw peer exchange is bounded and joined by the test.
+#[tokio::test]
+async fn h3_forbidden_capsule_response_fields_reject_tunnel_before_udp() {
+    for response in [
+        &[1, 4, 0, 0, 0xd9, 0xc4][..], // QPACK static 25=:status 200, static 4=content-length:0.
+        &[1, 4, 0, 0, 0xd9, 0xf5][..], // QPACK static 53=content-type:text/plain.
+    ] {
+        let (endpoint, config) = proxy();
+        let server = tokio::spawn(async move {
+            let connection = tokio::time::timeout(PEER_TIMEOUT, endpoint.accept())
+                .await
+                .expect("connect deadline")
+                .expect("incoming")
+                .await
+                .expect("QUIC handshake");
+            let mut control = connection.open_uni().await.expect("control stream");
+            control.write_all(&[0, 4, 4, 8, 1, 0x33, 1]).await.expect("peer SETTINGS");
+            let (mut send, mut recv) = connection.accept_bi().await.expect("request stream");
+            let mut request = [0; 4096];
+            recv.read(&mut request).await.expect("request bytes").expect("request exists");
+            send.write_all(response).await.expect("raw response headers");
+            let datagram = tokio::time::timeout(NO_DATAGRAM_TIMEOUT, connection.read_datagram()).await;
+            assert!(!matches!(datagram, Ok(Ok(_))), "client sent UDP after forbidden response fields");
+            (endpoint, connection, control, send, recv)
+        });
+        let client = MasqueClient::new(config).expect("client");
+        let error =
+            client.udp_session().send_to("127.0.0.1:9", b"open").await.expect_err("malformed response rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        let _peer_state = server.await.expect("server completes");
+    }
+}

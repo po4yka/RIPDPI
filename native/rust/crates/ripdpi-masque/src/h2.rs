@@ -173,7 +173,14 @@ pub(crate) async fn attempt_h2_connect_udp(
 
     let request = build_h2_connect_udp_request(&proxy_origin, &target, auth_header)?;
     let (response, stream) = tunnel::open(tls, request).await?;
-    validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())?;
+    if let Err(error) =
+        validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())
+    {
+        if matches!(&error, AttemptError::Io(error) if error.kind() == io::ErrorKind::InvalidData) {
+            stream.protocol_error_flag().store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        return Err(error);
+    }
     let protocol_error = stream.protocol_error_flag();
     let (mut reader, mut writer) = tokio::io::split(stream);
     let (outgoing_tx, mut outgoing_rx) = mpsc::channel::<Vec<u8>>(64);

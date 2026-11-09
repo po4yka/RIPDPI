@@ -100,6 +100,15 @@ pub(crate) fn validate_connect_udp_response(
         )
         .into());
     }
+    for field in [http::header::CONTENT_LENGTH, http::header::CONTENT_TYPE, http::header::TRANSFER_ENCODING] {
+        if headers.contains_key(&field) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("CONNECT-UDP response contains forbidden Capsule Protocol field: {field}"),
+            )
+            .into());
+        }
+    }
     Ok(())
 }
 
@@ -123,5 +132,36 @@ pub(crate) fn classify_attempt_failure(error: &io::Error) -> &'static str {
         io::ErrorKind::ConnectionReset => "connection_reset",
         io::ErrorKind::BrokenPipe | io::ErrorKind::UnexpectedEof => "transport_closed",
         _ => "io_error",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capsule_responses_reject_content_fields_for_each_success_status() {
+        for status in [StatusCode::OK, StatusCode::CREATED, StatusCode::ACCEPTED] {
+            for (field, value) in
+                [("content-length", "0"), ("content-type", "text/plain"), ("transfer-encoding", "chunked")]
+            {
+                let mut headers = HeaderMap::new();
+                headers.insert(field, value.parse().expect("header value"));
+                let error = validate_connect_udp_response(status, &headers, MasqueAuthMode::None)
+                    .expect_err("content fields cannot start the Capsule Protocol");
+                assert!(matches!(error, AttemptError::Io(error) if error.kind() == io::ErrorKind::InvalidData));
+            }
+        }
+    }
+
+    #[test]
+    fn capsule_responses_keep_valid_success_and_capsule_protocol_variants() {
+        for status in [StatusCode::OK, StatusCode::CREATED, StatusCode::ACCEPTED] {
+            let mut headers = HeaderMap::new();
+            validate_connect_udp_response(status, &headers, MasqueAuthMode::None).expect("header is optional");
+            headers.insert("capsule-protocol", "?1; extension=1".parse().expect("header value"));
+            validate_connect_udp_response(status, &headers, MasqueAuthMode::None)
+                .expect("unknown parameters are allowed");
+        }
     }
 }
