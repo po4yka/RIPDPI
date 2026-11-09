@@ -196,7 +196,7 @@ fn configure_direct_transport(
     network_scope: &ResolverNetworkScope,
 ) -> reqwest::ClientBuilder {
     let ips = if let Some(h) = health {
-        h.rank_bootstrap_ips_in_scope(network_scope, &endpoint.bootstrap_ips)
+        h.rank_bootstrap_ips_in_scope(network_scope, &endpoint.bootstrap_ips, endpoint.port, false)
     } else {
         endpoint.bootstrap_ips.clone()
     };

@@ -31,9 +31,12 @@ pub(super) async fn read_doh_response(
 }
 
 /// A present Content-Type must carry the expected media type (RFC 8484 section 4.2);
-/// parameters are ignored and a missing header is allowed.
+/// parameters are ignored. A missing header is allowed for DoH but not for ODoH (RFC 9230 section 4.3).
 pub(super) fn validate_response_content_type(headers: &HeaderMap, expected: &str) -> Result<(), EncryptedDnsError> {
     let Some(value) = headers.get(CONTENT_TYPE) else {
+        if expected == crate::odoh::ODOH_MESSAGE_MEDIA_TYPE {
+            return Err(EncryptedDnsError::Request("ODoH response is missing Content-Type".into()));
+        }
         return Ok(());
     };
     let matches = value

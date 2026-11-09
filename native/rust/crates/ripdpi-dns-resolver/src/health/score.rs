@@ -7,13 +7,16 @@ use super::oracle_policy;
 const INITIAL_SUCCESS_RATE: f64 = 0.5;
 const INITIAL_LATENCY_MS: f64 = 200.0;
 const LATENCY_SCORE_CAP_MS: f64 = 2000.0;
+/// Weight of one new sample. Time only decays old values toward the prior.
+const SAMPLE_ALPHA: f64 = 0.3;
 
 #[derive(Debug, Clone)]
 pub(super) struct HealthScore {
     pub(super) ewma_success_rate: f64,
     pub(super) ewma_latency_ms: f64,
     pub(super) ewma_oracle_score: f64,
-    last_updated: Instant,
+    transport_updated: Instant,
+    oracle_updated: Instant,
     pub(super) observation_count: u64,
     pub(super) oracle_observation_count: u64,
     pub(super) oracle_disagreement_streak: u32,
@@ -26,7 +29,8 @@ impl HealthScore {
             ewma_success_rate: INITIAL_SUCCESS_RATE,
             ewma_latency_ms: INITIAL_LATENCY_MS,
             ewma_oracle_score: oracle_policy::INITIAL_ORACLE_SCORE,
-            last_updated: now,
+            transport_updated: now,
+            oracle_updated: now,
             observation_count: 0,
             oracle_observation_count: 0,
             oracle_disagreement_streak: 0,
@@ -35,19 +39,18 @@ impl HealthScore {
     }
 
     pub(super) fn update(&mut self, success: bool, latency_ms: u64, half_life: Duration, now: Instant) {
-        let alpha = ewma_alpha(self.last_updated, now, half_life);
+        let (success_rate, latency_ms_decayed) = self.decayed_transport(half_life, now);
         let success_sample = if success { 1.0 } else { 0.0 };
-        self.ewma_success_rate = alpha * success_sample + (1.0 - alpha) * self.ewma_success_rate;
-        self.ewma_latency_ms = alpha * (latency_ms as f64) + (1.0 - alpha) * self.ewma_latency_ms;
-        self.last_updated = now;
+        self.ewma_success_rate = SAMPLE_ALPHA * success_sample + (1.0 - SAMPLE_ALPHA) * success_rate;
+        self.ewma_latency_ms = SAMPLE_ALPHA * (latency_ms as f64) + (1.0 - SAMPLE_ALPHA) * latency_ms_decayed;
+        self.transport_updated = now;
         self.observation_count += 1;
     }
 
     pub(super) fn update_oracle(&mut self, observation: ResolverOracleObservation, half_life: Duration, now: Instant) {
-        let alpha = ewma_alpha(self.last_updated, now, half_life);
         let sample = oracle_policy::oracle_sample(observation);
-        self.ewma_oracle_score = alpha * sample + (1.0 - alpha) * self.ewma_oracle_score;
-        self.last_updated = now;
+        self.ewma_oracle_score = SAMPLE_ALPHA * sample + (1.0 - SAMPLE_ALPHA) * self.decayed_oracle(half_life, now);
+        self.oracle_updated = now;
         self.oracle_observation_count += 1;
 
         match observation {
@@ -86,10 +89,27 @@ impl HealthScore {
         self.quarantine_until.is_some_and(|until| until > now)
     }
 
-    /// Composite score in 0.0..1.0 (higher is better).
-    pub(super) fn composite_score(&self) -> f64 {
-        let latency_score = 1.0 - (self.ewma_latency_ms / LATENCY_SCORE_CAP_MS).clamp(0.0, 1.0);
-        self.ewma_success_rate * 0.55 + latency_score * 0.25 + self.ewma_oracle_score * 0.20
+    /// Transport (success rate, latency ms) decayed toward the prior as of `now`; does not mutate.
+    pub(super) fn decayed_transport(&self, half_life: Duration, now: Instant) -> (f64, f64) {
+        let factor = decay_factor(self.transport_updated, now, half_life);
+        (
+            decay_toward(self.ewma_success_rate, INITIAL_SUCCESS_RATE, factor),
+            decay_toward(self.ewma_latency_ms, INITIAL_LATENCY_MS, factor),
+        )
+    }
+
+    /// Oracle score decayed toward the prior as of `now`; does not mutate.
+    pub(super) fn decayed_oracle(&self, half_life: Duration, now: Instant) -> f64 {
+        let factor = decay_factor(self.oracle_updated, now, half_life);
+        decay_toward(self.ewma_oracle_score, oracle_policy::INITIAL_ORACLE_SCORE, factor)
+    }
+
+    /// Composite score in 0.0..1.0 (higher is better), using values decayed to `now`.
+    pub(super) fn composite_score(&self, half_life: Duration, now: Instant) -> f64 {
+        let (success_rate, latency_ms) = self.decayed_transport(half_life, now);
+        let oracle_score = self.decayed_oracle(half_life, now);
+        let latency_score = 1.0 - (latency_ms / LATENCY_SCORE_CAP_MS).clamp(0.0, 1.0);
+        success_rate * 0.55 + latency_score * 0.25 + oracle_score * 0.20
     }
 
     fn bump_disagreement_streak(&mut self, now: Instant, half_life: Duration) {
@@ -108,8 +128,12 @@ impl HealthScore {
     }
 }
 
-fn ewma_alpha(last_updated: Instant, now: Instant, half_life: Duration) -> f64 {
+fn decay_factor(last_updated: Instant, now: Instant, half_life: Duration) -> f64 {
     let dt = now.saturating_duration_since(last_updated).as_secs_f64();
     let hl = half_life.as_secs_f64().max(f64::EPSILON);
-    (1.0_f64 - (-dt / hl).exp()).clamp(0.0, 1.0)
+    (-dt / hl).exp().clamp(0.0, 1.0)
+}
+
+fn decay_toward(value: f64, prior: f64, factor: f64) -> f64 {
+    prior + (value - prior) * factor
 }

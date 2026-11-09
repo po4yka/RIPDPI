@@ -30,8 +30,8 @@ internal data class SplitStrictDnsDecision(
 /**
  * Validated, immutable DNS projection of the canonical ordered destination-routing policy.
  *
- * Stage A carries this plan through the service control plane. The v2 TUN serializer deliberately
- * ignores it until the native multi-plane runtime lands in stages B-C.
+ * `VpnTun2SocksConfig` serializes it as the native `splitDnsPolicy`; the tunnel resolves DIRECT
+ * names on the leased underlay and all other names on the encrypted PROXY plane.
  */
 class ValidatedSplitStrictDnsPolicy private constructor(
     val destinationRouting: DestinationRoutingPolicy,

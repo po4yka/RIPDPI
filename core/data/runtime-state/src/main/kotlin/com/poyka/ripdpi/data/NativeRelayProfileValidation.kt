@@ -194,10 +194,7 @@ fun isValidRelayXhttpMode(value: String): Boolean =
 
 // Each validator accepts exactly what reaches Rust: the UUID is passed unchanged and native parse_uuid
 // rejects whitespace, while the relay config normalization trims the Reality key and short ID.
-fun isValidVlessUuid(value: String?): Boolean {
-    val normalized = value?.filterNot { it == '-' } ?: return false
-    return normalized.length == VlessUuidHexLength && normalized.all(Char::isHexDigit)
-}
+fun isValidVlessUuid(value: String?): Boolean = value != null && VlessUuidPattern.matches(value)
 
 fun isValidRealityPublicKey(value: String): Boolean {
     val trimmed = value.trim()
@@ -228,6 +225,7 @@ private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' ||
 
 private val RelayPortRange = 1..65535
 
-private const val VlessUuidHexLength = 32
+// Native parse_uuid accepts only the simple (32 hex) or hyphenated 8-4-4-4-12 form.
+private val VlessUuidPattern = Regex("[0-9a-fA-F]{32}|[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 private const val RealityPublicKeyByteLength = 32
 private const val RealityShortIdMaxHexLength = 16

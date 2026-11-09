@@ -66,21 +66,7 @@ fn normalize_doh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), Enc
     let doh_url = endpoint.doh_url.clone().ok_or(EncryptedDnsError::MissingDohUrl)?;
     let parsed = Url::parse(&doh_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
     let url_host = parsed.host_str().ok_or(EncryptedDnsError::MissingHost)?.to_string();
-    // RFC 8484 section 5: DoH runs over HTTPS. Plain HTTP is allowed only for a loopback
-    // fixture: the URL host, the connect host and every bootstrap IP must stay on the device.
-    let is_loopback_name = |name: &str| {
-        name.eq_ignore_ascii_case("localhost")
-            || name.trim_matches(['[', ']']).parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
-    };
-    let loopback = is_loopback_name(&url_host)
-        && (endpoint.host.is_empty() || is_loopback_name(&endpoint.host))
-        && endpoint.bootstrap_ips.iter().all(std::net::IpAddr::is_loopback);
-    // `Url::parse` lowercases the scheme.
-    match parsed.scheme() {
-        "https" => {}
-        "http" if loopback => {}
-        _ => return Err(EncryptedDnsError::InvalidUrl("DoH URL must use https (RFC 8484 section 5)".into())),
-    }
+    require_https_or_loopback(endpoint, &parsed, &url_host, "DoH URL must use https (RFC 8484 section 5)")?;
     if endpoint.host.is_empty() {
         endpoint.host = url_host.clone();
     }
@@ -93,6 +79,38 @@ fn normalize_doh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), Enc
     Ok(())
 }
 
+fn is_loopback_name(name: &str) -> bool {
+    name.eq_ignore_ascii_case("localhost")
+        || name.trim_matches(['[', ']']).parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback())
+}
+
+/// A loopback fixture: the URL host, the connect host and every bootstrap IP stay on the device.
+fn is_loopback_fixture(endpoint: &EncryptedDnsEndpoint, url_host: &str) -> bool {
+    is_loopback_name(url_host)
+        && (endpoint.host.is_empty() || is_loopback_name(&endpoint.host))
+        && endpoint.bootstrap_ips.iter().all(std::net::IpAddr::is_loopback)
+}
+
+/// HTTPS is required. Plain HTTP is allowed only for a loopback fixture.
+fn require_https_or_loopback(
+    endpoint: &EncryptedDnsEndpoint,
+    parsed: &Url,
+    url_host: &str,
+    message: &str,
+) -> Result<(), EncryptedDnsError> {
+    // `Url::parse` lowercases the scheme.
+    match parsed.scheme() {
+        "https" => Ok(()),
+        "http" if is_loopback_fixture(endpoint, url_host) => Ok(()),
+        _ => Err(EncryptedDnsError::InvalidUrl(message.into())),
+    }
+}
+
+/// Host part for identity comparison: no brackets, no trailing root dot, ASCII lowercase.
+fn comparable_host(host: &str) -> String {
+    host.trim_matches(['[', ']']).trim_end_matches('.').to_ascii_lowercase()
+}
+
 fn normalize_odoh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), EncryptedDnsError> {
     let odoh = endpoint
         .odoh
@@ -101,6 +119,30 @@ fn normalize_odoh_endpoint(endpoint: &mut EncryptedDnsEndpoint) -> Result<(), En
     validate_odoh_non_collusion(odoh)?;
     let parsed = Url::parse(&odoh.proxy_url).map_err(|err| EncryptedDnsError::InvalidUrl(err.to_string()))?;
     let url_host = parsed.host_str().ok_or(EncryptedDnsError::MissingHost)?.to_string();
+    require_https_or_loopback(endpoint, &parsed, &url_host, "ODoH proxy URL must use https (RFC 9230 section 4.1)")?;
+    if odoh.proxy_url.contains(['{', '}']) {
+        return Err(EncryptedDnsError::InvalidUrl(
+            "ODoH proxy URL must be a plain URL, not an RFC 6570 template".into(),
+        ));
+    }
+    if parsed.query_pairs().any(|(key, _)| key == "targethost" || key == "targetpath") {
+        return Err(EncryptedDnsError::InvalidUrl("ODoH proxy URL must not carry targethost or targetpath".into()));
+    }
+    if odoh.target_host.trim().is_empty() {
+        return Err(EncryptedDnsError::InvalidEndpoint("ODoH target host is required".into()));
+    }
+    if !odoh.target_path.starts_with('/') {
+        return Err(EncryptedDnsError::InvalidEndpoint("ODoH target path must start with /".into()));
+    }
+    // The raw value is sent as `targethost`, so it must be exactly `host[:port]`.
+    let target_url = Some(&odoh.target_host)
+        .filter(|host| !host.contains(|c: char| c.is_whitespace() || "/?#@\\".contains(c)))
+        .and_then(|host| Url::parse(&format!("https://{host}")).ok())
+        .ok_or_else(|| EncryptedDnsError::InvalidEndpoint("ODoH target host must be host[:port]".into()))?;
+    let target_host = target_url.host_str().unwrap_or_default();
+    if !is_loopback_fixture(endpoint, &url_host) && comparable_host(&url_host) == comparable_host(target_host) {
+        return Err(EncryptedDnsError::InvalidEndpoint("ODoH proxy and target must be different hosts".into()));
+    }
     if endpoint.host.is_empty() {
         endpoint.host = url_host.clone();
     }

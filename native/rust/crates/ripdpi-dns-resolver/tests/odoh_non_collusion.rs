@@ -27,6 +27,83 @@ fn odoh_endpoint_accepts_distinct_proxy_and_target_operators() {
     build_resolver(odoh_endpoint("ProxyNet", "TargetNet")).expect("distinct ODoH operators accepted");
 }
 
+fn build_with(
+    edit: impl FnOnce(&mut EncryptedDnsEndpoint, &mut OdohEndpointConfig),
+) -> Result<EncryptedDnsResolver, EncryptedDnsError> {
+    let mut endpoint = odoh_endpoint("ProxyNet", "TargetNet");
+    let mut odoh = endpoint.odoh.take().expect("odoh config");
+    edit(&mut endpoint, &mut odoh);
+    endpoint.odoh = Some(odoh);
+    build_resolver(endpoint)
+}
+
+#[test]
+fn odoh_proxy_url_must_be_https_unless_fully_loopback() {
+    let error = build_with(|endpoint, odoh| {
+        odoh.proxy_url = "http://odoh-proxy.example/dns-query".into();
+        endpoint.bootstrap_ips = vec![IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10))];
+    })
+    .expect_err("plain http proxy rejected");
+    assert!(matches!(error, EncryptedDnsError::InvalidUrl(ref m) if m.contains("https")), "{error:?}");
+
+    // A loopback URL host is not enough when the connection goes to a remote bootstrap IP.
+    let error = build_with(|endpoint, odoh| {
+        odoh.proxy_url = "http://127.0.0.1:8053/p".into();
+        endpoint.bootstrap_ips = vec![IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10))];
+    })
+    .expect_err("loopback URL with remote bootstrap rejected");
+    assert!(matches!(error, EncryptedDnsError::InvalidUrl(ref m) if m.contains("https")), "{error:?}");
+
+    build_with(|_, odoh| {
+        odoh.proxy_url = "http://127.0.0.1:8053/p".into();
+        odoh.target_host = "127.0.0.1:9053".into();
+    })
+    .expect("loopback fixture builds");
+}
+
+#[test]
+fn odoh_proxy_url_must_not_carry_template_or_target_variables() {
+    for (url, needle) in [
+        ("https://proxy.example/dns-query?targethost=evil.example", "targethost or targetpath"),
+        ("https://proxy.example/dns-query?x=1&targetpath=%2Fx", "targethost or targetpath"),
+        ("https://proxy.example/dns-query?%74argethost=evil.example", "targethost or targetpath"),
+        ("https://proxy.example/dns-query{?targethost,targetpath}", "template"),
+        ("https://proxy.example/{x}", "template"),
+    ] {
+        let error = build_with(|_, odoh| odoh.proxy_url = url.into()).expect_err(url);
+        assert!(matches!(error, EncryptedDnsError::InvalidUrl(ref m) if m.contains(needle)), "{url}: {error:?}");
+    }
+}
+
+#[test]
+fn odoh_target_host_and_path_are_validated() {
+    let error = build_with(|_, odoh| odoh.target_path = "dns-query".into()).expect_err("path without slash");
+    assert_invalid_endpoint_contains(error, "target path");
+    let error = build_with(|_, odoh| odoh.target_host = "  ".into()).expect_err("blank target host");
+    assert_invalid_endpoint_contains(error, "target host");
+    for host in
+        ["same.example@other.example", "target.example/x", "target.example?x", "target.example#x", " target.example"]
+    {
+        let error = build_with(|_, odoh| odoh.target_host = host.into()).expect_err(host);
+        assert_invalid_endpoint_contains(error, "host[:port]");
+    }
+    build_with(|_, odoh| odoh.target_host = "[2001:db8::1]:8443".into()).expect("bracketed IPv6 target");
+}
+
+#[test]
+fn odoh_proxy_and_target_must_be_different_hosts() {
+    for (proxy, target) in
+        [("https://Same.Example/p", "same.example:8443"), ("https://same.example./p", "same.example")]
+    {
+        let error = build_with(|_, odoh| {
+            odoh.proxy_url = proxy.into();
+            odoh.target_host = target.into();
+        })
+        .expect_err(proxy);
+        assert_invalid_endpoint_contains(error, "different hosts");
+    }
+}
+
 fn build_resolver(endpoint: EncryptedDnsEndpoint) -> Result<EncryptedDnsResolver, EncryptedDnsError> {
     EncryptedDnsResolver::with_timeout(endpoint, EncryptedDnsTransport::Direct, Duration::from_secs(2))
 }

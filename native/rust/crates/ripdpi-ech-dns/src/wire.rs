@@ -3,7 +3,6 @@ use hickory_proto::rr::{Name, RData, RecordType};
 use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, DecodeError};
 
 pub const DNS_RECORD_TYPE_A: u16 = 1;
-pub(crate) const DNS_RECORD_TYPE_SVCB: u16 = 64;
 pub(crate) const DNS_RECORD_TYPE_HTTPS: u16 = 65;
 
 #[cfg(test)]

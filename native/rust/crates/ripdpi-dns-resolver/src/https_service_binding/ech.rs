@@ -1,5 +1,3 @@
-use rustls::pki_types::DnsName;
-
 use super::cursor::ByteCursor;
 use super::dto::{EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsSvcbParseError};
 
@@ -64,10 +62,9 @@ fn parse_ech_config_entry(version: u16, contents: &[u8]) -> Result<EchConfigEntr
 
     let maximum_name_length = cursor.read_u8("ECH maximum_name_length")?;
     let public_name_bytes = cursor.read_vec_u8("ECH public_name")?;
-    let public_name = DnsName::try_from(public_name_bytes)
-        .map_err(|error| HttpsSvcbParseError::MalformedEchConfigList(format!("invalid ECH public_name: {error}")))?
-        .as_ref()
-        .to_string();
+    // An invalid public_name makes only this entry unusable (RFC 9849 4), not the list.
+    let public_name =
+        is_valid_public_name(public_name_bytes).then(|| String::from_utf8_lossy(public_name_bytes).into_owned());
 
     let extensions_bytes = cursor.read_vec_u16("ECH extensions")?;
     let extensions = parse_extensions(extensions_bytes)?;
@@ -79,12 +76,39 @@ fn parse_ech_config_entry(version: u16, contents: &[u8]) -> Result<EchConfigEntr
         kem_id: Some(kem_id),
         public_key_len: Some(public_key.len()),
         maximum_name_length: Some(maximum_name_length),
-        public_name: Some(public_name),
+        public_name,
         cipher_suites,
         has_unknown_mandatory_extension: extensions.iter().any(|extension| extension.extension_type & 0x8000 != 0),
         extensions,
         raw_contents: contents.to_vec(),
     })
+}
+
+/// Mirrors BoringSSL `ssl_is_valid_ech_public_name` (RFC 9849 4): dot-separated
+/// LDH labels, no leading, trailing or empty label, and the last label is neither
+/// all decimal digits nor a `0x` hex number.
+fn is_valid_public_name(name: &[u8]) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let labels: Vec<&[u8]> = name.split(|byte| *byte == b'.').collect();
+    let label_ok = |label: &&[u8]| {
+        !label.is_empty()
+            && label.len() <= 63
+            && label.first() != Some(&b'-')
+            && label.last() != Some(&b'-')
+            && label.iter().all(|byte| byte.is_ascii_alphanumeric() || *byte == b'-')
+    };
+    if !labels.iter().all(label_ok) {
+        return false;
+    }
+    let last = labels[labels.len() - 1];
+    let is_hex = last.len() >= 2
+        && last[0] == b'0'
+        && matches!(last[1], b'x' | b'X')
+        && last[2..].iter().all(u8::is_ascii_hexdigit);
+    let is_decimal = last.iter().all(u8::is_ascii_digit);
+    !is_hex && !is_decimal
 }
 
 fn parse_cipher_suites(bytes: &[u8]) -> Result<Vec<EchCipherSuite>, HttpsSvcbParseError> {

@@ -1,12 +1,13 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use lru::LruCache;
 
 use crate::health::HealthRegistry;
 use crate::resolver::EncryptedDnsResolver;
-use crate::types::{ResolverNetworkScope, ResolverOracleObservation};
+use crate::types::{EncryptedDnsProtocol, ResolverNetworkScope, ResolverOracleObservation};
 
 mod builder;
 mod exchange;
@@ -21,18 +22,23 @@ pub use builder::ResolverPoolBuilder;
 
 use fallback_order::FallbackEntry;
 
+/// How long a DoQ resolver stays out of the candidate order after a connection-establishment
+/// failure. RFC 9250 section 5.2: remember per server for a reasonable period.
+const DOQ_DEMOTION_TTL: Duration = Duration::from_secs(3600);
+
 struct PoolInner {
     resolvers: Vec<EncryptedDnsResolver>,
+    /// Public endpoint labels (`EncryptedDnsResolver::endpoint_label`), possibly shared by several resolvers.
     labels: Vec<String>,
+    /// Protocol-qualified key per resolver; keys health, fallback cache and DoQ demotion.
+    keys: Vec<String>,
     health: HealthRegistry,
     network_scope: ResolverNetworkScope,
     rotation_counter: AtomicUsize,
     fallback_cache: Mutex<LruCache<String, FallbackEntry>>,
-    /// Scopes where a live DoQ failure has been observed in this session.
-    /// Once a scope is recorded here, DoQ resolvers are filtered out for
-    /// the remainder of this pool's lifetime (i.e. the current session).
-    /// This state is NOT shared across pool instances: a new pool = new session.
-    doq_demoted_scopes: Mutex<HashSet<ResolverNetworkScope>>,
+    /// DoQ resolvers (by pool key) demoted until the given instant after a live
+    /// connection-establishment failure. Not shared across pool instances.
+    doq_demoted_until: Mutex<HashMap<String, Instant>>,
 }
 
 /// Multi-endpoint encrypted DNS resolver pool with health-weighted rotation and fallback memory.
@@ -69,32 +75,22 @@ impl ResolverPool {
         &self.inner.network_scope
     }
 
-    /// Records an oracle trust signal for a specific resolver label in this pool's scope.
+    /// Records an oracle trust signal for every resolver whose public endpoint
+    /// label equals `label`, in this pool's scope.
     ///
     /// This is intended for bootstrap, failover, or diagnostics paths that already
     /// compare multiple resolvers. The default steady-state exchange path remains
     /// a single-resolver request flow.
     pub fn record_oracle_observation(&self, label: &str, observation: ResolverOracleObservation) {
-        self.inner.health.record_oracle_observation_in_scope(&self.inner.network_scope, label, observation);
-    }
-
-    /// Records a live DoQ failure for the given network scope, demoting DoQ to
-    /// DoH-only for the remainder of this session (this pool's lifetime).
-    ///
-    /// This is a no-op if the scope is already demoted. The demotion is scoped
-    /// to this pool instance; a new pool (new session) starts without any
-    /// demotion state.
-    pub fn record_doq_failure(&self, scope: &ResolverNetworkScope) {
-        if let Ok(mut set) = self.inner.doq_demoted_scopes.lock() {
-            set.insert(scope.clone());
+        for (idx, resolver_label) in self.inner.labels.iter().enumerate() {
+            if resolver_label == label {
+                self.inner.health.record_oracle_observation_in_scope(
+                    &self.inner.network_scope,
+                    &self.inner.keys[idx],
+                    observation,
+                );
+            }
         }
-    }
-
-    /// Returns `true` when a live DoQ failure has been recorded for the given
-    /// scope in this session, meaning DoQ resolvers must be bypassed in favour
-    /// of DoH for the remainder of this pool's lifetime.
-    pub fn is_doq_suppressed_for_scope(&self, scope: &ResolverNetworkScope) -> bool {
-        self.inner.doq_demoted_scopes.lock().is_ok_and(|set| set.contains(scope))
     }
 
     /// Returns the number of resolvers in the pool.
@@ -104,6 +100,17 @@ impl ResolverPool {
 
     pub fn is_empty(&self) -> bool {
         self.inner.resolvers.is_empty()
+    }
+}
+
+impl PoolInner {
+    /// Returns `true` while resolver `idx` is a DoQ resolver inside its demotion window.
+    pub(crate) fn is_doq_demoted(&self, idx: usize) -> bool {
+        self.resolvers[idx].endpoint().protocol == EncryptedDnsProtocol::Doq
+            && self
+                .doq_demoted_until
+                .lock()
+                .is_ok_and(|map| map.get(&self.keys[idx]).is_some_and(|until| *until > Instant::now()))
     }
 }
 

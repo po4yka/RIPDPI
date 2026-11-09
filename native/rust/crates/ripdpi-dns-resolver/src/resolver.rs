@@ -219,7 +219,12 @@ impl EncryptedDnsResolver {
     #[cfg(test)]
     pub(crate) fn ranked_bootstrap_ips_for_test(&self) -> Vec<std::net::IpAddr> {
         if let Some(health) = &self.inner.health {
-            health.rank_bootstrap_ips_in_scope(&self.inner.network_scope, &self.inner.endpoint.bootstrap_ips)
+            health.rank_bootstrap_ips_in_scope(
+                &self.inner.network_scope,
+                &self.inner.endpoint.bootstrap_ips,
+                self.inner.endpoint.port,
+                self.inner.endpoint.protocol == EncryptedDnsProtocol::Doq,
+            )
         } else {
             self.inner.endpoint.bootstrap_ips.clone()
         }

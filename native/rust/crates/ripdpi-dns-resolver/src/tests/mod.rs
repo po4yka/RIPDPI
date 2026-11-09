@@ -1505,15 +1505,15 @@ fn health_bootstrap_ip_ranking_preserves_all_ips() {
     let ip2 = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2));
     let ip3 = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 3));
     for _ in 0..10 {
-        reg.record_bootstrap_outcome(ip1, false, 800);
+        reg.record_bootstrap_outcome(ip1, 443, false, false, 800);
     }
     for _ in 0..10 {
-        reg.record_bootstrap_outcome(ip2, true, 20);
+        reg.record_bootstrap_outcome(ip2, 443, false, true, 20);
     }
     for _ in 0..10 {
-        reg.record_bootstrap_outcome(ip3, true, 400);
+        reg.record_bootstrap_outcome(ip3, 443, false, true, 400);
     }
-    let ranked = reg.rank_bootstrap_ips(&[ip1, ip2, ip3]);
+    let ranked = reg.rank_bootstrap_ips(&[ip1, ip2, ip3], 443, false);
     assert_eq!(ranked.len(), 3, "all IPs must be returned");
     let mut sorted = ranked.clone();
     sorted.sort();
@@ -1530,7 +1530,7 @@ fn health_bootstrap_ip_ranking_with_equal_scores() {
         Ipv4Addr::new(192, 168, 1, 2).into(),
         Ipv4Addr::new(192, 168, 1, 3).into(),
     ];
-    let ranked = reg.rank_bootstrap_ips(&ips);
+    let ranked = reg.rank_bootstrap_ips(&ips, 443, false);
     assert_eq!(ranked.len(), 3, "all IPs must be returned with equal scores");
 }
 

@@ -375,18 +375,155 @@ class VpnEncryptedDnsFailoverControllerTest {
         assertFalse(controller.isCatastrophicDnsError(""))
     }
 
+    @Test
+    fun `stale ODoH config never fails over to a non-oblivious resolver`() =
+        runTest {
+            // DNS-07 P1-1 regression: the PoC switched to adguard/doh here.
+            val env = newEnv()
+            val odoh =
+                activeDnsSettings(
+                    dnsMode = "encrypted",
+                    dnsProviderId = "custom",
+                    dnsIp = "",
+                    encryptedDns =
+                        EncryptedDnsConfigInput(
+                            protocol = "odoh",
+                            bootstrapIps = listOf("203.0.113.10"),
+                            odohProxyUrl = "https://proxy.example.test/proxy",
+                            odohProxyOperatorId = "ProxyNet",
+                            odohTargetHost = "target.example.test",
+                            odohTargetPath = "/dns-query",
+                            odohTargetOperatorId = "TargetNet",
+                            odohConfigSource = "custom_bytes",
+                            odohConfigsHex = "00aa",
+                            odohConfigsRetrievedAtSecs = 1_700_000_000L,
+                            odohConfigsTtlSecs = 86_400L,
+                        ),
+                )
+            assertTrue(odoh.isOdoh)
+            val stale = "ODoH config material is stale: now=1700100000, expires_at=1700086400"
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+                error: String?,
+            ) = env.controller.evaluate(
+                env.state,
+                odoh,
+                dnsSignature(odoh, overrideReason = null),
+                env.fingerprint.scopeKey(),
+                dnsTelemetry(queries, failures, error),
+            )
+            observe(0, 0, null)
+            repeat(4) { assertFalse(observe((it + 1) * 10L, (it + 1).toLong(), stale)) }
+            assertFalse(observe(50, 5, "Connection reset by peer"))
+            assertNull(env.overrides.override.value)
+            assertTrue(env.blockedPaths.getBlockedPathKeys(env.fingerprint.scopeKey()).isEmpty())
+        }
+
+    @Test
+    fun `local tunnel DNS failures do not change the resolver`() =
+        runTest {
+            for (error in listOf(
+                "all synthetic DNS mappings are leased by active flows",
+                "dns worker queue full",
+                "response buffer smaller than request",
+            )) {
+                val env = newEnv()
+                val dns = cloudflareDohDns()
+
+                suspend fun observe(
+                    queries: Long,
+                    failures: Long,
+                    error: String?,
+                ) = env.controller.evaluate(
+                    env.state,
+                    dns,
+                    dnsSignature(dns, null),
+                    env.fingerprint.scopeKey(),
+                    dnsTelemetry(queries, failures, error),
+                )
+                observe(0, 0, null)
+                repeat(3) { assertFalse(error, observe((it + 1) * 10L, (it + 1).toLong(), error)) }
+                assertNull(error, env.overrides.override.value)
+                assertEquals(error, 0, env.state.consecutiveFailureEvents)
+            }
+        }
+
+    @Test
+    fun `failover during a deferred handover records no block for the previous network`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+            val previousScope = env.fingerprint.scopeKey()
+            val captive = env.fingerprint.copy(networkValidated = false, captivePortalDetected = true)
+            env.fingerprintProvider.fingerprint = captive
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+                error: String?,
+            ) = env.controller.evaluate(
+                env.state,
+                dns,
+                dnsSignature(dns, null),
+                previousScope,
+                dnsTelemetry(queries, failures, error),
+            )
+            observe(0, 0, null)
+            assertFalse(observe(10, 1, "Timeout: resolver timed out"))
+            assertTrue(observe(20, 2, "Timeout: resolver timed out"))
+
+            assertTrue(env.blockedPaths.getBlockedPathKeys(previousScope).isEmpty())
+            assertEquals(
+                captive.scopeKey(),
+                env.overrides.override.value
+                    ?.networkScopeKey,
+            )
+        }
+
+    @Test
+    fun `failover override is scoped to the live network`() =
+        runTest {
+            val env = newEnv()
+            val dns = cloudflareDohDns()
+
+            suspend fun observe(
+                queries: Long,
+                failures: Long,
+                error: String?,
+            ) = env.controller.evaluate(
+                env.state,
+                dns,
+                dnsSignature(dns, null),
+                env.fingerprint.scopeKey(),
+                dnsTelemetry(queries, failures, error),
+            )
+            observe(0, 0, null)
+            assertFalse(observe(10, 1, "Timeout: resolver timed out"))
+            assertTrue(observe(20, 2, "Timeout: resolver timed out"))
+            assertEquals(
+                env.fingerprint.scopeKey(),
+                env.overrides.override.value
+                    ?.networkScopeKey,
+            )
+            assertTrue(env.blockedPaths.getBlockedPathKeys(env.fingerprint.scopeKey()).isNotEmpty())
+        }
+
     private fun newEnv(): Env {
         val overrides = TestResolverOverrideStore()
         val preferredPaths = TestNetworkDnsPathPreferenceStore()
         val blockedPaths = TestNetworkDnsBlockedPathStore()
         val fingerprint = sampleFingerprint()
+        val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
         return Env(
+            fingerprintProvider = fingerprintProvider,
             controller =
                 VpnEncryptedDnsFailoverController(
                     resolverOverrideStore = overrides,
                     networkDnsPathPreferenceStore = preferredPaths,
                     networkDnsBlockedPathStore = blockedPaths,
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkFingerprintProvider = fingerprintProvider,
                     clock = TestServiceClock(now = 123L),
                 ),
             state = VpnEncryptedDnsFailoverState(),
@@ -577,5 +714,6 @@ class VpnEncryptedDnsFailoverControllerTest {
         val preferredPaths: TestNetworkDnsPathPreferenceStore,
         val blockedPaths: TestNetworkDnsBlockedPathStore,
         val fingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+        val fingerprintProvider: TestNetworkFingerprintProvider,
     )
 }

@@ -386,4 +386,49 @@ class VpnResolverRefreshPlannerTest {
 
             assertNotNull(nonMatchingStore.override.value)
         }
+
+    @Test
+    fun failoverOverrideIsDroppedOnAnotherNetworkAndKeptOnItsOwn() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsIp("9.9.9.9")
+                    .build()
+            val scopedOverride =
+                TemporaryResolverOverride(
+                    resolverId = DnsProviderCloudflare,
+                    protocol = EncryptedDnsProtocolDoh,
+                    host = "cloudflare-dns.com",
+                    port = 443,
+                    tlsServerName = "cloudflare-dns.com",
+                    bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                    dohUrl = "https://cloudflare-dns.com/dns-query",
+                    dnscryptProviderName = "",
+                    dnscryptPublicKey = "",
+                    reason = "vpn_encrypted_dns_auto_failover: timeout",
+                    appliedAt = 10L,
+                    networkScopeKey = "network-a",
+                )
+
+            fun planner(
+                store: TestResolverOverrideStore,
+                scope: String,
+            ) = VpnResolverRefreshPlanner(
+                connectionPolicyResolver =
+                    TestConnectionPolicyResolver(
+                        sampleResolution(mode = Mode.VPN, settings = settings, networkScopeKey = scope),
+                    ),
+                resolverOverrideStore = store,
+            )
+
+            val otherNetworkStore = TestResolverOverrideStore(scopedOverride)
+            planner(otherNetworkStore, "network-b").plan(currentSignature = null, tunnelRunning = true)
+            assertNull(otherNetworkStore.override.value)
+
+            val sameNetworkStore = TestResolverOverrideStore(scopedOverride)
+            planner(sameNetworkStore, "network-a").plan(currentSignature = null, tunnelRunning = true)
+            assertEquals(scopedOverride, sameNetworkStore.override.value)
+        }
 }

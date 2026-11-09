@@ -203,7 +203,7 @@ fn pool_records_success_in_shared_health_registry() {
         .unwrap();
     let result = pool1.exchange_blocking(&query);
     assert!(result.is_ok(), "first pool exchange should succeed");
-    let label = format!("https://fixture.test:{port}/dns-query");
+    let label = format!("doh|https://fixture.test:{port}/dns-query");
     assert!(shared_health.observation_count(&label) > 0, "health registry should have observations after success");
     let pool2 = ResolverPool::builder()
         .add_endpoint(fixture_doh_endpoint(port), EncryptedDnsTransport::Direct)
