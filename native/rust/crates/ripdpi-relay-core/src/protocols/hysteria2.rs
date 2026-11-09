@@ -17,21 +17,48 @@ pub(crate) struct Hysteria2Session {
     pub(crate) migration: QuicMigrationTelemetryState,
 }
 
+/// Marker payload for a peer answer that is final for this request: a refused
+/// target or a server without UDP. The shared QUIC carrier is healthy, so
+/// evicting it would only repeat the refusal on a fresh handshake.
+#[derive(Debug)]
+struct ServerRefusal(String);
+
+impl std::fmt::Display for ServerRefusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ServerRefusal {}
+
+fn map_session_error(error: ripdpi_hysteria2::HysteriaError) -> io::Error {
+    let kind = match &error {
+        ripdpi_hysteria2::HysteriaError::TcpConnect(_) => io::ErrorKind::ConnectionRefused,
+        ripdpi_hysteria2::HysteriaError::UdpNotSupported => io::ErrorKind::Unsupported,
+        _ => return to_io_error(error),
+    };
+    io::Error::new(kind, ServerRefusal(error.to_string()))
+}
+
 impl RelaySession for Hysteria2Session {
     type Stream = ripdpi_hysteria2::DuplexStream;
     type Datagram = ripdpi_hysteria2::UdpSession;
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
-        let stream = self.client.tcp_connect(target).await.map_err(to_io_error)?;
+        let stream = self.client.tcp_connect(target).await.map_err(map_session_error)?;
         sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
         Ok(stream)
     }
 
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
-        let session = self.client.udp_session().await.map_err(to_io_error)?;
+        let session = self.client.udp_session().await.map_err(map_session_error)?;
         sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
         Ok(session)
+    }
+
+    fn is_carrier_failure(&self, error: &Self::Error) -> bool {
+        !error.get_ref().is_some_and(<dyn std::error::Error + Send + Sync>::is::<ServerRefusal>)
     }
 }
 

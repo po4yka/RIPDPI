@@ -13,6 +13,7 @@ use tokio::sync::oneshot;
 
 mod backend_fixture_tests;
 mod cross_stack;
+mod hysteria2_carrier;
 mod relay_attempt_trace;
 mod shadowtls_version;
 mod shutdown_drain;
