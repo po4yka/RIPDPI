@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ripdpi_tls_profiles::EchSetup;
 use rustls::ClientConfig;
@@ -17,6 +17,9 @@ use crate::types::{
     EncryptedDnsTransport, ResolverNetworkScope,
 };
 
+/// A DNSCrypt certificate and its fetch time as (monotonic, Unix seconds).
+pub(crate) type DnsCryptCacheEntry = (DnsCryptCachedCertificate, Option<(Instant, u32)>);
+
 #[derive(Debug)]
 pub(crate) struct ResolverInner {
     pub(crate) endpoint: EncryptedDnsEndpoint,
@@ -33,8 +36,13 @@ pub(crate) struct ResolverInner {
     pub(crate) dot_extra_roots: Vec<CertificateDer<'static>>,
     pub(crate) dot_pin_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(crate) dot_unpinned_custom_verifier_requested: bool,
-    /// The selected DNSCrypt certificate and the Unix time it was fetched.
-    pub(crate) dnscrypt_state: Mutex<Option<(DnsCryptCachedCertificate, u32)>>,
+    /// The selected DNSCrypt certificate and when it was fetched (monotonic and
+    /// Unix time); `None` means a refresh is due although the certificate may
+    /// still be used. Lock order: `dnscrypt_refresh` before `dnscrypt_state`.
+    pub(crate) dnscrypt_state: Mutex<Option<DnsCryptCacheEntry>>,
+    /// Held while one query refreshes the DNSCrypt certificate for all of them;
+    /// it stores when the last fetched refresh failed and why.
+    pub(crate) dnscrypt_refresh: AsyncMutex<Option<(Instant, String)>>,
     pub(crate) connection_pool: ConnectionPool,
     pub(crate) health: Option<HealthRegistry>,
     pub(crate) network_scope: ResolverNetworkScope,
@@ -135,6 +143,7 @@ pub(crate) fn build_inner(
         dot_pin_verifier: tls_verifiers.dot_pin_verifier,
         dot_unpinned_custom_verifier_requested,
         dnscrypt_state: Mutex::new(None),
+        dnscrypt_refresh: AsyncMutex::new(None),
         connection_pool: ConnectionPool::default(),
         health,
         network_scope,

@@ -1200,8 +1200,8 @@ fn serve_dnscrypt_query(
 
     let mut response_nonce = *nonce;
     response_nonce[DNSCRYPT_QUERY_NONCE_HALF..].fill(0x11);
-    let ciphertext =
-        cipher.encrypt(&response_nonce, dnscrypt_pad(&response_packet).as_slice()).expect("dnscrypt response encrypt");
+    let padded = dnscrypt_pad(&response_packet).expect("dnscrypt response pad");
+    let ciphertext = cipher.encrypt(&response_nonce, padded.as_slice()).expect("dnscrypt response encrypt");
     let mut wrapped = Vec::with_capacity(8 + DNSCRYPT_NONCE_SIZE + ciphertext.len());
     wrapped.extend_from_slice(&DNSCRYPT_RESPONSE_MAGIC);
     wrapped.extend_from_slice(&response_nonce);

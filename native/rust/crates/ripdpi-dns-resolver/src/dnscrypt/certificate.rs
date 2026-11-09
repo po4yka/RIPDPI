@@ -1,3 +1,5 @@
+use ring::agreement;
+use ring::rand::SystemRandom;
 use ring::signature::{self, UnparsedPublicKey};
 
 use crate::types::{DnsCryptCachedCertificate, EncryptedDnsError};
@@ -38,8 +40,25 @@ pub(crate) fn parse_dnscrypt_certificate(
     if valid_from >= valid_until {
         return Err(EncryptedDnsError::DnsCryptCertificate("certificate ts-start is not before ts-end".to_string()));
     }
+    if has_small_order(&resolver_public_key) {
+        return Err(EncryptedDnsError::DnsCryptCertificate("resolver public key has small order".to_string()));
+    }
 
     Ok(DnsCryptCachedCertificate { resolver_public_key, client_magic, serial, valid_from, valid_until, es_version })
+}
+
+/// Whether X25519 with this public key gives the all-zero shared secret, which
+/// the DNSCrypt Box-XChaChaPoly construction requires a client to reject. Clamped
+/// scalars are multiples of 8, so the result depends on the key alone and one
+/// throwaway key answers for every client key. ring rejects the zero result; an
+/// RNG failure also counts as rejection.
+fn has_small_order(public_key: &[u8; 32]) -> bool {
+    let rng = SystemRandom::new();
+    agreement::EphemeralPrivateKey::generate(&agreement::X25519, &rng)
+        .and_then(|key| {
+            agreement::agree_ephemeral(key, &agreement::UnparsedPublicKey::new(&agreement::X25519, public_key), |_| ())
+        })
+        .is_err()
 }
 
 /// Picks the certificate to use from the provider's TXT records, following the

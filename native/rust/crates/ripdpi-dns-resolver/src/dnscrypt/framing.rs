@@ -4,6 +4,9 @@ use super::cipher::DnsCryptCipher;
 use super::padding::dnscrypt_unpad;
 use super::{DNSCRYPT_NONCE_SIZE, DNSCRYPT_QUERY_NONCE_HALF, DNSCRYPT_RESPONSE_MAGIC};
 
+/// The error message when a response with our nonce prefix fails authentication.
+pub(crate) const DNSCRYPT_RESPONSE_AUTH_FAILED: &str = "response authentication failed";
+
 pub(crate) fn decrypt_dnscrypt_response(
     cipher: &DnsCryptCipher,
     response: &[u8],
@@ -22,6 +25,6 @@ pub(crate) fn decrypt_dnscrypt_response(
     }
     let plaintext = cipher
         .decrypt(&nonce, &response[8 + DNSCRYPT_NONCE_SIZE..])
-        .map_err(|err| EncryptedDnsError::DnsCryptDecrypt(err.to_string()))?;
+        .map_err(|_| EncryptedDnsError::DnsCryptDecrypt(DNSCRYPT_RESPONSE_AUTH_FAILED.to_string()))?;
     dnscrypt_unpad(&plaintext)
 }

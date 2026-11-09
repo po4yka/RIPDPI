@@ -6,9 +6,9 @@ mod padding;
 
 pub(crate) use certificate::{parse_dnscrypt_certificate, select_dnscrypt_certificate};
 pub(crate) use cipher::DnsCryptCipher;
-pub(crate) use framing::decrypt_dnscrypt_response;
+pub(crate) use framing::{DNSCRYPT_RESPONSE_AUTH_FAILED, decrypt_dnscrypt_response};
 pub(crate) use identity::{dnscrypt_provider_name, dnscrypt_verifying_key};
-pub(crate) use padding::{dnscrypt_pad, dnscrypt_unpad};
+pub(crate) use padding::{DNSCRYPT_MAX_PADDED_QUERY, dnscrypt_pad, dnscrypt_unpad};
 
 pub(crate) const DNSCRYPT_CERT_MAGIC: [u8; 4] = *b"DNSC";
 /// `es_version` for the classic NaCl box (XSalsa20Poly1305), RFC 8937 / DNSCrypt v2.
@@ -46,15 +46,26 @@ mod tests {
         valid_until: u32,
         extensions: &[u8],
     ) -> ([u8; 32], Vec<u8>) {
+        signed_cert_with_resolver_key(es_version, serial, valid_from, valid_until, extensions, [9u8; 32])
+    }
+
+    /// Like `signed_cert`, with the resolver public key chosen by the caller.
+    fn signed_cert_with_resolver_key(
+        es_version: u16,
+        serial: u32,
+        valid_from: u32,
+        valid_until: u32,
+        extensions: &[u8],
+        resolver_public_key: [u8; 32],
+    ) -> ([u8; 32], Vec<u8>) {
         let key_pair = Ed25519KeyPair::from_seed_unchecked(&[7u8; 32]).expect("ed25519 keypair");
         let public_bytes: [u8; 32] = key_pair.public_key().as_ref().try_into().unwrap();
 
-        let resolver_secret = [9u8; 32];
         let mut client_magic = [0u8; 8];
-        client_magic.copy_from_slice(&resolver_secret[..8]);
+        client_magic.copy_from_slice(&resolver_public_key[..8]);
 
         let mut inner = Vec::with_capacity(52 + extensions.len());
-        inner.extend_from_slice(&resolver_secret);
+        inner.extend_from_slice(&resolver_public_key);
         inner.extend_from_slice(&client_magic);
         inner.extend_from_slice(&serial.to_be_bytes());
         inner.extend_from_slice(&valid_from.to_be_bytes());
@@ -185,6 +196,28 @@ mod tests {
     }
 
     #[test]
+    fn parse_certificate_rejects_small_order_resolver_keys() {
+        let mut one = [0u8; 32];
+        one[0] = 1;
+        for resolver_key in [[0u8; 32], one] {
+            let (pk, cert) = signed_cert_with_resolver_key(DNSCRYPT_ES_VERSION_XCHACHA, 1, 10, 20, &[], resolver_key);
+            let err = parse_dnscrypt_certificate(&cert, &pk, "test.provider").unwrap_err();
+            assert!(matches!(err, EncryptedDnsError::DnsCryptCertificate(_)), "{resolver_key:?}: {err:?}");
+        }
+    }
+
+    #[test]
+    fn select_certificate_skips_a_small_order_resolver_key() {
+        let (pk, small_order) = signed_cert_with_resolver_key(DNSCRYPT_ES_VERSION_XCHACHA, 9, 10, 20, &[], [0u8; 32]);
+        let (_, normal) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 4, 10, 20, &[]);
+
+        let selected = select_dnscrypt_certificate([small_order.as_slice(), &normal], &pk, "test.provider", 15)
+            .expect("the normal certificate is usable");
+
+        assert_eq!(selected.serial, 4);
+    }
+
+    #[test]
     fn select_certificate_ignores_records_it_cannot_use() {
         let (pk, good) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 4, 10, 20, &[]);
         let (_, mut post_quantum) = signed_cert(DNSCRYPT_ES_VERSION_XCHACHA, 9, 10, 20, &[0; 1196]);
@@ -246,12 +279,66 @@ mod tests {
     fn pad_unpad_round_trips() {
         for size in [0, 1, 10, 63, 64, 65, 127, 128] {
             let payload: Vec<u8> = (0..size).map(|i: usize| (i % 255) as u8).collect();
-            let padded = dnscrypt_pad(&payload);
+            let padded = dnscrypt_pad(&payload).expect("pad");
             assert_eq!(padded.len() % DNSCRYPT_PADDING_BLOCK_SIZE, 0, "padded size for input len {size}");
             assert!(padded.len() > payload.len(), "room for marker at len {size}");
             let unpadded = dnscrypt_unpad(&padded).expect("unpad");
             assert_eq!(unpadded, payload, "round-trip at len {size}");
         }
+    }
+
+    #[test]
+    fn pad_adds_one_to_256_bytes_in_whole_blocks_for_every_length() {
+        for size in 0..=400usize {
+            let payload = vec![0x41u8; size];
+            let padded = dnscrypt_pad(&payload).expect("pad");
+            let added = padded.len() - size;
+            assert_eq!(padded.len() % 64, 0, "len {size}");
+            assert!((1..=256).contains(&added), "len {size} added {added}");
+            assert_eq!(dnscrypt_unpad(&padded).expect("unpad"), payload, "len {size}");
+        }
+    }
+
+    #[test]
+    fn pad_never_exceeds_the_largest_query_near_the_limit() {
+        for size in 3700..3968usize {
+            let padded = dnscrypt_pad(&vec![0x41u8; size]).expect("pad");
+            let added = padded.len() - size;
+            assert!(padded.len() <= 3968, "len {size} padded to {}", padded.len());
+            assert_eq!(padded.len() % 64, 0, "len {size}");
+            assert!((1..=256).contains(&added), "len {size} added {added}");
+        }
+    }
+
+    #[test]
+    fn pad_length_is_random_within_the_allowed_blocks() {
+        let payload = vec![0x41u8; 33];
+        let mut seen = std::collections::BTreeSet::new();
+        for _ in 0..200 {
+            seen.insert(dnscrypt_pad(&payload).expect("pad").len());
+        }
+        assert!(seen.len() >= 2, "padded length never varied: {seen:?}");
+        assert!(seen.iter().all(|len| [64, 128, 192, 256].contains(len)), "{seen:?}");
+    }
+
+    #[test]
+    fn pad_stops_at_the_largest_query_that_fits_in_4096_bytes() {
+        assert_eq!(dnscrypt_pad(&vec![0x41u8; 3967]).expect("pad").len(), 3968);
+        let err = dnscrypt_pad(&vec![0x41u8; 3968]).unwrap_err();
+        assert!(matches!(err, EncryptedDnsError::DnsMessageTooLarge { .. }), "{err:?}");
+    }
+
+    #[test]
+    fn unpad_accepts_any_valid_padding_length() {
+        let mut short = vec![0x41u8; 10];
+        short.push(0x80);
+        short.extend_from_slice(&[0u8; 5]);
+        assert_eq!(dnscrypt_unpad(&short).expect("unpad"), vec![0x41u8; 10]);
+
+        let mut long = vec![0x41u8; 10];
+        long.push(0x80);
+        long.extend_from_slice(&[0u8; 300]);
+        assert_eq!(dnscrypt_unpad(&long).expect("unpad"), vec![0x41u8; 10]);
     }
 
     #[test]
