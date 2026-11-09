@@ -12,7 +12,7 @@ use self::fragments::push_ipfrag2_or_fallback;
 use self::multi_disorder::plan_multi_disorder_steps;
 use self::offset_plan::{resolve_send_step_offset, seqovl_hard_gate_matches};
 use crate::fake::build_seqovl_fake_prefix;
-use crate::tls_prelude::apply_tls_prelude_steps;
+use crate::tls_prelude::{apply_tls_prelude_steps, apply_tls_prelude_steps_to_fake};
 use crate::types::{
     ActivationContext, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo, TlsPreludeApplication,
     activation_filter_matches,
@@ -248,8 +248,10 @@ fn plan_tcp_with_fake_reference(
             TcpChainStepKind::Fake => {
                 let fake_reference_bytes = if fake_is_padded {
                     if fake_tampered.is_none() {
-                        fake_tampered =
-                            Some(apply_tls_prelude_steps(group, &prelude_steps, fake_reference, seed, context)?.bytes);
+                        fake_tampered = Some(
+                            apply_tls_prelude_steps_to_fake(group, &prelude_steps, fake_reference, seed, context)?
+                                .bytes,
+                        );
                     }
                     fake_tampered.as_deref().unwrap_or(&tampered.bytes)
                 } else {

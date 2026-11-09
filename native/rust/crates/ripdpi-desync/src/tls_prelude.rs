@@ -20,11 +20,13 @@ struct TlsPreludeState {
 }
 
 impl TlsPreludeState {
-    fn from_record(buffer: &[u8]) -> Option<Self> {
+    /// `require_complete` is true for the real stream payload, where more bytes
+    /// of the record may follow; a standalone fake has nothing after it.
+    fn from_record(buffer: &[u8], require_complete: bool) -> Option<Self> {
         // A first record whose body is still in flight must not be re-framed:
         // the rewritten length would no longer match the bytes that follow.
         let declared = usize::from(u16::from_be_bytes([*buffer.get(3)?, *buffer.get(4)?]));
-        if buffer.len() < 5 + declared {
+        if require_complete && buffer.len() < 5 + declared {
             return None;
         }
         let ir = normalize_tls_client_hello(buffer)?;
@@ -236,6 +238,29 @@ pub(crate) fn apply_tls_prelude_steps(
     seed: u32,
     context: ActivationContext,
 ) -> Result<TamperResult, DesyncError> {
+    apply_prelude(group, prelude_steps, input, seed, context, true)
+}
+
+/// Like `apply_tls_prelude_steps` for a standalone fake packet, which may carry
+/// a truncated record because nothing follows it.
+pub(crate) fn apply_tls_prelude_steps_to_fake(
+    group: &DesyncGroup,
+    prelude_steps: &[TcpChainStep],
+    fake: &[u8],
+    seed: u32,
+    context: ActivationContext,
+) -> Result<TamperResult, DesyncError> {
+    apply_prelude(group, prelude_steps, fake, seed, context, false)
+}
+
+fn apply_prelude(
+    group: &DesyncGroup,
+    prelude_steps: &[TcpChainStep],
+    input: &[u8],
+    seed: u32,
+    context: ActivationContext,
+    require_complete: bool,
+) -> Result<TamperResult, DesyncError> {
     let mut output = input.to_vec();
     let mut info = ProtoInfo::default();
     init_proto_info(&output, &mut info);
@@ -260,7 +285,7 @@ pub(crate) fn apply_tls_prelude_steps(
     let mut applied_steps = Vec::new();
     if !prelude_steps.is_empty() {
         let mut rng = OracleRng::seeded(seed);
-        if let Some(mut state) = TlsPreludeState::from_record(&output) {
+        if let Some(mut state) = TlsPreludeState::from_record(&output, require_complete) {
             for step in prelude_steps {
                 if !activation_filter_matches(step.activation_filter(), context) {
                     continue;

@@ -16,7 +16,7 @@ mod rust_packet_seeds {
 
 use crate::fake::normalize_fake_tls_size;
 use crate::offset::gen_offset;
-use crate::tls_prelude::apply_tls_prelude_steps;
+use crate::tls_prelude::{apply_tls_prelude_steps, apply_tls_prelude_steps_to_fake};
 use crate::*;
 use ripdpi_config::{
     ActivationFilter, DesyncGroup, EntropyMode, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, NumericRange,
