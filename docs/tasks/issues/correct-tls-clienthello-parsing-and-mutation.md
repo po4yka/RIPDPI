@@ -2,7 +2,7 @@
 id: RST-1794212008025103
 title: Correct TLS ClientHello parsing and mutation
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: TLS maintenance
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: rst-1794212008025103-correct-tls-clienthello-parsing-and-mutation
 created: 2026-11-09
-updated: 2026-11-09
+updated: 2026-11-10
+closed_at: "2026-11-09T22:16:17Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Full CI passed on 8480ede162947052316948e59217c6dfb961d1a0: https://github.com/po4yka/RIPDPI/actions/runs/42702413061; locked native tests and ci-gates passed."
 ---
 
 ## Goal

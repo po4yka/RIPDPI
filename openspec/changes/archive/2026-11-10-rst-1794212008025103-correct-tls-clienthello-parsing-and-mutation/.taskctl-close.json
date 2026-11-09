@@ -1,0 +1,11 @@
+{
+  "change": "rst-1794212008025103-correct-tls-clienthello-parsing-and-mutation",
+  "evidence_summary": "Full CI passed on 8480ede162947052316948e59217c6dfb961d1a0: https://github.com/po4yka/RIPDPI/actions/runs/42702413061; locked native tests and ci-gates passed.",
+  "execution_sha256": "83105593779fd2403a8cb5ac16329e93feca28bc3f8d29e3553f665133da264e",
+  "issue_sha256": "a69cbe928adf400a14b41b828eb97afda888f3b9b53cefc83b5aca1a0e0be50a",
+  "outcome": "done",
+  "prepared_at": "2026-11-09T22:16:17Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794212008025103"
+}

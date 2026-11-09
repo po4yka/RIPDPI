@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-09T22:15:52Z",
+  "change": "rst-1794212008025103-correct-tls-clienthello-parsing-and-mutation",
+  "commit_sha": "8480ede162947052316948e59217c6dfb961d1a0",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1794212008025103"
+}

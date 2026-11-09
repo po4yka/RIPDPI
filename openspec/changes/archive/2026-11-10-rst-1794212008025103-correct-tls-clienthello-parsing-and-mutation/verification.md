@@ -25,5 +25,5 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-TLS-MUTATION | RST-1794212099284584 | Combined packets tests and independent review | passed |
 | REQ-TLS-ECH-ID | RST-1794214443209399 | ECH adapter tests, host JNI facade check, scanner and two independent reviews | passed |
 | REQ-TLS-FUZZ-LOCK | RST-1794214442322852 | Locked metadata and full fuzz smoke with local ARM cargo-fuzz | passed |
-| REQ-CI-TOR-SQLITE | RST-1794220081392995 | cargo-deny 0.19.8, 13 Tor tests, Android arm64 check and independent reviews | passed locally |
-| REQ-CI-ECH-DIAGNOSTICS | RST-1794220142663069 | diagnostics detekt, ktlint, unit tests and independent review | passed locally |
+| REQ-CI-TOR-SQLITE | RST-1794220081392995 | Locked Tor tests, cargo-deny and passing full CI 42702413061 | passed |
+| REQ-CI-ECH-DIAGNOSTICS | RST-1794220142663069 | Diagnostics detekt, ktlint, unit tests and passing full CI 42702413061 | passed |
