@@ -443,6 +443,7 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelayTuicUuidChanged = actions.onRelayTuicUuidChanged,
                 onRelayTuicPasswordChanged = actions.onRelayTuicPasswordChanged,
                 onRelayTuicCongestionControlChanged = actions.onRelayTuicCongestionControlChanged,
+                onRelayTuicRootCertificatePemChanged = actions.onRelayTuicRootCertificatePemChanged,
             ),
         misc =
             RelayMiscKindActions(

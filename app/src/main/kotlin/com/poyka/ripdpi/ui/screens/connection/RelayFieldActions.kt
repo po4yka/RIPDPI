@@ -78,6 +78,7 @@ internal data class RelayTuicActions(
     val onRelayTuicUuidChanged: (String) -> Unit = {},
     val onRelayTuicPasswordChanged: (String) -> Unit = {},
     val onRelayTuicCongestionControlChanged: (String) -> Unit = {},
+    val onRelayTuicRootCertificatePemChanged: (String) -> Unit = {},
 )
 
 internal data class RelayMiscKindActions(

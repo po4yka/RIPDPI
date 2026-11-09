@@ -154,6 +154,7 @@ data class ConnectionDraft(
     val relayTuicUuid: String = "",
     val relayTuicPassword: String = "",
     val relayTuicCongestionControl: String = RelayCongestionControlBbr,
+    val relayTuicRootCertificatePem: String = "",
     val relayShadowTlsPassword: String = "",
     val relayShadowTlsInnerProfileId: String = "",
     val relayTrojanPassword: String = "",

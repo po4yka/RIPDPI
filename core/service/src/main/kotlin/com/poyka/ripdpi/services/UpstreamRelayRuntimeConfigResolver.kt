@@ -424,6 +424,7 @@ private class ResolvedRelayConfigBuilder(
             // Native TUIC rejects 0-RTT; profiles stored with it enabled still connect.
             tuicZeroRtt = false,
             tuicCongestionControl = effectiveConfig.tuicCongestionControl,
+            tuicRootCertificatePem = effectiveConfig.tuicRootCertificatePem.ifBlank { null },
             tuicUuid = credentials?.tuicUuid,
             tuicPassword = credentials?.tuicPassword,
         )

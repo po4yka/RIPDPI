@@ -113,6 +113,7 @@ data class RelaySettingsSection(
     val relayChainMiddleProfileIds: List<String> = emptyList(),
     val relayTuicZeroRtt: Boolean = false,
     val relayTuicCongestionControl: String = "",
+    val relayTuicRootCertificatePem: String = "",
     val relayShadowtlsInnerProfileId: String = "",
     val relayNaivePath: String = "",
     val relayMasqueCloudflareGeohashEnabled: Boolean = false,

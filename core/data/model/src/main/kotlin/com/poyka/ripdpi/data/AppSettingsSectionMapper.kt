@@ -120,6 +120,7 @@ private fun AppSettings.relaySection(): RelaySettingsSection =
         relayChainMiddleProfileIds = relayChainMiddleProfileIdsList.toList(),
         relayTuicZeroRtt = relayTuicZeroRtt,
         relayTuicCongestionControl = relayTuicCongestionControl,
+        relayTuicRootCertificatePem = relayTuicRootCertificatePem,
         relayShadowtlsInnerProfileId = relayShadowtlsInnerProfileId,
         relayNaivePath = relayNaivePath,
         relayMasqueCloudflareGeohashEnabled = relayMasqueCloudflareGeohashEnabled,

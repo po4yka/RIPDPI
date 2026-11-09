@@ -1126,6 +1126,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverPort = 443,
                             serverName = "tuic.example",
                             tuicZeroRtt = true,
+                            tuicRootCertificatePem = "tuic-root-pem",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     expectedSelection =
@@ -1135,6 +1136,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
 
             assertEquals(RelayKindTuicV5, resolved.kind)
             assertFalse(resolved.tuicZeroRtt)
+            assertEquals("tuic-root-pem", resolved.tuicRootCertificatePem)
             assertEquals("55555555-5555-5555-5555-555555555555", resolved.tuicUuid)
             assertEquals(credentialFixture("tuic"), resolved.tuicPassword)
         }

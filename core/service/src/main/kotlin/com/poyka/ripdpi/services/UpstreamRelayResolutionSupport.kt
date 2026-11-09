@@ -429,6 +429,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         masqueCloudflareGeohashEnabled = masqueCloudflareGeohashEnabled,
         tuicZeroRtt = tuicZeroRtt,
         tuicCongestionControl = tuicCongestionControl,
+        tuicRootCertificatePem = tuicRootCertificatePem,
         shadowTlsInnerProfileId = shadowTlsInnerProfileId,
         shadowTlsInner = shadowTlsInner,
         naivePath = naivePath,

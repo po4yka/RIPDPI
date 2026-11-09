@@ -72,6 +72,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             zero_rtt: false,
             congestion_control: "bbr".to_string(),
+            root_certificate_pem: None,
         }),
         "vless" => RelayBackendConfig::Vless(VlessRelayConfig {
             vless_flow: "xtls-rprx-vision".to_string(),

@@ -100,6 +100,7 @@ data class ResolvedChainRelayHopConfig(
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
+    val tuicRootCertificatePem: String? = null,
     val shadowTlsInnerProfileId: String = "",
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
@@ -197,6 +198,7 @@ data class ResolvedRipDpiRelayConfig(
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
+    val tuicRootCertificatePem: String? = null,
     val shadowTlsInnerProfileId: String = "",
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
@@ -450,6 +452,7 @@ private fun ResolvedRipDpiRelayConfig.tuicSection(): RelayTuicSection =
     RelayTuicSection(
         tuicZeroRtt = tuicZeroRtt,
         tuicCongestionControl = tuicCongestionControl,
+        tuicRootCertificatePem = tuicRootCertificatePem,
         tuicUuid = tuicUuid,
         tuicPassword = tuicPassword,
     )
@@ -688,6 +691,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         masqueCloudflareGeohashEnabled = masque.masqueCloudflareGeohashEnabled,
         tuicZeroRtt = tuic.tuicZeroRtt,
         tuicCongestionControl = tuic.tuicCongestionControl,
+        tuicRootCertificatePem = tuic.tuicRootCertificatePem,
         shadowTlsInnerProfileId = shadowTls.shadowTlsInnerProfileId,
         shadowTlsInner = shadowTls.shadowTlsInner,
         trojanRootCertificatePem = trojan.trojanRootCertificatePem,

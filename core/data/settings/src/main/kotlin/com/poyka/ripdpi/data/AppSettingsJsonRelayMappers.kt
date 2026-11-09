@@ -44,6 +44,7 @@ internal fun AppSettingsSnapshot.withRelaySnapshot(relaySection: RelaySettingsSe
                 relayMasqueCloudflareGeohashEnabled = relaySection.relayMasqueCloudflareGeohashEnabled,
                 relayTuicZeroRtt = relaySection.relayTuicZeroRtt,
                 relayTuicCongestionControl = normalizeRelayCongestionControl(relaySection.relayTuicCongestionControl),
+                relayTuicRootCertificatePem = relaySection.relayTuicRootCertificatePem,
                 relayShadowTlsInnerProfileId = relaySection.relayShadowtlsInnerProfileId,
                 relayNaivePath = relaySection.relayNaivePath,
                 relayAppsScriptScriptIds = normalizeRelayStringList(relaySection.relayAppsScriptScriptIds),
@@ -110,6 +111,7 @@ private fun AppSettings.Builder.applyRelaySnapshot(snapshot: AppSettingsRelaySna
         .setRelayMasqueCloudflareGeohashEnabled(snapshot.relayMasqueCloudflareGeohashEnabled)
         .setRelayTuicZeroRtt(snapshot.relayTuicZeroRtt)
         .setRelayTuicCongestionControl(normalizeRelayCongestionControl(snapshot.relayTuicCongestionControl))
+        .setRelayTuicRootCertificatePem(snapshot.relayTuicRootCertificatePem)
         .setRelayShadowtlsInnerProfileId(snapshot.relayShadowTlsInnerProfileId)
         .setRelayNaivePath(snapshot.relayNaivePath)
         .clearRelayAppsScriptScriptIds()

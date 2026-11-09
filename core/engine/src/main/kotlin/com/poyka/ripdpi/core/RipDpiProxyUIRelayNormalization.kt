@@ -46,6 +46,7 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         chainMiddleProfileIds = normalizeRelayStringList(config.chainMiddleProfileIds),
         masqueUrl = config.masqueUrl.trim(),
         tuicCongestionControl = normalizeRelayCongestionControl(config.tuicCongestionControl),
+        tuicRootCertificatePem = config.tuicRootCertificatePem.trim(),
         shadowTlsInnerProfileId = config.shadowTlsInnerProfileId.trim(),
         naivePath = config.naivePath.trim(),
         appsScriptScriptIds = normalizeRelayStringList(config.appsScriptScriptIds),

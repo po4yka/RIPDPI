@@ -215,6 +215,8 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     #[serde(default = "default_tuic_congestion_control")]
     pub tuic_congestion_control: String,
     #[serde(default)]
+    pub tuic_root_certificate_pem: Option<String>,
+    #[serde(default)]
     pub shadow_tls_inner_profile_id: String,
     #[serde(default)]
     pub shadow_tls_inner: Option<ResolvedShadowTlsInnerRelayConfig>,
@@ -557,6 +559,21 @@ mod tests {
     }
 
     #[test]
+    fn tuic_root_certificate_pem_reaches_backend_config() {
+        let mut object = relay_config_json_object();
+        object.insert("kind".to_string(), json!("tuic_v5"));
+        object.insert("tuicRootCertificatePem".to_string(), json!("pem-body"));
+        let config: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(Value::Object(object)).expect("TUIC payload should deserialize");
+        let RelayBackendConfig::TuicV5(tuic) = &config.backend else {
+            panic!("expected TUIC backend");
+        };
+        assert_eq!(tuic.root_certificate_pem.as_deref(), Some("pem-body"));
+        let value = serde_json::to_value(config).expect("serialize");
+        assert_eq!(value["tuicRootCertificatePem"], json!("pem-body"));
+    }
+
+    #[test]
     fn sparse_kotlin_payload_uses_wire_compatible_defaults() {
         let mut object = relay_config_json_object();
         for key in [
@@ -654,6 +671,7 @@ mod tests {
             password: Some(secret()),
             zero_rtt: false,
             congestion_control: "bbr".to_string(),
+            root_certificate_pem: Some(secret()),
         });
         assert_debug_redacts(&VlessRelayConfig {
             uuid: Some(secret()),

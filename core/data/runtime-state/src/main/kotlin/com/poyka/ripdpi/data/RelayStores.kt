@@ -61,6 +61,7 @@ data class RelayProfileRecord(
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
+    val tuicRootCertificatePem: String = "",
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
     val appsScriptScriptIds: List<String> = emptyList(),

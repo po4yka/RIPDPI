@@ -184,6 +184,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         // Native TUIC rejects 0-RTT, so a saved profile never enables it.
         tuicZeroRtt = false,
         tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
+        tuicRootCertificatePem = relayTuicRootCertificatePem.trim(),
         shadowTlsInnerProfileId = relayShadowTlsInnerProfileId,
         naivePath = relayNaivePath,
         appsScriptScriptIds = relayAppsScriptScriptIds.preserveRelayLines(source?.appsScriptScriptIds),
