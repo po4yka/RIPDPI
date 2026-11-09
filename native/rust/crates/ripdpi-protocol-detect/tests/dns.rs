@@ -8,6 +8,26 @@ fn detects_udp_dns_on_port_53() {
 }
 
 #[test]
+fn detects_mdns_query_on_port_5353() {
+    let query = [0x00, 0x00, 0x00, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+    assert!(matches!(classify_l7(&query, 5353, 5353, true), L7Protocol::Dns(_)));
+}
+
+#[test]
+fn rejects_dns_port_payload_with_implausible_header() {
+    let random = [0xde, 0xad, 0xbe, 0xef, 0x99, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22];
+    assert!(matches!(classify_l7(&random, 53000, 53, true), L7Protocol::Unknown));
+
+    // Query (QR=0) with QDCOUNT 0.
+    let no_question = [0x12, 0x34, 0x01, 0x00, 0, 0, 0, 0, 0, 0, 0, 0];
+    assert!(matches!(classify_l7(&no_question, 53000, 53, true), L7Protocol::Unknown));
+
+    // Opcode 3 is unassigned (RFC 6895).
+    let opcode_3 = [0x12, 0x34, 0x18, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+    assert!(matches!(classify_l7(&opcode_3, 53000, 53, true), L7Protocol::Unknown));
+}
+
+#[test]
 fn detects_tcp_dns_length_prefixed_message() {
     let query = [0x00, 0x0C, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
     assert!(matches!(classify_l7(&query, 53000, 53, false), L7Protocol::Dns(_)));
@@ -24,11 +44,32 @@ fn tcp_dns_response_uses_inner_message_flags() {
 }
 
 #[test]
-fn rejects_tcp_dns_when_length_prefix_does_not_match_payload() {
-    let bad_length = [0x00, 0x10, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+fn detects_pipelined_tcp_dns_queries() {
+    let mut payload = Vec::new();
+    for id in [0x1111_u16, 0x2222] {
+        payload.extend_from_slice(&[0x00, 0x1D]);
+        payload.extend_from_slice(&id.to_be_bytes());
+        payload.extend_from_slice(&[0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0]);
+        payload.extend_from_slice(&[7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0, 0, 1, 0, 1]);
+    }
+    assert!(matches!(classify_l7(&payload, 53000, 53, false), L7Protocol::Dns(_)));
+}
 
-    assert!(matches!(classify_l7(&bad_length, 53000, 53, false), L7Protocol::Unknown));
+#[test]
+fn tcp_dns_accepts_message_continuing_in_next_segment() {
+    // Length 0x10 announces more bytes than this segment holds.
+    let first_segment = [0x00, 0x10, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+    assert!(matches!(classify_l7(&first_segment, 53000, 53, false), L7Protocol::Dns(_)));
+}
 
-    let too_short = [0x00, 0x0C, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0];
-    assert!(matches!(classify_l7(&too_short, 53000, 53, false), L7Protocol::Unknown));
+#[test]
+fn rejects_tcp_dns_with_short_length_or_truncated_header() {
+    let short_length = [0x00, 0x0B, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+    assert!(matches!(classify_l7(&short_length, 53000, 53, false), L7Protocol::Unknown));
+
+    let length_prefix_only = [0x00, 0x0C];
+    assert!(matches!(classify_l7(&length_prefix_only, 53000, 53, false), L7Protocol::Unknown));
+
+    let truncated_header = [0x00, 0x0C, 0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0];
+    assert!(matches!(classify_l7(&truncated_header, 53000, 53, false), L7Protocol::Unknown));
 }

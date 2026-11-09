@@ -94,15 +94,31 @@ fn is_dht(payload: &[u8]) -> bool {
         && payload.windows(6).any(|w| w.starts_with(b"1:y1:") && matches!(w[5], b'q' | b'r' | b'e'))
 }
 
+/// DNS on port 53, or port 5353 (mDNS uses the same wire format as unicast DNS).
+///
+/// The 12-byte header must be plausible: opcode in the assigned set (RFC 6895: 0, 1, 2, 4, 5, 6)
+/// and at least one question in a query. TCP messages carry a 2-byte length (RFC 7766) that
+/// must cover a header; it may be shorter than the payload (pipelining) or longer (the message
+/// continues in a later segment).
 fn is_dns(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -> bool {
-    if src_port != 53 && dst_port != 53 {
+    if ![src_port, dst_port].iter().any(|port| matches!(port, 53 | 5353)) {
         return false;
     }
-    if is_udp {
-        payload.len() >= 12
+    let message = if is_udp {
+        payload
     } else {
-        payload.len() >= 14 && u16::from_be_bytes([payload[0], payload[1]]) as usize == payload.len() - 2
-    }
+        if payload.len() < 14 || u16::from_be_bytes([payload[0], payload[1]]) < 12 {
+            return false;
+        }
+        &payload[2..]
+    };
+    let Some(header) = message.first_chunk::<12>() else {
+        return false;
+    };
+    let opcode = (header[2] >> 3) & 0x0F;
+    let is_response = header[2] & 0x80 != 0;
+    let question_count = u16::from_be_bytes([header[4], header[5]]);
+    matches!(opcode, 0..=2 | 4..=6) && (is_response || question_count >= 1)
 }
 
 fn dns_is_query(payload: &[u8], is_udp: bool) -> bool {

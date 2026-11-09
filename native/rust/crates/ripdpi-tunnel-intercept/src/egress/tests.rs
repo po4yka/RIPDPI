@@ -84,7 +84,8 @@ fn tun_lua_receives_existing_udp_protocol_and_subtype() {
             assert_eq!(packet_payload(injected), format!("{protocol}/{subtype}").as_bytes());
         }
         for (src, dst) in [(49152, 53), (53, 49152)] {
-            assert!(interceptor.handle_packet(&udp_packet(ipv6, src, dst, &[0; 12])));
+            let query = [0x12, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0];
+            assert!(interceptor.handle_packet(&udp_packet(ipv6, src, dst, &query)));
             assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"dns/dns_query");
         }
         assert!(interceptor.handle_packet(&udp_packet(ipv6, 49152, 500, &[0; 12])));
