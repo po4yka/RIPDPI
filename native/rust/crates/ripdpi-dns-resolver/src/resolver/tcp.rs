@@ -5,6 +5,8 @@ mod socks5;
 mod timeouts;
 mod tokio_connect;
 
+use std::net::IpAddr;
+
 use tokio::net::TcpStream as TokioTcpStream;
 
 use super::EncryptedDnsResolver;
@@ -12,20 +14,45 @@ use crate::types::{BoxedDnsTcpStream, EncryptedDnsError, EncryptedDnsTransport};
 
 impl EncryptedDnsResolver {
     pub(super) async fn connect_plain_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+        self.connect_plain_tcp_to(self.ranked_bootstrap_ips(), true).await
+    }
+
+    /// Connects through the given bootstrap IPs in order. Over SOCKS5 an empty
+    /// list makes the proxy resolve the endpoint host. A caller with a later stage
+    /// (TLS) passes `record_success = false` and records one outcome per IP itself.
+    pub(super) async fn connect_plain_tcp_to(
+        &self,
+        ips: Vec<IpAddr>,
+        record_success: bool,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
         match &self.inner.transport {
-            EncryptedDnsTransport::Direct => self.connect_direct_tcp().await,
-            EncryptedDnsTransport::Socks5 { host, port, .. } => self.connect_socks5_tcp(host, *port).await,
+            EncryptedDnsTransport::Direct => self.connect_direct_tcp(ips, record_success).await,
+            EncryptedDnsTransport::Socks5 { host, port, .. } => {
+                self.connect_socks5_tcp(ips, record_success, host, *port).await
+            }
         }
     }
 
-    async fn connect_direct_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+    pub(super) fn ranked_bootstrap_ips(&self) -> Vec<IpAddr> {
+        health::ranked_bootstrap_ips(&self.inner)
+    }
+
+    pub(super) fn record_bootstrap_outcome(&self, ip: IpAddr, success: bool, latency: std::time::Duration) {
+        health::record_bootstrap_outcome(&self.inner, ip, success, latency);
+    }
+
+    async fn connect_direct_tcp(
+        &self,
+        ips: Vec<IpAddr>,
+        record_success: bool,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
         if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
-            return hooks::connect_tokio_tcp_with_hook(&self.inner, connector.clone()).await;
+            return hooks::connect_tokio_tcp_with_hook(&self.inner, ips, record_success, connector.clone()).await;
         }
         if self.inner.connect_hooks.requires_direct_tcp_connector() {
             return Err(EncryptedDnsError::Request("direct TCP connector is required".to_string()));
         }
-        self.connect_direct_tcp_with(tokio_connect::connect).await
+        bootstrap::connect_direct_tcp_with(&self.inner, ips, record_success, tokio_connect::connect).await
     }
 
     /// # Cancel safety:
@@ -38,25 +65,33 @@ impl EncryptedDnsResolver {
                 } else if self.inner.connect_hooks.requires_direct_tcp_connector() {
                     Err(EncryptedDnsError::Request("direct TCP connector is required".to_string()))
                 } else {
-                    self.connect_direct_tcp().await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
+                    self.connect_plain_tcp().await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
                 }
             }
-            EncryptedDnsTransport::Socks5 { host, port, .. } => {
-                self.connect_socks5_tcp(host, *port).await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
-            }
+            EncryptedDnsTransport::Socks5 { host, port, .. } => self
+                .connect_socks5_tcp(self.ranked_bootstrap_ips(), true, host, *port)
+                .await
+                .map(|stream| Box::new(stream) as BoxedDnsTcpStream),
         }
     }
 
+    #[cfg(test)]
     async fn connect_direct_tcp_with<S, C, F>(&self, connect: C) -> Result<S, EncryptedDnsError>
     where
         S: super::connection::TcpClientStream,
         C: FnMut(std::net::SocketAddr) -> F,
         F: std::future::Future<Output = std::io::Result<S>>,
     {
-        bootstrap::connect_direct_tcp_with(&self.inner, connect).await
+        bootstrap::connect_direct_tcp_with(&self.inner, self.ranked_bootstrap_ips(), true, connect).await
     }
 
-    async fn connect_socks5_tcp(&self, proxy_host: &str, proxy_port: u16) -> Result<TokioTcpStream, EncryptedDnsError> {
+    async fn connect_socks5_tcp(
+        &self,
+        ips: Vec<IpAddr>,
+        record_success: bool,
+        proxy_host: &str,
+        proxy_port: u16,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
         // Async lookup: a hostname proxy must not block a runtime worker in getaddrinfo.
         let proxy_target = tokio::net::lookup_host((proxy_host, proxy_port))
             .await
@@ -66,20 +101,20 @@ impl EncryptedDnsResolver {
         if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
             let connector = connector.clone();
             let timeout = self.inner.timeout;
-            return self
-                .connect_socks5_tcp_with(proxy_target, move |target| {
-                    hooks::connect_tokio_tcp_target_with_hook(connector.clone(), target, timeout)
-                })
-                .await;
+            return socks5::connect_socks5_tcp_with(&self.inner, ips, record_success, proxy_target, move |target| {
+                hooks::connect_tokio_tcp_target_with_hook(connector.clone(), target, timeout)
+            })
+            .await;
         }
         if self.inner.connect_hooks.requires_direct_tcp_connector() && !proxy_target.ip().is_loopback() {
             return Err(EncryptedDnsError::Request(
                 "direct TCP connector is required for non-loopback SOCKS5 proxy".to_string(),
             ));
         }
-        self.connect_socks5_tcp_with(proxy_target, tokio_connect::connect).await
+        socks5::connect_socks5_tcp_with(&self.inner, ips, record_success, proxy_target, tokio_connect::connect).await
     }
 
+    #[cfg(test)]
     async fn connect_socks5_tcp_with<S, C, F>(
         &self,
         proxy_target: std::net::SocketAddr,
@@ -90,7 +125,7 @@ impl EncryptedDnsResolver {
         C: FnMut(std::net::SocketAddr) -> F,
         F: std::future::Future<Output = std::io::Result<S>>,
     {
-        socks5::connect_socks5_tcp_with(&self.inner, proxy_target, connect).await
+        socks5::connect_socks5_tcp_with(&self.inner, self.ranked_bootstrap_ips(), true, proxy_target, connect).await
     }
 }
 

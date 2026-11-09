@@ -7,8 +7,8 @@ use tokio::sync::{Mutex as AsyncMutex, Semaphore, SemaphorePermit};
 use crate::types::EncryptedDnsError;
 
 pub(super) type DotTlsStream = tokio_boring::SslStream<TokioTcpStream>;
-const MAX_POOLED_IDLE_DURATION: Duration = Duration::from_secs(20);
-/// Upper bound on DoT/DNSCrypt connections per resolver. A burst of concurrent
+pub(super) const MAX_POOLED_IDLE_DURATION: Duration = Duration::from_secs(20);
+/// Upper bound on DNSCrypt connections per resolver. A burst of concurrent
 /// lookups waits for a slot and reuses its connection instead of opening one
 /// TLS session per lookup.
 const MAX_POOLED_CONNECTIONS: usize = 4;
@@ -30,7 +30,6 @@ impl TcpClientStream for TokioTcpStream {
 impl TcpClientStream for turmoil::net::TcpStream {}
 
 pub(super) enum PooledConnection {
-    Dot(Box<DotTlsStream>),
     DnsCrypt(TokioTcpStream),
 }
 
@@ -86,7 +85,6 @@ impl ConnectionPool {
 impl std::fmt::Debug for PooledConnection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Dot(_) => f.write_str("PooledConnection::Dot(..)"),
             Self::DnsCrypt(_) => f.write_str("PooledConnection::DnsCrypt(..)"),
         }
     }

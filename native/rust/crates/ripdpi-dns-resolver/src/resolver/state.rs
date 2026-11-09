@@ -11,6 +11,7 @@ use tokio::sync::Mutex as AsyncMutex;
 
 use super::connection::ConnectionPool;
 use super::doq;
+use super::dot_connection::DotConnection;
 use crate::health::HealthRegistry;
 use crate::transport::{
     build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config, normalize_endpoint,
@@ -50,6 +51,8 @@ pub(crate) struct ResolverInner {
     /// it stores when the last fetched refresh failed and why.
     pub(crate) dnscrypt_refresh: AsyncMutex<Option<(Instant, String)>>,
     pub(crate) connection_pool: ConnectionPool,
+    /// The DoT connection shared by concurrent queries.
+    pub(super) dot_connection: AsyncMutex<Option<Arc<DotConnection>>>,
     pub(crate) health: Option<HealthRegistry>,
     pub(crate) network_scope: ResolverNetworkScope,
     /// Built on first use inside the runtime that drives it, and rebuilt when a query runs on another one.
@@ -152,6 +155,7 @@ pub(crate) fn build_inner(
         dnscrypt_state: Mutex::new(None),
         dnscrypt_refresh: AsyncMutex::new(None),
         connection_pool: ConnectionPool::default(),
+        dot_connection: AsyncMutex::new(None),
         health,
         network_scope,
         doq: AsyncMutex::new(None),
