@@ -140,6 +140,33 @@ async fn h3_settings_goaway_prevents_connect() {
 }
 
 /// # Cancel safety:
+/// NOT cancel-safe: the test joins its bounded local peer and owns the exchange.
+#[tokio::test]
+async fn h3_settings_require_http_and_quic_datagram_support() {
+    for settings in [&[0, 4, 2, 8, 1][..], &[0, 4, 4, 8, 1, 0x33, 0][..]] {
+        let (error, _) = rejected_peer(settings, true).await;
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+        assert!(error.to_string().contains("masque_h3_datagram_unsupported"));
+    }
+    let (error, _) = rejected_peer(&[0, 4, 4, 8, 1, 0x33, 1], false).await;
+    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    assert!(error.to_string().contains("QUIC DATAGRAM"));
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: the test joins its bounded local peer and owns the exchange.
+#[tokio::test]
+async fn h3_settings_reject_invalid_booleans_with_settings_error() {
+    for settings in [&[0, 4, 4, 8, 2, 0x33, 1][..], &[0, 4, 4, 8, 1, 0x33, 2][..]] {
+        let (_, closed) = rejected_peer(settings, true).await;
+        match closed {
+            quinn::ConnectionError::ApplicationClosed(close) => assert_eq!(close.error_code.into_inner(), 0x109),
+            other => panic!("expected H3_SETTINGS_ERROR, got {other}"),
+        }
+    }
+}
+
+/// # Cancel safety:
 /// NOT cancel-safe: the test explicitly cancels and joins the opening task, then joins its bounded peer.
 #[tokio::test]
 async fn h3_settings_wait_is_cancelled_without_leaving_a_connection() {

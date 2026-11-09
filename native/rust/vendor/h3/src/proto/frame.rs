@@ -541,7 +541,7 @@ impl Settings {
                 return Err(SettingsError::InvalidSettingId(identifier.0));
             }
 
-            if matches!(identifier, SettingId::ENABLE_CONNECT_PROTOCOL)
+            if matches!(identifier, SettingId::ENABLE_CONNECT_PROTOCOL | SettingId::H3_DATAGRAM)
                 && value > 1
             {
                 return Err(SettingsError::InvalidSettingValue(identifier, value));

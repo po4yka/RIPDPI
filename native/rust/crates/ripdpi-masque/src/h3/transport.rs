@@ -80,6 +80,18 @@ pub(super) async fn connect_h3_transport(
                 "masque_h3_extended_connect_unsupported: proxy did not enable Extended CONNECT",
             )));
         }
+        if enable_datagram && !settings.enable_datagram() {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "masque_h3_datagram_unsupported: proxy did not enable HTTP Datagrams; capsule-only H3 is unsupported",
+            )));
+        }
+        if enable_datagram && path_connection.max_datagram_size().is_none() {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "masque_h3_datagram_unsupported: proxy did not enable QUIC DATAGRAM transport",
+            )));
+        }
         Poll::Ready(Ok(()))
     })
     .await?;
