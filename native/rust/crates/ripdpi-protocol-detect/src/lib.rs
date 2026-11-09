@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+use aes::Aes256;
+use cipher::{KeyIvInit, StreamCipher};
 use ripdpi_strategy_trait::{
     DhtDissect, DnsDissect, DtlsDissect, L7Protocol, MtprotoDissect, QuicDissect, StunDissect, TlsDissect,
     WireGuardDissect,
@@ -35,10 +37,8 @@ pub fn classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -
         return L7Protocol::Dns(DnsDissect { is_query: dns_is_query(payload, is_udp) });
     }
 
-    // MTProto has no stable fixed signature in the first bytes. This is only a
-    // port-and-absence heuristic and must run after stronger protocol checks.
-    // MTProto proxies carry it over TCP only, never over UDP.
-    if !is_udp && is_mtproto_heuristic(payload, src_port, dst_port) {
+    // Obfuscated2 is carried over TCP only; the init is validated cryptographically.
+    if !is_udp && is_obfuscated2_init(payload) {
         return L7Protocol::Mtproto(MtprotoDissect);
     }
 
@@ -105,19 +105,35 @@ fn dns_is_query(payload: &[u8], is_udp: bool) -> bool {
     payload.get(flags_offset).is_some_and(|flags| flags & 0x80 == 0)
 }
 
-fn is_mtproto_heuristic(payload: &[u8], src_port: u16, dst_port: u16) -> bool {
-    payload.len() >= 64
-        && (matches!(src_port, 80 | 443) || matches!(dst_port, 80 | 443))
-        && could_be_obfuscated2_init(payload)
-}
+/// Obfuscated2 init prefixes that Telegram clients regenerate (tdlib `TcpTransport.cpp`):
+/// `HEAD`, `POST`, `GET `, `OPTI`, a TLS record start, and the plain `dd`/`ee` transport tags.
+const OBFUSCATED2_REJECTED_PREFIXES: [u32; 7] =
+    [0x4441_4548, 0x5453_4f50, 0x2054_4547, 0x4954_504f, 0x0201_0316, 0xdddd_dddd, 0xeeee_eeee];
 
-/// Telegram clients regenerate an obfuscated2 init whose plaintext could pass for HTTP,
-/// TLS, or an unobfuscated MTProto transport, so a real init never starts like those.
-fn could_be_obfuscated2_init(payload: &[u8]) -> bool {
-    let tls_record = matches!(payload[0], 0x14..=0x17) && payload[1] == 0x03;
-    let http_method = [&b"GET "[..], b"HEAD", b"POST", b"PUT ", b"OPTI", b"DELE", b"PATC", b"CONN", b"TRAC"]
-        .iter()
-        .any(|method| payload.starts_with(method));
-    let plain_transport = payload[0] == 0xef || payload[..4] == [0xee; 4] || payload[..4] == [0xdd; 4];
-    !tls_record && !http_method && !plain_transport && payload[4..8] != [0; 4]
+/// Transport tags valid at `[56..60]` of the decrypted init: abridged, intermediate, padded intermediate.
+const OBFUSCATED2_TAGS: [[u8; 4]; 3] = [[0xef; 4], [0xee; 4], [0xdd; 4]];
+
+type Aes256Ctr = ctr::Ctr128BE<Aes256>;
+
+/// Validates a Telegram obfuscated2 init (core.telegram.org "Transport obfuscation").
+///
+/// Port-independent and TCP-only. The 64-byte init is checked against the generator's
+/// rejection rules, then decrypted with AES-256-CTR (key `[8..40]`, IV `[40..56]`), and the
+/// transport tag at `[56..60]` must be a valid one. A false positive on random data has
+/// probability about 3 * 2^-32. MTProxy inits are keyed with the proxy secret, so they
+/// cannot be verified without it and are intentionally not detected.
+fn is_obfuscated2_init(payload: &[u8]) -> bool {
+    let Some(init) = payload.first_chunk::<64>() else {
+        return false;
+    };
+    let first = u32::from_le_bytes([init[0], init[1], init[2], init[3]]);
+    if init[0] == 0xef || OBFUSCATED2_REJECTED_PREFIXES.contains(&first) || init[4..8] == [0; 4] {
+        return false;
+    }
+    let mut decrypted: [u8; 64] = *init;
+    let Ok(mut cipher) = Aes256Ctr::new_from_slices(&init[8..40], &init[40..56]) else {
+        return false;
+    };
+    cipher.apply_keystream(&mut decrypted);
+    OBFUSCATED2_TAGS.iter().any(|tag| decrypted[56..60] == tag[..])
 }

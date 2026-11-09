@@ -8,4 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+aes = { workspace = true }
+ctr = "0.10"
+cipher = "0.5"
 ripdpi-strategy-trait = { workspace = true }

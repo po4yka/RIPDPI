@@ -6242,6 +6242,9 @@ dependencies = [
 name = "ripdpi-protocol-detect"
 version = "0.1.0"
 dependencies = [
+ "aes",
+ "cipher 0.5.2",
+ "ctr",
  "ripdpi-strategy-trait",
 ]
 

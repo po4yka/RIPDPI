@@ -1,24 +1,104 @@
+use aes::Aes256;
+use cipher::{KeyIvInit, StreamCipher};
 use ripdpi_protocol_detect::classify_l7;
 use ripdpi_strategy_trait::L7Protocol;
 
-#[test]
-fn detects_mtproto_only_as_port_heuristic_after_stronger_signatures() {
-    let payload = [0xA5; 64];
-    assert!(matches!(classify_l7(&payload, 50000, 443, false), L7Protocol::Mtproto(_)));
-    assert!(matches!(classify_l7(&payload, 50000, 1234, false), L7Protocol::Unknown));
+type Aes256Ctr = ctr::Ctr128BE<Aes256>;
+
+fn is_mtproto(payload: &[u8], dst_port: u16) -> bool {
+    matches!(classify_l7(payload, 50000, dst_port, false), L7Protocol::Mtproto(_))
+}
+
+/// Deterministic xorshift64 byte stream; the test needs reproducible "random" bytes.
+fn pseudo_random(seed: u64, len: usize) -> Vec<u8> {
+    let mut state = seed;
+    (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 24) as u8
+        })
+        .collect()
+}
+
+/// Builds an init as core.telegram.org "Transport obfuscation" describes: random bytes that
+/// pass the generator's rejection rules, plaintext tag at [56..60], then bytes [56..64]
+/// replaced by their AES-256-CTR encryption (key=init[8..40], iv=init[40..56]).
+fn build_init(seed: u64, tag: [u8; 4]) -> [u8; 64] {
+    let mut counter = seed;
+    loop {
+        let mut init: [u8; 64] = pseudo_random(counter, 64).try_into().unwrap();
+        counter += 1;
+        let first = u32::from_le_bytes([init[0], init[1], init[2], init[3]]);
+        let rejected = [0x4441_4548, 0x5453_4f50, 0x2054_4547, 0x4954_504f, 0x0201_0316, 0xdddd_dddd, 0xeeee_eeee];
+        if init[0] == 0xef || rejected.contains(&first) || init[4..8] == [0; 4] {
+            continue;
+        }
+        init[56..60].copy_from_slice(&tag);
+        let mut encrypted = init;
+        Aes256Ctr::new_from_slices(&init[8..40], &init[40..56]).unwrap().apply_keystream(&mut encrypted);
+        init[56..64].copy_from_slice(&encrypted[56..64]);
+        return init;
+    }
 }
 
 #[test]
-fn ordinary_web_traffic_on_mtproto_ports_is_not_mtproto() {
-    let mut http = b"GET /index.html HTTP/1.1\r\nUser-Agent: test\r\nAccept: */*\r\n".to_vec();
-    http.resize(96, b'x');
-    assert!(!matches!(classify_l7(&http, 50000, 80, false), L7Protocol::Mtproto(_)));
+fn detects_valid_obfuscated2_init_on_any_port() {
+    for (n, tag) in [[0xef; 4], [0xee; 4], [0xdd; 4]].into_iter().enumerate() {
+        for seed in 1..=20_u64 {
+            let init = build_init(seed * 1000 + n as u64, tag);
+            for port in [443, 5222, 8888] {
+                assert!(is_mtproto(&init, port), "seed {seed} tag {tag:02x?} port {port}");
+            }
+        }
+    }
+}
 
-    let mut tls_app_data = vec![0x17, 0x03, 0x03, 0x04, 0x00];
-    tls_app_data.resize(1029, 0xA5);
-    assert!(!matches!(classify_l7(&tls_app_data, 50000, 443, false), L7Protocol::Mtproto(_)));
+#[test]
+fn detects_init_followed_by_more_stream_bytes() {
+    let mut payload = build_init(7, [0xee; 4]).to_vec();
+    payload.extend_from_slice(&pseudo_random(99, 200));
+    assert!(is_mtproto(&payload, 443));
+}
 
-    let mut quic_short_header = vec![0x45];
-    quic_short_header.resize(1200, 0xA5);
-    assert!(!matches!(classify_l7(&quic_short_header, 50000, 443, true), L7Protocol::Mtproto(_)));
+#[test]
+fn rejects_obfuscated2_init_with_wrong_tag_or_udp() {
+    let mut init = build_init(3, [0xef; 4]);
+    init[59] ^= 0x01;
+    assert!(!is_mtproto(&init, 443));
+
+    let valid = build_init(3, [0xef; 4]);
+    assert!(!matches!(classify_l7(&valid, 50000, 443, true), L7Protocol::Mtproto(_)));
+    assert!(!is_mtproto(&valid[..63], 443));
+}
+
+#[test]
+fn rejects_plain_text_and_binary_protocols_that_are_not_mtproto() {
+    let mut h2 = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".to_vec();
+    h2.extend_from_slice(&[0, 0, 0, 4, 0, 0, 0, 0, 0]);
+    h2.extend_from_slice(&[0, 0, 4, 8, 0, 0, 0, 0, 0, 0, 0xff, 0, 1]);
+    h2.resize(64, 0);
+    assert!(!is_mtproto(&h2, 80));
+
+    let mut propfind = b"PROPFIND / HTTP/1.1\r\nHost: x\r\nDepth: 0\r\nContent-Length: 0\r\n\r\n".to_vec();
+    propfind.resize(80, b' ');
+    assert!(!is_mtproto(&propfind, 80));
+
+    let mut bittorrent = vec![19];
+    bittorrent.extend_from_slice(b"BitTorrent protocol");
+    bittorrent.extend_from_slice(&[0; 8]);
+    bittorrent.extend_from_slice(&pseudo_random(5, 40));
+    assert_eq!(bittorrent.len(), 68);
+    assert!(!is_mtproto(&bittorrent, 80));
+
+    let xmpp = b"<?xml version='1.0'?><stream:stream to='example.org' xmlns='jabber:client' \
+                 xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>";
+    assert!(!is_mtproto(xmpp, 443));
+
+    let mut ssh = b"SSH-2.0-OpenSSH_9.6\r\n".to_vec();
+    ssh.resize(64, 0x41);
+    assert!(!is_mtproto(&ssh, 443));
+
+    assert!(!is_mtproto(&pseudo_random(0xdead_beef, 1400), 443));
 }

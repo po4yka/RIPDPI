@@ -44,5 +44,7 @@ fn classifier_does_not_allocate() {
     for sample in samples {
         let _ = classify_l7(sample, 12345, 443, true);
     }
+    // TCP payload that reaches the obfuscated2 AES validation.
+    let _ = classify_l7(&[0xA5_u8; 80], 12345, 443, false);
     PANIC_ON_ALLOC.store(false, Ordering::Relaxed);
 }
