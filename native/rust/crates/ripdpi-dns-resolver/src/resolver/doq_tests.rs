@@ -7,10 +7,20 @@ use rustls::pki_types::PrivatePkcs8KeyDer;
 use super::EncryptedDnsResolver;
 use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport};
 
+/// The query with a QR bit: a valid response that repeats the question.
+fn echo_response(query: &[u8]) -> Vec<u8> {
+    let mut response = query.to_vec();
+    response[2] |= 0x80;
+    response
+}
+
 /// # Cancel safety
 ///
 /// cancel-safe: both futures are joined in the test; dropping them releases their endpoints and streams.
-async fn exchange(response: Vec<u8>, trailing: &[u8]) -> (Vec<u8>, Result<Vec<u8>, EncryptedDnsError>) {
+async fn exchange(
+    response: impl FnOnce(&[u8]) -> Vec<u8>,
+    trailing: &[u8],
+) -> (Vec<u8>, Result<Vec<u8>, EncryptedDnsError>) {
     let certificate = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
     let cert = certificate.cert.der().clone();
     let mut tls = rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
@@ -53,6 +63,7 @@ async fn exchange(response: Vec<u8>, trailing: &[u8]) -> (Vec<u8>, Result<Vec<u8
         recv.read_exact(&mut length).await.unwrap();
         let mut received = vec![0; usize::from(u16::from_be_bytes(length))];
         recv.read_exact(&mut received).await.unwrap();
+        let response = response(&received);
         send.write_all(&(response.len() as u16).to_be_bytes()).await.unwrap();
         send.write_all(&response).await.unwrap();
         send.write_all(trailing).await.unwrap();
@@ -67,25 +78,24 @@ async fn exchange(response: Vec<u8>, trailing: &[u8]) -> (Vec<u8>, Result<Vec<u8
 
 #[tokio::test(flavor = "current_thread")]
 async fn doq_uses_zero_wire_id_and_restores_caller_id() {
-    let mut response = vec![0; 12];
-    response[2] = 0x80;
-    let (query, result) = exchange(response.clone(), &[]).await;
+    let (query, result) = exchange(echo_response, &[]).await;
     assert_eq!(&query[..2], &[0, 0]);
-    response[..2].copy_from_slice(&[0x12, 0x34]);
-    assert_eq!(result.unwrap(), response);
+    let mut expected = echo_response(&query);
+    expected[..2].copy_from_slice(&[0x12, 0x34]);
+    assert_eq!(result.unwrap(), expected);
 }
 
 #[tokio::test(flavor = "current_thread")]
 async fn doq_rejects_short_headers_and_nonzero_response_ids() {
     for response in [vec![0; 11], vec![1; 12]] {
-        let (_, result) = exchange(response, &[]).await;
+        let (_, result) = exchange(|_| response, &[]).await;
         assert!(result.is_err());
     }
 }
 
 #[tokio::test(flavor = "current_thread")]
 async fn doq_rejects_trailing_data_after_the_response() {
-    let (_, result) = exchange(vec![0; 12], &[1]).await;
+    let (_, result) = exchange(echo_response, &[1]).await;
     assert!(result.is_err());
 }
 
@@ -129,9 +139,8 @@ impl ThreadedDoqServer {
                         recv.read_exact(&mut length).await.unwrap();
                         let mut received = vec![0; usize::from(u16::from_be_bytes(length))];
                         recv.read_exact(&mut received).await.unwrap();
-                        let mut response = vec![0; 12];
-                        response[2] = 0x80;
-                        send.write_all(&12u16.to_be_bytes()).await.unwrap();
+                        let response = echo_response(&received);
+                        send.write_all(&(response.len() as u16).to_be_bytes()).await.unwrap();
                         send.write_all(&response).await.unwrap();
                         send.finish().unwrap();
                         if close_after_answer {
@@ -187,7 +196,7 @@ fn doq_blocking_exchange_works_without_an_ambient_runtime() {
     // Two calls: the second must reuse a live endpoint, not one whose driver died with a per-call runtime.
     for _ in 0..2 {
         let response = resolver.exchange_blocking(&blocking_query()).expect("blocking DoQ exchange must succeed");
-        assert_eq!(&response[..3], &[0x12, 0x34, 0x80]);
+        assert_eq!(&response[..3], &[0x12, 0x34, 0x81]);
     }
     server.stop();
 }
@@ -200,7 +209,7 @@ fn doq_recovers_when_the_connection_closed_between_blocking_calls() {
         // Nothing drives the cached connection between the calls, so the server's close is seen only
         // once the next query is under way; that query must retry on a fresh connection.
         let response = resolver.exchange_blocking(&blocking_query()).expect("blocking DoQ exchange must succeed");
-        assert_eq!(&response[..3], &[0x12, 0x34, 0x80]);
+        assert_eq!(&response[..3], &[0x12, 0x34, 0x81]);
     }
     server.stop();
 }
@@ -213,7 +222,7 @@ fn doq_rebuilds_its_endpoint_after_the_driving_runtime_is_gone() {
         // Each caller runtime is dropped after one query, taking the endpoint driver with it.
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
         let response = runtime.block_on(resolver.exchange(&blocking_query())).expect("DoQ exchange must succeed");
-        assert_eq!(&response[..3], &[0x12, 0x34, 0x80]);
+        assert_eq!(&response[..3], &[0x12, 0x34, 0x81]);
     }
     server.stop();
 }

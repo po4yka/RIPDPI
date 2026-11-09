@@ -43,6 +43,9 @@ fn bind_protected_udp_socket(bind_addr: SocketAddr, protect_path: &str) -> io::R
         SocketAddr::V6(_) => Domain::IPV6,
     };
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+    if bind_addr.is_ipv6() {
+        socket.set_only_v6(false)?;
+    }
     platform::vpn::protect_proxy_socket(&socket, Some(protect_path))?;
     socket.bind(&SockAddr::from(bind_addr))?;
     let socket: UdpSocket = socket.into();

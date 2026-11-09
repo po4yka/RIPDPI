@@ -23,6 +23,10 @@ pub(crate) fn normalize_endpoint(
     if endpoint.port == 0 {
         endpoint.port = endpoint.protocol.default_port();
     }
+    if endpoint.protocol == EncryptedDnsProtocol::Doq && endpoint.port == 53 {
+        // RFC 9250 section 4.1.1: DoQ connections MUST NOT use UDP port 53.
+        return Err(EncryptedDnsError::InvalidEndpoint("DoQ must not use UDP port 53".into()));
+    }
 
     match endpoint.protocol {
         EncryptedDnsProtocol::Doh => normalize_doh_endpoint(&mut endpoint)?,

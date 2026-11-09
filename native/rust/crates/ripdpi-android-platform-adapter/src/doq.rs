@@ -113,6 +113,9 @@ async fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeD
 fn doq_connect_hooks() -> EncryptedDnsConnectHooks {
     EncryptedDnsConnectHooks::new().with_direct_udp_binder(|bind_addr| {
         let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+        if bind_addr.is_ipv6() {
+            socket.set_only_v6(false)?;
+        }
         if has_protect_callback() {
             protect_socket_via_callback(socket.as_raw_fd())
                 .map_err(|error| io::Error::new(error.kind(), format!("protect native DoQ socket: {error}")))?;

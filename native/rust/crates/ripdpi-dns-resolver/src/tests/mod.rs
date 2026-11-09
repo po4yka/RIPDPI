@@ -3,6 +3,7 @@ mod burst;
 mod dnscrypt_certs;
 mod doh_endpoint;
 mod doq_cancellation;
+mod doq_rfc9250;
 mod doq_transport;
 mod dot_alpn;
 mod dot_pin;
