@@ -204,3 +204,12 @@ fn clean_negative_answer_outranks_another_resolvers_fault() {
     });
     assert_eq!((result.status, result.reason), ("NO_PREFIX", Some("no_prefix")));
 }
+
+#[test]
+fn prefix_96_with_nonzero_reserved_octet_is_rejected() {
+    let bad = Nat64Prefix { address: "2001:db8:122:344:ff00::".parse().unwrap(), length: 96 };
+    assert_eq!(bad.synthesize(Ipv4Addr::new(1, 1, 1, 1)), None);
+    assert!(discover_nat64_prefixes(&["2001:db8:122:344:ff00::c000:aa".into()]).is_err());
+    let good = Nat64Prefix { address: "2001:db8:122:344::".parse().unwrap(), length: 96 };
+    assert_eq!(good.synthesize(Ipv4Addr::new(192, 0, 0, 170)).unwrap().to_string(), "2001:db8:122:344::c000:aa");
+}

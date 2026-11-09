@@ -24,6 +24,10 @@ impl Nat64Prefix {
             return None;
         }
         let mut bytes = self.address.octets();
+        // RFC 6052 section 2.2: bits 64 to 71 are the reserved u octet, zero also for /96.
+        if self.length == 96 && bytes[8] != 0 {
+            return None;
+        }
         if bytes[offset..].iter().any(|byte| *byte != 0) {
             return None;
         }
