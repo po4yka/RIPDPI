@@ -595,16 +595,27 @@ class XrayProviderE2ETest {
                             phase.value = "xray/dispatch"
                             vm.checkAndSelect(reference)
                             phase.value = "xray/measured"
-                            try {
-                                vm.uiState.first { ui ->
-                                    ui.profiles.any { row ->
-                                        row.reference == reference &&
-                                            row.measurement is ProfileMeasurementUiState.Measured
-                                    }
+                            val measured =
+                                try {
+                                    vm.uiState
+                                        .first { ui ->
+                                            ui.profiles.any { row ->
+                                                row.reference == reference &&
+                                                    (
+                                                        row.measurement is ProfileMeasurementUiState.Measured ||
+                                                            row.measurement is ProfileMeasurementUiState.Failed
+                                                    )
+                                            }
+                                        }.profiles
+                                        .single { it.reference == reference }
+                                        .measurement
+                                } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
+                                    throw utilityPhaseTimeout("utility-measured", vm, failure)
                                 }
-                            } catch (failure: kotlinx.coroutines.TimeoutCancellationException) {
-                                throw utilityPhaseTimeout("utility-measured", vm, failure)
-                            }
+                            assertTrue(
+                                "Xray candidate measurement failed: $measured",
+                                measured is ProfileMeasurementUiState.Measured,
+                            )
                             phase.value = "xray/applied"
                             utilityApplied.applications.first { applications ->
                                 val configured =
