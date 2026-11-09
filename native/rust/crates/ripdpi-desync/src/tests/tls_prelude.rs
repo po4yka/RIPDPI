@@ -166,3 +166,15 @@ fn apply_tamper_tlsrec_is_noop_on_incomplete_record() {
     assert_eq!(tampered.bytes, truncated);
     assert_eq!(tampered.tls_prelude.applied_count, 0);
 }
+
+#[test]
+fn apply_tamper_tlsrec_never_emits_a_zero_length_record() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(0))];
+
+    let fake = complete_fake_tls();
+    let tampered = apply_tamper(&group, &fake, 7).expect("tamper offset zero");
+
+    assert!(tls_record_lengths(&tampered.bytes).iter().all(|&len| len > 0));
+    assert_eq!(tampered.tls_prelude.applied_count, 0);
+}
