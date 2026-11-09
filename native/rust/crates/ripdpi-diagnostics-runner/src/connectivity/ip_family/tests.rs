@@ -9,6 +9,9 @@ fn config() -> IpFamilyProbeConfig {
         timeout_ms: 100,
     }
 }
+fn nat64_config() -> IpFamilyProbeConfig {
+    IpFamilyProbeConfig { ipv4_address: "1.1.1.1".into(), ..config() }
+}
 fn evidence(row: &ProbeResult) -> String {
     row.details[0].value.clone()
 }
@@ -96,7 +99,7 @@ fn discovered_prefixes_require_real_connect_and_try_next_in_response_order() {
     let mut facts = nat64_evidence();
     let mut peers = vec![];
     execute_with(
-        &config(),
+        &nat64_config(),
         &[],
         &AtomicBool::new(false),
         &mut facts,
@@ -109,11 +112,11 @@ fn discovered_prefixes_require_real_connect_and_try_next_in_response_order() {
     assert_eq!(facts.status, "REACHABLE");
     assert_eq!(facts.attempt_count, 3);
     assert_eq!(facts.prefix, Some("64:ff9b::".into()));
-    assert_eq!(peers[0].ip().to_string(), "2001:db8::7f00:1");
-    assert_eq!(peers[1].ip().to_string(), "64:ff9b::7f00:1");
+    assert_eq!(peers[0].ip().to_string(), "2001:db8::101:101");
+    assert_eq!(peers[1].ip().to_string(), "64:ff9b::101:101");
     let mut facts = nat64_evidence();
     execute_with(
-        &config(),
+        &nat64_config(),
         &[],
         &AtomicBool::new(false),
         &mut facts,
@@ -131,7 +134,7 @@ fn cancellation_after_discovery_prevents_tcp_and_dns_timeout_is_inconclusive() {
     let cancel = AtomicBool::new(false);
     let mut facts = nat64_evidence();
     execute_with(
-        &config(),
+        &nat64_config(),
         &[],
         &cancel,
         &mut facts,
@@ -199,7 +202,7 @@ fn interrupted_first_tcp_attempt_retains_its_matching_prefix() {
     let mut count = 0;
     let cancel = AtomicBool::new(false);
     execute_with(
-        &config(),
+        &nat64_config(),
         &[],
         &cancel,
         &mut facts,
@@ -212,5 +215,27 @@ fn interrupted_first_tcp_attempt_retains_its_matching_prefix() {
     );
     assert_eq!(count, 1);
     assert_eq!(facts.prefix, Some("2001:db8::".into()));
-    assert_eq!(facts.destination_address, Some("2001:db8::7f00:1".into()));
+    assert_eq!(facts.destination_address, Some("2001:db8::101:101".into()));
+}
+
+#[test]
+fn well_known_prefix_cannot_carry_private_ipv4_to_tcp() {
+    use ripdpi_diagnostics_dns::dns::Nat64Prefix;
+    let mut facts = nat64_evidence();
+    let config = IpFamilyProbeConfig { ipv4_address: "10.0.0.1".into(), ..config() };
+    execute_with(
+        &config,
+        &[],
+        &AtomicBool::new(false),
+        &mut facts,
+        |_, _| Nat64Discovery {
+            prefixes: vec![Nat64Prefix { address: "64:ff9b::".parse().unwrap(), length: 96 }],
+            status: "DISCOVERED",
+            reason: None,
+            attempts: 1,
+        },
+        |_| panic!("TCP must not start for a non-global IPv4 behind the Well-Known Prefix"),
+    );
+    assert_eq!((facts.status.as_str(), facts.reason.as_deref()), ("INVALID", Some("invalid_config")));
+    assert_eq!(facts.attempt_count, 1);
 }

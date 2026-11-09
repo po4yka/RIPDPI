@@ -16,11 +16,38 @@ pub struct Nat64Prefix {
     pub address: Ipv6Addr,
     pub length: u8,
 }
+const WELL_KNOWN_PREFIX: Ipv6Addr = Ipv6Addr::new(0x64, 0xff9b, 0, 0, 0, 0, 0, 0);
+
+fn is_global_ipv4(address: Ipv4Addr) -> bool {
+    let [a, b, c, _] = address.octets();
+    !(a == 0
+        || a == 10
+        || a == 127
+        || a >= 224
+        || (a == 100 && (64..128).contains(&b))
+        || (a == 169 && b == 254)
+        || (a == 172 && (16..32).contains(&b))
+        || (a == 192 && b == 0 && (c == 0 || c == 2))
+        || (a == 192 && b == 168)
+        || (a == 198 && (b == 18 || b == 19))
+        || (a == 198 && b == 51 && c == 100)
+        || (a == 203 && b == 0 && c == 113))
+}
+
 impl Nat64Prefix {
     /// RFC 6052 places the reserved u octet at byte 8 for non-/96 prefixes.
     pub fn synthesize(self, address: Ipv4Addr) -> Option<Ipv6Addr> {
         let offset = usize::from(self.length / 8);
         if ![32, 40, 48, 56, 64, 96].contains(&self.length) {
+            return None;
+        }
+        // RFC 6052 section 3.1: the Well-Known Prefix never represents non-global IPv4. The RFC 7050
+        // discovery sentinels are the one exception.
+        if self.address == WELL_KNOWN_PREFIX
+            && self.length == 96
+            && !matches!(address.octets(), [192, 0, 0, 170 | 171])
+            && !is_global_ipv4(address)
+        {
             return None;
         }
         let mut bytes = self.address.octets();

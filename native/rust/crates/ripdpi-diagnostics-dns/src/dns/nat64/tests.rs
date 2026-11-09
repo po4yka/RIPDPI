@@ -213,3 +213,31 @@ fn prefix_96_with_nonzero_reserved_octet_is_rejected() {
     let good = Nat64Prefix { address: "2001:db8:122:344::".parse().unwrap(), length: 96 };
     assert_eq!(good.synthesize(Ipv4Addr::new(192, 0, 0, 170)).unwrap().to_string(), "2001:db8:122:344::c000:aa");
 }
+
+#[test]
+fn well_known_prefix_rejects_non_global_ipv4_but_nsp_does_not() {
+    let wkp = Nat64Prefix { address: "64:ff9b::".parse().unwrap(), length: 96 };
+    for text in [
+        "0.1.2.3",
+        "10.0.0.1",
+        "100.64.0.1",
+        "127.0.0.1",
+        "169.254.1.1",
+        "172.16.0.1",
+        "192.0.0.1",
+        "192.0.2.1",
+        "192.168.1.1",
+        "198.18.0.1",
+        "198.51.100.1",
+        "203.0.113.1",
+        "224.0.0.1",
+        "240.0.0.1",
+        "255.255.255.255",
+    ] {
+        assert_eq!(wkp.synthesize(text.parse().unwrap()), None, "{text}");
+    }
+    assert!(wkp.synthesize(Ipv4Addr::new(8, 8, 8, 8)).is_some());
+    assert!(wkp.synthesize(Ipv4Addr::new(192, 0, 0, 170)).is_some(), "RFC 7050 sentinel");
+    let nsp = Nat64Prefix { address: "2001:db8::".parse().unwrap(), length: 96 };
+    assert_eq!(nsp.synthesize(Ipv4Addr::new(10, 0, 0, 1)).unwrap().to_string(), "2001:db8::a00:1");
+}
