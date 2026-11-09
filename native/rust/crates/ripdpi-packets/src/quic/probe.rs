@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use ring::agreement;
 use ring::rand::{SecureRandom, SystemRandom};
 
@@ -60,6 +62,10 @@ fn probe_client_hello(template: &[u8], host: Option<&str>, scid: &[u8], random: 
     let mut seen = Vec::new();
     for extension in &parsed.extensions {
         let kind = extension.ext_type;
+        // RFC 6066 section 3 excludes literal IP addresses from server_name.
+        if kind == 0 && host.is_some_and(|name| name.parse::<IpAddr>().is_ok()) {
+            continue;
+        }
         if matches!(kind, 0x0015 | 0x0039) || seen.contains(&kind) {
             continue;
         }

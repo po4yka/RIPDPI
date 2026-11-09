@@ -26,6 +26,18 @@ fn active_probe_uses_a_quic_client_hello() {
 }
 
 #[test]
+fn ip_probe_targets_do_not_set_server_name() {
+    for profile in [TlsFakeProfile::GoogleChrome, TlsFakeProfile::IanaFirefox, TlsFakeProfile::CompatDefault] {
+        for host in ["127.0.0.1", "::1"] {
+            let hello = probe_client_hello(tls_fake_profile_bytes(profile), Some(host), b"scid", &SystemRandom::new())
+                .expect("IP probe ClientHello");
+            let parsed = crate::tls_nom::parse_client_hello_record(&hello).expect("ClientHello");
+            assert!(crate::tls_nom::find_extension(&parsed, 0).is_none(), "{profile:?} sends IP {host} as SNI");
+        }
+    }
+}
+
+#[test]
 fn probes_carry_fresh_client_hello_random_and_key_share() {
     let hellos: Vec<Vec<u8>> = (0..2)
         .map(|_| {
