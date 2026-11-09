@@ -16,7 +16,9 @@ use crate::endpoint::{
     ClientSocketSpec, build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config,
 };
 use crate::migration::QuicMigration;
-use crate::protocol::{HEARTBEAT_DATAGRAM, TuicAddress, authenticate_connection, classify_handshake_failure};
+use crate::protocol::{
+    HEARTBEAT_DATAGRAM, TuicAddress, authenticate_connection, classify_handshake_failure, hint_close_before_server_data,
+};
 use crate::tcp::{DuplexStream, encode_connect_header};
 use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
 
@@ -165,12 +167,18 @@ impl TuicClient {
         self.open_tcp_stream_inner(target)
             .await
             .map_err(|error| classify_handshake_failure(&self.inner.connection, error))
+            .map_err(|error| hint_close_before_server_data(&self.inner.connection, error))
     }
 
     async fn open_tcp_stream_inner(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
         let (mut send, recv) = self.inner.connection.open_bi().await?;
         encode_connect_header(&mut send, target).await?;
-        Ok(DuplexStream { send, recv, _active: ActiveTask::new(Arc::clone(&self.inner)) })
+        Ok(DuplexStream {
+            send,
+            recv,
+            connection: self.inner.connection.clone(),
+            _active: ActiveTask::new(Arc::clone(&self.inner)),
+        })
     }
 }
 

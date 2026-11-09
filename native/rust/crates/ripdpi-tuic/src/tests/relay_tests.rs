@@ -144,3 +144,33 @@ fn packet_header_rejects_invalid_fragment_fields() {
         assert!(PacketHeader::decode(&buffer).is_err(), "total {total} id {id} must be rejected");
     }
 }
+
+/// With a wrong password a TUIC server accepts the connection, then closes it
+/// without a reply. The relay error must say so instead of showing a bare
+/// application close.
+#[tokio::test]
+async fn relay_failure_after_silent_server_close_hints_at_credentials() {
+    let (server, cert_der) = fixture_server();
+    let server_addr = server.local_addr().expect("server addr");
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        let mut auth = connection.accept_uni().await.expect("auth stream");
+        auth.read_to_end(1024).await.expect("auth read");
+        connection.close(quinn::VarInt::from_u32(0), b"");
+        connection.closed().await;
+    });
+    let client = fixture_client(server_addr, cert_der, false).await;
+    let outcome = async {
+        let mut stream = client.tcp_connect("echo.example:443").await?;
+        stream.write_all(b"hello").await?;
+        let mut echoed = [0u8; 5];
+        stream.read_exact(&mut echoed).await.map(|_| ())
+    };
+    let error = tokio::time::timeout(Duration::from_secs(5), outcome)
+        .await
+        .expect("the relay must fail, not hang")
+        .expect_err("the server closed the connection");
+    assert!(error.to_string().contains("UUID or password"), "missing hint: {error}");
+    assert!(!error.to_string().contains("tuic-fixture"), "the error must not carry the password: {error}");
+    server_task.await.expect("server task");
+}

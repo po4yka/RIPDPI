@@ -168,6 +168,31 @@ pub(crate) fn classify_handshake_failure(connection: &quinn::Connection, fallbac
         fallback
     }
 }
+/// Adds a hint to a relay failure when the server application-closed the
+/// connection before it sent any stream or datagram data. TUIC v5 has no
+/// authentication reply: a server that rejects the UUID or password only
+/// closes the connection, so such a close is the visible symptom. The error
+/// kind is kept, and a typed [`TuicHandshakeError`] passes through unchanged.
+pub(crate) fn hint_close_before_server_data(connection: &quinn::Connection, error: io::Error) -> io::Error {
+    if error.get_ref().is_some_and(<dyn std::error::Error + Send + Sync>::is::<TuicHandshakeError>) {
+        return error;
+    }
+    if !matches!(connection.close_reason(), Some(quinn::ConnectionError::ApplicationClosed(_))) {
+        return error;
+    }
+    let received = connection.stats().frame_rx;
+    if received.stream != 0 || received.datagram != 0 {
+        return error;
+    }
+    io::Error::new(
+        error.kind(),
+        format!(
+            "{error}; the TUIC server closed the connection right after authentication \
+             without sending data, so the UUID or password may be wrong"
+        ),
+    )
+}
+
 pub(crate) const COMMAND_AUTHENTICATE: u8 = 0x00;
 pub(crate) const COMMAND_CONNECT: u8 = 0x01;
 pub(crate) const COMMAND_PACKET: u8 = 0x02;
