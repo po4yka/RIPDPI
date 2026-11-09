@@ -7,7 +7,7 @@ use jni::{EnvUnowned, Outcome};
 pub(crate) fn json_entry(
     mut env: EnvUnowned<'_>,
     request_json: JString<'_>,
-    handler: fn(&str) -> io::Result<String>,
+    handler: impl FnOnce(&str) -> io::Result<String>,
 ) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {

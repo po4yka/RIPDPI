@@ -22,7 +22,7 @@ ripdpi-tls-profiles = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time", "sync"] }
 tokio-boring = { workspace = true }
 tokio-rustls = { workspace = true }
 url = { workspace = true }

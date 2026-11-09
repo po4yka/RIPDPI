@@ -59,7 +59,16 @@ class NativeEchTlsHandshakeTest {
     ) : NativeEchTlsHandshakeBindings {
         lateinit var lastRequestJson: String
 
-        override fun connect(requestJson: String): String? {
+        override fun createRequest(): Long = 1L
+
+        override fun cancelRequest(requestHandle: Long) = Unit
+
+        override fun releaseRequest(requestHandle: Long) = Unit
+
+        override fun connect(
+            requestHandle: Long,
+            requestJson: String,
+        ): String? {
             lastRequestJson = requestJson
             return responseJson
         }

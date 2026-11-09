@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.integration
 
+import com.poyka.ripdpi.core.NativeEchTlsHandshakeBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings
 import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProxy
@@ -26,6 +27,25 @@ import java.net.ServerSocket
 import java.net.Socket
 
 class NativeBridgeInstrumentedTest {
+    @Test
+    fun nativeEchRequestCancellationIsBoundToItsHandle() {
+        val handle = NativeEchTlsHandshakeBridge.createRequest()
+        assertTrue(handle > 0L)
+        try {
+            NativeEchTlsHandshakeBridge.cancelRequest(handle)
+            val payload =
+                NativeEchTlsHandshakeBridge.connect(
+                    handle,
+                    """{"target":"127.0.0.1","echConfigBytesB64":"%%%","connectTimeoutMs":10000}""",
+                )
+            assertTrue(requireNotNull(payload).contains("\"cancelled\":true"))
+        } finally {
+            NativeEchTlsHandshakeBridge.releaseRequest(handle)
+        }
+        NativeEchTlsHandshakeBridge.cancelRequest(handle)
+        NativeEchTlsHandshakeBridge.releaseRequest(handle)
+    }
+
     @Test
     fun proxyWrapperStartsStopsAndRejectsDuplicateUse() {
         runBlocking {

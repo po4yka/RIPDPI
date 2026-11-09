@@ -7,19 +7,29 @@ use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::pki_types::{EchConfigListBytes, ServerName};
 use rustls::{ClientConfig, RootCertStore};
 use serde::{Deserialize, Serialize};
+use tokio::sync::watch;
 use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
 
 use crate::socket_protection::connect_transport;
 
 pub(crate) fn connect(request_json: &str) -> io::Result<String> {
+    let (_sender, receiver) = watch::channel(false);
+    connect_cancellable(request_json, receiver)
+}
+
+pub(crate) fn connect_cancellable(request_json: &str, cancelled: watch::Receiver<bool>) -> io::Result<String> {
     let request: NativeEchTlsHandshakeRequest =
         serde_json::from_str(request_json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(io::Error::other)?;
-    let payload = runtime.block_on(connect_async(request)).unwrap_or_else(NativeEchTlsHandshakeResponse::error);
+    let payload = runtime
+        .block_on(crate::native_ech_cancellation::run(cancelled, connect_async(request)))
+        .unwrap_or_else(NativeEchTlsHandshakeResponse::error);
     serde_json::to_string(&payload).map_err(io::Error::other)
 }
 
+/// # Cancel safety:
+/// cancel-safe: dropping this future closes its DNS exchange, unconnected socket or TLS stream.
 async fn connect_async(request: NativeEchTlsHandshakeRequest) -> io::Result<NativeEchTlsHandshakeResponse> {
     let config = build_ech_client_config(&request.ech_config_bytes_b64)?;
     let connector = TlsConnector::from(Arc::new(config));
@@ -40,6 +50,7 @@ async fn connect_async(request: NativeEchTlsHandshakeRequest) -> io::Result<Nati
         negotiated_ech: Some(negotiated_ech),
         latency_ms: Some(started.elapsed().as_millis() as u64),
         error: None,
+        cancelled: false,
     })
 }
 
@@ -78,11 +89,18 @@ struct NativeEchTlsHandshakeResponse {
     negotiated_ech: Option<bool>,
     latency_ms: Option<u64>,
     error: Option<String>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    cancelled: bool,
 }
 
 impl NativeEchTlsHandshakeResponse {
     fn error(error: io::Error) -> Self {
-        Self { negotiated_ech: None, latency_ms: None, error: Some(error.to_string()) }
+        Self {
+            negotiated_ech: None,
+            latency_ms: None,
+            cancelled: error.kind() == io::ErrorKind::Interrupted,
+            error: Some(error.to_string()),
+        }
     }
 }
 

@@ -4,20 +4,22 @@ import android.annotation.SuppressLint
 import android.net.DnsResolver
 import android.net.Network
 import android.os.Build
+import android.os.CancellationSignal
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.xbill.DNS.Type
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -107,7 +109,7 @@ class DohWireHttpsRrQuery(
     private val endpoint: String = DefaultDohEndpoint,
 ) : HttpsRrQuery {
     override suspend fun query(host: String): List<HttpsRrRecord> =
-        withContext(Dispatchers.IO) {
+        suspendCancellableCoroutine { continuation ->
             val transactionId = DnsWireBuilder.randomTransactionId()
             val query = HttpsDnsWireBuilder.buildQuery(host, transactionId)
             val request =
@@ -117,11 +119,34 @@ class DohWireHttpsRrQuery(
                     .post(query.toRequestBody(DnsMessageMediaType))
                     .header("Accept", DnsMessageContentType)
                     .build()
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) throw IOException("DoH HTTPS RR query failed: ${response.code}")
-                val bytes = response.body.bytes()
-                HttpsDnsWireParser.parseResponse(bytes, query)
-            }
+            val call = client.newCall(request)
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(
+                object : Callback {
+                    override fun onFailure(
+                        call: Call,
+                        e: IOException,
+                    ) {
+                        continuation.resumeWithException(e)
+                    }
+
+                    override fun onResponse(
+                        call: Call,
+                        response: Response,
+                    ) {
+                        try {
+                            val records =
+                                response.use {
+                                    if (!it.isSuccessful) throw IOException("DoH HTTPS RR query failed: ${it.code}")
+                                    HttpsDnsWireParser.parseResponse(it.body.bytes(), query)
+                                }
+                            continuation.resume(records)
+                        } catch (error: IOException) {
+                            continuation.resumeWithException(error)
+                        }
+                    }
+                },
+            )
         }
 
     private companion object {
@@ -145,6 +170,8 @@ class AndroidSystemHttpsRrQuery(
         val resolver = resolverProvider?.invoke() ?: DnsResolver.getInstance()
         val bytes =
             suspendCancellableCoroutine { continuation ->
+                val cancellation = CancellationSignal()
+                continuation.invokeOnCancellation { cancellation.cancel() }
                 resolver.rawQuery(
                     network,
                     host,
@@ -152,7 +179,7 @@ class AndroidSystemHttpsRrQuery(
                     HttpsDnsWireBuilder.HttpsRecordType,
                     DnsResolver.FLAG_EMPTY,
                     executor,
-                    null,
+                    cancellation,
                     object : DnsResolver.Callback<ByteArray> {
                         override fun onAnswer(
                             answer: ByteArray,
