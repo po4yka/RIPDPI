@@ -117,3 +117,11 @@ async fn invalid_uuid_fails_before_any_handshake() {
     let incoming = tokio::time::timeout(Duration::from_millis(300), server.accept()).await;
     assert!(incoming.is_err(), "the fixture server must see no handshake");
 }
+
+#[test]
+fn authority_with_an_empty_host_is_rejected() {
+    for authority in [":443", "[]:443"] {
+        let error = TuicAddress::from_authority(authority).expect_err("empty host must be rejected");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput, "{authority}");
+    }
+}

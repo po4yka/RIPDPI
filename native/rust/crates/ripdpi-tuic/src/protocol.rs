@@ -195,6 +195,9 @@ impl TuicAddress {
         let port = port.parse::<u16>().map_err(|error| {
             io::Error::new(io::ErrorKind::InvalidInput, format!("invalid TUIC authority port {port}: {error}"))
         })?;
+        if host.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "TUIC authority host must not be empty"));
+        }
         if let Ok(ip) = IpAddr::from_str(&host) {
             return Ok(Self::Socket(SocketAddr::new(ip, port)));
         }
