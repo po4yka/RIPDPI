@@ -1,6 +1,6 @@
 [versions]
 dnsjava = "3.7.1"
-slf4j = "1.7.36"
+slf4j = "2.0.20"
 lombok = "1.18.46"
 agp = "9.5.0"
 benchmark = "1.5.0"
