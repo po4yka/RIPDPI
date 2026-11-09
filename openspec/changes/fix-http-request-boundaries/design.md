@@ -22,7 +22,7 @@ Ownership is recorded in the portfolio task. No Kotlin schema, JNI, protobuf, st
 
 ## Risks / Trade-offs
 
-Optional initial inspection can delay a partial head by its existing bounded inspection timeout. Later HTTP requests pass unchanged. All non-HTTP payloads and failed optional inspection pass unchanged. Never resume HTTP mutation after passthrough begins. Existing main has missing boring-sys build scripts; any local build workaround must be isolated and disclosed, not committed as an HTTP fix.
+Optional initial inspection can delay a partial head by its existing bounded inspection timeout. Later HTTP requests pass unchanged. All non-HTTP payloads and failed optional inspection pass unchanged. Never resume HTTP mutation after passthrough begins. The missing boring-sys build scripts were restored with explicit owner approval as a separate prerequisite. The same restoration reached origin/main as a43980af2; the duplicate job commit was skipped during rebase.
 
 ## Migration Plan
 
