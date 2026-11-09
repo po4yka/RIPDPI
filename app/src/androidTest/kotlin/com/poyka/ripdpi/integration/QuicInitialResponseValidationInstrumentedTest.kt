@@ -97,6 +97,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                         assertArrayEquals(expected, response)
                         assertTrue(bindings.validate(request, response, false))
                     } finally {
+                        responder.join(3_000)
                         server.close()
                         responder.join(3_000)
                     }
@@ -132,6 +133,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                 assertFalse(result.chromeOk || result.firefoxOk || result.genericOk || result.vnOk)
                 assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
             } finally {
+                worker.join(3_000)
                 server.close()
                 worker.join(3_000)
             }
