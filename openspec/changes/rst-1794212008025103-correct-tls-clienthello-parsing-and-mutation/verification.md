@@ -1,11 +1,11 @@
 ---
 task_id: RST-1794212008025103
 change: rst-1794212008025103-correct-tls-clienthello-parsing-and-mutation
-commit_sha: 5738db6e4f12670aa52bdc50c74cf0be7f44fb02
+commit_sha: 8480ede162947052316948e59217c6dfb961d1a0
 local: passed
-local_evidence: On source 5738db6e4f12670aa52bdc50c74cf0be7f44fb02, just ci-gates, cargo-deny 0.19.8 and locked fuzz metadata passed. Tor passed 13 host tests including a new-cache reopen test and arm64 Android cargo check. Diagnostics passed detekt, ktlint and unit tests with the native build disabled. Locked fuzz smoke was rerun after rebase and passed. Earlier ECH adapter tests passed. No physical device, external Tor network or old-cache migration was tested.
-remote_ci: required
-remote_ci_evidence: CI for 99c436be4a6eb4249d12e8f5145ad0a70747291a failed cargo-deny and diagnostics detekt; a passing run for the repair remains required.
+local_evidence: On 8480ede162947052316948e59217c6dfb961d1a0, just ci-gates, cargo metadata --locked, cargo deny 0.19.0 and 355 locked nextest cases for packets, Tor and Android fetch passed. One Tor test reported LEAK once; three isolated repeats did not reproduce it and its cause remains unknown. Linux-owned API snapshot was skipped on macOS. No physical device, external Tor network or old-cache migration was tested.
+remote_ci: passed
+remote_ci_evidence: Full workflow_dispatch CI https://github.com/po4yka/RIPDPI/actions/runs/42702413061 passed on 8480ede162947052316948e59217c6dfb961d1a0, including rust-lint, rust-fuzz-smoke, Android API 27/35/37 and ci-required.
 device: not_applicable
 device_evidence: This change does not require physical device operations.
 artifact: not_applicable
