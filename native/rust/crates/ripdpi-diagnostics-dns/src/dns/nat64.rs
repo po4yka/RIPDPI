@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
@@ -9,7 +9,7 @@ use ripdpi_ech_dns::build_dns_query_with_type;
 
 use super::parse_dns_response_semantics;
 use crate::transport::relay_udp_direct;
-use ripdpi_diagnostics_transport::transport::TransportError;
+use ripdpi_diagnostics_transport::transport::{TransportError, interface_index};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Nat64Prefix {
@@ -124,21 +124,10 @@ fn discover_with(
 ) -> Nat64Discovery {
     let mut attempts = 0;
     let mut failure = None;
-    let mut seen = BTreeSet::new();
-    for server in servers.iter().take(3) {
+    let mut clean_negative = false;
+    for server in resolver_targets(servers) {
         if let Some(reason) = interrupted(cancel) {
             return Nat64Discovery { prefixes: vec![], status: "TIMEOUT", reason: Some(reason), attempts };
-        }
-        let Ok(ip) = server.parse::<std::net::IpAddr>() else {
-            failure = Some("invalid_dns64_response");
-            continue;
-        };
-        if ip.is_unspecified() || ip.is_multicast() {
-            failure = Some("invalid_dns64_response");
-            continue;
-        }
-        if !seen.insert(ip) {
-            continue;
         }
         let Ok(query) = build_dns_query_with_type("ipv4only.arpa", (now_ms() as u16).max(1), 28) else {
             return Nat64Discovery {
@@ -149,7 +138,7 @@ fn discover_with(
             };
         };
         attempts += 1;
-        let response = exchange(SocketAddr::new(ip, 53), &query);
+        let response = exchange(server, &query);
         if let Some(reason) = interrupted(cancel) {
             return Nat64Discovery { prefixes: vec![], status: "TIMEOUT", reason: Some(reason), attempts };
         }
@@ -186,24 +175,62 @@ fn discover_with(
                     Ok(prefixes) if !prefixes.is_empty() => {
                         return Nat64Discovery { prefixes, status: "DISCOVERED", reason: None, attempts };
                     }
-                    Ok(_) => {}
+                    Ok(_) => clean_negative = true,
                     // A well-formed answer that fails the Pref64 heuristic is a verdict, not a resolver fault.
                     Err(reason) => {
                         return Nat64Discovery { prefixes: vec![], status: "INVALID", reason: Some(reason), attempts };
                     }
                 }
             }
-            DnsResponseOutcome::Nodata | DnsResponseOutcome::Nxdomain => {}
+            DnsResponseOutcome::Nodata | DnsResponseOutcome::Nxdomain => clean_negative = true,
             // SERVFAIL, REFUSED, truncation, and unobserved replies are one resolver's fault: try the next.
             _ => failure = Some("dns_error"),
         }
     }
     Nat64Discovery {
         prefixes: vec![],
-        status: if failure.is_some() { "FAILED" } else { "NO_PREFIX" },
-        reason: Some(failure.unwrap_or(if attempts == 0 { "no_network_dns" } else { "no_prefix" })),
+        // A clean negative answer from any resolver outranks another resolver's transport fault.
+        status: if failure.is_some() && !clean_negative { "FAILED" } else { "NO_PREFIX" },
+        reason: Some(match (clean_negative, failure) {
+            (false, Some(reason)) => reason,
+            _ if attempts == 0 => "no_network_dns",
+            _ => "no_prefix",
+        }),
         attempts,
     }
+}
+/// Usable resolver endpoints in input order, deduplicated, limited to three.
+/// Unusable literals are skipped before the limit so they do not use the budget.
+fn resolver_targets(servers: &[String]) -> Vec<SocketAddr> {
+    let mut targets = Vec::new();
+    for address in servers.iter().filter_map(|server| resolver_endpoint(server)) {
+        if !targets.contains(&address) {
+            targets.push(address);
+        }
+    }
+    targets.truncate(3);
+    targets
+}
+/// Accepts IP literals and IPv6 literals with a numeric or interface-name zone. A link-local IPv6
+/// address needs a zone because the kernel cannot pick an interface without one.
+fn resolver_endpoint(literal: &str) -> Option<SocketAddr> {
+    let (host, zone) = match literal.split_once('%') {
+        Some((host, zone)) => (host, Some(zone)),
+        None => (literal, None),
+    };
+    let ip = host.parse::<std::net::IpAddr>().ok()?;
+    if ip.is_unspecified() || ip.is_multicast() {
+        return None;
+    }
+    let std::net::IpAddr::V6(v6) = ip else {
+        return zone.is_none().then(|| SocketAddr::new(ip, 53));
+    };
+    let scope_id = match zone {
+        Some(zone) => zone.parse::<u32>().ok().filter(|id| *id != 0).or_else(|| interface_index(zone))?,
+        None if v6.is_unicast_link_local() => return None,
+        None => 0,
+    };
+    Some(SocketAddr::V6(SocketAddrV6::new(v6, 53, 0, scope_id)))
 }
 fn interrupted(cancel: &AtomicBool) -> Option<&'static str> {
     if cancel.load(Ordering::Acquire) {

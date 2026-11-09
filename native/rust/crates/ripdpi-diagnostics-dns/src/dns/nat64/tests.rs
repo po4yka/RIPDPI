@@ -155,3 +155,52 @@ fn resolver_faults_fall_through_to_the_next_resolver() {
     let alone = discover_with(&["1.2.3.4".into()], &AtomicBool::new(false), |_, query| Ok(reply(query, 0x8182, None)));
     assert_eq!((alone.status, alone.reason), ("FAILED", Some("dns_error")));
 }
+
+fn queried(
+    servers: &[&str],
+    mut answer: impl FnMut(&[u8]) -> Result<Vec<u8>, &'static str>,
+) -> (Vec<SocketAddr>, Nat64Discovery) {
+    let servers: Vec<String> = servers.iter().map(|server| (*server).into()).collect();
+    let mut peers = Vec::new();
+    let result = discover_with(&servers, &AtomicBool::new(false), |peer, query| {
+        peers.push(peer);
+        answer(query)
+    });
+    (peers, result)
+}
+
+#[test]
+fn unusable_and_duplicate_literals_do_not_use_the_resolver_budget() {
+    let (peers, _) = queried(&["x", "1.2.3.4", "1.2.3.4", "5.6.7.8"], |_| Err("dns_timeout"));
+    assert_eq!(peers, ["1.2.3.4:53".parse::<SocketAddr>().unwrap(), "5.6.7.8:53".parse().unwrap()]);
+    let (peers, _) = queried(&["::", "ff02::1", "fe80::1", "bad", "1.1.1.1", "2.2.2.2", "3.3.3.3", "4.4.4.4"], |_| {
+        Err("dns_timeout")
+    });
+    assert_eq!(peers.len(), 3);
+    let (peers, result) = queried(&["::", "fe80::1", "fe80::1%no-such-if"], |_| panic!("no usable resolver"));
+    assert!(peers.is_empty());
+    assert_eq!((result.status, result.reason, result.attempts), ("NO_PREFIX", Some("no_network_dns"), 0));
+}
+
+#[test]
+fn numeric_ipv6_zone_reaches_the_exchange_with_its_scope() {
+    let (peers, _) = queried(&["fe80::1%3"], |_| Err("dns_timeout"));
+    let SocketAddr::V6(peer) = peers[0] else { panic!("IPv6 peer") };
+    assert_eq!((peer.ip().to_string(), peer.port(), peer.scope_id()), ("fe80::1".into(), 53, 3));
+}
+
+#[test]
+fn clean_negative_answer_outranks_another_resolvers_fault() {
+    let mut calls = 0;
+    let (_, result) = queried(&["192.168.1.1", "fe80::1%3"], |query| {
+        calls += 1;
+        if calls == 1 { Ok(reply(query, 0x8180, None)) } else { Err("dns_timeout") }
+    });
+    assert_eq!((result.status, result.reason, result.attempts), ("NO_PREFIX", Some("no_prefix"), 2));
+    let mut calls = 0;
+    let (_, result) = queried(&["192.168.1.1", "fe80::1%3"], |query| {
+        calls += 1;
+        if calls == 1 { Err("dns_timeout") } else { Ok(reply(query, 0x8183, None)) }
+    });
+    assert_eq!((result.status, result.reason), ("NO_PREFIX", Some("no_prefix")));
+}

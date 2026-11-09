@@ -193,6 +193,14 @@ unsafe fn socket_addr_from(address: *const libc::sockaddr, len: libc::socklen_t,
     }
 }
 
+/// Index of the named network interface, for an IPv6 scope zone such as `fe80::1%wlan0`.
+pub fn interface_index(name: &str) -> Option<u32> {
+    let c_name = std::ffi::CString::new(name).ok()?;
+    // SAFETY: `c_name` is NUL-terminated and outlives the call.
+    let index = unsafe { libc::if_nametoindex(c_name.as_ptr()) };
+    (index != 0).then_some(index)
+}
+
 type FamilyLookupFn =
     dyn Fn(&str, u16, LookupFamily) -> Result<Vec<SocketAddr>, DnsResolveError> + Send + Sync + 'static;
 
