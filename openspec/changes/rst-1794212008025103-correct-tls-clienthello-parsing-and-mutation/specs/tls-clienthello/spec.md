@@ -48,3 +48,12 @@ The fuzz workspace MUST resolve its declared dependencies with its committed loc
 
 - **WHEN** CI resolves the fuzz workspace with --locked
 - **THEN** it uses the committed dependency graph without modifying the lockfile
+
+### Requirement: REQ-CI-TOR-SQLITE — Use a fixed bundled SQLite
+
+The Tor directory cache MUST use a bundled SQLite version that fixes RUSTSEC-2026-0459 without disabling the security gate.
+
+#### Scenario: Security gate resolves the Tor dependency graph
+
+- **WHEN** the locked dependency graph is audited for known advisories
+- **THEN** the Tor SQLite dependency is fixed and the existing gate stays enabled

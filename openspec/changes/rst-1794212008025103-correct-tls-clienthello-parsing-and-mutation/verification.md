@@ -2,10 +2,10 @@
 task_id: RST-1794212008025103
 change: rst-1794212008025103-correct-tls-clienthello-parsing-and-mutation
 commit_sha: 60b4661e00b525f6c482a65f6c19fe0f9eb37ff9
-local: passed
+local: required
 local_evidence: On source 60b4661e00b525f6c482a65f6c19fe0f9eb37ff9, just ci-gates, locked fuzz smoke, unsafe-boundary scanner and 132 scanner tests passed. The ECH adapter passed 28 tests and ripdpi-android passed cargo check on macOS. Earlier TLS validation passed 269 unit tests, 5 golden tests, and the adapter regression. The runtime-platform API snapshot is Linux-owned and was skipped on macOS. The rebase added only MCP configuration changes and did not change the tested source inputs.
 remote_ci: required
-remote_ci_evidence: CI for 7bd65bae644a250a6d00c4207426be1fdffa8607 failed rust-fuzz-smoke and rust-lint; a passing run for the repair remains required.
+remote_ci_evidence: CI for 99c436be4a6eb4249d12e8f5145ad0a70747291a failed cargo-deny and diagnostics detekt; a passing run for the repair remains required.
 device: not_applicable
 device_evidence: This change does not require physical device operations.
 artifact: not_applicable
@@ -25,3 +25,4 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-TLS-MUTATION | RST-1794212099284584 | Combined packets tests and independent review | passed |
 | REQ-TLS-ECH-ID | RST-1794214443209399 | ECH adapter tests, host JNI facade check, scanner and two independent reviews | passed |
 | REQ-TLS-FUZZ-LOCK | RST-1794214442322852 | Locked metadata and full fuzz smoke with local ARM cargo-fuzz | passed |
+| REQ-CI-TOR-SQLITE | RST-1794220081392995 | Pending | required |

@@ -2,7 +2,7 @@
 id: RST-1794212008025103
 title: Correct TLS ClientHello parsing and mutation
 kind: bug
-status: review
+status: doing
 area: rust-native
 priority: high
 owner: TLS maintenance
@@ -29,3 +29,8 @@ Inspect and mutate TLS ClientHello without crossing SNI boundaries, losing fragm
 - Fuzz lock owner: `native/rust/fuzz/Cargo.lock`; serialize all changes to this file.
 - JNI handle owner: `native/rust/crates/ripdpi-android-fetch-adapter/` and `native/rust/crates/ripdpi-android/src/` ECH bridge.
 - Integrator owns task records, API snapshots, and combined validation.
+
+## Tor SQLite CI blocker ownership
+
+- Tor dependency owner: `native/rust/Cargo.toml`, `native/rust/Cargo.lock`, `native/rust/fuzz/Cargo.lock`, and the minimal `tor-dirmgr` vendor patch. Serialize these files.
+- Integrator owns task and OpenSpec records and combined validation.

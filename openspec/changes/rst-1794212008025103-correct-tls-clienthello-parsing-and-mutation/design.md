@@ -31,3 +31,8 @@ No data migration. Revert the relevant commits to roll back. Run targeted locked
 - The fuzz workspace owns a separate Cargo lockfile. Reconcile its existing `ripdpi-xhttp` dependency graph without changing package versions.
 - The ECH adapter owns a non-owning request ID type. The JNI bridge converts its unchanged signed Long representation at the boundary. Invalid, stale, cancelled, and released IDs retain their previous behavior.
 - Keep the unsafe-boundary scanner and all enforcement enabled. Validate the scanner, locked fuzz smoke, adapter behavior, JNI contract, and combined source gates.
+
+## Tor SQLite security gate
+
+- The Tor directory manager uses bundled SQLite. Upgrade to a version that fixes RUSTSEC-2026-0459 without weakening the advisory gate. If the published manager constrains the fixed rusqlite version, carry a narrow provenance-recorded dependency patch and test its compatibility.
+- Keep the Tor cache contract and Android targets. Vet every added package before compilation and reconcile both Cargo lockfiles.
