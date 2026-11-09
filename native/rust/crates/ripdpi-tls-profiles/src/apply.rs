@@ -5,10 +5,10 @@ use crate::profile::ProfileConfig;
 
 pub fn apply_profile(builder: &mut SslConnectorBuilder, config: &ProfileConfig) -> Result<(), Error> {
     builder.set_cipher_list(config.cipher_list_tls12)?;
-    // BoringSSL does not expose SSL_CTX_set_ciphersuites -- TLS 1.3 cipher suites
-    // are fixed (AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305). That matches
-    // Chrome; Firefox sends AES-128-GCM, ChaCha20-Poly1305, AES-256-GCM, so the
-    // Firefox profiles do not match Firefox's TLS 1.3 order.
+    // The boring 5.3.0 safe API has no TLS 1.3 cipher-order setter. The pinned
+    // BoringSSL C API exposes SSL_CTX_set1_tls13_ciphers, but it is not called
+    // here. The backend uses its AES-hardware-dependent default order;
+    // config.ciphersuites_tls13 remains reference metadata.
     builder.set_curves_list(config.curves)?;
     builder.set_sigalgs_list(config.sigalgs)?;
     builder.set_min_proto_version(Some(config.min_version))?;

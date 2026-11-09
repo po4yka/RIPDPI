@@ -65,6 +65,20 @@ BoringSSL builder does not apply that transformation to its connection.
 Likewise, ECH capability metadata does not enable ECH or perform DNS discovery.
 An ECH consumer must configure the backend separately.
 
+## TLS 1.3 cipher-order limit
+
+The `ciphersuites_tls13` field records a target order; the connector does not
+apply it. The pinned BoringSSL C API provides `SSL_CTX_set1_tls13_ciphers` and
+`SSL_set1_tls13_ciphers`, but `boring` 5.3.0 has no safe wrapper for these APIs.
+This is a limit of the Rust integration, not of the C backend.
+
+The backend default depends on AES hardware support. With AES hardware, its
+client order is AES-128-GCM, AES-256-GCM, then ChaCha20-Poly1305. Without AES
+hardware, it is ChaCha20-Poly1305, AES-128-GCM, then AES-256-GCM. The current
+connector therefore does not implement the declared Firefox TLS 1.3 order.
+An exact browser-order claim must be checked against the effective output and
+hardware policy.
+
 ## How rotation works
 
 `RotatingProfileSelector::select(authority, session_seed)` returns a preset

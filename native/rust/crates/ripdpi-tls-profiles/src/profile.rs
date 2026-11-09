@@ -17,9 +17,9 @@ pub struct ProfileConfig {
     pub ech_bootstrap_resolver_id: Option<&'static str>,
     pub ech_outer_extension_policy: &'static str,
     pub cipher_list_tls12: &'static str,
-    /// TLS 1.3 cipher suite configuration string. BoringSSL uses a fixed set of
-    /// TLS 1.3 ciphers and does not expose `SSL_CTX_set_ciphersuites`, so this
-    /// field is stored for documentation/reference but not applied via API.
+    /// Desired TLS 1.3 suite order for reference only. The pinned BoringSSL C API
+    /// supports custom order, but boring 5.3.0 has no safe wrapper. This field is
+    /// not applied, so the hardware-dependent backend default remains effective.
     pub ciphersuites_tls13: &'static str,
     pub curves: &'static str,
     pub sigalgs: &'static str,
