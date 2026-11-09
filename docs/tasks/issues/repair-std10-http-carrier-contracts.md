@@ -2,7 +2,7 @@
 id: TRN-1794211839090466
 title: Repair STD-10 HTTP relay carrier contracts
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: transport-maintainer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-std10-http-carrier-contracts
 created: 2026-11-09
 updated: 2026-11-09
+closed_at: "2026-11-09T09:18:59Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 421 selected unique Rust tests passed; workspace Clippy with async lints, ci-gates and dependency checks passed. Independent source and cancel-safety reviews passed; final capsule reset uses RFC-required H3_MESSAGE_ERROR. No external or device acceptance claimed.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "repair-std10-http-carrier-contracts",
+  "evidence_summary": "421 selected unique Rust tests passed; workspace Clippy with async lints, ci-gates and dependency checks passed. Independent source and cancel-safety reviews passed; final capsule reset uses RFC-required H3_MESSAGE_ERROR. No external or device acceptance claimed.",
+  "execution_sha256": "0271c0d163b23c772b25b2d476028a7ce52bfc4a39f9c988662c3332c592020c",
+  "issue_sha256": "00fb272c3c44425be0f3d96aa75c07ba007bd05a28ae92099a289bc473755adc",
+  "outcome": "done",
+  "prepared_at": "2026-11-09T09:18:59Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794211839090466"
+}
