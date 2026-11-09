@@ -613,12 +613,12 @@ fn coalesced_quic_markers_point_into_the_second_initial_packet() {
     ] {
         let packet = ipv4_udp_packet(49152, 443, payload);
         let meta = PacketMeta::parse(&packet).expect("packet metadata");
-        let dissect = dissect_packet(meta, meta.payload(&packet));
+        let dissect = dissect_packet(meta, meta.payload(&packet), false);
         assert_eq!(dissect.markers.get(&MarkerName::Host), Some(&638));
         assert_eq!(dissect.markers.get(&MarkerName::HostEnd), Some(&649));
         assert_eq!(dissect.markers.get(&MarkerName::SniExt), Some(&633));
         assert_eq!(dissect.markers.get(&MarkerName::ExtLen), Some(&76));
-        assert_eq!(packet_host(Transport::Udp, payload), Some((ProtocolName::Quic, "example.com".to_string())));
+        assert_eq!(packet_host(Transport::Udp, payload, false), Some((ProtocolName::Quic, "example.com".to_string())));
     }
 }
 
