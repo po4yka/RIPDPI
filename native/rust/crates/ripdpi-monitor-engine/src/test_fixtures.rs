@@ -738,6 +738,19 @@ pub fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u
     if request.len() < 12 {
         return Err("short request".to_string());
     }
+    let mut question_end = 12;
+    loop {
+        let label_len = *request.get(question_end).ok_or("short question")? as usize;
+        question_end += 1;
+        if label_len == 0 {
+            break;
+        }
+        if label_len > 63 {
+            return Err("invalid question label".to_string());
+        }
+        question_end += label_len;
+    }
+    let question = request.get(12..question_end + 4).ok_or("short question")?;
     let mut answer = Vec::new();
     answer.extend(&request[0..2]);
     answer.extend(0x8180u16.to_be_bytes());
@@ -745,7 +758,7 @@ pub fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u
     answer.extend(1u16.to_be_bytes());
     answer.extend(0u16.to_be_bytes());
     answer.extend(0u16.to_be_bytes());
-    answer.extend(&request[12..]);
+    answer.extend(question);
     answer.extend([0xc0, 0x0c]);
     answer.extend(1u16.to_be_bytes());
     answer.extend(1u16.to_be_bytes());
