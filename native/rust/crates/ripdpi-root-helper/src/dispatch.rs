@@ -2,6 +2,7 @@ mod capabilities;
 mod experimental;
 mod fragmentation;
 mod shutdown;
+mod socket_validation;
 mod tcp_payload;
 
 use std::os::fd::RawFd;
@@ -100,6 +101,13 @@ pub(crate) fn dispatch_command_with_backend(
             close_received_fd(received_fd);
             return DispatchOutcome::command(protocol::HelperResponse::error(error.to_string()), None);
         }
+    }
+
+    if let Some(fd) = received_fd
+        && let Err(error) = socket_validation::validate_socket_fd(fd, &request.command)
+    {
+        close_received_fd(received_fd);
+        return DispatchOutcome::command(protocol::HelperResponse::error(error.to_string()), None);
     }
 
     match request.command.as_str() {
