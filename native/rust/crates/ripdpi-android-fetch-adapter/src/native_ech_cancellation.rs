@@ -2,6 +2,7 @@ use std::future::Future;
 use std::io;
 use std::sync::OnceLock;
 
+use crate::EchRequestId;
 use android_support::HandleRegistry;
 use tokio::sync::watch;
 
@@ -11,26 +12,26 @@ fn requests() -> &'static HandleRegistry<watch::Sender<bool>> {
     REQUESTS.get_or_init(HandleRegistry::new)
 }
 
-pub(crate) fn create() -> u64 {
+pub(crate) fn create() -> EchRequestId {
     let (sender, _) = watch::channel(false);
-    requests().insert(sender)
+    EchRequestId(requests().insert(sender))
 }
 
-pub(crate) fn cancel(handle: u64) {
-    if let Some(sender) = requests().get(handle) {
+pub(crate) fn cancel(handle: EchRequestId) {
+    if let Some(sender) = requests().get(handle.0) {
         sender.send_replace(true);
     }
 }
 
-pub(crate) fn release(handle: u64) {
-    if let Some(sender) = requests().remove(handle) {
+pub(crate) fn release(handle: EchRequestId) {
+    if let Some(sender) = requests().remove(handle.0) {
         sender.send_replace(true);
     }
 }
 
-pub(crate) fn subscribe(handle: u64) -> io::Result<watch::Receiver<bool>> {
+pub(crate) fn subscribe(handle: EchRequestId) -> io::Result<watch::Receiver<bool>> {
     requests()
-        .get(handle)
+        .get(handle.0)
         .map(|sender| sender.subscribe())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "ECH request handle is not active"))
 }
@@ -60,6 +61,23 @@ mod tests {
     use tokio::time::timeout;
 
     use super::*;
+
+    #[test]
+    fn jni_ids_preserve_bits_and_invalid_ids_are_rejected() {
+        for value in [0, -1, i64::MIN] {
+            let id = EchRequestId::from_jni(value);
+            assert_eq!(id.as_jni(), value);
+            assert_eq!(subscribe(id).expect_err("invalid ID").kind(), io::ErrorKind::InvalidInput);
+            cancel(id);
+            release(id);
+        }
+        let id = create();
+        assert!(id.as_jni() > 0);
+        let decoded = EchRequestId::from_jni(id.as_jni());
+        assert_eq!(decoded, id);
+        release(decoded);
+        assert_eq!(subscribe(id).expect_err("released ID").kind(), io::ErrorKind::InvalidInput);
+    }
 
     /// # Cancel safety:
     /// cancel-safe: all handles and the pending operation are released within this test.
