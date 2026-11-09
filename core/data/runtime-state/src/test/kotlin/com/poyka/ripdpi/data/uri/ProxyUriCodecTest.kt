@@ -227,6 +227,13 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `hysteria2 uri rejects ech it cannot honour`() {
+        val base = "hysteria2://fixture-pw@h.example:8443"
+        assertNull(ProxyUriCodec.parse("$base?ech=AEn%2BDQ#n"))
+        assertTrue(ProxyUriCodec.parse("$base?ech=#n") is ProxyProfile.Hysteria2)
+    }
+
+    @Test
     fun `hysteria2 uri without obfs leaves obfsPassword null`() {
         val parsed = ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:8443#n")
         assertTrue(parsed is ProxyProfile.Hysteria2)

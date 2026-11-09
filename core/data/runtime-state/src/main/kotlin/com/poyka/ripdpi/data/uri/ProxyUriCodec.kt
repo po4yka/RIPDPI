@@ -563,6 +563,8 @@ object ProxyUriCodec {
                     ?.takeIf { it.isNotBlank() && it.toByteArray().size >= HYSTERIA2_SALAMANDER_MIN_KEY_BYTES }
                     ?: return null
             }
+        // Hysteria 2 has no ECH here: importing without it would expose the SNI.
+        if (!queryValue(rawQuery, "ech").isNullOrBlank()) return null
         // REL-3: pinSHA256 is the certificate pin that makes insecure=1 safe for a
         // self-signed server. A malformed pin rejects the link: if the importer
         // dropped it and kept insecure=1, the profile would accept any certificate.
