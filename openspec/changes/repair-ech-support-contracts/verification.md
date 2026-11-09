@@ -1,28 +1,62 @@
 ---
-task_id: TRN-1794198500598113
-change: repair-ech-support-contracts
-commit_sha: null
-local: required
-local_evidence: Targeted RED/GREEN tests, affected builds, reviewers and combined ci-gates are planned.
-remote_ci: required
-remote_ci_evidence: Final published source checks are pending implementation and push.
-device: required
-device_evidence: JNI lifecycle smoke is planned on a leased local emulator if build artifacts are available.
-artifact: required
-artifact_evidence: JNI symbols and affected Kotlin/native contract builds are pending.
-deployment: not_applicable
-deployment_evidence: No deployment is owned by this change.
+task_id: "TRN-1794198500598113"
+change: "repair-ech-support-contracts"
+commit_sha: "7f0c2c2c9c98801130f24c710c9e86f4f64ca02f"
+local: "passed"
+local_evidence: "Rebased source: 490 Rust tests passed; 3 existing network tests ignored; 25 Kotlin JUnit tests passed; all-target Clippy and just ci-gates passed. Independent Go QUIC ECH acceptance and retry-timeout sentinel checks passed."
+remote_ci: "required"
+remote_ci_evidence: "No workflow was dispatched. Automatic checks after the authorized push are not evidence for this local run."
+device: "blocked"
+device_evidence: "Android emulator and physical-device acceptance were not run. Earlier Gradle validation stopped with ENOSPC. Host JVM/native validation passed; it does not establish Android DNS CancellationSignal or packaged ABI acceptance."
+artifact: "passed"
+artifact_evidence: "Built real host ripdpi-android cdylib; nm matched 40 JNI exports; actual Kotlin JVM create/pre-cancel/connect/release/stale-handle smoke passed. Kotlin and native must ship together after the internal JNI descriptor change."
+deployment: "not_applicable"
+deployment_evidence: "No deployment or external-server probe is owned by this change."
 ---
 
 # Verification
+
+Source commit: `7f0c2c2c9c98801130f24c710c9e86f4f64ca02f`. The integration preserves STD-04 and STD-05 from `a6b55e408`.
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-ECH-REAL | TRN-1794198675447599 | Targeted regression and required review planned | Pending |
-| REQ-ECH-REJECT | TRN-1794198675988013 | Targeted regression and required review planned | Pending |
-| REQ-ECH-SVCB | TRN-1794198676487337 | Targeted regression and required review planned | Pending |
-| REQ-ECH-ALIAS | TRN-1794198676979723 | Targeted regression and required review planned | Pending |
-| REQ-ECH-RETRY | TRN-1794198677486571 | Targeted regression and required review planned | Pending |
-| REQ-ECH-CANCEL | TRN-1794198677978918 | Targeted regression and required review planned | Pending |
+| REQ-ECH-REAL | TRN-1794198675447599 | F1, commit `9c3270614`: Unsupported Real lists emit zero first-flight bytes; Real acceptance guards pass | passed |
+| REQ-ECH-REJECT | TRN-1794198675988013 | F2, commit `e3369c7f1`: Real fatal alert and untrusted outer certificate expose no authenticated retry data; no abort | passed |
+| REQ-ECH-SVCB | TRN-1794198676487337 | F3, commit `284438216`: Rust 14 and discovery 3 tests; Kotlin RED 2 failures, then GREEN 17 tests; combined Kotlin 25 tests | passed |
+| REQ-ECH-ALIAS | TRN-1794198676979723 | F4, commit `738f086ed`: Real loopback DoH AliasMode traversal, bounds/cycles/unavailable terminal behavior | passed |
+| REQ-ECH-RETRY | TRN-1794198677486571 | F5, commit `7f0c2c2c9`: Trusted Boring/rustls loopback retry for H2, xHTTP, monitor and native; independent Go QUIC retry acceptance and 10-second retry-timeout with zero H2 TCP dials | passed |
+| REQ-ECH-CANCEL | TRN-1794198677978918 | F6, commit `0d292dca3`: DoH cancellation 1502ms RED to 3ms GREEN; owned socket closure/pre-cancel tests; actual JVM/native lifecycle and export inventory | passed |
+
+## Commands and retained evidence
+
+All compiler, test and commit-hook work ran inside `build-gate --lane ripdpi`; Cargo resolution commands used `--locked`, apart from the explicit offline same-version Quinn source-patch update.
+
+```sh
+cargo test --locked --jobs 4 -p ripdpi-tls-profiles -p ripdpi-masque -p ripdpi-xhttp -p ripdpi-diagnostics-probes -p ripdpi-diagnostics-tls -p ripdpi-android-fetch-adapter
+cargo clippy --locked --jobs 4 -p ripdpi-tls-profiles -p ripdpi-masque -p ripdpi-xhttp -p ripdpi-diagnostics-probes -p ripdpi-diagnostics-tls -p ripdpi-android-fetch-adapter --all-targets -- -D warnings
+cargo metadata --locked --format-version 1
+just ci-gates
+cargo build --locked --jobs 4 -p ripdpi-android --lib
+bash /tmp/std03-quic-oracle/run-rebased.sh
+```
+
+- `/tmp/std03-rebased-checks.log`: rebased suites, Clippy, complete source gates, real host JNI and independent Go QUIC outcomes.
+- `/tmp/std03-combined-kotlin/`: exact compiler/JUnit commands and 25-test result. Inputs did not change during rebase.
+- `/tmp/std03-combined-jni/`: copied actual tested host cdylib and JVM smoke.
+- `/tmp/std03-quic-oracle/`: pinned Go source inputs, isolated source copy, exact commands, build output, final handshake/sentinel counters. No external sockets are used.
+- `/tmp/std03-f3-kotlin-{red,green}.log`: Kotlin compatibility RED/GREEN.
+- `/tmp/std03-native-jni-smoke/validation2.log`: initial actual export generation and lifecycle smoke.
+
+The API snapshot is generated by the repository owner script. A temporary Cargo launcher adds `--locked` to nested Cargo resolver/build commands in existing API tooling. No quality or golden baseline was extended. Cargo regenerated its lockfile after the pinned Quinn source patch; package versions stay unchanged. Cargo also selected existing compatible thiserror/getrandom dependency edges. No lockfile sections were edited manually.
+
+Initial new-code compile/style errors were corrected. The root facade budget was restored by placing the helper under `ech::retry`. ENOSPC interrupted a rustdoc/API attempt; the final gates passed after space became available. These failed attempts are retained in `/tmp/std03-*-checks.log` and `/tmp/std03-api.log`.
+
+## Review and remaining scope
+
+General, async/cancellation and JNI reviews were independent. The rebased diagnostic first-record, certificate-verifier, ServerHello and xHTTP catalog paths received another independent review. The pinned Quinn patch changes only package workspace isolation and typed client TLS-error delivery; upstream licenses and unchanged unsafe code remain intact.
+
+REALITY remains Off under its current policy. Injected chain carriers cannot reconnect through the direct network and therefore fail closed. The three existing ignored network tests, public-server deployment compatibility, Android packaged JNI/ABI acceptance and Android system DNS cancellation are not established by these local results. H1-H4 in the original audit remain questions or scope limitations, not additional confirmed repaired defects. No physical device, root activation, public-server probe or real secret was used.
+
+C records the reviewed implementation. V records the observed local runs above. S remains limited to the versioned specification checks in the original audit. External deployment E is not promoted by code review or loopback tests. The Go result establishes only the stated local Go 1.27.3 / cached apernet QUIC interoperability.

@@ -8,4 +8,4 @@
 - [x] TRN-1794198676979723 Fix F4 bounded Kotlin HTTPS AliasMode discovery and tests #bug !high @item:TRN-1794198500598113
 - [x] TRN-1794198677486571 Fix F5 authenticated retry recovery across real consumers and tests #bug !high @item:TRN-1794198500598113
 - [x] TRN-1794198677978918 Fix F6 active ECH I/O cancellation across DoH system DNS and JNI with tests #bug !high @item:TRN-1794198500598113
-- [ ] TRN-1794198678462270 Review combined changes and run affected Rust Kotlin JNI and ci-gates checks #chore !high @item:TRN-1794198500598113
+- [x] TRN-1794198678462270 Review combined changes and run affected Rust Kotlin JNI and ci-gates checks #chore !high @item:TRN-1794198500598113
