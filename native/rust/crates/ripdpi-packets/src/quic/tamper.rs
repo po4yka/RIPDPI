@@ -1,7 +1,7 @@
 use super::QUIC_FAKE_INITIAL_TARGET_LEN;
 use super::build::build_quic_initial_raw;
 use super::frames::{append_quic_crypto_frame, defrag_quic_crypto_frames};
-use super::parse::{decrypt_quic_initial_payload, parse_quic_initial_header};
+use super::parse::{decrypt_quic_initial_payload, parse_quic_initial_header, validate_complete_quic_client_hello};
 
 /// Re-encrypt a QUIC Initial packet with the TLS ClientHello split across
 /// two CRYPTO frames at the given split offset within the ClientHello.
@@ -22,6 +22,7 @@ pub fn tamper_quic_initial_split_crypto(packet: &[u8], split_offset: usize) -> O
     if !is_complete {
         return None;
     }
+    validate_complete_quic_client_hello(&client_hello)?;
     if split_offset == 0 || split_offset >= client_hello.len() {
         return None;
     }

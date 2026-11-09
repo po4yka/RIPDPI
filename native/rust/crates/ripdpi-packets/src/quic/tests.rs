@@ -891,3 +891,6 @@ mod token_tests;
 
 #[path = "ack_tests.rs"]
 mod ack_tests;
+
+#[path = "completeness_tests.rs"]
+mod completeness_tests;

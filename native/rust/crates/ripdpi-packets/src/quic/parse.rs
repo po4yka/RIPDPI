@@ -4,7 +4,7 @@ use ring::aead::{self, AES_128_GCM, Aad, LessSafeKey, UnboundKey};
 
 use crate::tls::tls_client_hello_marker_info_in_handshake;
 use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialInfo, QuicInitialLayout};
-use crate::util::read_u32;
+use crate::util::{read_u16, read_u24, read_u32};
 
 use super::crypto::{quic_derive_client_initial_secret, quic_expand_label};
 use super::frames::{collect_quic_crypto_frames, defrag_quic_crypto_frames, read_quic_varint};
@@ -153,6 +153,56 @@ pub(super) fn decrypt_quic_initial_with_secret(
     Some((plaintext.to_vec(), ciphertext_payload_offset))
 }
 
+pub(super) fn validate_complete_quic_client_hello(buffer: &[u8]) -> Option<()> {
+    if buffer.first().copied()? != 0x01 || read_u24(buffer, 1)?.checked_add(4)? != buffer.len() {
+        return None;
+    }
+    let mut cursor = 38usize;
+    let session_id_len = usize::from(*buffer.get(cursor)?);
+    cursor += 1;
+    buffer.get(cursor..cursor.checked_add(session_id_len)?)?;
+    cursor += session_id_len;
+    let cipher_suites_len = read_u16(buffer, cursor)?;
+    cursor += 2;
+    buffer.get(cursor..cursor.checked_add(cipher_suites_len)?)?;
+    cursor += cipher_suites_len;
+    let compression_len = usize::from(*buffer.get(cursor)?);
+    cursor += 1;
+    buffer.get(cursor..cursor.checked_add(compression_len)?)?;
+    cursor += compression_len;
+    let extensions_len = read_u16(buffer, cursor)?;
+    cursor += 2;
+    if cursor.checked_add(extensions_len)? != buffer.len() {
+        return None;
+    }
+    while cursor < buffer.len() {
+        let extension_type = read_u16(buffer, cursor)?;
+        let extension_len = read_u16(buffer, cursor.checked_add(2)?)?;
+        let data_start = cursor.checked_add(4)?;
+        cursor = data_start.checked_add(extension_len)?;
+        let data = buffer.get(data_start..cursor)?;
+        if extension_type == 0 {
+            validate_quic_sni(data)?;
+        }
+    }
+    Some(())
+}
+
+fn validate_quic_sni(buffer: &[u8]) -> Option<()> {
+    if read_u16(buffer, 0)?.checked_add(2)? != buffer.len() || buffer.get(2).copied()? != 0 {
+        return None;
+    }
+    let mut cursor = 2usize;
+    while cursor < buffer.len() {
+        let name_len = read_u16(buffer, cursor.checked_add(1)?)?;
+        cursor = cursor.checked_add(3)?.checked_add(name_len)?;
+        if cursor > buffer.len() {
+            return None;
+        }
+    }
+    Some(())
+}
+
 pub fn is_quic_initial(buffer: &[u8]) -> bool {
     parse_quic_initial_header(buffer).is_some()
 }
@@ -160,8 +210,8 @@ pub fn is_quic_initial(buffer: &[u8]) -> bool {
 /// Parse the ClientHello from one Initial datagram.
 ///
 /// There is no reassembly across datagrams: an Initial whose CRYPTO data
-/// starts past offset 0, or whose first datagram ends before the SNI (for
-/// example a large post-quantum ClientHello), returns `None`.
+/// starts past offset 0, or whose first datagram ends before the complete
+/// ClientHello (for example a large post-quantum message), returns `None`.
 pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
     let header = parse_quic_initial_header(buffer)?;
     let payload = decrypt_quic_initial_payload(buffer, header)?;
@@ -169,6 +219,7 @@ pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
     if !is_crypto_complete {
         return None;
     }
+    validate_complete_quic_client_hello(&client_hello)?;
     let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
     Some(QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete })
 }
@@ -183,6 +234,7 @@ pub fn parse_quic_initial_layout(buffer: &[u8]) -> Option<QuicInitialLayout> {
     if !is_crypto_complete {
         return None;
     }
+    validate_complete_quic_client_hello(&client_hello)?;
     let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
     let info = QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete };
     Some(QuicInitialLayout { info, ciphertext_payload_offset, crypto_frames })

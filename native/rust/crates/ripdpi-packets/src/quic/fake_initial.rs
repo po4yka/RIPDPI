@@ -5,7 +5,10 @@ use crate::{TlsFakeProfile, tls_fake_profile_bytes};
 
 use super::build::build_quic_initial_raw;
 use super::frames::{append_segmented_quic_crypto_frames, defrag_quic_crypto_frames};
-use super::parse::{decrypt_quic_initial_payload, parse_quic_initial_header, supported_quic_version};
+use super::parse::{
+    decrypt_quic_initial_payload, parse_quic_initial_header, supported_quic_version,
+    validate_complete_quic_client_hello,
+};
 use super::{QUIC_FAKE_DCID, QUIC_FAKE_INITIAL_TARGET_LEN, QUIC_FAKE_SCID, QUIC_INITIAL_MIN_LEN};
 
 fn padded_tls_client_hello(template: &[u8]) -> Vec<u8> {
@@ -94,6 +97,7 @@ pub fn parse_quic_initial_seed(packet: &[u8]) -> Option<QuicInitialSeed> {
     if !is_complete {
         return None;
     }
+    validate_complete_quic_client_hello(&client_hello)?;
     Some(QuicInitialSeed {
         version: header.version,
         dcid: header.dcid.to_vec(),
