@@ -42,12 +42,13 @@ pub(crate) fn build_doh_client(
     health: Option<&HealthRegistry>,
     network_scope: &ResolverNetworkScope,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ech_setup: &EchSetup,
 ) -> Result<Client, EncryptedDnsError> {
     let mut builder =
         Client::builder().timeout(timeout).connect_timeout(timeout).redirect(reqwest::redirect::Policy::none());
 
     if doh_uses_tls(endpoint) {
-        builder = builder.use_preconfigured_tls(doh_tls_config(tls_roots, tls_verifier)?);
+        builder = builder.use_preconfigured_tls(doh_tls_config_with_ech_setup(tls_roots, tls_verifier, ech_setup)?);
     } else if tls_verifier.is_some() {
         // Plain HTTP DoH is used only in local tests; custom TLS config is irrelevant there.
     } else {
@@ -56,6 +57,48 @@ pub(crate) fn build_doh_client(
 
     builder = configure_transport(builder, endpoint, transport, health, network_scope)?;
     builder.build().map_err(|err| EncryptedDnsError::ClientBuild(err.to_string()))
+}
+
+/// The same client without GREASE ECH, so TLS 1.2 is allowed, for a server that
+/// refuses the TLS 1.3-only handshake. `None` when the endpoint does not use TLS.
+pub(crate) fn build_doh_fallback_client(
+    endpoint: &EncryptedDnsEndpoint,
+    transport: &EncryptedDnsTransport,
+    timeout: Duration,
+    tls_roots: &[CertificateDer<'static>],
+    health: Option<&HealthRegistry>,
+    network_scope: &ResolverNetworkScope,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+) -> Result<Option<Client>, EncryptedDnsError> {
+    if !doh_uses_tls(endpoint) {
+        return Ok(None);
+    }
+    build_doh_client(endpoint, transport, timeout, tls_roots, health, network_scope, tls_verifier, &EchSetup::OptedOut)
+        .map(Some)
+}
+
+/// Whether a TLS failure came from a server that shares no protocol version
+/// with the TLS 1.3-only (GREASE ECH) client. Walks the error chain for a
+/// `rustls::Error`, also through nested `io::Error` wrappers.
+pub(crate) fn tls_version_refused(err: &(dyn std::error::Error + 'static)) -> bool {
+    let mut current: Option<&(dyn std::error::Error + 'static)> = Some(err);
+    while let Some(error) = current {
+        if matches!(
+            error.downcast_ref::<rustls::Error>(),
+            Some(
+                rustls::Error::AlertReceived(rustls::AlertDescription::ProtocolVersion)
+                    | rustls::Error::PeerIncompatible(rustls::PeerIncompatible::ServerTlsVersionIsDisabledByOurConfig)
+            )
+        ) {
+            return true;
+        }
+        // `io::Error::source()` skips the wrapped error, so step into it explicitly.
+        current = match error.downcast_ref::<std::io::Error>() {
+            Some(io_error) => io_error.get_ref().map(|inner| inner as &(dyn std::error::Error + 'static)),
+            None => error.source(),
+        };
+    }
+    false
 }
 
 /// TLS for the hand-written HTTP/1.1 DoH client used with connect hooks: the
@@ -96,13 +139,6 @@ fn endpoint_doh_url(endpoint: &EncryptedDnsEndpoint) -> Option<&str> {
         Some(odoh) if endpoint.protocol == EncryptedDnsProtocol::Odoh => Some(odoh.proxy_url.as_str()),
         _ => endpoint.doh_url.as_deref(),
     }
-}
-
-fn doh_tls_config(
-    tls_roots: &[CertificateDer<'static>],
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-) -> Result<ClientConfig, EncryptedDnsError> {
-    doh_tls_config_with_ech_setup(tls_roots, tls_verifier, &EchSetup::Grease)
 }
 
 fn doh_tls_config_with_ech_setup(
@@ -165,7 +201,8 @@ fn configure_direct_transport(
         endpoint.bootstrap_ips.clone()
     };
     let addresses = ips.iter().copied().map(|ip| SocketAddr::new(ip, endpoint.port)).collect::<Vec<_>>();
-    let builder = builder.resolve_to_addrs(endpoint.host.as_str(), &addresses);
+    // Environment proxies (HTTP(S)_PROXY, ALL_PROXY) must not redirect direct DoH.
+    let builder = builder.no_proxy().resolve_to_addrs(endpoint.host.as_str(), &addresses);
     // reqwest matches overrides by the exact host it connects to, the URL host,
     // which can differ from `endpoint.host` (dns.sb vs doh.dns.sb). Without this
     // override the bootstrap IPs are ignored and the system resolver is used.
@@ -240,6 +277,7 @@ mod tests {
             None,
             &ResolverNetworkScope::global(),
             None,
+            &EchSetup::Grease,
         )
         .expect("build client");
         let response = client

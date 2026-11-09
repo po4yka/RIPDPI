@@ -5,30 +5,58 @@ mod socks5;
 mod timeouts;
 mod tokio_connect;
 
+use std::net::IpAddr;
+
 use tokio::net::TcpStream as TokioTcpStream;
 
 use super::EncryptedDnsResolver;
-use crate::transport::resolve_socket_addr;
 use crate::types::{BoxedDnsTcpStream, EncryptedDnsError, EncryptedDnsTransport};
 
 impl EncryptedDnsResolver {
     pub(super) async fn connect_plain_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+        self.connect_plain_tcp_to(self.ranked_bootstrap_ips(), true).await
+    }
+
+    /// Connects through the given bootstrap IPs in order. Over SOCKS5 an empty
+    /// list makes the proxy resolve the endpoint host. A caller with a later stage
+    /// (TLS) passes `record_success = false` and records one outcome per IP itself.
+    pub(super) async fn connect_plain_tcp_to(
+        &self,
+        ips: Vec<IpAddr>,
+        record_success: bool,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
         match &self.inner.transport {
-            EncryptedDnsTransport::Direct => self.connect_direct_tcp().await,
-            EncryptedDnsTransport::Socks5 { host, port, .. } => self.connect_socks5_tcp(host, *port).await,
+            EncryptedDnsTransport::Direct => self.connect_direct_tcp(ips, record_success).await,
+            EncryptedDnsTransport::Socks5 { host, port, .. } => {
+                self.connect_socks5_tcp(ips, record_success, host, *port).await
+            }
         }
     }
 
-    async fn connect_direct_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+    pub(super) fn ranked_bootstrap_ips(&self) -> Vec<IpAddr> {
+        health::ranked_bootstrap_ips(&self.inner)
+    }
+
+    pub(super) fn record_bootstrap_outcome(&self, ip: IpAddr, success: bool, latency: std::time::Duration) {
+        health::record_bootstrap_outcome(&self.inner, ip, success, latency);
+    }
+
+    async fn connect_direct_tcp(
+        &self,
+        ips: Vec<IpAddr>,
+        record_success: bool,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
         if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
-            return hooks::connect_tokio_tcp_with_hook(&self.inner, connector.clone()).await;
+            return hooks::connect_tokio_tcp_with_hook(&self.inner, ips, record_success, connector.clone()).await;
         }
         if self.inner.connect_hooks.requires_direct_tcp_connector() {
             return Err(EncryptedDnsError::Request("direct TCP connector is required".to_string()));
         }
-        self.connect_direct_tcp_with(tokio_connect::connect).await
+        bootstrap::connect_direct_tcp_with(&self.inner, ips, record_success, tokio_connect::connect).await
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: each branch has one connect await and returns an owned stream; a drop closes the partial socket.
     pub(super) async fn connect_doh_tcp(&self) -> Result<BoxedDnsTcpStream, EncryptedDnsError> {
         match &self.inner.transport {
             EncryptedDnsTransport::Direct => {
@@ -37,43 +65,56 @@ impl EncryptedDnsResolver {
                 } else if self.inner.connect_hooks.requires_direct_tcp_connector() {
                     Err(EncryptedDnsError::Request("direct TCP connector is required".to_string()))
                 } else {
-                    self.connect_direct_tcp().await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
+                    self.connect_plain_tcp().await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
                 }
             }
-            EncryptedDnsTransport::Socks5 { host, port, .. } => {
-                self.connect_socks5_tcp(host, *port).await.map(|stream| Box::new(stream) as BoxedDnsTcpStream)
-            }
+            EncryptedDnsTransport::Socks5 { host, port, .. } => self
+                .connect_socks5_tcp(self.ranked_bootstrap_ips(), true, host, *port)
+                .await
+                .map(|stream| Box::new(stream) as BoxedDnsTcpStream),
         }
     }
 
+    #[cfg(test)]
     async fn connect_direct_tcp_with<S, C, F>(&self, connect: C) -> Result<S, EncryptedDnsError>
     where
         S: super::connection::TcpClientStream,
         C: FnMut(std::net::SocketAddr) -> F,
         F: std::future::Future<Output = std::io::Result<S>>,
     {
-        bootstrap::connect_direct_tcp_with(&self.inner, connect).await
+        bootstrap::connect_direct_tcp_with(&self.inner, self.ranked_bootstrap_ips(), true, connect).await
     }
 
-    async fn connect_socks5_tcp(&self, proxy_host: &str, proxy_port: u16) -> Result<TokioTcpStream, EncryptedDnsError> {
-        let proxy_target = resolve_socket_addr(proxy_host, proxy_port)?;
+    async fn connect_socks5_tcp(
+        &self,
+        ips: Vec<IpAddr>,
+        record_success: bool,
+        proxy_host: &str,
+        proxy_port: u16,
+    ) -> Result<TokioTcpStream, EncryptedDnsError> {
+        // Async lookup: a hostname proxy must not block a runtime worker in getaddrinfo.
+        let proxy_target = tokio::net::lookup_host((proxy_host, proxy_port))
+            .await
+            .map_err(|err| EncryptedDnsError::Request(err.to_string()))?
+            .next()
+            .ok_or_else(|| EncryptedDnsError::Request("no socket addresses resolved".to_string()))?;
         if let Some(connector) = &self.inner.connect_hooks.direct_tcp_connector {
             let connector = connector.clone();
             let timeout = self.inner.timeout;
-            return self
-                .connect_socks5_tcp_with(proxy_target, move |target| {
-                    hooks::connect_tokio_tcp_target_with_hook(connector.clone(), target, timeout)
-                })
-                .await;
+            return socks5::connect_socks5_tcp_with(&self.inner, ips, record_success, proxy_target, move |target| {
+                hooks::connect_tokio_tcp_target_with_hook(connector.clone(), target, timeout)
+            })
+            .await;
         }
         if self.inner.connect_hooks.requires_direct_tcp_connector() && !proxy_target.ip().is_loopback() {
             return Err(EncryptedDnsError::Request(
                 "direct TCP connector is required for non-loopback SOCKS5 proxy".to_string(),
             ));
         }
-        self.connect_socks5_tcp_with(proxy_target, tokio_connect::connect).await
+        socks5::connect_socks5_tcp_with(&self.inner, ips, record_success, proxy_target, tokio_connect::connect).await
     }
 
+    #[cfg(test)]
     async fn connect_socks5_tcp_with<S, C, F>(
         &self,
         proxy_target: std::net::SocketAddr,
@@ -84,7 +125,7 @@ impl EncryptedDnsResolver {
         C: FnMut(std::net::SocketAddr) -> F,
         F: std::future::Future<Output = std::io::Result<S>>,
     {
-        socks5::connect_socks5_tcp_with(&self.inner, proxy_target, connect).await
+        socks5::connect_socks5_tcp_with(&self.inner, self.ranked_bootstrap_ips(), true, proxy_target, connect).await
     }
 }
 
@@ -165,15 +206,28 @@ mod tests {
                     let mut byte = [0u8; 1];
                     stream.read_exact(&mut byte).await?;
                     request.push(byte[0]);
-                    if request.ends_with(b"\r\n\r\nrelay-query") {
+                    if request.ends_with(b"\r\n\r\n") {
                         break;
                     }
                 }
-                stream
-                    .write_all(
-                        b"HTTP/1.1 200 OK\r\ncontent-type: application/dns-message\r\ncontent-length: 14\r\n\r\nrelay-response",
-                    )
-                    .await?;
+                let head = String::from_utf8_lossy(&request).to_ascii_lowercase();
+                let length: usize = head
+                    .lines()
+                    .find_map(|line| line.strip_prefix("content-length:"))
+                    .and_then(|value| value.trim().parse().ok())
+                    .expect("request content-length");
+                let mut query = vec![0u8; length];
+                stream.read_exact(&mut query).await?;
+                // Hand-written reply: echoes the query ID and question, QR=1, no answers.
+                let mut reply =
+                    b"\x00\x00\x81\x80\x00\x01\x00\x00\x00\x00\x00\x00\x01a\x04test\x00\x00\x01\x00\x01".to_vec();
+                reply[..2].copy_from_slice(&query[..2]);
+                let head = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/dns-message\r\ncontent-length: {}\r\n\r\n",
+                    reply.len()
+                );
+                stream.write_all(head.as_bytes()).await?;
+                stream.write_all(&reply).await?;
                 stream.shutdown().await?;
                 Ok(())
             }
@@ -201,8 +255,10 @@ mod tests {
             )
             .expect("resolver builds");
 
-            let response = resolver.exchange(b"relay-query").await.expect("DoH response over relay connector");
-            assert_eq!(response, b"relay-response");
+            // Hand-written A query for a.test, ID 0x1234.
+            let query = b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x01a\x04test\x00\x00\x01\x00\x01";
+            let response = resolver.exchange(query).await.expect("DoH response over relay connector");
+            assert_eq!(&response[..4], b"\x12\x34\x81\x80");
             assert_eq!(assert_connects.load(Ordering::Relaxed), 1, "DoH must dial once through the relay connector");
             Ok(())
         });

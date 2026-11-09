@@ -14,6 +14,7 @@ mod dnscrypt_transport;
 mod doh;
 mod doq;
 mod dot;
+mod dot_connection;
 mod state;
 mod tcp;
 
@@ -229,16 +230,17 @@ impl EncryptedDnsResolver {
     }
 
     /// Runs one query, bounded by one overall deadline: one configured timeout
-    /// per bootstrap IP plus [`EXCHANGE_DEADLINE_EXTRA_STAGES`]. Each stage
-    /// (connect per bootstrap IP, TLS, exchange, a retry on a stale pooled
-    /// stream) also has its own timeout. The deadline lets every bootstrap IP be
-    /// tried once but stops retries from stacking the stages further.
+    /// per bootstrap IP (two for DoT, which fails over after TCP and after TLS)
+    /// plus [`EXCHANGE_DEADLINE_EXTRA_STAGES`]. Each stage (connect per bootstrap
+    /// IP, TLS, exchange, a retry on a broken reused connection) also has its own
+    /// timeout. The deadline lets every bootstrap IP be tried once but stops
+    /// retries from stacking the stages further.
     ///
     /// # Cancel safety
     ///
-    /// Cancel-safe: every protocol exchange owns its stream and drops it on
-    /// cancellation instead of returning it to the pool; the overall deadline
-    /// relies on the same property.
+    /// Cancel-safe: every protocol exchange either owns its stream and drops it
+    /// on cancellation, or (DoT) uses a shared connection whose exchange keeps
+    /// the stream in step when dropped; the overall deadline relies on this.
     pub async fn exchange_with_metadata(
         &self,
         query_bytes: &[u8],
@@ -340,18 +342,12 @@ impl EncryptedDnsResolver {
     }
 
     fn exchange_deadline(&self) -> Duration {
-        let connects = u32::try_from(self.inner.endpoint.bootstrap_ips.len().max(1)).unwrap_or(u32::MAX);
-        self.inner.timeout.saturating_mul(connects.saturating_add(EXCHANGE_DEADLINE_EXTRA_STAGES))
-    }
-
-    fn uses_direct_tcp_connector(&self) -> bool {
-        matches!(self.inner.transport, EncryptedDnsTransport::Direct)
-            && self.inner.connect_hooks.has_direct_tcp_connector()
-    }
-
-    fn requires_direct_tcp_connector(&self) -> bool {
-        matches!(self.inner.transport, EncryptedDnsTransport::Direct)
-            && self.inner.connect_hooks.requires_direct_tcp_connector()
+        let ips = u32::try_from(self.inner.endpoint.bootstrap_ips.len().max(1)).unwrap_or(u32::MAX);
+        // DoT fails over per IP after TCP and after TLS, so each IP may use both stages.
+        let stages_per_ip = if self.inner.endpoint.protocol == EncryptedDnsProtocol::Dot { 2 } else { 1 };
+        self.inner
+            .timeout
+            .saturating_mul(ips.saturating_mul(stages_per_ip).saturating_add(EXCHANGE_DEADLINE_EXTRA_STAGES))
     }
 }
 

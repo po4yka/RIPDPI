@@ -55,9 +55,9 @@ object DnsMessages {
         val base = message.toWire()
         if (payloadSize != null) {
             require(payloadSize in 0..MAX_MESSAGE_BYTES)
-            if (payloadSize >= base.size + PaddingOverhead) {
-                val padding = GenericEDNSOption(PaddingOption, ByteArray(payloadSize - base.size - PaddingOverhead))
-                message.addRecord(OPTRecord(AdvertisedUdpBytes, 0, 0, 0, padding), Section.ADDITIONAL)
+            if (payloadSize >= base.size + SizingOverhead) {
+                val filler = GenericEDNSOption(SizingOption, ByteArray(payloadSize - base.size - SizingOverhead))
+                message.addRecord(OPTRecord(AdvertisedUdpBytes, 0, 0, 0, filler), Section.ADDITIONAL)
             }
         }
         return message.toWire()
@@ -173,8 +173,10 @@ object DnsMessages {
     private const val AsciiLimit = 128
     private const val MaxNameLength = 253
     private const val MaxLabelLength = 63
-    private const val PaddingOption = 12
-    private const val PaddingOverhead = 15
+
+    // RFC 7830 6 forbids the Padding option (12) on cleartext DNS, so size probes use a local-use code (RFC 6891 9).
+    private const val SizingOption = 65001
+    private const val SizingOverhead = 15
     private const val AdvertisedUdpBytes = 1232
     private const val MaxAliasNames = 16
 }

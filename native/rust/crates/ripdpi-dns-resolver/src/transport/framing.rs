@@ -36,7 +36,7 @@ fn dns_frame_len(payload: &[u8]) -> Result<u16, EncryptedDnsError> {
         .map_err(|_| EncryptedDnsError::Request("DNS payload is too large for TCP framing".to_string()))
 }
 
-fn dns_length_codec() -> LengthDelimitedCodec {
+pub(crate) fn dns_length_codec() -> LengthDelimitedCodec {
     LengthDelimitedCodec::builder().length_field_length(2).big_endian().max_frame_length(u16::MAX as usize).new_codec()
 }
 

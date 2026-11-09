@@ -51,6 +51,10 @@ fn connect_protected_tcp(target: SocketAddr, timeout: Duration, protect_path: Op
 
 fn bind_protected_udp(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
     let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+    if bind_addr.is_ipv6() {
+        // Dual-stack, so one socket reaches both IPv4 (mapped) and IPv6 bootstrap IPs.
+        socket.set_only_v6(false)?;
+    }
     // The bind address is unspecified and does not reveal the remote, so we cannot prove
     // a loopback destination here; the binder always requires protection (fail closed).
     protect_non_loopback_socket(&socket, protect_path)?;

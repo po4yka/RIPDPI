@@ -31,6 +31,7 @@ pub struct XhttpStream {
     download_failed: Arc<AtomicBool>,
     writer: DuplexStream,
     _permit: OwnedSemaphorePermit,
+    _carrier: ActiveCarrier,
 }
 
 impl AsyncRead for XhttpStream {
@@ -137,20 +138,27 @@ impl XhttpMode {
 }
 
 impl PooledConnection {
-    /// cancel-safe: the permit is owned by this future and stream-open pump
-    /// tasks are aborted by [`OpenStreamTaskGuard`] until a stream is returned.
+    /// # Cancel safety:
+    /// conditionally cancel-safe: request and write awaits can expose a partial
+    /// HTTP request to the server. The permit and partial pumps are released;
+    /// active streams retain the carrier, which retires when they finish.
     pub(crate) async fn open_stream_from_mode(
-        &self,
+        self: &Arc<Self>,
         mode: &XhttpMode,
         request: &[u8],
         permit: OwnedSemaphorePermit,
     ) -> io::Result<XhttpStream> {
-        match mode.protocol_mode() {
+        let mut pending = PendingStreamCarrier(Some(self));
+        let result = match mode.protocol_mode() {
             XhttpProtocolMode::StreamUp => self.open_stream_up(mode, request, permit).await,
             XhttpProtocolMode::StreamOne => self.open_stream_one(mode, request, permit).await,
-        }
+        };
+        self.opening_finished(false);
+        pending.0 = None;
+        result
     }
 
+    /// # Cancel safety:
     /// NOT cancel-safe at individual write/request awaits; cancellation is made
     /// safe at the operation boundary by [`OpenStreamTaskGuard`] and permit RAII.
     ///
@@ -158,7 +166,7 @@ impl PooledConnection {
     /// (upload), session id embedded in the URL path. Matches xray-core's
     /// `dialer.go` stream-up branch.
     async fn open_stream_up(
-        &self,
+        self: &Arc<Self>,
         mode: &XhttpMode,
         request: &[u8],
         permit: OwnedSemaphorePermit,
@@ -219,11 +227,13 @@ impl PooledConnection {
             download_failed,
             writer: user_upload,
             _permit: permit,
+            _carrier: ActiveCarrier::new(Arc::clone(self)),
         };
         open_tasks.disarm();
         Ok(stream)
     }
 
+    /// # Cancel safety:
     /// NOT cancel-safe at individual write/request awaits; cancellation is made
     /// safe at the operation boundary by [`OpenStreamTaskGuard`] and permit RAII.
     ///
@@ -233,7 +243,7 @@ impl PooledConnection {
     /// Matches xray-core's `dialer.go` stream-one branch (upstream
     /// default for REALITY without `downloadSettings`).
     async fn open_stream_one(
-        &self,
+        self: &Arc<Self>,
         mode: &XhttpMode,
         request: &[u8],
         permit: OwnedSemaphorePermit,
@@ -274,9 +284,37 @@ impl PooledConnection {
             download_failed,
             writer: user_upload,
             _permit: permit,
+            _carrier: ActiveCarrier::new(Arc::clone(self)),
         };
         open_tasks.disarm();
         Ok(stream)
+    }
+}
+
+struct ActiveCarrier(Arc<PooledConnection>);
+
+impl ActiveCarrier {
+    fn new(connection: Arc<PooledConnection>) -> Self {
+        connection.stream_started();
+        Self(connection)
+    }
+}
+
+impl Drop for ActiveCarrier {
+    fn drop(&mut self) {
+        self.0.stream_finished();
+    }
+}
+
+// A cancelled opening may indicate a blackhole. Keep active streams working
+// and retire the carrier when its last active stream finishes.
+struct PendingStreamCarrier<'a>(Option<&'a Arc<PooledConnection>>);
+
+impl Drop for PendingStreamCarrier<'_> {
+    fn drop(&mut self) {
+        if let Some(connection) = self.0.take() {
+            connection.opening_finished(true);
+        }
     }
 }
 
@@ -537,8 +575,9 @@ mod tests {
             .expect("mode")
             .with_protocol_mode(protocol_mode),
         );
-        let pooled = PooledConnection::new(sender, 2, Arc::new(tokio::sync::Notify::new()));
+        let pooled = Arc::new(PooledConnection::new(sender, 2, Arc::new(tokio::sync::Notify::new())));
         let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
+        assert!(pooled.opening_started());
         let _stream = pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit).await.expect("open stream");
         let expected = match protocol_mode {
             XhttpProtocolMode::StreamUp => 2,
@@ -599,7 +638,16 @@ mod tests {
         );
         let (_user_upload, writer) = tokio::io::duplex(1024);
         let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
+        let (client_io, _server_io) = tokio::io::duplex(4096);
+        let (sender, _connection) = hyper::client::conn::http2::handshake(
+            hyper_util::rt::TokioExecutor::new(),
+            hyper_util::rt::TokioIo::new(client_io),
+        )
+        .await
+        .expect("client h2 handshake");
+        let carrier = Arc::new(PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new())));
         let mut stream = super::XhttpStream {
+            _carrier: super::ActiveCarrier::new(carrier),
             reader: ripdpi_vless::wire::ResponseHeaderStream::new(user_download),
             download_failed,
             writer,
@@ -670,8 +718,9 @@ mod tests {
                 .expect("mode")
                 .with_protocol_mode(protocol_mode),
             );
-            let pooled = PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new()));
+            let pooled = Arc::new(PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new())));
             let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
+            assert!(pooled.opening_started());
             let result = tokio::time::timeout(
                 Duration::from_millis(500),
                 pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit),
@@ -747,9 +796,10 @@ mod tests {
                 .expect("mode")
                 .with_protocol_mode(protocol_mode),
             );
-            let pooled = PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new()));
+            let pooled = Arc::new(PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new())));
             let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
             let request = mode.xudp_request().expect("XUDP request");
+            assert!(pooled.opening_started());
             let stream = pooled.open_stream_from_mode(&mode, &request, permit).await.expect("open XUDP stream");
             let mut session = ripdpi_vless::VlessXudpSession::new(stream, true).expect("XUDP session");
             session.send_to("192.0.2.7:443", b"ping").await.expect("send XUDP datagram");

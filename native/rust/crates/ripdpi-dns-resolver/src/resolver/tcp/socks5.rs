@@ -1,6 +1,6 @@
 use std::future::Future;
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Instant;
 
 use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
@@ -16,6 +16,8 @@ use crate::types::{EncryptedDnsError, EncryptedDnsTransport};
 /// bootstrap health outcome is recorded.
 pub(super) async fn connect_socks5_tcp_with<S, C, F>(
     inner: &ResolverInner,
+    bootstrap_ips: Vec<IpAddr>,
+    record_success: bool,
     proxy_target: SocketAddr,
     mut connect: C,
 ) -> Result<S, EncryptedDnsError>
@@ -24,7 +26,6 @@ where
     C: FnMut(SocketAddr) -> F,
     F: Future<Output = io::Result<S>>,
 {
-    let bootstrap_ips = health::ranked_bootstrap_ips(inner);
     if bootstrap_ips.is_empty() {
         let target = Socks5TargetAddr::Domain(inner.endpoint.host.clone(), inner.endpoint.port);
         return connect_socks5_target(inner, proxy_target, target, &mut connect).await;
@@ -36,7 +37,9 @@ where
         let target = Socks5TargetAddr::Ip(SocketAddr::new(ip, inner.endpoint.port));
         match connect_socks5_target(inner, proxy_target, target, &mut connect).await {
             Ok(stream) => {
-                health::record_bootstrap_outcome(inner, ip, true, started.elapsed());
+                if record_success {
+                    health::record_bootstrap_outcome(inner, ip, true, started.elapsed());
+                }
                 return Ok(stream);
             }
             Err(error) => {

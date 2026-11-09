@@ -36,7 +36,7 @@ impl RelaySession for XhttpSession {
     type Error = io::Error;
 
     /// # Cancel safety:
-    /// cancel-safe: the client retires an interrupted carrier and restores its pool capacity.
+    /// cancel-safe: cancellation releases the stream permit and preserves active siblings.
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         self.client.connect(target).await
     }

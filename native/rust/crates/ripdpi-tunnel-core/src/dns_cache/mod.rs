@@ -235,6 +235,7 @@ mod tests {
         assert_eq!(message.metadata.response_code, ResponseCode::ServFail);
         assert_eq!(message.queries.len(), 1);
         assert!(message.answers.is_empty());
+        assert_eq!(&response[10..12], &[0x00, 0x00], "no OPT without a request OPT, ARCOUNT is 0");
     }
 
     #[test]

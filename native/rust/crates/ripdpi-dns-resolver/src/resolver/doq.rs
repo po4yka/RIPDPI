@@ -108,17 +108,20 @@ impl EncryptedDnsResolver {
         for ip in bootstrap_ips {
             let started = Instant::now();
             let addr = SocketAddr::new(ip, self.inner.endpoint.port);
-            let result = timeout(self.inner.timeout, async {
-                state
-                    .endpoint
-                    .connect(addr, server_name)
-                    .map_err(|error| EncryptedDnsError::Tls(format!("DoQ connect: {error}")))?
-                    .await
-                    .map_err(|error| EncryptedDnsError::Tls(format!("DoQ handshake: {error}")))
-            })
-            .await
-            .map_err(|_| EncryptedDnsError::Request("DoQ connect timeout".to_string()))
-            .and_then(std::convert::identity);
+            // A synchronous connect error is a local setup error, not a network outcome: keep it out of health.
+            let connecting = match state.endpoint.connect(addr, server_name) {
+                Ok(connecting) => connecting,
+                Err(error) => {
+                    last_error = Some(EncryptedDnsError::Tls(format!("DoQ connect: {error}")));
+                    continue;
+                }
+            };
+            let result = timeout(self.inner.timeout, connecting)
+                .await
+                .map_err(|_| EncryptedDnsError::Request("DoQ connect timeout".to_string()))
+                .and_then(|connected| {
+                    connected.map_err(|error| EncryptedDnsError::Tls(format!("DoQ handshake: {error}")))
+                });
             let success = result.is_ok();
             if let Some(health) = &self.inner.health {
                 let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
@@ -190,7 +193,22 @@ async fn exchange_doq_query(
     }
     response[..2].copy_from_slice(&query_bytes[..2]);
     streams.complete = true;
+    // Keepalive first: it is a connection error even in a reply that also fails the match.
+    if has_edns_tcp_keepalive(&response) {
+        conn.close(2u32.into(), b"DoQ edns-tcp-keepalive");
+        return Err(EncryptedDnsError::DnsParse("DoQ response carries edns-tcp-keepalive".to_string()));
+    }
+    crate::transport::ensure_response_matches_query(query_bytes, &response)?;
     Ok(response)
+}
+
+/// RFC 9250 4.3.3: a message with the edns-tcp-keepalive option (RFC 7828, code 11) is a protocol error.
+/// A message that does not parse is not treated as one.
+fn has_edns_tcp_keepalive(message: &[u8]) -> bool {
+    hickory_proto::op::Message::from_vec(message)
+        .ok()
+        .and_then(|parsed| parsed.edns)
+        .is_some_and(|edns| edns.option(hickory_proto::rr::rdata::opt::EdnsCode::Keepalive).is_some())
 }
 
 /// A response stream that ends before the whole message is a protocol error
@@ -207,6 +225,16 @@ pub(super) fn build_doq_endpoint(
     connect_hooks: &EncryptedDnsConnectHooks,
 ) -> io::Result<quinn::Endpoint> {
     let bind_addr = doq_bind_addr(endpoint)?;
+    match bind_doq_endpoint(bind_addr, connect_hooks) {
+        // A host without IPv6 sockets still reaches the IPv4 bootstrap IPs; IPv6 ones then fail at connect.
+        Err(_) if bind_addr.is_ipv6() && endpoint.bootstrap_ips.iter().any(std::net::IpAddr::is_ipv4) => {
+            bind_doq_endpoint(SocketAddr::from((std::net::Ipv4Addr::UNSPECIFIED, 0)), connect_hooks)
+        }
+        result => result,
+    }
+}
+
+fn bind_doq_endpoint(bind_addr: SocketAddr, connect_hooks: &EncryptedDnsConnectHooks) -> io::Result<quinn::Endpoint> {
     if let Some(binder) = &connect_hooks.direct_udp_binder {
         let socket = binder(bind_addr)?;
         return quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime));
@@ -222,13 +250,14 @@ pub(super) fn build_doq_endpoint(
 }
 
 fn doq_bind_addr(endpoint: &EncryptedDnsEndpoint) -> io::Result<SocketAddr> {
-    let Some(ip) = endpoint.bootstrap_ips.first() else {
+    if endpoint.bootstrap_ips.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "DoQ bootstrap requires at least one bootstrap IP"));
-    };
-
-    let bind_ip = match ip {
-        std::net::IpAddr::V4(_) => std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED),
-        std::net::IpAddr::V6(_) => std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED),
+    }
+    // One dual-stack IPv6 socket reaches every bootstrap IP; an IPv4 socket cannot connect to IPv6.
+    let bind_ip = if endpoint.bootstrap_ips.iter().any(std::net::IpAddr::is_ipv6) {
+        std::net::IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED)
+    } else {
+        std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)
     };
     Ok(SocketAddr::new(bind_ip, 0))
 }

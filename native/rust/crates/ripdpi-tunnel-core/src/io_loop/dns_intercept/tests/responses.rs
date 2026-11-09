@@ -195,3 +195,61 @@ fn udp_answer_within_the_edns_size_but_above_the_mtu_is_truncated() {
     assert!(reply.metadata.truncation);
     assert!(reply.answers.is_empty());
 }
+
+/// `a.example` A IN, ID 0x1234, RD, with an OPT (CLASS 1232) whose DO bit is `dnssec_ok`.
+fn query_with_opt(dnssec_ok: bool) -> Vec<u8> {
+    let mut query = vec![
+        0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, b'a', 0x07, b'e', b'x', b'a',
+        b'm', b'p', b'l', b'e', 0x00, 0x00, 0x01, 0x00, 0x01,
+    ];
+    query.extend_from_slice(&[0x00, 0x00, 0x29, 0x04, 0xd0, 0x00, 0x00, if dnssec_ok { 0x80 } else { 0x00 }, 0x00]);
+    query.extend_from_slice(&[0x00, 0x00]);
+    query
+}
+
+#[test]
+fn synthesized_servfail_answers_an_opt_request_with_opt_and_copies_do() {
+    let mut device = TunDevice::new(1500);
+    handle_dns_result(
+        &mut device,
+        &Arc::new(Stats::default()),
+        test_mapdns(),
+        &mut test_dns_cache(),
+        DnsResponse {
+            src: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000),
+            query: query_with_opt(true),
+            host: Some("a.example".to_string()),
+            upstream: Err("upstream down".to_string()),
+            resolver_error_kind: None,
+            resolver_endpoint_label: None,
+            direct_generation: None,
+            tcp_reply: None,
+        },
+    );
+
+    let packet = device.tx_queue.front().expect("SERVFAIL queued");
+    let payload = &packet[28..];
+    assert_eq!(payload[3] & 0x0f, 2, "RCODE SERVFAIL");
+    assert_eq!(&payload[10..12], &[0x00, 0x01], "ARCOUNT");
+    assert_eq!(&payload[payload.len() - 11..], &[0x00, 0x00, 0x29, 0x04, 0xd0, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00]);
+}
+
+#[test]
+fn synthesized_servfail_for_a_request_without_opt_has_no_additional_records() {
+    let query = &query_with_opt(false)[..27];
+    let mut request = query.to_vec();
+    request[11] = 0;
+    let response = crate::dns_cache::servfail_response(&request).expect("servfail builds");
+    assert_eq!(&response[10..12], &[0x00, 0x00]);
+    assert_eq!(response.len(), 27);
+}
+
+#[test]
+fn refused_response_answers_an_opt_request_with_opt() {
+    let parsed = super::super::parse_dns_query(&query_with_opt(true)).expect("query parses");
+    let refused = hickory_proto::op::Message::from_vec(&parsed.refused_response().expect("encodes")).expect("parses");
+    assert_eq!(refused.metadata.response_code, hickory_proto::op::ResponseCode::Refused);
+    let edns = refused.edns.expect("OPT present");
+    assert!(edns.flags().dnssec_ok);
+    assert_eq!(edns.max_payload(), 1232);
+}

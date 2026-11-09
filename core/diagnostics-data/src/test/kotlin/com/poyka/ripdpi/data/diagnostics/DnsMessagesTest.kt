@@ -64,15 +64,16 @@ class DnsMessagesTest {
     }
 
     @Test
-    fun `padding preserves wire length and advertised datagram size`() {
+    fun `sized queries keep wire length without the cleartext padding option`() {
         for (size in listOf(128, 512, 1232, 4096)) {
             val wire = DnsMessages.query("probe.invalid", transactionId = 9, payloadSize = size)
             assertEquals(size, wire.size)
             val message = DnsMessages.parseQuery(wire)
             assertEquals(1232, message.opt.payloadSize)
             assertEquals(1, message.getSection(Section.ADDITIONAL).size)
+            // RFC 6891 9: 65001 is a local/experimental code; 12 (Padding) must not go over cleartext UDP.
             assertEquals(
-                12,
+                65001,
                 message.opt.options
                     .single()
                     .code,

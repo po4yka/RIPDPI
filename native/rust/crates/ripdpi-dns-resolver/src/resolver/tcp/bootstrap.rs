@@ -1,6 +1,6 @@
 use std::future::Future;
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Instant;
 
 use super::super::connection::TcpClientStream;
@@ -10,6 +10,8 @@ use crate::types::EncryptedDnsError;
 
 pub(super) async fn connect_direct_tcp_with<S, C, F>(
     inner: &ResolverInner,
+    ips: Vec<IpAddr>,
+    record_success: bool,
     mut connect: C,
 ) -> Result<S, EncryptedDnsError>
 where
@@ -18,7 +20,7 @@ where
     F: Future<Output = io::Result<S>>,
 {
     let mut last_error = None;
-    for ip in health::ranked_bootstrap_ips(inner) {
+    for ip in ips {
         let address = SocketAddr::new(ip, inner.endpoint.port);
         let started = Instant::now();
         match timeouts::request_timeout(inner.timeout, connect(address), || format!("connect to {address} timed out"))
@@ -26,7 +28,9 @@ where
         {
             Ok(Ok(stream)) => {
                 let _ = stream.set_nodelay_if_supported(true);
-                health::record_bootstrap_outcome(inner, ip, true, started.elapsed());
+                if record_success {
+                    health::record_bootstrap_outcome(inner, ip, true, started.elapsed());
+                }
                 return Ok(stream);
             }
             Ok(Err(err)) => {

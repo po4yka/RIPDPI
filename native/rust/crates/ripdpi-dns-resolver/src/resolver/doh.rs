@@ -32,7 +32,7 @@ impl EncryptedDnsResolver {
             .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
         let encrypted = resolved
             .target_config()
-            .encrypt_query(query_bytes, 0)
+            .encrypt_query(query_bytes, crate::odoh::odoh_padding_len(query_bytes.len()))
             .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
         let proxy_url = odoh_proxy_url(&odoh.proxy_url, &odoh.target_host, &odoh.target_path)?;
 
