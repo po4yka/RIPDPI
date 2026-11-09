@@ -109,7 +109,7 @@ fn der_cert_blocked_by(der: &[u8], blocked: &[SpkiHash]) -> bool {
     spki_der(der).is_some_and(|spki| blocked.contains(&Sha256::digest(spki).into()))
 }
 
-/// Installs the blocklist as the BoringSSL verify callback (mode PEER). It
+/// Installs SAN-only identity checks and the blocklist as the BoringSSL verify callback (mode PEER). It
 /// runs for every certificate of the chain BoringSSL built, after BoringSSL's
 /// own check. A later `set_verify` on the builder replaces the callback and
 /// removes the check, so callers must not call it.
@@ -120,6 +120,11 @@ pub fn install_cert_blocklist(builder: &mut boring::ssl::SslContextBuilder) {
 fn install_cert_blocklist_with(builder: &mut boring::ssl::SslContextBuilder, blocked: Vec<SpkiHash>) {
     builder.set_verify_callback(boring::ssl::SslVerifyMode::PEER, move |preverified, context| {
         if !preverified {
+            return false;
+        }
+        // BoringSSL uses CN only when SAN is absent. Reject that identity fallback.
+        if context.error_depth() == 0 && context.current_cert().is_some_and(|cert| cert.subject_alt_names().is_none()) {
+            context.set_error(Err(boring::x509::X509VerifyError::HOSTNAME_MISMATCH));
             return false;
         }
         // Fails closed: a certificate that cannot be re-encoded counts as blocked.
