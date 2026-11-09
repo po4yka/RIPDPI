@@ -4,6 +4,7 @@ use crate::util::{copy_name_seeded, read_u16, read_u24, write_u16};
 use super::super::edit::{
     find_tls_ext_offset, merge_tls_records, remove_ks_group, remove_tls_ext, resize_ech_ext, resize_sni,
 };
+use super::padding::grow_padding;
 
 pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, seed: u32) -> PacketMutation {
     if capacity < input.len() || host.len() > u16::MAX as usize {
@@ -106,15 +107,20 @@ pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, 
             return PacketMutation { rc: -1, bytes: input.to_vec() };
         }
         let record_end = 5 + record_size;
-        let pad_offs = record_end - avail;
-        if record_end > capacity as isize || pad_offs < 0 || pad_offs + avail > capacity as isize {
+        let used = record_end - avail;
+        if record_end > capacity as isize || used < 9 {
             return PacketMutation { rc: -1, bytes: input.to_vec() };
         }
-        let pad_offs = pad_offs as usize;
-        let avail = avail as usize;
-        let _ = write_u16(&mut output, pad_offs, 0x0015);
-        let _ = write_u16(&mut output, pad_offs + 2, avail.saturating_sub(4));
-        output[pad_offs + 4..pad_offs + avail].fill(0);
+        // Make the used part a valid record, then give the spare bytes to the padding.
+        let used_record_size = (used - 5) as usize;
+        let _ = write_u16(&mut output, 3, used_record_size);
+        let _ = write_u16(&mut output, 7, used_record_size.saturating_sub(4));
+        let _ = write_u16(&mut output, skip, (used as usize).saturating_sub(skip + 2));
+        let mut record = output[..used as usize].to_vec();
+        if !grow_padding(&mut record, avail as usize) {
+            return PacketMutation { rc: -1, bytes: input.to_vec() };
+        }
+        output[..record.len()].copy_from_slice(&record);
     }
 
     if record_size < 4

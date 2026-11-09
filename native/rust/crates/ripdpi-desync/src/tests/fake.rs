@@ -252,3 +252,65 @@ fn build_seqovl_fake_prefix_rand_uses_seeded_random_bytes() {
 
     assert_eq!(prefix, expected);
 }
+
+/// Offset of the extension-block length and the extension types, read with a
+/// strict walk that fails on any length that does not match the bytes.
+fn walk_client_hello(bytes: &[u8]) -> (usize, Vec<u16>) {
+    let u16_at = |at: usize| usize::from(u16::from_be_bytes([bytes[at], bytes[at + 1]]));
+    assert_eq!(u16_at(3) + 5, bytes.len(), "record length");
+    let mut at = 44 + usize::from(bytes[43]);
+    at += 2 + u16_at(at);
+    at += 1 + usize::from(bytes[at]);
+    let ext_len_at = at;
+    assert_eq!(ext_len_at + 2 + u16_at(ext_len_at), bytes.len(), "extension block length");
+    let mut kinds = Vec::new();
+    at += 2;
+    while at < bytes.len() {
+        kinds.push(u16_at(at) as u16);
+        at += 4 + u16_at(at + 2);
+    }
+    assert_eq!(at, bytes.len(), "extensions end on the record end");
+    (ext_len_at, kinds)
+}
+
+#[test]
+fn build_fake_packet_with_shorter_fake_sni_keeps_one_padding_extension() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tls_fake_profile = TlsFakeProfile::SberbankChrome;
+    group.actions.fake_sni_list = vec!["a.io".to_owned()];
+
+    let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("tls fake");
+
+    let (_, kinds) = walk_client_hello(&fake.bytes);
+    assert_eq!(kinds.iter().filter(|kind| **kind == 0x0015).count(), 1);
+    assert_eq!(parse_tls(&fake.bytes), Some(&b"a.io"[..]));
+}
+
+#[test]
+fn build_fake_packet_keeps_pre_shared_key_last_when_growing_a_captured_hello() {
+    let base = ripdpi_packets::tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
+    let (ext_len_at, _) = walk_client_hello(base);
+    let psk = [0x00, 0x29, 0x00, 0x04, 1, 2, 3, 4];
+    let mut captured = base.to_vec();
+    captured.extend_from_slice(&psk);
+    let bump = |bytes: &mut Vec<u8>, at: usize, width: usize| {
+        let old = bytes[at..at + width].iter().fold(0usize, |acc, byte| acc << 8 | usize::from(*byte));
+        let new = old + psk.len();
+        for (index, byte) in bytes[at..at + width].iter_mut().enumerate() {
+            *byte = (new >> (8 * (width - 1 - index))) as u8;
+        }
+    };
+    bump(&mut captured, 3, 2);
+    bump(&mut captured, 6, 3);
+    bump(&mut captured, ext_len_at, 2);
+    assert_eq!(walk_client_hello(&captured).1.last(), Some(&0x0029));
+
+    let mut group = DesyncGroup::new(0);
+    group.actions.fake_tls_source = ripdpi_config::FakePacketSource::CapturedClientHello;
+    group.actions.fake_tls_size = (captured.len() + 100) as i32;
+    let fake = build_fake_packet(&group, &captured, 7).expect("tls fake");
+
+    assert_eq!(fake.bytes.len(), captured.len() + 100);
+    let (_, kinds) = walk_client_hello(&fake.bytes);
+    assert_eq!(kinds[kinds.len() - 2..], [0x0015, 0x0029]);
+}

@@ -147,6 +147,42 @@ fn tune_padding_keeps_untouched_extensions_for_every_profile_and_target() {
 }
 
 #[test]
+fn change_sni_keeps_one_padding_extension_for_every_profile_and_host_length() {
+    for profile in PROFILES {
+        let input = tls_fake_profile_bytes(profile);
+        let before = strict_extensions(input).expect("template");
+        for host_len in 1..=253usize {
+            let host = vec![b'a'; host_len];
+            let capacity = input.len() + host_len + 64;
+            let mutation = change_tls_sni_seeded_like_c(input, &host, capacity, 7);
+            if mutation.rc != 0 {
+                assert_eq!(mutation.bytes, input, "{profile:?} host {host_len}");
+                continue;
+            }
+            let after =
+                strict_extensions(&mutation.bytes).unwrap_or_else(|err| panic!("{profile:?} host {host_len}: {err}"));
+            assert_eq!(crate::tls::parse_tls(&mutation.bytes), Some(host.as_slice()), "{profile:?} host {host_len}");
+            for (kind, data) in &after {
+                // The ECH payload is resized on purpose to absorb the length change.
+                if ![0x0000, 0x0015, 0xfe0d].contains(kind) {
+                    assert!(before.iter().any(|(k, d)| k == kind && d.len() >= data.len()), "{profile:?} {kind:#06x}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn change_sni_to_shorter_host_on_sberbank_profile_stays_parseable() {
+    let input = tls_fake_profile_bytes(TlsFakeProfile::SberbankChrome);
+    let mutation = change_tls_sni_seeded_like_c(input, b"a.io", input.len() + 68, 7);
+
+    assert_eq!(mutation.rc, 0);
+    strict_extensions(&mutation.bytes).expect("one padding, well formed");
+    assert_eq!(crate::tls::parse_tls(&mutation.bytes), Some(&b"a.io"[..]));
+}
+
+#[test]
 fn merge_records_never_claims_bytes_past_a_truncated_last_record() {
     let record = |declared: usize, fill: u8, present: usize| {
         let mut bytes = vec![0x16, 3, 1, (declared >> 8) as u8, declared as u8];

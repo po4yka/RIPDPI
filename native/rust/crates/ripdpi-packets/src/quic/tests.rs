@@ -430,12 +430,12 @@ fn browser_like_quic_initial_wire_images_are_stable() {
                 QuicInitialBrowserProfile::FirefoxAndroid,
             )
             .expect("build firefox-like packet"),
-            11_472_675_710_253_673_189,
+            17_210_174_290_090_500_254,
         ),
         (
             "generic_v1",
             build_generic_quic_initial(QUIC_V1_VERSION, Some("fixture.example.test")).expect("build generic packet"),
-            2_193_023_961_024_112_642,
+            10_643_788_562_179_451_509,
         ),
     ];
 
