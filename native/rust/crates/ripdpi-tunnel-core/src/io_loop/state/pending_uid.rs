@@ -125,7 +125,6 @@ impl PendingUidPackets {
         self.queued.len()
     }
 
-    #[cfg(test)]
     pub(in crate::io_loop) fn is_empty(&self) -> bool {
         self.queued.is_empty()
     }

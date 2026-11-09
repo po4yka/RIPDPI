@@ -188,7 +188,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	if err != nil {
 		return nil, err
 	}
-	dnsHTTPSListener, err := p.startOwnedDNSHTTPWithTLS(&certificate)
+	dnsHTTPSListener, err := p.startOwnedDNSHTTPS(certificate)
 	if err != nil {
 		return nil, err
 	}
@@ -309,6 +309,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			// Host tests and the emulator alias reach only this owned HTTP port.
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPSPort), "outboundTag": "owned-doh-tls"},
+			// TLS sniffing can replace the bootstrap IP with the certificate name.
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:" + serverName}, "port": fmt.Sprint(p.manifest.DNSHTTPSPort), "outboundTag": "owned-doh-tls"},
 		}},
 	}

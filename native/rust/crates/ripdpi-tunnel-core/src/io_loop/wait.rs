@@ -40,10 +40,15 @@ pub(in crate::io_loop) async fn wait_for_next_event(
     state: &mut LoopState,
     work_pending: bool,
 ) -> io::Result<WaitOutcome> {
-    let smol_delay = state
+    let mut smol_delay = state
         .iface
         .poll_delay(Instant::now(), &state.socket_set)
         .map_or(Duration::from_millis(DEFAULT_POLL_DELAY_MS), |d| Duration::from_micros(d.total_micros()));
+    // UID resolution does not wake this loop; revisit queued packets even when
+    // smoltcp's next timer is far in the future.
+    if !state.pending_uid_packets.is_empty() {
+        smol_delay = smol_delay.min(Duration::from_millis(DEFAULT_POLL_DELAY_MS));
+    }
 
     drain_udp_events(state);
     // Drained UDP replies sit in the TX queue after this iteration's flush and wake nothing.
