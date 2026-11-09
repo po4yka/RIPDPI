@@ -2,7 +2,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use super::route_experiment::{connect_addresses_with_route_experiment, route_identity};
 use super::socks5::connect_via_socks5_observed;
@@ -13,6 +13,8 @@ use super::types::{
 use crate::util::{CONNECT_TIMEOUT, active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline};
 
 const HAPPY_EYEBALLS_DELAY: Duration = Duration::from_millis(250);
+/// Bounds the threads one race uses; a failed attempt frees a slot for the next address.
+const MAX_IN_FLIGHT_ATTEMPTS: usize = 4;
 
 pub fn connect_transport_observed(
     targets: &[TargetAddress],
@@ -148,32 +150,32 @@ pub(super) fn candidate_address_groups<'a>(
     })
 }
 
+/// Orders addresses by alternating families (RFC 8305 section 4, First Address Family Count 1).
+/// The family of the first address leads; order inside each family is kept.
+pub(super) fn interleave_address_families(addresses: &[SocketAddr]) -> Vec<SocketAddr> {
+    let Some(first) = addresses.first() else {
+        return Vec::new();
+    };
+    let (mut lead, mut other): (Vec<SocketAddr>, Vec<SocketAddr>) =
+        addresses.iter().copied().partition(|address| address.is_ipv4() == first.is_ipv4());
+    let mut result = Vec::with_capacity(addresses.len());
+    lead.reverse();
+    other.reverse();
+    while !lead.is_empty() || !other.is_empty() {
+        result.extend(lead.pop());
+        result.extend(other.pop());
+    }
+    result
+}
+
 fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, SocketAddr), TransportError> {
-    let initial_batch = addresses.iter().take(2).copied().collect::<Vec<_>>();
-    let initial_batch_len = initial_batch.len();
-    let mut last_error = None;
-    if !initial_batch.is_empty() {
-        let raced = race_initial_addresses(
-            initial_batch,
-            Arc::new(move |address, stop| {
-                let timeout =
-                    bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-                Ok(super::protect::protected_tcp_connect_until(address, timeout, stop)?)
-            }),
-        );
-        if let Ok((stream, address)) = raced {
-            return Ok((stream, address));
-        }
-        last_error = raced.err();
-    }
-    for address in addresses.iter().skip(initial_batch_len).copied() {
-        let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-        match super::protect::protected_tcp_connect(address, timeout) {
-            Ok(stream) => return Ok((stream, address)),
-            Err(err) => last_error = Some(TransportError::Io(err)),
-        }
-    }
-    Err(last_error.unwrap_or(TransportError::NoAddresses))
+    race_addresses(
+        interleave_address_families(addresses),
+        Arc::new(move |address, stop| {
+            let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
+            Ok(super::protect::protected_tcp_connect_until(address, timeout, stop)?)
+        }),
+    )
 }
 
 /// One connect attempt; the flag is set once the race has a result.
@@ -189,7 +191,28 @@ impl Drop for DecideOnDrop {
     }
 }
 
-fn race_initial_addresses<T>(
+/// Sends a `ConnectRacePanicked` failure for its attempt when dropped before a result was sent
+/// (a panicking attempt), so the caller gets exactly one message per started attempt.
+struct AttemptReport<T> {
+    tx: mpsc::Sender<(SocketAddr, Result<T, TransportError>)>,
+    address: SocketAddr,
+    sent: bool,
+}
+
+impl<T> Drop for AttemptReport<T> {
+    fn drop(&mut self) {
+        if !self.sent {
+            let _ = self.tx.send((self.address, Err(TransportError::ConnectRacePanicked)));
+        }
+    }
+}
+
+/// Races `addresses` in order (RFC 8305 section 5): attempt `i` starts `HAPPY_EYEBALLS_DELAY` after
+/// attempt `i - 1` started, or at once when the previous attempt failed. Started attempts keep
+/// running; the first success wins. At most `MAX_IN_FLIGHT_ATTEMPTS` attempts run at the same time.
+///
+/// # Cancel safety: NOT cancel-safe: blocking call; dropping the race flags `decided` so started attempts stop.
+fn race_addresses<T>(
     addresses: Vec<SocketAddr>,
     connect: Arc<RaceConnect<T>>,
 ) -> Result<(T, SocketAddr), TransportError>
@@ -197,62 +220,70 @@ where
     T: Send + 'static,
 {
     let scan_deadline = active_scan_io_deadline();
-    let attempt_count = addresses.len();
     let (result_tx, result_rx) = mpsc::channel();
-    // Set when the caller returns, so a delayed or pending attempt does not complete a connection
-    // that nobody reads (RFC 8305 section 5). `connect` receives it to stop a started attempt.
+    // Set when the caller returns, so a pending attempt does not complete a connection that nobody
+    // reads (RFC 8305 section 5). `connect` receives it to stop a started attempt.
     let decided = Arc::new(AtomicBool::new(false));
     let _decide_on_exit = DecideOnDrop(Arc::clone(&decided));
-    for (index, address) in addresses.into_iter().enumerate() {
-        let connect = Arc::clone(&connect);
-        let result_tx = result_tx.clone();
-        let decided = Arc::clone(&decided);
-        thread::Builder::new()
-            .name(format!("ripdpi-connect-race-{index}"))
-            .spawn(move || {
-                if index > 0 {
-                    thread::sleep(HAPPY_EYEBALLS_DELAY);
-                    // Acquire pairs with the caller's Release store when it returns.
-                    if decided.load(Ordering::Acquire) {
-                        return;
-                    }
-                }
-                let result = with_scan_io_deadline(scan_deadline, || connect(address, &decided));
-                let _ = result_tx.send((address, result));
-            })
-            .map_err(TransportError::ConnectRaceSpawnFailed)?;
-    }
-    drop(result_tx);
-
-    await_race_result(&result_rx, attempt_count, scan_deadline)
-}
-
-fn await_race_result<T>(
-    result_rx: &mpsc::Receiver<(SocketAddr, Result<T, TransportError>)>,
-    attempt_count: usize,
-    scan_deadline: Option<std::time::Instant>,
-) -> Result<(T, SocketAddr), TransportError> {
+    let mut pending = addresses.into_iter().enumerate();
+    let mut next = pending.next();
+    let mut in_flight = 0usize;
+    let mut next_start = Instant::now();
     let mut last_error = None;
-    for _ in 0..attempt_count {
-        let result = match scan_deadline {
-            Some(deadline) => {
-                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
-                if remaining.is_zero() {
+    loop {
+        if scan_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            return Err(TransportError::ScanDeadlineExceeded);
+        }
+        if in_flight < MAX_IN_FLIGHT_ATTEMPTS
+            && Instant::now() >= next_start
+            && let Some((index, address)) = next.take()
+        {
+            let connect = Arc::clone(&connect);
+            let result_tx = result_tx.clone();
+            let decided = Arc::clone(&decided);
+            thread::Builder::new()
+                .name(format!("ripdpi-connect-race-{index}"))
+                .spawn(move || {
+                    let mut report = AttemptReport { tx: result_tx, address, sent: false };
+                    let outcome = with_scan_io_deadline(scan_deadline, || connect(address, &decided));
+                    report.sent = true;
+                    let _ = report.tx.send((address, outcome));
+                })
+                .map_err(TransportError::ConnectRaceSpawnFailed)?;
+            in_flight += 1;
+            next = pending.next();
+            next_start = Instant::now() + HAPPY_EYEBALLS_DELAY;
+            continue;
+        }
+        if in_flight == 0 && next.is_none() {
+            return Err(last_error.unwrap_or(TransportError::NoAddresses));
+        }
+        // Wake for the next start only when one is allowed; otherwise wait for a result.
+        let wake = (next.is_some() && in_flight < MAX_IN_FLIGHT_ATTEMPTS).then_some(next_start);
+        let wait_until = match (wake, scan_deadline) {
+            (Some(wake), Some(deadline)) => Some(wake.min(deadline)),
+            (wake, deadline) => wake.or(deadline),
+        };
+        let received = match wait_until {
+            Some(until) => result_rx.recv_timeout(until.saturating_duration_since(Instant::now())),
+            None => result_rx.recv().map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+        };
+        match received {
+            Ok((address, Ok(value))) => return Ok((value, address)),
+            Ok((_, Err(error))) => {
+                in_flight -= 1;
+                last_error = Some(error);
+                // A failed attempt starts the next one at once.
+                next_start = Instant::now();
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if scan_deadline.is_some_and(|deadline| Instant::now() >= deadline) {
                     return Err(TransportError::ScanDeadlineExceeded);
                 }
-                result_rx.recv_timeout(remaining).map_err(|error| match error {
-                    mpsc::RecvTimeoutError::Timeout => TransportError::ScanDeadlineExceeded,
-                    mpsc::RecvTimeoutError::Disconnected => TransportError::ConnectRacePanicked,
-                })?
             }
-            None => result_rx.recv().map_err(|_| TransportError::ConnectRacePanicked)?,
-        };
-        match result {
-            (address, Ok(stream)) => return Ok((stream, address)),
-            (_, Err(error)) => last_error = Some(error),
+            Err(mpsc::RecvTimeoutError::Disconnected) => return Err(TransportError::ConnectRacePanicked),
         }
     }
-    Err(last_error.unwrap_or(TransportError::NoAddresses))
 }
 
 pub fn wait_for_listener(addr: SocketAddr) -> Result<(), TransportError> {
@@ -272,8 +303,6 @@ pub fn wait_for_listener(addr: SocketAddr) -> Result<(), TransportError> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, Instant};
-
     use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
 
     use super::*;
@@ -284,7 +313,7 @@ mod tests {
         let second = "192.0.2.2:443".parse().expect("second address");
         let started = Instant::now();
 
-        let (winner, address) = race_initial_addresses(
+        let (winner, address) = race_addresses(
             vec![first, second],
             Arc::new(move |address, _| {
                 if address == first {
@@ -308,7 +337,7 @@ mod tests {
         let second = "192.0.2.2:443".parse().expect("second address");
         let attempted = Arc::new(std::sync::Mutex::new(Vec::new()));
 
-        let (_, winner) = race_initial_addresses(vec![first, second], {
+        let (_, winner) = race_addresses(vec![first, second], {
             let attempted = Arc::clone(&attempted);
             Arc::new(move |address, _| {
                 attempted.lock().unwrap().push(address);
@@ -342,7 +371,7 @@ mod tests {
         let second = "192.0.2.2:443".parse().expect("second address");
         let (observed_tx, observed_rx) = mpsc::channel();
 
-        let (_, winner) = race_initial_addresses(vec![first, second], {
+        let (_, winner) = race_addresses(vec![first, second], {
             let observed_tx = std::sync::Mutex::new(observed_tx);
             Arc::new(move |address, stop: &AtomicBool| {
                 if address == first {
@@ -367,6 +396,159 @@ mod tests {
     }
 
     #[test]
+    fn interleaving_alternates_families_and_keeps_the_first_family_first() {
+        let sa = |text: &str| -> SocketAddr { text.parse().expect("socket address") };
+        let (v6a, v6b) = (sa("[2001:db8::1]:443"), sa("[2001:db8::2]:443"));
+        let (v4a, v4b) = (sa("192.0.2.1:443"), sa("192.0.2.2:443"));
+
+        assert_eq!(interleave_address_families(&[v6a, v6b, v4a, v4b]), vec![v6a, v4a, v6b, v4b]);
+        assert_eq!(interleave_address_families(&[v4a, v4b, v6a, v6b]), vec![v4a, v6a, v4b, v6b]);
+        assert_eq!(interleave_address_families(&[v4a, v4b]), vec![v4a, v4b]);
+        assert!(interleave_address_families(&[]).is_empty());
+    }
+
+    #[test]
+    fn blackholed_leading_addresses_do_not_delay_a_later_success() {
+        let blackholes: [SocketAddr; 3] =
+            ["192.0.2.1:443", "192.0.2.2:443", "192.0.2.3:443"].map(|a| a.parse().unwrap());
+        let good: SocketAddr = "192.0.2.4:443".parse().unwrap();
+        let mut addresses = blackholes.to_vec();
+        addresses.push(good);
+        let started = Instant::now();
+
+        let (_, winner) = race_addresses(
+            addresses,
+            Arc::new(move |address, stop: &AtomicBool| {
+                if address == good {
+                    return Ok(());
+                }
+                while !stop.load(Ordering::Acquire) {
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(TransportError::NoAddresses)
+            }),
+        )
+        .expect("the reachable address wins");
+
+        // Attempts start at 0, 250, 500 and 750 ms; sequential tails would take 3 x 2.5 s.
+        assert_eq!(winner, good);
+        assert!(started.elapsed() < Duration::from_millis(1500), "tail was tried sequentially");
+    }
+
+    #[test]
+    fn failed_attempt_starts_the_next_address_at_once() {
+        let first: SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let second: SocketAddr = "192.0.2.2:443".parse().unwrap();
+        let starts = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let origin = Instant::now();
+
+        let (_, winner) = race_addresses(vec![first, second], {
+            let starts = Arc::clone(&starts);
+            Arc::new(move |address, _| {
+                starts.lock().unwrap().push((address, origin.elapsed()));
+                if address == first { Err(TransportError::NoAddresses) } else { Ok(()) }
+            })
+        })
+        .expect("second attempt wins");
+
+        assert_eq!(winner, second);
+        let starts = starts.lock().unwrap();
+        let second_start = starts.iter().find(|(address, _)| *address == second).expect("second started").1;
+        assert!(second_start < Duration::from_millis(100), "second started after {second_start:?}");
+    }
+
+    #[test]
+    fn freed_slots_let_later_addresses_run_past_the_in_flight_cap() {
+        let addresses: Vec<SocketAddr> = (1..=6).map(|n| format!("192.0.2.{n}:443").parse().unwrap()).collect();
+        let good = addresses[5];
+        let started = Instant::now();
+
+        let (_, winner) = race_addresses(
+            addresses,
+            Arc::new(move |address, _| {
+                if address == good {
+                    Ok(())
+                } else {
+                    // Fail quickly so each failure frees a slot for the next address.
+                    thread::sleep(Duration::from_millis(20));
+                    Err(TransportError::NoAddresses)
+                }
+            }),
+        )
+        .expect("the sixth address wins");
+
+        assert_eq!(winner, good);
+        assert!(started.elapsed() < Duration::from_millis(500), "slots were not reused");
+    }
+
+    #[test]
+    fn blocked_attempts_at_the_cap_hold_back_later_addresses_until_one_fails() {
+        let addresses: Vec<SocketAddr> = (1..=6).map(|n| format!("192.0.2.{n}:443").parse().unwrap()).collect();
+        let good = addresses[5];
+        let started_at = Arc::new(std::sync::Mutex::new(None));
+
+        let (_, winner) = race_addresses(addresses.clone(), {
+            let started_at = Arc::clone(&started_at);
+            let origin = Instant::now();
+            Arc::new(move |address, stop: &AtomicBool| {
+                if address == good {
+                    *started_at.lock().unwrap() = Some(origin.elapsed());
+                    return Ok(());
+                }
+                if address == addresses[0] {
+                    thread::sleep(Duration::from_millis(1200));
+                    return Err(TransportError::NoAddresses);
+                }
+                if address == addresses[4] {
+                    return Err(TransportError::NoAddresses);
+                }
+                while !stop.load(Ordering::Acquire) {
+                    thread::sleep(Duration::from_millis(5));
+                }
+                Err(TransportError::NoAddresses)
+            })
+        })
+        .expect("the sixth address wins once the first frees a slot");
+
+        // Four attempts run at 0, 250, 500 and 750 ms; the fifth waits for the failure at 1200 ms, fails at once, and frees the slot for the sixth.
+        assert_eq!(winner, good);
+        let started = started_at.lock().unwrap().expect("sixth started");
+        assert!(started >= Duration::from_millis(1200), "cap exceeded: sixth started at {started:?}");
+    }
+
+    #[test]
+    fn all_failures_report_the_last_error() {
+        let addresses: Vec<SocketAddr> = vec!["192.0.2.1:443".parse().unwrap(), "192.0.2.2:443".parse().unwrap()];
+        let result = race_addresses(
+            addresses,
+            Arc::new(|address, _| -> Result<(), TransportError> {
+                Err(TransportError::Io(std::io::Error::other(format!("failed {address}"))))
+            }),
+        );
+        let Err(TransportError::Io(error)) = result else { panic!("expected the last attempt's error") };
+        assert_eq!(error.to_string(), "failed 192.0.2.2:443");
+    }
+
+    #[test]
+    fn panicking_attempt_reports_race_panic_only_when_all_attempts_fail() {
+        let first: SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let second: SocketAddr = "192.0.2.2:443".parse().unwrap();
+
+        let all_fail =
+            race_addresses(vec![first], Arc::new(|_, _| -> Result<(), TransportError> { panic!("attempt panic") }));
+        assert!(matches!(all_fail, Err(TransportError::ConnectRacePanicked)));
+
+        let (_, winner) = race_addresses(
+            vec![first, second],
+            Arc::new(move |address, _| -> Result<(), TransportError> {
+                if address == first { panic!("attempt panic") } else { Ok(()) }
+            }),
+        )
+        .expect("a panic in one attempt does not stop the race");
+        assert_eq!(winner, second);
+    }
+
+    #[test]
     fn direct_tcp_rejects_connect_after_scan_deadline() {
         let loopback = "127.0.0.1:9".parse().expect("loopback socket address");
         let result = with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
@@ -381,7 +563,7 @@ mod tests {
         let addresses = vec!["192.0.2.1:443".parse().unwrap(), "192.0.2.2:443".parse().unwrap()];
         let started = Instant::now();
         let result = with_scan_io_deadline(Some(started + Duration::from_millis(30)), || {
-            race_initial_addresses(
+            race_addresses(
                 addresses,
                 Arc::new(|_, _| {
                     thread::sleep(Duration::from_millis(300));
