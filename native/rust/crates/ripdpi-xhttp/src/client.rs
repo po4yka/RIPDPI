@@ -83,7 +83,8 @@ impl XhttpClient {
     fn open_stream<'a>(&'a self, request: &'a [u8]) -> impl Future<Output = io::Result<XhttpStream>> + 'a {
         establish_with_deadline(STREAM_ESTABLISHMENT_TIMEOUT, async move {
             loop {
-                let (connection, permit) = pool::acquire_connection(&self.inner).await?;
+                // Keep the nested carrier-creation future out of the caller's layout.
+                let (connection, permit) = Box::pin(pool::acquire_connection(&self.inner)).await?;
                 if connection.opening_started() {
                     break connection.open_stream_from_mode(&self.inner.mode, request, permit).await;
                 }
