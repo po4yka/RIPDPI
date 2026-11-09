@@ -20,7 +20,7 @@ The implementation MUST keep replacement sockets close-on-exec and close the tra
 
 ### Requirement: REQ-IPC-LIMITS — Bound scalar-derived memory
 
-The implementation MUST validate genuine ordered TCP coverage and range arithmetic before allocation. Allocation MUST be bounded by the supplied genuine payload data.
+The implementation MUST reject impossible ordered TCP lengths and range arithmetic before allocation. Allocation MUST be bounded by the supplied genuine payload data. Full genuine coverage MUST be checked before a privileged operation.
 
 #### Scenario: A small request advertises an impossible original length
 

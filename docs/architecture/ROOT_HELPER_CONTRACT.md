@@ -59,26 +59,29 @@ cannot.
   `ripdpi-root-helper-protocol/src/scm_rights.rs`). Exact-size `recvmsg` loops
   preserve frame boundaries and SCM_RIGHTS data across `SOCK_STREAM` short
   reads; `send_message` completes short writes without resending the fd.
-- **Request** — `HelperRequest { command: String, params: Value,
+- **Request** — `HelperRequest { protocol_version: Option<u32>, command: String, params: Value,
   session_nonce: Option<String> }`. **Response** — `HelperResponse { ok: bool,
   error: Option<String>, data: Value, protocol_version: Option<u32>,
   capability_version: Option<u32> }` (`src/wire.rs`). The helper stamps every
   outgoing response with `PROTOCOL_VERSION` / `CAPABILITY_VERSION` from
   `wire.rs`. Both version fields are `#[serde(skip_serializing_if =
   "Option::is_none")]` and `#[serde(default)]` — a legacy client reads them
-  as `None` and a legacy response JSON remains serde-compatible. The v2 stream
-  framing itself requires the bundled client and helper binary to match.
+  as `None` at decode. Both ends then require the exact v3 protocol version
+  before they trust a response or run an operation. The bundled client and
+  helper binary must match.
 - The client connects **per operation**, sends one JSON command plus, for the
   socket-bound commands, the relevant socket file descriptor via **`SCM_RIGHTS`**
   ancillary data. The helper replies with a JSON response and, for
   `TCP_REPAIR`-class operations, an optional **replacement fd** the client
-  swaps in via a `dup2`-class call.
+  installs atomically with `dup3(O_CLOEXEC)` on Linux and Android.
 - The helper gives a client 2 s in total to deliver its request frame, then
   shuts the connection down and does not run the request, also when its last
   bytes arrive at the deadline. Each read also times out after 1 s, and each write
   after 10 s. The helper serves one connection at a time, so these bounds keep a
   slow or stalled client from blocking other commands and shutdown. The client
-  waits up to 30 s for the response.
+  uses a 2 s total response budget for its pure protocol preflight and a 30 s
+  budget for a command response. The receive loop applies the remaining budget
+  to each read and rejects a frame completed at or after its deadline.
 - The socket path is published to native code (`Tun2SocksConfig.rootHelperSocketPath`)
   **only after** the socket is confirmed connectable — never a stale path.
 
@@ -179,9 +182,22 @@ bidirectional coverage.
 `TcpStream` / `UdpSocket` fd so the helper operates on the *same* kernel
 socket. `TCP_REPAIR`-class commands may return a **replacement fd**; the
 client installs it over the original descriptor via
-`ripdpi_privileged_ops::swap_replacement_fd` (a `dup2`-class call). When the
-helper rejects a request (bad nonce, parse failure) it closes any received fd
-so no descriptor leaks across the uid-0 boundary.
+`ripdpi_privileged_ops::swap_replacement_fd`. The distinct-fd path uses
+`dup3(O_CLOEXEC)` and closes the temporary descriptor on success or error. If
+both numbers are equal, it retains the caller-owned descriptor and sets
+`FD_CLOEXEC`. The working socket must not be inherited after exec.
+
+Before adoption, the helper checks that a socket-bound command received an
+IPv4 or IPv6 socket with the required TCP or UDP protocol. TCP also requires
+a connected peer. Files, Unix sockets, and mismatched transports are rejected;
+the received copy is closed. Version, nonce, parse, and timeout errors also
+release received descriptors.
+
+An ordered TCP batch cannot allocate from an unchecked advertised length.
+The helper validates genuine segment ranges and bounds the original length
+by the supplied genuine bytes before allocation. It checks full coverage
+before a privileged operation. Overlapping genuine segments and zero-length
+batches containing only fake segments retain their existing semantics.
 
 ## Capability probing & gating
 
@@ -204,24 +220,33 @@ Kotlin side. `syncRootMode(context, rootModeEnabled)` is the entry point:
 **Start** (`start()`):
 1. Extract `ripdpi-root-helper` from APK assets (`bin/<abi>/ripdpi-root-helper`)
    to `<filesDir>/ripdpi-root-helper`, owner-executable.
-2. Mint and write the session nonce file.
-3. For each launch attempt, `exec` the helper and poll the socket for
-   readiness (`LocalSocket` connect, 100 ms interval, 3000 ms timeout).
-4. On first success, record and return the socket path; otherwise try the next
-   attempt.
+2. Stop a predecessor through its own socket and existing nonce. A live or
+   uncertain predecessor blocks startup; retain its endpoint and nonce for retry.
+3. Mint and write a new session nonce for each launch attempt. Start the helper
+   and poll its socket within a 3000 ms total deadline, at 100 ms intervals.
+4. Publish the socket after readiness. Before another attempt, confirm that the
+   previous launcher exited; retain ownership if it did not.
 
-**`su` invocation** — unchanged by this audit. Candidates are `su`,
+**`su` invocation.** Candidates are `su`,
 `/system/xbin/su`, `/system/bin/su` (absolute paths filtered by `canExecute()`).
 Each is tried in two forms — `su -c exec <helper>` (Magisk-style) and
 `su 0 sh -c exec <helper>` (AOSP-style) — for up to six attempts. The helper
 argv is `ripdpi-root-helper --socket <path> --session-nonce-file <path>`, with
 each path shell-quoted.
 
-**Stop** (`stop()`): send a `shutdown` JSON command over the socket (graceful),
-`process.destroy()`, then `destroyForcibly()` after a 1 s grace period, then a
-best-effort `killall -TERM`/`-KILL ripdpi-root-helper` via `su` to reap any
-detached process, and finally remove the socket and nonce files. The helper
-itself handles `SIGTERM` and stops its accept loop.
+**Stop** (`stop()`): request authenticated shutdown through the owned endpoint
+with a bounded socket exchange. Destroy only the retained launcher process;
+wait up to 1 s before forced termination and confirm exit. If the endpoint or
+process may still be live, retain ownership and report cleanup pending. Remove
+the socket and nonce only after cleanup succeeds. Cleanup never signals a
+process by its global name. The helper handles `SIGTERM`, `SIGHUP`, and `SIGINT`
+and completes owned backend cleanup before exit.
+
+Kotlin readiness and requests share `RootHelperSocketDeadline`. It sets the
+socket timeout before connect, arms a total deadline that shuts down the owned
+socket, and rejects late completion even if the scheduler runs late. A host
+TCP fixture checks this timing code; Android Unix-socket and root acceptance
+remain separate checks.
 
 **Lifecycle binding:** `syncRootMode` is driven from connection-policy
 resolution, so the helper is reconciled with the live `root_mode_enabled`
@@ -236,7 +261,10 @@ generation-guarded `RwLock<Option<...>>`. `with_root_helper()` returns `None`
 when no helper is registered — which the dispatch site treats as the signal to
 take the **local non-privileged path**. A root-only tactic whose local path is
 itself unavailable on the device must produce a clean "unavailable" outcome or
-`io::Error`, never a crash.
+`io::Error`, never a crash. The reachable-helper wrapper permits local fallback
+only when delivery is known not to have occurred, including failed pure
+preflight. An error after command delivery is returned without a blind local
+retry, which could duplicate an operation.
 
 **Fallback audit.** Every `with_root_helper()` dispatch site in
 `ripdpi-runtime-platform` was verified to have an explicit local fallback:
@@ -255,8 +283,8 @@ The `root_helper_dispatch.rs` functions return `Option<io::Result<()>>` — a
 `RootHelperManager.start()` returns `null` on **every** failure path (no `su`,
 `su` denied, socket never connectable), so the native runtime receives
 `rootHelperSocketPath: null`, no client is registered, and `with_root_helper()`
-returns `None`. **Audit result: no privileged path lacks an explicit non-root
-fallback; no follow-up is required.**
+returns `None`. This establishes a code path for local fallback; device
+capability and packet delivery still require their own acceptance evidence.
 
 ## Security posture
 
