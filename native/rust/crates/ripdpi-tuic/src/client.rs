@@ -55,6 +55,9 @@ impl TuicClient {
         Self::connect_with_tls(config, tls_config).await
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: validation and resolution keep no state, and the pending
+    /// carrier is owned until publication.
     pub(crate) async fn connect_with_tls(config: Config, tls_config: RustlsClientConfig) -> io::Result<Self> {
         validate_config(&config)?;
         let addrs =
@@ -140,9 +143,8 @@ impl TuicClient {
 
     /// Opens a UDP session on this connection.
     ///
-    /// # Cancel safety
-    ///
-    /// Cancel-safe: it does not await.
+    /// # Cancel safety:
+    /// cancel-safe: it does not await.
     pub async fn udp_session(&self) -> io::Result<UdpSession> {
         if let Some(reason) = self.inner.connection.close_reason() {
             return Err(io::Error::new(io::ErrorKind::BrokenPipe, format!("TUIC connection is closed: {reason}")));
@@ -170,6 +172,8 @@ impl TuicClient {
         self.inner.quic_migration_snapshot()
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: a cancelled call drops the half-open stream; nothing else is published.
     async fn open_tcp_stream(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
         // Classify a relay-handshake failure: a v4 server rejects the v5 Connect
         // command by application-closing the connection, which `open_bi` /
@@ -180,6 +184,8 @@ impl TuicClient {
             .map_err(|error| hint_close_before_server_data(&self.inner.connection, error))
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: the stream is returned only after its Connect header is written.
     async fn open_tcp_stream_inner(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
         let (mut send, recv) = self.inner.connection.open_bi().await?;
         encode_connect_header(&mut send, target).await?;

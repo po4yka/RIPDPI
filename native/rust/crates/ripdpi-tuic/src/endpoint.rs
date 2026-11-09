@@ -176,8 +176,12 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
 const HANDSHAKE_TIMEOUT: std::time::Duration =
     if cfg!(test) { std::time::Duration::from_millis(500) } else { std::time::Duration::from_secs(8) };
 
-/// Resolves the server to every address usable with `outbound_bind_ip`, in
-/// resolver order.
+/// Resolves the server to every address usable with `outbound_bind_ip`, with
+/// the address families interleaved (RFC 8305 section 4) so that a broken
+/// family costs at most one handshake timeout before the other family is tried.
+///
+/// # Cancel safety:
+/// cancel-safe: resolution keeps no state; a cancelled call opens no carrier.
 pub(crate) async fn resolve_server_addrs(
     server: &str,
     port: i32,
@@ -197,7 +201,22 @@ pub(crate) async fn resolve_server_addrs(
     if addrs.is_empty() {
         return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"));
     }
-    Ok(addrs)
+    Ok(interleave_address_families(addrs))
+}
+
+/// Alternates IPv6 and IPv4 addresses, starting with the family of the first
+/// resolved address, and keeps the resolver order inside each family.
+fn interleave_address_families(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
+    let first_is_ipv6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
+    let (mut preferred, mut other): (std::collections::VecDeque<_>, std::collections::VecDeque<_>) =
+        addrs.into_iter().partition(|addr| addr.is_ipv6() == first_is_ipv6);
+    let mut ordered = Vec::with_capacity(preferred.len() + other.len());
+    loop {
+        match (preferred.pop_front(), other.pop_front()) {
+            (None, None) => return ordered,
+            (first, second) => ordered.extend(first.into_iter().chain(second)),
+        }
+    }
 }
 
 /// Tries each address in order with a fresh protected socket and endpoint,
@@ -220,7 +239,16 @@ pub(crate) async fn connect_first_reachable(
             socket_protection: config.socket_protection,
             outbound_bind_ip: config.outbound_bind_ip,
         };
-        let (endpoint, current_socket) = build_endpoint(config, tls_config.clone(), socket_spec)?;
+        // A socket that cannot be built or protected is never used, so moving
+        // on to the next address stays fail-closed: a missing or refusing
+        // protect callback fails every attempt and its error is returned.
+        let (endpoint, current_socket) = match build_endpoint(config, tls_config.clone(), socket_spec) {
+            Ok(built) => built,
+            Err(error) => {
+                last_error = error;
+                continue;
+            }
+        };
         match tokio::time::timeout(HANDSHAKE_TIMEOUT, establish_connection(&endpoint, config, server_addr)).await {
             Ok(Ok(connection)) => return Ok((endpoint, current_socket, connection, socket_spec)),
             Ok(Err(error)) => last_error = error,
@@ -233,6 +261,18 @@ pub(crate) async fn connect_first_reachable(
 #[cfg(test)]
 mod transport_tests {
     use super::*;
+
+    #[test]
+    fn resolved_address_families_are_interleaved() {
+        let v6a: SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+        let v6b: SocketAddr = "[2001:db8::2]:443".parse().unwrap();
+        let v4a: SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let v4b: SocketAddr = "192.0.2.2:443".parse().unwrap();
+        assert_eq!(interleave_address_families(vec![v6a, v6b, v4a, v4b]), vec![v6a, v4a, v6b, v4b]);
+        assert_eq!(interleave_address_families(vec![v4a, v6a, v6b]), vec![v4a, v6a, v6b]);
+        assert_eq!(interleave_address_families(vec![v4a, v4b]), vec![v4a, v4b]);
+        assert!(interleave_address_families(Vec::new()).is_empty());
+    }
 
     #[test]
     fn transport_retains_finite_idle_timeout_when_keepalive_is_disabled() {
