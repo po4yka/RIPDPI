@@ -7,15 +7,21 @@ use ripdpi_strategy_trait::{
     WireGuardDissect,
 };
 
-/// Classifies a first payload slice into an L7 protocol without heap allocation.
+/// Classifies a first payload slice of a client-to-server flow into an L7 protocol without heap
+/// allocation.
+///
+/// Dissect fields filled: `Quic.version`, `WireGuard.message_type`, `Dtls.is_client_hello`,
+/// `Dns.is_query`, and `Tls.is_client_hello` (always true). `Tls.sni` stays `None`: the
+/// backends parse the SNI from the payload themselves. `Stun`, `Dht`, and `Mtproto` carry no
+/// fields. Discord, XMPP, BitTorrent, and uTP have no detector.
 pub fn classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -> L7Protocol {
     if payload.len() < 2 {
         return L7Protocol::Unknown;
     }
 
     if is_udp {
-        if is_quic_initial(payload) {
-            return L7Protocol::Quic(QuicDissect::default());
+        if let Some(version) = quic_initial_version(payload) {
+            return L7Protocol::Quic(QuicDissect { version: Some(version) });
         }
         if is_wireguard(payload) {
             return L7Protocol::WireGuard(WireGuardDissect { message_type: Some(u32::from(payload[0])) });
@@ -55,14 +61,19 @@ fn is_tls_client_hello(payload: &[u8]) -> bool {
         && payload[5] == 0x01
 }
 
-fn is_quic_initial(payload: &[u8]) -> bool {
-    if payload.len() < 6 || payload[0] & 0xC0 != 0xC0 {
-        return false;
+/// Minimum size of a datagram that carries a client QUIC Initial (RFC 9000 section 14.1).
+const QUIC_MIN_INITIAL_DATAGRAM: usize = 1200;
+
+/// Returns the version of a QUIC v1 or v2 client Initial. Callers classify client packets only,
+/// so the datagram must be padded to 1200 bytes.
+fn quic_initial_version(payload: &[u8]) -> Option<u32> {
+    if payload.len() < QUIC_MIN_INITIAL_DATAGRAM || payload[0] & 0xC0 != 0xC0 {
+        return None;
     }
     match &payload[1..5] {
-        [0, 0, 0, 1] => payload[0] & 0x30 == 0,
-        [0x6b, 0x33, 0x43, 0xcf] => payload[0] & 0x30 == 0x10,
-        _ => false,
+        [0, 0, 0, 1] if payload[0] & 0x30 == 0 => Some(1),
+        [0x6b, 0x33, 0x43, 0xcf] if payload[0] & 0x30 == 0x10 => Some(0x6b33_43cf),
+        _ => None,
     }
 }
 

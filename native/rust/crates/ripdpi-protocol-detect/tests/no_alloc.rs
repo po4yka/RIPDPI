@@ -31,9 +31,11 @@ static ALLOCATOR: GuardedAllocator = GuardedAllocator;
 
 #[test]
 fn classifier_does_not_allocate() {
+    let mut quic_initial = [0_u8; 1200];
+    quic_initial[..5].copy_from_slice(&[0xC3, 0, 0, 0, 1]);
     let samples: [&[u8]; 6] = [
         &[0x16, 0x03, 0x03, 0, 0x2A, 0x01],
-        &[0xC3, 0, 0, 0, 1, 8, 1, 2, 3, 4, 5, 6, 7, 8],
+        &quic_initial,
         &[0x16, 0xFE, 0xFD, 0, 0, 0],
         &[0, 1, 0, 0, 0x21, 0x12, 0xA4, 0x42],
         b"d1:a",
