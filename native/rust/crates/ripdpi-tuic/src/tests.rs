@@ -585,3 +585,5 @@ async fn silent_path_stops_migration_after_repeated_reverts() {
     drop((first, third, udp, client));
     server_task.abort();
 }
+
+mod relay_tests;
