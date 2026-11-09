@@ -5,6 +5,7 @@ use sha2::{Digest, Sha256};
 mod client;
 mod config;
 mod connect;
+mod connect_ech;
 mod finalmask;
 mod grpc;
 mod h2_body;

@@ -1,17 +1,12 @@
 use std::io;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use base64::Engine;
-use rustls::client::{EchConfig, EchMode, EchStatus};
-use rustls::pki_types::{EchConfigListBytes, ServerName};
+use rustls::client::{EchConfig, EchMode};
+use rustls::pki_types::EchConfigListBytes;
 use rustls::{ClientConfig, RootCertStore};
 use serde::{Deserialize, Serialize};
 use tokio::sync::watch;
-use tokio::time::timeout;
-use tokio_rustls::TlsConnector;
-
-use crate::socket_protection::connect_transport;
 
 pub(crate) fn connect(request_json: &str) -> io::Result<String> {
     let (_sender, receiver) = watch::channel(false);
@@ -31,33 +26,26 @@ pub(crate) fn connect_cancellable(request_json: &str, cancelled: watch::Receiver
 /// # Cancel safety:
 /// cancel-safe: dropping this future closes its DNS exchange, unconnected socket or TLS stream.
 async fn connect_async(request: NativeEchTlsHandshakeRequest) -> io::Result<NativeEchTlsHandshakeResponse> {
-    let config = build_ech_client_config(&request.ech_config_bytes_b64)?;
-    let connector = TlsConnector::from(Arc::new(config));
-    let server_name = ServerName::try_from(request.target.clone())
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ECH target: {error}")))?;
-    let tcp = connect_transport(&request.target, HTTPS_PORT, request.connect_timeout_ms).await?;
-    let started = Instant::now();
-    let stream = timeout(Duration::from_millis(request.connect_timeout_ms), connector.connect(server_name, tcp))
-        .await
-        .map_err(|_| {
-            io::Error::new(io::ErrorKind::TimedOut, format!("ECH TLS handshake to {} timed out", request.target))
-        })?
-        .map_err(|error| {
-            io::Error::new(io::ErrorKind::ConnectionRefused, format!("ECH TLS handshake failed: {error}"))
-        })?;
-    let negotiated_ech = matches!(stream.get_ref().1.ech_status(), EchStatus::Accepted);
+    let configs = base64::engine::general_purpose::STANDARD
+        .decode(request.ech_config_bytes_b64.trim())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ECH config base64: {error}")))?;
+    let latency_ms = crate::native_ech_retry::connect(
+        &request.target,
+        HTTPS_PORT,
+        configs,
+        Duration::from_millis(request.connect_timeout_ms),
+        build_ech_client_config_from_list,
+    )
+    .await?;
     Ok(NativeEchTlsHandshakeResponse {
-        negotiated_ech: Some(negotiated_ech),
-        latency_ms: Some(started.elapsed().as_millis() as u64),
+        negotiated_ech: Some(true),
+        latency_ms: Some(latency_ms),
         error: None,
         cancelled: false,
     })
 }
 
-fn build_ech_client_config(ech_config_bytes_b64: &str) -> io::Result<ClientConfig> {
-    let ech_config_bytes = base64::engine::general_purpose::STANDARD
-        .decode(ech_config_bytes_b64.trim())
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ECH config base64: {error}")))?;
+fn build_ech_client_config_from_list(ech_config_bytes: Vec<u8>) -> io::Result<ClientConfig> {
     let ech_config = EchConfig::new(
         EchConfigListBytes::from(ech_config_bytes),
         rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,

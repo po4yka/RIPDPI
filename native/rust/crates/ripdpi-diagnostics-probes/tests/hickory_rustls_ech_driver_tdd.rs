@@ -79,3 +79,10 @@ fn lookup_for_nonexistent_host_returns_err() {
     let result = block_on(driver.lookup_ech_config("ripdpi-test-nx-nonexistent-12345.invalid"));
     assert!(result.is_err(), "expected Err for non-existent host, got {result:?}");
 }
+
+#[test]
+fn handshake_rejects_an_unrepresentable_deadline_without_panicking() {
+    let driver = HickoryRustlsEchHandshakeDriver::new();
+    let outcome = block_on(driver.handshake_with_ech("never-queried.invalid", 443, &[0], Duration::MAX));
+    assert!(matches!(outcome, EchHandshakeOutcome::SetupError { detail } if detail == "ech-timeout-out-of-range"));
+}

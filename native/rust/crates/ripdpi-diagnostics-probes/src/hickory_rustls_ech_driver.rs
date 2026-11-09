@@ -119,17 +119,11 @@ impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
         Ok(None)
     }
 
-    /// Perform a real TLS 1.3 handshake with ECH enabled via rustls 0.23.
+    /// Perform an ECH handshake and retry authenticated key rotation once.
     ///
-    /// Steps:
-    /// 1. Parse `ech_config` bytes into an [`EchConfig`] selecting a compatible
-    ///    HPKE suite from [`ALL_SUPPORTED_SUITES`] (aws-lc-rs).
-    /// 2. Build a [`rustls::ClientConfig`] with ECH enabled and the system
-    ///    WebPKI roots via `webpki_roots`.
-    /// 3. Open a TCP connection and drive the TLS handshake, both bounded by
-    ///    `timeout`.
-    /// 4. Inspect [`EchStatus`] on the completed connection and map to
-    ///    [`EchHandshakeOutcome`].
+    /// # Cancel safety:
+    /// cancel-safe: each attempt owns its TCP and TLS state; dropping this future
+    /// closes it and prevents the next attempt.
     async fn handshake_with_ech(
         &self,
         host: &str,
@@ -137,75 +131,79 @@ impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
         ech_config: &[u8],
         timeout: Duration,
     ) -> EchHandshakeOutcome {
-        // Step 1: parse ECHConfigList bytes.
-        let ech_config_list = EchConfigListBytes::from(ech_config.to_vec());
-        let ech_cfg = match EchConfig::new(ech_config_list, ALL_SUPPORTED_SUITES) {
-            Ok(c) => c,
-            Err(e) => {
-                return EchHandshakeOutcome::SetupError { detail: format!("ech-config-parse-error: {e}") };
-            }
+        let Some(deadline) = tokio::time::Instant::now().checked_add(timeout) else {
+            return EchHandshakeOutcome::SetupError { detail: "ech-timeout-out-of-range".into() };
         };
-
-        // Step 2: build root store and ClientConfig with ECH.
-        let mut root_store = RootCertStore::empty();
-        root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-
-        let client_config =
-            match rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::aws_lc_rs::default_provider()))
-                .with_ech(EchMode::Enable(ech_cfg))
-            {
-                Ok(builder) => match ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, root_store) {
-                    Ok(builder) => builder.with_no_client_auth(),
-                    Err(e) => {
-                        return EchHandshakeOutcome::SetupError { detail: format!("verifier-build-error: {e}") };
-                    }
-                },
-                Err(e) => {
-                    return EchHandshakeOutcome::SetupError { detail: format!("ech-clientconfig-build-error: {e}") };
+        let mut configs = ech_config.to_vec();
+        let mut peer = None;
+        for attempt in 0..2 {
+            let config = match ech_client_config(configs) {
+                Ok(config) => config,
+                Err(detail) => return EchHandshakeOutcome::SetupError { detail },
+            };
+            let server_name = match ServerName::try_from(host.to_owned()) {
+                Ok(name) => name,
+                Err(error) => {
+                    return EchHandshakeOutcome::SetupError { detail: format!("server-name-parse-error: {error}") };
                 }
             };
-
-        // Step 3a: TCP connect with timeout.
-        let tcp = match tokio::time::timeout(timeout, tokio::net::TcpStream::connect((host, port))).await {
-            Err(_elapsed) => {
-                return EchHandshakeOutcome::HandshakeFailure { detail: "tcp-connect-timeout".to_string() };
-            }
-            Ok(Err(e)) => {
-                return EchHandshakeOutcome::HandshakeFailure { detail: format!("tcp-connect-error: {e}") };
-            }
-            Ok(Ok(stream)) => stream,
-        };
-
-        // Step 3b: parse ServerName.
-        let server_name = match ServerName::try_from(host.to_string()) {
-            Ok(n) => n,
-            Err(e) => {
-                return EchHandshakeOutcome::SetupError { detail: format!("server-name-parse-error: {e}") };
-            }
-        };
-
-        // Step 3c: TLS handshake with timeout.
-        let connector = TlsConnector::from(Arc::new(client_config));
-        let tls = match tokio::time::timeout(timeout, connector.connect(server_name, tcp)).await {
-            Err(_elapsed) => {
-                return EchHandshakeOutcome::HandshakeFailure { detail: "tls-handshake-timeout".to_string() };
-            }
-            Ok(Err(e)) => {
-                return EchHandshakeOutcome::HandshakeFailure { detail: format!("tls-handshake-error: {e}") };
-            }
-            Ok(Ok(stream)) => stream,
-        };
-
-        // Step 4: map ECH status to outcome.
-        let (_io, conn) = tls.get_ref();
-        let alpn = conn.alpn_protocol().and_then(|b| std::str::from_utf8(b).ok().map(String::from));
-
-        match conn.ech_status() {
-            EchStatus::Accepted => EchHandshakeOutcome::EchAccepted { selected_alpn: alpn },
-            EchStatus::Rejected => EchHandshakeOutcome::EchRejectedWithRetryConfig,
-            EchStatus::NotOffered | EchStatus::Grease | EchStatus::Offered => {
-                EchHandshakeOutcome::HandshakeFailure { detail: "ech-not-negotiated".to_string() }
+            let connect = async {
+                match peer {
+                    Some(address) => tokio::net::TcpStream::connect(address).await,
+                    None => tokio::net::TcpStream::connect((host, port)).await,
+                }
+            };
+            let tcp = match tokio::time::timeout_at(deadline, connect).await {
+                Ok(Ok(tcp)) => tcp,
+                Ok(Err(error)) => {
+                    return EchHandshakeOutcome::HandshakeFailure { detail: format!("tcp-connect-error: {error}") };
+                }
+                Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tcp-connect-timeout".into() },
+            };
+            peer = tcp.peer_addr().ok();
+            let connector = TlsConnector::from(config);
+            match tokio::time::timeout_at(deadline, connector.connect(server_name, tcp)).await {
+                Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tls-handshake-timeout".into() },
+                Ok(Err(error)) => {
+                    let retry = error
+                        .get_ref()
+                        .and_then(|error| error.downcast_ref::<rustls::Error>())
+                        .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+                    if let Some(retry) = retry {
+                        if attempt == 0 && peer.is_some() {
+                            configs = retry;
+                            continue;
+                        }
+                        return EchHandshakeOutcome::EchRejectedWithRetryConfig;
+                    }
+                    return EchHandshakeOutcome::HandshakeFailure { detail: format!("tls-handshake-error: {error}") };
+                }
+                Ok(Ok(tls)) => {
+                    let conn = &tls.get_ref().1;
+                    return match conn.ech_status() {
+                        EchStatus::Accepted => EchHandshakeOutcome::EchAccepted {
+                            selected_alpn: conn
+                                .alpn_protocol()
+                                .and_then(|value| std::str::from_utf8(value).ok().map(str::to_owned)),
+                        },
+                        _ => EchHandshakeOutcome::HandshakeFailure { detail: "ech-not-negotiated".into() },
+                    };
+                }
             }
         }
+        EchHandshakeOutcome::HandshakeFailure { detail: "ech-retry-exhausted".into() }
     }
+}
+
+fn ech_client_config(configs: Vec<u8>) -> Result<Arc<rustls::ClientConfig>, String> {
+    let config = EchConfig::new(EchConfigListBytes::from(configs), ALL_SUPPORTED_SUITES)
+        .map_err(|error| format!("ech-config-parse-error: {error}"))?;
+    let mut roots = RootCertStore::empty();
+    roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let builder = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::aws_lc_rs::default_provider()))
+        .with_ech(EchMode::Enable(config))
+        .map_err(|error| format!("ech-clientconfig-build-error: {error}"))?;
+    let builder = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+        .map_err(|error| format!("verifier-build-error: {error}"))?;
+    Ok(Arc::new(builder.with_no_client_auth()))
 }

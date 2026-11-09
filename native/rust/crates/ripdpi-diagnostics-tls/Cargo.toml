@@ -18,4 +18,5 @@ tracing = { workspace = true }
 webpki-roots = { workspace = true }
 
 [dev-dependencies]
+boring = { workspace = true }
 rcgen = { workspace = true }

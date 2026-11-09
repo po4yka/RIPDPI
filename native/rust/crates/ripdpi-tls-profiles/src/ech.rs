@@ -1,3 +1,5 @@
+pub mod retry;
+
 use thiserror::Error;
 
 /// Outbound Encrypted ClientHello configuration supplied by resolver/bootstrap policy.

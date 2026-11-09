@@ -13,7 +13,7 @@ The STD-03 audit reproduced exposed inner SNI with unusable Real ECH, a Boring r
 - Exclude incompatible HTTPS records and follow bounded aliases.
 - Retry authenticated rejection once on a fresh transport.
 - Stop active DNS and native ECH work on cancellation.
-- Add native cancellation lifecycle calls without changing stored configuration.
+- BREAKING (internal JNI): change the native ECH connect descriptor to `(Long, String)` and add cancellation lifecycle calls. Ship Kotlin and native outputs together; stored configuration is unchanged.
 
 ## Capabilities
 
@@ -28,4 +28,4 @@ The STD-03 audit reproduced exposed inner SNI with unusable Real ECH, a Boring r
 ## Impact
 
 - TLS profiles, vendored BoringSSL, DNS resolver, MASQUE, xHTTP, diagnostics and native ECH JNI bridge.
-- Additive JNI lifecycle calls require Kotlin and Rust to ship together. No persisted schema, dependency, baseline, or locale change.
+- The changed JNI connect descriptor and added lifecycle calls require Kotlin and Rust to ship together. No persisted schema, dependency, baseline, or locale change.

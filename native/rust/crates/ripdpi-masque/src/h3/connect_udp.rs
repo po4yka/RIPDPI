@@ -30,10 +30,11 @@ pub(crate) async fn attempt_h3_connect_udp(
     target: &str,
     auth_header: Option<&AuthHeader>,
     incoming_tx: mpsc::Sender<(String, Vec<u8>)>,
+    terminal: std::sync::Arc<std::sync::Mutex<bool>>,
 ) -> Result<MasqueUdpFlow, AttemptError> {
     let target = parse_target(target)?;
     let proxy_origin = parse_proxy_origin(config)?;
-    let (mut driver, mut send_request, path_connection) = connect_h3_transport(config, true).await?;
+    let (mut driver, mut send_request, path_connection) = connect_h3_transport(config, true, terminal).await?;
 
     let request_uri = format!("https://{}{}", proxy_origin.authority, build_connect_udp_path(&proxy_origin, &target));
     let request = Request::builder().method("CONNECT").uri(request_uri).header("capsule-protocol", "?1");

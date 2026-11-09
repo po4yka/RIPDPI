@@ -1,5 +1,6 @@
 mod connect_udp;
 pub(crate) mod datagram;
+mod retry;
 mod socket;
 mod transport;
 

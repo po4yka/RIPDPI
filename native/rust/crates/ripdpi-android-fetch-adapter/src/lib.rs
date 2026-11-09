@@ -9,6 +9,9 @@ mod entry_dispatch;
 mod executor;
 mod native_ech;
 mod native_ech_cancellation;
+mod native_ech_retry;
+#[cfg(test)]
+mod native_ech_retry_tests;
 #[cfg(test)]
 mod owned_stack_fingerprint_snapshot_tests;
 mod redirect;

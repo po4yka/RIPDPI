@@ -162,12 +162,20 @@ impl MasqueUdpRelay {
             // path does not pay the H3 connect bound for every new target.
             "http3_udp_cooldown".to_string()
         } else {
+            let terminal = std::sync::Arc::new(std::sync::Mutex::new(false));
+            let terminal_attempt = &terminal;
             let h3 = self
                 .client
                 .attempt_with_privacy_pass_retry(target, auth_header.clone(), |header| async move {
                     bounded_attempt(
                         "MASQUE H3 CONNECT-UDP",
-                        attempt_h3_connect_udp(&self.client.config, target, header.as_ref(), self.incoming_tx.clone()),
+                        attempt_h3_connect_udp(
+                            &self.client.config,
+                            target,
+                            header.as_ref(),
+                            self.incoming_tx.clone(),
+                            terminal_attempt.clone(),
+                        ),
                     )
                     .await
                 })
@@ -187,7 +195,7 @@ impl MasqueUdpRelay {
                 Err(error) => error,
             };
             let reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
-            if !self.client.config.use_http2_fallback {
+            if !self.client.config.use_http2_fallback || terminal.lock().map_or(true, |terminal| *terminal) {
                 self.client.record_quic_migration_status("failed", Some(&reason)).await;
                 return Err(error);
             }

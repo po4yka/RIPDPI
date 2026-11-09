@@ -45,62 +45,7 @@ pub(crate) async fn create_connection(
             let tls = ripdpi_vless::reality::connect_reality_h2_tls_over(transport, &config.vless).await?;
             Box::new(tls)
         }
-        XhttpMode::Tls(config) => {
-            let server_name = ripdpi_tls_profiles::normalize_server_name(&config.server_name)
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-            let transport = finalmask::wrap_tcp_stream(
-                OwnedIo::new(
-                    connect_tcp_stream(&config.server, config.port, config.bind_ip, config.socket_protector.as_ref())
-                        .await?,
-                    capacity,
-                ),
-                &config.finalmask,
-            )?;
-            // Resolve the fingerprint profile per connection: the `rotating`
-            // marker draws a fresh uTLS fingerprint from the rotation pool,
-            // otherwise the configured profile is used as-is. (The Reality branch
-            // above inherits rotation through `connect_reality_tls_over`.)
-            let profile_name =
-                ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &server_name);
-            // Equivalent to `build_connector(profile_name, true)` (cert
-            // verification stays ON — `configure_builder` does not disable it),
-            // but split so an optional post-quantum KEM group override can be
-            // applied AFTER profile resolution and BEFORE `.build()`.
-            let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
-                .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
-            builder
-                .set_alpn_protos(b"\x02h2")
-                .map_err(|error| io::Error::other(format!("xHTTP ALPN configuration: {error}")))?;
-            if let Some(kem_groups) = config.kem_groups.as_deref() {
-                ripdpi_tls_profiles::apply_kem_groups(&mut builder, kem_groups)
-                    .map_err(|error| io::Error::other(format!("TLS KEM groups: {error}")))?;
-            }
-            let connector = builder.build();
-            let mut ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
-            ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP ECH: {error}")))?;
-            let tls = tokio_boring::connect(ssl, &server_name, transport).await.map_err(|error| {
-                if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
-                    return io::Error::new(
-                        io::ErrorKind::InvalidData,
-                        format!("xHTTP ECH: {}", ripdpi_tls_profiles::EchOutboundError::RetryRequired),
-                    );
-                }
-                io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
-            })?;
-            if config.ech_config.is_some() && !tls.ssl().ech_accepted() {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "xHTTP ECH was not accepted"));
-            }
-
-            if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "xHTTP TLS peer did not negotiate h2"));
-            }
-            // PQ-KEM negotiation telemetry: increments `tls.pq_kem_negotiated`
-            // iff the negotiated group is the hybrid X25519MLKEM768.
-            // Privacy-safe (no authority / SNI / IP in the event).
-            ripdpi_tls_profiles::note_pq_kem_negotiation(tls.ssl().curve());
-            Box::new(tls)
-        }
+        XhttpMode::Tls(config) => crate::connect_ech::connect_owned_tls(config, capacity).await?,
     };
     handshake_pooled(io, max_concurrent_streams, pool_changed).await
 }
@@ -157,9 +102,10 @@ where
     Ok(pooled)
 }
 
+/// # Cancel safety:
 /// cancel-safe: DNS/TCP futures and the not-yet-returned owned socket are
 /// dropped on cancellation; no connected stream is published to the caller.
-async fn connect_tcp_stream(
+pub(super) async fn connect_tcp_stream(
     server: &str,
     port: u16,
     bind_ip: Option<IpAddr>,
@@ -169,6 +115,16 @@ async fn connect_tcp_stream(
         Box::new(move |fd| protector.protect(fd)) as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
     });
     let target = ripdpi_vless::endpoint_resolver::resolve_server_addr(server, port, bind_ip, protect).await?;
+    connect_tcp_target(target, bind_ip, socket_protector).await
+}
+
+/// # Cancel safety:
+/// cancel-safe: the unconnected or connected socket remains owned until return.
+pub(super) async fn connect_tcp_target(
+    target: SocketAddr,
+    bind_ip: Option<IpAddr>,
+    socket_protector: Option<&XhttpSocketProtector>,
+) -> io::Result<TcpStream> {
     let socket = match target {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,

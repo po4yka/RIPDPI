@@ -31,6 +31,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+rcgen = { workspace = true }
 local-network-fixture = { workspace = true }
 tokio = { workspace = true, features = ["test-util"] }
 

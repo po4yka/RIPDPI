@@ -89,6 +89,15 @@ pub(super) fn build_ech_client_config(
                 }
             }
         };
+    build_ech_client_config_from_list(ech_config_list, tls_verifier, key_log, application_protocol)
+}
+
+pub(super) fn build_ech_client_config_from_list(
+    ech_config_list: Vec<u8>,
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    key_log: Option<&TlsKeyLogCallback>,
+    application_protocol: ApplicationProtocolPolicy,
+) -> Result<Arc<ClientConfig>, String> {
     let provider = rustls::crypto::aws_lc_rs::default_provider();
     let ech_config = EchConfig::new(
         EchConfigListBytes::from(ech_config_list),

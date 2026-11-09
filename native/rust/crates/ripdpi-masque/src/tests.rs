@@ -1,3 +1,4 @@
+mod ech_fallback;
 mod h2_alpn;
 
 use std::io;
@@ -215,7 +216,7 @@ fn new_client_starts_with_not_attempted_quic_snapshot() {
     assert_eq!((Some("not_attempted".to_string()), None), client.quic_migration_snapshot(),);
 }
 
-fn grease_test_config(tcp_protocol: MasqueTcpProtocol) -> MasqueConfig {
+pub(crate) fn grease_test_config(tcp_protocol: MasqueTcpProtocol) -> MasqueConfig {
     MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: "https://masque.example/".to_string(),

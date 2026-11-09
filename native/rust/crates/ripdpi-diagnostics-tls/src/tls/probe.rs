@@ -1,6 +1,7 @@
 mod capture;
 mod ech;
 mod observation;
+mod retry;
 mod stream;
 
 use std::sync::Arc;

@@ -21,7 +21,7 @@ Repair all six confirmed STD-03 ECH findings with one repair commit per finding.
 ## Acceptance criteria
 
 - Real ECH cannot emit the inner SNI when its config is unusable.
-- Ordinary TLS errors never call an ECH-only retry getter.
+- Ordinary TLS errors return no authenticated ECH retry evidence and never abort.
 - Incompatible mandatory SVCB records are excluded.
 - Kotlin follows bounded HTTPS aliases.
 - Authenticated ECH rejection gets at most one fresh transport retry.
@@ -31,10 +31,10 @@ Repair all six confirmed STD-03 ECH findings with one repair commit per finding.
 ## Ownership and serialized lanes
 
 - tls_safety_fixes: tls-profiles ECH helpers, vendored Boring ECH setter, MASQUE H2/xHTTP F1/F2 call sites/tests.
-- dns_mandatory_fix: dns-resolver HTTPS/SVCB selection and owning tests (F3).
+- dns_mandatory_fix: dns-resolver HTTPS/SVCB selection, core/diagnostics HttpsDnsWireParser.kt compatibility filtering and owning tests (F3).
 - ech_diagnostics_fixes: Kotlin resolver/bridge, native ECH cancellation lifecycle (F4/F6).
 - Integration owner: planning, F5 retry consumers and helpers, final combined validation and integration.
 - Serialize tls-profiles/ech.rs and MASQUE/xHTTP edits: F1/F2 complete before F5.
 - Serialize native_ech.rs: F6 lifecycle complete before F5 native retry.
-- No dependency/lock, locale, baseline or golden lane changes are planned.
+- Integration owner serializes the pinned Quinn source patch and Cargo.lock dev-dependency edges; no dependency versions, locales, quality baselines or goldens change.
 - Each writer uses a separate worktree; reviewer agents remain read-only.

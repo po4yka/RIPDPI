@@ -44,7 +44,7 @@ ECH discovery MUST follow HTTPS AliasMode with bounded hops and cycle detection.
 
 ### Requirement: REQ-ECH-RETRY — Retry ECH once
 
-A connection with authenticated ECH retry configs MUST retry at most once on a new transport and preserve trust, endpoint, deadline, and cancellation. Failed authentication MUST NOT cause retry or cleartext fallback.
+A connection with authenticated ECH retry configs MUST retry at most once on a new transport and preserve trust, endpoint, deadline, and cancellation. Failed authentication MUST NOT authorize ECH retry configs or cleartext fallback. Existing carrier fallback MUST preserve Real ECH intent and certificate verification.
 
 #### Scenario: Retry ECH once
 

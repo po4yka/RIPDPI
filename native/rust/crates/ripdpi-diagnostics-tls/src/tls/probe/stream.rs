@@ -1,5 +1,6 @@
 use super::super::types::{ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult};
-use super::capture::{CaptureTlsHandshakeOptions, capture_tls_handshake};
+use super::capture::CaptureTlsHandshakeOptions;
+use super::retry::capture_with_ech_retry;
 use crate::platform_ttl;
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
@@ -57,10 +58,12 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
         Some(name) => {
             let tcp_connect_ms = opened.tcp_connect_ms;
             let connected_addr = opened.connected_addr;
-            let captured = capture_tls_handshake(
+            let captured = capture_with_ech_retry(
                 opened.stream,
+                connected_addr,
                 &CaptureTlsHandshakeOptions {
                     targets,
+                    ech_retry_configs: None,
                     transport,
                     tls_name: name,
                     profile: options.profile,
@@ -78,6 +81,10 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 connected_addr,
                 tls_server_hello_received: Some(err.server_hello_received),
             })?;
+            let local_addr = match &captured.stream {
+                ConnectionStream::Tls(stream) => stream.sock.local_addr().ok(),
+                ConnectionStream::Plain(stream) => stream.local_addr().ok(),
+            };
             let local_socket_ttl = match &captured.stream {
                 ConnectionStream::Tls(stream) => platform_ttl::get_local_socket_ttl(&stream.sock),
                 ConnectionStream::Plain(_) => unreachable!(),
@@ -94,7 +101,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 local_socket_ttl,
                 ja3_fingerprint: captured.ja3_fingerprint,
                 connected_addr: opened.connected_addr,
-                local_addr: opened.local_addr,
+                local_addr,
                 cdn_provider: opened.cdn_provider,
                 route_report: opened.route_report,
             })

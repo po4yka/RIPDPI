@@ -13,6 +13,9 @@ pub fn ripdpi_tls_profiles::cert_blocklist::install_cert_blocklist(&mut boring::
 pub fn ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, rustls::webpki::anchors::RootCertStore) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::client::builder::WantsClientCert>, rustls::webpki::VerifierBuilderError>
 pub fn ripdpi_tls_profiles::cert_blocklist::with_cert_blocklist(alloc::sync::Arc<dyn rustls::verify::ServerCertVerifier>) -> alloc::sync::Arc<dyn rustls::verify::ServerCertVerifier>
 pub mod ripdpi_tls_profiles::ech
+pub mod ripdpi_tls_profiles::ech::retry
+pub fn ripdpi_tls_profiles::ech::retry::outbound_ech_retry_config(alloc::vec::Vec<u8>) -> core::option::Option<ripdpi_tls_profiles::ech::OutboundEchConfig>
+pub fn ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs(&rustls::error::Error) -> core::option::Option<alloc::vec::Vec<u8>>
 pub enum ripdpi_tls_profiles::ech::EchConfigError
 pub ripdpi_tls_profiles::ech::EchConfigError::MalformedConfigList
 pub ripdpi_tls_profiles::ech::EchConfigError::MissingPublicName

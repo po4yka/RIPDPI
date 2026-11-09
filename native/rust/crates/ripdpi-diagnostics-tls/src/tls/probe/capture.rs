@@ -13,7 +13,8 @@ use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::super::certs::extract_cert_info;
 use super::super::config::{
-    build_ech_client_config, build_standard_client_config_with_key_log, make_server_name, planned_tls_template_profile,
+    build_ech_client_config, build_ech_client_config_from_list, build_standard_client_config_with_key_log,
+    make_server_name, planned_tls_template_profile,
 };
 use super::super::key_log::TlsKeyLogCallback;
 use super::super::types::{ApplicationProtocolPolicy, TlsClientProfile};
@@ -32,16 +33,18 @@ pub(crate) struct CapturedTlsHandshake {
 pub(crate) struct CaptureTlsError {
     pub(crate) message: String,
     pub(crate) server_hello_received: bool,
+    pub(crate) ech_retry_configs: Option<Vec<u8>>,
 }
 
 impl From<String> for CaptureTlsError {
     fn from(message: String) -> Self {
-        Self { message, server_hello_received: false }
+        Self { message, server_hello_received: false, ech_retry_configs: None }
     }
 }
 
 pub(crate) struct CaptureTlsHandshakeOptions<'a> {
     pub(crate) targets: &'a [TargetAddress],
+    pub(crate) ech_retry_configs: Option<&'a [u8]>,
     pub(crate) transport: &'a TransportConfig,
     pub(crate) tls_name: &'a str,
     pub(crate) profile: TlsClientProfile,
@@ -62,6 +65,12 @@ pub(crate) fn capture_tls_handshake(
     let target = options.targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
     let template_profile = planned_tls_template_profile(options.profile);
     let config = match options.profile {
+        TlsClientProfile::Tls13WithEch if options.ech_retry_configs.is_some() => build_ech_client_config_from_list(
+            options.ech_retry_configs.unwrap_or_default().to_vec(),
+            options.tls_verifier,
+            options.key_log,
+            options.application_protocol,
+        )?,
         TlsClientProfile::Tls13WithEch => build_ech_client_config(
             options.tls_name,
             target,
@@ -100,7 +109,11 @@ pub(crate) fn capture_tls_handshake(
             // rustls records the negotiated version when it processes the ServerHello.
             let server_hello_received = connection.protocol_version().is_some();
             let message = administrative_error_after_io(should_abort).unwrap_or_else(|| err.to_string());
-            return Err(CaptureTlsError { message, server_hello_received });
+            let ech_retry_configs = err
+                .get_ref()
+                .and_then(|error| error.downcast_ref::<rustls::Error>())
+                .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+            return Err(CaptureTlsError { message, server_hello_received, ech_retry_configs });
         }
     }
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;

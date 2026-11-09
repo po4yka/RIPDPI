@@ -1,3 +1,5 @@
+mod tls_retry;
+
 use std::io;
 use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
@@ -19,7 +21,6 @@ use crate::client::AsyncIo;
 use crate::config::MasqueConfig;
 use crate::request::apply_request_headers;
 use crate::response::{AttemptError, validate_connect_udp_response, validate_proxy_response};
-use crate::tls::{apply_h2_client_auth, apply_h2_root_certificate, ech_setup};
 use crate::udp::{MasqueUdpFlow, MasqueUdpSender};
 use crate::url::{ProxyOrigin, TargetAuthority, build_connect_udp_path, parse_proxy_origin, resolve_proxy_socket_addr};
 
@@ -104,6 +105,8 @@ fn protect_outbound_socket<T: AsRawFd>(
         .map_err(|error| io::Error::new(error.kind(), format!("protect MASQUE H2 outbound socket: {error}")))
 }
 
+/// # Cancel safety:
+/// cancel-safe: the unpublished TCP/TLS carrier is owned until this attempt returns.
 pub(crate) async fn attempt_h2_connect_tcp(
     config: &MasqueConfig,
     target: &str,
@@ -112,7 +115,8 @@ pub(crate) async fn attempt_h2_connect_tcp(
     let proxy_origin = parse_proxy_origin(config)?;
     let tcp =
         connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin).await?, config.socket_protection).await?;
-    attempt_h2_connect_tcp_over_transport(config, tcp, target, auth_header).await
+    let peer = tcp.peer_addr()?;
+    attempt_h2_connect_tcp_over_transport_with_peer(config, tcp, target, auth_header, Some(peer)).await
 }
 
 /// # Cancel safety:
@@ -126,44 +130,23 @@ pub(crate) async fn attempt_h2_connect_tcp_over_transport<S>(
 where
     S: AsyncIo + 'static,
 {
+    attempt_h2_connect_tcp_over_transport_with_peer(config, transport, target, auth_header, None).await
+}
+
+/// # Cancel safety:
+/// cancel-safe: the unpublished carrier and TLS state are owned by the attempt.
+async fn attempt_h2_connect_tcp_over_transport_with_peer<S>(
+    config: &MasqueConfig,
+    transport: S,
+    target: &str,
+    auth_header: Option<&AuthHeader>,
+    peer: Option<SocketAddr>,
+) -> Result<impl AsyncIo + use<S>, AttemptError>
+where
+    S: AsyncIo + 'static,
+{
     let proxy_origin = parse_proxy_origin(config)?;
-    let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
-        .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
-    connector_builder
-        .set_alpn_protos(b"\x02h2")
-        .map_err(|error| io::Error::other(format!("H2 ALPN configuration failed: {error}")))?;
-    apply_h2_client_auth(&mut connector_builder, config)?;
-    apply_h2_root_certificate(&mut connector_builder, config)?;
-    // Test-only: relax verification for the loopback fixture's self-signed cert
-    // ONLY when no explicit trust anchor was pinned, so a test that sets
-    // `root_certificate_pem` exercises the real pin-and-verify path.
-    #[cfg(test)]
-    if config.root_certificate_pem.is_none() {
-        relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
-    }
-    let connector = connector_builder.build();
-    let mut ssl = connector
-        .configure()
-        .map_err(|error| io::Error::other(format!("failed to configure H2 TLS profile: {error}")))?;
-    ripdpi_tls_profiles::configure_ech(&mut ssl, &ech_setup(config))
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("MASQUE H2 ECH: {error}")))?;
-    let tls = tokio_boring::connect(ssl, &proxy_origin.host, transport).await.map_err(|error| {
-        if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
-            return io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("MASQUE H2 ECH: {}", ripdpi_tls_profiles::EchOutboundError::RetryRequired),
-            );
-        }
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake failed: {error}"))
-    })?;
-
-    if config.ech_config.is_some() && !tls.ssl().ech_accepted() {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 ECH was not accepted").into());
-    }
-
-    if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 peer did not negotiate h2").into());
-    }
+    let tls = tls_retry::connect(config, &proxy_origin, transport, peer).await?;
 
     let io = TokioIo::new(tls);
     let (mut sender, connection) =
@@ -202,43 +185,8 @@ pub(crate) async fn attempt_h2_connect_udp(
     let tcp =
         connect_proxy_tcp(resolve_proxy_socket_addr(config, &proxy_origin).await?, config.socket_protection).await?;
 
-    let mut connector_builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
-        .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
-    connector_builder
-        .set_alpn_protos(b"\x02h2")
-        .map_err(|error| io::Error::other(format!("H2 ALPN configuration failed: {error}")))?;
-    apply_h2_client_auth(&mut connector_builder, config)?;
-    apply_h2_root_certificate(&mut connector_builder, config)?;
-    // Test-only: relax verification for the loopback fixture's self-signed cert
-    // ONLY when no explicit trust anchor was pinned, so a test that sets
-    // `root_certificate_pem` exercises the real pin-and-verify path.
-    #[cfg(test)]
-    if config.root_certificate_pem.is_none() {
-        relax_loopback_fixture_certificate_verification(&mut connector_builder, &proxy_origin.host);
-    }
-    let connector = connector_builder.build();
-    let mut ssl = connector
-        .configure()
-        .map_err(|error| io::Error::other(format!("failed to configure H2 TLS profile: {error}")))?;
-    ripdpi_tls_profiles::configure_ech(&mut ssl, &ech_setup(config))
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("MASQUE H2 ECH: {error}")))?;
-    let tls = tokio_boring::connect(ssl, &proxy_origin.host, tcp).await.map_err(|error| {
-        if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
-            return io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("MASQUE H2 ECH: {}", ripdpi_tls_profiles::EchOutboundError::RetryRequired),
-            );
-        }
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake failed: {error}"))
-    })?;
-
-    if config.ech_config.is_some() && !tls.ssl().ech_accepted() {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 ECH was not accepted").into());
-    }
-
-    if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 peer did not negotiate h2").into());
-    }
+    let peer = tcp.peer_addr()?;
+    let tls = tls_retry::connect(config, &proxy_origin, tcp, Some(peer)).await?;
 
     let (mut sender, connection) =
         hyper::client::conn::http2::handshake(hyper_util::rt::TokioExecutor::new(), TokioIo::new(tls)).await.map_err(

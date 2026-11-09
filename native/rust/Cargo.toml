@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-exclude = ["vendor/shadowsocks"]
+exclude = ["vendor/shadowsocks", "vendor/quinn-proto"]
 members = [
     "crates/android-support",
     "crates/feature-contract-harness",
@@ -575,6 +575,7 @@ local-debug-crates = [
 ]
 
 [patch.crates-io]
+quinn-proto = { path = "vendor/quinn-proto" }
 boring-sys = { path = "vendor/boring-sys" }
 boringtun = { path = "vendor/boringtun" }
 smoltcp = { path = "vendor/smoltcp" }
