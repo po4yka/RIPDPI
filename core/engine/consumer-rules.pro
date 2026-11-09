@@ -55,3 +55,7 @@
 -keepclassmembers class * implements com.poyka.ripdpi.core.RuntimeReadinessListener {
     void onRuntimeReady();
 }
+
+-keepclasseswithmembernames class com.poyka.ripdpi.diagnostics.dpi.NativeQuicInitialPacketBindings {
+    native <methods>;
+}

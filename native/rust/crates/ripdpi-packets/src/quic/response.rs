@@ -1,62 +1,14 @@
 use ring::aead::{AES_128_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
-use ring::agreement;
-use ring::rand::{SecureRandom, SystemRandom};
 
 use super::crypto::quic_derive_initial_secret;
 use super::parse::{decrypt_quic_initial_with_secret, parse_quic_initial_response_header};
-use super::{QUIC_FAKE_INITIAL_TARGET_LEN, build_browser_like_quic_initial_seed, packetize_quic_initial};
-use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout};
-use crate::util::read_u16;
+use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QuicResponseKind {
     Initial,
     Retry,
     VersionNegotiation,
-}
-
-/// Build an active probe with fresh connection IDs and a fresh ClientHello
-/// random, session ID and key share. Fake/desync templates remain fixed.
-pub fn build_probe_quic_initial(version: u32, host: Option<&str>) -> Option<Vec<u8>> {
-    let mut seed = build_browser_like_quic_initial_seed(version, host, QuicInitialBrowserProfile::ChromeAndroid)?;
-    let random = SystemRandom::new();
-    random.fill(&mut seed.dcid).ok()?;
-    random.fill(&mut seed.scid).ok()?;
-    randomize_probe_client_hello(&mut seed.client_hello, &random)?;
-    packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
-}
-
-/// Fill the ClientHello random and session ID from the system CSPRNG and put a
-/// fresh, valid public key in each X25519 and P-256 key share. Other groups
-/// (for example GREASE) get random bytes.
-fn randomize_probe_client_hello(hello: &mut [u8], random: &SystemRandom) -> Option<()> {
-    random.fill(hello.get_mut(11..43)?).ok()?;
-    let sid_len = usize::from(*hello.get(43)?);
-    random.fill(hello.get_mut(44..44 + sid_len)?).ok()?;
-    let parsed = crate::tls_nom::parse_client_hello_record(hello)?;
-    let key_share = crate::tls_nom::find_extension(&parsed, 0x0033)?;
-    // Skip the extension header (4 bytes) and the client_shares length (2 bytes).
-    let (mut cursor, end) = (key_share.type_offset + 6, key_share.type_offset + 4 + key_share.data.len());
-    while cursor + 4 <= end {
-        let group = read_u16(hello, cursor)?;
-        let key_len = read_u16(hello, cursor + 2)?;
-        let key = hello.get_mut(cursor + 4..cursor + 4 + key_len)?;
-        let algorithm = match (group, key_len) {
-            (0x001d, 32) => Some(&agreement::X25519),
-            (0x0017, 65) => Some(&agreement::ECDH_P256),
-            _ => None,
-        };
-        match algorithm {
-            Some(algorithm) => {
-                let public =
-                    agreement::EphemeralPrivateKey::generate(algorithm, random).ok()?.compute_public_key().ok()?;
-                key.copy_from_slice(public.as_ref().get(..key_len)?);
-            }
-            None => random.fill(key).ok()?,
-        }
-        cursor += 4 + key_len;
-    }
-    Some(())
 }
 
 /// Check response correlation and packet integrity for one Initial probe.
@@ -69,14 +21,8 @@ pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicRes
         return None;
     }
     if version == 0 {
-        let versions = response.get(offset..)?;
-        if scid != sent.dcid || versions.is_empty() || versions.len() % 4 != 0 {
-            return None;
-        }
-        if versions.as_chunks::<4>().0.iter().any(|value| *value == sent.version.to_be_bytes() || *value == [0; 4]) {
-            return None;
-        }
-        return Some(QuicResponseKind::VersionNegotiation);
+        return validate_quic_version_negotiation_response(request, response)
+            .then_some(QuicResponseKind::VersionNegotiation);
     }
     if version != sent.version || response[0] & 0x40 == 0 {
         return None;
@@ -100,6 +46,25 @@ pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicRes
     let secret = quic_derive_initial_secret(sent.dcid, version, "tls13 server in")?;
     decrypt_quic_initial_with_secret(response, header, &secret)?;
     Some(QuicResponseKind::Initial)
+}
+
+/// Check the echoed connection IDs and version list of a Version Negotiation reply.
+/// The request may use a reserved version; its version-specific payload is not parsed.
+pub fn validate_quic_version_negotiation_response(request: &[u8], response: &[u8]) -> bool {
+    let Some((sent_version, sent_dcid, sent_scid, _)) = long_header(request) else {
+        return false;
+    };
+    let Some((version, dcid, scid, offset)) = long_header(response) else {
+        return false;
+    };
+    let versions = &response[offset..];
+    sent_version != 0
+        && version == 0
+        && dcid == sent_scid
+        && scid == sent_dcid
+        && !versions.is_empty()
+        && versions.len().is_multiple_of(4)
+        && !versions.as_chunks::<4>().0.iter().any(|value| *value == sent_version.to_be_bytes() || *value == [0; 4])
 }
 
 fn long_header(packet: &[u8]) -> Option<(u32, &[u8], &[u8], usize)> {

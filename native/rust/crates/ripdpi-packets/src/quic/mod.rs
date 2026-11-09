@@ -1,8 +1,10 @@
 mod build;
 mod crypto;
+mod datagram;
 mod fake_initial;
 mod frames;
 mod parse;
+mod probe;
 mod response;
 mod tamper;
 
@@ -12,7 +14,8 @@ pub use fake_initial::{
     build_realistic_quic_initial, packetize_quic_initial, parse_quic_initial_seed,
 };
 pub use parse::{is_quic_initial, parse_quic_initial, parse_quic_initial_layout};
-pub use response::{QuicResponseKind, build_probe_quic_initial, validate_quic_response};
+pub use probe::{QuicProbeProfile, build_probe_quic_initial, build_profiled_probe_quic_initial};
+pub use response::{QuicResponseKind, validate_quic_response, validate_quic_version_negotiation_response};
 pub use tamper::{tamper_quic_initial_split_crypto, tamper_quic_initial_split_sni, tamper_quic_version};
 
 const QUIC_INITIAL_MIN_LEN: usize = 128;

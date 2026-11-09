@@ -7,6 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.reflect.Modifier
 import java.util.Base64
 
 class QuicFingerprintFactoryTest {
@@ -77,6 +78,20 @@ class QuicFingerprintFactoryTest {
         assertThrows(IllegalStateException::class.java) {
             factory.create(QuicFingerprint.CHROME_120, "cloudflare.com")
         }
+    }
+
+    @Test
+    fun nativeResponseValidationUsesByteArraysAndBooleanMode() {
+        val method =
+            NativeQuicInitialPacketBindings::class.java.getDeclaredMethod(
+                "jniValidate",
+                ByteArray::class.java,
+                ByteArray::class.java,
+                Boolean::class.javaPrimitiveType,
+            )
+
+        assertEquals(Boolean::class.javaPrimitiveType, method.returnType)
+        assertTrue(Modifier.isNative(method.modifiers))
     }
 
     private fun ByteArray.version(): Int =
