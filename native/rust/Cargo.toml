@@ -575,6 +575,7 @@ local-debug-crates = [
 ]
 
 [patch.crates-io]
+tor-dirmgr = { path = "vendor/tor-dirmgr" }
 h3 = { path = "vendor/h3" }
 quinn-proto = { path = "vendor/quinn-proto" }
 boring-sys = { path = "vendor/boring-sys" }

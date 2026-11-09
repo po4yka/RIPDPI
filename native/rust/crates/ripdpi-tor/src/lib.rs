@@ -408,11 +408,29 @@ fn ensure_rustls_crypto_provider() {
 
 #[cfg(test)]
 mod tests {
-    use super::{DEFAULT_BOOTSTRAP_TIMEOUT, TorError, apply_bootstrap_timeout};
+    use super::{DEFAULT_BOOTSTRAP_TIMEOUT, TorError, TorRelayClient, apply_bootstrap_timeout};
+    use arti_client::config::TorClientConfigBuilder;
     use std::future::{self, Future};
     use std::pin::Pin;
     use std::task::{Context, Poll};
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn cache_can_be_reopened_without_bootstrap() {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        let _guard = runtime.enter();
+        let dirs = tempfile::tempdir().unwrap();
+        let state = dirs.path().join("state");
+        let cache = dirs.path().join("cache");
+        let config = TorClientConfigBuilder::from_directories(&state, &cache).build().unwrap();
+
+        drop(TorRelayClient::create_unbootstrapped(config.clone()).unwrap());
+        let database = cache.join("dir.sqlite3");
+        let bytes = std::fs::read(&database).unwrap();
+        assert!(bytes.starts_with(b"SQLite format 3\0"));
+        drop(TorRelayClient::create_unbootstrapped(config).unwrap());
+        assert!(std::fs::read(database).unwrap().starts_with(b"SQLite format 3\0"));
+    }
 
     /// A future that never resolves, standing in for a censored/blackholed
     /// bridge whose bootstrap hangs indefinitely. No live Tor network is used.
