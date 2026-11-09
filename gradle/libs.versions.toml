@@ -2,7 +2,7 @@
 dnsjava = "3.7.1"
 slf4j = "1.7.36"
 lombok = "1.18.46"
-agp = "9.5.0"
+agp = "9.5.1"
 benchmark = "1.5.0"
 tracing-perfetto = "1.0.1"
 kotlin-compose = "2.4.21"
