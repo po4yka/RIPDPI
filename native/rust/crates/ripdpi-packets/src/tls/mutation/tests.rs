@@ -145,3 +145,21 @@ fn tune_padding_keeps_untouched_extensions_for_every_profile_and_target() {
         }
     }
 }
+
+#[test]
+fn merge_records_never_claims_bytes_past_a_truncated_last_record() {
+    let record = |declared: usize, fill: u8, present: usize| {
+        let mut bytes = vec![0x16, 3, 1, (declared >> 8) as u8, declared as u8];
+        bytes.extend(std::iter::repeat_n(fill, present));
+        bytes
+    };
+    for missing in 0..=5usize {
+        let mut buf = [record(10, 1, 10), record(10, 2, 10), record(10, 3, 10 - missing)].concat();
+        let n = buf.len();
+
+        let removed = super::super::edit::merge_tls_records(&mut buf, n);
+
+        let merged_end = 5 + read_u16(&buf, 3).unwrap();
+        assert!(merged_end <= n - removed, "missing {missing}: record ends at {merged_end}, data at {}", n - removed);
+    }
+}

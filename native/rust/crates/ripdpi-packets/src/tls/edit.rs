@@ -42,7 +42,7 @@ pub(super) fn adjust_tls_lengths(buffer: &mut [u8], ext_len_start: usize, delta:
         && write_u16(buffer, ext_len_start, ext_len as usize)
 }
 
-pub(super) fn merge_tls_records(buffer: &mut [u8], n: usize) -> usize {
+pub(super) fn merge_tls_records(buffer: &mut [u8], mut n: usize) -> usize {
     if n < 5 {
         return 0;
     }
@@ -65,6 +65,7 @@ pub(super) fn merge_tls_records(buffer: &mut [u8], n: usize) -> usize {
         }
         buffer.copy_within(10 + full_size..n, 5 + full_size);
         removed += 5;
+        n -= 5;
         record_size = next_record_size;
     }
 
