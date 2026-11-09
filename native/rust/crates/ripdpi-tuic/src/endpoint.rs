@@ -172,23 +172,62 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     Ok(())
 }
 
-pub(crate) async fn resolve_server_addr(
+/// Handshake budget for one server address; the reference client uses 8 s.
+const HANDSHAKE_TIMEOUT: std::time::Duration =
+    if cfg!(test) { std::time::Duration::from_millis(500) } else { std::time::Duration::from_secs(8) };
+
+/// Resolves the server to every address usable with `outbound_bind_ip`, in
+/// resolver order.
+pub(crate) async fn resolve_server_addrs(
     server: &str,
     port: i32,
     outbound_bind_ip: Option<std::net::IpAddr>,
     socket_protection: SocketProtectionPolicy,
-) -> io::Result<SocketAddr> {
-    let addrs = socket_protection.resolve_host(server, port as u16).await?;
-    let resolved = match outbound_bind_ip {
-        Some(bind_ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
-        })?,
-        None => addrs
-            .into_iter()
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"))?,
-    };
-    Ok(resolved)
+) -> io::Result<Vec<SocketAddr>> {
+    let mut addrs = socket_protection.resolve_host(server, port as u16).await?;
+    if let Some(bind_ip) = outbound_bind_ip {
+        addrs.retain(|addr| addr.is_ipv4() == bind_ip.is_ipv4());
+        if addrs.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "no server address matches outbound bind IP family",
+            ));
+        }
+    }
+    if addrs.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"));
+    }
+    Ok(addrs)
+}
+
+/// Tries each address in order with a fresh protected socket and endpoint,
+/// and returns the first QUIC connection that completes its handshake within
+/// [`HANDSHAKE_TIMEOUT`].
+///
+/// # Cancel safety:
+/// cancel-safe: the pending attempt owns its endpoint and socket; cancellation
+/// drops them before anything is published.
+pub(crate) async fn connect_first_reachable(
+    config: &Config,
+    tls_config: &RustlsClientConfig,
+    addrs: &[SocketAddr],
+) -> io::Result<(Endpoint, std::net::UdpSocket, quinn::Connection, ClientSocketSpec)> {
+    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server");
+    for &server_addr in addrs {
+        let socket_spec = ClientSocketSpec {
+            ipv6: server_addr.is_ipv6(),
+            bind_low_port: config.quic_bind_low_port,
+            socket_protection: config.socket_protection,
+            outbound_bind_ip: config.outbound_bind_ip,
+        };
+        let (endpoint, current_socket) = build_endpoint(config, tls_config.clone(), socket_spec)?;
+        match tokio::time::timeout(HANDSHAKE_TIMEOUT, establish_connection(&endpoint, config, server_addr)).await {
+            Ok(Ok(connection)) => return Ok((endpoint, current_socket, connection, socket_spec)),
+            Ok(Err(error)) => last_error = error,
+            Err(_) => last_error = io::Error::new(io::ErrorKind::TimedOut, "TUIC QUIC handshake timed out"),
+        }
+    }
+    Err(last_error)
 }
 
 #[cfg(test)]

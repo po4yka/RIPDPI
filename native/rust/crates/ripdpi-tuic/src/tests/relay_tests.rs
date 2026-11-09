@@ -174,3 +174,25 @@ async fn relay_failure_after_silent_server_close_hints_at_credentials() {
     assert!(!error.to_string().contains("tuic-fixture"), "the error must not carry the password: {error}");
     server_task.await.expect("server task");
 }
+
+/// The first resolved address may be dead; the client must move on to the next
+/// one after the handshake timeout instead of failing the profile.
+#[tokio::test]
+async fn connect_falls_back_to_the_next_address_when_the_first_is_silent() {
+    let silent = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("silent socket");
+    let silent_addr = silent.local_addr().expect("silent addr");
+    let (server, cert_der) = fixture_server();
+    let server_addr = server.local_addr().expect("server addr");
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        connection.closed().await;
+    });
+    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
+    let started = Instant::now();
+    let client = TuicClient::connect_with_addrs(base_config(server_addr), tls_config, &[silent_addr, server_addr])
+        .await
+        .expect("the second address must connect");
+    assert!(started.elapsed() >= Duration::from_millis(400), "the silent address must time out first");
+    drop((client, silent));
+    server_task.abort();
+}
