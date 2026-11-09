@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
@@ -33,9 +34,11 @@ class VpnResolverRuntimeTest {
                 .activeDnsSettings()
 
         requireSupportedVpnDnsTransport(Mode.Proxy, doqDns)
-        assertThrows(ServiceStartupRejectedException::class.java) {
-            requireSupportedVpnDnsTransport(Mode.VPN, doqDns)
-        }
+        val rejection =
+            assertThrows(ServiceStartupRejectedException::class.java) {
+                requireSupportedVpnDnsTransport(Mode.VPN, doqDns)
+            }
+        assertEquals(FailureReason.NativeError("DoQ is supported only in Proxy mode"), rejection.reason)
     }
 
     @Test

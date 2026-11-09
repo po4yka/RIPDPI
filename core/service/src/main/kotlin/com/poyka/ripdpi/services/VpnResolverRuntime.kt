@@ -29,7 +29,7 @@ internal fun requireSupportedVpnDnsTransport(
 ) {
     if (mode == Mode.VPN && activeDns.isDoq) {
         throw ServiceStartupRejectedException(
-            FailureReason.NativeError("DoQ cannot use VPN DNS routing over SOCKS5"),
+            FailureReason.NativeError("DoQ is supported only in Proxy mode"),
         )
     }
 }
