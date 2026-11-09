@@ -145,3 +145,22 @@ fn server_hello_echoing_a_different_session_id_length_is_a_mismatch() {
 
     assert!(tls_session_id_mismatch(&request, &response));
 }
+
+#[test]
+fn malformed_server_name_extensions_yield_no_host() {
+    let overrun = ext(0x0000, &sni_data(0, b"a.io", 7, 0x20));
+    let wrong_type = ext(0x0000, &sni_data(1, b"example.com", 14, 11));
+    let empty = ext(0x0000, &sni_data(0, b"", 3, 0));
+    let list_too_long = ext(0x0000, &sni_data(0, b"example.com", 0x30, 11));
+    let list_too_short = ext(0x0000, &sni_data(0, b"example.com", 5, 11));
+    for (name, sni_ext) in [
+        ("host_len overruns extension", overrun),
+        ("name_type is not host_name", wrong_type),
+        ("empty host", empty),
+        ("list_len exceeds extension", list_too_long),
+        ("list_len shorter than entry", list_too_short),
+    ] {
+        let buffer = one_record(&[sni_ext, alpn(), key_share()]);
+        assert_eq!(parse_tls(&buffer), None, "{name}");
+    }
+}

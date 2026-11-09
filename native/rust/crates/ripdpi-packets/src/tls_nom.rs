@@ -17,6 +17,8 @@ pub(crate) struct RawExtension<'a> {
     pub type_offset: usize,
     /// Extension payload (past the 4-byte type + length header).
     pub data: &'a [u8],
+    /// Length the extension header declares; larger than `data.len()` when the buffer is cut.
+    pub declared_len: usize,
 }
 
 /// Parsed ClientHello with byte offsets for all key landmarks.
@@ -76,7 +78,7 @@ fn parse_client_hello_handshake_nom<'a>(
         // since write-path functions only need the type_offset to locate the header.
         let actual_data_len = core::cmp::min(data_len as usize, rem.len());
         let (rem, data) = take(actual_data_len)(rem)?;
-        extensions.push(RawExtension { ext_type, type_offset, data });
+        extensions.push(RawExtension { ext_type, type_offset, data, declared_len: data_len as usize });
         ext_data = rem;
     }
 
@@ -128,12 +130,18 @@ pub(crate) fn to_marker_info(parsed: &ClientHelloParsed<'_>, buf_len: usize) -> 
     let sni = find_extension(parsed, 0x0000)?;
     let ech_ext_start = find_extension_offset(parsed, 0xfe0d);
     // SNI extension body: [list_len: u16] [name_type: u8] [host_len: u16] [hostname...]
-    if sni.data.len() < 5 {
+    let [l0, l1, name_type, h0, h1, ..] = *sni.data else {
+        return None;
+    };
+    let list_len = u16::from_be_bytes([l0, l1]) as usize;
+    let host_len = u16::from_be_bytes([h0, h1]) as usize;
+    // Host name type, non-empty host inside the list entry and inside the extension.
+    // A buffer that ends inside the extension is a truncated capture: only the host must be present.
+    let cut = sni.data.len() < sni.declared_len && sni.type_offset + 4 + sni.data.len() == buf_len;
+    if name_type != 0 || host_len == 0 || list_len < host_len + 3 || 5 + host_len > sni.data.len() {
         return None;
     }
-    let list_len = u16::from_be_bytes([sni.data[0], sni.data[1]]) as usize;
-    let host_len = u16::from_be_bytes([sni.data[3], sni.data[4]]) as usize;
-    if list_len != sni.data.len() - 2 || sni.data[2] != 0 || host_len == 0 || host_len > list_len.saturating_sub(3) {
+    if !cut && list_len + 2 != sni.data.len() {
         return None;
     }
     let sni_ext_start = sni.type_offset + 4;
