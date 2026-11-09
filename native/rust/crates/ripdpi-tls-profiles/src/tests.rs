@@ -182,6 +182,7 @@ fn profile_metadata_does_not_claim_a_measured_client_hello_size() {
             // The hybrid key share alone exceeds the reference size hint.
             assert!(flight.len() > 1216);
         } else {
+            assert_eq!(record_len, 512, "{name} keeps its padded record payload");
             assert_eq!(flight.len(), 517, "{name} keeps its padded wire form");
         }
         let metadata = selected_profile_metadata(name);

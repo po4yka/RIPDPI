@@ -85,6 +85,7 @@ pub struct ProfileMetadata {
     pub catalog_version: &'static str,
     /// Profile reference value, not the serialized size of a connection's ClientHello.
     pub client_hello_size_hint: usize,
+    /// Static catalog validation, not a measurement of consumer wire output.
     pub invariant_status: ProfileInvariantStatus,
     pub parity_targets: ProfileParityTargets,
     pub template: ProfileTemplateMetadata,
