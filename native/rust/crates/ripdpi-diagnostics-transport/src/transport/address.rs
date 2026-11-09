@@ -58,8 +58,9 @@ fn ordered_connect_targets(host: Option<&str>, connect_ip: Option<&str>, connect
 }
 
 const DNS_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
-const DNS_RESOLVER_WORKERS: usize = 4;
-const DNS_RESOLVER_QUEUE_CAPACITY: usize = 64;
+/// Each name takes two jobs (one per family), so this is twice the number of names looked up at once.
+const DNS_RESOLVER_WORKERS: usize = 8;
+const DNS_RESOLVER_QUEUE_CAPACITY: usize = 128;
 const DNS_RESOLVER_REPLACEMENT_FACTOR: usize = 2;
 const DNS_SUPERVISOR_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
@@ -104,13 +105,38 @@ fn classify_gai_code(code: libc::c_int) -> DnsResolveError {
 /// Resolve `host` with getaddrinfo, like `ToSocketAddrs`, but keep the return code that std
 /// reduces to message text.
 fn system_lookup(host: &str, port: u16) -> Result<Vec<SocketAddr>, DnsResolveError> {
+    system_lookup_family(host, port, libc::AF_UNSPEC, 0)
+}
+
+/// Address family of one half of a split lookup.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LookupFamily {
+    V6,
+    V4,
+}
+
+/// `AI_ADDRCONFIG` keeps the IPv6 half from returning AAAA answers on a device with no IPv6
+/// address, where first-address callers would pick an unusable peer.
+fn system_lookup_by_family(host: &str, port: u16, family: LookupFamily) -> Result<Vec<SocketAddr>, DnsResolveError> {
+    match family {
+        LookupFamily::V6 => system_lookup_family(host, port, libc::AF_INET6, libc::AI_ADDRCONFIG),
+        LookupFamily::V4 => system_lookup_family(host, port, libc::AF_INET, 0),
+    }
+}
+
+fn system_lookup_family(
+    host: &str,
+    port: u16,
+    family: libc::c_int,
+    flags: libc::c_int,
+) -> Result<Vec<SocketAddr>, DnsResolveError> {
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Ok(vec![SocketAddr::new(ip, port)]);
     }
     let c_host = std::ffi::CString::new(host).map_err(|_| DnsResolveError::Failure)?;
     let hints = libc::addrinfo {
-        ai_flags: 0,
-        ai_family: libc::AF_UNSPEC,
+        ai_flags: flags,
+        ai_family: family,
         ai_socktype: libc::SOCK_STREAM,
         ai_protocol: 0,
         ai_addrlen: 0,
@@ -167,6 +193,9 @@ unsafe fn socket_addr_from(address: *const libc::sockaddr, len: libc::socklen_t,
     }
 }
 
+type FamilyLookupFn =
+    dyn Fn(&str, u16, LookupFamily) -> Result<Vec<SocketAddr>, DnsResolveError> + Send + Sync + 'static;
+
 type ResolveFn = dyn Fn(&str, u16) -> Result<Vec<SocketAddr>, DnsResolveError> + Send + Sync + 'static;
 
 static DNS_RESOLVER: LazyLock<Result<ResolverExecutor, DnsResolveError>> =
@@ -176,6 +205,8 @@ struct ResolveJob {
     host: String,
     port: u16,
     deadline: Instant,
+    /// Replaces the pool's resolver for this job (per-family lookups).
+    resolver: Option<Arc<ResolveFn>>,
     response: mpsc::Sender<Result<Vec<SocketAddr>, DnsResolveError>>,
 }
 
@@ -265,10 +296,20 @@ impl ResolverExecutor {
         port: u16,
         timeout: Duration,
     ) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, DnsResolveError>>, DnsResolveError> {
+        self.submit_with(host, port, timeout, None)
+    }
+
+    fn submit_with(
+        &self,
+        host: String,
+        port: u16,
+        timeout: Duration,
+        resolver: Option<Arc<ResolveFn>>,
+    ) -> Result<mpsc::Receiver<Result<Vec<SocketAddr>, DnsResolveError>>, DnsResolveError> {
         let (response, result) = mpsc::channel();
         let jobs = self.jobs.as_ref().ok_or(DnsResolveError::Unavailable)?;
         let deadline = Instant::now().checked_add(timeout).ok_or(DnsResolveError::Timeout)?;
-        jobs.try_send(ResolveJob { host, port, deadline, response }).map_err(|error| match error {
+        jobs.try_send(ResolveJob { host, port, deadline, resolver, response }).map_err(|error| match error {
             mpsc::TrySendError::Full(_) => DnsResolveError::Busy,
             mpsc::TrySendError::Disconnected(_) => DnsResolveError::Unavailable,
         })?;
@@ -284,6 +325,56 @@ impl ResolverExecutor {
             Err(mpsc::RecvTimeoutError::Timeout) => Err(DnsResolveError::Timeout),
             Err(mpsc::RecvTimeoutError::Disconnected) => Err(DnsResolveError::Unavailable),
         }
+    }
+}
+
+impl ResolverExecutor {
+    /// Look up IPv6 and IPv4 as two independent jobs sharing one budget (RFC 8305 section 3), so a
+    /// stalled family does not hide the other family's answer. IPv6 addresses come first.
+    /// The result is an error only when both lookups fail (see `merge_family_results`).
+    // shortcut: no 50 ms Resolution Delay; the result waits for both lookups or the budget, so a
+    // stalled family still costs the whole budget before the other family's addresses are used.
+    fn resolve_split(
+        &self,
+        host: &str,
+        port: u16,
+        timeout: Duration,
+        lookup: &Arc<FamilyLookupFn>,
+    ) -> Result<Vec<SocketAddr>, DnsResolveError> {
+        let started = Instant::now();
+        let submit = |family: LookupFamily| {
+            let lookup = Arc::clone(lookup);
+            let resolver: Arc<ResolveFn> = Arc::new(move |host, port| lookup(host, port, family));
+            self.submit_with(host.to_string(), port, timeout, Some(resolver))
+        };
+        let pending = [submit(LookupFamily::V6), submit(LookupFamily::V4)];
+        let results = pending.map(|pending| {
+            let receiver = pending?;
+            match receiver.recv_timeout(timeout.saturating_sub(started.elapsed())) {
+                Ok(result) => result,
+                Err(mpsc::RecvTimeoutError::Timeout) => Err(DnsResolveError::Timeout),
+                Err(mpsc::RecvTimeoutError::Disconnected) => Err(DnsResolveError::Unavailable),
+            }
+        });
+        let [v6, v4] = results;
+        merge_family_results(v6, v4)
+    }
+}
+
+type FamilyResult = Result<Vec<SocketAddr>, DnsResolveError>;
+
+/// IPv6 answers first. An error only when both fail; NXDOMAIN wins then, to keep the tampering signal.
+fn merge_family_results(v6: FamilyResult, v4: FamilyResult) -> FamilyResult {
+    match (v6, v4) {
+        (Ok(mut v6), Ok(v4)) => {
+            v6.extend(v4);
+            Ok(v6)
+        }
+        (Ok(addresses), Err(_)) | (Err(_), Ok(addresses)) => Ok(addresses),
+        (Err(DnsResolveError::Nxdomain), Err(_)) | (Err(_), Err(DnsResolveError::Nxdomain)) => {
+            Err(DnsResolveError::Nxdomain)
+        }
+        (Err(error), Err(_)) => Err(error),
     }
 }
 
@@ -326,7 +417,7 @@ fn resolve_job(
     lookup_budget: &Arc<LookupBudget>,
     shutdown: &Arc<AtomicBool>,
 ) {
-    let ResolveJob { host, port, deadline, response } = job;
+    let ResolveJob { host, port, deadline, resolver: job_resolver, response } = job;
     if deadline <= Instant::now() {
         let _ = response.send(Err(DnsResolveError::Timeout));
         return;
@@ -341,7 +432,7 @@ fn resolve_job(
         return;
     };
     let (lookup_response, lookup_result) = mpsc::channel();
-    let resolver = Arc::clone(resolver);
+    let resolver = job_resolver.unwrap_or_else(|| Arc::clone(resolver));
     let lookup = thread::Builder::new().name("ripdpi-dns-lookup".to_string()).spawn(move || {
         let result = if deadline <= Instant::now() {
             Err(DnsResolveError::Timeout)
@@ -398,7 +489,14 @@ pub(crate) fn resolve_addresses_with_timeout(
 ) -> Result<Vec<SocketAddr>, DnsResolveError> {
     match target {
         TargetAddress::Ip(ip) => Ok(vec![SocketAddr::new(*ip, port)]),
-        TargetAddress::Host(host) => DNS_RESOLVER.as_ref().map_err(Clone::clone)?.resolve(host.clone(), port, timeout),
+        TargetAddress::Host(host) => {
+            let resolver = DNS_RESOLVER.as_ref().map_err(Clone::clone)?;
+            if host.parse::<IpAddr>().is_ok() {
+                resolver.resolve(host.clone(), port, timeout)
+            } else {
+                resolver.resolve_split(host, port, timeout, &(Arc::new(system_lookup_by_family) as Arc<FamilyLookupFn>))
+            }
+        }
     }
 }
 
@@ -428,6 +526,8 @@ fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> R
 
 /// Submit DNS work to the bounded shared executor. Dropping the receiver abandons
 /// the result without spawning another resolver or waiting for a platform lookup.
+/// This is one `AF_UNSPEC` lookup: it returns a single receiver, so there is no place to merge
+/// per-family results without another thread.
 pub fn start_address_resolution(
     host: &str,
     port: u16,
@@ -438,6 +538,127 @@ pub fn start_address_resolution(
 
 #[cfg(test)]
 mod tests {
+    fn split_executor() -> super::ResolverExecutor {
+        super::ResolverExecutor::new(2, 4, std::sync::Arc::new(|_, _| Err(super::DnsResolveError::Failure)))
+            .expect("create resolver executor")
+    }
+
+    fn split_lookup(
+        v6: Result<Vec<std::net::SocketAddr>, super::DnsResolveError>,
+        v4: Result<Vec<std::net::SocketAddr>, super::DnsResolveError>,
+        v6_stall: std::time::Duration,
+    ) -> std::sync::Arc<super::FamilyLookupFn> {
+        std::sync::Arc::new(move |_, _, family| match family {
+            super::LookupFamily::V6 => {
+                std::thread::sleep(v6_stall);
+                v6.clone()
+            }
+            super::LookupFamily::V4 => v4.clone(),
+        })
+    }
+
+    #[test]
+    fn split_lookup_uses_the_answering_family_when_the_other_stalls() {
+        let v4: std::net::SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let v6: std::net::SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+        let lookup = split_lookup(Ok(vec![v6]), Ok(vec![v4]), std::time::Duration::from_secs(2));
+
+        let result =
+            split_executor().resolve_split("example.test", 443, std::time::Duration::from_millis(200), &lookup);
+
+        assert_eq!(result, Ok(vec![v4]));
+    }
+
+    #[test]
+    fn split_lookup_puts_ipv6_first_and_tolerates_one_nxdomain() {
+        let v4: std::net::SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let v6: std::net::SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+        let both = split_lookup(Ok(vec![v6]), Ok(vec![v4]), std::time::Duration::ZERO);
+        let one = split_lookup(Err(super::DnsResolveError::Nxdomain), Ok(vec![v4]), std::time::Duration::ZERO);
+        let timeout = std::time::Duration::from_secs(1);
+
+        assert_eq!(split_executor().resolve_split("example.test", 443, timeout, &both), Ok(vec![v6, v4]));
+        assert_eq!(split_executor().resolve_split("example.test", 443, timeout, &one), Ok(vec![v4]));
+    }
+
+    #[test]
+    fn split_lookup_without_ipv6_gives_ipv4_first() {
+        let v4: std::net::SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let timeout = std::time::Duration::from_secs(1);
+        for v6 in [Err(super::DnsResolveError::Failure), Ok(Vec::new())] {
+            let lookup = split_lookup(v6, Ok(vec![v4]), std::time::Duration::ZERO);
+            let result = split_executor().resolve_split("example.test", 443, timeout, &lookup);
+            assert_eq!(result.expect("ipv4 answers").first(), Some(&v4));
+        }
+    }
+
+    #[test]
+    fn busy_family_leaves_the_other_family_usable() {
+        let v4: std::net::SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let v6: std::net::SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+
+        assert_eq!(super::merge_family_results(Err(super::DnsResolveError::Busy), Ok(vec![v4])), Ok(vec![v4]));
+        assert_eq!(super::merge_family_results(Ok(vec![v6]), Err(super::DnsResolveError::Busy)), Ok(vec![v6]));
+        assert_eq!(
+            super::merge_family_results(Err(super::DnsResolveError::Busy), Err(super::DnsResolveError::Timeout)),
+            Err(super::DnsResolveError::Busy)
+        );
+    }
+
+    #[test]
+    fn stalled_ipv6_does_not_starve_concurrent_names() {
+        // The pool used to serve four names at once; the split must keep that capacity.
+        const NAMES: usize = 4;
+        let v4: std::net::SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let executor = std::sync::Arc::new(
+            super::ResolverExecutor::new(
+                super::DNS_RESOLVER_WORKERS,
+                super::DNS_RESOLVER_QUEUE_CAPACITY,
+                std::sync::Arc::new(|_, _| Err(super::DnsResolveError::Failure)),
+            )
+            .expect("create resolver executor"),
+        );
+        let lookup = split_lookup(Ok(Vec::new()), Ok(vec![v4]), std::time::Duration::from_secs(2));
+
+        let handles: Vec<_> = (0..NAMES)
+            .map(|_| {
+                let executor = std::sync::Arc::clone(&executor);
+                let lookup = std::sync::Arc::clone(&lookup);
+                std::thread::spawn(move || {
+                    executor.resolve_split("example.test", 443, std::time::Duration::from_millis(400), &lookup)
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            assert_eq!(handle.join().expect("lookup thread"), Ok(vec![v4]));
+        }
+    }
+
+    #[test]
+    fn split_lookup_fails_only_when_both_families_fail() {
+        let timeout = std::time::Duration::from_secs(1);
+        let nx = split_lookup(
+            Err(super::DnsResolveError::Nxdomain),
+            Err(super::DnsResolveError::Nxdomain),
+            std::time::Duration::ZERO,
+        );
+        let mixed = split_lookup(
+            Err(super::DnsResolveError::Failure),
+            Err(super::DnsResolveError::Nxdomain),
+            std::time::Duration::ZERO,
+        );
+
+        assert_eq!(
+            split_executor().resolve_split("example.test", 443, timeout, &nx),
+            Err(super::DnsResolveError::Nxdomain)
+        );
+        assert_eq!(
+            split_executor().resolve_split("example.test", 443, timeout, &mixed),
+            Err(super::DnsResolveError::Nxdomain)
+        );
+    }
+
     #[test]
     fn public_resolution_rejects_expired_scan_deadline() {
         let result = crate::util::with_scan_io_deadline(
