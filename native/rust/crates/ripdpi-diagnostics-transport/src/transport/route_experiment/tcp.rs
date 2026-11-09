@@ -6,8 +6,10 @@ use crate::util::{CONNECT_TIMEOUT, bounded_scan_io_timeout, stable_probe_hash};
 
 use super::RouteAttemptTracker;
 use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
+use crate::transport::tcp::interleave_address_families;
 use crate::transport::types::{RouteExperimentConfig, RouteExperimentReport};
 
+/// Sequential on purpose: each socket binds a fixed source port per bucket, so attempts cannot race.
 pub(crate) fn connect_addresses_with_route_experiment(
     addresses: &[SocketAddr],
     config: &RouteExperimentConfig,
@@ -41,7 +43,7 @@ fn connect_addresses_with_bucket(
     bucket: usize,
 ) -> Result<(TcpStream, SocketAddr, SocketAddr), String> {
     let mut last_error = None;
-    for address in addresses.iter().copied() {
+    for address in interleave_address_families(addresses) {
         bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
         match connect_bound_tcp(address, config, route_identity, bucket) {
             Ok(result) => return Ok(result),
