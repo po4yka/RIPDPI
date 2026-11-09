@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -170,6 +172,40 @@ func TestOwnedDNSHTTPRoutesBothTransportsAndRetainsDefaultBlackhole(t *testing.T
 			}
 			if unownedHits.Load() != 0 {
 				t.Fatal("Xray contacted the unowned loopback server")
+			}
+		})
+	}
+}
+
+func TestOwnedDNSHTTPSRoutesBothTransportsWithVerifiedCertificate(t *testing.T) {
+	p, _ := startDNSHTTPTestPeer(t)
+	der, err := base64.StdEncoding.DecodeString(p.manifest.QualityCertificate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certificate, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(certificate)
+	endpoint := fmt.Sprintf("https://127.0.0.1:%d/dns-query", p.manifest.DNSHTTPSPort)
+	for _, network := range []string{"tcp", "xhttp"} {
+		t.Run(network, func(t *testing.T) {
+			client := dnsHTTPRealityClient(t, p, network)
+			client.Transport.(*http.Transport).TLSClientConfig = &tls.Config{RootCAs: roots, ServerName: serverName, MinVersion: tls.VersionTLS12}
+			query := dnsHTTPQuery(t, "peer-owned-tls.test.", dnsmessage.TypeA)
+			readDNSHTTPAnswer(t, client, dnsHTTPRequest(t, http.MethodPost, endpoint, query), query)
+			wrongTransport := client.Transport.(*http.Transport).Clone()
+			wrongTransport.TLSClientConfig.ServerName = "wrong.example.test"
+			wrongClient := &http.Client{Transport: wrongTransport, Timeout: client.Timeout}
+			defer wrongClient.CloseIdleConnections()
+			response, err := wrongClient.Do(dnsHTTPRequest(t, http.MethodPost, endpoint, query))
+			if response != nil {
+				_ = response.Body.Close()
+			}
+			if err == nil {
+				t.Fatal("accepted the wrong TLS identity")
 			}
 		})
 	}

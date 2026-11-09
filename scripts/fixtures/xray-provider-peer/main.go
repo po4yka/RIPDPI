@@ -56,6 +56,7 @@ type peerManifest struct {
 	DirectPort         int    `json:"directPort"`
 	DNSPort            int    `json:"dnsPort,omitempty"`
 	DNSHTTPPort        int    `json:"dnsHttpPort"`
+	DNSHTTPSPort       int    `json:"dnsHttpsPort"`
 	HysteriaSOCKSPort  int    `json:"hysteriaSocksPort"`
 	PublicKey          string `json:"publicKey"`
 	UUID               string `json:"uuid"`
@@ -187,6 +188,10 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 	if err != nil {
 		return nil, err
 	}
+	dnsHTTPSListener, err := p.startOwnedDNSHTTPWithTLS(&certificate)
+	if err != nil {
+		return nil, err
+	}
 	// Hold both reservations simultaneously; never derive an adjacent port.
 	tcp, err := net.Listen("tcp4", net.JoinHostPort(options.BindHost, "0"))
 	if err != nil {
@@ -239,6 +244,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 		DirectPort:        directListener.Addr().(*net.TCPAddr).Port,
 		DNSPort:           dnsListener.LocalAddr().(*net.UDPAddr).Port,
 		DNSHTTPPort:       dnsHTTPListener.Addr().(*net.TCPAddr).Port,
+		DNSHTTPSPort:      dnsHTTPSListener.Addr().(*net.TCPAddr).Port,
 		HysteriaSOCKSPort: socksPort,
 		TransportPort:     echoListener.Addr().(*net.TCPAddr).Port,
 		PublicKey:         base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes()),
@@ -293,6 +299,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			map[string]any{"tag": "owned-echo", "protocol": "freedom", "settings": ownedRedirect("tcp", echoListener.Addr().(*net.TCPAddr).AddrPort())},
 			map[string]any{"tag": "owned-dns", "protocol": "freedom", "settings": ownedRedirect("udp", dnsListener.LocalAddr().(*net.UDPAddr).AddrPort())},
 			map[string]any{"tag": "owned-doh", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPListener.Addr().(*net.TCPAddr).AddrPort())},
+			map[string]any{"tag": "owned-doh-tls", "protocol": "freedom", "settings": ownedRedirect("tcp", dnsHTTPSListener.Addr().(*net.TCPAddr).AddrPort())},
 		},
 		"routing": map[string]any{"domainStrategy": "AsIs", "rules": []any{
 			map[string]any{"type": "field", "inboundTag": []string{"hysteria-dns"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": fmt.Sprint(p.manifest.DNSPort), "outboundTag": "owned-dns"},
@@ -301,6 +308,7 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "udp", "ip": []string{"192.0.2.53/32"}, "port": "53", "outboundTag": "owned-dns"},
 			// Host tests and the emulator alias reach only this owned HTTP port.
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPPort), "outboundTag": "owned-doh"},
+			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "ip": []string{"127.0.0.1/32", options.AdvertiseHost + "/32"}, "port": fmt.Sprint(p.manifest.DNSHTTPSPort), "outboundTag": "owned-doh-tls"},
 		}},
 	}
 	_ = privateTCP.Close()
@@ -579,7 +587,7 @@ func (p *peer) listenControl(host string, port int) (net.Listener, error) {
 		}
 		selected := listener.Addr().(*net.TCPAddr).Port
 		if selected != p.manifest.TCPPort && selected != p.manifest.XHTTPPort &&
-			selected != p.manifest.DirectPort && selected != p.manifest.DNSHTTPPort {
+			selected != p.manifest.DirectPort && selected != p.manifest.DNSHTTPPort && selected != p.manifest.DNSHTTPSPort {
 			return listener, nil
 		}
 		_ = listener.Close()

@@ -1540,6 +1540,7 @@ def main() -> int:
                             peer_manifest["tcpPort"],
                             peer_manifest["xhttpPort"],
                             peer_manifest["dnsHttpPort"],
+                            peer_manifest["dnsHttpsPort"],
                         ]
                     )
                     if nginx is not None:
