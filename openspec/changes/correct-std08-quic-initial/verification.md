@@ -1,9 +1,9 @@
 ---
 task_id: DGN-1794211297803022
 change: correct-std08-quic-initial
-commit_sha: 972f610c9cd8e4cd2506ab7cde54acfbeccb708a
+commit_sha: 847a0dfc5aa439143eb45c49ea2cd1e4334a2388
 local: required
-local_evidence: "Source 972f610c9 passed 560 native tests: packets 309+5, desync 159+7, TUN 61, adapter 5+2, independent rustls oracle 1 (18 cases), facade 11; zero failures or ignored tests. Workspace all-targets Clippy with warnings denied, full staticAnalysis, 26 selected JVM tests, ci-gates, architecture health, locked Cargo metadata and the actual ARM64 ELF symbol check passed. Earlier staticAnalysis failures were corrected by published upstream work and are retained below as historical results."
+local_evidence: "Rebased source 847a0dfc5 passed 560 native tests, full staticAnalysis, 26 selected JVM tests, architecture health and locked metadata. Its workspace Clippy failed with query-depth overflow in the published XHTTP connect_reality future; the separate XHTTP check reproduced it. XHTTP source and Cargo configuration match origin/main. Earlier source 972f610c9 passed workspace Clippy and ci-gates. Final source-gate and scoped Clippy receipts are recorded below. No limit, suppression or dependency was changed."
 remote_ci: required
 remote_ci_evidence: Pending the authorized push.
 device: required
@@ -184,3 +184,13 @@ Source `2cbf12155a532327c073d0e58e6a5d5bd4cf7698` passed the actual minified `Gi
 App APK SHA-256: `2b482349ad3a0a9f2fb0028ebd0b0fb7bda2cc494b81b3c90faa30cff962ac52`. Test APK: `2899bf1f96997652ccff24dc371f822fddb2ae4aeaeb63209850249698003cc1`. The packaged native ELF matches `9a5d23d0562e42c7adcead05c0740df7bb469f43b4366ba517ed50ab14cf0f72`, with 41 approved exports. R8 JNI names and exact transport member boundaries were checked against the actual mapping. Local signing uses the disposable debug key; this is not a published release.
 
 The connected Gradle task passed in 8m11s. Exact inner and outer commands, the temporary signing init script, acceptance summary, R8 evidence and failed-attempt artifacts are under `/tmp/ripdpi-std08-android-acceptance-datagram-final/`. Its `final-frozen-artifacts/` retains both APKs, JUnit XML, HTML report and compressed app mapping. The earlier three-pass/one-fail attempt is separate and is not counted as a pass. External E and four-ABI runtime acceptance remain unclaimed.
+
+## Publication candidate after final rebase
+
+Source `847a0dfc5aa439143eb45c49ea2cd1e4334a2388` is based on published `a91bc4d30c59a885f4411e7f78e98c3c09482e05`. The accepted QUIC sources, manifests/lock/toolchain, JNI sources, Kotlin probe, instrumented test and R8 rules have no diff from the accepted 2cbf12155a candidate. `/tmp/std08-publish-final-accepted-source.diff` is empty. Upstream differences concern DNS, XHTTP and their fixtures; the original acceptance source and APK hashes remain explicit above.
+
+On this rebased tree, all 560 native tests passed again, zero failures or ignored tests. Full staticAnalysis and all 26 selected JVM tests passed in 5m16s, with no failures, errors or skips. Architecture health and locked Cargo metadata passed. Logs use `/tmp/std08-publish-final-*.log` and `cargo-metadata.json`.
+
+Workspace Clippy returned 101: `queries overflow the depth limit` while computing the layout of `client::connect_reality()` in `ripdpi-xhttp`. The single-package `cargo clippy -p ripdpi-xhttp --locked --all-targets -- -D warnings` reproduced the same error. The entire XHTTP crate, workspace manifest/lock/toolchain, .cargo/config.toml and clippy.toml have no diff from published origin/main. Logs: `/tmp/std08-publish-final-workspace-clippy.log` and `/tmp/std08-xhttp-triage-xhttp.log`. This published-source blocker does not replace the earlier passing workspace result. No recursion limit, gate, baseline or dependency was changed to hide it. Remote CI and any XHTTP repair remain outside this STD-08 repair evidence.
+
+The exact affected-crate Clippy passed in 44.84s: `cargo clippy --locked -p ripdpi-packets -p ripdpi-desync -p ripdpi-tunnel-intercept -p ripdpi-android-platform-adapter -p ripdpi-diagnostics-runner -p ripdpi-android --all-targets -- -D warnings`, with the same build-gate, sccache and task target. Log: `/tmp/std08-xhttp-triage-std08.log`. This is scoped lint evidence, not a passing workspace gate. All native processes ended and no source or compiler limits were changed.
