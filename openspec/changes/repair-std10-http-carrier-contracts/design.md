@@ -12,7 +12,7 @@ The audit reproduced faults in existing carriers. Package pins are h2 0.4.20, h3
 - Cancel only the incomplete xHTTP stream; retire a carrier only for a connection failure.
 - Drive HTTP control streams before capability-dependent requests. Validate settings at the backend boundary. A peer without required Datagram support is rejected with a clear error or uses the existing bounded fallback; do not claim capsule-only H3 support.
 - Use the existing h2 package if Hyper cannot expose all valid CONNECT success streams. Keep CA, ECH, socket protection and auth checks.
-- Make capsule parsing expose errors and final truncation. Unknown capsules are skipped with bounded storage.
+- Make capsule parsing expose errors and final truncation. CapsuleReader::push now returns a Result; all repository callers migrate together. This is an intentional internal Rust source API change. Unknown capsules are skipped with bounded storage.
 - Restore the two missing boring-sys build inputs from the preceding audited revision as a separate build prerequisite. They are still referenced by the package manifest.
 - Keep manifests and Cargo.lock under one coordinator. If a same-version h3 source patch is required, preserve upstream license and record its source and patch scope. No new production package is authorized or needed.
 

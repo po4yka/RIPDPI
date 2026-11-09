@@ -10,10 +10,10 @@ Use the parallel ownership lanes in the portfolio record. The coordinator owns C
 
 ## Execution
 
-- [ ] TRN-1794211922684114 Repair xHTTP cancellation and Naive documentation #bug !high @item:TRN-1794211839090466
-- [ ] TRN-1794211923197752 Repair MASQUE H2 and H3 carrier capability and success contracts #bug !high @item:TRN-1794211839090466
-- [ ] TRN-1794211923739038 Repair capsule framing and response header validation #bug !high @item:TRN-1794211839090466
-- [ ] TRN-1794211924292344 Review and validate the combined changes before integration #bug !high @item:TRN-1794211839090466
+- [x] TRN-1794211922684114 Repair xHTTP cancellation and Naive documentation #bug !high @item:TRN-1794211839090466
+- [x] TRN-1794211923197752 Repair MASQUE H2 and H3 carrier capability and success contracts #bug !high @item:TRN-1794211839090466
+- [x] TRN-1794211923739038 Repair capsule framing and response header validation #bug !high @item:TRN-1794211839090466
+- [x] TRN-1794211924292344 Review and validate the combined changes before integration #bug !high @item:TRN-1794211839090466
 
 ## Verification
 

@@ -2,7 +2,7 @@
 id: TRN-1794211839090466
 title: Repair STD-10 HTTP relay carrier contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: transport-maintainer
