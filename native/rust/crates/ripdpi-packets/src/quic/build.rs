@@ -37,7 +37,8 @@ pub(super) fn build_quic_initial_raw(
     loop {
         let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
         let payload_len_varint = encode_quic_varint(payload_len as u64);
-        let header_len = 1 + 4 + 1 + dcid.len() + 1 + scid.len() + token_varint.len() + payload_len_varint.len();
+        let header_len =
+            1 + 4 + 1 + dcid.len() + 1 + scid.len() + token_varint.len() + token.len() + payload_len_varint.len();
         let total_len = header_len + payload_len;
         if total_len >= min_total_len {
             break;
@@ -57,6 +58,7 @@ pub(super) fn build_quic_initial_raw(
     header.push(scid.len() as u8);
     header.extend_from_slice(scid);
     header.extend_from_slice(&token_varint);
+    header.extend_from_slice(token);
     header.extend_from_slice(&payload_len_varint);
 
     let packet_number_bytes = packet_number.to_be_bytes();
