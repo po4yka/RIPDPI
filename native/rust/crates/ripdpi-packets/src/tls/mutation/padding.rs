@@ -22,6 +22,46 @@ pub fn padencap_tls_into(buf: &mut Vec<u8>, payload_len: usize) -> isize {
     mutation.rc
 }
 
+/// Add `grow` bytes of padding to a ClientHello record: extend an existing
+/// padding extension in place, or insert a new one (needs `grow >= 4`) before
+/// `pre_shared_key`, which RFC 8446 section 4.2.11 requires to stay last.
+/// Updates the record, handshake and extension lengths. Returns false with
+/// the record unchanged when the padding cannot grow by exactly `grow`.
+pub(super) fn grow_padding(record: &mut Vec<u8>, grow: usize) -> bool {
+    let Some(parsed) = crate::tls_nom::parse_client_hello_record(record) else {
+        return false;
+    };
+    let ext_len_offset = parsed.ext_len_offset;
+    let existing =
+        parsed.extensions.iter().find(|ext| ext.ext_type == 0x0015).map(|ext| (ext.type_offset, ext.data.len()));
+    let psk_offset = parsed.extensions.iter().find(|ext| ext.ext_type == 0x0029).map(|ext| ext.type_offset);
+    let mut grown = record.clone();
+    match existing {
+        Some((offset, len)) => {
+            if len + grow > usize::from(u16::MAX) || !write_u16(&mut grown, offset + 2, len + grow) {
+                return false;
+            }
+            let end = offset + 4 + len;
+            grown.splice(end..end, std::iter::repeat_n(0, grow));
+        }
+        None => {
+            let Some(pad_len) = grow.checked_sub(4).and_then(|len| u16::try_from(len).ok()) else {
+                return false;
+            };
+            let mut ext = vec![0x00, 0x15];
+            ext.extend_from_slice(&pad_len.to_be_bytes());
+            ext.resize(grow, 0);
+            let at = psk_offset.unwrap_or(grown.len());
+            grown.splice(at..at, ext);
+        }
+    }
+    if !adjust_tls_lengths(&mut grown, ext_len_offset, grow as isize) {
+        return false;
+    }
+    *record = grown;
+    true
+}
+
 pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketMutation {
     if target_size == input.len() {
         return PacketMutation { rc: 0, bytes: input.to_vec() };
@@ -37,20 +77,7 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
     match target_size.cmp(&original_len) {
         std::cmp::Ordering::Equal => PacketMutation { rc: 0, bytes: output },
         std::cmp::Ordering::Greater => {
-            output.resize(target_size, 0);
-            let grow = target_size - original_len;
-            if let Some(pad_offs) = pad_offs {
-                if pad_offs + 4 <= output.len()
-                    && let Some(pad_len) = read_u16(input, pad_offs + 2)
-                {
-                    let _ = write_u16(&mut output, pad_offs + 2, pad_len.saturating_add(grow));
-                }
-            } else if grow >= 4 {
-                let pad_offs = original_len;
-                let _ = write_u16(&mut output, pad_offs, 0x0015);
-                let _ = write_u16(&mut output, pad_offs + 2, grow - 4);
-            }
-            if !adjust_tls_lengths(&mut output, ext_len_start, grow as isize) {
+            if !grow_padding(&mut output, target_size - original_len) {
                 return PacketMutation { rc: -1, bytes: input.to_vec() };
             }
             PacketMutation { rc: 0, bytes: output }
@@ -98,17 +125,11 @@ fn drop_optional_extensions_to_fit(
         let Some(gap) = target_size.checked_sub(output.len()) else {
             continue;
         };
-        if gap != 0 {
-            // A padding extension needs at least its 4-byte header.
-            let Some(pad_len) = gap.checked_sub(4).and_then(|len| u16::try_from(len).ok()) else {
-                continue;
-            };
-            output.extend_from_slice(&[0x00, 0x15]);
-            output.extend_from_slice(&pad_len.to_be_bytes());
-            output.resize(target_size, 0);
+        let removed = input.len() - output.len();
+        if !adjust_tls_lengths(&mut output, parsed.ext_len_offset, -(removed as isize)) {
+            continue;
         }
-        let delta = target_size as isize - input.len() as isize;
-        if adjust_tls_lengths(&mut output, parsed.ext_len_offset, delta) {
+        if gap == 0 || grow_padding(&mut output, gap) {
             return PacketMutation { rc: 0, bytes: output };
         }
     }

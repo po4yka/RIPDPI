@@ -4,6 +4,8 @@ mod randomize;
 #[cfg(test)]
 mod record;
 mod sni;
+#[cfg(test)]
+mod tests;
 
 pub use key_share::*;
 pub use padding::*;
