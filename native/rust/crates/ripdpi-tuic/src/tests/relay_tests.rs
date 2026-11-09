@@ -125,3 +125,22 @@ fn authority_with_an_empty_host_is_rejected() {
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput, "{authority}");
     }
 }
+
+/// SPEC "Packet": FRAG_TOTAL counts fragments (at least 1) and FRAG_ID is
+/// below it; anything else is a malformed datagram.
+#[test]
+fn packet_header_rejects_invalid_fragment_fields() {
+    for (total, id) in [(0u8, 0u8), (1, 1), (2, 2), (3, 200)] {
+        let header = PacketHeader {
+            assoc_id: 1,
+            packet_id: 1,
+            fragment_total: total,
+            fragment_id: id,
+            payload_len: 0,
+            address: TuicAddress::None,
+        };
+        let mut buffer = BytesMut::new();
+        header.encode(&mut buffer);
+        assert!(PacketHeader::decode(&buffer).is_err(), "total {total} id {id} must be rejected");
+    }
+}

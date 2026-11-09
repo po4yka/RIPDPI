@@ -335,11 +335,14 @@ impl PacketHeader {
         let header = Self {
             assoc_id: read_u16(&mut input)?,
             packet_id: read_u16(&mut input)?,
-            fragment_total: read_u8(&mut input)?.max(1),
+            fragment_total: read_u8(&mut input)?,
             fragment_id: read_u8(&mut input)?,
             payload_len: read_u16(&mut input)?,
             address: TuicAddress::decode(&mut input)?,
         };
+        if header.fragment_total == 0 || header.fragment_id >= header.fragment_total {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid TUIC packet fragment fields"));
+        }
         let payload = take_bytes(&mut input, usize::from(header.payload_len))?;
         Ok((header, payload))
     }
