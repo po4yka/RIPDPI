@@ -17,6 +17,7 @@ fun IpFamilyProbeEvidence.validatedIpFamilyProbeEvidence(): IpFamilyProbeEvidenc
 
 private fun IpFamilyProbeEvidence.hasValidIpBounds(): Boolean =
     version == 1 && destinationPort in 1..IpProbeMaxPort && attemptCount in 0..IpEvidenceMaxAttempts &&
+        (discoveryAttemptCount == null || discoveryAttemptCount in 0..IpEvidenceMaxAttempts) &&
         (durationMs == null || durationMs in 0..IpEvidenceMaxDurationMs) &&
         (reason == null || reason in IpEvidenceReasons) &&
         (resolverSource == null || resolverSource == "NETWORK_SNAPSHOT") &&
@@ -68,6 +69,7 @@ internal fun List<ProbeResult>.ipFamilySummaryLines(): List<String> =
             parseIpFamilyProbeEvidence(result.details)?.let {
                 "ipFamily=${it.family}; stage=${it.stage}; status=${it.status}; " +
                     "discovery=${it.discoveryStatus ?: "NOT_RUN"}; attempts=${it.attemptCount}; " +
+                    "discoveryAttempts=${it.discoveryAttemptCount ?: "none"}; " +
                     "scope=${it.pathScope}; providerInterference=unverified"
             }
         }.toList()

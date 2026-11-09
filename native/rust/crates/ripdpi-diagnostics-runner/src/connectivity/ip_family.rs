@@ -34,6 +34,7 @@ pub fn run_ip_family_probes(
                 prefix: None,
                 prefix_length: None,
                 discovery_status: (family == "NAT64").then(|| "NOT_RUN".into()),
+                discovery_attempt_count: None,
                 resolver_source: (family == "NAT64").then(|| "NETWORK_SNAPSHOT".into()),
             };
             if !raw_path || !matches!(transport, TransportConfig::Direct { route_experiment: None }) {
@@ -75,7 +76,7 @@ fn execute_with(
             now + deadline.saturating_duration_since(now) / 2
         });
         let discovery = with_scan_io_deadline(discovery_deadline, || discover(servers, cancel));
-        evidence.attempt_count = discovery.attempts;
+        evidence.discovery_attempt_count = Some(discovery.attempts);
         evidence.discovery_status = Some(discovery.status.into());
         if stop(cancel, evidence) {
             return;

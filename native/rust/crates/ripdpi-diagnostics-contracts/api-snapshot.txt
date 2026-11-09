@@ -525,6 +525,7 @@ pub struct ripdpi_diagnostics_contracts::types::IpFamilyEvidence
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::attempt_count: u32
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::destination_address: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::destination_port: u16
+pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::discovery_attempt_count: core::option::Option<u32>
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::discovery_status: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::duration_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::family: alloc::string::String
@@ -1579,6 +1580,7 @@ pub struct ripdpi_diagnostics_contracts::IpFamilyEvidence
 pub ripdpi_diagnostics_contracts::IpFamilyEvidence::attempt_count: u32
 pub ripdpi_diagnostics_contracts::IpFamilyEvidence::destination_address: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::IpFamilyEvidence::destination_port: u16
+pub ripdpi_diagnostics_contracts::IpFamilyEvidence::discovery_attempt_count: core::option::Option<u32>
 pub ripdpi_diagnostics_contracts::IpFamilyEvidence::discovery_status: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::IpFamilyEvidence::duration_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::IpFamilyEvidence::family: alloc::string::String

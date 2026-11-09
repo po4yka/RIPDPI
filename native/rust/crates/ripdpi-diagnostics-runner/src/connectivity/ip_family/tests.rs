@@ -86,6 +86,7 @@ fn nat64_evidence() -> IpFamilyEvidence {
         prefix: None,
         prefix_length: None,
         discovery_status: Some("NOT_RUN".into()),
+        discovery_attempt_count: None,
         resolver_source: Some("NETWORK_SNAPSHOT".into()),
     }
 }
@@ -110,7 +111,8 @@ fn discovered_prefixes_require_real_connect_and_try_next_in_response_order() {
         },
     );
     assert_eq!(facts.status, "REACHABLE");
-    assert_eq!(facts.attempt_count, 3);
+    assert_eq!(facts.attempt_count, 2, "TCP attempts only");
+    assert_eq!(facts.discovery_attempt_count, Some(1));
     assert_eq!(facts.prefix, Some("64:ff9b::".into()));
     assert_eq!(peers[0].ip().to_string(), "2001:db8::101:101");
     assert_eq!(peers[1].ip().to_string(), "64:ff9b::101:101");
@@ -153,7 +155,7 @@ fn cancellation_after_discovery_prevents_tcp_and_dns_timeout_is_inconclusive() {
         |_| panic!("TCP must not start after cancellation"),
     );
     assert_eq!(facts.status, "CANCELLED");
-    assert_eq!(facts.attempt_count, 1);
+    assert_eq!((facts.attempt_count, facts.discovery_attempt_count), (0, Some(1)));
     facts.status = "TIMEOUT".into();
     facts.reason = Some("dns_timeout".into());
     assert_eq!(result(facts).outcome, "ip_family_inconclusive");
@@ -179,7 +181,7 @@ fn numeric_ipv6_success_does_not_fallback_to_ipv4() {
 #[test]
 fn expired_budget_after_discovery_never_counts_a_tcp_attempt() {
     let mut facts = nat64_evidence();
-    facts.attempt_count = 1;
+    facts.discovery_attempt_count = Some(1);
     facts.discovery_status = Some("DISCOVERED".into());
     with_scan_io_deadline(Some(Instant::now() - Duration::from_millis(1)), || {
         connect(Some("64:ff9b::101:101".parse().unwrap()), &config(), &AtomicBool::new(false), &mut facts, &mut |_| {
@@ -187,7 +189,7 @@ fn expired_budget_after_discovery_never_counts_a_tcp_attempt() {
         });
     });
     assert_eq!(facts.stage, "DNS64_DISCOVERY");
-    assert_eq!(facts.attempt_count, 1);
+    assert_eq!(facts.attempt_count, 0);
     assert_eq!(result(facts).outcome, "ip_family_inconclusive");
 }
 
@@ -237,7 +239,7 @@ fn well_known_prefix_cannot_carry_private_ipv4_to_tcp() {
         |_| panic!("TCP must not start for a non-global IPv4 behind the Well-Known Prefix"),
     );
     assert_eq!((facts.status.as_str(), facts.reason.as_deref()), ("INVALID", Some("invalid_config")));
-    assert_eq!(facts.attempt_count, 1);
+    assert_eq!((facts.attempt_count, facts.discovery_attempt_count), (0, Some(1)));
 }
 
 #[test]
@@ -273,5 +275,5 @@ fn discovery_gets_half_the_family_budget_and_leaves_time_for_tcp() {
             },
         );
     });
-    assert_eq!((connects, facts.status.as_str(), facts.attempt_count), (1, "REACHABLE", 3));
+    assert_eq!((connects, facts.status.as_str(), facts.attempt_count), (1, "REACHABLE", 1));
 }

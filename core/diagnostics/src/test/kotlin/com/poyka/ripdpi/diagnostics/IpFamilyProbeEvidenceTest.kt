@@ -25,6 +25,7 @@ class IpFamilyProbeEvidenceTest {
             discoveryStatus = Nat64DiscoveryStatus.DISCOVERED,
             resolverSource = "NETWORK_SNAPSHOT",
             attemptCount = 1,
+            discoveryAttemptCount = 2,
         )
 
     @Test
@@ -56,6 +57,8 @@ class IpFamilyProbeEvidenceTest {
         assertNull(evidence.copy(version = 2).validatedIpFamilyProbeEvidence())
         assertNull(evidence.copy(prefixLength = 97).validatedIpFamilyProbeEvidence())
         assertNull(evidence.copy(attemptCount = 17).validatedIpFamilyProbeEvidence())
+        assertNull(evidence.copy(discoveryAttemptCount = 17).validatedIpFamilyProbeEvidence())
+        assertNull(evidence.copy(discoveryAttemptCount = -1).validatedIpFamilyProbeEvidence())
         assertNull(evidence.copy(durationMs = -1).validatedIpFamilyProbeEvidence())
         assertNull(evidence.copy(reason = "private-hostname").validatedIpFamilyProbeEvidence())
         assertNull(evidence.copy(destinationAddress = "example.com").validatedIpFamilyProbeEvidence())
@@ -139,6 +142,7 @@ class IpFamilyProbeEvidenceTest {
         val summary = listOf(result).ipFamilySummaryLines().single()
         assertFalse(summary.contains("64:ff9b"))
         org.junit.Assert.assertTrue(summary.contains("status=TIMEOUT"))
+        org.junit.Assert.assertTrue(summary.contains("attempts=1; discoveryAttempts=2;"))
         org.junit.Assert.assertTrue(summary.contains("providerInterference=unverified"))
     }
 

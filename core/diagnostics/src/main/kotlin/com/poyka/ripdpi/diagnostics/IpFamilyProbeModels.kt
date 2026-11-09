@@ -53,6 +53,7 @@ data class IpFamilyProbeEvidence(
     val discoveryStatus: Nat64DiscoveryStatus? = null,
     val resolverSource: String? = null,
     val attemptCount: Int = 0,
+    val discoveryAttemptCount: Int? = null,
     val pathScope: IpProbePathScope = IpProbePathScope.RAW_PATH,
 )
 

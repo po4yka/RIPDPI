@@ -65,6 +65,9 @@ pub struct IpFamilyEvidence {
     pub prefix_length: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub discovery_status: Option<String>,
+    /// DNS queries sent by NAT64 discovery. `attempt_count` counts TCP attempts only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discovery_attempt_count: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resolver_source: Option<String>,
 }
