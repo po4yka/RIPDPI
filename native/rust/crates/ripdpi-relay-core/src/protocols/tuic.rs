@@ -66,6 +66,10 @@ impl RelaySession for TuicSession {
         sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
         Ok(session)
     }
+
+    fn is_closed(&self) -> bool {
+        self.client.is_closed()
+    }
 }
 
 impl RelaySessionFactory for TuicSessionFactory {

@@ -160,6 +160,12 @@ impl TuicClient {
         Ok(UdpSession::new(Arc::clone(&self.inner)))
     }
 
+    /// Whether the QUIC connection is closed (by the peer, a timeout, or a
+    /// local close). A closed client cannot open streams or carry datagrams.
+    pub fn is_closed(&self) -> bool {
+        self.inner.connection.close_reason().is_some()
+    }
+
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
         self.inner.quic_migration_snapshot()
     }
