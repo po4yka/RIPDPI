@@ -25,3 +25,9 @@ The audit identified four defects in packet inspection and fake ClientHello muta
 ## Migration Plan
 
 No data migration. Revert the relevant commits to roll back. Run targeted locked Cargo tests, independent review, and `just ci-gates` before integration.
+
+## CI repair
+
+- The fuzz workspace owns a separate Cargo lockfile. Reconcile its existing `ripdpi-xhttp` dependency graph without changing package versions.
+- The ECH adapter owns a non-owning request ID type. The JNI bridge converts its unchanged signed Long representation at the boundary. Invalid, stale, cancelled, and released IDs retain their previous behavior.
+- Keep the unsafe-boundary scanner and all enforcement enabled. Validate the scanner, locked fuzz smoke, adapter behavior, JNI contract, and combined source gates.

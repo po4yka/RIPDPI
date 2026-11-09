@@ -2,7 +2,7 @@
 id: RST-1794212008025103
 title: Correct TLS ClientHello parsing and mutation
 kind: bug
-status: review
+status: doing
 area: rust-native
 priority: high
 owner: TLS maintenance
@@ -23,3 +23,9 @@ Inspect and mutate TLS ClientHello without crossing SNI boundaries, losing fragm
 - Regression tests cover all four audit findings and relevant failure paths.
 - Targeted locked tests, independent review, and required source gates pass or have an explicit blocker.
 - Ownership: SNI bounds, record-aware consumers, and mutation use separate worktrees; the integrator owns shared tests, API snapshots, and combined validation.
+
+## CI repair ownership
+
+- Fuzz lock owner: `native/rust/fuzz/Cargo.lock`; serialize all changes to this file.
+- JNI handle owner: `native/rust/crates/ripdpi-android-fetch-adapter/` and `native/rust/crates/ripdpi-android/src/` ECH bridge.
+- Integrator owns task records, API snapshots, and combined validation.
