@@ -1,15 +1,3 @@
 {
-  "mcpServers": {
-    "60fps": {
-      "type": "http",
-      "url": "https://mcp.60fps.design/mcp",
-      "headers": {
-        "Authorization": "Bearer ${SIXTYFPS_LICENSE_KEY}"
-      }
-    },
-    "mobbin": {
-      "type": "http",
-      "url": "https://api.mobbin.com/mcp"
-    }
-  }
+  "mcpServers": {}
 }
