@@ -28,7 +28,7 @@ pub(crate) struct ClientSocketSpec {
     pub(crate) socket_protection: SocketProtectionPolicy,
     /// Interface pinning: the carrier binds to this address instead of an
     /// unspecified one. The family is validated against the resolved server
-    /// address at resolve time (`resolve_server_addr`).
+    /// address at resolve time (`resolve_server_addrs`).
     pub(crate) outbound_bind_ip: Option<std::net::IpAddr>,
 }
 
