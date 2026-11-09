@@ -1910,7 +1910,7 @@ jobs:
       # pushes to main also lint the Simple variant and test sources.
       - name: Run static analysis
         run: >-
-          ./gradlew staticAnalysis --profile -Pripdpi.skipNativeBuild=true
+          ./gradlew staticAnalysis --profile --stacktrace -Pripdpi.skipNativeBuild=true
           ${{ github.event_name == 'pull_request' && '-Pripdpi.lintSimpleAndTestSources=false' || '' }}
 
       - uses: ./.github/actions/upload-build-observability

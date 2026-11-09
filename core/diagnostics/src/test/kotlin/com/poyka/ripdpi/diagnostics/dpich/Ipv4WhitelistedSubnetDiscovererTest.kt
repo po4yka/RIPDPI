@@ -14,7 +14,9 @@ import org.junit.rules.TemporaryFolder
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.Collections
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
@@ -123,20 +125,27 @@ class Ipv4WhitelistedSubnetDiscovererTest {
 
     @Test
     fun aliveProbeHonorsItsTimeout() {
-        ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { server ->
-            val acceptor = Thread { runCatching { server.accept() } }.apply { start() }
-            val startedAt = System.nanoTime()
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { server ->
+            val release = CountDownLatch(1)
+            val acceptor =
+                Thread {
+                    runCatching { server.accept().use { release.await(3, TimeUnit.SECONDS) } }
+                }.apply { start() }
+            try {
+                val startedAt = System.nanoTime()
+                val result =
+                    kotlinx.coroutines.runBlocking {
+                        // A host:port literal points the HTTPS probe at a server that accepts and never answers.
+                        OkHttpSubnetAliveProbe().probe("127.0.0.1:${server.localPort}", timeoutMs = 300)
+                    }
 
-            val result =
-                kotlinx.coroutines.runBlocking {
-                    // A host:port literal points the HTTPS probe at a server that accepts and never answers.
-                    OkHttpSubnetAliveProbe().probe("127.0.0.1:${server.localPort}", timeoutMs = 300)
-                }
-
-            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
-            assertEquals(SubnetAliveProbeResult.Unreachable, result)
-            assertTrue("probe took $elapsedMs ms", elapsedMs < 3_000)
-            acceptor.join(1_000)
+                val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+                assertEquals(SubnetAliveProbeResult.Unreachable, result)
+                assertTrue("probe took $elapsedMs ms", elapsedMs < 3_000)
+            } finally {
+                release.countDown()
+                acceptor.join(1_000)
+            }
         }
     }
 
