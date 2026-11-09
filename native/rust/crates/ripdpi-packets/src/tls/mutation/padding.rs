@@ -37,11 +37,14 @@ pub(super) fn grow_padding(record: &mut Vec<u8>, grow: usize) -> bool {
     let psk_offset = parsed.extensions.iter().find(|ext| ext.ext_type == 0x0029).map(|ext| ext.type_offset);
     let mut grown = record.clone();
     match existing {
-        Some((offset, len)) => {
-            if len + grow > usize::from(u16::MAX) || !write_u16(&mut grown, offset + 2, len + grow) {
+        Some((offset, present)) => {
+            // A truncated template declares more padding than it carries; grow the
+            // declared length so it stays consistent with the extension block length.
+            let declared = read_u16(record, offset + 2).unwrap_or(present);
+            if declared + grow > usize::from(u16::MAX) || !write_u16(&mut grown, offset + 2, declared + grow) {
                 return false;
             }
-            let end = offset + 4 + len;
+            let end = offset + 4 + present;
             grown.splice(end..end, std::iter::repeat_n(0, grow));
         }
         None => {
@@ -109,7 +112,7 @@ pub fn tune_tls_padding_size_like_c(input: &[u8], target_size: usize) -> PacketM
 const DROPPABLE_EXTENSION_SETS: [&[u16]; 2] = [&[0x0015], &[0x0015, 0xfe0d]];
 
 /// Shrink a ClientHello to `target_size` by removing whole optional extensions
-/// and filling any gap with a new padding extension at the end. Returns rc -1
+/// and filling any gap with a new padding extension (before pre_shared_key). Returns rc -1
 /// with the input unchanged when no set reaches the target exactly.
 fn drop_optional_extensions_to_fit(
     input: &[u8],

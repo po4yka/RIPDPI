@@ -199,3 +199,27 @@ fn merge_records_never_claims_bytes_past_a_truncated_last_record() {
         assert!(merged_end <= n - removed, "missing {missing}: record ends at {merged_end}, data at {}", n - removed);
     }
 }
+
+#[test]
+fn grow_truncated_template_keeps_declared_lengths_consistent() {
+    let template = crate::types::DEFAULT_FAKE_TLS;
+    let ext_len_start = crate::tls::tls_marker_info(template).expect("template markers").ext_len_start;
+    let mutation = tune_tls_padding_size_like_c(template, 1800);
+    assert_eq!(mutation.rc, 0);
+    let out = &mutation.bytes;
+    assert_eq!(out.len(), 1800);
+
+    // Walk the extension headers by their declared lengths: they must end exactly
+    // where the extension block and the record say they end.
+    let record_end = 5 + read_u16(out, 3).expect("record len");
+    assert_eq!(read_u24(out, 6).expect("handshake len") + 9, record_end);
+    let list_start = ext_len_start + 2;
+    let list_end = list_start + read_u16(out, ext_len_start).expect("ext list len");
+    assert_eq!(list_end, record_end);
+    let mut cursor = list_start;
+    while cursor < list_end {
+        assert!(cursor + 4 <= out.len(), "extension header at {cursor} is past the bytes present");
+        cursor += 4 + read_u16(out, cursor + 2).expect("ext len");
+    }
+    assert_eq!(cursor, list_end);
+}
