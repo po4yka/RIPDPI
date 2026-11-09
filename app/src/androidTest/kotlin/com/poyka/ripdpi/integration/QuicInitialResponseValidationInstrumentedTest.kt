@@ -7,9 +7,6 @@ import com.poyka.ripdpi.diagnostics.dpi.NativeQuicInitialPacketBindings
 import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -77,12 +74,15 @@ class QuicInitialResponseValidationInstrumentedTest {
                 val loopback = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
                 DatagramSocket(0, loopback).use { server ->
                     server.soTimeout = 3_000
+                    val failure = AtomicReference<Throwable?>()
                     val responder =
-                        async(Dispatchers.IO) {
-                            val received = DatagramPacket(ByteArray(2_048), 2_048)
-                            server.receive(received)
-                            assertArrayEquals(request, received.data.copyOf(received.length))
-                            server.send(DatagramPacket(expected, expected.size, received.socketAddress))
+                        thread {
+                            runCatching {
+                                val received = DatagramPacket(ByteArray(2_048), 2_048)
+                                server.receive(received)
+                                assertArrayEquals(request, received.data.copyOf(received.length))
+                                server.send(DatagramPacket(expected, expected.size, received.socketAddress))
+                            }.onFailure(failure::set)
                         }
                     try {
                         val sample =
@@ -93,14 +93,15 @@ class QuicInitialResponseValidationInstrumentedTest {
                                 request,
                                 3_000,
                             )
-                        responder.await()
                         val response = requireNotNull(sample.response)
                         assertArrayEquals(expected, response)
                         assertTrue(bindings.validate(request, response, false))
                     } finally {
                         server.close()
-                        responder.cancelAndJoin()
+                        responder.join(3_000)
                     }
+                    assertFalse("loopback responder did not stop", responder.isAlive)
+                    failure.get()?.let { throw AssertionError("loopback fixture failed", it) }
                 }
             }
         }
