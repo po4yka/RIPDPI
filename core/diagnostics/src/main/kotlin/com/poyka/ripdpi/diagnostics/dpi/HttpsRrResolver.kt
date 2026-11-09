@@ -22,6 +22,7 @@ import org.xbill.DNS.Type
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.Base64
+import java.util.Locale
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -51,25 +52,48 @@ class HttpsRrResolver(
 ) {
     suspend fun fetch(host: String): HttpsRrRecord? {
         val primary = query.fetchEchRecordOrNull(host)
-        if (primary != null) return primary
-        return fallbackQuery?.fetchEchRecordOrNull(host)
+        if (primary.record != null || primary.terminal) return primary.record
+        return fallbackQuery?.fetchEchRecordOrNull(host)?.record
     }
 
     private fun List<HttpsRrRecord>.selectEchRecord(): HttpsRrRecord? =
         filter { record -> !record.echConfig.isNullOrEmptyBytes() }.minByOrNull { record -> record.priority }
 
-    private suspend fun HttpsRrQuery.fetchEchRecordOrNull(host: String): HttpsRrRecord? =
+    private suspend fun HttpsRrQuery.fetchEchRecordOrNull(host: String): LookupResult =
         try {
-            query(host).selectEchRecord()
+            followAliases(host)
         } catch (error: CancellationException) {
             throw error
         } catch (_: IOException) {
-            null
+            LookupResult()
         } catch (_: IllegalArgumentException) {
-            null
+            LookupResult()
         } catch (_: IllegalStateException) {
-            null
+            LookupResult()
         }
+
+    private suspend fun HttpsRrQuery.followAliases(host: String): LookupResult {
+        var name = host.trimEnd('.').lowercase(Locale.ROOT)
+        val visited = mutableSetOf<String>()
+        repeat(MaxAliasHops + 1) {
+            if (!visited.add(name)) return LookupResult(terminal = true)
+            val records = query(name)
+            val alias = records.firstOrNull { record -> record.priority == 0 }
+            if (alias == null) return LookupResult(record = records.selectEchRecord())
+            name = alias.targetName.trimEnd('.').lowercase(Locale.ROOT)
+            if (name.isEmpty()) return LookupResult(terminal = true)
+        }
+        return LookupResult(terminal = true)
+    }
+
+    private data class LookupResult(
+        val record: HttpsRrRecord? = null,
+        val terminal: Boolean = false,
+    )
+
+    private companion object {
+        private const val MaxAliasHops = 3
+    }
 }
 
 class DohWireHttpsRrQuery(

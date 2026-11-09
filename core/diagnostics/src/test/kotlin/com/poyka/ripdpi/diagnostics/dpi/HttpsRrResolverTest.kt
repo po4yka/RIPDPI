@@ -72,7 +72,7 @@ class HttpsRrResolverTest {
     @Test
     fun recordWithoutEchConfigIsIgnoredWhenSelecting() =
         runTest {
-            val noEch = HttpsRrRecord(priority = 0, targetName = ".", echConfig = null)
+            val noEch = HttpsRrRecord(priority = 1, targetName = ".", echConfig = null)
             val withEch = HttpsRrRecord(priority = 5, targetName = ".", echConfig = byteArrayOf(5))
             val resolver = HttpsRrResolver(query = HttpsRrQuery { listOf(noEch, withEch) })
 
@@ -102,7 +102,7 @@ class HttpsRrResolverTest {
             val fallback = HttpsRrRecord(priority = 1, targetName = ".", echConfig = byteArrayOf(9))
             val resolver =
                 HttpsRrResolver(
-                    query = HttpsRrQuery { listOf(HttpsRrRecord(priority = 0, targetName = ".", echConfig = null)) },
+                    query = HttpsRrQuery { listOf(HttpsRrRecord(priority = 1, targetName = ".", echConfig = null)) },
                     fallbackQuery = HttpsRrQuery { listOf(fallback) },
                 )
 
