@@ -1,9 +1,9 @@
 ---
 task_id: RST-1794212008025103
 change: rst-1794212008025103-correct-tls-clienthello-parsing-and-mutation
-commit_sha: da6ecf323d4d16daa63c362584f0a5b7b5b7330a
-local: blocked
-local_evidence: Combined packets tests passed (269 unit, 5 golden), formatting and adapter regression passed with an isolated boring-sys override. The unmodified ci-gates run failed because vendor/boring-sys/build/main.rs is absent at the base commit. The full ci-gates run passed with an isolated override restoring the two build scripts from the parent commit; runtime-platform API remains Linux-owned and is skipped on macOS.
+commit_sha: a43980af23c2bed696e9b1409889dfc66c26afbc
+local: passed
+local_evidence: On source a43980af23c2bed696e9b1409889dfc66c26afbc, just ci-gates passed without a dependency override and the fragmented TLS adapter regression passed with the vendored boring-sys. Previously the combined packets tests passed 269 unit and 5 golden tests. The runtime-platform API snapshot is Linux-owned and was skipped on macOS.
 remote_ci: required
 remote_ci_evidence: null
 device: not_applicable
@@ -21,5 +21,5 @@ deployment_evidence: No deployment is owned by this change.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-TLS-SNI-BOUNDS | RST-1794212085369550 | Combined cargo test -p ripdpi-packets --locked and independent review | passed |
-| REQ-TLS-RECORDS | RST-1794212097659080 | Combined packets tests and adapter regression with temporary boring-sys override | passed with override |
+| REQ-TLS-RECORDS | RST-1794212097659080 | Combined packets tests and adapter regression with the restored vendored boring-sys | passed |
 | REQ-TLS-MUTATION | RST-1794212099284584 | Combined packets tests and independent review | passed |
