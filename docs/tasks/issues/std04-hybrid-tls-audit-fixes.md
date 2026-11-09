@@ -2,7 +2,7 @@
 id: TRN-1794199027304873
 title: Correct STD-04 hybrid TLS audit findings
 kind: bug
-status: doing
+status: review
 area: transport
 priority: medium
 owner: STD-04 integration

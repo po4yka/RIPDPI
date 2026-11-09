@@ -10,10 +10,10 @@ F1 owns the vendor alert caller, vendor notes, and the new pq_kem_alerts integra
 
 ## Execution
 
-- [ ] TRN-1794199173301062 Preserve hybrid TLS peer alerts and verify emitted wire errors #bug @item:TRN-1794199027304873
-- [ ] TRN-1794199174324327 Correct profile metadata and verify captured ClientHello sizes #bug @item:TRN-1794199027304873
-- [ ] TRN-1794199175321110 Document the mandatory REALITY KEM prefix #bug @item:TRN-1794199027304873
-- [ ] TRN-1794199177072195 Correct legacy Kyber capture provenance #bug @item:TRN-1794199027304873
+- [x] TRN-1794199173301062 Preserve hybrid TLS peer alerts and verify emitted wire errors #bug @item:TRN-1794199027304873
+- [x] TRN-1794199174324327 Correct profile metadata and verify captured ClientHello sizes #bug @item:TRN-1794199027304873
+- [x] TRN-1794199175321110 Document the mandatory REALITY KEM prefix #bug @item:TRN-1794199027304873
+- [x] TRN-1794199177072195 Correct legacy Kyber capture provenance #bug @item:TRN-1794199027304873
 
 ## Verification
 
