@@ -66,6 +66,20 @@ class RecentWarningTrackerTest {
         }
 
     @Test
+    fun `a direct-plane DNS failure raises the DNS warning`() {
+        val evidence =
+            telemetryWarningEvidence(
+                ServiceTelemetrySnapshot(
+                    tunnelTelemetry =
+                        NativeRuntimeSnapshot.idle(source = "tunnel").copy(splitDnsDirectFallbackDecisions = 1L),
+                ),
+            )
+
+        tracker.observe(1L, evidence)
+        assertEquals(setOf(Dns), tracker.recentStages())
+    }
+
+    @Test
     fun `a repeating failure of one class restarts the minute`() {
         fun evidence(total: Long) =
             telemetryWarningEvidence(

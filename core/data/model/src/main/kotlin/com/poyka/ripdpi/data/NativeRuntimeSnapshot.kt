@@ -287,6 +287,14 @@ data class NativeRuntimeSnapshot(
     val connectionQuality: ConnectionQualitySnapshot? = null,
     val capturedAt: Long = 0,
 ) {
+    /**
+     * Direct-plane (underlay) DNS queries answered with SERVFAIL: no underlay lease, a failed
+     * underlay exchange, or a stale lease. They stay out of [dnsFailuresTotal], which describes
+     * the encrypted resolver and drives its failover.
+     */
+    val directDnsFailures: Long
+        get() = splitDnsDirectFallbackDecisions + directDnsStaleResponses
+
     companion object {
         fun idle(source: String): NativeRuntimeSnapshot = NativeRuntimeSnapshot(source = source)
     }
