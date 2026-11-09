@@ -13,7 +13,7 @@
 edition = "2024"
 rust-version = "1.92"
 name = "tor-dirmgr"
-version = "0.47.0"
+version = "0.48.0"
 authors = [
     "The Tor Project, Inc.",
     "Nick Mathewson <nickm@torproject.org>",
@@ -117,36 +117,36 @@ name = "tor_dirmgr"
 path = "src/lib.rs"
 
 [dependencies.async-trait]
-version = "0.1.54"
+version = "0.1.92"
 
 [dependencies.base64ct]
-version = "1.5.1"
+version = "1.8.3"
 
 [dependencies.derive_builder]
 version = "0.11.2"
 package = "derive_builder_fork_arti"
 
 [dependencies.derive_more]
-version = "2.0.1"
+version = "2.1.1"
 features = ["full"]
 
 [dependencies.digest]
-version = "0.10.0"
+version = "0.11.3"
 
 [dependencies.educe]
-version = "0.4.22"
+version = "0.4.23"
 
 [dependencies.event-listener]
 version = "5"
 
 [dependencies.fs-mistrust]
-version = "0.16.0"
+version = "0.16.1"
 
 [dependencies.fslock-guard]
 version = "0.9.0"
 
 [dependencies.futures]
-version = "0.3.14"
+version = "0.3.34"
 
 [dependencies.hex]
 version = "0.4"
@@ -165,14 +165,14 @@ version = "1.1.1"
 version = "0.15.0"
 
 [dependencies.memmap2]
-version = "0.9.0"
+version = "0.9.12"
 optional = true
 
 [dependencies.oneshot-fused-workaround]
 version = "0.8.0"
 
 [dependencies.paste]
-version = "1.0.3"
+version = "1.0.15"
 
 [dependencies.postage]
 version = "0.5.0"
@@ -180,27 +180,27 @@ features = ["futures-traits"]
 default-features = false
 
 [dependencies.rand]
-version = "0.10.1"
+version = "0.10.3"
 
 [dependencies.rusqlite]
 version = ">=0.36.0, <0.42.0"
 features = ["time"]
 
 [dependencies.safelog]
-version = "0.10.0"
+version = "0.10.1"
 
 [dependencies.scopeguard]
 version = "1"
 
 [dependencies.serde]
-version = "1.0.103"
+version = "1.0.229"
 features = ["derive"]
 
 [dependencies.serde_json]
-version = "1.0.50"
+version = "1.0.154"
 
 [dependencies.signature]
-version = "2"
+version = "3"
 
 [dependencies.static_assertions]
 version = "1"
@@ -213,72 +213,72 @@ features = ["derive"]
 version = "2"
 
 [dependencies.time]
-version = "0.3.52"
+version = "0.3.55"
 features = [
     "formatting",
     "parsing",
 ]
 
 [dependencies.tor-async-utils]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-basic-utils]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-checkable]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-circmgr]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-config]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-consdiff]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-dirclient]
-version = "0.47.0"
+version = "0.48.0"
 default-features = false
 
 [dependencies.tor-dircommon]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-error]
-version = "0.47.0"
+version = "0.48.0"
 features = ["tracing"]
 
 [dependencies.tor-geoip]
-version = "0.47.0"
+version = "0.48.0"
 optional = true
 
 [dependencies.tor-guardmgr]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-llcrypto]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-netdir]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-netdoc]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-persist]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-proto]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tor-protover]
-version = "0.47.0"
+version = "0.48.0"
 features = ["serde"]
 
 [dependencies.tor-rtcompat]
-version = "0.47.0"
+version = "0.48.0"
 
 [dependencies.tracing]
-version = "0.1.36"
+version = "0.1.44"
 
 [dependencies.void]
 version = "1"
@@ -287,32 +287,32 @@ version = "1"
 version = "0.3.0"
 
 [dev-dependencies.anyhow]
-version = "1.0.23"
+version = "1.0.104"
 
 [dev-dependencies.filetime]
 version = "0.2"
 
 [dev-dependencies.float_eq]
-version = "1.0.0"
+version = "1.0.1"
 
 [dev-dependencies.hex-literal]
-version = "1.0"
+version = "1.1"
 
 [dev-dependencies.tempfile]
 version = "3"
 
 [dev-dependencies.tor-linkspec]
-version = "0.47.0"
+version = "0.48.0"
 
 [dev-dependencies.tor-rtcompat]
-version = "0.47.0"
+version = "0.48.0"
 features = [
     "tokio",
     "native-tls",
 ]
 
 [dev-dependencies.tor-rtmock]
-version = "0.47.0"
+version = "0.48.0"
 
 [dev-dependencies.tracing-test]
-version = "0.2.4"
+version = "0.2.6"

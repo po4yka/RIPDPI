@@ -1,10 +1,10 @@
 # RIPDPI BoringSSL vendor notes
 
-The source is the published `boring-sys` 5.3.0 crate:
+The source is the published `boring-sys` 5.4.0 crate:
 
-- Archive: `https://static.crates.io/crates/boring-sys/boring-sys-5.3.0.crate`
-- SHA-256: `4ebc865c335508b2eb7bdcfd35e644ce00ddf385a8feda9b5b9031d8b0b49c35`
-- Upstream Git revision: `2bea8245d9b21776bc9f767b4e82dc2a78a5a262`.
+- Archive: `https://static.crates.io/crates/boring-sys/boring-sys-5.4.0.crate`
+- SHA-256: `4986392770df40d11d0d6294b0dd8399570f4a6e76d6953c7a34f7dd1defbd76`
+- Upstream Git revision: `309bf35b9eb97fc21040915a5f4a886941965c47`.
 
 The local changes are:
 
@@ -22,9 +22,13 @@ The local changes are:
 
 For an update, extract the published crate, compare it with the previous
 published crate, and apply these local changes to the new source. Do not change
-only the package version. BoringSSL has no stable internal ABI. Version 5.3.0
+only the package version. BoringSSL has no stable internal ABI. Version 5.4.0
 uses `FromOpaque` in public functions to access `SSLImpl` and `SSLContext`.
 The hook still runs after ClientHello serialization and before `add_message`.
+
+`deps/boringssl/ssl/extensions.cc` keeps signature-algorithm GREASE disabled
+for the existing browser packet contracts. BoringSSL 5.4 enables it with
+general GREASE.
 
 `deps/boringssl/ssl/extensions.cc` retains RFC 7685 length padding on initial
 full handshakes. This keeps the Firefox and Safari browser packet contracts
