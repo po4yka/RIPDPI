@@ -196,6 +196,9 @@ fn normalize_tls_from_layout(
 
 pub fn normalize_tls_client_hello(packet: &[u8]) -> Option<TlsClientHelloIr> {
     let layout = parse_tls_client_hello_layout(packet)?;
+    if layout.host_spans.len() != 1 {
+        return None;
+    }
     let payload_end = 5usize.checked_add(layout.record_payload_len)?.min(packet.len());
     let handshake_end = 5usize.checked_add(4)?.checked_add(layout.handshake_payload_len)?.min(packet.len());
     let record_boundaries =

@@ -156,8 +156,10 @@ pub ripdpi_packets::ReassembledTlsSni::sni_ext_start: usize
 pub struct ripdpi_packets::TlsClientHelloLayout
 pub ripdpi_packets::TlsClientHelloLayout::extensions: alloc::vec::Vec<ripdpi_packets::TlsExtensionInfo>
 pub ripdpi_packets::TlsClientHelloLayout::handshake_payload_len: usize
+pub ripdpi_packets::TlsClientHelloLayout::host_spans: alloc::vec::Vec<core::ops::range::Range<usize>>
 pub ripdpi_packets::TlsClientHelloLayout::markers: ripdpi_packets::TlsMarkerInfo
 pub ripdpi_packets::TlsClientHelloLayout::record_payload_len: usize
+pub ripdpi_packets::TlsClientHelloLayout::record_payload_spans: alloc::vec::Vec<core::ops::range::Range<usize>>
 pub struct ripdpi_packets::TlsExtensionInfo
 pub ripdpi_packets::TlsExtensionInfo::data_len: usize
 pub ripdpi_packets::TlsExtensionInfo::data_offset: usize

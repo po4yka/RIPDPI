@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 pub const IS_TCP: u32 = 1;
 pub const IS_UDP: u32 = 2;
 pub const IS_HTTP: u32 = 4;
@@ -80,6 +82,11 @@ pub struct TlsClientHelloLayout {
     pub record_payload_len: usize,
     pub handshake_payload_len: usize,
     pub extensions: Vec<TlsExtensionInfo>,
+    /// Payload range of every record the ClientHello spans; empty for a bare handshake.
+    pub record_payload_spans: Vec<Range<usize>>,
+    /// Host name ranges, one per record the host crosses. `markers.host_start..host_end`
+    /// is contiguous only when this holds one range.
+    pub host_spans: Vec<Range<usize>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

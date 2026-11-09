@@ -20,16 +20,8 @@ fn tls_client_hello_marker_info_in_record(buffer: &[u8]) -> Option<TlsMarkerInfo
     if !is_tls_client_hello(buffer) {
         return None;
     }
-    let parsed = crate::tls_nom::parse_client_hello_record(buffer)?;
-    crate::tls_nom::to_marker_info(&parsed, buffer.len()).filter(|markers| host_in_first_record(buffer, markers))
-}
-
-/// The record parser reads one contiguous handshake. When the ClientHello
-/// continues in a later record, an SNI past the first record would include
-/// that record's header bytes, so it is not a host.
-fn host_in_first_record(buffer: &[u8], markers: &TlsMarkerInfo) -> bool {
-    let record_end = read_u16(buffer, 3).map_or(usize::MAX, |len| len + 5);
-    buffer.len() <= record_end || markers.host_end <= record_end
+    let layout = super::records::parse_client_hello_layout(buffer)?;
+    (layout.host_spans.len() == 1).then_some(layout.markers)
 }
 
 pub fn parse_tls(buffer: &[u8]) -> Option<&[u8]> {
@@ -42,22 +34,7 @@ pub fn tls_marker_info(buffer: &[u8]) -> Option<TlsMarkerInfo> {
 }
 
 pub fn parse_tls_client_hello_layout(buffer: &[u8]) -> Option<TlsClientHelloLayout> {
-    let parsed = crate::tls_nom::parse_client_hello_record(buffer)?;
-    let markers = crate::tls_nom::to_marker_info(&parsed, buffer.len())
-        .filter(|markers| host_in_first_record(buffer, markers))?;
-    let record_payload_len = read_u16(buffer, 3)?;
-    let handshake_payload_len = read_u24(buffer, 6)?;
-    let extensions = parsed
-        .extensions
-        .iter()
-        .map(|ext| TlsExtensionInfo {
-            ext_type: ext.ext_type,
-            type_offset: ext.type_offset,
-            data_offset: ext.type_offset + 4,
-            data_len: ext.data.len(),
-        })
-        .collect();
-    Some(TlsClientHelloLayout { markers, record_payload_len, handshake_payload_len, extensions })
+    super::records::parse_client_hello_layout(buffer)
 }
 
 pub fn parse_tls_client_hello_handshake_layout(buffer: &[u8]) -> Option<TlsClientHelloLayout> {
@@ -74,7 +51,16 @@ pub fn parse_tls_client_hello_handshake_layout(buffer: &[u8]) -> Option<TlsClien
             data_len: ext.data.len(),
         })
         .collect();
-    Some(TlsClientHelloLayout { markers, record_payload_len: 0, handshake_payload_len, extensions })
+    #[allow(clippy::single_range_in_vec_init)]
+    let host_spans = vec![markers.host_start..markers.host_end];
+    Some(TlsClientHelloLayout {
+        markers,
+        record_payload_len: 0,
+        handshake_payload_len,
+        extensions,
+        record_payload_spans: Vec::new(),
+        host_spans,
+    })
 }
 
 pub fn tls_session_id_mismatch(req: &[u8], resp: &[u8]) -> bool {

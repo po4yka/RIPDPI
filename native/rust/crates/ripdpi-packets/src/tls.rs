@@ -2,6 +2,9 @@ mod detect;
 mod edit;
 mod mutation;
 mod reassembled;
+mod records;
+#[cfg(test)]
+mod records_tests;
 #[cfg(test)]
 mod tests;
 
