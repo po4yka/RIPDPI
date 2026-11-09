@@ -3,8 +3,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::fd::AsRawFd;
 use std::time::{Duration, Instant};
 
-use hickory_proto::op::{Message, MessageType};
-use ripdpi_dns_resolver::EncryptedDnsExchangeSuccess;
+use hickory_proto::op::Message;
+use ripdpi_dns_resolver::{EncryptedDnsExchangeSuccess, ensure_response_matches_query};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -73,8 +73,11 @@ async fn exchange_on_port(
 /// shared/cache state is committed between the UDP and TCP phases.
 async fn exchange_candidate(query: &[u8], candidate: IpAddr, generation: u64, port: u16) -> io::Result<Vec<u8>> {
     let response = udp_exchange(query, candidate, generation, port).await?;
-    let message = validate_response(query, &response)?;
-    if message.metadata.truncation { tcp_exchange(query, candidate, generation, port).await } else { Ok(response) }
+    if validate_response(query, &response)? {
+        tcp_exchange(query, candidate, generation, port).await
+    } else {
+        Ok(response)
+    }
 }
 
 /// # Cancel safety
@@ -97,7 +100,8 @@ async fn udp_exchange(query: &[u8], candidate: IpAddr, generation: u64, port: u1
     let mut response = vec![0_u8; 65_535];
     loop {
         let len = socket.recv(&mut response).await?;
-        if validate_response(query, &response[..len]).is_ok() {
+        // A datagram whose records do not parse may be injected ahead of the real answer: keep listening.
+        if validate_response(query, &response[..len]).is_ok() && Message::from_vec(&response[..len]).is_ok() {
             response.truncate(len);
             return Ok(response);
         }
@@ -125,20 +129,12 @@ async fn tcp_exchange(query: &[u8], candidate: IpAddr, generation: u64, port: u1
     Ok(response)
 }
 
-fn validate_response(query: &[u8], response: &[u8]) -> io::Result<Message> {
-    let query =
-        Message::from_vec(query).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid DNS query"))?;
-    let response =
-        Message::from_vec(response).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid DNS response"))?;
-    if response.metadata.message_type != MessageType::Response
-        || response.metadata.id != query.metadata.id
-        || response.metadata.op_code != query.metadata.op_code
-        || response.queries.len() != 1
-        || response.queries != query.queries
-    {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "DNS response does not match query"));
-    }
-    Ok(response)
+/// Checks that `response` answers `query` (the resolver crate's shared matcher, which also
+/// accepts an error reply without a question) and returns whether its TC bit is set.
+fn validate_response(query: &[u8], response: &[u8]) -> io::Result<bool> {
+    ensure_response_matches_query(query, response)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "DNS response does not match query"))?;
+    Ok(response.get(2).is_some_and(|flags| flags & 0x02 != 0))
 }
 
 #[cfg(test)]
@@ -242,9 +238,69 @@ mod tests {
         assert!(
             validate_response(&query.to_vec().expect("query"), &response.to_vec().expect("response"))
                 .expect("valid truncated response")
-                .metadata
-                .truncation
         );
+    }
+
+    /// Query `q.example` A IN, RD set, built byte by byte (RFC 1035 4.1).
+    fn wire_query(id: u16) -> Vec<u8> {
+        let mut bytes = id.to_be_bytes().to_vec();
+        bytes.extend_from_slice(&[0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0]);
+        bytes.extend_from_slice(&[1, b'q', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 0, 0, 1, 0, 1]);
+        bytes
+    }
+
+    /// Reply header with QR and RA set, the given RCODE and no question section.
+    fn wire_reply_without_question(id: u16, rcode: u8) -> Vec<u8> {
+        let mut bytes = id.to_be_bytes().to_vec();
+        bytes.extend_from_slice(&[0x81, 0x80 | rcode, 0, 0, 0, 0, 0, 0, 0, 0]);
+        bytes
+    }
+
+    #[test]
+    fn error_reply_without_question_matches_by_id() {
+        let query = wire_query(0x5151);
+        for rcode in [1, 4, 5] {
+            assert!(validate_response(&query, &wire_reply_without_question(0x5151, rcode)).is_ok(), "rcode {rcode}");
+        }
+        assert!(
+            validate_response(&query, &wire_reply_without_question(0x5151, 0)).is_err(),
+            "NOERROR needs a question"
+        );
+        assert!(validate_response(&query, &wire_reply_without_question(0x5152, 1)).is_err(), "wrong ID");
+    }
+
+    #[test]
+    fn question_less_formerr_ends_the_exchange_without_waiting_for_the_deadline() {
+        let _guard = TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+        let _registration = register_test_direct_dns_socket_binder(Arc::new(FixedBinder {
+            generation: 17,
+            binds: AtomicUsize::new(0),
+        }));
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("test runtime");
+        runtime.block_on(async {
+            let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("UDP fixture");
+            let port = udp.local_addr().expect("UDP address").port();
+            let formerr = wire_reply_without_question(0x5151, 1);
+            let expected = formerr.clone();
+            let server = tokio::spawn(async move {
+                let mut buffer = [0_u8; 512];
+                let (_, peer) = udp.recv_from(&mut buffer).await.expect("UDP query");
+                udp.send_to(&formerr, peer).await.expect("FORMERR reply");
+            });
+            let started = Instant::now();
+            let success = exchange_on_port(
+                &wire_query(0x5151),
+                &[IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                17,
+                Duration::from_secs(2),
+                port,
+            )
+            .await
+            .expect("FORMERR is a valid answer");
+            assert_eq!(success.response_bytes, expected);
+            assert!(started.elapsed() < Duration::from_millis(500));
+            server.await.expect("UDP fixture task");
+        });
     }
 
     #[test]

@@ -10,11 +10,11 @@ pub(crate) use framing::{
 };
 pub(crate) use normalize::normalize_endpoint;
 pub(crate) use util::{format_error_chain, resolve_socket_addr, unix_time_secs};
+pub(crate) use wire::build_dns_query;
 pub use wire::{
-    IpAnswerFamily, IpAnswerRecord, extract_ip_answer_records, extract_ip_answers, extract_ip_answers_for_query,
-    validate_dns_response_for_query,
+    IpAnswerFamily, IpAnswerRecord, ensure_response_matches_query, extract_ip_answer_records, extract_ip_answers,
+    extract_ip_answers_for_query, validate_dns_response_for_query,
 };
-pub(crate) use wire::{build_dns_query, ensure_response_matches_query};
 
 use std::time::Duration;
 

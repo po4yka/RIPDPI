@@ -36,7 +36,7 @@ pub(crate) fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec
 /// matched by ID. Only the header and the question section are parsed: the
 /// reply is forwarded as received, so records this parser rejects stay the
 /// client's concern.
-pub(crate) fn ensure_response_matches_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
+pub fn ensure_response_matches_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
     let mismatch = || EncryptedDnsError::DnsParse("DNS response does not match the query sent".to_string());
     if query.len() < 2 || response.len() < 3 || response[..2] != query[..2] || response[2] & 0x80 == 0 {
         return Err(mismatch());
