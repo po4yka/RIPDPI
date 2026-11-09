@@ -96,6 +96,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                         val response = requireNotNull(sample.response)
                         assertArrayEquals(expected, response)
                         assertTrue(bindings.validate(request, response, false))
+                        responder.join(3_000)
                     } finally {
                         server.close()
                         responder.join(3_000)
@@ -131,6 +132,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                 assertTrue(result.udpReachable)
                 assertFalse(result.chromeOk || result.firefoxOk || result.genericOk || result.vnOk)
                 assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
+                worker.join(3_000)
             } finally {
                 server.close()
                 worker.join(3_000)
