@@ -38,7 +38,7 @@ pub fn catalog_validated_tls_profile(profile: &str, _authority: &str) -> bool {
             .copied()
             .all(ripdpi_tls_profiles::profile_invariants_pass);
     }
-    ripdpi_tls_profiles::AVAILABLE_PROFILES.contains(&profile) && ripdpi_tls_profiles::profile_invariants_pass(profile)
+    ripdpi_tls_profiles::profile_invariants_pass(profile)
 }
 
 pub fn reality_target_digest(target: &str) -> String {

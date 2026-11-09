@@ -13,3 +13,22 @@ fn rotating_validation_preserves_the_connection_seed_and_counter() {
     assert_eq!(resolve_connection_profile(ROTATING_PROFILE_MARKER, "validation.example"), "safari_stable");
     assert_eq!(fingerprint_rotation_count(), before + 1);
 }
+
+#[test]
+fn fixed_profile_validation_accepts_catalog_names_and_the_default_alias() {
+    for profile in [
+        "chrome_stable",
+        "chrome_desktop_stable",
+        "firefox_stable",
+        "firefox_ech_stable",
+        "safari_stable",
+        "edge_stable",
+        "native_default",
+    ] {
+        assert!(catalog_validated_tls_profile(profile, "validation.example"), "profile {profile}");
+    }
+
+    for unknown in ["", "unknown_fallback", "firefox", "firefox_ech_grease"] {
+        assert!(!catalog_validated_tls_profile(unknown, "validation.example"), "profile {unknown:?}");
+    }
+}
