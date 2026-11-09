@@ -19,13 +19,20 @@ const TCP_REQUEST_COMMAND: u64 = 0x401;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ServerEvent {
     TcpRequest(String),
-    Datagram { session_id: u32, packet_id: u16, fragment_count: u8 },
+    Datagram {
+        session_id: u32,
+        packet_id: u16,
+        fragment_count: u8,
+    },
+    /// Application close code the client sent after a rejected auth.
+    AuthRejectedClose(u64),
 }
 
 #[derive(Default)]
 pub(crate) struct ServerOptions {
     pub(crate) salamander_key: Option<&'static str>,
     pub(crate) refuse_tcp: bool,
+    pub(crate) reject_auth: bool,
 }
 
 pub(crate) struct TestServer {
@@ -55,12 +62,12 @@ impl TestServer {
         };
         let (events_tx, events) = mpsc::unbounded_channel();
         let accept = endpoint.clone();
-        let refuse_tcp = options.refuse_tcp;
+        let (refuse_tcp, reject_auth) = (options.refuse_tcp, options.reject_auth);
         tokio::spawn(async move {
             while let Some(incoming) = accept.accept().await {
                 let events_tx = events_tx.clone();
                 tokio::spawn(async move {
-                    let _ = serve_connection(incoming, events_tx, refuse_tcp).await;
+                    let _ = serve_connection(incoming, events_tx, refuse_tcp, reject_auth).await;
                 });
             }
         });
@@ -108,10 +115,17 @@ async fn serve_connection(
     incoming: quinn::Incoming,
     events: mpsc::UnboundedSender<ServerEvent>,
     refuse_tcp: bool,
+    reject_auth: bool,
 ) -> io::Result<()> {
     let connection = incoming.await.map_err(io::Error::other)?;
     // Dropping the h3 connection would close the shared QUIC connection.
-    let _h3 = authenticate(connection.clone()).await?;
+    let _h3 = authenticate(connection.clone(), reject_auth).await?;
+    if reject_auth {
+        if let quinn::ConnectionError::ApplicationClosed(close) = connection.closed().await {
+            let _ = events.send(ServerEvent::AuthRejectedClose(close.error_code.into_inner()));
+        }
+        return Ok(());
+    }
 
     let datagrams = connection.clone();
     let datagram_events = events.clone();
@@ -142,7 +156,7 @@ type H3Server = h3::server::Connection<h3_quinn::Connection, bytes::Bytes>;
 /// # Cancel safety
 ///
 /// cancel-safe: the h3 state is owned by this future and dropped with it.
-async fn authenticate(connection: quinn::Connection) -> io::Result<H3Server> {
+async fn authenticate(connection: quinn::Connection, reject: bool) -> io::Result<H3Server> {
     let mut h3 = H3Server::new(h3_quinn::Connection::new(connection)).await.map_err(io::Error::other)?;
     let resolver = h3
         .accept()
@@ -151,7 +165,7 @@ async fn authenticate(connection: quinn::Connection) -> io::Result<H3Server> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, "no auth request"))?;
     let (_request, mut stream) = resolver.resolve_request().await.map_err(io::Error::other)?;
     let response = http::Response::builder()
-        .status(HYSTERIA_AUTH_STATUS)
+        .status(if reject { 404 } else { HYSTERIA_AUTH_STATUS })
         .header("Hysteria-UDP", "true")
         .body(())
         .map_err(io::Error::other)?;

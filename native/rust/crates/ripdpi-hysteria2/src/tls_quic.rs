@@ -14,6 +14,8 @@ use crate::quic_transport::{self, QuicTransportConfig};
 use crate::salamander::SalamanderUdpSocket;
 
 const HYSTERIA_AUTH_STATUS: u16 = 233;
+/// HTTP/3 `H3_GENERAL_PROTOCOL_ERROR`, the reference close code for a rejected auth.
+const CLOSE_ERR_PROTOCOL_ERROR: quinn::VarInt = quinn::VarInt::from_u32(0x101);
 /// Reference client values (apernet/hysteria `core/client/config.go`): a PING
 /// every 10 s keeps quiet flows and mobile UDP NAT mappings alive, and a
 /// dead path is detected after 30 s without packets.
@@ -87,6 +89,7 @@ pub(crate) async fn authenticate_connection(
     let response = stream.recv_response().await?;
 
     if response.status().as_u16() != HYSTERIA_AUTH_STATUS {
+        connection.close(CLOSE_ERR_PROTOCOL_ERROR, b"");
         return Err(HysteriaError::AuthFailed);
     }
 
@@ -249,6 +252,21 @@ mod tests {
         assert_eq!(endpoint.local_addr().expect("rebound endpoint address"), rebound_addr);
         endpoint.close(0u32.into(), b"test complete");
         tokio::time::timeout(Duration::from_secs(2), endpoint.wait_idle()).await.expect("endpoint driver stops");
+    }
+
+    #[tokio::test]
+    async fn rejected_auth_closes_connection_with_protocol_error() {
+        let mut server = crate::test_server::TestServer::start(crate::test_server::ServerOptions {
+            reject_auth: true,
+            ..crate::test_server::ServerOptions::default()
+        })
+        .expect("test server");
+        let result = tokio::time::timeout(Duration::from_secs(5), crate::connect(&server.client_config()))
+            .await
+            .expect("connect finishes");
+        assert!(matches!(result, Err(crate::HysteriaError::AuthFailed)));
+        let event = tokio::time::timeout(Duration::from_secs(5), server.events.recv()).await.expect("close seen");
+        assert!(matches!(event, Some(crate::test_server::ServerEvent::AuthRejectedClose(0x101))), "{event:?}");
     }
 
     struct DropNotice(Option<oneshot::Sender<()>>);
