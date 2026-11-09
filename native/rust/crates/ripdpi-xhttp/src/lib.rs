@@ -30,15 +30,15 @@ pub fn tls_profile_catalog_version() -> &'static str {
     ripdpi_tls_profiles::profile_catalog_version()
 }
 
-pub fn catalog_validated_tls_profile(profile: &str, authority: &str) -> bool {
-    let resolved = if ripdpi_tls_profiles::is_rotating_profile(profile) {
-        ripdpi_tls_profiles::resolve_connection_profile(profile, authority)
-    } else if ripdpi_tls_profiles::AVAILABLE_PROFILES.contains(&profile) {
-        profile
-    } else {
-        return false;
-    };
-    ripdpi_tls_profiles::profile_invariants_pass(resolved)
+pub fn catalog_validated_tls_profile(profile: &str, _authority: &str) -> bool {
+    if ripdpi_tls_profiles::is_rotating_profile(profile) {
+        return ripdpi_tls_profiles::RotatingProfileSelector::with_default_pool()
+            .pool()
+            .iter()
+            .copied()
+            .all(ripdpi_tls_profiles::profile_invariants_pass);
+    }
+    ripdpi_tls_profiles::AVAILABLE_PROFILES.contains(&profile) && ripdpi_tls_profiles::profile_invariants_pass(profile)
 }
 
 pub fn reality_target_digest(target: &str) -> String {
