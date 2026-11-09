@@ -21,14 +21,8 @@ pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicRes
         return None;
     }
     if version == 0 {
-        let versions = response.get(offset..)?;
-        if scid != sent.dcid || versions.is_empty() || versions.len() % 4 != 0 {
-            return None;
-        }
-        if versions.as_chunks::<4>().0.iter().any(|value| *value == sent.version.to_be_bytes() || *value == [0; 4]) {
-            return None;
-        }
-        return Some(QuicResponseKind::VersionNegotiation);
+        return validate_quic_version_negotiation_response(request, response)
+            .then_some(QuicResponseKind::VersionNegotiation);
     }
     if version != sent.version || response[0] & 0x40 == 0 {
         return None;
@@ -52,6 +46,25 @@ pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicRes
     let secret = quic_derive_initial_secret(sent.dcid, version, "tls13 server in")?;
     decrypt_quic_initial_with_secret(response, header, &secret)?;
     Some(QuicResponseKind::Initial)
+}
+
+/// Check the echoed connection IDs and version list of a Version Negotiation reply.
+/// The request may use a reserved version; its version-specific payload is not parsed.
+pub fn validate_quic_version_negotiation_response(request: &[u8], response: &[u8]) -> bool {
+    let Some((sent_version, sent_dcid, sent_scid, _)) = long_header(request) else {
+        return false;
+    };
+    let Some((version, dcid, scid, offset)) = long_header(response) else {
+        return false;
+    };
+    let versions = &response[offset..];
+    sent_version != 0
+        && version == 0
+        && dcid == sent_scid
+        && scid == sent_dcid
+        && !versions.is_empty()
+        && versions.len().is_multiple_of(4)
+        && !versions.as_chunks::<4>().0.iter().any(|value| *value == sent_version.to_be_bytes() || *value == [0; 4])
 }
 
 fn long_header(packet: &[u8]) -> Option<(u32, &[u8], &[u8], usize)> {

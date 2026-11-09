@@ -244,3 +244,4 @@ pub fn ripdpi_packets::tune_tls_padding_size_into(&mut alloc::vec::Vec<u8>, usiz
 pub fn ripdpi_packets::tune_tls_padding_size_like_c(&[u8], usize) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::udp_fake_profile_bytes(ripdpi_packets::UdpFakeProfile) -> &'static [u8]
 pub fn ripdpi_packets::validate_quic_response(&[u8], &[u8]) -> core::option::Option<ripdpi_packets::QuicResponseKind>
+pub fn ripdpi_packets::validate_quic_version_negotiation_response(&[u8], &[u8]) -> bool

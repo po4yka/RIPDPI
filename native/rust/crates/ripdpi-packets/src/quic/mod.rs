@@ -15,7 +15,7 @@ pub use fake_initial::{
 };
 pub use parse::{is_quic_initial, parse_quic_initial, parse_quic_initial_layout};
 pub use probe::{QuicProbeProfile, build_probe_quic_initial, build_profiled_probe_quic_initial};
-pub use response::{QuicResponseKind, validate_quic_response};
+pub use response::{QuicResponseKind, validate_quic_response, validate_quic_version_negotiation_response};
 pub use tamper::{tamper_quic_initial_split_crypto, tamper_quic_initial_split_sni, tamper_quic_version};
 
 const QUIC_INITIAL_MIN_LEN: usize = 128;

@@ -62,6 +62,7 @@ interface QuicUdpProbe {
 class QuicH3FingerprintProbe(
     private val socket: QuicUdpProbe = DatagramSocketQuicUdpProbe(),
     private val packetFactory: QuicInitialPacketFactory = QuicFingerprintFactory,
+    private val responseValidator: QuicProbeResponseValidator = NativeQuicInitialPacketBindings(),
     private val port: Int = DefaultQuicPort,
     private val timeoutMs: Int = DefaultTimeoutMs,
     private val concurrency: Int = DefaultConcurrency,
@@ -171,12 +172,8 @@ class QuicH3FingerprintProbe(
             )
         val response = sample.response ?: return QuicProbeOutcome(ok = false, timedOut = true, latencyMs = null)
         val versionNegotiation = fingerprint == QuicFingerprint.VN_PROBE
-        val answersThisProbe =
-            echoesConnectionIds(packet, response, versionNegotiation) &&
-                (!versionNegotiation || !listsOfferedVersion(packet, response))
-        val classified = if (versionNegotiation) isVersionNegotiationPacket(response) else isQuicV1LongHeader(response)
         return QuicProbeOutcome(
-            ok = classified && answersThisProbe,
+            ok = responseValidator.validate(packet, response, versionNegotiation),
             timedOut = false,
             latencyMs = sample.latencyMs,
         )
@@ -298,13 +295,43 @@ interface QuicInitialPacketNativeBindings {
     fun create(requestJson: String): String?
 }
 
-class NativeQuicInitialPacketBindings : QuicInitialPacketNativeBindings {
+fun interface QuicProbeResponseValidator {
+    fun validate(
+        request: ByteArray,
+        response: ByteArray,
+        versionNegotiation: Boolean,
+    ): Boolean
+}
+
+class NativeQuicInitialPacketBindings :
+    QuicInitialPacketNativeBindings,
+    QuicProbeResponseValidator {
     override fun create(requestJson: String): String? {
         System.loadLibrary("ripdpi")
         return jniCreate(requestJson)
     }
 
+    override fun validate(
+        request: ByteArray,
+        response: ByteArray,
+        versionNegotiation: Boolean,
+    ): Boolean =
+        try {
+            System.loadLibrary("ripdpi")
+            jniValidate(request, response, versionNegotiation)
+        } catch (_: UnsatisfiedLinkError) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
+
     private external fun jniCreate(requestJson: String): String?
+
+    private external fun jniValidate(
+        request: ByteArray,
+        response: ByteArray,
+        versionNegotiation: Boolean,
+    ): Boolean
 }
 
 internal class NativeQuicInitialPacketFactory(
@@ -373,79 +400,3 @@ private data class QuicProbeOutcome(
     val timedOut: Boolean,
     val latencyMs: Long?,
 )
-
-/**
- * RFC 9000 s17.2: a server reply is addressed to the client's SCID, and a Version Negotiation reply
- * also carries the client's DCID as its SCID. A reflected request or an unrelated datagram fails.
- */
-private fun echoesConnectionIds(
-    sent: ByteArray,
-    reply: ByteArray,
-    versionNegotiation: Boolean,
-): Boolean {
-    val sentIds = sent.longHeaderConnectionIds()
-    val replyIds = reply.longHeaderConnectionIds()
-    return sentIds != null &&
-        replyIds != null &&
-        replyIds.first.contentEquals(sentIds.second) &&
-        (!versionNegotiation || replyIds.second.contentEquals(sentIds.first))
-}
-
-/** RFC 9000 s6.1: a Version Negotiation packet must not list the version the client offered. */
-private fun listsOfferedVersion(
-    sent: ByteArray,
-    reply: ByteArray,
-): Boolean {
-    val versionsStart =
-        reply.longHeaderConnectionIds()?.let { (dcid, scid) ->
-            QuicVersionEndIndex + 2 + dcid.size +
-                scid.size
-        }
-    val offered = sent.copyOfRange(VersionByte0Index, QuicVersionEndIndex)
-    return versionsStart != null &&
-        (versionsStart until reply.size - (QuicVersionLength - 1) step QuicVersionLength).any { start ->
-            reply.copyOfRange(start, start + QuicVersionLength).contentEquals(offered)
-        }
-}
-
-/** Returns (DCID, SCID) of a long-header packet, or null when the header is truncated. */
-private fun ByteArray.longHeaderConnectionIds(): Pair<ByteArray, ByteArray>? {
-    val dcidStart = QuicVersionEndIndex + 1
-    val scidLengthIndex = getOrNull(QuicVersionEndIndex)?.let { dcidStart + (it.toInt() and ByteMask) }
-    val scidEnd = scidLengthIndex?.let(::getOrNull)?.let { scidLengthIndex + 1 + (it.toInt() and ByteMask) }
-    return if (scidLengthIndex == null || scidEnd == null || scidEnd > size) {
-        null
-    } else {
-        copyOfRange(dcidStart, scidLengthIndex) to copyOfRange(scidLengthIndex + 1, scidEnd)
-    }
-}
-
-private fun isQuicV1LongHeader(packet: ByteArray): Boolean =
-    packet.hasLongHeaderVersion(QuicFingerprintFactory.QuicV1Version)
-
-private fun isVersionNegotiationPacket(packet: ByteArray): Boolean =
-    packet.hasLongHeaderVersion(QuicVersionNegotiationVersion)
-
-private fun ByteArray.hasLongHeaderVersion(version: Int): Boolean =
-    size >= QuicVersionEndIndex &&
-        first().toInt() and LongHeaderMask != 0 &&
-        quicVersion() == version
-
-private fun ByteArray.quicVersion(): Int =
-    ((this[VersionByte0Index].toInt() and ByteMask) shl VersionByte3Shift) or
-        ((this[VersionByte1Index].toInt() and ByteMask) shl VersionByte2Shift) or
-        ((this[VersionByte2Index].toInt() and ByteMask) shl VersionByte1Shift) or
-        (this[VersionByte3Index].toInt() and ByteMask)
-
-private const val QuicVersionNegotiationVersion = 0
-private const val ByteMask = 0xFF
-private const val LongHeaderMask = 0x80
-private const val QuicVersionEndIndex = 5
-private const val QuicVersionLength = 4
-private const val VersionByte3Shift = 24
-private const val VersionByte2Shift = 16
-private const val VersionByte1Shift = 8
-private const val VersionByte0Index = 1
-private const val VersionByte1Index = 2
-private const val VersionByte2Index = 3
-private const val VersionByte3Index = 4

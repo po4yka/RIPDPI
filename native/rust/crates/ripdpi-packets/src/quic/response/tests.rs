@@ -1,20 +1,12 @@
 use super::*;
-use crate::quic::build::build_quic_initial_raw;
 use crate::quic::build_probe_quic_initial;
 
-fn hex(value: &str) -> Vec<u8> {
-    let compact: String = value.split_whitespace().collect();
-    compact
-        .as_bytes()
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
-        .collect()
-}
-
 fn rfc_request(version: u32) -> Vec<u8> {
-    build_quic_initial_raw(version, &hex("8394c8f03e515708"), &[], &[], vec![0; 128], 128, 0).unwrap()
+    match version {
+        QUIC_V1_VERSION => include_bytes!("../../../tests/fixtures/quic/rfc9001-client-initial.bin").to_vec(),
+        QUIC_V2_VERSION => include_bytes!("../../../tests/fixtures/quic/rfc9369-client-initial.bin").to_vec(),
+        _ => unreachable!(),
+    }
 }
 
 #[test]
@@ -25,26 +17,18 @@ fn validates_rfc_server_initial_and_retry_integrity() {
     for (version, initial, retry) in [
         (
             QUIC_V1_VERSION,
-            "cf000000010008f067a5502a4262b5004075c0d95a482cd0991cd25b0aac406a
-          5816b6394100f37a1c69797554780bb38cc5a99f5ede4cf73c3ec2493a1839b3
-          dbcba3f6ea46c5b7684df3548e7ddeb9c3bf9c73cc3f3bded74b562bfb19fb84
-          022f8ef4cdd93795d77d06edbb7aaf2f58891850abbdca3d20398c276456cbc4
-          2158407dd074ee",
-            "ff000000010008f067a5502a4262b5746f6b656e04a265ba2eff4d829058fb3f0f2496ba",
+            include_bytes!("../../../tests/fixtures/quic/rfc9001-server-initial.bin").as_slice(),
+            include_bytes!("../../../tests/fixtures/quic/rfc9001-retry.bin").as_slice(),
         ),
         (
             QUIC_V2_VERSION,
-            "dc6b3343cf0008f067a5502a4262b5004075d92faaf16f05d8a4398c47089698
-          baeea26b91eb761d9b89237bbf87263017915358230035f7fd3945d88965cf17
-          f9af6e16886c61bfc703106fbaf3cb4cfa52382dd16a393e42757507698075b2
-          c984c707f0a0812d8cd5a6881eaf21ceda98f4bd23f6fe1a3e2c43edd9ce7ca8
-          4bed8521e2e140",
-            "cf6b3343cf0008f067a5502a4262b5746f6b656ec8646ce8bfe33952d955543665dcc7b6",
+            include_bytes!("../../../tests/fixtures/quic/rfc9369-server-initial.bin").as_slice(),
+            include_bytes!("../../../tests/fixtures/quic/rfc9369-retry.bin").as_slice(),
         ),
     ] {
         let request = rfc_request(version);
         for (wire, kind) in [(initial, QuicResponseKind::Initial), (retry, QuicResponseKind::Retry)] {
-            let mut response = hex(wire);
+            let mut response = wire.to_vec();
             assert_eq!(validate_quic_response(&request, &response), Some(kind));
             let last = response.len() - 1;
             response[last] ^= 1;
@@ -84,4 +68,33 @@ fn fresh_probe_ids_reject_replay_echo_and_unrelated_versions() {
     assert_eq!(validate_quic_response(&first, &response), None);
     response.pop();
     assert_eq!(validate_quic_response(&first, &response), None);
+}
+
+#[test]
+fn reserved_version_negotiation_checks_both_ids_and_complete_version_list() {
+    let mut request = build_probe_quic_initial(QUIC_V1_VERSION, Some("example.test")).unwrap();
+    let mut response = version_negotiation(&request);
+    let offered = 0x1a2a_3a4au32;
+    request[1..5].copy_from_slice(&offered.to_be_bytes());
+    assert!(validate_quic_version_negotiation_response(&request, &response));
+    assert_eq!(validate_quic_response(&request, &response), None);
+
+    let versions_start = response.len() - 4;
+    for list in [&[][..], &[0][..], &[0; 4][..], &offered.to_be_bytes()[..], &[0, 0, 0, 1, 0][..]] {
+        let mut malformed = response[..versions_start].to_vec();
+        malformed.extend_from_slice(list);
+        assert!(!validate_quic_version_negotiation_response(&request, &malformed));
+    }
+    let (_, dcid, _, _) = long_header(&response).unwrap();
+    let scid_start = 7 + dcid.len();
+    for offset in [6, scid_start] {
+        response[offset] ^= 1;
+        assert!(!validate_quic_version_negotiation_response(&request, &response));
+        response[offset] ^= 1;
+    }
+    for end in 0..versions_start {
+        assert!(!validate_quic_version_negotiation_response(&request, &response[..end]));
+    }
+    assert!(!validate_quic_version_negotiation_response(&response, &response));
+    assert!(!validate_quic_version_negotiation_response(&request, &request));
 }
