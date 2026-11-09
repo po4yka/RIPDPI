@@ -57,13 +57,17 @@ where
 
             let response = response.into();
             let (response_head, response_body) = match response {
-                DohFixtureResponse::Dns(response_body) => (
-                    format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                        response_body.len()
-                    ),
-                    response_body,
-                ),
+                DohFixtureResponse::Dns(mut response_body) => {
+                    // The client randomizes the transaction ID; a reply must echo it.
+                    response_body[..2].copy_from_slice(&body[..2]);
+                    (
+                        format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: {DNS_MESSAGE_MEDIA_TYPE}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                            response_body.len()
+                        ),
+                        response_body,
+                    )
+                }
                 DohFixtureResponse::HttpError => (
                     "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string(),
                     Vec::new(),

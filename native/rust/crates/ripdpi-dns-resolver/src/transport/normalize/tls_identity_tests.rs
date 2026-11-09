@@ -46,7 +46,31 @@ fn doh_url_identity_uses_idna_and_bare_ip_without_rewriting_the_url() {
 }
 
 #[test]
-fn http_reg_names_are_allowed_but_https_url_identity_is_required() {
+fn plain_http_doh_is_allowed_only_when_every_target_is_loopback() {
+    let mut input = endpoint();
+    input.protocol = EncryptedDnsProtocol::Doh;
+    input.port = 0;
+    input.host.clear();
+    input.bootstrap_ips = vec!["127.0.0.1".parse().expect("ip"), "::1".parse().expect("ip")];
+    for url in ["http://127.0.0.1:8053/dns-query", "http://[::1]:8053/dns-query", "http://localhost/dns-query"] {
+        input.doh_url = Some(url.into());
+        assert!(normalize_endpoint(input.clone(), &EncryptedDnsTransport::Direct).is_ok(), "{url}");
+    }
+    // A loopback URL must not send plaintext to a remote bootstrap IP or connect host.
+    let mut remote_bootstrap = input.clone();
+    remote_bootstrap.bootstrap_ips.push("9.9.9.9".parse().expect("ip"));
+    let mut remote_host = input.clone();
+    remote_host.host = "dns.example".into();
+    for case in [remote_bootstrap, remote_host] {
+        assert!(matches!(
+            normalize_endpoint(case, &EncryptedDnsTransport::Direct),
+            Err(crate::types::EncryptedDnsError::InvalidUrl(message)) if message.contains("must use https")
+        ));
+    }
+}
+
+#[test]
+fn http_reg_names_are_rejected_for_doh_and_https_url_identity_is_required() {
     for protocol in [EncryptedDnsProtocol::Doh, EncryptedDnsProtocol::Odoh] {
         let mut input = endpoint();
         input.protocol = protocol;
@@ -67,11 +91,18 @@ fn http_reg_names_are_allowed_but_https_url_identity_is_required() {
                 },
             });
         } else {
+            // RFC 8484 section 5: DoH over plain HTTP is rejected unless the host is loopback.
             input.doh_url = Some(url.into());
+            assert!(matches!(
+                normalize_endpoint(input.clone(), &EncryptedDnsTransport::Direct),
+                Err(crate::types::EncryptedDnsError::InvalidUrl(message)) if message.contains("must use https")
+            ));
         }
-        let normalized = normalize_endpoint(input.clone(), &EncryptedDnsTransport::Direct).expect("HTTP reg-name");
-        assert_eq!(normalized.host, "_status.example.");
-        assert_eq!(normalized.tls_server_name.as_deref(), Some("unused TLS override"));
+        if protocol == EncryptedDnsProtocol::Odoh {
+            let normalized = normalize_endpoint(input.clone(), &EncryptedDnsTransport::Direct).expect("HTTP reg-name");
+            assert_eq!(normalized.host, "_status.example.");
+            assert_eq!(normalized.tls_server_name.as_deref(), Some("unused TLS override"));
+        }
         input.tls_server_name = Some("fixture.test".into());
         if let Some(odoh) = &mut input.odoh {
             odoh.proxy_url = "https://_status.example./dns-query".into();

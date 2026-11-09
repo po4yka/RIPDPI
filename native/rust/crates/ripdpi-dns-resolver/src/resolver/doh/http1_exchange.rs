@@ -11,6 +11,7 @@ use url::Url;
 use super::http1_request::build_post_http1_request;
 use super::http1_response::read_doh_response;
 use crate::resolver::EncryptedDnsResolver;
+use crate::transport::tls_version_refused;
 use crate::types::EncryptedDnsError;
 
 /// # Cancel safety:
@@ -43,8 +44,13 @@ pub(super) async fn exchange_binary_post_with_connector(
     let mut tcp_stream = resolver.connect_doh_tcp().await?;
 
     if url.scheme().eq_ignore_ascii_case("https") {
-        let tls_name =
-            resolver.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| resolver.inner.endpoint.host.clone());
+        // RFC 8484 section 3 / RFC 2818: the DoH URI host is the TLS identity.
+        let tls_name = match url.host() {
+            Some(url::Host::Domain(name)) => name.to_string(),
+            Some(url::Host::Ipv4(ip)) => ip.to_string(),
+            Some(url::Host::Ipv6(ip)) => ip.to_string(),
+            None => return Err(EncryptedDnsError::MissingHost),
+        };
         let server_name =
             ServerName::try_from(tls_name.clone()).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
         let handshake = |config: &Arc<ClientConfig>, tcp_stream| {
@@ -71,18 +77,6 @@ pub(super) async fn exchange_binary_post_with_connector(
     }
 }
 
-/// Whether a TLS handshake failed because the server and the TLS 1.3-only
-/// client share no protocol version.
-fn tls_version_refused(err: &std::io::Error) -> bool {
-    matches!(
-        err.get_ref().and_then(|inner| inner.downcast_ref::<rustls::Error>()),
-        Some(
-            rustls::Error::AlertReceived(rustls::AlertDescription::ProtocolVersion)
-                | rustls::Error::PeerIncompatible(rustls::PeerIncompatible::ServerTlsVersionIsDisabledByOurConfig)
-        )
-    )
-}
-
 /// # Cancel safety:
 /// NOT cancel-safe: HTTP bytes can be consumed or sent. The caller must discard the stream.
 pub(super) async fn exchange_binary_post_over_stream<S>(
@@ -105,7 +99,7 @@ where
             .map_err(http_error)?;
         let exchange = async {
             let response = sender.send_request(request).await.map_err(http_error)?;
-            read_doh_response(response).await
+            read_doh_response(response, accept).await
         };
         tokio::pin!(connection, exchange);
         tokio::select! {

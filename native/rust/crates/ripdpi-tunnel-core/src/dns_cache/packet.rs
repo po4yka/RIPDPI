@@ -94,6 +94,14 @@ pub(super) fn servfail_response(query: &[u8]) -> Result<Vec<u8>, DnsCacheError> 
     response.extend_from_slice(&0u16.to_be_bytes());
     response.extend_from_slice(&0u16.to_be_bytes());
     response.extend_from_slice(&query[12..question_end]);
+    // RFC 6891 6.1.1: a responder MUST answer an OPT request with an OPT; RFC 3225 copies DO.
+    if let Some(edns) = Message::from_vec(query).ok().and_then(|message| message.edns) {
+        response[10..12].copy_from_slice(&1u16.to_be_bytes());
+        let ttl_flags: u16 = if edns.flags().dnssec_ok { 0x8000 } else { 0 };
+        response.extend_from_slice(&[0x00, 0x00, 0x29, 0x04, 0xd0, 0x00, 0x00]);
+        response.extend_from_slice(&ttl_flags.to_be_bytes());
+        response.extend_from_slice(&0u16.to_be_bytes());
+    }
     Ok(response)
 }
 

@@ -37,7 +37,7 @@ fn dot_alpn_exchange(
             tls_stream.conn.complete_io(&mut tls_stream.sock)?;
         }
         let selected = tls_stream.conn.alpn_protocol().map(<[u8]>::to_vec);
-        assert_eq!(read_length_prefixed_frame(&mut tls_stream)?, query);
+        assert_eq!(read_length_prefixed_frame(&mut tls_stream)?, expected_padded_query(&query));
         write_length_prefixed_frame(&mut tls_stream, &response)?;
         Ok(selected)
     });

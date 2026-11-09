@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -76,6 +77,30 @@ class DiagnosticsUiStateAssemblerTest {
         assertEquals("VPN", sample?.activeMode)
         assertEquals(4L, sample?.txPackets)
         assertEquals(7L, sample?.rxPackets)
+    }
+
+    @Test
+    fun `DNS failures metric counts direct-plane SERVFAILs with encrypted resolver failures`() {
+        val sample =
+            buildCurrentServiceTelemetry(
+                status = AppStatus.Running,
+                mode = Mode.VPN,
+                telemetry =
+                    ServiceTelemetrySnapshot(
+                        mode = Mode.VPN,
+                        status = AppStatus.Running,
+                        tunnelTelemetry =
+                            NativeRuntimeSnapshot.idle(source = "tunnel").copy(
+                                dnsFailuresTotal = 1,
+                                splitDnsDirectFallbackDecisions = 2,
+                                directDnsStaleResponses = 3,
+                            ),
+                        updatedAt = 123L,
+                    ),
+                activeConnectionSession = null,
+            )
+
+        assertEquals(6L, sample?.dnsFailuresTotal)
     }
 
     @Test

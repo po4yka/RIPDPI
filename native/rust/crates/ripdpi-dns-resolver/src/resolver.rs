@@ -343,16 +343,6 @@ impl EncryptedDnsResolver {
         let connects = u32::try_from(self.inner.endpoint.bootstrap_ips.len().max(1)).unwrap_or(u32::MAX);
         self.inner.timeout.saturating_mul(connects.saturating_add(EXCHANGE_DEADLINE_EXTRA_STAGES))
     }
-
-    fn uses_direct_tcp_connector(&self) -> bool {
-        matches!(self.inner.transport, EncryptedDnsTransport::Direct)
-            && self.inner.connect_hooks.has_direct_tcp_connector()
-    }
-
-    fn requires_direct_tcp_connector(&self) -> bool {
-        matches!(self.inner.transport, EncryptedDnsTransport::Direct)
-            && self.inner.connect_hooks.requires_direct_tcp_connector()
-    }
 }
 
 #[cfg(test)]

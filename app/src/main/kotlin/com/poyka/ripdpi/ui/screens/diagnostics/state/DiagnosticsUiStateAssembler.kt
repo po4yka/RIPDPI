@@ -413,7 +413,7 @@ internal fun buildCurrentServiceTelemetry(
         resolverProtocol = telemetry.tunnelTelemetry.resolverProtocol,
         resolverEndpoint = telemetry.tunnelTelemetry.resolverEndpoint,
         resolverLatencyMs = telemetry.tunnelTelemetry.resolverLatencyMs,
-        dnsFailuresTotal = telemetry.tunnelTelemetry.dnsFailuresTotal,
+        dnsFailuresTotal = telemetry.tunnelTelemetry.dnsFailuresTotal + telemetry.tunnelTelemetry.directDnsFailures,
         resolverFallbackActive = telemetry.tunnelTelemetry.resolverFallbackActive,
         resolverFallbackReason = telemetry.tunnelTelemetry.resolverFallbackReason,
         networkHandoverClass = telemetry.tunnelTelemetry.networkHandoverClass,

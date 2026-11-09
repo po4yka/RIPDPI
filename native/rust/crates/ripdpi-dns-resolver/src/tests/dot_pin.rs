@@ -28,7 +28,7 @@ fn dot_rejects_wrong_pin_even_when_the_certificate_is_trusted() {
         }
         let mut received = vec![0; usize::from(u16::from_be_bytes(length))];
         tls.read_exact(&mut received).unwrap();
-        assert_eq!(received, expected_query);
+        assert_eq!(received, expected_padded_query(&expected_query));
         tls.write_all(&(response.len() as u16).to_be_bytes()).unwrap();
         tls.write_all(&response).unwrap();
         tls.flush().unwrap();

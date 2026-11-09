@@ -38,7 +38,12 @@ internal fun telemetryWarningEvidence(
         StatusConnectionActuatorStage.Network to WarningEvidence(marks = failureMark(FailureClass.NetworkHandover)),
         StatusConnectionActuatorStage.Dns to
             WarningEvidence(
-                counts = listOf(telemetry.tunnelTelemetry.dnsFailuresTotal, proxy.dnsFailureEvents),
+                counts =
+                    listOf(
+                        telemetry.tunnelTelemetry.dnsFailuresTotal,
+                        telemetry.tunnelTelemetry.directDnsFailures,
+                        proxy.dnsFailureEvents,
+                    ),
                 marks = failureMark(FailureClass.DnsInterference),
             ),
         StatusConnectionActuatorStage.Handshake to
