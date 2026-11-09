@@ -2,23 +2,17 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.IOException
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
-import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.util.Base64
 import kotlin.time.TimeSource
@@ -373,43 +367,6 @@ private data class NativeQuicInitialResponse(
     val packetBase64: String? = null,
     val error: String? = null,
 )
-
-class DatagramSocketQuicUdpProbe : QuicUdpProbe {
-    override suspend fun sendInitial(
-        target: String,
-        port: Int,
-        fingerprint: QuicFingerprint,
-        packet: ByteArray,
-        timeoutMs: Int,
-    ): QuicProbeSample =
-        withContext(Dispatchers.IO) {
-            val address = InetAddress.getByName(target)
-            val socket = DatagramSocket()
-            try {
-                // A connected socket drops datagrams from any other source.
-                socket.connect(address, port)
-                socket.soTimeout = timeoutMs
-                val startedAt = System.nanoTime()
-                socket.send(DatagramPacket(packet, packet.size, address, port))
-                val buffer = ByteArray(MaxDatagramBytes)
-                val response = DatagramPacket(buffer, buffer.size)
-                socket.receive(response)
-                QuicProbeSample(
-                    response = buffer.copyOf(response.length),
-                    latencyMs = (System.nanoTime() - startedAt) / NanosPerMillis,
-                )
-            } catch (_: SocketTimeoutException) {
-                QuicProbeSample(response = null, latencyMs = null)
-            } finally {
-                socket.close()
-            }
-        }
-
-    private companion object {
-        private const val MaxDatagramBytes = 2_048
-        private const val NanosPerMillis = 1_000_000L
-    }
-}
 
 private data class QuicProbeOutcome(
     val ok: Boolean,
