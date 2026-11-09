@@ -773,6 +773,7 @@ mod tests {
             cloudflare_publish_local_origin_url: secret(),
             cloudflare_credentials_ref: secret(),
             masque_url: secret(),
+            tuic_root_certificate_pem: Some(secret()),
             trojan_root_certificate_pem: Some(secret()),
             anytls_root_certificate_pem: Some(secret()),
             naive_path: secret(),

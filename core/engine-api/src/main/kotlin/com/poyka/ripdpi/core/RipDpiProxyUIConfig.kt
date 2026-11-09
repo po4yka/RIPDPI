@@ -280,7 +280,7 @@ data class RipDpiRelayConfig(
     val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
-    val tuicRootCertificatePem: String = "",
+    val tuicRootCertificatePem: String? = null,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,

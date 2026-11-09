@@ -54,7 +54,7 @@ internal fun buildRelayConfig(settings: AppSettings): RipDpiRelayConfig {
         masqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
         tuicZeroRtt = relay.profile.tuicZeroRtt,
         tuicCongestionControl = relay.profile.tuicCongestionControl,
-        tuicRootCertificatePem = relay.profile.tuicRootCertificatePem,
+        tuicRootCertificatePem = relay.profile.tuicRootCertificatePem.ifBlank { null },
         shadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
         naivePath = relay.profile.naivePath,
         mieruProtocol = relay.profile.mieruProtocol,

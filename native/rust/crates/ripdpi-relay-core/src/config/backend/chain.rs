@@ -178,6 +178,8 @@ pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
     pub shadow_tls_inner: Option<ResolvedShadowTlsInnerRelayConfig>,
     #[serde(default)]
+    pub tuic_root_certificate_pem: Option<String>,
+    #[serde(default)]
     pub trojan_root_certificate_pem: Option<String>,
     #[serde(default)]
     pub anytls_root_certificate_pem: Option<String>,
@@ -289,6 +291,7 @@ impl Default for ResolvedChainRelayHopConfig {
             tuic_congestion_control: default_chain_hop_tuic_congestion_control(),
             shadow_tls_inner_profile_id: String::new(),
             shadow_tls_inner: None,
+            tuic_root_certificate_pem: None,
             trojan_root_certificate_pem: None,
             anytls_root_certificate_pem: None,
             naive_path: String::new(),

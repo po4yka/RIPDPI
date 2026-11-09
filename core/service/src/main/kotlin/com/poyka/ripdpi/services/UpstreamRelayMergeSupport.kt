@@ -51,7 +51,7 @@ internal fun mergeRelayConfig(
         masqueCloudflareGeohashEnabled = profile.masqueCloudflareGeohashEnabled,
         tuicZeroRtt = profile.tuicZeroRtt,
         tuicCongestionControl = profile.tuicCongestionControl,
-        tuicRootCertificatePem = profile.tuicRootCertificatePem,
+        tuicRootCertificatePem = profile.tuicRootCertificatePem.ifBlank { null },
         shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
         naivePath = profile.naivePath.ifBlank { config.naivePath },
         mieruProtocol = profile.mieruProtocol.ifBlank { config.mieruProtocol },
