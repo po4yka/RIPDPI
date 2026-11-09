@@ -43,7 +43,6 @@ pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, 
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
     let skip = parsed.ext_len_offset;
-    let has_psk = crate::tls_nom::find_extension_offset(&parsed, 0x0029).is_some();
     let Some(mut sni_offs) = crate::tls_nom::find_extension_offset(&parsed, 0x0000) else {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
@@ -102,10 +101,6 @@ pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, 
         avail -= resize_ech_ext(&mut output, n, skip, avail);
     }
     if avail >= 4 {
-        // TLS 1.3 requires pre_shared_key to be the final extension.
-        if has_psk {
-            return PacketMutation { rc: -1, bytes: input.to_vec() };
-        }
         let record_end = 5 + record_size;
         let used = record_end - avail;
         if record_end > capacity as isize || used < 9 {

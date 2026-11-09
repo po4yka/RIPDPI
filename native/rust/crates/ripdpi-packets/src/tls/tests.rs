@@ -441,7 +441,7 @@ fn change_tls_sni_rejects_handshake_record_after_fragmented_hello() {
 }
 
 #[test]
-fn change_tls_sni_rejects_padding_after_pre_shared_key() {
+fn change_tls_sni_keeps_pre_shared_key_last() {
     let mut input = include_bytes!("../../tests/fixtures/curl_tls13_example_com.bin").to_vec();
     let ext_offset = tls_marker_info(&input).expect("fixture SNI").ext_len_start;
     // One PSK identity and a 32-byte binder. The binder need not be valid for this structure test.
@@ -460,9 +460,13 @@ fn change_tls_sni_rejects_padding_after_pre_shared_key() {
     input[7] = (handshake_len >> 8) as u8;
     input[8] = handshake_len as u8;
 
-    let mutation = change_tls_sni_seeded_like_c(&input, b"example.com", input.len() + 16, 7);
-    assert_eq!(mutation.rc, -1);
-    assert_eq!(mutation.bytes, input);
+    let psk_ext = input[input.len() - usize::from(added)..].to_vec();
+
+    // A shorter host leaves spare bytes that become padding; pre_shared_key must stay last.
+    let mutation = change_tls_sni_seeded_like_c(&input, b"a.io", input.len() + 16, 7);
+    assert_eq!(mutation.rc, 0);
+    assert!(mutation.bytes.ends_with(&psk_ext), "pre_shared_key is not the final extension");
+    assert_eq!(extract_sni_via_tls_parser(&mutation.bytes).as_deref(), Some(&b"a.io"[..]));
 }
 
 #[test]
