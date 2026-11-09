@@ -240,17 +240,21 @@ fn https_response_ech_step(response: &[u8]) -> EchStep {
             // The consumer connects to the URL host and port, so it cannot honour another
             // TargetName or a `port` SvcParam (RFC 9460 9, RFC 9848 4): skip those bindings.
             // shortcut: a port equal to the URL port is skipped too, the lookup does not know the port.
+            // After AliasMode the owner is the alias target: its keys are kept because the
+            // origin's A/AAAA records name the same pool (RFC 9848 7, Figure 4).
             let compatible = |binding: &HttpsRr| {
                 let target = binding.target_name.trim_end_matches('.');
                 binding.port.is_none()
                     && (target.is_empty() || target.eq_ignore_ascii_case(binding.owner_name.trim_end_matches('.')))
             };
-            let config = bindings.into_iter().filter(compatible).find_map(|binding| binding.ech_config);
-            EchStep::Done(match config {
-                Some(config) => {
-                    EchResolutionOutcome::Available(config.supported_config_list().unwrap_or(config.raw_list_bytes))
-                }
-                None => EchResolutionOutcome::NotPublished,
+            let configs: Vec<_> =
+                bindings.into_iter().filter(compatible).filter_map(|binding| binding.ech_config).collect();
+            EchStep::Done(match configs.iter().find_map(ripdpi_dns_resolver::EchConfig::supported_config_list) {
+                Some(config_list) => EchResolutionOutcome::Available(config_list),
+                None if configs.is_empty() => EchResolutionOutcome::NotPublished,
+                // No usable key: ECH cannot run, so the lookup degrades to GREASE like a failed
+                // lookup (RFC 9849 6.1) instead of stopping the connection.
+                None => EchResolutionOutcome::ResolutionFailed("the HTTPS record has no supported ECHConfig".into()),
             })
         }
     }

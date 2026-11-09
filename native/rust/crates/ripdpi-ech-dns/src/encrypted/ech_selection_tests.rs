@@ -1,7 +1,7 @@
 //! Which HTTPS record and which ECHConfig reach the TLS stack. Wire bytes are
 //! built by hand; expected values come from RFC 9460 9, RFC 9848 4 and RFC 9849 4.
 
-use ripdpi_tls_profiles::{EchFacadeError, EchOutboundError, OutboundEchConfig};
+use ripdpi_tls_profiles::{EchFacadeError, OutboundEchConfig};
 
 use super::{EchResolutionOutcome, EchStep, https_response_ech_step, outbound_ech_config};
 
@@ -107,16 +107,30 @@ fn bad_public_name_entry_is_filtered_out_of_the_real_list() {
     assert_eq!(config.config_list, list(&[good]));
 }
 
-#[test]
-fn list_without_a_supported_entry_is_rejected_not_a_lookup_failure() {
+fn unknown_version_entry() -> Vec<u8> {
     let mut unknown = 0xfe0eu16.to_be_bytes().to_vec();
     unknown.extend(3u16.to_be_bytes());
     unknown.extend([1, 2, 3]);
-    let published = list(&[unknown]);
+    unknown
+}
 
-    let result = setup(&[(1, ".", None, Some(&published))]);
+/// RFC 9849 6.1: with no compatible ECHConfig the client sends GREASE.
+#[test]
+fn list_without_a_supported_entry_degrades_to_grease() {
+    let published = list(&[unknown_version_entry()]);
 
-    assert!(matches!(result, Err(EchFacadeError::Backend(EchOutboundError::ConfigRejected(_)))), "{result:?}");
+    assert_eq!(setup(&[(1, ".", None, Some(&published))]).expect("lookup"), None);
+}
+
+#[test]
+fn record_without_a_supported_entry_yields_to_a_usable_one() {
+    let unusable = list(&[unknown_version_entry()]);
+    let usable = list(&[entry(1, b"ech.example")]);
+
+    let config =
+        setup(&[(1, ".", None, Some(&unusable)), (2, ".", None, Some(&usable))]).expect("lookup").expect("real ECH");
+
+    assert_eq!(config.config_list, usable);
 }
 
 #[test]
