@@ -17,18 +17,17 @@ const IP6T_SO_ORIGINAL_DST: libc::c_int = 80;
 /// Budget for each step of the protect handshake: connect, send and ack read.
 const PROTECT_TIMEOUT: Duration = Duration::from_secs(1);
 
-/// `dup2(source, target)` — replace `target`'s entry in the fd table with
-/// a clone of `source`. Both ends remain owned by the caller; the original
-/// kernel-level entry for `target` is closed by `dup2` itself.
+/// Replace `target` with a close-on-exec clone of `source` in one syscall.
+/// Both ends remain owned by the caller; `source` and `target` must differ.
 ///
 /// Typed inputs ensure the descriptors outlive this call (the borrow
 /// checker enforces it); `pub(crate)` because the only legitimate callers
 /// live inside this crate.
-pub(crate) fn dup2_fd(source: BorrowedFd<'_>, target: BorrowedFd<'_>) -> io::Result<()> {
+pub(crate) fn replace_fd_cloexec(source: BorrowedFd<'_>, target: BorrowedFd<'_>) -> io::Result<()> {
     // SAFETY: `source` and `target` are live for the duration of this call
-    // (enforced by `BorrowedFd<'_>` lifetimes). `dup2` accepts any pair of
-    // valid descriptor numbers.
-    let rc = unsafe { libc::dup2(source.as_raw_fd(), target.as_raw_fd()) };
+    // (enforced by `BorrowedFd<'_>` lifetimes). dup3 sets CLOEXEC atomically
+    // and rejects equal numbers without closing either descriptor.
+    let rc = unsafe { libc::dup3(source.as_raw_fd(), target.as_raw_fd(), libc::O_CLOEXEC) };
     if rc >= 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
 }
 

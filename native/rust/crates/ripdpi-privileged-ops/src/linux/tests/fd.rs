@@ -1,14 +1,120 @@
 use std::io::{self, Read, Write};
 use std::mem::zeroed;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV6};
-use std::os::fd::{AsFd, FromRawFd, IntoRawFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::os::unix::net::UnixStream;
 
-use crate::linux::fd::{close_owned_fd, dup2_fd, storage_to_socket_addr};
+use crate::linux::fd::{close_owned_fd, replace_fd_cloexec, storage_to_socket_addr};
 use crate::linux::mmap_region::MmapRegion;
 
 #[test]
-fn dup2_fd_replaces_target_and_close_owned_fd_releases_transient_source() {
+fn replacement_fd_keeps_the_socket_private_and_usable() {
+    const CHILD_FD: &str = "RIPDPI_REPLACEMENT_FD_CHILD";
+    const CHILD_SOCKET: &str = "RIPDPI_REPLACEMENT_SOCKET_CHILD";
+    if let Some(fd) = std::env::var_os(CHILD_FD) {
+        let path = std::path::Path::new("/proc/self/fd").join(fd);
+        let inherited = std::fs::read_link(path).ok();
+        let original = std::env::var_os(CHILD_SOCKET).map(std::path::PathBuf::from);
+        assert_ne!(inherited, original, "exec child inherited the replacement socket");
+        return;
+    }
+
+    let (mut target, _old_peer) = super::connected_pair();
+    let (replacement, mut peer) = super::connected_pair();
+    // SAFETY: replacement transfers its owned descriptor; target retains its live descriptor.
+    unsafe { crate::swap_replacement_fd(target.as_raw_fd(), replacement.into_raw_fd()) }
+        .expect("install replacement socket");
+    // SAFETY: target is live and F_GETFD only reads its descriptor flags.
+    let flags = unsafe { libc::fcntl(target.as_raw_fd(), libc::F_GETFD) };
+    assert_ne!(flags & libc::FD_CLOEXEC, 0, "replacement must remain close-on-exec");
+
+    let socket = std::fs::read_link(format!("/proc/self/fd/{}", target.as_raw_fd())).expect("socket identity");
+    let child = std::process::Command::new(std::env::current_exe().expect("test executable"))
+        .args(["--exact", "linux::tests::fd::replacement_fd_keeps_the_socket_private_and_usable"])
+        .env(CHILD_FD, target.as_raw_fd().to_string())
+        .env(CHILD_SOCKET, socket)
+        .status()
+        .expect("exec descriptor observer");
+    assert!(child.success(), "replacement socket must not cross exec");
+
+    peer.write_all(b"ok").expect("write through replacement");
+    let mut bytes = [0; 2];
+    target.read_exact(&mut bytes).expect("read through replacement");
+    assert_eq!(&bytes, b"ok");
+    drop(target);
+    peer.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("set EOF deadline");
+    assert_eq!(peer.read(&mut bytes).expect("temporary replacement must close"), 0);
+}
+
+#[test]
+fn replacement_fd_with_the_same_number_keeps_the_caller_socket() {
+    let (target, mut peer) = super::connected_pair();
+    let raw = target.into_raw_fd();
+    // SAFETY: raw is live and uniquely owned; the caller retains this same-number target.
+    let result = unsafe { crate::swap_replacement_fd(raw, raw) };
+    // SAFETY: querying any descriptor number is valid, including an erroneous closed target.
+    let flags = unsafe { libc::fcntl(raw, libc::F_GETFD) };
+    // Adopt only a descriptor the kernel still reports as live, including on a failed assertion.
+    let mut target = (flags >= 0).then(|| {
+        // SAFETY: raw is live and this is its only owning handle after into_raw_fd above.
+        unsafe { std::net::TcpStream::from_raw_fd(raw) }
+    });
+    result.expect("same-number replacement");
+    assert_ne!(flags, -1, "same-number replacement closed the caller-owned target");
+    assert_ne!(flags & libc::FD_CLOEXEC, 0);
+    peer.write_all(b"ok").expect("write through retained socket");
+    let mut bytes = [0; 2];
+    target.as_mut().expect("live target").read_exact(&mut bytes).expect("read retained socket");
+    assert_eq!(&bytes, b"ok");
+}
+
+#[test]
+fn failed_replacement_closes_the_transferred_fd_and_keeps_the_target() {
+    const CHILD: &str = "RIPDPI_REPLACEMENT_LIMIT_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let child = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "linux::tests::fd::failed_replacement_closes_the_transferred_fd_and_keeps_the_target",
+                "--test-threads=1",
+            ])
+            .env(CHILD, "1")
+            .status()
+            .expect("run isolated descriptor-limit test");
+        assert!(child.success());
+        return;
+    }
+
+    let (target, _target_peer) = super::connected_pair();
+    let (replacement, mut peer) = super::connected_pair();
+    let mut original = libc::rlimit { rlim_cur: 0, rlim_max: 0 };
+    // SAFETY: original is a writable rlimit in this isolated test subprocess.
+    assert_eq!(unsafe { libc::getrlimit(libc::RLIMIT_NOFILE, &mut original) }, 0);
+    let limit = original.rlim_cur.min(128) - 1;
+    let high = nix::fcntl::fcntl(
+        target.as_fd(),
+        nix::fcntl::FcntlArg::F_DUPFD_CLOEXEC(i32::try_from(limit).expect("bounded test limit")),
+    )
+    .expect("duplicate target below the original limit");
+    // SAFETY: fcntl returned a fresh descriptor and ownership transfers to this handle.
+    let high = unsafe { OwnedFd::from_raw_fd(high) };
+    let limited = libc::rlimit { rlim_cur: limit, rlim_max: original.rlim_max };
+    // SAFETY: only this subprocess's soft limit changes; existing descriptors remain valid.
+    assert_eq!(unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &limited) }, 0);
+    // SAFETY: both descriptors remain live; replacement transfers ownership to the call.
+    let result = unsafe { crate::swap_replacement_fd(high.as_raw_fd(), replacement.into_raw_fd()) };
+    // SAFETY: the original hard limit is unchanged, so restoring the old soft limit is permitted.
+    assert_eq!(unsafe { libc::setrlimit(libc::RLIMIT_NOFILE, &original) }, 0);
+
+    assert_eq!(result.expect_err("target number exceeds the lowered limit").raw_os_error(), Some(libc::EBADF));
+    // SAFETY: high remains owned and live; F_GETFD reads its descriptor flags.
+    assert!(unsafe { libc::fcntl(high.as_raw_fd(), libc::F_GETFD) } >= 0, "failed replacement closed target");
+    peer.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("set EOF deadline");
+    assert_eq!(peer.read(&mut [0]).expect("failed replacement must release transferred fd"), 0);
+}
+
+#[test]
+fn replace_fd_cloexec_replaces_target_and_close_owned_fd_releases_transient_source() {
     let (mut target_stream, _target_peer) = UnixStream::pair().expect("create target pair");
     let (source_stream, mut source_peer) = UnixStream::pair().expect("create source pair");
     let source_raw = source_stream.into_raw_fd();
@@ -17,7 +123,7 @@ fn dup2_fd_replaces_target_and_close_owned_fd_releases_transient_source() {
     // `close_owned_fd` below.
     let source = unsafe { OwnedFd::from_raw_fd(source_raw) };
 
-    dup2_fd(source.as_fd(), target_stream.as_fd()).expect("replace target fd");
+    replace_fd_cloexec(source.as_fd(), target_stream.as_fd()).expect("replace target fd");
     close_owned_fd(source).expect("close transient source fd");
 
     source_peer.write_all(b"ok").expect("write through replacement peer");
