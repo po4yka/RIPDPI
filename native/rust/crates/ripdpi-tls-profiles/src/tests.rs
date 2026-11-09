@@ -192,8 +192,10 @@ fn profile_metadata_does_not_claim_a_measured_client_hello_size() {
     }
 }
 
+// Stored acceptance labels are checked for consistency, not executed here.
+// This test supplies no external compatibility or browser parity evidence.
 #[test]
-fn phase11_acceptance_fixture_covers_all_catalog_profiles() {
+fn phase11_fixture_metadata_is_internally_consistent() {
     let fixture_path = repo_root().join("contract-fixtures/phase11_tls_template_acceptance.json");
     let fixture: Value =
         serde_json::from_str(&fs::read_to_string(fixture_path).expect("phase11 acceptance fixture")).expect("json");
@@ -278,39 +280,20 @@ fn phase11_acceptance_fixture_covers_all_catalog_profiles() {
     }
 }
 
-/// Chrome 120 ClientHello fingerprint regression tests.
-///
-/// These tests are deterministic — they operate entirely on the `ProfileConfig`
-/// struct fields with no network I/O and no real TLS handshake. The intent
-/// translates the spec's Go uTLS v1.8.2 pin: assert that the Rust Chrome 120
-/// profile configuration cannot silently drift from its frozen fingerprint,
-/// covering the padding-extension regression and GREASE ECH cipher-mismatch
-/// described in uTLS PR #375.
-///
-/// A JA4-like fingerprint is derived by hashing a pipe-delimited canonical
-/// string of the fields that control the on-wire ClientHello structure. The
-/// frozen constant must be updated intentionally if the profile is changed.
+/// Static preset regression checks. These compare configuration fields and a
+/// frozen SHA-256 of those fields. They do not measure JA3/JA4 or browser parity.
 #[cfg(test)]
-mod chrome_120_fingerprint_regression {
+mod chrome_stable_config_regression {
     use sha2::{Digest, Sha256};
 
     use crate::profile::lookup_profile;
 
-    /// Canonical field separator used when building the fingerprint input.
     const SEP: &str = "|";
 
-    /// Frozen SHA-256 fingerprint of the Chrome 120 (`chrome_stable`) profile.
-    ///
-    /// Computed from the pipe-delimited canonical string:
-    ///   cipher_list_tls12 | ciphersuites_tls13 | curves | sigalgs |
-    ///   alpn (comma-joined) | grease_style | extension_order_family |
-    ///   supported_groups_profile | key_share_profile | ech_capable
-    ///
-    /// To regenerate after an intentional profile update run:
-    ///   cargo test -p ripdpi-tls-profiles -- --nocapture chrome_120_frozen_fingerprint_hash_unchanged
-    const CHROME_120_FROZEN_FINGERPRINT: &str = "a6e59fca8d6f7c665986a67c95d29117a21b56f5e1f838b9067815fef08738e1";
+    // Snapshot of the preset fields below, not a browser fingerprint.
+    const CHROME_STABLE_CONFIG_SHA256: &str = "a6e59fca8d6f7c665986a67c95d29117a21b56f5e1f838b9067815fef08738e1";
 
-    fn compute_profile_fingerprint(profile_name: &str) -> String {
+    fn compute_profile_config_hash(profile_name: &str) -> String {
         let p = lookup_profile(profile_name);
         let alpn_str =
             p.alpn.iter().map(|proto| std::str::from_utf8(proto).unwrap_or("?")).collect::<Vec<_>>().join(",");
@@ -332,53 +315,24 @@ mod chrome_120_fingerprint_regression {
         hasher.finalize().iter().map(|b| format!("{b:02x}")).collect()
     }
 
-    /// Assert 1: extension_order_family is the Chromium permuted family.
-    ///
-    /// Chrome 120 uses `chromium_permuted` — the padding extension is implicit
-    /// in this family's size budget. Any change to this field indicates a
-    /// profile-family migration that could break fingerprint mimicry.
     #[test]
-    fn chrome_120_extension_order_family_is_chromium_permuted() {
+    fn chrome_stable_declares_extension_permutation() {
         let profile = lookup_profile("chrome_stable");
-        assert_eq!(
-            profile.extension_order_family, "chromium_permuted",
-            "Chrome 120 profile must use chromium_permuted extension order family; \
-             changing this breaks padding-extension budget"
-        );
+        assert_eq!(profile.extension_order_family, "chromium_permuted");
     }
 
-    /// Assert 2: padding extension presence — Chrome 120 must NOT be ECH-capable.
-    ///
-    /// uTLS v1.8.2 restored the padding extension after PQ key shares altered
-    /// packet sizing. In this Rust translation the padding budget is preserved by
-    /// keeping `ech_capable = false` on the Chrome 120 profile; enabling ECH
-    /// would alter the extension set and eliminate the padding slot.
     #[test]
-    fn chrome_120_padding_extension_present_via_non_ech_profile() {
+    fn chrome_stable_declares_non_ech_template_and_size_hint() {
         let profile = lookup_profile("chrome_stable");
-        assert!(
-            !profile.ech_capable,
-            "Chrome 120 profile must remain ECH-disabled; enabling ECH removes the \
-             padding-extension slot restored by uTLS v1.8.2 (PR #375)"
-        );
-        // The reference hint is checked independently of serialized packet size.
-        assert_ne!(profile.client_hello_size_hint, 517, "Chrome 120 reference size hint must not equal 517");
-        assert!(
-            (480..=540).contains(&profile.client_hello_size_hint),
-            "Chrome 120 size hint {} is outside the [480, 540] reference envelope",
-            profile.client_hello_size_hint
-        );
+        assert!(!profile.ech_capable);
+        // These are static template checks, not captured sizes or padding.
+        assert_ne!(profile.client_hello_size_hint, 517);
+        assert!((480..=540).contains(&profile.client_hello_size_hint));
     }
 
-    /// Assert 3: cipher-suite order matches Chrome 120 reference.
-    ///
-    /// The TLS 1.2 cipher order and TLS 1.3 cipher list are frozen here. Any
-    /// reorder or addition is a fingerprint-visible change that DPI can detect.
     #[test]
-    fn chrome_120_cipher_suite_order_matches_reference() {
+    fn chrome_stable_declares_expected_cipher_and_group_settings() {
         let profile = lookup_profile("chrome_stable");
-
-        // TLS 1.2 ciphers — must appear in exactly this order (Chrome 120 reference).
         let expected_tls12_ciphers: &[&str] = &[
             "ECDHE-ECDSA-AES128-GCM-SHA256",
             "ECDHE-RSA-AES128-GCM-SHA256",
@@ -387,43 +341,28 @@ mod chrome_120_fingerprint_regression {
             "ECDHE-ECDSA-CHACHA20-POLY1305",
             "ECDHE-RSA-CHACHA20-POLY1305",
         ];
-        // Normalise whitespace introduced by the multi-line string literal.
         let actual_tls12: Vec<&str> =
             profile.cipher_list_tls12.split(':').map(str::trim).filter(|s| !s.is_empty()).collect();
-        assert_eq!(
-            actual_tls12, expected_tls12_ciphers,
-            "Chrome 120 TLS 1.2 cipher order drifted from frozen reference"
-        );
+        assert_eq!(actual_tls12, expected_tls12_ciphers);
 
-        // TLS 1.3 ciphers — BoringSSL controls the actual wire order, but the
-        // declared preference string must match Chrome 120.
+        // Reference metadata only; this field does not set the TLS 1.3 wire order.
         let expected_tls13_ciphers: &[&str] =
             &["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"];
         let actual_tls13: Vec<&str> =
             profile.ciphersuites_tls13.split(':').map(str::trim).filter(|s| !s.is_empty()).collect();
-        assert_eq!(
-            actual_tls13, expected_tls13_ciphers,
-            "Chrome 120 TLS 1.3 cipher order drifted from frozen reference"
-        );
+        assert_eq!(actual_tls13, expected_tls13_ciphers);
 
-        // Supported groups (curves) — X25519 must be first per Chrome 120.
         let expected_curves: &[&str] = &["X25519MLKEM768", "X25519", "P-256", "P-384"];
         let actual_curves: Vec<&str> = profile.curves.split(':').map(str::trim).filter(|s| !s.is_empty()).collect();
-        assert_eq!(actual_curves, expected_curves, "Chrome 120 curves order drifted from frozen reference");
+        assert_eq!(actual_curves, expected_curves);
     }
 
-    /// Assert 4: frozen JA4-like fingerprint hash must not change.
-    ///
-    /// This is the primary regression gate. Any unintentional change to the
-    /// profile fields listed above will produce a different SHA-256 and fail
-    /// here, forcing an explicit review before the constant is updated.
     #[test]
-    fn chrome_120_frozen_fingerprint_hash_unchanged() {
-        let actual = compute_profile_fingerprint("chrome_stable");
+    fn chrome_stable_config_hash_matches_snapshot() {
+        let actual = compute_profile_config_hash("chrome_stable");
         assert_eq!(
-            actual, CHROME_120_FROZEN_FINGERPRINT,
-            "Chrome 120 JA4-like fingerprint hash changed — review the profile diff carefully \
-             before updating CHROME_120_FROZEN_FINGERPRINT.\n  got: {actual}\n  want: {CHROME_120_FROZEN_FINGERPRINT}"
+            actual, CHROME_STABLE_CONFIG_SHA256,
+            "preset configuration changed; review before updating its snapshot"
         );
     }
 }

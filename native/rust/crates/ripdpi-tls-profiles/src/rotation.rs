@@ -19,25 +19,20 @@ pub fn fingerprint_rotation_count() -> u64 {
     FINGERPRINT_ROTATION_ACTIVE.load(Ordering::Relaxed)
 }
 
-/// Default per-connection rotation pool: the current profile for each mimicked
-/// browser family, selected uniformly so JA3/JA4 fingerprints spread evenly
-/// across outbound connections.
+/// Default pool of browser-labelled presets. Entries are selected uniformly;
+/// distinct names do not guarantee distinct JA3/JA4 fingerprints.
 ///
-/// An iOS 18 Safari family is intentionally absent until an authentic
-/// ClientHello template (verified against refraction-networking/utls reference
-/// captures) is added to the profile catalog — a fabricated mobile fingerprint
-/// is worse than none, because a wrong JA3/JA4 is itself a detection signal.
-/// See `docs/native/tls-fingerprint-rotation.md`.
+/// An iOS 18 Safari preset is absent pending an independent browser capture
+/// with a version and platform. See `docs/native/tls-fingerprint-rotation.md`.
 const DEFAULT_ROTATION_POOL: &[&str] = &["chrome_stable", "firefox_stable", "safari_stable", "edge_stable"];
 
-/// Selects a fresh ClientHello fingerprint profile for every outbound TLS
-/// connection from a fixed pool of browser fingerprints, defeating JA3/JA4
-/// session-correlation by nation-state DPI.
+/// Selects a TLS preset name from a fixed pool. This does not establish browser
+/// parity or prevent session correlation.
 ///
-/// Selection is deterministic for a given `(authority, session_seed)` so a
-/// reconnect inside one session keeps a stable fingerprint, but uniformly
-/// distributed across the pool as `session_seed` varies per connection. Pass a
-/// fresh `session_seed` per outbound connection to rotate.
+/// Selection is deterministic for a given `(authority, session_seed)` and is
+/// uniform across pool entries as `session_seed` varies. Reusing the input
+/// selects the same name, but does not freeze randomized ClientHello fields.
+/// Pass a fresh `session_seed` per outbound connection to rotate.
 pub struct RotatingProfileSelector {
     pool: Vec<&'static str>,
     profile_set_id: &'static str,

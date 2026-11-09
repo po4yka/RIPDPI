@@ -210,6 +210,8 @@ fn extension_data_lengths_no_grease(capture: &CapturedClientHello) -> Vec<Value>
     lengths
 }
 
+// This fixture records our builder output. It detects implementation changes,
+// but is not an independent browser capture or measured JA3/JA4 reference.
 fn normalized_client_hello_packet_fixture() -> Value {
     let profiles = AVAILABLE_PROFILES
         .iter()

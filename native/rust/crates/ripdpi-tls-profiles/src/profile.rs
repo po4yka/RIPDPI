@@ -1,7 +1,7 @@
 use boring::ssl::SslVersion;
 
-/// Configuration for a TLS fingerprint profile that controls ClientHello fields
-/// to match a specific browser's TLS fingerprint.
+/// Configuration for a browser-labelled TLS preset. Fields describe the intended
+/// template, not verified browser parity or effective consumer output.
 pub struct ProfileConfig {
     pub name: &'static str,
     pub browser_family: &'static str,

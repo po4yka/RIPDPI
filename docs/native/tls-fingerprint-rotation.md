@@ -1,26 +1,33 @@
 # TLS ClientHello fingerprint rotation
 
-## Threat model
+## Scope and evidence
 
-Nation-state DPI (Russia's TSPU, and comparable systems) increasingly classify
-flows by the **exact bytes of the TLS ClientHello** — cipher-suite list,
-extension order, supported groups, signature algorithms, GREASE placement —
-hashed into a [JA3] or [JA4] fingerprint. Because a proxy client that always
-emits one fingerprint is trivially correlated across destinations, a *stable*
-ClientHello becomes a high-confidence proxy-detection signal even when the SNI,
-destination IP, and ports all vary.
+`ripdpi-tls-profiles` provides browser-labelled BoringSSL presets. A preset
+controls parts of the ClientHello, such as cipher preferences, supported
+groups, ALPN and extension permutation. The catalog does not bind each preset
+to a browser release, operating system or independent capture.
 
-Rotating the impersonated browser fingerprint **per outbound connection** breaks
-this correlation: each connection looks like a different real browser, so the
-JA3/JA4 channel carries no cross-connection signal.
+The packet tests capture this crate's own builder output and compare it with
+an implementation snapshot. The static configuration hash detects changes to
+preset fields. Neither test proves browser parity, calculates an actual [JA3]
+or [JA4], or proves compatibility with an external server. The phase11 fixture
+test checks that stored metadata is internally consistent; its acceptance
+labels are not runtime receipts.
+
+`ja3_parity_target` and `ja4_parity_target` are target labels, not measured
+fingerprints. Exact browser parity requires an independent capture with a
+browser version, platform and provenance. That evidence must cover the
+ClientHello fields and the effective consumer settings.
+
+TLS fingerprints can contribute to connection classification. Rotation changes
+the selected preset, but does not prove that a connection looks like a real
+browser or prevents correlation. JA3 includes ordered ClientHello fields;
+JA4 sorts some fields. Neither represents every byte or every network signal.
 
 ## Pool composition
 
-`ripdpi-tls-profiles` ships one authentic ClientHello template per mimicked
-browser family, each verified against reference captures by the parity tests
-(`packet_parity_tests.rs`) and structural invariants (`invariants.rs`). The
-default rotation pool (`RotatingProfileSelector::with_default_pool`) draws
-uniformly from:
+The default rotation pool (`RotatingProfileSelector::with_default_pool`)
+selects uniformly from these preset names:
 
 | Family  | Profile name     |
 | ------- | ---------------- |
@@ -29,87 +36,98 @@ uniformly from:
 | Safari  | `safari_stable`  |
 | Edge    | `edge_stable`    |
 
-Additional catalog profiles (`chrome_desktop_stable`, `firefox_ech_stable`) are
-available for custom pools via `RotatingProfileSelector::new`.
+Additional catalog presets (`chrome_desktop_stable`, `firefox_ech_stable`) are
+available for custom pools through `RotatingProfileSelector::new`.
+
+Uniform selection of names does not imply uniform selection of distinct wire
+fingerprints. Chrome, Chrome desktop and Edge currently apply the same builder
+settings. Other presets can also produce the same JA4 after consumer overrides.
+The Safari preset is an approximation; it does not reproduce Safari GREASE or
+its full extension layout.
 
 ### Pending: iOS 18 Safari
 
-An **iOS 18 Safari** family is intentionally *not* in the pool yet. A mobile
-fingerprint must be transcribed from an authentic capture (e.g.
-[refraction-networking/utls] reference data) and pass the parity tests before it
-is added — a fabricated or guessed mobile ClientHello is *worse* than its
-absence, because a JA3/JA4 that no real iOS Safari emits is itself a unique,
-trackable signal. Adding it is gated on sourcing that reference data; see the
-upstream-spec-watch cadence in `upstream-spec-watch-runbook.md`.
+An iOS 18 Safari preset is not in the pool. Adding one requires an independent
+capture with a version and platform, then comparison of the generated output
+with that capture. [refraction-networking/utls] can provide reference data, but
+a template or implementation snapshot alone is not a browser capture receipt.
+See the upstream-spec-watch cadence in `upstream-spec-watch-runbook.md`.
+
+## Effective consumer settings
+
+Consumers can change the configured preset. For example, xHTTP uses h2-only
+ALPN and can replace supported groups; REALITY adds signature and group
+requirements; owned HTTP fetch uses http/1.1-only ALPN. These changes affect the
+ClientHello and can change its fingerprint.
+
+Record choreography metadata describes a separate packet transformation. The
+BoringSSL builder does not apply that transformation to its connection.
+Likewise, ECH capability metadata does not enable ECH or perform DNS discovery.
+An ECH consumer must configure the backend separately.
 
 ## How rotation works
 
-`RotatingProfileSelector::select(authority, session_seed)` returns a profile
+`RotatingProfileSelector::select(authority, session_seed)` returns a preset
 name. Selection is:
 
-- **Deterministic** for a given `(authority, session_seed)` — a reconnect within
-  the same logical session keeps a stable fingerprint (so it does not flap
-  mid-session), derived from a SHA-256 of `authority|session_seed|profile_set_id`.
-- **Uniformly distributed** across the pool as `session_seed` varies — callers
-  pass a *fresh* `session_seed` per outbound connection to rotate. The
-  distribution is asserted roughly uniform over 1000 trials in
-  `rotation::selector_tests`.
+- Deterministic for a given `(authority, session_seed)`, using a SHA-256 of
+  `authority|session_seed|profile_set_id`. Reusing that input selects the same
+  name; it does not freeze randomized ClientHello fields.
+- Uniform across pool entries as `session_seed` varies. Callers pass a fresh
+  seed per outbound connection to rotate. The distribution test checks a
+  sample of 1000 selections in `rotation::selector_tests`.
 
-The resolved profile name is then passed to `configure_builder` /
-`build_connector` exactly like a static profile.
+The resolved name is then passed to `configure_builder` or `build_connector`.
 
 ## Enabling per-connection rotation
 
-Rotation is opt-in per outbound, activated by setting the outbound's
-`tls_fingerprint_profile` to the reserved marker value `"rotating"`
-(`ripdpi_tls_profiles::ROTATING_PROFILE_MARKER`) instead of a concrete profile
-name. At connect time the transport calls
+Rotation is opt-in per native outbound. Set `tls_fingerprint_profile` to the
+reserved marker `"rotating"` (`ripdpi_tls_profiles::ROTATING_PROFILE_MARKER`)
+instead of a fixed preset name. At connect time the transport calls:
 
 ```rust
 let profile_name = ripdpi_tls_profiles::resolve_connection_profile(
-    &config.tls_fingerprint_profile, // "rotating" → rotate; else pass-through
-    &config.server_name,             // authority, keys the deterministic hash
+    &config.tls_fingerprint_profile,
+    &config.server_name,
 );
 ```
 
-`resolve_connection_profile` draws a fresh fingerprint from the default pool for
-each connection (using a process-global selector and a monotonic per-connection
-seed) when the marker is set, and otherwise canonicalises the configured profile
-name unchanged. A single resolved name then feeds **both** the connector build
-and any downstream profile-dependent decision (e.g. the REALITY ECH-parity
-choice), so a rotated connection's ClientHello stays internally consistent.
+For the marker, `resolve_connection_profile` selects a name from the default
+pool with a monotonic per-connection seed. For fixed names, it returns the
+canonical preset name. The same result feeds both the connector and later
+profile-dependent decisions, such as the REALITY ECH policy.
 
-Transports that honour the marker:
+Transports that support the marker:
 
 | Outbound        | Path                                               |
 | --------------- | -------------------------------------------------- |
 | VLESS + REALITY | `ripdpi-vless` `reality::connect_reality_tls_inner` |
 | xHTTP (TLS)     | `ripdpi-xhttp` `connect::create_connection`        |
-| xHTTP (REALITY) | inherits rotation via the VLESS path above          |
+| xHTTP (REALITY) | inherits selection through the VLESS path above    |
 
-ShadowTLS does **not** consume `ripdpi-tls-profiles` (it carries its own TLS
-layer). AnyTLS applies its configured profile through
-`ripdpi-tls-profiles::configure_builder`, with the profile's TLS version range,
-but has no rotation path. The marker is a no-op for both; rotation for those
-transports is out of scope for this contract.
+The ordinary Android profile normalizer accepts the six fixed presets and the
+default alias; it does not expose the native rotation marker. The owned-client
+factory has a separate selection policy that is stable per authority and
+session. Do not treat it as the native per-connection selector.
+
+ShadowTLS uses its own TLS layer. AnyTLS applies its configured preset through
+`configure_builder`, but has no marker resolution path. Rotation for these
+transports is outside this contract.
 
 ## Telemetry
 
-Each rotated selection increments the `tls.fingerprint_rotation_active`
-counter, readable via `fingerprint_rotation_count()`, and emits a
-`tracing::debug!` event tagged `tls.fingerprint_rotation_active` carrying the
-chosen profile name (never any credential or destination identifier).
+Each rotating resolution increments `tls.fingerprint_rotation_active`, which
+is available through `fingerprint_rotation_count()`. This counts profile
+resolutions, not successful TLS handshakes. A debug event carries the chosen
+preset name without a credential or destination identifier.
 
 ## Integration status
 
-- **Done:** `RotatingProfileSelector` + default pool, deterministic
-  per-connection selection, uniformity/freshness/counter tests, the
-  `tls.fingerprint_rotation_active` counter, and the `"rotating"` marker wired
-  through the VLESS+REALITY and xHTTP outbound call sites via
-  `resolve_connection_profile` (xHTTP-over-REALITY inherits it).
-- **Pending:** an authentic iOS 18 Safari profile (above); and surfacing the
-  `tls.fingerprint_rotation_active` counter through the Android telemetry ring
-  (the counter exists and increments; only the ring export is outstanding).
+- Implemented: default pool, deterministic selection, distribution and counter
+  tests, and native marker resolution in VLESS REALITY and xHTTP.
+- Pending: independent browser parity evidence for the published presets, an
+  iOS 18 Safari preset, and Android telemetry-ring export of the rotation
+  counter.
 
 [JA3]: https://github.com/salesforce/ja3
 [JA4]: https://github.com/FoxIO-LLC/ja4

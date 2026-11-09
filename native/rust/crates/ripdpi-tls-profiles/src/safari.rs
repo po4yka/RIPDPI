@@ -1,30 +1,14 @@
-//! Apple Safari TLS fingerprint profile.
+//! Safari-labelled TLS preset.
 //!
-//! **Design rationale:** Safari has a fingerprint that is genuinely distinct
-//! from any Chromium-based browser. Key differences from Chrome:
+//! This is an approximation. It prefers AES-256 over AES-128 for TLS 1.2,
+//! includes P-521 and disables GREASE and extension permutation. Its
+//! single-record choreography label belongs to the separate packet mutator;
+//! the BoringSSL builder does not apply record choreography.
 //!
-//! | Parameter                | Safari                      | Chrome Android       |
-//! |--------------------------|-----------------------------|----------------------|
-//! | `extension_order_family` | `"safari_fixed"`            | `"chromium_permuted"`|
-//! | `grease_style`           | `"none"`                    | `"chromium_single_grease"` |
-//! | `grease_enabled`         | `false`                     | `true`               |
-//! | `permute_extensions`     | `false`                     | `true`               |
-//! | `supported_groups`       | X25519, P-256, P-384, P-521 | X25519, P-256, P-384 |
-//! | `record_choreography`    | `"single_record"`           | `"host_tail_two_record"` |
-//! | TLS 1.2 cipher priority  | AES-256 before AES-128      | AES-128 before AES-256 |
-//! | `client_hello_size_hint` | 498                         | 512                  |
-//!
-//! These differences are not cosmetic — they affect JA3/JA4 fingerprint hashes,
-//! extension ordering, and ClientHello byte layout.
-//!
-//! **Approximation, not a Safari parrot.** Real Safari GREASEs its cipher
-//! suites, groups, key shares, versions and extensions, offers X25519MLKEM768
-//! and sends status_request, SCT and certificate compression (utls
-//! `HelloSafari_26_3`). This profile sends no GREASE, and its captured
-//! extension set and order equal `firefox_stable`'s, so a peer that expects
-//! Safari's GREASE can tell it apart.
-//!
-//! Rotation weight: 10%. See TLS profile architecture note for the full analysis.
+//! The uTLS `HelloSafari_26_3` reference offers GREASE, X25519MLKEM768,
+//! status_request, SCT and certificate compression. This preset does not.
+//! Its captured extension set and order equal `firefox_stable`'s, so its name
+//! must not be used as evidence of Safari browser parity.
 
 use boring::ssl::SslVersion;
 
