@@ -132,7 +132,11 @@ fn is_dns(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -> bool {
     let opcode = (header[2] >> 3) & 0x0F;
     let is_response = header[2] & 0x80 != 0;
     let question_count = u16::from_be_bytes([header[4], header[5]]);
-    matches!(opcode, 0..=2 | 4..=6) && (is_response || question_count >= 1)
+    match opcode {
+        0..=2 | 4 | 5 => is_response || question_count >= 1,
+        6 => is_response || question_count == 0,
+        _ => false,
+    }
 }
 
 fn dns_is_query(payload: &[u8], is_udp: bool) -> bool {
