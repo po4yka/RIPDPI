@@ -11,8 +11,11 @@
 //! helpers are a no-op when no callback is registered (desktop, tests, or VPN
 //! down) and for loopback targets. When a callback *is* registered and protect
 //! fails, the error propagates so the caller abandons the unprotected probe
-//! (fail-closed). The `Socks5` transport is intentionally NOT routed through
-//! here — it measures the through-proxy path and must traverse the tunnel.
+//! (fail-closed). The `Socks5` transport connects to its proxy through the direct
+//! connector too. The proxy host is the app's own loopback listener
+//! (`LocalProxyEndpoint`), which protect skips. The onward path through the
+//! proxy is not routed through here: it measures the through-proxy path and
+//! must traverse the tunnel.
 
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
