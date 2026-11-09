@@ -33,4 +33,5 @@ Repair all six confirmed STD-05 findings with one repair commit per finding. Pre
 - diagnostic_flight: F3 diagnostics-tls capture and tests; its test-only manifest edge after integrator approval. Integrator alone updates Cargo.lock.
 - parity_claims: F5 docs, preset snapshot test descriptions and the related rotation.rs/pq_kem.rs doc comments; F6 backend-limit comments; one commit each. Its tests.rs edits start at the acceptance-consistency test; integrator owns earlier F1 assertions. Profile.rs comment edits are serialized after F1.
 - Each writer has a separate worktree. No worker may merge or push. Review agents are read-only.
+- Integrator: after the upstream rebase, own only the native-proxy username inputs in udp_mapdns_scope_wire.rs and udp_owner_reuse.rs. Preserve all production auth and literal wire/owner assertions.
 - The integrator owns all shared manifests, task board generation and fixture decisions. No golden or baseline change is planned. Public/physical probes, root and real credentials are excluded.

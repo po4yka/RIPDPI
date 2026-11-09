@@ -11,3 +11,4 @@ Ownership is recorded in the portfolio task. Each repair includes its owning reg
 - [x] TRN-1794198937235252 F5 separate preset snapshots from browser parity #bug !high @item:TRN-1794198826397434
 - [x] TRN-1794198938191907 F6 document the pinned TLS13 backend limit #bug !high @item:TRN-1794198826397434
 - [x] TRN-1794198939063843 Review and validate the combined repair tree #bug !high @item:TRN-1794198826397434
+- [x] TRN-1794203726871723 Align rebased UDP scope fixtures with the native proxy marker #bug !high @item:TRN-1794198826397434

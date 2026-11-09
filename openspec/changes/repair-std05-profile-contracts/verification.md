@@ -1,9 +1,9 @@
 ---
 task_id: TRN-1794198826397434
 change: repair-std05-profile-contracts
-commit_sha: 7c45e6f76346c2eb5a0093924ffc16c3dd3f0592
-local: passed
-local_evidence: Regressions reproduced the original failures. Eight-package tests, all-target Clippy, format, dependency checks, ci-gates, architecture and locked metadata passed. Independent review found no actionable issue.
+commit_sha: 33c46516e362197a567884c0f6056d8bd02686d3
+local: required
+local_evidence: The original validation passed. Upstream SOCKS/REALITY and STD-04 fixes are preserved after rebase; affected combined checks remain required.
 remote_ci: required
 remote_ci_evidence: Exact-source hosted CI has not been observed.
 device: not_applicable
@@ -53,15 +53,29 @@ Independent read-only review found no actionable issue in the six repairs. A sec
 
 | Finding | Commit | Subject |
 |---|---|---|
-| F1 | 5282aa6ebde67e6862735949d48fe2f30567342c | fix(tls): report static validation without wire-size claims |
-| F2 | 32d8110c14b9a75ed90c98f53c9ecd08110817eb | fix(tls): validate rotation without selecting a profile |
-| F3 | e36aeb877e53f5bd9e235fe372c879711dab5406 | fix(diagnostics): retain the first ClientHello plan |
-| F4 | 5c71f641296d03e92c2640636ad555763e788ddb | fix(tls): validate the native default profile alias |
-| F5 | 64269ba791a52ac341fc295e2b045b09717b65e2 | docs(tls): separate preset snapshots from browser parity |
-| F6 | 7c45e6f76346c2eb5a0093924ffc16c3dd3f0592 | docs(tls): clarify the TLS 1.3 cipher API limit |
+| F1 | 72aa8273515d325a9f4b1ba812380b12d338e208 | fix(tls): report static validation without wire-size claims |
+| F2 | 6d08aa44a8e66da38b2e2be742322baab9ad23ef | fix(tls): validate rotation without selecting a profile |
+| F3 | c1c59a7afe18f785b55a8d95d2cc0dabb0af3d8c | fix(diagnostics): retain the first ClientHello plan |
+| F4 | e8961f320fead84a0c3b09ea9a54af45caae76fc | fix(tls): validate the native default profile alias |
+| F5 | ce432076048915f1b0c455346d9915ab87817f27 | docs(tls): separate preset snapshots from browser parity |
+| F6 | dcfdcc9bbd8f99179b8e8b9c196cf89184caaf94 | docs(tls): clarify the TLS 1.3 cipher API limit |
 
 ## Evidence and limits
 
 The local command journal is /tmp/std05-validation-state/all-results.json. Relevant logs are /tmp/std05-f1-red.log, /tmp/std05-f2-f4-observed-red.log, /tmp/std05-f3-observed-red.log, /tmp/std05-combined-tests.log, /tmp/std05-combined-clippy.log, /tmp/std05-profiles-after-format.log, /tmp/std05-deny.log and /tmp/std05-ci-gates.log. Each finding also has its own commit-hook log under /tmp/std05-F1-commit.log through /tmp/std05-F6-commit.log.
 
 No Android build/device, public-server/DPI probe, root activation, real secret, packaged release or deployment was used. Browser impersonation, resumption, fragmented/HRR acceptance and external compatibility remain outside this repair. Host loopback results are local V, not E or full TLS conformance. Exact-source hosted CI remains required until its result is observed. The network registry and original audit report are unchanged.
+
+## Rebase acceptance
+
+The branch was rebased without conflicts onto origin/main at cd08ced31. Upstream assertion privacy, scoped SOCKS authentication and REALITY interoperability changes are preserved. The finding hashes above refer to the rebased commits. Post-rebase checks remain required before integration.
+
+The STD-04 rebase uses origin/main at a1b8cd2aa7c2f3fd93d62994b77477f63061bd72. STD-04 already supplies the shared Satisfied status and a stronger real-capture regression. Conflict resolution preserves that implementation and test; F1 adds its 512-byte payload assertion and static-status field documentation. The duplicate F1 capture test was removed. F5 preserves the newer upstream KEM consumer boundaries and only changes misleading snapshot descriptions without changing assertion conditions. Combined validation remains required.
+
+## STD-04 integration checks
+
+The post-STD-04 run passed: **1580 passed, 0 failed, 15 ignored, 0 filtered** across the same eight packages plus ripdpi-tunnel-core and ripdpi-diagnostics-runner. All-target Clippy, format, just ci-gates, architecture health, locked metadata and task contracts passed. Independent conflict-resolution review found no issue. The journal is /tmp/std05-validation-state/rebased-fixed-results.json; logs use /tmp/std05-rebased-fixed-*.log.
+
+An earlier run after the SOCKS authentication rebase had two failures in UDP fixtures. Both positive fixtures used the provider username control but expected native vpn08 scope. The reserved native-proxy username is ripdpi. Commit 33c46516e362197a567884c0f6056d8bd02686d3 changes those two test inputs only. Scope, password, datagram, source-port, owner and socket-reuse assertions are preserved. Production authentication and its negative tests are unchanged. Independent review and the full tunnel suite passed.
+
+Upstream STD-06 has since changed certificate policy and removed an unused TLS verification argument. Its integration and affected checks remain required. The local front-matter status remains required for that reason.

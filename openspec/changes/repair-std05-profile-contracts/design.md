@@ -26,6 +26,7 @@ Task ID: `TRN-1794198826397434`. The audit reproduced four contract defects and 
 - Consumers must not interpret static validation success as measured browser parity. Existing enum shape is retained to limit compatibility impact.
 - First-record extraction preserves the strict planner boundary. Fragmented ClientHello and HRR need separate acceptance; this repair does not silently claim them.
 - Host loopback tests prove the regressions, not Android or external compatibility.
+- Upstream now scopes only the reserved native-proxy username. Rebase acceptance repairs two UDP fixture inputs to use that marker; production auth and literal scope expectations stay intact.
 
 ## Migration Plan
 
