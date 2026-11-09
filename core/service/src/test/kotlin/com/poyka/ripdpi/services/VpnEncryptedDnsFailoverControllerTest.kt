@@ -509,47 +509,9 @@ class VpnEncryptedDnsFailoverControllerTest {
             )
             assertTrue(env.blockedPaths.getBlockedPathKeys(env.fingerprint.scopeKey()).isNotEmpty())
         }
+}
 
-    private fun newEnv(): Env {
-        val overrides = TestResolverOverrideStore()
-        val preferredPaths = TestNetworkDnsPathPreferenceStore()
-        val blockedPaths = TestNetworkDnsBlockedPathStore()
-        val fingerprint = sampleFingerprint()
-        val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
-        return Env(
-            fingerprintProvider = fingerprintProvider,
-            controller =
-                VpnEncryptedDnsFailoverController(
-                    resolverOverrideStore = overrides,
-                    networkDnsPathPreferenceStore = preferredPaths,
-                    networkDnsBlockedPathStore = blockedPaths,
-                    networkFingerprintProvider = fingerprintProvider,
-                    clock = TestServiceClock(now = 123L),
-                ),
-            state = VpnEncryptedDnsFailoverState(),
-            overrides = overrides,
-            preferredPaths = preferredPaths,
-            blockedPaths = blockedPaths,
-            fingerprint = fingerprint,
-        )
-    }
-
-    private fun cloudflareDohDns() =
-        activeDnsSettings(
-            dnsMode = "encrypted",
-            dnsProviderId = DnsProviderCloudflare,
-            dnsIp = "1.1.1.1",
-            encryptedDns =
-                EncryptedDnsConfigInput(
-                    protocol = EncryptedDnsProtocolDoh,
-                    host = "cloudflare-dns.com",
-                    port = 443,
-                    tlsServerName = "cloudflare-dns.com",
-                    bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
-                    dohUrl = "https://cloudflare-dns.com/dns-query",
-                ),
-        )
-
+class VpnEncryptedDnsProxyFailoverControllerTest {
     @Test
     fun `proxy peer errors do not change resolver or persist a blocked endpoint`() =
         runTest {
@@ -679,41 +641,81 @@ class VpnEncryptedDnsFailoverControllerTest {
             assertTrue(observe(2, 2, "Timeout: resolver timed out"))
             assertNotNull(env.overrides.override.value)
         }
+}
 
-    private fun dnsTelemetry(
-        queries: Long,
-        failures: Long,
-        lastDnsError: String? = null,
-    ) = NativeRuntimeSnapshot(
-        source = "tunnel",
-        state = "running",
-        health = "healthy",
-        dnsQueriesTotal = queries,
-        dnsFailuresTotal = failures,
-        lastDnsError = lastDnsError,
-    )
-
-    private suspend fun evaluateDns(
-        env: Env,
-        currentDns: com.poyka.ripdpi.data.ActiveDnsSettings,
-        signature: String,
-        telemetry: NativeRuntimeSnapshot,
-    ): Boolean =
-        env.controller.evaluate(
-            state = env.state,
-            activeDns = currentDns,
-            currentDnsSignature = signature,
-            networkScopeKey = env.fingerprint.scopeKey(),
-            telemetry = telemetry,
-        )
-
-    private data class Env(
-        val controller: VpnEncryptedDnsFailoverController,
-        val state: VpnEncryptedDnsFailoverState,
-        val overrides: TestResolverOverrideStore,
-        val preferredPaths: TestNetworkDnsPathPreferenceStore,
-        val blockedPaths: TestNetworkDnsBlockedPathStore,
-        val fingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
-        val fingerprintProvider: TestNetworkFingerprintProvider,
+private fun newEnv(): FailoverTestEnv {
+    val overrides = TestResolverOverrideStore()
+    val preferredPaths = TestNetworkDnsPathPreferenceStore()
+    val blockedPaths = TestNetworkDnsBlockedPathStore()
+    val fingerprint = sampleFingerprint()
+    val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
+    return FailoverTestEnv(
+        fingerprintProvider = fingerprintProvider,
+        controller =
+            VpnEncryptedDnsFailoverController(
+                resolverOverrideStore = overrides,
+                networkDnsPathPreferenceStore = preferredPaths,
+                networkDnsBlockedPathStore = blockedPaths,
+                networkFingerprintProvider = fingerprintProvider,
+                clock = TestServiceClock(now = 123L),
+            ),
+        state = VpnEncryptedDnsFailoverState(),
+        overrides = overrides,
+        preferredPaths = preferredPaths,
+        blockedPaths = blockedPaths,
+        fingerprint = fingerprint,
     )
 }
+
+private fun cloudflareDohDns() =
+    activeDnsSettings(
+        dnsMode = "encrypted",
+        dnsProviderId = DnsProviderCloudflare,
+        dnsIp = "1.1.1.1",
+        encryptedDns =
+            EncryptedDnsConfigInput(
+                protocol = EncryptedDnsProtocolDoh,
+                host = "cloudflare-dns.com",
+                port = 443,
+                tlsServerName = "cloudflare-dns.com",
+                bootstrapIps = listOf("1.1.1.1", "1.0.0.1"),
+                dohUrl = "https://cloudflare-dns.com/dns-query",
+            ),
+    )
+
+private fun dnsTelemetry(
+    queries: Long,
+    failures: Long,
+    lastDnsError: String? = null,
+) = NativeRuntimeSnapshot(
+    source = "tunnel",
+    state = "running",
+    health = "healthy",
+    dnsQueriesTotal = queries,
+    dnsFailuresTotal = failures,
+    lastDnsError = lastDnsError,
+)
+
+private suspend fun evaluateDns(
+    env: FailoverTestEnv,
+    currentDns: com.poyka.ripdpi.data.ActiveDnsSettings,
+    signature: String,
+    telemetry: NativeRuntimeSnapshot,
+): Boolean =
+    env.controller.evaluate(
+        state = env.state,
+        activeDns = currentDns,
+        currentDnsSignature = signature,
+        networkScopeKey = env.fingerprint.scopeKey(),
+        telemetry = telemetry,
+    )
+
+private data class FailoverTestEnv(
+    val controller: VpnEncryptedDnsFailoverController,
+    val state: VpnEncryptedDnsFailoverState,
+    val overrides: TestResolverOverrideStore,
+    val preferredPaths: TestNetworkDnsPathPreferenceStore,
+    val blockedPaths: TestNetworkDnsBlockedPathStore,
+    val fingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+    val fingerprintProvider: TestNetworkFingerprintProvider,
+)
