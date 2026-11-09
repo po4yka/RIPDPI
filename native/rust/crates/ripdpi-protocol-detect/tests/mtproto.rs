@@ -102,3 +102,45 @@ fn rejects_plain_text_and_binary_protocols_that_are_not_mtproto() {
 
     assert!(!is_mtproto(&pseudo_random(0xdead_beef, 1400), 443));
 }
+
+/// Known-answer init built outside this crate with OpenSSL, an AES implementation
+/// independent of the `aes`/`ctr` crates:
+/// bytes [0..56] = SHA-256("ripdpi-std11-kat-a") || SHA-256("ripdpi-std11-kat-b")[..24];
+/// keystream = `openssl enc -aes-256-ctr -K <init[8..40]> -iv <init[40..56]> -nosalt` over 64 zero bytes;
+/// bytes [56..64] = keystream[56..64] XOR (ef ef ef ef || DC 2 as i16 LE || SHA-256("...-b")[24..26]).
+const OPENSSL_KAT_INIT: &str = "5fa9c298b5c86dbaf34f0f27e6df77d1c9b4a926963cd35463a296b1e7e6797562ded4ff7d72e996c64f3198c8cabecbc1d5cc6489572ac25aeddf5b25cf3e22";
+
+fn kat_init() -> [u8; 64] {
+    let mut init = [0u8; 64];
+    for (index, byte) in init.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&OPENSSL_KAT_INIT[index * 2..index * 2 + 2], 16).unwrap();
+    }
+    init
+}
+
+#[test]
+fn detects_openssl_known_answer_init() {
+    assert!(is_mtproto(&kat_init(), 443));
+    assert!(is_mtproto(&kat_init(), 5222));
+}
+
+#[test]
+fn rejects_init_prefixes_that_the_generator_regenerates() {
+    // Only [0..8] change, so the key, IV and encrypted tag stay valid: each rule alone must reject.
+    let rejected_starts: [&[u8]; 9] = [
+        &[0xef],
+        b"HEAD",
+        b"POST",
+        b"GET ",
+        b"OPTI",
+        &[0x16, 0x03, 0x01, 0x02],
+        &[0xdd; 4],
+        &[0xee; 4],
+        &[0x5f, 0xa9, 0xc2, 0x98, 0, 0, 0, 0],
+    ];
+    for start in rejected_starts {
+        let mut init = kat_init();
+        init[..start.len()].copy_from_slice(start);
+        assert!(!is_mtproto(&init, 443), "{start:02x?}");
+    }
+}
