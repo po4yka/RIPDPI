@@ -10,6 +10,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::tunnel_api::direct_dns_binding::{bind_direct_dns_socket, is_direct_dns_generation_current};
 
+/// Smallest time slice a candidate gets: an even split of a 4 s budget over many candidates
+/// would give each less than one RTT on a slow (2G, satellite) underlay.
+const MIN_CANDIDATE_SLOT: Duration = Duration::from_secs(1);
+
 /// # Cancel safety
 ///
 /// Cancel-safe: cancellation drops the sole request-owned socket. DNS is
@@ -47,21 +51,17 @@ async fn exchange_on_port(
             break;
         }
         let remaining_candidates = u32::try_from(candidates.len() - index).unwrap_or(u32::MAX).max(1);
-        match tokio::time::timeout(
-            remaining / remaining_candidates,
-            exchange_candidate(query, *candidate, generation, port),
-        )
-        .await
-        {
-            Ok(Ok(response)) => {
+        let slot = (remaining / remaining_candidates).max(MIN_CANDIDATE_SLOT).min(remaining);
+        let slot_deadline = (tokio::time::Instant::now() + slot).min(deadline);
+        match exchange_candidate(query, *candidate, generation, port, slot_deadline, slot / 2).await {
+            Ok(response) => {
                 return Ok(EncryptedDnsExchangeSuccess {
                     response_bytes: response,
                     endpoint_label: "underlay".to_string(),
                     latency_ms: started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
                 });
             }
-            Ok(Err(error)) => last = error,
-            Err(_) => last = io::Error::new(io::ErrorKind::TimedOut, "direct DNS candidate deadline exceeded"),
+            Err(error) => last = error,
         }
     }
     Err(last)
@@ -70,13 +70,32 @@ async fn exchange_on_port(
 /// # Cancel safety
 ///
 /// Cancel-safe: cancellation drops the request-owned UDP/TCP socket and no
-/// shared/cache state is committed between the UDP and TCP phases.
-async fn exchange_candidate(query: &[u8], candidate: IpAddr, generation: u64, port: u16) -> io::Result<Vec<u8>> {
-    let response = udp_exchange(query, candidate, generation, port).await?;
-    if validate_response(query, &response)? {
-        tcp_exchange(query, candidate, generation, port).await
-    } else {
-        Ok(response)
+/// shared/cache state is committed between the UDP and TCP phases. A TCP
+/// phase cut by `deadline` falls back to the validated truncated UDP reply.
+async fn exchange_candidate(
+    query: &[u8],
+    candidate: IpAddr,
+    generation: u64,
+    port: u16,
+    deadline: tokio::time::Instant,
+    retransmit_after: Duration,
+) -> io::Result<Vec<u8>> {
+    let response =
+        tokio::time::timeout_at(deadline, udp_exchange(query, candidate, generation, port, retransmit_after))
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "direct DNS candidate deadline exceeded"))??;
+    if !validate_response(query, &response)? {
+        return Ok(response);
+    }
+    // A resolver without working TCP still gave a valid truncated answer: forward it with TC set
+    // rather than fail the query, so the app can use it or retry over TCP (RFC 7766 section 5).
+    match tokio::time::timeout_at(deadline, tcp_exchange(query, candidate, generation, port)).await {
+        Ok(Ok(full)) => Ok(full),
+        Ok(Err(error)) => {
+            tracing::debug!(%error, "direct DNS TCP retry failed; forwarding the truncated UDP answer");
+            Ok(response)
+        }
+        Err(_) => Ok(response),
     }
 }
 
@@ -84,7 +103,13 @@ async fn exchange_candidate(query: &[u8], candidate: IpAddr, generation: u64, po
 ///
 /// Cancel-safe: cancellation at connect/send/recv drops the sole request-owned
 /// UDP socket and commits no shared/cache state.
-async fn udp_exchange(query: &[u8], candidate: IpAddr, generation: u64, port: u16) -> io::Result<Vec<u8>> {
+async fn udp_exchange(
+    query: &[u8],
+    candidate: IpAddr,
+    generation: u64,
+    port: u16,
+    retransmit_after: Duration,
+) -> io::Result<Vec<u8>> {
     let domain = if candidate.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
     bind_direct_dns_socket(socket.as_raw_fd(), generation)?;
@@ -97,9 +122,23 @@ async fn udp_exchange(query: &[u8], candidate: IpAddr, generation: u64, port: u1
     let socket = tokio::net::UdpSocket::from_std(socket.into())?;
     socket.connect(SocketAddr::new(candidate, port)).await?;
     socket.send(query).await?;
+    let retransmit_at = tokio::time::Instant::now() + retransmit_after;
+    let mut retransmitted = false;
     let mut response = vec![0_u8; 65_535];
     loop {
-        let len = socket.recv(&mut response).await?;
+        let len = if retransmitted {
+            socket.recv(&mut response).await?
+        } else {
+            match tokio::time::timeout_at(retransmit_at, socket.recv(&mut response)).await {
+                Ok(len) => len?,
+                // One retransmission (RFC 1035 section 4.2.1) covers a single lost datagram.
+                Err(_) => {
+                    socket.send(query).await?;
+                    retransmitted = true;
+                    continue;
+                }
+            }
+        };
         // A datagram whose records do not parse may be injected ahead of the real answer: keep listening.
         if validate_response(query, &response[..len]).is_ok() && Message::from_vec(&response[..len]).is_ok() {
             response.truncate(len);
@@ -119,8 +158,11 @@ async fn tcp_exchange(query: &[u8], candidate: IpAddr, generation: u64, port: u1
     let mut stream = socket.connect(SocketAddr::new(candidate, port)).await?;
     let len =
         u16::try_from(query.len()).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "DNS query too large"))?;
-    stream.write_all(&len.to_be_bytes()).await?;
-    stream.write_all(query).await?;
+    // Length and message in one write, so they leave in one segment (RFC 7766 section 8).
+    let mut frame = Vec::with_capacity(2 + query.len());
+    frame.extend_from_slice(&len.to_be_bytes());
+    frame.extend_from_slice(query);
+    stream.write_all(&frame).await?;
     let mut prefix = [0_u8; 2];
     stream.read_exact(&mut prefix).await?;
     let mut response = vec![0_u8; usize::from(u16::from_be_bytes(prefix))];
@@ -329,7 +371,8 @@ mod tests {
                 &query,
                 &[IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2)), IpAddr::V4(Ipv4Addr::LOCALHOST)],
                 17,
-                Duration::from_millis(300),
+                // Above twice the minimum candidate slot, so a silent first candidate leaves time.
+                Duration::from_millis(2_200),
                 port,
             )
             .await
@@ -378,11 +421,11 @@ mod tests {
                 stream.write_all(&(response.len() as u16).to_be_bytes()).await.expect("TCP response prefix");
                 stream.write_all(&response).await.expect("TCP response");
             });
-            assert!(
-                exchange_on_port(&query, &[IpAddr::V4(Ipv4Addr::LOCALHOST)], 17, Duration::from_millis(300), port,)
+            let truncated =
+                exchange_on_port(&query, &[IpAddr::V4(Ipv4Addr::LOCALHOST)], 17, Duration::from_millis(300), port)
                     .await
-                    .is_err()
-            );
+                    .expect("the valid truncated UDP answer outlives a mismatched TCP reply");
+            assert_eq!(truncated.response_bytes, response_bytes(&query, true));
             udp_task.await.expect("UDP truncation task");
             tcp_task.await.expect("TCP wrong-question task");
 
@@ -400,6 +443,95 @@ mod tests {
             );
             assert!(started.elapsed() < Duration::from_millis(500));
             assert!(binder.binds.load(Ordering::Relaxed) >= 6);
+        });
+    }
+
+    /// Answer to `wire_query(id)` with the question echoed and no records.
+    fn wire_empty_answer(id: u16, truncated: bool) -> Vec<u8> {
+        let mut bytes = id.to_be_bytes().to_vec();
+        bytes.extend_from_slice(&[0x81 | if truncated { 0x02 } else { 0 }, 0x80, 0, 1, 0, 0, 0, 0, 0, 0]);
+        bytes.extend_from_slice(&[1, b'q', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 0, 0, 1, 0, 1]);
+        bytes
+    }
+
+    fn with_binder<F: std::future::Future<Output = ()>>(test: impl FnOnce() -> F) {
+        let _guard = TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+        let _registration = register_test_direct_dns_socket_binder(Arc::new(FixedBinder {
+            generation: 17,
+            binds: AtomicUsize::new(0),
+        }));
+        tokio::runtime::Builder::new_current_thread().enable_all().build().expect("test runtime").block_on(test());
+    }
+
+    #[test]
+    fn truncated_answer_is_kept_when_the_resolver_refuses_tcp() {
+        with_binder(|| async {
+            // UDP only: the kernel refuses the TCP connect on this port.
+            let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("UDP fixture");
+            let port = udp.local_addr().expect("UDP address").port();
+            let server = tokio::spawn(async move {
+                let mut buffer = [0_u8; 512];
+                let (_, peer) = udp.recv_from(&mut buffer).await.expect("UDP query");
+                udp.send_to(&wire_empty_answer(0x6161, true), peer).await.expect("TC reply");
+            });
+            let success = exchange_on_port(
+                &wire_query(0x6161),
+                &[IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                17,
+                Duration::from_secs(1),
+                port,
+            )
+            .await
+            .expect("truncated answer");
+            assert_eq!(success.response_bytes, wire_empty_answer(0x6161, true));
+            server.await.expect("UDP fixture task");
+        });
+    }
+
+    #[test]
+    fn a_lost_query_datagram_is_retransmitted_once() {
+        with_binder(|| async {
+            let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("UDP fixture");
+            let port = udp.local_addr().expect("UDP address").port();
+            let server = tokio::spawn(async move {
+                let mut buffer = [0_u8; 512];
+                let (first, _) = udp.recv_from(&mut buffer).await.expect("first datagram, dropped");
+                let (second, peer) = udp.recv_from(&mut buffer).await.expect("retransmitted datagram");
+                assert_eq!(first, second);
+                udp.send_to(&wire_empty_answer(0x7171, false), peer).await.expect("reply");
+            });
+            let success = exchange_on_port(
+                &wire_query(0x7171),
+                &[IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                17,
+                Duration::from_secs(2),
+                port,
+            )
+            .await
+            .expect("answer to the retransmission");
+            assert_eq!(success.response_bytes, wire_empty_answer(0x7171, false));
+            server.await.expect("UDP fixture task");
+        });
+    }
+
+    #[test]
+    fn many_candidates_still_leave_a_slow_first_resolver_a_usable_slot() {
+        with_binder(|| async {
+            let udp = tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("UDP fixture");
+            let port = udp.local_addr().expect("UDP address").port();
+            let server = tokio::spawn(async move {
+                let mut buffer = [0_u8; 512];
+                let (_, peer) = udp.recv_from(&mut buffer).await.expect("UDP query");
+                // 400 ms exceeds the 250 ms an even 4 s split over 16 candidates would leave.
+                tokio::time::sleep(Duration::from_millis(400)).await;
+                udp.send_to(&wire_empty_answer(0x8181, false), peer).await.expect("slow reply");
+            });
+            let candidates = [IpAddr::V4(Ipv4Addr::LOCALHOST); 16];
+            let success = exchange_on_port(&wire_query(0x8181), &candidates, 17, Duration::from_secs(4), port)
+                .await
+                .expect("slow first candidate answers inside its slot");
+            assert_eq!(success.response_bytes, wire_empty_answer(0x8181, false));
+            server.await.expect("UDP fixture task");
         });
     }
 }
