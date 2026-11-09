@@ -14,6 +14,8 @@ use crate::quic_transport::{self, QuicTransportConfig};
 use crate::salamander::SalamanderUdpSocket;
 
 const HYSTERIA_AUTH_STATUS: u16 = 233;
+/// HTTP/3 `H3_GENERAL_PROTOCOL_ERROR`, the reference close code for a rejected auth.
+const CLOSE_ERR_PROTOCOL_ERROR: quinn::VarInt = quinn::VarInt::from_u32(0x101);
 /// Reference client values (apernet/hysteria `core/client/config.go`): a PING
 /// every 10 s keeps quiet flows and mobile UDP NAT mappings alive, and a
 /// dead path is detected after 30 s without packets.
@@ -87,6 +89,7 @@ pub(crate) async fn authenticate_connection(
     let response = stream.recv_response().await?;
 
     if response.status().as_u16() != HYSTERIA_AUTH_STATUS {
+        connection.close(CLOSE_ERR_PROTOCOL_ERROR, b"");
         return Err(HysteriaError::AuthFailed);
     }
 
@@ -136,6 +139,8 @@ pub(crate) fn build_endpoint(
 
 fn client_transport_config() -> quinn::TransportConfig {
     let mut transport = quinn::TransportConfig::default();
+    // Reference client default when no bandwidth is configured (`Hysteria-CC-RX: auto`).
+    transport.congestion_controller_factory(Arc::new(quinn::congestion::BbrConfig::default()));
     transport.keep_alive_interval(Some(KEEP_ALIVE_INTERVAL));
     transport.max_idle_timeout(Some(MAX_IDLE_TIMEOUT.into()));
     transport.stream_receive_window(STREAM_RECEIVE_WINDOW);
@@ -249,6 +254,50 @@ mod tests {
         assert_eq!(endpoint.local_addr().expect("rebound endpoint address"), rebound_addr);
         endpoint.close(0u32.into(), b"test complete");
         tokio::time::timeout(Duration::from_secs(2), endpoint.wait_idle()).await.expect("endpoint driver stops");
+    }
+
+    #[tokio::test]
+    async fn rejected_auth_closes_connection_with_protocol_error() {
+        let mut server = crate::test_server::TestServer::start(crate::test_server::ServerOptions {
+            reject_auth: true,
+            ..crate::test_server::ServerOptions::default()
+        })
+        .expect("test server");
+        let result = tokio::time::timeout(Duration::from_secs(5), crate::connect(&server.client_config()))
+            .await
+            .expect("connect finishes");
+        assert!(matches!(result, Err(crate::HysteriaError::AuthFailed)));
+        let event = tokio::time::timeout(Duration::from_secs(5), server.events.recv()).await.expect("close seen");
+        assert!(matches!(event, Some(crate::test_server::ServerEvent::AuthRejectedClose(0x101))), "{event:?}");
+    }
+
+    #[tokio::test]
+    async fn client_connections_use_bbr_congestion_control() {
+        let server =
+            crate::test_server::TestServer::start(crate::test_server::ServerOptions::default()).expect("test server");
+        let config = server.client_config();
+        let socket_spec = super::ClientSocketSpec {
+            ipv6: false,
+            bind_low_port: false,
+            salamander_key: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        };
+        let (endpoint, _, _) = super::build_endpoint(
+            &config,
+            super::build_tls_config(&config).expect("TLS config"),
+            socket_spec,
+            server.addr(),
+        )
+        .expect("endpoint");
+        let connection = tokio::time::timeout(
+            Duration::from_secs(5),
+            endpoint.connect(server.addr(), &config.server_name).expect("connect"),
+        )
+        .await
+        .expect("handshake finishes")
+        .expect("handshake");
+        let controller = connection.congestion_state();
+        assert!(controller.into_any().downcast::<quinn::congestion::Bbr>().is_ok());
     }
 
     struct DropNotice(Option<oneshot::Sender<()>>);

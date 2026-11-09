@@ -181,8 +181,11 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         masqueUrl = relayMasqueUrl,
         masqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = relayMasqueCloudflareGeohashEnabled,
-        tuicZeroRtt = relayTuicZeroRtt,
+        // Native TUIC rejects 0-RTT, so a saved profile never enables it.
+        tuicZeroRtt = false,
         tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
+        tuicRootCertificatePem = relayTuicRootCertificatePem.trim(),
+        tuicAlpn = relayTuicAlpn.trim(),
         shadowTlsInnerProfileId = relayShadowTlsInnerProfileId,
         naivePath = relayNaivePath,
         appsScriptScriptIds = relayAppsScriptScriptIds.preserveRelayLines(source?.appsScriptScriptIds),

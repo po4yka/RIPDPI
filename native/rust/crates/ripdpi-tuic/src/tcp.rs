@@ -7,17 +7,21 @@ use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 use crate::client::ActiveTask;
-use crate::protocol::{COMMAND_CONNECT, TUIC_VERSION, TuicAddress};
+use crate::protocol::{COMMAND_CONNECT, TUIC_VERSION, TuicAddress, hint_close_before_server_data};
 
 pub struct DuplexStream {
     pub(crate) send: SendStream,
     pub(crate) recv: RecvStream,
+    pub(crate) connection: quinn::Connection,
     pub(crate) _active: ActiveTask,
 }
 
 impl AsyncRead for DuplexStream {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.recv).poll_read(cx, buf)
+        let this = &mut *self;
+        Pin::new(&mut this.recv)
+            .poll_read(cx, buf)
+            .map_err(|error| hint_close_before_server_data(&this.connection, error))
     }
 }
 

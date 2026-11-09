@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.subscription
 
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlMap
+import com.poyka.ripdpi.data.Hysteria2SalamanderMinKeyBytes
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
@@ -341,16 +342,17 @@ private fun unsupportedHysteria2Option(
 ): SingBoxSkippedNode? {
     if (type != "hysteria2") return null
     val obfsType = (obj["obfs"] as? JsonObject)?.string("type")?.lowercase()
-    return when {
-        obfsType != null && obfsType != "salamander" -> {
-            SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
-        }
-
-        else -> {
-            null
-        }
+    val unusableSalamanderKey =
+        (salamanderPassword(obj)?.toByteArray()?.size ?: 0) < Hysteria2SalamanderMinKeyBytes
+    return if (obfsType != null && (obfsType != "salamander" || unusableSalamanderKey)) {
+        SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_OBFUSCATION, obfsType)
+    } else {
+        null
     }
 }
+
+private fun salamanderPassword(obj: JsonObject): String? =
+    (obj["obfs"] as? JsonObject)?.takeIf { it.string("type")?.lowercase() == "salamander" }?.rawString("password")
 
 /** Permissive JSON reader shared by the sing-box parser and its outbound mappers. */
 private val singBoxJson =
@@ -581,7 +583,6 @@ private fun mapHysteria2(
     ) { "Hysteria server port is invalid" }
     val password = obj.string("password")
     val tls = obj["tls"] as? JsonObject
-    val obfs = obj["obfs"] as? JsonObject
     return if (server != null && selectedPort != null && !password.isNullOrBlank()) {
         ProxyProfile.Hysteria2(
             id = newId(),
@@ -591,7 +592,7 @@ private fun mapHysteria2(
             serverPort = selectedPort,
             password = password,
             serverName = tls?.string("server_name"),
-            obfsPassword = obfs?.rawString("password"),
+            obfsPassword = salamanderPassword(obj),
             insecure = (tls?.get("insecure") as? JsonPrimitive)?.booleanOrNull,
             portHopping = hopping,
         )

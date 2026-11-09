@@ -33,6 +33,7 @@ import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
+import com.poyka.ripdpi.data.isValidTuicUuid
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
@@ -71,7 +72,7 @@ internal fun validateDefaultRelayCredentials(
             }
 
             RelayKindTuicV5 -> {
-                !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
+                isValidTuicUuid(credentials?.tuicUuid) && !credentials?.tuicPassword.isNullOrBlank()
             }
 
             RelayKindGoogleAppsScript -> {

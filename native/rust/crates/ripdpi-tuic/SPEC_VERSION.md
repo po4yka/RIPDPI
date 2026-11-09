@@ -2,10 +2,10 @@
 
 This crate's wire format (TUIC v5 over QUIC) is pinned against the following upstream reference.
 
-- **Upstream repo:** https://github.com/EAimTY/tuic
-- **Upstream tag:** v5
-- **Upstream commit:** unverified-as-of-2026-05-15
-- **Last reviewed:** 2026-05-15
+- **Upstream repo:** https://github.com/tuic-protocol/tuic
+- **Upstream tag:** v5 (SPEC.md); reference implementations `tuic-server-1.0.0` and `tuic-client-1.0.0`
+- **Upstream commit:** 8e118f242f24a17a9f487dc344cc50d7e63e557e (SPEC.md)
+- **Last reviewed:** 2026-11-09
 - **Owner:** unassigned
 
 ## Scope

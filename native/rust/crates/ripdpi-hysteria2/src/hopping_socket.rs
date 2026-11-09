@@ -154,12 +154,18 @@ impl HoppingSocket {
         if due {
             // Socket construction invokes the platform protection callback. It
             // must run outside both transport locks, before the new socket is used.
-            let result = build_client_udp_socket(&self.spec)
-                .and_then(|socket| wrap_socket(socket, &self.spec))
-                .and_then(|socket| self.replace_socket(socket, true));
-            if let Err(error) = result {
-                self.stop();
-                return Err(error);
+            let built = build_client_udp_socket(&self.spec).and_then(|socket| wrap_socket(socket, &self.spec));
+            match built {
+                // A socket that cannot be built (bind or VPN protect failure) is
+                // dropped unused; the current path is already protected and stays
+                // in service until the next scheduled hop.
+                Err(error) => tracing::warn!(kind = ?error.kind(), "Hysteria port hop skipped"),
+                Ok(socket) => {
+                    if let Err(error) = self.replace_socket(socket, true) {
+                        self.stop();
+                        return Err(error);
+                    }
+                }
             }
         }
         Ok(())

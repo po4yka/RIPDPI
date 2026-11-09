@@ -6,7 +6,7 @@ TUIC v5 client over Quinn.
 
 ## Upstream
 
-- EAimTY/tuic (https://github.com/EAimTY/tuic)
+- tuic-protocol/tuic (https://github.com/tuic-protocol/tuic)
 - Pin recorded in `SPEC_VERSION.md`
 
 ## Wire format (v5)
@@ -37,6 +37,11 @@ Constants from `protocol.rs`:
 - v4 is intentionally unsupported; `docs/architecture/tuic-v4-policy.md` records the v5-only decision and the version-unsupported classifier surface.
 - UDP forward mode is native/datagram-only. `udp.rs` uses QUIC datagrams (`read_datagram` / `send_datagram`) and `client.rs` rejects UDP when `max_datagram_size` is absent. Reliable-stream `quic` UDP forwarding is intentionally deferred until telemetry shows a real need.
 - The client sends a TUIC Heartbeat datagram every 3 s while at least one TCP relay or UDP session is open, as the reference client does; an idle carrier stays silent. It needs datagram support on the connection.
+- A `UdpSession` owns one association: one ASSOC_ID and one 16-bit PKT_ID counter for every destination (full cone), allocated on the first send and sent `Dissociate` on drop. Inbound packets from any source on it are delivered with their source address.
+- Datagram fragments need `FRAG_TOTAL >= 1` and `FRAG_ID < FRAG_TOTAL`, or the datagram is dropped. A partial packet lives 15 s (the reference client's `gc_lifetime`) and is replaced when its `FRAG_TOTAL` differs or its PKT_ID is reused after expiry. Known limit, shared with the reference: if the server's PKT_ID wraps within 15 s and an earlier packet with the same `FRAG_TOTAL` lost a fragment, fragments of the two packets can still merge.
+- The UUID is parsed before the QUIC handshake, an empty authority host is rejected, and `udp_session` fails with `BrokenPipe` once the connection is closed.
+- Auth has no reply in the spec. A relay that fails after the server application-closed the connection without sending any data carries a hint that the UUID or password may be wrong.
+- The client tries every resolved server address (filtered by the bind-IP family, families interleaved as in RFC 8305 so a broken family costs one timeout), each with a fresh protected socket and an 8 s QUIC handshake timeout, like the reference client. A socket that fails to build or protect is skipped, never used.
 - `Config.keepalive_interval_ms` is wired to `quinn::TransportConfig::keep_alive_interval`; `0` disables it and legacy configs default to `0`. Relay profiles do not yet expose a TUIC keepalive field, so `ripdpi-relay-core` currently passes `0` for direct TUIC and chain TUIC sessions.
 
 ## Non-goals

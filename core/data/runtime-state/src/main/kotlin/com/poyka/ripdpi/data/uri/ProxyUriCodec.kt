@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.uri
 
+import com.poyka.ripdpi.data.Hysteria2SalamanderMinKeyBytes
 import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
@@ -553,6 +554,17 @@ object ProxyUriCodec {
         val rawQuery = parsed.rawQuery
         val obfsType = queryValue(rawQuery, "obfs")
         if (obfsType != null && !obfsType.equals("salamander", ignoreCase = true)) return null
+        // Like upstream, obfs-password counts only under obfs=salamander, which needs a key of 4+ bytes.
+        val obfsPassword =
+            if (obfsType == null) {
+                null
+            } else {
+                queryValue(rawQuery, "obfs-password")
+                    ?.takeIf { it.isNotBlank() && it.toByteArray().size >= Hysteria2SalamanderMinKeyBytes }
+                    ?: return null
+            }
+        // Hysteria 2 has no ECH here: importing without it would expose the SNI.
+        if (!queryValue(rawQuery, "ech").isNullOrBlank()) return null
         // REL-3: pinSHA256 is the certificate pin that makes insecure=1 safe for a
         // self-signed server. A malformed pin rejects the link: if the importer
         // dropped it and kept insecure=1, the profile would accept any certificate.
@@ -569,7 +581,7 @@ object ProxyUriCodec {
             // Salamander obfuscation password. The activator maps obfsPassword ->
             // hysteriaSalamanderKey, which the native QUIC backend already honours;
             // dropping it silently disabled the configured censorship-resistance.
-            obfsPassword = queryValue(rawQuery, "obfs-password"),
+            obfsPassword = obfsPassword,
             // insecure=1 skips TLS cert verification; dropping it silently forced
             // strict verification and an opaque handshake failure (P1-9).
             insecure = queryValue(rawQuery, "insecure")?.let { it == "1" || it.equals("true", ignoreCase = true) },

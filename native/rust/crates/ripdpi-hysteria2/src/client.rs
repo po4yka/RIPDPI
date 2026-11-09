@@ -134,7 +134,7 @@ impl HysteriaClient {
             return Err(HysteriaError::UdpNotSupported);
         }
 
-        Ok(UdpSession::new(Arc::clone(&self.inner)))
+        Ok(UdpSession::new(Arc::clone(&self.inner), self._dispatch_guard.clone()))
     }
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
@@ -233,6 +233,43 @@ mod tests {
         assert_eq!(client.quic_migration_snapshot().0.as_deref(), Some("validated"));
         assert_eq!(server.events.recv().await, Some(ServerEvent::TcpRequest("192.0.2.1:80".into())));
         assert!(server.events.try_recv().is_err(), "the refused CONNECT was sent again");
+    }
+
+    /// The UDP session owns the dispatcher: dropping every client clone must
+    /// not stop reply delivery.
+    #[tokio::test]
+    async fn udp_session_survives_dropping_the_client() {
+        use std::time::Duration;
+
+        let server = TestServer::start(ServerOptions::default()).expect("test server");
+        let client = crate::connect(&server.client_config()).await.expect("connect");
+        let mut session = client.udp_session().await.expect("UDP session");
+        drop(client);
+
+        session.send_to("192.0.2.1:53", b"ping").await.expect("send");
+        let (_, echoed) =
+            tokio::time::timeout(Duration::from_secs(3), session.recv_from()).await.expect("echo").expect("echo");
+        assert_eq!(echoed, b"ping");
+    }
+
+    /// A refused message costs no migration attempt and sends no datagram.
+    #[tokio::test]
+    async fn refused_udp_message_leaves_migration_untouched() {
+        let mut server = TestServer::start(ServerOptions::default()).expect("test server");
+        let mut config = server.client_config();
+        config.quic_migrate_after_handshake = true;
+        let client = crate::connect(&config).await.expect("connect");
+        let session = client.udp_session().await.expect("UDP session");
+        let before = session.quic_migration_snapshot();
+
+        let error = session.send_to("192.0.2.1:53", b"").await.expect_err("empty payload is refused");
+
+        assert!(matches!(error, crate::HysteriaError::InvalidDatagram(_)), "unexpected error: {error}");
+        assert_eq!(session.quic_migration_snapshot(), before);
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        while let Ok(event) = server.events.try_recv() {
+            assert!(!matches!(event, ServerEvent::Datagram { .. }), "a refused message reached the server");
+        }
     }
 
     #[test]

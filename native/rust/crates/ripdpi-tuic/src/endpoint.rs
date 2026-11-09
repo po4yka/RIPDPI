@@ -28,7 +28,7 @@ pub(crate) struct ClientSocketSpec {
     pub(crate) socket_protection: SocketProtectionPolicy,
     /// Interface pinning: the carrier binds to this address instead of an
     /// unspecified one. The family is validated against the resolved server
-    /// address at resolve time (`resolve_server_addr`).
+    /// address at resolve time (`resolve_server_addrs`).
     pub(crate) outbound_bind_ip: Option<std::net::IpAddr>,
 }
 
@@ -104,6 +104,7 @@ fn try_bind_low_port(socket: &Socket, bind_ip: std::net::IpAddr) -> io::Result<(
 
 pub(crate) fn build_tls_config(
     additional_roots: Option<Vec<CertificateDer<'static>>>,
+    alpn: &[String],
 ) -> io::Result<RustlsClientConfig> {
     ensure_crypto_provider();
     let mut roots = RootCertStore::empty();
@@ -118,7 +119,11 @@ pub(crate) fn build_tls_config(
         ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(RustlsClientConfig::builder(), roots)
             .map_err(io::Error::other)?
             .with_no_client_auth();
-    tls_config.alpn_protocols = vec![b"h3".to_vec()];
+    tls_config.alpn_protocols = if alpn.is_empty() {
+        vec![b"h3".to_vec()]
+    } else {
+        alpn.iter().map(|entry| entry.as_bytes().to_vec()).collect()
+    };
     Ok(tls_config)
 }
 
@@ -146,6 +151,9 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     if config.server.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC server"));
     }
+    if config.alpn.iter().any(|entry| entry.is_empty() || entry.len() > usize::from(u8::MAX)) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "TUIC ALPN entries must be 1-255 bytes"));
+    }
     if config.server_port <= 0 || config.server_port > i32::from(u16::MAX) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid TUIC server port"));
     }
@@ -155,6 +163,8 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     if config.uuid.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC UUID"));
     }
+    uuid::Uuid::parse_str(config.uuid.trim())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid TUIC UUID: {error}")))?;
     if config.password.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC password"));
     }
@@ -170,28 +180,107 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     Ok(())
 }
 
-pub(crate) async fn resolve_server_addr(
+/// Handshake budget for one server address; the reference client uses 8 s.
+const HANDSHAKE_TIMEOUT: std::time::Duration =
+    if cfg!(test) { std::time::Duration::from_millis(500) } else { std::time::Duration::from_secs(8) };
+
+/// Resolves the server to every address usable with `outbound_bind_ip`, with
+/// the address families interleaved (RFC 8305 section 4) so that a broken
+/// family costs at most one handshake timeout before the other family is tried.
+///
+/// # Cancel safety:
+/// cancel-safe: resolution keeps no state; a cancelled call opens no carrier.
+pub(crate) async fn resolve_server_addrs(
     server: &str,
     port: i32,
     outbound_bind_ip: Option<std::net::IpAddr>,
     socket_protection: SocketProtectionPolicy,
-) -> io::Result<SocketAddr> {
-    let addrs = socket_protection.resolve_host(server, port as u16).await?;
-    let resolved = match outbound_bind_ip {
-        Some(bind_ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
-        })?,
-        None => addrs
-            .into_iter()
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"))?,
-    };
-    Ok(resolved)
+) -> io::Result<Vec<SocketAddr>> {
+    let mut addrs = socket_protection.resolve_host(server, port as u16).await?;
+    if let Some(bind_ip) = outbound_bind_ip {
+        addrs.retain(|addr| addr.is_ipv4() == bind_ip.is_ipv4());
+        if addrs.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                "no server address matches outbound bind IP family",
+            ));
+        }
+    }
+    if addrs.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server"));
+    }
+    Ok(interleave_address_families(addrs))
+}
+
+/// Alternates IPv6 and IPv4 addresses, starting with the family of the first
+/// resolved address, and keeps the resolver order inside each family.
+fn interleave_address_families(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
+    let first_is_ipv6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
+    let (mut preferred, mut other): (std::collections::VecDeque<_>, std::collections::VecDeque<_>) =
+        addrs.into_iter().partition(|addr| addr.is_ipv6() == first_is_ipv6);
+    let mut ordered = Vec::with_capacity(preferred.len() + other.len());
+    loop {
+        match (preferred.pop_front(), other.pop_front()) {
+            (None, None) => return ordered,
+            (first, second) => ordered.extend(first.into_iter().chain(second)),
+        }
+    }
+}
+
+/// Tries each address in order with a fresh protected socket and endpoint,
+/// and returns the first QUIC connection that completes its handshake within
+/// [`HANDSHAKE_TIMEOUT`].
+///
+/// # Cancel safety:
+/// cancel-safe: the pending attempt owns its endpoint and socket; cancellation
+/// drops them before anything is published.
+pub(crate) async fn connect_first_reachable(
+    config: &Config,
+    tls_config: &RustlsClientConfig,
+    addrs: &[SocketAddr],
+) -> io::Result<(Endpoint, std::net::UdpSocket, quinn::Connection, ClientSocketSpec)> {
+    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "unable to resolve TUIC server");
+    for &server_addr in addrs {
+        let socket_spec = ClientSocketSpec {
+            ipv6: server_addr.is_ipv6(),
+            bind_low_port: config.quic_bind_low_port,
+            socket_protection: config.socket_protection,
+            outbound_bind_ip: config.outbound_bind_ip,
+        };
+        // A socket that cannot be built or protected is never used, so moving
+        // on to the next address stays fail-closed: a missing or refusing
+        // protect callback fails every attempt and its error is returned.
+        let (endpoint, current_socket) = match build_endpoint(config, tls_config.clone(), socket_spec) {
+            Ok(built) => built,
+            Err(error) => {
+                last_error = error;
+                continue;
+            }
+        };
+        match tokio::time::timeout(HANDSHAKE_TIMEOUT, establish_connection(&endpoint, config, server_addr)).await {
+            Ok(Ok(connection)) => return Ok((endpoint, current_socket, connection, socket_spec)),
+            Ok(Err(error)) => last_error = error,
+            Err(_) => last_error = io::Error::new(io::ErrorKind::TimedOut, "TUIC QUIC handshake timed out"),
+        }
+    }
+    Err(last_error)
 }
 
 #[cfg(test)]
 mod transport_tests {
     use super::*;
+
+    #[test]
+    fn resolved_address_families_are_interleaved() {
+        let v6a: SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+        let v6b: SocketAddr = "[2001:db8::2]:443".parse().unwrap();
+        let v4a: SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let v4b: SocketAddr = "192.0.2.2:443".parse().unwrap();
+        assert_eq!(interleave_address_families(vec![v6a, v6b, v4a, v4b]), vec![v6a, v4a, v6b, v4b]);
+        assert_eq!(interleave_address_families(vec![v4a, v6a, v6b]), vec![v4a, v6a, v6b]);
+        assert_eq!(interleave_address_families(vec![v4a, v4b]), vec![v4a, v4b]);
+        assert!(interleave_address_families(Vec::new()).is_empty());
+    }
 
     #[test]
     fn transport_retains_finite_idle_timeout_when_keepalive_is_disabled() {

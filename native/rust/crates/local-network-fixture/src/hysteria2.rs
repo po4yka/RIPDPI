@@ -25,6 +25,7 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use rcgen::generate_simple_self_signed;
@@ -45,16 +46,38 @@ const MAX_ADDRESS_LEN: u64 = 2048;
 /// proxied TCP stream.
 // Drop order: shutdown drops-before join; the Drop body fires the oneshot stop signal (and closes the quinn endpoint) before the accept-loop `JoinHandle` is detached, so the loop observes shutdown on its next poll.
 pub struct Hysteria2Loopback {
+    refusals: Arc<TargetRefusals>,
     local_addr: SocketAddr,
     endpoint: quinn::Endpoint,
     shutdown: Option<oneshot::Sender<()>>,
     join: Option<JoinHandle<()>>,
 }
 
+/// Targets the fixture answers with a non-zero TCP status instead of echoing.
+#[derive(Default)]
+struct TargetRefusals {
+    suffix: Option<String>,
+    refused: AtomicUsize,
+}
+
 impl Hysteria2Loopback {
     /// Start the fixture on `127.0.0.1:0`.
     pub async fn start() -> io::Result<Self> {
-        Self::spawn(build_server_endpoint()?)
+        Self::spawn(build_server_endpoint()?, TargetRefusals::default())
+    }
+
+    /// Like [`Self::start`], but TCP requests whose target ends with `suffix`
+    /// get status `0x01` (refused) while the QUIC connection stays healthy.
+    pub async fn start_refusing_target_suffix(suffix: &str) -> io::Result<Self> {
+        Self::spawn(
+            build_server_endpoint()?,
+            TargetRefusals { suffix: Some(suffix.to_owned()), refused: AtomicUsize::new(0) },
+        )
+    }
+
+    /// Number of TCP requests the fixture refused so far.
+    pub fn refused_requests(&self) -> usize {
+        self.refusals.refused.load(Ordering::Relaxed)
     }
 
     /// Start the fixture on a caller-supplied abstract UDP socket (e.g. a
@@ -69,30 +92,33 @@ impl Hysteria2Loopback {
             Arc::new(quinn::TokioRuntime),
         )
         .map_err(io::Error::other)?;
-        Self::spawn(endpoint)
+        Self::spawn(endpoint, TargetRefusals::default())
     }
 
     /// Wire a server endpoint into the shutdown-aware accept loop.
-    fn spawn(endpoint: quinn::Endpoint) -> io::Result<Self> {
+    fn spawn(endpoint: quinn::Endpoint, refusals: TargetRefusals) -> io::Result<Self> {
+        let refusals = Arc::new(refusals);
         let local_addr = endpoint.local_addr()?;
 
         let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
         let accept_endpoint = endpoint.clone();
+        let accept_refusals = refusals.clone();
         let join = tokio::spawn(async move {
             loop {
                 tokio::select! {
                     _ = &mut shutdown_rx => break,
                     incoming = accept_endpoint.accept() => {
                         let Some(incoming) = incoming else { break };
+                        let refusals = accept_refusals.clone();
                         tokio::spawn(async move {
-                            let _ = handle_connection(incoming).await;
+                            let _ = handle_connection(incoming, refusals).await;
                         });
                     }
                 }
             }
         });
 
-        Ok(Self { local_addr, endpoint, shutdown: Some(shutdown_tx), join: Some(join) })
+        Ok(Self { refusals, local_addr, endpoint, shutdown: Some(shutdown_tx), join: Some(join) })
     }
 
     /// The loopback address the server is listening on.
@@ -156,7 +182,7 @@ fn build_server_config() -> io::Result<quinn::ServerConfig> {
     Ok(server_cfg)
 }
 
-async fn handle_connection(incoming: quinn::Incoming) -> io::Result<()> {
+async fn handle_connection(incoming: quinn::Incoming, refusals: Arc<TargetRefusals>) -> io::Result<()> {
     let connection = incoming.await.map_err(io::Error::other)?;
 
     // HTTP/3 auth on a clone of the connection. The returned h3 connection is
@@ -168,8 +194,9 @@ async fn handle_connection(incoming: quinn::Incoming) -> io::Result<()> {
     // Raw proxy streams. The client serializes: auth fully completes before it
     // opens the first proxy stream, so these are not raced with the h3 accept.
     while let Ok((send, recv)) = connection.accept_bi().await {
+        let refusals = refusals.clone();
         tokio::spawn(async move {
-            let _ = handle_proxy_stream(send, recv).await;
+            let _ = handle_proxy_stream(send, recv, &refusals).await;
         });
     }
     Ok(())
@@ -200,7 +227,11 @@ async fn handle_h3_auth(connection: quinn::Connection) -> io::Result<H3ServerCon
     }
 }
 
-async fn handle_proxy_stream(mut send: quinn::SendStream, mut recv: quinn::RecvStream) -> io::Result<()> {
+async fn handle_proxy_stream(
+    mut send: quinn::SendStream,
+    mut recv: quinn::RecvStream,
+    refusals: &TargetRefusals,
+) -> io::Result<()> {
     // Parse the TCP request frame: [varint cmd, varint addr_len, addr, varint
     // pad_len, pad]. We only need to consume it to stay framed; the bench echoes
     // bytes back to the client regardless of the requested target.
@@ -218,6 +249,18 @@ async fn handle_proxy_stream(mut send: quinn::SendStream, mut recv: quinn::RecvS
     if padding_len > 0 {
         let mut padding = vec![0u8; padding_len as usize];
         recv.read_exact(&mut padding).await.map_err(io::Error::other)?;
+    }
+
+    if refusals.suffix.as_deref().is_some_and(|suffix| address.ends_with(suffix.as_bytes())) {
+        refusals.refused.fetch_add(1, Ordering::Relaxed);
+        // Status 1, message "refused" (varint len + bytes), empty padding.
+        let message = b"refused";
+        let mut reply = vec![0x01, message.len() as u8];
+        reply.extend_from_slice(message);
+        reply.push(0x00);
+        send.write_all(&reply).await.map_err(io::Error::other)?;
+        let _ = send.finish();
+        return Ok(());
     }
 
     // Reply OK: status byte 0, empty message (varint 0), empty padding (varint 0).

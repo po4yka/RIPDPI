@@ -53,8 +53,9 @@ internal fun ConnectionDraft.withRelaySettings(relay: RelaySettingsModel): Conne
         relayMasqueUrl = relay.profile.masqueUrl,
         relayMasqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
         relayMasqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
-        relayTuicZeroRtt = relay.profile.tuicZeroRtt,
         relayTuicCongestionControl = relay.profile.tuicCongestionControl,
+        relayTuicRootCertificatePem = relay.profile.tuicRootCertificatePem,
+        relayTuicAlpn = relay.profile.tuicAlpn,
         relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
         relayAppsScriptScriptIds = relay.profile.appsScriptScriptIds.joinToString("\n"),
         relayAppsScriptGoogleIp = relay.profile.appsScriptGoogleIp,
@@ -157,8 +158,10 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConnectionDraft): AppSett
         setRelayMasqueUrl(draft.relayMasqueUrl)
         setRelayMasqueUseHttp2Fallback(draft.relayMasqueUseHttp2Fallback)
         setRelayMasqueCloudflareGeohashEnabled(draft.relayMasqueCloudflareGeohashEnabled)
-        setRelayTuicZeroRtt(draft.relayTuicZeroRtt)
+        setRelayTuicZeroRtt(false)
         setRelayTuicCongestionControl(normalizeRelayCongestionControl(draft.relayTuicCongestionControl))
+        setRelayTuicRootCertificatePem(draft.relayTuicRootCertificatePem.trim())
+        setRelayTuicAlpn(draft.relayTuicAlpn.trim())
         setRelayShadowtlsInnerProfileId(draft.relayShadowTlsInnerProfileId)
         clearRelayAppsScriptScriptIds()
         addAllRelayAppsScriptScriptIds(draft.relayAppsScriptScriptIds.relayLines())

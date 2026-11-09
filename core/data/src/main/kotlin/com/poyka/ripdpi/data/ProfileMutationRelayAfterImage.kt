@@ -41,6 +41,8 @@ fun AppSettings.Builder.applyRelayAfterImage(
     setRelayCloudflareCredentialsRef(profile.cloudflareCredentialsRef)
     setRelayTuicZeroRtt(profile.tuicZeroRtt)
     setRelayTuicCongestionControl(profile.tuicCongestionControl)
+    setRelayTuicRootCertificatePem(profile.tuicRootCertificatePem)
+    setRelayTuicAlpn(profile.tuicAlpn)
     setRelayShadowtlsInnerProfileId(profile.shadowTlsInnerProfileId)
     setRelayNaivePath(profile.naivePath)
     setRelayLocalSocksHost(profile.localSocksHost)

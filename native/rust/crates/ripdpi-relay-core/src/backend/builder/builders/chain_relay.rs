@@ -3,7 +3,7 @@ use std::io;
 use std::net::IpAddr;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::{required_secret, vless_reality_config};
+use crate::backend::builder::builders::common::{required_secret, salamander_key, vless_reality_config};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{ChainHopConnector, ChainRelaySessionFactory};
@@ -366,7 +366,8 @@ fn resolved_hop_hysteria2_factory(
         .map(ripdpi_hysteria2::parse_certificate_pin_sha256)
         .transpose()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-    config.salamander_key = hop.hysteria_salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
+    config.salamander_key = salamander_key(hop.hysteria_salamander_key.as_deref())
+        .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?;
     config.quic_bind_low_port = false;
     config.quic_migrate_after_handshake = false;
     config.socket_protection = socket_protection;
@@ -407,7 +408,13 @@ fn resolved_hop_tuic_factory(
             socket_protection,
             outbound_bind_ip,
             keepalive_interval_ms: 0,
-            root_certificate_pem: None,
+            root_certificate_pem: hop
+                .tuic_root_certificate_pem
+                .as_deref()
+                .map(str::trim)
+                .filter(|pem| !pem.is_empty())
+                .map(str::to_owned),
+            alpn: hop.tuic_alpn.clone(),
         },
         migration: quic_migration,
     })
@@ -446,6 +453,17 @@ mod credential_tests {
         assert!(factory.config.insecure);
         assert_eq!(factory.config.pin_sha256, Some([0xab; 32]));
         assert_eq!(factory.config.salamander_key.as_deref(), Some("fixture-obfs"));
+        let mut short_key = hop.clone();
+        short_key.hysteria_salamander_key = Some("abc".to_owned());
+        assert!(
+            resolved_hop_hysteria2_factory(
+                &short_key,
+                "entry",
+                SocketProtectionPolicy::Inactive,
+                QuicMigrationTelemetryState::default()
+            )
+            .is_err()
+        );
         let mut invalid = hop;
         invalid.hysteria_port_hop_interval_max_millis = Some(4999);
         assert!(
@@ -457,6 +475,26 @@ mod credential_tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn chain_tuic_json_root_certificate_reaches_factory() {
+        let wire = serde_json::json!({
+            "kind": "tuic_v5", "server": "peer.example", "serverPort": 443,
+            "serverName": "peer.example", "tlsFingerprintProfile": "chrome_stable", "tuicUuid": "00000000-0000-0000-0000-000000000000",
+            "tuicPassword": "fixture-pass", "tuicRootCertificatePem": "pem-body", "tuicAlpn": ["tuic"]
+        });
+        let hop: ResolvedChainRelayHopConfig = serde_json::from_value(wire).expect("chain wire");
+        let factory = resolved_hop_tuic_factory(
+            &hop,
+            "entry",
+            None,
+            SocketProtectionPolicy::Inactive,
+            QuicMigrationTelemetryState::default(),
+        )
+        .expect("chain factory");
+        assert_eq!(factory.config.root_certificate_pem.as_deref(), Some("pem-body"));
+        assert_eq!(factory.config.alpn, ["tuic"]);
     }
 
     #[test]

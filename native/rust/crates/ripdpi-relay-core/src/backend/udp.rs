@@ -54,7 +54,8 @@ impl UdpCarrier for RelayUdpSession {
     async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
         match self {
             Self::Hysteria2 { session, migration } => {
-                let result = session.get_mut().send_to(&target.to_connect_target(), payload).await.map_err(to_io_error);
+                let result =
+                    session.get_mut().send_to(&target.to_connect_target(), payload).await.map_err(hysteria_send_error);
                 sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
                 result
             }
@@ -114,5 +115,30 @@ impl UdpCarrier for RelayUdpSession {
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
         }
+    }
+}
+
+/// A datagram the Hysteria 2 client refuses before sending (empty payload,
+/// address outside 1..=2048 bytes, too many fragments) is lost like any UDP
+/// packet: `InvalidInput` keeps the association, every other error ends it.
+fn hysteria_send_error(error: ripdpi_hysteria2::HysteriaError) -> io::Error {
+    match error {
+        ripdpi_hysteria2::HysteriaError::InvalidDatagram(reason) => io::Error::new(io::ErrorKind::InvalidInput, reason),
+        other => to_io_error(other),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::hysteria_send_error;
+    use ripdpi_hysteria2::HysteriaError;
+    use std::io;
+
+    #[test]
+    fn refused_hysteria_datagram_keeps_the_udp_association() {
+        let refused = hysteria_send_error(HysteriaError::InvalidDatagram("empty payload".into()));
+        assert_eq!(refused.kind(), io::ErrorKind::InvalidInput);
+        let lost = hysteria_send_error(HysteriaError::Io(io::Error::from(io::ErrorKind::BrokenPipe)));
+        assert_eq!(lost.kind(), io::ErrorKind::BrokenPipe);
     }
 }

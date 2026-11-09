@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::to_io_error;
+use crate::backend::builder::builders::common::{salamander_key, to_io_error};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::Hysteria2SessionFactory;
@@ -28,7 +28,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         hysteria.port_hop_interval_max_millis,
     )
     .map_err(to_io_error)?;
-    client_config.salamander_key = hysteria.salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
+    client_config.salamander_key = salamander_key(hysteria.salamander_key.as_deref())?;
     client_config.insecure = hysteria.insecure;
     // Fail closed on a malformed pin: ignoring it would turn an `insecure`
     // profile into one that accepts any certificate.
@@ -128,6 +128,22 @@ mod tests {
     fn build_accepts_a_valid_certificate_pin() {
         let config = hysteria_config(Some("AB:".repeat(31) + "AB"));
         assert!(matches!(build(&config, &build_context()), Ok(RelayBackend::Hysteria2(_))));
+    }
+
+    #[test]
+    fn build_rejects_a_salamander_key_shorter_than_four_bytes() {
+        for (key, accepted) in [("abc", false), ("abcd", true), ("    ", true), ("   ", false), ("", true)] {
+            let mut config = hysteria_config(None);
+            let RelayBackendConfig::Hysteria2(hysteria) = &mut config.backend else { unreachable!() };
+            hysteria.salamander_key = Some(key.to_owned());
+            match build(&config, &build_context()) {
+                Ok(_) => assert!(accepted, "key {key:?} must be rejected"),
+                Err(error) => {
+                    assert!(!accepted, "key {key:?} must be accepted");
+                    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+                }
+            }
+        }
     }
 
     #[test]

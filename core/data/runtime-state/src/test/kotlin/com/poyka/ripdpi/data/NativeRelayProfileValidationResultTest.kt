@@ -186,4 +186,21 @@ class NativeRelayProfileValidationResultTest {
         assertFalse(isValidVlessUuid("550e-8400-e29b-41d4-a716-4466-5544-0000"))
         assertFalse(isValidVlessUuid(null))
     }
+
+    @Test
+    fun `hysteria2 admission requires a Salamander key of at least 4 bytes`() {
+        val base =
+            ProxyProfile.Hysteria2(
+                id = "h",
+                displayName = "h",
+                groupId = "",
+                server = "h.example",
+                serverPort = 443,
+                password = "fixture-pw",
+            )
+        assertTrue(validateNativeRelayProfileResult(base).isSuccess)
+        assertTrue(validateNativeRelayProfileResult(base.copy(obfsPassword = " ")).isSuccess)
+        assertTrue(validateNativeRelayProfileResult(base.copy(obfsPassword = "abcd")).isSuccess)
+        assertTrue(validateNativeRelayProfileResult(base.copy(obfsPassword = "abc")).isFailure)
+    }
 }

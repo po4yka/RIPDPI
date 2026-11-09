@@ -1,21 +1,21 @@
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::{Duration, Instant};
 
 use bytes::BytesMut;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{OnceCell, mpsc};
 use tracing::debug;
 
 use crate::client::{ActiveTask, ClientInner};
 use crate::protocol::{PacketHeader, TuicAddress, dissociate};
 
-const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
-const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
+const CLEANUP_INTERVAL: Duration = Duration::from_secs(5);
+/// Lifetime of a partial packet; the reference client drops one after 15 s.
+const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
 const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
-const MAX_DESTINATIONS_PER_UDP_SESSION: usize = 256;
 /// Bound for one best-effort `Dissociate` exchange.
 const DISSOCIATE_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -27,31 +27,10 @@ pub struct UdpSession {
     _active: ActiveTask,
     incoming_rx: mpsc::Receiver<UdpPacket>,
     incoming_tx: mpsc::Sender<UdpPacket>,
-    destinations: Mutex<DestinationState>,
-}
-
-#[derive(Default)]
-struct DestinationState {
-    entries: HashMap<String, DestinationEntry>,
-    access_sequence: u64,
-}
-
-struct DestinationEntry {
-    assoc_id: u16,
-    next_packet_id: u16,
-    last_used: u64,
-}
-
-impl DestinationState {
-    fn route_for_existing(&mut self, address: &str) -> Option<(u16, u16)> {
-        self.access_sequence = self.access_sequence.saturating_add(1);
-        let last_used = self.access_sequence;
-        let entry = self.entries.get_mut(address)?;
-        let packet_id = entry.next_packet_id;
-        entry.next_packet_id = entry.next_packet_id.wrapping_add(1);
-        entry.last_used = last_used;
-        Some((entry.assoc_id, packet_id))
-    }
+    /// The session's single association: one server-side UDP socket, so the
+    /// remote sees one source port and any peer may reply (full cone).
+    assoc_id: OnceCell<u16>,
+    next_packet_id: AtomicU16,
 }
 
 impl UdpSession {
@@ -63,7 +42,8 @@ impl UdpSession {
             _active: active,
             incoming_rx,
             incoming_tx,
-            destinations: Mutex::new(DestinationState::default()),
+            assoc_id: OnceCell::new(),
+            next_packet_id: AtomicU16::new(0),
         }
     }
 
@@ -76,7 +56,9 @@ impl UdpSession {
     /// so the send never waits for the server.
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> io::Result<()> {
         let target = TuicAddress::from_authority(address)?;
-        let (assoc_id, packet_id) = self.route_for(address).await?;
+        let assoc_id = self.assoc_id().await?;
+        // Ordering: Relaxed — a standalone counter; wrap-around is the wire semantics.
+        let packet_id = self.next_packet_id.fetch_add(1, Ordering::Relaxed);
         let migration = self.client.begin_quic_migration()?;
         match send_udp_payload(&self.client, assoc_id, packet_id, &target, payload) {
             Ok(()) => {
@@ -113,29 +95,25 @@ impl UdpSession {
             .map(|packet| (packet.address, packet.payload))
     }
 
-    async fn route_for(&self, address: &str) -> io::Result<(u16, u16)> {
-        let mut destinations = self.destinations.lock().await;
-        if let Some(route) = destinations.route_for_existing(address) {
-            return Ok(route);
-        }
-        let mut regs = self.client.registrations.lock().await;
-        let (route, evicted) = allocate_new_destination_route(
-            &mut destinations,
-            &self.client.next_assoc_id,
-            &mut regs,
-            self.incoming_tx.clone(),
-            address,
-        )
-        .ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::ResourceBusy,
-                "TUIC UDP association-id space exhausted: too many concurrent sessions",
-            )
-        })?;
-        if let Some(evicted) = evicted {
-            spawn_dissociate(&self.client.connection, vec![evicted]);
-        }
-        Ok(route)
+    /// Returns the session's association id, registering it on first use.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: the id registers inside `OnceCell` initialisation, which
+    /// completes once or leaves the cell empty.
+    async fn assoc_id(&self) -> io::Result<u16> {
+        self.assoc_id
+            .get_or_try_init(|| async {
+                let mut regs = self.client.registrations.lock().await;
+                allocate_assoc_id(&self.client.next_assoc_id, &mut regs, self.incoming_tx.clone()).ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::ResourceBusy,
+                        "TUIC UDP association-id space exhausted: too many concurrent sessions",
+                    )
+                })
+            })
+            .await
+            .copied()
     }
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
@@ -146,27 +124,14 @@ impl UdpSession {
 impl Drop for UdpSession {
     fn drop(&mut self) {
         // NEVER panic in Drop.
-        // Collect the assoc-ids this session registered. destinations is a per-session
-        // Mutex, so try_lock() will always succeed in practice (no other holder once
-        // drop() runs), but we treat the Err path gracefully.
-        let ids: Vec<u16> = match self.destinations.try_lock() {
-            Ok(state) => state.entries.values().map(|entry| entry.assoc_id).collect(),
-            Err(_) => {
-                // Could not acquire; entries will be cleaned up by
-                // dispatch_incoming_datagrams's clear() when the connection closes.
-                return;
-            }
-        };
-        if ids.is_empty() {
+        let Some(&assoc_id) = self.assoc_id.get() else {
             return;
-        }
-        spawn_dissociate(&self.client.connection, ids.clone());
+        };
+        spawn_dissociate(&self.client.connection, vec![assoc_id]);
 
         // Fast path: registrations map is uncontended — remove synchronously.
         if let Ok(mut regs) = self.client.registrations.try_lock() {
-            for id in &ids {
-                regs.remove(id);
-            }
+            regs.remove(&assoc_id);
             return;
         }
 
@@ -175,13 +140,10 @@ impl Drop for UdpSession {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             let client = Arc::clone(&self.client);
             handle.spawn(async move {
-                let mut regs = client.registrations.lock().await;
-                for id in ids {
-                    regs.remove(&id);
-                }
+                client.registrations.lock().await.remove(&assoc_id);
             });
         }
-        // If no runtime is available, entries die with the connection's clear() call.
+        // If no runtime is available, the entry dies with the connection's clear() call.
     }
 }
 
@@ -199,32 +161,6 @@ fn spawn_dissociate(connection: &quinn::Connection, assoc_ids: Vec<u16>) {
             debug!("TUIC Dissociate was not sent");
         }
     });
-}
-
-/// Returns the new route `(assoc_id, packet_id)` and the association it
-/// evicted to stay within [`MAX_DESTINATIONS_PER_UDP_SESSION`], if any.
-fn allocate_new_destination_route(
-    destinations: &mut DestinationState,
-    counter: &std::sync::atomic::AtomicU16,
-    registrations: &mut HashMap<u16, mpsc::Sender<UdpPacket>>,
-    sender: mpsc::Sender<UdpPacket>,
-    address: &str,
-) -> Option<((u16, u16), Option<u16>)> {
-    destinations.access_sequence = destinations.access_sequence.saturating_add(1);
-    let last_used = destinations.access_sequence;
-    let mut evicted_id = None;
-    if destinations.entries.len() >= MAX_DESTINATIONS_PER_UDP_SESSION
-        && let Some(oldest_address) =
-            destinations.entries.iter().min_by_key(|(_, entry)| entry.last_used).map(|(address, _)| address.clone())
-        && let Some(evicted) = destinations.entries.remove(&oldest_address)
-    {
-        registrations.remove(&evicted.assoc_id);
-        evicted_id = Some(evicted.assoc_id);
-    }
-
-    let assoc_id = allocate_assoc_id(counter, registrations, sender)?;
-    destinations.entries.insert(address.to_string(), DestinationEntry { assoc_id, next_packet_id: 1, last_used });
-    Some(((assoc_id, 0), evicted_id))
 }
 
 #[derive(Debug)]
@@ -332,6 +268,14 @@ fn reassemble_fragment(
     header: &PacketHeader,
     payload: &[u8],
 ) -> ReassemblyResult {
+    // A reused PKT_ID must not inherit fragments of an earlier, incomplete packet.
+    let stale = partials.get(&key).is_some_and(|partial| {
+        partial.started_at.elapsed() >= REASSEMBLY_TIMEOUT
+            || partial.fragments.len() != usize::from(header.fragment_total)
+    });
+    if stale {
+        partials.remove(&key);
+    }
     if !partials.contains_key(&key) {
         while partials.len() >= MAX_REASSEMBLY_SLOTS {
             evict_oldest_partial(partials);
@@ -531,65 +475,6 @@ mod tests {
     }
 
     #[test]
-    fn destination_state_is_bounded_and_evicts_least_recently_used_route() {
-        let counter = AtomicU16::new(0);
-        let (sender, _receiver) = mpsc::channel(1);
-        let mut registrations = HashMap::new();
-        let mut destinations = DestinationState::default();
-        let mut host_1_id = None;
-        for index in 0..MAX_DESTINATIONS_PER_UDP_SESSION {
-            let address = format!("host-{index}.example:53");
-            let ((assoc_id, _), evicted) = allocate_new_destination_route(
-                &mut destinations,
-                &counter,
-                &mut registrations,
-                sender.clone(),
-                &address,
-            )
-            .expect("allocate destination route");
-            assert_eq!(evicted, None, "no eviction below the destination limit");
-            if index == 1 {
-                host_1_id = Some(assoc_id);
-            }
-        }
-        destinations.route_for_existing("host-0.example:53").expect("refresh oldest route");
-        let (_, evicted) =
-            allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender, "new.example:53")
-                .expect("allocate replacement route");
-
-        assert_eq!(evicted, host_1_id, "the evicted association must be reported for Dissociate");
-
-        assert_eq!(destinations.entries.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
-        assert_eq!(registrations.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
-        assert!(destinations.entries.contains_key("host-0.example:53"));
-        assert!(!destinations.entries.contains_key("host-1.example:53"));
-        assert!(destinations.entries.contains_key("new.example:53"));
-    }
-
-    #[test]
-    fn existing_destination_reuses_id_and_advances_packet_id() {
-        let counter = AtomicU16::new(7);
-        let (sender, _receiver) = mpsc::channel(1);
-        let mut registrations = HashMap::new();
-        let mut destinations = DestinationState::default();
-
-        let first = allocate_new_destination_route(
-            &mut destinations,
-            &counter,
-            &mut registrations,
-            sender.clone(),
-            "example.com:53",
-        )
-        .expect("first route")
-        .0;
-        let second = destinations.route_for_existing("example.com:53").expect("second route");
-
-        assert_eq!(first, (7, 0));
-        assert_eq!(second, (7, 1));
-        assert_eq!(registrations.len(), 1);
-    }
-
-    #[test]
     fn saturated_session_does_not_block_other_udp_sessions() {
         let packet = |address: &str| UdpPacket { address: address.to_string(), payload: vec![1] };
         let (slow_tx, mut slow_rx) = mpsc::channel(1);
@@ -660,5 +545,45 @@ mod tests {
             ReassemblyResult::Rejected
         ));
         assert!(!partials.contains_key(&key));
+    }
+
+    fn fragment(packet_id: u16, total: u8, id: u8, address: TuicAddress) -> PacketHeader {
+        PacketHeader { assoc_id: 1, packet_id, fragment_total: total, fragment_id: id, payload_len: 0, address }
+    }
+
+    #[test]
+    fn reused_packet_id_does_not_splice_a_stale_partial() {
+        let mut partials = HashMap::new();
+        let key = (1, 5);
+        let address = || TuicAddress::Domain("example.com".to_string(), 53);
+        // Fragment 1 of the old packet was lost.
+        let old = fragment(5, 2, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &old, b"OLD-OLD-"), ReassemblyResult::Pending));
+        partials.get_mut(&key).expect("partial").started_at =
+            Instant::now() - REASSEMBLY_TIMEOUT - Duration::from_secs(1);
+
+        let new_head = fragment(5, 2, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &new_head, b"NEW-NEW-"), ReassemblyResult::Pending));
+        let tail = fragment(5, 2, 1, TuicAddress::None);
+        let ReassemblyResult::Complete(packet) = reassemble_fragment(&mut partials, key, &tail, b"TAIL") else {
+            panic!("the new packet must complete");
+        };
+        assert_eq!(packet.payload, b"NEW-NEW-TAIL");
+    }
+
+    #[test]
+    fn changed_fragment_total_replaces_the_partial() {
+        let mut partials = HashMap::new();
+        let key = (1, 9);
+        let address = || TuicAddress::Domain("example.com".to_string(), 53);
+        let old = fragment(9, 3, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &old, b"OLD-"), ReassemblyResult::Pending));
+        let new_head = fragment(9, 2, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &new_head, b"NEW-"), ReassemblyResult::Pending));
+        let tail = fragment(9, 2, 1, TuicAddress::None);
+        let ReassemblyResult::Complete(packet) = reassemble_fragment(&mut partials, key, &tail, b"TAIL") else {
+            panic!("the new packet must complete");
+        };
+        assert_eq!(packet.payload, b"NEW-TAIL");
     }
 }

@@ -13,10 +13,12 @@ use tokio::task::JoinHandle;
 
 use crate::config::Config;
 use crate::endpoint::{
-    ClientSocketSpec, build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config,
+    ClientSocketSpec, build_tls_config, connect_first_reachable, resolve_server_addrs, validate_config,
 };
 use crate::migration::QuicMigration;
-use crate::protocol::{HEARTBEAT_DATAGRAM, TuicAddress, authenticate_connection, classify_handshake_failure};
+use crate::protocol::{
+    HEARTBEAT_DATAGRAM, TuicAddress, authenticate_connection, classify_handshake_failure, hint_close_before_server_data,
+};
 use crate::tcp::{DuplexStream, encode_connect_header};
 use crate::udp::{UdpPacket, UdpSession, dispatch_incoming_datagrams};
 
@@ -49,23 +51,30 @@ impl TuicClient {
     pub async fn connect(config: Config) -> io::Result<Self> {
         validate_config(&config)?;
         let additional_roots = additional_roots_from_pem(config.root_certificate_pem.as_deref())?;
-        let tls_config = build_tls_config(additional_roots)?;
+        let tls_config = build_tls_config(additional_roots, &config.alpn)?;
         Self::connect_with_tls(config, tls_config).await
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: validation and resolution keep no state, and the pending
+    /// carrier is owned until publication.
     pub(crate) async fn connect_with_tls(config: Config, tls_config: RustlsClientConfig) -> io::Result<Self> {
         validate_config(&config)?;
-        let server_addr =
-            resolve_server_addr(&config.server, config.server_port, config.outbound_bind_ip, config.socket_protection)
+        let addrs =
+            resolve_server_addrs(&config.server, config.server_port, config.outbound_bind_ip, config.socket_protection)
                 .await?;
-        let socket_spec = ClientSocketSpec {
-            ipv6: server_addr.is_ipv6(),
-            bind_low_port: config.quic_bind_low_port,
-            socket_protection: config.socket_protection,
-            outbound_bind_ip: config.outbound_bind_ip,
-        };
-        let (endpoint, current_socket) = build_endpoint(&config, tls_config, socket_spec)?;
-        let connection = establish_connection(&endpoint, &config, server_addr).await?;
+        Self::connect_with_addrs(config, tls_config, &addrs).await
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: see [`connect_first_reachable`]; the pending carrier is owned until publication.
+    pub(crate) async fn connect_with_addrs(
+        config: Config,
+        tls_config: RustlsClientConfig,
+        addrs: &[std::net::SocketAddr],
+    ) -> io::Result<Self> {
+        let (endpoint, current_socket, connection, socket_spec) =
+            connect_first_reachable(&config, &tls_config, addrs).await?;
         // A v4 server completes QUIC/TLS but rejects this client's v5 auth frame,
         // surfacing as an application-close. Classify it so the relay layer can
         // report `TuicVersionUnsupported` instead of a generic protocol error.
@@ -132,7 +141,14 @@ impl TuicClient {
         }
     }
 
+    /// Opens a UDP session on this connection.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: it does not await.
     pub async fn udp_session(&self) -> io::Result<UdpSession> {
+        if let Some(reason) = self.inner.connection.close_reason() {
+            return Err(io::Error::new(io::ErrorKind::BrokenPipe, format!("TUIC connection is closed: {reason}")));
+        }
         if !self.inner.udp_enabled {
             return Err(io::Error::new(io::ErrorKind::Unsupported, "TUIC UDP relay is disabled by configuration"));
         }
@@ -146,10 +162,18 @@ impl TuicClient {
         Ok(UdpSession::new(Arc::clone(&self.inner)))
     }
 
+    /// Whether the QUIC connection is closed (by the peer, a timeout, or a
+    /// local close). A closed client cannot open streams or carry datagrams.
+    pub fn is_closed(&self) -> bool {
+        self.inner.connection.close_reason().is_some()
+    }
+
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
         self.inner.quic_migration_snapshot()
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: a cancelled call drops the half-open stream; nothing else is published.
     async fn open_tcp_stream(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
         // Classify a relay-handshake failure: a v4 server rejects the v5 Connect
         // command by application-closing the connection, which `open_bi` /
@@ -157,12 +181,20 @@ impl TuicClient {
         self.open_tcp_stream_inner(target)
             .await
             .map_err(|error| classify_handshake_failure(&self.inner.connection, error))
+            .map_err(|error| hint_close_before_server_data(&self.inner.connection, error))
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: the stream is returned only after its Connect header is written.
     async fn open_tcp_stream_inner(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
         let (mut send, recv) = self.inner.connection.open_bi().await?;
         encode_connect_header(&mut send, target).await?;
-        Ok(DuplexStream { send, recv, _active: ActiveTask::new(Arc::clone(&self.inner)) })
+        Ok(DuplexStream {
+            send,
+            recv,
+            connection: self.inner.connection.clone(),
+            _active: ActiveTask::new(Arc::clone(&self.inner)),
+        })
     }
 }
 

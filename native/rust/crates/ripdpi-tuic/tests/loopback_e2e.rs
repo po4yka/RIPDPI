@@ -23,6 +23,7 @@ fn config(port: u16, root_certificate_pem: Option<String>) -> Config {
         outbound_bind_ip: None,
         keepalive_interval_ms: 0,
         root_certificate_pem,
+        alpn: Vec::new(),
     }
 }
 
@@ -58,4 +59,22 @@ async fn tuic_client_with_unrelated_root_certificate_fails_verification() {
 
     let result = TuicClient::connect(config).await;
     assert!(result.is_err(), "pinning an unrelated cert must fail TLS verification, not succeed");
+}
+
+#[tokio::test]
+async fn tuic_client_reports_closed_after_the_server_closes_the_connection() {
+    let server = TuicLoopback::start().await.expect("start TUIC fixture");
+    let config = config(server.port(), Some(server.certificate_pem().to_string()));
+    let client = TuicClient::connect(config).await.expect("pinned-cert handshake must verify");
+    assert!(!client.is_closed(), "a fresh connection is open");
+
+    server.shutdown().await;
+
+    let closed = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        while !client.is_closed() {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    assert!(closed.is_ok(), "the client must observe the server close");
 }

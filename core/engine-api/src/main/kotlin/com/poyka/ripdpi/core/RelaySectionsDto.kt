@@ -119,6 +119,8 @@ data class RelayMasqueSection(
 data class RelayTuicSection(
     val tuicZeroRtt: Boolean,
     val tuicCongestionControl: String,
+    val tuicRootCertificatePem: String? = null,
+    val tuicAlpn: List<String>? = null,
     val tuicUuid: String?,
     val tuicPassword: String?,
 )

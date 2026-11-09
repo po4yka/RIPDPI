@@ -47,7 +47,6 @@ data class RelayPresetDefinition(
     val chainEntryProfileId: String = "",
     val chainExitProfileId: String = "",
     val shadowTlsInnerProfileId: String = "",
-    val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val naivePath: String = "",
     val udpEnabled: Boolean = false,

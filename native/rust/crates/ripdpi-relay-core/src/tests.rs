@@ -13,6 +13,7 @@ use tokio::sync::oneshot;
 
 mod backend_fixture_tests;
 mod cross_stack;
+mod hysteria2_carrier;
 mod relay_attempt_trace;
 mod shadowtls_version;
 mod shutdown_drain;
@@ -71,6 +72,8 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             password: Some("secret".to_string()),
             zero_rtt: false,
             congestion_control: "bbr".to_string(),
+            root_certificate_pem: None,
+            alpn: Vec::new(),
         }),
         "vless" => RelayBackendConfig::Vless(VlessRelayConfig {
             vless_flow: "xtls-rprx-vision".to_string(),

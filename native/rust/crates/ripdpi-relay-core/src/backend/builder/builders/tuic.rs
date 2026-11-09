@@ -6,6 +6,11 @@ use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::TuicSessionFactory;
 
+/// Blank input means "no extra roots"; the PEM itself is validated by the client.
+fn root_certificate_pem(tuic: &crate::config::TuicRelayConfig) -> Option<String> {
+    tuic.root_certificate_pem.as_deref().map(str::trim).filter(|pem| !pem.is_empty()).map(str::to_owned)
+}
+
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::TuicV5(tuic) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected TUIC config"));
@@ -35,7 +40,8 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 // stays silent and the server's idle timeout cannot close a
                 // quiet flow.
                 keepalive_interval_ms: 0,
-                root_certificate_pem: None,
+                root_certificate_pem: root_certificate_pem(tuic),
+                alpn: tuic.alpn.clone(),
             },
             migration: context.quic_migration.clone(),
         },
@@ -76,6 +82,8 @@ mod tests {
                 password,
                 zero_rtt: false,
                 congestion_control: "bbr".to_string(),
+                root_certificate_pem: None,
+                alpn: Vec::new(),
             }),
         }
     }
@@ -134,5 +142,19 @@ mod tests {
         };
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
         assert!(error.to_string().contains("TUIC 0-RTT"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn root_certificate_pem_reaches_client_config_and_blank_means_none() {
+        let mut tuic = crate::config::TuicRelayConfig::default();
+        assert_eq!(root_certificate_pem(&tuic), None);
+        tuic.root_certificate_pem = Some("  \n".to_string());
+        assert_eq!(root_certificate_pem(&tuic), None);
+        tuic.root_certificate_pem =
+            Some("\n-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n".to_string());
+        assert_eq!(
+            root_certificate_pem(&tuic).as_deref(),
+            Some("-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----")
+        );
     }
 }

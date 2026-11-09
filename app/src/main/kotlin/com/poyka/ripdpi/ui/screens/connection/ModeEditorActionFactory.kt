@@ -135,8 +135,9 @@ private fun ModeEditorActions.withRelayProtocolActions(viewModel: ConnectionView
         onRelayHysteriaSalamanderKeyChanged = { viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) } },
         onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },
         onRelayTuicPasswordChanged = { viewModel.updateDraft { copy(relayTuicPassword = it) } },
-        onRelayTuicZeroRttChanged = { viewModel.updateDraft { copy(relayTuicZeroRtt = it) } },
         onRelayTuicCongestionControlChanged = { viewModel.updateDraft { copy(relayTuicCongestionControl = it) } },
+        onRelayTuicRootCertificatePemChanged = { viewModel.updateDraft { copy(relayTuicRootCertificatePem = it) } },
+        onRelayTuicAlpnChanged = { viewModel.updateDraft { copy(relayTuicAlpn = it) } },
         onRelayShadowTlsPasswordChanged = { viewModel.updateDraft { copy(relayShadowTlsPassword = it) } },
         onRelayShadowTlsInnerProfileIdChanged = {
             viewModel.updateDraft { copy(relayShadowTlsInnerProfileId = it) }

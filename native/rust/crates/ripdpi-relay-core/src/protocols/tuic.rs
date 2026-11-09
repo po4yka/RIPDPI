@@ -39,6 +39,14 @@ fn classify_tuic_handshake_error(error: io::Error) -> io::Error {
     crate::error::classified_error(FailureClass::TuicVersionUnsupported, io::ErrorKind::Unsupported, error.to_string())
 }
 
+/// A bad target authority fails locally with `InvalidInput` before any packet
+/// is sent; it says nothing about the shared carrier, so it must not evict it.
+/// A closed carrier is a carrier failure whatever the error kind, so an
+/// `InvalidInput` from a failed rebind cannot keep a dead carrier cached.
+fn is_carrier_error(error: &io::Error, carrier_closed: bool) -> bool {
+    carrier_closed || error.kind() != io::ErrorKind::InvalidInput
+}
+
 #[derive(Clone)]
 pub(crate) struct TuicSessionFactory {
     pub(crate) config: ripdpi_tuic::Config,
@@ -65,6 +73,14 @@ impl RelaySession for TuicSession {
         let session = self.client.udp_session().await.map_err(classify_tuic_handshake_error)?;
         sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
         Ok(session)
+    }
+
+    fn is_closed(&self) -> bool {
+        self.client.is_closed()
+    }
+
+    fn is_carrier_failure(&self, error: &Self::Error) -> bool {
+        is_carrier_error(error, self.client.is_closed())
     }
 }
 
@@ -111,6 +127,13 @@ mod tests {
     }
 
     #[test]
+    fn local_input_errors_do_not_count_as_carrier_failures() {
+        assert!(!is_carrier_error(&io::Error::new(io::ErrorKind::InvalidInput, "bad authority"), false));
+        assert!(is_carrier_error(&io::Error::new(io::ErrorKind::InvalidInput, "bad authority"), true));
+        assert!(is_carrier_error(&io::Error::new(io::ErrorKind::ConnectionReset, "carrier reset"), false));
+    }
+
+    #[test]
     fn non_version_errors_pass_through_unchanged() {
         let original = io::Error::new(io::ErrorKind::ConnectionReset, "upstream reset");
         let mapped = classify_tuic_handshake_error(original);
@@ -135,6 +158,7 @@ mod tests {
             outbound_bind_ip: None,
             keepalive_interval_ms: 0,
             root_certificate_pem: None,
+            alpn: Vec::new(),
         };
         let factory = TuicSessionFactory { config, migration: QuicMigrationTelemetryState::default() };
 

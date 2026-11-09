@@ -744,3 +744,82 @@ async fn datagram_leases_with_their_own_budget_leave_stream_slots_free() {
     assert!(timeout(Duration::from_millis(50), mux.open_stream("example.com:443")).await.is_err());
     assert!(timeout(Duration::from_millis(50), mux.open_datagram()).await.is_err());
 }
+
+/// Session whose liveness flag the test flips; the datagram is its generation.
+struct LivenessSession {
+    generation: usize,
+    closed: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl RelaySession for LivenessSession {
+    type Stream = tokio::io::DuplexStream;
+    type Datagram = usize;
+    type Error = std::io::Error;
+
+    async fn open_stream(&self, _target: &str) -> Result<Self::Stream, Self::Error> {
+        Ok(duplex(64).0)
+    }
+
+    async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
+        Ok(self.generation)
+    }
+
+    fn is_closed(&self) -> bool {
+        self.closed.load(Ordering::SeqCst)
+    }
+}
+
+#[derive(Clone, Default)]
+struct LivenessFactory {
+    creations: Arc<AtomicUsize>,
+    closed: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl RelaySessionFactory for LivenessFactory {
+    type Session = LivenessSession;
+    type Error = std::io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a cancelled construction leaves no session behind.
+    async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        let generation = self.creations.fetch_add(1, Ordering::SeqCst);
+        // Each new carrier starts open.
+        self.closed.store(false, Ordering::SeqCst);
+        Ok(Arc::new(LivenessSession { generation, closed: Arc::clone(&self.closed) }))
+    }
+
+    async fn shutdown(&self) -> Result<(), Self::Error> {
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn open_carrier_is_reused_for_datagram_leases() {
+    let factory = LivenessFactory::default();
+    let mux = RelayMux::new(factory, RelayPoolConfig::default());
+
+    let first = mux.open_datagram().await.expect("first lease");
+    let second = mux.open_datagram().await.expect("second lease");
+
+    assert_eq!(0, *first.get_ref());
+    assert_eq!(0, *second.get_ref());
+}
+
+#[tokio::test]
+async fn closed_cached_carrier_is_replaced_before_datagram_open() {
+    let factory = LivenessFactory::default();
+    let closed = Arc::clone(&factory.closed);
+    let mux = RelayMux::new(factory, RelayPoolConfig::default());
+
+    drop(mux.open_datagram().await.expect("warm-up lease"));
+    closed.store(true, Ordering::SeqCst);
+
+    let lease = mux.open_datagram().await.expect("lease after carrier closed");
+
+    assert_eq!(1, *lease.get_ref(), "a closed carrier must not be reused");
+}

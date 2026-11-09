@@ -124,6 +124,7 @@ async fn tuic_survives_mid_connection_mtu_drop() {
         keepalive_interval_ms: 0,
         // Pin the fixture's self-signed cert; TLS verification stays ON.
         root_certificate_pem: Some(server.certificate_pem().to_string()),
+        alpn: Vec::new(),
     };
     let client = ripdpi_tuic::TuicClient::connect(config).await.expect("tuic connect");
     let stream = client.tcp_connect("127.0.0.1:9").await.expect("tuic tcp_connect");

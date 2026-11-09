@@ -306,6 +306,7 @@ fn bench_tuic(c: &mut Criterion, rt: &Runtime) {
         keepalive_interval_ms: 0,
         // Pin the fixture's self-signed cert; TLS verification stays ON.
         root_certificate_pem: Some(server.certificate_pem().to_string()),
+        alpn: Vec::new(),
     };
 
     let stream = rt.block_on(async {

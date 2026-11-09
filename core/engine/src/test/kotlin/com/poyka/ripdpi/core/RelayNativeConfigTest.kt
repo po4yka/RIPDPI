@@ -369,6 +369,7 @@ class RelayNativeConfigTest {
         relayNativeBaseFixture("tuic_v5").copy(
             tuicZeroRtt = true,
             tuicCongestionControl = "cubic",
+            tuicRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntuic-root\n-----END CERTIFICATE-----",
             tuicUuid = "tuic-uuid",
             tuicPassword = relayNativePlaceholder(3),
         )
@@ -515,6 +516,7 @@ class RelayNativeConfigTest {
             masqueCloudflareGeohashEnabled = true,
             tuicZeroRtt = true,
             tuicCongestionControl = "cubic",
+            tuicRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntuic-root\n-----END CERTIFICATE-----",
             shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
             naivePath = "/naive/path",
             ptBridgeLine = "pt-bridge-line",
@@ -704,6 +706,7 @@ class RelayNativeConfigTest {
                 "shadowsocksMethod",
                 "shadowsocksPassword",
                 "trojanRootCertificatePem",
+                "tuicRootCertificatePem",
                 "naiveUsername",
                 "naivePassword",
                 "masqueAuthMode",

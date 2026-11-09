@@ -39,6 +39,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
+import com.poyka.ripdpi.data.parseTuicAlpn
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -421,8 +422,11 @@ private class ResolvedRelayConfigBuilder(
 
     private fun tuicSection(): RelayTuicSection =
         RelayTuicSection(
-            tuicZeroRtt = effectiveConfig.tuicZeroRtt,
+            // Native TUIC rejects 0-RTT; profiles stored with it enabled still connect.
+            tuicZeroRtt = false,
             tuicCongestionControl = effectiveConfig.tuicCongestionControl,
+            tuicRootCertificatePem = effectiveConfig.tuicRootCertificatePem,
+            tuicAlpn = parseTuicAlpn(effectiveConfig.tuicAlpn),
             tuicUuid = credentials?.tuicUuid,
             tuicPassword = credentials?.tuicPassword,
         )

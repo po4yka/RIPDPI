@@ -28,6 +28,13 @@ pub trait RelaySession: Send + Sync + 'static {
     /// carrier itself is unusable. Only then does the pool evict this session
     /// and retry on a fresh carrier; a refusal of one destination keeps the
     /// shared carrier. The default treats every error as a carrier failure.
+    /// Whether the carrier is known to be closed. The pool drops a cached
+    /// session that reports closed instead of reusing it. The default never
+    /// reports closed.
+    fn is_closed(&self) -> bool {
+        false
+    }
+
     fn is_carrier_failure(&self, _error: &Self::Error) -> bool {
         true
     }

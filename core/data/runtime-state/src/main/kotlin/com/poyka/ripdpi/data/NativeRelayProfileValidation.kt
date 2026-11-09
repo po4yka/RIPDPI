@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import java.util.Base64
 
 internal const val MaxBoundedXhttpConnections = 4
+internal const val Hysteria2SalamanderMinKeyBytes = 4
 
 /** Capability-only check used before import previews and durable writes. */
 fun nativeVlessProfileRejection(profile: ProxyProfile): String? =
@@ -97,6 +98,10 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             require(profile.server.isNotBlank()) { "Hysteria2 requires a server hostname" }
             require(profile.serverPort in RelayPortRange) { "Hysteria2 requires a valid server port" }
             require(profile.password.isNotBlank()) { "Hysteria2 requires an authentication password" }
+            val obfsKey = profile.obfsPassword.orEmpty()
+            require(obfsKey.isBlank() || obfsKey.toByteArray().size >= Hysteria2SalamanderMinKeyBytes) {
+                "Hysteria2 Salamander key must be at least 4 bytes"
+            }
             true
         }
 
