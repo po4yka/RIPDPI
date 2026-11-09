@@ -1,13 +1,13 @@
 ---
 task_id: DGN-1794211297803022
 change: correct-std08-quic-initial
-commit_sha: 49edcd11a848fb2050ef1df0a0985e5e0392dd71
+commit_sha: 972f610c9cd8e4cd2506ab7cde54acfbeccb708a
 local: required
-local_evidence: "The rebased pre-IP candidate passed packets 308+5, desync 159+7, TUN 60, adapter 5+2, strict rustls and facade 11, workspace Clippy and ci-gates. The final IP correction passed red-to-green unit and independent wire/TLS checks for 18 cases. Its full repeated suite passed: packets 309+5, desync 159+7, TUN 60, adapter 5+2, independent oracle 1 (18 cases), facade 11; 559 total, no failures or ignored tests. Workspace Clippy and ci-gates passed. JVM 25 passed. staticAnalysis has four unchanged pre-existing diagnostics issues."
+local_evidence: "Source 972f610c9 passed 560 native tests: packets 309+5, desync 159+7, TUN 61, adapter 5+2, independent rustls oracle 1 (18 cases), facade 11; zero failures or ignored tests. Workspace all-targets Clippy with warnings denied, full staticAnalysis, 26 selected JVM tests, ci-gates, architecture health, locked Cargo metadata and the actual ARM64 ELF symbol check passed. Earlier staticAnalysis failures were corrected by published upstream work and are retained below as historical results."
 remote_ci: required
 remote_ci_evidence: Pending the authorized push.
 device: required
-device_evidence: Final IP-target source 49edcd11a passed all three minified ARM64 API 37 methods with real JNI, zero failures or skips. Each method was required exactly once, total three. Actual R8 and the 41-export native inventory passed. No physical device or external server acceptance is claimed.
+device_evidence: Source 2cbf12155a (runtime source 972f610c9 plus a test-only responder repair) passed all four minified ARM64 API 37 methods with real JNI, zero failures or skips. Each method ran exactly once. The actual ARM64 ELF has 41 exports with no inventory difference. No physical device or external server acceptance is claimed.
 artifact: not_applicable
 artifact_evidence: No release or published binary is owned by this repair.
 deployment: not_applicable
@@ -20,13 +20,13 @@ deployment_evidence: No deployment is owned by this repair.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-QUIC-ACTIVE-HELLO | DGN-1794211430951611 | eea831e69 and 49edcd11a: strict independent rustls HP/AEAD and TLS acceptance for three profiles, both versions and DNS/IPv4/IPv6 targets (18 cases); IP SNI absence asserted separately; only TLS 1.3 offered | Passed locally |
-| REQ-QUIC-RESPONSE-INTEGRITY | DGN-1794211431545271 | Native RFC Initial/Retry and VN regressions passed; 6ff2021c6: Kotlin orchestration, all 11 JNI facade tests, approved actual ELF export inventory and all three minified emulator methods passed | Passed locally |
-| REQ-QUIC-INITIAL-TOKEN | DGN-1794211432222833 | Two token regressions passed; independent v1/v2 wire equality; fix integrated as c880ad4b0 | Passed locally |
-| REQ-QUIC-INITIAL-ACK | DGN-1794211432765485 | fcf3090c4: three ACK regressions, independent v1/v2 vectors and malformed ranges; independent review clear | Passed locally |
-| REQ-QUIC-DATAGRAM-CRYPTO | DGN-1794211433260336 | 95130ecd6: packet and desync suites passed; four independent TShark captures accepted v1/v2 coalescing and short final packets; marker offsets checked | Passed locally |
-| REQ-QUIC-HELLO-COMPLETE | DGN-1794211433822597 | 54ee1b0e2: strict completeness regressions passed in combined 284 unit and five integration tests; independent boundary review clear | Passed locally |
-| REQ-QUIC-PROBE-CANCEL | DGN-1794211434635760 | F7 transport5 and probe14 JVM tests passed with no skips; loopback port rebind and bounded DNS admission; independent correction review clear | Passed locally |
+| REQ-QUIC-ACTIVE-HELLO | DGN-1794211430951611 | Final native suite and independent rustls HP/AEAD/TLS oracle: three profiles, both versions, DNS/IPv4/IPv6 (18 cases); IP SNI absence asserted separately; TLS 1.3 only | Passed locally |
+| REQ-QUIC-RESPONSE-INTEGRITY | DGN-1794211431545271 | Official RFC Initial/Retry, malformed/VN, large-response native tests; all 11 JNI facade tests; exact approved 41-export ELF inventory; selected JVM tests; four actual minified Android methods | Passed locally |
+| REQ-QUIC-INITIAL-TOKEN | DGN-1794211432222833 | Both token regressions and independent v1/v2 wire equality in final packet suite | Passed locally |
+| REQ-QUIC-INITIAL-ACK | DGN-1794211432765485 | ACK/ACK_ECN and malformed-range regressions, independent v1/v2 vectors | Passed locally |
+| REQ-QUIC-DATAGRAM-CRYPTO | DGN-1794211433260336 | Final packets/desync/TUN suites; four TShark captures for v1/v2 coalescing and short final packets; physical marker offsets | Passed locally |
+| REQ-QUIC-HELLO-COMPLETE | DGN-1794211433822597 | Final packet completeness regressions, nested-vector rejection and real consumer boundaries; independent review clear | Passed locally |
+| REQ-QUIC-PROBE-CANCEL | DGN-1794211434635760 | Final six transport tests and 13 probe tests: real loopback cancellation, port rebind, shared deadline, bounded DNS admission and full datagram reception | Passed locally |
 
 ## Scope
 
@@ -38,7 +38,7 @@ The new validation export needs one inventory addition. JNI_CONTRACT.md:585-588 
 
 Minified local acceptance uses the release build type with a temporary init script that selects the disposable debug signing key. No production signing material, physical device or external probe is used.
 
-## Combined local checks
+## Historical combined local checks
 
 Cargo commands ran from `native/rust` with the pinned toolchain and `--locked`.
 Heavy commands used `build-gate --lane ripdpi` and task-owned output directories.
@@ -95,7 +95,7 @@ The inner command and all exact Gradle properties are preserved in `/tmp/ripdpi-
 
 Preserved local evidence copies under `/tmp/ripdpi-std08-android-acceptance/final-frozen-artifacts/` include the two APKs, final JUnit XML and HTML report. `acceptance-summary.json`, `release-artifacts.json`, `r8-jni-evidence.txt`, `r8-test-evidence.txt`, and `junit-validation.log` record provenance, exact method counts, preserved native names and the corrected JVM void test signature. The two earlier failed attempts remain separate and are not counted as passes.
 
-## Current integration candidate and F1 IP-target variant
+## Earlier integration candidate and F1 IP-target variant
 
 Final integration base: a21f568c218f4489c37c449468623226703ac810. Rebase preserved the published HTTP, TLS and transport changes. On candidate 03721f722, full packets 308+5, desync 159+7, adapter 5+2, strict rustls and facade 11 passed. Workspace Clippy then found two new `inspect_http` arguments missing from this repair's TUN regression. Commit 710f36824 adds `false` to those two test calls; every assertion remains. Full TUN tests then passed 60/0 failures, and exact workspace all-targets Clippy passed. `just ci-gates`, architecture health and locked Cargo metadata passed. The four files with existing staticAnalysis issues still match both the audit baseline and current origin/main.
 
@@ -127,4 +127,60 @@ App APK SHA-256: 8bbf62d179eac13e2ac6295cfc057faeef0e18bcb3f06c47bf9bc46521298c5
 
 Evidence is under `/tmp/ripdpi-std08-android-acceptance-ip-final/`: `acceptance-summary.json`, `release-artifacts.json`, `exact-device-command.sh`, `r8-jni-evidence.txt`, `junit-validation.log` and `final-frozen-artifacts/` containing APK copies, JUnit XML, HTML and compressed mapping. This is local ARM64 V, not physical-device, four-ABI, external-server or complete QUIC/HTTP3 session E.
 
-The next published base, 3bc146510, includes separate repairs for the four original staticAnalysis violations. It does not change the QUIC generator, JNI bindings, Kotlin probe or R8 target rules. QUIC crypto/JNI dependency versions, sources and checksums (AES/AES-GCM, HKDF, SHA2, ring, rustls, jni and jni-sys) also match the tested integration base. The final rebase and its affected source, native and static checks remain pending; no newer binary runtime is claimed by the 49edcd11a evidence.
+Published base 3bc146510 includes separate repairs for the four original staticAnalysis violations. It does not change the QUIC generator, JNI bindings, Kotlin probe or R8 target rules. QUIC crypto/JNI dependency versions, sources and checksums (AES/AES-GCM, HKDF, SHA2, ring, rustls, jni and jni-sys) also match the earlier tested integration base. Later checks below use the final source; the 49edcd11a binary evidence remains historical.
+
+## Final source and complete UDP responses
+
+The final runtime source is `972f610c9cd8e4cd2506ab7cde54acfbeccb708a`, based on published main `d1cb9f52687d13bc47ae551a2a983d991a487264`. Rebase preserved other work. The nine fix commits are F3 `1c6ab2a10b`, F4 `9508cac8e3`, F1 `f5c7bf2e7a`, F7 `5027a2e5e7`, F6 `7efcee3486`, F5 `cdcf4f7325`, F2 `847a592312`, F1b `8e5cbeafe8`, and F2b `972f610c9c`. Earlier IDs above identify historical candidates.
+
+### F2b — P2: a single valid response was truncated to 2048 bytes
+
+`DatagramSocketQuicUdpProbe` used a 2048-byte receive packet. The active ClientHello does not advertise a smaller `max_udp_payload_size`; RFC 9000 section 18.2 gives 65527 as its default. A 3000-byte server Initial fits the controlled loopback path and the three-times-1200 anti-amplification budget. It is one datagram and needs no multi-datagram reassembly. Android's `DatagramSocket.receive` contract truncates a response that exceeds the supplied packet length. This limit could remove the AEAD tag and produce a false dropped verdict.
+
+The real JVM regression first failed with expected length 3000 and actual length 2048 (`/tmp/std08-datagram-red.log`). The fix changes only the bounded receive capacity to 65535. The regression now checks byte-exact responses of 3000 and 8192 bytes over real loopback UDP; all six transport tests passed. Cancellation, the shared deadline, socket closing and bounded DNS admission remain in effect.
+
+Two independent 3000-byte server Initial fixtures cover v1 and v2. They use the official RFC plaintext plus PADDING, updated Length and pinned rustls 0.23.46 protection APIs. They are derived packets, not verbatim RFC vectors. Native validation accepts each full packet and rejects its 2048-byte prefix; it also checks damage and all truncations. TShark 4.6.9 independently decoded ServerHello in both captures without a malformed/decryption error. Fixture and temporary producer hashes are in `native/rust/crates/ripdpi-packets/tests/fixtures/quic/README.md`. The producer source is outside the checkout. Independent review found no issue.
+
+The fourth Android method, `nativeBindingValidatesCompleteLargeUdpResponses`, links real UDP exchange to native integrity validation for both versions. Its cross-APK calls use exact test-only R8 member rules.
+
+The first final-source device run executed all four methods: three passed, one failed, zero skipped. The large-response method failed before UDP receive with `NoSuchMethodError` for `Dispatchers.getIO()`. Actual app R8 mapping shows that this library accessor was removed. The separate test APK could still call it. This is a failed acceptance attempt, not evidence for whole-datagram reception. Artifacts remain in `/tmp/ripdpi-std08-android-acceptance-datagram-final/attempt1-coroutine-r8-failure/`; its temporary AVD was removed. Commit `2cbf12155a` replaces only the test responder's coroutine with a thread, an error reference and bounded join, as in the existing adjacent test. All packet assertions remain. It adds no library keep rule or production change. The repeated run requires all four methods again.
+
+### Final local gates
+
+- Native suites: packets 309 unit and five integration; desync 159 and seven; TUN 61; adapter Initial five and response two; independent rustls oracle one with 18 combinations; facade 11. Total 560 passed, zero failed or ignored.
+- `cargo clippy --locked --workspace --all-targets -- -D warnings`: passed.
+- Full `staticAnalysis` and the three selected JVM classes: passed; 26 tests, zero failures, errors or skips. Upstream changes corrected the four historical failures. No suppression was added.
+- `just ci-gates`: passed. The Linux-owned runtime-platform snapshot remains excluded on macOS.
+- `python3 scripts/ci/check_architecture_health.py` and locked Cargo metadata: passed.
+- Actual ARM64 ELF: SHA-256 `9a5d23d0562e42c7adcead05c0740df7bb469f43b4366ba517ed50ab14cf0f72`, 11585552 bytes, 41 exports. `.github/scripts/check-jni-symbols.sh` passed with the approved inventory.
+
+Logs are `/tmp/std08-datagram-final-{packets-desync-tun,adapter-quic-initial,adapter-quic-response,strict-rustls,android-lib,workspace-clippy,static-jvm,ci-gates,architecture-health,symbol-check}.log` and `/tmp/std08-datagram-final-cargo-metadata.json`. These final-source results supersede earlier gate totals without erasing failed attempts.
+
+Native commands ran from `native/rust` through `build-gate --lane ripdpi -- env RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/tmp/ripdpi-std08-native-target bash -c '…'`, in sequence:
+
+```sh
+"$HOME/.cargo/bin/cargo" test -p ripdpi-packets -p ripdpi-desync -p ripdpi-tunnel-intercept --locked
+"$HOME/.cargo/bin/cargo" test -p ripdpi-android-platform-adapter --locked quic_initial
+"$HOME/.cargo/bin/cargo" test -p ripdpi-android-platform-adapter --locked quic_response
+"$HOME/.cargo/bin/cargo" test -p ripdpi-diagnostics-runner --locked --test quic_probe_client_hello
+"$HOME/.cargo/bin/cargo" test -p ripdpi-android --lib --locked
+bash ../../scripts/ci/cargo-guarded.sh cargo clippy --locked --manifest-path Cargo.toml --workspace --all-targets -- -D warnings
+```
+
+Exact static/JVM command from the worktree root:
+
+```sh
+build-gate --lane ripdpi -- env -u RIPDPI_SIGNING_STORE_FILE -u RIPDPI_SIGNING_STORE_PASSWORD -u RIPDPI_SIGNING_KEY_ALIAS -u RIPDPI_SIGNING_KEY_PASSWORD GRADLE_USER_HOME=/tmp/ripdpi-std08-gradle-home JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home ./gradlew staticAnalysis :core:diagnostics:testDebugUnitTest --tests '*DatagramSocketQuicUdpProbeTest' --tests '*QuicH3FingerprintProbeTest' --tests '*QuicFingerprintFactoryTest' -Pripdpi.skipNativeBuild=true -Pripdpi.prebuiltXrayAarDir=/tmp/vpn07-ci35-repro-xray-native --no-daemon --max-workers=4
+```
+
+### Remaining boundaries
+
+External interoperability E, physical devices, four-ABI runtime acceptance, long fuzz/load runs and the Linux-only API snapshot were not checked here. Stateful reassembly across datagrams, late packet-number reconstruction, full TLS authentication/H3, recovery and congestion control remain outside STD-08 packet-helper scope. Initial integrity is not peer authentication. Required remote CI remains pending; do not archive yet.
+
+## Final four-method Android receipt
+
+Source `2cbf12155a532327c073d0e58e6a5d5bd4cf7698` passed the actual minified `GithubFullRelease` API 37 ARM64 run: four passed, zero failed or skipped. Each of the four owning JUnit validators required its method exactly once and total count four. The native source is 972f610c9; the only later source change is the test responder repair. The large-response test received each full 3000-byte v1/v2 packet through real loopback UDP and JNI; each 2048-byte prefix remained a negative control. The temporary AVD was removed and no build or device lease remains.
+
+App APK SHA-256: `2b482349ad3a0a9f2fb0028ebd0b0fb7bda2cc494b81b3c90faa30cff962ac52`. Test APK: `2899bf1f96997652ccff24dc371f822fddb2ae4aeaeb63209850249698003cc1`. The packaged native ELF matches `9a5d23d0562e42c7adcead05c0740df7bb469f43b4366ba517ed50ab14cf0f72`, with 41 approved exports. R8 JNI names and exact transport member boundaries were checked against the actual mapping. Local signing uses the disposable debug key; this is not a published release.
+
+The connected Gradle task passed in 8m11s. Exact inner and outer commands, the temporary signing init script, acceptance summary, R8 evidence and failed-attempt artifacts are under `/tmp/ripdpi-std08-android-acceptance-datagram-final/`. Its `final-frozen-artifacts/` retains both APKs, JUnit XML, HTML report and compressed app mapping. The earlier three-pass/one-fail attempt is separate and is not counted as a pass. External E and four-ABI runtime acceptance remain unclaimed.

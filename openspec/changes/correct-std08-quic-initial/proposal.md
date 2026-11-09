@@ -8,7 +8,7 @@ The STD-08 audit found invalid active ClientHello messages, false positive respo
 
 ## What Changes
 
-- Correct all seven confirmed audit findings with separate fix commits, including a follow-up for the reachable IP-target variant of F1.
+- Correct all seven confirmed audit findings with separate fix commits, including follow-ups for the IP-target variant of F1 and UDP response-size variant of F2.
 - Keep Initial response evidence separate from authenticated TLS or HTTP/3 success.
 - Preserve fixed fake templates and the single-datagram processing limit.
 - Add an internal JNI response-validation method. No stored schema or user setting changes.

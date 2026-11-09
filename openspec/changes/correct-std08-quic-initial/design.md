@@ -4,13 +4,14 @@ The existing packet helper is stateless. Active diagnostics reuse fake TLS templ
 
 ## Goals / Non-Goals
 
-- Goal: repair F1 through F7 with separate fix commits and independent wire evidence. Include the reachable IP-target variant of F1 in a follow-up fix.
+- Goal: repair F1 through F7 with separate fix commits and independent wire evidence. Include the reachable IP-target variant of F1 and response-size variant of F2 in follow-up fixes.
 - Non-goal: full QUIC, TLS or HTTP/3 sessions, external probes, physical-device acceptance, new production dependencies, or changes to fake templates.
 
 ## Decisions
 
 - Move active ClientHello generation out of response validation. Keep the current Chrome builder as a wrapper and add a concrete active profile selector for the Android adapter. Rebuild active lengths/extensions, drop SID and duplicate padding, set h3 ALPN, bind transport parameters to fresh SCID and use fresh valid key shares. Omit SNI for literal IP targets; retain DNS names and existing absent-host defaults.
 - Add a native byte-array JNI validator to the existing bindings. Reuse packet integrity validation and a shared reserved-VN structural path; remove Kotlin header-only validation.
+- Receive one complete ordinary UDP datagram before validation. Match the backend's 65535-byte limit; do not reassemble multiple datagrams. Use independent 3000-byte protected server Initials and real UDP byte checks to cover the former 2048-byte truncation.
 - Add token bytes before Length and include them in padding/header accounting.
 - Skip bounded, checked ACK/ACK_ECN ranges while collecting CRYPTO.
 - Iterate compatible Initial packets in one datagram. Defragment logical CRYPTO separately from wire marker positions. Keep public layout shape if it can represent positions correctly. Reject conflicting Initial CID/version contexts; skip other valid coalesced packet types without decrypting them.

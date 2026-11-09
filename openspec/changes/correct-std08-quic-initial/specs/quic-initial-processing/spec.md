@@ -24,10 +24,17 @@ Active probes for literal IP targets MUST omit the server_name extension. DNS pr
 
 The Kotlin probe MUST use the native Initial and Retry integrity validator. Reserved-version VN probes MUST check both echoed CIDs and a nonempty four-byte version list with no zero or offered version. Malformed responses MUST NOT produce QUIC_OK.
 
+The UDP transport MUST retain the complete ordinary UDP response datagram before validation. Its bounded receive buffer MUST cover the backend's 65535-byte datagram limit. This does not add reassembly across datagrams.
+
 #### Scenario: Validate probe response integrity
 
 - **WHEN** a header-only Initial, damaged tag or malformed VN is received from the requested address
 - **THEN** the probe rejects it without claiming TLS or HTTP/3 success
+
+#### Scenario: Receive a complete response larger than 2048 bytes
+
+- **WHEN** a valid protected v1 or v2 Initial is received as one 3000-byte datagram
+- **THEN** the transport preserves all bytes, native validation accepts it, and the same packet truncated to 2048 bytes is rejected
 
 ### Requirement: REQ-QUIC-INITIAL-TOKEN — Preserve Initial tokens
 
