@@ -1,13 +1,14 @@
 mod ech_fallback;
 mod h2_alpn;
+mod h2_contracts;
 
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use ::h2::ext::Protocol as H2Protocol;
 use bytes::Bytes;
 use http::{HeaderMap, Request, StatusCode};
-use hyper::ext::Protocol as H2Protocol;
 use local_network_fixture::{MasqueH2ConnectUdpFixture, MasqueH3ClassicConnectFixture, MasqueH3ConnectUdpFixture};
 use serde_json::to_string;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};

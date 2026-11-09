@@ -1,4 +1,5 @@
 mod tls_retry;
+mod tunnel;
 
 use std::io;
 use std::net::SocketAddr;
@@ -7,8 +8,7 @@ use std::os::fd::AsRawFd;
 #[cfg(test)]
 use boring::ssl::SslVerifyMode;
 use bytes::Bytes;
-use hyper::ext::Protocol;
-use hyper_util::rt::TokioIo;
+use h2::ext::Protocol;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 use tokio::sync::mpsc;
@@ -148,27 +148,10 @@ where
     let proxy_origin = parse_proxy_origin(config)?;
     let tls = tls_retry::connect(config, &proxy_origin, transport, peer).await?;
 
-    let io = TokioIo::new(tls);
-    let (mut sender, connection) =
-        hyper::client::conn::http2::handshake(hyper_util::rt::TokioExecutor::new(), io).await.map_err(|error| {
-            io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate H2: {error}"))
-        })?;
-    tokio::spawn(async move {
-        if let Err(error) = connection.await {
-            tracing::debug!(error = %error, "MASQUE H2 TCP driver closed");
-        }
-    });
-
     let request = build_h2_connect_tcp_request(target, config, auth_header)?;
-    let response = sender.send_request(request).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send H2 CONNECT request: {error}"))
-    })?;
+    let (response, stream) = tunnel::open(tls, request).await?;
     validate_proxy_response(response.status(), response.headers(), config.effective_auth_mode())?;
-
-    let upgraded = hyper::upgrade::on(response).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to upgrade H2 CONNECT stream: {error}"))
-    })?;
-    Ok(TokioIo::new(upgraded))
+    Ok(stream)
 }
 
 /// # Cancel safety:
@@ -188,26 +171,10 @@ pub(crate) async fn attempt_h2_connect_udp(
     let peer = tcp.peer_addr()?;
     let tls = tls_retry::connect(config, &proxy_origin, tcp, Some(peer)).await?;
 
-    let (mut sender, connection) =
-        hyper::client::conn::http2::handshake(hyper_util::rt::TokioExecutor::new(), TokioIo::new(tls)).await.map_err(
-            |error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate H2: {error}")),
-        )?;
-    tokio::spawn(async move {
-        if let Err(error) = connection.await {
-            tracing::debug!(error = %error, "MASQUE H2 UDP driver closed");
-        }
-    });
-
     let request = build_h2_connect_udp_request(&proxy_origin, &target, auth_header)?;
-    let response = sender.send_request(request).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send H2 CONNECT-UDP request: {error}"))
-    })?;
+    let (response, stream) = tunnel::open(tls, request).await?;
     validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())?;
-
-    let upgraded = hyper::upgrade::on(response).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to upgrade H2 CONNECT-UDP stream: {error}"))
-    })?;
-    let (reader, mut writer) = tokio::io::split(TokioIo::new(upgraded));
+    let (reader, mut writer) = tokio::io::split(stream);
     let (outgoing_tx, mut outgoing_rx) = mpsc::channel::<Vec<u8>>(64);
     let writer_task = tokio::spawn(async move {
         while let Some(payload) = outgoing_rx.recv().await {

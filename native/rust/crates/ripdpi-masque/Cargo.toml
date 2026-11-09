@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 quinn = { workspace = true }
 h3 = { workspace = true }
+h2 = { workspace = true }
 h3-quinn = { workspace = true, features = ["datagram"] }
 h3-datagram = { workspace = true }
 ripdpi-hysteria2 = { workspace = true }
