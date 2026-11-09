@@ -53,9 +53,7 @@ async fn cancelling_an_open_keeps_active_siblings_and_pool_capacity() {
             .serve_connection(TokioIo::new(server_io), service)
             .await;
     });
-    let pooled =
-        crate::connect::handshake_pooled(client_io, 2, Arc::new(Notify::new())).await.expect("pooled H2 connection");
-    let config = XhttpTlsConfig::from_strings(
+    let mut config = XhttpTlsConfig::from_strings(
         "127.0.0.1",
         1,
         "example.com",
@@ -66,7 +64,17 @@ async fn cancelling_an_open_keeps_active_siblings_and_pool_capacity() {
     )
     .expect("TLS config")
     .with_protocol_mode(XhttpProtocolMode::StreamOne);
+    config.xmux.max_connections = 1;
     let client = XhttpClient::new_tls(config);
+    let capacity = client.inner.carrier_capacity.clone().acquire_owned().await.expect("physical capacity");
+    let pooled = crate::connect::handshake_pooled(
+        crate::owned_io::OwnedIo::new(client_io, capacity),
+        2,
+        Arc::clone(&client.inner.pool_changed),
+    )
+    .await
+    .expect("pooled H2 connection");
+    let carrier = Arc::downgrade(&pooled);
     client.inner.state.lock().await.connections.push(pooled);
     let mut active = tokio::time::timeout(Duration::from_secs(2), client.connect("example.net:443"))
         .await
@@ -109,7 +117,100 @@ async fn cancelling_an_open_keeps_active_siblings_and_pool_capacity() {
     assert_eq!(requests.load(Ordering::Relaxed), 3);
     drop(next);
     drop(active);
+    let error = tokio::time::timeout(Duration::from_secs(2), client.connect("after.net:443"))
+        .await
+        .expect("replacement must not wait for retired carrier")
+        .err()
+        .expect("new connection to the closed port fails");
+    assert_ne!(error.kind(), std::io::ErrorKind::TimedOut);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while carrier.upgrade().is_some() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("carrier released after active streams finish");
     drop(client);
+    server.abort();
+    let _ = server.await;
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: the test owns the local server and all spawned openings.
+#[tokio::test]
+async fn concurrent_open_cancellation_unblocks_waiter_after_carrier_drains() {
+    let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+    let (seen_tx, mut seen_rx) = mpsc::unbounded_channel();
+    let server = tokio::spawn(async move {
+        let service = service_fn(move |_request: hyper::Request<hyper::body::Incoming>| {
+            let seen = seen_tx.clone();
+            async move {
+                seen.send(()).expect("request received");
+                std::future::pending::<Result<hyper::Response<ChannelBody>, Infallible>>().await
+            }
+        });
+        let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+            .serve_connection(TokioIo::new(server_io), service)
+            .await;
+    });
+    let mut config = XhttpTlsConfig::from_strings(
+        "127.0.0.1",
+        1,
+        "example.com",
+        "550e8400-e29b-41d4-a716-446655440000",
+        "/xhttp",
+        "",
+        "chrome_stable",
+    )
+    .expect("TLS config")
+    .with_protocol_mode(XhttpProtocolMode::StreamOne);
+    config.xmux.max_connections = 1;
+    config.xmux.max_concurrent_streams = 2;
+    let client = XhttpClient::new_tls(config);
+    let capacity = client.inner.carrier_capacity.clone().acquire_owned().await.expect("physical capacity");
+    let pooled = crate::connect::handshake_pooled(
+        crate::owned_io::OwnedIo::new(client_io, capacity),
+        2,
+        Arc::clone(&client.inner.pool_changed),
+    )
+    .await
+    .expect("pooled H2 connection");
+    client.inner.state.lock().await.connections.push(pooled);
+    let first = tokio::spawn({
+        let client = client.clone();
+        async move { client.connect("first.net:443").await }
+    });
+    let second = tokio::spawn({
+        let client = client.clone();
+        async move { client.connect("second.net:443").await }
+    });
+    tokio::time::timeout(Duration::from_secs(2), async {
+        seen_rx.recv().await.expect("first request");
+        seen_rx.recv().await.expect("second request");
+    })
+    .await
+    .expect("both openings reached the server");
+    let mut waiter = tokio::spawn({
+        let client = client.clone();
+        async move { client.connect("third.net:443").await }
+    });
+    assert!(tokio::time::timeout(Duration::from_millis(100), &mut waiter).await.is_err());
+    first.abort();
+    assert!(matches!(first.await, Err(error) if error.is_cancelled()));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), &mut waiter).await.is_err(),
+        "waiter must not replace the carrier while the second opening holds it"
+    );
+    second.abort();
+    assert!(matches!(second.await, Err(error) if error.is_cancelled()));
+    let error = tokio::time::timeout(Duration::from_secs(2), waiter)
+        .await
+        .expect("waiter unblocked")
+        .expect("waiter task")
+        .err()
+        .expect("the new connection to the closed port must fail");
+    assert_ne!(error.kind(), std::io::ErrorKind::TimedOut, "capacity must be released");
+    assert!(seen_rx.try_recv().is_err(), "the retired carrier received no third request");
     server.abort();
     let _ = server.await;
 }

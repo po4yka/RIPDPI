@@ -14,8 +14,17 @@ pub(crate) struct PooledConnection {
     pub(crate) sender: Mutex<http2::SendRequest<XhttpBody>>,
     permits: Arc<Semaphore>,
     closed: AtomicBool,
+    draining: AtomicBool,
     pool_changed: Arc<Notify>,
     driver: StdMutex<Option<AbortOnDrop>>,
+    stream_state: StdMutex<StreamState>,
+}
+
+#[derive(Default)]
+struct StreamState {
+    active: usize,
+    pending: usize,
+    retire_when_idle: bool,
 }
 
 // Abort the owned H2 driver when the pooled connection is dropped.
@@ -66,8 +75,10 @@ impl PooledConnection {
             sender: Mutex::new(sender),
             permits: Arc::new(Semaphore::new(max_concurrent_streams)),
             closed: AtomicBool::new(false),
+            draining: AtomicBool::new(false),
             pool_changed,
             driver: StdMutex::new(None),
+            stream_state: StdMutex::new(StreamState::default()),
         }
     }
 
@@ -83,8 +94,52 @@ impl PooledConnection {
         self.pool_changed.notify_waiters();
     }
 
+    // Serialize admission, pending-to-active transitions and retirement.
+    pub(crate) fn opening_started(&self) -> bool {
+        let mut state = self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !self.is_usable() {
+            return false;
+        }
+        state.pending += 1;
+        true
+    }
+
+    pub(crate) fn opening_finished(&self, cancelled: bool) {
+        let mut state = self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        debug_assert!(state.pending > 0, "xHTTP opening finished without a matching start");
+        state.pending -= 1;
+        state.retire_when_idle |= cancelled;
+        self.update_retirement(&state);
+    }
+
+    pub(crate) fn stream_started(&self) {
+        let mut state = self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.active += 1;
+        self.update_retirement(&state);
+    }
+
+    pub(crate) fn stream_finished(&self) {
+        let mut state = self.stream_state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        debug_assert!(state.active > 0, "xHTTP stream finished without a matching start");
+        state.active -= 1;
+        self.update_retirement(&state);
+    }
+
+    fn update_retirement(&self, state: &StreamState) {
+        if state.retire_when_idle && state.active == 0 {
+            self.draining.store(true, Ordering::SeqCst);
+            if state.pending == 0 {
+                self.mark_closed();
+            } else {
+                self.pool_changed.notify_waiters();
+            }
+        } else if self.draining.swap(false, Ordering::SeqCst) {
+            self.pool_changed.notify_waiters();
+        }
+    }
+
     pub(crate) fn is_usable(&self) -> bool {
-        !self.is_closed()
+        !self.is_closed() && !self.draining.load(Ordering::SeqCst)
     }
 
     pub(crate) fn is_closed(&self) -> bool {
@@ -102,8 +157,10 @@ impl PooledConnection {
     }
 }
 
-/// cancel-safe: creation reservations and acquired permits are RAII guards;
-/// cancelling drops a partial carrier and restores pool capacity.
+/// # Cancel safety:
+/// cancel-safe: pool-state locks, creation reservations, stream permits, and
+/// physical-capacity permits are released if any await is cancelled; a partial
+/// carrier is dropped before publication.
 pub(crate) async fn acquire_connection(
     inner: &XhttpClientInner,
 ) -> io::Result<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
@@ -183,8 +240,11 @@ pub(crate) async fn acquire_connection(
             }
             continue;
         };
-        let permit =
-            permits.acquire_owned().await.map_err(|_| io::Error::other("xHTTP stream permit channel closed"))?;
+        let permit = match permits.acquire_owned().await {
+            Ok(permit) => permit,
+            Err(_) if connection.is_closed() => continue,
+            Err(_) => return Err(io::Error::other("xHTTP stream permit channel closed")),
+        };
         if !connection.is_usable() {
             drop(permit);
             continue;
@@ -274,6 +334,32 @@ mod tests {
             .await
             .expect("pooled connection drop must abort driver")
             .expect("driver drop notification");
+    }
+
+    #[tokio::test]
+    async fn pending_open_keeps_carrier_alive_after_last_active_stream() {
+        let (client_io, _server_io) = tokio::io::duplex(4096);
+        let (sender, _connection) =
+            hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
+                .await
+                .expect("client h2 handshake");
+        let pooled = PooledConnection::new(sender, 3, Arc::new(Notify::new()));
+        assert!(pooled.opening_started());
+        pooled.stream_started();
+        pooled.opening_finished(false);
+        assert!(pooled.opening_started());
+        assert!(pooled.opening_started());
+        pooled.opening_finished(true);
+        assert!(pooled.is_usable(), "the active sibling allows reuse");
+        pooled.stream_finished();
+        assert!(!pooled.is_usable(), "new openings wait while the pending sibling finishes");
+        assert!(!pooled.is_closed(), "the pending sibling keeps its carrier");
+        assert!(!pooled.opening_started(), "retirement and admission must be serialized");
+        pooled.stream_started();
+        pooled.opening_finished(false);
+        assert!(pooled.is_usable(), "the successful sibling makes the carrier reusable");
+        pooled.stream_finished();
+        assert!(pooled.is_closed(), "the last sibling retires the suspect carrier");
     }
 
     #[tokio::test]

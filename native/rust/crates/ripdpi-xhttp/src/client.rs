@@ -30,14 +30,16 @@ pub(crate) struct XhttpClientInner {
     pub(crate) state: Mutex<PoolState>,
 }
 
-/// cancel-safe: cancelling drops the not-yet-returned stream and releases all
-/// xHTTP establishment resources through the same guards as [`XhttpClient::connect`].
+/// # Cancel safety:
+/// conditionally cancel-safe: as for [`XhttpClient::connect`], the peer may
+/// receive a partial request before cancellation releases local resources.
 pub async fn connect_reality(config: &XhttpRealityConfig, target: &str) -> io::Result<impl AsyncIo + use<>> {
     XhttpClient::new_reality(config.clone()).connect(target).await
 }
 
-/// cancel-safe: cancelling drops the not-yet-returned stream and releases all
-/// xHTTP establishment resources through the same guards as [`XhttpClient::connect`].
+/// # Cancel safety:
+/// conditionally cancel-safe: as for [`XhttpClient::connect`], the peer may
+/// receive a partial request before cancellation releases local resources.
 pub async fn connect_tls(config: &XhttpTlsConfig, target: &str) -> io::Result<impl AsyncIo + use<>> {
     XhttpClient::new_tls(config.clone()).connect(target).await
 }
@@ -51,8 +53,9 @@ impl XhttpClient {
         Self::new(XhttpMode::Tls(config.clone()), config.xmux.clone())
     }
 
-    /// cancel-safe: cancellation or the internal deadline releases pool
-    /// reservations and permits, drops partial carriers, and aborts stream-open pumps.
+    /// # Cancel safety:
+    /// conditionally cancel-safe: cancellation releases local resources, but the
+    /// peer may already have received a partial HTTP request.
     pub async fn connect(&self, target: &str) -> io::Result<XhttpStream> {
         self.open_stream(&self.inner.mode.tcp_request(target)?).await
     }
@@ -62,23 +65,29 @@ impl XhttpClient {
     /// request followed by XUDP frames. Xray limits UDP/443 only for Vision,
     /// which cannot run over xHTTP, so UDP/443 is allowed.
     ///
-    /// cancel-safe: same establishment guards as [`XhttpClient::connect`]; the
-    /// XUDP tasks start only after the stream is returned.
+    /// # Cancel safety:
+    /// conditionally cancel-safe: as for [`XhttpClient::connect`], a partial HTTP
+    /// request may reach the peer. XUDP tasks start only after the stream returns.
     pub async fn connect_xudp(&self) -> io::Result<VlessXudpSession> {
         let request = self.inner.mode.xudp_request()?;
         VlessXudpSession::new(self.open_stream(&request).await?, true)
     }
 
     /// # Cancel safety:
-    /// cancel-safe: cancellation or the internal deadline releases pool
-    /// reservations and permits, drops partial carriers, and aborts stream-open pumps.
+    /// conditionally cancel-safe: cancellation while awaiting stream opening
+    /// releases reservations, permits and partial pumps; the peer may already
+    /// have received a partial HTTP request.
     ///
     /// A plain fn returning the future keeps async nesting shallow enough for
     /// clippy's layout query on the public connect helpers.
     fn open_stream<'a>(&'a self, request: &'a [u8]) -> impl Future<Output = io::Result<XhttpStream>> + 'a {
         establish_with_deadline(STREAM_ESTABLISHMENT_TIMEOUT, async move {
-            let (connection, permit) = pool::acquire_connection(&self.inner).await?;
-            connection.open_stream_from_mode(&self.inner.mode, request, permit).await
+            loop {
+                let (connection, permit) = pool::acquire_connection(&self.inner).await?;
+                if connection.opening_started() {
+                    break connection.open_stream_from_mode(&self.inner.mode, request, permit).await;
+                }
+            }
         })
     }
 
