@@ -5,6 +5,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use bytes::{BufMut, Bytes, BytesMut};
+use rand::RngExt;
 use tokio::sync::{Mutex, mpsc};
 
 use crate::client::ClientInner;
@@ -34,7 +35,6 @@ pub struct UdpSession {
 #[derive(Default)]
 struct SessionRoute {
     session_id: Option<u32>,
-    next_packet_id: u16,
 }
 
 impl UdpSession {
@@ -49,9 +49,9 @@ impl UdpSession {
         // QUIC datagram. Wait out that connection-scoped handoff window; on
         // other platforms `udp_ready_at` is the connection creation instant.
         tokio::time::sleep_until(self.client.udp_ready_at).await;
-        let (session_id, packet_id) = self.next_route().await?;
+        let session_id = self.session_id().await?;
         let migration = self.client.begin_quic_migration();
-        match send_udp_payload(&self.client, session_id, packet_id, address, payload).await {
+        match send_udp_payload(&self.client, session_id, address, payload).await {
             Ok(()) => {
                 if let Some(migration) = migration {
                     migration.complete("path_validated_after_datagram_send");
@@ -61,7 +61,7 @@ impl UdpSession {
             Err(error) => match migration {
                 Some(migration) if error.is_path_failure() => {
                     migration.rollback("datagram_send_failed_after_rebind")?;
-                    send_udp_payload(&self.client, session_id, packet_id, address, payload).await
+                    send_udp_payload(&self.client, session_id, address, payload).await
                 }
                 // A payload the server cannot carry fails on any path; the
                 // attempt rolls back on drop and the datagram is not resent.
@@ -89,14 +89,13 @@ impl UdpSession {
             .map(|packet| (packet.address, packet.payload))
     }
 
-    /// Registers the session ID on first use and returns it with the next
-    /// packet ID.
+    /// Registers the session ID on first use and returns it.
     ///
     /// # Cancel safety
     ///
     /// cancel-safe: both locks are Tokio mutexes, and the registration is
     /// stored in the same poll that allocates it.
-    async fn next_route(&self) -> Result<(u32, u16)> {
+    async fn session_id(&self) -> Result<u32> {
         let mut route = self.route.lock().await;
         let session_id = match route.session_id {
             Some(session_id) => session_id,
@@ -113,9 +112,7 @@ impl UdpSession {
                 session_id
             }
         };
-        let packet_id = route.next_packet_id;
-        route.next_packet_id = packet_id.wrapping_add(1);
-        Ok((session_id, packet_id))
+        Ok(session_id)
     }
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
@@ -305,13 +302,7 @@ fn evict_oldest_partial(partials: &mut HashMap<ReassemblyKey, PartialPacket>) {
     }
 }
 
-async fn send_udp_payload(
-    client: &ClientInner,
-    session_id: u32,
-    packet_id: u16,
-    address: &str,
-    payload: &[u8],
-) -> Result<()> {
+async fn send_udp_payload(client: &ClientInner, session_id: u32, address: &str, payload: &[u8]) -> Result<()> {
     let max_datagram_size = client.connection.max_datagram_size().ok_or(HysteriaError::UdpNotSupported)?;
     let address_len = encode_varint(address.len() as u64);
     let header_len = 4 + 2 + 1 + 1 + address_len.len() + address.len();
@@ -320,11 +311,14 @@ async fn send_udp_payload(
     }
 
     if header_len + payload.len() <= max_datagram_size {
-        let datagram = build_udp_datagram(session_id, packet_id, 0, 1, address, payload);
+        let datagram = build_udp_datagram(session_id, 0, 0, 1, address, payload);
         client.connection.send_datagram(datagram)?;
         return Ok(());
     }
 
+    // Like the reference client: fragments of one message share a random
+    // non-zero PacketID; an unfragmented message uses 0.
+    let packet_id: u16 = rand::rng().random_range(1..=u16::MAX);
     let max_payload = max_datagram_size - header_len;
     let fragment_count = payload.len().div_ceil(max_payload);
     if fragment_count > usize::from(u8::MAX) {
@@ -448,6 +442,40 @@ mod tests {
         }
 
         assert_eq!(seen[0], seen[1], "both peers must share one Hysteria UDP session");
+    }
+
+    fn send_header(event: ServerEvent) -> (u16, u8) {
+        let ServerEvent::Datagram { packet_id, fragment_count, .. } = event else {
+            panic!("unexpected event {event:?}")
+        };
+        (packet_id, fragment_count)
+    }
+
+    /// Reference client: PacketID 0 when the message fits, one random
+    /// non-zero PacketID shared by all fragments otherwise.
+    #[tokio::test]
+    async fn packet_id_is_zero_unfragmented_and_shared_nonzero_across_fragments() {
+        let mut server = TestServer::start(ServerOptions::default()).expect("start test server");
+        let client = crate::connect(&server.client_config()).await.expect("connect");
+        let session = client.udp_session().await.expect("UDP session");
+
+        session.send_to("192.0.2.1:53", b"small").await.expect("send small");
+        let small = tokio::time::timeout(DEADLINE, server.events.recv()).await.expect("event").expect("event");
+        assert_eq!(send_header(small), (0, 1));
+
+        session.send_to("192.0.2.1:53", &vec![7u8; 4000]).await.expect("send large");
+        let mut ids = Vec::new();
+        loop {
+            let event = tokio::time::timeout(DEADLINE, server.events.recv()).await.expect("event").expect("event");
+            let (packet_id, count) = send_header(event);
+            assert!(count > 1);
+            ids.push(packet_id);
+            if ids.len() == usize::from(count) {
+                break;
+            }
+        }
+        assert_ne!(ids[0], 0);
+        assert!(ids.iter().all(|id| *id == ids[0]), "fragments must share one PacketID: {ids:?}");
     }
 
     #[tokio::test]

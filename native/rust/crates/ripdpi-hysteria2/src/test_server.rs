@@ -19,7 +19,7 @@ const TCP_REQUEST_COMMAND: u64 = 0x401;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum ServerEvent {
     TcpRequest(String),
-    Datagram { session_id: u32 },
+    Datagram { session_id: u32, packet_id: u16, fragment_count: u8 },
 }
 
 #[derive(Default)]
@@ -117,9 +117,12 @@ async fn serve_connection(
     let datagram_events = events.clone();
     tokio::spawn(async move {
         while let Ok(datagram) = datagrams.read_datagram().await {
-            if let Some(session_id) = datagram.get(..4) {
-                let session_id = u32::from_be_bytes([session_id[0], session_id[1], session_id[2], session_id[3]]);
-                let _ = datagram_events.send(ServerEvent::Datagram { session_id });
+            if let Some(&[s0, s1, s2, s3, p0, p1, _fragment_id, fragment_count]) =
+                datagram.get(..8).map(|h| <&[u8; 8]>::try_from(h).unwrap())
+            {
+                let session_id = u32::from_be_bytes([s0, s1, s2, s3]);
+                let packet_id = u16::from_be_bytes([p0, p1]);
+                let _ = datagram_events.send(ServerEvent::Datagram { session_id, packet_id, fragment_count });
             }
             let _ = datagrams.send_datagram(datagram);
         }
