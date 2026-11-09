@@ -2162,6 +2162,7 @@ dependencies = [
 name = "ripdpi-xhttp"
 version = "0.1.0"
 dependencies = [
+ "boring",
  "bytes",
  "hex",
  "http",
