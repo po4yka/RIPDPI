@@ -2,7 +2,7 @@
 id: RST-1794212008025103
 title: Correct TLS ClientHello parsing and mutation
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: TLS maintenance
