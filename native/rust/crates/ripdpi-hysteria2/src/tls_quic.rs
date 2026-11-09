@@ -139,6 +139,8 @@ pub(crate) fn build_endpoint(
 
 fn client_transport_config() -> quinn::TransportConfig {
     let mut transport = quinn::TransportConfig::default();
+    // Reference client default when no bandwidth is configured (`Hysteria-CC-RX: auto`).
+    transport.congestion_controller_factory(Arc::new(quinn::congestion::BbrConfig::default()));
     transport.keep_alive_interval(Some(KEEP_ALIVE_INTERVAL));
     transport.max_idle_timeout(Some(MAX_IDLE_TIMEOUT.into()));
     transport.stream_receive_window(STREAM_RECEIVE_WINDOW);
@@ -267,6 +269,35 @@ mod tests {
         assert!(matches!(result, Err(crate::HysteriaError::AuthFailed)));
         let event = tokio::time::timeout(Duration::from_secs(5), server.events.recv()).await.expect("close seen");
         assert!(matches!(event, Some(crate::test_server::ServerEvent::AuthRejectedClose(0x101))), "{event:?}");
+    }
+
+    #[tokio::test]
+    async fn client_connections_use_bbr_congestion_control() {
+        let server =
+            crate::test_server::TestServer::start(crate::test_server::ServerOptions::default()).expect("test server");
+        let config = server.client_config();
+        let socket_spec = super::ClientSocketSpec {
+            ipv6: false,
+            bind_low_port: false,
+            salamander_key: None,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        };
+        let (endpoint, _, _) = super::build_endpoint(
+            &config,
+            super::build_tls_config(&config).expect("TLS config"),
+            socket_spec,
+            server.addr(),
+        )
+        .expect("endpoint");
+        let connection = tokio::time::timeout(
+            Duration::from_secs(5),
+            endpoint.connect(server.addr(), &config.server_name).expect("connect"),
+        )
+        .await
+        .expect("handshake finishes")
+        .expect("handshake");
+        let controller = connection.congestion_state();
+        assert!(controller.into_any().downcast::<quinn::congestion::Bbr>().is_ok());
     }
 
     struct DropNotice(Option<oneshot::Sender<()>>);
