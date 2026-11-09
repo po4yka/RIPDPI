@@ -1,0 +1,11 @@
+{
+  "change": "fix-http-request-boundaries",
+  "evidence_summary": "Five separate HTTP repair commits published on main; pinned Rust 1.98.1: 1758 default tests passed, 13 existing ignores, Clippy exit 0; 20 independent decoder checks; offline CI gates, API snapshots, architecture and locked metadata passed. No device/root/external-peer claim.",
+  "execution_sha256": "06581940850a2bebe3e195a2925b0aad1d362d4c2d574a428b1c2f83ed6d2553",
+  "issue_sha256": "0ea6e489669fd9dfa647293c90036f7ede11947f92c330485959b93892fa248a",
+  "outcome": "done",
+  "prepared_at": "2026-11-09T09:31:02Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1794211693515272"
+}

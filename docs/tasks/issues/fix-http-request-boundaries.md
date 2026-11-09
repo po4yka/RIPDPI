@@ -2,7 +2,7 @@
 id: PRX-1794211693515272
 title: Fix HTTP request parsing and mutation boundaries
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: HTTP repair coordinator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-http-request-boundaries
 created: 2026-11-09
 updated: 2026-11-09
+closed_at: "2026-11-09T09:31:02Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Five separate HTTP repair commits published on main; pinned Rust 1.98.1: 1758 default tests passed, 13 existing ignores, Clippy exit 0; 20 independent decoder checks; offline CI gates, API snapshots, architecture and locked metadata passed. No device/root/external-peer claim."
 ---
 
 ## Goal
