@@ -1,9 +1,9 @@
 ---
 task_id: RST-1794212008025103
 change: rst-1794212008025103-correct-tls-clienthello-parsing-and-mutation
-commit_sha: a46d798ef42651d3b9777d0901c38bc539fb2bf0
+commit_sha: 5738db6e4f12670aa52bdc50c74cf0be7f44fb02
 local: passed
-local_evidence: On source a46d798ef42651d3b9777d0901c38bc539fb2bf0, just ci-gates, cargo-deny 0.19.8 and locked fuzz metadata passed. Tor passed 13 host tests including a new-cache reopen test and arm64 Android cargo check. Diagnostics passed detekt, ktlint and unit tests with the native build disabled. Earlier locked fuzz smoke and ECH adapter tests passed. No physical device, external Tor network or old-cache migration was tested.
+local_evidence: On source 5738db6e4f12670aa52bdc50c74cf0be7f44fb02, just ci-gates, cargo-deny 0.19.8 and locked fuzz metadata passed. Tor passed 13 host tests including a new-cache reopen test and arm64 Android cargo check. Diagnostics passed detekt, ktlint and unit tests with the native build disabled. Locked fuzz smoke was rerun after rebase and passed. Earlier ECH adapter tests passed. No physical device, external Tor network or old-cache migration was tested.
 remote_ci: required
 remote_ci_evidence: CI for 99c436be4a6eb4249d12e8f5145ad0a70747291a failed cargo-deny and diagnostics detekt; a passing run for the repair remains required.
 device: not_applicable
