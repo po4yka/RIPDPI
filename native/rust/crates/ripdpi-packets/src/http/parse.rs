@@ -7,13 +7,13 @@ pub(super) const METHODS: &[&[u8]] =
 /// line that separates headers from body. Searches for `\r\n\r\n` or `\n\n`.
 /// If no terminator is found the entire buffer is treated as headers.
 pub(super) fn header_block_end(buffer: &[u8]) -> usize {
-    if let Some(pos) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
-        return pos + 2;
-    }
-    if let Some(pos) = buffer.windows(2).position(|w| w == b"\n\n") {
-        return pos + 1;
-    }
-    buffer.len()
+    buffer
+        .windows(2)
+        .enumerate()
+        .find_map(|(pos, window)| {
+            (window == b"\n\n" || (window == b"\n\r" && buffer.get(pos + 2) == Some(&b'\n'))).then_some(pos + 1)
+        })
+        .unwrap_or(buffer.len())
 }
 
 #[derive(Debug, Clone, Copy)]

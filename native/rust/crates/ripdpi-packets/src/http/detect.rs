@@ -1,5 +1,8 @@
-use super::parse::{METHODS, http_method_start, parse_http_parts};
+use super::parse::{METHODS, http_method_start, parse_http_parts, parse_http_request_layout};
 use crate::types::{HttpHost, HttpMarkerInfo};
+
+/// Maximum head size accepted for HTTP request inspection.
+pub const HTTP_REQUEST_HEAD_LIMIT: usize = 65_536;
 
 pub fn is_http(buffer: &[u8]) -> bool {
     http_method_start(buffer).is_some()
@@ -14,6 +17,22 @@ pub fn is_http_request_prefix(buffer: &[u8]) -> bool {
         }
     }
     METHODS.iter().any(|method| method.starts_with(buffer) || buffer.starts_with(method))
+}
+
+/// Returns the byte after a complete supported HTTP/1 request head within the inspection limit.
+/// Does not require Host, and never includes body bytes in the result.
+pub fn http_request_head_end(buffer: &[u8]) -> Option<usize> {
+    let buffer = &buffer[..buffer.len().min(HTTP_REQUEST_HEAD_LIMIT)];
+    let layout = parse_http_request_layout(buffer)?;
+    let line = &buffer[layout.method_start..layout.request_line_end];
+    if line.iter().any(|byte| byte.is_ascii_control() && *byte != b'\t') {
+        return None;
+    }
+    let mut fields = line.split(|byte| matches!(byte, b' ' | b'\t')).filter(|field| !field.is_empty());
+    fields.next()?;
+    fields.next()?;
+    let version = fields.next()?;
+    (matches!(version, b"HTTP/1.0" | b"HTTP/1.1") && fields.next().is_none()).then_some(layout.body_start)
 }
 
 pub fn parse_http(buffer: &[u8]) -> Option<HttpHost<'_>> {

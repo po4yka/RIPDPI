@@ -241,11 +241,17 @@ fn find_host_value(input: &[u8]) -> Option<Range<usize>> {
 }
 
 fn header_body_separator(input: &[u8]) -> Option<(usize, usize)> {
-    if let Some(index) = input.windows(4).position(|window| window == b"\r\n\r\n") {
-        Some((index, 4))
-    } else {
-        input.windows(2).position(|window| window == b"\n\n").map(|index| (index, 2))
-    }
+    input.windows(2).enumerate().find_map(|(index, window)| {
+        let blank_line_len = if window == b"\n\n" {
+            1
+        } else if window == b"\n\r" && input.get(index + 2) == Some(&b'\n') {
+            2
+        } else {
+            return None;
+        };
+        let separator_start = index - usize::from(index > 0 && input[index - 1] == b'\r');
+        Some((separator_start, index + 1 + blank_line_len - separator_start))
+    })
 }
 
 fn http1_request_line_end(input: &[u8]) -> Option<usize> {

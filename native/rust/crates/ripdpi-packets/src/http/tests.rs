@@ -254,6 +254,18 @@ fn parse_http_ignores_host_in_body() {
 }
 
 #[test]
+fn lf_headers_do_not_extract_or_mutate_host_from_body() {
+    let body = b"\nHost: Body.Example\r\n\r\nAAAAAAAAAAAAAAAAAAAA";
+    let mut request = format!("POST / HTTP/1.0\nContent-Length: {}\nUser-Agent: abcdef\n\n", body.len()).into_bytes();
+    request.extend_from_slice(body);
+
+    assert!(parse_http(&request).is_none());
+    for flags in [MH_HMIX, MH_DMIX, MH_SPACE, MH_HOSTEXTRASPACE, MH_HOSTTAB] {
+        assert_eq!(mod_http_like_c(&request, flags).bytes, request, "flags {flags}");
+    }
+}
+
+#[test]
 fn redirect_ignores_location_in_body() {
     // F-006: Location header in the body must NOT be picked up.
     let req = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
@@ -278,5 +290,46 @@ fn request_prefix_uses_supported_methods_and_preserves_other_protocols() {
     }
     for other in [&b"PING"[..], &b"EHLO host\r\n"[..], &b"get /"[..], &b"\x16\x03"[..]] {
         assert!(!is_http_request_prefix(other));
+    }
+}
+
+#[test]
+fn request_head_end_requires_complete_http1_headers_and_excludes_body() {
+    for (head, body_start) in [
+        (&b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"[..], 37),
+        (&b"POST / HTTP/1.0\nContent-Length: 5\n\n"[..], 35),
+        (&b"TRACE / HTTP/1.1\r\n\r\n"[..], 20),
+    ] {
+        assert_eq!(head.len(), body_start);
+        let mut request = head.to_vec();
+        request.extend_from_slice(b"BODY\r\n\r\n");
+        assert_eq!(http_request_head_end(&request), Some(body_start));
+        for cut in 0..head.len() {
+            assert_eq!(http_request_head_end(&head[..cut]), None, "cut {cut}");
+        }
+    }
+    for invalid in [
+        &b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"[..],
+        &b"GET / HTTP/2.0\r\nHost: example.com\r\n\r\n"[..],
+        &b"GET / nonsense\r\nHost: example.com\r\n\r\n"[..],
+        &b"GET / HTTP/1.1\rX\r\nHost: example.com\r\n\r\n"[..],
+    ] {
+        assert_eq!(http_request_head_end(invalid), None);
+    }
+}
+
+#[test]
+fn request_head_limit_excludes_body_and_rejects_oversized_heads() {
+    let mut request = b"POST / HTTP/1.1\r\nContent-Length: 65536\r\n\r\n".to_vec();
+    let body_start = request.len();
+    request.extend(vec![0; HTTP_REQUEST_HEAD_LIMIT]);
+    assert_eq!(http_request_head_end(&request), Some(body_start));
+
+    let prefix = b"GET / HTTP/1.1\r\nX: ";
+    for (head_len, expected) in [(65_535, Some(65_535)), (65_536, Some(65_536)), (65_537, None)] {
+        let mut head = prefix.to_vec();
+        head.extend(vec![b'a'; head_len - prefix.len() - 4]);
+        head.extend(b"\r\n\r\n");
+        assert_eq!(http_request_head_end(&head), expected, "head length {head_len}");
     }
 }
