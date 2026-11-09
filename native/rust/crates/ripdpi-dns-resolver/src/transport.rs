@@ -1,4 +1,5 @@
 mod client;
+mod edns;
 mod framing;
 mod normalize;
 mod util;
@@ -7,6 +8,7 @@ mod wire;
 pub(crate) use client::{
     build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config, tls_version_refused,
 };
+pub(crate) use edns::{prepare_query, restore_response};
 pub(crate) use framing::{
     STREAM_CLOSED_BEFORE_FRAME, read_length_prefixed_frame_async, write_length_prefixed_frame_async,
 };

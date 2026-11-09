@@ -7,6 +7,7 @@ mod doq_rfc9250;
 mod doq_transport;
 mod dot_alpn;
 mod dot_pin;
+mod edns_padding;
 mod https_service_binding;
 mod pipeline;
 mod stream_matching;
@@ -64,6 +65,20 @@ impl DnsCryptTestServer {
 
 fn build_query(name: &str) -> Vec<u8> {
     build_dns_query(name, RecordType::A).expect("query serializes")
+}
+
+/// The query a DoH or DoT server must see: no OPT in, so an OPT with one padding option out
+/// (RFC 8467 4.1, total length a multiple of 128). Derived by hand from the RFC, not from the resolver.
+fn expected_padded_query(query: &[u8]) -> Vec<u8> {
+    let fill = (128 - (query.len() + 11 + 4) % 128) % 128;
+    let mut padded = query.to_vec();
+    padded[10..12].copy_from_slice(&1u16.to_be_bytes());
+    padded.extend_from_slice(&[0x00, 0x00, 0x29, 0x04, 0xd0, 0x00, 0x00, 0x00, 0x00]);
+    padded.extend_from_slice(&((4 + fill) as u16).to_be_bytes());
+    padded.extend_from_slice(&[0x00, 0x0c]);
+    padded.extend_from_slice(&(fill as u16).to_be_bytes());
+    padded.extend(std::iter::repeat_n(0u8, fill));
+    padded
 }
 
 fn build_query_for_type(name: &str, record_type: RecordType) -> Vec<u8> {
@@ -1232,7 +1247,7 @@ fn serve_dot(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[u8]
         tls_stream.conn.complete_io(&mut tls_stream.sock).expect("TLS handshake completes");
     }
     let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
-    assert_eq!(query, expected_query);
+    assert_eq!(query, expected_padded_query(expected_query));
     write_length_prefixed_frame(&mut tls_stream, response_body).expect("write DoT response");
 }
 
@@ -1260,7 +1275,7 @@ fn serve_dot_sequence(
     for (expected_query, response_body) in expected_queries.iter().zip(response_bodies) {
         let query = read_length_prefixed_frame(&mut tls_stream).expect("read DoT query");
         // Compare ignoring the 2-byte transaction ID (now randomized), and echo it.
-        assert_eq!(query[2..], expected_query[2..]);
+        assert_eq!(query[2..], expected_padded_query(expected_query)[2..]);
         let mut response_body = response_body.clone();
         response_body[..2].copy_from_slice(&query[..2]);
         write_length_prefixed_frame(&mut tls_stream, &response_body).expect("write DoT response");
@@ -1296,7 +1311,7 @@ fn serve_https_doh_raw(
         request_line, "POST /dns-query HTTP/1.1",
         "DoH request line must not carry extra query params (got: {request_line})",
     );
-    assert_eq!(body, expected_query);
+    assert_eq!(body, expected_padded_query(expected_query));
 
     for part in response_parts {
         tls_stream.write_all(part).expect("write response part");
@@ -1429,7 +1444,7 @@ fn serve_h2_doh(stream: TcpStream, config: Arc<ServerConfig>, expected_query: &[
             body.extend_from_slice(payload);
         }
     }
-    assert_eq!(body, expected_query);
+    assert_eq!(body, expected_padded_query(expected_query));
 
     let settings_ack = [0x00, 0x00, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00];
     let headers_frame = [0x00, 0x00, 0x01, 0x01, 0x04, 0x00, 0x00, 0x00, 0x01, 0x88];
