@@ -505,9 +505,10 @@ fn classify_l7(meta: PacketMeta, payload: &[u8], inspect_http: bool) -> L7Protoc
         Transport::Tcp => {
             if let Some(host) = parse_tls(payload).map(|host| String::from_utf8_lossy(host).into_owned()) {
                 L7Protocol::Tls(TlsDissect { sni: Some(host), is_client_hello: true })
-            } else if inspect_http && let Some(markers) = http_marker_info(payload) {
-                let host = String::from_utf8_lossy(&payload[markers.host_start..markers.host_end]).into_owned();
-                L7Protocol::Http(HttpDissect { host: Some(host), is_request: true })
+            } else if inspect_http && http_marker_info(payload).is_some() {
+                let host = ripdpi_packets::http_request_authority(payload)
+                    .map(|authority| String::from_utf8_lossy(authority.host).into_owned());
+                L7Protocol::Http(HttpDissect { host, is_request: true })
             } else {
                 L7Protocol::Unknown
             }
@@ -527,11 +528,12 @@ fn packet_host(transport: Transport, payload: &[u8], inspect_http: bool) -> Opti
                 if !inspect_http {
                     return None;
                 }
-                http_marker_info(payload).and_then(|markers| payload.get(markers.host_start..markers.host_end)).map(
-                    |host| {
-                        (ProtocolName::Http, String::from_utf8_lossy(host).trim_end_matches('.').to_ascii_lowercase())
-                    },
-                )
+                ripdpi_packets::http_request_authority(payload).map(|authority| {
+                    (
+                        ProtocolName::Http,
+                        String::from_utf8_lossy(authority.host).trim_end_matches('.').to_ascii_lowercase(),
+                    )
+                })
             }),
         Transport::Udp => parse_quic_initial_layout(payload).and_then(|layout| {
             layout.info.client_hello.get(layout.info.tls_info.host_start..layout.info.tls_info.host_end).map(|host| {

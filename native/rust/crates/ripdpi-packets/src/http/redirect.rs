@@ -1,9 +1,9 @@
-use super::detect::parse_http;
+use super::authority::http_request_authority;
 use super::parse::{get_http_code, header_block_end};
 use crate::util::strncase_find;
 
 pub fn is_http_redirect(req: &[u8], resp: &[u8]) -> bool {
-    let Some(host) = parse_http(req).map(|parsed| parsed.host) else {
+    let Some(host) = http_request_authority(req).map(|parsed| parsed.host) else {
         return false;
     };
     if resp.len() < 29 {

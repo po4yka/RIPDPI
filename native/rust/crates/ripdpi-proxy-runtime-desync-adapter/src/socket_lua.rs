@@ -228,7 +228,8 @@ fn dissect_payload(
             && ripdpi_packets::http_request_head_end(payload).is_some()
             && let Some(info) = http_marker_info(payload)
         {
-            hostname = Some(String::from_utf8_lossy(&payload[info.host_start..info.host_end]).into_owned());
+            hostname = ripdpi_packets::http_request_authority(payload)
+                .map(|authority| String::from_utf8_lossy(authority.host).into_owned());
             protocol = Some(ProtocolName::Http);
             dissect.proto = L7Protocol::Http(HttpDissect { host: hostname.clone(), is_request: true });
             insert_host_markers(&mut dissect, payload, info.host_start, info.host_end);
@@ -319,7 +320,7 @@ mod tests {
         bytes.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
         bytes.extend_from_slice(&body[split..]);
         let (src, dst) = endpoints();
-        let (dissect, protocol, host) = dissect_payload(src, dst, true, &bytes);
+        let (dissect, protocol, host) = dissect_payload(src, dst, true, &bytes, false);
         assert_eq!(protocol, Some(ProtocolName::Tls));
         assert_eq!(host.as_deref(), Some("example.com"));
         for marker in
@@ -344,10 +345,29 @@ mod tests {
         contiguous.extend_from_slice(&[0x16, 0x03, 0x03]);
         contiguous.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
         contiguous.extend_from_slice(&body[split..]);
-        let (dissect, _, host) = dissect_payload(src, dst, true, &contiguous);
+        let (dissect, _, host) = dissect_payload(src, dst, true, &contiguous, false);
         assert_eq!(host.as_deref(), Some("example.com"));
         assert_eq!(dissect.markers.get(&MarkerName::Host), Some(&(host_start + 5)));
         assert_eq!(dissect.markers.get(&MarkerName::HostEnd), Some(&(host_start + 5 + 11)));
+    }
+
+    #[test]
+    fn http_authority_metadata_preserves_raw_host_markers() {
+        let scripts = Scripts::new(
+            "function host(d) return (d.dis.hostname or 'unknown') .. '|' .. string.sub(d.payload, d.pos('host')+1, d.pos('endhost')) end",
+        );
+        let strategies = scripts.load(&rule("host", "host", "drop", ""));
+        let (src, dst) = endpoints();
+        for payload in [
+            &b"GET http://real.example/path HTTP/1.1\r\nHost: decoy.example\r\n\r\n"[..],
+            &b"CONNECT real.example:443 HTTP/1.1\r\nHost: decoy.example\r\n\r\n"[..],
+        ] {
+            let plan = strategies.open_flow().plan(src, dst, "tcp", payload, None, None).unwrap().unwrap();
+            assert_eq!(plan.actions, vec![DesyncAction::Write(b"real.example|decoy.example".to_vec())]);
+        }
+        let ambiguous = b"GET / HTTP/1.1\r\nHost: first.example\r\nHost: second.example\r\n\r\n";
+        let plan = strategies.open_flow().plan(src, dst, "tcp", ambiguous, None, None).unwrap().unwrap();
+        assert_eq!(plan.actions, vec![DesyncAction::Write(b"unknown|first.example".to_vec())]);
     }
 
     #[test]

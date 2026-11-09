@@ -1119,3 +1119,18 @@ fn tcp_stream_packet(sequence: u32, syn: bool, payload: &[u8]) -> Vec<u8> {
     }
     packet
 }
+
+#[test]
+fn http_authority_metadata_preserves_raw_host_markers() {
+    let payload = b"GET http://real.example/path HTTP/1.1\r\nHost: decoy.example\r\n\r\n";
+    let packet = tcp_stream_packet(101, false, payload);
+    let meta = PacketMeta::parse(&packet).unwrap();
+    let dissect = dissect_packet(meta, payload, true);
+    assert!(
+        matches!(dissect.proto, L7Protocol::Http(HttpDissect { host: Some(ref host), .. }) if host == "real.example")
+    );
+    assert_eq!(packet_host(Transport::Tcp, payload, true), Some((ProtocolName::Http, "real.example".into())));
+    let start = dissect.markers[&MarkerName::Host];
+    let end = dissect.markers[&MarkerName::HostEnd];
+    assert_eq!(&payload[start..end], b"decoy.example");
+}

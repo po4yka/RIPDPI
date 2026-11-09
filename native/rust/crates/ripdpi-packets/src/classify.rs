@@ -3,7 +3,7 @@
 //! Wraps existing stateless `is_*()` / `parse_*()` detection functions behind
 //! a common [`ProtocolClassifier`] trait with a registry for ordered lookup.
 
-use crate::{is_http, is_tls_client_hello, parse_http, parse_tls, reassembled_tls_sni};
+use crate::{http_request_authority, is_http, is_tls_client_hello, parse_tls, reassembled_tls_sni};
 
 /// Protocol identifier for dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, enum_map::Enum)]
@@ -124,7 +124,7 @@ impl ProtocolClassifier for HttpClassifier {
     }
 
     fn extract_host(&self, payload: &[u8]) -> Option<String> {
-        parse_http(payload).map(|h| String::from_utf8_lossy(h.host).into_owned())
+        http_request_authority(payload).map(|h| String::from_utf8_lossy(h.host).into_owned())
     }
 }
 
@@ -254,6 +254,32 @@ mod tests {
         let result = registry.classify(&payload).expect("should classify as HTTP");
         assert_eq!(result.protocol, ProtocolId::Http);
         assert_eq!(result.host.as_deref(), Some("example.com"));
+    }
+
+    #[test]
+    fn classify_http_uses_request_target_authority() {
+        let registry = default_registry();
+        for payload in [
+            &b"GET http://real.example/path HTTP/1.1\r\nHost: decoy.example\r\n\r\n"[..],
+            &b"CONNECT real.example:443 HTTP/1.1\r\nHost: decoy.example\r\n\r\n"[..],
+        ] {
+            let result = registry.classify(payload).expect("HTTP request");
+            assert_eq!(result.host.as_deref(), Some("real.example"));
+        }
+    }
+
+    #[test]
+    fn classify_http_does_not_choose_an_ambiguous_or_invalid_host() {
+        let registry = default_registry();
+        for payload in [
+            &b"GET / HTTP/1.1\r\nHost: first.example\r\nhost: second.example\r\n\r\n"[..],
+            &b"GET / HTTP/1.1\r\nHost: example.com:abc\r\n\r\n"[..],
+            &b"GET / HTTP/1.1\r\nHost : example.com\r\n\r\n"[..],
+            &b"GET / HTTP/1.1\r\nHost: example.com\r\n .evil.test\r\n\r\n"[..],
+        ] {
+            let result = registry.classify(payload).expect("HTTP request");
+            assert_eq!(result.host, None, "{:?}", String::from_utf8_lossy(payload));
+        }
     }
 
     #[test]

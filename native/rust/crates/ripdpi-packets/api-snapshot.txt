@@ -202,6 +202,7 @@ pub fn ripdpi_packets::default_fake_quic_compat() -> alloc::vec::Vec<u8>
 pub fn ripdpi_packets::duplicate_tls_session_id_inplace(&mut [u8], &[u8]) -> isize
 pub fn ripdpi_packets::http_fake_profile_bytes(ripdpi_packets::HttpFakeProfile) -> &'static [u8]
 pub fn ripdpi_packets::http_marker_info(&[u8]) -> core::option::Option<ripdpi_packets::HttpMarkerInfo>
+pub fn ripdpi_packets::http_request_authority(&[u8]) -> core::option::Option<ripdpi_packets::HttpHost<'_>>
 pub fn ripdpi_packets::http_request_head_end(&[u8]) -> core::option::Option<usize>
 pub fn ripdpi_packets::is_http(&[u8]) -> bool
 pub fn ripdpi_packets::is_http_redirect(&[u8], &[u8]) -> bool

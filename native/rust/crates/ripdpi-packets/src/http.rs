@@ -1,3 +1,4 @@
+mod authority;
 mod detect;
 mod mutation;
 mod parse;
@@ -5,6 +6,7 @@ mod redirect;
 #[cfg(test)]
 mod tests;
 
+pub use authority::*;
 pub use detect::*;
 pub use mutation::*;
 pub use redirect::*;

@@ -279,6 +279,8 @@ proptest::proptest! {
     fn parse_http_never_panics(data in proptest::collection::vec(proptest::prelude::any::<u8>(), 0..512)) {
         let _ = is_http(&data);
         let _ = parse_http(&data);
+        let _ = http_request_head_end(&data);
+        let _ = http_request_authority(&data);
         let _ = is_http_redirect(&data, &data);
     }
 }
@@ -332,4 +334,11 @@ fn request_head_limit_excludes_body_and_rejects_oversized_heads() {
         head.extend(b"\r\n\r\n");
         assert_eq!(http_request_head_end(&head), expected, "head length {head_len}");
     }
+}
+
+#[test]
+fn redirect_detection_compares_the_request_target_authority() {
+    let request = b"GET http://real.example/path HTTP/1.1\r\nHost: decoy.example\r\n\r\n";
+    let response = b"HTTP/1.1 302 Found\r\nLocation: https://cdn.real.example/next\r\n\r\n";
+    assert!(!is_http_redirect(request, response));
 }
