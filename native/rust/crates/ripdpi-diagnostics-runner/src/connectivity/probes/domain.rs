@@ -38,7 +38,6 @@ pub fn run_domain_probe_with_key_log(
             port,
             transport,
             &target.host,
-            true,
             profile,
             tls_verifier,
             key_log.as_ref(),

@@ -52,7 +52,6 @@ fn execute_variant(
     request: &[u8],
 ) -> (String, String) {
     let options = ProbeStreamOptions {
-        verify_certificates: false,
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
         tls_verifier: None,

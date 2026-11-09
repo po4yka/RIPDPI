@@ -467,17 +467,21 @@ fn tls_signal_reports_version_split_low_confidence() {
 }
 
 #[test]
-fn try_tls_handshake_forces_tls_on_non_default_https_port() {
+fn try_tls_handshake_uses_explicit_verifier_on_non_default_https_port() {
     let _serial = lock_network_probes();
     let server = TlsHttpServer::start(TlsMode::Single("localhost".to_string()), FatServerMode::AlwaysOk);
     let target = TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
+    let verified =
+        try_tls_handshake(&target, server.port(), &direct_transport(), "localhost", TlsClientProfile::Tls13Only, None);
+    assert_eq!(verified.status, "tls_cert_invalid");
+    assert!(verified.certificate_anomaly);
+
     let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
     let mut tls = try_tls_handshake(
         &target,
         server.port(),
         &direct_transport(),
         "localhost",
-        false,
         TlsClientProfile::Tls13Only,
         Some(&no_verify),
     );
@@ -491,7 +495,6 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
             server.port(),
             &direct_transport(),
             "localhost",
-            false,
             TlsClientProfile::Tls13Only,
             Some(&no_verify),
         );

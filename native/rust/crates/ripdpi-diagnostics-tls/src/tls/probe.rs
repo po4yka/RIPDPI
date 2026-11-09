@@ -19,19 +19,10 @@ pub fn try_tls_handshake(
     port: u16,
     transport: &TransportConfig,
     server_name: &str,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> TlsObservation {
-    try_tls_handshake_targets(
-        std::slice::from_ref(target),
-        port,
-        transport,
-        server_name,
-        verify_certificates,
-        profile,
-        tls_verifier,
-    )
+    try_tls_handshake_targets(std::slice::from_ref(target), port, transport, server_name, profile, tls_verifier)
 }
 
 pub fn try_tls_handshake_with_key_log(
@@ -39,7 +30,6 @@ pub fn try_tls_handshake_with_key_log(
     port: u16,
     transport: &TransportConfig,
     server_name: &str,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
@@ -49,7 +39,6 @@ pub fn try_tls_handshake_with_key_log(
         port,
         transport,
         server_name,
-        verify_certificates,
         profile,
         tls_verifier,
         key_log,
@@ -61,20 +50,10 @@ pub fn try_tls_handshake_targets(
     port: u16,
     transport: &TransportConfig,
     server_name: &str,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> TlsObservation {
-    try_tls_handshake_targets_with_key_log(
-        targets,
-        port,
-        transport,
-        server_name,
-        verify_certificates,
-        profile,
-        tls_verifier,
-        None,
-    )
+    try_tls_handshake_targets_with_key_log(targets, port, transport, server_name, profile, tls_verifier, None)
 }
 
 pub fn try_tls_handshake_targets_with_key_log(
@@ -82,13 +61,11 @@ pub fn try_tls_handshake_targets_with_key_log(
     port: u16,
     transport: &TransportConfig,
     server_name: &str,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> TlsObservation {
     let options = ProbeStreamOptions {
-        verify_certificates,
         profile,
         application_protocol: ApplicationProtocolPolicy::TemplateDefault,
         tls_verifier,
@@ -105,11 +82,10 @@ pub fn open_probe_stream(
     port: u16,
     transport: &TransportConfig,
     tls_name: Option<&str>,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<ProbeStreamResult, String> {
-    let options = ProbeStreamOptions { verify_certificates, profile, tls_verifier, ..ProbeStreamOptions::default() };
+    let options = ProbeStreamOptions { profile, tls_verifier, ..ProbeStreamOptions::default() };
     open_probe_stream_targets_with_options(std::slice::from_ref(target), port, transport, tls_name, &options)
         .map_err(|err| err.to_string())
 }
@@ -119,22 +95,13 @@ pub fn open_probe_stream_with_key_log(
     port: u16,
     transport: &TransportConfig,
     tls_name: Option<&str>,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> Result<ProbeStreamResult, String> {
-    open_probe_stream_with_key_log_and_abort(
-        target,
-        port,
-        transport,
-        tls_name,
-        verify_certificates,
-        profile,
-        tls_verifier,
-        key_log,
-        &|| None,
-    )
+    open_probe_stream_with_key_log_and_abort(target, port, transport, tls_name, profile, tls_verifier, key_log, &|| {
+        None
+    })
 }
 
 pub fn open_probe_stream_with_abort(
@@ -142,7 +109,6 @@ pub fn open_probe_stream_with_abort(
     port: u16,
     transport: &TransportConfig,
     tls_name: Option<&str>,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     should_abort: &dyn Fn() -> Option<&'static str>,
@@ -152,7 +118,6 @@ pub fn open_probe_stream_with_abort(
         port,
         transport,
         tls_name,
-        verify_certificates,
         profile,
         tls_verifier,
         None,
@@ -160,13 +125,11 @@ pub fn open_probe_stream_with_abort(
     )
 }
 
-#[expect(clippy::too_many_arguments, reason = "abort-aware variant mirrors the existing TLS stream opening API")]
 pub fn open_probe_stream_with_key_log_and_abort(
     target: &TargetAddress,
     port: u16,
     transport: &TransportConfig,
     tls_name: Option<&str>,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
@@ -177,7 +140,6 @@ pub fn open_probe_stream_with_key_log_and_abort(
         port,
         transport,
         tls_name,
-        verify_certificates,
         profile,
         tls_verifier,
         key_log,
@@ -185,20 +147,17 @@ pub fn open_probe_stream_with_key_log_and_abort(
     )
 }
 
-#[expect(clippy::too_many_arguments, reason = "abort-aware variant mirrors the existing TLS stream opening API")]
 pub fn open_probe_stream_targets_with_key_log_and_abort(
     targets: &[TargetAddress],
     port: u16,
     transport: &TransportConfig,
     tls_name: Option<&str>,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> Result<ProbeStreamResult, String> {
-    let options =
-        ProbeStreamOptions { verify_certificates, profile, tls_verifier, key_log, ..ProbeStreamOptions::default() };
+    let options = ProbeStreamOptions { profile, tls_verifier, key_log, ..ProbeStreamOptions::default() };
     open_probe_stream_targets_with_options_and_abort(targets, port, transport, tls_name, &options, should_abort)
         .map_err(|err| err.to_string())
 }

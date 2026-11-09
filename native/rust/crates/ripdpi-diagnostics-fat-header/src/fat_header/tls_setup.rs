@@ -19,7 +19,6 @@ pub(super) fn open_fat_header_probe_stream(
     // censorship-induced TLS interception (MITM middleboxes).
     let no_verify: Arc<dyn ServerCertVerifier> = Arc::new(NoCertificateVerification);
     let options = ProbeStreamOptions {
-        verify_certificates: false,
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
         tls_verifier: Some(&no_verify),

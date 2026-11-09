@@ -100,10 +100,6 @@ enum TelegramTlsVerifierMode {
 }
 
 impl TelegramTlsVerifierMode {
-    fn verify_certificates(self) -> bool {
-        matches!(self, Self::DefaultRoots)
-    }
-
     fn custom_verifier(self) -> Option<Arc<dyn rustls::client::danger::ServerCertVerifier>> {
         match self {
             Self::DefaultRoots => None,
@@ -151,7 +147,6 @@ pub(crate) fn telegram_download_probe_with_abort(
     let verifier_mode = verifier_mode_for_target(&target_address, &host);
     let tls_verifier = verifier_mode.custom_verifier();
     let options = ProbeStreamOptions {
-        verify_certificates: verifier_mode.verify_certificates(),
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
         tls_verifier: tls_verifier.as_ref(),
@@ -330,7 +325,6 @@ pub(crate) fn telegram_upload_probe_with_abort(
     let verifier_mode = verifier_mode_for_target(&target_address, &upload_host);
     let tls_verifier = verifier_mode.custom_verifier();
     let options = ProbeStreamOptions {
-        verify_certificates: verifier_mode.verify_certificates(),
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
         tls_verifier: tls_verifier.as_ref(),
@@ -619,7 +613,6 @@ mod tests {
         assert_eq!(upload_tls_host(&target), "api.telegram.org");
         let mode = verifier_mode_for_target(&target, &upload_tls_host(&target));
         assert_eq!(mode, TelegramTlsVerifierMode::DefaultRoots);
-        assert!(mode.verify_certificates());
         assert!(mode.custom_verifier().is_none());
     }
 
@@ -631,7 +624,6 @@ mod tests {
         assert_eq!(upload_tls_host(&target), TELEGRAM_UPLOAD_HOST);
         let mode = verifier_mode_for_target(&target, &upload_tls_host(&target));
         assert_eq!(mode, TelegramTlsVerifierMode::DomainFrontedNoVerify);
-        assert!(!mode.verify_certificates());
         assert!(mode.custom_verifier().is_some());
     }
 }

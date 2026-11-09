@@ -182,7 +182,6 @@ fn execute_http_request_targets_with_accept(
     let HttpRequestOptions { accept, cancel } = request_options;
     let tls_name = if secure { Some(host_header) } else { None };
     let options = ProbeStreamOptions {
-        verify_certificates: secure,
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
         tls_verifier: None,

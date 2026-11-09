@@ -35,14 +35,11 @@ pub(super) fn run_endpoint_probe(
                 port,
                 transport,
                 server_name,
-                true,
                 TlsClientProfile::Auto,
                 tls_verifier,
                 Some(key_log),
             ),
-            None => {
-                try_tls_handshake(&target, port, transport, server_name, true, TlsClientProfile::Auto, tls_verifier)
-            }
+            None => try_tls_handshake(&target, port, transport, server_name, TlsClientProfile::Auto, tls_verifier),
         };
         EndpointProbeObservation {
             status: observation.status,

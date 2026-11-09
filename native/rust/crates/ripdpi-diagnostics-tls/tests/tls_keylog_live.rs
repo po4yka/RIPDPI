@@ -17,7 +17,6 @@ fn tls_keylog_file_receives_live_handshake_secrets_when_network_tests_enabled() 
         443,
         &direct_transport(),
         "example.com",
-        true,
         TlsClientProfile::Tls13Only,
         None,
         Some(&key_log),

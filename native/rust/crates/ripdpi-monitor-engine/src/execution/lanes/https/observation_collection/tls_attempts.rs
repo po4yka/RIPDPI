@@ -21,7 +21,6 @@ pub(super) fn collect_tls_profile_observations(
         port,
         transport,
         server_name,
-        true,
         TlsClientProfile::Tls13Only,
         tls_verifier,
         key_log,
@@ -31,7 +30,6 @@ pub(super) fn collect_tls_profile_observations(
         port,
         transport,
         server_name,
-        true,
         TlsClientProfile::Tls12Only,
         tls_verifier,
         key_log,
@@ -41,7 +39,6 @@ pub(super) fn collect_tls_profile_observations(
         port,
         transport,
         server_name,
-        true,
         TlsClientProfile::Tls13WithEch,
         tls_verifier,
         key_log,
@@ -54,7 +51,6 @@ pub(super) fn try_tls_handshake_targets_with_optional_key_log(
     port: u16,
     transport: &TransportConfig,
     server_name: &str,
-    verify_certificates: bool,
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
@@ -65,13 +61,10 @@ pub(super) fn try_tls_handshake_targets_with_optional_key_log(
             port,
             transport,
             server_name,
-            verify_certificates,
             profile,
             tls_verifier,
             Some(key_log),
         ),
-        None => {
-            try_tls_handshake_targets(targets, port, transport, server_name, verify_certificates, profile, tls_verifier)
-        }
+        None => try_tls_handshake_targets(targets, port, transport, server_name, profile, tls_verifier),
     }
 }

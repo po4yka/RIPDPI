@@ -54,9 +54,9 @@ pub enum ApplicationProtocolPolicy {
 }
 
 pub struct ProbeStreamOptions<'a> {
-    pub verify_certificates: bool,
     pub profile: TlsClientProfile,
     pub application_protocol: ApplicationProtocolPolicy,
+    /// Replaces the default CA, server-name, and SPKI verification policy when set.
     pub tls_verifier: Option<&'a std::sync::Arc<dyn ServerCertVerifier>>,
     pub key_log: Option<&'a TlsKeyLogCallback>,
 }
@@ -64,7 +64,6 @@ pub struct ProbeStreamOptions<'a> {
 impl Default for ProbeStreamOptions<'_> {
     fn default() -> Self {
         Self {
-            verify_certificates: true,
             profile: TlsClientProfile::Auto,
             application_protocol: ApplicationProtocolPolicy::TemplateDefault,
             tls_verifier: None,

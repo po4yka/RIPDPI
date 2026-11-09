@@ -82,7 +82,6 @@ fn measure_run(
         Err(err) => return (failed_sample(started, "target_parse", err), "setup_error"),
     };
     let options = ProbeStreamOptions {
-        verify_certificates: parsed.secure,
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
         tls_verifier,

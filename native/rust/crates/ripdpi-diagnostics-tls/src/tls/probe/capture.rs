@@ -263,7 +263,6 @@ mod tests {
             port,
             &direct_transport(),
             "localhost",
-            true,
             TlsClientProfile::Tls12Only,
             None,
         )
@@ -313,7 +312,6 @@ mod tests {
                 port,
                 &direct_transport(),
                 "localhost",
-                true,
                 TlsClientProfile::Tls13Only,
                 None,
             )
