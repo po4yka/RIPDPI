@@ -66,12 +66,13 @@ class NativeEchTlsHandshake(
                     suspendCancellableCoroutine { continuation ->
                         continuation.invokeOnCancellation { bindings.cancelRequest(requestHandle) }
                         if (continuation.isActive) {
-                            try {
+                            runCatching {
                                 val result =
                                     bindings.connect(requestHandle, requestJson)
                                         ?: throw IOException("native ECH TLS bridge returned no response")
                                 continuation.resume(result)
-                            } catch (error: Exception) {
+                            }.exceptionOrNull()?.let { error ->
+                                if (error !is Exception) throw error
                                 continuation.resumeWithException(error)
                             }
                         }

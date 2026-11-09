@@ -110,8 +110,10 @@ class HttpsRrAliasResolverTest {
 
     private companion object {
         val EchConfig =
-            "003efe0d003a0000200020bb2f29e3e3057e0419d52fc5f44118776f8db61cea4fdf76079b93606c5a62480008000100010001000300076563682e636f6d0000"
-                .chunked(2)
+            (
+                "003efe0d003a0000200020bb2f29e3e3057e0419d52fc5f44118776f8db61ce" +
+                    "a4fdf76079b93606c5a62480008000100010001000300076563682e636f6d0000"
+            ).chunked(2)
                 .map { it.toInt(16).toByte() }
                 .toByteArray()
     }

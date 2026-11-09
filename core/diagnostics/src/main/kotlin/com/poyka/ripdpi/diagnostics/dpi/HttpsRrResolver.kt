@@ -77,13 +77,14 @@ class HttpsRrResolver(
     private suspend fun HttpsRrQuery.followAliases(host: String): LookupResult {
         var name = host.trimEnd('.').lowercase(Locale.ROOT)
         val visited = mutableSetOf<String>()
-        repeat(MaxAliasHops + 1) {
-            if (!visited.add(name)) return LookupResult(terminal = true)
+        var remaining = MaxAliasHops + 1
+        while (remaining > 0 && visited.add(name)) {
+            remaining -= 1
             val records = query(name)
             val alias = records.firstOrNull { record -> record.priority == 0 }
             if (alias == null) return LookupResult(record = records.selectEchRecord())
             name = alias.targetName.trimEnd('.').lowercase(Locale.ROOT)
-            if (name.isEmpty()) return LookupResult(terminal = true)
+            if (name.isEmpty()) break
         }
         return LookupResult(terminal = true)
     }

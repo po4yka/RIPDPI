@@ -50,14 +50,24 @@ internal object HttpsDnsWireParser {
     }
 }
 
-private fun HTTPSRecord.hasCompatibleServiceParams(): Boolean {
-    if (svcPriority == 0) return true
-    if (getSvcParamValue(SVCBBase.NO_DEFAULT_ALPN) != null && getSvcParamValue(SVCBBase.ALPN) == null) return false
-    val mandatory = getSvcParamValue(SVCBBase.MANDATORY) as? SVCBBase.ParameterMandatory ?: return true
-    val keys = mandatory.values
-    return keys.isNotEmpty() && keys.distinct().size == keys.size &&
-        keys.all { key -> key in SVCBBase.ALPN..SVCBBase.IPV6HINT && getSvcParamValue(key) != null }
-}
+private fun HTTPSRecord.hasCompatibleServiceParams(): Boolean =
+    when {
+        svcPriority == 0 -> {
+            true
+        }
+
+        getSvcParamValue(SVCBBase.NO_DEFAULT_ALPN) != null && getSvcParamValue(SVCBBase.ALPN) == null -> {
+            false
+        }
+
+        else -> {
+            val mandatory = getSvcParamValue(SVCBBase.MANDATORY) as? SVCBBase.ParameterMandatory
+            mandatory?.values?.let { keys ->
+                keys.isNotEmpty() && keys.distinct().size == keys.size &&
+                    keys.all { key -> key in SVCBBase.ALPN..SVCBBase.IPV6HINT && getSvcParamValue(key) != null }
+            } ?: true
+        }
+    }
 
 private fun HTTPSRecord.toHttpsRrRecord(): HttpsRrRecord? {
     val ech = (getSvcParamValue(SVCBBase.ECH) as? SVCBBase.ParameterEch)?.data
