@@ -26,8 +26,9 @@ const PROTECT_TIMEOUT: Duration = Duration::from_secs(1);
 pub(crate) fn replace_fd_cloexec(source: BorrowedFd<'_>, target: BorrowedFd<'_>) -> io::Result<()> {
     // SAFETY: `source` and `target` are live for the duration of this call
     // (enforced by `BorrowedFd<'_>` lifetimes). dup3 sets CLOEXEC atomically
-    // and rejects equal numbers without closing either descriptor.
-    let rc = unsafe { libc::dup3(source.as_raw_fd(), target.as_raw_fd(), libc::O_CLOEXEC) };
+    // and rejects equal numbers without closing either descriptor. Use the
+    // syscall binding because libc does not export dup3 on Android.
+    let rc = unsafe { libc::syscall(libc::SYS_dup3, source.as_raw_fd(), target.as_raw_fd(), libc::O_CLOEXEC) };
     if rc >= 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
 }
 
