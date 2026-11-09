@@ -225,7 +225,7 @@ function http_unixeol(ctx, desync)
 	direction_cutoff_opposite(ctx, desync)
 	if desync.l7payload=="http_req" and direction_check(desync) then
 		local hdis = http_dissect_req(desync.dis.payload)
-		if hdis then
+		if hdis and hdis.pos_headers_end then
 			local idx_ua = array_field_search(hdis.headers, "header_low", "user-agent")
 			if idx_ua then
 				local http = http_reconstruct_req(hdis, true)

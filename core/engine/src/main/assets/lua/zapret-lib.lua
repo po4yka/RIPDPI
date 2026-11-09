@@ -1767,7 +1767,10 @@ function http_dissect_headers(http, pos)
 		eol,pnext = find_next_line(http,pos)
 		header = string.sub(http,pos,eol)
 		if #header == 0 then
-			pos_headers_end = pnext
+			local ending = string.sub(http,eol+1,eol+2)
+			if ending == "\r\n" or string.sub(ending,1,1) == "\n" then
+				pos_headers_end = pnext or (#http + 1)
+			end
 			break
 		end
 		header,value,pos_endheader,pos_startvalue = http_dissect_header(header)

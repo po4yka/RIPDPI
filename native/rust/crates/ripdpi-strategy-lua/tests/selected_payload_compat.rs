@@ -86,6 +86,26 @@ fn selected_bundled_http_functions_modify_exact_payload_bytes() {
 }
 
 #[test]
+fn selected_bundled_unixeol_preserves_incomplete_request_heads() {
+    let engine = engine();
+    let head = b"POST /upload HTTP/1.1\r\nHost: example.com\r\nUser-Agent: abcdef\r\nContent-Length: 4\r\n";
+    for ending in [&b""[..], b"\r", b"X-Token: dummy", b"X-Token: dummy\r\n"] {
+        let mut partial = head.to_vec();
+        partial.extend_from_slice(ending);
+        let result = plan(&engine, "http_unixeol", &partial, &http_dissect(), FlowDirection::Outbound, 100).unwrap();
+        assert!(result.actions.is_empty(), "partial head must pass unchanged: {partial:?}");
+    }
+
+    let mut request = head.to_vec();
+    request.extend_from_slice(b"X-Token: dummy\r\n\r\nDATA");
+    let result = plan(&engine, "http_unixeol", &request, &http_dissect(), FlowDirection::Outbound, 101).unwrap();
+    assert_eq!(
+        bytes(&result),
+        b"POST /upload HTTP/1.1\nHost: example.com\nUser-Agent: abcdef      \nContent-Length: 4\nX-Token: dummy\n\nDATA"
+    );
+}
+
+#[test]
 fn selected_bundled_http_functions_skip_wrong_direction_and_replies() {
     let engine = engine();
     let reply = Dissect { proto: L7Protocol::Http(HttpDissect::default()), ..Dissect::default() };
