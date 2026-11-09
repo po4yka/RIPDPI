@@ -953,16 +953,9 @@ void SSL_get0_ech_retry_configs(const SSL *ssl,
   const auto *ssl_impl = FromOpaque(ssl);
   const SSL_HANDSHAKE *hs = ssl_impl->s3->hs.get();
   if (!hs || !hs->ech_authenticated_reject) {
-    // It is an error to call this function except in response to
-    // `SSL_R_ECH_REJECTED`. Returning an empty string risks the caller
-    // mistakenly believing the server has disabled ECH. Instead, return a
-    // non-empty ECHConfigList with a syntax error, so the subsequent
-    // `SSL_set1_ech_config_list` call will fail.
-    assert(0);
-    static const uint8_t kPlaceholder[] = {
-        kECHConfigVersion >> 8, kECHConfigVersion & 0xff, 0xff, 0xff, 0xff};
-    *out_retry_configs = kPlaceholder;
-    *out_retry_configs_len = sizeof(kPlaceholder);
+    // RIPDPI exposes retry evidence only after authenticated ECH rejection.
+    *out_retry_configs = nullptr;
+    *out_retry_configs_len = 0;
     return;
   }
 

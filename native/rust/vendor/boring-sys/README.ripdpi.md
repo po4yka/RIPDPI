@@ -40,3 +40,10 @@ The workspace lock must select this path package and must not list it in
 Rust assertions. Run `python3 -m unittest scripts.tests.test_reality_boring_vector`
 from the repository root and `cargo test -p ripdpi-vless --locked` from
 `native/rust/`. The live hook test must use the real library.
+
+`deps/boringssl/ssl/encrypted_client_hello.cc` returns a null buffer and zero
+length from the ECH retry getter until the backend has authenticated rejection.
+It keeps retry data private on TLS alerts or certificate failures, instead of
+aborting or returning a malformed placeholder. The corresponding `ssl.h` API
+comment records this local safe optional-accessor contract. Absence of retry
+data never authorizes a cleartext fallback.

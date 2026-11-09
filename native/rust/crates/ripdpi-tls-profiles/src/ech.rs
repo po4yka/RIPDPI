@@ -279,12 +279,9 @@ pub fn prepare_ech_retry(
 }
 
 pub fn extract_boring_ech_rejection<S>(failed: &boring::ssl::MidHandshakeSslStream<S>) -> Option<EchRejectedHandshake> {
+    let retry_config_list = failed.ssl().get_ech_retry_configs()?.to_vec();
     let public_name = failed.ssl().get_ech_name_override().map(ToOwned::to_owned);
-    let retry_config_list = failed.ssl().get_ech_retry_configs().map(ToOwned::to_owned);
-    if public_name.is_none() && retry_config_list.is_none() {
-        return None;
-    }
-    Some(EchRejectedHandshake::new(public_name, retry_config_list))
+    Some(EchRejectedHandshake::new(public_name, Some(retry_config_list)))
 }
 
 #[cfg(test)]
@@ -550,6 +547,45 @@ mod tests {
         let accepted = connect_boring_ech(second.addr(), retry_setup).expect("retry accepts fresh ECH config");
 
         assert!(accepted.ssl().ech_accepted(), "retry must negotiate real ECH, not clear TLS");
+    }
+
+    #[test]
+    fn boring_ordinary_tls_alert_has_no_ech_retry_evidence() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let addr = listener.local_addr().expect("address");
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept");
+            socket.set_read_timeout(Some(Duration::from_secs(5))).expect("timeout");
+            let mut header = [0_u8; 5];
+            socket.read_exact(&mut header).expect("record header");
+            let mut payload = vec![0_u8; u16::from_be_bytes([header[3], header[4]]) as usize];
+            socket.read_exact(&mut payload).expect("ClientHello");
+            socket.write_all(&[21, 3, 3, 0, 2, 2, 40]).expect("fatal handshake_failure alert");
+        });
+        let failed = connect_boring_ech(addr, EchSetup::Real(config())).expect_err("ordinary TLS alert");
+        server.join().expect("join");
+        let boring::ssl::HandshakeError::Failure(failed) = failed else {
+            panic!("handshake failure");
+        };
+        assert!(failed.ssl().get_ech_retry_configs().is_none());
+        assert!(extract_boring_ech_rejection(&failed).is_none());
+    }
+
+    #[test]
+    fn boring_untrusted_outer_certificate_has_no_ech_retry_evidence() {
+        let server = BoringEchServer::start(BORING_ECH_CONFIG_2, BORING_ECH_KEY_2);
+        let connector = crate::build_connector("native_default", true).expect("verified connector");
+        let mut config = connector.configure().expect("TLS config");
+        configure_ech(&mut config, &EchSetup::Real(self::config())).expect("real ECH");
+        let stream = TcpStream::connect(server.addr()).expect("connect");
+        stream.set_read_timeout(Some(Duration::from_secs(5))).expect("timeout");
+        let failed = config.connect("foobar.com", stream).expect_err("untrusted outer certificate");
+        let boring::ssl::HandshakeError::Failure(failed) = failed else {
+            panic!("handshake failure");
+        };
+        assert!(failed.ssl().get_ech_name_override().is_some(), "rejected ECH is not yet authenticated");
+        assert!(failed.ssl().get_ech_retry_configs().is_none());
+        assert!(extract_boring_ech_rejection(&failed).is_none());
     }
 
     fn capture_client_hello_with_ech_setup(setup: EchSetup) -> Vec<u8> {

@@ -4770,10 +4770,9 @@ OPENSSL_EXPORT void SSL_get0_ech_name_override(const SSL *ssl,
 // `SSL_set1_ech_config_list`. If the result is empty, the server has rolled
 // back ECH support, and the caller should retry without ECH.
 //
-// This function must only be called in response to an `SSL_R_ECH_REJECTED`
-// error code. Calling this function on `ssl`s that have not authenticated the
-// rejection handshake will assert in debug builds and otherwise return an
-// unparsable list.
+// RIPDPI returns a null buffer and zero length if the ECH rejection handshake
+// has not been authenticated. Only an authenticated rejection may expose retry
+// configs. A null buffer must not be treated as permission to disable ECH.
 OPENSSL_EXPORT void SSL_get0_ech_retry_configs(
     const SSL *ssl, const uint8_t **out_retry_configs,
     size_t *out_retry_configs_len);
