@@ -1,5 +1,5 @@
 use crate::types::{OracleRng, PacketMutation};
-use crate::util::{copy_name_seeded, read_u16, write_u16};
+use crate::util::{copy_name_seeded, read_u16, read_u24, write_u16};
 
 use super::super::edit::{
     find_tls_ext_offset, merge_tls_records, remove_ks_group, remove_tls_ext, resize_ech_ext, resize_sni,
@@ -10,13 +10,32 @@ pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, 
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     }
 
+    // The handshake length cannot be read until its whole header is in the first record.
+    if read_u16(input, 3).is_none_or(|record_len| record_len < 4) {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+
+    // A complete ClientHello followed by more bytes is not a single fake record.
+    // Reject it before merge_tls_records can consume or discard the following record.
+    if let (Some(record_len), Some(handshake_len)) = (read_u16(input, 3), read_u24(input, 6))
+        && handshake_len + 4 <= record_len
+        && input.len() > record_len + 5
+    {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+
+    let handshake_len = read_u24(input, 6);
     let mut output = vec![0; capacity];
     output[..input.len()].copy_from_slice(input);
     let n = input.len();
-    let mut avail = merge_tls_records(&mut output, n) as isize + (capacity - n) as isize;
+    let removed = merge_tls_records(&mut output, n);
+    let mut avail = removed as isize + (capacity - n) as isize;
     let Some(mut record_size) = read_u16(&output, 3).map(|value| value as isize) else {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
     };
+    if n - removed > 5 + record_size as usize || handshake_len.is_some_and(|len| record_size as usize > len + 4) {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
     record_size += avail;
 
     let Some(parsed) = crate::tls_nom::parse_client_hello_record(&output[..n]) else {

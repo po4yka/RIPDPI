@@ -415,6 +415,32 @@ fn change_tls_sni_replaces_hostname() {
 }
 
 #[test]
+fn change_tls_sni_rejects_a_following_record_without_losing_bytes() {
+    let mut input = include_bytes!("../../tests/fixtures/curl_tls13_example_com.bin").to_vec();
+    input.extend_from_slice(&[0x17, 0x03, 0x03, 0x00, 0x03, 1, 2, 3]);
+    let mutation = change_tls_sni_seeded_like_c(&input, b"example.com", input.len(), 7);
+    assert_eq!(mutation.rc, -1);
+    assert_eq!(mutation.bytes, input);
+}
+
+#[test]
+fn change_tls_sni_rejects_handshake_record_after_fragmented_hello() {
+    let input = include_bytes!("../../tests/fixtures/curl_tls13_example_com.bin");
+    for split_at in [1, 2, 3, 4, 40] {
+        let mut fragmented = input[..5].to_vec();
+        fragmented[3..5].copy_from_slice(&(split_at as u16).to_be_bytes());
+        fragmented.extend_from_slice(&input[5..5 + split_at]);
+        fragmented.extend_from_slice(&input[..3]);
+        fragmented.extend_from_slice(&((input.len() - 5 - split_at) as u16).to_be_bytes());
+        fragmented.extend_from_slice(&input[5 + split_at..]);
+        fragmented.extend_from_slice(&[0x16, 0x03, 0x01, 0x00, 0x04, 0x0b, 0, 0, 0]);
+        let mutation = change_tls_sni_seeded_like_c(&fragmented, b"example.com", fragmented.len(), 7);
+        assert_eq!(mutation.rc, -1, "split at {split_at}");
+        assert_eq!(mutation.bytes, fragmented, "split at {split_at}");
+    }
+}
+
+#[test]
 fn change_tls_sni_capacity_too_small_fails() {
     let mutation = change_tls_sni_seeded_like_c(DEFAULT_FAKE_TLS, b"x.co", DEFAULT_FAKE_TLS.len() - 1, 1);
     assert_eq!(mutation.rc, -1);
