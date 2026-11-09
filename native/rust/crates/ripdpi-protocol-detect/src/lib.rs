@@ -98,17 +98,20 @@ fn is_stun(payload: &[u8]) -> bool {
     payload.len() >= 8 && payload[0] & 0xC0 == 0 && payload.get(4..8) == Some(&[0x21, 0x12, 0xA4, 0x42][..])
 }
 
-/// BEP-5 KRPC: a bencoded dictionary with sorted keys, so it starts with `d1:` and holds the
-/// key `y` whose value is the one-character type `q`, `r` or `e`.
+/// BEP-5 KRPC: a bencoded dictionary with sorted keys that holds the key `y` whose value is the
+/// one-character type `q`, `r` or `e`. The first key is a one-letter key (`d1:`) or the
+/// BEP-42 `ip` key that responses carry before `r` (`d2:ip`).
 fn is_dht(payload: &[u8]) -> bool {
-    payload.starts_with(b"d1:")
+    (payload.starts_with(b"d1:") || payload.starts_with(b"d2:ip"))
         && payload.windows(6).any(|w| w.starts_with(b"1:y1:") && matches!(w[5], b'q' | b'r' | b'e'))
 }
 
 /// DNS on port 53, or port 5353 (mDNS uses the same wire format as unicast DNS).
 ///
 /// The 12-byte header must be plausible: opcode in the assigned set (RFC 6895: 0, 1, 2, 4, 5, 6)
-/// and at least one question in a query. TCP messages carry a 2-byte length (RFC 7766) that
+/// and at least one question in a query, except a DSO request (opcode 6), which has none
+/// (RFC 8490 §5.4). Cookie-only queries without a question (RFC 7873 §5.4) are not detected.
+/// TCP messages carry a 2-byte length (RFC 7766) that
 /// must cover a header; it may be shorter than the payload (pipelining) or longer (the message
 /// continues in a later segment).
 fn is_dns(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -> bool {

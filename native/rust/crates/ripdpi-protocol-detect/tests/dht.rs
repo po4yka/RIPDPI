@@ -10,7 +10,9 @@ fn detects_bep5_ping_response_and_error() {
     let ping = b"d1:ad2:id20:abcdefghij0123456789e1:q4:ping1:t2:aa1:y1:qe";
     let response = b"d1:rd2:id20:mnopqrstuvwxyz123456e1:t2:aa1:y1:re";
     let error = b"d1:eli201e23:A Generic Error Ocurrede1:t2:aa1:y1:ee";
-    for message in [&ping[..], &response[..], &error[..]] {
+    // BEP-42: a response carries the requester's compact address under `ip`, sorted before `r`.
+    let bep42_response = b"d2:ip6:\x0a\x00\x00\x02\x1a\xe11:rd2:id20:mnopqrstuvwxyz123456e1:t2:aa1:y1:re";
+    for message in [&ping[..], &response[..], &error[..], &bep42_response[..]] {
         assert!(is_dht(message, 6881, 6881));
     }
 }
