@@ -8,10 +8,17 @@ Process QUIC Initial data and active probes with bounded parsing and verified wi
 
 Active Chrome, Firefox and generic probes MUST use a QUIC ClientHello with an empty legacy session ID, unique extensions, correct lengths, fresh random and valid key shares, and QUIC transport parameters bound to the packet source CID. Fixed desync templates MUST retain their separate role.
 
+Active probes for literal IP targets MUST omit the server_name extension. DNS probes MUST retain the requested server name.
+
 #### Scenario: Build valid active probe ClientHello
 
 - **WHEN** a v1 or v2 active probe is built for a target
 - **THEN** a strict independent QUIC TLS backend accepts its ClientHello and the packet decodes for that target
+
+#### Scenario: Build an active probe for an IP target
+
+- **WHEN** a v1 or v2 active probe is built for an IPv4 or IPv6 literal
+- **THEN** an independent decoder finds no server_name extension, accepts the protected Initial and TLS handshake input, and reads transport parameters that match its source CID
 
 ### Requirement: REQ-QUIC-RESPONSE-INTEGRITY — Validate probe response integrity
 
@@ -51,7 +58,7 @@ The helper MUST combine compatible Initial CRYPTO fragments within one UDP datag
 
 ### Requirement: REQ-QUIC-HELLO-COMPLETE — Distinguish a complete ClientHello
 
-Full Initial parse, layout and seed APIs MUST reject a ClientHello prefix that does not satisfy its declared handshake and nested vector lengths. The general fake-template TLS parser MUST keep its existing tolerance.
+Full Initial parse, layout and seed APIs MUST reject a ClientHello prefix that does not satisfy its declared handshake and nested vector lengths. This repair MUST preserve the general TLS parser behavior supplied by the published integration base.
 
 #### Scenario: Distinguish a complete ClientHello
 

@@ -20,7 +20,7 @@ Correct the seven confirmed STD-08 audit findings without adding a full QUIC end
 
 ## Acceptance criteria
 
-Seven separate fix commits, regression tests, independent review, applicable native/JNI/Kotlin checks, ci-gates, fast-forward integration into main, and an observed push to origin/main. External server and physical device tests are outside this repair scope.
+Separate fix commits for F1 through F7 and the reachable IP-target variant of F1, regression tests, independent review, applicable native/JNI/Kotlin checks, ci-gates, fast-forward integration into main, and an observed push to origin/main. External server and physical device tests are outside this repair scope.
 
 
 ## Parallel ownership
