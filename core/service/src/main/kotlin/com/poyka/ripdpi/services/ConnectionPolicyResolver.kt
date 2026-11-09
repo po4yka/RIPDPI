@@ -505,8 +505,17 @@ private fun DestinationRoutingPolicySnapshot.policyOrThrow(): DestinationRouting
         }
     }
 
+// Strict Private DNS names a resolver host; the direct-DNS lease then withholds plaintext, so the
+// policy must not offer plaintext DIRECT candidates either (they fall back to the proxy plane).
 private fun NetworkFingerprint?.validatedDnsServers(): List<String> =
-    if (this?.networkValidated == true && !captivePortalDetected) dnsServers else emptyList()
+    if (this?.networkValidated == true && !captivePortalDetected && !usesStrictPrivateDns()) {
+        dnsServers
+    } else {
+        emptyList()
+    }
+
+private fun NetworkFingerprint.usesStrictPrivateDns(): Boolean =
+    privateDnsMode.isNotBlank() && privateDnsMode != "system"
 
 /** Waits for durable profile mutations before any settings-backed policy snapshot. */
 @Singleton

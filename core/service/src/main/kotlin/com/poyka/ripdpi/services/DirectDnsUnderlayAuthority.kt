@@ -85,6 +85,10 @@ internal class DirectDnsUnderlayAuthority
         private var epochCounter = 0L
         private var activeEpoch: Long? = null
         private var generation = 0L
+
+        // Advances only when the direct DNS lease can change: network, eligibility, resolvers or
+        // strict Private DNS. Path telemetry (bandwidth, metered, MTU) must not rebuild the tunnel.
+        private var leaseGeneration = 0L
         private var network: Network? = null
         private var capabilities: DirectDnsCapabilitySnapshot? = null
         private var dnsServers: Set<InetAddress>? = null
@@ -126,8 +130,9 @@ internal class DirectDnsUnderlayAuthority
             if (activeEpoch != epoch || network != candidate) return
             val next = value.toDirectDnsSnapshot()
             if (capabilities == next) return
+            val leaseChanged = capabilities?.eligible != next.eligible
             capabilities = next
-            advanceGeneration()
+            advanceGeneration(leaseChanged)
             publishEligibility(epoch)
         }
 
@@ -141,9 +146,10 @@ internal class DirectDnsUnderlayAuthority
             val next = value.dnsServers.toSet()
             val nextLink = value.toDirectDnsLinkSnapshot()
             if (dnsServers == next && link == nextLink) return
+            val leaseChanged = dnsServers != next || link?.privateDnsCategory != nextLink.privateDnsCategory
             dnsServers = next
             link = nextLink
-            advanceGeneration()
+            advanceGeneration(leaseChanged)
             publishEligibility(epoch)
         }
 
@@ -177,14 +183,14 @@ internal class DirectDnsUnderlayAuthority
             val eligible = activeEpoch == epoch && capabilities?.eligible == true
             return currentNetwork?.takeIf { eligible }?.let { selected ->
                 currentDns?.takeIf(Set<InetAddress>::isNotEmpty)?.let { dns ->
-                    DirectDnsUnderlaySnapshot(selected, generation, dns, link?.privateDnsCategory == "strict")
+                    DirectDnsUnderlaySnapshot(selected, leaseGeneration, dns, link?.privateDnsCategory == "strict")
                 }
             }
         }
 
         @Synchronized
         fun observation(epoch: Long): Pair<Long, DirectDnsUnderlaySnapshot?>? =
-            if (activeEpoch == epoch) generation to snapshot(epoch) else null
+            if (activeEpoch == epoch) leaseGeneration to snapshot(epoch) else null
 
         @Synchronized
         override fun capture(): NetworkPathObservation {
@@ -228,13 +234,13 @@ internal class DirectDnsUnderlayAuthority
             capabilities: NetworkCapabilities?,
             linkProperties: LinkProperties?,
         ): Long? {
+            // Compare only the lease inputs, so callbacks that differ in path telemetry still agree.
             val current = activeEpoch?.let(::snapshot)
-            val capturedLink = linkProperties?.toDirectDnsLinkSnapshot()
             val sameNetwork = current?.network == candidate
-            val sameCapabilities = this.capabilities == capabilities?.toDirectDnsSnapshot()
+            val eligible = capabilities?.toDirectDnsSnapshot()?.eligible == true
             val sameDnsServers = current?.dnsServers == linkProperties?.dnsServers?.toSet()
-            val sameLink = link == capturedLink
-            val exactMatch = listOf(sameNetwork, sameCapabilities, sameDnsServers, sameLink).all { it }
+            val samePrivateDns = link?.privateDnsCategory == linkProperties?.privateDnsCategory()
+            val exactMatch = listOf(sameNetwork, eligible, sameDnsServers, samePrivateDns).all { it }
             return current?.generation?.takeIf { exactMatch }
         }
 
@@ -248,8 +254,9 @@ internal class DirectDnsUnderlayAuthority
             advanceGeneration()
         }
 
-        private fun advanceGeneration() {
+        private fun advanceGeneration(leaseChanged: Boolean = true) {
             generation += 1
+            if (leaseChanged) leaseGeneration += 1
             mutableChanges.value = generation
         }
 

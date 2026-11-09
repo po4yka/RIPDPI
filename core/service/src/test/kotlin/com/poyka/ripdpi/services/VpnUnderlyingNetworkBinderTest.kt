@@ -305,6 +305,31 @@ class VpnUnderlyingNetworkBinderTest {
     }
 
     @Test
+    fun `path telemetry changes keep the lease token while DNS changes renew it`() {
+        val authority = DirectDnsUnderlayAuthority()
+        val network = testNetwork(300)
+        val links = linkProperties("1.1.1.1")
+        val epoch = authority.beginCallbackEpoch()
+        authority.onAvailable(epoch, network)
+        authority.onCapabilitiesChanged(epoch, network, eligibleCapabilities(downstreamKbps = 9_000))
+        authority.onLinkPropertiesChanged(epoch, network, links)
+        val token = checkNotNull(authority.snapshot(epoch)?.generation)
+        val observationGeneration = checkNotNull(authority.capture().generation)
+
+        // DNS-10 F1: crossing the 10 Mbit/s band is path telemetry, not a lease input.
+        val faster = eligibleCapabilities(downstreamKbps = 150_000)
+        authority.onCapabilitiesChanged(epoch, network, faster)
+        assertEquals(token, authority.snapshot(epoch)?.generation)
+        assertEquals(token, authority.generationFor(network, faster, links))
+        val nextObservationGeneration = checkNotNull(authority.capture().generation)
+        assertTrue("diagnostics still observe the change", nextObservationGeneration > observationGeneration)
+
+        val newDns = linkProperties("9.9.9.9")
+        authority.onLinkPropertiesChanged(epoch, network, newDns)
+        assertTrue(checkNotNull(authority.snapshot(epoch)?.generation) > token)
+    }
+
+    @Test
     fun `numeric parser rejects hostname and noncanonical IPv4 without resolving`() {
         assertNull(parseDirectDnsNumericAddress("resolver.example"))
         assertNull(parseDirectDnsNumericAddress("001.1.1.1"))
@@ -322,8 +347,14 @@ class VpnUnderlyingNetworkBinderTest {
 
     private fun testNetwork(id: Int): Network = ShadowNetwork.newInstance(id)
 
-    private fun eligibleCapabilities(): NetworkCapabilities =
+    private fun eligibleCapabilities(downstreamKbps: Int? = null): NetworkCapabilities =
         NetworkCapabilities().also { capabilities ->
+            downstreamKbps?.let { kbps ->
+                NetworkCapabilities::class
+                    .java
+                    .getDeclaredMethod("setLinkDownstreamBandwidthKbps", Int::class.javaPrimitiveType)
+                    .invoke(capabilities, kbps)
+            }
             val supportedCapabilities =
                 buildList {
                     add(NetworkCapabilities.NET_CAPABILITY_INTERNET)
