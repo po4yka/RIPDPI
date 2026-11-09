@@ -6,7 +6,7 @@ const MALFORMED_HTTPS_TSIG_RESPONSE: &[u8] = &[
 ];
 use crate::{
     DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohResolverRole, HttpsRrRecordType,
-    HttpsServiceSelection, parse_https_service_bindings, select_https_service_bindings,
+    HttpsServiceSelection, parse_ech_config_list, parse_https_service_bindings, select_https_service_bindings,
 };
 use hickory_proto::rr::rdata::https::HTTPS;
 use hickory_proto::rr::rdata::svcb::{Alpn, EchConfigList, Mandatory, SVCB, SvcParamKey, SvcParamValue, Unknown};
@@ -36,7 +36,8 @@ fn build_service_binding_response(
     response.to_vec().expect("response serializes")
 }
 
-fn build_ech_config_entry_v18(config_id: u8, public_name: &str) -> Vec<u8> {
+fn build_ech_config_entry_v18(config_id: u8, public_name: impl AsRef<[u8]>) -> Vec<u8> {
+    let public_name = public_name.as_ref();
     let mut contents = Vec::new();
     contents.push(config_id);
     contents.extend(0x0020u16.to_be_bytes());
@@ -47,7 +48,7 @@ fn build_ech_config_entry_v18(config_id: u8, public_name: &str) -> Vec<u8> {
     contents.extend(0x0001u16.to_be_bytes());
     contents.push(32);
     contents.push(public_name.len() as u8);
-    contents.extend(public_name.as_bytes());
+    contents.extend(public_name);
     contents.extend(0u16.to_be_bytes());
 
     let mut entry = Vec::new();
@@ -399,4 +400,200 @@ fn doh_batch_lookup_exposes_https_service_bindings_and_ech_capability() {
     assert_eq!(bindings[0].record_type, HttpsRrRecordType::Https);
     assert_eq!(bindings[1].record_type, HttpsRrRecordType::Svcb);
     assert_eq!(bindings[1].alpn, vec!["h3".to_string()]);
+}
+
+// Hand-built wire bytes for the DNS-08 regressions. Expected values come from
+// RFC 9460 2.2, 7.2, 7.3 and RFC 9849 4, not from the parser under test.
+mod wire_fixture {
+    pub fn name(n: &str) -> Vec<u8> {
+        let mut out = Vec::new();
+        for label in n.trim_end_matches('.').split('.').filter(|l| !l.is_empty()) {
+            out.push(label.len() as u8);
+            out.extend(label.as_bytes());
+        }
+        out.push(0);
+        out
+    }
+
+    pub fn param(key: u16, value: &[u8]) -> Vec<u8> {
+        let mut out = key.to_be_bytes().to_vec();
+        out.extend((value.len() as u16).to_be_bytes());
+        out.extend(value);
+        out
+    }
+
+    /// An HTTPS answer for `example.com` with one ServiceMode record at priority 1, target ".".
+    pub fn answer_with_params(params: &[Vec<u8>]) -> Vec<u8> {
+        let mut rdata = 1u16.to_be_bytes().to_vec();
+        rdata.push(0);
+        for p in params {
+            rdata.extend(p);
+        }
+        let mut p = vec![0x12, 0x34, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0];
+        p.extend(name("example.com"));
+        p.extend(65u16.to_be_bytes());
+        p.extend(1u16.to_be_bytes());
+        p.extend([0xc0, 0x0c]);
+        p.extend(65u16.to_be_bytes());
+        p.extend(1u16.to_be_bytes());
+        p.extend(300u32.to_be_bytes());
+        p.extend((rdata.len() as u16).to_be_bytes());
+        p.extend(rdata);
+        p
+    }
+}
+
+#[test]
+fn invalid_public_name_drops_only_that_config() {
+    let good = build_ech_config_entry_v18(1, "ech.example");
+    let list = build_ech_config_list(vec![good.clone(), build_ech_config_entry_v18(2, "bad..example")]);
+    let packet = wire_fixture::answer_with_params(&[wire_fixture::param(5, &list)]);
+
+    let HttpsServiceSelection::Service(bindings) = select_https_service_bindings(&packet).expect("RRset stays valid")
+    else {
+        panic!("expected ServiceMode");
+    };
+    let ech = bindings[0].ech_config.as_ref().expect("ech kept");
+
+    assert_eq!(ech.configs.len(), 2);
+    assert_eq!(ech.configs[0].public_name.as_deref(), Some("ech.example"));
+    assert_eq!(ech.configs[1].public_name, None);
+    assert_eq!(ech.raw_list_bytes, list);
+    assert_eq!(ech.supported_config_list(), Some(build_ech_config_list(vec![good])));
+}
+
+#[test]
+fn public_name_acceptance_matches_boringssl() {
+    let supported = |public_name: &[u8]| {
+        let list = build_ech_config_list(vec![build_ech_config_entry_v18(1, public_name)]);
+        parse_ech_config_list(&list).expect("structure is valid").supported_config_list().is_some()
+    };
+    let label63 = "abcdefhijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789";
+    let name254 = format!("{0}.{0}.{0}.{1}", "a".repeat(63), "a".repeat(62));
+    assert_eq!(name254.len(), 254);
+
+    // Oracle: BoringSSL ssl_internal_test.cc, TEST(SSLTest, ECHPublicName).
+    let table: Vec<(&[u8], bool)> = vec![
+        (b"", false),
+        (b"example.com", true),
+        (b".example.com", false),
+        (b"example.com.", false),
+        (b"example..com", false),
+        (b"www.-example.com", false),
+        (b"www.example-.com", false),
+        (b"no_underscores.example", false),
+        (b"invalid_chars.\x01.example", false),
+        (b"invalid_chars.\xff.example", false),
+        (b"test\0", false),
+        (label63.as_bytes(), true),
+        (b"abcdefhijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ-01234567899", false),
+        (b"127.0.0.1", false),
+        (b"example.1", false),
+        (b"example.01", false),
+        (b"example.0x01", false),
+        (b"example.0X01", false),
+        (b"example.123456789000000000000000", false),
+        (b"example.012345678900000000000000", false),
+        (b"example.0x123456789abcdefABCDEF0", false),
+        (b"example.0x0123456789abcdefABCDEF", false),
+        (b"example.1234567890a", true),
+        (b"example.01234567890a", true),
+        (b"example.0x123456789abcdefg", true),
+        (b"1", false),
+        (b"01", false),
+        (b"0x01", false),
+        (b"0X01", false),
+        (b"1.", false),
+        (b"01.", false),
+        (b"0x01.", false),
+        (b"0X01.", false),
+    ];
+    for (name, expected) in table {
+        assert_eq!(supported(name), expected, "{:?}", String::from_utf8_lossy(name));
+    }
+    // Valid LDH, but longer than the 253 bytes rustls accepts.
+    assert!(!supported(name254.as_bytes()));
+    assert!(supported(&name254.as_bytes()[..253]));
+
+    let good = build_ech_config_entry_v18(1, "ech.example");
+    let list = build_ech_config_list(vec![good.clone(), build_ech_config_entry_v18(2, name254.as_bytes())]);
+    assert_eq!(
+        parse_ech_config_list(&list).expect("parses").supported_config_list(),
+        Some(build_ech_config_list(vec![good]))
+    );
+}
+
+#[test]
+fn malformed_record_for_another_name_does_not_reject_the_answer() {
+    let mut packet = wire_fixture::answer_with_params(&[wire_fixture::param(3, &[0x20, 0xfb])]);
+    // One additional record: SVCB for other.example with a 3-byte port.
+    packet[10..12].copy_from_slice(&1u16.to_be_bytes());
+    let mut rdata = 1u16.to_be_bytes().to_vec();
+    rdata.push(0);
+    rdata.extend(wire_fixture::param(3, &[1, 2, 3]));
+    packet.extend(wire_fixture::name("other.example"));
+    packet.extend(64u16.to_be_bytes());
+    packet.extend(1u16.to_be_bytes());
+    packet.extend(300u32.to_be_bytes());
+    packet.extend((rdata.len() as u16).to_be_bytes());
+    packet.extend(rdata);
+
+    let HttpsServiceSelection::Service(bindings) = select_https_service_bindings(&packet).expect("answer survives")
+    else {
+        panic!("expected ServiceMode");
+    };
+
+    assert_eq!(bindings.len(), 1);
+    assert_eq!(bindings[0].port, Some(8443));
+    assert!(parse_https_service_bindings(&packet).is_err());
+}
+
+#[test]
+fn empty_rdata_https_record_is_rejected_by_the_decoder() {
+    let mut packet = wire_fixture::answer_with_params(&[]);
+    // Replace the RDATA (priority + root target = 3 bytes) with an empty one.
+    packet.truncate(packet.len() - 3);
+    let len_at = packet.len() - 2;
+    packet[len_at..].copy_from_slice(&0u16.to_be_bytes());
+
+    // Hickory rejects the message before the wire scan runs, so the scan never reads past it.
+    assert!(select_https_service_bindings(&packet).is_err());
+}
+
+#[test]
+fn list_with_no_supported_entry_has_no_supported_list() {
+    let list = build_ech_config_list(vec![build_unknown_ech_config_entry(0xfe0e, &[1, 2, 3])]);
+
+    assert_eq!(parse_ech_config_list(&list).expect("parses").supported_config_list(), None);
+}
+
+#[test]
+fn malformed_service_params_reject_the_rrset() {
+    for params in [
+        vec![wire_fixture::param(3, &[0x01, 0xbb, 0xff])],
+        vec![wire_fixture::param(3, &[0x01])],
+        vec![wire_fixture::param(4, &[])],
+        vec![wire_fixture::param(6, &[])],
+        vec![wire_fixture::param(4, &[1, 2, 3])],
+    ] {
+        let packet = wire_fixture::answer_with_params(&params);
+        assert!(select_https_service_bindings(&packet).is_err(), "{params:?}");
+        assert!(parse_https_service_bindings(&packet).is_err(), "{params:?}");
+    }
+}
+
+#[test]
+fn well_formed_service_params_are_accepted() {
+    let packet = wire_fixture::answer_with_params(&[
+        wire_fixture::param(3, &[0x20, 0xfb]),
+        wire_fixture::param(4, &[192, 0, 2, 1]),
+        wire_fixture::param(6, &[0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),
+    ]);
+
+    let records = parse_https_service_bindings(&packet).expect("parses");
+
+    assert_eq!(records[0].port, Some(8443));
+    assert_eq!(records[0].ipv4_hints.len(), 1);
+    assert_eq!(records[0].ipv6_hints.len(), 1);
+    assert!(select_https_service_bindings(&packet).is_ok());
 }
