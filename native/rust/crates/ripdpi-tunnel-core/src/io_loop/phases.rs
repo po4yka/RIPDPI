@@ -797,7 +797,6 @@ mod tests {
                         resolver_error_kind: None,
                         resolver_endpoint_label: None,
                         direct_generation: Some(11),
-                        direct_fallback: false,
                         tcp_reply: None,
                     })),
                 ),

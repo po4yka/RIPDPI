@@ -24,9 +24,8 @@ pub(super) async fn resolve_request(
                     host: request.host,
                     upstream: Ok(success),
                     resolver_error_kind: None,
-                    resolver_endpoint_label: Some(resolver_endpoint_label),
+                    resolver_endpoint_label: None,
                     direct_generation: request_generation,
-                    direct_fallback: false,
                     tcp_reply: request.tcp_reply,
                 };
             }
@@ -37,16 +36,14 @@ pub(super) async fn resolve_request(
                     host: request.host,
                     upstream: Err(error.to_string()),
                     resolver_error_kind: None,
-                    resolver_endpoint_label: Some(resolver_endpoint_label),
+                    resolver_endpoint_label: None,
                     direct_generation: request_generation,
-                    direct_fallback: false,
                     tcp_reply: request.tcp_reply,
                 };
             }
         }
     }
-    let (direct_fallback, upstream) =
-        (false, resolver.exchange_with_metadata(&request.query).await.map_err(|err| (err.kind(), err.to_string())));
+    let upstream = resolver.exchange_with_metadata(&request.query).await.map_err(|err| (err.kind(), err.to_string()));
     let (resolver_error_kind, upstream) = match upstream {
         Ok(success) => (None, Ok(success)),
         Err((kind, message)) => (Some(kind), Err(message)),
@@ -59,7 +56,6 @@ pub(super) async fn resolve_request(
         resolver_error_kind,
         resolver_endpoint_label: Some(resolver_endpoint_label),
         direct_generation: request_generation,
-        direct_fallback,
         tcp_reply: request.tcp_reply,
     }
 }

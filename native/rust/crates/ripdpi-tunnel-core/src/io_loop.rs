@@ -87,6 +87,19 @@ fn send_dns_servfail(
     reason: &str,
 ) {
     stats.record_dns_failure(host, reason, None);
+    enqueue_dns_servfail(device, stats, mapdns, cache, src, query, reason);
+}
+
+/// SERVFAIL without a resolver-failure record, for answers that never reached a resolver.
+fn enqueue_dns_servfail(
+    device: &mut TunDevice,
+    stats: &Arc<Stats>,
+    mapdns: MapDnsRuntime,
+    cache: &DnsCache,
+    src: SocketAddr,
+    query: &[u8],
+    reason: &str,
+) {
     match cache.servfail_response(query) {
         Ok(servfail) => {
             let raw = build_udp_response(mapdns.intercept_addr, src, &servfail);

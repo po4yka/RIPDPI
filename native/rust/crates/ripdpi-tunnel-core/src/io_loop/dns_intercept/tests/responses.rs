@@ -34,7 +34,6 @@ fn handle_dns_result_queues_response_for_later_tun_flush() {
             resolver_error_kind: None,
             resolver_endpoint_label: Some("fixture".to_string()),
             direct_generation: None,
-            direct_fallback: false,
             tcp_reply: None,
         },
     );
@@ -64,7 +63,6 @@ fn handle_dns_result_records_endpoint_for_upstream_failure() {
             resolver_error_kind: Some(EncryptedDnsErrorKind::Tls),
             resolver_endpoint_label: Some("fixture.test:853".to_string()),
             direct_generation: None,
-            direct_fallback: false,
             tcp_reply: None,
         },
     );
@@ -103,7 +101,6 @@ fn handle_dns_result_returns_rewritten_payload_to_tcp_session() {
             resolver_error_kind: None,
             resolver_endpoint_label: Some("fixture".to_string()),
             direct_generation: None,
-            direct_fallback: false,
             tcp_reply: Some(reply_tx),
         },
     );
@@ -158,7 +155,6 @@ fn deliver_udp_answer(query: Vec<u8>, upstream: Vec<u8>, mtu: usize) -> hickory_
             resolver_error_kind: None,
             resolver_endpoint_label: None,
             direct_generation: None,
-            direct_fallback: false,
             tcp_reply: None,
         },
     );

@@ -1,4 +1,5 @@
 mod delivery;
+mod outcome;
 mod servfail;
 mod udp_fit;
 
@@ -10,6 +11,7 @@ use crate::{Stats, TunDevice};
 use super::{DnsResponse, MapDnsRuntime};
 use delivery::deliver_dns_payload;
 pub(in crate::io_loop) use delivery::handle_dns_failure;
+use outcome::{record_failure, record_success};
 use servfail::servfail_payload;
 
 pub(in crate::io_loop) fn handle_dns_result(
@@ -19,21 +21,16 @@ pub(in crate::io_loop) fn handle_dns_result(
     dns_cache: &mut DnsCache,
     mut response: DnsResponse,
 ) {
+    let direct = response.direct_generation.is_some();
     let payload = match response.upstream {
         Ok(upstream) => match dns_cache.rewrite_response(&response.query, &upstream.response_bytes) {
             Ok(result) => {
-                stats.record_dns_success(
-                    &result.host,
-                    result.cache_hits,
-                    result.cache_misses,
-                    Some(&upstream.endpoint_label),
-                    Some(upstream.latency_ms),
-                );
+                record_success(stats, direct, &result, &upstream);
                 Some(result.response)
             }
             Err(err) => {
                 let message = err.to_string();
-                stats.record_dns_failure(response.host.as_deref(), &message, Some(&upstream.endpoint_label));
+                record_failure(stats, direct, response.host.as_deref(), &message, Some(&upstream.endpoint_label));
                 servfail_payload(dns_cache, &response.query, "rewrite error")
             }
         },
@@ -42,11 +39,8 @@ pub(in crate::io_loop) fn handle_dns_result(
                 Some(kind) => format!("{kind:?}: {err}"),
                 None => err,
             };
-            stats.record_dns_failure(
-                response.host.as_deref(),
-                &formatted_error,
-                response.resolver_endpoint_label.as_deref(),
-            );
+            let endpoint = response.resolver_endpoint_label.as_deref();
+            record_failure(stats, direct, response.host.as_deref(), &formatted_error, endpoint);
             servfail_payload(dns_cache, &response.query, "upstream failure")
         }
     };

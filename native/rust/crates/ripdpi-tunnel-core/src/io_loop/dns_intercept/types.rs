@@ -26,6 +26,5 @@ pub(in crate::io_loop) struct DnsResponse {
     pub(in crate::io_loop) resolver_error_kind: Option<EncryptedDnsErrorKind>,
     pub(in crate::io_loop) resolver_endpoint_label: Option<String>,
     pub(in crate::io_loop) direct_generation: Option<u64>,
-    pub(in crate::io_loop) direct_fallback: bool,
     pub(in crate::io_loop) tcp_reply: Option<tokio::sync::oneshot::Sender<Vec<u8>>>,
 }

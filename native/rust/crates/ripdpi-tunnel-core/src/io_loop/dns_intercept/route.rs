@@ -8,7 +8,7 @@ use crate::split_dns::{DnsPolicyPlane, SplitDnsPolicy};
 use crate::stats::SplitDnsDecisionKind;
 use crate::{Stats, TunDevice};
 
-use super::super::send_dns_servfail;
+use super::super::{enqueue_dns_servfail, send_dns_servfail};
 use super::{DirectDnsRequest, DnsRequest, MapDnsRuntime, parse_dns_query};
 
 #[allow(clippy::too_many_arguments)]
@@ -67,21 +67,10 @@ pub(in crate::io_loop) fn route_dns_packet(
             None
         };
         if decision.plane == DnsPolicyPlane::Direct && direct.is_none() {
-            stats.record_split_dns_decision(
-                SplitDnsDecisionKind::DirectProxyFallback,
-                Some("direct_underlay_unavailable"),
-            );
+            stats
+                .record_split_dns_decision(SplitDnsDecisionKind::DirectFailClosed, Some("direct_underlay_unavailable"));
             if let (Some(mapdns), Some(cache)) = (mapdns_runtime, dns_cache) {
-                send_dns_servfail(
-                    device,
-                    stats,
-                    mapdns,
-                    cache,
-                    src,
-                    payload,
-                    host.as_deref(),
-                    "direct DNS underlay unavailable",
-                );
+                enqueue_dns_servfail(device, stats, mapdns, cache, src, payload, "direct DNS underlay unavailable");
             }
             return;
         }

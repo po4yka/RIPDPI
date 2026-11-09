@@ -268,6 +268,8 @@ fn route_dns_direct_without_underlay_fails_closed_without_proxy_fallback() {
     assert_eq!(snapshot.split_dns_direct_fallback_decisions, 1);
     assert_eq!(snapshot.split_dns_proxy_decisions, 0);
     assert_eq!(snapshot.last_split_dns_coverage_reason.as_deref(), Some("direct_underlay_unavailable"));
+    assert_eq!(snapshot.dns_failures_total, 0, "no resolver was asked, so no resolver failure is recorded");
+    assert_eq!(snapshot.last_dns_error, None);
 }
 
 #[test]
@@ -296,7 +298,6 @@ fn drain_dns_responses_processes_pending() {
             resolver_error_kind: None,
             resolver_endpoint_label: Some("test".to_string()),
             direct_generation: None,
-            direct_fallback: false,
             tcp_reply: None,
         })
         .expect("send response");
@@ -308,7 +309,7 @@ fn drain_dns_responses_processes_pending() {
 }
 
 #[test]
-fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation_replacement() {
+fn stale_direct_responses_are_suppressed_after_generation_replacement() {
     use crate::tunnel_api::direct_dns_binding::{
         TEST_BINDER_LOCK, register_direct_dns_socket_binder, unregister_direct_dns_socket_binder_if,
     };
@@ -331,7 +332,7 @@ fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation
     let mut dns_req_tx = Some(req_tx);
     let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
 
-    for (host, direct_fallback) in [("direct-late.test", false), ("fallback-late.test", true)] {
+    for host in ["direct-late.test", "second-late.test"] {
         resp_tx
             .try_send(DnsResponse {
                 src,
@@ -345,7 +346,6 @@ fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation
                 resolver_error_kind: None,
                 resolver_endpoint_label: Some("test".to_string()),
                 direct_generation: Some(11),
-                direct_fallback,
                 tcp_reply: None,
             })
             .expect("queue stale response");
@@ -366,6 +366,7 @@ fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation
     assert_eq!(device.tx_queue.len(), 2, "both stale results must become SERVFAIL responses");
     assert_eq!(active_generation, Some(12), "cache generation must advance to the current B binding");
     assert_eq!(stats.direct_dns_outcomes(), (0, 2));
+    assert_eq!(stats.dns_snapshot().dns_failures_total, 0, "stale direct answers are not resolver failures");
     for offset in 0..8 {
         assert!(
             cache.lookup(u32::from(Ipv4Addr::new(198, 18, 0, offset))).is_none(),
@@ -385,7 +386,6 @@ fn stale_direct_and_encrypted_fallback_responses_are_suppressed_after_generation
             resolver_error_kind: None,
             resolver_endpoint_label: Some("test".to_string()),
             direct_generation: Some(12),
-            direct_fallback: false,
             tcp_reply: None,
         })
         .expect("queue current response");
@@ -433,7 +433,6 @@ fn drain_dns_responses_yields_after_one_phase_budget() {
                 resolver_error_kind: None,
                 resolver_endpoint_label: Some("test".to_string()),
                 direct_generation: None,
-                direct_fallback: false,
                 tcp_reply: None,
             })
             .expect("queue response");
@@ -446,4 +445,55 @@ fn drain_dns_responses_yields_after_one_phase_budget() {
         dns_resp_rx.as_mut().expect("response receiver").try_recv().is_ok(),
         "the next response must remain queued for the following loop tick",
     );
+}
+
+#[test]
+fn direct_plane_outcomes_leave_the_encrypted_resolver_counters_unchanged() {
+    use crate::tunnel_api::direct_dns_binding::{TEST_BINDER_LOCK, register_test_direct_dns_socket_binder};
+
+    let _guard = TEST_BINDER_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    let _registration = register_test_direct_dns_socket_binder(Arc::new(FixedBinder(21)));
+    let mapdns = test_mapdns();
+    let mut cache = test_dns_cache();
+    let mut device = TunDevice::new(1500);
+    let stats = Arc::new(Stats::default());
+    let (resp_tx, resp_rx) = tokio::sync::mpsc::channel::<DnsResponse>(8);
+    let (req_tx, _req_rx) = tokio::sync::mpsc::channel::<DnsRequest>(8);
+    let mut dns_resp_rx = Some(resp_rx);
+    let mut dns_req_tx = Some(req_tx);
+    let src = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53000);
+    let direct = |host: &str, upstream| DnsResponse {
+        src,
+        query: build_query(host),
+        host: Some(host.to_string()),
+        upstream,
+        resolver_error_kind: None,
+        resolver_endpoint_label: Some("encrypted.example".to_string()),
+        direct_generation: Some(21),
+        tcp_reply: None,
+    };
+    resp_tx.try_send(direct("down.lan.test", Err("Connection refused (os error 61)".to_string()))).expect("failure");
+    resp_tx
+        .try_send(direct(
+            "up.lan.test",
+            Ok(EncryptedDnsExchangeSuccess {
+                response_bytes: build_response("up.lan.test", Ipv4Addr::new(192, 168, 1, 10)),
+                endpoint_label: "underlay".to_string(),
+                latency_ms: 900,
+            }),
+        ))
+        .expect("success");
+
+    drain_dns_responses(&mut device, &stats, mapdns, &mut cache, &mut dns_resp_rx, &mut dns_req_tx, &mut None);
+
+    assert_eq!(device.tx_queue.len(), 2, "SERVFAIL and the answer still reach the app");
+    let snapshot = stats.dns_snapshot();
+    assert_eq!(snapshot.dns_queries_total, 0);
+    assert_eq!(snapshot.dns_failures_total, 0);
+    assert_eq!(snapshot.last_dns_error, None);
+    assert_eq!(snapshot.resolver_endpoint, None);
+    assert_eq!(snapshot.resolver_latency_ms, None);
+    assert_eq!(snapshot.direct_dns_successes, 1);
+    assert_eq!(snapshot.split_dns_direct_fallback_decisions, 1, "the failed direct query is counted as fail-closed");
+    assert_eq!(snapshot.last_split_dns_coverage_reason.as_deref(), Some("direct_transport_failed"));
 }

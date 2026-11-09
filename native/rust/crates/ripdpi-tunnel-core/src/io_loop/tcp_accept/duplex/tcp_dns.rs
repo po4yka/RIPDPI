@@ -120,11 +120,8 @@ async fn resolve_tcp_query(
             None
         };
         if decision.plane == DnsPolicyPlane::Direct && direct.is_none() {
-            stats.record_split_dns_decision(
-                SplitDnsDecisionKind::DirectProxyFallback,
-                Some("direct_underlay_unavailable"),
-            );
-            stats.record_dns_failure(host.as_deref(), "direct DNS underlay unavailable", None);
+            stats
+                .record_split_dns_decision(SplitDnsDecisionKind::DirectFailClosed, Some("direct_underlay_unavailable"));
             return servfail_response(&query)
                 .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()));
         }

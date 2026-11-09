@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use crate::dns_cache::DnsCache;
-use crate::stats::SplitDnsDecisionKind;
 use crate::{Stats, TunDevice};
 
 use super::super::IO_PHASE_WORK_BUDGET;
@@ -48,9 +47,6 @@ pub(in crate::io_loop) fn handle_dns_response(
     response: DnsResponse,
 ) {
     sync_direct_dns_mapping_generation(Some(cache), active_direct_generation);
-    if response.direct_fallback {
-        stats.record_split_dns_decision(SplitDnsDecisionKind::DirectProxyFallback, Some("direct_transport_failed"));
-    }
     if response
         .direct_generation
         .is_some_and(|generation| !crate::tunnel_api::direct_dns_binding::is_direct_dns_generation_current(generation))
@@ -58,7 +54,7 @@ pub(in crate::io_loop) fn handle_dns_response(
         stats.record_direct_dns_stale_response();
         handle_dns_failure(device, stats, mapdns, cache, response, "direct DNS generation stale");
     } else {
-        if response.direct_generation.is_some() && !response.direct_fallback && response.upstream.is_ok() {
+        if response.direct_generation.is_some() && response.upstream.is_ok() {
             stats.record_direct_dns_success();
         }
         if let Some(generation) = response.direct_generation

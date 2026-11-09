@@ -17,7 +17,6 @@ pub(in crate::io_loop) fn handle_dns_failure(
     mut response: DnsResponse,
     reason: &str,
 ) {
-    stats.record_dns_failure(response.host.as_deref(), reason, None);
     if let Some(payload) = servfail_payload(dns_cache, &response.query, reason) {
         deliver_dns_payload(device, stats, mapdns, &response.query, response.src, response.tcp_reply.take(), payload);
     }

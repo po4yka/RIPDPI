@@ -95,7 +95,6 @@ fn response(src: SocketAddr, host: &str, generation: Option<u64>, upstream: Resu
         resolver_error_kind: None,
         resolver_endpoint_label: None,
         direct_generation: generation,
-        direct_fallback: false,
         tcp_reply: None,
     }
 }

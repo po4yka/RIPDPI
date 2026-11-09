@@ -15,7 +15,9 @@ pub use snapshot::TunForwardingEvidenceSnapshot;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum SplitDnsDecisionKind {
     ProxyEncrypted,
-    DirectProxyFallback,
+    /// A direct-plane query answered with SERVFAIL (no underlay lease, or the underlay
+    /// exchange failed); it never falls back to the proxy plane.
+    DirectFailClosed,
     Block,
 }
 
@@ -79,6 +81,8 @@ pub struct Stats {
     pub dns_cache_misses: AtomicU64,
     pub dns_failures_total: AtomicU64,
     pub split_dns_proxy_decisions: AtomicU64,
+    /// Counts [`SplitDnsDecisionKind::DirectFailClosed`]: fail-closed SERVFAILs, not proxy fallbacks.
+    /// The exported name is kept for the telemetry contract.
     pub split_dns_direct_fallback_decisions: AtomicU64,
     pub split_dns_block_decisions: AtomicU64,
     direct_dns_successes: AtomicU64,
@@ -350,7 +354,7 @@ impl Stats {
     pub(crate) fn record_split_dns_decision(&self, kind: SplitDnsDecisionKind, reason: Option<&str>) {
         let counter = match kind {
             SplitDnsDecisionKind::ProxyEncrypted => &self.split_dns_proxy_decisions,
-            SplitDnsDecisionKind::DirectProxyFallback => &self.split_dns_direct_fallback_decisions,
+            SplitDnsDecisionKind::DirectFailClosed => &self.split_dns_direct_fallback_decisions,
             SplitDnsDecisionKind::Block => {
                 self.dns_queries_total.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 &self.split_dns_block_decisions
@@ -513,7 +517,7 @@ mod tests {
     fn split_dns_decisions_have_redacted_bounded_counters() {
         let stats = Stats::new();
         stats.record_split_dns_decision(super::SplitDnsDecisionKind::ProxyEncrypted, None);
-        stats.record_split_dns_decision(super::SplitDnsDecisionKind::DirectProxyFallback, Some("direct_plane_unbound"));
+        stats.record_split_dns_decision(super::SplitDnsDecisionKind::DirectFailClosed, Some("direct_plane_unbound"));
         stats.record_split_dns_decision(super::SplitDnsDecisionKind::Block, None);
 
         let snapshot = stats.dns_snapshot();
