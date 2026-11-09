@@ -195,3 +195,17 @@ fn tlsrec_reframes_a_truncated_fake_but_not_a_truncated_payload() {
     assert_eq!(real.tls_prelude.applied_count, 0);
     assert_eq!(real.bytes, DEFAULT_FAKE_TLS);
 }
+
+#[test]
+fn tlsrec_offset_zero_skips_only_the_zero_repeat() {
+    let fake = complete_fake_tls();
+    let payload_len = fake.len() - 5;
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(0).with_repeat_skip(3, 50))];
+
+    let tampered = apply_tamper(&group, &fake, 7).expect("tamper repeated offset");
+
+    assert_eq!(tls_record_lengths(&tampered.bytes), vec![50, 50, payload_len - 100]);
+    assert_eq!(tampered.tls_prelude.applied_count, 1);
+}

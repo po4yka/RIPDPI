@@ -124,7 +124,8 @@ fn apply_tlsrec_prelude_step(
         let pos = pos as usize;
         // A boundary at 0 would emit a zero-length handshake record (RFC 8446 5.1).
         if pos == 0 {
-            break;
+            remaining -= 1;
+            continue;
         }
         let previous_count = state.boundaries.len();
         insert_boundary(&mut state.boundaries, pos);
