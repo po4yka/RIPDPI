@@ -120,7 +120,7 @@ def execute_routed(
         )
         ports = [
             manifest[key]
-            for key in ("tcpPort", "xhttpPort", "directPort", "dnsPort", "dnsHttpPort")
+            for key in ("tcpPort", "xhttpPort", "directPort", "dnsPort", "dnsHttpPort", "dnsHttpsPort")
         ]
         require(
             all(type(port) is int and 1024 <= port <= 65535 for port in ports),

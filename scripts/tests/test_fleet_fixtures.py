@@ -196,7 +196,7 @@ class FleetFixturesHappyPathTest(unittest.TestCase):
         self.assertIn("push:\n    branches: [main]", source)
         self.assertNotIn("workflow_dispatch:", source)
         self.assertIn(
-            "actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad", source
+            "actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78", source
         )
         self.assertNotIn("uses: ./.github/actions/setup-android-rust", source)
         self.assertNotIn("actions/cache", source)

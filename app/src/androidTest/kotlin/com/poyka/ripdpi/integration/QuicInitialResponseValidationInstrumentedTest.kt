@@ -98,6 +98,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                         assertTrue(bindings.validate(request, response, false))
                         responder.join(3_000)
                     } finally {
+                        responder.join(3_000)
                         server.close()
                         responder.join(3_000)
                     }
@@ -134,6 +135,7 @@ class QuicInitialResponseValidationInstrumentedTest {
                 assertEquals(QuicProbeVerdict.QUIC_DROPPED, result.verdict)
                 worker.join(3_000)
             } finally {
+                worker.join(3_000)
                 server.close()
                 worker.join(3_000)
             }
