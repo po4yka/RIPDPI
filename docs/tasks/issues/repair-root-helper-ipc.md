@@ -2,7 +2,7 @@
 id: VPN-1794196711383747
 title: Repair root-helper IPC audit findings
 kind: bug
-status: doing
+status: review
 area: vpn
 priority: high
 owner: IPC repair integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: repair-root-helper-ipc
 created: 2026-11-09
 updated: 2026-11-09
+status_detail: Repairs and local validation recorded; BPF, hosted CI and device acceptance remain open.
 ---
 
 ## Goal

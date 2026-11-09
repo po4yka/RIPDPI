@@ -280,11 +280,14 @@ retry, which could duplicate an operation.
 
 The `root_helper_dispatch.rs` functions return `Option<io::Result<()>>` — a
 `None` is the rooted-vs-non-root branch, never an error. On the Kotlin side,
-`RootHelperManager.start()` returns `null` on **every** failure path (no `su`,
-`su` denied, socket never connectable), so the native runtime receives
-`rootHelperSocketPath: null`, no client is registered, and `with_root_helper()`
-returns `None`. This establishes a code path for local fallback; device
-capability and packet delivery still require their own acceptance evidence.
+`RootHelperManager.start()` returns `null` after a startup failure (no `su`,
+`su` denied, socket never connectable) only when cleanup completes. The native
+runtime then receives `rootHelperSocketPath: null`, no client is registered,
+and `with_root_helper()` returns `None`. If cleanup remains pending, startup
+propagates `RuntimeCleanupPendingException`, retains ownership, and blocks
+activation and retry. This establishes a code path for local fallback after
+confirmed cleanup; device capability and packet delivery still require their
+own acceptance evidence.
 
 ## Security posture
 

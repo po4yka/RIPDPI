@@ -12,8 +12,8 @@ Use the isolated ownership lanes in design.md and the portfolio task. Integratio
 
 - [x] VPN-1794196899260030 Preserve close-on-exec and descriptor ownership through replacement; run owning Linux regressions #bug !high @item:VPN-1794196711383747
 - [x] VPN-1794196899730212 Reject impossible ordered payload allocation and verify handler liveness and fd cleanup #bug !high @item:VPN-1794196711383747
-- [ ] VPN-1794196900171780 Reproduce and repair total deadlines and invalid descriptor types in protocol owners #bug !high @item:VPN-1794196711383747
-- [ ] VPN-1794196900616146 Verify existing Kotlin repairs, non-root compatibility, combined gates and independent review #bug !high @item:VPN-1794196711383747
+- [x] VPN-1794196900171780 Reproduce and repair total deadlines and invalid descriptor types in protocol owners #bug !high @item:VPN-1794196711383747
+- [x] VPN-1794196900616146 Verify existing Kotlin repairs, non-root compatibility, combined gates and independent review #bug !high @item:VPN-1794196711383747
 
 ## Verification
 
