@@ -160,37 +160,42 @@ fn discover_with(
                 continue;
             }
         };
-        let parsed = parse_dns_response_semantics(&query, &response);
-        let prefix = match parsed {
-            Ok((_, facts)) if facts.outcome == DnsResponseOutcome::Answer => {
-                // The general semantics parser sorts addresses. Preserve DNS response order here.
-                let ordered = hickory_proto::op::Message::from_vec(&response)
-                    .map_err(|_| "invalid_dns64_response")
-                    .map(|message| {
-                        message
-                            .answers
-                            .iter()
-                            .filter_map(|record| match &record.data {
-                                hickory_proto::rr::RData::AAAA(address) => Some(address.0.to_string()),
-                                _ => None,
-                            })
-                            .collect::<Vec<_>>()
-                    });
-                ordered.and_then(|addresses| discover_nat64_prefixes(&addresses))
+        let outcome = match parse_dns_response_semantics(&query, &response) {
+            Ok((_, facts)) => facts.outcome,
+            Err(_) => {
+                failure = Some("dns_error");
+                continue;
             }
-            Ok((_, facts)) if matches!(facts.outcome, DnsResponseOutcome::Nodata | DnsResponseOutcome::Nxdomain) => {
-                Ok(vec![])
-            }
-            _ => Err("invalid_dns64_response"),
         };
-        match prefix {
-            Ok(prefixes) if !prefixes.is_empty() => {
-                return Nat64Discovery { prefixes, status: "DISCOVERED", reason: None, attempts };
+        match outcome {
+            DnsResponseOutcome::Answer => {
+                // The general semantics parser sorts addresses. Preserve DNS response order here.
+                let Ok(message) = hickory_proto::op::Message::from_vec(&response) else {
+                    failure = Some("dns_error");
+                    continue;
+                };
+                let addresses = message
+                    .answers
+                    .iter()
+                    .filter_map(|record| match &record.data {
+                        hickory_proto::rr::RData::AAAA(address) => Some(address.0.to_string()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                match discover_nat64_prefixes(&addresses) {
+                    Ok(prefixes) if !prefixes.is_empty() => {
+                        return Nat64Discovery { prefixes, status: "DISCOVERED", reason: None, attempts };
+                    }
+                    Ok(_) => {}
+                    // A well-formed answer that fails the Pref64 heuristic is a verdict, not a resolver fault.
+                    Err(reason) => {
+                        return Nat64Discovery { prefixes: vec![], status: "INVALID", reason: Some(reason), attempts };
+                    }
+                }
             }
-            Ok(_) => {}
-            Err(reason) => {
-                return Nat64Discovery { prefixes: vec![], status: "INVALID", reason: Some(reason), attempts };
-            }
+            DnsResponseOutcome::Nodata | DnsResponseOutcome::Nxdomain => {}
+            // SERVFAIL, REFUSED, truncation, and unobserved replies are one resolver's fault: try the next.
+            _ => failure = Some("dns_error"),
         }
     }
     Nat64Discovery {

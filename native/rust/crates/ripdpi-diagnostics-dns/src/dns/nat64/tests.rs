@@ -58,7 +58,8 @@ fn discovery_uses_only_snapshot_literals_and_preserves_query_binding() {
         response[0] ^= 1;
         Ok(response)
     });
-    assert_eq!(invalid.status, "INVALID");
+    assert_eq!(invalid.status, "FAILED");
+    assert_eq!(invalid.reason, Some("dns_error"));
 }
 #[test]
 fn no_resolver_cancel_and_deadline_do_not_send_requests() {
@@ -126,4 +127,31 @@ fn multi_prefix_order_is_preserved_and_limit_is_enforced() {
     assert_eq!(prefixes[0].address.to_string(), "2001:db8:5::");
     assert_eq!(prefixes[3].address.to_string(), "2001:db8:2::");
     assert_eq!(discover_nat64_prefixes(&answers), Err("invalid_dns64_response"));
+}
+
+fn reply(query: &[u8], flags: u16, aaaa: Option<&str>) -> Vec<u8> {
+    let mut response = query.to_vec();
+    response[2..4].copy_from_slice(&flags.to_be_bytes());
+    if let Some(address) = aaaa {
+        response[6..8].copy_from_slice(&1u16.to_be_bytes());
+        response.extend_from_slice(&[0xc0, 0x0c, 0, 28, 0, 1, 0, 0, 0, 60, 0, 16]);
+        response.extend_from_slice(&address.parse::<Ipv6Addr>().unwrap().octets());
+    }
+    response
+}
+
+#[test]
+fn resolver_faults_fall_through_to_the_next_resolver() {
+    // SERVFAIL, REFUSED, and an empty truncated reply from the primary.
+    for flags in [0x8182u16, 0x8185, 0x8380] {
+        let mut calls = 0;
+        let result = discover_with(&["1.2.3.4".into(), "5.6.7.8".into()], &AtomicBool::new(false), |_, query| {
+            calls += 1;
+            Ok(if calls == 1 { reply(query, flags, None) } else { reply(query, 0x8180, Some("64:ff9b::c000:aa")) })
+        });
+        assert_eq!(result.status, "DISCOVERED", "flags {flags:#x}");
+        assert_eq!(result.attempts, 2);
+    }
+    let alone = discover_with(&["1.2.3.4".into()], &AtomicBool::new(false), |_, query| Ok(reply(query, 0x8182, None)));
+    assert_eq!((alone.status, alone.reason), ("FAILED", Some("dns_error")));
 }
