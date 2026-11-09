@@ -54,37 +54,25 @@ impl AsyncUdpSocket for SalamanderUdpSocket {
         bufs: &mut [std::io::IoSliceMut<'_>],
         meta: &mut [quinn::udp::RecvMeta],
     ) -> Poll<io::Result<usize>> {
+        let Some(first) = bufs.first_mut() else {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::InvalidInput, "missing QUIC receive buffer")));
+        };
         loop {
             ready!(self.io.poll_recv_ready(cx))?;
-            let buffer_len = bufs.first().map_or(0, |buffer| buffer.len());
-            let mut scratch = vec![0u8; buffer_len.saturating_mul(2).max(2048)];
-            match self.io.try_io(tokio::io::Interest::READABLE, || self.io.try_recv_from(&mut scratch)) {
+            match self.io.try_io(tokio::io::Interest::READABLE, || self.io.try_recv_from(&mut first[..])) {
                 Ok((received, addr)) => {
-                    let first = bufs
-                        .first_mut()
-                        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing QUIC receive buffer"))?;
                     // The socket is unconnected and Salamander has no MAC, so
                     // anyone can send to it. A datagram that is too short or
                     // too large is dropped here, as the reference client does;
                     // an Err would end the quinn endpoint and every connection
-                    // on it. Only real socket errors are returned.
-                    if received <= SALT_LEN {
+                    // on it. Only real socket errors are returned. A datagram
+                    // that fills the whole buffer may have been truncated by
+                    // the kernel, so it is dropped as well.
+                    if received <= SALT_LEN || received >= first.len() {
                         continue;
                     }
-                    let Ok(decoded) = self.codec.decode(&scratch[..received]) else {
-                        continue;
-                    };
-                    if decoded.len() > first.len() {
-                        continue;
-                    }
-                    first[..decoded.len()].copy_from_slice(&decoded);
-                    meta[0] = quinn::udp::RecvMeta {
-                        addr,
-                        len: decoded.len(),
-                        stride: decoded.len(),
-                        ecn: None,
-                        dst_ip: None,
-                    };
+                    let len = self.codec.decode_in_place(&mut first[..received]);
+                    meta[0] = quinn::udp::RecvMeta { addr, len, stride: len, ecn: None, dst_ip: None };
                     return Poll::Ready(Ok(1));
                 }
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => continue,
@@ -145,6 +133,7 @@ impl SalamanderCodec {
         out
     }
 
+    #[cfg(test)]
     pub(crate) fn decode(&self, payload: &[u8]) -> io::Result<Vec<u8>> {
         if payload.len() < SALT_LEN {
             return Err(io::Error::new(
@@ -153,10 +142,21 @@ impl SalamanderCodec {
             ));
         }
 
-        let salt = &payload[..8];
-        let body = &payload[8..];
-        let keystream = self.keystream(salt);
-        Ok(body.iter().enumerate().map(|(index, byte)| byte ^ keystream[index % keystream.len()]).collect())
+        let mut out = payload.to_vec();
+        let len = self.decode_in_place(&mut out);
+        out.truncate(len);
+        Ok(out)
+    }
+
+    /// Decodes a datagram of at least `SALT_LEN` bytes into the front of `buf`
+    /// and returns the payload length.
+    fn decode_in_place(&self, buf: &mut [u8]) -> usize {
+        let keystream = self.keystream(&buf[..SALT_LEN]);
+        let len = buf.len() - SALT_LEN;
+        for index in 0..len {
+            buf[index] = buf[index + SALT_LEN] ^ keystream[index % keystream.len()];
+        }
+        len
     }
 
     fn keystream(&self, salt: &[u8]) -> Vec<u8> {
@@ -256,6 +256,32 @@ mod tests {
         };
         assert_eq!(count, 1);
         assert_eq!(&payload[..meta[0].len], b"after-garbage");
+    }
+
+    /// Wire sizes just under the buffer limit decode in place; a datagram that
+    /// fills the buffer may be truncated and is dropped.
+    #[tokio::test(flavor = "current_thread")]
+    async fn datagram_at_buffer_limit_boundary_is_decoded_or_dropped() {
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind");
+        let local = socket.local_addr().expect("addr");
+        let wrapped = SalamanderUdpSocket::new(socket, b"fixture-key".to_vec()).expect("wrap");
+        let peer = tokio::net::UdpSocket::bind("127.0.0.1:0").await.expect("peer");
+        let codec = SalamanderCodec::new(b"fixture-key".to_vec());
+        let fits = vec![0x5a; 63 - SALT_LEN];
+        peer.send_to(&codec.encode(&[0x11; 64 - SALT_LEN]), local).await.expect("send full-buffer datagram");
+        peer.send_to(&codec.encode(&fits), local).await.expect("send largest accepted datagram");
+        let mut payload = [0u8; 64];
+        let mut meta = [quinn::udp::RecvMeta::default()];
+        let mut bufs = [std::io::IoSliceMut::new(&mut payload)];
+        let count = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            std::future::poll_fn(|cx| wrapped.poll_recv(cx, &mut bufs, &mut meta)),
+        )
+        .await
+        .expect("datagram arrives")
+        .expect("no socket error");
+        assert_eq!(count, 1);
+        assert_eq!(&payload[..meta[0].len], &fits[..]);
     }
 
     /// The Salamander socket carries a real Hysteria 2 session through quinn:
