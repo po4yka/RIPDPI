@@ -12,3 +12,7 @@ captures from an external server.
 
 Sources: https://www.rfc-editor.org/rfc/rfc9001.html#appendix-A.2
 and https://www.rfc-editor.org/rfc/rfc9369.html#appendix-A.2.
+
+`ack-v1.bin` and `ack-v2.bin` use the same published ClientHello, no token,
+and packet number 1. An ACK of server packet 0 precedes CRYPTO. TShark
+independently reads both frames and extracts the complete ClientHello.
