@@ -11,3 +11,6 @@ pub(crate) use datagram::decode_udp_payload;
 pub(crate) use transport::H3_MTU_DISCOVERY_UPPER_BOUND;
 #[cfg(test)]
 pub(crate) use transport::h3_tls_config;
+
+#[cfg(test)]
+mod settings_tests;

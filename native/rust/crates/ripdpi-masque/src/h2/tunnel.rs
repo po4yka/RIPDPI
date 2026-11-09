@@ -1,3 +1,4 @@
+use std::future::{Future, poll_fn};
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
@@ -29,12 +30,13 @@ pub(super) struct H2Tunnel {
 }
 
 /// # Cancel safety:
-/// cancel-safe: dropping the unpublished stream and driver closes the carrier.
+/// cancel-safe: the handshake and settings wait own the unpublished carrier;
+/// after spawn, dropping the stream signals the bounded driver cleanup.
 pub(super) async fn open<S: AsyncIo + 'static>(
     transport: S,
     request: http::Request<http_body_util::Empty<Bytes>>,
 ) -> io::Result<(http::Response<()>, H2Tunnel)> {
-    let (sender, connection) = h2::client::Builder::new()
+    let (sender, mut connection) = h2::client::Builder::new()
         .initial_window_size(2 * 1024 * 1024)
         .initial_connection_window_size(5 * 1024 * 1024)
         .max_header_list_size(16 * 1024)
@@ -43,6 +45,29 @@ pub(super) async fn open<S: AsyncIo + 'static>(
         .handshake(transport)
         .await
         .map_err(h2_error)?;
+    if request.extensions().get::<h2::ext::Protocol>().is_some() {
+        poll_fn(|cx| {
+            if let Poll::Ready(result) = Pin::new(&mut connection).poll(cx) {
+                return Poll::Ready(Err(result.err().map_or_else(
+                    || io::Error::new(io::ErrorKind::ConnectionAborted, "H2 peer closed before SETTINGS"),
+                    h2_error,
+                )));
+            }
+            // The initial zero limit changes only when peer SETTINGS are processed.
+            // An explicit zero peer limit keeps admission blocked until capacity opens.
+            if connection.max_concurrent_send_streams() == 0 {
+                return Poll::Pending;
+            }
+            if !sender.is_extended_connect_protocol_enabled() {
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    "MASQUE H2 peer did not enable Extended CONNECT",
+                )));
+            }
+            Poll::Ready(Ok(()))
+        })
+        .await?;
+    }
     let (stop, stopped) = oneshot::channel();
     let driver = Driver(Some(stop));
     tokio::spawn(async move {
@@ -271,6 +296,54 @@ mod tests {
             .unwrap();
         let pending = tokio::spawn(open(client_io, request));
         got_request.await.unwrap();
+        pending.abort();
+        assert!(matches!(pending.await, Err(error) if error.is_cancelled()));
+        peer.await.unwrap();
+    }
+    /// # Cancel safety:
+    /// NOT cancel-safe: the bounded peer task is joined after the refused open.
+    #[tokio::test]
+    async fn extended_connect_requires_peer_permission_before_request() {
+        let (client_io, server_io) = tokio::io::duplex(4096);
+        let server = tokio::spawn(async move {
+            let mut connection = h2::server::handshake(server_io).await.unwrap();
+            let received = tokio::time::timeout(Duration::from_secs(1), connection.accept()).await.unwrap();
+            assert!(!matches!(received, Some(Ok(_))), "Extended CONNECT must not be sent");
+        });
+        let mut request = http::Request::builder()
+            .method("CONNECT")
+            .uri("https://example.test/udp/")
+            .body(http_body_util::Empty::new())
+            .unwrap();
+        request.extensions_mut().insert(h2::ext::Protocol::from_static("connect-udp"));
+        let result = open(client_io, request).await;
+        assert!(matches!(result, Err(error) if error.kind() == io::ErrorKind::Unsupported));
+        server.await.unwrap();
+    }
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test cancels its opening and joins the bounded peer.
+    #[tokio::test]
+    async fn cancelled_settings_wait_closes_the_unpublished_carrier() {
+        let (client_io, mut server_io) = tokio::io::duplex(4096);
+        let (opened, observed) = oneshot::channel();
+        let peer = tokio::spawn(async move {
+            let mut preface = [0; 24];
+            server_io.read_exact(&mut preface).await.unwrap();
+            opened.send(()).unwrap();
+            let mut remaining = Vec::new();
+            tokio::time::timeout(Duration::from_secs(1), server_io.read_to_end(&mut remaining))
+                .await
+                .expect("cancelled settings wait closes the carrier")
+                .unwrap();
+        });
+        let mut request = http::Request::builder()
+            .method("CONNECT")
+            .uri("https://example.test/udp/")
+            .body(http_body_util::Empty::new())
+            .unwrap();
+        request.extensions_mut().insert(h2::ext::Protocol::from_static("connect-udp"));
+        let pending = tokio::spawn(open(client_io, request));
+        observed.await.unwrap();
         pending.abort();
         assert!(matches!(pending.await, Err(error) if error.is_cancelled()));
         peer.await.unwrap();

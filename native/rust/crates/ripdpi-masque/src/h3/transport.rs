@@ -1,6 +1,9 @@
+use std::future::poll_fn;
 use std::io;
+use std::task::Poll;
 
 use bytes::Bytes;
+use h3::ConnectionState;
 use rustls::RootCertStore;
 
 use super::socket::maybe_rebind_quic_endpoint;
@@ -58,8 +61,27 @@ pub(super) async fn connect_h3_transport(
     builder.enable_extended_connect(true);
     builder.enable_datagram(enable_datagram);
     let path_connection = connection.clone();
-    let (driver, request_sender) = builder.build(h3_quinn::Connection::new(connection)).await.map_err(|error| {
+    let (mut driver, request_sender) = builder.build(h3_quinn::Connection::new(connection)).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate HTTP/3: {error}"))
     })?;
+    poll_fn(|cx| {
+        if let Poll::Ready(error) = driver.poll_close(cx) {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("HTTP/3 control stream closed before CONNECT-UDP: {error}"),
+            )));
+        }
+        let Some(settings) = driver.peer_settings() else {
+            return Poll::Pending;
+        };
+        if !settings.enable_extended_connect() {
+            return Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "masque_h3_extended_connect_unsupported: proxy did not enable Extended CONNECT",
+            )));
+        }
+        Poll::Ready(Ok(()))
+    })
+    .await?;
     Ok((driver, request_sender, path_connection))
 }

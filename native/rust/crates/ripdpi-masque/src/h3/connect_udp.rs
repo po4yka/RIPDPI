@@ -21,7 +21,7 @@ use crate::url::{build_connect_udp_path, parse_proxy_origin, parse_target};
 /// Opens an H3 CONNECT-UDP tunnel to `target` and spawns its reader, which
 /// forwards HTTP Datagrams from QUIC DATAGRAM frames and DATAGRAM capsules alike.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: the tasks are spawned after the last await, so cancellation
 /// before that drops the connection and request stream and leaves nothing running.
@@ -43,16 +43,29 @@ pub(crate) async fn attempt_h3_connect_udp(
     })?;
     request.extensions_mut().insert(Protocol::CONNECT_UDP);
 
-    let mut stream = send_request.send_request(request).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send H3 CONNECT-UDP request: {error}"))
-    })?;
-    // No FIN: the request stream carries the tunnel's lifetime (RFC 9114 4.4,
-    // RFC 9298 3.1), and proxies such as masque-go close the UDP socket on
-    // EOF. The reader task owns the stream until the flow is dropped.
-    let response = stream.recv_response().await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to receive H3 CONNECT-UDP response: {error}"))
-    })?;
-    validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())?;
+    let connect = async {
+        let mut stream = send_request.send_request(request).await.map_err(|error| {
+            io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send H3 CONNECT-UDP request: {error}"))
+        })?;
+        // Keep the request send side open for the lifetime of the UDP tunnel.
+        let response = stream.recv_response().await.map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("failed to receive H3 CONNECT-UDP response: {error}"),
+            )
+        })?;
+        validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())?;
+        Ok::<_, AttemptError>(stream)
+    };
+    let stream = tokio::select! {
+        error = poll_fn(|cx| driver.poll_close(cx)) => {
+            return Err(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("HTTP/3 control stream closed during CONNECT-UDP: {error}"),
+            ).into());
+        }
+        result = connect => result?,
+    };
 
     let stream_id = stream.id();
     let datagram_stream_id_len = quic_varint_len(stream_id.index());
