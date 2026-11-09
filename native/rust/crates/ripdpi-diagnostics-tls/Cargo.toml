@@ -16,3 +16,6 @@ md5 = { workspace = true }
 rustls = { workspace = true }
 tracing = { workspace = true }
 webpki-roots = { workspace = true }
+
+[dev-dependencies]
+rcgen = { workspace = true }

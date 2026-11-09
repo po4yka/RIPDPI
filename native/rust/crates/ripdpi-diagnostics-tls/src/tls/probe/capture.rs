@@ -106,7 +106,8 @@ pub(crate) fn capture_tls_handshake(
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
 
     let ja3_fingerprint = ja3::compute_ja3(recording.recorded_writes());
-    let tls_template_first_flight_plan = plan_first_flight(template_profile, recording.recorded_writes());
+    let tls_template_first_flight_plan = first_tls_record(recording.recorded_writes())
+        .and_then(|client_hello| plan_first_flight(template_profile, client_hello));
     let (socket, _recorded) = recording.into_parts();
     let tls_stream = StreamOwned::new(connection, socket);
     let negotiated_alpn =
@@ -122,6 +123,12 @@ pub(crate) fn capture_tls_handshake(
         cert_issuer,
         ja3_fingerprint,
     })
+}
+
+fn first_tls_record(recorded: &[u8]) -> Option<&[u8]> {
+    let header = recorded.get(..5)?;
+    let payload_len = usize::from(u16::from_be_bytes([header[3], header[4]]));
+    recorded.get(..5 + payload_len)
 }
 
 fn administrative_error_after_io(should_abort: &dyn Fn() -> Option<&'static str>) -> Option<String> {
@@ -182,12 +189,81 @@ fn refresh_tls_handshake_timeout(recording: &mut RecordingStream<TcpStream>) -> 
 mod tests {
     use std::io::{Read, Write};
     use std::net::{IpAddr, Ipv4Addr, TcpListener};
+    use std::sync::Arc;
     use std::time::{Duration, Instant};
 
     use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
+    use rustls::client::danger::ServerCertVerifier;
+    use rustls::{RootCertStore, ServerConfig, ServerConnection};
 
-    use crate::tls::{TlsClientProfile, try_tls_handshake};
-    use crate::transport::{TargetAddress, direct_transport};
+    use crate::tls::{TlsClientProfile, open_probe_stream, try_tls_handshake};
+    use crate::transport::{ConnectionStream, TargetAddress, direct_transport};
+
+    #[test]
+    fn successful_handshakes_keep_the_first_client_hello_plan() {
+        for (profile, version) in [
+            (TlsClientProfile::Auto, rustls::ProtocolVersion::TLSv1_3),
+            (TlsClientProfile::Tls12Only, rustls::ProtocolVersion::TLSv1_2),
+            (TlsClientProfile::Tls13Only, rustls::ProtocolVersion::TLSv1_3),
+        ] {
+            let certificate = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
+            let provider = Arc::new(rustls::crypto::ring::default_provider());
+            let mut roots = RootCertStore::empty();
+            roots.add(certificate.cert.der().clone()).unwrap();
+            let verifier: Arc<dyn ServerCertVerifier> =
+                rustls::client::WebPkiServerVerifier::builder_with_provider(Arc::new(roots), provider.clone())
+                    .build()
+                    .unwrap();
+            let server_config = ServerConfig::builder_with_provider(provider)
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(
+                    vec![certificate.cert.der().clone()],
+                    rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()).into(),
+                )
+                .unwrap();
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+            let port = listener.local_addr().unwrap().port();
+            let server = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                socket.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+                let mut connection = ServerConnection::new(Arc::new(server_config)).unwrap();
+                while connection.is_handshaking() {
+                    connection.complete_io(&mut socket).unwrap();
+                }
+            });
+
+            let mut result = open_probe_stream(
+                &TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                port,
+                &direct_transport(),
+                Some("localhost"),
+                profile,
+                Some(&verifier),
+            )
+            .unwrap();
+            let ConnectionStream::Tls(stream) = &result.stream else {
+                panic!("expected a TLS stream for {profile:?}");
+            };
+            assert_eq!(stream.conn.protocol_version(), Some(version), "{profile:?}");
+            assert!(result.ja3_fingerprint.is_some(), "{profile:?}");
+            server.join().unwrap();
+            result.stream.shutdown();
+            assert!(result.tls_template_first_flight_plan.is_some(), "{profile:?}: first-flight plan missing");
+        }
+    }
+
+    #[test]
+    fn first_record_extraction_rejects_incomplete_records_and_excludes_later_writes() {
+        let records = [0x16, 0x03, 0x03, 0x00, 0x02, 0x01, 0x00, 0x14, 0x03, 0x03, 0x00, 0x01, 0x01];
+        for length in 0..7 {
+            assert!(super::first_tls_record(&records[..length]).is_none(), "prefix length {length}");
+        }
+        assert_eq!(super::first_tls_record(&records), Some(&records[..7]));
+        assert!(super::first_tls_record(&[0x16, 0x03, 0x03, 0xff, 0xff]).is_none());
+    }
 
     /// Accepts one client, reads its ClientHello, then sends a TLS record header and one byte
     /// of the record every 100 ms for `drip_for`: each read returns well within the socket

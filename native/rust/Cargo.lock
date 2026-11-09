@@ -5919,6 +5919,7 @@ name = "ripdpi-diagnostics-tls"
 version = "0.1.0"
 dependencies = [
  "md5",
+ "rcgen",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-dns",
  "ripdpi-diagnostics-transport",
