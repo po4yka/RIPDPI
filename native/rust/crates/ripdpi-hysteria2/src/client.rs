@@ -252,6 +252,26 @@ mod tests {
         assert_eq!(echoed, b"ping");
     }
 
+    /// A refused message costs no migration attempt and sends no datagram.
+    #[tokio::test]
+    async fn refused_udp_message_leaves_migration_untouched() {
+        let mut server = TestServer::start(ServerOptions::default()).expect("test server");
+        let mut config = server.client_config();
+        config.quic_migrate_after_handshake = true;
+        let client = crate::connect(&config).await.expect("connect");
+        let session = client.udp_session().await.expect("UDP session");
+        let before = session.quic_migration_snapshot();
+
+        let error = session.send_to("192.0.2.1:53", b"").await.expect_err("empty payload is refused");
+
+        assert!(matches!(error, crate::HysteriaError::InvalidDatagram(_)), "unexpected error: {error}");
+        assert_eq!(session.quic_migration_snapshot(), before);
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        while let Ok(event) = server.events.try_recv() {
+            assert!(!matches!(event, ServerEvent::Datagram { .. }), "a refused message reached the server");
+        }
+    }
+
     #[test]
     fn android_udp_waits_for_server_auth_handoff_before_first_datagram() {
         assert_eq!(udp_auth_settle_grace(true), ANDROID_UDP_AUTH_SETTLE_GRACE);

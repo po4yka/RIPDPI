@@ -54,6 +54,8 @@ impl UdpSession {
     }
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> Result<()> {
+        // Refuse a malformed message before it costs a settle wait, a session id or a migration.
+        check_udp_message(address, payload)?;
         // The Android live path can receive the successful H3 auth response
         // just before the server's UDP session is ready to accept the first
         // QUIC datagram. Wait out that connection-scoped handoff window; on
@@ -312,7 +314,7 @@ fn evict_oldest_partial(partials: &mut HashMap<ReassemblyKey, PartialPacket>) {
     }
 }
 
-async fn send_udp_payload(client: &ClientInner, session_id: u32, address: &str, payload: &[u8]) -> Result<()> {
+fn check_udp_message(address: &str, payload: &[u8]) -> Result<()> {
     if address.is_empty() || address.len() > MAX_ADDRESS_LENGTH {
         return Err(HysteriaError::InvalidDatagram(format!(
             "Hysteria UDP address must be 1..={MAX_ADDRESS_LENGTH} bytes, got {}",
@@ -322,6 +324,10 @@ async fn send_udp_payload(client: &ClientInner, session_id: u32, address: &str, 
     if payload.is_empty() {
         return Err(HysteriaError::InvalidDatagram("Hysteria UDP payload is empty".to_string()));
     }
+    Ok(())
+}
+
+async fn send_udp_payload(client: &ClientInner, session_id: u32, address: &str, payload: &[u8]) -> Result<()> {
     let max_datagram_size = client.connection.max_datagram_size().ok_or(HysteriaError::UdpNotSupported)?;
     let address_len = encode_varint(address.len() as u64);
     let header_len = 4 + 2 + 1 + 1 + address_len.len() + address.len();
