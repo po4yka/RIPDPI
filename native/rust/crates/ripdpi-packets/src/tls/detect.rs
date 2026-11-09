@@ -67,19 +67,18 @@ pub fn tls_session_id_mismatch(req: &[u8], resp: &[u8]) -> bool {
     if req.len() < 75 || resp.len() < 75 {
         return false;
     }
-    if !is_tls_client_hello(req) || read_u16(resp, 0) != Some(0x1603) {
+    if !is_tls_client_hello(req) || !is_tls_server_hello(resp) {
         return false;
     }
-    let sid_len = req[43] as usize;
-    if 44 + sid_len > req.len() || 44 + sid_len > resp.len() {
+    let req_sid_len = req[43] as usize;
+    let resp_sid_len = resp[43] as usize;
+    if 44 + req_sid_len > req.len() || 44 + resp_sid_len > resp.len() {
         return false;
     }
-    let skip = 44 + sid_len + 3;
+    // The ServerHello extensions follow its own session id, cipher suite and compression.
+    let skip = 44 + resp_sid_len + 3;
     if find_tls_ext_offset(0x002b, resp, skip).is_none() {
         return false;
     }
-    if req[43] != resp[43] {
-        return true;
-    }
-    req.get(44..44 + sid_len) != resp.get(44..44 + sid_len)
+    req.get(44..44 + req_sid_len) != resp.get(44..44 + resp_sid_len)
 }

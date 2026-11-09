@@ -120,3 +120,28 @@ fn partial_final_record_is_parsed() {
 
     assert_eq!(parse_tls(&buffer), Some(&b"example.com"[..]));
 }
+
+fn one_record(extensions: &[Vec<u8>]) -> Vec<u8> {
+    records(&client_hello_payload(extensions), &[])
+}
+
+#[test]
+fn server_hello_echoing_a_different_session_id_length_is_a_mismatch() {
+    let request = one_record(&[sni(b"example.com"), key_share()]);
+    // ServerHello with an empty session id echo; the request sent 32 bytes.
+    let extensions = [ext(0x002b, &[0x03, 0x04]), key_share()].concat();
+    let mut body = vec![0x03, 0x03];
+    body.extend_from_slice(&[0x55; 32]);
+    body.push(0);
+    body.extend_from_slice(&[0x13, 0x01, 0x00]);
+    body.extend_from_slice(&(extensions.len() as u16).to_be_bytes());
+    body.extend_from_slice(&extensions);
+    let mut handshake = vec![0x02];
+    handshake.extend_from_slice(&(body.len() as u32).to_be_bytes()[1..]);
+    handshake.extend_from_slice(&body);
+    let mut response = vec![0x16, 0x03, 0x03];
+    response.extend_from_slice(&(handshake.len() as u16).to_be_bytes());
+    response.extend_from_slice(&handshake);
+
+    assert!(tls_session_id_mismatch(&request, &response));
+}

@@ -731,19 +731,10 @@ fn tls_session_id_mismatch_returns_false_without_supported_versions() {
 
 #[test]
 fn tls_session_id_mismatch_detects_different_sid_lengths() {
-    // The function uses req[43] (sid_len) to compute the extension search
-    // offset in resp. When resp has a different sid_len, the extension scan
-    // still starts at 44 + req_sid_len + 3 in resp. We craft a resp where
-    // the supported_versions extension is findable at that offset despite
-    // having a different sid_len byte at resp[43].
-    let req_sid_len = DEFAULT_FAKE_TLS[43] as usize; // 32
-    // Build resp with same-length SID so extensions align, then flip resp[43]
-    let resp_sid = vec![0xAA; req_sid_len];
-    let mut resp = build_server_hello_resp(&resp_sid, true);
-    // Overwrite sid_len byte to a different value while keeping the actual
-    // byte layout (so extensions are still at the right offset).
-    resp[43] = (req_sid_len as u8).wrapping_sub(1);
-    // req[43] != resp[43] => mismatch should be detected
+    // A well-formed ServerHello that echoes one byte less than the request sent.
+    let req_sid_len = DEFAULT_FAKE_TLS[43] as usize;
+    let resp = build_server_hello_resp(&vec![0xAA; req_sid_len - 1], true);
+    assert_eq!(resp[43] as usize, req_sid_len - 1);
     assert!(tls_session_id_mismatch(DEFAULT_FAKE_TLS, &resp));
 }
 
