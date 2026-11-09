@@ -41,8 +41,10 @@ fn classify_tuic_handshake_error(error: io::Error) -> io::Error {
 
 /// A bad target authority fails locally with `InvalidInput` before any packet
 /// is sent; it says nothing about the shared carrier, so it must not evict it.
-fn is_carrier_error(error: &io::Error) -> bool {
-    error.kind() != io::ErrorKind::InvalidInput
+/// A closed carrier is a carrier failure whatever the error kind, so an
+/// `InvalidInput` from a failed rebind cannot keep a dead carrier cached.
+fn is_carrier_error(error: &io::Error, carrier_closed: bool) -> bool {
+    carrier_closed || error.kind() != io::ErrorKind::InvalidInput
 }
 
 #[derive(Clone)]
@@ -78,7 +80,7 @@ impl RelaySession for TuicSession {
     }
 
     fn is_carrier_failure(&self, error: &Self::Error) -> bool {
-        is_carrier_error(error)
+        is_carrier_error(error, self.client.is_closed())
     }
 }
 
@@ -126,8 +128,9 @@ mod tests {
 
     #[test]
     fn local_input_errors_do_not_count_as_carrier_failures() {
-        assert!(!is_carrier_error(&io::Error::new(io::ErrorKind::InvalidInput, "bad authority")));
-        assert!(is_carrier_error(&io::Error::new(io::ErrorKind::ConnectionReset, "carrier reset")));
+        assert!(!is_carrier_error(&io::Error::new(io::ErrorKind::InvalidInput, "bad authority"), false));
+        assert!(is_carrier_error(&io::Error::new(io::ErrorKind::InvalidInput, "bad authority"), true));
+        assert!(is_carrier_error(&io::Error::new(io::ErrorKind::ConnectionReset, "carrier reset"), false));
     }
 
     #[test]
