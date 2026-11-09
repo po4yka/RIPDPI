@@ -95,12 +95,23 @@ pub(crate) async fn attempt_h3_connect_udp(
                 data = stream.recv_data() => match data {
                     Ok(Some(mut data)) => {
                         let chunk = data.copy_to_bytes(data.remaining());
-                        (capsules.push(&chunk).into_iter().map(Bytes::from).collect(), true)
+                        match capsules.push(&chunk) {
+                            Ok(payloads) => (payloads.into_iter().map(Bytes::from).collect(), true),
+                            Err(error) => {
+                                tracing::debug!(%error, "invalid MASQUE capsule stream");
+                                stream.stop_stream(Code::H3_MESSAGE_ERROR);
+                                break;
+                            }
+                        }
                     }
-                    Ok(None) | Err(_) => {
-                        tracing::debug!(target = %target_label, "MASQUE CONNECT-UDP request stream closed by the proxy");
+                    Ok(None) => {
+                        if let Err(error) = capsules.finish() {
+                            tracing::debug!(%error, "truncated MASQUE capsule stream");
+                            stream.stop_stream(Code::H3_MESSAGE_ERROR);
+                        }
                         break;
                     }
+                    Err(_) => break,
                 },
             };
             for payload in payloads {
@@ -113,12 +124,12 @@ pub(crate) async fn attempt_h3_connect_udp(
                     Ok(None) => {
                         tracing::debug!(target = %target_label, "ignored MASQUE UDP datagram for unsupported context id");
                     }
-                    // A malformed capsule is a stream error (RFC 9297 3.3); ending the task retires the flow.
+                    // RFC 9297 3.3 and RFC 9114 4.1.2 require H3_MESSAGE_ERROR for malformed capsules.
                     Err(error) if from_capsules => {
                         tracing::debug!(error = %error, target = %target_label, "aborting MASQUE UDP flow on a malformed capsule");
                         // Reset only our side: h3-quinn 0.0.10 panics on stop_sending while h3's
                         // read-ahead holds the receive stream; dropping it stops the receive side.
-                        stream.stop_stream(Code::H3_DATAGRAM_ERROR);
+                        stream.stop_stream(Code::H3_MESSAGE_ERROR);
                         break 'flow;
                     }
                     Err(error) => {

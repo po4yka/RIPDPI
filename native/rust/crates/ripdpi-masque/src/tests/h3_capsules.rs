@@ -120,9 +120,9 @@ async fn h3_connect_udp_aborts_the_stream_on_a_malformed_datagram_capsule() {
             .expect("the client aborts the request stream");
         match result {
             Err(::h3::error::StreamError::RemoteTerminate { code, .. }) => {
-                assert_eq!(code.value(), crate::capsule::H3_DATAGRAM_ERROR);
+                assert_eq!(code.value(), 0x010e);
             }
-            other => panic!("expected a reset with H3_DATAGRAM_ERROR, got {:?}", other.map(|data| data.is_some())),
+            other => panic!("expected a reset with H3_MESSAGE_ERROR, got {:?}", other.map(|data| data.is_some())),
         }
         connection
     });

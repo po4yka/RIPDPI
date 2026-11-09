@@ -87,3 +87,57 @@ async fn h2_accepts_valid_201_tunnel_responses() {
         tokio::task::spawn_blocking(move || peer.join().unwrap()).await.unwrap();
     }
 }
+
+/// # Cancel safety:
+/// NOT cancel-safe: the bounded TLS/H2 peer must observe the reset and be joined.
+#[tokio::test]
+async fn h2_bad_capsules_reset_both_tunnel_halves() {
+    for (mut invalid, end_stream) in [(vec![0, 1, 0x40], false), (vec![0, 5, 0, b'x'], true)] {
+        if !end_stream {
+            invalid.extend_from_slice(&[0, 3, 0, b'o', b'k']);
+        }
+        let (certificate, key, root) = localhost_certificate();
+        let mut tls = boring::ssl::SslAcceptor::mozilla_intermediate_v5(boring::ssl::SslMethod::tls()).unwrap();
+        tls.set_certificate(&boring::x509::X509::from_der(&certificate).unwrap()).unwrap();
+        tls.set_private_key(&boring::pkey::PKey::private_key_from_der(&key).unwrap()).unwrap();
+        tls.set_alpn_select_callback(|_, offered| {
+            boring::ssl::select_next_proto(b"\x02h2", offered).ok_or(boring::ssl::AlpnError::NOACK)
+        });
+        let tls = tls.build();
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let peer = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            let socket = tokio_boring::accept(&tls, socket).await.unwrap();
+            let mut builder = ::h2::server::Builder::new();
+            builder.enable_connect_protocol();
+            let mut connection = builder.handshake::<_, Bytes>(socket).await.unwrap();
+            let (_request, mut response) = connection.accept().await.unwrap().unwrap();
+            let mut send =
+                response.send_response(http::Response::builder().status(200).body(()).unwrap(), false).unwrap();
+            let work = async move {
+                send.send_data(Bytes::from(invalid), end_stream).unwrap();
+                let reason = std::future::poll_fn(|cx| send.poll_reset(cx)).await.unwrap();
+                assert_eq!(reason, ::h2::Reason::PROTOCOL_ERROR);
+            };
+            tokio::pin!(work);
+            tokio::time::timeout(Duration::from_secs(3), async {
+                tokio::select! {
+                    () = &mut work => {},
+                    _ = connection.accept() => work.await,
+                }
+            })
+            .await
+            .expect("client sends a protocol reset");
+        });
+        let mut config = grease_test_config(MasqueTcpProtocol::Http2);
+        config.url = format!("https://localhost:{}/", address.port());
+        config.proxy_socket_addr = Some(address);
+        config.root_certificate_pem = Some(root);
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+        let flow = crate::h2::attempt_h2_connect_udp(&config, "example.test:53", None, tx).await.unwrap();
+        peer.await.unwrap();
+        assert!(rx.try_recv().is_err(), "no payload follows a malformed capsule");
+        drop(flow);
+    }
+}

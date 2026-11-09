@@ -121,51 +121,121 @@ pub fn decode_datagram_capsules(input: &[u8]) -> Result<Vec<Vec<u8>>, CapsuleErr
     Ok(payloads)
 }
 
-/// Largest DATAGRAM capsule value kept: a context ID varint plus the largest
-/// CONNECT-UDP payload. Longer ones are discarded without buffering (RFC 9298 5).
-const MAX_DATAGRAM_CAPSULE_LEN: usize = 8 + MAX_CONNECT_UDP_PAYLOAD_LEN;
-
-/// Incremental reader of a capsule stream (RFC 9297 3.2). It returns each
-/// complete DATAGRAM capsule as soon as its bytes arrive, keeps only the partial
-/// tail, and skips other capsule types and oversized DATAGRAM capsules as they
-/// stream past, so its buffer never exceeds one maximal DATAGRAM capsule.
+/// Incremental CONNECT-UDP capsule reader. Unknown capsule types and context IDs
+/// are skipped without buffering their values. A known datagram is bounded by
+/// the Context ID width plus the maximum UDP payload size.
 #[derive(Debug, Default)]
 pub struct CapsuleReader {
     buffer: Vec<u8>,
-    /// Bytes of a skipped capsule still to come.
-    skip: u64,
+    state: CapsuleState,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+enum CapsuleState {
+    #[default]
+    Header,
+    Context {
+        length: u64,
+    },
+    Payload {
+        remaining: usize,
+    },
+    Skip {
+        remaining: u64,
+    },
+    Failed(CapsuleErrorKind),
 }
 
 impl CapsuleReader {
-    /// Feeds the next bytes of the stream; returns the DATAGRAM payloads completed by them.
-    pub fn push(&mut self, input: &[u8]) -> Vec<Vec<u8>> {
-        let skipped = usize::try_from(self.skip).unwrap_or(usize::MAX).min(input.len());
-        self.skip -= skipped as u64;
-        self.buffer.extend_from_slice(&input[skipped..]);
-
+    /// Returns complete Context-0 DATAGRAM values, or a terminal stream error.
+    pub fn push(&mut self, mut input: &[u8]) -> Result<Vec<Vec<u8>>, CapsuleError> {
         let mut payloads = Vec::new();
-        let mut cursor = 0;
-        while let Some((capsule_type, length, header_len)) = capsule_header(&self.buffer[cursor..]) {
-            let value_start = cursor + header_len;
-            let available = (self.buffer.len() - value_start) as u64;
-            let keep = capsule_type == DATAGRAM_CAPSULE_TYPE && length <= MAX_DATAGRAM_CAPSULE_LEN as u64;
-            if !keep && length > available {
-                self.skip = length - available;
-                cursor = self.buffer.len();
-                break;
+        loop {
+            match self.state {
+                CapsuleState::Header => {
+                    let Some((&byte, rest)) = input.split_first() else { break };
+                    self.buffer.push(byte);
+                    input = rest;
+                    if let Some((capsule_type, length, _)) = capsule_header(&self.buffer) {
+                        self.buffer.clear();
+                        self.state = if capsule_type == DATAGRAM_CAPSULE_TYPE {
+                            if length == 0 {
+                                return Err(
+                                    self.fail(CapsuleError::truncated("DATAGRAM capsule is missing its context ID"))
+                                );
+                            }
+                            CapsuleState::Context { length }
+                        } else {
+                            CapsuleState::Skip { remaining: length }
+                        };
+                    }
+                }
+                CapsuleState::Context { length } => {
+                    let Some((&byte, rest)) = input.split_first() else { break };
+                    self.buffer.push(byte);
+                    input = rest;
+                    let width = 1_usize << usize::from(self.buffer[0] >> 6);
+                    if width as u64 > length {
+                        return Err(self.fail(CapsuleError::truncated("truncated DATAGRAM capsule context ID")));
+                    }
+                    if self.buffer.len() == width {
+                        let (context, _) = decode_quic_varint(&self.buffer)?;
+                        let remaining = length - width as u64;
+                        if context != 0 {
+                            self.buffer.clear();
+                            self.state = CapsuleState::Skip { remaining };
+                        } else if remaining > MAX_CONNECT_UDP_PAYLOAD_LEN as u64 {
+                            return Err(
+                                self.fail(CapsuleError::value_too_large("CONNECT-UDP payload exceeds RFC 9298 limit"))
+                            );
+                        } else {
+                            self.state = CapsuleState::Payload { remaining: remaining as usize };
+                        }
+                    }
+                }
+                CapsuleState::Payload { remaining: 0 } => {
+                    payloads.push(std::mem::take(&mut self.buffer));
+                    self.state = CapsuleState::Header;
+                }
+                CapsuleState::Payload { remaining } => {
+                    if input.is_empty() {
+                        break;
+                    }
+                    let consumed = input.len().min(remaining);
+                    self.buffer.extend_from_slice(&input[..consumed]);
+                    input = &input[consumed..];
+                    self.state = CapsuleState::Payload { remaining: remaining - consumed };
+                }
+                CapsuleState::Skip { remaining: 0 } => self.state = CapsuleState::Header,
+                CapsuleState::Skip { remaining } => {
+                    if input.is_empty() {
+                        break;
+                    }
+                    let consumed = usize::try_from(remaining).unwrap_or(usize::MAX).min(input.len());
+                    input = &input[consumed..];
+                    self.state = CapsuleState::Skip { remaining: remaining - consumed as u64 };
+                }
+                CapsuleState::Failed(kind) => {
+                    return Err(CapsuleError { kind, message: "capsule stream already failed" });
+                }
             }
-            if length > available {
-                break;
-            }
-            // Infallible: length <= available, which is a buffer length.
-            let value_end = value_start + length as usize;
-            if keep {
-                payloads.push(self.buffer[value_start..value_end].to_vec());
-            }
-            cursor = value_end;
         }
-        self.buffer.drain(..cursor);
-        payloads
+        Ok(payloads)
+    }
+
+    /// Validates a clean end of the capsule stream, including skipped values.
+    pub fn finish(self) -> Result<(), CapsuleError> {
+        match self.state {
+            CapsuleState::Header if self.buffer.is_empty() => Ok(()),
+            CapsuleState::Failed(kind) => Err(CapsuleError { kind, message: "capsule stream already failed" }),
+            _ => Err(CapsuleError::truncated("truncated capsule at the end of the stream")),
+        }
+    }
+
+    fn fail(&mut self, error: CapsuleError) -> CapsuleError {
+        self.buffer.clear();
+        self.state = CapsuleState::Failed(error.kind());
+        error
     }
 }
 
@@ -205,12 +275,12 @@ pub fn encode_connect_udp_payload(context_id: u64, payload: &[u8]) -> Result<Vec
 
 pub fn decode_connect_udp_payload(input: &[u8]) -> Result<Option<(u64, Vec<u8>)>, CapsuleError> {
     let (context_id, context_len) = decode_quic_varint(input)?;
+    if context_id != 0 {
+        return Ok(None);
+    }
     let payload = &input[context_len..];
     if payload.len() > MAX_CONNECT_UDP_PAYLOAD_LEN {
         return Err(CapsuleError::value_too_large("CONNECT-UDP payload exceeds RFC 9298 limit"));
-    }
-    if context_id != 0 {
-        return Ok(None);
     }
     Ok(Some((context_id, payload.to_vec())))
 }
@@ -278,37 +348,85 @@ mod tests {
 
     #[test]
     fn capsule_reader_delivers_complete_capsules_before_a_partial_tail() {
-        let first = encode_datagram_capsule(&[0x00, 0x01]).expect("encode");
-        let second = encode_datagram_capsule(&[0x00, 0x02, 0x03]).expect("encode");
         let mut reader = CapsuleReader::default();
-
-        assert_eq!(reader.push(&[first.clone(), second[..2].to_vec()].concat()), vec![vec![0x00, 0x01]]);
-        assert_eq!(reader.push(&second[2..]), vec![vec![0x00, 0x02, 0x03]]);
-        assert!(reader.buffer.is_empty());
+        assert_eq!(reader.push(&[0, 2, 0, 1, 0, 3]).expect("first capsule"), vec![vec![0, 1]]);
+        assert_eq!(reader.push(&[0, 2, 3]).expect("second capsule"), vec![vec![0, 2, 3]]);
+        reader.finish().expect("complete stream");
     }
 
     #[test]
-    fn capsule_reader_skips_huge_capsules_without_buffering_them() {
+    fn capsule_reader_skips_huge_unknown_capsules_without_buffering_them() {
         let mut reader = CapsuleReader::default();
-        // An unknown type and an oversized DATAGRAM, both announcing more than they send.
-        let mut stream = vec![0x21];
-        stream.extend(encode_quic_varint(1 << 40).expect("length"));
+        // Unknown capsule type 33, eight-byte varint length 2^40.
+        let mut stream = vec![0x21, 0xc0, 0, 1, 0, 0, 0, 0, 0];
         stream.extend([0xaa; 4096]);
-
-        assert!(reader.push(&stream).is_empty());
+        assert!(reader.push(&stream).expect("unknown type is skipped").is_empty());
         assert!(reader.buffer.is_empty());
-        assert_eq!(reader.skip, (1 << 40) - 4096);
+        assert!(reader.finish().is_err(), "clean EOF still requires the complete unknown value");
+    }
 
+    #[test]
+    fn capsule_reader_skips_unknown_contexts_even_above_the_udp_limit() {
         let mut reader = CapsuleReader::default();
-        let oversized = (MAX_DATAGRAM_CAPSULE_LEN + 1) as u64;
-        let mut stream = vec![0x00];
-        stream.extend(encode_quic_varint(oversized).expect("length"));
-        stream.extend(vec![0xbb; MAX_DATAGRAM_CAPSULE_LEN + 1]);
-        stream.extend(encode_datagram_capsule(&[0x00, 0x07]).expect("encode"));
-
-        assert_eq!(reader.push(&stream[..1000]), Vec::<Vec<u8>>::new());
+        // DATAGRAM length 65537, unknown Context ID 1, then 65536 opaque bytes.
+        let mut stream = vec![0, 0x80, 1, 0, 1, 1];
+        stream.extend(std::iter::repeat_n(0xbb, 65536));
+        stream.extend_from_slice(&[0, 2, 0, 7]);
+        assert!(reader.push(&stream[..1000]).expect("skip context").is_empty());
         assert!(reader.buffer.is_empty());
-        assert_eq!(reader.push(&stream[1000..]), vec![vec![0x00, 0x07]]);
+        assert_eq!(reader.push(&stream[1000..]).expect("next datagram"), vec![vec![0, 7]]);
+        reader.finish().expect("complete stream");
+    }
+
+    #[test]
+    fn capsule_reader_enforces_context_zero_udp_size_before_buffering_the_value() {
+        for length_bytes in [[0x80, 0, 0xff, 0xf9], [0x80, 1, 0, 1]] {
+            let mut reader = CapsuleReader::default();
+            // Capsule values: Context ID 0 plus 65528 or 65536 bytes.
+            let input = [vec![0], length_bytes.to_vec(), vec![0]].concat();
+            assert_eq!(reader.push(&input).expect_err("oversized UDP").kind(), CapsuleErrorKind::ValueTooLarge);
+            assert!(reader.buffer.is_empty());
+            assert!(reader.push(&[0, 2, 0, 7]).is_err(), "a failed stream cannot resume");
+        }
+        let mut reader = CapsuleReader::default();
+        let mut input = vec![0, 0x80, 0, 0xff, 0xf8, 0]; // value length 65528 = context plus maximum UDP
+        input.extend(std::iter::repeat_n(0x61, 65527));
+        let values = reader.push(&input).expect("maximum UDP is valid");
+        assert_eq!(values, vec![[vec![0], vec![0x61; 65527]].concat()]);
+        reader.finish().expect("complete stream");
+    }
+
+    #[test]
+    fn capsule_reader_rejects_malformed_context_before_following_datagram() {
+        for malformed in [&[0, 0][..], &[0, 1, 0x40][..]] {
+            let mut input = malformed.to_vec();
+            input.extend_from_slice(&[0, 2, 0, 7]);
+            let mut reader = CapsuleReader::default();
+            assert_eq!(reader.push(&input).expect_err("malformed context").kind(), CapsuleErrorKind::Truncated);
+        }
+    }
+
+    #[test]
+    fn capsule_reader_detects_incomplete_fin_at_each_parser_stage() {
+        for incomplete in [&[0x40][..], &[0][..], &[0, 1][..], &[0, 3, 0, 1][..], &[0x21, 2, 1][..]] {
+            let mut reader = CapsuleReader::default();
+            assert!(reader.push(incomplete).expect("partial capsule waits for bytes").is_empty());
+            assert_eq!(reader.finish().expect_err("truncated FIN").kind(), CapsuleErrorKind::Truncated);
+        }
+        CapsuleReader::default().finish().expect("empty stream is complete");
+    }
+
+    #[test]
+    fn capsule_reader_handles_every_byte_boundary_and_nonminimal_zero_context() {
+        // Two-byte capsule type and length, eight-byte Context ID zero, empty UDP.
+        let input = [0x40, 0, 0x40, 8, 0xc0, 0, 0, 0, 0, 0, 0, 0];
+        let mut reader = CapsuleReader::default();
+        let mut values = Vec::new();
+        for byte in input {
+            values.extend(reader.push(&[byte]).expect("next byte"));
+        }
+        assert_eq!(values, vec![vec![0xc0, 0, 0, 0, 0, 0, 0, 0]]);
+        reader.finish().expect("complete stream");
     }
 
     #[test]
@@ -355,6 +473,13 @@ mod tests {
         let decoded = decode_connect_udp_payload(&[0x01, 0xaa]).expect("decode");
 
         assert!(decoded.is_none());
+    }
+
+    #[test]
+    fn oversized_unknown_context_is_not_a_context_zero_udp_error() {
+        let mut value = vec![1];
+        value.extend(std::iter::repeat_n(0x61, 65528));
+        assert!(decode_connect_udp_payload(&value).expect("unknown context is skipped").is_none());
     }
 
     #[test]

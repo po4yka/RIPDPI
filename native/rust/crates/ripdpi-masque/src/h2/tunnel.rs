@@ -1,6 +1,8 @@
 use std::future::{Future, poll_fn};
 use std::io;
 use std::pin::Pin;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
@@ -21,12 +23,14 @@ impl Drop for Driver {
     }
 }
 
+// Drop order: reset the stream, then release its references before signalling Driver.
 pub(super) struct H2Tunnel {
     send: h2::SendStream<Bytes>,
     recv: h2::RecvStream,
     buffered: Bytes,
     send_closed: bool,
     _driver: Driver,
+    protocol_error: Arc<AtomicBool>,
 }
 
 /// # Cancel safety:
@@ -88,8 +92,21 @@ pub(super) async fn open<S: AsyncIo + 'static>(
     let (parts, recv) = response.into_parts();
     Ok((
         http::Response::from_parts(parts, ()),
-        H2Tunnel { send, recv, buffered: Bytes::new(), send_closed: false, _driver: driver },
+        H2Tunnel {
+            send,
+            recv,
+            buffered: Bytes::new(),
+            send_closed: false,
+            _driver: driver,
+            protocol_error: Arc::new(AtomicBool::new(false)),
+        },
     ))
+}
+
+impl H2Tunnel {
+    pub(super) fn protocol_error_flag(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.protocol_error)
+    }
 }
 
 impl AsyncRead for H2Tunnel {
@@ -160,7 +177,13 @@ impl AsyncWrite for H2Tunnel {
 impl Drop for H2Tunnel {
     fn drop(&mut self) {
         if !self.send_closed || !self.recv.is_end_stream() {
-            self.send.send_reset(h2::Reason::CANCEL);
+            // This flag selects only a reset code; it publishes no other data.
+            let reason = if self.protocol_error.load(Ordering::Relaxed) {
+                h2::Reason::PROTOCOL_ERROR
+            } else {
+                h2::Reason::CANCEL
+            };
+            self.send.send_reset(reason);
         }
     }
 }

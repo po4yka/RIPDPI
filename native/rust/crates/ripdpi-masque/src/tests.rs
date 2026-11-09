@@ -1,3 +1,4 @@
+mod capsule_contracts;
 mod ech_fallback;
 mod h2_alpn;
 mod h2_contracts;
@@ -504,7 +505,7 @@ fn h2_connect_udp_datagrams_use_capsule_protocol_tlv() {
     let encoded = encode_h2_datagram_capsule(&[0x00, 0xde, 0xad]).expect("encode");
 
     assert_eq!(encoded, [0x00, 0x03, 0x00, 0xde, 0xad]);
-    assert_eq!(CapsuleReader::default().push(&encoded), vec![vec![0x00, 0xde, 0xad]]);
+    assert_eq!(CapsuleReader::default().push(&encoded).expect("valid capsules"), vec![vec![0x00, 0xde, 0xad]]);
 }
 
 #[test]

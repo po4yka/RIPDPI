@@ -174,7 +174,8 @@ pub(crate) async fn attempt_h2_connect_udp(
     let request = build_h2_connect_udp_request(&proxy_origin, &target, auth_header)?;
     let (response, stream) = tunnel::open(tls, request).await?;
     validate_connect_udp_response(response.status(), response.headers(), config.effective_auth_mode())?;
-    let (reader, mut writer) = tokio::io::split(stream);
+    let protocol_error = stream.protocol_error_flag();
+    let (mut reader, mut writer) = tokio::io::split(stream);
     let (outgoing_tx, mut outgoing_rx) = mpsc::channel::<Vec<u8>>(64);
     let writer_task = tokio::spawn(async move {
         while let Some(payload) = outgoing_rx.recv().await {
@@ -193,52 +194,50 @@ pub(crate) async fn attempt_h2_connect_udp(
             }
         }
     });
-    let reader_task = tokio::spawn(forward_h2_capsules(reader, incoming_tx, target_label));
+    let writer_abort = writer_task.abort_handle();
+    let reader_task = tokio::spawn(async move {
+        if let Err(error) = forward_h2_capsules(&mut reader, incoming_tx, target_label).await {
+            if error.kind() == io::ErrorKind::InvalidData {
+                // The reset-code flag carries no associated data.
+                protocol_error.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            tracing::debug!(%error, "MASQUE H2 capsule stream closed");
+        }
+        writer_abort.abort();
+    });
 
     Ok(MasqueUdpFlow::new(MasqueUdpSender::H2(outgoing_tx), None, writer_task, reader_task, None, 0))
 }
 
-/// Forwards each CONNECT-UDP payload of the capsule stream `reader` to
-/// `incoming_tx` as soon as its capsule is complete, until the stream or the
-/// receiver closes. Unknown and oversized capsules are skipped (RFC 9297 3.2,
-/// RFC 9298 5) instead of ending the flow.
+/// Forward complete Context-0 datagrams and reject malformed or truncated capsules.
 ///
-/// # Cancel safety
-///
-/// Cancel-safe in the sense that it owns the reader and its partial capsule;
-/// cancellation drops both and the flow ends.
+/// # Cancel safety:
+/// cancel-safe: the caller closes the reader if this future is cancelled;
+/// partial capsule state is not reused.
 async fn forward_h2_capsules(
     mut reader: impl AsyncRead + Unpin,
     incoming_tx: mpsc::Sender<(String, Vec<u8>)>,
     target_label: String,
-) {
+) -> io::Result<()> {
     let mut capsules = CapsuleReader::default();
     let mut chunk = [0u8; 4096];
     loop {
-        let read = match reader.read(&mut chunk).await {
-            Ok(0) => break,
-            Ok(read) => read,
-            Err(error) => {
-                tracing::debug!(error = %error, target = %target_label, "MASQUE H2 UDP capsule reader closed");
-                break;
-            }
-        };
-        for capsule in capsules.push(&chunk[..read]) {
-            match decode_connect_udp_payload(&capsule) {
-                Ok(Some((_, payload))) => {
-                    if incoming_tx.send((target_label.clone(), payload)).await.is_err() {
-                        return;
-                    }
-                }
-                Ok(None) => {
-                    tracing::debug!(target = %target_label, "ignored MASQUE H2 UDP capsule for unsupported context id");
-                }
-                Err(error) => {
-                    tracing::debug!(error = %error, target = %target_label, "ignored malformed MASQUE H2 UDP capsule payload");
-                }
+        let read = reader.read(&mut chunk).await?;
+        if read == 0 {
+            return capsules.finish().map_err(capsule_error);
+        }
+        for capsule in capsules.push(&chunk[..read]).map_err(capsule_error)? {
+            if let Some((_, payload)) = decode_connect_udp_payload(&capsule).map_err(capsule_error)?
+                && incoming_tx.send((target_label.clone(), payload)).await.is_err()
+            {
+                return Ok(());
             }
         }
     }
+}
+
+fn capsule_error(error: CapsuleError) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, error)
 }
 
 #[cfg(test)]
