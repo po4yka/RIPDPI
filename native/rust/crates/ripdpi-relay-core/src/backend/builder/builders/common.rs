@@ -7,6 +7,20 @@ use crate::config::ResolvedRelayFinalmaskConfig;
 /// as an opaque authentication timeout rather than a config error. A
 /// whitespace-only value counts as missing; the returned secret is the
 /// ORIGINAL string, never trimmed.
+const SALAMANDER_MIN_KEY_LEN: usize = 4;
+
+/// An empty key means no obfuscation; any other key is used as-is, because
+/// upstream Salamander requires a PSK of at least 4 bytes and does not trim it.
+pub(crate) fn salamander_key(raw: Option<&str>) -> io::Result<Option<String>> {
+    match raw {
+        None | Some("") => Ok(None),
+        Some(key) if key.len() < SALAMANDER_MIN_KEY_LEN => {
+            Err(io::Error::new(io::ErrorKind::InvalidInput, "Hysteria2 Salamander key must be at least 4 bytes"))
+        }
+        Some(key) => Ok(Some(key.to_owned())),
+    }
+}
+
 pub(crate) fn required_secret<'a>(value: Option<&'a str>, what: &str) -> io::Result<&'a str> {
     match value {
         Some(secret) if !secret.trim().is_empty() => Ok(secret),
