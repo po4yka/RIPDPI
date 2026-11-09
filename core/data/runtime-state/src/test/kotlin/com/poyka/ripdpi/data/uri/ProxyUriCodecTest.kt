@@ -211,6 +211,22 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `hysteria2 uri rejects salamander without a usable key`() {
+        val base = "hysteria2://fixture-pw@h.example:8443?obfs=salamander"
+        assertNull(ProxyUriCodec.parse("$base#n"))
+        assertNull(ProxyUriCodec.parse("$base&obfs-password=#n"))
+        assertNull(ProxyUriCodec.parse("$base&obfs-password=abc#n"))
+        assertTrue(ProxyUriCodec.parse("$base&obfs-password=abcd#n") is ProxyProfile.Hysteria2)
+    }
+
+    @Test
+    fun `hysteria2 uri ignores obfs-password without obfs`() {
+        val parsed = ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:8443?obfs-password=fixture-obfs#n")
+        assertTrue(parsed is ProxyProfile.Hysteria2)
+        assertNull((parsed as ProxyProfile.Hysteria2).obfsPassword)
+    }
+
+    @Test
     fun `hysteria2 uri without obfs leaves obfsPassword null`() {
         val parsed = ProxyUriCodec.parse("hysteria2://fixture-pw@h.example:8443#n")
         assertTrue(parsed is ProxyProfile.Hysteria2)
