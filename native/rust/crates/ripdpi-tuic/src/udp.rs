@@ -11,8 +11,9 @@ use tracing::debug;
 use crate::client::{ActiveTask, ClientInner};
 use crate::protocol::{PacketHeader, TuicAddress, dissociate};
 
-const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
-const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
+const CLEANUP_INTERVAL: Duration = Duration::from_secs(5);
+/// Lifetime of a partial packet; the reference client drops one after 15 s.
+const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
 const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
 /// Bound for one best-effort `Dissociate` exchange.
@@ -267,6 +268,14 @@ fn reassemble_fragment(
     header: &PacketHeader,
     payload: &[u8],
 ) -> ReassemblyResult {
+    // A reused PKT_ID must not inherit fragments of an earlier, incomplete packet.
+    let stale = partials.get(&key).is_some_and(|partial| {
+        partial.started_at.elapsed() >= REASSEMBLY_TIMEOUT
+            || partial.fragments.len() != usize::from(header.fragment_total)
+    });
+    if stale {
+        partials.remove(&key);
+    }
     if !partials.contains_key(&key) {
         while partials.len() >= MAX_REASSEMBLY_SLOTS {
             evict_oldest_partial(partials);
@@ -536,5 +545,45 @@ mod tests {
             ReassemblyResult::Rejected
         ));
         assert!(!partials.contains_key(&key));
+    }
+
+    fn fragment(packet_id: u16, total: u8, id: u8, address: TuicAddress) -> PacketHeader {
+        PacketHeader { assoc_id: 1, packet_id, fragment_total: total, fragment_id: id, payload_len: 0, address }
+    }
+
+    #[test]
+    fn reused_packet_id_does_not_splice_a_stale_partial() {
+        let mut partials = HashMap::new();
+        let key = (1, 5);
+        let address = || TuicAddress::Domain("example.com".to_string(), 53);
+        // Fragment 1 of the old packet was lost.
+        let old = fragment(5, 2, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &old, b"OLD-OLD-"), ReassemblyResult::Pending));
+        partials.get_mut(&key).expect("partial").started_at =
+            Instant::now() - REASSEMBLY_TIMEOUT - Duration::from_secs(1);
+
+        let new_head = fragment(5, 2, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &new_head, b"NEW-NEW-"), ReassemblyResult::Pending));
+        let tail = fragment(5, 2, 1, TuicAddress::None);
+        let ReassemblyResult::Complete(packet) = reassemble_fragment(&mut partials, key, &tail, b"TAIL") else {
+            panic!("the new packet must complete");
+        };
+        assert_eq!(packet.payload, b"NEW-NEW-TAIL");
+    }
+
+    #[test]
+    fn changed_fragment_total_replaces_the_partial() {
+        let mut partials = HashMap::new();
+        let key = (1, 9);
+        let address = || TuicAddress::Domain("example.com".to_string(), 53);
+        let old = fragment(9, 3, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &old, b"OLD-"), ReassemblyResult::Pending));
+        let new_head = fragment(9, 2, 0, address());
+        assert!(matches!(reassemble_fragment(&mut partials, key, &new_head, b"NEW-"), ReassemblyResult::Pending));
+        let tail = fragment(9, 2, 1, TuicAddress::None);
+        let ReassemblyResult::Complete(packet) = reassemble_fragment(&mut partials, key, &tail, b"TAIL") else {
+            panic!("the new packet must complete");
+        };
+        assert_eq!(packet.payload, b"NEW-TAIL");
     }
 }
