@@ -3,13 +3,13 @@ use std::time::Duration;
 use ripdpi_dns_resolver::{
     EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsSocks5Credentials,
     EncryptedDnsTransport, HttpsRr, HttpsServiceSelection, extract_ip_answers, parse_ech_config_list,
-    parse_https_service_bindings, select_https_service_bindings,
+    select_https_service_bindings,
 };
 
 use crate::transport::TransportConfig;
 use crate::util::{bounded_scan_io_timeout, now_ms};
 
-use super::wire::{DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_HTTPS, DNS_RECORD_TYPE_SVCB, build_dns_query_with_type};
+use super::wire::{DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_HTTPS, build_dns_query_with_type};
 
 #[derive(Clone, Debug)]
 pub enum EchResolutionOutcome {
@@ -67,8 +67,11 @@ fn ech_lookup_outcome(
 ) -> Result<ripdpi_tls_profiles::EchLookupOutcome, ripdpi_tls_profiles::EchFacadeError> {
     match outcome {
         EchResolutionOutcome::Available(config_list) => {
-            let public_name = ech_public_name(&config_list)
-                .ok_or_else(|| ripdpi_tls_profiles::EchFacadeError::LookupFailed("ECH public_name missing".into()))?;
+            let (public_name, config_list) = supported_ech_config(&config_list).ok_or_else(|| {
+                ripdpi_tls_profiles::EchFacadeError::Backend(ripdpi_tls_profiles::EchOutboundError::ConfigRejected(
+                    "the HTTPS record has no supported ECHConfig".into(),
+                ))
+            })?;
             Ok(ripdpi_tls_profiles::EchLookupOutcome::Available { public_name, config_list })
         }
         EchResolutionOutcome::NotPublished => Ok(ripdpi_tls_profiles::EchLookupOutcome::NotPublished),
@@ -234,8 +237,19 @@ fn https_response_ech_step(response: &[u8]) -> EchStep {
         Err(error) => EchStep::Done(EchResolutionOutcome::ResolutionFailed(error.to_string())),
         Ok(HttpsServiceSelection::Alias(target)) => EchStep::Alias(target.trim_end_matches('.').to_string()),
         Ok(HttpsServiceSelection::Service(bindings)) => {
-            EchStep::Done(match bindings.into_iter().find_map(|binding| binding.ech_config) {
-                Some(config) => EchResolutionOutcome::Available(config.raw_list_bytes),
+            // The consumer connects to the URL host and port, so it cannot honour another
+            // TargetName or a `port` SvcParam (RFC 9460 9, RFC 9848 4): skip those bindings.
+            // shortcut: a port equal to the URL port is skipped too, the lookup does not know the port.
+            let compatible = |binding: &HttpsRr| {
+                let target = binding.target_name.trim_end_matches('.');
+                binding.port.is_none()
+                    && (target.is_empty() || target.eq_ignore_ascii_case(binding.owner_name.trim_end_matches('.')))
+            };
+            let config = bindings.into_iter().filter(compatible).find_map(|binding| binding.ech_config);
+            EchStep::Done(match config {
+                Some(config) => {
+                    EchResolutionOutcome::Available(config.supported_config_list().unwrap_or(config.raw_list_bytes))
+                }
                 None => EchResolutionOutcome::NotPublished,
             })
         }
@@ -251,12 +265,16 @@ pub fn resolve_https_service_bindings_via_encrypted_dns_with_endpoint(
     endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
 ) -> Result<Vec<HttpsRr>, String> {
-    let mut bindings = Vec::new();
-    for record_type in [DNS_RECORD_TYPE_HTTPS, DNS_RECORD_TYPE_SVCB] {
-        let response = exchange_encrypted_dns_query(domain, record_type, endpoint.clone(), transport)?;
-        bindings.extend(parse_https_service_bindings(&response).map_err(|error| error.to_string())?);
+    // RFC 9460 9: an https-scheme client queries HTTPS only, never SVCB.
+    let mut name = domain.to_string();
+    for _ in 0..=MAX_HTTPS_ALIAS_HOPS {
+        let response = exchange_encrypted_dns_query(&name, DNS_RECORD_TYPE_HTTPS, endpoint.clone(), transport)?;
+        match select_https_service_bindings(&response).map_err(|error| error.to_string())? {
+            HttpsServiceSelection::Service(bindings) => return Ok(bindings),
+            HttpsServiceSelection::Alias(target) => name = target.trim_end_matches('.').to_string(),
+        }
     }
-    Ok(bindings)
+    Err("HTTPS AliasMode chain is too long".to_string())
 }
 
 pub fn exchange_encrypted_dns_query(
@@ -344,8 +362,20 @@ pub fn extract_ech_config_list_from_https_response(packet: &[u8]) -> Result<Opti
 }
 
 pub fn ech_public_name(config_list: &[u8]) -> Option<String> {
-    parse_ech_config_list(config_list).ok()?.configs.into_iter().find_map(|config| config.public_name)
+    supported_ech_config(config_list).map(|(public_name, _)| public_name)
 }
+
+/// The public_name of the first supported entry and the ECHConfigList with only
+/// the supported entries, or `None` when no entry is supported.
+pub fn supported_ech_config(config_list: &[u8]) -> Option<(String, Vec<u8>)> {
+    let config = parse_ech_config_list(config_list).ok()?;
+    let supported = config.supported_config_list()?;
+    let public_name = config.configs.into_iter().find(ripdpi_dns_resolver::EchConfigEntry::is_supported)?.public_name?;
+    Some((public_name, supported))
+}
+
+#[cfg(test)]
+mod ech_selection_tests;
 
 #[cfg(test)]
 mod tests {
