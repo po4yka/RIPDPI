@@ -4,6 +4,7 @@ import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlList
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
+import com.poyka.ripdpi.data.Hysteria2SalamanderMinKeyBytes
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
@@ -181,6 +182,18 @@ object ClashSubscriptionParser {
         require(obfsType == null || obfsType.equals("salamander", ignoreCase = true)) {
             "node $index hysteria2 uses unsupported obfs '$obfsType'"
         }
+        // mihomo reads obfs-password only for salamander; the wire key needs >= 4 bytes.
+        val obfsPassword =
+            if (obfsType != null) {
+                node.string("obfs-password").also {
+                    require(it != null && it.toByteArray().size >= Hysteria2SalamanderMinKeyBytes) {
+                        "node $index hysteria2 salamander obfs needs an obfs-password of at least " +
+                            "$Hysteria2SalamanderMinKeyBytes bytes"
+                    }
+                }
+            } else {
+                null
+            }
         // REL-3: `fingerprint` is the mihomo certificate pin (SHA-256 of the
         // server certificate). Mihomo uses it instead of CA validation, so a
         // pinned node becomes insecure + pin. A malformed pin rejects the
@@ -200,7 +213,7 @@ object ClashSubscriptionParser {
             serverPort = port,
             password = node.requireString("password", index),
             serverName = node.string("sni") ?: node.string("servername"),
-            obfsPassword = node.string("obfs-password"),
+            obfsPassword = obfsPassword,
             insecure = if (pinSha256 != null) true else skipCertVerify,
             pinSha256 = pinSha256,
             portHopping = hopping,

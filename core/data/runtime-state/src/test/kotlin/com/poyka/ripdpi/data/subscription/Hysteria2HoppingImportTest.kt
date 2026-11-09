@@ -152,6 +152,20 @@ class Hysteria2HoppingImportTest {
         ).forEach { assertNull(it, ProxyUriCodec.parse(it)) }
     }
 
+    @Test
+    fun `clash reads obfs password only for salamander with a usable key`() {
+        fun parse(fields: String) = ClashSubscriptionParser.parse(clash(fields), "group")
+        val noObfs = parse("obfs-password: stray-key").profiles.single() as ProxyProfile.Hysteria2
+        assertNull(noObfs.obfsPassword)
+        listOf("obfs: salamander", "obfs: salamander\n    obfs-password: abc").forEach { fields ->
+            val parsed = parse(fields)
+            assertTrue(fields, parsed.profiles.isEmpty())
+            assertFalse(fields, parsed.errors.isEmpty())
+        }
+        val kept = parse("obfs: salamander\n    obfs-password: abcd").profiles.single() as ProxyProfile.Hysteria2
+        assertEquals("abcd", kept.obfsPassword)
+    }
+
     private fun singBoxProfile(fields: String): ProxyProfile.Hysteria2 =
         (
             SingBoxSubscriptionParser.parse(
