@@ -88,6 +88,7 @@ impl SocketLuaStrategies {
             flow_id: FlowId(NEXT_FLOW_ID.fetch_add(1, Ordering::Relaxed)),
             packet_count: AtomicU64::new(0),
             tcp_target: OnceLock::new(),
+            tcp_payload_seen: OnceLock::new(),
         }
     }
 }
@@ -98,6 +99,7 @@ pub struct SocketLuaFlow {
     flow_id: FlowId,
     packet_count: AtomicU64,
     tcp_target: OnceLock<SocketAddr>,
+    tcp_payload_seen: OnceLock<()>,
 }
 
 impl SocketLuaFlow {
@@ -118,7 +120,8 @@ impl SocketLuaFlow {
         };
         // The stream peer can be an upstream SOCKS server after the first write.
         let dst = if tcp { *self.tcp_target.get_or_init(|| dst) } else { dst };
-        let (mut dissect, protocol, detected_host) = dissect_payload(src, dst, tcp, payload);
+        let inspect_http = tcp && !payload.is_empty() && self.tcp_payload_seen.set(()).is_ok();
+        let (mut dissect, protocol, detected_host) = dissect_payload(src, dst, tcp, payload, inspect_http);
         dissect.tcp_mss = if tcp { tcp_mss } else { None };
         let host = host.or(detected_host.as_deref()).map(|host| host.trim_end_matches('.').to_ascii_lowercase());
         let conn =
@@ -193,6 +196,7 @@ fn dissect_payload(
     dst: SocketAddr,
     tcp: bool,
     payload: &[u8],
+    inspect_http: bool,
 ) -> (Dissect, Option<ProtocolName>, Option<String>) {
     let mut dissect =
         Dissect { src_port: src.port(), dst_port: dst.port(), is_ipv6: dst.is_ipv6(), ..Dissect::default() };
@@ -220,7 +224,10 @@ fn dissect_payload(
                 dissect.markers.insert(MarkerName::ExtLen, info.ext_len_start);
                 dissect.markers.insert(MarkerName::SniExt, info.sni_ext_start);
             }
-        } else if let Some(info) = http_marker_info(payload) {
+        } else if inspect_http
+            && ripdpi_packets::http_request_head_end(payload).is_some()
+            && let Some(info) = http_marker_info(payload)
+        {
             hostname = Some(String::from_utf8_lossy(&payload[info.host_start..info.host_end]).into_owned());
             protocol = Some(ProtocolName::Http);
             dissect.proto = L7Protocol::Http(HttpDissect { host: hostname.clone(), is_request: true });
@@ -474,5 +481,32 @@ mod tests {
             let plan = flow.plan(src, dst, proto, b"x", None, supplied).unwrap().unwrap();
             assert_eq!(plan.actions, vec![DesyncAction::Write(expected.as_bytes().to_vec())]);
         }
+    }
+}
+
+#[cfg(test)]
+mod http_stream_regressions {
+    use super::*;
+
+    #[test]
+    fn lua_http_classification_stops_after_first_tcp_payload() {
+        let dir =
+            std::env::temp_dir().join(format!("ripdpi-http-flow-{}", NEXT_FLOW_ID.fetch_add(1, Ordering::Relaxed)));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("candidate.lua"), "function report(d) return d.l7payload end").unwrap();
+        let strategies = SocketLuaStrategies::from_yaml("version: 1\nstrategies:\n  - id: report\n    steps:\n      - type: lua\n        function: report\n        script_paths: [candidate.lua]\n", &dir).unwrap().unwrap();
+        let http = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let src = "127.0.0.1:1234".parse().unwrap();
+        let dst = "127.0.0.1:80".parse().unwrap();
+        for first in [http.as_slice(), b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n".as_slice()] {
+            let flow = strategies.open_flow();
+            let initial = flow.plan(src, dst, "tcp", first, None, None).unwrap().unwrap();
+            if first == http {
+                assert_eq!(initial.actions, vec![DesyncAction::Write(b"http_req".to_vec())]);
+            }
+            let body = flow.plan(src, dst, "tcp", http, None, None).unwrap().unwrap();
+            assert_eq!(body.actions, vec![DesyncAction::Write(b"unknown".to_vec())]);
+        }
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

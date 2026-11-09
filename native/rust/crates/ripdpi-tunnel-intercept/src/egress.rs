@@ -19,6 +19,7 @@ use ripdpi_strategy_trait::{
 };
 use tracing::{debug, warn};
 
+mod http;
 mod packet;
 #[cfg(test)]
 mod upstream_vectors;
@@ -71,6 +72,7 @@ impl TunPacketInjector for RawTunPacketInjector {
 pub struct TunEgressInterceptor<I> {
     rules: Vec<EgressRule>,
     injector: I,
+    http_first_payloads: http::HttpFirstPayloads,
 }
 
 impl<I: TunPacketInjector> TunEgressInterceptor<I> {
@@ -98,7 +100,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         injector: I,
     ) -> Self {
         let rules = strategy_yaml.map(|yaml| parse_rules(yaml, base_dir, lua_socket_owned)).unwrap_or_default();
-        Self { rules, injector }
+        Self { rules, injector, http_first_payloads: http::HttpFirstPayloads::default() }
     }
 
     pub fn handle_packet(&mut self, packet: &[u8]) -> bool {
@@ -109,6 +111,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             return false;
         };
         let packet = &packet[..meta.packet_end];
+        let inspect_http = self.http_first_payloads.inspect(meta, packet);
         let udp_protocol = if meta.transport == Transport::Udp {
             ripdpi_protocol_detect::classify_l7(meta.payload(packet), meta.src_port, meta.dst_port, true)
         } else {
@@ -119,7 +122,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             .rules
             .iter()
             .any(|rule| !rule.matcher.hosts.is_empty())
-            .then(|| packet_host(meta.transport, meta.payload(packet)))
+            .then(|| packet_host(meta.transport, meta.payload(packet), inspect_http))
             .flatten();
         let mut consumed = false;
         for rule in &mut self.rules {
@@ -130,7 +133,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             ) {
                 continue;
             }
-            if rule.action.apply(packet, meta, &mut self.injector) {
+            if rule.action.apply(packet, meta, inspect_http, &mut self.injector) {
                 consumed = true;
                 break;
             }
@@ -148,6 +151,9 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             _ => return,
         };
         let flow_id = FlowId(flow_id(transport, src, dst));
+        if transport == Transport::Tcp {
+            self.http_first_payloads.close(src, dst);
+        }
         for rule in &mut self.rules {
             if let EgressRuleAction::Strategy { registry, udp_flows, .. } = &mut rule.action {
                 udp_flows.remove(&flow_id);
@@ -334,11 +340,18 @@ impl EgressRuleAction {
         }
     }
 
-    fn apply<I: TunPacketInjector>(&mut self, packet: &[u8], meta: PacketMeta, injector: &mut I) -> bool {
+    fn apply<I: TunPacketInjector>(
+        &mut self,
+        packet: &[u8],
+        meta: PacketMeta,
+        inspect_http: bool,
+        injector: &mut I,
+    ) -> bool {
         match self {
             Self::Direct(action) => inject_direct_action(*action, packet, injector),
             Self::Strategy { registry, forward_original, udp_flows } => {
-                let consumed = execute_registry_action(registry, *forward_original, packet, meta, injector);
+                let consumed =
+                    execute_registry_action(registry, *forward_original, packet, meta, inspect_http, injector);
                 if meta.transport == Transport::Udp {
                     let flow_id = FlowId(meta.flow_id());
                     if registry.has_flow(flow_id) {
@@ -379,10 +392,11 @@ fn execute_registry_action<I: TunPacketInjector>(
     forward_original: bool,
     packet: &[u8],
     meta: PacketMeta,
+    inspect_http: bool,
     injector: &mut I,
 ) -> bool {
     let payload = meta.payload(packet);
-    let dissect = dissect_packet(meta, payload);
+    let dissect = dissect_packet(meta, payload, inspect_http);
     let conn = ConnectionState { packet_count: 1 };
     let caps = Capabilities { tier: CapabilityTier::Tier3, available: vec![RuntimeCapability::VpnMode] };
     let ctx = StrategyContext {
@@ -473,9 +487,9 @@ fn execute_registry_action<I: TunPacketInjector>(
     pure_drop || (all_injected && ((injected && (drop_original || !forward_original)) || (drop_original && decoy_sent)))
 }
 
-fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {
+fn dissect_packet(meta: PacketMeta, payload: &[u8], inspect_http: bool) -> Dissect {
     let mut dissect = Dissect {
-        proto: classify_l7(meta, payload),
+        proto: classify_l7(meta, payload, inspect_http),
         src_port: meta.src_port,
         dst_port: meta.dst_port,
         is_ipv6: meta.is_ipv6,
@@ -486,12 +500,12 @@ fn dissect_packet(meta: PacketMeta, payload: &[u8]) -> Dissect {
     dissect
 }
 
-fn classify_l7(meta: PacketMeta, payload: &[u8]) -> L7Protocol {
+fn classify_l7(meta: PacketMeta, payload: &[u8], inspect_http: bool) -> L7Protocol {
     match meta.transport {
         Transport::Tcp => {
             if let Some(host) = parse_tls(payload).map(|host| String::from_utf8_lossy(host).into_owned()) {
                 L7Protocol::Tls(TlsDissect { sni: Some(host), is_client_hello: true })
-            } else if let Some(markers) = http_marker_info(payload) {
+            } else if inspect_http && let Some(markers) = http_marker_info(payload) {
                 let host = String::from_utf8_lossy(&payload[markers.host_start..markers.host_end]).into_owned();
                 L7Protocol::Http(HttpDissect { host: Some(host), is_request: true })
             } else {
@@ -505,11 +519,14 @@ fn classify_l7(meta: PacketMeta, payload: &[u8]) -> L7Protocol {
     }
 }
 
-fn packet_host(transport: Transport, payload: &[u8]) -> Option<(ProtocolName, String)> {
+fn packet_host(transport: Transport, payload: &[u8], inspect_http: bool) -> Option<(ProtocolName, String)> {
     match transport {
         Transport::Tcp => parse_tls(payload)
             .map(|host| (ProtocolName::Tls, String::from_utf8_lossy(host).trim_end_matches('.').to_ascii_lowercase()))
             .or_else(|| {
+                if !inspect_http {
+                    return None;
+                }
                 http_marker_info(payload).and_then(|markers| payload.get(markers.host_start..markers.host_end)).map(
                     |host| {
                         (ProtocolName::Http, String::from_utf8_lossy(host).trim_end_matches('.').to_ascii_lowercase())

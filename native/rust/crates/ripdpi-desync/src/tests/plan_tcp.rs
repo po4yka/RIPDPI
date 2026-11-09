@@ -1258,3 +1258,25 @@ fn plan_tcp_delay_capped_at_500ms() {
         "expected Delay(500) action (capped from 1000)"
     );
 }
+
+#[test]
+fn plan_tcp_http_mutation_does_not_change_later_body_chunks() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.mod_http = ripdpi_packets::MH_DMIX | ripdpi_packets::MH_HOSTPAD;
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut context = tcp_context(payload);
+    context.stream_start = 100;
+    context.stream_end += 100;
+    let plan = plan_tcp(&group, payload, 7, 64, context).unwrap();
+    assert_eq!(plan.tampered, payload);
+    assert_eq!(plan.actions, vec![DesyncAction::Write(payload.to_vec())]);
+}
+
+#[test]
+fn plan_tcp_http_mutation_waits_for_a_complete_initial_head() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.mod_http = ripdpi_packets::MH_DMIX;
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n";
+    let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).unwrap();
+    assert_eq!(plan.tampered, payload);
+}

@@ -6,6 +6,8 @@
 mod block_signal;
 #[path = "network_e2e/first_response_duplex.rs"]
 mod first_response_duplex;
+#[path = "network_e2e/http_boundaries.rs"]
+mod http_boundaries;
 mod support;
 
 use local_network_fixture::{

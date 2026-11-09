@@ -6,53 +6,61 @@ use super::{
     TlsRecordBoundaryTracker,
 };
 
-const HTTP_HEAD_LIMIT: usize = 65_536;
+const HTTP_HEAD_LIMIT: usize = ripdpi_packets::HTTP_REQUEST_HEAD_LIMIT;
 
-/// Assemble protocol headers before a hostname policy can release application bytes.
+/// Assemble the first request head before policy checks or HTTP mutation.
 pub struct OutboundRequestAssembler {
     tls: OutboundTlsClientHelloAssembler,
     hostname_policy: bool,
     head: Vec<u8>,
     started_at: Option<Instant>,
+    http_done: bool,
 }
 
 impl OutboundRequestAssembler {
     pub fn new(hostname_policy: bool) -> Self {
-        Self { tls: OutboundTlsClientHelloAssembler::new(), hostname_policy, head: Vec::new(), started_at: None }
+        Self {
+            tls: OutboundTlsClientHelloAssembler::new(),
+            hostname_policy,
+            head: Vec::new(),
+            started_at: None,
+            http_done: false,
+        }
     }
 
     pub fn push(&mut self, chunk: &[u8], now: Instant) -> io::Result<Option<Vec<u8>>> {
         if self.hostname_policy && self.tls.flush_on_timeout(now).is_some() {
             return Err(incomplete("incomplete TLS ClientHello"));
         }
-        if self.hostname_policy
-            && (!self.head.is_empty() || (self.started_at.is_none() && ripdpi_packets::is_http_request_prefix(chunk)))
-        {
+        if chunk.is_empty() {
+            return Ok(Some(Vec::new()));
+        }
+        if !self.http_done && (!self.head.is_empty() || ripdpi_packets::is_http_request_prefix(chunk)) {
             let start = *self.started_at.get_or_insert(now);
-            if now.saturating_duration_since(start) >= FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT {
+            if self.hostname_policy && now.saturating_duration_since(start) >= FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT {
                 return Err(incomplete("incomplete HTTP request head"));
             }
             self.head.extend_from_slice(chunk);
             if !ripdpi_packets::is_http_request_prefix(&self.head) {
-                return Ok(Some(std::mem::take(&mut self.head)));
+                return Ok(self.take_http());
             }
-            let head_end = self
-                .head
-                .windows(4)
-                .position(|b| b == b"\r\n\r\n")
-                .map(|pos| pos + 4)
-                .or_else(|| self.head.windows(2).position(|b| b == b"\n\n").map(|pos| pos + 2));
-            if let Some(end) = head_end {
-                if end > HTTP_HEAD_LIMIT {
-                    return Err(incomplete("HTTP request head exceeds limit"));
-                }
-                return Ok(Some(std::mem::take(&mut self.head)));
+            if ripdpi_packets::http_request_head_end(&self.head).is_some() {
+                return Ok(self.take_http());
             }
             if self.head.len() >= HTTP_HEAD_LIMIT {
-                return Err(incomplete("HTTP request head exceeds limit"));
+                return if self.hostname_policy {
+                    Err(incomplete("HTTP request head exceeds limit"))
+                } else {
+                    Ok(self.take_http())
+                };
+            }
+            if !self.hostname_policy && now.saturating_duration_since(start) >= FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT
+            {
+                return Ok(self.take_http());
             }
             return Ok(None);
         }
+        self.http_done = true;
         let tls_prefix = self.tls.is_buffering() || TlsRecordBoundaryTracker::looks_like_client_hello_prefix(chunk);
         let payload = self.tls.push(chunk, now);
         if self.hostname_policy
@@ -83,7 +91,11 @@ impl OutboundRequestAssembler {
                 .started_at
                 .is_some_and(|start| now.saturating_duration_since(start) >= FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT)
             {
-                return Err(incomplete("incomplete HTTP request head"));
+                return if self.hostname_policy {
+                    Err(incomplete("incomplete HTTP request head"))
+                } else {
+                    Ok(self.take_http())
+                };
             }
             return Ok(None);
         }
@@ -95,10 +107,22 @@ impl OutboundRequestAssembler {
     }
 
     pub fn finish(&mut self) -> io::Result<Option<Vec<u8>>> {
-        if !self.head.is_empty() || (self.hostname_policy && self.tls.is_buffering()) {
+        if !self.head.is_empty() {
+            return if self.hostname_policy {
+                Err(incomplete("incomplete first request"))
+            } else {
+                Ok(self.take_http())
+            };
+        }
+        if self.hostname_policy && self.tls.is_buffering() {
             return Err(incomplete("incomplete first request"));
         }
         Ok(self.tls.finish())
+    }
+
+    fn take_http(&mut self) -> Option<Vec<u8>> {
+        self.http_done = true;
+        Some(std::mem::take(&mut self.head))
     }
 
     pub fn is_buffering(&self) -> bool {
@@ -124,7 +148,7 @@ mod tests {
         expected.extend(rest);
         assert_eq!(assembler.push(rest, now).unwrap(), Some(expected));
         assert_eq!(OutboundRequestAssembler::new(true).push(b"\0\xff", now).unwrap(), Some(vec![0, 255]));
-        assert_eq!(OutboundRequestAssembler::new(false).push(b"G", now).unwrap(), Some(b"G".to_vec()));
+        assert!(OutboundRequestAssembler::new(false).push(b"G", now).unwrap().is_none());
         let mut binary = vec![0; FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT];
         binary[0] = 0x16;
         assert_eq!(OutboundRequestAssembler::new(true).push(&binary, now).unwrap(), Some(binary));
@@ -162,5 +186,40 @@ mod tests {
         let mut body = b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n".to_vec();
         body.extend(vec![0; HTTP_HEAD_LIMIT]);
         assert_eq!(OutboundRequestAssembler::new(true).push(&body, now).unwrap(), Some(body));
+    }
+}
+
+#[cfg(test)]
+mod http_stream_regressions {
+    use super::*;
+
+    #[test]
+    fn optional_inspection_assembles_every_initial_http_head_split() {
+        let request = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\nBODY";
+        let head_end = request.len() - 4;
+        for cut in 1..head_end {
+            let now = Instant::now();
+            let mut assembler = OutboundRequestAssembler::new(false);
+            assert!(assembler.push(&request[..cut], now).unwrap().is_none(), "cut {cut}");
+            assert_eq!(assembler.push(&request[cut..], now).unwrap(), Some(request.to_vec()));
+        }
+    }
+
+    #[test]
+    fn optional_partial_head_flushes_at_timeout_and_eof_without_restarting() {
+        let now = Instant::now();
+        let partial = b"GET / HTTP/1.1\r\nHost: example.com\r\n";
+        for eof in [false, true] {
+            let mut assembler = OutboundRequestAssembler::new(false);
+            assert!(assembler.push(partial, now).unwrap().is_none());
+            let flushed = if eof {
+                assembler.finish().unwrap()
+            } else {
+                assembler.flush_on_timeout(now + Duration::from_secs(1)).unwrap()
+            };
+            assert_eq!(flushed, Some(partial.to_vec()));
+            let later = b"GET / HTTP/1.1\r\nHost: body.example\r\n\r\n";
+            assert_eq!(assembler.push(later, now).unwrap(), Some(later.to_vec()));
+        }
     }
 }

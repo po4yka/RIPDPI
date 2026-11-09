@@ -230,7 +230,11 @@ pub(crate) fn apply_tls_prelude_steps(
     let mut info = ProtoInfo::default();
     init_proto_info(&output, &mut info);
 
-    if group.actions.mod_http != 0 && info.kind == IS_HTTP {
+    if group.actions.mod_http != 0
+        && info.kind == IS_HTTP
+        && context.stream_start == 0
+        && ripdpi_packets::http_request_head_end(&output).is_some()
+    {
         mod_http_inplace(&mut output, group.actions.mod_http);
         info = ProtoInfo::default();
         init_proto_info(&output, &mut info);

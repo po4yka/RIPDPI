@@ -144,3 +144,20 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
     server.join().expect("join owned origin");
     assert!(eligible_when_response_visible, "a client can start its next round as soon as the response is visible");
 }
+
+#[test]
+fn outbound_body_cannot_replace_the_session_hostname() {
+    let (mut upstream, mut origin) = pair();
+    let state = RuntimeState::test_with_telemetry(RuntimeConfig::default(), None);
+    let session = crate::runtime::relay::session::FirstOutboundSession::new().into_relay_session().into_shared();
+    let host = Arc::new(Mutex::new(None));
+    let body = b"GET / HTTP/1.1\r\nHost: body.example\r\n\r\n";
+    let first = format!("POST / HTTP/1.1\r\nHost: outer.example\r\nContent-Length: {}\r\n\r\n", body.len());
+    for payload in [first.as_bytes(), body.as_slice()] {
+        copy_halves::flush_outbound_payload(&mut upstream, &state, 0, &session, &host, None, payload).unwrap();
+        let mut received = vec![0; payload.len()];
+        origin.read_exact(&mut received).unwrap();
+        assert_eq!(received, payload);
+    }
+    assert_eq!(host.lock().unwrap().as_deref(), Some("outer.example"));
+}

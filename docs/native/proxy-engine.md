@@ -573,7 +573,12 @@ Forces the TLS record layer minor version byte. Value is the minor version: `0x0
 
 #### HTTP modifications (`mod_http`)
 
-Bitflag field enabling HTTP header-level tampering for plaintext HTTP traffic. Applied during the fake payload construction phase.
+Bitflag field enabling HTTP header-level tampering for plaintext HTTP traffic.
+The proxy applies these changes only to the complete first HTTP/1.0 or HTTP/1.1
+request head. It buffers a partial first head within the inspection time and
+size limits. The body and all later stream bytes pass without HTTP changes.
+Other desync steps retain their activation rules. HTTP/2 data is never
+reclassified as a later HTTP/1 request.
 
 ### Auto TTL (`auto_ttl`)
 

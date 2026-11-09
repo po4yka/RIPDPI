@@ -69,6 +69,20 @@ empty send options, and replace the original with `VERDICT_DROP`. This permits
 bundled `multisplit` and a complete `tcpseg` replacement. It does not promise
 kernel packet boundaries.
 
+HTTP Lua functions receive HTTP request metadata only for the complete first
+HTTP/1.0 or HTTP/1.1 request head. Later body bytes and HTTP/2 data retain their
+opaque protocol metadata. Other Lua functions can still process later writes.
+The proxy assembles the first HTTP head within its inspection limits; optional
+inspection passes incomplete bytes unchanged on timeout, size limit, or EOF.
+Required hostname policy keeps its explicit failure behavior.
+
+On the root TUN path, HTTP classification requires an observed client SYN and
+a complete head in the first data packet. A split or untracked first head
+passes unchanged. A retransmission can use the same first sequence only before
+nonempty data progresses to another sequence. Progress permanently closes this
+window, so a sequence wrap cannot turn body data into a new HTTP request.
+Tracking is bounded; capacity failure keeps unknown flows opaque.
+
 The complete plan is checked before the first write. Unsupported actions follow
 `on_fail`; a partial TCP write is terminal and reports committed bytes. UDP
 replacement counts as real application payload. Flow owners keep Lua state from

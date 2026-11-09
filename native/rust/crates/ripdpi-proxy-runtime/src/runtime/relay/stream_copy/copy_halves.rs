@@ -116,7 +116,9 @@ pub(super) fn flush_outbound_payload(
 ) -> io::Result<()> {
     let (is_new_round, progress) = session.observe_outbound_payload(payload)?;
     let mut remembered = remembered_host.lock().map_err(|_| io::Error::other("remembered host mutex poisoned"))?;
-    if let Some(host) = state.extract_relay_payload_host(payload) {
+    if progress.stream_start == 0
+        && let Some(host) = state.extract_relay_payload_host(payload)
+    {
         *remembered = Some(host);
     }
     let host = remembered.clone();

@@ -29,7 +29,7 @@ fn udp_protocol_rules_do_not_inject_other_protocols_on_either_ip_family() {
                     assert_eq!(packet_payload(injected), payload);
                     if protocol == "quic" {
                         let meta = PacketMeta::parse(&packet).unwrap();
-                        let L7Protocol::Quic(quic) = dissect_packet(meta, payload).proto else {
+                        let L7Protocol::Quic(quic) = dissect_packet(meta, payload, false).proto else {
                             panic!("missing QUIC dissection");
                         };
                         assert_eq!(quic.version, Some(u32::from_be_bytes(payload[1..5].try_into().unwrap())));
@@ -174,13 +174,16 @@ strategies:
         ttl: 5
 "#;
     let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
-    let other = ipv4_tcp_packet(49152, 80, b"GET / HTTP/1.1\r\nHost: notexample.com\r\n\r\n");
-    let matching = ipv4_tcp_packet(49152, 80, b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n");
-    let unknown = ipv4_tcp_packet(49152, 80, b"raw tcp payload");
+    let other = tcp_stream_packet(101, false, b"GET / HTTP/1.1\r\nHost: notexample.com\r\n\r\n");
+    let matching = tcp_stream_packet(301, false, b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n");
+    let unknown = tcp_stream_packet(201, false, b"raw tcp payload");
 
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(100, true, b"")));
     assert!(!interceptor.handle_packet(&other));
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(200, true, b"")));
     assert!(!interceptor.handle_packet(&unknown));
     assert!(interceptor.injector.packets.is_empty());
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(300, true, b"")));
     assert!(!interceptor.handle_packet(&matching));
     assert_eq!(interceptor.injector.packets.len(), 1);
 
@@ -509,7 +512,7 @@ strategies:
 #[test]
 fn lua_context_exposes_http_markers_to_tun_strategy() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
-    let packet = ipv4_tcp_packet(49152, 80, payload);
+    let packet = tcp_stream_packet(101, false, payload);
     let script = write_lua_script(
         "lua-egress-http-markers",
         r#"
@@ -545,6 +548,7 @@ strategies:
     let mut interceptor =
         TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
 
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(100, true, b"")));
     assert!(interceptor.handle_packet(&packet));
     assert_eq!(interceptor.injector.packets[0][8], 9);
     assert_eq!(packet_payload(&interceptor.injector.packets[0]), payload);
@@ -559,7 +563,7 @@ fn quic_markers_are_raw_udp_payload_offsets() {
     let packet = ipv4_udp_packet(49152, 443, &payload);
     let meta = PacketMeta::parse(&packet).expect("packet metadata");
 
-    let dissect = dissect_packet(meta, meta.payload(&packet));
+    let dissect = dissect_packet(meta, meta.payload(&packet), false);
 
     let host = *dissect.markers.get(&MarkerName::Host).expect("host marker");
     let host_end = *dissect.markers.get(&MarkerName::HostEnd).expect("host end marker");
@@ -1060,4 +1064,58 @@ fn malformed_input_cannot_execute_a_tun_strategy() {
         assert!(!interceptor.handle_packet(&packet));
         assert!(interceptor.injector.packets.is_empty());
     }
+}
+
+#[test]
+fn tun_http_detection_requires_complete_first_data_after_syn() {
+    let script = write_lua_script(
+        "first-http-head",
+        "function candidate(d) if d.detect('http') then return 'changed' end return VERDICT_PASS end",
+    );
+    let yaml = format!(
+        "version: 1\nstrategies:\n  - id: first-http\n    match:\n      proto: [http]\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{}]\n",
+        script.display()
+    );
+    let mut interceptor =
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+    let http = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let packet = tcp_stream_packet(101, false, http);
+    assert!(!interceptor.handle_packet(&packet));
+    assert!(interceptor.injector.packets.is_empty());
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(100, true, b"")));
+    assert!(interceptor.handle_packet(&packet));
+    assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"changed");
+    assert!(interceptor.handle_packet(&packet));
+    assert_eq!(interceptor.injector.packets.len(), 2);
+    let body = tcp_stream_packet(101 + http.len() as u32, false, http);
+    assert!(!interceptor.handle_packet(&body));
+    assert!(!interceptor.handle_packet(&packet));
+    assert_eq!(interceptor.injector.packets.len(), 2);
+    let meta = PacketMeta::parse(&packet).unwrap();
+    interceptor.close_flow(6, meta.src_addr(), meta.dst_addr());
+    assert!(!interceptor.handle_packet(&packet));
+    assert_eq!(interceptor.injector.packets.len(), 2);
+
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(100, true, b"")));
+    let h2 = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(101, false, h2)));
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(101 + h2.len() as u32, false, http)));
+    assert_eq!(interceptor.injector.packets.len(), 2);
+
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(100, true, b"")));
+    assert!(!interceptor.handle_packet(&tcp_stream_packet(101, false, b"GET / HTTP/1.1\r\nHost: example.com\r\n")));
+    assert!(!interceptor.handle_packet(&packet));
+    assert_eq!(interceptor.injector.packets.len(), 2);
+}
+
+fn tcp_stream_packet(sequence: u32, syn: bool, payload: &[u8]) -> Vec<u8> {
+    let mut packet = Vec::new();
+    let builder =
+        etherparse::PacketBuilder::ipv4([10, 0, 0, 2], [93, 184, 216, 34], 64).tcp(49152, 80, sequence, 65535);
+    if syn {
+        builder.syn().write(&mut packet, payload).unwrap();
+    } else {
+        builder.ack(0).psh().write(&mut packet, payload).unwrap();
+    }
+    packet
 }

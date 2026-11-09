@@ -53,6 +53,21 @@ impl PacketMeta {
         SocketAddr::new(self.dst_ip, self.dst_port)
     }
 
+    pub(crate) fn is_tcp_syn(self, packet: &[u8]) -> bool {
+        self.transport == Transport::Tcp
+            && packet.get(self.transport_offset + 13).is_some_and(|flags| flags & 0x12 == 0x02)
+    }
+
+    pub(crate) fn tcp_payload_sequence(self, packet: &[u8]) -> Option<u32> {
+        if self.transport != Transport::Tcp {
+            return None;
+        }
+        let start = self.transport_offset + TCP_SEQUENCE_OFFSET;
+        let sequence = u32::from_be_bytes(packet.get(start..start + 4)?.try_into().ok()?);
+        let syn = packet.get(self.transport_offset + 13)? & 0x02 != 0;
+        Some(sequence.wrapping_add(u32::from(syn)))
+    }
+
     pub(crate) fn is_tcp_terminal(self, packet: &[u8]) -> bool {
         self.transport == Transport::Tcp
             && packet.get(self.transport_offset + 13).is_some_and(|flags| flags & 0x05 != 0)
