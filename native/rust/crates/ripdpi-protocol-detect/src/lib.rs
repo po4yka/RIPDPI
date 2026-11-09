@@ -26,15 +26,17 @@ pub fn classify_l7(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -
         if is_stun(payload) {
             return L7Protocol::Stun(StunDissect);
         }
-        if is_dht(payload) {
-            return L7Protocol::Dht(DhtDissect);
-        }
     } else if is_tls_client_hello(payload) {
         return L7Protocol::Tls(TlsDissect { sni: None, is_client_hello: true });
     }
 
     if is_dns(payload, src_port, dst_port, is_udp) {
         return L7Protocol::Dns(DnsDissect { is_query: dns_is_query(payload, is_udp) });
+    }
+
+    // DHT runs after DNS: a DNS name can contain the bytes `1:y`.
+    if is_udp && is_dht(payload) {
+        return L7Protocol::Dht(DhtDissect);
     }
 
     // Obfuscated2 is carried over TCP only; the init is validated cryptographically.
@@ -85,8 +87,11 @@ fn is_stun(payload: &[u8]) -> bool {
     payload.len() >= 8 && payload[0] & 0xC0 == 0 && payload.get(4..8) == Some(&[0x21, 0x12, 0xA4, 0x42][..])
 }
 
+/// BEP-5 KRPC: a bencoded dictionary with sorted keys, so it starts with `d1:` and holds the
+/// key `y` whose value is the one-character type `q`, `r` or `e`.
 fn is_dht(payload: &[u8]) -> bool {
-    payload.starts_with(b"d1:") || payload.starts_with(b"d8:") || payload.windows(3).any(|window| window == b"1:y")
+    payload.starts_with(b"d1:")
+        && payload.windows(6).any(|w| w.starts_with(b"1:y1:") && matches!(w[5], b'q' | b'r' | b'e'))
 }
 
 fn is_dns(payload: &[u8], src_port: u16, dst_port: u16, is_udp: bool) -> bool {
