@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.uri
 
+import com.poyka.ripdpi.data.Hysteria2SalamanderMinKeyBytes
 import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
@@ -32,7 +33,6 @@ import java.util.UUID
 object ProxyUriCodec {
     /** Base64 encodes 3 input bytes per 4 output chars, so encoded length is always a multiple of 4. */
     private const val BASE64_GROUP_SIZE = 4
-    private const val HYSTERIA2_SALAMANDER_MIN_KEY_BYTES = 4
     private const val MIERU_MTU_MIN = 1280
     private const val MIERU_MTU_MAX = 1500
     private const val MIERU_MTU_DEFAULT = 1400
@@ -560,7 +560,7 @@ object ProxyUriCodec {
                 null
             } else {
                 queryValue(rawQuery, "obfs-password")
-                    ?.takeIf { it.isNotBlank() && it.toByteArray().size >= HYSTERIA2_SALAMANDER_MIN_KEY_BYTES }
+                    ?.takeIf { it.isNotBlank() && it.toByteArray().size >= Hysteria2SalamanderMinKeyBytes }
                     ?: return null
             }
         // Hysteria 2 has no ECH here: importing without it would expose the SNI.
