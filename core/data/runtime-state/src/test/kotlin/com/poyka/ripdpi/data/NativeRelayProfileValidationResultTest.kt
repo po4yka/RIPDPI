@@ -176,4 +176,14 @@ class NativeRelayProfileValidationResultTest {
         assertTrue(isValidRealityShortId("ab12 "))
         assertFalse(isValidRealityShortId("ab 12"))
     }
+
+    @Test
+    fun `vless uuid accepts only the forms the native parser accepts`() {
+        assertTrue(isValidVlessUuid("550e8400-e29b-41d4-a716-446655440000"))
+        assertTrue(isValidVlessUuid("550E8400E29B41D4A716446655440000"))
+        assertFalse(isValidVlessUuid("550e8400-e29b41d4-a716-4466-55440000"))
+        assertFalse(isValidVlessUuid("-550e8400e29b41d4a716446655440000"))
+        assertFalse(isValidVlessUuid("550e-8400-e29b-41d4-a716-4466-5544-0000"))
+        assertFalse(isValidVlessUuid(null))
+    }
 }

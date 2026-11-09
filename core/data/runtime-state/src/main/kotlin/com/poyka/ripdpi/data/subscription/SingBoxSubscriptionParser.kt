@@ -443,10 +443,10 @@ private fun mapVless(
         // A plain VLESS node with no UUID cannot connect; keep it as an inert
         // RawConfig rather than a selectable dead member (audit P1-10).
         val uuid = obj.string("uuid")
-        if (uuid.isNullOrBlank()) {
+        val xhttp = obj.xhttpTransport()
+        if (uuid.isNullOrBlank() || (xhttp != null && !tlsObj.isNativeXhttpTls())) {
             rawConfig(name, groupId, obj)
         } else {
-            val xhttp = obj.xhttpTransport()
             ProxyProfile.Vless(
                 id = newId(),
                 displayName = name,
