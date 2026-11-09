@@ -185,6 +185,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         tuicZeroRtt = false,
         tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
         tuicRootCertificatePem = relayTuicRootCertificatePem.trim(),
+        tuicAlpn = relayTuicAlpn.trim(),
         shadowTlsInnerProfileId = relayShadowTlsInnerProfileId,
         naivePath = relayNaivePath,
         appsScriptScriptIds = relayAppsScriptScriptIds.preserveRelayLines(source?.appsScriptScriptIds),

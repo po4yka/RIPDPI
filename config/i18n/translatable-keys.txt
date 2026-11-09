@@ -785,6 +785,7 @@ app:config_relay_shadowtls_inner_profile_id
 app:config_relay_shadowtls_password
 app:config_relay_title
 app:config_relay_trojan_password
+app:config_relay_tuic_alpn
 app:config_relay_tuic_congestion_bbr
 app:config_relay_tuic_congestion_control
 app:config_relay_tuic_congestion_cubic

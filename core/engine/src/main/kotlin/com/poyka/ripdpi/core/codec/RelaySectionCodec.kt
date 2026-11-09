@@ -62,6 +62,8 @@ internal data class NativeRelayConfig(
     val tuicCongestionControl: String = "bbr",
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val tuicRootCertificatePem: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val tuicAlpn: String? = null,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
@@ -132,6 +134,7 @@ internal object RelaySectionCodec {
             tuicZeroRtt = value.tuicZeroRtt,
             tuicCongestionControl = normalizeRelayCongestionControl(value.tuicCongestionControl),
             tuicRootCertificatePem = value.tuicRootCertificatePem,
+            tuicAlpn = value.tuicAlpn,
             shadowTlsInnerProfileId = value.shadowTlsInnerProfileId,
             naivePath = value.naivePath,
             mieruProtocol = value.mieruProtocol,
@@ -205,6 +208,7 @@ internal object RelaySectionCodec {
             tuicZeroRtt = value.tuicZeroRtt,
             tuicCongestionControl = normalizeRelayCongestionControl(value.tuicCongestionControl),
             tuicRootCertificatePem = value.tuicRootCertificatePem,
+            tuicAlpn = value.tuicAlpn,
             shadowTlsInnerProfileId = value.shadowTlsInnerProfileId,
             naivePath = value.naivePath,
             mieruProtocol = value.mieruProtocol,

@@ -444,6 +444,7 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelayTuicPasswordChanged = actions.onRelayTuicPasswordChanged,
                 onRelayTuicCongestionControlChanged = actions.onRelayTuicCongestionControlChanged,
                 onRelayTuicRootCertificatePemChanged = actions.onRelayTuicRootCertificatePemChanged,
+                onRelayTuicAlpnChanged = actions.onRelayTuicAlpnChanged,
             ),
         misc =
             RelayMiscKindActions(

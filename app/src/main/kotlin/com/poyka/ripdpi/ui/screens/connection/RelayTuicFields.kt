@@ -36,6 +36,11 @@ internal fun TuicRelayFields(
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_root_certificate)),
         behavior = RipDpiTextFieldBehavior(singleLine = false),
     )
+    RipDpiTextField(
+        value = draft.relayTuicAlpn,
+        onValueChange = actions.onRelayTuicAlpnChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_alpn)),
+    )
     Text(
         text = stringResource(R.string.config_relay_tuic_congestion_control),
         style = RipDpiThemeTokens.type.caption,

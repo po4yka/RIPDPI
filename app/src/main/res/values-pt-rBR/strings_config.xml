@@ -1196,6 +1196,7 @@ Fonte: %2$s</string>
     <string name="config_relay_tuic_congestion_cubic">CUBIC</string>
     <string name="config_relay_tuic_password">Senha do TUIC</string>
     <string name="config_relay_tuic_root_certificate">Certificado raiz (PEM)</string>
+    <string name="config_relay_tuic_alpn">ALPN (separados por vírgula)</string>
     <string name="config_relay_tuic_uuid">UUID do TUIC</string>
     <string name="profile_share_setup_sheet_template">Folha de configuração do RIPDPI\n\nPerfil: %1$s\nTipo: %2$s\n\nLink da assinatura/perfil:\n%3$s\n\nHiddify:\n1. Abra o Hiddify.\n2. Escolha Adicionar perfil.\n3. Leia o código QR ou cole o link acima.\n\nAmneziaVPN:\n1. Abra o AmneziaVPN.\n2. Escolha Adicionar servidor por link ou QR.\n3. Leia o código QR ou cole o link acima.\n\nMantenha esta folha em privado. O código QR e o link contêm credenciais.</string>
     <string name="strategy_tuner_strategy_unregistered">A estratégia não está mais registrada</string>

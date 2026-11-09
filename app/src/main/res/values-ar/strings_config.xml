@@ -1204,6 +1204,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_tuic_congestion_cubic">CUBIC</string>
     <string name="config_relay_tuic_password">كلمة مرور TUIC</string>
     <string name="config_relay_tuic_root_certificate">الشهادة الجذرية (PEM)</string>
+    <string name="config_relay_tuic_alpn">ALPN (مفصولة بفواصل)</string>
     <string name="config_relay_tuic_uuid">TUIC UUID</string>
     <string name="profile_share_setup_sheet_template">RIPDPI ورقة الإعداد\n\nالملف: %1$s\nالنوع: %2$s\n\nرابط الاشتراك/الملف:\n%3$s\n\nHiddify:\n1. افتح Hiddify.\n2. اختر إضافة ملف.\n3. امسح رمز QR أو الصق الرابط أعلاه.\n\nAmneziaVPN:\n1. افتح AmneziaVPN.\n2. اختر إضافة خادم من رابط أو QR.\n3. امسح رمز QR أو الصق الرابط أعلاه.\n\nاحتفظ بهذه الورقة خاصة. يحتوي رمز QR والرابط على بيانات الاعتماد.</string>
     <string name="strategy_tuner_strategy_unregistered">لم تعد الاستراتيجية مسجّلة</string>

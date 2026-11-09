@@ -7,3 +7,11 @@ private val TuicUuidPattern =
 
 /** Accepts the textual UUID forms the native `uuid` crate parses, ignoring surrounding whitespace. */
 fun isValidTuicUuid(value: String?): Boolean = value != null && TuicUuidPattern.matches(value.trim())
+
+/** Splits the comma-separated ALPN setting; null (the h3 default) when it holds no entries. */
+fun parseTuicAlpn(value: String?): List<String>? =
+    value
+        ?.split(',')
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.takeIf { it.isNotEmpty() }

@@ -35,6 +35,7 @@ import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
+import com.poyka.ripdpi.data.parseTuicAlpn
 import com.poyka.ripdpi.data.toRelayTrustDomain
 import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 
@@ -430,6 +431,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         tuicZeroRtt = tuicZeroRtt,
         tuicCongestionControl = tuicCongestionControl,
         tuicRootCertificatePem = tuicRootCertificatePem.ifBlank { null },
+        tuicAlpn = parseTuicAlpn(tuicAlpn),
         shadowTlsInnerProfileId = shadowTlsInnerProfileId,
         shadowTlsInner = shadowTlsInner,
         naivePath = naivePath,

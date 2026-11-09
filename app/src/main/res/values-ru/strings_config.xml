@@ -1154,6 +1154,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_tuic_congestion_cubic">CUBIC</string>
     <string name="config_relay_tuic_password">Пароль TUIC</string>
     <string name="config_relay_tuic_root_certificate">Корневой сертификат (PEM)</string>
+    <string name="config_relay_tuic_alpn">ALPN (через запятую)</string>
     <string name="config_relay_tuic_uuid">TUIC UUID</string>
     <string name="profile_share_setup_sheet_template">Лист настройки RIPDPI\n\nПрофиль: %1$s\nТип: %2$s\n\nСсылка на подписку/профиль:\n%3$s\n\nHiddify:\n1. Откройте Hiddify.\n2. Выберите «Добавить профиль».\n3. Отсканируйте QR-код или вставьте ссылку выше.\n\nAmneziaVPN:\n1. Откройте AmneziaVPN.\n2. Выберите «Добавить сервер по ссылке или QR».\n3. Отсканируйте QR-код или вставьте ссылку выше.\n\nХраните этот лист в тайне. QR-код и ссылка содержат учётные данные.</string>
     <string name="strategy_tuner_strategy_unregistered">Стратегия больше не зарегистрирована</string>

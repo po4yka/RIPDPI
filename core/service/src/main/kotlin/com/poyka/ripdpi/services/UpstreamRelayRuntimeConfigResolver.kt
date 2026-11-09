@@ -39,6 +39,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
+import com.poyka.ripdpi.data.parseTuicAlpn
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -425,6 +426,7 @@ private class ResolvedRelayConfigBuilder(
             tuicZeroRtt = false,
             tuicCongestionControl = effectiveConfig.tuicCongestionControl,
             tuicRootCertificatePem = effectiveConfig.tuicRootCertificatePem,
+            tuicAlpn = parseTuicAlpn(effectiveConfig.tuicAlpn),
             tuicUuid = credentials?.tuicUuid,
             tuicPassword = credentials?.tuicPassword,
         )

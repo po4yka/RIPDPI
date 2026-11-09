@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.data
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -31,5 +33,13 @@ class TuicCredentialsTest {
             "9f1c2d3e4a5b-4c6d-8e7f-0a1b2c3d4e5f",
             "zf1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
         ).forEach { assertFalse(it.toString(), isValidTuicUuid(it)) }
+    }
+
+    @Test
+    fun `alpn setting splits on commas and treats blank as the default`() {
+        assertEquals(listOf("tuic", "h3"), parseTuicAlpn(" tuic , h3,, "))
+        assertNull(parseTuicAlpn(""))
+        assertNull(parseTuicAlpn(" , "))
+        assertNull(parseTuicAlpn(null))
     }
 }

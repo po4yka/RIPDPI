@@ -1198,6 +1198,7 @@ fake_burst 3</string>
     <string name="config_relay_tuic_congestion_cubic">CUBIC</string>
     <string name="config_relay_tuic_password">TUIC 密码</string>
     <string name="config_relay_tuic_root_certificate">根证书 (PEM)</string>
+    <string name="config_relay_tuic_alpn">ALPN（逗号分隔）</string>
     <string name="config_relay_tuic_uuid">TUIC UUID</string>
     <string name="profile_share_setup_sheet_template">RIPDPI 设置说明\n\n配置文件：%1$s\n类型：%2$s\n\n订阅/配置文件链接：\n%3$s\n\nHiddify：\n1. 打开 Hiddify。\n2. 选择添加配置文件。\n3. 扫描二维码或粘贴上方链接。\n\nAmneziaVPN：\n1. 打开 AmneziaVPN。\n2. 选择通过链接或二维码添加服务器。\n3. 扫描二维码或粘贴上方链接。\n\n请妥善保管此说明，不要公开分享。二维码和链接包含凭据。</string>
     <string name="strategy_tuner_strategy_unregistered">策略已不再注册</string>
