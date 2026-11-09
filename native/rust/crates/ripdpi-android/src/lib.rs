@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn jni_facade_exports_stable_native_entrypoints() {
         use jni::EnvUnowned;
-        use jni::objects::{JObject, JString};
+        use jni::objects::{JByteArray, JObject, JString};
         use jni::sys::{jboolean, jint, jlong, jstring};
 
         type VoidHandle = extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong);
@@ -102,6 +102,14 @@ mod tests {
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
             Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_jniCreate
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
+            Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_jniValidate
+                as extern "system" fn(
+                    EnvUnowned<'_>,
+                    JObject<'_>,
+                    JByteArray<'_>,
+                    JByteArray<'_>,
+                    jboolean,
+                ) -> jboolean,
             Java_com_poyka_ripdpi_core_detection_checker_JniNativeSignsBridge_jniSnapshot
                 as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
             Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported as Bool,
@@ -151,6 +159,7 @@ mod tests {
             "Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy",
             "Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate",
             "Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy",
+            "Java_com_poyka_ripdpi_diagnostics_dpi_NativeQuicInitialPacketBindings_jniValidate",
             "Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_luaLoadScript",
         ];
         for sym in required {

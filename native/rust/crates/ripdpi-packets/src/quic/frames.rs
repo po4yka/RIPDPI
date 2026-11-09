@@ -55,6 +55,34 @@ pub(super) fn append_segmented_quic_crypto_frames(
     Some(())
 }
 
+fn next_quic_varint(payload: &[u8], cursor: &mut usize) -> Option<u64> {
+    let (value, len) = read_quic_varint(payload, *cursor)?;
+    *cursor += len;
+    Some(value)
+}
+
+fn skip_quic_ack(payload: &[u8], cursor: &mut usize, ecn: bool) -> Option<()> {
+    let largest = next_quic_varint(payload, cursor)?;
+    let _delay = next_quic_varint(payload, cursor)?;
+    let range_count = next_quic_varint(payload, cursor)?;
+    let first_range = next_quic_varint(payload, cursor)?;
+    let mut smallest = largest.checked_sub(first_range)?;
+    if range_count > ((payload.len() - *cursor) / 2) as u64 {
+        return None;
+    }
+    for _ in 0..range_count {
+        let gap = next_quic_varint(payload, cursor)?;
+        let range = next_quic_varint(payload, cursor)?;
+        smallest = smallest.checked_sub(gap)?.checked_sub(2)?.checked_sub(range)?;
+    }
+    if ecn {
+        for _ in 0..3 {
+            next_quic_varint(payload, cursor)?;
+        }
+    }
+    Some(())
+}
+
 pub(super) fn collect_quic_crypto_frames(payload: &[u8]) -> Option<Vec<QuicCryptoFrameInfo>> {
     let mut frames = Vec::new();
     let mut cursor = 0usize;
@@ -63,6 +91,11 @@ pub(super) fn collect_quic_crypto_frames(payload: &[u8]) -> Option<Vec<QuicCrypt
         match payload[cursor] {
             0x00 | 0x01 => {
                 cursor += 1;
+            }
+            0x02 | 0x03 => {
+                let ecn = payload[cursor] == 0x03;
+                cursor += 1;
+                skip_quic_ack(payload, &mut cursor, ecn)?;
             }
             0x06 => {
                 cursor += 1;
@@ -87,11 +120,14 @@ pub(super) fn collect_quic_crypto_frames(payload: &[u8]) -> Option<Vec<QuicCrypt
         }
     }
 
-    (!frames.is_empty()).then_some(frames)
+    Some(frames)
 }
 
 pub(super) fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
     let frames = collect_quic_crypto_frames(payload)?;
+    if frames.is_empty() {
+        return None;
+    }
     let max_end = frames.iter().map(|frame| frame.crypto_offset + frame.data_len).max().unwrap_or(0);
 
     // Fast path: single contiguous frame at offset 0 (the common case).

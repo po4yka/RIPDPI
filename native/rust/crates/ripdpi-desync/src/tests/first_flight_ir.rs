@@ -113,3 +113,27 @@ fn normalize_quic_initial_preserves_tls_authority_and_crypto_boundaries() {
         ir.crypto_frames.iter().map(|frame| frame.crypto_range.end).collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn normalize_coalesced_quic_preserves_later_packet_coordinates() {
+    for packet in [
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ripdpi-packets/tests/fixtures/quic-initial/coalesced-v1.bin"
+        ))
+        .as_slice(),
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ripdpi-packets/tests/fixtures/quic-initial/coalesced-v2.bin"
+        ))
+        .as_slice(),
+    ] {
+        let ir = normalize_quic_initial(packet).expect("coalesced Initial");
+        assert_eq!(ir.tls_client_hello.authority, b"example.com");
+        assert_eq!(ir.tls_client_hello.authority_span, 58..69);
+        assert_eq!(ir.desired.udp_datagram_boundaries, vec![1200]);
+        assert_eq!(ir.desired.crypto_frame_boundaries, vec![50, 241]);
+        assert_eq!(ir.crypto_frames[0].packet_payload_range, 3..53);
+        assert_eq!(ir.crypto_frames[1].packet_payload_range, 604..795);
+    }
+}

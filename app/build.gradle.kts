@@ -266,6 +266,10 @@ extensions.configure<ApplicationExtension> {
         .kotlin.directories
         .add("src/testShared/kotlin")
 
+    sourceSets.getByName("androidTest").assets.srcDir(
+        rootProject.file("native/rust/crates/ripdpi-packets/tests/fixtures/quic"),
+    )
+
     namespace = "com.poyka.ripdpi"
     testBuildType = providers.gradleProperty("ripdpi.testBuildType").orElse("debug").get()
 
@@ -383,6 +387,9 @@ extensions.configure<ApplicationExtension> {
         release {
             signingConfig = signingConfigs.findByName("release")
             testProguardFiles("proguard-androidtest-rules.pro")
+            if (testBuildType == "release") {
+                proguardFiles("proguard-androidtest-target-rules.pro")
+            }
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}\"")
             buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
             buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")

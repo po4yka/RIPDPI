@@ -885,3 +885,15 @@ proptest! {
         let _ = parse_quic_initial_header(&buf);
     }
 }
+
+#[path = "token_tests.rs"]
+mod token_tests;
+
+#[path = "ack_tests.rs"]
+mod ack_tests;
+
+#[path = "completeness_tests.rs"]
+mod completeness_tests;
+
+#[path = "datagram_tests.rs"]
+mod datagram_tests;

@@ -4,8 +4,9 @@ use crate::util::read_u16;
 use crate::{TlsFakeProfile, tls_fake_profile_bytes};
 
 use super::build::build_quic_initial_raw;
-use super::frames::{append_segmented_quic_crypto_frames, defrag_quic_crypto_frames};
-use super::parse::{decrypt_quic_initial_payload, parse_quic_initial_header, supported_quic_version};
+use super::datagram::decode_quic_initial_datagram;
+use super::frames::append_segmented_quic_crypto_frames;
+use super::parse::supported_quic_version;
 use super::{QUIC_FAKE_DCID, QUIC_FAKE_INITIAL_TARGET_LEN, QUIC_FAKE_SCID, QUIC_INITIAL_MIN_LEN};
 
 fn padded_tls_client_hello(template: &[u8]) -> Vec<u8> {
@@ -88,18 +89,14 @@ pub fn packetize_quic_initial(seed: &QuicInitialSeed, layout: &QuicInitialPacket
 }
 
 pub fn parse_quic_initial_seed(packet: &[u8]) -> Option<QuicInitialSeed> {
-    let header = parse_quic_initial_header(packet)?;
-    let payload = decrypt_quic_initial_payload(packet, header)?;
-    let (client_hello, is_complete) = defrag_quic_crypto_frames(&payload)?;
-    if !is_complete {
-        return None;
-    }
+    let decoded = decode_quic_initial_datagram(packet)?;
+    let header = decoded.header;
     Some(QuicInitialSeed {
         version: header.version,
         dcid: header.dcid.to_vec(),
         scid: header.scid.to_vec(),
         token: header.token.to_vec(),
-        client_hello: tls_record_from_handshake(&client_hello)?,
+        client_hello: tls_record_from_handshake(&decoded.client_hello)?,
     })
 }
 

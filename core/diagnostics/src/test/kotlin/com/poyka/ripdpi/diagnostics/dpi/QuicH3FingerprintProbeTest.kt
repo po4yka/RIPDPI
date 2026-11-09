@@ -196,6 +196,7 @@ class QuicH3FingerprintProbeTest {
                 QuicH3FingerprintProbe(
                     socket = socket,
                     packetFactory = QuicFingerprintFactory::createSynthetic,
+                    responseValidator = AcceptSuccessfulReplies,
                     timeoutMs = 3_000,
                     timeSource = testScheduler.timeSource,
                 )
@@ -221,30 +222,21 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
-    fun versionNegotiationListingTheOfferedVersionIsNotAnAnswer() =
+    fun versionNegotiationValidationModeIsSeparateFromInitialValidation() =
         runTest {
-            val socket =
-                RecordingQuicUdpProbe(
-                    successes = QuicFingerprint.entries.toSet(),
-                    vnVersions = listOf(QuicFingerprintFactory.QuicV1Version, QuicFingerprintFactory.ReservedVersion),
-                )
+            val result =
+                QuicH3FingerprintProbe(
+                    socket = RecordingQuicUdpProbe(successes = QuicFingerprint.entries.toSet()),
+                    packetFactory = QuicFingerprintFactory::createSynthetic,
+                    responseValidator =
+                        QuicProbeResponseValidator { _, response, vn ->
+                            vn && response.contentEquals(SuccessfulReply)
+                        },
+                ).check("example.com")
 
-            val result = probe(socket).check("example.com")
-
-            assertFalse(result.vnOk)
-            assertEquals(QuicProbeVerdict.QUIC_VN_REJECTED, result.verdict)
-        }
-
-    @Test
-    fun versionNegotiationListingOtherVersionsIsAnAnswer() =
-        runTest {
-            val socket =
-                RecordingQuicUdpProbe(
-                    successes = QuicFingerprint.entries.toSet(),
-                    vnVersions = listOf(QuicFingerprintFactory.QuicV1Version),
-                )
-
-            assertEquals(QuicProbeVerdict.QUIC_OK, probe(socket).check("example.com").verdict)
+            assertFalse(result.chromeOk || result.firefoxOk || result.genericOk)
+            assertTrue(result.vnOk)
+            assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
         }
 
     @Test
@@ -298,10 +290,8 @@ class QuicH3FingerprintProbeTest {
     private fun probe(socket: QuicUdpProbe): QuicH3FingerprintProbe =
         QuicH3FingerprintProbe(
             socket = socket,
-            packetFactory =
-                QuicInitialPacketFactory { fingerprint, target ->
-                    QuicFingerprintFactory.createSynthetic(fingerprint, target)
-                },
+            packetFactory = QuicFingerprintFactory::createSynthetic,
+            responseValidator = AcceptSuccessfulReplies,
         )
 }
 
@@ -309,7 +299,6 @@ private class RecordingQuicUdpProbe(
     private val successes: Set<QuicFingerprint>,
     private val nonQuicResponses: Set<QuicFingerprint> = emptySet(),
     private val droppedFirstSends: Int = 0,
-    private val vnVersions: List<Int> = emptyList(),
     private val nonQuicReplyDelayMs: Long = 0,
 ) : QuicUdpProbe {
     val probedFingerprints = mutableListOf<QuicFingerprint>()
@@ -331,11 +320,7 @@ private class RecordingQuicUdpProbe(
 
             fingerprint in successes -> {
                 QuicProbeSample(
-                    response =
-                        when (fingerprint) {
-                            QuicFingerprint.VN_PROBE -> quicReply(version = 0, request = packet) + vnVersions.toBytes()
-                            else -> quicReply(version = QuicFingerprintFactory.QuicV1Version, request = packet)
-                        },
+                    response = SuccessfulReply,
                     latencyMs = if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L,
                 )
             }
@@ -359,27 +344,15 @@ private class RecordingQuicUdpProbe(
         delay(timeoutMs.toLong())
         return QuicProbeSample(response = null, latencyMs = null)
     }
-
-    private fun List<Int>.toBytes(): ByteArray =
-        flatMap { version -> (24 downTo 0 step 8).map { shift -> ((version ushr shift) and 0xFF).toByte() } }
-            .toByteArray()
-
-    /** A server reply: addressed to the request's SCID, with the request's DCID as its own SCID. */
-    private fun quicReply(
-        version: Int,
-        request: ByteArray,
-    ): ByteArray {
-        val dcidLength = request[5].toInt() and 0xFF
-        val dcid = request.copyOfRange(6, 6 + dcidLength)
-        val scidLength = request[6 + dcidLength].toInt() and 0xFF
-        val scid = request.copyOfRange(7 + dcidLength, 7 + dcidLength + scidLength)
-        return byteArrayOf(
-            0xC0.toByte(),
-            ((version ushr 24) and 0xFF).toByte(),
-            ((version ushr 16) and 0xFF).toByte(),
-            ((version ushr 8) and 0xFF).toByte(),
-            (version and 0xFF).toByte(),
-            scid.size.toByte(),
-        ) + scid + byteArrayOf(dcid.size.toByte()) + dcid
-    }
 }
+
+// These tokens exercise verdict and retry orchestration; native RFC tests own wire validation.
+private val SuccessfulReply = byteArrayOf(0x7f)
+private val AcceptSuccessfulReplies =
+    QuicProbeResponseValidator {
+        _,
+        response,
+        _,
+        ->
+        response.contentEquals(SuccessfulReply)
+    }

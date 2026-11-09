@@ -1,7 +1,7 @@
 use super::QUIC_FAKE_INITIAL_TARGET_LEN;
 use super::build::build_quic_initial_raw;
-use super::frames::{append_quic_crypto_frame, defrag_quic_crypto_frames};
-use super::parse::{decrypt_quic_initial_payload, parse_quic_initial_header};
+use super::datagram::decode_quic_initial_datagram;
+use super::frames::append_quic_crypto_frame;
 
 /// Re-encrypt a QUIC Initial packet with the TLS ClientHello split across
 /// two CRYPTO frames at the given split offset within the ClientHello.
@@ -16,12 +16,9 @@ pub fn tamper_quic_initial_split_sni(packet: &[u8], split_offset: usize) -> Opti
 ///
 /// Returns `None` if the packet is not a valid QUIC Initial or cannot be parsed.
 pub fn tamper_quic_initial_split_crypto(packet: &[u8], split_offset: usize) -> Option<Vec<u8>> {
-    let header = parse_quic_initial_header(packet)?;
-    let payload = decrypt_quic_initial_payload(packet, header)?;
-    let (client_hello, is_complete) = defrag_quic_crypto_frames(&payload)?;
-    if !is_complete {
-        return None;
-    }
+    let decoded = decode_quic_initial_datagram(packet)?;
+    let header = decoded.header;
+    let client_hello = decoded.client_hello;
     if split_offset == 0 || split_offset >= client_hello.len() {
         return None;
     }
