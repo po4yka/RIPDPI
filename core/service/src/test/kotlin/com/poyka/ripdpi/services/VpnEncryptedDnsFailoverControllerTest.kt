@@ -511,7 +511,7 @@ class VpnEncryptedDnsFailoverControllerTest {
         }
 }
 
-class VpnEncryptedDnsProxyFailoverControllerTest {
+class VpnEncryptedDnsProxyFailoverTest {
     @Test
     fun `proxy peer errors do not change resolver or persist a blocked endpoint`() =
         runTest {
@@ -643,13 +643,13 @@ class VpnEncryptedDnsProxyFailoverControllerTest {
         }
 }
 
-private fun newEnv(): FailoverTestEnv {
+private fun newEnv(): EncryptedDnsFailoverTestEnv {
     val overrides = TestResolverOverrideStore()
     val preferredPaths = TestNetworkDnsPathPreferenceStore()
     val blockedPaths = TestNetworkDnsBlockedPathStore()
     val fingerprint = sampleFingerprint()
     val fingerprintProvider = TestNetworkFingerprintProvider(fingerprint)
-    return FailoverTestEnv(
+    return EncryptedDnsFailoverTestEnv(
         fingerprintProvider = fingerprintProvider,
         controller =
             VpnEncryptedDnsFailoverController(
@@ -697,7 +697,7 @@ private fun dnsTelemetry(
 )
 
 private suspend fun evaluateDns(
-    env: FailoverTestEnv,
+    env: EncryptedDnsFailoverTestEnv,
     currentDns: com.poyka.ripdpi.data.ActiveDnsSettings,
     signature: String,
     telemetry: NativeRuntimeSnapshot,
@@ -710,7 +710,7 @@ private suspend fun evaluateDns(
         telemetry = telemetry,
     )
 
-private data class FailoverTestEnv(
+private data class EncryptedDnsFailoverTestEnv(
     val controller: VpnEncryptedDnsFailoverController,
     val state: VpnEncryptedDnsFailoverState,
     val overrides: TestResolverOverrideStore,
