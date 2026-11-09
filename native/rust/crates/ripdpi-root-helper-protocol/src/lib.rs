@@ -30,7 +30,7 @@ pub use params::{
     Nfqws2Status, OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
     StartNfqws2Params,
 };
-pub use scm_rights::{recv_message, send_message};
+pub use scm_rights::{recv_message, recv_message_with_deadline, send_message};
 pub use wire::{
     CAPABILITY_VERSION, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES,
     PROTOCOL_VERSION, ProtocolVersionError, valid_session_nonce,

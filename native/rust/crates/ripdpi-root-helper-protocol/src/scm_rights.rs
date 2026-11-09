@@ -2,6 +2,7 @@ use std::io;
 use std::io::{IoSlice, IoSliceMut, Write};
 use std::os::fd::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::net::UnixStream;
+use std::time::Instant;
 
 use nix::sys::socket::{self, ControlMessage, ControlMessageOwned, MsgFlags};
 
@@ -70,10 +71,27 @@ pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>
 /// SCM_RIGHTS. Exact-size recvmsg loops preserve both stream frame boundaries
 /// and ancillary data across arbitrary kernel short reads.
 pub fn recv_message(stream: &UnixStream, eof_message: &'static str) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
-    let fd = stream.as_raw_fd();
+    recv_message_inner(stream, eof_message, None)
+}
+
+/// Read one frame before a total monotonic deadline, updating the socket's
+/// read timeout for each receive. Errors close every descriptor received so far.
+pub fn recv_message_with_deadline(
+    stream: &UnixStream,
+    eof_message: &'static str,
+    deadline: Instant,
+) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
+    recv_message_inner(stream, eof_message, Some(deadline))
+}
+
+fn recv_message_inner(
+    stream: &UnixStream,
+    eof_message: &'static str,
+    deadline: Option<Instant>,
+) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
     let mut received_fds = Vec::new();
     let mut header = [0u8; FRAME_HEADER_BYTES];
-    recv_exact_with_optional_fd(fd, &mut header, &mut received_fds, eof_message)?;
+    recv_exact_with_optional_fd(stream, &mut header, &mut received_fds, eof_message, deadline)?;
 
     let length = u32::from_be_bytes(header) as usize;
     if length > MAX_MESSAGE_BYTES {
@@ -84,16 +102,18 @@ pub fn recv_message(stream: &UnixStream, eof_message: &'static str) -> io::Resul
     }
 
     let mut payload = vec![0u8; length];
-    recv_exact_with_optional_fd(fd, &mut payload, &mut received_fds, eof_message)?;
+    recv_exact_with_optional_fd(stream, &mut payload, &mut received_fds, eof_message, deadline)?;
+    check_deadline(deadline)?;
     let received_fd = received_fds.pop();
     Ok((payload, received_fd))
 }
 
 fn recv_exact_with_optional_fd(
-    fd: RawFd,
+    stream: &UnixStream,
     buf: &mut [u8],
     received_fds: &mut Vec<OwnedFd>,
     eof_message: &'static str,
+    deadline: Option<Instant>,
 ) -> io::Result<()> {
     let mut offset = 0;
     while offset < buf.len() {
@@ -101,9 +121,17 @@ fn recv_exact_with_optional_fd(
         let (bytes, mut chunk_fds) = {
             let mut iov = [IoSliceMut::new(&mut buf[offset..])];
             let msg = loop {
-                match socket::recvmsg::<()>(fd, &mut iov, Some(&mut cmsg_buf), recv_flags()) {
+                if let Some(deadline) = deadline {
+                    let remaining = deadline
+                        .checked_duration_since(Instant::now())
+                        .filter(|remaining| !remaining.is_zero())
+                        .ok_or_else(deadline_expired)?;
+                    stream.set_read_timeout(Some(remaining))?;
+                }
+                match socket::recvmsg::<()>(stream.as_raw_fd(), &mut iov, Some(&mut cmsg_buf), recv_flags()) {
                     Ok(msg) => break msg,
                     Err(nix::errno::Errno::EINTR) => continue,
+                    Err(nix::errno::Errno::EAGAIN) if deadline.is_some() => return Err(deadline_expired()),
                     Err(error) => return Err(io::Error::from(error)),
                 }
             };
@@ -119,6 +147,7 @@ fn recv_exact_with_optional_fd(
             (msg.bytes, extract_scm_rights_fds(&msg)?)
         };
         received_fds.append(&mut chunk_fds);
+        check_deadline(deadline)?;
         if bytes == 0 {
             return Err(io::Error::new(io::ErrorKind::UnexpectedEof, eof_message));
         }
@@ -128,6 +157,17 @@ fn recv_exact_with_optional_fd(
         offset += bytes;
     }
     Ok(())
+}
+
+fn check_deadline(deadline: Option<Instant>) -> io::Result<()> {
+    if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+        return Err(deadline_expired());
+    }
+    Ok(())
+}
+
+fn deadline_expired() -> io::Error {
+    io::Error::new(io::ErrorKind::TimedOut, "root-helper frame deadline expired")
 }
 
 fn extract_scm_rights_fds(msg: &socket::RecvMsg<'_, '_, ()>) -> io::Result<Vec<OwnedFd>> {

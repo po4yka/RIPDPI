@@ -7,7 +7,7 @@ use nix::errno::Errno;
 use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr, connect, socket};
 
 use ripdpi_root_helper_protocol::{
-    CMD_PROTOCOL_PREFLIGHT, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
+    CMD_PROTOCOL_PREFLIGHT, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message_with_deadline, send_message,
     valid_session_nonce, validate_request,
 };
 
@@ -22,6 +22,9 @@ const CONNECT_RETRY_INTERVAL: Duration = Duration::from_millis(5);
 /// queue of other flows' commands. A timeout does not mark the helper as down.
 const PREFLIGHT_READ_TIMEOUT: Duration = Duration::from_secs(2);
 const COMMAND_READ_TIMEOUT: Duration = Duration::from_secs(30);
+
+#[cfg(test)]
+mod deadline_tests;
 
 pub(super) struct ClientTransport {
     socket_path: String,
@@ -98,7 +101,8 @@ impl ClientTransport {
             })
             .map_err(not_delivered)?;
 
-        let (resp_bytes, reply_fd) = recv_message(&stream, "helper closed connection")?;
+        let (resp_bytes, reply_fd) =
+            recv_message_with_deadline(&stream, "helper closed connection", Instant::now() + read_timeout)?;
 
         let response: HelperResponse = serde_json::from_slice(&resp_bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid response: {e}")))?;
