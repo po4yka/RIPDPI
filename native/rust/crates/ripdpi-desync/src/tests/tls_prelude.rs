@@ -14,20 +14,21 @@ fn tls_record_lengths(buffer: &[u8]) -> Vec<usize> {
 
 #[test]
 fn tlsrandrec_profiles_adjust_fragment_lengths() {
-    let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+    let fake = complete_fake_tls();
+    let payload_len = fake.as_slice().len() - 5;
     let marker = (payload_len - 96) as i64;
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
 
-    let balanced = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("balanced");
-    let mut tight_context = tcp_context(DEFAULT_FAKE_TLS);
+    let balanced = apply_tamper(&group, fake.as_slice(), 7).expect("balanced");
+    let mut tight_context = tcp_context(fake.as_slice());
     tight_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Tight);
     let tight =
-        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, tight_context).expect("tight");
-    let mut wide_context = tcp_context(DEFAULT_FAKE_TLS);
+        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, fake.as_slice(), 7, tight_context).expect("tight");
+    let mut wide_context = tcp_context(fake.as_slice());
     wide_context.adaptive.tlsrandrec_profile = Some(AdaptiveTlsRandRecProfile::Wide);
     let wide =
-        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, DEFAULT_FAKE_TLS, 7, wide_context).expect("wide");
+        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, fake.as_slice(), 7, wide_context).expect("wide");
 
     let balanced_lengths = tls_record_lengths(&balanced.bytes);
     let tight_lengths = tls_record_lengths(&tight.bytes);
@@ -79,28 +80,30 @@ fn apply_tamper_tlsrandrec_is_noop_when_layout_is_impossible() {
 
 #[test]
 fn apply_tamper_tlsrandrec_rewrites_clienthello_into_expected_record_lengths() {
-    let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+    let fake = complete_fake_tls();
+    let payload_len = fake.as_slice().len() - 5;
     let marker = (payload_len - 96) as i64;
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![tlsrandrec_step(marker, 3, 32, 32)];
 
-    let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper tlsrandrec");
+    let tampered = apply_tamper(&group, fake.as_slice(), 7).expect("tamper tlsrandrec");
 
     assert_eq!(tls_record_lengths(&tampered.bytes), vec![payload_len - 96, 32, 32, 32]);
-    assert_eq!(tampered.bytes[0], DEFAULT_FAKE_TLS[0]);
-    assert_eq!(tampered.bytes[1], DEFAULT_FAKE_TLS[1]);
-    assert_eq!(tampered.bytes[2], DEFAULT_FAKE_TLS[2]);
+    assert_eq!(tampered.bytes[0], fake.as_slice()[0]);
+    assert_eq!(tampered.bytes[1], fake.as_slice()[1]);
+    assert_eq!(tampered.bytes[2], fake.as_slice()[2]);
 }
 
 #[test]
 fn apply_tamper_tlsrandrec_seed_changes_randomized_layout() {
-    let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+    let fake = complete_fake_tls();
+    let payload_len = fake.as_slice().len() - 5;
     let marker = (payload_len - 96) as i64;
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![tlsrandrec_step(marker, 3, 24, 40)];
 
-    let seed_a = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("seed a");
-    let seed_b = apply_tamper(&group, DEFAULT_FAKE_TLS, 8).expect("seed b");
+    let seed_a = apply_tamper(&group, fake.as_slice(), 7).expect("seed a");
+    let seed_b = apply_tamper(&group, fake.as_slice(), 8).expect("seed b");
 
     assert_ne!(seed_a.bytes, seed_b.bytes);
 }
@@ -148,4 +151,18 @@ fn apply_tamper_tlsrec_keeps_bytes_after_the_client_hello_record() {
     assert_eq!(tampered.tls_prelude.applied_count, 1);
     assert_eq!(tampered.bytes.len(), input.len() + 5, "one extra record header, nothing dropped");
     assert!(tampered.bytes.ends_with(&change_cipher_spec), "trailing record must survive the prelude");
+}
+
+#[test]
+fn apply_tamper_tlsrec_is_noop_on_incomplete_record() {
+    let fake = complete_fake_tls();
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::SniExt, 0))];
+    let truncated = &fake.as_slice()[..fake.as_slice().len() - 40];
+
+    let tampered = apply_tamper(&group, truncated, 7).expect("tamper truncated");
+
+    assert_eq!(tampered.bytes, truncated);
+    assert_eq!(tampered.tls_prelude.applied_count, 0);
 }

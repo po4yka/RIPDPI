@@ -679,6 +679,7 @@ fn plan_tcp_disoob_combines_ttl_and_urgent() {
 
 #[test]
 fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
+    let fake = complete_fake_tls();
     let mut group = DesyncGroup::new(0);
     group.actions.fake_data = Some(b"FAKEPAYLOAD".to_vec());
     group.actions.tlsminor = Some(1);
@@ -688,7 +689,7 @@ fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
         TcpChainStep::new(TcpChainStepKind::Split, split_expr(7)),
     ];
 
-    let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 9, 32, tcp_context(DEFAULT_FAKE_TLS)).expect("plan chained tcp");
+    let plan = plan_tcp(&group, fake.as_slice(), 9, 32, tcp_context(fake.as_slice())).expect("plan chained tcp");
 
     assert_eq!(
         plan.steps,
@@ -698,7 +699,7 @@ fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
         ]
     );
     assert_eq!(plan.tampered[2], 1);
-    assert!(plan.tampered.len() > DEFAULT_FAKE_TLS.len());
+    assert!(plan.tampered.len() > fake.as_slice().len());
 }
 
 #[test]
@@ -1029,7 +1030,8 @@ fn plan_tcp_rejects_tlsrec_after_send_step() {
 
 #[test]
 fn plan_tcp_supports_mixed_tls_preludes_before_send_steps() {
-    let payload_len = DEFAULT_FAKE_TLS.len() - 5;
+    let fake = complete_fake_tls();
+    let payload_len = fake.as_slice().len() - 5;
     let marker = (payload_len - 96) as i64;
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![
@@ -1038,7 +1040,7 @@ fn plan_tcp_supports_mixed_tls_preludes_before_send_steps() {
         TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
     ];
 
-    let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS)).expect("mixed tls preludes");
+    let plan = plan_tcp(&group, fake.as_slice(), 7, 64, tcp_context(fake.as_slice())).expect("mixed tls preludes");
 
     assert_eq!(
         plan.steps,

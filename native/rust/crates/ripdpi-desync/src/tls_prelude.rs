@@ -21,6 +21,12 @@ struct TlsPreludeState {
 
 impl TlsPreludeState {
     fn from_record(buffer: &[u8]) -> Option<Self> {
+        // A first record whose body is still in flight must not be re-framed:
+        // the rewritten length would no longer match the bytes that follow.
+        let declared = usize::from(u16::from_be_bytes([*buffer.get(3)?, *buffer.get(4)?]));
+        if buffer.len() < 5 + declared {
+            return None;
+        }
         let ir = normalize_tls_client_hello(buffer)?;
         let header = [*buffer.first()?, *buffer.get(1)?, *buffer.get(2)?];
         let mut payload = Vec::new();

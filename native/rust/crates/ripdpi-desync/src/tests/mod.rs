@@ -34,6 +34,15 @@ pub(super) fn split_expr(pos: i64) -> OffsetExpr {
     OffsetExpr::absolute(pos).with_repeat_skip(1, 0)
 }
 
+/// `DEFAULT_FAKE_TLS` declares a longer first record than it carries; this
+/// copy declares the record length it actually holds.
+pub(super) fn complete_fake_tls() -> Vec<u8> {
+    let mut fake = DEFAULT_FAKE_TLS.to_vec();
+    let record_len = (fake.len() - 5) as u16;
+    fake[3..5].copy_from_slice(&record_len.to_be_bytes());
+    fake
+}
+
 pub(super) fn tcp_context(payload: &[u8]) -> ActivationContext {
     ActivationContext {
         round: 1,
