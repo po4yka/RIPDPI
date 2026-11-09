@@ -55,6 +55,11 @@ impl Config {
         } else {
             format!("{host}:{port}")
         };
+        let server_name = if server_name.trim().is_empty() {
+            host.strip_prefix('[').and_then(|rest| rest.strip_suffix(']')).unwrap_or(host).to_string()
+        } else {
+            server_name
+        };
         Ok(Self {
             auth,
             server_addr,
@@ -83,6 +88,16 @@ impl Config {
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn blank_server_name_defaults_to_unbracketed_host() {
+        let named =
+            |host: &str, name: &str| Config::from_parts("a".into(), host, 443, name.into()).unwrap().server_name;
+        assert_eq!(named(" example.com ", "  "), "example.com");
+        assert_eq!(named("[2001:db8::1]", ""), "2001:db8::1");
+        assert_eq!(named("2001:db8::1", ""), "2001:db8::1");
+        assert_eq!(named("example.com", "cover.example"), "cover.example");
+    }
 
     #[test]
     fn remote_hopping_uri_accepts_multiple_server_ports() {
