@@ -21,6 +21,8 @@ const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
 /// u32 has 4 billion values so exhaustion is not a practical concern, but we still check
 /// for wrap collisions to remain correct under adversarial or stress conditions.
 const MAX_SESSION_ID_SCAN_ATTEMPTS: u32 = 1024;
+/// Longest address the reference server accepts (`MaxAddressLength`).
+const MAX_ADDRESS_LENGTH: usize = 2048;
 
 pub struct UdpSession {
     client: Arc<ClientInner>,
@@ -303,6 +305,15 @@ fn evict_oldest_partial(partials: &mut HashMap<ReassemblyKey, PartialPacket>) {
 }
 
 async fn send_udp_payload(client: &ClientInner, session_id: u32, address: &str, payload: &[u8]) -> Result<()> {
+    if address.is_empty() || address.len() > MAX_ADDRESS_LENGTH {
+        return Err(HysteriaError::InvalidDatagram(format!(
+            "Hysteria UDP address must be 1..={MAX_ADDRESS_LENGTH} bytes, got {}",
+            address.len()
+        )));
+    }
+    if payload.is_empty() {
+        return Err(HysteriaError::InvalidDatagram("Hysteria UDP payload is empty".to_string()));
+    }
     let max_datagram_size = client.connection.max_datagram_size().ok_or(HysteriaError::UdpNotSupported)?;
     let address_len = encode_varint(address.len() as u64);
     let header_len = 4 + 2 + 1 + 1 + address_len.len() + address.len();
@@ -476,6 +487,21 @@ mod tests {
         }
         assert_ne!(ids[0], 0);
         assert!(ids.iter().all(|id| *id == ids[0]), "fragments must share one PacketID: {ids:?}");
+    }
+
+    #[tokio::test]
+    async fn send_rejects_bad_address_and_empty_payload_before_sending() {
+        let mut server = TestServer::start(ServerOptions::default()).expect("start test server");
+        let client = crate::connect(&server.client_config()).await.expect("connect");
+        let session = client.udp_session().await.expect("UDP session");
+        let long_address = "a".repeat(MAX_ADDRESS_LENGTH + 1);
+
+        for (address, payload) in [("", &b"x"[..]), (long_address.as_str(), b"x"), ("192.0.2.1:53", b"")] {
+            let error = session.send_to(address, payload).await.expect_err("invalid datagram");
+            assert!(matches!(error, HysteriaError::InvalidDatagram(_)), "unexpected error: {error}");
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(server.events.try_recv().is_err(), "nothing may reach the server");
     }
 
     #[tokio::test]
