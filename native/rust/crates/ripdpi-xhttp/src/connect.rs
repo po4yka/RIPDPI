@@ -88,6 +88,10 @@ pub(crate) async fn create_connection(
                 }
                 io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
             })?;
+            if config.ech_config.is_some() && !tls.ssl().ech_accepted() {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "xHTTP ECH was not accepted"));
+            }
+
             if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "xHTTP TLS peer did not negotiate h2"));
             }

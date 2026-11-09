@@ -588,6 +588,31 @@ mod tests {
         assert!(extract_boring_ech_rejection(&failed).is_none());
     }
 
+    #[test]
+    fn boring_unusable_real_ech_never_sends_inner_name() {
+        let mut unsupported_kem = BORING_ECH_CONFIG_LIST.to_vec();
+        unsupported_kem[7..9].copy_from_slice(&0xffff_u16.to_be_bytes());
+        let unsupported_version = vec![0, 4, 0xfa, 0xfa, 0, 0];
+        let mut mandatory_extension = BORING_ECH_CONFIG_LIST.to_vec();
+        mandatory_extension[0..2].copy_from_slice(&66_u16.to_be_bytes());
+        mandatory_extension[4..6].copy_from_slice(&62_u16.to_be_bytes());
+        mandatory_extension[62..64].copy_from_slice(&4_u16.to_be_bytes());
+        mandatory_extension.extend_from_slice(&[0x80, 1, 0, 0]);
+        for config_list in [unsupported_kem, unsupported_version, mandatory_extension] {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+            let addr = listener.local_addr().expect("address");
+            let server = thread::spawn(move || {
+                let (mut socket, _) = listener.accept().expect("accept");
+                socket.set_read_timeout(Some(Duration::from_secs(5))).expect("timeout");
+                let mut bytes = [0u8; 8192];
+                socket.read(&mut bytes).expect("read first flight")
+            });
+            let setup = EchSetup::Real(OutboundEchConfig::new("ech.com", config_list).expect("framing"));
+            assert!(connect_boring_ech(addr, setup).is_err());
+            assert_eq!(server.join().expect("join"), 0, "unusable Real ECH must fail before a ClientHello");
+        }
+    }
+
     fn capture_client_hello_with_ech_setup(setup: EchSetup) -> Vec<u8> {
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");
         let addr = listener.local_addr().expect("listener addr");

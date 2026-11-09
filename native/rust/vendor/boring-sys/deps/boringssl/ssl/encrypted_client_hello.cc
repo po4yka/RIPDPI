@@ -924,7 +924,12 @@ int SSL_set1_ech_config_list(SSL *ssl, const uint8_t *ech_config_list,
     OPENSSL_PUT_ERROR(SSL, SSL_R_INVALID_ECH_CONFIG_LIST);
     return 0;
   }
-  return ssl_impl->config->client_ech_config_list.CopyFrom(span);
+  if (!ssl_impl->config->client_ech_config_list.CopyFrom(span)) {
+    return 0;
+  }
+  // RIPDPI treats a configured list as Real ECH, never an implicit opt-out.
+  ssl_impl->config->reject_unusable_ech_config = true;
+  return 1;
 }
 
 void SSL_get0_ech_name_override(const SSL *ssl, const char **out_name,

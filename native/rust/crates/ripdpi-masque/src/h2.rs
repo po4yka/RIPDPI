@@ -157,6 +157,10 @@ where
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake failed: {error}"))
     })?;
 
+    if config.ech_config.is_some() && !tls.ssl().ech_accepted() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 ECH was not accepted").into());
+    }
+
     if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 peer did not negotiate h2").into());
     }
@@ -227,6 +231,10 @@ pub(crate) async fn attempt_h2_connect_udp(
         }
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("H2 TLS handshake failed: {error}"))
     })?;
+
+    if config.ech_config.is_some() && !tls.ssl().ech_accepted() {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 ECH was not accepted").into());
+    }
 
     if tls.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "MASQUE H2 peer did not negotiate h2").into());

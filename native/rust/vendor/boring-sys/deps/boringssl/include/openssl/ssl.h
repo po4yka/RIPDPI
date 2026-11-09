@@ -4724,8 +4724,9 @@ OPENSSL_EXPORT void SSL_set_reject_unusable_ech_config(SSL *ssl, int enable);
 // ECHConfigList structure. It returns one on success and zero on error.
 //
 // This function returns an error if the input is malformed. If the input is
-// valid but none of the ECHConfigs implement supported parameters, it will
-// return success and proceed without ECH.
+// valid but none of the ECHConfigs implement supported parameters, the setter
+// succeeds but the handshake fails before sending a ClientHello. RIPDPI enables
+// reject_unusable_ech_config when a list is set to preserve Real ECH intent.
 //
 // If a supported ECHConfig is found, `ssl` will encrypt the true ClientHello
 // parameters. If the server cannot decrypt it, e.g. due to a key mismatch, ECH

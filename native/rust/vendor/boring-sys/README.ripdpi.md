@@ -47,3 +47,9 @@ It keeps retry data private on TLS alerts or certificate failures, instead of
 aborting or returning a malformed placeholder. The corresponding `ssl.h` API
 comment records this local safe optional-accessor contract. Absence of retry
 data never authorizes a cleartext fallback.
+
+`deps/boringssl/ssl/encrypted_client_hello.cc` treats a supplied ECHConfigList
+as required Real ECH. After the setter stores a valid list, it enables
+`reject_unusable_ech_config`; an unsupported-only list fails before the first
+ClientHello instead of exposing the inner server name. GREASE without a list
+keeps upstream behavior.
