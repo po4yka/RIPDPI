@@ -104,6 +104,7 @@ fn try_bind_low_port(socket: &Socket, bind_ip: std::net::IpAddr) -> io::Result<(
 
 pub(crate) fn build_tls_config(
     additional_roots: Option<Vec<CertificateDer<'static>>>,
+    alpn: &[String],
 ) -> io::Result<RustlsClientConfig> {
     ensure_crypto_provider();
     let mut roots = RootCertStore::empty();
@@ -118,7 +119,11 @@ pub(crate) fn build_tls_config(
         ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(RustlsClientConfig::builder(), roots)
             .map_err(io::Error::other)?
             .with_no_client_auth();
-    tls_config.alpn_protocols = vec![b"h3".to_vec()];
+    tls_config.alpn_protocols = if alpn.is_empty() {
+        vec![b"h3".to_vec()]
+    } else {
+        alpn.iter().map(|entry| entry.as_bytes().to_vec()).collect()
+    };
     Ok(tls_config)
 }
 
@@ -145,6 +150,9 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     }
     if config.server.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC server"));
+    }
+    if config.alpn.iter().any(|entry| entry.is_empty() || entry.len() > usize::from(u8::MAX)) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "TUIC ALPN entries must be 1-255 bytes"));
     }
     if config.server_port <= 0 || config.server_port > i32::from(u16::MAX) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid TUIC server port"));

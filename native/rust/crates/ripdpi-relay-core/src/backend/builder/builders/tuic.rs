@@ -41,6 +41,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
                 // quiet flow.
                 keepalive_interval_ms: 0,
                 root_certificate_pem: root_certificate_pem(tuic),
+                alpn: tuic.alpn.clone(),
             },
             migration: context.quic_migration.clone(),
         },
@@ -82,6 +83,7 @@ mod tests {
                 zero_rtt: false,
                 congestion_control: "bbr".to_string(),
                 root_certificate_pem: None,
+                alpn: Vec::new(),
             }),
         }
     }

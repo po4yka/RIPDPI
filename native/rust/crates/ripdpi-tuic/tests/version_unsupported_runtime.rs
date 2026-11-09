@@ -29,6 +29,7 @@ fn config(port: u16, root_certificate_pem: Option<String>) -> Config {
         outbound_bind_ip: None,
         keepalive_interval_ms: 0,
         root_certificate_pem,
+        alpn: Vec::new(),
     }
 }
 

@@ -39,6 +39,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 zero_rtt: flat.tuic_zero_rtt,
                 congestion_control: flat.tuic_congestion_control,
                 root_certificate_pem: flat.tuic_root_certificate_pem,
+                alpn: flat.tuic_alpn,
             }),
             "vless" => RelayBackendConfig::Vless(VlessRelayConfig {
                 vless_flow: vless_flow.clone(),
@@ -222,6 +223,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             tuic_zero_rtt: false,
             tuic_congestion_control: String::new(),
             tuic_root_certificate_pem: None,
+            tuic_alpn: Vec::new(),
             shadow_tls_inner_profile_id: String::new(),
             shadow_tls_inner: None,
             trojan_root_certificate_pem: None,
@@ -302,6 +304,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.tuic_zero_rtt = config.zero_rtt;
                 flat.tuic_congestion_control = config.congestion_control.clone();
                 flat.tuic_root_certificate_pem = config.root_certificate_pem.clone();
+                flat.tuic_alpn = config.alpn.clone();
             }
             RelayBackendConfig::Vless(config) => {
                 flat.vless_flow = config.vless_flow.clone();

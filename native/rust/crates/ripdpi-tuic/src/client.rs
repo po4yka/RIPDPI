@@ -51,7 +51,7 @@ impl TuicClient {
     pub async fn connect(config: Config) -> io::Result<Self> {
         validate_config(&config)?;
         let additional_roots = additional_roots_from_pem(config.root_certificate_pem.as_deref())?;
-        let tls_config = build_tls_config(additional_roots)?;
+        let tls_config = build_tls_config(additional_roots, &config.alpn)?;
         Self::connect_with_tls(config, tls_config).await
     }
 

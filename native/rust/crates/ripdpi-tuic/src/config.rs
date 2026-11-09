@@ -47,6 +47,10 @@ pub struct Config {
     /// deserializable.
     #[serde(default)]
     pub root_certificate_pem: Option<String>,
+    /// ALPN protocols offered in the TLS handshake. Empty means `["h3"]`, the
+    /// default for TUIC v5 servers.
+    #[serde(default)]
+    pub alpn: Vec<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -66,6 +70,7 @@ impl std::fmt::Debug for Config {
             .field("outbound_bind_ip", &self.outbound_bind_ip)
             .field("keepalive_interval_ms", &self.keepalive_interval_ms)
             .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<pinned>"))
+            .field("alpn", &self.alpn)
             .finish()
     }
 }
@@ -90,6 +95,7 @@ mod tests {
             outbound_bind_ip: None,
             keepalive_interval_ms: 15_000,
             root_certificate_pem: None,
+            alpn: Vec::new(),
         }
     }
 

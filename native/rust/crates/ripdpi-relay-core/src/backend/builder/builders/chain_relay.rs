@@ -414,6 +414,7 @@ fn resolved_hop_tuic_factory(
                 .map(str::trim)
                 .filter(|pem| !pem.is_empty())
                 .map(str::to_owned),
+            alpn: hop.tuic_alpn.clone(),
         },
         migration: quic_migration,
     })
@@ -481,7 +482,7 @@ mod credential_tests {
         let wire = serde_json::json!({
             "kind": "tuic_v5", "server": "peer.example", "serverPort": 443,
             "serverName": "peer.example", "tlsFingerprintProfile": "chrome_stable", "tuicUuid": "00000000-0000-0000-0000-000000000000",
-            "tuicPassword": "fixture-pass", "tuicRootCertificatePem": "pem-body"
+            "tuicPassword": "fixture-pass", "tuicRootCertificatePem": "pem-body", "tuicAlpn": ["tuic"]
         });
         let hop: ResolvedChainRelayHopConfig = serde_json::from_value(wire).expect("chain wire");
         let factory = resolved_hop_tuic_factory(
@@ -493,6 +494,7 @@ mod credential_tests {
         )
         .expect("chain factory");
         assert_eq!(factory.config.root_certificate_pem.as_deref(), Some("pem-body"));
+        assert_eq!(factory.config.alpn, ["tuic"]);
     }
 
     #[test]

@@ -33,6 +33,7 @@ fn unsupported_congestion_control_fails_before_connect() {
         outbound_bind_ip: None,
         keepalive_interval_ms: 0,
         root_certificate_pem: None,
+        alpn: Vec::new(),
     };
     let error = crate::endpoint::validate_config(&config).expect_err("unknown mode must be rejected");
     assert_eq!(std::io::ErrorKind::InvalidInput, error.kind());
@@ -59,6 +60,7 @@ async fn unsupported_zero_rtt_fails_before_network_activity() {
         outbound_bind_ip: None,
         keepalive_interval_ms: 0,
         root_certificate_pem: None,
+        alpn: Vec::new(),
     };
     let result = tokio::time::timeout(Duration::from_secs(1), TuicClient::connect(config))
         .await
@@ -235,7 +237,7 @@ async fn tuic_client_relays_tcp_and_udp() {
             udp.expect("UDP server task");
         });
 
-        let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
+        let tls_config = build_tls_config(Some(vec![cert_der]), &[]).expect("tls config");
         let client = TuicClient::connect_with_tls(
             Config {
                 server: server_addr.ip().to_string(),
@@ -252,6 +254,7 @@ async fn tuic_client_relays_tcp_and_udp() {
                 outbound_bind_ip: None,
                 keepalive_interval_ms: 0,
                 root_certificate_pem: None,
+                alpn: Vec::new(),
             },
             tls_config,
         )
@@ -330,7 +333,7 @@ async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
         assert_eq!(heartbeat.as_ref(), [TUIC_VERSION, 0x04]);
     });
 
-    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
+    let tls_config = build_tls_config(Some(vec![cert_der]), &[]).expect("tls config");
     let client = TuicClient::connect_with_tls(
         Config {
             server: server_addr.ip().to_string(),
@@ -347,6 +350,7 @@ async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
             outbound_bind_ip: None,
             keepalive_interval_ms: 0,
             root_certificate_pem: None,
+            alpn: Vec::new(),
         },
         tls_config,
     )
@@ -362,6 +366,10 @@ async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
 
 /// A loopback QUIC server that offers `h3`, and its self-signed certificate.
 fn fixture_server() -> (Endpoint, rustls::pki_types::CertificateDer<'static>) {
+    fixture_server_with_alpn(b"h3")
+}
+
+fn fixture_server_with_alpn(alpn: &[u8]) -> (Endpoint, rustls::pki_types::CertificateDer<'static>) {
     ensure_crypto_provider();
     let certificate = generate_simple_self_signed(vec!["localhost".to_owned()]).expect("certificate");
     let cert_der = certificate.cert.der().clone();
@@ -370,7 +378,7 @@ fn fixture_server() -> (Endpoint, rustls::pki_types::CertificateDer<'static>) {
         .with_no_client_auth()
         .with_single_cert(vec![cert_der.clone()], key_der)
         .expect("server cert");
-    server_tls.alpn_protocols = vec![b"h3".to_vec()];
+    server_tls.alpn_protocols = vec![alpn.to_vec()];
     let server_config = quinn::ServerConfig::with_crypto(Arc::new(
         quinn::crypto::rustls::QuicServerConfig::try_from(server_tls).expect("quic server config"),
     ));
@@ -386,7 +394,7 @@ async fn fixture_client(
     cert_der: rustls::pki_types::CertificateDer<'static>,
     migrate: bool,
 ) -> TuicClient {
-    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
+    let tls_config = build_tls_config(Some(vec![cert_der]), &[]).expect("tls config");
     TuicClient::connect_with_tls(
         Config {
             server: server_addr.ip().to_string(),
@@ -403,6 +411,7 @@ async fn fixture_client(
             outbound_bind_ip: None,
             keepalive_interval_ms: 0,
             root_certificate_pem: None,
+            alpn: Vec::new(),
         },
         tls_config,
     )
@@ -587,3 +596,69 @@ async fn silent_path_stops_migration_after_repeated_reverts() {
 }
 
 mod relay_tests;
+
+fn alpn_test_config(server_addr: SocketAddr, alpn: &[&str]) -> Config {
+    Config {
+        server: server_addr.ip().to_string(),
+        server_port: i32::from(server_addr.port()),
+        server_name: "localhost".to_owned(),
+        uuid: "00000000-0000-0000-0000-000000000000".to_owned(),
+        password: "tuic-fixture".to_owned(),
+        zero_rtt: false,
+        congestion_control: "bbr".to_owned(),
+        udp_enabled: false,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        outbound_bind_ip: None,
+        keepalive_interval_ms: 0,
+        root_certificate_pem: None,
+        alpn: alpn.iter().map(|entry| (*entry).to_owned()).collect(),
+    }
+}
+
+#[tokio::test]
+async fn configured_alpn_connects_to_a_server_that_requires_it() {
+    let (server, cert_der) = fixture_server_with_alpn(b"tuic");
+    let server_addr = server.local_addr().expect("server addr");
+    let server_task = tokio::spawn(async move {
+        let incoming = server.accept().await.expect("incoming");
+        let connection = incoming.await.expect("handshake with matching alpn");
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        drop(connection);
+    });
+
+    let config = alpn_test_config(server_addr, &["tuic"]);
+    let tls_config = build_tls_config(Some(vec![cert_der]), &config.alpn).expect("tls config");
+    let client = TuicClient::connect_with_tls(config, tls_config).await.expect("client connects with alpn tuic");
+    drop(client);
+    server_task.await.expect("server task");
+}
+
+#[tokio::test]
+async fn default_alpn_fails_against_a_server_that_requires_tuic() {
+    let (server, cert_der) = fixture_server_with_alpn(b"tuic");
+    let server_addr = server.local_addr().expect("server addr");
+    let server_task = tokio::spawn(async move {
+        if let Some(incoming) = server.accept().await {
+            assert!(incoming.await.is_err(), "h3-only client must fail the TLS handshake");
+        }
+    });
+
+    let config = alpn_test_config(server_addr, &[]);
+    let tls_config = build_tls_config(Some(vec![cert_der]), &config.alpn).expect("tls config");
+    assert!(TuicClient::connect_with_tls(config, tls_config).await.is_err());
+    server_task.await.expect("server task");
+}
+
+#[test]
+fn validate_config_rejects_empty_and_oversized_alpn_entries() {
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
+    assert!(crate::endpoint::validate_config(&alpn_test_config(addr, &["tuic", "h3"])).is_ok());
+    for bad in [String::new(), "a".repeat(256)] {
+        let mut config = alpn_test_config(addr, &[]);
+        config.alpn = vec![bad];
+        let error = crate::endpoint::validate_config(&config).expect_err("invalid alpn");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    }
+}

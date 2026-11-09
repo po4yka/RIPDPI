@@ -179,6 +179,8 @@ pub struct ResolvedChainRelayHopConfig {
     pub shadow_tls_inner: Option<ResolvedShadowTlsInnerRelayConfig>,
     #[serde(default)]
     pub tuic_root_certificate_pem: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tuic_alpn: Vec<String>,
     #[serde(default)]
     pub trojan_root_certificate_pem: Option<String>,
     #[serde(default)]
@@ -257,6 +259,7 @@ impl_redacted_debug!(ResolvedChainRelayHopConfig {
     masque_cloudflare_geohash_enabled,
     tuic_zero_rtt,
     tuic_congestion_control,
+    tuic_alpn,
     shadow_tls_inner_profile_id,
     shadow_tls_inner,
     shadowsocks_method,
@@ -292,6 +295,7 @@ impl Default for ResolvedChainRelayHopConfig {
             shadow_tls_inner_profile_id: String::new(),
             shadow_tls_inner: None,
             tuic_root_certificate_pem: None,
+            tuic_alpn: Vec::new(),
             trojan_root_certificate_pem: None,
             anytls_root_certificate_pem: None,
             naive_path: String::new(),

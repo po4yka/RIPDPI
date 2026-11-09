@@ -18,6 +18,7 @@ fn base_config(server_addr: SocketAddr) -> Config {
         outbound_bind_ip: None,
         keepalive_interval_ms: 0,
         root_certificate_pem: None,
+        alpn: Vec::new(),
     }
 }
 
@@ -109,7 +110,7 @@ async fn invalid_uuid_fails_before_any_handshake() {
     let (server, cert_der) = fixture_server();
     let server_addr = server.local_addr().expect("server addr");
     let config = Config { uuid: "not-a-uuid".to_owned(), ..base_config(server_addr) };
-    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
+    let tls_config = build_tls_config(Some(vec![cert_der]), &[]).expect("tls config");
     let Err(error) = TuicClient::connect_with_tls(config, tls_config).await else {
         panic!("an invalid UUID must be rejected");
     };
@@ -187,7 +188,7 @@ async fn connect_falls_back_to_the_next_address_when_the_first_is_silent() {
         let connection = server.accept().await.expect("incoming").await.expect("connection");
         connection.closed().await;
     });
-    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
+    let tls_config = build_tls_config(Some(vec![cert_der]), &[]).expect("tls config");
     let started = Instant::now();
     let client = TuicClient::connect_with_addrs(base_config(server_addr), tls_config, &[silent_addr, server_addr])
         .await
