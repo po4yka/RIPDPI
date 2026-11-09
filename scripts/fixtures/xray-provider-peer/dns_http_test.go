@@ -189,7 +189,7 @@ func TestOwnedDNSHTTPSRoutesBothTransportsWithVerifiedCertificate(t *testing.T) 
 	}
 	roots := x509.NewCertPool()
 	roots.AddCert(certificate)
-	endpoint := fmt.Sprintf("https://127.0.0.1:%d/dns-query", p.manifest.DNSHTTPSPort)
+	endpoint := fmt.Sprintf("https://%s:%d/dns-query", serverName, p.manifest.DNSHTTPSPort)
 	for _, network := range []string{"tcp", "xhttp"} {
 		t.Run(network, func(t *testing.T) {
 			client := dnsHTTPRealityClient(t, p, network)
@@ -396,7 +396,7 @@ func configuredHTTPClient(t *testing.T, p *peer, network string, xmux, tlsSettin
 		}
 		ip := net.ParseIP(host).To4()
 		targetPort, err := strconv.Atoi(portText)
-		if (ip == nil && host != "quality-a.example.test" && host != "quality-b.example.test") || err != nil || targetPort < 1 || targetPort > 65535 {
+		if (ip == nil && host != serverName && host != "quality-a.example.test" && host != "quality-b.example.test") || err != nil || targetPort < 1 || targetPort > 65535 {
 			return nil, fmt.Errorf("routing fixture requires literal IPv4 or an owned quality origin")
 		}
 		conn, err := (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, "tcp4", fmt.Sprintf("127.0.0.1:%d", socksPort))

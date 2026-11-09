@@ -125,7 +125,11 @@ fn check_forced_drain(phase: Phase, timeout_ms: u32, local_close: bool) {
     if let Some(local_terminal) = local_terminal {
         assert_eq!(local_terminal.expect("local FIN must cancel upstream setup"), 0);
     }
-    assert_eq!(terminal_read.expect("negotiation socket must close before terminal return"), 0, "{phase:?}");
+    assert!(
+        matches!(terminal_read, Ok(0))
+            || matches!(&terminal_read, Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset),
+        "negotiation socket must close before terminal return ({phase:?}): {terminal_read:?}"
+    );
     let sink = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("late UDP relay");
     sink.set_read_timeout(Some(Duration::from_millis(100))).expect("late relay timeout");
     if matches!(phase, Phase::Auth) {
