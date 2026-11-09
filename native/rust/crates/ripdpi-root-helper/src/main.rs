@@ -406,7 +406,7 @@ extern "C" fn signal_handler(_sig: libc::c_int) {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::os::fd::AsRawFd;
+    use std::io::{Read, Write};
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     use std::os::unix::net::UnixStream;
     use std::sync::Mutex;
@@ -480,33 +480,35 @@ mod tests {
     #[test]
     fn send_response_closes_local_reply_fd_after_successful_transfer() {
         let (sender, receiver) = UnixStream::pair().expect("socket pair");
-        let (read_end, write_end) = nix::unistd::pipe().expect("pipe");
-        let local_reply_fd = read_end.as_raw_fd();
+        let (reply, mut peer) = UnixStream::pair().expect("descriptor lifetime oracle");
+        peer.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("peer timeout");
 
-        send_response(&sender, HelperResponse::success(serde_json::Value::Null), Some(read_end))
+        send_response(&sender, HelperResponse::success(serde_json::Value::Null), Some(reply.into()))
             .expect("send response");
 
-        assert!(crate::dispatch::test_support::fd_is_closed(local_reply_fd));
         let (_payload, received_fd) = recv_message(&receiver, "sender closed").expect("receive response");
-        let received_fd = received_fd.expect("received reply fd");
-        nix::unistd::write(&write_end, b"x").expect("write pipe byte");
+        let mut received = UnixStream::from(received_fd.expect("received reply fd"));
+        received.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("received timeout");
+        peer.write_all(b"x").expect("write socket byte");
         let mut byte = [0_u8; 1];
-        assert_eq!(nix::unistd::read(&received_fd, &mut byte).expect("read pipe byte"), 1);
+        received.read_exact(&mut byte).expect("transferred socket remains usable");
         assert_eq!(byte, [b'x']);
+        drop(received);
+        assert_eq!(peer.read(&mut byte).expect("local and received reply descriptors must close"), 0);
     }
 
     #[test]
     fn send_response_closes_local_reply_fd_when_send_fails() {
         let (sender, _receiver) = UnixStream::pair().expect("socket pair");
-        let (read_end, _write_end) = nix::unistd::pipe().expect("pipe");
-        let local_reply_fd = read_end.as_raw_fd();
+        let (reply, mut peer) = UnixStream::pair().expect("descriptor lifetime oracle");
+        peer.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("peer timeout");
         let oversized_response = HelperResponse::success(serde_json::Value::String("x".repeat(8192)));
 
         let error =
-            send_response(&sender, oversized_response, Some(read_end)).expect_err("oversized response must fail");
+            send_response(&sender, oversized_response, Some(reply.into())).expect_err("oversized response must fail");
 
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
-        assert!(crate::dispatch::test_support::fd_is_closed(local_reply_fd));
+        assert_eq!(peer.read(&mut [0_u8]).expect("failed response must close its reply descriptor"), 0);
     }
 
     #[test]

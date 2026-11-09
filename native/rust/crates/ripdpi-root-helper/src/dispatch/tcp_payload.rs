@@ -89,10 +89,14 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read;
+    use std::os::fd::IntoRawFd;
+    use std::os::unix::net::UnixStream;
+    use std::time::Duration;
+
     use ripdpi_root_helper_protocol::{CMD_SEND_FAKE_RST, HelperRequest, PROTOCOL_VERSION};
 
     use super::dispatch_send_fake_rst;
-    use crate::dispatch::test_support::{fd_is_closed, leak_owned_socket_fd};
 
     fn request_with_malformed_params() -> HelperRequest {
         // Non-null params (passes descriptor validation: params are "present")
@@ -112,14 +116,15 @@ mod tests {
     /// leaking a uid-0 socket descriptor per malformed request.
     #[test]
     fn decode_params_failure_closes_inbound_stream_fd() {
-        let fd = leak_owned_socket_fd();
-        assert!(!fd_is_closed(fd), "freshly minted fd must start open");
+        let (inbound, mut peer) = UnixStream::pair().expect("descriptor lifetime oracle");
+        peer.set_read_timeout(Some(Duration::from_secs(1))).expect("peer timeout");
+        let fd = inbound.into_raw_fd();
 
         let outcome = dispatch_send_fake_rst(&request_with_malformed_params(), Some(fd));
 
         assert!(!outcome.response.ok, "malformed params must produce an error response");
         assert!(outcome.reply_fd.is_none(), "no reply fd on a decode failure");
-        assert!(fd_is_closed(fd), "inbound fd must be closed (EBADF) after a decode failure — it leaked");
+        assert_eq!(peer.read(&mut [0_u8]).expect("inbound descriptor must close after decode failure"), 0);
     }
 
     #[cfg(any(target_os = "linux", target_os = "android"))]

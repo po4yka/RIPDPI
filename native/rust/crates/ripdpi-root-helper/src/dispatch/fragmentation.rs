@@ -57,20 +57,26 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read;
+    use std::net::UdpSocket;
+    use std::os::fd::IntoRawFd;
+    use std::os::unix::net::UnixStream;
+    use std::time::Duration;
+
     use ripdpi_root_helper_protocol::{
-        CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, HelperRequest, PROTOCOL_VERSION,
+        CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, HelperRequest, IpFragUdpParams, PROTOCOL_VERSION,
     };
 
     use super::{dispatch_send_ip_fragmented_tcp, dispatch_send_ip_fragmented_udp};
-    use crate::dispatch::test_support::{fd_is_closed, leak_owned_socket_fd};
 
     /// Regression: an fd-carrying fragmentation command whose params fail to
     /// decode must close the inbound SCM_RIGHTS fd exactly once. Before the
     /// RAII fix the `decode_params` error arm leaked `fd`.
     #[test]
     fn decode_params_failure_closes_inbound_fd() {
-        let fd = leak_owned_socket_fd();
-        assert!(!fd_is_closed(fd), "freshly minted fd must start open");
+        let (inbound, mut peer) = UnixStream::pair().expect("descriptor lifetime oracle");
+        peer.set_read_timeout(Some(Duration::from_secs(1))).expect("peer timeout");
+        let fd = inbound.into_raw_fd();
 
         // Non-null but wrong-shape params: passes descriptor validation,
         // fails `IpFragTcpParams` deserialization, never reaches the handler.
@@ -84,7 +90,7 @@ mod tests {
 
         assert!(!outcome.response.ok, "malformed params must produce an error response");
         assert!(outcome.reply_fd.is_none(), "no reply fd on a decode failure");
-        assert!(fd_is_closed(fd), "inbound fd must be closed (EBADF) after a decode failure — it leaked");
+        assert_eq!(peer.read(&mut [0_u8]).expect("inbound descriptor must close after decode failure"), 0);
     }
 
     /// Regression: the UDP fragmentation handler parses `target_addr` after
@@ -93,26 +99,40 @@ mod tests {
     /// before adoption, leaking the inbound socket descriptor.
     #[test]
     fn invalid_target_addr_closes_inbound_udp_fd() {
-        let fd = leak_owned_socket_fd();
-        assert!(!fd_is_closed(fd), "freshly minted fd must start open");
+        let inbound = UdpSocket::bind("127.0.0.1:0").expect("Internet UDP socket");
+        let address = inbound.local_addr().expect("exclusive socket address");
+        assert_eq!(
+            UdpSocket::bind(address).expect_err("live socket holds its port").kind(),
+            std::io::ErrorKind::AddrInUse
+        );
+        let fd = inbound.into_raw_fd();
 
         // Well-formed `IpFragUdpParams` (decode succeeds, handler runs) but a
         // `target_addr` that fails to parse as a SocketAddr — the leak site.
         let request = HelperRequest {
             protocol_version: Some(PROTOCOL_VERSION),
             command: CMD_SEND_IP_FRAGMENTED_UDP.to_string(),
-            params: serde_json::json!({
-                "target_addr": "definitely-not-a-socket-addr",
-                "payload": [1, 2, 3],
-                "split_offset": 1,
-                "default_ttl": 64,
-            }),
+            params: serde_json::to_value(IpFragUdpParams {
+                target_addr: "definitely-not-a-socket-addr".into(),
+                payload: vec![1, 2, 3],
+                split_offset: 1,
+                default_ttl: 64,
+                disorder: false,
+                ipv4_identification: None,
+                ipv6_hop_by_hop: false,
+                ipv6_dest_opt: false,
+                ipv6_dest_opt_fragmentable: false,
+                ipv6_routing: false,
+                ipv6_second_frag_next_override: None,
+            })
+            .expect("complete UDP params"),
             session_nonce: None,
         };
         let outcome = dispatch_send_ip_fragmented_udp(&request, Some(fd));
 
         assert!(!outcome.response.ok, "invalid target_addr must produce an error response");
         assert!(outcome.reply_fd.is_none(), "no reply fd on the parse-error path");
-        assert!(fd_is_closed(fd), "inbound fd must be closed (EBADF) after a target_addr parse failure — it leaked");
+        assert!(outcome.response.error.as_deref().is_some_and(|error| error.starts_with("invalid target_addr:")));
+        UdpSocket::bind(address).expect("closed inbound socket releases its exclusive port");
     }
 }
