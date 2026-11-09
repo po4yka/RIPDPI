@@ -585,24 +585,69 @@ pub fn read_http_body(request: &mut Vec<u8>) -> Vec<u8> {
     body
 }
 
-pub fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u8>, String> {
-    if request.len() < 12 {
-        return Err("short request".to_string());
+fn dns_question_end(request: &[u8]) -> Result<(usize, Option<u8>), String> {
+    if request.len() < 12 || request[4..6] != [0, 1] {
+        return Err("expected one DNS question".to_string());
     }
+    let mut cursor = 12;
+    loop {
+        let len = *request.get(cursor).ok_or("truncated DNS question")? as usize;
+        cursor += 1;
+        if len == 0 {
+            break;
+        }
+        if len > 63 {
+            return Err("invalid DNS question label".to_string());
+        }
+        cursor += len;
+        if cursor >= request.len() {
+            return Err("truncated DNS question".to_string());
+        }
+    }
+    let end = cursor + 4;
+    if end > request.len() {
+        return Err("truncated DNS question".to_string());
+    }
+    let has_opt = match &request[10..12] {
+        [0, 0] => None,
+        [0, 1] => {
+            let opt = request.get(end..).ok_or("missing OPT record")?;
+            if opt.len() < 11 || opt[..3] != [0, 0, 41] {
+                return Err("invalid OPT record".to_string());
+            }
+            let data_len = u16::from_be_bytes([opt[9], opt[10]]) as usize;
+            if opt.len() != 11 + data_len {
+                return Err("truncated OPT record".to_string());
+            }
+            if opt[6] != 0 {
+                return Err("unsupported EDNS version".to_string());
+            }
+            Some(opt[7] & 0x80)
+        }
+        _ => return Err("unsupported additional records".to_string()),
+    };
+    Ok((end, has_opt))
+}
+
+pub fn build_udp_dns_answer(request: &[u8], answer_ip: Ipv4Addr) -> Result<Vec<u8>, String> {
+    let (question_end, has_opt) = dns_question_end(request)?;
     let mut answer = Vec::new();
     answer.extend(&request[0..2]);
     answer.extend(0x8180u16.to_be_bytes());
     answer.extend(1u16.to_be_bytes());
     answer.extend(1u16.to_be_bytes());
     answer.extend(0u16.to_be_bytes());
-    answer.extend(0u16.to_be_bytes());
-    answer.extend(&request[12..]);
+    answer.extend(u16::from(has_opt.is_some()).to_be_bytes());
+    answer.extend(&request[12..question_end]);
     answer.extend([0xc0, 0x0c]);
     answer.extend(1u16.to_be_bytes());
     answer.extend(1u16.to_be_bytes());
     answer.extend(60u32.to_be_bytes());
     answer.extend(4u16.to_be_bytes());
     answer.extend(answer_ip.octets());
+    if let Some(do_flag) = has_opt {
+        answer.extend([0, 0, 41, 4, 208, 0, 0, do_flag, 0, 0, 0]);
+    }
     Ok(answer)
 }
 

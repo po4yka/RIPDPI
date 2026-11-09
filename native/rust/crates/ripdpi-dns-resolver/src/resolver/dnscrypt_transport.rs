@@ -123,10 +123,6 @@ impl EncryptedDnsResolver {
     async fn take_dnscrypt_session(&self) -> Result<(TokioTcpStream, bool), EncryptedDnsError> {
         match self.inner.connection_pool.take().await {
             Some(PooledConnection::DnsCrypt(stream)) => Ok((stream, true)),
-            Some(PooledConnection::Dot(stream)) => {
-                self.inner.connection_pool.put(PooledConnection::Dot(stream)).await;
-                self.connect_dnscrypt_session().await.map(|stream| (stream, false))
-            }
             None => self.connect_dnscrypt_session().await.map(|stream| (stream, false)),
         }
     }

@@ -10,7 +10,7 @@ pub(crate) use client::{
 };
 pub(crate) use edns::{prepare_query, restore_response};
 pub(crate) use framing::{
-    STREAM_CLOSED_BEFORE_FRAME, read_length_prefixed_frame_async, write_length_prefixed_frame_async,
+    STREAM_CLOSED_BEFORE_FRAME, dns_length_codec, read_length_prefixed_frame_async, write_length_prefixed_frame_async,
 };
 pub(crate) use normalize::normalize_endpoint;
 pub(crate) use util::{format_error_chain, unix_time_secs};

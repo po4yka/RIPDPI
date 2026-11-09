@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -11,9 +11,11 @@ use crate::types::{BoxedDnsTcpStream, DirectTcpConnection, DirectTcpConnector, E
 
 pub(super) async fn connect_tokio_tcp_with_hook(
     inner: &ResolverInner,
+    ips: Vec<IpAddr>,
+    record_success: bool,
     connector: Arc<DirectTcpConnector>,
 ) -> Result<TokioTcpStream, EncryptedDnsError> {
-    match connect_with_hook(inner, connector).await? {
+    match connect_with_hook(inner, ips, record_success, connector).await? {
         DirectTcpConnection::Std(stream) => adapt_std_tcp_stream(stream).map_err(EncryptedDnsError::Request),
         DirectTcpConnection::Async(_) => {
             Err(EncryptedDnsError::Request("async direct TCP connector streams are only supported by DoH".to_string()))
@@ -39,7 +41,7 @@ pub(super) async fn connect_boxed_tcp_with_hook(
     inner: &ResolverInner,
     connector: Arc<DirectTcpConnector>,
 ) -> Result<BoxedDnsTcpStream, EncryptedDnsError> {
-    match connect_with_hook(inner, connector).await? {
+    match connect_with_hook(inner, health::ranked_bootstrap_ips(inner), true, connector).await? {
         DirectTcpConnection::Std(stream) => adapt_std_tcp_stream(stream)
             .map(|stream| Box::new(stream) as BoxedDnsTcpStream)
             .map_err(EncryptedDnsError::Request),
@@ -49,16 +51,20 @@ pub(super) async fn connect_boxed_tcp_with_hook(
 
 async fn connect_with_hook(
     inner: &ResolverInner,
+    ips: Vec<IpAddr>,
+    record_success: bool,
     connector: Arc<DirectTcpConnector>,
 ) -> Result<DirectTcpConnection, EncryptedDnsError> {
     let mut last_error = None;
 
-    for ip in health::ranked_bootstrap_ips(inner) {
+    for ip in ips {
         let address = SocketAddr::new(ip, inner.endpoint.port);
         let started = Instant::now();
         match connect_one(connector.clone(), address, inner.timeout).await {
             Ok(stream) => {
-                health::record_bootstrap_outcome(inner, ip, true, started.elapsed());
+                if record_success {
+                    health::record_bootstrap_outcome(inner, ip, true, started.elapsed());
+                }
                 return Ok(stream);
             }
             Err(HookConnectError::Connect(err)) => {

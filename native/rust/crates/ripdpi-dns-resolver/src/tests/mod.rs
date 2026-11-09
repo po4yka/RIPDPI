@@ -6,6 +6,7 @@ mod doq_cancellation;
 mod doq_rfc9250;
 mod doq_transport;
 mod dot_alpn;
+mod dot_connection;
 mod dot_pin;
 mod edns_padding;
 mod https_service_binding;
@@ -613,9 +614,7 @@ fn dot_tls_connector_builder_is_used_for_direct_dot() {
     let query = build_query("fixture.test");
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
     let port = listener.local_addr().expect("local addr").port();
-    let server = thread::spawn(move || {
-        let _ = listener.accept().expect("accept");
-    });
+    listener.set_nonblocking(true).expect("nonblocking listener");
 
     let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
         EncryptedDnsEndpoint {
@@ -638,7 +637,8 @@ fn dot_tls_connector_builder_is_used_for_direct_dot() {
 
     let error = resolver.exchange_blocking(&query).expect_err("DoT builder error should surface");
     assert!(error.to_string().contains("sentinel-dot-builder"), "expected custom DoT builder error, got {error}");
-    server.join().expect("server thread completes");
+    // The TLS configuration fails before any bootstrap IP is dialed.
+    assert_eq!(listener.accept().map(|_| ()).unwrap_err().kind(), io::ErrorKind::WouldBlock);
 }
 
 #[test]
