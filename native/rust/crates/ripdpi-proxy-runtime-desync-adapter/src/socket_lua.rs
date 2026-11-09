@@ -4,7 +4,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use ripdpi_packets::{
     http_marker_info, parse_quic_initial, parse_quic_initial_layout, parse_tls, reassembled_tls_sni,
@@ -89,6 +89,7 @@ impl SocketLuaStrategies {
             packet_count: AtomicU64::new(0),
             tcp_target: OnceLock::new(),
             tcp_payload_seen: OnceLock::new(),
+            window: Mutex::new(StreamWindow { open: true, prefix: Vec::new() }),
         }
     }
 }
@@ -100,6 +101,34 @@ pub struct SocketLuaFlow {
     packet_count: AtomicU64,
     tcp_target: OnceLock<SocketAddr>,
     tcp_payload_seen: OnceLock<()>,
+    window: Mutex<StreamWindow>,
+}
+
+/// Largest stream prefix any signature needs (MTProto obfuscated2 init).
+const CLASSIFY_WINDOW_BYTES: usize = 64;
+
+/// TCP classification window: open until a protocol is recognized or
+/// `CLASSIFY_WINDOW_BYTES` stream bytes were seen. Holds at most that many bytes.
+struct StreamWindow {
+    open: bool,
+    prefix: Vec<u8>,
+}
+
+impl StreamWindow {
+    /// Prefix plus current payload, or None once the window closed.
+    fn head(&self, payload: &[u8]) -> Option<Vec<u8>> {
+        self.open.then(|| [self.prefix.as_slice(), payload].concat())
+    }
+
+    fn advance(&mut self, head: Option<Vec<u8>>, decided: bool) {
+        let Some(head) = head else { return };
+        if decided || head.len() >= CLASSIFY_WINDOW_BYTES {
+            self.open = false;
+            self.prefix = Vec::new();
+        } else {
+            self.prefix = head;
+        }
+    }
 }
 
 impl SocketLuaFlow {
@@ -120,10 +149,19 @@ impl SocketLuaFlow {
         };
         // The stream peer can be an upstream SOCKS server after the first write.
         let dst = if tcp { *self.tcp_target.get_or_init(|| dst) } else { dst };
-        // Only the first non-empty stream payload is client protocol data; later
-        // writes are mid-stream bytes (often ciphertext) and must not be classified.
-        let classify = !tcp || (!payload.is_empty() && self.tcp_payload_seen.set(()).is_ok());
-        let (mut dissect, protocol, detected_host) = dissect_payload(src, dst, tcp, payload, classify);
+        let (mut dissect, protocol, detected_host) = if tcp {
+            // Lock order: this is the only lock plan() takes and nothing under it calls out,
+            // so it cannot nest. Writes of one flow are sequential; the lock only guards
+            // the shared handle.
+            let mut window = self.window.lock().unwrap_or_else(PoisonError::into_inner);
+            let head = window.head(payload);
+            let inspect_http = !payload.is_empty() && self.tcp_payload_seen.set(()).is_ok();
+            let result = dissect_payload(src, dst, true, payload, head.as_deref(), inspect_http);
+            window.advance(head, result.0.proto != L7Protocol::Unknown);
+            result
+        } else {
+            dissect_payload(src, dst, false, payload, Some(payload), false)
+        };
         dissect.tcp_mss = if tcp { tcp_mss } else { None };
         let host = host.or(detected_host.as_deref()).map(|host| host.trim_end_matches('.').to_ascii_lowercase());
         let conn =
@@ -198,16 +236,18 @@ fn dissect_payload(
     dst: SocketAddr,
     tcp: bool,
     payload: &[u8],
-    classify: bool,
+    head: Option<&[u8]>,
+    inspect_http: bool,
 ) -> (Dissect, Option<ProtocolName>, Option<String>) {
     let mut dissect =
         Dissect { src_port: src.port(), dst_port: dst.port(), is_ipv6: dst.is_ipv6(), ..Dissect::default() };
     dissect.markers.insert(MarkerName::Data, 0);
     dissect.markers.insert(MarkerName::End, payload.len());
-    if !classify {
+    let Some(head) = head else {
         return (dissect, None, None);
-    }
-    dissect.proto = ripdpi_protocol_detect::classify_l7(payload, src.port(), dst.port(), !tcp);
+    };
+    // Protocol comes from the stream head; markers and host come from this payload only.
+    dissect.proto = ripdpi_protocol_detect::classify_l7(head, src.port(), dst.port(), !tcp);
     let mut protocol = protocol_name(&dissect.proto);
     let mut hostname = None;
     if tcp {
@@ -229,7 +269,8 @@ fn dissect_payload(
                 dissect.markers.insert(MarkerName::ExtLen, info.ext_len_start);
                 dissect.markers.insert(MarkerName::SniExt, info.sni_ext_start);
             }
-        } else if ripdpi_packets::http_request_head_end(payload).is_some()
+        } else if inspect_http
+            && ripdpi_packets::http_request_head_end(payload).is_some()
             && let Some(info) = http_marker_info(payload)
         {
             hostname = ripdpi_packets::http_request_authority(payload)
@@ -324,7 +365,7 @@ mod tests {
         bytes.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
         bytes.extend_from_slice(&body[split..]);
         let (src, dst) = endpoints();
-        let (dissect, protocol, host) = dissect_payload(src, dst, true, &bytes, true);
+        let (dissect, protocol, host) = dissect_payload(src, dst, true, &bytes, Some(&bytes), true);
         assert_eq!(protocol, Some(ProtocolName::Tls));
         assert_eq!(host.as_deref(), Some("example.com"));
         for marker in
@@ -349,7 +390,7 @@ mod tests {
         contiguous.extend_from_slice(&[0x16, 0x03, 0x03]);
         contiguous.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
         contiguous.extend_from_slice(&body[split..]);
-        let (dissect, _, host) = dissect_payload(src, dst, true, &contiguous, true);
+        let (dissect, _, host) = dissect_payload(src, dst, true, &contiguous, Some(&contiguous), true);
         assert_eq!(host.as_deref(), Some("example.com"));
         assert_eq!(dissect.markers.get(&MarkerName::Host), Some(&(host_start + 5)));
         assert_eq!(dissect.markers.get(&MarkerName::HostEnd), Some(&(host_start + 5 + 11)));
@@ -539,8 +580,12 @@ mod stream_window_regressions {
     }
 
     fn write(flow: &SocketLuaFlow, payload: &[u8]) -> Option<Vec<u8>> {
+        write_to(flow, 443, payload)
+    }
+
+    fn write_to(flow: &SocketLuaFlow, port: u16, payload: &[u8]) -> Option<Vec<u8>> {
         let src = "127.0.0.1:1234".parse().unwrap();
-        let dst = "127.0.0.1:443".parse().unwrap();
+        let dst = format!("127.0.0.1:{port}").parse().unwrap();
         flow.plan(src, dst, "tcp", payload, None, None).unwrap().map(|plan| match plan.actions.as_slice() {
             [DesyncAction::Write(bytes)] => bytes.clone(),
             other => panic!("unexpected actions {other:?}"),
@@ -560,6 +605,25 @@ mod stream_window_regressions {
         let flow = report.open_flow();
         assert_eq!(write(&flow, HELLO).as_deref(), Some(b"tls_client_hello".as_slice()));
         assert_eq!(write(&flow, &noise).as_deref(), Some(b"unknown".as_slice()));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn short_first_writes_keep_the_window_open() {
+        let rest = &HELLO[5..];
+        let (tls, dir) = load("tls", "    match:\n      proto: [tls]\n");
+        let flow = tls.open_flow();
+        assert_eq!(write(&flow, &HELLO[..5]), None);
+        assert!(write(&flow, rest).is_some());
+        assert_eq!(write(&flow, &pseudo_random(1400)), None);
+        std::fs::remove_dir_all(dir).unwrap();
+
+        let (any, dir) = load("short", "    match:\n      proto: [mtproto, tls]\n");
+        let flow = any.open_flow();
+        // Port 5222 keeps the result independent of the port-gated MTProto heuristic.
+        assert_eq!(write_to(&flow, 5222, &[0x12, 0x34, 0x56]), None);
+        assert_eq!(write_to(&flow, 5222, &pseudo_random(1400)), None);
+        assert_eq!(write_to(&flow, 5222, HELLO), None);
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
