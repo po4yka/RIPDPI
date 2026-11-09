@@ -55,3 +55,30 @@ async fn udp_session_uses_one_association_for_all_destinations() {
     let packet_ids: Vec<u16> = seen.iter().map(|(_, packet_id)| *packet_id).collect();
     assert_eq!(packet_ids, [0, 1, 2], "one PKT_ID counter per association");
 }
+
+/// A UDP session on a closed connection could only fail later, silently, at
+/// the first send; `udp_session` must report the close up front.
+#[tokio::test]
+async fn udp_session_fails_once_the_connection_is_closed() {
+    let (server, cert_der) = fixture_server();
+    let server_addr = server.local_addr().expect("server addr");
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        connection.close(quinn::VarInt::from_u32(7), b"bye");
+        connection.closed().await;
+    });
+    let client = fixture_client(server_addr, cert_der, false).await;
+    server_task.await.expect("server task");
+
+    // The client learns of the close asynchronously; once it has, no session opens.
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    let error = loop {
+        match client.udp_session().await {
+            Err(error) => break error,
+            Ok(_) if tokio::time::Instant::now() < deadline => tokio::time::sleep(Duration::from_millis(10)).await,
+            Ok(_) => panic!("a closed connection must not yield a UDP session"),
+        }
+    };
+    assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe);
+    assert!(error.to_string().contains("closed"), "the error must name the close: {error}");
+}

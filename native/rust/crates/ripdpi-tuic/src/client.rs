@@ -132,7 +132,15 @@ impl TuicClient {
         }
     }
 
+    /// Opens a UDP session on this connection.
+    ///
+    /// # Cancel safety
+    ///
+    /// Cancel-safe: it does not await.
     pub async fn udp_session(&self) -> io::Result<UdpSession> {
+        if let Some(reason) = self.inner.connection.close_reason() {
+            return Err(io::Error::new(io::ErrorKind::BrokenPipe, format!("TUIC connection is closed: {reason}")));
+        }
         if !self.inner.udp_enabled {
             return Err(io::Error::new(io::ErrorKind::Unsupported, "TUIC UDP relay is disabled by configuration"));
         }
