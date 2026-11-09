@@ -8,6 +8,11 @@ use thiserror::Error;
 pub const ODOH_MESSAGE_MEDIA_TYPE: &str = "application/oblivious-dns-message";
 pub(crate) const ODOHCONFIG_SVCB_KEY: u16 = 32769;
 
+/// Padding so that the plaintext (`2 + dns + 2 + padding`) is a multiple of 128 (RFC 9230 11, RFC 8467 4.1).
+pub(crate) fn odoh_padding_len(dns_message_len: usize) -> usize {
+    (128 - (2 + dns_message_len + 2) % 128) % 128
+}
+
 #[derive(Debug, Error)]
 pub enum OdohError {
     #[error("ODoH configs do not contain a supported RFC 9230 target config")]
@@ -237,5 +242,37 @@ impl OdohPlainResponse {
 
     pub fn padding_len(&self) -> usize {
         self.padding_len
+    }
+}
+
+#[cfg(test)]
+mod padding_tests {
+    use super::*;
+
+    const CONFIGS: &str =
+        "002c000100280020000100010020c6a793bedbd601c25970b1cc46bea80fdb1a8ec51540d79e4f9f17b8baa9da33";
+
+    fn config() -> OdohTargetConfig {
+        let bytes: Vec<u8> = (0..CONFIGS.len() / 2)
+            .map(|index| u8::from_str_radix(&CONFIGS[index * 2..index * 2 + 2], 16).expect("hex"))
+            .collect();
+        OdohTargetConfig::parse_configs(&bytes).expect("config parses")
+    }
+
+    #[test]
+    fn padding_makes_the_plaintext_a_multiple_of_128() {
+        assert_eq!(odoh_padding_len(27), 128 - 31);
+        assert_eq!(odoh_padding_len(47), 128 - 51);
+        assert_eq!(odoh_padding_len(124), 0);
+    }
+
+    #[test]
+    fn padded_queries_of_different_lengths_have_equal_wire_length() {
+        let target = config();
+        let short = vec![7u8; 27];
+        let long = vec![7u8; 47];
+        let a = target.encrypt_query(&short, odoh_padding_len(short.len())).expect("encrypts");
+        let b = target.encrypt_query(&long, odoh_padding_len(long.len())).expect("encrypts");
+        assert_eq!(a.wire_message().len(), b.wire_message().len());
     }
 }
