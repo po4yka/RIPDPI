@@ -35,6 +35,22 @@ fn odoh_config_source_rejects_stale_config_material() {
 }
 
 #[test]
+fn odoh_config_source_rejects_future_retrieval_time_beyond_clock_skew() {
+    let source = |retrieved_at_secs| OdohConfigSource::Bundled {
+        configs_wire: odoh_configs(),
+        retrieved_at_secs,
+        ttl_secs: 86_400,
+    };
+    let error = source(1_000 + 3_600).resolve_at(1_000).expect_err("future config must be rejected");
+    assert!(matches!(error, OdohError::FutureConfig { now_secs: 1_000, retrieved_at_secs: 4_600 }));
+    source(1_000 + 300).resolve_at(1_000).expect("skew up to 300 s is tolerated");
+    assert!(matches!(
+        source(1_000 + 301).resolve_at(1_000),
+        Err(OdohError::FutureConfig { now_secs: 1_000, retrieved_at_secs: 1_301 })
+    ));
+}
+
+#[test]
 fn odoh_multiple_configs_selects_supported_default_suite_after_unsupported_entry() {
     let resolved = OdohConfigSource::CustomBytes {
         configs_wire: unsupported_then_supported_configs(),

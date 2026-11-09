@@ -3,7 +3,7 @@ use odoh_rs::{
     ObliviousDoHKeyPair, ObliviousDoHMessage, ObliviousDoHMessagePlaintext, compose, decrypt_query, encrypt_response,
     parse,
 };
-use ripdpi_dns_resolver::{ODOH_MESSAGE_MEDIA_TYPE, OdohTargetConfig};
+use ripdpi_dns_resolver::{ODOH_MESSAGE_MEDIA_TYPE, OdohError, OdohTargetConfig};
 
 const KEM_ID: u16 = 32;
 const KDF_ID: u16 = 1;
@@ -67,6 +67,25 @@ fn wrapper_encrypts_query_and_decrypts_response_with_odoh_rs_hpke() {
     let decrypted_response = encrypted_query.decrypt_response(response_wire.as_ref()).expect("response decrypts");
     assert_eq!(decrypted_response.dns_message(), hex_bytes(RESPONSE).as_slice());
     assert_eq!(decrypted_response.padding_len(), 0);
+}
+
+#[test]
+fn trailing_bytes_after_the_response_envelope_are_rejected() {
+    let target_config = OdohTargetConfig::parse_configs(&hex_bytes(ODOHCONFIGS)).expect("ODoH configs parse");
+    let encrypted_query = target_config.encrypt_query(&hex_bytes(QUERY), 0).expect("query encrypts");
+    let mut query_wire: Bytes = encrypted_query.wire_message().to_vec().into();
+    let odoh_query: ObliviousDoHMessage = parse(&mut query_wire).expect("wrapper query parses");
+    let (plain_query, response_secret) =
+        decrypt_query(&odoh_query, &vector_key_pair()).expect("wrapper query decrypts");
+    let response_plaintext = ObliviousDoHMessagePlaintext::new(hex_bytes(RESPONSE), 0);
+    let response_message =
+        encrypt_response(&plain_query, &response_plaintext, response_secret, [7; 16]).expect("response encrypts");
+    let mut response_wire = compose(&response_message).expect("response serializes").to_vec();
+
+    encrypted_query.decrypt_response(&response_wire).expect("exact envelope decrypts");
+    response_wire.extend_from_slice(&[0xde, 0xad]);
+    let error = encrypted_query.decrypt_response(&response_wire).expect_err("trailing bytes rejected");
+    assert!(matches!(error, OdohError::TrailingBytes(2)), "{error:?}");
 }
 
 fn vector_key_pair() -> ObliviousDoHKeyPair {

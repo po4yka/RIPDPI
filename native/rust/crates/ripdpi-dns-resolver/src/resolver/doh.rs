@@ -44,10 +44,12 @@ impl EncryptedDnsResolver {
             ODOH_MESSAGE_MEDIA_TYPE,
         )
         .await?;
-        encrypted
+        let plaintext = encrypted
             .decrypt_response(&response)
             .map(|plaintext| plaintext.dns_message().to_vec())
-            .map_err(|err| EncryptedDnsError::Request(err.to_string()))
+            .map_err(|err| EncryptedDnsError::Request(err.to_string()))?;
+        crate::transport::ensure_response_matches_query(query_bytes, &plaintext)?;
+        Ok(plaintext)
     }
 }
 
