@@ -21,3 +21,11 @@ independently reads both frames and extracts the complete ClientHello.
 that 241-byte ClientHello in one CRYPTO frame. SNI is within that prefix.
 The enclosing Initial protection is valid. TShark decrypts CRYPTO100 but
 does not return a complete TLS handshake.
+
+`rfc-client-hello.bin` is the complete 241-byte handshake from RFC 9001 A.2.
+`coalesced-v1.bin` and `coalesced-v2.bin` carry it across two 600-byte
+Initial packets, PN0/1, CRYPTO offsets0/50 and lengths50/191. TShark reads
+both packets in one 1200-byte UDP payload and extracts `example.com`.
+`short-tail-v1.bin` and `short-tail-v2.bin` use offsets0/200, lengths200/41,
+and packet sizes1105/95. Thus the final packet is shorter than 128 bytes.
+These variants use the same independent Python cryptography builder.

@@ -894,3 +894,6 @@ mod ack_tests;
 
 #[path = "completeness_tests.rs"]
 mod completeness_tests;
+
+#[path = "datagram_tests.rs"]
+mod datagram_tests;

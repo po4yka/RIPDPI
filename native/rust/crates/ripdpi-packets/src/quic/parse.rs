@@ -7,7 +7,8 @@ use crate::types::{QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialInfo, QuicInitia
 use crate::util::{read_u16, read_u24, read_u32};
 
 use super::crypto::{quic_derive_client_initial_secret, quic_expand_label};
-use super::frames::{collect_quic_crypto_frames, defrag_quic_crypto_frames, read_quic_varint};
+use super::datagram::decode_quic_initial_datagram;
+use super::frames::read_quic_varint;
 use super::{QUIC_HP_SAMPLE_LEN, QUIC_INITIAL_MIN_LEN, QUIC_MAX_CID_LEN, QUIC_TAG_LEN};
 
 #[derive(Debug, Clone, Copy)]
@@ -82,11 +83,10 @@ pub(super) fn parse_quic_initial_response_header(buffer: &[u8]) -> Option<QuicIn
     Some(QuicInitialHeader { version, dcid, scid, token, payload_len, pn_offset: offset })
 }
 
-pub(super) fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) -> Option<Vec<u8>> {
-    decrypt_quic_initial_payload_with_offset(buffer, header).map(|(payload, _)| payload)
-}
-
-fn decrypt_quic_initial_payload_with_offset(buffer: &[u8], header: QuicInitialHeader<'_>) -> Option<(Vec<u8>, usize)> {
+pub(super) fn decrypt_quic_initial_payload_with_offset(
+    buffer: &[u8],
+    header: QuicInitialHeader<'_>,
+) -> Option<(Vec<u8>, usize)> {
     let secret = quic_derive_client_initial_secret(header.dcid, header.version)?;
     decrypt_quic_initial_with_secret(buffer, header, &secret)
 }
@@ -213,29 +213,24 @@ pub fn is_quic_initial(buffer: &[u8]) -> bool {
 /// starts past offset 0, or whose first datagram ends before the complete
 /// ClientHello (for example a large post-quantum message), returns `None`.
 pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
-    let header = parse_quic_initial_header(buffer)?;
-    let payload = decrypt_quic_initial_payload(buffer, header)?;
-    let (client_hello, is_crypto_complete) = defrag_quic_crypto_frames(&payload)?;
-    if !is_crypto_complete {
-        return None;
-    }
-    validate_complete_quic_client_hello(&client_hello)?;
-    let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
-    Some(QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete })
+    parse_quic_initial_layout(buffer).map(|layout| layout.info)
 }
 
 /// Like [`parse_quic_initial`], with CRYPTO frame positions; the same
-/// single-datagram limit applies.
+/// single-datagram limit applies. Frame data offsets remain relative to
+/// `ciphertext_payload_offset`, including frames in later Initial packets.
 pub fn parse_quic_initial_layout(buffer: &[u8]) -> Option<QuicInitialLayout> {
-    let header = parse_quic_initial_header(buffer)?;
-    let (payload, ciphertext_payload_offset) = decrypt_quic_initial_payload_with_offset(buffer, header)?;
-    let crypto_frames = collect_quic_crypto_frames(&payload)?;
-    let (client_hello, is_crypto_complete) = defrag_quic_crypto_frames(&payload)?;
-    if !is_crypto_complete {
-        return None;
-    }
-    validate_complete_quic_client_hello(&client_hello)?;
-    let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
-    let info = QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete };
-    Some(QuicInitialLayout { info, ciphertext_payload_offset, crypto_frames })
+    let decoded = decode_quic_initial_datagram(buffer)?;
+    let tls_info = tls_client_hello_marker_info_in_handshake(&decoded.client_hello)?;
+    let info = QuicInitialInfo {
+        version: decoded.header.version,
+        client_hello: decoded.client_hello,
+        tls_info,
+        is_crypto_complete: true,
+    };
+    Some(QuicInitialLayout {
+        info,
+        ciphertext_payload_offset: decoded.ciphertext_payload_offset,
+        crypto_frames: decoded.crypto_frames,
+    })
 }

@@ -598,6 +598,31 @@ fn quic_markers_are_raw_udp_payload_offsets() {
 }
 
 #[test]
+fn coalesced_quic_markers_point_into_the_second_initial_packet() {
+    for payload in [
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ripdpi-packets/tests/fixtures/quic-initial/coalesced-v1.bin"
+        ))
+        .as_slice(),
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ripdpi-packets/tests/fixtures/quic-initial/coalesced-v2.bin"
+        ))
+        .as_slice(),
+    ] {
+        let packet = ipv4_udp_packet(49152, 443, payload);
+        let meta = PacketMeta::parse(&packet).expect("packet metadata");
+        let dissect = dissect_packet(meta, meta.payload(&packet));
+        assert_eq!(dissect.markers.get(&MarkerName::Host), Some(&638));
+        assert_eq!(dissect.markers.get(&MarkerName::HostEnd), Some(&649));
+        assert_eq!(dissect.markers.get(&MarkerName::SniExt), Some(&633));
+        assert_eq!(dissect.markers.get(&MarkerName::ExtLen), Some(&76));
+        assert_eq!(packet_host(Transport::Udp, payload), Some((ProtocolName::Quic, "example.com".to_string())));
+    }
+}
+
+#[test]
 fn lua_quic_split_uses_raw_udp_payload_marker_offset() {
     let payload =
         build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.test")).expect("build QUIC initial");

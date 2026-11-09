@@ -120,11 +120,14 @@ pub(super) fn collect_quic_crypto_frames(payload: &[u8]) -> Option<Vec<QuicCrypt
         }
     }
 
-    (!frames.is_empty()).then_some(frames)
+    Some(frames)
 }
 
 pub(super) fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
     let frames = collect_quic_crypto_frames(payload)?;
+    if frames.is_empty() {
+        return None;
+    }
     let max_end = frames.iter().map(|frame| frame.crypto_offset + frame.data_len).max().unwrap_or(0);
 
     // Fast path: single contiguous frame at offset 0 (the common case).
