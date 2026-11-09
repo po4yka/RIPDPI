@@ -8,7 +8,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use rand::RngExt;
 use tokio::sync::{Mutex, mpsc};
 
-use crate::client::ClientInner;
+use crate::client::{AbortOnDrop, ClientInner};
 use crate::error::{HysteriaError, Result};
 use crate::varint::{decode_varint, encode_varint};
 
@@ -29,6 +29,8 @@ pub struct UdpSession {
     incoming_rx: mpsc::Receiver<UdpPacket>,
     incoming_tx: mpsc::Sender<UdpPacket>,
     route: Mutex<SessionRoute>,
+    /// Keeps the datagram dispatcher alive after every `HysteriaClient` clone is dropped.
+    _dispatch_guard: Option<Arc<AbortOnDrop>>,
 }
 
 /// One Hysteria session ID per local UDP session, as in the reference
@@ -40,9 +42,15 @@ struct SessionRoute {
 }
 
 impl UdpSession {
-    pub(crate) fn new(client: Arc<ClientInner>) -> Self {
+    pub(crate) fn new(client: Arc<ClientInner>, dispatch_guard: Option<Arc<AbortOnDrop>>) -> Self {
         let (incoming_tx, incoming_rx) = mpsc::channel(64);
-        Self { client, incoming_rx, incoming_tx, route: Mutex::new(SessionRoute::default()) }
+        Self {
+            client,
+            incoming_rx,
+            incoming_tx,
+            route: Mutex::new(SessionRoute::default()),
+            _dispatch_guard: dispatch_guard,
+        }
     }
 
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> Result<()> {
