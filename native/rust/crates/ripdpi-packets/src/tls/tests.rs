@@ -46,6 +46,41 @@ fn tls_marker_info_rejects_truncated_sni_payload() {
 }
 
 #[test]
+fn tls_sni_requires_valid_nested_lengths_and_host_type() {
+    let original = include_bytes!("../../tests/fixtures/curl_tls13_example_com.bin");
+    let markers = tls_marker_info(original).expect("fixture SNI");
+    let sni = markers.sni_ext_start;
+    let mut cases = Vec::new();
+
+    let mut short_extension = original.to_vec();
+    short_extension[sni - 2..sni].copy_from_slice(&5u16.to_be_bytes());
+    cases.push(short_extension);
+
+    let mut short_list = original.to_vec();
+    short_list[sni..sni + 2].copy_from_slice(&3u16.to_be_bytes());
+    cases.push(short_list);
+
+    let mut oversized_list = original.to_vec();
+    oversized_list[sni..sni + 2].copy_from_slice(&u16::MAX.to_be_bytes());
+    cases.push(oversized_list);
+
+    let mut unknown_name_type = original.to_vec();
+    unknown_name_type[sni + 2] = 1;
+    cases.push(unknown_name_type);
+
+    let mut empty_host = original.to_vec();
+    empty_host[sni + 3..sni + 5].copy_from_slice(&0u16.to_be_bytes());
+    cases.push(empty_host);
+
+    for mut malformed in cases {
+        let before = malformed.clone();
+        assert_eq!(parse_tls(&malformed), None);
+        assert_eq!(randomize_tls_sni_seeded_inplace(&mut malformed, 7), -1);
+        assert_eq!(malformed, before);
+    }
+}
+
+#[test]
 fn randomize_tls_sni_preserves_valid_host_length() {
     let original = parse_tls(DEFAULT_FAKE_TLS).expect("original tls sni").to_vec();
     let mutation = randomize_tls_sni_seeded_like_c(DEFAULT_FAKE_TLS, 7);

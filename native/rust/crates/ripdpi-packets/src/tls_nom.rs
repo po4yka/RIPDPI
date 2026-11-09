@@ -131,7 +131,11 @@ pub(crate) fn to_marker_info(parsed: &ClientHelloParsed<'_>, buf_len: usize) -> 
     if sni.data.len() < 5 {
         return None;
     }
+    let list_len = u16::from_be_bytes([sni.data[0], sni.data[1]]) as usize;
     let host_len = u16::from_be_bytes([sni.data[3], sni.data[4]]) as usize;
+    if list_len != sni.data.len() - 2 || sni.data[2] != 0 || host_len == 0 || host_len > list_len.saturating_sub(3) {
+        return None;
+    }
     let sni_ext_start = sni.type_offset + 4;
     // host_start = type(2) + len(2) + list_len(2) + name_type(1) + host_len(2) = +9
     let host_start = sni.type_offset + 9;
