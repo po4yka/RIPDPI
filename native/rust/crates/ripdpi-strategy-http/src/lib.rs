@@ -48,18 +48,17 @@ pub fn apply_hostcase(input: &[u8], flow_id: FlowId) -> Vec<u8> {
     output
 }
 
-/// Inserts an extra CR after the HTTP/1.x request line.
+/// Adds an empty CRLF line before the HTTP/1.x request.
 pub fn apply_methodeol(input: &[u8]) -> Vec<u8> {
     if find_host_value(input).is_none() {
         return input.to_vec();
     }
-    let Some(line_end) = http1_request_line_end(input) else {
+    if http1_request_line_end(input).is_none() {
         return input.to_vec();
-    };
-    let mut output = Vec::with_capacity(input.len() + 1);
-    output.extend_from_slice(&input[..line_end]);
-    output.push(b'\r');
-    output.extend_from_slice(&input[line_end..]);
+    }
+    let mut output = Vec::with_capacity(input.len() + 2);
+    output.extend_from_slice(b"\r\n");
+    output.extend_from_slice(input);
     output
 }
 
@@ -258,11 +257,12 @@ fn http1_request_line_end(input: &[u8]) -> Option<usize> {
     let newline = input.iter().position(|&byte| byte == b'\n')?;
     let line_end = newline.checked_sub(1).filter(|&end| input[end] == b'\r').unwrap_or(newline);
     let line = &input[..line_end];
-    const METHODS: &[&[u8]] = &[b"GET", b"POST", b"PUT", b"DELETE", b"HEAD", b"OPTIONS", b"PATCH", b"CONNECT"];
+    const METHODS: &[&[u8]] =
+        &[b"GET", b"POST", b"PUT", b"DELETE", b"HEAD", b"OPTIONS", b"PATCH", b"CONNECT", b"TRACE"];
     let method_matches = METHODS
         .iter()
         .any(|method| line.starts_with(method) && line.get(method.len()).is_some_and(|byte| *byte == b' '));
-    let http1_matches = line.windows(b" HTTP/1.".len()).any(|window| window == b" HTTP/1.");
+    let http1_matches = line.ends_with(b" HTTP/1.0") || line.ends_with(b" HTTP/1.1");
     (method_matches && http1_matches).then_some(line_end)
 }
 
