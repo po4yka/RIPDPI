@@ -441,6 +441,31 @@ fn change_tls_sni_rejects_handshake_record_after_fragmented_hello() {
 }
 
 #[test]
+fn change_tls_sni_rejects_padding_after_pre_shared_key() {
+    let mut input = include_bytes!("../../tests/fixtures/curl_tls13_example_com.bin").to_vec();
+    let ext_offset = tls_marker_info(&input).expect("fixture SNI").ext_len_start;
+    // One PSK identity and a 32-byte binder. The binder need not be valid for this structure test.
+    let mut psk = vec![0, 9, 0, 3, b'a', b'b', b'c', 0, 0, 0, 0, 0, 33, 32];
+    psk.extend_from_slice(&[7; 32]);
+    input.extend_from_slice(&[0, 41, 0, psk.len() as u8]);
+    input.extend_from_slice(&psk);
+    let added = (psk.len() + 4) as u16;
+    for offset in [3, ext_offset] {
+        let value = u16::from_be_bytes([input[offset], input[offset + 1]]) + added;
+        input[offset..offset + 2].copy_from_slice(&value.to_be_bytes());
+    }
+    let handshake_len = ((input[6] as usize) << 16) | ((input[7] as usize) << 8) | input[8] as usize;
+    let handshake_len = handshake_len + usize::from(added);
+    input[6] = (handshake_len >> 16) as u8;
+    input[7] = (handshake_len >> 8) as u8;
+    input[8] = handshake_len as u8;
+
+    let mutation = change_tls_sni_seeded_like_c(&input, b"example.com", input.len() + 16, 7);
+    assert_eq!(mutation.rc, -1);
+    assert_eq!(mutation.bytes, input);
+}
+
+#[test]
 fn change_tls_sni_capacity_too_small_fails() {
     let mutation = change_tls_sni_seeded_like_c(DEFAULT_FAKE_TLS, b"x.co", DEFAULT_FAKE_TLS.len() - 1, 1);
     assert_eq!(mutation.rc, -1);
