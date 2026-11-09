@@ -337,8 +337,8 @@ mod tests {
         let display = error.to_string();
         let debug = format!("{error:?}");
 
-        assert!(!display.contains(supplied), "Display output exposes supplied mode: {display}");
-        assert!(!debug.contains(supplied), "Debug output exposes supplied mode: {debug}");
+        assert!(!display.contains(supplied), "Display output exposes supplied mode");
+        assert!(!debug.contains(supplied), "Debug output exposes supplied mode");
     }
 
     #[test]
@@ -353,8 +353,8 @@ mod tests {
         for (error, supplied) in cases {
             let display = error.to_string();
             let debug = format!("{error:?}");
-            assert!(!display.contains(supplied), "Display output exposes supplied value: {display}");
-            assert!(!debug.contains(supplied), "Debug output exposes supplied value: {debug}");
+            assert!(!display.contains(supplied), "Display output exposes supplied value");
+            assert!(!debug.contains(supplied), "Debug output exposes supplied value");
         }
     }
     #[test]

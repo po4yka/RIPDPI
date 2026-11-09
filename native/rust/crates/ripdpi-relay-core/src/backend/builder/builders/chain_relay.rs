@@ -519,7 +519,7 @@ mod credential_tests {
         let Err(missing_uuid) = missing_uuid else {
             panic!("missing TUIC hop UUID must be rejected");
         };
-        assert!(missing_uuid.to_string().contains("TUIC UUID is required"), "unexpected error: {missing_uuid}");
+        assert!(missing_uuid.to_string().contains("TUIC UUID is required"), "expected missing TUIC UUID error");
 
         let mut no_password = hop("tuic_v5");
         no_password.tuic_uuid = Some("00000000-0000-0000-0000-000000000000".to_string());
@@ -535,7 +535,7 @@ mod credential_tests {
         };
         assert!(
             missing_password.to_string().contains("TUIC password is required"),
-            "unexpected error: {missing_password}"
+            "expected missing TUIC password error"
         );
     }
 
