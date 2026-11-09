@@ -129,7 +129,7 @@ impl ProtectCallback for RejectReplacement {
 }
 
 #[test]
-fn replacement_protection_failure_stops_before_socket_can_send() {
+fn replacement_protection_failure_keeps_current_path_and_retries_next_hop() {
     let _lock = crate::quic_transport::endpoint::protect_tests::PROTECT_TEST_LOCK.lock().unwrap();
     let callback = Arc::new(RejectReplacement(Mutex::new(Vec::new())));
     register_protect_callback(callback.clone());
@@ -145,14 +145,23 @@ fn replacement_protection_failure_stops_before_socket_can_send() {
             build_client_udp_socket(&spec).unwrap(),
         )
         .unwrap();
-        let error = expire_timer(&socket).await.unwrap_err();
-        let stopped = socket.local_addr().is_err();
-        let timer_stopped = socket.timer.lock().unwrap().is_none();
-        (error.kind(), stopped, timer_stopped)
+        let current = socket.local_addr().unwrap();
+        let index = socket.lock().unwrap().remote_index;
+        expire_timer(&socket).await.unwrap();
+        let after_first = (socket.local_addr().unwrap(), socket.lock().unwrap().remote_index);
+        let calls_after_first = callback.0.lock().unwrap().len();
+        // The kept path stays usable and the rejected replacement never became current.
+        let socket = Arc::new(socket);
+        send(&socket, b"still current").await;
+        expire_timer(&socket).await.unwrap();
+        let calls_after_second = callback.0.lock().unwrap().len();
+        let kept = socket.local_addr().unwrap();
+        let live = socket.timer.lock().unwrap().is_some();
+        socket.stop();
+        (after_first == (current, index), calls_after_first, calls_after_second, kept == current, live)
     });
     unregister_protect_callback();
-    assert_eq!(result, (io::ErrorKind::PermissionDenied, true, true));
-    assert_eq!(callback.0.lock().unwrap().len(), 2);
+    assert_eq!(result, (true, 2, 3, true, true));
 }
 
 /// # Cancel safety
