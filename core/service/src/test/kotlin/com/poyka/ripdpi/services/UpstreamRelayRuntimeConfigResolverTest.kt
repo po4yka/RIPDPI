@@ -1134,7 +1134,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                 )
 
             assertEquals(RelayKindTuicV5, resolved.kind)
-            assertTrue(resolved.tuicZeroRtt)
+            assertFalse(resolved.tuicZeroRtt)
             assertEquals("55555555-5555-5555-5555-555555555555", resolved.tuicUuid)
             assertEquals(credentialFixture("tuic"), resolved.tuicPassword)
         }

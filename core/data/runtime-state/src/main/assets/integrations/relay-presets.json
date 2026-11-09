@@ -8,7 +8,6 @@
       "antiCorrelationSuggested": true,
       "routeMode": "direct_for_domestic",
       "relayKind": "tuic_v5",
-      "tuicZeroRtt": true,
       "tuicCongestionControl": "bbr",
       "udpEnabled": true,
       "requiresQuic": true,

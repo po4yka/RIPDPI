@@ -790,7 +790,6 @@ app:config_relay_tuic_congestion_control
 app:config_relay_tuic_congestion_cubic
 app:config_relay_tuic_password
 app:config_relay_tuic_uuid
-app:config_relay_tuic_zero_rtt
 app:config_relay_udp
 app:config_relay_vless_flow
 app:config_relay_vless_transport

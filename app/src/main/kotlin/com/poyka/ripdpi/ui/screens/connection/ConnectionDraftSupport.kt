@@ -153,7 +153,6 @@ data class ConnectionDraft(
     val relayMasqueCloudflareGeohashEnabled: Boolean = false,
     val relayTuicUuid: String = "",
     val relayTuicPassword: String = "",
-    val relayTuicZeroRtt: Boolean = false,
     val relayTuicCongestionControl: String = RelayCongestionControlBbr,
     val relayShadowTlsPassword: String = "",
     val relayShadowTlsInnerProfileId: String = "",

@@ -43,7 +43,6 @@ internal fun ConnectionDraft.applyRelayPresetDefinition(preset: RelayPresetDefin
             } else {
                 ""
             },
-        relayTuicZeroRtt = if (preset.relayKind == RelayKindTuicV5) preset.tuicZeroRtt else relayTuicZeroRtt,
         relayTuicCongestionControl =
             if (preset.relayKind == RelayKindTuicV5) {
                 normalizeRelayCongestionControl(preset.tuicCongestionControl)

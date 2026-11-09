@@ -421,7 +421,8 @@ private class ResolvedRelayConfigBuilder(
 
     private fun tuicSection(): RelayTuicSection =
         RelayTuicSection(
-            tuicZeroRtt = effectiveConfig.tuicZeroRtt,
+            // Native TUIC rejects 0-RTT; profiles stored with it enabled still connect.
+            tuicZeroRtt = false,
             tuicCongestionControl = effectiveConfig.tuicCongestionControl,
             tuicUuid = credentials?.tuicUuid,
             tuicPassword = credentials?.tuicPassword,
