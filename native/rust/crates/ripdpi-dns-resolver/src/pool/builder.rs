@@ -11,7 +11,8 @@ use crate::health::HealthRegistry;
 use crate::resolver::EncryptedDnsResolver;
 use crate::transport::DEFAULT_TIMEOUT;
 use crate::types::{
-    EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport, ResolverNetworkScope,
+    EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol, EncryptedDnsTransport,
+    ResolverNetworkScope,
 };
 
 const DEFAULT_FALLBACK_CACHE_SIZE: usize = 8;
@@ -93,18 +94,19 @@ impl ResolverPoolBuilder {
     pub fn build(self) -> Result<ResolverPool, EncryptedDnsError> {
         let health = self.health_registry.unwrap_or_else(|| HealthRegistry::new(self.health_half_life));
         let cache_size = NonZeroUsize::new(self.fallback_cache_size.max(1)).unwrap_or(NonZeroUsize::new(8).unwrap());
-        let (resolvers, labels) =
+        let (resolvers, labels, keys) =
             build_resolvers(self.endpoints, self.timeout, self.tls_roots, health.clone(), self.network_scope.clone())?;
 
         Ok(ResolverPool {
             inner: Arc::new(PoolInner {
                 resolvers,
                 labels,
+                keys,
                 health,
                 network_scope: self.network_scope,
                 rotation_counter: AtomicUsize::new(0),
                 fallback_cache: Mutex::new(LruCache::new(cache_size)),
-                doq_demoted_scopes: Mutex::new(std::collections::HashSet::new()),
+                doq_demoted_until: Mutex::new(std::collections::HashMap::new()),
             }),
         })
     }
@@ -116,9 +118,10 @@ fn build_resolvers(
     tls_roots: Vec<CertificateDer<'static>>,
     health: HealthRegistry,
     network_scope: ResolverNetworkScope,
-) -> Result<(Vec<EncryptedDnsResolver>, Vec<String>), EncryptedDnsError> {
+) -> Result<(Vec<EncryptedDnsResolver>, Vec<String>, Vec<String>), EncryptedDnsError> {
     let mut resolvers = Vec::with_capacity(endpoints.len());
     let mut labels = Vec::with_capacity(endpoints.len());
+    let mut keys = Vec::with_capacity(endpoints.len());
 
     for (endpoint, transport) in endpoints {
         let resolver = instantiate_resolver(
@@ -129,11 +132,24 @@ fn build_resolvers(
             health.clone(),
             network_scope.clone(),
         )?;
-        labels.push(resolver.endpoint_label());
+        let label = resolver.endpoint_label();
+        keys.push(format!("{}|{label}", protocol_name(resolver.endpoint().protocol)));
+        labels.push(label);
         resolvers.push(resolver);
     }
 
-    Ok((resolvers, labels))
+    Ok((resolvers, labels, keys))
+}
+
+/// Stable key prefix per protocol; an explicit match keeps keys independent of `Debug`.
+fn protocol_name(protocol: EncryptedDnsProtocol) -> &'static str {
+    match protocol {
+        EncryptedDnsProtocol::Doh => "doh",
+        EncryptedDnsProtocol::Dot => "dot",
+        EncryptedDnsProtocol::DnsCrypt => "dnscrypt",
+        EncryptedDnsProtocol::Doq => "doq",
+        EncryptedDnsProtocol::Odoh => "odoh",
+    }
 }
 
 fn instantiate_resolver(

@@ -7,26 +7,35 @@ use crate::types::{ResolverNetworkScope, ResolverOracleObservation};
 
 use super::*;
 
-// A fake clock that advances by one half-life (1 second) per call, keeping each
-// EWMA update in a fresh time window (alpha ≈ 0.632 per observation).
+// A manual clock: time moves only when a test calls `set_ms` or `advance_ms`.
 thread_local! {
-    static FAKE_CLOCK_MILLIS: Cell<u64> = const { Cell::new(0) };
+    static CLOCK_BASE: Instant = Instant::now();
+    static CLOCK_MILLIS: Cell<u64> = const { Cell::new(0) };
 }
 
-fn advancing_fake_clock() -> Instant {
-    FAKE_CLOCK_MILLIS.with(|c| {
-        let ms = c.get();
-        c.set(ms + 1_000);
-        Instant::now() + Duration::from_millis(ms)
-    })
+fn manual_clock() -> Instant {
+    CLOCK_BASE.with(|base| *base + Duration::from_millis(CLOCK_MILLIS.with(Cell::get)))
+}
+
+fn set_ms(ms: u64) {
+    CLOCK_MILLIS.with(|c| c.set(ms));
+}
+
+fn advance_ms(ms: u64) {
+    CLOCK_MILLIS.with(|c| c.set(c.get() + ms));
+}
+
+fn manual_registry(half_life: Duration) -> HealthRegistry {
+    set_ms(0);
+    HealthRegistry::with_clock(half_life, manual_clock)
 }
 
 #[test]
 fn ewma_converges_toward_full_success_after_repeated_successes() {
-    FAKE_CLOCK_MILLIS.with(|c| c.set(0));
-    let reg = HealthRegistry::with_clock(Duration::from_secs(1), advancing_fake_clock);
+    let reg = manual_registry(Duration::from_secs(60));
     for _ in 0..20 {
         reg.record_endpoint_outcome("ep", true, 10);
+        advance_ms(10);
     }
     let snap = reg.snapshot("ep").unwrap();
     assert!(snap.ewma_success_rate > 0.95, "expected success_rate > 0.95, got {}", snap.ewma_success_rate);
@@ -34,13 +43,108 @@ fn ewma_converges_toward_full_success_after_repeated_successes() {
 
 #[test]
 fn ewma_converges_toward_zero_after_repeated_failures() {
-    FAKE_CLOCK_MILLIS.with(|c| c.set(0));
-    let reg = HealthRegistry::with_clock(Duration::from_secs(1), advancing_fake_clock);
+    let reg = manual_registry(Duration::from_secs(60));
     for _ in 0..20 {
         reg.record_endpoint_outcome("ep", false, 500);
+        advance_ms(10);
     }
     let snap = reg.snapshot("ep").unwrap();
     assert!(snap.ewma_success_rate < 0.05, "expected success_rate < 0.05, got {}", snap.ewma_success_rate);
+}
+
+#[test]
+fn burst_of_failures_close_in_time_is_not_ignored() {
+    let reg = manual_registry(Duration::from_secs(60));
+    set_ms(600_000);
+    reg.record_endpoint_outcome("failing", true, 20);
+    for _ in 0..50 {
+        advance_ms(10);
+        reg.record_endpoint_outcome("failing", false, 4000);
+    }
+    let snap = reg.snapshot("failing").unwrap();
+    assert!(snap.ewma_success_rate < 0.4, "50 close failures must lower success_rate, got {}", snap.ewma_success_rate);
+    assert_eq!(reg.rank_indices(&["failing", "never-seen"])[0], 1, "failing endpoint must not outrank an unseen one");
+}
+
+#[test]
+fn one_sample_after_full_decay_moves_score_by_at_most_alpha() {
+    let reg = manual_registry(Duration::from_secs(60));
+    for _ in 0..100 {
+        advance_ms(60_000);
+        reg.record_endpoint_outcome("ep", false, 3000);
+    }
+    advance_ms(3_600_000);
+    reg.record_endpoint_outcome("ep", true, 20);
+    let snap = reg.snapshot("ep").unwrap();
+    // After the 1 h pause the history is back at the 0.5 prior; one success adds 0.3 * (1 - 0.5).
+    assert!((snap.ewma_success_rate - 0.65).abs() < 1e-6, "got {}", snap.ewma_success_rate);
+}
+
+#[test]
+fn idle_scores_decay_toward_the_prior_on_read() {
+    let reg = manual_registry(Duration::from_secs(60));
+    for _ in 0..20 {
+        reg.record_endpoint_outcome("ep", false, 4000);
+        advance_ms(10);
+    }
+    let fresh = reg.snapshot("ep").unwrap();
+    assert!(fresh.ewma_success_rate < 0.05);
+    advance_ms(24 * 3_600_000);
+    let idle = reg.snapshot("ep").unwrap();
+    assert!((idle.ewma_success_rate - 0.5).abs() < 0.01, "got {}", idle.ewma_success_rate);
+    assert!((idle.ewma_latency_ms - 200.0).abs() < 5.0, "got {}", idle.ewma_latency_ms);
+}
+
+#[test]
+fn oracle_observation_does_not_change_transport_decay() {
+    let run = |with_oracle: bool| {
+        let reg = manual_registry(Duration::from_secs(60));
+        reg.record_endpoint_outcome("ep", true, 20);
+        advance_ms(10_000);
+        if with_oracle {
+            reg.record_oracle_observation("ep", ResolverOracleObservation::Agreement);
+        }
+        advance_ms(1);
+        reg.record_endpoint_outcome("ep", false, 4000);
+        reg.snapshot("ep").unwrap().ewma_success_rate
+    };
+    let without = run(false);
+    let with = run(true);
+    assert!((with - without).abs() < 1e-12, "oracle observation changed success_rate: {with} vs {without}");
+}
+
+#[test]
+fn scope_count_is_bounded_and_oldest_write_is_evicted() {
+    let reg = manual_registry(Duration::from_secs(60));
+    for i in 0..100 {
+        advance_ms(1);
+        reg.record_endpoint_outcome_in_scope(&ResolverNetworkScope::new(format!("scope-{i}")), "ep", true, 10);
+    }
+    assert_eq!(reg.scope_count(), 32);
+    assert!(reg.snapshot_in_scope(&ResolverNetworkScope::new("scope-0"), "ep").is_none());
+    assert!(reg.snapshot_in_scope(&ResolverNetworkScope::new("scope-99"), "ep").is_some());
+}
+
+#[test]
+fn read_paths_do_not_create_scopes() {
+    let reg = manual_registry(Duration::from_secs(60));
+    let scope = ResolverNetworkScope::new("read-only");
+    let _ = reg.rank_indices_in_scope(&scope, &["a", "b"]);
+    let _ = reg.rank_bootstrap_ips_in_scope(&scope, &[Ipv4Addr::new(1, 2, 3, 4).into()], 443, false);
+    assert_eq!(reg.scope_count(), 0);
+}
+
+#[test]
+fn bootstrap_health_is_keyed_by_port() {
+    let reg = HealthRegistry::new(Duration::from_secs(60));
+    let flaky: IpAddr = Ipv4Addr::new(1, 2, 3, 4).into();
+    let other: IpAddr = Ipv4Addr::new(5, 6, 7, 8).into();
+    for _ in 0..10 {
+        reg.record_bootstrap_outcome(flaky, 853, false, false, 4000);
+    }
+    assert_eq!(reg.rank_bootstrap_ips(&[flaky, other], 853, false), vec![other, flaky]);
+    assert_eq!(reg.rank_bootstrap_ips(&[flaky, other], 443, false), vec![flaky, other], "port 443 has no history");
+    assert_eq!(reg.rank_bootstrap_ips(&[flaky, other], 853, true), vec![flaky, other], "UDP 853 has no history");
 }
 
 #[test]
@@ -62,12 +166,12 @@ fn bootstrap_ranking_places_healthy_ip_first() {
     let good = IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8));
     let bad = IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1));
     for _ in 0..30 {
-        reg.record_bootstrap_outcome(good, true, 20);
+        reg.record_bootstrap_outcome(good, 443, false, true, 20);
     }
     for _ in 0..30 {
-        reg.record_bootstrap_outcome(bad, false, 4000);
+        reg.record_bootstrap_outcome(bad, 443, false, false, 4000);
     }
-    let ranked = reg.rank_bootstrap_ips(&[bad, good]);
+    let ranked = reg.rank_bootstrap_ips(&[bad, good], 443, false);
     assert_eq!(ranked[0], good, "good IP should be ranked first");
 }
 
@@ -97,10 +201,10 @@ fn rank_indices_returns_all_indices() {
 
 #[test]
 fn repeated_oracle_disagreement_quarantines_endpoint() {
-    FAKE_CLOCK_MILLIS.with(|c| c.set(0));
-    let reg = HealthRegistry::with_clock(Duration::from_secs(1), advancing_fake_clock);
+    let reg = manual_registry(Duration::from_secs(60));
     for _ in 0..12 {
         reg.record_endpoint_outcome("ep", true, 15);
+        advance_ms(10);
     }
 
     reg.record_oracle_observation("ep", ResolverOracleObservation::Disagreement);
@@ -110,7 +214,8 @@ fn repeated_oracle_disagreement_quarantines_endpoint() {
     reg.record_oracle_observation("ep", ResolverOracleObservation::Disagreement);
     let second = reg.snapshot("ep").unwrap();
     assert!(second.quarantined);
-    assert!(second.ewma_oracle_score < 0.2);
+    // 0.5 * 0.7 * 0.7, derived by hand.
+    assert!((second.ewma_oracle_score - 0.245).abs() < 1e-3, "got {}", second.ewma_oracle_score);
 }
 
 #[test]
