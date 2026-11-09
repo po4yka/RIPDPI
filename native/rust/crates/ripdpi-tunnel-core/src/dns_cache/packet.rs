@@ -3,6 +3,7 @@ use std::net::Ipv4Addr;
 use hickory_proto::op::Message;
 use hickory_proto::rr::RData;
 use hickory_proto::rr::rdata::A;
+use hickory_proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue};
 
 use super::parser::{dns_question_end, primary_question_name};
 use super::{DnsCache, DnsCacheError};
@@ -59,6 +60,7 @@ pub(super) fn rewrite_response(
         if !cache.ipv6_enabled {
             changed |= strip_aaaa_records(&mut message);
         }
+        changed |= strip_unmapped_addresses(&mut message, cache.ipv6_enabled);
         if changed {
             message.metadata.authentic_data = false;
         }
@@ -93,6 +95,52 @@ pub(super) fn servfail_response(query: &[u8]) -> Result<Vec<u8>, DnsCacheError> 
     response.extend_from_slice(&0u16.to_be_bytes());
     response.extend_from_slice(&query[12..question_end]);
     Ok(response)
+}
+
+/// Remove real addresses that would bypass the synthetic A mapping.
+///
+/// Only answer A records are mapped, so A records in additionals/authorities
+/// would leak unmapped real IPv4 addresses. HTTPS/SVCB `ipv4hint` is always
+/// dropped for the same reason, and `ipv6hint` when tunnel IPv6 is off. Hints
+/// are optional in RFC 9460, so clients still resolve A/AAAA. Hints are not
+/// rewritten into synthetic addresses. A record that lists a removed hint in
+/// `mandatory` is dropped whole (RFC 9460 section 8: a client must ignore a
+/// record whose mandatory key it cannot honour). The TTL stays as is: unlike a
+/// synthetic A answer, a stripped record holds nothing tied to this tunnel
+/// session.
+fn strip_unmapped_addresses(message: &mut Message, ipv6_enabled: bool) -> bool {
+    let removed = |key: &SvcParamKey| {
+        matches!(key, SvcParamKey::Ipv4Hint) || (!ipv6_enabled && matches!(key, SvcParamKey::Ipv6Hint))
+    };
+    let mut changed = false;
+    for section in [&mut message.additionals, &mut message.authorities] {
+        let before = section.len();
+        section.retain(|record| !matches!(&record.data, RData::A(_)));
+        changed |= section.len() != before;
+    }
+    for section in [&mut message.answers, &mut message.additionals, &mut message.authorities] {
+        let before = section.len();
+        section.retain_mut(|record| {
+            let svcb = match &mut record.data {
+                RData::HTTPS(https) => &mut https.0,
+                RData::SVCB(svcb) => svcb,
+                _ => return true,
+            };
+            let mandatory_removed = svcb
+                .svc_params
+                .iter()
+                .any(|(_, value)| matches!(value, SvcParamValue::Mandatory(list) if list.0.iter().any(removed)));
+            if mandatory_removed {
+                return false;
+            }
+            let params = svcb.svc_params.len();
+            svcb.svc_params.retain(|(key, _)| !removed(key));
+            changed |= params != svcb.svc_params.len();
+            true
+        });
+        changed |= section.len() != before;
+    }
+    changed
 }
 
 fn strip_aaaa_records(message: &mut Message) -> bool {
