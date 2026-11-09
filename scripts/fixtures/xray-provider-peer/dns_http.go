@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
@@ -18,6 +19,10 @@ import (
 const maxDNSHTTPMessage = 65535
 
 func (p *peer) startOwnedDNSHTTP() (net.Listener, error) {
+	return p.startOwnedDNSHTTPWithTLS(nil)
+}
+
+func (p *peer) startOwnedDNSHTTPWithTLS(certificate *tls.Certificate) (net.Listener, error) {
 	host := p.options.BindHost
 	if host == "" {
 		host = "127.0.0.1"
@@ -37,7 +42,12 @@ func (p *peer) startOwnedDNSHTTP() (net.Listener, error) {
 	}
 	// Own the listener even if close races with the Serve goroutine starting.
 	p.closers = append(p.closers, listener, server)
-	go func() { _ = server.Serve(listener) }()
+	if certificate == nil {
+		go func() { _ = server.Serve(listener) }()
+	} else {
+		server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{*certificate}}
+		go func() { _ = server.ServeTLS(listener, "", "") }()
+	}
 	return listener, nil
 }
 

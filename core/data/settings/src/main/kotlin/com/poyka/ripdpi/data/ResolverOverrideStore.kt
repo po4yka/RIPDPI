@@ -14,6 +14,8 @@ data class TemporaryResolverOverride(
     val dnscryptPublicKey: String,
     val reason: String,
     val appliedAt: Long,
+    /** Network the override was chosen for; null applies on every network until the service stops. */
+    val networkScopeKey: String? = null,
 ) {
     fun toActiveDnsSettings(): ActiveDnsSettings =
         activeDnsSettings(
@@ -50,6 +52,7 @@ interface ResolverOverrideStore {
 fun EncryptedDnsPathCandidate.toTemporaryResolverOverride(
     reason: String,
     appliedAt: Long = System.currentTimeMillis(),
+    networkScopeKey: String? = null,
 ): TemporaryResolverOverride =
     TemporaryResolverOverride(
         resolverId = resolverId.ifBlank { DnsProviderCustom },
@@ -63,4 +66,5 @@ fun EncryptedDnsPathCandidate.toTemporaryResolverOverride(
         dnscryptPublicKey = dnscryptPublicKey,
         reason = reason,
         appliedAt = appliedAt,
+        networkScopeKey = networkScopeKey,
     )

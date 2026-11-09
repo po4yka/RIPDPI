@@ -23,6 +23,12 @@ internal class VpnResolverRefreshPlanner
                     mode = Mode.VPN,
                     resolverOverride = resolverOverride,
                 )
+            val overrideScope = resolverOverride?.networkScopeKey
+            if (overrideScope != null && overrideScope != connectionPolicy.networkScopeKey) {
+                // A failover choice belongs to the network that failed; elsewhere use the user's resolver.
+                resolverOverrideStore.clear()
+                return plan(currentSignature, currentDestinationRoutingDigest, tunnelRunning)
+            }
             val resolution = resolveEffectiveDns(connectionPolicy.settings, resolverOverride)
             if (resolution.shouldClearOverride && resolverOverride != null) {
                 resolverOverrideStore.clear()

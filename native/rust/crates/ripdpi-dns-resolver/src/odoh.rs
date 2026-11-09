@@ -7,6 +7,8 @@ use thiserror::Error;
 
 pub const ODOH_MESSAGE_MEDIA_TYPE: &str = "application/oblivious-dns-message";
 pub(crate) const ODOHCONFIG_SVCB_KEY: u16 = 32769;
+/// Tolerated device clock skew; a larger future timestamp would extend the config lifetime.
+const ODOH_CONFIG_CLOCK_SKEW_SECS: u64 = 300;
 
 /// Padding so that the plaintext (`2 + dns + 2 + padding`) is a multiple of 128 (RFC 9230 11, RFC 8467 4.1).
 pub(crate) fn odoh_padding_len(dns_message_len: usize) -> usize {
@@ -21,6 +23,10 @@ pub enum OdohError {
     MissingConfig,
     #[error("ODoH config material is stale: now={now_secs}, expires_at={expires_at_secs}")]
     StaleConfig { now_secs: u64, expires_at_secs: u64 },
+    #[error("ODoH config retrieval time is in the future: now={now_secs}, retrieved_at={retrieved_at_secs}")]
+    FutureConfig { now_secs: u64, retrieved_at_secs: u64 },
+    #[error("ODoH response has {0} trailing bytes")]
+    TrailingBytes(usize),
     #[error("ODoH config lookup must use encrypted DNS; plaintext fallback is forbidden")]
     PlaintextConfigLookup,
     #[error("ODoH HTTPS/SVCB config parse failed: {0}")]
@@ -127,6 +133,9 @@ fn resolve_config_wire(
     ttl_secs: u64,
     now_secs: u64,
 ) -> Result<OdohResolvedConfig, OdohError> {
+    if retrieved_at_secs > now_secs.saturating_add(ODOH_CONFIG_CLOCK_SKEW_SECS) {
+        return Err(OdohError::FutureConfig { now_secs, retrieved_at_secs });
+    }
     let expires_at_secs = retrieved_at_secs.saturating_add(ttl_secs);
     if now_secs >= expires_at_secs {
         return Err(OdohError::StaleConfig { now_secs, expires_at_secs });
@@ -223,6 +232,9 @@ impl OdohQueryContext {
     pub fn decrypt_response(&self, response_wire: &[u8]) -> Result<OdohPlainResponse, OdohError> {
         let mut response_bytes: Bytes = response_wire.to_vec().into();
         let response: ObliviousDoHMessage = parse(&mut response_bytes)?;
+        if !response_bytes.is_empty() {
+            return Err(OdohError::TrailingBytes(response_bytes.len()));
+        }
         let plaintext = decrypt_response(&self.plaintext, &response, self.secret)?;
         let padding_len = plaintext.padding_len();
         Ok(OdohPlainResponse { dns_message: plaintext.into_msg().to_vec(), padding_len })

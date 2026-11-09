@@ -1,13 +1,15 @@
-use hickory_proto::op::Message;
+use hickory_proto::op::{Header, Message, Query};
 use hickory_proto::rr::rdata::svcb::{SvcParamKey, SvcParamValue};
 use hickory_proto::rr::{Name, RData, Record};
+use hickory_proto::serialize::binary::{BinDecodable, BinDecoder, DecodeError};
 
 use super::dto::{HttpsRr, HttpsRrRecordType, HttpsServiceSelection, HttpsSvcbParseError};
 use super::ech::parse_ech_config_list;
 use crate::odoh::ODOHCONFIG_SVCB_KEY;
 
 pub fn parse_https_service_bindings(packet: &[u8]) -> Result<Vec<HttpsRr>, HttpsSvcbParseError> {
-    let message = Message::from_vec(packet).map_err(|error| HttpsSvcbParseError::Response(error.to_string()))?;
+    let (message, malformed) = parse_checked_message(packet)?;
+    reject_malformed(&malformed)?;
     let mut bindings = Vec::new();
 
     for record in message.answers.iter().chain(message.authorities.iter()).chain(message.additionals.iter()) {
@@ -39,7 +41,7 @@ pub fn parse_https_service_bindings(packet: &[u8]) -> Result<Vec<HttpsRr>, Https
 /// ServiceMode records in the set ignored and asks the caller to query its
 /// TargetName; ServiceMode records come back in ascending SvcPriority order.
 pub fn select_https_service_bindings(packet: &[u8]) -> Result<HttpsServiceSelection, HttpsSvcbParseError> {
-    let message = Message::from_vec(packet).map_err(|error| HttpsSvcbParseError::Response(error.to_string()))?;
+    let (message, malformed) = parse_checked_message(packet)?;
     let Some(question) = message.queries.first() else {
         return Ok(HttpsServiceSelection::Service(Vec::new()));
     };
@@ -50,6 +52,10 @@ pub fn select_https_service_bindings(packet: &[u8]) -> Result<HttpsServiceSelect
     }) {
         owners.push(target);
     }
+    // A malformed record spoils only its own RRset.
+    reject_malformed(
+        &malformed.iter().filter(|(owner, _)| owners.contains(&owner)).cloned().collect::<Vec<MalformedRr>>(),
+    )?;
 
     let mut bindings = Vec::new();
     for record in message.answers.iter().filter(|record| owners.contains(&&record.name)) {
@@ -83,8 +89,75 @@ pub fn select_https_service_bindings(packet: &[u8]) -> Result<HttpsServiceSelect
     Ok(HttpsServiceSelection::Service(bindings))
 }
 
+/// An SVCB or HTTPS RR with a malformed SvcParam length: its owner name and RR type.
+type MalformedRr = (Name, u16);
+
+fn parse_checked_message(packet: &[u8]) -> Result<(Message, Vec<MalformedRr>), HttpsSvcbParseError> {
+    let response_error = |error: &dyn std::fmt::Display| HttpsSvcbParseError::Response(error.to_string());
+    let message = Message::from_vec(packet).map_err(|error| response_error(&error))?;
+    let malformed = malformed_service_binding_records(packet).map_err(|error| response_error(&error))?;
+    Ok((message, malformed))
+}
+
+fn reject_malformed(malformed: &[MalformedRr]) -> Result<(), HttpsSvcbParseError> {
+    if malformed.is_empty() {
+        Ok(())
+    } else {
+        Err(HttpsSvcbParseError::Response("SvcParam length is malformed".to_string()))
+    }
+}
+
+const RR_TYPE_SVCB: u16 = 64;
+const RR_TYPE_HTTPS: u16 = 65;
+
+/// Walks the raw packet and lists the SVCB or HTTPS RRs whose `port` is not 2
+/// octets or whose `ipv4hint` or `ipv6hint` list is empty or not whole
+/// addresses (RFC 9460 2.2, 7.2, 7.3): the client must reject the whole RRset
+/// of such an RR, and hickory accepts these values.
+fn malformed_service_binding_records(packet: &[u8]) -> Result<Vec<MalformedRr>, DecodeError> {
+    let mut malformed = Vec::new();
+    let mut decoder = BinDecoder::new(packet);
+    let header = Header::read(&mut decoder)?;
+    for _ in 0..header.counts.queries {
+        Query::read(&mut decoder)?;
+    }
+    let records =
+        u32::from(header.counts.answers) + u32::from(header.counts.authorities) + u32::from(header.counts.additionals);
+    for _ in 0..records {
+        let owner = Name::read(&mut decoder)?;
+        let record_type = decoder.read_u16()?.unverified();
+        decoder.read_u16()?; // class
+        decoder.read_u32()?; // ttl
+        let rdata_len = usize::from(decoder.read_u16()?.unverified());
+        // Hickory decodes an empty RDATA as an update record, not as a binding.
+        if rdata_len == 0 || (record_type != RR_TYPE_SVCB && record_type != RR_TYPE_HTTPS) {
+            decoder.read_slice(rdata_len)?;
+            continue;
+        }
+        let rdata_end = decoder.index() + rdata_len;
+        decoder.read_u16()?; // priority
+        Name::read(&mut decoder)?;
+        let mut valid_record = true;
+        while decoder.index() < rdata_end {
+            let key = decoder.read_u16()?.unverified();
+            let len = usize::from(decoder.read_u16()?.unverified());
+            decoder.read_slice(len)?;
+            valid_record &= match key {
+                3 => len == 2,
+                4 => len > 0 && len % 4 == 0,
+                6 => len > 0 && len % 16 == 0,
+                _ => true,
+            };
+        }
+        if !valid_record {
+            malformed.push((owner, record_type));
+        }
+    }
+    Ok(malformed)
+}
+
 fn service_params_are_compatible(params: &[(SvcParamKey, SvcParamValue)]) -> bool {
-    // Hickory validates parameter order and wire formats, but not RFC 9460 self-consistency.
+    // Hickory validates parameter order; the wire scan checks lengths; neither checks RFC 9460 self-consistency.
     let has_key = |key| params.binary_search_by_key(&key, |(key, _)| *key).is_ok();
     if has_key(SvcParamKey::NoDefaultAlpn) && !has_key(SvcParamKey::Alpn) {
         return false;

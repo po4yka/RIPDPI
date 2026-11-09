@@ -98,7 +98,14 @@ impl EncryptedDnsResolver {
         let server_name = self.inner.endpoint.tls_server_name.as_deref().unwrap_or(&self.inner.endpoint.host);
         let bootstrap_ips = self.inner.health.as_ref().map_or_else(
             || self.inner.endpoint.bootstrap_ips.clone(),
-            |health| health.rank_bootstrap_ips_in_scope(&self.inner.network_scope, &self.inner.endpoint.bootstrap_ips),
+            |health| {
+                health.rank_bootstrap_ips_in_scope(
+                    &self.inner.network_scope,
+                    &self.inner.endpoint.bootstrap_ips,
+                    self.inner.endpoint.port,
+                    true,
+                )
+            },
         );
         if bootstrap_ips.is_empty() {
             return Err(EncryptedDnsError::MissingBootstrapIps);
@@ -125,7 +132,14 @@ impl EncryptedDnsResolver {
             let success = result.is_ok();
             if let Some(health) = &self.inner.health {
                 let latency_ms = started.elapsed().as_millis().try_into().unwrap_or(u64::MAX);
-                health.record_bootstrap_outcome_in_scope(&self.inner.network_scope, ip, success, latency_ms);
+                health.record_bootstrap_outcome_in_scope(
+                    &self.inner.network_scope,
+                    ip,
+                    self.inner.endpoint.port,
+                    true,
+                    success,
+                    latency_ms,
+                );
             }
             match result {
                 Ok(conn) => {

@@ -23,6 +23,7 @@ pub use encrypted::{
     resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
     resolve_https_service_bindings_via_encrypted_dns_with_endpoint, resolve_outbound_ech_config_via_encrypted_dns,
     resolve_outbound_ech_config_via_encrypted_dns_async, resolve_via_encrypted_dns, resolve_via_encrypted_dns_with_raw,
+    supported_ech_config,
 };
 pub use endpoints::{
     bootstrap_ips_for_resolver, encrypted_dns_endpoint_for_resolver_id, encrypted_dns_endpoint_for_target,

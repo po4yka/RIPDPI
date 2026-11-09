@@ -60,11 +60,13 @@ pub(super) async fn connect_quic_with_ech_retry(
             Ok(connection) => return Ok((endpoint, connection, address)),
             Err(error) => {
                 let rejection = evidence.lock().ok().and_then(|mut slot| slot.take());
-                let configs = rejection.as_ref().and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+                let supported = rejection
+                    .as_ref()
+                    .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs)
+                    .and_then(|configs| ripdpi_ech_dns::supported_ech_config(&configs));
                 if attempt == 0
                     && current.ech_config.is_some()
-                    && let Some(configs) = configs
-                    && let Some(public_name) = ripdpi_ech_dns::ech_public_name(&configs)
+                    && let Some((public_name, configs)) = supported
                 {
                     current.ech_config = Some(
                         ripdpi_tls_profiles::OutboundEchConfig::new(public_name, configs)

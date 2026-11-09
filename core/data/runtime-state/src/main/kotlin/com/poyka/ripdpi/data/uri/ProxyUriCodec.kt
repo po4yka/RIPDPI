@@ -335,13 +335,16 @@ object ProxyUriCodec {
     ): ProxyProfile.Vless? {
         // Preserve representable TLS profiles for preview; native admission checks capabilities.
         val transportType = queryValue(rawQuery, "type")?.lowercase()
+        val isXhttp = transportType == "xhttp"
+        val security = queryValue(rawQuery, "security")?.lowercase()
         val supported =
             transportType in setOf(null, "tcp", "raw", "xhttp") &&
                 queryValue(rawQuery, "encryption")?.lowercase() in setOf(null, "", "none") &&
-                queryValue(rawQuery, "security")?.lowercase() in setOf(null, "tls") &&
+                security in setOf(null, "tls") &&
+                // An omitted security means "none" in the share-link format; native xHTTP is TLS-only.
+                (!isXhttp || security == "tls") &&
                 queryValue(rawQuery, "headerType")?.lowercase() in setOf(null, "none")
         if (!supported) return null
-        val isXhttp = transportType == "xhttp"
         return ProxyProfile.Vless(
             id = newId(),
             displayName = displayName(parsed.fragment, host),
@@ -349,7 +352,8 @@ object ProxyUriCodec {
             server = host,
             serverPort = port,
             uuid = uuid,
-            serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName"),
+            // The share-link format reuses the remote host when sni is omitted.
+            serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName") ?: host,
             flow = queryValue(rawQuery, "flow").orEmpty(),
             fingerprint = queryValue(rawQuery, "fp"),
             xhttpPath = if (isXhttp) queryValue(rawQuery, "path").orEmpty() else null,

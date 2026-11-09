@@ -79,7 +79,7 @@ fn dot_tls_stage_failure_moves_to_the_next_bootstrap_ip() {
             EncryptedDnsTransport::Direct,
             Duration::from_millis(500),
             vec![root],
-            Some(HealthRegistry::new(Duration::from_millis(1))),
+            Some(HealthRegistry::new(Duration::from_secs(3600))),
             ResolverNetworkScope::global(),
             EncryptedDnsConnectHooks::default(),
         )

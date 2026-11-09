@@ -82,6 +82,12 @@ class ConnectionPolicyDestinationRoutingTest {
                     sampleFingerprint(dnsServers = listOf("192.0.2.55")).copy(captivePortalDetected = true),
                     source,
                 ).resolve(Mode.VPN)
+            // DNS-10 F5: strict Private DNS withholds plaintext DIRECT DNS on the underlay lease.
+            val strictPrivateDns =
+                resolver(
+                    sampleFingerprint(dnsServers = listOf("192.0.2.56")).copy(privateDnsMode = "dns.example.net"),
+                    source,
+                ).resolve(Mode.VPN)
 
             assertEquals(
                 routingPolicy.canonicalDigest,
@@ -101,6 +107,11 @@ class ConnectionPolicyDestinationRoutingTest {
             assertEquals(
                 "direct_resolver_unavailable",
                 captive.splitStrictDnsPolicy?.decide("direct.example")?.coverageReason,
+            )
+            assertEquals(emptyList<String>(), strictPrivateDns.splitStrictDnsPolicy?.directResolverCandidates)
+            assertEquals(
+                "direct_resolver_unavailable",
+                strictPrivateDns.splitStrictDnsPolicy?.decide("direct.example")?.coverageReason,
             )
         }
 

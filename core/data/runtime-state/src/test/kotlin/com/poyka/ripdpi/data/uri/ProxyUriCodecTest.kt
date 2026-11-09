@@ -341,7 +341,7 @@ class ProxyUriCodecTest {
         val spacedQuery =
             ProxyUriCodec.parse(
                 "vless://11111111-2222-3333-4444-555555555555@h.example:443" +
-                    "?type=xhttp&mode=stream-up&path=/a b&sni=h.example#x",
+                    "?security=tls&type=xhttp&mode=stream-up&path=/a b&sni=h.example#x",
             ) as ProxyProfile.Vless
 
         assertEquals("US | Node 1", vless.displayName)
@@ -374,11 +374,28 @@ class ProxyUriCodecTest {
         val postQuantum = "encryption=mlkem768x25519plus.native.0rtt.KEY"
         assertNull(ProxyUriCodec.parse("$base&type=xhttp&security=tls&$postQuantum#pq"))
         assertNull(ProxyUriCodec.parse("$base&type=xhttp&security=none#plain"))
+        // An omitted security is "none" in the share-link format.
+        assertNull(ProxyUriCodec.parse("$base&type=xhttp&mode=stream-one#implicit-plain"))
         assertNull(ProxyUriCodec.parse("$base&type=tcp&headerType=http#http"))
         assertTrue(
             ProxyUriCodec.parse(
                 "$base&type=xhttp&security=tls&mode=stream-one&encryption=none#ok",
             ) is ProxyProfile.Vless,
+        )
+    }
+
+    @Test
+    fun `plain vless tls without sni uses the remote host as the server name`() {
+        val profile =
+            ProxyUriCodec.parse(
+                "vless://11111111-2222-3333-4444-555555555555@vpn.example.com:443" +
+                    "?security=tls&type=xhttp&mode=stream-one#n",
+            ) as ProxyProfile.Vless
+
+        assertEquals("vpn.example.com", profile.serverName)
+        assertTrue(
+            com.poyka.ripdpi.data
+                .validateNativeRelayProfile(profile),
         )
     }
 
