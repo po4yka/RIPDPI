@@ -11,10 +11,12 @@ pub enum Auth {
 }
 
 impl Auth {
-    /// Keep owner scopes inside the authenticated loopback transport.
+    /// Send owner scopes only to the native proxy, which reserves the `ripdpi` username.
     pub(crate) fn with_app_scope(&self, proxy: SocketAddr, app_scope: Option<&str>) -> Self {
         match (self, app_scope) {
-            (Self::UserPass { password, .. }, Some(scope)) if proxy.ip().to_canonical().is_loopback() => {
+            (Self::UserPass { username, password }, Some(scope))
+                if username == "ripdpi" && proxy.ip().to_canonical().is_loopback() =>
+            {
                 Self::UserPass { username: format!("vpn08:{scope}"), password: password.clone() }
             }
             _ => self.clone(),

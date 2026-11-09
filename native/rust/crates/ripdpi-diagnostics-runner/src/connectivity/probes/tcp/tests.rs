@@ -33,12 +33,13 @@ fn tcp_target(port: u16, sni: Option<&str>) -> crate::types::TcpTarget {
 
 #[test]
 fn evidence_whitelist_rejects_http_errors_and_short_success() {
-    use crate::test_fixtures::{FatServerMode, PlainFatHeaderServer};
+    use crate::test_fixtures::{FatServerMode, TlsHttpServer, TlsMode};
     for response in [
         &b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"[..],
         &b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"[..],
     ] {
-        let server = PlainFatHeaderServer::start(FatServerMode::HttpResponse(response));
+        let server =
+            TlsHttpServer::start(TlsMode::Single("original.example".into()), FatServerMode::HttpResponse(response));
         let result = super::run_tcp_probe(
             &tcp_target(server.port(), Some("original.example")),
             &["allowed.example".into()],
@@ -52,8 +53,11 @@ fn evidence_whitelist_rejects_http_errors_and_short_success() {
 
 #[test]
 fn evidence_whitelist_accepts_completed_transfer() {
-    use crate::test_fixtures::{FatServerMode, PlainFatHeaderServer};
-    let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allowed.example".into()));
+    use crate::test_fixtures::{FatServerMode, TlsHttpServer, TlsMode};
+    let server = TlsHttpServer::start(
+        TlsMode::Single("original.example".into()),
+        FatServerMode::AllowHost("allowed.example".into()),
+    );
     let result = super::run_tcp_probe(
         &tcp_target(server.port(), Some("original.example")),
         &["allowed.example".into()],

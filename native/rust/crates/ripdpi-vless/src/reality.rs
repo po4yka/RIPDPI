@@ -239,14 +239,15 @@ where
 
 /// Connect authenticated REALITY TLS for an HTTP/2 carrier.
 ///
-/// Offers only `h2` and refuses a peer that does not negotiate it before the
-/// caller can send application data. Raw REALITY callers use
+/// Offers only `h2`. Authenticated REALITY peers can omit ALPN, as Xray does
+/// before it detects the HTTP/2 preface. An explicit other protocol is refused.
+/// Raw REALITY callers use
 /// [`connect_reality_tls_over`] to keep their existing protocol policy.
 ///
 /// # Errors
 ///
-/// Returns [`io::ErrorKind::InvalidData`] when REALITY authentication or H2
-/// negotiation fails, and other errors when the TLS handshake fails.
+/// Returns [`io::ErrorKind::InvalidData`] when REALITY authentication fails or
+/// the peer selects another protocol, and other errors when the TLS handshake fails.
 ///
 /// # Cancel safety:
 /// NOT cancel-safe: borrowed transports must be discarded after cancellation.
@@ -434,7 +435,8 @@ where
         &auth_key,
     )?;
 
-    if require_h2 && tls_stream.ssl().selected_alpn_protocol() != Some(b"h2".as_slice()) {
+    // Xray REALITY omits ALPN and detects HTTP/2 from the authenticated stream's preface.
+    if require_h2 && tls_stream.ssl().selected_alpn_protocol().is_some_and(|protocol| protocol != b"h2") {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "REALITY H2 peer did not negotiate h2"));
     }
 
