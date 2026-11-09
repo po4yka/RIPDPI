@@ -6,6 +6,8 @@ use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::Hysteria2SessionFactory;
 
+const SALAMANDER_MIN_KEY_LEN: usize = 4;
+
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::Hysteria2(hysteria) = &config.backend else {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected Hysteria2 config"));
@@ -29,6 +31,10 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     )
     .map_err(to_io_error)?;
     client_config.salamander_key = hysteria.salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
+    // Upstream Salamander requires a PSK of at least 4 bytes.
+    if client_config.salamander_key.as_ref().is_some_and(|key| key.len() < SALAMANDER_MIN_KEY_LEN) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "Hysteria2 Salamander key must be at least 4 bytes"));
+    }
     client_config.insecure = hysteria.insecure;
     // Fail closed on a malformed pin: ignoring it would turn an `insecure`
     // profile into one that accepts any certificate.
@@ -128,6 +134,22 @@ mod tests {
     fn build_accepts_a_valid_certificate_pin() {
         let config = hysteria_config(Some("AB:".repeat(31) + "AB"));
         assert!(matches!(build(&config, &build_context()), Ok(RelayBackend::Hysteria2(_))));
+    }
+
+    #[test]
+    fn build_rejects_a_salamander_key_shorter_than_four_bytes() {
+        for (key, accepted) in [("abc", false), ("abcd", true), ("   ", true)] {
+            let mut config = hysteria_config(None);
+            let RelayBackendConfig::Hysteria2(hysteria) = &mut config.backend else { unreachable!() };
+            hysteria.salamander_key = Some(key.to_owned());
+            match build(&config, &build_context()) {
+                Ok(_) => assert!(accepted, "key {key:?} must be rejected"),
+                Err(error) => {
+                    assert!(!accepted, "key {key:?} must be accepted");
+                    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+                }
+            }
+        }
     }
 
     #[test]
