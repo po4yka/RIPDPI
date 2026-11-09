@@ -86,6 +86,19 @@ fn stream_one_and_stream_up_paths_differ_only_by_session_segment() {
     assert_eq!(up, format!("{one}{session}"));
 }
 
+/// xray-core keeps a configured `?query` out of the path, so its hub's
+/// `/xh/` prefix check still matches.
+#[test]
+fn configured_path_query_follows_the_session_segment() {
+    assert_eq!("/xh/sid?ed=2048", stream_up_path("/xh?ed=2048", "sid"));
+    assert_eq!("/xh/sid?ed=2048", stream_up_path("/xh/?ed=2048", "sid"));
+    assert_eq!("/sid?ed=2048", stream_up_path("?ed=2048", "sid"));
+    assert_eq!("/xh/?ed=2048", stream_one_path("/xh?ed=2048"));
+    assert_eq!("/xh/", stream_one_path("/xh?"));
+    let referer = referer_padding("cdn.example", "/xh/sid?ed=2048");
+    assert!(referer.starts_with("https://cdn.example/xh/sid?x_padding="), "{referer}");
+}
+
 #[test]
 fn protocol_mode_parses_xray_identifiers() {
     for is_reality in [false, true] {

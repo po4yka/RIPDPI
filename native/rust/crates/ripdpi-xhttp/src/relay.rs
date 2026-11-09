@@ -438,9 +438,22 @@ pub(crate) fn random_padding_value() -> String {
     out
 }
 
+/// Split a configured path into its path and query parts. Like xray-core's
+/// `GetNormalizedPath`/`GetNormalizedQuery`, the query follows the session
+/// segment instead of swallowing it.
+fn split_path_query(path: &str) -> (String, &str) {
+    let (base, query) = path.split_once('?').unwrap_or((path, ""));
+    (normalize_path(base), query)
+}
+
+fn with_query(path: String, query: &str) -> String {
+    if query.is_empty() { path } else { format!("{path}?{query}") }
+}
+
 pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {
-    let normalized = normalize_path(path);
-    if normalized == "/" { format!("/{session_id}") } else { format!("{normalized}/{session_id}") }
+    let (normalized, query) = split_path_query(path);
+    let path = if normalized == "/" { format!("/{session_id}") } else { format!("{normalized}/{session_id}") };
+    with_query(path, query)
 }
 
 /// Stream-one URL path: the configured path with a trailing `/` and no
@@ -449,12 +462,14 @@ pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {
 /// appends `/` under the default path placement; its hub answers 404 to a
 /// path without that prefix.
 pub(crate) fn stream_one_path(path: &str) -> String {
-    let normalized = normalize_path(path);
-    if normalized == "/" { normalized } else { format!("{normalized}/") }
+    let (normalized, query) = split_path_query(path);
+    let path = if normalized == "/" { normalized } else { format!("{normalized}/") };
+    with_query(path, query)
 }
 
+/// The Referer query carries only the padding, so a configured query is dropped here.
 pub(crate) fn referer_padding(host: &str, path: &str) -> String {
-    let normalized = normalize_path(path);
+    let (normalized, _) = split_path_query(path);
     let padding = random_padding_value();
     format!("https://{host}{normalized}?x_padding={padding}")
 }
