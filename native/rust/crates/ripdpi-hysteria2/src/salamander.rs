@@ -173,11 +173,11 @@ impl SalamanderCodec {
         body.len()
     }
 
-    fn keystream(&self, salt: &[u8]) -> Vec<u8> {
+    fn keystream(&self, salt: &[u8]) -> [u8; 32] {
         let mut hasher = Blake2b256::new();
         hasher.update(&self.key);
         hasher.update(salt);
-        hasher.finalize().to_vec()
+        hasher.finalize().into()
     }
 }
 
