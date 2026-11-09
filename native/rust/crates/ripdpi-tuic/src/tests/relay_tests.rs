@@ -2,6 +2,25 @@
 
 use super::*;
 
+fn base_config(server_addr: SocketAddr) -> Config {
+    Config {
+        server: server_addr.ip().to_string(),
+        server_port: i32::from(server_addr.port()),
+        server_name: "localhost".to_owned(),
+        uuid: "00000000-0000-0000-0000-000000000000".to_owned(),
+        password: "tuic-fixture".to_owned(),
+        zero_rtt: false,
+        congestion_control: "bbr".to_owned(),
+        udp_enabled: true,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        outbound_bind_ip: None,
+        keepalive_interval_ms: 0,
+        root_certificate_pem: None,
+    }
+}
+
 fn packet_frame(assoc_id: u16, packet_id: u16, address: TuicAddress, payload: &[u8]) -> bytes::Bytes {
     let header = PacketHeader {
         assoc_id,
@@ -81,4 +100,20 @@ async fn udp_session_fails_once_the_connection_is_closed() {
     };
     assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe);
     assert!(error.to_string().contains("closed"), "the error must name the close: {error}");
+}
+
+/// An unparsable UUID can never authenticate, so it must fail before the
+/// client opens a QUIC handshake.
+#[tokio::test]
+async fn invalid_uuid_fails_before_any_handshake() {
+    let (server, cert_der) = fixture_server();
+    let server_addr = server.local_addr().expect("server addr");
+    let config = Config { uuid: "not-a-uuid".to_owned(), ..base_config(server_addr) };
+    let tls_config = build_tls_config(Some(vec![cert_der])).expect("tls config");
+    let Err(error) = TuicClient::connect_with_tls(config, tls_config).await else {
+        panic!("an invalid UUID must be rejected");
+    };
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    let incoming = tokio::time::timeout(Duration::from_millis(300), server.accept()).await;
+    assert!(incoming.is_err(), "the fixture server must see no handshake");
 }

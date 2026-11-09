@@ -155,6 +155,8 @@ pub(crate) fn validate_config(config: &Config) -> io::Result<()> {
     if config.uuid.trim().is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC UUID"));
     }
+    uuid::Uuid::parse_str(config.uuid.trim())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid TUIC UUID: {error}")))?;
     if config.password.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "missing TUIC password"));
     }
