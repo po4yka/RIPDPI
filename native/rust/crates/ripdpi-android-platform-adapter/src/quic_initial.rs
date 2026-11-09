@@ -3,11 +3,7 @@ use base64::engine::general_purpose::STANDARD;
 use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};
-use ripdpi_packets::{
-    QUIC_V1_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout, build_browser_like_quic_initial,
-    build_generic_quic_initial, build_probe_quic_initial, packetize_quic_initial, parse_quic_initial_seed,
-    tamper_quic_version,
-};
+use ripdpi_packets::{QUIC_V1_VERSION, QuicProbeProfile, build_profiled_probe_quic_initial, tamper_quic_version};
 use serde::{Deserialize, Serialize};
 
 const RESERVED_VERSION: u32 = 0x1a2a_3a4a;
@@ -38,35 +34,17 @@ fn create(request_json: &str) -> String {
         .unwrap_or_else(|error| response_error(format!("serialize QUIC Initial response: {error}")))
 }
 
-/// Build an active-probe Initial. Every profile gets fresh connection IDs
-/// (RFC 9000 section 7.2: the client's first DCID is unpredictable), so the
-/// packet is not a constant a censor can match; only the ClientHello profile
-/// stays fixed.
 fn build_packet(request: &QuicInitialRequest) -> Option<Vec<u8>> {
     let target = request.target.trim();
     let host = (!target.is_empty()).then_some(target);
     match request.fingerprint.as_str() {
-        "chrome120" => build_probe_quic_initial(QUIC_V1_VERSION, host),
-        "firefox121" => with_fresh_connection_ids(
-            &build_browser_like_quic_initial(QUIC_V1_VERSION, host, QuicInitialBrowserProfile::FirefoxAndroid)?,
-            host,
-        ),
-        "generic_v1" => with_fresh_connection_ids(&build_generic_quic_initial(QUIC_V1_VERSION, host)?, host),
-        "vn_probe" => build_probe_quic_initial(QUIC_V1_VERSION, host)
+        "chrome120" => build_profiled_probe_quic_initial(QUIC_V1_VERSION, host, QuicProbeProfile::Chrome),
+        "firefox121" => build_profiled_probe_quic_initial(QUIC_V1_VERSION, host, QuicProbeProfile::Firefox),
+        "generic_v1" => build_profiled_probe_quic_initial(QUIC_V1_VERSION, host, QuicProbeProfile::Generic),
+        "vn_probe" => build_profiled_probe_quic_initial(QUIC_V1_VERSION, host, QuicProbeProfile::Chrome)
             .and_then(|packet| tamper_quic_version(&packet, RESERVED_VERSION)),
         _ => None,
     }
-}
-
-/// Re-packetize `packet` with the random DCID and SCID of a fresh probe
-/// Initial. `build_probe_quic_initial` draws them from ring's CSPRNG; this
-/// crate has no RNG dependency of its own.
-fn with_fresh_connection_ids(packet: &[u8], host: Option<&str>) -> Option<Vec<u8>> {
-    let fresh = parse_quic_initial_seed(&build_probe_quic_initial(QUIC_V1_VERSION, host)?)?;
-    let mut seed = parse_quic_initial_seed(packet)?;
-    seed.dcid = fresh.dcid;
-    seed.scid = fresh.scid;
-    packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(packet.len()))
 }
 
 fn response_error(error: impl Into<String>) -> String {
