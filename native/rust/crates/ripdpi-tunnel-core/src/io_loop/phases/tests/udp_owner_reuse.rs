@@ -161,7 +161,7 @@ async fn udp_uid_expiry_preserves_real_source_port_and_control_connection_for_sa
     let relay = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
     state.runtime.proxy_sockaddr = listener.local_addr().unwrap();
-    state.runtime.auth = Auth::UserPass { username: "control".into(), password: "refresh-test-token".into() };
+    state.runtime.auth = Auth::UserPass { username: "ripdpi".into(), password: "refresh-test-token".into() };
     state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
     state.runtime.udp_idle_timeout = Duration::from_secs(30);
     let accepts = Arc::new(AtomicUsize::new(0));

@@ -100,7 +100,7 @@ async fn mapdns_udp_keeps_original_owner_tuple_and_sends_scope_with_real_target_
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
     state.runtime.proxy_sockaddr = proxy;
     state.runtime.auth =
-        Auth::UserPass { username: "control".into(), password: String::from_utf8(PASSWORD.to_vec()).unwrap() };
+        Auth::UserPass { username: "ripdpi".into(), password: String::from_utf8(PASSWORD.to_vec()).unwrap() };
     state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10133]));
     let mut peers = JoinSet::new();
     peers.spawn(observe_peer(listener, relay));
