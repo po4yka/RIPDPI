@@ -147,6 +147,12 @@ pub ripdpi_packets::QuicInitialSeed::dcid: alloc::vec::Vec<u8>
 pub ripdpi_packets::QuicInitialSeed::scid: alloc::vec::Vec<u8>
 pub ripdpi_packets::QuicInitialSeed::token: alloc::vec::Vec<u8>
 pub ripdpi_packets::QuicInitialSeed::version: u32
+pub struct ripdpi_packets::ReassembledTlsSni
+pub ripdpi_packets::ReassembledTlsSni::contiguous_markers: core::option::Option<ripdpi_packets::TlsMarkerInfo>
+pub ripdpi_packets::ReassembledTlsSni::ext_len_start: usize
+pub ripdpi_packets::ReassembledTlsSni::host: alloc::vec::Vec<u8>
+pub ripdpi_packets::ReassembledTlsSni::host_offsets: alloc::vec::Vec<usize>
+pub ripdpi_packets::ReassembledTlsSni::sni_ext_start: usize
 pub struct ripdpi_packets::TlsClientHelloLayout
 pub ripdpi_packets::TlsClientHelloLayout::extensions: alloc::vec::Vec<ripdpi_packets::TlsExtensionInfo>
 pub ripdpi_packets::TlsClientHelloLayout::handshake_payload_len: usize
@@ -215,6 +221,7 @@ pub fn ripdpi_packets::parse_tls_client_hello_handshake_layout(&[u8]) -> core::o
 pub fn ripdpi_packets::parse_tls_client_hello_layout(&[u8]) -> core::option::Option<ripdpi_packets::TlsClientHelloLayout>
 pub fn ripdpi_packets::randomize_tls_seeded_inplace(&mut [u8], u32) -> isize
 pub fn ripdpi_packets::randomize_tls_sni_seeded_inplace(&mut [u8], u32) -> isize
+pub fn ripdpi_packets::reassembled_tls_sni(&[u8]) -> core::option::Option<ripdpi_packets::ReassembledTlsSni>
 pub fn ripdpi_packets::remove_tls_key_share_group_like_c(&[u8], u16) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::second_level_domain_span(&[u8]) -> core::option::Option<(usize, usize)>
 pub fn ripdpi_packets::tamper_quic_initial_split_crypto(&[u8], usize) -> core::option::Option<alloc::vec::Vec<u8>>

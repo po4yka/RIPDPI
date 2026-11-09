@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use ripdpi_packets::{
-    http_marker_info, parse_quic_initial, parse_quic_initial_layout, parse_tls, second_level_domain_span,
-    tls_marker_info,
+    http_marker_info, parse_quic_initial, parse_quic_initial_layout, parse_tls, reassembled_tls_sni,
+    second_level_domain_span, tls_marker_info,
 };
 use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_strategy_config::{LoadedStrategyConfig, ProtocolName, StrategyMatch, parse_yaml_str};
@@ -202,7 +202,16 @@ fn dissect_payload(
     let mut protocol = protocol_name(&dissect.proto);
     let mut hostname = None;
     if tcp {
-        if let Some(host) = parse_tls(payload) {
+        if let Some(hello) = reassembled_tls_sni(payload) {
+            hostname = Some(String::from_utf8_lossy(&hello.host).into_owned());
+            protocol = Some(ProtocolName::Tls);
+            dissect.proto = L7Protocol::Tls(TlsDissect { sni: hostname.clone(), is_client_hello: true });
+            dissect.markers.insert(MarkerName::ExtLen, hello.ext_len_start);
+            dissect.markers.insert(MarkerName::SniExt, hello.sni_ext_start);
+            if let Some(markers) = hello.contiguous_markers {
+                insert_host_markers(&mut dissect, payload, markers.host_start, markers.host_end);
+            }
+        } else if let Some(host) = parse_tls(payload) {
             hostname = Some(String::from_utf8_lossy(host).into_owned());
             protocol = Some(ProtocolName::Tls);
             dissect.proto = L7Protocol::Tls(TlsDissect { sni: hostname.clone(), is_client_hello: true });
@@ -288,6 +297,50 @@ mod tests {
         format!(
             "  - id: {id}\n    on_fail: {policy}\n{matcher}    steps:\n      - type: lua\n        function: {function}\n        script_paths: [candidate.lua]\n"
         )
+    }
+
+    #[test]
+    fn fragmented_tls_host_markers_reference_original_stream() {
+        let original = include_bytes!("../../ripdpi-packets/tests/fixtures/curl_tls13_example_com.bin");
+        let host_start = original.windows(b"example.com".len()).position(|part| part == b"example.com").unwrap();
+        let split = host_start - 5 + 3;
+        let body = &original[5..];
+        let mut bytes = vec![0x16, 0x03, 0x03];
+        bytes.extend_from_slice(&(split as u16).to_be_bytes());
+        bytes.extend_from_slice(&body[..split]);
+        bytes.extend_from_slice(&[0x16, 0x03, 0x03]);
+        bytes.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
+        bytes.extend_from_slice(&body[split..]);
+        let (src, dst) = endpoints();
+        let (dissect, protocol, host) = dissect_payload(src, dst, true, &bytes);
+        assert_eq!(protocol, Some(ProtocolName::Tls));
+        assert_eq!(host.as_deref(), Some("example.com"));
+        for marker in
+            [MarkerName::Host, MarkerName::HostEnd, MarkerName::HostSld, MarkerName::HostMidSld, MarkerName::HostEndSld]
+        {
+            assert!(!dissect.markers.contains_key(&marker));
+        }
+        assert!(dissect.markers.contains_key(&MarkerName::ExtLen));
+        assert!(dissect.markers.contains_key(&MarkerName::SniExt));
+
+        let scripts = Scripts::new(
+            "function range(d) return tostring(resolve_range(d.dis.payload,d.l7payload,'host,endhost-1',true)) end",
+        );
+        let strategies = scripts.load(&rule("range", "range", "drop", ""));
+        let plan = strategies.open_flow().plan(src, dst, "tcp", &bytes, None, None).unwrap().unwrap();
+        assert_eq!(plan.actions, vec![DesyncAction::Write(b"nil".to_vec())]);
+
+        let split = 40;
+        let mut contiguous = vec![0x16, 0x03, 0x03];
+        contiguous.extend_from_slice(&(split as u16).to_be_bytes());
+        contiguous.extend_from_slice(&body[..split]);
+        contiguous.extend_from_slice(&[0x16, 0x03, 0x03]);
+        contiguous.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
+        contiguous.extend_from_slice(&body[split..]);
+        let (dissect, _, host) = dissect_payload(src, dst, true, &contiguous);
+        assert_eq!(host.as_deref(), Some("example.com"));
+        assert_eq!(dissect.markers.get(&MarkerName::Host), Some(&(host_start + 5)));
+        assert_eq!(dissect.markers.get(&MarkerName::HostEnd), Some(&(host_start + 5 + 11)));
     }
 
     #[test]

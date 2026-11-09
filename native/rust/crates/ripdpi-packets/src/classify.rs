@@ -3,7 +3,7 @@
 //! Wraps existing stateless `is_*()` / `parse_*()` detection functions behind
 //! a common [`ProtocolClassifier`] trait with a registry for ordered lookup.
 
-use crate::{is_http, is_tls_client_hello, parse_http, parse_tls};
+use crate::{is_http, is_tls_client_hello, parse_http, parse_tls, reassembled_tls_sni};
 
 /// Protocol identifier for dispatch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, enum_map::Enum)]
@@ -106,7 +106,9 @@ impl ProtocolClassifier for TlsClassifier {
     }
 
     fn extract_host(&self, payload: &[u8]) -> Option<String> {
-        parse_tls(payload).map(|h| String::from_utf8_lossy(h).into_owned())
+        reassembled_tls_sni(payload)
+            .map(|hello| String::from_utf8_lossy(&hello.host).into_owned())
+            .or_else(|| parse_tls(payload).map(|h| String::from_utf8_lossy(h).into_owned()))
     }
 }
 
@@ -216,6 +218,33 @@ mod tests {
         let result = registry.classify(&payload).expect("should classify as TLS");
         assert_eq!(result.protocol, ProtocolId::Tls);
         assert_eq!(result.host.as_deref(), Some("example.com"));
+    }
+
+    #[test]
+    fn classify_tls_with_fragmented_handshake_and_hostname() {
+        let original = tls_client_hello();
+        let body = &original[5..];
+        for split in 1..body.len() {
+            let mut bytes = vec![0x16, 0x03, 0x03];
+            bytes.extend_from_slice(&(split as u16).to_be_bytes());
+            bytes.extend_from_slice(&body[..split]);
+            bytes.extend_from_slice(&[0x16, 0x03, 0x03]);
+            bytes.extend_from_slice(&((body.len() - split) as u16).to_be_bytes());
+            bytes.extend_from_slice(&body[split..]);
+            let result = default_registry().classify(&bytes).expect("TLS classification");
+            assert_eq!(result.host.as_deref(), Some("example.com"), "split at {split}");
+            let hello = reassembled_tls_sni(&bytes).expect("record-aware SNI");
+            let reconstructed: Vec<_> = hello.host_offsets.iter().map(|&offset| bytes[offset]).collect();
+            assert_eq!(reconstructed, b"example.com");
+            if let Some(markers) = hello.contiguous_markers {
+                assert_eq!(&bytes[markers.host_start..markers.host_end], b"example.com");
+            } else {
+                assert!(hello.host_offsets.windows(2).any(|pair| pair[1] != pair[0] + 1));
+            }
+            assert!(reassembled_tls_sni(&bytes[..bytes.len() - 1]).is_none());
+            bytes.extend_from_slice(&[0x17, 3, 3, 0, 1, 0]);
+            assert_eq!(reassembled_tls_sni(&bytes).unwrap().host, b"example.com");
+        }
     }
 
     #[test]

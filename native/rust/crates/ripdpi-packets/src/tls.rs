@@ -1,11 +1,13 @@
 mod detect;
 mod edit;
 mod mutation;
+mod reassembled;
 #[cfg(test)]
 mod tests;
 
 pub use detect::*;
 pub use mutation::*;
+pub use reassembled::*;
 
 #[cfg(test)]
 use edit::*;
