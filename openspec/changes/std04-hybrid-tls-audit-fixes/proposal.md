@@ -25,4 +25,4 @@ The STD-04 audit found an overwritten TLS alert and three misleading contracts. 
 
 ## Impact
 
-Vendored BoringSSL alert handling, ripdpi-tls-profiles metadata/tests, and two source documents. No new dependency, JNI/protobuf/storage migration, golden update, device operation, or deployment is needed.
+Vendored BoringSSL alert handling, ripdpi-tls-profiles metadata/tests, and related source documentation. No new dependency, JNI/protobuf/storage migration, golden update, device operation, or deployment is needed.

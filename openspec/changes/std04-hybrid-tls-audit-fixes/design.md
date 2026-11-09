@@ -17,8 +17,8 @@ Task TRN-1794199027304873 addresses four confirmed findings from the STD-04 audi
 ## Contracts and ownership
 
 - Vendor BoringSSL: extensions.cc and vendor notes, owned by F1 worker. The wire error changes from internal_error to illegal_parameter for invalid peer inputs.
-- ripdpi-tls-profiles metadata and existing tests, owned by F2 worker. The reported status changes to the existing satisfied value. No enum member, JNI/protobuf field, or storage schema changes.
-- VLESS KEM rustdoc and fake-profile provenance, owned by the documentation worker as separate F3/F4 slices.
+- ripdpi-tls-profiles metadata and existing tests, affected Kotlin samples, WS tunnel README and skill claims, owned by F2 worker. The reported status changes to the existing satisfied value. No enum member, JNI/protobuf field, or storage schema changes. Run just harness-check after the skill text correction.
+- VLESS KEM rustdoc, TLS KEM module documentation, and fake-profile provenance, owned by the documentation worker as separate F3/F4 slices.
 - Portfolio/OpenSpec/board files and main integration are owned only by the parent. All writers use separate worktrees.
 - No serialized dependency, version, schema, locale, golden, or architecture-baseline file is changed.
 

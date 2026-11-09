@@ -382,7 +382,7 @@ The spike also names two gaps neither RIPDPI nor zapret has shipped yet (see the
 
 TLS ClientHello fingerprint mimicry (JA3/JA4 evasion) requires byte-precise control over the TLS ClientHello extension order, GREASE values, and cipher suite ordering. As of April 2026, **no Rust crate offers this as a library** — the Go ecosystem (`tlsmask`, `httpcloak`, `mic`) still dominates the space.
 
-RIPDPI's answer is `ripdpi-tls-profiles` wrapping BoringSSL directly (via the `boring` crate) with profiles for `chrome_stable`, `firefox_stable`, `safari_stable`, `edge_stable`. The profile set carries an invariant `AvoidsBlocked517ByteClientHello` which all profile weights respect — a ClientHello with a total length of exactly 517 bytes is known to be flagged by certain DPI implementations. New profiles added to the set MUST maintain this invariant; the `desync-engine` test suite enforces it.
+RIPDPI uses `ripdpi-tls-profiles` to configure BoringSSL through the `boring` crate. Its `Satisfied` metadata status describes static profile configuration checks, including reference size hints. New profiles MUST pass those checks. Check wire-size requirements against captured ClientHello bytes: the serialized size depends on the server name, key shares, and extensions, and valid Firefox/Safari configurations can produce a 517-byte record.
 
 If a Rust-native uTLS equivalent emerges (a port of utls to rustls or a ClientHello-builder crate over BoringSSL), it replaces `ripdpi-tls-profiles`' manual boring wrapping. Until then, this is the known gap.
 
@@ -399,7 +399,7 @@ Do not claim a packet-level behavior change is correct from static inspection al
 
 ## Related skills
 
-- `ws-tunnel-telegram` — the WS-over-TLS tunnel consumes the same TLS fingerprint profiles and shares the 517-byte invariant concern.
+- `ws-tunnel-telegram` — the WS-over-TLS tunnel consumes the same TLS fingerprint profiles and needs the same configuration and wire-size checks.
 - `rust-panic-safety` — desync execution paths must handle all panic cases at the JNI boundary; `ripdpi-desync` errors are typed via `thiserror`.
 - `rust-async-internals` — UDP desync interacts with the tunnel io_loop; consult its manual-poll bridge guidance before adding UDP fake-packet injection.
 - `network-traffic-debug` — capture and inspect the resulting traffic (mitmproxy/tcpdump/PCAPdroid) once a change is implemented.

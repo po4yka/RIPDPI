@@ -95,7 +95,7 @@ fn chrome_profile_matches_phase_zero_invariants() {
     assert_ne!(517, profile.client_hello_size_hint);
     assert_eq!("chrome-stable", metadata.parity_targets.ja3);
     assert_eq!("chrome-stable", metadata.parity_targets.ja4);
-    assert_eq!(ProfileInvariantStatus::AvoidsBlocked517ByteClientHello, metadata.invariant_status);
+    assert_eq!(ProfileInvariantStatus::Satisfied, metadata.invariant_status);
     assert_eq!("h2_http11", metadata.template.alpn_template);
     assert_eq!("chromium_permuted", metadata.template.extension_order_family);
     assert!(!metadata.template.ech_capable);
@@ -168,6 +168,26 @@ fn all_catalog_profiles_publish_safe_parity_metadata() {
         assert!(!metadata.parity_targets.ja3.is_empty());
         assert!(!metadata.parity_targets.ja4.is_empty());
         assert_ne!(517, metadata.client_hello_size_hint);
+        assert_eq!(ProfileInvariantStatus::Satisfied, metadata.invariant_status);
+    }
+}
+
+#[test]
+fn profile_metadata_does_not_claim_a_measured_client_hello_size() {
+    for name in ["firefox_stable", "safari_stable", "chrome_stable"] {
+        let flight = capture_client_hello(name);
+        let record_len = usize::from(u16::from_be_bytes([flight[3], flight[4]]));
+        assert_eq!(flight.len(), record_len + 5);
+        if name == "chrome_stable" {
+            // The hybrid key share alone exceeds the reference size hint.
+            assert!(flight.len() > 1216);
+        } else {
+            assert_eq!(flight.len(), 517, "{name} keeps its padded wire form");
+        }
+        let metadata = selected_profile_metadata(name);
+        assert_ne!(flight.len(), metadata.client_hello_size_hint);
+        assert_eq!(ProfileInvariantStatus::Satisfied, metadata.invariant_status);
+        assert_eq!("satisfied", metadata.invariant_status.as_str());
     }
 }
 
@@ -340,12 +360,11 @@ mod chrome_120_fingerprint_regression {
             "Chrome 120 profile must remain ECH-disabled; enabling ECH removes the \
              padding-extension slot restored by uTLS v1.8.2 (PR #375)"
         );
-        // The client_hello_size_hint encodes the padding budget: it must not be
-        // the blocked 517-byte value and must sit within the mimicry envelope.
-        assert_ne!(profile.client_hello_size_hint, 517, "Chrome 120 must avoid the blocked 517-byte fingerprint");
+        // The reference hint is checked independently of serialized packet size.
+        assert_ne!(profile.client_hello_size_hint, 517, "Chrome 120 reference size hint must not equal 517");
         assert!(
             (480..=540).contains(&profile.client_hello_size_hint),
-            "Chrome 120 size hint {} is outside the [480, 540] mimicry envelope",
+            "Chrome 120 size hint {} is outside the [480, 540] reference envelope",
             profile.client_hello_size_hint
         );
     }

@@ -45,7 +45,7 @@ class NativeOwnedTlsHttpFetcherTest {
                                         tlsTemplateEchBootstrapResolverId = null,
                                         tlsTemplateEchOuterExtensionPolicy = "not_applicable",
                                         clientHelloSizeHint = 512,
-                                        clientHelloInvariantStatus = "avoids_blocked_517_byte_client_hello",
+                                        clientHelloInvariantStatus = "satisfied",
                                     ),
                                 ),
                         ),
@@ -79,7 +79,7 @@ class NativeOwnedTlsHttpFetcherTest {
             assertNull(result.tlsTemplateEchBootstrapResolverId)
             assertEquals("not_applicable", result.tlsTemplateEchOuterExtensionPolicy)
             assertEquals(512, result.clientHelloSizeHint)
-            assertEquals("avoids_blocked_517_byte_client_hello", result.clientHelloInvariantStatus)
+            assertEquals("satisfied", result.clientHelloInvariantStatus)
         }
 
     @Test(expected = IOException::class)

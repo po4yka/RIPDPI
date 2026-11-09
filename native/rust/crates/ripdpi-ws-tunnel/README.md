@@ -12,8 +12,9 @@ transports — it is gated by the `ws_tunnel_enabled` / `ws_tunnel_mode` setting
 ## Stable identifiers / contracts
 
 `ws_tunnel_enabled` / `ws_tunnel_mode` / `ws_tunnel_fake_sni` settings; the
-MTProto obfuscated2 framing; the `AvoidsBlocked517ByteClientHello` ClientHello
-invariant; the Telegram DC IP database. See the `ws-tunnel-telegram` skill.
+MTProto obfuscated2 framing; validated TLS profile configuration; the Telegram
+DC IP database. Profile size hints do not measure the serialized ClientHello.
+See the `ws-tunnel-telegram` skill.
 
 ## Dependency direction
 
@@ -30,7 +31,7 @@ No privileged operations — runs fully on non-rooted devices. See
 
 1. Changes to DC routing, obfuscated2 classification, or the ClientHello
    fingerprint go through the `ws-tunnel-telegram` skill.
-2. Preserve the `AvoidsBlocked517ByteClientHello` invariant.
+2. Keep TLS profile configuration checks and measure packet sizes separately.
 
 ---
 See [`NATIVE_RUST.md`](../../../../docs/architecture/NATIVE_RUST.md),

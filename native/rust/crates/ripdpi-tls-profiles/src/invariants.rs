@@ -14,13 +14,13 @@ pub(crate) fn validate_profile_config(config: &ProfileConfig) -> Result<(), Erro
     if config.client_hello_size_hint == 517 {
         return Err(Error::Invariant {
             profile: config.name,
-            reason: "517-byte ClientHello is blocked by known middlebox fingerprinting rules",
+            reason: "ClientHello reference size hint must not equal 517",
         });
     }
     if config.client_hello_size_hint < 480 || config.client_hello_size_hint > 540 {
         return Err(Error::Invariant {
             profile: config.name,
-            reason: "ClientHello size hint drifted outside the expected mimicry envelope",
+            reason: "ClientHello size hint drifted outside the expected reference envelope",
         });
     }
     let supports_h2 = config.alpn.iter().any(|value| *value == b"h2");

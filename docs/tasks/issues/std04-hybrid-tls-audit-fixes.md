@@ -30,7 +30,7 @@ Correct findings F1-F4 in the 2026-11-09 STD-04 audit. Preserve successful hybri
 
 - Parent integration owns this portfolio record, all OpenSpec artifacts, the generated board, review, combined validation, commits, main integration, and push.
 - F1 worker owns vendor/boring-sys/deps/boringssl/ssl/extensions.cc, the vendor notes, and a new ripdpi-tls-profiles integration test for hybrid peer alerts.
-- F2 worker owns ripdpi-tls-profiles metadata and its existing tests, directly affected Kotlin test samples, and the live status claims in ripdpi-ws-tunnel/README.md. It does not change wire bytes, fixtures, baselines, or F1 tests.
+- F2 worker owns ripdpi-tls-profiles metadata and its existing tests, directly affected Kotlin test samples, and the live status claims in ripdpi-ws-tunnel/README.md plus .agents/skills/ws-tunnel-telegram/SKILL.md and .agents/skills/desync-engine/SKILL.md. It does not change wire bytes, fixtures, baselines, or F1 tests.
 - Documentation worker owns ripdpi-vless/src/config.rs rustdoc, the module documentation in ripdpi-tls-profiles/src/pq_kem.rs, and ripdpi-packets/src/fake_profiles/PROVENANCE.md. It prepares F3 and F4 as separate reviewed diffs.
 - Every writer uses a separate worktree. Only the parent writes tasking/spec artifacts. No writer changes Cargo.lock, versions, schemas, golden fixtures, architecture baselines, or locale resources.
 

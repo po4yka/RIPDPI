@@ -28,6 +28,7 @@ pub struct ProfileConfig {
     pub permute_extensions: bool,
     pub min_version: SslVersion,
     pub max_version: SslVersion,
+    /// Reference value for static profile checks, not a measured TLS record size.
     pub client_hello_size_hint: usize,
     pub ja3_parity_target: &'static str,
     pub ja4_parity_target: &'static str,
@@ -41,7 +42,9 @@ pub struct ProfileCatalog {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProfileInvariantStatus {
+    /// The profile satisfies the static configuration checks.
     Satisfied,
+    /// Historical wire-size label; current profile metadata does not use it.
     AvoidsBlocked517ByteClientHello,
 }
 
@@ -80,6 +83,7 @@ pub struct ProfileTemplateMetadata {
 pub struct ProfileMetadata {
     pub profile_name: &'static str,
     pub catalog_version: &'static str,
+    /// Profile reference value, not the serialized size of a connection's ClientHello.
     pub client_hello_size_hint: usize,
     pub invariant_status: ProfileInvariantStatus,
     pub parity_targets: ProfileParityTargets,
@@ -138,7 +142,7 @@ pub fn profile_metadata(name: &str) -> ProfileMetadata {
         profile_name: profile.name,
         catalog_version: DEFAULT_PROFILE_CATALOG.version,
         client_hello_size_hint: profile.client_hello_size_hint,
-        invariant_status: ProfileInvariantStatus::AvoidsBlocked517ByteClientHello,
+        invariant_status: ProfileInvariantStatus::Satisfied,
         parity_targets: ProfileParityTargets {
             browser_family: profile.browser_family,
             browser_track: profile.browser_track,
