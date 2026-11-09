@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-09T05:52:31Z",
+  "change": "std04-hybrid-tls-audit-fixes",
+  "commit_sha": "92b149a2f7d1a0d97d1d485513e2d0628be8d900",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "TRN-1794199027304873"
+}

@@ -2,7 +2,7 @@
 id: TRN-1794199027304873
 title: Correct STD-04 hybrid TLS audit findings
 kind: bug
-status: review
+status: done
 area: transport
 priority: medium
 owner: STD-04 integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: std04-hybrid-tls-audit-fixes
 created: 2026-11-09
 updated: 2026-11-09
+closed_at: "2026-11-09T05:52:32Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Four independently reviewed STD-04 fixes; 573 Rust tests passed, 3 Kotlin tests and 4 REALITY vector tests passed; CI source, architecture, locked metadata, harness, and commit gates passed. Eight existing external interop tests remain outside host acceptance.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "std04-hybrid-tls-audit-fixes",
+  "evidence_summary": "Four independently reviewed STD-04 fixes; 573 Rust tests passed, 3 Kotlin tests and 4 REALITY vector tests passed; CI source, architecture, locked metadata, harness, and commit gates passed. Eight existing external interop tests remain outside host acceptance.",
+  "execution_sha256": "e2f47ac6a07d3562f538561fec53fed26f79498a2fe4909cd5e5622ccd12da8f",
+  "issue_sha256": "3811a989c195c030ef94d05a0589c817e41d7af349871ef963795142257da35b",
+  "outcome": "done",
+  "prepared_at": "2026-11-09T05:52:32Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794199027304873"
+}
