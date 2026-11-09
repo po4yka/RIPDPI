@@ -2,7 +2,7 @@
 id: TRN-1794198667426286
 title: Correct standard TLS certificate verification policies
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: TLS policy maintainers
@@ -31,5 +31,5 @@ Correct the three confirmed STD-06 audit defects: SAN-only server identity, expl
 - san_identity: `native/rust/crates/ripdpi-tls-profiles/src/cert_blocklist.rs`, SAN identity integration tests, and related identity helpers if needed; isolated worktree `RIPDPI-std06-san-identity`.
 - explicit_roots: `native/rust/crates/ripdpi-tls-profiles/src/trust.rs` and trust-store integration tests; isolated worktree `RIPDPI-std06-explicit-roots`.
 - diagnostics_policy: diagnostic helper/options API and all affected Rust callers and behavior tests; isolated worktree `RIPDPI-std06-diagnostics-policy`.
-- Primary agent: OpenSpec and task files, combined integration, generated API snapshots, validation, review coordination, and commits. Serialized shared files: no Cargo.lock, manifests, baselines, locale or golden changes are planned. Primary agent owns any required generated API snapshot update.
+- Primary agent: OpenSpec and task files, combined integration, generated API snapshots, validation, review coordination, and commits. The primary agent also owns corrections to existing regression fixtures found during combined validation. Serialized shared files: no Cargo.lock, manifests, baselines, locale or golden changes are planned. Primary agent owns any required generated API snapshot update.
 - Each confirmed defect has a separate implementation commit. Workers do not commit before independent review.
