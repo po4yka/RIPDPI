@@ -30,6 +30,10 @@ The hook still runs after ClientHello serialization and before `add_message`.
 full handshakes. This keeps the Firefox and Safari browser packet contracts
 stable. Resumed handshakes use upstream behavior.
 
+The same file preserves the alert selected by key exchange validation in TLS
+1.3. Invalid hybrid share lengths and invalid X25519 shares report
+`illegal_parameter`, rather than replacing that alert with `internal_error`.
+
 Resolve the workspace patch with `cargo update -p boring-sys --precise <version>`.
 The workspace lock must select this path package and must not list it in
 `patch.unused`. Update the REALITY vector version metadata and its Python and

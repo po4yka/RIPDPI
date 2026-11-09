@@ -2547,8 +2547,8 @@ bool ssl_ext_key_share_parse_serverhello(SSL_HANDSHAKE *hs,
     OPENSSL_PUT_ERROR(SSL, SSL_R_WRONG_CURVE);
     return false;
   }
+  *out_alert = SSL_AD_INTERNAL_ERROR;
   if (!(*key_share_it)->Decap(out_secret, out_alert, ciphertext)) {
-    *out_alert = SSL_AD_INTERNAL_ERROR;
     return false;
   }
 
