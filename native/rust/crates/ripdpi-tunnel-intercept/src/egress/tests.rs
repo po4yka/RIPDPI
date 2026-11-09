@@ -109,7 +109,7 @@ fn tun_lua_gets_known_transport_and_shared_tcp_class() {
     assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"udp:49152:3478/unknown/true");
     let hello = [0x16, 0x03, 0x01, 0x00, 0x20, 0x01, 0x00, 0x00, 0x1c];
     assert!(interceptor.handle_packet(&tcp_stream_packet(1, false, &hello)));
-    assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"tcp/unknown/false");
+    assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"tcp/tls/false");
 }
 
 fn udp_protocol_payloads() -> Vec<(&'static str, Vec<u8>, &'static str)> {

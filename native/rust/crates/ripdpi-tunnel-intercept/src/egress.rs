@@ -511,7 +511,8 @@ fn classify_l7(meta: PacketMeta, payload: &[u8], inspect_http: bool) -> L7Protoc
                     .map(|authority| String::from_utf8_lossy(authority.host).into_owned());
                 L7Protocol::Http(HttpDissect { host, is_request: true })
             } else {
-                L7Protocol::Unknown
+                // Same bytes, same class as the socket path (TLS without SNI, MTProto).
+                ripdpi_protocol_detect::classify_l7(payload, meta.src_port, meta.dst_port, false)
             }
         }
         Transport::Udp => parse_quic_initial(payload).map_or_else(

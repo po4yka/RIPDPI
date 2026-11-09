@@ -19,7 +19,10 @@ WireGuard. A protocol filter does not match unrelated UDP packets. Use an empty
 filter or `proto: [any]` to accept all protocols. Port and hostname filters still
 apply. TUN Lua receives the detected protocol and payload subtype; QUIC retains
 its parsed version and hostname markers. Detection uses existing signature
-heuristics, not complete protocol validation. TCP matching remains unchanged.
+heuristics, not complete protocol validation. TCP matching is flow-level:
+`tls`, `http` and `mtproto` match any TCP packet, so packet-level strategies see
+SYN and ACK packets. TUN Lua still gets the payload class (including TLS without
+SNI) from the shared detector, and the known transport (`dis.udp` or `dis.tcp`).
 
 ## Checks
 

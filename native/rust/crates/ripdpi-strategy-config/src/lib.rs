@@ -80,6 +80,12 @@ pub enum OnFail {
     Drop,
 }
 
+/// Protocol selector in a rule's `proto` filter. Meaning depends on the backend:
+/// - socket Lua: the class of the first classified block of the flow;
+/// - TUN UDP: the class of each datagram;
+/// - TUN TCP: a transport-level selector. `tls`, `http` and `mtproto` match any
+///   TCP packet, so packet-level strategies also see SYN and ACK packets. The
+///   Lua `dis.l7proto` of a TUN TCP packet is still classified from its payload.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum ProtocolName {
