@@ -14,21 +14,18 @@
 //!
 //! ## Transport coverage (out-of-layer note)
 //!
-//! The runtime `kem_groups` override is wired into the two transports that own
-//! their TLS connector and expose a per-connection config: VLESS+REALITY
-//! (`ripdpi-vless`) and xHTTP (`ripdpi-xhttp`). Both already advertise
-//! `X25519MLKEM768` first via their static profile `curves` template; the
-//! override only matters when a deployment wants a different group order.
+//! xHTTP TLS (`ripdpi-xhttp`) applies the runtime `kem_groups` list after the
+//! selected profile. Without an override, its groups depend on that profile.
+//! VLESS+REALITY (`ripdpi-vless`), including xHTTP REALITY, uses the override
+//! or profile as its base list, then always puts `X25519MLKEM768:X25519` first.
+//! The other groups keep their order; an override cannot remove that pair.
 //!
-//! MASQUE (`ripdpi-masque`) is intentionally **out of layer** for the runtime
-//! override and is not wired here, mirroring how ShadowTLS was treated for the
-//! sibling uTLS-rotation task. MASQUE's primary transport is QUIC/HTTP-3 over
-//! rustls with cert-pinning (no BoringSSL curve list to override), and its H2
-//! fallback path pins a caller-supplied root certificate rather than carrying a
-//! per-connection `kem_groups` field. It still inherits the hybrid PQ group
-//! through the static profile template, so its ClientHello fingerprint already
-//! matches a modern browser; a dedicated MASQUE override would be a separate,
-//! larger change to `MasqueConfig` and is out of scope for this task.
+//! MASQUE (`ripdpi-masque`) does not expose a per-connection `kem_groups`
+//! override. Its H2 path uses the selected BoringSSL profile, so a hybrid offer
+//! depends on that profile. Its QUIC/H3 path uses a rustls crypto provider,
+//! not the BoringSSL profile's curve list. Backend support does not prove that
+//! a connection offered or negotiated the hybrid group. A MASQUE override
+//! requires a separate `MasqueConfig` change and is outside this API's scope.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 

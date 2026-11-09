@@ -78,10 +78,10 @@ pub struct VlessRealityConfig {
     /// historical back-compatibility; profiles can override it instead
     /// of relying on an unconditional addons block at the call site.
     pub flow: VlessFlow,
-    /// Optional ordered post-quantum KEM group override (e.g.
-    /// `["X25519MLKEM768", "X25519", "P256"]`). When `Some`, it replaces the
-    /// profile's static curve list before the connector is built. `None`
-    /// (default) keeps the profile's curve template.
+    /// Optional ordered KEM group list used instead of the profile's base list.
+    /// `None` (default) uses the profile's base list. In both cases, REALITY
+    /// puts `X25519MLKEM768:X25519` first and keeps the other groups in order.
+    /// This setting cannot remove or reorder that required pair.
     pub kem_groups: Option<Vec<String>>,
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
@@ -152,10 +152,10 @@ impl VlessRealityConfig {
         })
     }
 
-    /// Override the post-quantum KEM group order for this connection (builder
-    /// style). When set, the ordered list (e.g.
-    /// `["X25519MLKEM768", "X25519", "P256"]`) replaces the profile's curve
-    /// template before the connector is built.
+    /// Use this ordered KEM group list instead of the profile's base list.
+    /// REALITY always puts `X25519MLKEM768:X25519` first, then keeps the other
+    /// groups in order. For example, `["P256"]` produces
+    /// `X25519MLKEM768:X25519:P-256`; this does not select a classical-only policy.
     #[must_use]
     pub fn with_kem_groups(mut self, kem_groups: Vec<String>) -> Self {
         self.kem_groups = Some(kem_groups);
