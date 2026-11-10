@@ -127,8 +127,16 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             true
         }
 
+        is ProxyProfile.Mieru -> {
+            require(profile.server.isNotBlank()) { "Mieru requires a server hostname" }
+            require(profile.serverPort in RelayPortRange) { "Mieru requires a valid server port" }
+            require(isValidRelayMieruUsername(profile.username)) { "Mieru requires a user name of at most 64 bytes" }
+            require(profile.password.isNotBlank()) { "Mieru requires a password" }
+            require(profile.protocol == RelayMieruProtocolTcp) { "Mieru supports only the TCP carrier" }
+            true
+        }
+
         is ProxyProfile.AnyTls,
-        is ProxyProfile.Mieru,
         is ProxyProfile.Ssh,
         is ProxyProfile.Trojan,
         -> {

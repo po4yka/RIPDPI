@@ -216,4 +216,23 @@ class NativeRelayProfileValidationResultTest {
         assertTrue(validateNativeRelayProfileResult(base.copy(obfsPassword = "abcd")).isSuccess)
         assertTrue(validateNativeRelayProfileResult(base.copy(obfsPassword = "abc")).isFailure)
     }
+
+    @Test
+    fun `mieru admission requires TCP a valid user name and a server`() {
+        val ok =
+            ProxyProfile.Mieru(
+                id = "id",
+                displayName = "n",
+                groupId = "",
+                server = "m.example",
+                serverPort = 443,
+                username = "alice",
+                password = "pw-fixture",
+            )
+        assertTrue(validateNativeRelayProfileResult(ok).isSuccess)
+        // A stored UDP profile still loads, but cannot be admitted.
+        assertFalse(validateNativeRelayProfileResult(ok.copy(protocol = "udp")).isSuccess)
+        assertFalse(validateNativeRelayProfileResult(ok.copy(server = " ")).isSuccess)
+        assertFalse(validateNativeRelayProfileResult(ok.copy(username = "a".repeat(65))).isSuccess)
+    }
 }
