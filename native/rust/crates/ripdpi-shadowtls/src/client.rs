@@ -50,14 +50,41 @@ impl ShadowTlsClient {
             io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ShadowTLS port {server_port}"))
         })?;
         let addrs = self.config.socket_protection.resolve_host(server, port).await?;
-        let address = match self.config.outbound_bind_ip {
-            Some(bind_ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
-                io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
-            })?,
-            None => addrs.into_iter().next().ok_or_else(|| {
-                io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
-            })?,
+        let candidates: Vec<SocketAddr> = match self.config.outbound_bind_ip {
+            Some(bind_ip) => {
+                let matching: Vec<SocketAddr> =
+                    addrs.into_iter().filter(|addr| addr.is_ipv4() == bind_ip.is_ipv4()).collect();
+                if matching.is_empty() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AddrNotAvailable,
+                        "no server address matches outbound bind IP family",
+                    ));
+                }
+                matching
+            }
+            None => addrs,
         };
+        let mut last_error: Option<io::Error> = None;
+        for address in candidates {
+            match self.connect_address(address).await {
+                Ok(stream) => return self.connect_over(stream).await,
+                Err(error) => last_error = Some(error),
+            }
+        }
+        Err(last_error.unwrap_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
+        }))
+    }
+
+    /// Open a protected, optionally bound TCP connection to one candidate address.
+    ///
+    /// A protection failure is a policy failure, not an unreachable peer: it
+    /// aborts the whole connect rather than trying the next address.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the socket is owned by this future and closes on drop.
+    async fn connect_address(&self, address: SocketAddr) -> io::Result<TcpStream> {
         // PROTECT INVARIANT: the carrier socket is protected before connect via the
         // in-process VpnService.protect registry (loopback-skipped, fail-closed under
         // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
@@ -76,7 +103,7 @@ impl ShadowTlsClient {
         }
         let stream = socket.connect(address).await?;
         stream.set_nodelay(true)?;
-        self.connect_over(stream).await
+        Ok(stream)
     }
 
     pub async fn connect_over<S>(&self, mut stream: S) -> io::Result<ShadowTlsStream<S>>
@@ -181,6 +208,40 @@ where
                 ));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod connect_tests {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    use crate::Config;
+    use crate::ShadowTlsClient;
+    use crate::loopback::ShadowTlsLoopback;
+
+    /// `localhost` can resolve to `::1` first while the loopback server listens
+    /// on IPv4 only, so a working connect needs the next resolved address.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns the server and the client stream.
+    #[tokio::test]
+    async fn connect_falls_back_to_next_resolved_address() {
+        let server = ShadowTlsLoopback::start("pw".to_string()).await.expect("start loopback");
+        let client = ShadowTlsClient::new(Config {
+            password: "pw".to_string(),
+            server_name: "localhost".to_string(),
+            inner_profile_id: "default".to_string(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+        });
+        let mut stream = client.connect("localhost", i32::from(server.local_addr().port())).await.expect("connect");
+        stream.write_all(b"ping").await.expect("write");
+        stream.flush().await.expect("flush");
+        let mut buf = [0u8; 4];
+        stream.read_exact(&mut buf).await.expect("read echo");
+        assert_eq!(&buf, b"ping");
+        server.shutdown().await;
     }
 }
 
