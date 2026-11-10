@@ -23,6 +23,7 @@ import java.net.InetAddress
 internal class FakeSshHostKeyProbeBindings : RipDpiSshHostKeyBindings {
     val fingerprint = "SHA256:" + "A".repeat(43)
     var status = 0
+    var response: ((String, Int) -> Int)? = null
     var calls = 0
     var address: String? = null
 
@@ -37,7 +38,7 @@ internal class FakeSshHostKeyProbeBindings : RipDpiSshHostKeyBindings {
         address = addressLiteral
         observationOut[0] = fingerprint
         observationOut[1] = "ssh-ed25519"
-        return status
+        return response?.invoke(addressLiteral, timeoutMillis) ?: status
     }
 }
 
@@ -45,6 +46,7 @@ internal class FakeSshHostKeyProbeBindings : RipDpiSshHostKeyBindings {
 internal class FakeSshProbeAddressResolver : (Network, String) -> Array<InetAddress> {
     var calls = 0
     var beforeReturn: () -> Unit = {}
+    var addresses = arrayOf(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
 
     override fun invoke(
         network: Network,
@@ -52,7 +54,7 @@ internal class FakeSshProbeAddressResolver : (Network, String) -> Array<InetAddr
     ): Array<InetAddress> {
         calls += 1
         beforeReturn()
-        return arrayOf(InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1)))
+        return addresses
     }
 }
 

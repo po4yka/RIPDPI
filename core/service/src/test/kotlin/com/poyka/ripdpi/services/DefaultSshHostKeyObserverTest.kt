@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.os.SystemClock
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -13,6 +14,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowSystemClock
+import java.net.InetAddress
+import java.time.Duration
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -43,6 +47,37 @@ class DefaultSshHostKeyObserverTest {
                     assertTrue(fixture.connectivity.networkCallbacks.isEmpty())
                     assertTrue(fixture.application.boundServiceConnections.isEmpty())
                 }
+            }
+        }
+
+    @Test
+    fun `timed out first address leaves time for the second host key`() =
+        runTest {
+            SshObserverFixture(backgroundScope, StandardTestDispatcher(testScheduler)).use { fixture ->
+                fixture.resolver.addresses =
+                    arrayOf(
+                        InetAddress.getByName("127.0.0.1"),
+                        InetAddress.getByName("127.0.0.2"),
+                    )
+                val started = SystemClock.elapsedRealtime()
+                fixture.bindings.response = { address, timeout ->
+                    if (address == "127.0.0.1") {
+                        ShadowSystemClock.advanceBy(Duration.ofMillis(timeout.toLong()))
+                        2
+                    } else {
+                        0
+                    }
+                }
+                val result = async { fixture.observer.observe("ssh.example", 22) }
+                runCurrent()
+                fixture.publishUnderlay()
+                runCurrent()
+
+                assertEquals(
+                    SshHostKeyObservation.Observed(fixture.bindings.fingerprint, "ssh-ed25519"),
+                    result.await(),
+                )
+                assertTrue(SystemClock.elapsedRealtime() - started < 5_000)
             }
         }
 

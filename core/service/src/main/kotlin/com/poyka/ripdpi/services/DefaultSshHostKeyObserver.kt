@@ -143,17 +143,37 @@ internal class DefaultSshHostKeyObserver
             socketController: SshProbeSocketController,
         ): SshHostKeyProbeResult {
             var result: SshHostKeyProbeResult = failed(SshHostKeyProbeFailure.ConnectFailed)
-            for (address in addresses) {
+            for ((index, address) in addresses.withIndex()) {
                 val remaining = deadline - SystemClock.elapsedRealtime()
                 result =
                     when {
-                        !isCurrent() -> failed(SshHostKeyProbeFailure.NetworkChanged)
-                        remaining <= 0 -> failed(SshHostKeyProbeFailure.Timeout)
-                        else -> native.probe(SshHostKeyProbeRequest(address, port, remaining.toInt()), socketController)
+                        !isCurrent() -> {
+                            failed(SshHostKeyProbeFailure.NetworkChanged)
+                        }
+
+                        remaining <= 0 -> {
+                            failed(SshHostKeyProbeFailure.Timeout)
+                        }
+
+                        else -> {
+                            native.probe(
+                                SshHostKeyProbeRequest(
+                                    address,
+                                    port,
+                                    (remaining / (addresses.size - index)).coerceAtLeast(1).toInt(),
+                                ),
+                                socketController,
+                            )
+                        }
                     }
                 currentCoroutineContext().ensureActive()
                 if (!isCurrent()) result = failed(SshHostKeyProbeFailure.NetworkChanged)
-                if (result != failed(SshHostKeyProbeFailure.ConnectFailed)) break
+                if (result != failed(SshHostKeyProbeFailure.ConnectFailed) &&
+                    result != failed(SshHostKeyProbeFailure.Timeout) &&
+                    result != failed(SshHostKeyProbeFailure.HandshakeFailed)
+                ) {
+                    break
+                }
             }
             return result
         }
