@@ -20,16 +20,16 @@ const UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Xray's default `connIdle` policy. A half-open upstream never errors.
 const SESSION_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 
-/// Reads the VLESS header, checks the UUID and TCP command, then relays to the target.
+/// Reads the VLESS header, checks the UUID, TCP command and empty flow, then relays to the target.
 /// Only target addresses for which `target_allowed` is true are dialled.
-/// `on_authenticated` runs once the UUID and TCP command pass; when it returns false (the
+/// `on_authenticated` runs once the UUID, TCP command and flow pass; when it returns false (the
 /// session was evicted first) the session ends before it connects upstream.
 ///
 /// The session ends when the upstream closes or fails, when the GET stream
 /// is gone, when an upstream write fails, or after `SESSION_IDLE_TIMEOUT`
 /// without traffic. The end of the POST body only half-closes the upstream.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: both relay halves run inside this future, so dropping it
 /// drops the channels and closes the upstream socket.
@@ -50,6 +50,9 @@ pub(crate) async fn run_session(
     }
     if decoded.command != ripdpi_vless::wire::VlessCommand::Tcp {
         return Err(io::Error::new(io::ErrorKind::Unsupported, "Cloudflare origin supports only VLESS TCP"));
+    }
+    if !decoded.flow.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "Cloudflare origin supports only empty VLESS flow"));
     }
     if !on_authenticated() {
         return Err(io::Error::new(
@@ -250,6 +253,9 @@ async fn read_request_header(
         }
     }
 }
+
+#[cfg(test)]
+mod flow_tests;
 
 #[cfg(test)]
 mod tests {
