@@ -204,7 +204,19 @@ where
     reply_stage.finish("succeeded", None, None);
     let mut relay_stage = RelayStageGuard::start(trace_stages, "relay_stream");
     let target_label = target.to_string();
+    let is_trojan = matches!(*backend, RelayBackend::Trojan(_));
     let transfer = relay_bidirectional(client, upstream, timeouts.tcp_idle, cancel).await;
+    if is_trojan_silent_close(is_trojan, &transfer) {
+        tracing::warn!(
+            ring = "relay",
+            subsystem = "relay",
+            source = "relay",
+            kind = "trojan_silent_close",
+            upstream_written_bytes = transfer.upstream_written_bytes,
+            upstream_read_bytes = transfer.upstream_read_bytes,
+            "Trojan server closed the stream without sending data; a wrong password is the usual cause"
+        );
+    }
     match transfer.result {
         Ok(()) => {
             if transfer.cancelled {
@@ -274,6 +286,17 @@ pub(crate) async fn with_deadline<T>(
         result = future => result,
         () = tokio::time::sleep(deadline) => Err(io::Error::new(io::ErrorKind::TimedOut, message)),
     }
+}
+
+/// A Trojan server rejects a wrong password by closing the stream with no
+/// reply, which looks like a clean EOF. A close with request bytes sent and
+/// none received is the hint; the stream result is not changed.
+fn is_trojan_silent_close(is_trojan: bool, transfer: &RelayTransfer) -> bool {
+    is_trojan
+        && transfer.result.is_ok()
+        && !transfer.cancelled
+        && transfer.upstream_written_bytes > 0
+        && transfer.upstream_read_bytes == 0
 }
 
 /// Outcome of a completed relay copy between the SOCKS client and upstream.
@@ -387,6 +410,22 @@ mod tests {
     use tracing_subscriber::prelude::*;
 
     use super::*;
+
+    #[test]
+    fn trojan_silent_close_needs_written_bytes_and_no_reply() {
+        let transfer = |result: io::Result<()>, cancelled, read, written| RelayTransfer {
+            result,
+            cancelled,
+            upstream_read_bytes: read,
+            upstream_written_bytes: written,
+        };
+        assert!(is_trojan_silent_close(true, &transfer(Ok(()), false, 0, 10)));
+        assert!(!is_trojan_silent_close(true, &transfer(Ok(()), false, 5, 10)));
+        assert!(!is_trojan_silent_close(true, &transfer(Ok(()), false, 0, 0)));
+        assert!(!is_trojan_silent_close(true, &transfer(Ok(()), true, 0, 10)));
+        assert!(!is_trojan_silent_close(false, &transfer(Ok(()), false, 0, 10)));
+        assert!(!is_trojan_silent_close(true, &transfer(Err(io::ErrorKind::TimedOut.into()), false, 0, 10)));
+    }
 
     #[tokio::test]
     async fn counting_io_tracks_read_and_written_bytes_independently() {
