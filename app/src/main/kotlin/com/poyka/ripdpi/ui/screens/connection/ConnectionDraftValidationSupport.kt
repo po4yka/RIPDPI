@@ -38,7 +38,6 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
 import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
 import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
-import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelaySecurityLayerTls
@@ -286,7 +285,8 @@ private fun validateMieruDraft(draft: ConnectionDraft): Map<String, String> =
                 !isValidRelayMieruUsername(draft.relayMieruUsername) || draft.relayMieruPassword.isBlank(),
             ),
         )
-        val protocolInvalid = draft.relayMieruProtocol !in setOf(RelayMieruProtocolTcp, RelayMieruProtocolUdp)
+        // The native relay rejects the UDP carrier at connect time, so only TCP can activate.
+        val protocolUnsupported = draft.relayMieruProtocol != RelayMieruProtocolTcp
         val multiplexingInvalid =
             draft.relayMieruMultiplexing !in
                 setOf(
@@ -296,8 +296,10 @@ private fun validateMieruDraft(draft: ConnectionDraft): Map<String, String> =
                     RelayMieruMultiplexingHigh,
                 )
         val mtuInvalid = draft.relayMieruMtu.toIntOrNull() !in RelayMieruMtuMin..RelayMieruMtuMax
-        if (protocolInvalid || multiplexingInvalid || mtuInvalid) {
+        if (multiplexingInvalid || mtuInvalid) {
             put(ConnectionFieldRelayCredentials, "invalid")
+        } else if (protocolUnsupported) {
+            put(ConnectionFieldRelayCredentials, "unsupported")
         }
     }
 

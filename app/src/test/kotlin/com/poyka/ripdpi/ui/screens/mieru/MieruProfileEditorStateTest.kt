@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.mieru
 
+import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -32,5 +33,12 @@ class MieruProfileEditorStateTest {
     fun `blank server is not complete`() {
         assertFalse(filled(server = "   ").isComplete)
         assertNull(filled(server = "   ").toProfile())
+    }
+
+    @Test
+    fun `udp profile is not saved`() {
+        val udp = filled().copy(protocol = RelayMieruProtocolUdp)
+
+        assertNull(udp.toProfile())
     }
 }

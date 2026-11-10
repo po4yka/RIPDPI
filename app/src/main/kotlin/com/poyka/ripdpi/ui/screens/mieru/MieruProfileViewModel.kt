@@ -113,7 +113,15 @@ class MieruProfileViewModel
          * success for a relay it failed to create.
          */
         fun onSave() {
-            val profile = _uiState.value.editor.toProfile() ?: return
+            val editor = _uiState.value.editor
+            val profile = editor.toProfile()
+            if (profile == null) {
+                // A complete editor that cannot build a profile holds the unsupported UDP carrier.
+                if (editor.isComplete) {
+                    _uiState.update { it.copy(errorMessage = R.string.relay_editor_activation_failed) }
+                }
+                return
+            }
             val editTargetReady = requestedEditProfileId == null || editingDraft != null
             val busy = _uiState.value.saving || _uiState.value.loading
             if (busy || saveFlow.completed || !editTargetReady) return

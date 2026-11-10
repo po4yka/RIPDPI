@@ -116,10 +116,11 @@ data class MieruProfileEditorState(
 
     /**
      * Builds a [ProxyProfile.Mieru] from the current editor state, or `null` when
-     * the required fields do not validate.
+     * the required fields do not validate or the protocol is [RelayMieruProtocolUdp]:
+     * the native relay rejects the UDP carrier at connect time.
      */
     fun toProfile(): ProxyProfile.Mieru? {
-        if (!isComplete) return null
+        if (!isComplete || protocol != RelayMieruProtocolTcp) return null
         val server = rawText(MieruEditorField.SERVER).trim()
         val port = rawText(MieruEditorField.SERVER_PORT).toIntOrNull()
         val username = rawText(MieruEditorField.USERNAME)
