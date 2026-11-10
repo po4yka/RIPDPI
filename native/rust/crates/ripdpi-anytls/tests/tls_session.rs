@@ -700,3 +700,53 @@ async fn carrier_death_mid_stream_is_a_reset_not_a_clean_eof() {
     let end = tokio::time::timeout(Duration::from_secs(5), app.read(&mut rest)).await.expect("end deadline");
     assert_eq!(end.expect_err("carrier death must not look like EOF").kind(), std::io::ErrorKind::ConnectionReset);
 }
+
+fn v1_fixture_config() -> AnyTlsLoopbackConfig {
+    AnyTlsLoopbackConfig { protocol_v1: true, ..AnyTlsLoopbackConfig::default() }
+}
+
+/// A protocol v1 server sends no ServerSettings and no SYNACK. The first open
+/// waits a bounded time for ServerSettings, then returns the stream; the client
+/// remembers the version, so a later fresh session does not wait again.
+#[tokio::test]
+async fn protocol_v1_server_tcp_open_returns_without_synack() {
+    let fixture = AnyTlsLoopback::start("fixture-password", v1_fixture_config()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let started = std::time::Instant::now();
+    let mut first = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("a v1 server needs no SYNACK");
+    assert!(started.elapsed() < Duration::from_secs(5), "open took {:?}", started.elapsed());
+    first.write_all(b"v1 echo").await.expect("write");
+    assert_eq!(first.read_exact_len(7).await.expect("echo"), b"v1 echo");
+
+    // A fresh session of the same client knows the server is v1.
+    let started = std::time::Instant::now();
+    let mut second =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("second v1 stream");
+    assert!(started.elapsed() < Duration::from_millis(1500), "learned v1 must not wait again: {:?}", started.elapsed());
+    second.write_all(b"again").await.expect("write");
+    assert_eq!(second.read_exact_len(5).await.expect("echo"), b"again");
+
+    let observed = fixture.observed();
+    assert_eq!(observed.tls_session_count, 2);
+    assert!(observed.synack_successes.is_empty(), "a v1 server sends no SYNACK");
+}
+
+#[tokio::test]
+async fn protocol_v1_server_udp_open_returns_without_synack() {
+    let fixture = AnyTlsLoopback::start("fixture-password", v1_fixture_config()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let started = std::time::Instant::now();
+    let mut udp = client.open_udp_over_tcp().await.expect("a v1 server needs no SYNACK");
+    assert!(started.elapsed() < Duration::from_secs(5), "open took {:?}", started.elapsed());
+    udp.send_datagram(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.udp_target_port(), b"dns")
+        .await
+        .expect("send udp");
+    let datagram = udp.recv_datagram().await.expect("recv udp");
+    assert_eq!(datagram.payload, b"dns");
+    assert!(fixture.observed().synack_successes.is_empty());
+}

@@ -151,6 +151,11 @@ impl ClientSettings {
     }
 }
 
+/// The `v` setting of a cmdServerSettings payload, if present and numeric.
+pub fn server_settings_version(data: &[u8]) -> Option<u8> {
+    parse_settings(data).ok()?.get("v")?.parse().ok()
+}
+
 fn parse_settings(data: &[u8]) -> Result<BTreeMap<&str, &str>, FrameError> {
     let text = std::str::from_utf8(data).map_err(|_| FrameError::InvalidSettingsUtf8)?;
     let mut settings = BTreeMap::new();

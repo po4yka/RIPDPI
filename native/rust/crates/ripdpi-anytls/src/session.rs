@@ -11,7 +11,7 @@ use boring::x509::X509;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
-use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot, watch};
 use tokio::time::Instant;
 use tokio_boring::SslStream;
 
@@ -35,6 +35,13 @@ const CARRIER_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 const IDLE_SESSION_TIMEOUT: Duration = Duration::from_secs(30);
 /// Period of the idle-session sweep, as the reference client's default.
 const IDLE_SWEEP_INTERVAL: Duration = Duration::from_secs(30);
+/// A fresh session of a server whose version is not known yet waits this long
+/// for cmdServerSettings. A v2 server sends it right after it handles the first
+/// packet (Settings, SYN, PSH), before it dials the target, so it arrives within
+/// one round trip. Silence for this long means a v1 server, which has no
+/// SYNACK and ignores HeartRequest. The client remembers the answer, so only the
+/// first session of a v1 server pays the wait.
+const SERVER_SETTINGS_WAIT: Duration = Duration::from_secs(2);
 /// A new session must finish its TCP connect, TLS handshake and auth in this time.
 const SESSION_ESTABLISH_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -194,6 +201,8 @@ pub struct AnyTlsClient {
 struct ClientState {
     idle: Vec<IdleSession>,
     next_seq: u64,
+    /// Protocol version of the server as learned from its sessions; 0 until known.
+    learned_peer_version: u8,
     sweeper_running: bool,
     idle_timeout: Duration,
     sweep_interval: Duration,
@@ -208,6 +217,9 @@ struct SessionHandle {
     /// Creation order within the client; the idle session with the highest
     /// value is reused first.
     seq: u64,
+    /// Protocol version of the server end of this session: 0 while unknown,
+    /// 1 for a server that sent no cmdServerSettings, else its `v` setting.
+    peer_version: Arc<watch::Sender<u8>>,
     outbound: mpsc::Sender<Outbound>,
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     next_stream_id: Arc<Mutex<u32>>,
@@ -222,6 +234,7 @@ impl Clone for SessionHandle {
     fn clone(&self) -> Self {
         Self {
             seq: self.seq,
+            peer_version: Arc::clone(&self.peer_version),
             outbound: self.outbound.clone(),
             streams: Arc::clone(&self.streams),
             next_stream_id: Arc::clone(&self.next_stream_id),
@@ -327,6 +340,7 @@ impl AnyTlsClient {
             state: Arc::new(StdMutex::new(ClientState {
                 idle: Vec::new(),
                 next_seq: 0,
+                learned_peer_version: 0,
                 sweeper_running: false,
                 idle_timeout: IDLE_SESSION_TIMEOUT,
                 sweep_interval: IDLE_SWEEP_INTERVAL,
@@ -451,14 +465,30 @@ impl AnyTlsClient {
         }
         stream.syn_sent = true;
 
-        let ack_result = tokio::select! {
-            biased;
-            _ = &mut cancel_rx => return,
-            result = &mut ack_rx => result,
-            () = &mut carrier_dead => {
-                stream.reusable = false;
-                result_tx.send(Err(carrier_unresponsive())).ok();
-                return;
+        // v2 servers answer a SYN with SYNACK; v1 servers never do. Decide from
+        // the session's peer version, waiting a bounded time for ServerSettings
+        // when it is still unknown.
+        let mut version_rx = session.peer_version.subscribe();
+        let settings_deadline = tokio::time::sleep(SERVER_SETTINGS_WAIT);
+        tokio::pin!(settings_deadline);
+        let ack_result = loop {
+            let version = *version_rx.borrow_and_update();
+            if version == 1 {
+                break Ok(Ok(()));
+            }
+            tokio::select! {
+                biased;
+                _ = &mut cancel_rx => return,
+                result = &mut ack_rx => break result,
+                () = &mut carrier_dead => {
+                    stream.reusable = false;
+                    result_tx.send(Err(carrier_unresponsive())).ok();
+                    return;
+                }
+                _ = version_rx.changed() => {}
+                () = &mut settings_deadline, if version == 0 => {
+                    session.learn_peer_version(&self.state, 1);
+                }
             }
         };
         match ack_result {
@@ -473,7 +503,7 @@ impl AnyTlsClient {
                 result_tx.send(Ok(stream)).ok();
             }
             Ok(Err(error)) => {
-                stream.reusable = !matches!(error, AnyTlsError::SessionClosed);
+                stream.reusable = matches!(error, AnyTlsError::StreamOpenRejected(_));
                 result_tx.send(Err(error)).ok();
             }
             Err(_) => {
@@ -493,6 +523,10 @@ impl AnyTlsClient {
         tokio::time::timeout(SESSION_ESTABLISH_TIMEOUT, self.establish_network_session())
             .await
             .unwrap_or_else(|_| Err(AnyTlsError::Io("AnyTLS connection timed out".into())))
+    }
+
+    fn learned_peer_version(&self) -> u8 {
+        self.state.lock().unwrap_or_else(PoisonError::into_inner).learned_peer_version
     }
 
     /// The idle session with the highest `seq`, if one is still alive.
@@ -571,8 +605,10 @@ impl AnyTlsClient {
             state.next_seq += 1;
             state.next_seq
         };
+        let peer_version = Arc::new(watch::channel(self.learned_peer_version()).0);
         let session = SessionHandle {
             seq,
+            peer_version: Arc::clone(&peer_version),
             outbound: outbound_tx,
             streams: Arc::clone(&streams),
             next_stream_id: Arc::new(Mutex::new(1)),
@@ -586,6 +622,7 @@ impl AnyTlsClient {
         let reader_outbound = session.outbound.downgrade();
         let lifetime = SessionWorker {
             streams,
+            peer_version,
             closing: Arc::clone(&session.closing),
             inbound_frames: Arc::clone(&session.inbound_frames),
         };
@@ -639,6 +676,21 @@ async fn sweep_idle_sessions(state: Weak<StdMutex<ClientState>>) {
 }
 
 impl SessionHandle {
+    /// Record the server's version for this session and for later sessions, but
+    /// only while the session version is still unknown.
+    fn learn_peer_version(&self, state: &Arc<StdMutex<ClientState>>, version: u8) {
+        let learned = self.peer_version.send_if_modified(|current| {
+            let unknown = *current == 0;
+            if unknown {
+                *current = version;
+            }
+            unknown
+        });
+        if learned {
+            state.lock().unwrap_or_else(PoisonError::into_inner).learned_peer_version = version;
+        }
+    }
+
     fn is_dead(&self) -> bool {
         self.closing.load(Ordering::Acquire) || self.outbound.is_closed()
     }
@@ -688,6 +740,10 @@ fn carrier_unresponsive() -> AnyTlsError {
 /// cancel-safe: it only sleeps, reads a counter and queues a HeartRequest
 /// with `try_send`.
 async fn watch_carrier(session: &SessionHandle) {
+    // A v1 server ignores HeartRequest, so probe only a server proven to be v2.
+    if session.peer_version.subscribe().wait_for(|version| *version >= 2).await.is_err() {
+        std::future::pending::<()>().await;
+    }
     loop {
         let seen = session.inbound_frames.load(Ordering::Acquire);
         tokio::time::sleep(CARRIER_PROBE_AFTER).await;
@@ -849,6 +905,7 @@ fn random_selector() -> u64 {
 
 struct SessionWorker {
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
+    peer_version: Arc<watch::Sender<u8>>,
     closing: Arc<AtomicBool>,
     inbound_frames: Arc<AtomicU64>,
 }
@@ -954,11 +1011,15 @@ async fn run_session<S>(
                     fail_all_streams(&streams, AnyTlsError::Alert(message.clone()));
                     return Err(AnyTlsError::Alert(message));
                 }
-                Command::Waste
-                | Command::Settings
-                | Command::ServerSettings
-                | Command::HeartResponse
-                | Command::Syn => {}
+                Command::ServerSettings => {
+                    if let Some(version) = crate::frame::server_settings_version(frame.data()) {
+                        lifetime.peer_version.send_replace(version);
+                        if let Some(state) = client_state.upgrade() {
+                            state.lock().unwrap_or_else(PoisonError::into_inner).learned_peer_version = version;
+                        }
+                    }
+                }
+                Command::Waste | Command::Settings | Command::HeartResponse | Command::Syn => {}
             }
         }
     };
@@ -1107,6 +1168,7 @@ mod test_support {
         pub(super) fn detached(seq: u64, outbound: mpsc::Sender<Outbound>, tasks: Arc<OwnedTasks>) -> Self {
             Self {
                 seq,
+                peer_version: Arc::new(watch::channel(2).0),
                 outbound,
                 streams: Arc::new(StdMutex::new(HashMap::new())),
                 next_stream_id: Arc::new(Mutex::new(1)),

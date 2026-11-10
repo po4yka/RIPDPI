@@ -27,6 +27,8 @@ pub struct AnyTlsLoopbackConfig {
     pub flood_first_stream_frames: usize,
     /// Drop the carrier (no FIN, no close frame) after echoing the first payload.
     pub drop_carrier_after_first_echo: bool,
+    /// Behave as an AnyTLS protocol v1 server: no ServerSettings, no SYNACK.
+    pub protocol_v1: bool,
     pub tls_handshake_delay: Duration,
     pub synack_delay: Duration,
 }
@@ -226,7 +228,9 @@ async fn handle_connection(
                     should_update = expected != padding_md5;
                 }
                 observed.lock().expect("anytls observed").settings_padding_md5.push(padding_md5);
-                write_frame(&mut tls, CMD_SERVER_SETTINGS, 0, b"v=2").await?;
+                if !config.protocol_v1 {
+                    write_frame(&mut tls, CMD_SERVER_SETTINGS, 0, b"v=2").await?;
+                }
                 if config.send_heart_request_after_settings {
                     write_frame(&mut tls, CMD_HEART_REQUEST, 0, &[]).await?;
                     observe_heart_response_before_close(&mut tls, &observed).await;
@@ -273,7 +277,9 @@ async fn handle_connection(
                         observe_heart_response_before_close(&mut tls, &observed).await;
                         return Ok(());
                     }
-                    if let Some(message) = &config.reject_next_synack {
+                    if config.protocol_v1 {
+                        // A v1 server accepts the stream silently.
+                    } else if let Some(message) = &config.reject_next_synack {
                         write_frame(&mut tls, CMD_SYNACK, frame.stream_id, message.as_bytes()).await?;
                     } else {
                         tokio::time::sleep(config.synack_delay).await;
