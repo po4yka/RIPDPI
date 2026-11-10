@@ -33,6 +33,7 @@ REQUIRED_GATE_IDS = {
         "rust-proxy-setting-feature-contract",
     },
     "native-config-json": {
+        "live-relay-config-boundary",
         "kotlin-native-config-round-trip",
         "kotlin-native-config-snapshot",
         "rust-proxy-config-round-trip",
@@ -57,6 +58,8 @@ REQUIRED_SOURCE_HINTS = {
     "diagnostics-json-wire": {"EngineContract.kt", "ripdpi-diagnostics-contracts", "contract_fixtures.rs"},
     "app-settings-protobuf": {"app_settings.proto", "AppSettingsSerializer.kt", "feature-contract-harness"},
     "native-config-json": {
+        "RelayNativeWireExportTest.kt",
+        "kotlin_contract_tests.rs",
         "ConfigContractRoundTripTest.kt",
         "ripdpi-proxy-config",
         "round_trip.rs",

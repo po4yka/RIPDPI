@@ -2,6 +2,7 @@ import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.ValueSource
 import org.gradle.api.provider.ValueSourceParameters
+import org.gradle.api.tasks.testing.Test
 import java.io.File
 
 plugins {
@@ -140,6 +141,12 @@ fun registerXrayVerifier(
 
 registerXrayVerifier("verifyLibXrayArtifacts", release = false)
 registerXrayVerifier("verifyLibXrayReleaseArtifacts", release = true)
+
+if (providers.gradleProperty("ripdpi.exportRelayWire").orNull == "true") {
+    tasks.withType<Test>().configureEach {
+        outputs.file(layout.buildDirectory.file("reports/relay-native-wire.json"))
+    }
+}
 
 dependencies {
     api(project(":core:engine-api"))

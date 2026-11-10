@@ -113,6 +113,20 @@ class CrossLanguageRuntimeContractsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invariants must mention"):
             contracts.validate_policy(broken)
 
+    def test_native_config_requires_the_live_relay_producer_and_decoder(self) -> None:
+        for hint in ("RelayNativeWireExportTest.kt", "kotlin_contract_tests.rs"):
+            broken = copy.deepcopy(self.policy)
+            surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
+            surface["sourcePaths"] = [path for path in surface["sourcePaths"] if hint not in path]
+            with self.assertRaisesRegex(ValueError, "sourcePaths are missing expected hints"):
+                contracts.validate_policy(broken)
+
+        broken = copy.deepcopy(self.policy)
+        surface = next(surface for surface in broken["surfaces"] if surface["id"] == "native-config-json")
+        surface["gateTests"] = [gate for gate in surface["gateTests"] if gate["id"] != "live-relay-config-boundary"]
+        with self.assertRaisesRegex(ValueError, "missing required gate ids"):
+            contracts.validate_policy(broken)
+
     def test_main_validates_repo_policy(self) -> None:
         self.assertEqual(0, contracts.main([]))
 

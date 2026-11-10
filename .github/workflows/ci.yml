@@ -1078,6 +1078,42 @@ jobs:
             **/build/outputs/roborazzi/
           retention-days: 7
 
+  relay-config-contract:
+    if: >-
+      !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
+      github.event_name != 'schedule' &&
+      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
+    needs: [change-routing, ci-preflight]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          java-version: "21"
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: rust-relay-config-contract
+          rust-cache-save: "false"
+          setup-android-ndk: "false"
+          gradle-cache-read-only: "true"
+
+      - name: Check the Kotlin and Rust relay configuration boundary
+        run: python3 scripts/tests/run-relay-config-contract.py
+
+      - name: Upload relay configuration contract results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: relay-config-contract-results
+          path: |
+            core/engine/build/reports/relay-native-wire.json
+            core/engine/build/test-results/testDebugUnitTest/
+            core/engine/build/reports/tests/testDebugUnitTest/
+          retention-days: 7
+
   owned-stack-tls-fingerprint:
     if: >-
       !cancelled() &&
@@ -3671,6 +3707,7 @@ jobs:
       - xray-native
       - xray-linked-unit-tests
       - owned-stack-tls-fingerprint
+      - relay-config-contract
       - build-android-debug
       - build-android-tests
       - verify-roborazzi
@@ -3763,6 +3800,7 @@ jobs:
                       "xray-native",
                       "xray-linked-unit-tests",
                       "owned-stack-tls-fingerprint",
+                      "relay-config-contract",
                       "release-verification",
                       "release-instrumentation-apk",
                       "runtime-api-snapshot",

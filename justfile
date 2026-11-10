@@ -61,6 +61,11 @@ build-cli:
 
 # ─── Test ─────────────────────────────────────────────────────────
 
+# Check live Kotlin relay serialization against the native JNI session decoder.
+[group('test')]
+test-relay-config-contract:
+    python3 scripts/tests/run-relay-config-contract.py
+
 # Run all Kotlin unit tests (library modules and the flavored :app module)
 [group('test')]
 test:

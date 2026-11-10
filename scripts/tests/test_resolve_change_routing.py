@@ -310,6 +310,80 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             aggregate,
         )
 
+    def test_relay_config_contract_job_runs_the_live_boundary_gate(self) -> None:
+        job = ci_job_source("relay-config-contract")
+        reference = ci_job_source("owned-stack-tls-fingerprint")
+        condition = r"(?ms)^    if: >-\n(.*?)(?=^    needs:)"
+        self.assertEqual(re.search(condition, reference)[1], re.search(condition, job)[1])
+        for setting in (
+            "needs: [change-routing, ci-preflight]",
+            "runs-on: ubuntu-24.04",
+            "timeout-minutes: 30",
+            'java-version: "21"',
+            'rust-targets: ""',
+            'setup-android-ndk: "false"',
+            'rust-cache-save: "false"',
+            'gradle-cache-read-only: "true"',
+        ):
+            self.assertIn(setting, job)
+        self.assertRegex(
+            job,
+            r"(?m)^        run: python3 scripts/tests/run-relay-config-contract\.py$",
+        )
+        self.assertIn("if: always()", job)
+        for artifact in (
+            "core/engine/build/reports/relay-native-wire.json",
+            "core/engine/build/test-results/testDebugUnitTest/",
+            "core/engine/build/reports/tests/testDebugUnitTest/",
+        ):
+            self.assertIn(artifact, job)
+        self.assertNotIn("secrets.", job)
+
+    def test_relay_config_contract_is_required_on_each_owning_route(self) -> None:
+        aggregate = ci_job_source("ci-required")
+        needs = {
+            job: {"result": "success"}
+            for job in re.findall(r"(?m)^      - ([\w-]+)$", aggregate)
+        }
+        self.assertIn("relay-config-contract", needs)
+        script = textwrap.dedent(aggregate.split("python3 - <<'PY'\n", 1)[1])
+        script = script.rsplit("\nPY", 1)[0]
+        env = {name: "false" for name in re.findall(r"RUN_[A-Z_]+", aggregate)}
+        for event, route, flag in (
+            ("pull_request", "full", "RUN_FULL_CI"),
+            ("push", "android", "RUN_ANDROID_CI"),
+            ("workflow_dispatch", "rust-native", "RUN_RUST_NATIVE_CI"),
+            ("schedule", "full", "RUN_FULL_CI"),
+            ("pull_request", "documentation", None),
+            ("pull_request", "workflow", None),
+        ):
+            results_to_check = (
+                ("success", "failure", "skipped", "cancelled", "missing")
+                if event != "schedule" and flag is not None else ("skipped",)
+            )
+            for result in results_to_check:
+                with self.subTest(event=event, route=route, result=result):
+                    results = dict(needs)
+                    if result == "missing":
+                        del results["relay-config-contract"]
+                    else:
+                        results["relay-config-contract"] = {"result": result}
+                    route_env = {flag: "true"} if flag is not None else {}
+                    completed = subprocess.run(
+                        [sys.executable, "-c", script],
+                        env={
+                            **env, **route_env, "ROUTE": route, "EVENT_NAME": event,
+                            "NEEDS_JSON": json.dumps(results),
+                        },
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    expected = 0 if result == "success" or event == "schedule" or flag is None else 1
+                    self.assertEqual(expected, completed.returncode, completed.stdout + completed.stderr)
+                    if expected != 0:
+                        self.assertIn("relay-config-contract", completed.stdout)
+
     def test_targeted_routes_drive_owned_and_cross_toolchain_jobs(self) -> None:
         android_job = ci_job_source("build-android-debug")
         self.assertIn("run_android_ci == 'true'", android_job)
@@ -406,6 +480,7 @@ class ResolveChangeRoutingTest(unittest.TestCase):
             "build-android-tests",
             "verify-roborazzi",
             "owned-stack-tls-fingerprint",
+            "relay-config-contract",
             "native-bloat",
             "rust-miri",
             "rust-lint",

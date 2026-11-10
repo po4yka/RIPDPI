@@ -148,7 +148,10 @@
         "native/rust/crates/ripdpi-tunnel-android/src/config/tests.rs",
         "native/rust/crates/ripdpi-tunnel-android/src/session/jni_tests.rs",
         "native/rust/crates/ripdpi-relay-core/src/config/flat.rs",
-        "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs"
+        "native/rust/crates/ripdpi-proxy-config/tests/round_trip.rs",
+        "core/engine/src/test/kotlin/com/poyka/ripdpi/core/RelayNativeWireExportTest.kt",
+        "native/rust/crates/ripdpi-relay-android/src/kotlin_contract_tests.rs",
+        "scripts/tests/run-relay-config-contract.py"
       ],
       "fixturePaths": [
         "core/engine/src/test/resources/fixtures/round-trip-tcp-heavy.json",
@@ -196,6 +199,11 @@
           "id": "rust-relay-config-schema",
           "path": "native/rust/crates/ripdpi-relay-core/src/config/flat.rs",
           "command": "cargo test --locked --manifest-path native/rust/Cargo.toml -p ripdpi-relay-core --lib"
+        },
+        {
+          "id": "live-relay-config-boundary",
+          "path": "scripts/tests/run-relay-config-contract.py",
+          "command": "python3 scripts/tests/run-relay-config-contract.py"
         }
       ],
       "invariants": [
@@ -204,7 +212,8 @@
         "The ripdpi-tunnel-config standalone YAML schema 2 remains a separate file-format contract and is not the tunnel JNI flat-JSON schema.",
         "Tunnel JNI schema 3 accepts the additive validated splitDnsPolicy wire section, which compiles once before runtime routing; ordered first-match rules and redacted fallback telemetry remain source- and test-backed.",
         "Native config defaults and explicit nulls remain stable across command_line and ui payloads.",
-        "Fixture scenarios cover TCP-heavy, UDP/QUIC, and relay-heavy config branches."
+        "Fixture scenarios cover TCP-heavy, UDP/QUIC, and relay-heavy config branches.",
+        "Live Kotlin relay serializer output must reach the real Standard and Apps Script JNI decoders; current schema accepts, missing and non-current schemas reject."
       ]
     },
     {

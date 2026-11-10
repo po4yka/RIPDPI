@@ -36,6 +36,8 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
+#[cfg(test)]
+mod kotlin_contract_tests;
 mod lifecycle;
 mod readiness;
 mod registry;
