@@ -1198,6 +1198,45 @@ async fn connect_over_h2_with_pinned_root_certificate_verifies_and_tunnels() {
 
 /// A wrong/unrelated pinned trust anchor must FAIL the handshake — proves the
 /// pin path actually verifies rather than silently trusting anything.
+/// Every certificate in the PEM bundle is trusted, not only the first.
+#[tokio::test]
+async fn connect_over_h2_with_pinned_root_certificate_trusts_second_pem_bundle_root() {
+    let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    let config = MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        url: fixture.masque_url(),
+        proxy_socket_addr: None,
+        tcp_protocol: MasqueTcpProtocol::Http2,
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "native_default".to_string(),
+        root_certificate_pem: Some(format!("{}{}", localhost_certificate().2, fixture.certificate_pem())),
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        ech_config: None,
+    };
+    let proxy_origin = parse_proxy_origin(&config).expect("proxy origin");
+    let transport =
+        tokio::net::TcpStream::connect(resolve_proxy_socket_addr(&config, &proxy_origin).await.expect("proxy addr"))
+            .await
+            .expect("connect proxy transport");
+
+    let mut stream = MasqueClient::connect_over(&config, transport, &fixture.tcp_echo_target())
+        .await
+        .expect("second PEM root in the bundle must be trusted");
+
+    stream.write_all(b"pinned-ping").await.expect("write pinned stream");
+    let mut reply = [0u8; 11];
+    stream.read_exact(&mut reply).await.expect("read pinned stream");
+    assert_eq!(&reply, b"pinned-ping");
+}
+
 #[tokio::test]
 async fn connect_over_h2_with_unrelated_root_certificate_fails_verification() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");

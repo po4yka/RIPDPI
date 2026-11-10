@@ -68,13 +68,21 @@ pub(crate) fn apply_h2_root_certificate(
     let Some(root_pem) = config.root_certificate_pem.as_deref().filter(|value| !value.trim().is_empty()) else {
         return Ok(());
     };
-    let cert = boring::x509::X509::from_pem(root_pem.as_bytes()).map_err(|error| {
+    let certificates = boring::x509::X509::stack_from_pem(root_pem.as_bytes()).map_err(|error| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE root certificate PEM: {error}"))
     })?;
-    builder
-        .cert_store_mut()
-        .add_cert(cert)
-        .map_err(|error| io::Error::other(format!("failed to add MASQUE root certificate: {error}")))?;
+    if certificates.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "MASQUE root certificate PEM contains no certificates",
+        ));
+    }
+    for cert in certificates {
+        builder
+            .cert_store_mut()
+            .add_cert(cert)
+            .map_err(|error| io::Error::other(format!("failed to add MASQUE root certificate: {error}")))?;
+    }
     Ok(())
 }
 
