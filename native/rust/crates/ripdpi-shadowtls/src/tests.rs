@@ -246,3 +246,24 @@ fn sample_client_hello() -> Vec<u8> {
     ]);
     frame
 }
+
+#[test]
+fn server_hello_with_hello_retry_request_random_is_a_typed_error() {
+    use super::handshake::parse_validated_server_hello;
+    use super::{ShadowTlsFailureKind, ShadowTlsHandshakeError};
+
+    let mut frame = vec![0u8; 100];
+    frame[0] = TLS_HANDSHAKE;
+    frame[5] = 0x02;
+    frame[8] = 91;
+    frame[9] = 0x03;
+    frame[10] = 0x03;
+    frame[11..43].copy_from_slice(&[
+        0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91, 0xC2, 0xA2,
+        0x11, 0x16, 0x7A, 0xBB, 0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C,
+    ]);
+    frame[43] = 32;
+    let error = parse_validated_server_hello(&frame).expect_err("HelloRetryRequest must be rejected");
+    let typed = error.get_ref().and_then(|inner| inner.downcast_ref::<ShadowTlsHandshakeError>()).expect("typed error");
+    assert_eq!(typed.kind(), ShadowTlsFailureKind::CoverHelloRetry);
+}

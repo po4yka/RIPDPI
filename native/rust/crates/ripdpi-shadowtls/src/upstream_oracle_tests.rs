@@ -251,3 +251,19 @@ async fn wrong_password_fails_closed() {
     assert!(!rep.client_hello_hmac_ok);
     assert!(!rep.switched);
 }
+
+/// # Cancel safety
+///
+/// cancel-safe: the in-memory duplex halves are owned by the test.
+#[tokio::test]
+async fn cover_hello_retry_request_is_a_typed_error() {
+    let (a, b) = tokio::io::duplex(1 << 20);
+    let server = tokio::spawn(upstream_like_server(b, PW, true));
+    let err = client(PW).connect_over(a).await.err().expect("HelloRetryRequest must fail");
+    let typed = err
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<crate::ShadowTlsHandshakeError>())
+        .unwrap_or_else(|| panic!("untyped error: {err}"));
+    assert_eq!(typed.kind(), crate::ShadowTlsFailureKind::CoverHelloRetry);
+    drop(server.await);
+}

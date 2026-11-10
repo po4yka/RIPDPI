@@ -4,10 +4,17 @@ use std::sync::Arc;
 use rand::Rng;
 use rustls::{ClientConfig as RustlsClientConfig, ClientConnection, RootCertStore};
 
+use super::ShadowTlsHandshakeError;
 use super::frames::{TLS_HANDSHAKE, TLS_HEADER_LEN};
 use super::hmac::{HMAC_LEN, ShadowTlsHmac};
 
 const SESSION_ID_LEN: usize = 32;
+
+/// The fixed `random` value that marks a ServerHello as a HelloRetryRequest (RFC 8446 section 4.1.3).
+const HELLO_RETRY_REQUEST_RANDOM: [u8; 32] = [
+    0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91, 0xC2, 0xA2, 0x11,
+    0x16, 0x7A, 0xBB, 0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C,
+];
 
 #[derive(Debug)]
 pub(crate) struct ParsedServerHello {
@@ -124,6 +131,9 @@ pub(crate) fn parse_validated_server_hello(frame: &[u8]) -> io::Result<ParsedSer
         ));
     }
 
+    if frame[11..43] == HELLO_RETRY_REQUEST_RANDOM {
+        return Err(io::Error::other(ShadowTlsHandshakeError::cover_hello_retry()));
+    }
     let server_random = frame[11..43].to_vec();
     let session_id_len = usize::from(frame[43]);
     if session_id_len != SESSION_ID_LEN {

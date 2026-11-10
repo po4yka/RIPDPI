@@ -38,6 +38,10 @@ pub enum ShadowTlsFailureKind {
     /// instead of v3's 4-byte HMAC tag prefix — strong signal the
     /// server speaks v2 framing.
     VersionMismatch,
+    /// The cover server answered the ClientHello with a TLS HelloRetryRequest.
+    /// The rewritten session id makes rustls reject it, so the handshake cannot
+    /// continue; the cover server must accept the client's X25519 key share.
+    CoverHelloRetry,
     /// Payload doesn't match a known version-mismatch signature;
     /// pass through to the generic protocol-failure classifier
     /// (auth, framing corruption, network error, etc.).
@@ -90,6 +94,12 @@ impl ShadowTlsHandshakeError {
         Self { kind: ShadowTlsFailureKind::VersionMismatch }
     }
 
+    /// The cover server sent a TLS HelloRetryRequest instead of a ServerHello.
+    #[must_use]
+    pub const fn cover_hello_retry() -> Self {
+        Self { kind: ShadowTlsFailureKind::CoverHelloRetry }
+    }
+
     /// The coarse failure kind this error carries.
     #[must_use]
     pub const fn kind(&self) -> ShadowTlsFailureKind {
@@ -103,6 +113,10 @@ impl std::fmt::Display for ShadowTlsHandshakeError {
             ShadowTlsFailureKind::VersionMismatch => f.write_str(
                 "ShadowTLS server speaks v2 framing (this client is v3-only); \
                  upgrade the server to ShadowTLS v3 — see docs/architecture/shadowtls-version-policy.md",
+            ),
+            ShadowTlsFailureKind::CoverHelloRetry => f.write_str(
+                "ShadowTLS cover server sent a TLS HelloRetryRequest, which this client does not support; \
+                 choose a cover server that accepts an X25519 key share",
             ),
             ShadowTlsFailureKind::Other => f.write_str("ShadowTLS handshake failed"),
         }
