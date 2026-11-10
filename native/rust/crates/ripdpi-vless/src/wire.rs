@@ -6,6 +6,7 @@ use std::task::{Context, Poll, ready};
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
 
+use crate::addons::decode_flow;
 use crate::vision::{XtlsDirectRead, XtlsDirectWrite};
 
 const RESPONSE_VERSION: u8 = 0x00;
@@ -82,6 +83,8 @@ impl ProtocolVersion {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DecodedRequestHeader {
     pub uuid: [u8; 16],
+    /// Exact Flow from the wire, without configuration-alias normalization.
+    pub flow: String,
     pub command: VlessCommand,
     pub target: String,
     pub consumed_len: usize,
@@ -119,6 +122,8 @@ pub enum DecodeError {
     UnsupportedAddressType(u8),
     #[error("VLESS domain target is not valid UTF-8 at byte {valid_up_to}")]
     InvalidDomainUtf8 { valid_up_to: usize },
+    #[error("invalid VLESS addons protobuf")]
+    InvalidAddons,
     #[error("VLESS header length overflow")]
     LengthOverflow,
 }
@@ -142,10 +147,10 @@ impl From<ReadResponseError> for io::Error {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 enum ResponseHeaderState {
     Header { bytes: [u8; 2], filled: usize },
-    Addons { remaining: usize },
+    Addons { bytes: Vec<u8>, filled: usize },
     Payload,
     Failed,
 }
@@ -223,24 +228,28 @@ impl<S: AsyncRead + Unpin> AsyncRead for ResponseHeaderStream<S> {
                             let error = io::Error::new(io::ErrorKind::InvalidData, error);
                             return Poll::Ready(Err(this.fail_response(error, Some("during_vless_response_header"))));
                         }
-                        this.state = ResponseHeaderState::Addons { remaining: usize::from(bytes[1]) };
+                        this.state = ResponseHeaderState::Addons { bytes: vec![0; usize::from(bytes[1])], filled: 0 };
                     }
                 }
-                ResponseHeaderState::Addons { remaining } if *remaining > 0 => {
-                    let mut scratch = [0_u8; u8::MAX as usize];
-                    let mut addons = ReadBuf::new(&mut scratch[..*remaining]);
-                    if let Err(error) = ready!(Pin::new(&mut this.inner).poll_read(cx, &mut addons)) {
-                        return Poll::Ready(Err(this.fail_response(error, None)));
+                ResponseHeaderState::Addons { bytes, filled } => {
+                    if *filled < bytes.len() {
+                        let mut addons = ReadBuf::new(&mut bytes[*filled..]);
+                        if let Err(error) = ready!(Pin::new(&mut this.inner).poll_read(cx, &mut addons)) {
+                            return Poll::Ready(Err(this.fail_response(error, None)));
+                        }
+                        let read = addons.filled().len();
+                        if read == 0 {
+                            let error =
+                                io::Error::new(io::ErrorKind::UnexpectedEof, "VLESS response ended before its addons");
+                            return Poll::Ready(Err(this.fail_response(error, Some("during_vless_response_addons"))));
+                        }
+                        *filled += read;
+                        continue;
                     }
-                    let read = addons.filled().len();
-                    if read == 0 {
-                        let error =
-                            io::Error::new(io::ErrorKind::UnexpectedEof, "VLESS response ended before its addons");
+                    if let Err(error) = decode_flow(bytes) {
+                        let error = io::Error::new(io::ErrorKind::InvalidData, error);
                         return Poll::Ready(Err(this.fail_response(error, Some("during_vless_response_addons"))));
                     }
-                    *remaining -= read;
-                }
-                ResponseHeaderState::Addons { remaining: 0 } => {
                     this.state = ResponseHeaderState::Payload;
                     this.trace_response = false;
                     if let Some(started) = this.stage_started.take() {
@@ -254,7 +263,6 @@ impl<S: AsyncRead + Unpin> AsyncRead for ResponseHeaderStream<S> {
                         "VLESS response validation already failed",
                     )));
                 }
-                ResponseHeaderState::Addons { .. } => unreachable!("guard handles non-empty VLESS addons"),
             }
         }
     }
@@ -410,13 +418,14 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
     if bytes.len() < cursor + addons_len + 1 {
         return Err(ParseRequestError::NeedMoreData);
     }
+    let flow = decode_flow(&bytes[cursor..cursor + addons_len])?.to_owned();
     cursor += addons_len;
 
     let command_byte = bytes[cursor];
     cursor += 1;
     let command = VlessCommand::from_wire_byte(command_byte).ok_or(DecodeError::UnsupportedCommand(command_byte))?;
     if command == VlessCommand::Mux {
-        return Ok(DecodedRequestHeader { uuid, command, target: String::new(), consumed_len: cursor });
+        return Ok(DecodedRequestHeader { uuid, flow, command, target: String::new(), consumed_len: cursor });
     }
 
     // Target-bearing commands still need port (2) and address type (1).
@@ -469,7 +478,7 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
         }
     };
 
-    Ok(DecodedRequestHeader { uuid, command, target: format_target(&host, port), consumed_len: cursor })
+    Ok(DecodedRequestHeader { uuid, flow, command, target: format_target(&host, port), consumed_len: cursor })
 }
 
 /// Read and consume the VLESS response header from the stream.
@@ -477,6 +486,11 @@ pub fn parse_request_header(bytes: &[u8]) -> Result<DecodedRequestHeader, ParseR
 /// Response format: `Version(1B) | AddonsLen(1B) | Addons(var)`
 ///
 /// After this call returns successfully, the stream carries raw bidirectional data.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation can consume a header prefix. Discard the stream
+/// after cancellation; do not retry this helper on it. Use [`ResponseHeaderStream`]
+/// when response reads must resume after cancellation.
 pub async fn read_response(stream: &mut (impl AsyncRead + Unpin)) -> Result<(), ReadResponseError> {
     let mut header = [0u8; 2];
     stream.read_exact(&mut header).await?;
@@ -485,6 +499,7 @@ pub async fn read_response(stream: &mut (impl AsyncRead + Unpin)) -> Result<(), 
     if addons_len > 0 {
         let mut addons = vec![0u8; addons_len];
         stream.read_exact(&mut addons).await?;
+        decode_flow(&addons)?;
     }
     Ok(())
 }
@@ -505,6 +520,7 @@ pub fn parse_response_header(bytes: &[u8]) -> Result<usize, ParseRequestError> {
     if bytes.len() < total {
         return Err(ParseRequestError::NeedMoreData);
     }
+    decode_flow(&bytes[2..total])?;
     Ok(total)
 }
 
@@ -564,7 +580,7 @@ mod tests {
     #[test]
     fn encode_request_domain() {
         let uuid = [0x01u8; 16];
-        let addons = &[0x0a, 0x10, b'x'];
+        let addons = &[0x0a, 0x01, b'x'];
         let buf = encode_request(&uuid, addons, "example.com:443").expect("encode request");
 
         assert_eq!(buf[0], 0x00); // version
@@ -581,7 +597,7 @@ mod tests {
     #[test]
     fn encode_mux_request_omits_destination() {
         let uuid = [0x24; 16];
-        let addons = &[0x0a, 0x10, b'x'];
+        let addons = &[0x0a, 0x01, b'x'];
         let encoded = encode_command_request(&uuid, addons, VlessCommand::Mux, None).expect("encode Mux request");
 
         assert_eq!(encoded.len(), 1 + 16 + 1 + addons.len() + 1);
@@ -623,7 +639,7 @@ mod tests {
     #[test]
     fn parse_request_header_round_trips_domain_target() {
         let uuid = [0x44; 16];
-        let encoded = encode_request(&uuid, &[0x0a], "example.com:443").expect("encode request");
+        let encoded = encode_request(&uuid, &[0x0a, 0], "example.com:443").expect("encode request");
 
         let decoded = parse_request_header(&encoded).expect("domain request");
 
@@ -729,7 +745,10 @@ mod tests {
         assert!(matches!(error, ReadResponseError::Decode(DecodeError::UnsupportedResponseVersion(0x01))));
     }
 
-    #[tokio::test]
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation before joining the peer task can detach it;
+    /// this test is not externally cancelled.
+    #[tokio::test(flavor = "current_thread")]
     async fn lazy_response_header_allows_uplink_before_xray_flushes_downlink() {
         let (client, mut server) = tokio::io::duplex(64);
         let peer = tokio::spawn(async move {
@@ -738,7 +757,7 @@ mod tests {
             assert_eq!(request, *b"hello");
 
             server
-                .write_all(&[RESPONSE_VERSION, 3, 0xaa, 0xbb, 0xcc])
+                .write_all(&[RESPONSE_VERSION, 3, 0x1a, 1, 0xff])
                 .await
                 .expect("write buffered VLESS response header");
             server.write_all(b"world").await.expect("write response payload");
@@ -872,15 +891,19 @@ mod tests {
 
     #[test]
     fn parse_response_header_returns_consumed_length_for_addons() {
-        assert_eq!(parse_response_header(&[0x00, 0x03, 0xaa, 0xbb, 0xcc]), Ok(5));
+        assert_eq!(parse_response_header(&[0x00, 0x03, 0x1a, 1, 0xff]), Ok(5));
         // Extra bytes beyond the consumed window are fine.
-        assert_eq!(parse_response_header(&[0x00, 0x03, 0xaa, 0xbb, 0xcc, 0xdd, 0xee]), Ok(5));
+        assert_eq!(parse_response_header(&[0x00, 0x03, 0x1a, 1, 0xff, 0xdd, 0xee]), Ok(5));
     }
 
     #[test]
     fn parse_response_header_accepts_max_addons() {
         let mut input = vec![0x00, 0xff];
-        input.extend(std::iter::repeat_n(0x00, 255));
+        input.extend_from_slice(&[0x1a, 0xfc, 1]);
+        input.extend(std::iter::repeat_n(0xaa, 252));
         assert_eq!(parse_response_header(&input), Ok(2 + 255));
     }
 }
+
+#[cfg(test)]
+mod addons_tests;

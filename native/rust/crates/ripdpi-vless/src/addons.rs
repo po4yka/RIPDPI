@@ -7,7 +7,11 @@
 //!
 //! See `SPEC_VERSION.md` for the pinned upstream tag.
 
+mod decode;
+
 use std::fmt;
+
+pub(crate) use decode::decode_flow;
 
 /// Hand-encoded protobuf for the VLESS addons message with
 /// `Flow = "xtls-rprx-vision"`.
