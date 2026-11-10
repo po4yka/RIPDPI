@@ -40,11 +40,12 @@ pub(crate) enum ChainHopRole {
 /// Per-hop connect telemetry for an N-hop chain.
 ///
 /// `hops[i]` carries the `(state, latency_ms)` of the hop at index `i`. The
-/// `entry_*` / `exit_*` accessors project the first and last recorded hop so
-/// the existing two-field wire telemetry stays populated without a schema bump.
+/// `entry_*` / `exit_*` accessors use the configured positions. Reports belong
+/// to the latest-started connection attempt, including concurrent opens.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ChainHopTelemetrySnapshot {
-    /// Dense per-hop `(state, latency_ms)` keyed by hop index; grown on demand.
+    attempt: u64,
+    /// Fixed configured positions; an unattempted hop has no state.
     hops: Vec<Option<(String, Option<u64>)>>,
 }
 
@@ -62,7 +63,7 @@ impl ChainHopTelemetrySnapshot {
     }
 
     fn exit_index(&self) -> Option<usize> {
-        self.hops.iter().rposition(Option::is_some)
+        self.hops.len().checked_sub(1)
     }
 
     pub fn exit_state(&self) -> Option<String> {
@@ -74,7 +75,7 @@ impl ChainHopTelemetrySnapshot {
     }
 
     /// The intermediate hops of the chain — every recorded hop strictly between
-    /// the entry (index 0) and the exit (the last recorded index). Empty for a
+    /// the entry (index 0) and the configured exit. Empty for a
     /// two-hop chain. Each entry is `(hop_index, state, latency_ms)` so the UI
     /// can render per-hop live status keyed by the hop's ordered position.
     pub fn intermediate_hops(&self) -> Vec<ChainIntermediateHopTelemetry> {
@@ -104,20 +105,38 @@ pub struct ChainIntermediateHopTelemetry {
     pub latency_ms: Option<u64>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct ChainHopTelemetryState {
     inner: Arc<Mutex<ChainHopTelemetrySnapshot>>,
 }
 
+impl Default for ChainHopTelemetryState {
+    fn default() -> Self {
+        Self::new(2)
+    }
+}
+
 impl ChainHopTelemetryState {
-    pub(crate) fn record(&self, role: ChainHopRole, state: &str, latency_ms: Option<u64>) {
-        // Recover from a poisoned lock: a panicked holder must not permanently brick telemetry.
+    pub(crate) fn new(hop_count: usize) -> Self {
+        Self { inner: Arc::new(Mutex::new(ChainHopTelemetrySnapshot { attempt: 0, hops: vec![None; hop_count] })) }
+    }
+
+    pub(crate) fn start_attempt(&self) -> u64 {
+        let mut snapshot = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        snapshot.attempt = snapshot.attempt.wrapping_add(1);
+        snapshot.hops.fill(None);
+        snapshot.attempt
+    }
+
+    pub(crate) fn record(&self, attempt: u64, role: ChainHopRole, state: &str, latency_ms: Option<u64>) {
+        // Older opens must not overwrite the latest-started attempt.
         let mut snapshot = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let ChainHopRole::Hop(index) = role;
-        if snapshot.hops.len() <= index {
-            snapshot.hops.resize(index + 1, None);
+        if snapshot.attempt == attempt
+            && let Some(hop) = snapshot.hops.get_mut(index)
+        {
+            *hop = Some((state.to_string(), latency_ms));
         }
-        snapshot.hops[index] = Some((state.to_string(), latency_ms));
     }
 
     pub(crate) fn snapshot(&self) -> ChainHopTelemetrySnapshot {
@@ -333,13 +352,22 @@ mod tests {
     use super::{ChainHopRole, ChainHopTelemetryState};
 
     #[test]
-    fn intermediate_hops_excludes_entry_and_exit_for_a_four_hop_chain() {
+    fn entry_failure_does_not_report_an_exit_attempt() {
         let state = ChainHopTelemetryState::default();
+        state.record(0, ChainHopRole::Hop(0), "failed", Some(10));
+        assert_eq!(Some("failed".to_string()), state.snapshot().entry_state());
+        assert_eq!(None, state.snapshot().exit_state());
+        assert_eq!(None, state.snapshot().exit_latency_ms());
+    }
+
+    #[test]
+    fn intermediate_hops_excludes_entry_and_exit_for_a_four_hop_chain() {
+        let state = ChainHopTelemetryState::new(4);
         // A 4-hop chain: hop 0 entry, hops 1..=2 intermediate, hop 3 exit.
-        state.record(ChainHopRole::Hop(0), "connected", Some(10));
-        state.record(ChainHopRole::Hop(1), "connected", Some(21));
-        state.record(ChainHopRole::Hop(2), "connecting", Some(33));
-        state.record(ChainHopRole::Hop(3), "connected", Some(40));
+        state.record(0, ChainHopRole::Hop(0), "connected", Some(10));
+        state.record(0, ChainHopRole::Hop(1), "connected", Some(21));
+        state.record(0, ChainHopRole::Hop(2), "connecting", Some(33));
+        state.record(0, ChainHopRole::Hop(3), "connected", Some(40));
 
         let snapshot = state.snapshot();
         let middle = snapshot.intermediate_hops();
@@ -359,10 +387,60 @@ mod tests {
     }
 
     #[test]
+    fn retry_clears_progress_of_every_later_hop() {
+        let state = ChainHopTelemetryState::new(4);
+        let first = state.start_attempt();
+        for index in 0..4 {
+            state.record(first, ChainHopRole::Hop(index), "connected", Some(10));
+        }
+        let retry = state.start_attempt();
+        state.record(retry, ChainHopRole::Hop(0), "failed", Some(20));
+        assert_eq!(Some("failed".to_string()), state.snapshot().entry_state());
+        assert_eq!(None, state.snapshot().exit_state());
+        assert!(state.snapshot().intermediate_hops().is_empty());
+    }
+
+    #[test]
+    fn concurrent_older_attempt_cannot_change_latest_progress() {
+        let state = ChainHopTelemetryState::new(4);
+        let older = state.start_attempt();
+        let latest = state.start_attempt();
+        state.record(latest, ChainHopRole::Hop(0), "connected", Some(10));
+        state.record(latest, ChainHopRole::Hop(1), "connecting", None);
+        state.record(older, ChainHopRole::Hop(3), "connected", Some(40));
+        state.record(older, ChainHopRole::Hop(1), "failed", Some(30));
+        state.record(older, ChainHopRole::Hop(0), "cancelled", Some(50));
+        let snapshot = state.snapshot();
+        assert_eq!(Some("connected".to_string()), snapshot.entry_state());
+        assert_eq!(None, snapshot.exit_state());
+        let middle = snapshot.intermediate_hops();
+        assert_eq!(1, middle.len());
+        assert_eq!(1, middle[0].hop_index);
+        assert_eq!("connecting", middle[0].state);
+    }
+
+    #[test]
+    fn partial_startup_keeps_configured_middle_and_exit_roles() {
+        for (failed_hop, expected_middle_count, exit_attempted) in
+            [(0, 0, false), (1, 1, false), (2, 2, false), (3, 2, true)]
+        {
+            let state = ChainHopTelemetryState::new(4);
+            let attempt = state.start_attempt();
+            for index in 0..failed_hop {
+                state.record(attempt, ChainHopRole::Hop(index), "connected", Some(10));
+            }
+            state.record(attempt, ChainHopRole::Hop(failed_hop), "failed", Some(20));
+            let snapshot = state.snapshot();
+            assert_eq!(expected_middle_count, snapshot.intermediate_hops().len());
+            assert_eq!(exit_attempted, snapshot.exit_state().is_some());
+        }
+    }
+
+    #[test]
     fn intermediate_hops_is_empty_for_a_two_hop_chain() {
         let state = ChainHopTelemetryState::default();
-        state.record(ChainHopRole::Hop(0), "connected", Some(5));
-        state.record(ChainHopRole::Hop(1), "connected", Some(9));
+        state.record(0, ChainHopRole::Hop(0), "connected", Some(5));
+        state.record(0, ChainHopRole::Hop(1), "connected", Some(9));
 
         assert!(state.snapshot().intermediate_hops().is_empty());
     }

@@ -276,8 +276,8 @@ pub(crate) struct ChainRelaySession {
 
 impl ChainRelaySession {
     /// Record a hop's connect outcome and return the latency for tracing.
-    fn record(&self, index: usize, state: &str, latency_ms: Option<u64>) {
-        self.telemetry.record(ChainHopRole::Hop(index), state, latency_ms);
+    fn record(&self, attempt: u64, index: usize, state: &str, latency_ms: Option<u64>) {
+        self.telemetry.record(attempt, ChainHopRole::Hop(index), state, latency_ms);
     }
 
     /// Prefix a hop failure with its position and transport kind.
@@ -294,14 +294,15 @@ impl ChainRelaySession {
         )
     }
 
-    fn begin_attempt(&self, index: usize) -> ChainHopAttemptGuard<'_> {
-        self.record(index, "connecting", None);
-        ChainHopAttemptGuard { session: self, index, started: Instant::now(), finished: false }
+    fn begin_attempt(&self, attempt: u64, index: usize) -> ChainHopAttemptGuard<'_> {
+        self.record(attempt, index, "connecting", None);
+        ChainHopAttemptGuard { session: self, attempt, index, started: Instant::now(), finished: false }
     }
 }
 
 struct ChainHopAttemptGuard<'a> {
     session: &'a ChainRelaySession,
+    attempt: u64,
     index: usize,
     started: Instant,
     finished: bool,
@@ -310,7 +311,7 @@ struct ChainHopAttemptGuard<'a> {
 impl ChainHopAttemptGuard<'_> {
     fn finish(&mut self, state: &str) {
         let latency_ms = u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        self.session.record(self.index, state, Some(latency_ms));
+        self.session.record(self.attempt, self.index, state, Some(latency_ms));
         self.finished = true;
     }
 }
@@ -349,9 +350,10 @@ impl RelaySession for ChainRelaySession {
 
     /// # Cancel safety
     ///
-    /// cancel-safe: each hop drops its partial transport on cancellation, while
-    /// `ChainHopAttemptGuard` records a terminal `cancelled` telemetry state.
+    /// cancel-safe: partial transports drop on cancellation; the guard reports
+    /// `cancelled` only while this connection remains the latest attempt.
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
+        let connection_attempt = self.telemetry.start_attempt();
         let last_index = self.hops.len() - 1;
 
         // Entry hop (index 0): the only hop that opens a real outbound
@@ -363,12 +365,12 @@ impl RelaySession for ChainRelaySession {
             match self.hops[1].proxy_target() {
                 Ok(destination) => destination,
                 Err(error) => {
-                    self.record(0, "failed", None);
+                    self.record(connection_attempt, 0, "failed", None);
                     return Err(self.tag_hop_error(1, error));
                 }
             }
         };
-        let mut attempt = self.begin_attempt(0);
+        let mut attempt = self.begin_attempt(connection_attempt, 0);
         let mut stream =
             match self.hops[0].connect(self.outbound_bind_ip, &entry_destination, &self.vless_session_limiter).await {
                 Ok(stream) => {
@@ -391,12 +393,12 @@ impl RelaySession for ChainRelaySession {
                 match self.hops[index + 1].proxy_target() {
                     Ok(destination) => destination,
                     Err(error) => {
-                        self.record(index, "failed", None);
+                        self.record(connection_attempt, index, "failed", None);
                         return Err(self.tag_hop_error(index + 1, error));
                     }
                 }
             };
-            let mut attempt = self.begin_attempt(index);
+            let mut attempt = self.begin_attempt(connection_attempt, index);
             stream = match self.hops[index].connect_over(stream, &destination).await {
                 Ok(stream) => {
                     attempt.finish("connected");
@@ -462,7 +464,7 @@ mod tests {
         };
 
         {
-            let _attempt = session.begin_attempt(0);
+            let _attempt = session.begin_attempt(telemetry.start_attempt(), 0);
             assert_eq!(telemetry.snapshot().entry_state(), Some("connecting".to_string()));
         }
 

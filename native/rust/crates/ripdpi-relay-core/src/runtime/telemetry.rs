@@ -43,13 +43,11 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
         last_handshake_error: runtime.state.last_handshake_error(),
         chain_entry_state: chain_hops
             .as_ref()
-            .and_then(ChainHopTelemetrySnapshot::entry_state)
-            .or_else(|| chain_state(&runtime.config, is_running)),
+            .map_or_else(|| idle_chain_state(&runtime.config), ChainHopTelemetrySnapshot::entry_state),
         chain_entry_latency_ms: chain_hops.as_ref().and_then(ChainHopTelemetrySnapshot::entry_latency_ms),
         chain_exit_state: chain_hops
             .as_ref()
-            .and_then(ChainHopTelemetrySnapshot::exit_state)
-            .or_else(|| chain_state(&runtime.config, is_running)),
+            .map_or_else(|| idle_chain_state(&runtime.config), ChainHopTelemetrySnapshot::exit_state),
         chain_exit_latency_ms: chain_hops.as_ref().and_then(ChainHopTelemetrySnapshot::exit_latency_ms),
         chain_intermediate_hops: chain_hops
             .as_ref()
@@ -72,9 +70,8 @@ pub(super) fn build_telemetry(runtime: &RelayRuntime) -> RelayTelemetry {
 
 const FAILED_SESSION_ERROR_STREAK: u64 = 3;
 
-fn chain_state(config: &ResolvedRelayRuntimeConfig, is_running: bool) -> Option<String> {
-    matches!(RelayKind::from_config(config), RelayKind::ChainRelay)
-        .then(|| if is_running { "connected" } else { "idle" }.to_string())
+fn idle_chain_state(config: &ResolvedRelayRuntimeConfig) -> Option<String> {
+    matches!(RelayKind::from_config(config), RelayKind::ChainRelay).then(|| "idle".to_string())
 }
 
 #[cfg(test)]
@@ -95,6 +92,65 @@ mod tests {
         assert_eq!(Some("idle"), telemetry.chain_exit_state.as_deref());
         assert_eq!(None, telemetry.chain_entry_latency_ms);
         assert_eq!(None, telemetry.chain_exit_latency_ms);
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test must stop and join its runtime before return.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn chain_runtime_reports_only_attempted_hops_after_entry_failure() {
+        use std::net::{Ipv4Addr, SocketAddr};
+        use std::sync::Arc;
+        use std::time::Duration;
+
+        use crate::config::ResolvedChainRelayHopConfig;
+        use crate::socks::RelayTargetAddr;
+
+        let probe = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve closed entry port");
+        let closed_entry_port = probe.local_addr().expect("entry address").port();
+        drop(probe);
+        let mut config = chain_config();
+        config.common.local_socks_port = 0;
+        let RelayBackendConfig::ChainRelay(chain) = &mut config.backend else { unreachable!() };
+        chain.hops = (0..4)
+            .map(|index| ResolvedChainRelayHopConfig {
+                kind: "shadowsocks".to_string(),
+                profile_id: format!("hop-{index}"),
+                server: "127.0.0.1".to_string(),
+                server_port: i32::from(closed_entry_port),
+                shadowsocks_method: Some("aes-256-gcm".to_string()),
+                shadowsocks_password: Some("fixture-password".to_string()),
+                ..ResolvedChainRelayHopConfig::default()
+            })
+            .collect();
+        let runtime = RelayRuntime::new(config);
+        let run = tokio::spawn(Arc::clone(&runtime).run());
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while runtime.telemetry().listener_address.is_none() {
+                assert!(!run.is_finished(), "runtime must reach readiness");
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("runtime readiness deadline");
+        let before = runtime.telemetry();
+        let target = RelayTargetAddr::Ip(SocketAddr::from((Ipv4Addr::LOCALHOST, 80)));
+        let result = runtime.state.backend().expect("real chain backend").connect_tcp(&target).await;
+        let after = runtime.telemetry();
+        runtime.stop();
+        tokio::time::timeout(Duration::from_secs(3), run)
+            .await
+            .expect("runtime stop deadline")
+            .expect("runtime join")
+            .expect("runtime stops cleanly");
+
+        assert_eq!("running", before.state);
+        assert_eq!(None, before.chain_entry_state);
+        assert_eq!(None, before.chain_exit_state);
+        assert!(result.is_err(), "entry connection must fail");
+        assert_eq!(Some("failed"), after.chain_entry_state.as_deref());
+        assert_eq!(None, after.chain_exit_state);
+        assert_eq!(None, after.chain_exit_latency_ms);
+        assert!(after.chain_intermediate_hops.is_empty());
     }
 
     #[test]

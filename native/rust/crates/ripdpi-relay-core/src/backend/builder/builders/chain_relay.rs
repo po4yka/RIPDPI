@@ -40,7 +40,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         })
         .collect::<io::Result<Vec<_>>>()?;
 
-    let telemetry = ChainHopTelemetryState::default();
+    let telemetry = ChainHopTelemetryState::new(ordered.len());
     let backend = PooledRelayBackend::new(
         ChainRelaySessionFactory {
             hops,
