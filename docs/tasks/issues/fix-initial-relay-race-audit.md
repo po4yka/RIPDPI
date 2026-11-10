@@ -2,7 +2,7 @@
 id: RLY-1794335293698320
 title: Fix initial relay race audit defects
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Relay audit team
