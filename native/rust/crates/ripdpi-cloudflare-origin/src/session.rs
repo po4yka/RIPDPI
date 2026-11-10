@@ -20,9 +20,9 @@ const UPSTREAM_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Xray's default `connIdle` policy. A half-open upstream never errors.
 const SESSION_IDLE_TIMEOUT: Duration = Duration::from_secs(300);
 
-/// Reads the VLESS header, checks the UUID, then relays to the target.
+/// Reads the VLESS header, checks the UUID and TCP command, then relays to the target.
 /// Only target addresses for which `target_allowed` is true are dialled.
-/// `on_authenticated` runs once the UUID matches; when it returns false (the
+/// `on_authenticated` runs once the UUID and TCP command pass; when it returns false (the
 /// session was evicted first) the session ends before it connects upstream.
 ///
 /// The session ends when the upstream closes or fails, when the GET stream
@@ -47,6 +47,9 @@ pub(crate) async fn run_session(
             io::ErrorKind::PermissionDenied,
             "VLESS UUID does not match configured tunnel identity",
         ));
+    }
+    if decoded.command != ripdpi_vless::wire::VlessCommand::Tcp {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "Cloudflare origin supports only VLESS TCP"));
     }
     if !on_authenticated() {
         return Err(io::Error::new(
@@ -284,6 +287,49 @@ mod tests {
         assert_eq!(redacted.kind(), std::io::ErrorKind::ConnectionRefused);
         assert_eq!(redacted.to_string(), "upstream connect failed");
     }
+
+    /// # Cancel safety:
+    /// cancel-safe: all session channels and the loopback listener are owned by this test.
+    #[tokio::test(flavor = "current_thread")]
+    async fn unsupported_vless_commands_do_not_authenticate_or_connect() {
+        for command in [2, 3] {
+            let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind TCP target");
+            let port = listener.local_addr().expect("TCP target address").port();
+            let (post, inbound) = mpsc::channel(1);
+            let (outbound, _get) = mpsc::channel(1);
+            // VLESS v0: identity, no addons, command, and a target only for UDP.
+            let mut header = vec![0];
+            header.extend_from_slice(&[7; 16]);
+            header.extend_from_slice(&[0, command]);
+            if command == 2 {
+                header.extend_from_slice(&port.to_be_bytes());
+                header.extend_from_slice(&[1, 127, 0, 0, 1]);
+            }
+            post.send(Bytes::from(header)).await.expect("queue VLESS header");
+            drop(post);
+            let mut authenticated = false;
+            let session = run_session(
+                inbound,
+                outbound,
+                [7; 16],
+                None,
+                |ip| ip.is_loopback(),
+                || {
+                    authenticated = true;
+                    true
+                },
+            );
+            let (result, accepted) = tokio::join!(
+                tokio::time::timeout(Duration::from_secs(1), session),
+                tokio::time::timeout(Duration::from_millis(100), listener.accept()),
+            );
+            let error = result.expect("unsupported command must finish promptly").expect_err("TCP-only origin");
+            assert_eq!(error.kind(), std::io::ErrorKind::Unsupported, "command {command}");
+            assert!(!authenticated, "unsupported command must not authenticate");
+            assert!(accepted.is_err(), "unsupported command must not open a TCP connection");
+        }
+    }
+
     #[tokio::test]
     /// # Cancel safety
     ///
