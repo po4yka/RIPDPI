@@ -1,9 +1,9 @@
 ---
 task_id: RLY-1794300111377171
 change: repair-apps-script-relay
-commit_sha: f0bd0f3568ba75ea2e8acc14fe711f45269c1582
-local: blocked
-local_evidence: "Targeted native and Kotlin tests, Clippy, cargo-deny and all ci-gates passed. Full staticAnalysis fails on unchanged SubscriptionReserveRefreshTest.kt:19 TopLevelPropertyNaming."
+commit_sha: 5ae32a22237d202aa0cf97ca3e1b3cb1da2efaf3
+local: passed
+local_evidence: "Targeted native and Kotlin tests, Clippy, cargo-deny and all ci-gates passed. Follow-up fixes cleared naming, MagicNumber, ComplexCondition and ReturnCount; full staticAnalysis and 72 subscription tests passed."
 remote_ci: not_applicable
 remote_ci_evidence: Hosted CI was not used as acceptance evidence.
 device: required
@@ -29,15 +29,15 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-SEPARATE-CORS-SITES-WITH-PUBLIC-SUFFIX-LIST-BEHAVIOR | RLY-1794300155126413 | Preflight and non-HTTP/silent IP sentinel regressions passed; no implicit direct connection | Passed locally |
 | REQ-SEPARATE-CORS-SITES-WITH-PUBLIC-SUFFIX-LIST-COMPAT | RLY-1794300155126413 | Preflight and non-HTTP/silent IP sentinel regressions passed; no implicit direct connection | Passed locally |
 
-## Observed checks
+## Initial repair checks
 
 - `cargo test -p ripdpi-apps-script-core --locked`: 73 combined tests passed before the additional test-only CA regression. `cargo clippy -p ripdpi-apps-script-core --all-targets --locked -- -D warnings` passed.
 - The additional `client_must_explicitly_trust_the_relay_ca` native regression passed before F7 commit. Its empty trust store fails; explicit CA trust succeeds.
 - `:core:service:testDebugUnitTest --tests '*AppsScriptRelayCertificateStoreTest'`: 3 passed. `:core:engine:testDebugUnitTest --tests '*RelayNativeConfigTest'`: 16 passed, and passed again after the mapper was split to satisfy the existing long-function budget.
 - `:app:testGithubFullDebugUnitTest --tests '*AppsScriptCaExportTest'`: 1 passed with native Robolectric graphics; disclosure, dismiss, picker and error paths were exercised.
 - `:app:compileGithubFullDebugKotlin :app:lintGithubFullDebug :core:service:lintDebug` passed with `-Pripdpi.skipNativeBuild=true --max-workers=4`.
-- `just ci-gates` passed on combined validation HEAD `4c1b396ac87d26cbb284196aac5afd90ace98f42`, tree `358b4da7a84ec0b64cacd5fe03360abb8991c716`. The integration worktree has identical production, resource, contract and peer-document inputs. Commit ordering differs because the workers used isolated branches.
-- `staticAnalysis` ran and failed at `app/src/test/kotlin/com/poyka/ripdpi/subscription/SubscriptionReserveRefreshTest.kt:19`. `MALFORMED_VLESS_ID` violates `TopLevelPropertyNaming`. The file is byte-identical to audited base `ed21bbfd241b62fe8eb233573df21da38dfb9544`; no naming rule or baseline was changed.
+- `just ci-gates` passed on combined validation HEAD `4c1b396ac87d26cbb284196aac5afd90ace98f42`, tree `358b4da7a84ec0b64cacd5fe03360abb8991c716`. The initial integration worktree had identical production, resource, contract and peer-document inputs. Commit ordering differed because the workers used isolated branches.
+- The initial `staticAnalysis` attempt ran and failed at `app/src/test/kotlin/com/poyka/ripdpi/subscription/SubscriptionReserveRefreshTest.kt:19`. `MALFORMED_VLESS_ID` violates `TopLevelPropertyNaming`. At that point, the file was byte-identical to audited base `ed21bbfd241b62fe8eb233573df21da38dfb9544`; no naming rule or baseline was changed.
 - `cargo deny --locked check` passed with local cargo-deny 0.19.0. CI pins 0.19.8; that CI tool version was not run locally. The lockfile adds only an existing constant_time_eq dependency edge.
 - Independent reviewers checked native correctness, async cancellation and Kotlin trust/export. The Connection-nominated Content-Type leak through `ct`, ignored public fixture and missing UI interaction test were fixed. The section-mapper refactor received a second review.
 
@@ -45,6 +45,20 @@ deployment_evidence: No deployment is owned by this change.
 
 Ephemeral logs: `/tmp/rly15-combined-native-tests.log`, `/tmp/rly15-combined-native-clippy.log`, `/tmp/rly15-auth-deny.log`, `/tmp/rly15-trust-parent.log`, `/tmp/rly15-trust-commits-v2.log` and `/tmp/rly15-http-commits-leased.log`.
 
+## Follow-up local validation
+
+The code in commit `5ae32a22237d202aa0cf97ca3e1b3cb1da2efaf3` clears the four static-analysis findings without changing fixture values, TLS acceptance, skip reasons or configured budgets. The Sing-box password reader already rejects blank values; its early return preserves that contract. Xray uses a single `when` after credential validation.
+
+Observed on this source tree before commit:
+
+- Full `staticAnalysis`: BUILD SUCCESSFUL, with `-Pripdpi.skipNativeBuild=true --max-workers=4`.
+- `just ci-gates`: passed, including host-appropriate Rust API snapshots.
+- Parser tests: TrojanImportRejectionTest 2, XrayConfigImportParserTest 42 and SingBoxSubscriptionParserTest 20, all passed.
+- SubscriptionReserveRefreshTest: 8 passed; no test was skipped.
+- All four code commits passed their normal hooks. A temporary dedicated build-gate slot was used without changing the permanent gate or shared validation rules.
+
+Logs: `/tmp/subscription-naming-and-parser-final.log` and `/tmp/subscription-reserve-refresh-test.log`.
+
 ## Remaining acceptance
 
-Full staticAnalysis remains blocked by the existing unrelated naming violation. Physical-device public-CA installation, a real owner-controlled Google deployment, fronting compatibility and load/capacity tests remain unverified. Local tests do not establish external interoperability. The OpenSpec change stays in review; it is not archived or declared fully accepted.
+Physical-device public-CA installation, a real owner-controlled Google deployment, fronting compatibility and load/capacity tests remain unverified. Local tests do not establish external interoperability. The OpenSpec change stays in review; it is not archived or declared fully accepted.

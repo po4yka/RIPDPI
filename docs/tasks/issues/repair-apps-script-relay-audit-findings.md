@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: repair-apps-script-relay
 created: 2026-11-10
 updated: 2026-11-10
-status_detail: F1-F8 implemented and locally checked; inherited staticAnalysis naming failure and physical Google acceptance remain open.
+status_detail: Local staticAnalysis, ci-gates and regression tests passed; physical Google acceptance remains open.
 ---
 
 ## Goal
