@@ -31,15 +31,6 @@ class LocationPermissionCopyTest {
         assertContains(copy, "redact")
     }
 
-    @Test
-    fun masqueGeohashCopyExplainsCoarseLocationWithoutPersistence() {
-        val copy = context.getString(R.string.config_relay_masque_cloudflare_geohash_helper)
-
-        assertContains(copy, "coarse location")
-        assertContains(copy, "not used for tracking")
-        assertContains(copy, "not persisted")
-    }
-
     private fun assertContains(
         text: String,
         expected: String,

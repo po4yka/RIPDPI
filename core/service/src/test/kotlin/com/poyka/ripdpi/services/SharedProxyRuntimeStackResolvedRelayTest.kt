@@ -270,7 +270,6 @@ class SharedProxyRuntimeStackResolvedRelayTest {
             relayProfileStore = profiles,
             relayCredentialStore = credentials,
             selectorRelayRuntimeProfileResolver = TestSelectorRelayRuntimeProfileResolver(),
-            cloudflareMasqueGeohashResolver = dependencies.cloudflareMasqueGeohashResolver,
             masquePrivacyPassProvider = dependencies.masquePrivacyPassProvider,
             torRuntimePathProvider = dependencies.torRuntimeProviders.pathProvider,
             torPluggableTransportProvider = dependencies.torRuntimeProviders.pluggableTransportProvider,

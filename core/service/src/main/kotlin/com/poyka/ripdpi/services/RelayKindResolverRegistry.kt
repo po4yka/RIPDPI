@@ -122,13 +122,11 @@ internal class RelayKindResolverRegistry
 internal fun createDefaultRelayKindResolverRegistry(
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialStore,
-    cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver,
     masquePrivacyPassProvider: MasquePrivacyPassProvider,
 ): RelayKindResolverRegistry =
     RelayKindResolverRegistry(
         masqueRelayKindResolver =
             MasqueRelayKindResolver(
-                cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
                 masquePrivacyPassProvider = masquePrivacyPassProvider,
             ),
         cloudflareTunnelRelayKindResolver = CloudflareTunnelRelayKindResolver(),

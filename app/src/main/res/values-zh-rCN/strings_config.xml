@@ -317,7 +317,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_import">导入</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">粘贴 PEM 证书链或导入证书文件。</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">启用 Cloudflare 出口提示</string>
     <string name="config_relay_masque_import_pkcs12">导入 PKCS#12 包</string>
     <string name="config_relay_masque_pkcs12_password">包密码</string>
     <string name="config_relay_masque_token">MASQUE 认证令牌</string>
@@ -570,7 +569,6 @@ fake_burst 3</string>
     <string name="config_relay_kind_chain">链式中继</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
     <string name="config_relay_masque_client_certificate_chain">客户端证书链 (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Android 可能会请求粗略位置，因为这个可选的 Cloudflare 出口提示会读取大致国家和地区。它不会用于跟踪，原始位置或网络标识符也不会被保存。</string>
     <string name="config_relay_masque_import_private_key">导入私钥</string>
     <string name="config_relay_masque_privacy_pass_available">此构建已配置 Privacy Pass 提供方。</string>
     <string name="config_relay_masque_url">MASQUE 地址</string>

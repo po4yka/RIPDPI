@@ -774,10 +774,6 @@ internal abstract class ChainRelayTrustDomainResolverTestSupport {
                 createDefaultRelayKindResolverRegistry(
                     relayProfileStore = relayProfileStore,
                     relayCredentialStore = relayCredentialStore,
-                    cloudflareMasqueGeohashResolver =
-                        object : CloudflareMasqueGeohashResolver {
-                            override suspend fun resolveHeaderValue(): String? = null
-                        },
                     masquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
                 ),
             torRuntimePathProvider = StaticTorRuntimePathProvider(),

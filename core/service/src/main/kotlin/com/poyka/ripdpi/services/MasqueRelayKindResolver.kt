@@ -1,14 +1,12 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.RelayKindMasque
-import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import javax.inject.Inject
 
 internal class MasqueRelayKindResolver
     @Inject
     constructor(
-        private val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver,
         private val masquePrivacyPassProvider: MasquePrivacyPassProvider,
     ) : RelayKindResolver {
         override fun supports(kind: String): Boolean = kind == RelayKindMasque
@@ -41,20 +39,11 @@ internal class MasqueRelayKindResolver
             )
             validateFinalmaskFeature(effectiveConfig, request.featureFlags)
 
-            val masqueCloudflareGeohashHeader =
-                if (masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
-                    effectiveConfig.masqueCloudflareGeohashEnabled
-                ) {
-                    cloudflareMasqueGeohashResolver.resolveHeaderValue()
-                } else {
-                    null
-                }
             return RelayResolverResult(
                 effectiveConfig = effectiveConfig,
                 effectiveTlsProfile = request.requestedTlsProfile,
                 masqueAuthMode = masqueAuthMode,
                 privacyPassRuntime = privacyPassRuntime,
-                masqueCloudflareGeohashHeader = masqueCloudflareGeohashHeader,
             )
         }
     }

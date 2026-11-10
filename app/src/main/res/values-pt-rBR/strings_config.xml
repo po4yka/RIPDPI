@@ -155,8 +155,6 @@
     <string name="config_relay_masque_import_certificate_chain">Importar certificado</string>
     <string name="config_relay_masque_import_private_key">Importar chave privada</string>
     <string name="config_relay_masque_import_pkcs12">Importar pacote PKCS#12</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">Ativar dicas de saída do Cloudflare</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">O Android pode solicitar localização aproximada porque esta dica opcional de saída do Cloudflare lê um país e uma região aproximados. Ela não é usada para rastreamento, e a localização bruta e os identificadores de rede não são persistidos.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Importar identidade PKCS#12</string>
     <string name="config_relay_masque_pkcs12_password">Senha do pacote</string>
     <string name="config_relay_masque_pkcs12_password_helper">Deixe vazio se o pacote PKCS#12 não tiver senha.</string>

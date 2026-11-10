@@ -449,7 +449,6 @@ fake_burst 3</string>
     <string name="config_relay_kind_chain">Relais en chaîne</string>
     <string name="config_relay_local_port">Port SOCKS local du relais</string>
     <string name="config_relay_masque_auth_privacy_pass">Privacy Pass</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">Activer les indices d\'égress Cloudflare</string>
     <string name="config_relay_masque_import_private_key">Importer la clé privée</string>
     <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass est désactivé car l\'URL du fournisseur configuré est invalide.</string>
     <string name="config_relay_profile_id">ID de profil</string>
@@ -652,7 +651,6 @@ Source : %2$s</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">Le proxy RIPDPI principal s\'enchaîne à cet écouteur en bouclage local.</string>
     <string name="config_relay_masque_client_certificate_chain">Chaîne de certificats client (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Android peut demander la localisation approximative, car cet indice de sortie Cloudflare facultatif lit un pays et une région approximatifs. Il n’est pas utilisé pour le suivi, et les identifiants bruts de localisation ou de réseau ne sont pas stockés.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Importer une identité PKCS#12</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass est indisponible car cette version n\'a pas d\'URL de fournisseur configurée.</string>
     <string name="config_relay_profile_id_helper">Utilisé pour lier les identifiants sécurisés au profil de relais enregistré.</string>

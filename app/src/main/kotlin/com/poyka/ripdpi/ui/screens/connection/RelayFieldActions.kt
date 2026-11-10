@@ -70,7 +70,6 @@ internal data class RelayMasqueActions(
     val onRelayMasqueClientCertificateChainPemChanged: (String) -> Unit = {},
     val onRelayMasqueClientPrivateKeyPemChanged: (String) -> Unit = {},
     val onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit = {},
-    val onRelayMasqueCloudflareGeohashEnabledChanged: (Boolean) -> Unit = {},
     val onRelayMasqueImportCertificateChainClicked: () -> Unit = {},
     val onRelayMasqueImportPrivateKeyClicked: () -> Unit = {},
     val onRelayMasqueImportPkcs12Clicked: () -> Unit = {},

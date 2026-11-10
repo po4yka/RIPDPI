@@ -121,9 +121,6 @@ class SharedProxySelectorRuntimeStackTest {
                 object : SelectorRelayRuntimeProfileResolver {
                     override suspend fun resolve() = selected
                 },
-                object : CloudflareMasqueGeohashResolver {
-                    override suspend fun resolveHeaderValue(): String? = null
-                },
                 StaticMasquePrivacyPassProvider(),
                 LocalTorRuntimePathProvider(),
                 UnconfiguredTorPluggableTransportProvider(),

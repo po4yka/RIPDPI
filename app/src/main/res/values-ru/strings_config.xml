@@ -863,8 +863,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_masque_client_certificate_chain">Цепочка клиентских сертификатов (PEM)</string>
     <string name="config_relay_masque_client_private_key_helper">Вставьте PEM-приватный ключ или импортируйте файл ключа.</string>
     <string name="config_relay_masque_client_private_key">Клиентский приватный ключ (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">Включить подсказки выхода Cloudflare</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Android может запросить грубое местоположение, потому что эта необязательная подсказка выхода Cloudflare читает примерные страну и регион. Это не используется для отслеживания, а сырые идентификаторы местоположения или сети не сохраняются.</string>
     <string name="config_relay_masque_http2">Разрешить откат на HTTP/2 TCP</string>
     <string name="config_relay_masque_import_certificate_chain">Импорт сертификата</string>
     <string name="config_relay_masque_import_pkcs12">Импорт пакета PKCS#12</string>

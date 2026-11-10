@@ -155,8 +155,6 @@
     <string name="config_relay_masque_import_certificate_chain">استيراد شهادة</string>
     <string name="config_relay_masque_import_private_key">استيراد مفتاح خاص</string>
     <string name="config_relay_masque_import_pkcs12">استيراد حزمة PKCS#12</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">تفعيل تلميحات إخراج Cloudflare</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">قد يطلب Android إذن الموقع التقريبي لأن تلميح إخراج Cloudflare الاختياري يقرأ دولة ومنطقة تقريبية. لا يُستخدم للتتبع، ولا يتم تخزين الموقع الخام أو معرفات الشبكة.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">استيراد هوية PKCS#12</string>
     <string name="config_relay_masque_pkcs12_password">كلمة مرور الحزمة</string>
     <string name="config_relay_masque_pkcs12_password_helper">اتركه فارغاً إذا كانت حزمة PKCS#12 بلا كلمة مرور.</string>

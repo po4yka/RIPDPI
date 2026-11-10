@@ -13,7 +13,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import kotlinx.coroutines.launch
@@ -128,50 +127,13 @@ private fun rememberModeEditorExternalActions(viewModel: ConnectionViewModel): M
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             viewModel.masqueImports.onDocumentPicked(uri)
         }
-    val requestCoarseLocationPermission = rememberModeEditorCoarseLocationPermissionAction(viewModel)
     return createModeEditorExternalActions(
         viewModel = viewModel,
-        context = LocalContext.current,
-        requestCoarseLocationPermission = requestCoarseLocationPermission,
         requestDocument = { request ->
             viewModel.masqueImports.begin(request.action, request.sessionId, viewModel.currentEditorRecoveryOwnerId)
             documentLauncher.launch(arrayOf("*/*"))
         },
     )
-}
-
-@Composable
-private fun rememberModeEditorCoarseLocationPermissionAction(viewModel: ConnectionViewModel): (String) -> Unit {
-    var permissionRequestSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var pendingEnableSessionId by rememberSaveable { mutableStateOf<Long?>(null) }
-    val editorSessionId = viewModel.currentEditorSessionId
-    LaunchedEffect(permissionRequestSessionId, editorSessionId) {
-        val requestSessionId = permissionRequestSessionId ?: return@LaunchedEffect
-        if (requestSessionId != editorSessionId) permissionRequestSessionId = null
-    }
-    ModeEditorPendingDraftUpdateEffect(
-        pendingSessionId = pendingEnableSessionId,
-        editorSessionId = editorSessionId,
-        onReady = { readySessionId ->
-            viewModel.updateDraft(expectedSessionId = readySessionId) {
-                copy(relayMasqueCloudflareGeohashEnabled = true)
-            }
-            pendingEnableSessionId = null
-        },
-        onDiscard = { pendingEnableSessionId = null },
-    )
-    val launcher =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            val requestSessionId = permissionRequestSessionId
-            permissionRequestSessionId = null
-            pendingEnableSessionId = requestSessionId.takeIf { granted }
-        }
-    return { permission ->
-        viewModel.currentEditorSessionId?.let { sessionId ->
-            permissionRequestSessionId = sessionId
-            launcher.launch(permission)
-        }
-    }
 }
 
 @Composable

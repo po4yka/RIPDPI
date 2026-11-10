@@ -155,8 +155,6 @@
     <string name="config_relay_masque_import_certificate_chain">وارد کردن گواهی</string>
     <string name="config_relay_masque_import_private_key">وارد کردن کلید خصوصی</string>
     <string name="config_relay_masque_import_pkcs12">وارد کردن بسته PKCS#12</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">فعال‌سازی راهنمایی‌های خروج Cloudflare</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Android ممکن است مکان تقریبی را درخواست کند، چون این راهنمای اختیاری خروج Cloudflare کشور و منطقهٔ تقریبی را می‌خواند. برای ردیابی استفاده نمی‌شود و شناسه‌های خام مکان یا شبکه ذخیره نمی‌شوند.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">وارد کردن هویت PKCS#12</string>
     <string name="config_relay_masque_pkcs12_password">رمز عبور بسته</string>
     <string name="config_relay_masque_pkcs12_password_helper">اگر بستهٔ PKCS#12 رمز عبور ندارد، خالی بگذارید.</string>

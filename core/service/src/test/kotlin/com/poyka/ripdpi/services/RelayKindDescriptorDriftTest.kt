@@ -257,10 +257,6 @@ class RelayKindDescriptorDriftTest {
         createDefaultRelayKindResolverRegistry(
             relayProfileStore = TestRelayProfileStore(),
             relayCredentialStore = TestRelayCredentialStore(),
-            cloudflareMasqueGeohashResolver =
-                object : CloudflareMasqueGeohashResolver {
-                    override suspend fun resolveHeaderValue(): String? = null
-                },
             masquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
         ).registrations
 

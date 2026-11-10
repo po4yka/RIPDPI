@@ -431,9 +431,6 @@ class SelectorRelayRuntimeProfileResolverTest {
                 createDefaultRelayKindResolverRegistry(
                     nativeReads.profiles,
                     nativeReads.credentials,
-                    object : CloudflareMasqueGeohashResolver {
-                        override suspend fun resolveHeaderValue(): String? = null
-                    },
                     StaticMasquePrivacyPassProvider(),
                 ),
             torRuntimePathProvider = StaticTorRuntimePathProvider(),

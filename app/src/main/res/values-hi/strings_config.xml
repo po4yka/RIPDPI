@@ -155,8 +155,6 @@
     <string name="config_relay_masque_import_certificate_chain">प्रमाणपत्र आयात करें</string>
     <string name="config_relay_masque_import_private_key">निजी कुंजी आयात करें</string>
     <string name="config_relay_masque_import_pkcs12">PKCS#12 बंडल आयात करें</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">Cloudflare एग्रेस संकेत सक्षम करें</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Android मोटे स्थान की अनुमति माँग सकता है क्योंकि यह वैकल्पिक Cloudflare एग्रेस संकेत एक अनुमानित देश और क्षेत्र पढ़ता है। इसका उपयोग ट्रैकिंग के लिए नहीं किया जाता, और कच्चा स्थान या नेटवर्क पहचानकर्ता संग्रहीत नहीं किए जाते।</string>
     <string name="config_relay_masque_pkcs12_dialog_title">PKCS#12 पहचान आयात करें</string>
     <string name="config_relay_masque_pkcs12_password">बंडल पासवर्ड</string>
     <string name="config_relay_masque_pkcs12_password_helper">यदि PKCS#12 बंडल में कोई पासवर्ड नहीं है तो खाली छोड़ दें।</string>

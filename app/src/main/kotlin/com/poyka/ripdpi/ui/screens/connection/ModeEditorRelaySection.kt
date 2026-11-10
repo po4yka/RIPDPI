@@ -434,7 +434,6 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelayMasqueClientCertificateChainPemChanged = actions.onRelayMasqueClientCertificateChainPemChanged,
                 onRelayMasqueClientPrivateKeyPemChanged = actions.onRelayMasqueClientPrivateKeyPemChanged,
                 onRelayMasqueUseHttp2FallbackChanged = actions.onRelayMasqueUseHttp2FallbackChanged,
-                onRelayMasqueCloudflareGeohashEnabledChanged = actions.onRelayMasqueCloudflareGeohashEnabledChanged,
                 onRelayMasqueImportCertificateChainClicked = actions.onRelayMasqueImportCertificateChainClicked,
                 onRelayMasqueImportPrivateKeyClicked = actions.onRelayMasqueImportPrivateKeyClicked,
                 onRelayMasqueImportPkcs12Clicked = actions.onRelayMasqueImportPkcs12Clicked,

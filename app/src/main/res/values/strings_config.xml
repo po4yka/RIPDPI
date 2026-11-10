@@ -164,8 +164,6 @@
     <string name="config_relay_masque_import_certificate_chain">Import certificate</string>
     <string name="config_relay_masque_import_private_key">Import private key</string>
     <string name="config_relay_masque_import_pkcs12">Import PKCS#12 bundle</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">Enable Cloudflare egress hints</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Android may ask for coarse location because this optional Cloudflare egress hint reads an approximate country and region. It is not used for tracking, and raw location or network identifiers are not persisted.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Import PKCS#12 identity</string>
     <string name="config_relay_masque_pkcs12_password">Bundle password</string>
     <string name="config_relay_masque_pkcs12_password_helper">Leave empty if the PKCS#12 bundle has no password.</string>

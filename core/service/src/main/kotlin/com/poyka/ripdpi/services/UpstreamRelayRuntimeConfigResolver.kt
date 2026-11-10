@@ -85,7 +85,6 @@ internal data class RelayResolverResult(
     val privacyPassRuntime: MasquePrivacyPassRuntimeConfig? = null,
     val resolvedChainRelay: ResolvedChainRelayConfig? = null,
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
-    val masqueCloudflareGeohashHeader: String? = null,
 )
 
 internal interface RelayKindResolver {
@@ -415,7 +414,7 @@ private class ResolvedRelayConfigBuilder(
             masqueAuthToken = credentials?.masqueAuthToken,
             masqueClientCertificateChainPem = credentials?.masqueClientCertificateChainPem,
             masqueClientPrivateKeyPem = credentials?.masqueClientPrivateKeyPem,
-            masqueCloudflareGeohashHeader = resolution.masqueCloudflareGeohashHeader,
+            masqueCloudflareGeohashHeader = null,
             masquePrivacyPassProviderUrl = resolution.privacyPassRuntime?.providerUrl,
             masquePrivacyPassProviderAuthToken = resolution.privacyPassRuntime?.providerAuthToken,
             masqueRootCertificatePem = effectiveConfig.masqueRootCertificatePem,
@@ -586,7 +585,6 @@ internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
     relayProfileStore: RelayProfileStore,
     relayCredentialStore: RelayCredentialStore,
     selectorRelayRuntimeProfileResolver: SelectorRelayRuntimeProfileResolver,
-    cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver,
     masquePrivacyPassProvider: MasquePrivacyPassProvider,
     torRuntimePathProvider: TorRuntimePathProvider,
     torPluggableTransportProvider: TorPluggableTransportProvider,
@@ -598,7 +596,6 @@ internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
             createDefaultRelayKindResolverRegistry(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
-                cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
                 masquePrivacyPassProvider = masquePrivacyPassProvider,
             ),
         torRuntimePathProvider = torRuntimePathProvider,

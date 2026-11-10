@@ -1293,7 +1293,7 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
-    fun `start resolves masque cloudflare direct identity and optional geohash`() =
+    fun `start resolves masque client identity without a location hint`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()
             val supervisor =
@@ -1325,13 +1325,7 @@ class UpstreamRelaySupervisorTest {
                                 ),
                             )
                         },
-                    resolverDependencies =
-                        UpstreamRelayResolverDependencies(
-                            cloudflareMasqueGeohashResolver =
-                                object : CloudflareMasqueGeohashResolver {
-                                    override suspend fun resolveHeaderValue(): String? = "u4p-GB"
-                                },
-                        ),
+                    resolverDependencies = UpstreamRelayResolverDependencies(),
                 )
 
             supervisor.start(
@@ -1358,7 +1352,7 @@ class UpstreamRelaySupervisorTest {
             assertEquals(RelayMasqueAuthModeCloudflareMtls, resolved?.masqueAuthMode)
             assertEquals("cert-chain", resolved?.masqueClientCertificateChainPem)
             assertEquals("private-key", resolved?.masqueClientPrivateKeyPem)
-            assertEquals("u4p-GB", resolved?.masqueCloudflareGeohashHeader)
+            assertNull(resolved?.masqueCloudflareGeohashHeader)
 
             supervisor.stop()
         }

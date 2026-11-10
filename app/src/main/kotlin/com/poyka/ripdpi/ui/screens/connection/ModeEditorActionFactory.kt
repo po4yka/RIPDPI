@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.connection
 
 internal data class ModeEditorExternalActions(
-    val onRelayMasqueCloudflareGeohashEnabledChanged: (Boolean) -> Unit,
     val onRelayMasqueImportCertificateChainClicked: () -> Unit,
     val onRelayMasqueImportPrivateKeyClicked: () -> Unit,
     val onRelayMasqueImportPkcs12Clicked: () -> Unit,
@@ -100,8 +99,6 @@ private fun ModeEditorActions.withRelayChainAndMasqueActions(
         onRelayMasqueUseHttp2FallbackChanged = {
             viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) }
         },
-        onRelayMasqueCloudflareGeohashEnabledChanged =
-            externalActions.onRelayMasqueCloudflareGeohashEnabledChanged,
         onRelayMasqueImportCertificateChainClicked = externalActions.onRelayMasqueImportCertificateChainClicked,
         onRelayMasqueImportPrivateKeyClicked = externalActions.onRelayMasqueImportPrivateKeyClicked,
         onRelayMasqueImportPkcs12Clicked = externalActions.onRelayMasqueImportPkcs12Clicked,

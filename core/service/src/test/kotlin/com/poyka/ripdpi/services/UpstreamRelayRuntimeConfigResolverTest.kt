@@ -41,7 +41,6 @@ abstract class UpstreamRelayRuntimeConfigResolverTestFixture {
         relayProfileStore: TestRelayProfileStore = TestRelayProfileStore(),
         relayCredentialStore: TestRelayCredentialStore = TestRelayCredentialStore(),
         masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
-        masqueGeohashHeader: String? = null,
         torRuntimePathProvider: TorRuntimePathProvider = StaticTorRuntimePathProvider(),
         torPluggableTransportProvider: TorPluggableTransportProvider = StaticTorPluggableTransportProvider(),
     ): DefaultUpstreamRelayRuntimeConfigResolver =
@@ -53,10 +52,6 @@ abstract class UpstreamRelayRuntimeConfigResolverTestFixture {
                 createDefaultRelayKindResolverRegistry(
                     relayProfileStore = relayProfileStore,
                     relayCredentialStore = relayCredentialStore,
-                    cloudflareMasqueGeohashResolver =
-                        object : CloudflareMasqueGeohashResolver {
-                            override suspend fun resolveHeaderValue(): String? = masqueGeohashHeader
-                        },
                     masquePrivacyPassProvider = masquePrivacyPassProvider,
                 ),
             torRuntimePathProvider = torRuntimePathProvider,

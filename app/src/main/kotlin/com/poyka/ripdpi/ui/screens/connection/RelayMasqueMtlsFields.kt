@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -12,7 +11,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -64,15 +62,5 @@ internal fun MasqueCloudflareMtlsFields(
         onClick = actions.onRelayMasqueImportPkcs12Clicked,
         modifier = Modifier.fillMaxWidth(),
         variant = RipDpiButtonVariant.Outline,
-    )
-    RipDpiSwitch(
-        checked = draft.relayMasqueCloudflareGeohashEnabled,
-        onCheckedChange = actions.onRelayMasqueCloudflareGeohashEnabledChanged,
-        label = stringResource(R.string.config_relay_masque_cloudflare_geohash_enabled),
-    )
-    Text(
-        text = stringResource(R.string.config_relay_masque_cloudflare_geohash_helper),
-        style = RipDpiThemeTokens.type.caption,
-        color = RipDpiThemeTokens.colors.mutedForeground,
     )
 }

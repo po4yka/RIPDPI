@@ -449,7 +449,6 @@ fake_burst 3</string>
     <string name="config_relay_kind_chain">Relay en cadena</string>
     <string name="config_relay_local_port">Puerto SOCKS del relay local</string>
     <string name="config_relay_masque_auth_privacy_pass">Privacy Pass</string>
-    <string name="config_relay_masque_cloudflare_geohash_enabled">Activar pistas de salida de Cloudflare</string>
     <string name="config_relay_masque_import_private_key">Importar clave privada</string>
     <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass está desactivado porque la URL del proveedor configurado no es válida.</string>
     <string name="config_relay_profile_id">ID del perfil</string>
@@ -652,7 +651,6 @@ Origen: %2$s</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">El proxy principal de RIPDPI se encadena a este receptor de loopback.</string>
     <string name="config_relay_masque_client_certificate_chain">Cadena de certificados de cliente (PEM)</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Android puede pedir ubicación aproximada porque esta pista opcional de salida de Cloudflare lee un país y región aproximados. No se usa para seguimiento, y los identificadores sin procesar de ubicación o red no se guardan.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Importar identidad PKCS#12</string>
     <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass no está disponible porque esta compilación no tiene una URL de proveedor configurada.</string>
     <string name="config_relay_profile_id_helper">Se utiliza para vincular credenciales seguras al perfil de relé guardado.</string>

@@ -41,10 +41,6 @@ internal data class StartedRelayRuntime(
 )
 
 internal data class UpstreamRelayResolverDependencies(
-    val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver =
-        object : CloudflareMasqueGeohashResolver {
-            override suspend fun resolveHeaderValue(): String? = null
-        },
     val masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
     val torRuntimeProviders: TorRelayRuntimeProviders = TorRelayRuntimeProviders(),
 )
@@ -110,7 +106,6 @@ internal class UpstreamRelaySupervisor(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
                 selectorRelayRuntimeProfileResolver = selectorRelayRuntimeProfileResolver,
-                cloudflareMasqueGeohashResolver = resolverDependencies.cloudflareMasqueGeohashResolver,
                 masquePrivacyPassProvider = resolverDependencies.masquePrivacyPassProvider,
                 torRuntimePathProvider = resolverDependencies.torRuntimeProviders.pathProvider,
                 torPluggableTransportProvider = resolverDependencies.torRuntimeProviders.pluggableTransportProvider,
@@ -482,10 +477,6 @@ internal open class UpstreamRelaySupervisorFactory
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
                 selectorRelayRuntimeProfileResolver = selectorRelayRuntimeProfileResolver,
-                cloudflareMasqueGeohashResolver =
-                    object : CloudflareMasqueGeohashResolver {
-                        override suspend fun resolveHeaderValue(): String? = null
-                    },
                 masquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
                 torRuntimePathProvider = LocalTorRuntimePathProvider(),
                 torPluggableTransportProvider = UnconfiguredTorPluggableTransportProvider(),
