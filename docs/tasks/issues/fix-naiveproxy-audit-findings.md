@@ -2,7 +2,7 @@
 id: RLY-1794300094981437
 title: Fix NaiveProxy audit findings
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: RLY-12 repair coordinator
@@ -33,10 +33,10 @@ Fix audit findings F1–F4 for NaiveProxy address selection, health, Basic crede
 - Health worker: NaiveUpstreamOutputParser.kt, NaiveUpstreamErrorCodes.kt, their tests, and existing subprocess health transition tests.
 - Credential worker: runtime-state credential validation and URI codec, editor validation, service credential validation, Rust helper config, and their owning tests.
 - Coordinator: portfolio/OpenSpec records, documentation, integration, combined validation, and commits.
-- The source-gate runner may execute the coordinator-reviewed prerequisite and F3 commit scripts after the remaining gates pass. It is the only writer in the job worktree during that handoff and does not change application code.
+- The source-gate runner executed the reviewed commit scripts during exclusive handoffs. The coordinator owns final integration.
 - Each writer uses its own worktree. Workers do not edit planning files. No locale, lockfile, golden, baseline, descriptor, or schema changes are planned.
 - Each confirmed finding gets a separate Conventional Commit. Only the coordinator commits and pushes the combined result.
 
 ## Validation prerequisites
 
-The required static analysis found existing naming and branch-complexity errors in subscription tests and Trojan import parsers. The coordinator owns the small, behavior-preserving changes. Existing import rejection tests must pass. These changes do not expand the protocol audit scope.
+The required static analysis found existing naming and branch-complexity errors in subscription tests and Trojan import parsers. The prerequisite fixes arrived independently in upstream main. Rebase kept those changes and removed the duplicate local commits. Existing import rejection tests passed again on the combined tree. These changes do not expand the protocol audit scope.
