@@ -969,6 +969,11 @@ async fn run_session<S>(
         loop {
             let frame = read_frame(&mut reader).await?;
             lifetime.inbound_frames.fetch_add(1, Ordering::Release);
+            let Some(frame) = frame else {
+                // A command this client does not know: it is skipped, as the
+                // reference client does, so a newer server cannot kill the session.
+                continue;
+            };
             match frame.command() {
                 Command::SynAck => handle_synack(&streams, frame.stream_id(), frame.data()),
                 Command::Psh => {
@@ -1079,7 +1084,13 @@ fn fail_all_streams(streams: &Arc<StdMutex<HashMap<u32, StreamRoute>>>, error: A
     guard.clear();
 }
 
-async fn read_frame<R>(reader: &mut R) -> Result<Frame, AnyTlsError>
+/// Reads one frame. A frame with an unknown command is consumed whole, using
+/// its declared length, and reported as `None`.
+///
+/// # Cancel safety
+/// NOT cancel-safe: a cancelled read can leave a partial frame consumed. Only
+/// the session reader calls it, and it drops the whole session on cancellation.
+async fn read_frame<R>(reader: &mut R) -> Result<Option<Frame>, AnyTlsError>
 where
     R: tokio::io::AsyncRead + Unpin,
 {
@@ -1096,7 +1107,11 @@ where
     frame.extend_from_slice(&header);
     frame.resize(frame.len() + data_len, 0);
     reader.read_exact(&mut frame[header.len()..]).await?;
-    Frame::decode(&frame)?.map(|(frame, _)| frame).ok_or(AnyTlsError::SessionClosed)
+    match Frame::decode(&frame) {
+        Ok(decoded) => Ok(decoded.map(|(frame, _)| frame)),
+        Err(FrameError::UnknownCommand(_)) => Ok(None),
+        Err(error) => Err(error.into()),
+    }
 }
 
 fn encode_target(target: &TargetAddr, port: u16) -> Result<Vec<u8>, AnyTlsError> {
@@ -1425,6 +1440,20 @@ mod session_cache_tests {
         })
         .await
         .expect("the sweeper ends with an empty pool");
+    }
+
+    /// A frame with an unknown command is skipped with its data; the next frame
+    /// still decodes.
+    #[tokio::test]
+    async fn read_frame_skips_an_unknown_command_with_its_data() {
+        use tokio::io::AsyncWriteExt;
+        let (mut peer, mut local) = tokio::io::duplex(64);
+        peer.write_all(&[11, 0, 0, 0, 7, 0, 3, b'a', b'b', b'c']).await.expect("unknown frame");
+        peer.write_all(&[super::Command::Psh as u8, 0, 0, 0, 1, 0, 2, b'o', b'k']).await.expect("known frame");
+
+        assert_eq!(super::read_frame(&mut local).await.expect("unknown frame is not an error"), None);
+        let frame = super::read_frame(&mut local).await.expect("next frame").expect("known frame");
+        assert_eq!((frame.command(), frame.stream_id(), frame.data()), (super::Command::Psh, 1, &b"ok"[..]));
     }
 
     #[tokio::test]
