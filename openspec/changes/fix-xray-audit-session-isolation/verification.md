@@ -22,4 +22,4 @@ deployment_evidence: No deployment or release is owned by this change.
 |---|---|---|---|
 | REQ-XRAY-UDP-SESSION | RLY-1794335407480209 | Pending real Go/Rust authenticated loopback tests | Pending |
 | REQ-UDP-LOCAL-SESSION | RLY-1794335407480209 | Pending owning diagnostic Rust tests | Pending |
-| REQ-XRAY-STUB-CLEANUP | RLY-1794335408051246 | Pending actual stub regression and linked cleanup retention tests | Pending |
+| REQ-XRAY-STUB-CLEANUP | RLY-1794335408051246 | Actual stub RED before fix; Gradle actual-stub regression + 18 RipDpiXrayRuntime tests GREEN; engine ktlint/detekt PASS; independent review no findings | PASS |

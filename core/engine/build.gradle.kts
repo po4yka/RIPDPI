@@ -90,6 +90,10 @@ extensions.configure<LibraryExtension> {
             .getByName("main")
             .kotlin.directories
             .add("src/xrayStub/kotlin")
+        sourceSets
+            .getByName("test")
+            .kotlin.directories
+            .add("src/testXrayStub/kotlin")
     }
 }
 

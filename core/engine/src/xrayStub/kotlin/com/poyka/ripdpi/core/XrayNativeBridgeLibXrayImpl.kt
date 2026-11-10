@@ -5,9 +5,9 @@ package com.poyka.ripdpi.core
  *
  * Compiled only in the `xrayStub` source set (the default offline / native-less
  * build). It references NO `libXray.*` symbols so it compiles with no AAR on the
- * classpath. Every method throws [NotImplementedError], matching the observable
- * behavior of the pre-link skeleton; the real gomobile-backed implementation
- * lives in the `xrayLinked` source set under the same FQN.
+ * classpath. Startup and observation methods throw [NotImplementedError]. Stop
+ * succeeds because this stub cannot own native resources. The real gomobile
+ * implementation lives in the `xrayLinked` source set under the same FQN.
  *
  * Exactly one of `xrayLinked` / `xrayStub` is ever added to the main source set
  * (see `core/engine/build.gradle.kts`), so this FQN is defined once.
@@ -22,7 +22,7 @@ class XrayNativeBridgeLibXrayImpl(
 
     override fun start(jsonConfig: String): Int = throwUnlinked("start")
 
-    override fun stop(): Unit = throwUnlinked("stop")
+    override fun stop() = Unit
 
     override fun version(): String = throwUnlinked("version")
 
