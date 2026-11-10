@@ -197,6 +197,8 @@ impl OriginServer {
         response(StatusCode::OK, ChannelBody::new(outbound_rx).boxed())
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: dropping the response channel stops its pump; pending sessions expire.
     async fn handle_post(&self, session_id: String, body: Incoming) -> Response<XhttpBody> {
         let Some(session) = self.session_for(session_id.clone()).await else {
             return empty_response(StatusCode::SERVICE_UNAVAILABLE);
@@ -214,14 +216,21 @@ impl OriginServer {
         };
 
         let (weak, auth_changed) = (Arc::downgrade(&session), Arc::clone(&session.auth_changed));
+        // cloudflared closes the upload when its POST response ends.
+        let (response_tx, response_rx) = mpsc::channel(1);
         tokio::spawn(async move {
-            if let Err(error) = pump_request_body(body, inbound_tx, &weak, &auth_changed).await {
+            let result = tokio::select! {
+                biased;
+                () = response_tx.closed() => Ok(()),
+                result = pump_request_body(body, inbound_tx, &weak, &auth_changed) => result,
+            };
+            if let Err(error) = result {
                 emit_structured_error(classify_error(&error), &error);
             }
         });
 
         self.maybe_start_session(session_id, session).await;
-        empty_response(StatusCode::OK)
+        response(StatusCode::OK, ChannelBody::new(response_rx).boxed())
     }
 
     /// Returns the session for `session_id`, creating it when it is new.
@@ -472,7 +481,9 @@ mod tests {
     use std::time::Duration;
 
     use bytes::Bytes;
-    use tokio::io::AsyncWriteExt;
+    use http::Request;
+    use http_body_util::{BodyExt, Empty};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio::sync::Mutex;
 
@@ -709,5 +720,131 @@ mod tests {
         assert!(buffered < 256 * 1024, "{buffered} body bytes were buffered before authentication");
         drop(binding);
         writer.abort();
+    }
+    /// # Cancel safety:
+    /// cancel-safe: the caller owns the socket and returned connection task.
+    async fn http_client(
+        address: std::net::SocketAddr,
+    ) -> (hyper::client::conn::http1::SendRequest<super::XhttpBody>, tokio::task::JoinHandle<Result<(), hyper::Error>>)
+    {
+        let socket = tokio::net::TcpStream::connect(address).await.expect("connect origin");
+        let (client, connection) =
+            hyper::client::conn::http1::handshake(hyper_util::rt::TokioIo::new(socket)).await.expect("HTTP handshake");
+        (client, tokio::spawn(connection))
+    }
+
+    fn tcp_header(port: u16) -> Vec<u8> {
+        // VLESS v0: zero UUID, no addons, TCP, port, IPv4 loopback.
+        let mut header = vec![0; 18];
+        header.push(1);
+        header.extend_from_slice(&port.to_be_bytes());
+        header.extend_from_slice(&[1, 127, 0, 0, 1]);
+        header
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    /// # Cancel safety:
+    /// cancel-safe: this test owns its loopback sockets and HTTP driver tasks.
+    async fn post_response_stays_open_for_delayed_upload_and_half_close() {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind target");
+            let header = tcp_header(upstream.local_addr().expect("target address").port());
+            let address = serve_on_loopback().await;
+            let (mut download, download_driver) = http_client(address).await;
+            let get = Request::builder()
+                .uri("/streaming")
+                .header("Host", "origin")
+                .body(Empty::<Bytes>::new().map_err(|never| match never {}).boxed())
+                .expect("GET request");
+            let get_response = download.send_request(get).await.expect("GET response");
+            assert_eq!(get_response.status(), http::StatusCode::OK);
+
+            let (mut upload, upload_driver) = http_client(address).await;
+            let (sender, receiver) = tokio::sync::mpsc::channel(2);
+            sender.send(Ok(Bytes::copy_from_slice(&header[..1]))).await.expect("first header byte");
+            let post = Request::builder()
+                .method("POST")
+                .uri("/streaming")
+                .header("Host", "origin")
+                .body(crate::http_body::ChannelBody::new(receiver).boxed())
+                .expect("POST request");
+            let mut post_response = upload.send_request(post).await.expect("POST response");
+            assert_eq!(post_response.status(), http::StatusCode::OK);
+            assert!(
+                tokio::time::timeout(Duration::from_millis(150), post_response.body_mut().frame()).await.is_err(),
+                "a successful POST must not end before its fragmented VLESS header"
+            );
+
+            let mut first = header[1..].to_vec();
+            first.extend_from_slice(b"first");
+            sender.send(Ok(Bytes::from(first))).await.expect("rest of header and payload");
+            let (mut target, _) = upstream.accept().await.expect("TCP target connection");
+            let mut received = [0; 5];
+            target.read_exact(&mut received).await.expect("first payload");
+            assert_eq!(&received, b"first");
+            assert!(
+                tokio::time::timeout(Duration::from_millis(150), post_response.body_mut().frame()).await.is_err(),
+                "POST response must remain open between payload chunks"
+            );
+            sender.send(Ok(Bytes::from_static(b"second"))).await.expect("delayed payload");
+            let mut received = [0; 6];
+            target.read_exact(&mut received).await.expect("second payload");
+            assert_eq!(&received, b"second");
+
+            drop(sender);
+            assert_eq!(target.read(&mut [0]).await.expect("upload half-close"), 0);
+            assert!(post_response.into_body().collect().await.expect("POST body completion").to_bytes().is_empty());
+            target.write_all(b"reply").await.expect("target response after upload EOF");
+            target.shutdown().await.expect("close target response");
+            let received = get_response.into_body().collect().await.expect("GET body").to_bytes();
+            assert_eq!(received.as_ref(), b"\x00\x00reply");
+            upload_driver.abort();
+            download_driver.abort();
+            let _ = upload_driver.await;
+            let _ = download_driver.await;
+        })
+        .await
+        .expect("streaming exchange must finish");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    /// # Cancel safety:
+    /// cancel-safe: this test owns its loopback sockets and HTTP driver tasks.
+    async fn dropping_post_response_releases_the_upload() {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind target");
+            let address = serve_on_loopback().await;
+            let (mut download, download_driver) = http_client(address).await;
+            let get = Request::builder()
+                .uri("/cancelled")
+                .header("Host", "origin")
+                .body(Empty::<Bytes>::new().map_err(|never| match never {}).boxed())
+                .expect("GET request");
+            let get_response = download.send_request(get).await.expect("GET response");
+            let (mut upload, upload_driver) = http_client(address).await;
+            let (sender, receiver) = tokio::sync::mpsc::channel(2);
+            sender
+                .send(Ok(Bytes::from(tcp_header(upstream.local_addr().expect("target address").port()))))
+                .await
+                .expect("VLESS header");
+            let post = Request::builder()
+                .method("POST")
+                .uri("/cancelled")
+                .header("Host", "origin")
+                .body(crate::http_body::ChannelBody::new(receiver).boxed())
+                .expect("POST request");
+            let post_response = upload.send_request(post).await.expect("POST response");
+            let (mut target, _) = upstream.accept().await.expect("TCP target connection");
+            drop(post_response);
+            assert_eq!(target.read(&mut [0]).await.expect("cancelled upload EOF"), 0);
+            sender.closed().await;
+            drop(get_response);
+            upload_driver.abort();
+            download_driver.abort();
+            let _ = upload_driver.await;
+            let _ = download_driver.await;
+        })
+        .await
+        .expect("POST response cancellation must release upload");
     }
 }
