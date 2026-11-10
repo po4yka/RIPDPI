@@ -248,6 +248,17 @@ internal class InitialRelayRaceRunner(
         require(plan.candidates.size in MinRaceCandidateCount..MaxRaceCandidateCount) {
             "Initial relay preflight requires one or two candidates"
         }
+        require(plan.candidates.all { it.profileId.isNotBlank() }) {
+            "Initial relay race candidates must use non-blank profile IDs"
+        }
+        require(
+            plan.candidates
+                .map(InitialRelayCandidate::profileId)
+                .toSet()
+                .size == plan.candidates.size,
+        ) {
+            "Initial relay race candidates must use distinct profile IDs"
+        }
         require(
             plan.candidates
                 .map(InitialRelayCandidate::transportClass)
