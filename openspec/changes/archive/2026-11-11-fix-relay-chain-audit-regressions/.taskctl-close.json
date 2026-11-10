@@ -1,0 +1,11 @@
+{
+  "change": "fix-relay-chain-audit-regressions",
+  "evidence_summary": "66 Kotlin and 319 Rust tests passed; focused Clippy, full staticAnalysis and ci-gates passed; independent and async reviews resolved.",
+  "execution_sha256": "b569f4225a48f26878e61d3a7feb2f7867cce10498250ef770104c853ee28eb8",
+  "issue_sha256": "8187c6d2ce4be882951f598e6c49c3710c23e8dcbb4fa554eef78a5d19933660",
+  "outcome": "done",
+  "prepared_at": "2026-11-10T20:17:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1794335337545384"
+}

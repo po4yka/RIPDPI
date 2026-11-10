@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-10T20:17:16Z",
+  "change": "fix-relay-chain-audit-regressions",
+  "commit_sha": "dd863694dff4bfca4b13cc61aa7736a4744ccfa0",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RLY-1794335337545384"
+}

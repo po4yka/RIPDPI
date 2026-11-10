@@ -2,7 +2,7 @@
 id: RLY-1794335337545384
 title: Fix relay chain audit regressions
 kind: bug
-status: review
+status: done
 area: relay
 priority: high
 owner: Relay chain maintenance
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-relay-chain-audit-regressions
 created: 2026-11-10
 updated: 2026-11-11
+closed_at: "2026-11-10T20:17:16Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 66 Kotlin and 319 Rust tests passed; focused Clippy, full staticAnalysis and ci-gates passed; independent and async reviews resolved.
 ---
 
 ## Goal
