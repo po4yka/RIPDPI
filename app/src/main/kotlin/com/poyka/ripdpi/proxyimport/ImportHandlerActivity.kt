@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  * text or files.
  *
  * Registered in the manifest for inbound proxy URI schemes (`vless://`, `trojan://`,
- * `ss://`, `hysteria2://`, `hy2://`, `tuic://`, `anytls://`, `ssh://`, `mieru://`), for the
+ * `ss://`, `hysteria2://`, `hy2://`, `tuic://`, `anytls://`, `ssh://`, `mieru://`, `mierus://`), for the
  * subscription deep links [SingBoxDeepLinkParser] knows and `ripdpi://import`, and for
  * `ACTION_SEND` of text or a file (a link, a subscription URL, a WireGuard / AmneziaWG
  * `.conf`, or an AmneziaVPN `vpn://` key). Manifest registration is broader than parser

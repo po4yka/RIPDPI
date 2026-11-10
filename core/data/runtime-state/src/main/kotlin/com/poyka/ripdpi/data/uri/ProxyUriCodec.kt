@@ -18,7 +18,7 @@ import java.util.UUID
  * URI into a [ProxyProfile].
  *
  * Supported schemes: `vless://`, `ss://` (SIP002), `trojan://`,
- * `hysteria2://` / `hy2://`, `anytls://`, `tuic://`, `mieru://`, `ssh://`. An unrecognised scheme — or a
+ * `hysteria2://` / `hy2://`, `anytls://`, `tuic://`, `mieru://`, `mierus://`, `ssh://`. An unrecognised scheme — or a
  * structurally malformed URI of a known scheme — yields `null` so callers can
  * skip the line.
  *
@@ -33,9 +33,6 @@ import java.util.UUID
 object ProxyUriCodec {
     /** Base64 encodes 3 input bytes per 4 output chars, so encoded length is always a multiple of 4. */
     private const val BASE64_GROUP_SIZE = 4
-    private const val MIERU_MTU_MIN = 1280
-    private const val MIERU_MTU_MAX = 1500
-    private const val MIERU_MTU_DEFAULT = 1400
     private const val DEFAULT_TLS_PORT = 443
 
     /** RFC 3986 characters that java.net.URI accepts verbatim in a query or fragment, besides alphanumerics. */
@@ -57,7 +54,7 @@ object ProxyUriCodec {
             when (scheme) {
                 "vless" -> parseVless(trimmed)
                 "ss" -> parseShadowsocks(trimmed)
-                "mieru" -> parseMieru(trimmed)
+                "mieru", "mierus" -> MieruUriCodec.parse(trimmed)
                 "naive+https", "naive+quic" -> NaiveUriCodec.parse(trimmed)
                 "trojan" -> parseTrojan(trimmed)
                 "hysteria2", "hy2" -> parseHysteria2(trimmed)
@@ -104,7 +101,7 @@ object ProxyUriCodec {
             }
 
             is ProxyProfile.Mieru -> {
-                encodeMieru(profile)
+                MieruUriCodec.encode(profile)
             }
 
             is ProxyProfile.Naive -> {
@@ -168,17 +165,6 @@ object ProxyUriCodec {
             }.joinToString("&")
         return "vless://${profile.uuid}@${bracketIpv6(profile.server)}:${profile.serverPort}" +
             "?$params#${encodeFragment(profile.displayName)}"
-    }
-
-    private fun encodeMieru(profile: ProxyProfile.Mieru): String {
-        val params =
-            buildList {
-                add("protocol=${encodeQueryValue(profile.protocol)}")
-                add("mux=${encodeQueryValue(profile.multiplexing)}")
-                add("mtu=${profile.mtu}")
-            }.joinToString("&")
-        return "mieru://${encodeQueryValue(profile.username)}:${encodeQueryValue(profile.password)}" +
-            "@${bracketIpv6(profile.server)}:${profile.serverPort}?$params#${encodeFragment(profile.displayName)}"
     }
 
     /**
@@ -363,40 +349,6 @@ object ProxyUriCodec {
     }
 
     /**
-     * Parses an invented Mieru share link into a [ProxyProfile.Mieru]. The form is
-     * `mieru://<username>:<password>@<host>:<port>?protocol=tcp&mux=middle&mtu=1400#<name>`.
-     *
-     * Both the username and the password are percent-encoded in the userinfo and
-     * are decoded here. When the query keys are absent the canonical Mieru
-     * defaults apply: `protocol=tcp`, `mux=middle`, `mtu=1400`. Note the URI query
-     * key is `mux` while the profile field is `multiplexing`.
-     */
-    @Suppress("ReturnCount")
-    private fun parseMieru(uri: String): ProxyProfile? {
-        val parsed = URI(uri)
-        val rawUserInfo = parsed.rawUserInfo?.takeIf { it.isNotBlank() } ?: return null
-        val separator = rawUserInfo.indexOf(':')
-        if (separator <= 0 || separator >= rawUserInfo.length - 1) return null
-        val username = percentDecode(rawUserInfo.substring(0, separator)).takeIf { it.isNotBlank() } ?: return null
-        val password = percentDecode(rawUserInfo.substring(separator + 1)).takeIf { it.isNotBlank() } ?: return null
-        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
-        val port = parsed.port.takeIf { it > 0 } ?: return null
-        val rawQuery = parsed.rawQuery
-        return ProxyProfile.Mieru(
-            id = newId(),
-            displayName = displayName(parsed.fragment, host),
-            groupId = "",
-            server = host,
-            serverPort = port,
-            username = username,
-            password = password,
-            protocol = normalizeMieruProtocol(queryValue(rawQuery, "protocol")),
-            multiplexing = normalizeMieruMultiplexing(queryValue(rawQuery, "mux")),
-            mtu = normalizeMieruMtu(queryValue(rawQuery, "mtu")),
-        )
-    }
-
-    /**
      * Parses the RIPDPI-invented `ssh://` share link into a [ProxyProfile.Ssh].
      * See [encodeSsh] for the canonical form. The `auth` query param selects the
      * auth type; for password-auth the password is in the userinfo, for
@@ -450,25 +402,6 @@ object ProxyUriCodec {
     /** RFC 3986 percent-decoding: '+' stays literal. Returns null for a malformed escape. */
     internal fun rfc3986PercentDecode(value: String): String? =
         runCatching { java.net.URLDecoder.decode(value.replace("+", "%2B"), "UTF-8") }.getOrNull()
-
-    private fun normalizeMieruProtocol(value: String?): String =
-        when (value?.trim()?.lowercase()) {
-            "udp" -> "udp"
-            else -> "tcp"
-        }
-
-    private fun normalizeMieruMultiplexing(value: String?): String =
-        when (value?.trim()?.lowercase()) {
-            "off" -> "off"
-            "low" -> "low"
-            "high" -> "high"
-            else -> "middle"
-        }
-
-    private fun normalizeMieruMtu(value: String?): Int {
-        val parsed = value?.trim()?.toIntOrNull() ?: return MIERU_MTU_DEFAULT
-        return if (parsed in MIERU_MTU_MIN..MIERU_MTU_MAX) parsed else MIERU_MTU_DEFAULT
-    }
 
     @Suppress("ReturnCount")
     private fun parseShadowsocks(uri: String): ProxyProfile? {

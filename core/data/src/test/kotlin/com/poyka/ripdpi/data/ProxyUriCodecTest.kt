@@ -114,6 +114,97 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `parses upstream simple mierus link using its first TCP binding`() {
+        // Example link and equivalent JSON from upstream docs/client-install.md (v3.36.0).
+        val uri =
+            "mierus://baozi:manlianpenfen@1.2.3.4?handshake-mode=HANDSHAKE_NO_WAIT&mtu=1400" +
+                "&multiplexing=MULTIPLEXING_HIGH&port=6666&port=9998-9999&port=6489&port=4896" +
+                "&profile=default&protocol=TCP&protocol=TCP&protocol=UDP&protocol=UDP" +
+                "&traffic-pattern=CCoQARoECAEQCiIYCAMQASoIMDAwMTAyMDMqCDA0MDUwNjA3"
+
+        val profile = ProxyUriCodec.parse(uri) as ProxyProfile.Mieru
+
+        assertEquals("1.2.3.4", profile.server)
+        assertEquals(6666, profile.serverPort)
+        assertEquals("baozi", profile.username)
+        assertEquals("manlianpenfen", profile.password)
+        assertEquals("tcp", profile.protocol)
+        assertEquals("high", profile.multiplexing)
+        assertEquals(1400, profile.mtu)
+    }
+
+    @Test
+    fun `mierus link takes the first port of a TCP range and rejects UDP-only or invalid links`() {
+        val base = "mierus://u:p@h.example?profile=default"
+        val range = ProxyUriCodec.parse("$base&port=7000-7010&protocol=TCP&port=80&protocol=UDP") as ProxyProfile.Mieru
+        assertEquals(7000, range.serverPort)
+        assertEquals("middle", range.multiplexing)
+        assertEquals(1400, range.mtu)
+
+        assertNull("UDP-only", ProxyUriCodec.parse("$base&port=6489&protocol=UDP"))
+        assertNull("unpaired port", ProxyUriCodec.parse("$base&port=1&protocol=TCP&port=2"))
+        assertNull("bad protocol", ProxyUriCodec.parse("$base&port=1&protocol=QUIC"))
+        assertNull("bad port", ProxyUriCodec.parse("$base&port=70000&protocol=TCP"))
+        assertNull("reversed range", ProxyUriCodec.parse("$base&port=9-8&protocol=TCP"))
+        assertNull("bad mtu", ProxyUriCodec.parse("$base&port=1&protocol=TCP&mtu=100"))
+        assertNull("bad multiplexing", ProxyUriCodec.parse("$base&port=1&protocol=TCP&multiplexing=HIGH"))
+        assertNull("no password", ProxyUriCodec.parse("mierus://u@h.example?port=1&protocol=TCP"))
+    }
+
+    @Test
+    fun `parses upstream standard mieru link`() {
+        // Example link from upstream docs/client-install.md (v3.36.0): active profile "default",
+        // user baozi, domain localhost, TCP 6666 first, mtu 1400, MULTIPLEXING_HIGH.
+        val uri =
+            "mieru://CpsBCgdkZWZhdWx0ElgKBWJhb3ppEg1tYW5saWFucGVuZmVuGkA0MGFiYWM0MGY1OWRhNTVkYWQ2YTk5ODMxYTUx" +
+                "MTY1MjJmYmM4MGUzODViYjFhYjE0ZGM1MmRiMzY4ZjczOGE0Gi8SCWxvY2FsaG9zdBoFCIo0EAIaDRACGgk5OTk5LTk5OTka" +
+                "BQjZMhABGgUIoCYQASD4CioCCAQSB2RlZmF1bHQYnUYguAgwBTgA"
+
+        val profile = ProxyUriCodec.parse(uri) as ProxyProfile.Mieru
+
+        assertEquals("localhost", profile.server)
+        assertEquals(6666, profile.serverPort)
+        assertEquals("baozi", profile.username)
+        assertEquals("manlianpenfen", profile.password)
+        assertEquals("tcp", profile.protocol)
+        assertEquals("high", profile.multiplexing)
+        assertEquals(1400, profile.mtu)
+        assertNull("truncated protobuf", ProxyUriCodec.parse(uri.dropLast(40)))
+    }
+
+    @Test
+    fun `mieru export is a mierus link that imports back unchanged`() {
+        val original =
+            ProxyProfile.Mieru(
+                id = "id",
+                displayName = "Home",
+                groupId = "",
+                server = "2001:db8::1",
+                serverPort = 2096,
+                username = "us er",
+                password = "p@ss:word-fixture",
+                multiplexing = "low",
+                mtu = 1380,
+            )
+
+        val uri = ProxyUriCodec.encode(original)
+        val parsed = ProxyUriCodec.parse(uri) as ProxyProfile.Mieru
+
+        assertTrue(uri, uri.startsWith("mierus://"))
+        assertTrue(uri, uri.contains("multiplexing=MULTIPLEXING_LOW"))
+        assertEquals(original.copy(id = parsed.id), parsed)
+    }
+
+    @Test
+    fun `legacy mieru link rejects invalid options instead of coercing them`() {
+        val base = "mieru://u:p@h.example:443"
+        assertNull(ProxyUriCodec.parse("$base?mtu=99"))
+        assertNull(ProxyUriCodec.parse("$base?mux=extreme"))
+        assertNull(ProxyUriCodec.parse("$base?protocol=quic"))
+        assertEquals(443, (ProxyUriCodec.parse(base) as ProxyProfile.Mieru).serverPort)
+    }
+
+    @Test
     fun `parses naive https link with empty password headers and name`() {
         val uri =
             "naive+https://alice:@n.example.com:8443/?padding=true" +

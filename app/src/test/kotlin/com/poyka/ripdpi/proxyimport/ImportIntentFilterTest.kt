@@ -64,6 +64,7 @@ class ImportIntentFilterTest {
                 "ssh://user@example.com:22",
                 "hy2://pass@example.com:443",
                 "mieru://user:pass@example.com:443",
+                "mierus://user:pass@example.com?port=443&protocol=TCP",
                 "naive+https://user:pass@example.com:443",
                 "naive+quic://user:pass@example.com:443",
             )
