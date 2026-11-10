@@ -4,12 +4,16 @@ Task ID: `RST-1786264762917234`
 
 ## Why
 
-Remove the RUSTSEC-2024-0436 waiver by upgrading or replacing the netlink-packet-core path that still pulls paste 1.0.15
+Remove the expired RUSTSEC-2024-0436 waiver. Arti and netlink still use the
+archived crates.io `paste` implementation, which blocks the CI advisory gate.
 
 ## What Changes
 
-- Deliver the observable outcome and acceptance criteria recorded in the linked portfolio task.
-- Preserve unrelated behavior and enforce the repository validation and evidence requirements.
+- Replace crates.io `paste` with a local compatibility adapter that re-exports
+  the macros from `pastey` 0.2.3.
+- Preserve the `paste` package name, compatible version, and three macro exports.
+- Remove the advisory ignore and its waiver metadata after the old implementation
+  leaves the dependency graph for all target platforms.
 
 ## Capabilities
 

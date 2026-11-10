@@ -2,6 +2,7 @@
 resolver = "2"
 exclude = ["vendor/shadowsocks", "vendor/quinn-proto", "vendor/russh"]
 members = [
+    "vendor/paste",
     "crates/android-support",
     "crates/feature-contract-harness",
     "crates/golden-test-support",
@@ -577,6 +578,7 @@ local-debug-crates = [
 ]
 
 [patch.crates-io]
+paste = { path = "vendor/paste" }
 russh = { path = "vendor/russh" }
 tor-dirmgr = { path = "vendor/tor-dirmgr" }
 tor-ptmgr = { path = "vendor/tor-ptmgr" }

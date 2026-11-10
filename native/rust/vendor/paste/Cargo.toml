@@ -1,0 +1,13 @@
+[package]
+name = "paste"
+version = "1.0.15"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Compatibility adapter for paste macros implemented by pastey"
+publish = false
+
+[dependencies]
+pastey = "0.2.3"
+
+[lints]
+workspace = true

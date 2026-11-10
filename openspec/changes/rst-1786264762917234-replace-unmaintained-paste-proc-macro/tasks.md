@@ -10,7 +10,7 @@ Ownership is declared in the portfolio task and the implementation worktree befo
 
 ## Execution
 
-- [ ] RST-1786264762919747 Implement Replace unmaintained paste proc-macro dependency and verify its portfolio acceptance criteria #feature !low @item:RST-1786264762917234
+- [x] RST-1786264762919747 Implement Replace unmaintained paste proc-macro dependency and verify its portfolio acceptance criteria #feature !low @item:RST-1786264762917234
 
 ## Verification
 
