@@ -6,13 +6,17 @@ import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayFinalmaskTypeSudoku
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.isShadowsocks2022Method
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.utility.validateIntRange
 
-internal fun ConnectionDraft.supportsUdpRelay(): Boolean = relayKind.supportsRelayUdpMode()
+internal fun ConnectionDraft.supportsUdpRelay(): Boolean =
+    relayKind.supportsRelayUdpMode() &&
+        (relayKind != RelayKindShadowsocks || isShadowsocks2022Method(relayShadowsocksMethod))
 
 internal fun ConnectionDraft.supportsFinalmask(): Boolean =
     when (relayKind) {

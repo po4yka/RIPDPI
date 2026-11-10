@@ -203,7 +203,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         ptWebTunnelUrl = relayWebTunnelUrl,
         ptSnowflakeBrokerUrl = relaySnowflakeBrokerUrl.ifBlank { DefaultSnowflakeBrokerUrl },
         ptSnowflakeFrontDomain = relaySnowflakeFrontDomain.ifBlank { DefaultSnowflakeFrontDomain },
-        udpEnabled = relayUdpEnabled && (relayKind == RelayKindVless || relayKind.supportsRelayUdpMode()),
+        udpEnabled = relayUdpEnabled && (relayKind == RelayKindVless || supportsUdpRelay()),
         tcpFallbackEnabled = relayMasqueUseHttp2Fallback,
         localSocksPort = relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort,
         finalmaskType = normalizeRelayFinalmaskType(relayFinalmaskType),

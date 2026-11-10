@@ -113,7 +113,8 @@ private fun validateRelayDraft(
         }
         putAll(validateRelayKindDraft(draft, supportsMasquePrivacyPass, relayProfiles))
         validateRelayFinalmaskDraft(draft)?.let { put(ConnectionFieldRelayFinalmask, it) }
-        if (draft.relayUdpEnabled && !draft.supportsUdpRelay()) {
+        // Shadowsocks has no UDP toggle; saving clears UDP for a legacy method instead of blocking it.
+        if (draft.relayUdpEnabled && draft.relayKind != RelayKindShadowsocks && !draft.supportsUdpRelay()) {
             put(ConnectionFieldRelayCredentials, "unsupported")
         }
     }

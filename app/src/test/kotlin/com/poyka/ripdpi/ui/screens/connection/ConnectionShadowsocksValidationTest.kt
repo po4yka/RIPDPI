@@ -2,7 +2,9 @@ package com.poyka.ripdpi.ui.screens.connection
 
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConnectionShadowsocksValidationTest {
@@ -82,5 +84,32 @@ class ConnectionShadowsocksValidationTest {
                 draft.copy(relayShadowsocksPassword = "$key:$key"), // Public key fixture.
             )[ConnectionFieldRelayCredentials],
         )
+    }
+
+    @Test
+    fun `Shadowsocks UDP is kept only for SS2022 methods`() {
+        val draft =
+            ConnectionDraft(
+                relayEnabled = true,
+                relayKind = RelayKindShadowsocks,
+                relayProfileId = "shadowsocks-udp",
+                relayServer = "relay.example",
+                relayServerPort = "443",
+                relayShadowsocksMethod = "aes-256-gcm",
+                relayShadowsocksPassword = "fixture-pass",
+                relayUdpEnabled = true,
+            )
+        assertFalse(draft.supportsUdpRelay())
+        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
+        assertFalse(draft.toRelayProfileRecord(draft.relayProfileId).udpEnabled)
+
+        val ss2022 =
+            draft.copy(
+                relayShadowsocksMethod = "2022-blake3-aes-128-gcm",
+                relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==", // Public key fixture.
+            )
+        assertTrue(ss2022.supportsUdpRelay())
+        assertNull(validateConfigDraft(ss2022)[ConnectionFieldRelayCredentials])
+        assertTrue(ss2022.toRelayProfileRecord(ss2022.relayProfileId).udpEnabled)
     }
 }

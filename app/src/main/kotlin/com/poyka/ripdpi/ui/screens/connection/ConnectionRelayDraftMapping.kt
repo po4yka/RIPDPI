@@ -185,7 +185,7 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConnectionDraft): AppSett
         setRelayLocalSocksHost("127.0.0.1")
         setRelayLocalSocksPort(draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort)
         setRelayUdpEnabled(
-            draft.relayUdpEnabled && (draft.relayKind == RelayKindVless || draft.relayKind.supportsRelayUdpMode()),
+            draft.relayUdpEnabled && (draft.relayKind == RelayKindVless || draft.supportsUdpRelay()),
         )
         setRelayTcpFallbackEnabled(draft.relayMasqueUseHttp2Fallback)
         setRelayFinalmaskType(normalizeRelayFinalmaskType(draft.relayFinalmaskType))
