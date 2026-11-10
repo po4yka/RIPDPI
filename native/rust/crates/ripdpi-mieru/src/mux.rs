@@ -330,6 +330,7 @@ pub struct MieruMuxConnection {
     writer: MuxWriteQueue,
     table: DemuxTable,
     limit: Arc<Semaphore>,
+    authenticated: Arc<AtomicBool>,
     rng: SystemRandom,
     carrier: Arc<OwnedTasks>,
     streams: StdMutex<StreamTasks>,
@@ -390,6 +391,7 @@ impl MieruMuxConnection {
             Arc::clone(&table),
         );
         let limit = Arc::new(Semaphore::new(config.multiplexing.max_concurrent_streams()));
+        let authenticated = Arc::new(AtomicBool::new(false));
         let reader_task = run_reader(
             dec,
             Box::new(read_half),
@@ -397,7 +399,7 @@ impl MieruMuxConnection {
             time,
             config.time_source(),
             Arc::clone(&limit),
-            ReaderStall { timeout: stall, closer: writer_tx.clone() },
+            ReaderLink { timeout: stall, closer: writer_tx.clone(), authenticated: Arc::clone(&authenticated) },
         );
         // Carrier tasks do not retain the queue, so this shared owner has no cycle.
         let carrier = Arc::new(OwnedTasks::spawn(reader_task, writer_task));
@@ -411,6 +413,7 @@ impl MieruMuxConnection {
             writer,
             table,
             limit,
+            authenticated,
             rng: SystemRandom::new(),
             carrier,
             streams: StdMutex::new(StreamTasks::default()),
@@ -425,6 +428,16 @@ impl MieruMuxConnection {
     /// or aborts an overloaded carrier. Committed commands remain writer-owned;
     /// pump registration and stream publication have no intervening await.
     pub async fn open_stream(&self, target: &str) -> Result<MieruStream> {
+        match self.open_stream_inner(target).await {
+            // Ordering: see `run_reader`. A server that never answered with an
+            // authenticated segment is far likelier to be rejecting the
+            // credentials or clock than to be broken in a way the raw error shows.
+            Err(_) if !self.authenticated.load(Ordering::Acquire) => Err(MieruError::NoAuthenticatedResponse),
+            result => result,
+        }
+    }
+
+    async fn open_stream_inner(&self, target: &str) -> Result<MieruStream> {
         let permit = Arc::clone(&self.limit)
             .acquire_owned()
             .await
@@ -569,14 +582,17 @@ fn deregister(table: &DemuxTable, session_id: u32) {
     table.lock().unwrap_or_else(PoisonError::into_inner).remove(&session_id);
 }
 
-/// Policy for a stream whose consumer stops reading, plus the queue the reader
-/// uses to tell the server that stream is closed.
-struct ReaderStall {
+/// What the carrier reader shares with the rest of the carrier: the stall
+/// policy for a stream whose consumer stops reading, the queue that tells the
+/// server a stream is closed, and whether any authenticated segment arrived.
+struct ReaderLink {
     timeout: Duration,
     closer: mpsc::Sender<WriterCommand>,
+    /// Set once a server segment passes AEAD verification.
+    authenticated: Arc<AtomicBool>,
 }
 
-impl ReaderStall {
+impl ReaderLink {
     /// Best-effort Close: a full queue is skipped, because the reader must not
     /// await the writer. The stream's registration queues Close when dropped.
     fn close_session(&self, session_id: u32) {
@@ -600,11 +616,13 @@ async fn run_reader(
     time: Arc<NetworkTimeProvider>,
     time_source: TimeSource,
     limit: Arc<Semaphore>,
-    stall: ReaderStall,
+    stall: ReaderLink,
 ) {
     let mut calibrated = false;
     loop {
         let Ok((meta, payload)) = dec.read_segment(&mut reader).await else { break };
+        // Ordering: Release pairs with the Acquire load in `open_stream`.
+        stall.authenticated.store(true, Ordering::Release);
         // Calibrate the shared replay clock once from the server's first
         // (AEAD-verified) timestamp; minute granularity makes per-segment
         // re-anchoring jitter backwards, so do it a single time.
@@ -967,7 +985,7 @@ mod tests {
             Arc::new(NetworkTimeProvider::fixed(NOW)),
             ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
             Arc::new(Semaphore::new(1)),
-            ReaderStall { timeout: Duration::from_millis(50), closer },
+            ReaderLink { timeout: Duration::from_millis(50), closer, authenticated: Arc::default() },
         ));
         let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
         let mut seqs = HashMap::new();
@@ -1126,8 +1144,8 @@ mod tests {
             MieruMuxConnection::connect_over(client_side, &config(MieruMux::Low), time).await.expect("carrier open");
         let result = conn.open_stream("nowhere.example:443").await;
         assert!(
-            matches!(result, Err(MieruError::Protocol(_))),
-            "a silent carrier must make open_stream time out, got {result:?}"
+            matches!(result, Err(MieruError::NoAuthenticatedResponse)),
+            "a silent carrier must make open_stream time out as no-auth, got {result:?}"
         );
 
         drop(conn);
@@ -1400,5 +1418,37 @@ mod tests {
                 .unwrap_or_else(|_| panic!("{level:?}: a pool-sized burst must open within 2 s"));
             assert!(streams.iter().all(Result::is_ok), "{level:?}: every stream must open");
         }
+    }
+
+    /// A server that drops the carrier without any authenticated segment is how
+    /// upstream rejects bad credentials or a skewed clock.
+    #[tokio::test]
+    async fn carrier_closed_before_any_reply_reports_no_authenticated_response() {
+        let (conn, server) = scripted_carrier().await;
+        drop(server);
+        let result = timeout(Duration::from_secs(2), conn.open_stream("rejected.example:443")).await;
+        assert!(matches!(result, Ok(Err(MieruError::NoAuthenticatedResponse))), "got {result:?}");
+    }
+
+    /// Once the server has answered, a later failure is a real failure.
+    #[tokio::test]
+    async fn failure_after_an_authenticated_reply_keeps_its_own_error() {
+        let (conn, mut server) = scripted_carrier().await;
+        let (stream, session_id) = tokio::join!(conn.open_stream("one.example:443"), server.accept_connect());
+        let _stream = stream.expect("open");
+        server.data(session_id, b"x").await;
+        drop(server);
+        timeout(Duration::from_secs(1), async {
+            while !conn.limit.is_closed() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("carrier loss");
+        let result = conn.open_stream("two.example:443").await;
+        assert!(
+            matches!(result, Err(MieruError::Protocol(_))),
+            "an authenticated carrier that later died is not an auth failure, got {result:?}"
+        );
     }
 }

@@ -108,11 +108,12 @@ impl RelaySessionFactory for MieruSessionFactory {
                     // Each segment is one write; Nagle would hold it for the
                     // previous segment's ACK (upstream Go dials with NODELAY).
                     stream.set_nodelay(true)?;
-                    // Mieru's replay clock comes from the shared network-time provider, never
-                    // a direct device-clock read. Uncalibrated it falls back to the device
-                    // clock (first-contact residual; documented in ripdpi-network-time); once
-                    // any session calibrates the provider from a server's wire timestamp,
-                    // subsequent handshakes use network time even if the device clock is wrong.
+                    // Mieru's replay clock comes from the shared network-time provider.
+                    // The provider is calibrated only from the first authenticated
+                    // server segment, so calibration happens after a session already
+                    // worked. It cannot rescue a first contact whose clock is outside
+                    // the server's +-1 minute window: the server then drops the
+                    // client silently, which surfaces as `NoAuthenticatedResponse`.
                     let time = NetworkTimeProvider::shared();
                     let connection = ripdpi_mieru::MieruMuxConnection::connect_over(stream, &config, time)
                         .await
