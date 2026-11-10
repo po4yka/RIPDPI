@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.connection
 
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -111,5 +112,15 @@ class ConnectionShadowsocksValidationTest {
         assertTrue(ss2022.supportsUdpRelay())
         assertNull(validateConfigDraft(ss2022)[ConnectionFieldRelayCredentials])
         assertTrue(ss2022.toRelayProfileRecord(ss2022.relayProfileId).udpEnabled)
+
+        // AppSettings snapshots carry no credentials; re-applying one must keep UDP.
+        val settingsOnly = draft.copy(relayShadowsocksMethod = "", relayShadowsocksPassword = "")
+        assertTrue(
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .applyConfigDraft(settingsOnly)
+                .build()
+                .relayUdpEnabled,
+        )
     }
 }

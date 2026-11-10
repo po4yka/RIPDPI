@@ -14,9 +14,14 @@ import com.poyka.ripdpi.data.isShadowsocks2022Method
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.utility.validateIntRange
 
+// A settings-only draft has no credentials; a blank method keeps the kind-level answer for SS2022 profiles.
 internal fun ConnectionDraft.supportsUdpRelay(): Boolean =
     relayKind.supportsRelayUdpMode() &&
-        (relayKind != RelayKindShadowsocks || isShadowsocks2022Method(relayShadowsocksMethod))
+        (
+            relayKind != RelayKindShadowsocks ||
+                relayShadowsocksMethod.isBlank() ||
+                isShadowsocks2022Method(relayShadowsocksMethod)
+        )
 
 internal fun ConnectionDraft.supportsFinalmask(): Boolean =
     when (relayKind) {
