@@ -33,6 +33,8 @@ Correct the six RLY-14 audit defects in the native origin, publish configuration
 - Streaming worker: origin `http_server.rs`, `http_body.rs`, and their tests.
 - Origin input worker: origin `path.rs`, `session.rs`, and their tests; two separate fixes.
 - Kotlin worker: `CloudflarePublishConfig.kt`, `ConnectionDraftValidationSupport.kt`, and their owning tests; three separate fixes.
-- Coordinator: task/OpenSpec files, integration evidence, and combined validation.
+- Coordinator: task/OpenSpec files, integration evidence, combined validation, and the mechanical reserve-refresh fixture naming correction and Apps Script certificate-size constant extraction required by the integration detekt failures.
+- Kotlin worker also owns behavior-preserving guard simplification in `core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/subscription/{SingBoxSubscriptionParser,XrayConfigImportParser}.kt` and their existing parser tests. TLS requirements, check order, rejection reasons, and profile values must remain unchanged.
+- Kotlin worker also owns the focused `app/src/test/kotlin/com/poyka/ripdpi/ui/screens/connection/ConnectionCloudflareValidationTest.kt`; move only the two new Cloudflare regressions out of the large ViewModel test class.
 - No worker owns dependency manifests, lockfiles, locales, schemas, baselines, or golden fixtures. Changes in those lanes require coordinator review.
 - Writers use separate worktrees. Only the coordinator updates shared planning files.
