@@ -46,6 +46,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.io.File
+import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -109,10 +110,10 @@ internal class AndroidTorRuntimePathProvider
         @param:ApplicationContext private val context: Context,
     ) : TorRuntimePathProvider {
         override fun pathsFor(profileId: String): TorRuntimePaths {
-            val stateSegment = sanitizeTorPathSegment(profileId)
+            val stateSegment = torProfilePath(profileId)
             return TorRuntimePaths(
-                stateDir = File(context.noBackupFilesDir, "tor/$stateSegment/state").apply { mkdirs() }.absolutePath,
-                cacheDir = File(context.cacheDir, "tor/$stateSegment/cache").apply { mkdirs() }.absolutePath,
+                stateDir = File(context.noBackupFilesDir, "$stateSegment/state").apply { mkdirs() }.absolutePath,
+                cacheDir = File(context.cacheDir, "$stateSegment/cache").apply { mkdirs() }.absolutePath,
             )
         }
     }
@@ -135,7 +136,7 @@ internal class LocalTorRuntimePathProvider(
     private val rootDir: File = File(System.getProperty("java.io.tmpdir"), "ripdpi-tor"),
 ) : TorRuntimePathProvider {
     override fun pathsFor(profileId: String): TorRuntimePaths {
-        val stateSegment = sanitizeTorPathSegment(profileId)
+        val stateSegment = torProfilePath(profileId).removePrefix("tor/")
         return TorRuntimePaths(
             stateDir = File(rootDir, "$stateSegment/state").absolutePath,
             cacheDir = File(rootDir, "$stateSegment/cache").absolutePath,
@@ -148,7 +149,18 @@ internal class UnconfiguredTorPluggableTransportProvider : TorPluggableTransport
         error("Tor pluggable transport provider is not configured")
 }
 
-private fun sanitizeTorPathSegment(value: String): String = value.replace(Regex("[^a-zA-Z0-9._-]"), "_")
+private const val MaxLegacyTorProfileLength = 200
+
+private fun torProfilePath(profileId: String): String {
+    // Keep unambiguous legacy paths. Sanitized legacy state has no owner and must not be copied.
+    if (profileId.length in 1..MaxLegacyTorProfileLength && profileId != "." && profileId != ".." &&
+        profileId.matches(Regex("[a-zA-Z0-9._-]+"))
+    ) {
+        return "tor/$profileId"
+    }
+    val digest = MessageDigest.getInstance("SHA-256").digest(profileId.toByteArray(Charsets.UTF_8))
+    return "tor-profile-ids/" + digest.joinToString("") { "%02x".format(it) }
+}
 
 @Singleton
 internal class DefaultUpstreamRelayRuntimeConfigResolver
