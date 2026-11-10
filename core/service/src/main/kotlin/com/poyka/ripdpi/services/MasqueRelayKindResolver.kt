@@ -38,7 +38,6 @@ internal class MasqueRelayKindResolver
                 masqueAuthMode = masqueAuthMode,
                 privacyPassRuntime = privacyPassRuntime,
                 privacyPassReadiness = privacyPassReadiness,
-                featureFlags = request.featureFlags,
             )
             validateFinalmaskFeature(effectiveConfig, request.featureFlags)
 

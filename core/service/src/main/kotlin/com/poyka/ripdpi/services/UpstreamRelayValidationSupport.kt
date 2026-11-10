@@ -29,7 +29,6 @@ import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflareConsumeValidation
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
 import com.poyka.ripdpi.data.StrategyFeatureFinalmask
-import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
@@ -269,15 +268,7 @@ internal fun validateMasqueRelayFeatures(
     masqueAuthMode: String?,
     privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
     privacyPassReadiness: MasquePrivacyPassReadiness?,
-    featureFlags: Map<String, Boolean>,
 ) {
-    if (masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
-        !featureFlags.isEnabled(StrategyFeatureMasqueCloudflareDirect)
-    ) {
-        throw ServiceStartupRejectedException(
-            FailureReason.RelayConfigRejected("Cloudflare-direct MASQUE is feature-gated"),
-        )
-    }
     validateMasqueRelayUrl(config.masqueUrl)
     if (masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
         requireNotNull(privacyPassRuntime) {

@@ -11,7 +11,6 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
-import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -21,20 +20,9 @@ import org.junit.Test
 /** A chain hop gets the same per-kind checks and feature gates as a standalone profile. */
 internal class ChainRelayHopValidationTest : ChainRelayTrustDomainResolverTestSupport() {
     @Test
-    fun `cloudflare mtls masque entry hop is feature gated like a standalone profile`() =
+    fun `client certificate masque entry hop needs no feature flag`() =
         runTest {
-            val entry = masqueEntry()
-            val credentials = masqueMtlsCredentials()
-
-            val gated = resolveChainError(entry, credentials, featureFlags = emptyMap())
-            assertTrue(gated.reasonText(), gated.reasonText().contains("feature-gated"))
-
-            val resolved =
-                resolveChain(
-                    entry,
-                    credentials,
-                    featureFlags = mapOf(StrategyFeatureMasqueCloudflareDirect to true),
-                )
+            val resolved = resolveChain(masqueEntry(), masqueMtlsCredentials(), featureFlags = emptyMap())
             assertEquals("entry-hop", resolved.chainEntryProfileId)
         }
 

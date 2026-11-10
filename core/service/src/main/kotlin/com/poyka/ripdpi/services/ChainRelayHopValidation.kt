@@ -6,23 +6,15 @@ import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindTrojan
-import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
-import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
 
-/** Applies the standalone per-kind checks and feature gates to every resolved chain hop. */
-internal fun validateChainRelayHopFeatures(
-    chain: ResolvedChainRelayConfig,
-    featureFlags: Map<String, Boolean>,
-) {
-    chain.hops.forEach { hop -> validateChainRelayHopFeatures(hop.config, featureFlags) }
+/** Applies the standalone per-kind checks to every resolved chain hop. */
+internal fun validateChainRelayHopFeatures(chain: ResolvedChainRelayConfig) {
+    chain.hops.forEach { hop -> validateChainRelayHopFeatures(hop.config) }
 }
 
-private fun validateChainRelayHopFeatures(
-    hop: ResolvedChainRelayHopConfig,
-    featureFlags: Map<String, Boolean>,
-) {
+private fun validateChainRelayHopFeatures(hop: ResolvedChainRelayHopConfig) {
     if (hop.finalmask.type.isNotBlank() && hop.finalmask.type != RelayFinalmaskTypeOff) {
         rejectHop("Chain relay hop ${hop.profileId} cannot use finalmask; only single-hop relays support it")
     }
@@ -36,7 +28,7 @@ private fun validateChainRelayHopFeatures(
         }
 
         RelayKindMasque -> {
-            validateMasqueHopFeatures(hop, featureFlags)
+            validateMasqueHopFeatures(hop)
         }
     }
 }
@@ -49,15 +41,7 @@ private fun requireTlsHopEndpoint(
     if (hop.serverName.isBlank()) rejectHop("Chain relay hop ${hop.profileId}: $label requires a TLS server name")
 }
 
-private fun validateMasqueHopFeatures(
-    hop: ResolvedChainRelayHopConfig,
-    featureFlags: Map<String, Boolean>,
-) {
-    if (hop.masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
-        !featureFlags.isEnabled(StrategyFeatureMasqueCloudflareDirect)
-    ) {
-        rejectHop("Cloudflare-direct MASQUE is feature-gated")
-    }
+private fun validateMasqueHopFeatures(hop: ResolvedChainRelayHopConfig) {
     // A hop carries no Privacy Pass provider, so the native handshake could never get a token.
     if (hop.masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
         rejectHop("MASQUE privacy_pass auth is not supported on chain relay hop ${hop.profileId}")
