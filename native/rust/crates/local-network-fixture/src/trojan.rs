@@ -6,7 +6,7 @@ use std::thread::{self, JoinHandle};
 use rcgen::{CertificateParams, DistinguishedName, DnType, IsCa, KeyPair};
 use rustls::ServerConfig;
 use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
-use sha2::{Digest, Sha224};
+use sha2::{Digest, Sha224, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::sync::oneshot;
@@ -127,6 +127,8 @@ fn tls_config() -> io::Result<TlsConfig> {
     params.is_ca = IsCa::NoCa;
     let mut dn = DistinguishedName::new();
     dn.push(DnType::CommonName, SERVER_NAME);
+    // Distinct subjects prevent ambiguous issuer selection in multi-root trust stores.
+    dn.push(DnType::OrganizationalUnitName, hex::encode(Sha256::digest(key_pair.public_key_raw())));
     params.distinguished_name = dn;
     let cert = params.self_signed(&key_pair).map_err(to_io)?;
     let certificate_pem = cert.pem();

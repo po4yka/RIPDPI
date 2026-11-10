@@ -148,11 +148,22 @@ fn loopback_config(fixture: &TrojanLoopback, root_certificate_pem: Option<String
 }
 
 /// A `fullchain.pem` style bundle trusts every certificate, not only the first.
+///
+/// # Cancel safety:
+/// cancel-safe: cancellation during connect or partial I/O drops the test-owned streams;
+/// fixture Drop shuts down and joins the server threads, so no partial connection escapes the test.
 #[tokio::test(flavor = "multi_thread")]
 async fn root_pem_bundle_trusts_a_certificate_after_the_first() {
     let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
     let unrelated = TrojanLoopback::start(PASSWORD).await.expect("start unrelated fixture");
-    assert_ne!(unrelated.certificate_pem(), fixture.certificate_pem(), "test precondition: distinct certificates");
+    let unrelated_cert =
+        boring::x509::X509::from_pem(unrelated.certificate_pem().as_bytes()).expect("unrelated certificate");
+    let trusted_cert = boring::x509::X509::from_pem(fixture.certificate_pem().as_bytes()).expect("trusted certificate");
+    assert_ne!(
+        unrelated_cert.subject_name().to_der().expect("unrelated subject"),
+        trusted_cert.subject_name().to_der().expect("trusted subject"),
+        "independent bundle roots need distinct subjects",
+    );
     let bundle = format!("{}\n{}", unrelated.certificate_pem(), fixture.certificate_pem());
     let config = loopback_config(&fixture, Some(bundle));
     let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);

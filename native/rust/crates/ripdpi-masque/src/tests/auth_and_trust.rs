@@ -3,9 +3,21 @@
 use super::*;
 
 /// Every certificate in the PEM bundle is trusted, not only the first.
+///
+/// # Cancel safety:
+/// cancel-safe: cancellation during connect or partial I/O drops the test-owned streams;
+/// fixture Drop shuts down and joins the server threads, so no partial connection escapes the test.
 #[tokio::test]
 async fn connect_over_h2_with_pinned_root_certificate_trusts_second_pem_bundle_root() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
+    let unrelated_pem = localhost_certificate().2;
+    let unrelated = boring::x509::X509::from_pem(unrelated_pem.as_bytes()).expect("unrelated certificate");
+    let trusted = boring::x509::X509::from_pem(fixture.certificate_pem().as_bytes()).expect("trusted certificate");
+    assert_ne!(
+        unrelated.subject_name().to_der().expect("unrelated subject"),
+        trusted.subject_name().to_der().expect("trusted subject"),
+        "independent bundle roots need distinct subjects",
+    );
     let config = MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         url: fixture.masque_url(),
@@ -20,7 +32,7 @@ async fn connect_over_h2_with_pinned_root_certificate_trusts_second_pem_bundle_r
         privacy_pass_provider_url: None,
         privacy_pass_provider_auth_token: None,
         tls_fingerprint_profile: "native_default".to_string(),
-        root_certificate_pem: Some(format!("{}{}", localhost_certificate().2, fixture.certificate_pem())),
+        root_certificate_pem: Some(format!("{}{}", unrelated_pem, fixture.certificate_pem())),
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,

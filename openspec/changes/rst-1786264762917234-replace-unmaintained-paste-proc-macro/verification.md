@@ -51,6 +51,10 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 ## Hosted CI follow-up
 
+The original failure was CI run 42839708524, attempt 1, cargo-deny job
+129911598962 at commit 71a4c30824c79f6d4c4e886ac2c0903eff9c0529.
+The waiver validator rejected RUSTSEC-2024-0436 on its 2026-11-10 expiry.
+
 The first implementation run,
 <https://github.com/po4yka/RIPDPI/actions/runs/42855910944>, passed cargo-deny
 without the removed waiver. It then exposed two CI failures that the expired
@@ -68,6 +72,30 @@ waiver had blocked behind preflight:
   unchanged. The raw-slice scanner and all 28 tests in
   `test_check_soundness_35_49.py` passed.
 
-Independent read-only review confirmed both repairs. Root workspace code and
-its lockfile are unchanged from the successful local tests and Android build.
-Hosted verification of the follow-up commit is pending.
+Independent read-only review confirmed both repairs. They preserve the root
+workspace build graph. Run
+<https://github.com/po4yka/RIPDPI/actions/runs/42857564018> passed cargo-deny,
+rust-lint, and rust-fuzz-smoke, then exposed the fixture issue below.
+
+## Independent TLS fixture subjects
+
+Run 42857564018, attempt 1, workspace shard job 129983096648 failed the
+MASQUE and Trojan tests that trust the second PEM bundle root. Both failed
+three times on Linux with a self-signed certificate verification error.
+The macOS suite passed the original tests.
+
+The unrelated and trusted self-signed fixture certificates had identical
+Subject DNs and distinct keys. BoringSSL can select the first issuer with
+that subject; equal-subject sorting does not define a portable order.
+The production code already parses and adds every PEM certificate.
+
+The two fixture generators now add an OU containing the SHA-256 fingerprint
+of the public key. CN and SAN values stay valid for their existing hostnames.
+The existing TLS tests assert distinct fixture subjects before the real
+handshake and echo exchange. Both new preconditions failed locally before
+the generator change and passed after it. No production TLS verifier changed.
+
+After this repair, all 7138 workspace tests and the startup smoke passed
+again, as did workspace clippy, CI source gates, and GithubFullDebug Android
+assembly for arm64-v8a. Independent code and cancel-safety reviews found no
+remaining issue. Hosted verification of this fixture repair is pending.
