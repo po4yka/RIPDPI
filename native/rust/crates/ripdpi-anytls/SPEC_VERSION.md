@@ -20,6 +20,12 @@ This crate implements the AnyTLS client/outbound role only, including:
 
 AnyTLS server/inbound mode and non-TLS transport substrates are intentionally out of scope.
 
+## Deliberate divergences from upstream
+
+- Cumulative 65535 cap: `parse_packet_rule` skips a range part that would take one packet rule past 65535 bytes in total. Upstream has no such cap. The cap keeps a packet-0 length inside the big-endian uint16 wire field and bounds the size of one padded record.
+- Leading `c` in the packet-0 rule: upstream sends the check mark (-1) as length 65535 with no bytes behind it, which breaks the stream. This crate sends padding length 0.
+- Range draw and padding0 follow upstream: sizes come from `[min, max)` for `min < max`, and padding0 uses the first packet-0 part whatever `stop` is. Session padding for packets 1 and above honors `stop`.
+
 ## Drift policy
 
 `anytls-go` is normative and wins conflicts. The scheduled upstream spec-watch workflow tracks this pin; cross-interop against the Go implementation should remain a nightly oracle when network access and the upstream CLI are available.

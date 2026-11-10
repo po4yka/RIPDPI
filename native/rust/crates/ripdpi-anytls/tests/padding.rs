@@ -82,12 +82,36 @@ fn parser_drops_parts_past_the_aggregate_wire_frame_bound() {
 }
 
 #[test]
-fn range_bounds_are_normalized_and_deterministic_for_tests() {
-    let scheme = PaddingScheme::parse(b"stop=2\n0=30-10\n1=100-101").expect("scheme parses");
+fn range_is_half_open_as_in_the_reference() {
+    // Reference: rand.Int(max-min) + min, so `1-2` always yields 1.
+    let scheme = PaddingScheme::parse(b"stop=2\n0=30-10\n1=1-2").expect("scheme parses");
 
-    assert_eq!(scheme.plan_for_packet(0, 20).expect("packet 0 plan").steps(), &[PaddingStep::PayloadSize(30)]);
-    assert_eq!(scheme.plan_for_packet(1, 0).expect("packet 1 lower").steps(), &[PaddingStep::PayloadSize(100)]);
-    assert_eq!(scheme.plan_for_packet(1, 1).expect("packet 1 upper").steps(), &[PaddingStep::PayloadSize(101)]);
+    for selector in 0..1000_u64 {
+        assert_eq!(scheme.plan_for_packet(1, selector).expect("plan").steps(), &[PaddingStep::PayloadSize(1)]);
+        let size = match scheme.plan_for_packet(0, selector).expect("plan").steps() {
+            [PaddingStep::PayloadSize(size)] => *size,
+            other => panic!("unexpected steps {other:?}"),
+        };
+        assert!((10..30).contains(&size), "30-10 normalizes to [10, 30), got {size}");
+    }
+    assert_eq!(scheme.plan_for_packet(0, 19).expect("plan").steps(), &[PaddingStep::PayloadSize(29)]);
+    assert_eq!(scheme.plan_for_packet(0, 20).expect("plan").steps(), &[PaddingStep::PayloadSize(10)]);
+}
+
+#[test]
+fn padding0_ignores_stop_like_the_reference_client() {
+    let scheme = PaddingScheme::parse(b"stop=0\n0=30-30").expect("scheme parses");
+    assert_eq!(scheme.auth_padding0_len(0).expect("padding0"), 30);
+    // Session padding for packet 0 still honors stop.
+    assert_eq!(scheme.plan_for_packet(0, 0).expect("plan"), PaddingPlan::direct());
+}
+
+#[test]
+fn padding0_without_rule_or_with_leading_check_mark_is_zero() {
+    let none = PaddingScheme::parse(b"stop=3\n1=20-20").expect("scheme parses");
+    assert_eq!(none.auth_padding0_len(0).expect("padding0"), 0);
+    let check = PaddingScheme::parse(b"stop=3\n0=c,30-30").expect("scheme parses");
+    assert_eq!(check.auth_padding0_len(0).expect("padding0"), 0);
 }
 
 #[test]

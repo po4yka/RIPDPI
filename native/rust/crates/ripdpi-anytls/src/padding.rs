@@ -132,28 +132,34 @@ impl PaddingScheme {
             return Ok(PaddingPlan::direct());
         };
 
-        let steps = rules
+        let steps = Self::steps_for(rules, &mut next_selector);
+
+        Ok(PaddingPlan { steps })
+    }
+
+    fn steps_for(rules: &[SizeRule], next_selector: &mut impl FnMut() -> u64) -> Vec<PaddingStep> {
+        rules
             .iter()
             .map(|rule| match *rule {
                 SizeRule::Fixed(size) => PaddingStep::PayloadSize(size),
                 SizeRule::Range { min, max } => PaddingStep::PayloadSize(select_size(min, max, next_selector())),
                 SizeRule::CheckIfNoMoreData => PaddingStep::CheckIfNoMoreData,
             })
-            .collect();
-
-        Ok(PaddingPlan { steps })
+            .collect()
     }
 
+    /// Length of the zero padding after the auth hash. As the reference client
+    /// does, it takes the first part of the packet-0 rule whatever `stop` is.
+    /// A leading `c` yields 0: the reference would send the check mark as a
+    /// 65535 length with no bytes behind it, which breaks the stream.
     pub fn auth_padding0_len(&self, selector: u64) -> Result<usize, PaddingError> {
-        let plan = self.plan_for_packet(0, selector)?;
-        Ok(plan
-            .steps()
-            .iter()
-            .find_map(|step| match *step {
-                PaddingStep::PayloadSize(size) => Some(size),
-                PaddingStep::CheckIfNoMoreData => None,
-            })
-            .unwrap_or(0))
+        let Some(rules) = self.packet_rules.get(&0) else {
+            return Ok(0);
+        };
+        Ok(match Self::steps_for(rules, &mut || selector).first() {
+            Some(PaddingStep::PayloadSize(size)) => *size,
+            _ => 0,
+        })
     }
 
     /// [`Self::write_plan_for_packet_with`] with one fixed `selector`; for tests.
@@ -252,8 +258,10 @@ fn parse_packet_rule(value: &str) -> Vec<SizeRule> {
     rules
 }
 
+/// Draws from `[min, max)` as the reference does (`rand.Int(max-min) + min`);
+/// `min < max` holds because equal bounds parse as `Fixed`.
 fn select_size(min: usize, max: usize, selector: u64) -> usize {
-    let span = max - min + 1;
+    let span = max - min;
     min + usize::try_from(selector % u64::try_from(span).expect("usize span fits u64"))
         .expect("selector modulo span fits usize")
 }
