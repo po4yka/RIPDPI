@@ -9,6 +9,7 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.InitialTransportRaceSnapshot
+import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -173,6 +174,7 @@ internal class UpstreamRelaySupervisor(
                         localPortOverride = EphemeralPort,
                         requirements = plan.requirements,
                         onUnexpectedExit = onUnexpectedExit,
+                        expectedCandidate = candidate,
                     )
                 },
                 promoteCandidate = ::promoteSlot,
@@ -187,6 +189,7 @@ internal class UpstreamRelaySupervisor(
         localPortOverride: Int?,
         requirements: EgressRequirements,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+        expectedCandidate: InitialRelayCandidate? = null,
     ): RelayRuntimeSlot {
         val configResolution =
             if (runtimeConfigResolver is LocalNetworkAwareRelayRuntimeConfigResolver) {
@@ -197,6 +200,7 @@ internal class UpstreamRelaySupervisor(
                     localNetworkDependent = false,
                 )
             }
+        validateInitialCandidateIdentity(configResolution.config, expectedCandidate)
         // Loopback is reachable by every installed app, including helper and wrapper listeners.
         val listenerCredentials = LocalSocksCredentials.generate()
         val resolvedConfig =
@@ -287,6 +291,15 @@ internal class UpstreamRelaySupervisor(
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
                     ?: SupervisorExitCause.StartupFailure(readinessError)
             throw SupervisorStartupFailureException(startupCause)
+        }
+    }
+
+    private fun validateInitialCandidateIdentity(
+        resolved: ResolvedRipDpiRelayConfig,
+        expected: InitialRelayCandidate?,
+    ) {
+        if (expected != null && (resolved.kind != expected.relayKind || resolved.profileId != expected.profileId)) {
+            throw InitialTransportSelectionException("Initial relay candidate changed during configuration resolution")
         }
     }
 
