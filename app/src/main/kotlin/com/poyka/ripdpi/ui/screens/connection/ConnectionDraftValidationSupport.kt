@@ -187,9 +187,7 @@ private fun validateRelayKindDraft(
         }
 
         RelayKindTor -> {
-            buildMap {
-                torBridgeValidationError(draft.relayPtBridgeLine)?.let { put(ConnectionFieldRelayCredentials, it) }
-            }
+            validateTorDraft(draft)
         }
 
         RelayKindChainRelay -> {
@@ -203,6 +201,11 @@ private fun validateRelayKindDraft(
         else -> {
             emptyMap()
         }
+    }
+
+private fun validateTorDraft(draft: ConnectionDraft): Map<String, String> =
+    buildMap {
+        torBridgeValidationError(draft.relayPtBridgeLine)?.let { put(ConnectionFieldRelayCredentials, it) }
     }
 
 private fun validateImportedKindDraft(draft: ConnectionDraft): Map<String, String> =
