@@ -55,8 +55,10 @@ async fn bad_password_is_not_reported_as_a_successful_stream() {
     assert!(matches!(err, AnyTlsError::AuthenticationRejected | AnyTlsError::SessionClosed));
 }
 
+/// Each session carries one stream; a finished stream returns its session to
+/// the client's pool, and the next open reuses it with the next stream id.
 #[tokio::test]
-async fn settings_synack_tcp_echo_and_multiplexing_share_one_tls_session() {
+async fn concurrent_streams_use_separate_sessions_and_a_finished_stream_returns_its_session() {
     let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
     let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
 
@@ -74,11 +76,22 @@ async fn settings_synack_tcp_echo_and_multiplexing_share_one_tls_session() {
     assert_eq!(second.read_exact_len(6).await.expect("read second"), b"second");
 
     let observed = fixture.observed();
-    assert_eq!(observed.tls_session_count, 1, "new streams must reuse the newest idle AnyTLS session");
-    assert_eq!(observed.settings_padding_md5.len(), 1);
-    assert_eq!(observed.syn_stream_ids, vec![1, 2]);
-    assert_eq!(observed.synack_successes, vec![1, 2]);
+    assert_eq!(observed.tls_session_count, 2, "a session carries at most one stream");
+    assert_eq!(observed.settings_padding_md5.len(), 2, "each session sends its own Settings");
+    assert_eq!(observed.syn_stream_ids, vec![1, 1]);
+    assert_eq!(observed.synack_successes, vec![1, 1]);
     assert_eq!(observed.tcp_targets.len(), 2);
+
+    drop(first);
+    drop(second);
+    let mut third =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open third stream");
+    third.write_all(b"third").await.expect("write third");
+    assert_eq!(third.read_exact_len(5).await.expect("read third"), b"third");
+    let observed = fixture.observed();
+    assert_eq!(observed.tls_session_count, 2, "the third stream reuses an idle session");
+    assert_eq!(observed.syn_stream_ids.len(), 3);
+    assert_eq!(observed.syn_stream_ids[2], 2, "the reused session continues its stream ids");
 }
 
 #[tokio::test]
@@ -128,7 +141,7 @@ async fn close_sends_fin_once_and_drop_does_not_duplicate_it() {
 }
 
 #[tokio::test]
-async fn concurrent_opens_share_one_in_flight_tls_session() {
+async fn concurrent_opens_dial_one_session_each() {
     let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
     let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
 
@@ -145,8 +158,8 @@ async fn concurrent_opens_share_one_in_flight_tls_session() {
     assert_eq!(second.read_exact_len(6).await.expect("read second"), b"second");
 
     let observed = fixture.observed();
-    assert_eq!(observed.tls_session_count, 1, "concurrent opens must share one in-flight carrier");
-    assert_eq!(observed.syn_stream_ids, vec![1, 2]);
+    assert_eq!(observed.tls_session_count, 2);
+    assert_eq!(observed.syn_stream_ids, vec![1, 1]);
 }
 
 /// The fixture parks its frame loop in the SYNACK delay, so it answers neither
@@ -184,74 +197,6 @@ async fn open_on_a_silent_carrier_fails_and_evicts_it() {
     .await
     .expect("the next open dials a new carrier");
     reopening.abort();
-}
-
-/// Forwards one carrier connection to `upstream`; while the flag is set, bytes
-/// from the server are held back, as on a path whose downlink goes quiet.
-async fn freezable_forwarder(upstream: u16) -> (u16, std::sync::Arc<std::sync::atomic::AtomicBool>) {
-    use std::sync::atomic::{AtomicBool, Ordering};
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind forwarder");
-    let port = listener.local_addr().expect("forwarder address").port();
-    let frozen = std::sync::Arc::new(AtomicBool::new(false));
-    let flag = std::sync::Arc::clone(&frozen);
-    tokio::spawn(async move {
-        let (client, _) = listener.accept().await.expect("accept carrier");
-        let server = tokio::net::TcpStream::connect((Ipv4Addr::LOCALHOST, upstream)).await.expect("connect fixture");
-        let (mut client_read, mut client_write) = client.into_split();
-        let (mut server_read, mut server_write) = server.into_split();
-        tokio::spawn(async move { tokio::io::copy(&mut client_read, &mut server_write).await.ok() });
-        let mut buffer = [0; 16 * 1024];
-        while let Ok(read @ 1..) = server_read.read(&mut buffer).await {
-            while flag.load(Ordering::Acquire) {
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-            if client_write.write_all(&buffer[..read]).await.is_err() {
-                return;
-            }
-        }
-    });
-    (port, frozen)
-}
-
-/// An open that times out while the downlink is quiet (here: an upload that
-/// the server does not answer yet) fails alone; the carrier's live stream
-/// keeps its data. Fewer than 32 chunks, so the echo burst fits the stream
-/// mailbox.
-#[tokio::test]
-async fn open_timeout_during_an_upload_keeps_the_uploading_stream() {
-    use std::sync::atomic::Ordering;
-    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
-    let (port, frozen) = freezable_forwarder(fixture.port()).await;
-    let client =
-        AnyTlsClient::new(AnyTlsClientConfig { server_port: port, ..client_config(&fixture, "fixture-password") })
-            .expect("client");
-    let mut upload =
-        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open upload");
-
-    frozen.store(true, Ordering::Release);
-    let uploader = tokio::spawn(async move {
-        for _ in 0..20 {
-            upload.write_all(&[7; 1024]).await.expect("upload chunk");
-            tokio::time::sleep(Duration::from_millis(400)).await;
-        }
-        upload
-    });
-    let second = tokio::time::timeout(
-        Duration::from_secs(15),
-        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
-    )
-    .await
-    .expect("the open must not wait for the caller deadline");
-    assert!(second.is_err(), "the open on a quiet carrier fails");
-
-    let mut upload = uploader.await.expect("uploader");
-    frozen.store(false, Ordering::Release);
-    let echoed = tokio::time::timeout(Duration::from_secs(5), upload.read_exact_len(20 * 1024))
-        .await
-        .expect("echo deadline")
-        .expect("the uploading stream survives the failed open");
-    assert!(echoed.iter().all(|byte| *byte == 7));
 }
 
 #[tokio::test]
@@ -302,11 +247,11 @@ async fn cancelling_open_closes_only_its_pending_stream() {
     .expect("open next stream");
     next.write_all(b"next").await.expect("write next stream");
     assert_eq!(next.read_exact_len(4).await.expect("read next stream"), b"next");
-    assert_eq!(fixture.observed().tls_session_count, 1, "cancellation must not discard the shared carrier");
+    assert_eq!(fixture.observed().tls_session_count, 1, "a cancelled open returns its session to the pool");
 }
 
 #[tokio::test]
-async fn cancelling_first_waiter_does_not_cancel_shared_establishment() {
+async fn cancelling_an_open_during_the_tls_handshake_does_not_poison_later_opens() {
     let fixture = AnyTlsLoopback::start(
         "fixture-password",
         AnyTlsLoopbackConfig { tls_handshake_delay: Duration::from_millis(250), ..AnyTlsLoopbackConfig::default() },
@@ -320,10 +265,7 @@ async fn cancelling_first_waiter_does_not_cancel_shared_establishment() {
     let first =
         tokio::spawn(async move { first_client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), target_port).await });
     tokio::time::timeout(Duration::from_secs(1), async {
-        loop {
-            if fixture.observed().tls_session_count == 1 {
-                break;
-            }
+        while fixture.observed().tls_session_count != 1 {
             tokio::task::yield_now().await;
         }
     })
@@ -331,49 +273,55 @@ async fn cancelling_first_waiter_does_not_cancel_shared_establishment() {
     .expect("first carrier accepted");
 
     first.abort();
-    assert!(first.await.expect_err("first waiter must be cancelled").is_cancelled());
+    assert!(first.await.expect_err("first open must be cancelled").is_cancelled());
 
     let mut second = tokio::time::timeout(
-        Duration::from_secs(2),
+        Duration::from_secs(3),
         client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
     )
     .await
-    .expect("second waiter must observe shared establishment")
+    .expect("second open deadline")
     .expect("open second stream");
     second.write_all(b"shared").await.expect("write second stream");
     assert_eq!(second.read_exact_len(6).await.expect("read second stream"), b"shared");
-    assert_eq!(fixture.observed().tls_session_count, 1, "caller cancellation must not restart the carrier");
 }
 
+/// The first session floods stream 1 and nobody reads it. The carrier reader
+/// waits for that reader instead of dropping data, and a stream on another
+/// session is unaffected.
 #[tokio::test]
-async fn unread_stream_does_not_block_other_streams_on_the_same_session() {
+async fn unread_stream_loses_no_data_and_does_not_block_other_sessions() {
     let fixture = AnyTlsLoopback::start(
         "fixture-password",
-        AnyTlsLoopbackConfig { flood_first_stream_frames: 33, ..AnyTlsLoopbackConfig::default() },
+        AnyTlsLoopbackConfig { flood_first_stream_frames: 100, ..AnyTlsLoopbackConfig::default() },
     )
     .await
     .expect("fixture");
     let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
 
-    let _unread = client
-        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
-        .await
-        .expect("open unread stream");
+    let mut unread =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open stream");
     let mut responsive = tokio::time::timeout(
         Duration::from_secs(1),
         client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
     )
     .await
-    .expect("unread stream must not block opening a sibling stream")
+    .expect("unread stream must not block opening another stream")
     .expect("open responsive stream");
 
     responsive.write_all(b"responsive").await.expect("write responsive stream");
     let echoed = tokio::time::timeout(Duration::from_secs(1), responsive.read_exact_len(10))
         .await
-        .expect("unread stream must not block sibling traffic")
+        .expect("unread stream must not block traffic on another session")
         .expect("read responsive stream");
     assert_eq!(echoed, b"responsive");
-    assert_eq!(fixture.observed().tls_session_count, 1, "both streams must share one carrier");
+    assert_eq!(fixture.observed().tls_session_count, 2);
+
+    let flood = tokio::time::timeout(Duration::from_secs(2), unread.read_exact_len(100 * b"stalled-stream".len()))
+        .await
+        .expect("flood deadline")
+        .expect("every flooded frame is delivered");
+    assert_eq!(flood, b"stalled-stream".repeat(100));
 }
 
 #[tokio::test]
@@ -683,4 +631,72 @@ async fn app_write_shutdown_sends_fin_without_waiting_for_the_target() {
     drop(app);
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert_eq!(fixture.observed().fin_stream_ids, vec![1], "drop after FIN must not send a second FIN");
+}
+
+const PAUSE_TOTAL: usize = 4 * 1024 * 1024;
+
+/// A local reader that pauses for 3 s while the peer keeps echoing must still
+/// receive every byte; the stream must not end early with a clean EOF.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn paused_reader_receives_the_whole_echo() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+    let io = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("open")
+        .into_io()
+        .expect("io");
+    let (mut read, mut write) = tokio::io::split(io);
+    let writer = tokio::spawn(async move {
+        let chunk = vec![0x5a_u8; 16 * 1024];
+        let mut sent = 0;
+        while sent < PAUSE_TOTAL {
+            if write.write_all(&chunk).await.is_err() {
+                break;
+            }
+            sent += chunk.len();
+        }
+        sent
+    });
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let mut received = 0;
+    let mut buffer = vec![0_u8; 64 * 1024];
+    while received < PAUSE_TOTAL {
+        let read_len = tokio::time::timeout(Duration::from_secs(10), read.read(&mut buffer))
+            .await
+            .expect("read deadline")
+            .expect("no error before the echo is complete");
+        assert_ne!(read_len, 0, "clean EOF after {received} of {PAUSE_TOTAL} bytes");
+        assert!(buffer[..read_len].iter().all(|byte| *byte == 0x5a));
+        received += read_len;
+    }
+    assert_eq!(writer.await.expect("writer"), PAUSE_TOTAL);
+}
+
+/// Only a peer FIN is a clean end of the stream. A carrier that dies mid-stream
+/// surfaces as a reset to the application.
+#[tokio::test]
+async fn carrier_death_mid_stream_is_a_reset_not_a_clean_eof() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { drop_carrier_after_first_echo: true, ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+    let mut app = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("open")
+        .into_io()
+        .expect("io");
+    app.write_all(b"ping").await.expect("write");
+    let mut echo = [0; 4];
+    app.read_exact(&mut echo).await.expect("echo before the carrier dies");
+    let mut rest = [0; 1];
+    let end = tokio::time::timeout(Duration::from_secs(5), app.read(&mut rest)).await.expect("end deadline");
+    assert_eq!(end.expect_err("carrier death must not look like EOF").kind(), std::io::ErrorKind::ConnectionReset);
 }

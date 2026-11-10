@@ -104,3 +104,42 @@ async fn upstream_rejects_wrong_password() {
     .await
     .expect("upstream authentication failure deadline");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn paused_reader_receives_the_whole_echo_from_upstream() {
+    const TOTAL: usize = 4 * 1024 * 1024;
+    let client = AnyTlsClient::new(config("loopback-test-password")).expect("client");
+    let target = endpoint("RIPDPI_OUTBOUND_TCP");
+    let io = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), target.port())
+        .await
+        .expect("open")
+        .into_io()
+        .expect("io");
+    let (mut read, mut write) = tokio::io::split(io);
+    let writer = tokio::spawn(async move {
+        let chunk = vec![0x5a_u8; 16 * 1024];
+        let mut sent = 0;
+        while sent < TOTAL {
+            if write.write_all(&chunk).await.is_err() {
+                break;
+            }
+            sent += chunk.len();
+        }
+        sent
+    });
+    // The local consumer is busy; the peer keeps echoing.
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    let mut received = 0;
+    let mut buffer = vec![0_u8; 64 * 1024];
+    while received < TOTAL {
+        let read_len = tokio::time::timeout(Duration::from_secs(10), read.read(&mut buffer))
+            .await
+            .expect("read deadline")
+            .expect("no error before the echo is complete");
+        assert_ne!(read_len, 0, "clean EOF after {received} of {TOTAL} bytes");
+        received += read_len;
+    }
+    assert_eq!(writer.await.expect("writer"), TOTAL);
+}

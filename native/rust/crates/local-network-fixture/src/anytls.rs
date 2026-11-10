@@ -23,7 +23,10 @@ pub struct AnyTlsLoopbackConfig {
     pub close_after_update: bool,
     pub send_heart_request_after_settings: bool,
     pub send_alert_after_first_syn: Option<String>,
+    /// Extra frames sent on stream 1 of the first TLS session only.
     pub flood_first_stream_frames: usize,
+    /// Drop the carrier (no FIN, no close frame) after echoing the first payload.
+    pub drop_carrier_after_first_echo: bool,
     pub tls_handshake_delay: Duration,
     pub synack_delay: Duration,
 }
@@ -177,12 +180,16 @@ async fn serve_anytls(
         let config = config.clone();
         let observed = Arc::clone(&observed);
         tokio::spawn(async move {
-            observed.lock().expect("anytls observed").tls_session_count += 1;
+            let first_session = {
+                let mut guard = observed.lock().expect("anytls observed");
+                guard.tls_session_count += 1;
+                guard.tls_session_count == 1
+            };
             tokio::time::sleep(config.tls_handshake_delay).await;
             let Ok(tls) = acceptor.accept(socket).await else {
                 return;
             };
-            let _ = handle_connection(tls, &password_hash, config, observed).await;
+            let _ = handle_connection(tls, &password_hash, config, observed, first_session).await;
         });
     }
 }
@@ -192,6 +199,7 @@ async fn handle_connection(
     password_hash: &[u8],
     config: AnyTlsLoopbackConfig,
     observed: Arc<Mutex<AnyTlsLoopbackObserved>>,
+    first_session: bool,
 ) -> io::Result<()> {
     let mut auth_prefix = [0_u8; 34];
     tls.read_exact(&mut auth_prefix).await?;
@@ -271,7 +279,7 @@ async fn handle_connection(
                         tokio::time::sleep(config.synack_delay).await;
                         observed.lock().expect("anytls observed").synack_successes.push(frame.stream_id);
                         write_frame(&mut tls, CMD_SYNACK, frame.stream_id, &[]).await?;
-                        if frame.stream_id == 1 {
+                        if frame.stream_id == 1 && first_session {
                             for _ in 0..config.flood_first_stream_frames {
                                 write_frame(&mut tls, CMD_PSH, frame.stream_id, b"stalled-stream").await?;
                             }
@@ -287,6 +295,9 @@ async fn handle_connection(
                     }
                 } else {
                     write_frame(&mut tls, CMD_PSH, frame.stream_id, &frame.data).await?;
+                    if config.drop_carrier_after_first_echo {
+                        return Ok(());
+                    }
                 }
             }
             CMD_FIN => {

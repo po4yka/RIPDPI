@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
 use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::time::Instant;
 use tokio_boring::SslStream;
 
 use crate::frame::{Command, Frame, FrameError};
@@ -30,6 +31,12 @@ const CARRIER_PROBE_AFTER: Duration = Duration::from_secs(3);
 /// An open whose carrier sends no frame this long after a HeartRequest fails,
 /// and the carrier is evicted for new opens.
 const CARRIER_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+/// An idle pooled session older than this is closed at the next sweep.
+const IDLE_SESSION_TIMEOUT: Duration = Duration::from_secs(30);
+/// Period of the idle-session sweep, as the reference client's default.
+const IDLE_SWEEP_INTERVAL: Duration = Duration::from_secs(30);
+/// A new session must finish its TCP connect, TLS handshake and auth in this time.
+const SESSION_ESTABLISH_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Open a protected TCP connection to the AnyTLS server.
 ///
@@ -174,19 +181,33 @@ impl From<std::io::Error> for AnyTlsError {
 #[derive(Clone)]
 pub struct AnyTlsClient {
     config: Arc<AnyTlsClientConfig>,
-    state: Arc<Mutex<ClientState>>,
+    state: Arc<StdMutex<ClientState>>,
     padding_scheme: Arc<Mutex<PaddingScheme>>,
     tasks: Arc<OwnedTasks>,
     _owner: Option<Arc<Owner>>,
     owner_ref: Weak<Owner>,
 }
 
+/// Sessions that carry no stream. Each session carries at most one stream, so
+/// the carrier reader can wait for a slow stream reader without stalling a
+/// sibling; a finished stream returns its session here for reuse.
 struct ClientState {
-    session: Option<SessionHandle>,
-    session_waiters: Vec<oneshot::Sender<Result<SessionHandle, AnyTlsError>>>,
+    idle: Vec<IdleSession>,
+    next_seq: u64,
+    sweeper_running: bool,
+    idle_timeout: Duration,
+    sweep_interval: Duration,
+}
+
+struct IdleSession {
+    session: SessionHandle,
+    since: Instant,
 }
 
 struct SessionHandle {
+    /// Creation order within the client; the idle session with the highest
+    /// value is reused first.
+    seq: u64,
     outbound: mpsc::Sender<Outbound>,
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     next_stream_id: Arc<Mutex<u32>>,
@@ -200,6 +221,7 @@ struct SessionHandle {
 impl Clone for SessionHandle {
     fn clone(&self) -> Self {
         Self {
+            seq: self.seq,
             outbound: self.outbound.clone(),
             streams: Arc::clone(&self.streams),
             next_stream_id: Arc::clone(&self.next_stream_id),
@@ -213,6 +235,9 @@ impl Clone for SessionHandle {
 
 struct StreamRoute {
     inbound: mpsc::Sender<Vec<u8>>,
+    /// Set when the peer sent cmdFIN, before the route is removed: only a FIN
+    /// is a clean end of the stream.
+    peer_fin: Arc<AtomicBool>,
     open_ack: Option<oneshot::Sender<Result<(), AnyTlsError>>>,
 }
 
@@ -238,14 +263,19 @@ impl Drop for CancelOpenOnDrop {
 
 pub struct AnyTlsStream {
     stream_id: u32,
-    outbound: mpsc::Sender<Outbound>,
+    session: SessionHandle,
+    pool: Weak<StdMutex<ClientState>>,
     inbound: mpsc::Receiver<Vec<u8>>,
+    peer_fin: Arc<AtomicBool>,
     read_buffer: VecDeque<u8>,
-    streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     /// Set once [`AnyTlsStream::close`] queued the substream's FIN so `Drop`
     /// does not send a duplicate.
     fin_queued: bool,
-    tasks: Arc<OwnedTasks>,
+    /// The SYN was committed to the carrier queue, so a FIN must follow it.
+    syn_sent: bool,
+    /// Return the session to the idle pool on drop. Cleared when the session
+    /// state is doubtful (failed open, silent carrier).
+    reusable: bool,
     owner: Option<Arc<Owner>>,
 }
 
@@ -294,7 +324,13 @@ impl AnyTlsClient {
             owner_ref: Arc::downgrade(&owner),
             _owner: Some(owner),
             config: Arc::new(config),
-            state: Arc::new(Mutex::new(ClientState { session: None, session_waiters: Vec::new() })),
+            state: Arc::new(StdMutex::new(ClientState {
+                idle: Vec::new(),
+                next_seq: 0,
+                sweeper_running: false,
+                idle_timeout: IDLE_SESSION_TIMEOUT,
+                sweep_interval: IDLE_SWEEP_INTERVAL,
+            })),
             padding_scheme: padding_scheme.0,
         })
     }
@@ -320,9 +356,7 @@ impl AnyTlsClient {
     /// resumes draining and does not erase an observed worker panic.
     pub async fn close(&self) -> Result<(), AnyTlsError> {
         let result = self.tasks.close().await;
-        let mut state = self.state.lock().await;
-        state.session = None;
-        state.session_waiters.clear();
+        self.state.lock().unwrap_or_else(PoisonError::into_inner).idle.clear();
         result
     }
 
@@ -334,40 +368,37 @@ impl AnyTlsClient {
     }
 
     /// # Cancel safety
-    /// Cancel-safe: the owned worker rolls back an unaccepted route.
+    /// Cancel-safe: the owned worker returns an unused session to the pool;
+    /// a committed stream is closed by its drop, which sends the FIN.
     async fn open_encoded_target(&self, target: Vec<u8>) -> Result<AnyTlsStream, AnyTlsError> {
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let (result_tx, result_rx) = oneshot::channel();
-        let (accepted_tx, accepted_rx) = oneshot::channel();
         let mut cancel_on_drop = CancelOpenOnDrop(Some(cancel_tx));
         let client = self.worker_clone();
         self.tasks.spawn(async move {
-            client.open_tcp_worker(target, cancel_rx, result_tx, accepted_rx).await;
+            client.open_tcp_worker(target, cancel_rx, result_tx).await;
         })?;
 
         let result = result_rx.await.unwrap_or(Err(AnyTlsError::SessionClosed));
-        if result.is_ok() {
-            accepted_tx.send(()).ok();
-        }
         cancel_on_drop.disarm();
         result
     }
 
     /// # Cancel safety:
-    /// Conditional: cancellation during session/send/ack waits removes the
-    /// pending route. Abrupt abort requires whole-client teardown, whose
-    /// carrier worker clears all routes.
+    /// Conditional: cancellation during session/send/ack waits drops the
+    /// pending stream, which removes its route, queues a FIN only after a
+    /// committed SYN, and returns the session to the pool. Abrupt abort
+    /// requires whole-client teardown, whose carrier worker clears all routes.
     async fn open_tcp_worker(
         &self,
         target: Vec<u8>,
         mut cancel_rx: oneshot::Receiver<()>,
         result_tx: oneshot::Sender<Result<AnyTlsStream, AnyTlsError>>,
-        accepted_rx: oneshot::Receiver<()>,
     ) {
         let session = tokio::select! {
             biased;
             _ = &mut cancel_rx => return,
-            result = self.session() => match result {
+            result = self.acquire_session() => match result {
                 Ok(session) => session,
                 Err(error) => {
                     result_tx.send(Err(error)).ok();
@@ -376,51 +407,56 @@ impl AnyTlsClient {
             },
         };
         let stream_id = session.allocate_stream_id().await;
-
         let frames = vec![Frame::control(Command::Syn, stream_id), Frame::with_data(Command::Psh, stream_id, target)];
-
-        if !matches!(cancel_rx.try_recv(), Err(oneshot::error::TryRecvError::Empty)) {
-            return;
-        }
 
         let (inbound_tx, inbound_rx) = mpsc::channel(32);
         let (ack_tx, mut ack_rx) = oneshot::channel();
+        let peer_fin = Arc::new(AtomicBool::new(false));
+        // The drop of this pending stream undoes every step below.
+        let mut stream = AnyTlsStream {
+            stream_id,
+            session: session.clone(),
+            pool: Arc::downgrade(&self.state),
+            inbound: inbound_rx,
+            peer_fin: Arc::clone(&peer_fin),
+            read_buffer: VecDeque::new(),
+            fin_queued: false,
+            syn_sent: false,
+            reusable: true,
+            owner: None,
+        };
+        if !matches!(cancel_rx.try_recv(), Err(oneshot::error::TryRecvError::Empty)) {
+            return;
+        }
         session
             .streams
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .insert(stream_id, StreamRoute { inbound: inbound_tx, open_ack: Some(ack_tx) });
+            .insert(stream_id, StreamRoute { inbound: inbound_tx, peer_fin, open_ack: Some(ack_tx) });
 
         // A silently dead carrier (path black hole, no RST) would otherwise
-        // hold every open until the caller's deadline and stay cached.
+        // hold every open until the caller's deadline.
         let carrier_dead = watch_carrier(&session);
         tokio::pin!(carrier_dead);
         let send_result = tokio::select! {
             biased;
-            _ = &mut cancel_rx => {
-                close_pending_stream(&session, stream_id, false);
-                return;
-            }
+            _ = &mut cancel_rx => return,
             () = &mut carrier_dead => Err(carrier_unresponsive()),
             result = session.send_open(frames, &self.config.client_name, &self.padding_scheme) => result,
         };
         if let Err(error) = send_result {
-            close_pending_stream(&session, stream_id, false);
-            self.clear_cached_session(&session).await;
+            stream.reusable = false;
             result_tx.send(Err(error)).ok();
             return;
         }
+        stream.syn_sent = true;
 
         let ack_result = tokio::select! {
             biased;
-            _ = &mut cancel_rx => {
-                close_pending_stream(&session, stream_id, true);
-                return;
-            }
+            _ = &mut cancel_rx => return,
             result = &mut ack_rx => result,
             () = &mut carrier_dead => {
-                close_pending_stream(&session, stream_id, true);
-                self.clear_cached_session(&session).await;
+                stream.reusable = false;
                 result_tx.send(Err(carrier_unresponsive())).ok();
                 return;
             }
@@ -428,50 +464,48 @@ impl AnyTlsClient {
         match ack_result {
             Ok(Ok(())) => {
                 let Some(owner) = self.owner_ref.upgrade() else {
-                    close_pending_stream(&session, stream_id, true);
-                    let _ = result_tx.send(Err(AnyTlsError::SessionClosed));
+                    stream.reusable = false;
+                    result_tx.send(Err(AnyTlsError::SessionClosed)).ok();
                     return;
                 };
-                let stream = AnyTlsStream {
-                    tasks: Arc::clone(&self.tasks),
-                    owner: Some(owner),
-                    stream_id,
-                    outbound: session.outbound.clone(),
-                    inbound: inbound_rx,
-                    read_buffer: VecDeque::new(),
-                    streams: Arc::clone(&session.streams),
-                    fin_queued: false,
-                };
-                if result_tx.send(Ok(stream)).is_err() || accepted_rx.await.is_err() {
-                    close_pending_stream(&session, stream_id, true);
-                }
+                stream.owner = Some(owner);
+                // A receiver that is gone drops the stream, which closes it.
+                result_tx.send(Ok(stream)).ok();
             }
             Ok(Err(error)) => {
-                close_pending_stream(&session, stream_id, true);
-                if matches!(error, AnyTlsError::SessionClosed) {
-                    self.clear_cached_session(&session).await;
-                }
+                stream.reusable = !matches!(error, AnyTlsError::SessionClosed);
                 result_tx.send(Err(error)).ok();
             }
             Err(_) => {
-                close_pending_stream(&session, stream_id, true);
-                self.clear_cached_session(&session).await;
+                stream.reusable = false;
                 result_tx.send(Err(AnyTlsError::SessionClosed)).ok();
             }
         }
     }
 
-    async fn clear_cached_session(&self, session: &SessionHandle) {
-        let mut state = self.state.lock().await;
-        let should_clear = state.session.as_ref().is_some_and(|cached| cached.same_session(session));
-        if should_clear {
-            state.session = None;
+    /// # Cancel safety
+    /// Cancel-safe: the idle pool is read without an await; a cancelled dial
+    /// drops the unpublished transport.
+    async fn acquire_session(&self) -> Result<SessionHandle, AnyTlsError> {
+        if let Some(session) = self.take_idle_session() {
+            return Ok(session);
         }
+        tokio::time::timeout(SESSION_ESTABLISH_TIMEOUT, self.establish_network_session())
+            .await
+            .unwrap_or_else(|_| Err(AnyTlsError::Io("AnyTLS connection timed out".into())))
+    }
+
+    /// The idle session with the highest `seq`, if one is still alive.
+    fn take_idle_session(&self) -> Option<SessionHandle> {
+        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        state.idle.retain(|idle| !idle.session.is_dead());
+        let newest = state.idle.iter().enumerate().max_by_key(|(_, idle)| idle.session.seq)?.0;
+        Some(state.idle.swap_remove(newest).session)
     }
 
     /// # Cancel safety:
-    /// Cancel-safe: the owned open worker rolls back an unaccepted route; after
-    /// the open returns, association publication has no intervening await.
+    /// Cancel-safe: the open worker returns an unused session to the pool; the
+    /// association is published after the open returns, with no await between.
     pub async fn open_udp_over_tcp(&self) -> Result<AnyTlsUdpOverTcp, AnyTlsError> {
         let mut target = encode_target(&TargetAddr::Domain(UDP_OVER_TCP_V2_TARGET.to_owned()), 0)?;
         // UoT v2 requires its request before the server can acknowledge SYN:
@@ -492,47 +526,9 @@ impl AnyTlsClient {
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let client = Self::new(config)?;
-        client.establish_session(transport).await?;
+        let session = client.establish_session(transport).await?;
+        release_session(&client.state, session);
         client.open_tcp(target, port).await
-    }
-
-    /// # Cancel safety
-    /// Establishment is owned by the client task group. Cancelling one waiter
-    /// leaves siblings intact; client close joins the shared construction.
-    async fn session(&self) -> Result<SessionHandle, AnyTlsError> {
-        let (receiver, should_start) = {
-            let mut state = self.state.lock().await;
-            if let Some(session) = state.session.clone() {
-                if !session.outbound.is_closed() && !session.closing.load(Ordering::Acquire) {
-                    return Ok(session);
-                }
-                state.session = None;
-            }
-
-            let (sender, receiver) = oneshot::channel();
-            let should_start = state.session_waiters.is_empty();
-            state.session_waiters.push(sender);
-            (receiver, should_start)
-        };
-
-        if should_start {
-            let client = self.worker_clone();
-            self.tasks.spawn(async move {
-                let result =
-                    tokio::time::timeout(std::time::Duration::from_secs(10), client.establish_network_session())
-                        .await
-                        .unwrap_or_else(|_| Err(AnyTlsError::Io("AnyTLS connection timed out".into())));
-                let waiters = {
-                    let mut state = client.state.lock().await;
-                    std::mem::take(&mut state.session_waiters)
-                };
-                for waiter in waiters {
-                    waiter.send(result.clone()).ok();
-                }
-            })?;
-        }
-
-        receiver.await.unwrap_or(Err(AnyTlsError::SessionClosed))
     }
 
     async fn establish_network_session(&self) -> Result<SessionHandle, AnyTlsError> {
@@ -556,21 +552,27 @@ impl AnyTlsClient {
 
     /// # Cancel safety:
     /// Cancel-safe: cancellation drops the unpublished TLS transport. Worker
-    /// registration and cached-session publication have no intervening await.
+    /// registration has no await after the session is built.
     async fn establish_session<S>(&self, transport: S) -> Result<SessionHandle, AnyTlsError>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let mut tls = connect_tls(&self.config, transport).await?;
-        // Clone the padding scheme and drop the guard before awaiting: holding the
-        // state Mutex across the `write_auth` TLS write would serialize concurrent
-        // `open_tcp` callers behind handshake I/O.
+        // Clone the padding scheme and drop the guard before awaiting: holding
+        // the lock across the `write_auth` TLS write would serialize concurrent
+        // opens behind handshake I/O.
         let padding_scheme = self.padding_scheme.lock().await.clone();
         write_auth(&mut tls, &self.config.password, &padding_scheme).await?;
 
         let (outbound_tx, outbound_rx) = mpsc::channel(128);
         let streams = Arc::new(StdMutex::new(HashMap::new()));
+        let seq = {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            state.next_seq += 1;
+            state.next_seq
+        };
         let session = SessionHandle {
+            seq,
             outbound: outbound_tx,
             streams: Arc::clone(&streams),
             next_stream_id: Arc::new(Mutex::new(1)),
@@ -586,22 +588,59 @@ impl AnyTlsClient {
             streams,
             closing: Arc::clone(&session.closing),
             inbound_frames: Arc::clone(&session.inbound_frames),
-            tasks: Arc::clone(&self.tasks),
         };
-        // Acquire the publication lock before spawning: no await can abandon an
-        // unreturned carrier after it has entered the owned task group.
-        let mut client_state = self.state.lock().await;
         self.tasks.spawn(async move {
             run_session(tls, outbound_rx, reader_outbound, session_padding_scheme, state, lifetime).await;
         })?;
-        client_state.session = Some(session.clone());
         Ok(session)
     }
 }
 
+/// Return a healthy session to the idle pool and make sure a sweeper runs.
+fn release_session(state: &Arc<StdMutex<ClientState>>, session: SessionHandle) {
+    if session.is_dead() {
+        return;
+    }
+    let tasks = Arc::clone(&session.tasks);
+    let start_sweeper = {
+        let mut guard = state.lock().unwrap_or_else(PoisonError::into_inner);
+        guard.idle.push(IdleSession { session, since: Instant::now() });
+        !std::mem::replace(&mut guard.sweeper_running, true)
+    };
+    if start_sweeper {
+        let weak = Arc::downgrade(state);
+        if tasks.spawn(sweep_idle_sessions(weak)).is_err() {
+            state.lock().unwrap_or_else(PoisonError::into_inner).sweeper_running = false;
+        }
+    }
+}
+
+/// Closes pooled sessions that stayed idle past the timeout; ends when the
+/// pool is empty, and the next release starts it again.
+///
+/// # Cancel safety
+/// cancel-safe: it only sleeps and edits the pool under a short std lock.
+async fn sweep_idle_sessions(state: Weak<StdMutex<ClientState>>) {
+    loop {
+        let interval = match state.upgrade() {
+            Some(state) => state.lock().unwrap_or_else(PoisonError::into_inner).sweep_interval,
+            None => return,
+        };
+        tokio::time::sleep(interval).await;
+        let Some(state) = state.upgrade() else { return };
+        let mut guard = state.lock().unwrap_or_else(PoisonError::into_inner);
+        let timeout = guard.idle_timeout;
+        guard.idle.retain(|idle| !idle.session.is_dead() && idle.since.elapsed() < timeout);
+        if guard.idle.is_empty() {
+            guard.sweeper_running = false;
+            return;
+        }
+    }
+}
+
 impl SessionHandle {
-    fn same_session(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.next_stream_id, &other.next_stream_id)
+    fn is_dead(&self) -> bool {
+        self.closing.load(Ordering::Acquire) || self.outbound.is_closed()
     }
 
     async fn allocate_stream_id(&self) -> u32 {
@@ -664,12 +703,6 @@ async fn watch_carrier(session: &SessionHandle) {
     }
 }
 
-fn close_pending_stream(session: &SessionHandle, stream_id: u32, syn_committed: bool) {
-    if session.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&stream_id).is_some() && syn_committed {
-        queue_fin(&session.outbound, stream_id, &session.tasks);
-    }
-}
-
 fn queue_fin(outbound: &mpsc::Sender<Outbound>, stream_id: u32, tasks: &OwnedTasks) {
     let frame = Outbound::Batch(vec![Frame::control(Command::Fin, stream_id)]);
     match outbound.try_send(frame) {
@@ -692,7 +725,8 @@ impl AnyTlsStream {
         // before entering the writer queue, otherwise frame encoding terminates
         // the entire shared TLS carrier, including unrelated streams.
         for chunk in data.chunks(usize::from(u16::MAX)) {
-            self.outbound
+            self.session
+                .outbound
                 .send(Outbound::Batch(vec![Frame::with_data(Command::Psh, self.stream_id, chunk.to_vec())]))
                 .await
                 .map_err(|_| AnyTlsError::SessionClosed)?;
@@ -732,7 +766,8 @@ impl AnyTlsStream {
         if self.fin_queued {
             return Ok(());
         }
-        self.outbound
+        self.session
+            .outbound
             .send(Outbound::Batch(vec![Frame::control(Command::Fin, self.stream_id)]))
             .await
             .map_err(|_| AnyTlsError::SessionClosed)?;
@@ -743,10 +778,15 @@ impl AnyTlsStream {
 
 impl Drop for AnyTlsStream {
     fn drop(&mut self) {
-        if self.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.stream_id).is_some()
-            && !self.fin_queued
+        let routed =
+            self.session.streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.stream_id).is_some();
+        if routed && self.syn_sent && !self.fin_queued {
+            queue_fin(&self.session.outbound, self.stream_id, &self.session.tasks);
+        }
+        if self.reusable
+            && let Some(pool) = self.pool.upgrade()
         {
-            queue_fin(&self.outbound, self.stream_id, &self.tasks);
+            release_session(&pool, self.session.clone());
         }
     }
 }
@@ -811,7 +851,6 @@ struct SessionWorker {
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     closing: Arc<AtomicBool>,
     inbound_frames: Arc<AtomicU64>,
-    tasks: Arc<OwnedTasks>,
 }
 impl Drop for SessionWorker {
     fn drop(&mut self) {
@@ -828,7 +867,7 @@ async fn run_session<S>(
     mut outbound_rx: mpsc::Receiver<Outbound>,
     outbound_tx: mpsc::WeakSender<Outbound>,
     padding_scheme: Arc<Mutex<PaddingScheme>>,
-    client_state: Weak<Mutex<ClientState>>,
+    client_state: Weak<StdMutex<ClientState>>,
     lifetime: SessionWorker,
 ) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -876,26 +915,23 @@ async fn run_session<S>(
             match frame.command() {
                 Command::SynAck => handle_synack(&streams, frame.stream_id(), frame.data()),
                 Command::Psh => {
-                    let stream_id = frame.stream_id();
-                    let delivery_failed = {
-                        let guard = streams.lock().unwrap_or_else(PoisonError::into_inner);
-                        guard
-                            .get(&stream_id)
-                            .is_some_and(|route| route.inbound.try_send(frame.data().to_vec()).is_err())
-                    };
-                    if delivery_failed
-                        && streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&stream_id).is_some()
-                    {
-                        // Backpressure is per logical stream: a full or closed mailbox
-                        // terminates only that stream instead of parking the carrier
-                        // reader and blocking every multiplexed sibling behind it.
-                        if let Some(outbound_tx) = outbound_tx.upgrade() {
-                            queue_fin(&outbound_tx, stream_id, &lifetime.tasks);
-                        }
+                    let inbound = streams
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .get(&frame.stream_id())
+                        .map(|route| route.inbound.clone());
+                    // A session carries one stream, so waiting for a slow reader
+                    // is real TCP backpressure and stalls no sibling. A stream
+                    // that is gone drops the data.
+                    if let Some(inbound) = inbound {
+                        inbound.send(frame.data().to_vec()).await.ok();
                     }
                 }
                 Command::Fin => {
-                    streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&frame.stream_id());
+                    let route = streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&frame.stream_id());
+                    if let Some(route) = route {
+                        route.peer_fin.store(true, Ordering::Release);
+                    }
                 }
                 Command::UpdatePaddingScheme => {
                     // An unusable scheme keeps the current one; the reference
@@ -929,10 +965,8 @@ async fn run_session<S>(
     let session_result = supervise_session_io(reader, writer).await;
     closing.store(true, Ordering::Release);
     if let Some(client_state) = client_state.upgrade() {
-        let mut state = client_state.lock().await;
-        if state.session.as_ref().is_some_and(|session| Arc::ptr_eq(&session.closing, &closing)) {
-            state.session = None;
-        }
+        let mut state = client_state.lock().unwrap_or_else(PoisonError::into_inner);
+        state.idle.retain(|idle| !Arc::ptr_eq(&idle.session.closing, &closing));
     }
     if !matches!(session_result, Err(AnyTlsError::Alert(_))) {
         fail_all_streams(&streams, AnyTlsError::SessionClosed);
@@ -1065,13 +1099,55 @@ mod redaction_tests {
 }
 
 #[cfg(test)]
+mod test_support {
+    use super::*;
+
+    impl SessionHandle {
+        /// A handle with no carrier task behind `outbound`.
+        pub(super) fn detached(seq: u64, outbound: mpsc::Sender<Outbound>, tasks: Arc<OwnedTasks>) -> Self {
+            Self {
+                seq,
+                outbound,
+                streams: Arc::new(StdMutex::new(HashMap::new())),
+                next_stream_id: Arc::new(Mutex::new(1)),
+                settings_sent: Arc::new(Mutex::new(false)),
+                closing: Arc::new(AtomicBool::new(false)),
+                inbound_frames: Arc::new(AtomicU64::new(0)),
+                tasks,
+            }
+        }
+    }
+
+    impl AnyTlsStream {
+        /// A stream that is not registered with any client pool.
+        pub(super) fn detached(
+            outbound: mpsc::Sender<Outbound>,
+            inbound: mpsc::Receiver<Vec<u8>>,
+            tasks: Arc<OwnedTasks>,
+            owner: Option<Arc<Owner>>,
+        ) -> Self {
+            Self {
+                stream_id: 1,
+                session: SessionHandle::detached(1, outbound, tasks),
+                pool: Weak::new(),
+                inbound,
+                peer_fin: Arc::new(AtomicBool::new(false)),
+                read_buffer: VecDeque::new(),
+                fin_queued: false,
+                syn_sent: true,
+                reusable: false,
+                owner,
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod session_cache_tests {
-    use std::collections::HashMap;
     use std::sync::Arc;
-    use std::sync::atomic::AtomicBool;
     use std::time::Duration;
 
-    use tokio::sync::{Mutex, mpsc};
+    use tokio::sync::mpsc;
 
     use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
 
@@ -1093,14 +1169,9 @@ mod session_cache_tests {
         .expect("client");
         let (outbound, outbound_rx) = mpsc::channel::<Outbound>(1);
         drop(outbound_rx);
-        client.state.lock().await.session = Some(SessionHandle {
-            outbound,
-            streams: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            next_stream_id: Arc::new(Mutex::new(1)),
-            settings_sent: Arc::new(Mutex::new(false)),
-            closing: Arc::new(AtomicBool::new(false)),
-            inbound_frames: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            tasks: Arc::clone(&client.tasks),
+        client.state.lock().expect("state").idle.push(super::IdleSession {
+            session: SessionHandle::detached(1, outbound, Arc::clone(&client.tasks)),
+            since: tokio::time::Instant::now(),
         });
 
         let result = tokio::time::timeout(
@@ -1110,7 +1181,7 @@ mod session_cache_tests {
         .await;
 
         assert!(result.is_ok(), "closed cached session must not self-deadlock while being evicted");
-        assert!(client.state.lock().await.session.is_none(), "closed cached session must be evicted");
+        assert!(client.state.lock().expect("state").idle.is_empty(), "closed cached session must be evicted");
     }
 
     #[tokio::test]
@@ -1163,16 +1234,14 @@ mod session_cache_tests {
         .expect("client");
         let (outbound, mut receiver) = mpsc::channel(1);
         outbound.send(Outbound::Batch(Vec::new())).await.expect("fill carrier queue");
-        let routes = Arc::new(std::sync::Mutex::new(HashMap::new()));
-        client.state.lock().await.session = Some(SessionHandle {
-            outbound,
-            streams: routes.clone(),
-            next_stream_id: Arc::new(Mutex::new(1)),
-            settings_sent: Arc::new(Mutex::new(false)),
-            closing: Arc::new(AtomicBool::new(false)),
-            inbound_frames: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            tasks: Arc::clone(&client.tasks),
-        });
+        let session = SessionHandle::detached(1, outbound, Arc::clone(&client.tasks));
+        let routes = Arc::clone(&session.streams);
+        client
+            .state
+            .lock()
+            .expect("state")
+            .idle
+            .push(super::IdleSession { session, since: tokio::time::Instant::now() });
         let caller = client.clone();
         let opening =
             tokio::spawn(async move { caller.open_tcp(TargetAddr::Domain("interop.invalid".into()), 443).await });
@@ -1220,16 +1289,7 @@ mod session_cache_tests {
         use std::future::Future;
         let (outbound, _outbound_rx) = mpsc::channel(1);
         let (inbound_tx, inbound) = mpsc::channel(2);
-        let stream = super::AnyTlsStream {
-            stream_id: 1,
-            outbound,
-            inbound,
-            read_buffer: std::collections::VecDeque::new(),
-            streams: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            fin_queued: false,
-            tasks: Arc::default(),
-            owner: None,
-        };
+        let stream = super::AnyTlsStream::detached(outbound, inbound, Arc::default(), None);
         let mut udp = super::AnyTlsUdpOverTcp { stream, pending: Vec::new() };
         inbound_tx.send(vec![0]).await.expect("first partial IPv4 header");
         let mut recv = Box::pin(udp.recv_datagram());
@@ -1247,6 +1307,62 @@ mod session_cache_tests {
         assert_eq!(packet.target, TargetAddr::Ipv4(std::net::Ipv4Addr::LOCALHOST));
         assert_eq!(packet.port, 443);
         assert_eq!(packet.payload, b"abc");
+    }
+
+    fn idle_client() -> AnyTlsClient {
+        AnyTlsClient::new(AnyTlsClientConfig {
+            server_host: "127.0.0.1".to_owned(),
+            server_port: 1,
+            server_name: "localhost".to_owned(),
+            password: "test-password".to_owned(),
+            tls_fingerprint_profile: "chrome".to_owned(),
+            root_certificate_pem: None,
+            client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+        })
+        .expect("client")
+    }
+
+    #[tokio::test]
+    async fn the_idle_session_with_the_highest_seq_is_reused_first() {
+        let client = idle_client();
+        let mut carriers = Vec::new();
+        for seq in [2, 5, 3] {
+            let (outbound, carrier) = mpsc::channel::<Outbound>(1);
+            carriers.push(carrier);
+            super::release_session(&client.state, SessionHandle::detached(seq, outbound, Arc::clone(&client.tasks)));
+        }
+        let order: Vec<u64> = std::iter::from_fn(|| client.take_idle_session()).map(|session| session.seq).collect();
+        assert_eq!(order, vec![5, 3, 2]);
+    }
+
+    #[tokio::test]
+    async fn idle_sessions_are_closed_after_the_timeout() {
+        let client = idle_client();
+        {
+            let mut state = client.state.lock().expect("state");
+            state.idle_timeout = Duration::from_millis(150);
+            state.sweep_interval = Duration::from_millis(40);
+        }
+        let (outbound, _carrier) = mpsc::channel::<Outbound>(1);
+        super::release_session(&client.state, SessionHandle::detached(1, outbound, Arc::clone(&client.tasks)));
+        tokio::time::sleep(Duration::from_millis(60)).await;
+        assert_eq!(client.state.lock().expect("state").idle.len(), 1, "a session younger than the timeout stays");
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while !client.state.lock().expect("state").idle.is_empty() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("a session idle past the timeout is closed");
+        tokio::time::timeout(Duration::from_secs(1), async {
+            while client.state.lock().expect("state").sweeper_running {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the sweeper ends with an empty pool");
     }
 
     #[tokio::test]
@@ -1399,7 +1515,6 @@ mod tls_profile_tests {
 
 #[cfg(test)]
 mod bridge_tests {
-    use std::collections::{HashMap, VecDeque};
     use std::sync::Arc;
     use std::time::Duration;
 
@@ -1416,16 +1531,8 @@ mod bridge_tests {
         let tasks = Arc::new(OwnedTasks::default());
         let (outbound, _stalled_carrier) = mpsc::channel(1);
         let (inbound_tx, inbound) = mpsc::channel(32);
-        let stream = AnyTlsStream {
-            stream_id: 1,
-            outbound,
-            inbound,
-            read_buffer: VecDeque::new(),
-            streams: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            fin_queued: false,
-            tasks: Arc::clone(&tasks),
-            owner: Some(Arc::new(Owner(Arc::clone(&tasks)))),
-        };
+        let stream =
+            AnyTlsStream::detached(outbound, inbound, Arc::clone(&tasks), Some(Arc::new(Owner(Arc::clone(&tasks)))));
         let mut app = stream.into_io().expect("bridge");
         // The first chunk fills the carrier queue; the pump then waits to send the second.
         app.write_all(b"first").await.expect("first upload");
