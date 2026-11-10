@@ -54,6 +54,18 @@ class RelayNativeConfigTest {
     }
 
     @Test
+    fun `Apps Script private directory uses the existing native dataDir contract`() {
+        val config = representativeConfigs().first().copy(appsScriptDataDir = "/private/files/apps-script-relay")
+        assertEquals(config, config.toSections().toResolvedConfig())
+        val encoded =
+            json.parseToJsonElement(
+                json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), config),
+            ) as JsonObject
+        assertEquals("/private/files/apps-script-relay", encoded.getValue("dataDir").jsonPrimitive.content)
+        assertFalse("appsScriptDataDir" in encoded)
+    }
+
+    @Test
     fun `socket protection is additive and uses stable wire names`() {
         val proxyJson = json.encodeToString(ResolvedRipDpiRelayConfig.serializer(), representativeConfigs().first())
         assertTrue("legacy proxy payload shape omits the inert default", "socketProtection" !in proxyJson)

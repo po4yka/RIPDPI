@@ -286,6 +286,9 @@ data class ResolvedRipDpiRelayConfig(
     val appsScriptParallelRelay: Boolean = false,
     val appsScriptDirectHosts: List<String> = emptyList(),
     val appsScriptAuthKey: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    @SerialName("dataDir")
+    val appsScriptDataDir: String? = null,
     val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
     @Required
     val schemaVersion: Int = RelayNativeConfigSchemaVersion,
@@ -564,6 +567,7 @@ private fun ResolvedRipDpiRelayConfig.appsScriptSection(): RelayAppsScriptSectio
         appsScriptParallelRelay = appsScriptParallelRelay,
         appsScriptDirectHosts = appsScriptDirectHosts,
         appsScriptAuthKey = appsScriptAuthKey,
+        appsScriptDataDir = appsScriptDataDir,
     )
 
 /** Regroup this flat relay config into concern-scoped [RelayConfigSections]. */
@@ -762,16 +766,22 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         masquePrivacyPassProviderAuthToken = masque.masquePrivacyPassProviderAuthToken,
         cloudflareTunnelToken = cloudflare.cloudflareTunnelToken,
         cloudflareTunnelCredentialsJson = cloudflare.cloudflareTunnelCredentialsJson,
-        appsScriptScriptIds = appsScript.appsScriptScriptIds,
-        appsScriptGoogleIp = appsScript.appsScriptGoogleIp,
-        appsScriptFrontDomain = appsScript.appsScriptFrontDomain,
-        appsScriptSniHosts = appsScript.appsScriptSniHosts,
-        appsScriptVerifySsl = appsScript.appsScriptVerifySsl,
-        appsScriptParallelRelay = appsScript.appsScriptParallelRelay,
-        appsScriptDirectHosts = appsScript.appsScriptDirectHosts,
-        appsScriptAuthKey = appsScript.appsScriptAuthKey,
         finalmask = finalmask,
-    ).withHysteria2(hysteria2).withXhttp(vless)
+    ).withHysteria2(hysteria2).withXhttp(vless).withAppsScript(appsScript)
+
+/** Copy Apps Script configuration as one section, including its runtime-owned directory. */
+private fun ResolvedRipDpiRelayConfig.withAppsScript(section: RelayAppsScriptSection): ResolvedRipDpiRelayConfig =
+    copy(
+        appsScriptScriptIds = section.appsScriptScriptIds,
+        appsScriptGoogleIp = section.appsScriptGoogleIp,
+        appsScriptFrontDomain = section.appsScriptFrontDomain,
+        appsScriptSniHosts = section.appsScriptSniHosts,
+        appsScriptVerifySsl = section.appsScriptVerifySsl,
+        appsScriptParallelRelay = section.appsScriptParallelRelay,
+        appsScriptDirectHosts = section.appsScriptDirectHosts,
+        appsScriptAuthKey = section.appsScriptAuthKey,
+        appsScriptDataDir = section.appsScriptDataDir,
+    )
 
 /** Copy the Hysteria section as one unit, including optional hopping policy. */
 private fun ResolvedRipDpiRelayConfig.withHysteria2(section: RelayHysteria2Section): ResolvedRipDpiRelayConfig =

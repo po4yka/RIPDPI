@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.content.Context
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
@@ -7,6 +8,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CompletableDeferred
 import javax.inject.Inject
@@ -31,6 +33,7 @@ internal class GoogleAppsScriptRelayRuntime
     @Inject
     constructor(
         private val relayFactory: RipDpiRelayFactory,
+        @ApplicationContext private val context: Context,
     ) : RipDpiRelayRuntime {
         @Volatile private var relayRuntime: RipDpiRelayRuntime? = null
 
@@ -46,7 +49,11 @@ internal class GoogleAppsScriptRelayRuntime
             relayStartSignal = startSignal
             startSignal.complete(runtime)
             return try {
-                runtime.start(config)
+                runtime.start(
+                    config.copy(
+                        appsScriptDataDir = AppsScriptRelayCertificateStore(context.filesDir).dataDirectory.path,
+                    ),
+                )
             } finally {
                 if (relayRuntime === runtime) {
                     relayRuntime = null

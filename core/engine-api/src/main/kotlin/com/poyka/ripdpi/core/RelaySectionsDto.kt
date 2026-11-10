@@ -232,4 +232,5 @@ data class RelayAppsScriptSection(
     val appsScriptParallelRelay: Boolean,
     val appsScriptDirectHosts: List<String>,
     val appsScriptAuthKey: String?,
+    val appsScriptDataDir: String? = null,
 )
