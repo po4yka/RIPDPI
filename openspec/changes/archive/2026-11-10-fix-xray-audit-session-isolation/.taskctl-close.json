@@ -1,0 +1,11 @@
+{
+  "change": "fix-xray-audit-session-isolation",
+  "evidence_summary": "Both audited defects fixed; actual stub and runtime tests, Rust96 tests and clippy, pinned Go full suite and race count5, final14-row managed loopback matrix, actual Rust-Go interop, staticAnalysis, ci-gates, independent review and full four-ABI AAR release verification passed.",
+  "execution_sha256": "5f3eb63e7f79ea751900fa67d0b7082fe0948205e121727a9bdc1c1d2311e1e9",
+  "issue_sha256": "3d0de63872bd89c68b3f5ea848d6a81cf1698e20e9cb872225280d515d5d680e",
+  "outcome": "done",
+  "prepared_at": "2026-11-10T19:07:49Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1794335291032951"
+}

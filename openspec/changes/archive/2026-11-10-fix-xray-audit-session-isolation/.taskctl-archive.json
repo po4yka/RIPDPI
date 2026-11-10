@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-10T19:06:45Z",
+  "change": "fix-xray-audit-session-isolation",
+  "commit_sha": "14026caa85f63e0a18069e45dbe5b117b64c10a8",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RLY-1794335291032951"
+}

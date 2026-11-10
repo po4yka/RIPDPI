@@ -2,7 +2,7 @@
 id: RLY-1794335291032951
 title: Fix Xray UDP session isolation and unavailable runtime cleanup
 kind: bug
-status: review
+status: done
 area: relay
 priority: high
 owner: Xray audit fixes
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-xray-audit-session-isolation
 created: 2026-11-10
 updated: 2026-11-10
+closed_at: "2026-11-10T19:07:49Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Both audited defects fixed; actual stub and runtime tests, Rust96 tests and clippy, pinned Go full suite and race count5, final14-row managed loopback matrix, actual Rust-Go interop, staticAnalysis, ci-gates, independent review and full four-ABI AAR release verification passed.
 ---
 
 ## Goal

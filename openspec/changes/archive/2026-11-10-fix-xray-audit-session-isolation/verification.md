@@ -20,9 +20,9 @@ deployment_evidence: No deployment or release is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-XRAY-UDP-SESSION | RLY-1794335407480209 | Actual pinned Go RED for CMD3 bypass and stop with live control; full Go suite PASS; race count=5 PASS; final 14-row managed RUF1 loopback matrix gives 40 exact echoes and two explicit expected UDP443 rejections; independent re-review clean | PASS |
-| REQ-UDP-LOCAL-SESSION | RLY-1794335407480209 | Rust RED then 96 passed, zero failed, one pre-existing ignored timing test; clippy all-targets -D warnings and fmt PASS; actual final Rust helper to final Go listener gives two independent 25-byte exact echoes | PASS |
-| REQ-XRAY-STUB-CLEANUP | RLY-1794335408051246 | Actual stub RED before fix; Gradle actual-stub regression + 18 RipDpiXrayRuntime tests GREEN; engine ktlint/detekt PASS; independent review no findings | PASS |
+| REQ-XRAY-UDP-SESSION | RLY-1794335407480209 | Actual pinned Go RED for CMD3 bypass and stop with live control; full Go suite PASS; race count=5 PASS; final 14-row managed RUF1 loopback matrix gives 40 exact echoes and two explicit expected UDP443 rejections; independent re-review clean | passed |
+| REQ-UDP-LOCAL-SESSION | RLY-1794335407480209 | Rust RED then 96 passed, zero failed, one pre-existing ignored timing test; clippy all-targets -D warnings and fmt PASS; actual final Rust helper to final Go listener gives two independent 25-byte exact echoes | passed |
+| REQ-XRAY-STUB-CLEANUP | RLY-1794335408051246 | Actual stub RED before fix; Gradle actual-stub regression + 18 RipDpiXrayRuntime tests GREEN; engine ktlint/detekt PASS; independent review no findings | passed |
 
 ## Local evidence
 
