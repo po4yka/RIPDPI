@@ -153,10 +153,10 @@ internal class UnconfiguredTorPluggableTransportProvider : TorPluggableTransport
 private const val MaxLegacyTorProfileLength = 255
 
 private fun torProfilePath(profileId: String): String {
-    // Keep unambiguous legacy paths. Sanitized legacy state has no owner and must not be copied.
+    // Legacy underscores also represent replaced characters, so their state has no proven owner.
     val dotSegment = profileId == "." || profileId == ".."
     if (profileId.length in 1..MaxLegacyTorProfileLength && !dotSegment &&
-        profileId.matches(Regex("[a-zA-Z0-9._-]+"))
+        profileId.matches(Regex("[a-zA-Z0-9.-]+"))
     ) {
         return "tor/$profileId"
     }

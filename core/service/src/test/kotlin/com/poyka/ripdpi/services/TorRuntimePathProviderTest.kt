@@ -34,12 +34,17 @@ class TorRuntimePathProviderTest {
         val root = temporaryFolder.root
         val marker = File(root, "work_home/state/guards.json")
         marker.parentFile.mkdirs()
-        marker.writeText("existing guards")
+        marker.writeText("ambiguous guards")
+        val safeMarker = File(root, "work-home/state/guards.json")
+        safeMarker.parentFile.mkdirs()
+        safeMarker.writeText("existing guards")
         val provider = LocalTorRuntimePathProvider(root)
-        assertEquals(marker.parentFile.canonicalPath, File(provider.pathsFor("work_home").stateDir).canonicalPath)
-        assertEquals("existing guards", marker.readText())
-        assertFalse(File(provider.pathsFor("work/home").stateDir, "guards.json").exists())
-        assertEquals("existing guards", marker.readText())
+        assertEquals(safeMarker.parentFile.canonicalPath, File(provider.pathsFor("work-home").stateDir).canonicalPath)
+        listOf("work/home", "work_home").forEach { id ->
+            assertFalse(File(provider.pathsFor(id).stateDir, "guards.json").exists())
+        }
+        assertEquals("existing guards", safeMarker.readText())
+        assertEquals("ambiguous guards", marker.readText())
     }
 
     @Test
