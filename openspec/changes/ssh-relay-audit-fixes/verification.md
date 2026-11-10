@@ -1,9 +1,9 @@
 ---
 task_id: RLY-1794300186609700
 change: ssh-relay-audit-fixes
-commit_sha: 94a60a7fdb75ac8514be4b8254e71b145ef101ff
+commit_sha: 10c1a907b1111507b4c8602ed92f6cfe0bc5eb35
 local: passed
-local_evidence: 247 Kotlin tests, full staticAnalysis, just ci-gates, architecture health, locked metadata, 43 native tests, and all 7 independent Go SSH peer cases passed. Native evidence is reused for byte-identical Rust inputs after the final rebase.
+local_evidence: 353 Kotlin tests, full staticAnalysis, just ci-gates, architecture health, locked metadata, 43 native tests, and all 7 independent Go SSH peer cases passed. Native evidence is reused for byte-identical selected SSH inputs after the final rebase.
 remote_ci: blocked
 remote_ci_evidence: Hosted CI was not observed for this source revision.
 device: blocked
@@ -16,9 +16,9 @@ deployment_evidence: This change has no deployment.
 
 # Verification
 
-Source revision: `94a60a7fdb75ac8514be4b8254e71b145ef101ff`. Integration base: `b6c7274ebb6d59e64cf3502a88e80d4a8bb13351`.
-The final combined Kotlin run passed 247 tests at this source revision.
-Rust, Cargo.lock, the peer oracle, and the runner are byte-identical to tested revision `4063e1bcae4501443b5e23b8ea9efbedc7c08275`.
+Source revision: `10c1a907b1111507b4c8602ed92f6cfe0bc5eb35`. Integration base: `e2d8bb7771aed3895b06813c8f1e841f7ed6d057`.
+The final combined Kotlin run passed 353 tests at this source revision.
+The selected SSH Rust dependencies, Cargo configuration, peer oracle, and runner are byte-identical to tested revision `4063e1bcae4501443b5e23b8ea9efbedc7c08275`.
 The observed 36 unit, 7 loopback, and 7 independent-peer results remain valid for those unchanged inputs.
 The five corrections have separate commits. The peer runner also has an integration correction commit.
 The original audit remains at `/Users/npochaev/Downloads/RIPDPI_network_audits/RLY-11.md`.
@@ -27,19 +27,19 @@ The original audit remains at `/Users/npochaev/Downloads/RIPDPI_network_audits/R
 
 | Finding | Change | Commit |
 |---|---|---|
-| F1 | Check the host-key pin on every rekey. | `90134bec93e2914cd22d6255bee544f4567da52b` |
-| F2 | Validate SSH admission and use the existing explicit trust editor for unpinned imports. | `ad8a2e9658af192788dfb3019a73705ee7e18947` |
-| F3 | Preserve a nonempty whitespace passphrase in share links. | `fefa818ff5e1a37aa831b80b9a82e73e52a402ca` |
-| F4 | Reserve discovery time for each remaining address. Retry recoverable failures. | `88f3d0bb73f3e7d804c88ac4214aeebcb215da1f` |
-| F5 | Cancel the owned SSH worker before waiting for the state mutex. Join it with retained unread channels. | `96932d89daebcc24570f146186efd32709292d35` |
+| F1 | Check the host-key pin on every rekey. | `bfc97a90c52c8e880e1271284091426e4a60f450` |
+| F2 | Validate SSH admission and use the existing explicit trust editor for unpinned imports. | `fec138f42895a29d6a326e8634c820700d138409` |
+| F3 | Preserve a nonempty whitespace passphrase in share links. | `1be586bd21ae957a97f18c1fa7e37fdd36463138` |
+| F4 | Reserve discovery time for each remaining address. Retry recoverable failures. | `9503b84b8d7af38049507ab4f02d9040d2e53e07` |
+| F5 | Cancel the owned SSH worker before waiting for the state mutex. Join it with retained unread channels. | `3b2662ef7f11cbaea97f803b9c90e762851e5829` |
 
-The runner integration correction is `c613ef555562e377a19f71874817a73cac597343`.
+The runner integration correction is `7e3c0a4f927af4b29462549a4d719f98d5393312`.
 It preserves the main branch Mieru and AnyTLS scenarios and restores the SSH rekey and flood peer modes.
-The shared-validator follow-up is `94a60a7fdb75ac8514be4b8254e71b145ef101ff`. It removes a dispatcher return line to meet the method-length gate after integration, without changing validation.
+The shared-validator follow-up is `d1d8c8490be0df0fc0ea0db368f26267e0b5344f`. It removes a dispatcher return line to meet the method-length gate after integration, without changing validation.
 The exact russh 0.65.1 source is vendored. Its provenance and patches are in
 `native/rust/vendor/russh/README.ripdpi.md`. The dependency graph is unchanged.
 Cargo.lock only removes the registry source and checksum for the existing russh package.
-No baseline, gate exclusion, locale, saved-profile schema, or JNI signature changed.
+No baseline, gate exclusion, locale, saved-profile schema, or JNI signature changed in the SSH corrections.
 
 ## Requirement evidence
 
@@ -56,16 +56,16 @@ No baseline, gate exclusion, locale, saved-profile schema, or JNI signature chan
 Heavy commands used the user-approved temporary `rly11` build-gate lane with at most two compiler jobs. No gate or baseline was weakened.
 
 ```sh
-build-gate --lane rly11 -- env CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR=/tmp/rly11-native-target zsh /tmp/rly11-final-integration-checks.sh
+build-gate --lane rly11 -- env CARGO_BUILD_JOBS=2 CARGO_TARGET_DIR=/tmp/rly11-native-target zsh /tmp/rly11-final-shared-main-checks.sh
 ```
 
 The following commands ran from the job checkout:
 
 ```sh
-./gradlew :app:testGithubFullDebugUnitTest --tests '*RelayProfileShareMapperSshTest' --tests '*SshProfileViewModelTest' --tests '*SshImportAdmissionTest' --tests '*ImportConfirmViewModelTest' --tests '*SubscriptionReserveRefreshTest' --tests '*RelayProfileMappingTest' \
+./gradlew :app:testGithubFullDebugUnitTest --tests '*RelayProfileShareMapperSshTest' --tests '*SshProfileViewModelTest' --tests '*SshImportAdmissionTest' --tests '*ImportConfirmViewModelTest' --tests '*SubscriptionReserveRefreshTest' --tests '*ConnectionCloudflareValidationTest' --tests '*ConnectionNaiveProxyValidationTest' --tests '*ConnectionViewModelTest' --tests '*RelayProfileMappingTest' \
   :core:data:runtime-state:testDebugUnitTest --tests '*SshProfileAdmissionTest' --tests '*NativeRelayProfileValidationResultTest' --tests '*AnyTlsImportPinTest' --tests '*XrayConfigImportParserTest' --tests '*TrojanImportRejectionTest' --tests '*ProxyUriCodecTest' \
   :core:data:testDebugUnitTest --tests '*SelectorRelayProfileMappingTest' --tests '*ProxyUriCodecTest' --tests '*ProxyUriCodecExportTest' --tests '*SingBoxSubscriptionParserTest' \
-  :core:service:testDebugUnitTest --tests '*DefaultSshHostKeyObserverTest' --tests '*AppsScriptRelayCertificateStoreTest' -Pripdpi.skipNativeBuild=true --max-workers=2 --continue
+  :core:service:testDebugUnitTest --tests '*DefaultSshHostKeyObserverTest' --tests '*AppsScriptRelayCertificateStoreTest' --tests '*CloudflarePublishRuntimeTest' --tests '*NaiveProxyRuntimePolicyTest' --tests '*NaiveUpstreamLauncherTest' --tests '*NaiveUpstreamOutputParserTest' --tests '*SubprocessRelayReadinessSignalTest' -Pripdpi.skipNativeBuild=true --max-workers=2 --continue
 ./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true --max-workers=2 --continue
 PATH=/tmp/rly11-locked-tools:$PATH just ci-gates
 python3 scripts/ci/check_architecture_health.py
@@ -73,8 +73,8 @@ python3 scripts/ci/check_architecture_health.py
 
 | Check | Observed result |
 |---|---|
-| Targeted Kotlin suites | 247 passed: app 58, runtime-state 100, data 79, service 10. No failures, errors, or skips. |
-| Full staticAnalysis | Passed; 826 tasks, 8 min 25 s. |
+| Targeted Kotlin suites | 353 passed: app 95, runtime-state 102, data 79, service 77. No failures, errors, or skips. |
+| Full staticAnalysis | Passed; 826 tasks, 6 min 21 s. |
 | just ci-gates | Passed: architecture, LoC/hotspots, contracts/fixtures, boundary/route checks, locales, translations, and eligible Rust API snapshots. |
 | Rust API snapshots | 12 checked snapshots matched; the Linux-only runtime-platform snapshot was skipped by the existing macOS policy. |
 | Separate architecture health | 18 current/baseline indicators; 0 new, worsened, or stale entries; 112 crates and 354 internal edges. |
@@ -103,21 +103,31 @@ do
 done
 ```
 
-After rebase onto main `b6c7274ebb6d59e64cf3502a88e80d4a8bb13351`, this check passed:
+After rebase onto main `e2d8bb7771aed3895b06813c8f1e841f7ed6d057`, this check passed:
 
 ```sh
-git diff --exit-code 4063e1bcae4501443b5e23b8ea9efbedc7c08275 HEAD -- native/rust scripts/tests
+git diff --exit-code 4063e1bcae4501443b5e23b8ea9efbedc7c08275 HEAD -- \
+  native/rust/crates/ripdpi-native-protect \
+  native/rust/crates/ripdpi-ssh \
+  native/rust/vendor/russh \
+  native/rust/Cargo.toml \
+  native/rust/Cargo.lock \
+  native/rust/rust-toolchain.toml \
+  native/rust/.cargo \
+  rust-toolchain.toml \
+  .cargo \
+  scripts/tests
 ```
 
-It proves that the native and peer input trees did not change. The final Kotlin and source gates ran again on the rebased tree.
+Cargo metadata identifies three local packages in the selected SSH test dependency closure: ripdpi-ssh, ripdpi-native-protect, and the vendored russh. Their sources and the Cargo/toolchain/peer inputs above did not change. Cloudflare and NaiveProxy changes are outside this native closure. The final Kotlin and source gates ran again on the rebased tree.
 The rebase includes main's four detekt corrections. A method-length issue in the combined SSH dispatcher was corrected by returning the validator result; all checks then passed. Earlier failed checks remain in the local logs.
 
 The repository API snapshot script invokes a Cargo plugin that has no `--locked` option. Temporary Cargo/rustup wrappers in `/tmp/rly11-locked-tools` added `--locked` to the real metadata and rustdoc commands. The plugin executable and repository scripts stayed intact. The invocation trace confirms locked workspace resolution; help and version queries do not resolve the workspace.
 
 Local receipts:
 
-- `/tmp/rly11-final-kotlin.log` and `/tmp/rly11-final-kotlin-results.json`
-- `/tmp/rly11-final-static.log` and `/tmp/rly11-final-ci-gates.log`
+- `/tmp/rly11-shared-main-kotlin.log` and `/tmp/rly11-shared-main-kotlin-results.json`
+- `/tmp/rly11-shared-main-static.log` and `/tmp/rly11-shared-main-ci-gates.log`
 - `/tmp/rly11-source-gates.log` and `/tmp/rly11-final-cargo-metadata.json`
 - `/tmp/rly11-cargo-locked-invocations.jsonl`
 - Earlier red cases: `/tmp/rly11-f2-red.log`, `/tmp/rly11-root-red.log`, `/tmp/rly11-root-second.log`
@@ -125,6 +135,8 @@ Local receipts:
 
 
 ## Review
+
+The Android native build includes `vendor/**/*` in the cacheable task inputs (`build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts:64,1700`). This is source evidence; no Android build was run.
 
 The native corrections passed independent source review and async cancel-safety review.
 The import, share, and observation changes passed independent source review.
