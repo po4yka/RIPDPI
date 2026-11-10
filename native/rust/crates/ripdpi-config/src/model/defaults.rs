@@ -67,6 +67,7 @@ impl Default for RuntimeNetworkSettings {
                 auth_token: None,
             },
             resolve: true,
+            remote_dns_upstream: None,
             ipv6,
             udp: true,
             max_open: 512,

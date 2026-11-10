@@ -19,6 +19,54 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
     connect_timeout: Option<Duration>,
     state: &RuntimeState,
 ) -> io::Result<TcpStream> {
+    connect_via_socks_request(
+        upstream,
+        bind_ip,
+        protect_path,
+        tfo,
+        connect_timeout,
+        state,
+        RuntimeState::encode_upstream_socks_connect(target),
+    )
+}
+
+pub(in crate::runtime) fn connect_remote_domain(
+    host: &str,
+    port: u16,
+    upstream: SocketAddr,
+    state: &RuntimeState,
+) -> io::Result<TcpStream> {
+    if !upstream.ip().is_loopback() {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "Tor listener must be loopback"));
+    }
+    state.reject_listener_target(upstream)?;
+    let len = u8::try_from(host.len())
+        .ok()
+        .filter(|len| *len > 0)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid Tor hostname length"))?;
+    let mut request = vec![5, 1, 0, 3, len];
+    request.extend_from_slice(host.as_bytes());
+    request.extend_from_slice(&port.to_be_bytes());
+    connect_via_socks_request(
+        upstream,
+        IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED),
+        None,
+        false,
+        Some(state.remote_dns_connect_timeout()),
+        state,
+        request,
+    )
+}
+
+fn connect_via_socks_request(
+    upstream: SocketAddr,
+    bind_ip: IpAddr,
+    protect_path: Option<&str>,
+    tfo: bool,
+    connect_timeout: Option<Duration>,
+    state: &RuntimeState,
+    request: Vec<u8>,
+) -> io::Result<TcpStream> {
     let deadline = connect_timeout
         .map(|timeout| {
             Instant::now().checked_add(timeout).ok_or_else(|| {
@@ -43,7 +91,6 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
         state.negotiate_upstream_socks_auth(&mut setup, upstream)?;
 
         refuse_after_shutdown(state)?;
-        let request = RuntimeState::encode_upstream_socks_connect(target);
         setup.write_all(&request)?;
         let reply = RuntimeState::read_upstream_socks_reply(&mut setup)?;
         setup.check_deadline()?;

@@ -18,6 +18,27 @@ impl std::fmt::Display for UpstreamSocksReplyError {
 impl std::error::Error for UpstreamSocksReplyError {}
 
 impl RuntimeState {
+    pub(in crate::runtime) fn remote_dns_upstream(&self) -> Option<SocketAddr> {
+        self.handshake_settings.remote_dns_upstream
+    }
+    pub(in crate::runtime) fn remote_dns_connect_timeout(&self) -> Duration {
+        self.handshake_settings.connect_timeout
+    }
+    pub(in crate::runtime) fn check_remote_domain_policy(&self, host: &str, port: u16) -> io::Result<()> {
+        let action = self.destination_routing.evaluate_unresolved(
+            host,
+            port,
+            self.geo_matcher.as_deref().map(|g| g as &dyn GeoMatcher),
+        );
+        if action != DestinationEgress::Tunneled {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Tor domain requires a tunneled route without unresolved IP rules",
+            ));
+        }
+        Ok(())
+    }
+
     pub(in crate::runtime) fn proxy_protocol_mode(&self) -> RuntimeProxyProtocolMode {
         match self.handshake_settings.protocol_mode {
             ProxyProtocolMode::Transparent => RuntimeProxyProtocolMode::Transparent,

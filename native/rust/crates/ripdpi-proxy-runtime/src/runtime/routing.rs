@@ -3,7 +3,7 @@ mod failure;
 mod policy;
 mod retry;
 
-pub(super) use connect::connect_socket;
+pub(super) use connect::{connect_remote_domain, connect_socket};
 pub(super) use failure::{
     advance_route_for_failure, classify_response_failure, emit_failure_classified, note_block_signal_for_failure,
 };

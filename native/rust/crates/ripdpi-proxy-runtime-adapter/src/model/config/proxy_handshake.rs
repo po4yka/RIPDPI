@@ -77,6 +77,8 @@ pub fn shadowsocks_target_policy(config: &RuntimeConfig) -> ShadowsocksTargetPol
 #[derive(Clone)]
 pub struct ProxyHandshakeSettings {
     pub protocol_mode: ProxyProtocolMode,
+    pub remote_dns_upstream: Option<std::net::SocketAddr>,
+    pub connect_timeout: std::time::Duration,
     pub auth_token: Option<String>,
     pub session_config: ripdpi_session::SessionConfig,
     pub shadowsocks_target_policy: ShadowsocksTargetPolicy,
@@ -87,6 +89,8 @@ pub struct ProxyHandshakeSettings {
 pub fn proxy_handshake_settings(config: &RuntimeConfig) -> ProxyHandshakeSettings {
     ProxyHandshakeSettings {
         protocol_mode: proxy_protocol_mode(config),
+        remote_dns_upstream: config.network.remote_dns_upstream,
+        connect_timeout: std::time::Duration::from_millis(u64::from(config.timeouts.connect_timeout_ms)),
         auth_token: proxy_auth_token(config).map(ToOwned::to_owned),
         session_config: proxy_session_config(config),
         shadowsocks_target_policy: shadowsocks_target_policy(config),

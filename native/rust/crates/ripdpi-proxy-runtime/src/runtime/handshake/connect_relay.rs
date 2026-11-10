@@ -37,6 +37,13 @@ use ws_first::{AlwaysWsOutcome, run_ws_always_first};
 
 pub(super) use error::{ConnectPolicyRejection, ConnectRelayError};
 pub(super) use reply::SuccessReply;
+pub(super) fn write_remote_success_reply(
+    client: &mut TcpStream,
+    reply: &SuccessReply,
+    upstream: &TcpStream,
+) -> io::Result<()> {
+    write_success_reply(client, reply, Some(upstream))
+}
 
 /// Common connect/relay policy flow; plaintext address input does not use WS escalation.
 ///

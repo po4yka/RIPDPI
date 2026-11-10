@@ -349,6 +349,7 @@ fn runtime_config_adapter_views_round_trip() {
             auth_token: None,
         },
         resolve: false,
+        remote_dns_upstream: None,
         ipv6: true,
         udp: false,
         transparent: true,

@@ -70,7 +70,7 @@ impl<'a> HttpConnectHead<'a> {
             .and_then(|(_, value)| std::str::from_utf8(value).ok())
     }
 
-    pub fn resolve(self, resolver: &dyn NameResolver) -> Result<ClientRequest, SessionError> {
+    pub fn authority(self) -> Result<(&'a str, u16), SessionError> {
         let request_line = std::str::from_utf8(self.lines().next().ok_or_else(SessionError::generic)?)
             .map_err(|_| SessionError::generic())?;
         let mut parts = request_line.split_ascii_whitespace();
@@ -99,6 +99,11 @@ impl<'a> HttpConnectHead<'a> {
         } else if version == Some("HTTP/1.1") {
             return Err(SessionError::generic());
         }
+        Ok((name, port))
+    }
+
+    pub fn resolve(self, resolver: &dyn NameResolver) -> Result<ClientRequest, SessionError> {
+        let (name, port) = self.authority()?;
         let addr = resolver
             .resolve(name, SocketType::Stream)
             .map(|resolved| SocketAddr::new(resolved.ip(), port))

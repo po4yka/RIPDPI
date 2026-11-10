@@ -1,5 +1,6 @@
 mod connect_relay;
 mod protocol_io;
+mod remote_dns;
 #[cfg(all(test, not(feature = "loom")))]
 mod tests;
 mod udp_feedback;
@@ -139,6 +140,9 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
             return Err(error);
         }
     };
+    if remote_dns::relay(&mut client, state, &request, SuccessReply::Socks4)? {
+        return Ok(());
+    }
     let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
     let parsed = state.parse_socks4_client_request(&request, resolver);
     match parsed {
@@ -184,6 +188,9 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
             io::ErrorKind::PermissionDenied,
             "RIPDPI resolved-domain address type is restricted to the local tunnel hop",
         ));
+    }
+    if remote_dns::relay(&mut client, state, &request, SuccessReply::Socks5)? {
+        return Ok(());
     }
     let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
 
@@ -243,6 +250,9 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: In
         let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
         let _ = client.write_all(reply);
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "missing or invalid http proxy credentials"));
+    }
+    if remote_dns::relay(&mut client, state, &request, SuccessReply::HttpConnect)? {
+        return Ok(());
     }
     let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
     match RuntimeState::parse_http_connect_client_request(head, resolver) {

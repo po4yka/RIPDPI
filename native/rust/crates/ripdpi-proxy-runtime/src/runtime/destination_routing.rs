@@ -64,12 +64,27 @@ impl DestinationRoutingEvaluator {
         transport: TransportProtocol,
         geo: Option<&dyn GeoMatcher>,
     ) -> DestinationEgress {
+        self.evaluate_target(Some(target.ip()), target.port(), host, transport, geo)
+    }
+
+    pub(super) fn evaluate_unresolved(&self, host: &str, port: u16, geo: Option<&dyn GeoMatcher>) -> DestinationEgress {
+        self.evaluate_target(None, port, Some(host), TransportProtocol::Tcp, geo)
+    }
+
+    fn evaluate_target(
+        &self,
+        ip: Option<IpAddr>,
+        port: u16,
+        host: Option<&str>,
+        transport: TransportProtocol,
+        geo: Option<&dyn GeoMatcher>,
+    ) -> DestinationEgress {
         let canonical_host = host.and_then(canonical_host);
         for rule in &self.rules {
-            match rule.match_state(target, canonical_host.as_deref(), transport, geo) {
+            match rule.match_state(ip, port, canonical_host.as_deref(), transport, geo) {
                 MatchState::Match => return rule.action,
                 MatchState::Inconclusive => {
-                    return if rule.action == DestinationEgress::Block {
+                    return if ip.is_none() || rule.action == DestinationEgress::Block {
                         DestinationEgress::Block
                     } else {
                         DestinationEgress::Tunneled
@@ -101,14 +116,14 @@ impl CompiledRule {
 
     fn match_state(
         &self,
-        target: SocketAddr,
+        ip: Option<IpAddr>,
+        port: u16,
         host: Option<&str>,
         transport: TransportProtocol,
         geo: Option<&dyn GeoMatcher>,
     ) -> MatchState {
         if !network_matches(self.network, transport)
-            || (!self.destination_ports.is_empty()
-                && !self.destination_ports.iter().any(|range| range.contains(&target.port())))
+            || (!self.destination_ports.is_empty() && !self.destination_ports.iter().any(|range| range.contains(&port)))
         {
             return MatchState::NoMatch;
         }
@@ -121,8 +136,10 @@ impl CompiledRule {
         };
         let ips = if self.ip_ranges.is_empty() {
             MatchState::Match
+        } else if let Some(ip) = ip {
+            any_match(self.ip_ranges.iter().map(|m| m.match_state(ip, geo)))
         } else {
-            any_match(self.ip_ranges.iter().map(|m| m.match_state(target.ip(), geo)))
+            MatchState::Inconclusive
         };
         match (domains, ips) {
             (MatchState::NoMatch, _) | (_, MatchState::NoMatch) => MatchState::NoMatch,
@@ -266,6 +283,51 @@ mod tests {
             ..DestinationRoutingPolicy::default()
         })
         .evaluate(target, host, transport, geo)
+    }
+
+    #[test]
+    fn unresolved_domains_enforce_block_and_unknown_ip_rules() {
+        let domain =
+            DestinationDomainMatcher { kind: DestinationDomainMatcherKind::Exact, value: "blocked.example".into() };
+        let policy = DestinationRoutingPolicy {
+            rules: vec![rule(
+                DestinationRoutingAction::Block,
+                DestinationRoutingNetwork::Tcp,
+                vec![domain],
+                vec![],
+                vec![],
+            )],
+            ..Default::default()
+        };
+        let evaluator = DestinationRoutingEvaluator::compile(&policy);
+        assert_eq!(evaluator.evaluate_unresolved("blocked.example", 443, None), DestinationEgress::Block);
+        assert_eq!(evaluator.evaluate_unresolved("allowed.example", 443, None), DestinationEgress::Tunneled);
+        for action in
+            [DestinationRoutingAction::Block, DestinationRoutingAction::Direct, DestinationRoutingAction::Tunneled]
+        {
+            let policy = DestinationRoutingPolicy {
+                rules: vec![rule(
+                    action,
+                    DestinationRoutingNetwork::Tcp,
+                    vec![],
+                    vec![DestinationIpMatcher { kind: DestinationIpMatcherKind::Cidr, value: "192.0.2.0/24".into() }],
+                    vec![],
+                )],
+                ..Default::default()
+            };
+            assert_eq!(
+                DestinationRoutingEvaluator::compile(&policy).evaluate_unresolved("allowed.example", 443, None),
+                DestinationEgress::Block
+            );
+        }
+        let policy = DestinationRoutingPolicy {
+            rules: vec![rule(DestinationRoutingAction::Direct, DestinationRoutingNetwork::Tcp, vec![], vec![], vec![])],
+            ..Default::default()
+        };
+        assert_eq!(
+            DestinationRoutingEvaluator::compile(&policy).evaluate_unresolved("allowed.example", 443, None),
+            DestinationEgress::Direct
+        );
     }
 
     #[test]

@@ -191,6 +191,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     // TCP/UDP/adaptive match can fall through to a direct socket.
     warp::attach_all_traffic_upstream(&mut groups, &warp)?;
 
+    if upstream_relay.enabled && upstream_relay.kind == "tor" {
+        config.network.remote_dns_upstream = relay_upstream.as_ref().map(|upstream| upstream.addr);
+    }
     adaptive_runtime_context::finalize_ui_config(
         config,
         groups,

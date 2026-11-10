@@ -6,6 +6,8 @@ use super::{EnvironmentKind, ListenConfig, RuntimeWsTunnelWorkerRoute};
 pub struct RuntimeNetworkSettings {
     pub listen: ListenConfig,
     pub resolve: bool,
+    /// App-owned Tor listener used for unresolved TCP authorities.
+    pub remote_dns_upstream: Option<std::net::SocketAddr>,
     pub ipv6: bool,
     pub udp: bool,
     pub transparent: bool,

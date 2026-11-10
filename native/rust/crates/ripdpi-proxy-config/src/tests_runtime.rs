@@ -1159,3 +1159,19 @@ fn destination_routing_field_limits_cover_ip_ranges_and_ports() {
         .expect_err("257 port ranges must reject atomically");
     assert!(error.to_string().contains("destinationPorts exceeds 256"));
 }
+
+#[test]
+fn only_enabled_tor_projects_remote_dns_listener() {
+    for (kind, enabled) in [("tor", true), ("tor", false), ("hysteria2", true)] {
+        let mut ui = minimal_ui();
+        ui.protocols.udp_associate_enabled = Some(false);
+        ui.upstream_relay.enabled = enabled;
+        ui.upstream_relay.kind = kind.into();
+        ui.upstream_relay.local_socks_port = 11980;
+        let config = runtime_config_from_ui(ui).unwrap();
+        assert_eq!(
+            config.network.remote_dns_upstream,
+            (enabled && kind == "tor").then_some("127.0.0.1:11980".parse().unwrap())
+        );
+    }
+}
