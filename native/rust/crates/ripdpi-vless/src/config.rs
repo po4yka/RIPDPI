@@ -191,9 +191,10 @@ impl VlessRealityConfig {
     }
 }
 
-/// Parse a VLESS user id into its 16 wire bytes, as Xray `uuid.ParseString` does.
+/// Parse a VLESS user id into its 16 wire bytes, following Xray `uuid.ParseString`.
 ///
-/// A 32 or 36 byte text must be a canonical or compact UUID. A text of 1..=30
+/// A 32 or 36 byte text must be a canonical or compact UUID; this is stricter
+/// than Xray, which also accepts some 33..=35 byte dash variants. A text of 1..=30
 /// bytes maps to a UUIDv5 over the zero namespace. Other lengths are invalid.
 pub fn parse_uuid(value: &str) -> Option<[u8; 16]> {
     match value.len() {

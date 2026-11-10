@@ -9,7 +9,6 @@ name = "ripdpi-cloudflare-origin"
 path = "src/main.rs"
 
 [dependencies]
-uuid = { workspace = true }
 bytes = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }

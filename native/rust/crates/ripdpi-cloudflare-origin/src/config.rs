@@ -96,13 +96,9 @@ fn invalid_input(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidInput, message)
 }
 
+/// Same id rule as the VLESS client, so a short-text id maps to the same UUIDv5 on both ends.
 fn parse_uuid(raw: &str) -> io::Result<[u8; 16]> {
-    if !matches!(raw.len(), 32 | 36) {
-        return Err(invalid_input("Cloudflare origin UUID is invalid"));
-    }
-    uuid::Uuid::parse_str(raw)
-        .map(uuid::Uuid::into_bytes)
-        .map_err(|_| invalid_input("Cloudflare origin UUID is invalid"))
+    ripdpi_vless::config::parse_uuid(raw).ok_or_else(|| invalid_input("Cloudflare origin UUID is invalid"))
 }
 
 #[cfg(test)]
@@ -183,7 +179,7 @@ mod tests {
 
     #[test]
     fn invalid_uuid_error_never_echoes_peer_controlled_value() {
-        let invalid_identity = "credential-shaped-invalid-uuid";
+        let invalid_identity = "credential-shaped-invalid-uuid!";
 
         let error = parse_frame(&startup_frame("127.0.0.1:43128", "/xhttp", invalid_identity))
             .err()
@@ -217,12 +213,19 @@ mod tests {
             "{550e8400-e29b-41d4-a716-446655440000}",
             " 550e8400-e29b-41d4-a716-446655440000 ",
             "",
-            "0",
             "550e8400e29b41d4a71644665544000",
             "550e8400-e29b-41d4-a716-44665544000g",
             "550e8400-e29b-41d4-a716-44665544000é",
         ] {
             assert!(parse_uuid(value).is_err(), "unsupported UUID syntax must fail");
         }
+    }
+
+    #[test]
+    fn short_text_id_maps_like_the_vless_client() {
+        // Vector from running Xray v26.10.29 uuid.ParseString("example").
+        let expected: [u8; 16] =
+            [0xfe, 0xb5, 0x44, 0x31, 0x30, 0x1b, 0x52, 0xbb, 0xa6, 0xdd, 0xe1, 0xe9, 0x3e, 0x81, 0xbb, 0x9e];
+        assert_eq!(parse_uuid("example").expect("short-text id"), expected);
     }
 }
