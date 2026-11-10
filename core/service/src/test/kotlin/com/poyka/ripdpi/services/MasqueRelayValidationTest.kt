@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
+import com.poyka.ripdpi.data.RelayMasqueAuthModeNone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -15,6 +16,13 @@ internal class MasqueRelayValidationTest {
         assertNull(resolveMasqueAuthModeSupport(RelayCredentialRecord(profileId = "p")))
         validateMasqueRelayCredentials("p", null, null)
         validateMasqueRelayCredentials("p", null, RelayCredentialRecord(profileId = "p"))
+    }
+
+    @Test
+    fun `explicit none mode wins over stored secrets and needs no credentials`() {
+        val staleToken = RelayCredentialRecord(profileId = "p", masqueAuthMode = "none", masqueAuthToken = "t")
+        assertEquals(RelayMasqueAuthModeNone, resolveMasqueAuthModeSupport(staleToken))
+        validateMasqueRelayCredentials("p", RelayMasqueAuthModeNone, null)
     }
 
     @Test

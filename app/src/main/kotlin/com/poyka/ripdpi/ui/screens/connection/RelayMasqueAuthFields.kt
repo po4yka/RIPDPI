@@ -9,6 +9,7 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
+import com.poyka.ripdpi.data.RelayMasqueAuthModeNone
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
@@ -27,6 +28,12 @@ internal fun MasqueAuthModeRow(
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        MasqueAuthModeChip(
+            draft.relayMasqueAuthMode,
+            RelayMasqueAuthModeNone,
+            R.string.config_relay_masque_auth_none,
+            actions.onRelayMasqueAuthModeChanged,
+        )
         MasqueAuthModeChip(
             draft.relayMasqueAuthMode,
             RelayMasqueAuthModeBearer,

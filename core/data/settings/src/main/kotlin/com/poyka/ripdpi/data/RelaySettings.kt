@@ -37,6 +37,7 @@ const val RelayVlessTransportRealityTcp = "reality_tcp"
 const val RelayVlessTransportXhttp = "xhttp"
 const val RelaySecurityLayerTls = "tls"
 const val RelaySecurityLayerReality = "reality"
+const val RelayMasqueAuthModeNone = "none"
 const val RelayMasqueAuthModeBearer = "bearer"
 const val RelayMasqueAuthModePreshared = "preshared"
 const val RelayMasqueAuthModePrivacyPass = "privacy_pass"
@@ -207,6 +208,8 @@ fun normalizeRelayMasqueAuthMode(value: String?): String? =
         RelayMasqueAuthModeBearer,
         "token",
         -> RelayMasqueAuthModeBearer
+
+        RelayMasqueAuthModeNone -> RelayMasqueAuthModeNone
 
         RelayMasqueAuthModePreshared -> RelayMasqueAuthModePreshared
 

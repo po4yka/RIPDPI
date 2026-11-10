@@ -855,6 +855,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">Основной прокси RIPDPI подключается к этому слушателю loopback.</string>
     <string name="config_relay_local_port">Локальный SOCKS-порт реле</string>
+    <string name="config_relay_masque_auth_none">Без аутентификации</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
     <string name="config_relay_masque_auth_preshared">Предварительный ключ</string>

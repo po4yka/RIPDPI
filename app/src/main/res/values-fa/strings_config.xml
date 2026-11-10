@@ -139,6 +139,7 @@
     <string name="config_relay_chain_cumulative_caveat_title">هر پرش تأخیر اضافه می‌کند</string>
     <string name="config_relay_chain_cumulative_latency_caveat">تأخیر تجمعی اندازه‌گیری‌شده در همه پرش‌ها: %1$d میلی‌ثانیه.</string>
     <string name="config_relay_masque_url">URL MASQUE</string>
+    <string name="config_relay_masque_auth_none">بدون احراز هویت</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_preshared">پیش‌اشتراکی</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare مستقیم</string>

@@ -139,6 +139,7 @@
     <string name="config_relay_chain_cumulative_caveat_title">كل نقطة تضيف تأخيراً</string>
     <string name="config_relay_chain_cumulative_latency_caveat">التأخير التراكمي المقاس عبر جميع النقاط: %1$d ملي ثانية.</string>
     <string name="config_relay_masque_url">عنوان URL لـ MASQUE</string>
+    <string name="config_relay_masque_auth_none">بدون مصادقة</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_preshared">مُشارَك مسبقاً</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>

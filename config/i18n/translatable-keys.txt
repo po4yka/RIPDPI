@@ -713,6 +713,7 @@ app:config_relay_local_port
 app:config_relay_local_port_helper
 app:config_relay_masque_auth_bearer
 app:config_relay_masque_auth_cloudflare_direct
+app:config_relay_masque_auth_none
 app:config_relay_masque_auth_preshared
 app:config_relay_masque_auth_privacy_pass
 app:config_relay_masque_client_certificate_chain

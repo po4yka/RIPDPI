@@ -144,6 +144,7 @@ async fn resolve_ech_config_with_hooks(
 impl MasqueConfig {
     pub fn effective_auth_mode(&self) -> MasqueAuthMode {
         match self.auth_mode.as_deref().map(str::trim).map(str::to_ascii_lowercase).as_deref() {
+            Some("none") => MasqueAuthMode::None,
             Some("bearer") => MasqueAuthMode::Bearer,
             Some("preshared") => MasqueAuthMode::Preshared,
             Some("privacy_pass") => MasqueAuthMode::PrivacyPass,

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
+import com.poyka.ripdpi.data.RelayMasqueAuthModeNone
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -47,5 +48,6 @@ internal fun MasqueRelayFields(
 }
 
 private fun ConnectionDraft.showsMasqueTokenField(): Boolean =
-    relayMasqueAuthMode != RelayMasqueAuthModePrivacyPass &&
+    relayMasqueAuthMode != RelayMasqueAuthModeNone &&
+        relayMasqueAuthMode != RelayMasqueAuthModePrivacyPass &&
         relayMasqueAuthMode != RelayMasqueAuthModeCloudflareMtls

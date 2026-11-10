@@ -315,6 +315,7 @@ fakeddisorder endhost</string>
     <string name="config_proxy_helper">本地代理监听器绑定的位置。</string>
     <string name="config_relay_credentials_title">缺少中继凭据</string>
     <string name="config_relay_import">导入</string>
+    <string name="config_relay_masque_auth_none">无认证</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">粘贴 PEM 证书链或导入证书文件。</string>
     <string name="config_relay_masque_import_pkcs12">导入 PKCS#12 包</string>

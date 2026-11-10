@@ -148,6 +148,7 @@
     <string name="config_relay_chain_cumulative_caveat_title">Each hop adds latency</string>
     <string name="config_relay_chain_cumulative_latency_caveat">Measured cumulative latency across all hops: %1$d ms.</string>
     <string name="config_relay_masque_url">MASQUE URL</string>
+    <string name="config_relay_masque_auth_none">None</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_preshared">Preshared</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>

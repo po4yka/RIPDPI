@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
+import com.poyka.ripdpi.data.RelayMasqueAuthModeNone
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayMasqueTcpProtocolHttp2
@@ -107,8 +108,11 @@ internal fun validateMasqueRelayCredentials(
                 true
             }
 
-            // No auth mode and no secrets (resolveMasqueAuthModeSupport infers a mode from any secret): unauthenticated.
-            null -> {
+            // An explicit "none", or no auth mode and no secrets
+            // (resolveMasqueAuthModeSupport infers a mode from any secret): unauthenticated.
+            RelayMasqueAuthModeNone,
+            null,
+            -> {
                 true
             }
 

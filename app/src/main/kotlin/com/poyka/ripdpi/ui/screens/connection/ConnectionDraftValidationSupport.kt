@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
+import com.poyka.ripdpi.data.RelayMasqueAuthModeNone
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayMieruMtuMax
@@ -486,6 +487,10 @@ private fun masqueAuthError(
     supportsMasquePrivacyPass: Boolean,
 ): String? =
     when (normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode)) {
+        RelayMasqueAuthModeNone -> {
+            null
+        }
+
         RelayMasqueAuthModeBearer,
         RelayMasqueAuthModePreshared,
         -> {

@@ -66,6 +66,17 @@ fn a_malformed_client_certificate_fails_before_connect_in_any_auth_mode() {
     assert_eq!(io::ErrorKind::InvalidInput, error.kind());
 }
 
+#[test]
+fn explicit_none_auth_mode_sends_no_auth_header() {
+    let mut config = privacy_pass_test_config("https://provider.example/token".to_string(), None);
+    config.auth_mode = Some("none".to_string());
+    config.auth_token = Some("stale".to_string());
+    config.privacy_pass_provider_url = None;
+    assert_eq!(config.effective_auth_mode(), crate::config::MasqueAuthMode::None);
+    MasqueClient::new(config.clone()).expect("explicit none is a supported auth mode");
+    assert!(crate::auth::build_static_auth_header(&config).expect("header").is_none());
+}
+
 fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&str>) -> MasqueConfig {
     MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,

@@ -139,6 +139,7 @@
     <string name="config_relay_chain_cumulative_caveat_title">Cada salto adiciona latência</string>
     <string name="config_relay_chain_cumulative_latency_caveat">Latência acumulada medida em todos os saltos: %1$d ms.</string>
     <string name="config_relay_masque_url">URL do MASQUE</string>
+    <string name="config_relay_masque_auth_none">Sem autenticação</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_preshared">Pré-compartilhada</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>

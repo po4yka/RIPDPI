@@ -889,6 +889,7 @@ Source : %2$s</string>
     <string name="config_relay_naive_server_pin">Épinglage du certificat serveur (facultatif)</string>
     <string name="config_relay_naive_server_pin_helper">SHA-256 du certificat feuille du serveur (64 chiffres hexadécimaux). S\'il est défini, le serveur n\'est accepté que si son certificat correspond, sans chaîne d\'AC publique ni vérification du nom d\'hôte. Laissez vide pour la validation normale.</string>
     <string name="config_relay_naive_server_pin_error_invalid">Saisissez une empreinte SHA-256 : 64 chiffres hexadécimaux, avec deux-points facultatifs.</string>
+    <string name="config_relay_masque_auth_none">Aucune authentification</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Collez la chaîne PEM ou importez un fichier de certificat.</string>
     <string name="config_relay_masque_http2">Autoriser le repli TCP HTTP/2</string>

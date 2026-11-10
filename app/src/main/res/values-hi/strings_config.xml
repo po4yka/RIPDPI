@@ -139,6 +139,7 @@
     <string name="config_relay_chain_cumulative_caveat_title">हर हॉप विलंब बढ़ाता है</string>
     <string name="config_relay_chain_cumulative_latency_caveat">सभी हॉप में मापा गया संचयी विलंब: %1$d ms।</string>
     <string name="config_relay_masque_url">MASQUE URL</string>
+    <string name="config_relay_masque_auth_none">कोई प्रमाणीकरण नहीं</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_preshared">पूर्व-साझा</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
