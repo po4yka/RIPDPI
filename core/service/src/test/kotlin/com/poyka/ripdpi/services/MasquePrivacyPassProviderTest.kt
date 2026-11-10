@@ -54,6 +54,17 @@ class MasquePrivacyPassProviderTest {
     }
 
     @Test
+    fun `provider accepts plain http only for loopback hosts`() {
+        fun status(url: String): MasquePrivacyPassBuildStatus =
+            BuildConfigMasquePrivacyPassProvider(MasquePrivacyPassProviderSettings(providerUrl = url)).buildStatus()
+
+        listOf("http://127.0.0.1:8080/t", "http://localhost/t", "http://[::1]:9/t", "https://provider.example/t")
+            .forEach { assertEquals(it, MasquePrivacyPassBuildStatus.Available, status(it)) }
+        listOf("http://provider.example/t", "ftp://localhost/t")
+            .forEach { assertEquals(it, MasquePrivacyPassBuildStatus.InvalidProviderUrl, status(it)) }
+    }
+
+    @Test
     fun `provider resolves runtime config when build settings are valid`() {
         val providerAuthToken = providerAuthFixture()
         val provider =

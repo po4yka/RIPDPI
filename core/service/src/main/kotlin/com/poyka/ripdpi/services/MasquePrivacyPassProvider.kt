@@ -117,14 +117,21 @@ internal class BuildConfigMasquePrivacyPassProvider
                 return MasquePrivacyPassReadiness.MissingProviderUrl
             }
             val parsed = runCatching { java.net.URI(providerUrl) }.getOrNull()
-            val isSupportedScheme = parsed?.scheme in setOf("https", "http")
-            val hasHost = !parsed?.host.isNullOrBlank()
-            if (!isSupportedScheme || !hasHost) {
+            val host = parsed?.host
+            val isSupportedScheme =
+                when (parsed?.scheme?.lowercase()) {
+                    "https" -> true
+                    "http" -> host != null && host.trim('[', ']').lowercase() in LoopbackHosts
+                    else -> false
+                }
+            if (!isSupportedScheme || host.isNullOrBlank()) {
                 return MasquePrivacyPassReadiness.InvalidProviderUrl
             }
             return MasquePrivacyPassReadiness.Ready
         }
     }
+
+private val LoopbackHosts: Set<String> = setOf("127.0.0.1", "localhost", "::1")
 
 @Module
 @InstallIn(SingletonComponent::class)
