@@ -207,6 +207,7 @@ mod tests {
             profile_id: "default".to_string(),
             listen_host: "127.0.0.1".to_string(),
             listen_port: 11_980,
+            local_socks_auth: None,
             google_ip: "142.250.0.1".to_string(),
             front_domain: "script.example".to_string(),
             script_ids: vec![],

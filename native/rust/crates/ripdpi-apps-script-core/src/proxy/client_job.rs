@@ -10,12 +10,15 @@ use crate::mitm::MitmCertManager;
 use crate::proxy::socks_session;
 use crate::telemetry::SharedTelemetryState;
 
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation drops the owned socket and its partial handshake.
 pub(crate) async fn handle(
     stream: TcpStream,
     relay: Arc<AppsScriptDomainFronter>,
     mitm: Arc<Mutex<MitmCertManager>>,
     telemetry: SharedTelemetryState,
     hosts: HashMap<String, String>,
+    local_socks_auth: Option<crate::config::LocalSocksAuth>,
 ) -> io::Result<()> {
-    socks_session::handle(stream, relay, mitm, telemetry, hosts).await
+    socks_session::handle(stream, relay, mitm, telemetry, hosts, local_socks_auth).await
 }

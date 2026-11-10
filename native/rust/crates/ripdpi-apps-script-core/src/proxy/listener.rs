@@ -20,7 +20,7 @@ const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 /// up to a 16 MiB request body; a connection above the cap is closed at once.
 pub(crate) const MAX_CLIENT_CONNECTIONS: usize = 256;
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: the accept loop holds no partial-protocol state across awaits;
 /// per-connection work runs in spawned JoinSet tasks. On drop the JoinSet aborts
@@ -61,9 +61,10 @@ pub(crate) async fn run(
                 let mitm = mitm.clone();
                 let telemetry = telemetry.clone();
                 let hosts = config.hosts.clone();
+                let local_socks_auth = config.local_socks_auth.clone();
                 spawn_reaped(&mut tasks, async move {
                     let _slot = slot;
-                    let _ = client_job::handle(stream, relay, mitm, telemetry, hosts).await;
+                    let _ = client_job::handle(stream, relay, mitm, telemetry, hosts, local_socks_auth).await;
                 });
             }
             Ok(Err(error)) => {

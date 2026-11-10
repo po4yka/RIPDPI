@@ -18,6 +18,7 @@ pub struct AppsScriptRuntimeConfig {
     pub profile_id: String,
     pub listen_host: String,
     pub listen_port: u16,
+    pub(crate) local_socks_auth: Option<LocalSocksAuth>,
     pub google_ip: String,
     pub front_domain: String,
     pub script_ids: Vec<String>,
@@ -29,6 +30,12 @@ pub struct AppsScriptRuntimeConfig {
     pub hosts: HashMap<String, String>,
 }
 
+#[derive(Clone)]
+pub(crate) struct LocalSocksAuth {
+    pub username: String,
+    pub password: String,
+}
+
 impl fmt::Debug for AppsScriptRuntimeConfig {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
@@ -37,6 +44,7 @@ impl fmt::Debug for AppsScriptRuntimeConfig {
             .field("profile_id", &self.profile_id)
             .field("listen_host", &self.listen_host)
             .field("listen_port", &self.listen_port)
+            .field("local_socks_auth", &self.local_socks_auth.as_ref().map(|_| "<redacted>"))
             .field("google_ip", &self.google_ip)
             .field("front_domain", &self.front_domain)
             .field("script_ids", &"<redacted>")
@@ -75,8 +83,7 @@ impl AppsScriptRuntimeConfig {
             .or(raw.listen_host.clone())
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| DEFAULT_LISTEN_HOST.to_string());
-        // The SOCKS listener takes NO-AUTH only, so it must never be reachable off-device
-        // (the same rule as relay-core's validate_runtime_config).
+        // Session authentication does not permit an off-device listener.
         let host = listen_host.trim();
         if host != "localhost" && !host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
             return Err(io::Error::new(
@@ -99,6 +106,7 @@ impl AppsScriptRuntimeConfig {
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| DEFAULT_FRONT_DOMAIN.to_string());
         let script_ids = resolve_script_ids(&raw)?;
+        let local_socks_auth = resolve_local_socks_auth(&raw)?;
         let sni_hosts = normalize_string_list(raw.sni_hosts.unwrap_or_default());
         let auth_key = raw
             .auth_key
@@ -119,6 +127,7 @@ impl AppsScriptRuntimeConfig {
             profile_id: raw.profile_id.unwrap_or_default(),
             listen_host,
             listen_port,
+            local_socks_auth,
             google_ip,
             front_domain,
             script_ids,
@@ -181,6 +190,10 @@ struct RawAppsScriptRuntimeConfig {
     local_socks_host: Option<String>,
     #[serde(default, alias = "local_socks_port")]
     local_socks_port: Option<i32>,
+    #[serde(default, alias = "local_socks_username")]
+    local_socks_username: Option<String>,
+    #[serde(default, alias = "local_socks_password")]
+    local_socks_password: Option<String>,
     #[serde(default, alias = "google_ip", alias = "appsScriptGoogleIp")]
     google_ip: Option<String>,
     #[serde(default, alias = "front_domain", alias = "appsScriptFrontDomain")]
@@ -210,6 +223,21 @@ struct RawAppsScriptRuntimeConfig {
     server_name: Option<String>,
     #[serde(default, alias = "xhttp_path")]
     xhttp_path: Option<String>,
+}
+
+fn resolve_local_socks_auth(raw: &RawAppsScriptRuntimeConfig) -> io::Result<Option<LocalSocksAuth>> {
+    match (&raw.local_socks_username, &raw.local_socks_password) {
+        (None, None) => Ok(None),
+        (Some(username), Some(password))
+            if (1..=255).contains(&username.len()) && (1..=255).contains(&password.len()) =>
+        {
+            Ok(Some(LocalSocksAuth { username: username.clone(), password: password.clone() }))
+        }
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "local SOCKS credentials require two fields of 1 to 255 bytes",
+        )),
+    }
 }
 
 fn resolve_script_ids(raw: &RawAppsScriptRuntimeConfig) -> io::Result<Vec<String>> {
@@ -395,5 +423,26 @@ mod tests {
             err.to_string().contains("not supported for Apps Script fronting"),
             "error message must explain why: {err}"
         );
+    }
+    #[test]
+    fn local_socks_credentials_require_a_complete_bounded_pair() {
+        for (username, password) in [
+            (None, Some("pass".to_string())),
+            (Some("user".to_string()), None),
+            (Some(String::new()), Some("pass".to_string())),
+            (Some("user".to_string()), Some("é".repeat(128))),
+            (Some("x".repeat(256)), Some("pass".to_string())),
+        ] {
+            let json = serde_json::json!({"scriptIds":["script-id"],"authKey":"secret",
+                "localSocksUsername":username,"localSocksPassword":password});
+            let error = AppsScriptRuntimeConfig::from_json(&json.to_string()).expect_err("invalid pair");
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+            assert!(!error.to_string().contains("pass"));
+        }
+        let json = serde_json::json!({"scriptIds":["script-id"],"authKey":"secret",
+            "local_socks_username":"u".repeat(255),"local_socks_password":"p".repeat(255)});
+        let config = AppsScriptRuntimeConfig::from_json(&json.to_string()).expect("maximum pair");
+        assert!(config.local_socks_auth.is_some());
+        assert!(!format!("{config:?}").contains(&"p".repeat(255)));
     }
 }
