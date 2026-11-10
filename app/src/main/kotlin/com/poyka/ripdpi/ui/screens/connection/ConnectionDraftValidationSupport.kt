@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NaiveExtraHeadersError
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.NativeVlessCapabilities
-import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
@@ -340,23 +339,18 @@ private fun ConnectionDraft.nativeVlessRejection(security: String): String? =
 private fun validateCloudflareTunnelDraft(draft: ConnectionDraft): Map<String, String> =
     buildMap {
         if (draft.relayServer.isBlank()) put(ConnectionFieldRelayServer, "required")
-        when (normalizeRelayCloudflareTunnelMode(draft.relayCloudflareTunnelMode)) {
-            RelayCloudflareTunnelModeConsumeExisting -> {
-                if (draft.relayVlessUuid.isBlank()) {
-                    put(ConnectionFieldRelayCredentials, "required")
-                }
+        if (draft.relayVlessUuid.isBlank()) put(ConnectionFieldRelayCredentials, "required")
+        if (normalizeRelayCloudflareTunnelMode(draft.relayCloudflareTunnelMode) ==
+            RelayCloudflareTunnelModePublishLocalOrigin
+        ) {
+            if (draft.relayCloudflarePublishLocalOriginUrl.isBlank()) {
+                put(ConnectionFieldRelayCloudflarePublishOrigin, "required")
             }
-
-            RelayCloudflareTunnelModePublishLocalOrigin -> {
-                if (draft.relayCloudflarePublishLocalOriginUrl.isBlank()) {
-                    put(ConnectionFieldRelayCloudflarePublishOrigin, "required")
-                }
-                if (
-                    draft.relayCloudflareTunnelToken.isBlank() &&
-                    draft.relayCloudflareTunnelCredentialsJson.isBlank()
-                ) {
-                    put(ConnectionFieldRelayCredentials, "required")
-                }
+            if (
+                draft.relayCloudflareTunnelToken.isBlank() &&
+                draft.relayCloudflareTunnelCredentialsJson.isBlank()
+            ) {
+                put(ConnectionFieldRelayCredentials, "required")
             }
         }
         if (draft.relayUdpEnabled) {
