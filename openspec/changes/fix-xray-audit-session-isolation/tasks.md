@@ -12,7 +12,7 @@ See the linked portfolio task for exact worktree and serialized-file ownership. 
 
 - [x] RLY-1794335407480209 Isolate managed Go UDP and update authenticated diagnostic clients #bug !high @item:RLY-1794335291032951
 - [x] RLY-1794335408051246 Release unavailable stub ownership and preserve linked cleanup guards #bug !high @item:RLY-1794335291032951
-- [ ] RLY-1794335408527493 Review and validate both fixes and artifact provenance #chore !high @item:RLY-1794335291032951
+- [x] RLY-1794335408527493 Review and validate both fixes and artifact provenance #chore !high @item:RLY-1794335291032951
 
 ## Verification
 

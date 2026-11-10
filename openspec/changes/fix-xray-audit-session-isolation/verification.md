@@ -1,15 +1,15 @@
 ---
 task_id: RLY-1794335291032951
 change: fix-xray-audit-session-isolation
-commit_sha: null
-local: required
-local_evidence: Pending owning Kotlin, Rust, Go tests and offline CI gates.
+commit_sha: 14026caa85f63e0a18069e45dbe5b117b64c10a8
+local: passed
+local_evidence: Owning Kotlin, Rust and pinned Go regressions, race checks, independent loopback interop, staticAnalysis, just ci-gates and independent re-review passed.
 remote_ci: not_applicable
 remote_ci_evidence: No manual remote workflow dispatch is needed; push checks are recorded separately.
 device: not_applicable
 device_evidence: This change uses host regression and real Go/Rust loopback tests for the private hop; Android platform APIs are unchanged and device execution is not claimed.
-artifact: required
-artifact_evidence: Pending rebuilt pinned patched AAR and verifier receipt.
+artifact: passed
+artifact_evidence: Full four-ABI build and --release verifier passed; content-bound receipt is artifacts/libxray-artifact.json; AAR SHA256 a2011027f9bfae605f443dc56b3ae4959b3cbc681946d059a16a008761491df2.
 deployment: not_applicable
 deployment_evidence: No deployment or release is owned by this change.
 ---
@@ -32,5 +32,21 @@ deployment_evidence: No deployment or release is owned by this change.
 - Pinned Go host source: full `scripts/native/test-libxray-protection.py` passes; `go test -race -mod=readonly -count=5 -timeout=90s -run TestManagedUDP -v ./xray` passes. Regressions include raw/CMD3 rejection, wrong nonce/source/replay, control EOF, stop with idle control and pending handshake, reply pins, authority limits, empty local datagrams and 8192-byte boundary behavior.
 - Final Rust-to-Go loopback: `/tmp/rly18-interop-final.log`; two new authenticated associations each returned the exact 25-byte payload. This uses the actual production diagnostic helper and patched Go binary, without fake bridge or copied request algorithm.
 - Final TLS/REALITY x TCP/xHTTP matrix: `/tmp/rly18-final-matrix-path` points to full temporary logs/configs. All 14 rows pass TCP and UDP53; 12 pass UDP443 and two normal Vision rows explicitly reject it. All 14 wrong-password attempts fail RFC1929 authentication. TLS uses a temporary CA verification overlay, not allowInsecure. No external network or device acceptance is claimed.
-- Architecture check passed with zero new/worsened/stale indicators; locked cargo metadata resolves 113 workspace members. Final `just ci-gates` and rebuilt full-ABI AAR receipt remain pending below.
+- Architecture check passed with zero new/worsened/stale indicators; locked cargo metadata resolves 113 workspace members. Final `just ci-gates` passed, including source contracts, locale exports and Rust API snapshots. The Linux-owned runtime-platform snapshot is skipped by the owning recipe on Darwin. Full-ABI AAR evidence follows.
 - Independent review found two issues in the first proposed fix (runtime-owned UDP teardown and wrong-target diagnostic errors). Both were reproduced, corrected and re-reviewed without remaining findings.
+
+## Artifact evidence
+
+The repository build recipe produced an AAR for armeabi-v7a, arm64-v8a, x86 and x86_64, then the explicit `scripts/native/verify-libxray-artifacts.sh --release` command passed. The unmodified generated schema-2 receipt is saved in `artifacts/libxray-artifact.json`. The build used pinned Go 1.27.3, gomobile and Android NDK; no signing, release upload or physical-device action was performed.
+
+- Patch SHA256: `b82b9dbcc2c07c4c98a4ad0e22a1b862bce1c5bc39c34092b4f9bb742e018e1a`.
+- AAR SHA256: `a2011027f9bfae605f443dc56b3ae4959b3cbc681946d059a16a008761491df2`.
+- Patch-manifest SHA256: `b50674e901098875de215124e275d12c4ccb57815e2e8d6c9ddd5b8172d07b61`.
+- Local artifact directory: `/var/folders/z7/0w5jl61d0qq811sptzvn99n5ww3hp6/T/rly18-verified-aar-ehtruxs1`.
+- Build log: `/tmp/rly18-verified-aar-build.log`.
+
+An earlier AAR attempt failed with `No space left on device`; a concurrent pre-commit clippy hook also failed. After removing only the task-owned disposable Go test cache, the same hooks passed without source changes and the complete four-ABI build passed. An earlier source snapshot build was deliberately stopped when review required the lifecycle correction.
+
+This receipt proves the artifact built for this change. It does not attest historical APK payloads, external server compatibility or Android JNI/VPN execution. Linked bridge unit checks compile against this actual AAR but do not load Android gojni on the host.
+
+Linked AAR check: `:core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.XrayNativeBridgeLibXrayImplTest` with the actual verified prebuilt AAR passed 16 tests, zero failures/errors/skips, in a successful Gradle build. Host unit tests do not execute Android JNI.

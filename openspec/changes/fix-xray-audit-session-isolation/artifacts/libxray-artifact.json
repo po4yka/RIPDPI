@@ -1,0 +1,25 @@
+{
+  "aarSha256": "a2011027f9bfae605f443dc56b3ae4959b3cbc681946d059a16a008761491df2",
+  "abis": [
+    "armeabi-v7a",
+    "arm64-v8a",
+    "x86",
+    "x86_64"
+  ],
+  "buildRecipeSha256": "7e1142dcff71618506439d0a2771f5bff6ac5f6ef295a7454e2accb9b8086a13",
+  "channel": "stable",
+  "goModSha256": "364cd8c2f9276e383267de0054d4c6928ce9c8c2bd86b230e8ffbe2d403e6099",
+  "goSumSha256": "f0c5a939e298c505724f7a6d23155ed0bbf16508b726bf92d37e16887df48fa4",
+  "goVersion": "go1.27.3",
+  "gomobile": "0.0.0-20260529142300-ecb4cd65260a",
+  "grpc": "1.79.3",
+  "grpcModuleSum": "h1:sybAEdRIEtvcD68Gx7dmnwjZKlyfuc61Dyo9pGXXkKE=",
+  "libxray": "v26.3.27",
+  "libxrayCommit": "38ae3cd8914d5bc2a7f81122fc6206efe3c07ad6",
+  "minSdk": "27",
+  "ndkVersion": "29.0.14206865",
+  "patchManifestSha256": "b50674e901098875de215124e275d12c4ccb57815e2e8d6c9ddd5b8172d07b61",
+  "schemaVersion": 2,
+  "xrayCore": "1.260327.0",
+  "xrayCoreModuleSum": "h1:g4TzxMwyPrxslZh6uD+FiG3lXKTrnNO+b4ky2OhogHE="
+}
