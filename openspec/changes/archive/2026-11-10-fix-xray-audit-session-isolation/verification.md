@@ -50,3 +50,11 @@ An earlier AAR attempt failed with `No space left on device`; a concurrent pre-c
 This receipt proves the artifact built for this change. It does not attest historical APK payloads, external server compatibility or Android JNI/VPN execution. Linked bridge unit checks compile against this actual AAR but do not load Android gojni on the host.
 
 Linked AAR check: `:core:engine:testDebugUnitTest --tests com.poyka.ripdpi.core.XrayNativeBridgeLibXrayImplTest` with the actual verified prebuilt AAR passed 16 tests, zero failures/errors/skips, in a successful Gradle build. Host unit tests do not execute Android JNI.
+
+## Published history after rebase
+
+The source changes were rebased onto `49543da310d16fcd38dcddd18cae46f650739f6d` before integration because parallel relay/service fixes reached main. The immutable archive receipt retains the original tested source snapshot `14026caa85f63e0a18069e45dbe5b117b64c10a8`. Its published equivalent is `69b186cc290dba133f10c9e21bf2adeda0ddcdf5` (UDP fix); the stub fix is `dc16daadb8f3ca2051570526c2d10642bdc7929d`.
+
+A scoped Git diff between original and rebased snapshots is empty for all changed engine, Xray patch, diagnostic client and Go test paths. The pinned source/patch digest and AAR content receipt therefore remain unchanged. The rebased Kotlin service tests and full static analysis with the actual AAR, plus offline CI gates, are rerun for the changed upstream service inputs. Final results are recorded below.
+
+Rebased results: `:core:service:testDebugUnitTest --tests '*Xray*' staticAnalysis` with the verified real AAR and `requireLibXray=true` passed in 3m21s. All 68 Xray service tests (nine classes) passed with zero failures/errors/skips. The full `just ci-gates` also passed on this rebased tree. No code changed after these checks. Historical snapshot and archive receipt fields remain intact; the current published source equivalence is documented above.
