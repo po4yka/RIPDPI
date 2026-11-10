@@ -15,6 +15,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicBoolean
 
+// 1..=30 byte text is a valid Xray id (UUIDv5); 36 non-hex bytes stay invalid.
+private const val MALFORMED_VLESS_ID = "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz"
+
 class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
     @Test
     fun `unsupported response preserves the accepted reserves and update timestamp`() =
@@ -60,9 +63,9 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
         runTest {
             val payloads =
                 listOf(
-                    realitySingBoxPayload.replace(validUuid, "malformed-uuid"),
+                    realitySingBoxPayload.replace(validUuid, MALFORMED_VLESS_ID),
                     realitySingBoxPayload.replace(validKey, "malformed-key"),
-                    realityClashPayload.replace(validUuid, "malformed-uuid"),
+                    realityClashPayload.replace(validUuid, MALFORMED_VLESS_ID),
                     realityClashPayload.replace(validKey, "malformed-key"),
                 )
             payloads.forEach { assertRejectedRefreshPreservesGroup(it) }

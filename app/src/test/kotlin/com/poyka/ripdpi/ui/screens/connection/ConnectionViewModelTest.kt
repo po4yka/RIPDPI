@@ -419,7 +419,7 @@ class ConnectionViewModelTest {
                     relayServerName = "relay.example",
                     relayRealityPublicKey = validRealityPublicKey,
                     relayRealityShortId = "",
-                    relayVlessUuid = "not-a-uuid",
+                    relayVlessUuid = "zzzzzzzz-zzzz-zzzz-zzzz-zzzzzzzzzzzz",
                 ),
             )
 
