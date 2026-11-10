@@ -47,14 +47,12 @@ pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) 
             }
             _ => true,
         };
-    // The per-kind descriptor cannot express sub-modes: VLESS Reality pools
-    // its carrier only in the xhttp sub-mode (the factory reports
-    // `reusable = mux.is_some()`), while reality_tcp stays single-carrier.
-    // Mirror the pool policy here so pre-build telemetry tells the truth.
-    let reusable = if matches!(RelayKind::from_config(config), RelayKind::VlessReality { xhttp: true }) {
-        true
-    } else {
-        descriptor.reusable
+    // Per-kind descriptors cannot express mux settings; match the built factories.
+    let reusable = match RelayKind::from_config(config) {
+        RelayKind::VlessReality { xhttp: true } => true,
+        RelayKind::VlessReality { xhttp: false } => vless_mux_stream_limit(config).is_some(),
+        RelayKind::Mieru => mieru_mux_stream_limit(config).is_some(),
+        _ => descriptor.reusable,
     };
     RelayCapabilities { tcp: descriptor.tcp, udp, reusable }
 }

@@ -3,6 +3,29 @@ use std::sync::Arc;
 
 use crate::socks::UdpCarrier;
 
+/// # Cancel safety:
+/// cancel-safe: these lazy backends open no carrier and own no running tasks.
+#[tokio::test]
+async fn planned_reuse_matches_built_mux_backends() {
+    for level in ["off", "low", "middle", "high"] {
+        let mut config = sample_config("mieru");
+        let RelayBackendConfig::Mieru(mieru) = &mut config.backend else { unreachable!() };
+        mieru.multiplexing = level.to_owned();
+        let backend = build_backend(&config).await.expect("Mieru backend");
+        assert_eq!(planned_backend_capabilities(&config).reusable, backend.capabilities().reusable, "Mieru {level}");
+    }
+    for mux in ["", "yamux"] {
+        let mut config = sample_config("vless_reality");
+        let vless = vless_config_mut(&mut config);
+        vless.reality_public_key = valid_reality_public_key();
+        vless.vless_flow = "none".to_owned();
+        vless.vless_mux_protocol = mux.to_owned();
+        vless.vless_mux_max_concurrent_streams = 4;
+        let backend = build_backend(&config).await.expect("Reality backend");
+        assert_eq!(planned_backend_capabilities(&config).reusable, backend.capabilities().reusable, "Reality {mux}");
+    }
+}
+
 #[tokio::test]
 async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
     let mut config = sample_config("cloudflare_tunnel");

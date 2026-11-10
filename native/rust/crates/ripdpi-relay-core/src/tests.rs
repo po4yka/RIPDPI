@@ -1383,8 +1383,8 @@ fn shadowsocks_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Shado
 }
 
 #[test]
-fn planned_capabilities_report_mux_reuse_only_for_the_xhttp_submode() {
-    // reality_tcp: single carrier, never reusable — matches the descriptor.
+fn planned_capabilities_report_xhttp_reuse_and_unmuxed_tcp() {
+    // Unmuxed reality_tcp opens one carrier per stream, matching the descriptor.
     let reality_tcp = sample_config("vless_reality");
     assert!(!planned_backend_capabilities(&reality_tcp).reusable, "reality_tcp must stay single-carrier");
 
