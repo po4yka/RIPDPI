@@ -65,14 +65,12 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
                 realityPublicKey = profile.realityPublicKey,
                 realityShortId = profile.realityShortId,
             )
-            require(
-                profile.xhttpMaxConnections == null ||
-                    (
-                        profile.xhttpMaxConnections in 1..MaxBoundedXhttpConnections &&
-                            profile.xhttpMode == RelayXhttpModeStreamUp &&
-                            (profile.xhttpPath != null || profile.xhttpHost != null)
-                    ),
-            ) { "Unsupported XHTTP pool settings" }
+            requireSupportedXhttpPool(
+                maxConnections = profile.xhttpMaxConnections,
+                mode = profile.xhttpMode,
+                path = profile.xhttpPath,
+                host = profile.xhttpHost,
+            )
             require(nativeVlessProfileRejection(profile) == null) { nativeVlessProfileRejection(profile).orEmpty() }
             true
         }
@@ -82,14 +80,12 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             require(profile.serverPort in RelayPortRange) { "VLESS requires a valid server port" }
             require(!profile.serverName.isNullOrBlank()) { "VLESS requires a TLS server name" }
             require(isValidVlessUuid(profile.uuid)) { "VLESS requires a valid UUID" }
-            require(
-                profile.xhttpMaxConnections == null ||
-                    (
-                        profile.xhttpMaxConnections in 1..MaxBoundedXhttpConnections &&
-                            profile.xhttpMode == RelayXhttpModeStreamUp &&
-                            (profile.xhttpPath != null || profile.xhttpHost != null)
-                    ),
-            ) { "Unsupported XHTTP pool settings" }
+            requireSupportedXhttpPool(
+                maxConnections = profile.xhttpMaxConnections,
+                mode = profile.xhttpMode,
+                path = profile.xhttpPath,
+                host = profile.xhttpHost,
+            )
             require(nativeVlessProfileRejection(profile) == null) { nativeVlessProfileRejection(profile).orEmpty() }
             true
         }
@@ -128,11 +124,7 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
         }
 
         is ProxyProfile.Mieru -> {
-            require(profile.server.isNotBlank()) { "Mieru requires a server hostname" }
-            require(profile.serverPort in RelayPortRange) { "Mieru requires a valid server port" }
-            require(isValidRelayMieruUsername(profile.username)) { "Mieru requires a user name of at most 64 bytes" }
-            require(profile.password.isNotBlank()) { "Mieru requires a password" }
-            require(profile.protocol == RelayMieruProtocolTcp) { "Mieru supports only the TCP carrier" }
+            validateMieruProfileFields(profile)
             true
         }
 
@@ -252,3 +244,25 @@ private const val VlessUuidMaxMappedBytes = 30
 private val VlessUuidPattern = Regex("[0-9a-fA-F]{32}|[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 private const val RealityPublicKeyByteLength = 32
 private const val RealityShortIdMaxHexLength = 16
+
+private fun validateMieruProfileFields(profile: ProxyProfile.Mieru) {
+    require(profile.server.isNotBlank()) { "Mieru requires a server hostname" }
+    require(profile.serverPort in RelayPortRange) { "Mieru requires a valid server port" }
+    require(isValidRelayMieruUsername(profile.username)) { "Mieru requires a user name of at most 64 bytes" }
+    require(profile.password.isNotBlank()) { "Mieru requires a password" }
+    require(profile.protocol == RelayMieruProtocolTcp) { "Mieru supports only the TCP carrier" }
+}
+
+private fun requireSupportedXhttpPool(
+    maxConnections: Int?,
+    mode: String,
+    path: String?,
+    host: String?,
+) {
+    if (maxConnections == null) return
+    require(
+        maxConnections in 1..MaxBoundedXhttpConnections &&
+            mode == RelayXhttpModeStreamUp &&
+            (path != null || host != null),
+    ) { "Unsupported XHTTP pool settings" }
+}
