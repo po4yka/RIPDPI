@@ -149,7 +149,8 @@ internal class UnconfiguredTorPluggableTransportProvider : TorPluggableTransport
         error("Tor pluggable transport provider is not configured")
 }
 
-private const val MaxLegacyTorProfileLength = 200
+// Safe legacy IDs are ASCII, so character count equals the filename byte count.
+private const val MaxLegacyTorProfileLength = 255
 
 private fun torProfilePath(profileId: String): String {
     // Keep unambiguous legacy paths. Sanitized legacy state has no owner and must not be copied.
