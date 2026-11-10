@@ -125,6 +125,12 @@ AES-GCM with an Android Keystore key and namespace/record ID authentication.
 Room manages rollback and WAL recovery; the application does not replay mutations
 on normal reads or use compensating writes.
 
+Explicit native relay activation commits the Native provider selection with the
+relay profile, credentials, and settings. Saving a profile without activation
+does not change the selected provider. Runtime resolution reads a relay profile
+and its credentials together through the mutation coordinator's recovered-read
+scope, so a concurrent mutation cannot combine two stored generations.
+
 `LegacyProfileImporter` reads the old preferences, protobuf file and pending
 journal once. It writes the complete snapshot and import marker in one transaction,
 then removes the old sources. A failed import leaves those sources intact. Reset
@@ -541,7 +547,10 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
 - The **relay native runtime config** carries required `schemaVersion: 10` on
   `ResolvedRipDpiRelayConfig`; Kotlin `RelayNativeConfigSchemaVersion` and Rust
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` match. Versions 6–9 are retired and
-  missing or future versions are rejected. Version 10 requires explicit
+  missing or future versions are rejected. JNI session dispatch checks the
+  envelope before it selects the Standard or Apps Script decoder. The standalone
+  Apps Script parser keeps its own aliases; it is not the JNI schema gate.
+  Version 10 requires explicit
   `tlsFingerprintProfile` values on the top-level relay config, every resolved
   chain hop, and every resolved ShadowTLS inner config; omission is a decode
   error rather than an implicit Chrome selection. The current chain-relay model is
@@ -571,6 +580,19 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   `RelayNativeConfigTest` (Kotlin `chainHops` 3-hop trip) and
   `ripdpi-relay-core::tests` (`chain_relay_three_hop_list_round_trips_through_flat_wire`,
   `chain_relay_wire_rejects_out_of_range_hop_count`).
+  Chain-hop mux fields in the Kotlin DTO are default-only reserved fields.
+  Current profile mappers leave them empty or zero; the native chain decoder
+  rejects non-default mux fields. Single-hop Reality mux support does not imply
+  chain-hop mux support.
+
+  Run `build-gate --lane ripdpi -- just test-relay-config-contract` on this Mac
+  to pass current Kotlin serializer output to the actual JNI session decoder.
+  Other hosts can run `just test-relay-config-contract` through their build gate.
+  The check covers omitted defaults, resolved nested identities, and current,
+  missing, retired, and future schema versions for both decoder paths. The
+  Gradle test owns the generated wire file as an output in this opt-in run, so
+  cached results retain the matching producer bytes. No checked-in golden is
+  generated or changed.
 - Hysteria2 uses one validated `Hysteria2PortHopping` value across subscription
   import, stored profiles, backup restore, selector projection, and activation.
   Its ports are a canonical comma-separated set of single ports and hyphen
