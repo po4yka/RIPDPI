@@ -276,7 +276,7 @@ class VlessRealityImportTest {
         assertEquals("ANOTHERKEY0987654321zyxwvutsrqpon", profile.realityPublicKey)
         assertEquals("ff001122", profile.realityShortId)
         assertEquals("sni.example.com", profile.serverName)
-        assertEquals("xtls-rprx-vision", profile.flow)
+        assertEquals("", profile.flow)
         assertNull(profile.fingerprint)
     }
 

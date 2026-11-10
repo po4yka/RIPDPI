@@ -28,9 +28,10 @@ class ProxyUriCodecTest {
         assertEquals("00000000-0000-0000-0000-000000000000", profile.uuid)
         assertEquals("prod-node", profile.displayName)
         assertEquals("TESTPUBLICKEY0011223344556677", profile.realityPublicKey)
-        // sni defaults to the host and flow to xtls-rprx-vision when omitted.
+        // sni defaults to the host and flow to empty when omitted.
         assertEquals("edge.example.com", profile.serverName)
-        assertEquals("xtls-rprx-vision", profile.flow)
+        assertEquals("", profile.flow)
+        assertFalse(NativeVlessCapabilities.supportsUdp("reality", "reality_tcp", profile.flow))
     }
 
     @Test

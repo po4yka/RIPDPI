@@ -158,11 +158,11 @@ class XrayConfigImportParserTest {
                 "realitySettings": { "publicKey": "$pbk" } } } ] }
             """.trimIndent()
         val profile = translate(config).profiles.single() as ProxyProfile.VlessReality
-        // serverName defaults to address, shortId to empty, flow to vision, fingerprint null,
+        // serverName defaults to address, shortId to empty, flow to empty, fingerprint null,
         // displayName to address when no tag.
         assertEquals("h.example", profile.serverName)
         assertEquals("", profile.realityShortId)
-        assertEquals("xtls-rprx-vision", profile.flow)
+        assertEquals("", profile.flow)
         assertNull(profile.fingerprint)
         assertEquals("h.example", profile.displayName)
     }
@@ -573,7 +573,7 @@ class XrayConfigImportParserTest {
         val profile = translate(config).profiles.single() as ProxyProfile.VlessReality
         assertNull(profile.xhttpPath)
         assertNull(profile.xhttpHost)
-        assertEquals("xtls-rprx-vision", profile.flow)
+        assertEquals("", profile.flow)
     }
 
     @Test

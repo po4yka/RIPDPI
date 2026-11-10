@@ -410,7 +410,7 @@ class ProxyUriCodecTest {
             ) as ProxyProfile.VlessReality
 
         assertEquals("", xhttp.flow)
-        assertEquals("xtls-rprx-vision", tcp.flow)
+        assertEquals("", tcp.flow)
     }
 
     @Test

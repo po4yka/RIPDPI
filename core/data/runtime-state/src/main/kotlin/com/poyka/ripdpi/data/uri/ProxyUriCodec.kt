@@ -305,7 +305,6 @@ object ProxyUriCodec {
         val supportedTransport = nativeTransport in NativeVlessCapabilities.transports(RelaySecurityLayerReality)
         return if (realityPublicKey != null && supportedTransport) {
             val isXhttp = nativeTransport == RelayVlessTransportXhttp
-            val defaultFlow = NativeVlessCapabilities.defaultFlow(RelaySecurityLayerReality, nativeTransport)
             ProxyProfile.VlessReality(
                 id = newId(),
                 displayName = displayName(parsed.fragment, host),
@@ -316,7 +315,7 @@ object ProxyUriCodec {
                 realityPublicKey = realityPublicKey,
                 realityShortId = queryValue(rawQuery, "sid").orEmpty(),
                 serverName = queryValue(rawQuery, "sni") ?: host,
-                flow = queryValue(rawQuery, "flow") ?: defaultFlow,
+                flow = queryValue(rawQuery, "flow").orEmpty(),
                 fingerprint = queryValue(rawQuery, "fp"),
                 xhttpPath = if (isXhttp) queryValue(rawQuery, "path").orEmpty() else null,
                 xhttpHost = if (isXhttp) queryValue(rawQuery, "host") else null,

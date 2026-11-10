@@ -1,10 +1,6 @@
 package com.poyka.ripdpi.data.subscription
 
-import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.RelaySecurityLayerReality
-import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
-import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.nativeVlessProfileRejection
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
@@ -549,12 +545,8 @@ private fun buildVlessReality(
         realityPublicKey = publicKey,
         realityShortId = reality.string("shortId").orEmpty(),
         serverName = reality.string("serverName") ?: address,
-        // XTLS Vision runs only over raw TLS/REALITY streams; xHTTP configs omit `flow`.
-        flow =
-            user.rawString("flow") ?: NativeVlessCapabilities.defaultFlow(
-                RelaySecurityLayerReality,
-                if (isXhttp) RelayVlessTransportXhttp else RelayVlessTransportRealityTcp,
-            ),
+        // An omitted flow means no flow, as in Xray config and the share-link standard.
+        flow = user.rawString("flow").orEmpty(),
         fingerprint = reality.string("fingerprint"),
         xhttpPath = if (isXhttp) xhttp?.rawString("path").orEmpty() else null,
         xhttpHost = if (isXhttp) xhttp?.rawString("host") else null,
