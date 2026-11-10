@@ -449,6 +449,9 @@ impl<R: Runtime> DirMgr<R> {
     ///
     /// Panics if the `DirMgr` passed to this function was not created in online mode, such as
     /// via `load_once`.
+    /// # Cancel safety
+    /// cancel-safe: a cancelled waiter leaves the updater owned by this manager.
+    /// A retry waits for a usable directory or the updater's schedule.
     #[instrument(level = "trace", skip_all)]
     pub async fn bootstrap(self: &Arc<Self>) -> Result<()> {
         if self.offline {
@@ -476,15 +479,18 @@ impl<R: Runtime> DirMgr<R> {
             v.store(false, Ordering::SeqCst);
         });
 
-        let schedule = {
-            let sched = self.task_schedule.lock().expect("poisoned lock").take();
-            match sched {
-                Some(sched) => sched,
-                None => {
-                    debug!("Attempted to bootstrap twice; ignoring.");
-                    return Ok(());
-                }
+        let schedule = loop {
+            // A cancelled bootstrap can leave its updater running. Its missing
+            // schedule is not evidence that the directory is ready.
+            let schedule = self.task_schedule.lock().expect("poisoned lock").take();
+            if let Some(schedule) = schedule {
+                break schedule;
             }
+            if self.netdir(Timeliness::Timely).is_ok() {
+                let _ = ScopeGuard::into_inner(reset_bootstrap_started);
+                return Ok(());
+            }
+            self.runtime.sleep(Duration::from_millis(100)).await;
         };
 
         // Try to load from the cache.

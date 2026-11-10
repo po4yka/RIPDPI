@@ -340,8 +340,8 @@ impl TorRelayClient {
     ///
     /// cancel-safe: the only `.await` is `apply_bootstrap_timeout`, which wraps
     /// `ArtiTorClient::bootstrap()`. Dropping this future before it resolves
-    /// cancels the in-flight bootstrap attempt without leaving partial state;
-    /// Arti's `bootstrap()` is documented as safely retryable afterwards.
+    /// cancels this waiter. Arti may retain its directory updater; a retry waits
+    /// for that updater to produce a usable directory or release its schedule.
     pub async fn bootstrap_with_timeout(&self, timeout: Duration) -> Result<(), TorError> {
         apply_bootstrap_timeout(self.inner.bootstrap(), timeout).await
     }
@@ -382,8 +382,9 @@ impl TorRelayClient {
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: `tokio::time::timeout` is cancel-safe and simply drops the
-/// inner future if this future is dropped; no state escapes.
+/// conditionally cancel-safe: timeout drops the inner waiter. The inner future
+/// must retain consistent owned state on cancellation; Arti may keep its
+/// directory updater running so a later bootstrap can await its result.
 async fn apply_bootstrap_timeout<F>(bootstrap: F, timeout: Duration) -> Result<(), TorError>
 where
     F: Future<Output = arti_client::Result<()>>,
