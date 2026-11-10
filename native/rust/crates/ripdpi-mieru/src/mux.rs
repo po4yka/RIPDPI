@@ -436,7 +436,9 @@ impl MieruMuxConnection {
     /// or aborts an overloaded carrier. Committed commands remain writer-owned;
     /// pump registration and stream publication have no intervening await.
     pub async fn open_stream(&self, target: &str) -> Result<MieruStream> {
-        match self.open_stream_inner(target).await {
+        // A bad target is the caller's error whatever the server does.
+        let request = socks5_connect_request(target)?;
+        match self.open_stream_inner(&request).await {
             // Ordering: see `run_reader`. A server that never answered with an
             // authenticated segment is far likelier to be rejecting the
             // credentials or clock than to be broken in a way the raw error shows.
@@ -445,7 +447,7 @@ impl MieruMuxConnection {
         }
     }
 
-    async fn open_stream_inner(&self, target: &str) -> Result<MieruStream> {
+    async fn open_stream_inner(&self, request: &[u8]) -> Result<MieruStream> {
         let permit = Arc::clone(&self.limit)
             .acquire_owned()
             .await
@@ -461,7 +463,7 @@ impl MieruMuxConnection {
         // wedged or half-broken carrier cannot hang the caller indefinitely.
         let handshake = match timeout(HANDSHAKE_TIMEOUT, async {
             self.writer.send_open(session_id).await?;
-            mux_socks5_connect(&self.writer, &mut reader, session_id, target).await
+            mux_socks5_connect(&self.writer, &mut reader, session_id, request).await
         })
         .await
         {
@@ -631,16 +633,20 @@ async fn run_reader(
     stall: ReaderLink,
 ) {
     let mut calibrated = false;
+    // Time each stream with a backed-up mailbox has held the carrier back.
+    let mut blocked = HashMap::<u32, Duration>::new();
     loop {
         let Ok((meta, payload)) = dec.read_segment(&mut reader).await else { break };
-        // Ordering: Release pairs with the Acquire load in `open_stream`.
-        stall.authenticated.store(true, Ordering::Release);
         // Upstream rejects metadata whose minute is off by more than one; this
         // runs before calibration, which only refines the clock after a segment
-        // the server could legitimately have sent.
+        // the server could legitimately have sent. A segment rejected here does
+        // not count as an authenticated response, so a clock-skewed first reply
+        // reaches the caller as `NoAuthenticatedResponse`, which names the clock.
         if !timestamp_in_window(&meta, time.now_unix()) {
             break;
         }
+        // Ordering: Release pairs with the Acquire load in `open_stream`.
+        stall.authenticated.store(true, Ordering::Release);
         // Calibrate the shared replay clock once from the server's first
         // (AEAD-verified) timestamp; minute granularity makes per-segment
         // re-anchoring jitter backwards, so do it a single time.
@@ -669,11 +675,24 @@ async fn run_reader(
                         .map(|mailbox| mailbox.tx.clone())
                 };
                 if let Some(sender) = sender {
+                    // A caught-up consumer (empty mailbox) starts a fresh budget.
+                    if sender.capacity() == sender.max_capacity() {
+                        blocked.remove(&session_id);
+                    }
                     // A full mailbox delays the carrier (TCP back-pressure on the
-                    // server), as upstream does, so no byte is lost. Only a
-                    // consumer that makes no progress for `stall.timeout` loses
-                    // its stream; the others then resume.
-                    if sender.send_timeout(data, stall.timeout).await.is_err() {
+                    // server), as upstream does, so no byte is lost. The time a
+                    // stream holds the carrier back adds up across segments until
+                    // its consumer catches up, so a consumer that reads one
+                    // segment per almost-timeout still loses its stream and no
+                    // other stream waits longer than `stall.timeout` in total.
+                    let spent = blocked.get(&session_id).copied().unwrap_or_default();
+                    let started = tokio::time::Instant::now();
+                    let delivered = sender.send_timeout(data, stall.timeout.saturating_sub(spent)).await.is_ok();
+                    if started.elapsed() > Duration::ZERO {
+                        blocked.insert(session_id, spent + started.elapsed());
+                    }
+                    if !delivered {
+                        blocked.remove(&session_id);
                         deregister(&table, session_id);
                         stall.close_session(session_id);
                     }
@@ -709,6 +728,16 @@ async fn run_reader(
     table.lock().unwrap_or_else(PoisonError::into_inner).clear();
 }
 
+/// The in-tunnel SOCKS5 CONNECT request for `target`. Authentication belongs to
+/// the Mieru carrier, and upstream expects CONNECT directly, without another
+/// SOCKS method-negotiation exchange.
+fn socks5_connect_request(target: &str) -> Result<Vec<u8>> {
+    let (host, port) = split_host_port(target)?;
+    let mut request = vec![0x05, 0x01, 0x00];
+    encode_socks5_address(&mut request, host, port)?;
+    Ok(request)
+}
+
 /// In-tunnel SOCKS5 client handshake + CONNECT over a multiplexed sub-session,
 /// writing through the shared serialized writer and reading from the sub-
 /// session's mailbox.
@@ -719,15 +748,9 @@ async fn mux_socks5_connect(
     writer: &MuxWriteQueue,
     reader: &mut MuxReader,
     session_id: u32,
-    target: &str,
+    request: &[u8],
 ) -> Result<()> {
-    let (host, port) = split_host_port(target)?;
-
-    // Authentication belongs to the Mieru carrier. Upstream expects CONNECT
-    // directly, without another SOCKS method-negotiation exchange.
-    let mut request = vec![0x05, 0x01, 0x00];
-    encode_socks5_address(&mut request, host, port)?;
-    writer.send_data(session_id, &request).await?;
+    writer.send_data(session_id, request).await?;
 
     let mut head = [0u8; 4];
     reader.read_exact(&mut head).await?;
@@ -1574,5 +1597,70 @@ mod tests {
             !seen.contains(&(ProtocolType::CloseSessionRequest, session_id)),
             "a session the server closed needs no closeSessionRequest, saw {seen:?}"
         );
+    }
+
+    /// A consumer that reads one segment per almost-timeout must not hold the
+    /// carrier back for longer than the stall limit in total.
+    #[tokio::test]
+    async fn slow_trickle_consumer_is_closed_within_the_total_stall_limit() {
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
+        let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
+        let (slow_tx, mut slow_rx) = mpsc::channel(MAILBOX_DEPTH);
+        let (fast_tx, mut fast_rx) = mpsc::channel(MAILBOX_DEPTH);
+        let (closer, _closed) = mpsc::channel(8);
+        let (slow_id, fast_id) = (11, 22);
+        {
+            let mut guard = table.lock().expect("demux table");
+            guard.insert(slow_id, Mailbox { tx: slow_tx, closed_by_server: Arc::default() });
+            guard.insert(fast_id, Mailbox { tx: fast_tx, closed_by_server: Arc::default() });
+        }
+        let reader = tokio::spawn(run_reader(
+            Decryptor::new(key),
+            Box::new(reader_side),
+            Arc::clone(&table),
+            Arc::new(NetworkTimeProvider::fixed(NOW)),
+            ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
+            Arc::new(Semaphore::new(1)),
+            ReaderLink { timeout: Duration::from_millis(250), closer, authenticated: Arc::default() },
+        ));
+        // One segment every 80 ms: each wait is far below the limit.
+        let trickle = tokio::spawn(async move {
+            while slow_rx.recv().await.is_some() {
+                tokio::time::sleep(Duration::from_millis(80)).await;
+            }
+        });
+        let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
+        let mut seqs = HashMap::new();
+        for _ in 0..MAILBOX_DEPTH + 30 {
+            server_send(&mut enc, &mut writer_side, &mut seqs, slow_id, b"slow").await.expect("slow segment");
+        }
+        server_send(&mut enc, &mut writer_side, &mut seqs, fast_id, b"fast").await.expect("fast segment");
+
+        let fast = timeout(Duration::from_secs(1), fast_rx.recv())
+            .await
+            .expect("other streams wait at most the stall limit in total")
+            .expect("fast mailbox remains open");
+        assert_eq!(fast, b"fast");
+        assert!(!table.lock().expect("demux table").contains_key(&slow_id));
+
+        drop(writer_side);
+        reader.await.expect("reader task");
+        trickle.abort();
+    }
+
+    #[tokio::test]
+    async fn invalid_target_is_a_local_error_not_an_auth_failure() {
+        let (conn, server) = scripted_carrier().await;
+        drop(server);
+        let long = format!("{}:443", "a".repeat(300));
+        for target in ["no-port.example", "::1:443", long.as_str()] {
+            let result = conn.open_stream(target).await;
+            assert!(
+                matches!(result, Err(MieruError::Socks5(_) | MieruError::Protocol(_)))
+                    && !matches!(result, Err(MieruError::NoAuthenticatedResponse)),
+                "{target}: got {result:?}"
+            );
+        }
     }
 }
