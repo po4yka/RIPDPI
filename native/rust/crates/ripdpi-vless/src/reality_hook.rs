@@ -45,6 +45,9 @@ use zeroize::Zeroizing;
 
 use crate::reality_seal::{SESSION_ID_LEN, SESSION_ID_OFFSET, derive_auth_key, seal_session_id_with_auth_key};
 
+/// TLS handshake message type of a ClientHello.
+const HANDSHAKE_TYPE_CLIENT_HELLO: u8 = 0x01;
+
 #[repr(C)]
 pub(crate) struct SslCtxHandle {
     _opaque: [u8; 0],
@@ -382,6 +385,14 @@ fn reality_client_hello_cb_inner(ssl: *mut SslHandle, msg: *mut u8, msg_len: usi
     // the next BoringSSL call.
     let msg_slice = unsafe { std::slice::from_raw_parts_mut(msg, msg_len) };
 
+    // The seal overwrites the session_id slot in place, so the message must be
+    // a ClientHello whose session_id is exactly SESSION_ID_LEN bytes; any other
+    // framing would make the write corrupt the neighbouring cipher_suites.
+    if msg_slice[0] != HANDSHAKE_TYPE_CLIENT_HELLO || usize::from(msg_slice[SESSION_ID_OFFSET - 1]) != SESSION_ID_LEN {
+        state.failed.store(true, Ordering::Release);
+        return 0;
+    }
+
     let mut client_random = [0u8; 32];
     client_random.copy_from_slice(&msg_slice[6..38]);
 
@@ -546,6 +557,39 @@ mod tests {
         assert_eq!(ret, 0);
         // SAFETY: reclaim the leaked box for this test.
         unsafe { drop(Box::from_raw(raw)) };
+    }
+
+    /// A long-enough message that is not a ClientHello with a 32-byte
+    /// session_id must be rejected, latch `failed`, and stay unmodified.
+    #[test]
+    fn callback_inner_rejects_bad_framing() {
+        let cases: [(&str, usize, u8); 3] = [
+            ("empty session_id", SESSION_ID_OFFSET - 1, 0),
+            ("oversized session_id", SESSION_ID_OFFSET - 1, 33),
+            ("wrong handshake type", 0, 0x02),
+        ];
+        for (name, index, value) in cases {
+            let state = test_state([0u8; 32], vec![]);
+            let raw = Box::into_raw(state);
+            let mut msg = vec![0xAAu8; SESSION_ID_OFFSET + SESSION_ID_LEN + 8];
+            msg[0] = HANDSHAKE_TYPE_CLIENT_HELLO;
+            msg[SESSION_ID_OFFSET - 1] = SESSION_ID_LEN as u8;
+            msg[index] = value;
+            let before = msg.clone();
+            let ret = reality_client_hello_cb_inner(
+                std::ptr::without_provenance_mut::<SslHandle>(1), // non-null sentinel; the framing check rejects before any use
+                msg.as_mut_ptr(),
+                msg.len(),
+                raw.cast::<c_void>(),
+            );
+            assert_eq!(ret, 0, "{name}");
+            assert_eq!(msg, before, "{name}: message must stay untouched");
+            // SAFETY: `raw` is the live leaked box from above.
+            let latched = unsafe { (*raw).failed.load(Ordering::Acquire) };
+            assert!(latched, "{name}: failure must latch");
+            // SAFETY: reclaim the leaked box for this test.
+            unsafe { drop(Box::from_raw(raw)) };
+        }
     }
 
     // --- Issue #28: callback-after-drop / unregister race tests ----------
