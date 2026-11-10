@@ -2,7 +2,7 @@
 id: RLY-1794300120922878
 title: Fix Tor relay audit findings
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Tor audit team

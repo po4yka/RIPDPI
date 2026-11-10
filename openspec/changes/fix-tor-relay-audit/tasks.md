@@ -8,4 +8,4 @@
 - [x] RLY-1794300206828819 Reap quiet managed PT children on shutdown #bug !high @item:RLY-1794300120922878
 - [x] RLY-1794300207611622 Isolate Tor profile state with safe migration #bug !high @item:RLY-1794300120922878
 - [x] RLY-1794300208607627 Validate Tor bridges before saving #bug !high @item:RLY-1794300120922878
-- [ ] RLY-1794303618792693 Pass combined source and static analysis gates #bug !high @item:RLY-1794300120922878
+- [x] RLY-1794303618792693 Pass combined source and static analysis gates #bug !high @item:RLY-1794300120922878

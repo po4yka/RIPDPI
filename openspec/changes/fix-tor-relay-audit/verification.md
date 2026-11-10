@@ -1,53 +1,53 @@
 ---
 task_id: RLY-1794300120922878
 change: fix-tor-relay-audit
-commit_sha: null
-local: required
-local_evidence: null
+commit_sha: e7830ce7ba61860964b729977d9a5dedd1a953a2
+local: passed
+local_evidence: 823 Rust and 106 selected Kotlin tests passed; staticAnalysis, just ci-gates, strict Clippy, formatting and locked metadata passed on this source.
 remote_ci: not_applicable
-remote_ci_evidence: Local gates are required; hosted CI is not an acceptance gate for this repair.
+remote_ci_evidence: Hosted CI is not an acceptance gate for this source repair.
 device: not_applicable
-device_evidence: No physical device or external Tor endpoint is authorized. Local process and loopback regressions cover this repair.
+device_evidence: No device or external Tor endpoint was used. Device acceptance remains open.
 artifact: not_applicable
-artifact_evidence: No release artifact is produced.
+artifact_evidence: No Android native or release artifact build is claimed.
 deployment: not_applicable
-deployment_evidence: No deployment is owned by this change.
+deployment_evidence: No deployment is part of this change.
 ---
 
 # Verification
 
 ## Requirement evidence
 
-| Requirement | Execution step | Evidence | Result |
+| Requirement | Execution step | Observed evidence | Result |
 |---|---|---|---|
-| REQ-TOR-DNS | RLY-1794300204878737 | Targeted regression and independent review completed; combined gates pending | local passed |
-| REQ-TOR-BUDGET | RLY-1794300205521753 | Targeted regression and independent review completed; combined gates pending | local passed |
-| REQ-TOR-RETRY | RLY-1794300206174299 | Targeted regression and independent review completed; combined gates pending | local passed |
-| REQ-TOR-SHUTDOWN | RLY-1794300206828819 | Targeted regression and independent review completed; combined gates pending | local passed |
-| REQ-TOR-STATE | RLY-1794300207611622 | Targeted regression and independent review completed; combined gates pending | local passed |
-| REQ-TOR-VALIDATION | RLY-1794300208607627 | Targeted regression and independent review completed; combined gates pending | local passed |
+| REQ-TOR-DNS | RLY-1794300204878737 | Two loopback tests cover seven input/auth variants, no direct DNS, REP2/5/7, active Stop and production byte counters. | local passed |
+| REQ-TOR-BUDGET | RLY-1794300205521753 | Proxy-config tests check the 120-second Tor dial budget. A real cold Tor circuit is not claimed. | local passed |
+| REQ-TOR-RETRY | RLY-1794300206174299 | bootstrap_retry proves that cancellation followed by retry does not report readiness without a directory. | local passed |
+| REQ-TOR-SHUTDOWN | RLY-1794300206828819 | Three real-process tests cover quiet/stubborn shutdown, reader-spawn failure cleanup and missing-executable classification. | local passed |
+| REQ-TOR-STATE | RLY-1794300207611622 | Filesystem tests cover distinct bounded paths, raw UTF-16 IDs, legacy IDs of 201/255 bytes and both sides of an old underscore alias. | local passed |
+| REQ-TOR-VALIDATION | RLY-1794300208607627 | Shared bridge validator tests, editor tests and resolver caller tests cover required transport fields and identities. | local passed |
 
-## Observed local behavior
+## Results and limits
 
-- Rust proxy runtime: 383 unit tests passed. `tor_remote_dns`: two real loopback regressions passed, including SOCKS4a, SOCKS5, HTTP, plaintext address input in Mixed/BytePrefixed mode, authentication, active Stop, upstream REP5, policy REP2 and unsupported-command REP7. Pinned Rust 1.98.1 logs: `/tmp/rly13-telemetry-tests.log`, `/tmp/rly13-telemetry-clippy.log`. The loopback cases also prove production tx/rx counters and upstream forwarding evidence for the four-byte exchange.
-- After rebase: config 182, proxy-config 154, session 88, proxy-runtime 383 plus two loopback tests, and Tor 14 tests passed: 823 total. Logs: `/tmp/rly13-rebased-config-tests.log`, `/tmp/rly13-rebased-runtime-tests.log`, `/tmp/rly13-rebased-tor-tests.log`. Rust 1.98.1 and `--locked` were used from `native/rust`, with a worktree-local target directory.
-- Tor baseline: ten local tests passed. Bootstrap retry regression passed. Three PT regressions passed: quiet/stubborn process shutdown, injected reader spawn failure, and missing executable error classification. Logs: `/tmp/rly13-lifecycle-parent.log`, `/tmp/rly13-lifecycle-final-verified.log`, `/tmp/rly13-pt-final-tests.log`. Chutney early-return tests are excluded from interoperability evidence.
-- Kotlin: 51 selected tests passed: service paths (2), settings bridge validation (4), app draft validation (1), Xray import (42), and Trojan rejection (2). This includes distinct unpaired UTF-16 code units in state keys. Final targeted log: `/tmp/rly13-kotlin-targeted-complete.log`.
-- Independent PR reviews covered all six repairs. Findings on bridge identities, Snowflake absent address, URL validation, SOCKS reply codes, thread startup ownership and PT startup classification were fixed before final review. Async review found no semantic cancellation defect; its documentation findings were fixed.
+- Rust: 823 tests passed on the integrated source: config 182, proxy-config 154, session 88, proxy-runtime 383 plus two loopback tests, Tor 14. Logs: `/tmp/rly13-final-config-tests.log`, `/tmp/rly13-final-runtime-tests.log`, `/tmp/rly13-final-tor-tests.log`.
+- Clippy with `-D warnings`, formatting and locked metadata passed. Logs: `/tmp/rly13-final-clippy.log`, `/tmp/rly13-final-fmt.log`, `/tmp/rly13-final-metadata.json`.
+- Integrated Kotlin: 106 selected tests passed (service 57, settings 4, runtime-state 44, app 1), with zero failures, errors or skips. `staticAnalysis` and `just ci-gates` passed. Logs: `/tmp/rly13-integrated-android.log`, `/tmp/rly13-integrated-ci.log`.
+- F5 boundary regression failed before the fix and passed after it: `/tmp/rly13-profile-boundary-red.log`, `/tmp/rly13-profile-boundary-green.log`. The ownership regression also failed before the fix and passed after it: `/tmp/rly13-profile-ownership-red.log`, `/tmp/rly13-profile-ownership-green.log`.
+- Independent PR and async reviews covered the repairs. Post-rebase review confirmed the Tor branch beside the new NaiveProxy/Cloudflare branches. Final F5 review checked the old sanitizer's alias classes and the real ID normalization contract.
+- A four-worker lint run crashed while reading a missing generated Hilt file. The same gate passed with one worker; no check or baseline is disabled. The failed log is `/tmp/rly13-final-android-verified.log`.
+- Published upstream commits provide the mechanical Trojan/test-constant/CA-limit gate fixes. Their versions were retained during rebase. No baseline or golden fixture was changed. The Rust API snapshot was regenerated by its owning checker for the new runtime field.
 
-## Integration gate work
+C establishes the code path. V here covers host processes, localhost wire exchanges and JVM tests. It does not establish an Android runtime or a working Tor circuit. S remains limited to the requirements checked in the original audit against pinned sources. E for real Tor/PT compatibility remains open. Chutney tests that return early are excluded from the test total and from interoperability evidence. The API checker skips the Linux-owned runtime-platform snapshot on Darwin by its existing policy.
 
-- Initial static analysis found dispatcher complexity introduced by the Tor branch and a pre-existing private test constant naming violation. The dispatcher now owns its Tor error mapping in a separate function. The constant rename is a separate mechanical prerequisite commit; no fixture value changed.
-- The broad static-analysis run was interrupted before completion so final checks can use the latest upstream base. Its partial output is not a passing gate. Final `just ci-gates`, `staticAnalysis`, locked Cargo metadata and architecture health remain pending. No baseline or golden fixture is blessed or extended.
-- Local behavior runs used the owning worktrees. Final combined-source evidence will name the integrated source commit. No public Tor circuit, Android runtime, release artifact or deployment is claimed.
+## State and routing policy
 
-- Final Tor domain-path review restored application-byte counters and forwarding evidence. The loopback regression uses the production telemetry observer and checks only bytes committed by successful writes. Pinned Rust 1.98.1 and a worktree-local target directory are used for final Rust validation.
+Keep legacy ASCII components up to 255 bytes only when they contain letters, digits, dots or hyphens and are not dot segments. Normal UUIDs retain their paths. IDs with underscores, unsafe characters or excessive length use a separate hashed namespace. Both sides of an old sanitized alias receive separate roots; the old ambiguous files remain on disk without assignment or copying. Blank IDs are normalized to the same logical default profile by the real callers.
 
-- Final rebase onto upstream `4f3b6298e2e19a6b965195aeda11f702a2b7991c` completed without conflicts. Independent post-rebase review found no Tor caller compatibility defect. Architecture health (`--check`) and locked Cargo metadata passed.
+Unresolved Tor domains with Direct routes or applicable IP rules fail closed. This compatibility boundary is documented in `docs/native/proxy-engine.md`. SOCKS4a, SOCKS5, HTTP CONNECT and plaintext address inputs in Mixed/BytePrefixed mode preserve the name. Tor failure does not cause direct fallback.
 
-## Final command set
+## Exact commands
 
-Rust commands run from `native/rust` with Rust 1.98.1, `RUSTC_WRAPPER=sccache`, and `CARGO_TARGET_DIR` set to this worktree's `native/rust/target`.
+Rust commands run from `native/rust` with Rust 1.98.1, `RUSTC_WRAPPER=sccache`, and a worktree-local `native/rust/target` directory.
 
 ```sh
 cargo test -p ripdpi-config -p ripdpi-proxy-config -p ripdpi-session --locked --lib
@@ -61,26 +61,25 @@ cargo metadata --locked --format-version 1 --no-deps
 Root commands:
 
 ```sh
-python3 scripts/ci/check_architecture_health.py --check
 ./gradlew staticAnalysis \
   :core:service:testDebugUnitTest \
     --tests '*TorRuntimePathProviderTest' \
     --tests '*RelaySocketProtectionPolicyTest' \
     --tests '*PluggableTransportManagerTest' \
-    --tests '*UpstreamRelayRuntimeConfigResolverTest' \
+    --tests '*UpstreamRelayRuntimeConfigResolverExternalFamiliesTest' \
     --tests '*PluggableTransportSocksBridgeWireTest' \
     --tests '*AppsScriptRelayCertificateStoreTest' \
   :core:data:settings:testDebugUnitTest --tests '*TorBridgeValidationTest' \
   :app:testGithubFullDebugUnitTest --tests '*ConnectionTorValidationTest' \
   :core:data:runtime-state:testDebugUnitTest \
     --tests '*XrayConfigImportParserTest' --tests '*TrojanImportRejectionTest' \
-  -Pripdpi.skipNativeBuild=true --max-workers=4
+  -Pripdpi.skipNativeBuild=true --max-workers=1
 just ci-gates
+python3 scripts/ci/check_architecture_health.py --check
 ```
 
-No real Tor circuit, physical Android device, external bridge, or production secret is used. The remaining external and device checks in the audit stay open. Unresolved Tor domains with Direct routes or applicable IP rules fail closed; this compatibility boundary is documented in `docs/native/proxy-engine.md`. Safe legacy profile directories remain in use. Ambiguous legacy directories are retained without copying or deletion.
+## Checks not run
 
-- The first post-rebase static-analysis run found a pre-existing MagicNumber violation in the new Apps Script certificate store. The unchanged 65,536-byte bound now has a named constant. Its existing certificate-store test is included in the final command. This is a separate mechanical prerequisite commit; no baseline change is used.
+Tor/Chutney executables are not available through PATH. The next local peer check is `RIPDPI_TOR_CHUTNEY_E2E=1 cargo test -p ripdpi-tor --locked --test chutney -- --nocapture`, after preparing a local C Tor/Chutney network. It must be extended to cover the main proxy with managed bridge/PT, exit accept/reject, DNS A/AAAA, v3 onion, EOF/reset/cancel and guard restart. The existing helper-only test is insufficient for that full claim.
 
-- Completed gates before the final mechanical rebase: `staticAnalysis` and `just ci-gates` passed (`/tmp/rly13-android-final.log`, `/tmp/rly13-rebased-ci-gates.log`). The corrected resolver-class filter passed in `/tmp/rly13-service-final.log`. JUnit XML totals were 56 service, 4 settings, 44 runtime-state and 1 app tests: 105 tests, zero failures, errors or skips.
-- A final fetch found upstream commits through `b6c7274ebb6d59e64cf3502a88e80d4a8bb13351` that independently resolve the same mechanical gate prerequisites. Keep the published versions during rebase and recheck the affected Kotlin files.
+No physical device, external bridge/server, root activation or real secret was used. Remaining acceptance covers shipped PT binaries on supported Android ABIs, cold bootstrap/cancel/retry/Stop, PID/fd/thread bounds, process death, real guard reuse and VPN rejection before sockets. Privacy canary export tests, device memory/cache stress, stream-isolation policy and profile-state deletion policy remain separate audit gaps or hypotheses, not additional defects asserted by this repair.
