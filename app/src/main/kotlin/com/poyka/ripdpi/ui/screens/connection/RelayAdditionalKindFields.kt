@@ -58,6 +58,7 @@ internal fun AppsScriptRelayFields(
     draft: ConnectionDraft,
     actions: RelayAdditionalKindActions,
 ) {
+    AppsScriptCaExport()
     RelayPlainField(
         draft.relayAppsScriptScriptIds,
         R.string.config_relay_apps_script_ids,

@@ -322,15 +322,24 @@ mod tests {
         let _ = fs::remove_dir_all(&other);
     }
 
-    /// Completes a TLS handshake against the leaf for `host`, trusting only
-    /// the relay CA, the way a client that installed the CA would.
-    async fn client_accepts_leaf_for(manager: &Arc<Mutex<MitmCertManager>>, host: &str) -> Result<(), String> {
+    /// Completes a TLS handshake against the leaf for `host` with explicit CA trust.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation during client TLS connect drops the server
+    /// JoinHandle without aborting its task; normal completion aborts that task.
+    async fn client_accepts_leaf_for(
+        manager: &Arc<Mutex<MitmCertManager>>,
+        host: &str,
+        trust_ca: bool,
+    ) -> Result<(), String> {
         use rustls::pki_types::ServerName;
         use tokio_rustls::{TlsAcceptor, TlsConnector};
 
         let server_config = MitmCertManager::get_server_config(manager, host).await.map_err(|e| e.to_string())?;
         let mut roots = rustls::RootCertStore::empty();
-        roots.add(manager.lock().await.ca_cert_der.clone()).map_err(|e| e.to_string())?;
+        if trust_ca {
+            roots.add(manager.lock().await.ca_cert_der.clone()).map_err(|e| e.to_string())?;
+        }
         let client_config = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
         let name = ServerName::try_from(host.to_string()).map_err(|e| e.to_string())?;
 
@@ -347,8 +356,20 @@ mod tests {
         let manager = Arc::new(Mutex::new(MitmCertManager::new_in(&dir).expect("generate")));
 
         for host in ["192.0.2.7", "2001:db8::1", "example.com"] {
-            client_accepts_leaf_for(&manager, host).await.unwrap_or_else(|error| panic!("{host}: {error}"));
+            client_accepts_leaf_for(&manager, host, true).await.unwrap_or_else(|error| panic!("{host}: {error}"));
         }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancelling either handshake await can skip helper task
+    /// abort and directory cleanup.
+    #[tokio::test(flavor = "current_thread")]
+    async fn client_must_explicitly_trust_the_relay_ca() {
+        let dir = fresh_dir("explicit-trust");
+        let manager = Arc::new(Mutex::new(MitmCertManager::new_in(&dir).expect("generate")));
+        assert!(client_accepts_leaf_for(&manager, "example.com", false).await.is_err());
+        client_accepts_leaf_for(&manager, "example.com", true).await.expect("explicit CA trust");
         let _ = fs::remove_dir_all(&dir);
     }
 

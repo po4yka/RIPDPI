@@ -1418,4 +1418,7 @@ Fonte: %2$s</string>
     <string name="ws_tunnel_worker_clear_failed_message">Não foi possível remover a configuração salva do Worker. Tente novamente.</string>
     <string name="config_xray_import_title">Perfil de VPN avançada</string>
     <string name="config_xray_import_body">Importe ou revise um perfil Xray para o provedor integrado.</string>
+    <string name="config_relay_apps_script_export_ca">Exportar CA do relay</string>
+    <string name="config_relay_apps_script_ca_trust">Este relay descriptografa HTTPS no dispositivo e envia dados ao seu endpoint Apps Script. Inicie o relay uma vez e exporte a CA pública. Instale-a apenas nos clientes que devem confiar no relay. A fixação de certificados continua ativa. Remova a CA ao parar de usar o relay.</string>
+    <string name="config_relay_apps_script_ca_unavailable">Não foi possível exportar a CA. Inicie o relay Apps Script e tente novamente.</string>
 </resources>

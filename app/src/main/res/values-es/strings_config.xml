@@ -1422,4 +1422,7 @@ Origen: %2$s</string>
     <string name="ws_tunnel_worker_clear_failed_message">No se pudo eliminar la configuración de Worker guardada. Inténtalo de nuevo.</string>
     <string name="config_xray_import_title">Perfil de VPN avanzada</string>
     <string name="config_xray_import_body">Importa o revisa un perfil Xray para el proveedor integrado.</string>
+    <string name="config_relay_apps_script_export_ca">Exportar CA del relé</string>
+    <string name="config_relay_apps_script_ca_trust">Este relé descifra HTTPS en el dispositivo y envía los datos a su endpoint de Apps Script. Inicie el relé una vez y exporte la CA pública. Instálela solo en los clientes que deban confiar en el relé. La fijación de certificados sigue activa. Elimine la CA cuando deje de usar el relé.</string>
+    <string name="config_relay_apps_script_ca_unavailable">No se pudo exportar la CA. Inicie el relé Apps Script e inténtelo de nuevo.</string>
 </resources>

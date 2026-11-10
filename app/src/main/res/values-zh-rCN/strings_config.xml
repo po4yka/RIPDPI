@@ -1393,4 +1393,7 @@ fake_burst 3</string>
     <string name="ws_tunnel_worker_clear_failed_message">无法移除已保存的 Worker 配置。请重试。</string>
     <string name="config_xray_import_title">高级 VPN 配置文件</string>
     <string name="config_xray_import_body">导入或查看嵌入式提供方的 Xray 配置文件。</string>
+    <string name="config_relay_apps_script_export_ca">导出中继 CA</string>
+    <string name="config_relay_apps_script_ca_trust">此中继在设备上解密 HTTPS，并将数据发送至您的 Apps Script 端点。先启动一次中继，然后导出公共 CA。仅在您希望信任此中继的客户端中安装它。证书固定仍然有效。停止使用中继后请删除 CA。</string>
+    <string name="config_relay_apps_script_ca_unavailable">无法导出 CA。请先启动 Apps Script 中继，然后重试。</string>
 </resources>

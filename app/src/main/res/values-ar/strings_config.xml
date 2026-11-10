@@ -1499,4 +1499,7 @@ fakeddisorder endhost</string>
     <string name="ws_tunnel_worker_clear_failed_message">تعذرت إزالة إعداد Worker المحفوظ. حاول مرة أخرى.</string>
     <string name="config_xray_import_title">ملف VPN متقدم</string>
     <string name="config_xray_import_body">استورد أو راجع ملف Xray للموفر المدمج.</string>
+    <string name="config_relay_apps_script_export_ca">تصدير CA للمرحل</string>
+    <string name="config_relay_apps_script_ca_trust">يفك هذا المرحل تشفير HTTPS على الجهاز ويرسل البيانات إلى نقطة Apps Script الخاصة بك. شغّل المرحل مرة ثم صدّر CA العامة. ثبّتها فقط في العملاء الذين تريد منحهم الثقة بالمرحل. يبقى تثبيت الشهادات فعالاً. احذف CA عند التوقف عن استخدام المرحل.</string>
+    <string name="config_relay_apps_script_ca_unavailable">تعذر تصدير CA. شغّل مرحل Apps Script ثم أعد المحاولة.</string>
 </resources>

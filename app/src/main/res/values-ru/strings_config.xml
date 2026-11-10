@@ -1454,4 +1454,7 @@ fakeddisorder endhost</string>
     <string name="ws_tunnel_worker_clear_failed_message">Не удалось удалить сохранённую конфигурацию Worker. Повторите попытку.</string>
     <string name="config_xray_import_title">Профиль расширенного VPN</string>
     <string name="config_xray_import_body">Импортируйте или проверьте профиль Xray для встроенного провайдера.</string>
+    <string name="config_relay_apps_script_export_ca">Экспорт CA релея</string>
+    <string name="config_relay_apps_script_ca_trust">Этот релей расшифровывает HTTPS на устройстве и передаёт данные вашему Apps Script endpoint. Запустите релей один раз, затем экспортируйте публичный CA. Установите его только в клиентах, которым разрешаете доверять релею. Закрепление сертификатов остаётся включённым. Удалите CA, когда перестанете пользоваться релеем.</string>
+    <string name="config_relay_apps_script_ca_unavailable">Не удалось экспортировать CA. Сначала запустите релей Apps Script и повторите попытку.</string>
 </resources>

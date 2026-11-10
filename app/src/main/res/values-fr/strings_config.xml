@@ -1422,4 +1422,7 @@ Source : %2$s</string>
     <string name="ws_tunnel_worker_clear_failed_message">La configuration Worker enregistrée n’a pas pu être supprimée. Réessayez.</string>
     <string name="config_xray_import_title">Profil VPN avancé</string>
     <string name="config_xray_import_body">Importez ou vérifiez un profil Xray pour le fournisseur intégré.</string>
+    <string name="config_relay_apps_script_export_ca">Exporter la CA du relais</string>
+    <string name="config_relay_apps_script_ca_trust">Ce relais déchiffre HTTPS sur cet appareil et envoie les données à votre endpoint Apps Script. Démarrez le relais une fois, puis exportez sa CA publique. Installez-la uniquement dans les clients qui doivent lui faire confiance. Le certificate pinning reste actif. Supprimez la CA après utilisation.</string>
+    <string name="config_relay_apps_script_ca_unavailable">Export de la CA impossible. Démarrez le relais Apps Script et réessayez.</string>
 </resources>

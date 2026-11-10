@@ -1415,4 +1415,7 @@ fakeddisorder endhost</string>
     <string name="ws_tunnel_worker_clear_failed_message">پیکربندی ذخیره‌شده Worker حذف نشد. دوباره تلاش کنید.</string>
     <string name="config_xray_import_title">نمایه VPN پیشرفته</string>
     <string name="config_xray_import_body">یک نمایه Xray را برای ارائه‌دهنده داخلی وارد یا بررسی کنید.</string>
+    <string name="config_relay_apps_script_export_ca">صدور CA رله</string>
+    <string name="config_relay_apps_script_ca_trust">این رله HTTPS را روی دستگاه رمزگشایی می‌کند و داده‌ها را به نقطه پایانی Apps Script شما می‌فرستد. رله را یک‌بار اجرا و CA عمومی را صادر کنید. آن را فقط در کلاینت‌های مورد اعتماد نصب کنید. پین‌کردن گواهی فعال می‌ماند. پس از پایان استفاده CA را حذف کنید.</string>
+    <string name="config_relay_apps_script_ca_unavailable">صدور CA ممکن نشد. رله Apps Script را اجرا و دوباره تلاش کنید.</string>
 </resources>

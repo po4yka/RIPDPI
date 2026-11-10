@@ -1415,4 +1415,7 @@ Quelle: %2$s</string>
     <string name="ws_tunnel_worker_clear_failed_message">Die gespeicherte Worker-Konfiguration konnte nicht entfernt werden. Versuchen Sie es erneut.</string>
     <string name="config_xray_import_title">Erweitertes VPN-Profil</string>
     <string name="config_xray_import_body">Importieren oder prüfen Sie ein Xray-Profil für den eingebetteten Anbieter.</string>
+    <string name="config_relay_apps_script_export_ca">Relay-CA exportieren</string>
+    <string name="config_relay_apps_script_ca_trust">Dieses Relay entschlüsselt HTTPS auf dem Gerät und sendet Daten an Ihren Apps-Script-Endpunkt. Starten Sie das Relay einmal und exportieren Sie die öffentliche CA. Installieren Sie sie nur in Clients, die dem Relay vertrauen sollen. Certificate Pinning bleibt aktiv. Entfernen Sie die CA nach der Nutzung.</string>
+    <string name="config_relay_apps_script_ca_unavailable">CA konnte nicht exportiert werden. Starten Sie das Apps-Script-Relay und versuchen Sie es erneut.</string>
 </resources>

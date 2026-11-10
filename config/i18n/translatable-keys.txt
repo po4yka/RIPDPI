@@ -657,7 +657,10 @@ app:config_profile_change
 app:config_proxy_helper
 app:config_reconnect_in_progress
 app:config_relay_apps_script_auth_key
+app:config_relay_apps_script_ca_trust
+app:config_relay_apps_script_ca_unavailable
 app:config_relay_apps_script_direct_hosts
+app:config_relay_apps_script_export_ca
 app:config_relay_apps_script_front_domain
 app:config_relay_apps_script_google_ip
 app:config_relay_apps_script_ids

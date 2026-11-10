@@ -1415,4 +1415,7 @@ fakeddisorder endhost</string>
     <string name="ws_tunnel_worker_clear_failed_message">सहेजा गया Worker कॉन्फ़िगरेशन हटाया नहीं जा सका। फिर प्रयास करें।</string>
     <string name="config_xray_import_title">उन्नत VPN प्रोफ़ाइल</string>
     <string name="config_xray_import_body">एम्बेडेड प्रदाता के लिए Xray प्रोफ़ाइल आयात करें या देखें।</string>
+    <string name="config_relay_apps_script_export_ca">रिले CA निर्यात करें</string>
+    <string name="config_relay_apps_script_ca_trust">यह रिले डिवाइस पर HTTPS को डिक्रिप्ट करके डेटा आपके Apps Script एंडपॉइंट पर भेजता है। रिले एक बार शुरू करें, फिर सार्वजनिक CA निर्यात करें। इसे केवल उन क्लाइंट में स्थापित करें जिन्हें आप रिले पर भरोसा देना चाहते हैं। सर्टिफ़िकेट पिनिंग लागू रहती है। रिले का उपयोग बंद करने पर CA हटाएँ।</string>
+    <string name="config_relay_apps_script_ca_unavailable">CA निर्यात नहीं हो सका। Apps Script रिले शुरू करें और फिर प्रयास करें।</string>
 </resources>
