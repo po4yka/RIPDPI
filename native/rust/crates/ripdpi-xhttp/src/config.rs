@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use ripdpi_tls_profiles::OutboundEchConfig;
 use ripdpi_vless::addons::{FlowParseError, VlessFlow};
-use ripdpi_vless::config::VlessRealityConfig;
+use ripdpi_vless::config::{VlessRealityConfig, parse_uuid};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 const DEFAULT_XMUX_MAX_CONNECTIONS: usize = 8;
@@ -190,7 +190,7 @@ impl XhttpTlsConfig {
             server: server.to_owned(),
             port,
             server_name: server_name.to_owned(),
-            uuid: parse_uuid(uuid).map_err(|_| ConfigError::InvalidUuid(uuid.to_owned()))?,
+            uuid: parse_uuid(uuid).ok_or_else(|| ConfigError::InvalidUuid(uuid.to_owned()))?,
             path: normalize_path(path),
             host: if host.trim().is_empty() { None } else { Some(host.trim().to_owned()) },
             bind_ip: None,
@@ -315,13 +315,6 @@ pub(crate) fn normalize_path(path: &str) -> String {
     if trimmed.is_empty() { "/".to_owned() } else { format!("/{trimmed}") }
 }
 
-fn parse_uuid(value: &str) -> Result<[u8; 16], ()> {
-    if !matches!(value.len(), 32 | 36) {
-        return Err(());
-    }
-    uuid::Uuid::parse_str(value).map(uuid::Uuid::into_bytes).map_err(|_| ())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -367,12 +360,11 @@ mod tests {
             "{550e8400-e29b-41d4-a716-446655440000}",
             " 550e8400-e29b-41d4-a716-446655440000 ",
             "",
-            "0",
             "550e8400e29b41d4a71644665544000",
             "550e8400-e29b-41d4-a716-44665544000g",
             "550e8400-e29b-41d4-a716-44665544000é",
         ] {
-            assert!(parse_uuid(value).is_err(), "unsupported UUID syntax must fail");
+            assert!(parse_uuid(value).is_none(), "unsupported UUID syntax must fail");
         }
     }
 

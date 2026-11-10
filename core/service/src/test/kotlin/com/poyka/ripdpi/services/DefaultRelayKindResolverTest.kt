@@ -111,7 +111,7 @@ class DefaultRelayKindResolverTest {
                 credentials =
                     RelayCredentialRecord(
                         profileId = "p0",
-                        vlessUuid = "not-a-vless-uuid",
+                        vlessUuid = "not-a-vless-uuid-not-a-vless-uuid-xx",
                     ),
                 expectedMessage = "Relay credentials missing",
             )

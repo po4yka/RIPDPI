@@ -188,6 +188,19 @@ class NativeRelayProfileValidationResultTest {
     }
 
     @Test
+    fun `vless id accepts one to thirty bytes like xray`() {
+        // Boundaries from running Xray v26.10.29 uuid.ParseString: 1..30 bytes map to a UUIDv5, 0 and 31 fail.
+        assertTrue(isValidVlessUuid("a"))
+        assertTrue(isValidVlessUuid("example"))
+        assertTrue(isValidVlessUuid("z".repeat(30)))
+        assertTrue(isValidVlessUuid("h\u00e9llo"))
+        assertFalse(isValidVlessUuid(""))
+        assertFalse(isValidVlessUuid("z".repeat(31)))
+        assertFalse(isValidVlessUuid("z".repeat(32)))
+        assertFalse(isValidVlessUuid("\u00e9".repeat(16)))
+    }
+
+    @Test
     fun `hysteria2 admission requires a Salamander key of at least 4 bytes`() {
         val base =
             ProxyProfile.Hysteria2(

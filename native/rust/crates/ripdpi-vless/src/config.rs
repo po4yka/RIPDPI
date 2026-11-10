@@ -117,7 +117,7 @@ impl VlessRealityConfig {
     ) -> Result<Self, ConfigError> {
         let port = u16::try_from(port).map_err(|_| ConfigError::InvalidPort(port))?;
 
-        let uuid = parse_uuid(uuid_str).map_err(|_| ConfigError::InvalidUuid(uuid_str.to_owned()))?;
+        let uuid = parse_uuid(uuid_str).ok_or_else(|| ConfigError::InvalidUuid(uuid_str.to_owned()))?;
 
         let pub_key_bytes = decode_reality_public_key(reality_public_key_b64)
             .map_err(|_| ConfigError::InvalidPublicKey(reality_public_key_b64.to_owned()))?;
@@ -191,12 +191,26 @@ impl VlessRealityConfig {
     }
 }
 
-/// Parse a canonical or compact UUID into its 16 wire bytes.
-fn parse_uuid(value: &str) -> Result<[u8; 16], ()> {
-    if !matches!(value.len(), 32 | 36) {
-        return Err(());
+/// Parse a VLESS user id into its 16 wire bytes, as Xray `uuid.ParseString` does.
+///
+/// A 32 or 36 byte text must be a canonical or compact UUID. A text of 1..=30
+/// bytes maps to a UUIDv5 over the zero namespace. Other lengths are invalid.
+pub fn parse_uuid(value: &str) -> Option<[u8; 16]> {
+    match value.len() {
+        32 | 36 => uuid::Uuid::parse_str(value).ok().map(uuid::Uuid::into_bytes),
+        1..=30 => {
+            let mut input = Vec::with_capacity(16 + value.len());
+            input.extend_from_slice(&[0u8; 16]);
+            input.extend_from_slice(value.as_bytes());
+            let digest = ring::digest::digest(&ring::digest::SHA1_FOR_LEGACY_USE_ONLY, &input);
+            let mut bytes = [0u8; 16];
+            bytes.copy_from_slice(&digest.as_ref()[..16]);
+            bytes[6] = (bytes[6] & 0x0f) | (5 << 4);
+            bytes[8] = (bytes[8] & 0x3f) | 0x80;
+            Some(bytes)
+        }
+        _ => None,
     }
-    uuid::Uuid::parse_str(value).map(uuid::Uuid::into_bytes).map_err(|_| ())
 }
 
 fn decode_reality_public_key(value: &str) -> Result<Vec<u8>, ()> {
@@ -218,6 +232,31 @@ mod tests {
         for value in ["550e8400-e29b-41d4-a716-446655440000", "550E8400-E29b-41D4-a716-446655440000"] {
             assert_eq!(parse_uuid(value).expect("canonical UUID"), RFC_UUID_BYTES);
         }
+    }
+
+    #[test]
+    fn parse_uuid_maps_short_text_to_uuid_v5_like_xray() {
+        // Vectors came from running Xray v26.10.29 common/uuid ParseString.
+        let cases: [(&str, [u8; 16]); 4] = [
+            ("example", hex16("feb54431301b52bba6dde1e93e81bb9e")),
+            ("a", hex16("35b65f33a6795e76af3c273ea349ede4")),
+            ("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", hex16("a9a7f80e047a5d24bac73a8edbab20e9")),
+            ("h\u{e9}llo", hex16("73447f16bb715922b638a95b21012057")),
+        ];
+        for (text, expected) in cases {
+            assert_eq!(parse_uuid(text).expect("short id"), expected, "{text}");
+        }
+        // Xray rejects the empty and 31-byte texts.
+        assert!(parse_uuid("").is_none());
+        assert!(parse_uuid(&"z".repeat(31)).is_none());
+    }
+
+    fn hex16(text: &str) -> [u8; 16] {
+        let mut out = [0u8; 16];
+        for (i, byte) in out.iter_mut().enumerate() {
+            *byte = u8::from_str_radix(&text[2 * i..2 * i + 2], 16).expect("hex");
+        }
+        out
     }
 
     #[test]
@@ -454,12 +493,11 @@ mod tests {
             "{550e8400-e29b-41d4-a716-446655440000}",
             " 550e8400-e29b-41d4-a716-446655440000 ",
             "",
-            "0",
             "550e8400e29b41d4a71644665544000",
             "550e8400-e29b-41d4-a716-44665544000g",
             "550e8400-e29b-41d4-a716-44665544000é",
         ] {
-            assert!(parse_uuid(value).is_err(), "unsupported UUID syntax must fail");
+            assert!(parse_uuid(value).is_none(), "unsupported UUID syntax must fail");
         }
     }
 }

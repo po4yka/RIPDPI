@@ -7120,7 +7120,6 @@ dependencies = [
  "tokio",
  "tokio-boring",
  "tracing",
- "uuid",
 ]
 
 [[package]]

@@ -197,9 +197,16 @@ fun validateRelayXhttpMode(value: String) {
 fun isValidRelayXhttpMode(value: String): Boolean =
     value.trim().ifEmpty { RelayXhttpModeAuto } in NativeVlessCapabilities.xhttpModes(RelaySecurityLayerReality)
 
-// Each validator accepts exactly what reaches Rust: the UUID is passed unchanged and native parse_uuid
-// rejects whitespace, while the relay config normalization trims the Reality key and short ID.
-fun isValidVlessUuid(value: String?): Boolean = value != null && VlessUuidPattern.matches(value)
+// Each validator accepts exactly what reaches Rust: the id is passed unchanged and native parse_uuid
+// (Xray rule) takes a 32 or 36 byte UUID, or 1..=30 UTF-8 bytes that it maps to a UUIDv5. The relay config
+// normalization trims the Reality key and short ID.
+fun isValidVlessUuid(value: String?): Boolean =
+    value != null &&
+        when (value.toByteArray(Charsets.UTF_8).size) {
+            in VlessUuidMinTextBytes..VlessUuidMaxTextBytes -> VlessUuidPattern.matches(value)
+            in 1..VlessUuidMaxMappedBytes -> true
+            else -> false
+        }
 
 fun isValidRealityPublicKey(value: String): Boolean {
     val trimmed = value.trim()
@@ -230,7 +237,10 @@ private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' ||
 
 private val RelayPortRange = 1..65535
 
-// Native parse_uuid accepts only the simple (32 hex) or hyphenated 8-4-4-4-12 form.
+// A 32 or 36 byte id must be the simple (32 hex) or hyphenated 8-4-4-4-12 form.
+private const val VlessUuidMinTextBytes = 32
+private const val VlessUuidMaxTextBytes = 36
+private const val VlessUuidMaxMappedBytes = 30
 private val VlessUuidPattern = Regex("[0-9a-fA-F]{32}|[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
 private const val RealityPublicKeyByteLength = 32
 private const val RealityShortIdMaxHexLength = 16
