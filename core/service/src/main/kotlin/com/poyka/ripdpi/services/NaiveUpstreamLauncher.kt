@@ -171,8 +171,7 @@ internal class NaiveUpstreamLauncher
             val result = resolveClient.resolve(helper, config.server, config.serverPort, config.socketProtection)
             return when (result) {
                 is NaiveProxyResolveResult.Resolved -> {
-                    val valid = result.addresses.map(String::trim).filter(::isIpLiteralHost)
-                    valid.firstOrNull { !it.contains(':') } ?: valid.firstOrNull()
+                    result.addresses.map(String::trim).firstOrNull(::isIpLiteralHost)
                         ?: reject(config, spec, "NaiveProxy protected DNS returned no valid address", "dns")
                 }
 

@@ -415,25 +415,25 @@ class NaiveUpstreamLauncherTest {
         }
 
     @Test
-    fun `resolved addresses are validated and ipv4 is preferred`() =
+    fun `the first valid ipv6 address keeps its resolver preference over ipv4`() =
         runTest {
             resolver.result = NaiveProxyResolveResult.Resolved(listOf("garbage;x", "2001:db8::7", "203.0.113.9"))
 
             manager().start(config())
 
             val json = JSONObject(requireNotNull(delegate.configAtLaunch))
-            assertEquals("MAP relay.example 203.0.113.9", json.getString("host-resolver-rules"))
+            assertEquals("MAP relay.example [2001:db8::7]", json.getString("host-resolver-rules"))
         }
 
     @Test
-    fun `an ipv6 address is used when no ipv4 address is valid`() =
+    fun `the first valid ipv4 address keeps its resolver preference over ipv6`() =
         runTest {
-            resolver.result = NaiveProxyResolveResult.Resolved(listOf("bad host", "2001:db8::7", "2001:db8::8"))
+            resolver.result = NaiveProxyResolveResult.Resolved(listOf("bad host", "203.0.113.9", "2001:db8::7"))
 
             manager().start(config())
 
             val json = JSONObject(requireNotNull(delegate.configAtLaunch))
-            assertEquals("MAP relay.example [2001:db8::7]", json.getString("host-resolver-rules"))
+            assertEquals("MAP relay.example 203.0.113.9", json.getString("host-resolver-rules"))
         }
 
     @Test
