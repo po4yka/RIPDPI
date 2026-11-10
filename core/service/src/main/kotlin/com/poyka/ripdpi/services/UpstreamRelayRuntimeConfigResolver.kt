@@ -467,8 +467,6 @@ private class ResolvedRelayConfigBuilder(
     // sourced.
     private fun mieruSection(): RelayMieruSection =
         RelayMieruSection(
-            mieruServer = effectiveConfig.server,
-            mieruPort = effectiveConfig.serverPort,
             mieruUsername = credentials?.mieruUsername,
             mieruPassword = credentials?.mieruPassword,
             mieruProtocol = effectiveConfig.mieruProtocol,

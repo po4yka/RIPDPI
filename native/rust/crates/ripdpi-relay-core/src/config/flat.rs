@@ -312,10 +312,6 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub finalmask: ResolvedRelayFinalmaskConfig,
     #[serde(default)]
-    pub mieru_server: String,
-    #[serde(default)]
-    pub mieru_port: i32,
-    #[serde(default)]
     pub mieru_username: Option<String>,
     #[serde(default)]
     pub mieru_password: Option<String>,

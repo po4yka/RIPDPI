@@ -207,8 +207,6 @@ data class ResolvedRipDpiRelayConfig(
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
     val naivePath: String = "",
-    val mieruServer: String = "",
-    val mieruPort: Int = 0,
     val mieruUsername: String? = null,
     val mieruPassword: String? = null,
     val mieruProtocol: String = com.poyka.ripdpi.data.RelayMieruProtocolTcp,
@@ -498,8 +496,6 @@ private fun ResolvedRipDpiRelayConfig.hysteria2Section(): RelayHysteria2Section 
 
 private fun ResolvedRipDpiRelayConfig.mieruSection(): RelayMieruSection =
     RelayMieruSection(
-        mieruServer = mieruServer,
-        mieruPort = mieruPort,
         mieruUsername = mieruUsername,
         mieruPassword = mieruPassword,
         mieruProtocol = mieruProtocol,
@@ -708,8 +704,6 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         shadowTlsInner = shadowTls.shadowTlsInner,
         trojanRootCertificatePem = trojan.trojanRootCertificatePem,
         naivePath = pluggableTransport.naivePath,
-        mieruServer = mieru.mieruServer,
-        mieruPort = mieru.mieruPort,
         mieruUsername = mieru.mieruUsername,
         mieruPassword = mieru.mieruPassword,
         mieruProtocol = mieru.mieruProtocol,

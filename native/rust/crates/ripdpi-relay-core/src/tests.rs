@@ -100,8 +100,6 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
         "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
-            server: "relay.example".to_string(),
-            port: 443,
             username: Some("alice".to_string()),
             password: Some("secret".to_string()),
             protocol: "tcp".to_string(),

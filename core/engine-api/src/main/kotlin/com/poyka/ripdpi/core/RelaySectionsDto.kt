@@ -158,8 +158,6 @@ data class RelayHysteria2Section(
 
 /** Mieru outbound endpoint, username/password credentials, transport protocol, multiplexing, and MTU. */
 data class RelayMieruSection(
-    val mieruServer: String,
-    val mieruPort: Int,
     val mieruUsername: String?,
     val mieruPassword: String?,
     val mieruProtocol: String,

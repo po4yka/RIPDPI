@@ -66,8 +66,6 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 uuid: flat.vless_uuid,
             }),
             "mieru" => RelayBackendConfig::Mieru(MieruRelayConfig {
-                server: flat.mieru_server,
-                port: flat.mieru_port,
                 username: flat.mieru_username,
                 password: flat.mieru_password,
                 protocol: flat.mieru_protocol,
@@ -273,8 +271,6 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             cloudflare_tunnel_token: None,
             cloudflare_tunnel_credentials_json: None,
             finalmask: config.common.finalmask.clone(),
-            mieru_server: String::new(),
-            mieru_port: 0,
             mieru_username: None,
             mieru_password: None,
             mieru_protocol: String::new(),
@@ -333,8 +329,6 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.vless_uuid = config.uuid.clone();
             }
             RelayBackendConfig::Mieru(config) => {
-                flat.mieru_server = config.server.clone();
-                flat.mieru_port = config.port;
                 flat.mieru_username = config.username.clone();
                 flat.mieru_password = config.password.clone();
                 flat.mieru_protocol = config.protocol.clone();
