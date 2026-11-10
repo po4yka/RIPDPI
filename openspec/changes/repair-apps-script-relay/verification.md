@@ -1,7 +1,7 @@
 ---
 task_id: RLY-1794300111377171
 change: repair-apps-script-relay
-commit_sha: 5ae32a22237d202aa0cf97ca3e1b3cb1da2efaf3
+commit_sha: 7c86c94990ba0cafb0bb0294f98bf5c83b7fbf32
 local: passed
 local_evidence: "Targeted native and Kotlin tests, Clippy, cargo-deny and all ci-gates passed. Follow-up fixes cleared naming, MagicNumber, ComplexCondition and ReturnCount; full staticAnalysis and 72 subscription tests passed."
 remote_ci: not_applicable
@@ -58,6 +58,15 @@ Observed on this source tree before commit:
 - All four code commits passed their normal hooks. A temporary dedicated build-gate slot was used without changing the permanent gate or shared validation rules.
 
 Logs: `/tmp/subscription-naming-and-parser-final.log` and `/tmp/subscription-reserve-refresh-test.log`.
+
+After rebase onto `origin/main` at `4f3b6298e2e19a6b965195aeda11f702a2b7991c`, the checks ran again on `7c86c94990ba0cafb0bb0294f98bf5c83b7fbf32` in the dedicated slot:
+
+- Full `staticAnalysis` passed in 28 minutes 43 seconds with the same Gradle options.
+- The same 72 subscription tests passed without failures, errors or skipped tests.
+- `just ci-gates` passed. The Linux-owned `ripdpi-runtime-platform` API snapshot was excluded on macOS by the checker policy; all host-appropriate snapshots matched.
+- `cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1` passed with 112 workspace members.
+
+Log: `/tmp/subscription-rebased-validation.log`.
 
 ## Remaining acceptance
 
