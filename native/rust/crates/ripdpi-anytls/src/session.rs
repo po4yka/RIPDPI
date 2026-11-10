@@ -60,15 +60,47 @@ async fn connect_protected_tcp(
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<TcpStream> {
     let addrs = socket_protection.resolve_host(host, port).await?;
-    let server_addr = match bind_ip {
-        Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
-        })?,
-        None => addrs
-            .into_iter()
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for anytls server"))?,
-    };
+    connect_first_reachable(addrs, bind_ip, socket_protection).await
+}
+
+/// Tries every address in order, each with its own protected socket, and
+/// returns the first connection. With `bind_ip` set, addresses of the other
+/// family are skipped. When all attempts fail, the last error is returned.
+///
+/// # Cancel safety
+/// cancel-safe: a cancelled attempt drops its unconnected socket.
+async fn connect_first_reachable(
+    addrs: Vec<SocketAddr>,
+    bind_ip: Option<std::net::IpAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<TcpStream> {
+    let mut candidates =
+        addrs.into_iter().filter(|addr| bind_ip.is_none_or(|ip| addr.is_ipv4() == ip.is_ipv4())).peekable();
+    if candidates.peek().is_none() {
+        return Err(match bind_ip {
+            Some(_) => {
+                io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
+            }
+            None => io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for anytls server"),
+        });
+    }
+    let mut last_error = None;
+    for server_addr in candidates {
+        match connect_protected_addr(server_addr, bind_ip, socket_protection).await {
+            Ok(tcp) => return Ok(tcp),
+            Err(error) => last_error = Some(error),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address to connect")))
+}
+
+/// # Cancel safety
+/// cancel-safe: a cancelled connect drops its socket.
+async fn connect_protected_addr(
+    server_addr: SocketAddr,
+    bind_ip: Option<std::net::IpAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<TcpStream> {
     let socket = match server_addr {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
@@ -1545,6 +1577,50 @@ mod protect_tests {
         .expect("loopback no-op");
         assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
         unregister_protect_callback();
+    }
+}
+
+#[cfg(test)]
+mod connect_tests {
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    use super::connect_first_reachable;
+
+    const INACTIVE: ripdpi_native_protect::SocketProtectionPolicy =
+        ripdpi_native_protect::SocketProtectionPolicy::Inactive;
+
+    /// A loopback port nobody listens on.
+    fn closed_addr() -> SocketAddr {
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind");
+        listener.local_addr().expect("address")
+    }
+
+    #[tokio::test]
+    async fn connect_falls_through_to_the_next_resolved_address() {
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");
+        let reachable = listener.local_addr().expect("address");
+        let tcp = connect_first_reachable(vec![closed_addr(), reachable], None, INACTIVE).await.expect("fallback");
+        assert_eq!(tcp.peer_addr().expect("peer"), reachable);
+    }
+
+    #[tokio::test]
+    async fn connect_returns_the_last_error_when_every_address_fails() {
+        let error = connect_first_reachable(vec![closed_addr(), closed_addr()], None, INACTIVE)
+            .await
+            .expect_err("all addresses closed");
+        assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    }
+
+    #[tokio::test]
+    async fn connect_skips_addresses_of_the_other_family_than_the_bind_ip() {
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");
+        let reachable = listener.local_addr().expect("address");
+        let v6: SocketAddr = "[::1]:9".parse().expect("v6");
+        let bind = Some(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let tcp = connect_first_reachable(vec![v6, reachable], bind, INACTIVE).await.expect("v4 only");
+        assert_eq!(tcp.peer_addr().expect("peer"), reachable);
+        let error = connect_first_reachable(vec![v6], bind, INACTIVE).await.expect_err("no v4 address");
+        assert!(error.to_string().contains("outbound bind IP family"), "unexpected error: {error}");
     }
 }
 
