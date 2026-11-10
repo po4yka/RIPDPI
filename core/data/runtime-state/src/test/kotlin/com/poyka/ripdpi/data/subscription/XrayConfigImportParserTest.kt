@@ -469,6 +469,23 @@ class XrayConfigImportParserTest {
     }
 
     @Test
+    fun `trojan json rejects reality plaintext and insecure tls`() {
+        listOf(
+            """"security": "reality"""",
+            """"security": "none"""",
+            """"security": "tls", "tlsSettings": { "allowInsecure": true }""",
+        ).forEach { stream ->
+            val config =
+                """{ "outbounds": [ { "protocol": "trojan",
+                  "settings": { "servers": [ { "address": "tj.example", "port": 443, "password": "p" } ] },
+                  "streamSettings": { "network": "tcp", $stream } } ] }"""
+            val result = translate(config)
+            assertTrue(stream, result.profiles.isEmpty())
+            assertEquals(stream, XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+        }
+    }
+
+    @Test
     fun `unsupported native VLESS options are rejected without exposing values`() {
         val fixtureValue = "sensitive-import-value"
         val base = supportedRealityConfig()

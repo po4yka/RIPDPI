@@ -533,6 +533,15 @@ object ProxyUriCodec {
             null, "tcp", "original", "none" -> Unit
             else -> return null
         }
+        // The native trojan client always verifies the certificate over TLS: REALITY,
+        // plaintext and insecure nodes would import as a profile that cannot connect.
+        when (queryValue(rawQuery, "security")?.lowercase()) {
+            null, "", "tls" -> Unit
+            else -> return null
+        }
+        if (isTrueFlag(queryValue(rawQuery, "allowInsecure")) || isTrueFlag(queryValue(rawQuery, "insecure"))) {
+            return null
+        }
         return ProxyProfile.Trojan(
             id = newId(),
             displayName = displayName(parsed.fragment, host),
@@ -540,9 +549,12 @@ object ProxyUriCodec {
             server = host,
             serverPort = port,
             password = password,
-            serverName = queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName"),
+            serverName =
+                queryValue(rawQuery, "sni") ?: queryValue(rawQuery, "serverName") ?: queryValue(rawQuery, "peer"),
         )
     }
+
+    private fun isTrueFlag(value: String?): Boolean = value == "1" || value.equals("true", ignoreCase = true)
 
     @Suppress("ReturnCount")
     private fun parseHysteria2(uri: String): ProxyProfile? {

@@ -124,6 +124,13 @@ object ClashSubscriptionParser {
 
             "trojan" -> {
                 requireTcpNetwork(node.string("network"), index, "trojan")
+                // The native trojan client is TLS-only with certificate verification always on.
+                require(node.nestedString("reality-opts", "public-key") == null) {
+                    "node $index trojan uses unsupported REALITY"
+                }
+                require(node.string("skip-cert-verify")?.toBooleanStrictOrNull() != true) {
+                    "node $index trojan skips certificate verification"
+                }
                 ProxyProfile.Trojan(
                     id = newId(),
                     displayName = name,

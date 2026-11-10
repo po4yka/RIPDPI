@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import java.util.Base64
@@ -307,6 +308,14 @@ object XrayConfigImportParser {
     ): OutboundMapping {
         val creds = firstServerCredentials(settings) ?: return OutboundMapping.Skip(XraySkipReason.MALFORMED)
         val tls = stream?.get("tlsSettings") as? JsonObject
+        // The native trojan client is TLS-only with certificate verification always on.
+        val security = stream?.string("security")?.lowercase()
+        if (security != null && security != "tls") {
+            return OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "security-$security")
+        }
+        if ((tls?.get("allowInsecure") as? JsonPrimitive)?.booleanOrNull == true) {
+            return OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "insecure")
+        }
         return OutboundMapping.Profile(
             ProxyProfile.Trojan(
                 id = newId(),

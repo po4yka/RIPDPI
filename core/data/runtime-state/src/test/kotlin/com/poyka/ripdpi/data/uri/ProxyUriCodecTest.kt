@@ -196,6 +196,30 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `trojan uri rejects reality plaintext and insecure nodes`() {
+        listOf(
+            "security=reality&pbk=abc",
+            "security=none",
+            "allowInsecure=1",
+            "insecure=true",
+        ).forEach { query ->
+            assertNull(query, ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443?$query#t"))
+        }
+        val tls = ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443?security=tls&allowInsecure=0#t")
+        assertTrue(tls is ProxyProfile.Trojan)
+    }
+
+    @Test
+    fun `trojan uri reads the legacy peer alias as sni after sni`() {
+        val peer =
+            ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443?peer=mask.example.com#t") as ProxyProfile.Trojan
+        assertEquals("mask.example.com", peer.serverName)
+        val both =
+            ProxyUriCodec.parse("trojan://fixture-pw@1.2.3.4:443?peer=b.example&sni=a.example#t") as ProxyProfile.Trojan
+        assertEquals("a.example", both.serverName)
+    }
+
+    @Test
     fun `hysteria2 uri preserves salamander obfs-password and round-trips (P1-8)`() {
         val parsed =
             ProxyUriCodec.parse(
