@@ -156,6 +156,23 @@ data class SshProfileEditorState(
         /** A fresh editor: empty fields, password auth, and a lenient (non-strict) host-key policy. */
         fun initial(): SshProfileEditorState = SshProfileEditorState()
 
+        fun fromProfile(profile: ProxyProfile.Ssh): SshProfileEditorState =
+            SshProfileEditorState(
+                rawTextByField =
+                    mapOf(
+                        SshEditorField.DISPLAY_NAME to profile.displayName,
+                        SshEditorField.SERVER to profile.server,
+                        SshEditorField.SERVER_PORT to profile.serverPort.toString(),
+                        SshEditorField.USERNAME to profile.username,
+                        SshEditorField.PASSWORD to profile.password.orEmpty(),
+                        SshEditorField.PRIVATE_KEY to profile.privateKey.orEmpty(),
+                        SshEditorField.PRIVATE_KEY_PASSPHRASE to profile.privateKeyPassphrase.orEmpty(),
+                        SshEditorField.HOST_KEY_FINGERPRINT to profile.hostKeyFingerprint.orEmpty(),
+                    ),
+                authType = profile.authType,
+                strictHostKey = profile.strictHostKey,
+            )
+
         fun fromDraft(draft: ConnectionDraft): SshProfileEditorState =
             SshProfileEditorState(
                 rawTextByField =

@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
@@ -79,6 +80,13 @@ class SshProfileViewModel
         private var editingDraft: ConnectionDraft? = null
         private var requestedEditProfileId: String? = null
         private var hostKeyJob: Job? = null
+        private var importedProfileId: String? = null
+
+        fun loadImportedProfile(profile: ProxyProfile.Ssh) {
+            if (importedProfileId != null || requestedEditProfileId != null || editingDraft != null) return
+            importedProfileId = profile.id
+            _uiState.update { it.copy(editor = SshProfileEditorState.fromProfile(profile)) }
+        }
 
         fun loadProfile(profileId: String) {
             if (profileId.isBlank()) {

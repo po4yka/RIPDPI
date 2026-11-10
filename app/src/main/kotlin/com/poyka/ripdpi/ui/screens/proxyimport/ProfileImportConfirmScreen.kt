@@ -17,6 +17,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.ssh.SshProfileRoute
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -48,6 +49,12 @@ fun ProfileImportConfirmRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LifecycleEventEffect(viewModel.importedEvents) { onImported() }
+
+    val ssh = uiState.profile as? ProxyProfile.Ssh
+    if (ssh != null && ssh.hostKeyFingerprint.isNullOrBlank()) {
+        SshProfileRoute(onBack = onBack, importedProfile = ssh, onSaved = onImported, modifier = modifier)
+        return
+    }
 
     ProfileImportConfirmScreen(
         uiState = uiState,

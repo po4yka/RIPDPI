@@ -40,7 +40,16 @@ class RelayProfileMappingTest {
                     xhttpMode = "stream-one",
                 ),
                 ProxyProfile.Hysteria2("id", "name", "g", "endpoint.example", 8443, CredentialFixture),
-                ProxyProfile.Ssh("id", "name", "g", "endpoint.example", 8443, "user", password = CredentialFixture),
+                ProxyProfile.Ssh(
+                    "id",
+                    "name",
+                    "g",
+                    "endpoint.example",
+                    8443,
+                    "user",
+                    password = CredentialFixture,
+                    hostKeyFingerprint = HostKeyFingerprint,
+                ),
                 ProxyProfile.Mieru("id", "name", "g", "endpoint.example", 8443, "user", CredentialFixture),
             )
         val kinds = listOf("trojan", "shadowsocks", "anytls", "vless_reality", "vless", "hysteria2", "ssh", "mieru")
@@ -68,7 +77,7 @@ class RelayProfileMappingTest {
                 password = CredentialFixture,
                 privateKey = "fixture-key",
                 privateKeyPassphrase = "fixture-passphrase",
-                hostKeyFingerprint = "SHA256:fixture",
+                hostKeyFingerprint = HostKeyFingerprint,
                 strictHostKey = true,
             )
         val mapped = requireNotNull(mapRelayProfile(profile))
@@ -119,6 +128,7 @@ class RelayProfileMappingTest {
     }
 
     private companion object {
+        const val HostKeyFingerprint = "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg"
         const val CredentialFixture = "mapping-credential-fixture"
         const val Uuid = "11111111-1111-4111-8111-111111111111"
         const val PublicKey = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

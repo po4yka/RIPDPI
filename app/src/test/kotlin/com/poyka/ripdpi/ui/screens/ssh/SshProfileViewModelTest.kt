@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindSsh
@@ -279,14 +280,21 @@ class SshProfileViewModelTest {
         settings: AppSettingsRepository = FakeAppSettingsRepository(),
     ): SshProfileViewModel =
         viewModel(profileStore, FakeRelayCredentialStore(), settings, observer).apply {
-            onFieldChanged(SshEditorField.SERVER, "ssh.example")
-            onFieldChanged(SshEditorField.SERVER_PORT, "22")
-            onFieldChanged(SshEditorField.USERNAME, "alice")
-            onFieldChanged(SshEditorField.PASSWORD, passwordFixture)
+            loadImportedProfile(
+                ProxyProfile.Ssh(
+                    "imported",
+                    "Imported SSH",
+                    "",
+                    "ssh.example",
+                    22,
+                    "alice",
+                    password = passwordFixture,
+                ),
+            )
         }
 
     @Test
-    fun `saving without a pinned key asks for trust and accepting pins it and saves`() =
+    fun `saving an unpinned import asks for trust and accepting pins it and saves`() =
         runTest {
             val profileStore = FakeRelayProfileStore()
             val settings = FakeAppSettingsRepository()
@@ -310,7 +318,7 @@ class SshProfileViewModelTest {
         }
 
     @Test
-    fun `rejecting the key on save keeps the profile unpinned and unsaved`() =
+    fun `rejecting an imported key keeps the profile unpinned and unsaved`() =
         runTest {
             val profileStore = FakeRelayProfileStore()
             val settings = FakeAppSettingsRepository()
@@ -348,6 +356,32 @@ class SshProfileViewModelTest {
             assertEquals(R.string.ssh_host_key_save_untrusted, viewModel.uiState.value.errorMessage)
             assertFalse(settings.snapshot().relayEnabled)
         }
+
+    @Test
+    fun `an imported profile is seeded once and does not overwrite user edits`() {
+        val viewModel = unpinnedSaveViewModel(FakeSshHostKeyObserver())
+        assertEquals(
+            "Imported SSH",
+            viewModel.uiState.value.editor
+                .rawText(SshEditorField.DISPLAY_NAME),
+        )
+        assertEquals(
+            passwordFixture,
+            viewModel.uiState.value.editor
+                .rawText(SshEditorField.PASSWORD),
+        )
+        viewModel.onFieldChanged(SshEditorField.SERVER, "edited.example")
+
+        viewModel.loadImportedProfile(
+            ProxyProfile.Ssh("imported", "Imported SSH", "", "ssh.example", 22, "alice", password = passwordFixture),
+        )
+
+        assertEquals(
+            "edited.example",
+            viewModel.uiState.value.editor
+                .rawText(SshEditorField.SERVER),
+        )
+    }
 
     @Test
     fun `onSave is a no-op for an incomplete editor`() =

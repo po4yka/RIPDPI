@@ -176,6 +176,8 @@ class SelectorRelayProfileMappingTest {
                     server = "relay.example",
                     serverPort = 22,
                     username = "fixture",
+                    password = "fixture",
+                    hostKeyFingerprint = "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg",
                 ),
                 ProxyProfile.Mieru(
                     id = "mieru",

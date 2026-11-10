@@ -1034,7 +1034,7 @@ class SubscriptionImportConfirmViewModelTest {
         )
 }
 
-private class FakeProxyGroupRepository : ProxyGroupRepository {
+internal class FakeProxyGroupRepository : ProxyGroupRepository {
     private val state = MutableStateFlow<List<ProxyGroup>>(emptyList())
     var nextAddFailure: Exception? = null
 

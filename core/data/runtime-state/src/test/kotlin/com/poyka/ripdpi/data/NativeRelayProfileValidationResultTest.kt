@@ -11,6 +11,40 @@ import org.junit.Test
  */
 class NativeRelayProfileValidationResultTest {
     @Test
+    fun `TLS XHTTP admission preserves pool bounds and transport restrictions`() {
+        val profile =
+            ProxyProfile.Vless(
+                id = "tls",
+                displayName = "TLS",
+                groupId = "group",
+                server = "example.com",
+                serverPort = 443,
+                uuid = "11111111-2222-3333-4444-555555555555",
+                serverName = "example.com",
+                xhttpPath = "/stream",
+                xhttpMode = RelayXhttpModeStreamUp,
+            )
+        for ((count, accepted) in listOf(0 to false, 1 to true, 4 to true, 5 to false)) {
+            org.junit.Assert.assertEquals(
+                "pool size $count",
+                accepted,
+                validateNativeRelayProfileResult(profile.copy(xhttpMaxConnections = count)).isSuccess,
+            )
+        }
+        assertTrue(
+            validateNativeRelayProfileResult(
+                profile.copy(xhttpMaxConnections = 1, xhttpMode = RelayXhttpModeAuto),
+            ).isFailure,
+        )
+        assertTrue(validateNativeRelayProfileResult(profile.copy(xhttpMaxConnections = 1, xhttpPath = null)).isFailure)
+        assertTrue(
+            validateNativeRelayProfileResult(
+                profile.copy(xhttpMaxConnections = 1, xhttpPath = null, xhttpHost = "example.com"),
+            ).isSuccess,
+        )
+    }
+
+    @Test
     fun `shadowsocks admission accepts supported methods and AES identity keys`() {
         val key16 = "AAECAwQFBgcICQoLDA0ODw=="
         val key32 = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="

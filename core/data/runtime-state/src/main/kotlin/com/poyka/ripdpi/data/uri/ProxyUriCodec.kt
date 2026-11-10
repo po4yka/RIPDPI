@@ -34,6 +34,7 @@ object ProxyUriCodec {
     /** Base64 encodes 3 input bytes per 4 output chars, so encoded length is always a multiple of 4. */
     private const val BASE64_GROUP_SIZE = 4
     private const val DEFAULT_TLS_PORT = 443
+    private val SSH_PORT_RANGE = 1..65535
 
     /** RFC 3986 characters that java.net.URI accepts verbatim in a query or fragment, besides alphanumerics. */
     private const val URI_TAIL_ALLOWED = "-._~!$&'()*+,;=:@/?"
@@ -371,7 +372,7 @@ object ProxyUriCodec {
             passwordFromUserInfo = percentDecode(rawUserInfo.substring(separator + 1)).takeIf { it.isNotBlank() }
         }
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
-        val port = parsed.port.takeIf { it > 0 } ?: return null
+        val port = parsed.port.takeIf { it in SSH_PORT_RANGE } ?: return null
         val rawQuery = parsed.rawQuery
         val strict = queryValue(rawQuery, "strict")?.let { it == "1" || it.equals("true", ignoreCase = true) } ?: false
         return ProxyProfile.Ssh(
@@ -381,7 +382,7 @@ object ProxyUriCodec {
             server = host,
             serverPort = port,
             username = username,
-            authType = normalizeSshAuthType(queryValue(rawQuery, "auth")),
+            authType = normalizeSshAuthType(queryValue(rawQuery, "auth")) ?: return null,
             password = passwordFromUserInfo,
             privateKey = queryValue(rawQuery, "key"),
             privateKeyPassphrase = queryValue(rawQuery, "passphrase"),
@@ -391,10 +392,11 @@ object ProxyUriCodec {
     }
 
     /** Maps the `auth` query token to the native ripdpi-ssh selector; defaults to `password`. */
-    private fun normalizeSshAuthType(value: String?): String =
+    private fun normalizeSshAuthType(value: String?): String? =
         when (value?.trim()?.lowercase()) {
+            null, "", "password" -> "password"
             "private_key", "privatekey", "key" -> "private_key"
-            else -> "password"
+            else -> null
         }
 
     private fun percentDecode(value: String): String =

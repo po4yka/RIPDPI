@@ -11,6 +11,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
@@ -67,10 +68,13 @@ fun SshProfileRoute(
     appPin: AppPinCheck? = hiltViewModel<SecretRevealPinViewModel>(),
     onRequestPrivateKeyReveal: (() -> Unit)? = null,
     onRequestPassphraseReveal: (() -> Unit)? = null,
+    importedProfile: ProxyProfile.Ssh? = null,
+    onSaved: () -> Unit = onBack,
 ) {
     LaunchedEffect(profileId) { profileId?.let(viewModel::loadProfile) }
+    LaunchedEffect(importedProfile?.id) { importedProfile?.let(viewModel::loadImportedProfile) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LifecycleEventEffect(viewModel.savedEvents) { onBack() }
+    LifecycleEventEffect(viewModel.savedEvents) { onSaved() }
     // Revealed secrets hide again when the app goes to the background or the screen closes.
     // A host-key fetch is not cancelled here: rotation would restart it, and the slot the cancelled
     // probe keeps would answer Busy. It runs in viewModelScope, so leaving the screen cancels it.
