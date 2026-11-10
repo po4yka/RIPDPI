@@ -1,7 +1,7 @@
 pub(crate) use super::*;
 /// The only relay native-config wire schema version this build accepts.
 /// Mirrors the Kotlin `RelayNativeConfigSchemaVersion` constant.
-pub(crate) const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 10;
+pub const SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION: u32 = 10;
 
 pub(crate) fn default_vless_flow() -> String {
     "xtls-rprx-vision".to_string()

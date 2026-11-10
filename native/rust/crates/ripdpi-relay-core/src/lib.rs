@@ -23,9 +23,9 @@ pub use config::{
     AnyTlsRelayConfig, CHAIN_RELAY_MAX_HOPS, CHAIN_RELAY_MIN_HOPS, ChainRelayConfig, CloudflareTunnelRelayConfig,
     CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig, MieruRelayConfig, NaiveProxyRelayConfig,
     RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig,
-    ResolvedShadowTlsInnerRelayConfig, ShadowTlsRelayConfig, SshRelayConfig, TorPluggableTransportConfig,
-    TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig, VlessRealityRelayConfig,
-    VlessRelayConfig,
+    ResolvedShadowTlsInnerRelayConfig, SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION, ShadowTlsRelayConfig, SshRelayConfig,
+    TorPluggableTransportConfig, TorRelayConfig, TrojanRelayConfig, TuicRelayConfig, UnsupportedRelayConfig,
+    VlessRealityRelayConfig, VlessRelayConfig,
 };
 pub use runtime::RelayRuntime;
 pub use telemetry::{RelayTelemetry, TcpConnectObservation, XudpTelemetrySnapshot};

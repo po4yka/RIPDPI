@@ -31,6 +31,7 @@ pub use backend::{
     VlessRealityRelayConfig, VlessRelayConfig,
 };
 pub use finalmask::ResolvedRelayFinalmaskConfig;
+pub use flat::SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION;
 pub(crate) use flat::*;
 pub(crate) use kind::*;
 pub use runtime::{CommonRelayConfig, LocalSocksAuth, ResolvedRelayRuntimeConfig, SocketProtection};

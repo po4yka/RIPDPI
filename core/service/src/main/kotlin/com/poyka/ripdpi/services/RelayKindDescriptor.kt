@@ -65,7 +65,8 @@ internal enum class RelayFinalmaskSupport {
  *
  * Kotlin owns four facts the Rust table does not model: [subprocessBacked],
  * [finalmaskSupport], [configBacking], and the Kotlin-only pluggable-transport
- * and Apps Script kinds that have no native Rust backend at all.
+ * and Apps Script kinds absent from the Rust relay-core registry. Apps Script
+ * uses a separate Rust runtime through JNI.
  *
  * Sub-mode-specific behaviour (VLESS xHTTP, finalmask activation, the Cloudflare
  * publish-local-origin subprocess) deliberately stays in the relay resolvers
