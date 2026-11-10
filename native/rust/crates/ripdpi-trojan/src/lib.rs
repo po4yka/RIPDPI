@@ -14,9 +14,12 @@
 
 #![forbid(unsafe_code)]
 
+use std::collections::VecDeque;
+use std::future::Future;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::os::fd::AsRawFd;
+use std::time::Duration;
 
 use boring::x509::X509;
 use sha2::{Digest, Sha224};
@@ -339,13 +342,21 @@ async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream
     connect_first_reachable(addrs, config.outbound_bind_ip, config.socket_protection).await
 }
 
-/// Connect to the first reachable address of `addrs`, in order.
+/// Connect budget for one server address except the last. A blackholed address
+/// would otherwise wait for the kernel connect timeout, longer than the relay
+/// connect deadline, and the next address would never be tried.
+const PER_ADDRESS_CONNECT_TIMEOUT: Duration =
+    if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(8) };
+
+/// Connect to the first reachable address of `addrs`.
 ///
-/// Each attempt builds its own socket and protects its fd via the in-process
-/// `VpnService.protect()` registry BEFORE connect, so the non-loopback carrier
-/// socket bypasses the app's own TUN route. Loopback-skip and fail-closed are
-/// handled by [`protect_outbound_socket`]. With a bind IP, only addresses of
-/// its family are tried. Returns the last error when every attempt fails.
+/// Addresses are tried with the families interleaved (RFC 8305 section 4), so
+/// a broken family costs at most one timeout. Each attempt builds its own
+/// socket and protects its fd via the in-process `VpnService.protect()`
+/// registry BEFORE connect, so the non-loopback carrier socket bypasses the
+/// app's own TUN route. Loopback-skip and fail-closed are handled by
+/// [`protect_outbound_socket`]. With a bind IP, only addresses of its family
+/// are tried. Returns the last error when every attempt fails.
 ///
 /// # Cancel safety
 ///
@@ -355,6 +366,29 @@ async fn connect_first_reachable(
     bind_ip: Option<IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<TcpStream> {
+    try_each_address(addrs, bind_ip, PER_ADDRESS_CONNECT_TIMEOUT, |addr| connect_one(addr, bind_ip, socket_protection))
+        .await
+}
+
+/// Run `connect` on each usable address in order; every attempt but the last
+/// gets `per_address` before the next address is tried.
+///
+/// # Cancel safety
+///
+/// cancel-safe: holds no state besides the pending `connect` future, which is
+/// dropped with this one.
+async fn try_each_address<T, F, Fut>(
+    addrs: Vec<SocketAddr>,
+    bind_ip: Option<IpAddr>,
+    per_address: Duration,
+    mut connect: F,
+) -> io::Result<T>
+where
+    F: FnMut(SocketAddr) -> Fut,
+    Fut: Future<Output = io::Result<T>>,
+{
+    let mut addrs = interleave_address_families(addrs);
+    addrs.retain(|addr| bind_ip.is_none_or(|ip| ip.is_ipv4() == addr.is_ipv4()));
     let mut last_error = io::Error::new(
         io::ErrorKind::AddrNotAvailable,
         match bind_ip {
@@ -362,18 +396,43 @@ async fn connect_first_reachable(
             None => "no address resolved for trojan server",
         },
     );
-    for server_addr in addrs {
-        if bind_ip.is_some_and(|ip| ip.is_ipv4() != server_addr.is_ipv4()) {
-            continue;
-        }
-        match connect_one(server_addr, bind_ip, socket_protection).await {
-            Ok(tcp) => return Ok(tcp),
+    let last_index = addrs.len().saturating_sub(1);
+    for (index, server_addr) in addrs.into_iter().enumerate() {
+        let attempt = connect(server_addr);
+        let outcome = if index == last_index {
+            attempt.await
+        } else {
+            tokio::time::timeout(per_address, attempt)
+                .await
+                .unwrap_or_else(|_| Err(io::Error::new(io::ErrorKind::TimedOut, "Trojan server connect timed out")))
+        };
+        match outcome {
+            Ok(connected) => return Ok(connected),
             Err(error) => last_error = error,
         }
     }
     Err(last_error)
 }
 
+/// Alternates IPv6 and IPv4 addresses, starting with the family of the first
+/// resolved address, and keeps the resolver order inside each family.
+fn interleave_address_families(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
+    let first_is_ipv6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
+    let (mut preferred, mut other): (VecDeque<_>, VecDeque<_>) =
+        addrs.into_iter().partition(|addr| addr.is_ipv6() == first_is_ipv6);
+    let mut ordered = Vec::with_capacity(preferred.len() + other.len());
+    while !preferred.is_empty() || !other.is_empty() {
+        ordered.extend(preferred.pop_front());
+        ordered.extend(other.pop_front());
+    }
+    ordered
+}
+
+/// Connect one protected socket to `server_addr`.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the future owns the socket being connected; dropping it closes it.
 async fn connect_one(
     server_addr: SocketAddr,
     bind_ip: Option<IpAddr>,
@@ -649,6 +708,34 @@ mod tests {
 
     const SPEC_PASSWORD: &str = "123456789";
     const SPEC_PASSWORD_SHA224_HEX: &str = "9b3e61bf29f17c75572fae2e86e17809a4513d07c8a18152acf34521";
+
+    #[tokio::test]
+    async fn a_hung_address_does_not_block_the_next_one() {
+        let hung: SocketAddr = (Ipv4Addr::new(192, 0, 2, 1), 443).into();
+        let live: SocketAddr = (Ipv4Addr::LOCALHOST, 443).into();
+        let started = tokio::time::Instant::now();
+        let reached = try_each_address(vec![hung, live], None, Duration::from_millis(100), |addr| async move {
+            if addr == hung {
+                std::future::pending::<()>().await;
+            }
+            Ok(addr)
+        })
+        .await
+        .expect("the second address is tried after the first times out");
+        assert_eq!(reached, live);
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn address_families_are_interleaved() {
+        let v6a: SocketAddr = "[2001:db8::1]:443".parse().expect("v6a");
+        let v6b: SocketAddr = "[2001:db8::2]:443".parse().expect("v6b");
+        let v4a: SocketAddr = "192.0.2.1:443".parse().expect("v4a");
+        let v4b: SocketAddr = "192.0.2.2:443".parse().expect("v4b");
+        assert_eq!(interleave_address_families(vec![v6a, v6b, v4a, v4b]), vec![v6a, v4a, v6b, v4b]);
+        assert_eq!(interleave_address_families(vec![v4a, v6a, v6b]), vec![v4a, v6a, v6b]);
+        assert!(interleave_address_families(Vec::new()).is_empty());
+    }
 
     #[tokio::test]
     async fn connect_first_reachable_skips_a_refused_address() {

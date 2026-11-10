@@ -200,3 +200,28 @@ async fn udp_associate_header_is_deferred_to_the_first_frame() {
     assert_eq!(reply.payload, b"udp query");
     assert_eq!(fixture.observed().command, Some(0x03));
 }
+
+/// A server-first caller reads before it writes: the header goes out alone
+/// after the delay, and a later write still works.
+#[tokio::test(flavor = "multi_thread")]
+async fn udp_associate_read_first_sends_the_header_alone_then_echoes() {
+    let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
+    let config = loopback_config(&fixture, Some(fixture.certificate_pem().to_owned()));
+    let mut stream = TrojanClient::connect_udp_associate(&config).await.expect("connect udp associate");
+
+    let mut byte = [0_u8; 1];
+    let early = tokio::time::timeout(std::time::Duration::from_millis(500), stream.read(&mut byte)).await;
+    assert!(early.is_err(), "test precondition: the server sends nothing before a datagram");
+    let observed = fixture.observed();
+    assert_eq!(observed.command, Some(0x03), "the header was sent alone after the delay");
+
+    let frame = ripdpi_trojan::encode_udp_packet(
+        &TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST),
+        fixture.udp_target_port(),
+        b"late query",
+    )
+    .expect("encode frame");
+    stream.write_all(&frame).await.expect("frame after the header");
+    let reply = ripdpi_trojan::read_udp_packet(&mut stream).await.expect("echoed frame");
+    assert_eq!(reply.payload, b"late query");
+}
