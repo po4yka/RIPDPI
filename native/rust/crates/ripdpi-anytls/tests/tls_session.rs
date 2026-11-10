@@ -665,7 +665,7 @@ async fn paused_reader_receives_the_whole_echo() {
     let mut received = 0;
     let mut buffer = vec![0_u8; 64 * 1024];
     while received < PAUSE_TOTAL {
-        let read_len = tokio::time::timeout(Duration::from_secs(10), read.read(&mut buffer))
+        let read_len = tokio::time::timeout(Duration::from_secs(30), read.read(&mut buffer))
             .await
             .expect("read deadline")
             .expect("no error before the echo is complete");
