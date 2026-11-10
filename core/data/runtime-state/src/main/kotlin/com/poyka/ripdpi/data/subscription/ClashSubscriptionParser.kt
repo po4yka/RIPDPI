@@ -6,6 +6,7 @@ import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.poyka.ripdpi.data.Hysteria2SalamanderMinKeyBytes
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import java.util.UUID
@@ -105,16 +106,21 @@ object ClashSubscriptionParser {
             "ss", "shadowsocks" -> {
                 // SIP003 plugins (obfs, v2ray-plugin) need a transport RIPDPI does not bundle.
                 require(node.string("plugin") == null) { "node $index ss uses an unsupported plugin" }
+                val method =
+                    node.string("cipher") ?: node.string("method")
+                        ?: error("node $index ss missing 'cipher'")
+                val password = node.requireString("password", index)
+                require(isValidShadowsocksCredentials(method, password)) {
+                    "node $index ss has an unsupported cipher or invalid key"
+                }
                 ProxyProfile.Shadowsocks(
                     id = newId(),
                     displayName = name,
                     groupId = groupId,
                     server = node.requireString("server", index),
                     serverPort = node.requirePort("port", index),
-                    method =
-                        node.string("cipher") ?: node.string("method")
-                            ?: error("node $index ss missing 'cipher'"),
-                    password = node.requireString("password", index),
+                    method = method,
+                    password = password,
                 )
             }
 

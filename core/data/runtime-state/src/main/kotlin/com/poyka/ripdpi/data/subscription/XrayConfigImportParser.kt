@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.nativeVlessProfileRejection
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
@@ -336,8 +337,8 @@ object XrayConfigImportParser {
         groupId: String,
     ): OutboundMapping {
         val creds = firstServerCredentials(settings)
-        val method = (settings?.get("servers") as? JsonArray)?.firstObject()?.string("method")
-        if (creds == null || method == null) {
+        val method = (settings?.get("servers") as? JsonArray)?.firstObject()?.string("method").orEmpty()
+        if (creds == null || !isValidShadowsocksCredentials(method, creds.password)) {
             return OutboundMapping.Skip(XraySkipReason.MALFORMED)
         }
         return OutboundMapping.Profile(

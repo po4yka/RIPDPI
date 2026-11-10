@@ -5,7 +5,7 @@ import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
-import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
+import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import java.net.URI
@@ -499,8 +499,7 @@ object ProxyUriCodec {
         val decodePart: (String) -> String? = { if (plainUserInfo) rfc3986PercentDecode(it) else it }
         val method = decodePart(userInfo.substring(0, methodSep)) ?: return null
         val password = decodePart(userInfo.substring(methodSep + 1)) ?: return null
-        if (!isSupportedShadowsocksMethod(method)) return null
-        if (password.isEmpty()) return null
+        if (!isValidShadowsocksCredentials(method, password)) return null
         // SIP003 `plugin=` (obfs-local / v2ray-plugin) needs an out-of-process
         // transport RIPDPI does not bundle. Importing such a node as plain ss would
         // build a profile that silently fails to connect, so reject it loudly and

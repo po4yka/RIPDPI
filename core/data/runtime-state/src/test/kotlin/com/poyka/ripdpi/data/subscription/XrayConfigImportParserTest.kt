@@ -245,6 +245,11 @@ class XrayConfigImportParserTest {
             """{ "outbounds": [ { "protocol": "shadowsocks",
               "settings": { "servers": [ { "address": "s.example", "port": 8388, "password": "p" } ] } } ] }"""
         assertEquals(XraySkipReason.MALFORMED, translate(ss).skipped.single().reason)
+        val badKey =
+            """{ "outbounds": [ { "protocol": "shadowsocks", "settings": { "servers": [
+              { "address": "s.example", "port": 8388,
+                "method": "2022-blake3-aes-128-gcm", "password": "bad" } ] } } ] }"""
+        assertEquals(XraySkipReason.MALFORMED, translate(badKey).skipped.single().reason)
     }
 
     @Test

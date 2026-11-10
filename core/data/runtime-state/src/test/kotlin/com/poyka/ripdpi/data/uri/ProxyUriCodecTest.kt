@@ -508,4 +508,15 @@ class ProxyUriCodecTest {
         assertEquals("stream-one", profile.xhttpMode)
         assertEquals("abcd", profile.realityShortId)
     }
+
+    @Test
+    fun `shadowsocks 2022 link with an invalid key is rejected`() {
+        assertNull(ProxyUriCodec.parse("ss://2022-blake3-aes-128-gcm:bad@192.0.2.1:8388#node"))
+        // A 32-byte key is too long for the 128-bit method.
+        assertNull(
+            ProxyUriCodec.parse(
+                "ss://2022-blake3-aes-128-gcm:YctPZ6U7xPPcU%2Bgp3u%2B0tx%2FtRizJN9K8y%2BuKlW2qjlI%3D@192.0.2.1:8388",
+            ),
+        )
+    }
 }

@@ -4,7 +4,7 @@ import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlMap
 import com.poyka.ripdpi.data.Hysteria2SalamanderMinKeyBytes
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
+import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
@@ -530,7 +530,7 @@ private fun mapShadowsocks(
     if (server == null || port == null) return rawConfig(name, groupId, obj)
     val method = obj.string("method").orEmpty()
     val password = obj.string("password").orEmpty()
-    return if (password.isNotEmpty() && isSupportedShadowsocksMethod(method)) {
+    return if (isValidShadowsocksCredentials(method, password)) {
         ProxyProfile.Shadowsocks(
             id = newId(),
             displayName = name,
