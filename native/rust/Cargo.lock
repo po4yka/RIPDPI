@@ -6276,6 +6276,7 @@ dependencies = [
  "quinn",
  "rcgen",
  "ring",
+ "ripdpi-android-telemetry-adapter",
  "ripdpi-geo",
  "ripdpi-packets",
  "ripdpi-proxy-runtime-adapter",

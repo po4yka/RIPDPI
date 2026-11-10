@@ -283,7 +283,18 @@ fn handle_shadowsocks(
     deadline: Instant,
 ) -> io::Result<()> {
     let resolver = |host: &str| state.resolve_handshake_name(host, deadline);
-    let target = read_shadowsocks_request(&mut client, first_byte, state, resolver, deadline)?;
+    let target = if first_byte == 3 && state.remote_dns_upstream().is_some() {
+        let request = remote_dns::plain_domain_request(&mut client, deadline)?;
+        if remote_dns::relay(&mut client, state, &request, SuccessReply::PlainAddress)? {
+            return Ok(());
+        }
+        state
+            .parse_shadowsocks_target(&request, resolver)?
+            .map(|(target, _)| target)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "incomplete plaintext address"))?
+    } else {
+        read_shadowsocks_request(&mut client, first_byte, state, resolver, deadline)?
+    };
     connect_and_relay(&mut client, target.addr, state, target.host, None, SuccessReply::PlainAddress)
         .map_err(ConnectRelayError::into_io_error)
 }

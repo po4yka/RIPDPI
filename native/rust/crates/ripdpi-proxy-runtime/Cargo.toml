@@ -24,6 +24,7 @@ daemonize = ["ripdpi-proxy-runtime-adapter/daemonize"]
 loom = ["dep:loom", "ripdpi-proxy-runtime-adapter/loom"]
 
 [dev-dependencies]
+ripdpi-android-telemetry-adapter = { workspace = true }
 ripdpi-tunnel-config = { workspace = true }
 tokio-util = { workspace = true }
 smoltcp = { workspace = true }

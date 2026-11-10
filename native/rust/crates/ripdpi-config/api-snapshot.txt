@@ -433,6 +433,7 @@ pub ripdpi_config::RuntimeNetworkSettings::ipv6: bool
 pub ripdpi_config::RuntimeNetworkSettings::listen: ripdpi_config::ListenConfig
 pub ripdpi_config::RuntimeNetworkSettings::max_open: i32
 pub ripdpi_config::RuntimeNetworkSettings::mixed: bool
+pub ripdpi_config::RuntimeNetworkSettings::remote_dns_upstream: core::option::Option<core::net::socket_addr::SocketAddr>
 pub ripdpi_config::RuntimeNetworkSettings::resolve: bool
 pub ripdpi_config::RuntimeNetworkSettings::shadowsocks: bool
 pub ripdpi_config::RuntimeNetworkSettings::tfo: bool

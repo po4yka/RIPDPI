@@ -1016,8 +1016,10 @@ The listener is then closed when `runtime::run_proxy_with_embedded_control()` un
 
 ## Tor domain requests
 
-When the app selects Tor, SOCKS4a, SOCKS5 DOMAIN and HTTP CONNECT names go to the
-app-owned Tor SOCKS listener without a direct DNS lookup. Domain block rules
+When the app selects Tor, SOCKS4a, SOCKS5 DOMAIN, HTTP CONNECT and plaintext
+address names go to the app-owned Tor SOCKS listener without a direct DNS
+lookup. Plaintext address input uses this path in Mixed and BytePrefixed modes.
+Unsupported SOCKS5 domain commands return code 7 before DNS. Domain block rules
 remain active. A domain request fails closed if its route is Direct or an
 applicable rule needs an IP address that Tor has not resolved. Use an explicit
 IP request when IP-based routing is required. Tor failures do not select a

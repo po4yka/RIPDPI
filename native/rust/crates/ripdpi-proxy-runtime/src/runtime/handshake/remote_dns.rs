@@ -5,13 +5,16 @@ use std::time::{Duration, Instant};
 
 use super::{HttpConnectFailure, HttpConnectHead, RuntimeState, SuccessReply};
 
-/// Return only domain CONNECT requests. The normal parser still owns IP/UDP requests.
+/// Extract domain CONNECT requests; reject other domain commands before DNS.
 pub(super) fn target(request: &[u8]) -> io::Result<Option<(String, u16)>> {
     let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "invalid remote DNS authority");
     let (host, port) = match request.first() {
         Some(5) if request.get(3) == Some(&3) => {
-            if request.get(1) != Some(&1) || request.get(2) != Some(&0) {
+            if request.get(2) != Some(&0) {
                 return Err(invalid());
+            }
+            if request.get(1) != Some(&1) {
+                return Err(io::Error::new(io::ErrorKind::Unsupported, "Tor supports only CONNECT streams"));
             }
             let len = usize::from(*request.get(4).ok_or_else(invalid)?);
             let host = std::str::from_utf8(request.get(5..5 + len).ok_or_else(invalid)?).map_err(|_| invalid())?;
@@ -28,6 +31,12 @@ pub(super) fn target(request: &[u8]) -> io::Result<Option<(String, u16)>> {
             let host = std::str::from_utf8(&bytes[..len]).map_err(|_| invalid())?;
             (host, u16::from_be_bytes([request[2], request[3]]))
         }
+        Some(3) => {
+            let len = usize::from(*request.get(1).ok_or_else(invalid)?);
+            let host = std::str::from_utf8(request.get(2..2 + len).ok_or_else(invalid)?).map_err(|_| invalid())?;
+            let port = request.get(2 + len..4 + len).ok_or_else(invalid)?;
+            (host, u16::from_be_bytes([port[0], port[1]]))
+        }
         Some(b'C') => HttpConnectHead::parse(request).and_then(HttpConnectHead::authority).map_err(|_| invalid())?,
         _ => return Ok(None),
     };
@@ -42,6 +51,18 @@ pub(super) fn target(request: &[u8]) -> io::Result<Option<(String, u16)>> {
         return Err(invalid());
     }
     Ok(Some((host.to_owned(), port)))
+}
+
+pub(super) fn plain_domain_request(client: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
+    let mut request = vec![3, 0];
+    super::read_exact_by(client, &mut request[1..], deadline)?;
+    if request[1] == 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "empty domain in plaintext address"));
+    }
+    request.resize(usize::from(request[1]) + 4, 0);
+    super::read_exact_by(client, &mut request[2..], deadline)?;
+    client.set_read_timeout(Some(super::HANDSHAKE_TIMEOUT))?;
+    Ok(request)
 }
 
 pub(super) fn relay(
@@ -67,10 +88,10 @@ pub(super) fn relay(
             match reply {
                 SuccessReply::Socks4 => client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?,
                 SuccessReply::Socks5 => {
-                    let code = if error.kind() == io::ErrorKind::PermissionDenied {
-                        2
-                    } else {
-                        RuntimeState::socks5_reply_code_for_error(&error)
+                    let code = match error.kind() {
+                        io::ErrorKind::PermissionDenied => 2,
+                        io::ErrorKind::Unsupported => 7,
+                        _ => RuntimeState::socks5_reply_code_for_error(&error),
                     };
                     client.write_all(&[5, code, 0, 1, 0, 0, 0, 0, 0, 0])?;
                 }
@@ -100,10 +121,10 @@ pub(super) fn relay(
     let activity = AtomicU64::new(0);
     let started = Instant::now();
     std::thread::scope(|scope| {
-        let down = std::thread::Builder::new()
-            .name("ripdpi-tor-stream".into())
-            .spawn_scoped(scope, || copy(&mut remote_reader, &mut client_writer, state, &stop, &activity, started))?;
-        let up = copy(client, &mut remote, state, &stop, &activity, started);
+        let down = std::thread::Builder::new().name("ripdpi-tor-stream".into()).spawn_scoped(scope, || {
+            copy(&mut remote_reader, &mut client_writer, state, &stop, &activity, started, false)
+        })?;
+        let up = copy(client, &mut remote, state, &stop, &activity, started, true);
         let down = down.join().map_err(|_| io::Error::other("remote DNS relay worker panicked"))?;
         up.and(down)
     })?;
@@ -117,6 +138,7 @@ fn copy(
     stop: &AtomicBool,
     activity: &AtomicU64,
     started: Instant,
+    outbound: bool,
 ) -> io::Result<()> {
     let result = (|| {
         let mut bytes = [0; 16384];
@@ -146,6 +168,15 @@ fn copy(
                 match writer.write(tail) {
                     Ok(0) => return Err(io::ErrorKind::WriteZero.into()),
                     Ok(n) => {
+                        if outbound {
+                            state.note_application_traffic(n as u64, 0);
+                            state.note_upstream_application_bytes_forwarded(
+                                n as u64,
+                                crate::runtime::state::now_epoch_ms(),
+                            );
+                        } else {
+                            state.note_application_traffic(0, n as u64);
+                        }
                         tail = &tail[n..];
                         activity.fetch_max(started.elapsed().as_millis() as u64, Ordering::Relaxed);
                     }

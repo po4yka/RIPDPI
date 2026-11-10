@@ -2,6 +2,7 @@
 #[path = "support/stalled_dns.rs"]
 mod stalled_dns;
 
+use ripdpi_android_telemetry_adapter::{ProxyTelemetryObserver, ProxyTelemetryState};
 use ripdpi_proxy_runtime::{create_listener, prepare_embedded, run_proxy_with_embedded_control_receipt};
 use ripdpi_proxy_runtime_adapter::model::config::{RuntimeConfig, UpstreamSocksAuth, UpstreamSocksConfig};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
@@ -14,14 +15,16 @@ use std::time::Duration;
 #[test]
 fn tor_domain_inputs_reach_upstream_without_direct_dns() {
     let onion = "2gzyxa5ihm7ru6h2k6vzuzul4qoftkornhmcq4w4y7f2pla55atbdpqd.onion";
-    for (protocol, authenticated) in [(4, false), (5, false), (5, true), (6, false)] {
+    for (protocol, authenticated) in [(4, false), (5, false), (5, true), (6, false), (3, false), (3, true), (0, false)]
+    {
         prepare_embedded();
         let dns = stalled_dns::StalledDns::start();
         let upstream = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let endpoint = upstream.local_addr().unwrap();
         let mut config = RuntimeConfig::default();
         config.network.listen.listen_port = 0;
-        config.network.mixed = true;
+        config.network.mixed = protocol != 0;
+        config.network.shadowsocks = matches!(protocol, 0 | 3);
         config.network.remote_dns_upstream = Some(endpoint);
         config.groups[0].policy.ext_socks = Some(UpstreamSocksConfig {
             addr: endpoint,
@@ -29,7 +32,9 @@ fn tor_domain_inputs_reach_upstream_without_direct_dns() {
         });
         let listener = create_listener(&config).unwrap();
         let address = listener.local_addr().unwrap();
-        let control = Arc::new(EmbeddedProxyControl::new_with_context(None, Some(dns.context())));
+        let traffic = Arc::new(ProxyTelemetryState::new(None));
+        let sink = Arc::new(ProxyTelemetryObserver { state: traffic.clone() });
+        let control = Arc::new(EmbeddedProxyControl::new_with_context(Some(sink), Some(dns.context())));
         let worker_control = control.clone();
         let worker = thread::spawn(move || {
             run_proxy_with_embedded_control_receipt(
@@ -70,6 +75,11 @@ fn tor_domain_inputs_reach_upstream_without_direct_dns() {
         let mut client = TcpStream::connect(address).unwrap();
         client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
         match protocol {
+            0 | 3 => {
+                client.write_all(&[3, onion.len() as u8]).unwrap();
+                client.write_all(onion.as_bytes()).unwrap();
+                client.write_all(&443u16.to_be_bytes()).unwrap();
+            }
             4 => {
                 client.write_all(&[4, 1, 1, 187, 0, 0, 0, 1, 0]).unwrap();
                 client.write_all(onion.as_bytes()).unwrap();
@@ -114,6 +124,10 @@ fn tor_domain_inputs_reach_upstream_without_direct_dns() {
         let receipt = worker.join().unwrap().unwrap();
         assert!(!receipt.worker_panicked());
         assert!(!receipt.forced_abort(), "Tor Stop must drain without force abort");
+        let snapshot = serde_json::to_value(traffic.snapshot()).unwrap();
+        assert_eq!(snapshot["tunnelStats"]["txBytes"], 4);
+        assert_eq!(snapshot["tunnelStats"]["rxBytes"], 4);
+        assert_eq!(traffic.forwarding_evidence_snapshot().upstream_application_bytes, 4);
     }
 }
 
@@ -123,7 +137,7 @@ fn tor_domain_failures_preserve_socks_reply_codes_without_dns_or_direct_fallback
         DestinationDomainMatcher, DestinationDomainMatcherKind, DestinationRoutingAction, DestinationRoutingNetwork,
         DestinationRoutingRule,
     };
-    for blocked in [false, true] {
+    for (blocked, command) in [(false, 1), (true, 1), (false, 2), (false, 3)] {
         prepare_embedded();
         let dns = stalled_dns::StalledDns::start();
         let upstream = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
@@ -144,7 +158,7 @@ fn tor_domain_failures_preserve_socks_reply_codes_without_dns_or_direct_fallback
                 destination_ports: vec![],
             });
         }
-        let peer = if blocked {
+        let peer = if blocked || command != 1 {
             None
         } else {
             let listener = upstream.try_clone().unwrap();
@@ -179,10 +193,32 @@ fn tor_domain_failures_preserve_socks_reply_codes_without_dns_or_direct_fallback
         client.write_all(&[5, 1, 0]).unwrap();
         let mut method = [0; 2];
         client.read_exact(&mut method).unwrap();
-        client.write_all(b"\x05\x01\x00\x03\x0dblocked.onion\x01\xbb").unwrap();
+        let mut request = b"\x05\x01\x00\x03\x0dblocked.onion\x01\xbb".to_vec();
+        request[1] = command;
+        client.write_all(&request).unwrap();
         let mut reply = [0; 10];
         client.read_exact(&mut reply).unwrap();
-        assert_eq!(reply, [5, if blocked { 2 } else { 5 }, 0, 1, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            reply,
+            [
+                5,
+                if command != 1 {
+                    7
+                } else if blocked {
+                    2
+                } else {
+                    5
+                },
+                0,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+            ]
+        );
         if let Some(peer) = peer {
             peer.join().unwrap();
         } else {
