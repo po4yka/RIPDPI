@@ -133,6 +133,7 @@ object RelayProfileShareMapper {
                         server = server,
                         serverPort = serverPort,
                         password = password,
+                        serverName = serverName.ifBlank { null },
                     ).takeIf { server.isNotBlank() && serverPort > 0 }
             }
         }
