@@ -7,6 +7,11 @@ const MIN_MTU: u16 = 1280;
 /// The highest MTU Mieru accepts for its custom UDP/TCP transport.
 const MAX_MTU: u16 = 1500;
 
+/// Streams one multiplexed carrier admits. Equals the relay pool's
+/// single-carrier lease cap (`SINGLE_CARRIER_MAX_ACTIVE_LEASES` in
+/// `ripdpi-relay-core`), which this crate cannot import.
+pub const CARRIER_STREAM_LIMIT: usize = 256;
+
 /// The Mieru transport protocol.
 ///
 /// Mieru tunnels traffic over either a custom TCP or a custom UDP carrier; both
@@ -82,22 +87,23 @@ impl MieruMux {
     }
 
     /// Maximum number of concurrent logical streams carried over a single
-    /// multiplexed carrier connection at this level.
+    /// multiplexed carrier connection.
     ///
-    /// Upstream `enfein/mieru` scales the *number of carrier connections* with
-    /// the multiplexing level; RIPDPI's relay pool caches one carrier per
-    /// backend, so the level instead maps to a per-carrier concurrent-stream
-    /// ceiling. The wire multiplexing itself (one AEAD direction shared by many
-    /// `session_id`-tagged sub-sessions) is faithful to upstream; these ceilings
-    /// are RIPDPI policy. Beyond the ceiling, `open_stream` applies backpressure
-    /// until a slot frees.
+    /// Upstream `enfein/mieru` has no per-underlay stream ceiling: its levels
+    /// pick how many underlays to reuse and when to rotate them by traffic
+    /// volume (`pkg/protocol/mux.go`). RIPDPI's relay pool caches one carrier per
+    /// backend and admits up to [`CARRIER_STREAM_LIMIT`] leases on it, so every
+    /// multiplexed level admits that many streams; a lower ceiling would make
+    /// stream N+1 wait forever. `Off` opens a fresh carrier per stream.
+    // shortcut: low/middle/high differ only in name. Upstream's volume-based
+    // underlay rotation needs a way to retire a pooled carrier, which
+    // relay-mux does not offer.
+    // TODO(author): implement upstream per-level volume rotation when relay-mux can retire a session.
     #[must_use]
     pub fn max_concurrent_streams(self) -> usize {
         match self {
             Self::Off => 1,
-            Self::Low => 8,
-            Self::Middle => 32,
-            Self::High => 128,
+            Self::Low | Self::Middle | Self::High => CARRIER_STREAM_LIMIT,
         }
     }
 }
@@ -257,9 +263,10 @@ mod tests {
         for level in [MieruMux::Low, MieruMux::Middle, MieruMux::High] {
             assert!(level.is_multiplexed(), "{level:?} must reuse the carrier");
         }
-        // Higher levels admit strictly more concurrent streams per carrier.
-        assert!(MieruMux::Low.max_concurrent_streams() < MieruMux::Middle.max_concurrent_streams());
-        assert!(MieruMux::Middle.max_concurrent_streams() < MieruMux::High.max_concurrent_streams());
+        // The carrier must admit every lease the relay pool can place on it.
+        for level in [MieruMux::Low, MieruMux::Middle, MieruMux::High] {
+            assert_eq!(level.max_concurrent_streams(), CARRIER_STREAM_LIMIT);
+        }
     }
 
     #[test]

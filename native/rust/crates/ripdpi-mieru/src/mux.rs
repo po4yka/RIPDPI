@@ -12,9 +12,9 @@
 //!   only ever reads its own mailbox, so streams cannot cross-contaminate.
 //!
 //! The concurrent-stream ceiling per carrier comes from
-//! [`MieruMux::max_concurrent_streams`]; [`MieruMuxConnection::open_stream`]
-//! applies backpressure (an async semaphore) once the ceiling is reached. See
-//! `PROTOCOL.md` §7.
+//! [`MieruMux::max_concurrent_streams`] (the relay pool's lease cap for every
+//! multiplexed level); [`MieruMuxConnection::open_stream`] applies backpressure
+//! (an async semaphore) beyond it. See `PROTOCOL.md` §7.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -1268,6 +1268,10 @@ mod tests {
     }
 
     async fn scripted_carrier() -> (MieruMuxConnection, ScriptedServer) {
+        scripted_carrier_at(MieruMux::Low).await
+    }
+
+    async fn scripted_carrier_at(level: MieruMux) -> (MieruMuxConnection, ScriptedServer) {
         let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
         let (client_side, server_side) = tokio::io::duplex(8 << 20);
         let (read_half, write_half) = tokio::io::split(server_side);
@@ -1278,13 +1282,10 @@ mod tests {
             write_half,
             seqs: HashMap::new(),
         };
-        let conn = MieruMuxConnection::connect_over(
-            client_side,
-            &config(MieruMux::Low),
-            Arc::new(NetworkTimeProvider::fixed(NOW)),
-        )
-        .await
-        .expect("carrier");
+        let conn =
+            MieruMuxConnection::connect_over(client_side, &config(level), Arc::new(NetworkTimeProvider::fixed(NOW)))
+                .await
+                .expect("carrier");
         (conn, server)
     }
 
@@ -1367,5 +1368,37 @@ mod tests {
             .expect("delivery resumes when the reader does")
             .expect("no byte may be lost");
         assert!(got.iter().all(|byte| *byte == 0x42));
+    }
+
+    /// The relay pool puts up to `CARRIER_STREAM_LIMIT` leases on one cached
+    /// carrier, so that many concurrent CONNECTs must open without waiting.
+    #[tokio::test]
+    async fn pool_sized_burst_of_streams_opens_on_every_level() {
+        for level in [MieruMux::Low, MieruMux::Middle, MieruMux::High] {
+            let (conn, mut server) = scripted_carrier_at(level).await;
+            let conn = Arc::new(conn);
+            let opens = async {
+                let tasks: Vec<_> = (0..crate::config::CARRIER_STREAM_LIMIT)
+                    .map(|_| {
+                        let conn = Arc::clone(&conn);
+                        tokio::spawn(async move { conn.open_stream("burst.example:443").await })
+                    })
+                    .collect();
+                let mut streams = Vec::new();
+                for task in tasks {
+                    streams.push(task.await.expect("open task"));
+                }
+                streams
+            };
+            let accepts = async {
+                for _ in 0..crate::config::CARRIER_STREAM_LIMIT {
+                    server.accept_connect().await;
+                }
+            };
+            let (streams, ()) = timeout(Duration::from_secs(2), async { tokio::join!(opens, accepts) })
+                .await
+                .unwrap_or_else(|_| panic!("{level:?}: a pool-sized burst must open within 2 s"));
+            assert!(streams.iter().all(Result::is_ok), "{level:?}: every stream must open");
+        }
     }
 }
