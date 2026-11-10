@@ -28,7 +28,7 @@ REVISIONS = {
 }
 TESTS = {
     "vless": ("reality_tcp_exchanges_payload_with_upstream", "vision_fragmented_tls_exchanges_payload_with_upstream", "xudp_two_targets_exchange_with_upstream", "upstream_rejects_invalid_reality_admission", "upstream_enforces_reality_version_bounds", "stalled_or_closed_connections_are_bounded", "tests::backend_fixture_tests::vless_reality_xhttp_xudp_with_upstream"),
-    "ssh": ("password_auth_exchanges_payload_with_upstream", "encrypted_private_key_auth_exchanges_payload_with_upstream", "changed_host_key_is_rejected_before_authentication", "same_host_key_rekey_preserves_payload", "changed_host_key_rekey_aborts_payload"),
+    "ssh": ("password_auth_exchanges_payload_with_upstream", "encrypted_private_key_auth_exchanges_payload_with_upstream", "changed_host_key_is_rejected_before_authentication", "same_host_key_rekey_preserves_payload", "changed_host_key_rekey_aborts_payload", "unread_channel_close_is_bounded", "unread_channel_close_is_bounded_multithread"),
     "mieru": ("tcp_stream_exchanges_payload_with_upstream", "multiplexed_tcp_streams_exchange_without_cross_contamination", "slow_reader_receives_every_byte_with_upstream", "tests::backend_fixture_tests::mieru_off_socks_payload_and_stop_with_upstream"),
     "anytls": ("tcp_stream_exchanges_payload_with_upstream", "udp_datagrams_exchange_with_upstream", "upstream_rejects_wrong_password", "paused_reader_receives_the_whole_echo_from_upstream", "a_refused_target_is_not_reported_as_a_wrong_password"),
 }

@@ -170,6 +170,7 @@ async fn establish(
         Err(other) => return Err(SshError::Ssh(other.to_string())),
     };
 
+    control.own_session(handle.cancellation());
     let authenticated = if control.cancel.is_cancelled() {
         Err(SshError::Ssh("SSH connection cancelled".into()))
     } else {

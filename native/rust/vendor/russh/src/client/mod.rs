@@ -311,6 +311,17 @@ pub enum DisconnectReason<E: From<crate::Error> + Send> {
     Error(E),
 }
 
+/// A cloneable cancellation signal for an owned client session.
+#[derive(Clone)]
+pub struct SessionCancellation(futures::future::AbortHandle);
+
+impl SessionCancellation {
+    /// Cancel the worker. Await its handle to prove that its resources have stopped.
+    pub fn cancel(&self) {
+        self.0.abort();
+    }
+}
+
 /// Handle to a session, used to send messages to a client outside of
 /// the request/response cycle.
 pub struct Handle<H: Handler> {
@@ -319,6 +330,7 @@ pub struct Handle<H: Handler> {
     join: russh_util::runtime::JoinHandle<Result<(), H::Error>>,
     channel_buffer_size: usize,
     agent_session_binding: Option<crate::keys::agent::AgentSessionBinding>,
+    cancellation: SessionCancellation,
 }
 
 impl<H: Handler> Drop for Handle<H> {
@@ -328,6 +340,11 @@ impl<H: Handler> Drop for Handle<H> {
 }
 
 impl<H: Handler> Handle<H> {
+    /// Return a signal which can cancel blocked channel delivery without locking this handle.
+    pub fn cancellation(&self) -> SessionCancellation {
+        self.cancellation.clone()
+    }
+
     pub fn is_closed(&self) -> bool {
         self.sender.is_closed()
     }
@@ -1205,6 +1222,9 @@ pub async fn connect<H: Handler + Send + 'static, A: tokio::net::ToSocketAddrs>(
 /// [`tokio::io::AsyncRead`] and [`tokio::io::AsyncWrite`], as well as [`Unpin`]
 /// and [`Send`]. Typically, you may prefer to use [`connect`], which uses a
 /// [`tokio::net::TcpStream`] and then calls this function under the hood.
+/// # Cancel safety
+/// NOT cancel-safe: partial identification writes and a spawned KEX worker are retained
+/// across awaits. The caller must own construction and join its error path.
 pub async fn connect_stream<H, R>(
     config: Arc<Config>,
     mut stream: R,
@@ -1258,7 +1278,18 @@ where
     );
     session.begin_rekey()?;
     let (kex_done_signal, kex_done_signal_rx) = oneshot::channel();
-    let join = russh_util::runtime::spawn(session.run(stream, handler, Some(kex_done_signal)));
+    let (abort_handle, abort_registration) = futures::future::AbortHandle::new_pair();
+    let join = russh_util::runtime::spawn(async move {
+        match futures::future::Abortable::new(
+            session.run(stream, handler, Some(kex_done_signal)),
+            abort_registration,
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_) => Err(H::Error::from(crate::Error::Disconnect)),
+        }
+    });
 
     let agent_session_binding = match kex_done_signal_rx.await {
         Ok(binding) => binding,
@@ -1277,6 +1308,7 @@ where
         join,
         channel_buffer_size,
         agent_session_binding,
+        cancellation: SessionCancellation(abort_handle),
     })
 }
 

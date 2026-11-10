@@ -19,6 +19,10 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type zeroReader struct{}
+
+func (zeroReader) Read(p []byte) (int, error) { clear(p); return len(p), nil }
+
 type directTarget struct {
 	Host       string
 	Port       uint32
@@ -129,7 +133,11 @@ func run() error {
 				defer echoConnections.Delete(socket)
 				defer socket.Close()
 				socket.SetDeadline(time.Now().Add(20 * time.Second))
-				io.Copy(socket, socket)
+				if os.Getenv("RIPDPI_OUTBOUND_FLOOD") == "1" {
+					io.CopyN(socket, zeroReader{}, 8<<20)
+				} else {
+					io.Copy(socket, socket)
+				}
 			}()
 		}
 	}()

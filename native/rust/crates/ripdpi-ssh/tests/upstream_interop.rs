@@ -117,3 +117,51 @@ async fn same_host_key_rekey_preserves_payload() {
 async fn changed_host_key_rekey_aborts_payload() {
     rekey_exchange(true).await;
 }
+/// # Cancel safety
+/// NOT cancel-safe: the runner terminates the peer on failure; close must join with a retained receiver.
+async fn close_unread_channel(concurrent_open: bool) {
+    let client = std::sync::Arc::new(
+        connect(&config(SshAuth::Password("loopback-test-password".into()))).expect("owned connection"),
+    );
+    client.ready().await.expect("authentication");
+    let target = std::env::var("RIPDPI_OUTBOUND_TCP").expect("owned target");
+    let mut stream = client.tcp_connect(&target).await.expect("direct-tcpip");
+    // The independent peer floods more than the initial channel window and bounded receive queue.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let pending_open = if concurrent_open {
+        let client = std::sync::Arc::clone(&client);
+        Some(tokio::spawn(async move { client.tcp_connect(&target).await.map(drop) }))
+    } else {
+        None
+    };
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let pending_blocked = pending_open.as_ref().is_none_or(|open| !open.is_finished());
+    let stopped = tokio::time::timeout(Duration::from_secs(2), client.close()).await;
+    // The stream stays alive through close: closing the receiver first would hide the regression.
+    if let Some(open) = pending_open {
+        open.abort();
+        let _ = open.await;
+    }
+    let write = tokio::time::timeout(Duration::from_secs(1), stream.write_all(b"after close")).await;
+    drop(stream);
+    client.close().await.expect("repeat close joins retained owner");
+    assert!(pending_blocked, "the flooded channel must block the second open");
+    stopped.expect("close must not wait for channel consumption").expect("join SSH worker");
+    assert!(matches!(write, Ok(Err(_))), "closed owner must leave no live channel writer");
+}
+
+/// # Cancel safety
+/// NOT cancel-safe: the helper owns the client and its cleanup.
+#[tokio::test]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn unread_channel_close_is_bounded() {
+    close_unread_channel(false).await;
+}
+
+/// # Cancel safety
+/// NOT cancel-safe: the helper owns the client and its cleanup.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn unread_channel_close_is_bounded_multithread() {
+    close_unread_channel(true).await;
+}

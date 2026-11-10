@@ -1,8 +1,8 @@
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -67,8 +67,8 @@ impl SshClient {
     }
 
     /// Signal cancellation of either construction or the established transport.
-    /// The transport converts cancellation to I/O failure, allowing russh's
-    /// normal KEX failure path to join its own worker.
+    /// Before KEX completion, transport I/O wakes the worker. Once the session
+    /// is published, cancellation also interrupts blocked channel delivery.
     pub fn cancel(&self) {
         self.control.cancel();
     }
@@ -98,7 +98,7 @@ impl SshClient {
 
     /// # Cancel safety
     /// A cancelled channel open leaves the parent session owned. Parent close
-    /// cancels transport I/O and joins before it reports completion.
+    /// cancels the session and joins before it reports completion.
     pub async fn tcp_connect(&self, target: &str) -> Result<SshChannelStream> {
         let (host, port) = parse_target(target)?;
         self.ready().await?;
@@ -140,6 +140,7 @@ pub(super) struct ConnectionControl {
     pub(super) cancel: CancellationToken,
     pub(super) deadline: Instant,
     handshaking: AtomicBool,
+    session_cancellation: OnceLock<client::SessionCancellation>,
 }
 
 impl ConnectionControl {
@@ -148,10 +149,21 @@ impl ConnectionControl {
             cancel: CancellationToken::new(),
             deadline: Instant::now() + Duration::from_secs(10),
             handshaking: AtomicBool::new(true),
+            session_cancellation: OnceLock::new(),
         }
     }
     pub(super) fn cancel(&self) {
         self.cancel.cancel();
+        if let Some(session) = self.session_cancellation.get() {
+            session.cancel();
+        }
+    }
+    pub(super) fn own_session(&self, cancellation: client::SessionCancellation) {
+        let cancellation = self.session_cancellation.get_or_init(|| cancellation);
+        // Either cancel sees the published handle, or this check sees its earlier signal.
+        if self.cancel.is_cancelled() {
+            cancellation.cancel();
+        }
     }
     pub(super) fn authenticated(&self) {
         self.handshaking.store(false, Ordering::Release);
