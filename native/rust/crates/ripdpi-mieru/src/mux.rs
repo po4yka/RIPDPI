@@ -48,6 +48,12 @@ const WRITER_QUEUE_DEPTH: usize = 256;
 /// half-broken (write-ok, no-response) carrier must not hang `open_stream`
 /// forever — especially since a multiplexed carrier is reused for every stream.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long the carrier reader waits for one stream's consumer to free mailbox
+/// space before it closes that stream alone. Upstream blocks the whole underlay
+/// without a limit (`underlay_base.go`); a bound keeps a consumer that never
+/// reads (a dead socket, a suspended app) from freezing every other stream.
+/// 30 s outlasts a normal UI pause and a TCP retransmission stall.
+const STREAM_STALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 type DemuxTable = Arc<StdMutex<HashMap<u32, Mailbox>>>;
 
@@ -354,6 +360,20 @@ impl MieruMuxConnection {
     where
         T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
+        Self::connect_with_stall(transport, config, time, STREAM_STALL_TIMEOUT)
+    }
+
+    /// # Cancel safety:
+    /// Cancel-safe: see [`Self::connect_over`].
+    fn connect_with_stall<T>(
+        transport: T,
+        config: &MieruConfig,
+        time: Arc<NetworkTimeProvider>,
+        stall: Duration,
+    ) -> Result<Self>
+    where
+        T: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
         config.validate()?;
         if config.protocol == MieruProtocol::Udp {
             return Err(MieruError::UdpUnsupported);
@@ -370,8 +390,15 @@ impl MieruMuxConnection {
             Arc::clone(&table),
         );
         let limit = Arc::new(Semaphore::new(config.multiplexing.max_concurrent_streams()));
-        let reader_task =
-            run_reader(dec, Box::new(read_half), Arc::clone(&table), time, config.time_source(), Arc::clone(&limit));
+        let reader_task = run_reader(
+            dec,
+            Box::new(read_half),
+            Arc::clone(&table),
+            time,
+            config.time_source(),
+            Arc::clone(&limit),
+            ReaderStall { timeout: stall, closer: writer_tx.clone() },
+        );
         // Carrier tasks do not retain the queue, so this shared owner has no cycle.
         let carrier = Arc::new(OwnedTasks::spawn(reader_task, writer_task));
         let writer = MuxWriteQueue {
@@ -542,6 +569,22 @@ fn deregister(table: &DemuxTable, session_id: u32) {
     table.lock().unwrap_or_else(PoisonError::into_inner).remove(&session_id);
 }
 
+/// Policy for a stream whose consumer stops reading, plus the queue the reader
+/// uses to tell the server that stream is closed.
+struct ReaderStall {
+    timeout: Duration,
+    closer: mpsc::Sender<WriterCommand>,
+}
+
+impl ReaderStall {
+    /// Best-effort Close: a full queue is skipped, because the reader must not
+    /// await the writer. The stream's registration queues Close when dropped.
+    fn close_session(&self, session_id: u32) {
+        let (done, _completed) = oneshot::channel();
+        let _ = self.closer.try_send(WriterCommand { session_id, kind: WriterCommandKind::Close, done });
+    }
+}
+
 /// Single carrier reader: decrypt each inbound segment and route its payload to
 /// the owning sub-session's mailbox by `session_id`. On carrier EOF or error,
 /// drop every mailbox, which the sub-sessions report as an error (only a close
@@ -557,6 +600,7 @@ async fn run_reader(
     time: Arc<NetworkTimeProvider>,
     time_source: TimeSource,
     limit: Arc<Semaphore>,
+    stall: ReaderStall,
 ) {
     let mut calibrated = false;
     loop {
@@ -584,9 +628,13 @@ async fn run_reader(
                         .map(|mailbox| mailbox.tx.clone())
                 };
                 if let Some(sender) = sender {
-                    // The carrier reader must never await one stream's bounded mailbox: doing so head-of-line blocks every other multiplexed stream. A full mailbox isolates the slow stream by closing its local receive path; carrier demux continues immediately.
-                    if sender.try_send(data).is_err() {
+                    // A full mailbox delays the carrier (TCP back-pressure on the
+                    // server), as upstream does, so no byte is lost. Only a
+                    // consumer that makes no progress for `stall.timeout` loses
+                    // its stream; the others then resume.
+                    if sender.send_timeout(data, stall.timeout).await.is_err() {
                         deregister(&table, session_id);
+                        stall.close_session(session_id);
                     }
                 }
             }
@@ -898,12 +946,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn saturated_stream_mailbox_does_not_block_other_streams() {
+    async fn stalled_stream_is_closed_alone_after_the_stall_timeout() {
         let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
         let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (slow_tx, _slow_rx) = mpsc::channel(MAILBOX_DEPTH);
         let (fast_tx, mut fast_rx) = mpsc::channel(MAILBOX_DEPTH);
+        let (closer, mut closed) = mpsc::channel(8);
         let slow_id = 11;
         let fast_id = 22;
         {
@@ -918,6 +967,7 @@ mod tests {
             Arc::new(NetworkTimeProvider::fixed(NOW)),
             ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
             Arc::new(Semaphore::new(1)),
+            ReaderStall { timeout: Duration::from_millis(50), closer },
         ));
         let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
         let mut seqs = HashMap::new();
@@ -927,10 +977,13 @@ mod tests {
         }
         server_send(&mut enc, &mut writer_side, &mut seqs, fast_id, b"fast").await.expect("fast segment");
 
-        let fast = timeout(Duration::from_millis(100), fast_rx.recv())
+        let fast = timeout(Duration::from_secs(2), fast_rx.recv())
             .await
-            .expect("a saturated stream must not stall carrier demux")
+            .expect("a stalled stream must not block carrier demux for good")
             .expect("fast mailbox remains open");
+        let close = closed.try_recv().expect("the server is told the stalled session is closed");
+        assert_eq!(close.session_id, slow_id);
+        assert!(matches!(close.kind, WriterCommandKind::Close));
         assert_eq!(fast, b"fast");
         assert!(!table.lock().expect("demux table").contains_key(&slow_id), "saturated stream must be isolated");
 
@@ -1293,11 +1346,10 @@ mod tests {
         assert!(conn.limit.is_closed(), "a dead carrier must stop admitting streams");
     }
 
-    /// A slow reader's stream is dropped when its mailbox overflows, so the
-    /// shared carrier keeps moving; the reader must then see an error, not a
-    /// clean EOF in the middle of the body.
+    /// A reader that pauses while the server keeps sending must still get every
+    /// byte: a full mailbox delays delivery, it never drops the stream.
     #[tokio::test]
-    async fn overflowed_mailbox_is_a_read_error() {
+    async fn slow_reader_receives_every_byte() {
         let (conn, mut server) = scripted_carrier().await;
         let (stream, session_id) = tokio::join!(conn.open_stream("slow.example:443"), server.accept_connect());
         let mut stream = stream.expect("open");
@@ -1306,18 +1358,14 @@ mod tests {
         for _ in 0..sent {
             server.data(session_id, &chunk).await;
         }
-        timeout(Duration::from_secs(1), async {
-            while conn.table.lock().expect("table").contains_key(&session_id) {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("the overflowed mailbox must be dropped");
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(conn.table.lock().expect("table").contains_key(&session_id), "a paused reader keeps its stream");
 
-        let mut got = Vec::new();
-        let read = timeout(Duration::from_secs(1), stream.read_to_end(&mut got)).await;
-        let error = read.expect("an overflowed stream must end").expect_err("not a clean EOF");
-        assert_eq!(error.kind(), std::io::ErrorKind::ConnectionReset);
-        assert!(got.len() < sent * chunk.len(), "test precondition: the overflow dropped data");
+        let mut got = vec![0u8; sent * chunk.len()];
+        timeout(Duration::from_secs(5), stream.read_exact(&mut got))
+            .await
+            .expect("delivery resumes when the reader does")
+            .expect("no byte may be lost");
+        assert!(got.iter().all(|byte| *byte == 0x42));
     }
 }

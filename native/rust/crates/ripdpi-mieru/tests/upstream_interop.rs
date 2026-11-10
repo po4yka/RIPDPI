@@ -98,3 +98,51 @@ async fn multiplexed_tcp_streams_exchange_without_cross_contamination() {
         .expect("upstream multiplexed exchange deadline");
     }
 }
+
+/// # Cancel safety
+/// Cancel-safe: the connection owns the carrier; the test drops the stream on timeout.
+#[tokio::test]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn slow_reader_receives_every_byte_with_upstream() {
+    let endpoint: SocketAddr = std::env::var("RIPDPI_OUTBOUND_INTEROP_ENDPOINT")
+        .expect("run through the upstream oracle script")
+        .parse()
+        .expect("peer socket address");
+    assert!(endpoint.ip().is_loopback() && endpoint.port() != 0);
+    for level in [MieruMux::Off, MieruMux::Middle] {
+        let config = MieruConfig {
+            server: endpoint.ip().to_string(),
+            port: endpoint.port(),
+            username: "outbound-interop".into(),
+            password: "loopback-test-password".into(),
+            protocol: MieruProtocol::Tcp,
+            multiplexing: level,
+            mtu: 1400,
+        };
+        timeout(Duration::from_secs(40), async {
+            let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
+            let connection = MieruMuxConnection::connect_over(transport, &config, NetworkTimeProvider::shared())
+                .await
+                .expect("open upstream carrier");
+            let stream = connection.open_stream("interop.invalid:443").await.expect("upstream CONNECT");
+            let (mut read_half, mut write_half) = tokio::io::split(stream);
+            let payload: Vec<u8> = (0..8 << 20).map(|index| (index % 251) as u8).collect();
+            let expected = payload.clone();
+            let write = async move {
+                write_half.write_all(&payload).await.expect("upstream write");
+                write_half
+            };
+            let read = async move {
+                // The echo fills every buffer while nobody reads.
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                let mut received = vec![0; expected.len()];
+                read_half.read_exact(&mut received).await.expect("a paused reader must not lose the stream");
+                assert!(received == expected, "echo must stay byte exact after the pause");
+            };
+            let (_write_half, ()) = tokio::join!(write, read);
+            connection.close().await.expect("join mux carrier and streams");
+        })
+        .await
+        .expect("slow reader deadline");
+    }
+}
