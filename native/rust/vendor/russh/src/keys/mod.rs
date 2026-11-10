@@ -93,6 +93,9 @@ pub enum Error {
     /// The key could not be read, for an unknown reason
     #[error("Could not read key")]
     CouldNotReadKey,
+    /// The key exceeds the local resource policy.
+    #[error("Private key resource limit exceeded")]
+    KeyResourceLimit,
     /// The type of the key is unsupported
     #[error("Unsupported key type {}", key_type_string)]
     UnsupportedKeyType {

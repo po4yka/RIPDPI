@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use russh::ChannelStream;
 use russh::client::{self, Config, Handler};
-use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKeyOrCertificate, decode_secret_key};
+use russh::keys::{HashAlg, PrivateKeyWithHashAlg, PublicKeyOrCertificate};
 use tokio::sync::Mutex;
 
 use crate::config::{SshAuth, SshConfig, SshHostKeyPolicy, parse_fingerprint};
@@ -15,6 +15,7 @@ use crate::error::{Result, SshError};
 /// the type without depending on `russh` directly.
 pub type SshChannelStream = ChannelStream<client::Msg>;
 
+mod key_decode;
 mod lifecycle;
 use lifecycle::ConnectionControl;
 pub use lifecycle::SshClient;
@@ -128,12 +129,12 @@ pub fn connect_with_socket_protection(
     config: &SshConfig,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> Result<SshClient> {
-    SshClient::start(config.clone(), socket_protection)
+    SshClient::start(config, socket_protection)
 }
 
-/// # Cancel safety
-/// Not cancel-safe: only the owned constructor task polls this future. Stop is
-/// delivered through transport I/O; connect_stream's failure path joins KEX.
+/// # Cancel safety:
+/// NOT cancel-safe: only the owned constructor polls this future. It joins
+/// admitted key decoding and the transport before returning an error.
 async fn establish(
     config: SshConfig,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
@@ -174,7 +175,7 @@ async fn establish(
     let authenticated = if control.cancel.is_cancelled() {
         Err(SshError::Ssh("SSH connection cancelled".into()))
     } else {
-        authenticate(&config, &mut handle).await
+        authenticate(config, &mut handle, &control).await
     };
     if let Err(error) = authenticated {
         control.cancel();
@@ -226,14 +227,18 @@ async fn connect_first_reachable(
     Err(last_error)
 }
 
-/// # Cancel safety
-/// Only the owned constructor polls authentication; cancellation closes the
-/// transport and the caller joins the session handle on every error path.
-async fn authenticate(config: &SshConfig, handle: &mut client::Handle<SshHandler>) -> Result<()> {
-    match &config.auth {
+/// # Cancel safety:
+/// NOT cancel-safe: only the owned constructor polls this future. It joins
+/// the non-preemptible decode job and closes transport on every error path.
+async fn authenticate(
+    config: SshConfig,
+    handle: &mut client::Handle<SshHandler>,
+    control: &ConnectionControl,
+) -> Result<()> {
+    match config.auth {
         SshAuth::Password(password) => {
             let result = handle
-                .authenticate_password(&config.username, password)
+                .authenticate_password(&config.username, &password)
                 .await
                 .map_err(|error| SshError::Ssh(error.to_string()))?;
             if !result.success() {
@@ -241,8 +246,7 @@ async fn authenticate(config: &SshConfig, handle: &mut client::Handle<SshHandler
             }
         }
         SshAuth::PrivateKey { pem, passphrase } => {
-            let private_key = decode_secret_key(pem, passphrase.as_deref())
-                .map_err(|error| SshError::Ssh(format!("private key decode failed: {error}")))?;
+            let private_key = key_decode::decode(pem, passphrase, &control.cancel, control.deadline).await?;
             // For RSA keys, query the server's preferred hash (ssh-rsa vs
             // rsa-sha2-256/512). For non-RSA keys this is ignored by
             // `PrivateKeyWithHashAlg::new`.
@@ -430,21 +434,14 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::NotConnected);
     }
 
-    #[tokio::test]
-    async fn connect_rejects_invalid_private_key_pem() {
+    #[test]
+    fn connect_rejects_invalid_private_key_pem() {
         let mut config = valid_config();
         config.auth = SshAuth::PrivateKey {
             pem: "-----BEGIN OPENSSH PRIVATE KEY-----\nnot-a-real-key\n-----END OPENSSH PRIVATE KEY-----".to_string(),
             passphrase: None,
         };
-        // Point at the discard port so the dial fails fast; on platforms where
-        // the dial unexpectedly succeeds the PEM decode still rejects. Either
-        // way the call must error rather than panic.
-        config.host = "127.0.0.1".to_string();
-        config.port = 9;
-        let client = connect(&config).expect("owned connection");
-        let error = client.ready().await.expect_err("invalid PEM / unreachable host must error");
-        client.close().await.expect("cleanup");
+        let error = connect(&config).expect_err("invalid PEM must fail before a runtime or network is needed");
         assert!(matches!(error, SshError::Ssh(_)), "expected typed Ssh error, got {error:?}");
     }
 
@@ -452,7 +449,7 @@ mod tests {
     fn invalid_pem_maps_to_decode_error() {
         // Exercises the decode path directly without a network round-trip: a
         // syntactically-broken PEM must map to the typed `Ssh` decode error.
-        let result = decode_secret_key("not a private key at all", None);
+        let result = russh::keys::decode_secret_key("not a private key at all", None);
         assert!(result.is_err(), "garbage PEM must fail to decode");
         let mapped = SshError::Ssh(format!("private key decode failed: {}", result.unwrap_err()));
         assert!(matches!(mapped, SshError::Ssh(_)));

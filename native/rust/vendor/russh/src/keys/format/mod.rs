@@ -18,6 +18,9 @@ pub use self::pkcs5::*;
 
 pub mod pkcs8;
 
+mod resources;
+pub use resources::{MAX_SECRET_KEY_BYTES, validate_secret_key_resources};
+
 const AES_128_CBC: &str = "DEK-Info: AES-128-CBC,";
 
 #[derive(Clone, Copy, Debug)]
@@ -45,6 +48,20 @@ pub fn decode_secret_key(secret: &str, password: Option<&str>) -> Result<Private
     if secret.trim().starts_with("PuTTY-User-Key-File-") {
         return Ok(PrivateKey::from_ppk(secret, password.map(Into::into))?);
     }
+    let (format, secret) = read_pem(secret)?;
+    match format {
+        Some(Format::Openssh) => decode_openssh(&secret, password),
+        #[cfg(feature = "rsa")]
+        Some(Format::Rsa) => Ok(decode_rsa_pkcs1_der(&secret)?.into()),
+        Some(Format::Pkcs5Encrypted(enc)) => decode_pkcs5(&secret, password, enc),
+        Some(Format::Pkcs8Encrypted) | Some(Format::Pkcs8) => {
+            self::pkcs8::decode_pkcs8(&secret, password.map(|x| x.as_bytes()))
+        }
+        None => Err(Error::CouldNotReadKey),
+    }
+}
+
+fn read_pem(secret: &str) -> Result<(Option<Format>, Vec<u8>), Error> {
     let mut format = None;
     let secret = {
         let mut started = false;
@@ -95,16 +112,7 @@ pub fn decode_secret_key(secret: &str, password: Option<&str>) -> Result<Private
     };
 
     let secret = BASE64_MIME.decode(secret.as_bytes())?;
-    match format {
-        Some(Format::Openssh) => decode_openssh(&secret, password),
-        #[cfg(feature = "rsa")]
-        Some(Format::Rsa) => Ok(decode_rsa_pkcs1_der(&secret)?.into()),
-        Some(Format::Pkcs5Encrypted(enc)) => decode_pkcs5(&secret, password, enc),
-        Some(Format::Pkcs8Encrypted) | Some(Format::Pkcs8) => {
-            self::pkcs8::decode_pkcs8(&secret, password.map(|x| x.as_bytes()))
-        }
-        None => Err(Error::CouldNotReadKey),
-    }
+    Ok((format, secret))
 }
 
 pub fn encode_pkcs8_pem<W: Write>(key: &PrivateKey, mut w: W) -> Result<(), Error> {

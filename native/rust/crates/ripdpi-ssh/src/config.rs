@@ -2,6 +2,7 @@ use std::fmt;
 
 use base64::Engine;
 use base64::engine::general_purpose::{STANDARD, STANDARD_NO_PAD, URL_SAFE, URL_SAFE_NO_PAD};
+use russh::keys::{MAX_SECRET_KEY_BYTES, validate_secret_key_resources};
 
 use crate::error::{Result, SshError};
 
@@ -74,8 +75,7 @@ impl SshConfig {
     /// Validate this configuration without driving any network I/O.
     ///
     /// Checks the port range, the non-empty username invariant, that auth
-    /// material is present, and — for a strict host-key policy — that the
-    /// pinned fingerprint parses.
+    /// material is present, private-key resource costs, and the strict pin.
     pub fn validate(&self) -> Result<()> {
         if self.host.trim().is_empty() {
             return Err(SshError::EmptyHost);
@@ -86,8 +86,18 @@ impl SshConfig {
         if self.username.trim().is_empty() {
             return Err(SshError::EmptyUsername);
         }
+        if let SshAuth::PrivateKey { pem, passphrase } = &self.auth
+            && (pem.len() > MAX_SECRET_KEY_BYTES
+                || passphrase.as_ref().is_some_and(|value| value.len() > MAX_SECRET_KEY_BYTES))
+        {
+            return Err(SshError::Ssh("private key resource limit exceeded".into()));
+        }
         if !self.auth.has_material() {
             return Err(SshError::MissingAuth);
+        }
+        if let SshAuth::PrivateKey { pem, .. } = &self.auth {
+            validate_secret_key_resources(pem)
+                .map_err(|error| SshError::Ssh(format!("private key resource validation failed: {error}")))?;
         }
         if let SshHostKeyPolicy::Strict { fingerprint } = &self.host_key_policy {
             parse_fingerprint(fingerprint)?;

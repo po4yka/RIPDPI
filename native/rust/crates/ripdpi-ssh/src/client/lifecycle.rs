@@ -41,12 +41,13 @@ impl std::fmt::Debug for SshClient {
 }
 
 impl SshClient {
-    pub(super) fn start(config: SshConfig, protection: ripdpi_native_protect::SocketProtectionPolicy) -> Result<Self> {
+    pub(super) fn start(config: &SshConfig, protection: ripdpi_native_protect::SocketProtectionPolicy) -> Result<Self> {
         config.validate()?;
         let runtime = tokio::runtime::Handle::try_current()
             .map_err(|_| SshError::Ssh("SSH connection requires a Tokio runtime".into()))?;
         let control = Arc::new(ConnectionControl::new());
         let worker_control = Arc::clone(&control);
+        let config = config.clone();
         let worker = runtime.spawn(async move { super::establish(config, protection, worker_control).await });
         Ok(Self { control, state: Mutex::new(State::Pending(worker)) })
     }
