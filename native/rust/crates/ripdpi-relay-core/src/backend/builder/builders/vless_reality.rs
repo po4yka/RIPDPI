@@ -5,7 +5,7 @@ use crate::backend::builder::builders::common::{
     finalmask_config, invalid_input, vless_reality_config, xhttp_pool_config,
 };
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{VlessRealitySessionFactory, XhttpSessionFactory, XhttpSessionMode};
 
 /// Build the VLESS Reality relay backend, dispatching by transport sub-mode.
@@ -16,15 +16,18 @@ use crate::protocols::{VlessRealitySessionFactory, XhttpSessionFactory, XhttpSes
 /// sub-mode branch deliberately stays explicit inside the builder — it is not a
 /// `relay_kind`-keyed fact and so is not a `RelayTransportDescriptor` field.
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
-    if matches!(RelayKind::from_config(config), RelayKind::VlessReality { xhttp: true }) {
-        build_xhttp(config, context)
-    } else {
-        if let RelayBackendConfig::VlessReality(vless) = &config.backend
-            && vless.xhttp_max_connections.is_some()
-        {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "xHTTP pool requires xHTTP transport"));
+    let RelayBackendConfig::VlessReality(vless) = &config.backend else {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected VLESS Reality config"));
+    };
+    match vless.vless_transport.as_str() {
+        "xhttp" => build_xhttp(config, context),
+        "reality_tcp" => {
+            if vless.xhttp_max_connections.is_some() {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "xHTTP pool requires xHTTP transport"));
+            }
+            build_reality(config, context)
         }
-        build_reality(config, context)
+        _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "unsupported VLESS Reality transport")),
     }
 }
 

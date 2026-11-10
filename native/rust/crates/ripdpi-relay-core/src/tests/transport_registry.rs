@@ -245,6 +245,47 @@ async fn relay_transport_registry_dispatches_vless_sub_modes() {
     }
 }
 
+/// # Cancel safety:
+/// cancel-safe: backend construction opens no carrier and drops local state.
+#[tokio::test]
+async fn reality_backend_rejects_unknown_raw_transport() {
+    for transport in ["", "tcp", "ws", "bogus", " reality_tcp "] {
+        let mut config = sample_config("vless_reality");
+        let vless = vless_config_mut(&mut config);
+        vless.reality_public_key = valid_reality_public_key();
+        vless.vless_transport = transport.to_owned();
+        let Err(error) = build_backend(&config).await else {
+            panic!("unknown transport must not select the Reality TCP backend");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: dropping at the JoinHandle awaits detaches the runtime task;
+/// stop and join it before reporting a failed assertion.
+#[tokio::test]
+async fn reality_runtime_rejects_unknown_transport_before_readiness() {
+    let mut config = sample_config("vless_reality");
+    config.common.local_socks_port = 0;
+    let vless = vless_config_mut(&mut config);
+    vless.reality_public_key = valid_reality_public_key();
+    vless.vless_transport = "bogus".to_owned();
+    let runtime = RelayRuntime::new(config);
+    let mut run = tokio::spawn(std::sync::Arc::clone(&runtime).run());
+    let result = tokio::time::timeout(Duration::from_secs(1), &mut run).await;
+    let outcome = match result {
+        Ok(joined) => joined.expect("join relay runtime"),
+        Err(_) => {
+            runtime.stop();
+            run.await.expect("join stopped runtime").expect("stop runtime");
+            panic!("unknown transport reached the listener instead of failing");
+        }
+    };
+    assert_eq!(outcome.expect_err("unknown transport must fail").kind(), io::ErrorKind::InvalidInput);
+    assert!(runtime.telemetry().listener_address.is_none());
+}
+
 /// Pins `planned_backend_fallback_mode` and `pool_config_for_backend` for every
 /// concrete `RelayKind`. `planned_backend_fallback_mode` now reads each kind's
 /// registration `fallback_mode`; `pool_config_for_backend` stays a `match
