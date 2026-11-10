@@ -2,7 +2,7 @@
 id: TRN-1794335331879799
 title: Reject malformed VLESS addons and unsupported origin flows
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Native transport maintainers
