@@ -9,9 +9,9 @@ const MIN_MTU: u16 = 1280;
 /// The highest MTU Mieru accepts for its custom UDP/TCP transport.
 const MAX_MTU: u16 = 1500;
 
-/// Streams one multiplexed carrier admits. Equals the relay pool's
-/// single-carrier lease cap (`SINGLE_CARRIER_MAX_ACTIVE_LEASES` in
-/// `ripdpi-relay-core`), which this crate cannot import.
+/// Streams one multiplexed carrier admits. `ripdpi-relay-core` derives the relay
+/// pool's lease cap from [`MieruMux::max_concurrent_streams`] and tests that it
+/// covers every admitted SOCKS session.
 pub const CARRIER_STREAM_LIMIT: usize = 256;
 
 /// The Mieru transport protocol.

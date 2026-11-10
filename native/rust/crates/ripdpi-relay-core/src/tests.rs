@@ -1689,6 +1689,29 @@ fn single_carrier_pools_admit_every_admitted_socks_session() {
     }
 }
 
+#[test]
+fn mieru_pool_lease_cap_follows_the_carrier_stream_limit() {
+    use ripdpi_relay_tls_transports::MieruMux;
+    for level in [MieruMux::Low, MieruMux::Middle, MieruMux::High] {
+        let mut config = sample_config("mieru");
+        let RelayBackendConfig::Mieru(mieru) = &mut config.backend else { unreachable!() };
+        mieru.multiplexing = level.as_str().to_string();
+        let pool = pool_config_for_backend(&config);
+        assert_eq!(level.max_concurrent_streams(), pool.max_active_leases, "{level:?}");
+        assert!(
+            pool.max_active_leases >= crate::runtime::MAX_CONCURRENT_SOCKS_SESSIONS,
+            "{level:?}: a carrier below SOCKS admission would block a lease forever"
+        );
+    }
+    let mut off = sample_config("mieru");
+    let RelayBackendConfig::Mieru(mieru) = &mut off.backend else { unreachable!() };
+    mieru.multiplexing = "off".to_string();
+    assert!(
+        pool_config_for_backend(&off).max_active_leases >= crate::runtime::MAX_CONCURRENT_SOCKS_SESSIONS,
+        "off opens one carrier per lease"
+    );
+}
+
 #[tokio::test]
 async fn only_the_tor_bootstrap_dial_gets_the_long_tor_deadline() {
     // ripdpi-tor bounds the first-connect bootstrap at 90 s inside the backend.

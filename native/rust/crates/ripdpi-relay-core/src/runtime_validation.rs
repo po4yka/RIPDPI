@@ -135,6 +135,14 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
                 max_active_datagram_leases: Some(SINGLE_CARRIER_MAX_ACTIVE_LEASES),
             }
         }
+        RelayKind::Mieru if let Some(max_streams) = mieru_mux_stream_limit(config) => RelayPoolConfig {
+            // One multiplexed carrier serves every lease, so the pool cap must
+            // match the streams that carrier admits; a lower carrier limit would
+            // make a lease wait forever in `open_stream`.
+            max_active_leases: max_streams,
+            idle_timeout: SINGLE_CARRIER_IDLE_TIMEOUT,
+            max_active_datagram_leases: None,
+        },
         RelayKind::Vless { xhttp: false }
         | RelayKind::VlessReality { xhttp: false }
         | RelayKind::Mieru
@@ -155,6 +163,16 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
 
 /// The per-carrier stream limit of a VLESS Reality mux profile, or `None`
 /// when mux is off (or invalid, which the backend build rejects).
+/// Streams one Mieru carrier admits, or `None` for level `off` (one carrier per
+/// lease, so it keeps the single-carrier budget) or an unparsable level.
+fn mieru_mux_stream_limit(config: &ResolvedRelayRuntimeConfig) -> Option<usize> {
+    let RelayBackendConfig::Mieru(mieru) = &config.backend else {
+        return None;
+    };
+    let level = ripdpi_relay_tls_transports::MieruMux::parse(&mieru.multiplexing).ok()?;
+    level.is_multiplexed().then(|| level.max_concurrent_streams())
+}
+
 fn vless_mux_stream_limit(config: &ResolvedRelayRuntimeConfig) -> Option<usize> {
     let RelayBackendConfig::VlessReality(vless) = &config.backend else {
         return None;
