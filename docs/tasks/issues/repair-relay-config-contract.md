@@ -2,7 +2,7 @@
 id: RLY-1794335295387247
 title: Repair relay configuration contract audit findings
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Relay contract repair team
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: repair-relay-config-contract
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 ## Goal
