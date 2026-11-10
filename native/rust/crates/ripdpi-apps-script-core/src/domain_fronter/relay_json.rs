@@ -68,23 +68,14 @@ pub(super) fn parse(body: &[u8]) -> Result<RelayResponse, FronterError> {
     Ok(output)
 }
 
-/// Response fields that must not reach the client. The body is already
-/// decoded and Hyper owns its framing, so the
-/// origin's framing and encoding fields are dropped, together with the RFC
+/// Response fields that must not reach the client. Base64 is decoded, but
+/// origin content encoding is preserved. Hyper owns the framing, so the
+/// origin framing fields are dropped, together with the RFC
 /// 9110 section 7.6.1 hop-by-hop fields. A kept Transfer-Encoding would
 /// override Content-Length (RFC 9112 section 6.3) and break the client.
 fn is_skipped_response_header(lower: &str) -> bool {
-    matches!(
-        lower,
-        "connection"
-            | "keep-alive"
-            | "content-length"
-            | "content-encoding"
-            | "transfer-encoding"
-            | "trailer"
-            | "te"
-            | "upgrade"
-    ) || lower.starts_with("proxy-")
+    matches!(lower, "connection" | "keep-alive" | "content-length" | "transfer-encoding" | "trailer" | "te" | "upgrade")
+        || lower.starts_with("proxy-")
 }
 
 /// Lowercase field names listed in the origin's Connection header, which are
@@ -180,5 +171,16 @@ mod rly15_regressions {
             assert!(parse(body).is_err(), "invalid envelope accepted");
         }
         assert!(matches!(parse(br#"{"e":"unauthorized"}"#), Err(FronterError::Relay(_))));
+    }
+    #[tokio::test(flavor = "current_thread")]
+    /// # Cancel safety:
+    /// cancel-safe: the body is owned and contains no external state.
+    async fn rly15_origin_content_encoding_and_binary_bytes_are_preserved() {
+        use http_body_util::BodyExt;
+        let encoded = [0x1f, 0x8b, 0x08, 0xff, 0x00];
+        let envelope = serde_json::json!({"s":200,"h":{"Content-Encoding":"gzip"},"b":BASE64_STANDARD.encode(encoded)});
+        let response = parse(&serde_json::to_vec(&envelope).unwrap()).unwrap();
+        assert_eq!(response.headers()["content-encoding"], "gzip");
+        assert_eq!(response.into_body().collect().await.unwrap().to_bytes().as_ref(), &encoded);
     }
 }
