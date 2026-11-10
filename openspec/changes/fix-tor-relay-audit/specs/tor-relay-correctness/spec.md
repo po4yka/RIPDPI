@@ -57,4 +57,3 @@ The implementation MUST reject empty and transport-invalid Tor bridge drafts.
 
 - **WHEN** a profile is saved with an invalid bridge
 - **THEN** validation reports the bridge error before startup.
-
