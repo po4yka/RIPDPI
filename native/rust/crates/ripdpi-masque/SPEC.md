@@ -35,7 +35,7 @@ Provider extensions:
 
 ## URL validation
 
-Non-HTTPS URLs are rejected before native startup. CONNECT-UDP derives its URI-template base from the configured endpoint path; endpoint query templates are not supported. TCP classic CONNECT uses the target authority form required by RFC 9113.
+Non-HTTPS URLs are rejected before native startup. CONNECT-UDP derives its URI-template base from the configured endpoint path; a trailing `/ip` segment is treated as the base of the MASQUE endpoint set, a static query of the configured URL is kept on the CONNECT-UDP path, and a fragment is ignored. TCP classic CONNECT uses the target authority form required by RFC 9113.
 
 ## Known unsupported modes
 

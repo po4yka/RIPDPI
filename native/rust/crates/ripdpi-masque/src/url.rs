@@ -9,6 +9,8 @@ pub(crate) struct ProxyOrigin {
     pub(crate) host: String,
     pub(crate) authority: String,
     pub(crate) udp_base_path: String,
+    /// Static query of the configured URL, kept on the CONNECT-UDP path.
+    pub(crate) udp_query: Option<String>,
 }
 
 pub(crate) struct TargetAuthority {
@@ -39,7 +41,9 @@ pub(crate) fn parse_proxy_origin(config: &MasqueConfig) -> io::Result<ProxyOrigi
     let udp_base_path = derive_udp_base_path(parsed.path());
     let port = parsed.port().unwrap_or(443);
     let authority = if port == 443 { authority_host.to_owned() } else { format!("{authority_host}:{port}") };
-    Ok(ProxyOrigin { host, authority, udp_base_path })
+    // A fragment never goes on the wire; a static query is part of the endpoint.
+    let udp_query = parsed.query().filter(|query| !query.is_empty()).map(str::to_owned);
+    Ok(ProxyOrigin { host, authority, udp_base_path, udp_query })
 }
 
 pub(crate) async fn resolve_proxy_socket_addr(
@@ -78,7 +82,11 @@ fn derive_udp_base_path(path: &str) -> String {
 
 pub(crate) fn build_connect_udp_path(proxy_origin: &ProxyOrigin, target: &TargetAuthority) -> String {
     let host = byte_serialize(target.host.as_bytes()).collect::<String>();
-    format!("{}/udp/{host}/{}/", proxy_origin.udp_base_path.trim_end_matches('/'), target.port,)
+    let path = format!("{}/udp/{host}/{}/", proxy_origin.udp_base_path.trim_end_matches('/'), target.port);
+    match &proxy_origin.udp_query {
+        Some(query) => format!("{path}?{query}"),
+        None => path,
+    }
 }
 
 pub(crate) fn parse_target(target: &str) -> io::Result<TargetAuthority> {
@@ -174,6 +182,40 @@ mod tls_identity_tests {
             let origin = parse_proxy_origin(&config).expect("IPv6 origin");
             assert_eq!(origin.host, expected_name);
             assert_eq!(origin.authority, expected);
+        }
+    }
+
+    #[test]
+    fn keeps_static_query_and_drops_fragment() {
+        let mut config = MasqueConfig {
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            url: String::new(),
+            proxy_socket_addr: None,
+            tcp_protocol: crate::config::MasqueTcpProtocol::Http2,
+            use_http2_fallback: false,
+            auth_mode: None,
+            auth_token: None,
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
+            privacy_pass_provider_url: None,
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".into(),
+            root_certificate_pem: None,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+            ech_config: None,
+        };
+        let target = TargetAuthority { host: "dns.example".to_string(), port: 53 };
+        for (url, expected) in [
+            ("https://proxy.example/masque?token=x", "/masque/udp/dns.example/53/?token=x"),
+            ("https://proxy.example/.well-known/masque/ip?cf=1#frag", "/.well-known/masque/udp/dns.example/53/?cf=1"),
+            ("https://proxy.example/masque/#frag", "/masque/udp/dns.example/53/"),
+            ("https://proxy.example/masque/?", "/masque/udp/dns.example/53/"),
+        ] {
+            config.url = url.into();
+            let origin = parse_proxy_origin(&config).expect(url);
+            assert_eq!(build_connect_udp_path(&origin, &target), expected, "{url}");
         }
     }
 }

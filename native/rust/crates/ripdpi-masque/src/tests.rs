@@ -185,6 +185,7 @@ fn connect_udp_path_percent_encodes_ipv6_hosts() {
             host: "masque.example".to_string(),
             authority: "masque.example".to_string(),
             udp_base_path: "/.well-known/masque".to_string(),
+            udp_query: None,
         },
         &TargetAuthority { host: "2001:db8::42".to_string(), port: 443 },
     );
@@ -514,6 +515,7 @@ fn h2_connect_udp_request_uses_extended_connect_and_capsule_protocol() {
         host: "masque.example".to_string(),
         authority: "masque.example".to_string(),
         udp_base_path: "/.well-known/masque".to_string(),
+        udp_query: None,
     };
     let target = TargetAuthority { host: "example.com".to_string(), port: 443 };
     let request = build_h2_connect_udp_request(&proxy_origin, &target, None).expect("request");
@@ -1198,8 +1200,6 @@ async fn connect_over_h2_with_pinned_root_certificate_verifies_and_tunnels() {
     assert_eq!(&reply, b"pinned-ping");
 }
 
-/// A wrong/unrelated pinned trust anchor must FAIL the handshake — proves the
-/// pin path actually verifies rather than silently trusting anything.
 /// Every certificate in the PEM bundle is trusted, not only the first.
 #[tokio::test]
 async fn connect_over_h2_with_pinned_root_certificate_trusts_second_pem_bundle_root() {
@@ -1239,6 +1239,8 @@ async fn connect_over_h2_with_pinned_root_certificate_trusts_second_pem_bundle_r
     assert_eq!(&reply, b"pinned-ping");
 }
 
+/// A wrong/unrelated pinned trust anchor must FAIL the handshake — proves the
+/// pin path actually verifies rather than silently trusting anything.
 #[tokio::test]
 async fn connect_over_h2_with_unrelated_root_certificate_fails_verification() {
     let fixture = MasqueH2ConnectUdpFixture::start().await.expect("start MASQUE fixture");
