@@ -160,9 +160,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         cloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode),
         cloudflarePublishLocalOriginUrl = relayCloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef =
-            relayCloudflareCredentialsRef.ifBlank {
-                relayProfileId.ifBlank { DefaultRelayProfileId }
-            },
+            relayCloudflareCredentialsRef.ifBlank { relayProfileId }.ifBlank { DefaultRelayProfileId },
         chainEntryServer = "",
         chainEntryPort = defaultRelayPort,
         chainEntryServerName = "",
