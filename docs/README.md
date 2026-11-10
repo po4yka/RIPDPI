@@ -54,6 +54,7 @@ Related records: [`xray-protos` schema choice](architecture/xray-protos-schema-c
 - [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
 - [MASQUE conformance audit](../native/rust/crates/ripdpi-masque/CONFORMANCE.md)
 - [NaiveProxy runtime](native/relay-naiveproxy-runtime.md)
+- [Apps Script relay contract and trust](native/apps-script-relay.md)
 - [Finalmask compatibility and example configs](native/finalmask-compatibility.md)
 
 ## Operations

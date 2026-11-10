@@ -280,9 +280,10 @@ credential field must contain 1 to 255 UTF-8 bytes.
   fixtures stay byte-identical. Set both or neither; Rust rejects a half-set or
   empty pair. `ProxyUiRelayConfig` reads them but never serializes them, so
   reports and recommendations cannot contain them.
-- Subprocess and helper relays (NaiveProxy, Apps Script, Cloudflare publish,
+- Subprocess and helper relays (NaiveProxy, Cloudflare publish,
   pluggable transports) own listeners that do not check credentials, so they
   get no pair.
+- Apps Script uses the same session credential pair and rejects NO-AUTH when it is configured.
 - Xray: `XrayConfigRenderer.render` puts `auth: password` and one account in the
   `socks-in` inbound. The readiness probe and tun2socks use the same pair.
 - In-app clients that know only a listener address (relay probes, failover,

@@ -381,7 +381,6 @@ Profile:
   "appsScriptFrontDomain": "script.google.com",
   "appsScriptSniHosts": ["script.google.com", "www.google.com"],
   "appsScriptVerifySsl": true,
-  "appsScriptParallelRelay": true,
   "appsScriptDirectHosts": ["youtube.com", "ytimg.com"]
 }
 ```
