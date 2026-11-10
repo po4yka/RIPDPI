@@ -36,7 +36,23 @@ pub(super) fn build_payload_json(
     } else {
         let mut map = serde_json::Map::new();
         for (key, value) in filtered_headers {
-            map.insert(key, Value::String(value));
+            match map.get_mut(&key) {
+                None => {
+                    map.insert(key, Value::String(value));
+                }
+                Some(Value::String(previous)) => {
+                    let separator = match key.as_str() {
+                        "cookie" => "; ",
+                        "authorization" | "content-type" | "origin" | "referer" | "user-agent" => {
+                            return Err(FronterError::BadResponse("unsupported repeated request header".into()));
+                        }
+                        _ => ", ",
+                    };
+                    previous.push_str(separator);
+                    previous.push_str(&value);
+                }
+                Some(_) => return Err(FronterError::BadResponse("invalid request header value".into())),
+            }
         }
         Some(map)
     };
@@ -159,5 +175,36 @@ mod rly15_regressions {
         let payload: Value = serde_json::from_slice(&payload).unwrap();
         assert!(payload.get("ct").is_none());
         assert_eq!(payload["h"], serde_json::json!({"authorization": "Bearer origin-token"}));
+    }
+    #[test]
+    fn rly15_repeated_list_headers_and_cookies_keep_values_in_order() {
+        let payload = build_payload_json(
+            "key",
+            "GET",
+            "https://example.test/",
+            &[
+                ("Accept".into(), "text/html".into()),
+                ("accept".into(), "application/json".into()),
+                ("Cookie".into(), "session=first".into()),
+                ("cookie".into(), "csrf=second".into()),
+            ],
+            b"",
+        )
+        .unwrap();
+        let payload: Value = serde_json::from_slice(&payload).unwrap();
+        assert_eq!(
+            payload["h"],
+            serde_json::json!({"accept": "text/html, application/json", "cookie": "session=first; csrf=second"})
+        );
+        assert!(
+            build_payload_json(
+                "key",
+                "GET",
+                "https://example.test/",
+                &[("Authorization".into(), "first".into()), ("authorization".into(), "second".into())],
+                b""
+            )
+            .is_err()
+        );
     }
 }
