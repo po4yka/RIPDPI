@@ -2,7 +2,7 @@
 id: RLY-1794300683762457
 title: Correct Cloudflare publish relay audit defects
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Relay audit coordinator
@@ -23,7 +23,7 @@ Correct the six RLY-14 audit defects in the native origin, publish configuration
 - Streaming POST remains open until upload or session termination and closes on cancellation.
 - Malformed credentials cannot enter exception messages or cause chains.
 - Origin path queries do not alter the matched path.
-- UDP and Mux commands fail before authentication and socket creation.
+- UDP and Mux commands fail before authentication callbacks and socket creation.
 - IPv6 loopback is accepted; non-loopback and invalid ports are rejected.
 - Both Cloudflare modes require a VLESS identity in the editor.
 - Regression tests, independent review, and affected source gates pass.
