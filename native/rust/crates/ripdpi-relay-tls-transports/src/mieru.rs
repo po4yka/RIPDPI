@@ -78,6 +78,7 @@ impl RelaySessionFactory for MieruSessionFactory {
         self.sessions
             .create(async {
                 tokio::time::timeout(CARRIER_CONNECT_DEADLINE, async {
+                    let started = tokio::time::Instant::now();
                     let config = self.config.clone();
                     // VpnService.protect() invariant: the Mieru carrier socket is protected
                     // before connect via the in-process VpnService.protect registry
@@ -88,8 +89,12 @@ impl RelaySessionFactory for MieruSessionFactory {
                     // layer. (Resolves the prior unverified TODO.) REL-1 / REL-4. See
                     // .claude/rules/vpnservice-protect-invariant.md.
                     let addrs = self.socket_protection.resolve_host(&config.server, config.port).await?;
-                    let stream =
-                        connect_first_reachable(addrs, self.socket_protection, CARRIER_CONNECT_DEADLINE).await?;
+                    let stream = connect_first_reachable(
+                        addrs,
+                        self.socket_protection,
+                        CARRIER_CONNECT_DEADLINE.saturating_sub(started.elapsed()),
+                    )
+                    .await?;
                     // Each segment is one write; Nagle would hold it for the
                     // previous segment's ACK (upstream Go dials with NODELAY).
                     stream.set_nodelay(true)?;
