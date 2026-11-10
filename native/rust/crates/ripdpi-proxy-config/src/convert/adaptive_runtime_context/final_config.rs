@@ -15,7 +15,8 @@ pub(crate) fn finalize_ui_config(
     environment_kind: Option<&str>,
 ) -> Result<RuntimeConfig, ProxyConfigError> {
     config.groups = groups;
-    config.timeouts.connect_timeout_ms = 10_000;
+    // Tor's first SOCKS reply includes its bounded 90-second bootstrap.
+    config.timeouts.connect_timeout_ms = if config.network.remote_dns_upstream.is_some() { 120_000 } else { 10_000 };
     if listen.freeze_detection_enabled {
         config.timeouts.freeze_max_stalls = 3;
     }
@@ -49,4 +50,27 @@ fn parse_environment_kind(value: Option<&str>) -> ripdpi_config::EnvironmentKind
 
 fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
     !group.matches.filters.hosts.is_empty() || (group.matches.proto & (IS_HTTP | IS_HTTPS)) != 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn tor_listener_budget_includes_bootstrap_without_changing_other_routes() {
+        for (upstream, expected) in [(None, 10_000), (Some("127.0.0.1:11980".parse().unwrap()), 120_000)] {
+            let mut config = RuntimeConfig::default();
+            config.network.remote_dns_upstream = upstream;
+            let result = finalize_ui_config(
+                config,
+                vec![],
+                &ProxyUiListenConfig::default(),
+                &ProxyUiHostAutolearnConfig::default(),
+                false,
+                None,
+                None,
+            )
+            .unwrap();
+            assert_eq!(result.timeouts.connect_timeout_ms, expected);
+        }
+    }
 }
