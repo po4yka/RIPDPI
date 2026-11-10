@@ -3,6 +3,7 @@
 const MAX_SESSION_ID_LEN: usize = 64;
 
 pub(crate) fn normalize_path(path: &str) -> String {
+    let path = path.split_once('?').map_or(path, |(path, _)| path);
     let trimmed = path.trim().trim_matches('/');
     if trimmed.is_empty() { "/".to_owned() } else { format!("/{trimmed}") }
 }
@@ -36,6 +37,21 @@ mod tests {
     fn extract_session_id_matches_nested_base_path() {
         assert_eq!(Some("session123".to_string()), extract_session_id("/api/v1/stream", "/api/v1/stream/session123"),);
         assert_eq!(None, extract_session_id("/api/v1/stream", "/api/v1/stream"));
+    }
+
+    #[test]
+    fn configured_query_does_not_change_the_matched_path() {
+        for base in ["/xh?ed=2048", "/xh/?ed=2048", "xh?ed=2048"] {
+            assert_eq!(Some("session123".to_string()), extract_session_id(base, "/xh/session123"));
+            assert_eq!(None, extract_session_id(base, "/other/session123"));
+        }
+        assert_eq!(Some("session123".to_string()), extract_session_id("?ed=2048", "/session123"));
+        assert_eq!(Some("session123".to_string()), extract_session_id("/?ed=2048", "/session123"));
+        assert_eq!(
+            Some("session123".to_string()),
+            extract_session_id("/literal%3Fpath?ed=2048", "/literal%3Fpath/session123")
+        );
+        assert_eq!(None, extract_session_id("/xh?ed=2048", &format!("/xh/{}", "a".repeat(65))));
     }
 
     #[test]
