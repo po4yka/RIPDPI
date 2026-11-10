@@ -44,6 +44,9 @@ const IDLE_SWEEP_INTERVAL: Duration = Duration::from_secs(30);
 const SERVER_SETTINGS_WAIT: Duration = Duration::from_secs(2);
 /// A new session must finish its TCP connect, TLS handshake and auth in this time.
 const SESSION_ESTABLISH_TIMEOUT: Duration = Duration::from_secs(10);
+/// One resolved address gets this long to connect, so a black-holed first
+/// address leaves time for the next ones within the establish budget.
+const ADDRESS_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Open a protected TCP connection to the AnyTLS server.
 ///
@@ -53,6 +56,10 @@ const SESSION_ESTABLISH_TIMEOUT: Duration = Duration::from_secs(10);
 /// resolved server address must match its family or the connect fails closed,
 /// and the carrier socket is bound to the address before connect (interface
 /// pinning).
+///
+/// # Cancel safety
+/// cancel-safe: a cancelled attempt drops its unconnected socket; nothing is
+/// published before the connected stream is returned.
 async fn connect_protected_tcp(
     host: &str,
     port: u16,
@@ -60,12 +67,13 @@ async fn connect_protected_tcp(
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 ) -> io::Result<TcpStream> {
     let addrs = socket_protection.resolve_host(host, port).await?;
-    connect_first_reachable(addrs, bind_ip, socket_protection).await
+    connect_first_reachable(addrs, bind_ip, socket_protection, ADDRESS_CONNECT_TIMEOUT).await
 }
 
 /// Tries every address in order, each with its own protected socket, and
 /// returns the first connection. With `bind_ip` set, addresses of the other
-/// family are skipped. When all attempts fail, the last error is returned.
+/// family are skipped. Each attempt is bounded by `attempt_timeout`. When all
+/// attempts fail, the last error is returned.
 ///
 /// # Cancel safety
 /// cancel-safe: a cancelled attempt drops its unconnected socket.
@@ -73,6 +81,7 @@ async fn connect_first_reachable(
     addrs: Vec<SocketAddr>,
     bind_ip: Option<std::net::IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+    attempt_timeout: Duration,
 ) -> io::Result<TcpStream> {
     let mut candidates =
         addrs.into_iter().filter(|addr| bind_ip.is_none_or(|ip| addr.is_ipv4() == ip.is_ipv4())).peekable();
@@ -86,9 +95,12 @@ async fn connect_first_reachable(
     }
     let mut last_error = None;
     for server_addr in candidates {
-        match connect_protected_addr(server_addr, bind_ip, socket_protection).await {
-            Ok(tcp) => return Ok(tcp),
-            Err(error) => last_error = Some(error),
+        match tokio::time::timeout(attempt_timeout, connect_protected_addr(server_addr, bind_ip, socket_protection))
+            .await
+        {
+            Ok(Ok(tcp)) => return Ok(tcp),
+            Ok(Err(error)) => last_error = Some(error),
+            Err(_) => last_error = Some(io::Error::new(io::ErrorKind::TimedOut, "AnyTLS server address timed out")),
         }
     }
     Err(last_error.unwrap_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address to connect")))
@@ -225,6 +237,11 @@ pub struct AnyTlsClient {
     tasks: Arc<OwnedTasks>,
     _owner: Option<Arc<Owner>>,
     owner_ref: Weak<Owner>,
+    /// Whether this client may open its own TCP connection to the server. A
+    /// client built over a caller's transport (a chain hop) never may: the
+    /// hop's server is reachable only through that transport, and a direct dial
+    /// would bypass the previous hops and leak the device address.
+    allow_network_dial: bool,
 }
 
 /// Sessions that carry no stream. Each session carries at most one stream, so
@@ -233,8 +250,6 @@ pub struct AnyTlsClient {
 struct ClientState {
     idle: Vec<IdleSession>,
     next_seq: u64,
-    /// Protocol version of the server as learned from its sessions; 0 until known.
-    learned_peer_version: u8,
     sweeper_running: bool,
     idle_timeout: Duration,
     sweep_interval: Duration,
@@ -368,11 +383,11 @@ impl AnyTlsClient {
             tasks,
             owner_ref: Arc::downgrade(&owner),
             _owner: Some(owner),
+            allow_network_dial: true,
             config: Arc::new(config),
             state: Arc::new(StdMutex::new(ClientState {
                 idle: Vec::new(),
                 next_seq: 0,
-                learned_peer_version: 0,
                 sweeper_running: false,
                 idle_timeout: IDLE_SESSION_TIMEOUT,
                 sweep_interval: IDLE_SWEEP_INTERVAL,
@@ -389,6 +404,7 @@ impl AnyTlsClient {
             tasks: Arc::clone(&self.tasks),
             _owner: None,
             owner_ref: self.owner_ref.clone(),
+            allow_network_dial: self.allow_network_dial,
         }
     }
 
@@ -410,19 +426,25 @@ impl AnyTlsClient {
     /// An owned worker retains pending-route cleanup; dropping this future
     /// signals cancellation without abandoning factory-owned work.
     pub async fn open_tcp(&self, target: TargetAddr, port: u16) -> Result<AnyTlsStream, AnyTlsError> {
-        self.open_encoded_target(encode_target(&target, port)?).await
+        self.open_encoded_target(encode_target(&target, port)?, None).await
     }
 
+    /// Opens a stream on `session` when given, otherwise on a pooled or new one.
+    ///
     /// # Cancel safety
     /// Cancel-safe: the owned worker returns an unused session to the pool;
     /// a committed stream is closed by its drop, which sends the FIN.
-    async fn open_encoded_target(&self, target: Vec<u8>) -> Result<AnyTlsStream, AnyTlsError> {
+    async fn open_encoded_target(
+        &self,
+        target: Vec<u8>,
+        session: Option<SessionHandle>,
+    ) -> Result<AnyTlsStream, AnyTlsError> {
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let (result_tx, result_rx) = oneshot::channel();
         let mut cancel_on_drop = CancelOpenOnDrop(Some(cancel_tx));
         let client = self.worker_clone();
         self.tasks.spawn(async move {
-            client.open_tcp_worker(target, cancel_rx, result_tx).await;
+            client.open_tcp_worker(target, session, cancel_rx, result_tx).await;
         })?;
 
         let result = result_rx.await.unwrap_or(Err(AnyTlsError::SessionClosed));
@@ -438,18 +460,22 @@ impl AnyTlsClient {
     async fn open_tcp_worker(
         &self,
         target: Vec<u8>,
+        session: Option<SessionHandle>,
         mut cancel_rx: oneshot::Receiver<()>,
         result_tx: oneshot::Sender<Result<AnyTlsStream, AnyTlsError>>,
     ) {
-        let session = tokio::select! {
-            biased;
-            _ = &mut cancel_rx => return,
-            result = self.acquire_session() => match result {
-                Ok(session) => session,
-                Err(error) => {
-                    result_tx.send(Err(error)).ok();
-                    return;
-                }
+        let session = match session {
+            Some(session) => session,
+            None => tokio::select! {
+                biased;
+                _ = &mut cancel_rx => return,
+                result = self.acquire_session() => match result {
+                    Ok(session) => session,
+                    Err(error) => {
+                        result_tx.send(Err(error)).ok();
+                        return;
+                    }
+                },
             },
         };
         let stream_id = session.allocate_stream_id().await;
@@ -519,7 +545,7 @@ impl AnyTlsClient {
                 }
                 _ = version_rx.changed() => {}
                 () = &mut settings_deadline, if version == 0 => {
-                    session.learn_peer_version(&self.state, 1);
+                    session.learn_peer_version(1);
                 }
             }
         };
@@ -552,19 +578,21 @@ impl AnyTlsClient {
         if let Some(session) = self.take_idle_session() {
             return Ok(session);
         }
+        if !self.allow_network_dial {
+            return Err(AnyTlsError::SessionClosed);
+        }
         tokio::time::timeout(SESSION_ESTABLISH_TIMEOUT, self.establish_network_session())
             .await
             .unwrap_or_else(|_| Err(AnyTlsError::Io("AnyTLS connection timed out".into())))
     }
 
-    fn learned_peer_version(&self) -> u8 {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner).learned_peer_version
-    }
-
-    /// The idle session with the highest `seq`, if one is still alive.
+    /// The idle session with the highest `seq`, if one is still alive and has
+    /// not been idle past the timeout (the sweep alone can leave it up to one
+    /// interval longer).
     fn take_idle_session(&self) -> Option<SessionHandle> {
         let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        state.idle.retain(|idle| !idle.session.is_dead());
+        let timeout = state.idle_timeout;
+        state.idle.retain(|idle| !idle.session.is_dead() && idle.since.elapsed() < timeout);
         let newest = state.idle.iter().enumerate().max_by_key(|(_, idle)| idle.session.seq)?.0;
         Some(state.idle.swap_remove(newest).session)
     }
@@ -578,10 +606,16 @@ impl AnyTlsClient {
         // isConnect=false, followed by an unused SOCKS destination 0.0.0.0:0.
         // Datagram mode carries the actual destination in every packet.
         target.extend_from_slice(&[0, 1, 0, 0, 0, 0, 0, 0]);
-        let stream = self.open_encoded_target(target).await?;
+        let stream = self.open_encoded_target(target, None).await?;
         Ok(AnyTlsUdpOverTcp { stream, pending: Vec::new() })
     }
 
+    /// Opens a stream through `transport`, the byte pipe to the server (for
+    /// example the previous hop of a chain). The client never dials the network.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: cancellation drops the unpublished transport and the
+    /// client, whose owner guard cancels its workers.
     pub async fn open_tcp_over<S>(
         config: AnyTlsClientConfig,
         transport: S,
@@ -610,12 +644,17 @@ impl AnyTlsClient {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let client = Self::with_padding_scheme(config, padding_scheme)?;
+        let mut client = Self::with_padding_scheme(config, padding_scheme)?;
+        client.allow_network_dial = false;
         let session = client.establish_session(transport).await?;
-        release_session(&client.state, session);
-        client.open_tcp(target, port).await
+        // Open on the session just built, never through the pool: a pool miss
+        // would otherwise dial the hop's server directly, around the chain.
+        client.open_encoded_target(encode_target(&target, port)?, Some(session)).await
     }
 
+    /// # Cancel safety
+    /// cancel-safe: a cancelled dial drops the unconnected socket and the
+    /// unpublished transport; nothing is registered before the session is built.
     async fn establish_network_session(&self) -> Result<SessionHandle, AnyTlsError> {
         // PROTECT INVARIANT: the carrier socket is protected before connect via the
         // in-process VpnService.protect registry (loopback-skipped, fail-closed under
@@ -656,7 +695,7 @@ impl AnyTlsClient {
             state.next_seq += 1;
             state.next_seq
         };
-        let peer_version = Arc::new(watch::channel(self.learned_peer_version()).0);
+        let peer_version = Arc::new(watch::channel(0).0);
         let session = SessionHandle {
             seq,
             peer_version: Arc::clone(&peer_version),
@@ -727,19 +766,17 @@ async fn sweep_idle_sessions(state: Weak<StdMutex<ClientState>>) {
 }
 
 impl SessionHandle {
-    /// Record the server's version for this session and for later sessions, but
-    /// only while the session version is still unknown.
-    fn learn_peer_version(&self, state: &Arc<StdMutex<ClientState>>, version: u8) {
-        let learned = self.peer_version.send_if_modified(|current| {
+    /// Record the server's version for this session only, and only while it is
+    /// still unknown. It is never carried to other sessions: addresses of one
+    /// server can differ in version, and a server can be downgraded.
+    fn learn_peer_version(&self, version: u8) {
+        self.peer_version.send_if_modified(|current| {
             let unknown = *current == 0;
             if unknown {
                 *current = version;
             }
             unknown
         });
-        if learned {
-            state.lock().unwrap_or_else(PoisonError::into_inner).learned_peer_version = version;
-        }
     }
 
     fn is_dead(&self) -> bool {
@@ -925,6 +962,10 @@ where
         .map_err(|error| AnyTlsError::TlsHandshake(error.to_string()))
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: a cancelled write can leave part of the auth packet on the
+/// transport. Only `establish_session` calls it, and it drops the transport on
+/// cancellation.
 async fn write_auth<S>(
     stream: &mut SslStream<S>,
     password: &str,
@@ -1023,7 +1064,7 @@ async fn run_session<S>(
     let saw_known_frame = AtomicBool::new(false);
     let reader = async {
         loop {
-            let frame = read_frame(&mut reader).await?;
+            let frame = read_frame(&mut reader, !saw_known_frame.load(Ordering::Relaxed)).await?;
             lifetime.inbound_frames.fetch_add(1, Ordering::Release);
             let Some(frame) = frame else {
                 // A command this client does not know: it is skipped, as the
@@ -1075,10 +1116,7 @@ async fn run_session<S>(
                 }
                 Command::ServerSettings => {
                     if let Some(version) = crate::frame::server_settings_version(frame.data()) {
-                        lifetime.peer_version.send_replace(version);
-                        if let Some(state) = client_state.upgrade() {
-                            state.lock().unwrap_or_else(PoisonError::into_inner).learned_peer_version = version;
-                        }
+                        lifetime.peer_version.send_replace(version.max(1));
                     }
                 }
                 Command::Waste | Command::Settings | Command::HeartResponse | Command::Syn => {}
@@ -1092,8 +1130,8 @@ async fn run_session<S>(
         state.idle.retain(|idle| !Arc::ptr_eq(&idle.session.closing, &closing));
     }
     if !matches!(session_result, Err(AnyTlsError::Alert(_))) {
-        let rejected =
-            !saw_known_frame.load(Ordering::Relaxed) && matches!(session_result, Err(AnyTlsError::SessionClosed));
+        let rejected = matches!(session_result, Err(AnyTlsError::AuthenticationRejected))
+            || (!saw_known_frame.load(Ordering::Relaxed) && matches!(session_result, Err(AnyTlsError::SessionClosed)));
         fail_all_streams(
             &streams,
             if rejected { AnyTlsError::AuthenticationRejected } else { AnyTlsError::SessionClosed },
@@ -1118,7 +1156,8 @@ where
 }
 
 fn handle_synack(streams: &Arc<StdMutex<HashMap<u32, StreamRoute>>>, stream_id: u32, data: &[u8]) {
-    if let Some(route) = streams.lock().unwrap_or_else(PoisonError::into_inner).get_mut(&stream_id)
+    let mut guard = streams.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(route) = guard.get_mut(&stream_id)
         && let Some(open_ack) = route.open_ack.take()
     {
         let result = if data.is_empty() {
@@ -1126,7 +1165,12 @@ fn handle_synack(streams: &Arc<StdMutex<HashMap<u32, StreamRoute>>>, stream_id: 
         } else {
             Err(AnyTlsError::StreamOpenRejected(String::from_utf8_lossy(data).into_owned()))
         };
-        open_ack.send(result).ok();
+        // No waiting open means the stream was already returned (the server
+        // looked like v1 for a while). A late rejection then ends that stream
+        // without a FIN, which the application sees as a reset.
+        if open_ack.send(result).is_err_and(|late| late.is_err()) {
+            guard.remove(&stream_id);
+        }
     }
 }
 
@@ -1141,32 +1185,41 @@ fn fail_all_streams(streams: &Arc<StdMutex<HashMap<u32, StreamRoute>>>, error: A
 }
 
 /// Reads one frame. A frame with an unknown command is consumed whole, using
-/// its declared length, and reported as `None`.
+/// its declared length, and reported as `None`. As the first frame of a
+/// session (`first`), an unknown command means the peer is not an AnyTLS
+/// server, for example a fallback web server answering with HTTP, and is
+/// reported as `AuthenticationRejected` without waiting for its body.
 ///
 /// # Cancel safety
 /// NOT cancel-safe: a cancelled read can leave a partial frame consumed. Only
 /// the session reader calls it, and it drops the whole session on cancellation.
-async fn read_frame<R>(reader: &mut R) -> Result<Option<Frame>, AnyTlsError>
+async fn read_frame<R>(reader: &mut R, first: bool) -> Result<Option<Frame>, AnyTlsError>
 where
     R: tokio::io::AsyncRead + Unpin,
 {
     let mut header = [0_u8; crate::frame::FRAME_HEADER_LEN];
-    reader.read_exact(&mut header).await.map_err(|error| {
-        if matches!(error.kind(), std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::ConnectionReset) {
-            AnyTlsError::SessionClosed
-        } else {
-            AnyTlsError::Io(error.to_string())
-        }
-    })?;
+    reader.read_exact(&mut header).await.map_err(map_read_error)?;
+    if first && Command::try_from(header[0]).is_err() {
+        return Err(AnyTlsError::AuthenticationRejected);
+    }
     let data_len = usize::from(u16::from_be_bytes([header[5], header[6]]));
     let mut frame = Vec::with_capacity(header.len() + data_len);
     frame.extend_from_slice(&header);
     frame.resize(frame.len() + data_len, 0);
-    reader.read_exact(&mut frame[header.len()..]).await?;
+    reader.read_exact(&mut frame[header.len()..]).await.map_err(map_read_error)?;
     match Frame::decode(&frame) {
         Ok(decoded) => Ok(decoded.map(|(frame, _)| frame)),
         Err(FrameError::UnknownCommand(_)) => Ok(None),
         Err(error) => Err(error.into()),
+    }
+}
+
+/// End of stream or a reset is the carrier ending; anything else is an I/O error.
+fn map_read_error(error: io::Error) -> AnyTlsError {
+    if matches!(error.kind(), io::ErrorKind::UnexpectedEof | io::ErrorKind::ConnectionReset) {
+        AnyTlsError::SessionClosed
+    } else {
+        AnyTlsError::Io(error.to_string())
     }
 }
 
@@ -1194,549 +1247,4 @@ fn encode_target(target: &TargetAddr, port: u16) -> Result<Vec<u8>, AnyTlsError>
 }
 
 #[cfg(test)]
-mod redaction_tests {
-    use super::AnyTlsClientConfig;
-
-    fn config_with_secrets() -> AnyTlsClientConfig {
-        AnyTlsClientConfig {
-            server_host: "example.com".to_owned(),
-            server_port: 443,
-            server_name: "example.com".to_owned(),
-            password: "super-secret-password".to_owned(),
-            tls_fingerprint_profile: "chrome".to_owned(),
-            root_certificate_pem: Some("-----BEGIN CERTIFICATE-----\nSECRET\n-----END CERTIFICATE-----".to_owned()),
-            client_name: "ripdpi-anytls/0.1.0".to_owned(),
-            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
-            outbound_bind_ip: None,
-        }
-    }
-
-    #[test]
-    fn debug_redacts_password_and_root_certificate() {
-        let rendered = format!("{:?}", config_with_secrets());
-        assert!(!rendered.contains("super-secret-password"), "password leaked: {rendered}");
-        assert!(!rendered.contains("BEGIN CERTIFICATE"), "root certificate leaked: {rendered}");
-        assert!(rendered.contains("<redacted>"), "expected redaction marker: {rendered}");
-        // Non-secret fields stay visible for diagnostics.
-        assert!(rendered.contains("example.com"), "server_name should remain visible: {rendered}");
-    }
-
-    #[test]
-    fn debug_omits_certificate_marker_when_absent() {
-        let mut config = config_with_secrets();
-        config.root_certificate_pem = None;
-        let rendered = format!("{config:?}");
-        assert!(rendered.contains("root_certificate_pem: None"), "expected None rendering: {rendered}");
-    }
-}
-
-#[cfg(test)]
-mod test_support {
-    use super::*;
-
-    impl SessionHandle {
-        /// A handle with no carrier task behind `outbound`.
-        pub(super) fn detached(seq: u64, outbound: mpsc::Sender<Outbound>, tasks: Arc<OwnedTasks>) -> Self {
-            Self {
-                seq,
-                peer_version: Arc::new(watch::channel(2).0),
-                outbound,
-                streams: Arc::new(StdMutex::new(HashMap::new())),
-                next_stream_id: Arc::new(Mutex::new(1)),
-                settings_sent: Arc::new(Mutex::new(false)),
-                closing: Arc::new(AtomicBool::new(false)),
-                inbound_frames: Arc::new(AtomicU64::new(0)),
-                tasks,
-            }
-        }
-    }
-
-    impl AnyTlsStream {
-        /// A stream that is not registered with any client pool.
-        pub(super) fn detached(
-            outbound: mpsc::Sender<Outbound>,
-            inbound: mpsc::Receiver<Vec<u8>>,
-            tasks: Arc<OwnedTasks>,
-            owner: Option<Arc<Owner>>,
-        ) -> Self {
-            Self {
-                stream_id: 1,
-                session: SessionHandle::detached(1, outbound, tasks),
-                pool: Weak::new(),
-                inbound,
-                peer_fin: Arc::new(AtomicBool::new(false)),
-                read_buffer: VecDeque::new(),
-                fin_queued: false,
-                syn_sent: true,
-                reusable: false,
-                owner,
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod session_cache_tests {
-    use std::sync::Arc;
-    use std::time::Duration;
-
-    use tokio::sync::mpsc;
-
-    use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
-
-    use super::{AnyTlsClient, AnyTlsClientConfig, Outbound, SessionHandle, TargetAddr};
-
-    #[tokio::test]
-    async fn open_tcp_does_not_deadlock_on_closed_cached_session() {
-        let client = AnyTlsClient::new(AnyTlsClientConfig {
-            server_host: "127.0.0.1".to_owned(),
-            server_port: 0,
-            server_name: "localhost".to_owned(),
-            password: "test-password".to_owned(),
-            tls_fingerprint_profile: "chrome".to_owned(),
-            root_certificate_pem: None,
-            client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
-            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
-            outbound_bind_ip: None,
-        })
-        .expect("client");
-        let (outbound, outbound_rx) = mpsc::channel::<Outbound>(1);
-        drop(outbound_rx);
-        client.state.lock().expect("state").idle.push(super::IdleSession {
-            session: SessionHandle::detached(1, outbound, Arc::clone(&client.tasks)),
-            since: tokio::time::Instant::now(),
-        });
-
-        let result = tokio::time::timeout(
-            Duration::from_secs(1),
-            client.open_tcp(TargetAddr::Domain("example.test".to_owned()), 443),
-        )
-        .await;
-
-        assert!(result.is_ok(), "closed cached session must not self-deadlock while being evicted");
-        assert!(client.state.lock().expect("state").idle.is_empty(), "closed cached session must be evicted");
-    }
-
-    #[tokio::test]
-    async fn dropping_client_and_last_stream_releases_session_state() {
-        let fixture =
-            AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
-        let client = AnyTlsClient::new(AnyTlsClientConfig {
-            server_host: "127.0.0.1".to_owned(),
-            server_port: fixture.port(),
-            server_name: fixture.server_name().to_owned(),
-            password: "fixture-password".to_owned(),
-            tls_fingerprint_profile: "chrome".to_owned(),
-            root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
-            client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
-            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
-            outbound_bind_ip: None,
-        })
-        .expect("client");
-        let stream = client
-            .open_tcp(TargetAddr::Ipv4(std::net::Ipv4Addr::LOCALHOST), fixture.target_port())
-            .await
-            .expect("stream");
-        let state = Arc::downgrade(&client.state);
-
-        drop(stream);
-        drop(client);
-
-        tokio::time::timeout(Duration::from_secs(1), async {
-            while state.upgrade().is_some() {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("session task must not keep client state alive");
-    }
-
-    #[tokio::test]
-    async fn cancelled_open_before_batch_commit_does_not_enqueue_fin() {
-        let client = AnyTlsClient::new(AnyTlsClientConfig {
-            server_host: "127.0.0.1".into(),
-            server_port: 1,
-            server_name: "outbound.invalid".into(),
-            password: "loopback-test-password".into(),
-            tls_fingerprint_profile: "chrome".into(),
-            root_certificate_pem: None,
-            client_name: "outbound-test".into(),
-            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
-            outbound_bind_ip: None,
-        })
-        .expect("client");
-        let (outbound, mut receiver) = mpsc::channel(1);
-        outbound.send(Outbound::Batch(Vec::new())).await.expect("fill carrier queue");
-        let session = SessionHandle::detached(1, outbound, Arc::clone(&client.tasks));
-        let routes = Arc::clone(&session.streams);
-        client
-            .state
-            .lock()
-            .expect("state")
-            .idle
-            .push(super::IdleSession { session, since: tokio::time::Instant::now() });
-        let caller = client.clone();
-        let opening =
-            tokio::spawn(async move { caller.open_tcp(TargetAddr::Domain("interop.invalid".into()), 443).await });
-        tokio::time::timeout(Duration::from_secs(1), async {
-            while routes.lock().expect("routes").is_empty() {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("open route inserted before blocked batch");
-        opening.abort();
-        let _ = opening.await;
-        tokio::time::timeout(Duration::from_secs(1), async {
-            while !routes.lock().expect("routes").is_empty() {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("cancelled route removed");
-        receiver.recv().await.expect("original queued batch");
-        let unexpected = tokio::time::timeout(Duration::from_millis(30), receiver.recv()).await;
-        assert!(unexpected.is_err(), "a stream whose SYN was never queued must not create a background FIN send");
-        let caller = client.clone();
-        let second =
-            tokio::spawn(async move { caller.open_tcp(TargetAddr::Domain("interop.invalid".into()), 443).await });
-        let Outbound::Batch(frames) = tokio::time::timeout(Duration::from_secs(1), receiver.recv())
-            .await
-            .expect("second batch deadline")
-            .expect("second open batch");
-        let syn = frames.iter().find(|frame| frame.command() == super::Command::Syn).expect("SYN");
-        assert_eq!(syn.stream_id(), 2, "cancelled allocation is not reused");
-        super::handle_synack(&routes, syn.stream_id(), &[]);
-        let stream = second.await.expect("second caller joined").expect("second stream accepted");
-        client.close().await.expect("join client workers");
-        assert_eq!(
-            frames[0].command(),
-            super::Command::Settings,
-            "first committed open must send Settings even when stream 1 was cancelled"
-        );
-        drop(stream);
-    }
-
-    #[tokio::test]
-    async fn cancelled_datagram_read_preserves_partial_wire_header() {
-        use std::future::Future;
-        let (outbound, _outbound_rx) = mpsc::channel(1);
-        let (inbound_tx, inbound) = mpsc::channel(2);
-        let stream = super::AnyTlsStream::detached(outbound, inbound, Arc::default(), None);
-        let mut udp = super::AnyTlsUdpOverTcp { stream, pending: Vec::new() };
-        inbound_tx.send(vec![0]).await.expect("first partial IPv4 header");
-        let mut recv = Box::pin(udp.recv_datagram());
-        std::future::poll_fn(|cx| {
-            assert!(recv.as_mut().poll(cx).is_pending());
-            std::task::Poll::Ready(())
-        })
-        .await;
-        drop(recv); // The uplink branch of the SOCKS pump can win here.
-        inbound_tx.send(vec![127, 0, 0, 1, 1, 187, 0, 3, b'a', b'b', b'c']).await.expect("remaining frame");
-        let packet = tokio::time::timeout(Duration::from_millis(100), udp.recv_datagram())
-            .await
-            .expect("datagram deadline")
-            .expect("cancelled header must be retained");
-        assert_eq!(packet.target, TargetAddr::Ipv4(std::net::Ipv4Addr::LOCALHOST));
-        assert_eq!(packet.port, 443);
-        assert_eq!(packet.payload, b"abc");
-    }
-
-    fn idle_client() -> AnyTlsClient {
-        AnyTlsClient::new(AnyTlsClientConfig {
-            server_host: "127.0.0.1".to_owned(),
-            server_port: 1,
-            server_name: "localhost".to_owned(),
-            password: "test-password".to_owned(),
-            tls_fingerprint_profile: "chrome".to_owned(),
-            root_certificate_pem: None,
-            client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
-            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
-            outbound_bind_ip: None,
-        })
-        .expect("client")
-    }
-
-    #[tokio::test]
-    async fn the_idle_session_with_the_highest_seq_is_reused_first() {
-        let client = idle_client();
-        let mut carriers = Vec::new();
-        for seq in [2, 5, 3] {
-            let (outbound, carrier) = mpsc::channel::<Outbound>(1);
-            carriers.push(carrier);
-            super::release_session(&client.state, SessionHandle::detached(seq, outbound, Arc::clone(&client.tasks)));
-        }
-        let order: Vec<u64> = std::iter::from_fn(|| client.take_idle_session()).map(|session| session.seq).collect();
-        assert_eq!(order, vec![5, 3, 2]);
-    }
-
-    #[tokio::test]
-    async fn idle_sessions_are_closed_after_the_timeout() {
-        let client = idle_client();
-        {
-            let mut state = client.state.lock().expect("state");
-            state.idle_timeout = Duration::from_millis(150);
-            state.sweep_interval = Duration::from_millis(40);
-        }
-        let (outbound, _carrier) = mpsc::channel::<Outbound>(1);
-        super::release_session(&client.state, SessionHandle::detached(1, outbound, Arc::clone(&client.tasks)));
-        tokio::time::sleep(Duration::from_millis(60)).await;
-        assert_eq!(client.state.lock().expect("state").idle.len(), 1, "a session younger than the timeout stays");
-        tokio::time::timeout(Duration::from_secs(2), async {
-            while !client.state.lock().expect("state").idle.is_empty() {
-                tokio::time::sleep(Duration::from_millis(10)).await;
-            }
-        })
-        .await
-        .expect("a session idle past the timeout is closed");
-        tokio::time::timeout(Duration::from_secs(1), async {
-            while client.state.lock().expect("state").sweeper_running {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .expect("the sweeper ends with an empty pool");
-    }
-
-    /// A frame with an unknown command is skipped with its data; the next frame
-    /// still decodes.
-    #[tokio::test]
-    async fn read_frame_skips_an_unknown_command_with_its_data() {
-        use tokio::io::AsyncWriteExt;
-        let (mut peer, mut local) = tokio::io::duplex(64);
-        peer.write_all(&[11, 0, 0, 0, 7, 0, 3, b'a', b'b', b'c']).await.expect("unknown frame");
-        peer.write_all(&[super::Command::Psh as u8, 0, 0, 0, 1, 0, 2, b'o', b'k']).await.expect("known frame");
-
-        assert_eq!(super::read_frame(&mut local).await.expect("unknown frame is not an error"), None);
-        let frame = super::read_frame(&mut local).await.expect("next frame").expect("known frame");
-        assert_eq!((frame.command(), frame.stream_id(), frame.data()), (super::Command::Psh, 1, &b"ok"[..]));
-    }
-
-    #[tokio::test]
-    async fn writer_failure_terminates_session_supervision() {
-        let reader = std::future::pending::<Result<(), super::AnyTlsError>>();
-        let writer = std::future::ready(Err(super::AnyTlsError::Io("writer failed".to_owned())));
-
-        let result = tokio::time::timeout(Duration::from_millis(100), super::supervise_session_io(reader, writer))
-            .await
-            .expect("writer failure must terminate supervision")
-            .expect_err("writer failure must close the session");
-
-        assert!(matches!(result, super::AnyTlsError::Io(error) if error == "writer failed"));
-    }
-}
-
-#[cfg(test)]
-mod protect_tests {
-    use std::net::{Ipv4Addr, SocketAddr, TcpListener};
-    use std::os::fd::{AsRawFd, RawFd};
-    use std::sync::atomic::{AtomicI32, Ordering};
-    use std::sync::{Arc, Mutex};
-
-    use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
-
-    use super::{io, protect_outbound_socket};
-
-    static TEST_LOCK: Mutex<()> = Mutex::new(());
-
-    struct RecordingCallback {
-        last_fd: AtomicI32,
-    }
-
-    impl ProtectCallback for RecordingCallback {
-        fn protect(&self, fd: RawFd) -> io::Result<()> {
-            self.last_fd.store(fd, Ordering::Release);
-            Ok(())
-        }
-    }
-
-    fn non_loopback() -> SocketAddr {
-        SocketAddr::from((Ipv4Addr::new(203, 0, 113, 7), 443))
-    }
-
-    #[test]
-    fn non_loopback_without_callback_fails_closed() {
-        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        unregister_protect_callback();
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        let err = protect_outbound_socket(
-            &listener,
-            non_loopback(),
-            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
-        )
-        .expect_err("must fail closed");
-        assert_eq!(err.kind(), io::ErrorKind::NotConnected);
-    }
-
-    #[test]
-    fn non_loopback_is_protected_via_callback() {
-        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        unregister_protect_callback();
-        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
-        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_outbound_socket(&listener, non_loopback(), ripdpi_native_protect::SocketProtectionPolicy::VpnRequired)
-            .expect("protect succeeds");
-        assert_eq!(cb.last_fd.load(Ordering::Acquire), listener.as_raw_fd());
-        unregister_protect_callback();
-    }
-
-    #[test]
-    fn loopback_is_not_protected() {
-        let _g = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        unregister_protect_callback();
-        let cb = Arc::new(RecordingCallback { last_fd: AtomicI32::new(-1) });
-        register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
-        protect_outbound_socket(
-            &listener,
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 1)),
-            ripdpi_native_protect::SocketProtectionPolicy::VpnRequired,
-        )
-        .expect("loopback no-op");
-        assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
-        unregister_protect_callback();
-    }
-}
-
-#[cfg(test)]
-mod connect_tests {
-    use std::net::{Ipv4Addr, SocketAddr};
-
-    use super::connect_first_reachable;
-
-    const INACTIVE: ripdpi_native_protect::SocketProtectionPolicy =
-        ripdpi_native_protect::SocketProtectionPolicy::Inactive;
-
-    /// A loopback port nobody listens on.
-    fn closed_addr() -> SocketAddr {
-        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind");
-        listener.local_addr().expect("address")
-    }
-
-    #[tokio::test]
-    async fn connect_falls_through_to_the_next_resolved_address() {
-        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");
-        let reachable = listener.local_addr().expect("address");
-        let tcp = connect_first_reachable(vec![closed_addr(), reachable], None, INACTIVE).await.expect("fallback");
-        assert_eq!(tcp.peer_addr().expect("peer"), reachable);
-    }
-
-    #[tokio::test]
-    async fn connect_returns_the_last_error_when_every_address_fails() {
-        let error = connect_first_reachable(vec![closed_addr(), closed_addr()], None, INACTIVE)
-            .await
-            .expect_err("all addresses closed");
-        assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
-    }
-
-    #[tokio::test]
-    async fn connect_skips_addresses_of_the_other_family_than_the_bind_ip() {
-        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");
-        let reachable = listener.local_addr().expect("address");
-        let v6: SocketAddr = "[::1]:9".parse().expect("v6");
-        let bind = Some(std::net::IpAddr::V4(Ipv4Addr::LOCALHOST));
-        let tcp = connect_first_reachable(vec![v6, reachable], bind, INACTIVE).await.expect("v4 only");
-        assert_eq!(tcp.peer_addr().expect("peer"), reachable);
-        let error = connect_first_reachable(vec![v6], bind, INACTIVE).await.expect_err("no v4 address");
-        assert!(error.to_string().contains("outbound bind IP family"), "unexpected error: {error}");
-    }
-}
-
-#[cfg(test)]
-mod tls_profile_tests {
-    use tokio::io::AsyncReadExt;
-
-    use super::{AnyTlsClientConfig, PaddingAction, PaddingScheme, connect_tls, random_selector};
-
-    #[test]
-    fn padding_ranges_are_drawn_independently_per_packet() {
-        let scheme = PaddingScheme::parse(b"stop=2\n1=100-1000,100-1000").expect("scheme");
-        let draws: Vec<(usize, usize)> = (0..32)
-            .map(|_| match scheme.write_plan_for_packet_with(1, b"x", random_selector).expect("plan").as_slice() {
-                [PaddingAction::PayloadThenWaste { waste_len, .. }, PaddingAction::Waste { len }] => (*waste_len, *len),
-                other => panic!("unexpected plan {other:?}"),
-            })
-            .collect();
-        assert!(draws.iter().any(|draw| *draw != draws[0]), "sizes must vary between packets: {draws:?}");
-        assert!(draws.iter().any(|(first, second)| first + 8 != *second), "ranges must be drawn independently");
-    }
-
-    /// Reads the ClientHello the client writes and returns its cipher suites.
-    async fn client_hello_cipher_suites(profile: &str) -> Vec<u16> {
-        let config = AnyTlsClientConfig {
-            server_host: "127.0.0.1".to_owned(),
-            server_port: 443,
-            server_name: "example.test".to_owned(),
-            password: "test-password".to_owned(),
-            tls_fingerprint_profile: profile.to_owned(),
-            root_certificate_pem: None,
-            client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
-            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
-            outbound_bind_ip: None,
-        };
-        let (client, mut server) = tokio::io::duplex(64 * 1024);
-        let handshake = tokio::spawn(async move { connect_tls(&config, client).await.map(|_| ()) });
-        let mut header = [0_u8; 5];
-        server.read_exact(&mut header).await.expect("record header");
-        let mut body = vec![0_u8; usize::from(u16::from_be_bytes([header[3], header[4]]))];
-        server.read_exact(&mut body).await.expect("ClientHello");
-        handshake.abort();
-        // Handshake header (4), legacy_version (2), random (32), session id.
-        let session_id_end = 4 + 2 + 32 + 1 + usize::from(body[38]);
-        let suites_len = usize::from(u16::from_be_bytes([body[session_id_end], body[session_id_end + 1]]));
-        body[session_id_end + 2..session_id_end + 2 + suites_len]
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|pair| u16::from_be_bytes(*pair))
-            .collect()
-    }
-
-    #[tokio::test]
-    async fn client_hello_keeps_the_browser_profile_tls12_cipher_suites() {
-        const TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: u16 = 0xc02f;
-        let suites = client_hello_cipher_suites("chrome").await;
-        assert!(
-            suites.contains(&TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256),
-            "a TLS 1.3-only override drops the TLS 1.2 suites a browser offers: {suites:04x?}"
-        );
-    }
-}
-
-#[cfg(test)]
-mod bridge_tests {
-    use std::sync::Arc;
-    use std::time::Duration;
-
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::sync::mpsc;
-
-    use super::{AnyTlsStream, OwnedTasks, Owner};
-
-    /// A stalled uplink (full carrier queue) must not stop the pump from
-    /// draining the stream's downlink; one coupled loop starved the mailbox
-    /// into a reset.
-    #[tokio::test]
-    async fn a_stalled_uplink_does_not_stop_downlink_delivery() {
-        let tasks = Arc::new(OwnedTasks::default());
-        let (outbound, _stalled_carrier) = mpsc::channel(1);
-        let (inbound_tx, inbound) = mpsc::channel(32);
-        let stream =
-            AnyTlsStream::detached(outbound, inbound, Arc::clone(&tasks), Some(Arc::new(Owner(Arc::clone(&tasks)))));
-        let mut app = stream.into_io().expect("bridge");
-        // The first chunk fills the carrier queue; the pump then waits to send the second.
-        app.write_all(b"first").await.expect("first upload");
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        app.write_all(b"second").await.expect("second upload");
-        tokio::time::sleep(Duration::from_millis(50)).await;
-
-        inbound_tx.send(b"reply".to_vec()).await.expect("downlink chunk");
-        let mut reply = [0; 5];
-        tokio::time::timeout(Duration::from_secs(1), app.read_exact(&mut reply))
-            .await
-            .expect("downlink must flow while the uplink is stalled")
-            .expect("read");
-        assert_eq!(&reply, b"reply");
-    }
-}
+mod tests;

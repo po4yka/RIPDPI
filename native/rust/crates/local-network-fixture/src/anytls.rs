@@ -29,6 +29,12 @@ pub struct AnyTlsLoopbackConfig {
     pub drop_carrier_after_first_echo: bool,
     /// Behave as an AnyTLS protocol v1 server: no ServerSettings, no SYNACK.
     pub protocol_v1: bool,
+    /// Delay before the ServerSettings answer, which also delays every later
+    /// frame of the session (a slow first v2 exchange).
+    pub server_settings_delay: Duration,
+    /// Answer a wrong password with an HTTP error page and close, as a server
+    /// that falls back to a web site does.
+    pub http_fallback_on_bad_auth: bool,
     pub tls_handshake_delay: Duration,
     pub synack_delay: Duration,
 }
@@ -212,6 +218,11 @@ async fn handle_connection(
     auth_packet.extend_from_slice(&padding);
     observed.lock().expect("anytls observed").auth_packet = auth_packet;
     if &auth_prefix[..32] != password_hash {
+        if config.http_fallback_on_bad_auth {
+            tls.write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n").await?;
+            tls.shutdown().await?;
+            return Ok(());
+        }
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "invalid anytls auth"));
     }
 
@@ -229,6 +240,7 @@ async fn handle_connection(
                 }
                 observed.lock().expect("anytls observed").settings_padding_md5.push(padding_md5);
                 if !config.protocol_v1 {
+                    tokio::time::sleep(config.server_settings_delay).await;
                     write_frame(&mut tls, CMD_SERVER_SETTINGS, 0, b"v=2").await?;
                 }
                 if config.send_heart_request_after_settings {
@@ -280,6 +292,7 @@ async fn handle_connection(
                     if config.protocol_v1 {
                         // A v1 server accepts the stream silently.
                     } else if let Some(message) = &config.reject_next_synack {
+                        tokio::time::sleep(config.synack_delay).await;
                         write_frame(&mut tls, CMD_SYNACK, frame.stream_id, message.as_bytes()).await?;
                     } else {
                         tokio::time::sleep(config.synack_delay).await;

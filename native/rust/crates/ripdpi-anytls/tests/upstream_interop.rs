@@ -135,15 +135,37 @@ async fn paused_reader_receives_the_whole_echo_from_upstream() {
     });
     // The local consumer is busy; the peer keeps echoing.
     tokio::time::sleep(Duration::from_secs(3)).await;
-    let mut received = 0;
-    let mut buffer = vec![0_u8; 64 * 1024];
-    while received < TOTAL {
-        let read_len = tokio::time::timeout(Duration::from_secs(30), read.read(&mut buffer))
-            .await
-            .expect("read deadline")
-            .expect("no error before the echo is complete");
-        assert_ne!(read_len, 0, "clean EOF after {received} of {TOTAL} bytes");
-        received += read_len;
-    }
+    let drain = async {
+        let mut received = 0;
+        let mut buffer = vec![0_u8; 64 * 1024];
+        while received < TOTAL {
+            let read_len = read.read(&mut buffer).await.expect("no error before the echo is complete");
+            assert_ne!(read_len, 0, "clean EOF after {received} of {TOTAL} bytes");
+            received += read_len;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(20), drain).await.expect("the echo must drain after the pause");
     assert_eq!(writer.await.expect("writer"), TOTAL);
+}
+
+/// A target that refuses the connection ends only its own stream. The peer
+/// answers with a rejected SYNACK (v2) or a FIN (v1); neither may read as a
+/// wrong password, because the carrier stays up and the server did answer.
+#[tokio::test]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn a_refused_target_is_not_reported_as_a_wrong_password() {
+    tokio::time::timeout(Duration::from_secs(12), async {
+        let client = AnyTlsClient::new(config("loopback-test-password")).expect("client");
+        let closed = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind").local_addr().expect("addr");
+        match client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), closed.port()).await {
+            Ok(mut stream) => {
+                let end = stream.read_chunk().await.expect_err("a refused target yields no data");
+                assert!(!matches!(end, AnyTlsError::AuthenticationRejected), "unexpected error: {end}");
+            }
+            Err(error) => assert!(!matches!(error, AnyTlsError::AuthenticationRejected), "unexpected error: {error}"),
+        }
+        client.close().await.expect("join carrier");
+    })
+    .await
+    .expect("refused target deadline");
 }

@@ -662,17 +662,19 @@ async fn paused_reader_receives_the_whole_echo() {
         sent
     });
     tokio::time::sleep(Duration::from_secs(3)).await;
-    let mut received = 0;
-    let mut buffer = vec![0_u8; 64 * 1024];
-    while received < PAUSE_TOTAL {
-        let read_len = tokio::time::timeout(Duration::from_secs(30), read.read(&mut buffer))
-            .await
-            .expect("read deadline")
-            .expect("no error before the echo is complete");
-        assert_ne!(read_len, 0, "clean EOF after {received} of {PAUSE_TOTAL} bytes");
-        assert!(buffer[..read_len].iter().all(|byte| *byte == 0x5a));
-        received += read_len;
-    }
+    // One bound on the whole drain, not per read: a stall must fail, while a
+    // slow machine only needs the transfer to finish.
+    let drain = async {
+        let mut received = 0;
+        let mut buffer = vec![0_u8; 64 * 1024];
+        while received < PAUSE_TOTAL {
+            let read_len = read.read(&mut buffer).await.expect("no error before the echo is complete");
+            assert_ne!(read_len, 0, "clean EOF after {received} of {PAUSE_TOTAL} bytes");
+            assert!(buffer[..read_len].iter().all(|byte| *byte == 0x5a));
+            received += read_len;
+        }
+    };
+    tokio::time::timeout(Duration::from_secs(20), drain).await.expect("the echo must drain after the pause");
     assert_eq!(writer.await.expect("writer"), PAUSE_TOTAL);
 }
 
@@ -706,9 +708,10 @@ fn v1_fixture_config() -> AnyTlsLoopbackConfig {
     AnyTlsLoopbackConfig { protocol_v1: true, ..AnyTlsLoopbackConfig::default() }
 }
 
-/// A protocol v1 server sends no ServerSettings and no SYNACK. The first open
-/// waits a bounded time for ServerSettings, then returns the stream; the client
-/// remembers the version, so a later fresh session does not wait again.
+/// A protocol v1 server sends no ServerSettings and no SYNACK. A fresh session
+/// waits a bounded time (2 s) for ServerSettings, then returns the stream. The
+/// version belongs to the session, so a second fresh session waits again, and a
+/// pooled session does not.
 #[tokio::test]
 async fn protocol_v1_server_tcp_open_returns_without_synack() {
     let fixture = AnyTlsLoopback::start("fixture-password", v1_fixture_config()).await.expect("fixture");
@@ -719,17 +722,29 @@ async fn protocol_v1_server_tcp_open_returns_without_synack() {
         .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
         .await
         .expect("a v1 server needs no SYNACK");
-    assert!(started.elapsed() < Duration::from_secs(5), "open took {:?}", started.elapsed());
+    let waited = started.elapsed();
+    assert!(waited >= Duration::from_millis(1900) && waited < Duration::from_millis(3500), "open took {waited:?}");
     first.write_all(b"v1 echo").await.expect("write");
     assert_eq!(first.read_exact_len(7).await.expect("echo"), b"v1 echo");
 
-    // A fresh session of the same client knows the server is v1.
-    let started = std::time::Instant::now();
+    // The first session is still busy, so this one is fresh and waits again.
     let mut second =
         client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("second v1 stream");
-    assert!(started.elapsed() < Duration::from_millis(1500), "learned v1 must not wait again: {:?}", started.elapsed());
     second.write_all(b"again").await.expect("write");
     assert_eq!(second.read_exact_len(5).await.expect("echo"), b"again");
+
+    // A released v1 session is reused at once: its version is known.
+    drop(first);
+    let started = std::time::Instant::now();
+    let mut third =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("third v1 stream");
+    assert!(
+        started.elapsed() < Duration::from_millis(1000),
+        "a pooled v1 session needs no wait: {:?}",
+        started.elapsed()
+    );
+    third.write_all(b"pool").await.expect("write");
+    assert_eq!(third.read_exact_len(4).await.expect("echo"), b"pool");
 
     let observed = fixture.observed();
     assert_eq!(observed.tls_session_count, 2);
@@ -743,11 +758,60 @@ async fn protocol_v1_server_udp_open_returns_without_synack() {
 
     let started = std::time::Instant::now();
     let mut udp = client.open_udp_over_tcp().await.expect("a v1 server needs no SYNACK");
-    assert!(started.elapsed() < Duration::from_secs(5), "open took {:?}", started.elapsed());
+    assert!(started.elapsed() < Duration::from_millis(3500), "open took {:?}", started.elapsed());
     udp.send_datagram(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.udp_target_port(), b"dns")
         .await
         .expect("send udp");
     let datagram = udp.recv_datagram().await.expect("recv udp");
     assert_eq!(datagram.payload, b"dns");
     assert!(fixture.observed().synack_successes.is_empty());
+}
+
+/// The server answers slowly (ServerSettings after 2.5 s), so the open returns
+/// as for a v1 server. The server then rejects the stream with a SYNACK error;
+/// that late rejection must end the stream as a reset, not a clean EOF.
+#[tokio::test]
+async fn a_late_synack_rejection_resets_the_returned_stream() {
+    use tokio::io::AsyncReadExt;
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig {
+            server_settings_delay: Duration::from_millis(2500),
+            reject_next_synack: Some("dial failed".to_owned()),
+            ..AnyTlsLoopbackConfig::default()
+        },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+    let mut app = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("the open returns before the slow server answers")
+        .into_io()
+        .expect("io");
+    let mut buffer = [0_u8; 1];
+    let end = tokio::time::timeout(Duration::from_secs(5), app.read(&mut buffer)).await.expect("end deadline");
+    assert_eq!(end.expect_err("a rejected stream must not look like EOF").kind(), std::io::ErrorKind::ConnectionReset);
+}
+
+/// A server that falls back to a web site answers the auth with HTTP and
+/// closes. Its first bytes are not an AnyTLS frame, so the open fails at once
+/// as an authentication failure, without waiting for the version wait.
+#[tokio::test]
+async fn an_http_fallback_answer_is_an_authentication_failure() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { http_fallback_on_bad_auth: true, ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "wrong-password")).expect("client");
+    let started = std::time::Instant::now();
+    let error = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect_err("HTTP is not AnyTLS");
+    assert!(matches!(error, AnyTlsError::AuthenticationRejected), "unexpected error: {error}");
+    assert!(started.elapsed() < Duration::from_millis(1500), "took {:?}", started.elapsed());
 }
