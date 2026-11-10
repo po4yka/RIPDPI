@@ -1,0 +1,11 @@
+{
+  "change": "rly14-cloudflare-publish-fixes",
+  "evidence_summary": "Source 2215d745483395d636512589176fdbbe3168ffcb passed 30 origin and 115 selected Kotlin tests, clippy, fmt, locked metadata, just ci-gates, full staticAnalysis, independent review and local pinned cloudflared HTTP/2 regression in the rly14 lane; external edge and Android artifact acceptance were not run.",
+  "execution_sha256": "74b48ad87a9c0a7e343655f0c09684bcf55da76dc4e5f27a3d4fa1359dac983b",
+  "issue_sha256": "e4afaf7bd32a7aa860f59592b0b65bf877b295e1b190761c5e4b28d150cfeb04",
+  "outcome": "done",
+  "prepared_at": "2026-11-10T12:01:19Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1794300683762457"
+}

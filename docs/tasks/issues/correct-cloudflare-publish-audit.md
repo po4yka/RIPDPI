@@ -2,7 +2,7 @@
 id: RLY-1794300683762457
 title: Correct Cloudflare publish relay audit defects
 kind: bug
-status: review
+status: done
 area: relay
 priority: high
 owner: Relay audit coordinator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: rly14-cloudflare-publish-fixes
 created: 2026-11-10
 updated: 2026-11-10
+closed_at: "2026-11-10T12:01:19Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Source 2215d745483395d636512589176fdbbe3168ffcb passed 30 origin and 115 selected Kotlin tests, clippy, fmt, locked metadata, just ci-gates, full staticAnalysis, independent review and local pinned cloudflared HTTP/2 regression in the rly14 lane; external edge and Android artifact acceptance were not run.
 ---
 
 ## Goal
