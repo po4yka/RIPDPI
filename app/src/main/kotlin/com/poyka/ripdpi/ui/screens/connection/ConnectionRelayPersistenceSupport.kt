@@ -175,6 +175,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         chainExitPublicKey = "",
         chainExitShortId = "",
         chainExitProfileId = if (relayKind == RelayKindChainRelay) relayChainExitProfileId else "",
+        chainMiddleProfileIds = if (relayKind == RelayKindChainRelay) relayChainMiddleProfileIds else emptyList(),
         masqueUrl = relayMasqueUrl,
         masqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = relayMasqueCloudflareGeohashEnabled,
