@@ -52,7 +52,7 @@ class RelayProfileActivator
                     enabled = true,
                     select = true,
                     modeAfterImage = modeAfterImage,
-                    xraySelectionAfterImage = xraySelectionAfterImage,
+                    xraySelectionAfterImage = xraySelectionAfterImage ?: XrayProviderSelectionRecord(),
                 )
             return outcome !is com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded
         }

@@ -157,7 +157,9 @@ class TestDirectRelayProfileMutationCoordinator(
         try {
             profiles.save(profile)
             this.credentials.save(credentials)
-            check(xraySelectionAfterImage == null) { "Direct relay activation cannot update Xray provider selection" }
+            check(xraySelectionAfterImage == null || xraySelectionAfterImage == XrayProviderSelectionRecord()) {
+                "Direct relay activation only supports the Native provider"
+            }
             if (settingsAfterImage != null) {
                 settings.replace(settingsAfterImage)
             } else if (select || modeAfterImage != null) {
