@@ -68,7 +68,7 @@ pub(super) fn build_payload_json(
         headers: header_map,
         body: (!body.is_empty()).then(|| BASE64_STANDARD.encode(body)),
         content_type,
-        follow_redirects: true,
+        follow_redirects: false,
     };
     Ok(serde_json::to_vec(&request)?)
 }
@@ -206,5 +206,13 @@ mod rly15_regressions {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn rly15_origin_redirects_are_returned_to_the_client() {
+        let payload: Value =
+            serde_json::from_slice(&build_payload_json("key", "GET", "https://example.test/", &[], b"").unwrap())
+                .unwrap();
+        assert_eq!(payload["r"], false);
     }
 }
