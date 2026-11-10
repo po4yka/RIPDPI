@@ -441,7 +441,7 @@ private class ResolvedRelayConfigBuilder(
     private fun trojanSection(): RelayTrojanSection =
         RelayTrojanSection(
             trojanPassword = credentials?.trojanPassword,
-            trojanRootCertificatePem = null,
+            trojanRootCertificatePem = effectiveConfig.trojanRootCertificatePem,
         )
 
     private fun shadowsocksSection(): RelayShadowsocksSection =

@@ -281,6 +281,7 @@ data class RipDpiRelayConfig(
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val tuicRootCertificatePem: String? = null,
+    val trojanRootCertificatePem: String? = null,
     val tuicAlpn: String? = null,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",

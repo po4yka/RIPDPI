@@ -63,6 +63,8 @@ internal data class NativeRelayConfig(
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val tuicRootCertificatePem: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val trojanRootCertificatePem: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
     val tuicAlpn: String? = null,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
@@ -134,6 +136,7 @@ internal object RelaySectionCodec {
             tuicZeroRtt = value.tuicZeroRtt,
             tuicCongestionControl = normalizeRelayCongestionControl(value.tuicCongestionControl),
             tuicRootCertificatePem = value.tuicRootCertificatePem,
+            trojanRootCertificatePem = value.trojanRootCertificatePem,
             tuicAlpn = value.tuicAlpn,
             shadowTlsInnerProfileId = value.shadowTlsInnerProfileId,
             naivePath = value.naivePath,
@@ -208,6 +211,7 @@ internal object RelaySectionCodec {
             tuicZeroRtt = value.tuicZeroRtt,
             tuicCongestionControl = normalizeRelayCongestionControl(value.tuicCongestionControl),
             tuicRootCertificatePem = value.tuicRootCertificatePem,
+            trojanRootCertificatePem = value.trojanRootCertificatePem,
             tuicAlpn = value.tuicAlpn,
             shadowTlsInnerProfileId = value.shadowTlsInnerProfileId,
             naivePath = value.naivePath,

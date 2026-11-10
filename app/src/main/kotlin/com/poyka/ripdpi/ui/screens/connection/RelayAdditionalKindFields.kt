@@ -28,6 +28,12 @@ internal fun TrojanRelayFields(
     actions: RelayAdditionalKindActions,
 ) {
     RelaySecretField(draft.relayTrojanPassword, R.string.config_relay_trojan_password, actions.onTrojanPasswordChanged)
+    RipDpiTextField(
+        value = draft.relayTrojanRootCertificatePem,
+        onValueChange = actions.onTrojanRootCertificatePemChanged,
+        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_tuic_root_certificate)),
+        behavior = RipDpiTextFieldBehavior(singleLine = false),
+    )
 }
 
 @Composable

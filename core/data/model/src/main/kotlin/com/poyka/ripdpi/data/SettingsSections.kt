@@ -114,6 +114,7 @@ data class RelaySettingsSection(
     val relayTuicZeroRtt: Boolean = false,
     val relayTuicCongestionControl: String = "",
     val relayTuicRootCertificatePem: String = "",
+    val relayTrojanRootCertificatePem: String = "",
     val relayTuicAlpn: String = "",
     val relayShadowtlsInnerProfileId: String = "",
     val relayNaivePath: String = "",

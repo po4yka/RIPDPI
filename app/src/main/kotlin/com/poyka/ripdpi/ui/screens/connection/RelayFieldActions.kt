@@ -15,6 +15,7 @@ internal data class RelayKindFieldActions(
 
 internal data class RelayAdditionalKindActions(
     val onTrojanPasswordChanged: (String) -> Unit = {},
+    val onTrojanRootCertificatePemChanged: (String) -> Unit = {},
     val onShadowsocksMethodChanged: (String) -> Unit = {},
     val onShadowsocksPasswordChanged: (String) -> Unit = {},
     val onAppsScriptScriptIdsChanged: (String) -> Unit = {},

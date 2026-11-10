@@ -182,6 +182,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         tuicZeroRtt = false,
         tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
         tuicRootCertificatePem = relayTuicRootCertificatePem.trim(),
+        trojanRootCertificatePem = relayTrojanRootCertificatePem.trim(),
         tuicAlpn = relayTuicAlpn.trim(),
         shadowTlsInnerProfileId = relayShadowTlsInnerProfileId,
         naivePath = relayNaivePath,

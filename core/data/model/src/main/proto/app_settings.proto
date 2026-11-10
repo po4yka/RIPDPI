@@ -341,6 +341,7 @@ message AppSettings {
   bool relay_tuic_zero_rtt = 229;
   string relay_tuic_congestion_control = 230; // "bbr" | "cubic"
   string relay_tuic_root_certificate_pem = 426; // extra trust anchors, PEM
+  string relay_trojan_root_certificate_pem = 428; // extra trust anchors, PEM
   string relay_tuic_alpn = 427; // comma-separated; empty = h3
   string relay_shadowtls_inner_profile_id = 231;
   string relay_naive_path = 232;

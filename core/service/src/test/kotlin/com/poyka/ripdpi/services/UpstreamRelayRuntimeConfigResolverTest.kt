@@ -995,6 +995,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverPort = 443,
                             serverName = "trojan.example",
                             udpEnabled = true,
+                            trojanRootCertificatePem = "trojan-root-pem",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
                     expectedSelection =
@@ -1006,6 +1007,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
             assertTrue(resolved.udpEnabled)
             assertEquals("trojan.example", resolved.serverName)
             assertEquals(credentialFixture("trojan"), resolved.trojanPassword)
+            assertEquals("trojan-root-pem", resolved.trojanRootCertificatePem)
         }
 
     @Test

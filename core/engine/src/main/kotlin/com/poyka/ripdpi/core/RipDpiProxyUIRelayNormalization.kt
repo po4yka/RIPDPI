@@ -47,6 +47,7 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         masqueUrl = config.masqueUrl.trim(),
         tuicCongestionControl = normalizeRelayCongestionControl(config.tuicCongestionControl),
         tuicRootCertificatePem = config.tuicRootCertificatePem?.trim()?.ifBlank { null },
+        trojanRootCertificatePem = config.trojanRootCertificatePem?.trim()?.ifBlank { null },
         tuicAlpn = config.tuicAlpn?.trim()?.ifBlank { null },
         shadowTlsInnerProfileId = config.shadowTlsInnerProfileId.trim(),
         naivePath = config.naivePath.trim(),

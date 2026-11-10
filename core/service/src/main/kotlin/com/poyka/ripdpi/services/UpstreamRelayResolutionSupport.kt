@@ -431,6 +431,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         tuicZeroRtt = tuicZeroRtt,
         tuicCongestionControl = tuicCongestionControl,
         tuicRootCertificatePem = tuicRootCertificatePem.ifBlank { null },
+        trojanRootCertificatePem = trojanRootCertificatePem.ifBlank { null },
         tuicAlpn = parseTuicAlpn(tuicAlpn),
         shadowTlsInnerProfileId = shadowTlsInnerProfileId,
         shadowTlsInner = shadowTlsInner,

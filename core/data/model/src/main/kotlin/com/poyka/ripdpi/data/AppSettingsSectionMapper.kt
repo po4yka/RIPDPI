@@ -121,6 +121,7 @@ private fun AppSettings.relaySection(): RelaySettingsSection =
         relayTuicZeroRtt = relayTuicZeroRtt,
         relayTuicCongestionControl = relayTuicCongestionControl,
         relayTuicRootCertificatePem = relayTuicRootCertificatePem,
+        relayTrojanRootCertificatePem = relayTrojanRootCertificatePem,
         relayTuicAlpn = relayTuicAlpn,
         relayShadowtlsInnerProfileId = relayShadowtlsInnerProfileId,
         relayNaivePath = relayNaivePath,

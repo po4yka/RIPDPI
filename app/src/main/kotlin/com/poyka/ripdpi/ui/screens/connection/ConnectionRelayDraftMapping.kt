@@ -55,6 +55,7 @@ internal fun ConnectionDraft.withRelaySettings(relay: RelaySettingsModel): Conne
         relayMasqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
         relayTuicCongestionControl = relay.profile.tuicCongestionControl,
         relayTuicRootCertificatePem = relay.profile.tuicRootCertificatePem,
+        relayTrojanRootCertificatePem = relay.profile.trojanRootCertificatePem,
         relayTuicAlpn = relay.profile.tuicAlpn,
         relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
         relayAppsScriptScriptIds = relay.profile.appsScriptScriptIds.joinToString("\n"),
@@ -161,6 +162,7 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConnectionDraft): AppSett
         setRelayTuicZeroRtt(false)
         setRelayTuicCongestionControl(normalizeRelayCongestionControl(draft.relayTuicCongestionControl))
         setRelayTuicRootCertificatePem(draft.relayTuicRootCertificatePem.trim())
+        setRelayTrojanRootCertificatePem(draft.relayTrojanRootCertificatePem.trim())
         setRelayTuicAlpn(draft.relayTuicAlpn.trim())
         setRelayShadowtlsInnerProfileId(draft.relayShadowTlsInnerProfileId)
         clearRelayAppsScriptScriptIds()

@@ -112,6 +112,9 @@ private fun ModeEditorActions.withRelayProtocolActions(viewModel: ConnectionView
         additional =
             RelayAdditionalKindActions(
                 onTrojanPasswordChanged = { viewModel.updateDraft { copy(relayTrojanPassword = it) } },
+                onTrojanRootCertificatePemChanged = {
+                    viewModel.updateDraft { copy(relayTrojanRootCertificatePem = it) }
+                },
                 onShadowsocksMethodChanged = { viewModel.updateDraft { copy(relayShadowsocksMethod = it) } },
                 onShadowsocksPasswordChanged = { viewModel.updateDraft { copy(relayShadowsocksPassword = it) } },
                 onAppsScriptScriptIdsChanged = { viewModel.updateDraft { copy(relayAppsScriptScriptIds = it) } },
