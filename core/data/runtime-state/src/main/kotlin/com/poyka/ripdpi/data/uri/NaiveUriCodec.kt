@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.uri
 import com.poyka.ripdpi.data.MaxNaiveConcurrency
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.isValidNaiveCredentials
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import java.net.URI
@@ -33,7 +34,7 @@ internal object NaiveUriCodec {
         val separator = rawUserInfo.indexOf(':')
         val username = decode(if (separator < 0) rawUserInfo else rawUserInfo.substring(0, separator)) ?: return null
         val password = if (separator < 0) "" else decode(rawUserInfo.substring(separator + 1)) ?: return null
-        if (username.isBlank()) return null
+        if (!isValidNaiveCredentials(username, password)) return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.removeSurrounding("[", "]") ?: return null
         val port = if (parsed.port == -1) DefaultNaivePort else parsed.port.takeIf { it in 1..MaxPort } ?: return null
         val options = parseOptions(parsed) ?: return null

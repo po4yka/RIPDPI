@@ -30,7 +30,7 @@ The implementation MUST classify known proxy-side TLS, CONNECT, HTTP/2, and QUIC
 
 ### Requirement: REQ-RLY-1794300094981437-003 — Refuse invalid Basic credentials
 
-Import, editor, service, and Rust helper validation MUST reject a Basic username containing a colon or an ASCII control, and a password containing an ASCII control. Controls include DEL. The username MUST be nonblank. An empty password, spaces in valid credentials, Unicode text, and a colon in a password MUST remain valid. Validation messages MUST NOT disclose credentials. No stored schema change is required.
+Import, editor, service, and Rust helper validation MUST reject a Basic username containing a colon or an ASCII control, and a password containing an ASCII control. Controls include DEL. A supplied username MUST be nonblank. The helper mode with no upstream credentials MUST remain available. An empty password, spaces in valid credentials, Unicode text, and a colon in a password MUST remain valid. Validation messages MUST NOT disclose credentials. No stored schema change is required.
 
 #### Scenario: Encoded colon in a username
 

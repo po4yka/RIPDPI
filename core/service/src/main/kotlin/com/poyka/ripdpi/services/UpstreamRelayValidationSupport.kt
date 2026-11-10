@@ -32,6 +32,7 @@ import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
 import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.isValidNaiveCredentials
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.isValidTuicUuid
 import com.poyka.ripdpi.data.isValidVlessUuid
@@ -130,7 +131,7 @@ internal fun validateNaiveRelayCredentials(
     requireRelayCredentials(
         profileId = profileId,
         hasRequiredCredentials =
-            !credentials?.naiveUsername.isNullOrBlank() && credentials.naivePassword != null,
+            isValidNaiveCredentials(credentials?.naiveUsername, credentials?.naivePassword),
     )
 }
 

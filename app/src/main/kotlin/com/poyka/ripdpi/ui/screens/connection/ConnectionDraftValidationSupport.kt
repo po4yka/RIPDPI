@@ -45,6 +45,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
+import com.poyka.ripdpi.data.isValidNaiveCredentials
 import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.isValidTuicUuid
@@ -385,6 +386,11 @@ private fun validateNaiveProxyDraft(draft: ConnectionDraft): Map<String, String>
                     draft.relayServerName.isBlank() || draft.relayNaiveUsername.isBlank(),
             ),
         )
+        if (draft.relayNaiveUsername.isNotBlank() &&
+            !isValidNaiveCredentials(draft.relayNaiveUsername, draft.relayNaivePassword)
+        ) {
+            put(ConnectionFieldRelayCredentials, "invalid")
+        }
         (parseNaiveExtraHeaders(draft.relayNaiveExtraHeaders) as? NaiveExtraHeadersResult.Invalid)?.let {
             put(
                 ConnectionFieldRelayNaiveExtraHeaders,

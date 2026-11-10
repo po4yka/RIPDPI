@@ -8,6 +8,37 @@ import org.junit.Test
 
 class ProxyUriCodecTest {
     @Test
+    fun `naive import rejects invalid decoded Basic credentials`() {
+        for (scheme in listOf("naive+https", "naive+quic")) {
+            assertNull(ProxyUriCodec.parse("$scheme://private%3Auser:secret@h.example"))
+            for (control in (0..31) + 127) {
+                val encoded = "%" + control.toString(16).padStart(2, '0')
+                assertNull(ProxyUriCodec.parse("$scheme://private${encoded}user:secret@h.example"))
+                assertNull(ProxyUriCodec.parse("$scheme://private:secret${encoded}pass@h.example"))
+            }
+        }
+    }
+
+    @Test
+    fun `naive import preserves valid Basic credential text`() {
+        for (password in listOf("", " s3cret:пароль ")) {
+            val profile =
+                ProxyProfile.Naive(
+                    id = "test",
+                    displayName = "test",
+                    groupId = "",
+                    server = "h.example",
+                    serverPort = 443,
+                    username = " алиса ",
+                    password = password,
+                )
+            val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile)) as ProxyProfile.Naive
+            assertEquals(profile.username, parsed.username)
+            assertEquals(profile.password, parsed.password)
+        }
+    }
+
+    @Test
     fun `profile names decode URI fragments once across share formats`() {
         val names =
             mapOf(

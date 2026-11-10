@@ -90,6 +90,33 @@ class NaiveProxyRuntimePolicyTest {
     }
 
     @Test
+    fun `restored invalid Basic credentials are refused without disclosure`() {
+        val credentials =
+            RelayCredentialRecord(
+                profileId = "p",
+                naiveUsername = "private-user",
+                naivePassword = "secret-pass", // Fixture credential.
+            )
+        val invalid =
+            listOf(
+                credentials.copy(naiveUsername = "private:user"),
+                credentials.copy(naiveUsername = "private\u001fuser"),
+                credentials.copy(naivePassword = "secret\rpass"), // Fixture credential.
+                credentials.copy(naivePassword = "secret\u007fpass"), // Fixture credential.
+            )
+        for (record in invalid) {
+            val error =
+                assertThrows(IllegalArgumentException::class.java) { validateNaiveRelayCredentials("p", record) }
+            assertFalse(error.message.orEmpty().contains("private"))
+            assertFalse(error.message.orEmpty().contains("secret"))
+        }
+        validateNaiveRelayCredentials(
+            "p",
+            credentials.copy(naiveUsername = " алиса ", naivePassword = " secret:пароль "), // Fixture credential.
+        )
+    }
+
+    @Test
     fun `extra headers travel as the fifth stdin line`() {
         val config =
             sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(

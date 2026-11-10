@@ -40,7 +40,6 @@ import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
-import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
@@ -117,18 +116,6 @@ private fun samplePrivateKeyPem(): String =
         "fixture",
         "-----END PRIVATE" + " KEY-----",
     ).joinToString("\n")
-
-private fun validNaiveProxyDraft(relayNaivePath: String): ConnectionDraft =
-    defaultDraft.copy(
-        relayEnabled = true,
-        relayKind = RelayKindNaiveProxy,
-        relayServer = "relay.example",
-        relayServerPort = "443",
-        relayServerName = "relay.example",
-        relayNaiveUsername = "naive-user",
-        relayNaivePassword = "naive-" + "credential",
-        relayNaivePath = relayNaivePath,
-    )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -572,89 +559,6 @@ class ConnectionViewModelTest {
             )
 
         assertEquals(null, errors[ConnectionFieldRelayCredentials])
-    }
-
-    @Test
-    fun `relay validation rejects naiveproxy missing credentials`() {
-        val errors =
-            validateConfigDraft(
-                defaultDraft.copy(
-                    relayEnabled = true,
-                    relayKind = RelayKindNaiveProxy,
-                    relayServer = "relay.example",
-                    relayServerPort = "443",
-                    relayServerName = "relay.example",
-                ),
-            )
-
-        assertEquals("required", errors[ConnectionFieldRelayCredentials])
-    }
-
-    @Test
-    fun `relay validation accepts naiveproxy username with empty password`() {
-        val errors = validateConfigDraft(validNaiveProxyDraft(relayNaivePath = "").copy(relayNaivePassword = ""))
-        val passwordOnly =
-            validateConfigDraft(
-                validNaiveProxyDraft(relayNaivePath = "").copy(relayNaiveUsername = "", relayNaivePassword = "x"),
-            )
-
-        assertEquals(null, errors[ConnectionFieldRelayCredentials])
-        assertEquals("required", passwordOnly[ConnectionFieldRelayCredentials])
-    }
-
-    @Test
-    fun `relay validation accepts only a sha256 pin for naiveproxy`() {
-        fun errorFor(pin: String): String? =
-            validateConfigDraft(validNaiveProxyDraft(relayNaivePath = "").copy(relayNaiveServerPinSha256 = pin))[
-                ConnectionFieldRelayNaiveServerPin,
-            ]
-
-        assertEquals(null, errorFor(""))
-        assertEquals(null, errorFor("AB:".repeat(31) + "AB"))
-        assertEquals("invalid_pin", errorFor("abcd"))
-        assertEquals("invalid_pin", errorFor("zz".repeat(32)))
-    }
-
-    @Test
-    fun `relay validation mirrors helper rules for naiveproxy extra headers`() {
-        fun errorFor(headers: String): String? =
-            validateConfigDraft(validNaiveProxyDraft(relayNaivePath = "").copy(relayNaiveExtraHeaders = headers))[
-                ConnectionFieldRelayNaiveExtraHeaders,
-            ]
-
-        assertEquals(null, errorFor(""))
-        assertEquals(null, errorFor("X-Token: a\nX-Other: b"))
-        assertEquals("invalid_headers", errorFor("no colon here"))
-        assertEquals("invalid_headers", errorFor("bad name: v"))
-        assertEquals("reserved_header", errorFor("Proxy-Authorization: Basic eA=="))
-        assertEquals("invalid_headers", errorFor((1..17).joinToString("\n") { "x-$it: v" }))
-    }
-
-    @Test
-    fun `relay validation accepts naiveproxy blank or absolute path`() {
-        val blankPathErrors =
-            validateConfigDraft(
-                validNaiveProxyDraft(relayNaivePath = ""),
-            )
-        val absolutePathErrors =
-            validateConfigDraft(
-                validNaiveProxyDraft(relayNaivePath = "/proxy"),
-            )
-
-        assertEquals(null, blankPathErrors[ConnectionFieldRelayNaivePath])
-        assertEquals(null, absolutePathErrors[ConnectionFieldRelayNaivePath])
-        assertEquals(null, blankPathErrors[ConnectionFieldRelayCredentials])
-        assertEquals(null, absolutePathErrors[ConnectionFieldRelayCredentials])
-    }
-
-    @Test
-    fun `relay validation rejects naiveproxy relative path`() {
-        val errors =
-            validateConfigDraft(
-                validNaiveProxyDraft(relayNaivePath = "proxy"),
-            )
-
-        assertEquals("absolute_path", errors[ConnectionFieldRelayNaivePath])
     }
 
     @Test

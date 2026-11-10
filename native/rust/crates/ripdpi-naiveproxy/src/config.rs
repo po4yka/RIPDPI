@@ -141,6 +141,12 @@ fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<StdinCredent
         }
         (_, password) => password,
     };
+    if username.as_deref().is_some_and(|value| {
+        value.trim().is_empty() || value.contains(':') || value.bytes().any(|byte| byte.is_ascii_control())
+    }) || password.as_deref().is_some_and(|value| value.bytes().any(|byte| byte.is_ascii_control()))
+    {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid NaiveProxy upstream Basic credentials"));
+    }
     let local_username = required_local_credential(lines.next(), "local username")?;
     let local_password = required_local_credential(lines.next(), "local password")?;
     let extra_headers = match decode_stdin_credential(lines.next(), "extra headers")? {

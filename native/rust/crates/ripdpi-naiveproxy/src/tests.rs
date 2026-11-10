@@ -5,6 +5,7 @@ use std::net::Ipv4Addr;
 use std::sync::Arc;
 
 use crate::config::parse_config_from_reader;
+use base64::Engine as _;
 use http_body_util::BodyExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -696,13 +697,40 @@ async fn upstream_without_h2_alpn_is_rejected_before_the_h2_preface() {
 }
 
 #[test]
-fn config_keeps_upstream_credential_whitespace() {
+fn config_keeps_valid_upstream_credential_text() {
     let args = ["--server", "proxy.example:443", "--server-name", "proxy.example", "--credentials-stdin"];
-    // base64(" alice "), base64(" s3cret\t"), base64("local-user"), base64("local-pass")
-    let stdin = b"IGFsaWNlIA==\nIHMzY3JldAk=\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n";
-    let config = parse_config_args_with_stdin(&args, stdin).expect("credentials with spaces");
-    assert_eq!(config.username.as_deref(), Some(" alice "));
-    assert_eq!(config.password.as_deref(), Some(" s3cret\t"));
+    let username = " алиса ";
+    let password = " s3cret:пароль "; // Fixture credential.
+    let stdin = format!(
+        "{}\n{}\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
+        base64::engine::general_purpose::STANDARD.encode(username),
+        base64::engine::general_purpose::STANDARD.encode(password),
+    );
+    let config = parse_config_args_with_stdin(&args, stdin.as_bytes()).expect("valid credentials");
+    assert_eq!(config.username.as_deref(), Some(username));
+    assert_eq!(config.password.as_deref(), Some(password));
+}
+
+#[test]
+fn config_rejects_invalid_upstream_basic_credentials_without_disclosing_them() {
+    let args = ["--server", "proxy.example:443", "--server-name", "proxy.example", "--credentials-stdin"];
+    let mut invalid =
+        vec![("private:user".to_owned(), "secret-pass".to_owned()), ("   ".to_owned(), "secret-pass".to_owned())];
+    for control in (0_u8..=31).chain([127]) {
+        invalid.push((format!("private{}user", char::from(control)), "secret-pass".to_owned()));
+        invalid.push(("private-user".to_owned(), format!("secret{}pass", char::from(control))));
+    }
+    for (username, password) in invalid {
+        let stdin = format!(
+            "{}\n{}\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
+            base64::engine::general_purpose::STANDARD.encode(&username),
+            base64::engine::general_purpose::STANDARD.encode(&password),
+        );
+        let error = parse_config_args_with_stdin(&args, stdin.as_bytes()).expect_err("invalid Basic credentials");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(!error.to_string().contains("private"));
+        assert!(!error.to_string().contains("secret"));
+    }
 }
 
 /// While the VPN protects sockets, the proxy hostname must resolve through
