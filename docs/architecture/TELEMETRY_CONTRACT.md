@@ -48,6 +48,14 @@ ripdpi-telemetry recorder (counters/gauges/histograms) ─┤
 > installed process-wide once from `JNI_OnLoad` (`install_recorder()`); it is
 > not per-session.
 
+Relay `connectionQuality` has a process-wide aggregation scope. All standard
+relay sessions contribute to one 60-second window, and the same aggregate can
+appear in a new relay or Apps Script snapshot. Its samples do not belong to the
+snapshot's `profileId` or `runtimeId`. Runtime events remain filtered by runtime
+ID. Consumers must not use this aggregate as proof that the selected profile
+completed a connection. The connection-health reader uses proxy/tunnel quality;
+it does not select relay quality.
+
 ---
 
 ## The three telemetry surfaces
