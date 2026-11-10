@@ -10,12 +10,12 @@ Native writer: ripdpi-ssh and the serialized Cargo/dependency patch lane. Import
 
 ## Execution
 
-- [ ] RLY-1794300262750090 Enforce host-key pin during rekey #bug !high @item:RLY-1794300186609700
-- [ ] RLY-1794300278412406 Validate SSH imports and require explicit trust before activation #bug !high @item:RLY-1794300186609700
-- [ ] RLY-1794300282442646 Preserve nonempty key passphrases through sharing #bug !high @item:RLY-1794300186609700
-- [ ] RLY-1794300285482245 Reserve discovery time for later resolved addresses #bug !high @item:RLY-1794300186609700
-- [ ] RLY-1794300288104643 Cancel SSH workers with retained unread channels #bug !high @item:RLY-1794300186609700
-- [ ] RLY-1794300290056513 Review all corrections and run the required combined gates #bug !high @item:RLY-1794300186609700
+- [x] RLY-1794300262750090 Enforce host-key pin during rekey #bug !high @item:RLY-1794300186609700
+- [x] RLY-1794300278412406 Validate SSH imports and require explicit trust before activation #bug !high @item:RLY-1794300186609700
+- [x] RLY-1794300282442646 Preserve nonempty key passphrases through sharing #bug !high @item:RLY-1794300186609700
+- [x] RLY-1794300285482245 Reserve discovery time for later resolved addresses #bug !high @item:RLY-1794300186609700
+- [x] RLY-1794300288104643 Cancel SSH workers with retained unread channels #bug !high @item:RLY-1794300186609700
+- [x] RLY-1794300290056513 Review all corrections and run the required combined gates #bug !high @item:RLY-1794300186609700
 
 ## Verification
 

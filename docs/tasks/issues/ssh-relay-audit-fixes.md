@@ -2,7 +2,7 @@
 id: RLY-1794300186609700
 title: Fix SSH relay audit findings
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: SSH audit team
