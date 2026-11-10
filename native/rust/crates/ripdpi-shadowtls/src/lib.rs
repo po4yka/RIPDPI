@@ -10,6 +10,8 @@ mod loopback;
 mod stream;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod upstream_oracle_tests;
 
 pub use client::ShadowTlsClient;
 pub use config::Config;
