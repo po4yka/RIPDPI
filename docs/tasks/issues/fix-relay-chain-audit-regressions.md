@@ -2,7 +2,7 @@
 id: RLY-1794335337545384
 title: Fix relay chain audit regressions
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Relay chain maintenance
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-relay-chain-audit-regressions
 created: 2026-11-10
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 
 ## Goal

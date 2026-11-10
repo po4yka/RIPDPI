@@ -1,9 +1,9 @@
 ---
 task_id: RLY-1794335337545384
 change: fix-relay-chain-audit-regressions
-commit_sha: 79b900b1509320c8427b7e8a01e34b0dc5736ead
+commit_sha: daf54b58643f6b3ecf5efaf1a3336769172e5aed
 local: passed
-local_evidence: 66 Kotlin tests and 319 Rust tests passed; focused Clippy, full staticAnalysis, ci-gates, architecture health and locked Cargo metadata passed. See the exact commands and limits below.
+local_evidence: Rebased tree passed 66 Kotlin tests, 319 Rust tests, focused Clippy, full staticAnalysis and ci-gates. Locked Cargo metadata and architecture checks also passed.
 remote_ci: not_applicable
 remote_ci_evidence: Hosted CI was not run or claimed for these local regressions.
 device: not_applicable
@@ -50,10 +50,16 @@ Two Gradle attempts stopped before tests: full disk prevented toolchain extracti
 
 ## Fix commits
 
-- F1: b0471d3026; equivalent fallback simplification for the method budget: 79b900b150.
-- F3: c6c2605ed4.
-- F5: b634fe64d6.
-- F4: cc326cc558.
-- F2: 86143fc6d3.
+- F1: 756eecb375; equivalent fallback simplification for the method budget: daf54b5864.
+- F3: 7c618e5ba9.
+- F5: 2424591243.
+- F4: 8b0acd2f5a.
+- F2: 98e2d19b9e.
 
 RLY-1794335433511524 owns the combined review and gate evidence above. No physical-device, external-server, hosted-CI, release-artifact or deployment acceptance is inferred from these host checks.
+
+## Rebase checkpoint
+
+The branch was rebased without conflicts onto origin/main at 88b64db372fed0d0f2f0ff179d1a0f6b5b557edf. The 15 RLY-16 source and test files match the validated source hashes. Upstream changed service code and a Rust dependency, so the affected gates must run again. The first repeat stopped before compilation with No space left on device. The subsequent repeat passed all five gates: Kotlin, staticAnalysis, Rust tests, Clippy and ci-gates. No foreign build directories were deleted. Main integration and push follow this acceptance record.
+
+The successful rebased commands are recorded in `/tmp/rly16-verify/rebased-results.json` with exit code 0 for all five steps. They use the commands above. Host Cargo debug information was disabled with CARGO_PROFILE_DEV_DEBUG=0 and CARGO_PROFILE_TEST_DEBUG=0 to bound disk use; test assertions remain enabled. After Kotlin and staticAnalysis passed, only this job isolated Gradle cache and old Rust metadata were removed. Rebased source and test inputs are unchanged from code commit daf54b58643f6b3ecf5efaf1a3336769172e5aed.
