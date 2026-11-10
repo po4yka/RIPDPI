@@ -2,6 +2,8 @@ use std::fmt;
 
 use crate::error::{MieruError, Result};
 
+/// Longest username upstream accepts (`apis/constant/user.go` `MaxUserNameLen`).
+const MAX_USERNAME_LEN: usize = 64;
 /// The lowest MTU Mieru accepts for its custom UDP/TCP transport.
 const MIN_MTU: u16 = 1280;
 /// The highest MTU Mieru accepts for its custom UDP/TCP transport.
@@ -141,8 +143,14 @@ impl MieruConfig {
         if self.port == 0 {
             return Err(MieruError::InvalidPort);
         }
+        if self.server.trim().is_empty() {
+            return Err(MieruError::EmptyServer);
+        }
         if self.username.is_empty() {
             return Err(MieruError::EmptyUsername);
+        }
+        if self.username.len() > MAX_USERNAME_LEN {
+            return Err(MieruError::UsernameTooLong);
         }
         if self.password.is_empty() {
             return Err(MieruError::EmptyPassword);
@@ -266,6 +274,21 @@ mod tests {
         // The carrier must admit every lease the relay pool can place on it.
         for level in [MieruMux::Low, MieruMux::Middle, MieruMux::High] {
             assert_eq!(level.max_concurrent_streams(), CARRIER_STREAM_LIMIT);
+        }
+    }
+
+    #[test]
+    fn username_over_upstream_limit_and_blank_server_are_rejected() {
+        let mut config = valid_config();
+        config.username = "u".repeat(64);
+        config.validate().expect("64 bytes is the upstream maximum");
+        config.username.push('u');
+        assert!(matches!(config.validate(), Err(MieruError::UsernameTooLong)));
+
+        for server in ["", "  "] {
+            let mut config = valid_config();
+            config.server = server.into();
+            assert!(matches!(config.validate(), Err(MieruError::EmptyServer)), "{server:?}");
         }
     }
 

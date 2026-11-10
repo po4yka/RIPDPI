@@ -12,6 +12,12 @@ pub enum MieruError {
     /// pair, so a blank username is rejected before any I/O.
     #[error("Mieru username must not be empty")]
     EmptyUsername,
+    /// The username is longer than upstream's `MaxUserNameLen` (64 bytes).
+    #[error("Mieru username must be at most 64 bytes")]
+    UsernameTooLong,
+    /// The server host is empty or blank.
+    #[error("Mieru server must not be empty")]
+    EmptyServer,
     /// The password is empty. Mieru authenticates with a username/password
     /// pair, so a blank password is rejected before any I/O.
     #[error("Mieru password must not be empty")]
