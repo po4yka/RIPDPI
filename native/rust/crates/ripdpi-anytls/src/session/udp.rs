@@ -1,5 +1,8 @@
 use super::*;
 
+// A UDP association is one UoT byte stream on its own session. The carrier
+// reader waits for a slow consumer (backpressure) rather than dropping
+// datagrams, since dropping bytes mid-stream would break the UoT framing.
 impl AnyTlsUdpOverTcp {
     /// # Cancel safety
     /// Not cancel-safe: earlier PSH chunks may already be queued. After a
