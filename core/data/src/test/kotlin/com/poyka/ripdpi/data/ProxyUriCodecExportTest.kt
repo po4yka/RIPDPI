@@ -177,7 +177,7 @@ class ProxyUriCodecExportTest {
                 serverPort = 2096,
                 username = "mieru-user",
                 password = "mieru-pass-fixture",
-                protocol = "udp",
+                protocol = "tcp",
                 multiplexing = "high",
                 mtu = 1380,
             )
@@ -190,7 +190,7 @@ class ProxyUriCodecExportTest {
         assertEquals(2096, parsed.serverPort)
         assertEquals("mieru-user", parsed.username)
         assertEquals("mieru-pass-fixture", parsed.password)
-        assertEquals("udp", parsed.protocol)
+        assertEquals("tcp", parsed.protocol)
         assertEquals("high", parsed.multiplexing)
         assertEquals(1380, parsed.mtu)
     }

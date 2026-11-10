@@ -18,6 +18,37 @@ import java.util.UUID
 
 private const val MaxPort = 65535
 private const val ProtoVarintBits = 7
+private const val ProtoVarintPayloadMask = 0x7f
+private const val ProtoVarintContinuation = 0x80
+private const val ProtoTagTypeMask = 7
+private const val ProtoTagTypeBits = 3
+
+// Field numbers from upstream pkg/appctl/proto (clientcfg.proto, base.proto).
+private const val FieldConfigProfiles = 1
+private const val FieldConfigActiveProfile = 2
+private const val FieldProfileName = 1
+private const val FieldProfileUser = 2
+private const val FieldProfileServers = 3
+private const val FieldProfileMtu = 4
+private const val FieldProfileMultiplexing = 5
+private const val FieldUserName = 1
+private const val FieldUserPassword = 2
+private const val FieldServerIp = 1
+private const val FieldServerDomain = 2
+private const val FieldServerBindings = 3
+private const val FieldBindingPort = 1
+private const val FieldBindingProtocol = 2
+private const val FieldBindingRange = 3
+private const val FieldMultiplexingLevel = 1
+
+// Upstream MultiplexingLevel enum values.
+private const val LevelDefault = 0L
+private const val LevelOff = 1L
+private const val LevelLow = 2L
+private const val LevelMiddle = 3L
+private const val LevelHigh = 4L
+
+private const val Base64GroupSize = 4
 private const val ProtoVarintMaxBytes = 10
 private const val ProtoWireVarint = 0
 private const val ProtoWireFixed64 = 1
@@ -121,42 +152,56 @@ internal object MieruUriCodec {
                 .replace('-', '+')
                 .replace('_', '/')
                 .trimEnd('=')
-        val config = Base64.getDecoder().decode(normalized + "=".repeat((4 - normalized.length % 4) % 4))
+        val padding = "=".repeat((Base64GroupSize - normalized.length % Base64GroupSize) % Base64GroupSize)
+        val config = Base64.getDecoder().decode(normalized + padding)
         val top = readFields(config)
-        val profiles = top.filter { it.number == 1 }.mapNotNull { it.bytes }.map(::readFields)
-        val active = top.text(2)
+        val profiles = top.filter { it.number == FieldConfigProfiles }.mapNotNull { it.bytes }.map(::readFields)
+        val active = top.text(FieldConfigActiveProfile)
         val selected =
-            (if (active == null) profiles.firstOrNull() else profiles.firstOrNull { it.text(1) == active })
+            (
+                if (active ==
+                    null
+                ) {
+                    profiles.firstOrNull()
+                } else {
+                    profiles.firstOrNull { it.text(FieldProfileName) == active }
+                }
+            )
                 ?: return null
-        val user = selected.firstOrNull { it.number == 2 }?.bytes?.let(::readFields) ?: return null
-        val username = user.text(1)?.takeIf(::isValidRelayMieruUsername) ?: return null
-        val password = user.text(2)?.takeIf { it.isNotBlank() } ?: return null
-        val server = selected.firstOrNull { it.number == 3 }?.bytes?.let(::readFields) ?: return null
-        val host = listOf(2, 1).firstNotNullOfOrNull { server.text(it)?.takeIf(String::isNotBlank) } ?: return null
+        val user = selected.firstOrNull { it.number == FieldProfileUser }?.bytes?.let(::readFields) ?: return null
+        val username = user.text(FieldUserName)?.takeIf(::isValidRelayMieruUsername) ?: return null
+        val password = user.text(FieldUserPassword)?.takeIf { it.isNotBlank() } ?: return null
+        val server = selected.firstOrNull { it.number == FieldProfileServers }?.bytes?.let(::readFields) ?: return null
+        val host =
+            listOf(
+                FieldServerDomain,
+                FieldServerIp,
+            ).firstNotNullOfOrNull { server.text(it)?.takeIf(String::isNotBlank) }
+                ?: return null
         val bindings =
-            server.filter { it.number == 3 }.mapNotNull { it.bytes }.map { raw ->
+            server.filter { it.number == FieldServerBindings }.mapNotNull { it.bytes }.map { raw ->
                 val fields = readFields(raw)
-                val single = fields.firstOrNull { it.number == 1 }?.varint
+                val single = fields.firstOrNull { it.number == FieldBindingPort }?.varint
                 Binding(
-                    port = fields.text(3) ?: single?.toString().orEmpty(),
-                    tcp = fields.firstOrNull { it.number == 2 }?.varint == ProtoTransportTcp,
+                    port = fields.text(FieldBindingRange) ?: single?.toString().orEmpty(),
+                    tcp = fields.firstOrNull { it.number == FieldBindingProtocol }?.varint == ProtoTransportTcp,
                 )
             }
         val port = firstTcpPort(bindings) ?: return null
-        val mtuValue = selected.firstOrNull { it.number == 4 }?.varint?.takeIf { it != 0L }
+        val mtuValue = selected.firstOrNull { it.number == FieldProfileMtu }?.varint?.takeIf { it != 0L }
         val mtu = mtuValue?.let { if (it in RelayMieruMtuMin..RelayMieruMtuMax) it.toInt() else return null }
         val level =
             selected
-                .firstOrNull { it.number == 5 }
+                .firstOrNull { it.number == FieldProfileMultiplexing }
                 ?.bytes
                 ?.let(::readFields)
-                ?.firstOrNull { it.number == 1 }
+                ?.firstOrNull { it.number == FieldMultiplexingLevel }
         val multiplexing =
-            when (level?.varint ?: 0L) {
-                0L, 3L -> RelayMieruMultiplexingMiddle
-                1L -> RelayMieruMultiplexingOff
-                2L -> RelayMieruMultiplexingLow
-                4L -> RelayMieruMultiplexingHigh
+            when (level?.varint ?: LevelDefault) {
+                LevelDefault, LevelMiddle -> RelayMieruMultiplexingMiddle
+                LevelOff -> RelayMieruMultiplexingOff
+                LevelLow -> RelayMieruMultiplexingLow
+                LevelHigh -> RelayMieruMultiplexingHigh
                 else -> return null
             }
         val finalMtu = mtu ?: RelayMieruMtuDefault
@@ -274,15 +319,15 @@ internal object MieruUriCodec {
             for (i in 0 until ProtoVarintMaxBytes) {
                 require(pos < data.size) { "truncated varint" }
                 val b = data[pos++].toInt()
-                result = result or ((b and 0x7f).toLong() shl (ProtoVarintBits * i))
-                if ((b and 0x80) == 0) return result
+                result = result or ((b and ProtoVarintPayloadMask).toLong() shl (ProtoVarintBits * i))
+                if ((b and ProtoVarintContinuation) == 0) return result
             }
             throw IllegalArgumentException("varint too long")
         }
         while (pos < data.size) {
             val tag = varint()
-            val number = (tag ushr 3).toInt()
-            when ((tag and 7).toInt()) {
+            val number = (tag ushr ProtoTagTypeBits).toInt()
+            when ((tag and ProtoTagTypeMask.toLong()).toInt()) {
                 ProtoWireVarint -> {
                     fields += Field(number, varint(), null)
                 }
