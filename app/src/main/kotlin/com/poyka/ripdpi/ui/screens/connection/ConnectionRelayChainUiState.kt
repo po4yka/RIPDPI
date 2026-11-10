@@ -82,13 +82,11 @@ internal fun resolveRelayChainTrustWarning(
     draft
         .takeIf { it.relayKind == RelayKindChainRelay }
         ?.let { chainDraft ->
-            val entry = profiles.firstOrNull { it.id == chainDraft.relayChainEntryProfileId }
-            val exit = profiles.firstOrNull { it.id == chainDraft.relayChainExitProfileId }
-            if (entry != null && exit != null) {
-                detectRelayChainTrustWarning(entry.toRelayTrustDomain(), exit.toRelayTrustDomain())
-            } else {
-                null
-            }
+            val hops =
+                chainDraft.relayChainHopProfileIds().map { profileId ->
+                    profiles.firstOrNull { it.id == profileId } ?: return@let null
+                }
+            detectRelayChainTrustWarning(hops.map { it.toRelayTrustDomain() })
         }
 
 /**

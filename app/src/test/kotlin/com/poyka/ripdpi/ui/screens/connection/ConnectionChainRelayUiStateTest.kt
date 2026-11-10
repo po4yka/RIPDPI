@@ -78,6 +78,67 @@ class ConnectionChainRelayUiStateTest {
     }
 
     @Test
+    fun `middle hop shares an operator with entry in the trust warning`() {
+        val profiles = threeHopTrustProfiles("DE", "Entry Transit")
+        val warning = resolveRelayChainTrustWarning(threeHopTrustDraft(), buildRelayProfileOptions(profiles, "chain"))
+
+        assertEquals("Entry Transit", warning?.sharedOperatorName)
+        assertEquals(null, warning?.sharedJurisdiction)
+        assertEquals(3, warning?.cumulativeLatencyHops)
+    }
+
+    @Test
+    fun `middle hop missing metadata produces a trust warning`() {
+        val profiles = threeHopTrustProfiles("", "")
+        val warning = resolveRelayChainTrustWarning(threeHopTrustDraft(), buildRelayProfileOptions(profiles, "chain"))
+
+        assertEquals(3, warning?.cumulativeLatencyHops)
+        assertEquals(false, warning?.missingEntryTrustDomain)
+        assertEquals(false, warning?.missingExitTrustDomain)
+    }
+
+    @Test
+    fun `three independent complete trust domains need no warning`() {
+        val profiles = threeHopTrustProfiles("DE", "Middle Transit")
+        assertEquals(
+            null,
+            resolveRelayChainTrustWarning(threeHopTrustDraft(), buildRelayProfileOptions(profiles, "chain")),
+        )
+    }
+
+    private fun threeHopTrustDraft() =
+        ConnectionDraft(
+            relayKind = RelayKindChainRelay,
+            relayChainEntryProfileId = "entry",
+            relayChainMiddleProfileIds = persistentListOf("middle"),
+            relayChainExitProfileId = "exit",
+        )
+
+    private fun threeHopTrustProfiles(
+        middleJurisdiction: String,
+        middleOperator: String,
+    ) = listOf(
+        RelayProfileRecord(
+            id = "entry",
+            kind = RelayKindVlessReality,
+            jurisdiction = "RU",
+            operatorName = "Entry Transit",
+        ),
+        RelayProfileRecord(
+            id = "middle",
+            kind = RelayKindVlessReality,
+            jurisdiction = middleJurisdiction,
+            operatorName = middleOperator,
+        ),
+        RelayProfileRecord(
+            id = "exit",
+            kind = RelayKindMasque,
+            jurisdiction = "NL",
+            operatorName = "Exit Transit",
+        ),
+    )
+
+    @Test
     fun `chain relay validation rejects missing same or unsupported profile selections`() {
         val profiles =
             listOf(
