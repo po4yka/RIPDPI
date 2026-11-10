@@ -4,7 +4,6 @@ use serde::Serialize;
 use serde_json::Value;
 
 use super::FronterError;
-use super::headers;
 
 #[derive(Serialize)]
 struct RelayRequest<'a> {
@@ -41,8 +40,11 @@ pub(super) fn build_payload_json(
         }
         Some(map)
     };
-    let content_type =
-        if body.is_empty() { None } else { headers::value(headers, "content-type").map(ToOwned::to_owned) };
+    let content_type = if body.is_empty() {
+        None
+    } else {
+        header_map.as_ref().and_then(|map| map.get("content-type")).and_then(Value::as_str).map(ToOwned::to_owned)
+    };
     let request = RelayRequest {
         auth_key,
         method,
@@ -56,21 +58,36 @@ pub(super) fn build_payload_json(
 }
 
 fn filter_forwarded_headers(headers: &[(String, String)]) -> Vec<(String, String)> {
+    let connection_tokens: Vec<_> = headers
+        .iter()
+        .filter(|(key, _)| key.eq_ignore_ascii_case("connection"))
+        .flat_map(|(_, value)| value.split(','))
+        .map(|token| token.trim().to_ascii_lowercase())
+        .collect();
     headers
         .iter()
         .filter_map(|(key, value)| {
             let lower = key.to_ascii_lowercase();
             if matches!(
                 lower.as_str(),
-                "host" | "connection" | "content-length" | "transfer-encoding" | "proxy-connection"
-            ) {
+                "host"
+                    | "connection"
+                    | "content-length"
+                    | "transfer-encoding"
+                    | "keep-alive"
+                    | "te"
+                    | "trailer"
+                    | "upgrade"
+            ) || lower.starts_with("proxy-")
+                || connection_tokens.contains(&lower)
+            {
                 return None;
             }
             if lower == "accept-encoding" {
                 let value = strip_unsupported_encodings(value);
-                return (!value.is_empty()).then(|| (key.clone(), value));
+                return (!value.is_empty()).then_some((lower, value));
             }
-            Some((key.clone(), value.clone()))
+            Some((lower, value.clone()))
         })
         .collect()
 }
@@ -97,7 +114,7 @@ mod tests {
             ("Accept-Encoding".to_string(), "gzip, br, deflate, zstd".to_string()),
             ("Host".to_string(), "example.com".to_string()),
         ]);
-        assert_eq!(filtered, vec![("Accept-Encoding".to_string(), "gzip, deflate".to_string())]);
+        assert_eq!(filtered, vec![("accept-encoding".to_string(), "gzip, deflate".to_string())]);
     }
 
     #[test]
@@ -113,5 +130,34 @@ mod tests {
         let payload: serde_json::Value = serde_json::from_slice(&payload).unwrap();
         assert!(payload.get("h").is_none());
         assert_eq!(payload["b"], "YWJj");
+    }
+}
+
+#[cfg(test)]
+mod rly15_regressions {
+    use super::*;
+    #[test]
+    fn rly15_hop_fields_and_proxy_credentials_do_not_leave_the_client() {
+        let payload = build_payload_json(
+            "key",
+            "GET",
+            "https://example.test/",
+            &[
+                ("Connection".into(), "X-Hop, TE, Content-Type".into()),
+                ("Content-Type".into(), "local-secret".into()),
+                ("cOnNeCtIoN".into(), "X-Other".into()),
+                ("X-Hop".into(), "local-secret".into()),
+                ("X-Other".into(), "local-secret".into()),
+                ("Proxy-Authorization".into(), "Basic local-secret".into()),
+                ("TE".into(), "trailers".into()),
+                ("Authorization".into(), "Bearer origin-token".into()),
+            ],
+            b"abc",
+        )
+        .unwrap();
+        assert!(!String::from_utf8_lossy(&payload).contains("local-secret"));
+        let payload: Value = serde_json::from_slice(&payload).unwrap();
+        assert!(payload.get("ct").is_none());
+        assert_eq!(payload["h"], serde_json::json!({"authorization": "Bearer origin-token"}));
     }
 }
