@@ -196,7 +196,7 @@ sealed interface ProxyProfile {
         val realityPublicKey: String,
         val realityShortId: String,
         val serverName: String,
-        /** Defaults to `xtls-rprx-vision` when omitted from the source. */
+        /** Decode default for stored data only; importers pass the source flow, empty when omitted. */
         val flow: String = "xtls-rprx-vision",
         /** Optional uTLS fingerprint (e.g. `chrome`). `null` means use library default. */
         val fingerprint: String? = null,

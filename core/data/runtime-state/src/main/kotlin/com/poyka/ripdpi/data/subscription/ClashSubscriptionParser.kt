@@ -260,7 +260,7 @@ object ClashSubscriptionParser {
                 realityPublicKey = realityPublicKey,
                 realityShortId = node.nestedString("reality-opts", "short-id").orEmpty(),
                 serverName = node.string("servername") ?: node.string("sni") ?: server,
-                flow = runCatching { node.getScalar("flow")?.content }.getOrNull() ?: "xtls-rprx-vision",
+                flow = runCatching { node.getScalar("flow")?.content }.getOrNull().orEmpty(),
                 fingerprint = fingerprint,
             )
         } else {

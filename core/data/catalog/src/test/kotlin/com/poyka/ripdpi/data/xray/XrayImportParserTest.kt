@@ -41,7 +41,8 @@ class XrayImportParserTest {
     @Test
     fun `raw JSON rejects invalid endpoint identity and REALITY values`() {
         val key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-        val link = "vless://$uuid@edge.example.com:443?security=reality&pbk=$key&sni=fixture.test&sid=ab12"
+        val query = "security=reality&pbk=$key&sni=fixture.test&sid=ab12&flow=xtls-rprx-vision"
+        val link = "vless://$uuid@edge.example.com:443?$query"
         val valid = accepted(parser.parse(link, stableTag)).config.toString()
         val invalid =
             listOf(
@@ -129,6 +130,30 @@ class XrayImportParserTest {
     }
 
     @Test
+    fun `TCP link without flow is rejected instead of inventing Vision`() {
+        val link = "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=www.cloudflare.com&type=tcp#n"
+        val result = rejected(parser.parse(link, stableTag))
+        assertEquals(XrayImportParser.Reason.FAILED_SAFETY_CHECK, result.reason)
+        assertTrue(result.message.contains("missing a required", ignoreCase = true))
+    }
+
+    @Test
+    fun `raw JSON TCP user without flow is rejected instead of inventing Vision`() {
+        val rawConfig =
+            """
+            { "outbounds": [ {
+              "protocol": "vless",
+              "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
+                "users": [ { "id": "$uuid" } ] } ] },
+              "streamSettings": { "network": "tcp", "security": "reality",
+                "realitySettings": { "publicKey": "$pbk", "serverName": "www.cloudflare.com", "shortId": "ab12" } }
+            } ] }
+            """.trimIndent()
+        val result = rejected(parser.parse(rawConfig, stableTag))
+        assertEquals(XrayImportParser.Reason.FAILED_SAFETY_CHECK, result.reason)
+    }
+
+    @Test
     fun `encoded XHTTP path is decoded exactly once`() {
         val link = "vless://$uuid@edge.example.com:443?type=xhttp&security=tls&sni=cdn.example.com&path=%2F%252F"
         assertEquals(
@@ -167,7 +192,8 @@ class XrayImportParserTest {
 
     @Test
     fun `raw JSON imports a durable typed profile without changing its config`() {
-        val link = "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=decoy.example.com"
+        val query = "security=reality&pbk=$pbk&sni=decoy.example.com&flow=xtls-rprx-vision"
+        val link = "vless://$uuid@edge.example.com:443?$query"
         val original = accepted(parser.parse(link, stableTag, "Saved profile"))
 
         val imported = accepted(parser.parse(original.config.toString(), stableTag, "Saved profile"))

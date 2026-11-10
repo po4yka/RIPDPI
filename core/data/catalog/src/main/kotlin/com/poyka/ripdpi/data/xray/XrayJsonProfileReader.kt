@@ -27,7 +27,7 @@ internal object XrayJsonProfileReader {
                         serverAddress = server.text("address"),
                         serverPort = server.number("port"),
                         uuid = user.text("id"),
-                        flow = user.text("flow", if (network == XrayProfile.Network.XHTTP) "" else "xtls-rprx-vision"),
+                        flow = user.text("flow", ""),
                         security = security,
                         network = network,
                         reality =

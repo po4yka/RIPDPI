@@ -385,6 +385,22 @@ class XrayProfileImportViewModelTest {
         }
 
     @Test
+    fun `xray link without flow surfaces an import error`() {
+        val vm = viewModel()
+        vm.selectOption(XrayServiceModeOption.XrayVpn)
+        vm.onRawInputChange(
+            "vless://$uuid@edge.example.com:443" +
+                "?security=reality&pbk=$pbk&sni=www.cloudflare.com&type=tcp#n",
+        )
+        vm.validate()
+
+        val state = vm.uiState.value
+        assertFalse(state.acceptedConfigReady)
+        assertFalse(state.canFinish)
+        assertNotNull(state.errorMessage)
+    }
+
+    @Test
     fun `editing during suspended persist does not replace confirmed payload`() =
         runTest {
             val persistence = SuspendedPersistPersistence()
@@ -392,7 +408,7 @@ class XrayProfileImportViewModelTest {
             advanceUntilIdle()
             vm.selectOption(XrayServiceModeOption.XrayVpn)
             vm.onRawInputChange(
-                "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=h#n",
+                "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=h&flow=xtls-rprx-vision#n",
             )
             vm.validate()
 
@@ -571,7 +587,7 @@ class XrayProfileImportViewModelTest {
             val vm = XrayProfileImportViewModel(persistence)
             vm.selectOption(XrayServiceModeOption.XrayVpn)
             vm.onRawInputChange(
-                "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=h#n",
+                "vless://$uuid@edge.example.com:443?security=reality&pbk=$pbk&sni=h&flow=xtls-rprx-vision#n",
             )
             vm.validate()
 

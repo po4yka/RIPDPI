@@ -152,9 +152,7 @@ class XrayImportParser(
                         serverAddress = parsed.host,
                         serverPort = parsed.port,
                         uuid = parsed.uuid,
-                        flow =
-                            parsed.params["flow"]
-                                ?: if (networkEnum == XrayProfile.Network.XHTTP) "" else "xtls-rprx-vision",
+                        flow = parsed.params["flow"].orEmpty(),
                         security = stream.security,
                         network = networkEnum,
                         reality = stream.reality,
