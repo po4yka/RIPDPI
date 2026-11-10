@@ -10,7 +10,7 @@ rand.workspace = true
 ring.workspace = true
 rustls.workspace = true
 serde = { workspace = true, features = ["derive"] }
-tokio = { workspace = true, features = ["io-util", "net"] }
+tokio = { workspace = true, features = ["io-util", "net", "time"] }
 ripdpi-tls-profiles = { workspace = true }
 webpki-roots.workspace = true
 

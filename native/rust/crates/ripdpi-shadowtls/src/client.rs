@@ -1,6 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 use std::os::fd::AsRawFd;
+use std::time::Duration;
 
 use rustls::ClientConnection;
 use rustls::pki_types::ServerName;
@@ -31,6 +32,65 @@ fn protect_outbound_socket<T: AsRawFd>(
         .map_err(|error| io::Error::new(error.kind(), format!("protect ShadowTLS outbound socket: {error}")))
 }
 
+/// Connect budget for one server address except the last. A blackholed address
+/// would otherwise wait for the kernel connect timeout, which is longer than the
+/// relay connect deadline, and the next address would never be tried.
+const PER_ADDRESS_CONNECT_TIMEOUT: Duration =
+    if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(8) };
+
+/// Result of one failed address attempt.
+#[derive(Debug)]
+enum Attempt {
+    /// The address is unusable; try the next one.
+    Next(io::Error),
+    /// A policy failure (socket protection); stop and report it.
+    Abort(io::Error),
+}
+
+/// Run `attempt` on each address in order and return the first success.
+///
+/// Every attempt except the last gets `per_address` before the next address is
+/// tried. [`Attempt::Abort`] stops at once. When every attempt fails, the last
+/// error is returned.
+///
+/// # Cancel safety
+///
+/// cancel-safe: holds no state besides the pending attempt future, which is
+/// dropped with this one.
+async fn try_each_address<T, F, Fut>(
+    candidates: Vec<SocketAddr>,
+    per_address: Duration,
+    mut attempt: F,
+) -> io::Result<T>
+where
+    F: FnMut(SocketAddr) -> Fut,
+    Fut: Future<Output = Result<T, Attempt>>,
+{
+    let count = candidates.len();
+    let mut last_error: Option<io::Error> = None;
+    for (index, address) in candidates.into_iter().enumerate() {
+        let result = if index + 1 < count {
+            match tokio::time::timeout(per_address, attempt(address)).await {
+                Ok(result) => result,
+                Err(_) => Err(Attempt::Next(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    format!("ShadowTLS connect to {address} timed out"),
+                ))),
+            }
+        } else {
+            attempt(address).await
+        };
+        match result {
+            Ok(value) => return Ok(value),
+            Err(Attempt::Abort(error)) => return Err(error),
+            Err(Attempt::Next(error)) => last_error = Some(error),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| {
+        io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
+    }))
+}
+
 #[derive(Debug, Clone)]
 pub struct ShadowTlsClient {
     config: Config,
@@ -45,6 +105,13 @@ impl ShadowTlsClient {
         &self.config
     }
 
+    /// Resolve `server`, connect to the first usable address, and run the
+    /// ShadowTLS v3 handshake over it.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: each attempt's socket and the handshake state are owned by
+    /// this future and close when it is dropped.
     pub async fn connect(&self, server: &str, server_port: i32) -> io::Result<ShadowTlsStream<TcpStream>> {
         let port = u16::try_from(server_port).map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidInput, format!("invalid ShadowTLS port {server_port}"))
@@ -64,27 +131,34 @@ impl ShadowTlsClient {
             }
             None => addrs,
         };
-        let mut last_error: Option<io::Error> = None;
-        for address in candidates {
-            match self.connect_address(address).await {
-                Ok(stream) => return self.connect_over(stream).await,
-                Err(error) => last_error = Some(error),
-            }
-        }
-        Err(last_error.unwrap_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "ShadowTLS server resolved to no addresses")
-        }))
+        let stream =
+            try_each_address(candidates, PER_ADDRESS_CONNECT_TIMEOUT, |address| self.connect_address(address)).await?;
+        self.connect_over(stream).await
     }
 
     /// Open a protected, optionally bound TCP connection to one candidate address.
     ///
     /// A protection failure is a policy failure, not an unreachable peer: it
-    /// aborts the whole connect rather than trying the next address.
+    /// returns [`Attempt::Abort`], which stops the whole connect instead of
+    /// trying the next address.
     ///
     /// # Cancel safety
     ///
     /// cancel-safe: the socket is owned by this future and closes on drop.
-    async fn connect_address(&self, address: SocketAddr) -> io::Result<TcpStream> {
+    async fn connect_address(&self, address: SocketAddr) -> Result<TcpStream, Attempt> {
+        let socket = match address {
+            SocketAddr::V4(_) => TcpSocket::new_v4(),
+            SocketAddr::V6(_) => TcpSocket::new_v6(),
+        }
+        .map_err(Attempt::Next)?;
+        protect_outbound_socket(&socket, address, self.config.socket_protection).map_err(Attempt::Abort)?;
+        self.bind_and_connect(socket, address).await.map_err(Attempt::Next)
+    }
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the socket is owned by this future and closes on drop.
+    async fn bind_and_connect(&self, socket: TcpSocket, address: SocketAddr) -> io::Result<TcpStream> {
         // PROTECT INVARIANT: the carrier socket is protected before connect via the
         // in-process VpnService.protect registry (loopback-skipped, fail-closed under
         // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
@@ -92,12 +166,8 @@ impl ShadowTlsClient {
         // build_shadowtls), reachable under a live TUN; own-UID exclusion via
         // computeAppRoutingPlan remains the second layer. `connect_over` carries no
         // OS socket of its own. REL-1 / REL-3. See
-        // .claude/rules/vpnservice-protect-invariant.md.
-        let socket = match address {
-            SocketAddr::V4(_) => TcpSocket::new_v4()?,
-            SocketAddr::V6(_) => TcpSocket::new_v6()?,
-        };
-        protect_outbound_socket(&socket, address, self.config.socket_protection)?;
+        // .claude/rules/vpnservice-protect-invariant.md. `connect_address` protects
+        // the socket before it calls this function.
         if let Some(bind_ip) = self.config.outbound_bind_ip {
             socket.bind(SocketAddr::new(bind_ip, 0))?;
         }
@@ -187,9 +257,11 @@ where
                 // signal. Upstream v2 relays the cover TLS flight unchanged
                 // (server.rs relay_v2 @02dd0bc7), so with a TLS 1.3 cover a real v2
                 // server sends 0x14/0x17 records here, never 0x16, and surfaces as the
-                // HMAC failure in `verify_handshake_frame` instead. This branch is
-                // harmless but only the synthetic `ShadowTlsV2RejectLoopback` reaches
-                // it. The ServerHello is also 0x16 0x03 but is read and validated
+                // HMAC failure in `verify_handshake_frame` instead. A TLS 1.2 cover,
+                // whose plaintext Certificate records would also start 0x16 0x03, is
+                // rejected earlier by `parse_validated_server_hello` (strict TLS 1.3).
+                // So in practice only the synthetic `ShadowTlsV2RejectLoopback`
+                // reaches this branch. The ServerHello is also 0x16 0x03 but is read and validated
                 // BEFORE this loop. A bad-password reject sends a 0x17 frame whose
                 // HMAC fails and classifies as `Other`, so auth failures are not
                 // false-positived.
@@ -213,35 +285,103 @@ where
 
 #[cfg(test)]
 mod connect_tests {
+    use std::net::{Ipv4Addr, SocketAddr};
+    use std::sync::Mutex;
+    use std::time::Duration;
+
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+    use super::{Attempt, try_each_address};
     use crate::Config;
     use crate::ShadowTlsClient;
     use crate::loopback::ShadowTlsLoopback;
 
-    /// `localhost` can resolve to `::1` first while the loopback server listens
-    /// on IPv4 only, so a working connect needs the next resolved address.
-    ///
-    /// # Cancel safety
-    ///
-    /// cancel-safe: the test owns the server and the client stream.
-    #[tokio::test]
-    async fn connect_falls_back_to_next_resolved_address() {
-        let server = ShadowTlsLoopback::start("pw".to_string()).await.expect("start loopback");
-        let client = ShadowTlsClient::new(Config {
+    fn addr(port: u16) -> SocketAddr {
+        SocketAddr::from((Ipv4Addr::LOCALHOST, port))
+    }
+
+    fn client() -> ShadowTlsClient {
+        ShadowTlsClient::new(Config {
             password: "pw".to_string(),
             server_name: "localhost".to_string(),
             inner_profile_id: "default".to_string(),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             outbound_bind_ip: None,
-        });
-        let mut stream = client.connect("localhost", i32::from(server.local_addr().port())).await.expect("connect");
+        })
+    }
+
+    /// A refused first address falls through to the live second address.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns the server and the client stream.
+    #[tokio::test]
+    async fn dead_first_address_falls_back_to_live_address() {
+        let dead = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind").local_addr().expect("addr");
+        let server = ShadowTlsLoopback::start("pw".to_string()).await.expect("start loopback");
+        let client = client();
+        let tcp = try_each_address(vec![dead, server.local_addr()], Duration::from_secs(5), |address| {
+            client.connect_address(address)
+        })
+        .await
+        .expect("second address connects");
+        let mut stream = client.connect_over(tcp).await.expect("handshake");
         stream.write_all(b"ping").await.expect("write");
         stream.flush().await.expect("flush");
         let mut buf = [0u8; 4];
         stream.read_exact(&mut buf).await.expect("read echo");
         assert_eq!(&buf, b"ping");
         server.shutdown().await;
+    }
+
+    /// A policy failure stops the walk; later addresses are not tried.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the attempts are in-memory futures.
+    #[tokio::test]
+    async fn abort_stops_without_trying_next_address() {
+        let tried = Mutex::new(Vec::new());
+        let result: std::io::Result<()> = try_each_address(vec![addr(1), addr(2)], Duration::from_secs(5), |address| {
+            tried.lock().expect("lock").push(address);
+            async { Err(Attempt::Abort(std::io::Error::other("protect failed"))) }
+        })
+        .await;
+        assert_eq!(result.expect_err("abort").to_string(), "protect failed");
+        assert_eq!(*tried.lock().expect("lock"), vec![addr(1)]);
+    }
+
+    /// A blackholed address is bounded by the per-address budget, so the
+    /// next address still gets its turn.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the attempts are in-memory futures.
+    #[tokio::test]
+    async fn stalled_address_times_out_and_next_address_wins() {
+        let result = try_each_address(vec![addr(1), addr(2)], Duration::from_millis(50), |address| async move {
+            if address == addr(1) {
+                std::future::pending::<()>().await;
+            }
+            Ok::<_, Attempt>(address)
+        })
+        .await;
+        assert_eq!(result.expect("second address"), addr(2));
+    }
+
+    /// When every address fails, the caller sees the last error.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the attempts are in-memory futures.
+    #[tokio::test]
+    async fn all_failures_return_last_error() {
+        let result: std::io::Result<()> =
+            try_each_address(vec![addr(1), addr(2)], Duration::from_secs(5), |address| async move {
+                Err(Attempt::Next(std::io::Error::other(format!("refused {}", address.port()))))
+            })
+            .await;
+        assert_eq!(result.expect_err("all fail").to_string(), "refused 2");
     }
 }
 
