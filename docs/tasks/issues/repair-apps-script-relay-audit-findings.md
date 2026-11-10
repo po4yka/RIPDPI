@@ -2,7 +2,7 @@
 id: RLY-1794300111377171
 title: Repair Apps Script relay audit findings
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Relay audit repair team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: repair-apps-script-relay
 created: 2026-11-10
 updated: 2026-11-10
+status_detail: F1-F8 implemented and locally checked; inherited staticAnalysis naming failure and physical Google acceptance remain open.
 ---
 
 ## Goal
