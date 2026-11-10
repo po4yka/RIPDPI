@@ -44,6 +44,8 @@ export contract; its version requirement is unchanged.
   output without blocking the receive direction. This prevents data loss after
   cancellation of a write.
 - Debug output redacts credentials, and EIH logs omit stable identity hashes.
+- AEAD 2022 padding for an empty payload is 1 to 900 bytes, never 0, as SIP022 requires
+  for a header-only request.
 
 ## Reproduce
 
