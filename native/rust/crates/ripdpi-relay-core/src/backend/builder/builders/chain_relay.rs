@@ -120,9 +120,9 @@ fn chain_hop_connector(
         "trojan" => {
             resolved_hop_trojan_config(hop, &label, hop_bind_ip, hop_socket_protection).map(ChainHopConnector::Trojan)
         }
-        "anytls" => {
-            resolved_hop_anytls_config(hop, &label, hop_bind_ip, hop_socket_protection).map(ChainHopConnector::AnyTls)
-        }
+        "anytls" => resolved_hop_anytls_config(hop, &label, hop_bind_ip, hop_socket_protection)
+            .and_then(ripdpi_relay_tls_transports::AnyTlsChainHop::new)
+            .map(ChainHopConnector::AnyTls),
         "shadowsocks" => resolved_hop_shadowsocks_factory(hop, &label, hop_bind_ip, hop_socket_protection)
             .map(ChainHopConnector::Shadowsocks),
         "shadowtls_v3" => resolved_hop_shadowtls_factory(hop, &label, hop_bind_ip, hop_socket_protection)

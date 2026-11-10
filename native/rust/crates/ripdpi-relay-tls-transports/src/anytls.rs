@@ -105,18 +105,49 @@ impl AnyTlsUdpSession {
     }
 }
 
+/// One AnyTLS hop of a relay chain. Clones share the hop's session pool and
+/// padding scheme, so the entry hop reuses carrier sessions across
+/// connections and keeps a scheme the server pushed.
+#[derive(Clone)]
+pub struct AnyTlsChainHop {
+    config: AnyTlsClientConfig,
+    client: ripdpi_anytls::session::AnyTlsClient,
+    padding: ripdpi_anytls::session::SharedPaddingScheme,
+}
+
+impl AnyTlsChainHop {
+    pub fn new(config: AnyTlsClientConfig) -> io::Result<Self> {
+        let padding = ripdpi_anytls::session::SharedPaddingScheme::default();
+        let client = ripdpi_anytls::session::AnyTlsClient::with_padding_scheme(config.clone(), padding.clone())
+            .map_err(to_io_error)?;
+        Ok(Self { config, client, padding })
+    }
+
+    pub fn config(&self) -> &AnyTlsClientConfig {
+        &self.config
+    }
+}
+
+/// Opens a stream on the entry hop's pooled client.
+///
+/// # Cancel safety
+/// cancel-safe: the client's owned worker returns an unused session to the pool.
 pub async fn connect_anytls_tcp(
-    config: &AnyTlsClientConfig,
+    hop: &AnyTlsChainHop,
     target: &str,
 ) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send + use<>> {
-    let client = ripdpi_anytls::session::AnyTlsClient::new(config.clone()).map_err(to_io_error)?;
     let (addr, port) = target_to_anytls(target)?;
-    let stream = client.open_tcp(addr, port).await.map_err(to_io_error)?;
+    let stream = hop.client.open_tcp(addr, port).await.map_err(to_io_error)?;
     stream.into_io().map_err(to_io_error)
 }
 
+/// Layers the hop over the previous hop's stream. The transport is consumed, so
+/// no session is pooled; the hop's padding scheme is shared across calls.
+///
+/// # Cancel safety
+/// cancel-safe: cancellation drops the half-built handshake and the transport.
 pub async fn connect_anytls_tcp_over<S>(
-    config: &AnyTlsClientConfig,
+    hop: &AnyTlsChainHop,
     transport: S,
     target: &str,
 ) -> io::Result<impl AsyncRead + AsyncWrite + Unpin + Send + use<S>>
@@ -124,9 +155,15 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let (addr, port) = target_to_anytls(target)?;
-    let stream = ripdpi_anytls::session::AnyTlsClient::open_tcp_over(config.clone(), transport, addr, port)
-        .await
-        .map_err(to_io_error)?;
+    let stream = ripdpi_anytls::session::AnyTlsClient::open_tcp_over_with_padding_scheme(
+        hop.config.clone(),
+        transport,
+        addr,
+        port,
+        hop.padding.clone(),
+    )
+    .await
+    .map_err(to_io_error)?;
     stream.into_io().map_err(to_io_error)
 }
 

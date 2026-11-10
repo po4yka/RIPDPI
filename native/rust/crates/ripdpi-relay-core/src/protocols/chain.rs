@@ -24,7 +24,7 @@ pub(crate) enum ChainHopConnector {
     VlessReality(ripdpi_vless::config::VlessRealityConfig),
     Masque(ripdpi_masque::config::MasqueConfig),
     Trojan(ripdpi_relay_tls_transports::TrojanClientConfig),
-    AnyTls(ripdpi_relay_tls_transports::AnyTlsClientConfig),
+    AnyTls(ripdpi_relay_tls_transports::AnyTlsChainHop),
     Shadowsocks(ripdpi_relay_tls_transports::ShadowsocksSessionFactory),
     ShadowTls(ripdpi_relay_tls_transports::ShadowTlsSessionFactory),
     Hysteria2(crate::protocols::Hysteria2SessionFactory),
@@ -57,7 +57,7 @@ impl ChainHopConnector {
             Self::VlessReality(config) => Ok(format!("{}:{}", config.server, config.port)),
             Self::Masque(config) => masque_proxy_target(config),
             Self::Trojan(config) => Ok(ripdpi_relay_tls_transports::trojan_proxy_target(config)),
-            Self::AnyTls(config) => Ok(ripdpi_relay_tls_transports::anytls_proxy_target(config)),
+            Self::AnyTls(hop) => Ok(ripdpi_relay_tls_transports::anytls_proxy_target(hop.config())),
             Self::Shadowsocks(factory) => Ok(ripdpi_relay_tls_transports::shadowsocks_proxy_target(factory)),
             Self::ShadowTls(factory) => Ok(ripdpi_relay_tls_transports::shadowtls_proxy_target(factory)),
             Self::Hysteria2(_) | Self::Tuic(_) => Err(io::Error::new(
@@ -110,8 +110,8 @@ impl ChainHopConnector {
                 let stream = ripdpi_relay_tls_transports::connect_trojan_tcp(config, target).await?;
                 Ok(Box::new(stream))
             }
-            Self::AnyTls(config) => {
-                let stream = ripdpi_relay_tls_transports::connect_anytls_tcp(config, target).await?;
+            Self::AnyTls(hop) => {
+                let stream = ripdpi_relay_tls_transports::connect_anytls_tcp(hop, target).await?;
                 Ok(Box::new(stream))
             }
             Self::Shadowsocks(factory) => {
@@ -160,8 +160,8 @@ impl ChainHopConnector {
                 let stream = ripdpi_relay_tls_transports::connect_trojan_tcp_over(config, transport, target).await?;
                 Ok(Box::new(stream))
             }
-            Self::AnyTls(config) => {
-                let stream = ripdpi_relay_tls_transports::connect_anytls_tcp_over(config, transport, target).await?;
+            Self::AnyTls(hop) => {
+                let stream = ripdpi_relay_tls_transports::connect_anytls_tcp_over(hop, transport, target).await?;
                 Ok(Box::new(stream))
             }
             Self::Shadowsocks(factory) => {
@@ -487,6 +487,97 @@ mod tests {
 
         drop(bound);
         assert!(alive.upgrade().is_none(), "the session ends with its stream");
+    }
+
+    fn anytls_hop(fixture: &local_network_fixture::AnyTlsLoopback) -> ripdpi_relay_tls_transports::AnyTlsChainHop {
+        ripdpi_relay_tls_transports::AnyTlsChainHop::new(ripdpi_relay_tls_transports::AnyTlsClientConfig {
+            server_host: "127.0.0.1".to_owned(),
+            server_port: fixture.port(),
+            server_name: fixture.server_name().to_owned(),
+            password: "fixture-password".to_owned(),
+            tls_fingerprint_profile: "chrome".to_owned(),
+            root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+            client_name: "ripdpi-chain-test/0.1.0".to_owned(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+        })
+        .expect("anytls hop")
+    }
+
+    /// The entry hop keeps one client, so a finished connection returns its
+    /// carrier session to the pool and the next connection reuses it.
+    #[tokio::test]
+    async fn anytls_entry_hop_reuses_a_session_across_connections() {
+        use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let fixture =
+            AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+        let connector = ChainHopConnector::AnyTls(anytls_hop(&fixture));
+        let limiter = ripdpi_vless::VlessRealityCarrierLimiter::default();
+        let target = format!("127.0.0.1:{}", fixture.target_port());
+
+        for (index, payload) in [b"one", b"two"].into_iter().enumerate() {
+            let mut stream = connector.connect(None, &target, &limiter).await.expect("connect through the hop");
+            stream.write_all(payload).await.expect("write");
+            let mut echoed = [0_u8; 3];
+            stream.read_exact(&mut echoed).await.expect("echo");
+            assert_eq!(&echoed, payload);
+            drop(stream);
+            tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                while fixture.observed().fin_stream_ids.len() <= index {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("the dropped stream sends FIN");
+        }
+
+        let observed = fixture.observed();
+        assert_eq!(observed.tls_session_count, 1, "both connections use one carrier session");
+        assert_eq!(observed.syn_stream_ids, vec![1, 2]);
+    }
+
+    /// A hop layered over a previous hop's stream shares the hop's padding
+    /// scheme: the scheme the server pushed on one connection is used by the next.
+    #[tokio::test]
+    async fn anytls_hop_over_a_transport_keeps_a_pushed_padding_scheme() {
+        use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let fixture = AnyTlsLoopback::start(
+            "fixture-password",
+            AnyTlsLoopbackConfig {
+                server_padding_scheme: Some("stop=3\n0=9-9\n1=10-10\n2=11-11".to_owned()),
+                close_after_update: true,
+                ..AnyTlsLoopbackConfig::default()
+            },
+        )
+        .await
+        .expect("fixture");
+        let connector = ChainHopConnector::AnyTls(anytls_hop(&fixture));
+        let target = format!("127.0.0.1:{}", fixture.target_port());
+        let transport = || async {
+            let tcp = tokio::net::TcpStream::connect(("127.0.0.1", fixture.port())).await.expect("transport");
+            Box::new(tcp) as Box<dyn ChainAsyncIo>
+        };
+
+        assert!(
+            connector.connect_over(transport().await, &target).await.is_err(),
+            "the first session closes after the update"
+        );
+        let mut stream = connector.connect_over(transport().await, &target).await.expect("second connection");
+        stream.write_all(b"pad").await.expect("write");
+        let mut echoed = [0_u8; 3];
+        stream.read_exact(&mut echoed).await.expect("echo");
+
+        let observed = fixture.observed();
+        assert_eq!(observed.settings_padding_md5.len(), 2);
+        assert_ne!(
+            observed.settings_padding_md5[0], observed.settings_padding_md5[1],
+            "the second session offers the pushed scheme"
+        );
+        assert_eq!(observed.update_padding_scheme_count, 1, "the server pushes the scheme only once");
     }
 
     /// VpnService.protect() invariant (`.claude/rules/vpnservice-protect-invariant.md`):

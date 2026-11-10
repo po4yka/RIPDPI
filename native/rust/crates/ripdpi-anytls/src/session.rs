@@ -591,7 +591,26 @@ impl AnyTlsClient {
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        let client = Self::new(config)?;
+        Self::open_tcp_over_with_padding_scheme(config, transport, target, port, SharedPaddingScheme::default()).await
+    }
+
+    /// Like [`Self::open_tcp_over`], but reads and updates `padding_scheme`, so
+    /// a scheme the server pushed is used by the next client of the same profile.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: cancellation drops the unpublished transport and the
+    /// client, whose owner guard cancels its workers.
+    pub async fn open_tcp_over_with_padding_scheme<S>(
+        config: AnyTlsClientConfig,
+        transport: S,
+        target: TargetAddr,
+        port: u16,
+        padding_scheme: SharedPaddingScheme,
+    ) -> Result<AnyTlsStream, AnyTlsError>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let client = Self::with_padding_scheme(config, padding_scheme)?;
         let session = client.establish_session(transport).await?;
         release_session(&client.state, session);
         client.open_tcp(target, port).await

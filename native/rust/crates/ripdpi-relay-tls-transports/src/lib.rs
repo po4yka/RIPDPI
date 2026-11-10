@@ -12,8 +12,8 @@ mod trojan;
 mod util;
 
 pub use anytls::{
-    AnyTlsClientConfig, AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession, anytls_proxy_target, connect_anytls_tcp,
-    connect_anytls_tcp_over,
+    AnyTlsChainHop, AnyTlsClientConfig, AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession, anytls_proxy_target,
+    connect_anytls_tcp, connect_anytls_tcp_over,
 };
 pub use mieru::{MieruConfig, MieruMux, MieruProtocol, MieruSession, MieruSessionFactory};
 /// Shared explicit policy re-exported through the relay transport facade so
