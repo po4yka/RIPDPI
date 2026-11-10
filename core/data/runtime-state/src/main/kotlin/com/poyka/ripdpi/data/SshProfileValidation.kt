@@ -2,7 +2,7 @@ package com.poyka.ripdpi.data
 
 import java.util.Base64
 
-internal fun validateSshProfile(profile: ProxyProfile.Ssh) {
+internal fun validateSshProfile(profile: ProxyProfile.Ssh): Boolean {
     require(profile.server.isNotBlank()) { "SSH requires a server hostname" }
     require(profile.serverPort in SshPortRange) { "SSH requires a valid server port" }
     require(profile.username.isNotBlank()) { "SSH requires a username" }
@@ -13,6 +13,7 @@ internal fun validateSshProfile(profile: ProxyProfile.Ssh) {
     }
     // Discovery is an editor action; durable activation must already have an accepted pin.
     require(isValidSshHostKeyFingerprint(profile.hostKeyFingerprint)) { "SSH requires an accepted SHA256 host key" }
+    return true
 }
 
 private fun isValidSshHostKeyFingerprint(value: String?): Boolean {

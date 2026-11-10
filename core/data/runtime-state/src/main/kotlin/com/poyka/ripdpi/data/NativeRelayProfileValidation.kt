@@ -130,7 +130,6 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
 
         is ProxyProfile.Ssh -> {
             validateSshProfile(profile)
-            true
         }
 
         is ProxyProfile.AnyTls,
