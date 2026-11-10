@@ -10,7 +10,6 @@ import kotlinx.coroutines.withContext
 internal class AwgEgressReadinessVerifier(
     private val runtimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val activeProbe: RelayActiveProbe = OkHttpRelayActiveProbe(),
-    private val relayHealthDecisionEngine: RelayHealthDecisionEngine = RelayHealthDecisionEngine(),
 ) {
     suspend fun verify(
         requestProfileId: String,
@@ -39,7 +38,7 @@ internal class AwgEgressReadinessVerifier(
                 stopAfterFailure(failure)
             }
         val decision =
-            relayHealthDecisionEngine.evaluateInitialProbe(
+            RelayHealthDecisionEngine().evaluateInitialProbe(
                 candidate = candidate,
                 plan = plan,
                 result = probeResult,

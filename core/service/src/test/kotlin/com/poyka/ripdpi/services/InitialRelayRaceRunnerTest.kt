@@ -142,6 +142,43 @@ class InitialRelayRaceRunnerTest {
             }
         }
 
+    @Test
+    fun `replaced runtime cannot reuse a previous startup success`() =
+        runTest {
+            var probeSucceeds = true
+            val slots = mutableListOf<RelayRuntimeSlot>()
+            val factory =
+                InitialRelayRaceRunnerFactory(
+                    RelayActiveProbe { _, _, _ ->
+                        RelayActiveProbeResult(
+                            probeSucceeds,
+                            statusCode = if (probeSucceeds) 204 else 503,
+                            latencyMs = 10L,
+                        )
+                    },
+                )
+            val plan = racePlan().let { it.copy(candidates = it.candidates.take(1)) }
+
+            suspend fun runGeneration(): PromotedRelayRuntime =
+                factory
+                    .create(
+                        startCandidate = { startSlot(it, TestRelayRuntime()).also(slots::add) },
+                        promoteCandidate = {},
+                        stopDiscardedCandidates = ::stopSlots,
+                    ).run(plan) {}
+
+            try {
+                assertFalse(runGeneration().result.verificationInconclusive)
+                stopSlots(slots, null)
+                slots.clear()
+                probeSucceeds = false
+
+                assertTrue(runGeneration().result.verificationInconclusive)
+            } finally {
+                stopSlots(slots, null)
+            }
+        }
+
     private suspend fun TestScope.startSlot(
         candidate: InitialRelayCandidate,
         runtime: RipDpiRelayRuntime,

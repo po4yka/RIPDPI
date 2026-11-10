@@ -383,7 +383,6 @@ internal class InitialRelayRaceRunner(
 
 internal class InitialRelayRaceRunnerFactory(
     private val relayActiveProbe: RelayActiveProbe = OkHttpRelayActiveProbe(),
-    private val relayHealthDecisionEngine: RelayHealthDecisionEngine = RelayHealthDecisionEngine(),
 ) {
     fun create(
         startCandidate: suspend (InitialRelayCandidate) -> RelayRuntimeSlot,
@@ -392,7 +391,7 @@ internal class InitialRelayRaceRunnerFactory(
     ): InitialRelayRaceRunner =
         InitialRelayRaceRunner(
             relayActiveProbe = relayActiveProbe,
-            relayHealthDecisionEngine = relayHealthDecisionEngine,
+            relayHealthDecisionEngine = RelayHealthDecisionEngine(),
             startCandidate = startCandidate,
             promoteCandidate = promoteCandidate,
             stopDiscardedCandidates = stopDiscardedCandidates,
