@@ -329,27 +329,61 @@ impl std::fmt::Debug for TrojanClientConfig {
 
 /// Open a protected TCP connection to the Trojan server.
 ///
-/// Builds the socket explicitly and protects its fd via the in-process
+/// Tries each resolved address in order; see [`connect_first_reachable`]. REL-1.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the future owns the socket being connected; dropping it closes it.
+async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream> {
+    let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
+    connect_first_reachable(addrs, config.outbound_bind_ip, config.socket_protection).await
+}
+
+/// Connect to the first reachable address of `addrs`, in order.
+///
+/// Each attempt builds its own socket and protects its fd via the in-process
 /// `VpnService.protect()` registry BEFORE connect, so the non-loopback carrier
 /// socket bypasses the app's own TUN route. Loopback-skip and fail-closed are
-/// handled by [`protect_outbound_socket`]. REL-1.
-async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream> {
-    let bind_ip = config.outbound_bind_ip;
-    let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
-    let server_addr = match bind_ip {
-        Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
-        })?,
-        None => addrs
-            .into_iter()
-            .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for trojan server"))?,
-    };
+/// handled by [`protect_outbound_socket`]. With a bind IP, only addresses of
+/// its family are tried. Returns the last error when every attempt fails.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the future owns the socket being connected; dropping it closes it.
+async fn connect_first_reachable(
+    addrs: Vec<SocketAddr>,
+    bind_ip: Option<IpAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<TcpStream> {
+    let mut last_error = io::Error::new(
+        io::ErrorKind::AddrNotAvailable,
+        match bind_ip {
+            Some(_) => "no server address matches outbound bind IP family",
+            None => "no address resolved for trojan server",
+        },
+    );
+    for server_addr in addrs {
+        if bind_ip.is_some_and(|ip| ip.is_ipv4() != server_addr.is_ipv4()) {
+            continue;
+        }
+        match connect_one(server_addr, bind_ip, socket_protection).await {
+            Ok(tcp) => return Ok(tcp),
+            Err(error) => last_error = error,
+        }
+    }
+    Err(last_error)
+}
+
+async fn connect_one(
+    server_addr: SocketAddr,
+    bind_ip: Option<IpAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<TcpStream> {
     let socket = match server_addr {
         SocketAddr::V4(_) => TcpSocket::new_v4()?,
         SocketAddr::V6(_) => TcpSocket::new_v6()?,
     };
-    protect_outbound_socket(&socket, server_addr, config.socket_protection)?;
+    protect_outbound_socket(&socket, server_addr, socket_protection)?;
     if let Some(ip) = bind_ip {
         socket.bind(SocketAddr::new(ip, 0))?;
     }
@@ -615,6 +649,28 @@ mod tests {
 
     const SPEC_PASSWORD: &str = "123456789";
     const SPEC_PASSWORD_SHA224_HEX: &str = "9b3e61bf29f17c75572fae2e86e17809a4513d07c8a18152acf34521";
+
+    #[tokio::test]
+    async fn connect_first_reachable_skips_a_refused_address() {
+        let refused = {
+            let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind");
+            listener.local_addr().expect("addr")
+        };
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind live");
+        let live = listener.local_addr().expect("live addr");
+
+        let tcp =
+            connect_first_reachable(vec![refused, live], None, ripdpi_native_protect::SocketProtectionPolicy::Inactive)
+                .await
+                .expect("second address is reachable");
+        assert_eq!(tcp.peer_addr().expect("peer"), live);
+
+        let error =
+            connect_first_reachable(vec![refused], None, ripdpi_native_protect::SocketProtectionPolicy::Inactive)
+                .await
+                .expect_err("all addresses refused");
+        assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused);
+    }
 
     #[test]
     fn password_hash_matches_spec_vector() {
