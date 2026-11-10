@@ -2,7 +2,7 @@
 
 ## Scope
 
-A subprocess helper that exposes a local SOCKS5 and HTTP CONNECT listener and tunnels TCP through an upstream NaiveProxy server via HTTP/2 `CONNECT`. The APK ships only this Rust helper, no klzgrad/naiveproxy or Chromium binary; it runs as a separate process under the Android service supervisor.
+A subprocess helper that exposes a local SOCKS5 and HTTP CONNECT listener and tunnels TCP through an upstream NaiveProxy server via HTTP/2 `CONNECT`. The APK ships this Rust helper and a separate pinned upstream Chromium client. Both run as subprocesses under the Android service supervisor. `NaiveProxyManager` selects this helper for a profile with a certificate pin and the Chromium client for a profile without a pin. The Chromium client supports HTTP/3 and concurrency; this helper supports HTTP/2 only.
 
 See `docs/native/relay-naiveproxy-runtime.md` for the operational model.
 
@@ -24,12 +24,12 @@ The completion target is documented in `README.md`. The architecture remains sub
 
 Helper output markers (the service reads stdout and stderr as one merged stream):
 
-- `RIPDPI-READY` — listener is bound and handshake completed
+- `RIPDPI-READY` — the local listener is bound; upstream TLS and CONNECT have not been checked
 - `RIPDPI-ERROR <code>` — structured failure with classification text; `auth` only for a 407 CONNECT reply, `http_connect` for other non-200 replies
 - `RIPDPI-UPSTREAM-OK|naiveproxy|` — first successful upstream open after start or after a stream failure
 - `RIPDPI-PROBE <json>` — `--probe` capability report including `socks5-listener`, `http-front-listener`, `h2-connect-upstream`, `naive-padding`, `structured-error`, and `ready-signal`
 
-The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) requires a valid schema-1 `--probe` result before every launch and classifies compatibility refusal separately from DNS / TLS / HTTP CONNECT / auth runtime failures. Existing readiness and structured-error processing begins only after that preflight succeeds.
+The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) requires a valid schema-1 `--probe` result before every Rust helper launch and classifies compatibility refusal separately from DNS / TLS / HTTP CONNECT / auth runtime failures. Existing readiness and structured-error processing begins only after that preflight succeeds.
 
 ## Known divergences from upstream
 
