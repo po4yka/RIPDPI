@@ -57,13 +57,31 @@ impl RelaySession for AnyTlsSession {
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {
         let (addr, port) = target_to_anytls(target)?;
-        let stream = self.client.open_tcp(addr, port).await.map_err(to_io_error)?;
+        let stream = self.client.open_tcp(addr, port).await.map_err(open_error)?;
         stream.into_io().map_err(to_io_error)
     }
 
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
-        let udp = self.client.open_udp_over_tcp().await.map_err(to_io_error)?;
+        let udp = self.client.open_udp_over_tcp().await.map_err(open_error)?;
         Ok(AnyTlsUdpSession { udp })
+    }
+
+    /// Every open uses its own carrier session, so a failed open never spoils
+    /// the client's pool. A refusal of one destination (`ConnectionRefused`)
+    /// must therefore keep this relay session, whose other streams and idle
+    /// sessions stay usable; evicting it would drop that pool for nothing.
+    fn is_carrier_failure(&self, error: &Self::Error) -> bool {
+        error.kind() != io::ErrorKind::ConnectionRefused
+    }
+}
+
+/// Maps an open error; a server's refusal of the destination keeps its own kind.
+fn open_error(error: ripdpi_anytls::session::AnyTlsError) -> io::Error {
+    match error {
+        ripdpi_anytls::session::AnyTlsError::StreamOpenRejected(_) => {
+            io::Error::new(io::ErrorKind::ConnectionRefused, error.to_string())
+        }
+        other => to_io_error(other),
     }
 }
 
@@ -202,6 +220,15 @@ mod tests {
     fn target_to_anytls_rejects_bare_ipv6_target() {
         let error = target_to_anytls("2001:db8::1").expect_err("bare IPv6 target must be rejected");
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
+    #[test]
+    fn a_refused_destination_is_not_a_carrier_failure() {
+        let refused = open_error(ripdpi_anytls::session::AnyTlsError::StreamOpenRejected("dial failed".to_owned()));
+        assert_eq!(refused.kind(), io::ErrorKind::ConnectionRefused);
+        assert!(refused.to_string().contains("dial failed"));
+        let broken = open_error(ripdpi_anytls::session::AnyTlsError::SessionClosed);
+        assert_ne!(broken.kind(), io::ErrorKind::ConnectionRefused, "a closed session still evicts the relay session");
     }
 
     #[test]

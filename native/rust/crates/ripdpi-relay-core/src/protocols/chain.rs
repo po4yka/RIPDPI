@@ -490,11 +490,19 @@ mod tests {
     }
 
     fn anytls_hop(fixture: &local_network_fixture::AnyTlsLoopback) -> ripdpi_relay_tls_transports::AnyTlsChainHop {
+        anytls_hop_with(fixture, "fixture-password", fixture.port())
+    }
+
+    fn anytls_hop_with(
+        fixture: &local_network_fixture::AnyTlsLoopback,
+        password: &str,
+        server_port: u16,
+    ) -> ripdpi_relay_tls_transports::AnyTlsChainHop {
         ripdpi_relay_tls_transports::AnyTlsChainHop::new(ripdpi_relay_tls_transports::AnyTlsClientConfig {
             server_host: "127.0.0.1".to_owned(),
-            server_port: fixture.port(),
+            server_port,
             server_name: fixture.server_name().to_owned(),
-            password: "fixture-password".to_owned(),
+            password: password.to_owned(),
             tls_fingerprint_profile: "chrome".to_owned(),
             root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
             client_name: "ripdpi-chain-test/0.1.0".to_owned(),
@@ -536,6 +544,28 @@ mod tests {
         let observed = fixture.observed();
         assert_eq!(observed.tls_session_count, 1, "both connections use one carrier session");
         assert_eq!(observed.syn_stream_ids, vec![1, 2]);
+    }
+
+    /// A non-entry hop reaches its server only through the previous hop. When
+    /// its session dies before the open (here: the server rejects the password),
+    /// the open must fail; it must not fall back to dialing the hop's server
+    /// directly, which would bypass the chain and use an unprotected socket.
+    #[tokio::test]
+    async fn anytls_hop_over_a_dead_session_never_dials_the_server_directly() {
+        use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
+
+        let fixture =
+            AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+        // The hop's configured address: a listener that must never see a connection.
+        let hop_address = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.expect("hop listener");
+        let hop_port = hop_address.local_addr().expect("hop address").port();
+        let connector = ChainHopConnector::AnyTls(anytls_hop_with(&fixture, "wrong-password", hop_port));
+        let tcp = tokio::net::TcpStream::connect(("127.0.0.1", fixture.port())).await.expect("transport");
+
+        let opened = connector.connect_over(Box::new(tcp), "127.0.0.1:9").await;
+        assert!(opened.is_err(), "the session died on the rejected password, so the open must fail");
+        let dialed = tokio::time::timeout(std::time::Duration::from_millis(500), hop_address.accept()).await;
+        assert!(dialed.is_err(), "the hop dialed its server directly instead of using the previous hop");
     }
 
     /// A hop layered over a previous hop's stream shares the hop's padding
