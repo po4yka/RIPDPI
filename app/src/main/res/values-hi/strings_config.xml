@@ -887,7 +887,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_verify_ssl">SSL सत्यापित करें</string>
     <string name="config_relay_apps_script_proxy_only_title">VPN मोड में Apps Script उपलब्ध नहीं है</string>
     <string name="config_relay_apps_script_proxy_only_body">इस रिले का उपयोग करने के लिए प्रॉक्सी मोड पर जाएँ। VPN इसके HTTP कनेक्शन की सुरक्षा नहीं कर सकता।</string>
-    <string name="config_relay_apps_script_parallel">समानांतर रिले</string>
     <string name="config_relay_protocol_section_proxy">प्रॉक्सी ट्रांसपोर्ट</string>
     <string name="ripdpi_http_parser_default_body">कोई अतिरिक्त HTTP पार्सर एविज़न सक्षम नहीं है। जब तक आप नीचे दिए समायोजन चालू नहीं करते, RIPDPI HTTP अनुरोधों को संरचनात्मक रूप से सामान्य रखेगा।</string>
     <string name="ripdpi_http_parser_profile_default">डिफ़ॉल्ट हैंडलिंग</string>

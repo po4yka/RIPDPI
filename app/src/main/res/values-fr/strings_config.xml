@@ -1222,7 +1222,6 @@ Source : %2$s</string>
     <string name="config_relay_apps_script_verify_ssl">Vérifier SSL</string>
     <string name="config_relay_apps_script_proxy_only_title">Apps Script est indisponible en mode VPN</string>
     <string name="config_relay_apps_script_proxy_only_body">Passez en mode proxy pour utiliser ce relais. Le VPN ne peut pas protéger sa connexion HTTP.</string>
-    <string name="config_relay_apps_script_parallel">Relais parallèle</string>
     <string name="config_relay_protocol_section_proxy">Transports proxy</string>
     <string name="config_relay_off_title">Relais désactivé</string>
     <string name="config_relay_off_body">Configurez un serveur relais pour y faire passer votre trafic.</string>

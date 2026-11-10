@@ -1226,7 +1226,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_verify_ssl">التحقق من SSL</string>
     <string name="config_relay_apps_script_proxy_only_title">Apps Script غير متاح في وضع VPN</string>
     <string name="config_relay_apps_script_proxy_only_body">انتقل إلى وضع الوكيل لاستخدام هذا المرحل. لا يمكن لشبكة VPN حماية اتصال HTTP الخاص به.</string>
-    <string name="config_relay_apps_script_parallel">ترحيل متوازٍ</string>
     <string name="config_relay_protocol_section_proxy">وسائل نقل الوكيل</string>
     <string name="config_relay_off_title">الترحيل متوقف</string>
     <string name="config_relay_off_body">اضبط خادم ترحيل لتمرير حركة المرور عبره.</string>

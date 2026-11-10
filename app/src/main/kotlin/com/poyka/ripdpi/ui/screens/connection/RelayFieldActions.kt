@@ -23,7 +23,6 @@ internal data class RelayAdditionalKindActions(
     val onAppsScriptFrontDomainChanged: (String) -> Unit = {},
     val onAppsScriptSniHostsChanged: (String) -> Unit = {},
     val onAppsScriptVerifySslChanged: (Boolean) -> Unit = {},
-    val onAppsScriptParallelRelayChanged: (Boolean) -> Unit = {},
     val onAppsScriptDirectHostsChanged: (String) -> Unit = {},
     val onAppsScriptAuthKeyChanged: (String) -> Unit = {},
 )

@@ -119,13 +119,6 @@ private fun ModeEditorActions.withRelayProtocolActions(viewModel: ConnectionView
                 onAppsScriptFrontDomainChanged = { viewModel.updateDraft { copy(relayAppsScriptFrontDomain = it) } },
                 onAppsScriptSniHostsChanged = { viewModel.updateDraft { copy(relayAppsScriptSniHosts = it) } },
                 onAppsScriptVerifySslChanged = { viewModel.updateDraft { copy(relayAppsScriptVerifySsl = it) } },
-                onAppsScriptParallelRelayChanged = {
-                    viewModel.updateDraft {
-                        copy(
-                            relayAppsScriptParallelRelay = it,
-                        )
-                    }
-                },
                 onAppsScriptDirectHostsChanged = { viewModel.updateDraft { copy(relayAppsScriptDirectHosts = it) } },
                 onAppsScriptAuthKeyChanged = { viewModel.updateDraft { copy(relayAppsScriptAuthKey = it) } },
             ),

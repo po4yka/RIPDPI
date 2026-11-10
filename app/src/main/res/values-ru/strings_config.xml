@@ -1181,7 +1181,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_verify_ssl">Проверять SSL</string>
     <string name="config_relay_apps_script_proxy_only_title">Apps Script недоступен в режиме VPN</string>
     <string name="config_relay_apps_script_proxy_only_body">Переключитесь в режим прокси. VPN не может защитить HTTP-соединение этого ретранслятора.</string>
-    <string name="config_relay_apps_script_parallel">Параллельное реле</string>
     <string name="config_relay_protocol_section_proxy">Прокси-транспорты</string>
     <string name="config_scope_title">Выберите режим трафика</string>
     <string name="asset_provider_entry_title">Поставщик гео-данных</string>

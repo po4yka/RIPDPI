@@ -1222,7 +1222,6 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_verify_ssl">بررسی SSL</string>
     <string name="config_relay_apps_script_proxy_only_title">Apps Script در حالت VPN در دسترس نیست</string>
     <string name="config_relay_apps_script_proxy_only_body">برای استفاده از این رله به حالت پروکسی بروید. VPN نمی‌تواند اتصال HTTP آن را محافظت کند.</string>
-    <string name="config_relay_apps_script_parallel">رله موازی</string>
     <string name="config_relay_protocol_section_proxy">انتقال‌های پراکسی</string>
     <string name="config_relay_off_title">رله خاموش است</string>
     <string name="config_relay_off_body">یک سرور رله راه‌اندازی کنید تا ترافیک شما از آن عبور کند.</string>
