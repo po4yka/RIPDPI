@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-exclude = ["vendor/shadowsocks", "vendor/quinn-proto"]
+exclude = ["vendor/shadowsocks", "vendor/quinn-proto", "vendor/russh"]
 members = [
     "crates/android-support",
     "crates/feature-contract-harness",
@@ -577,6 +577,7 @@ local-debug-crates = [
 ]
 
 [patch.crates-io]
+russh = { path = "vendor/russh" }
 tor-dirmgr = { path = "vendor/tor-dirmgr" }
 tor-ptmgr = { path = "vendor/tor-ptmgr" }
 h3 = { path = "vendor/h3" }

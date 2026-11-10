@@ -26,6 +26,27 @@ type directTarget struct {
 	OriginPort uint32
 }
 
+// Each key exchange obtains the current key; the signature proves which key was used.
+type rekeySigner struct {
+	initial, rotated ssh.Signer
+	changed          atomic.Bool
+	signatures       atomic.Int64
+}
+
+func (s *rekeySigner) PublicKey() ssh.PublicKey {
+	if s.changed.Load() {
+		return s.rotated.PublicKey()
+	}
+	return s.initial.PublicKey()
+}
+func (s *rekeySigner) Sign(random io.Reader, data []byte) (*ssh.Signature, error) {
+	s.signatures.Add(1)
+	if s.changed.Load() {
+		return s.rotated.Sign(random, data)
+	}
+	return s.initial.Sign(random, data)
+}
+
 func run() error {
 	_, hostKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -66,7 +87,20 @@ func run() error {
 			return nil, errors.New("test key rejected")
 		},
 	}
-	config.AddHostKey(host)
+	rekey := os.Getenv("RIPDPI_OUTBOUND_REKEY")
+	_, rotatedKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return err
+	}
+	rotated, err := ssh.NewSignerFromKey(rotatedKey)
+	if err != nil {
+		return err
+	}
+	signer := &rekeySigner{initial: host, rotated: rotated}
+	if rekey != "" {
+		config.RekeyThreshold = 32768
+	}
+	config.AddHostKey(signer)
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		return err
@@ -121,6 +155,9 @@ func run() error {
 					return
 				}
 				defer conn.Close()
+				if rekey == "rotate" {
+					signer.changed.Store(true)
+				}
 				var children sync.WaitGroup
 				children.Add(1)
 				go func() { defer children.Done(); ssh.DiscardRequests(requests) }()
@@ -179,6 +216,9 @@ func run() error {
 	// A key-policy rejection test must never reach an authentication callback.
 	if os.Getenv("RIPDPI_OUTBOUND_EXPECT_NO_AUTH") == "1" && attempts.Load() != 0 {
 		return errors.New("host-key rejection transmitted authentication")
+	}
+	if rekey != "" && signer.signatures.Load() < 2 {
+		return errors.New("test did not reach rekey")
 	}
 	return nil
 }
