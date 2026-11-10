@@ -10,7 +10,11 @@ use super::socket::maybe_rebind_quic_endpoint;
 use crate::config::MasqueConfig;
 use crate::response::AttemptError;
 use crate::tls::{ech_setup, load_client_identity};
+
 use crate::url::parse_proxy_origin;
+
+/// Matches the 16 KiB header-list cap on the H2 carrier.
+const MAX_FIELD_SECTION_SIZE: u64 = 16 * 1024;
 
 pub(crate) const H3_MTU_DISCOVERY_UPPER_BOUND: u16 = 1_452;
 pub(crate) const H3_KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
@@ -60,6 +64,7 @@ pub(super) async fn connect_h3_transport(
     let mut builder = h3::client::builder();
     builder.enable_extended_connect(true);
     builder.enable_datagram(enable_datagram);
+    builder.max_field_section_size(MAX_FIELD_SECTION_SIZE);
     let path_connection = connection.clone();
     let (mut driver, request_sender) = builder.build(h3_quinn::Connection::new(connection)).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate HTTP/3: {error}"))
