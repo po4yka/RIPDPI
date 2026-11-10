@@ -10,7 +10,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
-use url::{Host, Url};
 
 const MAX_REQUEST_BODY_BYTES: usize = 16 * 1024 * 1024;
 const CLIENT_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -66,7 +65,9 @@ async fn handle_request(
     let url = request_url(scheme, host, port, &parts.uri.to_string());
     if parts.method == ::http::Method::OPTIONS {
         read_body(incoming, MAX_REQUEST_BODY_BYTES).await?;
-        return local_options_response(&parts.headers, &url);
+        let mut response = ::http::Response::new(Full::new(Bytes::new()));
+        *response.status_mut() = ::http::StatusCode::NOT_IMPLEMENTED;
+        return Ok(response);
     }
     let headers = parts
         .headers
@@ -100,35 +101,6 @@ async fn read_body(mut body: Incoming, limit: usize) -> io::Result<Vec<u8>> {
     Ok(result)
 }
 
-fn local_options_response(headers: &::http::HeaderMap, target_url: &str) -> io::Result<RelayResponse> {
-    let mut response = ::http::Response::new(Full::new(Bytes::new()));
-    let (Some(origin), Some(method)) = (headers.get("origin"), headers.get("access-control-request-method")) else {
-        *response.status_mut() = ::http::StatusCode::NOT_IMPLEMENTED;
-        return Ok(response);
-    };
-    let parsed_origin =
-        if headers.get_all("origin").iter().count() == 1 { origin.to_str().ok().and_then(parse_origin) } else { None };
-    let Some(parsed_origin) = parsed_origin else {
-        *response.status_mut() = ::http::StatusCode::BAD_REQUEST;
-        return Ok(response);
-    };
-    let allow_credentials =
-        Url::parse(target_url).ok().is_some_and(|target| same_credential_site(&parsed_origin, &target));
-    *response.status_mut() = ::http::StatusCode::NO_CONTENT;
-    let output = response.headers_mut();
-    output.insert("access-control-allow-origin", origin.clone());
-    output.insert("access-control-allow-methods", method.clone());
-    output.insert("vary", ::http::HeaderValue::from_static("Origin"));
-    output.insert("access-control-max-age", ::http::HeaderValue::from_static("86400"));
-    if let Some(value) = headers.get("access-control-request-headers") {
-        output.insert("access-control-allow-headers", value.clone());
-    }
-    if allow_credentials {
-        output.insert("access-control-allow-credentials", ::http::HeaderValue::from_static("true"));
-    }
-    Ok(response)
-}
-
 /// Host as it appears in a URL authority: RFC 3986 3.2.2 puts an IPv6
 /// literal in brackets.
 pub(crate) fn authority_host(host: &str) -> std::borrow::Cow<'_, str> {
@@ -143,54 +115,6 @@ fn request_url(scheme: &str, host: &str, port: u16, path: &str) -> String {
     let default_port = if scheme == "https" { 443 } else { 80 };
     let host = authority_host(host);
     if port == default_port { format!("{scheme}://{host}{path}") } else { format!("{scheme}://{host}:{port}{path}") }
-}
-
-/// Parse a serialized HTTP origin without URL repair of forbidden components.
-fn parse_origin(value: &str) -> Option<Url> {
-    let (_, authority) = value.split_once("://")?;
-    if value.chars().any(|character| character.is_control() || character.is_whitespace())
-        || authority.is_empty()
-        || authority.ends_with(':')
-        || authority.chars().any(|character| matches!(character, '/' | '\\' | '?' | '#' | '@'))
-    {
-        return None;
-    }
-    let origin = Url::parse(value).ok()?;
-    if !matches!(origin.scheme(), "http" | "https") || !origin.has_host() {
-        return None;
-    }
-    Some(origin)
-}
-
-/// Apply the approved credential policy after parsing both origins.
-fn same_credential_site(origin: &Url, target: &Url) -> bool {
-    if origin.scheme() != target.scheme() || origin.port_or_known_default() != target.port_or_known_default() {
-        return false;
-    }
-    match (origin.host(), target.host()) {
-        (Some(Host::Ipv4(left)), Some(Host::Ipv4(right))) => left == right,
-        (Some(Host::Ipv6(left)), Some(Host::Ipv6(right))) => left == right,
-        (Some(Host::Domain(left)), Some(Host::Domain(right))) => {
-            let left = left.trim_end_matches('.');
-            let right = right.trim_end_matches('.');
-            if left == right {
-                return true;
-            }
-            if left == "localhost"
-                || right == "localhost"
-                || left.ends_with(".localhost")
-                || right.ends_with(".localhost")
-            {
-                return false;
-            }
-            site_key(left) == site_key(right)
-        }
-        _ => false,
-    }
-}
-
-fn site_key(host: &str) -> &str {
-    psl::domain_str(host).unwrap_or(host)
 }
 
 const HTTP_METHOD_TOKENS: [&str; 9] =
