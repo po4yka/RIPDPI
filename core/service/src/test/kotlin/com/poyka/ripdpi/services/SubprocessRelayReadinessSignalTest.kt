@@ -186,20 +186,47 @@ class SubprocessRelayReadinessSignalTest {
         }
 
     @Test
-    fun `naive upstream ok line clears the stream failure shown in telemetry`() =
+    fun `classified upstream errors clear after parsed recovery evidence`() =
         runTest {
             val subprocess = subprocessManager()
-            subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.Ready("naiveproxy", "0.1.0"))
-            subprocess.handleProcessOutputEvent(
-                SubprocessRelayOutputEvent.Error("naiveproxy", "connect", "naiveproxy upstream open timed out"),
+            val parser = SubprocessRelayOutputParser()
+            val spec =
+                SubprocessSocksRelayLaunchSpec(
+                    binaryName = NaiveUpstreamBinaryName,
+                    commandArguments = emptyList(),
+                    runtimeKind = RelayKindNaiveProxy,
+                )
+            val prefix = "[1030/121224.848214:INFO:net/tools/naive/naive_proxy.cc:288] "
+            val padding =
+                "[1030/121159.520448:INFO:net/tools/naive/naive_proxy_delegate.cc:171] " +
+                    "https://naive.test:8443 negotiated padding type: Variant1"
+            subprocess.handleProcessOutputEvent(requireNotNull(parser.parse(padding, spec)))
+            for (
+            (code, failureClass) in
+            mapOf(
+                "ERR_CERT_AUTHORITY_INVALID" to "tls",
+                "ERR_PROXY_CONNECTION_FAILED" to "connect",
+                "ERR_HTTP2_PROTOCOL_ERROR" to "http_connect",
+                "ERR_QUIC_PROTOCOL_ERROR" to "connect",
             )
-            assertEquals("connect", subprocess.pollTelemetry().lastFailureClass)
+            ) {
+                subprocess.handleProcessOutputEvent(
+                    requireNotNull(parser.parse(prefix + "Connection 0 closed: $code", spec)),
+                )
+                val failure = subprocess.pollTelemetry()
+                assertEquals(code, failureClass, failure.lastFailureClass)
+                assertEquals("upstream connection closed: $code", failure.lastError)
 
-            subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.UpstreamOk("naiveproxy"))
-
-            val telemetry = subprocess.pollTelemetry()
-            assertNull(telemetry.lastFailureClass)
-            assertNull(telemetry.lastError)
+                parser.parse(prefix + "Connection 1 to private-target.invalid:443 via HTTPS naive.test:8443", spec)
+                subprocess.handleProcessOutputEvent(
+                    requireNotNull(parser.parse(prefix + "Connection 1 closed: OK", spec)),
+                )
+                val recovered = subprocess.pollTelemetry()
+                assertNull(recovered.lastFailureClass)
+                assertNull(recovered.lastError)
+            }
+            assertNull(parser.parse(prefix + "Connection 2 closed: ERR_CONNECTION_REFUSED", spec))
+            assertNull(subprocess.pollTelemetry().lastFailureClass)
         }
 
     @Test

@@ -72,11 +72,19 @@ class NaiveUpstreamOutputParserTest {
         val prefix = "[1030/121224.848214:INFO:net/tools/naive/naive_proxy.cc:288] "
 
         assertEquals(
-            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_HTTP2_PROTOCOL_ERROR"),
+            SubprocessRelayOutputEvent.Error(
+                upstreamSpec.runtimeKind,
+                "http_connect",
+                "upstream connection closed: ERR_HTTP2_PROTOCOL_ERROR",
+            ),
             parser.parse(prefix + "Connection 3 closed: ERR_HTTP2_PROTOCOL_ERROR", upstreamSpec),
         )
         assertEquals(
-            SubprocessRelayOutputEvent.PlainError("upstream connection closed: net::ERR_PROXY_CONNECTION_FAILED"),
+            SubprocessRelayOutputEvent.Error(
+                upstreamSpec.runtimeKind,
+                "connect",
+                "upstream connection closed: net::ERR_PROXY_CONNECTION_FAILED",
+            ),
             parser.parse(prefix + "Connection 3 closed: net::ERR_PROXY_CONNECTION_FAILED", upstreamSpec),
         )
         assertEquals(
@@ -152,12 +160,20 @@ class NaiveUpstreamOutputParserTest {
         parser.parse(recordedUpstreamLines.last(), upstreamSpec)
 
         assertEquals(
-            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_PROXY_CONNECTION_FAILED"),
+            SubprocessRelayOutputEvent.Error(
+                upstreamSpec.runtimeKind,
+                "connect",
+                "upstream connection closed: ERR_PROXY_CONNECTION_FAILED",
+            ),
             parser.parse(closePrefix + "Connection 0 closed: ERR_PROXY_CONNECTION_FAILED", upstreamSpec),
         )
         parser.parse(recordedUpstreamLines.last().replace("Connection 0", "Connection 2"), upstreamSpec)
         assertEquals(
-            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_TUNNEL_CONNECTION_FAILED"),
+            SubprocessRelayOutputEvent.Error(
+                upstreamSpec.runtimeKind,
+                "http_connect",
+                "upstream connection closed: ERR_TUNNEL_CONNECTION_FAILED",
+            ),
             parser.parse(closePrefix + "Connection 2 closed: ERR_TUNNEL_CONNECTION_FAILED", upstreamSpec),
         )
         parser.parse(recordedUpstreamLines.last(), upstreamSpec)
@@ -192,28 +208,50 @@ class NaiveUpstreamOutputParserTest {
     }
 
     @Test
-    fun `padding evidence makes health healthy and its absence does not`() {
-        val parser = SubprocessRelayOutputParser()
+    fun `proxy failures degrade health after success and evidence clears them`() {
+        val cases =
+            mapOf(
+                "ERR_CERT_AUTHORITY_INVALID" to "tls",
+                "net::ERR_SSL_PROTOCOL_ERROR" to "tls",
+                "ERR_PROXY_CONNECTION_FAILED" to "connect",
+                "net::ERR_QUIC_PROTOCOL_ERROR" to "connect",
+                "ERR_HTTP2_PROTOCOL_ERROR" to "http_connect",
+                "ERR_H2_OR_QUIC_REQUIRED" to "http_connect",
+            )
+        for ((code, failureClass) in cases) {
+            val parser = SubprocessRelayOutputParser()
+            var inputs =
+                SubprocessRelayTelemetryInputs(
+                    config = sampleResolvedRelayConfig(kind = RelayKindNaiveProxy),
+                    launchSpec = upstreamSpec,
+                    running = true,
+                    runtimeVersion = null,
+                    lastError = null,
+                    lastFailureClass = null,
+                    runtimeStateOverride = null,
+                )
+            val projector = SubprocessRelayTelemetryProjector()
+            assertEquals("unknown", projector.project(inputs).health)
+            assertEquals(ok, parser.parse(paddingLine, upstreamSpec))
+            inputs = inputs.copy(upstreamVerified = true)
+            assertEquals("healthy", projector.project(inputs).health)
 
-        fun health(lines: List<String>): String {
-            val verified =
-                lines.any { parser.parse(it, upstreamSpec) is SubprocessRelayOutputEvent.UpstreamOk }
-            return SubprocessRelayTelemetryProjector()
-                .project(
-                    SubprocessRelayTelemetryInputs(
-                        config = sampleResolvedRelayConfig(kind = RelayKindNaiveProxy),
-                        launchSpec = upstreamSpec,
-                        running = true,
-                        runtimeVersion = null,
-                        lastError = null,
-                        lastFailureClass = null,
-                        runtimeStateOverride = null,
-                        upstreamVerified = verified,
-                    ),
-                ).health
+            val event =
+                parser.parse(
+                    closePrefix + "Connection 3 closed: $code",
+                    upstreamSpec,
+                ) as SubprocessRelayOutputEvent.Error
+            assertEquals(failureClass, event.failureClass)
+            inputs = inputs.copy(lastError = event.message, lastFailureClass = event.failureClass)
+            assertEquals(code, "degraded", projector.project(inputs).health)
+
+            parser.parse(recordedUpstreamLines.last(), upstreamSpec)
+            assertEquals(ok, parser.parse(closePrefix + "Connection 0 closed: OK", upstreamSpec))
+            inputs = inputs.copy(lastError = null, lastFailureClass = null)
+            assertEquals("healthy", projector.project(inputs).health)
+
+            assertNull(parser.parse(closePrefix + "Connection 4 closed: ERR_CONNECTION_REFUSED", upstreamSpec))
+            assertEquals("healthy", projector.project(inputs).health)
         }
-
-        assertEquals("unknown", health(recordedUpstreamLines))
-        assertEquals("healthy", health(recordedUpstreamLines + paddingLine))
     }
 }

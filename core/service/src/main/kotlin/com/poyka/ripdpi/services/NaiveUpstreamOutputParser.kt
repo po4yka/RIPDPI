@@ -4,7 +4,6 @@ private const val GenericCloseError = "upstream connection closed with an error"
 private const val UnrecognizedFormatError = "upstream client output format not recognized"
 private const val FormatCheckLineLimit = 20
 private const val NoPaddingType = "None"
-private const val ProxyAuthFailureClass = "auth"
 
 // "[1030/121157.991006:INFO:net/tools/naive/naive_proxy_bin.cc:549] text"
 private val ChromiumPrefix = Regex("""^\[[0-9]+/[0-9.]+:([A-Z]+):([^:\]\s]+):[0-9]+]""")
@@ -106,21 +105,18 @@ internal class NaiveUpstreamOutputParser {
                 SubprocessRelayOutputEvent.PlainError(GenericCloseError)
             }
 
-            // The same failure class as the Rust helper's 407, so both clients report wrong credentials alike.
-            isProxyAuthNetError(closeCode) -> {
-                SubprocessRelayOutputEvent.Error(
-                    runtimeKind,
-                    ProxyAuthFailureClass,
-                    "proxy rejected the credentials: $closeCode",
-                )
-            }
-
-            isProxySideNetError(closeCode) -> {
-                SubprocessRelayOutputEvent.PlainError("upstream connection closed: $closeCode")
-            }
-
             else -> {
-                null
+                proxySideNetErrorFailureClass(closeCode)?.let { failureClass ->
+                    SubprocessRelayOutputEvent.Error(
+                        runtimeKind,
+                        failureClass,
+                        if (failureClass == "auth") {
+                            "proxy rejected the credentials: $closeCode"
+                        } else {
+                            "upstream connection closed: $closeCode"
+                        },
+                    )
+                }
             }
         }
 }

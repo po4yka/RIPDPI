@@ -5,11 +5,18 @@ package com.poyka.ripdpi.services
 private val ProxySideErrorCode =
     Regex("""(net::)?ERR_(PROXY_|TUNNEL_CONNECTION_FAILED|SSL_|CERT_|HTTP2_|QUIC_|H2_OR_QUIC_REQUIRED)[A-Z0-9_]*""")
 
-internal fun isProxySideNetError(code: String): Boolean = ProxySideErrorCode.matchEntire(code) != null
+internal fun proxySideNetErrorFailureClass(code: String): String? {
+    if (!ProxySideErrorCode.matches(code)) return null
+    val error = code.removePrefix("net::")
+    return when {
+        error.startsWith("ERR_PROXY_AUTH_") -> "auth"
 
-// Chromium's codes for a proxy 407: the client sends the profile credentials preemptively, so a
-// rejection ends the tunnel with ERR_PROXY_AUTH_UNSUPPORTED (seen against Caddy forwardproxy) or
-// ERR_PROXY_AUTH_REQUESTED.
-private val ProxyAuthErrorCode = Regex("""(net::)?ERR_PROXY_AUTH_[A-Z0-9_]*""")
+        error.startsWith("ERR_CERT_") || error.startsWith("ERR_SSL_") -> "tls"
 
-internal fun isProxyAuthNetError(code: String): Boolean = ProxyAuthErrorCode.matchEntire(code) != null
+        error.startsWith("ERR_HTTP2_") ||
+            error == "ERR_TUNNEL_CONNECTION_FAILED" ||
+            error == "ERR_H2_OR_QUIC_REQUIRED" -> "http_connect"
+
+        else -> "connect"
+    }
+}
