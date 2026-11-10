@@ -72,6 +72,7 @@ internal class InitialRelayRaceRunner(
                 cachedFallback(plan, slots)?.let { (cachedCandidate, cachedSlot) ->
                     stopAndForgetDiscardedCandidates(slots, cachedSlot)
                     val result = InitialRelayRaceResult(cachedCandidate, usedCachedFallback = true, latencyMs = null)
+                    promoteLiveCandidate(cachedSlot)
                     onState(
                         raceState(
                             state = RaceStateCachedFallback,
@@ -81,7 +82,6 @@ internal class InitialRelayRaceRunner(
                             usedCachedFallback = true,
                         ),
                     )
-                    promoteCandidate(cachedSlot)
                     retainedSlot = cachedSlot
                     return@coroutineScope PromotedRelayRuntime(
                         endpoint = requireNotNull(cachedSlot.endpoint),
@@ -131,6 +131,7 @@ internal class InitialRelayRaceRunner(
         onState: (InitialTransportRaceSnapshot) -> Unit,
     ): PromotedRelayRuntime {
         val result = winningAttempt.toResult()
+        promoteLiveCandidate(winningSlot)
         onState(
             raceState(
                 state = RaceStateSelected,
@@ -139,7 +140,6 @@ internal class InitialRelayRaceRunner(
                 selectedCandidate = winningAttempt.candidate,
             ),
         )
-        promoteCandidate(winningSlot)
         return PromotedRelayRuntime(
             endpoint = requireNotNull(winningSlot.endpoint),
             result = result,
@@ -155,6 +155,7 @@ internal class InitialRelayRaceRunner(
         onState: (InitialTransportRaceSnapshot) -> Unit,
     ): PromotedRelayRuntime {
         val result = attempt.toResult().copy(verificationInconclusive = true)
+        promoteLiveCandidate(slot)
         onState(
             raceState(
                 state = RaceStateVerificationInconclusive,
@@ -163,12 +164,18 @@ internal class InitialRelayRaceRunner(
                 selectedCandidate = attempt.candidate,
             ),
         )
-        promoteCandidate(slot)
         return PromotedRelayRuntime(
             endpoint = requireNotNull(slot.endpoint),
             result = result,
             udpEnabled = slot.udpEnabled,
         )
+    }
+
+    private suspend fun promoteLiveCandidate(slot: RelayRuntimeSlot) {
+        if (!slot.job.isActive) {
+            throw InitialTransportSelectionException("Initial relay candidate exited before selection")
+        }
+        promoteCandidate(slot)
     }
 
     private suspend fun runCandidate(
@@ -229,7 +236,7 @@ internal class InitialRelayRaceRunner(
             } ?: false
         val provisional =
             candidates.firstNotNullOfOrNull { candidate ->
-                provisionalByProfile[candidate.profileId]
+                provisionalByProfile[candidate.profileId]?.takeIf { it.slot?.job?.isActive == true }
             }
         return RaceCompletion(winner = winner, provisional = provisional, completedBeforeDeadline = completed)
     }
