@@ -158,7 +158,13 @@ private fun torProfilePath(profileId: String): String {
     ) {
         return "tor/$profileId"
     }
-    val digest = MessageDigest.getInstance("SHA-256").digest(profileId.toByteArray(Charsets.UTF_8))
+    val hasher = MessageDigest.getInstance("SHA-256")
+    // Encode raw code units: UTF-8 replaces distinct unpaired surrogates with the same byte.
+    profileId.forEach { character ->
+        hasher.update((character.code ushr 8).toByte())
+        hasher.update(character.code.toByte())
+    }
+    val digest = hasher.digest()
     return "tor-profile-ids/" + digest.joinToString("") { "%02x".format(it) }
 }
 

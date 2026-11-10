@@ -16,7 +16,7 @@ class TorRuntimePathProviderTest {
     fun `profile directories stay distinct bounded and inside their root`() {
         val root = temporaryFolder.root
         val provider = LocalTorRuntimePathProvider(root)
-        val ids = listOf("work/home", "work_home", ".", "..", "", "тест", "a".repeat(400))
+        val ids = listOf("work/home", "work_home", ".", "..", "", "тест", "\uD800", "\uD801", "a".repeat(400))
         val paths = ids.map { provider.pathsFor(it) }
         assertEquals(ids.size, paths.map { File(it.stateDir).canonicalPath }.toSet().size)
         paths.forEach { path ->
