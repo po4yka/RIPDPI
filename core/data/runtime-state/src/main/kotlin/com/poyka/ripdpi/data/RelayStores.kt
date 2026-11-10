@@ -147,6 +147,8 @@ data class RelayCredentialRecord(
     val tuicUuid: String? = null,
     val tuicPassword: String? = null,
     val anyTlsPassword: String? = null,
+    /** AnyTLS server leaf-certificate SHA-256 pin (64 lowercase hex). Not a secret. */
+    val anyTlsPinSha256: String? = null,
     val shadowTlsPassword: String? = null,
     val trojanPassword: String? = null,
     val mieruUsername: String? = null,

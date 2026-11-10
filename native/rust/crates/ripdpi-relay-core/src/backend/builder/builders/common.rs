@@ -28,6 +28,16 @@ pub(crate) fn required_secret<'a>(value: Option<&'a str>, what: &str) -> io::Res
     }
 }
 
+/// Parse an optional AnyTLS leaf-certificate pin; a blank value means no pin.
+pub(crate) fn parse_pin(raw: Option<&str>, what: &str) -> io::Result<Option<[u8; 32]>> {
+    match raw.filter(|value| !value.is_empty()) {
+        None => Ok(None),
+        Some(value) => ripdpi_relay_tls_transports::parse_certificate_pin_sha256(value)
+            .map(Some)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("{what} certificate pin: {error}"))),
+    }
+}
+
 pub(crate) fn finalmask_config(config: &ResolvedRelayFinalmaskConfig) -> ripdpi_xhttp::FinalmaskConfig {
     ripdpi_xhttp::FinalmaskConfig {
         r#type: config.r#type.clone(),

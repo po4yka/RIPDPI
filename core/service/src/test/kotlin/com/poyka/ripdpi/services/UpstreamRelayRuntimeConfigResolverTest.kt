@@ -1202,6 +1202,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                                 RelayCredentialRecord(
                                     profileId = "anytls",
                                     anyTlsPassword = credentialFixture("anytls"),
+                                    anyTlsPinSha256 = "ef".repeat(32),
                                 ),
                             )
                         },
@@ -1229,6 +1230,17 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
             assertTrue(resolved.udpEnabled)
             assertEquals("front.example", resolved.serverName)
             assertEquals(credentialFixture("anytls"), resolved.anyTlsPassword)
+            assertEquals("ef".repeat(32), resolved.anyTlsPinSha256)
+            assertEquals(
+                "ef".repeat(32),
+                kotlinx.serialization.json.Json
+                    .encodeToJsonElement(
+                        com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+                            .serializer(),
+                        resolved,
+                    ).let { it as kotlinx.serialization.json.JsonObject }["anytlsCertificatePinSha256"]
+                    ?.let { (it as kotlinx.serialization.json.JsonPrimitive).content },
+            )
         }
 }
 

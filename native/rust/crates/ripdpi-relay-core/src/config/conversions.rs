@@ -146,6 +146,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
             "anytls" => RelayBackendConfig::AnyTls(AnyTlsRelayConfig {
                 password: flat.anytls_password,
                 root_certificate_pem: flat.anytls_root_certificate_pem,
+                certificate_pin_sha256: flat.anytls_certificate_pin_sha256,
             }),
             "shadowsocks" => RelayBackendConfig::Shadowsocks(ShadowsocksRelayConfig {
                 method: flat.shadowsocks_method,
@@ -226,6 +227,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             shadow_tls_inner_profile_id: String::new(),
             shadow_tls_inner: None,
             trojan_root_certificate_pem: None,
+            anytls_certificate_pin_sha256: None,
             anytls_root_certificate_pem: None,
             naive_path: String::new(),
             tor_state_dir: String::new(),
@@ -406,6 +408,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             RelayBackendConfig::AnyTls(config) => {
                 flat.anytls_password = config.password.clone();
                 flat.anytls_root_certificate_pem = config.root_certificate_pem.clone();
+                flat.anytls_certificate_pin_sha256 = config.certificate_pin_sha256.clone();
             }
             RelayBackendConfig::Shadowsocks(config) => {
                 flat.shadowsocks_method = config.method.clone();

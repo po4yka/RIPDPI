@@ -298,6 +298,13 @@ sealed interface ProxyProfile {
         val serverPort: Int,
         val serverName: String,
         val password: String,
+        /**
+         * Server leaf-certificate pin: SHA-256 of the certificate DER, 64 lowercase hex characters
+         * (see [normalizeHysteria2PinSha256]). With a pin the client accepts only that certificate
+         * and skips chain and host name checks, so a self-signed server (stock anytls-go) works.
+         * `null` keeps full verification. Not a secret.
+         */
+        val pinSha256: String? = null,
     ) : ProxyProfile {
         /** Masks the password so it never reaches a log or diagnostics surface. */
         override fun toString(): String =

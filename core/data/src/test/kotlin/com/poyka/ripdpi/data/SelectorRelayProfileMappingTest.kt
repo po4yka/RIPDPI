@@ -93,6 +93,24 @@ class SelectorRelayProfileMappingTest {
     }
 
     @Test
+    fun `anytls certificate pin reaches the relay credentials`() {
+        val pin = "ab".repeat(32)
+        val profile =
+            ProxyProfile.AnyTls(
+                id = "at",
+                displayName = "at",
+                groupId = "group-a",
+                server = "at.example",
+                serverPort = 443,
+                serverName = "at.example",
+                password = "at-fixture-pw",
+                pinSha256 = pin,
+            )
+
+        assertEquals(pin, checkNotNull(mapRelayProfile(profile)).credentials.anyTlsPinSha256)
+    }
+
+    @Test
     fun `stored imported Reality Vision profiles preserve UDP capability`() {
         listOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443).forEach { flow ->
             val imported = importedReality(flow)

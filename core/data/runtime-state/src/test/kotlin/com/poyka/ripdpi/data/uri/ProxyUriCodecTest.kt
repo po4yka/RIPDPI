@@ -455,6 +455,23 @@ class ProxyUriCodecTest {
         assertNull(ProxyUriCodec.parse("anytls://secret@a.example:443/?insecure=1#n"))
     }
 
+    @Test
+    fun `anytls insecure link needs a valid pin and a pinned profile round-trips`() {
+        val pin = "ab".repeat(32)
+        assertNull(ProxyUriCodec.parse("anytls://secret@a.example:443/?insecure=1&pinSHA256=zz#n"))
+        assertNull(ProxyUriCodec.parse("anytls://secret@a.example:443/?pinSHA256=zz#n"))
+
+        val parsed =
+            ProxyUriCodec.parse("anytls://secret@a.example:443/?insecure=1&pinSHA256=${pin.uppercase()}#n")
+                as ProxyProfile.AnyTls
+        assertEquals(pin, parsed.pinSha256)
+
+        val back = ProxyUriCodec.parse(ProxyUriCodec.encode(parsed)) as ProxyProfile.AnyTls
+        assertEquals(pin, back.pinSha256)
+        assertEquals(parsed.serverName, back.serverName)
+        assertNull((ProxyUriCodec.parse("anytls://secret@a.example:443/#n") as ProxyProfile.AnyTls).pinSha256)
+    }
+
     private companion object {
         val fragmentTestUris =
             listOf(

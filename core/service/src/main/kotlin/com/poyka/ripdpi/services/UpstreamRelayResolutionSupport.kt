@@ -446,6 +446,7 @@ private fun RelayProfileRecord.toResolvedChainRelayHopConfig(
         hysteriaPortHopIntervalMillis = hysteriaPortHopping?.intervalMillis,
         hysteriaPortHopIntervalMaxMillis = hysteriaPortHopping?.intervalMaxMillis,
         anyTlsPassword = credentials?.anyTlsPassword,
+        anytlsCertificatePinSha256 = credentials?.anyTlsPinSha256,
         tuicUuid = credentials?.tuicUuid,
         tuicPassword = credentials?.tuicPassword,
         shadowTlsPassword = credentials?.shadowTlsPassword,

@@ -17,6 +17,7 @@ fn config(password: &str) -> AnyTlsClientConfig {
             std::fs::read_to_string(std::env::var("RIPDPI_OUTBOUND_CERTIFICATE").expect("oracle certificate path"))
                 .expect("oracle certificate"),
         ),
+        certificate_pin_sha256: None,
         client_name: "ripdpi-outbound-interop".into(),
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         outbound_bind_ip: None,

@@ -198,7 +198,8 @@ object ProxyUriCodec {
     }
 
     private fun encodeAnyTls(profile: ProxyProfile.AnyTls): String {
-        val params = "?sni=${encodeQueryValue(profile.serverName)}"
+        val pin = profile.pinSha256?.let { "&insecure=1&pinSHA256=$it" }.orEmpty()
+        val params = "?sni=${encodeQueryValue(profile.serverName)}$pin"
         return "anytls://${encodeQueryValue(profile.password)}@${bracketIpv6(
             profile.server,
         )}:${profile.serverPort}$params#${encodeFragment(
@@ -540,10 +541,14 @@ object ProxyUriCodec {
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         // anytls-go uri_scheme.md: the port defaults to 443.
         val port = if (parsed.port == -1) DEFAULT_TLS_PORT else parsed.port.takeIf { it > 0 } ?: return null
-        // The AnyTLS client always verifies the server certificate and has no pin option, so a
-        // link that asks to skip verification would import a profile that can never connect.
+        // insecure=1 is safe only with a certificate pin: the client then accepts exactly that
+        // leaf certificate. Without a pin the link would import a profile that can never connect,
+        // and a malformed pin rejects the link instead of silently dropping the check.
         val insecure = queryValue(parsed.rawQuery, "insecure")
-        if (insecure == "1" || insecure.equals("true", ignoreCase = true)) return null
+        val skipsVerification = insecure == "1" || insecure.equals("true", ignoreCase = true)
+        val rawPin = queryValue(parsed.rawQuery, "pinSHA256", ignoreCase = true)?.takeIf { it.isNotBlank() }
+        val pinSha256 = rawPin?.let { normalizeHysteria2PinSha256(it) ?: return null }
+        if (skipsVerification && pinSha256 == null) return null
         // RIPDPI's AnyTLS client has no server-side TLS-fallback support (upstream
         // anytls-go fallback is a server-only knob). Reject a node that advertises
         // a fallback target explicitly rather than silently importing a profile that
@@ -562,6 +567,7 @@ object ProxyUriCodec {
             serverPort = port,
             serverName = queryValue(parsed.rawQuery, "sni") ?: queryValue(parsed.rawQuery, "serverName") ?: host,
             password = password,
+            pinSha256 = pinSha256,
         )
     }
 

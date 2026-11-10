@@ -4,6 +4,7 @@
 
 pub mod frame;
 pub mod padding;
+pub mod pin;
 pub mod session;
 
 pub use padding::DEFAULT_PADDING_SCHEME;

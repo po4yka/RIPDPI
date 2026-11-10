@@ -178,6 +178,7 @@ object RelayProfileShareMapper {
                         serverPort = serverPort,
                         serverName = serverName.ifBlank { server },
                         password = password,
+                        pinSha256 = credentials.anyTlsPinSha256,
                     ).takeIf { server.isNotBlank() && serverPort > 0 }
             }
         }

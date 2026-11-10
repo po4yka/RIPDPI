@@ -107,6 +107,9 @@ data class ResolvedChainRelayHopConfig(
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
     val anytlsRootCertificatePem: String? = null,
+    /** AnyTLS leaf-certificate SHA-256 pin, 64 lowercase hex characters; `null` = no pin. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val anytlsCertificatePinSha256: String? = null,
     val naivePath: String = "",
     val vlessUuid: String? = null,
     val hysteriaPassword: String? = null,
@@ -258,6 +261,9 @@ data class ResolvedRipDpiRelayConfig(
     val hysteriaPinSha256: String? = null,
     @SerialName("anytlsPassword")
     val anyTlsPassword: String? = null,
+    @SerialName("anytlsCertificatePinSha256")
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val anyTlsPinSha256: String? = null,
     val tuicUuid: String? = null,
     val tuicPassword: String? = null,
     val shadowTlsPassword: String? = null,
@@ -519,6 +525,7 @@ private fun ResolvedRipDpiRelayConfig.sshSection(): RelaySshSection =
 private fun ResolvedRipDpiRelayConfig.anyTlsSection(): RelayAnyTlsSection =
     RelayAnyTlsSection(
         anyTlsPassword = anyTlsPassword,
+        anyTlsPinSha256 = anyTlsPinSha256,
     )
 
 private fun ResolvedRipDpiRelayConfig.pluggableTransportSection(): RelayPluggableTransportSection =
@@ -737,7 +744,6 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         vlessUuid = vless.vlessUuid,
         chainEntryUuid = chain.entryHop.uuid,
         chainExitUuid = chain.exitHop.uuid,
-        anyTlsPassword = anyTls.anyTlsPassword,
         tuicUuid = tuic.tuicUuid,
         tuicPassword = tuic.tuicPassword,
         shadowTlsPassword = shadowTls.shadowTlsPassword,
@@ -761,7 +767,14 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         cloudflareTunnelToken = cloudflare.cloudflareTunnelToken,
         cloudflareTunnelCredentialsJson = cloudflare.cloudflareTunnelCredentialsJson,
         finalmask = finalmask,
-    ).withHysteria2(hysteria2).withXhttp(vless).withAppsScript(appsScript)
+    ).withHysteria2(hysteria2).withXhttp(vless).withAppsScript(appsScript).withAnyTls(anyTls)
+
+/** Copy the AnyTLS credentials and optional certificate pin as one unit. */
+private fun ResolvedRipDpiRelayConfig.withAnyTls(section: RelayAnyTlsSection): ResolvedRipDpiRelayConfig =
+    copy(
+        anyTlsPassword = section.anyTlsPassword,
+        anyTlsPinSha256 = section.anyTlsPinSha256,
+    )
 
 /** Copy Apps Script configuration as one section, including its runtime-owned directory. */
 private fun ResolvedRipDpiRelayConfig.withAppsScript(section: RelayAppsScriptSection): ResolvedRipDpiRelayConfig =

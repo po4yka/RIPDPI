@@ -495,6 +495,7 @@ private class ResolvedRelayConfigBuilder(
     private fun anyTlsSection(): RelayAnyTlsSection =
         RelayAnyTlsSection(
             anyTlsPassword = credentials?.anyTlsPassword,
+            anyTlsPinSha256 = credentials?.anyTlsPinSha256,
         )
 
     private fun pluggableTransportSection(): RelayPluggableTransportSection =

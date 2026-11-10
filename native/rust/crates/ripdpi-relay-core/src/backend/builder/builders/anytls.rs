@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::required_secret;
+use crate::backend::builder::builders::common::{parse_pin, required_secret};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::AnyTlsSessionFactory;
@@ -13,6 +13,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     let server_port = u16::try_from(config.common.server_port)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "AnyTLS server port must fit u16"))?;
     let password = required_secret(anytls.password.as_deref(), "AnyTLS password")?.to_string();
+    let certificate_pin_sha256 = parse_pin(anytls.certificate_pin_sha256.as_deref(), "AnyTLS")?;
     Ok(RelayBackend::AnyTls(PooledRelayBackend::new(
         AnyTlsSessionFactory::new(ripdpi_relay_tls_transports::AnyTlsClientConfig {
             server_host: config.common.server.clone(),
@@ -21,6 +22,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
             password,
             tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
             root_certificate_pem: anytls.root_certificate_pem.clone(),
+            certificate_pin_sha256,
             client_name: "ripdpi-anytls/0.1.0".to_string(),
             socket_protection: context.socket_protection,
             outbound_bind_ip: context.outbound_bind_ip,
@@ -57,7 +59,11 @@ mod tests {
                 tls_fingerprint_profile: "chrome_stable".to_string(),
                 finalmask: ResolvedRelayFinalmaskConfig::default(),
             },
-            backend: RelayBackendConfig::AnyTls(AnyTlsRelayConfig { password, root_certificate_pem: None }),
+            backend: RelayBackendConfig::AnyTls(AnyTlsRelayConfig {
+                password,
+                root_certificate_pem: None,
+                certificate_pin_sha256: None,
+            }),
         }
     }
 
@@ -88,5 +94,19 @@ mod tests {
         };
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
         assert!(error.to_string().contains("AnyTLS password is required"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn build_rejects_a_malformed_certificate_pin_and_accepts_a_valid_one() {
+        let mut config = anytls_config(Some("pw".to_string()));
+        let RelayBackendConfig::AnyTls(anytls) = &mut config.backend else { unreachable!() };
+        anytls.certificate_pin_sha256 = Some("not-a-pin".to_string());
+        let Err(error) = build(&config, &build_context()) else { panic!("a malformed pin must be rejected") };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(error.to_string().contains("certificate pin"), "unexpected error: {error}");
+
+        let RelayBackendConfig::AnyTls(anytls) = &mut config.backend else { unreachable!() };
+        anytls.certificate_pin_sha256 = Some("ab".repeat(32));
+        assert!(build(&config, &build_context()).is_ok());
     }
 }

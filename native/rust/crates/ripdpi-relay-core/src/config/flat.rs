@@ -226,6 +226,9 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub trojan_root_certificate_pem: Option<String>,
     #[serde(default)]
     pub anytls_root_certificate_pem: Option<String>,
+    /// AnyTLS leaf-certificate SHA-256 pin (64 lowercase hex); replaces chain and host name checks.
+    #[serde(default)]
+    pub anytls_certificate_pin_sha256: Option<String>,
     #[serde(default)]
     pub naive_path: String,
     #[serde(default)]
@@ -661,7 +664,11 @@ mod tests {
 
     #[test]
     fn public_config_debug_redacts_credentials() {
-        assert_debug_redacts(&AnyTlsRelayConfig { password: Some(secret()), root_certificate_pem: Some(secret()) });
+        assert_debug_redacts(&AnyTlsRelayConfig {
+            password: Some(secret()),
+            root_certificate_pem: Some(secret()),
+            certificate_pin_sha256: None,
+        });
         assert_debug_redacts(&Hysteria2RelayConfig {
             password: Some(secret()),
             salamander_key: Some(secret()),
@@ -782,6 +789,7 @@ mod tests {
             tuic_alpn: Vec::new(),
             trojan_root_certificate_pem: Some(secret()),
             anytls_root_certificate_pem: Some(secret()),
+            anytls_certificate_pin_sha256: None,
             naive_path: secret(),
             vless_uuid: Some(secret()),
             hysteria_password: Some(secret()),

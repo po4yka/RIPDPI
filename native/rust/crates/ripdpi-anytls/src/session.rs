@@ -156,6 +156,8 @@ pub struct AnyTlsClientConfig {
     pub password: String,
     pub tls_fingerprint_profile: String,
     pub root_certificate_pem: Option<String>,
+    /// Leaf-certificate pin; when set it replaces chain and host name verification.
+    pub certificate_pin_sha256: Option<crate::pin::CertificatePinSha256>,
     pub client_name: String,
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     /// Local address the carrier socket is bound to before connect (interface
@@ -177,6 +179,7 @@ impl std::fmt::Debug for AnyTlsClientConfig {
             .field("password", &"<redacted>")
             .field("tls_fingerprint_profile", &self.tls_fingerprint_profile)
             .field("root_certificate_pem", &self.root_certificate_pem.as_ref().map(|_| "<redacted>"))
+            .field("certificate_pin_sha256", &self.certificate_pin_sha256.map(|_| "<set>"))
             .field("client_name", &self.client_name)
             .field("socket_protection", &self.socket_protection)
             .field("outbound_bind_ip", &self.outbound_bind_ip)
@@ -954,6 +957,8 @@ where
         let cert = X509::from_pem(root_pem.as_bytes()).map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
         builder.cert_store_mut().add_cert(cert).map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
     }
+
+    crate::pin::require_pin(&mut builder, config.certificate_pin_sha256);
 
     let connector = builder.build();
     let ssl = connector.configure().map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;

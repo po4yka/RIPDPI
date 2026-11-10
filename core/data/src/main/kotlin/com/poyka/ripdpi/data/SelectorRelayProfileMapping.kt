@@ -188,7 +188,12 @@ private fun relayCredentials(
         }
 
         is ProxyProfile.AnyTls -> {
-            RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, anyTlsPassword = profile.password)
+            RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
+                profileId = profileId,
+                anyTlsPassword = profile.password,
+                anyTlsPinSha256 = profile.pinSha256,
+            )
         }
 
         is ProxyProfile.VlessReality -> {

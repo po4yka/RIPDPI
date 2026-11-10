@@ -3,7 +3,7 @@ use std::io;
 use std::net::IpAddr;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::{required_secret, salamander_key, vless_reality_config};
+use crate::backend::builder::builders::common::{parse_pin, required_secret, salamander_key, vless_reality_config};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{ChainRelayConfig, RelayBackendConfig, ResolvedChainRelayHopConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{ChainHopConnector, ChainRelaySessionFactory};
@@ -271,6 +271,10 @@ fn resolved_hop_anytls_config(
         password,
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
         root_certificate_pem: hop.anytls_root_certificate_pem.clone(),
+        certificate_pin_sha256: parse_pin(
+            hop.anytls_certificate_pin_sha256.as_deref(),
+            &format!("chain {label}: AnyTLS"),
+        )?,
         client_name: "ripdpi-anytls/0.1.0".to_string(),
         socket_protection,
         outbound_bind_ip,

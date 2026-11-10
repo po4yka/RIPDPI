@@ -15,6 +15,7 @@ fn client_config(fixture: &AnyTlsLoopback, password: &str) -> AnyTlsClientConfig
         password: password.to_owned(),
         tls_fingerprint_profile: "chrome".to_owned(),
         root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+        certificate_pin_sha256: None,
         client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         outbound_bind_ip: None,
@@ -530,6 +531,7 @@ async fn abandoned_tls_handshake_is_released(explicit_close: bool) {
         password: "loopback-test-password".into(),
         tls_fingerprint_profile: "chrome".into(),
         root_certificate_pem: None,
+        certificate_pin_sha256: None,
         client_name: "outbound-test".into(),
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         outbound_bind_ip: None,
@@ -814,4 +816,44 @@ async fn an_http_fallback_answer_is_an_authentication_failure() {
         .expect_err("HTTP is not AnyTLS");
     assert!(matches!(error, AnyTlsError::AuthenticationRejected), "unexpected error: {error}");
     assert!(started.elapsed() < Duration::from_millis(1500), "took {:?}", started.elapsed());
+}
+
+fn leaf_pin(fixture: &AnyTlsLoopback) -> [u8; 32] {
+    let der = boring::x509::X509::from_pem(fixture.certificate_pem().as_bytes())
+        .expect("fixture certificate")
+        .to_der()
+        .expect("certificate der");
+    Sha256::digest(&der).into()
+}
+
+fn pin_only_config(fixture: &AnyTlsLoopback, pin: Option<[u8; 32]>) -> AnyTlsClientConfig {
+    AnyTlsClientConfig { root_certificate_pem: None, certificate_pin_sha256: pin, ..client_config(fixture, "pw") }
+}
+
+#[tokio::test]
+async fn certificate_pin_accepts_self_signed_server_without_a_root() {
+    let fixture = AnyTlsLoopback::start("pw", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(pin_only_config(&fixture, Some(leaf_pin(&fixture)))).expect("client");
+    let mut stream =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("pinned open");
+    stream.write_all(b"pinned").await.expect("write");
+    assert_eq!(stream.read_exact_len(6).await.expect("read"), b"pinned");
+}
+
+#[tokio::test]
+async fn certificate_pin_mismatch_rejects_the_handshake() {
+    let fixture = AnyTlsLoopback::start("pw", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let mut wrong = leaf_pin(&fixture);
+    wrong[0] ^= 0xff;
+    let client = AnyTlsClient::new(pin_only_config(&fixture, Some(wrong))).expect("client");
+    let result = client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await;
+    assert!(matches!(result, Err(AnyTlsError::TlsHandshake(_))), "wrong pin must fail the handshake");
+}
+
+#[tokio::test]
+async fn self_signed_server_without_pin_or_root_is_rejected() {
+    let fixture = AnyTlsLoopback::start("pw", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(pin_only_config(&fixture, None)).expect("client");
+    let result = client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await;
+    assert!(matches!(result, Err(AnyTlsError::TlsHandshake(_))), "unpinned self-signed server must be rejected");
 }

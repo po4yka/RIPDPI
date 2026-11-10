@@ -13,7 +13,7 @@ mod util;
 
 pub use anytls::{
     AnyTlsChainHop, AnyTlsClientConfig, AnyTlsSession, AnyTlsSessionFactory, AnyTlsUdpSession, anytls_proxy_target,
-    connect_anytls_tcp, connect_anytls_tcp_over,
+    connect_anytls_tcp, connect_anytls_tcp_over, parse_certificate_pin_sha256,
 };
 pub use mieru::{MieruConfig, MieruMux, MieruProtocol, MieruSession, MieruSessionFactory};
 /// Shared explicit policy re-exported through the relay transport facade so

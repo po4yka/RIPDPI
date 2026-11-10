@@ -152,6 +152,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
         "anytls" => RelayBackendConfig::AnyTls(AnyTlsRelayConfig {
             password: Some("secret".to_string()),
             root_certificate_pem: None,
+            certificate_pin_sha256: None,
         }),
         "shadowsocks" => RelayBackendConfig::Shadowsocks(ShadowsocksRelayConfig {
             method: "aes-256-gcm".to_string(),

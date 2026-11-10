@@ -186,6 +186,7 @@ data class RelaySshSection(
 /** AnyTLS credential. */
 data class RelayAnyTlsSection(
     val anyTlsPassword: String?,
+    val anyTlsPinSha256: String? = null,
 )
 
 /** Subprocess relay fields: NaiveProxy plus obfs4 / WebTunnel / Snowflake. */

@@ -505,6 +505,7 @@ mod tests {
             password: password.to_owned(),
             tls_fingerprint_profile: "chrome".to_owned(),
             root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+            certificate_pin_sha256: None,
             client_name: "ripdpi-chain-test/0.1.0".to_owned(),
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             outbound_bind_ip: None,

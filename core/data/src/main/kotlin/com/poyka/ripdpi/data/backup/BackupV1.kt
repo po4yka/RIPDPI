@@ -246,6 +246,9 @@ object BackupAllowlist {
                 "serverPort" to Classification.PUBLIC,
                 "serverName" to Classification.PUBLIC,
                 "password" to Classification.REDACTED,
+                // Leaf certificate pin: public, and SHARE must keep it, because an
+                // exported insecure profile cannot connect without its pin.
+                "pinSha256" to Classification.PUBLIC,
             )
 
     private val mieruFields: Map<String, Classification> =

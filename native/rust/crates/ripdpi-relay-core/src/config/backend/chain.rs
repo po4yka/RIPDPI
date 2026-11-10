@@ -186,6 +186,8 @@ pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
     pub anytls_root_certificate_pem: Option<String>,
     #[serde(default)]
+    pub anytls_certificate_pin_sha256: Option<String>,
+    #[serde(default)]
     pub naive_path: String,
     #[serde(default)]
     pub vless_uuid: Option<String>,
@@ -300,6 +302,7 @@ impl Default for ResolvedChainRelayHopConfig {
             tuic_alpn: Vec::new(),
             trojan_root_certificate_pem: None,
             anytls_root_certificate_pem: None,
+            anytls_certificate_pin_sha256: None,
             naive_path: String::new(),
             vless_uuid: None,
             hysteria_password: None,

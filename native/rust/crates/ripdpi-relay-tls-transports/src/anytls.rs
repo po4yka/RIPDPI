@@ -9,6 +9,7 @@ use crate::session_registry::{OwnedSession, Registered, SessionRegistry};
 
 use crate::util::to_io_error;
 
+pub use ripdpi_anytls::pin::parse_certificate_pin_sha256;
 pub use ripdpi_anytls::session::AnyTlsClientConfig;
 
 #[derive(Clone)]
