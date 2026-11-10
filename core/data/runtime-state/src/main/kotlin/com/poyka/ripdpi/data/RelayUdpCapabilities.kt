@@ -47,8 +47,4 @@ fun relayProfileSupportsUdpAssociation(
     shadowsocksMethod: String?,
 ): Boolean =
     relayProfileSupportsUdpAssociation(kindId, udpEnabled, vlessTransport, vlessFlow) &&
-        (
-            kindId != RelayKindShadowsocks ||
-                shadowsocksMethod?.trim()?.lowercase() in
-                setOf("2022-blake3-aes-128-gcm", "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305")
-        )
+        (kindId != RelayKindShadowsocks || isShadowsocks2022Method(shadowsocksMethod))

@@ -5,6 +5,11 @@ import java.util.Base64
 /** The native relay accepts six AEAD methods and no stream ciphers. */
 fun isSupportedShadowsocksMethod(method: String): Boolean = shadowsocksKeyBytes(method.trim().lowercase()) != null
 
+/** Only SS2022 methods carry UDP; legacy AEAD methods are TCP-only. */
+fun isShadowsocks2022Method(method: String?): Boolean =
+    method?.trim()?.lowercase()?.startsWith("2022-blake3-") == true &&
+        isSupportedShadowsocksMethod(method)
+
 /** Match the native key parser before saving or activating a relay. */
 fun isValidShadowsocksCredentials(
     method: String?,
