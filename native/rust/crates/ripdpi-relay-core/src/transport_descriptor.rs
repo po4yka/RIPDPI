@@ -151,7 +151,8 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
             // The native Mieru session factory supports TCP only.
             // Keep UDP disabled until its relay path is implemented and tested.
             udp: false,
-            reusable: false,
+            // The default multiplexing level (`middle`) reuses one carrier; `off` does not.
+            reusable: true,
             supports_outbound_bind_ip: false,
         },
         builder: Some(builders::build_mieru),

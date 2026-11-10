@@ -486,7 +486,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("tuic_v5", true, false, true, true),
         ("vless", true, false, true, true),
         ("vless_reality", true, false, false, true),
-        ("mieru", true, false, false, false),
+        ("mieru", true, false, true, false),
         ("ssh", true, false, false, false),
         ("cloudflare_tunnel", true, false, true, true),
         ("chain_relay", true, false, false, true),
