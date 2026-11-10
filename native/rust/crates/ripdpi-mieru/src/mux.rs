@@ -60,9 +60,32 @@ const STREAM_STALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 type DemuxTable = Arc<StdMutex<HashMap<u32, Mailbox>>>;
 
+/// Last-progress clock of one sub-session's consumer.
+struct Progress(StdMutex<tokio::time::Instant>);
+
+impl Default for Progress {
+    fn default() -> Self {
+        Self(StdMutex::new(tokio::time::Instant::now()))
+    }
+}
+
+impl Progress {
+    fn touch(&self) {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner) = tokio::time::Instant::now();
+    }
+
+    fn last(&self) -> tokio::time::Instant {
+        *self.0.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
 /// One sub-session's route in the demux table.
 struct Mailbox {
     tx: mpsc::Sender<Vec<u8>>,
+    /// When the consumer last took a chunk, or the mailbox last went from empty
+    /// to holding data. The carrier reader closes a stream only when this is
+    /// older than the stall limit.
+    progress: Arc<Progress>,
     /// Set when the server closed the session, before the route is removed,
     /// so the reader can tell a clean close from a dropped route.
     closed_by_server: Arc<AtomicBool>,
@@ -258,6 +281,7 @@ fn next(seq: &mut u32) -> u32 {
 /// fed by the carrier reader task, with a leftover buffer for partial reads.
 struct MuxReader {
     rx: mpsc::Receiver<Vec<u8>>,
+    progress: Arc<Progress>,
     closed_by_server: Arc<AtomicBool>,
     leftover: Vec<u8>,
     pos: usize,
@@ -289,8 +313,8 @@ impl Drop for SessionRegistration {
 }
 
 impl MuxReader {
-    fn new(rx: mpsc::Receiver<Vec<u8>>, closed_by_server: Arc<AtomicBool>) -> Self {
-        Self { rx, closed_by_server, leftover: Vec::new(), pos: 0 }
+    fn new(rx: mpsc::Receiver<Vec<u8>>, progress: Arc<Progress>, closed_by_server: Arc<AtomicBool>) -> Self {
+        Self { rx, progress, closed_by_server, leftover: Vec::new(), pos: 0 }
     }
 
     /// Whether a closed mailbox was closed by the server's close segment.
@@ -305,6 +329,7 @@ impl MuxReader {
         while self.pos >= self.leftover.len() {
             match self.rx.recv().await {
                 Some(chunk) => {
+                    self.progress.touch();
                     self.leftover = chunk;
                     self.pos = 0;
                 }
@@ -455,9 +480,14 @@ impl MieruMuxConnection {
 
         let (tx, rx) = mpsc::channel::<Vec<u8>>(MAILBOX_DEPTH);
         let closed_by_server = Arc::new(AtomicBool::new(false));
-        let session_id = self.register_session(Mailbox { tx, closed_by_server: Arc::clone(&closed_by_server) })?;
+        let progress = Arc::new(Progress::default());
+        let session_id = self.register_session(Mailbox {
+            tx,
+            progress: Arc::clone(&progress),
+            closed_by_server: Arc::clone(&closed_by_server),
+        })?;
         let registration = SessionRegistration::new(Arc::clone(&self.table), self.writer.clone(), session_id, permit);
-        let mut reader = MuxReader::new(rx, closed_by_server);
+        let mut reader = MuxReader::new(rx, progress, closed_by_server);
 
         // Open-session handshake + in-tunnel SOCKS5 connect, time-bounded so a
         // wedged or half-broken carrier cannot hang the caller indefinitely.
@@ -633,8 +663,6 @@ async fn run_reader(
     stall: ReaderLink,
 ) {
     let mut calibrated = false;
-    // Time each stream with a backed-up mailbox has held the carrier back.
-    let mut blocked = HashMap::<u32, Duration>::new();
     loop {
         let Ok((meta, payload)) = dec.read_segment(&mut reader).await else { break };
         // Upstream rejects metadata whose minute is off by more than one; this
@@ -667,32 +695,38 @@ async fn run_reader(
                 if data.is_empty() {
                     continue;
                 }
-                let sender = {
+                let route = {
                     table
                         .lock()
                         .unwrap_or_else(PoisonError::into_inner)
                         .get(&session_id)
-                        .map(|mailbox| mailbox.tx.clone())
+                        .map(|mailbox| (mailbox.tx.clone(), Arc::clone(&mailbox.progress)))
                 };
-                if let Some(sender) = sender {
-                    // A caught-up consumer (empty mailbox) starts a fresh budget.
+                if let Some((sender, progress)) = route {
+                    // An empty mailbox means the consumer owes nothing yet, so the
+                    // stall clock starts when data arrives.
                     if sender.capacity() == sender.max_capacity() {
-                        blocked.remove(&session_id);
+                        progress.touch();
                     }
                     // A full mailbox delays the carrier (TCP back-pressure on the
-                    // server), as upstream does, so no byte is lost. The time a
-                    // stream holds the carrier back adds up across segments until
-                    // its consumer catches up, so a consumer that reads one
-                    // segment per almost-timeout still loses its stream and no
-                    // other stream waits longer than `stall.timeout` in total.
-                    let spent = blocked.get(&session_id).copied().unwrap_or_default();
-                    let started = tokio::time::Instant::now();
-                    let delivered = sender.send_timeout(data, stall.timeout.saturating_sub(spent)).await.is_ok();
-                    if started.elapsed() > Duration::ZERO {
-                        blocked.insert(session_id, spent + started.elapsed());
-                    }
+                    // server), as upstream does, so no byte is lost. A stream is
+                    // closed only when its consumer took nothing for
+                    // `stall.timeout`; a consumer that keeps reading, however
+                    // slowly, keeps its stream.
+                    let delivered = loop {
+                        let deadline = progress.last() + stall.timeout;
+                        match tokio::time::timeout_at(deadline, sender.reserve()).await {
+                            Ok(Ok(permit)) => {
+                                permit.send(data);
+                                break true;
+                            }
+                            // The consumer is gone; its registration cleans up.
+                            Ok(Err(_closed)) => break true,
+                            Err(_elapsed) if progress.last() + stall.timeout > tokio::time::Instant::now() => {}
+                            Err(_elapsed) => break false,
+                        }
+                    };
                     if !delivered {
-                        blocked.remove(&session_id);
                         deregister(&table, session_id);
                         stall.close_session(session_id);
                     }
@@ -1024,8 +1058,8 @@ mod tests {
         let fast_id = 22;
         {
             let mut guard = table.lock().expect("demux table");
-            guard.insert(slow_id, Mailbox { tx: slow_tx, closed_by_server: Arc::default() });
-            guard.insert(fast_id, Mailbox { tx: fast_tx, closed_by_server: Arc::default() });
+            guard.insert(slow_id, Mailbox { tx: slow_tx, progress: Arc::default(), closed_by_server: Arc::default() });
+            guard.insert(fast_id, Mailbox { tx: fast_tx, progress: Arc::default(), closed_by_server: Arc::default() });
         }
         let reader = tokio::spawn(run_reader(
             Decryptor::new(key),
@@ -1599,10 +1633,10 @@ mod tests {
         );
     }
 
-    /// A consumer that reads one segment per almost-timeout must not hold the
-    /// carrier back for longer than the stall limit in total.
+    /// A consumer whose gaps between reads exceed the stall limit loses its
+    /// stream, and other streams resume.
     #[tokio::test]
-    async fn slow_trickle_consumer_is_closed_within_the_total_stall_limit() {
+    async fn consumer_with_gaps_over_the_stall_limit_is_closed() {
         let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
         let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
@@ -1612,8 +1646,8 @@ mod tests {
         let (slow_id, fast_id) = (11, 22);
         {
             let mut guard = table.lock().expect("demux table");
-            guard.insert(slow_id, Mailbox { tx: slow_tx, closed_by_server: Arc::default() });
-            guard.insert(fast_id, Mailbox { tx: fast_tx, closed_by_server: Arc::default() });
+            guard.insert(slow_id, Mailbox { tx: slow_tx, progress: Arc::default(), closed_by_server: Arc::default() });
+            guard.insert(fast_id, Mailbox { tx: fast_tx, progress: Arc::default(), closed_by_server: Arc::default() });
         }
         let reader = tokio::spawn(run_reader(
             Decryptor::new(key),
@@ -1624,10 +1658,12 @@ mod tests {
             Arc::new(Semaphore::new(1)),
             ReaderLink { timeout: Duration::from_millis(250), closer, authenticated: Arc::default() },
         ));
-        // One segment every 80 ms: each wait is far below the limit.
+        // One segment per 400 ms: every gap is longer than the 250 ms limit.
+        let progress = Arc::clone(&table.lock().expect("demux table").get(&slow_id).expect("slow route").progress);
         let trickle = tokio::spawn(async move {
             while slow_rx.recv().await.is_some() {
-                tokio::time::sleep(Duration::from_millis(80)).await;
+                progress.touch();
+                tokio::time::sleep(Duration::from_millis(400)).await;
             }
         });
         let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
@@ -1639,7 +1675,7 @@ mod tests {
 
         let fast = timeout(Duration::from_secs(1), fast_rx.recv())
             .await
-            .expect("other streams wait at most the stall limit in total")
+            .expect("other streams resume once the stalled consumer is closed")
             .expect("fast mailbox remains open");
         assert_eq!(fast, b"fast");
         assert!(!table.lock().expect("demux table").contains_key(&slow_id));
@@ -1662,5 +1698,51 @@ mod tests {
                 "{target}: got {result:?}"
             );
         }
+    }
+
+    /// A consumer that keeps reading slower than the server sends, so its
+    /// mailbox stays non-empty for longer than the stall limit, loses nothing.
+    #[tokio::test]
+    async fn steadily_reading_consumer_keeps_its_stream_under_back_pressure() {
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
+        let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
+        let (tx, mut rx) = mpsc::channel(MAILBOX_DEPTH);
+        let progress = Arc::new(Progress::default());
+        let (closer, _closed) = mpsc::channel(8);
+        let id = 7;
+        table
+            .lock()
+            .expect("demux table")
+            .insert(id, Mailbox { tx, progress: Arc::clone(&progress), closed_by_server: Arc::default() });
+        let reader = tokio::spawn(run_reader(
+            Decryptor::new(key),
+            Box::new(reader_side),
+            Arc::clone(&table),
+            Arc::new(NetworkTimeProvider::fixed(NOW)),
+            ripdpi_network_time::TimeSource::new("mieru", "fixture", 1, 30),
+            Arc::new(Semaphore::new(1)),
+            ReaderLink { timeout: Duration::from_millis(100), closer, authenticated: Arc::default() },
+        ));
+        let total = MAILBOX_DEPTH + 300;
+        let consumer = tokio::spawn(async move {
+            let mut got = 0;
+            while got < total {
+                rx.recv().await.expect("no segment may be dropped");
+                progress.touch();
+                got += 1;
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            got
+        });
+        let mut enc = Encryptor::new(key, USERNAME.as_bytes().to_vec());
+        let mut seqs = HashMap::new();
+        for _ in 0..total {
+            server_send(&mut enc, &mut writer_side, &mut seqs, id, b"data").await.expect("segment");
+        }
+        let got = timeout(Duration::from_secs(10), consumer).await.expect("consumer finishes").expect("consumer task");
+        assert_eq!(got, total, "every segment must arrive although the mailbox stayed full for over 1 s");
+        drop(writer_side);
+        reader.await.expect("reader task");
     }
 }
