@@ -98,7 +98,7 @@ class ProxyUriCodecTest {
     @Test
     fun `parses standard mieru uri into a mieru profile`() {
         val uri =
-            "mieru://mieru-user:mieru-pass-fixture@m.example.com:2096?protocol=udp&mux=high&mtu=1380#Mieru"
+            "mieru://mieru-user:mieru-pass-fixture@m.example.com:2096?protocol=tcp&mux=high&mtu=1380#Mieru"
 
         val profile = ProxyUriCodec.parse(uri)
 
@@ -108,7 +108,7 @@ class ProxyUriCodecTest {
         assertEquals(2096, profile.serverPort)
         assertEquals("mieru-user", profile.username)
         assertEquals("mieru-pass-fixture", profile.password)
-        assertEquals("udp", profile.protocol)
+        assertEquals("tcp", profile.protocol)
         assertEquals("high", profile.multiplexing)
         assertEquals(1380, profile.mtu)
     }
@@ -205,6 +205,50 @@ class ProxyUriCodecTest {
         assertNull(ProxyUriCodec.parse("mieru://$tooLong:p@h.example:443"))
         // 33 two-byte characters are 66 bytes.
         assertNull(ProxyUriCodec.parse("mierus://${"\u00e9".repeat(33)}:p@h.example?port=1&protocol=TCP"))
+    }
+
+    @Test
+    fun `mieru links accept lowercase multiplexing tokens and reject legacy UDP`() {
+        val low = ProxyUriCodec.parse("mierus://u:p@h.example?port=1&protocol=tcp&multiplexing=multiplexing_low")
+        assertEquals("low", (low as ProxyProfile.Mieru).multiplexing)
+        assertNull(ProxyUriCodec.parse("mieru://u:p@h.example:443?protocol=udp"))
+    }
+
+    @Test
+    fun `standard mieru link uses the profile name and the first server with a TCP binding`() {
+        fun varint(value: Int): ByteArray = byteArrayOf(value.toByte())
+
+        fun len(
+            field: Int,
+            payload: ByteArray,
+        ): ByteArray = byteArrayOf(((field shl 3) or 2).toByte()) + varint(payload.size) + payload
+
+        fun text(
+            field: Int,
+            value: String,
+        ): ByteArray = len(field, value.toByteArray())
+
+        fun binding(
+            port: Int,
+            protocol: Int,
+        ): ByteArray = len(3, byteArrayOf(0x08, port.toByte(), 0x10, protocol.toByte()))
+
+        val udpOnly = len(3, text(2, "udp.example") + binding(53, 1))
+        val tcp = len(3, text(1, "9.9.9.9") + binding(80, 2))
+        val user = len(2, text(1, "u") + text(2, "p"))
+        val profile = len(1, text(1, "Work") + user + udpOnly + tcp)
+        val config = profile + text(2, "Work")
+        val uri =
+            "mieru://" +
+                java.util.Base64
+                    .getEncoder()
+                    .encodeToString(config)
+
+        val parsed = ProxyUriCodec.parse(uri) as ProxyProfile.Mieru
+
+        assertEquals("Work", parsed.displayName)
+        assertEquals("9.9.9.9", parsed.server)
+        assertEquals(80, parsed.serverPort)
     }
 
     @Test

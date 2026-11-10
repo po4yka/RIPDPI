@@ -9,7 +9,6 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingLow
 import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
 import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
-import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import java.net.URI
 import java.net.URLEncoder
@@ -121,12 +120,8 @@ internal object MieruUriCodec {
         val host = parsed.host?.takeIf { it.isNotBlank() }?.removeSurrounding("[", "]") ?: return null
         val port = parsed.port.takeIf { it in 1..MaxPort } ?: return null
         val query = queryPairs(parsed.rawQuery) ?: return null
-        val protocol =
-            when (query.firstValue("protocol")?.lowercase()) {
-                null, RelayMieruProtocolTcp -> RelayMieruProtocolTcp
-                RelayMieruProtocolUdp -> RelayMieruProtocolUdp
-                else -> return null
-            }
+        // RIPDPI's Mieru is TCP-only; a UDP or unknown protocol is not importable.
+        if (query.firstValue("protocol")?.lowercase().let { it != null && it != RelayMieruProtocolTcp }) return null
         val multiplexing =
             when (val value = query.firstValue("mux")?.lowercase()) {
                 null -> RelayMieruMultiplexingMiddle
@@ -141,7 +136,7 @@ internal object MieruUriCodec {
             }
         val mtu = mtu(query.firstValue("mtu")) ?: return null
         val name = parsed.rawFragment?.let(::decode)?.takeIf { it.isNotBlank() } ?: host
-        return profile(name, host, port, username, password, protocol, multiplexing, mtu)
+        return profile(name, host, port, username, password, RelayMieruProtocolTcp, multiplexing, mtu)
     }
 
     @Suppress("ReturnCount", "CyclomaticComplexMethod", "LongMethod")
@@ -171,23 +166,12 @@ internal object MieruUriCodec {
         val user = selected.firstOrNull { it.number == FieldProfileUser }?.bytes?.let(::readFields) ?: return null
         val username = user.text(FieldUserName)?.takeIf(::isValidRelayMieruUsername) ?: return null
         val password = user.text(FieldUserPassword)?.takeIf { it.isNotBlank() } ?: return null
-        val server = selected.firstOrNull { it.number == FieldProfileServers }?.bytes?.let(::readFields) ?: return null
-        val host =
-            listOf(
-                FieldServerDomain,
-                FieldServerIp,
-            ).firstNotNullOfOrNull { server.text(it)?.takeIf(String::isNotBlank) }
-                ?: return null
-        val bindings =
-            server.filter { it.number == FieldServerBindings }.mapNotNull { it.bytes }.map { raw ->
-                val fields = readFields(raw)
-                val single = fields.firstOrNull { it.number == FieldBindingPort }?.varint
-                Binding(
-                    port = fields.text(FieldBindingRange) ?: single?.toString().orEmpty(),
-                    tcp = fields.firstOrNull { it.number == FieldBindingProtocol }?.varint == ProtoTransportTcp,
-                )
-            }
-        val port = firstTcpPort(bindings) ?: return null
+        val (host, port) =
+            selected
+                .filter { it.number == FieldProfileServers }
+                .mapNotNull { it.bytes }
+                .map(::readFields)
+                .firstNotNullOfOrNull(::tcpEndpoint) ?: return null
         val mtuValue = selected.firstOrNull { it.number == FieldProfileMtu }?.varint?.takeIf { it != 0L }
         val mtu = mtuValue?.let { if (it in RelayMieruMtuMin..RelayMieruMtuMax) it.toInt() else return null }
         val level =
@@ -205,7 +189,25 @@ internal object MieruUriCodec {
                 else -> return null
             }
         val finalMtu = mtu ?: RelayMieruMtuDefault
-        return profile(host, host, port, username, password, RelayMieruProtocolTcp, multiplexing, finalMtu)
+        val name = selected.text(FieldProfileName)?.takeIf { it.isNotBlank() } ?: host
+        return profile(name, host, port, username, password, RelayMieruProtocolTcp, multiplexing, finalMtu)
+    }
+
+    /** Host and first TCP port of one upstream ServerEndpoint, or null when it has no usable TCP binding. */
+    private fun tcpEndpoint(server: List<Field>): Pair<String, Int>? {
+        val host =
+            listOf(FieldServerDomain, FieldServerIp)
+                .firstNotNullOfOrNull { server.text(it)?.takeIf(String::isNotBlank) } ?: return null
+        val bindings =
+            server.filter { it.number == FieldServerBindings }.mapNotNull { it.bytes }.map { raw ->
+                val fields = readFields(raw)
+                val single = fields.firstOrNull { it.number == FieldBindingPort }?.varint
+                Binding(
+                    port = fields.text(FieldBindingRange) ?: single?.toString().orEmpty(),
+                    tcp = fields.firstOrNull { it.number == FieldBindingProtocol }?.varint == ProtoTransportTcp,
+                )
+            }
+        return firstTcpPort(bindings)?.let { host to it }
     }
 
     private class Binding(
@@ -239,7 +241,7 @@ internal object MieruUriCodec {
         }
 
     private fun multiplexingFromToken(value: String?): String? =
-        when (value) {
+        when (value?.uppercase()) {
             null, "MULTIPLEXING_DEFAULT", "MULTIPLEXING_MIDDLE" -> RelayMieruMultiplexingMiddle
             "MULTIPLEXING_OFF" -> RelayMieruMultiplexingOff
             "MULTIPLEXING_LOW" -> RelayMieruMultiplexingLow
