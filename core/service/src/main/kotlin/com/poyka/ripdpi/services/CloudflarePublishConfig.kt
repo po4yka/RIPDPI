@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
@@ -77,7 +77,11 @@ internal class CloudflarePublishConfigParser
 
         fun extractNamedTunnelSpec(credentialsJson: String): CloudflareNamedTunnelSpec {
             val parsed =
-                Json.parseToJsonElement(credentialsJson).let { element ->
+                try {
+                    Json.parseToJsonElement(credentialsJson)
+                } catch (_: SerializationException) {
+                    throw IllegalArgumentException("Cloudflare named-tunnel credentials must be valid JSON")
+                }.let { element ->
                     require(element is JsonObject) { "Cloudflare named-tunnel credentials must be a JSON object" }
                     element
                 }
@@ -85,10 +89,12 @@ internal class CloudflarePublishConfigParser
                 listOf("TunnelID", "tunnelID", "tunnelId", "tunnel_id")
                     .firstNotNullOfOrNull { key ->
                         parsed[key]
-                            ?.jsonPrimitive
-                            ?.contentOrNull
-                            ?.trim()
-                            ?.takeIf(String::isNotBlank)
+                            ?.let { value ->
+                                require(value is JsonPrimitive) {
+                                    "Cloudflare named-tunnel TunnelID must be a JSON primitive"
+                                }
+                                value.contentOrNull?.trim()?.takeIf(String::isNotBlank)
+                            }
                     } ?: error("Cloudflare named-tunnel credentials are missing TunnelID")
             require(CloudflareTunnelIdPattern.matches(tunnelId)) {
                 "Cloudflare named-tunnel TunnelID must be a canonical UUID"

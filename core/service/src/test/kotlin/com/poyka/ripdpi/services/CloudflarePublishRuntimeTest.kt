@@ -42,6 +42,29 @@ class CloudflarePublishRuntimeTest {
     }
 
     @Test
+    fun `invalid named tunnel credentials never expose their contents in errors`() {
+        val secret = "fixture-private-tunnel-secret"
+        val invalidCredentials =
+            listOf(
+                """{"TunnelSecret":"$secret",BROKEN}""",
+                """{"TunnelID":{"secret":"$secret"}}""",
+                """{"TunnelID":["$secret"]}""",
+                """["$secret"]""",
+                """{"TunnelID":"$secret"}""",
+            )
+
+        invalidCredentials.forEach { credentials ->
+            val error = runCatching { extractCloudflareNamedTunnelSpec(credentials) }.exceptionOrNull()
+
+            assertTrue("Invalid credentials must fail", error is IllegalArgumentException)
+            requireNotNull(error)
+            assertFalse(error.stackTraceToString().contains(secret))
+            assertEquals(null, error.cause)
+            assertTrue(error.suppressed.isEmpty())
+        }
+    }
+
+    @Test
     fun `named tunnel config rejects injected TunnelID and hostname scalars`() {
         val tunnelError =
             runCatching {
