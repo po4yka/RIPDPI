@@ -79,6 +79,9 @@ internal suspend fun resolveChainRelayConfigSupport(
     relayCredentialStore: RelayCredentialStore,
     fallbackTlsFingerprintProfile: String,
 ): ResolvedChainRelayConfig {
+    if (config.chainMiddleProfileIds.any(String::isBlank)) {
+        rejectRelayConfig("Chain relay intermediate profile reference is required")
+    }
     val entry =
         resolveChainRelayHopSupport(
             hopName = "entry",
@@ -99,7 +102,6 @@ internal suspend fun resolveChainRelayConfigSupport(
     // hops; QUIC-only carriers are valid only at index zero.
     val middle =
         config.chainMiddleProfileIds
-            .filter(String::isNotBlank)
             .map { middleProfileId ->
                 resolveChainRelayHopSupport(
                     hopName = "intermediate",

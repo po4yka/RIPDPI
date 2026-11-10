@@ -45,6 +45,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
+import com.poyka.ripdpi.data.isSupportedChainNonEntryHop
 import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
 import com.poyka.ripdpi.data.isValidNaiveCredentials
 import com.poyka.ripdpi.data.isValidRelayMieruUsername
@@ -578,7 +579,8 @@ private fun validateChainRelayProfileSelection(
     relayProfiles: List<RelayProfileRecord>,
 ): String? =
     when {
-        draft.relayChainEntryProfileId.isBlank() || draft.relayChainExitProfileId.isBlank() -> {
+        draft.relayChainEntryProfileId.isBlank() || draft.relayChainExitProfileId.isBlank() ||
+            draft.relayChainMiddleProfileIds.any(String::isBlank) -> {
             "required"
         }
 
@@ -594,6 +596,7 @@ private fun validateChainRelayProfileSelection(
             validateResolvedChainProfiles(
                 entryId = draft.relayChainEntryProfileId,
                 exitId = draft.relayChainExitProfileId,
+                middleIds = draft.relayChainMiddleProfileIds,
                 relayProfiles = relayProfiles,
             )
         }
@@ -602,17 +605,20 @@ private fun validateChainRelayProfileSelection(
 private fun validateResolvedChainProfiles(
     entryId: String,
     exitId: String,
+    middleIds: List<String>,
     relayProfiles: List<RelayProfileRecord>,
 ): String? {
     val byId = relayProfiles.associateBy { it.id }
     val entry = byId[entryId]
     val exit = byId[exitId]
+    val middle = middleIds.map { byId[it] ?: return "required" }
     return when {
         entry == null || exit == null -> "required"
         !entry.isSupportedChainEntryHop() && !entry.isSupportedChainExitHop() -> "unsupported"
         !exit.isSupportedChainEntryHop() && !exit.isSupportedChainExitHop() -> "unsupported"
         !entry.isSupportedChainEntryHop() -> "unsupported_entry"
         !exit.isSupportedChainExitHop() -> "unsupported_exit"
+        middle.any { !it.isSupportedChainNonEntryHop() } -> "unsupported"
         else -> null
     }
 }
