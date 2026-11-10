@@ -85,6 +85,10 @@ def run(arguments: list[str] | None = None) -> None:
     env = dict(os.environ, GOMAXPROCS=str(args.jobs), GOTOOLCHAIN="go1.27.2", GOFLAGS=f"-p={args.jobs}", GOWORK="off")
     if args.test == "changed_host_key_is_rejected_before_authentication":
         env["RIPDPI_OUTBOUND_EXPECT_NO_AUTH"] = "1"
+    if args.test in ("same_host_key_rekey_preserves_payload", "changed_host_key_rekey_aborts_payload"):
+        env["RIPDPI_OUTBOUND_REKEY"] = "rotate" if args.test.startswith("changed") else "same"
+    if args.test.startswith("unread_channel_close"):
+        env["RIPDPI_OUTBOUND_FLOOD"] = "1"
     if args.test.startswith("tests::backend_fixture_tests::"):
         env["RIPDPI_OUTBOUND_EXPECT_IDLE"] = "1"
         test = ["cargo", "test", "--locked", "-p", "ripdpi-relay-core", "--lib", "--jobs", str(args.jobs), args.test]
