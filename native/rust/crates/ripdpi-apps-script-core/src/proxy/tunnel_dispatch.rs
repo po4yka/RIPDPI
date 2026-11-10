@@ -1,28 +1,21 @@
 use std::collections::HashMap;
 use std::io;
-use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
-use tokio::time::{Instant, sleep, timeout, timeout_at};
+use tokio::time::{Instant, sleep, timeout_at};
 
 use crate::domain_fronter::AppsScriptDomainFronter;
 use crate::mitm::MitmCertManager;
 use crate::proxy::{HANDSHAKE_TIMEOUT, http_relay, mitm_rewrite};
 use crate::telemetry::SharedTelemetryState;
 
-/// Wait for a client's first bytes before a connection to an IP target is
-/// taken for a server-first protocol (SSH, SMTP) and passed through.
-const FIRST_BYTES_TIMEOUT: Duration = Duration::from_millis(300);
-/// Ports where HTTP or TLS clients speak first. A slow client there must still
-/// reach the relay, so it gets the full handshake deadline.
-const CLIENT_FIRST_PORTS: [u16; 4] = [80, 443, 8080, 8443];
 /// Pause before peeking again at a partial HTTP method token.
 const PEEK_RETRY_INTERVAL: Duration = Duration::from_millis(10);
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// NOT cancel-safe: the initial peek does not consume, but dispatch then delegates
 /// to the MITM / HTTP-relay handlers which read and partial-write across awaits.
@@ -40,11 +33,7 @@ pub(crate) async fn dispatch(
         return mitm_rewrite::sni_rewrite_tunnel(stream, host, port, upstream, relay, mitm, telemetry).await;
     }
 
-    // A named target is never passed through, so a short wait only refuses a
-    // slow client there; it gets the full handshake deadline on every port.
-    let named_target = host.parse::<IpAddr>().is_err();
-    let wait = if named_target || CLIENT_FIRST_PORTS.contains(&port) { HANDSHAKE_TIMEOUT } else { FIRST_BYTES_TIMEOUT };
-    let deadline = Instant::now() + wait;
+    let deadline = Instant::now() + HANDSHAKE_TIMEOUT;
     let mut peek = [0u8; 8];
     let peeked = loop {
         match timeout_at(deadline, stream.peek(&mut peek)).await {
@@ -57,7 +46,7 @@ pub(crate) async fn dispatch(
             }
             Ok(Ok(bytes)) => break bytes,
             Ok(Err(error)) => return Err(error),
-            Err(_) => return passthrough_ip_target(stream, host, port, &telemetry).await,
+            Err(_) => return Err(io::Error::new(io::ErrorKind::TimedOut, "client protocol detection timed out")),
         }
     };
 
@@ -71,43 +60,8 @@ pub(crate) async fn dispatch(
         return Ok(());
     }
 
-    passthrough_ip_target(stream, host, port, &telemetry).await
-}
-
-/// Passes a non-HTTP connection straight to an IP target. A named target is
-/// refused: dialling it would resolve the name with the system resolver and
-/// send the flow outside the relay.
-///
-/// # Cancel safety
-///
-/// cancel-safe: see `plain_tcp_passthrough`.
-async fn passthrough_ip_target(
-    stream: TcpStream,
-    host: &str,
-    port: u16,
-    telemetry: &SharedTelemetryState,
-) -> io::Result<()> {
-    if host.parse::<IpAddr>().is_err() {
-        telemetry.record_error("non-HTTP traffic to a named host cannot use the relay; refused".to_string());
-        return Ok(());
-    }
-    plain_tcp_passthrough(stream, host, port).await
-}
-
-/// # Cancel safety
-///
-/// cancel-safe: after the outbound connect, the body is a single
-/// copy_bidirectional await; cancellation just drops both half-duplex copies and
-/// closes the sockets without leaving partial protocol state owned by this fn.
-pub(crate) async fn plain_tcp_passthrough(mut inbound: TcpStream, host: &str, port: u16) -> io::Result<()> {
-    let outbound = timeout(HANDSHAKE_TIMEOUT, TcpStream::connect((host, port)))
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "direct connect timed out"))??;
-    outbound.set_nodelay(true)?;
-    inbound.set_nodelay(true)?;
-    let mut outbound = outbound;
-    let _ = tokio::io::copy_bidirectional(&mut inbound, &mut outbound).await?;
-    Ok(())
+    telemetry.record_error("non-HTTP traffic cannot use the Apps Script relay; refused".to_string());
+    Err(io::Error::new(io::ErrorKind::Unsupported, "Apps Script supports HTTP traffic only"))
 }
 
 fn hosts_override<'a>(hosts: &'a HashMap<String, String>, host: &str) -> Option<&'a str> {
@@ -129,6 +83,7 @@ fn hosts_override<'a>(hosts: &'a HashMap<String, String>, host: &str) -> Option<
 mod tests {
     use tokio::io::AsyncWriteExt;
     use tokio::net::TcpListener;
+    use tokio::time::timeout;
     use tokio_rustls::TlsConnector;
     use tokio_rustls::rustls::pki_types::pem::PemObject;
     use tokio_rustls::rustls::pki_types::{CertificateDer, ServerName};
@@ -252,5 +207,28 @@ mod tests {
             timeout(Duration::from_millis(500), origin.accept()).await.is_err(),
             "an HTTP request must go to the relay, not straight to the origin"
         );
+    }
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation detaches the fixture task; the test runtime cleans it up.
+    #[tokio::test(flavor = "current_thread")]
+    async fn rly15_non_http_ip_never_dials_the_origin() {
+        let fixture = Fixture::new("no-ip-bypass");
+        let origin = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let (mut client, task) = fixture.dispatch("127.0.0.1", origin.local_addr().unwrap().port()).await;
+        client.write_all(b"SSH-2.0-marker\r\n").await.unwrap();
+        let result = task.await.unwrap().unwrap_err();
+        assert_eq!(result.kind(), io::ErrorKind::Unsupported);
+        assert!(timeout(Duration::from_millis(200), origin.accept()).await.is_err());
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation detaches the fixture task; the test runtime cleans it up.
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn rly15_silent_ip_never_dials_the_origin() {
+        let fixture = Fixture::new("no-silent-ip-bypass");
+        let origin = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let (_client, task) = fixture.dispatch("127.0.0.1", origin.local_addr().unwrap().port()).await;
+        assert_eq!(task.await.unwrap().unwrap_err().kind(), io::ErrorKind::TimedOut);
+        assert!(timeout(Duration::from_millis(200), origin.accept()).await.is_err());
     }
 }
