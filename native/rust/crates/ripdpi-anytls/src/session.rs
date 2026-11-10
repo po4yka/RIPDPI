@@ -163,7 +163,7 @@ pub enum AnyTlsError {
     Frame(#[from] FrameError),
     #[error("AnyTLS padding error: {0}")]
     Padding(String),
-    #[error("AnyTLS authentication was rejected")]
+    #[error("AnyTLS authentication was rejected: wrong password or not an AnyTLS server")]
     AuthenticationRejected,
     #[error("AnyTLS session closed")]
     SessionClosed,
@@ -965,6 +965,11 @@ async fn run_session<S>(
         Ok::<(), AnyTlsError>(())
     };
 
+    // A wrong password makes the server close the connection or fall back to
+    // another service, so no valid AnyTLS frame ever arrives. A v1 server also
+    // sends no frame after a good auth, but it keeps the connection open, so
+    // only the end of the carrier counts as a verdict.
+    let saw_known_frame = AtomicBool::new(false);
     let reader = async {
         loop {
             let frame = read_frame(&mut reader).await?;
@@ -974,6 +979,7 @@ async fn run_session<S>(
                 // reference client does, so a newer server cannot kill the session.
                 continue;
             };
+            saw_known_frame.store(true, Ordering::Relaxed);
             match frame.command() {
                 Command::SynAck => handle_synack(&streams, frame.stream_id(), frame.data()),
                 Command::Psh => {
@@ -1035,7 +1041,12 @@ async fn run_session<S>(
         state.idle.retain(|idle| !Arc::ptr_eq(&idle.session.closing, &closing));
     }
     if !matches!(session_result, Err(AnyTlsError::Alert(_))) {
-        fail_all_streams(&streams, AnyTlsError::SessionClosed);
+        let rejected =
+            !saw_known_frame.load(Ordering::Relaxed) && matches!(session_result, Err(AnyTlsError::SessionClosed));
+        fail_all_streams(
+            &streams,
+            if rejected { AnyTlsError::AuthenticationRejected } else { AnyTlsError::SessionClosed },
+        );
     }
 }
 
@@ -1072,13 +1083,7 @@ fn fail_all_streams(streams: &Arc<StdMutex<HashMap<u32, StreamRoute>>>, error: A
     let mut guard = streams.lock().unwrap_or_else(PoisonError::into_inner);
     for route in guard.values_mut() {
         if let Some(open_ack) = route.open_ack.take() {
-            open_ack
-                .send(Err(match &error {
-                    AnyTlsError::Alert(message) => AnyTlsError::Alert(message.clone()),
-                    AnyTlsError::SessionClosed => AnyTlsError::SessionClosed,
-                    _ => AnyTlsError::SessionClosed,
-                }))
-                .ok();
+            open_ack.send(Err(error.clone())).ok();
         }
     }
     guard.clear();
@@ -1096,7 +1101,7 @@ where
 {
     let mut header = [0_u8; crate::frame::FRAME_HEADER_LEN];
     reader.read_exact(&mut header).await.map_err(|error| {
-        if error.kind() == std::io::ErrorKind::UnexpectedEof {
+        if matches!(error.kind(), std::io::ErrorKind::UnexpectedEof | std::io::ErrorKind::ConnectionReset) {
             AnyTlsError::SessionClosed
         } else {
             AnyTlsError::Io(error.to_string())

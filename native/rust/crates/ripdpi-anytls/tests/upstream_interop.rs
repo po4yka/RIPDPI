@@ -2,7 +2,7 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
-use ripdpi_anytls::session::{AnyTlsClient, AnyTlsClientConfig, TargetAddr};
+use ripdpi_anytls::session::{AnyTlsClient, AnyTlsClientConfig, AnyTlsError, TargetAddr};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 fn config(password: &str) -> AnyTlsClientConfig {
@@ -98,7 +98,11 @@ async fn upstream_rejects_wrong_password() {
     tokio::time::timeout(Duration::from_secs(12), async {
         let client = AnyTlsClient::new(config("incorrect-test-password")).expect("client");
         let target = endpoint("RIPDPI_OUTBOUND_TCP");
-        assert!(client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), target.port()).await.is_err());
+        let error = client
+            .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), target.port())
+            .await
+            .expect_err("a wrong password must fail the open");
+        assert!(matches!(error, AnyTlsError::AuthenticationRejected), "unexpected error: {error}");
         client.close().await.expect("join rejected carrier");
     })
     .await

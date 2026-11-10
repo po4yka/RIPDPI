@@ -52,7 +52,8 @@ async fn bad_password_is_not_reported_as_a_successful_stream() {
         .await
         .expect_err("bad auth must fail");
 
-    assert!(matches!(err, AnyTlsError::AuthenticationRejected | AnyTlsError::SessionClosed));
+    assert!(matches!(err, AnyTlsError::AuthenticationRejected), "unexpected error: {err}");
+    assert!(err.to_string().contains("wrong password or not an AnyTLS server"));
 }
 
 /// Each session carries one stream; a finished stream returns its session to
