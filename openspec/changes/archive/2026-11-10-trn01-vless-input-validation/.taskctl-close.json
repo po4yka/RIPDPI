@@ -1,0 +1,11 @@
+{
+  "change": "trn01-vless-input-validation",
+  "evidence_summary": "Verified 86d350e039: 277 host tests passed; consumer Clippy, CI source gates, locked metadata, and independent general and async reviews passed. No device, external-server, hosted-CI or release claim.",
+  "execution_sha256": "2d990c5817b6912acb12ce86e9333caea7fb9eca78c0f09a2a12e76843848cc5",
+  "issue_sha256": "6b041a19a5b57a5217eb2cbe22633645f14a8636e6fee17261d5cb44128ad0f3",
+  "outcome": "done",
+  "prepared_at": "2026-11-10T19:48:31Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794335331879799"
+}

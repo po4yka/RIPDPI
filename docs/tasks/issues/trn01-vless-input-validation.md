@@ -2,7 +2,7 @@
 id: TRN-1794335331879799
 title: Reject malformed VLESS addons and unsupported origin flows
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Native transport maintainers
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: trn01-vless-input-validation
 created: 2026-11-10
 updated: 2026-11-10
+closed_at: "2026-11-10T19:48:31Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Verified 86d350e039: 277 host tests passed; consumer Clippy, CI source gates, locked metadata, and independent general and async reviews passed. No device, external-server, hosted-CI or release claim."
 ---
 
 ## Goal
