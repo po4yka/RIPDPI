@@ -456,10 +456,10 @@ impl AnyTlsClient {
     }
 
     /// # Cancel safety:
-    /// Conditional: cancellation during session/send/ack waits drops the
-    /// pending stream, which removes its route, queues a FIN only after a
-    /// committed SYN, and returns the session to the pool. Abrupt abort
-    /// requires whole-client teardown, whose carrier worker clears all routes.
+    /// conditionally cancel-safe: pending stream drop removes its route and queues
+    /// FIN only after a committed SYN. Supplied carriers close; eligible direct
+    /// sessions return to the pool. Abrupt task abort requires client teardown,
+    /// whose carrier worker clears all routes.
     async fn open_tcp_worker(
         &self,
         target: Vec<u8>,
@@ -467,6 +467,7 @@ impl AnyTlsClient {
         mut cancel_rx: oneshot::Receiver<()>,
         result_tx: oneshot::Sender<Result<AnyTlsStream, AnyTlsError>>,
     ) {
+        let reusable = session.is_none();
         let session = match session {
             Some(session) => session,
             None => tokio::select! {
@@ -497,7 +498,7 @@ impl AnyTlsClient {
             read_buffer: VecDeque::new(),
             fin_queued: false,
             syn_sent: false,
-            reusable: true,
+            reusable,
             owner: None,
         };
         if !matches!(cancel_rx.try_recv(), Err(oneshot::error::TryRecvError::Empty)) {
@@ -564,7 +565,7 @@ impl AnyTlsClient {
                 result_tx.send(Ok(stream)).ok();
             }
             Ok(Err(error)) => {
-                stream.reusable = matches!(error, AnyTlsError::StreamOpenRejected(_));
+                stream.reusable &= matches!(error, AnyTlsError::StreamOpenRejected(_));
                 result_tx.send(Err(error)).ok();
             }
             Err(_) => {
@@ -649,10 +650,42 @@ impl AnyTlsClient {
     {
         let mut client = Self::with_padding_scheme(config, padding_scheme)?;
         client.allow_network_dial = false;
-        let session = client.establish_session(transport).await?;
-        // Open on the session just built, never through the pool: a pool miss
-        // would otherwise dial the hop's server directly, around the chain.
-        client.open_encoded_target(encode_target(&target, port)?, Some(session)).await
+        client.open_tcp_on_transport(transport, target, port).await
+    }
+
+    /// Opens on the supplied transport without using the idle pool or dialing a server.
+    /// The client owns the handshake, carrier, and stream workers until `close` joins them.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: dropping the caller cancels the owned open worker; `close` retains its join.
+    pub async fn open_tcp_on_transport<S>(
+        &self,
+        transport: S,
+        target: TargetAddr,
+        port: u16,
+    ) -> Result<AnyTlsStream, AnyTlsError>
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
+        let target = encode_target(&target, port)?;
+        let (cancel_tx, mut cancel_rx) = oneshot::channel();
+        let (result_tx, result_rx) = oneshot::channel();
+        let mut cancel_on_drop = CancelOpenOnDrop(Some(cancel_tx));
+        let client = self.worker_clone();
+        self.tasks.spawn(async move {
+            let result = tokio::select! {
+                biased;
+                _ = &mut cancel_rx => return,
+                result = async {
+                    let session = client.establish_session(transport).await?;
+                    client.open_encoded_target(target, Some(session)).await
+                } => result,
+            };
+            result_tx.send(result).ok();
+        })?;
+        let result = result_rx.await.unwrap_or(Err(AnyTlsError::SessionClosed));
+        cancel_on_drop.disarm();
+        result
     }
 
     /// # Cancel safety

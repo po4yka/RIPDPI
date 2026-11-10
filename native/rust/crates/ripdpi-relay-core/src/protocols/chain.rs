@@ -425,9 +425,22 @@ impl RelaySession for ChainRelaySession {
 impl RelaySessionFactory for ChainRelaySessionFactory {
     /// # Cancel safety
     ///
-    /// cancel-safe: completes without an await or observable state mutation.
+    /// cancel-safe: each hop retains unfinished joins and repeated shutdown resumes cleanup.
     async fn shutdown(&self) -> Result<(), Self::Error> {
-        Ok(())
+        for hop in &self.hops {
+            if let ChainHopConnector::AnyTls(hop) = hop {
+                hop.cancel();
+            }
+        }
+        let mut first_error = None;
+        for hop in &self.hops {
+            if let ChainHopConnector::AnyTls(hop) = hop
+                && let Err(error) = hop.shutdown().await
+            {
+                first_error.get_or_insert(error);
+            }
+        }
+        first_error.map_or(Ok(()), Err)
     }
 
     type Session = ChainRelaySession;
@@ -448,6 +461,9 @@ impl RelaySessionFactory for ChainRelaySessionFactory {
         Ok(Arc::new(ChainRelaySession { hops, outbound_bind_ip, telemetry, vless_session_limiter }))
     }
 }
+
+#[cfg(test)]
+mod lifecycle_tests;
 
 #[cfg(test)]
 mod tests {
@@ -495,7 +511,7 @@ mod tests {
         anytls_hop_with(fixture, "fixture-password", fixture.port())
     }
 
-    fn anytls_hop_with(
+    pub(super) fn anytls_hop_with(
         fixture: &local_network_fixture::AnyTlsLoopback,
         password: &str,
         server_port: u16,
