@@ -260,11 +260,23 @@ class RelayKindDescriptorDriftTest {
             masquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
         ).registrations
 
+    @Test
+    fun `rust descriptor parsing rejects a row with an unsupported capability expression`() {
+        val source = File(repoRoot(), "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs").readText()
+        val unsupported = source.replaceFirst("tcp: true,", "tcp: capability_expression(),")
+
+        assertThrows(AssertionError::class.java) { parseRustDescriptorCapabilities(unsupported) }
+    }
+
     private fun parseRustDescriptorKinds(): Set<String> = parseRustDescriptorCapabilities().keys
 
-    private fun parseRustDescriptorCapabilities(): Map<String, List<Boolean>> {
-        val source =
-            File(repoRoot(), "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs").readText()
+    private fun parseRustDescriptorCapabilities(
+        source: String =
+            File(
+                repoRoot(),
+                "native/rust/crates/ripdpi-relay-core/src/transport_descriptor.rs",
+            ).readText(),
+    ): Map<String, List<Boolean>> {
         val descriptorPattern =
             Regex(
                 """descriptor:\s*RelayTransportDescriptor\s*\{\s*kind_id:\s*"([a-z0-9_]+)",""" +
@@ -272,11 +284,17 @@ class RelayKindDescriptorDriftTest {
                     """[\s\S]*?reusable:\s*(true|false),""" +
                     """[\s\S]*?supports_outbound_bind_ip:\s*(true|false),\s*\}""",
             )
-        return descriptorPattern
-            .findAll(source)
-            .associate { match ->
-                match.groupValues[1] to match.groupValues.drop(2).map(String::toBooleanStrict)
-            }
+        val declaredKinds =
+            Regex("""kind_id:\s*"([^"]+)"""")
+                .findAll(source)
+                .map { it.groupValues[1] }
+                .toList()
+        val matches = descriptorPattern.findAll(source).toList()
+        assertEquals("every declared Rust descriptor must be parsed", declaredKinds, matches.map { it.groupValues[1] })
+        assertEquals("Rust descriptor kind IDs must be unique", declaredKinds.size, declaredKinds.toSet().size)
+        return matches.associate { match ->
+            match.groupValues[1] to match.groupValues.drop(2).map(String::toBooleanStrict)
+        }
     }
 
     private fun parseProtoRelayKinds(): Set<String> {
