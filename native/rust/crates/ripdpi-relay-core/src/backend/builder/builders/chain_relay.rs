@@ -312,7 +312,8 @@ fn resolved_hop_shadowtls_factory(
     let inner = hop.shadow_tls_inner.as_ref().ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("chain {label}: ShadowTLS inner relay config is required"))
     })?;
-    let password = required_secret(hop.shadow_tls_password.as_deref(), "ShadowTLS password")
+    let password = super::shadowtls::validate_inner_relay(inner)
+        .and_then(|()| required_secret(hop.shadow_tls_password.as_deref(), "ShadowTLS password"))
         .map_err(|error| io::Error::new(error.kind(), format!("chain {label}: {error}")))?
         .to_string();
     Ok(ripdpi_relay_tls_transports::ShadowTlsSessionFactory {
@@ -543,6 +544,34 @@ mod credential_tests {
         };
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
         assert!(error.to_string().contains("ShadowTLS password is required"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn chain_shadowtls_hop_rejects_unsupported_inner_relay() {
+        for (kind, transport) in [("vless_reality", "grpc"), ("trojan", "reality_tcp")] {
+            let mut inner = hop("shadowtls_v3");
+            inner.shadow_tls_password = Some("secret".to_string());
+            inner.shadow_tls_inner = Some(crate::config::ResolvedShadowTlsInnerRelayConfig {
+                kind: kind.to_string(),
+                profile_id: "inner-vless".to_string(),
+                server: "inner.example".to_string(),
+                server_port: 443,
+                server_name: "inner.example".to_string(),
+                reality_public_key: String::new(),
+                reality_short_id: String::new(),
+                vless_flow: "xtls-rprx-vision".to_string(),
+                vless_transport: transport.to_string(),
+                xhttp_mode: "auto".to_string(),
+                vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+                tls_fingerprint_profile: "chrome_stable".to_string(),
+            });
+            let Err(error) = resolved_hop_shadowtls_factory(&inner, "exit", None, SocketProtectionPolicy::Inactive)
+            else {
+                panic!("unsupported ShadowTLS inner relay ({kind}/{transport}) must be rejected");
+            };
+            assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+            assert!(error.to_string().starts_with("chain exit: "), "unexpected error: {error}");
+        }
     }
 
     #[test]

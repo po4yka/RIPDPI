@@ -3,8 +3,18 @@ use std::io;
 use crate::backend::builder::BuildContext;
 use crate::backend::builder::builders::common::required_secret;
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig};
 use crate::protocols::ShadowTlsSessionFactory;
+
+pub(super) fn validate_inner_relay(inner: &ResolvedShadowTlsInnerRelayConfig) -> io::Result<()> {
+    if inner.kind != "vless_reality" || inner.vless_transport != "reality_tcp" {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "ShadowTLS supports only a VLESS Reality TCP inner relay",
+        ));
+    }
+    Ok(())
+}
 
 pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
     let RelayBackendConfig::ShadowTlsV3(shadowtls) = &config.backend else {
@@ -14,12 +24,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         .inner
         .as_ref()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner relay config"))?;
-    if inner.kind != "vless_reality" || inner.vless_transport != "reality_tcp" {
-        return Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "ShadowTLS supports only a VLESS Reality TCP inner relay",
-        ));
-    }
+    validate_inner_relay(inner)?;
     let password = required_secret(shadowtls.password.as_deref(), "ShadowTLS password")?.to_string();
     Ok(RelayBackend::ShadowTls(PooledRelayBackend::new(
         ShadowTlsSessionFactory {
