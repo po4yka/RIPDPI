@@ -87,24 +87,8 @@ impl RelaySessionFactory for MieruSessionFactory {
                     // TUN; own-UID exclusion via computeAppRoutingPlan remains the second
                     // layer. (Resolves the prior unverified TODO.) REL-1 / REL-4. See
                     // .claude/rules/vpnservice-protect-invariant.md.
-                    let server_addr = self
-                        .socket_protection
-                        .resolve_host(&config.server, config.port)
-                        .await?
-                        .into_iter()
-                        .next()
-                        .ok_or_else(|| {
-                            std::io::Error::new(
-                                std::io::ErrorKind::AddrNotAvailable,
-                                "no address resolved for mieru server",
-                            )
-                        })?;
-                    let socket = match server_addr {
-                        std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
-                        std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
-                    };
-                    crate::protect::protect_carrier_socket(&socket, server_addr, self.socket_protection)?;
-                    let stream = socket.connect(server_addr).await?;
+                    let addrs = self.socket_protection.resolve_host(&config.server, config.port).await?;
+                    let stream = connect_first_reachable(addrs, self.socket_protection).await?;
                     // Each segment is one write; Nagle would hold it for the
                     // previous segment's ACK (upstream Go dials with NODELAY).
                     stream.set_nodelay(true)?;
@@ -127,9 +111,55 @@ impl RelaySessionFactory for MieruSessionFactory {
     }
 }
 
+/// Connect to the first reachable address of `addrs`, in order, with a fresh
+/// socket per attempt. Each socket is protected before connect (see
+/// `.claude/rules/vpnservice-protect-invariant.md`). Returns the last error when
+/// every attempt fails.
+///
+/// # Cancel safety
+/// Cancel-safe: the future owns the socket being connected; dropping it closes it.
+async fn connect_first_reachable(
+    addrs: Vec<std::net::SocketAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<tokio::net::TcpStream> {
+    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for mieru server");
+    for server_addr in addrs {
+        let attempt = async {
+            let socket = match server_addr {
+                std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
+                std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
+            };
+            crate::protect::protect_carrier_socket(&socket, server_addr, socket_protection)?;
+            socket.connect(server_addr).await
+        };
+        match attempt.await {
+            Ok(stream) => return Ok(stream),
+            Err(error) => last_error = error,
+        }
+    }
+    Err(last_error)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn connect_first_reachable_skips_a_refused_address() {
+        let refused = {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+            listener.local_addr().expect("addr")
+        };
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind live");
+        let live = listener.local_addr().expect("live addr");
+        let policy = ripdpi_native_protect::SocketProtectionPolicy::Inactive;
+
+        let stream = connect_first_reachable(vec![refused, live], policy).await.expect("second address is reachable");
+        assert_eq!(stream.peer_addr().expect("peer"), live);
+
+        let error = connect_first_reachable(vec![refused], policy).await.expect_err("all addresses refused");
+        assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused);
+    }
 
     #[tokio::test]
     async fn unsupported_udp_carrier_is_rejected_before_socket_connect() {
