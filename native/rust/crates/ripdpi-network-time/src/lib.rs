@@ -30,6 +30,8 @@
 //!   from a server's wire timestamp): `now = anchor_net_unix + monotonic_elapsed`.
 //!   Once an anchor is set the device wall clock is no longer read, so a wrong or
 //!   adjusted device clock cannot move the replay window.
+//!   The first observation anchors to the device wall clock when that agrees with
+//!   it within the source's uncertainty, and to the observation otherwise.
 //!
 //! All transports share one process-wide instance via [`NetworkTimeProvider::shared`],
 //! so a calibration observed on *any* transport (e.g. a Shadowsocks SIP022 UDP
@@ -292,7 +294,11 @@ impl NetworkTimeProvider {
     ///
     /// An observation before [`MIN_PLAUSIBLE_UNIX_SECS`] is always rejected.
     /// Otherwise the **first** observation is accepted (bootstrap — it may correct
-    /// a grossly-wrong device clock) and becomes the reference. Once anchored, an
+    /// a grossly-wrong device clock) and becomes the reference. If the device wall
+    /// clock already agrees with that observation within the source's uncertainty,
+    /// the anchor is the wall-clock reading instead: it lies inside the
+    /// observation's own error bound, and a coarse stamp (Mieru's minute midpoint)
+    /// must not pull an accurate clock away. Once anchored, an
     /// observation that disagrees with the established network time, or with the
     /// reference, by more than [`MAX_PLAUSIBLE_DRIFT_SECS`] is **rejected**, so a
     /// source cannot walk the clock away in in-window steps, and a single
@@ -330,7 +336,18 @@ impl NetworkTimeProvider {
                 return true;
             }
         } else {
+            // Bootstrap. A device clock inside the observation's error bound is an
+            // equally valid estimate and is finer than a coarse stamp, so keep it.
+            let wall = self.clock.wall_unix_secs();
+            let observation = if wall.saturating_sub(observed_network_unix).unsigned_abs() <= source.uncertainty_secs {
+                Anchor { net_unix: wall, mono_nanos: mono }
+            } else {
+                observation
+            };
             guard.reference = Some(observation);
+            guard.anchor = Some(observation);
+            guard.votes = None;
+            return true;
         }
         guard.anchor = Some(observation);
         guard.votes = None;
@@ -406,6 +423,27 @@ mod tests {
         fn monotonic_nanos(&self) -> u128 {
             u128::from(self.mono_nanos.load(Ordering::SeqCst))
         }
+    }
+
+    #[test]
+    fn coarse_bootstrap_keeps_an_agreeing_device_clock() {
+        // A minute-granular source (midpoint estimate, uncertainty 30) that lands 21 s
+        // behind an accurate device clock must not drag the anchor back.
+        let wall = T0 + 1_000;
+        let clock = std::sync::Arc::new(TestClock::new(wall));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock));
+        assert!(provider.calibrate(wall - 21, TimeSource::new("test", "coarse", 1, 30)));
+        assert!(provider.is_calibrated());
+        assert!((provider.now_unix() - wall).abs() <= 1, "anchor stays on the accurate wall clock");
+    }
+
+    #[test]
+    fn coarse_bootstrap_follows_observation_when_device_clock_is_skewed() {
+        let wall = T0 + 1_000;
+        let clock = std::sync::Arc::new(TestClock::new(wall + 90));
+        let provider = NetworkTimeProvider::with_clock(Box::new(clock));
+        assert!(provider.calibrate(wall, TimeSource::new("test", "coarse", 1, 30)));
+        assert_eq!(provider.now_unix(), wall, "a skewed device clock does not win");
     }
 
     #[test]
