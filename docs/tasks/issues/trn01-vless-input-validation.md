@@ -31,7 +31,7 @@ Reject malformed VLESS protobuf addons before payload delivery. Reject unsupport
 
 - Decoder worker: /private/tmp/ripdpi-trn01-decoder; ripdpi-vless/src/addons/**, addons.rs, wire.rs and wire/**. This worker exclusively owns wire.rs until F1 is committed.
 - Origin worker: /private/tmp/ripdpi-trn01-origin; ripdpi-cloudflare-origin/src/session.rs and session/**. Depends on decoded flow: String from F1.
-- Integrator: /private/tmp/ripdpi-trn01-input; portfolio and OpenSpec artifacts, combined validation, eager-helper documentation after the decoder lane is released, commits and main integration.
+- Integrator: /private/tmp/ripdpi-trn01-input; portfolio and OpenSpec artifacts, combined validation, commits and main integration. The decoder worker includes the eager-helper cancellation documentation in F1.
 - Read-only reviewers: combined diff; no source writes.
 - Cargo.lock, dependency manifests, schema versions, golden fixtures, baselines, locales and upstream pins have no assigned writer because no change is planned.
 - Planning artifacts must pass strict validation before implementation. No new production dependency, new transport mode, physical probe, external-server acceptance or credential use is included.

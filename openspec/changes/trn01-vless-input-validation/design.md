@@ -21,7 +21,7 @@ The audit reproduced malformed addons acceptance in four decoder paths and unsup
 - Rust crates: ripdpi-vless and ripdpi-cloudflare-origin; no Kotlin, JNI, persisted, version or on-wire schema change.
 - Decoder worker owns addons.rs, addons/**, wire.rs and wire/** in its isolated worktree. Only this worker writes wire.rs until F1 is committed.
 - Origin worker owns session.rs and session/** in a separate worktree; depends on the decoded flow field from F1.
-- Integrator owns task and specification artifacts, combined checks and helper docs after the wire lane is released.
+- Integrator owns task and specification artifacts, combined checks and main integration. The decoder worker includes helper cancellation docs in F1.
 - Cargo.lock, manifests, golden fixtures, locales and baseline files remain untouched.
 
 ## Risks / Trade-offs
