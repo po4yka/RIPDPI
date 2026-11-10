@@ -140,6 +140,7 @@ private fun ModeEditorActions.withRelayProtocolActions(viewModel: ConnectionView
         onRelayTuicPasswordChanged = { viewModel.updateDraft { copy(relayTuicPassword = it) } },
         onRelayTuicCongestionControlChanged = { viewModel.updateDraft { copy(relayTuicCongestionControl = it) } },
         onRelayTuicRootCertificatePemChanged = { viewModel.updateDraft { copy(relayTuicRootCertificatePem = it) } },
+        onRelayMasqueRootCertificatePemChanged = { viewModel.updateDraft { copy(relayMasqueRootCertificatePem = it) } },
         onRelayTuicAlpnChanged = { viewModel.updateDraft { copy(relayTuicAlpn = it) } },
         onRelayShadowTlsPasswordChanged = { viewModel.updateDraft { copy(relayShadowTlsPassword = it) } },
         onRelayShadowTlsInnerProfileIdChanged = {

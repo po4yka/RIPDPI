@@ -113,6 +113,7 @@ data class RelayMasqueSection(
     val masqueCloudflareGeohashHeader: String?,
     val masquePrivacyPassProviderUrl: String?,
     val masquePrivacyPassProviderAuthToken: String?,
+    val masqueRootCertificatePem: String? = null,
 )
 
 /** TUIC v5 transport tuning and credentials. */

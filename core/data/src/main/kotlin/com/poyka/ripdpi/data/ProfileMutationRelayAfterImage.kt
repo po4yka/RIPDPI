@@ -43,6 +43,7 @@ fun AppSettings.Builder.applyRelayAfterImage(
     setRelayTuicCongestionControl(profile.tuicCongestionControl)
     setRelayTuicRootCertificatePem(profile.tuicRootCertificatePem)
     setRelayTrojanRootCertificatePem(profile.trojanRootCertificatePem)
+    setRelayMasqueRootCertificatePem(profile.masqueRootCertificatePem)
     setRelayTuicAlpn(profile.tuicAlpn)
     setRelayShadowtlsInnerProfileId(profile.shadowTlsInnerProfileId)
     setRelayNaivePath(profile.naivePath)

@@ -418,6 +418,7 @@ private class ResolvedRelayConfigBuilder(
             masqueCloudflareGeohashHeader = resolution.masqueCloudflareGeohashHeader,
             masquePrivacyPassProviderUrl = resolution.privacyPassRuntime?.providerUrl,
             masquePrivacyPassProviderAuthToken = resolution.privacyPassRuntime?.providerAuthToken,
+            masqueRootCertificatePem = effectiveConfig.masqueRootCertificatePem,
         )
 
     private fun tuicSection(): RelayTuicSection =

@@ -304,6 +304,8 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     #[serde(default)]
     pub masque_privacy_pass_provider_auth_token: Option<String>,
     #[serde(default)]
+    pub masque_root_certificate_pem: Option<String>,
+    #[serde(default)]
     pub cloudflare_tunnel_token: Option<String>,
     #[serde(default)]
     pub cloudflare_tunnel_credentials_json: Option<String>,
@@ -724,6 +726,7 @@ mod tests {
             cloudflare_geohash_header: Some(secret()),
             privacy_pass_provider_url: Some(secret()),
             privacy_pass_provider_auth_token: Some(secret()),
+            root_certificate_pem: Some(secret()),
             ..MasqueRelayConfig::default()
         });
 
@@ -801,6 +804,7 @@ mod tests {
             masque_cloudflare_geohash_header: Some(secret()),
             masque_privacy_pass_provider_url: Some(secret()),
             masque_privacy_pass_provider_auth_token: Some(secret()),
+            masque_root_certificate_pem: Some(secret()),
             cloudflare_tunnel_token: Some(secret()),
             cloudflare_tunnel_credentials_json: Some(secret()),
             shadow_tls_inner: Some(inner),

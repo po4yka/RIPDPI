@@ -134,6 +134,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 cloudflare_geohash_header: flat.masque_cloudflare_geohash_header,
                 privacy_pass_provider_url: flat.masque_privacy_pass_provider_url,
                 privacy_pass_provider_auth_token: flat.masque_privacy_pass_provider_auth_token,
+                root_certificate_pem: flat.masque_root_certificate_pem,
             }),
             "shadowtls_v3" => RelayBackendConfig::ShadowTlsV3(ShadowTlsRelayConfig {
                 password: flat.shadow_tls_password,
@@ -268,6 +269,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             masque_cloudflare_geohash_header: None,
             masque_privacy_pass_provider_url: None,
             masque_privacy_pass_provider_auth_token: None,
+            masque_root_certificate_pem: None,
             cloudflare_tunnel_token: None,
             cloudflare_tunnel_credentials_json: None,
             finalmask: config.common.finalmask.clone(),
@@ -396,6 +398,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.masque_cloudflare_geohash_header = config.cloudflare_geohash_header.clone();
                 flat.masque_privacy_pass_provider_url = config.privacy_pass_provider_url.clone();
                 flat.masque_privacy_pass_provider_auth_token = config.privacy_pass_provider_auth_token.clone();
+                flat.masque_root_certificate_pem = config.root_certificate_pem.clone();
             }
             RelayBackendConfig::ShadowTlsV3(config) => {
                 flat.shadow_tls_password = config.password.clone();

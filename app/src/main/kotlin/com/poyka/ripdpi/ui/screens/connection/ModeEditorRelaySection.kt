@@ -428,6 +428,7 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
         masque =
             RelayMasqueActions(
                 onRelayMasqueUrlChanged = actions.onRelayMasqueUrlChanged,
+                onRelayMasqueRootCertificatePemChanged = actions.onRelayMasqueRootCertificatePemChanged,
                 onRelayMasqueAuthModeChanged = actions.onRelayMasqueAuthModeChanged,
                 onRelayMasqueAuthTokenChanged = actions.onRelayMasqueAuthTokenChanged,
                 onRelayMasqueClientCertificateChainPemChanged = actions.onRelayMasqueClientCertificateChainPemChanged,

@@ -46,6 +46,7 @@ internal fun AppSettingsSnapshot.withRelaySnapshot(relaySection: RelaySettingsSe
                 relayTuicCongestionControl = normalizeRelayCongestionControl(relaySection.relayTuicCongestionControl),
                 relayTuicRootCertificatePem = relaySection.relayTuicRootCertificatePem,
                 relayTrojanRootCertificatePem = relaySection.relayTrojanRootCertificatePem,
+                relayMasqueRootCertificatePem = relaySection.relayMasqueRootCertificatePem,
                 relayTuicAlpn = relaySection.relayTuicAlpn,
                 relayShadowTlsInnerProfileId = relaySection.relayShadowtlsInnerProfileId,
                 relayNaivePath = relaySection.relayNaivePath,
@@ -115,6 +116,7 @@ private fun AppSettings.Builder.applyRelaySnapshot(snapshot: AppSettingsRelaySna
         .setRelayTuicCongestionControl(normalizeRelayCongestionControl(snapshot.relayTuicCongestionControl))
         .setRelayTuicRootCertificatePem(snapshot.relayTuicRootCertificatePem)
         .setRelayTrojanRootCertificatePem(snapshot.relayTrojanRootCertificatePem)
+        .setRelayMasqueRootCertificatePem(snapshot.relayMasqueRootCertificatePem)
         .setRelayTuicAlpn(snapshot.relayTuicAlpn)
         .setRelayShadowtlsInnerProfileId(snapshot.relayShadowTlsInnerProfileId)
         .setRelayNaivePath(snapshot.relayNaivePath)

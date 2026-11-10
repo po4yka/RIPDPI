@@ -221,7 +221,7 @@ fn resolved_hop_masque_config(
         privacy_pass_provider_url: hop.masque_privacy_pass_provider_url.clone(),
         privacy_pass_provider_auth_token: hop.masque_privacy_pass_provider_auth_token.clone(),
         tls_fingerprint_profile: hop.tls_fingerprint_profile.clone(),
-        root_certificate_pem: None,
+        root_certificate_pem: super::masque::trimmed_root_certificate_pem(hop.masque_root_certificate_pem.as_deref()),
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
         ech_config: None,
@@ -476,6 +476,18 @@ mod credential_tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn chain_masque_json_root_certificate_reaches_config() {
+        let wire = serde_json::json!({
+            "kind": "masque", "server": "peer.example", "serverPort": 443, "tlsFingerprintProfile": "chrome_stable",
+            "masqueUrl": "https://peer.example/.well-known/masque/tcp/",
+            "masqueRootCertificatePem": " pem-body "
+        });
+        let hop: ResolvedChainRelayHopConfig = serde_json::from_value(wire).expect("chain wire");
+        let config = resolved_hop_masque_config(&hop, "entry", SocketProtectionPolicy::Inactive).expect("masque hop");
+        assert_eq!(config.root_certificate_pem.as_deref(), Some("pem-body"));
     }
 
     #[test]

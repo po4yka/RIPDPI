@@ -19,6 +19,9 @@ import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun ConnectionDraft.withRelaySettings(relay: RelaySettingsModel): ConnectionDraft =
+    withRelayProfileSettings(relay).withRelayFinalmaskSettings(relay)
+
+private fun ConnectionDraft.withRelayProfileSettings(relay: RelaySettingsModel): ConnectionDraft =
     copy(
         relayEnabled = relay.enabled,
         relayKind = relay.kind,
@@ -56,6 +59,7 @@ internal fun ConnectionDraft.withRelaySettings(relay: RelaySettingsModel): Conne
         relayTuicCongestionControl = relay.profile.tuicCongestionControl,
         relayTuicRootCertificatePem = relay.profile.tuicRootCertificatePem,
         relayTrojanRootCertificatePem = relay.profile.trojanRootCertificatePem,
+        relayMasqueRootCertificatePem = relay.profile.masqueRootCertificatePem,
         relayTuicAlpn = relay.profile.tuicAlpn,
         relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
         relayAppsScriptScriptIds = relay.profile.appsScriptScriptIds.joinToString("\n"),
@@ -78,6 +82,10 @@ internal fun ConnectionDraft.withRelaySettings(relay: RelaySettingsModel): Conne
         relaySnowflakeFrontDomain = relay.profile.ptSnowflakeFrontDomain,
         relayUdpEnabled = relay.profile.udpEnabled,
         relayLocalSocksPort = relay.profile.localSocksPort.toString(),
+    )
+
+private fun ConnectionDraft.withRelayFinalmaskSettings(relay: RelaySettingsModel): ConnectionDraft =
+    copy(
         relayFinalmaskType = relay.profile.finalmask.type,
         relayFinalmaskHeaderHex = relay.profile.finalmask.headerHex,
         relayFinalmaskTrailerHex = relay.profile.finalmask.trailerHex,
@@ -163,6 +171,7 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConnectionDraft): AppSett
         setRelayTuicCongestionControl(normalizeRelayCongestionControl(draft.relayTuicCongestionControl))
         setRelayTuicRootCertificatePem(draft.relayTuicRootCertificatePem.trim())
         setRelayTrojanRootCertificatePem(draft.relayTrojanRootCertificatePem.trim())
+        setRelayMasqueRootCertificatePem(draft.relayMasqueRootCertificatePem.trim())
         setRelayTuicAlpn(draft.relayTuicAlpn.trim())
         setRelayShadowtlsInnerProfileId(draft.relayShadowTlsInnerProfileId)
         clearRelayAppsScriptScriptIds()

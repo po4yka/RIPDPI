@@ -40,6 +40,7 @@ internal data class AppSettingsRelaySnapshot(
     val relayTuicCongestionControl: String = defaultSettings.relayTuicCongestionControl,
     val relayTuicRootCertificatePem: String = defaultSettings.relayTuicRootCertificatePem,
     val relayTrojanRootCertificatePem: String = defaultSettings.relayTrojanRootCertificatePem,
+    val relayMasqueRootCertificatePem: String = defaultSettings.relayMasqueRootCertificatePem,
     val relayTuicAlpn: String = defaultSettings.relayTuicAlpn,
     val relayShadowTlsInnerProfileId: String = defaultSettings.relayShadowtlsInnerProfileId,
     val relayNaivePath: String = defaultSettings.relayNaivePath,

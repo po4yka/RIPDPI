@@ -1220,6 +1220,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_tuic_congestion_cubic">CUBIC</string>
     <string name="config_relay_tuic_password">TUIC पासवर्ड</string>
     <string name="config_relay_tuic_root_certificate">रूट प्रमाणपत्र (PEM)</string>
+    <string name="config_relay_masque_root_certificate">रूट प्रमाणपत्र (PEM)</string>
     <string name="config_relay_tuic_alpn">ALPN (अल्पविराम से अलग)</string>
     <string name="config_relay_tuic_uuid">TUIC UUID</string>
     <string name="profile_share_setup_sheet_template">RIPDPI सेटअप शीट\n\nप्रोफ़ाइल: %1$s\nप्रकार: %2$s\n\nसदस्यता/प्रोफ़ाइल लिंक:\n%3$s\n\nHiddify:\n1. Hiddify खोलें।\n2. प्रोफ़ाइल जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nAmneziaVPN:\n1. AmneziaVPN खोलें।\n2. लिंक या QR से सर्वर जोड़ें चुनें।\n3. QR कोड स्कैन करें या ऊपर दिया गया लिंक पेस्ट करें।\n\nइस शीट को निजी रखें। QR कोड और लिंक में क्रेडेंशियल होते हैं।</string>

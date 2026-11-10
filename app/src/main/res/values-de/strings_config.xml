@@ -1200,6 +1200,7 @@ Quelle: %2$s</string>
     <string name="config_relay_tuic_congestion_cubic">CUBIC</string>
     <string name="config_relay_tuic_password">TUIC-Passwort</string>
     <string name="config_relay_tuic_root_certificate">Root-Zertifikat (PEM)</string>
+    <string name="config_relay_masque_root_certificate">Root-Zertifikat (PEM)</string>
     <string name="config_relay_tuic_alpn">ALPN (kommagetrennt)</string>
     <string name="config_relay_tuic_uuid">TUIC-UUID</string>
     <string name="profile_share_setup_sheet_template">RIPDPI-Einrichtungsblatt\n\nProfil: %1$s\nTyp: %2$s\n\nAbonnement-/Profil-Link:\n%3$s\n\nHiddify:\n1. Hiddify öffnen.\n2. Profil hinzufügen wählen.\n3. Den QR-Code scannen oder den obigen Link einfügen.\n\nAmneziaVPN:\n1. AmneziaVPN öffnen.\n2. Server aus Link oder QR hinzufügen wählen.\n3. Den QR-Code scannen oder den obigen Link einfügen.\n\nBewahren Sie dieses Blatt privat auf. Der QR-Code und der Link enthalten Anmeldedaten.</string>

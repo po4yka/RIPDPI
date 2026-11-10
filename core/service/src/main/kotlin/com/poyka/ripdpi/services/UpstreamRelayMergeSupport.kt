@@ -53,6 +53,7 @@ internal fun mergeRelayConfig(
         tuicCongestionControl = profile.tuicCongestionControl,
         tuicRootCertificatePem = profile.tuicRootCertificatePem.ifBlank { null },
         trojanRootCertificatePem = profile.trojanRootCertificatePem.ifBlank { null },
+        masqueRootCertificatePem = profile.masqueRootCertificatePem.ifBlank { null },
         tuicAlpn = profile.tuicAlpn.ifBlank { null },
         shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
         naivePath = profile.naivePath.ifBlank { config.naivePath },

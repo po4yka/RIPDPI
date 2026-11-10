@@ -14,6 +14,7 @@ pub struct MasqueRelayConfig {
     pub cloudflare_geohash_header: Option<String>,
     pub privacy_pass_provider_url: Option<String>,
     pub privacy_pass_provider_auth_token: Option<String>,
+    pub root_certificate_pem: Option<String>,
 }
 
 impl_redacted_debug!(MasqueRelayConfig {
@@ -39,6 +40,7 @@ impl Default for MasqueRelayConfig {
             cloudflare_geohash_header: None,
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
+            root_certificate_pem: None,
         }
     }
 }

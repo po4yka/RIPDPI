@@ -56,6 +56,7 @@ internal fun buildRelayConfig(settings: AppSettings): RipDpiRelayConfig {
         tuicCongestionControl = relay.profile.tuicCongestionControl,
         tuicRootCertificatePem = relay.profile.tuicRootCertificatePem.ifBlank { null },
         trojanRootCertificatePem = relay.profile.trojanRootCertificatePem.ifBlank { null },
+        masqueRootCertificatePem = relay.profile.masqueRootCertificatePem.ifBlank { null },
         tuicAlpn = relay.profile.tuicAlpn.ifBlank { null },
         shadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
         naivePath = relay.profile.naivePath,

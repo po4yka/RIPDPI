@@ -237,6 +237,8 @@ pub struct ResolvedChainRelayHopConfig {
     #[serde(default)]
     pub masque_privacy_pass_provider_auth_token: Option<String>,
     #[serde(default)]
+    pub masque_root_certificate_pem: Option<String>,
+    #[serde(default)]
     pub cloudflare_tunnel_token: Option<String>,
     #[serde(default)]
     pub cloudflare_tunnel_credentials_json: Option<String>,
@@ -324,6 +326,7 @@ impl Default for ResolvedChainRelayHopConfig {
             masque_cloudflare_geohash_header: None,
             masque_privacy_pass_provider_url: None,
             masque_privacy_pass_provider_auth_token: None,
+            masque_root_certificate_pem: None,
             cloudflare_tunnel_token: None,
             cloudflare_tunnel_credentials_json: None,
             finalmask: ResolvedRelayFinalmaskConfig::default(),

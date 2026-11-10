@@ -64,6 +64,7 @@ internal data class RelayChainActions(
 
 internal data class RelayMasqueActions(
     val onRelayMasqueUrlChanged: (String) -> Unit = {},
+    val onRelayMasqueRootCertificatePemChanged: (String) -> Unit = {},
     val onRelayMasqueAuthModeChanged: (String) -> Unit = {},
     val onRelayMasqueAuthTokenChanged: (String) -> Unit = {},
     val onRelayMasqueClientCertificateChainPemChanged: (String) -> Unit = {},

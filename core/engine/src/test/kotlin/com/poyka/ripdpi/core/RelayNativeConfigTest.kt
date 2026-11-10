@@ -370,6 +370,7 @@ class RelayNativeConfigTest {
             tuicZeroRtt = true,
             tuicCongestionControl = "cubic",
             tuicRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntuic-root\n-----END CERTIFICATE-----",
+            masqueRootCertificatePem = "-----BEGIN CERTIFICATE-----\nmasque-root\n-----END CERTIFICATE-----",
             tuicUuid = "tuic-uuid",
             tuicPassword = relayNativePlaceholder(3),
         )
@@ -517,6 +518,7 @@ class RelayNativeConfigTest {
             tuicZeroRtt = true,
             tuicCongestionControl = "cubic",
             tuicRootCertificatePem = "-----BEGIN CERTIFICATE-----\ntuic-root\n-----END CERTIFICATE-----",
+            masqueRootCertificatePem = "-----BEGIN CERTIFICATE-----\nmasque-root\n-----END CERTIFICATE-----",
             shadowTlsInnerProfileId = "shadowtls-inner-profile-id",
             naivePath = "/naive/path",
             ptBridgeLine = "pt-bridge-line",
@@ -707,6 +709,7 @@ class RelayNativeConfigTest {
                 "shadowsocksPassword",
                 "trojanRootCertificatePem",
                 "tuicRootCertificatePem",
+                "masqueRootCertificatePem",
                 "naiveUsername",
                 "naivePassword",
                 "masqueAuthMode",

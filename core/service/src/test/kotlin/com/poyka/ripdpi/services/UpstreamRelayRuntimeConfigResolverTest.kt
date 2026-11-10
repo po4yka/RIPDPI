@@ -257,6 +257,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                                     id = "masque",
                                     kind = RelayKindMasque,
                                     masqueUrl = "https://masque.example/.well-known/masque/udp/",
+                                    masqueRootCertificatePem = "masque-root-pem",
                                 ),
                             )
                         },
@@ -293,6 +294,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             assertEquals(RelayMasqueAuthModePrivacyPass, resolved.masqueAuthMode)
             assertEquals("https://issuer.example/token", resolved.masquePrivacyPassProviderUrl)
             assertEquals(null, resolved.masquePrivacyPassProviderAuthToken)
+            assertEquals("masque-root-pem", resolved.masqueRootCertificatePem)
             assertTrue(resolved.masqueUseHttp2Fallback)
         }
 

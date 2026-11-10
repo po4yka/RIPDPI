@@ -63,6 +63,7 @@ data class RelayProfileRecord(
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val tuicRootCertificatePem: String = "",
     val trojanRootCertificatePem: String = "",
+    val masqueRootCertificatePem: String = "",
     val tuicAlpn: String = "",
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",

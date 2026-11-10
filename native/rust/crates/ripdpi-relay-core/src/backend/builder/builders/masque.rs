@@ -87,11 +87,16 @@ fn build_masque_client_config_with_ech_lookup(
         privacy_pass_provider_url: masque.privacy_pass_provider_url.clone(),
         privacy_pass_provider_auth_token: masque.privacy_pass_provider_auth_token.clone(),
         tls_fingerprint_profile: config.common.tls_fingerprint_profile.clone(),
-        root_certificate_pem: None,
+        root_certificate_pem: trimmed_root_certificate_pem(masque.root_certificate_pem.as_deref()),
         quic_bind_low_port: config.common.quic_bind_low_port,
         quic_migrate_after_handshake: config.common.quic_migrate_after_handshake,
         ech_config,
     })
+}
+
+/// Blank PEM means "no extra trust anchor".
+pub(super) fn trimmed_root_certificate_pem(pem: Option<&str>) -> Option<String> {
+    pem.map(str::trim).filter(|pem| !pem.is_empty()).map(str::to_owned)
 }
 
 fn masque_url_host(url: &str) -> io::Result<String> {
@@ -155,6 +160,29 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
         assert!(lookup.requests().is_empty(), "VPN rejection must precede encrypted-DNS network I/O");
+    }
+
+    #[test]
+    fn masque_root_certificate_pem_reaches_client_config_and_blank_means_none() {
+        let mut config = sample_masque_runtime_config();
+        let build = |config: &ResolvedRelayRuntimeConfig| {
+            build_masque_client_config_with_ech_lookup(config, |_| Ok(None)).expect("MASQUE client config")
+        };
+        assert_eq!(build(&config).root_certificate_pem, None);
+        set_root_pem(&mut config, "  \n");
+        assert_eq!(build(&config).root_certificate_pem, None);
+        set_root_pem(&mut config, "\n-----BEGIN CERTIFICATE-----\nroot\n-----END CERTIFICATE-----\n");
+        assert_eq!(
+            build(&config).root_certificate_pem.as_deref(),
+            Some("-----BEGIN CERTIFICATE-----\nroot\n-----END CERTIFICATE-----")
+        );
+    }
+
+    fn set_root_pem(config: &mut ResolvedRelayRuntimeConfig, pem: &str) {
+        let RelayBackendConfig::Masque(masque) = &mut config.backend else {
+            panic!("expected MASQUE config");
+        };
+        masque.root_certificate_pem = Some(pem.to_string());
     }
 
     #[test]
