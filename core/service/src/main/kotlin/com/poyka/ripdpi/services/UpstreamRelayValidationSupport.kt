@@ -108,6 +108,11 @@ internal fun validateMasqueRelayCredentials(
                 true
             }
 
+            // No auth mode and no secrets (resolveMasqueAuthModeSupport infers a mode from any secret): unauthenticated.
+            null -> {
+                true
+            }
+
             else -> {
                 false
             }
