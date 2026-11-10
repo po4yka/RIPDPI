@@ -154,6 +154,18 @@ object ClashSubscriptionParser {
 
             "anytls" -> {
                 val server = node.requireString("server", index)
+                // `fingerprint` is the certificate pin (SHA-256). skip-cert-verify is safe only with
+                // one; without it the profile could never pass full verification, so the node is
+                // rejected. A malformed pin rejects the node too instead of dropping the check.
+                val pinSha256 =
+                    node.string("fingerprint")?.takeIf { it.isNotBlank() }?.let { raw ->
+                        requireNotNull(normalizeHysteria2PinSha256(raw)) {
+                            "node $index anytls fingerprint is not a SHA-256 certificate pin"
+                        }
+                    }
+                require(node.string("skip-cert-verify")?.toBooleanStrictOrNull() != true || pinSha256 != null) {
+                    "node $index anytls skip-cert-verify needs a fingerprint pin"
+                }
                 ProxyProfile.AnyTls(
                     id = newId(),
                     displayName = name,
@@ -162,6 +174,7 @@ object ClashSubscriptionParser {
                     serverPort = node.requirePort("port", index),
                     serverName = node.string("sni") ?: node.string("servername") ?: server,
                     password = node.requireString("password", index),
+                    pinSha256 = pinSha256,
                 )
             }
 

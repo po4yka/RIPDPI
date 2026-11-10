@@ -608,7 +608,9 @@ private fun mapAnyTls(
     port: Int?,
     name: String,
 ): ProxyProfile {
-    val password = obj.string("password")
+    // tls.insecure would import a profile that fails full verification; sing-box has no leaf-certificate
+    // pin the client can use, so the node stays an opaque raw config instead of a usable AnyTLS profile.
+    val password = obj.string("password")?.takeUnless { obj.nestedString("tls", "insecure") == "true" }
     return if (server != null && port != null && password != null) {
         ProxyProfile.AnyTls(
             id = newId(),
