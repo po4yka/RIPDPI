@@ -54,6 +54,18 @@ fn unsupported_auth_mode_fails_before_connect() {
     assert!(error.to_string().contains("unsupported MASQUE auth mode"));
 }
 
+#[test]
+fn a_malformed_client_certificate_fails_before_connect_in_any_auth_mode() {
+    let mut config = privacy_pass_test_config("https://provider.example/token".to_string(), None);
+    config.auth_mode = Some("bearer".to_string());
+    config.auth_token = Some("secret".to_string());
+    config.privacy_pass_provider_url = None;
+    config.client_certificate_chain_pem = Some("not a certificate".to_string());
+    config.client_private_key_pem = Some("not a key".to_string());
+    let error = MasqueClient::new(config).err().expect("H2 presents the certificate, so it must parse");
+    assert_eq!(io::ErrorKind::InvalidInput, error.kind());
+}
+
 fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&str>) -> MasqueConfig {
     MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,

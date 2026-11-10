@@ -21,14 +21,16 @@ pub(crate) fn validate_config(config: &MasqueConfig) -> io::Result<()> {
     }
     let _ = parse_proxy_origin(config)?;
     let _ = build_static_auth_header(config)?;
+    // TCP always rides H2, and H2 presents a configured client certificate in
+    // every auth mode, so the boring identity must load whenever one is set.
+    if has_client_certificate(config) {
+        let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
+            .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
+        apply_h2_client_auth(&mut builder, config)?;
+    }
     match config.effective_auth_mode() {
         MasqueAuthMode::CloudflareMtls => {
             let _ = load_client_identity(config)?;
-            if config.use_http2_fallback {
-                let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
-                    .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
-                apply_h2_client_auth(&mut builder, config)?;
-            }
         }
         MasqueAuthMode::PrivacyPass => {
             if config.socket_protection == ripdpi_native_protect::SocketProtectionPolicy::VpnRequired {
@@ -62,4 +64,8 @@ pub(crate) fn validate_config(config: &MasqueConfig) -> io::Result<()> {
         MasqueAuthMode::None | MasqueAuthMode::Bearer | MasqueAuthMode::Preshared => {}
     }
     Ok(())
+}
+
+fn has_client_certificate(config: &MasqueConfig) -> bool {
+    config.client_certificate_chain_pem.as_deref().is_some_and(|value| !value.trim().is_empty())
 }
