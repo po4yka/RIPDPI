@@ -7,7 +7,8 @@ use super::{FronterError, RelayResponse};
 use bytes::Bytes;
 use http_body_util::Full;
 
-#[derive(Default, Deserialize)]
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RelayEnvelope {
     #[serde(default, rename = "s")]
     status: Option<u16>,
@@ -26,23 +27,15 @@ pub(super) fn parse(body: &[u8]) -> Result<RelayResponse, FronterError> {
     if trimmed.is_empty() {
         return Err(FronterError::BadResponse("Apps Script payload is empty".to_string()));
     }
-    let response = match serde_json::from_str::<RelayEnvelope>(trimmed) {
-        Ok(response) => response,
-        Err(_) => {
-            let start = trimmed
-                .find('{')
-                .ok_or_else(|| FronterError::BadResponse("Apps Script payload does not contain JSON".to_string()))?;
-            let end = trimmed
-                .rfind('}')
-                .ok_or_else(|| FronterError::BadResponse("Apps Script payload does not terminate JSON".to_string()))?;
-            serde_json::from_str(&trimmed[start..=end])?
-        }
-    };
+    let response: RelayEnvelope = serde_json::from_str(trimmed)?;
     if let Some(error) = response.error {
+        if error.trim().is_empty() {
+            return Err(FronterError::BadResponse("empty relay error".into()));
+        }
         return Err(FronterError::Relay(error));
     }
 
-    let status = response.status.unwrap_or(200);
+    let status = response.status.ok_or_else(|| FronterError::BadResponse("missing relay status".into()))?;
     let body = response
         .body
         .map(|value| BASE64_STANDARD.decode(value))
@@ -173,5 +166,19 @@ mod tests {
         assert!(parse(&envelope(r#"{"X-Test":"safe\r\nInjected: bad"}"#, b"")).is_err());
         assert!(parse(br#"{"s":99}"#).is_err());
         assert!(parse(br#"{"s":100}"#).is_err());
+    }
+}
+
+#[cfg(test)]
+mod rly15_regressions {
+    use super::*;
+    #[test]
+    fn rly15_malformed_and_unrelated_envelopes_are_errors() {
+        for body in
+            [b"} x {".as_slice(), br#"{"message":"deployment failed"}"#, b"{}", b"<html>{}</html>", br#"{"b":"YWJj"}"#]
+        {
+            assert!(parse(body).is_err(), "invalid envelope accepted");
+        }
+        assert!(matches!(parse(br#"{"e":"unauthorized"}"#), Err(FronterError::Relay(_))));
     }
 }
