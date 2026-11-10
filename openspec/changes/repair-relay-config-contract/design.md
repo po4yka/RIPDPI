@@ -14,8 +14,10 @@ The current schema is 10. The audit has four confirmed boundary defects and sepa
 - Shared native validation rejects invalid imported endpoints before mapping or persistence.
 - JNI session dispatch requires the current schema before it chooses Standard or Apps Script. Keep standalone Apps Script aliases where callers require them.
 - Reality backend dispatch uses an explicit transport allowlist. Unknown strings never imply TCP.
-- Add contract checks using real serializers and consumers. Do not copy protocol algorithms into expected values.
-- Investigate telemetry and coherent reads before changing them. Record intentional aggregate scope or unsupported DTO modes instead of adding speculative runtime features.
+- Add contract checks using real serializers and consumers. Do not copy protocol algorithms into expected values. Run the live Kotlin-to-Rust check as a required CI job for Android or native changes.
+- The deterministic Room race reproduced mixed profile and credential generations. Reuse the existing coordinator recovered-read scope for the pair.
+- A planned-capability test reproduced Mieru off reuse drift. Derive planned reuse from the parsed submode and compare it with the actual backend.
+- Keep the documented process-wide quality aggregate and unsupported chain mux scope; do not add speculative runtime features.
 
 ## Contracts and ownership
 

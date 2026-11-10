@@ -25,3 +25,5 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-RLY-1794335295387247-003 | RLY-1794335372761763 | Pending actual native session decoder schema tests | pending |
 | REQ-RLY-1794335295387247-004 | RLY-1794335373340330 | Pending actual backend rejection and allowed-mode tests | pending |
 | REQ-RLY-1794335295387247-005 | RLY-1794335373929312 | Pending contract checks, hypothesis evidence and independent review | pending |
+| REQ-RLY-1794335295387247-006 | RLY-1794335373929312 | RED real Room race combined old endpoint with new password; GREEN pending | pending |
+| REQ-RLY-1794335295387247-007 | RLY-1794335373929312 | RED actual Mieru backend disagreed with planned reusable; GREEN pending | pending |

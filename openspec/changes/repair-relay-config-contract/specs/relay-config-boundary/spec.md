@@ -22,6 +22,11 @@ The implementation MUST reject Trojan and AnyTLS profiles with invalid endpoints
 - **WHEN** a Trojan or AnyTLS node contains a port outside 1 through 65535
 - **THEN** validation rejects the node and existing durable state remains intact
 
+#### Scenario: Invalid subscription refresh preserves the old group
+
+- **WHEN** a refresh contains an invalid Trojan or AnyTLS endpoint
+- **THEN** it reports a parse error before group replacement and preserves the previous members and settings
+
 ### Requirement: REQ-RLY-1794335295387247-003 — Require the current native schema for every relay
 
 The implementation MUST require native relay schema 10 before JNI session dispatch for Standard and Apps Script relays. Existing supported Apps Script aliases and session credential rules MUST remain intact.
@@ -48,3 +53,21 @@ The contract tests MUST detect missing registry rows and incompatible current pr
 
 - **WHEN** a current producer emits a field or a registry row that its consumer cannot represent
 - **THEN** a maintained contract check fails with the affected field or kind
+
+### Requirement: REQ-RLY-1794335295387247-006 — Read one relay profile generation
+
+The implementation MUST read a stored relay profile and its credentials in the same recovered-read scope as the mutation coordinator.
+
+#### Scenario: A mutation races with runtime resolution
+
+- **WHEN** a relay mutation begins between the profile and credential reads
+- **THEN** runtime resolution receives a matching endpoint and credential generation and the mutation can complete after that read scope ends
+
+### Requirement: REQ-RLY-1794335295387247-007 — Plan capabilities from the active submode
+
+The implementation MUST report the same planned reuse capability as the actual backend for a valid Mieru or Reality mux submode.
+
+#### Scenario: Mux changes connection reuse
+
+- **WHEN** Mieru mux is off or Reality TCP uses yamux
+- **THEN** the planned reuse flag matches the built backend without adding a new transport mode
