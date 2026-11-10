@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-10T13:27:19Z",
+  "change": "fix-tor-relay-audit",
+  "commit_sha": "e7830ce7ba61860964b729977d9a5dedd1a953a2",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RLY-1794300120922878"
+}

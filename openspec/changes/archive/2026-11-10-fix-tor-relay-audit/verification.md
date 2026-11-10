@@ -20,12 +20,12 @@ deployment_evidence: No deployment is part of this change.
 
 | Requirement | Execution step | Observed evidence | Result |
 |---|---|---|---|
-| REQ-TOR-DNS | RLY-1794300204878737 | Two loopback tests cover seven input/auth variants, no direct DNS, REP2/5/7, active Stop and production byte counters. | local passed |
-| REQ-TOR-BUDGET | RLY-1794300205521753 | Proxy-config tests check the 120-second Tor dial budget. A real cold Tor circuit is not claimed. | local passed |
-| REQ-TOR-RETRY | RLY-1794300206174299 | bootstrap_retry proves that cancellation followed by retry does not report readiness without a directory. | local passed |
-| REQ-TOR-SHUTDOWN | RLY-1794300206828819 | Three real-process tests cover quiet/stubborn shutdown, reader-spawn failure cleanup and missing-executable classification. | local passed |
-| REQ-TOR-STATE | RLY-1794300207611622 | Filesystem tests cover distinct bounded paths, raw UTF-16 IDs, legacy IDs of 201/255 bytes and both sides of an old underscore alias. | local passed |
-| REQ-TOR-VALIDATION | RLY-1794300208607627 | Shared bridge validator tests, editor tests and resolver caller tests cover required transport fields and identities. | local passed |
+| REQ-TOR-DNS | RLY-1794300204878737 | Two loopback tests cover seven input/auth variants, no direct DNS, REP2/5/7, active Stop and production byte counters. | passed |
+| REQ-TOR-BUDGET | RLY-1794300205521753 | Proxy-config tests check the 120-second Tor dial budget. A real cold Tor circuit is not claimed. | passed |
+| REQ-TOR-RETRY | RLY-1794300206174299 | bootstrap_retry proves that cancellation followed by retry does not report readiness without a directory. | passed |
+| REQ-TOR-SHUTDOWN | RLY-1794300206828819 | Three real-process tests cover quiet/stubborn shutdown, reader-spawn failure cleanup and missing-executable classification. | passed |
+| REQ-TOR-STATE | RLY-1794300207611622 | Filesystem tests cover distinct bounded paths, raw UTF-16 IDs, legacy IDs of 201/255 bytes and both sides of an old underscore alias. | passed |
+| REQ-TOR-VALIDATION | RLY-1794300208607627 | Shared bridge validator tests, editor tests and resolver caller tests cover required transport fields and identities. | passed |
 
 ## Results and limits
 

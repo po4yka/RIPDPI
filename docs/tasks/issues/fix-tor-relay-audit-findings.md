@@ -2,7 +2,7 @@
 id: RLY-1794300120922878
 title: Fix Tor relay audit findings
 kind: bug
-status: review
+status: done
 area: relay
 priority: high
 owner: Tor audit team
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-tor-relay-audit
 created: 2026-11-10
 updated: 2026-11-10
+closed_at: "2026-11-10T13:28:55Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 823 Rust and 106 Kotlin tests passed; strict Clippy, staticAnalysis with one worker, just ci-gates and independent reviews passed. Source repairs were pushed to main at 54e8d32774668d2870a6a82f324a5142a18feb75. Real Tor and Android acceptance remain unclaimed.
 ---
 
 ## Goal

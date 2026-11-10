@@ -1,0 +1,11 @@
+{
+  "change": "fix-tor-relay-audit",
+  "evidence_summary": "823 Rust and 106 Kotlin tests passed; strict Clippy, staticAnalysis with one worker, just ci-gates and independent reviews passed. Source repairs were pushed to main at 54e8d32774668d2870a6a82f324a5142a18feb75. Real Tor and Android acceptance remain unclaimed.",
+  "execution_sha256": "d3ed81e132a321b16a31d9f7aad05ac190759df8d1bff77261a48195cc2bca68",
+  "issue_sha256": "87e5ee019b67ad98a290f8a7872ad0ca31d186c96e691687c8690a2ce7fbb7fc",
+  "outcome": "done",
+  "prepared_at": "2026-11-10T13:28:55Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1794300120922878"
+}
