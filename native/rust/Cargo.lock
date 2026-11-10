@@ -6793,6 +6793,8 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "toml 1.2.1+spec-1.1.0",
+ "tor-error",
+ "tor-ptmgr",
  "tor-rtcompat",
 ]
 
@@ -9658,8 +9660,6 @@ dependencies = [
 [[package]]
 name = "tor-ptmgr"
 version = "0.48.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5a85e68659fc0627daa90cb7c1993461801ace009fc22aec230a62cdef27747"
 dependencies = [
  "async-trait",
  "cfg-if",
