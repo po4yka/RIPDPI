@@ -308,23 +308,29 @@ object XrayConfigImportParser {
         // The native trojan client is TLS-only with certificate verification always on.
         // Xray defaults `security` to none, which is plaintext.
         val security = stream?.string("security")?.lowercase()
-        if (security != "tls") {
-            return OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "security-${security ?: "none"}")
+        return when {
+            security != "tls" -> {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "security-${security ?: "none"}")
+            }
+
+            (tls?.get("allowInsecure") as? JsonPrimitive)?.booleanOrNull == true -> {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "insecure")
+            }
+
+            else -> {
+                OutboundMapping.Profile(
+                    ProxyProfile.Trojan(
+                        id = newId(),
+                        displayName = tag ?: creds.address,
+                        groupId = groupId,
+                        server = creds.address,
+                        serverPort = creds.port,
+                        password = creds.password,
+                        serverName = tls?.string("serverName"),
+                    ),
+                )
+            }
         }
-        if ((tls?.get("allowInsecure") as? JsonPrimitive)?.booleanOrNull == true) {
-            return OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "insecure")
-        }
-        return OutboundMapping.Profile(
-            ProxyProfile.Trojan(
-                id = newId(),
-                displayName = tag ?: creds.address,
-                groupId = groupId,
-                server = creds.address,
-                serverPort = creds.port,
-                password = creds.password,
-                serverName = tls?.string("serverName"),
-            ),
-        )
     }
 
     private fun mapShadowsocks(
