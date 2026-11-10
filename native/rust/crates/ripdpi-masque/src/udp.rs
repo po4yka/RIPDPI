@@ -156,7 +156,7 @@ impl MasqueUdpRelay {
     }
 
     async fn open_flow(&self, target: &str) -> io::Result<MasqueUdpFlow> {
-        let auth_header = self.client.request_auth_header(target).await?;
+        let auth_header = self.client.request_auth_header().await?;
         let fallback_reason = if self.client.config.use_http2_fallback && self.client.h3_udp_in_cooldown().await {
             // H3 failed recently on this relay: skip the attempt so a UDP-blocked
             // path does not pay the H3 connect bound for every new target.
@@ -166,7 +166,7 @@ impl MasqueUdpRelay {
             let terminal_attempt = &terminal;
             let h3 = self
                 .client
-                .attempt_with_privacy_pass_retry(target, auth_header.clone(), |header| async move {
+                .attempt_with_privacy_pass_retry(auth_header.clone(), |header| async move {
                     bounded_attempt(
                         "MASQUE H3 CONNECT-UDP",
                         attempt_h3_connect_udp(
@@ -207,7 +207,7 @@ impl MasqueUdpRelay {
         };
         let h2 = self
             .client
-            .attempt_with_privacy_pass_retry(target, auth_header, |header| async move {
+            .attempt_with_privacy_pass_retry(auth_header, |header| async move {
                 bounded_attempt(
                     "MASQUE H2 CONNECT-UDP",
                     attempt_h2_connect_udp(&self.client.config, target, header.as_ref(), self.incoming_tx.clone()),

@@ -39,7 +39,6 @@ impl PrivacyPassCache {
 #[serde(rename_all = "camelCase")]
 pub struct PrivacyPassProviderRequest {
     pub proxy_url: String,
-    pub target: String,
     pub challenge_header: String,
 }
 

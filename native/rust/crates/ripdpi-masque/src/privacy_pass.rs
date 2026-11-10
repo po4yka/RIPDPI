@@ -6,16 +6,16 @@ use crate::config::MasqueAuthMode;
 use crate::response::AttemptError;
 
 impl MasqueClientInner {
-    pub(crate) async fn request_auth_header(&self, target: &str) -> io::Result<Option<AuthHeader>> {
+    pub(crate) async fn request_auth_header(&self) -> io::Result<Option<AuthHeader>> {
         if self.config.effective_auth_mode() == MasqueAuthMode::PrivacyPass {
-            return Ok(self.cached_privacy_pass_header(target).await);
+            return Ok(self.cached_privacy_pass_header().await);
         }
         build_static_auth_header(&self.config)
     }
 
     /// Runs `attempt` with `auth_header`. When the proxy answers with a
-    /// Privacy Pass challenge, fetches a token for `target` and runs `attempt`
-    /// once more with it (RFC 9577 2.1).
+    /// Privacy Pass challenge, fetches a token for the proxy and runs `attempt`
+    /// once more with it (RFC 9577 2.1). The provider never sees the target.
     ///
     /// # Cancel safety
     ///
@@ -23,7 +23,6 @@ impl MasqueClientInner {
     /// drops the attempt in flight. A fetched token that is not yet used is lost.
     pub(crate) async fn attempt_with_privacy_pass_retry<T, F, Fut>(
         &self,
-        target: &str,
         auth_header: Option<AuthHeader>,
         mut attempt: F,
     ) -> io::Result<T>
@@ -36,7 +35,7 @@ impl MasqueClientInner {
             Err(AttemptError::Io(error)) => return Err(error),
             Err(AttemptError::PrivacyPassChallenge(challenge)) => challenge,
         };
-        let retry_header = self.fetch_privacy_pass_header(target, &challenge).await?;
+        let retry_header = self.fetch_privacy_pass_header(&challenge).await?;
         match attempt(Some(retry_header)).await {
             Ok(value) => Ok(value),
             Err(AttemptError::Io(error)) => Err(error),
@@ -47,19 +46,15 @@ impl MasqueClientInner {
         }
     }
 
-    pub(crate) async fn cached_privacy_pass_header(&self, target: &str) -> Option<AuthHeader> {
+    pub(crate) async fn cached_privacy_pass_header(&self) -> Option<AuthHeader> {
         if self.config.effective_auth_mode() != MasqueAuthMode::PrivacyPass {
             return None;
         }
 
-        self.privacy_pass_cache.lock().await.entry(target.to_string()).or_default().pop()
+        self.privacy_pass_cache.lock().await.pop()
     }
 
-    pub(crate) async fn fetch_privacy_pass_header(
-        &self,
-        target: &str,
-        challenge_header: &str,
-    ) -> io::Result<AuthHeader> {
+    pub(crate) async fn fetch_privacy_pass_header(&self, challenge_header: &str) -> io::Result<AuthHeader> {
         if self.config.effective_auth_mode() != MasqueAuthMode::PrivacyPass {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -79,7 +74,6 @@ impl MasqueClientInner {
 
         let mut request = self.provider_client.post(provider_url).json(&PrivacyPassProviderRequest {
             proxy_url: self.config.url.clone(),
-            target: target.to_string(),
             challenge_header: challenge_header.to_string(),
         });
         if let Some(token) =
@@ -114,11 +108,7 @@ impl MasqueClientInner {
         }
 
         let mut cache = self.privacy_pass_cache.lock().await;
-        cache.entry(target.to_string()).or_default().extend(std::mem::take(&mut headers), expires_at_epoch_ms);
-        cache
-            .entry(target.to_string())
-            .or_default()
-            .pop()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Privacy Pass provider cache was empty"))
+        cache.extend(std::mem::take(&mut headers), expires_at_epoch_ms);
+        cache.pop().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Privacy Pass provider cache was empty"))
     }
 }

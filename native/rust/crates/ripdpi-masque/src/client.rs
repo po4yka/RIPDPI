@@ -26,7 +26,7 @@ pub struct MasqueClient {
 pub(crate) struct MasqueClientInner {
     pub(crate) config: MasqueConfig,
     pub(crate) provider_client: reqwest::Client,
-    pub(crate) privacy_pass_cache: Mutex<HashMap<String, PrivacyPassCache>>,
+    pub(crate) privacy_pass_cache: Mutex<PrivacyPassCache>,
     pub(crate) last_migration_snapshot: Mutex<QuicMigrationSnapshot>,
 }
 
@@ -42,7 +42,7 @@ impl MasqueClient {
             inner: Arc::new(MasqueClientInner {
                 config,
                 provider_client,
-                privacy_pass_cache: Mutex::new(HashMap::new()),
+                privacy_pass_cache: Mutex::new(PrivacyPassCache::default()),
                 last_migration_snapshot: Mutex::new(QuicMigrationSnapshot {
                     status: Some("not_attempted".to_string()),
                     reason: None,
@@ -91,7 +91,7 @@ impl MasqueClient {
             self.inner.record_quic_migration_status("failed", Some(H3_TCP_UNSUPPORTED_TOKEN)).await;
             return Err(h3_tcp_unsupported());
         }
-        let auth_header = self.inner.request_auth_header(target).await?;
+        let auth_header = self.inner.request_auth_header().await?;
         match bounded_attempt(
             "MASQUE H2 CONNECT",
             attempt_h2_connect_tcp_over_transport(&self.inner.config, transport, target, auth_header.as_ref()),
@@ -125,10 +125,10 @@ impl MasqueClient {
     }
 
     async fn connect_tcp_h2(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
-        let auth_header = self.inner.request_auth_header(target).await?;
+        let auth_header = self.inner.request_auth_header().await?;
         let stream = self
             .inner
-            .attempt_with_privacy_pass_retry(target, auth_header, |header| async move {
+            .attempt_with_privacy_pass_retry(auth_header, |header| async move {
                 bounded_attempt(
                     "MASQUE H2 CONNECT",
                     attempt_h2_connect_tcp(&self.inner.config, target, header.as_ref()),

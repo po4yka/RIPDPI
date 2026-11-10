@@ -547,16 +547,17 @@ async fn privacy_pass_provider_fetch_caches_spare_headers() {
 
     let first = client
         .inner
-        .fetch_privacy_pass_header("example.com:443", "PrivateToken challenge=AAAA, token-key=BBBB")
+        .fetch_privacy_pass_header("PrivateToken challenge=AAAA, token-key=BBBB")
         .await
         .expect("first provider header");
     assert_eq!(first.name, "authorization");
     assert_eq!(first.value, "PrivateToken token-one");
 
-    let cached = client.inner.cached_privacy_pass_header("example.com:443").await.expect("cached provider header");
+    // The cache is keyed by proxy: the leftover token serves any later target.
+    let cached = client.inner.request_auth_header().await.expect("auth header").expect("cached provider header");
     assert_eq!(cached.name, "authorization");
     assert_eq!(cached.value, "PrivateToken token-two");
-    assert!(client.inner.cached_privacy_pass_header("example.com:443").await.is_none());
+    assert!(client.inner.cached_privacy_pass_header().await.is_none());
 
     provider_task.await.expect("provider task").expect("provider result");
     let requests = requests.lock().await.clone();
@@ -566,7 +567,8 @@ async fn privacy_pass_provider_fetch_caches_spare_headers() {
     assert!(request.starts_with("POST /token HTTP/1.1"));
     assert!(request_lower.contains("authorization: bearer provider-secret"));
     assert!(request.contains("\"proxyUrl\":\"https://masque.example/\""));
-    assert!(request.contains("\"target\":\"example.com:443\""));
+    assert!(!request_lower.contains("target"), "provider request must not reveal the destination: {request}");
+    assert!(!request.contains("example.com"), "provider request must not reveal the destination: {request}");
     assert!(request.contains("\"challengeHeader\":\"PrivateToken challenge=AAAA, token-key=BBBB\""));
 }
 
@@ -589,7 +591,7 @@ async fn privacy_pass_challenge_fetches_a_token_and_retries_the_attempt_once() {
 
     let result = client
         .inner
-        .attempt_with_privacy_pass_retry("example.com:443", None, |header| {
+        .attempt_with_privacy_pass_retry(None, |header| {
             let seen = Arc::clone(&seen);
             async move {
                 let value = header.map(|header| header.value);
@@ -726,7 +728,7 @@ async fn privacy_pass_provider_non_success_is_permission_denied() {
 
     let error = client
         .inner
-        .fetch_privacy_pass_header("forbidden.example:443", "PrivateToken challenge=AAAA, token-key=BBBB")
+        .fetch_privacy_pass_header("PrivateToken challenge=AAAA, token-key=BBBB")
         .await
         .expect_err("403 must fail");
     assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
