@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: rst-1786264762917234-replace-unmaintained-paste-proc-macro
 created: 2026-07-13
 updated: 2026-11-10
-status_detail: "All local checks passed: workspace tests and smoke, clippy, CI source gates, cargo-deny 0.19.8, and arm64-v8a GithubFullDebug APK build. Hosted CI for the implementation SHA is pending."
+status_detail: Local tests and Android build passed. CI run 42866926600 attempt 1 and CodeQL run 42866926515 passed at dfd3c18f0d06c91140a61c8ce6e1426b6af5edd1. The pastey adapter replaces the archived implementation and the expired waiver is removed. Verification evidence is complete; archival is a separate lifecycle step.
 ---
 
 ## Goal

@@ -1,15 +1,15 @@
 ---
 task_id: RST-1786264762917234
 change: rst-1786264762917234-replace-unmaintained-paste-proc-macro
-commit_sha: null
+commit_sha: dfd3c18f0d06c91140a61c8ce6e1426b6af5edd1
 local: passed
 local_evidence: On 2026-11-10 the adapter tests, workspace suite (7138 passed), startup smoke, workspace clippy, formatting, CI source gates, cargo-deny 0.19.8, waiver validator, and arm64-v8a GithubFullDebug APK build passed. See local verification below.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: CI run 42866926600 attempt 1 completed successfully at dfd3c18f0d06c91140a61c8ce6e1426b6af5edd1, including ci-required. CodeQL run 42866926515 also passed. See final hosted verification below.
 device: not_applicable
-device_evidence: No Android device behavior is owned by this portfolio area.
-artifact: not_applicable
-artifact_evidence: No distributable artifact is required for this portfolio area.
+device_evidence: The change replaces a compile-time macro and test fixtures. Local device acceptance was not requested.
+artifact: passed
+artifact_evidence: The local GithubFullDebug arm64-v8a APK build passed. CI run 42866926600 passed native packaging for all four ABIs and release verification for all six distribution and feature variants.
 deployment: not_applicable
 deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 ---
@@ -20,7 +20,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-RST-1786264762917234-001 | RST-1786264762919747 | Local checks below passed; exact-SHA hosted CI is pending. | required |
+| REQ-RST-1786264762917234-001 | RST-1786264762919747 | Local checks below and [CI run 42866926600](https://github.com/po4yka/RIPDPI/actions/runs/42866926600) passed. | passed |
 
 ## Local verification on 2026-11-10
 
@@ -98,4 +98,19 @@ the generator change and passed after it. No production TLS verifier changed.
 After this repair, all 7138 workspace tests and the startup smoke passed
 again, as did workspace clippy, CI source gates, and GithubFullDebug Android
 assembly for arm64-v8a. Independent code and cancel-safety reviews found no
-remaining issue. Hosted verification of this fixture repair is pending.
+remaining issue. Hosted verification of this fixture repair passed.
+
+## Final hosted verification
+
+- Source commit: `dfd3c18f0d06c91140a61c8ce6e1426b6af5edd1`.
+- [CI run 42866926600](https://github.com/po4yka/RIPDPI/actions/runs/42866926600),
+  attempt 1: completed with `success`, including `ci-required`.
+- Both previously failing PEM bundle tests passed on Linux in workspace
+  shard 1/2. The complete workspace test matrix passed.
+- Cargo-deny, Rust lint, fuzz smoke, Miri, Loom, network E2E, upstream-peer
+  interoperability, API snapshots, native bloat, and cross-check passed.
+- Native packaging passed for armeabi-v7a, arm64-v8a, x86, and x86_64.
+  All six GitHub, F-Droid, and Play full/simple release verification jobs passed.
+- [CodeQL run 42866926515](https://github.com/po4yka/RIPDPI/actions/runs/42866926515):
+  completed with `success`. The harness, secret, fleet-fixture, and L7 checks
+  for this source commit also passed.
