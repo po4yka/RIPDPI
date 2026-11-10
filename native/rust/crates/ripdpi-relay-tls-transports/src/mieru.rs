@@ -77,7 +77,7 @@ impl RelaySessionFactory for MieruSessionFactory {
         }
         self.sessions
             .create(async {
-                tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                tokio::time::timeout(CARRIER_CONNECT_DEADLINE, async {
                     let config = self.config.clone();
                     // VpnService.protect() invariant: the Mieru carrier socket is protected
                     // before connect via the in-process VpnService.protect registry
@@ -88,7 +88,8 @@ impl RelaySessionFactory for MieruSessionFactory {
                     // layer. (Resolves the prior unverified TODO.) REL-1 / REL-4. See
                     // .claude/rules/vpnservice-protect-invariant.md.
                     let addrs = self.socket_protection.resolve_host(&config.server, config.port).await?;
-                    let stream = connect_first_reachable(addrs, self.socket_protection).await?;
+                    let stream =
+                        connect_first_reachable(addrs, self.socket_protection, CARRIER_CONNECT_DEADLINE).await?;
                     // Each segment is one write; Nagle would hold it for the
                     // previous segment's ACK (upstream Go dials with NODELAY).
                     stream.set_nodelay(true)?;
@@ -111,6 +112,12 @@ impl RelaySessionFactory for MieruSessionFactory {
     }
 }
 
+/// Total time the carrier connect may take, across every address.
+const CARRIER_CONNECT_DEADLINE: std::time::Duration = std::time::Duration::from_secs(10);
+/// Least time one address attempt gets while budget remains, so a long address
+/// list cannot starve a reachable address of its handshake.
+const MIN_ATTEMPT: std::time::Duration = std::time::Duration::from_secs(1);
+
 /// Connect to the first reachable address of `addrs`, in order, with a fresh
 /// socket per attempt. Each socket is protected before connect (see
 /// `.claude/rules/vpnservice-protect-invariant.md`). Returns the last error when
@@ -121,20 +128,42 @@ impl RelaySessionFactory for MieruSessionFactory {
 async fn connect_first_reachable(
     addrs: Vec<std::net::SocketAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+    budget: std::time::Duration,
 ) -> io::Result<tokio::net::TcpStream> {
-    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for mieru server");
-    for server_addr in addrs {
-        let attempt = async {
-            let socket = match server_addr {
-                std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
-                std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
-            };
-            crate::protect::protect_carrier_socket(&socket, server_addr, socket_protection)?;
-            socket.connect(server_addr).await
+    connect_in_order(addrs, budget, |server_addr| async move {
+        let socket = match server_addr {
+            std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4()?,
+            std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6()?,
         };
-        match attempt.await {
-            Ok(stream) => return Ok(stream),
-            Err(error) => last_error = error,
+        crate::protect::protect_carrier_socket(&socket, server_addr, socket_protection)?;
+        socket.connect(server_addr).await
+    })
+    .await
+}
+
+/// Try `connect` on each address in order. An attempt gets the remaining budget
+/// divided by the addresses left (never less than [`MIN_ATTEMPT`], never more
+/// than the remainder), so a blackholed address cannot use the whole budget.
+async fn connect_in_order<T, F, Fut>(
+    addrs: Vec<std::net::SocketAddr>,
+    budget: std::time::Duration,
+    mut connect: F,
+) -> io::Result<T>
+where
+    F: FnMut(std::net::SocketAddr) -> Fut,
+    Fut: std::future::Future<Output = io::Result<T>>,
+{
+    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for mieru server");
+    let started = tokio::time::Instant::now();
+    let total = addrs.len();
+    for (index, server_addr) in addrs.into_iter().enumerate() {
+        let remaining = budget.saturating_sub(started.elapsed());
+        let left = u32::try_from(total - index).unwrap_or(u32::MAX);
+        let share = (remaining / left).max(MIN_ATTEMPT).min(remaining);
+        match tokio::time::timeout(share, connect(server_addr)).await {
+            Ok(Ok(stream)) => return Ok(stream),
+            Ok(Err(error)) => last_error = error,
+            Err(_) => last_error = io::Error::new(io::ErrorKind::TimedOut, "Mieru server address timed out"),
         }
     }
     Err(last_error)
@@ -154,11 +183,30 @@ mod tests {
         let live = listener.local_addr().expect("live addr");
         let policy = ripdpi_native_protect::SocketProtectionPolicy::Inactive;
 
-        let stream = connect_first_reachable(vec![refused, live], policy).await.expect("second address is reachable");
+        let stream = connect_first_reachable(vec![refused, live], policy, CARRIER_CONNECT_DEADLINE)
+            .await
+            .expect("second address is reachable");
         assert_eq!(stream.peer_addr().expect("peer"), live);
 
-        let error = connect_first_reachable(vec![refused], policy).await.expect_err("all addresses refused");
+        let error = connect_first_reachable(vec![refused], policy, CARRIER_CONNECT_DEADLINE)
+            .await
+            .expect_err("all addresses refused");
         assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused);
+    }
+
+    #[tokio::test]
+    async fn blackholed_first_address_leaves_budget_for_the_next() {
+        let blackhole: std::net::SocketAddr = "192.0.2.1:443".parse().expect("addr");
+        let live: std::net::SocketAddr = "127.0.0.1:443".parse().expect("addr");
+        let budget = std::time::Duration::from_secs(2);
+        let started = tokio::time::Instant::now();
+        let reached = connect_in_order(vec![blackhole, live], budget, |addr| async move {
+            if addr == blackhole { std::future::pending::<io::Result<std::net::SocketAddr>>().await } else { Ok(addr) }
+        })
+        .await
+        .expect("the second address must still be tried");
+        assert_eq!(reached, live);
+        assert!(started.elapsed() < budget, "the first attempt takes at most its share");
     }
 
     #[tokio::test]
