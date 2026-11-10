@@ -68,12 +68,17 @@ The implementation MUST allow at most one active probe per relay tuple, enforce 
 
 ### Requirement: REQ-RLY-1786707070050078-005 — Candidate transitions preserve lifecycle isolation
 
-The implementation MUST finish and await cleanup of a failed or losing relay session before starting the next candidate, and MUST apply TCP-only capability requirements to the selected session without enabling UDP ASSOCIATE.
+Sequential replacement MUST finish and await cleanup of the previous relay before starting its successor. An explicit parallel core race MAY start its eligible candidates together, but MUST finish loser cleanup before it publishes a selected result. Failed cleanup MUST remain owned for retry and prevent successful selection. The selected TCP-only session MUST keep UDP ASSOCIATE disabled.
 
-#### Scenario: Startup moves to the next candidate
+#### Scenario: Sequential replacement starts a successor
 
-- **WHEN** a candidate is confirmed failed or loses the initial race
-- **THEN** its runtime, jobs, sockets, and listeners are stopped before the successor enters its critical startup section
+- **WHEN** the active candidate is confirmed failed and a replacement is selected
+- **THEN** the previous runtime, jobs, sockets, and listeners are stopped before the replacement enters its startup section
+
+#### Scenario: A parallel race loser cannot stop
+
+- **WHEN** a losing runtime reports failed or pending cleanup
+- **THEN** the race does not publish successful selection and retains all unclosed runtimes for shutdown retry
 
 #### Scenario: TCP-only fallback is selected
 

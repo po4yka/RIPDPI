@@ -48,3 +48,21 @@ The specifications MUST distinguish the core one-or-two-candidate API from the S
 
 - **WHEN** the Simple flavor starts a seeded profile
 - **THEN** its contract describes one configured candidate and explicit inconclusive verification without promising two concurrent product candidates
+
+### Requirement: REQ-RACE-FRESH-EVIDENCE — Keep initial evidence within its runtime race
+
+A new initial race MUST NOT use successful initial-probe evidence from a stopped runtime to mark its current failed probe healthy. Recent successful evidence from the same live runtime MUST retain its existing meaning.
+
+#### Scenario: The same profile starts again
+
+- **WHEN** one race succeeds, stops, and a new race for the same profile and scope fails its application probe
+- **THEN** the new result remains verification-inconclusive instead of reusing the stopped runtime success
+
+### Requirement: REQ-RACE-RESOLVED-IDENTITY — Keep the captured candidate identity
+
+A race MUST reject a resolved kind or profile identity that differs from its captured candidate before it creates the runtime. Ordinary non-race profile resolution MUST retain its current persisted-profile behavior.
+
+#### Scenario: A profile changes during candidate resolution
+
+- **WHEN** the resolver returns a different kind or profile ID for the captured candidate
+- **THEN** no runtime starts for that attempt and no selected result is published for it

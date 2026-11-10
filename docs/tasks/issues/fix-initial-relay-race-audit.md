@@ -28,8 +28,8 @@ Resolve the initial relay race audit findings F1-F5. Reject duplicate candidates
 
 ## Ownership
 
-- Relay worker: InitialRelayRaceRunner.kt, UpstreamRelaySupervisor.kt, and their focused tests. F1, F2, F4; no lifecycle files.
-- Network worker: ServiceRuntimeStartStopOrchestrator.kt, NetworkHandoverProcessor.kt, NetworkHandoverMonitor.kt, and focused lifecycle tests. F3; no relay runner files.
+- Relay worker: InitialRelayRaceRunner.kt, UpstreamRelaySupervisor.kt, AwgEgressReadinessVerifier.kt, and their focused tests. F1, F2, F4; no lifecycle files.
+- Network worker: ServiceRuntimeStartStopOrchestrator.kt, NetworkHandoverProcessor.kt, NetworkHandoverMonitor.kt, and focused lifecycle tests. F3, plus the shared data NetworkHandoverMonitor interface and its generated API snapshot if needed; no relay runner files.
 - Coordinator: OpenSpec, task records and generated board, F5 documentation, evidence, integration.
 - No writer changes dependencies, schemas, locale sets, baselines, or golden fixtures.
 - Each code writer uses a separate worktree; the coordinator serializes shared planning files.

@@ -26,6 +26,17 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-RACE-NETWORK | RLY-1794335362638457 | Cold-start lifecycle regression | Pending |
 | REQ-RACE-SCOPE | RLY-1794335363122361 | Binding and specification comparison | Pending |
 
+| REQ-TRN-1786264762917886-001 | RLY-1794335363122361 | Production binding and core contract comparison | Pending |
+| REQ-TRN-1786264762917886-002 | RLY-1794335363122361 | Production binding and core contract comparison | Pending |
+| REQ-TRN-1786264762917886-003 | RLY-1794335363122361 | Production binding and core contract comparison | Pending |
+| REQ-TRN-1786264762917886-004 | RLY-1794335363122361 | Production binding and core contract comparison | Pending |
+| REQ-TRN-1786264762917886-005 | RLY-1794335363122361 | Production binding and core contract comparison | Pending |
+| REQ-TRN-1786264762917886-006 | RLY-1794335363122361 | Production binding and core contract comparison | Pending |
+| REQ-RLY-1786707070050078-005 | RLY-1794335362151209 | Loser cleanup regression | Pending |
+
+| REQ-RACE-FRESH-EVIDENCE | RLY-1794335681049757 | Consecutive race regression | Pending |
+| REQ-RACE-RESOLVED-IDENTITY | RLY-1794335683238170 | Resolved identity rejection regression | Pending |
+
 ## Combined validation
 
 RLY-1794335363643097 owns core service tests, staticAnalysis, ci-gates, architecture health, locked Cargo metadata, independent review, and integration evidence.

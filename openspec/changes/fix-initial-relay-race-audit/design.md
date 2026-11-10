@@ -14,14 +14,15 @@ The report RLY-17 identifies four implementation defects and one specification m
 - Recheck provisional runtime lifetime at selection and refuse dead promotion.
 - Propagate failed loser cleanup while preserving supervisor ownership and cancellation cleanup.
 - Preserve the initial physical network baseline through startup. Use the existing handover path after connection, under its lifecycle mutex.
+- Create a fresh initial-probe health engine for each runtime race, and reject resolved candidate kind/profile drift before allocating a runtime. Keep recent-success dominance for the same live runtime unchanged.
 - Keep target-only failures inconclusive. Do not replace them with permanent relay failure.
 - Update obsolete product promises to the current single-profile preflight. Preserve core race requirements.
 
 ## Contracts and ownership
 
-- Module: core/service. No Rust, JNI, protobuf, storage, locale, dependency, or public schema change.
+- Modules: core/service and the data module that owns NetworkHandoverMonitor. Add a default cold-observation entry point to the shared monitor API. No Rust, JNI, protobuf, storage, locale, dependency, or wire schema change.
 - Relay worker owns runner, supervisor, and focused relay tests.
-- Network worker owns start/stop orchestration, handover monitor/processor, and focused lifecycle tests.
+- Network worker owns start/stop orchestration, handover monitor/processor, the shared monitor interface, its generated API snapshot if required, and focused lifecycle tests.
 - Coordinator owns this change, task files, generated board, normative specification alignment, and combined validation.
 - Shared planning files have one writer. Each code worker has a separate worktree.
 

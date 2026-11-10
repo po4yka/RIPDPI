@@ -13,7 +13,7 @@ A dead provisional candidate can replace a live reserve. Duplicate profile IDs l
 - Keep network changes during startup available for the first handover.
 - Describe the existing single-profile Simple preflight and preserve explicit inconclusive outcomes.
 - Recheck audit hypotheses before changing their behavior.
-- No wire, JNI, protobuf, storage, or dependency change is planned. No breaking public API is planned.
+- No wire, JNI, protobuf, storage, or dependency change is planned. The shared network monitor API gains an additive default cold-observation method. No breaking public API is planned.
 
 ## Capabilities
 
@@ -28,5 +28,5 @@ A dead provisional candidate can replace a live reserve. Duplicate profile IDs l
 
 ## Impact
 
-- `:core:service`, service unit tests, and OpenSpec documents.
+- `:core:service`, the shared data network monitor interface, service unit tests, and OpenSpec documents.
 - No application UI text, protocol implementation, or production configuration changes.
