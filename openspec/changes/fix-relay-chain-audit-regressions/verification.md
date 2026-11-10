@@ -1,9 +1,9 @@
 ---
 task_id: RLY-1794335337545384
 change: fix-relay-chain-audit-regressions
-commit_sha: daf54b58643f6b3ecf5efaf1a3336769172e5aed
+commit_sha: dd863694dff4bfca4b13cc61aa7736a4744ccfa0
 local: passed
-local_evidence: Rebased tree passed 66 Kotlin tests, 319 Rust tests, focused Clippy, full staticAnalysis and ci-gates. Locked Cargo metadata and architecture checks also passed.
+local_evidence: Accepted tree passed 66 Kotlin tests, 319 Rust tests, focused Clippy, full staticAnalysis and ci-gates. Kotlin inputs are unchanged by the final Rust-only rebase; Rust and source gates were repeated at e36a6584a1.
 remote_ci: not_applicable
 remote_ci_evidence: Hosted CI was not run or claimed for these local regressions.
 device: not_applicable
@@ -50,11 +50,11 @@ Two Gradle attempts stopped before tests: full disk prevented toolchain extracti
 
 ## Fix commits
 
-- F1: 756eecb375; equivalent fallback simplification for the method budget: daf54b5864.
-- F3: 7c618e5ba9.
-- F5: 2424591243.
-- F4: 8b0acd2f5a.
-- F2: 98e2d19b9e.
+- F1: b463f9d52c; equivalent fallback simplification for the method budget: dd863694df.
+- F3: 2c656dfc35.
+- F5: b0843477e0.
+- F4: 3a5493fc27.
+- F2: 5ded24d8a7.
 
 RLY-1794335433511524 owns the combined review and gate evidence above. No physical-device, external-server, hosted-CI, release-artifact or deployment acceptance is inferred from these host checks.
 
@@ -62,4 +62,8 @@ RLY-1794335433511524 owns the combined review and gate evidence above. No physic
 
 The branch was rebased without conflicts onto origin/main at 88b64db372fed0d0f2f0ff179d1a0f6b5b557edf. The 15 RLY-16 source and test files match the validated source hashes. Upstream changed service code and a Rust dependency, so the affected gates must run again. The first repeat stopped before compilation with No space left on device. The subsequent repeat passed all five gates: Kotlin, staticAnalysis, Rust tests, Clippy and ci-gates. No foreign build directories were deleted. Main integration and push follow this acceptance record.
 
-The successful rebased commands are recorded in `/tmp/rly16-verify/rebased-results.json` with exit code 0 for all five steps. They use the commands above. Host Cargo debug information was disabled with CARGO_PROFILE_DEV_DEBUG=0 and CARGO_PROFILE_TEST_DEBUG=0 to bound disk use; test assertions remain enabled. After Kotlin and staticAnalysis passed, only this job isolated Gradle cache and old Rust metadata were removed. Rebased source and test inputs are unchanged from code commit daf54b58643f6b3ecf5efaf1a3336769172e5aed.
+The successful rebased commands are recorded in `/tmp/rly16-verify/rebased-results.json` with exit code 0 for all five steps. They use the commands above. Host Cargo debug information was disabled with CARGO_PROFILE_DEV_DEBUG=0 and CARGO_PROFILE_TEST_DEBUG=0 to bound disk use; test assertions remain enabled. After Kotlin and staticAnalysis passed, only this job isolated Gradle cache and old Rust metadata were removed. Rebased source and test inputs are unchanged from code commit dd863694dff4bfca4b13cc61aa7736a4744ccfa0.
+
+## Final Rust rebase checkpoint
+
+Origin/main advanced to e36a6584a1ab1ef727aa83a2165bbcc76906c981 with Rust VLESS input validation changes. The rebase had no conflicts. Kotlin, Gradle and build-logic inputs are unchanged from the accepted 88b64db372 tree; their accepted checks remain valid. Rust tests, focused Clippy and ci-gates were repeated successfully before closure. All three entries in `/tmp/rly16-verify/final-results.json` have exit code 0. Kotlin and staticAnalysis retain their observed accepted result because no Kotlin, Gradle or build-logic input changed in that rebase.
