@@ -1,18 +1,18 @@
 # Spec Version
 
-This crate's wire format (ShadowTLS v3 HKDF/HMAC handshake) is pinned against the following upstream reference.
+This crate's wire format (ShadowTLS v3 HMAC-SHA1 handshake) is pinned against the following upstream reference.
 
 - **Upstream repo:** https://github.com/ihciah/shadow-tls
 - **Upstream tag:** v3 (release line)
-- **Upstream commit:** unverified-as-of-2026-05-15
-- **Last reviewed:** 2026-05-15
+- **Upstream commit:** 02dd0bc7bae8a2011729f95021690e694fd8e43e
+- **Last reviewed:** 2026-11-10
 - **Owner:** unassigned
 
 ## Scope
 
 This crate implements the ShadowTLS v3 client, including:
 
-- HKDF-derived handshake auth
+- HMAC-SHA1 handshake auth: the first 4 bytes of the HMAC sign the ClientHello, and SHA-256(password || ServerRandom) is the server's XOR key
 - HMAC-tagged framing
 - TLS-cover handshake against the configured upstream server name
 
