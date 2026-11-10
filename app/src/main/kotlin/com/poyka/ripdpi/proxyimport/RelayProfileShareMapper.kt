@@ -240,7 +240,7 @@ object RelayProfileShareMapper {
                 authType = sshAuthType,
                 password = if (isKey) null else password,
                 privateKey = if (isKey) privateKey else null,
-                privateKeyPassphrase = credentials.sshPrivateKeyPassphrase?.takeIf { isKey && it.isNotBlank() },
+                privateKeyPassphrase = credentials.sshPrivateKeyPassphrase?.takeIf { isKey && it.isNotEmpty() },
                 hostKeyFingerprint = sshHostKeyFingerprint.ifBlank { null },
                 strictHostKey = sshStrictHostKey,
             ).takeIf { hasAuthSecret && server.isNotBlank() && serverPort > 0 }

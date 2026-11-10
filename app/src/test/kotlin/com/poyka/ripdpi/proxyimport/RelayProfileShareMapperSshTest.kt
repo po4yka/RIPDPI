@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
+import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -83,6 +84,31 @@ class RelayProfileShareMapperSshTest {
         assertNull(profile.password)
         assertEquals("pp", profile.privateKeyPassphrase)
         assertTrue(profile.privateKey.orEmpty().contains("OPENSSH PRIVATE KEY"))
+    }
+
+    @Test
+    fun `private-key share URI preserves whitespace passphrase`() {
+        val record =
+            RelayProfileRecord(
+                kind = RelayKindSsh,
+                server = "ssh.example",
+                serverPort = 22,
+                sshAuthType = RelaySshAuthTypePrivateKey,
+                sshHostKeyFingerprint = fingerprint,
+            )
+        val credentials =
+            RelayCredentialRecord(
+                profileId = record.id,
+                sshUsername = "alice",
+                sshPrivateKey = privateKeyFixture,
+                sshPrivateKeyPassphrase = " ",
+            )
+
+        val shared = requireNotNull(RelayProfileShareMapper.toShareable(record, credentials))
+        val imported = ProxyUriCodec.parse(shared.shareUri) as ProxyProfile.Ssh
+
+        assertEquals(" ", imported.privateKeyPassphrase)
+        assertEquals(privateKeyFixture, imported.privateKey)
     }
 
     @Test
