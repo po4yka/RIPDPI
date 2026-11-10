@@ -515,8 +515,7 @@ class SubscriptionRefreshCoordinator private constructor(
         }
         return parsed?.takeIf { outcome ->
             outcome.profiles.none { profile ->
-                (profile is ProxyProfile.Vless || profile is ProxyProfile.VlessReality) &&
-                    validateNativeRelayProfileResult(profile).isFailure
+                validateNativeRelayProfileResult(profile).isFailure
             }
         }
     }

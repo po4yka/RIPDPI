@@ -115,12 +115,7 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
         }
 
         is ProxyProfile.Shadowsocks -> {
-            require(profile.server.isNotBlank()) { "Shadowsocks requires a server hostname" }
-            require(profile.serverPort in RelayPortRange) { "Shadowsocks requires a valid server port" }
-            require(isValidShadowsocksCredentials(profile.method, profile.password)) {
-                "Shadowsocks requires a supported method and valid key material"
-            }
-            true
+            validateShadowsocksProfileFields(profile)
         }
 
         is ProxyProfile.Mieru -> {
@@ -132,16 +127,39 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             validateSshProfile(profile)
         }
 
-        is ProxyProfile.AnyTls,
-        is ProxyProfile.Trojan,
-        -> {
-            true
+        is ProxyProfile.AnyTls -> {
+            validatePasswordRelayFields("AnyTLS", profile.server, profile.serverPort, profile.password)
+        }
+
+        is ProxyProfile.Trojan -> {
+            validatePasswordRelayFields("Trojan", profile.server, profile.serverPort, profile.password)
         }
 
         else -> {
             false
         }
     }
+
+private fun validateShadowsocksProfileFields(profile: ProxyProfile.Shadowsocks): Boolean {
+    require(profile.server.isNotBlank()) { "Shadowsocks requires a server hostname" }
+    require(profile.serverPort in RelayPortRange) { "Shadowsocks requires a valid server port" }
+    require(isValidShadowsocksCredentials(profile.method, profile.password)) {
+        "Shadowsocks requires a supported method and valid key material"
+    }
+    return true
+}
+
+private fun validatePasswordRelayFields(
+    kind: String,
+    server: String,
+    serverPort: Int,
+    password: String,
+): Boolean {
+    require(server.isNotBlank()) { "$kind requires a server hostname" }
+    require(serverPort in RelayPortRange) { "$kind requires a valid server port" }
+    require(password.isNotBlank()) { "$kind requires an authentication password" }
+    return true
+}
 
 /**
  * Non-throwing variant of [validateNativeRelayProfile] for UI callers that must

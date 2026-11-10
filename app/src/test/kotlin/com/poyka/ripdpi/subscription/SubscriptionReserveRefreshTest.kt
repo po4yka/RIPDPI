@@ -59,6 +59,19 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
+    fun `invalid password relay ports preserve the accepted group`() =
+        runTest {
+            for (kind in listOf("trojan", "anytls")) {
+                for (port in listOf(-1, 0, 65536)) {
+                    val payload =
+                        """{"outbounds":[{"type":"$kind","tag":"invalid","server":"relay.example",
+                        "server_port":$port,"password":"fixture-password","tls":{"enabled":true}}]}"""
+                    assertRejectedRefreshPreservesGroup(payload)
+                }
+            }
+        }
+
+    @Test
     fun `malformed VLESS fields in sing-box and Clash preserve the accepted group`() =
         runTest {
             val payloads =
