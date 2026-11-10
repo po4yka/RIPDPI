@@ -195,12 +195,8 @@ impl RelaySession for ShadowsocksSession {
             return Err(io::Error::new(io::ErrorKind::Unsupported, "Shadowsocks UDP requires SS2022"));
         }
         let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
-        let server_addr = match config.outbound_bind_ip {
-            Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()),
-            None => addrs.iter().copied().find(SocketAddr::is_ipv4).or_else(|| addrs.into_iter().next()),
-        }
-        .ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "no UDP server address matches socket family")
+        let server_addr = ordered_server_addrs(addrs, config.outbound_bind_ip).into_iter().next().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches socket family")
         })?;
         let socket = bind_udp(config.outbound_bind_ip, server_addr, config.socket_protection)?;
         socket.connect(server_addr).await?;
@@ -345,32 +341,81 @@ fn target_address(target: &str) -> io::Result<Address> {
     Ok(Address::DomainNameAddress(host.to_owned(), port))
 }
 
+/// Connect budget for one server address except the last, as in the Trojan and TUIC clients. A
+/// blackholed address would otherwise hold the kernel connect timeout past the relay deadline.
+const PER_ADDRESS_CONNECT_TIMEOUT: Duration =
+    if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(8) };
+
+/// Candidate server addresses in connection order: families interleaved from the resolver's first
+/// family (RFC 8305 section 4), resolver order kept within a family, and only the bind-IP family
+/// when a bind IP is set.
+fn ordered_server_addrs(addrs: Vec<SocketAddr>, bind_ip: Option<IpAddr>) -> Vec<SocketAddr> {
+    let first_is_ipv6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
+    let (preferred, other): (Vec<_>, Vec<_>) = addrs.into_iter().partition(|addr| addr.is_ipv6() == first_is_ipv6);
+    let (mut preferred, mut other) = (preferred.into_iter(), other.into_iter());
+    let mut ordered = Vec::new();
+    loop {
+        match (preferred.next(), other.next()) {
+            (None, None) => break,
+            (a, b) => ordered.extend(a.into_iter().chain(b)),
+        }
+    }
+    ordered.retain(|addr| bind_ip.is_none_or(|ip| ip.is_ipv4() == addr.is_ipv4()));
+    ordered
+}
+
 /// # Cancel safety:
 /// cancel-safe: cancellation drops the protected socket.
 async fn connect_server(config: &ShadowsocksClientConfig) -> io::Result<TcpStream> {
-    let bind_ip = config.outbound_bind_ip;
     let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
-    let server_addr = match bind_ip {
-        Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "no server address matches outbound bind IP family")
-        })?,
-        None => addrs.into_iter().next().ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "no address resolved for shadowsocks server")
-        })?,
-    };
-    let socket = match server_addr {
-        SocketAddr::V4(_) => TcpSocket::new_v4()?,
-        SocketAddr::V6(_) => TcpSocket::new_v6()?,
-    };
-    // VpnService.protect() invariant: protect the carrier fd BEFORE bind/connect
-    // so this non-loopback socket bypasses the app's own TUN route (otherwise it
-    // loops back into the tunnel the VPN owns). Loopback-skip and fail-closed are
-    // handled by the shared helper. REL-1.
-    crate::protect::protect_carrier_socket(&socket, server_addr, config.socket_protection)?;
-    if let Some(ip) = bind_ip {
-        socket.bind(SocketAddr::new(ip, 0))?;
+    connect_first(
+        ordered_server_addrs(addrs, config.outbound_bind_ip),
+        config.outbound_bind_ip,
+        config.socket_protection,
+    )
+    .await
+}
+
+/// Tries each address in order; every attempt but the last gets [`PER_ADDRESS_CONNECT_TIMEOUT`].
+/// A connect error or timeout moves to the next address and the last error is returned if all
+/// fail. A protect or bind error is final.
+///
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the protected socket.
+async fn connect_first(
+    addrs: Vec<SocketAddr>,
+    bind_ip: Option<IpAddr>,
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+) -> io::Result<TcpStream> {
+    let mut last_error = io::Error::new(io::ErrorKind::AddrNotAvailable, "no usable Shadowsocks server address");
+    let last_index = addrs.len().saturating_sub(1);
+    for (index, server_addr) in addrs.into_iter().enumerate() {
+        let socket = match server_addr {
+            SocketAddr::V4(_) => TcpSocket::new_v4()?,
+            SocketAddr::V6(_) => TcpSocket::new_v6()?,
+        };
+        // VpnService.protect() invariant: protect the carrier fd BEFORE bind/connect
+        // so this non-loopback socket bypasses the app's own TUN route (otherwise it
+        // loops back into the tunnel the VPN owns). Loopback-skip and fail-closed are
+        // handled by the shared helper. REL-1.
+        crate::protect::protect_carrier_socket(&socket, server_addr, socket_protection)?;
+        if let Some(ip) = bind_ip {
+            socket.bind(SocketAddr::new(ip, 0))?;
+        }
+        let attempt = socket.connect(server_addr);
+        let outcome = if index == last_index {
+            attempt.await
+        } else {
+            tokio::time::timeout(PER_ADDRESS_CONNECT_TIMEOUT, attempt).await.unwrap_or_else(|_| {
+                Err(io::Error::new(io::ErrorKind::TimedOut, "Shadowsocks server connect timed out"))
+            })
+        };
+        match outcome {
+            Ok(stream) => return Ok(stream),
+            Err(error) => last_error = error,
+        }
     }
-    socket.connect(server_addr).await
+    Err(last_error)
 }
 
 fn bind_udp(

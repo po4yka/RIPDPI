@@ -483,3 +483,44 @@ async fn ss2022_udp_is_protected_before_bind() {
     let result = session.open_datagram().await;
     assert!(result.is_ok(), "protect must run before UDP bind: {:?}", result.err());
 }
+
+#[test]
+fn server_addresses_interleave_families_and_respect_the_bind_family() {
+    let v6a: SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+    let v4a: SocketAddr = "192.0.2.1:443".parse().unwrap();
+    let v6b: SocketAddr = "[2001:db8::2]:443".parse().unwrap();
+    let v4b: SocketAddr = "192.0.2.2:443".parse().unwrap();
+    let all = vec![v6a, v4a, v6b, v4b];
+    assert_eq!(ordered_server_addrs(vec![v6a, v6b, v4a, v4b], None), [v6a, v4a, v6b, v4b]);
+    assert_eq!(ordered_server_addrs(vec![v4a, v6a, v6b], None), [v4a, v6a, v6b]);
+    assert_eq!(ordered_server_addrs(all.clone(), Some(Ipv4Addr::UNSPECIFIED.into())), [v4a, v4b]);
+    assert_eq!(ordered_server_addrs(all, Some(Ipv6Addr::UNSPECIFIED.into())), [v6a, v6b]);
+}
+
+/// # Cancel safety:
+/// cancel-safe: the test owns the listener and the connected socket.
+#[tokio::test]
+async fn tcp_connect_falls_through_to_the_next_address() {
+    let closed = {
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        listener.local_addr().unwrap()
+    };
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let open = listener.local_addr().unwrap();
+    let stream =
+        connect_first(vec![closed, open], None, ripdpi_native_protect::SocketProtectionPolicy::Inactive).await.unwrap();
+    assert_eq!(stream.peer_addr().unwrap(), open);
+
+    let error =
+        connect_first(vec![closed], None, ripdpi_native_protect::SocketProtectionPolicy::Inactive).await.unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused);
+
+    // TEST-NET-1 is blackholed or unreachable; either way the live address must follow in budget.
+    let blackholed: SocketAddr = "192.0.2.1:443".parse().unwrap();
+    let started = std::time::Instant::now();
+    let stream = connect_first(vec![blackholed, open], None, ripdpi_native_protect::SocketProtectionPolicy::Inactive)
+        .await
+        .unwrap();
+    assert_eq!(stream.peer_addr().unwrap(), open);
+    assert!(started.elapsed() < PER_ADDRESS_CONNECT_TIMEOUT * 4);
+}
