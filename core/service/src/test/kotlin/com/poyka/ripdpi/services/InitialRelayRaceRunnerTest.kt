@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -12,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
 class InitialRelayRaceRunnerTest {
@@ -108,6 +110,36 @@ class InitialRelayRaceRunnerTest {
             assertTrue(failure is com.poyka.ripdpi.data.InitialTransportSelectionException)
             assertFalse(states.contains("selected"))
             assertTrue(slots.all { it.job.isCompleted })
+        }
+
+    @Test
+    fun `final cleanup does not replace selection failure or cancellation`() =
+        runTest {
+            for (primary in listOf(IllegalStateException("promotion failed"), CancellationException("cancelled"))) {
+                val slots = mutableListOf<RelayRuntimeSlot>()
+                val cleanup = IOException("cleanup failed")
+                val runner =
+                    InitialRelayRaceRunner(
+                        relayActiveProbe =
+                            RelayActiveProbe { _, _, _ ->
+                                RelayActiveProbeResult(true, statusCode = 204, latencyMs = 10L)
+                            },
+                        relayHealthDecisionEngine = RelayHealthDecisionEngine(),
+                        startCandidate = { startSlot(it, TestRelayRuntime()).also(slots::add) },
+                        promoteCandidate = { throw primary },
+                        stopDiscardedCandidates = { candidates, winner ->
+                            stopSlots(candidates, winner)
+                            if (winner == null) throw cleanup
+                        },
+                    )
+
+                val failure = runCatching { runner.run(racePlan()) {} }.exceptionOrNull()
+
+                assertEquals(primary.javaClass, failure?.javaClass)
+                assertEquals(primary.message, failure?.message)
+                assertTrue(primary.suppressed.contains(cleanup))
+                assertTrue(slots.all { it.job.isCompleted })
+            }
         }
 
     private suspend fun TestScope.startSlot(

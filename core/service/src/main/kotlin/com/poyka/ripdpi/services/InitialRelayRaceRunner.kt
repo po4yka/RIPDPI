@@ -46,11 +46,10 @@ internal class InitialRelayRaceRunner(
                     }
                 }
             var retainedSlot: RelayRuntimeSlot? = null
+            var raceFailure: Throwable? = null
             try {
                 val raceCompletion = awaitRaceCompletion(attempts, plan.candidates)
-                jobs.forEach { job ->
-                    if (job.isActive) job.cancelAndJoin()
-                }
+                jobs.forEach { it.cancelAndJoin() }
 
                 raceCompletion.winner?.let { winningAttempt ->
                     plan.candidates.forEach { candidate ->
@@ -102,15 +101,32 @@ internal class InitialRelayRaceRunner(
                 throw InitialTransportSelectionException(
                     "No compatible initial relay transport passed its active probe",
                 )
+            } catch (
+                // Cleanup must preserve cancellation and fatal failures as the primary cause.
+                @Suppress("TooGenericExceptionCaught") failure: Throwable,
+            ) {
+                raceFailure = failure
+                throw failure
             } finally {
-                withContext(NonCancellable) {
-                    jobs.forEach { job ->
-                        if (job.isActive) job.cancelAndJoin()
-                    }
-                    stopDiscardedCandidates(slots.values, retainedSlot)
-                }
+                cleanupRace(jobs, slots.values, retainedSlot, raceFailure)
             }
         }
+
+    private suspend fun cleanupRace(
+        jobs: List<Job>,
+        slots: Collection<RelayRuntimeSlot>,
+        retainedSlot: RelayRuntimeSlot?,
+        originalFailure: Throwable?,
+    ) {
+        withContext(NonCancellable) {
+            jobs.forEach { it.cancelAndJoin() }
+            runCatching { stopDiscardedCandidates(slots, retainedSlot) }
+                .onFailure { cleanupFailure ->
+                    if (originalFailure == null) throw cleanupFailure
+                    if (originalFailure !== cleanupFailure) originalFailure.addSuppressed(cleanupFailure)
+                }
+        }
+    }
 
     private suspend fun stopAndForgetDiscardedCandidates(
         slots: ConcurrentHashMap<String, RelayRuntimeSlot>,

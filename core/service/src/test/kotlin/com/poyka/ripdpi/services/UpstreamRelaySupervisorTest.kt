@@ -389,9 +389,10 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
-    fun `failed loser stop remains owned after race selection`() =
+    fun `failed loser cleanup refuses selection and retains ownership for retry`() =
         runTest {
             val relayFactory = raceRelayFactory(firstStopFailure = IOException("stop failed"))
+            val states = mutableListOf<String>()
             val supervisor =
                 raceSupervisor(relayFactory) { endpoint, _, _ ->
                     val latency = if (endpoint.port == HysteriaRacePort) 50L else 100L
@@ -399,25 +400,73 @@ class UpstreamRelaySupervisorTest {
                     RelayActiveProbeResult(true, statusCode = 204, latencyMs = latency)
                 }
 
-            supervisor.startRace(
-                expectedSelection =
-                    com.poyka.ripdpi.data
-                        .RuntimeConfigurationSelection("native"),
-                inputs =
-                    testRelayResolutionInputs(
-                        quic = OwnedRelayQuicMigrationConfig(),
-                    ),
-                plan = racePlan(),
-                onUnexpectedExit = {
-                },
-            )
-            assertEquals(1, relayFactory.runtimes.first().stopCount)
+            val failure =
+                runCatching {
+                    supervisor.startRace(
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        plan = racePlan(),
+                        onUnexpectedExit = {},
+                        onState = { states += it.state },
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is RuntimeCleanupPendingException)
+            assertFalse(states.contains("selected"))
+            assertTrue(supervisor.hasOwnedRuntime)
+            assertEquals(RuntimeTelemetryOutcome.NoData, supervisor.pollTelemetry())
+            assertNull(LocalSocksCredentialRegistry.lookup("127.0.0.1", HysteriaRacePort))
             assertTrue(runCatching { supervisor.stop() }.exceptionOrNull() is RuntimeCleanupPendingException)
             supervisor.detach()
             assertTrue(supervisor.hasOwnedRuntime)
             relayFactory.runtimes.first().stopFailure = null
             supervisor.stop()
             assertFalse(supervisor.hasOwnedRuntime)
+            assertNull(LocalSocksCredentialRegistry.lookup("127.0.0.1", RealityRacePort))
+        }
+
+    @Test
+    fun `failed startup cleanup prevents healthy sibling selection`() =
+        runTest {
+            val states = mutableListOf<String>()
+            // Readiness failure leaves its still-running runtime owned by pendingSlots only.
+            val firstRuntime =
+                TestRelayRuntime().apply {
+                    awaitReadyFailure = IOException("readiness failed")
+                    stopFailure = IOException("stop failed")
+                }
+            var first = true
+            val pendingFactory =
+                TestRipDpiRelayFactory {
+                    if (first) firstRuntime.also { first = false } else TestRelayRuntime()
+                }
+            val pendingSupervisor =
+                raceSupervisor(pendingFactory) { _, _, _ ->
+                    RelayActiveProbeResult(true, statusCode = 204, latencyMs = 10L)
+                }
+
+            val failure =
+                runCatching {
+                    pendingSupervisor.startRace(
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        plan = racePlan(),
+                        onUnexpectedExit = {},
+                        onState = { states += it.state },
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is RuntimeCleanupPendingException)
+            assertFalse(states.contains("selected"))
+            assertTrue(pendingSupervisor.hasOwnedRuntime)
+            assertEquals(RuntimeTelemetryOutcome.NoData, pendingSupervisor.pollTelemetry())
+            firstRuntime.stopFailure = null
+            pendingSupervisor.stop()
+            assertFalse(pendingSupervisor.hasOwnedRuntime)
         }
 
     @Test

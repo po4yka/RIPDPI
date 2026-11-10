@@ -424,10 +424,20 @@ internal class UpstreamRelaySupervisor(
         slots: Collection<RelayRuntimeSlot>,
         winner: RelayRuntimeSlot?,
     ) {
-        slots.filter { it !== winner }.forEach { slot ->
+        var cleanupFailure: Throwable? = null
+        (slots + pendingSlots).distinct().filter { it !== winner }.forEach { slot ->
             slot.shouldReportExit.set(false)
             runCatching { stopSlot(slot) }
+                .onFailure { failure ->
+                    val previous = cleanupFailure
+                    if (previous == null) {
+                        cleanupFailure = failure
+                    } else if (previous !== failure) {
+                        previous.addSuppressed(failure)
+                    }
+                }
         }
+        cleanupFailure?.let { throw it }
     }
 
     private companion object {
