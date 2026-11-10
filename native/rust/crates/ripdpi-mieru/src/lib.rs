@@ -12,9 +12,9 @@
 //!   and the user-stamped, incrementing nonce.
 //! - [`metadata`] / [`segment`]: the byte-exact 32-byte metadata headers and the
 //!   AEAD-sealed, padded segment frame (nonce once per direction on TCP).
-//! - [`session`] / [`client`]: the open-session handshake, the in-tunnel SOCKS5
-//!   connect, and a [`MieruClient`] that presents a tunnelled target as a plain
-//!   duplex stream.
+//! - [`mux`]: the open-session handshake, the in-tunnel SOCKS5 connect, and
+//!   [`MieruMuxConnection`], which presents each tunnelled target as a plain
+//!   duplex stream. Level `off` is one stream per carrier.
 //!
 //! See `PROTOCOL.md` for the byte-exact wire contract and its upstream
 //! citations. The **UDP carrier** (KCP-like reliable ARQ) is out of scope and
@@ -33,7 +33,6 @@
 //! SOCKS CONNECT, payload exchange and multiplexing against upstream Go code.
 
 mod cipher;
-mod client;
 mod config;
 mod error;
 mod metadata;
@@ -44,7 +43,6 @@ mod segment;
 mod session;
 mod stream;
 
-pub use client::*;
 pub use config::*;
 pub use error::*;
 pub use mux::MieruMuxConnection;

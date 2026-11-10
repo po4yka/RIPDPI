@@ -1,4 +1,4 @@
-//! Self-consistency test: drive the real [`MieruClient`] against a spec-faithful
+//! Self-consistency test: drive the real [`MieruMuxConnection`] (level `off`) against a spec-faithful
 //! in-crate Mieru *server* (built from the same cipher/segment code). This
 //! proves the client's open handshake, in-tunnel SOCKS5 connect, and data
 //! round-trip are internally consistent end to end. It does **not** prove
@@ -10,10 +10,10 @@ use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
 
 use crate::cipher::{self, KEY_LEN};
-use crate::client::MieruClient;
 use crate::config::{MieruConfig, MieruMux, MieruProtocol};
 use crate::error::Result;
 use crate::metadata::{DataAckMeta, ProtocolType};
+use crate::mux::MieruMuxConnection;
 use crate::segment::{Decryptor, Encryptor, MAX_PDU};
 
 const NOW: i64 = 1_700_000_000;
@@ -28,20 +28,20 @@ async fn run_server(transport: DuplexStream, key: [u8; KEY_LEN], username: Vec<u
     let mut enc = Encryptor::new(key, username);
 
     // Mieru authenticates the carrier and sends CONNECT without a greeting.
-    let request = recv_data(&mut dec, &mut reader).await?.expect("connect request");
+    let (session_id, request) = recv_data(&mut dec, &mut reader).await?.expect("connect request");
     assert_eq!(request[0], 0x05);
     assert_eq!(request[1], 0x01, "CONNECT command");
     // Success reply with a dummy bound v4 address.
-    send_data(&mut enc, &mut writer, &[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await?;
+    send_data(&mut enc, &mut writer, session_id, &[0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]).await?;
 
     // Echo loop.
-    while let Some(chunk) = recv_data(&mut dec, &mut reader).await? {
-        send_data(&mut enc, &mut writer, &chunk).await?;
+    while let Some((_, chunk)) = recv_data(&mut dec, &mut reader).await? {
+        send_data(&mut enc, &mut writer, session_id, &chunk).await?;
     }
     Ok(())
 }
 
-async fn send_data<W>(enc: &mut Encryptor, writer: &mut W, bytes: &[u8]) -> Result<()>
+async fn send_data<W>(enc: &mut Encryptor, writer: &mut W, session_id: u32, bytes: &[u8]) -> Result<()>
 where
     W: tokio::io::AsyncWrite + Unpin,
 {
@@ -55,7 +55,7 @@ where
             |prefix_len, suffix_len| {
                 DataAckMeta {
                     protocol: ProtocolType::DataServerToClient,
-                    session_id: 1,
+                    session_id,
                     seq: 0,
                     unack_seq: 0,
                     window_size: 0,
@@ -73,7 +73,7 @@ where
     Ok(())
 }
 
-async fn recv_data<R>(dec: &mut Decryptor, reader: &mut R) -> Result<Option<Vec<u8>>>
+async fn recv_data<R>(dec: &mut Decryptor, reader: &mut R) -> Result<Option<(u32, Vec<u8>)>>
 where
     R: tokio::io::AsyncRead + Unpin,
 {
@@ -86,7 +86,7 @@ where
         if ProtocolType::from_u8(meta[0])? == ProtocolType::DataClientToServer
             && let Some(blob) = payload
         {
-            return Ok(Some(blob));
+            return Ok(Some((crate::metadata::session_id_of(&meta), blob)));
         }
         // open/close/ack control segments: skip.
     }
@@ -115,8 +115,8 @@ async fn client_round_trips_one_mib_through_spec_faithful_loopback() {
     let time = Arc::new(NetworkTimeProvider::fixed(NOW));
     let probe = Arc::clone(&time);
 
-    let client = MieruClient::connect_over(client_side, &test_config(), time).await.expect("session open");
-    let stream = client.tcp_connect("example.com:443").await.expect("in-tunnel SOCKS5 connect");
+    let client = MieruMuxConnection::connect_over(client_side, &test_config(), time).await.expect("session open");
+    let stream = client.open_stream("example.com:443").await.expect("in-tunnel SOCKS5 connect");
     let (mut read_half, mut write_half) = tokio::io::split(stream);
 
     let payload = vec![0xABu8; 1 << 20];
@@ -146,7 +146,7 @@ async fn udp_protocol_is_rejected() {
     config.protocol = MieruProtocol::Udp;
     let (client_side, _server_side) = tokio::io::duplex(1024);
     let time = Arc::new(NetworkTimeProvider::fixed(NOW));
-    match MieruClient::connect_over(client_side, &config, time).await {
+    match MieruMuxConnection::connect_over(client_side, &config, time).await {
         Err(crate::error::MieruError::UdpUnsupported) => {}
         Ok(_) => panic!("udp config must be rejected"),
         Err(other) => panic!("expected UdpUnsupported, got {other:?}"),
@@ -156,19 +156,24 @@ async fn udp_protocol_is_rejected() {
 /// # Cancel safety
 /// Not cancel-safe: the test explicitly joins its owned peer on either outcome.
 #[tokio::test]
-async fn dropping_idle_stream_closes_both_carrier_halves() {
+async fn dropping_idle_stream_and_connection_closes_both_carrier_halves() {
     let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
     let (client_side, server_side) = tokio::io::duplex(1 << 16);
     let mut server = tokio::spawn(run_server(server_side, key, USERNAME.as_bytes().to_vec()));
-    let client = MieruClient::connect_over(client_side, &test_config(), Arc::new(NetworkTimeProvider::fixed(NOW)))
-        .await
-        .expect("session");
-    let stream = client.tcp_connect("example.com:443").await.expect("connect");
+    let client =
+        MieruMuxConnection::connect_over(client_side, &test_config(), Arc::new(NetworkTimeProvider::fixed(NOW)))
+            .await
+            .expect("session");
+    let stream = client.open_stream("example.com:443").await.expect("connect");
     drop(stream);
+    drop(client);
     let stopped = tokio::time::timeout(std::time::Duration::from_millis(200), &mut server).await;
     if stopped.is_err() {
         server.abort();
         let _ = server.await;
     }
-    stopped.expect("idle stream drop must close its carrier").expect("peer task").expect("peer EOF");
+    stopped
+        .expect("dropping the stream and its connection must close the carrier")
+        .expect("peer task")
+        .expect("peer EOF");
 }

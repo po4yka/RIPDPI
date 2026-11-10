@@ -155,14 +155,15 @@ cipher context, not create one per stream:
   byte pipe demultiplexed off the shared carrier. Half-closing the write side
   sends `closeSessionRequest` but keeps the mailbox until inbound completes.
 
-**Level → concurrency.** Upstream `enfein/mieru` scales the *number of carrier
-connections* with the level; RIPDPI's relay pool caches one carrier per backend,
-so the level maps instead to a **per-carrier concurrent-stream ceiling**
-(`off`→1, `low`→8, `middle`→32, `high`→128); beyond it, `open_stream` applies
-backpressure. The wire multiplexing (`sessionID`-tagged sub-sessions over one AEAD
-direction) is faithful to upstream; the ceilings are RIPDPI policy. `off` uses
-the same owned carrier implementation with one stream and a non-reusable
-relay-pool entry.
+**Level → concurrency.** Upstream `enfein/mieru` has no per-underlay stream
+ceiling: its levels choose how many underlays to reuse and rotate them by
+traffic volume. RIPDPI's relay pool caches one carrier per backend and places up
+to 256 leases on it, so `low`, `middle` and `high` all admit 256 concurrent
+streams per carrier (`off`→1); volume rotation is not implemented because
+relay-mux cannot retire a pooled carrier. The wire multiplexing
+(`sessionID`-tagged sub-sessions over one AEAD direction) is faithful to
+upstream. `off` uses the same owned carrier implementation with one stream and a
+non-reusable relay-pool entry.
 
 **Robustness properties and known limitations (loopback tier; adversarially reviewed):**
 
@@ -170,7 +171,7 @@ relay-pool entry.
   under a 10 s timeout, so a wedged or half-broken (writes-accepted, no-response)
   carrier cannot hang `open_stream` forever — important because a multiplexed
   carrier is reused for every stream. On timeout the sub-session is closed and the
-  mailbox released. (The non-mux path applies the same bound in `tcp_connect`.)
+  mailbox released.
 - *Per-segment freshness.* Every segment's metadata timestamp is stamped with the
   current network time (from the shared `NetworkTimeProvider`), not a value frozen
   at carrier open, so a long-lived carrier's segments stay fresh against a server

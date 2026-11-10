@@ -3,7 +3,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use ripdpi_mieru::{MieruClient, MieruConfig, MieruMux, MieruMuxConnection, MieruProtocol};
+use ripdpi_mieru::{MieruConfig, MieruMux, MieruMuxConnection, MieruProtocol};
 use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -30,16 +30,17 @@ async fn tcp_stream_exchanges_payload_with_upstream() {
     };
     timeout(Duration::from_secs(12), async {
         let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
-        let client = MieruClient::connect_over(transport, &config, NetworkTimeProvider::shared())
+        let client = MieruMuxConnection::connect_over(transport, &config, NetworkTimeProvider::shared())
             .await
             .expect("open upstream session");
-        let mut stream = client.tcp_connect("interop.invalid:443").await.expect("upstream SOCKS CONNECT");
+        let mut stream = client.open_stream("interop.invalid:443").await.expect("upstream SOCKS CONNECT");
         let payload: Vec<u8> = (0..65536).map(|index| (index % 251) as u8).collect();
         stream.write_all(&payload).await.expect("upstream write");
         let mut received = vec![0; payload.len()];
         stream.read_exact(&mut received).await.expect("upstream read");
         assert_eq!(received, payload, "upstream payload must remain byte exact across segments");
-        stream.close().await.expect("join direct carrier");
+        drop(stream);
+        client.close().await.expect("join direct carrier");
     })
     .await
     .expect("upstream TCP exchange deadline");
