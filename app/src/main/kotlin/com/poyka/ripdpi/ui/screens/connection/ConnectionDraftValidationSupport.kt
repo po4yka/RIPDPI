@@ -20,6 +20,7 @@ import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindSsh
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
@@ -55,6 +56,7 @@ import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import com.poyka.ripdpi.data.parseStrategyChainDsl
+import com.poyka.ripdpi.data.torBridgeValidationError
 import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.data.validateVlessRealityProfileFields
 import com.poyka.ripdpi.utility.checkIp
@@ -182,6 +184,12 @@ private fun validateRelayKindDraft(
 
         RelayKindObfs4 -> {
             validateTcpOnlyCredentialDraft(draft.relayPtBridgeLine.isBlank(), draft.relayUdpEnabled)
+        }
+
+        RelayKindTor -> {
+            buildMap {
+                torBridgeValidationError(draft.relayPtBridgeLine)?.let { put(ConnectionFieldRelayCredentials, it) }
+            }
         }
 
         RelayKindChainRelay -> {
