@@ -48,3 +48,26 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
   documented 5 GiB Gradle and 3 GiB Kotlin heap limits. No device run was requested.
 - Independent read-only review found no adapter defects. Its stale task-status
   finding was corrected through `taskctl`.
+
+## Hosted CI follow-up
+
+The first implementation run,
+<https://github.com/po4yka/RIPDPI/actions/runs/42855910944>, passed cargo-deny
+without the removed waiver. It then exposed two CI failures that the expired
+waiver had blocked behind preflight:
+
+- `rust-fuzz-smoke` job 129969888884 rejected the separate fuzz lockfile
+  under `--locked`. Local locked metadata reproduced the error. Cargo metadata
+  removed only the stale `ripdpi-xhttp -> uuid` dependency edge; no package
+  versions changed. Full locked metadata and
+  `cargo +nightly test --locked --jobs 4 --test tls_record_inputs` then passed
+  (five tests).
+- `rust-lint` job 129969888728 rejected an unchanged raw-slice call because
+  its existing allowlist entry named line 383 instead of line 386. The entry
+  now points to the actual line. Its scope, rationale, and review date are
+  unchanged. The raw-slice scanner and all 28 tests in
+  `test_check_soundness_35_49.py` passed.
+
+Independent read-only review confirmed both repairs. Root workspace code and
+its lockfile are unchanged from the successful local tests and Android build.
+Hosted verification of the follow-up commit is pending.
