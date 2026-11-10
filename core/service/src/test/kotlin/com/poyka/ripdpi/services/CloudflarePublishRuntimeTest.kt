@@ -11,11 +11,40 @@ import java.nio.file.attribute.PosixFilePermission
 class CloudflarePublishRuntimeTest {
     @Test
     fun `parseCloudflareLocalOriginSpec normalizes loopback origin URL`() {
-        val parsed = parseCloudflareLocalOriginSpec("http://localhost:43128")
+        listOf("127.0.0.1", "localhost", "::1").forEach { host ->
+            val authority = if (host == "::1") "[$host]" else host
+            listOf(1, 43128, 65535).forEach { port ->
+                val parsed = parseCloudflareLocalOriginSpec("http://$authority:$port/")
 
-        assertEquals("http://localhost:43128", parsed.rawUrl)
-        assertEquals("localhost", parsed.host)
-        assertEquals(43128, parsed.port)
+                assertEquals("http://$authority:$port", parsed.rawUrl)
+                assertEquals(host, parsed.host)
+                assertEquals(port, parsed.port)
+                assertEquals("$authority:$port", parsed.listenerAddress)
+            }
+        }
+    }
+
+    @Test
+    fun `parseCloudflareLocalOriginSpec rejects missing and out of range ports`() {
+        listOf("http://localhost", "http://localhost:0", "http://localhost:65536").forEach { url ->
+            assertTrue("Invalid origin port must fail", runCatching { parseCloudflareLocalOriginSpec(url) }.isFailure)
+        }
+    }
+
+    @Test
+    fun `parseCloudflareLocalOriginSpec rejects non-loopback IPv6 and malformed origins`() {
+        listOf(
+            "http://[2001:db8::1]:43128",
+            "http://[::ffff:127.0.0.1]:43128",
+            "http://[::1%25lo0]:43128",
+            "http://[::1:43128",
+            "https://[::1]:43128",
+            "http://[::1]:43128/path",
+            "http://[::1]:43128?query=value",
+            "http://[::1]:43128#fragment",
+        ).forEach { url ->
+            assertTrue("Unsupported origin must fail", runCatching { parseCloudflareLocalOriginSpec(url) }.isFailure)
+        }
     }
 
     @Test

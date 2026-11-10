@@ -55,12 +55,12 @@ internal class CloudflarePublishConfigParser
             require(uri.scheme.equals("http", ignoreCase = true)) {
                 "Cloudflare publish origin must use http:// loopback"
             }
-            val host = uri.host ?: error("Cloudflare publish origin must include a host")
+            val host = uri.host?.removeSurrounding("[", "]") ?: error("Cloudflare publish origin must include a host")
             require(host == "127.0.0.1" || host == "localhost" || host == "::1") {
                 "Cloudflare publish origin must bind to loopback only"
             }
-            require(uri.port > 0) {
-                "Cloudflare publish origin must include an explicit port"
+            require(uri.port in 1..UShort.MAX_VALUE.toInt()) {
+                "Cloudflare publish origin must include a port in 1..65535"
             }
             require(uri.rawPath.isNullOrBlank() || uri.rawPath == "/") {
                 "Cloudflare publish origin URL must not include a path"
