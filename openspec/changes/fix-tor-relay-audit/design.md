@@ -12,7 +12,7 @@ The audit identifies six reachable defects in the native Tor proxy path.
 - Preserve unresolved names only on the Tor route. Maintain IP policy safety and fail closed where routing needs an address.
 - Carry the Tor first-dial budget to the outer proxy.
 - Fix pinned Arti cancellation and subprocess ownership at their owning layer.
-- Use collision-free profile directory keys. Preserve legacy guard state only when ownership is unambiguous; never overwrite another profile state.
+- Preserve canonical safe legacy profile paths. Use bounded collision-free keys in a separate root for unsafe, dot-segment, empty or long IDs. Hash raw UTF-16 code units so replacement encoding cannot merge malformed IDs. Do not copy or delete ambiguous historical state; do not overwrite another profile state.
 - Validate required bridge fields before save with existing error resources.
 
 ## Contracts and ownership
@@ -27,6 +27,6 @@ Ownership is recorded in the portfolio task. The lifecycle writer owns Cargo.tom
 
 ## Migration Plan
 
-Use stable new directory keys with conservative legacy-state migration. Keep source dependency versions pinned. Revert the individual finding commit if a regression appears; do not delete persisted guards during rollback.
+Use stable new directory keys for unsafe IDs and retain canonical legacy paths. Historical collisions cannot be assigned retroactively; retain their data without copying it to newly separated profiles. Keep source dependency versions pinned. Revert the individual finding commit if a regression appears; do not delete persisted guards during rollback.
 
 Validation: targeted Rust tests with --locked, Kotlin owning module tests, independent PR/async review, just ci-gates, architecture health and locked Cargo metadata before main integration. Device and external Tor interoperability remain separate evidence categories.
