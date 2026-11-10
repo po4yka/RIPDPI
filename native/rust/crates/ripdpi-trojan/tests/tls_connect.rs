@@ -133,3 +133,49 @@ async fn deferred_header_goes_out_with_the_first_write() {
     assert_eq!(observed.command, Some(0x01));
     assert_eq!(observed.initial_payload_len, FIRST_PAYLOAD.len());
 }
+
+fn loopback_config(fixture: &TrojanLoopback, root_certificate_pem: Option<String>) -> TrojanClientConfig {
+    TrojanClientConfig {
+        server_host: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        password: PASSWORD.to_owned(),
+        tls_fingerprint_profile: "chrome_stable".to_owned(),
+        root_certificate_pem,
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        outbound_bind_ip: None,
+    }
+}
+
+/// A `fullchain.pem` style bundle trusts every certificate, not only the first.
+#[tokio::test(flavor = "multi_thread")]
+async fn root_pem_bundle_trusts_a_certificate_after_the_first() {
+    let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
+    let unrelated = TrojanLoopback::start(PASSWORD).await.expect("start unrelated fixture");
+    assert_ne!(unrelated.certificate_pem(), fixture.certificate_pem(), "test precondition: distinct certificates");
+    let bundle = format!("{}\n{}", unrelated.certificate_pem(), fixture.certificate_pem());
+    let config = loopback_config(&fixture, Some(bundle));
+    let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);
+
+    let mut stream = TrojanClient::connect_tcp(&config, &target, fixture.target_port(), FIRST_PAYLOAD)
+        .await
+        .expect("the second certificate in the bundle is trusted");
+    let mut echoed = vec![0_u8; FIRST_PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read echoed payload");
+    assert_eq!(echoed, FIRST_PAYLOAD);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn root_pem_without_a_certificate_is_a_tls_config_error() {
+    let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
+    // Port 1 would refuse a connection: the error must come before any network use.
+    let mut config = loopback_config(&fixture, Some("no certificate here\n".to_owned()));
+    config.server_port = 1;
+    let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);
+    let transport = TcpStream::connect(("127.0.0.1", fixture.port())).await.expect("connect fixture transport");
+
+    let error = TrojanClient::connect_tcp_over(&config, transport, &target, 80, &[])
+        .await
+        .expect_err("a PEM without a certificate must be rejected");
+    assert!(matches!(error, TrojanError::TlsConfig(_)), "got {error:?}");
+}

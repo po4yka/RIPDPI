@@ -513,8 +513,14 @@ where
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| TrojanError::TlsProfile(error.to_string()))?;
     if let Some(root_pem) = &config.root_certificate_pem {
-        let cert = X509::from_pem(root_pem.as_bytes()).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
-        builder.cert_store_mut().add_cert(cert).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+        let certs =
+            X509::stack_from_pem(root_pem.as_bytes()).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+        if certs.is_empty() {
+            return Err(TrojanError::TlsConfig("root certificate PEM contains no certificate".to_owned()));
+        }
+        for cert in certs {
+            builder.cert_store_mut().add_cert(cert).map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
+        }
     }
 
     let connector = builder.build();
