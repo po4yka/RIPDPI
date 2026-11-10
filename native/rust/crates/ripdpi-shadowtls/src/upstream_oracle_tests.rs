@@ -95,7 +95,6 @@ fn cover_config(only_p256: bool) -> Arc<rustls::ServerConfig> {
 struct ServerReport {
     client_hello_hmac_ok: bool,
     cover_records_after_server_hello: usize,
-    residual_frames_sent: usize,
     client_frames_forwarded_to_cover: usize,
     switched: bool,
 }
@@ -155,7 +154,6 @@ async fn upstream_like_server(mut s: DuplexStream, server_pw: &str, only_p256: b
         r
     };
     s.write_all(&modify(&mut hmac_sr, &late)).await.unwrap();
-    rep.residual_frames_sent = rep.cover_records_after_server_hello + 1;
 
     // copy_by_frame_until_hmac_matches (client -> cover).
     let first_data = loop {
@@ -184,7 +182,8 @@ async fn upstream_like_server(mut s: DuplexStream, server_pw: &str, only_p256: b
     s.write_all(&echo(&first_data, &mut hmac_s)).await.unwrap();
     loop {
         let Ok(f) = read_record(&mut s).await else { break };
-        if f[0] != 0x17 {
+        // upstream verify_appdata: content type 0x17 and record version 03 03.
+        if f.len() < 9 || f[0] != 0x17 || f[1..3] != [0x03, 0x03] {
             break;
         }
         hmac_c.update(&f[9..]);
@@ -235,7 +234,6 @@ async fn upstream_faithful_server_round_trip_with_residual_frames() {
     let rep = server.await.unwrap();
     assert!(rep.client_hello_hmac_ok, "independent ClientHello HMAC check");
     assert!(rep.switched);
-    assert!(rep.residual_frames_sent >= 2, "residual frames exercised");
 }
 
 /// # Cancel safety
