@@ -239,9 +239,9 @@ where
 
 /// Connect authenticated REALITY TLS for an HTTP/2 carrier.
 ///
-/// Offers only `h2`. Authenticated REALITY peers can omit ALPN, as Xray does
-/// before it detects the HTTP/2 preface. An explicit other protocol is refused.
-/// Raw REALITY callers use
+/// Keeps the selected profile's ALPN list in the ClientHello, as Xray does. Authenticated
+/// REALITY peers can omit ALPN, as Xray does before it detects the HTTP/2 preface. A
+/// selected protocol other than `h2` is refused. Raw REALITY callers use
 /// [`connect_reality_tls_over`] to keep their existing protocol policy.
 ///
 /// # Errors
@@ -308,12 +308,6 @@ where
     let profile_name = ripdpi_tls_profiles::resolve_connection_profile(&config.tls_fingerprint_profile, &server_name);
     let mut builder = ripdpi_tls_profiles::configure_builder(profile_name)
         .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
-
-    if require_h2 {
-        builder
-            .set_alpn_protos(b"\x02h2")
-            .map_err(|error| io::Error::other(format!("REALITY H2 ALPN configuration: {error}")))?;
-    }
 
     // REALITY's authenticated server flight uses an ephemeral Ed25519
     // certificate and hard-codes Ed25519 for CertificateVerify. Some of the
@@ -513,7 +507,11 @@ mod tests {
         RealityAuth([u8; 32]),
     }
 
-    fn fixture_context(certificate: FixtureCertificate, alpn: Option<&'static [u8]>) -> SslContext {
+    fn fixture_context(
+        certificate: FixtureCertificate,
+        alpn: Option<&'static [u8]>,
+        offered_alpn: Arc<Mutex<Vec<u8>>>,
+    ) -> SslContext {
         let key_der = hex::decode(ED25519_PRIVATE_KEY_DER).expect("decode Ed25519 fixture key");
         let signing_key = rcgen::KeyPair::try_from(key_der.as_slice()).expect("rcgen Ed25519 fixture key");
         let params = rcgen::CertificateParams::new(vec!["reality.test".to_string()]).expect("fixture cert params");
@@ -523,11 +521,11 @@ mod tests {
         context.set_min_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 minimum");
         context.set_max_proto_version(Some(SslVersion::TLS1_3)).expect("TLS 1.3 maximum");
         context.set_curves_list("X25519").expect("fixture X25519 curve");
-        if let Some(protocols) = alpn {
-            context.set_alpn_select_callback(move |_, offered| {
-                boring::ssl::select_next_proto(protocols, offered).ok_or(boring::ssl::AlpnError::NOACK)
-            });
-        }
+        context.set_alpn_select_callback(move |_, offered| {
+            *offered_alpn.lock().expect("offered ALPN lock") = offered.to_vec();
+            alpn.and_then(|protocols| boring::ssl::select_next_proto(protocols, offered))
+                .ok_or(boring::ssl::AlpnError::NOACK)
+        });
         match certificate {
             FixtureCertificate::PlainSelfSigned => {
                 let cert = boring::x509::X509::from_der(&template).expect("BoringSSL fixture cert");
@@ -604,7 +602,23 @@ mod tests {
         alpn: Option<&'static [u8]>,
         require_h2: bool,
     ) -> io::Result<[u8; 2]> {
-        let context = fixture_context(certificate, alpn);
+        connect_to_fixture_capturing(certificate, profile, kem_groups, alpn, require_h2).await.0
+    }
+
+    /// Like [`connect_to_fixture_with`], and also returns the ALPN wire list the
+    /// client offered (empty when the ClientHello carried none).
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation before accept may leave the fixture peer waiting; normal runs join the peer.
+    async fn connect_to_fixture_capturing(
+        certificate: FixtureCertificate,
+        profile: &str,
+        kem_groups: Option<Vec<String>>,
+        alpn: Option<&'static [u8]>,
+        require_h2: bool,
+    ) -> (io::Result<[u8; 2]>, Vec<u8>) {
+        let offered_alpn = Arc::new(Mutex::new(Vec::new()));
+        let context = fixture_context(certificate, alpn, Arc::clone(&offered_alpn));
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind Reality TLS fixture");
         let address = listener.local_addr().expect("Reality TLS fixture address");
         let server = thread::spawn(move || {
@@ -650,7 +664,8 @@ mod tests {
             Err(error) => Err(error),
         };
         server.join().expect("Reality TLS fixture thread");
-        result
+        let offered = offered_alpn.lock().expect("offered ALPN lock").clone();
+        (result, offered)
     }
 
     #[tokio::test]
