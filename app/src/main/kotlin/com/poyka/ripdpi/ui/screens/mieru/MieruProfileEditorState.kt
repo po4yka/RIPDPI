@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
 import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
+import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import java.util.UUID
 
@@ -54,7 +55,7 @@ enum class MieruEditorField {
 
             MTU -> raw.toIntOrNull()?.takeIf { it in RelayMieruMtuMin..RelayMieruMtuMax }
 
-            USERNAME -> raw.takeIf { it.isNotBlank() }
+            USERNAME -> raw.takeIf(::isValidRelayMieruUsername)
 
             PASSWORD -> raw.takeIf { it.isNotBlank() }
 

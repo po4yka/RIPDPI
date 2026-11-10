@@ -47,6 +47,7 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
+import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.isValidTuicUuid
 import com.poyka.ripdpi.data.isValidVlessUuid
@@ -282,7 +283,7 @@ private fun validateMieruDraft(draft: ConnectionDraft): Map<String, String> =
         putAll(
             validateEndpointRelayDraft(
                 draft,
-                draft.relayMieruUsername.isBlank() || draft.relayMieruPassword.isBlank(),
+                !isValidRelayMieruUsername(draft.relayMieruUsername) || draft.relayMieruPassword.isBlank(),
             ),
         )
         val protocolInvalid = draft.relayMieruProtocol !in setOf(RelayMieruProtocolTcp, RelayMieruProtocolUdp)

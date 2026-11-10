@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
 import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
+import com.poyka.ripdpi.data.isValidRelayMieruUsername
 import java.net.URI
 import java.net.URLEncoder
 import java.util.Base64
@@ -128,7 +129,7 @@ internal object MieruUriCodec {
             (if (active == null) profiles.firstOrNull() else profiles.firstOrNull { it.text(1) == active })
                 ?: return null
         val user = selected.firstOrNull { it.number == 2 }?.bytes?.let(::readFields) ?: return null
-        val username = user.text(1)?.takeIf { it.isNotBlank() } ?: return null
+        val username = user.text(1)?.takeIf(::isValidRelayMieruUsername) ?: return null
         val password = user.text(2)?.takeIf { it.isNotBlank() } ?: return null
         val server = selected.firstOrNull { it.number == 3 }?.bytes?.let(::readFields) ?: return null
         val host = listOf(2, 1).firstNotNullOfOrNull { server.text(it)?.takeIf(String::isNotBlank) } ?: return null
@@ -208,7 +209,7 @@ internal object MieruUriCodec {
         val info = raw?.takeIf { it.isNotBlank() } ?: return null
         val separator = info.indexOf(':')
         if (separator <= 0) return null
-        val username = decode(info.substring(0, separator))?.takeIf { it.isNotBlank() } ?: return null
+        val username = decode(info.substring(0, separator))?.takeIf(::isValidRelayMieruUsername) ?: return null
         val password = decode(info.substring(separator + 1))?.takeIf { it.isNotBlank() } ?: return null
         return username to password
     }

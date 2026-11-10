@@ -30,6 +30,13 @@ const val RelayMieruMultiplexingHigh = "high"
 const val RelayMieruMtuMin = 1280
 const val RelayMieruMtuMax = 1500
 const val RelayMieruMtuDefault = 1400
+
+/** Upstream Mieru `MaxUserNameLen`: the longest accepted user name, in UTF-8 bytes. */
+const val RelayMieruUsernameMaxBytes = 64
+
+fun isValidRelayMieruUsername(value: String): Boolean =
+    value.isNotBlank() && value.toByteArray(Charsets.UTF_8).size <= RelayMieruUsernameMaxBytes
+
 const val RelayKindSsh = "ssh"
 const val RelaySshAuthTypePassword: String = "password"
 const val RelaySshAuthTypePrivateKey = "private_key"

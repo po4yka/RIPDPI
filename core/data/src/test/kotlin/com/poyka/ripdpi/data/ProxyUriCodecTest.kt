@@ -196,6 +196,18 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `mieru import rejects a user name over 64 UTF-8 bytes`() {
+        val limit = "a".repeat(64)
+        val tooLong = "a".repeat(65)
+        val atLimit = ProxyUriCodec.parse("mierus://$limit:p@h.example?port=1&protocol=TCP") as ProxyProfile.Mieru
+        assertEquals(limit, atLimit.username)
+        assertNull(ProxyUriCodec.parse("mierus://$tooLong:p@h.example?port=1&protocol=TCP"))
+        assertNull(ProxyUriCodec.parse("mieru://$tooLong:p@h.example:443"))
+        // 33 two-byte characters are 66 bytes.
+        assertNull(ProxyUriCodec.parse("mierus://${"\u00e9".repeat(33)}:p@h.example?port=1&protocol=TCP"))
+    }
+
+    @Test
     fun `legacy mieru link rejects invalid options instead of coercing them`() {
         val base = "mieru://u:p@h.example:443"
         assertNull(ProxyUriCodec.parse("$base?mtu=99"))
