@@ -1,7 +1,10 @@
+use std::future::Future;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Instant;
+use std::task::{self, Poll, ready};
+use std::time::{Duration, Instant};
 
 use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
@@ -20,13 +23,105 @@ use shadowsocks::{
     },
 };
 use socket2::{Domain, Protocol, Socket, Type};
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
+use tokio::time::{Sleep, sleep};
 
 const BUFFER_SIZE: usize = 65_536;
 
+/// How long a read-first caller waits before the header goes out alone. SIP022 section 3.1 lets a
+/// client wait a short time for client-first protocols before it sends a padded header-only request.
+const CLIENT_FIRST_WAIT: Duration = Duration::from_millis(250);
+
+const FIRST_WRITE_LIMIT: usize = 8 * 1024;
+
+enum HeaderState {
+    Deferred,
+    Waiting(Pin<Box<Sleep>>),
+    Sending,
+    Flushing,
+    Sent,
+}
+
 /// The upstream stream owns its carrier; shutdown preserves the response direction.
-pub type ShadowsocksStream = ProxyClientStream<Box<dyn crate::trojan::AsyncIo>>;
+///
+/// The address header rides with the first written payload. A caller that reads first, flushes or
+/// shuts down before any write sends the header alone, so the server still opens the stream.
+/// Poll reads and writes from one task (as `copy_bidirectional` does): the header path shares
+/// the carrier's single write waker.
+pub struct ShadowsocksStream {
+    inner: ProxyClientStream<Box<dyn crate::trojan::AsyncIo>>,
+    header: HeaderState,
+}
+
+impl ShadowsocksStream {
+    /// Sends the header with an empty write, then flushes. `wait` keeps the client-first timer.
+    fn poll_header(&mut self, cx: &mut task::Context<'_>, wait: bool) -> Poll<io::Result<()>> {
+        loop {
+            match &mut self.header {
+                HeaderState::Sent => return Poll::Ready(Ok(())),
+                HeaderState::Deferred if wait => self.header = HeaderState::Waiting(Box::pin(sleep(CLIENT_FIRST_WAIT))),
+                HeaderState::Deferred => self.header = HeaderState::Sending,
+                HeaderState::Waiting(timer) => {
+                    if wait && timer.as_mut().poll(cx).is_pending() {
+                        return Poll::Pending;
+                    }
+                    self.header = HeaderState::Sending;
+                }
+                HeaderState::Sending => {
+                    ready!(Pin::new(&mut self.inner).poll_write(cx, &[]))?;
+                    self.header = HeaderState::Flushing;
+                }
+                HeaderState::Flushing => {
+                    ready!(Pin::new(&mut self.inner).poll_flush(cx))?;
+                    self.header = HeaderState::Sent;
+                }
+            }
+        }
+    }
+}
+
+impl AsyncRead for ShadowsocksStream {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut task::Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        if let Poll::Ready(result) = Pin::new(&mut this.inner).poll_read(cx, buf) {
+            return Poll::Ready(result);
+        }
+        match this.poll_header(cx, true) {
+            Poll::Ready(Err(error)) => Poll::Ready(Err(error)),
+            _ => Poll::Pending,
+        }
+    }
+}
+
+impl AsyncWrite for ShadowsocksStream {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut task::Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        let this = self.get_mut();
+        if matches!(this.header, HeaderState::Sent) {
+            return Pin::new(&mut this.inner).poll_write(cx, buf);
+        }
+        // The upstream writer prepends the header to this first payload and writes both as one
+        // chunk, so the payload must stay under the smallest AEAD chunk limit minus the header.
+        // The vendored AEAD writers accept a first slice without waiting on the carrier, so a
+        // pending header-only write cannot hold upstream's saved first buffer here.
+        let first = &buf[..buf.len().min(FIRST_WRITE_LIMIT)];
+        let written = ready!(Pin::new(&mut this.inner).poll_write(cx, first))?;
+        this.header = HeaderState::Sent;
+        Poll::Ready(Ok(written))
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        ready!(this.poll_header(cx, false))?;
+        Pin::new(&mut this.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        ready!(this.poll_header(cx, false))?;
+        Pin::new(&mut this.inner).poll_shutdown(cx)
+    }
+}
 
 #[derive(Clone)]
 pub struct ShadowsocksSessionFactory {
@@ -234,12 +329,9 @@ where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let transport: Box<dyn crate::trojan::AsyncIo> = Box::new(transport);
-    let mut stream =
+    let inner =
         ProxyClientStream::from_stream(Arc::clone(&config.context), transport, &config.server, target_address(target)?);
-    // write_all([]) does not poll the writer. Send the address now for server-first protocols.
-    let _written = stream.write(&[]).await?;
-    stream.flush().await?;
-    Ok(stream)
+    Ok(ShadowsocksStream { inner, header: HeaderState::Deferred })
 }
 
 fn target_address(target: &str) -> io::Result<Address> {

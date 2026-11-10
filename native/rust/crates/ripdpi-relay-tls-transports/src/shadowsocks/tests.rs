@@ -1,7 +1,7 @@
 use super::*;
 use shadowsocks::{config::ServerType, context::Context, relay::tcprelay::ProxyServerStream};
 use std::time::Duration;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const METHODS: [(&str, &str); 6] = [
     ("aes-128-gcm", "test-credential"),
@@ -92,22 +92,92 @@ async fn client_first_and_full_drop_release_the_carrier() {
 }
 
 /// # Cancel safety:
-/// cancel-safe: cancellation drops the stream held in the pending connect future.
+/// cancel-safe: cancellation drops the stream, which closes the transport.
 #[tokio::test]
-async fn cancelled_initial_write_closes_transport() {
+async fn cancelled_header_flush_closes_transport() {
     let factory = factory("invalid.test", 443, METHODS[0].0, METHODS[0].1);
     let (transport, mut peer) = tokio::io::duplex(1);
-    assert!(
-        tokio::time::timeout(
-            Duration::from_millis(20),
-            connect_shadowsocks_tcp_over(&factory, transport, "example.com:443")
-        )
-        .await
-        .is_err()
-    );
+    let mut app = connect_shadowsocks_tcp_over(&factory, transport, "example.com:443").await.unwrap();
+    assert!(tokio::time::timeout(Duration::from_millis(20), app.flush()).await.is_err());
+    drop(app);
     let mut bytes = Vec::new();
     tokio::time::timeout(Duration::from_secs(1), peer.read_to_end(&mut bytes)).await.unwrap().unwrap();
     assert!(!bytes.is_empty());
+}
+
+/// A client-first payload shares one ciphertext segment with the header, so the first raw segment
+/// is longer than the fixed 65-byte header-only segment (16 salt + 2 + 16 length, 1 + 1 + 11 + 2
+/// address, 16 tag, plus 5 payload bytes here).
+///
+/// # Cancel safety:
+/// cancel-safe: the test owns both stream ends and closes them on cancellation.
+#[tokio::test]
+async fn client_first_payload_shares_the_first_segment_with_the_header() {
+    let legacy = factory("invalid.test", 443, METHODS[0].0, METHODS[0].1);
+    let (transport, mut peer) = tokio::io::duplex(4096);
+    let mut app = connect_shadowsocks_tcp_over(&legacy, transport, "example.com:443").await.unwrap();
+    app.write_all(b"hello").await.unwrap();
+    app.flush().await.unwrap();
+    let mut raw = vec![0; 4096];
+    let first = tokio::time::timeout(Duration::from_secs(1), peer.read(&mut raw)).await.unwrap().unwrap();
+    assert_eq!(first, 65 + b"hello".len());
+
+    for (method, credential) in METHODS {
+        let factory = factory("invalid.test", 443, method, credential);
+        let (transport, peer) = tokio::io::duplex(4096);
+        let config = &factory.config.server;
+        let mut server = ProxyServerStream::from_stream(
+            Context::new_shared(ServerType::Server),
+            peer,
+            config.method(),
+            config.key(),
+        );
+        let mut app = connect_shadowsocks_tcp_over(&factory, transport, "example.com:443").await.unwrap();
+        app.write_all(b"hello").await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            assert_eq!(server.handshake().await.unwrap().to_string(), "example.com:443");
+            let mut data = [0; 5];
+            server.read_exact(&mut data).await.unwrap();
+            assert_eq!(&data, b"hello");
+        })
+        .await
+        .expect(method);
+    }
+}
+
+/// # Cancel safety:
+/// cancel-safe: the test owns both ends; the reader task is aborted before return.
+#[tokio::test]
+async fn server_first_read_sends_the_header_alone_after_the_wait() {
+    let factory = factory("invalid.test", 443, METHODS[0].0, METHODS[0].1);
+    let (transport, mut peer) = tokio::io::duplex(4096);
+    let mut app = connect_shadowsocks_tcp_over(&factory, transport, "example.com:443").await.unwrap();
+    let reader = tokio::spawn(async move {
+        let mut byte = [0; 1];
+        app.read(&mut byte).await
+    });
+    let mut raw = vec![0; 4096];
+    assert!(tokio::time::timeout(Duration::from_millis(100), peer.read(&mut raw)).await.is_err());
+    let first = tokio::time::timeout(Duration::from_secs(2), peer.read(&mut raw)).await.unwrap().unwrap();
+    assert_eq!(first, 65);
+    reader.abort();
+}
+
+/// # Cancel safety:
+/// cancel-safe: the test owns both ends and closes them on cancellation.
+#[tokio::test]
+async fn shutdown_before_any_write_still_opens_the_stream() {
+    let factory = factory("invalid.test", 443, METHODS[3].0, METHODS[3].1);
+    let (transport, peer) = tokio::io::duplex(4096);
+    let config = &factory.config.server;
+    let mut server =
+        ProxyServerStream::from_stream(Context::new_shared(ServerType::Server), peer, config.method(), config.key());
+    let mut app = connect_shadowsocks_tcp_over(&factory, transport, "example.com:443").await.unwrap();
+    app.shutdown().await.unwrap();
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(2), server.handshake()).await.unwrap().unwrap().to_string(),
+        "example.com:443"
+    );
 }
 
 /// # Cancel safety:
@@ -243,13 +313,26 @@ async fn cancelled_write_does_not_acknowledge_or_send_the_next_callers_bytes() {
         let first = vec![b'A'; 64_000];
         let accepted = app.write(&first).await.unwrap();
         assert!(accepted > 256);
-        assert!(tokio::time::timeout(Duration::from_millis(20), app.write(b"cancelled B")).await.is_err());
+        let mut expected = first[..accepted].to_vec();
+        // The first write is capped, so fill the writer until the carrier applies backpressure.
+        let mut blocked = false;
+        for _ in 0..64 {
+            // A generous window keeps scheduler delay from passing for carrier backpressure.
+            match tokio::time::timeout(Duration::from_millis(200), app.write(&first)).await {
+                Ok(written) => expected.extend_from_slice(&first[..written.unwrap()]),
+                Err(_) => {
+                    blocked = true;
+                    break;
+                }
+            }
+        }
+        assert!(blocked);
+        assert!(tokio::time::timeout(Duration::from_millis(200), app.write(b"cancelled B")).await.is_err());
         release.send(()).unwrap();
         tokio::time::timeout(Duration::from_secs(3), async {
             app.write_all(b"accepted C").await.unwrap();
             app.shutdown().await.unwrap();
             let received = task.await.unwrap();
-            let mut expected = first[..accepted].to_vec();
             expected.extend_from_slice(b"accepted C");
             assert_eq!(received, expected, "{method}");
         })
