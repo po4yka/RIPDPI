@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-10
+goal: TRN-1794335331879799 Reject malformed VLESS addons and unsupported origin flows
