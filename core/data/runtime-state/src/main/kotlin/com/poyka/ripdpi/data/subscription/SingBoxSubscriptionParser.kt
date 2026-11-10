@@ -554,7 +554,7 @@ private fun mapTrojan(
 ): ProxyProfile {
     val password = obj.string("password")
     val tls = obj["tls"] as? JsonObject
-    return if (!tls.rejectedByNativeTrojan() && server != null && port != null && !password.isNullOrBlank()) {
+    return if (tls.isVerifiedNativeTrojanTls() && server != null && port != null && !password.isNullOrBlank()) {
         ProxyProfile.Trojan(
             id = newId(),
             displayName = name,

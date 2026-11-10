@@ -128,7 +128,7 @@ object ClashSubscriptionParser {
                 require(node.nestedString("reality-opts", "public-key") == null) {
                     "node $index trojan uses unsupported REALITY"
                 }
-                require(node.string("skip-cert-verify")?.toBooleanStrictOrNull() != true) {
+                require(!node.string("skip-cert-verify").equals("true", ignoreCase = true)) {
                     "node $index trojan skips certificate verification"
                 }
                 ProxyProfile.Trojan(

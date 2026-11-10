@@ -89,7 +89,7 @@ class PayloadSelectorTopologyTest {
 
     private fun bundle(): String =
         """{"outbounds":[
-          {"type":"trojan","tag":"core","server":"core.example","server_port":443,"password":"fixture"},
+          {"type":"trojan","tls":{"enabled":true},"tag":"core","server":"core.example","server_port":443,"password":"fixture"},
           {"type":"selector","tag":"select","outbounds":["nested"]},
           {"type":"selector","tag":"nested","outbounds":["auto"]},
           {"type":"urltest","tag":"auto","outbounds":["core"],"url":"https://probe.test/204"}

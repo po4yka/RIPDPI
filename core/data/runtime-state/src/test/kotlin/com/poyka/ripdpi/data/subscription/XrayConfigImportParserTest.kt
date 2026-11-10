@@ -78,7 +78,7 @@ class XrayConfigImportParserTest {
                   "users": [ { "id": "$uuid" } ] } ] },
                 "streamSettings": { "security": "reality",
                   "realitySettings": { "publicKey": "$pbk", "serverName": "e.example" } } },
-              { "tag": "t", "protocol": "trojan",
+              { "tag": "t", "protocol": "trojan", "streamSettings": { "security": "tls" },
                 "settings": { "servers": [ { "address": "t.example", "port": 443, "password": "p" } ] } },
               { "tag": "v", "protocol": "vmess", "settings": {} },
               { "tag": "d", "protocol": "freedom" }
@@ -92,7 +92,7 @@ class XrayConfigImportParserTest {
     @Test
     fun `top-level json array is treated as an outbounds list`() {
         val config =
-            """[ { "protocol": "trojan",
+            """[ { "protocol": "trojan", "streamSettings": { "security": "tls" },
               "settings": { "servers": [ { "address": "t.example", "port": 8443, "password": "x" } ] } } ]"""
         assertEquals(1, translate(config).profiles.size)
     }
@@ -100,7 +100,7 @@ class XrayConfigImportParserTest {
     @Test
     fun `single outbound object without outbounds array is accepted`() {
         val config =
-            """{ "protocol": "trojan",
+            """{ "protocol": "trojan", "streamSettings": { "security": "tls" },
               "settings": { "servers": [ { "address": "t.example", "port": 8443, "password": "x" } ] } }"""
         val profile = translate(config).profiles.single()
         assertTrue(profile is ProxyProfile.Trojan)
@@ -109,7 +109,7 @@ class XrayConfigImportParserTest {
     @Test
     fun `base64-wrapped json config is decoded and translated`() {
         val config =
-            """{ "outbounds": [ { "protocol": "trojan", "settings": { "servers": [
+            """{ "outbounds": [ { "protocol": "trojan", "streamSettings": { "security": "tls" }, "settings": { "servers": [
               { "address": "t.example", "port": 443, "password": "p" } ] } } ] }"""
         val payload = Base64.getEncoder().encodeToString(config.toByteArray())
         assertTrue(translate(payload).profiles.single() is ProxyProfile.Trojan)
@@ -216,7 +216,7 @@ class XrayConfigImportParserTest {
         val config =
             """
             { "outbounds": [
-              { "protocol": "trojan", "settings": { "servers": [
+              { "protocol": "trojan", "streamSettings": { "security": "tls" }, "settings": { "servers": [
                 { "address": "tj.example", "port": 443, "password": "tj-secret" } ] } },
               { "protocol": "shadowsocks", "settings": { "servers": [
                 { "address": "ss.example", "port": 8388, "method": "aes-256-gcm", "password": "ss-secret" } ] } }
@@ -238,7 +238,7 @@ class XrayConfigImportParserTest {
     @Test
     fun `trojan missing password and shadowsocks missing method are MALFORMED`() {
         val trojan =
-            """{ "outbounds": [ { "protocol": "trojan",
+            """{ "outbounds": [ { "protocol": "trojan", "streamSettings": { "security": "tls" },
               "settings": { "servers": [ { "address": "t.example", "port": 443 } ] } } ] }"""
         assertEquals(XraySkipReason.MALFORMED, translate(trojan).skipped.single().reason)
         val ss =
@@ -482,6 +482,19 @@ class XrayConfigImportParserTest {
             val result = translate(config)
             assertTrue(stream, result.profiles.isEmpty())
             assertEquals(stream, XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+        }
+    }
+
+    @Test
+    fun `trojan json without streamSettings or security is plaintext and skipped`() {
+        listOf("", """, "streamSettings": { "network": "tcp" }""").forEach { stream ->
+            val config =
+                """{ "outbounds": [ { "protocol": "trojan"$stream,
+                  "settings": { "servers": [ { "address": "tj.example", "port": 443, "password": "p" } ] } } ] }"""
+            val result = translate(config)
+            assertTrue(stream, result.profiles.isEmpty())
+            assertEquals(stream, XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+            assertEquals(stream, "security-none", result.skipped.single().detail)
         }
     }
 

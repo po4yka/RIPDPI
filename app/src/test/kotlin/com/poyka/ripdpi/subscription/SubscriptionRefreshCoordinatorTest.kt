@@ -669,7 +669,7 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
             }
         return buildString {
             append("{\"outbounds\":[{")
-            append("\"type\":\"trojan\",\"tag\":\"node\",")
+            append("\"type\":\"trojan\",\"tls\":{\"enabled\":true},\"tag\":\"node\",")
             append("\"server\":\"node.example\",\"server_port\":443,")
             append("\"password\":\"p\"}]")
             append(route)

@@ -467,7 +467,7 @@ class XrayImportNativeActivationTest {
 
             val config =
                 """
-                { "outbounds": [ { "protocol": "trojan", "settings": { "servers": [
+                { "outbounds": [ { "protocol": "trojan", "streamSettings": { "security": "tls" }, "settings": { "servers": [
                   { "address": "tj.example", "port": 443, "password": "tj-secret" } ] } } ] }
                 """.trimIndent()
 

@@ -67,7 +67,7 @@ class BootstrapConsumeOnceTest {
                         .body(
                             """
                             {
-                              "outbounds":[{"type":"trojan","tag":"n","server":"n.example",
+                              "outbounds":[{"type":"trojan","tls":{"enabled":true},"tag":"n","server":"n.example",
                                 "server_port":443,"password":"p"}],
                               "route":{"rules":[{"package_name":["com.bootstrap.app"],"outbound":"direct"}]}
                             }

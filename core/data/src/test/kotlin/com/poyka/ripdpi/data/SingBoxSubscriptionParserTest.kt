@@ -29,7 +29,7 @@ class SingBoxSubscriptionParserTest {
     @Test
     fun `invalid known Cloudflare classification rejects the complete bundle`() {
         for (tags in listOf("[42]", "[\"missing\"]", "[\"edge\",\"edge\"]", "{}")) {
-            val payload = """{"outbounds":[{"type":"trojan","tag":"edge","server":"edge.example",
+            val payload = """{"outbounds":[{"type":"trojan","tls":{"enabled":true},"tag":"edge","server":"edge.example",
               "server_port":443,"password":"fixture"}],"ripdpi":{"schema_version":2,
               "cloudflare_outbound_tags":$tags}}"""
             assertTrue(SingBoxSubscriptionParser.parse(payload, groupId) is SingBoxParseResult.Error)
@@ -51,7 +51,7 @@ class SingBoxSubscriptionParserTest {
                   "server_port": 443, "uuid": "11111111-1111-1111-1111-111111111111" },
                 { "type": "shadowsocks", "tag": "ss-node", "server": "ss.example.com",
                   "server_port": 8388, "method": "aes-256-gcm", "password": "ss-secret" },
-                { "type": "trojan", "tag": "trojan-node", "server": "trojan.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "trojan-node", "server": "trojan.example.com",
                   "server_port": 443, "password": "trojan-secret" },
                 { "type": "hysteria2", "tag": "hy2-node", "server": "hy2.example.com",
                   "server_port": 8443, "password": "hy2-secret" }
@@ -78,7 +78,7 @@ class SingBoxSubscriptionParserTest {
     fun `wraps a single outbound object as a one element list`() {
         val json =
             """
-            { "type": "trojan", "tag": "solo", "server": "solo.example.com",
+            { "type": "trojan", "tls": {"enabled": true}, "tag": "solo", "server": "solo.example.com",
               "server_port": 443, "password": "solo-secret" }
             """.trimIndent()
 
@@ -152,7 +152,7 @@ class SingBoxSubscriptionParserTest {
               "route": { "rules": [] },
               "dns": { "servers": [] },
               "outbounds": [
-                { "type": "trojan", "tag": "only", "server": "only.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "only", "server": "only.example.com",
                   "server_port": 443, "password": "p" }
               ]
             }
@@ -209,7 +209,7 @@ class SingBoxSubscriptionParserTest {
         val json =
             """
             { "outbounds": [
-              { "type": "trojan", "tag": "n", "server": "t.example.com",
+              { "type": "trojan", "tls": {"enabled": true}, "tag": "n", "server": "t.example.com",
                 "server_port": 443, "password": "p" } ] }
             """.trimIndent()
 
@@ -224,7 +224,7 @@ class SingBoxSubscriptionParserTest {
             """
             {
               "outbounds": [
-                { "type": "trojan", "tag": "n", "server": "t.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "n", "server": "t.example.com",
                   "server_port": 443, "password": "p" }
               ],
               "route": {
@@ -260,7 +260,7 @@ class SingBoxSubscriptionParserTest {
             """
             {
               "outbounds": [
-                { "type": "trojan", "tag": "n", "server": "t.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "n", "server": "t.example.com",
                   "server_port": 443, "password": "p" }
               ],
               "route": {
@@ -316,7 +316,7 @@ class SingBoxSubscriptionParserTest {
         val json =
             """
             { "outbounds": [
-              { "type": "trojan", "tag": "trojan-ws", "server": "t.example", "server_port": 443,
+              { "type": "trojan", "tls": {"enabled": true}, "tag": "trojan-ws", "server": "t.example", "server_port": 443,
                 "password": "p", "transport": { "type": "ws" } },
               { "type": "shadowsocks", "tag": "ss-grpc", "server": "s.example", "server_port": 8388,
                 "method": "aes-256-gcm", "password": "p", "transport": { "type": "grpc" } } ] }
@@ -373,7 +373,7 @@ class SingBoxSubscriptionParserTest {
             { "outbounds": [
               { "type": "shadowsocks", "tag": "ss-empty", "server": "ss.example.com",
                 "server_port": 8388, "method": "aes-256-gcm", "password": "" },
-              { "type": "trojan", "tag": "trojan-empty", "server": "t.example.com",
+              { "type": "trojan", "tls": {"enabled": true}, "tag": "trojan-empty", "server": "t.example.com",
                 "server_port": 443, "password": "" },
               { "type": "hysteria2", "tag": "hy2-empty", "server": "h.example.com",
                 "server_port": 8443, "password": "" },

@@ -309,9 +309,10 @@ object XrayConfigImportParser {
         val creds = firstServerCredentials(settings) ?: return OutboundMapping.Skip(XraySkipReason.MALFORMED)
         val tls = stream?.get("tlsSettings") as? JsonObject
         // The native trojan client is TLS-only with certificate verification always on.
+        // Xray defaults `security` to none, which is plaintext.
         val security = stream?.string("security")?.lowercase()
-        if (security != null && security != "tls") {
-            return OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "security-$security")
+        if (security != "tls") {
+            return OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "security-${security ?: "none"}")
         }
         if ((tls?.get("allowInsecure") as? JsonPrimitive)?.booleanOrNull == true) {
             return OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, "insecure")

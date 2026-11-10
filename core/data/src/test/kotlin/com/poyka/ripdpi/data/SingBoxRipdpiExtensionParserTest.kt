@@ -316,7 +316,7 @@ class SingBoxRipdpiExtensionParserTest {
               "outbounds": [
                 { "type": "hysteria2", "tag": "hy2-plain", "server": "hy2.example.com",
                   "server_port": 8443, "password": "plain-secret" },
-                { "type": "trojan", "tag": "trojan-node", "server": "trojan.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "trojan-node", "server": "trojan.example.com",
                   "server_port": 443, "password": "trojan-secret" }
               ]
             }
@@ -343,7 +343,7 @@ class SingBoxRipdpiExtensionParserTest {
             """
             {
               "outbounds": [
-                { "type": "trojan", "tag": "trojan-node", "server": "trojan.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "trojan-node", "server": "trojan.example.com",
                   "server_port": 443, "password": "trojan-secret" }
               ],
               "ripdpi": {

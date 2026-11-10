@@ -114,8 +114,8 @@ class SubscriptionRefreshDeliveryTest : SubscriptionRefreshTestSupport() {
             val payload = """{"outbounds":[
           {"type":"selector","tag":"select","outbounds":["edge","origin","auto"],"default":"edge"},
           {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
-          {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
-          {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
+          {"type":"trojan","tls":{"enabled":true},"tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
+          {"type":"trojan","tls":{"enabled":true},"tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
           ],"ripdpi":{"schema_version":2,"cloudflare_outbound_tags":["edge"]}}"""
             val fixture = fixture(now = 3_000L)
             server.enqueue(response(200, payload))
@@ -280,7 +280,7 @@ class SubscriptionRefreshDeliveryTest : SubscriptionRefreshTestSupport() {
                     .newBuilder()
                     .scheme("https")
                     .build()
-            val payload = """{"outbounds":[{"type":"trojan","tag":"relay","server":"relay.example",
+            val payload = """{"outbounds":[{"type":"trojan","tls":{"enabled":true},"tag":"relay","server":"relay.example",
             "server_port":443,"password":"fixture-password"}],"ripdpi":{"schema_version":2,
             "subscription_mirrors":[
             {"id":"cf","url":"$cloudflareUrl","token":"fixture-cf-token","transport":"cloudflare"},

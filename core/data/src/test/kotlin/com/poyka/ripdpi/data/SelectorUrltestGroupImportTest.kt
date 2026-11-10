@@ -85,7 +85,7 @@ class SelectorUrltestGroupImportTest {
                   "url": "https://probe.example.com/204", "interval": "1m", "tolerance": 30 },
                 { "type": "vless", "tag": "p0", "server": "p0.example.com",
                   "server_port": 443, "uuid": "00000000-0000-0000-0000-000000000000" },
-                { "type": "trojan", "tag": "p1", "server": "p1.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "p1", "server": "p1.example.com",
                   "server_port": 443, "password": "secret" }
               ]
             }
@@ -107,7 +107,7 @@ class SelectorUrltestGroupImportTest {
               "outbounds": [
                 { "type": "vless", "tag": "p0", "server": "p0.example.com",
                   "server_port": 443, "uuid": "00000000-0000-0000-0000-000000000000" },
-                { "type": "trojan", "tag": "p1", "server": "p1.example.com",
+                { "type": "trojan", "tls": {"enabled": true}, "tag": "p1", "server": "p1.example.com",
                   "server_port": 443, "password": "secret" },
                 { "type": "selector", "tag": "select",
                   "outbounds": ["p0", "p1"], "default": "p0" }
@@ -128,7 +128,7 @@ class SelectorUrltestGroupImportTest {
     fun `single concrete outbound and no selector yields one profile and no group`() {
         val json =
             """
-            { "type": "trojan", "tag": "solo", "server": "solo.example.com",
+            { "type": "trojan", "tls": {"enabled": true}, "tag": "solo", "server": "solo.example.com",
               "server_port": 443, "password": "secret" }
             """.trimIndent()
 

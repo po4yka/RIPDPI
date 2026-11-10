@@ -9,6 +9,8 @@ class TrojanImportRejectionTest {
     @Test
     fun `singbox trojan without verified tls stays inert`() {
         listOf(
+            "",
+            """"tls":{"server_name":"tj.example"},""",
             """"tls":{"enabled":false},""",
             """"tls":{"enabled":true,"reality":{"enabled":true,"public_key":"k"}},""",
             """"tls":{"enabled":true,"insecure":true},""",
@@ -21,6 +23,7 @@ class TrojanImportRejectionTest {
         listOf(
             "reality-opts:\n      public-key: abc",
             "skip-cert-verify: true",
+            "skip-cert-verify: True",
         ).forEach { fields ->
             val parsed = clash(fields)
             assertTrue(fields, parsed.profiles.isEmpty())

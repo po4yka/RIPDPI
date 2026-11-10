@@ -110,7 +110,7 @@ class NestedSelectorImportTest {
                 """{"type":"urltest","tag":"probe$index","outbounds":["$next","$next"]}"""
             }
         val payload = """{"outbounds":[
-          {"type":"trojan","tag":"core","server":"core.example","server_port":443,"password":"fixture"},
+          {"type":"trojan","tls":{"enabled":true},"tag":"core","server":"core.example","server_port":443,"password":"fixture"},
           {"type":"selector","tag":"select","outbounds":["probe0"]},$groups
         ]}"""
         assertError(payload)

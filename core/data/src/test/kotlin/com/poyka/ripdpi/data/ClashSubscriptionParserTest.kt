@@ -118,7 +118,7 @@ class ClashSubscriptionParserTest {
                 password: test-value
                 udp: true
                 sni: trojan.example.com
-                skip-cert-verify: true
+                skip-cert-verify: false
                 some-future-key: whatever
             """.trimIndent()
 

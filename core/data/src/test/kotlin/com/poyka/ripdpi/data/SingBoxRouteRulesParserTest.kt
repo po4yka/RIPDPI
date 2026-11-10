@@ -232,7 +232,7 @@ class SingBoxRouteRulesParserTest {
     fun `a bundle with no route section yields an empty rule list`() {
         val json =
             """
-            { "outbounds": [ { "type": "trojan", "tag": "t", "server": "t.example.com",
+            { "outbounds": [ { "type": "trojan", "tls": {"enabled": true}, "tag": "t", "server": "t.example.com",
               "server_port": 443, "password": "p" } ] }
             """.trimIndent()
 

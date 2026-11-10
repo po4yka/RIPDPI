@@ -783,8 +783,8 @@ class SubscriptionImportConfirmViewModelTest {
         """{"outbounds":[
               {"type":"selector","tag":"select","outbounds":["edge","origin","auto"],"default":"edge"},
               {"type":"urltest","tag":"auto","url":"https://probe.example","interval":"10s"},
-              {"type":"trojan","tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
-              {"type":"trojan","tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
+              {"type":"trojan","tls":{"enabled":true},"tag":"edge","server":"edge.example","server_port":443,"password":"fixture"},
+              {"type":"trojan","tls":{"enabled":true},"tag":"origin","server":"origin.example","server_port":443,"password":"fixture"}
               ],"ripdpi":{"schema_version":2,"cloudflare_outbound_tags":["edge"],
               "migration":{"schema_version":1,"migration_id":"11111111-1111-1111-1111-111111111111",
                 "delivery_id":"22222222-2222-2222-2222-222222222222","target_tags":["edge"],
@@ -878,7 +878,7 @@ class SubscriptionImportConfirmViewModelTest {
                         .body(
                             """
                             {
-                              "outbounds":[{"type":"trojan","tag":"n","server":"n.example",
+                              "outbounds":[{"type":"trojan","tls":{"enabled":true},"tag":"n","server":"n.example",
                                 "server_port":443,"password":"p"}],
                               "route":{"rules":[{"package_name":["com.imported.app"],"outbound":"select"}]}
                             }
