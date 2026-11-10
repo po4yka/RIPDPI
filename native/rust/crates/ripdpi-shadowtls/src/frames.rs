@@ -94,6 +94,12 @@ pub(crate) fn deframe_payload(
         ));
     }
 
+    if frame.len() < TLS_HEADER_LEN || frame[1..3] != [0x03, 0x03] {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "ShadowTLS application data record version is not TLS 1.2",
+        ));
+    }
     let payload_len = u16::from_be_bytes([frame[3], frame[4]]) as usize;
     if payload_len + TLS_HEADER_LEN != frame.len() || payload_len < HMAC_LEN {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "ShadowTLS application data frame is malformed"));

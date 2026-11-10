@@ -267,3 +267,16 @@ fn server_hello_with_hello_retry_request_random_is_a_typed_error() {
     let typed = error.get_ref().and_then(|inner| inner.downcast_ref::<ShadowTlsHandshakeError>()).expect("typed error");
     assert_eq!(typed.kind(), ShadowTlsFailureKind::CoverHelloRetry);
 }
+
+#[test]
+fn data_frame_with_wrong_record_version_is_rejected() {
+    let mut read_hmac = ShadowTlsHmac::new(b"secret");
+    let mut write_hmac = ShadowTlsHmac::new(b"secret");
+    let mut frame = frame_payload(&mut write_hmac, b"hello").expect("frame");
+    frame[2] = 0x01;
+    let Err(error) = deframe_payload(&mut read_hmac, &mut None, &frame) else {
+        panic!("wrong record version must be rejected")
+    };
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+    assert!(error.to_string().contains("version"), "unexpected error: {error}");
+}
