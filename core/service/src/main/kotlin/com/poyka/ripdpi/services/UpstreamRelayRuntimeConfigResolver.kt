@@ -153,7 +153,8 @@ private const val MaxLegacyTorProfileLength = 200
 
 private fun torProfilePath(profileId: String): String {
     // Keep unambiguous legacy paths. Sanitized legacy state has no owner and must not be copied.
-    if (profileId.length in 1..MaxLegacyTorProfileLength && profileId != "." && profileId != ".." &&
+    val dotSegment = profileId == "." || profileId == ".."
+    if (profileId.length in 1..MaxLegacyTorProfileLength && !dotSegment &&
         profileId.matches(Regex("[a-zA-Z0-9._-]+"))
     ) {
         return "tor/$profileId"
@@ -161,7 +162,7 @@ private fun torProfilePath(profileId: String): String {
     val hasher = MessageDigest.getInstance("SHA-256")
     // Encode raw code units: UTF-8 replaces distinct unpaired surrogates with the same byte.
     profileId.forEach { character ->
-        hasher.update((character.code ushr 8).toByte())
+        hasher.update((character.code ushr Byte.SIZE_BITS).toByte())
         hasher.update(character.code.toByte())
     }
     val digest = hasher.digest()
