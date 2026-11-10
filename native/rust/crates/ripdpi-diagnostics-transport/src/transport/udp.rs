@@ -191,6 +191,19 @@ mod tests {
                 stream.write_all(&[0x01, 0x00]).expect("accept credentials");
                 let mut associate = [0u8; 10];
                 stream.read_exact(&mut associate).expect("read UDP ASSOCIATE");
+                assert_eq!(associate[1], 0x80);
+                stream.write_all(&[5, 7, 0, 1, 0, 0, 0, 0, 0, 0]).expect("reject private association");
+                let mut closed = [0];
+                assert_eq!(stream.read(&mut closed).expect("close rejected control"), 0);
+                let (mut stream, _) = control.accept().expect("accept standard fallback");
+                stream.read_exact(&mut greeting).expect("read fallback greeting");
+                assert_eq!(greeting, [5, 1, 2]);
+                stream.write_all(&[5, 2]).expect("select fallback auth");
+                stream.read_exact(&mut auth).expect("read fallback credentials");
+                assert_eq!(&auth, b"\x01\x07attempt\x04test");
+                stream.write_all(&[1, 0]).expect("accept fallback auth");
+                stream.read_exact(&mut associate).expect("read standard association");
+                assert_eq!(associate, [5, 3, 0, 1, 0, 0, 0, 0, 0, 0]);
                 let port = relay_addr.port().to_be_bytes();
                 stream
                     .write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, port[0], port[1]])

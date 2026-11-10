@@ -12,6 +12,7 @@ See proposal.md. The Rust TUN already implements command 0x80 and the RUF1 nonce
 
 - Reuse command 0x80 and RUF1; do not create another envelope or dependency.
 - Each authenticated private association owns a loopback UDP socket, a fresh 128-bit random nonce and its dispatcher lifetime. Check source, nonce, frame bounds and request ordering before decoding payload.
+- The SOCKS server owns a registry of private associations. Runtime Close revokes and joins active sessions; registration and close are serialized so no new session can escape shutdown.
 - Reject standard UDP association on the managed inbound. Shared UDP ingress must not grant an alternate path.
 - Upgrade diagnostic authenticated loopback associations to this existing contract. Allow standard fallback only after explicit unsupported-command reply on a new authenticated control connection.
 - Make cleanup of the never-started stub succeed. Keep linked cleanup failure semantics unchanged.

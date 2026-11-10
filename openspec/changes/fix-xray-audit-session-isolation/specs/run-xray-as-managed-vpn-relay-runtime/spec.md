@@ -6,7 +6,7 @@ Keep the managed Xray local UDP hop private to its authenticated session and mak
 
 ### Requirement: REQ-XRAY-UDP-SESSION — Authenticate each managed UDP association
 
-The managed Xray inbound MUST accept UDP only through an authenticated private RUF1 association. The association MUST use a fresh unpredictable nonce, the announced loopback source endpoint and increasing request identifiers. Standard shared UDP ingress MUST NOT bypass this authority. Closing control MUST close the association and its dispatchers.
+The managed Xray inbound MUST accept UDP only through an authenticated private RUF1 association. The association MUST use a fresh unpredictable nonce, the announced loopback source endpoint and increasing request identifiers. Standard shared UDP ingress MUST NOT bypass this authority. Closing control or stopping the owning runtime MUST close the association and its dispatchers before cleanup reports success.
 
 #### Scenario: Another loopback sender
 
@@ -17,6 +17,11 @@ The managed Xray inbound MUST accept UDP only through an authenticated private R
 
 - **WHEN** control closes while the UDP source remains open
 - **THEN** stale session frames cannot reach the outbound peer and another authenticated session can start.
+
+#### Scenario: Stop with live control
+
+- **WHEN** the runtime stops while a client keeps its private control connection open
+- **THEN** every private UDP endpoint and dispatcher is closed before stop returns and stale traffic cannot be forwarded.
 
 #### Scenario: Preserve existing payload routing
 

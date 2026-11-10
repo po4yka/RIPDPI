@@ -289,6 +289,15 @@ credential field must contain 1 to 255 UTF-8 bytes.
   contracts; subprocess execution alone does not determine that contract.
 - Xray: `XrayConfigRenderer.render` puts `auth: password` and one account in the
   `socks-in` inbound. The readiness probe and tun2socks use the same pair.
+- Managed Xray UDP uses private command `0x80` after password authentication.
+  Each control connection owns a protected loopback UDP socket and a fresh
+  RUF1 nonce. The client declares its bound source endpoint before receiving
+  the nonce. Requests must match that endpoint and nonce and use increasing
+  identifiers. Control close releases the UDP socket and its dispatchers. Runtime stop
+  also revokes and joins all private associations before cleanup returns.
+  The managed inbound rejects ordinary UDP ASSOCIATE and shared raw UDP;
+  password authentication on a shared loopback IP alone does not authorize
+  datagrams. TUN and diagnostic clients use the same existing RUF1 contract.
 - In-app clients that know only a listener address (relay probes, failover,
   acceptance, strategy probes) get the pair from the process-local
   `LocalSocksCredentialRegistry`. The listener owner registers it after

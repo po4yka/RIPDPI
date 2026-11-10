@@ -28,7 +28,7 @@ Close the two confirmed RLY-18 audit defects: isolate managed Xray UDP by authen
 ## Ownership
 
 - UDP Go worker: native/xray/patches/xray-core-protect-errors.patch, native/xray/patches/manifest.json, scripts/tests/libxray/* UDP tests, docs/native/libxray-packaging.md. Sole writer for patch manifest.
-- UDP Rust worker: native/rust/crates/ripdpi-diagnostics-transport/src/transport/socks5* and relevant owning crate tests; do not change Cargo.lock or dependencies.
+- UDP Rust worker: native/rust/crates/ripdpi-diagnostics-transport/src/transport/socks5* and relevant owning crate tests, including only the existing authenticated-loopback fixture in transport/udp.rs; do not change Cargo.lock or dependencies.
 - Stub worker: core/engine/src/xrayStub and stub-specific unit tests/build source-set wiring only.
 - Integrator: task/OpenSpec artifacts, combined validation, architecture/config contract documentation and Git integration.
 - All writers use separate worktrees. Shared manifests, contracts, generated snapshots and baselines remain serialized with the integrator; no golden blessing is authorized.

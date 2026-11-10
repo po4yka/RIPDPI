@@ -26,8 +26,20 @@ build recipe, patch manifest, `build-go.mod`, and `build-go.sum` by digest.
 A matching version label alone is insufficient.
 
 The managed SOCKS inbound uses tag `ripdpi-managed-socks-in-v1`, loopback binding,
-and password authentication. Only this inbound accepts the private UDP address
-type `5` from the TUN path. The frame carries the domain and its numeric DNS pin.
+and password authentication. UDP uses the existing authenticated local RUF1 hop:
+command `0x80` creates a separate protected loopback UDP socket for that control
+connection and its exact prebound source endpoint. The server sends a fresh
+128-bit nonce over the authenticated TCP control. Each request carries that
+nonce and an increasing request ID; replies use the same nonce. Closing control
+closes the private UDP socket and its rays. Runtime stop also closes all registered
+managed controls, including pending handshakes, and joins their cleanup with a
+bounded deadline; incomplete cleanup returns an error and retains runtime ownership.
+Standard UDP ASSOCIATE and raw shared
+UDP ingress are rejected on this managed inbound, so an IP-only SOCKS filter
+cannot grant another local process access. Ordinary SOCKS inbounds are unchanged.
+
+Only this authenticated private association accepts the private UDP address
+type `5` from the TUN path. Its RUF1 body carries the domain and its numeric DNS pin.
 Xray uses the domain for routing and the pin for the outbound destination. Each
 authority has a separate UDP ray. The inbound admits at most 256 live authorities
 per UDP source. It rejects new authorities at the limit and can remove only closed

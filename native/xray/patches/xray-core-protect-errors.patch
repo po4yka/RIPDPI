@@ -46,13 +46,63 @@
 -			}
 --- a/proxy/socks/server.go
 +++ b/proxy/socks/server.go
-@@ -222,0 +223,5 @@
+@@ -29,5 +29,6 @@
+-	config        *ServerConfig
+-	policyManager policy.Manager
+-	cone          bool
+-	udpFilter     *UDPFilter
+-	httpServer    *http.Server
++	config          *ServerConfig
++	policyManager   policy.Manager
++	cone            bool
++	udpFilter       *UDPFilter
++	managedControls managedControlRegistry
++	httpServer      *http.Server
+@@ -83,0 +85,9 @@
++		var owner *managedControl
++		if inbound.Tag == managedInboundTag {
++			var err error
++			ctx, owner, err = s.registerManagedControl(ctx, conn)
++			if err != nil {
++				return err
++			}
++			defer s.retireManagedControl(owner)
++		}
+@@ -96 +106 @@
+-		return s.processTCP(ctx, conn, dispatcher, firstbyte)
++		return s.processTCP(ctx, conn, dispatcher, firstbyte, owner)
+@@ -104 +114 @@
+-func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatcher routing.Dispatcher, firstbyte []byte) error {
++func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatcher routing.Dispatcher, firstbyte []byte, owner *managedControl) error {
+@@ -116,4 +126,6 @@
+-		config:       s.config,
+-		address:      inbound.Gateway.Address,
+-		port:         inbound.Gateway.Port,
+-		localAddress: net.IPAddress(conn.LocalAddr().(*net.TCPAddr).IP),
++		config:          s.config,
++		address:         inbound.Gateway.Address,
++		port:            inbound.Gateway.Port,
++		localAddress:    net.IPAddress(conn.LocalAddr().(*net.TCPAddr).IP),
++		managedUDP:      inbound.Tag == managedInboundTag,
++		allowManagedUDP: s.acceptsManagedUDP(ctx),
+@@ -172,0 +185,3 @@
++		if svrSession.privateUDP {
++			return s.handleManagedUDP(ctx, conn, reader, dispatcher, request, owner)
++		}
+@@ -189 +204,5 @@
+-	if s.udpFilter != nil && !s.udpFilter.Check(conn.RemoteAddr()) {
++	_, private := conn.(*managedUDPConn)
++	if inbound := session.InboundFromContext(ctx); inbound != nil && inbound.Tag == managedInboundTag && !private {
++		return errors.New("managed UDP requires an authenticated private association")
++	}
++	if !private && s.udpFilter != nil && !s.udpFilter.Check(conn.RemoteAddr()) {
+@@ -222,0 +242,5 @@
 +	var managed *managedUDPDispatch
 +	if s.acceptsManagedUDP(ctx) {
 +		managed = &managedUDPDispatch{entries: make(map[managedUDPAuthority]*managedUDPEntry), dispatcher: dispatcher, conn: conn}
 +		defer managed.close()
 +	}
-@@ -238,0 +244,4 @@
+@@ -238,0 +263,4 @@
 +			if managed != nil && payload.Len() >= 4 && payload.Byte(3) == 5 {
 +				managed.dispatch(ctx, payload)
 +				continue
@@ -275,3 +325,264 @@
 @@ -59 +70 @@
 -		if !forRead && p.option.isFull(p.data.Len()) {
 +		if !forRead && p.option.isFull(p.bufferedSize()) {
+--- a/proxy/socks/protocol.go
++++ b/proxy/socks/protocol.go
+@@ -43,4 +43,7 @@
+-	config       *ServerConfig
+-	address      net.Address
+-	port         net.Port
+-	localAddress net.Address
++	config          *ServerConfig
++	address         net.Address
++	port            net.Port
++	localAddress    net.Address
++	managedUDP      bool
++	allowManagedUDP bool
++	privateUDP      bool
+@@ -156,0 +160,5 @@
++		if s.managedUDP && (buffer.Byte(0) != socks5Version || buffer.Byte(2) != 0) {
++			buffer.Release()
++			writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
++			return nil, errors.New("invalid managed SOCKS request")
++		}
+@@ -167,0 +176,7 @@
++	case managedUDPCommand:
++		if !s.allowManagedUDP || !s.config.UdpEnabled {
++			writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
++			return nil, errors.New("private UDP is not available")
++		}
++		s.privateUDP = true
++		request.Command = protocol.RequestCommandUDP
+@@ -169 +184 @@
+-		if !s.config.UdpEnabled {
++		if s.managedUDP || !s.config.UdpEnabled {
+@@ -189,0 +205,4 @@
++	if s.privateUDP {
++		// The private listener must bind before returning its endpoint and nonce.
++		return request, nil
++	}
+--- /dev/null
++++ b/proxy/socks/managed_udp_session.go
+@@ -0,0 +1,119 @@
++package socks
++
++import (
++	"context"
++	"crypto/rand"
++	"crypto/subtle"
++	"encoding/binary"
++	"io"
++
++	"github.com/xtls/xray-core/common/buf"
++	"github.com/xtls/xray-core/common/errors"
++	"github.com/xtls/xray-core/common/net"
++	"github.com/xtls/xray-core/common/protocol"
++	"github.com/xtls/xray-core/features/routing"
++	"github.com/xtls/xray-core/transport/internet"
++	"github.com/xtls/xray-core/transport/internet/stat"
++)
++
++const managedUDPCommand = 0x80
++const managedUDPHeader = 32
++const managedUDPMaxWire = 65507
++
++// RUF1 is the existing authenticated local-hop contract in ripdpi-socks5-core.
++type managedUDPConn struct {
++	net.PacketConn
++	peer   *net.UDPAddr
++	nonce  [16]byte
++	lastID uint64
++	buffer [buf.Size + managedUDPHeader + 1]byte
++}
++
++func (c *managedUDPConn) RemoteAddr() net.Addr { return c.peer }
++
++func (c *managedUDPConn) Read(payload []byte) (int, error) {
++	for {
++		n, source, err := c.PacketConn.ReadFrom(c.buffer[:])
++		if err != nil {
++			return 0, err
++		}
++		peer, ok := source.(*net.UDPAddr)
++		frame := c.buffer[:n]
++		if !ok || peer.Port != c.peer.Port || !peer.IP.Equal(c.peer.IP) ||
++			n < managedUDPHeader || n > managedUDPMaxWire || string(frame[:4]) != "RUF1" ||
++			frame[4] != 1 || frame[5] != 0 ||
++			int(binary.BigEndian.Uint16(frame[6:8])) != n-managedUDPHeader ||
++			n-managedUDPHeader > len(payload) || subtle.ConstantTimeCompare(frame[8:24], c.nonce[:]) != 1 {
++			continue
++		}
++		id := binary.BigEndian.Uint64(frame[24:32])
++		if id <= c.lastID {
++			continue
++		}
++		c.lastID = id
++		return copy(payload, frame[managedUDPHeader:]), nil
++	}
++}
++
++func (c *managedUDPConn) Write(payload []byte) (int, error) {
++	if len(payload) > managedUDPMaxWire-managedUDPHeader {
++		return 0, errors.New("managed UDP response exceeds wire limit")
++	}
++	frame := make([]byte, managedUDPHeader+len(payload))
++	copy(frame, "RUF1")
++	frame[4] = 2
++	binary.BigEndian.PutUint16(frame[6:8], uint16(len(payload)))
++	copy(frame[8:24], c.nonce[:])
++	copy(frame[managedUDPHeader:], payload)
++	n, err := c.PacketConn.WriteTo(frame, c.peer)
++	if err != nil {
++		return 0, err
++	}
++	if n != len(frame) {
++		return 0, io.ErrShortWrite
++	}
++	return len(payload), nil
++}
++
++func (s *Server) handleManagedUDP(ctx context.Context, control stat.Connection, reader io.Reader, dispatcher routing.Dispatcher, request *protocol.RequestHeader, owner *managedControl) error {
++	peer, ok := control.RemoteAddr().(*net.TCPAddr)
++	if !ok || !request.Address.Family().IsIP() || request.Port == 0 ||
++		!request.Address.IP().IsLoopback() || !request.Address.IP().Equal(peer.IP) {
++		writeSocks5Response(control, statusCmdNotSupport, net.AnyIP, net.Port(0))
++		return errors.New("managed UDP requires the authenticated peer source endpoint")
++	}
++	local := control.LocalAddr().(*net.TCPAddr)
++	relay, err := internet.ListenSystemPacket(ctx, &net.UDPAddr{IP: local.IP}, nil)
++	if err != nil {
++		return err
++	}
++	defer relay.Close()
++	if owner == nil || !owner.attachRelay(relay) {
++		return errors.New("managed control is closed")
++	}
++	conn := &managedUDPConn{PacketConn: relay, peer: &net.UDPAddr{IP: peer.IP, Port: int(request.Port)}}
++	if _, err := io.ReadFull(rand.Reader, conn.nonce[:]); err != nil {
++		return err
++	}
++	bound := relay.LocalAddr().(*net.UDPAddr)
++	if err := writeSocks5Response(control, statusSuccess, net.IPAddress(bound.IP), net.Port(bound.Port)); err != nil {
++		return err
++	}
++	preface := append([]byte("RUF1"), conn.nonce[:]...)
++	if err := buf.WriteAllBytes(control, preface, nil); err != nil {
++		return err
++	}
++	done := make(chan struct{})
++	go func() {
++		defer close(done)
++		// EOF or unexpected control data revokes this association.
++		var extra [1]byte
++		reader.Read(extra[:])
++		owner.stop()
++	}()
++	defer func() {
++		owner.stop()
++		<-done
++	}()
++	return s.handleUDPPayload(ctx, conn, dispatcher)
++}
+--- /dev/null
++++ b/proxy/socks/managed_udp_owner.go
+@@ -0,0 +1,100 @@
++package socks
++
++import (
++	"context"
++	"sync"
++	"time"
++
++	"github.com/xtls/xray-core/common/errors"
++	"github.com/xtls/xray-core/common/net"
++)
++
++type managedControlRegistry struct {
++	sync.Mutex
++	closed bool
++	active map[*managedControl]struct{}
++}
++
++type managedControl struct {
++	sync.Mutex
++	control  net.Conn
++	relay    net.PacketConn
++	cancel   context.CancelFunc
++	stopOnce sync.Once
++	closed   bool
++	done     chan struct{}
++}
++
++func (o *managedControl) attachRelay(relay net.PacketConn) bool {
++	o.Lock()
++	defer o.Unlock()
++	if o.closed {
++		return false
++	}
++	o.relay = relay
++	return true
++}
++
++func (o *managedControl) stop() {
++	o.stopOnce.Do(func() {
++		o.Lock()
++		o.closed = true
++		relay := o.relay
++		o.Unlock()
++		o.cancel()
++		o.control.Close()
++		if relay != nil {
++			relay.Close()
++		}
++	})
++}
++
++func (s *Server) registerManagedControl(ctx context.Context, control net.Conn) (context.Context, *managedControl, error) {
++	ctx, cancel := context.WithCancel(ctx)
++	owner := &managedControl{control: control, cancel: cancel, done: make(chan struct{})}
++	s.managedControls.Lock()
++	if s.managedControls.closed {
++		s.managedControls.Unlock()
++		owner.stop()
++		return ctx, nil, errors.New("managed SOCKS server is closed")
++	}
++	if s.managedControls.active == nil {
++		s.managedControls.active = make(map[*managedControl]struct{})
++	}
++	s.managedControls.active[owner] = struct{}{}
++	s.managedControls.Unlock()
++	context.AfterFunc(ctx, owner.stop)
++	return ctx, owner, nil
++}
++
++func (s *Server) retireManagedControl(owner *managedControl) {
++	owner.stop()
++	s.managedControls.Lock()
++	delete(s.managedControls.active, owner)
++	close(owner.done)
++	s.managedControls.Unlock()
++}
++
++// Close is called by the inbound worker even when its connection context is Background.
++func (s *Server) Close() error {
++	s.managedControls.Lock()
++	s.managedControls.closed = true
++	active := make([]*managedControl, 0, len(s.managedControls.active))
++	for owner := range s.managedControls.active {
++		active = append(active, owner)
++	}
++	s.managedControls.Unlock()
++	deadline := time.NewTimer(2 * time.Second)
++	defer deadline.Stop()
++	for _, owner := range active {
++		go owner.stop()
++	}
++	for _, owner := range active {
++		select {
++		case <-owner.done:
++		case <-deadline.C:
++			return errors.New("managed SOCKS controls did not stop before deadline")
++		}
++	}
++	return nil
++}

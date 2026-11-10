@@ -13,6 +13,11 @@ use super::types::{
     TransportFailureStage,
 };
 
+mod udp;
+pub use udp::relay_udp_via_socks5;
+
+#[cfg(test)]
+mod private_udp_tests;
 #[cfg(test)]
 mod reply_contract_tests;
 
@@ -238,42 +243,6 @@ pub fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), Tr
         }
         atyp => Err(TransportError::SocksUdpAtypUnsupported(atyp)),
     }
-}
-
-pub fn relay_udp_via_socks5(
-    proxy_host: &str,
-    proxy_port: u16,
-    destination: SocketAddr,
-    payload: &[u8],
-    credentials: Option<&Socks5Credentials>,
-) -> Result<(Vec<u8>, SocketAddr), TransportError> {
-    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-    let mut control = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
-    control.set_read_timeout(Some(timeout))?;
-    control.set_write_timeout(Some(timeout))?;
-    socks5_handshake(&mut control, credentials)?;
-    let relay_addr = normalize_udp_relay_addr(socks5_udp_associate(&mut control)?, &control)?;
-
-    let bind_addr: SocketAddr = if relay_addr.is_ipv4() {
-        "0.0.0.0:0".parse().expect("valid IPv4 UDP bind")
-    } else {
-        "[::]:0".parse().expect("valid IPv6 UDP bind")
-    };
-    let udp = UdpSocket::bind(bind_addr)?;
-    udp.set_read_timeout(Some(timeout))?;
-    udp.set_write_timeout(Some(timeout))?;
-    udp.connect(relay_addr)?;
-    let frame = encode_socks5_udp_frame(destination, payload);
-    udp.send(&frame)?;
-
-    let mut buf = [0u8; 65535];
-    let size = udp.recv(&mut buf)?;
-    let (source, payload) = decode_socks5_udp_frame(&buf[..size])?;
-    if source != destination {
-        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "SOCKS5 UDP source mismatch").into());
-    }
-    let local_addr = udp.local_addr()?;
-    Ok((payload, local_addr))
 }
 
 #[cfg(test)]

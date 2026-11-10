@@ -6,7 +6,7 @@ Keep local diagnostic UDP probes compatible with authenticated managed Xray sess
 
 ### Requirement: REQ-UDP-LOCAL-SESSION — Negotiate authenticated local UDP authority
 
-An authenticated loopback diagnostic SOCKS client MUST prebind its UDP source and attempt the existing RUF1 association before sending payload. It MUST validate session response frames. Only an explicit unsupported-command reply may select standard SOCKS fallback on a new control connection. External or unauthenticated standard SOCKS behavior MUST remain available.
+An authenticated loopback diagnostic SOCKS client MUST prebind its UDP source and attempt the existing RUF1 association before sending payload. It MUST validate session response frames and correlate error frames with the requested destination. Only an explicit unsupported-command reply may select standard SOCKS fallback on a new control connection. External or unauthenticated standard SOCKS behavior MUST remain available.
 
 #### Scenario: Managed Xray peer
 
