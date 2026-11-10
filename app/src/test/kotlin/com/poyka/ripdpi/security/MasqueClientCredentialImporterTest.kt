@@ -131,6 +131,22 @@ class MasqueClientCredentialImporterTest {
             assertTrue(error.message.orEmpty().contains("valid UTF-8"))
         }
 
+    @Test
+    fun importPrivateKeyPemRejectsEncryptedKeys() =
+        runTest(dispatcher) {
+            val body = "QUJD"
+            val encrypted =
+                listOf(
+                    "-----BEGIN ENCRYPTED PRIVATE KEY-----\n$body\n-----END ENCRYPTED PRIVATE KEY-----\n",
+                    "-----BEGIN RSA " + "PRIVATE KEY-----\nProc-Type: 4,ENCRYPTED\nDEK-Info: AES-128-CBC,00\n\n" +
+                        "$body\n-----END RSA " + "PRIVATE KEY-----\n",
+                )
+            for (pem in encrypted) {
+                val error = assertIllegalArgument { importer.importPrivateKeyPem(writeDocument(pem.toByteArray())) }
+                assertTrue(error.message.orEmpty().contains("unencrypted"))
+            }
+        }
+
     private fun writeDocument(bytes: ByteArray): Uri {
         val file = File(context.cacheDir, "masque-import-${System.nanoTime()}.pem")
         file.writeBytes(bytes)

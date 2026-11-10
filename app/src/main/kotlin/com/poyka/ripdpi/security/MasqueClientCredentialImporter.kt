@@ -123,6 +123,9 @@ class AndroidMasqueClientCredentialImporter
             require(label.contains("PRIVATE KEY")) {
                 "The selected key file must contain a PEM private key."
             }
+            require(!label.contains("ENCRYPTED") && !payload.contains("ENCRYPTED", ignoreCase = true)) {
+                "The selected key file must be an unencrypted PEM private key."
+            }
             val normalizedPayload = payload.filterNot(Char::isWhitespace)
             Base64.getDecoder().decode(normalizedPayload)
             return buildPemBlock(label, normalizedPayload)
