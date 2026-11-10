@@ -11,6 +11,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -28,6 +33,77 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BaseServiceRuntimeCoordinatorTest {
+    @Test
+    fun `cold startup preserves a physical network switch until connected`() =
+        runTest {
+            val initial = sampleFingerprint()
+            val replacement = initial.copy(transport = "cellular", physicalNetworkSignature = "replacement")
+            val monitor = StartupHandoverMonitor(backgroundScope, initial) { testScheduler.currentTime }
+            val env = newEnv(observationMonitor = monitor)
+            val publication = CompletableDeferred<Unit>()
+            env.coordinator.publishEvidenceGate = publication
+            env.coordinator.beforeResolve = { monitor.update(replacement) }
+            val start = launch { env.coordinator.start() }
+            runCurrent()
+
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(env.handoverEvents.published.isEmpty())
+
+            publication.complete(Unit)
+            start.join()
+            runCurrent()
+
+            val session = env.runtimeRegistry.current(Mode.Proxy) as ProxyRuntimeSession
+            assertEquals(replacement.scopeKey(), session.lastSuccessfulHandoverFingerprintHash)
+            assertEquals(
+                replacement.scopeKey(),
+                env.handoverEvents.published
+                    .single()
+                    .currentFingerprintHash,
+            )
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+            env.coordinator.stop()
+        }
+
+    @Test
+    fun `unchanged cold startup does not create a handover`() =
+        runTest {
+            val monitor = StartupHandoverMonitor(backgroundScope, sampleFingerprint()) { testScheduler.currentTime }
+            val env = newEnv(observationMonitor = monitor)
+
+            env.coordinator.start()
+            runCurrent()
+
+            val session = env.runtimeRegistry.current(Mode.Proxy) as ProxyRuntimeSession
+            assertNull(session.lastSuccessfulHandoverFingerprintHash)
+            assertTrue(env.handoverEvents.published.isEmpty())
+            env.coordinator.stop()
+        }
+
+    @Test
+    fun `cancelled startup cannot replay its pending handover into a new session`() =
+        runTest {
+            val initial = sampleFingerprint()
+            val monitor = StartupHandoverMonitor(backgroundScope, initial) { testScheduler.currentTime }
+            val env = newEnv(observationMonitor = monitor)
+            env.coordinator.publishEvidenceGate = CompletableDeferred()
+            val start = launch { env.coordinator.start() }
+            runCurrent()
+            monitor.update(initial.copy(transport = "cellular", physicalNetworkSignature = "replacement"))
+            runCurrent()
+
+            start.cancelAndJoin()
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+            env.coordinator.publishEvidenceGate = null
+            env.coordinator.start()
+            runCurrent()
+
+            val session = env.runtimeRegistry.current(Mode.Proxy) as ProxyRuntimeSession
+            assertNull(session.lastSuccessfulHandoverFingerprintHash)
+            assertTrue(env.handoverEvents.published.isEmpty())
+            env.coordinator.stop()
+        }
+
     @Test
     fun `registered session reload keeps session and service alive`() =
         runTest {
@@ -1547,6 +1623,7 @@ class RetainedRuntimeCleanupTest {
 private fun TestScope.newEnv(
     fingerprint: NetworkFingerprint? = sampleFingerprint(),
     selectorListeners: Set<SelectorRuntimeLifecycleListener> = emptySet(),
+    observationMonitor: NetworkHandoverMonitor? = null,
 ): Env {
     val dispatcher = StandardTestDispatcher(testScheduler)
     val host = TestProxyServiceHost(backgroundScope)
@@ -1562,7 +1639,7 @@ private fun TestScope.newEnv(
             resolver = resolver,
             runtimeRegistry = runtimeRegistry,
             rememberedStore = rememberedStore,
-            handoverMonitor = handoverMonitor,
+            handoverMonitor = observationMonitor ?: handoverMonitor,
             handoverEvents = handoverEvents,
             permissionWatchdog = TestPermissionWatchdog(),
             dispatcher = dispatcher,
@@ -1596,7 +1673,7 @@ private class TestCoordinator(
     resolver: ConnectionPolicyResolver,
     runtimeRegistry: ServiceRuntimeRegistry,
     rememberedStore: TestRememberedNetworkPolicyStore,
-    handoverMonitor: TestNetworkHandoverMonitor,
+    handoverMonitor: NetworkHandoverMonitor,
     handoverEvents: TestPolicyHandoverEventStore,
     permissionWatchdog: PermissionWatchdog,
     dispatcher: kotlinx.coroutines.test.TestDispatcher,
@@ -1883,4 +1960,28 @@ private class TestCoordinator(
     private fun classifyStartupFailure(error: Exception): FailureReason = FailureReason.Unexpected(error)
 
     private fun classifyHandoverFailure(error: Exception): FailureReason = FailureReason.Unexpected(error)
+}
+
+private class StartupHandoverMonitor(
+    scope: kotlinx.coroutines.CoroutineScope,
+    initialFingerprint: NetworkFingerprint,
+    clock: () -> Long,
+) : NetworkHandoverMonitor {
+    private var fingerprint = initialFingerprint
+    private val changes = MutableStateFlow(0L)
+    private val observation =
+        observeNetworkHandoverEvents(
+            signals = changes.map { Unit },
+            captureFingerprint = { fingerprint },
+            debounceMs = 0L,
+            clock = clock,
+        )
+    override val events = observation.shareIn(scope, SharingStarted.WhileSubscribed(), replay = 0)
+
+    override fun observe() = observation
+
+    fun update(replacement: NetworkFingerprint) {
+        fingerprint = replacement
+        changes.value += 1L
+    }
 }

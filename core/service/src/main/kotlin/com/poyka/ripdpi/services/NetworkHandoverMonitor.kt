@@ -45,17 +45,20 @@ class DefaultNetworkHandoverMonitor
         }
 
         override val events: SharedFlow<NetworkHandoverEvent> =
-            observeNetworkHandoverEvents(
-                signals = physicalNetworkObserver.changes.map { Unit },
-                captureFingerprint = networkFingerprintProvider::capture,
-                debounceMs = DebounceWindowMs,
-                clock = System::currentTimeMillis,
-            ).shareIn(
+            observe().shareIn(
                 scope = scope,
                 started =
                     kotlinx.coroutines.flow.SharingStarted
                         .WhileSubscribed(stopTimeoutMillis = StopTimeoutMs),
                 replay = 0,
+            )
+
+        override fun observe(): Flow<NetworkHandoverEvent> =
+            observeNetworkHandoverEvents(
+                signals = physicalNetworkObserver.changes.map { Unit },
+                captureFingerprint = networkFingerprintProvider::capture,
+                debounceMs = DebounceWindowMs,
+                clock = System::currentTimeMillis,
             )
     }
 

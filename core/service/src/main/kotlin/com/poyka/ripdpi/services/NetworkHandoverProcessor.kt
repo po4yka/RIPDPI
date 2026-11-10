@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.ServiceStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
@@ -55,27 +56,60 @@ internal class NetworkHandoverProcessor<TSession>(
     private var processorJob: Job? = null
     private var monitorJob: Job? = null
 
-    fun startMonitoring() {
+    private val monitoringLock = Any()
+    private var monitoringOwner: Any? = null
+    private var monitoringActive = false
+    private var startupEvent: NetworkHandoverEvent? = null
+
+    fun prepareMonitoring() {
         cancel()
         ensureProcessorStarted()
-        monitorJob =
-            scope.launch(dispatcher) {
-                networkHandoverMonitor.events.collect { event ->
-                    val eventGeneration = generation.incrementAndGet()
-                    commands.send(
-                        ProcessorCommand.Event(
-                            HandoverAttemptCommand(event, eventGeneration, retryCount = 0),
-                        ),
-                    )
+        val owner = Any()
+        synchronized(monitoringLock) { monitoringOwner = owner }
+        // Cold collection captures the physical baseline before policy resolution can suspend.
+        val observation =
+            scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
+                networkHandoverMonitor.observe().collect { event ->
+                    synchronized(monitoringLock) {
+                        if (monitoringOwner === owner) {
+                            if (monitoringActive) enqueueEvent(event) else startupEvent = event
+                        }
+                    }
                 }
             }
+        synchronized(monitoringLock) {
+            if (monitoringOwner === owner) monitorJob = observation else observation.cancel()
+        }
+    }
+
+    fun startMonitoring() {
+        synchronized(monitoringLock) {
+            if (monitoringOwner == null) return
+            monitoringActive = true
+            startupEvent?.let(::enqueueEvent)
+            startupEvent = null
+        }
     }
 
     fun cancel() {
-        generation.incrementAndGet()
-        monitorJob?.cancel()
-        monitorJob = null
-        commands.trySend(ProcessorCommand.Cancel)
+        val observation =
+            synchronized(monitoringLock) {
+                generation.incrementAndGet()
+                monitoringOwner = null
+                monitoringActive = false
+                startupEvent = null
+                commands.trySend(ProcessorCommand.Cancel)
+                monitorJob.also { monitorJob = null }
+            }
+        observation?.cancel()
+    }
+
+    private fun enqueueEvent(event: NetworkHandoverEvent) {
+        val eventGeneration = generation.incrementAndGet()
+        commands
+            .trySend(
+                ProcessorCommand.Event(HandoverAttemptCommand(event, eventGeneration, retryCount = 0)),
+            ).getOrThrow()
     }
 
     private fun ensureProcessorStarted() {

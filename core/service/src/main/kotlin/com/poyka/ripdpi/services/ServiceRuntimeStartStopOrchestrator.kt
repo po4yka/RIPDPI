@@ -52,6 +52,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 session.pauseResumeIntent = pauseResume?.intent
                 callbacks.setRuntimeSession(session)
                 session.networkHandoverState = null
+                dependencies.handoverProcessor.prepareMonitoring()
                 val resolution = callbacks.resolveInitialConnectionPolicy()
                 transaction?.beforeStart?.invoke(resolution)
                 matchedRememberedPolicy = resolution.matchedNetworkPolicy
