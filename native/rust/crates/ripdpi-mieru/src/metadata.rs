@@ -81,6 +81,29 @@ pub(crate) fn timestamp_estimate_unix(meta: &[u8; METADATA_LEN]) -> i64 {
     i64::from(minutes) * 60 + 30
 }
 
+/// Whether the segment's minute timestamp is within one minute of `now_unix`'s
+/// minute. Upstream rejects any other metadata (`metadata.go`), which limits the
+/// replay window of a captured segment.
+pub(crate) fn timestamp_in_window(meta: &[u8; METADATA_LEN], now_unix: i64) -> bool {
+    let stamp = i64::from(u32::from_be_bytes([meta[2], meta[3], meta[4], meta[5]]));
+    (stamp - now_unix.div_euclid(60)).abs() <= 1
+}
+
+/// Whether a client may receive this type from a server. Upstream's client
+/// accepts only open/data/ack responses and the two close-session types
+/// (`session.go`); closeConnRequest is handled by the carrier.
+pub(crate) fn is_server_to_client(protocol: ProtocolType) -> bool {
+    matches!(
+        protocol,
+        ProtocolType::OpenSessionResponse
+            | ProtocolType::DataServerToClient
+            | ProtocolType::AckServerToClient
+            | ProtocolType::CloseSessionRequest
+            | ProtocolType::CloseSessionResponse
+            | ProtocolType::CloseConnRequest
+    )
+}
+
 /// The session id (bytes 6..10) carried by every segment, in both the data and
 /// session layouts. Used by the connection multiplexer to route an inbound
 /// segment to the owning sub-session.

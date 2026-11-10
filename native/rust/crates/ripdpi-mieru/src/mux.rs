@@ -16,7 +16,7 @@
 //! multiplexed level); [`MieruMuxConnection::open_stream`] applies backpressure
 //! (an async semaphore) beyond it. See `PROTOCOL.md` §7.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, PoisonError};
 use std::time::Duration;
@@ -30,7 +30,10 @@ use tokio::time::timeout;
 use crate::MieruStream;
 use crate::config::{MieruConfig, MieruProtocol};
 use crate::error::{MieruError, Result};
-use crate::metadata::{DataAckMeta, ProtocolType, SessionMeta, session_id_of, timestamp_estimate_unix};
+use crate::metadata::{
+    DataAckMeta, ProtocolType, SessionMeta, is_server_to_client, session_id_of, timestamp_estimate_unix,
+    timestamp_in_window,
+};
 use crate::owned_tasks::OwnedTasks;
 use crate::segment::{Decryptor, Encryptor, MAX_PDU};
 use crate::session::{encode_socks5_address, split_host_port};
@@ -103,7 +106,7 @@ impl MuxWriter {
             .await
     }
 
-    async fn send_close(&mut self, session_id: u32, seq: &mut u32) -> Result<()> {
+    async fn send_close(&mut self, protocol: ProtocolType, session_id: u32, seq: &mut u32) -> Result<()> {
         let suffix = self.enc.next_session_padding()?;
         let now = self.time.now_unix();
         let this_seq = next(seq);
@@ -113,15 +116,8 @@ impl MuxWriter {
                 0,
                 suffix,
                 |_p, suffix_len| {
-                    SessionMeta {
-                        protocol: ProtocolType::CloseSessionRequest,
-                        session_id,
-                        seq: this_seq,
-                        status_code: 0,
-                        payload_len: 0,
-                        suffix_len,
-                    }
-                    .marshal(now)
+                    SessionMeta { protocol, session_id, seq: this_seq, status_code: 0, payload_len: 0, suffix_len }
+                        .marshal(now)
                 },
                 None,
             )
@@ -177,6 +173,8 @@ enum WriterCommandKind {
     Open,
     Data(Vec<u8>),
     Close,
+    /// Answer to a server-initiated close; the session needs no later Close.
+    CloseResponse,
 }
 
 struct WriterCommand {
@@ -220,13 +218,23 @@ impl MuxWriteQueue {
 
 async fn run_writer(mut writer: MuxWriter, mut commands: mpsc::Receiver<WriterCommand>, table: DemuxTable) {
     let mut seqs = HashMap::<u32, u32>::new();
+    // Sessions the server closed first: upstream expects no closeSessionRequest
+    // from the client for them after our closeSessionResponse.
+    let mut closed_by_peer = HashSet::<u32>::new();
     while let Some(command) = commands.recv().await {
         let seq = seqs.entry(command.session_id).or_insert(0);
         let closes = matches!(&command.kind, WriterCommandKind::Close);
         let result = match command.kind {
             WriterCommandKind::Open => writer.send_open(command.session_id, seq).await,
             WriterCommandKind::Data(bytes) => writer.send_data(command.session_id, seq, &bytes).await,
-            WriterCommandKind::Close => writer.send_close(command.session_id, seq).await,
+            WriterCommandKind::Close if closed_by_peer.remove(&command.session_id) => Ok(()),
+            WriterCommandKind::Close => {
+                writer.send_close(ProtocolType::CloseSessionRequest, command.session_id, seq).await
+            }
+            WriterCommandKind::CloseResponse => {
+                closed_by_peer.insert(command.session_id);
+                writer.send_close(ProtocolType::CloseSessionResponse, command.session_id, seq).await
+            }
         };
         if closes {
             seqs.remove(&command.session_id);
@@ -596,8 +604,12 @@ impl ReaderLink {
     /// Best-effort Close: a full queue is skipped, because the reader must not
     /// await the writer. The stream's registration queues Close when dropped.
     fn close_session(&self, session_id: u32) {
+        self.queue(session_id, WriterCommandKind::Close);
+    }
+
+    fn queue(&self, session_id: u32, kind: WriterCommandKind) {
         let (done, _completed) = oneshot::channel();
-        let _ = self.closer.try_send(WriterCommand { session_id, kind: WriterCommandKind::Close, done });
+        let _ = self.closer.try_send(WriterCommand { session_id, kind, done });
     }
 }
 
@@ -623,6 +635,12 @@ async fn run_reader(
         let Ok((meta, payload)) = dec.read_segment(&mut reader).await else { break };
         // Ordering: Release pairs with the Acquire load in `open_stream`.
         stall.authenticated.store(true, Ordering::Release);
+        // Upstream rejects metadata whose minute is off by more than one; this
+        // runs before calibration, which only refines the clock after a segment
+        // the server could legitimately have sent.
+        if !timestamp_in_window(&meta, time.now_unix()) {
+            break;
+        }
         // Calibrate the shared replay clock once from the server's first
         // (AEAD-verified) timestamp; minute granularity makes per-segment
         // re-anchoring jitter backwards, so do it a single time.
@@ -632,8 +650,13 @@ async fn run_reader(
         }
         let session_id = session_id_of(&meta);
         let Ok(protocol) = ProtocolType::from_u8(meta[0]) else { continue };
+        // A server never sends client-to-server types; upstream's client drops
+        // the connection on them.
+        if !is_server_to_client(protocol) {
+            break;
+        }
         match protocol {
-            ProtocolType::DataServerToClient | ProtocolType::DataClientToServer => {
+            ProtocolType::DataServerToClient => {
                 let Some(data) = payload else { continue };
                 if data.is_empty() {
                     continue;
@@ -661,6 +684,9 @@ async fn run_reader(
                 if let Some(mailbox) = removed {
                     // Ordering: see `MuxReader::closed_by_server`.
                     mailbox.closed_by_server.store(true, Ordering::Release);
+                    if protocol == ProtocolType::CloseSessionRequest {
+                        stall.queue(session_id, WriterCommandKind::CloseResponse);
+                    }
                 }
             }
             // closeConnRequest has no session field upstream (metadata.go
@@ -1263,6 +1289,41 @@ mod tests {
                 .expect("server data");
         }
 
+        /// One data segment with a chosen type and metadata timestamp.
+        async fn data_as(&mut self, protocol: ProtocolType, stamp: i64, session_id: u32, bytes: &[u8]) {
+            let (prefix, suffix) = self.enc.next_padding().expect("padding");
+            let payload_len = u16::try_from(bytes.len()).expect("fragment fits u16");
+            self.enc
+                .write_segment(
+                    &mut self.write_half,
+                    prefix,
+                    suffix,
+                    |prefix_len, suffix_len| {
+                        DataAckMeta {
+                            protocol,
+                            session_id,
+                            seq: 0,
+                            unack_seq: 0,
+                            window_size: 0,
+                            fragment: 0,
+                            prefix_len,
+                            payload_len,
+                            suffix_len,
+                        }
+                        .marshal(stamp)
+                    },
+                    Some(bytes),
+                )
+                .await
+                .expect("raw data segment");
+        }
+
+        /// Next client segment's protocol type and session id.
+        async fn next_client_segment(&mut self) -> (ProtocolType, u32) {
+            let (meta, _payload) = self.dec.read_segment(&mut self.read_half).await.expect("client segment");
+            (ProtocolType::from_u8(meta[0]).expect("protocol"), session_id_of(&meta))
+        }
+
         async fn close_session(&mut self, session_id: u32) {
             self.close_segment(ProtocolType::CloseSessionRequest, session_id).await;
         }
@@ -1449,6 +1510,69 @@ mod tests {
         assert!(
             matches!(result, Err(MieruError::Protocol(_))),
             "an authenticated carrier that later died is not an auth failure, got {result:?}"
+        );
+    }
+
+    async fn assert_carrier_dropped(conn: &MieruMuxConnection, what: &str) {
+        timeout(Duration::from_secs(1), async {
+            while !conn.limit.is_closed() {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap_or_else(|_| panic!("{what} must drop the carrier"));
+    }
+
+    /// Upstream's client accepts only server-to-client types.
+    #[tokio::test]
+    async fn client_to_server_segment_type_from_the_server_is_rejected() {
+        let (conn, mut server) = scripted_carrier().await;
+        let (stream, session_id) = tokio::join!(conn.open_stream("type.example:443"), server.accept_connect());
+        let _stream = stream.expect("open");
+        server.data_as(ProtocolType::DataClientToServer, NOW, session_id, b"x").await;
+        assert_carrier_dropped(&conn, "a client-to-server type").await;
+    }
+
+    /// Upstream rejects metadata more than one minute from its own clock.
+    #[tokio::test]
+    async fn metadata_timestamp_outside_one_minute_is_rejected() {
+        let (conn, mut server) = scripted_carrier().await;
+        let (stream, session_id) = tokio::join!(conn.open_stream("stale.example:443"), server.accept_connect());
+        let _stream = stream.expect("open");
+        server.data_as(ProtocolType::DataServerToClient, NOW + 61, session_id, b"fresh enough").await;
+        server.data_as(ProtocolType::DataServerToClient, NOW + 180, session_id, b"too new").await;
+        assert_carrier_dropped(&conn, "a segment three minutes ahead").await;
+    }
+
+    /// A server close is answered with closeSessionResponse, and dropping the
+    /// stream later sends no closeSessionRequest for that session.
+    #[tokio::test]
+    async fn server_close_session_request_is_answered_and_not_repeated() {
+        let (conn, mut server) = scripted_carrier().await;
+        let (stream, session_id) = tokio::join!(conn.open_stream("close.example:443"), server.accept_connect());
+        let stream = stream.expect("open");
+        server.close_session(session_id).await;
+        let answer = timeout(Duration::from_secs(1), server.next_client_segment()).await.expect("answer");
+        assert_eq!(answer, (ProtocolType::CloseSessionResponse, session_id));
+
+        drop(stream);
+        let before_second_open = async {
+            let mut seen = Vec::new();
+            loop {
+                let segment = server.next_client_segment().await;
+                if segment.0 == ProtocolType::OpenSessionRequest {
+                    break;
+                }
+                seen.push(segment);
+            }
+            server.accept_connect().await;
+            seen
+        };
+        let (second, seen) = tokio::join!(conn.open_stream("next.example:443"), before_second_open);
+        let _second = second.expect("second open");
+        assert!(
+            !seen.contains(&(ProtocolType::CloseSessionRequest, session_id)),
+            "a session the server closed needs no closeSessionRequest, saw {seen:?}"
         );
     }
 }
