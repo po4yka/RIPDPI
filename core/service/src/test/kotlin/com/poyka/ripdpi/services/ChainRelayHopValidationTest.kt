@@ -139,6 +139,29 @@ internal class ChainRelayHopValidationTest : ChainRelayTrustDomainResolverTestSu
             assertTrue(error.reasonText(), error.reasonText().contains("finalmask"))
         }
 
+    @Test
+    fun `trojan hop keeps a root certificate PEM and maps a blank one to null`() =
+        runTest {
+            val credentials =
+                RelayCredentialRecord(profileId = "entry-hop", trojanPassword = credentialFixture("trojan"))
+
+            fun trojanHop(pem: String) =
+                RelayProfileRecord(
+                    id = "entry-hop",
+                    kind = RelayKindTrojan,
+                    server = "trojan.example",
+                    serverPort = 443,
+                    serverName = "trojan.example",
+                    trojanRootCertificatePem = pem,
+                )
+
+            assertEquals(
+                "trojan-root-pem",
+                resolveChain(trojanHop("trojan-root-pem"), credentials).chainEntry?.trojanRootCertificatePem,
+            )
+            assertEquals(null, resolveChain(trojanHop(" "), credentials).chainEntry?.trojanRootCertificatePem)
+        }
+
     private fun masqueEntry(): RelayProfileRecord =
         RelayProfileRecord(
             id = "entry-hop",
