@@ -46,3 +46,7 @@ The signal is a heuristic on observed wire bytes. It fires only when a valid Ser
 ## Owner
 
 Native-transport owner. Runtime wiring landed in PR #162.
+
+## Real v2 behavior (upstream)
+
+Upstream v2 relays the cover TLS flight to the client unchanged (`server.rs` `relay_v2` into `copy_until_eof`, ihciah/shadow-tls @02dd0bc7). With a TLS 1.3 cover, the records after the ServerHello are `0x14` and `0x17`, never `0x16`. A real v2 server therefore does not produce the `0x16 0x03` shape. It appears as the first-`0x17` HMAC failure, the same as a wrong password. The client error text names both causes: wrong password or a server that is not ShadowTLS v3. The `0x16 0x03` classifier stays as a harmless extra signal. Only the synthetic `ShadowTlsV2RejectLoopback` produces that shape.

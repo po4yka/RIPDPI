@@ -156,13 +156,16 @@ where
             Some(_) => {
                 // Version-mismatch seam: at this switch point a v3 server sends the
                 // HMAC-authenticated TLS_APPLICATION_DATA (0x17) frame. A raw TLS
-                // handshake record (0x16 0x03 ..) here means the server did not
-                // perform v3's immediate post-ServerHello switch — a v2-framing
-                // signal. The ServerHello is also 0x16 0x03 but is read and
-                // validated BEFORE this loop, never here. A bad-password v3 reject
-                // instead sends a 0x17 frame whose HMAC fails `verify_handshake_frame`
-                // above, classifying as `Other` and never reaching this branch as a
-                // version mismatch — so auth failures are not false-positived.
+                // handshake record (0x16 0x03 ..) here is classified as a v2-framing
+                // signal. Upstream v2 relays the cover TLS flight unchanged
+                // (server.rs relay_v2 @02dd0bc7), so with a TLS 1.3 cover a real v2
+                // server sends 0x14/0x17 records here, never 0x16, and surfaces as the
+                // HMAC failure in `verify_handshake_frame` instead. This branch is
+                // harmless but only the synthetic `ShadowTlsV2RejectLoopback` reaches
+                // it. The ServerHello is also 0x16 0x03 but is read and validated
+                // BEFORE this loop. A bad-password reject sends a 0x17 frame whose
+                // HMAC fails and classifies as `Other`, so auth failures are not
+                // false-positived.
                 if classify_failure_payload(&frame) == ShadowTlsFailureKind::VersionMismatch {
                     return Err(io::Error::other(ShadowTlsHandshakeError::version_mismatch()));
                 }

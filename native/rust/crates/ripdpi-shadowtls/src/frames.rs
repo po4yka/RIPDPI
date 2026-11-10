@@ -50,7 +50,11 @@ pub(crate) fn verify_handshake_frame(hmac: &mut ShadowTlsHmac, frame: &[u8]) -> 
     let payload = &frame[TLS_HEADER_LEN + HMAC_LEN..];
     hmac.update(payload);
     if hmac.digest() != digest {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "ShadowTLS handshake HMAC verification failed"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "ShadowTLS handshake HMAC verification failed: the password is wrong or the server is not \
+ShadowTLS v3 (a v2 server relays the cover TLS flight unchanged)",
+        ));
     }
     Ok(())
 }

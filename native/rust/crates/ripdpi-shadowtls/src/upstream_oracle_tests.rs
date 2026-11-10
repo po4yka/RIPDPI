@@ -267,3 +267,34 @@ async fn cover_hello_retry_request_is_a_typed_error() {
     assert_eq!(typed.kind(), crate::ShadowTlsFailureKind::CoverHelloRetry);
     drop(server.await);
 }
+
+/// Upstream v2 relays the cover TLS flight unchanged (`relay_v2`).
+async fn v2_like_server(mut s: DuplexStream) {
+    let Ok(ch) = read_record(&mut s).await else { return };
+    let mut cover = rustls::ServerConnection::new(cover_config(false)).unwrap();
+    cover.read_tls(&mut std::io::Cursor::new(&ch)).unwrap();
+    cover.process_new_packets().unwrap();
+    let mut flight = Vec::new();
+    while cover.wants_write() {
+        cover.write_tls(&mut flight).unwrap();
+    }
+    let _ = s.write_all(&flight).await;
+    let mut sink = [0u8; 256];
+    while let Ok(n) = s.read(&mut sink).await {
+        if n == 0 {
+            break;
+        }
+    }
+}
+
+/// # Cancel safety
+///
+/// cancel-safe: the in-memory duplex halves are owned by the test.
+#[tokio::test]
+async fn v2_server_relaying_cover_flight_names_non_v3_server() {
+    let (a, b) = tokio::io::duplex(1 << 20);
+    let server = tokio::spawn(v2_like_server(b));
+    let err = client(PW).connect_over(a).await.err().expect("v2 server must fail");
+    assert!(err.to_string().contains("not ShadowTLS v3"), "unexpected error: {err}");
+    drop(server.await);
+}

@@ -92,7 +92,10 @@ impl Drop for ShadowTlsLoopback {
 }
 
 /// A loopback server that emulates a **ShadowTLS v2** peer well enough to drive
-/// the v3-only client's version-mismatch detection. It relays a valid TLS 1.3
+/// the v3-only client's version-mismatch detection. The wire shape is synthetic:
+/// real upstream v2 relays the cover TLS flight unchanged, so a TLS 1.3 cover
+/// never sends a `0x16` record after the ServerHello (see the version policy
+/// document). It relays a valid TLS 1.3
 /// ServerHello (so `parse_validated_server_hello` passes, exactly as a real v2
 /// server proxying to a cover site would), then — instead of v3's
 /// HMAC-authenticated application-data switch — sends a raw TLS handshake record
