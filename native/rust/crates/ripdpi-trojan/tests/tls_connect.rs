@@ -179,3 +179,24 @@ async fn root_pem_without_a_certificate_is_a_tls_config_error() {
         .expect_err("a PEM without a certificate must be rejected");
     assert!(matches!(error, TrojanError::TlsConfig(_)), "got {error:?}");
 }
+
+/// The UDP ASSOCIATE header rides with the first frame; the association works
+/// and the server sees command 0x03.
+#[tokio::test(flavor = "multi_thread")]
+async fn udp_associate_header_is_deferred_to_the_first_frame() {
+    let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
+    let config = loopback_config(&fixture, Some(fixture.certificate_pem().to_owned()));
+    let mut stream = TrojanClient::connect_udp_associate(&config).await.expect("connect udp associate");
+
+    let frame = ripdpi_trojan::encode_udp_packet(
+        &TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST),
+        fixture.udp_target_port(),
+        b"udp query",
+    )
+    .expect("encode frame");
+    stream.write_all(&frame).await.expect("first frame");
+    let reply = ripdpi_trojan::read_udp_packet(&mut stream).await.expect("echoed frame");
+
+    assert_eq!(reply.payload, b"udp query");
+    assert_eq!(fixture.observed().command, Some(0x03));
+}

@@ -162,8 +162,11 @@ pub fn build_request_frame(
 }
 
 /// Largest UDP payload the reference servers accept in one frame: Xray-core
-/// (`maxLength`) ends the whole association on a larger one, and trojan-go
-/// (`MaxPacketSize`) discards it with an error.
+/// (`maxLength`) ends the whole association on a larger one ("oversize
+/// payload"; measured on 26.3.27: 8192 accepted, 8193 ends it), and trojan-go
+/// (`MaxPacketSize`) discards it with an error. Xray also ends the association
+/// when a downlink frame exceeds 8192 bytes in total, header included (an
+/// 8182-byte IPv4 echo failed, 8181 passed).
 pub const MAX_UDP_PAYLOAD: usize = 8192;
 
 /// Encode one Trojan UDP ASSOCIATE packet.
@@ -410,17 +413,24 @@ impl TrojanClient {
     }
 
     /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a UDP ASSOCIATE request.
-    pub async fn connect_udp_associate(config: &TrojanClientConfig) -> Result<SslStream<TcpStream>, TrojanError> {
+    ///
+    /// The request goes out with the first write (the first UDP frame), as in
+    /// Xray-core, so the first TLS record has no fixed header-only length. Its
+    /// address is 0.0.0.0:0: servers ignore it for UDP, and each frame carries
+    /// its own destination. A read before any write sends the header alone
+    /// after a short delay (see [`TrojanStream`]).
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the future owns the connection; dropping it closes it.
+    pub async fn connect_udp_associate(
+        config: &TrojanClientConfig,
+    ) -> Result<TrojanStream<SslStream<TcpStream>>, TrojanError> {
         let tcp = connect_server_tcp(config).await?;
-        connect_with_request_over(
-            config,
-            tcp,
-            TrojanCommand::UdpAssociate,
-            &TrojanAddr::Ipv4(Ipv4Addr::UNSPECIFIED),
-            0,
-            &[],
-        )
-        .await
+        let stream = tls_connect(config, tcp).await?;
+        let header =
+            build_request(&config.password, TrojanCommand::UdpAssociate, &TrojanAddr::Ipv4(Ipv4Addr::UNSPECIFIED), 0)?;
+        Ok(TrojanStream::with_deferred_header(stream, header))
     }
 
     /// Write a Trojan request header onto `stream`.
