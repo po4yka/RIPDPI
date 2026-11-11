@@ -12,6 +12,16 @@ This crate's wire format (VLESS, REALITY, XTLS-Vision) is pinned against the fol
 
 This crate implements the VLESS client wire protocol, the REALITY TLS handshake (X25519 + HKDF-SHA256 session_id), the XTLS-Vision flow addon, Xray-compatible XUDP over a destination-less VLESS Mux request, and the separate SagerNet sing-mux version-0 carrier with yamux inner sessions. The xHTTP transport that layers on top of this is implemented in `ripdpi-xhttp`.
 
+## Compatibility test references
+
+The wire pin above is the baseline for the native VLESS and Vision codec. The
+loopback runner `scripts/tests/run-outbound-interop.py` separately tests the
+production client against Xray commit
+`0afec66085a85191e9dd2a4a6646c7c9a94688d1`. That newer peer reference does not
+replace the wire pin. Record which peer revision was used with each test result.
+The Android Xray provider has its own engine pin in `gradle/libs.versions.toml`;
+its artifact and runtime evidence do not prove native Rust compatibility.
+
 ## Drift policy
 
 xray-core is on a fast release cadence. `.github/workflows/upstream-spec-watch.yml` and `docs/native/upstream-spec-watch-runbook.md` document the current pin-review process. Known deadlines as of 2026-05-15 (dispositions below):
