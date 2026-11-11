@@ -395,6 +395,8 @@ impl Tunn {
 
     /// Receive with an explicit authentication result. Empty queue-drain calls
     /// produce Rejected: outgoing work is not evidence of an incoming peer.
+    /// This IP-only compatibility path uses UDP port zero. Use
+    /// [`Self::decapsulate_from`] for the actual endpoint or carrier identity.
     pub fn decapsulate_with_outcome<'a>(
         &mut self,
         src_addr: Option<IpAddr>,
@@ -457,11 +459,8 @@ impl Tunn {
                 self.timers[TimerName::TimeCurrent],
             )
         } else {
-            let ip = match source {
-                Some(awg_cookies::CookieSource::Udp(address)) => Some(address.ip()),
-                _ => None,
-            };
-            self.rate_limiter.verify_packet(ip, datagram, &mut cookie)
+            self.rate_limiter
+                .verify_packet_from(source, datagram, &mut cookie)
         };
         let packet = match verified {
             Ok(packet) => packet,
@@ -840,6 +839,101 @@ mod tests {
 
     use super::*;
     use rand_core::{OsRng, RngCore};
+
+    fn plain_cookie_requires_observed_source(
+        source: awg_cookies::CookieSource,
+        changed: awg_cookies::CookieSource,
+    ) {
+        let client_key = x25519::StaticSecret::from([7; 32]);
+        let server_key = x25519::StaticSecret::from([9; 32]);
+        let client_public = x25519::PublicKey::from(&client_key);
+        let server_public = x25519::PublicKey::from(&server_key);
+        let mut client = Tunn::new(client_key, server_public, None, None, 0, None);
+        let mut server = Tunn::new(
+            server_key,
+            client_public,
+            None,
+            None,
+            1,
+            Some(Arc::new(RateLimiter::new(&server_public, 0))),
+        );
+        let initial = create_handshake_init(&mut client);
+        let mut first = [0; 512];
+        let mut second = [0; 512];
+        let (TunnResult::WriteToNetwork(cookie), outcome) =
+            server.decapsulate_from(Some(source), &initial, &mut first)
+        else {
+            panic!("plain source-aware peer must issue a cookie under load")
+        };
+        assert_eq!(&cookie[..4], &3u32.to_le_bytes());
+        assert_eq!(outcome, ReceiveOutcome::CookieChallenge);
+        assert_eq!(
+            client.decapsulate_from(None, cookie, &mut second).1,
+            ReceiveOutcome::CookieAccepted
+        );
+        let TunnResult::WriteToNetwork(retry) =
+            client.format_handshake_initiation(&mut first, true)
+        else {
+            panic!("fresh cookie-authenticated initiation")
+        };
+        let retry = retry.to_vec();
+        let (TunnResult::WriteToNetwork(challenge), outcome) =
+            server.decapsulate_from(Some(changed), &retry, &mut second)
+        else {
+            panic!("another source must receive a new cookie challenge")
+        };
+        assert_eq!(
+            &challenge[..4],
+            &3u32.to_le_bytes(),
+            "source proof must precede Noise admission"
+        );
+        assert_eq!(outcome, ReceiveOutcome::CookieChallenge);
+        assert!(server.time_since_last_handshake().is_none());
+
+        let (TunnResult::WriteToNetwork(response), outcome) =
+            server.decapsulate_from(Some(source), &retry, &mut second)
+        else {
+            panic!("original source proof must remain valid")
+        };
+        assert_eq!(&response[..4], &2u32.to_le_bytes());
+        assert_eq!(outcome, ReceiveOutcome::HandshakeInitiation);
+        let (TunnResult::WriteToNetwork(confirm), outcome) =
+            client.decapsulate_from(None, response, &mut first)
+        else {
+            panic!("authenticated handshake must complete")
+        };
+        assert_eq!(outcome, ReceiveOutcome::HandshakeResponse);
+        assert_eq!(
+            server
+                .decapsulate_from(Some(source), confirm, &mut second)
+                .1,
+            ReceiveOutcome::TransportEmpty
+        );
+    }
+
+    #[test]
+    fn plain_cookie_binds_ipv4_source_port() {
+        plain_cookie_requires_observed_source(
+            awg_cookies::CookieSource::Udp("192.0.2.1:9000".parse().unwrap()),
+            awg_cookies::CookieSource::Udp("192.0.2.1:9001".parse().unwrap()),
+        );
+    }
+
+    #[test]
+    fn plain_cookie_binds_ipv6_source_port() {
+        plain_cookie_requires_observed_source(
+            awg_cookies::CookieSource::Udp("[2001:db8::1]:9000".parse().unwrap()),
+            awg_cookies::CookieSource::Udp("[2001:db8::1]:9001".parse().unwrap()),
+        );
+    }
+
+    #[test]
+    fn plain_cookie_binds_carrier_connection() {
+        plain_cookie_requires_observed_source(
+            awg_cookies::CookieSource::Connection([7; 16]),
+            awg_cookies::CookieSource::Connection([9; 16]),
+        );
+    }
 
     fn create_two_tuns() -> (Tunn, Tunn) {
         let my_secret_key = x25519_dalek::StaticSecret::random_from_rng(OsRng);

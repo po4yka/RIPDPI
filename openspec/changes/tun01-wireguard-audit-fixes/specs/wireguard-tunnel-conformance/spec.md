@@ -80,3 +80,12 @@ Cookie secret rotation SHALL use the two-minute contract. Test clocks SHALL adva
 
 - **WHEN** a cookie crosses its lifetime or a test retries a handshake
 - **THEN** expiry and timestamp behavior follow the same clock, and Debug output does not expose PSK
+
+### Requirement: REQ-TRN-1794383863211672-F10 — Bind plain cookies to the full source
+
+Plain WireGuard cookie admission SHALL bind the proof to the actual UDP source IP and port. For an established non-UDP carrier, it SHALL use a stable local connection identity. The legacy IP-only API SHALL remain a documented port-zero compatibility path.
+
+#### Scenario: Reject a proof from another source endpoint
+
+- **WHEN** a cookie is issued for source endpoint A and an otherwise valid handshake presents its proof from endpoint B with the same IP but another port
+- **THEN** the limiter requests a fresh cookie before Noise processing; the original proof from A remains valid

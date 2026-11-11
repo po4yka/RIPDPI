@@ -12,3 +12,4 @@
 - [x] TRN-1794384157128350 Fix F8 retry jitter and verify timer deadlines #bug !high @item:TRN-1794383863211672
 - [x] TRN-1794384161932447 Fix verified cookie clock and secret Debug issues #bug !high @item:TRN-1794383863211672
 - [ ] TRN-1794384166548059 Review the combined changes and run required integration gates #bug !high @item:TRN-1794383863211672
+- [x] TRN-1794397765858185 Bind plain WireGuard cookies to full source endpoints and verify port isolation #bug !high @item:TRN-1794383863211672

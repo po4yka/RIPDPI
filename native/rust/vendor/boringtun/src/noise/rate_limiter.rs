@@ -1,3 +1,4 @@
+use super::awg_cookies::CookieSource;
 use super::handshake::{b2s_hash, b2s_keyed_mac_16, b2s_keyed_mac_16_2, b2s_mac_24};
 use crate::noise::handshake::{LABEL_COOKIE, LABEL_MAC1};
 use crate::noise::{HandshakeInit, HandshakeResponse, Packet, Tunn, TunnResult, WireGuardError};
@@ -5,7 +6,7 @@ use crate::noise::{HandshakeInit, HandshakeResponse, Packet, Tunn, TunnResult, W
 #[cfg(feature = "mock-instant")]
 use mock_instant::Instant;
 use portable_atomic::{AtomicU64, Ordering};
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 #[cfg(not(feature = "mock-instant"))]
 use crate::sleepyinstant::Instant;
@@ -29,7 +30,7 @@ type Cookie = [u8; COOKIE_SIZE];
 /// There are two places where WireGuard requires "randomness" for cookies
 /// * The 24 byte nonce in the cookie massage - here the only goal is to avoid nonce reuse
 /// * A secret value that changes every two minutes
-/// Because the main goal of the cookie is simply for a party to prove ownership of an IP address
+/// Because the main goal of the cookie is simply for a party to prove ownership of a source endpoint
 /// we can relax the randomness definition a bit, in order to avoid locking, because using less
 /// resources is the main goal of any DoS prevention mechanism.
 /// In order to avoid locking and calls to rand we derive pseudo random values using the AEAD and
@@ -85,21 +86,14 @@ impl RateLimiter {
         }
     }
 
-    /// Compute the correct cookie value based on the current secret value and the source IP
-    fn current_cookie(&self, addr: IpAddr) -> Cookie {
-        let mut addr_bytes = [0u8; 16];
-
-        match addr {
-            IpAddr::V4(a) => addr_bytes[..4].copy_from_slice(&a.octets()[..]),
-            IpAddr::V6(a) => addr_bytes[..].copy_from_slice(&a.octets()[..]),
-        }
-
-        // The current cookie for a given IP is the MAC(responder.changing_secret_every_two_minutes, initiator.ip_address)
-        // First we derive the secret from the current time, the value of cur_counter would change with time.
+    /// Bind the cookie to the observed UDP endpoint or established carrier identity.
+    fn current_cookie(&self, source: CookieSource) -> Cookie {
         let cur_counter = Instant::now().duration_since(self.start_time).as_secs() / COOKIE_REFRESH;
-
-        // Next we derive the cookie
-        b2s_keyed_mac_16_2(&self.secret_key, &cur_counter.to_le_bytes(), &addr_bytes)
+        b2s_keyed_mac_16_2(
+            &self.secret_key,
+            &cur_counter.to_le_bytes(),
+            &source.bytes(),
+        )
     }
 
     fn nonce(&self) -> [u8; COOKIE_NONCE_SIZE] {
@@ -173,10 +167,7 @@ impl RateLimiter {
             let under_load = self.is_under_load();
             if !admission.disabled && under_load {
                 let source = source.ok_or(TunnResult::Err(WireGuardError::UnderLoad))?;
-                let epoch =
-                    Instant::now().duration_since(self.start_time).as_secs() / COOKIE_REFRESH;
-                let cookie =
-                    b2s_keyed_mac_16_2(&self.secret_key, &epoch.to_le_bytes(), &source.bytes());
+                let cookie = self.current_cookie(source);
                 let expected = b2s_keyed_mac_16_2(&cookie, msg, mac1);
                 if !bool::from(expected[..].ct_eq(mac2)) {
                     if !admission.challenge() {
@@ -195,10 +186,25 @@ impl RateLimiter {
         Ok(packet)
     }
 
-    /// Verify the MAC fields on the datagram, and apply rate limiting if needed
+    /// IP-only compatibility entry point; the UDP source port is represented as zero.
+    /// Use [`Tunn::decapsulate_from`] when the actual endpoint or carrier identity is available.
     pub fn verify_packet<'a, 'b>(
         &self,
         src_addr: Option<IpAddr>,
+        src: &'a [u8],
+        dst: &'b mut [u8],
+    ) -> Result<Packet<'a>, TunnResult<'b>> {
+        self.verify_packet_from(
+            src_addr.map(|ip| CookieSource::Udp(SocketAddr::new(ip, 0))),
+            src,
+            dst,
+        )
+    }
+
+    /// Verify MAC fields and apply the cookie policy to the actual carrier source.
+    pub(super) fn verify_packet_from<'a, 'b>(
+        &self,
+        source: Option<CookieSource>,
         src: &'a [u8],
         dst: &'b mut [u8],
     ) -> Result<Packet<'a>, TunnResult<'b>> {
@@ -217,13 +223,11 @@ impl RateLimiter {
             }
 
             if self.is_under_load() {
-                let addr = match src_addr {
+                let source = match source {
                     None => return Err(TunnResult::Err(WireGuardError::UnderLoad)),
-                    Some(addr) => addr,
+                    Some(source) => source,
                 };
-
-                // Only given an address can we validate mac2
-                let cookie = self.current_cookie(addr);
+                let cookie = self.current_cookie(source);
                 let computed_mac2 = b2s_keyed_mac_16_2(&cookie, msg, mac1);
 
                 if !bool::from(computed_mac2[..].ct_eq(mac2)) {
@@ -248,7 +252,7 @@ mod tests {
     #[test]
     fn cookie_secret_rotates_after_two_minutes() {
         let limiter = RateLimiter::new(&PublicKey::from(&StaticSecret::from([7; 32])), 10);
-        let address = "192.0.2.1".parse().unwrap();
+        let address = CookieSource::Udp("192.0.2.1:9000".parse().unwrap());
         let first = limiter.current_cookie(address);
         mock_instant::MockClock::advance(Duration::from_secs(119));
         assert_eq!(limiter.current_cookie(address), first);

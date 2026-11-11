@@ -31,6 +31,7 @@ The audit baseline is ec4f13320a272b945bf2a0497d02fcea545d73c9. The working sour
 | REQ-TRN-1794383863211672-F7 | TRN-1794384148575819 | Synthetic message thresholds test rekey and rejection without nonce wrapping or replay-state mutation. Replay arithmetic passed Miri seeds 0 through 15. | C, V, checked S: passed locally; no threshold wire E claim |
 | REQ-TRN-1794383863211672-F8 | TRN-1794384157128350 | Timer tests check one bounded 0–333 ms jitter sample per initiation, retry deadlines and the existing AWG timer policy. | C, V, checked S: passed locally |
 | REQ-TRN-1794383863211672-F9 | TRN-1794384161932447 | Cookie rotation is 120 seconds; boundary tests pass. The mock cookie retry advances the same monotonic clock as its timestamps. Debug tests verify PSK redaction. | C, V, checked S: passed locally |
+| REQ-TRN-1794383863211672-F10 | TRN-1794397765858185 | Default decapsulation now retains the complete CookieSource. Tests-only RED compiled and failed all three intended cases; reviewed fix passed 44 default and 47 mock-instant tests. Original-source proof remains valid after a changed-source challenge. | C, V, checked S: passed; under-load reference E remains open |
 
 C means reviewed code. V means an observed local run. S covers only the checked requirements of WireGuard paper revision e2da747; it is not a claim of full conformance. E applies only to a stated independent peer and case. Source review does not raise V or E.
 
@@ -105,3 +106,17 @@ These are the reviewed job-branch commits. A rebase can change their SHAs.
 | `03f5608bce61ca63ce0c7ddfb2d0b4983cb5cc70` | fix(wireguard): replace source fields on manual import |
 | `fbf8ddf790ad59d3c13f1998aaaa49ed7a40670c` | fix(wireguard): retry resolved endpoint address families |
 | `d26c1354d1d4380f945d4f9e05676cbfe8ef3f55` | fix(wireguard): learn authenticated peer endpoints |
+
+## Additional finding F10
+
+P3 at pre-fix SHA `8abdc3d237d982205827b75758df92f63468e724`: `native/rust/vendor/boringtun/src/noise/mod.rs:461` passed only `address.ip()` to the plain limiter. `rate_limiter.rs:199` therefore cannot bind the cookie to the source port. Under load, a proof from one port has the same cookie input at another port on that IP. Noise peer authentication remains required. The expected contract is source IP plus UDP port in [WireGuard paper section 5.4.7](https://www.wireguard.com/papers/wireguard.pdf). The AWG path already retains CookieSource. This follow-up repairs plain admission and keeps its legacy IP-only API explicit.
+
+F10 regression commands ran from the isolated cookie-endpoint worktree with `CMAKE_BUILD_PARALLEL_LEVEL=4`, four Cargo jobs and its own target directory, under the held RIPDPI lease:
+
+```sh
+cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4 plain_cookie_binds_ -- --nocapture
+cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4
+cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4 --features mock-instant
+```
+
+Observed RED: exit 101, 0 passed / 3 failed / 41 filtered. IPv4 and IPv6 returned type 2 instead of type 3 at the changed port; the connection case returned UnderLoad without a cookie. Observed GREEN: exits 0, 44 / 47 passed, no failed or ignored cases. Root source hashes match the reviewed three-file patch. No Cargo.lock changed.

@@ -35,3 +35,5 @@ Repair the eight TUN-01 findings at source SHA ec4f13320a272b945bf2a0497d02fcea5
 - tunnel.rs is serialized: endpoint worker completes first; integration owner then adds ACL and MTU padding seams. No concurrent writers.
 - Cargo.lock, dependency versions, locales, golden fixtures and architecture baselines have no assigned writer and must not change.
 - Every writer uses a separate worktree. Review agents are read-only.
+
+- Cookie endpoint follow-up (F10): crypto worker owns only vendored rate_limiter.rs, mod.rs, related tests and README in a separate tun01-cookie-endpoint worktree. The integration owner keeps ROOT immutable while its current checks run. No new dependency or public legacy API removal is allowed.

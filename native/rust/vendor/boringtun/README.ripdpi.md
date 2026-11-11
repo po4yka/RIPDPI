@@ -69,7 +69,8 @@ boringtun 0.7.1. Cargo also chose existing compatible getrandom and Windows
 packages for several dependency edges. No registry package version was added or
 removed. These resolver changes are not hand-written lockfile edits.
 
-AWG runtime callers use `decapsulate_from` with the observed UDP source or the
-carrier connection identity. The legacy IP-only API remains available for plain
-WireGuard compatibility; its AWG adapter uses port zero and cannot prove a UDP
-port binding. RIPDPI production receives use the source-aware entry point.
+Plain WireGuard and AWG runtime callers use `decapsulate_from` with the observed
+UDP source or the carrier connection identity. Both cookie paths bind the proof
+to that full source. The legacy IP-only APIs, including `RateLimiter::verify_packet`,
+represent the UDP source port as zero and cannot prove a port binding. RIPDPI
+production receives use the source-aware entry point.

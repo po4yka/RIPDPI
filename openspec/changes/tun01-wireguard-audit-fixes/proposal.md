@@ -27,3 +27,7 @@ The TUN-01 audit found retained import policy, missing plain-WireGuard padding, 
 ## Impact
 
 Affected modules are app, core:data, core:engine-api, core:engine, core:service, ripdpi-warp-core and the pinned boringtun vendor. The native JSON config gains a defaulted AllowedIPs field. No dependency, persistent schema, root mode or external service is added.
+
+## Cookie source follow-up
+
+The final review found that plain cookie admission drops the observed UDP port. Repair this mandatory WireGuard source-binding contract in the same change. Keep legacy IP-only callers explicit and preserve AWG admission behavior.

@@ -27,3 +27,7 @@ Strict DNS policy can reject earlier split-tunnel configurations; the user recei
 ## Migration Plan
 
 No persistent data migration is needed. Existing profiles retain their stored fields and undergo new validation on activation. Rollback uses a new revert commit, not rewritten history. Local tests, source gates and a pinned loopback reference peer precede main integration. Android/device, hosted CI and deployment evidence stay separate.
+
+## Cookie source follow-up
+
+Plain WireGuard currently reduces the observed SocketAddr to an IP before cookie admission. Paper section 5.4.7 requires the source IP and UDP port. Route the full CookieSource through the default limiter. Keep the IP-only API as a documented port-zero compatibility wrapper. An established non-UDP carrier uses its local opaque connection identity. Keep AWG admission budgets unchanged. Test wrong-port and wrong-connection proof rejection before a valid source is accepted.
