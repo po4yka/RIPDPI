@@ -21,7 +21,8 @@ automatic target caps. Both are existing runtime consumers.
 - Keep bootstrap scoring unchanged: transport-only history does not justify an
   oracle-aware learned model for bootstrap addresses.
 - Keep SA private to diagnostics. Cache bounded complete manual-scan evidence in
-  memory by scope, profile, and path. Select automatic targets before the existing
+  memory by network scope, path, strategy suite, and probe-relevant settings;
+  match evidence per host. Select automatic targets before the existing
   budget gate. Use exact outcome signatures and measured costs; protect controls,
   unknown or failed targets, and concurrency cohorts. If a feasible subset does not
   exist, preserve the prior planner. Full manual scans seed evidence but are not compacted.

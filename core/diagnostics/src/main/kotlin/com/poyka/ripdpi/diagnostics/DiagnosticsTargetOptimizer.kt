@@ -12,13 +12,14 @@ import javax.inject.Singleton
 class DiagnosticsTargetOptimizer
     @Inject
     constructor() {
+        // Evidence is per host, so profiles sharing a probe suite share it; unseen hosts stay mandatory.
         private data class Scope(
             val fingerprint: String,
-            val profile: String,
             val path: ScanPathMode,
+            val suite: String?,
             val settings: com.poyka.ripdpi.proto.AppSettings,
         ) {
-            fun seed() = "$fingerprint|$profile|${path.name}".hashCode()
+            fun seed() = "$fingerprint|${path.name}".hashCode()
         }
 
         private data class Evidence(
@@ -34,7 +35,7 @@ class DiagnosticsTargetOptimizer
             report: ScanReport,
             settings: com.poyka.ripdpi.proto.AppSettings,
         ) {
-            val scope = Scope(fingerprint, report.profileId, report.pathMode, settings)
+            val scope = scope(fingerprint, report.pathMode, report.strategyProbeReport?.suiteId, settings)
             val partialStrategy =
                 report.strategyProbeReport?.completionKind?.let {
                     it !=
@@ -83,9 +84,11 @@ class DiagnosticsTargetOptimizer
             return if (origin == DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND && fingerprint != null &&
                 !dedicatedMeasurement
             ) {
-                val scope = Scope(fingerprint, intent.profileId, intent.requestedPathMode, intent.settings)
-                val history = synchronized(this) { evidence[scope].orEmpty() }
-                if (history.size == HistorySize && history.all { now - it.finishedAt in 0..EvidenceTtlMs }) {
+                val suite = intent.strategyProbe?.suiteId
+                val scope = scope(fingerprint, intent.requestedPathMode, suite, intent.settings)
+                val history =
+                    synchronized(this) { evidence[scope].orEmpty() }.filter { now - it.finishedAt in 0..EvidenceTtlMs }
+                if (history.isNotEmpty()) {
                     compactWithEvidence(intent, history, scope, policy) ?: intent
                 } else {
                     intent
@@ -94,6 +97,14 @@ class DiagnosticsTargetOptimizer
                 intent
             }
         }
+
+        // Selecting a profile to run it manually must not hide that run from the automatic profile.
+        private fun scope(
+            fingerprint: String,
+            path: ScanPathMode,
+            suite: String?,
+            settings: com.poyka.ripdpi.proto.AppSettings,
+        ) = Scope(fingerprint, path, suite, settings.toBuilder().clearDiagnosticsActiveProfileId().build())
 
         private fun compactWithEvidence(
             intent: DiagnosticsIntent,

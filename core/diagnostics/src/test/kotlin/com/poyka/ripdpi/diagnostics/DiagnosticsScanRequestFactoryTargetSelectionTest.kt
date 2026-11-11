@@ -35,11 +35,12 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                     fingerprint,
                     ScanReport(
                         sessionId = "$index",
-                        profileId = "strategy-probe",
+                        profileId = "ru-dpi-strategy",
                         pathMode = ScanPathMode.RAW_PATH,
                         startedAt = now - 10,
                         finishedAt = now - index,
                         summary = "",
+                        strategyProbeReport = StrategyProbeReport("quick_v1"),
                         results =
                             hosts.map { host ->
                                 ProbeResult(
@@ -53,12 +54,13 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                                 )
                             },
                     ),
-                    settings,
+                    settings.toBuilder().setDiagnosticsActiveProfileId("ru-dpi-strategy").build(),
                 )
             }
             val request =
                 prepareStrategyProbeRequest(
                     settings = settings,
+                    profileId = "automatic-probing",
                     domainTargets = hosts.map { DomainTarget(it, isControl = it == "control.example") },
                     quicTargets = emptyList(),
                     scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,

@@ -20,7 +20,8 @@ This target measures transport quality; it is not proof of DNS answer correctnes
 - Accept only a validation improvement over both default and current weights.
   Restore defaults if current weights become worse or data loses contrast.
 - Fit outside the registry mutex. A generation and scope incarnation check
-  rejects a result if its history changed or its scope was evicted.
+  rejects a result if its history changed or its scope was evicted. A rejected
+  interval fit reruns once on the next outcome if the scope still has enough samples.
 
 The existing default weights are 0.55, 0.25, and 0.20. Quarantine remains the
 first endpoint sort key. Bootstrap address scoring keeps the defaults.
@@ -29,9 +30,12 @@ The registry still holds at most 32 network scopes.
 ## Compact repeat diagnostics
 
 `DiagnosticsTargetOptimizer` receives complete manual reports during normal
-scan finalization. It holds three reports per scope, profile, path, and settings,
-for at most 16 keys. Each report is limited to 256 results. Evidence expires
-after 30 minutes. Restarting the process clears it.
+scan finalization. It holds up to three reports per network scope, path,
+strategy suite, and settings, for at most 16 keys. The key ignores the report's
+profile and the selected diagnostics profile setting, because evidence is matched
+per host and an unobserved host stays mandatory. Each report is limited to 256 results.
+Compaction uses the reports that are less than 30 minutes old; one is enough.
+Restarting the process clears it.
 Partial or oversized reports invalidate older evidence for the same key.
 
 Before automatic scan admission applies the existing target budget,

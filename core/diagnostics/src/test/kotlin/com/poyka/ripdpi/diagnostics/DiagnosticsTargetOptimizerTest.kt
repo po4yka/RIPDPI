@@ -53,7 +53,7 @@ class DiagnosticsTargetOptimizerTest {
                 quicTargets = quic,
             )
         repeat(3) { index ->
-            val baseline = report(index.toLong())
+            val baseline = report(index.toLong(), suite = "full_matrix_v1")
             optimizer.record(
                 "scope",
                 baseline.copy(
@@ -120,10 +120,25 @@ class DiagnosticsTargetOptimizerTest {
     }
 
     @Test
-    fun `sparse or partial reports do not activate optimization`() {
+    fun `partial reports do not activate optimization`() {
         val intent = intent()
         optimizer.record("scope", report(1, completion = ScanCompletionKind.PARTIAL_RESULTS), settings)
-        optimizer.record("scope", report(2), settings)
+        assertEquals(intent, compact(intent))
+    }
+
+    @Test
+    fun `one manual report of another selected profile compacts the automatic profile`() {
+        val intent = intent()
+        val manualSettings = settings.toBuilder().setDiagnosticsActiveProfileId("manual-profile").build()
+        optimizer.record("scope", report(1).copy(profileId = "manual-profile"), manualSettings)
+        assertEquals(listOf("control.example", "fast.example"), compact(intent).domainTargets.map(DomainTarget::host))
+    }
+
+    @Test
+    fun `evidence from another strategy suite or a scan without one keeps original targets`() {
+        val intent = intent()
+        optimizer.record("scope", report(1, suite = "full_matrix_v1"), settings)
+        optimizer.record("scope", report(2).copy(strategyProbeReport = null), settings)
         assertEquals(intent, compact(intent))
     }
 
@@ -169,6 +184,7 @@ class DiagnosticsTargetOptimizerTest {
         time: Long,
         failed: Boolean = false,
         completion: ScanCompletionKind = ScanCompletionKind.NORMAL,
+        suite: String = "quick_v1",
     ) = ScanReport(
         sessionId = "$time",
         profileId = "repeat",
@@ -177,6 +193,7 @@ class DiagnosticsTargetOptimizerTest {
         finishedAt = time,
         summary = "",
         completionKind = completion,
+        strategyProbeReport = StrategyProbeReport(suite),
         results =
             listOf("control.example", "slow.example", "fast.example").map { host ->
                 ProbeResult(
