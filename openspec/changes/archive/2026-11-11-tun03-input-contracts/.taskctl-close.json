@@ -1,0 +1,11 @@
+{
+  "change": "tun03-input-contracts",
+  "evidence_summary": "139 JVM tests, affected lint, full staticAnalysis, ci-gates, architecture health, locked Cargo metadata, and independent review passed at 1f90e28198ab0811289b026007ce3f5eaa31c293.",
+  "execution_sha256": "cc6e9787dbb25170f914133397d934e5e97c846db32b050e2eb4cd57d73718b3",
+  "issue_sha256": "36c7d622e5fb93f3503f8965dd36bb508ed2133d36f24510041109794f01796c",
+  "outcome": "done",
+  "prepared_at": "2026-11-11T10:34:38Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794384012167321"
+}

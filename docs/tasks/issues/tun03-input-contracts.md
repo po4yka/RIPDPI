@@ -2,7 +2,7 @@
 id: TRN-1794384012167321
 title: Fix AWG profile input and compatibility regressions
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: transport-maintainer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: tun03-input-contracts
 created: 2026-11-11
 updated: 2026-11-11
+closed_at: "2026-11-11T10:34:38Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 139 JVM tests, affected lint, full staticAnalysis, ci-gates, architecture health, locked Cargo metadata, and independent review passed at 1f90e28198ab0811289b026007ce3f5eaa31c293.
 ---
 
 ## Goal
