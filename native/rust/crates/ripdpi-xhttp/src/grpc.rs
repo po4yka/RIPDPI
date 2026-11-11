@@ -1,7 +1,7 @@
 //! Xray/V2Fly-compatible gRPC transport framing.
 //!
 //! Xray's "gRPC" transport is not a full gRPC stack: it is a `GunService` /
-//! `Tun` unary-stream pattern carried over HTTP/2. The client issues an
+//! `Tun` bidirectional streaming pattern carried over HTTP/2. The client issues an
 //! HTTP/2 `POST` to `/<serviceName>/Tun` and both request and response
 //! bodies are sequences of length-delimited protobuf `Hunk { bytes data = 1 }`
 //! messages wrapped in the standard gRPC length-prefixed message framing.
@@ -19,7 +19,6 @@
 //! `prost` handles Protobuf messages. This module owns the gRPC envelope
 //! and the `AsyncRead + AsyncWrite` surface over the tunneled byte stream.
 
-use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -27,7 +26,6 @@ use std::task::{Context, Poll};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use prost::Message;
 use tokio::io::{AsyncRead, AsyncWrite, DuplexStream, ReadBuf};
-use tokio::sync::oneshot;
 
 /// gRPC compression flag for an uncompressed message.
 const GRPC_FLAG_UNCOMPRESSED: u8 = 0x00;
@@ -201,13 +199,18 @@ impl GrpcTransportConfig {
 /// hitting the HTTP/2 request body; gRPC `Hunk` frames received on the HTTP/2
 /// response body are decoded back into the plain tunneled bytes read here.
 ///
+/// Call `flush` or `shutdown` to publish buffered writes. Codec state is owned
+/// by the transport; dropping it closes both wire directions without background tasks.
+///
 /// Construct one with [`GrpcTransport::new`], driving the actual HTTP/2
 /// exchange with the two duplex halves returned by
 /// [`GrpcTransport::new`].
 pub struct GrpcTransport {
     config: GrpcTransportConfig,
     reader: DuplexStream,
-    read_result: Option<oneshot::Receiver<io::Result<()>>>,
+    decoder: HunkDecoder,
+    pending_read: Bytes,
+    read_done: bool,
     writer: DuplexStream,
     pending_write: Bytes,
     write_shutdown: bool,
@@ -231,22 +234,16 @@ impl GrpcTransport {
     /// The returned [`GrpcWireHalves`] must be connected to an HTTP/2 `POST`
     /// to [`GrpcTransportConfig::tun_path`] for the transport to carry data.
     pub fn new(config: GrpcTransportConfig) -> (Self, GrpcWireHalves) {
-        let (mut transport_write, user_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (wire_up_write, wire_up_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
-        let (wire_down_write, mut wire_down_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
-
-        let (read_result_tx, read_result) = oneshot::channel();
-        tokio::spawn(async move {
-            let result = decode_downstream(&mut wire_down_read, &mut transport_write).await;
-            // Publish the result before dropping the writer and making EOF visible.
-            let _ = read_result_tx.send(result);
-        });
+        let (wire_down_write, wire_down_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
         let transport = Self {
             config,
-            reader: user_read,
+            reader: wire_down_read,
             writer: wire_up_write,
-            read_result: Some(read_result),
+            decoder: HunkDecoder::new(),
+            pending_read: Bytes::new(),
+            read_done: false,
             pending_write: Bytes::new(),
             write_shutdown: false,
         };
@@ -260,46 +257,51 @@ impl GrpcTransport {
     }
 }
 
-/// # Cancel safety:
-/// NOT cancel-safe: a partial payload write can lose bytes. Cancel only when
-/// closing the whole transport; the spawned task owns both stream endpoints.
-async fn decode_downstream(wire: &mut DuplexStream, output: &mut DuplexStream) -> io::Result<()> {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let mut buffer = vec![0u8; STREAM_BUFFER_SIZE];
-    let mut decoder = HunkDecoder::new();
-    loop {
-        let read = wire.read(&mut buffer).await?;
-        if read == 0 {
-            return if decoder.is_empty() {
-                Ok(())
-            } else {
-                Err(io::Error::new(io::ErrorKind::UnexpectedEof, "truncated gRPC frame"))
-            };
-        }
-        decoder.extend(&buffer[..read]);
-        while let Some(payload) = decoder.next_hunk().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))? {
-            output.write_all(&payload).await?;
-        }
-    }
-}
-
 impl AsyncRead for GrpcTransport {
-    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        if buf.remaining() == 0 {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        if buf.remaining() == 0 || this.read_done {
             return Poll::Ready(Ok(()));
         }
-        let before = buf.filled().len();
-        match Pin::new(&mut self.reader).poll_read(cx, buf) {
-            Poll::Ready(Ok(())) if buf.filled().len() == before => {
-                let Some(result) = self.read_result.as_mut() else {
-                    return Poll::Ready(Ok(()));
-                };
-                let result = std::task::ready!(Pin::new(result).poll(cx));
-                self.read_result = None;
-                Poll::Ready(result.unwrap_or_else(|_| Err(io::Error::other("gRPC decoder task stopped"))))
+        // Bound empty-message processing so an always-ready peer cannot starve the runtime.
+        for _ in 0..64 {
+            if !this.pending_read.is_empty() {
+                let count = buf.remaining().min(this.pending_read.len());
+                buf.put_slice(&this.pending_read[..count]);
+                this.pending_read.advance(count);
+                return Poll::Ready(Ok(()));
             }
-            result => result,
+            match this.decoder.next_hunk() {
+                Ok(Some(payload)) => {
+                    this.pending_read = payload;
+                    continue;
+                }
+                Err(error) => {
+                    this.read_done = true;
+                    return Poll::Ready(Err(io::Error::new(io::ErrorKind::InvalidData, error)));
+                }
+                Ok(None) => {}
+            }
+            let mut bytes = [0; 8192];
+            let mut wire_buf = ReadBuf::new(&mut bytes);
+            match std::task::ready!(Pin::new(&mut this.reader).poll_read(cx, &mut wire_buf)) {
+                Err(error) => {
+                    this.read_done = true;
+                    return Poll::Ready(Err(error));
+                }
+                Ok(()) if wire_buf.filled().is_empty() => {
+                    this.read_done = true;
+                    return Poll::Ready(if this.decoder.is_empty() {
+                        Ok(())
+                    } else {
+                        Err(io::Error::new(io::ErrorKind::UnexpectedEof, "truncated gRPC frame"))
+                    });
+                }
+                Ok(()) => this.decoder.extend(wire_buf.filled()),
+            }
         }
+        cx.waker().wake_by_ref();
+        Poll::Pending
     }
 }
 
