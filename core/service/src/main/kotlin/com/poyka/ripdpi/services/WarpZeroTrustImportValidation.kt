@@ -17,8 +17,8 @@ internal fun WarpZeroTrustImportRequest.validatedEndpoint(profileId: String): Wa
     }
     val imported = requireNotNull(endpoint) { "Zero Trust endpoint is missing" }
     require(imported.port in 1..MaxWarpEndpointPort) { "Zero Trust endpoint port is invalid" }
-    val ipv4 = imported.ipv4?.trim()?.takeIf(String::isNotEmpty)
-    val ipv6 = imported.ipv6?.trim()?.takeIf(String::isNotEmpty)
+    val ipv4 = normalizeWarpNumericEndpoint(imported.ipv4, ipv6 = false)
+    val ipv6 = normalizeWarpNumericEndpoint(imported.ipv6, ipv6 = true)
     require(ipv4 == null || NumericIp.parseAddress(ipv4)?.isIPv4 == true) { "Zero Trust IPv4 endpoint is invalid" }
     require(ipv6 == null || NumericIp.parseAddress(ipv6)?.isIPv6 == true) { "Zero Trust IPv6 endpoint is invalid" }
     val host = imported.host?.trim()?.takeIf(String::isNotEmpty) ?: ipv4 ?: ipv6

@@ -368,43 +368,57 @@ fn resolve_host_candidates(host: &str, port: u16, family: Option<Domain>) -> io:
     )
 }
 
+fn numeric_endpoint(value: &str, port: u16, family: Option<Domain>) -> io::Result<SocketAddr> {
+    let value = value.trim();
+    let mut address = value
+        .parse::<IpAddr>()
+        .map(|ip| SocketAddr::new(ip, port))
+        .or_else(|_| value.parse::<SocketAddr>())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid numeric WARP endpoint"))?;
+    if family.is_some_and(|family| {
+        (family == Domain::IPV4 && !address.is_ipv4()) || (family == Domain::IPV6 && !address.is_ipv6())
+    }) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "WARP endpoint address family mismatch"));
+    }
+    // The provider's numeric fields may carry :0; the separate service port owns routing.
+    address.set_port(port);
+    Ok(address)
+}
+
 /// Upper bound for the system resolver lookup of an endpoint host name.
 const ENDPOINT_RESOLVE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
-/// Resolve both peer endpoint families, alternating families with IPv4 first.
+/// Normalize both numeric families without DNS, alternating IPv4 first.
+/// Host lookup is bounded by ENDPOINT_RESOLVE_TIMEOUT, not the OS lookup lifetime.
 ///
 /// # Cancel safety:
-/// cancel-safe: dropping it detaches the blocking lookup and discards its result.
-/// The runtime owner must not wait for detached blocking tasks during shutdown.
+/// cancel-safe: dropping it discards the result; the owner must not wait for detached DNS work.
 pub(crate) async fn resolve_endpoint_candidates(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<Vec<SocketAddr>> {
     let port = u16::try_from(endpoint.port)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid WARP endpoint port"))?;
-    let mut hosts = Vec::new();
-    if let Some(ipv4) = endpoint.ipv4.as_deref().filter(|value| !value.is_empty()) {
-        hosts.push((ipv4.to_owned(), Some(Domain::IPV4)));
-    }
-    if let Some(ipv6) = endpoint.ipv6.as_deref().filter(|value| !value.is_empty()) {
-        hosts.push((ipv6.to_owned(), Some(Domain::IPV6)));
-    }
-    if hosts.is_empty() {
-        hosts.push((endpoint.host.clone(), None));
-    }
-    let lookup = tokio::task::spawn_blocking(move || {
-        let mut addresses = Vec::new();
-        let mut last_error = None;
-        for (host, family) in hosts {
-            match resolve_host_candidates(&host, port, family) {
-                Ok(resolved) => addresses.extend(resolved),
-                Err(error) => last_error = Some(error),
-            }
+        .ok()
+        .filter(|port| *port != 0)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid WARP endpoint port"))?;
+    let mut numeric = Vec::new();
+    for (value, family) in [(endpoint.ipv4.as_deref(), Domain::IPV4), (endpoint.ipv6.as_deref(), Domain::IPV6)] {
+        if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
+            numeric.push(numeric_endpoint(value, port, Some(family))?);
         }
-        if addresses.is_empty()
-            && let Some(error) = last_error
-        {
-            return Err(error);
-        }
-        preferred_endpoint_candidates(addresses)
-    });
+    }
+    if !numeric.is_empty() {
+        return preferred_endpoint_candidates(numeric);
+    }
+    let host = endpoint.host.trim();
+    if let Ok(address) = numeric_endpoint(host, port, None) {
+        return Ok(vec![address]);
+    }
+    if host.is_empty()
+        || host.bytes().any(|byte| matches!(byte, b':' | b'[' | b']'))
+        || host.bytes().all(|byte| byte.is_ascii_digit() || byte == b'.')
+    {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid WARP endpoint host"));
+    }
+    let host = host.to_owned();
+    let lookup = tokio::task::spawn_blocking(move || resolve_host_candidates(&host, port, None));
     match tokio::time::timeout(ENDPOINT_RESOLVE_TIMEOUT, lookup).await {
         Ok(Ok(resolved)) => resolved,
         Ok(Err(join_error)) => Err(io::Error::other(format!("endpoint lookup task failed: {join_error}"))),
@@ -493,6 +507,56 @@ mod tests {
         let resolved = resolve_endpoint(&endpoint).await.expect("endpoint");
 
         assert_eq!(resolved, "[2001:db8::44]:2408".parse::<SocketAddr>().expect("ipv6 socket addr"));
+    }
+
+    // No Tokio runtime exists here: a literal must finish in one poll, without
+    // spawning a blocking lookup or consulting the system resolver.
+    fn resolve_without_dns(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<SocketAddr> {
+        use std::future::Future;
+        use std::task::{Context, Poll, Waker};
+        let mut future = std::pin::pin!(resolve_endpoint(endpoint));
+        match future.as_mut().poll(&mut Context::from_waker(Waker::noop())) {
+            Poll::Ready(result) => result,
+            Poll::Pending => panic!("numeric endpoint must not start DNS"),
+        }
+    }
+
+    #[test]
+    fn numeric_socket_addresses_use_the_service_port_without_dns() {
+        for input in ["127.0.0.1", "127.0.0.1:0", " 127.0.0.1:65535 "] {
+            let explicit = endpoint("must-not-resolve.invalid", Some(input), None, 2408);
+            assert_eq!(resolve_without_dns(&explicit).expect("IPv4 endpoint"), "127.0.0.1:2408".parse().unwrap());
+            let host = endpoint(input, None, None, 2408);
+            assert_eq!(resolve_without_dns(&host).expect("IPv4 host"), "127.0.0.1:2408".parse().unwrap());
+        }
+        for input in ["::1", "[::1]:0", " [::1]:65535 "] {
+            let explicit = endpoint("must-not-resolve.invalid", None, Some(input), 2408);
+            assert_eq!(resolve_without_dns(&explicit).expect("IPv6 endpoint"), "[::1]:2408".parse().unwrap());
+            let host = endpoint(input, None, None, 2408);
+            assert_eq!(resolve_without_dns(&host).expect("IPv6 host"), "[::1]:2408".parse().unwrap());
+        }
+        let scoped = endpoint("must-not-resolve.invalid", None, Some("[fe80::1%7]:0"), 2408);
+        assert_eq!(resolve_without_dns(&scoped).expect("scope"), "[fe80::1%7]:2408".parse().unwrap());
+    }
+
+    #[test]
+    fn malformed_numeric_fields_and_service_ports_fail_before_dns() {
+        for input in ["127.0.0.1:invalid", "999.0.0.1", "::1", "lookup.invalid"] {
+            let candidate = endpoint("must-not-resolve.invalid", Some(input), None, 2408);
+            assert_eq!(resolve_without_dns(&candidate).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        }
+        for input in ["[::1]:invalid", "[::1", "127.0.0.1", "lookup.invalid"] {
+            let candidate = endpoint("must-not-resolve.invalid", None, Some(input), 2408);
+            assert_eq!(resolve_without_dns(&candidate).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        }
+        for input in ["", " ", "999.0.0.1", "127.0.0.1:invalid", "[::1", "::g"] {
+            let candidate = endpoint(input, None, None, 2408);
+            assert_eq!(resolve_without_dns(&candidate).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        }
+        for port in [-1, 0, 65_536] {
+            let candidate = endpoint("127.0.0.1", None, None, port);
+            assert_eq!(resolve_without_dns(&candidate).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        }
     }
 
     #[test]

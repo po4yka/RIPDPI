@@ -219,7 +219,7 @@ private fun CloudflareWarpRegistrationResponse.toProvisioningResult(
         config.peers.firstOrNull()
             ?: throw WarpProvisioningException.MalformedResponse("WARP registration missing peer configuration")
     val endpoint =
-        parseEndpoint(
+        parseWarpEndpoint(
             host = peer.endpoint.host,
             ipv4 = peer.endpoint.ipv4,
             ipv6 = peer.endpoint.ipv6,
@@ -248,42 +248,6 @@ private fun CloudflareWarpRegistrationResponse.toProvisioningResult(
         peerPublicKey = peer.publicKey,
         endpoint = endpoint,
         reservedBytes = reservedBytesFromClientId(config.clientId),
-    )
-}
-
-private fun parseEndpoint(
-    host: String,
-    ipv4: String? = null,
-    ipv6: String? = null,
-    source: String,
-): WarpEndpointCacheEntry {
-    val trimmedHost = host.trim()
-    val separatorIndex =
-        when {
-            trimmedHost.startsWith("[") && trimmedHost.contains("]:") -> trimmedHost.lastIndexOf("]:")
-            else -> trimmedHost.lastIndexOf(':')
-        }
-    if (separatorIndex < 0) {
-        throw WarpProvisioningException.MalformedResponse("Invalid WARP endpoint host")
-    }
-    val endpointHost =
-        if (trimmedHost.startsWith("[") && separatorIndex > 0) {
-            trimmedHost.substring(1, separatorIndex)
-        } else {
-            trimmedHost.substring(0, separatorIndex)
-        }
-    val endpointPort =
-        trimmedHost
-            .substring(separatorIndex + if (trimmedHost.startsWith("[") && trimmedHost.contains("]:")) 2 else 1)
-            .toIntOrNull()
-            ?: throw WarpProvisioningException.MalformedResponse("Invalid WARP endpoint port")
-    return WarpEndpointCacheEntry(
-        networkScopeKey = "",
-        host = endpointHost,
-        ipv4 = ipv4?.trim()?.takeIf { it.isNotEmpty() },
-        ipv6 = ipv6?.trim()?.takeIf { it.isNotEmpty() },
-        port = endpointPort,
-        source = source,
     )
 }
 
