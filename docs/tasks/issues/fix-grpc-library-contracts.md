@@ -2,7 +2,7 @@
 id: TRN-1794371438573712
 title: Fix gRPC library stream contracts
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Transport maintainer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-grpc-library-contracts
 created: 2026-11-11
 updated: 2026-11-11
+closed_at: "2026-11-11T04:52:26Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Four isolated fixes; 102 crate tests, Clippy, final ci-gates and locked metadata passed at 002c15238d; independent general and async reviews clear.
 ---
 
 ## Goal

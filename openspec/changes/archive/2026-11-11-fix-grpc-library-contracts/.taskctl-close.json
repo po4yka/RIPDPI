@@ -1,0 +1,11 @@
+{
+  "change": "fix-grpc-library-contracts",
+  "evidence_summary": "Four isolated fixes; 102 crate tests, Clippy, final ci-gates and locked metadata passed at 002c15238d; independent general and async reviews clear.",
+  "execution_sha256": "33291ffb3f238dc62ed72bd9bdb25445d1af8a0d4622373c06694081abf64745",
+  "issue_sha256": "b40cc539a59fbd2e9f580d062e07c4da08dcac77fbf862a971136194f1b5a538",
+  "outcome": "done",
+  "prepared_at": "2026-11-11T04:52:26Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794371438573712"
+}
