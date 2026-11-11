@@ -25,7 +25,7 @@ extensions.configure<LibraryExtension> {
 }
 
 extensions.configure<KspExtension> {
-    arg("room.schemaLocation", "$projectDir/schemas")
+    arg(RoomSchemaArgProvider(file("schemas")))
     arg("room.generateKotlin", "true")
 }
 
