@@ -24,7 +24,8 @@ automatic target caps. Both are existing runtime consumers.
   memory by network scope, path, strategy suite, and probe-relevant settings;
   match evidence per host. Select automatic targets before the existing
   budget gate. Use exact outcome signatures and measured costs; protect controls,
-  unknown or failed targets, and concurrency cohorts. If a feasible subset does not
+  unknown or failed targets; keep or drop a concurrency cohort whole, and drop it
+  only after healthy concurrency evidence. If a feasible subset does not
   exist, preserve the prior planner. Full manual scans seed evidence but are not compacted.
 - Search is synchronous, bounded CPU work on existing background scan paths.
   There is no background worker, extra socket, or new FFI entry point.

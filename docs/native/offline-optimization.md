@@ -40,11 +40,16 @@ Partial or oversized reports invalidate older evidence for the same key.
 
 Before automatic scan admission applies the existing target budget,
 `CompactProbeSearch` uses 512 seeded Simulated Annealing proposals. It retains
-observed signal coverage, controls, unknown or unhealthy targets, and targets
-with concurrency metadata. It prefers lower measured latency among equivalent
-healthy targets. A missing duration uses a neutral cost.
+observed signal coverage, controls, and unknown or unhealthy targets. Targets
+that share a concurrency cohort are kept or dropped as one unit. A concurrency
+cohort can be dropped only when, in every report in the window, each member has
+at least one `connection_concurrency` result and all of them are healthy, and the
+other targets cover its signals. A selection fills the budget as far as whole
+units allow. It
+prefers lower measured latency among equivalent healthy targets. A missing
+duration uses a neutral cost.
 
-For predefined audit cohorts, the search selects one complete existing cohort.
+For predefined audit cohorts (`StrategyProbeTargetCohortSpec`), the search selects one complete existing cohort.
 It cannot invent a cohort or change its matrix size. If one cohort cannot retain
 the required evidence, normal cohort rotation remains in use. Other automatic
 strategy probes keep their required target counts and existing caps. Full manual

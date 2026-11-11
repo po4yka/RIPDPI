@@ -51,14 +51,22 @@ class DiagnosticsTargetOptimizer
             if (history.any { it.finishedAt == report.finishedAt }) return
             val results =
                 report.results
-                    .filter { it.probeType in DomainProbeTypes || it.probeType in QuicProbeTypes }
+                    .filter { it.probeType in EvidenceProbeTypes }
                     .map { result ->
-                        val host = result.detailValue("targetHost") ?: result.inferEdgeHost().orEmpty()
+                        val host =
+                            if (result.probeType == ConcurrencyProbeType) {
+                                result.target
+                            } else {
+                                result.detailValue("targetHost") ?: result.inferEdgeHost().orEmpty()
+                            }
                         result.copy(
                             target = host,
                             details = result.details.filter { it.key == "candidateId" || it.key in CostKeys },
                         )
-                    }.groupBy { it.target.lowercase(Locale.ROOT) }
+                    }.groupBy {
+                        val host = it.target.lowercase(Locale.ROOT)
+                        if (it.probeType == ConcurrencyProbeType) ConcurrencyPrefix + host else host
+                    }
             evidence.remove(scope)
             evidence[scope] =
                 (history + Evidence(report.finishedAt, results))
@@ -126,10 +134,10 @@ class DiagnosticsTargetOptimizer
             scope: Scope,
             policy: ActiveProbeSafetyPolicy,
         ): DiagnosticsIntent? {
-            val domains =
-                intent.domainTargets.distinctBy { it.host.lowercase(Locale.ROOT) }.map {
-                    probe(it.host, it.isControl || it.concurrencyProbe != null, history, scope.path, quic = false)
-                }
+            val targets = intent.domainTargets.distinctBy { it.host.lowercase(Locale.ROOT) }
+            val unitOfHost = targets.associate { it.host.lowercase(Locale.ROOT) to unitId(it) }
+            val domains = domainUnits(targets, history, scope.path)
+            val domainLimit = policy.automaticAuditDomainTargets
             val quic =
                 intent.quicTargets
                     .distinctBy { it.host.lowercase(Locale.ROOT) }
@@ -137,9 +145,9 @@ class DiagnosticsTargetOptimizer
             val domainIds =
                 CompactProbeSearch.select(
                     domains,
-                    policy.automaticAuditDomainTargets,
+                    domainLimit,
                     scope.seed(),
-                    minimum = minOf(domains.size, policy.automaticAuditDomainTargets).coerceAtLeast(1),
+                    minimum = largestFit(domains, domainLimit),
                 )
             val quicIds =
                 if (quic.isEmpty()) {
@@ -154,12 +162,54 @@ class DiagnosticsTargetOptimizer
                 }
             return if (domainIds != null && quicIds != null) {
                 intent.copy(
-                    domainTargets = intent.domainTargets.filter { it.host.lowercase(Locale.ROOT) in domainIds },
+                    domainTargets =
+                        intent.domainTargets.filter { unitOfHost[it.host.lowercase(Locale.ROOT)] in domainIds },
                     quicTargets = intent.quicTargets.filter { it.host.lowercase(Locale.ROOT) in quicIds },
                 )
             } else {
                 null
             }
+        }
+
+        private fun unitId(target: DomainTarget) =
+            target.concurrencyProbe?.let { "cohort:${it.cohortId}" } ?: target.host.lowercase(Locale.ROOT)
+
+        /** A concurrency cohort is one unit, dropped only if each member had healthy concurrency in every report. */
+        private fun domainUnits(
+            targets: List<DomainTarget>,
+            history: List<Evidence>,
+            path: ScanPathMode,
+        ): List<CompactProbe> =
+            targets.groupBy(::unitId).map { (id, unit) ->
+                val members = unit.map { probe(it.host, it.isControl, history, path, quic = false) }
+                val concurrencyUnknown =
+                    unit[0].concurrencyProbe != null &&
+                        unit.any { target ->
+                            history.any { evidence ->
+                                val results = evidence.results[ConcurrencyPrefix + target.host.lowercase(Locale.ROOT)]
+                                results.isNullOrEmpty() || results.any { !healthy(it, path) }
+                            }
+                        }
+                CompactProbe(
+                    id,
+                    members.flatMapTo(mutableSetOf(), CompactProbe::signals),
+                    members.sumOf(CompactProbe::cost),
+                    concurrencyUnknown || members.any(CompactProbe::mandatory),
+                    size = members.size,
+                )
+            }
+
+        /** Largest target count within [limit] that a set holding every mandatory unit can reach. */
+        private fun largestFit(
+            units: List<CompactProbe>,
+            limit: Int,
+        ): Int {
+            val base = units.filter(CompactProbe::mandatory).sumOf(CompactProbe::size)
+            var reachable = setOf(base)
+            units.filterNot(CompactProbe::mandatory).forEach { unit ->
+                reachable = reachable + reachable.map { it + unit.size }.filter { it <= limit }
+            }
+            return (reachable.filter { it <= limit }.maxOrNull() ?: limit).coerceIn(1, limit)
         }
 
         private fun selectCohort(
@@ -228,11 +278,7 @@ class DiagnosticsTargetOptimizer
                                         it.detailValue("candidateId") == "baseline_plain_direct"
                                 }
                         ) ||
-                        results.any { result ->
-                            !DiagnosticsOutcomeTaxonomy
-                                .classifyProbeOutcome(result.probeType, path, result.outcome)
-                                .healthyEnoughForSummary
-                        }
+                        results.any { !healthy(it, path) }
                 }
             val cost =
                 observations
@@ -249,6 +295,13 @@ class DiagnosticsTargetOptimizer
             return CompactProbe(id, signals, cost, required || uncertain)
         }
 
+        private fun healthy(
+            result: ProbeResult,
+            path: ScanPathMode,
+        ) = DiagnosticsOutcomeTaxonomy
+            .classifyProbeOutcome(result.probeType, path, result.outcome)
+            .healthyEnoughForSummary
+
         private companion object {
             const val HistorySize = 3
             const val MaxScopes = 16
@@ -259,6 +312,9 @@ class DiagnosticsTargetOptimizer
             val DomainTransportTypes = setOf("domain_reachability", "strategy_http", "strategy_https")
             val DomainProbeTypes = setOf("domain_reachability", "strategy_http", "strategy_https", "dns_integrity")
             val QuicProbeTypes = setOf("quic_reachability", "strategy_quic")
+            const val ConcurrencyProbeType = "connection_concurrency"
+            const val ConcurrencyPrefix = "@concurrency:"
+            val EvidenceProbeTypes = DomainProbeTypes + QuicProbeTypes + ConcurrencyProbeType
             val CostKeys = setOf("latencyMs", "elapsedMs", "durationMs", "encryptedLatencyMs", "udpLatencyMs")
         }
     }

@@ -8,6 +8,8 @@ internal data class CompactProbe(
     val signals: Set<String>,
     val cost: Double,
     val mandatory: Boolean,
+    /** Targets this unit adds; a concurrency cohort is selected whole. */
+    val size: Int = 1,
 )
 
 /** Bounded set-cover search. Scores and coverage come from prior observations only. */
@@ -27,7 +29,7 @@ internal object CompactProbeSearch {
     ): Set<String>? {
         require(limit > 0 && minimum in 1..limit)
         require(probes.map(CompactProbe::id).distinct().size == probes.size)
-        require(probes.all { it.cost.isFinite() && it.cost > 0.0 })
+        require(probes.all { it.cost.isFinite() && it.cost > 0.0 && it.size > 0 })
         if (probes.isEmpty() || probes.size > MaxTargets) return null
         val required = probes.flatMap(CompactProbe::signals).toSet()
         val maxCost = probes.maxOf(CompactProbe::cost)
@@ -37,8 +39,9 @@ internal object CompactProbeSearch {
         fun energy(selected: Set<Int>): Double {
             val covered = selected.flatMap { probes[it].signals }.toSet()
             val missing = (required - covered).size + probes.indices.count { probes[it].mandatory && it !in selected }
-            val excess = (selected.size - limit).coerceAtLeast(0) + (minimum - selected.size).coerceAtLeast(0)
-            return (missing + excess) * ConstraintPenalty + selected.size +
+            val count = selected.sumOf { probes[it].size }
+            val excess = (count - limit).coerceAtLeast(0) + (minimum - count).coerceAtLeast(0)
+            return (missing + excess) * ConstraintPenalty + count +
                 CostWeight * selected.sumOf { costs[it] } / scale
         }
         var current = probes.indices.toSet()

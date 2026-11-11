@@ -135,6 +135,64 @@ class DiagnosticsTargetOptimizerTest {
     }
 
     @Test
+    fun `the shipped automatic profile drops its whole concurrency cohort only when redundant and healthy`() {
+        val cohort = ConcurrencyProbeTargetMetadata("global-platform-control-v1", 8)
+        val cohortHosts = listOf("www.youtube.com", "discord.com", "proton.me")
+        val controls = listOf("speed.cloudflare.com", "proof.ovh.net")
+        val shipped =
+            intent().copy(
+                domainTargets =
+                    cohortHosts.map { DomainTarget(it, concurrencyProbe = cohort) } +
+                        controls.map { DomainTarget(it, isControl = true) },
+            )
+        val defaultPolicy = ActiveProbeSafetyPolicy()
+
+        fun outcomes(
+            concurrency: String?,
+            youtube: String = "tls_ok",
+            measured: List<String> = cohortHosts,
+            hosts: List<String> = cohortHosts + controls,
+        ) = report(1).copy(
+            results =
+                hosts.map { host ->
+                    ProbeResult(
+                        "strategy_https",
+                        "Plain direct · $host",
+                        if (host == "www.youtube.com") youtube else "tls_ok",
+                        listOf(ProbeDetail("candidateId", "baseline_plain_direct")),
+                    )
+                } +
+                    measured.mapNotNull { host ->
+                        concurrency?.let { ProbeResult("connection_concurrency", host, it) }
+                    },
+        )
+
+        fun compacted(
+            report: ScanReport,
+            intent: DiagnosticsIntent = shipped,
+        ): List<String> {
+            val optimizer = DiagnosticsTargetOptimizer()
+            optimizer.record("scope", report, settings)
+            val compact =
+                optimizer.compact(intent, "scope", DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND, defaultPolicy, 10)
+            return selectStrategyProbeTargetsForSession("s", compact, activeProbeSafetyPolicy = defaultPolicy)
+                .domainTargets
+                .map(DomainTarget::host)
+        }
+        assertEquals(controls, compacted(outcomes(concurrency = "healthy")))
+        // Unknown or unhealthy concurrency, or a cohort host that differs, keeps today's plan: the whole cohort.
+        assertEquals(cohortHosts, compacted(outcomes(concurrency = null)))
+        assertEquals(cohortHosts, compacted(outcomes(concurrency = "blocked")))
+        assertEquals(cohortHosts, compacted(outcomes(concurrency = "healthy", youtube = "tls_handshake_failed")))
+        // Healthy concurrency on one member does not vouch for the others.
+        assertEquals(cohortHosts, compacted(outcomes(concurrency = "healthy", measured = listOf("discord.com"))))
+        // A dropped cohort does not shrink the budget for ordinary targets.
+        val plain = listOf("a.example", "b.example", "c.example")
+        val mixed = shipped.copy(domainTargets = shipped.domainTargets.take(3) + plain.map(::DomainTarget))
+        assertEquals(3, compacted(outcomes("healthy", hosts = cohortHosts + plain), mixed).size)
+    }
+
+    @Test
     fun `evidence from another strategy suite or a scan without one keeps original targets`() {
         val intent = intent()
         optimizer.record("scope", report(1, suite = "full_matrix_v1"), settings)

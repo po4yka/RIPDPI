@@ -27,8 +27,8 @@ Calibration MUST run outside the registry lock and have a fixed evaluation cap.
 
 Automatic repeat diagnostics MUST use bounded, deterministic Simulated Annealing
 to choose targets from recent local evidence within existing target limits.
-Control, unknown, failed, and special-contract targets MUST be retained whenever
-compaction is feasible. Infeasible or stale evidence MUST preserve existing planning.
+Control, unknown, and failed targets MUST be retained whenever compaction is
+feasible. A concurrency cohort MUST be kept or dropped whole. Infeasible or stale evidence MUST preserve existing planning.
 Full manual scans MUST retain their existing target coverage.
 
 #### Scenario: Equivalent healthy targets exceed the budget
@@ -40,6 +40,11 @@ Full manual scans MUST retain their existing target coverage.
 
 - **WHEN** removing a target loses a required signal or the mandatory set exceeds the budget
 - **THEN** selection retains the target or returns the original planner fallback
+
+#### Scenario: A concurrency cohort is redundant
+
+- **WHEN** in every recent report each member has at least one concurrency result, all healthy, and other targets cover the cohort's signals
+- **THEN** selection may drop the whole cohort; otherwise it keeps the whole cohort or returns the planner fallback
 
 ### Requirement: REQ-LOCAL-BOUNDS — Bound and isolate learning state
 
