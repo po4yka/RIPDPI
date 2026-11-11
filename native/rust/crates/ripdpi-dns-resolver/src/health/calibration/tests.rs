@@ -63,6 +63,13 @@ fn stale_fit_cannot_overwrite_newer_observations_and_memory_is_bounded() {
     calibration.apply(&batch, Weights::bounded(0.7, 0.1));
     assert_eq!(calibration.weights(now), Weights::default());
     assert_eq!(calibration.samples.len(), MAX_SAMPLES);
+    // 257 is not a fit interval: only the rejected fit schedules this batch, and only once.
+    let retry = calibration.record([0.5; 3], false, 20, now).expect("a rejected fit reruns on the next outcome");
+    assert_eq!(retry.generation, 257);
+    assert!(calibration.record([0.5; 3], false, 20, now).is_none());
+    // A stale retry does not retry again, so contention cannot run a fit per outcome.
+    calibration.apply(&retry, Weights::bounded(0.7, 0.1));
+    assert!(calibration.record([0.5; 3], false, 20, now).is_none());
 }
 
 #[test]

@@ -47,6 +47,8 @@ pub(super) struct Calibration {
     last_sample: Instant,
     incarnation: u64,
     fitted_at: Option<Instant>,
+    /// A scheduled fit lost to a concurrent outcome reruns once on the next outcome, not 32 outcomes later.
+    retry_fit: bool,
 }
 
 pub(super) struct FitBatch {
@@ -65,6 +67,7 @@ impl Calibration {
             last_sample: now,
             incarnation,
             fitted_at: None,
+            retry_fit: false,
         }
     }
 
@@ -103,7 +106,9 @@ impl Calibration {
             self.weights = Weights::default();
             self.fitted_at = None;
         }
-        (self.samples.len() >= MIN_SAMPLES && self.generation.is_multiple_of(FIT_INTERVAL)).then(|| FitBatch {
+        let retry = std::mem::take(&mut self.retry_fit);
+        let scheduled = retry || self.generation.is_multiple_of(FIT_INTERVAL);
+        (self.samples.len() >= MIN_SAMPLES && scheduled).then(|| FitBatch {
             samples: self.samples.iter().map(|(_, sample)| *sample).collect(),
             previous: self.weights,
             generation: self.generation,
@@ -112,9 +117,15 @@ impl Calibration {
     }
 
     pub(super) fn apply(&mut self, batch: &FitBatch, candidate: Weights) {
-        if self.generation == batch.generation && self.incarnation == batch.incarnation {
+        if self.incarnation != batch.incarnation {
+            return;
+        }
+        if self.generation == batch.generation {
             self.weights = candidate;
             self.fitted_at = (candidate != Weights::default()).then_some(self.last_sample);
+        } else if batch.generation.is_multiple_of(FIT_INTERVAL) {
+            // Only an interval fit retries, so contention costs at most two fits per interval.
+            self.retry_fit = true;
         }
     }
 }
