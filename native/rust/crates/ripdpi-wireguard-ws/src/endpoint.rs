@@ -9,7 +9,8 @@ use tokio::net::TcpStream;
 use tokio_rustls::TlsConnector;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http::{HeaderMap, HeaderValue};
-use tokio_tungstenite::{WebSocketStream, client_async};
+use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+use tokio_tungstenite::{WebSocketStream, client_async_with_config};
 use url::Url;
 
 use crate::WsCarrier;
@@ -125,8 +126,51 @@ pub enum WssEndpointError {
 pub type WssCarrierStream = WebSocketStream<tokio_rustls::client::TlsStream<TcpStream>>;
 pub type WssCarrier = WsCarrier<WssCarrierStream>;
 
-/// Open a production WSS WireGuard carrier over a protected TCP socket.
+/// Open a WSS carrier with the WebSocket library's default receive limits.
+///
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the in-flight connection before publishing it.
 pub async fn connect_wss_carrier<P>(endpoint: &WssEndpoint, protector: &P) -> io::Result<WssCarrier>
+where
+    P: CarrierSocketProtector + ?Sized,
+{
+    connect_wss_carrier_with_config(endpoint, protector, None).await
+}
+
+/// Open a protected WSS carrier with an explicit receive datagram limit.
+///
+/// The frame limit bounds payload allocation; the message limit bounds aggregate
+/// reassembly before delivery. It does not limit outbound datagrams. Callers own
+/// the send buffer contract. A zero limit is rejected before network work.
+///
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the in-flight connection before publishing it.
+pub async fn connect_wss_carrier_with_receive_limit<P>(
+    endpoint: &WssEndpoint,
+    protector: &P,
+    max_datagram_size: usize,
+) -> io::Result<WssCarrier>
+where
+    P: CarrierSocketProtector + ?Sized,
+{
+    let config = receive_config(max_datagram_size)?;
+    connect_wss_carrier_with_config(endpoint, protector, Some(config)).await
+}
+
+fn receive_config(max_datagram_size: usize) -> io::Result<WebSocketConfig> {
+    if max_datagram_size == 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "carrier receive limit must be positive"));
+    }
+    Ok(WebSocketConfig::default().max_frame_size(Some(max_datagram_size)).max_message_size(Some(max_datagram_size)))
+}
+
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the in-flight TCP/TLS/WS stream.
+async fn connect_wss_carrier_with_config<P>(
+    endpoint: &WssEndpoint,
+    protector: &P,
+    config: Option<WebSocketConfig>,
+) -> io::Result<WssCarrier>
 where
     P: CarrierSocketProtector + ?Sized,
 {
@@ -139,7 +183,7 @@ where
     let tls = default_tls_connector().connect(server_name, stream).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("carrier WSS TLS handshake failed: {error}"))
     })?;
-    let (ws, response) = client_async(request, tls)
+    let (ws, response) = client_async_with_config(request, tls, config)
         .await
         .map_err(|error| io::Error::other(format!("carrier WSS handshake failed: {error}")))?;
     validate_binary_subprotocol(response.headers())
@@ -227,5 +271,92 @@ mod tests {
 
         headers.insert("Sec-WebSocket-Protocol", HeaderValue::from_static(BINARY_SUBPROTOCOL));
         assert!(validate_binary_subprotocol(&headers).is_ok());
+    }
+    /// # Cancel safety:
+    /// cancel-safe: the test owns and drops both stream ends.
+    async fn read_wire_with_limit(
+        wire: &[u8],
+        limit: usize,
+    ) -> Result<tokio_tungstenite::tungstenite::Message, tokio_tungstenite::tungstenite::Error> {
+        use futures::StreamExt;
+        use tokio::io::AsyncWriteExt;
+        use tokio_tungstenite::tungstenite::protocol::Role;
+        let (local, mut peer) = tokio::io::duplex(64);
+        let mut ws =
+            WebSocketStream::from_raw_socket(local, Role::Client, Some(receive_config(limit).expect("receive config")))
+                .await;
+        peer.write_all(wire).await.expect("literal peer frames");
+        tokio::time::timeout(std::time::Duration::from_secs(1), ws.next())
+            .await
+            .expect("read must not wait for an oversized payload")
+            .expect("message result")
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: invalid input opens no stream.
+    #[tokio::test]
+    async fn zero_receive_limit_is_rejected_before_network_work() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("owned peer");
+        let endpoint = WssEndpoint::parse(&format!("wss://{}/wg", listener.local_addr().expect("peer address")))
+            .expect("endpoint");
+        let result = tokio::time::timeout(
+            std::time::Duration::from_millis(250),
+            connect_wss_carrier_with_receive_limit(&endpoint, &|_| Ok(()), 0),
+        )
+        .await
+        .expect("invalid limit must fail before a TLS exchange");
+        let Err(error) = result else { panic!("zero receive limit must fail") };
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(25), listener.accept()).await.is_err());
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the helper owns both stream ends.
+    #[tokio::test]
+    async fn receive_limit_accepts_the_exact_frame_boundary() {
+        let message = read_wire_with_limit(&[0x82, 8, 0, 1, 2, 3, 4, 5, 6, 7], 8).await.expect("boundary frame");
+        assert_eq!(message.into_data().as_ref(), &[0, 1, 2, 3, 4, 5, 6, 7]);
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the helper owns both stream ends.
+    #[tokio::test]
+    async fn receive_limit_rejects_an_oversized_frame_before_its_payload() {
+        assert!(matches!(
+            read_wire_with_limit(&[0x82, 9], 8).await,
+            Err(tokio_tungstenite::tungstenite::Error::Capacity(_))
+        ));
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: each helper call owns both stream ends.
+    #[tokio::test]
+    async fn receive_limit_counts_the_complete_fragmented_message() {
+        let valid = [0x02, 4, 0, 1, 2, 3, 0x80, 4, 4, 5, 6, 7];
+        let message = read_wire_with_limit(&valid, 8).await.expect("aggregate boundary");
+        assert_eq!(message.into_data().as_ref(), &[0, 1, 2, 3, 4, 5, 6, 7]);
+        let oversized = [0x02, 4, 0, 1, 2, 3, 0x80, 5, 4, 5, 6, 7, 8];
+        assert!(matches!(
+            read_wire_with_limit(&oversized, 8).await,
+            Err(tokio_tungstenite::tungstenite::Error::Capacity(_))
+        ));
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the test owns both stream ends.
+    #[tokio::test]
+    async fn receive_limit_failure_ends_the_carrier_before_following_data() {
+        use crate::WsCarrierError;
+        use tokio::io::AsyncWriteExt;
+        use tokio_tungstenite::tungstenite::protocol::Role;
+        let (local, mut peer) = tokio::io::duplex(64);
+        let ws = WebSocketStream::from_raw_socket(local, Role::Client, Some(receive_config(8).expect("config"))).await;
+        let (_sender, mut receiver) = WsCarrier::new(ws).split();
+        peer.write_all(&[0x82, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 0x82, 1, 99]).await.expect("oversize then data");
+        assert!(matches!(
+            receiver.recv_datagram().await,
+            Err(WsCarrierError::Transport(tokio_tungstenite::tungstenite::Error::Capacity(_)))
+        ));
+        assert!(matches!(receiver.recv_datagram().await, Err(WsCarrierError::Closed)));
     }
 }

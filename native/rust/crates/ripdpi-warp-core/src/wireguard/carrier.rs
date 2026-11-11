@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 
 use ripdpi_wireguard_ws::{
     CarrierSocketProtector, WsCarrierError, WsCarrierReceiver, WsCarrierSender, WssCarrierStream, WssEndpoint,
-    connect_wss_carrier,
+    connect_wss_carrier_with_receive_limit,
 };
 
 #[cfg(test)]
@@ -176,7 +176,7 @@ where
     let wss_endpoint = WssEndpoint::parse(request_url).map_err(|error| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid carrier WSS endpoint: {error}"))
     })?;
-    let carrier = connect_wss_carrier(&wss_endpoint, protector).await?;
+    let carrier = connect_wss_carrier_with_receive_limit(&wss_endpoint, protector, crate::support::MAX_PACKET).await?;
     let (sender, receiver) = carrier.split();
     Ok(WgCarrier::Ws(Box::new(SplitWsCarrier::new(sender, receiver))))
 }
