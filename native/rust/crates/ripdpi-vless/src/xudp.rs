@@ -5,6 +5,8 @@
 //! boundaries inside it; this module never opens a direct UDP socket.
 
 #[cfg(test)]
+mod control_frame_tests;
+#[cfg(test)]
 mod source_authority_tests;
 
 use std::io;
@@ -33,8 +35,10 @@ const DEFAULT_RECENT_ACTIVITY_WINDOW: Duration = Duration::from_secs(180);
 const SESSION_ID: u16 = 0;
 const STATUS_NEW: u8 = 0x01;
 const STATUS_KEEP: u8 = 0x02;
+const STATUS_END: u8 = 0x03;
 const STATUS_KEEP_ALIVE: u8 = 0x04;
 const OPTION_DATA: u8 = 0x01;
+const OPTION_ERROR: u8 = 0x02;
 const NETWORK_UDP: u8 = 0x02;
 const ADDRESS_IPV4: u8 = 0x01;
 const ADDRESS_DOMAIN: u8 = 0x02;
@@ -414,6 +418,8 @@ enum DecodedFrame {
     KeepAlive,
 }
 
+/// # Cancel safety:
+///
 /// NOT cancel-safe: `read_exact` may consume a frame prefix. This function is
 /// owned by the dedicated reader task and is never raced in `select!`; aborting
 /// the task also drops the carrier, so a partial frame is never reused.
@@ -428,13 +434,17 @@ where
     let mut metadata = vec![0_u8; metadata_len];
     reader.read_exact(&mut metadata).await?;
     let session_id = u16::from_be_bytes([metadata[0], metadata[1]]);
-    if session_id != SESSION_ID {
+    let status = metadata[2];
+    if status != STATUS_KEEP_ALIVE && session_id != SESSION_ID {
         return Err(XudpError::UnsupportedSessionId(session_id).into_data_error());
     }
-    let status = metadata[2];
     let option = metadata[3];
-    if option != OPTION_DATA {
+    let allowed_options = if status == STATUS_END { OPTION_DATA | OPTION_ERROR } else { OPTION_DATA };
+    if option & !allowed_options != 0 {
         return Err(XudpError::UnsupportedOption(option).into_data_error());
+    }
+    if status == STATUS_END {
+        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "XUDP association ended by peer"));
     }
 
     let target = match status {
@@ -458,6 +468,9 @@ where
         other => return Err(XudpError::UnsupportedStatus(other).into_data_error()),
     };
 
+    if option & OPTION_DATA == 0 {
+        return Ok(DecodedFrame::KeepAlive);
+    }
     let payload_len = usize::from(reader.read_u16().await?);
     if payload_len > MAX_XUDP_PAYLOAD {
         return Err(XudpError::PayloadTooLarge { len: payload_len, max: MAX_XUDP_PAYLOAD }.into_data_error());
