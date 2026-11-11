@@ -1,0 +1,11 @@
+{
+  "change": "yamux-stream-limits",
+  "evidence_summary": "Fix 97e4af86a6 passed Rust 1.98.1 tests (191 vless and 9 relay-core mux), real loopback echo at working limit 2048, Clippy, rustfmt, locked metadata, ci-gates, independent correctness and cancellation review. Oversized limits fail before carrier I/O. No Android or 32-bit runtime acceptance is claimed.",
+  "execution_sha256": "7fb9d8bd148b45eeea56b09ac28cc254fbdebc6807d0efd8f94e85e7d8cad79d",
+  "issue_sha256": "bf0617b83fdb392d87756e45ac0337daa98f4ba797a99b845a7cd817281236d8",
+  "outcome": "done",
+  "prepared_at": "2026-11-11T07:20:50Z",
+  "reason": "Verified bounded yamux stream admission",
+  "schema": 1,
+  "task_id": "TRN-1794377577809835"
+}
