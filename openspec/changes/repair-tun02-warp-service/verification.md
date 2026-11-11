@@ -5,7 +5,7 @@ commit_sha: c2c69e0c04d07b74aa3b6f5f97adc281102d1be8
 local: passed
 local_evidence: Affected JVM suites, static analysis, lint, Rust workspace, Miri and source gates passed; exact counts and limits are below.
 remote_ci: required
-remote_ci_evidence: Hosted CI for the final main integration has not been observed.
+remote_ci_evidence: Initial main CI failed at a pre-existing retired-resource assertion; the local 75-test correction passes and follow-up hosted completion remains pending.
 device: passed
 device_evidence: API 37 arm64 4 KiB emulator ran exactly two minified JNI tests, both passed; owned cleanup was observed.
 artifact: passed
@@ -143,6 +143,28 @@ check desired Stopped state and the defined selection contract.
 The task remains in review while required hosted CI evidence is unresolved.
 Do not archive or close it with a fabricated remote pass. Main/push facts
 belong in the final external audit report after the actions are observed.
+
+## Hosted CI follow-up
+
+The first main push at a3172e54f76d56bf7a40f19e04267528a9e91d08 succeeded
+through the current actor's existing PR, ci-required and CodeQL bypass.
+No repository protection rule was changed.
+
+The i18n locale parity run 43094211158 failed in the French grammar test:
+config_relay_masque_cloudflare_geohash_helper was already absent from all
+application resources on the original fe82ae70b8 base. Its stale inventory
+entry and assertion still remained in the test. The same 75-test command
+reproduced the KeyError locally. Removing the retired reference also needs
+the exact audited inventory count to change from 129 to 128. All active
+grammar assertions and all 75 test methods remain enabled.
+
+`python3 -m unittest discover -s scripts/ci -p
+'test_*localization_regressions.py'` now passes all 75 tests, without skips.
+Logs: /tmp/tun02-ci-locale-red.log, the intermediate
+/tmp/tun02-ci-locale-stale-counts.log and /tmp/tun02-ci-locale-green.log.
+This correction changes no app resource, application code or native input;
+the existing code and artifact checks remain valid. Hosted CI completion
+for the follow-up push must be recorded separately.
 
 ## Fix commits
 

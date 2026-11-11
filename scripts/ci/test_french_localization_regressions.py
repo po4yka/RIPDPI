@@ -118,7 +118,6 @@ SEMANTIC_KEYS = (
     'detection_permission_rationale',
     'quic_fake_profile_udp_disabled_body',
     'ripdpi_fake_approx_protocols_off_body',
-    'config_relay_masque_cloudflare_geohash_helper',
     'detection_onboarding_body',
     'detection_permission_settings',
     'status_diagnostics_detection_permission_required',
@@ -152,8 +151,8 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
         cls.en = resources("app", "values")
 
     def test_audited_prose_has_no_english_fallback(self):
-        self.assertEqual((84, 45, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
-        self.assertEqual(129, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
+        self.assertEqual((84, 44, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
+        self.assertEqual(128, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
         self.assertTrue(set(LATENT_KEYS) <= set(ENGLISH_PROSE + SEMANTIC_KEYS))
         for key in ENGLISH_PROSE:
             with self.subTest(key=key, production_reachability=key not in LATENT_KEYS):
@@ -219,7 +218,6 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertIn("l’identité", text(self.fr[key]))
                 self.assertNotIn("l identité", text(self.fr[key]))
-        self.assertIn("Il n’est pas utilisé", text(self.fr["config_relay_masque_cloudflare_geohash_helper"]))
 
     def test_protocol_hint_separates_tcp_filter_and_udp_configuration(self):
         source = text(self.en["ripdpi_protocols_hint"])
