@@ -43,7 +43,7 @@ impl<S> SplitWsCarrier<S> {
 /// has its own async mutex, so a pending receive cannot block a handshake send.
 pub(crate) enum WgCarrier {
     /// The plain WireGuard-over-UDP transport (today's default).
-    Udp(UdpSocket),
+    Udp { socket: UdpSocket, dual_stack: bool },
     /// The WireGuard-over-WebSocket carrier: each datagram framed as a binary
     /// WS message over one protected TLS/TCP stream.
     ///
@@ -78,7 +78,13 @@ impl WgCarrier {
     /// A subsequent send finishes it; the peer never sees a truncated datagram.
     pub(crate) async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> io::Result<usize> {
         match self {
-            Self::Udp(socket) => socket.send_to(buf, addr).await,
+            Self::Udp { socket, dual_stack } => {
+                let addr = match (*dual_stack, addr) {
+                    (true, SocketAddr::V4(addr)) => SocketAddr::new(addr.ip().to_ipv6_mapped().into(), addr.port()),
+                    _ => addr,
+                };
+                socket.send_to(buf, addr).await
+            }
             Self::Ws(carrier) => {
                 carrier.sender.send_datagram(buf).await.map_err(ws_error_to_io)?;
                 Ok(buf.len())
@@ -107,8 +113,12 @@ impl WgCarrier {
     /// at the next frame boundary). The async mutex guard is released on drop.
     pub(crate) async fn recv(&self, buf: &mut [u8]) -> io::Result<ReceivedDatagram> {
         match self {
-            Self::Udp(socket) => {
+            Self::Udp { socket, .. } => {
                 let (len, source) = socket.recv_from(buf).await?;
+                let source = match source.ip().to_canonical() {
+                    std::net::IpAddr::V4(ip) => SocketAddr::new(ip.into(), source.port()),
+                    std::net::IpAddr::V6(_) => source,
+                };
                 Ok(ReceivedDatagram { len, source: Some(source) })
             }
             Self::Ws(carrier) => {
@@ -143,7 +153,7 @@ impl WgCarrier {
     /// stream is finished after a close or a transport error, but one bad frame
     /// (`InvalidData`) is skipped. A UDP socket error is transient.
     pub(crate) fn is_terminal_recv_error(&self, error: &io::Error) -> bool {
-        !matches!(self, Self::Udp(_)) && error.kind() != io::ErrorKind::InvalidData
+        !matches!(self, Self::Udp { .. }) && error.kind() != io::ErrorKind::InvalidData
     }
 }
 

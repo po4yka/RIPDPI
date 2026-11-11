@@ -1,4 +1,4 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
@@ -9,12 +9,31 @@ use crate::platform::{WarpPlatform, protect_socket_if_configured};
 const TUNNEL_SOCKET_BUFFER: usize = 7 << 20;
 
 pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> anyhow::Result<UdpSocket> {
-    let bind_addr = if endpoint.is_ipv4() {
-        SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
-    } else {
-        "[::]:0".parse().expect("ipv6 bind addr")
+    let ipv6 = Socket::new(Domain::IPV6, Type::DGRAM, Some(Protocol::UDP))
+        .and_then(|socket| socket.set_only_v6(false).map(|()| socket));
+    let (socket, bind_addr) = match ipv6 {
+        Ok(socket) => (socket, SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0))),
+        Err(error) if endpoint.is_ipv6() => return Err(error.into()),
+        Err(_) => {
+            (Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
+        }
     };
-    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+    configure_tunnel_socket(&socket, platform)?;
+    let socket = match socket.bind(&bind_addr.into()) {
+        Ok(()) => socket,
+        Err(_) if bind_addr.is_ipv6() && endpoint.is_ipv4() => {
+            let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
+            configure_tunnel_socket(&socket, platform)?;
+            socket.bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)).into())?;
+            socket
+        }
+        Err(error) => return Err(error.into()),
+    };
+    socket.set_nonblocking(true)?;
+    Ok(UdpSocket::from_std(socket.into())?)
+}
+
+fn configure_tunnel_socket(socket: &Socket, platform: &WarpPlatform) -> std::io::Result<()> {
     // A bulk transfer arrives in bursts. The kernel default (229376 bytes on Android 15)
     // overflows before the receive task drains the burst, and the lost run of segments
     // stalls TCP inside the tunnel. wireguard-go asks for the same size; the
@@ -38,10 +57,8 @@ pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) 
     // Fail-closed: a protect rejection drops `socket` here (closing the fd) and
     // fails tunnel construction rather than letting an unprotected WireGuard
     // socket loop back into the TUN (vpnservice-protect-invariant).
-    protect_socket_if_configured(&socket, platform)?;
-    socket.bind(&bind_addr.into())?;
-    socket.set_nonblocking(true)?;
-    Ok(UdpSocket::from_std(socket.into())?)
+    protect_socket_if_configured(socket, platform)?;
+    Ok(())
 }
 
 #[cfg(test)]

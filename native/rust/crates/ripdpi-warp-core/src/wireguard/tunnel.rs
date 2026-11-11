@@ -99,8 +99,7 @@ pub(crate) struct WireGuardTunnelParams<'a> {
 pub(crate) struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
     carrier: WgCarrier,
-    outbound: tokio::sync::Mutex<()>,
-    endpoint: SocketAddr,
+    outbound: tokio::sync::Mutex<SocketAddr>,
     source_peer_ip: IpAddr,
     source_peer_ipv6: Option<Ipv6Addr>,
     reserved: [u8; 3],
@@ -184,7 +183,10 @@ impl WireGuardTunnel {
         // carrier, which takes ownership unchanged.
         let carrier = match carrier {
             Some(carrier) => carrier,
-            None => WgCarrier::Udp(bind_tunnel_socket(endpoint, platform)?),
+            None => {
+                let socket = bind_tunnel_socket(endpoint, platform)?;
+                WgCarrier::Udp { dual_stack: socket.local_addr()?.is_ipv6(), socket }
+            }
         };
         if amnezia.is_some() || keepalive_range.is_some() {
             let mut timers =
@@ -207,8 +209,7 @@ impl WireGuardTunnel {
         Ok(Self {
             peer: tokio::sync::Mutex::new(peer),
             carrier,
-            outbound: tokio::sync::Mutex::new(()),
-            endpoint,
+            outbound: tokio::sync::Mutex::new(endpoint),
             source_peer_ip,
             source_peer_ipv6,
             reserved,
@@ -224,8 +225,9 @@ impl WireGuardTunnel {
     /// # Cancel safety:
     /// NOT cancel-safe: cancellation can stop a prelude after junk or leave a WS frame buffered.
     /// The carrier finishes buffered frames on the next send; shutdown drops the carrier.
-    async fn send_outbound_packet(&self, packet: &[u8]) -> io::Result<()> {
-        let _outbound = self.outbound.lock().await;
+    async fn send_outbound_packet(&self, packet: &[u8], reply_to: Option<SocketAddr>) -> io::Result<()> {
+        let outbound = self.outbound.lock().await;
+        let destination = reply_to.unwrap_or(*outbound);
         let payload = self
             .encode_outbound_packet(packet)
             .ok_or_else(|| io::Error::other("AmneziaWG packet authentication failed"))?;
@@ -233,10 +235,10 @@ impl WireGuardTunnel {
             && let Some(codec) = &self.amnezia
         {
             for junk in codec.params().handshake_prelude(&mut rand_u32) {
-                self.carrier.send_to(&junk, self.endpoint).await?;
+                self.carrier.send_to(&junk, destination).await?;
             }
         }
-        self.carrier.send_to(&payload, self.endpoint).await?;
+        self.carrier.send_to(&payload, destination).await?;
         Ok(())
     }
 
@@ -262,7 +264,7 @@ impl WireGuardTunnel {
                 _ => return Err(io::Error::other("WireGuard handshake initiation produced no packet")),
             }
         };
-        self.send_outbound_packet(&payload).await
+        self.send_outbound_packet(&payload, None).await
     }
 
     pub(crate) fn is_handshake_established(&self) -> bool {
@@ -301,7 +303,7 @@ impl WireGuardTunnel {
     async fn send_tunn_result<'a>(&self, result: TunnResult<'a>) {
         match result {
             TunnResult::WriteToNetwork(packet) => {
-                if let Err(error) = self.send_outbound_packet(packet).await {
+                if let Err(error) = self.send_outbound_packet(packet, None).await {
                     tracing::warn!("WARP tunnel send failed: {error}");
                 }
             }
@@ -322,7 +324,7 @@ impl WireGuardTunnel {
         loop {
             let result = { self.peer.lock().await.decapsulate(None, &[], send_buf) };
             let TunnResult::WriteToNetwork(packet) = result else { return };
-            if let Err(error) = self.send_outbound_packet(packet).await {
+            if let Err(error) = self.send_outbound_packet(packet, None).await {
                 tracing::warn!("WARP tunnel send failed: {error}");
             }
         }
@@ -392,14 +394,24 @@ impl WireGuardTunnel {
             };
             let size = received.len;
             let source = match received.source {
-                Some(address) if address == self.endpoint => CookieSource::Udp(address),
-                Some(_) => continue,
+                Some(address) => CookieSource::Udp(address),
                 None => CookieSource::Connection(self.carrier_cookie_id),
             };
             let (result, outcome) = {
                 let mut peer = self.peer.lock().await;
                 receive_packet(&mut peer, self.amnezia.as_deref(), source, &mut recv_buf[..size], &mut send_buf)
             };
+            if let Some(source) = received.source
+                && matches!(
+                    outcome,
+                    ReceiveOutcome::HandshakeInitiation
+                        | ReceiveOutcome::HandshakeResponse
+                        | ReceiveOutcome::TransportEmpty
+                        | ReceiveOutcome::TransportIp
+                )
+            {
+                *self.outbound.lock().await = source;
+            }
             self.handshake_readiness.observe(outcome);
             if matches!(outcome, ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp) {
                 // The UDP window learns only from datagrams that passed AEAD and the replay check.
@@ -410,7 +422,8 @@ impl WireGuardTunnel {
             match result {
                 ReceiveOutput::Network(length) => {
                     let packet = &send_buf[..length];
-                    if let Err(error) = self.send_outbound_packet(packet).await {
+                    let reply_to = (outcome == ReceiveOutcome::CookieChallenge).then_some(received.source).flatten();
+                    if let Err(error) = self.send_outbound_packet(packet, reply_to).await {
                         tracing::warn!("WARP tunnel send failed: {error}");
                     }
                     if outcome != ReceiveOutcome::CookieChallenge {
@@ -593,7 +606,9 @@ mod tests {
 
     /// # Cancel safety:
     /// cancel-safe: test setup drops all local resources if cancelled.
-    async fn tunnel_and_peer_with_config(
+    /// # Cancel safety:
+    /// cancel-safe: cancellation drops the unpublished test tunnel and its owned sockets.
+    pub(super) async fn tunnel_and_peer_with_config(
         amnezia: WarpAmneziaConfig,
     ) -> (std::sync::Arc<WireGuardTunnel>, tokio::net::UdpSocket, Box<Tunn>) {
         use base64::Engine as _;
@@ -630,7 +645,7 @@ mod tests {
         (std::sync::Arc::new(tunnel), peer_socket, peer)
     }
 
-    fn spawn_consume(tunnel: &std::sync::Arc<WireGuardTunnel>) -> tokio::task::JoinHandle<io::Error> {
+    pub(super) fn spawn_consume(tunnel: &std::sync::Arc<WireGuardTunnel>) -> tokio::task::JoinHandle<io::Error> {
         let tunnel = tunnel.clone();
         tokio::spawn(async move { tunnel.consume_task(Bus::new()).await })
     }
@@ -836,7 +851,7 @@ mod tests {
     /// # Cancel safety:
     /// NOT cancel-safe: the test owns a receive task and aborts it after the bounded exchange.
     #[tokio::test]
-    async fn authenticated_response_from_foreign_udp_port_cannot_establish_the_tunnel() {
+    async fn authenticated_response_from_new_udp_port_establishes_the_tunnel() {
         let (tunnel, socket, mut peer) =
             tunnel_and_peer_with_config(WarpAmneziaConfig { enabled: true, ..Default::default() }).await;
         let consumer = spawn_consume(&tunnel);
@@ -850,13 +865,7 @@ mod tests {
             };
             let foreign = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
             foreign.send_to(response, client).await.unwrap();
-            assert!(
-                tokio::time::timeout(Duration::from_millis(100), socket.recv(&mut datagram)).await.is_err(),
-                "a foreign response must not produce confirmation"
-            );
-            assert!(!tunnel.is_handshake_established());
-            socket.send_to(response, client).await.unwrap();
-            let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
+            let (size, _) = foreign.recv_from(&mut datagram).await.unwrap();
             assert_eq!(&datagram[..4], &[4, 0, 0, 0]);
             assert!(size >= 32);
             assert!(tunnel.is_handshake_established());
@@ -864,7 +873,7 @@ mod tests {
         .await;
         consumer.abort();
         let _ = consumer.await;
-        result.expect("source-bound receive");
+        result.expect("authenticated endpoint roaming");
     }
 
     #[test]
@@ -887,3 +896,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "tunnel/roaming_tests.rs"]
+mod roaming_tests;
