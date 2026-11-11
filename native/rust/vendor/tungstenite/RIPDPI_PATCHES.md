@@ -14,3 +14,5 @@ The client checks for an exact Upgrade token, ignoring ASCII case, across comma-
 Request, endpoint, message, frame, and Close diagnostics record metadata in place of header values, URI paths, payload, or Close reasons. The wire data is unchanged. Regression coverage in ripdpi-ws-tunnel/tests/handshake_logging.rs captures the real log bridge and checks synthetic credentials, frames, and local redirects.
 
 The response verifier rejects repeated Sec-WebSocket-Accept and Sec-WebSocket-Protocol fields, including identical values and names with different case. RFC 6455 sections 11.3.3 and 11.3.4 require these fields to occur at most once. Connection fields remain repeatable. The handshake contract tests cover both sync and async clients.
+
+WS Upgrade validation rejects repeated field lines as well as comma lists. Their combined value does not equal the single websocket value required by RFC 6455 section 4.1. A single value with different ASCII case remains valid. This keeps extra selected protocols from bypassing the first-value check.

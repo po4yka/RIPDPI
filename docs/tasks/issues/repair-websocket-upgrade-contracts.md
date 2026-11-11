@@ -20,7 +20,7 @@ Repair confirmed TRN-09 transport defects without adding an outbound backend.
 
 ## Acceptance criteria
 
-- Reject unrequested WebSocket extensions and repeated singleton response fields; accept valid Connection token lists.
+- Reject unrequested WebSocket extensions, extra Upgrade values, and repeated singleton response fields; accept valid Connection token lists.
 - Preserve relay errors and complete peer Close replies before EOF.
 - Validate raw Upgrade requests and responses, including interim responses and retained payload.
 - Keep TLS identity checks and bounded buffering. Confirm or bound the recorded privacy and resource risks.

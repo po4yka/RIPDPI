@@ -235,6 +235,7 @@ impl VerifyData {
             .and_then(|h| h.to_str().ok())
             .map(|h| h.eq_ignore_ascii_case("websocket"))
             .unwrap_or(false)
+            || headers.get_all("Upgrade").iter().nth(1).is_some()
         {
             return Err(Error::Protocol(ProtocolError::MissingUpgradeWebSocketHeader));
         }

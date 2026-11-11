@@ -40,6 +40,15 @@ The client MUST reject repeated Sec-WebSocket-Accept and Sec-WebSocket-Protocol 
 - **WHEN** a response contains identical or conflicting Accept or Protocol fields, including names with different case
 - **THEN** the handshake fails before a carrier is returned
 
+### Requirement: REQ-WS-UPGRADE — Validate the complete selected Upgrade value
+
+The WS client MUST require one Upgrade value equal to websocket without ASCII case sensitivity, as required by [RFC 6455 section 4.1](https://www.rfc-editor.org/rfc/rfc6455.html#section-4.1). Repeated field lines form a combined value under [RFC 9110 section 5.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-5.2); the client MUST reject extra values in repeated lines or a comma list.
+
+#### Scenario: Reject an extra selected protocol
+
+- **WHEN** an otherwise valid response adds a second Upgrade field after websocket, including a field name with different case
+- **THEN** the handshake fails; a single WebSocket value with different ASCII case still succeeds
+
 ### Requirement: REQ-UPGRADE-RESPONSE — Validate raw Upgrade responses
 
 The raw transport MUST validate HTTP syntax, status, Connection, and the offered Upgrade protocol within a bounded header budget. It MUST retain post-head bytes and support bounded interim responses.

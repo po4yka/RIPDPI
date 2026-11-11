@@ -141,3 +141,35 @@ async fn handshake_async_rejects_repeated_protocol_response_fields() {
         assert!(result.is_err(), "repeated Protocol response field accepted: {extra}");
     }
 }
+
+#[test]
+fn handshake_validates_the_complete_upgrade_value() {
+    for (fields, valid) in [
+        ("Upgrade: WebSocket\r\n", true),
+        ("Upgrade: websocket, h2c\r\n", false),
+        ("Upgrade: websocket, websocket\r\n", false),
+        ("Upgrade: websocket\r\nUpgrade: h2c\r\n", false),
+        ("Upgrade: websocket\r\nuPgRaDe: h2c\r\n", false),
+        ("Upgrade: websocket\r\nUpgrade: websocket\r\n", false),
+    ] {
+        let head = response("Connection: keep-alive, Upgrade\r\n", "").replacen("Upgrade: websocket\r\n", fields, 1);
+        let (stream, peer) = raw_peer(head);
+        let result = tungstenite::client(request(), stream);
+        peer.join().expect("peer joins");
+        assert_eq!(result.is_ok(), valid, "unexpected Upgrade selection: {fields}");
+    }
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: each handshake owns its stream and publishes no carrier before validation.
+async fn handshake_async_rejects_repeated_upgrade_response_fields() {
+    for extra in ["Upgrade: h2c\r\n", "uPgRaDe: h2c\r\n", "Upgrade: websocket\r\n"] {
+        let (stream, peer) = raw_peer(response("Connection: keep-alive, Upgrade\r\n", extra));
+        stream.set_nonblocking(true).expect("nonblocking stream");
+        let stream = tokio::net::TcpStream::from_std(stream).expect("async stream");
+        let result = tokio_tungstenite::client_async(request(), stream).await;
+        peer.join().expect("peer joins");
+        assert!(result.is_err(), "repeated Upgrade response field accepted: {extra}");
+    }
+}
