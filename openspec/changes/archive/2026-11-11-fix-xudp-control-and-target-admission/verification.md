@@ -2,8 +2,8 @@
 task_id: TRN-1794371393565180
 change: fix-xudp-control-and-target-admission
 commit_sha: 2d256d7c6f9fde6264a6376776e55e06cd44c08b
-local: required
-local_evidence: Rebased code passes 164 unit tests, all-target Clippy, locked Cargo metadata, and both pinned-peer tests. The repeated source gate on the new base is pending.
+local: passed
+local_evidence: Rebased code passes 164 unit tests, all-target Clippy, locked Cargo metadata, both pinned-peer tests, and the repeated complete just ci-gates source gate.
 remote_ci: not_applicable
 remote_ci_evidence: Hosted CI is not an acceptance gate for this local codec repair; local source gates and peer tests are required. No hosted result is claimed.
 device: not_applicable
@@ -32,5 +32,5 @@ deployment_evidence: No deployment is owned by this change.
 - Pinned upstream Xray 0afec66085a85191e9dd2a4a6646c7c9a94688d1: xudp_two_targets_exchange_with_upstream passed with invalid targets before NEW and between accepted datagrams. The production relay-core vless_reality_xhttp_xudp_with_upstream test passed for stream-up and stream-one. Each selected invocation executed one test with zero failures and zero ignored tests.
 - Cargo metadata --locked --format-version 1 passed on the recorded code revision. Full log: /tmp/trn03-combined-validation.log; runner: /tmp/trn03-fixed-interop.py.
 - Independent pr-reviewer and async-cancel-safety reviews found no unresolved findings. The IP literal compatibility regression found during review was corrected and re-reviewed before the F2 commit.
-- The earlier just ci-gates run passed. The same complete gate is running again after rebasing onto c3ebd14b10f6778d7946bd2425cb501dec037a64. No updated-base pass is claimed yet.
+- The complete just ci-gates command passed again after rebasing onto c3ebd14b10f6778d7946bd2425cb501dec037a64. Log: /tmp/trn03-rebased-ci-gates.log. Source-gate HEAD was 9eb61d9b27af8be3166e8ba28cb28b3e1de7ad77, a documentation-only commit after the recorded code revision. The Linux-owned runtime-platform API snapshot is explicitly skipped on Darwin.
 - No device, external server, real profile, root activation, release artifact, or production deployment was used. Evidence establishes host codec and concrete loopback-peer behavior.

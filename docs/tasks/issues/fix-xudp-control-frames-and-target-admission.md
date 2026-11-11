@@ -2,7 +2,7 @@
 id: TRN-1794371393565180
 title: Fix XUDP control frames and target admission
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Transport maintainer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: fix-xudp-control-and-target-admission
 created: 2026-11-11
 updated: 2026-11-11
+closed_at: "2026-11-11T05:04:15Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 164 crate tests, all-target Clippy, two pinned Xray loopback tests, repeated source gates, locked metadata, and independent reviews passed.
 ---
 
 ## Goal

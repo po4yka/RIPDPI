@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-11T05:04:15Z",
+  "change": "fix-xudp-control-and-target-admission",
+  "commit_sha": "2d256d7c6f9fde6264a6376776e55e06cd44c08b",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "TRN-1794371393565180"
+}
