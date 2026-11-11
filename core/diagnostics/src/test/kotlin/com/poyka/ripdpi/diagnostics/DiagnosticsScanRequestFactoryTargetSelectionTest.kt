@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeTransportQuic
@@ -23,6 +22,64 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsScanRequestFactoryTargetSelectionTest {
+    @Test
+    fun `automatic request encodes the learned compact target set before prefix budgeting`() =
+        runTest {
+            val settings = defaultDiagnosticsAppSettings()
+            val optimizer = DiagnosticsTargetOptimizer()
+            val hosts = listOf("control.example", "slow.example", "fast.example", "other.example")
+            val fingerprint = FakeNetworkFingerprintProvider().capture().scopeKey()
+            val now = System.currentTimeMillis()
+            repeat(3) { index ->
+                optimizer.record(
+                    fingerprint,
+                    ScanReport(
+                        sessionId = "$index",
+                        profileId = "ru-dpi-strategy",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        startedAt = now - 10,
+                        finishedAt = now - index,
+                        summary = "",
+                        strategyProbeReport = StrategyProbeReport("quick_v1"),
+                        results =
+                            hosts.map { host ->
+                                ProbeResult(
+                                    "strategy_https",
+                                    "Plain direct · $host",
+                                    "tls_ok",
+                                    listOf(
+                                        ProbeDetail("candidateId", "baseline_plain_direct"),
+                                        ProbeDetail("latencyMs", if (host == "slow.example") "100" else "1"),
+                                    ),
+                                )
+                            },
+                    ),
+                    settings.toBuilder().setDiagnosticsActiveProfileId("ru-dpi-strategy").build(),
+                )
+            }
+            val request =
+                prepareStrategyProbeRequest(
+                    settings = settings,
+                    profileId = "automatic-probing",
+                    domainTargets = hosts.map { DomainTarget(it, isControl = it == "control.example") },
+                    quicTargets = emptyList(),
+                    scanOrigin = DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND,
+                    targetOptimizer = optimizer,
+                )
+            assertEquals(
+                listOf("control.example", "fast.example", "other.example"),
+                request.domainTargets.map { it.host },
+            )
+            assertEquals(
+                request.domainTargets.map { it.host },
+                request.probeTasks
+                    .filter {
+                        it.family ==
+                            com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily.WEB
+                    }.map { it.targetId },
+            )
+        }
+
     @Test
     fun `automatic audit request selects one cohort and records target selection`() =
         runTest {
@@ -491,6 +548,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
         scanOrigin: DiagnosticsScanOrigin = DiagnosticsScanOrigin.USER_INITIATED,
         maxCandidates: Int? = null,
+        targetOptimizer: DiagnosticsTargetOptimizer = DiagnosticsTargetOptimizer(),
     ): com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire {
         val json = diagnosticsTestJson()
         val intent =
@@ -505,19 +563,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 throughputTargets = throughputTargets,
                 strategyProbeTargetCohorts = strategyProbeTargetCohorts,
             )
-        val contextSnapshot = FakeDiagnosticsContextProvider().captureContextForTest()
-        val context =
-            com.poyka.ripdpi.diagnostics.domain.ScanContext(
-                settings = settings,
-                pathMode = ScanPathMode.RAW_PATH,
-                networkFingerprint = null,
-                preferredDnsPath = preferredDnsPath,
-                preferredEdges = preferredEdges,
-                networkSnapshot = null,
-                serviceMode = com.poyka.ripdpi.data.Mode.VPN.name,
-                contextSnapshot = contextSnapshot,
-                approachSnapshot = createStoredApproachSnapshot(json, settings, null, contextSnapshot),
-            )
+        val context = strategyProbeContext(settings, preferredDnsPath, preferredEdges)
         val factory =
             DiagnosticsScanRequestFactory(
                 networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
@@ -538,6 +584,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                 engineRequestEncoder = DefaultEngineRequestEncoder(),
                 activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
+                targetOptimizer = targetOptimizer,
                 json = json,
             )
 

@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use crate::types::ResolverOracleObservation;
 
-use super::oracle_policy;
+use super::{calibration::Weights, oracle_policy};
 
 const INITIAL_SUCCESS_RATE: f64 = 0.5;
 const INITIAL_LATENCY_MS: f64 = 200.0;
@@ -106,10 +106,18 @@ impl HealthScore {
 
     /// Composite score in 0.0..1.0 (higher is better), using values decayed to `now`.
     pub(super) fn composite_score(&self, half_life: Duration, now: Instant) -> f64 {
+        self.weighted_score(Weights::default(), half_life, now)
+    }
+
+    pub(super) fn features(&self, half_life: Duration, now: Instant) -> [f64; 3] {
         let (success_rate, latency_ms) = self.decayed_transport(half_life, now);
         let oracle_score = self.decayed_oracle(half_life, now);
         let latency_score = 1.0 - (latency_ms / LATENCY_SCORE_CAP_MS).clamp(0.0, 1.0);
-        success_rate * 0.55 + latency_score * 0.25 + oracle_score * 0.20
+        [success_rate, latency_score, oracle_score]
+    }
+
+    pub(super) fn weighted_score(&self, weights: Weights, half_life: Duration, now: Instant) -> f64 {
+        weights.score(self.features(half_life, now))
     }
 
     fn bump_disagreement_streak(&mut self, now: Instant, half_life: Duration) {

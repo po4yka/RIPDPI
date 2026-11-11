@@ -232,6 +232,7 @@ internal fun createDiagnosticsServices(
             scope = scope,
             json = json,
         )
+    val targetOptimizer = DiagnosticsTargetOptimizer()
     val requestFactory =
         DiagnosticsScanRequestFactory(
             networkEpochProvider = FakeDiagnosticsNetworkEpochProvider(),
@@ -253,6 +254,7 @@ internal fun createDiagnosticsServices(
             diagnosticsPlanner = DefaultDiagnosticsPlanner(),
             engineRequestEncoder = DefaultEngineRequestEncoder(),
             activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
+            targetOptimizer = targetOptimizer,
             json = json,
         )
     val activeScanRegistry = ActiveScanRegistry(timelineSource, bridgeMutex)
@@ -277,9 +279,7 @@ internal fun createDiagnosticsServices(
                     context = context,
                     scanRecordStore = stores,
                     artifactWriteStore = stores,
-                    networkMetadataProvider = networkMetadataProvider,
                     networkFingerprintProvider = networkFingerprintProvider,
-                    diagnosticsContextProvider = diagnosticsContextProvider,
                     serviceStateStore = serviceStateStore,
                     resolverOverrideStore = resolverOverrideStore,
                     rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
@@ -287,6 +287,14 @@ internal fun createDiagnosticsServices(
                     networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
                     serverCapabilityStore = serverCapabilityStore,
                     rawPathSettlementBarrier = rawPathSettlementBarrier,
+                    postScanRecorder =
+                        DiagnosticsPostScanRecorder(
+                            stores,
+                            networkMetadataProvider,
+                            diagnosticsContextProvider,
+                            json,
+                        ),
+                    targetOptimizer = targetOptimizer,
                     json = json,
                 ),
             scanRequestFactory = requestFactory,

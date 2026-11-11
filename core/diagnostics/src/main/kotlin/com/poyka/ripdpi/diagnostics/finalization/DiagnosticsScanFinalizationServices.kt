@@ -34,7 +34,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -53,9 +52,7 @@ class ScanFinalizationService
         private val context: Context,
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactWriteStore: DiagnosticsArtifactWriteStore,
-        private val networkMetadataProvider: NetworkMetadataProvider,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
-        private val diagnosticsContextProvider: DiagnosticsContextProvider,
         private val serviceStateStore: ServiceStateStore,
         private val resolverOverrideStore: ResolverOverrideStore,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
@@ -63,6 +60,8 @@ class ScanFinalizationService
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val serverCapabilityStore: ServerCapabilityStore,
         private val rawPathSettlementBarrier: RawPathSettlementBarrier,
+        private val postScanRecorder: DiagnosticsPostScanRecorder,
+        private val targetOptimizer: DiagnosticsTargetOptimizer,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -108,7 +107,7 @@ class ScanFinalizationService
                     json = json,
                     deferTerminal = true,
                 )
-                persistPostScanArtifacts(prepared)
+                postScanRecorder.persist(prepared)
                 // Report and context persistence can suspend while the physical network changes.
                 finalReport = enforceNetworkScope(prepared, finalReport)
                 if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
@@ -156,6 +155,12 @@ class ScanFinalizationService
             winningCombination: BypassCombinationCandidate?,
         ) {
             val fingerprint = prepared.networkFingerprint ?: return
+            if (
+                prepared.scanOrigin == DiagnosticsScanOrigin.USER_INITIATED &&
+                prepared.hasCurrentNetworkScope(networkFingerprintProvider)
+            ) {
+                targetOptimizer.record(fingerprint.scopeKey(), report, prepared.settings)
+            }
             rememberEdgeProbeResults(prepared, fingerprint, report)
             if (prepared.hasCurrentNetworkScope(networkFingerprintProvider)) {
                 rememberCapabilityEvidence(prepared, fingerprint, report)
@@ -345,38 +350,6 @@ class ScanFinalizationService
                     recordedAt = report.finishedAt,
                 )
             }
-        }
-
-        private suspend fun persistPostScanArtifacts(prepared: PreparedDiagnosticsScan) {
-            val now = System.currentTimeMillis()
-            artifactWriteStore.upsertSnapshot(
-                com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity(
-                    id = UUID.randomUUID().toString(),
-                    sessionId = prepared.sessionId,
-                    snapshotKind = "post_scan",
-                    payloadJson =
-                        json.encodeToString(
-                            NetworkSnapshotModel.serializer(),
-                            networkMetadataProvider.captureSnapshot(
-                                includePublicIp = prepared.includePublicIpInSnapshots,
-                            ),
-                        ),
-                    capturedAt = now,
-                ),
-            )
-            artifactWriteStore.upsertContextSnapshot(
-                com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity(
-                    id = UUID.randomUUID().toString(),
-                    sessionId = prepared.sessionId,
-                    contextKind = "post_scan",
-                    payloadJson =
-                        json.encodeToString(
-                            DiagnosticContextModel.serializer(),
-                            diagnosticsContextProvider.captureContext(),
-                        ),
-                    capturedAt = now,
-                ),
-            )
         }
 
         private fun planTemporaryResolverOverride(
