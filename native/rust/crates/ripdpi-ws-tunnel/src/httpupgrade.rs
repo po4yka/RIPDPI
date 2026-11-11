@@ -51,6 +51,9 @@ use std::task::{Context, Poll};
 
 use bytes::{Buf, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
+use tungstenite::handshake::client::Response;
+use tungstenite::handshake::machine::TryParse;
+use tungstenite::http::header::{CONNECTION, HeaderName, UPGRADE};
 
 /// Default `Upgrade` protocol token. `websocket` is what Xray/sing-box send
 /// by default so the handshake is indistinguishable from a WebSocket upgrade
@@ -61,6 +64,7 @@ const DEFAULT_UPGRADE_PROTOCOL: &str = "websocket";
 /// replies with a tiny `101` head; anything past this is a hostile or broken
 /// peer and is rejected rather than buffered unbounded.
 const MAX_RESPONSE_HEAD_LEN: usize = 8 * 1024;
+const MAX_INTERIM_RESPONSES: usize = 8;
 
 /// The HTTP/1.1 header terminator (`CRLF CRLF`).
 const HEADER_TERMINATOR: &[u8] = b"\r\n\r\n";
@@ -233,54 +237,110 @@ pub struct UpgradeResponse {
     pub leftover: Vec<u8>,
 }
 
-/// Parse and validate an HTTP/1.1 upgrade response from `buffer`.
+/// Parse an HTTP/1.1 response that confirms the default `websocket` upgrade.
 ///
-/// `buffer` is everything read from the inner stream so far. Returns:
-///
-/// * `Ok(Some(response))` -- a complete `101` response head was found; any
-///   trailing bytes are returned as [`UpgradeResponse::leftover`].
-/// * `Ok(None)` -- the head is not yet complete (`CRLF CRLF` not seen);
-///   the caller should read more bytes and retry.
-/// * `Err(_)` -- the status line is malformed, the status is not `101`, or
-///   the buffered head exceeds [`MAX_RESPONSE_HEAD_LEN`].
+/// The aggregate response heads are limited to 8 KiB and at most eight interim
+/// responses. Returns `None` while the final head is incomplete. Bytes after
+/// the final `101` head are retained in [`UpgradeResponse::leftover`].
+/// [`HttpUpgradeTransport::connect`] also checks a configured custom protocol.
 pub fn parse_upgrade_response(buffer: &[u8]) -> Result<Option<UpgradeResponse>, HttpUpgradeError> {
-    let Some(terminator) = find_subsequence(buffer, HEADER_TERMINATOR) else {
-        if buffer.len() > MAX_RESPONSE_HEAD_LEN {
-            return Err(HttpUpgradeError::MalformedResponse(format!(
-                "response head exceeded {MAX_RESPONSE_HEAD_LEN} bytes without a CRLF CRLF terminator"
-            )));
+    parse_upgrade_response_for_protocol(buffer, DEFAULT_UPGRADE_PROTOCOL)
+}
+
+fn parse_upgrade_response_for_protocol(
+    buffer: &[u8],
+    protocol: &str,
+) -> Result<Option<UpgradeResponse>, HttpUpgradeError> {
+    let mut consumed = 0;
+    let mut interim_count = 0;
+    loop {
+        let pending = &buffer[consumed..];
+        let Some(terminator) = find_subsequence(pending, HEADER_TERMINATOR) else {
+            if buffer.len() > MAX_RESPONSE_HEAD_LEN {
+                return Err(malformed_response("response heads exceeded 8 KiB"));
+            }
+            return Ok(None);
+        };
+        let head_len = terminator + HEADER_TERMINATOR.len();
+        if consumed + head_len > MAX_RESPONSE_HEAD_LEN {
+            return Err(malformed_response("response heads exceeded 8 KiB"));
         }
-        return Ok(None);
-    };
-    if terminator + HEADER_TERMINATOR.len() > MAX_RESPONSE_HEAD_LEN {
-        return Err(HttpUpgradeError::MalformedResponse(format!(
-            "response head exceeded {MAX_RESPONSE_HEAD_LEN} bytes"
-        )));
+        let Some((parsed_len, response)) = Response::try_parse(&pending[..head_len])
+            .map_err(|_| malformed_response("invalid HTTP/1.1 response head"))?
+        else {
+            return Err(malformed_response("incomplete HTTP/1.1 response head"));
+        };
+        if parsed_len == 0 || parsed_len != head_len {
+            return Err(malformed_response("invalid HTTP/1.1 response head length"));
+        }
+        consumed += parsed_len;
+        let status = response.status().as_u16();
+        if status == 101 {
+            validate_upgrade_headers(&response, protocol)?;
+            return Ok(Some(UpgradeResponse { leftover: buffer[consumed..].to_vec() }));
+        }
+        if !(100..200).contains(&status) {
+            return Err(HttpUpgradeError::UnexpectedStatus(status));
+        }
+        interim_count += 1;
+        if interim_count > MAX_INTERIM_RESPONSES {
+            return Err(malformed_response("too many interim HTTP responses"));
+        }
     }
-    let head = &buffer[..terminator];
-    let leftover = buffer[terminator + HEADER_TERMINATOR.len()..].to_vec();
+}
 
-    // The status line is the first CRLF-delimited line of the head.
-    let status_line_end = find_subsequence(head, b"\r\n").unwrap_or(head.len());
-    let status_line = std::str::from_utf8(&head[..status_line_end])
-        .map_err(|_| HttpUpgradeError::MalformedResponse("status line is not valid UTF-8".to_string()))?;
-
-    // Expected shape: `HTTP/1.1 101 Switching Protocols`.
-    let mut parts = status_line.split_whitespace();
-    let version = parts.next().ok_or_else(|| HttpUpgradeError::MalformedResponse("empty status line".to_string()))?;
-    if !version.starts_with("HTTP/1") {
-        return Err(HttpUpgradeError::MalformedResponse(format!("unexpected HTTP version `{version}` in status line")));
+fn validate_upgrade_headers(response: &Response, protocol: &str) -> Result<(), HttpUpgradeError> {
+    let mut connection_upgrade = false;
+    for value in response.headers().get_all(CONNECTION) {
+        let value = value.to_str().map_err(|_| malformed_response("invalid Connection field"))?;
+        for token in value.split(',').map(str::trim_ascii).filter(|token| !token.is_empty()) {
+            if HeaderName::from_bytes(token.as_bytes()).is_err() {
+                return Err(malformed_response("invalid Connection token"));
+            }
+            connection_upgrade |= token.eq_ignore_ascii_case("upgrade");
+        }
     }
-    let status_code: u16 = parts
-        .next()
-        .ok_or_else(|| HttpUpgradeError::MalformedResponse("status line missing status code".to_string()))?
-        .parse()
-        .map_err(|_| HttpUpgradeError::MalformedResponse("status code is not a number".to_string()))?;
-    if status_code != 101 {
-        return Err(HttpUpgradeError::UnexpectedStatus(status_code));
+    if !connection_upgrade {
+        return Err(malformed_response("response does not confirm Connection: Upgrade"));
     }
 
-    Ok(Some(UpgradeResponse { leftover }))
+    let mut selected = None;
+    for value in response.headers().get_all(UPGRADE) {
+        let value = value.to_str().map_err(|_| malformed_response("invalid Upgrade field"))?;
+        for token in value.split(',').map(str::trim_ascii).filter(|token| !token.is_empty()) {
+            if selected.replace(token).is_some() {
+                return Err(malformed_response("response selected more than one Upgrade protocol"));
+            }
+        }
+    }
+    if !selected.is_some_and(|selected| upgrade_protocol_matches(selected, protocol)) {
+        return Err(malformed_response("response does not confirm the requested Upgrade protocol"));
+    }
+    Ok(())
+}
+
+fn upgrade_protocol_parts(protocol: &str) -> Option<(&str, Option<&str>)> {
+    let (name, version) = protocol.split_once('/').map_or((protocol, None), |(name, version)| (name, Some(version)));
+    if HeaderName::from_bytes(name.as_bytes()).is_err()
+        || version.is_some_and(|version| HeaderName::from_bytes(version.as_bytes()).is_err())
+    {
+        return None;
+    }
+    Some((name, version))
+}
+
+fn upgrade_protocol_matches(selected: &str, requested: &str) -> bool {
+    match (upgrade_protocol_parts(selected), upgrade_protocol_parts(requested)) {
+        (Some((selected_name, selected_version)), Some((requested_name, requested_version))) => {
+            // RFC 9110 section 7.8 folds protocol names; the configured version remains exact.
+            selected_name.eq_ignore_ascii_case(requested_name) && selected_version == requested_version
+        }
+        _ => false,
+    }
+}
+
+fn malformed_response(message: &str) -> HttpUpgradeError {
+    HttpUpgradeError::MalformedResponse(message.to_string())
 }
 
 /// Find the first index of `needle` within `haystack`, if any.
@@ -319,6 +379,11 @@ where
     /// `inner` is consumed: it must already be connected (and, for `wss`-like
     /// profiles, already wrapped in TLS) -- this method only runs the
     /// HTTP/1.1 upgrade exchange on top of it.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can leave a partial request or response.
+    /// An owned stream is dropped. If `S` borrows a stream, discard that stream
+    /// after cancellation or a handshake error instead of using it again.
     pub async fn connect(mut inner: S, config: &HttpUpgradeConfig) -> Result<Self, HttpUpgradeError> {
         let request = build_upgrade_request(config)?;
         inner.write_all(&request).await?;
@@ -327,7 +392,7 @@ where
         let mut buffer = BytesMut::with_capacity(1024);
         let mut chunk = [0u8; 1024];
         loop {
-            match parse_upgrade_response(&buffer)? {
+            match parse_upgrade_response_for_protocol(&buffer, config.upgrade_protocol())? {
                 Some(response) => {
                     return Ok(Self { inner, leftover: BytesMut::from(&response.leftover[..]) });
                 }
@@ -500,7 +565,7 @@ mod tests {
     #[test]
     fn parse_response_returns_leftover_pipelined_bytes() {
         // A server that pipelines its first payload chunk right after the head.
-        let raw = b"HTTP/1.1 101 Switching Protocols\r\n\r\nFIRST-PAYLOAD";
+        let raw = b"HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\nFIRST-PAYLOAD";
         let parsed = parse_upgrade_response(raw).expect("parse ok").expect("complete");
         assert_eq!(parsed.leftover, b"FIRST-PAYLOAD");
     }
@@ -549,11 +614,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_response_accepts_http10_version() {
-        // sing-box servers occasionally answer the upgrade with HTTP/1.0.
-        let raw = b"HTTP/1.0 101 Switching Protocols\r\n\r\n";
-        let parsed = parse_upgrade_response(raw).expect("parse ok").expect("complete");
-        assert!(parsed.leftover.is_empty());
+    fn parse_response_rejects_http10_version() {
+        let raw = b"HTTP/1.0 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n";
+        assert!(matches!(parse_upgrade_response(raw), Err(HttpUpgradeError::MalformedResponse(_))));
     }
 
     // --- HttpUpgradeTransport handshake + AsyncRead/AsyncWrite --------------
@@ -572,7 +635,7 @@ mod tests {
             }
         }
         server
-            .write_all(b"HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\n\r\n")
+            .write_all(b"HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n")
             .await
             .expect("server write 101");
         server.flush().await.expect("server flush");
@@ -628,7 +691,12 @@ mod tests {
                     break;
                 }
             }
-            server.write_all(b"HTTP/1.1 101 Switching Protocols\r\n\r\nPIPELINED").await.expect("write 101 + payload");
+            server
+                .write_all(
+                    b"HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\nPIPELINED",
+                )
+                .await
+                .expect("write 101 + payload");
             server.flush().await.expect("flush");
             // Hold the stream open until the client signals it is done.
             let _ = release_rx.await;
@@ -772,3 +840,6 @@ mod tests {
         server_task.await.expect("server task");
     }
 }
+
+#[cfg(test)]
+mod response_tests;
