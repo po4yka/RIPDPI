@@ -2,7 +2,7 @@
 id: TRN-1794371393565180
 title: Fix XUDP control frames and target admission
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Transport maintainer
