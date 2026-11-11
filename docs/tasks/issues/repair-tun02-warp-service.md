@@ -2,7 +2,7 @@
 id: TRN-1794384538458949
 title: Repair the TUN-02 WARP service findings
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: WARP repair coordinator
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: repair-tun02-warp-service
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-12
 ---
 
 ## Goal
