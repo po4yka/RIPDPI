@@ -292,6 +292,7 @@ mod tests {
                 persistent_keepalive: None,
                 persistent_keepalive_max: None,
                 endpoint: addr,
+                fallback_endpoints: Vec::new(),
                 reserved: [0; 3],
                 source_peer_ip: "10.77.0.2".parse().expect("source"),
                 source_peer_ipv6: None,

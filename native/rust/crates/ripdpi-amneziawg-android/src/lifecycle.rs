@@ -56,11 +56,12 @@ pub(crate) fn start(handle: jlong) -> jint {
     let Some(session) = registry::get(handle) else {
         return 1;
     };
-    match tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .and_then(|runtime| runtime.block_on(session.run()).map(|_| ()))
-    {
+    match tokio::runtime::Builder::new_multi_thread().enable_all().build().and_then(|runtime| {
+        let result = runtime.block_on(session.run()).map(|_| ());
+        // A cancelled system DNS lookup may still occupy the blocking pool.
+        runtime.shutdown_background();
+        result
+    }) {
         Ok(()) => 0,
         Err(_) => 2,
     }

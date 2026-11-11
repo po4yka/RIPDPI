@@ -311,66 +311,95 @@ pub struct WarpTelemetry {
     pub captured_at: u64,
 }
 
-pub(crate) fn resolve_sync_host(host: &str, port: u16) -> io::Result<SocketAddr> {
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        return Ok(SocketAddr::new(ip, port));
+pub(crate) fn preferred_endpoint_candidates(addresses: Vec<SocketAddr>) -> io::Result<Vec<SocketAddr>> {
+    if addresses.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "no endpoint address resolved"));
     }
-    (host, port)
-        .to_socket_addrs()?
-        .find(SocketAddr::is_ipv4)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no IPv4 address resolved"))
+    let (ipv4, ipv6): (Vec<_>, Vec<_>) = addresses.into_iter().partition(SocketAddr::is_ipv4);
+    let (mut ipv4, mut ipv6) = (ipv4.into_iter(), ipv6.into_iter());
+    let mut ordered = Vec::with_capacity(ipv4.len() + ipv6.len());
+    loop {
+        let pair = (ipv4.next(), ipv6.next());
+        if pair == (None, None) {
+            break;
+        }
+        ordered.extend(pair.0);
+        ordered.extend(pair.1);
+    }
+    Ok(ordered)
 }
 
-pub(crate) fn resolve_host_for_family(host: &str, port: u16, family: Domain) -> io::Result<SocketAddr> {
-    if let Ok(ip) = host.parse::<IpAddr>() {
-        let matches_family = match family {
-            Domain::IPV4 => ip.is_ipv4(),
-            Domain::IPV6 => ip.is_ipv6(),
-            _ => true,
-        };
-        if matches_family {
-            return Ok(SocketAddr::new(ip, port));
-        }
-    }
-    let predicate: fn(&SocketAddr) -> bool = match family {
-        Domain::IPV6 => SocketAddr::is_ipv6,
-        _ => SocketAddr::is_ipv4,
+fn resolve_host_candidates(host: &str, port: u16, family: Option<Domain>) -> io::Result<Vec<SocketAddr>> {
+    let addresses = match host.parse::<IpAddr>() {
+        Ok(ip) => vec![SocketAddr::new(ip, port)],
+        Err(_) => (host, port).to_socket_addrs()?.collect(),
     };
-    (host, port)
-        .to_socket_addrs()?
-        .find(predicate)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no endpoint address resolved"))
+    preferred_endpoint_candidates(
+        addresses
+            .into_iter()
+            .filter(|address| match family {
+                Some(Domain::IPV4) => address.is_ipv4(),
+                Some(Domain::IPV6) => address.is_ipv6(),
+                _ => true,
+            })
+            .collect(),
+    )
 }
 
 /// Upper bound for the system resolver lookup of an endpoint host name.
 const ENDPOINT_RESOLVE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
-/// Resolve the peer endpoint. A host name lookup runs on the blocking pool with
-/// [`ENDPOINT_RESOLVE_TIMEOUT`], so it neither blocks the thread that polls the
-/// runtime nor hides a stop request until the system resolver gives up.
+/// Resolve both peer endpoint families, alternating families with IPv4 first.
 ///
-/// # Cancel safety
-/// cancel-safe: dropping it detaches the blocking lookup, whose result is discarded.
-pub(crate) async fn resolve_endpoint(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<SocketAddr> {
+/// # Cancel safety:
+/// cancel-safe: dropping it detaches the blocking lookup and discards its result.
+/// The runtime owner must not wait for detached blocking tasks during shutdown.
+pub(crate) async fn resolve_endpoint_candidates(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<Vec<SocketAddr>> {
     let port = u16::try_from(endpoint.port)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid WARP endpoint port"))?;
-    let (host, family) = if let Some(ipv4) = endpoint.ipv4.as_deref().filter(|value| !value.is_empty()) {
-        (ipv4, Some(Domain::IPV4))
-    } else if let Some(ipv6) = endpoint.ipv6.as_deref().filter(|value| !value.is_empty()) {
-        (ipv6, Some(Domain::IPV6))
-    } else {
-        (endpoint.host.as_str(), None)
-    };
-    let host = host.to_owned();
-    let lookup = tokio::task::spawn_blocking(move || match family {
-        Some(family) => resolve_host_for_family(&host, port, family),
-        None => resolve_sync_host(&host, port),
+    let mut hosts = Vec::new();
+    if let Some(ipv4) = endpoint.ipv4.as_deref().filter(|value| !value.is_empty()) {
+        hosts.push((ipv4.to_owned(), Some(Domain::IPV4)));
+    }
+    if let Some(ipv6) = endpoint.ipv6.as_deref().filter(|value| !value.is_empty()) {
+        hosts.push((ipv6.to_owned(), Some(Domain::IPV6)));
+    }
+    if hosts.is_empty() {
+        hosts.push((endpoint.host.clone(), None));
+    }
+    let lookup = tokio::task::spawn_blocking(move || {
+        let mut addresses = Vec::new();
+        let mut last_error = None;
+        for (host, family) in hosts {
+            match resolve_host_candidates(&host, port, family) {
+                Ok(resolved) => addresses.extend(resolved),
+                Err(error) => last_error = Some(error),
+            }
+        }
+        if addresses.is_empty()
+            && let Some(error) = last_error
+        {
+            return Err(error);
+        }
+        preferred_endpoint_candidates(addresses)
     });
     match tokio::time::timeout(ENDPOINT_RESOLVE_TIMEOUT, lookup).await {
         Ok(Ok(resolved)) => resolved,
         Ok(Err(join_error)) => Err(io::Error::other(format!("endpoint lookup task failed: {join_error}"))),
         Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "endpoint lookup timed out")),
     }
+}
+
+/// Select the preferred address for a one-shot endpoint probe.
+///
+/// # Cancel safety:
+/// cancel-safe: dropping it discards the result of the bounded resolver lookup.
+pub(crate) async fn resolve_endpoint(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<SocketAddr> {
+    resolve_endpoint_candidates(endpoint)
+        .await?
+        .into_iter()
+        .next()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no endpoint address resolved"))
 }
 
 pub(crate) fn parse_ipv4_cidr(value: Option<&str>) -> Option<IpAddr> {
@@ -395,6 +424,35 @@ mod tests {
             port,
             source: "test".to_string(),
         }
+    }
+
+    #[test]
+    fn endpoint_candidates_accept_aaaa_only_and_keep_ipv4_preference() {
+        let v6: SocketAddr = "[2001:db8::1]:51820".parse().unwrap();
+        let v4: SocketAddr = "192.0.2.1:51820".parse().unwrap();
+        assert_eq!(preferred_endpoint_candidates(vec![v6]).unwrap(), vec![v6]);
+        assert_eq!(preferred_endpoint_candidates(vec![v6, v4]).unwrap(), vec![v4, v6]);
+        let v4b: SocketAddr = "192.0.2.2:51820".parse().unwrap();
+        let v4c: SocketAddr = "192.0.2.3:51820".parse().unwrap();
+        let v4d: SocketAddr = "192.0.2.4:51820".parse().unwrap();
+        let v6b: SocketAddr = "[2001:db8::2]:51820".parse().unwrap();
+        assert_eq!(preferred_endpoint_candidates(vec![v6, v4, v6b, v4b]).unwrap(), vec![v4, v6, v4b, v6b]);
+        assert_eq!(preferred_endpoint_candidates(vec![v4, v4b, v4c, v4d, v6]).unwrap(), vec![v4, v6, v4b, v4c, v4d]);
+        assert_eq!(preferred_endpoint_candidates(Vec::new()).unwrap_err().kind(), io::ErrorKind::AddrNotAvailable);
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: this test only awaits a bounded numeric-address lookup.
+    #[tokio::test]
+    async fn endpoint_candidates_keep_both_explicit_families() {
+        let resolved =
+            resolve_endpoint_candidates(&endpoint("unused.invalid", Some("192.0.2.1"), Some("2001:db8::1"), 51820))
+                .await
+                .unwrap();
+        assert_eq!(
+            resolved,
+            vec!["192.0.2.1:51820".parse::<SocketAddr>().unwrap(), "[2001:db8::1]:51820".parse().unwrap()]
+        );
     }
 
     #[tokio::test]

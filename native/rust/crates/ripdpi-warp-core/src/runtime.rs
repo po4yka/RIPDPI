@@ -8,7 +8,7 @@ use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
 use crate::amneziawg_runtime::{parse_interface_ipv6, spawn_supervised};
-use crate::config::{ResolvedWarpRuntimeConfig, WarpTelemetry, now_ms, parse_ipv4_cidr, resolve_endpoint};
+use crate::config::{ResolvedWarpRuntimeConfig, WarpTelemetry, now_ms, parse_ipv4_cidr, resolve_endpoint_candidates};
 use crate::observe::TcpConnectObservation;
 use crate::platform::WarpPlatform;
 use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
@@ -130,6 +130,8 @@ impl WarpRuntime {
         }
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: shutdown must call `stop` and join this owner of the spawned tunnel tasks.
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
         if !self.config.enabled {
             return Ok(());
@@ -138,7 +140,8 @@ impl WarpRuntime {
             io::Error::new(io::ErrorKind::InvalidInput, "WARP runtime requires IPv4 interface address")
         })?;
         let source_peer_ipv6 = warp_source_ipv6(self.config.interface_address_v6.as_deref());
-        let endpoint = resolve_endpoint(&self.config.endpoint).await?;
+        let mut endpoints = resolve_endpoint_candidates(&self.config.endpoint).await?;
+        let endpoint = endpoints.remove(0);
         let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
         let tunnel = Arc::new(
             WireGuardTunnel::new(
@@ -153,6 +156,7 @@ impl WarpRuntime {
                     persistent_keepalive: self.config.amnezia.persistent_keepalive_opt(),
                     persistent_keepalive_max: None,
                     endpoint,
+                    fallback_endpoints: endpoints,
                     reserved,
                     source_peer_ip,
                     source_peer_ipv6,

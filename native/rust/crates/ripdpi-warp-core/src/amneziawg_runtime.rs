@@ -34,7 +34,7 @@ use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
 use crate::config::{
-    AwgV3Config, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, now_ms, parse_ipv4_cidr, resolve_endpoint,
+    AwgV3Config, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, now_ms, parse_ipv4_cidr, resolve_endpoint_candidates,
 };
 use crate::platform::WarpPlatform;
 use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
@@ -674,10 +674,11 @@ impl AmneziaWgRuntime {
     ) -> io::Result<WireGuardTunnel> {
         // A WS carrier never dials the UDP endpoint (the terminator does), so its host is
         // not resolved: that lookup would send the WireGuard server name in plaintext DNS.
-        let endpoint = match self.config.carrier {
-            AmneziaWgCarrierKind::Udp => resolve_endpoint(&self.endpoint_descriptor()).await?,
-            AmneziaWgCarrierKind::Ws => std::net::SocketAddr::from((std::net::Ipv4Addr::UNSPECIFIED, 0)),
+        let mut endpoints = match self.config.carrier {
+            AmneziaWgCarrierKind::Udp => resolve_endpoint_candidates(&self.endpoint_descriptor()).await?,
+            AmneziaWgCarrierKind::Ws => vec![std::net::SocketAddr::from((std::net::Ipv4Addr::UNSPECIFIED, 0))],
         };
+        let endpoint = endpoints.remove(0);
 
         let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
         let (keepalive, keepalive_max) =
@@ -700,6 +701,7 @@ impl AmneziaWgRuntime {
                 persistent_keepalive: keepalive,
                 persistent_keepalive_max: keepalive_max,
                 endpoint,
+                fallback_endpoints: endpoints,
                 // A generic AmneziaWG peer carries no Cloudflare reserved bytes.
                 reserved: [0u8; 3],
                 source_peer_ip,

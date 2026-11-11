@@ -17,7 +17,10 @@ pub(crate) fn probe(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jni::
                 .ok()
                 .and_then(|runtime| {
                     let platform = vpn_protect::warp_platform();
-                    runtime.block_on(ripdpi_warp_core::probe_endpoint_with_platform(request, &platform)).ok()
+                    let result = runtime.block_on(ripdpi_warp_core::probe_endpoint_with_platform(request, &platform));
+                    // Resolver timeout detaches the blocking system lookup.
+                    runtime.shutdown_background();
+                    result.ok()
                 })
                 .and_then(|result| serde_json::to_string(&result).ok());
             match payload {

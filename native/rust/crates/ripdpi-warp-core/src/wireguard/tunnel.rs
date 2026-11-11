@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::io;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
@@ -76,6 +77,8 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     pub persistent_keepalive_max: Option<u16>,
     /// Resolved UDP endpoint of the peer.
     pub endpoint: SocketAddr,
+    /// Other resolved addresses to try before peer authentication.
+    pub fallback_endpoints: Vec<SocketAddr>,
     /// The 3 WireGuard reserved bytes (WARP derives them from the Cloudflare
     /// client id; generic profiles pass `[0; 3]`).
     pub reserved: [u8; 3],
@@ -99,13 +102,52 @@ pub(crate) struct WireGuardTunnelParams<'a> {
 pub(crate) struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
     carrier: WgCarrier,
-    outbound: tokio::sync::Mutex<SocketAddr>,
+    outbound: tokio::sync::Mutex<OutboundState>,
     source_peer_ip: IpAddr,
     source_peer_ipv6: Option<Ipv6Addr>,
     reserved: [u8; 3],
     amnezia: Option<Arc<AwgWireCodec>>,
     handshake_readiness: HandshakeReadiness,
     carrier_cookie_id: [u8; 16],
+}
+
+struct OutboundState {
+    endpoints: VecDeque<SocketAddr>,
+    handshake_started: bool,
+}
+
+impl OutboundState {
+    fn new(endpoint: SocketAddr, fallback: Vec<SocketAddr>) -> Self {
+        let mut endpoints = VecDeque::from([endpoint]);
+        for address in fallback {
+            if !endpoints.contains(&address) {
+                endpoints.push_back(address);
+            }
+        }
+        Self { endpoints, handshake_started: false }
+    }
+
+    fn destination(&mut self, initiation: bool) -> SocketAddr {
+        if initiation {
+            if self.handshake_started {
+                self.endpoints.rotate_left(1);
+            }
+            self.handshake_started = true;
+        }
+        self.endpoints[0]
+    }
+
+    fn authenticated(&mut self, source: SocketAddr) {
+        self.endpoints = VecDeque::from([source]);
+        self.handshake_started = true;
+    }
+
+    fn accepted_cookie(&mut self, source: SocketAddr) {
+        if self.endpoints.front() == Some(&source) {
+            // Use the cookie at the configured address that issued it.
+            self.handshake_started = false;
+        }
+    }
 }
 
 /// The boringtun device ticks its timers every 250 ms; they are rounded to a second.
@@ -144,6 +186,7 @@ impl WireGuardTunnel {
             persistent_keepalive,
             persistent_keepalive_max,
             endpoint,
+            fallback_endpoints,
             reserved,
             source_peer_ip,
             source_peer_ipv6,
@@ -209,7 +252,7 @@ impl WireGuardTunnel {
         Ok(Self {
             peer: tokio::sync::Mutex::new(peer),
             carrier,
-            outbound: tokio::sync::Mutex::new(endpoint),
+            outbound: tokio::sync::Mutex::new(OutboundState::new(endpoint, fallback_endpoints)),
             source_peer_ip,
             source_peer_ipv6,
             reserved,
@@ -224,10 +267,11 @@ impl WireGuardTunnel {
     ///
     /// # Cancel safety:
     /// NOT cancel-safe: cancellation can stop a prelude after junk or leave a WS frame buffered.
+    /// An initiation can advance the unconfirmed endpoint before carrier I/O.
     /// The carrier finishes buffered frames on the next send; shutdown drops the carrier.
     async fn send_outbound_packet(&self, packet: &[u8], reply_to: Option<SocketAddr>) -> io::Result<()> {
-        let outbound = self.outbound.lock().await;
-        let destination = reply_to.unwrap_or(*outbound);
+        let mut outbound = self.outbound.lock().await;
+        let destination = reply_to.unwrap_or_else(|| outbound.destination(wireguard_message_type(packet) == Some(1)));
         let payload = self
             .encode_outbound_packet(packet)
             .ok_or_else(|| io::Error::other("AmneziaWG packet authentication failed"))?;
@@ -410,7 +454,12 @@ impl WireGuardTunnel {
                         | ReceiveOutcome::TransportIp
                 )
             {
-                *self.outbound.lock().await = source;
+                self.outbound.lock().await.authenticated(source);
+            }
+            if let Some(source) = received.source
+                && outcome == ReceiveOutcome::CookieAccepted
+            {
+                self.outbound.lock().await.accepted_cookie(source);
             }
             self.handshake_readiness.observe(outcome);
             if matches!(outcome, ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp) {
@@ -482,6 +531,7 @@ mod tests {
             persistent_keepalive: None,
             persistent_keepalive_max: None,
             endpoint: dummy_endpoint(),
+            fallback_endpoints: Vec::new(),
             reserved: [0u8; 3],
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
             source_peer_ipv6: None,
@@ -549,6 +599,7 @@ mod tests {
                     persistent_keepalive: None,
                     persistent_keepalive_max: None,
                     endpoint: receiver.local_addr().unwrap(),
+                    fallback_endpoints: Vec::new(),
                     reserved: [0; 3],
                     source_peer_ip: "10.77.0.2".parse().unwrap(),
                     source_peer_ipv6: None,
@@ -630,6 +681,7 @@ mod tests {
                 persistent_keepalive: None,
                 persistent_keepalive_max: None,
                 endpoint: peer_socket.local_addr().unwrap(),
+                fallback_endpoints: Vec::new(),
                 reserved: [0; 3],
                 source_peer_ip: "10.77.0.2".parse().unwrap(),
                 source_peer_ipv6: None,

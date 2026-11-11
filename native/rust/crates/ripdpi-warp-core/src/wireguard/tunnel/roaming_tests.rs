@@ -128,3 +128,53 @@ async fn provisional_cookie_challenge_replies_to_source_without_roaming() {
     let _ = consumer.await;
     result.expect("source-bound provisional cookie response");
 }
+
+/// # Cancel safety:
+/// NOT cancel-safe: this test stops both owned tunnel tasks after the bounded handshake.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn multiple_unanswered_ipv4_candidates_reach_ipv6_before_startup_deadline() {
+    let (tunnel, original, mut peer) = tunnel_and_peer_with_config(WarpAmneziaConfig::default()).await;
+    drop(original);
+    let mut silent = Vec::new();
+    for _ in 0..4 {
+        silent.push(UdpSocket::bind("127.0.0.1:0").await.unwrap());
+    }
+    let live = UdpSocket::bind("[::1]:0").await.unwrap();
+    let mut addresses: Vec<_> = silent.iter().map(|socket| socket.local_addr().unwrap()).collect();
+    addresses.push(live.local_addr().unwrap());
+    let mut addresses = crate::config::preferred_endpoint_candidates(addresses).unwrap();
+    let primary = addresses.remove(0);
+    *tunnel.outbound.lock().await = OutboundState::new(primary, addresses);
+    let consumer = super::tests::spawn_consume(&tunnel);
+    let ticking = Arc::clone(&tunnel);
+    let routine = tokio::spawn(async move { ticking.routine_task().await });
+    let result = tokio::time::timeout(Duration::from_secs(8), async {
+        let mut input = [0; 2048];
+        let mut output = [0; 2048];
+        tunnel.initiate_handshake().await.unwrap();
+        let size = silent[0].recv(&mut input).await.unwrap();
+        assert_eq!(size, 148);
+        let (size, client) = live.recv_from(&mut input).await.unwrap();
+        assert_eq!(size, 148);
+        let TunnResult::WriteToNetwork(response) = peer.decapsulate(None, &input[..size], &mut output) else {
+            panic!("IPv6 fallback handshake response");
+        };
+        live.send_to(response, client).await.unwrap();
+        let size = live.recv(&mut input).await.unwrap();
+        assert!(matches!(peer.decapsulate(None, &input[..size], &mut output), TunnResult::Done));
+        assert!(tunnel.is_handshake_established());
+        tunnel.initiate_handshake().await.unwrap();
+        let size = live.recv(&mut input).await.unwrap();
+        assert_eq!(&input[..4], &[1, 0, 0, 0]);
+        assert_eq!(size, 148);
+        for address in &silent {
+            assert!(tokio::time::timeout(Duration::from_millis(50), address.recv(&mut input)).await.is_err());
+        }
+    })
+    .await;
+    routine.abort();
+    let _ = routine.await;
+    consumer.abort();
+    let _ = consumer.await;
+    result.expect("IPv6 fallback before the eight-second test bound and the 15-second service deadline");
+}
