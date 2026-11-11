@@ -112,6 +112,9 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val endpointPort: Int,
     val interfaceAddressV4: String,
     val interfaceAddressV6: String = "",
+    /** Peer permissions; the producer always emits even the default policy. */
+    @Required
+    val allowedIps: List<String> = listOf("0.0.0.0/0", "::/0"),
     val mtu: Int = DefaultAmneziaWgTunnelMtu,
     val persistentKeepalive: Int = 0,
     /** High bound of an AWG 3.x keepalive range; `0` = fixed [persistentKeepalive]. */
@@ -129,7 +132,7 @@ data class ResolvedRipDpiAmneziaWgConfig(
             "endpointHost=${redact(endpointHost)}, endpointIpv4=${redact(endpointIpv4)}, " +
             "endpointIpv6=${redact(endpointIpv6)}, endpointPort=$endpointPort, " +
             "interfaceAddressV4=${redact(interfaceAddressV4)}, " +
-            "interfaceAddressV6=${redact(interfaceAddressV6)}, mtu=$mtu, " +
+            "interfaceAddressV6=${redact(interfaceAddressV6)}, allowedIps=<redacted>, mtu=$mtu, " +
             "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax, " +
             "amnezia=$amnezia, carrier=$carrier, carrierWsUrl=${redact(carrierWsUrl)}, " +
             "localSocksHost=$localSocksHost, localSocksPort=$localSocksPort)"

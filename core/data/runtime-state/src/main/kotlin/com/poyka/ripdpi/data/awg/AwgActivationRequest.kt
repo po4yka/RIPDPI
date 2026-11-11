@@ -22,7 +22,7 @@ import java.util.Base64
  *
  * Native fields mirror `ResolvedRipDpiAmneziaWgConfig`, including
  * [presharedKey] / [persistentKeepalive] and AmneziaWG 3.1 signature programs.
- * [allowedIps] belongs to the Android VPN interface. [dnsServers] also supplies
+ * [allowedIps] selects Android traffic and restricts native peer IPs. [dnsServers] also supplies
  * scoped resolver routing to the native proxy while this AWG request is active.
  */
 @Serializable
@@ -37,7 +37,7 @@ data class AwgActivationRequest(
     val interfaceAddressV6: String = "",
     /** Android VPN interface DNS servers and active AWG proxy resolver routes. */
     val dnsServers: List<String> = emptyList(),
-    /** Android VPN interface routes; these do not cross the native runtime boundary. */
+    /** Android traffic selection routes and native peer source/destination permissions. */
     val allowedIps: List<String> = listOf("0.0.0.0/0"),
     val mtu: Int = DEFAULT_MTU,
     val persistentKeepalive: Int = 0,

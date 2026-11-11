@@ -29,7 +29,7 @@ The UDP tunnel SHALL update the endpoint only after an authenticated, replay-acc
 
 ### Requirement: REQ-TRN-1794383863211672-F4 — Enforce profile AllowedIPs
 
-The native single-peer tunnel SHALL reject incoming source and outgoing destination IP addresses outside the supplied AllowedIPs. DNS routing SHALL NOT silently broaden that policy.
+The native single-peer tunnel SHALL reject incoming source and outgoing destination IP addresses outside the supplied AllowedIPs. DNS routing SHALL NOT silently broaden that policy. A local DNS interceptor route SHALL NOT grant permission to a remote peer address.
 
 #### Scenario: Enforce profile AllowedIPs
 

@@ -157,6 +157,7 @@ impl WarpRuntime {
                     persistent_keepalive_max: None,
                     endpoint,
                     fallback_endpoints: endpoints,
+                    allowed_ips: Arc::new(crate::allowed_ips::AllowedIps::default()),
                     reserved,
                     source_peer_ip,
                     source_peer_ipv6,
@@ -262,7 +263,15 @@ impl WarpRuntime {
                     let tcp_pool = Arc::clone(&tcp_pool);
                     let udp_pool = Arc::clone(&udp_pool);
                     clients.spawn(async move {
-                        match handle_socks_client(stream, bus, tcp_pool, udp_pool).await {
+                        match handle_socks_client(
+                            stream,
+                            bus,
+                            tcp_pool,
+                            udp_pool,
+                            Arc::new(crate::allowed_ips::AllowedIps::default()),
+                        )
+                        .await
+                        {
                             Ok(()) => {
                                 runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
                             }

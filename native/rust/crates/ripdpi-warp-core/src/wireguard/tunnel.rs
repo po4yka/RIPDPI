@@ -17,6 +17,7 @@ use super::keys::{apply_reserved_bytes, decode_key};
 use super::receive::{ReceiveOutput, receive_packet};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
+use crate::allowed_ips::AllowedIps;
 use crate::amneziawg::{AwgMacKeys, AwgParams, AwgParamsError, AwgWireCodec, fill_random, rand_u32};
 use crate::config::WarpAmneziaConfig;
 use crate::platform::WarpPlatform;
@@ -79,6 +80,7 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     pub endpoint: SocketAddr,
     /// Other resolved addresses to try before peer authentication.
     pub fallback_endpoints: Vec<SocketAddr>,
+    pub allowed_ips: Arc<AllowedIps>,
     /// The 3 WireGuard reserved bytes (WARP derives them from the Cloudflare
     /// client id; generic profiles pass `[0; 3]`).
     pub reserved: [u8; 3],
@@ -101,6 +103,7 @@ pub(crate) struct WireGuardTunnelParams<'a> {
 
 pub(crate) struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
+    allowed_ips: Arc<AllowedIps>,
     carrier: WgCarrier,
     outbound: tokio::sync::Mutex<OutboundState>,
     source_peer_ip: IpAddr,
@@ -187,6 +190,7 @@ impl WireGuardTunnel {
             persistent_keepalive_max,
             endpoint,
             fallback_endpoints,
+            allowed_ips,
             reserved,
             source_peer_ip,
             source_peer_ipv6,
@@ -251,6 +255,7 @@ impl WireGuardTunnel {
         fill_random(&mut carrier_cookie_id);
         Ok(Self {
             peer: tokio::sync::Mutex::new(peer),
+            allowed_ips,
             carrier,
             outbound: tokio::sync::Mutex::new(OutboundState::new(endpoint, fallback_endpoints)),
             source_peer_ip,
@@ -322,6 +327,9 @@ impl WireGuardTunnel {
     /// NOT cancel-safe: encryption advances the nonce and timers before carrier I/O.
     /// The owning producer is cancelled only at shutdown; the peer lock is released before I/O.
     async fn send_ip_packet(&self, packet: &[u8], send_buf: &mut [u8]) {
+        if !self.allowed_ips.allows_destination(packet) {
+            return;
+        }
         let result = { self.peer.lock().await.encapsulate(packet, send_buf) };
         self.send_tunn_result(result).await;
     }
@@ -481,7 +489,9 @@ impl WireGuardTunnel {
                 }
                 ReceiveOutput::Ip(length) => {
                     let packet = &send_buf[..length];
-                    if let Some(protocol) = route_protocol(packet, self.source_peer_ip, self.source_peer_ipv6) {
+                    if self.allowed_ips.allows_source(packet)
+                        && let Some(protocol) = route_protocol(packet, self.source_peer_ip, self.source_peer_ipv6)
+                    {
                         endpoint.send(Event::InboundInternetPacket(protocol, Bytes::copy_from_slice(packet)));
                     }
                 }
@@ -532,6 +542,7 @@ mod tests {
             persistent_keepalive_max: None,
             endpoint: dummy_endpoint(),
             fallback_endpoints: Vec::new(),
+            allowed_ips: Arc::new(AllowedIps::default()),
             reserved: [0u8; 3],
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
             source_peer_ipv6: None,
@@ -600,6 +611,7 @@ mod tests {
                     persistent_keepalive_max: None,
                     endpoint: receiver.local_addr().unwrap(),
                     fallback_endpoints: Vec::new(),
+                    allowed_ips: Arc::new(AllowedIps::default()),
                     reserved: [0; 3],
                     source_peer_ip: "10.77.0.2".parse().unwrap(),
                     source_peer_ipv6: None,
@@ -682,6 +694,7 @@ mod tests {
                 persistent_keepalive_max: None,
                 endpoint: peer_socket.local_addr().unwrap(),
                 fallback_endpoints: Vec::new(),
+                allowed_ips: Arc::new(AllowedIps::default()),
                 reserved: [0; 3],
                 source_peer_ip: "10.77.0.2".parse().unwrap(),
                 source_peer_ipv6: None,
@@ -703,7 +716,11 @@ mod tests {
     }
 
     /// Answer the client's initiation; `edit` may rewrite the response before it is sent.
-    async fn answer_initiation(socket: &tokio::net::UdpSocket, peer: &mut Tunn, edit: impl FnOnce(&mut [u8])) {
+    pub(super) async fn answer_initiation(
+        socket: &tokio::net::UdpSocket,
+        peer: &mut Tunn,
+        edit: impl FnOnce(&mut [u8]),
+    ) {
         let mut datagram = vec![0u8; MAX_PACKET];
         let mut out = vec![0u8; MAX_PACKET];
         let (size, client) = socket.recv_from(&mut datagram).await.unwrap();
@@ -952,3 +969,7 @@ mod tests {
 #[cfg(test)]
 #[path = "tunnel/roaming_tests.rs"]
 mod roaming_tests;
+
+#[cfg(test)]
+#[path = "tunnel/policy_tests.rs"]
+mod policy_tests;

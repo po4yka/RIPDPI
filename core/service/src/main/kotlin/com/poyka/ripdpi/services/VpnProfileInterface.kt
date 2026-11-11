@@ -58,6 +58,17 @@ internal fun VpnProfileInterface.effectiveDnsServers(fallbackDns: String): List<
             },
         )
     }
+    val networks = routableAllowedIps().map { requireNotNull(NumericIp.parseCidr(it)) }
+    // The fallback interceptor is local; it terminates DNS before the peer tunnel.
+    val localInterceptor = dnsServers.isEmpty() && fallbackDns == VpnInterceptorDnsAddress
+    if (!localInterceptor &&
+        reachable.any { server ->
+            val address = NumericIp.parseAddress(server)
+            address == null || networks.none { it.contains(address) }
+        }
+    ) {
+        rejectProfile("AmneziaWG DNS servers must be inside the peer AllowedIPs")
+    }
     return reachable
 }
 

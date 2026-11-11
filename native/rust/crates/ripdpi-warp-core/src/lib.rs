@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod allowed_ips;
 mod amneziawg;
 mod amneziawg_runtime;
 mod awg_profile;

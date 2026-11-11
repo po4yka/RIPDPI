@@ -8,6 +8,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, Interest};
 use tokio::net::{TcpStream, UdpSocket, lookup_host};
 use tokio::time::Duration;
 
+use crate::allowed_ips::AllowedIps;
 use crate::ports::{PortForwardConfig, PortProtocol, UdpAssociationPool, VirtualPortPool};
 use crate::support::MAX_PACKET;
 use crate::virtual_iface::{Bus, Event};
@@ -40,13 +41,18 @@ pub(crate) async fn handle_socks_client(
     bus: Bus,
     tcp_pool: Arc<VirtualPortPool>,
     udp_pool: Arc<UdpAssociationPool>,
+    allowed_ips: Arc<AllowedIps>,
 ) -> io::Result<()> {
     let (command, target) = tokio::time::timeout(SOCKS_NEGOTIATION_TIMEOUT, negotiate(&mut client))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "SOCKS negotiation timed out"))??;
     match command {
+        0x01 if !allowed_ips.allows(target.ip()) => {
+            write_reply(&mut client, 0x02, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "destination outside WireGuard AllowedIPs"))
+        }
         0x01 => handle_tcp_connect(client, bus, tcp_pool, target).await,
-        0x03 => handle_udp_associate(client, bus, udp_pool).await,
+        0x03 => handle_udp_associate(client, bus, udp_pool, allowed_ips).await,
         _ => {
             write_reply(&mut client, 0x07, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
             Err(io::Error::new(io::ErrorKind::Unsupported, "SOCKS command unsupported"))
@@ -212,7 +218,12 @@ async fn client_read_closed(client: &TcpStream) {
 /// # Cancel safety
 /// NOT cancel-safe: cancellation can precede association release. The runtime
 /// aborts this future only when all associated pools and interfaces are being discarded.
-async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<UdpAssociationPool>) -> io::Result<()> {
+async fn handle_udp_associate(
+    mut control: TcpStream,
+    bus: Bus,
+    udp_pool: Arc<UdpAssociationPool>,
+    allowed_ips: Arc<AllowedIps>,
+) -> io::Result<()> {
     let udp_socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await?;
     let bind_addr = udp_socket.local_addr()?;
     write_reply(&mut control, 0x00, bind_addr).await?;
@@ -252,6 +263,9 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
                         tracing::debug!("dropping a malformed SOCKS UDP datagram");
                         continue;
                     };
+                    if !allowed_ips.allows(target.ip()) {
+                        continue;
+                    }
                     udp_peer = Some(peer_addr);
                     let virtual_port = udp_pool.acquire(association_bind_port, peer_addr).await?;
                     known_ports.insert(virtual_port);
@@ -434,7 +448,7 @@ mod tests {
             port
         };
         let (result, port) = timeout(Duration::from_secs(2), async {
-            tokio::join!(handle_udp_associate(server, bus, Arc::clone(&pool)), drive)
+            tokio::join!(handle_udp_associate(server, bus, Arc::clone(&pool), Arc::new(AllowedIps::default())), drive)
         })
         .await
         .expect("association exits");
@@ -531,6 +545,38 @@ mod tests {
     }
 
     /// # Cancel safety
+    /// cancel-safe: the bounded join owns both sockets and the fresh pools.
+    #[tokio::test]
+    async fn destination_outside_allowed_ips_returns_a_ruleset_denial() {
+        for target in ["198.51.100.1:443", "[2001:db8:2::1]:443"] {
+            let (mut client, server) = socks_pair().await;
+            let policy = Arc::new(AllowedIps::parse(Some(&["192.0.2.0/24".into(), "2001:db8:1::/64".into()])).unwrap());
+            let handler = handle_socks_client(
+                server,
+                Bus::new(),
+                Arc::new(VirtualPortPool::new(PortProtocol::Tcp).unwrap()),
+                Arc::new(UdpAssociationPool::new()),
+                policy,
+            );
+            let exchange = async {
+                client.write_all(&[5, 1, 0]).await.unwrap();
+                let mut method = [0; 2];
+                client.read_exact(&mut method).await.unwrap();
+                assert_eq!(method, [5, 0]);
+                let mut request = encode_socks_udp_response(target.parse().unwrap(), &[]);
+                request[..3].copy_from_slice(&[5, 1, 0]);
+                client.write_all(&request).await.unwrap();
+                let mut reply = [0; 10];
+                client.read_exact(&mut reply).await.unwrap();
+                assert_eq!(reply, [5, 2, 0, 1, 0, 0, 0, 0, 0, 0]);
+            };
+            let (result, ()) =
+                timeout(Duration::from_secs(2), async { tokio::join!(handler, exchange) }).await.unwrap();
+            assert_eq!(result.unwrap_err().kind(), io::ErrorKind::PermissionDenied);
+        }
+    }
+
+    /// # Cancel safety
     /// cancel-safe: all sockets and pools are fresh and dropped on timeout.
     #[tokio::test]
     async fn greeting_without_no_auth_is_refused() {
@@ -540,9 +586,12 @@ mod tests {
             Arc::new(UdpAssociationPool::new()),
         );
         client.write_all(&[0x05, 0x01, 0x02]).await.expect("greeting offering only username/password");
-        let result = timeout(Duration::from_secs(2), handle_socks_client(server, Bus::new(), pools.0, pools.1))
-            .await
-            .expect("handler exits");
+        let result = timeout(
+            Duration::from_secs(2),
+            handle_socks_client(server, Bus::new(), pools.0, pools.1, Arc::new(AllowedIps::default())),
+        )
+        .await
+        .expect("handler exits");
         assert_eq!(result.expect_err("no acceptable method").kind(), io::ErrorKind::PermissionDenied);
         let mut reply = [0u8; 2];
         client.read_exact(&mut reply).await.expect("method reply");
@@ -559,9 +608,12 @@ mod tests {
             Arc::new(UdpAssociationPool::new()),
         );
         client.write_all(&[0x05]).await.expect("half a greeting");
-        let result = timeout(Duration::from_secs(2), handle_socks_client(server, Bus::new(), pools.0, pools.1))
-            .await
-            .expect("a stalled greeting must not pin the handler");
+        let result = timeout(
+            Duration::from_secs(2),
+            handle_socks_client(server, Bus::new(), pools.0, pools.1, Arc::new(AllowedIps::default())),
+        )
+        .await
+        .expect("a stalled greeting must not pin the handler");
         assert_eq!(result.expect_err("stalled negotiation").kind(), io::ErrorKind::TimedOut);
     }
 

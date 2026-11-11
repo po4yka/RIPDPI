@@ -28,6 +28,29 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpnTunnelRuntimePolicyTest {
     @Test
+    fun `DNS host routes cannot expand the peer AllowedIPs`() {
+        val cases =
+            listOf(
+                VpnProfileInterface(listOf("192.0.2.53"), listOf("10.77.0.0/24"), false, 1280),
+                VpnProfileInterface(listOf("2001:db8:2::53"), listOf("2001:db8:1::/64"), true, 1280),
+                VpnProfileInterface(emptyList(), listOf("10.77.0.0/24"), false, 1280),
+            )
+        cases.forEach { profile ->
+            assertThrows(ServiceStartupRejectedException::class.java) { profile.routePlan("1.1.1.1") }
+        }
+        val allowed = VpnProfileInterface(listOf("10.77.0.53"), listOf("10.77.0.129/24"), false, 1280)
+        assertTrue(allowed.routePlan().routes.contains(VpnTunnelRouteEntry("10.77.0.53", 32)))
+        val intercepted = allowed.copy(dnsServers = emptyList())
+        assertTrue(
+            intercepted
+                .routePlan(
+                    VpnInterceptorDnsAddress,
+                ).routes
+                .contains(VpnTunnelRouteEntry(VpnInterceptorDnsAddress, 32)),
+        )
+    }
+
+    @Test
     fun `IPv4 profile keeps source IPv6 routes without installing them`() {
         val profile = VpnProfileInterface(listOf("1.1.1.1"), listOf("0.0.0.0/0", "::/0"), false, 1280)
         val plan = profile.routePlan()

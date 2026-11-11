@@ -15,6 +15,19 @@ class AmneziaWgRuntimeConfigResolverTest {
     private val resolver = DefaultAmneziaWgRuntimeConfigResolver()
 
     @Test
+    fun `DNS outside AllowedIPs is rejected before native startup`() {
+        assertThrows(com.poyka.ripdpi.data.ServiceStartupRejectedException::class.java) {
+            resolver.resolve(request().copy(allowedIps = listOf("10.77.0.0/24"), dnsServers = listOf("192.0.2.53")))
+        }
+    }
+
+    @Test
+    fun `native peer policy retains every supplied subnet`() {
+        val allowed = listOf("10.77.0.129/25", "2001:db8:1234::/48")
+        assertEquals(allowed, resolver.resolve(request().copy(allowedIps = allowed)).allowedIps)
+    }
+
+    @Test
     fun `out of range MTU is rejected before native startup`() {
         listOf(0, 576, 1279, 1421, 1500, Int.MAX_VALUE).forEach { mtu ->
             assertThrows(IllegalArgumentException::class.java) { resolver.resolve(request().copy(mtu = mtu)) }

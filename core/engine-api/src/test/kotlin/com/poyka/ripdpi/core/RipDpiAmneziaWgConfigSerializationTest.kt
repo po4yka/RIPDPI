@@ -23,6 +23,20 @@ import org.junit.Test
  */
 class RipDpiAmneziaWgConfigSerializationTest {
     @Test
+    fun `peer AllowedIPs is emitted even when it matches the producer default`() {
+        for (json in listOf(RipDpiJson, RipDpiNoExplicitNullsJson)) {
+            for (policy in listOf(listOf("0.0.0.0/0", "::/0"), listOf("10.77.0.0/24"), emptyList())) {
+                val value =
+                    json
+                        .parseToJsonElement(
+                            json.encodeToString(fullConfig.copy(allowedIps = policy)),
+                        ).jsonObject
+                assertEquals(kotlinx.serialization.json.JsonArray(policy.map(::JsonPrimitive)), value["allowedIps"])
+            }
+        }
+    }
+
+    @Test
     fun `default AWG fields required by Rust are emitted by both native encoders`() {
         val required = setOf("wireProfile", "jc", "jmin", "jmax", "h1", "h2", "h3", "h4", "s1", "s2")
         for (json in listOf(RipDpiJson, RipDpiNoExplicitNullsJson)) {
@@ -112,6 +126,7 @@ class RipDpiAmneziaWgConfigSerializationTest {
                 "endpointPort",
                 "interfaceAddressV4",
                 "interfaceAddressV6",
+                "allowedIps",
                 "mtu",
                 "persistentKeepalive",
                 "persistentKeepaliveMax",

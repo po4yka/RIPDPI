@@ -349,6 +349,7 @@ async fn stalled_upload(close_grace: Duration, peer_timeout: Duration) -> Stalle
         bus.clone(),
         Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool")),
         Arc::new(crate::ports::UdpAssociationPool::new()),
+        Arc::new(crate::allowed_ips::AllowedIps::default()),
     ));
     let mut reply = [0u8; 10];
     client.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");
@@ -516,6 +517,7 @@ async fn socks_connect_request(close_grace: Duration) -> SocksSession {
         bus.clone(),
         Arc::clone(&pool),
         Arc::new(crate::ports::UdpAssociationPool::new()),
+        Arc::new(crate::allowed_ips::AllowedIps::default()),
     ));
     let mut reply = [0u8; 10];
     client.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");

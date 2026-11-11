@@ -12,7 +12,7 @@ The audit uses WireGuard paper revision e2da747 and boringtun 0.7.1 at the repos
 - Preserve import field presence in the parser. Manual replacement differs from subscription refresh.
 - Keep AWG padding overrides. Install an MTU-aware plain WireGuard padding policy in the wrapper.
 - Learn UDP endpoints only from authenticated accepted events. Preserve source-bound cookies, replay rejection and protect-before-use.
-- Add defaulted native AllowedIPs. Old native JSON retains full-range defaults; new app activation supplies the exact profile policy. Check SOCKS admission, outgoing IP and incoming source membership. Reject incompatible DNS before VPN establishment rather than adding permission silently.
+- Add defaulted native AllowedIPs. Old native JSON retains full-range defaults; new app activation supplies the exact profile policy. Check SOCKS admission, outgoing IP and incoming source membership. Reject incompatible remote DNS before VPN establishment rather than adding permission silently. The built-in local DNS interceptor is not a peer address and keeps its local host route.
 - Keep resolution bounded and accept either family, with IPv4 preference.
 - Use synthetic counter boundaries and deterministic clock tests, not packet floods.
 

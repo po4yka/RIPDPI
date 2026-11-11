@@ -5,6 +5,8 @@ import com.poyka.ripdpi.core.RipDpiAmneziaWgCarrierKind
 import com.poyka.ripdpi.core.RipDpiAmneziaWgObfuscationConfig
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.requireRuntimeReady
+import com.poyka.ripdpi.services.effectiveDnsServers
+import com.poyka.ripdpi.services.vpnProfileInterface
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -22,7 +24,7 @@ import javax.inject.Singleton
  * classpath because `:core:engine-api` is `implementation`-only on `:core:service`).
  * Unlike the WARP resolver it does not touch credential/endpoint stores -- the
  * standalone profile is self-contained in the request -- so the translation is a
- * pure structural copy plus the loopback SOCKS bind the tunnel listens on.
+ * validated structural copy plus the loopback SOCKS bind the tunnel listens on.
  */
 internal interface AmneziaWgRuntimeConfigResolver {
     fun resolve(request: AwgActivationRequest): ResolvedRipDpiAmneziaWgConfig
@@ -34,6 +36,7 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
     constructor() : AmneziaWgRuntimeConfigResolver {
         override fun resolve(request: AwgActivationRequest): ResolvedRipDpiAmneziaWgConfig {
             request.requireRuntimeReady()
+            request.vpnProfileInterface().effectiveDnsServers("")
             val carrier = request.carrier.toCarrierKind()
             return ResolvedRipDpiAmneziaWgConfig(
                 enabled = true,
@@ -45,6 +48,7 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
                 endpointPort = request.endpointPort,
                 interfaceAddressV4 = request.interfaceAddressV4,
                 interfaceAddressV6 = request.interfaceAddressV6,
+                allowedIps = request.allowedIps.toList(),
                 mtu = request.mtu,
                 persistentKeepalive = request.persistentKeepalive,
                 persistentKeepaliveMax = request.persistentKeepaliveMax,

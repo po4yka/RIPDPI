@@ -33,6 +33,7 @@ use tokio::sync::watch;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
+use crate::allowed_ips::AllowedIps;
 use crate::config::{
     AwgV3Config, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, now_ms, parse_ipv4_cidr, resolve_endpoint_candidates,
 };
@@ -166,6 +167,9 @@ pub struct AmneziaWgProfileConfig {
     /// Optional interface IPv6 address in CIDR form.
     #[serde(default)]
     pub interface_address_v6: String,
+    /// Peer CIDRs. Omitted by older callers; explicit empty policy is invalid.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_ips: Option<Vec<String>>,
     /// `[Interface] MTU`; clamped to a 1280 floor.
     pub mtu: i32,
     /// `[Peer] PersistentKeepalive` in seconds; `0` = disabled.
@@ -526,6 +530,7 @@ impl AmneziaWgRuntime {
         if !self.config.enabled {
             return Ok(());
         }
+        let allowed_ips = Arc::new(AllowedIps::parse(self.config.allowed_ips.as_deref())?);
         let source_peer_ip = parse_ipv4_cidr(Some(self.config.interface_address_v4.as_str())).ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "AmneziaWG runtime requires an IPv4 interface address")
         })?;
@@ -534,7 +539,7 @@ impl AmneziaWgRuntime {
         let tunnel = tokio::select! {
             biased;
             () = self.stopped() => return Ok(()),
-            tunnel = self.connect_tunnel(source_peer_ip, source_peer_ipv6) => Arc::new(tunnel?),
+            tunnel = self.connect_tunnel(source_peer_ip, source_peer_ipv6, Arc::clone(&allowed_ips)) => Arc::new(tunnel?),
         };
 
         let bus = Bus::new();
@@ -620,8 +625,9 @@ impl AmneziaWgRuntime {
                     let bus = bus.clone();
                     let tcp_pool = Arc::clone(&tcp_pool);
                     let udp_pool = Arc::clone(&udp_pool);
+                    let allowed_ips = Arc::clone(&allowed_ips);
                     clients.spawn(async move {
-                        if let Err(error) = handle_socks_client(stream, bus, tcp_pool, udp_pool).await {
+                        if let Err(error) = handle_socks_client(stream, bus, tcp_pool, udp_pool, allowed_ips).await {
                             *runtime.last_error.lock().expect("last error") = Some(error.to_string());
                         }
                         runtime.active_sessions.fetch_sub(1, Ordering::SeqCst);
@@ -671,6 +677,7 @@ impl AmneziaWgRuntime {
         &self,
         source_peer_ip: IpAddr,
         source_peer_ipv6: Option<Ipv6Addr>,
+        allowed_ips: Arc<AllowedIps>,
     ) -> io::Result<WireGuardTunnel> {
         // A WS carrier never dials the UDP endpoint (the terminator does), so its host is
         // not resolved: that lookup would send the WireGuard server name in plaintext DNS.
@@ -702,6 +709,7 @@ impl AmneziaWgRuntime {
                 persistent_keepalive_max: keepalive_max,
                 endpoint,
                 fallback_endpoints: endpoints,
+                allowed_ips,
                 // A generic AmneziaWG peer carries no Cloudflare reserved bytes.
                 reserved: [0u8; 3],
                 source_peer_ip,
@@ -1333,6 +1341,22 @@ mod tests {
         let t = rt.telemetry();
         assert_eq!(t.ws_carrier_handshakes, 2, "two successful carrier handshakes recorded");
         assert_eq!(t.ws_carrier_handshake_failures, 1, "one failed carrier handshake recorded");
+    }
+
+    #[test]
+    fn native_peer_policy_distinguishes_legacy_config_from_explicit_empty_routes() {
+        let mut json = serde_json::to_value(AmneziaWgProfileConfig::default()).unwrap();
+        assert!(json.get("allowedIps").is_none());
+        let legacy: AmneziaWgProfileConfig = serde_json::from_value(json.clone()).unwrap();
+        assert!(AllowedIps::parse(legacy.allowed_ips.as_deref()).unwrap().allows("2001:db8::1".parse().unwrap()));
+        json["allowedIps"] = serde_json::json!([]);
+        let empty: AmneziaWgProfileConfig = serde_json::from_value(json.clone()).unwrap();
+        assert!(AllowedIps::parse(empty.allowed_ips.as_deref()).is_err());
+        json["allowedIps"] = serde_json::json!(["192.0.2.0/24"]);
+        let restricted: AmneziaWgProfileConfig = serde_json::from_value(json).unwrap();
+        let policy = AllowedIps::parse(restricted.allowed_ips.as_deref()).unwrap();
+        assert!(policy.allows("192.0.2.1".parse().unwrap()));
+        assert!(!policy.allows("198.51.100.1".parse().unwrap()));
     }
 
     #[test]
