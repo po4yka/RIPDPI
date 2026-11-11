@@ -2,7 +2,7 @@
 id: TRN-1794371392084141
 title: Fix finalmask audit findings
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Finalmask audit fixes
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: fix-finalmask-audit-findings
 created: 2026-11-11
 updated: 2026-11-11
+status_detail: All six fixes are committed and reviewed; full Kotlin JUnit and staticAnalysis remain blocked by Maven dependency access. See verification.md.
 ---
 
 ## Goal

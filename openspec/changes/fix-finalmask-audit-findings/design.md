@@ -14,6 +14,7 @@ The audit report identifies F1–F6 and peer evidence gaps. The existing wire su
 - Own bridge shutdown and errors; preserve valid half-close. Test pending sibling and owner drop.
 - Preserve unknown normalized strings until validation rejects them, or reject them at import. Never silently use off.
 - Keep one mask layer below TLS/REALITY. Document fixed-size prefix peers, empty response sequences and the absence of an upstream TCP noise type. Do not claim packet segment guarantees.
+- Supply a small pinned Xray peer CloseWrite adapter for REALITY header masks. It forwards TCP half-close without changing wire bytes; stock upstream lacks this required interface.
 
 ## Contracts and ownership
 
