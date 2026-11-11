@@ -2,7 +2,7 @@
 id: TRN-1794387054491059
 title: Repair TRN-08 pool admission and lifecycle
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Pool repair team
@@ -16,11 +16,8 @@ updated: 2026-11-11
 
 ## Goal
 
-Describe the observable outcome.
-
-## Acceptance criteria
-
-Define verifiable completion criteria.
+Repair the confirmed TRN-08 pool admission, idle accounting, cleanup ownership,
+independent datagram, and shutdown defects. Verify the runtime teardown boundary.
 
 ## Parallel ownership
 
