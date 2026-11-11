@@ -2,7 +2,7 @@
 id: TRN-1794387054491059
 title: Repair TRN-08 pool admission and lifecycle
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Pool repair team
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-trn08-pool-lifecycle
 created: 2026-11-11
 updated: 2026-11-11
+closed_at: "2026-11-11T11:12:18Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Code 062db9e313301cd4a67d633a7691b4cefb55ef4a: 407 owning tests passed, four existing ignored; workspace Clippy, ci-gates, architecture and locked metadata passed; Miri four shutdown seeds passed; independent PR and async reviews passed. External and physical-device acceptance was not run."
 ---
 
 ## Goal

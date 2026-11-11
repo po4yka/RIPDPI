@@ -1,0 +1,11 @@
+{
+  "change": "repair-trn08-pool-lifecycle",
+  "evidence_summary": "Code 062db9e313301cd4a67d633a7691b4cefb55ef4a: 407 owning tests passed, four existing ignored; workspace Clippy, ci-gates, architecture and locked metadata passed; Miri four shutdown seeds passed; independent PR and async reviews passed. External and physical-device acceptance was not run.",
+  "execution_sha256": "0861e9f10ce40064673107c4d7c15c6507c99951136b03ead6b8d33951b72443",
+  "issue_sha256": "e98909d114359ad7cc9d338bad1afcaae2cdc1e6893475342a68d62770a781df",
+  "outcome": "done",
+  "prepared_at": "2026-11-11T11:12:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794387054491059"
+}

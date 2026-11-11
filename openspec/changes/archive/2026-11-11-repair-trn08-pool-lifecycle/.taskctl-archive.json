@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-11T11:12:05Z",
+  "change": "repair-trn08-pool-lifecycle",
+  "commit_sha": "062db9e313301cd4a67d633a7691b4cefb55ef4a",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "TRN-1794387054491059"
+}
