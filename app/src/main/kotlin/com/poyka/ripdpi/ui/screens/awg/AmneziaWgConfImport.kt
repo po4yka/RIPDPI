@@ -52,7 +52,7 @@ private fun AmneziaWgEditorState.imported(
     val editor =
         copy(
             form = nextForm,
-            rawTextByField = rawTextByField + nextRaw,
+            rawTextByField = rawTextByField - AwgEditorField.ALLOWED_IPS + nextRaw,
             obfuscationLocked = cohortId != AwgProfileForm.CUSTOM_COHORT_ID,
         )
     return AwgConfImport.Imported(
@@ -65,10 +65,12 @@ private fun AmneziaWgEditorState.transportRawText(parsed: WireGuardConfModel): M
     val iface = parsed.interfaceSection
     val peer = parsed.peers.firstOrNull()
     return buildMap {
-        iface.address.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.ADDRESS, it.joinToString(", ")) }
-        iface.dns.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.DNS, it.joinToString(", ")) }
-        iface.mtu?.let { put(AwgEditorField.MTU, it.toString()) }
-        peer?.allowedIps?.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.ALLOWED_IPS, it.joinToString(", ")) }
+        put(AwgEditorField.ADDRESS, iface.address.joinToString(", "))
+        put(AwgEditorField.DNS, iface.dns.joinToString(", "))
+        put(AwgEditorField.MTU, iface.mtu?.toString().orEmpty())
+        if (peer?.allowedIpsSpecified == true) {
+            put(AwgEditorField.ALLOWED_IPS, peer.allowedIps.joinToString(", "))
+        }
         put(
             AwgEditorField.PERSISTENT_KEEPALIVE,
             peer

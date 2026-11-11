@@ -48,6 +48,8 @@ data class WireGuardPeer(
     val persistentKeepalive: Int? = null,
     /** High bound of an AWG 3.x `PersistentKeepalive = lo-hi` range; null = a fixed interval. */
     val persistentKeepaliveMax: Int? = null,
+    /** Distinguishes an omitted route policy from an explicitly empty AllowedIPs value. */
+    val allowedIpsSpecified: Boolean = allowedIps.isNotEmpty(),
 ) {
     override fun toString(): String =
         "WireGuardPeer(publicKey=$publicKey, presharedKey=${redacted(presharedKey)}, " +

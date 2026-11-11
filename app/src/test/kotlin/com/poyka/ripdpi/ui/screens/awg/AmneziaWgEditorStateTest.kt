@@ -216,6 +216,58 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `manual import replaces old network policy including omitted and empty values`() {
+        val privateKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 })
+        val peerKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 })
+        val previous =
+            activatableState()
+                .updateField(AwgEditorField.DNS, "192.0.2.53")
+                .updateField(AwgEditorField.ALLOWED_IPS, "198.51.100.0/24")
+                .updateField(AwgEditorField.MTU, "1280")
+                .updateField(AwgEditorField.PERSISTENT_KEEPALIVE, "25")
+                .selectCarrier("ws")
+                .updateField(AwgEditorField.CARRIER_WS_URL, "wss://old.example/carrier")
+        val cases =
+            listOf(
+                Triple("10.23.0.2/32", "", listOf("0.0.0.0/0")),
+                Triple("10.23.0.2/32", "AllowedIPs =", emptyList()),
+                Triple("fd23::2/128, 10.23.0.2/32", "", listOf("0.0.0.0/0", "::/0")),
+            )
+        for ((address, policy, expectedRoutes) in cases) {
+            val conf =
+                "[Interface]\nPrivateKey = $privateKey\nAddress = $address\nDNS =\n" +
+                    "[Peer]\nPublicKey = $peerKey\nEndpoint = vpn.example.com:51820\n$policy"
+            val imported = (previous.importConf(conf, catalog) as AwgConfImport.Imported).editor
+            val request = imported.toActivationRequest("replacement")
+            val fresh = (AmneziaWgEditorState.initial().importConf(conf, catalog) as AwgConfImport.Imported).editor
+
+            assertEquals("10.23.0.2/32", request.interfaceAddressV4)
+            assertEquals(emptyList<String>(), request.dnsServers)
+            assertEquals(expectedRoutes, request.allowedIps)
+            assertEquals(fresh.toActivationRequest("fresh").allowedIps, request.allowedIps)
+            assertEquals(com.poyka.ripdpi.data.awg.AwgActivationRequest.DEFAULT_MTU, request.mtu)
+            assertEquals(0, request.persistentKeepalive)
+            assertEquals("ws", request.carrier)
+            assertEquals("wss://old.example/carrier", request.carrierWsUrl)
+            if (expectedRoutes.isEmpty()) {
+                assertThrows(IllegalArgumentException::class.java) { request.requireRuntimeReady() }
+            } else {
+                request.requireRuntimeReady()
+            }
+        }
+    }
+
+    @Test
+    fun `manual import clears an absent address instead of reusing the old identity address`() {
+        val conf = "[Interface]\nPrivateKey = k==\n[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820"
+        val imported = (activatableState().importConf(conf, catalog) as AwgConfImport.Imported).editor
+
+        assertEquals("", imported.rawText(AwgEditorField.ADDRESS))
+        assertFalse(imported.isActivatable())
+        assertThrows(IllegalArgumentException::class.java) { imported.toActivationRequest("replacement") }
+    }
+
+    @Test
     fun `initial state is custom with an unlocked obfuscation group`() {
         val state = AmneziaWgEditorState.initial()
 

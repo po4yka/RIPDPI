@@ -11,7 +11,7 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
  * [AwgEditorField.DNS], [AwgEditorField.ALLOWED_IPS], [AwgEditorField.MTU],
  * [AwgEditorField.PERSISTENT_KEEPALIVE]) are read from [AmneziaWgEditorState.rawTextByField].
  * An IPv4 address is required; blank MTU and keepalive use runtime defaults.
- * Blank AllowedIPs selects full routes for the configured address families.
+ * Omitted AllowedIPs selects full routes for the configured address families; an empty list stays invalid.
  */
 fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRequest {
     require(obfuscationConsistent()) { "AmneziaWG obfuscation parameters are invalid" }
@@ -32,7 +32,7 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
         interfaceAddressV4 = ipv4.single(),
         interfaceAddressV6 = ipv6.singleOrNull().orEmpty(),
         dnsServers = rawText(AwgEditorField.DNS).commaSeparatedValues(),
-        allowedIps = rawText(AwgEditorField.ALLOWED_IPS).commaSeparatedValues(),
+        allowedIps = rawTextByField[AwgEditorField.ALLOWED_IPS]?.commaSeparatedValues(),
         mtu = mtu,
         persistentKeepalive = keepalive,
         persistentKeepaliveMax = keepaliveMax ?: 0,

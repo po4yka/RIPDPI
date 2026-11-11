@@ -145,6 +145,18 @@ class AwgActivationRequestTest {
     }
 
     @Test
+    fun `form mapper preserves explicitly empty routes instead of selecting defaults`() {
+        val request =
+            form().toActivationRequest(
+                profileId = "awg-1",
+                interfaceAddressV4 = "10.8.0.2/32",
+                allowedIps = emptyList(),
+            )
+
+        assertEquals(emptyList<String>(), request.allowedIps)
+    }
+
+    @Test
     fun `mtu and keepalive fall back to defaults when omitted`() {
         val request = form().toActivationRequest(profileId = "awg-1", interfaceAddressV4 = "10.8.0.2/32")
 

@@ -199,14 +199,15 @@ data class AwgActivationObfuscation(
  * straight from [form]. Supported non-zero `s3`/`s4` values reach the native
  * runtime. A blank
  * [interfaceAddressV4] yields a request the service layer is expected to reject
- * -- the mapper does not invent a default address.
+ * -- the mapper does not invent a default address. Omitted [allowedIps] selects default
+ * routes; an explicit empty list stays invalid for runtime activation.
  */
 fun AwgProfileForm.toActivationRequest(
     profileId: String,
     interfaceAddressV4: String,
     interfaceAddressV6: String = "",
     dnsServers: List<String> = emptyList(),
-    allowedIps: List<String> = emptyList(),
+    allowedIps: List<String>? = null,
     mtu: Int = AwgActivationRequest.DEFAULT_MTU,
     persistentKeepalive: Int = 0,
     persistentKeepaliveMax: Int = 0,
@@ -222,7 +223,7 @@ fun AwgProfileForm.toActivationRequest(
         interfaceAddressV6 = interfaceAddressV6,
         dnsServers = dnsServers,
         allowedIps =
-            allowedIps.ifEmpty {
+            allowedIps ?: run {
                 if (interfaceAddressV6.isEmpty()) listOf("0.0.0.0/0") else listOf("0.0.0.0/0", "::/0")
             },
         mtu = mtu,

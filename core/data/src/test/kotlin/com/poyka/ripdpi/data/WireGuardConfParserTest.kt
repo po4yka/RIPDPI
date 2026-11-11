@@ -67,6 +67,24 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `peer route policy distinguishes omitted and explicitly empty values`() {
+        val omitted = WireGuardConfParser.parse(vanillaConf.replace("AllowedIPs = 0.0.0.0/0", "")).peers.single()
+        val empty =
+            WireGuardConfParser
+                .parse(
+                    vanillaConf.replace("AllowedIPs = 0.0.0.0/0", "AllowedIPs ="),
+                ).peers
+                .single()
+        val supplied = WireGuardConfParser.parse(vanillaConf).peers.single()
+
+        assertFalse(omitted.allowedIpsSpecified)
+        assertEquals(emptyList<String>(), omitted.allowedIps)
+        assertTrue(empty.allowedIpsSpecified)
+        assertEquals(emptyList<String>(), empty.allowedIps)
+        assertTrue(supplied.allowedIpsSpecified)
+    }
+
+    @Test
     fun `conf with multiple peers parses every peer`() {
         val multiPeer =
             """

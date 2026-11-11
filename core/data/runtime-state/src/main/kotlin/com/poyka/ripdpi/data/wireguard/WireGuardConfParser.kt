@@ -125,6 +125,7 @@ object WireGuardConfParser {
         var publicKey: String? = null
         var presharedKey: String? = null
         var allowedIps: List<String> = emptyList()
+        var allowedIpsSpecified = false
         var endpoint: String? = null
         var persistentKeepalive: Int? = null
         var persistentKeepaliveMax: Int? = null
@@ -134,6 +135,7 @@ object WireGuardConfParser {
                 publicKey = requireNotNull(publicKey) { "WireGuard [Peer] is missing PublicKey" },
                 presharedKey = presharedKey,
                 allowedIps = allowedIps,
+                allowedIpsSpecified = allowedIpsSpecified,
                 endpoint = endpoint,
                 persistentKeepalive = persistentKeepalive,
                 persistentKeepaliveMax = persistentKeepaliveMax,
@@ -273,6 +275,7 @@ object WireGuardConfParser {
 
             "allowedips" -> {
                 builder.allowedIps = splitList(value)
+                builder.allowedIpsSpecified = true
             }
 
             "endpoint" -> {
