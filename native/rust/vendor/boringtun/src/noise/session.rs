@@ -7,6 +7,9 @@ use parking_lot::Mutex;
 use portable_atomic::{AtomicU64, Ordering};
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, CHACHA20_POLY1305};
 
+pub(super) const REKEY_AFTER_MESSAGES: u64 = 1 << 60;
+pub(super) const REJECT_AFTER_MESSAGES: u64 = u64::MAX - (1 << 13);
+
 pub struct Session {
     pub(crate) receiving_index: u32,
     sending_index: u32,
@@ -83,6 +86,9 @@ impl ReceivingKeyCounterValidator {
     /// Returns true if the counter was not yet received, and is not too far back
     #[inline(always)]
     fn will_accept(&self, counter: u64) -> Result<(), WireGuardError> {
+        if counter >= REJECT_AFTER_MESSAGES {
+            return Err(WireGuardError::InvalidCounter);
+        }
         if counter >= self.next {
             // As long as the counter is growing no replay took place for sure
             return Ok(());
@@ -102,6 +108,9 @@ impl ReceivingKeyCounterValidator {
     /// decryption something changed)
     #[inline(always)]
     fn mark_did_receive(&mut self, counter: u64) -> Result<(), WireGuardError> {
+        if counter >= REJECT_AFTER_MESSAGES {
+            return Err(WireGuardError::InvalidCounter);
+        }
         if counter + N_BITS < self.next {
             // Drop if too far back
             return Err(WireGuardError::InvalidCounter);
@@ -174,6 +183,11 @@ impl Session {
         self.receiving_index as usize
     }
 
+    pub(super) fn sending_counter(&self) -> u64 {
+        // This counter publishes no other state; Relaxed reads its value only.
+        self.sending_key_counter.load(Ordering::Relaxed)
+    }
+
     /// Returns true if receiving counter is good to use
     fn receiving_counter_quick_check(&self, counter: u64) -> Result<(), WireGuardError> {
         let counter_validator = self.receiving_key_counter.lock();
@@ -198,12 +212,18 @@ impl Session {
         src: &[u8],
         padded_len: usize,
         dst: &'a mut [u8],
-    ) -> &'a mut [u8] {
+    ) -> Result<&'a mut [u8], WireGuardError> {
         if padded_len < src.len() || dst.len() < padded_len + super::DATA_OVERHEAD_SZ {
             panic!("The destination buffer is too small");
         }
 
-        let sending_key_counter = self.sending_key_counter.fetch_add(1, Ordering::Relaxed) as u64;
+        // Reservation publishes no other state; Relaxed only assigns unique nonces.
+        let sending_key_counter = self
+            .sending_key_counter
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |counter| {
+                (counter < REJECT_AFTER_MESSAGES).then(|| counter + 1)
+            })
+            .map_err(|_| WireGuardError::InvalidCounter)?;
 
         let (message_type, rest) = dst.split_at_mut(4);
         let (receiver_index, rest) = rest.split_at_mut(4);
@@ -231,7 +251,7 @@ impl Session {
                 .unwrap()
         };
 
-        &mut dst[..DATA_OFFSET + n]
+        Ok(&mut dst[..DATA_OFFSET + n])
     }
 
     /// packet - a data packet we received from the network
@@ -282,6 +302,130 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn tunnel_at_counter(counter: u64, awg: bool) -> super::super::Tunn {
+        use crate::x25519::{PublicKey, StaticSecret};
+        let mut tunnel = super::super::Tunn::new(
+            StaticSecret::from([7; 32]),
+            PublicKey::from(&StaticSecret::from([9; 32])),
+            None,
+            None,
+            0,
+            None,
+        );
+        if awg {
+            tunnel
+                .set_awg_timer_config(super::super::awg::AwgTimerConfig::default())
+                .unwrap();
+        }
+        let session = Session::new(0, 0, [1; 32], [2; 32]);
+        session
+            .sending_key_counter
+            .store(counter, Ordering::Relaxed);
+        tunnel.sessions[0] = Some(session);
+        tunnel
+    }
+
+    #[test]
+    fn message_count_rekeys_either_timer_policy_at_the_specification_boundary() {
+        use super::super::TunnResult;
+        for awg in [false, true] {
+            let mut tunnel = tunnel_at_counter((1 << 60) - 1, awg);
+            let mut output = [0; 256];
+            assert!(matches!(
+                tunnel.update_timers(&mut output),
+                TunnResult::Done
+            ));
+            let TunnResult::WriteToNetwork(wire) = tunnel.encapsulate(&[], &mut output) else {
+                panic!("last transport before rekey")
+            };
+            assert_eq!(&wire[8..16], &((1u64 << 60) - 1).to_le_bytes());
+            let TunnResult::WriteToNetwork(init) = tunnel.update_timers(&mut output) else {
+                panic!("message count must start a handshake")
+            };
+            assert_eq!(&init[..4], &1u32.to_le_bytes());
+            assert!(matches!(
+                tunnel.update_timers(&mut output),
+                TunnResult::Done
+            ));
+        }
+    }
+
+    #[test]
+    fn exhausted_sender_queues_data_for_a_new_session_without_advancing_nonce() {
+        use super::super::TunnResult;
+        for counter in [u64::MAX - 8192, u64::MAX] {
+            let mut tunnel = tunnel_at_counter(counter, false);
+            let mut output = [0; 256];
+            let ip = [0x45; 20];
+            let TunnResult::WriteToNetwork(init) = tunnel.encapsulate(&ip, &mut output) else {
+                panic!("exhausted sender must start a handshake")
+            };
+            assert_eq!(&init[..4], &1u32.to_le_bytes());
+            assert_eq!(tunnel.packet_queue.front().unwrap(), &ip);
+            assert_eq!(
+                tunnel.sessions[0]
+                    .as_ref()
+                    .unwrap()
+                    .sending_key_counter
+                    .load(Ordering::Relaxed),
+                counter
+            );
+        }
+    }
+
+    #[test]
+    fn replay_counter_rejects_the_specification_ceiling_without_mutation() {
+        let mut counter = ReceivingKeyCounterValidator::default();
+        for value in [u64::MAX - 8192, u64::MAX] {
+            assert!(matches!(
+                counter.will_accept(value),
+                Err(WireGuardError::InvalidCounter)
+            ));
+            assert!(matches!(
+                counter.mark_did_receive(value),
+                Err(WireGuardError::InvalidCounter)
+            ));
+            assert_eq!(counter.next, 0);
+            assert_eq!(counter.bitmap, [0; 16]);
+        }
+        assert!(counter.mark_did_receive(u64::MAX - 8193).is_ok());
+        assert_eq!(counter.next, u64::MAX - 8192);
+    }
+
+    #[test]
+    fn sender_uses_the_last_permitted_nonce_once() {
+        let session = Session::new(0, 0, [1; 32], [2; 32]);
+        session
+            .sending_key_counter
+            .store(u64::MAX - 8193, Ordering::Relaxed);
+        let mut output = [0; 64];
+        let wire = session.format_packet_data(&[], 0, &mut output).unwrap();
+        assert_eq!(&wire[8..16], &(u64::MAX - 8193).to_le_bytes());
+        assert!(matches!(
+            session.format_packet_data(&[], 0, &mut output),
+            Err(WireGuardError::InvalidCounter)
+        ));
+        assert_eq!(session.sending_counter(), u64::MAX - 8192);
+    }
+
+    #[test]
+    fn exhausted_session_does_not_reserve_or_encrypt() {
+        let session = Session::new(0, 0, [1; 32], [2; 32]);
+        for counter in [u64::MAX - 8192, u64::MAX] {
+            session
+                .sending_key_counter
+                .store(counter, Ordering::Relaxed);
+            let mut output = [0xa5; 64];
+            assert!(matches!(
+                session.format_packet_data(&[], 0, &mut output),
+                Err(WireGuardError::InvalidCounter)
+            ));
+            assert_eq!(session.sending_counter(), counter);
+            assert_eq!(output, [0xa5; 64]);
+        }
+    }
+
     #[test]
     fn test_replay_counter() {
         let mut c: ReceivingKeyCounterValidator = Default::default();

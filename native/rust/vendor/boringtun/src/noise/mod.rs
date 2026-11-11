@@ -350,19 +350,26 @@ impl Tunn {
     pub fn encapsulate<'a>(&mut self, src: &[u8], dst: &'a mut [u8]) -> TunnResult<'a> {
         self.refresh_awg_time();
         let current = self.current;
-        if let Some(ref session) = self.sessions[current % N_SESSIONS].as_ref().filter(|_| {
-            self.awg_timers.as_ref().map_or(true, |awg| {
-                self.timers[TimerName::TimeCurrent]
-                    .saturating_sub(self.timers.session_timers[current % N_SESSIONS])
-                    < awg.config.expiry()
+        if let Some(ref session) = self.sessions[current % N_SESSIONS]
+            .as_ref()
+            .filter(|session| {
+                session.sending_counter() < session::REJECT_AFTER_MESSAGES
+                    && self.awg_timers.as_ref().map_or(true, |awg| {
+                        self.timers[TimerName::TimeCurrent]
+                            .saturating_sub(self.timers.session_timers[current % N_SESSIONS])
+                            < awg.config.expiry()
+                    })
             })
-        }) {
+        {
             // Send the packet using an established session
             let padded_len = match self.padded_len(src.len(), dst.len()) {
                 Ok(length) => length,
                 Err(error) => return TunnResult::Err(error),
             };
-            let packet = session.format_packet_data(src, padded_len, dst);
+            let packet = match session.format_packet_data(src, padded_len, dst) {
+                Ok(packet) => packet,
+                Err(error) => return TunnResult::Err(error),
+            };
             self.timer_tick(TimerName::TimeLastPacketSent);
             // Exclude Keepalive packets from timer update.
             if !src.is_empty() {
@@ -533,7 +540,7 @@ impl Tunn {
         let padded_len = self.padded_len(0, dst.len())?;
         let session = self.handshake.receive_handshake_response(p)?;
 
-        let keepalive_packet = session.format_packet_data(&[], padded_len, dst);
+        let keepalive_packet = session.format_packet_data(&[], padded_len, dst)?;
         // Store new session in ring buffer
         let l_idx = session.local_index();
         let index = l_idx % N_SESSIONS;

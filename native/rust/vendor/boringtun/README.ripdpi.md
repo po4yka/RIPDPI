@@ -23,6 +23,8 @@ Local changes:
   Buffer checks precede handshake consumption and nonce advancement.
 - Plain WireGuard defaults to 16-byte padding. Runtime callers install an
   MTU-bounded policy; explicit AWG padding policies still take precedence.
+- Transport counters trigger rekey at the WireGuard message limit and reject
+  exhausted send and receive nonces before wraparound or replay-state changes.
 - `ReceiveOutcome` separates generated output from peer authentication. All-zero
   AWG payloads are empty transport; malformed IP consumes replay state without
   updating readiness, receive timers, or the UDP window. IPv4 length and IHL

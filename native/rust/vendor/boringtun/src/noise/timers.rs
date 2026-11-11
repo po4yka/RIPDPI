@@ -770,6 +770,16 @@ impl Tunn {
     }
 
     fn update_timers_at<'a>(&mut self, now: Duration, dst: &'a mut [u8]) -> TunnResult<'a> {
+        if !self.handshake.is_in_progress()
+            && self.sessions[self.current % super::N_SESSIONS]
+                .as_ref()
+                .is_some_and(|session| {
+                    session.sending_counter() >= super::session::REKEY_AFTER_MESSAGES
+                })
+        {
+            self.timers[TimeCurrent] = now.max(self.timers[TimeCurrent]);
+            return self.format_handshake_initiation(dst, false);
+        }
         if self.awg_timers.is_some() {
             return self.update_awg_timers(now, dst);
         }
