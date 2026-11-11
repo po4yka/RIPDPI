@@ -122,13 +122,24 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniEx
     ffi_boundary(core::ptr::null_mut(), move || provisioning::execute_from_jni(env, request_json))
 }
 
+// The original one-argument ABI has no request-owned guard and must fail closed.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniProbeEndpoint(
     env: EnvUnowned<'_>,
     _thiz: JObject,
     request_json: JString,
 ) -> jni::sys::jstring {
-    ffi_boundary(core::ptr::null_mut(), move || endpoint_probe::probe(env, request_json))
+    ffi_boundary(core::ptr::null_mut(), move || endpoint_probe::probe(env, request_json, JObject::null()))
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniProbeEndpointWithController(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+    request_json: JString,
+    controller: JObject,
+) -> jni::sys::jstring {
+    ffi_boundary(core::ptr::null_mut(), move || endpoint_probe::probe(env, request_json, controller))
 }
 
 // @JvmStatic in a Kotlin companion object generates the JNI symbol on the

@@ -37,7 +37,8 @@ pub(crate) fn create(mut env: EnvUnowned<'_>, config_json: JString<'_>) -> jlong
             let Ok(config) = serde_json::from_str::<ResolvedWarpRuntimeConfig>(&config_json) else {
                 return Ok(0);
             };
-            let runtime = WarpRuntime::with_platform(config, vpn_protect::warp_platform());
+            let platform = vpn_protect::warp_platform(config.socket_protection.is_vpn_required());
+            let runtime = WarpRuntime::with_platform(config, platform);
             install_quality_observer(&runtime);
             clear_warp_events();
             Ok(registry::insert(runtime))

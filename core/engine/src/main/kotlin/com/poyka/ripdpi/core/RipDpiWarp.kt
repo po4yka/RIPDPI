@@ -102,10 +102,14 @@ interface RipDpiWarpProvisioningBindings {
  * Stateless JNI binding for WARP endpoint probing. [probeEndpoint] takes no
  * handle: it runs a one-shot reachability/RTT probe and returns a JSON result,
  * or `null` on failure / a contained panic. Like [RipDpiWarpProvisioningBindings]
- * it is independent of the runtime session lifecycle.
+ * it is independent of the runtime session lifecycle. The service must hold
+ * [controller][WarpProbeSocketController] until the blocking call returns.
  */
 interface RipDpiWarpEndpointProbeBindings {
-    fun probeEndpoint(requestJson: String): String?
+    fun probeEndpoint(
+        requestJson: String,
+        controller: WarpProbeSocketController,
+    ): String?
 }
 
 object RipDpiWarpNativeLoader {
@@ -183,7 +187,10 @@ class RipDpiWarpNativeBindings
 
         override fun executeProvisioning(requestJson: String): String? = jniExecuteProvisioning(requestJson)
 
-        override fun probeEndpoint(requestJson: String): String? = jniProbeEndpoint(requestJson)
+        override fun probeEndpoint(
+            requestJson: String,
+            controller: WarpProbeSocketController,
+        ): String? = jniProbeEndpointWithController(requestJson, controller)
 
         private external fun jniCreate(configJson: String): Long
 
@@ -204,7 +211,14 @@ class RipDpiWarpNativeBindings
 
         private external fun jniExecuteProvisioning(requestJson: String): String?
 
+        // Keep the original JNI ABI; the minified JNI test calls it by reflection.
+        @Suppress("UnusedPrivateMember")
         private external fun jniProbeEndpoint(requestJson: String): String?
+
+        private external fun jniProbeEndpointWithController(
+            requestJson: String,
+            controller: WarpProbeSocketController,
+        ): String?
     }
 
 private val warpJson = RipDpiContractJson
@@ -235,6 +249,7 @@ private data class WarpRuntimeNativeConfig(
     val localSocksHost: String,
     val localSocksPort: Int,
     val mtu: Int,
+    val socketProtection: RelaySocketProtection,
 )
 
 /**
@@ -295,6 +310,7 @@ class RipDpiWarp(
                 localSocksHost = config.localSocksHost,
                 localSocksPort = config.localSocksPort,
                 mtu = config.mtu,
+                socketProtection = config.socketProtection,
             )
         val createdHandle =
             reservations.withExclusive {

@@ -5,6 +5,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use socket2::Domain;
 
+/// The service-owned protection policy carried across the WARP wire boundary.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WarpSocketProtection {
+    Inactive,
+    #[default]
+    VpnRequired,
+}
+
+impl WarpSocketProtection {
+    pub const fn is_vpn_required(self) -> bool {
+        matches!(self, Self::VpnRequired)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedWarpRuntimeEndpoint {
@@ -46,6 +61,9 @@ pub struct ResolvedWarpRuntimeConfig {
     pub local_socks_host: String,
     pub local_socks_port: i32,
     pub mtu: i32,
+    /// Omitted policies fail closed; callers must explicitly select inactive operation.
+    #[serde(default)]
+    pub socket_protection: WarpSocketProtection,
 }
 
 impl std::fmt::Debug for ResolvedWarpRuntimeConfig {
@@ -55,6 +73,7 @@ impl std::fmt::Debug for ResolvedWarpRuntimeConfig {
             .field("profile_id", &self.profile_id)
             .field("account_kind", &self.account_kind)
             .field("device_id", &self.device_id)
+            .field("socket_protection", &self.socket_protection)
             .field("access_token", &"<redacted>")
             .field("client_id", &self.client_id)
             .field("private_key", &"<redacted>")
@@ -270,6 +289,8 @@ pub struct WarpEndpointProbeRequest {
     #[serde(default)]
     pub amnezia: WarpAmneziaConfig,
     pub timeout_ms: u64,
+    #[serde(default)]
+    pub socket_protection: WarpSocketProtection,
 }
 
 impl std::fmt::Debug for WarpEndpointProbeRequest {
@@ -281,6 +302,7 @@ impl std::fmt::Debug for WarpEndpointProbeRequest {
             .field("client_id", &self.client_id)
             .field("amnezia", &self.amnezia)
             .field("timeout_ms", &self.timeout_ms)
+            .field("socket_protection", &self.socket_protection)
             .finish()
     }
 }
@@ -583,6 +605,7 @@ mod tests {
             local_socks_host: "127.0.0.1".to_owned(),
             local_socks_port: 1080,
             mtu: 1280,
+            socket_protection: WarpSocketProtection::default(),
         }
     }
 
@@ -594,6 +617,38 @@ mod tests {
             client_id: Some("client-1".to_owned()),
             amnezia: sample_amnezia(),
             timeout_ms: 5_000,
+            socket_protection: WarpSocketProtection::default(),
+        }
+    }
+
+    #[test]
+    fn omitted_socket_protection_is_vpn_required() {
+        let mut runtime = serde_json::to_value(sample_runtime_config()).expect("runtime JSON");
+        runtime.as_object_mut().expect("object").remove("socketProtection");
+        let decoded: ResolvedWarpRuntimeConfig = serde_json::from_value(runtime).expect("runtime");
+        assert!(decoded.socket_protection.is_vpn_required());
+        let mut probe = serde_json::to_value(sample_probe_request()).expect("probe JSON");
+        probe.as_object_mut().expect("object").remove("socketProtection");
+        let decoded: WarpEndpointProbeRequest = serde_json::from_value(probe).expect("probe");
+        assert!(decoded.socket_protection.is_vpn_required());
+    }
+
+    #[test]
+    fn inactive_socket_protection_must_be_explicit() {
+        let mut runtime = sample_runtime_config();
+        runtime.socket_protection = WarpSocketProtection::Inactive;
+        let encoded = serde_json::to_value(runtime).expect("runtime JSON");
+        assert_eq!(encoded["socketProtection"], "inactive");
+        let decoded: ResolvedWarpRuntimeConfig = serde_json::from_value(encoded).expect("runtime");
+        assert!(!decoded.socket_protection.is_vpn_required());
+        let mut probe = sample_probe_request();
+        probe.socket_protection = WarpSocketProtection::Inactive;
+        let encoded = serde_json::to_value(probe).expect("probe JSON");
+        assert_eq!(encoded["socketProtection"], "inactive");
+        let decoded: WarpEndpointProbeRequest = serde_json::from_value(encoded).expect("probe");
+        assert!(!decoded.socket_protection.is_vpn_required());
+        for invalid in [serde_json::json!("unknown"), serde_json::Value::Null, serde_json::json!(false)] {
+            assert!(serde_json::from_value::<WarpSocketProtection>(invalid).is_err());
         }
     }
 

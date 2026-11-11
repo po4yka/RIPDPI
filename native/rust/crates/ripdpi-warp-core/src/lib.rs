@@ -21,7 +21,7 @@ pub use amneziawg_runtime::{
 };
 pub use config::{
     AwgV3Config, ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, SecretString, WarpAmneziaConfig,
-    WarpEndpointProbeRequest, WarpEndpointProbeResult, WarpManualEndpoint, WarpTelemetry,
+    WarpEndpointProbeRequest, WarpEndpointProbeResult, WarpManualEndpoint, WarpSocketProtection, WarpTelemetry,
 };
 pub use endpoint_probe::{WarpProbeError, probe_endpoint, probe_endpoint_with_platform};
 pub use observe::TcpConnectObservation;

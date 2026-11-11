@@ -467,6 +467,7 @@ mod tests {
             local_socks_host: "127.0.0.1".to_string(),
             local_socks_port: 11_080,
             amnezia: WarpAmneziaConfig::default(),
+            socket_protection: crate::config::WarpSocketProtection::default(),
         }
     }
 

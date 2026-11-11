@@ -18,6 +18,11 @@ interface RipDpiWarpRuntime {
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
 
+/** Socket guard held by the service for one blocking endpoint probe. */
+fun interface WarpProbeSocketController {
+    fun protect(fd: Int): Boolean
+}
+
 internal const val defaultWarpReadyTimeoutMs = 5_000L
 
 @Serializable
@@ -55,6 +60,7 @@ data class ResolvedRipDpiWarpConfig(
     val localSocksHost: String,
     val localSocksPort: Int,
     val mtu: Int = DefaultWarpTunnelMtu,
+    val socketProtection: RelaySocketProtection = RelaySocketProtection.VpnRequired,
 )
 
 @Serializable
@@ -65,6 +71,7 @@ data class WarpEndpointProbeNativeRequest(
     val clientId: String? = null,
     val amnezia: RipDpiWarpAmneziaConfig = RipDpiWarpAmneziaConfig(),
     val timeoutMs: Long,
+    val socketProtection: RelaySocketProtection = RelaySocketProtection.VpnRequired,
 )
 
 @Serializable

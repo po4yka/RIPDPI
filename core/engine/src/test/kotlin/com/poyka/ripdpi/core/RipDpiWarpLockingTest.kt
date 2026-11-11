@@ -24,6 +24,28 @@ class RipDpiWarpLockingTest {
     private val json = Json
 
     @Test
+    fun capturedSocketProtectionReachesNativeConfiguration() =
+        runTest {
+            for (
+            (protection, expected) in
+            listOf(
+                RelaySocketProtection.Inactive to "inactive",
+                RelaySocketProtection.VpnRequired to "vpn_required",
+            )
+            ) {
+                val bindings =
+                    object : RipDpiWarpBindings by FakeRipDpiWarpBindings() {
+                        override fun create(configJson: String): Long {
+                            val payload = Json.parseToJsonElement(configJson).jsonObject
+                            assertEquals(JsonPrimitive(expected), payload["socketProtection"])
+                            return 1L
+                        }
+                    }
+                assertEquals(0, RipDpiWarp(bindings).start(testWarpConfig().copy(socketProtection = protection)))
+            }
+        }
+
+    @Test
     fun earlyExitClearsReadinessSignal() =
         runTest {
             val bindings =

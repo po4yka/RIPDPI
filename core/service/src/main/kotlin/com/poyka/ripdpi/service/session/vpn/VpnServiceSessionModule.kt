@@ -224,7 +224,12 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         factory: WarpRuntimeSupervisorFactory,
         dispatchers: AppCoroutineDispatchers,
-    ): WarpRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
+    ): WarpRuntimeSupervisor =
+        factory.create(
+            scope = host.serviceScope,
+            dispatcher = dispatchers.io,
+            networkMode = RelayRuntimeNetworkMode.Vpn,
+        )
 
     @Provides
     @ServiceSessionScope

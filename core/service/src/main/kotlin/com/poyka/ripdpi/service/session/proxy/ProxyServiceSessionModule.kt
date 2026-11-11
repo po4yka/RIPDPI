@@ -59,7 +59,12 @@ internal object ProxyServiceSessionModule {
         host: ServiceCoordinatorHost,
         factory: WarpRuntimeSupervisorFactory,
         dispatchers: AppCoroutineDispatchers,
-    ): WarpRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
+    ): WarpRuntimeSupervisor =
+        factory.create(
+            scope = host.serviceScope,
+            dispatcher = dispatchers.io,
+            networkMode = RelayRuntimeNetworkMode.Proxy,
+        )
 
     @Provides
     @ServiceSessionScope

@@ -7,9 +7,11 @@ import com.poyka.ripdpi.core.RipDpiProxy
 import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyNativeBindings
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiWarpNativeBindings
 import com.poyka.ripdpi.core.Tun2SocksConfig
 import com.poyka.ripdpi.core.Tun2SocksNativeBindings
 import com.poyka.ripdpi.core.Tun2SocksTunnel
+import com.poyka.ripdpi.core.WarpProbeSocketController
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -19,14 +21,125 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.DatagramPacket
+import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
+import java.util.Base64
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class NativeBridgeInstrumentedTest {
+    @Test
+    fun warpProbeGuardDeniesBeforeSendAndClearsCallbackExceptions() =
+        runBlocking {
+            // Public test vectors: https://www.rfc-editor.org/rfc/rfc7748#section-6.1
+            fun vector(hex: String): String =
+                Base64.getEncoder().encodeToString(hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
+            val privateKey = vector("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
+            val peerPublicKey = vector("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")
+            val bindings = RipDpiWarpNativeBindings()
+            DatagramSocket(InetSocketAddress("127.0.0.1", 0)).use { receiver ->
+                receiver.soTimeout = 500
+                val request =
+                    // Keep this JNI contract test independent of target DTO constructors and serializers.
+                    """
+                    {
+                      "endpoint": {
+                        "host": "127.0.0.1",
+                        "ipv4": null,
+                        "ipv6": null,
+                        "port": ${receiver.localPort},
+                        "source": "provisioning"
+                      },
+                      "privateKey": "$privateKey",
+                      "peerPublicKey": "$peerPublicKey",
+                      "clientId": null,
+                      "amnezia": {
+                        "wireProfile": "awg-3.1-ranges-v1",
+                        "enabled": false,
+                        "jc": 0,
+                        "jmin": 0,
+                        "jmax": 0,
+                        "h1": "1",
+                        "h2": "2",
+                        "h3": "3",
+                        "h4": "4",
+                        "s1": 0,
+                        "s2": 0,
+                        "s3": 0,
+                        "s4": 0,
+                        "i1": "",
+                        "i2": "",
+                        "i3": "",
+                        "i4": "",
+                        "i5": "",
+                        "presharedKey": "",
+                        "persistentKeepalive": 25,
+                        "v3": {
+                          "headerProtectionKey": "",
+                          "contentPaddingAddition": "",
+                          "rekeyAfterTime": "",
+                          "rekeyTimeout": "",
+                          "rejectAfterTime": "",
+                          "keepaliveTimeout": "",
+                          "maxHandshakeAttempts": "",
+                          "randomTrailers": false,
+                          "disableCookies": false
+                        }
+                      },
+                      "timeoutMs": 250,
+                      "socketProtection": "inactive"
+                    }
+                    """.trimIndent()
+                val packet = DatagramPacket(ByteArray(2048), 2048)
+                val legacyProbe =
+                    RipDpiWarpNativeBindings::class.java.getDeclaredMethod(
+                        "jniProbeEndpoint",
+                        String::class.java,
+                    )
+                legacyProbe.isAccessible = true
+                assertNull(legacyProbe.invoke(bindings, request))
+                assertThrows(SocketTimeoutException::class.java) { receiver.receive(packet) }
+                for (
+                controller in
+                listOf(
+                    WarpProbeSocketController { false },
+                    WarpProbeSocketController { throw IllegalStateException("Probe protection denied") },
+                )
+                ) {
+                    assertNull(bindings.probeEndpoint(request, controller))
+                    assertThrows(SocketTimeoutException::class.java) { receiver.receive(packet) }
+                }
+                // A later request can use JNI after the throwing callback. Its
+                // peer receives a WireGuard initiation, with no real account.
+                val executor = Executors.newSingleThreadExecutor()
+                try {
+                    val allowed =
+                        executor.submit(
+                            Callable {
+                                bindings.probeEndpoint(request, WarpProbeSocketController { true })
+                            },
+                        )
+                    receiver.soTimeout = 5_000
+                    receiver.receive(packet)
+                    assertEquals(148, packet.length)
+                    assertEquals(listOf<Byte>(1, 0, 0, 0), packet.data.take(4))
+                    assertNull(allowed.get(5, TimeUnit.SECONDS))
+                } finally {
+                    executor.shutdownNow()
+                    assertTrue("Probe worker must stop", executor.awaitTermination(5, TimeUnit.SECONDS))
+                }
+            }
+        }
+
     @Test
     fun nativeEchRequestCancellationIsBoundToItsHandle() {
         val handle = NativeEchTlsHandshakeBridge.createRequest()

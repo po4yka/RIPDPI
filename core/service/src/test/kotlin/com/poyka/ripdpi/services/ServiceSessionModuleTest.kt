@@ -445,6 +445,7 @@ class ServiceSessionModuleTest {
         override fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
+            networkMode: RelayRuntimeNetworkMode,
         ): WarpRuntimeSupervisor {
             createCalls += 1
             createdDispatchers += dispatcher
@@ -453,6 +454,7 @@ class ServiceSessionModuleTest {
                 dispatcher = dispatcher,
                 warpFactory = TestRipDpiWarpFactory(),
                 runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                networkMode = networkMode,
             )
         }
     }

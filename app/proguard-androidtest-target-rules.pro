@@ -24,3 +24,8 @@
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint {
     public static final com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint GENERIC_V1;
 }
+
+-keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.core.RipDpiWarpNativeBindings {
+    public <init>();
+    public java.lang.String probeEndpoint(java.lang.String,com.poyka.ripdpi.core.WarpProbeSocketController);
+}

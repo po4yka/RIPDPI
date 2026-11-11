@@ -7,7 +7,8 @@ use jni::objects::{JObject, JValue};
 use jni::refs::Global;
 use jni::{EnvUnowned, JavaVM, Outcome};
 use ripdpi_native_protect::{
-    ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
+    ProtectCallback, ProtectGeneration, SocketProtectionPolicy, register_protect_callback_versioned,
+    unregister_protect_callback_if,
 };
 use ripdpi_warp_core::WarpPlatform;
 
@@ -55,13 +56,19 @@ impl ProtectCallback for JniProtectCallback {
             // returns, so this runtime thread is never left permanently attached and can't
             // block JVM teardown.
             self.vm.attach_current_thread_for_scope(|env| -> jni::errors::Result<bool> {
-                let ret = env.call_method(
+                let result = env.call_method(
                     &self.vpn_service,
                     jni::jni_str!("protect"),
                     jni::jni_sig!("(I)Z"),
                     &[JValue::Int(fd)],
-                )?;
-                ret.z()
+                ).and_then(jni::JValueOwned::z);
+                // A throwing controller denies protection. Do not carry its
+                // pending exception into result serialization or later JNI work.
+                if env.exception_check() {
+                    env.exception_clear();
+                    return Err(jni::errors::Error::JavaException);
+                }
+                result
             });
 
         match result {
@@ -72,8 +79,16 @@ impl ProtectCallback for JniProtectCallback {
     }
 }
 
-pub(crate) fn warp_platform() -> WarpPlatform {
-    WarpPlatform::new().with_socket_protector(ripdpi_native_protect::protect_socket_via_callback)
+/// Apply the captured runtime policy; callback presence never selects a mode.
+pub(crate) fn warp_platform(vpn_required: bool) -> WarpPlatform {
+    let policy = if vpn_required { SocketProtectionPolicy::VpnRequired } else { SocketProtectionPolicy::Inactive };
+    WarpPlatform::new().with_socket_protector(move |fd| policy.protect(fd))
+}
+
+/// Keep the probe guard private to this request, without touching the registry.
+pub(crate) fn probe_platform(vm: &JavaVM, controller: Global<JObject<'static>>) -> WarpPlatform {
+    let callback = JniProtectCallback { vm: SharedJvm::new(vm), vpn_service: controller };
+    WarpPlatform::new().with_socket_protector(move |fd| callback.protect(fd))
 }
 
 /// JNI entry for the WARP `jniRegisterVpnProtect`.
@@ -127,3 +142,7 @@ pub(crate) fn unregister_entry(token: i64) {
         log::info!("warp VPN protect unregister ignored (stale token or no registration)");
     }
 }
+
+#[cfg(test)]
+#[path = "vpn_protect_tests.rs"]
+mod tests;

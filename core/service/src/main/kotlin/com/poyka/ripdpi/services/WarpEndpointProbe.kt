@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import com.poyka.ripdpi.serialization.RipDpiContractJson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
@@ -32,25 +33,31 @@ class DefaultWarpEndpointProbe
         private val appSettingsRepository: AppSettingsRepository,
         private val credentialStore: WarpCredentialStore,
         private val nativeBindings: RipDpiWarpEndpointProbeBindings,
+        private val protection: ActiveProtectSocketPathProvider,
     ) : WarpEndpointProbe {
         override suspend fun probe(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
         ): WarpEndpointCacheEntry? =
             withContext(Dispatchers.IO) {
-                runCatching { probeBlocking(candidate, timeoutMillis.coerceAtLeast(250)) }.getOrNull()
+                protection.captureWarpProbe().use { lease ->
+                    if (!lease.isCurrent()) return@withContext null
+                    try {
+                        probeNative(candidate, timeoutMillis.coerceAtLeast(250), lease)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
             }
 
         // Only a WireGuard handshake answer proves an endpoint works: a silent UDP port also
         // matches a black-holed one, so no answer means no candidate.
-        private suspend fun probeBlocking(
-            candidate: WarpEndpointCacheEntry,
-            timeoutMillis: Int,
-        ): WarpEndpointCacheEntry? = probeNative(candidate, timeoutMillis)
-
         private suspend fun probeNative(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
+            lease: ActiveProtectSocketPathProvider.WarpProbeLease,
         ): WarpEndpointCacheEntry? {
             val credentials = credentialStore.load(candidate.profileId)
             val privateKey = credentials?.privateKey?.takeIf(String::isNotBlank)
@@ -87,23 +94,27 @@ class DefaultWarpEndpointProbe
                                 s4 = settings.warpAmneziaS4,
                             ),
                         timeoutMs = timeoutMillis.toLong(),
+                        socketProtection = lease.socketProtection,
                     )
-                nativeBindings.probeEndpoint(WarpProbeJson.encodeToString(request))?.let { resultJson ->
-                    val result = WarpProbeJson.decodeFromString<WarpEndpointProbeNativeResult>(resultJson)
-                    candidate.copy(
-                        host =
-                            result.host
-                                .ifBlank {
-                                    candidate.host ?: ""
-                                }.ifBlank { candidate.ipv4 ?: candidate.ipv6.orEmpty() },
-                        ipv4 = result.ipv4 ?: candidate.ipv4,
-                        ipv6 = result.ipv6 ?: candidate.ipv6,
-                        port = result.port,
-                        source = "scanner_native",
-                        rttMs = result.rttMs,
-                        updatedAtEpochMillis = System.currentTimeMillis(),
-                    )
-                }
+                nativeBindings
+                    .probeEndpoint(WarpProbeJson.encodeToString(request), lease.controller)
+                    ?.let { resultJson ->
+                        if (!lease.isCurrent()) return null
+                        val result = WarpProbeJson.decodeFromString<WarpEndpointProbeNativeResult>(resultJson)
+                        candidate.copy(
+                            host =
+                                result.host
+                                    .ifBlank {
+                                        candidate.host ?: ""
+                                    }.ifBlank { candidate.ipv4 ?: candidate.ipv6.orEmpty() },
+                            ipv4 = result.ipv4 ?: candidate.ipv4,
+                            ipv6 = result.ipv6 ?: candidate.ipv6,
+                            port = result.port,
+                            source = "scanner_native",
+                            rttMs = result.rttMs,
+                            updatedAtEpochMillis = System.currentTimeMillis(),
+                        )
+                    }
             }
         }
 

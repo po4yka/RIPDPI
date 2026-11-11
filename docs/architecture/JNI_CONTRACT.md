@@ -318,6 +318,19 @@ a deliberate follow-up rather than a mechanical refactor:
   after `protect(fd)` plus `Network.bindSocket(dup(fd))`. Registry replacement
   and stale unregister are generation guarded, so an in-flight call from an
   old VPN session cannot publish a result into a newer session.
+- **WARP endpoint probe controller** — private instance method
+  `jniProbeEndpointWithController(requestJson: String, controller: WarpProbeSocketController): String?`
+  accepts a request-owned `protect(fd: Int): Boolean` controller. Native code
+  holds one `GlobalRef` until the private probe runtime has stopped. It clears
+  callback exceptions and rejects the socket on false or failure. It does not
+  replace the process-wide runtime protect callback. The service captures a
+  current VPN owner, or holds an inactive probe reservation. The reservation
+  prevents VPN startup from creating routes until blocking probe cleanup ends.
+  A stale VPN owner and a cleanup-pending owner reject new probes. R8 preserves
+  the interface and its implementations in `core/engine/consumer-rules.pro`.
+  The original `jniProbeEndpoint(requestJson: String): String?` ABI is retained.
+  It has no request-owned guard, so it returns null before parsing or network I/O.
+  Its declaring method is kept in minified builds for ABI compatibility.
 - **Runtime readiness callback** (ADR 0003) — registered by
   `jniRegisterReadinessListener(handle: jlong, listener): jlong`, cleared by
   `jniUnregisterReadinessListener(handle: jlong)`, on `RipDpiProxyNativeBindings`,

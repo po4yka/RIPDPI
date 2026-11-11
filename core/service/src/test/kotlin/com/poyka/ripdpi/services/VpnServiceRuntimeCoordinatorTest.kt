@@ -63,7 +63,7 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 @Suppress("detekt.LargeClass")
 class VpnServiceRuntimeCoordinatorTest {
-    private data class Env(
+    internal data class Env(
         val commands: TestRuntimeCommandSource,
         val coordinator: VpnServiceRuntimeCoordinator,
         val store: TestServiceStateStore,
@@ -2645,7 +2645,7 @@ class VpnServiceRuntimeCoordinatorTest {
     }
 
     @Suppress("LongMethod")
-    private fun TestScope.newEnv(
+    internal fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
             listOf(sampleResolution(mode = Mode.VPN)),

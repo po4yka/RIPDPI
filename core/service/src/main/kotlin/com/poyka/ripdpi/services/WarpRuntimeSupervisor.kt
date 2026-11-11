@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.core.RipDpiWarpFactory
 import com.poyka.ripdpi.core.RipDpiWarpRuntime
@@ -25,6 +26,7 @@ internal class WarpRuntimeSupervisor(
     private val warpFactory: RipDpiWarpFactory,
     private val runtimeConfigResolver: WarpRuntimeConfigResolver,
     private val stopTimeoutMillis: Long = 5_000L,
+    private val networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Vpn,
 ) {
     private var warpRuntime: RipDpiWarpRuntime? = null
     private var warpJob: Job? = null
@@ -50,7 +52,14 @@ internal class WarpRuntimeSupervisor(
         check(warpJob == null) { "WARP fields not null" }
         val runtime = warpFactory.create()
         val resolved = runtimeConfigResolver.resolve(config, requestedReference)
-        val resolvedConfig = resolved.configuration
+        val resolvedConfig =
+            resolved.configuration.copy(
+                socketProtection =
+                    when (networkMode) {
+                        RelayRuntimeNetworkMode.Proxy -> RelaySocketProtection.Inactive
+                        RelayRuntimeNetworkMode.Vpn -> RelaySocketProtection.VpnRequired
+                    },
+            )
         val consumedConfiguration = ConsumedUpstreamConfiguration.warp(resolvedConfig)
         warpRuntime = runtime
         stopRequested = false
@@ -168,11 +177,13 @@ internal open class WarpRuntimeSupervisorFactory
         open fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
+            networkMode: RelayRuntimeNetworkMode,
         ): WarpRuntimeSupervisor =
             WarpRuntimeSupervisor(
                 scope = scope,
                 dispatcher = dispatcher,
                 warpFactory = warpFactory,
                 runtimeConfigResolver = runtimeConfigResolver,
+                networkMode = networkMode,
             )
     }

@@ -143,6 +143,8 @@ internal class VpnServiceSessionLifecycle(
             RuntimeStopOutcome.FullyReleased
         } else {
             val outcome = current.stop(guard = guard, disposition = RuntimeStopDisposition.RetainPausedShell)
+            if (outcome == RuntimeStopOutcome.Superseded) return outcome
+            protectPathLease?.let(activeProtectSocketPathProvider::closeProbeAdmission)
             if (outcome != RuntimeStopOutcome.FullyReleased) {
                 outcome
             } else {
@@ -160,6 +162,7 @@ internal class VpnServiceSessionLifecycle(
     }
 
     fun destroy() {
+        protectPathLease?.let(activeProtectSocketPathProvider::closeProbeAdmission)
         hardKillSwitchRefreshBroadcastLifecycle.close()
         val runtimeCoordinator = coordinator
         cleanup.destroyRunningSession(
@@ -192,6 +195,7 @@ internal class VpnServiceSessionLifecycle(
     }
 
     private suspend fun revokeSession(runtimeCoordinator: VpnServiceRuntimeCoordinator) {
+        protectPathLease?.let(activeProtectSocketPathProvider::closeProbeAdmission)
         cleanup.revokeSession(
             stopRuntime = runtimeCoordinator::stop,
             destroyCoordinator = runtimeCoordinator::onDestroy,

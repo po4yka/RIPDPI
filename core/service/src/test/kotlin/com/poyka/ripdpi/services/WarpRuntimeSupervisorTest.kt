@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.WarpRouteModeRules
@@ -17,6 +18,32 @@ import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WarpRuntimeSupervisorTest {
+    @Test
+    fun `actual service mode determines runtime protection policy`() =
+        runTest {
+            listOf(
+                RelayRuntimeNetworkMode.Proxy to RelaySocketProtection.Inactive,
+                RelayRuntimeNetworkMode.Vpn to RelaySocketProtection.VpnRequired,
+            ).forEach { (mode, expected) ->
+                val factory = TestRipDpiWarpFactory()
+                val supervisor =
+                    WarpRuntimeSupervisor(
+                        backgroundScope,
+                        StandardTestDispatcher(testScheduler),
+                        factory,
+                        TestWarpRuntimeConfigResolver(),
+                        networkMode = mode,
+                    )
+                supervisor.start(
+                    sampleWarpConfig(),
+                    com.poyka.ripdpi.service.warp
+                        .RequestedWarpRuntimeReference("warp-test", 0L),
+                ) {}
+                assertEquals(expected, factory.lastRuntime.lastConfig?.socketProtection)
+                supervisor.stop()
+            }
+        }
+
     @Test
     fun explicitStopReportsExpectedWarpExitCause() =
         runTest {

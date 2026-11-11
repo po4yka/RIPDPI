@@ -42,11 +42,19 @@ Rust deserialization → RuntimeConfig
 | Settings → native mappers | `core/engine/.../core/NativeProxy{Desync,Quic,Relay,Runtime,Warp}PreferencesMapper.kt` |
 | Rust runtime config | `native/rust/crates/ripdpi-proxy-config`, `native/rust/crates/ripdpi-config` |
 | Tunnel config | `native/rust/crates/ripdpi-tunnel-config` |
+| Resolved WARP runtime/probe JSON | `core/engine-api/.../core/RipDpiWarpRuntime.kt`, `core/engine/.../core/RipDpiWarp.kt`, and `ripdpi-warp-core/src/config.rs` |
 | Strategy-pack config | `native/rust/crates/ripdpi-strategy-config/src/lib.rs` |
 | Diagnostics wire contract | `native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` |
 | Root-helper IPC protocol | `native/rust/crates/ripdpi-root-helper-protocol/src/commands.rs` |
 | Telemetry payloads | `native/rust/crates/ripdpi-telemetry`, event ring `native/rust/crates/android-support/src/events.rs` |
 | Support settings deep-link packages | `core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/support/*`, [`docs/support-settings-deep-links.md`](../support-settings-deep-links.md) |
+
+Resolved WARP runtime and probe JSON uses `socketProtection` values `inactive`
+and `vpn_required`. A missing field defaults to `vpn_required`. Runtime policy
+uses the native protect registry. Endpoint probes also require a request-owned
+`WarpProbeSocketController`; an inactive wire value alone does not authorize an
+unprotected socket while VPN ownership changes. No durable settings schema
+changes with this field.
 
 > **Direction of authority.** Kotlin is authoritative for user-facing models,
 > defaults, validation, and JSON serialization. Rust **consumes** the JSON and

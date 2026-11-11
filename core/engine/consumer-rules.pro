@@ -59,3 +59,16 @@
 -keepclasseswithmembernames class com.poyka.ripdpi.diagnostics.dpi.NativeQuicInitialPacketBindings {
     native <methods>;
 }
+
+# The WARP endpoint probe invokes protect(int) by name on its request-local guard.
+-keep interface com.poyka.ripdpi.core.WarpProbeSocketController {
+    boolean protect(int);
+}
+-keepclassmembers class * implements com.poyka.ripdpi.core.WarpProbeSocketController {
+    boolean protect(int);
+}
+
+# Preserve the original one-argument JNI ABI even though current callers use a guard.
+-keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpNativeBindings {
+    native java.lang.String jniProbeEndpoint(java.lang.String);
+}

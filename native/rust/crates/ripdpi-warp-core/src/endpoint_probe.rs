@@ -268,6 +268,7 @@ mod tests {
     fn request_with_psk(preshared_key: &str) -> WarpEndpointProbeRequest {
         let amnezia = WarpAmneziaConfig { preshared_key: preshared_key.to_owned(), ..Default::default() };
         WarpEndpointProbeRequest {
+            socket_protection: crate::config::WarpSocketProtection::default(),
             // Literal IPv4 so resolution is synchronous and offline; the probe
             // fails at the PSK decode before any socket is bound.
             endpoint: ResolvedWarpRuntimeEndpoint {
