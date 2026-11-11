@@ -116,14 +116,21 @@ impl<S: OwnedSession> SessionRegistry<S> {
         let handle = Arc::new(Registered(Arc::clone(&owner)));
         {
             let mut state = self.state();
+            state.entries.push(Entry { owner: Arc::clone(&owner), handle: Arc::downgrade(&handle) });
             if !state.closed {
-                state.entries.push(Entry { owner, handle: Arc::downgrade(&handle) });
                 return Ok(handle);
             }
         }
-        // Shutdown ran while the carrier was being built.
+        // Shutdown ran while the carrier was being built. Keep its join owner
+        // registered if this rejected open is cancelled during cleanup.
         drop(handle);
-        owner.close().await?;
+        let _joining = self.joining.lock().await;
+        let pending = self.state().entries.iter().any(|entry| Arc::ptr_eq(&entry.owner, &owner));
+        if pending {
+            let result = owner.close().await;
+            self.finish_close(&owner, result);
+        }
+        self.cleanup_result()?;
         Err(closed_error())
     }
 
@@ -350,6 +357,44 @@ mod tests {
         assert!(late.await.is_err());
         assert_eq!((aborts.load(Ordering::SeqCst), closes.load(Ordering::SeqCst)), (1, 1));
         assert!(registry.state().entries.is_empty());
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the test retries registry shutdown after cancelling late cleanup.
+    #[tokio::test]
+    async fn cancelling_late_constructor_cleanup_keeps_its_owner_for_shutdown() {
+        struct PendingClose {
+            _resource: Arc<()>,
+            release: Arc<Notify>,
+        }
+        impl OwnedSession for PendingClose {
+            fn abort(&self) {}
+
+            /// # Cancel safety:
+            /// cancel-safe: the session owns its resource throughout the wait.
+            async fn close(&self) -> io::Result<()> {
+                self.release.notified().await;
+                Ok(())
+            }
+        }
+        let registry = SessionRegistry::default();
+        let construct = Arc::new(Notify::new());
+        let close = Arc::new(Notify::new());
+        let resource = Arc::new(());
+        let released = Arc::downgrade(&resource);
+        let mut late = Box::pin(registry.create(async {
+            construct.notified().await;
+            Ok(PendingClose { _resource: resource, release: close.clone() })
+        }));
+        poll_pending(&mut late).await;
+        registry.shutdown().await.expect("no constructed owners yet");
+        construct.notify_one();
+        poll_pending(&mut late).await;
+        drop(late);
+        assert!(released.upgrade().is_some(), "cancelled cleanup must retain the late owner");
+        close.notify_one();
+        registry.shutdown().await.expect("retry joins the late owner");
+        assert!(released.upgrade().is_none(), "joined late owner must be released");
     }
 
     /// # Cancel safety:
