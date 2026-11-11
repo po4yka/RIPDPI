@@ -41,10 +41,10 @@ impl fmt::Debug for XhttpSocketProtector {
 
 /// xHTTP transport protocol mode (xray-core `Config.mode`).
 ///
-/// Upstream supports four modes: `stream-up`, `packet-up`, `stream-one`,
-/// and `stream-down` (split-endpoint variant of `stream-up`). This crate
-/// currently implements `stream-up` (the historical default) and
-/// `stream-one`; `packet-up` and split-endpoint remain unsupported.
+/// Upstream selects `stream-up`, `packet-up`, or `stream-one`, with `auto`
+/// choosing a mode. `stream-down` names the GET download leg; a separate
+/// endpoint uses `downloadSettings`. This crate implements `stream-up` and
+/// `stream-one`; `packet-up` and separate download endpoints are unsupported.
 ///
 /// `Default` resolves to [`Self::StreamUp`] so existing callers — and
 /// any Kotlin/JNI binding that has not yet been taught about the mode
@@ -311,8 +311,7 @@ pub(crate) enum XhttpMode {
 }
 
 pub(crate) fn normalize_path(path: &str) -> String {
-    let trimmed = path.trim().trim_matches('/');
-    if trimmed.is_empty() { "/".to_owned() } else { format!("/{trimmed}") }
+    if path.starts_with('/') { path.to_owned() } else { format!("/{path}") }
 }
 
 #[cfg(test)]

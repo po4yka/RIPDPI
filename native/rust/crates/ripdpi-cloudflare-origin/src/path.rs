@@ -4,23 +4,33 @@ const MAX_SESSION_ID_LEN: usize = 64;
 
 pub(crate) fn normalize_path(path: &str) -> String {
     let path = path.split_once('?').map_or(path, |(path, _)| path);
-    let trimmed = path.trim().trim_matches('/');
-    if trimmed.is_empty() { "/".to_owned() } else { format!("/{trimmed}") }
+    if path.starts_with('/') { path.to_owned() } else { format!("/{path}") }
 }
 
 pub(crate) fn extract_session_id(base_path: &str, request_path: &str) -> Option<String> {
-    extract_session_id_unbounded(base_path, request_path).filter(|id| id.len() <= MAX_SESSION_ID_LEN)
+    let base = normalize_path(base_path);
+    let prefix = if base.ends_with('/') { base } else { format!("{base}/") };
+    // URI.path() is escaped; decode once, without treating a decoded '?' as a query.
+    let decoded = decode_path(request_path)?;
+    decoded
+        .strip_prefix(&prefix)
+        .filter(|id| !id.is_empty() && id.len() <= MAX_SESSION_ID_LEN && !id.contains('/'))
+        .map(str::to_owned)
 }
 
-fn extract_session_id_unbounded(base_path: &str, request_path: &str) -> Option<String> {
-    let normalized_base = normalize_path(base_path);
-    if normalized_base == "/" {
-        let session_id = request_path.trim_matches('/');
-        let segments = session_id.split('/').collect::<Vec<_>>();
-        return if segments.len() == 1 && !segments[0].is_empty() { Some(segments[0].to_owned()) } else { None };
+fn decode_path(path: &str) -> Option<String> {
+    let mut decoded = Vec::with_capacity(path.len());
+    let mut bytes = path.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'%' {
+            let high = char::from(bytes.next()?).to_digit(16)?;
+            let low = char::from(bytes.next()?).to_digit(16)?;
+            decoded.push(u8::try_from(high * 16 + low).ok()?);
+        } else {
+            decoded.push(byte);
+        }
     }
-    let prefix = format!("{normalized_base}/");
-    request_path.strip_prefix(&prefix).filter(|value| !value.is_empty() && !value.contains('/')).map(str::to_owned)
+    String::from_utf8(decoded).ok()
 }
 
 #[cfg(test)]
@@ -49,7 +59,7 @@ mod tests {
         assert_eq!(Some("session123".to_string()), extract_session_id("/?ed=2048", "/session123"));
         assert_eq!(
             Some("session123".to_string()),
-            extract_session_id("/literal%3Fpath?ed=2048", "/literal%3Fpath/session123")
+            extract_session_id("/literal%3Fpath?ed=2048", "/literal%253Fpath/session123")
         );
         assert_eq!(None, extract_session_id("/xh?ed=2048", &format!("/xh/{}", "a".repeat(65))));
     }

@@ -17,18 +17,19 @@ Task ID: `TRN-1794371418861139`. The audit has loopback reproductions at source 
 
 ## Contracts and ownership
 
-- Only Rust `ripdpi-xhttp` behavior changes; existing relay-core callers retain their contract.
+- Rust `ripdpi-xhttp` behavior changes and the existing Cloudflare origin helper decodes its serialized request paths consistently; relay-core callers retain their API.
 - Stream worker: relay.rs except path helpers and new relay regression files. F1 then F2 use separate commits.
-- Path worker: config.rs, h2_body.rs, path helpers and path tests. Integrate relay.rs hunks after the stream commits.
+- Path worker: xHTTP config.rs, h2_body.rs, path helpers and tests; Cloudflare origin path.rs and HTTP request matching/tests. Integrate relay.rs hunks after the stream commits.
 - Pool worker: pool.rs and pool regression files, with no permit API change.
 - Root: portfolio/OpenSpec, README/SPEC_VERSION/SPEC and CONFIG_CONTRACTS.md, combined validation and integration.
-- All writers use separate worktrees. No Cargo/Gradle dependency, protobuf, JNI, locale, baseline or golden fixture changes.
+- Stream worker also owns the existing dev-only Tokio `rt-multi-thread` feature for concurrency regressions. No package or version changes.
+- All writers use separate worktrees. No lockfile, Gradle dependency, protobuf, JNI, locale, baseline or golden fixture changes.
 
 ## Risks / Trade-offs
 
 - Async submission can delay rejection visibility: propagate upload failures through stream I/O and cover late rejection/reset.
 - Abrupt full drop must reset only one logical stream: verify sibling echo and half-close download.
-- URI escaping changes previously broken profiles: use fixed upstream-derived cases and an independent loopback peer.
+- URI escaping also reaches the Cloudflare origin helper: decode inbound request paths exactly once, keep session ID limits and reject malformed escapes; use fixed wire targets and an independent loopback peer.
 - Pool waiting must not lose wakeups or permits: exercise the second-carrier release and cancellation.
 
 ## Migration Plan

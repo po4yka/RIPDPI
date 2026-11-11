@@ -24,7 +24,7 @@ fn tls_config_normalizes_path_host_and_xmux_defaults() {
     )
     .expect("config");
 
-    assert_eq!("/api/v1/stream", config.path);
+    assert_eq!("/api/v1/stream/", config.path);
     assert_eq!(Some("origin.example".to_owned()), config.host);
     assert_eq!(XmuxConfig::default(), config.xmux);
 }
@@ -118,7 +118,7 @@ fn protocol_mode_resolves_auto_in_security_context() {
 
 #[test]
 fn protocol_mode_parse_rejects_unimplemented_modes() {
-    // `packet-up` and `stream-down` are upstream modes but not implemented here; rejecting them prevents a silent downgrade to `stream-up`, and the error must not echo user-supplied values.
+    // Reject unsupported selectors without echoing supplied values; stream-down names a GET leg, not a mode.
     for is_reality in [false, true] {
         for unsupported in ["packet-up", "stream-down", "garbage"] {
             let Err(err) = XhttpProtocolMode::parse(unsupported, is_reality) else {

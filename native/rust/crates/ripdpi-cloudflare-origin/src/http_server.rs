@@ -848,3 +848,6 @@ mod tests {
         .expect("POST response cancellation must release upload");
     }
 }
+
+#[cfg(test)]
+mod path_tests;

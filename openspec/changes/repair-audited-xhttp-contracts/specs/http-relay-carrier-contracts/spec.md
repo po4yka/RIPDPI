@@ -20,12 +20,17 @@ The client MUST terminate the HTTP requests and tasks owned by a fully dropped l
 
 ### Requirement: REQ-TRN04-URL — Preserve configured URL semantics
 
-The client MUST preserve path slashes and query data and encode the decoded path as the pinned Xray URL implementation does.
+The client MUST preserve path slashes and query data and encode the decoded path as the pinned Xray URL implementation does. The repository-owned Cloudflare origin helper MUST decode inbound request paths exactly once, match the same configured base and reject malformed escapes or invalid session boundaries before session allocation.
 
 #### Scenario: Path contains percent characters and repeated slashes
 
 - **WHEN** both peers use a path with a literal percent character, repeated terminal slash or a query ending in slash
 - **THEN** the request matches the peer path and preserves the query value in both supported modes.
+
+#### Scenario: Shared client reaches the local origin helper
+
+- **WHEN** an HTTP request carries the client's encoded percent character or repeated-slash base
+- **THEN** the origin helper admits the matching session and rejects invalid percent escapes or encoded extra session segments.
 
 ### Requirement: REQ-TRN04-POOL — Use capacity on any carrier
 

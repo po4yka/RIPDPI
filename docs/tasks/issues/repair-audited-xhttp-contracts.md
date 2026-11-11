@@ -29,7 +29,8 @@ Repair the four confirmed TRN-04 audit defects in the existing native xHTTP mode
 ## Ownership
 
 - Stream worker owns F1 and F2: `ripdpi-xhttp/src/relay.rs` except its path helper functions, plus new `src/relay/` regression modules. F1 and F2 remain separate commits.
-- Path worker owns F3: `src/config.rs`, `src/h2_body.rs`, path helpers in `src/relay.rs`, and owning path tests. Changes in relay.rs are serialized at integration; no other worker edits the path helper range.
+- Path worker owns F3: `ripdpi-xhttp/src/config.rs`, `src/h2_body.rs`, path helpers in `src/relay.rs`, owning path tests, and `ripdpi-cloudflare-origin/src/path.rs` plus HTTP request matching/tests. The origin helper must decode the same serialized request path. Changes in relay.rs are serialized at integration; no other worker edits the path helper range.
 - Pool worker owns F4: `src/pool.rs` and `src/pool/` regression tests; it preserves the existing permit type and avoids changing stream-worker files.
 - Root owns task/OpenSpec records, support docs, integration, combined validation and push. All workers use separate worktrees.
-- Cargo.lock, Cargo.toml, Kotlin contracts, locales, baselines and golden fixtures have no writer in this change.
+- Stream worker owns the existing dev-only Tokio `rt-multi-thread` feature in `ripdpi-xhttp/Cargo.toml`, required by the concurrency regressions. No new package or version is added.
+- Cargo.lock, Kotlin contracts, locales, baselines and golden fixtures have no writer in this change.

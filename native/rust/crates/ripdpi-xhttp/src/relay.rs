@@ -475,7 +475,11 @@ fn with_query(path: String, query: &str) -> String {
 
 pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {
     let (normalized, query) = split_path_query(path);
-    let path = if normalized == "/" { format!("/{session_id}") } else { format!("{normalized}/{session_id}") };
+    let path = if normalized.ends_with('/') {
+        format!("{normalized}{session_id}")
+    } else {
+        format!("{normalized}/{session_id}")
+    };
     with_query(path, query)
 }
 
@@ -486,7 +490,7 @@ pub(crate) fn stream_up_path(path: &str, session_id: &str) -> String {
 /// path without that prefix.
 pub(crate) fn stream_one_path(path: &str) -> String {
     let (normalized, query) = split_path_query(path);
-    let path = if normalized == "/" { normalized } else { format!("{normalized}/") };
+    let path = if normalized.ends_with('/') { normalized } else { format!("{normalized}/") };
     with_query(path, query)
 }
 
@@ -494,7 +498,7 @@ pub(crate) fn stream_one_path(path: &str) -> String {
 pub(crate) fn referer_padding(host: &str, path: &str) -> String {
     let (normalized, _) = split_path_query(path);
     let padding = random_padding_value();
-    format!("https://{host}{normalized}?x_padding={padding}")
+    format!("{}?x_padding={padding}", crate::h2_body::request_uri(host, &normalized))
 }
 
 fn random_session_id() -> String {

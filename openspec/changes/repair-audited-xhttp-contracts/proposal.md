@@ -25,5 +25,5 @@ The TRN-04 audit reproduced blocked stream-up opening, detached HTTP tasks after
 
 ## Impact
 
-- Rust `ripdpi-xhttp` and its regression tests; existing relay-core callers keep their API.
+- Rust `ripdpi-xhttp` and the Cloudflare origin helper path matcher with regression tests; existing relay-core callers keep their API.
 - No dependencies, serialized schema, Kotlin configuration or supported-mode expansion.
