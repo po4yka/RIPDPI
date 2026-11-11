@@ -2,7 +2,7 @@
 id: TRN-1794371418861139
 title: Repair audited xHTTP stream and pool contracts
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Transport maintainer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-audited-xhttp-contracts
 created: 2026-11-11
 updated: 2026-11-11
+closed_at: "2026-11-11T05:45:14Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Four separate fixes published on main; 114 xHTTP and 34 origin tests, 185 VLESS unit tests, 16 relay xHTTP cases and one explicit REALITY Xray peer case passed. Affected clippy, workspace check, ci-gates and independent reviews passed. Exact source and limits are recorded in the archived verification.
 ---
 
 ## Goal

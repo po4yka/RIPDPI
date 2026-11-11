@@ -1,0 +1,11 @@
+{
+  "change": "repair-audited-xhttp-contracts",
+  "evidence_summary": "Four separate fixes published on main; 114 xHTTP and 34 origin tests, 185 VLESS unit tests, 16 relay xHTTP cases and one explicit REALITY Xray peer case passed. Affected clippy, workspace check, ci-gates and independent reviews passed. Exact source and limits are recorded in the archived verification.",
+  "execution_sha256": "30ef34bf9552ef82e760ab300195368fe79775190cf5157551e8e7a7b89f66a2",
+  "issue_sha256": "d0260d07bf1fa24dc9018ae78b8f456c0a89d61b65e39a1b1dd4f32bc81d5212",
+  "outcome": "done",
+  "prepared_at": "2026-11-11T05:45:14Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794371418861139"
+}
