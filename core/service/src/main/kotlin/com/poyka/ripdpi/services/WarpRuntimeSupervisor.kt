@@ -47,11 +47,12 @@ internal class WarpRuntimeSupervisor(
     suspend fun start(
         config: RipDpiWarpConfig,
         requestedReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
+        networkScopeKey: String? = null,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(warpJob == null) { "WARP fields not null" }
         val runtime = warpFactory.create()
-        val resolved = runtimeConfigResolver.resolve(config, requestedReference)
+        val resolved = runtimeConfigResolver.resolve(config, requestedReference, networkScopeKey, networkMode)
         val resolvedConfig =
             resolved.configuration.copy(
                 socketProtection =

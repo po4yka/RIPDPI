@@ -243,6 +243,7 @@ internal class ProxyServiceRuntimeCoordinator(
             val startResult =
                 proxyRuntimeStack.start(
                     requestedWarpReference = resolution.requestedConfiguration.warpReference,
+                    networkScopeKey = resolution.networkScopeKey,
                     relayInputs = resolution.requestedConfiguration.relayInputs,
                     requestedSelection = resolution.requestedConfiguration.selection,
                     proxyPreferences =
@@ -313,6 +314,7 @@ internal class ProxyServiceRuntimeCoordinator(
         val startResult =
             proxyRuntimeStack.start(
                 requestedWarpReference = resolution.requestedConfiguration.warpReference,
+                networkScopeKey = resolution.networkScopeKey,
                 relayInputs = resolution.requestedConfiguration.relayInputs,
                 requestedSelection = resolution.requestedConfiguration.selection,
                 proxyPreferences =

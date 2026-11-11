@@ -111,6 +111,7 @@ class WarpRuntimeProvisioningFlowTest {
                     AppSettingsSerializer.defaultValue
                         .toBuilder()
                         .setWarpProfileId(profile.id)
+                        .setWarpScannerEnabled(true)
                         .build(),
                 )
             val profiles =

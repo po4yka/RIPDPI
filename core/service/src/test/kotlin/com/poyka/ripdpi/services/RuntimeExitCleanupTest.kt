@@ -222,7 +222,7 @@ class RuntimeExitCleanupTest {
                 warp.start(
                     RipDpiWarpConfig(enabled = true),
                     RequestedWarpRuntimeReference("warp-test", 0L),
-                    if (vpn) vpnHandler::handleWarpExit else proxyHandler::handleWarpExit,
+                    onUnexpectedExit = if (vpn) vpnHandler::handleWarpExit else proxyHandler::handleWarpExit,
                 )
             }
             proxy.start(

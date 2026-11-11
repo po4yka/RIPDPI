@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
 import com.poyka.ripdpi.data.WarpScannerModeAutomatic
 import com.poyka.ripdpi.data.WarpScannerModeManual
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -350,7 +351,16 @@ private suspend fun boundedWarpHostLookup(
     lookupHost: (String) -> List<InetAddress>,
 ): List<InetAddress> =
     withTimeoutOrNull(WarpHostLookupTimeoutMs) {
-        warpHostLookupScope.async { runCatching { lookupHost(host) }.getOrDefault(emptyList()) }.await()
+        warpHostLookupScope
+            .async {
+                try {
+                    lookupHost(host)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            }.await()
     }.orEmpty()
 
 private const val WarpHostLookupTimeoutMs = 3_000L

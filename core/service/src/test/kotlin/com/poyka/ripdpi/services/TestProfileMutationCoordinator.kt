@@ -106,8 +106,6 @@ internal class TestProfileMutationCoordinator(
 
     override fun warpRuntimeRevision(profileId: String): Long = mutationRevision
 
-    private val stagedPreimages = mutableMapOf<String, WarpPreimage>()
-
     override suspend fun recover() = Unit
 
     override suspend fun <T> readRecovered(block: suspend () -> T): T = block()
@@ -131,8 +129,7 @@ internal class TestProfileMutationCoordinator(
         activate: Boolean,
         scannerMode: String,
     ): com.poyka.ripdpi.data.ProfileMutationOutcome {
-        val preimage = stagedPreimages.remove(profile.id) ?: capturePreimage(profile.id)
-        if (!activate) stagedPreimages[profile.id] = preimage
+        val preimage = capturePreimage(profile.id)
         runCatching {
             profiles.save(profile)
             this.credentials.save(profile.id, credentials)
@@ -147,6 +144,8 @@ internal class TestProfileMutationCoordinator(
                     setWarpSetupState(profile.setupState)
                     setWarpLastScannerMode(scannerMode)
                 }
+            } else if (profiles.activeProfileId() == profile.id && settings.snapshot().warpProfileId == profile.id) {
+                settings.update { setWarpAccountKind(profile.accountKind) }
             }
         }.exceptionOrNull()?.rollbackStoreMutation(
             { restoreProfile(profile.id, preimage) },
@@ -155,7 +154,11 @@ internal class TestProfileMutationCoordinator(
             { profiles.setActiveProfileId(preimage.activeProfileId) },
             { settings.replace(preimage.settings) },
         )
-        mutationRevision += 1L
+        if (preimage.credentials != credentials || preimage.profile?.accountKind != profile.accountKind ||
+            preimage.profile?.zeroTrustOrg != profile.zeroTrustOrg
+        ) {
+            mutationRevision += 1L
+        }
 
         return com.poyka.ripdpi.data
             .testMutationOutcome(preparation.origin)

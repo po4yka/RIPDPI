@@ -1143,6 +1143,8 @@ internal class TestWarpRuntimeConfigResolver : WarpRuntimeConfigResolver {
     override suspend fun resolve(
         config: RipDpiWarpConfig,
         requestedReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
+        networkScopeKey: String?,
+        networkMode: RelayRuntimeNetworkMode,
     ): com.poyka.ripdpi.service.warp.ResolvedWarpRuntimeStart {
         lastConfig = config
         return com.poyka.ripdpi.service.warp.ResolvedWarpRuntimeStart(

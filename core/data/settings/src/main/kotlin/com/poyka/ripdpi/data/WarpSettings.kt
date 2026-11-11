@@ -22,6 +22,10 @@ const val DefaultWarpLocalSocksPort = 11888
 const val DefaultWarpScannerParallelism = 10
 const val DefaultWarpScannerMaxRttMs = 1_500
 const val DefaultWarpManualEndpointPort = 2408
+const val MinWarpScannerParallelism = 1
+const val MaxWarpScannerParallelism = 64
+const val MinWarpScannerMaxRttMs = 50
+const val MaxWarpScannerMaxRttMs = 10_000
 
 // TODO(cloudflare-removal): All hosts below are Cloudflare-only (cloudflareclient.com).
 // WARP provisioning, scanning, and Zero Trust enrollment all require reachability to this domain.
@@ -261,8 +265,12 @@ fun AppSettings.toWarpSettingsModel(): WarpSettingsModel =
                     port = warpManualEndpointPort.takeIf { it > 0 } ?: DefaultWarpManualEndpointPort,
                 ),
             scannerEnabled = warpScannerEnabled,
-            scannerParallelism = warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism,
-            scannerMaxRttMs = warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs,
+            scannerParallelism =
+                (warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism)
+                    .coerceIn(MinWarpScannerParallelism, MaxWarpScannerParallelism),
+            scannerMaxRttMs =
+                (warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs)
+                    .coerceIn(MinWarpScannerMaxRttMs, MaxWarpScannerMaxRttMs),
             amneziaPreset = amneziaProfile.preset,
             amnezia = amneziaProfile.settings,
         )

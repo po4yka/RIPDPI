@@ -34,6 +34,7 @@ interface WarpEnrollmentOrchestrator {
         expectedCredentials: WarpCredentials,
         expectedRevision: Long,
         networkScopeKey: String?,
+        scanContext: WarpEndpointScanContext? = null,
     ): WarpEnrollmentSnapshot
 
     suspend fun resetProfile(profileId: String)
@@ -101,6 +102,7 @@ class DefaultWarpEnrollmentOrchestrator
             expectedCredentials: WarpCredentials,
             expectedRevision: Long,
             networkScopeKey: String?,
+            scanContext: WarpEndpointScanContext?,
         ): WarpEnrollmentSnapshot =
             mutex.withLock {
                 enrollmentFlowService.refreshProfileForRuntime(
@@ -108,6 +110,7 @@ class DefaultWarpEnrollmentOrchestrator
                     expectedCredentials,
                     expectedRevision,
                     networkScopeKey,
+                    scanContext,
                 )
             }
 

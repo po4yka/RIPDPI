@@ -59,6 +59,7 @@ internal class SharedProxyRuntimeStack(
         initialRelayRacePlan: InitialRelayRacePlan? = null,
         onInitialRelayRaceState: (InitialTransportRaceSnapshot) -> Unit = {},
         onInitialRelaySelected: (InitialRelayRaceResult) -> Unit = {},
+        networkScopeKey: String? = null,
     ): ProxyRuntimeStartResult {
         val selectedRelay = capturedSelectorRelay(requestedSelection)
         val awgRequest = proxyPreferences.awgConfigOrNull()?.let { it.copy(dnsServers = it.dnsServers.toList()) }
@@ -125,7 +126,7 @@ internal class SharedProxyRuntimeStack(
                 }
             }
             proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
-                warpRuntimeSupervisor.start(warpConfig, requestedWarpReference, onWarpExit)
+                warpRuntimeSupervisor.start(warpConfig, requestedWarpReference, networkScopeKey, onWarpExit)
             }
         }
 

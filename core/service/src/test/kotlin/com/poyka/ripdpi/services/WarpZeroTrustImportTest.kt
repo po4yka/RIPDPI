@@ -96,6 +96,14 @@ class WarpZeroTrustImportTest {
                     fixture.endpoints,
                     orchestrator,
                     fixture.mutations,
+                    fixture.profiles,
+                    DefaultWarpEndpointScanner(
+                        fixture.settings,
+                        fixture.endpoints,
+                        FakeWarpEndpointProbe(
+                            mapOf("127.0.0.1" to 1L),
+                        ),
+                    ),
                 )
 
             val resolved =

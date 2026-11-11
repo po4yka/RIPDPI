@@ -2,12 +2,14 @@
 
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint
-import com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig
 import com.poyka.ripdpi.core.RipDpiWarpEndpointProbeBindings
 import com.poyka.ripdpi.core.WarpEndpointProbeNativeRequest
 import com.poyka.ripdpi.core.WarpEndpointProbeNativeResult
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.MaxWarpScannerMaxRttMs
+import com.poyka.ripdpi.data.MinWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import com.poyka.ripdpi.serialization.RipDpiContractJson
@@ -24,6 +26,12 @@ interface WarpEndpointProbe {
         candidate: WarpEndpointCacheEntry,
         timeoutMillis: Int,
     ): WarpEndpointCacheEntry?
+
+    suspend fun probe(
+        candidate: WarpEndpointCacheEntry,
+        timeoutMillis: Int,
+        context: WarpEndpointScanContext,
+    ): WarpEndpointCacheEntry? = probe(candidate, timeoutMillis)
 }
 
 @Singleton
@@ -38,12 +46,38 @@ class DefaultWarpEndpointProbe
         override suspend fun probe(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
+        ): WarpEndpointCacheEntry? {
+            val credentials = credentialStore.load(candidate.profileId) ?: return null
+            return probe(
+                candidate,
+                timeoutMillis,
+                WarpEndpointScanContext.capture(
+                    credentials.copy(profileId = candidate.profileId),
+                    appSettingsRepository.snapshot(),
+                ),
+            )
+        }
+
+        override suspend fun probe(
+            candidate: WarpEndpointCacheEntry,
+            timeoutMillis: Int,
+            context: WarpEndpointScanContext,
         ): WarpEndpointCacheEntry? =
             withContext(Dispatchers.IO) {
                 protection.captureWarpProbe().use { lease ->
                     if (!lease.isCurrent()) return@withContext null
+                    if (context.requiredProtection == RelaySocketProtection.VpnRequired &&
+                        lease.socketProtection != RelaySocketProtection.VpnRequired
+                    ) {
+                        return@withContext null
+                    }
                     try {
-                        probeNative(candidate, timeoutMillis.coerceAtLeast(250), lease)
+                        probeNative(
+                            candidate,
+                            timeoutMillis.coerceIn(MinWarpScannerMaxRttMs, MaxWarpScannerMaxRttMs),
+                            lease,
+                            context,
+                        )
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
@@ -58,41 +92,21 @@ class DefaultWarpEndpointProbe
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
             lease: ActiveProtectSocketPathProvider.WarpProbeLease,
+            context: WarpEndpointScanContext,
         ): WarpEndpointCacheEntry? {
-            val credentials = credentialStore.load(candidate.profileId)
-            val privateKey = credentials?.privateKey?.takeIf(String::isNotBlank)
-            val peerPublicKey = credentials?.peerPublicKey?.takeIf(String::isNotBlank)
-            return if (credentials == null || privateKey == null || peerPublicKey == null) {
+            val credentials = context.credentials
+            val privateKey = credentials.privateKey?.takeIf(String::isNotBlank)
+            val peerPublicKey = credentials.peerPublicKey?.takeIf(String::isNotBlank)
+            return if (credentials.profileId != candidate.profileId || privateKey == null || peerPublicKey == null) {
                 null
             } else {
-                val settings = appSettingsRepository.snapshot()
                 val request =
                     WarpEndpointProbeNativeRequest(
                         endpoint = candidate.toResolvedEndpoint(),
                         privateKey = privateKey,
                         peerPublicKey = peerPublicKey,
                         clientId = credentials.clientId,
-                        amnezia =
-                            RipDpiWarpAmneziaConfig(
-                                enabled = settings.warpAmneziaEnabled,
-                                jc = settings.warpAmneziaJc,
-                                jmin = settings.warpAmneziaJmin,
-                                jmax = settings.warpAmneziaJmax,
-                                wireProfile = settings.warpAmneziaWireProfile,
-                                i1 = settings.warpAmneziaI1,
-                                i2 = settings.warpAmneziaI2,
-                                i3 = settings.warpAmneziaI3,
-                                i4 = settings.warpAmneziaI4,
-                                i5 = settings.warpAmneziaI5,
-                                h1 = settings.warpAmneziaH1.ifEmpty { "1" },
-                                h2 = settings.warpAmneziaH2.ifEmpty { "2" },
-                                h3 = settings.warpAmneziaH3.ifEmpty { "3" },
-                                h4 = settings.warpAmneziaH4.ifEmpty { "4" },
-                                s1 = settings.warpAmneziaS1,
-                                s2 = settings.warpAmneziaS2,
-                                s3 = settings.warpAmneziaS3,
-                                s4 = settings.warpAmneziaS4,
-                            ),
+                        amnezia = context.config.amnezia,
                         timeoutMs = timeoutMillis.toLong(),
                         socketProtection = lease.socketProtection,
                     )

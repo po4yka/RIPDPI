@@ -274,6 +274,7 @@ internal class VpnRuntimeCompositionCoordinator(
         return proxyRuntimeStack
             .start(
                 requestedWarpReference = resolution.requestedConfiguration.warpReference,
+                networkScopeKey = resolution.networkScopeKey,
                 relayInputs = resolution.requestedConfiguration.relayInputs,
                 requestedSelection = resolution.requestedConfiguration.selection,
                 proxyPreferences =

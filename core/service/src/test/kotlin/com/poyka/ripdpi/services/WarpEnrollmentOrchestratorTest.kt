@@ -485,9 +485,62 @@ class WarpEnrollmentOrchestratorTest {
 @OptIn(ExperimentalCoroutinesApi::class)
 class WarpEndpointScannerTest {
     @Test
+    fun `disabled endpoint scanner keeps the saved candidate without probing`() =
+        runTest {
+            val settings =
+                TestAppSettingsRepository(
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setWarpScannerEnabled(false)
+                        .build(),
+                )
+            val cached =
+                WarpEndpointCacheEntry(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "wifi:home",
+                    host = "192.0.2.10",
+                    port = 2408,
+                    source = "saved",
+                    updatedAtEpochMillis = 1L,
+                )
+            val endpoints = FakeWarpEndpointStore().apply { save(cached) }
+            val scanner =
+                DefaultWarpEndpointScanner(
+                    settings,
+                    endpoints,
+                    object : WarpEndpointProbe {
+                        override suspend fun probe(
+                            candidate: WarpEndpointCacheEntry,
+                            timeoutMillis: Int,
+                        ): WarpEndpointCacheEntry? =
+                            throw AssertionError("Disabled scanning must not start a network probe")
+                    },
+                )
+
+            val selected =
+                scanner.resolveEndpoint(
+                    DefaultWarpProfileId,
+                    "wifi:home",
+                    null,
+                    WarpEndpointResolutionOrigin.RuntimeProvisioning,
+                )
+
+            assertEquals("192.0.2.10", selected?.host)
+            assertEquals(2408, selected?.port)
+            assertEquals(1L, selected?.updatedAtEpochMillis)
+        }
+
+    @Test
     fun `endpoint scanner clears stale scoped endpoint and falls back to healthy global endpoint`() =
         runTest {
-            val appSettingsRepository = TestAppSettingsRepository()
+            val appSettingsRepository =
+                TestAppSettingsRepository(
+                    initial =
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setWarpScannerEnabled(true)
+                            .build(),
+                )
             val endpointStore = FakeWarpEndpointStore()
             endpointStore.save(
                 WarpEndpointCacheEntry(
@@ -540,7 +593,14 @@ class WarpEndpointScannerTest {
     @Test
     fun `endpoint scanner reuses fresh scoped endpoint without probing`() =
         runTest {
-            val appSettingsRepository = TestAppSettingsRepository()
+            val appSettingsRepository =
+                TestAppSettingsRepository(
+                    initial =
+                        AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setWarpScannerEnabled(true)
+                            .build(),
+                )
             val endpointStore = FakeWarpEndpointStore()
             endpointStore.save(
                 WarpEndpointCacheEntry(

@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.service.warp
 
+import com.poyka.ripdpi.core.RelaySocketProtection
 import com.poyka.ripdpi.core.ResolvedRipDpiWarpConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint
 import com.poyka.ripdpi.core.RipDpiWarpConfig
@@ -10,8 +11,16 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.WarpAccountKindZeroTrust
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointStore
+import com.poyka.ripdpi.data.WarpProfileStore
+import com.poyka.ripdpi.data.WarpScannerModeAutomatic
+import com.poyka.ripdpi.data.WarpScannerModeManual
+import com.poyka.ripdpi.services.RelayRuntimeNetworkMode
+import com.poyka.ripdpi.services.WarpEndpointResolutionOrigin
+import com.poyka.ripdpi.services.WarpEndpointScanContext
+import com.poyka.ripdpi.services.WarpEndpointScanner
 import com.poyka.ripdpi.services.WarpEnrollmentOrchestrator
 import com.poyka.ripdpi.services.WarpProvisioningException
 import dagger.Binds
@@ -26,6 +35,8 @@ internal interface WarpRuntimeConfigResolver {
     suspend fun resolve(
         config: RipDpiWarpConfig,
         requestedReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
+        networkScopeKey: String? = null,
+        networkMode: RelayRuntimeNetworkMode = RelayRuntimeNetworkMode.Vpn,
     ): ResolvedWarpRuntimeStart
 }
 
@@ -37,66 +48,137 @@ internal class DefaultWarpRuntimeConfigResolver
         private val endpointStore: WarpEndpointStore,
         private val enrollmentOrchestrator: WarpEnrollmentOrchestrator,
         private val profileMutations: ProfileMutationCoordinator,
+        private val profileStore: WarpProfileStore,
+        private val endpointScanner: WarpEndpointScanner,
     ) : WarpRuntimeConfigResolver {
         override suspend fun resolve(
             config: RipDpiWarpConfig,
-            requestedReference: com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference?,
+            requestedReference: RequestedWarpRuntimeReference?,
+            networkScopeKey: String?,
+            networkMode: RelayRuntimeNetworkMode,
         ): ResolvedWarpRuntimeStart {
             require(config.enabled) { "WARP runtime requested while disabled" }
-            profileMutations.recover()
-            val profileId =
-                checkNotNull(requestedReference) {
-                    "WARP requires a frozen profile reference"
-                }.profileId.ifBlank { error("No WARP profile configured for this start") }
-            val initialCredentials = credentialStore.load(profileId)
-            val initialEndpoint =
-                if (config.endpointSelectionMode == "manual") {
-                    null
-                } else {
-                    endpointStore.load(profileId, GlobalWarpEndpointScopeKey)
-                }
-            val provisioning =
-                if (needsRefresh(
-                        initialCredentials,
-                        initialEndpoint,
-                        config.endpointSelectionMode != "manual",
-                    )
-                ) {
-                    refreshProvisioning(
-                        profileId,
-                        checkNotNull(initialCredentials) { "WARP provisioning credentials are unavailable" },
-                        checkNotNull(requestedReference).revision,
-                    )
-                } else {
-                    null
-                }
-            val credentials =
-                provisioning?.credentials ?: initialCredentials
-                    ?: throw ServiceStartupRejectedException(
-                        FailureReason.WarpProvisioningFailed("Missing WARP credentials for profile $profileId"),
-                    )
-            val endpoint =
-                when (config.endpointSelectionMode) {
-                    "manual" -> {
-                        config.manualEndpoint.toResolvedEndpoint()
-                    }
-
-                    else -> {
-                        provisioning?.endpoint?.toResolvedEndpoint() ?: initialEndpoint?.toResolvedEndpoint()
-                    }
-                } ?: throw ServiceStartupRejectedException(
-                    FailureReason.WarpEndpointUnavailable("Missing WARP endpoint for profile $profileId"),
+            val reference = checkNotNull(requestedReference) { "WARP requires a frozen profile reference" }
+            val profileId = reference.profileId.ifBlank { error("No WARP profile configured for this start") }
+            val scopeKey = networkScopeKey?.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
+            val captured = captureProfileSnapshot(profileId, reference.revision, scopeKey)
+            val initialCredentials = captured.second
+            // The provider cannot restore a lost local key pair through GET /reg/{id}.
+            requiredWarpKey(initialCredentials.privateKey, "WARP private key missing")
+            requiredWarpKey(initialCredentials.publicKey, "WARP public key missing")
+            val context =
+                WarpEndpointScanContext(
+                    initialCredentials,
+                    config,
+                    if (initialCredentials.accountKind ==
+                        WarpAccountKindZeroTrust
+                    ) {
+                        WarpScannerModeManual
+                    } else {
+                        WarpScannerModeAutomatic
+                    },
+                    if (networkMode ==
+                        RelayRuntimeNetworkMode.Vpn
+                    ) {
+                        RelaySocketProtection.VpnRequired
+                    } else {
+                        RelaySocketProtection.Inactive
+                    },
                 )
+            val needsRefresh =
+                initialCredentials.peerPublicKey.isNullOrBlank() ||
+                    initialCredentials.interfaceAddressV4.isNullOrBlank()
+            val provisioning =
+                if (needsRefresh) {
+                    check(initialCredentials.accountKind != WarpAccountKindZeroTrust) {
+                        "Zero Trust profiles require a complete local import"
+                    }
+                    refreshProvisioning(profileId, initialCredentials, reference.revision, scopeKey, context)
+                } else {
+                    null
+                }
+            val credentials = provisioning?.credentials ?: initialCredentials
+            val endpoint =
+                if (config.endpointSelectionMode == "manual") {
+                    config.manualEndpoint.toResolvedEndpoint()
+                } else {
+                    val selected =
+                        provisioning?.endpoint ?: if (provisioning == null) {
+                            selectRuntimeEndpoint(captured.first, reference, context, scopeKey, captured.third)
+                        } else {
+                            null
+                        }
+                    selected?.toResolvedEndpoint() ?: throw ServiceStartupRejectedException(
+                        FailureReason.WarpEndpointUnavailable("No authenticated WARP endpoint is available"),
+                    )
+                }
+            if (provisioning == null) {
+                profileMutations.readRecovered {
+                    check(
+                        profileMutations.warpRuntimeRevision(profileId) == reference.revision &&
+                            credentialStore.load(profileId) == credentials,
+                    ) { "Runtime WARP credentials changed during resolution" }
+                }
+            }
             val resolved = resolveConsumedWarp(config, profileId, credentials, endpoint)
             val patch =
                 provisioning?.let {
-                    RuntimeWarpProvisioningPatch(
-                        profileId,
-                        checkNotNull(initialCredentials),
-                        checkNotNull(it.credentials),
-                    )
+                    RuntimeWarpProvisioningPatch(profileId, initialCredentials, checkNotNull(it.credentials))
                 }
             return ResolvedWarpRuntimeStart(resolved, patch)
+        }
+
+        private suspend fun captureProfileSnapshot(
+            profileId: String,
+            expectedRevision: Long,
+            scopeKey: String,
+        ): Triple<
+            com.poyka.ripdpi.data.WarpProfile,
+            com.poyka.ripdpi.data.WarpCredentials,
+            com.poyka.ripdpi.data.WarpEndpointCacheEntry?,
+        > =
+            profileMutations.readRecovered {
+                check(profileMutations.warpRuntimeRevision(profileId) == expectedRevision) {
+                    "Runtime WARP profile changed before resolution"
+                }
+                val credentials =
+                    checkNotNull(credentialStore.load(profileId)) { "WARP credentials are unavailable" }
+                val profile = checkNotNull(profileStore.load(profileId)) { "WARP profile is unavailable" }
+                Triple(
+                    profile,
+                    credentials,
+                    endpointStore.load(profileId, scopeKey)
+                        ?: endpointStore.load(profileId, GlobalWarpEndpointScopeKey),
+                )
+            }
+
+        private suspend fun selectRuntimeEndpoint(
+            profile: com.poyka.ripdpi.data.WarpProfile,
+            reference: RequestedWarpRuntimeReference,
+            context: WarpEndpointScanContext,
+            scopeKey: String,
+            provisioned: com.poyka.ripdpi.data.WarpEndpointCacheEntry?,
+        ): com.poyka.ripdpi.data.WarpEndpointCacheEntry? {
+            val selected =
+                endpointScanner.resolveEndpoint(
+                    profile.id,
+                    scopeKey,
+                    provisioned,
+                    WarpEndpointResolutionOrigin.RuntimeProvisioning,
+                    context,
+                ) ?: return null
+            check(
+                profileMutations.upsertWarpForRuntimeProvisioning(
+                    profile,
+                    context.credentials,
+                    endpointStore.loadAll(profile.id).filter { it.networkScopeKey != scopeKey } + selected,
+                    false,
+                    context.scannerMode,
+                    context.credentials,
+                    reference.revision,
+                ),
+            ) { "Runtime WARP endpoint selection was superseded by a user mutation" }
+            return selected
         }
 
         private fun resolveConsumedWarp(
@@ -146,13 +228,16 @@ internal class DefaultWarpRuntimeConfigResolver
             profileId: String,
             before: com.poyka.ripdpi.data.WarpCredentials,
             expectedRevision: Long,
+            networkScopeKey: String,
+            context: WarpEndpointScanContext,
         ): com.poyka.ripdpi.services.WarpEnrollmentSnapshot =
             try {
                 enrollmentOrchestrator.refreshProfileForRuntime(
                     profileId,
                     before,
                     expectedRevision,
-                    GlobalWarpEndpointScopeKey,
+                    networkScopeKey,
+                    context,
                 )
             } catch (error: CancellationException) {
                 throw error
@@ -181,17 +266,6 @@ internal class DefaultWarpRuntimeConfigResolver
                 rejected.initCause(this)
             }
         }
-
-        private fun needsRefresh(
-            credentials: com.poyka.ripdpi.data.WarpCredentials?,
-            endpoint: com.poyka.ripdpi.data.WarpEndpointCacheEntry?,
-            requiresEndpoint: Boolean,
-        ): Boolean =
-            credentials == null ||
-                credentials.privateKey.isNullOrBlank() ||
-                credentials.publicKey.isNullOrBlank() ||
-                credentials.peerPublicKey.isNullOrBlank() ||
-                (requiresEndpoint && endpoint == null)
 
         private fun com.poyka.ripdpi.data.WarpEndpointCacheEntry.toResolvedEndpoint(): ResolvedRipDpiWarpEndpoint =
             ResolvedRipDpiWarpEndpoint(

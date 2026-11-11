@@ -4,6 +4,10 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
+import com.poyka.ripdpi.data.MaxWarpScannerMaxRttMs
+import com.poyka.ripdpi.data.MaxWarpScannerParallelism
+import com.poyka.ripdpi.data.MinWarpScannerMaxRttMs
+import com.poyka.ripdpi.data.MinWarpScannerParallelism
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import com.poyka.ripdpi.data.WarpEndpointStore
 import com.poyka.ripdpi.data.WarpScannerModeAutomatic
@@ -19,6 +23,7 @@ interface WarpEndpointScanner {
         networkScopeKey: String,
         provisioned: WarpEndpointCacheEntry?,
         origin: WarpEndpointResolutionOrigin,
+        context: WarpEndpointScanContext? = null,
     ): WarpEndpointCacheEntry?
 }
 
@@ -35,19 +40,32 @@ class DefaultWarpEndpointScanner
             networkScopeKey: String,
             provisioned: WarpEndpointCacheEntry?,
             origin: WarpEndpointResolutionOrigin,
+            context: WarpEndpointScanContext?,
         ): WarpEndpointCacheEntry? {
-            val persist = origin == WarpEndpointResolutionOrigin.UserMutation
+            val persist = origin == WarpEndpointResolutionOrigin.UserMutation && context == null
             val normalizedScope = networkScopeKey.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
             val now = System.currentTimeMillis()
-            val scanSettings = loadScanSettings(profileId)
+            val scanSettings = loadScanSettings(profileId, context)
+            val boundProbe = context?.bind(endpointProbe) ?: endpointProbe
+            if (!scanSettings.enabled) {
+                return normalizeWarpEndpoint(
+                    profileId,
+                    normalizedScope,
+                    endpointStore.load(profileId, normalizedScope)
+                        ?: endpointStore.load(profileId, GlobalWarpEndpointScopeKey)
+                        ?: provisioned,
+                )
+            }
 
             val scopedCandidate =
                 endpointStore.load(profileId, normalizedScope)?.let { cached ->
-                    if (cached.isFreshWarpEndpoint(now)) {
+                    if (origin == WarpEndpointResolutionOrigin.UserMutation && context == null &&
+                        cached.isFreshWarpEndpoint(now)
+                    ) {
                         cached.copy(profileId = profileId, networkScopeKey = normalizedScope)
                     } else {
                         probeCachedWarpEntry(
-                            endpointProbe = endpointProbe,
+                            endpointProbe = boundProbe,
                             endpointStore = endpointStore,
                             profileId = profileId,
                             networkScopeKey = normalizedScope,
@@ -60,7 +78,7 @@ class DefaultWarpEndpointScanner
             val globalCandidate =
                 scopedCandidate ?: endpointStore.load(profileId, GlobalWarpEndpointScopeKey)?.let { cached ->
                     probeCachedWarpEntry(
-                        endpointProbe = endpointProbe,
+                        endpointProbe = boundProbe,
                         endpointStore = endpointStore,
                         profileId = profileId,
                         networkScopeKey = GlobalWarpEndpointScopeKey,
@@ -84,20 +102,44 @@ class DefaultWarpEndpointScanner
                     provisioned = provisioned,
                     scanSettings = scanSettings,
                     persist = persist,
+                    boundProbe = boundProbe,
                 )
 
-            return scannedCandidate ?: provisioned?.let { fallback ->
-                persistWarpBestCandidate(
-                    endpointStore = endpointStore,
-                    profileId = profileId,
-                    networkScopeKey = normalizedScope,
-                    candidate = fallback,
-                    persist = persist,
-                )
+            return if (origin == WarpEndpointResolutionOrigin.RuntimeProvisioning) {
+                scannedCandidate
+            } else {
+                scannedCandidate ?: provisioned?.let { fallback ->
+                    persistWarpBestCandidate(
+                        endpointStore = endpointStore,
+                        profileId = profileId,
+                        networkScopeKey = normalizedScope,
+                        candidate = fallback,
+                        persist = persist,
+                    )
+                }
             }
         }
 
-        private suspend fun loadScanSettings(profileId: String): WarpEndpointScanSettings {
+        private suspend fun loadScanSettings(
+            profileId: String,
+            context: WarpEndpointScanContext?,
+        ): WarpEndpointScanSettings {
+            context?.let {
+                return WarpEndpointScanSettings(
+                    enabled = it.config.scannerEnabled,
+                    mode = it.scannerMode,
+                    parallelism =
+                        it.config.scannerParallelism.coerceIn(
+                            MinWarpScannerParallelism,
+                            MaxWarpScannerParallelism,
+                        ),
+                    timeoutMillis =
+                        it.config.scannerMaxRttMs.coerceIn(
+                            MinWarpScannerMaxRttMs,
+                            MaxWarpScannerMaxRttMs,
+                        ),
+                )
+            }
             val settings = appSettingsRepository.snapshot()
             val scannerMode =
                 if (settings.warpProfileId == profileId) {
@@ -108,8 +150,12 @@ class DefaultWarpEndpointScanner
             return WarpEndpointScanSettings(
                 enabled = settings.warpScannerEnabled,
                 mode = scannerMode,
-                parallelism = settings.warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism,
-                timeoutMillis = settings.warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs,
+                parallelism =
+                    (settings.warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism)
+                        .coerceIn(MinWarpScannerParallelism, MaxWarpScannerParallelism),
+                timeoutMillis =
+                    (settings.warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs)
+                        .coerceIn(MinWarpScannerMaxRttMs, MaxWarpScannerMaxRttMs),
             )
         }
 
@@ -119,9 +165,10 @@ class DefaultWarpEndpointScanner
             provisioned: WarpEndpointCacheEntry?,
             scanSettings: WarpEndpointScanSettings,
             persist: Boolean,
+            boundProbe: WarpEndpointProbe,
         ): WarpEndpointCacheEntry? {
             if (!scanSettings.enabled) return null
-            val bestCandidate = scanBestCandidate(profileId, provisioned, scanSettings)
+            val bestCandidate = scanBestCandidate(profileId, provisioned, scanSettings, boundProbe)
             return bestCandidate?.let {
                 persistWarpBestCandidate(
                     endpointStore = endpointStore,
@@ -137,10 +184,11 @@ class DefaultWarpEndpointScanner
             profileId: String,
             provisioned: WarpEndpointCacheEntry?,
             scanSettings: WarpEndpointScanSettings,
+            boundProbe: WarpEndpointProbe,
         ): WarpEndpointCacheEntry? =
             if (scanSettings.mode == WarpScannerModeAutomatic) {
                 scanAutomaticWarpCandidatePool(
-                    endpointProbe = endpointProbe,
+                    endpointProbe = boundProbe,
                     endpointStore = endpointStore,
                     profileId = profileId,
                     provisioned = provisioned,
@@ -149,7 +197,7 @@ class DefaultWarpEndpointScanner
                 )
             } else {
                 scanWarpCandidatePool(
-                    endpointProbe = endpointProbe,
+                    endpointProbe = boundProbe,
                     candidates = buildWarpCandidatePool(endpointStore, profileId, provisioned),
                     timeoutMillis = scanSettings.timeoutMillis,
                     parallelism = scanSettings.parallelism,

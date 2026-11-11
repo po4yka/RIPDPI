@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +18,71 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class DefaultWarpEndpointProbeTest {
+    @Test
+    fun `frozen credentials and wire settings survive concurrent live changes`() =
+        runTest {
+            val settings = TestAppSettingsRepository()
+            val store =
+                FakeWarpCredentialStore().apply {
+                    save(
+                        "frozen",
+                        WarpCredentials(
+                            profileId = "frozen",
+                            deviceId = "device",
+                            accessToken = "fixture",
+                            privateKey = "wrong-live-key",
+                            peerPublicKey = "wrong-live-peer",
+                        ),
+                    )
+                }
+            val context =
+                WarpEndpointScanContext(
+                    WarpCredentials(
+                        profileId = "frozen",
+                        deviceId = "device",
+                        accessToken = "fixture",
+                        privateKey = "frozen-key",
+                        peerPublicKey = "frozen-peer",
+                    ),
+                    com.poyka.ripdpi.core
+                        .RipDpiWarpConfig(
+                            amnezia =
+                                com.poyka.ripdpi.core
+                                    .RipDpiWarpAmneziaConfig(h1 = "101"),
+                        ),
+                )
+            val native =
+                object : RipDpiWarpEndpointProbeBindings {
+                    override fun probeEndpoint(
+                        requestJson: String,
+                        controller: WarpProbeSocketController,
+                    ): String? {
+                        val request =
+                            com.poyka.ripdpi.serialization.RipDpiContractJson.decodeFromString<
+                                com.poyka.ripdpi.core.WarpEndpointProbeNativeRequest,
+                            >(requestJson)
+                        org.junit.Assert.assertEquals("frozen-key", request.privateKey)
+                        org.junit.Assert.assertEquals("frozen-peer", request.peerPublicKey)
+                        org.junit.Assert.assertEquals("101", request.amnezia.h1)
+                        if (!controller.protect(1)) return null
+                        return """{"host":"127.0.0.1","ipv4":"127.0.0.1","port":2408,"rttMs":7}"""
+                    }
+                }
+            val result =
+                DefaultWarpEndpointProbe(settings, store, native, ActiveProtectSocketPathProvider()).probe(
+                    WarpEndpointCacheEntry(
+                        profileId = "frozen",
+                        networkScopeKey = "current",
+                        ipv4 = "127.0.0.1",
+                        port = 2408,
+                    ),
+                    500,
+                    context,
+                )
+            org.junit.Assert.assertEquals(7L, result?.rttMs)
+            org.junit.Assert.assertEquals("127.0.0.1", result?.ipv4)
+        }
+
     @Test
     fun `an endpoint that never answers the handshake is not a candidate`() =
         runTest {
