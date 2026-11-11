@@ -1,7 +1,7 @@
 ---
 task_id: TRN-1794371418861139
 change: repair-audited-xhttp-contracts
-commit_sha: 8b481b5d0afa52925dbe66babc24e1894ef251e8
+commit_sha: 87ac8a38ccd4221419956adbf5eb91894f2687bf
 local: passed
 local_evidence: 114 xHTTP tests, 34 origin tests, 16 relay cases and the explicit secured upstream case passed; clippy, workspace check, ci-gates and independent reviews passed.
 remote_ci: not_applicable
@@ -28,7 +28,8 @@ deployment_evidence: No deployment is owned by this change.
 
 ## Exact source and observed checks
 
-- Source commit: `8b481b5d0afa52925dbe66babc24e1894ef251e8`. Rebased onto published Vision, gRPC and XUDP repairs; those changes were preserved. The only merge conflict was the order of identical existing Tokio test features. No manifest or lockfile delta remains.
+- Source commit: `87ac8a38ccd4221419956adbf5eb91894f2687bf`. Rebased onto published Vision, gRPC, XUDP and lazy sing-mux response repairs; those changes were preserved. The first rebase resolved the order of identical existing Tokio test features; the final rebase had no conflict. No manifest or lockfile delta remains.
+- The xHTTP and origin tests, affected clippy, workspace check and first offline source gates below passed at pre-final-rebase source `8b481b5d0afa52925dbe66babc24e1894ef251e8`. The final upstream delta changes only VLESS sing-mux responses and relay fixture timing; xHTTP and origin source and tests are unchanged. The final combined checks below cover this dependency delta.
 - Rust and Cargo 1.98.1. Compiler-backed checks ran through `build-gate --lane ripdpi`, with at most four jobs.
 - `cargo test --locked --jobs 4 -p ripdpi-xhttp -p ripdpi-cloudflare-origin`: xHTTP 114 tests and origin helper 34 tests passed, no failures or ignored tests; zero doctests.
 - `cargo test --locked --jobs 4 -p ripdpi-relay-core xhttp`: 16 passed, one upstream-only case ignored in the ordinary suite. Its explicit execution is recorded below, rather than counted as an ordinary suite pass.
@@ -38,6 +39,14 @@ deployment_evidence: No deployment is owned by this change.
 - `python3 scripts/ci/check_architecture_health.py`: no new or worsened indicators. `cargo metadata --locked --format-version 1 --no-deps`: passed with 113 members.
 - Logs: `/tmp/trn04-rebased-checks.log`, `/tmp/trn04-rebased-ci-gates.log`, `/tmp/trn04-architecture.log`, `/tmp/trn04-cargo-metadata.json`.
 
+## Final dependency integration check
+
+- Final source `87ac8a38ccd4221419956adbf5eb91894f2687bf` preserves the published lazy sing-mux response repair.
+- `cargo test --locked --jobs 4 -p ripdpi-vless`: 185 unit tests passed; eight optional upstream-only integration cases remain ignored. They are outside the xHTTP repair acceptance.
+- `cargo test --locked --jobs 4 -p ripdpi-relay-core xhttp`: 16 passed; the one upstream-only xHTTP case was then executed explicitly and passed with zero ignored.
+- `cargo check --workspace --locked --jobs 4`: passed. The independent secured peer was repeated on this exact source, one passed and peer exit 0.
+- Logs: `/tmp/trn04-final-integration-checks.log`, `/tmp/trn04-final-peer.peer.log`, `/tmp/trn04-final-ci-gates.log`.
+
 ## Regression and independent peer evidence
 
 - Original F1/F2 failures were reproduced by the audit on `57d9bcdf722510ef9e1de482cd41859b77a1ef47`. New regression tests were then run on an immutable copy of that production source: seven expected failures (withheld headers, late POST error and idle/pending HTTP cleanup), eight control tests passed. Log: `/tmp/trn04-stream-red-result.log`. No compile failure was counted as RED.
@@ -45,7 +54,7 @@ deployment_evidence: No deployment is owned by this change.
 - F4 queued-acquisition test failed before the repair when only the second carrier became free. The fixed queued operation completes on that carrier; both runtime variants and reservation-release cases passed.
 - Independent host Xray 26.3.27, executable SHA256 `5d9dd24c0aba4b6cfcc6a33a5d67f854816ee17f392bf932ec8176da46f7e404`: ten H2c payload exchanges passed (both modes, ordinary/query/percent/repeated-slash paths and disabled heartbeat). Six temporary verification tests passed, including peer-side body cleanup and the queued second carrier. Log: `/tmp/trn04-wire-proof.log`.
 - The temporary verification copy's seven xHTTP production files were checked byte-for-byte against the rebased sources; its only added pool declaration was the documented `cfg(test)` oracle module. The original diagnostic PoC source is preserved at `/tmp/trn04-original-audit-poc.rs`.
-- Secured REALITY/H2/xHTTP/XUDP peer check passed on the actual rebased checkout: `cargo test --locked -p ripdpi-relay-core --lib --jobs 2 tests::backend_fixture_tests::vless_reality_xhttp_xudp_with_upstream -- --ignored --exact --no-capture`; one passed, zero failed or ignored, peer exit 0. It covers both modes and two UDP targets with server heartbeat disabled. Log: `/tmp/trn04-rebased-peer.log`. The independent Go peer pins Xray revision `0afec66085a85191e9dd2a4a6646c7c9a94688d1`; executable SHA256 `6672636f63d061a98dc4e0ef40f516b2084b6521e3c9abe35b732ee91dbe7ecd`. The repository oracle source was copied into a temporary directory with only `scStreamUpServerSecs: -1` added to its server configuration. Synthetic credentials and all endpoints stayed on loopback.
+- Secured REALITY/H2/xHTTP/XUDP peer check passed on the actual rebased checkout: `cargo test --locked -p ripdpi-relay-core --lib --jobs 2 tests::backend_fixture_tests::vless_reality_xhttp_xudp_with_upstream -- --ignored --exact --no-capture`; one passed, zero failed or ignored, peer exit 0. It covers both modes and two UDP targets with server heartbeat disabled. Logs: `/tmp/trn04-rebased-peer.log` and the repeated final source run in `/tmp/trn04-final-integration-checks.log`. The independent Go peer pins Xray revision `0afec66085a85191e9dd2a4a6646c7c9a94688d1`; executable SHA256 `6672636f63d061a98dc4e0ef40f516b2084b6521e3c9abe35b732ee91dbe7ecd`. The repository oracle source was copied into a temporary directory with only `scStreamUpServerSecs: -1` added to its server configuration. Synthetic credentials and all endpoints stayed on loopback.
 
 ## Reviews and limits
 

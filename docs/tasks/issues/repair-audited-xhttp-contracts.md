@@ -2,7 +2,7 @@
 id: TRN-1794371418861139
 title: Repair audited xHTTP stream and pool contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Transport maintainer
