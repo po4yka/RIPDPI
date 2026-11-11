@@ -1,0 +1,11 @@
+{
+  "change": "rst-1786264762917234-replace-unmaintained-paste-proc-macro",
+  "evidence_summary": "The local paste adapter uses pastey 0.2.3; RUSTSEC-2024-0436 is removed. Local workspace tests, clippy, CI source gates, and Android build passed. CI 42866926600 and CodeQL 42866926515 passed at dfd3c18f0d06c91140a61c8ce6e1426b6af5edd1. OpenSpec archival passed on 2026-11-11.",
+  "execution_sha256": "7ce85a309382baa5912282b78af90e737cc0383741edf924e1bd269c93364c76",
+  "issue_sha256": "6efa2ee03230a38d61831000e1fb75a43b1233eef0aeb6786f695de0f87dbd37",
+  "outcome": "done",
+  "prepared_at": "2026-11-11T03:58:21Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1786264762917234"
+}

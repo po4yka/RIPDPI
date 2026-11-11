@@ -2,7 +2,7 @@
 id: RST-1786264762917234
 title: Replace unmaintained paste proc-macro dependency
 kind: feature
-status: review
+status: done
 area: rust-native
 priority: low
 owner: Native security maintainer
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: rst-1786264762917234-replace-unmaintained-paste-proc-macro
 created: 2026-07-13
-updated: 2026-11-10
+updated: 2026-11-11
 status_detail: Local tests and Android build passed. CI run 42866926600 attempt 1 and CodeQL run 42866926515 passed at dfd3c18f0d06c91140a61c8ce6e1426b6af5edd1. The pastey adapter replaces the archived implementation and the expired waiver is removed. Verification evidence is complete; archival is a separate lifecycle step.
+closed_at: "2026-11-11T03:58:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: The local paste adapter uses pastey 0.2.3; RUSTSEC-2024-0436 is removed. Local workspace tests, clippy, CI source gates, and Android build passed. CI 42866926600 and CodeQL 42866926515 passed at dfd3c18f0d06c91140a61c8ce6e1426b6af5edd1. OpenSpec archival passed on 2026-11-11.
 ---
 
 ## Goal
