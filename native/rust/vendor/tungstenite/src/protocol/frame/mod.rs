@@ -226,7 +226,7 @@ impl FrameCodec {
         }
 
         let frame = Frame::from_payload(header, payload.freeze());
-        trace!("received frame {frame}");
+        trace!("received frame ({} bytes)", frame.len());
         Ok(Some(frame))
     }
 
@@ -255,7 +255,7 @@ impl FrameCodec {
             return Err(Error::WriteBufferFull(Message::Frame(frame).into()));
         }
 
-        trace!("writing frame {frame}");
+        trace!("writing frame ({} bytes)", frame.len());
 
         self.out_buffer.reserve(frame.len());
         frame.format_into_buf(&mut self.out_buffer).expect("Bug: can't write to vector");

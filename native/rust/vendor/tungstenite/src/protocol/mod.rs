@@ -472,7 +472,7 @@ impl WebSocketContext {
             // If we get here, either write blocks or we have nothing to write.
             // Thus if read blocks, just let it return WouldBlock.
             if let Some(message) = self.read_message_frame(stream)? {
-                trace!("Received message {message}");
+                trace!("Received message ({} bytes)", message.len());
                 return Ok(message);
             }
         }
@@ -716,7 +716,7 @@ impl WebSocketContext {
     /// Received a close frame. Tells if we need to return a close frame to the user.
     #[allow(clippy::option_option)]
     fn do_close(&mut self, close: Option<CloseFrame>) -> Option<Option<CloseFrame>> {
-        debug!("Received close frame: {close:?}");
+        debug!("Received close frame with code {:?}", close.as_ref().map(|frame| frame.code));
         match self.state {
             WebSocketState::Active => {
                 self.state = WebSocketState::ClosedByPeer;
@@ -733,7 +733,7 @@ impl WebSocketContext {
                 });
 
                 let reply = Frame::close(close.clone());
-                debug!("Replying to close with {reply:?}");
+                debug!("Replying to close ({} bytes)", reply.len());
                 self.set_additional(reply);
 
                 Some(close)
@@ -765,7 +765,7 @@ impl WebSocketContext {
             }
         }
 
-        trace!("Sending frame: {frame:?}");
+        trace!("Sending frame ({} bytes)", frame.len());
         self.frame.buffer_frame(stream, frame).check_connection_reset(self.state)
     }
 

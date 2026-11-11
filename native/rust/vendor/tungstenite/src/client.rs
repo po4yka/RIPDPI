@@ -95,7 +95,7 @@ pub fn connect_with_config<Req: IntoClientRequest>(
             Err(Error::Http(res)) if res.status().is_redirection() && attempt < max_redirects => {
                 if let Some(location) = res.headers().get("Location") {
                     uri = location.to_str()?.parse::<Uri>()?;
-                    debug!("Redirecting to {uri:?}");
+                    debug!("Following WebSocket redirect");
                     continue;
                 } else {
                     warn!("No `Location` found in redirect");
@@ -129,7 +129,7 @@ pub fn connect<Req: IntoClientRequest>(
 
 fn connect_to_some(addrs: &[SocketAddr], uri: &Uri) -> Result<TcpStream> {
     for addr in addrs {
-        debug!("Trying to contact {uri} at {addr}...");
+        debug!("Trying next WebSocket address");
         if let Ok(stream) = TcpStream::connect(addr) {
             return Ok(stream);
         }
