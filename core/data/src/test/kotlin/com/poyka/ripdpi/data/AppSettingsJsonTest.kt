@@ -12,6 +12,30 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppSettingsJsonTest {
+    @Test
+    fun `unknown finalmask survives settings import and export for validation`() {
+        val imported =
+            appSettingsFromJson(
+                """{"formatVersion":1,"relay":{"relayFinalmaskType":" SUDKOU "}}""",
+            )
+
+        assertEquals("sudkou", imported.relayFinalmaskType)
+        assertEquals(
+            "sudkou",
+            imported
+                .toRelaySettingsModel()
+                .profile.finalmask.type,
+        )
+        assertEquals("sudkou", appSettingsFromJson(imported.toJson()).relayFinalmaskType)
+    }
+
+    @Test
+    fun `blank and off finalmask settings retain the off behavior`() {
+        for (value in listOf("", " ", "OFF")) {
+            assertEquals(RelayFinalmaskTypeOff, normalizeRelayFinalmaskType(value))
+        }
+    }
+
     @Suppress("LongMethod")
     @Test
     fun `settings round trip through current json format`() {

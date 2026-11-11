@@ -244,13 +244,11 @@ fun normalizeRelayCloudflareTunnelMode(value: String?): String =
     }
 
 fun normalizeRelayFinalmaskType(value: String?): String =
-    when (value?.trim()?.lowercase()) {
-        RelayFinalmaskTypeHeaderCustom -> RelayFinalmaskTypeHeaderCustom
-        RelayFinalmaskTypeSudoku -> RelayFinalmaskTypeSudoku
-        RelayFinalmaskTypeFragment -> RelayFinalmaskTypeFragment
-        RelayFinalmaskTypeNoise -> RelayFinalmaskTypeNoise
-        else -> RelayFinalmaskTypeOff
-    }
+    value
+        .orEmpty()
+        .trim()
+        .lowercase()
+        .ifEmpty { RelayFinalmaskTypeOff }
 
 fun normalizeRelayXhttpMode(value: String?): String =
     when (value?.trim()?.lowercase()) {

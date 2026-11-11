@@ -8,7 +8,11 @@ import com.poyka.ripdpi.data.InitialTransportSelectionException
 import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
+import com.poyka.ripdpi.data.RelayFinalmaskTypeHeaderCustom
+import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
+import com.poyka.ripdpi.data.RelayFinalmaskTypeSudoku
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -36,6 +40,7 @@ import com.poyka.ripdpi.data.isValidNaiveCredentials
 import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.isValidTuicUuid
 import com.poyka.ripdpi.data.isValidVlessUuid
+import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 import java.net.URI
@@ -358,7 +363,21 @@ internal fun validateFinalmaskFeature(
     config: RipDpiRelayConfig,
     featureFlags: Map<String, Boolean>,
 ) {
-    if (config.finalmask.type != RelayFinalmaskTypeOff && !featureFlags.isEnabled(StrategyFeatureFinalmask)) {
+    val type = normalizeRelayFinalmaskType(config.finalmask.type)
+    when (type) {
+        RelayFinalmaskTypeOff -> return
+
+        RelayFinalmaskTypeHeaderCustom,
+        RelayFinalmaskTypeSudoku,
+        RelayFinalmaskTypeFragment,
+        RelayFinalmaskTypeNoise,
+        -> Unit
+
+        else -> throw ServiceStartupRejectedException(
+            FailureReason.RelayConfigRejected("Unsupported Finalmask type: $type"),
+        )
+    }
+    if (!featureFlags.isEnabled(StrategyFeatureFinalmask)) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayConfigRejected("Finalmask is feature-gated"),
         )

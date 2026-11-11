@@ -530,6 +530,18 @@ class ConnectionViewModelTest {
     }
 
     @Test
+    fun `relay validation rejects an unknown finalmask without disabling it`() {
+        val draft =
+            defaultDraft.copy(
+                relayKind = RelayKindVless,
+                relayVlessTransport = RelayVlessTransportXhttp,
+                relayFinalmaskType = "sudkou",
+            )
+
+        assertEquals("unsupported", validateRelayFinalmaskDraft(draft))
+    }
+
+    @Test
     fun `relay validation accepts finalmask for plain VLESS xHTTP`() {
         val draft =
             defaultDraft.copy(

@@ -48,7 +48,7 @@ internal fun validateRelayFinalmaskDraft(draft: ConnectionDraft): String? {
         RelayFinalmaskTypeNoise -> validateNoiseFinalmaskDraft(draft)
         RelayFinalmaskTypeSudoku -> if (draft.relayFinalmaskSudokuSeed.isBlank()) "required" else null
         RelayFinalmaskTypeFragment -> validateFragmentFinalmaskDraft(draft)
-        else -> null
+        else -> "unsupported"
     }
 }
 
