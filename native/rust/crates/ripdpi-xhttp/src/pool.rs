@@ -1,6 +1,8 @@
+use std::future::{Future, poll_fn};
 use std::io;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
+use std::task::Poll;
 
 use hyper::client::conn::http2;
 use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore};
@@ -158,9 +160,9 @@ impl PooledConnection {
 }
 
 /// # Cancel safety:
-/// cancel-safe: pool-state locks, creation reservations, stream permits, and
-/// physical-capacity permits are released if any await is cancelled; a partial
-/// carrier is dropped before publication.
+/// cancel-safe except for fairness: cancellation drops locks, reservations,
+/// permits and partial carriers before publication, but loses the cancelled
+/// operation's mutex and semaphore queue positions.
 pub(crate) async fn acquire_connection(
     inner: &XhttpClientInner,
 ) -> io::Result<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
@@ -221,26 +223,39 @@ pub(crate) async fn acquire_connection(
             }
         }
 
-        let (waiter, draining) = {
+        let (candidates, draining) = {
             let state = inner.state.lock().await;
             (
-                state
-                    .connections
-                    .iter()
-                    .find(|connection| connection.is_usable())
-                    .map(|connection| (connection.clone(), connection.permits.clone())),
+                state.connections.iter().filter(|connection| connection.is_usable()).cloned().collect::<Vec<_>>(),
                 state.connections.iter().any(|connection| !connection.is_usable()),
             )
         };
-        let Some((connection, permits)) = waiter else {
+        if candidates.is_empty() {
             // Only an in-flight creation can change the pool from here; with
             // none left, the next pass prunes closed carriers and creates one.
             if draining || inner.creating_connections.load(Ordering::Acquire) > 0 {
                 pool_changed.await;
             }
             continue;
+        }
+        // Queue on every carrier; dropping an unselected acquire releases its reservation.
+        let mut acquisitions = candidates
+            .iter()
+            .map(|connection| Box::pin(connection.permits.clone().acquire_owned()))
+            .collect::<Vec<_>>();
+        let (index, permit) = tokio::select! {
+            () = &mut pool_changed => continue,
+            acquired = poll_fn(|cx| {
+                for (index, acquisition) in acquisitions.iter_mut().enumerate() {
+                    if let Poll::Ready(permit) = acquisition.as_mut().poll(cx) {
+                        return Poll::Ready((index, permit));
+                    }
+                }
+                Poll::Pending
+            }) => acquired,
         };
-        let permit = match permits.acquire_owned().await {
+        let connection = candidates[index].clone();
+        let permit = match permit {
             Ok(permit) => permit,
             Err(_) if connection.is_closed() => continue,
             Err(_) => return Err(io::Error::other("xHTTP stream permit channel closed")),
@@ -474,3 +489,6 @@ mod tests {
 
 #[cfg(test)]
 mod cancellation_tests;
+
+#[cfg(test)]
+mod capacity_tests;
