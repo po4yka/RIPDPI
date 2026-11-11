@@ -235,13 +235,16 @@ fn stalled_upstream_ends_the_relay_while_the_client_keeps_uploading() {
     });
     let (done_tx, done_rx) = std::sync::mpsc::channel();
     thread::spawn(move || {
-        let _ = done_tx.send(ws_relay(relay_client, client_ws, &[0u8; 64]).is_ok());
+        let _ = done_tx.send(ws_relay(relay_client, client_ws, &[0u8; 64]));
     });
 
     let ended = done_rx.recv_timeout(Duration::from_secs(10));
     drop(server_ws);
 
-    assert!(ended.is_ok(), "the relay must end once a write to the stalled upstream times out");
+    let error = ended
+        .expect("the relay must end once an upstream write times out")
+        .expect_err("a timed-out send must report failure");
+    assert!(matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut), "{error:?}");
     uploader.join().expect("uploader ends when the relay closes the client socket");
 }
 
@@ -282,4 +285,53 @@ fn ws_relay_splits_the_consumed_seed_remainder_into_packets() {
     assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == stream[9..]));
     peer.close(None).expect("send websocket close");
     relay_thread.join().expect("join relay thread").expect("relay result");
+}
+
+#[test]
+fn ws_relay_reports_protocol_errors() {
+    let (_app, relay_client) = tcp_pair();
+    let (ws, mut peer) = websocket_pair();
+    let relay = thread::spawn(move || ws_relay(relay_client, ws, &[0xab; 64]));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(_)));
+    // RFC 6455: RSV1 is forbidden without a negotiated extension.
+    peer.get_mut().write_all(&[0xc2, 0]).expect("send invalid RSV1 frame");
+    let error = relay.join().expect("join relay").expect_err("protocol failure must reach the caller");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+}
+
+#[test]
+fn ws_relay_reports_capacity_errors() {
+    let (_app, relay_client) = tcp_pair();
+    let (mut ws, mut peer) = websocket_pair();
+    ws.set_config(|config| {
+        config.max_frame_size = Some(4);
+        config.max_message_size = Some(4);
+    });
+    let relay = thread::spawn(move || ws_relay(relay_client, ws, &[0xab; 64]));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(_)));
+    peer.send(Message::binary(vec![0x42; 5])).expect("send frame beyond the receiver limit");
+    let error = relay.join().expect("join relay").expect_err("capacity failure must reach the caller");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+}
+
+#[test]
+fn ws_relay_reports_a_peer_reset_without_close() {
+    let (_app, relay_client) = tcp_pair();
+    let (ws, mut peer) = websocket_pair();
+    let relay = thread::spawn(move || ws_relay(relay_client, ws, &[0xab; 64]));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(_)));
+    drop(peer);
+    relay.join().expect("join relay").expect_err("TCP EOF without a Close frame must report failure");
+}
+
+#[test]
+fn ws_relay_reports_client_read_errors() {
+    let (app, relay_client) = tcp_pair();
+    let (ws, mut peer) = websocket_pair();
+    let relay = thread::spawn(move || ws_relay(relay_client, ws, &[0xab; 64]));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(_)));
+    socket2::SockRef::from(&app).set_linger(Some(Duration::ZERO)).expect("reset client on close");
+    drop(app);
+    let error = relay.join().expect("join relay").expect_err("client read failure must reach the caller");
+    assert_eq!(error.kind(), io::ErrorKind::ConnectionReset);
 }

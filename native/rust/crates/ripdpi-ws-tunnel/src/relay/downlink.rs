@@ -15,7 +15,7 @@ pub(super) fn relay_loop<S: Read + Write>(
     shutdown: &AtomicBool,
 ) -> io::Result<()> {
     loop {
-        let channel_disconnected = drain_outbound_frames(ws, outbound_rx, shutdown);
+        let channel_disconnected = drain_outbound_frames(ws, outbound_rx)?;
         if channel_disconnected && shutdown.load(Ordering::Acquire) {
             break;
         }
@@ -31,7 +31,7 @@ pub(super) fn relay_loop<S: Read + Write>(
                 break;
             }
             Ok(_) => {} // Text frames etc. -- ignore
-            Err(err) => match map_ws_read_error(&err) {
+            Err(err) => match map_ws_read_error(err)? {
                 WsReadErrorAction::Retry => continue,
                 WsReadErrorAction::Stop => {
                     shutdown.store(true, Ordering::Release);

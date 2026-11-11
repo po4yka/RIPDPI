@@ -59,12 +59,10 @@ pub fn ws_relay<S: Read + Write + Send + 'static>(
     shutdown.store(true, Ordering::Release);
     drop(outbound_rx);
 
-    let uplink_panicked = uplink.join().is_err();
-    drive_close_handshake(&mut ws);
-
-    if uplink_panicked && result.is_ok() {
-        return Err(io::Error::other("join ws-up: thread panicked"));
+    let uplink_result = uplink.join().unwrap_or_else(|_| Err(io::Error::other("join ws-up: thread panicked")));
+    let result = result.and(uplink_result);
+    if result.is_ok() {
+        drive_close_handshake(&mut ws);
     }
-
     result
 }

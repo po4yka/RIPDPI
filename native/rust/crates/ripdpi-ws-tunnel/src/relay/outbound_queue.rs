@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::thread;
@@ -6,6 +6,8 @@ use std::time::Duration;
 
 use tungstenite::WebSocket;
 use tungstenite::protocol::Message;
+
+use super::error_mapping::ws_io_error;
 
 const OUTBOUND_QUEUE_CAPACITY: usize = 16;
 const MAX_OUTBOUND_BURST: usize = 8;
@@ -43,16 +45,12 @@ impl OutboundSender {
 pub(super) fn drain_outbound_frames<S: Read + Write>(
     ws: &mut WebSocket<S>,
     outbound_rx: &OutboundReceiver,
-    shutdown: &AtomicBool,
-) -> bool {
+) -> io::Result<bool> {
     let mut disconnected = false;
     for _ in 0..MAX_OUTBOUND_BURST {
         match outbound_rx.try_recv() {
             Ok(payload) => {
-                if ws.send(Message::Binary(payload.into())).is_err() {
-                    shutdown.store(true, Ordering::Release);
-                    return true;
-                }
+                ws.send(Message::Binary(payload.into())).map_err(ws_io_error)?;
             }
             Err(TryRecvError::Empty) => break,
             Err(TryRecvError::Disconnected) => {
@@ -61,5 +59,5 @@ pub(super) fn drain_outbound_frames<S: Read + Write>(
             }
         }
     }
-    disconnected
+    Ok(disconnected)
 }
