@@ -46,6 +46,7 @@
 //! Trojan, VLESS, and VMess outbound crates can layer their own framing on
 //! top because the post-upgrade surface is just bytes in, bytes out.
 
+use std::net::Ipv6Addr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -53,7 +54,8 @@ use bytes::{Buf, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tungstenite::handshake::client::Response;
 use tungstenite::handshake::machine::TryParse;
-use tungstenite::http::header::{CONNECTION, HeaderName, UPGRADE};
+use tungstenite::http::header::{CONNECTION, HeaderName, HeaderValue, UPGRADE};
+use tungstenite::http::uri::{Authority, PathAndQuery};
 
 /// Default `Upgrade` protocol token. `websocket` is what Xray/sing-box send
 /// by default so the handshake is indistinguishable from a WebSocket upgrade
@@ -98,10 +100,11 @@ pub enum HttpUpgradeError {
 /// upgrade request that runs over whatever stream the caller provides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpUpgradeConfig {
-    /// `Host` header value, e.g. `cdn.example.com`.
+    /// Nonempty HTTP authority: a host or bracketed IPv6 address, with an
+    /// optional port.
     host: String,
-    /// Request path, e.g. `/upgrade` or `/api/v1`. Normalized to start with
-    /// `/`.
+    /// Origin-form request target: path and optional query, normalized to
+    /// start with `/`.
     path: String,
     /// `Upgrade` protocol token. Defaults to `websocket` so the handshake
     /// blends in with WebSocket traffic; sing-box also accepts custom
@@ -129,14 +132,16 @@ impl HttpUpgradeConfig {
         }
     }
 
-    /// Override the `Upgrade` protocol token (default `websocket`).
+    /// Set one Upgrade protocol name with an optional `/version`.
+    /// The default is `websocket`.
     pub fn with_upgrade_protocol(mut self, protocol: impl Into<String>) -> Self {
         self.upgrade_protocol = protocol.into();
         self
     }
 
-    /// Add a provider-specific request header. Repeated names are kept --
-    /// HTTP/1.1 permits multi-valued headers.
+    /// Add a provider-specific request header. Repeated provider fields are
+    /// kept. The transport owns Host, Connection, Upgrade and body framing;
+    /// `build_upgrade_request` rejects overrides of those fields.
     pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.extra_headers.push((name.into(), value.into()));
         self
@@ -161,15 +166,61 @@ impl HttpUpgradeConfig {
         check_no_control_chars("path", &self.path)?;
         check_no_control_chars("host header", &self.host)?;
         check_no_control_chars("upgrade protocol", &self.upgrade_protocol)?;
-        if self.upgrade_protocol.is_empty() {
-            return Err(HttpUpgradeError::InvalidConfig("upgrade protocol must not be empty".to_string()));
+
+        let authority = self
+            .host
+            .parse::<Authority>()
+            .map_err(|_| HttpUpgradeError::InvalidConfig("invalid Host authority".to_string()))?;
+        let host = authority.host();
+        if host.is_empty() || self.host.contains('@') {
+            return Err(HttpUpgradeError::InvalidConfig("Host requires a nonempty host without userinfo".to_string()));
+        }
+        if host.contains('[') || host.contains(']') {
+            let ipv6 = host
+                .strip_prefix('[')
+                .and_then(|host| host.strip_suffix(']'))
+                .ok_or_else(|| HttpUpgradeError::InvalidConfig("invalid Host IPv6 address".to_string()))?;
+            ipv6.parse::<Ipv6Addr>()
+                .map_err(|_| HttpUpgradeError::InvalidConfig("invalid Host IPv6 address".to_string()))?;
+        }
+        let suffix = self
+            .host
+            .strip_prefix(host)
+            .ok_or_else(|| HttpUpgradeError::InvalidConfig("invalid Host authority".to_string()))?;
+        if !suffix.is_empty()
+            && !suffix.strip_prefix(':').is_some_and(|port| {
+                !port.is_empty() && port.bytes().all(|byte| byte.is_ascii_digit()) && port.parse::<u16>().is_ok()
+            })
+        {
+            return Err(HttpUpgradeError::InvalidConfig("invalid Host port".to_string()));
+        }
+
+        let path = self
+            .path
+            .parse::<PathAndQuery>()
+            .map_err(|_| HttpUpgradeError::InvalidConfig("invalid origin-form path".to_string()))?;
+        if !self.path.starts_with('/')
+            || self.path.contains('#')
+            || self.path.contains('\\')
+            || path.as_str() != self.path
+        {
+            return Err(HttpUpgradeError::InvalidConfig("invalid origin-form path".to_string()));
+        }
+        if upgrade_protocol_parts(&self.upgrade_protocol).is_none() {
+            return Err(HttpUpgradeError::InvalidConfig("invalid Upgrade protocol name or version".to_string()));
         }
         for (name, value) in &self.extra_headers {
-            check_no_control_chars(&format!("header name `{name}`"), name)?;
-            check_no_control_chars(&format!("header value for `{name}`"), value)?;
-            if name.is_empty() {
-                return Err(HttpUpgradeError::InvalidConfig("header name must not be empty".to_string()));
+            check_no_control_chars("extra header name", name)?;
+            check_no_control_chars("extra header value", value)?;
+            let name = HeaderName::from_bytes(name.as_bytes())
+                .map_err(|_| HttpUpgradeError::InvalidConfig("invalid extra header name".to_string()))?;
+            if matches!(name.as_str(), "host" | "connection" | "upgrade" | "content-length" | "transfer-encoding") {
+                return Err(HttpUpgradeError::InvalidConfig(
+                    "extra header overrides a transport-owned field".to_string(),
+                ));
             }
+            HeaderValue::from_str(value)
+                .map_err(|_| HttpUpgradeError::InvalidConfig("invalid extra header value".to_string()))?;
         }
         Ok(())
     }
@@ -843,3 +894,6 @@ mod tests {
 
 #[cfg(test)]
 mod response_tests;
+
+#[cfg(test)]
+mod request_tests;
