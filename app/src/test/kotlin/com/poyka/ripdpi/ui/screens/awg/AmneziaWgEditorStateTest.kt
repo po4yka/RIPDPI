@@ -4,9 +4,13 @@ import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.requireRuntimeReady
+import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
+import com.poyka.ripdpi.data.wireguard.AmneziaWgProfile
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
+import com.poyka.ripdpi.proxyimport.ImportPayload
+import com.poyka.ripdpi.proxyimport.ImportPayloadClassifier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -397,6 +401,30 @@ class AmneziaWgEditorStateTest {
         assertEquals("fd00::2/128", request.interfaceAddressV6)
         assertEquals(listOf("1.1.1.1", "8.8.8.8"), request.dnsServers)
         assertEquals(listOf("0.0.0.0/0", "::/0"), request.allowedIps)
+        request.requireRuntimeReady()
+    }
+
+    @Test
+    fun `an IPv6 share link reaches activation with its bare endpoint and port`() {
+        val profile =
+            AmneziaWgProfile(
+                name = "IPv6 peer",
+                host = "2001:db8::9",
+                port = 51820,
+                privateKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 }),
+                publicKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 }),
+                address = listOf("10.8.0.2/32"),
+                allowedIps = listOf("0.0.0.0/0"),
+            )
+        val payload =
+            ImportPayloadClassifier.classify(AmneziaWgUriCodec.encode(profile)) as ImportPayload.WireGuardConf
+        val editor =
+            (AmneziaWgEditorState.initial().importConf(payload.conf, catalog) as AwgConfImport.Imported).editor
+        val request = editor.toActivationRequest("ipv6-peer")
+
+        assertTrue(payload.conf.contains("Endpoint = [2001:db8::9]:51820\n"))
+        assertEquals(profile.host, request.endpointHost)
+        assertEquals(profile.port, request.endpointPort)
         request.requireRuntimeReady()
     }
 

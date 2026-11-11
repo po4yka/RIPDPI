@@ -49,6 +49,7 @@ object AmneziaWgUriCodec {
     /** Encodes [profile] into an `amneziawg://` share URI. */
     fun encode(profile: AmneziaWgProfile): String {
         profile.awg.requireSupportedProfile()
+        val host = profile.host.removeSurrounding("[", "]")
         val query =
             (baseParams(profile) + awgParams(profile.awg))
                 .joinToString("&") { (key, value) -> "$key=${urlEncode(value)}" }
@@ -56,7 +57,7 @@ object AmneziaWgUriCodec {
             append(SCHEME_PREFIX)
             append(urlEncode(profile.privateKey))
             append('@')
-            append(profile.host)
+            append(if (':' in host) "[$host]" else host)
             append(':')
             append(profile.port)
             if (query.isNotEmpty()) {
@@ -222,7 +223,7 @@ object AmneziaWgUriCodec {
                 ?: return null
 
         val privateKey = parsed.rawUserInfo?.takeIf { it.isNotBlank() }?.let { urlDecode(it) } ?: return null
-        val host = parsed.host?.takeIf { it.isNotBlank() } ?: return null
+        val host = parsed.host?.removeSurrounding("[", "]")?.takeIf { it.isNotBlank() } ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         val params = parseQuery(parsed.rawQuery)
         val publicKey = params["public_key"]?.takeIf { it.isNotBlank() } ?: return null

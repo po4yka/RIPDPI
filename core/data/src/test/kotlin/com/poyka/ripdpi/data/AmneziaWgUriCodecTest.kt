@@ -159,6 +159,32 @@ class AmneziaWgUriCodecTest {
     }
 
     @Test
+    fun `hostnames and IP literals round trip with authority brackets only for IPv6`() {
+        listOf("awg.example.com", "192.0.2.9", "2001:db8::9").forEach { host ->
+            val profile = fullProfile().copy(host = host)
+            val uri = AmneziaWgUriCodec.encode(profile)
+            val authorityHost = if (':' in host) "[$host]" else host
+
+            assertTrue(uri.contains("@$authorityHost:51820"))
+            assertEquals(profile, AmneziaWgUriCodec.decode(uri))
+        }
+    }
+
+    @Test
+    fun `an IPv6 authority decodes to a bare host and fallback name`() {
+        val uri =
+            AmneziaWgUriCodec
+                .encode(fullProfile())
+                .substringBefore('#')
+                .replace("@awg.example.com:", "@[2001:db8::9]:")
+
+        val decoded = requireNotNull(AmneziaWgUriCodec.decode(uri))
+
+        assertEquals("2001:db8::9", decoded.host)
+        assertEquals("2001:db8::9", decoded.name)
+    }
+
+    @Test
     fun `encode emits safe zero s3 and s4 params and decode restores them`() {
         val original = fullProfile()
 
