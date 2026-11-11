@@ -134,6 +134,7 @@ pub struct VisionStream<S> {
     r_rem_cmd: i32,
     r_rem_content: i32,
     r_rem_padding: i32,
+    r_at_chunk_boundary: bool,
     /// Padded bytes read from the inner stream, awaiting unpadding.
     r_inbuf: Vec<u8>,
     /// De-padded payload ready to hand to the caller.
@@ -189,6 +190,7 @@ impl<S> VisionStream<S> {
             r_rem_cmd: -1,
             r_rem_content: -1,
             r_rem_padding: -1,
+            r_at_chunk_boundary: false,
             r_inbuf: Vec::new(),
             r_out: Vec::new(),
             r_hello: ServerHelloFilter::default(),
@@ -317,6 +319,7 @@ impl<S> VisionStream<S> {
         let n = self.r_inbuf.len();
         while i < n {
             if self.r_rem_cmd > 0 {
+                self.r_at_chunk_boundary = false;
                 let b = self.r_inbuf[i];
                 i += 1;
                 match self.r_rem_cmd {
@@ -340,6 +343,7 @@ impl<S> VisionStream<S> {
             }
 
             if self.r_rem_cmd <= 0 && self.r_rem_content <= 0 && self.r_rem_padding <= 0 {
+                self.r_at_chunk_boundary = true;
                 if self.r_cur_cmd == CMD_CONTINUE {
                     self.r_rem_cmd = 5;
                     self.r_rem_content = -1;
@@ -430,7 +434,12 @@ impl<S: XtlsDirectRead> AsyncRead for VisionStream<S> {
                 Poll::Ready(Ok(())) => {
                     let filled = scratch_buf.filled();
                     if filled.is_empty() {
-                        // Inner EOF; r_out is already drained.
+                        if this.r_uuid_checked && !this.r_at_chunk_boundary {
+                            return Poll::Ready(Err(io::Error::new(
+                                io::ErrorKind::UnexpectedEof,
+                                "vision: truncated padding chunk",
+                            )));
+                        }
                         return Poll::Ready(Ok(()));
                     }
                     this.r_inbuf.extend_from_slice(filled);
@@ -1003,3 +1012,7 @@ mod tests {
         assert!(stream.note_records(&[TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x00]));
     }
 }
+
+#[cfg(test)]
+#[path = "vision/decoder_tests.rs"]
+mod decoder_tests;
