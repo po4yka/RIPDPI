@@ -319,6 +319,8 @@ mod tests {
                     O::CookieAccepted
                 );
                 a.timers[TimeCurrent] = Duration::from_secs(6);
+                #[cfg(feature = "mock-instant")]
+                mock_instant::MockClock::advance(Duration::from_secs(6));
                 let retry = init(&mut a);
                 let (TunnResult::WriteToNetwork(response), _) =
                     b.decapsulate_from(Some(source(9000)), &retry, &mut out)
