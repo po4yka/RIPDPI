@@ -2,7 +2,7 @@
 id: TRN-1794383445146007
 title: Repair WebSocket and raw Upgrade contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: transport-integration
