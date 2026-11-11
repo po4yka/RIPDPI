@@ -116,7 +116,8 @@ pub async fn probe_endpoint_with_platform(
         peer.set_transport_padding(codec.clone()).map_err(|error| WarpProbeError::Handshake(error.to_owned()))?;
     }
     let udp = bind_probe_socket(endpoint, platform).map_err(WarpProbeError::Io)?;
-    let mut outbound = [0u8; MAX_PACKET];
+    // JNI workers must not carry three full-size packet arrays in the future.
+    let mut outbound = vec![0u8; MAX_PACKET];
     let started_at = std::time::Instant::now();
     let deadline = Instant::now() + Duration::from_millis(request.timeout_ms.max(250));
     match peer.format_handshake_initiation(&mut outbound, true) {
@@ -126,8 +127,8 @@ pub async fn probe_endpoint_with_platform(
         TunnResult::Err(error) => return Err(WarpProbeError::Handshake(format!("{error:?}"))),
         _ => return Err(WarpProbeError::Handshake("handshake initiation did not produce a packet".to_owned())),
     }
-    let mut recv_buf = [0u8; MAX_PACKET];
-    let mut decap_buf = [0u8; MAX_PACKET];
+    let mut recv_buf = vec![0u8; MAX_PACKET];
+    let mut decap_buf = vec![0u8; MAX_PACKET];
     let mut tick = tokio::time::interval(Duration::from_millis(250));
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
@@ -292,6 +293,33 @@ mod tests {
             .build()
             .expect("runtime")
             .block_on(probe_endpoint(request_with_psk(preshared_key)))
+    }
+
+    #[test]
+    fn probe_sends_an_initiation_on_a_bounded_worker_stack() {
+        use base64::Engine as _;
+        let receiver = std::net::UdpSocket::bind("127.0.0.1:0").expect("loopback peer");
+        receiver.set_read_timeout(Some(Duration::from_secs(2))).expect("read deadline");
+        let mut request = request_with_psk("");
+        request.endpoint.ipv4 = Some("127.0.0.1".into());
+        request.endpoint.port = i32::from(receiver.local_addr().expect("address").port());
+        request.private_key = base64::engine::general_purpose::STANDARD.encode([7; 32]);
+        request.peer_public_key = base64::engine::general_purpose::STANDARD.encode([1; 32]);
+        let worker = std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(move || {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("runtime")
+                    .block_on(probe_endpoint(request))
+            })
+            .expect("probe worker");
+        let mut packet = [0; 2048];
+        let size = receiver.recv(&mut packet).expect("WireGuard initiation");
+        assert_eq!(size, 148);
+        assert_eq!(&packet[..4], &[1, 0, 0, 0]);
+        assert!(matches!(worker.join().expect("bounded stack must not overflow"), Err(WarpProbeError::Timeout)));
     }
 
     #[test]
