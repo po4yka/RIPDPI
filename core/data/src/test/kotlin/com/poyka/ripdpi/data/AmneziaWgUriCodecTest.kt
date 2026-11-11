@@ -260,6 +260,25 @@ class AmneziaWgUriCodecTest {
     }
 
     @Test
+    fun `decode rejects malformed and duplicate query fields`() {
+        val base = AmneziaWgUriCodec.encode(fullProfile()).substringBefore('#')
+
+        listOf(
+            "random_trailers",
+            "future_obfuscation",
+            "=on",
+            "",
+            "&",
+            "wire_profile=awg-3.1-ranges-v1",
+            "public_key=another-key",
+            "jc=4",
+            "random_trailers=on&random_trailers=off",
+        ).forEach { suffix ->
+            assertNull(suffix, AmneziaWgUriCodec.decode("$base&$suffix"))
+        }
+    }
+
+    @Test
     fun `malformed numeric params are dropped rather than throwing`() {
         val original = fullProfile()
         // Corrupt a numeric query param; the codec must not throw.

@@ -225,7 +225,7 @@ object AmneziaWgUriCodec {
         val privateKey = parsed.rawUserInfo?.takeIf { it.isNotBlank() }?.let { urlDecode(it) } ?: return null
         val host = parsed.host?.removeSurrounding("[", "]")?.takeIf { it.isNotBlank() } ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
-        val params = parseQuery(parsed.rawQuery)
+        val params = parseQuery(parsed.rawQuery) ?: return null
         val publicKey = params["public_key"]?.takeIf { it.isNotBlank() } ?: return null
 
         return MandatoryFields(
@@ -238,18 +238,17 @@ object AmneziaWgUriCodec {
         )
     }
 
-    private fun parseQuery(rawQuery: String?): Map<String, String> {
+    private fun parseQuery(rawQuery: String?): Map<String, String>? {
         val query = rawQuery?.takeIf { it.isNotBlank() } ?: return emptyMap()
-        return query
-            .split('&')
-            .mapNotNull { pair ->
-                val separator = pair.indexOf('=')
-                if (separator <= 0) {
-                    null
-                } else {
+        val pairs =
+            query
+                .split('&')
+                .map { pair ->
+                    val separator = pair.indexOf('=')
+                    if (separator <= 0) return null
                     pair.substring(0, separator) to urlDecode(pair.substring(separator + 1))
                 }
-            }.toMap()
+        return pairs.toMap().takeIf { it.size == pairs.size }
     }
 
     private fun splitList(raw: String?): List<String> =
