@@ -49,12 +49,15 @@
 //! so the fail-closed path is exercised.
 
 use std::fmt;
+use std::sync::Arc;
 
 use futures::stream::{SplitSink, SplitStream};
+use tokio::sync::Mutex;
 use tokio_tungstenite::tungstenite::Message;
 
 mod connect;
 mod endpoint;
+mod receive;
 
 pub use connect::{CarrierSocketProtector, connect_protected_carrier};
 pub use endpoint::{WssCarrier, WssCarrierStream, WssEndpoint, WssEndpointError, connect_wss_carrier};
@@ -200,46 +203,51 @@ fn random_u32() -> u32 {
 /// caller's seam.
 pub struct WsCarrier<S> {
     stream: S,
+    read_state: receive::ReadState,
 }
 
 /// Sending half of a WireGuard WebSocket carrier.
 pub struct WsCarrierSender<S> {
-    sink: SplitSink<S, Message>,
+    sink: SharedSink<S>,
 }
+
+type SharedSink<S> = Arc<Mutex<SplitSink<S, Message>>>;
 
 /// Receiving half of a WireGuard WebSocket carrier.
 pub struct WsCarrierReceiver<S> {
     stream: SplitStream<S>,
+    sink: SharedSink<S>,
+    read_state: receive::ReadState,
 }
 
 impl<S> WsCarrierSender<S>
 where
     S: futures::Sink<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin,
 {
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
     /// NOT cancel-safe: a dropped send may leave a buffered frame; a later send
     /// finishes it before sending a new frame.
-    pub async fn send_datagram(&mut self, datagram: &[u8]) -> Result<(), WsCarrierError> {
+    pub async fn send_datagram(&self, datagram: &[u8]) -> Result<(), WsCarrierError> {
         use futures::SinkExt;
-        self.sink.send(frame_datagram(datagram)).await?;
+        self.sink.lock().await.send(frame_datagram(datagram)).await?;
         Ok(())
     }
 }
 
 impl<S> WsCarrierReceiver<S>
 where
-    S: futures::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
+    S: futures::Sink<Message, Error = tokio_tungstenite::tungstenite::Error>
+        + futures::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>>
+        + Unpin,
 {
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
-    /// cancel-safe: dropping a pending read preserves WebSocket framing state.
+    /// cancel-safe: dropping a pending read preserves framing, Close state, and its
+    /// original deadline. A peer Close is returned only after the reply is
+    /// flushed, within a finite deadline.
     pub async fn recv_datagram(&mut self) -> Result<Vec<u8>, WsCarrierError> {
-        use futures::StreamExt;
-        match self.stream.next().await {
-            Some(message) => unframe_message(message?),
-            None => Err(WsCarrierError::Closed),
-        }
+        receive::recv_split_datagram(&mut self.stream, &self.sink, &mut self.read_state).await
     }
 }
 
@@ -251,26 +259,24 @@ where
 {
     /// Wrap an established WebSocket stream as a WireGuard carrier.
     pub fn new(stream: S) -> Self {
-        Self { stream }
+        Self { stream, read_state: receive::ReadState::default() }
     }
 
     /// Split read and write so a pending receive does not block sending.
     pub fn split(self) -> (WsCarrierSender<S>, WsCarrierReceiver<S>) {
         use futures::StreamExt;
         let (sink, stream) = self.stream.split();
-        (WsCarrierSender { sink }, WsCarrierReceiver { stream })
+        let sink = Arc::new(Mutex::new(sink));
+        (WsCarrierSender { sink: Arc::clone(&sink) }, WsCarrierReceiver { stream, sink, read_state: self.read_state })
     }
 
     /// Send one WireGuard UDP datagram across the carrier as a binary frame.
     ///
     ///
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
-    /// cancel-safe: a cancelled `send` may leave a partially-buffered frame in
-    /// the sink; the WebSocket message-boundary guarantee means a half-sent
-    /// binary frame is never delivered as a truncated datagram — the peer
-    /// either sees the whole frame or the stream errors/closes. The caller
-    /// must not assume the datagram was delivered if the future is dropped.
+    /// NOT cancel-safe: cancellation can leave the datagram queued in the Sink.
+    /// The caller must not retry it because a retry can duplicate delivery.
     pub async fn send_datagram(&mut self, datagram: &[u8]) -> Result<(), WsCarrierError> {
         use futures::SinkExt;
         self.stream.send(frame_datagram(datagram)).await?;
@@ -298,19 +304,13 @@ where
     /// Returns [`WsCarrierError::Closed`] when the peer closes the stream.
     ///
     ///
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
-    /// cancel-safe: a cancelled `recv` drops the in-progress read of the next
-    /// frame; because WebSocket frames are message-delimited, the next call
-    /// resumes at the following frame boundary with no datagram split across
-    /// the cancellation. No datagram is lost that the caller had already
-    /// observed.
+    /// cancel-safe: a cancelled receive preserves framing, Close state, and its
+    /// original deadline. A peer Close is returned only after the reply is
+    /// flushed, within a finite deadline.
     pub async fn recv_datagram(&mut self) -> Result<Vec<u8>, WsCarrierError> {
-        use futures::StreamExt;
-        match self.stream.next().await {
-            Some(message) => unframe_message(message?),
-            None => Err(WsCarrierError::Closed),
-        }
+        receive::recv_datagram(&mut self.stream, &mut self.read_state).await
     }
 
     /// Consume the carrier and return the underlying WebSocket stream.

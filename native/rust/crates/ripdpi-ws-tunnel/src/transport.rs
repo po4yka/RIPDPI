@@ -18,9 +18,9 @@
 //!
 //! * [`WsTransportConfig`] -- configurable host, path, extra headers (for
 //!   provider-specific early-data headers), and subprotocol string.
-//! * [`EarlyData`] -- early-data encoding for VMess/VLESS WS profiles:
-//!   the `ed=N` path/query convention and the `Sec-WebSocket-Protocol`
-//!   base64 early-data convention.
+//! * [`EarlyData`] -- request-field encoding helpers for an `ed=N` query
+//!   and a base64 early-data subprotocol token. The caller owns the session
+//!   policy and must verify compatibility with its peer.
 //! * [`build_ws_request`] -- turns a [`WsTransportConfig`] into a
 //!   `tungstenite` HTTP upgrade request, applying all configured headers
 //!   and early-data encodings.
@@ -37,8 +37,10 @@
 // handshake error path; boxing it would leak through every caller's Result.
 #![allow(clippy::result_large_err)]
 
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use bytes::{Buf, Bytes, BytesMut};
 use futures::sink::Sink;
@@ -77,20 +79,15 @@ impl From<tokio_tungstenite::tungstenite::Error> for WsTransportError {
     }
 }
 
-/// Early-data encoding for VMess/VLESS WebSocket profiles.
+/// Early-data request-field encoding helpers.
 ///
-/// Two conventions are used in the wild and both are supported:
+/// [`EarlyData::with_path_param`] appends an `ed=N` query parameter.
+/// [`EarlyData::with_protocol_payload`] encodes bytes as a base64-url
+/// subprotocol token without padding. A config can use either or both fields.
 ///
-/// * **Path query (`ed=N`)** -- the server advertises a maximum early-data
-///   length `N`; the client appends `?ed=N` (or `&ed=N`) to the WS path so
-///   the server knows to expect base64 early data. Set via
-///   [`EarlyData::with_path_param`].
-/// * **`Sec-WebSocket-Protocol` payload** -- the actual early-data bytes are
-///   base64-url encoded (no padding) and sent as the WS subprotocol token,
-///   letting a single round trip carry the first request fragment. Set via
-///   [`EarlyData::with_protocol_payload`].
-///
-/// A profile may use one, both, or neither.
+/// These helpers do not provide a session driver, enforce a payload limit, or
+/// define replay behavior. The caller must check the peer's protocol, including
+/// its subprotocol response. Encoding alone does not establish interoperability.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EarlyData {
     /// When `Some(n)`, append `ed=n` to the request path's query string.
@@ -290,8 +287,10 @@ pub struct WsTransport<S> {
     inner: WebSocketStream<S>,
     /// Buffered bytes from a partially consumed inbound binary frame.
     read_buf: BytesMut,
-    /// Set once the peer has sent a Close frame or the stream has ended.
+    /// Set after the Close reply is flushed or the stream has ended.
     read_closed: bool,
+    /// Retained across polls so cancellation cannot restart the close budget.
+    close_reply_deadline: Option<Pin<Box<tokio::time::Sleep>>>,
 }
 
 impl<S> WsTransport<S> {
@@ -300,7 +299,40 @@ impl<S> WsTransport<S> {
     /// The handshake (and any TLS underneath it) is the caller's
     /// responsibility; this constructor only adopts the negotiated stream.
     pub fn from_websocket(inner: WebSocketStream<S>) -> Self {
-        Self { inner, read_buf: BytesMut::new(), read_closed: false }
+        Self { inner, read_buf: BytesMut::new(), read_closed: false, close_reply_deadline: None }
+    }
+}
+
+const CLOSE_REPLY_TIMEOUT: Duration = Duration::from_secs(5);
+
+impl<S: AsyncRead + AsyncWrite + Unpin> WsTransport<S> {
+    fn poll_close_reply(&mut self, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        match Pin::new(&mut self.inner).poll_flush(cx) {
+            Poll::Ready(Ok(())) => {}
+            Poll::Ready(Err(
+                tokio_tungstenite::tungstenite::Error::ConnectionClosed
+                | tokio_tungstenite::tungstenite::Error::AlreadyClosed,
+            )) => {}
+            Poll::Ready(Err(err)) => {
+                self.read_closed = true;
+                self.close_reply_deadline = None;
+                return Poll::Ready(Err(ws_io_error(err)));
+            }
+            Poll::Pending => {
+                if self.close_reply_deadline.as_mut().is_some_and(|deadline| deadline.as_mut().poll(cx).is_ready()) {
+                    self.read_closed = true;
+                    self.close_reply_deadline = None;
+                    return Poll::Ready(Err(std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "WebSocket Close reply timed out",
+                    )));
+                }
+                return Poll::Pending;
+            }
+        }
+        self.close_reply_deadline = None;
+        self.read_closed = true;
+        Poll::Ready(Ok(()))
     }
 }
 
@@ -316,6 +348,9 @@ where
                 buf.put_slice(&this.read_buf[..take]);
                 this.read_buf.advance(take);
                 return Poll::Ready(Ok(()));
+            }
+            if this.close_reply_deadline.is_some() {
+                return this.poll_close_reply(cx);
             }
             if this.read_closed {
                 // Clean EOF: an empty `poll_read` filling no bytes.
@@ -354,8 +389,8 @@ where
                         this.read_buf.extend_from_slice(text.as_bytes());
                     }
                     Message::Close(_) => {
-                        this.read_closed = true;
-                        return Poll::Ready(Ok(()));
+                        // tungstenite queues this reply; EOF must wait for its flush.
+                        this.close_reply_deadline = Some(Box::pin(tokio::time::sleep(CLOSE_REPLY_TIMEOUT)));
                     }
                     // Ping/Pong/frame: `tokio-tungstenite` auto-replies to
                     // Ping; nothing for the byte stream to surface.
@@ -577,6 +612,63 @@ mod tests {
         let cfg = WsTransportConfig::new("h.example", "/ws").with_header("Bad Header", "v");
         let err = build_ws_request(&cfg, true).expect_err("invalid header name should fail");
         assert!(matches!(err, WsTransportError::InvalidConfig(_)));
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the test owns both stream ends and drops them on cancellation.
+    #[tokio::test]
+    async fn peer_close_reply_is_sent_before_eof() {
+        use tokio_tungstenite::tungstenite::protocol::Role;
+        let (local, mut peer) = tokio::io::duplex(64);
+        let ws = WebSocketStream::from_raw_socket(local, Role::Client, None).await;
+        let mut transport = WsTransport::from_websocket(ws);
+        peer.write_all(&[0x88, 2, 0x03, 0xe8]).await.expect("peer Close 1000");
+        assert_eq!(transport.read(&mut [0]).await.expect("close EOF"), 0);
+        let mut reply = [0; 8];
+        tokio::time::timeout(std::time::Duration::from_millis(250), peer.read_exact(&mut reply))
+            .await
+            .expect("Close reply before EOF")
+            .expect("Close reply bytes");
+        assert_eq!(&reply[..2], &[0x88, 0x82]);
+        assert_eq!([reply[6] ^ reply[2], reply[7] ^ reply[3]], [0x03, 0xe8]);
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: both stream ends are owned; the writer task is joined.
+    #[tokio::test]
+    async fn stalled_close_reply_keeps_its_deadline_after_cancelled_read() {
+        use tokio_tungstenite::tungstenite::protocol::Role;
+        let (local, mut peer) = tokio::io::duplex(1);
+        let ws = WebSocketStream::from_raw_socket(local, Role::Client, None).await;
+        let mut transport = WsTransport::from_websocket(ws);
+        let writer = tokio::spawn(async move {
+            peer.write_all(&[0x88, 2, 0x03, 0xe8]).await.expect("peer Close");
+            peer
+        });
+        assert!(tokio::time::timeout(Duration::from_secs(4), transport.read(&mut [0])).await.is_err());
+        let _peer = writer.await.expect("Close writer");
+        let error = tokio::time::timeout(Duration::from_secs(2), transport.read(&mut [0]))
+            .await
+            .expect("original close deadline")
+            .expect_err("stalled close must time out");
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        assert_eq!(transport.read(&mut [0]).await.expect("terminal EOF"), 0);
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the test owns and drops both stream ends.
+    #[tokio::test]
+    async fn simultaneous_close_does_not_queue_an_extra_reply() {
+        use tokio_tungstenite::tungstenite::protocol::Role;
+        let (local, mut peer) = tokio::io::duplex(64);
+        let ws = WebSocketStream::from_raw_socket(local, Role::Client, None).await;
+        let mut transport = WsTransport::from_websocket(ws);
+        transport.shutdown().await.expect("local Close");
+        peer.write_all(&[0x88, 2, 0x03, 0xe8]).await.expect("peer Close");
+        assert_eq!(transport.read(&mut [0]).await.expect("close EOF"), 0);
+        let mut reply = [0; 6];
+        peer.read_exact(&mut reply).await.expect("local masked Close");
+        assert_eq!(&reply[..2], &[0x88, 0x80]);
     }
 
     // --- WsTransport AsyncRead/AsyncWrite over a real WS handshake ----------

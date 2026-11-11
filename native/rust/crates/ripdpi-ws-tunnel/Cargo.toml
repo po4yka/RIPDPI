@@ -16,7 +16,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 socket2 = { workspace = true }
 bytes = "1"
-tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tokio-tungstenite = { workspace = true }
 tungstenite = { workspace = true }
 

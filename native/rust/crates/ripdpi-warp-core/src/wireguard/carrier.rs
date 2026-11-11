@@ -13,13 +13,13 @@ use ripdpi_wireguard_ws::{
 type PlainTestWsStream = tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>;
 
 pub(crate) struct SplitWsCarrier<S> {
-    sender: Mutex<WsCarrierSender<S>>,
+    sender: WsCarrierSender<S>,
     receiver: Mutex<WsCarrierReceiver<S>>,
 }
 
 impl<S> SplitWsCarrier<S> {
     fn new(sender: WsCarrierSender<S>, receiver: WsCarrierReceiver<S>) -> Self {
-        Self { sender: Mutex::new(sender), receiver: Mutex::new(receiver) }
+        Self { sender, receiver: Mutex::new(receiver) }
     }
 }
 
@@ -80,12 +80,12 @@ impl WgCarrier {
         match self {
             Self::Udp(socket) => socket.send_to(buf, addr).await,
             Self::Ws(carrier) => {
-                carrier.sender.lock().await.send_datagram(buf).await.map_err(ws_error_to_io)?;
+                carrier.sender.send_datagram(buf).await.map_err(ws_error_to_io)?;
                 Ok(buf.len())
             }
             #[cfg(test)]
             Self::PlainTestWs(carrier) => {
-                carrier.sender.lock().await.send_datagram(buf).await.map_err(ws_error_to_io)?;
+                carrier.sender.send_datagram(buf).await.map_err(ws_error_to_io)?;
                 Ok(buf.len())
             }
         }
