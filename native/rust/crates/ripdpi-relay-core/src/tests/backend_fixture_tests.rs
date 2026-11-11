@@ -668,6 +668,8 @@ async fn mieru_off_socks_payload_and_stop_with_upstream() {
     assert_eq!(runtime.telemetry().active_sessions, 0);
 }
 
+/// # Cancel safety:
+/// cancel-safe: each deadline drops the owned stream; the fixture owns its carrier tasks.
 #[tokio::test]
 async fn vless_reality_mux_keeps_its_carrier_when_the_server_drops_a_refused_substream() {
     let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality mux fixture");
@@ -688,12 +690,26 @@ async fn vless_reality_mux_keeps_its_carrier_when_the_server_drops_a_refused_sub
     drop(tokio::time::timeout_at(deadline, backend.connect_tcp(&target)).await.expect("warm").expect("warm stream"));
 
     // The fixture drops the substream of a refused target without a status byte.
-    let refused_result = tokio::time::timeout_at(deadline, backend.connect_tcp(&refused)).await.expect("refusal");
-    assert!(refused_result.is_err(), "the refused target must fail");
-    tokio::time::timeout_at(deadline, backend.connect_tcp(&target))
+    let mut refused_stream = tokio::time::timeout_at(deadline, backend.connect_tcp(&refused))
+        .await
+        .expect("open before response")
+        .expect("send refused target request");
+    let mut payload = [0];
+    let refused_result = tokio::time::timeout_at(deadline, refused_stream.read(&mut payload)).await.expect("refusal");
+    assert!(refused_result.is_err(), "the refused target must fail on response validation");
+    drop(refused_stream);
+    let mut reused = tokio::time::timeout_at(deadline, backend.connect_tcp(&target))
         .await
         .expect("open after the refusal stalled")
         .expect("open after the refusal");
+    tokio::time::timeout_at(deadline, async {
+        reused.write_all(b"reused").await.expect("write after refusal");
+        let mut payload = [0; 6];
+        reused.read_exact(&mut payload).await.expect("read after refusal");
+        assert_eq!(&payload, b"reused");
+    })
+    .await
+    .expect("exchange after refusal stalled");
 
     assert_eq!(fixture.accepted_carrier_count(), 1, "one refused target re-dialled the shared carrier");
 }

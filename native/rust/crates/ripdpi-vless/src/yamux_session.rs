@@ -12,6 +12,9 @@ use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use crate::AsyncIo;
 
+mod response;
+use response::ResponseStream;
+
 type Carrier = tokio_util::compat::Compat<Box<dyn AsyncIo>>;
 type Connection = yamux::Connection<Carrier>;
 
@@ -74,15 +77,15 @@ impl VlessYamuxSession {
         Ok(Self { connection, closed, driver_notify, _driver_guard: Arc::new(AbortOnDrop(driver)) })
     }
 
-    /// Opens a TCP stream and completes the sing-mux stream request before
-    /// exposing application bytes to the caller.
+    /// Sends a TCP stream request and returns a writable stream.
+    /// The sing-mux response is validated on the first non-empty read.
     ///
     /// # Cancel safety
     ///
     /// conditionally cancel-safe: dropping during the stream request discards
     /// only the newly opened yamux stream; its Drop resets that substream while
     /// the shared carrier remains owned by the driver.
-    pub async fn open_stream(&self, destination: &str) -> io::Result<tokio_util::compat::Compat<yamux::Stream>> {
+    pub async fn open_stream(&self, destination: &str) -> io::Result<impl AsyncIo + use<>> {
         if self.is_closed() {
             return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "VLESS mux carrier closed"));
         }
@@ -98,8 +101,7 @@ impl VlessYamuxSession {
         let mut stream = stream.compat();
         stream.write_all(&request).await?;
         stream.flush().await?;
-        crate::mux::read_stream_response(&mut stream).await?;
-        Ok(stream)
+        Ok(ResponseStream::new(stream))
     }
 
     /// Whether the driver has observed a terminal carrier error. A `false`
@@ -121,7 +123,7 @@ fn _assert_tokio_stream<T: AsyncRead + AsyncWrite + Unpin + Send>() {}
 
 #[allow(dead_code)]
 fn assert_stream_contract() {
-    _assert_tokio_stream::<tokio_util::compat::Compat<yamux::Stream>>();
+    _assert_tokio_stream::<ResponseStream<tokio_util::compat::Compat<yamux::Stream>>>();
 }
 
 #[cfg(test)]
@@ -270,6 +272,48 @@ mod tests {
         server_task.await.unwrap();
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: timeout drops the stream and driver; the peer task is aborted on drop.
+    #[tokio::test]
+    async fn client_payload_precedes_lazy_stream_response() {
+        let (client, mut server) = tokio::io::duplex(65536);
+        let server_task = tokio::spawn(async move {
+            let mut preamble = [0; 2];
+            server.read_exact(&mut preamble).await.unwrap();
+            assert_eq!(preamble, [0, 1]);
+            let connection = Arc::new(Mutex::new(yamux::Connection::new(
+                server.compat(),
+                yamux::Config::default(),
+                yamux::Mode::Server,
+            )));
+            let stream = poll_fn(|cx| lock_connection(&connection).poll_next_inbound(cx)).await.unwrap().unwrap();
+            let _driver = AbortOnDrop(tokio::spawn(async move {
+                while let Some(Ok(_)) = poll_fn(|cx| lock_connection(&connection).poll_next_inbound(cx)).await {}
+            }));
+            let mut stream = stream.compat();
+            read_stream_request(&mut stream).await;
+            let mut request = [0; 7];
+            stream.read_exact(&mut request).await.unwrap();
+            assert_eq!(&request, b"request");
+            stream.write_all(b"\0response").await.unwrap();
+            stream.flush().await.unwrap();
+            let mut done = [0];
+            stream.read_exact(&mut done).await.unwrap();
+        });
+        let _peer_guard = AbortOnDrop(server_task);
+        let exchange = async {
+            let session = VlessYamuxSession::establish(Box::new(client), 2).await.unwrap();
+            let mut stream = session.open_stream("interleave.test:443").await.unwrap();
+            stream.write_all(b"request").await.unwrap();
+            let mut response = [0; 8];
+            stream.read_exact(&mut response).await.unwrap();
+            assert_eq!(&response, b"response");
+            stream.write_all(b"!").await.unwrap();
+            stream.flush().await.unwrap();
+        };
+        tokio::time::timeout(Duration::from_secs(1), exchange).await.expect("open must not wait for peer response");
+    }
+
     #[tokio::test]
     async fn later_stream_open_wakes_driver_after_existing_streams_are_idle() {
         let (client, mut server) = tokio::io::duplex(64 * 1024);
@@ -333,8 +377,10 @@ mod tests {
         server_task.await.unwrap();
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: aborting the read drops its stream; the session owns the driver.
     #[tokio::test]
-    async fn cancelled_stream_request_resets_only_substream_and_carrier_remains_reusable() {
+    async fn cancelled_stream_response_resets_only_substream_and_carrier_remains_reusable() {
         let (client, mut server) = tokio::io::duplex(64 * 1024);
         let (first_request_tx, first_request_rx) = oneshot::channel();
         let (cancelled_tx, cancelled_rx) = oneshot::channel();
@@ -377,7 +423,11 @@ mod tests {
 
         let session = VlessYamuxSession::establish(Box::new(client), 2).await.expect("establish mux carrier");
         let cancelled_session = session.clone();
-        let first_open = tokio::spawn(async move { cancelled_session.open_stream("cancelled.test:443").await });
+        let first_open = tokio::spawn(async move {
+            let mut stream = cancelled_session.open_stream("cancelled.test:443").await.expect("open cancelled stream");
+            let mut payload = [0];
+            stream.read_exact(&mut payload).await
+        });
         first_request_rx.await.expect("first stream request observed");
         first_open.abort();
         first_open.await.expect_err("first open must be cancelled");
