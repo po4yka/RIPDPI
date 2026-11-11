@@ -1,7 +1,7 @@
 ---
 task_id: TRN-1794371406782186
 change: fix-vision-stream-audit
-commit_sha: 44c9fabf8d27b3a4badbaffcbff6791ca06dea61
+commit_sha: ae7427e5bb0c55ba435389078c449f3efe399edb
 local: passed
 local_evidence: 174 unit tests, 2 exact-pin loopback integration tests, Clippy, formatting, ci-gates, architecture health, locked metadata and independent reviews passed.
 remote_ci: required
@@ -48,3 +48,7 @@ Local logs are in `/tmp/trn02-fixed-evidence/`. Red reproductions are in `/tmp/t
 F1, F2 and F3 are fixed in separate commits. A fourth commit fixes the zero-capacity AsyncRead defect found during implementation. H1 is covered by structured record/handshake reassembly and split tests. H2 retains an explicit compatible tolerant-command policy. H3 passed real carrier characterization tests and required no production change. Wire and peer-test pin meanings are documented separately in SPEC_VERSION.md; no pin was changed.
 
 This is host and loopback evidence. No physical device, public server, real credentials, root activation, release artifact or deployment was used. Remote CI remains a separate required gate for task closure; this change stays in review until that evidence exists.
+
+## Rebased source check
+
+The branch was rebased onto origin/main `c3ebd14b10f6778d7946bd2425cb501dec037a64`, which adds separate gRPC repairs in ripdpi-xhttp. At the exact commit recorded above, the 174 unit tests, Clippy, both exact-pin loopback tests, ci-gates, architecture health and locked metadata all passed again. Logs use the `rebased-` prefix in the same local evidence directory. No conflict resolution changed Vision source.
