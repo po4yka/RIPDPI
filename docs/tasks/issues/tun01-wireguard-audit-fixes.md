@@ -2,7 +2,7 @@
 id: TRN-1794383863211672
 title: Repair WireGuard tunnel audit findings
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: wireguard-integration
@@ -12,11 +12,12 @@ spec_mode: required
 openspec_change: tun01-wireguard-audit-fixes
 created: 2026-11-11
 updated: 2026-11-11
+status_detail: All confirmed repairs and local gates passed; Android acceptance and exact pushed-SHA hosted CI remain open.
 ---
 
 ## Goal
 
-Repair the eight TUN-01 findings at source SHA ec4f13320a272b945bf2a0497d02fcea545d73c9. Preserve the plain WireGuard, WARP, AWG and WSS boundaries.
+Repair the TUN-01 findings and confirmed follow-up defects at source SHA ec4f13320a272b945bf2a0497d02fcea545d73c9. Preserve the plain WireGuard, WARP, AWG and WSS boundaries.
 
 ## Acceptance criteria
 

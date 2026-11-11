@@ -1,127 +1,138 @@
 ---
 task_id: TRN-1794383863211672
 change: tun01-wireguard-audit-fixes
-commit_sha: null
-local: required
-local_evidence: Functional tests, strict Clippy and source gates passed; the fixed-source reference run is pending.
+commit_sha: eba0f5b1c8fbb03997e65e3f73a4af2641c75eb5
+local: passed
+local_evidence: Final source passed 176 core tests, 244 Kotlin tests, strict three-crate Clippy, staticAnalysis, ci-gates, locked metadata and independent reference cases. Details below.
 remote_ci: required
-remote_ci_evidence: Awaiting the authorized push and hosted checks for its exact SHA.
+remote_ci_evidence: Check the authorized pushed main SHA; hosted CI has not yet been observed for that SHA.
 device: blocked
-device_evidence: No Android acceptance run was made. Host loopback tests do not prove VpnService routes, protection, CheckJNI, PMTU or network handover.
+device_evidence: No Android acceptance run was made. Physical-device and external-server probes were not authorized. Host loopback does not prove VpnService routes, protection, CheckJNI, PMTU or handover.
 artifact: not_applicable
-artifact_evidence: This change commits source repairs; no release artifact is requested.
+artifact_evidence: Source repairs only; no release artifact requested.
 deployment: not_applicable
-deployment_evidence: No service or production deployment is owned by this change.
+deployment_evidence: No production deployment requested.
 ---
 
 # Verification
 
-The audit baseline is ec4f13320a272b945bf2a0497d02fcea545d73c9. The working source contains the repairs below. Separate fix commits and the final source SHA are recorded after local checks finish.
+Audit baseline: ec4f13320a272b945bf2a0497d02fcea545d73c9. Final tested source: eba0f5b1c8fbb03997e65e3f73a4af2641c75eb5, rebased onto main b2f7d1b0e66b1ba05ac7e812ea200214f539b6e4. Thirteen separate repair commits address the eight original findings and verified follow-up defects. The final evidence commit changes task documents only.
 
 ## Requirement evidence
 
-| Requirement | Execution step | Evidence | Result |
+| Requirement | Execution step | Observed evidence | Scope |
 |---|---|---|---|
-| REQ-TRN-1794383863211672-F1 | TRN-1794384081332121 | Editor/parser/activation regressions: a repeated import matches a fresh import, omitted policy selects family-aware defaults, and explicit empty policy stays invalid. App/data run: 89 passed. | C, V: passed locally |
-| REQ-TRN-1794383863211672-F2 | TRN-1794384110942936 | Backend tests assert the independent 20-byte IP to 64-byte WG message length, exact payload recovery and queued-message behavior. The wrapper test asserts literal buckets at a non-aligned MTU of 1330. AWG retains its padding policy. | C, V, checked S: passed locally; new reference E pending |
-| REQ-TRN-1794383863211672-F3 | TRN-1794384117975110 | Real encrypted local-peer tests cover IPv4/IPv6/port changes and reject replay, malformed, forged and provisional-cookie endpoint learning. Cookie replies use the actual source. Protection failure cannot select an unprotected fallback. | C, V: passed locally; no independent roaming E claim |
-| REQ-TRN-1794383863211672-F4 | TRN-1794384124102378 | CIDR boundary tests, real encrypted source/destination denial, SOCKS denial, legacy/empty JSON tests, required Kotlin serialization and DNS policy tests. New producers supply exact policy; old absent native policy keeps its documented default. | C, V: passed locally |
-| REQ-TRN-1794383863211672-F5 | TRN-1794384130805227 | The real smoltcp burst/backpressure test includes empty datagrams and checks exact payloads and boundaries. The old audit reproduced the UDP0 loss against wireguard-go. | C, V: local regression passed; fixed reference E pending |
-| REQ-TRN-1794383863211672-F6 | TRN-1794384138628907 | Candidate selection accepts either family and interleaves A/AAAA results. A real timer test reaches a live IPv6 peer after several silent IPv4 candidates within an 8-second deadline. Native owners explicitly release detached system lookups on shutdown. | C, V: local resolution/fallback passed; blocked-resolver Android stop remains unverified |
-| REQ-TRN-1794383863211672-F7 | TRN-1794384148575819 | Synthetic message thresholds test rekey and rejection without nonce wrapping or replay-state mutation. Replay arithmetic passed Miri seeds 0 through 15. | C, V, checked S: passed locally; no threshold wire E claim |
-| REQ-TRN-1794383863211672-F8 | TRN-1794384157128350 | Timer tests check one bounded 0–333 ms jitter sample per initiation, retry deadlines and the existing AWG timer policy. | C, V, checked S: passed locally |
-| REQ-TRN-1794383863211672-F9 | TRN-1794384161932447 | Cookie rotation is 120 seconds; boundary tests pass. The mock cookie retry advances the same monotonic clock as its timestamps. Debug tests verify PSK redaction. | C, V, checked S: passed locally |
-| REQ-TRN-1794383863211672-F10 | TRN-1794397765858185 | Default decapsulation now retains the complete CookieSource. Tests-only RED compiled and failed all three intended cases; reviewed fix passed 44 default and 47 mock-instant tests. Original-source proof remains valid after a changed-source challenge. | C, V, checked S: passed; under-load reference E remains open |
-| REQ-TRN-1794383863211672-F11 | TRN-1794406917242467 | Initial UDP send error currently exits before other candidates. Real dual-stack loopback precondition observed errno 49 for IPv4 and exact IPv6 delivery. Native tests-only RED failed with errno 49; the fix passed the plain/AWG regression and all 176 core tests. General and async reviews passed. | C, V: passed; strict Clippy passed |
+| REQ-TRN-1794383863211672-F1 | TRN-1794384081332121 | Repeated import equals a fresh import. Omitted policy uses family-aware defaults; explicit empty policy is invalid. Editor-owned carrier settings are retained. | C, V |
+| REQ-TRN-1794383863211672-F2 | TRN-1794384110942936 | Independent message lengths, MTU 1330 buckets and payload recovery pass. Default transport uses standard padding; AWG keeps its own policy. Reference data cases pass. | C, V, checked S, bounded E |
+| REQ-TRN-1794383863211672-F3 | TRN-1794384117975110 | Encrypted local-peer IPv4/IPv6/port roaming passes. Replay, malformed traffic, forged packets and provisional cookies cannot learn an endpoint. Cookies use the actual source. | C, V; independent roaming E open |
+| REQ-TRN-1794383863211672-F4 | TRN-1794384124102378 | CIDR boundaries, encrypted source/destination denial, SOCKS admission, exact Kotlin JSON policy and DNS policy pass. Legacy absent native policy retains its default; explicit empty policy fails. | C, V; Android route V open |
+| REQ-TRN-1794383863211672-F5 | TRN-1794384130805227 | Real smoltcp burst/backpressure preserves datagram boundaries including empty UDP. Reference peer confirms 16 empty datagrams. | C, V, bounded E |
+| REQ-TRN-1794383863211672-F6 | TRN-1794384138628907 | Resolution interleaves both families. A timer test reaches IPv6 after silent IPv4 candidates. Native owners release detached system lookups during shutdown. F11 also covers immediate send errors. | C, V; Android resolver-stop V open |
+| REQ-TRN-1794383863211672-F7 | TRN-1794384148575819 | Synthetic counter boundaries rekey/reject without nonce wrap or replay-state changes. Replay arithmetic passed Miri seeds 0 through 15. | C, V, checked S; threshold E open |
+| REQ-TRN-1794383863211672-F8 | TRN-1794384157128350 | One bounded 0–333 ms jitter sample is used for each initiation. Retry deadlines and AWG timer policy pass. | C, V, checked S |
+| REQ-TRN-1794383863211672-F9 | TRN-1794384161932447 | Cookie secret rotation uses 120 seconds. Mock cookie retry uses the correct monotonic clock. PSK Debug output is redacted. | C, V, checked S |
+| REQ-TRN-1794383863211672-F10 | TRN-1794397765858185 | Tests-only RED failed three source isolation cases. Full CookieSource repair passed 44 default and 47 mock-instant tests. A changed port cannot reuse the same cookie proof. | C, V, checked S; under-load reference E open |
+| REQ-TRN-1794383863211672-F11 | TRN-1794406917242467 | Tests-only RED failed with real errno 49. Plain and AWG startup reach the second owned loopback candidate after an immediate UDP send error. Attempts are bounded; full preludes and protected-fd ownership remain intact. | C, V; independent candidate-failure E open |
 
-C means reviewed code. V means an observed local run. S covers only the checked requirements of WireGuard paper revision e2da747; it is not a claim of full conformance. E applies only to a stated independent peer and case. Source review does not raise V or E.
+C means reviewed code. V means an observed run. S applies only to checked requirements of WireGuard paper revision e2da747. E applies only to the named independent implementation and cases. Source review does not raise V, S or E. This is not full protocol or Android acceptance.
 
-## Observed local checks
+## Final local checks
 
-All compiler-backed commands use the reserved RIPDPI build lane. Cargo resolves with `--locked`; CMake and Cargo use at most four jobs. Gradle uses four workers and `ripdpi.nativeCpuBudget=4`.
-
-The Kotlin filters below use class-name globs to reproduce the observed selection. The retained XML reports identify all executed cases.
-
-From the job worktree:
-
-```sh
-CMAKE_BUILD_PARALLEL_LEVEL=4 build-gate --lane ripdpi -- env -u CARGO_BUILD_JOBS ./gradlew :core:engine-api:testDebugUnitTest :core:service:testDebugUnitTest -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4 --tests '*RipDpiAmneziaWgConfigSerializationTest' --tests '*AmneziaWgRuntimeConfigResolverTest' --tests '*VpnTunnelRuntimePolicyTest'
-CMAKE_BUILD_PARALLEL_LEVEL=4 build-gate --lane ripdpi -- env -u CARGO_BUILD_JOBS ./gradlew :app:testGithubFullDebugUnitTest --tests '*AmneziaWgEditorStateTest' :core:data:testDebugUnitTest --tests '*WireGuard*' --tests '*AwgActivationRequestTest' -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4
-CMAKE_BUILD_PARALLEL_LEVEL=4 build-gate --lane ripdpi -- env -u CARGO_BUILD_JOBS ./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4
-CMAKE_BUILD_PARALLEL_LEVEL=4 CARGO_BUILD_JOBS=4 CARGO_TARGET_DIR=/tmp/ripdpi-tun01-fixes-target RUSTC_WRAPPER=sccache build-gate --lane ripdpi -- just ci-gates
-```
-
-From `native/rust`:
-
-```sh
-CMAKE_BUILD_PARALLEL_LEVEL=4 CARGO_TARGET_DIR=/tmp/ripdpi-tun01-fixes-target RUSTC_WRAPPER=sccache build-gate --lane ripdpi -- cargo test -p ripdpi-warp-core --lib --locked --jobs 4
-CMAKE_BUILD_PARALLEL_LEVEL=4 CARGO_TARGET_DIR=/tmp/ripdpi-tun01-fixes-target RUSTC_WRAPPER=sccache build-gate --lane ripdpi -- cargo clippy -p ripdpi-warp-core -p ripdpi-warp-android -p ripdpi-amneziawg-android --all-targets --locked --jobs 4 -- -D warnings
-```
+Compiler-backed commands ran under the reserved RIPDPI build lease. CMake/Cargo used four jobs; Cargo used --locked and a worktree-specific target. Gradle used four workers and nativeCpuBudget=4. No quality gate, baseline, dependency version or lockfile was changed by these repairs. The new main's vendored tungstenite and lock changes are preserved.
 
 | Check | Observed result |
 |---|---|
-| Engine-api/service tests | Exit 0; 74 + 33 tests passed. No failed, errored or skipped test cases. |
-| App/data tests | Exit 0; 35 + 54 tests passed after the final dual-stack import correction. No failed, errored or skipped test cases. |
-| Warp-core library tests | Exit 0; 175 passed, 0 failed or ignored. The final rerun after two mechanical Clippy corrections also reported 175 passed, 0 failed or ignored (5.83s). A later formatting change affected only that test statement. |
-| Vendored backend default / mock-instant suites | Agent-observed exits 0; 41 / 44 passed. Exact commands and source hashes are retained in the private history receipt. The 40 vendor source files match the checked copy. These are earlier observed runs, not new reruns. |
-| Miri replay counter boundary | Seeds 0–15 passed. The tested session.rs still matches SHA256 5063639fe482c7c1ee7c4616a4a49b6939b887287a9234f2e72430b427c2fd54. Sender-side Miri stopped before the test body at ring's ARM sysctlbyname; no stub or skip was added. |
-| Strict Clippy for the three owning crates | Initial exit 101: two introduced style diagnostics. Both were corrected; exact retry exited 0 for all three crates and all targets (6.02s). |
-| staticAnalysis | Exit 0; BUILD SUCCESSFUL in 28m 53s; 826 tasks. Native compilation was explicitly excluded from this Kotlin source gate. |
-| just ci-gates | Exit 0. Architecture, LoC, hotspot, runtime/fixture contracts, diagnostics boundary, UI coverage, locales, translations and API snapshots passed. The canonical Linux-only runtime-platform API snapshot is excluded on Darwin by the existing gate. |
-| Commit hooks | All eleven fix commits passed their own snapshot checks. An initial partially staged source snapshot failed to compile; lossless isolation of all remaining edits corrected the commit workflow. The F6 test statement also received the formatter-required layout. No hook was bypassed. |
-| Independent reviews | General Rust/Kotlin, async cancellation and JNI reviews found no remaining defect in their final reviewed changes. This is source evidence only. |
+| Core library | 176 passed; 0 failed/ignored. |
+| Kotlin | 244 passed: app 36, data 100, engine-api 74, service 34; 0 failures/errors/skips. |
+| Backend | F10 final 44 default / 47 mock-instant passed; 0 failed/ignored. Backend source is unchanged by F11 and rebase. |
+| Strict Clippy | Three owning crates, all targets, -D warnings: exit 0. |
+| staticAnalysis | Exit 0 in the final Gradle command. Native build was explicitly excluded; native checks ran separately. |
+| ci-gates | Exit 0. Architecture, contracts, LoC/hotspots, locales/translations and available API snapshots passed. The canonical Linux runtime-platform snapshot is excluded on Darwin by its existing gate. |
+| Locked metadata | cargo metadata --locked: exit 0. |
+| Reviews | General Rust/Kotlin, JNI and async reviews passed for their owning changes; final F11 general/async review and post-rebase carrier overlap review passed. Source evidence only. |
+| Commit hooks | Every repair passed its isolated snapshot hooks; no bypass. An early partially staged snapshot failed, then lossless whole-snapshot isolation resolved the workflow. |
 
-The earlier standalone vendor Clippy attempt reported nine pre-existing style diagnostics: five documentation continuations, two unnecessary map_or calls, one needless borrow and one manual is_multiple_of. Its terminal exit code was no longer available. No baseline or lint suppression was added.
+Exact final commands follow. The environment was CMAKE_BUILD_PARALLEL_LEVEL=4, CARGO_BUILD_JOBS=4, CARGO_TARGET_DIR=/tmp/ripdpi-tun01-fixes-target, RUSTC_WRAPPER=sccache. Gradle removes CARGO_BUILD_JOBS and sets its own budget. Reference uses its own target directory.
+
+From `/tmp/ripdpi-tun01-fixes/native/rust`, exit 0 (15.117s):
+
+```sh
+cargo test -p ripdpi-warp-core --lib --locked --jobs 4
+```
+
+From `/tmp/ripdpi-tun01-fixes/native/rust`, exit 0 (10.847s):
+
+```sh
+cargo clippy -p ripdpi-warp-core -p ripdpi-warp-android -p ripdpi-amneziawg-android --all-targets --locked --jobs 4 -- -D warnings
+```
+
+From `/tmp/ripdpi-tun01-fixes`, exit 0 (104.798s):
+
+```sh
+just ci-gates
+```
+
+From `/Users/npochaev/Downloads/RIPDPI_network_audits/TUN-01-fixes-evidence/reference`, exit 0 (22.717s):
+
+```sh
+build-gate --lane ripdpi -- python3 run_reference.py
+```
+
+From `/tmp/ripdpi-tun01-fixes/native/rust`, exit 0 (1.255s):
+
+```sh
+cargo metadata --locked --format-version 1
+```
+
+From `/tmp/ripdpi-tun01-fixes`, exit 0 (424.766s):
+
+```sh
+env -u CARGO_BUILD_JOBS ./gradlew :app:testGithubFullDebugUnitTest --tests '*AmneziaWgEditorStateTest' :core:data:testDebugUnitTest --tests '*WireGuard*' --tests '*AwgActivationRequestTest' --tests '*AmneziaWgUriCodecTest' --tests '*AwgProfileRepositoryRoomTest' --tests '*AppSettingsJsonTest' --tests '*AmneziaWgV3ParametersTest' :core:engine-api:testDebugUnitTest :core:service:testDebugUnitTest --tests '*AmneziaWgRuntimeConfigResolverTest' --tests '*VpnTunnelRuntimePolicyTest' staticAnalysis -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4
+```
+
+Raw commands, logs, XML, source hashes and receipts are retained privately under /Users/npochaev/Downloads/RIPDPI_network_audits/TUN-01-fixes-evidence. This local evidence path is not a build input.
+
+## Regression history and limits
+
+F10 at pre-fix source 8abdc3d237d982205827b75758df92f63468e724: plain decapsulation discarded the source port before cookie admission. [WireGuard paper section 5.4.7](https://www.wireguard.com/papers/wireguard.pdf) binds the proof to IP plus UDP port. Tests-only RED compiled, exit 101:0 passed/3 failed/41 filtered. GREEN:44 / 47 passed. Noise peer authentication was never removed. The public legacy IP-only adapter explicitly uses port 0; native receive supplies the full source.
+
+F11 at pre-fix source d3f522d0584a5a543d7ff99949c8cf1d96d7f6be: the first immediate send error stopped startup before an alternate resolved address. A real dual-stack socket bound to ::1 returned errno 49 for mapped IPv4 but delivered IPv6. The native tests-only RED compiled, exit 101:0 passed/1 failed/175 filtered. GREEN passed plain and AWG cases and all 176 core tests. Only unconfirmed UDP initiations retry. Data, WSS and explicit replies do not replay; each candidate gets the complete AWG prelude.
+
+Exact RED/GREEN commands are in f10/red-results.json, f10/green-results.json and f11/red-results.json, f11/green-results.json. All Cargo commands use --locked. Tests and generated input stayed in isolated worktrees or private evidence copies until each reviewed regression was committed.
+
+Earlier checks remain separate historical evidence: standalone vendor Clippy reported nine pre-existing style diagnostics; its terminal exit code was unavailable. No suppressions were added. Miri replay seeds 0–15 passed with session.rs SHA5063639fe482c7c1ee7c4616a4a49b6939b887287a9234f2e72430b427c2fd54. Sender Miri stopped before its test body at ring's ARM sysctlbyname; no stub or skip was used.
 
 ## Independent reference peer
 
-The fixed-source run is pending. The retained fixture uses wireguard-go commit b3bc704ef0ee21a36298601a9e1e5ff90377ac52, module v0.0.0-20261024220952-b3bc704ef0ee. The public module zip SHA256 is e370e340c37f7b35d35f56d06c8a489613f2b02bf52146bbda6a55336c8b05f6.
+Pinned official wireguard-go: b3bc704ef0ee21a36298601a9e1e5ff90377ac52, module v0.0.0-20261024220952-b3bc704ef0ee. Public module zip SHA256: e370e340c37f7b35d35f56d06c8a489613f2b02bf52146bbda6a55336c8b05f6. The fixture uses upstream memory TUN/netstack, generated private keys, and loopback-only outbound guards. No external server, kernel TUN or root activation was used.
 
-The fixture uses a memory TUN and the upstream userspace netstack. It has no kernel TUN, root activation or external target. An outbound guard permits loopback only. Keys are generated for this run and kept in private files. The source input manifest and root comparison cover 5064 copied files and the two outside fixtures.
+Final copied inputs: 5118; changed/missing: 0. Manifest SHA256: b554e89ddc88f10f724fcb7b7bf8f3267fa4252fd979396ecc3102a032d993d1. Root SHA matches the final tested source.
 
-Planned cases: plain/PSK × outer IPv4/IPv6 × MTU1280/1420. Each lane checks both inner families, TCP8192 and UDP19/0/1/19 plus a near-MTU datagram, exact payload equality, stop and join. The original audit's positive normal flows and failed UDP0 control remain baseline evidence; they do not prove the repaired source.
+Eight lanes passed: plain/PSK × outer IPv4/IPv6 × MTU 1280/1420. Both inner families passed 16 exactTCP 8192 exchanges and 80 exactUDP exchanges, including 16 empty replies independently recorded by Go. All eight helpers stopped gracefully with exit 0; no remaining helper was observed. This E claim covers these cases only. It does not cover under-load cookies, roaming, replay edges, long rekey, Android or WSS.
 
-## Remaining acceptance and limits
-
-- Run the exact-SHA Android APK/JNI path through VpnService and TUN to an owned reference peer. Check AllowedIPs/DNS routes, both outer families, protect-before-use, blocked-resolver stop and CheckJNI. No physical-device, root, external-server or real-secret probe was authorized or run.
-- Check PMTU/PTB, IPv6 extension headers and fragmentation, sleep/Doze, Wi-Fi/cellular handover and long transfer stress. Host loopback is not evidence for these paths.
-- Add independent wire cases for wrong PSK/key, cookie load and rotation, replay edges and the timed 120/165/180/540-second key lifecycle. Synthetic counters do not prove these timed cases.
-- WSS and adjacent WARP/AWG behavior keep their existing scope. The local reference matrix does not claim WSS interoperability, arbitrary raw-IP forwarding, multi-peer routing or IPv6-only interface support.
-- The audit's unbounded per-association queue suspicion remains a hypothesis. No stress result established a defect, so no speculative queue redesign is included.
-- Hosted CI and device acceptance remain open. This task can reach review after local work; it must not be archived as accepted until its required evidence is resolved.
-
-## Atomic fix commits before main rebase
-
-These are the reviewed job-branch commits. A rebase can change their SHAs.
+## Atomic repair commits
 
 | Commit | Repair |
 |---|---|
-| `38649065544e5509d2708b6ff59b2d7c09c6b19e` | fix(wireguard): redact preshared keys from debug output |
-| `37992885ab2b1ebe989a06a8ebbdbd779231f4bf` | test(wireguard): align cookie retry mock clocks |
-| `a620934e424b93ad1f16066c2e7f65698d3eb0ff` | fix(wireguard): rotate cookie secrets every two minutes |
-| `10a73c217603c814eb9b28cb679e4fa07b211367` | fix(wireguard): add bounded handshake retry jitter |
-| `6b15389a3ec3d8156322ea82c12d588109eba99b` | fix(wireguard): enforce message counter rekey and reject limits |
-| `ed1efdb979237da04fc2905b463f9f158b3f1fb1` | fix(wireguard): pad plain transport within the inner MTU |
-| `0204d01e3446053f2ac7f350152adce50aa428e4` | fix(wireguard): enforce profile allowed IP permissions |
-| `0833bf16ac40da687b90d8f45f002fee8f705a40` | fix(wireguard): preserve empty UDP datagrams |
-| `03f5608bce61ca63ce0c7ddfb2d0b4983cb5cc70` | fix(wireguard): replace source fields on manual import |
-| `fbf8ddf790ad59d3c13f1998aaaa49ed7a40670c` | fix(wireguard): retry resolved endpoint address families |
-| `d26c1354d1d4380f945d4f9e05676cbfe8ef3f55` | fix(wireguard): learn authenticated peer endpoints |
+| `0df99db03a5920dc287bd24a67c42168c15ec2ff` | fix(wireguard): learn authenticated peer endpoints |
+| `1d170e77fa15868be0a8ec4e9cab3c8949dda12f` | fix(wireguard): retry resolved endpoint address families |
+| `d3c5802d32b18d4c8db8db5dbcced56de24bb6c8` | fix(wireguard): replace source fields on manual import |
+| `2fefb4423aab78789401eb2f77ff9c8a06f98664` | fix(wireguard): preserve empty UDP datagrams |
+| `7add3481240adff31e05b53ba5edd96d83a02b81` | fix(wireguard): enforce profile allowed IP permissions |
+| `a3c65023137b187dbdc9e354418f23e8645539ca` | fix(wireguard): pad plain transport within the inner MTU |
+| `73f83696cd871a7e8404784eebbd8f24c6f260ac` | fix(wireguard): enforce message counter rekey and reject limits |
+| `ac3316d1e44dc30e5a1f9482932c4933b47876c6` | fix(wireguard): add bounded handshake retry jitter |
+| `901d1ed5d603aeb75ea35a015138f75d357d6ac2` | fix(wireguard): rotate cookie secrets every two minutes |
+| `c3de6598c9fbe542905b9ed542df900898a0ef64` | test(wireguard): align cookie retry mock clocks |
+| `b94bc1c1490c748892c0f38689015489ab27ccff` | fix(wireguard): redact preshared keys from debug output |
+| `f270e005413e0a2f1f085b50f98b88f2839002de` | fix(wireguard): bind plain cookies to full source endpoints |
+| `eba0f5b1c8fbb03997e65e3f73a4af2641c75eb5` | fix(wireguard): continue UDP startup after send errors |
 
-## Additional finding F10
+## Remaining acceptance
 
-P3 at pre-fix SHA `8abdc3d237d982205827b75758df92f63468e724`: `native/rust/vendor/boringtun/src/noise/mod.rs:461` passed only `address.ip()` to the plain limiter. `rate_limiter.rs:199` therefore cannot bind the cookie to the source port. Under load, a proof from one port has the same cookie input at another port on that IP. Noise peer authentication remains required. The expected contract is source IP plus UDP port in [WireGuard paper section 5.4.7](https://www.wireguard.com/papers/wireguard.pdf). The AWG path already retains CookieSource. This follow-up repairs plain admission and keeps its legacy IP-only API explicit.
-
-F10 regression commands ran from the isolated cookie-endpoint worktree with `CMAKE_BUILD_PARALLEL_LEVEL=4`, four Cargo jobs and its own target directory, under the held RIPDPI lease:
-
-```sh
-cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4 plain_cookie_binds_ -- --nocapture
-cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4
-cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4 --features mock-instant
-```
-
-Observed RED: exit 101, 0 passed / 3 failed / 41 filtered. IPv4 and IPv6 returned type 2 instead of type 3 at the changed port; the connection case returned UnderLoad without a cookie. Observed GREEN: exits 0, 44 / 47 passed, no failed or ignored cases. Root source hashes match the reviewed three-file patch. No Cargo.lock changed.
-
-## Additional finding F11
-
-P2 at SHA `d3f522d0584a5a543d7ff99949c8cf1d96d7f6be`: `wireguard/tunnel.rs:287` selects a candidate but returns its send error; `amneziawg_runtime.rs:594` then stops startup. A reachable second address is never tried after that error. The socket-only fixture uses owned loopback endpoints: a dual-stack socket bound to IPv6 loopback returns errno 49 for mapped IPv4 and succeeds for IPv6. The native tests-only regression compiled and failed with errno 49 (0 passed, 1 failed, 175 filtered). The fix then passed this test for both plain and AWG modes, and all 176 core tests. It tries each unconfirmed UDP candidate at most once, repeats the full AWG prelude, and preserves the protected socket. Data, WSS and explicit replies keep their existing send behavior. General and async cancel-safety reviews passed; strict Clippy passed for all three owning crates and all targets. Receipts are retained in the private f11 evidence directory.
+- Exact-SHA Android VpnService/TUN/JNI to an owned reference peer: AllowedIPs/DNS routes, protect-before-use, both outer families, blocked-resolver stop and CheckJNI. No physical-device, root, external-server or real-secret probe was authorized or run.
+- PMTU/PTB, IPv6 extension headers/fragmentation, sleep/Doze, Wi-Fi/cellular handover and long stress remain unverified.
+- Independent negative key/PSK, cookie load/rotation, replay edges, and 120/165/180/540-second key lifecycle cases remain open. Synthetic boundaries are not timed interoperability.
+- Unbounded association queue and low-order-key concerns remain unconfirmed hypotheses. No speculative redesign is included.
+- Arbitrary raw-IP/ICMP, multi-peer routing and IPv6-only interfaces remain outside the declared scope. Adjacent WARP/AWG/WSS modes keep their own contracts.
+- Keep the task in review; hosted CI and device acceptance remain unresolved. Do not archive it as accepted.
