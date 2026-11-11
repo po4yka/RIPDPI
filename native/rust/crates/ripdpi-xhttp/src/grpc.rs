@@ -209,6 +209,8 @@ pub struct GrpcTransport {
     reader: DuplexStream,
     read_result: Option<oneshot::Receiver<io::Result<()>>>,
     writer: DuplexStream,
+    pending_write: Bytes,
+    write_shutdown: bool,
 }
 
 /// The HTTP/2-facing halves of a [`GrpcTransport`].
@@ -229,34 +231,9 @@ impl GrpcTransport {
     /// The returned [`GrpcWireHalves`] must be connected to an HTTP/2 `POST`
     /// to [`GrpcTransportConfig::tun_path`] for the transport to carry data.
     pub fn new(config: GrpcTransportConfig) -> (Self, GrpcWireHalves) {
-        let (user_write, mut transport_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (mut transport_write, user_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
-        let (mut wire_up_write, wire_up_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
+        let (wire_up_write, wire_up_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (wire_down_write, mut wire_down_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
-
-        // Encode tunneled bytes -> Hunk frames -> HTTP/2 request body.
-        tokio::spawn(async move {
-            use tokio::io::{AsyncReadExt, AsyncWriteExt};
-            let mut buffer = vec![0u8; STREAM_BUFFER_SIZE];
-            loop {
-                match transport_read.read(&mut buffer).await {
-                    Ok(0) => break,
-                    Ok(read) => {
-                        let Ok(frame) = encode_hunk_to_bytes(&buffer[..read]) else {
-                            break;
-                        };
-                        if wire_up_write.write_all(&frame).await.is_err() {
-                            break;
-                        }
-                        if wire_up_write.flush().await.is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-            let _ = wire_up_write.shutdown().await;
-        });
 
         let (read_result_tx, read_result) = oneshot::channel();
         tokio::spawn(async move {
@@ -265,7 +242,14 @@ impl GrpcTransport {
             let _ = read_result_tx.send(result);
         });
 
-        let transport = Self { config, reader: user_read, writer: user_write, read_result: Some(read_result) };
+        let transport = Self {
+            config,
+            reader: user_read,
+            writer: wire_up_write,
+            read_result: Some(read_result),
+            pending_write: Bytes::new(),
+            write_shutdown: false,
+        };
         let halves = GrpcWireHalves { upstream: wire_up_read, downstream: wire_down_write };
         (transport, halves)
     }
@@ -319,16 +303,41 @@ impl AsyncRead for GrpcTransport {
     }
 }
 
+impl GrpcTransport {
+    fn poll_pending_write(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        while !self.pending_write.is_empty() {
+            let written = std::task::ready!(Pin::new(&mut self.writer).poll_write(cx, &self.pending_write))?;
+            if written == 0 {
+                return Poll::Ready(Err(io::ErrorKind::WriteZero.into()));
+            }
+            self.pending_write.advance(written);
+        }
+        Poll::Ready(Ok(()))
+    }
+}
+
 impl AsyncWrite for GrpcTransport {
-    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, io::Error>> {
-        Pin::new(&mut self.writer).poll_write(cx, buf)
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        if self.write_shutdown {
+            return Poll::Ready(Err(io::ErrorKind::BrokenPipe.into()));
+        }
+        std::task::ready!(self.poll_pending_write(cx))?;
+        let count = buf.len().min(STREAM_BUFFER_SIZE);
+        if count != 0 {
+            self.pending_write = encode_hunk_to_bytes(&buf[..count])
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        }
+        Poll::Ready(Ok(count))
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        std::task::ready!(self.poll_pending_write(cx))?;
         Pin::new(&mut self.writer).poll_flush(cx)
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        self.write_shutdown = true;
+        std::task::ready!(self.as_mut().poll_flush(cx))?;
         Pin::new(&mut self.writer).poll_shutdown(cx)
     }
 }
