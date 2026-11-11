@@ -1506,14 +1506,13 @@ internal fun executionCoordinatorFixtures(
     val networkMetadataProvider = FakeNetworkMetadataProvider()
     val diagnosticsContextProvider = FakeDiagnosticsContextProvider()
     val rawPathSettlementBarrier = RawPathSettlementBarrier(stores, stores.rawPathSettlementStore, json)
+    val targetOptimizer = DiagnosticsTargetOptimizer()
     val scanFinalizationService =
         ScanFinalizationService(
             context = TestContext(),
             scanRecordStore = stores,
             artifactWriteStore = stores,
-            networkMetadataProvider = networkMetadataProvider,
             networkFingerprintProvider = networkFingerprintProvider,
-            diagnosticsContextProvider = diagnosticsContextProvider,
             serviceStateStore = serviceStateStore,
             resolverOverrideStore = resolverOverrideStore,
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
@@ -1521,6 +1520,14 @@ internal fun executionCoordinatorFixtures(
             networkDnsPathPreferenceStore = preferredPathStore,
             serverCapabilityStore = FakeServerCapabilityStore(),
             rawPathSettlementBarrier = rawPathSettlementBarrier,
+            postScanRecorder =
+                DiagnosticsPostScanRecorder(
+                    stores,
+                    networkMetadataProvider,
+                    diagnosticsContextProvider,
+                    json,
+                ),
+            targetOptimizer = targetOptimizer,
             json = json,
         )
     val appSettingsRepository = FakeAppSettingsRepository()
@@ -1550,6 +1557,7 @@ internal fun executionCoordinatorFixtures(
             diagnosticsPlanner = DefaultDiagnosticsPlanner(),
             engineRequestEncoder = DefaultEngineRequestEncoder(),
             activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
+            targetOptimizer = targetOptimizer,
             json = json,
         )
     val runtimeCoordinator = FakeDiagnosticsRuntimeCoordinator()

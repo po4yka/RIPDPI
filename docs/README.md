@@ -62,6 +62,7 @@ Related records: [`xray-protos` schema choice](architecture/xray-protos-schema-c
 - [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
 - [Strategy-pack authoring notes](strategy-packs.md)
 - [Offline analytics pipeline](offline-analytics-pipeline.md)
+- [Local offline optimization](native/offline-optimization.md)
 - [TLS catalog refresh log](strategy-pack-tls-refresh-log.json)
 - [TLS template acceptance report](tls-template-acceptance-report.json)
 - [Android distribution channels](distribution.md)

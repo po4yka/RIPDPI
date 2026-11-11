@@ -43,7 +43,6 @@ import java.io.File
 
 class DiagnosticsScanRequestFactoryTest {
     private val json = diagnosticsTestJson()
-    private val contextProvider = FakeDiagnosticsContextProvider()
 
     @Test
     fun `connectivity planner selects one JSON survey per requested DNS domain`() {
@@ -305,6 +304,7 @@ class DiagnosticsScanRequestFactoryTest {
                     diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                     engineRequestEncoder = DefaultEngineRequestEncoder(),
                     activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
+                    targetOptimizer = DiagnosticsTargetOptimizer(),
                     json = json,
                 )
 
@@ -390,6 +390,7 @@ class DiagnosticsScanRequestFactoryTest {
                     diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                     engineRequestEncoder = DefaultEngineRequestEncoder(),
                     activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
+                    targetOptimizer = DiagnosticsTargetOptimizer(),
                     json = json,
                 )
 
@@ -523,6 +524,7 @@ class DiagnosticsScanRequestFactoryTest {
                     diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                     engineRequestEncoder = DefaultEngineRequestEncoder(),
                     activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
+                    targetOptimizer = DiagnosticsTargetOptimizer(),
                     json = json,
                 )
             val original =
@@ -619,6 +621,7 @@ class DiagnosticsScanRequestFactoryTest {
                 diagnosticsPlanner = DefaultDiagnosticsPlanner(),
                 engineRequestEncoder = DefaultEngineRequestEncoder(),
                 activeProbeSafetyPolicy = ActiveProbeSafetyPolicy(),
+                targetOptimizer = DiagnosticsTargetOptimizer(),
                 json = json,
             )
 
@@ -695,23 +698,6 @@ class DiagnosticsScanRequestFactoryTest {
         strategyProbeTargetCohorts = strategyProbeTargetCohorts,
         requestedPathMode = ScanPathMode.RAW_PATH,
     )
-
-    private fun strategyProbeContext(
-        settings: com.poyka.ripdpi.proto.AppSettings,
-        preferredDnsPath: EncryptedDnsPathCandidate?,
-    ): ScanContext {
-        val contextSnapshot = contextProvider.captureContextForTest()
-        return ScanContext(
-            settings = settings,
-            pathMode = ScanPathMode.RAW_PATH,
-            networkFingerprint = null,
-            preferredDnsPath = preferredDnsPath,
-            networkSnapshot = null,
-            serviceMode = Mode.VPN.name,
-            contextSnapshot = contextSnapshot,
-            approachSnapshot = createStoredApproachSnapshot(json, settings, null, contextSnapshot),
-        )
-    }
 
     private fun decodeRuntimeDns(request: EngineScanRequestWire) =
         requireNotNull(

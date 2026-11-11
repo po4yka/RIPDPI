@@ -27,6 +27,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsIntentResolver
 import com.poyka.ripdpi.diagnostics.DiagnosticsPlanner
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
+import com.poyka.ripdpi.diagnostics.DiagnosticsTargetOptimizer
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.EngineRequestEncoder
 import com.poyka.ripdpi.diagnostics.NetworkMetadataProvider
@@ -101,6 +102,7 @@ internal class DiagnosticsScanRequestFactory
         private val diagnosticsPlanner: DiagnosticsPlanner,
         private val engineRequestEncoder: EngineRequestEncoder,
         private val activeProbeSafetyPolicy: ActiveProbeSafetyPolicy,
+        private val targetOptimizer: DiagnosticsTargetOptimizer,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -288,7 +290,14 @@ internal class DiagnosticsScanRequestFactory
             val intent =
                 selectStrategyProbeTargetsForSession(
                     sessionId = sessionId,
-                    intent = intentResolver.resolve(profile.id, pathMode).copy(settings = settings),
+                    intent =
+                        targetOptimizer.compact(
+                            intentResolver.resolve(profile.id, pathMode).copy(settings = settings),
+                            networkFingerprintProvider.capture()?.scopeKey(),
+                            scanOrigin,
+                            activeProbeSafetyPolicy,
+                            System.currentTimeMillis(),
+                        ),
                     isManual = scanOrigin == DiagnosticsScanOrigin.USER_INITIATED,
                     scanOrigin = scanOrigin,
                     activeProbeSafetyPolicy = activeProbeSafetyPolicy,

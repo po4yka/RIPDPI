@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use crate::types::{ResolverNetworkScope, ResolverOracleObservation};
 
+use super::calibration::Calibration;
 use super::score::HealthScore;
 use super::snapshot::HealthScoreSnapshot;
 
@@ -16,12 +17,14 @@ struct ScopedHealthState {
     /// Keyed by (is UDP, address): DoT (TCP) and DoQ (UDP) on one IP and port are separate paths.
     bootstrap_scores: HashMap<(bool, SocketAddr), HealthScore>,
     last_write: Instant,
+    calibration: Calibration,
 }
 
 struct HealthRegistryInner {
     scopes: HashMap<ResolverNetworkScope, ScopedHealthState>,
     half_life: Duration,
     clock: fn() -> Instant,
+    next_incarnation: u64,
 }
 
 impl HealthRegistryInner {
@@ -32,10 +35,15 @@ impl HealthRegistryInner {
                 self.scopes.remove(&oldest);
             }
         }
+        if !self.scopes.contains_key(scope) {
+            self.next_incarnation = self.next_incarnation.wrapping_add(1);
+        }
+        let incarnation = self.next_incarnation;
         let state = self.scopes.entry(scope.clone()).or_insert_with(|| ScopedHealthState {
             endpoint_scores: HashMap::new(),
             bootstrap_scores: HashMap::new(),
             last_write: now,
+            calibration: Calibration::new(now, incarnation),
         });
         state.last_write = now;
         state
@@ -85,7 +93,14 @@ impl HealthRegistry {
     }
 
     pub(crate) fn with_clock(half_life: Duration, clock: fn() -> Instant) -> Self {
-        Self { inner: Arc::new(Mutex::new(HealthRegistryInner { scopes: HashMap::new(), half_life, clock })) }
+        Self {
+            inner: Arc::new(Mutex::new(HealthRegistryInner {
+                scopes: HashMap::new(),
+                half_life,
+                clock,
+                next_incarnation: 0,
+            })),
+        }
     }
 
     /// Records the outcome of an exchange with a named endpoint.
@@ -100,10 +115,24 @@ impl HealthRegistry {
         success: bool,
         latency_ms: u64,
     ) {
-        if let Ok(mut inner) = self.inner.lock() {
+        let batch = if let Ok(mut inner) = self.inner.lock() {
             let now = (inner.clock)();
             let half_life = inner.half_life;
-            inner.endpoint_score_or_insert(scope, label, now).update(success, latency_ms, half_life, now);
+            let state = inner.scoped_state_mut(scope, now);
+            let score = state.endpoint_scores.entry(label.to_string()).or_insert_with(|| HealthScore::new(now));
+            let features = score.features(half_life, now);
+            score.update(success, latency_ms, half_life, now);
+            state.calibration.record(features, success, latency_ms, now)
+        } else {
+            None
+        };
+        // Fit stored observations without holding the health-registry mutex.
+        if let Some(batch) = batch
+            && let Some(candidate) = batch.fit()
+            && let Ok(mut inner) = self.inner.lock()
+            && let Some(state) = inner.scopes.get_mut(scope)
+        {
+            state.calibration.apply(&batch, candidate);
         }
     }
 
@@ -159,12 +188,13 @@ impl HealthRegistry {
             Ok(inner) => {
                 let now = (inner.clock)();
                 let half_life = inner.half_life;
+                let weights = inner.scopes.get(scope).map(|state| state.calibration.weights(now)).unwrap_or_default();
                 let mut scored: Vec<(usize, bool, f64)> = labels
                     .iter()
                     .enumerate()
                     .map(|(i, &label)| match inner.endpoint_score(scope, label) {
-                        Some(score) => (i, score.is_quarantined(now), score.composite_score(half_life, now)),
-                        None => (i, false, HealthScore::new(now).composite_score(half_life, now)),
+                        Some(score) => (i, score.is_quarantined(now), score.weighted_score(weights, half_life, now)),
+                        None => (i, false, HealthScore::new(now).weighted_score(weights, half_life, now)),
                     })
                     .collect();
                 scored.sort_by(|a, b| {
@@ -269,3 +299,6 @@ impl std::fmt::Debug for HealthRegistry {
         f.debug_struct("HealthRegistry").finish_non_exhaustive()
     }
 }
+
+#[cfg(test)]
+mod calibration_tests;

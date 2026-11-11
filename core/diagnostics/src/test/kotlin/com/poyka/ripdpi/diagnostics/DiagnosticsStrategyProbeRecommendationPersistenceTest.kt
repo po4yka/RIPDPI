@@ -519,9 +519,7 @@ private fun scanFinalizationService(
         context = TestContext(),
         scanRecordStore = stores,
         artifactWriteStore = stores,
-        networkMetadataProvider = FakeNetworkMetadataProvider(),
         networkFingerprintProvider = MutableNetworkFingerprintProvider(fingerprint),
-        diagnosticsContextProvider = FakeDiagnosticsContextProvider(),
         serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Running to Mode.VPN),
         resolverOverrideStore = FakeResolverOverrideStore(),
         rememberedNetworkPolicyStore = DefaultRememberedNetworkPolicyStore(stores, clock),
@@ -536,6 +534,14 @@ private fun scanFinalizationService(
                 stores.rawPathSettlementStore,
                 diagnosticsTestJson(),
             ),
+        postScanRecorder =
+            DiagnosticsPostScanRecorder(
+                stores,
+                FakeNetworkMetadataProvider(),
+                FakeDiagnosticsContextProvider(),
+                diagnosticsTestJson(),
+            ),
+        targetOptimizer = DiagnosticsTargetOptimizer(),
         json = diagnosticsTestJson(),
     )
 
