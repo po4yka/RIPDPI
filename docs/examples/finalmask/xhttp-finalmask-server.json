@@ -1,12 +1,70 @@
 {
-  "transport": {
-    "type": "xhttp",
-    "mode": "packet-up",
-    "xPaddingBytes": "100-1000"
+  "log": {
+    "loglevel": "warning"
   },
-  "finalmask": {
-    "type": "header-custom",
-    "header": "474554202f20485454502f312e310d0a",
-    "randRange": "0-64"
-  }
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 11443,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "00000000-0000-4000-8000-000000000006"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "reality",
+        "realitySettings": {
+          "target": "127.0.0.1:12443",
+          "serverNames": [
+            "fixture.example"
+          ],
+          "privateKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE",
+          "shortIds": [
+            "ab12"
+          ]
+        },
+        "xhttpSettings": {
+          "path": "/xhttp",
+          "mode": "auto",
+          "xPaddingBytes": "100-1000"
+        },
+        "finalmask": {
+          "tcp": [
+            {
+              "type": "header-custom",
+              "settings": {
+                "clients": [
+                  [
+                    {
+                      "type": "hex",
+                      "packet": "abcd"
+                    },
+                    {
+                      "rand": 4
+                    },
+                    {
+                      "type": "hex",
+                      "packet": "ef01"
+                    }
+                  ]
+                ],
+                "servers": []
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "settings": {}
+    }
+  ]
 }

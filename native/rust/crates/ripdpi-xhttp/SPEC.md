@@ -2,7 +2,7 @@
 
 ## Scope
 
-XHTTP transport, FinalMask Sudoku padding, and gRPC length-prefixed framing for Xray client outbounds. Layered above `ripdpi-vless`.
+XHTTP transport, Finalmask transforms, and gRPC length-prefixed framing for Xray client outbounds. Layered above `ripdpi-vless`.
 
 ## Upstream
 
@@ -22,7 +22,7 @@ Connection pooling is in `pool.rs`; session ownership is in `relay.rs`.
 HTTP request construction and body framing are in `h2_body.rs`. The gRPC-like
 Content-Type is a header mask; the xHTTP driver does not apply `grpc.rs` framing.
 
-## FinalMask Sudoku padding
+## Finalmask transforms
 
 Sudoku-based byte-mapping padding applied at the transport boundary on TCP. Implemented in `finalmask/`:
 
@@ -40,9 +40,11 @@ Length-prefixed message framing per the gRPC over HTTP/2 wire (5-byte prefix: 1 
 
 ## Known divergences from upstream
 
-- The wire reference is Xray v26.2.6. The separate Android Xray provider has
-  its own version admission policy; this crate pin is not proof of that AAR.
+- The xHTTP wire reference is Xray v26.2.6. The separate Android Xray provider has its own version admission policy; this crate pin is not proof of that AAR.
 - Only the supported H2 modes and default metadata placement are implemented.
+- Finalmask uses its own reference and supported subset in `SPEC_VERSION.md`; no full-release parity is claimed.
+- `fragment` splits the first carrier chunk without changing TLS records. It does not guarantee separate TCP segments.
+- Header and noise support is a one-way prefix contract. Variable-length prefixes need a peer with an explicit length agreement; the Xray example uses a fixed length and an empty server sequence.
 - Connection-pool behavior is RIPDPI-specific and not a faithful copy of upstream's pool.
 
 ## Non-goals

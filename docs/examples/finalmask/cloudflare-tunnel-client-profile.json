@@ -7,5 +7,9 @@
   "vlessTransport": "xhttp",
   "xhttpPath": "/xhttp",
   "xhttpHost": "origin.example.com",
-  "udpEnabled": false
+  "udpEnabled": false,
+  "finalmaskType": "fragment",
+  "finalmaskFragmentPackets": 3,
+  "finalmaskFragmentMinBytes": 10,
+  "finalmaskFragmentMaxBytes": 30
 }

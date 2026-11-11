@@ -1,14 +1,35 @@
 {
-  "transport": {
-    "type": "xhttp",
-    "mode": "stream-up",
-    "xPaddingBytes": "100-1000"
+  "log": {
+    "loglevel": "warning"
   },
-  "cloudflareTunnel": {
-    "hostname": "edge.example.com",
-    "origin": "origin.example.com"
-  },
-  "finalmask": {
-    "type": "fragment"
-  }
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 18080,
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "00000000-0000-4000-8000-000000000006"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "none",
+        "xhttpSettings": {
+          "path": "/xhttp",
+          "mode": "stream-up",
+          "xPaddingBytes": "100-1000"
+        }
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "settings": {}
+    }
+  ]
 }

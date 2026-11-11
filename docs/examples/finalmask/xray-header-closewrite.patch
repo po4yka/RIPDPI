@@ -1,0 +1,58 @@
+--- a/transport/internet/finalmask/header/custom/tcp.go
++++ b/transport/internet/finalmask/header/custom/tcp.go
+@@ -152,0 +153,8 @@
++}
++
++// CloseWrite preserves the TCP half-close contract required by REALITY.
++func (c *tcpCustomServerConn) CloseWrite() error {
++	if conn, ok := c.Conn.(interface{ CloseWrite() error }); ok {
++		return conn.CloseWrite()
++	}
++	return nil
+--- /dev/null
++++ b/transport/internet/finalmask/header/custom/ripdpi_closewrite_test.go
+@@ -0,0 +1,44 @@
++package custom
++
++import (
++	"io"
++	"net"
++	"testing"
++	"time"
++)
++
++func TestRIPDPIHeaderCloseWrite(t *testing.T) {
++	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer listener.Close()
++	client, err := net.DialTCP("tcp4", nil, listener.Addr().(*net.TCPAddr))
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer client.Close()
++	raw, err := listener.AcceptTCP()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer raw.Close()
++	wrapped, err := NewConnServerTCP(&TCPConfig{}, raw)
++	if err != nil {
++		t.Fatal(err)
++	}
++	half, ok := wrapped.(interface{ CloseWrite() error })
++	if !ok {
++		t.Fatal("header peer lacks REALITY CloseWrite contract")
++	}
++	if err := half.CloseWrite(); err != nil {
++		t.Fatal(err)
++	}
++	if err := client.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
++		t.Fatal(err)
++	}
++	var payload [1]byte
++	if n, err := client.Read(payload[:]); n != 0 || err != io.EOF {
++		t.Fatalf("expected EOF after CloseWrite, got %d %v", n, err)
++	}
++}
