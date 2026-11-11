@@ -226,6 +226,15 @@ class AmneziaWgRuntimeConfigResolverTest {
     }
 
     @Test
+    fun `unsupported carriers fail before a native configuration is produced`() {
+        for (carrier in listOf("", "future-carrier", "UDP", "ws ")) {
+            assertThrows(carrier, IllegalArgumentException::class.java) {
+                resolver.resolve(request().copy(carrier = carrier, carrierWsUrl = "wss://carrier.example.org/wg"))
+            }
+        }
+    }
+
+    @Test
     fun `non-zero S3 and S4 copy through to the runtime config`() {
         val s3Only = resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s3 = 1)))
         val s4Only = resolver.resolve(request().copy(obfuscation = request().obfuscation.copy(s4 = 1)))

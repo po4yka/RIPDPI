@@ -71,16 +71,12 @@ internal class DefaultAmneziaWgRuntimeConfigResolver
  */
 internal const val AmneziaWgLocalSocksPort = 10808
 
-/**
- * Map the activation-request carrier token (`udp`/`ws`, mirroring the Rust
- * `AmneziaWgCarrierKind` serde wire) onto the engine-api enum. An unrecognized
- * token falls back to [RipDpiAmneziaWgCarrierKind.Udp] (today's behavior) rather
- * than failing activation — forward-compatible with an older persisted request.
- */
+/** Maps supported carrier tokens to native kinds; an omitted request field defaults to UDP. */
 private fun String.toCarrierKind(): RipDpiAmneziaWgCarrierKind =
     when (this) {
+        AwgActivationRequest.CARRIER_UDP -> RipDpiAmneziaWgCarrierKind.Udp
         AwgActivationRequest.CARRIER_WS -> RipDpiAmneziaWgCarrierKind.Ws
-        else -> RipDpiAmneziaWgCarrierKind.Udp
+        else -> throw IllegalArgumentException("Unsupported AmneziaWG carrier")
     }
 
 /**

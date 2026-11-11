@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.serialization.RipDpiContractJson
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -153,6 +158,25 @@ class AwgActivationRequestTest {
 
         assertEquals(AwgActivationRequest.CARRIER_UDP, request.carrier)
         assertEquals("", request.carrierWsUrl)
+    }
+
+    @Test
+    fun `a stored request without a carrier retains the UDP default`() {
+        val fields = RipDpiContractJson.encodeToJsonElement(runtimeRequest()).jsonObject
+        val request = RipDpiContractJson.decodeFromJsonElement<AwgActivationRequest>(JsonObject(fields - "carrier"))
+
+        request.requireRuntimeReady()
+
+        assertEquals(AwgActivationRequest.CARRIER_UDP, request.carrier)
+    }
+
+    @Test
+    fun `runtime readiness rejects unsupported carrier tokens`() {
+        for (carrier in listOf("", "future-carrier", "UDP", "ws ")) {
+            assertThrows(carrier, IllegalArgumentException::class.java) {
+                runtimeRequest().copy(carrier = carrier).requireRuntimeReady()
+            }
+        }
     }
 
     @Test

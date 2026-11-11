@@ -115,6 +115,9 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(allowedIps.any { it.isIpv4Cidr() || (ipv6Enabled && it.isIpv6Cidr()) }) {
         "AmneziaWG allowed IPs must contain a route for a configured interface family"
     }
+    require(carrier == AwgActivationRequest.CARRIER_UDP || carrier == AwgActivationRequest.CARRIER_WS) {
+        "Unsupported AmneziaWG carrier"
+    }
     require(carrier != AwgActivationRequest.CARRIER_WS || carrierWsUrl.isNotBlank()) {
         "AmneziaWG WS carrier requires a carrier URL"
     }
