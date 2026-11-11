@@ -168,12 +168,18 @@ impl HandshakeReadiness {
             outcome,
             ReceiveOutcome::HandshakeResponse | ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp
         ) {
-            self.established.store(true, Ordering::SeqCst);
+            // This flag publishes no peer data; those fields stay behind the peer mutex.
+            self.established.store(true, Ordering::Relaxed);
         }
     }
 
     fn is_established(&self) -> bool {
-        self.established.load(Ordering::SeqCst)
+        self.established.load(Ordering::Relaxed)
+    }
+
+    fn expire(&self) {
+        // Only the boolean peer state is shared through this atomic.
+        self.established.store(false, Ordering::Relaxed);
     }
 }
 
@@ -429,9 +435,18 @@ impl WireGuardTunnel {
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             tick.tick().await;
-            let result = { self.peer.lock().await.update_timers(&mut send_buf) };
-            // boringtun repeats ConnectionExpired on every tick until new traffic starts a handshake.
-            let expired = matches!(result, TunnResult::Err(WireGuardError::ConnectionExpired));
+            let (result, expired) = {
+                let mut peer = self.peer.lock().await;
+                let result = peer.update_timers(&mut send_buf);
+                // Publish expiry with the backend transition: a later authenticated
+                // receive must not be overwritten by this timer's older result.
+                let expired = matches!(result, TunnResult::Err(WireGuardError::ConnectionExpired));
+                if expired {
+                    self.handshake_readiness.expire();
+                }
+                (result, expired)
+            };
+            // boringtun repeats ConnectionExpired until new traffic starts a handshake.
             if expired && !session_expired {
                 tracing::warn!("WARP tunnel session expired; the next packet starts a new handshake");
             } else if !expired {
@@ -469,7 +484,11 @@ impl WireGuardTunnel {
             };
             let (result, outcome) = {
                 let mut peer = self.peer.lock().await;
-                receive_packet(&mut peer, self.amnezia.as_deref(), source, &mut recv_buf[..size], &mut send_buf)
+                let received =
+                    receive_packet(&mut peer, self.amnezia.as_deref(), source, &mut recv_buf[..size], &mut send_buf);
+                // Use the same lock as timer expiry so readiness follows backend order.
+                self.handshake_readiness.observe(received.1);
+                received
             };
             if let Some(source) = received.source
                 && matches!(
@@ -487,7 +506,6 @@ impl WireGuardTunnel {
             {
                 self.outbound.lock().await.accepted_cookie(source);
             }
-            self.handshake_readiness.observe(outcome);
             if matches!(outcome, ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp) {
                 // The UDP window learns only from datagrams that passed AEAD and the replay check.
                 if let Some(codec) = &self.amnezia {
@@ -978,6 +996,10 @@ mod tests {
                 readiness.observe(rejected);
                 assert!(!readiness.is_established());
             }
+            readiness.observe(accepted);
+            assert!(readiness.is_established());
+            readiness.expire();
+            assert!(!readiness.is_established());
             readiness.observe(accepted);
             assert!(readiness.is_established());
         }

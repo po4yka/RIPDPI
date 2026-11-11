@@ -324,8 +324,9 @@ a deliberate follow-up rather than a mechanical refactor:
   `RipDpiRelayNativeBindings`, `RipDpiWarpNativeBindings`, and
   `RipDpiAmneziaWgNativeBindings`. `listener` is a
   `RuntimeReadinessListener` whose `onRuntimeReady()V` the native runtime
-  invokes **exactly once**, from the runtime thread the moment the listener
-  binds (right after the `runtime_ready` telemetry event), so the Kotlin
+  invokes **exactly once**, from the runtime thread at the backend's readiness
+  point, after the `runtime_ready` telemetry event. WARP requires an authenticated
+  WireGuard handshake and a bound local listener before this event. The Kotlin
   wrappers no longer wait out a 50 ms telemetry-poll interval. This is a strict
   **lifecycle-class** callback — one `attach_current_thread` + one `call_method`
   per session — and is the explicitly-permitted exception to the

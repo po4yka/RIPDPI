@@ -1,9 +1,11 @@
 use std::io;
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::mpsc::{UnboundedReceiver, unbounded_channel};
+use tokio::sync::watch;
 use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
@@ -18,12 +20,20 @@ use crate::virtual_iface::{Bus, DynamicTcpInterface, DynamicUdpInterface};
 use crate::wireguard::{WireGuardTunnel, WireGuardTunnelParams, reserved_bytes_from_client_id};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
+// Leave room for the Kotlin owner's five-second readiness deadline and cleanup.
+const HANDSHAKE_TIMEOUT: Duration = if cfg!(test) { Duration::from_secs(1) } else { Duration::from_secs(4) };
 const READY_SOURCE: &str = "warp";
+
+// These locks hold independent owned snapshots, not partial protocol transactions.
+// Recover the last snapshot after a writer panic so teardown cannot skip task joins.
+fn lock_snapshot<T>(snapshot: &Mutex<T>) -> MutexGuard<'_, T> {
+    snapshot.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 pub struct WarpRuntime {
     config: ResolvedWarpRuntimeConfig,
     platform: WarpPlatform,
-    stop_requested: AtomicBool,
+    stop: watch::Sender<bool>,
     running: AtomicBool,
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
@@ -42,7 +52,7 @@ impl WarpRuntime {
         Arc::new(Self {
             config,
             platform,
-            stop_requested: AtomicBool::new(false),
+            stop: watch::Sender::new(false),
             running: AtomicBool::new(false),
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
@@ -54,7 +64,17 @@ impl WarpRuntime {
     }
 
     pub fn stop(&self) {
-        self.stop_requested.store(true, Ordering::SeqCst);
+        self.stop.send_replace(true);
+    }
+
+    fn stop_requested(&self) -> bool {
+        *self.stop.borrow()
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: this future only observes the retained stop request.
+    async fn stopped(&self) {
+        let _ = self.stop.subscribe().wait_for(|stopped| *stopped).await;
     }
 
     /// Install a quality observer invoked after every SOCKS session completes.
@@ -86,8 +106,8 @@ impl WarpRuntime {
         }
     }
 
-    /// Install a readiness observer fired exactly once when the listener is
-    /// bound and WARP is about to serve (immediately after the `runtime_ready`
+    /// Install a readiness observer fired once after the peer authenticates
+    /// and the listener is ready (immediately after the `runtime_ready`
     /// event). The adapter layer wires this to a native readiness push so
     /// Kotlin no longer polls telemetry (see ADR 0003); install it before
     /// [`WarpRuntime::run`] starts.
@@ -115,69 +135,47 @@ impl WarpRuntime {
     }
 
     pub fn telemetry(&self) -> WarpTelemetry {
+        let last_error = lock_snapshot(&self.last_error).clone();
+        let state = if self.running.load(Ordering::SeqCst) {
+            "running"
+        } else if !self.stop_requested() && last_error.is_some() {
+            "failed"
+        } else {
+            "idle"
+        };
         WarpTelemetry {
             source: READY_SOURCE,
-            state: if self.running.load(Ordering::SeqCst) { "running".to_string() } else { "idle".to_string() },
-            health: if self.running.load(Ordering::SeqCst) { "running".to_string() } else { "idle".to_string() },
+            state: state.to_string(),
+            health: state.to_string(),
             active_sessions: self.active_sessions.load(Ordering::SeqCst),
             total_sessions: self.total_sessions.load(Ordering::SeqCst),
-            listener_address: self.listener_address.lock().expect("listener address").clone(),
+            listener_address: lock_snapshot(&self.listener_address).clone(),
             upstream_address: Some(format!("{}:{}", self.config.endpoint.host, self.config.endpoint.port)),
             upstream_rtt_ms: None,
             profile_id: Some(self.config.profile_id.clone()),
-            last_error: self.last_error.lock().expect("last error").clone(),
+            last_error,
             captured_at: now_ms(),
         }
     }
 
     /// # Cancel safety:
-    /// NOT cancel-safe: shutdown must call `stop` and join this owner of the spawned tunnel tasks.
+    /// NOT cancel-safe: the owner must call stop and join this future so every
+    /// spawned tunnel and client task is aborted and joined during teardown.
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
-        if !self.config.enabled {
+        if !self.config.enabled || self.stop_requested() {
             return Ok(());
         }
         let source_peer_ip = parse_ipv4_cidr(self.config.interface_address_v4.as_deref()).ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "WARP runtime requires IPv4 interface address")
         })?;
         let source_peer_ipv6 = warp_source_ipv6(self.config.interface_address_v6.as_deref());
-        let mut endpoints = resolve_endpoint_candidates(&self.config.endpoint).await?;
+        let mut endpoints = tokio::select! {
+            biased;
+            () = self.stopped() => return Ok(()),
+            endpoints = resolve_endpoint_candidates(&self.config.endpoint) => endpoints?,
+        };
         let endpoint = endpoints.remove(0);
-        let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
-        let tunnel = Arc::new(
-            WireGuardTunnel::new(
-                WireGuardTunnelParams {
-                    private_key: &self.config.private_key,
-                    peer_public_key: &self.config.peer_public_key,
-                    // WARP itself uses no PSK and a 25s keepalive, but a generic
-                    // AmneziaWG peer driven through this runtime may override both
-                    // via the config's amnezia block. `persistent_keepalive`
-                    // defaults to 25 when omitted, preserving WARP's pin.
-                    preshared_key: self.config.amnezia.preshared_key_opt(),
-                    persistent_keepalive: self.config.amnezia.persistent_keepalive_opt(),
-                    persistent_keepalive_max: None,
-                    endpoint,
-                    fallback_endpoints: endpoints,
-                    allowed_ips: Arc::new(crate::allowed_ips::AllowedIps::default()),
-                    reserved,
-                    source_peer_ip,
-                    source_peer_ipv6,
-                    mtu: self.config.mtu.max(1280) as usize,
-                    amnezia_cfg: &self.config.amnezia,
-                    // AWG 2.0 I1..I5 special-junk frames, sourced from the
-                    // resolved WARP config's own `i1..i5` hex fields. Empty
-                    // strings mean unset, preserving prior behavior when the
-                    // config does not configure them.
-                    signature_programs: self.config.amnezia.signature_programs(),
-                    // WARP always egresses over plain WireGuard UDP; the
-                    // WG-over-WebSocket carrier is a generic-AmneziaWG-profile
-                    // opt-in. `None` keeps the tunnel binding its own UDP socket.
-                    carrier: None,
-                },
-                &self.platform,
-            )
-            .await
-            .map_err(to_io_error)?,
-        );
+        let tunnel = Arc::new(self.create_tunnel(endpoint, endpoints, source_peer_ip, source_peer_ipv6).await?);
 
         // AmneziaWG handshake prelude (special-junk frames + Jc junk packets)
         // is sent before the first WireGuard handshake to defeat protocol
@@ -189,6 +187,7 @@ impl WarpRuntime {
         crate::socks::ensure_loopback_socks_host(&self.config.local_socks_host)?;
         let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
         let listener = TcpListener::bind(&bind_addr).await?;
+        let bind_addr = listener.local_addr()?.to_string();
 
         // Every tunnel and interface task is supervised: its exit fails the runtime, so the
         // Kotlin supervisor restarts WARP instead of serving connections that only hang.
@@ -226,24 +225,44 @@ impl WarpRuntime {
         });
         drop(failure_tx);
 
-        *self.listener_address.lock().expect("listener address") = Some(bind_addr);
-        self.running.store(true, Ordering::SeqCst);
-        emit_runtime_ready(self.listener_address.lock().expect("listener address").as_deref().unwrap_or_default());
-        // Push readiness to any installed observer (native readiness event,
-        // ADR 0003) at the same point the `runtime_ready` telemetry fires, so
-        // the Kotlin wrapper need not poll. No-op when no observer is set.
-        self.notify_ready();
+        // Interruption of the initiation is terminal: the common teardown below
+        // closes the peer and joins every task before this future returns.
+        let initiation = tokio::select! {
+            biased;
+            () = self.stopped() => None,
+            result = tunnel.initiate_handshake() => Some(result),
+        };
+        let mut runtime_failure = match initiation {
+            Some(Ok(())) => self.await_handshake(&tunnel, &mut failure_rx).await,
+            Some(Err(error)) => Some(error),
+            None => None,
+        };
+        if let Some(error) = &runtime_failure {
+            *lock_snapshot(&self.last_error) = Some(error.to_string());
+        } else if !self.stop_requested() {
+            *lock_snapshot(&self.listener_address) = Some(bind_addr.clone());
+            self.running.store(true, Ordering::SeqCst);
+            emit_runtime_ready(&bind_addr);
+            self.notify_ready();
+        }
 
         // Track client tasks so shutdown closes them and resets the session count.
         let mut clients = JoinSet::new();
         let mut accept_failures = 0u32;
-        let mut runtime_failure = None;
-        while !self.stop_requested.load(Ordering::SeqCst) {
+        while runtime_failure.is_none() && !self.stop_requested() {
+            if !tunnel.is_handshake_established() {
+                let message = "WARP peer session expired".to_string();
+                *lock_snapshot(&self.last_error) = Some(message.clone());
+                runtime_failure = Some(io::Error::new(io::ErrorKind::ConnectionAborted, message));
+                break;
+            }
             while clients.try_join_next().is_some() {}
             let accepted = tokio::select! {
+                biased;
+                () = self.stopped() => break,
                 failure = failure_rx.recv() => {
                     let message = failure.unwrap_or_else(|| "WARP tunnel tasks stopped".to_string());
-                    *self.last_error.lock().expect("last error") = Some(message.clone());
+                    *lock_snapshot(&self.last_error) = Some(message.clone());
                     runtime_failure = Some(io::Error::other(message));
                     break;
                 }
@@ -277,14 +296,14 @@ impl WarpRuntime {
                             }
                             Err(error) => {
                                 runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: false });
-                                *runtime.last_error.lock().expect("last error") = Some(error.to_string());
+                                *lock_snapshot(&runtime.last_error) = Some(error.to_string());
                             }
                         }
                         runtime.active_sessions.fetch_sub(1, Ordering::SeqCst);
                     });
                 }
                 Ok(Err(error)) => {
-                    *self.last_error.lock().expect("last error") = Some(error.to_string());
+                    *lock_snapshot(&self.last_error) = Some(error.to_string());
                     accept_failures = accept_failures.saturating_add(1);
                     tokio::time::sleep(accept_backoff(accept_failures)).await;
                 }
@@ -293,6 +312,7 @@ impl WarpRuntime {
         }
 
         self.running.store(false, Ordering::SeqCst);
+        drop(listener);
         bus.shutdown();
         for task in tasks {
             task.abort();
@@ -300,8 +320,80 @@ impl WarpRuntime {
         }
         clients.shutdown().await;
         self.active_sessions.store(0, Ordering::SeqCst);
+        *lock_snapshot(&self.listener_address) = None;
         emit_runtime_stopped();
         runtime_failure.map_or(Ok(()), Err)
+    }
+
+    /// Build the configured peer before runtime tasks or listeners are created.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: peer construction does not suspend; owned sockets are dropped on error.
+    async fn create_tunnel(
+        &self,
+        endpoint: SocketAddr,
+        fallback_endpoints: Vec<SocketAddr>,
+        source_peer_ip: IpAddr,
+        source_peer_ipv6: Option<Ipv6Addr>,
+    ) -> io::Result<WireGuardTunnel> {
+        let reserved = reserved_bytes_from_client_id(self.config.client_id.as_deref());
+        WireGuardTunnel::new(
+            WireGuardTunnelParams {
+                private_key: &self.config.private_key,
+                peer_public_key: &self.config.peer_public_key,
+                // WARP itself uses no PSK and a 25s keepalive, but a generic
+                // AmneziaWG peer driven through this runtime may override both
+                // via the config's amnezia block. `persistent_keepalive`
+                // defaults to 25 when omitted, preserving WARP's pin.
+                preshared_key: self.config.amnezia.preshared_key_opt(),
+                persistent_keepalive: self.config.amnezia.persistent_keepalive_opt(),
+                persistent_keepalive_max: None,
+                endpoint,
+                fallback_endpoints,
+                allowed_ips: Arc::new(crate::allowed_ips::AllowedIps::default()),
+                reserved,
+                source_peer_ip,
+                source_peer_ipv6,
+                mtu: self.config.mtu.max(1280) as usize,
+                amnezia_cfg: &self.config.amnezia,
+                // AWG 2.0 I1..I5 special-junk frames, sourced from the
+                // resolved WARP config's own `i1..i5` hex fields. Empty
+                // strings mean unset, preserving prior behavior when the
+                // config does not configure them.
+                signature_programs: self.config.amnezia.signature_programs(),
+                // WARP always egresses over plain WireGuard UDP; the
+                // WG-over-WebSocket carrier is a generic-AmneziaWG-profile
+                // opt-in. `None` keeps the tunnel binding its own UDP socket.
+                carrier: None,
+            },
+            &self.platform,
+        )
+        .await
+        .map_err(to_io_error)
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: channel receive and readiness observations commit no local state.
+    async fn await_handshake(
+        &self,
+        tunnel: &WireGuardTunnel,
+        failures: &mut UnboundedReceiver<String>,
+    ) -> Option<io::Error> {
+        let deadline = tokio::time::Instant::now() + HANDSHAKE_TIMEOUT;
+        while !self.stop_requested() && !tunnel.is_handshake_established() {
+            tokio::select! {
+                biased;
+                () = self.stopped() => return None,
+                () = tokio::time::sleep_until(deadline) => {
+                    return Some(io::Error::new(io::ErrorKind::TimedOut, "WARP peer handshake timed out"));
+                }
+                failure = failures.recv() => {
+                    return Some(io::Error::other(failure.unwrap_or_else(|| "WARP tunnel tasks stopped".to_string())));
+                }
+                () = tokio::time::sleep(ACCEPT_POLL_INTERVAL) => {}
+            }
+        }
+        None
     }
 }
 
@@ -337,7 +429,7 @@ mod tests {
         ResolvedWarpRuntimeConfig, ResolvedWarpRuntimeEndpoint, WarpAmneziaConfig, WarpManualEndpoint,
     };
 
-    fn dummy_config() -> ResolvedWarpRuntimeConfig {
+    pub(super) fn dummy_config() -> ResolvedWarpRuntimeConfig {
         let manual = WarpManualEndpoint {
             host: "engage.cloudflareclient.com".to_string(),
             ipv4: "162.159.192.1".to_string(),
@@ -507,3 +599,7 @@ mod tests {
         assert_eq!(count.load(Ordering::Relaxed), 5);
     }
 }
+
+#[cfg(test)]
+#[path = "runtime_readiness_tests.rs"]
+mod readiness_tests;
