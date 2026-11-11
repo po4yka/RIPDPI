@@ -1,9 +1,9 @@
 ---
 task_id: TRN-1794371406782186
 change: fix-vision-stream-audit
-commit_sha: ae7427e5bb0c55ba435389078c449f3efe399edb
+commit_sha: 272bc296175fd290414fb08319a5b30bd0aef839
 local: passed
-local_evidence: 174 unit tests, 2 exact-pin loopback integration tests, Clippy, formatting, ci-gates, architecture health, locked metadata and independent reviews passed.
+local_evidence: 180 unit tests, 2 exact-pin loopback integration tests, Clippy, formatting, ci-gates, architecture health, locked metadata and independent reviews passed.
 remote_ci: required
 remote_ci_evidence: Exact-source hosted CI is not yet observed.
 device: not_applicable
@@ -32,7 +32,7 @@ Combined validation is owned by TRN-1794371486865436.
 
 All compiler-backed checks ran under `build-gate --lane ripdpi`, with Cargo `--locked` and two jobs. The code revision above contains all four fix commits and the lifecycle test commit. Later task-only commits do not change these tested source inputs.
 
-- `cargo test --locked -p ripdpi-vless --jobs 2`: 174 unit tests passed; eight external-fixture tests were ignored in the default run; no doctests exist.
+- `cargo test --locked -p ripdpi-vless --jobs 2`: 180 unit tests passed; eight external-fixture tests were ignored in the default run; no doctests exist.
 - `cargo clippy --locked -p ripdpi-vless --no-deps --all-targets --jobs 2 -- -D warnings`: passed through the repository cargo-guarded wrapper.
 - `cargo fmt --all -- --check`: passed.
 - `just ci-gates`: passed all source gates; no baseline or generated export was changed.
@@ -51,4 +51,6 @@ This is host and loopback evidence. No physical device, public server, real cred
 
 ## Rebased source check
 
-The branch was rebased onto origin/main `c3ebd14b10f6778d7946bd2425cb501dec037a64`, which adds separate gRPC repairs in ripdpi-xhttp. At the exact commit recorded above, the 174 unit tests, Clippy, both exact-pin loopback tests, ci-gates, architecture health and locked metadata all passed again. Logs use the `rebased-` prefix in the same local evidence directory. No conflict resolution changed Vision source.
+The branch was rebased onto origin/main `c3ebd14b10f6778d7946bd2425cb501dec037a64`, which adds separate gRPC repairs in ripdpi-xhttp. On that first rebased tree, 174 unit tests, Clippy, both exact-pin loopback tests, ci-gates, architecture health and locked metadata passed again. Logs use the `rebased-` prefix in the same local evidence directory. No conflict resolution changed Vision source.
+
+A second fast-forward attempt found concurrent XUDP repairs already integrated into main. The branch was rebased without conflicts onto `78a0e024f1f7d799bdde9e1e8385e0d9324f267d`. At the exact source commit recorded above, 180 unit tests, Clippy, formatting, both exact-pin loopback tests, ci-gates and architecture health passed. The final tests include the six additional upstream XUDP regression tests. Final run logs use the `final-` prefix. Lockfile and manifests did not change in this second rebase.
