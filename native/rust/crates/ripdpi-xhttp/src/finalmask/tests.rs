@@ -151,3 +151,34 @@ fn fragment_mode_splits_an_oversized_first_write_and_passes_later_writes_whole()
     let later = mask.encode(&[0x17; 600]).expect("later write");
     assert_eq!(vec![vec![0x17; 600]], later, "writes after the first are not re-chunked");
 }
+
+#[test]
+fn fragment_mode_rejects_zero_and_excessive_packet_counts() {
+    for packets in [0, 17, i32::MAX] {
+        let config = FinalmaskConfig {
+            r#type: "fragment".to_owned(),
+            fragment_packets: packets,
+            fragment_min_bytes: 1,
+            fragment_max_bytes: 1,
+            ..FinalmaskConfig::default()
+        };
+        assert!(FinalmaskSpec::from_config(&config).is_err(), "packet count {packets} must fail");
+    }
+}
+
+#[test]
+fn fragment_storage_is_bounded_by_payload_size() {
+    let payload = b"tls";
+    let frames = super::fragmentation::fragment_bytes(payload, 1_000_000, 1, 1);
+    assert_eq!(frames.concat(), payload);
+    assert!(frames.capacity() <= payload.len(), "capacity {} exceeds the payload size", frames.capacity());
+}
+
+#[test]
+fn fragment_bounds_saturate_for_large_configured_ranges() {
+    let payload = b"0123456789abcdef";
+    let frames = super::fragmentation::fragment_bytes(payload, payload.len(), 1, usize::MAX);
+    assert_eq!(frames.concat(), payload);
+    assert_eq!(frames.len(), payload.len());
+    assert!(frames.iter().all(|frame| frame.len() == 1));
+}

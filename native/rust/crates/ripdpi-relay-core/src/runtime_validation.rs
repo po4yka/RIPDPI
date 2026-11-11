@@ -321,14 +321,14 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
             }
         }
         "fragment" => {
-            if finalmask.fragment_packets <= 0
+            if !(1..=16).contains(&finalmask.fragment_packets)
                 || finalmask.fragment_min_bytes <= 0
                 || finalmask.fragment_max_bytes <= 0
                 || finalmask.fragment_min_bytes > finalmask.fragment_max_bytes
             {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    "finalmask fragment requires a positive packet count and byte range",
+                    "finalmask fragment requires a packet count from 1 to 16 and a positive byte range",
                 ));
             }
         }
@@ -397,5 +397,16 @@ mod finalmask_hex_tests {
         // Even-length valid hex passes; an absent payload with only a trailer
         // is validated the same way by symmetry.
         validate_finalmask_config(&config_with_finalmask("header_custom", "deadbeef")).expect("valid hex");
+    }
+
+    #[test]
+    fn fragment_finalmask_rejects_counts_above_the_ui_limit() {
+        for packets in [17, i32::MAX] {
+            let mut config = config_with_finalmask("fragment", "");
+            config.common.finalmask.fragment_packets = packets;
+            config.common.finalmask.fragment_min_bytes = 1;
+            config.common.finalmask.fragment_max_bytes = 1;
+            assert!(validate_finalmask_config(&config).is_err(), "packet count {packets} must fail");
+        }
     }
 }

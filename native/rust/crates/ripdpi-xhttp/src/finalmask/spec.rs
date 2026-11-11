@@ -26,6 +26,12 @@ impl FinalmaskSpec {
         if kind.is_empty() || kind == "off" {
             return Ok(None);
         }
+        if kind == "fragment" && !(1..=16).contains(&config.fragment_packets) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "finalmask fragmentPackets must be between 1 and 16",
+            ));
+        }
         let rand_range = parse_rand_range(&config.rand_range)?;
         let spec = match kind {
             "header_custom" => Self::HeaderCustom {

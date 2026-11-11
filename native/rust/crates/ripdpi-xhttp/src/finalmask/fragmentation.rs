@@ -11,15 +11,15 @@ pub(crate) fn fragment_bytes(payload: &[u8], packets: usize, min_bytes: usize, m
     }
 
     let mut cursor = 0usize;
-    let mut frames = Vec::with_capacity(packets);
+    let mut frames = Vec::with_capacity(packets.min(payload.len()));
     for index in 0..packets {
         let fragments_left = packets - index;
         if fragments_left == 1 {
             frames.push(payload[cursor..].to_vec());
             break;
         }
-        let min_for_rest = (fragments_left - 1) * min_bytes;
-        let max_for_rest = (fragments_left - 1) * max_bytes;
+        let min_for_rest = (fragments_left - 1).saturating_mul(min_bytes);
+        let max_for_rest = (fragments_left - 1).saturating_mul(max_bytes);
         let lower = min_bytes.max(remaining.saturating_sub(max_for_rest));
         let upper = max_bytes.min(remaining.saturating_sub(min_for_rest));
         if lower > upper {
@@ -46,7 +46,7 @@ fn fragment_outside_range(
 ) -> Vec<Vec<u8>> {
     let max_bytes = max_bytes.max(1);
     let min_bytes = min_bytes.clamp(1, max_bytes);
-    let mut frames = Vec::with_capacity(packets);
+    let mut frames = Vec::with_capacity(packets.min(payload.len()));
     let mut rest = payload;
     while frames.len() + 1 < packets {
         let size = rng.random_range(min_bytes..=max_bytes);
