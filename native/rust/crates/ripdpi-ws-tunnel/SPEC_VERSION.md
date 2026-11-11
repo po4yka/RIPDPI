@@ -7,6 +7,12 @@ This crate has two distinct wire surfaces with different upstream sources.
 - **WebSocket framing:** RFC 6455 (via `tokio-tungstenite`)
 - **HTTP/1.1 Upgrade (non-RFC-6455 variant):** custom, see `httpupgrade.rs`
 
+## WebSocket dependency and API boundary
+
+The workspace pins `tungstenite` and `tokio-tungstenite` to 0.30.0. The shared client uses the [repository source patch](../../vendor/tungstenite/RIPDPI_PATCHES.md), which records its upstream commit, package checksum, and local changes.
+
+The generic WS and raw HTTP Upgrade APIs compose with caller-owned TCP and TLS streams. Their caller owns TLS identity checks and backend selection. The `EarlyData` helpers encode request fields; the caller must provide the session driver and decide which application bytes, if any, go in the handshake.
+
 ## Telegram MTProto path
 
 The Telegram-specific MTProto obfuscated2 init handling is pinned against Telegram's published protocol description rather than a reference implementation.

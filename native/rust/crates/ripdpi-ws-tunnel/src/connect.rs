@@ -143,8 +143,8 @@ fn build_tls_connector() -> io::Result<SslConnector> {
 /// Build the Telegram WS upgrade request via the generic composable
 /// transport. The Telegram path is now just another consumer of
 /// [`crate::transport`]: it supplies a `host` + DC path and the
-/// shared builder applies the `binary` subprotocol. `tokio-tungstenite`
-/// 0.27 and the sync `tungstenite` 0.29 share the same `http` 1.x
+/// shared builder applies the `binary` subprotocol. Both `tokio-tungstenite`
+/// and sync `tungstenite` are pinned to 0.30.0 and share the `http` 1.x
 /// `Request` type, so the generic builder's output feeds the sync
 /// `tungstenite::client` call site directly with no conversion.
 fn build_ws_request(host: &str, path: &str) -> io::Result<tungstenite::http::Request<()>> {
