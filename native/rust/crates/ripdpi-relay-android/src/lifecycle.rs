@@ -140,6 +140,32 @@ mod tests {
     use super::run_to_completion;
 
     #[test]
+    fn runtime_teardown_releases_an_async_carrier_before_returning() {
+        use std::io::Read;
+        use std::net::{TcpListener, TcpStream};
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
+        let carrier = TcpStream::connect(listener.local_addr().expect("listener address")).expect("carrier");
+        let (mut peer, _) = listener.accept().expect("peer accepted carrier");
+        peer.set_read_timeout(Some(Duration::from_secs(1))).expect("peer deadline");
+        let (entered, ready) = tokio::sync::oneshot::channel();
+
+        run_to_completion(async move {
+            // The owner must destroy this detached, pending session task on shutdown.
+            drop(tokio::spawn(async move {
+                let _carrier = carrier;
+                entered.send(()).expect("session waiting for worker");
+                std::future::pending::<()>().await;
+            }));
+            ready.await.expect("worker owns the carrier");
+            Ok(())
+        })
+        .expect("runtime teardown");
+
+        assert_eq!(peer.read(&mut [0; 1]).expect("carrier must already be closed"), 0);
+    }
+
+    #[test]
     fn a_stopped_session_returns_without_waiting_for_a_blocked_lookup() {
         let started = Instant::now();
         let result = run_to_completion(async {
