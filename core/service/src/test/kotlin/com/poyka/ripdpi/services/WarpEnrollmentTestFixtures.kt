@@ -8,6 +8,36 @@ import com.poyka.ripdpi.data.WarpEndpointStore
 import com.poyka.ripdpi.data.WarpProfile
 import com.poyka.ripdpi.data.WarpProfileStore
 
+internal fun sampleZeroTrustImportRequest(): WarpZeroTrustImportRequest =
+    WarpZeroTrustImportRequest(
+        profileId = "corp",
+        displayName = "Corp",
+        organization = "acme",
+        deviceId = "device-corp",
+        accessToken = "fixture-import-access",
+        privateKey =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(ByteArray(32) { 1 }),
+        publicKey =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(ByteArray(32) { 2 }),
+        peerPublicKey =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(ByteArray(32) { 3 }),
+        interfaceAddressV4 = "172.16.0.2/32",
+        interfaceAddressV6 = "fd00::2/128",
+        endpoint =
+            WarpEndpointCacheEntry(
+                networkScopeKey = "",
+                host = "127.0.0.1",
+                ipv4 = "127.0.0.1",
+                port = 2408,
+            ),
+    )
+
 internal class FakeWarpProvisioningClient(
     private val registerResult: WarpProvisioningResult,
     private val refreshError: Exception? = null,

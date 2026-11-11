@@ -59,6 +59,7 @@ class DefaultWarpCredentialProfileMutationService
             require(request.deviceId.isNotBlank()) { "Zero Trust device id must not be blank" }
             require(request.accessToken.isNotBlank()) { "Zero Trust access token must not be blank" }
             val profileId = normalizeWarpProfileId(request.profileId, request.displayName)
+            val endpoint = request.validatedEndpoint(profileId)
             val profile =
                 WarpProfile(
                     id = profileId,
@@ -89,15 +90,16 @@ class DefaultWarpCredentialProfileMutationService
                     com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
                 )
             return mutationLock.mutex.withLock {
-                profileMutations.upsertWarp(
-                    preparation,
-                    profile = profile,
-                    credentials = credentials,
-                    endpoints = endpointStore.loadAll(profileId),
-                    activate = true,
-                    scannerMode = WarpScannerModeManual,
-                )
-                WarpEnrollmentSnapshot(profile = profile, credentials = credentials, endpoint = null)
+                profileMutations
+                    .upsertWarp(
+                        preparation,
+                        profile = profile,
+                        credentials = credentials,
+                        endpoints = listOf(endpoint),
+                        activate = true,
+                        scannerMode = WarpScannerModeManual,
+                    ).requireAppliedWarpMutation()
+                WarpEnrollmentSnapshot(profile = profile, credentials = credentials, endpoint = endpoint)
             }
         }
 
@@ -127,14 +129,15 @@ class DefaultWarpCredentialProfileMutationService
                 val credentials = credentialStore.load(profileId) ?: error("No WARP credentials found for $profileId")
                 val (updatedProfile, updatedCredentials) = transform(profile, credentials)
                 val activate = profileStore.activeProfileId() == profileId
-                profileMutations.upsertWarp(
-                    profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
-                    profile = updatedProfile,
-                    credentials = updatedCredentials,
-                    endpoints = endpointStore.loadAll(profileId),
-                    activate = activate,
-                    scannerMode = WarpScannerModeManual,
-                )
+                profileMutations
+                    .upsertWarp(
+                        profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
+                        profile = updatedProfile,
+                        credentials = updatedCredentials,
+                        endpoints = endpointStore.loadAll(profileId),
+                        activate = activate,
+                        scannerMode = WarpScannerModeManual,
+                    ).requireAppliedWarpMutation()
                 WarpEnrollmentSnapshot(
                     profile = updatedProfile,
                     credentials = updatedCredentials,

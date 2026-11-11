@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.DefaultWarpProfileId
+import com.poyka.ripdpi.data.ProfileMutationOutcome
 import com.poyka.ripdpi.data.WarpCredentials
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import com.poyka.ripdpi.data.WarpProfile
@@ -24,4 +25,9 @@ data class WarpZeroTrustImportRequest(
     val peerPublicKey: String? = null,
     val interfaceAddressV4: String? = null,
     val interfaceAddressV6: String? = null,
+    val endpoint: WarpEndpointCacheEntry? = null,
 )
+
+internal fun ProfileMutationOutcome.requireAppliedWarpMutation() {
+    check(this != ProfileMutationOutcome.Superseded) { "WARP profile mutation was superseded" }
+}

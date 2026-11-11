@@ -234,13 +234,7 @@ class WarpEnrollmentOrchestratorTest {
 
             val snapshot =
                 orchestrator.importZeroTrustProfile(
-                    WarpZeroTrustImportRequest(
-                        profileId = "corp",
-                        displayName = "Corp",
-                        organization = "acme",
-                        deviceId = "device-corp",
-                        accessToken = zeroTrustAccessValue,
-                    ),
+                    sampleZeroTrustImportRequest().copy(accessToken = zeroTrustAccessValue),
                 )
 
             assertEquals(WarpAccountKindZeroTrust, snapshot.profile.accountKind)
@@ -249,6 +243,8 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals(WarpAccountKindZeroTrust, appSettingsRepository.snapshot().warpAccountKind)
             assertEquals("acme", appSettingsRepository.snapshot().warpZeroTrustOrg)
             assertEquals(WarpScannerModeManual, appSettingsRepository.snapshot().warpLastScannerMode)
+            assertEquals("127.0.0.1", snapshot.endpoint?.ipv4)
+            assertEquals("corp", snapshot.endpoint?.profileId)
         }
 
     @Test

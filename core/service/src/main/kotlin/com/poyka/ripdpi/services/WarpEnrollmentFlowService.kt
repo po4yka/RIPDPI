@@ -85,14 +85,15 @@ class DefaultWarpEnrollmentFlowService
                     license = provisioning.license,
                 )
             return persistEnrollment {
-                profileMutations.upsertWarp(
-                    preparation,
-                    profile = profile,
-                    credentials = credentials,
-                    endpoints = endpointStore.loadAll(profile.id),
-                    activate = false,
-                    scannerMode = WarpScannerModeAutomatic,
-                )
+                profileMutations
+                    .upsertWarp(
+                        preparation,
+                        profile = profile,
+                        credentials = credentials,
+                        endpoints = endpointStore.loadAll(profile.id),
+                        activate = false,
+                        scannerMode = WarpScannerModeAutomatic,
+                    ).requireAppliedWarpMutation()
                 val endpoint =
                     endpointScanner.resolveEndpoint(
                         profileId = normalizedProfileId,
@@ -100,17 +101,18 @@ class DefaultWarpEnrollmentFlowService
                         provisioned = provisioning.endpoint,
                         origin = WarpEndpointResolutionOrigin.UserMutation,
                     )
-                profileMutations.upsertWarp(
-                    com.poyka.ripdpi.data.ProfileMutationPreparation(
-                        com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile,
-                        preparation.expectedPauseAuthority,
-                    ),
-                    profile = profile,
-                    credentials = credentials,
-                    endpoints = endpointStore.loadAll(profile.id),
-                    activate = true,
-                    scannerMode = WarpScannerModeAutomatic,
-                )
+                profileMutations
+                    .upsertWarp(
+                        com.poyka.ripdpi.data.ProfileMutationPreparation(
+                            com.poyka.ripdpi.data.ProfileMutationOrigin.InternalReconcile,
+                            preparation.expectedPauseAuthority,
+                        ),
+                        profile = profile,
+                        credentials = credentials,
+                        endpoints = endpointStore.loadAll(profile.id),
+                        activate = true,
+                        scannerMode = WarpScannerModeAutomatic,
+                    ).requireAppliedWarpMutation()
                 WarpEnrollmentSnapshot(profile = profile, credentials = credentials, endpoint = endpoint)
             }
         }
@@ -175,14 +177,15 @@ class DefaultWarpEnrollmentFlowService
                 )
             return persistEnrollment {
                 if (runtimeRevision == null) {
-                    profileMutations.upsertWarp(
-                        profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
-                        refreshedProfile,
-                        refreshedCredentials,
-                        endpointStore.loadAll(activeProfile.id),
-                        false,
-                        WarpScannerModeAutomatic,
-                    )
+                    profileMutations
+                        .upsertWarp(
+                            profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
+                            refreshedProfile,
+                            refreshedCredentials,
+                            endpointStore.loadAll(activeProfile.id),
+                            false,
+                            WarpScannerModeAutomatic,
+                        ).requireAppliedWarpMutation()
                 }
                 val proposedEndpoint =
                     endpointScanner.resolveEndpoint(
@@ -201,14 +204,15 @@ class DefaultWarpEnrollmentFlowService
                 val endpoint = normalizeWarpEndpoint(activeProfile.id, networkScopeKey, proposedEndpoint)
                 if (runtimeRevision == null && endpoint != null) endpointStore.save(endpoint)
                 if (runtimeRevision == null) {
-                    profileMutations.upsertWarp(
-                        profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
-                        refreshedProfile,
-                        refreshedCredentials,
-                        endpointStore.loadAll(activeProfile.id),
-                        true,
-                        WarpScannerModeAutomatic,
-                    )
+                    profileMutations
+                        .upsertWarp(
+                            profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
+                            refreshedProfile,
+                            refreshedCredentials,
+                            endpointStore.loadAll(activeProfile.id),
+                            true,
+                            WarpScannerModeAutomatic,
+                        ).requireAppliedWarpMutation()
                 } else {
                     commitRuntimeProvisioning(
                         refreshedProfile,
