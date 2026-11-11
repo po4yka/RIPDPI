@@ -40,13 +40,14 @@ fn poisoned_snapshots_remain_readable_without_panicking() {
 }
 
 /// # Cancel safety:
-/// cancel-safe: the helper owns its backend and borrows only the caller's socket.
-async fn authenticate_peer(socket: &UdpSocket) -> anyhow::Result<()> {
+/// NOT cancel-safe: receiving an initiation and sending a response advance peer/socket state.
+/// The test owner must stop and join its runtime if this exchange is cancelled.
+async fn authenticate_peer(socket: &UdpSocket, first_packet_timeout: Duration) -> anyhow::Result<()> {
     let mut peer =
         Tunn::new(StaticSecret::from([9; 32]), PublicKey::from(&StaticSecret::from([7; 32])), None, None, 1, None);
     let mut packet = [0; 2048];
     let mut output = [0; 2048];
-    let (size, client) = timeout(Duration::from_secs(2), socket.recv_from(&mut packet)).await??;
+    let (size, client) = timeout(first_packet_timeout, socket.recv_from(&mut packet)).await??;
     let TunnResult::WriteToNetwork(response) = peer.decapsulate(None, &packet[..size], &mut output) else {
         anyhow::bail!("the configured peer did not authenticate the initiation");
     };
@@ -101,7 +102,7 @@ async fn silent_peer_fails_with_bounded_handshake_error() {
         config_for_peer(peer.local_addr().expect("peer address"), PublicKey::from(&StaticSecret::from([9; 32])));
     let runtime = WarpRuntime::new(config);
     let mut worker = tokio::spawn(Arc::clone(&runtime).run());
-    let result = timeout(Duration::from_secs(3), &mut worker).await;
+    let result = timeout(Duration::from_secs(14), &mut worker).await;
     if result.is_err() {
         stop_and_join(&runtime, worker).await.expect("stop timed-out worker");
         panic!("a silent peer must fail within the handshake deadline");
@@ -126,7 +127,7 @@ async fn authenticated_peer_publishes_bound_listener_and_stops() {
     let signal = Arc::clone(&ready);
     runtime.set_readiness_observer(Arc::new(move || signal.notify_one()));
     let worker = tokio::spawn(Arc::clone(&runtime).run());
-    let exchange = authenticate_peer(&peer).await;
+    let exchange = authenticate_peer(&peer, Duration::from_secs(2)).await;
     let readiness = timeout(Duration::from_secs(2), ready.notified()).await;
     let telemetry = runtime.telemetry();
     let stopped = stop_and_join(&runtime, worker).await;
@@ -160,7 +161,7 @@ async fn unauthenticated_response_cannot_publish_readiness() {
         invalid_response[0] = 2;
         peer.send_to(&invalid_response, client).await.expect("unauthenticated reply");
     }
-    let result = timeout(Duration::from_secs(3), &mut worker).await;
+    let result = timeout(Duration::from_secs(14), &mut worker).await;
     if result.is_err() {
         stop_and_join(&runtime, worker).await.expect("stop timed-out worker");
         panic!("an unauthenticated reply must not keep startup pending");
@@ -188,7 +189,7 @@ async fn peer_expiry_fails_a_previously_ready_runtime() {
     let signal = Arc::clone(&ready);
     runtime.set_readiness_observer(Arc::new(move || signal.notify_one()));
     let mut worker = tokio::spawn(Arc::clone(&runtime).run());
-    let exchange = authenticate_peer(&peer).await;
+    let exchange = authenticate_peer(&peer, Duration::from_secs(2)).await;
     let readiness = timeout(Duration::from_secs(2), ready.notified()).await;
     if exchange.is_err() || readiness.is_err() {
         let _ = stop_and_join(&runtime, worker).await;
@@ -206,4 +207,37 @@ async fn peer_expiry_fails_a_previously_ready_runtime() {
     assert_eq!(error.kind(), io::ErrorKind::ConnectionAborted);
     assert_eq!(runtime.telemetry().health, "failed");
     assert!(runtime.telemetry().last_error.as_deref().is_some_and(|error| error.contains("session expired")));
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: the test owns and joins its runtime worker on success or failure.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn silent_ipv4_primary_reaches_authenticated_ipv6_fallback_before_readiness() {
+    let live = UdpSocket::bind("[::1]:0").await.expect("IPv6 peer");
+    let port = live.local_addr().expect("IPv6 address").port();
+    let silent = UdpSocket::bind((std::net::Ipv4Addr::LOCALHOST, port)).await.expect("same-port IPv4 peer");
+    let mut config =
+        config_for_peer(silent.local_addr().expect("IPv4 address"), PublicKey::from(&StaticSecret::from([9; 32])));
+    config.endpoint.ipv6 = Some("::1".into());
+    let runtime = WarpRuntime::new(config);
+    let ready = Arc::new(Notify::new());
+    let signal = Arc::clone(&ready);
+    runtime.set_readiness_observer(Arc::new(move || signal.notify_one()));
+    let worker = tokio::spawn(Arc::clone(&runtime).run());
+    let mut packet = [0; 2048];
+    let first = timeout(Duration::from_secs(2), silent.recv_from(&mut packet)).await;
+    let early_ready = timeout(Duration::from_millis(50), ready.notified()).await.is_ok();
+    let exchange = authenticate_peer(&live, Duration::from_secs(8)).await;
+    let readiness = timeout(Duration::from_secs(2), ready.notified()).await;
+    let telemetry = runtime.telemetry();
+    let stopped = stop_and_join(&runtime, worker).await;
+    let (size, _) = first.expect("primary initiation deadline").expect("primary initiation");
+    assert_eq!(size, 148);
+    assert_eq!(&packet[..4], &[1, 0, 0, 0]);
+    assert!(!early_ready, "silent primary must not publish readiness");
+    exchange.expect("IPv6 fallback must authenticate after the backend retry");
+    readiness.expect("authenticated IPv6 readiness");
+    assert_eq!(telemetry.state, "running");
+    stopped.expect("fallback runtime cleanup");
+    assert!(runtime.telemetry().listener_address.is_none());
 }

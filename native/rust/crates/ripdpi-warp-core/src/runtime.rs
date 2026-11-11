@@ -20,8 +20,8 @@ use crate::virtual_iface::{Bus, DynamicTcpInterface, DynamicUdpInterface};
 use crate::wireguard::{WireGuardTunnel, WireGuardTunnelParams, reserved_bytes_from_client_id};
 
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
-// Leave room for the Kotlin owner's five-second readiness deadline and cleanup.
-const HANDSHAKE_TIMEOUT: Duration = if cfg!(test) { Duration::from_secs(1) } else { Duration::from_secs(4) };
+// Readiness must cover the backend retry that selects the other IP family.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(12);
 const READY_SOURCE: &str = "warp";
 
 // These locks hold independent owned snapshots, not partial protocol transactions.

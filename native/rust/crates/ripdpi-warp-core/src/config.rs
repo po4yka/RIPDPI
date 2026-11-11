@@ -477,6 +477,20 @@ mod tests {
         assert_eq!(preferred_endpoint_candidates(Vec::new()).unwrap_err().kind(), io::ErrorKind::AddrNotAvailable);
     }
 
+    #[test]
+    fn numeric_candidate_families_keep_authoritative_port_without_a_runtime() {
+        let endpoint = endpoint("unused.invalid", Some("192.0.2.1:0"), Some("[2001:db8::1]:0"), 2408);
+        let mut lookup = std::pin::pin!(resolve_endpoint_candidates(&endpoint));
+        let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+        let std::task::Poll::Ready(result) = std::future::Future::poll(lookup.as_mut(), &mut context) else {
+            panic!("numeric families must not dispatch DNS work");
+        };
+        assert_eq!(
+            result.unwrap(),
+            vec!["192.0.2.1:2408".parse::<SocketAddr>().unwrap(), "[2001:db8::1]:2408".parse().unwrap()]
+        );
+    }
+
     /// # Cancel safety:
     /// cancel-safe: this test only awaits a bounded numeric-address lookup.
     #[tokio::test]

@@ -23,7 +23,8 @@ fun interface WarpProbeSocketController {
     fun protect(fd: Int): Boolean
 }
 
-internal const val defaultWarpReadyTimeoutMs = 5_000L
+// Cover the native DNS (10s) and authenticated-handshake (12s) budgets.
+internal const val defaultWarpReadyTimeoutMs = 25_000L
 
 @Serializable
 data class ResolvedRipDpiWarpEndpoint(
