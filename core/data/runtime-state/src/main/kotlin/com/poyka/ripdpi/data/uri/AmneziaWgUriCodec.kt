@@ -239,15 +239,15 @@ object AmneziaWgUriCodec {
     }
 
     private fun parseQuery(rawQuery: String?): Map<String, String>? {
-        val query = rawQuery?.takeIf { it.isNotBlank() } ?: return emptyMap()
         val pairs =
-            query
-                .split('&')
-                .map { pair ->
+            rawQuery
+                ?.takeIf { it.isNotBlank() }
+                ?.split('&')
+                ?.map { pair ->
                     val separator = pair.indexOf('=')
                     if (separator <= 0) return null
                     pair.substring(0, separator) to urlDecode(pair.substring(separator + 1))
-                }
+                }.orEmpty()
         return pairs.toMap().takeIf { it.size == pairs.size }
     }
 
