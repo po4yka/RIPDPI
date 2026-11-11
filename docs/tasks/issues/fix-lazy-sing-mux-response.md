@@ -2,7 +2,7 @@
 id: TRN-1794373625208123
 title: Fix lazy sing-mux response handling
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Transport maintainers
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-11-11
 updated: 2026-11-11
 spec_reason: regression-tested-single-module
+closed_at: "2026-11-11T05:37:09Z"
+closed_reason: Verified lazy sing-mux response handling
+evidence_summary: "Fix 9a5d4852d9: Rust 1.98.1 passed 185 ripdpi-vless tests and 8 relay-core mux tests. Affected-crate Clippy, rustfmt, cargo metadata --locked, just ci-gates and task validation passed after rebase. Pinned SagerNet sing-mux v0.3.5 and HashiCorp yamux v0.1.2 completed a client-first loopback exchange. Independent correctness and async cancellation reviews found no defect. Android and full REALITY acceptance were not run."
 ---
 
 ## Goal
