@@ -62,3 +62,50 @@ async fn handshake_async_rejects_unrequested_extensions() {
     peer.join().expect("peer joins");
     assert!(result.is_err(), "an extension that was not offered must fail the handshake");
 }
+
+#[test]
+fn handshake_accepts_connection_upgrade_in_any_field_or_token_position() {
+    for fields in [
+        "Connection: keep-alive, UpGrAdE\r\n",
+        "Connection: Upgrade, keep-alive\r\n",
+        "Connection: keep-alive\r\nConnection: Upgrade\r\n",
+    ] {
+        let (stream, peer) = raw_peer(response(fields, ""));
+        let result = tungstenite::client(request(), stream);
+        peer.join().expect("peer joins");
+        assert!(result.is_ok(), "valid Connection tokens rejected: {fields}");
+    }
+}
+
+#[test]
+fn handshake_requires_an_exact_connection_upgrade_token() {
+    for fields in ["", "Connection: keep-alive\r\n", "Connection: xUpgrade\r\n", "Connection: \"Upgrade\"\r\n"] {
+        let (stream, peer) = raw_peer(response(fields, ""));
+        let result = tungstenite::client(request(), stream);
+        peer.join().expect("peer joins");
+        assert!(result.is_err(), "missing Upgrade token accepted: {fields}");
+    }
+}
+
+#[test]
+fn handshake_token_lists_preserve_accept_and_subprotocol_validation() {
+    let valid = response("Connection: keep-alive, Upgrade\r\n", "");
+    for invalid in [valid.replace(ACCEPT, "wrong-accept"), valid.replace("Protocol: binary", "Protocol: unoffered")] {
+        let (stream, peer) = raw_peer(invalid);
+        let result = tungstenite::client(request(), stream);
+        peer.join().expect("peer joins");
+        assert!(result.is_err(), "invalid Accept or subprotocol accepted");
+    }
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: this test owns the stream and publishes no carrier until validation succeeds.
+async fn handshake_async_accepts_connection_token_lists() {
+    let (stream, peer) = raw_peer(response("Connection: keep-alive, Upgrade\r\n", ""));
+    stream.set_nonblocking(true).expect("nonblocking stream");
+    let stream = tokio::net::TcpStream::from_std(stream).expect("async stream");
+    let result = tokio_tungstenite::client_async(request(), stream).await;
+    peer.join().expect("peer joins");
+    assert!(result.is_ok(), "valid Connection tokens rejected by async client");
+}

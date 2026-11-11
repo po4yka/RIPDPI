@@ -8,3 +8,5 @@ Source: https://github.com/snapview/tungstenite-rs/tree/7f4aeaf0944992c5664c8fb8
 The package and both licenses are preserved. Trailing whitespace in the upstream changelog is removed. The authentication builder documentation uses an explicit synthetic fixture token. The client verifier rejects negotiated extensions because this implementation has no extension codec. This closes the RFC 6455 section 4.1 acceptance gap. TLS, Accept, subprotocol, and framing checks stay upstream-owned. No version change.
 
 Regression coverage: ripdpi-ws-tunnel/tests/handshake_contract.rs exercises synchronous and asynchronous clients with independent response bytes.
+
+The client checks for an exact Upgrade token, ignoring ASCII case, across comma-separated Connection options and repeated Connection fields. Accept and subprotocol checks are unchanged. The same regression file covers valid lists and invalid token, Accept, and subprotocol controls.

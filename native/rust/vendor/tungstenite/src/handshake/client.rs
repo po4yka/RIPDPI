@@ -243,10 +243,11 @@ impl VerifyData {
         // ASCII case-insensitive match for the value "Upgrade", the client
         // MUST _Fail the WebSocket Connection_. (RFC 6455)
         if !headers
-            .get("Connection")
-            .and_then(|h| h.to_str().ok())
-            .map(|h| h.eq_ignore_ascii_case("Upgrade"))
-            .unwrap_or(false)
+            .get_all("Connection")
+            .iter()
+            .filter_map(|h| h.to_str().ok())
+            .flat_map(|value| value.split(','))
+            .any(|token| token.trim_matches([' ', '\t']).eq_ignore_ascii_case("Upgrade"))
         {
             return Err(Error::Protocol(ProtocolError::MissingConnectionUpgradeHeader));
         }
