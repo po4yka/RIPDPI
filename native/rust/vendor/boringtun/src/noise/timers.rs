@@ -487,7 +487,8 @@ mod awg_tests {
         let mut v6 = [0; 40];
         v6[0] = 0x60;
         let mut short_v6 = v6;
-        short_v6[5] = 1;
+        // The claimed packet must exceed the 48-byte padded plaintext.
+        short_v6[5] = 17;
         for (plaintext, expected) in [
             (vec![], O::TransportEmpty),
             (vec![0; 120], O::TransportEmpty),

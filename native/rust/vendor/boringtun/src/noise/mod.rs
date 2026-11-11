@@ -305,10 +305,15 @@ impl Tunn {
     }
 
     fn padded_len(&self, plaintext_len: usize, capacity: usize) -> Result<usize, WireGuardError> {
-        let padded_len = self
-            .transport_padding
-            .as_ref()
-            .map_or(plaintext_len, |policy| policy.padded_len(plaintext_len));
+        let padded_len = match &self.transport_padding {
+            Some(policy) => policy.padded_len(plaintext_len),
+            None => {
+                plaintext_len
+                    .checked_add(15)
+                    .ok_or(WireGuardError::DestinationBufferTooSmall)?
+                    & !15
+            }
+        };
         if capacity < DATA_OVERHEAD_SZ
             || padded_len < plaintext_len
             || padded_len > capacity - DATA_OVERHEAD_SZ
@@ -339,9 +344,9 @@ impl Tunn {
     /// Encapsulate a single packet from the tunnel interface.
     /// Returns TunnResult.
     ///
-    /// # Panics
-    /// Panics if dst buffer is too small.
-    /// Size of dst should be at least src.len() + 32, and no less than 148 bytes.
+    /// The output buffer needs the padded plaintext length plus 32 bytes, and at
+    /// least 148 bytes for a handshake. The default padding rounds up to 16 bytes;
+    /// an MTU-aware caller can install a bounded transport padding policy.
     pub fn encapsulate<'a>(&mut self, src: &[u8], dst: &'a mut [u8]) -> TunnResult<'a> {
         self.refresh_awg_time();
         let current = self.current;
@@ -1024,5 +1029,74 @@ mod tests {
             unreachable!();
         };
         assert_eq!(sent_packet_buf, recv_packet_buf);
+    }
+
+    #[test]
+    fn plain_transport_uses_sixteen_byte_padding_and_preserves_ip_length() {
+        let (mut sender, mut receiver) = create_two_tuns_and_handshake();
+        let mut encrypted = [0; 256];
+        let mut decrypted = [0; 256];
+        for (length, wire_length) in [(20, 64), (31, 64), (32, 64), (33, 80)] {
+            let mut ip = vec![0; length];
+            ip[0] = 0x45;
+            ip[2..4].copy_from_slice(&(length as u16).to_be_bytes());
+            let TunnResult::WriteToNetwork(wire) = sender.encapsulate(&ip, &mut encrypted) else {
+                panic!("transport output")
+            };
+            assert_eq!(wire.len(), wire_length);
+            let TunnResult::WriteToTunnelV4(delivered, _) =
+                receiver.decapsulate(None, wire, &mut decrypted)
+            else {
+                panic!("IP delivery")
+            };
+            assert_eq!(delivered, ip);
+        }
+        let TunnResult::WriteToNetwork(wire) = sender.encapsulate(&[], &mut encrypted) else {
+            panic!("keepalive output")
+        };
+        assert_eq!(wire.len(), 32);
+        assert!(matches!(
+            receiver.decapsulate(None, wire, &mut decrypted),
+            TunnResult::Done
+        ));
+    }
+
+    #[test]
+    fn queued_plain_transport_uses_padding_and_short_output_keeps_packet() {
+        let (mut sender, mut receiver) = create_two_tuns();
+        let mut ip = [0; 20];
+        ip[0] = 0x45;
+        ip[3] = 20;
+        let mut first = [0; 256];
+        let mut second = [0; 256];
+        let TunnResult::WriteToNetwork(init) = sender.encapsulate(&ip, &mut first) else {
+            panic!("initial handshake")
+        };
+        let TunnResult::WriteToNetwork(response) = receiver.decapsulate(None, init, &mut second)
+        else {
+            panic!("handshake response")
+        };
+        let TunnResult::WriteToNetwork(confirm) = sender.decapsulate(None, response, &mut first)
+        else {
+            panic!("handshake confirmation")
+        };
+        assert!(matches!(
+            receiver.decapsulate(None, confirm, &mut second),
+            TunnResult::Done
+        ));
+        assert!(matches!(
+            sender.decapsulate(None, &[], &mut [0; 52]),
+            TunnResult::Done
+        ));
+        let TunnResult::WriteToNetwork(wire) = sender.decapsulate(None, &[], &mut first) else {
+            panic!("queued transport")
+        };
+        assert_eq!(wire.len(), 64);
+        let TunnResult::WriteToTunnelV4(delivered, _) =
+            receiver.decapsulate(None, wire, &mut second)
+        else {
+            panic!("queued IP delivery")
+        };
+        assert_eq!(delivered, ip);
     }
 }

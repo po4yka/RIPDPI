@@ -14,6 +14,7 @@ use bytes::Bytes;
 
 use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
+use super::padding::PlainWireGuardPadding;
 use super::receive::{ReceiveOutput, receive_packet};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
@@ -250,6 +251,8 @@ impl WireGuardTunnel {
         }
         if let Some(codec) = &amnezia {
             peer.set_transport_padding(codec.clone()).map_err(anyhow::Error::msg)?;
+        } else {
+            peer.set_transport_padding(Arc::new(PlainWireGuardPadding(mtu))).map_err(anyhow::Error::msg)?;
         }
         let mut carrier_cookie_id = [0; 16];
         fill_random(&mut carrier_cookie_id);

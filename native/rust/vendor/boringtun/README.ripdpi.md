@@ -21,6 +21,8 @@ Local changes:
 - `noise/session.rs` adds zero padding inside AEAD. The optional `TransportPadding`
   policy in `noise/mod.rs` covers data, queued packets, and automatic keepalives.
   Buffer checks precede handshake consumption and nonce advancement.
+- Plain WireGuard defaults to 16-byte padding. Runtime callers install an
+  MTU-bounded policy; explicit AWG padding policies still take precedence.
 - `ReceiveOutcome` separates generated output from peer authentication. All-zero
   AWG payloads are empty transport; malformed IP consumes replay state without
   updating readiness, receive timers, or the UDP window. IPv4 length and IHL
