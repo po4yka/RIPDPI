@@ -85,7 +85,7 @@ ripdpi.nativeCpuBudget=4
 
 CI does not use sccache: its GitHub Actions backend measured a 0 % hit
 rate next to `Swatinem/rust-cache`, which already restores `target/`.
-Locally, sccache shares compiles across worktrees:
+Locally, sccache shares registry-dependency compiles across worktrees:
 
 ```sh
 brew install sccache
@@ -102,42 +102,56 @@ Check cache hit rate any time with `sccache --show-stats`.
 
 ## Worktree builds — cache & resource isolation
 
-Keep build outputs and Gradle state scoped to each worktree; see the
-[worktree workflow](../../AGENTS.md#worktree-and-commit-workflow).
+Keep build outputs scoped to each worktree and share the Gradle home and
+sccache; see the [worktree workflow](../../AGENTS.md#worktree-and-commit-workflow).
 Agents can inspect and edit concurrently. Heavy builds across all worktrees
 share the machine-wide gate described below.
 
-### sccache is the one cache safe to share across worktrees
+### Cargo: one target directory for each worktree, sccache shared
 
-Make local `RUSTC_WRAPPER=sccache` (above) your **default**, not an
-opt-in, when you build from several worktrees. sccache is
-content-addressed and concurrency-safe, so it deduplicates Rust compiles
-**across** worktrees and branches — it is what turns the per-worktree
-`native/rust/target/` rebuild (multi-GB, 4 ABIs) from a cold rebuild
-into a cache hit.
+Give each worktree its own Cargo target directory. Do not set one
+`CARGO_TARGET_DIR` for several worktrees. Cargo does not include the checkout
+path in the artifact hash of a workspace crate, and it decides freshness from
+file times. In a test on 2026-11-11 with Cargo 1.98.1, a source edit in
+worktree B was compiled into the shared directory, and the unchanged worktree
+A then reused that artifact with no recompile. The result is a build that does
+not match its sources. A shared directory also makes all Cargo processes wait
+on one lock.
 
-Keep per-worktree `target/` directories so outputs and incremental state
-remain isolated between checkouts; let sccache be the shared layer.
-Target-directory isolation works alongside the machine-wide build gate.
-(Cross-worktree hit-rate is high but not 100 % because
-absolute paths differ per worktree — mozilla/sccache#2595.)
+Make local `RUSTC_WRAPPER=sccache` (above) the default. It is safe for
+concurrent use and it shares registry dependencies between worktrees: in the
+same test, the second worktree got 25 cache hits for 28 Rust compiles.
+The limits are:
 
-### Gradle build cache + daemon contention
+- Workspace crates miss in each new worktree. `SCCACHE_BASEDIRS` did not
+  change this with sccache 0.15.0.
+- sccache does not cache `bin`, `cdylib`, or `proc-macro` crates.
+- sccache needs `CARGO_INCREMENTAL=0`.
 
-To isolate Gradle caches and daemon state between worktrees, give each
-worktree its own Gradle home:
+Thus the first build in a new worktree compiles the workspace crates again.
+Keep the gate narrow (`-p <crate>`) to limit that cost.
 
-```sh
-# inside the worktree, before any ./gradlew invocation
-export GRADLE_USER_HOME="$PWD/.gradle-home"
-```
+### Gradle: one shared Gradle home
 
-Each home re-warms and retains its own cache, so account for that disk cost
-when creating worktrees. It also changes where Gradle reads user properties
-and init scripts: install the local overrides there. If the host has a
-user-owned guard under `~/.gradle/init.d/`, load that existing script explicitly
-with `--init-script`. Do not assume that it exists. Heavy builds use the
-top-level gate below.
+Use the default `GRADLE_USER_HOME` (`~/.gradle`) in all worktrees. The
+dependency cache, the artifact transforms, the build cache, and the Kotlin
+daemon are then shared. A Gradle home for each worktree downloads and keeps
+its own copy; one such home measured 5.2 GB.
+
+The build cache works across checkout paths. In a test on 2026-11-11, a second
+worktree at the same commit took 97 of 140 tasks from the cache (44 s, where
+the first worktree took 3 min 26 s). To find a task that misses, run the same
+task in two worktrees with `-Dorg.gradle.caching.debug=true` and compare the
+`Appending input` lines.
+
+Gradle reuses a daemon only when the JVM arguments are the same and the daemon
+is idle. Keep the heap overrides in `~/.gradle/gradle.properties` so that all
+worktrees use the same values.
+
+If concurrent builds stop with `Timeout waiting to lock`, give the affected
+worktree a separate Gradle home and point `GRADLE_RO_DEP_CACHE` at a copy of
+`~/.gradle/caches/modules-2`. Do not point it at the live directory. Heavy
+builds use the top-level gate below.
 
 ### Concurrency ceiling
 
@@ -200,8 +214,8 @@ machine-wide build gate.
 
 ### Disk hygiene
 
-Per-worktree `target/` + per-worktree `GRADLE_USER_HOME` add up fast
-across a `/goal` run. After integrating (and only after the user
+Per-worktree `target/` directories (0.4 to 8.6 GB each when measured) add up
+fast across a `/goal` run. Cargo does not clean them. After integrating (and only after the user
 confirms removal — AGENTS.md § Git Worktree & Commit Workflow), reclaim
 space:
 
