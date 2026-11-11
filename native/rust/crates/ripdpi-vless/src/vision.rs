@@ -297,22 +297,22 @@ impl<S> VisionStream<S> {
     /// content that span multiple reads.
     fn unpad(&mut self) {
         if !self.r_uuid_checked {
-            if self.r_inbuf.len() < self.uuid.len() {
-                return;
-            }
-            if self.r_inbuf[..16] == self.uuid[..] {
-                self.r_uuid_checked = true;
-                self.r_inbuf.drain(..16);
-                self.r_rem_cmd = 5;
-                self.r_rem_content = -1;
-                self.r_rem_padding = -1;
-            } else {
+            let prefix_len = self.r_inbuf.len().min(self.uuid.len());
+            if self.r_inbuf[..prefix_len] != self.uuid[..prefix_len] {
                 // Not Vision-padded: deliver verbatim through the existing
                 // outer stream and stop parsing.
                 self.r_padding = false;
                 self.r_out.append(&mut self.r_inbuf);
                 return;
             }
+            if self.r_inbuf.len() < self.uuid.len() {
+                return;
+            }
+            self.r_uuid_checked = true;
+            self.r_inbuf.drain(..16);
+            self.r_rem_cmd = 5;
+            self.r_rem_content = -1;
+            self.r_rem_padding = -1;
         }
 
         let mut i = 0usize;
@@ -434,7 +434,12 @@ impl<S: XtlsDirectRead> AsyncRead for VisionStream<S> {
                 Poll::Ready(Ok(())) => {
                     let filled = scratch_buf.filled();
                     if filled.is_empty() {
-                        if this.r_uuid_checked && !this.r_at_chunk_boundary {
+                        if !this.r_uuid_checked {
+                            this.r_padding = false;
+                            this.r_out.append(&mut this.r_inbuf);
+                            continue;
+                        }
+                        if !this.r_at_chunk_boundary {
                             return Poll::Ready(Err(io::Error::new(
                                 io::ErrorKind::UnexpectedEof,
                                 "vision: truncated padding chunk",
@@ -1016,3 +1021,7 @@ mod tests {
 #[cfg(test)]
 #[path = "vision/decoder_tests.rs"]
 mod decoder_tests;
+
+#[cfg(test)]
+#[path = "vision/fallback_tests.rs"]
+mod fallback_tests;

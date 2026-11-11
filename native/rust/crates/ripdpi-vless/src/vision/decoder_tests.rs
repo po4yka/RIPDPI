@@ -9,7 +9,7 @@ use super::{CMD_CONTINUE, CMD_END, READ_SCRATCH, VisionStream, XtlsDirectRead};
 const UUID: [u8; 16] = [0x42; 16];
 const READ_LIMITS: [usize; 5] = [1, 2, 5, 16, READ_SCRATCH];
 
-struct FragmentedInput {
+pub(super) struct FragmentedInput {
     bytes: Cursor<Vec<u8>>,
     limit: usize,
 }
@@ -39,7 +39,7 @@ impl XtlsDirectRead for FragmentedInput {
     }
 }
 
-fn fragmented(wire: Vec<u8>, limit: usize) -> VisionStream<FragmentedInput> {
+pub(super) fn fragmented(wire: Vec<u8>, limit: usize) -> VisionStream<FragmentedInput> {
     VisionStream::new_vision(FragmentedInput { bytes: Cursor::new(wire), limit }, UUID)
 }
 
