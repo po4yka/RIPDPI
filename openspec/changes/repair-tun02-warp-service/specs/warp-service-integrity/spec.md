@@ -95,3 +95,12 @@ Endpoint probes MUST keep packet buffers out of the async future's inline storag
 
 - **WHEN** a complete local probe runs on a worker with a 256 KiB stack
 - **THEN** it emits the standard 148-byte initiation and reaches the bounded timeout without stack overflow or a larger process stack setting.
+
+### Requirement: REQ-WARP-F10 — Expand explicit endpoint families without DNS
+
+Candidate expansion MUST include a separate candidate for each explicit IP family before DNS results. An IPv6-only candidate MUST NOT retain an IPv4 address. Existing candidate limits and scope MUST remain in force.
+
+#### Scenario: Select explicit IPv6 after IPv4 fails
+
+- **WHEN** an enabled scanner receives both addresses, IPv4 is unavailable, and DNS has no IPv6 answer
+- **THEN** the expanded pool includes the explicit IPv6 candidate and can select it within the configured probe budget.

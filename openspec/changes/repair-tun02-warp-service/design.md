@@ -52,6 +52,10 @@ remains a separate fix commit on the integration branch.
 - F9 moves the three 64 KiB probe packet buffers to heap storage. Packet
   sizes, protocol output, timeout, and ownership do not change. A real loopback
   regression uses a 256 KiB worker stack; no larger stack setting is used.
+- F10 adds explicit per-family scanner candidates before DNS expansion.
+  An IPv6-only candidate must not retain IPv4, which the one-shot native
+  probe would prefer. Keep candidate limits, order, scope, and deduplication.
+  Manual scanner mode still probes; it differs from manual endpoint selection.
 
 ## Contracts and ownership
 

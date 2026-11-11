@@ -35,10 +35,11 @@ checks must be recorded before final acceptance.
 | REQ-WARP-F3 | TRN-1794384955046919 | Current-network selection, stale cache rejection, credential preservation and registration atomicity | passed |
 | REQ-WARP-F4 | TRN-1794384974171806 | Numeric IPv4/IPv6 parser and native loopback resolution regressions | passed |
 | REQ-WARP-F5 | TRN-1794384989760526 | Local license preserves server account kind; metadata and selector ownership regressions | passed |
-| REQ-WARP-F6 | TRN-1794385010176922 | Loopback HTTP GET without token, POST missing token, malformed/error responses and redaction | passed |
+| REQ-WARP-F6 | TRN-1794385010176922 | Parser results for GET without token, POST missing token, malformed responses and redacted error chains; recording bindings do not prove HTTP wire behavior | passed |
 | REQ-WARP-F7 | TRN-1794385033249122 | Invalid complete imports rejected before writes; stale endpoint replacement and superseded activation | passed |
 | REQ-WARP-F8 | TRN-1794385053055273 | Facade/ViewModel/UI tests, key vectors, five previews and ten-locale gates; minified run pending | required |
 | REQ-WARP-F9 | TRN-1794395789446963 | Original stack overflow reproduced; real 256 KiB worker-stack loopback regression passes | passed |
+| REQ-WARP-F10 | TRN-1794424694799487 | Candidate-pool and runtime-selection regressions reproduced the missing explicit IPv6 path; fix and final checks pending | required |
 
 ## Observed checks before the final upstream integration
 
