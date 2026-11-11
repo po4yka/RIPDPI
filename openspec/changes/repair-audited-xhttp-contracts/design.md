@@ -22,7 +22,7 @@ Task ID: `TRN-1794371418861139`. The audit has loopback reproductions at source 
 - Path worker: xHTTP config.rs, h2_body.rs, path helpers and tests; Cloudflare origin path.rs and HTTP request matching/tests. Integrate relay.rs hunks after the stream commits.
 - Pool worker: pool.rs and pool regression files, with no permit API change.
 - Root: portfolio/OpenSpec, README/SPEC_VERSION/SPEC and CONFIG_CONTRACTS.md, combined validation and integration.
-- Stream worker also owns the existing dev-only Tokio `rt-multi-thread` feature for concurrency regressions. No package or version changes.
+- Concurrency regressions use the existing dev-only Tokio `rt-multi-thread` feature, already present on rebased main. No manifest, package or version changes remain.
 - All writers use separate worktrees. No lockfile, Gradle dependency, protobuf, JNI, locale, baseline or golden fixture changes.
 
 ## Risks / Trade-offs
