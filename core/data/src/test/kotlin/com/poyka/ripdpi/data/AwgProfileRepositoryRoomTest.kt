@@ -3,7 +3,11 @@ package com.poyka.ripdpi.data
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
+import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -209,6 +213,49 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
             assertEquals("vpn.example.com", loaded!!.request.endpointHost)
             // Secrets are still re-injected from the credential store on the rehydrated row.
             assertEquals("privkey==", loaded.request.privateKey)
+        }
+
+    @Test
+    fun `unknown wire fields quarantine profiles without changing their rows or secrets`() =
+        runRoomTest {
+            val request =
+                sampleRequest().let {
+                    it.copy(
+                        obfuscation =
+                            it.obfuscation.copy(
+                                s1 = 12,
+                                s2 = 12,
+                                s3 = 12,
+                                s4 = 12,
+                                v3 =
+                                    AmneziaWgV3Parameters(
+                                        headerProtectionKey =
+                                            AwgHeaderProtectionKey("AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="),
+                                    ),
+                            ),
+                    )
+                }
+            for (nested in listOf(false, true)) {
+                val id = repository.save("unsupported wire field", request)
+                val original = requireNotNull(dao.getProfile(id))
+                val secrets = requireNotNull(credentialStore.load(id))
+                val root = RipDpiContractJson.parseToJsonElement(original.requestJson).jsonObject
+                val obfuscation = root.getValue("obfuscation").jsonObject
+                val unknown = mapOf("unknownWireField" to JsonPrimitive(true))
+                val unsupported =
+                    if (nested) {
+                        JsonObject(obfuscation + ("v3" to JsonObject(obfuscation.getValue("v3").jsonObject + unknown)))
+                    } else {
+                        JsonObject(obfuscation + unknown)
+                    }
+                val row = original.copy(requestJson = JsonObject(root + ("obfuscation" to unsupported)).toString())
+                dao.upsertProfile(row)
+
+                assertNull(repository.load(id))
+                assertTrue(repository.observeProfiles().first().isEmpty())
+                assertEquals(row, dao.getProfile(id))
+                assertEquals(secrets, credentialStore.load(id))
+            }
         }
 
     @Test

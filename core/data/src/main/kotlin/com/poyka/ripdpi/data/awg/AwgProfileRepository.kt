@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 import com.poyka.ripdpi.serialization.RipDpiContractJson
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
+import com.poyka.ripdpi.serialization.RipDpiStrictJson
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -20,6 +21,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import java.util.UUID
@@ -342,8 +344,7 @@ class AwgProfileRepository
         }
 
         private fun JsonObject.hasSupportedStoredObfuscation(): Boolean =
-            keys.all { it in StoredObfuscationKeys } &&
-                this["wireProfile"] == JsonPrimitive(AmneziaWgWireProfile.ID) &&
+            this["wireProfile"] == JsonPrimitive(AmneziaWgWireProfile.ID) &&
                 listOf("h1", "h2", "h3", "h4").all { (this[it] as? JsonPrimitive)?.isString == true }
 
         /** Incompatible rows stay intact in Room and the keystore until refresh, reimport, or deletion. */
@@ -354,9 +355,10 @@ class AwgProfileRepository
                 if (obfuscation?.hasSupportedStoredObfuscation() != true) {
                     null
                 } else {
-                    decodeJson.decodeFromString<AwgActivationRequest>(requestJson).also {
-                        it.obfuscation.requireSupportedProfile()
-                    }
+                    RipDpiStrictJson
+                        .decodeFromJsonElement<AwgActivationObfuscation>(obfuscation)
+                        .requireSupportedProfile()
+                    decodeJson.decodeFromString<AwgActivationRequest>(requestJson)
                 }
             } catch (_: SerializationException) {
                 null
@@ -366,27 +368,6 @@ class AwgProfileRepository
 
         companion object {
             private const val SubscriptionOriginKey = "subscriptionOrigin"
-            private val StoredObfuscationKeys =
-                setOf(
-                    "wireProfile",
-                    "jc",
-                    "jmin",
-                    "jmax",
-                    "s1",
-                    "s2",
-                    "s3",
-                    "s4",
-                    "h1",
-                    "h2",
-                    "h3",
-                    "h4",
-                    "i1",
-                    "i2",
-                    "i3",
-                    "i4",
-                    "i5",
-                    "v3",
-                )
 
             /**
              * Mints an opaque, non-secret profile id. A random UUID, NOT derived from the
