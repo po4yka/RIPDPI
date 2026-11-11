@@ -15,6 +15,11 @@ pub const SING_MUX_DESTINATION: &str = "sp.mux.sing-box.arpa:444";
 const SING_MUX_VERSION_0: u8 = 0;
 const SING_MUX_PROTOCOL_YAMUX: u8 = 1;
 
+// Keep the pinned yamux receive budget, including initial credit for closing streams.
+const YAMUX_RECEIVE_WINDOW: usize = 1024 * 1024 * 1024;
+const MAX_SESSION_STREAMS: usize = YAMUX_RECEIVE_WINDOW / yamux::DEFAULT_CREDIT as usize;
+const CLOSING_STREAM_FACTOR: usize = 2;
+
 /// The only VLESS mux subprotocol implemented by the native relay.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VlessMuxProtocol {
@@ -28,6 +33,9 @@ pub enum MuxConfigError {
     /// The selected protocol has no complete native wire implementation.
     #[error("unsupported VLESS mux protocol")]
     UnsupportedProtocol,
+    /// A working or session stream limit exceeds the bounded receive capacity.
+    #[error("mux stream limit {requested} must be between 1 and {max}")]
+    InvalidStreamLimit { requested: usize, max: usize },
     /// The profile sets a legacy throughput/padding knob that the native
     /// yamux carrier does not implement; carrying it would silently change
     /// the requested profile.
@@ -54,6 +62,7 @@ impl VlessMuxProtocol {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VlessMuxConfig {
     pub protocol: VlessMuxProtocol,
+    /// Working streams, excluding the session reserve for closing streams.
     pub max_concurrent_streams: usize,
 }
 
@@ -75,8 +84,34 @@ impl VlessMuxConfig {
         }
         // Zero means the sing-box default of 256 concurrent substreams.
         let max_concurrent_streams = if max_concurrent_streams == 0 { 256 } else { max_concurrent_streams as usize };
-        Ok(Self { protocol: VlessMuxProtocol::parse(protocol)?, max_concurrent_streams })
+        let config = Self { protocol: VlessMuxProtocol::parse(protocol)?, max_concurrent_streams };
+        config.session_stream_limit()?;
+        Ok(config)
     }
+
+    pub(crate) fn session_stream_limit(self) -> Result<usize, MuxConfigError> {
+        // Closing streams remain counted by yamux after their pool lease is released.
+        self.max_concurrent_streams
+            .checked_mul(CLOSING_STREAM_FACTOR)
+            .filter(|&capacity| capacity > 0 && capacity <= MAX_SESSION_STREAMS)
+            .ok_or(MuxConfigError::InvalidStreamLimit {
+                requested: self.max_concurrent_streams,
+                max: MAX_SESSION_STREAMS / CLOSING_STREAM_FACTOR,
+            })
+    }
+}
+
+pub(crate) fn session_config(capacity: usize) -> io::Result<yamux::Config> {
+    if capacity == 0 || capacity > MAX_SESSION_STREAMS {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            MuxConfigError::InvalidStreamLimit { requested: capacity, max: MAX_SESSION_STREAMS },
+        ));
+    }
+    let mut config = yamux::Config::default();
+    config.set_max_connection_receive_window(Some(YAMUX_RECEIVE_WINDOW));
+    config.set_max_num_streams(capacity);
+    Ok(config)
 }
 
 /// Encodes the exact SagerNet sing-mux version-0/yamux session request.
@@ -167,6 +202,62 @@ mod tests {
     fn zero_max_streams_defaults_to_the_sing_box_default() {
         let config = VlessMuxConfig::from_strings("yamux", 0, 0, 0).expect("zero streams must default");
         assert_eq!(config.max_concurrent_streams, 256);
+    }
+
+    #[test]
+    fn oversized_yamux_working_limits_are_rejected() {
+        for limit in [2049, u32::MAX] {
+            assert!(VlessMuxConfig::from_strings("yamux", limit, 0, 0).is_err(), "accepted {limit}");
+        }
+    }
+
+    #[test]
+    fn supported_yamux_limits_reserve_closing_capacity() {
+        for (working, logical, session) in [(0, 256, 512), (1, 1, 2), (2048, 2048, 4096)] {
+            let config = VlessMuxConfig::from_strings("yamux", working, 0, 0).expect("supported working limit");
+            assert_eq!(config.max_concurrent_streams, logical);
+            assert_eq!(config.session_stream_limit().expect("closing reserve"), session);
+            super::session_config(session).expect("real yamux constructor accepts admitted capacity");
+        }
+    }
+
+    #[test]
+    fn direct_yamux_working_limits_cannot_overflow_the_reserve() {
+        for requested in [0, 2049, u32::MAX as usize, usize::MAX] {
+            let config = VlessMuxConfig { protocol: VlessMuxProtocol::Yamux, max_concurrent_streams: requested };
+            assert_eq!(config.session_stream_limit(), Err(MuxConfigError::InvalidStreamLimit { requested, max: 2048 }),);
+        }
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: invalid configuration fails before connection; the test owns its listener.
+    #[tokio::test]
+    async fn invalid_direct_yamux_config_is_rejected_before_connect() {
+        use base64::Engine as _;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("owned listener");
+        let endpoint = listener.local_addr().expect("listener address");
+        let mut config = crate::config::VlessRealityConfig::from_strings(
+            "127.0.0.1",
+            i32::from(endpoint.port()),
+            "550e8400-e29b-41d4-a716-446655440000",
+            "example.test",
+            &base64::engine::general_purpose::STANDARD.encode([0xAB; 32]),
+            "abcd1234",
+            "chrome_stable",
+        )
+        .expect("valid base config");
+        for limit in [0, 2049, u32::MAX as usize, usize::MAX] {
+            config.mux = Some(VlessMuxConfig { protocol: VlessMuxProtocol::Yamux, max_concurrent_streams: limit });
+            let result = tokio::time::timeout(
+                std::time::Duration::from_secs(1),
+                crate::VlessRealityClient::connect_mux_to_guarded(&config, None, endpoint, ()),
+            )
+            .await
+            .expect("configuration rejection must not wait for a peer");
+            let Err(error) = result else { panic!("accepted {limit}") };
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        }
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(20), listener.accept()).await.is_err());
     }
 
     #[test]

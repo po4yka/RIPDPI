@@ -206,14 +206,12 @@ impl VlessRealityClient {
         let mux = config.mux.ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidInput, "VLESS mux session requested without mux config")
         })?;
+        let max_streams =
+            mux.session_stream_limit().map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
         let tcp = trace_io_stage("tcp_connect", connect_tcp_to(config, bind_ip, address)).await?;
         let tls = trace_io_stage("reality_tls", reality::connect_reality_tls(tcp, config)).await?;
         let carrier = Self::vless_handshake_and_wrap(tls, config, mux::SING_MUX_DESTINATION).await?;
-        VlessYamuxSession::establish(
-            Box::new(CarrierGuardedIo { inner: carrier, _guard: guard }),
-            mux.max_concurrent_streams,
-        )
-        .await
+        VlessYamuxSession::establish(Box::new(CarrierGuardedIo { inner: carrier, _guard: guard }), max_streams).await
     }
 
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream`.

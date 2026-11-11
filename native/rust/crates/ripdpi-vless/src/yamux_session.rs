@@ -12,6 +12,8 @@ use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
 
 use crate::AsyncIo;
 
+#[cfg(test)]
+mod limit_tests;
 mod response;
 use response::ResponseStream;
 
@@ -38,9 +40,11 @@ pub struct VlessYamuxSession {
 }
 
 impl VlessYamuxSession {
+    /// # Cancel safety:
+    /// cancel-safe: cancellation during the preamble drops the owned carrier;
+    /// no await occurs between driver spawn and returning its guard.
     pub(crate) async fn establish(carrier: Box<dyn AsyncIo>, max_streams: usize) -> io::Result<Self> {
-        let mut config = yamux::Config::default();
-        config.set_max_num_streams(max_streams);
+        let config = crate::mux::session_config(max_streams)?;
         let mut carrier = carrier.compat();
         carrier.write_all(&crate::mux::encode_session_request()).await?;
         carrier.flush().await?;

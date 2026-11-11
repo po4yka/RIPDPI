@@ -669,6 +669,49 @@ async fn mieru_off_socks_payload_and_stop_with_upstream() {
 }
 
 /// # Cancel safety:
+/// cancel-safe: the timeout drops the owned stream; the fixture owns its carrier tasks.
+#[tokio::test]
+async fn vless_mux_backend_admits_only_safe_working_limits() {
+    let fixture = VlessRealityLoopback::start().await.expect("owned mux fixture");
+    for (limit, accepted) in [(0, true), (1, true), (2048, true), (2049, false), (u32::MAX, false)] {
+        let mut config = sample_config("vless_reality");
+        config.common.server = "127.0.0.1".to_string();
+        config.common.server_port = i32::from(fixture.port());
+        config.common.server_name = fixture.server_name().to_string();
+        let vless = vless_config_mut(&mut config);
+        vless.vless_flow = "none".to_string();
+        vless.reality_public_key = valid_reality_public_key();
+        vless.vless_mux_protocol = "yamux".to_string();
+        vless.vless_mux_max_concurrent_streams = limit;
+        match build_backend(&config).await {
+            Ok(backend) => {
+                assert!(accepted, "accepted invalid working limit {limit}");
+                if limit == 2048 {
+                    tokio::time::timeout(Duration::from_secs(10), async {
+                        let target = RelayTargetAddr::Ip(SocketAddr::new(
+                            IpAddr::V4(Ipv4Addr::LOCALHOST),
+                            fixture.target_port(),
+                        ));
+                        let mut stream = backend.connect_tcp(&target).await.expect("maximum working limit connects");
+                        stream.write_all(b"capacity").await.expect("write at maximum limit");
+                        let mut reply = [0; 8];
+                        stream.read_exact(&mut reply).await.expect("read at maximum limit");
+                        assert_eq!(&reply, b"capacity");
+                    })
+                    .await
+                    .expect("maximum working limit deadline");
+                }
+            }
+            Err(error) => {
+                assert!(!accepted, "rejected working limit {limit}: {error}");
+                assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+            }
+        }
+    }
+    assert_eq!(fixture.accepted_carrier_count(), 1, "only the maximum-limit exchange opens a carrier");
+}
+
+/// # Cancel safety:
 /// cancel-safe: each deadline drops the owned stream; the fixture owns its carrier tasks.
 #[tokio::test]
 async fn vless_reality_mux_keeps_its_carrier_when_the_server_drops_a_refused_substream() {
