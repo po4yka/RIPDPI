@@ -31,3 +31,7 @@ No persistent data migration is needed. Existing profiles retain their stored fi
 ## Cookie source follow-up
 
 Plain WireGuard currently reduces the observed SocketAddr to an IP before cookie admission. Paper section 5.4.7 requires the source IP and UDP port. Route the full CookieSource through the default limiter. Keep the IP-only API as a documented port-zero compatibility wrapper. An established non-UDP carrier uses its local opaque connection identity. Keep AWG admission budgets unchanged. Test wrong-port and wrong-connection proof rejection before a valid source is accepted.
+
+## Immediate UDP send failure follow-up
+
+The initial initiation currently returns its first send error and startup exits before another resolved address is tried. Keep the protected UDP socket and try the remaining unconfirmed candidates within one bounded initiation send. A complete AWG prelude belongs to each attempt. Keep data and WS sends single-attempt, preserve explicit cookie reply targets and return an error when every candidate fails.

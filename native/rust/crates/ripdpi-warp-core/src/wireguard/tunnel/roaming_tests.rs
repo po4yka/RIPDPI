@@ -178,3 +178,75 @@ async fn multiple_unanswered_ipv4_candidates_reach_ipv6_before_startup_deadline(
     let _ = consumer.await;
     result.expect("IPv6 fallback before the eight-second test bound and the 15-second service deadline");
 }
+
+/// # Cancel safety:
+/// NOT cancel-safe: terminal cancellation relies on test-runtime teardown. Normal completion
+/// and timeout abort and join the owned receive task before checking the exchange result.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn initial_udp_send_error_falls_back_before_startup_failure() {
+    let cases = [
+        (WarpAmneziaConfig::default(), Vec::<usize>::new()),
+        (WarpAmneziaConfig { enabled: true, jc: 2, jmin: 64, jmax: 64, ..Default::default() }, vec![64, 64]),
+    ];
+    for (config, expected_prelude) in cases {
+        let (tunnel, primary, mut peer) = tunnel_and_peer_with_config(config).await;
+        let live = UdpSocket::bind("[::1]:0").await.expect("owned IPv6 fallback");
+        let socket = socket2::Socket::new(socket2::Domain::IPV6, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))
+            .expect("IPv6 carrier socket");
+        socket.set_only_v6(false).expect("dual-stack socket");
+        socket.bind(&"[::1]:0".parse::<SocketAddr>().unwrap().into()).expect("loopback-only source");
+        socket.set_nonblocking(true).expect("nonblocking carrier");
+        let socket = UdpSocket::from_std(socket.into()).expect("Tokio carrier");
+        let SocketAddr::V4(primary_address) = primary.local_addr().unwrap() else {
+            panic!("owned IPv4 primary");
+        };
+        let mapped_primary = SocketAddr::new(primary_address.ip().to_ipv6_mapped().into(), primary_address.port());
+        assert!(
+            socket.send_to(b"precondition", mapped_primary).await.is_err(),
+            "an IPv6 loopback-bound socket must refuse the mapped IPv4 destination"
+        );
+        let Ok(mut tunnel) = Arc::try_unwrap(tunnel) else {
+            panic!("unpublished tunnel must have one owner");
+        };
+        tunnel.carrier = WgCarrier::Udp { socket, dual_stack: true };
+        *tunnel.outbound.get_mut() =
+            OutboundState::new(primary.local_addr().unwrap(), vec![live.local_addr().unwrap()]);
+        let tunnel = Arc::new(tunnel);
+        let consumer = super::tests::spawn_consume(&tunnel);
+        let result = tokio::time::timeout(Duration::from_secs(2), async {
+            tunnel.initiate_handshake().await?;
+            let mut input = [0; 2048];
+            let mut output = [0; 2048];
+            let mut prelude = Vec::new();
+            for _ in &expected_prelude {
+                prelude.push(live.recv(&mut input).await?);
+            }
+            let (size, client) = live.recv_from(&mut input).await?;
+            let initiation_size = size;
+            let TunnResult::WriteToNetwork(response) = peer.decapsulate(None, &input[..size], &mut output) else {
+                return Err(io::Error::other("fallback peer did not authenticate the initiation"));
+            };
+            live.send_to(response, client).await?;
+            let size = live.recv(&mut input).await?;
+            if !matches!(peer.decapsulate(None, &input[..size], &mut output), TunnResult::Done) {
+                return Err(io::Error::other("fallback peer did not authenticate confirmation"));
+            }
+            tunnel.send_ip_packet(&UDP_IP, &mut output).await;
+            let size = live.recv(&mut input).await?;
+            let TunnResult::WriteToTunnelV4(packet, _) = peer.decapsulate(None, &input[..size], &mut output) else {
+                return Err(io::Error::other("fallback peer did not decrypt application traffic"));
+            };
+            Ok((prelude, initiation_size, packet.to_vec(), tunnel.is_handshake_established()))
+        })
+        .await;
+        consumer.abort();
+        let _ = consumer.await;
+        let (prelude, initiation_size, payload, established) = result
+            .expect("fallback handshake and traffic must finish within two seconds")
+            .expect("a failed initial UDP send must try the next resolved endpoint");
+        assert_eq!(prelude, expected_prelude, "the fallback receives the complete AWG prelude");
+        assert_eq!(initiation_size, 148);
+        assert!(established);
+        assert_eq!(payload, UDP_IP);
+    }
+}

@@ -32,6 +32,7 @@ The audit baseline is ec4f13320a272b945bf2a0497d02fcea545d73c9. The working sour
 | REQ-TRN-1794383863211672-F8 | TRN-1794384157128350 | Timer tests check one bounded 0–333 ms jitter sample per initiation, retry deadlines and the existing AWG timer policy. | C, V, checked S: passed locally |
 | REQ-TRN-1794383863211672-F9 | TRN-1794384161932447 | Cookie rotation is 120 seconds; boundary tests pass. The mock cookie retry advances the same monotonic clock as its timestamps. Debug tests verify PSK redaction. | C, V, checked S: passed locally |
 | REQ-TRN-1794383863211672-F10 | TRN-1794397765858185 | Default decapsulation now retains the complete CookieSource. Tests-only RED compiled and failed all three intended cases; reviewed fix passed 44 default and 47 mock-instant tests. Original-source proof remains valid after a changed-source challenge. | C, V, checked S: passed; under-load reference E remains open |
+| REQ-TRN-1794383863211672-F11 | TRN-1794406917242467 | Initial UDP send error currently exits before other candidates. Real dual-stack loopback precondition observed errno 49 for IPv4 and exact IPv6 delivery. Native tests-only RED failed with errno 49; the fix passed the plain/AWG regression and all 176 core tests. General and async reviews passed. | C, V: passed; strict Clippy passed |
 
 C means reviewed code. V means an observed local run. S covers only the checked requirements of WireGuard paper revision e2da747; it is not a claim of full conformance. E applies only to a stated independent peer and case. Source review does not raise V or E.
 
@@ -120,3 +121,7 @@ cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4 -
 ```
 
 Observed RED: exit 101, 0 passed / 3 failed / 41 filtered. IPv4 and IPv6 returned type 2 instead of type 3 at the changed port; the connection case returned UnderLoad without a cookie. Observed GREEN: exits 0, 44 / 47 passed, no failed or ignored cases. Root source hashes match the reviewed three-file patch. No Cargo.lock changed.
+
+## Additional finding F11
+
+P2 at SHA `d3f522d0584a5a543d7ff99949c8cf1d96d7f6be`: `wireguard/tunnel.rs:287` selects a candidate but returns its send error; `amneziawg_runtime.rs:594` then stops startup. A reachable second address is never tried after that error. The socket-only fixture uses owned loopback endpoints: a dual-stack socket bound to IPv6 loopback returns errno 49 for mapped IPv4 and succeeds for IPv6. The native tests-only regression compiled and failed with errno 49 (0 passed, 1 failed, 175 filtered). The fix then passed this test for both plain and AWG modes, and all 176 core tests. It tries each unconfirmed UDP candidate at most once, repeats the full AWG prelude, and preserves the protected socket. Data, WSS and explicit replies keep their existing send behavior. General and async cancel-safety reviews passed; strict Clippy passed for all three owning crates and all targets. Receipts are retained in the private f11 evidence directory.

@@ -13,3 +13,4 @@
 - [x] TRN-1794384161932447 Fix verified cookie clock and secret Debug issues #bug !high @item:TRN-1794383863211672
 - [ ] TRN-1794384166548059 Review the combined changes and run required integration gates #bug !high @item:TRN-1794383863211672
 - [x] TRN-1794397765858185 Bind plain WireGuard cookies to full source endpoints and verify port isolation #bug !high @item:TRN-1794383863211672
+- [x] TRN-1794406917242467 Retry unconfirmed UDP endpoint candidates after an immediate handshake send error #bug !high @item:TRN-1794383863211672

@@ -276,22 +276,37 @@ impl WireGuardTunnel {
     /// # Cancel safety:
     /// NOT cancel-safe: cancellation can stop a prelude after junk or leave a WS frame buffered.
     /// An initiation can advance the unconfirmed endpoint before carrier I/O.
+    /// UDP send errors can advance it again and restart the whole prelude.
     /// The carrier finishes buffered frames on the next send; shutdown drops the carrier.
     async fn send_outbound_packet(&self, packet: &[u8], reply_to: Option<SocketAddr>) -> io::Result<()> {
         let mut outbound = self.outbound.lock().await;
-        let destination = reply_to.unwrap_or_else(|| outbound.destination(wireguard_message_type(packet) == Some(1)));
+        let initiation = wireguard_message_type(packet) == Some(1);
+        let mut remaining = if initiation && reply_to.is_none() && matches!(&self.carrier, WgCarrier::Udp { .. }) {
+            outbound.endpoints.len()
+        } else {
+            1
+        };
+        let mut destination = reply_to.unwrap_or_else(|| outbound.destination(initiation));
         let payload = self
             .encode_outbound_packet(packet)
             .ok_or_else(|| io::Error::other("AmneziaWG packet authentication failed"))?;
-        if wireguard_message_type(packet) == Some(1)
-            && let Some(codec) = &self.amnezia
-        {
-            for junk in codec.params().handshake_prelude(&mut rand_u32) {
-                self.carrier.send_to(&junk, destination).await?;
+        loop {
+            let result: io::Result<()> = async {
+                if initiation && let Some(codec) = &self.amnezia {
+                    for junk in codec.params().handshake_prelude(&mut rand_u32) {
+                        self.carrier.send_to(&junk, destination).await?;
+                    }
+                }
+                self.carrier.send_to(&payload, destination).await?;
+                Ok(())
             }
+            .await;
+            remaining -= 1;
+            if result.is_ok() || remaining == 0 {
+                return result;
+            }
+            destination = outbound.destination(true);
         }
-        self.carrier.send_to(&payload, destination).await?;
-        Ok(())
     }
 
     /// Start a WireGuard handshake explicitly after the receive task is live.

@@ -31,3 +31,7 @@ Affected modules are app, core:data, core:engine-api, core:engine, core:service,
 ## Cookie source follow-up
 
 The final review found that plain cookie admission drops the observed UDP port. Repair this mandatory WireGuard source-binding contract in the same change. Keep legacy IP-only callers explicit and preserve AWG admission behavior.
+
+## Initial send error follow-up
+
+Finish the existing endpoint fallback contract when the first UDP send fails immediately. This uses the already resolved candidate set and the same protected socket; it adds no parallel probe or new endpoint source.

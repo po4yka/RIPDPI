@@ -37,3 +37,5 @@ Repair the eight TUN-01 findings at source SHA ec4f13320a272b945bf2a0497d02fcea5
 - Every writer uses a separate worktree. Review agents are read-only.
 
 - Cookie endpoint follow-up (F10): crypto worker owns only vendored rate_limiter.rs, mod.rs, related tests and README in a separate tun01-cookie-endpoint worktree. The integration owner keeps ROOT immutable while its current checks run. No new dependency or public legacy API removal is allowed.
+
+- Immediate-send follow-up (F11): endpoint worker owns only warp-core wireguard/tunnel.rs and tunnel/roaming_tests.rs in an isolated tun01-send-fallback worktree. ROOT source stays immutable during the current validation. Only unconfirmed UDP initiations may try another candidate; data, cookie replies, WS framing and protected-socket ownership keep their contracts.

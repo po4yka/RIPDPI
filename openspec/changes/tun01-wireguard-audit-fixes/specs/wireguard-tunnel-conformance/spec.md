@@ -89,3 +89,12 @@ Plain WireGuard cookie admission SHALL bind the proof to the actual UDP source I
 
 - **WHEN** a cookie is issued for source endpoint A and an otherwise valid handshake presents its proof from endpoint B with the same IP but another port
 - **THEN** the limiter requests a fresh cookie before Noise processing; the original proof from A remains valid
+
+### Requirement: REQ-TRN-1794383863211672-F11 — Continue UDP startup after a candidate send error
+
+An unconfirmed UDP initiation SHALL try remaining resolved candidates when a candidate send fails. Each attempt SHALL carry the complete configured initiation prelude. The attempt count SHALL be bounded by the candidate set. Data packets, explicit cookie replies and WS frames SHALL NOT gain this retry behavior. All-candidate failure SHALL remain an error.
+
+#### Scenario: The first address family cannot send
+
+- **WHEN** a real UDP socket cannot send the initial handshake to the first candidate but another candidate is reachable
+- **THEN** startup completes an authenticated handshake through the reachable candidate without waiting for the failed startup to restart
