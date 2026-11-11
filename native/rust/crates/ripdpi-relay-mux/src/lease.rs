@@ -44,12 +44,12 @@ where
         if state.active_leases > 0 {
             state.active_leases -= 1;
         }
-        if self.reusable {
-            let no_active_leases = state.active_leases == 0;
-            if let (Some(session), Some(cached)) = (&self.session, state.cached_session.as_mut())
-                && Arc::ptr_eq(session, &cached.session)
-                && no_active_leases
-            {
+        if self.reusable
+            && let (Some(session), Some(cached)) = (&self.session, state.cached_session.as_mut())
+            && Arc::ptr_eq(session, &cached.session)
+        {
+            cached.active_leases = cached.active_leases.saturating_sub(1);
+            if cached.active_leases == 0 {
                 cached.idle_since = Instant::now();
             }
         }

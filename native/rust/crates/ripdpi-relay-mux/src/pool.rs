@@ -75,7 +75,8 @@ where
         prune_expired_session(&mut state, self.inner.config.idle_timeout);
         RelayPoolHealth {
             idle_streams: usize::from(
-                self.inner.capabilities.reusable && state.active_leases == 0 && state.cached_session.is_some(),
+                self.inner.capabilities.reusable
+                    && state.cached_session.as_ref().is_some_and(|cached| cached.active_leases == 0),
             ),
             busy_streams: state.active_leases,
             evictions: state.evictions,
@@ -86,9 +87,9 @@ where
 
     /// Opens a stream to `target` on the cached carrier, or on a new one.
     ///
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
-    /// Cancel-safe: the lease and permit are released on drop. Dropping the
+    /// cancel-safe: the lease and permit are released on drop. Dropping the
     /// future while the carrier open is in flight evicts that carrier from the
     /// cache, because a black-holed carrier never returns an error.
     pub async fn open_stream(
@@ -96,10 +97,7 @@ where
         target: &str,
     ) -> Result<MuxStream<<F::Session as RelaySession>::Stream, F::Session>, F::Error> {
         let permit = self.acquire_permit(&self.inner.permits).await;
-        let (session, from_cache) = self.session_for_open().await?;
-        self.mark_lease_started();
-        let guard =
-            LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
+        let (session, from_cache, guard) = self.session_for_open(permit).await?;
 
         let evict = EvictOnCancel::new(self, &session);
         let opened = session.open_stream(target).await;
@@ -122,17 +120,10 @@ where
                 // stays the surfaced cause if the retry path cannot even set
                 // up.
                 drop(guard);
-                let Ok((fresh, _)) = self.session_for_open().await else {
+                let retry_permit = self.acquire_permit(&self.inner.permits).await;
+                let Ok((fresh, _, retry_guard)) = self.session_for_open(retry_permit).await else {
                     return Err(error);
                 };
-                let retry_permit = self.acquire_permit(&self.inner.permits).await;
-                self.mark_lease_started();
-                let retry_guard = LeaseGuard::new(
-                    self.inner.state.clone(),
-                    Arc::clone(&fresh),
-                    self.inner.capabilities.reusable,
-                    retry_permit,
-                );
                 let evict = EvictOnCancel::new(self, &fresh);
                 let opened = fresh.open_stream(target).await;
                 evict.disarm();
@@ -151,17 +142,14 @@ where
 
     /// Opens a datagram lease on the cached carrier, or on a new one.
     ///
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
-    /// Cancel-safe, with the same carrier eviction as [`Self::open_stream`].
+    /// cancel-safe: with the same carrier eviction as [`Self::open_stream`].
     pub async fn open_datagram(
         &self,
     ) -> Result<MuxLease<<F::Session as RelaySession>::Datagram, F::Session>, F::Error> {
         let permit = self.acquire_permit(self.datagram_permits()).await;
-        let (session, from_cache) = self.session_for_open().await?;
-        self.mark_lease_started();
-        let guard =
-            LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), self.inner.capabilities.reusable, permit);
+        let (session, from_cache, guard) = self.session_for_open(permit).await?;
 
         let evict = EvictOnCancel::new(self, &session);
         let opened = session.open_datagram().await;
@@ -179,17 +167,10 @@ where
                 }
                 // Mirror open_stream's single stale-carrier retry.
                 drop(guard);
-                let Ok((fresh, _)) = self.session_for_open().await else {
+                let retry_permit = self.acquire_permit(self.datagram_permits()).await;
+                let Ok((fresh, _, retry_guard)) = self.session_for_open(retry_permit).await else {
                     return Err(error);
                 };
-                let retry_permit = self.acquire_permit(self.datagram_permits()).await;
-                self.mark_lease_started();
-                let retry_guard = LeaseGuard::new(
-                    self.inner.state.clone(),
-                    Arc::clone(&fresh),
-                    self.inner.capabilities.reusable,
-                    retry_permit,
-                );
                 let evict = EvictOnCancel::new(self, &fresh);
                 let opened = fresh.open_datagram().await;
                 evict.disarm();
@@ -210,6 +191,9 @@ where
         self.inner.datagram_permits.as_ref().unwrap_or(&self.inner.permits)
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: cancellation loses the FIFO queue position and releases
+    /// any admission permit acquired by this future.
     async fn acquire_permit(&self, permits: &Arc<Semaphore>) -> OwnedSemaphorePermit {
         if let Ok(permit) = permits.clone().try_acquire_owned() {
             return permit;
@@ -220,50 +204,54 @@ where
         permits.clone().acquire_owned().await.expect("relay mux semaphore unexpectedly closed")
     }
 
-    /// Returns the session to open a lease on plus whether it came from the
-    /// reuse cache (`true` means the carrier may be stale — the caller gets
-    /// one fresh-carrier retry on a failed open).
-    async fn session_for_open(&self) -> Result<(Arc<F::Session>, bool), F::Error> {
+    /// Selects a session and reserves its lease before releasing the cache lock.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: the pool releases its permit and creation gate on drop;
+    /// the factory must cancel or retain construction work.
+    async fn session_for_open(
+        &self,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<(Arc<F::Session>, bool, LeaseGuard<F::Session>), F::Error> {
         if !self.inner.capabilities.reusable {
-            // Infallible: the dial semaphore is never closed.
             let _dial = self.inner.dials.acquire().await.expect("relay mux dial semaphore unexpectedly closed");
-            return Ok((self.inner.factory.create_session().await?, false));
+            let session = self.inner.factory.create_session().await?;
+            self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).active_leases += 1;
+            let guard = LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), false, permit);
+            return Ok((session, false, guard));
         }
 
-        if let Some(session) = self.cached_session() {
-            return Ok((session, true));
+        if let Some(session) = self.reserve_cached_session() {
+            let guard = LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), true, permit);
+            return Ok((session, true, guard));
         }
 
-        // The guard is intentionally held across factory creation: it is the
-        // singleflight owner. Tokio's guard is drop-safe, so cancellation of
-        // the owner releases the gate and lets the next waiter retry.
+        // Cancellation releases the singleflight gate and the admission permit.
         let _creation_guard = self.inner.session_creation.lock().await;
-        if let Some(session) = self.cached_session() {
-            return Ok((session, true));
+        if let Some(session) = self.reserve_cached_session() {
+            let guard = LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), true, permit);
+            return Ok((session, true, guard));
         }
         let created = self.inner.factory.create_session().await?;
-        // Recover poison: lease accounting is advisory.
         let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         prune_expired_session(&mut state, self.inner.config.idle_timeout);
-        if let Some(session) = state.cached_session.as_ref().map(|cached| Arc::clone(&cached.session)) {
-            return Ok((session, true));
-        }
-        state.cached_session = Some(CachedSession::new(Arc::clone(&created)));
-        Ok((created, false))
-    }
-
-    fn cached_session(&self) -> Option<Arc<F::Session>> {
-        // Recover poison: lease accounting is advisory.
-        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        prune_expired_session(&mut state, self.inner.config.idle_timeout);
-        state.cached_session.as_ref().map(|cached| Arc::clone(&cached.session))
-    }
-
-    fn mark_lease_started(&self) {
-        // Recover poison: lease accounting is advisory.
-        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        prune_expired_session(&mut state, self.inner.config.idle_timeout);
+        let from_cache = state.cached_session.is_some();
+        let cached = state.cached_session.get_or_insert_with(|| CachedSession::new(created));
+        let session = Arc::clone(&cached.session);
+        cached.active_leases += 1;
         state.active_leases += 1;
+        let guard = LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), true, permit);
+        Ok((session, from_cache, guard))
+    }
+
+    fn reserve_cached_session(&self) -> Option<Arc<F::Session>> {
+        let mut state = self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        prune_expired_session(&mut state, self.inner.config.idle_timeout);
+        let cached = state.cached_session.as_mut()?;
+        let session = Arc::clone(&cached.session);
+        cached.active_leases += 1;
+        state.active_leases += 1;
+        Some(session)
     }
 
     fn invalidate_failed_open(&self, session: Option<&Arc<F::Session>>) {

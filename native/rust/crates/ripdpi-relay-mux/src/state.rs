@@ -28,6 +28,7 @@ where
 {
     pub(crate) session: Arc<S>,
     pub(crate) idle_since: Instant,
+    pub(crate) active_leases: usize,
 }
 
 impl<S> CachedSession<S>
@@ -35,6 +36,6 @@ where
     S: RelaySession,
 {
     pub(crate) fn new(session: Arc<S>) -> Self {
-        Self { session, idle_since: Instant::now() }
+        Self { session, idle_since: Instant::now(), active_leases: 0 }
     }
 }

@@ -1,3 +1,5 @@
+mod generations;
+
 use std::convert::Infallible;
 use std::future::Future;
 use std::sync::Arc;
@@ -398,11 +400,11 @@ async fn stale_cached_carrier_failure_is_retried_once_on_a_fresh_session() {
     assert_eq!(2, creations.load(Ordering::SeqCst), "exactly one fresh-carrier retry must happen");
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: the test owns both pending opens and cancels them before returning.
 #[tokio::test(flavor = "current_thread")]
-async fn cancelling_retry_waiting_for_permit_keeps_lease_count_correct() {
+async fn cancelling_retry_waiting_for_creation_keeps_lease_count_correct() {
     let creations = Arc::new(AtomicUsize::new(0));
     let fresh_entered = Arc::new(Notify::new());
     let release_fresh = Arc::new(Notify::new());
@@ -424,8 +426,8 @@ async fn cancelling_retry_waiting_for_permit_keeps_lease_count_correct() {
     fresh_entered.notified().await;
     assert_eq!(0, mux.health().busy_streams, "failed cached open released its lease");
 
-    // Poll once while fresh creation holds the gate: this caller owns the only
-    // permit but cannot take a lease until the retry publishes the fresh carrier.
+    // The retry owns the admission permit while creating its replacement.
+    // Another open must wait until cancellation returns that permit.
     let competing_mux = mux.clone();
     let mut competing = Box::pin(competing_mux.open_stream("competing.example:443"));
     std::future::poll_fn(|cx| {
@@ -434,8 +436,7 @@ async fn cancelling_retry_waiting_for_permit_keeps_lease_count_correct() {
     })
     .await;
 
-    release_fresh.notify_one();
-    assert!(timeout(Duration::from_millis(20), &mut retry).await.is_err(), "retry must wait for the permit");
+    assert!(timeout(Duration::from_millis(20), &mut retry).await.is_err(), "retry must wait for creation");
     retry.abort();
     match retry.await {
         Err(error) => assert!(error.is_cancelled()),

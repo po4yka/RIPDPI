@@ -11,7 +11,7 @@ where
     // A closed carrier is dropped at once, even while leases are active: those
     // leases keep their own `Arc`, and new opens must not reuse it.
     let should_evict = state.cached_session.as_ref().is_some_and(|cached| {
-        cached.session.is_closed() || (state.active_leases == 0 && cached.idle_since.elapsed() >= idle_timeout)
+        cached.session.is_closed() || (cached.active_leases == 0 && cached.idle_since.elapsed() >= idle_timeout)
     });
     if should_evict {
         state.cached_session = None;
