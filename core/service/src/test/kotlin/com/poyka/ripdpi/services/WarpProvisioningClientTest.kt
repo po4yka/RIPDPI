@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -72,6 +73,137 @@ class WarpProvisioningClientTest {
             assertEquals("GET", request?.method)
             assertEquals("$WarpRegistrationBaseUrl/device-123", request?.url)
             assertEquals("Bearer $accessValue", request?.headers?.get(WarpAuthHeader))
+        }
+
+    @Test
+    fun `refresh without a new token retains saved credentials`() =
+        runTest {
+            // The provider GET contract has a configuration but need not issue a new token.
+            val response = sampleRegistrationResponse().replace("\"token\": \"sample-access-value\",", "")
+            val saved =
+                com.poyka.ripdpi.data.WarpCredentials(
+                    deviceId = "device-123",
+                    accessToken = fixtureAccessValue("saved"),
+                    privateKey = "saved-private-key",
+                    publicKey = "saved-public-key",
+                )
+            val client = DefaultWarpProvisioningClient(RecordingProvisioningBindings(responseBody = response), json)
+
+            val refreshed = client.refresh(saved)
+
+            assertEquals(saved.accessToken, refreshed.credentials.accessToken)
+            assertEquals(saved.privateKey, refreshed.credentials.privateKey)
+            assertEquals(saved.publicKey, refreshed.credentials.publicKey)
+            assertEquals("162.159.192.1", refreshed.endpoint.ipv4)
+        }
+
+    @Test
+    fun `refresh accepts a rotated response token`() =
+        runTest {
+            val saved =
+                com.poyka.ripdpi.data.WarpCredentials(
+                    deviceId = "device-123",
+                    accessToken = fixtureAccessValue("saved"),
+                )
+            val client =
+                DefaultWarpProvisioningClient(
+                    RecordingProvisioningBindings(responseBody = sampleRegistrationResponse()),
+                    json,
+                )
+
+            assertEquals("sample-access-value", client.refresh(saved).credentials.accessToken)
+        }
+
+    @Test
+    fun `registration rejects missing and blank response tokens`() =
+        runTest {
+            val responses =
+                listOf(
+                    sampleRegistrationResponse().replace("\"token\": \"sample-access-value\",", ""),
+                    sampleRegistrationResponse().replace("sample-access-value", " "),
+                )
+            responses.forEach { response ->
+                val client = DefaultWarpProvisioningClient(RecordingProvisioningBindings(responseBody = response), json)
+
+                val error =
+                    runCatching {
+                        client.register(
+                            WarpRegisterDeviceRequest(publicKey = "public-key"),
+                        )
+                    }.exceptionOrNull()
+
+                assertTrue(error is WarpProvisioningException.MalformedResponse)
+            }
+        }
+
+    @Test
+    fun `http errors do not expose provider bodies`() =
+        runTest {
+            val privateValue = fixtureAccessValue("private-error-body")
+            val client =
+                DefaultWarpProvisioningClient(
+                    RecordingProvisioningBindings(statusCode = 403, responseBody = """{"token":"$privateValue"}"""),
+                    json,
+                )
+
+            val error =
+                runCatching { client.register(WarpRegisterDeviceRequest(publicKey = "public-key")) }.exceptionOrNull()
+
+            assertTrue(error is WarpProvisioningException.AuthFailure)
+            assertTrue(error?.message.orEmpty().contains("HTTP 403"))
+            assertFalse(error?.stackTraceToString().orEmpty().contains(privateValue))
+        }
+
+    @Test
+    fun `bridge errors do not expose native response details`() =
+        runTest {
+            val privateValue = fixtureAccessValue("private-bridge-error")
+            val client =
+                DefaultWarpProvisioningClient(
+                    RecordingProvisioningBindings(responseBody = "", error = privateValue),
+                    json,
+                )
+
+            val error =
+                runCatching { client.register(WarpRegisterDeviceRequest(publicKey = "public-key")) }.exceptionOrNull()
+
+            assertNotNull(error)
+            assertFalse(error?.stackTraceToString().orEmpty().contains(privateValue))
+        }
+
+    @Test
+    fun `malformed provider data does not expose payload through exception causes`() =
+        runTest {
+            val privateValue = fixtureAccessValue("private-malformed-body")
+            val client =
+                DefaultWarpProvisioningClient(
+                    RecordingProvisioningBindings(responseBody = """{"token":"$privateValue","id":[]} invalid"""),
+                    json,
+                )
+
+            val error =
+                runCatching { client.register(WarpRegisterDeviceRequest(publicKey = "public-key")) }.exceptionOrNull()
+
+            assertTrue(error is WarpProvisioningException.MalformedResponse)
+            assertFalse(error?.stackTraceToString().orEmpty().contains(privateValue))
+        }
+
+    @Test
+    fun `malformed bridge data does not expose payload through exception causes`() =
+        runTest {
+            val privateValue = fixtureAccessValue("private-malformed-bridge")
+            val bindings =
+                object : RipDpiWarpProvisioningBindings {
+                    override fun executeProvisioning(requestJson: String): String =
+                        """{"body":"$privateValue","statusCode":[]} invalid"""
+                }
+            val client = DefaultWarpProvisioningClient(bindings, json)
+
+            val error =
+                runCatching { client.register(WarpRegisterDeviceRequest(publicKey = "public-key")) }.exceptionOrNull()
+
+            assertNotNull(error)
+            assertFalse(error?.stackTraceToString().orEmpty().contains(privateValue))
         }
 
     @Test

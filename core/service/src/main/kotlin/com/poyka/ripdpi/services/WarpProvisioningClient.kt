@@ -83,10 +83,6 @@ class DefaultWarpProvisioningClient
         private val nativeBindings: RipDpiWarpProvisioningBindings,
         private val json: Json,
     ) : WarpProvisioningClient {
-        private companion object {
-            private const val ErrorBodyMaxLength = 256
-        }
-
         override suspend fun register(
             request: WarpRegisterDeviceRequest,
             bootstrapProxy: Proxy?,
@@ -139,6 +135,7 @@ class DefaultWarpProvisioningClient
                     privateKey = credentials.privateKey,
                     publicKey = credentials.publicKey.orEmpty(),
                     endpointSource = "refresh",
+                    retainedAccessToken = token,
                 )
             }
 
@@ -147,6 +144,7 @@ class DefaultWarpProvisioningClient
             privateKey: String?,
             publicKey: String,
             endpointSource: String,
+            retainedAccessToken: String? = null,
         ): WarpProvisioningResult {
             val payload =
                 nativeBindings.executeProvisioning(json.encodeToString(request))
@@ -154,25 +152,16 @@ class DefaultWarpProvisioningClient
             val response =
                 try {
                     json.decodeFromString(NativeWarpProvisioningHttpResponse.serializer(), payload)
-                } catch (error: Exception) {
-                    throw IOException("WARP provisioning bridge returned malformed response", error)
+                } catch (_: Exception) {
+                    throw IOException("WARP provisioning bridge returned malformed response")
                 }
-            response.error?.takeIf(String::isNotBlank)?.let { message ->
-                throw IOException(message)
+            if (!response.error.isNullOrBlank()) {
+                throw IOException("WARP provisioning transport failed")
             }
             val statusCode = response.statusCode ?: throw IOException("WARP provisioning bridge missing status code")
             val responseBody = response.body.orEmpty()
             if (statusCode !in 200..299) {
-                val suffix = responseBody.take(ErrorBodyMaxLength).trim()
-                val message =
-                    buildString {
-                        append("WARP provisioning failed with HTTP ")
-                        append(statusCode)
-                        if (suffix.isNotEmpty()) {
-                            append(": ")
-                            append(suffix)
-                        }
-                    }
+                val message = "WARP provisioning failed with HTTP $statusCode"
                 if (statusCode == 401 || statusCode == 403) {
                     throw WarpProvisioningException.AuthFailure(message)
                 }
@@ -180,13 +169,25 @@ class DefaultWarpProvisioningClient
             }
             val parsed =
                 try {
-                    json.decodeFromString(CloudflareWarpRegistrationResponse.serializer(), responseBody)
-                } catch (error: Exception) {
+                    if (retainedAccessToken == null) {
+                        json.decodeFromString(CloudflareWarpRegistrationResponse.serializer(), responseBody)
+                    } else {
+                        val refreshed = json.decodeFromString(CloudflareWarpRefreshResponse.serializer(), responseBody)
+                        CloudflareWarpRegistrationResponse(
+                            id = refreshed.id,
+                            token = refreshed.token?.takeIf(String::isNotBlank) ?: retainedAccessToken,
+                            account = refreshed.account,
+                            config = refreshed.config,
+                        )
+                    }
+                } catch (_: Exception) {
                     throw WarpProvisioningException.MalformedResponse(
                         "WARP provisioning returned malformed registration data",
-                        error,
                     )
                 }
+            if (parsed.id.isBlank() || parsed.token.isBlank()) {
+                throw WarpProvisioningException.MalformedResponse("WARP provisioning returned incomplete identity")
+            }
             return parsed.toProvisioningResult(
                 privateKey = privateKey,
                 publicKey = publicKey,
@@ -263,7 +264,7 @@ private fun parseEndpoint(
             else -> trimmedHost.lastIndexOf(':')
         }
     if (separatorIndex < 0) {
-        throw WarpProvisioningException.MalformedResponse("Invalid WARP endpoint host: $host")
+        throw WarpProvisioningException.MalformedResponse("Invalid WARP endpoint host")
     }
     val endpointHost =
         if (trimmedHost.startsWith("[") && separatorIndex > 0) {
@@ -275,7 +276,7 @@ private fun parseEndpoint(
         trimmedHost
             .substring(separatorIndex + if (trimmedHost.startsWith("[") && trimmedHost.contains("]:")) 2 else 1)
             .toIntOrNull()
-            ?: throw WarpProvisioningException.MalformedResponse("Invalid WARP endpoint port in $host")
+            ?: throw WarpProvisioningException.MalformedResponse("Invalid WARP endpoint port")
     return WarpEndpointCacheEntry(
         networkScopeKey = "",
         host = endpointHost,
@@ -342,6 +343,14 @@ private data class CloudflareWarpRegisterRequest(
 private data class CloudflareWarpRegistrationResponse(
     val id: String,
     val token: String,
+    val account: CloudflareWarpAccount,
+    val config: CloudflareWarpConfig,
+)
+
+@Serializable
+private data class CloudflareWarpRefreshResponse(
+    val id: String,
+    val token: String? = null,
     val account: CloudflareWarpAccount,
     val config: CloudflareWarpConfig,
 )
