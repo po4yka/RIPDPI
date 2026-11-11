@@ -2,7 +2,7 @@
 id: TRN-1794371406782186
 title: Fix Vision stream audit findings
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Transport maintainers

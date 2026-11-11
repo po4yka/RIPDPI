@@ -12,7 +12,7 @@ The report tests the native Vision stream against Xray commit 12ee51e4bb1d02ece4
 - Parse bounded TLS handshake and extension lengths; use safe slices and a TLS 1.3 cipher allowlist.
 - Detect mismatching UUID prefixes early. A partial matching UUID at EOF remains unpadded fallback; a full matching UUID commits to frame parsing.
 - EOF after a complete Continue chunk is valid. EOF within a recognized frame is an error.
-- Review unknown-command handling against valid wire behavior before tightening it.
+- Retain the upstream-compatible unknown-command fallback to End; test its byte preservation. No stricter command rejection is needed.
 - Keep spec and runner compatibility pins explicit; do not re-pin as a side effect.
 
 ## Contracts and ownership

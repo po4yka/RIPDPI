@@ -44,3 +44,8 @@ The stream MUST apply an explicit command policy and keep valid half-close and c
 
 - **WHEN** one direction has entered Direct and the other direction closes
 - **THEN** the peer receives valid framing and any pending payload, and the remaining direction can finish.
+
+#### Scenario: Empty destination buffer
+
+- **WHEN** a caller supplies a zero-capacity read buffer
+- **THEN** the stream returns immediate success without consuming input or waking the task.
