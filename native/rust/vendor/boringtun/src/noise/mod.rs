@@ -686,6 +686,8 @@ impl Tunn {
                 self.timer_tick(TimerName::TimeLastPacketSent);
                 if let Some(awg) = &mut self.awg_timers {
                     awg.initiated(self.timers[TimerName::TimeCurrent]);
+                } else {
+                    self.timers.retry_jitter = awg::jitter();
                 }
                 TunnResult::WriteToNetwork(packet)
             }
@@ -1008,7 +1010,7 @@ mod tests {
         let packet = Tunn::parse_incoming_packet(&init).unwrap();
         assert!(matches!(packet, Packet::HandshakeInit(_)));
 
-        mock_instant::MockClock::advance(REKEY_TIMEOUT);
+        mock_instant::MockClock::advance(REKEY_TIMEOUT + Duration::from_millis(334));
         update_timer_results_in_handshake(&mut my_tun)
     }
 

@@ -67,6 +67,29 @@ mod awg_tests {
     }
 
     #[test]
+    #[cfg(feature = "mock-instant")]
+    fn ordinary_retry_waits_for_the_sampled_jitter_deadline() {
+        let mut tunnel = peer();
+        let mut output = [0; 256];
+        assert!(matches!(
+            tunnel.format_handshake_initiation(&mut output, false),
+            TunnResult::WriteToNetwork(_)
+        ));
+        tunnel.timers.retry_jitter = Duration::from_millis(333);
+        mock_instant::MockClock::advance(Duration::from_millis(5332));
+        assert!(matches!(
+            tunnel.update_timers(&mut output),
+            TunnResult::Done
+        ));
+        mock_instant::MockClock::advance(Duration::from_millis(1));
+        assert!(matches!(
+            tunnel.update_timers(&mut output),
+            TunnResult::WriteToNetwork(_)
+        ));
+        assert!(tunnel.timers.retry_jitter <= Duration::from_millis(333));
+    }
+
+    #[test]
     fn configured_one_second_retry_is_not_overridden_by_the_five_second_default() {
         let mut tunnel = peer();
         tunnel
@@ -80,7 +103,7 @@ mod awg_tests {
             tunnel.format_handshake_initiation(&mut packet, false),
             TunnResult::WriteToNetwork(_)
         ));
-        // One second plus the maximum 332 ms of jitter has elapsed, without a real sleep.
+        // One second plus the maximum 333 ms of jitter has elapsed, without a real sleep.
         assert!(matches!(
             tunnel.update_timers_at(Duration::from_secs(2), &mut packet),
             TunnResult::WriteToNetwork(_)
@@ -646,6 +669,7 @@ pub struct Timers {
     /// Did we send data without hearing back?
     want_handshake: bool,
     persistent_keepalive: usize,
+    pub(super) retry_jitter: Duration,
     /// Should this timer call reset rr function (if not a shared rr instance)
     pub(super) should_reset_rr: bool,
 }
@@ -660,6 +684,7 @@ impl Timers {
             want_keepalive: Default::default(),
             want_handshake: Default::default(),
             persistent_keepalive: usize::from(persistent_keepalive.unwrap_or(0)),
+            retry_jitter: Duration::ZERO,
             should_reset_rr: reset_rr,
         }
     }
@@ -839,7 +864,7 @@ impl Tunn {
                     return TunnResult::Err(WireGuardError::ConnectionExpired);
                 }
 
-                if time_init_sent.elapsed() >= REKEY_TIMEOUT {
+                if time_init_sent.elapsed() >= REKEY_TIMEOUT + self.timers.retry_jitter {
                     // We avoid using `time` here, because it can be earlier than `time_init_sent`.
                     // Once `checked_duration_since` is stable we can use that.
                     // A handshake initiation is retried after REKEY_TIMEOUT + jitter ms,

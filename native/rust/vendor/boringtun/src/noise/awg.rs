@@ -246,8 +246,8 @@ fn due(deadline: Option<Duration>, now: Duration) -> bool {
     deadline.is_some_and(|deadline| now >= deadline)
 }
 
-fn jitter() -> Duration {
-    Duration::from_millis(u64::from(TimerRange { low: 0, high: 332 }.sample()))
+pub(super) fn jitter() -> Duration {
+    Duration::from_millis(u64::from(TimerRange { low: 0, high: 333 }.sample()))
 }
 
 #[cfg(test)]
