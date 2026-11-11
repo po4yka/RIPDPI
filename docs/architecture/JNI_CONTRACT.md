@@ -77,7 +77,15 @@ class holds the raw `external fun`s; a sibling wrapper class
 | `RipDpiRelayNativeBindings` (`.../core/RipDpiRelay.kt`) | `Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_*` | `ripdpi-relay-android` · `src/lib.rs` (+ `lifecycle.rs`, `registry.rs`, `runtime.rs`, `telemetry.rs`) | `libripdpi-relay.so` |
 | `RipDpiSshHostKeyNativeBindings` (`.../core/RipDpiSshHostKeyProbe.kt`) | `Java_com_poyka_ripdpi_core_RipDpiSshHostKeyNativeBindings_*` | `ripdpi-relay-android` · `src/ssh_probe.rs` | `libripdpi-relay.so` |
 | `RipDpiWarpNativeBindings` (`.../core/RipDpiWarp.kt`) | `Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_*` | `ripdpi-warp-android` · `src/lib.rs` (+ `lifecycle.rs`, `provisioning.rs`, `endpoint_probe.rs`, `telemetry.rs`, `vpn_protect.rs`) | `libripdpi-warp.so` |
+| `RipDpiWarpKeyPairNativeBindings` (`.../core/RipDpiWarpKeyPair.kt`) | `Java_com_poyka_ripdpi_core_RipDpiWarpKeyPairNativeBindings_jniGenerateKeyPair` | `ripdpi-warp-android` · `src/keypair.rs` | `libripdpi-warp.so` |
 | `RipDpiAmneziaWgNativeBindings` (`.../core/RipDpiAmneziaWg.kt`) | `Java_com_poyka_ripdpi_core_RipDpiAmneziaWgNativeBindings_*` | `ripdpi-amneziawg-android` · `src/lib.rs` | `libripdpi-amneziawg.so` |
+
+`RipDpiWarpKeyPairNativeBindings.jniGenerateKeyPair(): String?` is a private
+instance method. It generates a local WireGuard keypair from OS entropy without
+HTTP, a session handle, or a VPN callback. The JSON result contains `privateKey`
+and `publicKey`, each a Base64-encoded 32-byte value. The private scalar uses
+WireGuard clamping. Failure returns null; debug output excludes both keys.
+The caller must treat the JSON as secret material.
 
 **Layering inside `libripdpi.so`:** the `ripdpi-android` crate is an
 **export facade only**. `src/ffi.rs` defines the `export_jni!` macro;

@@ -425,4 +425,19 @@
     <string name="xray_skip_unsupported_protocol_safe">Этот протокол не поддерживается нативно.</string>
     <string name="xray_skip_unsupported_transport_safe">Этот транспорт не поддерживается нативно.</string>
     <string name="xray_skip_unsupported_fingerprint_safe">Этот TLS-отпечаток не поддерживается нативно.</string>
+    <string name="warp_profile_default_name">WARP</string>
+    <string name="warp_create_profile">Создать профиль WARP</string>
+    <string name="warp_import_profile">Импортировать профиль Zero Trust</string>
+    <string name="warp_registration_title">Регистрация в Cloudflare</string>
+    <string name="warp_register_action">Зарегистрировать</string>
+    <string name="warp_choose_file">Выбрать файл</string>
+    <string name="warp_registration_consequence">Новый открытый ключ будет отправлен в Cloudflare для регистрации устройства. Отмена не удаляет регистрацию, уже принятую Cloudflare.</string>
+    <string name="warp_import_consequence">Выберите полный профиль Zero Trust. Сохранённый профиль с таким же ID будет заменён.</string>
+    <string name="warp_registering">Создание профиля WARP…</string>
+    <string name="warp_importing">Импорт профиля…</string>
+    <string name="warp_registration_cancelling">Ожидание завершения запроса. Регистрация уже могла быть создана в Cloudflare.</string>
+    <string name="warp_import_cancelling">Отмена импорта…</string>
+    <string name="warp_registration_failed">Не удалось создать профиль WARP. Проверьте соединение и повторите попытку.</string>
+    <string name="warp_import_failed">Не удалось импортировать профиль. Выберите полный и корректный профиль Zero Trust.</string>
+    <string name="warp_profile_saved">Профиль сохранён</string>
 </resources>

@@ -52,6 +52,7 @@ Related records: [`xray-protos` schema choice](architecture/xray-protos-schema-c
 - [TUN-to-SOCKS bridge](native/tunnel.md)
 - [Debug a runtime issue](native/debug-runtime-issue.md)
 - [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
+- [WARP profile setup and ready-profile import](native/warp-profile-setup.md)
 - [MASQUE conformance audit](../native/rust/crates/ripdpi-masque/CONFORMANCE.md)
 - [NaiveProxy runtime](native/relay-naiveproxy-runtime.md)
 - [Apps Script relay contract and trust](native/apps-script-relay.md)

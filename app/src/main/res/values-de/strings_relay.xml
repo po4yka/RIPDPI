@@ -416,4 +416,19 @@
     <string name="xray_skip_unsupported_protocol_safe">Dieses Protokoll wird nativ nicht unterstützt.</string>
     <string name="xray_skip_unsupported_transport_safe">Dieser Transport wird nativ nicht unterstützt.</string>
     <string name="xray_skip_unsupported_fingerprint_safe">Dieser TLS-Fingerabdruck wird nativ nicht unterstützt.</string>
+    <string name="warp_profile_default_name">WARP</string>
+    <string name="warp_create_profile">WARP-Profil erstellen</string>
+    <string name="warp_import_profile">Zero-Trust-Profil importieren</string>
+    <string name="warp_registration_title">Bei Cloudflare registrieren</string>
+    <string name="warp_register_action">Registrieren</string>
+    <string name="warp_choose_file">Datei auswählen</string>
+    <string name="warp_registration_consequence">Ein neuer öffentlicher Schlüssel wird zur Registrierung dieses Geräts an Cloudflare gesendet. Abbrechen macht eine bereits von Cloudflare akzeptierte Registrierung nicht rückgängig.</string>
+    <string name="warp_import_consequence">Wähle ein vollständiges Zero-Trust-Profil. Ein gespeichertes Profil mit derselben ID wird ersetzt.</string>
+    <string name="warp_registering">WARP-Profil wird erstellt…</string>
+    <string name="warp_importing">Profil wird importiert…</string>
+    <string name="warp_registration_cancelling">Warten auf den Abschluss der Anfrage. Die Registrierung kann bei Cloudflare bereits bestehen.</string>
+    <string name="warp_import_cancelling">Import wird abgebrochen…</string>
+    <string name="warp_registration_failed">Das WARP-Profil konnte nicht erstellt werden. Prüfe die Verbindung und versuche es erneut.</string>
+    <string name="warp_import_failed">Das Profil konnte nicht importiert werden. Wähle ein vollständiges, gültiges Zero-Trust-Profil.</string>
+    <string name="warp_profile_saved">Profil gespeichert</string>
 </resources>

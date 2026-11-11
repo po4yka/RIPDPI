@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.integration
 
 import com.poyka.ripdpi.core.NativeEchTlsHandshakeBridge
+import com.poyka.ripdpi.core.NativeWarpKeyPairGenerator
 import com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings
 import com.poyka.ripdpi.core.RipDpiListenConfig
 import com.poyka.ripdpi.core.RipDpiProxy
@@ -37,6 +38,20 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class NativeBridgeInstrumentedTest {
+    @Test
+    fun warpKeyPairGenerationUsesThePackagedJniBinding() =
+        runBlocking {
+            val generator = NativeWarpKeyPairGenerator()
+            val first = generator.generate()
+            val second = generator.generate()
+
+            assertEquals(32, Base64.getDecoder().decode(first.privateKey).size)
+            assertEquals(32, Base64.getDecoder().decode(first.publicKey).size)
+            assertTrue("Each registration needs a new private key", first.privateKey != second.privateKey)
+            assertTrue("Each registration needs a new public key", first.publicKey != second.publicKey)
+            assertTrue("Debug output must hide private keys", !first.toString().contains(first.privateKey))
+        }
+
     @Test
     fun warpProbeGuardDeniesBeforeSendAndClearsCallbackExceptions() =
         runBlocking {

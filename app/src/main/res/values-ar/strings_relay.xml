@@ -438,4 +438,19 @@
     <string name="xray_skip_unsupported_protocol_safe">هذا البروتوكول غير مدعوم محليًا.</string>
     <string name="xray_skip_unsupported_transport_safe">هذا النقل غير مدعوم محليًا.</string>
     <string name="xray_skip_unsupported_fingerprint_safe">بصمة TLS هذه غير مدعومة محليًا.</string>
+    <string name="warp_profile_default_name">WARP</string>
+    <string name="warp_create_profile">إنشاء ملف WARP</string>
+    <string name="warp_import_profile">استيراد ملف Zero Trust</string>
+    <string name="warp_registration_title">التسجيل لدى Cloudflare</string>
+    <string name="warp_register_action">تسجيل</string>
+    <string name="warp_choose_file">اختيار ملف</string>
+    <string name="warp_registration_consequence">سيُرسل مفتاح عام جديد إلى Cloudflare لتسجيل هذا الجهاز. الإلغاء لا يحذف تسجيلاً قبلته Cloudflare بالفعل.</string>
+    <string name="warp_import_consequence">اختر ملف Zero Trust كاملاً. سيُستبدل الملف المحفوظ الذي يحمل المعرّف نفسه.</string>
+    <string name="warp_registering">جارٍ إنشاء ملف WARP…</string>
+    <string name="warp_importing">جارٍ استيراد الملف…</string>
+    <string name="warp_registration_cancelling">بانتظار اكتمال الطلب. قد يكون التسجيل قد تم لدى Cloudflare.</string>
+    <string name="warp_import_cancelling">جارٍ إلغاء الاستيراد…</string>
+    <string name="warp_registration_failed">تعذر إنشاء ملف WARP. تحقق من الاتصال وحاول مرة أخرى.</string>
+    <string name="warp_import_failed">تعذر استيراد الملف. اختر ملف Zero Trust كاملاً وصالحاً.</string>
+    <string name="warp_profile_saved">تم حفظ الملف</string>
 </resources>

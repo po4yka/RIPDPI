@@ -60,4 +60,7 @@ internal data class AdvancedSettingsActions(
     val onDhtMitigationModeSelected: (String) -> Unit,
     val onAntiCorrelationEnabledChanged: (Boolean) -> Unit,
     val onAppRoutingPresetEnabledChanged: (String, Boolean) -> Unit,
+    val onRegisterWarpProfile: () -> Unit = {},
+    val onImportWarpProfile: () -> Unit = {},
+    val onCancelWarpSetup: () -> Unit = {},
 )

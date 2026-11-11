@@ -45,6 +45,10 @@
     native <methods>;
 }
 
+-keepclasseswithmembernames class com.poyka.ripdpi.core.RipDpiWarpKeyPairNativeBindings {
+    native <methods>;
+}
+
 # Native readiness push (ADR 0003): the native runtime invokes onRuntimeReady()
 # by name via JNI call_method. It is never called from Kotlin, so R8 would
 # otherwise strip or rename it. Keep the method on the interface and on every

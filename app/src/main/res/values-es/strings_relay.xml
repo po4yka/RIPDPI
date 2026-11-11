@@ -419,4 +419,19 @@
     <string name="xray_skip_unsupported_protocol_safe">Este protocolo no es compatible de forma nativa.</string>
     <string name="xray_skip_unsupported_transport_safe">Este transporte no es compatible de forma nativa.</string>
     <string name="xray_skip_unsupported_fingerprint_safe">Esta huella TLS no es compatible de forma nativa.</string>
+    <string name="warp_profile_default_name">WARP</string>
+    <string name="warp_create_profile">Crear perfil WARP</string>
+    <string name="warp_import_profile">Importar perfil Zero Trust</string>
+    <string name="warp_registration_title">Registrarse en Cloudflare</string>
+    <string name="warp_register_action">Registrar</string>
+    <string name="warp_choose_file">Elegir archivo</string>
+    <string name="warp_registration_consequence">Se enviará una nueva clave pública a Cloudflare para registrar este dispositivo. Cancelar no anula un registro que Cloudflare ya haya aceptado.</string>
+    <string name="warp_import_consequence">Selecciona un perfil Zero Trust completo. Se sustituirá el perfil guardado con el mismo ID.</string>
+    <string name="warp_registering">Creando perfil WARP…</string>
+    <string name="warp_importing">Importando perfil…</string>
+    <string name="warp_registration_cancelling">Esperando a que termine la solicitud. El registro puede existir ya en Cloudflare.</string>
+    <string name="warp_import_cancelling">Cancelando importación…</string>
+    <string name="warp_registration_failed">No se pudo crear el perfil WARP. Comprueba la conexión y vuelve a intentarlo.</string>
+    <string name="warp_import_failed">No se pudo importar el perfil. Selecciona un perfil Zero Trust completo y válido.</string>
+    <string name="warp_profile_saved">Perfil guardado</string>
 </resources>

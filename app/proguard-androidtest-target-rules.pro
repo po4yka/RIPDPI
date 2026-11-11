@@ -25,6 +25,15 @@
     public static final com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint GENERIC_V1;
 }
 
+-keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.core.NativeWarpKeyPairGenerator {
+    public <init>();
+    public java.lang.Object generate(kotlin.coroutines.Continuation);
+}
+-keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.core.WarpKeyPair {
+    public java.lang.String getPrivateKey();
+    public java.lang.String getPublicKey();
+    public java.lang.String toString();
+}
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.core.RipDpiWarpNativeBindings {
     public <init>();
     public java.lang.String probeEndpoint(java.lang.String,com.poyka.ripdpi.core.WarpProbeSocketController);

@@ -17,6 +17,7 @@ internal fun AdvancedSettingsScreen(
     notice: AdvancedNotice?,
     actions: AdvancedSettingsActions,
     modifier: Modifier = Modifier,
+    warpEnrollment: WarpEnrollmentUiState = WarpEnrollmentUiState(),
 ) {
     TrackRecomposition("AdvancedSettingsScreen")
     val contentState = rememberAdvancedSettingsContentState(uiState)
@@ -47,6 +48,7 @@ internal fun AdvancedSettingsScreen(
 
     AdvancedSettingsContent(
         uiState = uiState,
+        warpEnrollment = warpEnrollment,
         hostPackCatalog = hostPackCatalog,
         strategyPackCatalog = strategyPackCatalog,
         notice = notice,

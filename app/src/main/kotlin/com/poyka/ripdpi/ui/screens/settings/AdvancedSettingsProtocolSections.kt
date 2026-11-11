@@ -6,6 +6,7 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 
 internal fun LazyListScope.advancedSettingsProtocolSections(
     uiState: SettingsUiState,
+    warpEnrollment: WarpEnrollmentUiState,
     hostPackCatalog: HostPackCatalogUiState,
     strategyPackCatalog: StrategyPackCatalogUiState,
     actions: AdvancedSettingsActions,
@@ -46,6 +47,10 @@ internal fun LazyListScope.advancedSettingsProtocolSections(
     )
     warpSection(
         uiState = uiState,
+        enrollmentState = warpEnrollment,
+        onRegisterProfile = actions.onRegisterWarpProfile,
+        onImportProfile = actions.onImportWarpProfile,
+        onCancelSetup = actions.onCancelWarpSetup,
         visualEditorEnabled = contentState.visualEditorEnabled,
         routeModeOptions = contentState.warpRouteModeOptions,
         endpointSelectionOptions = contentState.warpEndpointSelectionOptions,

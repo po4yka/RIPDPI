@@ -416,4 +416,19 @@
     <string name="xray_skip_unsupported_protocol_safe">این پروتکل به‌صورت بومی پشتیبانی نمی‌شود.</string>
     <string name="xray_skip_unsupported_transport_safe">این انتقال به‌صورت بومی پشتیبانی نمی‌شود.</string>
     <string name="xray_skip_unsupported_fingerprint_safe">این اثرانگشت TLS به‌صورت بومی پشتیبانی نمی‌شود.</string>
+    <string name="warp_profile_default_name">WARP</string>
+    <string name="warp_create_profile">ایجاد نمایه WARP</string>
+    <string name="warp_import_profile">وارد کردن نمایه Zero Trust</string>
+    <string name="warp_registration_title">ثبت در Cloudflare</string>
+    <string name="warp_register_action">ثبت</string>
+    <string name="warp_choose_file">انتخاب پرونده</string>
+    <string name="warp_registration_consequence">یک کلید عمومی جدید برای ثبت این دستگاه به Cloudflare ارسال می‌شود. لغو، ثبتی را که Cloudflare قبلاً پذیرفته است حذف نمی‌کند.</string>
+    <string name="warp_import_consequence">یک نمایه کامل Zero Trust را انتخاب کنید. نمایه ذخیره‌شده با همان شناسه جایگزین می‌شود.</string>
+    <string name="warp_registering">در حال ایجاد نمایه WARP…</string>
+    <string name="warp_importing">در حال وارد کردن نمایه…</string>
+    <string name="warp_registration_cancelling">در انتظار پایان درخواست. ممکن است ثبت دستگاه در Cloudflare انجام شده باشد.</string>
+    <string name="warp_import_cancelling">در حال لغو وارد کردن…</string>
+    <string name="warp_registration_failed">ایجاد نمایه WARP ممکن نشد. اتصال را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="warp_import_failed">وارد کردن نمایه ممکن نشد. یک نمایه کامل و معتبر Zero Trust انتخاب کنید.</string>
+    <string name="warp_profile_saved">نمایه ذخیره شد</string>
 </resources>

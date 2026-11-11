@@ -18,6 +18,14 @@ import com.poyka.ripdpi.ui.screens.settings.AdvancedToggleSetting
 import java.util.Locale
 
 internal object RipDpiTestTags {
+    const val WarpCreateProfile = "warp-create-profile"
+    const val WarpImportProfile = "warp-import-profile"
+    const val WarpSetupStatus = "warp-setup-status"
+    const val WarpSetupError = "warp-setup-error"
+    const val WarpSetupCancel = "warp-setup-cancel"
+    const val WarpSetupConfirmation = "warp-setup-confirmation"
+    const val WarpSetupConfirm = "warp-setup-confirm"
+
     const val DiagnosticsSelectiveMatrixInput = "diagnostics-selective-matrix-input"
     const val DiagnosticsSelectiveMatrixHosts = "diagnostics-selective-matrix-hosts"
     const val DiagnosticsSelectiveMatrixResults = "diagnostics-selective-matrix-results"

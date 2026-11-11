@@ -417,4 +417,19 @@
     <string name="xray_skip_unsupported_protocol_safe">यह प्रोटोकॉल मूल रूप से समर्थित नहीं है।</string>
     <string name="xray_skip_unsupported_transport_safe">यह ट्रांसपोर्ट मूल रूप से समर्थित नहीं है।</string>
     <string name="xray_skip_unsupported_fingerprint_safe">यह TLS फ़िंगरप्रिंट मूल रूप से समर्थित नहीं है।</string>
+    <string name="warp_profile_default_name">WARP</string>
+    <string name="warp_create_profile">WARP प्रोफ़ाइल बनाएँ</string>
+    <string name="warp_import_profile">Zero Trust प्रोफ़ाइल आयात करें</string>
+    <string name="warp_registration_title">Cloudflare में पंजीकरण</string>
+    <string name="warp_register_action">पंजीकृत करें</string>
+    <string name="warp_choose_file">फ़ाइल चुनें</string>
+    <string name="warp_registration_consequence">इस डिवाइस को पंजीकृत करने के लिए एक नई सार्वजनिक कुंजी Cloudflare को भेजी जाएगी। रद्द करने से Cloudflare द्वारा पहले ही स्वीकृत पंजीकरण नहीं हटता।</string>
+    <string name="warp_import_consequence">एक पूर्ण Zero Trust प्रोफ़ाइल चुनें। समान ID वाली सहेजी गई प्रोफ़ाइल बदल दी जाएगी।</string>
+    <string name="warp_registering">WARP प्रोफ़ाइल बनाई जा रही है…</string>
+    <string name="warp_importing">प्रोफ़ाइल आयात की जा रही है…</string>
+    <string name="warp_registration_cancelling">अनुरोध पूरा होने की प्रतीक्षा है। Cloudflare में पंजीकरण पहले ही बन चुका हो सकता है।</string>
+    <string name="warp_import_cancelling">आयात रद्द किया जा रहा है…</string>
+    <string name="warp_registration_failed">WARP प्रोफ़ाइल नहीं बनाई जा सकी। कनेक्शन जाँचें और फिर से प्रयास करें।</string>
+    <string name="warp_import_failed">प्रोफ़ाइल आयात नहीं की जा सकी। एक पूर्ण और मान्य Zero Trust प्रोफ़ाइल चुनें।</string>
+    <string name="warp_profile_saved">प्रोफ़ाइल सहेजी गई</string>
 </resources>

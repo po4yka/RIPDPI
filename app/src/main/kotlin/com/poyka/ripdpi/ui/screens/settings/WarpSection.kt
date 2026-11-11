@@ -25,6 +25,10 @@ private const val warpScannerRttMaxMs = 10_000
 
 internal fun LazyListScope.warpSection(
     uiState: SettingsUiState,
+    enrollmentState: WarpEnrollmentUiState,
+    onRegisterProfile: () -> Unit,
+    onImportProfile: () -> Unit,
+    onCancelSetup: () -> Unit,
     visualEditorEnabled: Boolean,
     routeModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     endpointSelectionOptions: ImmutableList<RipDpiDropdownOption<String>>,
@@ -41,6 +45,10 @@ internal fun LazyListScope.warpSection(
         ) {
             WarpSettingsCard(
                 uiState = uiState,
+                enrollmentState = enrollmentState,
+                onRegisterProfile = onRegisterProfile,
+                onImportProfile = onImportProfile,
+                onCancelSetup = onCancelSetup,
                 sectionEnabled = sectionEnabled,
                 routeModeOptions = routeModeOptions,
                 endpointSelectionOptions = endpointSelectionOptions,
@@ -56,6 +64,10 @@ internal fun LazyListScope.warpSection(
 @Composable
 private fun WarpSettingsCard(
     uiState: SettingsUiState,
+    enrollmentState: WarpEnrollmentUiState,
+    onRegisterProfile: () -> Unit,
+    onImportProfile: () -> Unit,
+    onCancelSetup: () -> Unit,
     sectionEnabled: Boolean,
     routeModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     endpointSelectionOptions: ImmutableList<RipDpiDropdownOption<String>>,
@@ -68,6 +80,13 @@ private fun WarpSettingsCard(
     val numericKeyboardOptions = warpNumericKeyboardOptions()
 
     RipDpiCard {
+        WarpProfileSetupRows(
+            state = enrollmentState,
+            enabled = sectionEnabled,
+            onRegisterProfile = onRegisterProfile,
+            onImportProfile = onImportProfile,
+            onCancelSetup = onCancelSetup,
+        )
         WarpProfileRows(uiState)
         WarpRoutingControls(
             uiState = uiState,

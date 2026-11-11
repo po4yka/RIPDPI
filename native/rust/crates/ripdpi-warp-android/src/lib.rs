@@ -2,7 +2,8 @@
 //!
 //! This crate is the `cdylib` boundary for the WARP native session. It owns
 //! the `JNI_OnLoad` hook and the `Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_*`
-//! export symbols; each wraps a `lifecycle`/`telemetry`/`provisioning`/
+//! export symbols, plus `RipDpiWarpKeyPairNativeBindings_*`; each wraps a
+//! `lifecycle`/`telemetry`/`provisioning`/
 //! `endpoint_probe`/`vpn_protect` delegate in `android_support::ffi_boundary`
 //! so a Rust panic cannot unwind across the `extern "system"` boundary.
 //!
@@ -19,6 +20,8 @@
 //! `jniExecuteProvisioning` and `jniProbeEndpoint` take no handle: each runs a
 //! one-shot request and returns a JSON `jstring` (`null` on failure). They are
 //! independent of the session registry.
+//! `RipDpiWarpKeyPairNativeBindings_jniGenerateKeyPair` generates a local
+//! keypair without a session or network request.
 //!
 //! ## fd ownership and callbacks
 //! The WARP runtime adopts no externally supplied fds — it opens its own
@@ -40,6 +43,7 @@
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 
 mod endpoint_probe;
+mod keypair;
 mod lifecycle;
 mod provisioning;
 mod readiness;
@@ -51,6 +55,14 @@ use android_support::ffi_boundary;
 use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM};
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpKeyPairNativeBindings_jniGenerateKeyPair(
+    env: EnvUnowned<'_>,
+    _thiz: JObject,
+) -> jni::sys::jstring {
+    ffi_boundary(core::ptr::null_mut(), move || keypair::generate_from_jni(env))
+}
 
 /// # Safety
 /// Called once by the JVM at library load. `vm` is a valid `*mut JavaVM` that outlives this call.

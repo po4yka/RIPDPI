@@ -7,6 +7,7 @@ mod awg_profile;
 mod awg_v3;
 mod config;
 mod endpoint_probe;
+mod keypair;
 mod observe;
 mod platform;
 mod ports;
@@ -24,6 +25,7 @@ pub use config::{
     WarpEndpointProbeRequest, WarpEndpointProbeResult, WarpManualEndpoint, WarpSocketProtection, WarpTelemetry,
 };
 pub use endpoint_probe::{WarpProbeError, probe_endpoint, probe_endpoint_with_platform};
+pub use keypair::{WarpKeyPair, generate_warp_keypair};
 pub use observe::TcpConnectObservation;
 pub use platform::{WarpPlatform, WarpSocketProtector};
 pub use runtime::WarpRuntime;

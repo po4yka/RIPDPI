@@ -19,6 +19,7 @@ import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 @Composable
 internal fun AdvancedSettingsContent(
     uiState: SettingsUiState,
+    warpEnrollment: WarpEnrollmentUiState,
     hostPackCatalog: HostPackCatalogUiState,
     strategyPackCatalog: StrategyPackCatalogUiState,
     notice: AdvancedNotice?,
@@ -42,6 +43,7 @@ internal fun AdvancedSettingsContent(
         advancedSettingsPrimarySections(uiState, actions, contentState)
         advancedSettingsSecondarySections(
             uiState = uiState,
+            warpEnrollment = warpEnrollment,
             hostPackCatalog = hostPackCatalog,
             strategyPackCatalog = strategyPackCatalog,
             actions = actions,
@@ -75,6 +77,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsBanne
 
 private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecondarySections(
     uiState: SettingsUiState,
+    warpEnrollment: WarpEnrollmentUiState,
     hostPackCatalog: HostPackCatalogUiState,
     strategyPackCatalog: StrategyPackCatalogUiState,
     actions: AdvancedSettingsActions,
@@ -85,6 +88,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
     advancedSettingsProtectionSections(uiState, actions, contentState)
     advancedSettingsProtocolSections(
         uiState = uiState,
+        warpEnrollment = warpEnrollment,
         hostPackCatalog = hostPackCatalog,
         strategyPackCatalog = strategyPackCatalog,
         actions = actions,
