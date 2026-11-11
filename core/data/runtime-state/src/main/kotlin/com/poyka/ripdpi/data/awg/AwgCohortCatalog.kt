@@ -267,7 +267,7 @@ fun matchCohortForConf(
  * compared. The AmneziaWG v1.5 extension params (`s3`/`s4`/`i1`..`i5`) are
  * nullable on the preset and are constrained only when the preset pins them —
  * a preset that predates the extension (all-`null`) keeps matching a `.conf`
- * regardless of whether that `.conf` carries safe zero S3/S4 or I values,
+ * regardless of the supported S3/S4 or I values that `.conf` carries,
  * preserving the pre-extension matching behaviour.
  */
 private fun AwgCohortPreset.matches(awg: com.poyka.ripdpi.data.wireguard.AmneziaWgParameters): Boolean =

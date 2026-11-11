@@ -17,7 +17,9 @@ unless the line names another repository. The Rust code is in
 | `[Peer] PersistentKeepalive` | `persistent_keepalive_interval` | Range, seconds | `uapi.go:663-674`; tools `config.c:596-599` |
 
 A range is `lo` or `lo-hi` in decimal, with `lo <= hi`. `x-x` is valid (`noise-types.go:106-131`).
-The tools parse the 3.x ranges as 16-bit ranges (tools `type.c:40-60`). A zero range (`0`) means
+The [pinned tools parser](https://github.com/amnezia-vpn/amneziawg-tools/blob/ee0f0a9aa34ff0a0da4b3433b9512781cfe02843/src/type.c#L38-L55)
+calls these `u16` ranges, but checks bounds against `UINT32_MAX`. RIPDPI uses its own
+portable limit of 65535; it does not claim identical parsing. A zero range (`0`) means
 "not set" (`noise-types.go:138-140`). Each use draws a new value uniformly from `[lo, hi]`
 (`noise-types.go:142-145`). H1 to H4 use the same range type and must not overlap (`uapi.go:828-838`).
 
@@ -129,7 +131,7 @@ Go parser equivalence. The source owners are `awg_profile.rs`, `awg_v3.rs`,
 | Jc | Integer 0 through 128. |
 | Jmin, Jmax, S1-S4 | Integers 0 through 1280. Jmin must not exceed Jmax, even with Jc=0. Initiation and response totals must differ: `148+S1 != 92+S2`. HP requires every S to be at least 12. |
 | Junk size | Inclusive `[Jmin, Jmax]`, including equal bounds. This differs from the pinned Go exclusive upper bound. No exact uniform-distribution claim is made for junk. |
-| HP key | Empty means off; otherwise a Base64 value that decodes to 32 bytes. All-zero key means off. The editor masks it; credential storage keeps it outside Room profile JSON. |
+| HP key | Empty means off; otherwise canonical padded Base64 that decodes to 32 bytes. All-zero key means off. The editor masks it; credential storage keeps it outside Room profile JSON. |
 | Flags | `.conf` accepts on/off, true/false, and ASCII decimal integers (zero=false). The RIPDPI URI accepts only on/off. |
 
 The scalar J/S parser is not the canonical range-text parser. Do not infer the
@@ -158,7 +160,8 @@ implementation, not acceptance of these changes. See
 The shared `contract/amneziawg-arm64-version-floor.json` deployment guard remains
 unchanged. Fresh host peers, current-source emulator runs, physical arm64 production
 service tests, exact artifacts, and hosted CI are separate required evidence in
-`openspec/changes/awg31-behavior-parity/verification.md`. Local unit tests do not
+[the archived verification](../../openspec/changes/archive/2026-10-30-awg31-behavior-parity/verification.md).
+Local unit tests do not
 prove those acceptance categories or production DPI behavior.
 
 ## Pinned host peer runners

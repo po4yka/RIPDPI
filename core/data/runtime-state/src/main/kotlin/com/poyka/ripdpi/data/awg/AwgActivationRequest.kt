@@ -196,8 +196,8 @@ data class AwgActivationObfuscation(
  * The obfuscation group (including the AWG 3.1 `i1`..`i5` programs and the full
  * `s1`..`s4` junk-size knobs), the identity + PSK fields, and the transport
  * carrier ([AwgProfileForm.carrier] / [AwgProfileForm.carrierWsUrl]) come
- * straight from [form]; `s3`/`s4` remain in the wire shape, but the service
- * layer rejects non-zero values before native startup. A blank
+ * straight from [form]. Supported non-zero `s3`/`s4` values reach the native
+ * runtime. A blank
  * [interfaceAddressV4] yields a request the service layer is expected to reject
  * -- the mapper does not invent a default address.
  */
