@@ -98,7 +98,7 @@ async fn protobuf_transport_preserves_payload_before_errors_and_skips_empty_hunk
         wire.extend_from_slice(&frame(b"\x0a\x01B"));
         wire.extend_from_slice(&suffix);
         halves.downstream.write_all(&wire).await.expect("wire");
-        halves.downstream.shutdown().await.expect("EOF");
+        halves.downstream.finish_response(Ok(())).await.expect("EOF");
         let mut received = Vec::new();
         let result = transport.read_to_end(&mut received).await;
         assert_eq!(received, b"AB");

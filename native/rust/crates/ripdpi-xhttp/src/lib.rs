@@ -22,7 +22,7 @@ pub use config::{
 #[doc(hidden)]
 pub use finalmask::{__fuzz_decode_finalmask_payload, __fuzz_parse_finalmask_spec};
 pub use grpc::{
-    GrpcFramingError, GrpcTransport, GrpcTransportConfig, GrpcWireHalves, HunkDecoder, encode_hunk,
+    GrpcFramingError, GrpcResponseWriter, GrpcTransport, GrpcTransportConfig, GrpcWireHalves, HunkDecoder, encode_hunk,
     encode_hunk_to_bytes, tun_path,
 };
 pub use relay::XhttpStream;

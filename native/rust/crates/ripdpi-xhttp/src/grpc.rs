@@ -19,6 +19,7 @@
 //! `prost` handles Protobuf messages. This module owns the gRPC envelope
 //! and the `AsyncRead + AsyncWrite` surface over the tunneled byte stream.
 
+use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -26,6 +27,7 @@ use std::task::{Context, Poll};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use prost::Message;
 use tokio::io::{AsyncRead, AsyncWrite, DuplexStream, ReadBuf};
+use tokio::sync::oneshot;
 
 /// gRPC compression flag for an uncompressed message.
 const GRPC_FLAG_UNCOMPRESSED: u8 = 0x00;
@@ -211,6 +213,7 @@ pub struct GrpcTransport {
     decoder: HunkDecoder,
     pending_read: Bytes,
     read_done: bool,
+    response_result: oneshot::Receiver<io::Result<()>>,
     writer: DuplexStream,
     pending_write: Bytes,
     write_shutdown: bool,
@@ -221,11 +224,60 @@ pub struct GrpcTransport {
 /// `upstream` yields already-`Hunk`-framed bytes to be placed in the HTTP/2
 /// request body; `downstream` accepts the raw HTTP/2 response body bytes,
 /// which are decoded into tunneled bytes for the transport's reader.
+/// The carrier must call [`GrpcResponseWriter::finish_response`] after it validates response
+/// headers and trailers. Closing DATA alone does not signal a successful RPC.
 pub struct GrpcWireHalves {
     /// Reader side: framed `Hunk` bytes destined for the HTTP/2 request body.
     pub upstream: DuplexStream,
     /// Writer side: raw HTTP/2 response body bytes to be decoded.
-    pub downstream: DuplexStream,
+    pub downstream: GrpcResponseWriter,
+}
+
+/// Response DATA writer with an owned terminal-result channel.
+/// May be moved independently of the upload reader into a carrier task.
+pub struct GrpcResponseWriter {
+    wire: DuplexStream,
+    response_result: Option<oneshot::Sender<io::Result<()>>>,
+}
+
+impl GrpcResponseWriter {
+    /// Finish response DATA and publish its validated carrier result exactly once.
+    ///
+    /// The driver must check HTTP status, gRPC content type and final `grpc-status`,
+    /// including trailers-only responses. It must pass nonzero/missing status,
+    /// transport errors and HTTP/2 resets as `Err`, and cancel its request pump
+    /// on RPC failure. This codec does not parse HTTP headers or drive HTTP/2.
+    /// Received payload is delivered before the terminal result. Dropping the
+    /// wire halves without this call produces an error at response EOF.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: the completion sender stays owned until DATA shutdown succeeds;
+    /// cancellation permits retry, while dropping the halves reports missing completion.
+    pub async fn finish_response(&mut self, result: io::Result<()>) -> io::Result<()> {
+        use tokio::io::AsyncWriteExt;
+        if self.response_result.is_none() {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, "gRPC response already completed"));
+        }
+        self.wire.shutdown().await?;
+        if let Some(sender) = self.response_result.take() {
+            sender.send(result).map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "gRPC reader dropped"))?;
+        }
+        Ok(())
+    }
+}
+
+impl AsyncWrite for GrpcResponseWriter {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bytes: &[u8]) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.wire).poll_write(cx, bytes)
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.wire).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.wire).poll_shutdown(cx)
+    }
 }
 
 impl GrpcTransport {
@@ -237,6 +289,7 @@ impl GrpcTransport {
         let (wire_up_write, wire_up_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let (wire_down_write, wire_down_read) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
+        let (response_result_tx, response_result) = oneshot::channel();
         let transport = Self {
             config,
             reader: wire_down_read,
@@ -244,10 +297,14 @@ impl GrpcTransport {
             decoder: HunkDecoder::new(),
             pending_read: Bytes::new(),
             read_done: false,
+            response_result,
             pending_write: Bytes::new(),
             write_shutdown: false,
         };
-        let halves = GrpcWireHalves { upstream: wire_up_read, downstream: wire_down_write };
+        let halves = GrpcWireHalves {
+            upstream: wire_up_read,
+            downstream: GrpcResponseWriter { wire: wire_down_write, response_result: Some(response_result_tx) },
+        };
         (transport, halves)
     }
 
@@ -290,12 +347,18 @@ impl AsyncRead for GrpcTransport {
                     return Poll::Ready(Err(error));
                 }
                 Ok(()) if wire_buf.filled().is_empty() => {
+                    if !this.decoder.is_empty() {
+                        this.read_done = true;
+                        return Poll::Ready(Err(io::Error::new(io::ErrorKind::UnexpectedEof, "truncated gRPC frame")));
+                    }
+                    let result = std::task::ready!(Pin::new(&mut this.response_result).poll(cx));
                     this.read_done = true;
-                    return Poll::Ready(if this.decoder.is_empty() {
-                        Ok(())
-                    } else {
-                        Err(io::Error::new(io::ErrorKind::UnexpectedEof, "truncated gRPC frame"))
-                    });
+                    return Poll::Ready(result.unwrap_or_else(|_| {
+                        Err(io::Error::new(
+                            io::ErrorKind::UnexpectedEof,
+                            "gRPC carrier closed without a response result",
+                        ))
+                    }));
                 }
                 Ok(()) => this.decoder.extend(wire_buf.filled()),
             }
@@ -587,7 +650,7 @@ mod tests {
         encode_hunk(b"down-", &mut wire).expect("encode");
         encode_hunk(b"stream", &mut wire).expect("encode");
         halves.downstream.write_all(&wire).await.expect("write wire");
-        halves.downstream.shutdown().await.expect("shutdown wire");
+        halves.downstream.finish_response(Ok(())).await.expect("shutdown wire");
         drop(halves);
 
         let mut received = Vec::new();

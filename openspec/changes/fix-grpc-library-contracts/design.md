@@ -13,13 +13,13 @@ The audit concerns the library API, not a connected session driver. See proposal
 - Replace the decoder task with owned incremental state polled by AsyncRead.
 - Keep four independent fixes in separate commits.
 - Escape UTF-8 service bytes with the pinned Go PathEscape segment rules. Keep existing trim and outer-slash aliases.
-- Add explicit response completion with an io::Result channel. Clean DATA EOF without completion is an error. Driver owns HTTP/gRPC metadata validation and reset handling.
+- Add explicit response completion with an io::Result channel owned by a separately moveable GrpcResponseWriter. Clean DATA EOF without completion is an error. Driver owns HTTP/gRPC metadata validation and reset handling.
 
 ## Contracts and ownership
 
 - Primary writer owns native/rust/crates/ripdpi-xhttp and planning records in this worktree.
 - Subagents inspect and review read-only; there are no parallel shared-file writers.
-- No Kotlin, Cargo manifests, lockfiles, schemas, locales, baselines, or golden fixtures change.
+- No Kotlin, lockfiles, schemas, locales, baselines, or golden fixtures change. The existing Tokio dev dependency enables rt-multi-thread for regression tests.
 
 ## Risks / Trade-offs
 
