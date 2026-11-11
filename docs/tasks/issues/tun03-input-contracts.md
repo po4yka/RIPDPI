@@ -2,7 +2,7 @@
 id: TRN-1794384012167321
 title: Fix AWG profile input and compatibility regressions
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: transport-maintainer

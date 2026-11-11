@@ -10,12 +10,12 @@ URI worker owns AmneziaWgUriCodec.kt and its core/data and app import regression
 
 ## Execution
 
-- [ ] TRN-1794384205371297 Preserve IPv6 hosts through AWG import #bug !high @item:TRN-1794384012167321
-- [ ] TRN-1794384209766294 Validate canonical header protection keys #bug !high @item:TRN-1794384012167321
-- [ ] TRN-1794384211583615 Reject malformed and duplicate URI query fields #bug !high @item:TRN-1794384012167321
-- [ ] TRN-1794384214181311 Preserve incompatible nested wire settings #bug !high @item:TRN-1794384012167321
-- [ ] TRN-1794384216356554 Reject unsupported carrier tokens #bug !high @item:TRN-1794384012167321
-- [ ] TRN-1794384218607663 Review and validate the combined changes #bug !high @item:TRN-1794384012167321
+- [x] TRN-1794384205371297 Preserve IPv6 hosts through AWG import #bug !high @item:TRN-1794384012167321
+- [x] TRN-1794384209766294 Validate canonical header protection keys #bug !high @item:TRN-1794384012167321
+- [x] TRN-1794384211583615 Reject malformed and duplicate URI query fields #bug !high @item:TRN-1794384012167321
+- [x] TRN-1794384214181311 Preserve incompatible nested wire settings #bug !high @item:TRN-1794384012167321
+- [x] TRN-1794384216356554 Reject unsupported carrier tokens #bug !high @item:TRN-1794384012167321
+- [x] TRN-1794384218607663 Review and validate the combined changes #bug !high @item:TRN-1794384012167321
 
 ## Verification
 
