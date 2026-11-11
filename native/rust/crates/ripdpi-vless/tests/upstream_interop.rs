@@ -148,6 +148,12 @@ async fn xudp_two_targets_exchange_with_upstream() {
             ("RIPDPI_OUTBOUND_UDP", b"first-single-send".as_slice()),
             ("RIPDPI_OUTBOUND_UDP2", b"second-destination".as_slice()),
         ] {
+            for invalid in ["bad!.example:53", "bad\n.example:53", "tést.example:53"] {
+                assert_eq!(
+                    session.send_to(invalid, b"must-not-reach-peer").await.expect_err("invalid XUDP target").kind(),
+                    io::ErrorKind::InvalidInput,
+                );
+            }
             let target = endpoint(name).to_string();
             session.send_to(&target, bytes).await.expect("send XUDP datagram");
             // No following send is available to flush the first datagram.

@@ -21,4 +21,4 @@ deployment_evidence: No deployment is owned by this change.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-XUDP-CTRL-01 | TRN-1794371467864574 | /tmp/trn03-control-red-clean.log: 2 expected failures; /tmp/trn03-control-green.log: 160 lib tests and all-target clippy pass; independent code and async review clear | Passed |
-| REQ-XUDP-TARGET-01 | TRN-1794371468380869 | Target admission regression and pinned-peer checks | Pending |
+| REQ-XUDP-TARGET-01 | TRN-1794371468380869 | Targeted target_validation_tests: 4 passed; independent review clear. Combined crate and pinned-peer acceptance pending. | Targeted checks passed |

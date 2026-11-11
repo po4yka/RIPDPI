@@ -8,6 +8,8 @@
 mod control_frame_tests;
 #[cfg(test)]
 mod source_authority_tests;
+#[cfg(test)]
+mod target_validation_tests;
 
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -363,9 +365,19 @@ fn encode_target(output: &mut Vec<u8>, target: &str) -> Result<(), XudpError> {
         let domain = host.as_bytes();
         let length = u8::try_from(domain.len())
             .map_err(|_| XudpError::DomainTooLong { len: domain.len(), max: usize::from(u8::MAX) })?;
+        validate_domain(&host)?;
         output.push(ADDRESS_DOMAIN);
         output.push(length);
         output.extend_from_slice(domain);
+    }
+    Ok(())
+}
+
+fn validate_domain(domain: &str) -> Result<(), XudpError> {
+    if domain.is_empty()
+        || !domain.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_'))
+    {
+        return Err(XudpError::InvalidTarget);
     }
     Ok(())
 }
@@ -395,7 +407,17 @@ fn decode_target(metadata: &[u8], cursor: &mut usize) -> Result<String, XudpErro
         ADDRESS_DOMAIN => {
             let length = usize::from(take(metadata, cursor, 1)?[0]);
             let raw = take(metadata, cursor, length)?;
-            std::str::from_utf8(raw).map_err(|_| XudpError::InvalidDomainUtf8)?.to_owned()
+            let domain = std::str::from_utf8(raw).map_err(|_| XudpError::InvalidDomainUtf8)?;
+            let address = domain.strip_prefix('[').and_then(|host| host.strip_suffix(']')).unwrap_or(domain);
+            match address.trim().parse::<std::net::IpAddr>() {
+                Ok(address) if domain.as_bytes().first().is_some_and(|byte| byte.is_ascii_digit() || *byte == b'[') => {
+                    address.to_canonical().to_string()
+                }
+                _ => {
+                    validate_domain(domain)?;
+                    domain.to_owned()
+                }
+            }
         }
         other => return Err(XudpError::UnsupportedAddressType(other)),
     };
