@@ -53,4 +53,3 @@ The relay runtime owner MUST stop asynchronous session tasks before its start ca
 
 - **WHEN** An asynchronous task still owns a carrier when the session exits
 - **THEN** The runtime teardown releases the carrier before the owner returns; blocking resolver timeout semantics remain unchanged.
-
