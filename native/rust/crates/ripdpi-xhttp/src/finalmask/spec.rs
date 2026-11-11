@@ -49,7 +49,7 @@ impl FinalmaskSpec {
                 min_bytes: parse_non_negative("fragmentMinBytes", config.fragment_min_bytes)?,
                 max_bytes: parse_non_negative("fragmentMaxBytes", config.fragment_max_bytes)?,
             },
-            "sudoku" => Self::Sudoku { table: Arc::new(SudokuTable::new(config.sudoku_seed.trim())?) },
+            "sudoku" => Self::Sudoku { table: Arc::new(SudokuTable::new(&config.sudoku_seed)?) },
             other => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,

@@ -288,6 +288,22 @@ mod tests {
     }
 
     #[test]
+    fn configured_password_preserves_edge_spaces() {
+        let config = crate::config::FinalmaskConfig {
+            r#type: "sudoku".to_owned(),
+            sudoku_seed: " fixture-seed ".to_owned(),
+            ..crate::config::FinalmaskConfig::default()
+        };
+        let Some(crate::finalmask::spec::FinalmaskSpec::Sudoku { table }) =
+            crate::finalmask::spec::FinalmaskSpec::from_config(&config).expect("config")
+        else {
+            panic!("expected Sudoku mask");
+        };
+        // Xray-core 1b1647cd, getTables with the exact password above.
+        assert_eq!(encode_table_digest(&table), "a791b6b1069ba6faf57946651c5f144029a88c965b51b9454d62fdfd7dcbee18");
+    }
+
+    #[test]
     fn table_matches_xray_for_the_same_password() {
         let table = SudokuTable::new("fixture-seed").expect("table");
         assert_eq!(table.encode[0][0], [0x00, 0x2f, 0x42, 0x6d]);
