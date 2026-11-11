@@ -253,7 +253,10 @@ impl std::fmt::Debug for NoiseParams {
             .field("peer_static_public", &self.peer_static_public)
             .field("static_shared", &"<redacted>")
             .field("sending_mac1_key", &self.sending_mac1_key)
-            .field("preshared_key", &self.preshared_key)
+            .field(
+                "preshared_key",
+                &self.preshared_key.as_ref().map(|_| "<redacted>"),
+            )
             .finish()
     }
 }
@@ -884,6 +887,21 @@ impl Handshake {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debug_output_does_not_depend_on_preshared_key_material() {
+        let debug = |preshared_key| {
+            let private = x25519::StaticSecret::from([7; 32]);
+            let params = NoiseParams::new(
+                private.clone(),
+                x25519::PublicKey::from(&private),
+                x25519::PublicKey::from(&x25519::StaticSecret::from([9; 32])),
+                Some(preshared_key),
+            );
+            format!("{params:?}")
+        };
+        assert_eq!(debug([0x5a; 32]), debug([0xa5; 32]));
+    }
 
     #[test]
     fn chacha20_seal_rfc7530_test_vector() {

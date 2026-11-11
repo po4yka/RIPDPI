@@ -30,6 +30,8 @@ Local changes:
 - Cookie secrets rotate on the specified two-minute boundary.
 - Cookie retry tests advance mock monotonic time with the timer state, so fresh
   initiation timestamps remain strictly increasing with `mock-instant` enabled.
+- `NoiseParams` Debug output redacts the optional preshared key as well as the
+  private key and shared secret.
 - `ReceiveOutcome` separates generated output from peer authentication. All-zero
   AWG payloads are empty transport; malformed IP consumes replay state without
   updating readiness, receive timers, or the UDP window. IPv4 length and IHL
