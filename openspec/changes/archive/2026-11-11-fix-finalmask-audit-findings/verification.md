@@ -1,9 +1,9 @@
 ---
 task_id: TRN-1794371392084141
 change: fix-finalmask-audit-findings
-commit_sha: cfe9f629be7b6a570aff9a66e975f84bac38b838
-local: blocked
-local_evidence: Rust 30 tests, real Xray 10 sessions, ci-gates, full locked metadata and independent review passed; full Kotlin JUnit and staticAnalysis are blocked by uncached Maven dependencies and failed network access.
+commit_sha: 318c9b861d4f0ed8fa5016fb6ef4842f73117a2a
+local: passed
+local_evidence: Kotlin JUnit 22 tests, full staticAnalysis, current-checkout ci-gates and full locked metadata passed. Earlier native regressions, real peer sessions and independent reviews remain recorded below.
 remote_ci: not_applicable
 remote_ci_evidence: Local verification owns acceptance; hosted CI is not invoked by this change.
 device: not_applicable
@@ -24,12 +24,12 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-FINALMASK-PASSWORD | TRN-1794371456600683 | Independent Go table digest with edge spaces; two real peer Sudoku sessions | passed |
 | REQ-FINALMASK-ERROR | TRN-1794371457144679 | Five bridge tests cover both errors, both half-closes and owner drop; carrier capacity regression | passed |
 | REQ-FINALMASK-VALIDATION | TRN-1794371457658854 | Active range limits and inactive-field tests at codec and native admission boundaries | passed |
-| REQ-FINALMASK-UNKNOWN | TRN-1794371458138281 | Exact source normalizer compiled and passed; owning import/service/draft JUnit regressions added but blocked | blocked |
+| REQ-FINALMASK-UNKNOWN | TRN-1794371458138281 | Owning import/service/draft JUnit regressions executed with real settings JSON and production validators; 22 tests passed | passed |
 | REQ-FINALMASK-REFERENCE | TRN-1794371458603893 | Exact Xray source plus documented peer adapter; 10 real loopback sessions and real configuration parser; source gates passed | passed |
 
 ## Observed checks
 
-Checked on 2026-11-11 at the source SHA above, after rebasing onto main `f4aaf8ce2594843ee53ed1c45d6c082d93131f0d`. Later changes to this record do not change the tested application inputs.
+The native and peer checks in this section were observed on 2026-11-11 at `cfe9f629be7b6a570aff9a66e975f84bac38b838`, based on main `f4aaf8ce2594843ee53ed1c45d6c082d93131f0d`. The acceptance follow-up below uses the exact source SHA in the front matter. It changes only one Kotlin test fixture; Finalmask production code is unchanged.
 
 From `native/rust`, with the pinned Rust toolchain and `build-gate --lane ripdpi`:
 
@@ -55,29 +55,42 @@ The independent peer `TestRIPDPIHeaderCloseWrite` failed against stock source be
 
 Independent general and async-cancellation reviewers found no remaining actionable issue in the final native, Kotlin and peer changes. Earlier review found a 32-bit overflow risk; saturating arithmetic and the large-range regression resolve it. Commit hooks passed the affected Rust clippy/all-target checks and Kotlin formatting. The exact current Kotlin normalizer was separately extracted with its source constants, compiled by kotlinc and run against unknown, blank/off and all four known types; all checks passed. That check does not replace the owning JUnit suites.
 
-## Blocked checks and next action
+## Resolved blocker and acceptance follow-up
 
-The required full Kotlin tests did not reach test execution. Online Gradle dependency resolution failed with `No route to host`; offline resolution failed because dependencies such as Room compiler 2.8.5 were not cached. Public repository HTTP checks succeeded separately, so this does not prove an unavailable artifact. A temporary loopback proxy retry also failed and was stopped. No repository versions, global proxy, trust or security settings were changed.
+On 2026-11-11, the follow-up at the front-matter SHA passed all remaining Kotlin checks. Its base is main `ec4f13320a272b945bf2a0497d02fcea545d73c9`.
 
-Re-run with JDK 21 after Gradle repository access is restored:
+The old online Gradle run failed with `No route to host`; offline resolution then failed on uncached artifacts. Fresh standalone Zulu JDK 21 HTTPS requests now returned 200 for Room compiler 2.8.5 on Google Maven and coroutines on Maven Central. Each current Google IPv4 endpoint also passed TLS/SNI checks. OS proxies were disabled. The exact cause of the old temporary route failure was not established. A normal online Gradle retry downloaded the missing artifacts successfully; no repository URLs, dependency versions, global proxy, truststore or TLS checks were changed. The command used an owned single-use daemon, command-scoped IPv4 selection and bounded HTTP timeouts.
+
+The first JUnit run reached execution and found a bad test fixture: the new import regression put `relayFinalmaskType` inside a nested `relay` object, while `AppSettingsSnapshotSerializer` preserves a flat backup JSON format. Commit `318c9b861d4f0ed8fa5016fb6ef4842f73117a2a` corrects that fixture. Production import already preserves the unknown type with the actual flat contract. The corrected test checks import, model mapping and export/import round-trip.
+
+Run from the repository root with JDK 21:
 
 ```sh
-build-gate --lane ripdpi -- ./gradlew \
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home
+build-gate --lane ripdpi -- ./gradlew --no-daemon --continue \
   :core:data:testDebugUnitTest --tests '*AppSettingsJsonTest' \
   :core:service:testDebugUnitTest --tests '*FinalmaskValidationTest' --tests '*FinalmaskCompatibilityTest' \
   :app:testGithubFullDebugUnitTest --tests '*ConnectionViewModelTest.relay validation rejects an unknown finalmask without disabling it' \
   -Pripdpi.skipNativeBuild=true --max-workers=4 \
-  -Dorg.gradle.jvmargs='-Xmx5g -XX:MaxMetaspaceSize=1g'
-build-gate --lane ripdpi -- ./gradlew staticAnalysis \
+  -Dorg.gradle.jvmargs='-Xmx5g -XX:MaxMetaspaceSize=1g -Djava.net.preferIPv4Stack=true' \
+  -Dorg.gradle.internal.http.connectionTimeout=15000 \
+  -Dorg.gradle.internal.http.socketTimeout=30000
+build-gate --lane ripdpi -- ./gradlew --no-daemon staticAnalysis \
   -Pripdpi.skipNativeBuild=true --max-workers=4 \
-  -Dorg.gradle.jvmargs='-Xmx5g -XX:MaxMetaspaceSize=1g'
+  -Dorg.gradle.jvmargs='-Xmx5g -XX:MaxMetaspaceSize=1g -Djava.net.preferIPv4Stack=true' \
+  -Dorg.gradle.internal.http.connectionTimeout=15000 \
+  -Dorg.gradle.internal.http.socketTimeout=30000
 ```
 
-The final `staticAnalysis` attempt used `--offline` and exited 1 during dependency resolution, before analysis. Missing cached artifacts included detekt and Android lint dependencies. Logs: `/tmp/trn06-kotlin-red-network.log`, `/tmp/trn06-kotlin-red-offline.log`, `/tmp/trn06-static-analysis.log`. F5 remains unchecked for its owning JUnit execution; F6 remains unchecked for its combined-gates clause even though its peer/reference requirement passed. Do not archive or close this task while local acceptance is blocked.
+Both commands exited 0. JUnit XML records 15 AppSettingsJsonTest cases, 2 FinalmaskValidationTest cases, 4 FinalmaskCompatibilityTest cases and 1 ConnectionViewModelTest case: 22 passed, zero failures, errors or skips. This is the owning targeted suite, not all repository JUnit tests. The exact `staticAnalysis` aggregate completed in 30m51s: 826 actionable tasks, 509 executed, 30 from cache, 287 up-to-date. It includes both GitHub app variants and the configured detekt, ktlint, Android lint and source checks. Native compilation was omitted for these host Kotlin checks; no APK or device acceptance is claimed. Roborazzi finalization was not needed for the ViewModel assertion and was not used as evidence.
+
+Logs: `/tmp/trn06-acceptance-kotlin-fixed.log`, `/tmp/trn06-acceptance-static.log`. Initial failed fixture run: `/tmp/trn06-acceptance-kotlin.log`. JUnit XML is in each owning module's `build/test-results` directory. Compiler and lint warnings outside this task remain; no quality gate, baseline or suppression was weakened.
+
+Full `cargo metadata --locked --format-version 1` also exited 0 on this checkout. Final current-checkout `build-gate --lane ripdpi -- just ci-gates` exited 0; log `/tmp/trn06-acceptance-ci-gates.log`. All Rust API snapshots matched without updates. The run included a cold BoringSSL build and waited for another build to release the shared Cargo target lock. No foreign process was stopped and no check was omitted. All execution and local acceptance requirements are now satisfied.
 
 ## Evidence limits
 
 - C: All six audit fixes are implemented and independently reviewed in separate commits.
-- V: The local Rust regressions, real peer sessions and source gates above passed. Full Kotlin execution remains blocked.
+- V: The local Rust regressions, real peer sessions and source gates above passed. The 22 owning Kotlin JUnit cases and full staticAnalysis also passed in the acceptance follow-up.
 - S: The finalmask reference is pinned separately from the xHTTP v26.2.6 reference; the supported one-layer subset and required peer adapter are explicit.
 - E: Only the recorded local Xray source plus adapter was checked. External Cloudflare, physical Android devices, production secrets, root activation, UDP masks, custom Sudoku layouts and TCP segment boundaries were not tested or claimed.

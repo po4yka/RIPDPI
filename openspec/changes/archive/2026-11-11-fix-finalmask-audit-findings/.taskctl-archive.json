@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-11T08:33:53Z",
+  "change": "fix-finalmask-audit-findings",
+  "commit_sha": "318c9b861d4f0ed8fa5016fb6ef4842f73117a2a",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "TRN-1794371392084141"
+}

@@ -2,7 +2,7 @@
 id: TRN-1794371392084141
 title: Fix finalmask audit findings
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Finalmask audit fixes
@@ -12,7 +12,10 @@ spec_mode: required
 openspec_change: fix-finalmask-audit-findings
 created: 2026-11-11
 updated: 2026-11-11
-status_detail: All six fixes are committed and reviewed; full Kotlin JUnit and staticAnalysis remain blocked by Maven dependency access. See verification.md.
+status_detail: "All acceptance passed: 22 Kotlin JUnit cases, full staticAnalysis, ci-gates and locked metadata; native and peer evidence retained."
+closed_at: "2026-11-11T08:33:57Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 22 Kotlin JUnit cases passed without skips; full staticAnalysis, ci-gates and locked metadata exited 0. Native regression, real peer and independent review evidence is recorded in archived verification.md.
 ---
 
 ## Goal
