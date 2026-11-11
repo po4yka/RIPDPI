@@ -305,6 +305,15 @@ private suspend fun expandWarpCandidate(
                 candidate.copy(port = normalizedPort),
             )
         }
+    // A one-shot probe uses the first family; DNS must not hide an explicit alternate.
+    if (!candidate.ipv4.isNullOrBlank()) {
+        val ipv4Candidate = candidate.copy(ipv6 = null, port = normalizedPort)
+        expanded.putIfAbsent(ipv4Candidate.candidateIdentity(), ipv4Candidate)
+    }
+    if (!candidate.ipv6.isNullOrBlank()) {
+        val ipv6Candidate = candidate.copy(ipv4 = null, port = normalizedPort)
+        expanded.putIfAbsent(ipv6Candidate.candidateIdentity(), ipv6Candidate)
+    }
     val host = candidate.host?.takeIf(String::isNotBlank)
     if (host != null) {
         resolveHost(host).forEach { address ->
