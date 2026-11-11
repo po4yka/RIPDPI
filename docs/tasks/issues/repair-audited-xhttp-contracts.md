@@ -1,0 +1,35 @@
+---
+id: TRN-1794371418861139
+title: Repair audited xHTTP stream and pool contracts
+kind: bug
+status: doing
+area: transport
+priority: high
+owner: Transport maintainer
+parent: null
+blocked_by: []
+spec_mode: required
+openspec_change: repair-audited-xhttp-contracts
+created: 2026-11-11
+updated: 2026-11-11
+---
+
+## Goal
+
+Repair the four confirmed TRN-04 audit defects in the existing native xHTTP modes. Keep TLS and REALITY admission unchanged. Correct the related support documentation.
+
+## Acceptance criteria
+
+- stream-up opens and sends payload without upload response headers or server heartbeat.
+- Dropping one completed stream closes its HTTP legs and tasks while sibling streams remain usable; write-half shutdown preserves download.
+- Configured paths and queries match the pinned Xray URL semantics.
+- A pending pool acquisition uses capacity released by any carrier.
+- Each defect has a separate Conventional Commit, regression coverage, independent review, and passes the required source gates before integration into main.
+
+## Ownership
+
+- Stream worker owns F1 and F2: `ripdpi-xhttp/src/relay.rs` except its path helper functions, plus new `src/relay/` regression modules. F1 and F2 remain separate commits.
+- Path worker owns F3: `src/config.rs`, `src/h2_body.rs`, path helpers in `src/relay.rs`, and owning path tests. Changes in relay.rs are serialized at integration; no other worker edits the path helper range.
+- Pool worker owns F4: `src/pool.rs` and `src/pool/` regression tests; it preserves the existing permit type and avoids changing stream-worker files.
+- Root owns task/OpenSpec records, support docs, integration, combined validation and push. All workers use separate worktrees.
+- Cargo.lock, Cargo.toml, Kotlin contracts, locales, baselines and golden fixtures have no writer in this change.
