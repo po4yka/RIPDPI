@@ -11,6 +11,7 @@ The audit identifies six defects in existing transport paths. The raw Upgrade an
 
 - Correct the shared pinned WS verifier with a narrow vendored patch if no existing repository seam can preserve all handshake checks. Do not add a new production dependency or replace TLS.
 - Keep F1 through F6 in separate commits. Regression tests assert peer bytes and observable errors.
+- Reject repeated singleton Accept and Protocol response fields, including identical values. Keep repeatable Connection fields valid. Give this follow-up defect its own commit.
 - Preserve retryable read polling and normal Close. Do not replay a partially sent stream after relay failure.
 - Validate raw HTTP with bounded existing HTTP types and preserve the existing default API where possible. Custom Upgrade protocol remains explicit.
 - The close owner covers the generic async adapter, split WG driver, and its receive size limit. Use bounded, cancellation-safe state that survives a pending poll.

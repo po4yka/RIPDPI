@@ -109,3 +109,35 @@ async fn handshake_async_accepts_connection_token_lists() {
     peer.join().expect("peer joins");
     assert!(result.is_ok(), "valid Connection tokens rejected by async client");
 }
+
+#[test]
+fn handshake_rejects_repeated_accept_response_fields() {
+    for extra in [
+        format!("Sec-WebSocket-Accept: {ACCEPT}\r\n"),
+        "Sec-WebSocket-Accept: wrong-accept\r\n".to_owned(),
+        format!("sEc-WeBsOcKeT-aCcEpT: {ACCEPT}\r\n"),
+    ] {
+        let (stream, peer) = raw_peer(response("Connection: keep-alive, Upgrade\r\n", &extra));
+        let result = tungstenite::client(request(), stream);
+        peer.join().expect("peer joins");
+        assert!(result.is_err(), "repeated Accept response field accepted: {extra}");
+    }
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the handshake owns the stream; cancellation drops it before publishing a carrier.
+async fn handshake_async_rejects_repeated_protocol_response_fields() {
+    for extra in [
+        "Sec-WebSocket-Protocol: binary\r\n",
+        "Sec-WebSocket-Protocol: unoffered\r\n",
+        "sEc-WeBsOcKeT-pRoToCoL: binary\r\n",
+    ] {
+        let (stream, peer) = raw_peer(response("Connection: keep-alive, Upgrade\r\n", extra));
+        stream.set_nonblocking(true).expect("nonblocking stream");
+        let stream = tokio::net::TcpStream::from_std(stream).expect("async stream");
+        let result = tokio_tungstenite::client_async(request(), stream).await;
+        peer.join().expect("peer joins");
+        assert!(result.is_err(), "repeated Protocol response field accepted: {extra}");
+    }
+}

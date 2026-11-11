@@ -12,3 +12,5 @@ Regression coverage: ripdpi-ws-tunnel/tests/handshake_contract.rs exercises sync
 The client checks for an exact Upgrade token, ignoring ASCII case, across comma-separated Connection options and repeated Connection fields. Accept and subprotocol checks are unchanged. The same regression file covers valid lists and invalid token, Accept, and subprotocol controls.
 
 Request, endpoint, message, frame, and Close diagnostics record metadata in place of header values, URI paths, payload, or Close reasons. The wire data is unchanged. Regression coverage in ripdpi-ws-tunnel/tests/handshake_logging.rs captures the real log bridge and checks synthetic credentials, frames, and local redirects.
+
+The response verifier rejects repeated Sec-WebSocket-Accept and Sec-WebSocket-Protocol fields, including identical values and names with different case. RFC 6455 sections 11.3.3 and 11.3.4 require these fields to occur at most once. Connection fields remain repeatable. The handshake contract tests cover both sync and async clients.

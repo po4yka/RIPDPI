@@ -251,6 +251,14 @@ impl VerifyData {
         {
             return Err(Error::Protocol(ProtocolError::MissingConnectionUpgradeHeader));
         }
+        // RFC 6455 sections 11.3.3 and 11.3.4 prohibit repeated response fields.
+        for name in ["sec-websocket-accept", "sec-websocket-protocol"] {
+            if headers.get_all(name).iter().nth(1).is_some() {
+                return Err(Error::Protocol(ProtocolError::InvalidHeader(
+                    HeaderName::from_static(name).into(),
+                )));
+            }
+        }
         // 4.  If the response lacks a |Sec-WebSocket-Accept| header field or
         // the |Sec-WebSocket-Accept| contains a value other than the
         // base64-encoded SHA-1 of ... the client MUST _Fail the WebSocket

@@ -31,6 +31,15 @@ The relay MUST return terminal protocol, capacity, and I/O errors to its caller 
 - **WHEN** the peer sends an invalid frame or a terminal send fails
 - **THEN** the result is an error and owned workers terminate
 
+### Requirement: REQ-WS-SINGLETONS — Reject repeated singleton response fields
+
+The client MUST reject repeated Sec-WebSocket-Accept and Sec-WebSocket-Protocol response fields, including identical values, as required by [RFC 6455 sections 11.3.3 and 11.3.4](https://www.rfc-editor.org/rfc/rfc6455.html#section-11.3.3). Repeatable Connection fields MUST remain valid.
+
+#### Scenario: Reject repeated singleton response fields
+
+- **WHEN** a response contains identical or conflicting Accept or Protocol fields, including names with different case
+- **THEN** the handshake fails before a carrier is returned
+
 ### Requirement: REQ-UPGRADE-RESPONSE — Validate raw Upgrade responses
 
 The raw transport MUST validate HTTP syntax, status, Connection, and the offered Upgrade protocol within a bounded header budget. It MUST retain post-head bytes and support bounded interim responses.

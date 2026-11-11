@@ -23,6 +23,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-WS-EXTENSIONS | TRN-1794383519591425 | Independent raw-wire regression and owning suite; pending | pending |
 | REQ-WS-CONNECTION | TRN-1794383519591425 | Independent raw-wire regression and owning suite; pending | pending |
 | REQ-WS-ERRORS | TRN-1794383522543227 | Independent raw-wire regression and owning suite; pending | pending |
+| REQ-WS-SINGLETONS | TRN-1794392603512440 | Independent repeated-field raw response regression; pending | pending |
 | REQ-UPGRADE-RESPONSE | TRN-1794383523565872 | Independent raw-wire regression and owning suite; pending | pending |
 | REQ-WS-CLOSE | TRN-1794383526870583 | Independent raw-wire regression and owning suite; pending | pending |
 | REQ-UPGRADE-REQUEST | TRN-1794383523565872 | Independent raw-wire regression and owning suite; pending | pending |

@@ -6,6 +6,8 @@ Task ID: `TRN-1794383445146007`
 
 The TRN-09 audit reproduced six transport defects. A valid WebSocket response can fail, an unrequested extension can pass, relay failures can report success, and peer Close replies can remain queued. The internal raw Upgrade API accepts invalid HTTP syntax and unconfirmed protocol selection.
 
+Follow-up source and specification review found that the verifier accepts repeated singleton Accept and Protocol response fields when their first value is valid. RFC 6455 forbids these repeated fields. A raw-wire regression will verify this additional defect before repair.
+
 ## What Changes
 
 - Repair each confirmed defect in a separate commit with independent wire regression tests.
