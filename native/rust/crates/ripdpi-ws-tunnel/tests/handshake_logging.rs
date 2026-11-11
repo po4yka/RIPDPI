@@ -78,6 +78,7 @@ fn websocket_logs_keep_credentials_and_payload_on_wire_only() {
                     Err(error) => panic!("accept redirect peer: {error}"),
                 }
             };
+            stream.set_nonblocking(false).expect("blocking peer reads");
             stream.set_read_timeout(Some(Duration::from_secs(5))).expect("read timeout");
             let mut head = Vec::new();
             while !head.ends_with(b"\r\n\r\n") {
