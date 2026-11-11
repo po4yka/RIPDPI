@@ -136,10 +136,25 @@ impl HunkDecoder {
 /// HTTP/2 path for the gRPC `Tun` method of a configured service.
 ///
 /// `service_name` may be supplied with or without a leading slash; the result
-/// is always `/<service>/Tun`, matching Xray's `GunService` / V2Fly layout.
+/// is always `/<escaped-service>/Tun`. Logical names use Xray segment escaping.
 pub fn tun_path(service_name: &str) -> String {
     let trimmed = service_name.trim().trim_matches('/');
-    if trimmed.is_empty() { "/Tun".to_owned() } else { format!("/{trimmed}/Tun") }
+    let mut path = String::from("/");
+    for byte in trimmed.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-_.~$&+:=@".contains(&byte) {
+            path.push(char::from(byte));
+        } else {
+            const HEX: &[u8; 16] = b"0123456789ABCDEF";
+            path.push('%');
+            path.push(char::from(HEX[usize::from(byte >> 4)]));
+            path.push(char::from(HEX[usize::from(byte & 15)]));
+        }
+    }
+    if !trimmed.is_empty() {
+        path.push('/');
+    }
+    path.push_str("Tun");
+    path
 }
 
 /// Configuration for an outbound Xray/V2Fly-compatible gRPC transport.

@@ -105,3 +105,19 @@ async fn protobuf_transport_preserves_payload_before_errors_and_skips_empty_hunk
         assert_eq!(result.err().map(|e| e.kind()), expected_error);
     }
 }
+
+#[test]
+fn service_path_matches_pinned_xray_segment_escaping() {
+    // Xray v1.260327.0 config.go uses Go url.PathEscape for logical names.
+    for (name, path) in [
+        ("a/b", "/a%2Fb/Tun"),
+        ("a b", "/a%20b/Tun"),
+        ("a?b", "/a%3Fb/Tun"),
+        ("a%b", "/a%25b/Tun"),
+        ("сервис", "/%D1%81%D0%B5%D1%80%D0%B2%D0%B8%D1%81/Tun"),
+        ("$&+:=@-_.~", "/$&+:=@-_.~/Tun"),
+        ("!(),' *;#[]", "/%21%28%29%2C%27%20%2A%3B%23%5B%5D/Tun"),
+    ] {
+        assert_eq!(tun_path(name), path, "{name}");
+    }
+}
