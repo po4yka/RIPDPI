@@ -108,6 +108,8 @@ data class AmneziaWgV3Parameters(
         fun isHeaderProtectionKey(value: String): Boolean = decodeKey(value) != null
 
         private fun decodeKey(value: String): ByteArray? =
-            runCatching { Base64.getDecoder().decode(value) }.getOrNull()?.takeIf { it.size == KeyBytes }
+            runCatching { Base64.getDecoder().decode(value) }.getOrNull()?.takeIf { decoded ->
+                decoded.size == KeyBytes && Base64.getEncoder().encodeToString(decoded) == value
+            }
     }
 }
