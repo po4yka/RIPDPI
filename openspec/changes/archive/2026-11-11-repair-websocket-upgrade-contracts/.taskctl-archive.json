@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-11T13:11:05Z",
+  "change": "repair-websocket-upgrade-contracts",
+  "commit_sha": "a52e3a08121fd0ac501cff3d8384df0cf97bced6",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "TRN-1794383445146007"
+}

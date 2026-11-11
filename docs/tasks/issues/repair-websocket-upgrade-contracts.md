@@ -2,7 +2,7 @@
 id: TRN-1794383445146007
 title: Repair WebSocket and raw Upgrade contracts
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: transport-integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-websocket-upgrade-contracts
 created: 2026-11-11
 updated: 2026-11-11
+closed_at: "2026-11-11T13:11:06Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Source a52e3a08121fd0ac501cff3d8384df0cf97bced6 is on main and origin/main; 346 tests, affected clippy, workspace check, fmt, locked metadata, ci-gates, architecture and independent reviews passed. Hosted CI and external/device acceptance remain unverified; details in archived verification.md.
 ---
 
 ## Goal

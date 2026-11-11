@@ -1,0 +1,11 @@
+{
+  "change": "repair-websocket-upgrade-contracts",
+  "evidence_summary": "Source a52e3a08121fd0ac501cff3d8384df0cf97bced6 is on main and origin/main; 346 tests, affected clippy, workspace check, fmt, locked metadata, ci-gates, architecture and independent reviews passed. Hosted CI and external/device acceptance remain unverified; details in archived verification.md.",
+  "execution_sha256": "1c8130136a9d725fa0b32461e6e7dec0645bf735e1fa14edfc6061a3beb131c4",
+  "issue_sha256": "2ae6c38572dea6fcb6621528eeb55a44416e52b1404499922e1b97baf0e7f1f4",
+  "outcome": "done",
+  "prepared_at": "2026-11-11T13:11:06Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794383445146007"
+}
