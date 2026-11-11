@@ -21,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -32,6 +33,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketTimeoutException
+import java.util.Arrays
 import java.util.Base64
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
@@ -146,7 +148,8 @@ class NativeBridgeInstrumentedTest {
                     receiver.soTimeout = 5_000
                     receiver.receive(packet)
                     assertEquals(148, packet.length)
-                    assertEquals(listOf<Byte>(1, 0, 0, 0), packet.data.take(4))
+                    // The separate test APK must not depend on shrunk app library overloads.
+                    assertArrayEquals(byteArrayOf(1, 0, 0, 0), Arrays.copyOf(packet.data, 4))
                     assertNull(allowed.get(5, TimeUnit.SECONDS))
                 } finally {
                     executor.shutdownNow()
