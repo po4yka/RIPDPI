@@ -8,10 +8,13 @@ The TUN-02 audit found false runtime readiness, off-VPN protection failures,
 stale endpoint reuse, incompatible response parsing, false account state,
 incomplete Zero Trust imports, and no user entry point for profile setup.
 These defects prevent reliable use of the supported WARP WireGuard path.
+The first repair test run also reproduced a stack overflow in the endpoint
+probe worker. This additional finding needs its own fix commit.
 
 ## What Changes
 
 - Require peer authentication for WARP readiness and report peer failure.
+- Keep endpoint probe packet buffers on the heap for small worker stacks.
 - Preserve active VPN protection while allowing normal operation outside VPN.
 - Resolve endpoints independently of account refresh and use the current network.
 - Normalize provider endpoints and accept GET responses without a new token.

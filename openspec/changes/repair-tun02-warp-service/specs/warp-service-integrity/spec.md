@@ -14,6 +14,11 @@ The runtime MUST require an authenticated WireGuard response before readiness. S
 - **WHEN** a silent, wrong, or valid local peer is selected
 - **THEN** only a valid authenticated peer permits readiness; timeout fails and stop releases tasks.
 
+#### Scenario: Authenticate through address-family fallback
+
+- **WHEN** the IPv4 primary is silent and the configured IPv6 peer can authenticate
+- **THEN** bounded startup permits the backend retry and publishes readiness only after that peer authenticates.
+
 ### Requirement: REQ-WARP-F2 — Carry explicit socket protection policy
 
 Runtime and probe callers MUST carry captured inactive or VPN-required policy. Inactive operation MUST work without a callback; required operation MUST fail closed on missing or rejected protection.
@@ -23,9 +28,14 @@ Runtime and probe callers MUST carry captured inactive or VPN-required policy. I
 - **WHEN** the same target is used with each policy
 - **THEN** inactive needs no callback and required cannot bypass missing or failed protection.
 
+#### Scenario: Preserve the original probe JNI ABI
+
+- **WHEN** the original one-String native probe entrypoint is called
+- **THEN** its signature remains unchanged and it returns null without network I/O; current guarded callers use a separate entrypoint.
+
 ### Requirement: REQ-WARP-F3 — Separate endpoint selection from account refresh
 
-Automatic selection MUST use captured network scope and frozen credentials, probe stale endpoints, and persist only through matching profile revision. Missing endpoint alone MUST NOT require consumer refresh.
+Automatic selection MUST use captured network scope and frozen credentials and persist only through matching profile revision. Enabled scanning MUST probe stale endpoints. Disabled scanning MUST NOT start probes; the runtime still MUST authenticate before readiness. Missing endpoint alone MUST NOT require consumer refresh.
 
 #### Scenario: Separate endpoint selection from account refresh
 
@@ -76,3 +86,12 @@ The user MUST have explicit consumer registration and ready-profile import actio
 
 - **WHEN** the user confirms registration, selects a complete import, or cancels setup
 - **THEN** only explicit actions start work; validated results persist through existing mutation ownership; cancellation never claims remote rollback.
+
+### Requirement: REQ-WARP-F9 — Bound endpoint probe stack use
+
+Endpoint probes MUST keep packet buffers out of the async future's inline storage. Heap buffers MUST retain the same packet limit and wire behavior.
+
+#### Scenario: Probe from a small worker stack
+
+- **WHEN** a complete local probe runs on a worker with a 256 KiB stack
+- **THEN** it emits the standard 148-byte initiation and reaches the bounded timeout without stack overflow or a larger process stack setting.

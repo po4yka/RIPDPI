@@ -2,7 +2,7 @@
 
 ## Objective
 
-Repair F1 through F8 with one tested and reviewed fix commit per finding.
+Repair F1 through F9 with one tested and reviewed fix commit per finding.
 
 ## Ownership
 
@@ -26,3 +26,7 @@ coordinator alone updates task/spec states and generated contract snapshots.
 Use focused native and Kotlin regression suites, staticAnalysis, locale lint,
 ci-gates, locked metadata, task-check, and emulator/UI checks where available.
 Keep each evidence category separate in verification.md.
+
+## Additional finding from the native gate
+
+- [ ] TRN-1794395789446963 F9 keep endpoint probe packet buffers off worker stacks with a bounded-stack loopback regression #bug !high @item:TRN-1794384538458949
