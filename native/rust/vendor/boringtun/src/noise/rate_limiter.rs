@@ -17,7 +17,7 @@ use parking_lot::Mutex;
 use rand_core::{OsRng, RngCore};
 use subtle::ConstantTimeEq;
 
-const COOKIE_REFRESH: u64 = 128; // Use 128 and not 120 so the compiler can optimize out the division
+const COOKIE_REFRESH: u64 = 120;
 const COOKIE_SIZE: usize = 16;
 const COOKIE_NONCE_SIZE: usize = 24;
 
@@ -236,5 +236,23 @@ impl RateLimiter {
         }
 
         Ok(packet)
+    }
+}
+
+#[cfg(all(test, feature = "mock-instant"))]
+mod tests {
+    use super::*;
+    use crate::x25519::{PublicKey, StaticSecret};
+    use std::time::Duration;
+
+    #[test]
+    fn cookie_secret_rotates_after_two_minutes() {
+        let limiter = RateLimiter::new(&PublicKey::from(&StaticSecret::from([7; 32])), 10);
+        let address = "192.0.2.1".parse().unwrap();
+        let first = limiter.current_cookie(address);
+        mock_instant::MockClock::advance(Duration::from_secs(119));
+        assert_eq!(limiter.current_cookie(address), first);
+        mock_instant::MockClock::advance(Duration::from_secs(1));
+        assert_ne!(limiter.current_cookie(address), first);
     }
 }

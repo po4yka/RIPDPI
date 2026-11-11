@@ -27,6 +27,7 @@ Local changes:
   exhausted send and receive nonces before wraparound or replay-state changes.
 - Plain WireGuard samples 0–333 ms of retry jitter once per initiation. AWG
   retains its configured retry range and uses the same bounded jitter source.
+- Cookie secrets rotate on the specified two-minute boundary.
 - `ReceiveOutcome` separates generated output from peer authentication. All-zero
   AWG payloads are empty transport; malformed IP consumes replay state without
   updating readiness, receive timers, or the UDP window. IPv4 length and IHL
