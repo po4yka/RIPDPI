@@ -1,6 +1,8 @@
 use std::io;
 
-use ripdpi_relay_mux::{MuxLease, RelayMux, RelayPoolConfig, RelayPoolHealth, RelaySession, RelaySessionFactory};
+use ripdpi_relay_mux::{
+    MuxLease, RelayMux, RelayOpenError, RelayPoolConfig, RelayPoolHealth, RelaySession, RelaySessionFactory,
+};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::backend::udp::RelayUdpSession;
@@ -61,7 +63,7 @@ where
     /// incomplete logical stream must be reset without corrupting a reused
     /// carrier.
     pub(crate) async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
+        let stream = self.mux.open_stream(&target.to_connect_target()).await.map_err(pool_open_error)?;
         Ok(Box::new(stream))
     }
 }
@@ -71,10 +73,20 @@ where
     F: RelaySessionFactory<Error = io::Error>,
     <F::Session as RelaySession>::Datagram: Send + 'static,
 {
+    /// # Cancel safety:
+    /// cancel-safe: the mux releases admission and incomplete leases on drop;
+    /// the factory must retain or cancel its own unfinished cleanup.
     pub(crate) async fn open_udp_session<M>(&self, map: M) -> io::Result<RelayUdpSession>
     where
         M: FnOnce(MuxLease<<F::Session as RelaySession>::Datagram, F::Session>) -> RelayUdpSession,
     {
-        self.mux.open_datagram().await.map(map)
+        self.mux.open_datagram().await.map(map).map_err(pool_open_error)
+    }
+}
+
+fn pool_open_error(error: RelayOpenError<io::Error>) -> io::Error {
+    match error {
+        RelayOpenError::Closed => io::Error::new(io::ErrorKind::NotConnected, "relay pool is shut down"),
+        RelayOpenError::Backend(error) => error,
     }
 }

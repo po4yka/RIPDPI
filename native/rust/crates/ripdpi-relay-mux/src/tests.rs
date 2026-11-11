@@ -493,7 +493,9 @@ async fn fresh_carrier_failure_surfaces_without_a_retry() {
     let Err(error) = mux.open_stream("example.com:443").await else {
         panic!("a failing fresh carrier must surface its error");
     };
-    assert_eq!(std::io::ErrorKind::ConnectionRefused, error.kind());
+    assert!(
+        matches!(error, crate::RelayOpenError::Backend(error) if error.kind() == std::io::ErrorKind::ConnectionRefused)
+    );
 }
 
 #[tokio::test]
@@ -597,9 +599,13 @@ async fn a_refused_destination_keeps_the_cached_carrier() {
     drop(mux.open_stream("example.com:443").await.expect("warm the cached carrier"));
 
     let error = mux.open_stream("refused.example:443").await.err().expect("the destination refusal surfaces");
-    assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    assert!(
+        matches!(error, crate::RelayOpenError::Backend(error) if error.kind() == std::io::ErrorKind::ConnectionRefused)
+    );
     let error = mux.open_datagram().await.err().expect("the UDP refusal surfaces");
-    assert_eq!(error.kind(), std::io::ErrorKind::ConnectionRefused);
+    assert!(
+        matches!(error, crate::RelayOpenError::Backend(error) if error.kind() == std::io::ErrorKind::ConnectionRefused)
+    );
     drop(mux.open_stream("example.com:443").await.expect("the carrier still serves other targets"));
 
     assert_eq!(1, creations.load(Ordering::SeqCst), "a per-destination refusal must not re-dial the carrier");
@@ -828,3 +834,5 @@ async fn closed_cached_carrier_is_replaced_before_datagram_open() {
 
     assert_eq!(1, *lease.get_ref(), "a closed carrier must not be reused");
 }
+
+mod shutdown;

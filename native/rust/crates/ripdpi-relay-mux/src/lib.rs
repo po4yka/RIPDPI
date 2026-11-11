@@ -18,8 +18,10 @@
 #![forbid(unsafe_code)]
 
 mod contracts;
+mod error;
 mod health;
 mod lease;
+mod lifecycle;
 mod pool;
 mod state;
 mod stream;
@@ -29,6 +31,7 @@ mod types;
 pub mod wire_mux;
 
 pub use contracts::{RelayCapabilities, RelaySession, RelaySessionFactory};
+pub use error::RelayOpenError;
 pub use pool::RelayMux;
 pub use stream::{MuxLease, MuxStream};
 pub use types::{RelayPoolConfig, RelayPoolHealth};
