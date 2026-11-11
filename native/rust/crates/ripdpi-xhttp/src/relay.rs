@@ -30,7 +30,7 @@ pub struct XhttpStream {
     /// Set before an HTTP request or body failure closes its local pipes.
     stream_failed: Arc<AtomicBool>,
     writer: DuplexStream,
-    _upload_response: OpenStreamTaskGuard,
+    _tasks: OpenStreamTaskGuard,
     _permit: OwnedSemaphorePermit,
     _carrier: ActiveCarrier,
 }
@@ -223,8 +223,7 @@ impl PooledConnection {
         // Request submission is synchronous; upload response headers may wait for application payload.
         let mut sender = self.sender.lock().await.clone();
         let response = sender.send_request(post_request);
-        let mut upload_response = OpenStreamTaskGuard::new();
-        upload_response.push(spawn_upload_response(response, Arc::clone(&stream_failed), abort_upload, abort_download));
+        open_tasks.push(spawn_upload_response(response, Arc::clone(&stream_failed), abort_upload, abort_download));
 
         // xray-core buffers the VLESS response header until the first
         // downstream payload. Return the writable stream immediately and
@@ -233,11 +232,10 @@ impl PooledConnection {
             reader: ResponseHeaderStream::new(user_download),
             stream_failed,
             writer: user_upload,
-            _upload_response: upload_response,
+            _tasks: open_tasks,
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
         };
-        open_tasks.disarm();
         Ok(stream)
     }
 
@@ -291,11 +289,10 @@ impl PooledConnection {
             reader: ResponseHeaderStream::new(user_download),
             stream_failed,
             writer: user_upload,
-            _upload_response: OpenStreamTaskGuard::new(),
+            _tasks: open_tasks,
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
         };
-        open_tasks.disarm();
         Ok(stream)
     }
 }
@@ -329,29 +326,22 @@ impl Drop for PendingStreamCarrier<'_> {
 
 struct OpenStreamTaskGuard {
     handles: Vec<JoinHandle<()>>,
-    abort_on_drop: bool,
 }
 
 impl OpenStreamTaskGuard {
     fn new() -> Self {
-        Self { handles: Vec::new(), abort_on_drop: true }
+        Self { handles: Vec::new() }
     }
 
     fn push(&mut self, handle: JoinHandle<()>) {
         self.handles.push(handle);
     }
-
-    fn disarm(mut self) {
-        self.abort_on_drop = false;
-    }
 }
 
 impl Drop for OpenStreamTaskGuard {
     fn drop(&mut self) {
-        if self.abort_on_drop {
-            for handle in &self.handles {
-                handle.abort();
-            }
+        for handle in &self.handles {
+            handle.abort();
         }
     }
 }
@@ -564,27 +554,6 @@ mod tests {
             .expect("pump task drop signal");
     }
 
-    #[tokio::test]
-    async fn open_stream_task_guard_detaches_pumps_after_stream_is_returned() {
-        let (started_tx, started_rx) = oneshot::channel();
-        let (dropped_tx, dropped_rx) = oneshot::channel();
-        let handle = tokio::spawn(async move {
-            let _drop_signal = DropSignal(Some(dropped_tx));
-            let _ = started_tx.send(());
-            future::pending::<()>().await;
-        });
-        let mut guard = OpenStreamTaskGuard::new();
-        guard.push(handle);
-        started_rx.await.expect("pump task started");
-
-        guard.disarm();
-
-        assert!(
-            tokio::time::timeout(Duration::from_millis(50), dropped_rx).await.is_err(),
-            "returned xHTTP streams keep their pump tasks alive until stream halves close",
-        );
-    }
-
     /// Request heads as the server saw them, in arrival order.
     ///
     /// # Cancel safety
@@ -699,7 +668,7 @@ mod tests {
             reader: ripdpi_vless::wire::ResponseHeaderStream::new(user_download),
             stream_failed,
             writer,
-            _upload_response: super::OpenStreamTaskGuard::new(),
+            _tasks: super::OpenStreamTaskGuard::new(),
             _permit: permit,
         };
         pump.await.expect("download pump");
@@ -884,3 +853,6 @@ mod tests {
 
 #[cfg(test)]
 mod stream_up_tests;
+
+#[cfg(test)]
+mod cleanup_tests;
