@@ -40,6 +40,13 @@ use std::task::{Context, Poll};
 use ring::rand::{SecureRandom, SystemRandom};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
+mod server_hello;
+use server_hello::{ServerHelloFilter, filter_server_hello};
+
+#[cfg(test)]
+#[path = "vision/server_hello_tests.rs"]
+mod server_hello_tests;
+
 /// Raw transport access used after an XTLS `Direct` downlink command removes
 /// the outer Reality TLS layer.
 pub trait XtlsDirectRead: AsyncRead + Unpin {
@@ -131,8 +138,8 @@ pub struct VisionStream<S> {
     r_inbuf: Vec<u8>,
     /// De-padded payload ready to hand to the caller.
     r_out: Vec<u8>,
-    /// Downlink bytes buffered until the inner ServerHello record is whole.
-    r_hello: Vec<u8>,
+    /// Bounded parser for the inner ServerHello across records and reads.
+    r_hello: ServerHelloFilter,
     /// xray `EnableXtls`: `Some(true)` once the inner ServerHello negotiated
     /// TLS 1.3 with a cipher other than CCM_8. Only then may the uplink send
     /// `Direct`; otherwise (TLS 1.2, 0-RTT before the answer) it sends `End`.
@@ -184,7 +191,7 @@ impl<S> VisionStream<S> {
             r_rem_padding: -1,
             r_inbuf: Vec::new(),
             r_out: Vec::new(),
-            r_hello: Vec::new(),
+            r_hello: ServerHelloFilter::default(),
             xtls_enabled: None,
         }
     }
@@ -374,37 +381,6 @@ impl<S: AsyncWrite + Unpin> VisionStream<S> {
         }
         Poll::Ready(Ok(()))
     }
-}
-
-/// xray `XtlsFilterTls` over the de-padded downlink: buffer `produced` until
-/// the first inner record is complete, then decide whether it is a TLS 1.3
-/// ServerHello (`supported_versions` = 0x0304) with a cipher other than
-/// `TLS_AES_128_CCM_8_SHA256`. Returns `None` while undecided.
-fn filter_server_hello(buffered: &mut Vec<u8>, produced: &[u8]) -> Option<bool> {
-    const SERVER_HELLO_START: [u8; 3] = [TLS_HANDSHAKE, TLS_RECORD_MAJOR_VERSION, 0x03];
-    const SERVER_HELLO_TYPE: u8 = 0x02;
-    const TLS13_SUPPORTED_VERSIONS: [u8; 6] = [0x00, 0x2b, 0x00, 0x02, 0x03, 0x04];
-    const TLS_AES_128_CCM_8_SHA256: [u8; 2] = [0x13, 0x05];
-    // Record header, then handshake type (1), length (3), version (2), random (32).
-    const SESSION_ID_LEN_OFFSET: usize = 43;
-
-    buffered.extend_from_slice(produced);
-    if buffered.len() <= TLS_RECORD_HEADER_LEN {
-        return None;
-    }
-    if buffered[..3] != SERVER_HELLO_START || buffered[TLS_RECORD_HEADER_LEN] != SERVER_HELLO_TYPE {
-        *buffered = Vec::new();
-        return Some(false);
-    }
-    let record_end = TLS_RECORD_HEADER_LEN + usize::from(u16::from_be_bytes([buffered[3], buffered[4]]));
-    let hello = buffered.get(..record_end)?;
-    let tls13 = hello.windows(TLS13_SUPPORTED_VERSIONS.len()).any(|window| window == TLS13_SUPPORTED_VERSIONS);
-    let cipher_allows_splice = hello.get(SESSION_ID_LEN_OFFSET).is_some_and(|&session_id_len| {
-        let cipher_at = SESSION_ID_LEN_OFFSET + 1 + usize::from(session_id_len);
-        hello.get(cipher_at..cipher_at + 2).is_some_and(|cipher| cipher != TLS_AES_128_CCM_8_SHA256)
-    });
-    *buffered = Vec::new();
-    Some(tls13 && cipher_allows_splice)
 }
 
 /// Encode a single Vision padding chunk into `out`. Pure (the padding length is
@@ -818,20 +794,27 @@ mod tests {
     const TLS_AES_128_GCM_SHA256: [u8; 2] = [0x13, 0x01];
 
     fn tls13_hello_seen() -> Option<bool> {
-        filter_server_hello(&mut Vec::new(), &server_hello(Some([0x03, 0x04]), TLS_AES_128_GCM_SHA256))
+        filter_server_hello(
+            &mut ServerHelloFilter::default(),
+            &server_hello(Some([0x03, 0x04]), TLS_AES_128_GCM_SHA256),
+        )
     }
 
     #[test]
     fn server_hello_filter_enables_xtls_only_for_tls13_without_ccm8() {
         assert_eq!(tls13_hello_seen(), Some(true));
         let tls12 = server_hello(None, [0xc0, 0x2f]);
-        assert_eq!(filter_server_hello(&mut Vec::new(), &tls12), Some(false), "TLS 1.2 must not splice");
+        assert_eq!(
+            filter_server_hello(&mut ServerHelloFilter::default(), &tls12),
+            Some(false),
+            "TLS 1.2 must not splice"
+        );
         let ccm8 = server_hello(Some([0x03, 0x04]), [0x13, 0x05]);
-        assert_eq!(filter_server_hello(&mut Vec::new(), &ccm8), Some(false), "CCM_8 must not splice");
-        assert_eq!(filter_server_hello(&mut Vec::new(), b"HTTP/1.1 200 OK\r\n"), Some(false));
+        assert_eq!(filter_server_hello(&mut ServerHelloFilter::default(), &ccm8), Some(false), "CCM_8 must not splice");
+        assert_eq!(filter_server_hello(&mut ServerHelloFilter::default(), b"HTTP/1.1 200 OK\r\n"), Some(false));
 
         let hello = server_hello(Some([0x03, 0x04]), TLS_AES_128_GCM_SHA256);
-        let mut buffered = Vec::new();
+        let mut buffered = ServerHelloFilter::default();
         assert_eq!(filter_server_hello(&mut buffered, &hello[..40]), None, "a split record waits for the rest");
         assert_eq!(filter_server_hello(&mut buffered, &hello[40..]), Some(true));
     }
@@ -842,7 +825,7 @@ mod tests {
     async fn inner_tls12_or_unanswered_handshake_ends_padding_without_direct() {
         let handshake = [TLS_HANDSHAKE, 0x03, 0x01, 0x00, 0x02, 0xaa, 0xbb];
         let appdata = [TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x03, 0x01, 0x02, 0x03];
-        let tls12_hello = filter_server_hello(&mut Vec::new(), &server_hello(None, [0xc0, 0x2f]));
+        let tls12_hello = filter_server_hello(&mut ServerHelloFilter::default(), &server_hello(None, [0xc0, 0x2f]));
         for downlink in [None, tls12_hello] {
             let mut writer =
                 VisionStream::new_vision(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
