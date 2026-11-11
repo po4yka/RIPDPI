@@ -48,6 +48,20 @@ pub trait RelaySessionFactory: Send + Sync + 'static {
 
     fn create_session(&self) -> impl Future<Output = Result<Arc<Self::Session>, Self::Error>> + Send;
 
+    /// Whether datagrams share the stream session and its reuse cache.
+    /// Independent datagrams use `create_datagram_session` without caching.
+    fn datagrams_use_shared_session(&self) -> bool {
+        true
+    }
+
+    /// Build an independent datagram session when sharing is disabled.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: inherits the factory's session-construction contract.
+    fn create_datagram_session(&self) -> impl Future<Output = Result<Arc<Self::Session>, Self::Error>> + Send {
+        self.create_session()
+    }
+
     /// Stop and join factory-owned work, including evicted or abandoned sessions.
     /// The caller normally drains stream opens first. Factories retaining work
     /// must close admission before cleanup, including the forced-drain error path.

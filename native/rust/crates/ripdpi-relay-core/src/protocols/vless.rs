@@ -135,6 +135,23 @@ fn emit_carrier_reuse(outcome: &'static str, started: Instant, error: Option<&io
 }
 
 impl RelaySessionFactory for VlessRealitySessionFactory {
+    fn datagrams_use_shared_session(&self) -> bool {
+        false
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: independent XUDP construction has no suspension or carrier.
+    async fn create_datagram_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
+        Ok(Arc::new(VlessRealitySession {
+            config: self.config.clone(),
+            outbound_bind_ip: self.outbound_bind_ip,
+            mux: None,
+            mux_carrier_used: AtomicBool::new(false),
+            session_limiter: self.session_limiter.clone(),
+            udp_enabled: self.udp_enabled,
+        }))
+    }
+
     /// # Cancel safety
     ///
     /// cancel-safe: completes without an await or observable state mutation.
@@ -177,3 +194,6 @@ impl RelaySessionFactory for VlessRealitySessionFactory {
         }))
     }
 }
+
+#[cfg(test)]
+mod datagram_tests;

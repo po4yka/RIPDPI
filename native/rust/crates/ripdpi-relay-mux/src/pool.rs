@@ -154,7 +154,7 @@ where
     ) -> Result<MuxLease<<F::Session as RelaySession>::Datagram, F::Session>, F::Error> {
         let permit = self.acquire_permit(self.datagram_permits()).await;
         let opening = self.acquire_opening_permit().await;
-        let (session, from_cache, guard) = self.session_for_open(permit).await?;
+        let (session, from_cache, guard) = self.session_for_datagram(permit).await?;
 
         let evict = EvictOnCancel::new(self, &session);
         let opened = session.open_datagram().await;
@@ -175,7 +175,7 @@ where
                 drop(guard);
                 let retry_permit = self.acquire_permit(self.datagram_permits()).await;
                 let opening = self.acquire_opening_permit().await;
-                let Ok((fresh, _, retry_guard)) = self.session_for_open(retry_permit).await else {
+                let Ok((fresh, _, retry_guard)) = self.session_for_datagram(retry_permit).await else {
                     return Err(error);
                 };
                 let evict = EvictOnCancel::new(self, &fresh);
@@ -217,6 +217,22 @@ where
     async fn acquire_opening_permit(&self) -> SemaphorePermit<'_> {
         // Infallible: the opening semaphore is never closed.
         self.inner.openings.acquire().await.expect("relay mux opening semaphore unexpectedly closed")
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: construction owns the permit; a ready session is leased
+    /// without another await and never enters the stream cache.
+    async fn session_for_datagram(
+        &self,
+        permit: OwnedSemaphorePermit,
+    ) -> Result<(Arc<F::Session>, bool, LeaseGuard<F::Session>), F::Error> {
+        if self.inner.factory.datagrams_use_shared_session() {
+            return self.session_for_open(permit).await;
+        }
+        let session = self.inner.factory.create_datagram_session().await?;
+        self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).active_leases += 1;
+        let guard = LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), false, permit);
+        Ok((session, false, guard))
     }
 
     /// Selects a session and reserves its lease before releasing the cache lock.
