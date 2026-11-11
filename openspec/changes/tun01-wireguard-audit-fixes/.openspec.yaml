@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-11
+goal: TRN-1794383863211672 Repair WireGuard tunnel audit findings
