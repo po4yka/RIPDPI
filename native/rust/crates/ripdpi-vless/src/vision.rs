@@ -404,12 +404,11 @@ fn encode_padding_chunk(out: &mut Vec<u8>, uuid: Option<&[u8; 16]>, cmd: u8, con
 impl<S: XtlsDirectRead> AsyncRead for VisionStream<S> {
     fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, read_buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let this = self.get_mut();
+        if read_buf.remaining() == 0 {
+            return Poll::Ready(Ok(()));
+        }
         if !this.vision {
             return Pin::new(&mut this.inner).poll_read(cx, read_buf);
-        }
-        if read_buf.remaining() == 0 && !this.r_out.is_empty() {
-            cx.waker().wake_by_ref();
-            return Poll::Pending;
         }
         loop {
             if !this.r_out.is_empty() {

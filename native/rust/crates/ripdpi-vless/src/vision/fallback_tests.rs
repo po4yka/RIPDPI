@@ -62,3 +62,37 @@ async fn fallback_returns_a_mismatching_prefix_without_waiting_for_eof() {
         assert_eq!(actual, prefix);
     }
 }
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the idle duplex stream and its peer belong only to this test.
+async fn empty_read_finishes_without_waiting_for_input() {
+    let (input, mut peer) = tokio::io::duplex(64);
+    let mut stream = VisionStream::new_vision(LiveInput(input), [0x42; 16]);
+    let mut buffer = ReadBuf::new(&mut []);
+    let mut context = Context::from_waker(std::task::Waker::noop());
+    assert!(matches!(Pin::new(&mut stream).poll_read(&mut context, &mut buffer), Poll::Ready(Ok(()))));
+    peer.write_all(b"OK").await.expect("response after empty read");
+    peer.shutdown().await.expect("response EOF");
+    let mut actual = Vec::new();
+    stream.read_to_end(&mut actual).await.expect("read response after empty read");
+    assert_eq!(actual, b"OK");
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test uses a private in-memory input and never cancels a read.
+async fn empty_read_preserves_buffered_content() {
+    let mut wire = vec![0x42; 16];
+    wire.extend_from_slice(&[super::CMD_END, 0, 4, 0, 0, b'A', b'B', b'C', b'D']);
+    let mut stream = fragmented(wire, READ_SCRATCH);
+    let mut first = [0];
+    stream.read_exact(&mut first).await.expect("first content byte");
+    assert_eq!(first, [b'A']);
+    let mut buffer = ReadBuf::new(&mut []);
+    let mut context = Context::from_waker(std::task::Waker::noop());
+    assert!(matches!(Pin::new(&mut stream).poll_read(&mut context, &mut buffer), Poll::Ready(Ok(()))));
+    let mut rest = Vec::new();
+    stream.read_to_end(&mut rest).await.expect("buffered content after empty read");
+    assert_eq!(rest, b"BCD");
+}
