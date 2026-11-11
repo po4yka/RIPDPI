@@ -450,6 +450,7 @@ where
 mod tests {
     mod h2_alpn;
     mod server_name;
+    mod vision_lifecycle;
 
     use super::{DropOrdered, RealityRecordStream, connect_reality_tls};
     use crate::reality_seal::derive_auth_key;
