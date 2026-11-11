@@ -533,9 +533,19 @@ mod tests {
 
         // The fixture echoes it back: a 3 MiB message is above any MTProto packet.
         ws.send(tungstenite::Message::Binary(Bytes::from(vec![0x5a; 3 * 1024 * 1024]))).expect("send binary");
-        let refused = matches!(ws.read(), Err(tungstenite::Error::Capacity(_)));
-
-        assert!(refused, "an oversized inbound message must be refused");
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        let error = loop {
+            match ws.read() {
+                Err(tungstenite::Error::Io(error))
+                    if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut)
+                        && std::time::Instant::now() < deadline => {}
+                Err(error) => break error,
+                Ok(_) => panic!("an oversized inbound message was delivered"),
+            }
+        };
+        drop(ws);
+        fixture.handle.join().expect("oversized peer cleanup");
+        assert!(matches!(error, tungstenite::Error::Capacity(_)), "unexpected oversized-message result: {error}");
     }
 
     #[test]
@@ -762,7 +772,18 @@ mod tests {
             let mut ws = accept_worker_ws_with_snapshot(tls, &mut request_snapshot);
             let payload = match ws.read().expect("worker read binary") {
                 tungstenite::Message::Binary(data) => {
-                    ws.send(tungstenite::Message::Binary(data.clone())).expect("worker echo binary");
+                    if let Err(error) = ws.send(tungstenite::Message::Binary(data.clone())) {
+                        // Refusing an oversized frame can reset the connection while the peer is still writing.
+                        assert!(
+                            data.len() > MAX_WS_MESSAGE
+                                && matches!(
+                                    &error,
+                                    tungstenite::Error::Io(error)
+                                        if matches!(error.kind(), io::ErrorKind::ConnectionReset | io::ErrorKind::BrokenPipe)
+                                ),
+                            "worker echo binary: {error}",
+                        );
+                    }
                     data.to_vec()
                 }
                 other => panic!("expected binary worker payload, got {other:?}"),
