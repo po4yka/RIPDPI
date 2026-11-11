@@ -2,7 +2,7 @@
 id: TRN-1794371438573712
 title: Fix gRPC library stream contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Transport maintainer
