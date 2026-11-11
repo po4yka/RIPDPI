@@ -11,7 +11,16 @@ XHTTP transport, FinalMask Sudoku padding, and gRPC length-prefixed framing for 
 
 ## XHTTP transport
 
-Tunnels VLESS traffic over HTTP/2 with custom path, headers, and pooling. Connection-pooling logic in `pool.rs`; relay glue in `relay.rs`. Direct h2 body framing in `h2_body.rs`.
+Tunnels raw VLESS bytes over HTTP/2 with a configured path, Host override,
+default Referer padding and connection pooling. The supported client modes are
+`stream-up` and `stream-one`. REALITY auto selects `stream-one`; TLS auto and
+`packet-up` are rejected. `stream-down` is the GET download leg, not a selectable
+mode. Separate `downloadSettings` endpoints and arbitrary request headers are
+not supported.
+
+Connection pooling is in `pool.rs`; session ownership is in `relay.rs`.
+HTTP request construction and body framing are in `h2_body.rs`. The gRPC-like
+Content-Type is a header mask; the xHTTP driver does not apply `grpc.rs` framing.
 
 ## FinalMask Sudoku padding
 
@@ -31,7 +40,9 @@ Length-prefixed message framing per the gRPC over HTTP/2 wire (5-byte prefix: 1 
 
 ## Known divergences from upstream
 
-- XHTTP+REALITY combination is documented as broken at xray-core v26.1.18; pinned upstream tag predates that change.
+- The wire reference is Xray v26.2.6. The separate Android Xray provider has
+  its own version admission policy; this crate pin is not proof of that AAR.
+- Only the supported H2 modes and default metadata placement are implemented.
 - Connection-pool behavior is RIPDPI-specific and not a faithful copy of upstream's pool.
 
 ## Non-goals

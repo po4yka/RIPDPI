@@ -69,8 +69,9 @@ Extended bundle import admits a bounded XHTTP pool only in `stream-up` mode:
 `cMaxReuseTimes` must all be zero. Unknown or invalid tuning refuses import.
 The limit survives profile storage and native activation; outer session
 replacement shares the same carrier pool. Cancellation of an unfinished stream
-retires its carrier; other streams on that carrier close, and replacement waits
-for the owned socket tasks to stop. Tuned profiles require JSON bundle
+keeps active sibling streams usable and retires the carrier after they finish.
+Replacement respects the physical carrier limit while owned socket tasks stop.
+Tuned profiles require JSON bundle
 sharing because URI export cannot retain the pool contract and refuses them.
 After a selected Hysteria2 path fails payload verification, TCP reserves are
 measured first, with the existing recovery thresholds, cooldown and all-failure

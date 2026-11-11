@@ -2,7 +2,8 @@
 
 **Responsibility:** the xHTTP transport — HTTP/2 streaming relay used by VLESS
 xHTTP profiles and Cloudflare Tunnel relay profiles, with Finalmask application
-and gRPC framing.
+and a separate gRPC framing codec. The xHTTP session driver carries raw VLESS
+bytes; its `application/grpc` header does not add gRPC message frames.
 **Layer:** L7 — relay transports.
 
 ## Stable identifiers / contracts
@@ -12,12 +13,16 @@ Used when `relay_vless_transport = "xhttp"` and by `relay_kind =
 xHTTP protocol modes. Automatic mode (including an empty mode string) resolves
 to `stream-one` with REALITY and is rejected with TLS, where upstream selects
 unimplemented `packet-up`. Callers can explicitly select either supported mode.
-`packet-up` and split-endpoint `stream-down` are
-rejected by `XhttpProtocolMode::parse` until the crate grows a per-chunk POST
-path and split download endpoint support. Carries the Finalmask modes
+`packet-up` is not implemented. `stream-down` names the GET download leg; it
+is not a selectable upstream mode. Separate `downloadSettings` endpoints are
+not supported. Unknown mode selectors are rejected. Carries the Finalmask modes
 (`header_custom` / `fragment` / `sudoku` / `noise`) applied directly on the
 outbound xHTTP transport; xHTTP path/host come from `relay_xhttp_path` /
 `relay_xhttp_host`.
+
+The native profile exposes path, Host override and a bounded connection pool.
+It does not expose arbitrary request headers, metadata placement or upstream
+request-count, reuse-count and connection-age controls.
 
 ## Dependency direction
 
