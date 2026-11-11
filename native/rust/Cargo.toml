@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-exclude = ["vendor/shadowsocks", "vendor/quinn-proto", "vendor/russh"]
+exclude = ["vendor/shadowsocks", "vendor/quinn-proto", "vendor/russh", "vendor/tungstenite"]
 members = [
     "vendor/paste",
     "crates/android-support",
@@ -587,3 +587,5 @@ quinn-proto = { path = "vendor/quinn-proto" }
 boring-sys = { path = "vendor/boring-sys" }
 boringtun = { path = "vendor/boringtun" }
 smoltcp = { path = "vendor/smoltcp" }
+
+tungstenite = { path = "vendor/tungstenite" }
