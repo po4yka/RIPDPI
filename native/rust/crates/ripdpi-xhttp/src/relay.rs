@@ -1,3 +1,4 @@
+use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -10,7 +11,7 @@ use hyper::StatusCode;
 use rand::{Rng, RngExt};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::sync::{OwnedSemaphorePermit, mpsc};
-use tokio::task::JoinHandle;
+use tokio::task::{AbortHandle, JoinHandle};
 
 use ripdpi_vless::addons::VlessFlow;
 use ripdpi_vless::wire::{ResponseHeaderStream, VlessCommand};
@@ -26,10 +27,10 @@ pub(crate) const HEADER_PADDING_MAX: usize = 1000;
 
 pub struct XhttpStream {
     reader: ResponseHeaderStream<DuplexStream>,
-    /// Set by the download pump when the H2 body ended with an error
-    /// (RST_STREAM, GOAWAY, connection loss) instead of END_STREAM.
-    download_failed: Arc<AtomicBool>,
+    /// Set before an HTTP request or body failure closes its local pipes.
+    stream_failed: Arc<AtomicBool>,
     writer: DuplexStream,
+    _upload_response: OpenStreamTaskGuard,
     _permit: OwnedSemaphorePermit,
     _carrier: ActiveCarrier,
 }
@@ -39,10 +40,9 @@ impl AsyncRead for XhttpStream {
         let filled_before = buf.filled().len();
         let wants_data = buf.remaining() > 0;
         ready!(Pin::new(&mut self.reader).poll_read(cx, buf))?;
-        // The pump sets the flag before it closes the pipe, so this EOF is a
-        // reset of the download stream, not a graceful end.
-        if wants_data && buf.filled().len() == filled_before && self.download_failed.load(Ordering::Acquire) {
-            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP download stream was reset")));
+        // Failure is published before pipe closure, so failed requests cannot become clean EOF.
+        if wants_data && buf.filled().len() == filled_before && self.stream_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP stream was reset")));
         }
         Poll::Ready(Ok(()))
     }
@@ -50,14 +50,23 @@ impl AsyncRead for XhttpStream {
 
 impl AsyncWrite for XhttpStream {
     fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize, io::Error>> {
+        if self.stream_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP stream was reset")));
+        }
         Pin::new(&mut self.writer).poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        if self.stream_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP stream was reset")));
+        }
         Pin::new(&mut self.writer).poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        if self.stream_failed.load(Ordering::Acquire) {
+            return Poll::Ready(Err(io::Error::new(io::ErrorKind::ConnectionReset, "xHTTP stream was reset")));
+        }
         Pin::new(&mut self.writer).poll_shutdown(cx)
     }
 }
@@ -159,8 +168,8 @@ impl PooledConnection {
     }
 
     /// # Cancel safety:
-    /// NOT cancel-safe at individual write/request awaits; cancellation is made
-    /// safe at the operation boundary by [`OpenStreamTaskGuard`] and permit RAII.
+    /// cancel-safe: task guards, request futures and permits own partial state;
+    /// the peer can observe a partial request before cancellation.
     ///
     /// `stream-up` wire shape: one GET (download) + one streaming POST
     /// (upload), session id embedded in the URL path. Matches xray-core's
@@ -195,37 +204,36 @@ impl PooledConnection {
         )?;
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
-        open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
+        let upload = spawn_upload_pump(transport_upload, outgoing_tx);
+        let abort_upload = upload.abort_handle();
+        open_tasks.push(upload);
         user_upload.write_all(request).await?;
-
-        let post_response = self.send_request(post_request).await.map_err(|error| {
-            io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
-        })?;
-        if !post_response.status().is_success() {
-            return Err(io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("xHTTP POST rejected: {}", post_response.status()),
-            ));
-        }
 
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        let download_failed = Arc::new(AtomicBool::new(false));
-        open_tasks.push(spawn_download_pump(
+        let stream_failed = Arc::new(AtomicBool::new(false));
+        let download = spawn_download_pump(
             get_response.into_body(),
             transport_download,
-            Arc::clone(&download_failed),
+            Arc::clone(&stream_failed),
             "xHTTP GET stream failed",
-        ));
-        open_tasks.push(spawn_body_drain(post_response.into_body(), "xHTTP POST stream failed"));
+        );
+        let abort_download = download.abort_handle();
+        open_tasks.push(download);
+        // Request submission is synchronous; upload response headers may wait for application payload.
+        let mut sender = self.sender.lock().await.clone();
+        let response = sender.send_request(post_request);
+        let mut upload_response = OpenStreamTaskGuard::new();
+        upload_response.push(spawn_upload_response(response, Arc::clone(&stream_failed), abort_upload, abort_download));
 
         // xray-core buffers the VLESS response header until the first
         // downstream payload. Return the writable stream immediately and
         // strip that header lazily on the caller's first read.
         let stream = XhttpStream {
             reader: ResponseHeaderStream::new(user_download),
-            download_failed,
+            stream_failed,
             writer: user_upload,
+            _upload_response: upload_response,
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
         };
@@ -234,8 +242,8 @@ impl PooledConnection {
     }
 
     /// # Cancel safety:
-    /// NOT cancel-safe at individual write/request awaits; cancellation is made
-    /// safe at the operation boundary by [`OpenStreamTaskGuard`] and permit RAII.
+    /// cancel-safe: task guards, request futures and permits own partial state;
+    /// the peer can observe a partial request before cancellation.
     ///
     /// `stream-one` wire shape: one bidirectional HTTP/2 request — the
     /// request body carries the upload stream, the response body carries
@@ -271,18 +279,19 @@ impl PooledConnection {
 
         let (transport_download, user_download) = tokio::io::duplex(STREAM_BUFFER_SIZE);
 
-        let download_failed = Arc::new(AtomicBool::new(false));
+        let stream_failed = Arc::new(AtomicBool::new(false));
         open_tasks.push(spawn_download_pump(
             post_response.into_body(),
             transport_download,
-            Arc::clone(&download_failed),
+            Arc::clone(&stream_failed),
             "xHTTP stream-one body failed",
         ));
 
         let stream = XhttpStream {
             reader: ResponseHeaderStream::new(user_download),
-            download_failed,
+            stream_failed,
             writer: user_upload,
+            _upload_response: OpenStreamTaskGuard::new(),
             _permit: permit,
             _carrier: ActiveCarrier::new(Arc::clone(self)),
         };
@@ -373,7 +382,7 @@ fn spawn_upload_pump(
 fn spawn_download_pump<B>(
     mut body: B,
     mut transport_download: DuplexStream,
-    download_failed: Arc<AtomicBool>,
+    stream_failed: Arc<AtomicBool>,
     error_label: &'static str,
 ) -> JoinHandle<()>
 where
@@ -386,7 +395,7 @@ where
                 Ok(frame) => frame,
                 Err(error) => {
                     tracing::debug!(error = %error, "{error_label}");
-                    download_failed.store(true, Ordering::Release);
+                    stream_failed.store(true, Ordering::Release);
                     break;
                 }
             };
@@ -400,17 +409,41 @@ where
     })
 }
 
-fn spawn_body_drain<B>(mut body: B, error_label: &'static str) -> JoinHandle<()>
-where
-    B: hyper::body::Body<Data = Bytes> + Send + Unpin + 'static,
-    B::Error: std::fmt::Display + Send,
-{
+fn spawn_upload_response(
+    response: impl Future<Output = Result<hyper::Response<hyper::body::Incoming>, hyper::Error>> + Send + 'static,
+    stream_failed: Arc<AtomicBool>,
+    abort_upload: AbortHandle,
+    abort_download: AbortHandle,
+) -> JoinHandle<()> {
     tokio::spawn(async move {
-        while let Some(frame) = body.frame().await {
-            if let Err(error) = frame {
-                tracing::debug!(error = %error, "{error_label}");
-                break;
+        let failed = match response.await {
+            Ok(response) if response.status().is_success() => {
+                let mut body = response.into_body();
+                loop {
+                    match body.frame().await {
+                        Some(Err(error)) => {
+                            tracing::debug!(error = %error, "xHTTP POST stream failed");
+                            break true;
+                        }
+                        Some(Ok(_)) => {}
+                        None => break false,
+                    }
+                }
             }
+            Ok(response) => {
+                tracing::debug!(status = %response.status(), "xHTTP POST rejected");
+                true
+            }
+            Err(error) => {
+                tracing::debug!(error = %error, "xHTTP POST request failed");
+                true
+            }
+        };
+        if failed {
+            // Publish failure before pipe closure wakes a pending read or write.
+            stream_failed.store(true, Ordering::Release);
+            abort_upload.abort();
+            abort_download.abort();
         }
     })
 }
@@ -644,11 +677,11 @@ mod tests {
     #[tokio::test]
     async fn download_reset_surfaces_as_an_error_not_a_clean_eof() {
         let (transport_download, user_download) = tokio::io::duplex(1024);
-        let download_failed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stream_failed = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let pump = super::spawn_download_pump(
             ResetAfterFirstFrame(Some(Bytes::from_static(b"\x00\x00partial"))),
             transport_download,
-            Arc::clone(&download_failed),
+            Arc::clone(&stream_failed),
             "test download",
         );
         let (_user_upload, writer) = tokio::io::duplex(1024);
@@ -664,8 +697,9 @@ mod tests {
         let mut stream = super::XhttpStream {
             _carrier: super::ActiveCarrier::new(carrier),
             reader: ripdpi_vless::wire::ResponseHeaderStream::new(user_download),
-            download_failed,
+            stream_failed,
             writer,
+            _upload_response: super::OpenStreamTaskGuard::new(),
             _permit: permit,
         };
         pump.await.expect("download pump");
@@ -847,3 +881,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod stream_up_tests;
