@@ -1,3 +1,5 @@
+mod opening_admission;
+
 mod generations;
 
 use std::convert::Infallible;

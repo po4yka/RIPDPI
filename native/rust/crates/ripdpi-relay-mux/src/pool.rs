@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use tokio::sync::{Mutex as AsyncMutex, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex as AsyncMutex, OwnedSemaphorePermit, Semaphore, SemaphorePermit};
 
 use crate::health::{invalidate_cached_session, prune_expired_session};
 use crate::lease::LeaseGuard;
@@ -8,10 +8,10 @@ use crate::state::{CachedSession, RelayMuxState};
 use crate::stream::{MuxLease, MuxStream};
 use crate::{RelayCapabilities, RelayPoolConfig, RelayPoolHealth, RelaySession, RelaySessionFactory};
 
-/// Carrier dials (handshakes) one pool runs at once. The lease cap can be the
-/// whole SOCKS admission (256), and a burst of that many handshakes to one
-/// server trips limits such as sshd `MaxStartups 10`.
-pub(crate) const MAX_CONCURRENT_DIALS: usize = 8;
+/// Establishment attempts one pool runs at once, including initial opens on
+/// reusable sessions. A session factory may return only configuration and dial
+/// during the open. Established leases do not hold an opening slot.
+pub(crate) const MAX_CONCURRENT_OPENS: usize = 8;
 
 #[derive(Clone)]
 pub struct RelayMux<F>
@@ -30,7 +30,7 @@ where
     config: RelayPoolConfig,
     permits: Arc<Semaphore>,
     datagram_permits: Option<Arc<Semaphore>>,
-    dials: Semaphore,
+    openings: Semaphore,
     session_creation: AsyncMutex<()>,
     state: Arc<Mutex<RelayMuxState<F::Session>>>,
 }
@@ -48,7 +48,7 @@ where
                 config,
                 permits: Arc::new(Semaphore::new(max_active_leases)),
                 datagram_permits: config.max_active_datagram_leases.map(|max| Arc::new(Semaphore::new(max.max(1)))),
-                dials: Semaphore::new(MAX_CONCURRENT_DIALS),
+                openings: Semaphore::new(MAX_CONCURRENT_OPENS),
                 session_creation: AsyncMutex::new(()),
                 state: Arc::new(Mutex::new(RelayMuxState::new())),
             }),
@@ -97,11 +97,13 @@ where
         target: &str,
     ) -> Result<MuxStream<<F::Session as RelaySession>::Stream, F::Session>, F::Error> {
         let permit = self.acquire_permit(&self.inner.permits).await;
+        let opening = self.acquire_opening_permit().await;
         let (session, from_cache, guard) = self.session_for_open(permit).await?;
 
         let evict = EvictOnCancel::new(self, &session);
         let opened = session.open_stream(target).await;
         evict.disarm();
+        drop(opening);
         match opened {
             Ok(stream) => Ok(MuxStream::new(stream, guard)),
             Err(error) => {
@@ -121,12 +123,14 @@ where
                 // up.
                 drop(guard);
                 let retry_permit = self.acquire_permit(&self.inner.permits).await;
+                let opening = self.acquire_opening_permit().await;
                 let Ok((fresh, _, retry_guard)) = self.session_for_open(retry_permit).await else {
                     return Err(error);
                 };
                 let evict = EvictOnCancel::new(self, &fresh);
                 let opened = fresh.open_stream(target).await;
                 evict.disarm();
+                drop(opening);
                 match opened {
                     Ok(stream) => Ok(MuxStream::new(stream, retry_guard)),
                     Err(retry_error) => {
@@ -149,11 +153,13 @@ where
         &self,
     ) -> Result<MuxLease<<F::Session as RelaySession>::Datagram, F::Session>, F::Error> {
         let permit = self.acquire_permit(self.datagram_permits()).await;
+        let opening = self.acquire_opening_permit().await;
         let (session, from_cache, guard) = self.session_for_open(permit).await?;
 
         let evict = EvictOnCancel::new(self, &session);
         let opened = session.open_datagram().await;
         evict.disarm();
+        drop(opening);
         match opened {
             Ok(datagram) => Ok(MuxLease::new(datagram, guard)),
             Err(error) => {
@@ -168,12 +174,14 @@ where
                 // Mirror open_stream's single stale-carrier retry.
                 drop(guard);
                 let retry_permit = self.acquire_permit(self.datagram_permits()).await;
+                let opening = self.acquire_opening_permit().await;
                 let Ok((fresh, _, retry_guard)) = self.session_for_open(retry_permit).await else {
                     return Err(error);
                 };
                 let evict = EvictOnCancel::new(self, &fresh);
                 let opened = fresh.open_datagram().await;
                 evict.disarm();
+                drop(opening);
                 match opened {
                     Ok(datagram) => Ok(MuxLease::new(datagram, retry_guard)),
                     Err(retry_error) => {
@@ -204,6 +212,13 @@ where
         permits.clone().acquire_owned().await.expect("relay mux semaphore unexpectedly closed")
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: cancellation removes the waiter without reserving a slot.
+    async fn acquire_opening_permit(&self) -> SemaphorePermit<'_> {
+        // Infallible: the opening semaphore is never closed.
+        self.inner.openings.acquire().await.expect("relay mux opening semaphore unexpectedly closed")
+    }
+
     /// Selects a session and reserves its lease before releasing the cache lock.
     ///
     /// # Cancel safety:
@@ -214,7 +229,6 @@ where
         permit: OwnedSemaphorePermit,
     ) -> Result<(Arc<F::Session>, bool, LeaseGuard<F::Session>), F::Error> {
         if !self.inner.capabilities.reusable {
-            let _dial = self.inner.dials.acquire().await.expect("relay mux dial semaphore unexpectedly closed");
             let session = self.inner.factory.create_session().await?;
             self.inner.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).active_leases += 1;
             let guard = LeaseGuard::new(self.inner.state.clone(), Arc::clone(&session), false, permit);
