@@ -75,10 +75,8 @@ impl DynamicUdpInterface {
                             }
                         }
                         while let Ok((data, peer)) = client_socket.recv() {
-                            if !data.is_empty() {
-                                let source = SocketAddr::new(peer.endpoint.addr.into(), peer.endpoint.port);
-                                endpoint.send(Event::RemoteUdpDatagram(key.0, source, Bytes::copy_from_slice(data)));
-                            }
+                            let source = SocketAddr::new(peer.endpoint.addr.into(), peer.endpoint.port);
+                            endpoint.send(Event::RemoteUdpDatagram(key.0, source, Bytes::copy_from_slice(data)));
                         }
                     }
                     // Datagrams left in a send queue or a receive buffer need another pass now.
@@ -254,8 +252,10 @@ mod tests {
     /// # Cancel safety:
     /// NOT cancel-safe: the interface is shut down only after the exchange.
     #[tokio::test(flavor = "current_thread")]
-    async fn burst_of_inbound_datagrams_reaches_the_association_whole() {
+    async fn burst_including_empty_datagrams_reaches_the_association_whole() {
         const BURST: usize = 20;
+        let payloads: Vec<Vec<u8>> =
+            (0..BURST).map(|index| if index % 5 == 0 { Vec::new() } else { vec![index as u8; 1200] }).collect();
         let bus = Bus::new();
         let mut observer = bus.new_endpoint();
         let interface = DynamicUdpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
@@ -270,16 +270,13 @@ mod tests {
             let received = tokio::time::timeout(Duration::from_secs(1), async {
                 while !matches!(observer.recv().await, Event::OutboundInternetPacket(_)) {}
                 // One burst lands in the device queue before the interface polls it.
-                for index in 0..BURST {
-                    sender.send(Event::InboundInternetPacket(
-                        PortProtocol::Udp,
-                        inbound_udp_datagram(&[index as u8; 1200]),
-                    ));
+                for payload in &payloads {
+                    sender.send(Event::InboundInternetPacket(PortProtocol::Udp, inbound_udp_datagram(payload)));
                 }
-                let mut received = 0;
-                while received < BURST {
-                    if let Event::RemoteUdpDatagram(..) = observer.recv().await {
-                        received += 1;
+                let mut received = Vec::new();
+                while received.len() < BURST {
+                    if let Event::RemoteUdpDatagram(port, source, data) = observer.recv().await {
+                        received.push((port, source, data.to_vec()));
                     }
                 }
                 received
@@ -289,7 +286,14 @@ mod tests {
             received
         });
         run.expect("interface exits on shutdown");
-        assert_eq!(received.ok(), Some(BURST), "every datagram of the burst must reach the association");
+        let expected: Vec<_> = payloads
+            .into_iter()
+            .map(|payload| {
+                (VirtualPort::new(1000, PortProtocol::Udp), "10.77.0.1:41002".parse().expect("peer"), payload)
+            })
+            .collect();
+        let received = received.expect("every datagram, including empty payloads, must reach the association");
+        assert_eq!(received, expected, "empty datagrams must retain their source and ordering");
     }
 
     /// # Cancel safety:
