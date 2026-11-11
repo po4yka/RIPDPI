@@ -16,7 +16,7 @@ class AppSettingsJsonTest {
     fun `unknown finalmask survives settings import and export for validation`() {
         val imported =
             appSettingsFromJson(
-                """{"formatVersion":1,"relay":{"relayFinalmaskType":" SUDKOU "}}""",
+                """{"formatVersion":1,"relayFinalmaskType":" SUDKOU "}""",
             )
 
         assertEquals("sudkou", imported.relayFinalmaskType)
