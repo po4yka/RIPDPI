@@ -274,6 +274,13 @@ internal class ProfileMutationRowWriter(
         if (intent.activate) {
             rows.warpProfiles.setActiveProfileId(intent.profile.id)
             rows.settings.update { applyWarpAfterImage(intent.profile, intent.scannerMode) }
+        } else if (rows.warpProfiles.activeProfileId() == intent.profile.id) {
+            val settings = rows.settings.snapshot()
+            val accountKind = normalizeWarpAccountKind(intent.profile.accountKind)
+            if (settings.warpProfileId == intent.profile.id && settings.warpAccountKind != accountKind) {
+                // Reconcile metadata in this transaction without restoring a cleared provider selection.
+                rows.settings.update { setWarpAccountKind(accountKind) }
+            }
         }
     }
 

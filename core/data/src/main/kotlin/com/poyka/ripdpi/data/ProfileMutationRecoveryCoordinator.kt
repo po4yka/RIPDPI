@@ -377,13 +377,13 @@ class ProfileMutationRecoveryCoordinator private constructor(
             val currentCredentials = stores.warpCredentials.load(profile.id) ?: return@withLock false
             val mergedProfile =
                 currentProfile.copy(
+                    accountKind = profile.accountKind,
                     lastProvisionedAtEpochMillis = profile.lastProvisionedAtEpochMillis,
                 )
             val mergedCredentials =
                 credentials.copy(
                     displayName = currentCredentials.displayName,
                     license = currentCredentials.license,
-                    accountKind = currentCredentials.accountKind,
                     zeroTrustOrg = currentCredentials.zeroTrustOrg,
                 )
             afterImageWriter.executeRecovered(

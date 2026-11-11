@@ -67,12 +67,7 @@ class DefaultWarpEnrollmentFlowService
                 bootstrapProxyRunner.withBootstrapProxy {
                     provisioningClient.register(request, bootstrapProxy = it?.asOkHttpProxy())
                 }
-            val accountKind =
-                if (provisioning.warpPlus || !provisioning.license.isNullOrBlank()) {
-                    WarpAccountKindConsumerPlus
-                } else {
-                    WarpAccountKindConsumerFree
-                }
+            val accountKind = provisioning.consumerAccountKind()
             val profile =
                 WarpProfile(
                     id = normalizedProfileId,
@@ -164,7 +159,7 @@ class DefaultWarpEnrollmentFlowService
                 provisioning.credentials.copy(
                     profileId = activeProfile.id,
                     accountId = provisioning.accountId,
-                    accountKind = activeProfile.accountKind,
+                    accountKind = provisioning.consumerAccountKind(),
                     displayName = activeProfile.displayName,
                     zeroTrustOrg = activeProfile.zeroTrustOrg,
                     license = credentials.license ?: provisioning.license,
@@ -174,6 +169,7 @@ class DefaultWarpEnrollmentFlowService
                 )
             val refreshedProfile =
                 activeProfile.copy(
+                    accountKind = refreshedCredentials.accountKind,
                     setupState = WarpSetupStateProvisioned,
                     lastProvisionedAtEpochMillis = System.currentTimeMillis(),
                 )
@@ -308,4 +304,11 @@ class DefaultWarpEnrollmentFlowService
                 displayName = displayName,
                 license = license,
             )
+    }
+
+private fun WarpProvisioningResult.consumerAccountKind(): String =
+    if (warpPlus || accountType.trim().lowercase() in setOf("limited", "unlimited")) {
+        WarpAccountKindConsumerPlus
+    } else {
+        WarpAccountKindConsumerFree
     }

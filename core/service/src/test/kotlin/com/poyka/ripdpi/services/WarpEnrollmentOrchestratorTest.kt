@@ -83,7 +83,6 @@ class WarpEnrollmentOrchestratorTest {
     @Test
     fun `consumer registration stores profile credentials endpoint and app metadata`() =
         runTest {
-            val consumerAccessValue = fixtureAccessValue("consumer")
             val appSettingsRepository = TestAppSettingsRepository()
             val profileStore = FakeWarpProfileStore()
             val credentialStore = FakeWarpCredentialStore()
@@ -94,7 +93,7 @@ class WarpEnrollmentOrchestratorTest {
                         sampleProvisioningResult().copy(
                             accountType = "free",
                             warpPlus = false,
-                            license = null,
+                            license = "free-account-license",
                         ),
                 )
             val orchestrator =
@@ -121,49 +120,100 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals(WarpSetupStateProvisioned, appSettingsRepository.snapshot().warpSetupState)
             assertEquals(WarpScannerModeAutomatic, appSettingsRepository.snapshot().warpLastScannerMode)
             assertEquals("home-warp", credentialStore.load("home-warp")?.profileId)
+            assertEquals("free-account-license", credentialStore.load("home-warp")?.license)
             assertEquals("wifi:home", endpointStore.load("home-warp", "wifi:home")?.networkScopeKey)
         }
 
     @Test
-    fun `warp plus attach and remove mutate active profile kind`() =
+    fun `local license attach and removal preserve saved account and setup state`() =
         runTest {
-            val consumerAccessValue = fixtureAccessValue("consumer")
-            val appSettingsRepository = TestAppSettingsRepository()
-            val profileStore = FakeWarpProfileStore()
-            val credentialStore = FakeWarpCredentialStore()
-            val endpointStore = FakeWarpEndpointStore()
-            profileStore.save(
-                WarpProfile(
-                    id = DefaultWarpProfileId,
-                    accountKind = WarpAccountKindConsumerFree,
-                    displayName = "Consumer",
-                    setupState = WarpSetupStateProvisioned,
-                ),
-            )
-            profileStore.setActiveProfileId(DefaultWarpProfileId)
-            credentialStore.save(
-                DefaultWarpProfileId,
-                WarpCredentials(
-                    profileId = DefaultWarpProfileId,
-                    deviceId = "device-1",
-                    accessToken = consumerAccessValue,
-                ),
-            )
-            val orchestrator =
-                createWarpEnrollmentOrchestrator(
-                    appSettingsRepository = appSettingsRepository,
-                    profileStore = profileStore,
-                    credentialStore = credentialStore,
-                    endpointStore = endpointStore,
+            listOf(WarpAccountKindConsumerFree, WarpAccountKindConsumerPlus).forEach { savedKind ->
+                val settings = TestAppSettingsRepository()
+                val profiles = FakeWarpProfileStore()
+                val credentials = FakeWarpCredentialStore()
+                val endpoints = FakeWarpEndpointStore()
+                val profile =
+                    WarpProfile(
+                        accountKind = savedKind,
+                        displayName = "Consumer",
+                        setupState = WarpSetupStateNeedsAttention,
+                    )
+                profiles.save(profile)
+                profiles.setActiveProfileId(profile.id)
+                credentials.save(
+                    profile.id,
+                    WarpCredentials(
+                        deviceId = "device-1",
+                        accessToken = fixtureAccessValue("consumer"),
+                        accountKind = savedKind,
+                    ),
                 )
+                val orchestrator = createWarpEnrollmentOrchestrator(settings, profiles, credentials, endpoints)
 
-            orchestrator.attachWarpPlusLicense(DefaultWarpProfileId, "license-123")
-            assertEquals(WarpAccountKindConsumerPlus, profileStore.load(DefaultWarpProfileId)?.accountKind)
-            assertEquals("license-123", credentialStore.load(DefaultWarpProfileId)?.license)
+                orchestrator.attachWarpPlusLicense(profile.id, "license-123")
+                assertEquals(profile, profiles.load(profile.id))
+                assertEquals(savedKind, credentials.load(profile.id)?.accountKind)
+                assertEquals(savedKind, settings.snapshot().warpAccountKind)
+                assertEquals(WarpSetupStateNeedsAttention, settings.snapshot().warpSetupState)
+                assertEquals("license-123", credentials.load(profile.id)?.license)
 
-            orchestrator.removeWarpPlusLicense(DefaultWarpProfileId)
-            assertEquals(WarpAccountKindConsumerFree, profileStore.load(DefaultWarpProfileId)?.accountKind)
-            assertNull(credentialStore.load(DefaultWarpProfileId)?.license)
+                orchestrator.removeWarpPlusLicense(profile.id)
+                assertEquals(profile, profiles.load(profile.id))
+                assertEquals(savedKind, credentials.load(profile.id)?.accountKind)
+                assertEquals(savedKind, settings.snapshot().warpAccountKind)
+                assertEquals(WarpSetupStateNeedsAttention, settings.snapshot().warpSetupState)
+                assertNull(credentials.load(profile.id)?.license)
+            }
+        }
+
+    @Test
+    fun `consumer refresh reconciles server account state and preserves local license`() =
+        runTest {
+            val free = sampleProvisioningResult().copy(accountType = "free", warpPlus = false)
+            val cases =
+                listOf(
+                    Triple(WarpAccountKindConsumerPlus, free, WarpAccountKindConsumerFree),
+                    Triple(
+                        WarpAccountKindConsumerFree,
+                        free.copy(accountType = "unlimited"),
+                        WarpAccountKindConsumerPlus,
+                    ),
+                    Triple(WarpAccountKindConsumerFree, free.copy(warpPlus = true), WarpAccountKindConsumerPlus),
+                )
+            cases.forEach { (savedKind, provider, expectedKind) ->
+                val settings = TestAppSettingsRepository()
+                val profiles = FakeWarpProfileStore()
+                val credentials = FakeWarpCredentialStore()
+                val endpoints = FakeWarpEndpointStore()
+                val profile = WarpProfile(accountKind = savedKind, displayName = "User name")
+                profiles.save(profile)
+                profiles.setActiveProfileId(profile.id)
+                credentials.save(
+                    profile.id,
+                    provider.credentials.copy(
+                        accountKind = savedKind,
+                        displayName = "User name",
+                        license = "local-license",
+                    ),
+                )
+                endpoints.save(provider.endpoint.copy(networkScopeKey = GlobalWarpEndpointScopeKey))
+                val orchestrator =
+                    createWarpEnrollmentOrchestrator(
+                        settings,
+                        profiles,
+                        credentials,
+                        endpoints,
+                        FakeWarpProvisioningClient(provider.copy(license = "server-license")),
+                    )
+
+                val refreshed = orchestrator.refreshActiveProfile()
+
+                assertEquals(expectedKind, refreshed.profile.accountKind)
+                assertEquals(expectedKind, credentials.load(profile.id)?.accountKind)
+                assertEquals(expectedKind, settings.snapshot().warpAccountKind)
+                assertEquals("User name", refreshed.profile.displayName)
+                assertEquals("local-license", credentials.load(profile.id)?.license)
+            }
         }
 
     @Test

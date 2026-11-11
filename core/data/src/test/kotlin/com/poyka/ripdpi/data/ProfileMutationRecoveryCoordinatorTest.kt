@@ -184,6 +184,66 @@ class ProfileMutationRecoveryCoordinatorTest : RoomProfileTest() {
         }
 
     @Test
+    fun `runtime account downgrade updates UI metadata and retains local fields`() =
+        runTest {
+            val fixture = fixture()
+            val coordinator = fixture.coordinator()
+            val profile =
+                WarpProfile(
+                    id = "warp-active",
+                    accountKind = WarpAccountKindConsumerPlus,
+                    displayName = "User name",
+                    setupState = WarpSetupStateNeedsAttention,
+                )
+            val saved =
+                WarpCredentials(
+                    profileId = profile.id,
+                    deviceId = "device",
+                    accessToken = "saved-fixture",
+                    accountKind = WarpAccountKindConsumerPlus,
+                    displayName = "User name",
+                    license = "local-license",
+                )
+            coordinator.upsertWarp(
+                coordinator.captureMutation(ProfileMutationOrigin.SavedEdit),
+                profile,
+                saved,
+                emptyList(),
+                true,
+                WarpScannerModeManual,
+            )
+            val settingsBefore = fixture.settings.snapshot()
+
+            assertTrue(
+                coordinator.upsertWarpForRuntimeProvisioning(
+                    profile.copy(accountKind = WarpAccountKindConsumerFree, displayName = "Stale name"),
+                    saved.copy(
+                        accessToken = "refreshed-fixture",
+                        accountKind = WarpAccountKindConsumerFree,
+                        displayName = "Stale name",
+                        license = "server-license",
+                    ),
+                    emptyList(),
+                    false,
+                    WarpScannerModeAutomatic,
+                    saved,
+                    coordinator.warpRuntimeRevision(profile.id),
+                ),
+            )
+
+            assertEquals(WarpAccountKindConsumerFree, fixture.warpProfiles.load(profile.id)?.accountKind)
+            assertEquals("User name", fixture.warpProfiles.load(profile.id)?.displayName)
+            assertEquals(WarpSetupStateNeedsAttention, fixture.warpProfiles.load(profile.id)?.setupState)
+            assertEquals(WarpAccountKindConsumerFree, fixture.warpCredentials.load(profile.id)?.accountKind)
+            assertEquals("local-license", fixture.warpCredentials.load(profile.id)?.license)
+            assertEquals("User name", fixture.warpCredentials.load(profile.id)?.displayName)
+            assertEquals(
+                settingsBefore.toBuilder().setWarpAccountKind(WarpAccountKindConsumerFree).build(),
+                fixture.settings.snapshot(),
+            )
+        }
+
+    @Test
     fun `conditional relay upsert rejects a replaced profile and credentials`() =
         runTest {
             val fixture = fixture()

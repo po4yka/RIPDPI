@@ -203,6 +203,67 @@ class SelectorProviderOwnershipTest : RoomProfileTest() {
             assertEquals(VpnProviderKind.Native, fixture.xraySelection.current().kind)
         }
 
+    @Test
+    fun `late WARP downgrade cannot restore ownership after selector activation`() =
+        runTest {
+            val fixture = initialized()
+            val coordinator = fixture.coordinator()
+            val profile =
+                WarpProfile(
+                    id = "warp",
+                    accountKind = WarpAccountKindConsumerPlus,
+                    setupState = WarpSetupStateProvisioned,
+                )
+            val saved =
+                WarpCredentials(
+                    profileId = profile.id,
+                    deviceId = "device",
+                    accessToken = "saved-fixture",
+                    accountKind = WarpAccountKindConsumerPlus,
+                )
+            coordinator.upsertWarp(
+                coordinator.captureMutation(ProfileMutationOrigin.ExplicitActivation),
+                profile,
+                saved,
+                emptyList(),
+                true,
+                WarpScannerModeManual,
+            )
+            val revision = coordinator.warpRuntimeRevision(profile.id)
+            coordinator.activateSelector(
+                coordinator.captureMutation(ProfileMutationOrigin.ExplicitActivation),
+                "group",
+                "member",
+                fixture.selectorChoice,
+            )
+            assertEquals(revision, coordinator.warpRuntimeRevision(profile.id))
+            assertNull(fixture.warpProfiles.activeProfileId())
+            fixture.pauseAuthority.reserveStop()
+            val authorityBefore = fixture.pauseAuthority.snapshotAuthority()
+            val settingsBefore = fixture.settings.snapshot()
+            val selectionBefore = fixture.selectorSelections.snapshot("group")
+
+            assertTrue(
+                coordinator.upsertWarpForRuntimeProvisioning(
+                    profile.copy(accountKind = WarpAccountKindConsumerFree),
+                    saved.copy(accountKind = WarpAccountKindConsumerFree),
+                    emptyList(),
+                    false,
+                    WarpScannerModeAutomatic,
+                    saved,
+                    revision,
+                ),
+            )
+
+            assertNull(fixture.warpProfiles.activeProfileId())
+            assertEquals("group", fixture.selectorChoice.activeGroupId.first())
+            assertEquals(selectionBefore, fixture.selectorSelections.snapshot("group"))
+            assertEquals(authorityBefore, fixture.pauseAuthority.snapshotAuthority())
+            assertEquals(settingsBefore, fixture.settings.snapshot())
+            assertEquals(WarpAccountKindConsumerFree, fixture.warpProfiles.load(profile.id)?.accountKind)
+            assertEquals(WarpAccountKindConsumerFree, fixture.warpCredentials.load(profile.id)?.accountKind)
+        }
+
     private suspend fun initialized() = fixture().also { it.initialize() }
 
     private val previousXray = XrayProviderSelectionRecord.of(VpnProviderKind.Xray, "previous-xray")

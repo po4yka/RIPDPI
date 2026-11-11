@@ -2,8 +2,6 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
-import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
-import com.poyka.ripdpi.data.WarpAccountKindConsumerPlus
 import com.poyka.ripdpi.data.WarpAccountKindZeroTrust
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpCredentials
@@ -17,6 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface WarpCredentialProfileMutationService {
+    /** Saves a local license. Existing or imported account-kind metadata needs a server refresh. */
     suspend fun attachWarpPlusLicense(
         profileId: String,
         license: String,
@@ -45,32 +44,13 @@ class DefaultWarpCredentialProfileMutationService
         ): WarpEnrollmentSnapshot =
             mutateProfile(profileId) { profile, credentials ->
                 require(license.isNotBlank()) { "WARP+ license must not be blank" }
-                val updatedProfile =
-                    profile.copy(
-                        accountKind = WarpAccountKindConsumerPlus,
-                        setupState = WarpSetupStateProvisioned,
-                    )
-                val updatedCredentials =
-                    credentials.copy(
-                        accountKind = WarpAccountKindConsumerPlus,
-                        license = license,
-                    )
-                updatedProfile to updatedCredentials
+                // A local license is metadata; only a server refresh can reconcile account kind.
+                profile to credentials.copy(license = license)
             }
 
         override suspend fun removeWarpPlusLicense(profileId: String): WarpEnrollmentSnapshot =
             mutateProfile(profileId) { profile, credentials ->
-                val updatedProfile =
-                    profile.copy(
-                        accountKind = WarpAccountKindConsumerFree,
-                        setupState = WarpSetupStateProvisioned,
-                    )
-                val updatedCredentials =
-                    credentials.copy(
-                        accountKind = WarpAccountKindConsumerFree,
-                        license = null,
-                    )
-                updatedProfile to updatedCredentials
+                profile to credentials.copy(license = null)
             }
 
         override suspend fun importZeroTrustProfile(request: WarpZeroTrustImportRequest): WarpEnrollmentSnapshot {
