@@ -114,6 +114,7 @@ fn rand_range_above_cap_is_rejected_for_noise_and_header_custom() {
         let config = FinalmaskConfig {
             r#type: kind.to_string(),
             rand_range: "0-4000000000".to_string(),
+            header_hex: "abcd".to_string(),
             ..FinalmaskConfig::default()
         };
         let Err(err) = FinalmaskSpec::from_config(&config) else {
@@ -181,4 +182,47 @@ fn fragment_bounds_saturate_for_large_configured_ranges() {
     assert_eq!(frames.concat(), payload);
     assert_eq!(frames.len(), payload.len());
     assert!(frames.iter().all(|frame| frame.len() == 1));
+}
+
+#[test]
+fn inactive_random_range_does_not_reject_fragment_or_sudoku() {
+    for kind in ["fragment", "sudoku"] {
+        let config = FinalmaskConfig {
+            r#type: kind.to_owned(),
+            rand_range: "invalid".to_owned(),
+            fragment_packets: 3,
+            fragment_min_bytes: 1,
+            fragment_max_bytes: 4,
+            sudoku_seed: "fixture-seed".to_owned(),
+            ..FinalmaskConfig::default()
+        };
+        assert!(FinalmaskSpec::from_config(&config).is_ok(), "inactive random range must not reject {kind}");
+    }
+}
+
+#[test]
+fn active_mask_validation_accepts_boundary_values() {
+    for kind in ["header_custom", "noise"] {
+        for range in ["0-0", "16384-16384"] {
+            let config = FinalmaskConfig {
+                r#type: kind.to_owned(),
+                header_hex: "ab".to_owned(),
+                rand_range: range.to_owned(),
+                ..FinalmaskConfig::default()
+            };
+            config.validate().expect("valid boundary range");
+            FinalmaskSpec::from_config(&config).expect("transport accepts admission result");
+        }
+    }
+    for packets in [1, 16] {
+        let config = FinalmaskConfig {
+            r#type: "fragment".to_owned(),
+            fragment_packets: packets,
+            fragment_min_bytes: 1,
+            fragment_max_bytes: 1,
+            ..FinalmaskConfig::default()
+        };
+        config.validate().expect("valid boundary count");
+        FinalmaskSpec::from_config(&config).expect("transport accepts admission result");
+    }
 }

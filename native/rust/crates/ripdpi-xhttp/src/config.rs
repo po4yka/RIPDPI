@@ -105,6 +105,70 @@ pub struct FinalmaskConfig {
     pub fragment_max_bytes: i32,
 }
 
+impl FinalmaskConfig {
+    /// Validate active mask parameters without building codec or transport state.
+    pub fn validate(&self) -> io::Result<()> {
+        match self.r#type.trim() {
+            "" | "off" => {}
+            "header_custom" => {
+                if self.header_hex.trim().is_empty() && self.trailer_hex.trim().is_empty() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "finalmask header_custom requires header or trailer hex",
+                    ));
+                }
+                for (label, value) in [("headerHex", &self.header_hex), ("trailerHex", &self.trailer_hex)] {
+                    let value = value.trim();
+                    if value.len() % 2 != 0 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            format!("finalmask header_custom {label} must be a valid even-length hex string"),
+                        ));
+                    }
+                }
+                parse_finalmask_rand_range(&self.rand_range)?;
+            }
+            "noise" => {
+                if parse_finalmask_rand_range(&self.rand_range)?.is_none() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "finalmask noise requires randRange in min-max format",
+                    ));
+                }
+            }
+            "fragment" => {
+                if !(1..=16).contains(&self.fragment_packets) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "finalmask fragmentPackets must be between 1 and 16",
+                    ));
+                }
+                if self.fragment_min_bytes <= 0 {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "finalmask fragmentMinBytes must be positive",
+                    ));
+                }
+                if self.fragment_max_bytes <= 0 || self.fragment_min_bytes > self.fragment_max_bytes {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "finalmask fragmentMaxBytes must be positive and at least fragmentMinBytes",
+                    ));
+                }
+            }
+            "sudoku" => {
+                if self.sudoku_seed.trim().is_empty() {
+                    return Err(io::Error::new(io::ErrorKind::InvalidInput, "finalmask sudoku requires sudoku_seed"));
+                }
+            }
+            other => {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unsupported finalmask type {other}")));
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Default for FinalmaskConfig {
     fn default() -> Self {
         Self {
@@ -312,6 +376,37 @@ pub(crate) enum XhttpMode {
 
 pub(crate) fn normalize_path(path: &str) -> String {
     if path.starts_with('/') { path.to_owned() } else { format!("/{path}") }
+}
+
+/// Largest random prelude a profile may request. Each new carrier allocates
+/// and fills this many bytes, so an imported profile cannot make the engine
+/// allocate gigabytes per connection.
+const MAX_RAND_RANGE_BYTES: usize = 16 * 1024;
+
+pub(crate) fn parse_finalmask_rand_range(value: &str) -> io::Result<Option<(usize, usize)>> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    let (min_raw, max_raw) = trimmed
+        .split_once('-')
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "finalmask randRange must use min-max format"))?;
+    let min = min_raw.trim().parse::<usize>().map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid finalmask randRange minimum: {error}"))
+    })?;
+    let max = max_raw.trim().parse::<usize>().map_err(|error| {
+        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid finalmask randRange maximum: {error}"))
+    })?;
+    if min > max {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "finalmask randRange minimum must not exceed maximum"));
+    }
+    if max > MAX_RAND_RANGE_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("finalmask randRange maximum must not exceed {MAX_RAND_RANGE_BYTES} bytes"),
+        ));
+    }
+    Ok(Some((min, max)))
 }
 
 #[cfg(test)]

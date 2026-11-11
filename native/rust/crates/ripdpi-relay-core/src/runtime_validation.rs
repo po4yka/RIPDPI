@@ -268,7 +268,8 @@ pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backe
 
 pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> io::Result<()> {
     let finalmask = &config.common.finalmask;
-    if finalmask.r#type.trim().is_empty() || finalmask.r#type == "off" {
+    let kind = finalmask.r#type.trim();
+    if kind.is_empty() || kind == "off" {
         return Ok(());
     }
 
@@ -281,7 +282,7 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
 
     // Cloudflare's edge, not an Xray server, terminates the TLS that the mask
     // wraps, and it has no inbound mask. Only fragment keeps the bytes valid TLS.
-    if RelayKind::from_config(config) == RelayKind::CloudflareTunnel && finalmask.r#type != "fragment" {
+    if RelayKind::from_config(config) == RelayKind::CloudflareTunnel && kind != "fragment" {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
             format!(
@@ -291,75 +292,7 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
         ));
     }
 
-    match finalmask.r#type.as_str() {
-        "header_custom" => {
-            if finalmask.header_hex.trim().is_empty() && finalmask.trailer_hex.trim().is_empty() {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "finalmask header_custom requires header or trailer hex",
-                ));
-            }
-            // Validate the payloads as even-length hex at load time instead of
-            // failing deep inside the xhttp data path on the first packet.
-            for (label, hex) in
-                [("header_hex", finalmask.header_hex.trim()), ("trailer_hex", finalmask.trailer_hex.trim())]
-            {
-                if hex.is_empty() {
-                    continue;
-                }
-                if hex.len() % 2 != 0 || !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-                    return Err(io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        format!("finalmask header_custom {label} must be a valid even-length hex string"),
-                    ));
-                }
-            }
-        }
-        "sudoku" => {
-            if finalmask.sudoku_seed.trim().is_empty() {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "finalmask sudoku requires sudoku_seed"));
-            }
-        }
-        "fragment" => {
-            if !(1..=16).contains(&finalmask.fragment_packets)
-                || finalmask.fragment_min_bytes <= 0
-                || finalmask.fragment_max_bytes <= 0
-                || finalmask.fragment_min_bytes > finalmask.fragment_max_bytes
-            {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "finalmask fragment requires a packet count from 1 to 16 and a positive byte range",
-                ));
-            }
-        }
-        "noise" => {
-            let Some((min, max)) = parse_rand_range(&finalmask.rand_range) else {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "finalmask noise requires rand_range in min-max format",
-                ));
-            };
-            if min > max {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "finalmask noise rand_range minimum must not exceed maximum",
-                ));
-            }
-        }
-        _ => {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("unsupported finalmask type {}", finalmask.r#type),
-            ));
-        }
-    }
-
-    Ok(())
-}
-
-fn parse_rand_range(value: &str) -> Option<(usize, usize)> {
-    let (min, max) = value.trim().split_once('-')?;
-    Some((min.trim().parse().ok()?, max.trim().parse().ok()?))
+    crate::backend::builder::builders::finalmask_config(finalmask).validate()
 }
 
 pub(crate) fn parse_outbound_bind_ip(value: &str) -> io::Result<Option<IpAddr>> {
@@ -407,6 +340,17 @@ mod finalmask_hex_tests {
             config.common.finalmask.fragment_min_bytes = 1;
             config.common.finalmask.fragment_max_bytes = 1;
             assert!(validate_finalmask_config(&config).is_err(), "packet count {packets} must fail");
+        }
+    }
+
+    #[test]
+    fn active_finalmask_random_ranges_are_validated_at_admission() {
+        for kind in ["header_custom", "noise"] {
+            for range in ["invalid", "2-1", "0-16385"] {
+                let mut config = config_with_finalmask(kind, "abcd");
+                config.common.finalmask.rand_range = range.to_owned();
+                assert!(validate_finalmask_config(&config).is_err(), "{kind} range {range} must fail");
+            }
         }
     }
 }

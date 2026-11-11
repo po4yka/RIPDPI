@@ -25,7 +25,7 @@ mod vless_reality;
 pub(crate) use anytls::build as build_anytls;
 pub(crate) use chain_relay::build as build_chain_relay;
 pub(crate) use cloudflare_tunnel::build as build_cloudflare_tunnel;
-pub(crate) use common::to_io_error;
+pub(crate) use common::{finalmask_config, to_io_error};
 pub(crate) use hysteria2::build as build_hysteria2;
 pub(crate) use masque::{build as build_masque, resolve_ech_before_build as resolve_masque_ech_before_build};
 pub(crate) use mieru::build as build_mieru;
