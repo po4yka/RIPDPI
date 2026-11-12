@@ -2,7 +2,7 @@
 id: SVC-1794477234440384
 title: Recover established WireGuard WebSocket sessions
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: TUN-05 recovery worker

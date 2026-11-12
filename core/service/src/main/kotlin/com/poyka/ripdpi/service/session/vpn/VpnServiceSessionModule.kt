@@ -66,7 +66,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import kotlinx.coroutines.async
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 import java.util.Optional
 import java.util.UUID
@@ -246,7 +246,8 @@ internal object VpnServiceSessionModule {
             resolveWsEndpoint = { hostname ->
                 val lookup = host.serviceScope.async(dispatchers.io) { host.resolveHost(hostname).toList() }
                 try {
-                    withTimeout(AwgBootstrapTimeoutMillis) { lookup.await() }
+                    withTimeoutOrNull(AwgBootstrapTimeoutMillis) { lookup.await() }
+                        ?: error("AmneziaWG WS underlay bootstrap timed out")
                 } finally {
                     lookup.cancel()
                 }

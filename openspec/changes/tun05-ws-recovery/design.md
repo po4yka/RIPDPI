@@ -11,14 +11,14 @@ Task ID: `SVC-1794477234440384`. See proposal.md. The AWG supervisor owns native
 
 - Keep recovery in the AWG supervisor. Existing TUN and proxy remain installed while the local AWG SOCKS listener is replaced.
 - Use three fresh native attempts after 1, 2, and 4 seconds. Each attempt must pass existing authenticated readiness.
-- A session token rejects completion from an older start; Stop cancels and joins recovery before releasing runtime ownership.
+- A session token rejects completion from an older start; Stop cancels and joins recovery before releasing runtime ownership. A lifecycle mutex serializes start and owned cleanup. Recovery validates the token and captured failed runtime under that mutex; adoption rechecks the token before and after worker publication.
 - Keep startup cleanup separate from public Stop so cleanup does not cancel its own recovery coroutine.
 
 ## Contracts and ownership
 
 - Recovery worker owns `:core:service` AWG supervisor and tests.
 - Readiness worker owns the timeout helper and its awaitReady call-site edit before this branch rebases.
-- No Rust, JNI, wire, persistence, locale, or serialized shared file change.
+- Kotlin owns nullable `carrierWsAddresses` in the engine-api runtime DTO. The native worker owns the matching Rust field and connector. Null permits deliberate non-VPN legacy DNS; an explicit empty list fails closed. No JNI signature, persistence, locale, lockfile, or dependency change.
 - VPN bootstrap calls the existing generation-checked underlay resolver on IO, with a 10 second deadline. Numeric results travel in nullable carrierWsAddresses; null permits deliberate non-VPN legacy lookup, empty fails closed. URL Host/SNI stay unchanged. Device underlay acceptance remains separate.
 
 ## Risks / Trade-offs
@@ -29,4 +29,4 @@ Task ID: `SVC-1794477234440384`. See proposal.md. The AWG supervisor owns native
 
 ## Migration Plan
 
-No migration. Revert this change to restore fail-stop. Validate targeted supervisor tests, `:core:service:compileDebugKotlin`, and `just ci-gates` on the combined tree. Device recovery is a separate acceptance check.
+No migration. Revert this change to restore fail-stop. Validate targeted supervisor tests, `:core:service:detekt`, `:core:service:ktlintCheck`, and `just ci-gates` on the combined tree. Device recovery is a separate acceptance check.

@@ -26,4 +26,4 @@ An established WS carrier currently stops the VPN after a transient disconnect, 
 ## Impact
 
 - `:core:service` AWG supervisor and regression tests.
-- No dependency, JNI, storage, locale, or wire schema changes.
+- Add numeric dial candidates to the AWG runtime JSON. No dependency, JNI signature, storage, or locale change.

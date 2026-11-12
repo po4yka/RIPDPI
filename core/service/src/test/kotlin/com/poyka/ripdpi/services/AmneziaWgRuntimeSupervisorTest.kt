@@ -222,6 +222,7 @@ internal class TestAmneziaWgRuntime : RipDpiAmneziaWgRuntime {
 
     var startFailure: Throwable? = null
     var awaitReadyFailure: Exception? = null
+    var awaitReadyGate: CompletableDeferred<Unit>? = null
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
     var telemetry: NativeRuntimeSnapshot =
@@ -247,6 +248,7 @@ internal class TestAmneziaWgRuntime : RipDpiAmneziaWgRuntime {
 
     override suspend fun awaitReady(timeoutMillis: Long) {
         awaitReadyFailure?.let { throw it }
+        awaitReadyGate?.await()
         ready.await()
     }
 

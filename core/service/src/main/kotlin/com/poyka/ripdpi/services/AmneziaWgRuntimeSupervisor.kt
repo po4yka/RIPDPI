@@ -1,4 +1,4 @@
-@file:Suppress("LongMethod", "SwallowedException")
+@file:Suppress("SwallowedException")
 
 package com.poyka.ripdpi.services
 
@@ -21,7 +21,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.util.concurrent.atomic.AtomicBoolean
@@ -30,17 +34,8 @@ import javax.inject.Inject
 import javax.inject.Provider
 
 /**
- * Lifecycle supervisor for a standalone AmneziaWG tunnel. A one-to-one mirror of
- * [WarpRuntimeSupervisor]: it owns a single [RipDpiAmneziaWgRuntime], launches its
- * blocking [RipDpiAmneziaWgRuntime.start] undispatched, awaits readiness, and routes
- * an unexpected exit through [SupervisorExitCause]. The only structural difference is
- * the input type -- the app-reachable [AwgActivationRequest] -- which the injected
- * [AmneziaWgRuntimeConfigResolver] maps into the engine-api `ResolvedRipDpiAmneziaWgConfig`
- * the runtime consumes.
- *
- * A failed startup is retried up to [handshakeAttempts] times in total for the request
- * (the cohort budget, see [AwgCohortCatalogData.handshakeAttemptsFor]); only the last
- * failure is reported.
+ * Owns authenticated AWG native sessions and their startup retry budget.
+ * Established WS sessions use fresh runtimes after bounded backoff; the owner keeps the TUN installed.
  */
 internal class AmneziaWgRuntimeSupervisor(
     private val scope: CoroutineScope,
@@ -55,6 +50,8 @@ internal class AmneziaWgRuntimeSupervisor(
     private var amneziaWgRuntime: RipDpiAmneziaWgRuntime? = null
     private var amneziaWgJob: Job? = null
     private var setup: Deferred<ResolvedRipDpiAmneziaWgConfig>? = null
+    private var recoveryJob: Job? = null
+    private val lifecycleMutex = Mutex()
 
     @Volatile
     private var sessionToken: Any = Any()
@@ -75,54 +72,34 @@ internal class AmneziaWgRuntimeSupervisor(
         request: AwgActivationRequest,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
-        repeat(handshakeAttempts(request) - 1) {
-            try {
-                return startAttempt(request, onUnexpectedExit)
-            } catch (_: SupervisorStartupFailureException) {
-                // A threshold-based middlebox may pass the next start: new socket, keys and junk sizes.
+        val token = sessionToken
+        lifecycleMutex.withLock {
+            repeat(handshakeAttempts(request) - 1) {
+                try {
+                    return startAttempt(request, onUnexpectedExit, token)
+                } catch (_: SupervisorStartupFailureException) {
+                    // Retry startup with fresh native state within the selected cohort budget.
+                }
             }
+            startAttempt(request, onUnexpectedExit, token)
         }
-        startAttempt(request, onUnexpectedExit)
     }
 
     private suspend fun startAttempt(
         request: AwgActivationRequest,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+        token: Any,
     ) {
         check(amneziaWgJob == null) { "AmneziaWG fields not null" }
-        val token = sessionToken
-        val preparing =
-            scope.async(dispatcher) {
-                val config = runtimeConfigResolver.resolve(request)
-                val resolver = resolveWsEndpoint
-                if (request.carrier != AwgActivationRequest.CARRIER_WS || resolver == null) {
-                    config
-                } else {
-                    val host = ("https://" + request.carrierWsUrl.substring(6)).toHttpUrl().host
-                    val addresses = if (NumericIp.parseAddress(host) != null) listOf(host) else resolver(host)
-                    require(addresses.isNotEmpty() && addresses.all { NumericIp.parseAddress(it) != null }) {
-                        "AmneziaWG WS bootstrap returned no usable numeric addresses"
-                    }
-                    config.copy(carrierWsAddresses = addresses.distinct())
-                }
-            }
-        setup = preparing
-        val resolvedConfig =
-            try {
-                preparing.await()
-            } finally {
-                withContext(NonCancellable) { preparing.cancelAndJoin() }
-                if (setup === preparing) setup = null
-            }
-        if (sessionToken !== token) throw CancellationException("AmneziaWG setup stopped")
-        val runtime = amneziaWgFactory.create()
+        val resolvedConfig = resolveConfig(request, token)
+        val runtime = createRuntime(token)
         val consumedConfiguration = ConsumedUpstreamConfiguration.awg(resolvedConfig)
-        amneziaWgRuntime = runtime
         stopRequested = false
         val shouldReportExit = AtomicBoolean(true)
         exitReporting = shouldReportExit
 
         val exitCause = CompletableDeferred<SupervisorExitCause>()
+        val startupReady = CompletableDeferred<Boolean>()
         val sessionRegistration = AtomicReference<ActiveAwgRuntimeRegistry.Registration?>()
         val job =
             scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
@@ -140,17 +117,27 @@ internal class AmneziaWgRuntimeSupervisor(
                 }
             }
         amneziaWgJob = job
+        if (sessionToken !== token) {
+            shouldReportExit.set(false)
+            startupReady.complete(false)
+            withContext(NonCancellable) { stopRuntime() }
+            requireCurrentSession(token)
+        }
 
         job.invokeOnCompletion {
             activeRegistry.revoke(sessionRegistration.get())
             scope.launch(dispatcher) {
-                if (amneziaWgRuntime !== runtime) {
-                    return@launch
+                if (!startupReady.await() || !shouldReportExit.get()) return@launch
+                val cause = exitCause.await()
+                if (cause is SupervisorExitCause.ExpectedStop) {
+                    onUnexpectedExit(cause)
+                } else if (sessionToken === token && amneziaWgRuntime === runtime) {
+                    if (request.carrier == AwgActivationRequest.CARRIER_WS) {
+                        recoverWsCarrier(request, token, runtime, cause, onUnexpectedExit)
+                    } else {
+                        onUnexpectedExit(cause)
+                    }
                 }
-                if (!shouldReportExit.get()) {
-                    return@launch
-                }
-                onUnexpectedExit(exitCause.await())
             }
         }
 
@@ -162,10 +149,13 @@ internal class AmneziaWgRuntimeSupervisor(
                 activeRegistry.register(resolvedConfig) { amneziaWgRuntime === runtime && job.isActive }
             sessionRegistration.set(activeRegistration)
             if (!job.isActive) activeRegistry.revoke(sessionRegistration.get())
+            startupReady.complete(true)
         } catch (cancelled: CancellationException) {
+            startupReady.complete(false)
             cleanupFailedReadiness(shouldReportExit)
             throw cancelled
         } catch (readinessError: Exception) {
+            startupReady.complete(false)
             cleanupFailedReadiness(shouldReportExit)
             val startupCause =
                 (exitCause.await() as? SupervisorExitCause.StartupFailure)
@@ -174,14 +164,66 @@ internal class AmneziaWgRuntimeSupervisor(
         }
     }
 
+    private fun createRuntime(token: Any): RipDpiAmneziaWgRuntime {
+        val runtime = amneziaWgFactory.create()
+        amneziaWgRuntime = runtime
+        if (sessionToken !== token) {
+            amneziaWgRuntime = null
+            requireCurrentSession(token)
+        }
+        return runtime
+    }
+
+    private fun requireCurrentSession(token: Any) {
+        if (sessionToken !== token) throw CancellationException("AmneziaWG setup stopped")
+    }
+
+    private suspend fun resolveConfig(
+        request: AwgActivationRequest,
+        token: Any,
+    ): ResolvedRipDpiAmneziaWgConfig {
+        val preparing =
+            scope.async(dispatcher) {
+                val config = runtimeConfigResolver.resolve(request)
+                val resolver = resolveWsEndpoint
+                if (request.carrier != AwgActivationRequest.CARRIER_WS || resolver == null) {
+                    config
+                } else {
+                    val host = ("https://" + request.carrierWsUrl.substring(WssSchemePrefix.length)).toHttpUrl().host
+                    val addresses = if (NumericIp.parseAddress(host) != null) listOf(host) else resolver(host)
+                    require(addresses.isNotEmpty() && addresses.all { NumericIp.parseAddress(it) != null }) {
+                        "AmneziaWG WS bootstrap returned no usable numeric addresses"
+                    }
+                    config.copy(carrierWsAddresses = addresses.distinct())
+                }
+            }
+        setup = preparing
+        val resolvedConfig =
+            try {
+                preparing.await()
+            } finally {
+                withContext(NonCancellable) { preparing.cancelAndJoin() }
+                if (setup === preparing) setup = null
+            }
+        requireCurrentSession(token)
+        return resolvedConfig
+    }
+
     private suspend fun cleanupFailedReadiness(shouldReportExit: AtomicBoolean) {
         shouldReportExit.set(false)
-        withContext(NonCancellable) { stop() }
+        withContext(NonCancellable) { stopRuntime() }
     }
 
     suspend fun stop() {
         sessionToken = Any()
+        recoveryJob?.cancelAndJoin()
+        recoveryJob = null
         setup?.cancelAndJoin()
+        runCatching { amneziaWgRuntime?.stop() }
+        lifecycleMutex.withLock { stopRuntime() }
+    }
+
+    private suspend fun stopRuntime() {
         activeRegistry.revoke(activeRegistration)
         val runtime = amneziaWgRuntime ?: return
         val job = amneziaWgJob
@@ -202,11 +244,63 @@ internal class AmneziaWgRuntimeSupervisor(
         failure?.let { throw it }
     }
 
+    private fun recoverWsCarrier(
+        request: AwgActivationRequest,
+        token: Any,
+        failedRuntime: RipDpiAmneziaWgRuntime,
+        initialCause: SupervisorExitCause,
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+    ) {
+        val recovery =
+            scope.launch(dispatcher, start = CoroutineStart.LAZY) {
+                var failure = initialCause
+                try {
+                    val cleanupError =
+                        runCatching {
+                            lifecycleMutex.withLock {
+                                if (sessionToken !== token || amneziaWgRuntime !== failedRuntime) return@launch
+                                exitReporting?.set(false)
+                                stopRuntime()
+                            }
+                        }.exceptionOrNull()
+                    if (cleanupError != null) {
+                        if (cleanupError is CancellationException || cleanupError !is Exception) throw cleanupError
+                        if (sessionToken === token) onUnexpectedExit(SupervisorExitCause.StartupFailure(cleanupError))
+                        return@launch
+                    }
+                    repeat(WsRecoveryAttempts) { attempt ->
+                        delay(WsRecoveryDelayMillis shl attempt)
+                        val error =
+                            runCatching {
+                                lifecycleMutex.withLock {
+                                    if (sessionToken !== token) return@launch
+                                    startAttempt(request, onUnexpectedExit, token)
+                                }
+                            }.exceptionOrNull() ?: return@launch
+                        if (error is CancellationException || error !is Exception) throw error
+                        failure = SupervisorExitCause.StartupFailure(error)
+                        if (error is RuntimeCleanupPendingException) {
+                            if (sessionToken === token) onUnexpectedExit(failure)
+                            return@launch
+                        }
+                    }
+                    if (sessionToken === token) onUnexpectedExit(failure)
+                } finally {
+                    if (recoveryJob === currentCoroutineContext()[Job]) recoveryJob = null
+                }
+            }
+        recoveryJob = recovery
+        recovery.start()
+    }
+
     fun detachCompleted() {
         if (amneziaWgJob?.isCompleted == true) detach()
     }
 
     fun detach() {
+        sessionToken = Any()
+        recoveryJob?.cancel()
+        recoveryJob = null
         activeRegistry.revoke(activeRegistration)
         activeRegistration = null
         exitReporting?.set(false)
@@ -243,3 +337,7 @@ internal open class AmneziaWgRuntimeSupervisorFactory
                 },
             )
     }
+
+private const val WssSchemePrefix = "wss://"
+private const val WsRecoveryAttempts = 3
+private const val WsRecoveryDelayMillis = 1_000L

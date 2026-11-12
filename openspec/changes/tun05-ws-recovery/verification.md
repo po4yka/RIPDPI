@@ -2,8 +2,8 @@
 task_id: SVC-1794477234440384
 change: tun05-ws-recovery
 commit_sha: null
-local: required
-local_evidence: Targeted service tests and combined source gates are pending.
+local: passed
+local_evidence: Targeted supervisor, WS recovery, and VPN exit tests passed; service detekt and ktlintCheck passed. See /tmp/tun05-recovery-final-gates.log. Combined source gates and exact integration SHA are recorded by the parent integration task.
 remote_ci: not_applicable
 remote_ci_evidence: Parent owns remote push and CI observation.
 device: not_applicable
@@ -20,6 +20,6 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-AWG-WS-RECOVERY | SVC-1794477296252372 | AmneziaWgRuntimeSupervisorTest | Pending |
-| REQ-AWG-WS-STOP | SVC-1794477296252372 | AmneziaWgRuntimeSupervisorTest | Pending |
-| REQ-AWG-WS-BOOTSTRAP | SVC-1794477296252372 | AmneziaWgWsRecoveryTest and config serialization tests | Pending |
+| REQ-AWG-WS-RECOVERY | SVC-1794477296252372 | AmneziaWgRuntimeSupervisorTest and AmneziaWgWsRecoveryTest | Passed targeted local tests |
+| REQ-AWG-WS-STOP | SVC-1794477296252372 | AmneziaWgRuntimeSupervisorTest and AmneziaWgWsRecoveryTest | Passed targeted local tests |
+| REQ-AWG-WS-BOOTSTRAP | SVC-1794477296252372 | AmneziaWgWsRecoveryTest and config serialization tests | Passed targeted local tests |
