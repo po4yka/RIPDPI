@@ -5,7 +5,8 @@ use crate::emissions::{FakeEmission, FakeEmissionRole, ordered_segments_from_emi
 use crate::tcp_lowering::should_ignore_android_ttl_error;
 use crate::transport_io::{
     await_writable_action_named, log_android_desync_fallback, send_fake_tcp_action_named,
-    send_ordered_fake_segments_action_named, write_ttl_sensitive_payload_with_optional_flags_named,
+    send_ordered_fake_segments_action_named, set_stream_ttl, strategy_execution_error,
+    write_ttl_sensitive_payload_with_optional_flags_named,
 };
 use crate::types::OutboundSendError;
 
@@ -114,41 +115,46 @@ fn execute_boundary_fallback(
         step_fallback,
         bytes_committed,
     )?;
-    let (should_restore_ttl, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
-        ctx.lowering,
-        ctx.writer,
-        chunk,
-        ttl_modified,
-        if ttl_modified { 1 } else { ctx.config.network.default_ttl },
-        ctx.config.process.protect_path.as_deref(),
-        ctx.md5sig,
-        opts.original_flags,
-        ctx.group.actions.ip_id_mode,
-        "write_fakeddisorder",
-        step_family,
-        step_fallback,
-        bytes_committed,
-    )?;
-    await_writable_action_named(
-        ctx.writer,
-        opts.wait.0,
-        opts.wait.1,
-        "await_writable_fakeddisorder",
-        step_family,
-        step_fallback,
-        bytes_committed,
-    )?;
-    if should_restore_ttl {
-        let _ = ctx.lowering.restore_default_ttl_named(
+    let result = (|| {
+        let (_, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
+            ctx.lowering,
             ctx.writer,
-            ctx.lowering.restore_ttl,
-            "restore_default_ttl_fakeddisorder",
+            chunk,
+            ttl_modified,
+            if ttl_modified { 1 } else { ctx.config.network.default_ttl },
+            ctx.config.process.protect_path.as_deref(),
+            ctx.md5sig,
+            opts.original_flags,
+            ctx.group.actions.ip_id_mode,
+            "write_fakeddisorder",
             step_family,
             step_fallback,
             bytes_committed,
         )?;
+        await_writable_action_named(
+            ctx.writer,
+            opts.wait.0,
+            opts.wait.1,
+            "await_writable_fakeddisorder",
+            step_family,
+            step_fallback,
+            bytes_committed,
+        )?;
+        Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+    })();
+    if ttl_modified && let Err(source) = set_stream_ttl(ctx.writer, ctx.lowering.restore_ttl) {
+        if let Ok((committed, _)) = &result {
+            return Err(strategy_execution_error(
+                "restore_default_ttl_fakeddisorder",
+                step_family,
+                step_fallback,
+                *committed,
+                source,
+            ));
+        }
+        tracing::warn!("failed to restore boundary TTL after send failure: {source}");
     }
-    Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+    result
 }
 
 #[allow(clippy::too_many_arguments)]

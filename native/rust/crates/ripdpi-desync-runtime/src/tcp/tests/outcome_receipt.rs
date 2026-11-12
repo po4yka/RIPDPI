@@ -981,6 +981,66 @@ fn fake_disorder_preserves_first_original_transport_without_requiring_raw() {
 }
 
 #[test]
+fn fake_disorder_boundary_failures_restore_socket_ttl() {
+    let payload = b"GET / HTTP/1.1\r\nHost: audit.invalid\r\n\r\n";
+    for fail_write in [false, true] {
+        let mut group = test_group();
+        group
+            .actions
+            .tcp_chain
+            .push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, OffsetExpr::absolute(payload.len() as i64)));
+        let (mut client, mut server) = connected_pair();
+        client.set_ttl(37).expect("set initial socket TTL");
+        server.set_read_timeout(Some(Duration::from_secs(2))).expect("peer read timeout");
+        let platform = ReceiptTestPlatform::default();
+        if fail_write {
+            client.shutdown(std::net::Shutdown::Write).expect("close write half");
+        } else {
+            platform.faults.lock().expect("faults").push_back(FaultSpec::WaitStage(io::ErrorKind::TimedOut));
+        }
+        let progress =
+            OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+        let context = activation_context_from_progress(
+            progress,
+            ActivationTransport::Tcp,
+            Some(payload),
+            None,
+            None,
+            Some(8),
+            AdaptivePlannerHints::default(),
+        );
+
+        let error = send_prepared_with_group(
+            &mut client,
+            &platform,
+            &RuntimeConfig::default(),
+            &group,
+            payload,
+            progress,
+            context,
+            Some(8),
+            None,
+            &default_ttl_unavailable(),
+            None,
+        )
+        .expect_err("boundary write or wait must fail");
+
+        assert_eq!(client.ttl().expect("socket TTL after failure"), 37);
+        if fail_write {
+            assert_eq!(error.source_error().kind(), io::ErrorKind::BrokenPipe);
+            assert_eq!(error.bytes_committed(), 0);
+            assert_eq!(server.read(&mut [0; 1]).expect("peer EOF"), 0);
+        } else {
+            assert_eq!(error.source_error().kind(), io::ErrorKind::TimedOut);
+            assert_eq!(error.bytes_committed(), payload.len());
+            let mut received = vec![0; payload.len()];
+            server.read_exact(&mut received).expect("read original payload");
+            assert_eq!(received, payload);
+        }
+    }
+}
+
+#[test]
 fn fake_disorder_ttl_lowering_records_effective_fake_split_family() {
     let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
     let mut group = test_group();
