@@ -419,7 +419,8 @@ fn plain_fallback_failures_keep_partial_progress_and_configured_marker() {
         assert_eq!(receipt.configured_family, Some(TcpStrategyFamily::Split));
         assert_eq!(receipt.effective_family, None);
         assert_eq!(receipt.marker_base, Some(TcpOffsetMarkerBase::Absolute));
-        assert_eq!(receipt.payload_bytes_committed, received.len());
+        // Telemetry is bounded; transport progress above must remain exact.
+        assert_eq!(receipt.payload_bytes_committed, received.len().min(usize::from(u16::MAX)));
         assert_eq!(receipt.completed_actions, 0);
         assert_eq!(receipt.terminal_reason, Some(crate::TcpTerminalReason::Transport));
     }
