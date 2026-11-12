@@ -46,6 +46,9 @@ pub(super) fn handle_first_write_failure(
     err: OutboundSendError,
     retry_state: &mut RouteRetryState,
 ) -> io::Result<ReconnectedRoute> {
+    if state.shutdown_requested() {
+        return Err(err.into_io_error());
+    }
     let failure = classify_first_write_failure(&err);
     if should_retry_syn_data(state, route, original_request, &failure, retry_state) {
         tracing::debug!(
@@ -184,6 +187,37 @@ mod tests {
         summary: &'static str,
     ) -> RuntimeClassifiedFailure {
         RuntimeClassifiedFailure::new(class, RuntimeFailureStage::FirstResponse, action, summary)
+    }
+
+    #[test]
+    fn stopped_first_write_failure_does_not_start_tfo_retry() {
+        use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind};
+        use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
+        let mut config = RuntimeConfig::default();
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+        config.groups = vec![group];
+        let control = std::sync::Arc::new(EmbeddedProxyControl::new(None));
+        let state = RuntimeState::test_with_control(config, control.clone());
+        control.request_shutdown();
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target");
+        listener.set_nonblocking(true).expect("nonblocking target");
+        let mut retry = RouteRetryState::default();
+        let result = handle_first_write_failure(
+            &state,
+            listener.local_addr().expect("target"),
+            &route(),
+            None,
+            b"request",
+            OutboundSendError::transport(io::Error::from(io::ErrorKind::ConnectionReset)),
+            &mut retry,
+        );
+        let Err(error) = result else {
+            panic!("stopped write must not reconnect");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::ConnectionReset);
+        assert!(!retry.syn_data_retry_attempted);
+        assert_eq!(listener.accept().expect_err("no replay connection").kind(), io::ErrorKind::WouldBlock);
     }
 
     #[test]

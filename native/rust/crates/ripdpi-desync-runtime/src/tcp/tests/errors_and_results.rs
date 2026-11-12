@@ -254,3 +254,29 @@ fn transport_progress_remains_exact_when_receipt_count_is_bounded() {
             .with_execution_receipt(receipt);
     assert_eq!(error.bytes_committed(), committed);
 }
+
+#[test]
+fn cancelled_first_write_keeps_peer_bytes_as_an_original_prefix() {
+    use std::io::Read;
+    use std::net::Shutdown;
+    let (mut client, mut peer) = connected_pair();
+    socket2::SockRef::from(&client).set_send_buffer_size(1024).expect("small send buffer");
+    client.set_write_timeout(Some(Duration::from_secs(2))).expect("sender deadline");
+    peer.set_read_timeout(Some(Duration::from_secs(2))).expect("peer deadline");
+    let cancel = client.try_clone().expect("shutdown handle");
+    let original: Vec<u8> = (0..8 * 1024 * 1024).map(|index| (index % 251) as u8).collect();
+    let payload = original.clone();
+    let sender = std::thread::spawn(move || {
+        write_strategy_payload_named(&mut client, &payload, "write_split", "split", None, 0)
+    });
+    let mut first = [0];
+    peer.read_exact(&mut first).expect("wait for in-flight write");
+    cancel.shutdown(Shutdown::Write).expect("cancel write");
+    let error = sender.join().expect("writer returned").expect_err("write stopped before complete payload");
+    let mut received = first.to_vec();
+    peer.read_to_end(&mut received).expect("drain accepted prefix");
+    assert!(received.len() < original.len());
+    assert_eq!(received, original[..received.len()]);
+    assert!(matches!(error.kind(), io::ErrorKind::BrokenPipe | io::ErrorKind::NotConnected));
+    assert!(error.bytes_committed() < original.len());
+}

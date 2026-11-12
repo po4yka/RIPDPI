@@ -536,6 +536,9 @@ impl OutboundSendError {
         self
     }
 
+    /// Returns known payload progress reported by successful send operations.
+    /// This is not a peer delivery acknowledgement. A failed in-flight syscall
+    /// can accept further bytes, so zero does not prove that replay is safe.
     pub fn bytes_committed(&self) -> usize {
         match self {
             Self::Transport { bytes_committed, .. } | Self::StrategyExecution { bytes_committed, .. } => {

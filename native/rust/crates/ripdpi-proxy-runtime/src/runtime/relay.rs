@@ -218,6 +218,34 @@ mod tests {
         assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=37"));
     }
 
+    #[test]
+    fn closed_first_write_errors_do_not_replay_without_reported_progress() {
+        for error in [
+            super::super::desync::OutboundSendError::transport(io::Error::from(io::ErrorKind::BrokenPipe)),
+            super::super::desync::OutboundSendError::StrategyExecution {
+                action: "write_split",
+                strategy_family: "split",
+                fallback: None,
+                bytes_committed: 0,
+                source_errno: None,
+                execution_receipt: test_strategy_execution_receipt("split", 0),
+                source: io::Error::from(io::ErrorKind::BrokenPipe),
+            },
+        ] {
+            let failure = classify_first_write_failure(&error);
+            assert_eq!(failure.action, RuntimeFailureAction::SurfaceOnly);
+            assert!(!RuntimeState::first_write_failure_retries_syn_data_without_tfo(true, &failure, false));
+        }
+    }
+
+    #[test]
+    fn zero_progress_reset_first_write_keeps_syn_data_retry() {
+        let error = super::super::desync::OutboundSendError::transport(io::Error::from(io::ErrorKind::ConnectionReset));
+        let failure = classify_first_write_failure(&error);
+        assert_eq!(failure.action, RuntimeFailureAction::RetryWithMatchingGroup);
+        assert!(RuntimeState::first_write_failure_retries_syn_data_without_tfo(true, &failure, false));
+    }
+
     fn test_strategy_execution_receipt(
         strategy_family: &'static str,
         bytes_committed: usize,
