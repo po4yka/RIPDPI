@@ -2,7 +2,7 @@
 id: TRN-1794466458131158
 title: Repair WARP preset state and WireGuard compatibility
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: WARP preset repair coordinator

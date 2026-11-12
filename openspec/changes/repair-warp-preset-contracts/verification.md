@@ -5,7 +5,7 @@ commit_sha: a5d5bdeb3638d45d9f657b21c4e04c609f5720c8
 local: passed
 local_evidence: Focused regressions, 4872 combined JVM tests, workspace Rust gates and staticAnalysis passed.
 remote_ci: required
-remote_ci_evidence: No repaired source has been pushed yet.
+remote_ci_evidence: Source and local evidence pushed to origin/main at 3dea72f5c08d51b69091e286672381641705be84; remote CI and CodeQL are not observed.
 device: not_applicable
 device_evidence: No device or external transport acceptance is requested; host UI rendering and local peer checks are tracked separately.
 artifact: not_applicable
@@ -117,7 +117,8 @@ focused app class80 with zero failures, errors or skips.
 Temporary `/tmp` receipts named above existed and were inspected during the
 runs. They disappeared after the interrupted session; the commands and observed
 results are retained here, but those paths are not durable attachments.
-The source gates are repeated before integration to retain a fresh exit code.
+The repeated source gates completed with exit0 before integration.
+The fresh log is `/tmp/tun04-final-ci-gates.log`; all Rust API snapshots match.
 
 The combined JVM command was:
 
@@ -134,3 +135,19 @@ cargo metadata --manifest-path native/rust/Cargo.toml --locked --no-deps --forma
 
 Gradle ran through `build-gate --lane ripdpi` with ambient
 `CARGO_BUILD_JOBS` cleared and the disposable native target directory.
+
+## Integration receipt
+
+On 2026-11-12, `git fetch origin` found the unchanged base `f6ad80c20d`.
+`git rebase origin/main` reported the repair branch up to date. Main was clean,
+then `git merge --ff-only fix/warp-preset-contracts` and `git push origin main`
+completed successfully. `git ls-remote --exit-code origin refs/heads/main`
+confirmed `3dea72f5c08d51b69091e286672381641705be84`.
+
+The server accepted the authorized direct push with bypass notices for the PR
+rule, expected ci-required status, and pending CodeQL results. This receipt
+does not claim remote CI success. The task remains in review until that
+required evidence is available. No release or external transport was run.
+
+All execution steps are complete. This final receipt changes tracking documents
+only. The registry, dependencies, baselines and source audit are preserved.
