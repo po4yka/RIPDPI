@@ -1,6 +1,6 @@
 ## Context
 
-Task `ENG-1794499735949864` repairs F1 through F6 at 69502620c30cf97528158a37f12b7e2724f527c8. Sockets run synchronously on OS threads.
+Task `ENG-1794499735949864` closes F1-F6 found at `69502620c30cf97528158a37f12b7e2724f527c8`. Sockets run synchronously on OS threads. While this task ran, main gained common DPI-04/DPI-06 safety fixes and the adjacent split/hostfake fixes.
 
 ## Goals / Non-Goals
 
@@ -9,28 +9,30 @@ Task `ENG-1794499735949864` repairs F1 through F6 at 69502620c30cf97528158a37f12
 
 ## Decisions
 
-- Keep io::Result APIs; use typed inner errors for known progress and uncertain delivery. Translate at existing adapter boundaries; no new traits.
-- Delivered helper failures are uncertain; not-delivered calls may use the local path. No helper wire change.
-- Restore real pages before TTL/MD5 cleanup on all exits. Refuse fallback after possible send.
-- Group primary then secondary per fake region; sequential offsets count all fake bytes.
-- Apply MD5 only to fake role; pass normal TTL separately to raw original.
-- Use deterministic test-owned input and independent packet oracle. Default incomplete captures remain smoke-only.
-- User authorized implementation, separate commits, main integration and push; another planning-only approval is not required.
+- Use published common send safety for F1: restore real pages before cleanup, retain known stream progress and mark opaque fake/ordered failures uncertain. The first-write classifier must refuse replay when bytes or uncertainty are present.
+- Keep the existing progress/error types and adapter contracts. Do not add a parallel error hierarchy.
+- Use the published common packet builder for F3/F4. MD5 is fake-only. `original_ttl` keeps genuine TTL separate; disorder explicitly requests TTL1.
+- Add two unique non-root Linux regressions: actual partial splice/EAGAIN and actual wait timeout, with independent peer reads of real bytes.
+- Group primary then secondary per fake region for F2. Sequential offsets count all fake bytes. The hostfake single-profile caller uses one-element lists.
+- Require deterministic source bytes and an independent eight-mode packet oracle for F5. Incomplete captures remain smoke-only.
+- Keep family/fallback context in the second region for F6.
+- User authorized implementation, commits, main integration and push. Reuse already published fixes instead of reintroducing corrected behavior to create duplicate commits.
 
 ## Contracts and ownership
 
-- raw_repairs: privileged-ops fake_tcp, tcp_payload, raw_socket, send error type/tests; runtime-platform raw/helper errors; proxy-runtime-desync-adapter conversion/fake/ordered errors; desync-runtime platform/types, transport_io/errors/strategy_actions and new progress tests; proxy-runtime state/failure tests.
-- runtime_repairs: desync-runtime emissions, fake_split, hostfake/emission_order signature adaptation, fake_ordering and outcome_receipt/nested fake_split tests. F2/F6 remain separate slices.
-- wire_oracle: run-android-packet-smoke.sh, test-android-packet-smoke-lib.sh, new oracle/scripts tests, PacketSmokeInstrumentedTest.kt test-only fixture section, androidTest/assets/fakedsplit-wire.json.
-- Root: planning, docs clarification, independent review, combined gates, generated API snapshots and integration.
-- Serialized Cargo/Gradle versions, locales, golden fixtures, protobuf and helper schema are outside scope. Root alone regenerates any affected API snapshots through owning tools.
+- Published main owns common raw/helper progress, no-replay, packet-role MD5, explicit genuine TTL and negotiated bulk helper framing. This task preserves those contracts.
+- raw_repairs reviewed the common fixes and the two unique splice/wait tests. It does not replace published production code.
+- runtime_repairs owns F2/F6 emissions, fake-family callers and independent outcome tests.
+- wire_oracle owns the test asset, instrumentation matrix, oracle and smoke scripts.
+- Root owns planning, evidence, final combined review, checks and integration. All agents preserve other work and use isolated ownership.
+- No new dependency, locale, protobuf, golden, baseline or helper schema change belongs to this task. Any needed API snapshot is generated only by its owner tool.
 
 ## Risks / Trade-offs
 
-- Unknown helper progress must forbid retry without invented bytes.
-- Preserve single-profile hostfake caller behavior.
+- Published opaque failures are deliberately conservative. Unknown progress must forbid retry without invented bytes.
+- Preserve the single-profile hostfake caller and adjacent TTL ownership.
 - Synthetic oracle tests do not establish Android wire compatibility.
 
 ## Migration Plan
 
-No data migration. Preserve accepted fields and permission policy. Run targeted Rust/oracle tests, affected builds/clippy, instrumentation compilation, architecture/API checks and just ci-gates. Review before issue commits. Fetch/rebase origin/main, repeat affected checks for new inputs, fast-forward main then push. Do not delete branches or worktrees.
+No data migration. Preserve accepted fields and permission policy. Run the owning Rust/oracle tests, affected Clippy/builds, Android instrumentation compilation, architecture/API checks and `just ci-gates`. Review the final delta. Fetch/rebase origin/main, repeat affected checks when inputs change, fast-forward main and push. Keep branches/worktrees unless cleanup is authorized.

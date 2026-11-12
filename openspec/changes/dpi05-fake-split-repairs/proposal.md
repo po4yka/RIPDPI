@@ -24,4 +24,4 @@ Partial failures can retain fake bytes and lose send progress. Custom orders dro
 
 ## Impact
 
-Rust privileged operations, runtime adapters, error classification, Android tests and smoke scripts. No new dependency, stored setting or helper wire schema.
+The task adds fake-split profile/context fixes and acceptance tests/scripts. It uses already published shared raw/helper safety and packet-role fixes for F1/F3/F4. Two unique Linux failure-path tests extend that coverage. No new dependency, stored setting or helper wire schema belongs to this task.

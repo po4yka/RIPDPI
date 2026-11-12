@@ -2,7 +2,7 @@
 id: ENG-1794499735949864
 title: Repair DPI-05 fake split contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: DPI-05 repair team
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dpi05-fake-split-repairs
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 ## Goal
@@ -20,7 +20,7 @@ Repair six confirmed DPI-05 findings without changing accepted settings or permi
 
 ## Acceptance criteria
 
-F1-F6 have regression coverage, independent review and passing relevant gates. Each finding has a separate commit, integrated into main and pushed to origin/main.
+F1-F6 have regression coverage, independent review and passing relevant gates. Each new in-scope fix has its own commit. Published shared F1/F3/F4 fixes remain traceable to their existing main commits. Integration must fast-forward main and push origin/main.
 
 ## Parallel ownership
 
