@@ -182,6 +182,64 @@ class SubprocessRelayProcessSupervisorTest {
         }
     }
 
+    @Test
+    fun `managed process observes stdin eof before termination`() {
+        val marker = File.createTempFile("managed-pt-eof", ".txt")
+        marker.delete()
+        val spec = managedSpec()
+        val script =
+            """
+            read -r line
+            i=0
+            while [ "${'$'}i" -lt 1024 ]; do
+                printf 'LOG SEVERITY=info MESSAGE=%0256d\n' 0
+                i=${'$'}((i+1))
+            done
+            printf closed > "${'$'}1"
+            """.trimIndent()
+        val builder = ProcessBuilder("/bin/sh", "-c", script, "pt-fixture", marker.absolutePath)
+        val supervisor = SubprocessRelayProcessSupervisor(SubprocessRelayOutputParser())
+        supervisor.start(builder, spec) {}
+        try {
+            assertNull(supervisor.stop())
+            assertFalse(supervisor.isRunning())
+            assertTrue("the PT must be allowed to handle stdin EOF", marker.exists())
+            assertEquals("closed", marker.readText())
+        } finally {
+            supervisor.stop()
+            marker.delete()
+        }
+    }
+
+    @Test
+    fun `managed process that ignores eof and term is killed within stop budget`() {
+        val script =
+            """
+            trap '' TERM
+            printf 'VERSION 1\nCMETHOD webtunnel socks5 127.0.0.1:41002\nCMETHODS DONE\n'
+            while :; do :; done
+            """.trimIndent()
+        val supervisor = SubprocessRelayProcessSupervisor(SubprocessRelayOutputParser())
+        val ready = CountDownLatch(1)
+        val process =
+            supervisor.start(ProcessBuilder("/bin/sh", "-c", script), managedSpec()) {
+                ready.countDown()
+            }
+        try {
+            assertTrue(ready.await(5, TimeUnit.SECONDS))
+            val start = System.nanoTime()
+            assertNull(supervisor.stop())
+            val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)
+
+            assertFalse(supervisor.isRunning())
+            assertTrue("a PT that ignores EOF and TERM must be killed", process.exitValue() != 0)
+            assertTrue("the three-second wait budget needs only scheduling margin", elapsedMs < 4_000)
+        } finally {
+            supervisor.stop()
+            process.destroyForcibly()
+        }
+    }
+
     private fun managedSpec() =
         launchSpec().copy(managedClientBridge = ManagedClientSocksBridgeSpec("webtunnel", "127.0.0.1", 443, ""))
 

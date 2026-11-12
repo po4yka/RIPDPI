@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 private const val RelayProcessStopTimeoutMs = 1_500L
+private const val ManagedPtGracefulStopTimeoutMs = 500L
 
 internal class SubprocessRelayProcessSupervisor(
     private val outputParser: SubprocessRelayOutputParser,
@@ -17,7 +18,9 @@ internal class SubprocessRelayProcessSupervisor(
 
     @Volatile private var processErrorThread: Thread? = null
 
+    private val outputLock = Any()
     private var outputOwner: Any? = null
+    private var closeStdinOnStop = false
 
     @Synchronized
     fun start(
@@ -26,9 +29,10 @@ internal class SubprocessRelayProcessSupervisor(
         onOutputEvent: (SubprocessRelayOutputEvent) -> Unit,
     ): Process {
         check(process == null) { "Previous subprocess is still owned by the supervisor" }
-        outputParser.reset()
+        synchronized(outputLock) { outputParser.reset() }
         val activeProcess = startProcess(processBuilder)
         process = activeProcess
+        closeStdinOnStop = spec.managedClientBridge != null
         try {
             spec.standardInput?.let { payload ->
                 activeProcess.outputStream.use { input ->
@@ -43,7 +47,7 @@ internal class SubprocessRelayProcessSupervisor(
             throw error
         }
         val owner = Any()
-        outputOwner = owner
+        synchronized(outputLock) { outputOwner = owner }
         processOutputThread = startProcessOutputThread(activeProcess, owner, spec, onOutputEvent)
         if (spec.managedClientBridge != null) {
             processErrorThread = startManagedErrorThread(activeProcess, spec.runtimeKind)
@@ -53,9 +57,8 @@ internal class SubprocessRelayProcessSupervisor(
 
     @Synchronized
     fun stop(): String? {
-        outputOwner = null
-        processOutputThread?.interrupt()
-        processErrorThread?.interrupt()
+        // Keep both readers draining while the owned process handles EOF and exits.
+        synchronized(outputLock) { outputOwner = null }
         val activeProcess = process
         if (activeProcess == null) {
             processOutputThread = null
@@ -120,13 +123,13 @@ internal class SubprocessRelayProcessSupervisor(
                             }
                         if (line == null) break
                         // Fence both parser state and delivery against stop and the next run's reset.
-                        synchronized(this@SubprocessRelayProcessSupervisor) {
+                        synchronized(outputLock) {
                             if (outputOwner === owner) outputParser.parse(line, spec)?.let(onOutputEvent)
                         }
                     }
                 }
             } catch (error: ManagedPtControlLineException) {
-                synchronized(this@SubprocessRelayProcessSupervisor) {
+                synchronized(outputLock) {
                     if (outputOwner === owner) {
                         onOutputEvent(
                             SubprocessRelayOutputEvent.Error(
@@ -160,17 +163,33 @@ internal class SubprocessRelayProcessSupervisor(
         }
 
     private fun terminate(activeProcess: Process): Boolean {
+        val gracefulWait = if (closeStdinOnStop) ManagedPtGracefulStopTimeoutMs else 0L
+        if (gracefulWait > 0) {
+            try {
+                activeProcess.outputStream.close()
+            } catch (_: IOException) {
+                // A closed stdin must not prevent termination of the owned process.
+            }
+            if (activeProcess.waitFor(gracefulWait, TimeUnit.MILLISECONDS)) return true
+        }
         activeProcess.destroy()
-        if (activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)) return true
-        activeProcess.destroyForcibly()
-        return activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)
+        // The EOF phase shares the existing stop budget with normal termination.
+        return if (activeProcess.waitFor(RelayProcessStopTimeoutMs - gracefulWait, TimeUnit.MILLISECONDS)) {
+            true
+        } else {
+            activeProcess.destroyForcibly()
+            activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)
+        }
     }
 
     @Synchronized
     private fun release(activeProcess: Process) {
         if (process === activeProcess) {
-            outputOwner = null
+            synchronized(outputLock) { outputOwner = null }
             process = null
+            closeStdinOnStop = false
+            processOutputThread?.interrupt()
+            processErrorThread?.interrupt()
             processOutputThread = null
             processErrorThread = null
         }
