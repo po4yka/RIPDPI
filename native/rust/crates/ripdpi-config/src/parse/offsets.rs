@@ -108,6 +108,10 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
         None => 0,
     };
 
+    if parts.next().is_some() {
+        return Err(ConfigError::invalid("offset", Some(spec)));
+    }
+
     let expr = if let Ok(delta) = base.parse::<i64>() {
         OffsetExpr::absolute(delta)
     } else if let Some(expr) = parse_adaptive_offset_expr(base)? {
@@ -179,6 +183,9 @@ mod tests {
             "auto()",
             "auto(foo)",
             "auto(echext)",
+            "1:3:5:garbage",
+            "host+2:1:0:ignored",
+            "host+2:1:0:",
         ] {
             assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
         }
