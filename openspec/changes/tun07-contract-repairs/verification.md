@@ -28,7 +28,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-TUN07-STARTUP | RLY-1794479241816365 | RED 22/1 failed; GREEN 33 tests, ktlint/detekt and independent review | Passed |
 | REQ-TUN07-STOP | RLY-1794477281462969 | Loopback stop/handshake tests in managed64-test run ; closed admission lock reviewed | Passed |
 | REQ-TUN07-ARGS | RLY-1794477282071499 | Reserved-separator expected output in manager suite ; 64-test run and independent review | Passed |
-| REQ-TUN07-EVIDENCE | RLY-1794477282626394 | Pending implementation and observed checks | Required |
+| REQ-TUN07-EVIDENCE | RLY-1794477282626394 | Source/ABI receipts, host helper, combined gates and main fast-forward recorded below | Passed |
 
 ## Observed repair checks
 
@@ -96,3 +96,9 @@ This command skips native artifact wiring as required for JVM/static checks. It 
 Final source gates: `build-gate --lane ripdpi -- env CARGO_BUILD_JOBS=4 CARGO_NET_OFFLINE=true just ci-gates` exited zero. Log: `/tmp/tun07-ci-gates-final.log`. Architecture, LoC/hotspot budgets, runtime contracts, fixture versions, diagnostics boundary, route coverage, locale/translation and supported-host API snapshots passed. The Linux-owned runtime-platform API snapshot remains unrun on Darwin by design. Cargo.lock and all baselines stayed unchanged.
 
 Strict OpenSpec validation passed through `./taskctl openspec cli validate tun07-contract-repairs --strict`; task contract validation passed. `git fetch origin` completed and showed no upstream commits beyond the audited base. No external task or message was created.
+
+## Integration
+
+After a successful fetch, `git rebase origin/main` reported the job branch up to date. Main was clean and checkout-doctor reported ready. `git merge --ff-only fix/tun07-contracts` moved main from `3e626d3e205f27c90dd84a9732f1f96074ed15f1` to `efab4bbb54e60b193801ea61dede151b2854d633`. All eight code fixes remain separate commits, followed by validation documentation. This final record changes documentation only. The authorized push is the next action; its observed remote SHA and CI state will be recorded in the external audit report.
+
+The portfolio remains in review while remote CI is unresolved. It is not archived or declared externally accepted. Device/packaged-artifact acceptance gaps above remain explicit.

@@ -2,7 +2,7 @@
 id: RLY-1794477185649013
 title: Repair obfs4 relay and managed transport contracts
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Transport repair coordinator
