@@ -5,7 +5,9 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -68,11 +70,40 @@ class SubprocessRelayComponentsTest {
                         ManagedClientSocksBridgeSpec("obfs4", "127.0.0.1", 443, ""),
                         currentListener = { null },
                         isRunning = { true },
-                        onFailure = {},
+                        onFailure = { it },
                         startupFailure = { "helper failed to bind" },
                     )
                 }.exceptionOrNull()
             assertEquals("helper failed to bind", failure?.message)
+        }
+
+    @Test
+    fun `managed listener timeout retains a helper failure received during the final delay`() =
+        runTest {
+            var helperFailure: String? = null
+            var reportedFailure: String? = null
+            val probe = SubprocessRelayReadinessProbe(pollIntervalMs = 10L, timeoutMs = 50L)
+            launch {
+                delay(45L)
+                helperFailure = "helper could not bind"
+            }
+
+            val failure =
+                runCatching {
+                    probe.waitForManagedClientListener(
+                        ManagedClientSocksBridgeSpec("obfs4", "127.0.0.1", 443, ""),
+                        currentListener = { null },
+                        isRunning = { true },
+                        onFailure = {
+                            reportedFailure = it
+                            it
+                        },
+                        startupFailure = { helperFailure },
+                    )
+                }.exceptionOrNull()
+
+            assertEquals("helper could not bind", failure?.message)
+            assertEquals("helper could not bind", reportedFailure)
         }
 
     @Test
@@ -226,6 +257,73 @@ class SubprocessRelayComponentsTest {
         }
 
     @Test
+    fun `socks readiness prioritizes the helper failure over process and connector checks`() =
+        runTest {
+            val probe =
+                SubprocessRelayReadinessProbe(
+                    connector = SocksReadinessConnector { _, _, _ -> error("unexpected connector") },
+                )
+            val failure =
+                runCatching {
+                    probe.waitUntilReady(
+                        config =
+                            sampleResolvedRelayConfig().copy(
+                                localSocksUsername = "user",
+                                localSocksPassword = "pass",
+                            ),
+                        isRunning = { error("unexpected process check") },
+                        onFailure = { error("unexpected generic failure") },
+                        startupFailure = { "helper startup failed" },
+                    )
+                }.exceptionOrNull()
+
+            assertEquals("helper startup failed", failure?.message)
+        }
+
+    @Test
+    fun `socks readiness retains the generic exit reason without a helper failure`() =
+        runTest {
+            val probe = SubprocessRelayReadinessProbe()
+            val failure =
+                runCatching {
+                    probe.waitUntilReady(
+                        config =
+                            sampleResolvedRelayConfig().copy(
+                                localSocksUsername = "user",
+                                localSocksPassword = "pass",
+                            ),
+                        isRunning = { false },
+                        onFailure = { it },
+                    )
+                }.exceptionOrNull()
+
+            assertEquals("Subprocess relay exited before readiness", failure?.message)
+        }
+
+    @Test
+    fun `socks readiness preserves cancellation`() =
+        runTest {
+            val cancelled = CancellationException("startup cancelled")
+            val probe =
+                SubprocessRelayReadinessProbe(connector = SocksReadinessConnector { _, _, _ -> throw cancelled })
+            val failure =
+                runCatching {
+                    probe.waitUntilReady(
+                        config =
+                            sampleResolvedRelayConfig().copy(
+                                localSocksUsername = "user",
+                                localSocksPassword = "pass",
+                            ),
+                        isRunning = { true },
+                        onFailure = { error("unexpected generic failure") },
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is CancellationException)
+            assertEquals("startup cancelled", failure?.message)
+        }
+
+    @Test
     fun `readiness timeout follows coroutine monotonic time`() =
         runTest(timeout = 1.seconds) {
             var failure: String? = null
@@ -245,7 +343,10 @@ class SubprocessRelayComponentsTest {
                                 localSocksPassword = "pass",
                             ),
                         isRunning = { true },
-                        onFailure = { failure = it },
+                        onFailure = {
+                            failure = it
+                            it
+                        },
                     )
                 }
 
@@ -276,7 +377,10 @@ class SubprocessRelayComponentsTest {
                             ),
                         currentListener = { null },
                         isRunning = { false },
-                        onFailure = { failure = it },
+                        onFailure = {
+                            failure = it
+                            it
+                        },
                     )
                 }
 

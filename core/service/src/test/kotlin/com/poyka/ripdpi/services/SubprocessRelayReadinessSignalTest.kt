@@ -186,6 +186,61 @@ class SubprocessRelayReadinessSignalTest {
         }
 
     @Test
+    fun `late managed helper failure survives generic readiness exit and timeout`() =
+        runTest {
+            listOf(false, true).forEach { running ->
+                val subprocess = subprocessManager()
+                val parser = SubprocessRelayOutputParser()
+                val spec =
+                    SubprocessSocksRelayLaunchSpec(
+                        binaryName = "ripdpi-webtunnel",
+                        commandArguments = emptyList(),
+                        runtimeKind = RelayKindWebTunnel,
+                        managedClientBridge = ManagedClientSocksBridgeSpec("webtunnel", "127.0.0.1", 443, ""),
+                    )
+                listOf("VERSION 1", "CMETHOD webtunnel socks5 127.0.0.1:43123", "CMETHODS DONE").forEach { line ->
+                    parser.parse(line, spec)?.let(subprocess::handleProcessOutputEvent)
+                }
+                val markFailed =
+                    SubprocessSocksRelayManager::class.java.getDeclaredMethod("markFailed", String::class.java).apply {
+                        isAccessible = true
+                    }
+                val probe =
+                    SubprocessRelayReadinessProbe(
+                        connector = SocksReadinessConnector { _, _, _ -> false },
+                        pollIntervalMs = 10L,
+                        timeoutMs = 5L,
+                    )
+
+                val failure =
+                    runCatching {
+                        probe.waitUntilReady(
+                            config =
+                                sampleResolvedRelayConfig().copy(
+                                    localSocksUsername = "user",
+                                    localSocksPassword = "pass",
+                                ),
+                            isRunning = { running },
+                            onFailure = { fallback ->
+                                // Drive the failure between the supplier read and the manager's atomic fallback.
+                                subprocess.handleProcessOutputEvent(
+                                    requireNotNull(
+                                        parser.parse("RIPDPI-ERROR|webtunnel|auth|bridge rejected key", spec),
+                                    ),
+                                )
+                                markFailed.invoke(subprocess, fallback) as String
+                            },
+                        )
+                    }.exceptionOrNull()
+                val telemetry = subprocess.pollTelemetry()
+
+                assertEquals("bridge rejected key", failure?.message)
+                assertEquals("bridge rejected key", telemetry.lastError)
+                assertEquals("auth", telemetry.lastFailureClass)
+            }
+        }
+
+    @Test
     fun `classified upstream errors clear after parsed recovery evidence`() =
         runTest {
             val subprocess = subprocessManager()

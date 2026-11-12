@@ -45,17 +45,18 @@ internal class SubprocessRelayReadinessProbe(
     suspend fun waitUntilReady(
         config: ResolvedRipDpiRelayConfig,
         isRunning: () -> Boolean,
-        onFailure: (String) -> Unit,
+        onFailure: (String) -> String,
+        startupFailure: () -> String? = { null },
     ) {
         val credentials =
             requireNotNull(localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword))
         var ready = false
         withTimeoutOrNull<Unit>(timeoutMs) {
             while (!ready) {
+                startupFailure()?.let { error(it) }
                 if (!isRunning()) {
                     val message = "Subprocess relay exited before readiness"
-                    onFailure(message)
-                    error(message)
+                    error(onFailure(startupFailure() ?: message))
                 }
                 ready = connector.canConnect(config.localSocksHost, config.localSocksPort, credentials)
                 if (!ready) {
@@ -65,15 +66,14 @@ internal class SubprocessRelayReadinessProbe(
         }
         if (ready) return
         val message = "Subprocess relay readiness timed out"
-        onFailure(message)
-        error(message)
+        error(onFailure(startupFailure() ?: message))
     }
 
     suspend fun waitForManagedClientListener(
         bridgeSpec: ManagedClientSocksBridgeSpec,
         currentListener: () -> InetSocketAddress?,
         isRunning: () -> Boolean,
-        onFailure: (String) -> Unit,
+        onFailure: (String) -> String,
         startupFailure: () -> String? = { null },
     ): InetSocketAddress {
         var listener: InetSocketAddress? = null
@@ -84,8 +84,7 @@ internal class SubprocessRelayReadinessProbe(
                 if (listener == null) {
                     if (!isRunning()) {
                         val message = "Managed PT exited before advertising a SOCKS listener"
-                        onFailure(message)
-                        error(message)
+                        error(onFailure(startupFailure() ?: message))
                     }
                     delay(pollIntervalMs)
                 }
@@ -93,7 +92,6 @@ internal class SubprocessRelayReadinessProbe(
         }
         listener?.let { return it }
         val message = "Managed PT listener readiness timed out for ${bridgeSpec.methodName}"
-        onFailure(message)
-        error(message)
+        error(onFailure(startupFailure() ?: message))
     }
 }

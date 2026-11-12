@@ -153,7 +153,7 @@ class SubprocessSocksRelayManager
                         readinessProbe.waitForManagedClientListener(
                             bridgeSpec = managedClientBridgeSpec,
                             currentListener = bridgeOrchestrator::currentManagedClientListener,
-                            startupFailure = { lastError.takeIf { lastFailureClass != null } },
+                            startupFailure = ::startupFailure,
                             isRunning = processSupervisor::isRunning,
                             onFailure = ::markFailed,
                         )
@@ -167,6 +167,7 @@ class SubprocessSocksRelayManager
                 }
                 readinessProbe.waitUntilReady(
                     config = config,
+                    startupFailure = ::startupFailure,
                     isRunning = processSupervisor::isRunning,
                     onFailure = ::markFailed,
                 )
@@ -275,8 +276,14 @@ class SubprocessSocksRelayManager
             }
         }
 
-        private fun markFailed(message: String) {
-            lastError = message
+        @Synchronized
+        private fun startupFailure(): String? = lastError.takeIf { lastFailureClass != null }
+
+        @Synchronized
+        private fun markFailed(message: String): String {
+            val retainedMessage = startupFailure() ?: message
+            lastError = retainedMessage
             runtimeStateOverride = "failed"
+            return retainedMessage
         }
     }
