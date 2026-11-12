@@ -125,6 +125,7 @@ private fun escapePtArgument(value: String): String =
             when (character) {
                 '\\' -> append("\\\\")
                 ';' -> append("\\;")
+                '=' -> append("\\=")
                 else -> append(character)
             }
         }

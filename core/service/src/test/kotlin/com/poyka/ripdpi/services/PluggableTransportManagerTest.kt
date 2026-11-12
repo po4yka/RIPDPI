@@ -86,11 +86,11 @@ class PluggableTransportManagerTest {
     fun `encodePtArguments escapes separators in values`() {
         val encoded =
             encodePtArguments(
-                "url" to "https://example.com/path;param",
+                "url" to "https://example.com/path;param=value",
                 "front" to "cdn\\edge",
             )
 
-        assertEquals("url=https://example.com/path\\;param;front=cdn\\\\edge", encoded)
+        assertEquals("url=https://example.com/path\\;param\\=value;front=cdn\\\\edge", encoded)
     }
 
     @Test
