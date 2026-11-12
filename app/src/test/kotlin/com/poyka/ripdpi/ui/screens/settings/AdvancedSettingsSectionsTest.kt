@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -24,6 +25,7 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -40,6 +42,46 @@ import org.robolectric.annotation.GraphicsMode
 class AdvancedSettingsSectionsTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun `warp suggestion is recommended without claiming an applied profile`() {
+        val uiState =
+            SettingsUiState(
+                warp =
+                    WarpUiState(
+                        enabled = true,
+                        amneziaPreset = "off",
+                        amneziaSuggestedPresetId = "quic_imitation",
+                        amneziaSuggestedPresetLabel = "QUIC imitation",
+                    ),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                LazyColumn(modifier = Modifier.height(TALL_VIEWPORT)) {
+                    warpSection(
+                        uiState = uiState,
+                        enrollmentState = WarpEnrollmentUiState(),
+                        onRegisterProfile = {},
+                        onImportProfile = {},
+                        onCancelSetup = {},
+                        visualEditorEnabled = true,
+                        routeModeOptions = persistentListOf(),
+                        endpointSelectionOptions = persistentListOf(),
+                        amneziaPresetOptions = persistentListOf(),
+                        onToggleChanged = { _, _ -> error("A suggestion must not change settings") },
+                        onOptionSelected = { _, _ -> error("A suggestion must not select a preset") },
+                        onTextConfirmed = { _, _ -> error("A suggestion must not edit settings") },
+                    )
+                }
+            }
+        }
+        val app = RuntimeEnvironment.getApplication()
+        composeRule
+            .onNodeWithText(app.getString(R.string.config_preset_recommended_title))
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(app.getString(R.string.warp_amnezia_profile_title)).assertDoesNotExist()
+    }
 
     // -- Diagnostics History --
 

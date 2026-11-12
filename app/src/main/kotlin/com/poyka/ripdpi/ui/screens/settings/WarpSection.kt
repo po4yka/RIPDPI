@@ -408,7 +408,7 @@ private fun WarpAmneziaSuggestionRow(uiState: SettingsUiState) {
         uiState.warp.amneziaPreset != uiState.warp.amneziaSuggestedPresetId
     ) {
         SettingsRow(
-            title = stringResource(R.string.warp_amnezia_profile_title),
+            title = stringResource(R.string.config_preset_recommended_title),
             subtitle =
                 stringResource(
                     R.string.warp_amnezia_suggested_preset,
