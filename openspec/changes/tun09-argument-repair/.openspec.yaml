@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-12
+goal: TRN-1794489808420764 Preserve WebTunnel transport argument boundaries

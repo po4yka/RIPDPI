@@ -91,3 +91,13 @@ fn tls_identity_rejects_invalid_explicit_names() {
         assert!(parse_bridge_line(&line).is_err(), "{name}");
     }
 }
+
+#[test]
+fn bridge_line_uses_first_value_for_repeated_options() {
+    let bridge = parse_bridge_line(
+        "webtunnel 192.0.2.3:1 url=https://first.example/secret url=https://second.example/path version=1 version=2",
+    )
+    .expect("repeated options");
+    assert_eq!(bridge.url, "https://first.example/secret");
+    assert_eq!(bridge.version.as_deref(), Some("1"));
+}

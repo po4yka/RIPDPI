@@ -16,7 +16,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::runtime::Runtime;
 use tokio::sync::Semaphore;
 
-use crate::bridge_line::{BridgeLineError, WebTunnelBridgeConfig, parse_bridge_line};
+use crate::bridge_line::{BridgeLineError, WebTunnelBridgeConfig, config_from_options};
 use crate::client::connect_webtunnel_async;
 
 const TRANSPORT_NAME: &str = "webtunnel";
@@ -156,14 +156,7 @@ pub fn decode_pt_auth_args(username: &[u8], password: &[u8]) -> Result<String, P
 
 pub fn parse_client_pt_args(raw_args: &str) -> Result<WebTunnelBridgeConfig, PtArgsError> {
     let options = parse_semicolon_arguments(raw_args)?;
-    let mut bridge_line = String::from("Bridge webtunnel 0.0.0.0:1");
-    for (key, value) in options {
-        bridge_line.push(' ');
-        bridge_line.push_str(&key);
-        bridge_line.push('=');
-        bridge_line.push_str(&value);
-    }
-    parse_bridge_line(&bridge_line).map_err(PtArgsError::from)
+    config_from_options(&options).map_err(PtArgsError::from)
 }
 
 pub fn run_managed_client_from_env() -> Result<(), PtRuntimeError> {
@@ -266,43 +259,39 @@ fn required_env<'a>(env: &'a BTreeMap<String, String>, key: &'static str) -> Res
 
 fn parse_semicolon_arguments(raw_args: &str) -> Result<BTreeMap<String, String>, PtArgsError> {
     let mut options = BTreeMap::new();
-    for raw_entry in split_escaped(raw_args, ';')? {
-        if raw_entry.is_empty() {
-            continue;
+    if raw_args.is_empty() {
+        return Ok(options);
+    }
+    let mut characters = raw_args.chars();
+    loop {
+        let (key, delimiter) = read_argument_field(&mut characters, &['=', ';'])?;
+        if delimiter != Some('=') {
+            return Err(PtArgsError::MalformedArgument(key));
         }
-        let delimiter = raw_entry.find('=').ok_or_else(|| PtArgsError::MalformedArgument(raw_entry.clone()))?;
-        let raw_key = &raw_entry[..delimiter];
-        if raw_key.is_empty() {
+        if key.is_empty() {
             return Err(PtArgsError::EmptyKey);
         }
-        options.insert(raw_key.to_owned(), raw_entry[delimiter + 1..].to_owned());
+        let (value, delimiter) = read_argument_field(&mut characters, &[';'])?;
+        // goptlib Args.Get selects the first value for a repeated key.
+        options.entry(key).or_insert(value);
+        if delimiter.is_none() {
+            return Ok(options);
+        }
     }
-    Ok(options)
 }
 
-fn split_escaped(value: &str, delimiter: char) -> Result<Vec<String>, PtArgsError> {
-    let mut entries = Vec::new();
-    let mut current = String::new();
-    let mut escaped = false;
-    for character in value.chars() {
-        if escaped {
-            current.push(character);
-            escaped = false;
-            continue;
+fn read_argument_field(
+    characters: &mut std::str::Chars<'_>,
+    delimiters: &[char],
+) -> Result<(String, Option<char>), PtArgsError> {
+    let mut field = String::new();
+    while let Some(character) = characters.next() {
+        if delimiters.contains(&character) {
+            return Ok((field, Some(character)));
         }
-        match character {
-            '\\' => escaped = true,
-            character if character == delimiter => {
-                entries.push(std::mem::take(&mut current));
-            }
-            _ => current.push(character),
-        }
+        field.push(if character == '\\' { characters.next().ok_or(PtArgsError::IncompleteEscape)? } else { character });
     }
-    if escaped {
-        return Err(PtArgsError::IncompleteEscape);
-    }
-    entries.push(current);
-    Ok(entries)
+    Ok((field, None))
 }
 
 /// The process-wide runtime that serves every PT connection.

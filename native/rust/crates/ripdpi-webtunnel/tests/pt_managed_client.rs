@@ -168,6 +168,69 @@ fn pt_client_args_parse_escaped_semicolon_and_backslash() {
     assert_eq!(config.cert.as_deref(), Some(r"abc\def"));
 }
 
+// Cases derived from goptlib v1.6.0 args_test.go and Args.Get.
+#[test]
+fn pt_client_args_preserve_opaque_extensions_and_escaped_keys() {
+    for extension in ["note=two words", "key=a\nb", r"url\=extension=opaque", r"\;=\;;\\=\;", r"key="] {
+        let config = parse_client_pt_args(&format!("url=https://front.example/secret;{extension}"))
+            .expect("valid extension argument");
+        assert_eq!(config.url, "https://front.example/secret", "{extension}");
+        assert_eq!(config.secret_path, "/secret", "{extension}");
+    }
+}
+
+#[test]
+fn pt_client_args_decode_reference_value_cases() {
+    for (encoded, expected) in [
+        ("=", "="),
+        ("b=c", "b=c"),
+        ("bc==", "bc=="),
+        ("a\nb", "a\nb"),
+        (r"value\;", "value;"),
+        (r"value\=", "value="),
+        (r"value\\", r"value\"),
+        (r"\value", "value"),
+        ("two words", "two words"),
+    ] {
+        let config = parse_client_pt_args(&format!("url=https://front.example/secret;version={encoded}"))
+            .expect("reference value case");
+        assert_eq!(config.version.as_deref(), Some(expected), "{encoded}");
+    }
+}
+
+#[test]
+fn pt_client_args_use_first_value_for_repeated_options() {
+    let config =
+        parse_client_pt_args("url=https://first.example/secret;url=https://second.example/path;version=1;version=2")
+            .expect("repeated arguments");
+    assert_eq!(config.url, "https://first.example/secret");
+    assert_eq!(config.version.as_deref(), Some("1"));
+}
+
+#[test]
+fn pt_client_args_reject_reference_malformed_entries() {
+    for suffix in [
+        "key",
+        "key\\",
+        "=value",
+        "==value",
+        "==key=value",
+        "key=value\\",
+        "a=b;key=value\\",
+        "a;b=c",
+        ";",
+        "key=value;",
+        ";key=value",
+        "key\\=value",
+        "key=value;;other=value",
+    ] {
+        assert!(
+            parse_client_pt_args(&format!("url=https://front.example/secret;{suffix}")).is_err(),
+            "malformed entry {suffix:?} should be rejected",
+        );
+    }
+}
+
 #[test]
 fn binary_managed_client_prints_listener_and_exits_on_stdin_close() {
     let (mut child, listener) = spawn_managed_client();

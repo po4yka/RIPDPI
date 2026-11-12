@@ -76,7 +76,13 @@ pub fn parse_bridge_line(raw_bridge_line: &str) -> Result<WebTunnelBridgeConfig,
     validate_endpoint(endpoint)?;
 
     let options = parse_options(&tokens[transport_index + 2..])?;
-    let raw_url = required_option(&options, "url")?;
+    config_from_options(&options)
+}
+
+pub(crate) fn config_from_options(
+    options: &BTreeMap<String, String>,
+) -> Result<WebTunnelBridgeConfig, BridgeLineError> {
+    let raw_url = required_option(options, "url")?;
     let url = Url::parse(raw_url).map_err(|error| BridgeLineError::InvalidUrl(error.to_string()))?;
     if url.scheme() != "https" {
         return Err(BridgeLineError::NonHttpsUrl);
@@ -86,21 +92,21 @@ pub fn parse_bridge_line(raw_bridge_line: &str) -> Result<WebTunnelBridgeConfig,
         return Err(BridgeLineError::MissingSecretPath);
     }
 
-    let version = optional_non_empty(&options, "version")?.map(ToOwned::to_owned);
-    let addr = optional_non_empty(&options, "addr")?
+    let version = optional_non_empty(options, "version")?.map(ToOwned::to_owned);
+    let addr = optional_non_empty(options, "addr")?
         .map_or_else(|| default_addr(host, url.port().unwrap_or(443)), ToOwned::to_owned);
     // As upstream: `sni-imitation` sends a cover name in SNI and checks the
     // certificate against the URL host; `servername` and `cert-domain`
     // override either part.
-    let sni_imitation = optional_non_empty(&options, "sni-imitation")?;
+    let sni_imitation = optional_non_empty(options, "sni-imitation")?;
     let servername = ripdpi_tls_profiles::normalize_server_name(
-        optional_non_empty(&options, "servername")?.or(sni_imitation).unwrap_or(host),
+        optional_non_empty(options, "servername")?.or(sni_imitation).unwrap_or(host),
     )
     .map_err(|error| BridgeLineError::InvalidTlsName(error.to_string()))?;
-    let utls = optional_non_empty(&options, "utls")?.unwrap_or("hellochrome_auto");
+    let utls = optional_non_empty(options, "utls")?.unwrap_or("hellochrome_auto");
     let tls_profile = tls_profile_for_utls(utls)?.to_owned();
-    let cert = optional_non_empty(&options, "cert")?.map(ToOwned::to_owned);
-    let cert_domain = optional_non_empty(&options, "cert-domain")?
+    let cert = optional_non_empty(options, "cert")?.map(ToOwned::to_owned);
+    let cert_domain = optional_non_empty(options, "cert-domain")?
         .or(sni_imitation.map(|_| host))
         .map(ripdpi_tls_profiles::normalize_server_name)
         .transpose()
@@ -131,7 +137,7 @@ fn parse_options(tokens: &[&str]) -> Result<BTreeMap<String, String>, BridgeLine
         if key.is_empty() {
             return Err(BridgeLineError::MalformedOption((*token).to_owned()));
         }
-        options.insert(key.to_owned(), value.to_owned());
+        options.entry(key.to_owned()).or_insert_with(|| value.to_owned());
     }
     Ok(options)
 }
