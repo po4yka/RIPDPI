@@ -137,7 +137,7 @@ fn classify_mtproto_init(init: &[u8; 64]) -> MtprotoSeedClassification {
 }
 
 fn has_valid_encrypted_prefix(init: &[u8; 64]) -> bool {
-    if init[0] == 0xef {
+    if init[0] == 0xef || init[4..8] == [0; 4] {
         return false;
     }
 
@@ -284,6 +284,26 @@ mod tests {
 
         let mut init = build_test_init_packet(1);
         init[0] = 0xef;
+        assert_eq!(classify_mtproto_seed(&init), MtprotoSeedClassification::NotMtproto);
+    }
+
+    #[test]
+    fn classify_mtproto_seed_rejects_zero_second_word() {
+        // AES-256-CTR ciphertext from OpenSSL enc, key 01..20, IV a1..b0,
+        // plaintext zero except eeeeeeee at 56, 0100 at 60 and 9c3f at 62.
+        // The wire init replaces bytes 8..56 with the key and IV.
+        let mut init = [
+            0xdc, 0x9a, 0x31, 0x46, 0x7e, 0x1d, 0x21, 0x53, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a,
+            0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c,
+            0x1d, 0x1e, 0x1f, 0x20, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae,
+            0xaf, 0xb0, 0x29, 0x92, 0xcf, 0xda, 0x19, 0xa7, 0x2c, 0xcc,
+        ];
+        assert_eq!(
+            classify_mtproto_seed(&init),
+            MtprotoSeedClassification::ValidatedMtproto { dc: TelegramDc::production(1) }
+        );
+        // Bytes 4..8 do not supply the AES key, IV, transport tag or DC.
+        init[4..8].fill(0);
         assert_eq!(classify_mtproto_seed(&init), MtprotoSeedClassification::NotMtproto);
     }
 
