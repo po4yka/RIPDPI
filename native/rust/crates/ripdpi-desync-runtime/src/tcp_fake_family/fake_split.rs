@@ -59,12 +59,16 @@ pub(crate) fn execute(
 
     let bytes_committed = if opts.custom_order {
         let ordering = configured_step.fake_ordering();
+        let first_fakes: Vec<&[u8]> =
+            std::iter::once(first_fake.as_slice()).chain(first_secondary_fake.as_deref()).collect();
+        let second_fakes: Vec<&[u8]> =
+            std::iter::once(second_fake.as_slice()).chain(second_secondary_fake.as_deref()).collect();
         let emissions = build_ordered_fake_split_emissions(
             ordering.order,
             chunk,
-            &first_fake,
+            &first_fakes,
             second,
-            &second_fake,
+            &second_fakes,
             ctx.lowering.restore_ttl,
             opts.fake_ttl,
             opts.fake_flags,

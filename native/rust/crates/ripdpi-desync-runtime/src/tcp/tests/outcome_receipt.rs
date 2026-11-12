@@ -14,6 +14,7 @@ use crate::types::{TcpExecutionDisposition, TcpFallbackReason, TcpOffsetMarkerBa
 
 mod disorder_ttl;
 mod fake_send_safety;
+mod fake_split;
 
 enum FaultSpec {
     WaitStage(io::ErrorKind),

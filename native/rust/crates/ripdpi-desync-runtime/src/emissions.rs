@@ -21,21 +21,23 @@ pub(crate) struct FakeEmission<'a> {
 pub(crate) fn build_ordered_fake_split_emissions<'a>(
     order: FakeOrder,
     first_real: &'a [u8],
-    first_fake: &'a [u8],
+    first_fakes: &[&'a [u8]],
     second_real: &'a [u8],
-    second_fake: &'a [u8],
+    second_fakes: &[&'a [u8]],
     first_real_ttl: u8,
     fake_ttl: u8,
     fake_flags: platform::TcpFlagOverrides,
     original_flags: platform::TcpFlagOverrides,
 ) -> Vec<FakeEmission<'a>> {
     let second_offset = first_real.len();
-    let fake_a = FakeEmission {
-        role: FakeEmissionRole::Fake,
-        payload: first_fake,
-        ttl: fake_ttl,
-        flags: fake_flags,
-        original_offset: 0,
+    let fake_a = || {
+        first_fakes.iter().map(|&payload| FakeEmission {
+            role: FakeEmissionRole::Fake,
+            payload,
+            ttl: fake_ttl,
+            flags: fake_flags,
+            original_offset: 0,
+        })
     };
     let real_a = FakeEmission {
         role: FakeEmissionRole::Genuine,
@@ -44,12 +46,14 @@ pub(crate) fn build_ordered_fake_split_emissions<'a>(
         flags: original_flags,
         original_offset: 0,
     };
-    let fake_b = FakeEmission {
-        role: FakeEmissionRole::Fake,
-        payload: second_fake,
-        ttl: fake_ttl,
-        flags: fake_flags,
-        original_offset: second_offset,
+    let fake_b = || {
+        second_fakes.iter().map(|&payload| FakeEmission {
+            role: FakeEmissionRole::Fake,
+            payload,
+            ttl: fake_ttl,
+            flags: fake_flags,
+            original_offset: second_offset,
+        })
     };
     let real_b = FakeEmission {
         role: FakeEmissionRole::Genuine,
@@ -60,11 +64,12 @@ pub(crate) fn build_ordered_fake_split_emissions<'a>(
     };
 
     match order {
-        FakeOrder::BeforeEach => vec![fake_a, real_a, fake_b, real_b],
-        FakeOrder::AllFakesFirst => vec![fake_a, fake_b, real_a, real_b],
-        FakeOrder::RealFakeRealFake => vec![real_a, fake_a, real_b, fake_b],
-        FakeOrder::AllRealsFirst => vec![real_a, real_b, fake_a, fake_b],
-        _ => vec![fake_a, real_a, fake_b, real_b],
+        FakeOrder::AllFakesFirst => fake_a().chain(fake_b()).chain([real_a, real_b]).collect(),
+        FakeOrder::RealFakeRealFake => {
+            std::iter::once(real_a).chain(fake_a()).chain([real_b]).chain(fake_b()).collect()
+        }
+        FakeOrder::AllRealsFirst => [real_a, real_b].into_iter().chain(fake_a()).chain(fake_b()).collect(),
+        _ => fake_a().chain([real_a]).chain(fake_b()).chain([real_b]).collect(),
     }
 }
 

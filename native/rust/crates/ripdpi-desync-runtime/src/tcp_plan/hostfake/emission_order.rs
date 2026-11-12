@@ -82,9 +82,9 @@ fn build_hostfake_emissions<'a>(
         return build_ordered_fake_split_emissions(
             fake_order,
             &real_host[..split],
-            &fake_host[..split],
+            &[&fake_host[..split]],
             &real_host[split..],
-            &fake_host[split..],
+            &[&fake_host[split..]],
             real_ttl,
             fake_ttl,
             fake_flags,
