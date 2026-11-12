@@ -40,7 +40,7 @@ pub(super) fn execute(
                 input.step_fallback,
                 input.bytes_committed,
             )?;
-            (committed, TcpStepControl::BreakPlanWithFallback("split"))
+            (committed, TcpStepControl::BreakPlanWithFallback(Some("split")))
         }
         Err(err) => return Err(err),
     };

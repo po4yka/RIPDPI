@@ -11,7 +11,7 @@ use std::io;
 use std::net::TcpStream;
 use std::time::Duration;
 
-use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind};
+use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind, TcpFakeOrdering};
 use ripdpi_desync::DesyncPlan;
 
 use super::decision::{TcpPlanLoopControl, handle_tcp_plan_step_control, tcp_step_strategy_family};
@@ -190,17 +190,19 @@ pub(crate) fn execute_tcp_plan(
             bytes_committed,
         )?;
         if next_bytes_committed > bytes_committed {
-            let writes = real_write_count(step.kind, control, end, plan.tampered.len());
-            let awaits = completed_await_count(step.kind, control, end, plan.tampered.len());
+            let writes = real_write_count(step.kind, control, start, end, plan.tampered.len());
+            let awaits = completed_await_count(step.kind, configured_step, control, start, end, plan.tampered.len());
             real_writes_committed = real_writes_committed.saturating_add(writes);
             completed_awaits = completed_awaits.saturating_add(awaits);
             completed_actions = completed_actions.saturating_add(writes.saturating_add(awaits));
         }
-        bytes_committed = next_bytes_committed;
         if let TcpStepControl::BreakPlanWithFallback(fallback) = control {
-            effective_family = Some(fallback);
+            if next_bytes_committed > bytes_committed || bytes_committed == 0 {
+                effective_family = fallback;
+            }
             used_family_fallback = true;
         }
+        bytes_committed = next_bytes_committed;
         match handle_tcp_plan_step_control(
             step.kind,
             control,
@@ -249,14 +251,30 @@ pub(crate) fn execute_tcp_plan(
     })
 }
 
-fn real_write_count(kind: TcpChainStepKind, control: TcpStepControl, end: usize, payload_len: usize) -> usize {
+fn real_write_count(
+    kind: TcpChainStepKind,
+    control: TcpStepControl,
+    start: usize,
+    end: usize,
+    payload_len: usize,
+) -> usize {
     match kind {
-        TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder if end < payload_len && breaks_plan(control) => 2,
+        TcpChainStepKind::FakeDisorder if breaks_plan(control) => {
+            usize::from(start < end) + usize::from(end < payload_len)
+        }
+        TcpChainStepKind::FakeSplit if end < payload_len && breaks_plan(control) => 2,
         _ => 1,
     }
 }
 
-fn completed_await_count(kind: TcpChainStepKind, control: TcpStepControl, end: usize, payload_len: usize) -> usize {
+fn completed_await_count(
+    kind: TcpChainStepKind,
+    configured_step: &TcpChainStep,
+    control: TcpStepControl,
+    start: usize,
+    end: usize,
+    payload_len: usize,
+) -> usize {
     match kind {
         TcpChainStepKind::Split
         | TcpChainStepKind::SynData
@@ -264,7 +282,10 @@ fn completed_await_count(kind: TcpChainStepKind, control: TcpStepControl, end: u
         | TcpChainStepKind::Oob
         | TcpChainStepKind::Disorder
         | TcpChainStepKind::Disoob => 1,
-        TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder if end < payload_len && breaks_plan(control) => 2,
+        TcpChainStepKind::FakeDisorder if end == payload_len => usize::from(start < end),
+        TcpChainStepKind::FakeDisorder if configured_step.fake_ordering() != TcpFakeOrdering::default() => 1,
+        TcpChainStepKind::FakeDisorder => real_write_count(kind, control, start, end, payload_len),
+        TcpChainStepKind::FakeSplit if end < payload_len && breaks_plan(control) => 2,
         _ => 0,
     }
 }

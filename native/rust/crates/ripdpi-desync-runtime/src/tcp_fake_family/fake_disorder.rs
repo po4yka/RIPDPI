@@ -27,7 +27,7 @@ pub(crate) fn execute(
     let second = &ctx.plan.tampered[end..];
     let opts = FakeStepOptions::new(ctx, configured_step);
     if second.is_empty() {
-        return execute_boundary_fallback(ctx, chunk, step_family, step_fallback, bytes_committed, opts, end);
+        return execute_boundary_fallback(ctx, chunk, step_family, step_fallback, bytes_committed, opts);
     }
 
     let first_fake = build_fake_region_bytes(&ctx.fake_packets.primary, start, chunk.len());
@@ -39,7 +39,7 @@ pub(crate) fn execute(
 
     let bytes_committed = if opts.custom_order {
         let ordering = configured_step.fake_ordering();
-        let emissions = ordered_disorder_emissions(
+        let mut emissions = ordered_disorder_emissions(
             ordering.order,
             chunk,
             &first_fake,
@@ -48,6 +48,7 @@ pub(crate) fn execute(
             ctx.lowering.restore_ttl,
             opts,
         );
+        emissions.retain(|emission| !emission.payload.is_empty());
         let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);
         send_ordered_fake_segments_action_named(
             ctx.writer,
@@ -65,16 +66,20 @@ pub(crate) fn execute(
             bytes_committed,
         )?
     } else {
-        let (bytes_committed, lowered_to_fake_split) = send_first_disorder_segment(
-            ctx,
-            chunk,
-            &first_fake,
-            first_secondary_fake.as_deref(),
-            step_family,
-            step_fallback,
-            bytes_committed,
-            opts,
-        )?;
+        let (bytes_committed, lowered_to_fake_split) = if chunk.is_empty() {
+            (bytes_committed, false)
+        } else {
+            send_first_disorder_segment(
+                ctx,
+                chunk,
+                &first_fake,
+                first_secondary_fake.as_deref(),
+                step_family,
+                step_fallback,
+                bytes_committed,
+                opts,
+            )?
+        };
         let bytes_committed = send_fake_tcp_action_named(
             ctx.writer,
             second,
@@ -91,11 +96,13 @@ pub(crate) fn execute(
             bytes_committed,
         )?;
         if lowered_to_fake_split {
-            return Ok((bytes_committed, TcpStepControl::BreakPlanWithFallback("fakedsplit")));
+            return Ok((bytes_committed, TcpStepControl::BreakPlanWithFallback(Some("fakedsplit"))));
         }
         bytes_committed
     };
-    Ok((bytes_committed, TcpStepControl::BreakPlan))
+    let control =
+        if chunk.is_empty() { TcpStepControl::BreakPlanWithFallback(Some("fake")) } else { TcpStepControl::BreakPlan };
+    Ok((bytes_committed, control))
 }
 
 fn execute_boundary_fallback(
@@ -105,8 +112,10 @@ fn execute_boundary_fallback(
     step_fallback: Option<&'static str>,
     bytes_committed: usize,
     opts: FakeStepOptions,
-    end: usize,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
+    if chunk.is_empty() {
+        return Ok((bytes_committed, TcpStepControl::BreakPlanWithFallback(None)));
+    }
     let ttl_modified = ctx.lowering.set_ttl_named(
         ctx.writer,
         1,
@@ -116,7 +125,7 @@ fn execute_boundary_fallback(
         bytes_committed,
     )?;
     let result = (|| {
-        let (_, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
+        let (ttl_preserved, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
             ctx.lowering,
             ctx.writer,
             chunk,
@@ -140,7 +149,8 @@ fn execute_boundary_fallback(
             step_fallback,
             bytes_committed,
         )?;
-        Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+        let effective_family = ttl_preserved.then_some("disorder");
+        Ok((bytes_committed, TcpStepControl::BreakPlanWithFallback(effective_family)))
     })();
     if ttl_modified && let Err(source) = set_stream_ttl(ctx.writer, ctx.lowering.restore_ttl) {
         if let Ok((committed, _)) = &result {

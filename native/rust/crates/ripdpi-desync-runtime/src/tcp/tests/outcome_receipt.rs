@@ -1041,6 +1041,124 @@ fn fake_disorder_boundary_failures_restore_socket_ttl() {
 }
 
 #[test]
+fn fake_disorder_receipt_matches_boundary_regions_and_sender_waits() {
+    let payload = b"GET / HTTP/1.1\r\nHost: audit.invalid\r\n\r\n".as_slice();
+    for (bytes, offset, ttl_unavailable, order, seq_mode, expected_family, writes, awaits) in [
+        (
+            payload,
+            payload.len(),
+            false,
+            FakeOrder::BeforeEach,
+            FakeSeqMode::Duplicate,
+            Some(TcpStrategyFamily::Disorder),
+            1,
+            1,
+        ),
+        (payload, payload.len(), true, FakeOrder::BeforeEach, FakeSeqMode::Duplicate, None, 1, 1),
+        (payload, 0, false, FakeOrder::BeforeEach, FakeSeqMode::Duplicate, Some(TcpStrategyFamily::Fake), 1, 1),
+        (&[][..], 0, false, FakeOrder::BeforeEach, FakeSeqMode::Duplicate, None, 0, 0),
+        (payload, 2, false, FakeOrder::BeforeEach, FakeSeqMode::Duplicate, Some(TcpStrategyFamily::FakeDisorder), 2, 2),
+        (
+            payload,
+            2,
+            false,
+            FakeOrder::BeforeEach,
+            FakeSeqMode::Sequential,
+            Some(TcpStrategyFamily::FakeDisorder),
+            2,
+            1,
+        ),
+        (
+            payload,
+            2,
+            false,
+            FakeOrder::AllFakesFirst,
+            FakeSeqMode::Duplicate,
+            Some(TcpStrategyFamily::FakeDisorder),
+            2,
+            1,
+        ),
+        (
+            payload,
+            2,
+            false,
+            FakeOrder::RealFakeRealFake,
+            FakeSeqMode::Duplicate,
+            Some(TcpStrategyFamily::FakeDisorder),
+            2,
+            1,
+        ),
+        (
+            payload,
+            2,
+            false,
+            FakeOrder::AllRealsFirst,
+            FakeSeqMode::Duplicate,
+            Some(TcpStrategyFamily::FakeDisorder),
+            2,
+            1,
+        ),
+        (payload, 0, false, FakeOrder::AllFakesFirst, FakeSeqMode::Sequential, Some(TcpStrategyFamily::Fake), 1, 1),
+    ] {
+        let mut step = TcpChainStep::new(TcpChainStepKind::FakeDisorder, OffsetExpr::absolute(offset as i64));
+        let mut fake_payload = step.fake_payload().expect("fake step payload");
+        fake_payload.ordering.order = order;
+        fake_payload.ordering.seq_mode = seq_mode;
+        step = step.with_fake_payload(fake_payload);
+        let mut group = test_group();
+        group.actions.tcp_chain.push(step);
+        let (mut client, mut server) = connected_pair();
+        client.set_ttl(37).expect("initial TTL");
+        server.set_read_timeout(Some(Duration::from_secs(2))).expect("peer read timeout");
+        let progress = OutboundProgress {
+            round: 1,
+            payload_size: bytes.len(),
+            stream_start: 0,
+            stream_end: bytes.len().saturating_sub(1),
+        };
+        let context = activation_context_from_progress(
+            progress,
+            ActivationTransport::Tcp,
+            Some(bytes),
+            None,
+            None,
+            Some(8),
+            AdaptivePlannerHints::default(),
+        );
+        let platform = ReceiptTestPlatform { require_disorder_raw_original: true, ..ReceiptTestPlatform::default() };
+        let outcome = send_prepared_with_group(
+            &mut client,
+            &platform,
+            &RuntimeConfig::default(),
+            &group,
+            bytes,
+            progress,
+            context,
+            Some(8),
+            None,
+            &AtomicBool::new(ttl_unavailable),
+            None,
+        )
+        .expect("fake disorder execution");
+
+        let mut received = vec![0; bytes.len()];
+        server.read_exact(&mut received).expect("read original bytes");
+        assert_eq!(received, bytes);
+        assert_eq!(client.ttl().expect("restored socket TTL"), 37);
+        let receipt = outcome.execution_receipt;
+        assert_eq!(receipt.configured_family, Some(TcpStrategyFamily::FakeDisorder));
+        assert_eq!(receipt.effective_family, expected_family, "offset={offset} order={order:?}");
+        assert_eq!(receipt.real_writes_committed, writes);
+        assert_eq!(receipt.completed_awaits, awaits);
+        assert_eq!(receipt.payload_bytes_committed, bytes.len());
+        assert_eq!(receipt.completed_actions, writes + awaits);
+        let fallback = (expected_family != Some(TcpStrategyFamily::FakeDisorder))
+            .then_some(TcpFallbackReason::StrategyFamilyFallback);
+        assert_eq!(receipt.fallback_reason, fallback);
+    }
+}
+
+#[test]
 fn fake_disorder_ttl_lowering_records_effective_fake_split_family() {
     let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
     let mut group = test_group();
