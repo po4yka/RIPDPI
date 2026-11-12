@@ -130,7 +130,8 @@ pub(crate) fn write_payload_with_android_ttl_fallback(
     match write_payload_progress(writer, bytes) {
         Ok(()) => Ok((ttl_modified, bytes_committed + bytes.len())),
         Err(progress) if ttl_modified && progress.written == 0 && should_ignore_android_ttl_error(&progress.source) => {
-            lowering.ttl_write = TcpTtlCapabilityState::Unavailable;
+            // Restore before marking TTL actions unavailable: an unavailable state
+            // makes the restore a no-op and would leave the socket TTL lowered.
             lowering.restore_default_ttl_named(
                 writer,
                 lowering.restore_ttl,
@@ -139,6 +140,7 @@ pub(crate) fn write_payload_with_android_ttl_fallback(
                 fallback,
                 bytes_committed,
             )?;
+            lowering.ttl_write = TcpTtlCapabilityState::Unavailable;
             let err = strategy_execution_error(action, strategy_family, fallback, bytes_committed, progress.source);
             log_android_desync_fallback(action, fallback.unwrap_or("none"), &err);
             let committed =
@@ -171,7 +173,8 @@ pub(crate) fn send_oob_with_android_ttl_fallback(
     match send_oob_action_named(writer, prefix, urgent_byte, action, strategy_family, fallback, bytes_committed) {
         Ok(committed) => Ok((ttl_modified, committed)),
         Err(err) if ttl_modified && should_ignore_android_ttl_error(err.source_error()) => {
-            lowering.ttl_write = TcpTtlCapabilityState::Unavailable;
+            // Restore before marking TTL actions unavailable: an unavailable state
+            // makes the restore a no-op and would leave the socket TTL lowered.
             lowering.restore_default_ttl_named(
                 writer,
                 lowering.restore_ttl,
@@ -180,6 +183,7 @@ pub(crate) fn send_oob_with_android_ttl_fallback(
                 fallback,
                 bytes_committed,
             )?;
+            lowering.ttl_write = TcpTtlCapabilityState::Unavailable;
             log_android_desync_fallback(action, fallback.unwrap_or("none"), &err);
             let committed =
                 send_oob_action_named(writer, prefix, urgent_byte, action, strategy_family, fallback, bytes_committed)?;
