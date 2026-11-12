@@ -1,3 +1,4 @@
+mod fake_send_failures;
 mod fd;
 mod ffi_boundary_validation;
 mod ffi_layout;
