@@ -556,6 +556,16 @@ mod state_coverage_tests {
         assert_eq!(telemetry.bytes.load(AtomicOrdering::Relaxed), 37);
     }
 
+    #[test]
+    fn upstream_application_send_result_records_partial_transport_bytes() {
+        let telemetry = std::sync::Arc::new(CountingTelemetry::default());
+        let state = RuntimeState::test_with_telemetry(RuntimeConfig::default(), Some(telemetry.clone()));
+        let result = Err(OutboundSendError::transport(io::Error::new(io::ErrorKind::BrokenPipe, "partial write"))
+            .with_execution_receipt(*test_strategy_execution_receipt("split", 37)));
+        state.note_upstream_application_send_result(&result);
+        assert_eq!(telemetry.bytes.load(AtomicOrdering::Relaxed), 37);
+    }
+
     fn test_strategy_execution_receipt(
         strategy_family: &'static str,
         bytes_committed: usize,

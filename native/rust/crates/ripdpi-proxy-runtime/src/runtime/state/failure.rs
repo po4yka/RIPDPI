@@ -38,9 +38,10 @@ impl RuntimeState {
         runtime_classify_first_response_partial_tls_timeout()
     }
     pub(in crate::runtime) fn classify_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
-        match error {
+        let mut failure = match error {
             OutboundSendError::Transport { source, .. } => {
                 runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, source)
+                    .with_tag("bytesCommitted", error.bytes_committed().to_string())
             }
             OutboundSendError::StrategyExecution {
                 action,
@@ -67,12 +68,13 @@ impl RuntimeState {
                 if error.payload_commit_uncertain() {
                     failure = failure.with_tag("payloadCommitUncertain", "true");
                 }
-                if *bytes_committed > 0 || error.payload_commit_uncertain() {
-                    failure.action = RuntimeFailureAction::SurfaceOnly;
-                }
                 failure
             }
+        };
+        if error.bytes_committed() > 0 || error.payload_commit_uncertain() {
+            failure.action = RuntimeFailureAction::SurfaceOnly;
         }
+        failure
     }
     pub(in crate::runtime) fn classify_response_failure(
         &self,

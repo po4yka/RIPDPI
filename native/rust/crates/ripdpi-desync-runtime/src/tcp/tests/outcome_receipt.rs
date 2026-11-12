@@ -354,6 +354,67 @@ fn filtered_split_host_plus_one_sends_plain_payload_with_activation_skipped_rece
 }
 
 #[test]
+fn plain_fallback_failures_keep_partial_progress_and_configured_marker() {
+    use std::net::Shutdown;
+    let payload: Vec<u8> = (0..8 * 1024 * 1024).map(|index| (index % 251) as u8).collect();
+    for inactive in [false, true] {
+        let mut group = test_group();
+        let step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(payload.len() as i64 + 1));
+        group.actions.tcp_chain.push(if inactive {
+            step.with_activation_filter(Some(ripdpi_config::ActivationFilter {
+                round: Some(NumericRange::new(2, 2)),
+                ..Default::default()
+            }))
+        } else {
+            step
+        });
+        let (mut client, mut peer) = connected_pair();
+        socket2::SockRef::from(&client).set_send_buffer_size(1024).expect("small send buffer");
+        client.set_nonblocking(true).expect("nonblocking sender");
+        peer.set_read_timeout(Some(Duration::from_secs(2))).expect("peer deadline");
+        let progress =
+            OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+        let context = activation_context_from_progress(
+            progress,
+            ActivationTransport::Tcp,
+            Some(&payload),
+            None,
+            None,
+            None,
+            AdaptivePlannerHints::default(),
+        );
+        let error = send_prepared_with_group(
+            &mut client,
+            &ReceiptTestPlatform::default(),
+            &RuntimeConfig::default(),
+            &group,
+            &payload,
+            progress,
+            context,
+            None,
+            None,
+            &default_ttl_unavailable(),
+            None,
+        )
+        .expect_err("plain fallback reaches peer backpressure");
+        client.shutdown(Shutdown::Write).expect("finish queued prefix");
+        let mut received = Vec::new();
+        peer.read_to_end(&mut received).expect("read queued prefix");
+        assert!(!received.is_empty() && received.len() < payload.len());
+        assert_eq!(received, payload[..received.len()]);
+        assert_eq!(error.bytes_committed(), received.len(), "inactive={inactive}");
+        let receipt = error.execution_receipt().expect("failed plain write receipt");
+        assert_eq!(receipt.disposition, TcpExecutionDisposition::ExecutionFailed);
+        assert_eq!(receipt.configured_family, Some(TcpStrategyFamily::Split));
+        assert_eq!(receipt.effective_family, None);
+        assert_eq!(receipt.marker_base, Some(TcpOffsetMarkerBase::Absolute));
+        assert_eq!(receipt.payload_bytes_committed, received.len());
+        assert_eq!(receipt.completed_actions, 0);
+        assert_eq!(receipt.terminal_reason, Some(crate::TcpTerminalReason::Transport));
+    }
+}
+
+#[test]
 fn split_host_plus_one_wait_failure_preserves_plan_and_committed_prefix() {
     let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
     let prefix = b"GET /watch HTTP/1.1\r\nHost: y";

@@ -197,7 +197,11 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                     })
                 }
                 Err(_) => {
-                    let bytes_committed = write_transport_payload(writer, &effective_payload)?;
+                    let bytes_committed = write_transport_payload(writer, &effective_payload).map_err(|error| {
+                        let receipt =
+                            TcpExecutionReceipt::failed_plain(group, strategy_family, error.bytes_committed());
+                        error.with_execution_receipt(receipt)
+                    })?;
                     Ok(OutboundSendOutcome {
                         bytes_committed,
                         strategy_family: None,
@@ -211,7 +215,10 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                 }
             }
         } else {
-            let bytes_committed = write_transport_payload(writer, payload)?;
+            let bytes_committed = write_transport_payload(writer, payload).map_err(|error| {
+                let receipt = TcpExecutionReceipt::failed_plain(group, strategy_family, error.bytes_committed());
+                error.with_execution_receipt(receipt)
+            })?;
             Ok(OutboundSendOutcome {
                 bytes_committed,
                 strategy_family: None,

@@ -204,6 +204,18 @@ mod tests {
         assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=0"));
         assert!(failure.evidence.tags.iter().any(|tag| tag == "payloadCommitUncertain=true"));
         assert_eq!(error.bytes_committed(), 0);
+}
+
+#[test]
+    fn partial_transport_first_write_failures_do_not_retry_matching_group() {
+        let error = super::super::desync::OutboundSendError::transport(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "partial write",
+        ))
+        .with_execution_receipt(*test_strategy_execution_receipt("split", 37));
+        let failure = classify_first_write_failure(&error);
+        assert_eq!(failure.action, RuntimeFailureAction::SurfaceOnly);
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=37"));
     }
 
     fn test_strategy_execution_receipt(

@@ -49,7 +49,7 @@ pub(crate) fn write_payload_progress(stream: &mut TcpStream, bytes: &[u8]) -> Re
 pub(crate) fn write_transport_payload(stream: &mut TcpStream, bytes: &[u8]) -> Result<usize, OutboundSendError> {
     write_payload_progress(stream, bytes)
         .map(|()| bytes.len())
-        .map_err(|progress| OutboundSendError::transport(progress.source))
+        .map_err(|progress| OutboundSendError::transport_with_progress(progress.source, progress.written))
 }
 
 pub(crate) fn write_strategy_payload_named(

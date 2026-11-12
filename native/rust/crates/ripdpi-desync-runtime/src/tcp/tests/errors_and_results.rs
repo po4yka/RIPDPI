@@ -217,3 +217,40 @@ fn possible_payload_commit_survives_error_conversions_without_inventing_bytes() 
     assert!(inner.payload_commit_uncertain());
     assert!(io_error.to_string().contains("payload_commit_uncertain=true"));
 }
+
+#[test]
+fn partial_transport_write_preserves_bytes_received_by_peer() {
+    use std::io::Read;
+    use std::net::Shutdown;
+    let (mut client, mut server) = connected_pair();
+    socket2::SockRef::from(&client).set_send_buffer_size(1024).expect("small send buffer");
+    client.set_nonblocking(true).expect("nonblocking sender");
+    server.set_read_timeout(Some(Duration::from_secs(2))).expect("peer deadline");
+    let payload: Vec<u8> = (0..8 * 1024 * 1024).map(|index| (index % 251) as u8).collect();
+    let error = write_transport_payload(&mut client, &payload).expect_err("peer does not drain send buffer");
+    client.shutdown(Shutdown::Write).expect("finish queued prefix");
+    let mut received = Vec::new();
+    server.read_to_end(&mut received).expect("read queued prefix");
+    assert!(!received.is_empty() && received.len() < payload.len());
+    assert_eq!(received, payload[..received.len()]);
+    assert_eq!(error.bytes_committed(), received.len());
+}
+
+#[test]
+fn transport_progress_remains_exact_when_receipt_count_is_bounded() {
+    let committed = usize::from(u16::MAX) + 4096;
+    let receipt = crate::TcpExecutionReceipt::failed_strategy_execution(
+        None,
+        1,
+        0,
+        1,
+        0,
+        committed,
+        crate::TcpTerminalReason::Transport,
+    );
+    assert_eq!(receipt.payload_bytes_committed, usize::from(u16::MAX));
+    let error =
+        OutboundSendError::transport_with_progress(io::Error::new(io::ErrorKind::TimedOut, "partial write"), committed)
+            .with_execution_receipt(receipt);
+    assert_eq!(error.bytes_committed(), committed);
+}

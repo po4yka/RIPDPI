@@ -272,6 +272,20 @@ impl TcpExecutionReceipt {
         }
     }
 
+    pub(crate) fn failed_plain(
+        group: &ripdpi_config::DesyncGroup,
+        configured_family: Option<&'static str>,
+        bytes_committed: usize,
+    ) -> Self {
+        let mut receipt =
+            Self::plain(TcpExecutionDisposition::ActivationSkipped, group, configured_family, bytes_committed);
+        receipt.disposition = TcpExecutionDisposition::ExecutionFailed;
+        receipt.completed_actions = 0;
+        receipt.real_writes_committed = usize::from(bytes_committed > 0);
+        receipt.terminal_reason = Some(TcpTerminalReason::Transport);
+        receipt
+    }
+
     pub fn failed_strategy_execution(
         strategy_family: Option<&'static str>,
         attempted_actions: usize,
@@ -431,6 +445,7 @@ impl TcpActionReceiptSummary {
 pub enum OutboundSendError {
     Transport {
         source: io::Error,
+        bytes_committed: usize,
         execution_receipt: Option<Box<TcpExecutionReceipt>>,
     },
     StrategyExecution {
@@ -447,7 +462,11 @@ pub enum OutboundSendError {
 
 impl OutboundSendError {
     pub fn transport(source: io::Error) -> Self {
-        Self::Transport { source, execution_receipt: None }
+        Self::transport_with_progress(source, 0)
+    }
+
+    pub fn transport_with_progress(source: io::Error, bytes_committed: usize) -> Self {
+        Self::Transport { source, bytes_committed, execution_receipt: None }
     }
 
     pub fn into_io_error(self) -> io::Error {
@@ -490,9 +509,11 @@ impl OutboundSendError {
                 execution_receipt: Box::new(execution_receipt),
                 source,
             },
-            Self::Transport { source, .. } => {
-                Self::Transport { source, execution_receipt: Some(Box::new(execution_receipt)) }
-            }
+            Self::Transport { source, bytes_committed, .. } => Self::Transport {
+                source,
+                bytes_committed: bytes_committed.max(execution_receipt.payload_bytes_committed),
+                execution_receipt: Some(Box::new(execution_receipt)),
+            },
         }
     }
 
@@ -517,10 +538,9 @@ impl OutboundSendError {
 
     pub fn bytes_committed(&self) -> usize {
         match self {
-            Self::Transport { execution_receipt, .. } => {
-                execution_receipt.as_deref().map_or(0, |receipt| receipt.payload_bytes_committed)
+            Self::Transport { bytes_committed, .. } | Self::StrategyExecution { bytes_committed, .. } => {
+                *bytes_committed
             }
-            Self::StrategyExecution { bytes_committed, .. } => *bytes_committed,
         }
     }
 }
@@ -562,6 +582,6 @@ impl std::error::Error for OutboundSendError {
 
 impl From<io::Error> for OutboundSendError {
     fn from(value: io::Error) -> Self {
-        Self::Transport { source: value, execution_receipt: None }
+        Self::transport(value)
     }
 }
