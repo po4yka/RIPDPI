@@ -25,7 +25,7 @@ enum FaultSpec {
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
 
 #[derive(Default)]
-struct ReceiptTestPlatform {
+pub(super) struct ReceiptTestPlatform {
     raw_unavailable: bool,
     faults: FaultQueue,
     require_disorder_raw_original: bool,

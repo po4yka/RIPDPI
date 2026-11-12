@@ -258,7 +258,7 @@ fn execute_tcp_plan_steps(
             TcpPlanLoopControl::Break => break,
             TcpPlanLoopControl::AdvanceToStepEnd => {}
         }
-        if configured_step.inter_segment_delay_ms() > 0 && index + 1 < plan.steps.len() {
+        if configured_step.inter_segment_delay_ms() > 0 && (index + 1 < plan.steps.len() || end < plan.tampered.len()) {
             // std-thread-safe: each connection runs on its own dedicated OS thread
             // (mio + std::thread, no tokio worker pool). Blocking here is correct.
             std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms().min(500))));
