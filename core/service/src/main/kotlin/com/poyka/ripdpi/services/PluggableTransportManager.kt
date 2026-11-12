@@ -18,6 +18,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.net.URI
 import javax.inject.Inject
@@ -325,7 +326,7 @@ class PluggableTransportRuntime
         override suspend fun awaitReady(timeoutMillis: Long) {
             // Block until the subprocess launch passes its readiness probe (set in `start()`);
             // a readiness failure is rethrown here so the supervisor fails honestly.
-            readySignal.await()
+            withTimeout(timeoutMillis) { readySignal.await() }
         }
 
         override suspend fun stop() {

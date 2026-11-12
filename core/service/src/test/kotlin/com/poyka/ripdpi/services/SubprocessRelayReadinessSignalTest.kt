@@ -5,8 +5,11 @@ import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindWebTunnel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -312,6 +315,46 @@ class SubprocessRelayReadinessSignalTest {
             // start() then blocks on waitForExit(); release it so no coroutine leaks.
             manager.exit.complete(0)
             startJob.join()
+        }
+
+    @Test
+    fun `pluggable transport readiness respects caller deadline without cancelling startup`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val manager = FakePluggableTransportManager(context, subprocessManager(), startGate = gate)
+            val runtime = PluggableTransportRuntime(manager)
+            val startJob = launch { runtime.start(sampleResolvedRelayConfig(kind = RelayKindWebTunnel)) }
+            runCurrent()
+            val result = async { runCatching { runtime.awaitReady(25) } }
+            runCurrent()
+            advanceTimeBy(25)
+            runCurrent()
+
+            assertTrue("readiness must finish at its caller deadline", result.isCompleted)
+            assertTrue(result.await().exceptionOrNull() is TimeoutCancellationException)
+            assertTrue(startJob.isActive)
+            gate.complete(Unit)
+            runCurrent()
+            runtime.awaitReady(25)
+            manager.exit.complete(0)
+            startJob.join()
+        }
+
+    @Test
+    fun `pluggable transport stop cancels pending readiness`() =
+        runTest {
+            val manager = FakePluggableTransportManager(context, subprocessManager(), CompletableDeferred())
+            val runtime = PluggableTransportRuntime(manager)
+            val startJob = launch { runtime.start(sampleResolvedRelayConfig(kind = RelayKindWebTunnel)) }
+            runCurrent()
+            val result = async { runCatching { runtime.awaitReady(100) } }
+            runCurrent()
+
+            runtime.stop()
+            runCurrent()
+
+            assertTrue(result.await().exceptionOrNull() is CancellationException)
+            startJob.cancel()
         }
 
     @Test
