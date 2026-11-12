@@ -30,11 +30,11 @@ pub(super) fn resolve_send_step_offset(
         }
         return Err(DesyncError);
     };
-    let payload_len = tampered.len() as i64;
-    if pos < 0 || pos < lp || pos > payload_len {
+    if pos < 0 || pos < lp {
         return Err(DesyncError);
     }
-    Ok(Some(pos))
+    // An offset past the end covers the whole payload, as byedpi clamps it.
+    Ok(Some(pos.min(tampered.len() as i64)))
 }
 
 pub(super) fn seqovl_hard_gate_matches(context: ActivationContext, split_end: i64) -> bool {

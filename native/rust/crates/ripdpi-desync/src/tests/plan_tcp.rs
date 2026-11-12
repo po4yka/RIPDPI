@@ -10,16 +10,6 @@ fn seqovl_step(pos: i64) -> TcpChainStep {
 }
 
 #[test]
-fn plan_tcp_rejects_send_offset_beyond_payload_len() {
-    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
-    let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain =
-        vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, payload.len() as i64))];
-
-    assert!(plan_tcp(&group, payload, 7, 64, tcp_context(payload)).is_err());
-}
-
-#[test]
 fn plan_tcp_rejects_send_offset_before_cursor() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mut group = DesyncGroup::new(0);
@@ -635,6 +625,29 @@ fn plan_tcp_disorder_emits_ttl_write_await_restore() {
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::Write(b"def".to_vec()),
+        ]
+    );
+}
+
+#[test]
+fn plan_tcp_clamps_offset_past_payload_end() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, split_expr(500)));
+    let payload = b"abcdef";
+
+    let plan = plan_tcp(&group, payload, 1, 0, tcp_context(payload)).expect("offset past the end is clamped");
+
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::Disorder, start: 0, end: 6, source_send_step_index: Some(0) }]
+    );
+    assert_eq!(
+        plan.actions,
+        vec![
+            DesyncAction::SetTtl(1),
+            DesyncAction::Write(b"abcdef".to_vec()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::RestoreDefaultTtl,
         ]
     );
 }
