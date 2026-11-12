@@ -2,7 +2,9 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
-use ripdpi_desync::{ActivationContext, DesyncPlan, TcpDesyncStrategy, activation_filter_matches};
+use ripdpi_desync::{
+    ActivationContext, DesyncPlan, TcpDesyncStrategy, activation_filter_matches, tcp_group_activation_matches,
+};
 use ripdpi_session::OutboundProgress;
 
 use crate::activation::apply_entropy_padding;
@@ -266,7 +268,7 @@ fn desync_seed(round: u32) -> u32 {
 }
 
 fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
-    has_tcp_actions(group, context) && activation_filter_matches(group.activation_filter(), context)
+    has_tcp_actions(group, context) && tcp_group_activation_matches(group, context)
 }
 
 fn has_tcp_actions(group: &DesyncGroup, context: ActivationContext) -> bool {

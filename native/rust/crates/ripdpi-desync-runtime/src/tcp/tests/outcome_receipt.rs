@@ -845,6 +845,8 @@ fn unsupported_seq_overlap_records_effective_split_fallback() {
     let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
     let mut group = test_group();
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SeqOverlap, OffsetExpr::host(1)));
+    // Reach round 2 explicitly; seqovl itself only runs in round 1.
+    group.set_round_activation(Some(NumericRange::new(1, 2)));
 
     let (mut client, mut server) = connected_pair();
     let progress = OutboundProgress {
@@ -1434,4 +1436,47 @@ fn hostfake_without_the_raw_path_sends_the_host_as_a_plain_split() {
 
     assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n");
     assert_eq!(*platform.ordered_fake_segments.lock().expect("ordered fake segment count"), 0);
+}
+
+#[test]
+fn unfiltered_disorder_skips_later_rounds() {
+    let payload = b"GET /2 HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut group = test_group();
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::absolute(3)));
+    let (mut client, mut server) = connected_pair();
+    let progress = OutboundProgress {
+        round: 2,
+        payload_size: payload.len(),
+        stream_start: 64,
+        stream_end: 64 + payload.len() - 1,
+    };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+
+    let outcome = send_prepared_with_group(
+        &mut client,
+        &ReceiptTestPlatform::default(),
+        &RuntimeConfig::default(),
+        &group,
+        payload,
+        progress,
+        context,
+        None,
+        None,
+        &default_ttl_unavailable(),
+        None,
+    )
+    .expect("later round is sent plain");
+
+    assert_eq!(outcome.execution_receipt.disposition, TcpExecutionDisposition::ActivationSkipped);
+    let mut buf = vec![0u8; payload.len()];
+    server.read_exact(&mut buf).expect("read relayed payload");
+    assert_eq!(&buf, payload);
 }

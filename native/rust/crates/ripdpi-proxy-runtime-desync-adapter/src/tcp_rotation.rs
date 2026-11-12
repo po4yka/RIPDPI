@@ -77,6 +77,11 @@ impl CircularTcpRotationController {
         if self.desync_suppressed {
             group.actions.tcp_chain.clear();
         }
+        // Rotation switches the chain for later rounds of the same connection,
+        // so an unfiltered group must not fall back to the first-round default.
+        if group.activation_filter().is_none_or(|filter| filter.round.is_none()) {
+            group.set_round_activation(Some(ripdpi_config::NumericRange::new(1, i64::MAX)));
+        }
         group
     }
 
@@ -283,6 +288,26 @@ mod tests {
             },
         )
         .expect("rotation controller")
+    }
+
+    #[test]
+    fn send_group_applies_to_later_rounds() {
+        let controller = rotation_controller();
+        let group = controller.current_send_group();
+        let context = ripdpi_desync::ActivationContext {
+            round: 3,
+            payload_size: 16,
+            stream_start: 64,
+            stream_end: 79,
+            seqovl_supported: false,
+            transport: ripdpi_desync::ActivationTransport::Tcp,
+            tcp_segment_hint: None,
+            tcp_state: ripdpi_desync::ActivationTcpState::default(),
+            resolved_fake_ttl: None,
+            adaptive: ripdpi_desync::AdaptivePlannerHints::default(),
+        };
+
+        assert!(ripdpi_desync::tcp_group_activation_matches(&group, context));
     }
 
     #[test]

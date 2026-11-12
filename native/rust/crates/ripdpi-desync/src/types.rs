@@ -1,6 +1,8 @@
 use std::ops::Range;
 
-use ripdpi_config::{ActivationFilter, EntropyMode, NumericRange, OffsetBase, QuicFakeProfile, TcpChainStepKind};
+use ripdpi_config::{
+    ActivationFilter, DesyncGroup, EntropyMode, NumericRange, OffsetBase, QuicFakeProfile, TcpChainStepKind,
+};
 use ripdpi_ipfrag::Ipv6ExtHeaders;
 use ripdpi_packets::{HttpMarkerInfo, TlsMarkerInfo};
 
@@ -243,6 +245,20 @@ fn range_contains(range: NumericRange<i64>, value: i64) -> bool {
 
 fn range_overlaps(range: NumericRange<i64>, start: i64, end: i64) -> bool {
     range.end >= start && range.start <= end
+}
+
+/// Group-level activation for a TCP chain. When neither the group nor any of
+/// its TCP steps sets a round range, the chain applies to the first round only,
+/// as byedpi does without `-R`. Other filter fields apply as usual.
+pub fn tcp_group_activation_matches(group: &DesyncGroup, context: ActivationContext) -> bool {
+    activation_filter_matches(group.activation_filter(), context)
+        && (context.round <= 1 || tcp_round_range_is_explicit(group))
+}
+
+fn tcp_round_range_is_explicit(group: &DesyncGroup) -> bool {
+    let has_round = |filter: Option<ActivationFilter>| filter.is_some_and(|filter| filter.round.is_some());
+    has_round(group.activation_filter())
+        || group.effective_tcp_chain().iter().any(|step| has_round(step.activation_filter()))
 }
 
 pub fn activation_filter_matches(filter: Option<ActivationFilter>, context: ActivationContext) -> bool {

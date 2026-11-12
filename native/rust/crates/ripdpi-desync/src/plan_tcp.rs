@@ -15,7 +15,7 @@ use crate::fake::build_seqovl_fake_prefix;
 use crate::tls_prelude::{apply_tls_prelude_steps, apply_tls_prelude_steps_to_fake};
 use crate::types::{
     ActivationContext, DISORDER_TTL, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo,
-    TlsPreludeApplication, activation_filter_matches,
+    TlsPreludeApplication, activation_filter_matches, tcp_group_activation_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
@@ -57,7 +57,7 @@ impl DesyncStrategy for TcpDesyncStrategy<'_> {
     }
 
     fn matches(&self, _ctx: &StrategyContext<'_>) -> bool {
-        activation_filter_matches(self.group.activation_filter(), self.context)
+        tcp_group_activation_matches(self.group, self.context)
     }
 
     fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut StrategyPlan) -> Result<StrategyPlanOutcome, StrategyError> {
@@ -147,7 +147,7 @@ fn plan_tcp_with_fake_reference(
     default_ttl: u8,
     context: ActivationContext,
 ) -> Result<DesyncPlan, DesyncError> {
-    if !activation_filter_matches(group.activation_filter(), context) {
+    if !tcp_group_activation_matches(group, context) {
         return Ok(DesyncPlan {
             tampered: input.to_vec(),
             steps: Vec::new(),

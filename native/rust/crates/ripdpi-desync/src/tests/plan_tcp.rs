@@ -435,6 +435,8 @@ fn plan_tcp_ipfrag2_emits_fragmented_first_write() {
 fn plan_tcp_ipfrag2_falls_back_after_first_round() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::IpFrag2, split_expr(5)));
+    // Reach round 2 explicitly; ipfrag2 itself must still refuse to fragment there.
+    group.set_round_activation(Some(NumericRange::new(1, 2)));
     let payload = b"hello world";
     let mut context = tcp_context(payload);
     context.round = 2;
@@ -650,6 +652,36 @@ fn plan_tcp_clamps_offset_past_payload_end() {
             DesyncAction::RestoreDefaultTtl,
         ]
     );
+}
+
+#[test]
+fn plan_tcp_unfiltered_chain_applies_to_the_first_round_only() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, split_expr(3)));
+    let payload = b"abcdef";
+    let later_round = ActivationContext { round: 2, ..tcp_context(payload) };
+
+    let first = plan_tcp(&group, payload, 1, 0, tcp_context(payload)).expect("plan round 1");
+    let later = plan_tcp(&group, payload, 1, 0, later_round).expect("plan round 2");
+
+    assert_eq!(first.steps.len(), 1);
+    assert!(later.steps.is_empty());
+    assert_eq!(later.actions, vec![DesyncAction::Write(payload.to_vec())]);
+
+    // An explicit round range on the group or on a step selects later rounds.
+    let mut group_filtered = group.clone();
+    group_filtered.set_round_activation(Some(NumericRange::new(1, 3)));
+    let mut step_filtered = DesyncGroup::new(0);
+    step_filtered.actions.tcp_chain.push(
+        TcpChainStep::new(TcpChainStepKind::Disorder, split_expr(3)).with_activation_filter(Some(ActivationFilter {
+            round: Some(NumericRange::new(2, 2)),
+            ..Default::default()
+        })),
+    );
+    for explicit in [group_filtered, step_filtered] {
+        let plan = plan_tcp(&explicit, payload, 1, 0, later_round).expect("plan explicit round 2");
+        assert_eq!(plan.steps.len(), 1);
+    }
 }
 
 #[test]

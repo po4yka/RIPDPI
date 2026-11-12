@@ -198,3 +198,4 @@ pub fn ripdpi_desync::plan_tcp(&ripdpi_config::model::group::DesyncGroup, &[u8],
 pub fn ripdpi_desync::plan_tls_template_first_flight(&str, &[u8]) -> core::result::Result<ripdpi_tls_profiles::record_choreography::TlsTemplateFirstFlightPlan, ripdpi_desync::DesyncError>
 pub fn ripdpi_desync::plan_udp(&ripdpi_config::model::group::DesyncGroup, &[u8], u8, ripdpi_desync::ActivationContext) -> alloc::vec::Vec<ripdpi_desync::DesyncAction>
 pub fn ripdpi_desync::resolve_hostfake_span(&ripdpi_config::model::tcp::TcpChainStep, &[u8], usize, usize, u32) -> core::option::Option<ripdpi_desync::HostFakeSpan>
+pub fn ripdpi_desync::tcp_group_activation_matches(&ripdpi_config::model::group::DesyncGroup, ripdpi_desync::ActivationContext) -> bool

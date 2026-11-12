@@ -78,10 +78,12 @@ The proxy runtime builds the runtime desync context and delegates TCP execution 
 
 Step-by-step flow when a TCP payload is sent through `send_with_group()`:
 
-1. **Activation filter check** -- `activation_filter_matches()` in
+1. **Activation filter check** -- `tcp_group_activation_matches()` in
    `types.rs` checks round number, payload size, and stream byte range
-   against the group's `ActivationFilter`. If the filter does not match,
-   the payload is sent as-is (no desync).
+   against the group's `ActivationFilter`. When neither the group nor a
+   TCP step sets a round range, the chain applies to round 1 only (byedpi
+   without `-R`); circular rotation sets an explicit all-rounds range. If
+   the filter does not match, the payload is sent as-is (no desync).
 
 2. **Adaptive hints resolution** -- `resolve_tcp_hints_with_evolver()` in
    the runtime resolves adaptive parameters (split offset base, TLS record
