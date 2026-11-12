@@ -150,12 +150,17 @@ fn apply_ripdpi_default_fallback_groups(config: &mut RuntimeConfig) -> Result<()
     }
 
     reindex_groups(config);
-    config.network.delay_conn = config
-        .groups
-        .iter()
-        .any(|g| !g.matches.filters.hosts.is_empty() || (g.matches.proto & (IS_HTTP | IS_HTTPS)) != 0);
+    config.network.delay_conn = config.groups.iter().any(group_needs_delayed_connect);
 
     Ok(())
+}
+
+/// A group needs the first payload before connect when it matches on host or
+/// L7 protocol, or when it sends SYN data (TFO needs the payload at connect).
+pub(crate) fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
+    !group.matches.filters.hosts.is_empty()
+        || (group.matches.proto & (IS_HTTP | IS_HTTPS)) != 0
+        || group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
 }
 
 fn build_fallback_group(
@@ -235,6 +240,15 @@ mod tests {
         apply_russia_rostelecom(&mut c).unwrap();
         assert!(c.fake_packets.adaptive_fake_ttl_enabled);
         assert_eq!(c.chains.tcp_steps[0].kind, "fake");
+    }
+
+    #[test]
+    fn delayed_connect_follows_syndata_step() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(1))];
+        assert!(!group_needs_delayed_connect(&group));
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1))];
+        assert!(group_needs_delayed_connect(&group));
     }
 
     #[test]

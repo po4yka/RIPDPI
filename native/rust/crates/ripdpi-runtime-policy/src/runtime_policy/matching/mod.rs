@@ -258,6 +258,18 @@ mod tests {
     }
 
     #[test]
+    fn syndata_step_requires_payload_before_connect() {
+        use ripdpi_config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
+
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(1))];
+        assert!(!group_requires_payload(&group));
+
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1))];
+        assert!(group_requires_payload(&group));
+    }
+
+    #[test]
     fn extract_host_skips_quic_when_disabled() {
         let packet = rust_packet_seeds::quic_initial_v1();
         let mut config = RuntimeConfig::default();

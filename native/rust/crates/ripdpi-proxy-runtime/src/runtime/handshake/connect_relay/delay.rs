@@ -337,4 +337,34 @@ mod tests {
         done_tx.send(()).expect("release client");
         client.join().expect("client");
     }
+
+    #[test]
+    fn unfiltered_syndata_group_reads_the_client_payload_before_connect() {
+        use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
+
+        let hello = RuntimeState::build_probe_client_hello("syndata.example");
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client listener");
+        let client_addr = listener.local_addr().expect("client listener addr");
+        let sent = hello.clone();
+        let writer = std::thread::spawn(move || {
+            let mut client = TcpStream::connect(client_addr).expect("connect client");
+            client.write_all(&sent).expect("write ClientHello");
+        });
+        let (mut accepted, _) = listener.accept().expect("accept client");
+        // The production path sets delay_conn for a SynData group (ripdpi-proxy-config test).
+        let mut config = RuntimeConfig::default();
+        config.network.delay_conn = true;
+        config.groups[0].actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1))];
+        let target = SocketAddr::from(([192, 0, 2, 10], 443));
+
+        let delayed =
+            maybe_delay_connect(&mut accepted, &RuntimeState::test(config), target, None, None).expect("syndata delay");
+
+        let DelayConnect::Delayed { payload, .. } = delayed else {
+            panic!("a syndata group must know the payload before connect");
+        };
+        assert_eq!(payload, hello);
+        writer.join().expect("writer");
+    }
 }

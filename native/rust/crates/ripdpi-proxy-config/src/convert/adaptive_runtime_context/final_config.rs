@@ -1,8 +1,8 @@
 use std::net::IpAddr;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
-use ripdpi_packets::{IS_HTTP, IS_HTTPS};
 
+use crate::presets::group_needs_delayed_connect;
 use crate::types::{ProxyConfigError, ProxyUiHostAutolearnConfig, ProxyUiListenConfig};
 
 pub(crate) fn finalize_ui_config(
@@ -46,10 +46,6 @@ fn parse_environment_kind(value: Option<&str>) -> ripdpi_config::EnvironmentKind
         Some("Emulator") => ripdpi_config::EnvironmentKind::Emulator,
         _ => ripdpi_config::EnvironmentKind::Unknown,
     }
-}
-
-fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
-    !group.matches.filters.hosts.is_empty() || (group.matches.proto & (IS_HTTP | IS_HTTPS)) != 0
 }
 
 #[cfg(test)]

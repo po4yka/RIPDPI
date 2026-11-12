@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use ripdpi_config::{DesyncGroup, RuntimeConfig};
+use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
 use super::GeoMatcher;
@@ -9,7 +9,9 @@ use crate::runtime_policy::TransportProtocol;
 
 pub(super) fn group_requires_payload(group: &DesyncGroup) -> bool {
     let active_proto = group.matches.proto & !group.matches.payload_disable;
-    !group.matches.filters.hosts.is_empty() || (active_proto & (IS_HTTP | IS_HTTPS)) != 0
+    !group.matches.filters.hosts.is_empty()
+        || (active_proto & (IS_HTTP | IS_HTTPS)) != 0
+        || group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
 }
 
 pub(super) fn group_matches(

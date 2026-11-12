@@ -391,6 +391,20 @@ fn ui_udp_only_strategy_keeps_delay_connect_disabled() {
 }
 
 #[test]
+fn ui_syndata_step_enables_delay_connect_but_plain_split_does_not() {
+    for (kind, expected) in [("syndata", true), ("split", false)] {
+        let mut ui = minimal_ui();
+        ui.protocols.desync_http = false;
+        ui.protocols.desync_https = false;
+        ui.chains.tcp_steps = vec![tcp_step(kind, "1")];
+
+        let config = runtime_config_from_ui(ui).expect("runtime config");
+
+        assert_eq!(config.network.delay_conn, expected, "step kind {kind}");
+    }
+}
+
+#[test]
 fn udp_associate_unset_keeps_network_udp_enabled() {
     let ui = minimal_ui();
     assert_eq!(ui.protocols.udp_associate_enabled, None, "fixture must leave the switch unset");
