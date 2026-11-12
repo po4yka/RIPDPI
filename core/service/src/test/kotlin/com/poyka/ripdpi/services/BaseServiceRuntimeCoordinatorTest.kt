@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
+import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.ServiceStatus
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import kotlinx.coroutines.CancellationException
@@ -33,6 +36,47 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BaseServiceRuntimeCoordinatorTest {
+    @Test
+    fun `AWG WS reload allows bootstrap before native readiness`() =
+        runTest {
+            val env = newEnv()
+            val key =
+                java.util.Base64
+                    .getEncoder()
+                    .encodeToString(ByteArray(32) { 7 })
+            env.coordinator.initialProxyPreferences =
+                RipDpiProxyUIPreferences(
+                    awg =
+                        AwgActivationRequest(
+                            profileId = "reload-test",
+                            privateKey = key,
+                            peerPublicKey = key,
+                            endpointHost = "peer.example.test",
+                            endpointPort = 51820,
+                            interfaceAddressV4 = "10.8.0.2/32",
+                            carrier = "ws",
+                            carrierWsUrl = "wss://carrier.example.test/wg",
+                        ),
+                )
+            env.coordinator.start()
+            env.coordinator.revisionReceipt = { _, _ -> kotlinx.coroutines.delay(46_000L) }
+            val session = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(session.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true })
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+        }
+
+    @Test
+    fun `ordinary policy reload retains its existing deadline`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            env.coordinator.revisionReceipt = { _, _ -> kotlinx.coroutines.delay(46_000L) }
+            val session = checkNotNull(env.runtimeRegistry.current(Mode.Proxy))
+            assertTrue(
+                runCatching { session.reloadConnectionPolicy(RuntimePolicyReloadIntent.Automatic) { true } }.isFailure,
+            )
+        }
+
     @Test
     fun `cold startup preserves a physical network switch until connected`() =
         runTest {
@@ -1726,6 +1770,9 @@ private class TestCoordinator(
         true
     }
     var catalogGeneration: () -> Long = { 0 }
+    var initialProxyPreferences: RipDpiProxyPreferences =
+        com.poyka.ripdpi.core
+            .RipDpiProxyUIPreferences()
     var beforeResolve: () -> Unit = {}
     var failOnStart: Boolean = false
     var failOnStop: Boolean = false
@@ -1818,7 +1865,7 @@ private class TestCoordinator(
     private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution {
         val capturedCatalog = catalogGeneration()
         beforeResolve()
-        return sampleResolution(mode = Mode.Proxy).copy(
+        return sampleResolution(mode = Mode.Proxy, proxyPreferences = initialProxyPreferences).copy(
             matchedNetworkPolicy = rememberedPolicy,
             catalogGeneration = capturedCatalog,
         )

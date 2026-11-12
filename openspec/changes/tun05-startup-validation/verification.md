@@ -22,3 +22,5 @@ deployment_evidence: No deployment is owned by this change.
 |---|---|---|---|
 | REQ-AWG-DEADLINE | TRN-1794477308920426 | RuntimeReadinessTest staged setup; 8 tests passed | passed |
 | REQ-AWG-URL | TRN-1794477312126131 | AwgActivationRequestTest18 and AmneziaWgEditorStateTest37 passed | passed |
+
+| REQ-AWG-RELOAD | TRN-1794478981961269 | BaseServiceRuntimeCoordinatorTest: red29 tests/1 failure at45s; green29 passed after scoped60s fix. Logs /tmp/tun05-reload-red.log, /tmp/tun05-reload-green2.log | passed |

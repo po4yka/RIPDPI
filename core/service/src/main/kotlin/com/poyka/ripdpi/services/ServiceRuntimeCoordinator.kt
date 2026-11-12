@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import kotlinx.coroutines.CoroutineDispatcher
@@ -260,7 +262,14 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
                 try {
                     withContext(NonCancellable) {
                         try {
-                            withTimeout(SelectorRuntimeReloadTimeoutMillis) {
+                            val carrier = resolution.proxyPreferences.awgConfigOrNull()?.carrier
+                            val reloadTimeout =
+                                if (carrier == AwgActivationRequest.CARRIER_WS) {
+                                    AwgWsRuntimeReloadTimeoutMillis
+                                } else {
+                                    SelectorRuntimeReloadTimeoutMillis
+                                }
+                            withTimeout(reloadTimeout) {
                                 reloadResolvedRuntime(observedSession, resolution, clock.nowMillis())
                             }
                             true
@@ -301,3 +310,6 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
 }
 
 private const val SelectorRuntimeReloadTimeoutMillis = 45_000L
+
+// Includes underlay bootstrap, WSS and peer readiness, and stack replacement.
+private const val AwgWsRuntimeReloadTimeoutMillis = 60_000L
