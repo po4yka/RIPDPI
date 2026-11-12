@@ -70,6 +70,10 @@ pub(crate) fn handle_tcp_plan_step_control(
     cursor: &mut usize,
 ) -> TcpPlanLoopControl {
     match control {
+        TcpStepControl::ContinueAtWithFallback(next_cursor, _) => {
+            *cursor = next_cursor;
+            TcpPlanLoopControl::Continue
+        }
         TcpStepControl::ContinueAt(next_cursor)
             if matches!(
                 kind,

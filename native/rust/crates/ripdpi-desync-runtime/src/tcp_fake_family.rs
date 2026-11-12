@@ -15,6 +15,7 @@ use crate::types::OutboundSendError;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum TcpStepControl {
     ContinueAt(usize),
+    ContinueAtWithFallback(usize, Option<&'static str>),
     BreakPlan,
     BreakPlanWithFallback(Option<&'static str>),
 }

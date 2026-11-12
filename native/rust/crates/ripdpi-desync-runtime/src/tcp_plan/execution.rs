@@ -236,7 +236,9 @@ fn execute_tcp_plan_steps(
             completed_awaits = completed_awaits.saturating_add(awaits);
             completed_actions = completed_actions.saturating_add(writes.saturating_add(awaits));
         }
-        if let TcpStepControl::BreakPlanWithFallback(fallback) = control {
+        if let TcpStepControl::BreakPlanWithFallback(fallback) | TcpStepControl::ContinueAtWithFallback(_, fallback) =
+            control
+        {
             if next_bytes_committed > bytes_committed || bytes_committed == 0 {
                 effective_family = fallback;
             }

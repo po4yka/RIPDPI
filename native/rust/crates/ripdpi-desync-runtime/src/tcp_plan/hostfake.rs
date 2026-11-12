@@ -49,7 +49,7 @@ pub(crate) fn execute_tcp_hostfake_step(
             step_fallback,
             bytes_committed,
         )?;
-        return Ok((bytes_committed, TcpStepControl::ContinueAt(end)));
+        return Ok((bytes_committed, TcpStepControl::ContinueAtWithFallback(end, Some("split"))));
     };
 
     let mut bytes_committed = bytes_committed;
@@ -94,6 +94,7 @@ pub(crate) fn execute_tcp_hostfake_step(
             original_flags,
         )
     };
+    let mut control = TcpStepControl::ContinueAt(end);
     bytes_committed = match send_hostfake_ordered_segments(
         ctx,
         &ordered_segments,
@@ -104,6 +105,7 @@ pub(crate) fn execute_tcp_hostfake_step(
     ) {
         Ok(committed) => committed,
         Err(error) if should_lower_hostfake_to_split(error.kind()) => {
+            control = TcpStepControl::ContinueAtWithFallback(end, Some("split"));
             tracing::debug!("hostfake raw path unavailable, sending the host as a plain split: {error}");
             write_real_host_parts(
                 ctx,
@@ -120,7 +122,7 @@ pub(crate) fn execute_tcp_hostfake_step(
     };
 
     bytes_committed = write_hostfake_suffix(ctx, span.host_end, end, step_family, step_fallback, bytes_committed)?;
-    Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+    Ok((bytes_committed, control))
 }
 
 /// Raw-path refusals that happen before any packet leaves, so the host can
