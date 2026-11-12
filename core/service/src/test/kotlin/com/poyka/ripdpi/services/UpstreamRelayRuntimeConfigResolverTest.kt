@@ -168,45 +168,56 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             val cert = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMw"
             val bridgeLine =
                 "Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=$cert iat-mode=0"
-            val transport =
-                ResolvedTorPluggableTransportConfig(
-                    protocols = listOf("obfs4"),
-                    binaryPath = "/data/user/0/com.poyka.ripdpi/files/subprocess-relays/arm64-v8a/ripdpi-obfs4",
-                    arguments = emptyList(),
-                    runOnStartup = false,
+            val bridgeLines =
+                listOf(
+                    bridgeLine,
+                    "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955",
+                    "Bridge webtunnel 192.0.2.2:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 " +
+                        "url=https://bridge.example/connect",
                 )
-            val resolver =
-                resolver(
-                    torRuntimePathProvider =
-                        StaticTorRuntimePathProvider(
-                            stateDir = "/data/user/0/com.poyka.ripdpi/no_backup/tor/tor-profile/state",
-                            cacheDir = "/data/user/0/com.poyka.ripdpi/cache/tor/tor-profile/cache",
-                        ),
-                    torPluggableTransportProvider = StaticTorPluggableTransportProvider(listOf(transport)),
-                )
+            val transports =
+                listOf("obfs4", "snowflake", "webtunnel").map { protocol ->
+                    ResolvedTorPluggableTransportConfig(
+                        protocols = listOf(protocol),
+                        binaryPath = "/data/user/0/com.poyka.ripdpi/files/subprocess-relays/arm64-v8a/ripdpi-$protocol",
+                        arguments = emptyList(),
+                        runOnStartup = false,
+                    )
+                }
+            bridgeLines.zip(transports).forEach { (line, transport) ->
+                val resolver =
+                    resolver(
+                        torRuntimePathProvider =
+                            StaticTorRuntimePathProvider(
+                                stateDir = "/data/user/0/com.poyka.ripdpi/no_backup/tor/tor-profile/state",
+                                cacheDir = "/data/user/0/com.poyka.ripdpi/cache/tor/tor-profile/cache",
+                            ),
+                        torPluggableTransportProvider = StaticTorPluggableTransportProvider(listOf(transport)),
+                    )
 
-            val resolved =
-                resolver.resolve(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindTor,
-                            profileId = "tor-profile",
-                            ptBridgeLine = bridgeLine,
-                            udpEnabled = true,
-                        ),
-                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                    expectedSelection =
-                        com.poyka.ripdpi.data
-                            .RuntimeConfigurationSelection("native"),
-                )
+                val resolved =
+                    resolver.resolve(
+                        config =
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = RelayKindTor,
+                                profileId = "tor-profile",
+                                ptBridgeLine = line,
+                                udpEnabled = true,
+                            ),
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                    )
 
-            assertEquals(RelayKindTor, resolved.kind)
-            assertFalse("Tor is TCP-only even when the draft has UDP enabled", resolved.udpEnabled)
-            assertEquals("/data/user/0/com.poyka.ripdpi/no_backup/tor/tor-profile/state", resolved.torStateDir)
-            assertEquals("/data/user/0/com.poyka.ripdpi/cache/tor/tor-profile/cache", resolved.torCacheDir)
-            assertEquals(listOf(bridgeLine), resolved.torBridgeLines)
-            assertEquals(listOf(transport), resolved.torTransports)
+                assertEquals(RelayKindTor, resolved.kind)
+                assertFalse("Tor is TCP-only even when the draft has UDP enabled", resolved.udpEnabled)
+                assertEquals("/data/user/0/com.poyka.ripdpi/no_backup/tor/tor-profile/state", resolved.torStateDir)
+                assertEquals("/data/user/0/com.poyka.ripdpi/cache/tor/tor-profile/cache", resolved.torCacheDir)
+                assertEquals(listOf(line), resolved.torBridgeLines)
+                assertEquals(listOf(transport), resolved.torTransports)
+            }
         }
 
     @Test
@@ -390,73 +401,40 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
         }
 
     @Test
-    fun `resolve snowflake family defaults broker and front domain`() =
+    fun `standalone snowflake profiles reject default retired and custom settings`() =
         runTest {
-            val resolved =
-                resolver().resolve(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindSnowflake,
-                            profileId = "snowflake",
-                            udpEnabled = true,
-                        ),
-                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                    expectedSelection =
-                        com.poyka.ripdpi.data
-                            .RuntimeConfigurationSelection("native"),
+            listOf(
+                "" to "",
+                "https://snowflake-broker.torproject.net/" to "cdn.sstatic.net",
+                "https://snowflake-broker.torproject.net/" to "front.example",
+            ).forEach { (broker, front) ->
+                val failure =
+                    runCatching {
+                        resolver().resolve(
+                            config =
+                                RipDpiRelayConfig(
+                                    enabled = true,
+                                    kind = RelayKindSnowflake,
+                                    profileId = "legacy-snowflake",
+                                    ptSnowflakeBrokerUrl = broker,
+                                    ptSnowflakeFrontDomain = front,
+                                    udpEnabled = true,
+                                ),
+                            inputs = testRelayResolutionInputs(),
+                            expectedSelection =
+                                com.poyka.ripdpi.data
+                                    .RuntimeConfigurationSelection("native"),
+                        )
+                    }.exceptionOrNull()
+
+                assertTrue(failure is ServiceStartupRejectedException)
+                assertEquals(
+                    FailureReason.RelayConfigRejected(
+                        "Standalone Snowflake cannot relay application traffic. Use Tor with a Snowflake bridge.",
+                    ),
+                    (failure as ServiceStartupRejectedException).reason,
                 )
-
-            assertFalse(resolved.udpEnabled)
-            // Tor Browser's built-in snowflake bridge line (tor-browser-build pt_config.json).
-            assertEquals("https://1098762253.rsc.cdn77.org/", resolved.ptSnowflakeBrokerUrl)
-            assertEquals("app.datapacket.com,www.datapacket.com", resolved.ptSnowflakeFrontDomain)
-        }
-
-    @Test
-    fun `resolve snowflake replaces the retired built-in broker and front pair`() =
-        runTest {
-            val resolved =
-                resolver().resolve(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindSnowflake,
-                            profileId = "snowflake",
-                            ptSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/",
-                            ptSnowflakeFrontDomain = "cdn.sstatic.net",
-                        ),
-                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                    expectedSelection =
-                        com.poyka.ripdpi.data
-                            .RuntimeConfigurationSelection("native"),
-                )
-
-            assertEquals("https://1098762253.rsc.cdn77.org/", resolved.ptSnowflakeBrokerUrl)
-            assertEquals("app.datapacket.com,www.datapacket.com", resolved.ptSnowflakeFrontDomain)
-        }
-
-    @Test
-    fun `resolve snowflake keeps a custom front for the origin broker`() =
-        runTest {
-            val resolved =
-                resolver().resolve(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindSnowflake,
-                            profileId = "snowflake",
-                            ptSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/",
-                            ptSnowflakeFrontDomain = "front.example",
-                        ),
-                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                    expectedSelection =
-                        com.poyka.ripdpi.data
-                            .RuntimeConfigurationSelection("native"),
-                )
-
-            assertEquals("https://snowflake-broker.torproject.net/", resolved.ptSnowflakeBrokerUrl)
-            assertEquals("front.example", resolved.ptSnowflakeFrontDomain)
+            }
         }
 
     @Test
@@ -581,29 +559,34 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
         }
 
     @Test
-    fun `resolve local path family keeps webtunnel target URL`() =
+    fun `standalone webtunnel profiles fail before runtime setup with Tor guidance`() =
         runTest {
-            val resolved =
-                resolver().resolve(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindWebTunnel,
-                            profileId = "webtunnel",
-                            ptWebTunnelUrl = "wss://transport.example/connect",
-                            localSocksHost = "127.0.0.9",
-                            localSocksPort = 14000,
-                        ),
-                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                    expectedSelection =
-                        com.poyka.ripdpi.data
-                            .RuntimeConfigurationSelection("native"),
-                )
+            val failure =
+                runCatching {
+                    resolver().resolve(
+                        config =
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = RelayKindWebTunnel,
+                                profileId = "legacy-webtunnel",
+                                ptWebTunnelUrl = "https://transport.example/connect",
+                                localSocksHost = "127.0.0.9",
+                                localSocksPort = 14000,
+                            ),
+                        inputs = testRelayResolutionInputs(),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                    )
+                }.exceptionOrNull()
 
-            assertEquals(RelayKindWebTunnel, resolved.kind)
-            assertEquals("wss://transport.example/connect", resolved.ptWebTunnelUrl)
-            assertEquals("127.0.0.9", resolved.localSocksHost)
-            assertEquals(14000, resolved.localSocksPort)
+            assertTrue(failure is ServiceStartupRejectedException)
+            assertEquals(
+                FailureReason.RelayConfigRejected(
+                    "Standalone WebTunnel cannot relay application traffic. Use Tor with a WebTunnel bridge.",
+                ),
+                (failure as ServiceStartupRejectedException).reason,
+            )
         }
 }
 

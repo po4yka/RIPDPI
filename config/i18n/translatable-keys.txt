@@ -770,7 +770,6 @@ app:config_relay_profile_id
 app:config_relay_profile_id_helper
 app:config_relay_profile_id_taken
 app:config_relay_protocol_section_proxy
-app:config_relay_protocol_section_pt
 app:config_relay_protocol_section_quic
 app:config_relay_protocol_section_recommended
 app:config_relay_protocol_section_tls
@@ -3501,9 +3500,7 @@ app:relay_finalmask_trailer_hex_label
 app:relay_kind_naiveproxy_label
 app:relay_kind_obfs4_label
 app:relay_kind_shadowtls_v3_label
-app:relay_kind_snowflake_label
 app:relay_kind_tuic_v5_label
-app:relay_kind_webtunnel_label
 app:relay_snowflake_broker_url_label
 app:relay_snowflake_front_domain_label
 app:relay_tor_bridge_line_helper

@@ -846,7 +846,6 @@ fake_burst 3</string>
     <string name="config_relay_protocol_section_recommended">推荐</string>
     <string name="config_relay_protocol_section_tls">TLS 传输</string>
     <string name="config_relay_protocol_section_quic">QUIC 传输</string>
-    <string name="config_relay_protocol_section_pt">PT 中继</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">关闭</string>

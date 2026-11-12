@@ -322,18 +322,6 @@ internal fun validateNaiveRelayFeatures(
     }
 }
 
-internal fun validatePluggableTransportLoopbackFeatures(config: RipDpiRelayConfig) {
-    require(!config.udpEnabled) { "Pluggable transports are exposed as TCP SOCKS5 loopback relays" }
-}
-
-internal fun validateSnowflakeRelayFeatures(config: RipDpiRelayConfig) {
-    require(config.ptSnowflakeBrokerUrl.isNotBlank()) { "Snowflake requires a broker URL" }
-}
-
-internal fun validateWebTunnelRelayFeatures(config: RipDpiRelayConfig) {
-    require(config.ptWebTunnelUrl.isNotBlank()) { "WebTunnel requires a target URL" }
-}
-
 internal fun validateShadowTlsRelayFeatures(
     profileId: String,
     config: RipDpiRelayConfig,

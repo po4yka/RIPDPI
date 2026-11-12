@@ -78,7 +78,6 @@
     <string name="config_relay_protocol_section_recommended">Recomendados</string>
     <string name="config_relay_protocol_section_tls">Transportes TLS</string>
     <string name="config_relay_protocol_section_quic">Transportes QUIC</string>
-    <string name="config_relay_protocol_section_pt">Retransmissores PT</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">Desativado</string>

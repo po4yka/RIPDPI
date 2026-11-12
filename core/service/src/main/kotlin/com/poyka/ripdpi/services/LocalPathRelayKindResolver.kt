@@ -19,14 +19,10 @@ internal class LocalPathRelayKindResolver
                     ),
                 )
             }
-            validateSharedRelayTransportFeatures(request.mergedConfig)
-            validatePluggableTransportLoopbackFeatures(request.mergedConfig)
-            validateWebTunnelRelayFeatures(request.mergedConfig)
-            validateFinalmaskFeature(request.mergedConfig, request.featureFlags)
-
-            return RelayResolverResult(
-                effectiveConfig = request.mergedConfig,
-                effectiveTlsProfile = request.requestedTlsProfile,
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected(
+                    "Standalone WebTunnel cannot relay application traffic. Use Tor with a WebTunnel bridge.",
+                ),
             )
         }
     }

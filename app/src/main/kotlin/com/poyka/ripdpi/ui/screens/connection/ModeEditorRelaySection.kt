@@ -328,15 +328,6 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
                 ),
         ),
         RelayChipSectionModel(
-            key = "pt-relays",
-            titleRes = R.string.config_relay_protocol_section_pt,
-            chips =
-                listOf(
-                    RelayChipOption(RelayKindSnowflake, labelRes = R.string.relay_kind_snowflake_label),
-                    RelayChipOption(RelayKindWebTunnel, labelRes = R.string.relay_kind_webtunnel_label),
-                ),
-        ),
-        RelayChipSectionModel(
             key = "tor",
             titleRes = R.string.config_relay_protocol_section_tor,
             chips = listOf(RelayChipOption(RelayKindTor, labelRes = R.string.config_relay_protocol_section_tor)),
@@ -344,7 +335,8 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
     )
 
 internal fun isModeEditorRelayKindSupported(kind: String): Boolean =
-    kind == RelayKindObfs4 || relayProtocolSections().any { section -> section.chips.any { it.kind == kind } }
+    kind in setOf(RelayKindObfs4, RelayKindSnowflake, RelayKindWebTunnel) ||
+        relayProtocolSections().any { section -> section.chips.any { it.kind == kind } }
 
 @Composable
 private fun ModeEditorRelayUdpToggle(

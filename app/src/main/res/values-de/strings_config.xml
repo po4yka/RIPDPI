@@ -241,7 +241,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_relay_protocol_section_recommended">Empfohlen</string>
     <string name="config_relay_protocol_section_tls">TLS-Transporte</string>
     <string name="config_relay_protocol_section_quic">QUIC-Transporte</string>
-    <string name="config_relay_protocol_section_pt">PT-Relays</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">Aus</string>

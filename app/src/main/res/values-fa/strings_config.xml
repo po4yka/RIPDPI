@@ -78,7 +78,6 @@
     <string name="config_relay_protocol_section_recommended">پیشنهادی</string>
     <string name="config_relay_protocol_section_tls">انتقال‌های TLS</string>
     <string name="config_relay_protocol_section_quic">انتقال‌های QUIC</string>
-    <string name="config_relay_protocol_section_pt">رله‌های PT</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">خاموش</string>

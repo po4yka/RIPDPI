@@ -253,8 +253,6 @@ class ModeEditorScreenTest {
                 RelayKindMasque,
                 RelayKindTuicV5,
                 RelayKindChainRelay,
-                RelayKindSnowflake,
-                RelayKindWebTunnel,
                 RelayKindTor,
             )
         setScreen(
@@ -272,14 +270,16 @@ class ModeEditorScreenTest {
             "recommended" to "Recommended",
             "tls-transports" to "TLS transports",
             "quic-transports" to "QUIC transports",
-            "pt-relays" to "PT relays",
         ).forEach { (section, label) ->
             composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelaySection(section)).performScrollTo().assertExists()
             composeRule.onNodeWithText(label).assertExists()
         }
         composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelaySection("tor")).performScrollTo().assertExists()
         composeRule.onAllNodesWithText("Tor").assertCountEquals(2)
-        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(RelayKindObfs4)).assertDoesNotExist()
+        listOf(RelayKindObfs4, RelayKindSnowflake, RelayKindWebTunnel).forEach { kind ->
+            composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(kind)).assertDoesNotExist()
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelaySection("pt-relays")).assertDoesNotExist()
 
         val chipTags = (presetIds + protocolKinds).map { kind -> RipDpiTestTags.modeEditorRelayChip(kind) }
         chipTags.forEach { tag ->
@@ -300,15 +300,23 @@ class ModeEditorScreenTest {
     }
 
     @Test
-    fun legacyObfs4DraftCanSelectTorInstead() {
+    fun legacyObfs4DraftCanSelectTorInstead() = assertLegacyPtDraftCanSelectTor(RelayKindObfs4)
+
+    @Test
+    fun legacySnowflakeDraftCanSelectTorInstead() = assertLegacyPtDraftCanSelectTor(RelayKindSnowflake)
+
+    @Test
+    fun legacyWebTunnelDraftCanSelectTorInstead() = assertLegacyPtDraftCanSelectTor(RelayKindWebTunnel)
+
+    private fun assertLegacyPtDraftCanSelectTor(kind: String) {
         var selectedKind: String? = null
         setScreen(
-            initialDraft = defaultDraft().copy(relayEnabled = true, relayKind = RelayKindObfs4),
+            initialDraft = defaultDraft().copy(relayEnabled = true, relayKind = kind),
             actions = NoOpModeEditorActions.copy(onRelayKindChanged = { selectedKind = it }),
         )
 
-        assertTrue(isModeEditorRelayKindSupported(RelayKindObfs4))
-        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(RelayKindObfs4)).assertDoesNotExist()
+        assertTrue(isModeEditorRelayKindSupported(kind))
+        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(kind)).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(RelayKindTor)).performScrollTo().performClick()
 
         assertEquals(RelayKindTor, selectedKind)

@@ -78,7 +78,6 @@
     <string name="config_relay_protocol_section_recommended">अनुशंसित</string>
     <string name="config_relay_protocol_section_tls">TLS ट्रांसपोर्ट</string>
     <string name="config_relay_protocol_section_quic">QUIC ट्रांसपोर्ट</string>
-    <string name="config_relay_protocol_section_pt">PT रिले</string>
     <string name="config_relay_protocol_section_tor">Tor</string>
     <string name="config_relay_finalmask_title">Finalmask</string>
     <string name="config_relay_finalmask_off">बंद</string>

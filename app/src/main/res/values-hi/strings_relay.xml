@@ -341,9 +341,7 @@
     <string name="owned_stack_browser_request_failed">Owned-stack अनुरोध विफल रहा।</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
-    <string name="relay_kind_snowflake_label">Snowflake</string>
     <string name="relay_kind_tuic_v5_label">TUIC v5</string>
-    <string name="relay_kind_webtunnel_label">WebTunnel</string>
     <string name="subscription_failover_status_checking">जाँच रहे हैं</string>
     <string name="subscription_failover_status_down">डाउन</string>
     <string name="subscription_failover_status_unknown">अज्ञात</string>
