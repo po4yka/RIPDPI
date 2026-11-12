@@ -255,7 +255,6 @@ class ModeEditorScreenTest {
                 RelayKindChainRelay,
                 RelayKindSnowflake,
                 RelayKindWebTunnel,
-                RelayKindObfs4,
                 RelayKindTor,
             )
         setScreen(
@@ -280,6 +279,7 @@ class ModeEditorScreenTest {
         }
         composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelaySection("tor")).performScrollTo().assertExists()
         composeRule.onAllNodesWithText("Tor").assertCountEquals(2)
+        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(RelayKindObfs4)).assertDoesNotExist()
 
         val chipTags = (presetIds + protocolKinds).map { kind -> RipDpiTestTags.modeEditorRelayChip(kind) }
         chipTags.forEach { tag ->
@@ -297,6 +297,21 @@ class ModeEditorScreenTest {
             }
         val expectedHeight = chipHeights.first()
         chipHeights.forEach { height -> assertEquals(expectedHeight, height, 0.5f) }
+    }
+
+    @Test
+    fun legacyObfs4DraftCanSelectTorInstead() {
+        var selectedKind: String? = null
+        setScreen(
+            initialDraft = defaultDraft().copy(relayEnabled = true, relayKind = RelayKindObfs4),
+            actions = NoOpModeEditorActions.copy(onRelayKindChanged = { selectedKind = it }),
+        )
+
+        assertTrue(isModeEditorRelayKindSupported(RelayKindObfs4))
+        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(RelayKindObfs4)).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.modeEditorRelayChip(RelayKindTor)).performScrollTo().performClick()
+
+        assertEquals(RelayKindTor, selectedKind)
     }
 
     @Test

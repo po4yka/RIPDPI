@@ -334,7 +334,6 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
                 listOf(
                     RelayChipOption(RelayKindSnowflake, labelRes = R.string.relay_kind_snowflake_label),
                     RelayChipOption(RelayKindWebTunnel, labelRes = R.string.relay_kind_webtunnel_label),
-                    RelayChipOption(RelayKindObfs4, labelRes = R.string.relay_kind_obfs4_label),
                 ),
         ),
         RelayChipSectionModel(
@@ -345,7 +344,7 @@ private fun relayProtocolSections(): List<RelayChipSectionModel> =
     )
 
 internal fun isModeEditorRelayKindSupported(kind: String): Boolean =
-    relayProtocolSections().any { section -> section.chips.any { it.kind == kind } }
+    kind == RelayKindObfs4 || relayProtocolSections().any { section -> section.chips.any { it.kind == kind } }
 
 @Composable
 private fun ModeEditorRelayUdpToggle(

@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
@@ -129,6 +130,36 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                     )
                 }.exceptionOrNull()
             assertTrue(rejected is ServiceStartupRejectedException)
+        }
+
+    @Test
+    fun `standalone obfs4 profiles fail before runtime setup with Tor guidance`() =
+        runTest {
+            val resolver = resolver()
+            val failure =
+                runCatching {
+                    resolver.resolve(
+                        config =
+                            RipDpiRelayConfig(
+                                enabled = true,
+                                kind = RelayKindObfs4,
+                                profileId = "legacy-obfs4",
+                                ptBridgeLine = "obfs4 192.0.2.55:443 cert=fixture iat-mode=0",
+                            ),
+                        inputs = testRelayResolutionInputs(),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                    )
+                }.exceptionOrNull()
+
+            assertTrue(failure is ServiceStartupRejectedException)
+            assertEquals(
+                FailureReason.RelayConfigRejected(
+                    "Standalone obfs4 cannot relay application traffic. Use Tor with an obfs4 bridge.",
+                ),
+                (failure as ServiceStartupRejectedException).reason,
+            )
         }
 
     @Test

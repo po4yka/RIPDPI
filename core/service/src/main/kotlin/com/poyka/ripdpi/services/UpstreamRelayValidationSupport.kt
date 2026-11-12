@@ -334,10 +334,6 @@ internal fun validateWebTunnelRelayFeatures(config: RipDpiRelayConfig) {
     require(config.ptWebTunnelUrl.isNotBlank()) { "WebTunnel requires a target URL" }
 }
 
-internal fun validateObfs4RelayFeatures(config: RipDpiRelayConfig) {
-    require(config.ptBridgeLine.isNotBlank()) { "obfs4 requires a bridge line" }
-}
-
 internal fun validateShadowTlsRelayFeatures(
     profileId: String,
     config: RipDpiRelayConfig,
