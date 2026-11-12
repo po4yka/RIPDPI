@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
@@ -27,7 +28,9 @@ import com.poyka.ripdpi.services.ServiceStartResult
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
+import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -217,6 +220,66 @@ class PacketSmokeInstrumentedTest {
             expectedScenario = "fakedsplit",
             requireFixtureResponse = fakeSegmentsLeaveFixtureHandshakeValid(),
         )
+        runFakedsplitWireCases()
+    }
+
+    private fun runFakedsplitWireCases() {
+        if (packetSmokeDeviceProfile() == PacketSmokeDeviceProfile.PHYSICAL_INDIRECT) {
+            println("fakedsplit: routing smoke only; complete raw wire evidence requires raw capture")
+            return
+        }
+        val contract =
+            InstrumentationRegistry.getInstrumentation().context.assets.open("fakedsplit-wire.json").use {
+                JSONObject(it.bufferedReader().readText())
+            }
+        val cases = contract.getJSONArray("cases")
+        for (index in 0 until cases.length()) {
+            val case = cases.getJSONObject(index)
+            val listenPort = reserveLoopbackPort()
+            runBlocking {
+                stopService(RipDpiProxyService::class.java)
+                appSettingsRepository.update {
+                    proxyPort = listenPort
+                    desyncHttp = true
+                    desyncHttps = false
+                    rootModeEnabled = true
+                    customTtl = true
+                    defaultTtl = contract.getInt("realTtl")
+                    setFakeTtl(contract.getInt("fakeTtl"))
+                    fakeMd5Sig = contract.getBoolean("fakeMd5")
+                    httpFakeProfile = contract.getString("httpFakeProfile")
+                    adaptiveFakeTtlEnabled = false
+                    fakeTcpTimestampEnabled = false
+                    fakeOffsetMarker = "0"
+                    entropyMode = 0
+                    hostMixedCase = false
+                    domainMixedCase = false
+                    hostRemoveSpaces = false
+                    httpMethodEol = false
+                    httpMethodSpace = false
+                    httpUnixEol = false
+                    httpHostPad = false
+                    httpHostExtraSpace = false
+                    httpHostTab = false
+                    // Explicit ACK masks keep normal flags and require raw sends for order 0 too.
+                    setRawStrategyChainDsl(
+                        "[tcp]\nfakedsplit ${contract.getInt("splitOffset")} " +
+                            "altorder=${case.getInt("order")} seqmode=${case.getString("sequenceMode")} " +
+                            "tcp_flags=ack tcp_flags_orig=ack",
+                    )
+                }
+            }
+            startService(RipDpiProxyService::class.java)
+            awaitServiceStatus(AppStatus.Running, Mode.Proxy)
+            val payload =
+                case
+                    .getString("originalHex")
+                    .chunked(2)
+                    .map { it.toInt(16).toByte() }
+                    .toByteArray()
+            val echoed = socksTcpRoundTrip(listenPort, fixture.androidHost, fixture.tcpEchoPort, payload)
+            assertArrayEquals("Real bytes must round-trip for raw case ${case.getString("id")}", payload, echoed)
+        }
     }
 
     @Test

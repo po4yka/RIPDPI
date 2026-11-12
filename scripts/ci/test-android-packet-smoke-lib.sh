@@ -129,4 +129,6 @@ Suite > method[device] SKIPPED
 EOF
 assert_status 0 "skip from gradle is a skip" packet_smoke_output_reports_skip "$gradle_skip" "Suite#method"
 
+python3 "$repo_root/scripts/tests/test_fakedsplit_wire_oracle.py"
+
 echo "android packet smoke lib tests passed"

@@ -429,6 +429,20 @@ validate_raw_fake_strategy_packet_pattern() {
         return 1
     fi
 
+    if [[ "$scenario_id" == "android_proxy_fakedsplit_family" ]]; then
+        # TLS routing smoke is separate from the deterministic raw source-byte matrix.
+        local tcp_port
+        tcp_port="$(jq -r '.tcpEchoPort' "$manifest")"
+        if python3 "$repo_root/scripts/ci/fakedsplit_wire_oracle.py" --pcap "$pcap" --port "$tcp_port" \
+            >>"$scenario_dir/test-output.txt" 2>&1
+        then
+            append_runner_log "$scenario_dir/test-output.txt" \
+                "==> full raw fakedsplit byte, range, order, TTL and option matrix validated"
+            return 0
+        fi
+        return 1
+    fi
+
     local rows
     rows="$(
         tshark -r "$pcap" -Y "tcp.dstport == ${tls_port} && tcp.len > 0" -T fields -e ip.ttl -e tcp.len -e tcp.payload 2>/dev/null || true
@@ -560,7 +574,7 @@ validate_raw_fake_strategy_packet_pattern() {
         return 1
     fi
 
-    if [[ "$scenario_id" == "android_proxy_fakedsplit_family" || "$scenario_id" == "android_proxy_fakeddisorder_family" ]]; then
+    if [[ "$scenario_id" == "android_proxy_fakeddisorder_family" ]]; then
         local low_ttl_count
         local low_ttl_bytes
         low_ttl_count="$(
