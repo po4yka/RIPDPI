@@ -20,6 +20,11 @@ use crate::linux::tcp_repair::{
 };
 use crate::{FakeTcpOptions, TcpSendProgressError, TcpStageWait};
 
+#[cfg(test)]
+thread_local! {
+    static FAIL_AFTER_STREAM_SPLICE: std::cell::RefCell<Option<io::Error>> = const { std::cell::RefCell::new(None) };
+}
+
 pub fn send_fake_tcp(
     stream: &TcpStream,
     original_prefix: &[u8],
@@ -101,8 +106,11 @@ pub fn send_fake_tcp(
             moved += chunk;
         }
 
-        wait_tcp_stage_fd(fd, wait.0, wait.1)?;
-        Ok(())
+        #[cfg(test)]
+        if let Some(error) = FAIL_AFTER_STREAM_SPLICE.with(|fault| fault.borrow_mut().take()) {
+            return Err(error);
+        }
+        wait_tcp_stage_fd(fd, wait.0, wait.1)
     })();
 
     finish_stream_fake_send(stream, &mut region, original_prefix, md5_applied, restore_ttl, moved, result)

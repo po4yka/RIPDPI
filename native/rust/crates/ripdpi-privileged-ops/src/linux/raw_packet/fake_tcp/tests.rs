@@ -153,3 +153,33 @@ fn raw_original_option_preserves_default_stream_transport() {
     assert_eq!(&actual, b"REAL");
     assert_eq!(stream.ttl().expect("read restored TTL"), 37);
 }
+
+#[test]
+fn stream_fake_failure_restores_queued_real_bytes_before_ttl() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind peer");
+    let client = TcpStream::connect(listener.local_addr().expect("peer address")).expect("connect peer");
+    let (mut peer, _) = listener.accept().expect("accept peer");
+    peer.set_read_timeout(Some(Duration::from_secs(2))).expect("bound peer read");
+    set_stream_ttl(&client, 64).expect("set original TTL");
+    FAIL_AFTER_STREAM_SPLICE.with(|fault| {
+        *fault.borrow_mut() = Some(io::Error::other("injected failure after fake splice"));
+    });
+    let error = send_fake_tcp(
+        &client,
+        b"real-payload",
+        b"fake-payload",
+        8,
+        false,
+        64,
+        FakeTcpOptions::default(),
+        (false, Duration::ZERO),
+    )
+    .expect_err("fault follows the actual splice");
+    assert!(error.to_string().contains("injected failure after fake splice"));
+    let progress = error.get_ref().and_then(|error| error.downcast_ref::<TcpSendProgressError>()).expect("known splice progress");
+    assert_eq!(progress.bytes_committed, b"real-payload".len());
+    assert_eq!(get_stream_ttl(&client).expect("read restored TTL"), 64);
+    let mut actual = [0; 12];
+    peer.read_exact(&mut actual).expect("read queued pages after the error");
+    assert_eq!(&actual, b"real-payload");
+}
