@@ -181,6 +181,7 @@ pub struct ripdpi_desync::TlsRecordBoundary
 pub ripdpi_desync::TlsRecordBoundary::handshake: core::ops::range::Range<usize>
 pub ripdpi_desync::TlsRecordBoundary::header: core::ops::range::Range<usize>
 pub ripdpi_desync::TlsRecordBoundary::payload: core::ops::range::Range<usize>
+pub const ripdpi_desync::DISORDER_TTL: u8
 pub fn ripdpi_desync::activation_filter_matches(core::option::Option<ripdpi_config::model::offset::ActivationFilter>, ripdpi_desync::ActivationContext) -> bool
 pub fn ripdpi_desync::apply_tamper(&ripdpi_config::model::group::DesyncGroup, &[u8], u32) -> core::result::Result<ripdpi_desync::TamperResult, ripdpi_desync::DesyncError>
 pub fn ripdpi_desync::apply_tls_template_record_choreography(&str, &[u8]) -> core::result::Result<ripdpi_desync::TamperResult, ripdpi_desync::DesyncError>

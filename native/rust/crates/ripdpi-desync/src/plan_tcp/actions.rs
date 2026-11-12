@@ -1,9 +1,9 @@
-use crate::types::DesyncAction;
+use crate::types::{DISORDER_TTL, DesyncAction};
 use ripdpi_config::DesyncGroup;
 
-/// Effective TTL for disorder-family steps: use the configured fake_ttl,
-/// falling back to 1 when fake_ttl is zero (unconfigured).
-pub(super) fn disorder_ttl(fake_ttl: u8) -> u8 {
+/// Effective TTL for fake-TTL steps (FakeRst, FakeDisorder): the configured
+/// fake TTL, or 1 when it is zero (unconfigured).
+pub(super) fn fake_step_ttl(fake_ttl: u8) -> u8 {
     if fake_ttl == 0 { 1 } else { fake_ttl }
 }
 
@@ -38,8 +38,10 @@ pub(super) fn push_fake_actions(
     }
 }
 
-pub(super) fn push_disorder_actions(actions: &mut Vec<DesyncAction>, chunk: Vec<u8>, default_ttl: u8, fake_ttl: u8) {
-    actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
+/// Sends `chunk` with `ttl`. `Disorder` passes `DISORDER_TTL`; `FakeDisorder`
+/// passes its fake TTL.
+pub(super) fn push_disorder_actions(actions: &mut Vec<DesyncAction>, chunk: Vec<u8>, default_ttl: u8, ttl: u8) {
+    actions.push(DesyncAction::SetTtl(ttl));
     actions.push(DesyncAction::Write(chunk));
     actions.push(DesyncAction::AwaitWritable);
     actions.push(DesyncAction::RestoreDefaultTtl);
@@ -48,14 +50,8 @@ pub(super) fn push_disorder_actions(actions: &mut Vec<DesyncAction>, chunk: Vec<
     }
 }
 
-pub(super) fn push_disoob_actions(
-    actions: &mut Vec<DesyncAction>,
-    chunk: Vec<u8>,
-    urgent_byte: u8,
-    default_ttl: u8,
-    fake_ttl: u8,
-) {
-    actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
+pub(super) fn push_disoob_actions(actions: &mut Vec<DesyncAction>, chunk: Vec<u8>, urgent_byte: u8, default_ttl: u8) {
+    actions.push(DesyncAction::SetTtl(DISORDER_TTL));
     actions.push(DesyncAction::WriteUrgent { prefix: chunk, urgent_byte });
     actions.push(DesyncAction::AwaitWritable);
     actions.push(DesyncAction::RestoreDefaultTtl);
@@ -65,7 +61,7 @@ pub(super) fn push_disoob_actions(
 }
 
 pub(super) fn push_fake_rst_actions(actions: &mut Vec<DesyncAction>, chunk: Vec<u8>, fake_ttl: u8) {
-    actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
+    actions.push(DesyncAction::SetTtl(fake_step_ttl(fake_ttl)));
     actions.push(DesyncAction::SendFakeRst);
     actions.push(DesyncAction::RestoreDefaultTtl);
     push_split_actions(actions, chunk);

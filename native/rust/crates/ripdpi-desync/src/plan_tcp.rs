@@ -14,8 +14,8 @@ use self::offset_plan::{resolve_send_step_offset, seqovl_hard_gate_matches};
 use crate::fake::build_seqovl_fake_prefix;
 use crate::tls_prelude::{apply_tls_prelude_steps, apply_tls_prelude_steps_to_fake};
 use crate::types::{
-    ActivationContext, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo, TlsPreludeApplication,
-    activation_filter_matches,
+    ActivationContext, DISORDER_TTL, DesyncAction, DesyncError, DesyncPlan, PlannedStep, ProtoInfo,
+    TlsPreludeApplication, activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStepKind};
 use ripdpi_packets::OracleRng;
@@ -240,10 +240,10 @@ fn plan_tcp_with_fake_reference(
                 });
             }
             TcpChainStepKind::Disorder => {
-                push_disorder_actions(&mut actions, chunk, default_ttl, fake_ttl);
+                push_disorder_actions(&mut actions, chunk, default_ttl, DISORDER_TTL);
             }
             TcpChainStepKind::Disoob => {
-                push_disoob_actions(&mut actions, chunk, group.actions.oob_data.unwrap_or(b'a'), default_ttl, fake_ttl);
+                push_disoob_actions(&mut actions, chunk, group.actions.oob_data.unwrap_or(b'a'), default_ttl);
             }
             TcpChainStepKind::Fake => {
                 let fake_reference_bytes = if fake_is_padded {

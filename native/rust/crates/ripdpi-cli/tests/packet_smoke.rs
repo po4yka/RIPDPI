@@ -110,7 +110,11 @@ fn cli_packet_smoke_tcp_disorder_family() {
         |_paths| vec!["-t", "2", "-d", "host+1"].into_iter().map(str::to_string).collect(),
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
         |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "disorder"),
-        |run| assert_outbound_ttl(run, run.manifest.tcp_echo_port, 2),
+        // `-t` is the fake TTL; the disorder chunk always uses TTL 1.
+        |run| {
+            assert_outbound_ttl(run, run.manifest.tcp_echo_port, 1)?;
+            assert_no_outbound_ttl(run, run.manifest.tcp_echo_port, 2)
+        },
     );
 }
 
@@ -904,6 +908,18 @@ fn assert_tcp_payload_to_port_captured(run: &ScenarioRun, port: u16) -> Result<(
         Ok(())
     } else {
         Err(format!("expected at least 1 outbound TCP payload packet for port {port}, got {count}"))
+    }
+}
+
+fn assert_no_outbound_ttl(run: &ScenarioRun, port: u16, ttl: u8) -> Result<(), String> {
+    if run.packets.iter().any(|packet| {
+        is_outbound_to_port(packet, port)
+            && (field_u64(packet, "ip.ttl") == Some(u64::from(ttl))
+                || field_u64(packet, "ipv6.hlim") == Some(u64::from(ttl)))
+    }) {
+        Err(format!("unexpected outbound packet to port {port} with ttl {ttl}"))
+    } else {
+        Ok(())
     }
 }
 

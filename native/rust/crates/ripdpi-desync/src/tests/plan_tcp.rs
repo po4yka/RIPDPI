@@ -620,6 +620,8 @@ fn plan_tcp_fake_approx_steps_support_adaptive_markers() {
 #[test]
 fn plan_tcp_disorder_emits_ttl_write_await_restore() {
     let mut group = DesyncGroup::new(0);
+    // The fake TTL must not reach the disorder chunk (byedpi `--disorder` uses TTL 1).
+    group.actions.ttl = Some(5);
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, split_expr(3)));
     let payload = b"abcdef";
 
@@ -628,7 +630,7 @@ fn plan_tcp_disorder_emits_ttl_write_await_restore() {
     assert_eq!(
         plan.actions,
         vec![
-            DesyncAction::SetTtl(8),
+            DesyncAction::SetTtl(1),
             DesyncAction::Write(b"abc".to_vec()),
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
@@ -668,7 +670,7 @@ fn plan_tcp_disoob_combines_ttl_and_urgent() {
     assert_eq!(
         plan.actions,
         vec![
-            DesyncAction::SetTtl(8),
+            DesyncAction::SetTtl(1),
             DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'X' },
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,

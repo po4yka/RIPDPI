@@ -153,6 +153,11 @@ pub struct HostFakeSpan {
     pub midhost: Option<usize>,
 }
 
+/// TTL for the `Disorder`/`Disoob` chunk. The chunk expires at the first hop,
+/// so the server receives the rest first and the kernel retransmits the chunk
+/// with the default TTL (byedpi `--disorder`). Fake TTL applies to fakes only.
+pub const DISORDER_TTL: u8 = 1;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DesyncAction {
     Write(Vec<u8>),

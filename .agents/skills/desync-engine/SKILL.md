@@ -226,8 +226,8 @@ NOT the destination server. Several mechanisms ensure this:
 ### TTL manipulation
 `DesyncAction::SetTtl(fake_ttl)` sets the IP TTL to a value that expires
 between the DPI and the destination. Default fake TTL is 8 (configurable via
-`group.actions.ttl`). `disorder_ttl()` in `plan_tcp.rs` uses the configured
-`fake_ttl`, falling back to 1 for disorder steps. After sending the fake,
+`group.actions.ttl`). `Disorder`/`Disoob` do not use the fake TTL: they always
+send their chunk with `DISORDER_TTL` (1, byedpi `--disorder`). After sending the fake,
 `RestoreDefaultTtl` restores the original TTL. Auto-TTL
 (`AutoTtlConfig`) can dynamically compute the right TTL from traceroute data.
 
@@ -329,9 +329,9 @@ on the group.
 TTL=1 may be dropped by the first hop (the user's own router). TTL too high
 reaches the destination and corrupts the connection. The sweet spot is
 typically 4-12, depending on network topology. Use `auto_ttl` for dynamic
-calculation. `disorder_ttl()` defaults to 1 when unconfigured -- this works
-for disorder (where the first chunk is intentionally dropped) but is too
-aggressive for fake injection.
+calculation. Disorder steps always use `DISORDER_TTL` = 1 (the first chunk
+is intentionally dropped at the first hop and retransmitted); that value is
+too aggressive for fake injection.
 
 ### Fragment reassembly interference
 `IpFrag2` (TCP) and `IpFrag2Udp` (UDP) rely on the DPI not reassembling

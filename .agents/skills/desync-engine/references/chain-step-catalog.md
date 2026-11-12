@@ -53,16 +53,16 @@ More complex than Split but defeats reassembly-based DPI.
 
 ### Disorder
 
-**Description**: Sends the first chunk with a low TTL so it expires before
-reaching the destination. The DPI processes the expired chunk as part of the
-stream, but the destination never sees it. The real data follows with normal
-TTL.
+**Description**: Sends the first chunk with TTL 1 so it expires at the first
+hop. The destination receives the rest of the data first; the kernel then
+retransmits the first chunk with the default TTL, so the destination gets the
+stream out of order (byedpi `--disorder`).
 
-**Actions generated**: `SetTtl(disorder_ttl)`, `Write(chunk)`,
+**Actions generated**: `SetTtl(DISORDER_TTL)`, `Write(chunk)`,
 `AwaitWritable`, `RestoreDefaultTtl`, optionally `SetTtl(default_ttl)`
 
-**Config fields**: `offset`. TTL from `group.actions.ttl` (default 1 via
-`disorder_ttl()`).
+**Config fields**: `offset`. The TTL is always `DISORDER_TTL` (1);
+`group.actions.ttl` applies to fakes only.
 
 **When to use**: When the DPI tracks TCP streams and uses first-packet data.
 The disorder causes the DPI to see garbage for the first segment's range.
@@ -129,9 +129,9 @@ defense against reassembly-capable DPI.
 ### FakeDisorder
 
 **Description**: Disorder variant that also injects a fake copy. Sends first
-chunk at low TTL (like Disorder), plus a fake second segment.
+chunk at the fake TTL, plus a fake second segment.
 
-**Actions generated**: `SetTtl(disorder_ttl)`, `Write(chunk)`,
+**Actions generated**: `SetTtl(fake_ttl)`, `Write(chunk)`,
 `AwaitWritable`, `RestoreDefaultTtl`, optionally `SetTtl(default_ttl)`
 
 **Boundary degradation**: Falls back to `Disorder` at boundaries.
@@ -197,7 +197,7 @@ The urgent byte displaces payload interpretation.
 **Description**: Combines Disorder and OOB. Sends the chunk as urgent data
 at low TTL.
 
-**Actions generated**: `SetTtl(disorder_ttl)`, `WriteUrgent { prefix,
+**Actions generated**: `SetTtl(DISORDER_TTL)`, `WriteUrgent { prefix,
 urgent_byte }`, `AwaitWritable`, `RestoreDefaultTtl`, optionally
 `SetTtl(default_ttl)`
 
