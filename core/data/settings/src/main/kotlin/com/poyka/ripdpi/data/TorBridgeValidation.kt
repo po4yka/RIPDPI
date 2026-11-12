@@ -51,9 +51,9 @@ private fun validTorTransportOptions(
 private fun validSnowflakeRendezvous(values: Map<String, String>): Boolean {
     val queue = values["sqsqueue"]
     return if (queue != null) {
-        val url = torRendezvousUrl(queue) ?: return false
+        val url = torRendezvousUrl(queue)
         // Snowflake 2.15.3 extracts the AWS region from this hostname and exits if it does not match.
-        val supportedHost = Regex("sqs\\.[\\w-]+\\.amazonaws\\.com").matches(url.host)
+        val supportedHost = url != null && Regex("sqs\\.[\\w-]+\\.amazonaws\\.com").matches(url.host)
         supportedHost && "sqscreds" in values && "url" !in values && "ampcache" !in values
     } else {
         val broker = torRendezvousUrl(values["url"]) ?: return false
