@@ -2,7 +2,7 @@
 id: TRN-1794477195384429
 title: Align AWG startup and WSS validation contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: Readiness and validation worker

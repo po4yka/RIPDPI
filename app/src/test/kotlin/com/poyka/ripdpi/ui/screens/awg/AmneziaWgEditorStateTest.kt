@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
@@ -28,6 +29,22 @@ import java.util.Base64
  * identity group (keys, server, port) is always editable and never touched by a preset.
  */
 class AmneziaWgEditorStateTest {
+    @Test
+    fun `WS activation requires a valid WSS endpoint`() {
+        val state = activatableState().selectCarrier(AwgActivationRequest.CARRIER_WS)
+        listOf(
+            "",
+            "ws://vpn.example.com/wg",
+            "wss://user:secret@vpn.example.com/wg",
+            "wss://vpn.example.com/wg#fragment",
+        ).forEach { url ->
+            assertFalse(state.updateField(AwgEditorField.CARRIER_WS_URL, url).isActivatable())
+        }
+        listOf("wss://vpn.example.com:8443/wg?profile=a", "wss://[2001:db8::1]/wg").forEach { url ->
+            assertTrue(state.updateField(AwgEditorField.CARRIER_WS_URL, url).isActivatable())
+        }
+    }
+
     @Test
     fun `keepalive grammar blocks invalid edits and activation without coercion`() {
         val root =

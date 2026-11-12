@@ -3,7 +3,7 @@ task_id: TRN-1794477195384429
 change: tun05-startup-validation
 commit_sha: null
 local: required
-local_evidence: Targeted tests pending.
+local_evidence: RuntimeReadinessTest 8 passed; AwgActivationRequestTest 18 passed; AmneziaWgEditorStateTest 37 passed. Logs /tmp/tun05-ready-tests-result.log and /tmp/tun05-validation-tests.log. Combined gates and exact-SHA record are parent-owned.
 remote_ci: not_applicable
 remote_ci_evidence: No hosted CI run is required for this local fix.
 device: not_applicable
@@ -20,5 +20,5 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-AWG-DEADLINE | TRN-1794477308920426 | RuntimeReadinessTest staged setup | pending |
-| REQ-AWG-URL | TRN-1794477312126131 | AwgActivationRequestTest and AmneziaWgEditorStateTest | pending |
+| REQ-AWG-DEADLINE | TRN-1794477308920426 | RuntimeReadinessTest staged setup; 8 tests passed | passed |
+| REQ-AWG-URL | TRN-1794477312126131 | AwgActivationRequestTest18 and AmneziaWgEditorStateTest37 passed | passed |

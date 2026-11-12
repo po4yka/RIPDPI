@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.redacted
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import kotlinx.serialization.Serializable
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.Base64
 
 /**
@@ -118,9 +119,16 @@ fun AwgActivationRequest.requireRuntimeReady() {
     require(carrier == AwgActivationRequest.CARRIER_UDP || carrier == AwgActivationRequest.CARRIER_WS) {
         "Unsupported AmneziaWG carrier"
     }
-    require(carrier != AwgActivationRequest.CARRIER_WS || carrierWsUrl.isNotBlank()) {
-        "AmneziaWG WS carrier requires a carrier URL"
+    require(carrier != AwgActivationRequest.CARRIER_WS || isValidAwgWssUrl(carrierWsUrl)) {
+        "AmneziaWG WS carrier requires a valid WSS URL without userinfo or a fragment"
     }
+}
+
+/** Validates the WSS authority and request target without DNS or network access. */
+fun isValidAwgWssUrl(value: String): Boolean {
+    if (!value.startsWith("wss://", ignoreCase = true)) return false
+    val url = ("https://" + value.substring(6)).toHttpUrlOrNull() ?: return false
+    return url.username.isEmpty() && url.password.isEmpty() && url.fragment == null
 }
 
 private fun String.isWireGuardKey(): Boolean =

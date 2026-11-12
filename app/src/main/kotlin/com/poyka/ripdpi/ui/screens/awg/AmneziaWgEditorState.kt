@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
+import com.poyka.ripdpi.data.awg.isValidAwgWssUrl
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
@@ -222,7 +223,7 @@ data class AmneziaWgEditorState(
      * interface address. Obfuscation fields are optional (an empty set is a
      * vanilla WireGuard peer). When [AwgProfileForm.carrier] is
      * [AwgActivationRequest.CARRIER_WS], [AwgProfileForm.carrierWsUrl] must also
-     * be present -- the WS carrier cannot connect without a request URL.
+     * be a valid WSS endpoint without userinfo or a fragment.
      */
     fun isActivatable(): Boolean =
         form.server.isNotBlank() &&
@@ -232,7 +233,7 @@ data class AmneziaWgEditorState(
             rawText(AwgEditorField.ADDRESS).isNotBlank() &&
             obfuscationConsistent() &&
             !hasFieldError(AwgEditorField.PERSISTENT_KEEPALIVE) &&
-            (form.carrier != AwgActivationRequest.CARRIER_WS || form.carrierWsUrl.isNotBlank())
+            (form.carrier != AwgActivationRequest.CARRIER_WS || isValidAwgWssUrl(form.carrierWsUrl))
 
     /**
      * `true` when the obfuscation knobs are mutually consistent and fit the

@@ -18,6 +18,40 @@ import java.util.Base64
  */
 class AwgActivationRequestTest {
     @Test
+    fun `runtime readiness accepts supported WSS endpoints`() {
+        listOf(
+            "wss://vpn.example.com",
+            "wss://vpn.example.com:8443/wg?profile=a",
+            "wss://[2001:db8::1]:8443/wg",
+        ).forEach {
+            runtimeRequest().copy(carrier = AwgActivationRequest.CARRIER_WS, carrierWsUrl = it).requireRuntimeReady()
+        }
+    }
+
+    @Test
+    fun `runtime readiness rejects invalid WSS endpoints before native startup`() {
+        listOf(
+            "",
+            "ws://vpn.example.com/wg",
+            "https://vpn.example.com",
+            "wss://",
+            "wss://user:secret@vpn.example.com/wg",
+            "wss://vpn.example.com/wg#secret",
+            "wss://vpn.example.com:99999/wg",
+        ).forEach { url ->
+            val error =
+                assertThrows(IllegalArgumentException::class.java) {
+                    runtimeRequest()
+                        .copy(
+                            carrier = AwgActivationRequest.CARRIER_WS,
+                            carrierWsUrl = url,
+                        ).requireRuntimeReady()
+                }
+            assertEquals("AmneziaWG WS carrier requires a valid WSS URL without userinfo or a fragment", error.message)
+        }
+    }
+
+    @Test
     fun `runtime readiness accepts numeric dual stack policy without resolving an endpoint`() {
         runtimeRequest()
             .copy(
