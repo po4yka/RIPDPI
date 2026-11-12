@@ -2,7 +2,7 @@
 id: RST-1794498457070491
 title: Repair DPI-06 data safety and execution evidence
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: DPI-06 repair lead
@@ -13,6 +13,9 @@ openspec_change: dpi06-audit-repairs
 created: 2026-11-12
 updated: 2026-11-12
 status_detail: Seven confirmed findings repaired; scoped checks passed; broader BPF permission limits recorded in verification.
+closed_at: "2026-11-12T17:35:04Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: F1-F7 repaired in eight normal-hook commits. Final host284 and Linux selected7 pass; Linux five-crate Clippy and ci-gates pass. Full Linux platform49 pass. Native80pass/3BPF EPERM failures remain explicit permission limits; root/device/external acceptance not run.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "dpi06-audit-repairs",
+  "evidence_summary": "F1-F7 repaired in eight normal-hook commits. Final host284 and Linux selected7 pass; Linux five-crate Clippy and ci-gates pass. Full Linux platform49 pass. Native80pass/3BPF EPERM failures remain explicit permission limits; root/device/external acceptance not run.",
+  "execution_sha256": "9d2edc133fc8c4139839d95903400060571b092c33713a388c874f3c01230e5f",
+  "issue_sha256": "d6212708bc010b7122b452d5d8963c393d4af82d78c362852113d968c18ef731",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T17:35:04Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794498457070491"
+}
