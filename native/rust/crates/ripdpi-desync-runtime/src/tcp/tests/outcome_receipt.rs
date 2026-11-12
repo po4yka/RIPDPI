@@ -1578,3 +1578,56 @@ fn plan_executor_restores_ttl_when_a_disorder_step_fails() {
     );
     assert_eq!(client.ttl().expect("TTL after failure"), default_ttl);
 }
+
+#[test]
+fn ttl_less_disorder_reports_the_degraded_family() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let disorder = TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::absolute(3));
+    let disoob = TcpChainStep::new(TcpChainStepKind::Disoob, OffsetExpr::absolute(3));
+    let fake = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(10));
+    let cases = [
+        (vec![disorder.clone()], TcpStrategyFamily::Split),
+        (vec![disoob], TcpStrategyFamily::OutOfBand),
+        // The fake step routes the plan through the plan executor.
+        (vec![disorder, fake], TcpStrategyFamily::Split),
+    ];
+    for (chain, expected) in cases {
+        let mut group = test_group();
+        group.actions.tcp_chain = chain;
+        let (mut client, mut server) = connected_pair();
+        let progress =
+            OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+        let context = activation_context_from_progress(
+            progress,
+            ActivationTransport::Tcp,
+            Some(payload),
+            None,
+            None,
+            None,
+            AdaptivePlannerHints::default(),
+        );
+        // The session already knows that this platform cannot change the TTL.
+        let unavailable = AtomicBool::new(true);
+
+        let outcome = send_prepared_with_group(
+            &mut client,
+            &ReceiptTestPlatform::default(),
+            &RuntimeConfig::default(),
+            &group,
+            payload,
+            progress,
+            context,
+            None,
+            None,
+            &unavailable,
+            None,
+        )
+        .expect("TTL-less disorder still sends the payload");
+
+        assert_eq!(outcome.execution_receipt.effective_family, Some(expected), "{expected:?}");
+        assert_eq!(outcome.execution_receipt.fallback_reason, Some(TcpFallbackReason::StrategyFamilyFallback));
+        let mut buf = vec![0u8; payload.len()];
+        server.read_exact(&mut buf).expect("read relayed payload");
+        assert_eq!(&buf, payload);
+    }
+}

@@ -8,9 +8,9 @@ use ripdpi_desync::{
 use ripdpi_session::OutboundProgress;
 
 use crate::activation::apply_entropy_padding;
-use crate::strategy_family::{effective_tcp_strategy_family, primary_tcp_strategy_family};
+use crate::strategy_family::{effective_tcp_strategy_family, primary_tcp_strategy_family, ttl_less_family};
 use crate::sync::AtomicBool;
-use crate::tcp_actions::execute_tcp_actions;
+use crate::tcp_actions::execute_tcp_actions_with_ttl_state;
 use crate::tcp_plan::{TcpPlanStrategyContext, execute_tcp_plan, requires_special_tcp_execution};
 use crate::transport_io::{write_strategy_payload_named, write_transport_payload};
 use crate::types::{
@@ -81,7 +81,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
             // while the genuine server-bound writes still use `effective_payload`.
             match strategy.plan_with_fake_reference(&effective_payload, payload) {
                 Ok(plan) if plan.steps.is_empty() && plan.tls_prelude.applied_count == 0 => {
-                    let bytes_committed = execute_tcp_actions(
+                    let bytes_committed = execute_tcp_actions_with_ttl_state(
                         writer,
                         &plan.actions,
                         config.network.default_ttl,
@@ -93,7 +93,8 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         group.actions.ip_id_mode,
                         pcap_hook,
                     )
-                    .map_err(|error| failure_with_plan(error, group, &plan, strategy_family, None, None))?;
+                    .map_err(|error| failure_with_plan(error, group, &plan, strategy_family, None, None))?
+                    .bytes_committed;
                     Ok(OutboundSendOutcome {
                         bytes_committed,
                         strategy_family: None,
@@ -151,7 +152,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                     let tls_prelude_applied = plan.tls_prelude.applied_count > 0;
                     let (effective_family, used_family_fallback) =
                         effective_tcp_strategy_family(strategy_family, &plan, tls_prelude_applied);
-                    let bytes_committed = execute_tcp_actions(
+                    let outcome = execute_tcp_actions_with_ttl_state(
                         writer,
                         &plan.actions,
                         config.network.default_ttl,
@@ -173,6 +174,12 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                             used_family_fallback.then_some(TcpFallbackReason::StrategyFamilyFallback),
                         )
                     })?;
+                    let bytes_committed = outcome.bytes_committed;
+                    // Without a TTL change the disorder chunk left with the default
+                    // TTL, so report the family that actually ran.
+                    let ttl_less = effective_family.and_then(ttl_less_family).filter(|_| outcome.ttl_unavailable);
+                    let used_family_fallback = used_family_fallback || ttl_less.is_some();
+                    let effective_family = ttl_less.or(effective_family);
                     Ok(OutboundSendOutcome {
                         bytes_committed,
                         strategy_family: effective_family,

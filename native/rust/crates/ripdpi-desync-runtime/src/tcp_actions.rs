@@ -23,6 +23,7 @@ use crate::types::{OutboundSendError, PcapHook, TcpTerminalReason};
 
 const RESTORE_WINDOW_CLAMP: u32 = 1_000_000;
 
+#[cfg(test)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn execute_tcp_actions(
     writer: &mut TcpStream,
@@ -36,6 +37,40 @@ pub(crate) fn execute_tcp_actions(
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
     pcap_hook: Option<&PcapHook>,
 ) -> Result<usize, OutboundSendError> {
+    execute_tcp_actions_with_ttl_state(
+        writer,
+        actions,
+        default_ttl,
+        wait_send,
+        await_interval,
+        strategy_family,
+        session_ttl_unavailable,
+        md5sig,
+        ip_id_mode,
+        pcap_hook,
+    )
+    .map(|outcome| outcome.bytes_committed)
+}
+
+pub(crate) struct TcpActionsOutcome {
+    pub(crate) bytes_committed: usize,
+    /// A `SetTtl` action was planned but this connection could not change the TTL.
+    pub(crate) ttl_unavailable: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn execute_tcp_actions_with_ttl_state(
+    writer: &mut TcpStream,
+    actions: &[DesyncAction],
+    default_ttl: u8,
+    wait_send: bool,
+    await_interval: Duration,
+    strategy_family: Option<&'static str>,
+    session_ttl_unavailable: &AtomicBool,
+    md5sig: bool,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
+    pcap_hook: Option<&PcapHook>,
+) -> Result<TcpActionsOutcome, OutboundSendError> {
     // Snapshot the per-connection TTL lowering capabilities once so action
     // execution and plan execution share the same degradation behavior.
     let mut lowering_caps = TcpLoweringCapabilities::snapshot(writer, default_ttl, session_ttl_unavailable);
@@ -194,7 +229,9 @@ pub(crate) fn execute_tcp_actions(
     // subsequent connections skip TTL actions immediately.
     lowering_caps.persist(session_ttl_unavailable);
 
-    result.map_err(|err| {
+    let ttl_unavailable = lowering_caps.ttl_actions_unavailable()
+        && actions.iter().any(|action| matches!(action, DesyncAction::SetTtl(_)));
+    result.map(|bytes_committed| TcpActionsOutcome { bytes_committed, ttl_unavailable }).map_err(|err| {
         let terminal_reason = match &err {
             OutboundSendError::Transport { .. } => TcpTerminalReason::Transport,
             OutboundSendError::StrategyExecution { .. } => TcpTerminalReason::StrategyExecution,

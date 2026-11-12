@@ -17,7 +17,9 @@ use ripdpi_desync::DesyncPlan;
 use super::decision::{TcpPlanLoopControl, handle_tcp_plan_step_control, tcp_step_strategy_family};
 use super::fake_packets::{BuiltFakePackets, build_tcp_fake_packets};
 use super::multi_disorder::execute_multi_disorder_tcp_plan;
-use crate::strategy_family::{effective_tcp_strategy_family, strategy_fallback_family, write_action_name};
+use crate::strategy_family::{
+    effective_tcp_strategy_family, strategy_fallback_family, ttl_less_family, write_action_name,
+};
 use crate::sync::AtomicBool;
 use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_lowering::TcpLoweringCapabilities;
@@ -105,7 +107,19 @@ pub(crate) fn execute_tcp_plan(
     // Propagate per-connection discovery to the session-level flag so
     // subsequent connections skip TTL actions immediately.
     lowering_caps.persist(session_ttl_unavailable);
-    result
+    let mut outcome = result?;
+    // Without a TTL change the disorder chunk left with the default TTL, so
+    // report the family that actually ran.
+    let has_disorder_step =
+        plan.steps.iter().any(|step| matches!(step.kind, TcpChainStepKind::Disorder | TcpChainStepKind::Disoob));
+    if has_disorder_step
+        && lowering_caps.ttl_actions_unavailable()
+        && let Some(family) = outcome.effective_family.and_then(ttl_less_family)
+    {
+        outcome.effective_family = Some(family);
+        outcome.used_family_fallback = true;
+    }
+    Ok(outcome)
 }
 
 struct TcpPlanInput<'a> {

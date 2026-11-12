@@ -46,6 +46,16 @@ pub fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> 
     })
 }
 
+/// Family that actually ran when a disorder step could not lower the TTL: the
+/// chunk left with the default TTL, so disorder became a split and disoob an
+/// OOB write.
+pub(crate) fn ttl_less_family(strategy_family: &'static str) -> Option<&'static str> {
+    match strategy_family {
+        "disorder" | "disoob" => strategy_fallback_family(strategy_family),
+        _ => None,
+    }
+}
+
 pub(crate) fn strategy_fallback_family(strategy_family: &'static str) -> Option<&'static str> {
     match strategy_family {
         "seg_mid_sni" => Some("seg_pre_sni"),
