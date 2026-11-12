@@ -8,12 +8,14 @@ import org.junit.Test
 class ConnectionTorValidationTest {
     @Test
     fun `Tor validates bridge credentials before save`() {
+        val cert = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMw"
         val draft = ConnectionDraft(relayEnabled = true, relayKind = RelayKindTor)
         assertEquals("required", validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
         listOf(
             "Bridge 192.0.2.1:443",
-            "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=fixture",
-            "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=fixture iat-mode=3",
+            "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=invalid iat-mode=0",
+            "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=$cert",
+            "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=$cert iat-mode=3",
             "webtunnel 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=http://bridge.example/secret",
             "webtunnel 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=https://bridge.example/",
         ).forEach { line ->
@@ -24,7 +26,7 @@ class ConnectionTorValidationTest {
             )
         }
         listOf(
-            "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=fixture iat-mode=0",
+            "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=$cert iat-mode=0",
             "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955",
             "webtunnel [2001:db8::1]:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=https://bridge.example/secret",
         ).forEach { line ->

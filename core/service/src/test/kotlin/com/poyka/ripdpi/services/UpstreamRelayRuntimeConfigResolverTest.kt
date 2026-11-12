@@ -165,8 +165,9 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
     @Test
     fun `resolve tor family emits state directories bridge lines and managed pt binaries`() =
         runTest {
+            val cert = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMw"
             val bridgeLine =
-                "Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=fixture iat-mode=0"
+                "Bridge obfs4 192.0.2.55:38114 316E643333645F6D79216558614D3931657A5F5F cert=$cert iat-mode=0"
             val transport =
                 ResolvedTorPluggableTransportConfig(
                     protocols = listOf("obfs4"),

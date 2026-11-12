@@ -4,6 +4,7 @@ import java.net.URI
 import java.util.Base64
 
 private const val TorBridgeMaxPort = 65_535
+private const val Obfs4CertificateBytes = 52
 private const val TorRsaIdentityBytes = 20
 private const val TorEd25519IdentityBytes = 32
 private val TorBridgeTransports = setOf(RelayKindObfs4, RelayKindSnowflake, RelayKindWebTunnel)
@@ -41,10 +42,16 @@ private fun validTorTransportOptions(
     values: Map<String, String>,
 ): Boolean =
     when (transport) {
-        RelayKindObfs4 -> !values["cert"].isNullOrBlank() && values["iat-mode"] in setOf("0", "1", "2")
+        RelayKindObfs4 -> validObfs4Certificate(values["cert"]) && values["iat-mode"] in setOf("0", "1", "2")
         RelayKindWebTunnel -> validTorWebTunnelUrl(values["url"])
         else -> true // Snowflake supplies defaults for omitted transport options.
     }
+
+private fun validObfs4Certificate(encoded: String?): Boolean {
+    if (encoded == null) return false
+    val decoded = runCatching { Base64.getDecoder().decode("$encoded==") }.getOrNull()
+    return decoded?.size == Obfs4CertificateBytes
+}
 
 private fun validTorBridgeEndpoint(endpoint: String?): Boolean {
     val address = runCatching { URI("tcp://${endpoint.orEmpty()}") }.getOrNull() ?: return false

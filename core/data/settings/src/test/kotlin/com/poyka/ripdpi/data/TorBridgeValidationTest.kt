@@ -6,6 +6,7 @@ import org.junit.Test
 
 class TorBridgeValidationTest {
     private val rsa = "0BAC39417268B96B9F514E7F63FA6FBA1A788955"
+    private val cert = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMw"
     private val ed = "ed25519:dGhpcyBpcyBpbmNyZWRpYmx5IHNpbGx5ISEhISEhISE"
 
     @Test
@@ -27,7 +28,7 @@ class TorBridgeValidationTest {
         }
         assertNull(torBridgeValidationError("snowflake [2001:db8::1]:80 $rsa"))
         assertNull(torBridgeValidationError("snowflake - $rsa"))
-        assertEquals("invalid", torBridgeValidationError("obfs4 - $rsa cert=fixture iat-mode=0"))
+        assertEquals("invalid", torBridgeValidationError("obfs4 - $rsa cert=$cert iat-mode=0"))
         assertEquals("invalid", torBridgeValidationError("webtunnel - $rsa url=https://bridge.example/secret"))
     }
 
@@ -42,10 +43,35 @@ class TorBridgeValidationTest {
     }
 
     @Test
+    fun `obfs4 rejects malformed padded and wrong length certificates`() {
+        listOf("fixture", "$cert=", "$cert==", "A".repeat(68), "A".repeat(71), "$cert!", "_".repeat(70))
+            .forEach { invalidCert ->
+                assertEquals(
+                    invalidCert,
+                    "invalid",
+                    torBridgeValidationError("obfs4 192.0.2.1:443 $rsa cert=$invalidCert iat-mode=0"),
+                )
+            }
+    }
+
+    @Test
+    fun `obfs4 accepts standard base64 certificates for every iat mode`() {
+        // Lyrebird's Go decoder accepts nonzero unused pad bits as well as canonical encodings.
+        listOf(cert, cert.dropLast(1) + "x", "/".repeat(69) + "w").forEach { validCert ->
+            listOf("0", "1", "2").forEach { iatMode ->
+                assertNull(
+                    "$validCert iat-mode=$iatMode",
+                    torBridgeValidationError("obfs4 192.0.2.1:443 $rsa cert=$validCert iat-mode=$iatMode"),
+                )
+            }
+        }
+    }
+
+    @Test
     fun `obfs4 requires the options sent unchanged to Lyrebird`() {
         assertEquals("required", torBridgeValidationError(""))
-        assertEquals("invalid", torBridgeValidationError("obfs4 192.0.2.1:443 $rsa cert=fixture"))
+        assertEquals("invalid", torBridgeValidationError("obfs4 192.0.2.1:443 $rsa cert=$cert"))
         assertEquals("invalid", torBridgeValidationError("obfs4 192.0.2.1:443 $rsa iat-mode=0"))
-        assertNull(torBridgeValidationError("obfs4 192.0.2.1:443 $rsa cert=fixture iat-mode=0"))
+        assertNull(torBridgeValidationError("obfs4 192.0.2.1:443 $rsa cert=$cert iat-mode=0"))
     }
 }
