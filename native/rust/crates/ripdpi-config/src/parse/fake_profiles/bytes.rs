@@ -40,13 +40,13 @@ pub fn data_from_str(spec: &str) -> Result<Vec<u8>, ConfigError> {
             idx += 1;
             continue;
         }
-        if ch == 'x' && idx + 2 < bytes.len() {
-            let hex = &spec[idx + 1..idx + 3];
-            if let Ok(value) = u8::from_str_radix(hex, 16) {
-                out.push(value);
-                idx += 3;
-                continue;
-            }
+        if ch == 'x'
+            && let Some(hex) = spec.get(idx + 1..idx + 3)
+            && let Ok(value) = u8::from_str_radix(hex, 16)
+        {
+            out.push(value);
+            idx += 3;
+            continue;
         }
         let mut oct_end = idx;
         while oct_end < bytes.len() && oct_end < idx + 3 && (b'0'..=b'7').contains(&bytes[oct_end]) {

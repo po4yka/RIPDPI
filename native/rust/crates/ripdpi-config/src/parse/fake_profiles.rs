@@ -53,6 +53,21 @@ mod tests {
     }
 
     #[test]
+    fn data_from_str_unknown_hex_escapes_preserve_fallback_bytes() {
+        for (input, expected) in [
+            ("\\xAé", "xAé"),
+            ("\\xéA", "xéA"),
+            ("\\xA💩", "xA💩"),
+            ("\\xé", "xé"),
+            ("\\x", "x"),
+            ("\\x4", "x4"),
+            ("\\xGG", "xGG"),
+        ] {
+            assert_eq!(data_from_str(input).unwrap(), expected.as_bytes(), "input={input}");
+        }
+    }
+
+    #[test]
     fn file_or_inline_bytes_inline_data() {
         let result = file_or_inline_bytes(":hello").unwrap();
         assert_eq!(result, b"hello".to_vec());

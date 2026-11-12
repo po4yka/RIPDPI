@@ -129,6 +129,16 @@ fn parse_cli_maps_activation_ranges_into_group_filter() {
 }
 
 #[test]
+fn parse_cli_preserves_malformed_unicode_fake_data_as_fallback_bytes() {
+    let args = vec!["--fake-data".to_string(), ":\\xAé".to_string()];
+    let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("parse fake data") else {
+        panic!("expected runnable config");
+    };
+
+    assert_eq!(config.groups[0].actions.fake_data.as_deref(), Some(b"xA\xc3\xa9".as_slice()));
+}
+
+#[test]
 fn parse_cli_reads_auto_ttl_and_fixed_ttl_fallback() {
     let args = vec!["--ttl".to_string(), "9".to_string(), "--auto-ttl".to_string(), "-1,3-12".to_string()];
 
