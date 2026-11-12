@@ -14,7 +14,7 @@ internal class SubprocessRelayLaunchPlanner {
                 addAll(spec.commandArguments)
             },
         ).apply {
-            redirectErrorStream(true)
+            redirectErrorStream(spec.managedClientBridge == null)
             environment().putAll(spec.environment)
             // The active VPN protect path is authoritative; specs never set ENV_VAR themselves.
             protectPath?.let { environment()[ActiveProtectSocketPathProvider.ENV_VAR] = it }

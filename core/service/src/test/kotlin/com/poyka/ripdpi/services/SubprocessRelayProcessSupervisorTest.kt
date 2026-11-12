@@ -14,6 +14,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -141,6 +142,48 @@ class SubprocessRelayProcessSupervisorTest {
     fun `pending malformed output from a stopped run cannot fail the next negotiation`() {
         assertPendingOutputIsIgnored("CMETHODS DONE")
     }
+
+    @Test
+    fun `managed stderr is drained independently of bounded stdout control lines`() {
+        val spec = managedSpec()
+        // Diagnostics can exceed both the pipe capacity and the control line limit.
+        val script =
+            """
+            i=0
+            while [ "${'$'}i" -lt 1024 ]; do
+                printf '%0256d' 0 >&2
+                i=${'$'}((i+1))
+            done
+            printf 'VERSION 1\nCMETHOD webtunnel socks5 127.0.0.1:41002\nCMETHODS DONE\n'
+            """.trimIndent()
+        val builder =
+            SubprocessRelayLaunchPlanner().buildMainProcess(
+                File("/bin/sh"),
+                spec.copy(commandArguments = listOf("-c", script)),
+            )
+        val supervisor = SubprocessRelayProcessSupervisor(SubprocessRelayOutputParser())
+        val ready = CountDownLatch(1)
+        val event = AtomicReference<SubprocessRelayOutputEvent?>()
+        val process =
+            supervisor.start(builder, spec) {
+                event.set(it)
+                ready.countDown()
+            }
+        try {
+            assertTrue("stderr must not block stdout readiness", ready.await(5, TimeUnit.SECONDS))
+            assertEquals(
+                SubprocessRelayOutputEvent.ManagedClientListener(InetSocketAddress("127.0.0.1", 41002)),
+                event.get(),
+            )
+            assertTrue(process.waitFor(5, TimeUnit.SECONDS))
+            assertEquals(0, process.exitValue())
+        } finally {
+            supervisor.stop()
+        }
+    }
+
+    private fun managedSpec() =
+        launchSpec().copy(managedClientBridge = ManagedClientSocksBridgeSpec("webtunnel", "127.0.0.1", 443, ""))
 
     private fun assertPendingOutputIsIgnored(transcript: String) {
         val pendingOutput = PausedOutput(transcript)

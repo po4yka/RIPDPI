@@ -15,6 +15,8 @@ internal class SubprocessRelayProcessSupervisor(
 
     @Volatile private var processOutputThread: Thread? = null
 
+    @Volatile private var processErrorThread: Thread? = null
+
     private var outputOwner: Any? = null
 
     @Synchronized
@@ -43,6 +45,9 @@ internal class SubprocessRelayProcessSupervisor(
         val owner = Any()
         outputOwner = owner
         processOutputThread = startProcessOutputThread(activeProcess, owner, spec, onOutputEvent)
+        if (spec.managedClientBridge != null) {
+            processErrorThread = startManagedErrorThread(activeProcess, spec.runtimeKind)
+        }
         return activeProcess
     }
 
@@ -50,9 +55,11 @@ internal class SubprocessRelayProcessSupervisor(
     fun stop(): String? {
         outputOwner = null
         processOutputThread?.interrupt()
+        processErrorThread?.interrupt()
         val activeProcess = process
         if (activeProcess == null) {
             processOutputThread = null
+            processErrorThread = null
             return null
         }
         return try {
@@ -135,6 +142,23 @@ internal class SubprocessRelayProcessSupervisor(
             }
         }
 
+    private fun startManagedErrorThread(
+        activeProcess: Process,
+        runtimeKind: String,
+    ): Thread =
+        thread(name = "subprocess-relay-stderr-$runtimeKind", isDaemon = true) {
+            try {
+                activeProcess.errorStream.use { input ->
+                    // Stderr is diagnostic text, not PT control. Discard it in bounded chunks;
+                    // retaining or parsing it could expose secrets or alter another run's state.
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (input.read(buffer) != -1) Unit
+                }
+            } catch (_: IOException) {
+                // Termination can close the pipe while the drain is blocked.
+            }
+        }
+
     private fun terminate(activeProcess: Process): Boolean {
         activeProcess.destroy()
         if (activeProcess.waitFor(RelayProcessStopTimeoutMs, TimeUnit.MILLISECONDS)) return true
@@ -148,6 +172,7 @@ internal class SubprocessRelayProcessSupervisor(
             outputOwner = null
             process = null
             processOutputThread = null
+            processErrorThread = null
         }
     }
 }
