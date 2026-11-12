@@ -20,6 +20,7 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
+| REQ-TUN07-CERT | RLY-1794478726909442 | Pending format validation and observed checks | Required |
 | REQ-TUN07-RELAY | RLY-1794477279590881 | Pending implementation and observed checks | Required |
 | REQ-TUN07-IDENTITY | RLY-1794477280143697 | Pending implementation and observed checks | Required |
 | REQ-TUN07-STARTUP | RLY-1794477280711169 | Pending implementation and observed checks | Required |

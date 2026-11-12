@@ -4,6 +4,15 @@ Define reliable local contracts for Tor pluggable transport integration without 
 
 ## ADDED Requirements
 
+### Requirement: REQ-TUN07-CERT — Validate certificate format
+
+The implementation MUST reject an obfs4 certificate with invalid unpadded standard Base64 encoding or a decoded length other than 52 bytes before Tor activation. The helper MUST retain its own certificate and authentication checks.
+
+#### Scenario: Reject malformed certificate
+
+- **WHEN** a Tor obfs4 bridge contains an empty, padded, malformed or wrong-length certificate
+- **THEN** profile validation fails before the helper starts.
+
 ### Requirement: REQ-TUN07-RELAY — Reject standalone obfs4
 
 The implementation MUST reject standalone obfs4 relay activation and retain Tor with obfs4 transport.

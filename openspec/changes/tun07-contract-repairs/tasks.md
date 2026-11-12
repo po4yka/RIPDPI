@@ -14,3 +14,4 @@
 The portfolio record owns the exact parallel file lanes. Each worker must preserve that assignment and use a dedicated worktree. Coordinator owns this file.
 
 Run the owning service/app unit suites, affected module ktlint/detekt checks, and just ci-gates on the combined tree. Use the shared build gate for compilation. Do not bless UI fixtures or change baselines. Record real-helper evidence separately from tests with local doubles. Independent review precedes implementation commits.
+- [ ] RLY-1794478726909442 Reject malformed obfs4 certificates before Tor activation #bug !high @item:RLY-1794477185649013

@@ -14,6 +14,7 @@ Task RLY-1794477185649013 follows the TUN-07 audit at 3e626d3e205f27c90dd84a9732
 - Use the existing subprocess output parser for managed startup state. Keep other subprocess contracts unchanged.
 - Guard closed state and socket admission with one lock. Register upstream sockets before connecting.
 - Add defensive regression coverage in owning suites; use real loopback sockets for lifecycle checks.
+- Check the obfs4 unpadded Base64 certificate format and 52-byte length before Tor activation. Keep the helper's validation and authentication checks.
 
 ## Contracts and ownership
 
