@@ -21,7 +21,10 @@ version-three JSON frames with an 8192-byte control limit.
   Mark opaque fake-send errors as possibly committed in the runtime. Keep exact
   byte counts separate and disable replay conservatively when progress is unknown.
 - Resolve the genuine TTL from configuration or the live socket. Pass decoy MD5
-  only to fake packet builders. Keep requested original flag overrides.
+  only to fake packet builders. Keep requested original flag overrides. An internal
+  optional genuine TTL preserves the existing low-TTL first FakeDisorder segment;
+  the socket cleanup TTL remains independent. Helper JSON omits the option when
+  it is absent and accepts old requests without it.
 - Keep the checked conversion of sequence offsets, then use modulo addition.
 - Keep version-three JSON encoding. Add command-specific bulk request admission
   and preflight limits. Keep generic control frame APIs at 8192 bytes. Bound bulk
