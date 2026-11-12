@@ -414,6 +414,20 @@ fn ui_payload_rejects_fake_order_on_unsupported_step_kind() {
 }
 
 #[test]
+fn ui_payload_rejects_invalid_hostfake_template() {
+    for template in ["cdn/ex.example", "*.example.com", "пример.рф", "١.example", "K.example"] {
+        let mut ui = minimal_ui();
+        let mut step = tcp_step("hostfake", "endhost");
+        step.fake_host_template = template.to_string();
+        ui.chains.tcp_steps = vec![step];
+
+        let error = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid hostfake template");
+
+        assert!(error.to_string().contains("fakeHostTemplate"), "{template}: {error}");
+    }
+}
+
+#[test]
 fn ui_payload_rejects_hostfake_non_default_order_without_midhost() {
     let mut ui = minimal_ui();
     let mut step = tcp_step("hostfake", "endhost+8");

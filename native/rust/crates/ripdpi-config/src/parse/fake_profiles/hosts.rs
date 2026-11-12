@@ -5,7 +5,7 @@ use crate::ConfigError;
 pub(crate) fn lower_host_char(ch: char) -> Option<char> {
     if ch.is_ascii_uppercase() {
         Some(ch.to_ascii_lowercase())
-    } else if ('-'..='9').contains(&ch) || ch.is_ascii_lowercase() {
+    } else if ch.is_ascii_digit() || ch.is_ascii_lowercase() || matches!(ch, '-' | '.') {
         Some(ch)
     } else {
         None

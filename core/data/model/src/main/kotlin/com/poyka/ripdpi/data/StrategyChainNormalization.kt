@@ -112,13 +112,13 @@ internal fun normalizeFakeHostTemplate(
     template: String,
 ): String {
     if (kind != TcpChainStepKind.HostFake) return ""
-    val trimmed = template.trim().trimEnd('.').lowercase()
+    val trimmed = template.trim().trimEnd('.')
     val validHostname =
         !hasInvalidHostnameStructure(trimmed) &&
             !containsInvalidHostnameChar(trimmed) &&
             trimmed.split('.').none { label -> label.isEmpty() || label.startsWith('-') || label.endsWith('-') }
     val isIpv4Literal = NumericIp.parseAddress(trimmed)?.isIPv4 == true
-    return if (validHostname && !isIpv4Literal) trimmed else ""
+    return if (validHostname && !isIpv4Literal) trimmed.lowercase() else ""
 }
 
 internal fun normalizeMidhostMarker(
@@ -131,4 +131,4 @@ private fun hasInvalidHostnameStructure(trimmed: String): Boolean =
         trimmed.endsWith('.') || trimmed.contains("..")
 
 private fun containsInvalidHostnameChar(trimmed: String): Boolean =
-    !trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }
+    !trimmed.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '.' }

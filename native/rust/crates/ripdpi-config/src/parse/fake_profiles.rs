@@ -67,6 +67,8 @@ mod tests {
     fn lower_host_char_range_boundaries() {
         assert_eq!(lower_host_char('-'), Some('-'));
         assert_eq!(lower_host_char('9'), Some('9'));
+        assert_eq!(lower_host_char('.'), Some('.'));
+        assert_eq!(lower_host_char('/'), None);
         assert_eq!(lower_host_char(','), None);
         assert_eq!(lower_host_char('A'), Some('a'));
     }
@@ -119,6 +121,9 @@ mod tests {
         assert!(normalize_fake_host_template("-start.com").is_err());
         assert!(normalize_fake_host_template("end-.com").is_err());
         assert!(normalize_fake_host_template("127.0.0.1").is_err());
+        for template in ["cdn/ex.example", "*.example.com", "пример.рф", "١.example", "K.example"] {
+            assert!(normalize_fake_host_template(template).is_err(), "accepted invalid template {template}");
+        }
     }
 
     #[test]
