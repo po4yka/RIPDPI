@@ -107,22 +107,49 @@ pub fn send_ordered_tcp_segments(
             ipv4_identifications,
         )?;
 
-        if original_payload_len == 0 {
+        // Once a raw send is attempted, an error cannot prove that no packet left.
+        (|| -> io::Result<()> {
             send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path, stream.as_fd())?;
+            if original_payload_len != 0 {
+                queue_payload_as_sent(stream, &genuine_payload)?;
+            }
             set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
             disable_tcp_repair(fd)?;
-            return wait_tcp_stage_fd(fd, wait.0, wait.1);
-        }
-
-        send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path, stream.as_fd())?;
-        queue_payload_as_sent(stream, &genuine_payload)?;
-        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)?;
-        wait_tcp_stage_fd(fd, wait.0, wait.1)
+            wait_tcp_stage_fd(fd, wait.0, wait.1)
+        })()
+        .map_err(io::Error::other)
     })();
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
+    finish_ordered_send(result, disable_tcp_repair(fd))
+}
+
+#[derive(Debug)]
+struct OrderedSendRestoreError {
+    operation: Option<io::Error>,
+    restoration: io::Error,
+}
+
+impl std::fmt::Display for OrderedSendRestoreError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "TCP_REPAIR restoration failed: {}", self.restoration)?;
+        if let Some(operation) = &self.operation {
+            write!(formatter, "; ordered send failed: {operation}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for OrderedSendRestoreError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.operation.as_ref().unwrap_or(&self.restoration))
+    }
+}
+
+fn finish_ordered_send(operation: io::Result<()>, repair_restoration: io::Result<()>) -> io::Result<()> {
+    match repair_restoration {
+        Ok(()) => operation,
+        Err(restoration) => Err(io::Error::other(OrderedSendRestoreError { operation: operation.err(), restoration })),
+    }
 }
 
 fn build_ordered_tcp_packets(
@@ -313,7 +340,7 @@ pub fn send_seqovl_tcp(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_ordered_tcp_packets, genuine_ordered_payload};
+    use super::{build_ordered_tcp_packets, finish_ordered_send, genuine_ordered_payload};
     use crate::linux::tcp_repair::{TcpRepairOptionsSnapshot, TcpRepairSnapshot, TcpRepairWindow};
     use crate::{OrderedTcpSegment, TcpFlagOverrides};
 
@@ -394,6 +421,30 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn ordered_send_restoration_failure_is_terminal_and_keeps_original_error() {
+        let error = finish_ordered_send(
+            Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "raw preflight unavailable")),
+            Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "repair off denied")),
+        )
+        .expect_err("uncertain repair state must prevent fallback");
+        assert_eq!(error.kind(), std::io::ErrorKind::Other);
+        assert!(error.to_string().contains("repair off denied"));
+        assert!(error.to_string().contains("raw preflight unavailable"));
+        assert_eq!(
+            std::error::Error::source(&error).expect("original operation error").to_string(),
+            "raw preflight unavailable"
+        );
+    }
+
+    #[test]
+    fn ordered_send_restoration_success_preserves_preflight_kind() {
+        let error = finish_ordered_send(Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)), Ok(()))
+            .expect_err("preflight refused");
+        assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock);
+        assert!(finish_ordered_send(Ok(()), Ok(())).is_ok());
     }
 
     #[test]
