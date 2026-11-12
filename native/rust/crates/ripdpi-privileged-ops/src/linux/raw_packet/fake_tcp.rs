@@ -34,17 +34,13 @@ pub fn send_fake_tcp(
         return Ok(());
     }
 
-    let requires_exact_raw_path =
-        !options.fake_flags.is_empty() || !options.orig_flags.is_empty() || options.require_raw_path;
-    if requires_exact_raw_path || options.secondary_fake_prefix.is_some() || options.timestamp_delta_ticks.is_some() {
-        match send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, md5sig, options, wait) {
-            Ok(()) => return Ok(()),
-            Err(error) if requires_exact_raw_path => return Err(error),
-            Err(error) if should_fallback_raw_fake_tcp(error.kind()) => {
-                tracing::debug!("falling back to stream fake TCP path after raw fake downgrade: {error}");
-            }
-            Err(error) => return Err(error),
-        }
+    let requires_raw_path = !options.fake_flags.is_empty()
+        || !options.orig_flags.is_empty()
+        || options.require_raw_path
+        || options.secondary_fake_prefix.is_some()
+        || options.timestamp_delta_ticks.is_some();
+    if requires_raw_path {
+        return send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, md5sig, options, wait);
     }
 
     let fd = stream.as_raw_fd();
@@ -150,16 +146,6 @@ fn apply_fake_md5sig(stream: &TcpStream) -> io::Result<bool> {
 
 fn is_optional_md5sig_error(error: &io::Error) -> bool {
     matches!(error.raw_os_error(), Some(libc::EPERM | libc::EACCES | libc::ENOPROTOOPT | libc::EOPNOTSUPP))
-}
-
-fn should_fallback_raw_fake_tcp(kind: io::ErrorKind) -> bool {
-    matches!(
-        kind,
-        io::ErrorKind::Unsupported
-            | io::ErrorKind::PermissionDenied
-            | io::ErrorKind::WouldBlock
-            | io::ErrorKind::InvalidInput
-    )
 }
 
 fn send_fake_tcp_via_raw_packets(

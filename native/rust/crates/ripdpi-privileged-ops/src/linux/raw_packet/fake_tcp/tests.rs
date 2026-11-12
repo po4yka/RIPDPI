@@ -68,3 +68,88 @@ fn failed_fake_send_without_progress_preserves_errno() {
     assert_eq!(region.to_vec(), b"REAL");
     assert_eq!(stream.ttl().expect("read restored TTL"), 37);
 }
+
+fn clear_child_capabilities() {
+    #[repr(C)]
+    struct CapHeader {
+        version: u32,
+        pid: i32,
+    }
+    #[derive(Clone, Copy)]
+    #[repr(C)]
+    struct CapData {
+        effective: u32,
+        permitted: u32,
+        inheritable: u32,
+    }
+    const _: () = {
+        assert!(std::mem::size_of::<CapHeader>() == 8);
+        assert!(std::mem::size_of::<CapData>() == 12);
+    };
+    let mut header = CapHeader { version: 0x2008_0522, pid: 0 };
+    let data = [CapData { effective: 0, permitted: 0, inheritable: 0 }; 2];
+    // SAFETY: capability.h V3 requires one writable 8-byte header and two
+    // readable 12-byte capability words. Both objects live through the call.
+    // pid=0 changes only this child test thread, and all masks remove rights.
+    let result = unsafe { libc::syscall(libc::SYS_capset, &mut header as *mut CapHeader, data.as_ptr()) };
+    assert_eq!(result, 0, "clear child capabilities: {}", io::Error::last_os_error());
+}
+
+fn assert_raw_fake_modifier_does_not_fall_back(test_name: &str, options: FakeTcpOptions<'_>) {
+    const CHILD_ENV: &str = "RIPDPI_RAW_FAKE_MODIFIER_TEST_CHILD";
+    if std::env::var(CHILD_ENV).ok().as_deref() != Some(test_name) {
+        let status = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args(["--exact", test_name, "--nocapture", "--test-threads=1"])
+            .env(CHILD_ENV, test_name)
+            .status()
+            .expect("run unprivileged child fixture");
+        assert!(status.success(), "unprivileged child fixture failed");
+        return;
+    }
+    clear_child_capabilities();
+    let (stream, mut peer) = connected_pair();
+    let error =
+        send_fake_tcp(&stream, b"REAL", b"REAL", 1, false, 37, options, (false, std::time::Duration::from_millis(1)))
+            .expect_err("a requested raw modifier requires raw permissions");
+    assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+    stream.shutdown(std::net::Shutdown::Write).expect("finish stream");
+    let mut actual = Vec::new();
+    peer.read_to_end(&mut actual).expect("read peer bytes");
+    assert!(actual.is_empty(), "a failed raw modifier must not send a plain fallback");
+}
+
+#[test]
+fn secondary_raw_fake_modifier_requires_raw_transport() {
+    assert_raw_fake_modifier_does_not_fall_back(
+        "linux::raw_packet::fake_tcp::tests::secondary_raw_fake_modifier_requires_raw_transport",
+        FakeTcpOptions { secondary_fake_prefix: Some(b"SECONDARY"), ..Default::default() },
+    );
+}
+
+#[test]
+fn timestamp_raw_fake_modifier_requires_raw_transport() {
+    assert_raw_fake_modifier_does_not_fall_back(
+        "linux::raw_packet::fake_tcp::tests::timestamp_raw_fake_modifier_requires_raw_transport",
+        FakeTcpOptions { timestamp_delta_ticks: Some(1), ..Default::default() },
+    );
+}
+
+#[test]
+fn raw_original_option_preserves_default_stream_transport() {
+    let (stream, mut peer) = connected_pair();
+    send_fake_tcp(
+        &stream,
+        b"REAL",
+        b"REAL",
+        1,
+        false,
+        37,
+        FakeTcpOptions { force_raw_original: true, ..Default::default() },
+        (false, std::time::Duration::from_millis(1)),
+    )
+    .expect("default stream transport needs no raw permissions");
+    let mut actual = [0; 4];
+    peer.read_exact(&mut actual).expect("read original payload");
+    assert_eq!(&actual, b"REAL");
+    assert_eq!(stream.ttl().expect("read restored TTL"), 37);
+}
