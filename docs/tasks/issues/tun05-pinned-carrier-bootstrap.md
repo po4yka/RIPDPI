@@ -2,7 +2,7 @@
 id: RST-1794477836924583
 title: Pin WebSocket carrier bootstrap addresses
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Native lifecycle agent

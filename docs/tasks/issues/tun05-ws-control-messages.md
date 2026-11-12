@@ -2,7 +2,7 @@
 id: RST-1794478552541413
 title: Handle WebSocket control messages inside the carrier
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: medium
 owner: Native lifecycle agent

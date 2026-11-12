@@ -2,7 +2,7 @@
 id: RST-1794477240707368
 title: Bound AmneziaWG initial handshake cancellation
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Native lifecycle agent

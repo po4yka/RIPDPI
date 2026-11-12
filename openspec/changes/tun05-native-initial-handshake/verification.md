@@ -1,7 +1,7 @@
 ---
 task_id: RST-1794477240707368
 change: tun05-native-initial-handshake
-commit_sha: null
+commit_sha: 38b8f4bac65f29e14e6031633ce8611c20101b2f
 local: passed
 local_evidence: Red: /tmp/tun05-native-red2.log, both pending-write regressions failed. Green: /tmp/tun05-native-green.log, both passed. Affected core197 tests passed in /tmp/tun05-native-combined-tests.log.
 remote_ci: not_applicable
@@ -20,5 +20,9 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-AWG-STARTUP-STOP | RST-1794477361212948 | cargo test -p ripdpi-warp-core --locked | Passed; see local_evidence |
-| REQ-AWG-STARTUP-DEADLINE | RST-1794477361212948 | cargo test -p ripdpi-warp-core --locked | Passed; see local_evidence |
+| REQ-AWG-STARTUP-STOP | RST-1794477361212948 | cargo test -p ripdpi-warp-core --locked | passed |
+| REQ-AWG-STARTUP-DEADLINE | RST-1794477361212948 | cargo test -p ripdpi-warp-core --locked | passed |
+
+## Rebased combined verification
+
+Source commit 38b8f4bac65f29e14e6031633ce8611c20101b2f. Application sources match the tested revision 411ce08e731a7fec44808a87c9d6f1857ede8daf byte for byte; only task/OpenSpec records differ. `just ci-gates` passed (/tmp/tun05-rebased-ci-gates.log). Full staticAnalysis and 2288 Kotlin tests passed (/tmp/tun05-rebased-kotlin-gates.log): service2214, request18, editor37, readiness8, serialization11. Native core197 and carrier37 passed; affected-crate clippy passed without warnings. General and async reviews resolved all findings. No device, external-server, packaged-artifact or deployment acceptance is claimed.
