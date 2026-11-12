@@ -23,13 +23,17 @@ class WsTunnelWorkerTransportProvisionerTest {
             assertEquals(Bearer, store.credentials[CredentialRef])
             assertEquals(WorkerUrl, repository.snapshot().wsTunnelWorkerUrl)
             assertEquals(CredentialRef, repository.snapshot().wsTunnelWorkerCredentialRef)
-            assertEquals(listOf("save:$CredentialRef", "settings:update"), store.events + repository.events)
+            assertEquals(Bearer, store.resolveTransport(repository.snapshot())?.authBearer?.value)
         }
 
     @Test
-    fun `settings failure restores overwritten credential`() =
+    fun `settings failure keeps the previous URL and credential for the same requested reference`() =
         runTest {
-            val repository = FakeSettingsRepository(updateFailure = IllegalStateException("disk full"))
+            val repository =
+                FakeSettingsRepository(
+                    initial = configuredSettings("https://old.example/ws"),
+                    updateFailure = IllegalStateException("disk full"),
+                )
             val store = FakeCredentialStore(mutableMapOf(CredentialRef to "previous"))
             val provisioner = WsTunnelWorkerTransportProvisioner(repository, store)
 
@@ -39,8 +43,10 @@ class WsTunnelWorkerTransportProvisionerTest {
                 }.exceptionOrNull()
 
             assertTrue(failure is IllegalStateException)
-            assertEquals("previous", store.credentials[CredentialRef])
-            assertEquals("", repository.snapshot().wsTunnelWorkerUrl)
+            assertEquals(mapOf(CredentialRef to "previous"), store.credentials)
+            val transport = store.resolveTransport(repository.snapshot())
+            assertEquals("https://old.example/ws", transport?.workerUrl)
+            assertEquals("previous", transport?.authBearer?.value)
         }
 
     @Test
@@ -80,7 +86,7 @@ class WsTunnelWorkerTransportProvisionerTest {
         }
 
     @Test
-    fun `rotation cleanup failure rolls back the new credential and keeps old settings`() =
+    fun `rotation cleanup failure keeps the published credential and settings`() =
         runTest {
             val repository =
                 FakeSettingsRepository(
@@ -104,8 +110,9 @@ class WsTunnelWorkerTransportProvisionerTest {
 
             assertTrue(failure is IllegalStateException)
             assertEquals("old-secret", store.credentials["old"])
-            assertFalse(CredentialRef in store.credentials)
-            assertEquals("old", repository.snapshot().wsTunnelWorkerCredentialRef)
+            assertEquals(Bearer, store.credentials[CredentialRef])
+            assertEquals(WorkerUrl, store.resolveTransport(repository.snapshot())?.workerUrl)
+            assertEquals(CredentialRef, repository.snapshot().wsTunnelWorkerCredentialRef)
         }
 
     @Test
@@ -128,24 +135,100 @@ class WsTunnelWorkerTransportProvisionerTest {
             assertFalse(CredentialRef in store.credentials)
         }
 
+    @Test
+    fun `exception after settings commit does not delete the active credential`() =
+        runTest {
+            val repository = FakeSettingsRepository(afterUpdateFailure = IllegalStateException("after commit"))
+            val store = FakeCredentialStore()
+
+            val failure =
+                runCatching {
+                    WsTunnelWorkerTransportProvisioner(repository, store)
+                        .provision(WorkerUrl, CredentialRef, SecretString(Bearer))
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            val transport = store.resolveTransport(repository.snapshot())
+            assertEquals(WorkerUrl, transport?.workerUrl)
+            assertEquals(Bearer, transport?.authBearer?.value)
+        }
+
+    @Test
+    fun `failed clear publication preserves the active credential`() =
+        runTest {
+            val repository =
+                FakeSettingsRepository(
+                    initial = configuredSettings(),
+                    updateFailure = IllegalStateException("disk full"),
+                )
+            val store = FakeCredentialStore(mutableMapOf(CredentialRef to Bearer))
+
+            val failure =
+                runCatching { WsTunnelWorkerTransportProvisioner(repository, store).clear() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals(Bearer, store.resolveTransport(repository.snapshot())?.authBearer?.value)
+        }
+
+    @Test
+    fun `failed clear cleanup leaves the route disabled`() =
+        runTest {
+            val repository = FakeSettingsRepository(configuredSettings())
+            val store = FakeCredentialStore(mutableMapOf(CredentialRef to Bearer), clearFailureRef = CredentialRef)
+
+            val failure =
+                runCatching { WsTunnelWorkerTransportProvisioner(repository, store).clear() }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals("", repository.snapshot().wsTunnelWorkerUrl)
+            assertEquals("", repository.snapshot().wsTunnelWorkerCredentialRef)
+            assertEquals(Bearer, store.credentials[CredentialRef])
+        }
+
+    @Test
+    fun `failed rollback cleanup preserves the publication failure`() =
+        runTest {
+            val expected = IllegalStateException("disk full")
+            val repository = FakeSettingsRepository(updateFailure = expected)
+            val store = FakeCredentialStore(clearFailureRef = CredentialRef)
+
+            val failure =
+                runCatching {
+                    WsTunnelWorkerTransportProvisioner(repository, store)
+                        .provision(WorkerUrl, CredentialRef, SecretString(Bearer))
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals("disk full", failure?.message)
+            assertEquals("credential clear failed", expected.suppressed.single().message)
+            assertEquals("", repository.snapshot().wsTunnelWorkerCredentialRef)
+        }
+
+    private fun configuredSettings(url: String = WorkerUrl): AppSettings =
+        AppSettingsSerializer.defaultValue
+            .toBuilder()
+            .setWsTunnelWorkerUrl(url)
+            .setWsTunnelWorkerCredentialRef(CredentialRef)
+            .build()
+
     private class FakeSettingsRepository(
         initial: AppSettings = AppSettingsSerializer.defaultValue,
         private val updateFailure: Throwable? = null,
+        private val afterUpdateFailure: Throwable? = null,
     ) : AppSettingsRepository {
         private val state = MutableStateFlow(initial)
-        val events = mutableListOf<String>()
         override val settings: Flow<AppSettings> = state
 
         override suspend fun snapshot(): AppSettings = state.value
 
         override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-            events += "settings:update"
             updateFailure?.let { throw it }
             state.value =
                 state.value
                     .toBuilder()
                     .apply(transform)
                     .build()
+            afterUpdateFailure?.let { throw it }
         }
 
         override suspend fun replace(settings: AppSettings) {
@@ -157,20 +240,16 @@ class WsTunnelWorkerTransportProvisionerTest {
         val credentials: MutableMap<String, String> = mutableMapOf(),
         private val clearFailureRef: String? = null,
     ) : WsTunnelWorkerCredentialStore {
-        val events = mutableListOf<String>()
-
         override suspend fun load(credentialRef: String): String? = credentials[credentialRef]
 
         override suspend fun save(
             credentialRef: String,
             bearer: String,
         ) {
-            events += "save:$credentialRef"
             credentials[credentialRef] = bearer
         }
 
         override suspend fun clear(credentialRef: String) {
-            events += "clear:$credentialRef"
             check(credentialRef != clearFailureRef) { "credential clear failed" }
             credentials.remove(credentialRef)
         }

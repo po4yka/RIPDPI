@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.data
 
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,64 +26,63 @@ class WsTunnelWorkerTransportProvisioner
             bearer: SecretString,
         ): CloudflareWorkerTransportConfig =
             mutex.withLock {
-                val config = CloudflareWorkerTransportConfig(workerUrl.trim(), credentialRef.trim(), bearer)
-                val previousSettings = appSettingsRepository.snapshot()
-                val previousSecret = credentialStore.load(config.credentialRef)
-                val previousRef = previousSettings.wsTunnelWorkerCredentialRef.trim()
-                val previousRefSecret =
-                    previousRef
-                        .takeIf { it.isNotEmpty() && it != config.credentialRef }
-                        ?.let { credentialStore.load(it) }
-
-                credentialStore.save(config.credentialRef, config.authBearer.value)
-                try {
-                    if (previousRef.isNotEmpty() && previousRef != config.credentialRef) {
+                currentCoroutineContext().ensureActive()
+                val requested = CloudflareWorkerTransportConfig(workerUrl.trim(), credentialRef.trim(), bearer)
+                withContext(NonCancellable) {
+                    val previousRef = appSettingsRepository.snapshot().wsTunnelWorkerCredentialRef.trim()
+                    // A new reference keeps the old URL/bearer pair intact if the process dies before publication.
+                    val config =
+                        if (requested.credentialRef == previousRef ||
+                            credentialStore.load(requested.credentialRef) != null
+                        ) {
+                            requested.copy(credentialRef = UUID.randomUUID().toString())
+                        } else {
+                            requested
+                        }
+                    try {
+                        credentialStore.save(config.credentialRef, config.authBearer.value)
+                        appSettingsRepository.update {
+                            setWsTunnelWorkerUrl(config.workerUrl)
+                            setWsTunnelWorkerCredentialRef(config.credentialRef)
+                        }
+                    } catch (failure: Throwable) {
+                        discardUnpublished(config.credentialRef, failure)
+                        throw failure
+                    }
+                    // Cleanup failure must never roll back an already published credential.
+                    if (previousRef.isNotEmpty()) {
                         credentialStore.clear(previousRef)
                     }
-                    appSettingsRepository.update {
-                        setWsTunnelWorkerUrl(config.workerUrl)
-                        setWsTunnelWorkerCredentialRef(config.credentialRef)
-                    }
-                } catch (failure: Throwable) {
-                    withContext(NonCancellable) {
-                        restoreCredential(config.credentialRef, previousSecret)
-                        if (previousRef.isNotEmpty() && previousRef != config.credentialRef) {
-                            restoreCredential(previousRef, previousRefSecret)
-                        }
-                    }
-                    throw failure
+                    config
                 }
-                config
             }
 
-        @Suppress("TooGenericExceptionCaught")
         suspend fun clear() {
             mutex.withLock {
-                val previousRef = appSettingsRepository.snapshot().wsTunnelWorkerCredentialRef.trim()
-                val previousSecret = previousRef.takeIf(String::isNotEmpty)?.let { credentialStore.load(it) }
-                if (previousRef.isNotEmpty()) credentialStore.clear(previousRef)
-                try {
+                currentCoroutineContext().ensureActive()
+                withContext(NonCancellable) {
+                    val previousRef = appSettingsRepository.snapshot().wsTunnelWorkerCredentialRef.trim()
                     appSettingsRepository.update {
                         setWsTunnelWorkerUrl("")
                         setWsTunnelWorkerCredentialRef("")
                     }
-                } catch (failure: Throwable) {
-                    withContext(NonCancellable) {
-                        if (previousRef.isNotEmpty()) restoreCredential(previousRef, previousSecret)
-                    }
-                    throw failure
+                    if (previousRef.isNotEmpty()) credentialStore.clear(previousRef)
                 }
             }
         }
 
-        private suspend fun restoreCredential(
+        @Suppress("TooGenericExceptionCaught")
+        private suspend fun discardUnpublished(
             credentialRef: String,
-            previousSecret: String?,
+            failure: Throwable,
         ) {
-            if (previousSecret == null) {
-                credentialStore.clear(credentialRef)
-            } else {
-                credentialStore.save(credentialRef, previousSecret)
+            try {
+                // Keep the secret if publication succeeded or its durable state cannot be read.
+                if (appSettingsRepository.snapshot().wsTunnelWorkerCredentialRef.trim() != credentialRef) {
+                    credentialStore.clear(credentialRef)
+                }
+            } catch (cleanupFailure: Throwable) {
+                if (cleanupFailure !== failure) failure.addSuppressed(cleanupFailure)
             }
         }
     }
