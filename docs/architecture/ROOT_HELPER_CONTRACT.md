@@ -55,8 +55,10 @@ cannot.
   the app uid to connect (`ripdpi-root-helper/src/main.rs`,
   `prepare_socket_for_app`).
 - **Framing (protocol v3):** each JSON object is prefixed by a 4-byte big-endian
-  payload length with an **8192-byte cap** (`MAX_MESSAGE_BYTES`,
-  `ripdpi-root-helper-protocol/src/scm_rights.rs`). Exact-size `recvmsg` loops
+  payload length. Generic control frames and nonbulk requests keep the
+  **8192-byte cap** (`MAX_MESSAGE_BYTES`). Only `send_fake_tcp` and
+  `send_ordered_tcp_segments` requests can use the bounded bulk envelope below.
+  Exact-size `recvmsg` loops
   preserve frame boundaries and SCM_RIGHTS data across `SOCK_STREAM` short
   reads; `send_message` completes short writes without resending the fd.
 - **Request** — `HelperRequest { protocol_version: Option<u32>, command: String, params: Value,
@@ -84,6 +86,26 @@ cannot.
   to each read and rejects a frame completed at or after its deadline.
 - The socket path is published to native code (`Tun2SocksConfig.rootHelperSocketPath`)
   **only after** the socket is confirmed connectable — never a stale path.
+
+### Bounded TCP request payloads
+
+The pure protocol preflight returns additive `data.bulk_tcp` limits. The client
+checks these limits before it connects to send a bulk command or transfers its
+socket descriptor. A legacy helper without this advertisement accepts only
+control-sized requests. The version-three JSON byte arrays and command strings
+remain unchanged; the advertisement does not change the capability-probe schema.
+
+- The bulk JSON envelope is at most **1 MiB**. This holds three 65535-byte spans
+  at the worst-case four JSON bytes per payload byte, plus bounded metadata.
+- Each original, fake, secondary, or ordered payload span is at most **65535
+  bytes**. The aggregate payload is at most **196605 bytes**.
+- An ordered request has at most **64 segments**. Current fake-family emitters
+  use at most four; this limit also bounds per-segment metadata.
+- The request receiver checks the one-MiB length before allocation, then checks
+  command and payload limits before dispatch. It can temporarily allocate up to
+  one MiB for a nonbulk frame, but rejects a nonbulk frame above 8192 bytes.
+- Rejected frames close any received descriptor. Session-nonce checks, protocol
+  validation, and total request deadlines remain required.
 
 ## Session authentication — the nonce
 
@@ -119,7 +141,7 @@ work** (it is a deliberate, security-reviewed change).
 
 | `CMD_*` | Wire string | Privileged operation | Client→helper fd | Helper→client reply fd |
 |---------|-------------|----------------------|------------------|------------------------|
-| `CMD_PROTOCOL_PREFLIGHT` | `v3/protocol_preflight` | Pure protocol-version handshake; no capability probe or privileged operation | — | — |
+| `CMD_PROTOCOL_PREFLIGHT` | `v3/protocol_preflight` | Pure protocol-version handshake and bulk request limits; no capability probe or privileged operation | — | — |
 | `CMD_PROBE_CAPABILITIES` | `v3/probe_capabilities` | Probe raw-socket / `TCP_REPAIR` support | — | — |
 | `CMD_SEND_FAKE_TCP` | `v3/send_fake_tcp` | Emit a TTL-limited / decoy TCP segment | TCP socket fd | optional replacement fd |
 | `CMD_SEND_FAKE_RST` | `v3/send_fake_rst` | Emit a fake TCP RST | TCP socket fd | — |

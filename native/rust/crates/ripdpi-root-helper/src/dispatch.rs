@@ -112,7 +112,7 @@ pub(crate) fn dispatch_command_with_backend(
 
     match request.command.as_str() {
         CMD_PROTOCOL_PREFLIGHT => {
-            DispatchOutcome::command(protocol::HelperResponse::success(serde_json::Value::Null), None)
+            DispatchOutcome::command(protocol::HelperResponse::success(protocol::bulk_tcp_preflight_data()), None)
         }
         CMD_PROBE_CAPABILITIES => capabilities::dispatch_probe_capabilities(),
         CMD_SEND_FAKE_TCP => tcp_payload::dispatch_send_fake_tcp(request, received_fd),
@@ -276,11 +276,11 @@ mod tests {
     }
 
     #[test]
-    fn protocol_preflight_is_a_pure_empty_success() {
+    fn protocol_preflight_is_a_pure_limits_success() {
         let outcome = dispatch_command(&request_for(CMD_PROTOCOL_PREFLIGHT), None);
 
         assert!(outcome.response.ok);
-        assert!(outcome.response.data.is_null());
+        assert_eq!(outcome.response.data, ripdpi_root_helper_protocol::bulk_tcp_preflight_data());
         assert!(outcome.reply_fd.is_none());
         assert!(!outcome.shutdown_requested);
     }

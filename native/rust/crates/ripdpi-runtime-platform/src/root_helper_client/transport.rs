@@ -8,7 +8,7 @@ use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr, connect, soc
 
 use ripdpi_root_helper_protocol::{
     CMD_PROTOCOL_PREFLIGHT, CMD_SEND_FAKE_TCP, HelperRequest, HelperResponse, PROTOCOL_VERSION,
-    recv_message_with_deadline, send_message, valid_session_nonce, validate_request,
+    recv_message_with_deadline, send_request_message, valid_session_nonce, validate_request, validate_request_with_peer,
 };
 
 /// Upper bound for one connect to the helper socket. A blocking AF_UNIX
@@ -61,11 +61,21 @@ impl ClientTransport {
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
 
         let session_nonce = load_session_nonce(&self.session_nonce_path()).map_err(not_delivered)?;
-        if command != CMD_PROTOCOL_PREFLIGHT {
-            self.send_command_once(CMD_PROTOCOL_PREFLIGHT, serde_json::Value::Null, None, &session_nonce)
-                .map_err(not_delivered)?;
-        }
-        self.send_command_once(command, params, fd, &session_nonce)
+        let preflight = if command != CMD_PROTOCOL_PREFLIGHT {
+            Some(
+                self.send_command_once(CMD_PROTOCOL_PREFLIGHT, serde_json::Value::Null, None, &session_nonce, None)
+                    .map_err(not_delivered)?,
+            )
+        } else {
+            None
+        };
+        self.send_command_once(
+            command,
+            params,
+            fd,
+            &session_nonce,
+            preflight.as_ref().map(|(response, _)| &response.data),
+        )
     }
 
     fn send_command_once(
@@ -74,15 +84,10 @@ impl ClientTransport {
         params: serde_json::Value,
         fd: Option<BorrowedFd<'_>>,
         session_nonce: &str,
+        preflight: Option<&serde_json::Value>,
     ) -> io::Result<(HelperResponse, Option<OwnedFd>)> {
         let descriptor = validate_request(command, fd.is_some(), !params.is_null())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-        let stream = connect_bounded(&self.socket_path, CONNECT_TIMEOUT).map_err(not_delivered)?;
-        let read_timeout =
-            if command == CMD_PROTOCOL_PREFLIGHT { PREFLIGHT_READ_TIMEOUT } else { COMMAND_READ_TIMEOUT };
-        stream.set_read_timeout(Some(read_timeout)).map_err(not_delivered)?;
-        stream.set_write_timeout(Some(Duration::from_secs(10))).map_err(not_delivered)?;
-
         let request = HelperRequest {
             protocol_version: Some(PROTOCOL_VERSION),
             command: command.to_owned(),
@@ -90,9 +95,22 @@ impl ClientTransport {
             session_nonce: Some(session_nonce.to_owned()),
         };
         let json = serde_json::to_vec(&request).map_err(|e| io::Error::other(format!("serialize request: {e}")))?;
+        if let Some(preflight) = preflight {
+            validate_request_with_peer(&request, json.len(), preflight)
+                .map_err(|error| {
+                    io::Error::new(error.kind(), format!("{command}: {error} (request is {} bytes)", json.len()))
+                })
+                .map_err(not_delivered)?;
+        }
+
+        let stream = connect_bounded(&self.socket_path, CONNECT_TIMEOUT).map_err(not_delivered)?;
+        let read_timeout =
+            if command == CMD_PROTOCOL_PREFLIGHT { PREFLIGHT_READ_TIMEOUT } else { COMMAND_READ_TIMEOUT };
+        stream.set_read_timeout(Some(read_timeout)).map_err(not_delivered)?;
+        stream.set_write_timeout(Some(Duration::from_secs(10))).map_err(not_delivered)?;
 
         // A failed or partial frame never reaches the helper's dispatcher.
-        send_message(&stream, &json, fd)
+        send_request_message(&stream, &json, fd)
             .map_err(|error| {
                 if error.kind() == io::ErrorKind::InvalidInput {
                     // Keep the size in the fallback log: this op goes local on every call.
@@ -210,6 +228,8 @@ fn load_session_nonce(path: &str) -> io::Result<String> {
 
 #[cfg(test)]
 mod tests {
+    mod bulk_tests;
+
     use super::{ClientTransport, connect_bounded, is_not_delivered, load_session_nonce, session_nonce_path};
     use std::io;
     use std::io::Write;
@@ -543,31 +563,6 @@ mod tests {
 
         assert!(is_not_delivered(&error), "the command never reached the helper: {error:?}");
         assert!(elapsed < std::time::Duration::from_secs(5), "preflight waited {elapsed:?}");
-    }
-
-    #[test]
-    fn oversized_request_is_not_delivered_and_names_its_size() {
-        let fixture = TransportFixture::start_after_protocol_preflight(|stream| {
-            recv_message(&stream, "client closed").expect_err("no frame may reach the helper")
-        });
-        let request_fd = std::fs::File::open("/dev/null").expect("open request fd");
-        let prefix = vec![255u8; 4096];
-
-        let error = fixture
-            .transport
-            .send_command(
-                ripdpi_root_helper_protocol::CMD_SEND_FAKE_TCP,
-                serde_json::json!({ "original_prefix": prefix, "fake_prefix": [], "ttl": 1, "default_ttl": 64 }),
-                Some(request_fd.as_fd()),
-            )
-            .expect_err("an oversized frame must not be sent");
-        fixture.join();
-
-        assert!(is_not_delivered(&error));
-        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
-        let message = error.to_string();
-        assert!(message.contains("exceeds 8192 bytes"), "{message}");
-        assert!(message.contains("request is"), "{message}");
     }
 
     #[test]

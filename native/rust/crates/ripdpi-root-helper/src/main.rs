@@ -212,6 +212,12 @@ fn handle_connection_with_backend(
         return Ok(());
     }
 
+    if let Err(error) = protocol::validate_request_with_peer(&request, data.len(), &protocol::bulk_tcp_preflight_data())
+    {
+        send_response(stream, HelperResponse::error(error.to_string()), None)?;
+        return Ok(());
+    }
+
     info!(command = %request.command, "received command");
 
     // `dispatch_command` takes sole, total ownership of `received_fd`: it
@@ -286,7 +292,7 @@ impl RequestDeadline {
     fn recv_request(&self, stream: &UnixStream, timeout: Duration) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
         *self.lock() = Some((stream.try_clone()?, Instant::now() + timeout));
         self.wake.notify_one();
-        let received = protocol::recv_message(stream, "peer closed connection");
+        let received = protocol::recv_request_message(stream, "peer closed connection");
         // The reader also checks the deadline in case the watchdog wakes late.
         if self.lock().take().is_none_or(|(_, deadline)| Instant::now() >= deadline) {
             let _ = stream.shutdown(std::net::Shutdown::Both);
@@ -583,9 +589,16 @@ mod tests {
         let watchdog = super::RequestDeadline::spawn().expect("watchdog");
         for _ in 0..2 {
             let (client, server) = UnixStream::pair().expect("socket pair");
-            send_message(&client, b"{}", None).expect("send request");
+            let json = serde_json::to_vec(&HelperRequest {
+                protocol_version: Some(PROTOCOL_VERSION),
+                command: ripdpi_root_helper_protocol::CMD_PROTOCOL_PREFLIGHT.to_owned(),
+                params: serde_json::Value::Null,
+                session_nonce: None,
+            })
+            .expect("request JSON");
+            send_message(&client, &json, None).expect("send request");
             let (payload, _) = watchdog.recv_request(&server, Duration::from_millis(300)).expect("complete request");
-            assert_eq!(payload, b"{}");
+            assert_eq!(payload, json);
 
             // A frame that never completes ends at its own deadline, not an earlier one.
             let (mut client, server) = UnixStream::pair().expect("socket pair");

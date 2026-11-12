@@ -29,7 +29,7 @@ pub const CMD_PROBE_CAPABILITIES: &str = "v3/probe_capabilities";
 /// Pure wire-version preflight used before any command with side effects.
 ///
 /// The helper performs no capability probe, socket operation, or fd exchange;
-/// the response version fields are the entire contract.
+/// the response carries version fields and additive bounded TCP request limits.
 pub const CMD_PROTOCOL_PREFLIGHT: &str = "v3/protocol_preflight";
 
 /// Emit a fake TCP segment (TTL-limited / decoy) ahead of the real payload.

@@ -38,6 +38,7 @@ fn preflight_response_trickle_cannot_extend_the_total_deadline() {
         serde_json::Value::Null,
         None,
         "abcdefghijklmnopqrstuvwxyzABCDEF",
+        None,
     );
     let elapsed = started.elapsed();
     sender.join().expect("sender");

@@ -6,6 +6,8 @@ use std::time::Instant;
 
 use nix::sys::socket::{self, ControlMessage, ControlMessageOwned, MsgFlags};
 
+use crate::request_limits::{MAX_BULK_REQUEST_BYTES, validate_request_envelope, validate_request_message};
+
 pub const MAX_MESSAGE_BYTES: usize = 8192;
 const FRAME_HEADER_BYTES: usize = size_of::<u32>();
 // Receive the whole supported AF_UNIX descriptor envelope before enforcing
@@ -31,10 +33,20 @@ fn recv_flags() -> MsgFlags {
 /// Write one length-prefixed JSON frame, optionally sending one fd via
 /// SCM_RIGHTS on the first bytes of the frame.
 pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>) -> io::Result<()> {
-    if json.len() > MAX_MESSAGE_BYTES {
+    send_frame(stream, json, fd, MAX_MESSAGE_BYTES)
+}
+
+/// Send a command-bounded request; only fake and ordered TCP commands admit bulk bytes.
+pub fn send_request_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>) -> io::Result<()> {
+    validate_request_message(json)?;
+    send_frame(stream, json, fd, MAX_BULK_REQUEST_BYTES)
+}
+
+fn send_frame(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>, max_bytes: usize) -> io::Result<()> {
+    if json.len() > max_bytes {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            format!("root-helper IPC message exceeds {MAX_MESSAGE_BYTES} bytes"),
+            format!("root-helper IPC message exceeds {max_bytes} bytes"),
         ));
     }
     let length = u32::try_from(json.len())
@@ -71,7 +83,15 @@ pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>
 /// SCM_RIGHTS. Exact-size recvmsg loops preserve both stream frame boundaries
 /// and ancillary data across arbitrary kernel short reads.
 pub fn recv_message(stream: &UnixStream, eof_message: &'static str) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
-    recv_message_inner(stream, eof_message, None)
+    recv_message_inner(stream, eof_message, None, MAX_MESSAGE_BYTES)
+}
+
+/// Receive at most one MiB and enforce command envelope limits.
+/// The authenticated helper must validate payload bounds before dispatch.
+pub fn recv_request_message(stream: &UnixStream, eof_message: &'static str) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
+    let (json, fd) = recv_message_inner(stream, eof_message, None, MAX_BULK_REQUEST_BYTES)?;
+    validate_request_envelope(&json).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    Ok((json, fd))
 }
 
 /// Read one frame before a total monotonic deadline, updating the socket's
@@ -81,23 +101,24 @@ pub fn recv_message_with_deadline(
     eof_message: &'static str,
     deadline: Instant,
 ) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
-    recv_message_inner(stream, eof_message, Some(deadline))
+    recv_message_inner(stream, eof_message, Some(deadline), MAX_MESSAGE_BYTES)
 }
 
 fn recv_message_inner(
     stream: &UnixStream,
     eof_message: &'static str,
     deadline: Option<Instant>,
+    max_bytes: usize,
 ) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
     let mut received_fds = Vec::new();
     let mut header = [0u8; FRAME_HEADER_BYTES];
     recv_exact_with_optional_fd(stream, &mut header, &mut received_fds, eof_message, deadline)?;
 
     let length = u32::from_be_bytes(header) as usize;
-    if length > MAX_MESSAGE_BYTES {
+    if length > max_bytes {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("root-helper IPC message exceeds {MAX_MESSAGE_BYTES} bytes"),
+            format!("root-helper IPC message exceeds {max_bytes} bytes"),
         ));
     }
 

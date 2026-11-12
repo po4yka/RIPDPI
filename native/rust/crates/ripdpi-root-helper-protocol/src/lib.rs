@@ -13,6 +13,7 @@
 mod command_descriptor;
 mod commands;
 mod params;
+mod request_limits;
 mod scm_rights;
 mod wire;
 
@@ -30,7 +31,10 @@ pub use params::{
     Nfqws2Status, OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
     StartNfqws2Params,
 };
-pub use scm_rights::{recv_message, recv_message_with_deadline, send_message};
+pub use request_limits::{bulk_tcp_preflight_data, validate_request_with_peer};
+pub use scm_rights::{
+    recv_message, recv_message_with_deadline, recv_request_message, send_message, send_request_message,
+};
 pub use wire::{
     CAPABILITY_VERSION, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES,
     PROTOCOL_VERSION, ProtocolVersionError, valid_session_nonce,
