@@ -117,8 +117,8 @@ pub(crate) fn execute(
             ctx.group.actions.ip_id_mode,
             opts.wait,
             "send_fake_fakesplit",
-            "fakesplit",
-            None,
+            step_family,
+            step_fallback,
             bytes_committed,
         )?
     };

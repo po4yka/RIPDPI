@@ -21,6 +21,7 @@ enum FaultSpec {
     OrderedSegments(io::ErrorKind),
     OrderedSegmentsAfterPartialGenuine,
     FakeSendAfterPrefix(usize),
+    FakePayload { bytes: Vec<u8>, kind: io::ErrorKind },
 }
 
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
@@ -126,6 +127,15 @@ impl TcpFakeSender for ReceiptTestPlatform {
         } else if ttl == 1 {
             return Err(io::Error::from_raw_os_error(libc::EPERM));
         }
+        let mut faults = self.faults.lock().expect("receipt fault queue");
+        if let Some(FaultSpec::FakePayload { bytes, kind }) = faults.front()
+            && bytes == original_prefix
+        {
+            let kind = *kind;
+            faults.pop_front();
+            return Err(io::Error::new(kind, "injected fake payload failure"));
+        }
+        drop(faults);
         let mut stream = stream;
         stream.write_all(original_prefix)
     }
