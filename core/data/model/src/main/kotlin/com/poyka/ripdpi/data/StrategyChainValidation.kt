@@ -100,6 +100,9 @@ internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
 }
 
 internal fun validateTcpStepOptions(step: TcpChainStepModel) {
+    require(step.kind != TcpChainStepKind.Split || isValidSplitOffsetExpression(step.marker)) {
+        "split does not support repeated offsets or a non-zero skip"
+    }
     validateTcpFlagMasks(
         kind = step.kind,
         tcpFlagsSet = step.tcpFlagsSet,

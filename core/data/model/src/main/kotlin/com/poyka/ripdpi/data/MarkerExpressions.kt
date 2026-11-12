@@ -71,6 +71,14 @@ fun isValidOffsetExpression(value: String): Boolean {
     return true
 }
 
+fun isValidSplitOffsetExpression(value: String): Boolean {
+    if (!isValidOffsetExpression(value)) {
+        return false
+    }
+    val parts = value.trim().split(':')
+    return (parts.getOrNull(1)?.toIntOrNull() ?: 1) == 1 && (parts.getOrNull(2)?.toIntOrNull() ?: 0) == 0
+}
+
 fun isAdaptiveOffsetExpression(value: String): Boolean = AdaptiveOffsetPattern.matches(value.trim())
 
 fun isValidFakeOffsetExpression(value: String): Boolean {

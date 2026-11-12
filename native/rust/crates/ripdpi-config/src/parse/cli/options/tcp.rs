@@ -57,6 +57,12 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
         "-s" | "--split" | "--seqovl" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f" | "--fake" => {
             let value = next_value(args, idx, arg)?;
             let offset = parse_offset_expr(value)?;
+            if matches!(arg, "-s" | "--split") && (offset.repeats > 1 || offset.skip != 0) {
+                return Err(ConfigError::invalid(
+                    arg,
+                    Some("split does not support repeated offsets or a non-zero skip"),
+                ));
+            }
             if arg == "--seqovl" {
                 if state.group().actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SeqOverlap) {
                     return Err(ConfigError::invalid(arg, Some("seqovl already declared for this group")));

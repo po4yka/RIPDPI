@@ -1052,3 +1052,28 @@ fn active_awg_dns_snapshot_reaches_runtime_without_rewriting_destination_policy(
             .all(|group| group.policy.ext_socks.as_ref().unwrap().addr == "127.0.0.1:10809".parse().unwrap())
     );
 }
+
+#[test]
+fn ui_payload_rejects_unsupported_split_repetition() {
+    for marker in ["1:3:5", "host+2:2", "host+2:1:1", "host+2:1:-1"] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = vec![tcp_step("split", marker)];
+        assert!(runtime_config_from_payload(ui_payload(ui)).is_err(), "{marker} should be rejected");
+    }
+}
+
+#[test]
+fn ui_payload_preserves_single_split_and_tlsrec_repetition() {
+    for marker in ["host+2", "host+2:1", "host+2:1:0"] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = vec![tcp_step("split", marker)];
+        assert!(runtime_config_from_payload(ui_payload(ui)).is_ok(), "{marker} should be accepted");
+    }
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "1:3:5")];
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("tlsrec repetitions");
+    assert_eq!(
+        config.groups[0].actions.tcp_chain[0].offset(),
+        ripdpi_config::OffsetExpr::absolute(1).with_repeat_skip(3, 5)
+    );
+}

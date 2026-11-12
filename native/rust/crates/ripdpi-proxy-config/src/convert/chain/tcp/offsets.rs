@@ -11,6 +11,11 @@ pub(crate) fn parse_step_offset(
     field_name: &str,
 ) -> Result<OffsetExpr, ProxyConfigError> {
     let offset = parse_offset_expr_field(Some(step.marker.as_str()), "0", field_name)?;
+    if kind == TcpChainStepKind::Split && (offset.repeats > 1 || offset.skip != 0) {
+        return Err(ProxyConfigError::InvalidConfig(format!(
+            "{field_name} split does not support repeated offsets or a non-zero skip"
+        )));
+    }
     ensure_hostfake_allows_offset(kind, offset.base.is_adaptive(), field_name)?;
     Ok(offset)
 }

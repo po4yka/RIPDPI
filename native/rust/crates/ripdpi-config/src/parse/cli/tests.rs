@@ -160,6 +160,29 @@ fn parse_cli_rejects_ech_fake_offset_marker() {
 }
 
 #[test]
+fn parse_cli_rejects_unsupported_split_repetition() {
+    for flag in ["-s", "--split"] {
+        for marker in ["1:3:5", "host+2:2", "host+2:1:1", "host+2:1:-1"] {
+            let args = vec![flag.to_string(), marker.to_string()];
+            assert!(parse_cli(&args, &StartupEnv::default()).is_err(), "{flag} {marker} should be rejected");
+        }
+    }
+}
+
+#[test]
+fn parse_cli_preserves_single_split_and_tlsrec_repetition() {
+    for marker in ["host+2", "host+2:1", "host+2:1:0"] {
+        let args = vec!["--split".to_string(), marker.to_string()];
+        assert!(parse_cli(&args, &StartupEnv::default()).is_ok(), "{marker} should be accepted");
+    }
+    let args = vec!["--tlsrec".to_string(), "1:3:5".to_string()];
+    let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("tlsrec repetitions") else {
+        panic!("expected runnable config");
+    };
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset(), OffsetExpr::absolute(1).with_repeat_skip(3, 5));
+}
+
+#[test]
 fn parse_cli_accepts_ech_split_marker() {
     let args = vec!["--split".to_string(), "echext".to_string()];
 

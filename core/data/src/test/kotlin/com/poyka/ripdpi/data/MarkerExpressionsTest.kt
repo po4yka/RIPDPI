@@ -71,6 +71,16 @@ class MarkerExpressionsTest {
     }
 
     @Test
+    fun `split offsets accept only one split without a skip`() {
+        for (marker in listOf("host+1", "host+1:1", "host+1:1:0", "auto(host)")) {
+            assertTrue(marker, isValidSplitOffsetExpression(marker))
+        }
+        for (marker in listOf("host+1:3", "host+1:3:2", "host+1:1:1", "host+1:1:-1", "host+1::0", "")) {
+            assertFalse(marker, isValidSplitOffsetExpression(marker))
+        }
+    }
+
+    @Test
     fun `repeat with zero or negative count is rejected`() {
         assertFalse(isValidOffsetExpression("host+1:0"))
         assertFalse(isValidOffsetExpression("host+1:-1"))

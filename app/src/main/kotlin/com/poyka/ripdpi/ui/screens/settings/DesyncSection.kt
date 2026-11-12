@@ -20,9 +20,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.IpIdModeDefault
+import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isValidFakeOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
+import com.poyka.ripdpi.data.isValidSplitOffsetExpression
+import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -166,13 +169,16 @@ private fun SplitMarkerSetting(model: DesyncSectionModel) {
     val uiState = model.uiState
     HorizontalDivider(color = colors.divider)
     if (uiState.desync.hasAdaptiveSplitPreset) return
+    val markerKind = primaryTcpChainStep(uiState.desync.tcpChainSteps)?.kind ?: TcpChainStepKind.Split
+    val markerValidator =
+        if (markerKind == TcpChainStepKind.Split) ::isValidSplitOffsetExpression else ::isValidOffsetExpression
     AdvancedTextSetting(
         title = stringResource(R.string.ripdpi_split_marker_setting),
         description = stringResource(R.string.config_split_marker_helper),
         value = uiState.desync.splitMarker,
         placeholder = stringResource(R.string.config_placeholder_split_marker),
         enabled = model.visualEditorEnabled && uiState.desync.adaptiveSplitVisualEditorSupported,
-        validator = { it.isBlank() || (isValidOffsetExpression(it) && !isAdaptiveOffsetExpression(it)) },
+        validator = { it.isBlank() || (markerValidator(it) && !isAdaptiveOffsetExpression(it)) },
         invalidMessage = stringResource(R.string.config_error_invalid_marker),
         disabledMessage =
             if (uiState.desync.adaptiveSplitVisualEditorSupported) {

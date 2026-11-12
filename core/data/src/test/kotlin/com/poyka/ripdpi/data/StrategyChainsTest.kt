@@ -9,6 +9,18 @@ import org.junit.Test
 
 class StrategyChainsTest {
     @Test
+    fun `split rejects repetition while tlsrec keeps repeated offsets`() {
+        for (marker in listOf("1:3:5", "host+2:2", "host+2:1:1", "host+2:1:-1")) {
+            assertTrue(marker, parseStrategyChainDsl("[tcp]\nsplit $marker").isFailure)
+        }
+        for (marker in listOf("host+2", "host+2:1", "host+2:1:0")) {
+            assertTrue(marker, parseStrategyChainDsl("[tcp]\nsplit $marker").isSuccess)
+        }
+        val tlsrec = parseStrategyChainDsl("[tcp]\ntlsrec 1:3:5").getOrThrow()
+        assertEquals("1:3:5", tlsrec.tcpSteps.single().marker)
+    }
+
+    @Test
     fun `adaptive markers round trip through tcp dsl and humanized summary`() {
         val dsl =
             """
