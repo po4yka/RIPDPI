@@ -4,7 +4,7 @@
 //! overlap, flagged payload, or reset behavior.
 
 use std::io;
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
 use std::os::fd::{AsFd, AsRawFd};
 
 use crate::detect_default_ttl;
@@ -17,8 +17,8 @@ use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::get_stream_ttl;
 use crate::linux::tcp_info::wait_tcp_stage_fd;
 use crate::linux::tcp_repair::{
-    TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, queue_payload_as_sent, sequence_after_payload, set_tcp_repair,
-    set_tcp_repair_queue, snapshot_tcp_repair_state,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpRepairSnapshot, disable_tcp_repair, queue_payload_as_sent, sequence_after_payload,
+    set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
 use crate::{OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 
@@ -97,32 +97,15 @@ pub fn send_ordered_tcp_segments(
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
-        let fake_timestamp = if segments.iter().any(|segment| segment.use_fake_timestamp) {
-            mutate_fake_timestamp(snapshot.options.timestamp, timestamp_delta_ticks)?
-        } else {
-            snapshot.options.timestamp
-        };
-        let mut packets = Vec::with_capacity(segments.len());
-        let mut identifications = ipv4_identifications.iter().copied();
-        for segment in segments {
-            let sequence_number = sequence_after_payload(snapshot.sequence_number, segment.sequence_offset)?;
-            packets.push(build_tcp_segment_packet(
-                source,
-                target,
-                segment.ttl,
-                identifications
-                    .next()
-                    .map_or_else(|| fragment_identification(source, target, segment.payload.len()), u32::from),
-                sequence_number,
-                snapshot.acknowledgment_number,
-                snapshot.window_size,
-                if segment.use_fake_timestamp { fake_timestamp } else { snapshot.options.timestamp },
-                true,
-                segment.payload,
-                md5sig,
-                segment.flags,
-            )?);
-        }
+        let packets = build_ordered_tcp_packets(
+            source,
+            target,
+            segments,
+            &snapshot,
+            md5sig,
+            timestamp_delta_ticks,
+            ipv4_identifications,
+        )?;
 
         if original_payload_len == 0 {
             send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path, stream.as_fd())?;
@@ -140,6 +123,44 @@ pub fn send_ordered_tcp_segments(
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
     let _ = disable_tcp_repair(fd);
     result
+}
+
+fn build_ordered_tcp_packets(
+    source: SocketAddr,
+    target: SocketAddr,
+    segments: &[OrderedTcpSegment<'_>],
+    snapshot: &TcpRepairSnapshot,
+    md5sig: bool,
+    timestamp_delta_ticks: Option<i32>,
+    ipv4_identifications: &[u16],
+) -> io::Result<Vec<Vec<u8>>> {
+    let fake_timestamp = if segments.iter().any(|segment| segment.use_fake_timestamp) {
+        mutate_fake_timestamp(snapshot.options.timestamp, timestamp_delta_ticks)?
+    } else {
+        snapshot.options.timestamp
+    };
+    let mut packets = Vec::with_capacity(segments.len());
+    let mut identifications = ipv4_identifications.iter().copied();
+    for segment in segments {
+        let sequence_number = sequence_after_payload(snapshot.sequence_number, segment.sequence_offset)?;
+        packets.push(build_tcp_segment_packet(
+            source,
+            target,
+            segment.ttl,
+            identifications
+                .next()
+                .map_or_else(|| fragment_identification(source, target, segment.payload.len()), u32::from),
+            sequence_number,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            if segment.use_fake_timestamp { fake_timestamp } else { snapshot.options.timestamp },
+            true,
+            segment.payload,
+            md5sig && segment.use_fake_timestamp,
+            segment.flags,
+        )?);
+    }
+    Ok(packets)
 }
 
 /// Rebuilds the real `[0, len)` bytes from the genuine segments, the ones
@@ -292,11 +313,87 @@ pub fn send_seqovl_tcp(
 
 #[cfg(test)]
 mod tests {
-    use super::genuine_ordered_payload;
+    use super::{build_ordered_tcp_packets, genuine_ordered_payload};
+    use crate::linux::tcp_repair::{TcpRepairOptionsSnapshot, TcpRepairSnapshot, TcpRepairWindow};
     use crate::{OrderedTcpSegment, TcpFlagOverrides};
 
     fn segment(payload: &[u8], sequence_offset: usize, use_fake_timestamp: bool) -> OrderedTcpSegment<'_> {
         OrderedTcpSegment { payload, ttl: 64, flags: TcpFlagOverrides::default(), sequence_offset, use_fake_timestamp }
+    }
+
+    fn checksum(bytes: &[u8]) -> u16 {
+        let mut sum = bytes
+            .chunks(2)
+            .map(|part| u32::from(u16::from_be_bytes([part[0], *part.get(1).unwrap_or(&0)])))
+            .sum::<u32>();
+        while sum > 0xffff {
+            sum = (sum & 0xffff) + (sum >> 16);
+        }
+        !(sum as u16)
+    }
+
+    #[test]
+    fn build_ordered_tcp_packets_keeps_md5_off_genuine_segments() {
+        let snapshot = TcpRepairSnapshot {
+            sequence_number: 100,
+            acknowledgment_number: 200,
+            window_size: 1024,
+            repair_window: TcpRepairWindow::default(),
+            options: TcpRepairOptionsSnapshot::default(),
+        };
+        let segments = [segment(b"fake", 0, true), segment(b"real", 0, false)];
+        for (source, target) in [("192.0.2.1:12345", "198.51.100.2:443"), ("[2001:db8::1]:12345", "[2001:db8::2]:443")]
+        {
+            for md5 in [false, true] {
+                let packets = build_ordered_tcp_packets(
+                    source.parse().unwrap(),
+                    target.parse().unwrap(),
+                    &segments,
+                    &snapshot,
+                    md5,
+                    None,
+                    &[1, 2],
+                )
+                .expect("build ordered packets");
+                for (index, packet) in packets.iter().enumerate() {
+                    let ipv4 = packet[0] >> 4 == 4;
+                    let ip_len = if ipv4 { usize::from(packet[0] & 15) * 4 } else { 40 };
+                    let tcp = &packet[ip_len..];
+                    let tcp_header_len = usize::from(tcp[12] >> 4) * 4;
+                    let mut option = 20;
+                    let mut has_md5 = false;
+                    while option < tcp_header_len && tcp[option] != 0 {
+                        if tcp[option] == 1 {
+                            option += 1;
+                            continue;
+                        }
+                        if tcp[option] == 19 {
+                            assert_eq!(tcp[option + 1], 18);
+                            has_md5 = true;
+                        }
+                        option += usize::from(tcp[option + 1]);
+                    }
+                    assert_eq!(has_md5, md5 && index == 0, "genuine packets must not carry fake MD5");
+                    assert_eq!(&tcp[tcp_header_len..], if index == 0 { b"fake" } else { b"real" });
+                    assert_eq!(u32::from_be_bytes(tcp[4..8].try_into().unwrap()), 100);
+                    let mut pseudo = Vec::new();
+                    if ipv4 {
+                        assert_eq!(checksum(&packet[..ip_len]), 0);
+                        assert_eq!(usize::from(u16::from_be_bytes(packet[2..4].try_into().unwrap())), packet.len());
+                        pseudo.extend_from_slice(&packet[12..20]);
+                        pseudo.extend_from_slice(&[0, 6]);
+                        pseudo.extend_from_slice(&(tcp.len() as u16).to_be_bytes());
+                    } else {
+                        assert_eq!(usize::from(u16::from_be_bytes(packet[4..6].try_into().unwrap())), tcp.len());
+                        pseudo.extend_from_slice(&packet[8..40]);
+                        pseudo.extend_from_slice(&(tcp.len() as u32).to_be_bytes());
+                        pseudo.extend_from_slice(&[0, 0, 0, 6]);
+                    }
+                    pseudo.extend_from_slice(tcp);
+                    assert_eq!(checksum(&pseudo), 0);
+                }
+            }
+        }
     }
 
     #[test]
