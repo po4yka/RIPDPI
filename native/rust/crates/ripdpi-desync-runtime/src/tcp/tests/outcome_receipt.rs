@@ -1490,3 +1490,4 @@ fn hostfake_raw_refusal_keeps_later_steps_and_suffix() {
 }
 
 mod hostfake_late_error;
+mod hostfake_terminal_noop;
