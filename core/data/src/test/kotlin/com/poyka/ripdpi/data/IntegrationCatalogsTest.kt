@@ -123,6 +123,12 @@ class IntegrationCatalogsTest {
         assertTrue(presets.any { it.id == WarpAmneziaPresetTlsImitation })
         assertTrue(presets.any { it.id == WarpAmneziaPresetDnsImitation })
 
+        presets.forEach { definition ->
+            val settings = definition.toSettings()
+            assertEquals(listOf("1", "2", "3", "4"), listOf(settings.h1, settings.h2, settings.h3, settings.h4))
+            assertEquals(listOf(0, 0, 0, 0), listOf(settings.s1, settings.s2, settings.s3, settings.s4))
+        }
+
         val profile = resolveWarpAmneziaProfile(WarpAmneziaPresetTlsImitation, WarpAmneziaSettings())
         assertEquals(WarpAmneziaPresetTlsImitation, profile.preset)
         assertEquals(2, profile.settings.jc)

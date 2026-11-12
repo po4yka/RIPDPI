@@ -352,6 +352,7 @@ impl WarpRuntime {
                 fallback_endpoints,
                 allowed_ips: Arc::new(crate::allowed_ips::AllowedIps::default()),
                 reserved,
+                warp_reserved_mode: true,
                 source_peer_ip,
                 source_peer_ipv6,
                 mtu: self.config.mtu.max(1280) as usize,

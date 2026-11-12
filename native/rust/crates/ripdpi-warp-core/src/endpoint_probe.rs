@@ -16,7 +16,7 @@ use crate::config::{ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpE
 use crate::platform::{WarpPlatform, protect_socket_if_configured};
 use crate::support::MAX_PACKET;
 use crate::wireguard::{
-    ReceiveOutput, apply_reserved_bytes, build_authenticated_awg_codec, decode_key, receive_packet,
+    ReceiveOutput, apply_reserved_bytes, build_authenticated_warp_codec, decode_key, receive_packet,
     reserved_bytes_from_client_id,
 };
 
@@ -85,7 +85,7 @@ pub async fn probe_endpoint_with_platform(
     let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
     let private_key = boringtun::x25519::StaticSecret::from(private_key);
     let local_public_key = boringtun::x25519::PublicKey::from(&private_key).to_bytes();
-    let amnezia = build_authenticated_awg_codec(
+    let amnezia = build_authenticated_warp_codec(
         &request.amnezia,
         &request.amnezia.signature_programs(),
         AwgMacKeys::new(local_public_key, peer_public_key),
@@ -107,7 +107,7 @@ pub async fn probe_endpoint_with_platform(
         0,
         None,
     ));
-    if let Some(codec) = &amnezia {
+    if let Some(codec) = amnezia.as_ref().filter(|codec| !codec.is_warp_prelude()) {
         let mut timers = codec.params().v3().timer_config();
         timers.persistent_keepalive = request.amnezia.persistent_keepalive_opt().map(TimerRange::fixed);
         peer.set_awg_timer_config(timers).map_err(|error| WarpProbeError::Handshake(error.to_owned()))?;
@@ -449,5 +449,76 @@ mod tests {
         let header = u32::from_le_bytes(buffer[..4].try_into().expect("header"));
         assert!((100..=199).contains(&header));
         assert!(matches!(probe.await.expect("probe must not panic"), Err(WarpProbeError::Timeout)));
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: dropping this test during UDP I/O or the JoinHandle wait can detach the probe.
+    /// Error and timeout paths abort and join it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn warp_prelude_probe_authenticates_after_a_reserved_cookie_challenge() {
+        use base64::Engine as _;
+        use boringtun::noise::rate_limiter::RateLimiter;
+        use boringtun::x25519::{PublicKey, StaticSecret};
+        let socket = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let secret = StaticSecret::from([9; 32]);
+        let public = PublicKey::from(&secret);
+        let mut server = Tunn::new(
+            secret,
+            PublicKey::from(&StaticSecret::from([7; 32])),
+            None,
+            None,
+            1,
+            Some(Arc::new(RateLimiter::new(&public, 0))),
+        );
+        let mut request = request_with_psk("");
+        request.endpoint.ipv4 = Some("127.0.0.1".into());
+        request.endpoint.port = i32::from(socket.local_addr().unwrap().port());
+        request.private_key = base64::engine::general_purpose::STANDARD.encode([7; 32]);
+        request.peer_public_key = base64::engine::general_purpose::STANDARD.encode(public.as_bytes());
+        request.client_id = Some(base64::engine::general_purpose::STANDARD.encode([1, 2, 3]));
+        request.timeout_ms = 8_000;
+        request.amnezia =
+            WarpAmneziaConfig { enabled: true, jc: 1, jmin: 8, jmax: 8, i1: "<b 0xaabb>".into(), ..Default::default() };
+        let mut probe = tokio::spawn(probe_endpoint(request));
+        let result = timeout(Duration::from_secs(7), async {
+            let mut input = [0; 2048];
+            let mut output = [0; 2048];
+            for attempt in 0..2 {
+                let (size, _) = socket.recv_from(&mut input).await?;
+                anyhow::ensure!(input[..size] == [0xaa, 0xbb], "signature before each initiation");
+                let (size, _) = socket.recv_from(&mut input).await?;
+                anyhow::ensure!(size == 8, "one junk packet before each initiation");
+                let (size, client) = socket.recv_from(&mut input).await?;
+                anyhow::ensure!(size == 148 && input[..4] == [1, 1, 2, 3], "standard WARP initiation");
+                input[1..4].fill(0);
+                let TunnResult::WriteToNetwork(reply) =
+                    server.decapsulate_from(Some(CookieSource::Udp(client)), &input[..size], &mut output).0
+                else {
+                    anyhow::bail!("reserved overlay must preserve the backend MAC on attempt {attempt}");
+                };
+                anyhow::ensure!(reply[0] == if attempt == 0 { 3 } else { 2 }, "cookie then authenticated response");
+                if attempt == 0 {
+                    anyhow::ensure!(!probe.is_finished(), "cookie cannot prove peer readiness");
+                }
+                reply[1..4].copy_from_slice(&[1, 2, 3]);
+                socket.send_to(reply, client).await?;
+            }
+            Ok::<(), anyhow::Error>(())
+        })
+        .await;
+        if !matches!(&result, Ok(Ok(()))) {
+            probe.abort();
+            let _ = probe.await;
+            result.expect("bounded cookie exchange").expect("raw peer must authenticate WARP prelude mode");
+            return;
+        }
+        let completion = timeout(Duration::from_secs(1), &mut probe).await;
+        if completion.is_err() {
+            probe.abort();
+            let _ = probe.await;
+            panic!("probe did not finish after an authenticated response");
+        }
+        let outcome = completion.unwrap().unwrap();
+        assert!(outcome.is_ok(), "response after a cookie must authenticate: {outcome:?}");
     }
 }

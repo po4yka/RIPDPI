@@ -41,6 +41,16 @@ pub(crate) fn build_authenticated_awg_codec(
     build_awg_codec(cfg, signature_programs, Some(mac_keys))
 }
 
+/// Build a WARP codec without changing the backend MAC domain for prelude-only settings.
+pub(crate) fn build_authenticated_warp_codec(
+    cfg: &WarpAmneziaConfig,
+    signature_programs: &[&str],
+    mac_keys: AwgMacKeys,
+) -> Result<Option<AwgWireCodec>, AwgParamsError> {
+    let codec = build_authenticated_awg_codec(cfg, signature_programs, mac_keys)?;
+    Ok(if cfg.v3.is_set() { codec } else { codec.map(AwgWireCodec::with_warp_prelude) })
+}
+
 fn build_awg_codec(
     cfg: &WarpAmneziaConfig,
     signature_programs: &[&str],
@@ -85,6 +95,8 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     /// The 3 WireGuard reserved bytes (WARP derives them from the Cloudflare
     /// client id; generic profiles pass `[0; 3]`).
     pub reserved: [u8; 3],
+    /// WARP prelude settings keep the plain WireGuard MAC/reserved convention.
+    pub warp_reserved_mode: bool,
     /// Local interface IPv4 used to classify inbound tunnel packets.
     pub source_peer_ip: IpAddr,
     pub source_peer_ipv6: Option<Ipv6Addr>,
@@ -199,6 +211,7 @@ impl WireGuardTunnel {
             fallback_endpoints,
             allowed_ips,
             reserved,
+            warp_reserved_mode,
             source_peer_ip,
             source_peer_ipv6,
             mtu,
@@ -218,12 +231,11 @@ impl WireGuardTunnel {
         };
         let private_key = boringtun::x25519::StaticSecret::from(private_key);
         let local_public_key = boringtun::x25519::PublicKey::from(&private_key).to_bytes();
-        let amnezia = build_authenticated_awg_codec(
-            amnezia_cfg,
-            &signature_programs,
-            AwgMacKeys::new(local_public_key, peer_public_key),
-        )?
-        .map(|codec| Arc::new(codec.with_mtu(mtu)));
+        let build_codec =
+            if warp_reserved_mode { build_authenticated_warp_codec } else { build_authenticated_awg_codec };
+        let amnezia =
+            build_codec(amnezia_cfg, &signature_programs, AwgMacKeys::new(local_public_key, peer_public_key))?
+                .map(|codec| Arc::new(codec.with_mtu(mtu)));
         let mut peer = Box::new(Tunn::new(
             private_key,
             boringtun::x25519::PublicKey::from(peer_public_key),
@@ -242,9 +254,9 @@ impl WireGuardTunnel {
                 WgCarrier::Udp { dual_stack: socket.local_addr()?.is_ipv6(), socket }
             }
         };
-        if amnezia.is_some() || keepalive_range.is_some() {
-            let mut timers =
-                amnezia.as_ref().map_or_else(AwgTimerConfig::default, |codec| codec.params().v3().timer_config());
+        let envelope = amnezia.as_ref().filter(|codec| !codec.is_warp_prelude());
+        if envelope.is_some() || keepalive_range.is_some() {
+            let mut timers = envelope.map_or_else(AwgTimerConfig::default, |codec| codec.params().v3().timer_config());
             timers.persistent_keepalive = match persistent_keepalive.filter(|value| *value != 0) {
                 Some(low) => Some(
                     TimerRange::new(low, persistent_keepalive_max.unwrap_or(low))
@@ -255,7 +267,7 @@ impl WireGuardTunnel {
             peer.set_awg_timer_config(timers).map_err(anyhow::Error::msg)?;
             peer.set_awg_disable_cookies(amnezia_cfg.v3.disable_cookies).map_err(anyhow::Error::msg)?;
         }
-        if let Some(codec) = &amnezia {
+        if let Some(codec) = envelope {
             peer.set_transport_padding(codec.clone()).map_err(anyhow::Error::msg)?;
         } else {
             peer.set_transport_padding(Arc::new(PlainWireGuardPadding(mtu))).map_err(anyhow::Error::msg)?;
@@ -580,6 +592,7 @@ mod tests {
             fallback_endpoints: Vec::new(),
             allowed_ips: Arc::new(AllowedIps::default()),
             reserved: [0u8; 3],
+            warp_reserved_mode: false,
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
             source_peer_ipv6: None,
             mtu: 1420,
@@ -649,6 +662,7 @@ mod tests {
                     fallback_endpoints: Vec::new(),
                     allowed_ips: Arc::new(AllowedIps::default()),
                     reserved: [0; 3],
+                    warp_reserved_mode: false,
                     source_peer_ip: "10.77.0.2".parse().unwrap(),
                     source_peer_ipv6: None,
                     mtu: 1420,
@@ -732,6 +746,7 @@ mod tests {
                 fallback_endpoints: Vec::new(),
                 allowed_ips: Arc::new(AllowedIps::default()),
                 reserved: [0; 3],
+                warp_reserved_mode: false,
                 source_peer_ip: "10.77.0.2".parse().unwrap(),
                 source_peer_ipv6: None,
                 mtu: 1420,

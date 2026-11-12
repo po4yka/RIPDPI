@@ -46,3 +46,15 @@ If `profileId` is absent, import creates a new ID. If it matches a saved profile
 the complete validated import replaces that profile and its endpoint cache.
 Invalid documents do not replace saved data. The import confirmation states
 this consequence before the system file picker opens.
+
+## WARP shaping presets
+
+Built-in presets add separate junk packets before the WireGuard handshake.
+They keep the real WireGuard headers, packet lengths, and WARP reserved bytes.
+Their names do not select QUIC, TLS, or DNS sessions. Off and Random add no
+shaping packets. Operator hints recommend a preset but do not apply it.
+
+Custom keeps the supported raw AmneziaWG parameters. Nonstandard headers or
+prefix lengths need a peer with matching settings. A WARP account alone does
+not establish that peer support. Local loopback tests do not prove compatibility
+with a specific Cloudflare endpoint.

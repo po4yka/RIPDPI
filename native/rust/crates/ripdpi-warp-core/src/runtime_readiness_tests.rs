@@ -241,3 +241,69 @@ async fn silent_ipv4_primary_reaches_authenticated_ipv6_fallback_before_readines
     stopped.expect("fallback runtime cleanup");
     assert!(runtime.telemetry().listener_address.is_none());
 }
+
+/// # Cancel safety:
+/// NOT cancel-safe: dropping this test during peer I/O or readiness sleep can detach its runtime task.
+/// Each bounded exchange is followed by stop and join.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn built_in_warp_presets_authenticate_with_plain_wireguard_and_reserved_bytes() {
+    let catalog: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../core/data/settings/src/main/assets/integrations/amnezia-payloadgen-presets.json"
+    )))
+    .expect("bundled preset catalog");
+    for definition in catalog["presets"].as_array().expect("preset list") {
+        let mut fields = definition.as_object().expect("preset").clone();
+        let id = fields.remove("id").expect("preset id");
+        fields.remove("label");
+        fields.insert("enabled".into(), serde_json::json!(id != "random"));
+        fields.insert("wireProfile".into(), serde_json::json!("awg-3.1-ranges-v1"));
+        let amnezia: crate::config::WarpAmneziaConfig =
+            serde_json::from_value(fields.into()).expect("complete bundled preset");
+        let socket = UdpSocket::bind("127.0.0.1:0").await.expect("peer");
+        let mut config = config_for_peer(socket.local_addr().unwrap(), PublicKey::from(&StaticSecret::from([9; 32])));
+        config.client_id = Some(STANDARD.encode([1, 2, 3]));
+        config.amnezia = amnezia.clone();
+        let runtime = WarpRuntime::new(config);
+        let worker = tokio::spawn(Arc::clone(&runtime).run());
+        let result = timeout(Duration::from_secs(3), async {
+            let mut peer = Tunn::new(
+                StaticSecret::from([9; 32]),
+                PublicKey::from(&StaticSecret::from([7; 32])),
+                None,
+                None,
+                1,
+                None,
+            );
+            let mut packet = [0; 2048];
+            let mut output = [0; 2048];
+            let count = if amnezia.enabled { amnezia.jc } else { 0 };
+            for _ in 0..count {
+                let (size, _) = socket.recv_from(&mut packet).await?;
+                anyhow::ensure!((amnezia.jmin..=amnezia.jmax).contains(&(size as i32)), "{id}: junk size");
+            }
+            let (size, client) = socket.recv_from(&mut packet).await?;
+            anyhow::ensure!(size == 148, "{id}: WireGuard initiation must have 148 bytes, got {size}");
+            anyhow::ensure!(packet[..4] == [1, 1, 2, 3], "{id}: WARP reserved bytes");
+            packet[1..4].fill(0);
+            let TunnResult::WriteToNetwork(response) = peer.decapsulate(None, &packet[..size], &mut output) else {
+                anyhow::bail!("{id}: plain peer rejected the initiation MAC");
+            };
+            anyhow::ensure!(response.len() == 92, "standard WireGuard response");
+            response[1..4].copy_from_slice(&[1, 2, 3]);
+            socket.send_to(response, client).await?;
+            let (size, source) = socket.recv_from(&mut packet).await?;
+            anyhow::ensure!(source == client && packet[..4] == [4, 1, 2, 3], "{id}: key confirmation");
+            packet[1..4].fill(0);
+            anyhow::ensure!(matches!(peer.decapsulate(None, &packet[..size], &mut output), TunnResult::Done));
+            while runtime.telemetry().state != "running" {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            Ok::<(), anyhow::Error>(())
+        })
+        .await;
+        stop_and_join(&runtime, worker).await.expect("runtime cleanup");
+        result.expect("bounded peer exchange").expect("preset must authenticate with a plain peer");
+        assert!(runtime.telemetry().listener_address.is_none());
+    }
+}

@@ -712,6 +712,7 @@ impl AmneziaWgRuntime {
                 allowed_ips,
                 // A generic AmneziaWG peer carries no Cloudflare reserved bytes.
                 reserved: [0u8; 3],
+                warp_reserved_mode: false,
                 source_peer_ip,
                 source_peer_ipv6,
                 mtu: self.config.mtu.max(1280) as usize,

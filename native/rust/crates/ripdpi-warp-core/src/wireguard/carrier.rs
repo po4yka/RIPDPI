@@ -295,6 +295,7 @@ mod tests {
                 fallback_endpoints: Vec::new(),
                 allowed_ips: Arc::new(crate::allowed_ips::AllowedIps::default()),
                 reserved: [0; 3],
+                warp_reserved_mode: false,
                 source_peer_ip: "10.77.0.2".parse().expect("source"),
                 source_peer_ipv6: None,
                 mtu: 1420,

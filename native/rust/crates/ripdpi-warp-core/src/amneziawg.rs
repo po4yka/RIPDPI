@@ -424,6 +424,7 @@ pub(crate) struct AwgWireCodec {
     mac_keys: Option<AwgMacKeys>,
     mac_state: Mutex<AwgMacState>,
     udp_window: UdpWindow,
+    warp_prelude: bool,
 }
 
 impl boringtun::noise::TransportPadding for AwgWireCodec {
@@ -444,7 +445,19 @@ impl AwgWireCodec {
 
     fn with_mac_keys(params: AwgParams, mac_keys: Option<AwgMacKeys>) -> Self {
         let udp_window = UdpWindow::for_transport_prefix(params.size_padding[3]);
-        Self { params, mac_keys, mac_state: Mutex::new(AwgMacState::default()), udp_window }
+        Self { params, mac_keys, mac_state: Mutex::new(AwgMacState::default()), udp_window, warp_prelude: false }
+    }
+
+    /// Keep the plain WARP MAC/reserved convention when only prelude packets are configured.
+    pub(crate) fn with_warp_prelude(mut self) -> Self {
+        self.warp_prelude = !self.params.headers_active()
+            && self.params.size_padding == [0; WG_MESSAGE_TYPE_COUNT]
+            && self.params.v3 == AwgV3Params::default();
+        self
+    }
+
+    pub(crate) fn is_warp_prelude(&self) -> bool {
+        self.warp_prelude
     }
 
     /// Set the same inner MTU used by the virtual interfaces before sharing the codec.
@@ -487,6 +500,12 @@ impl AwgWireCodec {
         if packet.len() < 4 {
             return Some(packet.to_vec());
         }
+        if self.warp_prelude {
+            let mut wire = packet.to_vec();
+            // WARP overlays these bytes after backend MAC generation, including cookie retries.
+            wire[1..4].copy_from_slice(&reserved);
+            return Some(wire);
+        }
         let wg_type = packet[0];
         let Some(index) = Self::type_index(wg_type) else {
             return Some(packet.to_vec());
@@ -516,6 +535,14 @@ impl AwgWireCodec {
 
     /// Decode at most four layouts without changing cookie or handshake conversion state.
     pub(crate) fn decode_candidates(&self, packet: &[u8]) -> Vec<AwgDecodeCandidate> {
+        if self.warp_prelude {
+            if packet.len() < 4 {
+                return Vec::new();
+            }
+            let mut wire = packet.to_vec();
+            wire[1..4].fill(0);
+            return vec![AwgDecodeCandidate { packet: wire, context: None }];
+        }
         self.params
             .v3
             .open_candidates(packet, &self.params.size_padding, &self.params.magic_headers)
