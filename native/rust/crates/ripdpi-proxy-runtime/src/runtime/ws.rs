@@ -6,7 +6,7 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     EncryptedDnsIpAnswers, MtprotoSeedClassification, TelegramDc, WsTransport, WsTunnelConfig, detect_telegram_dc,
     encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_host_via_encrypted_dns_with_cancel,
-    resolve_ws_tunnel_addr, should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host,
+    should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host,
 };
 
 pub(super) type RuntimeEncryptedDnsIpAnswers = EncryptedDnsIpAnswers;
@@ -71,14 +71,6 @@ pub(super) fn runtime_exact_telegram_dc(target: SocketAddr) -> Option<RuntimeTel
 
 pub(super) fn runtime_telegram_dc_host(dc: u8) -> String {
     telegram_dc_host(dc)
-}
-
-pub(super) fn runtime_resolve_ws_tunnel_addr(
-    dc: RuntimeTelegramDc,
-    runtime_context: Option<&ProxyRuntimeContext>,
-    protect_path: Option<&str>,
-) -> io::Result<SocketAddr> {
-    resolve_ws_tunnel_addr(dc.into_adapter(), runtime_context, protect_path)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -177,8 +169,13 @@ pub(super) fn runtime_relay_ws_tunnel(
     dc: RuntimeTelegramDc,
     seed_request: Vec<u8>,
     config: &RuntimeWsTunnelConfig,
+    should_cancel: &dyn Fn() -> bool,
 ) -> io::Result<()> {
-    transport.relay(client, dc.into_adapter(), seed_request, config.as_adapter())
+    let prepared = transport.open(dc.into_adapter(), config.as_adapter(), should_cancel)?;
+    if should_cancel() {
+        return Err(io::Error::new(io::ErrorKind::Interrupted, "runtime stopped before WS relay"));
+    }
+    prepared.relay(client, seed_request)
 }
 
 #[cfg(test)]
@@ -250,9 +247,10 @@ mod tests {
                 .expect("fallback host addr");
         let answers = runtime_encrypted_dns_ip_answers_for_host("kws2.web.telegram.org", Some(&runtime_context), None)
             .expect("fallback dns answers");
+        let state =
+            crate::runtime::state::RuntimeState::test_with_context(RuntimeConfig::default(), Some(runtime_context));
         let tunnel_addr =
-            runtime_resolve_ws_tunnel_addr(RuntimeTelegramDc::production(2), Some(&runtime_context), None)
-                .expect("fallback bootstrap addr");
+            state.resolve_ws_tunnel_addr(RuntimeTelegramDc::production(2), &|| false).expect("fallback bootstrap addr");
 
         assert_eq!(host_addr.port(), 0);
         assert!(!answers.answers.is_empty());

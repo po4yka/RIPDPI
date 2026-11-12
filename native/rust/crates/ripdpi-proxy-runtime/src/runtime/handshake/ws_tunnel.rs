@@ -61,6 +61,13 @@ pub(super) fn run_ws_tunnel_prepared(
         drop(prepared);
         return run_ws_tunnel_with_seed(client, target, seed_request, state);
     }
+    if state.shutdown_requested() {
+        return WsTunnelResult::WsOpenOrRelayFailed {
+            dc: provisional_dc,
+            seed_request,
+            error: io::Error::new(io::ErrorKind::Interrupted, "runtime stopped before WS relay"),
+        };
+    }
     match prepared.relay(client, seed_request.clone()) {
         Ok(()) => WsTunnelResult::ValidatedMtproto { dc: provisional_dc },
         Err(error) => WsTunnelResult::WsOpenOrRelayFailed { dc: provisional_dc, seed_request, error },
@@ -95,8 +102,15 @@ fn run_ws_tunnel_with<ReadSeed, ResolveAddr, RelayWs>(
 ) -> WsTunnelResult
 where
     ReadSeed: FnOnce(&mut TcpStream) -> Result<Vec<u8>, SeedReadError>,
-    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(&RuntimeState, TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
+    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc, &dyn Fn() -> bool) -> io::Result<SocketAddr>,
+    RelayWs: FnOnce(
+        &RuntimeState,
+        TcpStream,
+        RuntimeTelegramDc,
+        Vec<u8>,
+        &RuntimeWsTunnelConfig,
+        &dyn Fn() -> bool,
+    ) -> io::Result<()>,
 {
     let seed_request = match read_seed(&mut client) {
         Ok(seed_request) => seed_request,
@@ -117,8 +131,15 @@ fn run_ws_tunnel_with_seed_impl<ResolveAddr, RelayWs>(
     relay_ws: RelayWs,
 ) -> WsTunnelResult
 where
-    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(&RuntimeState, TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
+    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc, &dyn Fn() -> bool) -> io::Result<SocketAddr>,
+    RelayWs: FnOnce(
+        &RuntimeState,
+        TcpStream,
+        RuntimeTelegramDc,
+        Vec<u8>,
+        &RuntimeWsTunnelConfig,
+        &dyn Fn() -> bool,
+    ) -> io::Result<()>,
 {
     let seed_request = match complete_mtproto_seed(&mut client, seed_request) {
         Ok(seed) => seed,
@@ -166,10 +187,30 @@ fn open_ws_tunnel_for_dc<ResolveAddr, RelayWs>(
     relay_ws: RelayWs,
 ) -> WsTunnelResult
 where
-    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(&RuntimeState, TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
+    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc, &dyn Fn() -> bool) -> io::Result<SocketAddr>,
+    RelayWs: FnOnce(
+        &RuntimeState,
+        TcpStream,
+        RuntimeTelegramDc,
+        Vec<u8>,
+        &RuntimeWsTunnelConfig,
+        &dyn Fn() -> bool,
+    ) -> io::Result<()>,
 {
-    let resolved_addr = match resolve_addr(state, dc) {
+    let timeout = state.ws_tunnel_config(None).connect_timeout();
+    let started = Instant::now();
+    let dns_cancelled = || state.shutdown_requested() || timeout.is_some_and(|limit| started.elapsed() >= limit);
+    let check_stage = || {
+        if state.shutdown_requested() {
+            Err(io::Error::new(io::ErrorKind::Interrupted, "runtime stopped during WS bootstrap"))
+        } else if timeout.is_some_and(|limit| started.elapsed() >= limit) {
+            Err(io::Error::new(io::ErrorKind::TimedOut, "WS bootstrap deadline expired"))
+        } else {
+            Ok(())
+        }
+    };
+    let resolved = check_stage().and_then(|()| resolve_addr(state, dc, &dns_cancelled));
+    let resolved_addr = match check_stage().and(resolved) {
         Ok(addr) => addr,
         Err(error) => {
             tracing::warn!(
@@ -181,14 +222,14 @@ where
         }
     };
     let config = state.ws_tunnel_config(Some(resolved_addr));
-    match relay_ws(state, client, dc, seed_request.clone(), &config) {
+    let config = match timeout {
+        Some(limit) => config.with_connect_timeout(limit.saturating_sub(started.elapsed())),
+        None => config,
+    };
+    match relay_ws(state, client, dc, seed_request.clone(), &config, &|| state.shutdown_requested()) {
         Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
         Err(error) => {
-            tracing::warn!(
-                "WS tunnel relay failed for raw DC {} (class {:?}), falling back to desync: {error}",
-                dc.raw(),
-                dc.class()
-            );
+            tracing::warn!("WS tunnel relay failed for raw DC {} (class {:?}): {error}", dc.raw(), dc.class());
             WsTunnelResult::WsOpenOrRelayFailed { dc, seed_request, error }
         }
     }
@@ -239,6 +280,10 @@ fn complete_mtproto_seed(client: &mut TcpStream, mut seed_request: Vec<u8>) -> R
 }
 
 #[cfg(all(test, not(feature = "loom")))]
+#[path = "ws_tunnel_bootstrap_tests.rs"]
+mod bootstrap_tests;
+
+#[cfg(all(test, not(feature = "loom")))]
 pub(super) mod tests {
     use super::*;
 
@@ -252,7 +297,7 @@ pub(super) mod tests {
 
     type Aes256Ctr = ctr::Ctr128BE<Aes256>;
 
-    fn connected_pair() -> (TcpStream, TcpStream) {
+    pub(super) fn connected_pair() -> (TcpStream, TcpStream) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         let client = TcpStream::connect(addr).expect("connect client");
@@ -435,8 +480,8 @@ pub(super) mod tests {
             SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request,
             &state,
-            |_state, _dc| unreachable!("should not resolve"),
-            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
+            |_state, _dc, _cancel| unreachable!("should not resolve"),
+            |_state, _client, _dc, _seed_request, _config, _cancel| unreachable!("should not relay"),
         );
 
         assert!(matches!(result, WsTunnelResult::NotMtproto { .. }));
@@ -452,8 +497,8 @@ pub(super) mod tests {
             SocketAddr::from(([127, 0, 0, 1], 443)),
             build_test_init_packet(-3),
             &state,
-            |_state, _dc| unreachable!("should not resolve"),
-            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
+            |_state, _dc, _cancel| unreachable!("should not resolve"),
+            |_state, _client, _dc, _seed_request, _config, _cancel| unreachable!("should not relay"),
         );
 
         assert!(matches!(
@@ -480,15 +525,19 @@ pub(super) mod tests {
             SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request.clone(),
             &state,
-            |_state, dc| {
+            |_state, dc, _cancel| {
                 assert_eq!(dc, RuntimeTelegramDc::from_raw(10_002).expect("test dc"));
                 Ok(resolved_addr)
             },
-            |_state, _client, dc, forwarded_seed, config| {
+            |_state, _client, dc, forwarded_seed, config, _cancel| {
                 assert_eq!(dc, RuntimeTelegramDc::from_raw(10_002).expect("test dc"));
                 assert_eq!(forwarded_seed, seed_request);
                 assert_eq!(config.resolved_addr, Some(resolved_addr));
-                assert_eq!(config.connect_timeout, Some(Duration::from_millis(1_500)));
+                assert!(
+                    config
+                        .connect_timeout
+                        .is_some_and(|timeout| !timeout.is_zero() && timeout <= Duration::from_millis(1_500))
+                );
                 Ok(())
             },
         );
@@ -511,8 +560,8 @@ pub(super) mod tests {
             SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request.clone(),
             &state,
-            |_state, _dc| Err(io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out")),
-            |_state, _client, _dc, _seed_request, _config| {
+            |_state, _dc, _cancel| Err(io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out")),
+            |_state, _client, _dc, _seed_request, _config, _cancel| {
                 unreachable!("relay must not run without a resolved address")
             },
         );
@@ -537,8 +586,8 @@ pub(super) mod tests {
             SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request.clone(),
             &state,
-            |_state, _dc| Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 443))),
-            |_state, _client, _dc, _forwarded_seed, _config| {
+            |_state, _dc, _cancel| Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 443))),
+            |_state, _client, _dc, _forwarded_seed, _config, _cancel| {
                 Err(io::Error::new(io::ErrorKind::ConnectionRefused, "boom"))
             },
         );
@@ -567,8 +616,8 @@ pub(super) mod tests {
                 SocketAddr::from(([149, 154, 167, 51], 443)),
                 seed[..split].to_vec(),
                 &runtime_state(),
-                |_state, _dc| Ok(SocketAddr::from(([127, 0, 0, 1], 443))),
-                |_state, mut client, _dc, mut seed, _config| {
+                |_state, _dc, _cancel| Ok(SocketAddr::from(([127, 0, 0, 1], 443))),
+                |_state, mut client, _dc, mut seed, _config, _cancel| {
                     client.read_to_end(&mut seed)?;
                     client.write_all(&seed)
                 },
@@ -591,8 +640,8 @@ pub(super) mod tests {
             SocketAddr::from(([149, 154, 167, 51], 443)),
             vec![1, 2, 3],
             &runtime_state(),
-            |_state, _dc| unreachable!("short init must not resolve"),
-            |_state, _client, _dc, _seed, _config| unreachable!("short init must not relay"),
+            |_state, _dc, _cancel| unreachable!("short init must not resolve"),
+            |_state, _client, _dc, _seed, _config, _cancel| unreachable!("short init must not relay"),
         );
         assert!(matches!(result, WsTunnelResult::ShortInit { seed_request, error }
             if seed_request == [1, 2, 3, 4, 5, 6] && error.kind() == io::ErrorKind::UnexpectedEof));
@@ -638,8 +687,8 @@ pub(super) mod tests {
             SocketAddr::from(([127, 0, 0, 1], 443)),
             &state,
             read_mtproto_seed,
-            |_state, _dc| unreachable!("should not resolve"),
-            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
+            |_state, _dc, _cancel| unreachable!("should not resolve"),
+            |_state, _client, _dc, _seed_request, _config, _cancel| unreachable!("should not relay"),
         );
 
         writer.join().expect("join writer");

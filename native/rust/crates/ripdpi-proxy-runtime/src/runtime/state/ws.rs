@@ -27,8 +27,9 @@ impl RuntimeState {
         dc: RuntimeTelegramDc,
         seed_request: Vec<u8>,
         config: &RuntimeWsTunnelConfig,
+        should_cancel: &dyn Fn() -> bool,
     ) -> io::Result<()> {
-        runtime_relay_ws_tunnel(self.ws_transport.as_ref(), client, dc, seed_request, config)
+        runtime_relay_ws_tunnel(self.ws_transport.as_ref(), client, dc, seed_request, config, should_cancel)
     }
     pub(in crate::runtime) fn note_telegram_dc_detected(&self, target: SocketAddr, dc: u8) {
         if let Some(telemetry) = &self.telemetry {
@@ -62,7 +63,7 @@ impl RuntimeState {
             telemetry.on_ws_tunnel_fake_sni_active(target, dc);
         }
     }
-    pub(in crate::runtime) fn resolve_ws_tunnel_addr_with_cancel(
+    pub(in crate::runtime) fn resolve_ws_tunnel_addr(
         &self,
         dc: RuntimeTelegramDc,
         should_cancel: &dyn Fn() -> bool,
@@ -82,54 +83,5 @@ impl RuntimeState {
             should_cancel,
         )?;
         Ok(SocketAddr::new(resolved.ip(), port))
-    }
-    pub(in crate::runtime) fn resolve_ws_tunnel_addr(&self, dc: RuntimeTelegramDc) -> io::Result<SocketAddr> {
-        if let Some(worker_route) = &self.ws_tunnel_settings.worker_route {
-            return resolve_worker_route_addr_with(worker_route, |host| {
-                runtime_resolve_host_via_encrypted_dns(
-                    host,
-                    self.runtime_context.as_ref(),
-                    self.ws_tunnel_settings.protect_path.as_deref(),
-                    false,
-                )
-            });
-        }
-        runtime_resolve_ws_tunnel_addr(
-            dc,
-            self.runtime_context.as_ref(),
-            self.ws_tunnel_settings.protect_path.as_deref(),
-        )
-    }
-}
-
-fn resolve_worker_route_addr_with(
-    worker_route: &ripdpi_proxy_runtime_adapter::ws_bootstrap::CloudflareWorkerRoute,
-    resolve_host: impl FnOnce(&str) -> io::Result<SocketAddr>,
-) -> io::Result<SocketAddr> {
-    let resolved = resolve_host(worker_route.host())?;
-    Ok(SocketAddr::new(resolved.ip(), worker_route.port()))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use std::net::{IpAddr, Ipv4Addr};
-
-    #[test]
-    fn worker_route_resolution_uses_worker_host_and_port() {
-        let route = ripdpi_proxy_runtime_adapter::ws_bootstrap::CloudflareWorkerRoute::parse(
-            "https://edge.example.workers.dev:8443/relay",
-            "secret-token",
-        )
-        .expect("valid worker route");
-
-        let resolved = resolve_worker_route_addr_with(&route, |host| {
-            assert_eq!(host, "edge.example.workers.dev");
-            Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 443))
-        })
-        .expect("resolve worker route");
-
-        assert_eq!(resolved, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 10)), 8443));
     }
 }

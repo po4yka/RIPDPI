@@ -84,9 +84,8 @@ use super::ws::{
     RuntimeEncryptedDnsIpAnswers, RuntimeTelegramDc, RuntimeWsTunnelConfig, WsSeedClassification,
     runtime_classify_mtproto_seed, runtime_detect_telegram_dc, runtime_encrypted_dns_ip_answers_for_host,
     runtime_relay_ws_tunnel, runtime_resolve_host_via_encrypted_dns,
-    runtime_resolve_host_via_encrypted_dns_with_cancel, runtime_resolve_ws_tunnel_addr,
-    runtime_should_ws_tunnel_fallback, runtime_should_ws_tunnel_first, runtime_telegram_dc_host,
-    runtime_ws_tunnel_config,
+    runtime_resolve_host_via_encrypted_dns_with_cancel, runtime_should_ws_tunnel_fallback,
+    runtime_should_ws_tunnel_first, runtime_telegram_dc_host, runtime_ws_tunnel_config,
 };
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, NetworkSnapshot, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{

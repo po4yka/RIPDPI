@@ -171,7 +171,7 @@ where
         &mut guarded_write,
         || {
             check_stage()?;
-            let resolved = state.resolve_ws_tunnel_addr_with_cancel(dc, &should_cancel);
+            let resolved = state.resolve_ws_tunnel_addr(dc, &should_cancel);
             check_stage()?;
             let addr = resolved?;
             let remaining = deadline.saturating_duration_since(Instant::now());
