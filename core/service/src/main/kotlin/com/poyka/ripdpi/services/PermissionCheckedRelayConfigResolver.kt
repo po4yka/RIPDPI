@@ -74,17 +74,15 @@ private suspend fun AndroidLocalNetworkAccess.requireBridgeEndpoint(bridgeLine: 
     return requireDirectEndpoint(bridge.host, bridge.port)
 }
 
-private suspend fun AndroidLocalNetworkAccess.requireTorBridgeEndpoint(bridgeLine: String): Boolean =
-    when (torBridgeTransport(bridgeLine)) {
-        RelayKindObfs4 -> requireBridgeEndpoint(bridgeLine)
+private suspend fun AndroidLocalNetworkAccess.requireTorBridgeEndpoint(bridgeLine: String): Boolean {
+    val tokens = bridgeLine.trim().split(Regex("\\s+")).filter(String::isNotBlank)
+    val transportIndex = if (tokens.firstOrNull().equals("Bridge", ignoreCase = true)) 1 else 0
+    // Tor already validates the identities; this preflight only owns the endpoint permission.
+    return when (tokens.getOrNull(transportIndex)) {
+        RelayKindObfs4 -> requireUrl("tcp://${tokens.getOrNull(transportIndex + 1).orEmpty()}")
         RelayKindWebTunnel -> requireUrl(torBridgeOption(bridgeLine, "url").orEmpty())
         else -> false
     }
-
-private fun torBridgeTransport(bridgeLine: String): String? {
-    val tokens = bridgeLine.trim().split(Regex("\\s+")).filter(String::isNotBlank)
-    val transportIndex = if (tokens.firstOrNull().equals("Bridge", ignoreCase = true)) 1 else 0
-    return tokens.getOrNull(transportIndex)
 }
 
 private fun torBridgeOption(
