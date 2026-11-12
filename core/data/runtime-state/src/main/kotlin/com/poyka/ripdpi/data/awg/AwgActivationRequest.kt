@@ -126,9 +126,10 @@ fun AwgActivationRequest.requireRuntimeReady() {
 
 /** Validates the WSS authority and request target without DNS or network access. */
 fun isValidAwgWssUrl(value: String): Boolean {
-    if (!value.startsWith("wss://", ignoreCase = true)) return false
-    val url = ("https://" + value.substring(6)).toHttpUrlOrNull() ?: return false
-    return url.username.isEmpty() && url.password.isEmpty() && url.fragment == null
+    if (!value.startsWith(WssSchemePrefix, ignoreCase = true)) return false
+    return ("https://" + value.substring(WssSchemePrefix.length)).toHttpUrlOrNull()?.let { url ->
+        url.username.isEmpty() && url.password.isEmpty() && url.fragment == null
+    } == true
 }
 
 private fun String.isWireGuardKey(): Boolean =
@@ -261,3 +262,5 @@ fun AwgProfileForm.toActivationRequest(
                 v3 = v3,
             ),
     )
+
+private const val WssSchemePrefix = "wss://"

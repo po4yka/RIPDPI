@@ -24,6 +24,7 @@ interface RipDpiAmneziaWgRuntime {
 
 // Three WireGuard REKEY_TIMEOUTs (5 s each): the answer to a resent initiation must still arrive in time.
 internal const val defaultAmneziaWgReadyTimeoutMs = 15_000L
+private const val wsAmneziaWgReadyTimeoutMs = 40_000L
 
 /**
  * AmneziaWG obfuscation parameters. Field names and types mirror the Rust
@@ -89,7 +90,7 @@ enum class RipDpiAmneziaWgCarrierKind {
     fun readyTimeoutMillis(): Long =
         when (this) {
             Udp -> defaultAmneziaWgReadyTimeoutMs
-            Ws -> 40_000L
+            Ws -> wsAmneziaWgReadyTimeoutMs
         }
 }
 
