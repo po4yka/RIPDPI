@@ -50,7 +50,7 @@ The same bridge also carries the runtime context used by the service layer:
 
 ## Relay Transport Expansion
 
-The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust `ripdpi-relay-core` transport registry. The native registry currently wires in-process backends for Hysteria2, TUIC v5, VLESS Reality TCP/xHTTP, Cloudflare Tunnel consume mode, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, Mieru, and SSH; NaiveProxy is intentionally a subprocess fallback. WebTunnel is an in-repository Rust PT helper binary managed by Kotlin service code, while Snowflake and obfs4 are external PT binaries; none of those PT helpers are relay-core backends. Google Apps Script is an in-repository Rust Apps Script relay runtime selected by service orchestration, not a relay-core descriptor row. WARP and AmneziaWG are separate VPN/tunnel profile surfaces rather than `relay_kind` values.
+The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust `ripdpi-relay-core` transport registry. The native registry currently wires in-process backends for Hysteria2, TUIC v5, VLESS Reality TCP/xHTTP, Cloudflare Tunnel consume mode, chain relay, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Tor, Mieru, and SSH; NaiveProxy is intentionally a subprocess fallback. WebTunnel, Snowflake and obfs4 are Tor bridge helpers, not standalone relay-core backends; Arti owns their supported runtime path. Google Apps Script is an in-repository Rust Apps Script relay runtime selected by service orchestration, not a relay-core descriptor row. WARP and AmneziaWG are separate VPN/tunnel profile surfaces rather than `relay_kind` values.
 
 - `native/rust/crates/ripdpi-relay-core` is the shared relay backend and pooling layer used by Android service orchestration.
 - `native/rust/crates/ripdpi-relay-mux` provides reusable relay-session pooling and stream-lease logic for reusable transports.
@@ -66,7 +66,7 @@ The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust
 - `native/rust/crates/ripdpi-warp-core` and `native/rust/crates/ripdpi-warp-android` provide the native WARP runtime used by the Kotlin service and settings stack.
 - `native/rust/crates/ripdpi-amneziawg-android` drives standalone or VPN-composed AmneziaWG profiles through the same `ripdpi-warp-core` WireGuard + AWG codec data plane; the Kotlin service translates `AwgActivationRequest` into the native config and starts `AmneziaWgRuntimeSupervisor`. The AWG 3.x envelope (header protection, trailers, content padding, timer ranges) follows [AmneziaWG 3.x wire semantics](amneziawg-3x-wire-semantics.md).
 - `native/rust/crates/ripdpi-wireguard-ws` is the JNI-free carrier crate used by `ripdpi-warp-core` when an AmneziaWG profile selects the WS carrier; it owns datagram framing and the protect-before-connect carrier socket seam, while the runtime owns WireGuard/AWG crypto and telemetry counters.
-- PT helper binaries `ripdpi-snowflake`, `ripdpi-webtunnel`, and `ripdpi-obfs4` are launched by `PluggableTransportManager`; WebTunnel is the in-repository Rust helper, while Snowflake intentionally remains the Go binary described in [the Snowflake no-go decision](../architecture/snowflake-native-rust-decision.md).
+- In Tor mode, Arti starts PT helpers using binary descriptors from `PluggableTransportManager`. WebTunnel uses the repository Rust helper; Snowflake and obfs4 use pinned Lyrebird. Standalone PT relay activation is rejected. See the [PT stream boundary](../relay-profile-examples.md#stream-termination-boundary) and [Snowflake no-go decision](../architecture/snowflake-native-rust-decision.md).
 
 ### Relay protocols
 
@@ -85,9 +85,9 @@ The relay layer is keyed by the Kotlin `RelayKindDescriptors` table and the Rust
 | `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
 | `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
 | `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
-| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
-| `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
-| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
+| Snowflake (bridge in `tor`) | External Go pluggable-transport binary (`ripdpi-snowflake`) | Tor link; standalone kind rejected | Tor link bytes |
+| WebTunnel (bridge in `tor`) | Repository Rust helper (`ripdpi-webtunnel`) | Tor link; standalone kind rejected | Tor link bytes |
+| obfs4 (bridge in `tor`) | External pluggable-transport binary (`ripdpi-obfs4`) | Tor link; standalone kind rejected | Tor link bytes |
 | `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
 | `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
 | `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |

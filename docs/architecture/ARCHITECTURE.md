@@ -16,7 +16,7 @@ Project Rules). Three capabilities work independently or combined:
 1. **On-device packet strategies** — applies configurable packet-level
    transformations (TCP split/disorder, fake injection, OOB, TLS record
    fragmentation, QUIC/DTLS variation, etc.) without routing to a relay.
-2. **VPN relay** — chains local proxy or VPN traffic through encrypted relay protocols (VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, Tor, NaiveProxy, Google Apps Script, Cloudflare Tunnel, in-repository WebTunnel, and external Snowflake/obfs4 PT paths) to a server or bridge path the user controls. Mieru currently exposes TCP relay only; UDP remains capability-gated. WARP and AmneziaWG are separate VPN/tunnel
+2. **VPN relay** — chains local proxy or VPN traffic through encrypted relay protocols (VLESS Reality/xHTTP, Hysteria2, TUIC v5, MASQUE, ShadowTLS, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, Tor, NaiveProxy, Google Apps Script, Cloudflare Tunnel, Tor bridge support through WebTunnel, Snowflake and obfs4) to a server or bridge path the user controls. Mieru currently exposes TCP relay only; UDP remains capability-gated. WARP and AmneziaWG are separate VPN/tunnel
    profile surfaces, not `relay_kind` values.
    Owner-operated relay promotion is governed by the deployment-plane controls in
    [`Relay Deployment Operations`](../relay-deployment-operations.md).

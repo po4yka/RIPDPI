@@ -221,17 +221,20 @@ relay (`app_settings.proto`: `relay_enabled`, `relay_kind`, `relay_profile_id`).
 - `relay_kind` selects the transport (`off`, `vless`, `vless_reality`,
   `hysteria2`, `chain_relay`, `masque`, `anytls`, `cloudflare_tunnel`,
   `tuic_v5`, `shadowtls_v3`, `trojan`, `shadowsocks`, `mieru`, `ssh`, `naiveproxy`, `tor`,
-  `google_apps_script`, `snowflake`, `webtunnel`, `obfs4`). Kotlin resolves it through the
+  `google_apps_script`). Legacy `snowflake`, `webtunnel` and `obfs4` IDs remain
+  readable but cannot activate as standalone relays. Kotlin resolves kinds through the
   `*RelayKindResolver` classes + `RelayKindResolverRegistry` in
   `core/service/.../services/`.
 - JNI-embedded relays run in `libripdpi-relay.so` (crate `ripdpi-relay-android`,
   bridge `core/engine/.../core/RipDpiRelay.kt`); shared orchestration is
   `ripdpi-relay-core` for the native-wired backends. WARP runs in
-  `libripdpi-warp.so` (`ripdpi-warp-android` / `RipDpiWarp.kt`). NaiveProxy,
-  Cloudflare-origin publish helper, and WebTunnel run as in-repository helper
-  subprocesses; Snowflake and obfs4 run as external pluggable-transport
-  binaries supervised by service code. Snowflake remains the external Go
-  `ripdpi-snowflake` binary by decision.
+  `libripdpi-warp.so` (`ripdpi-warp-android` / `RipDpiWarp.kt`). NaiveProxy
+  and the Cloudflare-origin publish helper run as repository helper subprocesses.
+  In Tor mode, Arti starts the WebTunnel Rust helper or the external
+  Snowflake/obfs4 Lyrebird helper. PT helpers carry Tor links, not arbitrary
+  destination streams; see the [PT profile and stream boundary](../relay-profile-examples.md#pluggable-transports).
+  Tor and its PT helpers remain proxy-mode only because their carrier sockets
+  do not all support Android VPN protection.
 - When no relay is configured, traffic exits the device directly and only the
   on-device packet strategies change the path.
 

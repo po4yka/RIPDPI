@@ -359,14 +359,32 @@ Notes:
 
 ## Pluggable Transports
 
-WebTunnel is the in-repository Rust `ripdpi-webtunnel` PT helper binary managed by `PluggableTransportManager`; Snowflake and obfs4 are external PT binary paths. None of these PT helpers are native relay-core backends. Snowflake remains the Go `ripdpi-snowflake` binary by decision; see [the Snowflake native Rust no-go ADR](architecture/snowflake-native-rust-decision.md).
+Use `kind: tor` and a complete `ptBridgeLine` for obfs4, Snowflake or WebTunnel.
+The Tor backend owns bootstrap, circuits and the final destination. Its Arti
+client starts the helper selected by `PluggableTransportManager`.
 
-Profile fields:
+Standalone `snowflake`, `webtunnel` and `obfs4` activation is rejected. Existing
+profiles remain readable so the user can select Tor and supply a complete bridge
+line. A broker URL or WebTunnel URL alone does not define a Tor bridge identity.
 
-- `kind`: `snowflake`, `webtunnel`, or `obfs4`
-- `ptBridgeLine` for bridge-line based PTs and Tor bootstrap
-- `ptWebTunnelUrl` for WebTunnel URL input
-- `ptSnowflakeBrokerUrl` and `ptSnowflakeFrontDomain` for Snowflake broker/front configuration
+WebTunnel uses the repository's Rust `ripdpi-webtunnel` helper. Snowflake and
+obfs4 use the pinned Lyrebird binary. These helpers carry a Tor bridge link;
+they are not general TCP egress proxies or native relay-core backends. See
+[the Snowflake native Rust no-go ADR](architecture/snowflake-native-rust-decision.md).
+
+### Stream termination boundary
+
+The [pinned Lyrebird copy loop](https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird/-/blob/fc105a03c0e0acc2479301c361c012ffed359c43/cmd/lyrebird/lyrebird.go#L293)
+does not propagate TCP half-close. It waits for
+both copy directions before closing the connection. This is not a promise that
+an arbitrary application can send EOF through a PT and then read a response.
+Tor/Arti owns application stream closure separately from the PT's Tor link.
+The Kotlin SOCKS adapter and Rust WebTunnel helper have their own half-close
+handling; that does not add the same behavior to Lyrebird.
+
+No Lyrebird half-close change is implied by rejecting standalone PT activation.
+Testing a local listener or echo endpoint also does not establish a Tor circuit,
+Android socket protection or external bridge compatibility.
 
 ## Google Apps Script
 
