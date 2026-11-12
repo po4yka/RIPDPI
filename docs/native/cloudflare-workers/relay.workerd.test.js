@@ -112,3 +112,54 @@ export const rejectedUpstreams = {
     }
   },
 };
+
+let onUpstreamClose;
+
+export const closePeer = {
+  fetch() {
+    const [client, server] = Object.values(new WebSocketPair());
+    server.binaryType = "arraybuffer";
+    server.accept();
+    server.addEventListener("message", (event) => {
+      const [code, reason] = JSON.parse(new TextDecoder().decode(event.data));
+      if (code === null) server.close();
+      else server.close(code, reason);
+    });
+    server.addEventListener("close", (event) => onUpstreamClose?.(event));
+    return new Response(null, { status: 101, webSocket: client });
+  },
+};
+
+export const upstreamClose = {
+  async test(_controller, env) {
+    for (const [code, reason] of [[null, ""], [1001, "upstream finished"]]) {
+      const socket = await connect({ RELAY: env.CLOSING_RELAY });
+      const closed = nextEvent(socket);
+      socket.send(new TextEncoder().encode(JSON.stringify([code, reason])));
+      const event = await closed;
+      check(event.type === "close" && event.code === (code ?? 1005) && event.reason === reason,
+        `upstream close changed to ${event.code}: ${event.reason}`);
+    }
+  },
+};
+
+export const clientClose = {
+  async test(_controller, env) {
+    for (const [code, reason] of [[null, ""], [1001, "client finished"]]) {
+      const socket = await connect({ RELAY: env.CLOSING_RELAY });
+      const closed = new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("upstream close timed out")), 1000);
+        onUpstreamClose = (event) => {
+          clearTimeout(timer);
+          resolve(event);
+        };
+      });
+      if (code === null) socket.close();
+      else socket.close(code, reason);
+      const event = await closed;
+      check(event.code === (code ?? 1005) && event.reason === reason,
+        `client close changed to ${event.code}: ${event.reason}`);
+      onUpstreamClose = undefined;
+    }
+  },
+};

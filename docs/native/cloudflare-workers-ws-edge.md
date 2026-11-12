@@ -98,7 +98,10 @@ npx --yes workerd@1.20260515.1 test docs/native/cloudflare-workers/relay.workerd
 The workerd test uses the Workers runtime with a local echo service and no
 outbound network access. It checks binary bytes, the 1 MiB limit, text-frame
 rejection, and the production/test gateway allowlist with the current WebSocket
-`binaryType` default. Both relay sockets
+`binaryType` default. It also checks empty and normal Close frames in both
+directions. The relay preserves an empty Close frame and maps an abnormal
+disconnect to code 1011; reserved status values are not sent on the wire.
+Both relay sockets
 explicitly use `arraybuffer`, independent of the deployment compatibility date.
 
 ## Cost and platform limits

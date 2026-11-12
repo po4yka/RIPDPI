@@ -69,7 +69,11 @@ function bridge(source, destination) {
       destination.close(1003, "binary frames only");
     }
   });
-  source.addEventListener("close", (event) => destination.close(event.code, event.reason));
+  source.addEventListener("close", (event) => {
+    if (event.code === 1005) destination.close();
+    else if (event.code === 1006) destination.close(1011, "relay error");
+    else destination.close(event.code, event.reason);
+  });
   source.addEventListener("error", () => destination.close(1011, "relay error"));
 }
 
