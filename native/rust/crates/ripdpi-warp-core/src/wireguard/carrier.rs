@@ -54,6 +54,8 @@ pub(crate) enum WgCarrier {
     Ws(Box<SplitWsCarrier<WssCarrierStream>>),
     #[cfg(test)]
     PlainTestWs(Box<SplitWsCarrier<PlainTestWsStream>>),
+    #[cfg(test)]
+    DuplexTestWs(Box<SplitWsCarrier<tokio_tungstenite::WebSocketStream<tokio::io::DuplexStream>>>),
 }
 
 /// Metadata from the actual carrier receive, without a configured-endpoint substitute.
@@ -63,6 +65,12 @@ pub(crate) struct ReceivedDatagram {
 }
 
 impl WgCarrier {
+    #[cfg(test)]
+    pub(crate) fn duplex_test_ws(stream: tokio_tungstenite::WebSocketStream<tokio::io::DuplexStream>) -> Self {
+        let (sender, receiver) = ripdpi_wireguard_ws::WsCarrier::new(stream).split();
+        Self::DuplexTestWs(Box::new(SplitWsCarrier::new(sender, receiver)))
+    }
+
     /// Send one WireGuard datagram over the carrier.
     ///
     /// On the UDP arm this is `UdpSocket::send_to(buf, addr)`. On the WS arm the
@@ -91,6 +99,11 @@ impl WgCarrier {
             }
             #[cfg(test)]
             Self::PlainTestWs(carrier) => {
+                carrier.sender.send_datagram(buf).await.map_err(ws_error_to_io)?;
+                Ok(buf.len())
+            }
+            #[cfg(test)]
+            Self::DuplexTestWs(carrier) => {
                 carrier.sender.send_datagram(buf).await.map_err(ws_error_to_io)?;
                 Ok(buf.len())
             }
@@ -134,6 +147,18 @@ impl WgCarrier {
             }
             #[cfg(test)]
             Self::PlainTestWs(carrier) => {
+                let datagram = carrier.receiver.lock().await.recv_datagram().await.map_err(ws_error_to_io)?;
+                if datagram.len() > buf.len() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "carrier datagram larger than the tunnel receive buffer",
+                    ));
+                }
+                buf[..datagram.len()].copy_from_slice(&datagram);
+                Ok(ReceivedDatagram { len: datagram.len(), source: None })
+            }
+            #[cfg(test)]
+            Self::DuplexTestWs(carrier) => {
                 let datagram = carrier.receiver.lock().await.recv_datagram().await.map_err(ws_error_to_io)?;
                 if datagram.len() > buf.len() {
                     return Err(io::Error::new(

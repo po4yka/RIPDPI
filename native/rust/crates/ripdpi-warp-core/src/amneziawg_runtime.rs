@@ -591,14 +591,7 @@ impl AmneziaWgRuntime {
         // explicit handshake initiation. Readiness stays idle until boringtun
         // authenticates the peer's response; a bound local SOCKS port alone is
         // not evidence that the configured VPN is usable.
-        if let Err(error) = tunnel.initiate_handshake().await {
-            *self.last_error.lock().expect("last error") = Some(error.to_string());
-            shutdown_runtime_tasks(&bus, tasks).await;
-            emit_runtime_stopped();
-            return Err(error);
-        }
-
-        let mut runtime_failure = self.await_handshake(&tunnel, &mut failure_rx).await;
+        let mut runtime_failure = self.start_peer(&tunnel, &mut failure_rx).await;
         if runtime_failure.is_none() && !self.stop_requested() {
             *self.listener_address.lock().expect("listener address") = Some(bind_addr.clone());
             self.running.store(true, Ordering::SeqCst);
@@ -734,33 +727,37 @@ impl AmneziaWgRuntime {
         .map_err(to_io_error)
     }
 
-    /// Wait until the peer answers the handshake or [`Self::stop`] is called.
-    /// A carrier that dies first, or a peer silent for [`HANDSHAKE_TIMEOUT`]
-    /// (`TimedOut`), is a runtime failure: it is recorded and returned.
+    /// Send initiation and wait for authenticated readiness.
     ///
-    /// # Cancel safety
-    /// cancel-safe: `UnboundedReceiver::recv` loses no message when cancelled,
-    /// and the failure is recorded only after it is received.
-    async fn await_handshake(
+    /// # Cancel safety:
+    /// NOT cancel-safe: initiation can commit before I/O. The caller must retire
+    /// the tunnel and join its tasks when startup ends without readiness.
+    async fn start_peer(
         &self,
         tunnel: &WireGuardTunnel,
         failures: &mut UnboundedReceiver<String>,
     ) -> Option<io::Error> {
-        let deadline = tokio::time::Instant::now() + HANDSHAKE_TIMEOUT;
-        while !self.stop_requested() && !tunnel.is_handshake_established() {
-            let failure = if tokio::time::Instant::now() >= deadline {
-                io::Error::new(io::ErrorKind::TimedOut, "AmneziaWG peer handshake timed out")
-            } else if let Ok(failure) = timeout(ACCEPT_POLL_INTERVAL, failures.recv()).await {
-                io::Error::other(failure.unwrap_or_else(|| TASKS_GONE.to_string()))
-            } else {
-                continue;
-            };
-            if let Ok(mut last_error) = self.last_error.lock() {
-                *last_error = Some(failure.to_string());
+        let startup = async {
+            tunnel.initiate_handshake().await?;
+            while !tunnel.is_handshake_established() {
+                if let Ok(failure) = timeout(ACCEPT_POLL_INTERVAL, failures.recv()).await {
+                    return Err(io::Error::other(failure.unwrap_or_else(|| TASKS_GONE.to_string())));
+                }
             }
-            return Some(failure);
-        }
-        None
+            Ok(())
+        };
+        let result = tokio::select! {
+            biased;
+            () = self.stopped() => Ok(()),
+            result = timeout(HANDSHAKE_TIMEOUT, startup) => result.unwrap_or_else(|_| {
+                Err(io::Error::new(io::ErrorKind::TimedOut, "AmneziaWG peer handshake timed out"))
+            }),
+        };
+        result.err().inspect(|error| {
+            if let Ok(mut last_error) = self.last_error.lock() {
+                *last_error = Some(error.to_string());
+            }
+        })
     }
 
     fn endpoint_descriptor(&self) -> ResolvedWarpRuntimeEndpoint {
@@ -1012,6 +1009,82 @@ mod tests {
             .expect("stopped runtime must unwind")
             .expect("runtime task must join")
             .expect("stop before readiness is a clean shutdown");
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: all fixture resources are owned and close on cancellation.
+    async fn backpressured_ws_tunnel() -> (WireGuardTunnel, tokio::io::DuplexStream) {
+        let (stream, peer) = tokio::io::duplex(64);
+        let ws = tokio_tungstenite::WebSocketStream::from_raw_socket(
+            stream,
+            tokio_tungstenite::tungstenite::protocol::Role::Client,
+            None,
+        )
+        .await;
+        let key = StaticSecret::from([0x17; 32]);
+        let private_key = BASE64_STANDARD.encode(key.to_bytes());
+        let public_key = BASE64_STANDARD.encode(PublicKey::from(&StaticSecret::from([0x2b; 32])).to_bytes());
+        let amnezia = WarpAmneziaConfig { enabled: true, jc: 128, jmin: 1280, jmax: 1280, ..Default::default() };
+        let tunnel = WireGuardTunnel::new(
+            WireGuardTunnelParams {
+                private_key: &private_key,
+                peer_public_key: &public_key,
+                preshared_key: None,
+                persistent_keepalive: None,
+                persistent_keepalive_max: None,
+                endpoint: "127.0.0.1:51820".parse().unwrap(),
+                fallback_endpoints: Vec::new(),
+                allowed_ips: Arc::new(AllowedIps::default()),
+                reserved: [0; 3],
+                warp_reserved_mode: false,
+                source_peer_ip: "10.8.0.2".parse().unwrap(),
+                source_peer_ipv6: None,
+                mtu: 1330,
+                amnezia_cfg: &amnezia,
+                signature_programs: [""; 5],
+                carrier: Some(WgCarrier::duplex_test_ws(ws)),
+            },
+            &WarpPlatform::default(),
+        )
+        .await
+        .unwrap();
+        (tunnel, peer)
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test drops the tunnel after interrupted startup.
+    #[tokio::test]
+    async fn stop_interrupts_the_initial_ws_prelude_write() {
+        use tokio::io::AsyncReadExt;
+        let (tunnel, mut peer) = backpressured_ws_tunnel().await;
+        let runtime = AmneziaWgRuntime::new(AmneziaWgProfileConfig::default());
+        let (_failure_tx, mut failure_rx) = unbounded_channel();
+        let startup = runtime.start_peer(&tunnel, &mut failure_rx);
+        tokio::pin!(startup);
+        let mut byte = [0; 1];
+        tokio::select! {
+            result = &mut startup => panic!("startup completed before stalled write: {result:?}"),
+            read = peer.read_exact(&mut byte) => { read.unwrap(); }
+        }
+        runtime.stop();
+        assert!(timeout(Duration::from_millis(250), startup).await.expect("Stop interrupts first write").is_none());
+        assert_eq!(runtime.telemetry().state, "idle");
+        assert!(!tunnel.is_handshake_established());
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test drops the tunnel after its startup deadline.
+    #[tokio::test]
+    async fn initial_ws_prelude_write_obeys_the_peer_startup_deadline() {
+        let (tunnel, _peer) = backpressured_ws_tunnel().await;
+        let runtime = AmneziaWgRuntime::new(AmneziaWgProfileConfig::default());
+        let (_failure_tx, mut failure_rx) = unbounded_channel();
+        let error = timeout(HANDSHAKE_TIMEOUT * 2, runtime.start_peer(&tunnel, &mut failure_rx))
+            .await
+            .expect("initial write shares peer deadline")
+            .expect("startup timeout");
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert!(!tunnel.is_handshake_established());
     }
 
     #[tokio::test]
