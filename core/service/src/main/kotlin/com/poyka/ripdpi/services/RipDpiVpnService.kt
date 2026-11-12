@@ -455,7 +455,7 @@ class RipDpiVpnService :
 
     /** Resolve bootstrap hostnames on the explicitly selected underlying network. */
     @Keep
-    fun resolveHost(host: String): Array<String> = underlyingNetworkBinder.resolveHost(host)
+    override fun resolveHost(host: String): Array<String> = underlyingNetworkBinder.resolveHost(host)
 
     internal suspend fun createBuilder(
         dns: String,

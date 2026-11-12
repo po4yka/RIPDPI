@@ -105,6 +105,7 @@ class RipDpiAmneziaWgConfigSerializationTest {
             // RipDpiJson (encodeDefaults = false omits default-valued fields).
             carrier = RipDpiAmneziaWgCarrierKind.Ws,
             carrierWsUrl = "wss://carrier.example.org:443/wg",
+            carrierWsAddresses = listOf("192.0.2.7", "2001:db8::7"),
             localSocksHost = "127.0.0.1",
             localSocksPort = 10808,
         )
@@ -133,6 +134,7 @@ class RipDpiAmneziaWgConfigSerializationTest {
                 "amnezia",
                 "carrier",
                 "carrierWsUrl",
+                "carrierWsAddresses",
                 "localSocksHost",
                 "localSocksPort",
             )
@@ -153,10 +155,37 @@ class RipDpiAmneziaWgConfigSerializationTest {
         // encodeDefaults = false means a default UDP carrier (today's behavior)
         // emits no carrier/carrierWsUrl keys, so the Rust serde(default) restores
         // them — the field is fully additive and back-compatible.
-        val udpConfig = fullConfig.copy(carrier = RipDpiAmneziaWgCarrierKind.Udp, carrierWsUrl = "")
+        val udpConfig =
+            fullConfig.copy(
+                carrier = RipDpiAmneziaWgCarrierKind.Udp,
+                carrierWsUrl = "",
+                carrierWsAddresses = null,
+            )
         val obj = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(udpConfig)).jsonObject
         assertEquals(false, obj.containsKey("carrier"))
         assertEquals(false, obj.containsKey("carrierWsUrl"))
+    }
+
+    @Test
+    fun `explicit empty bootstrap remains distinct from omitted legacy bootstrap`() {
+        val empty =
+            RipDpiJson.encodeToString(
+                ResolvedRipDpiAmneziaWgConfig.serializer(),
+                fullConfig.copy(carrierWsAddresses = emptyList()),
+            )
+        assertEquals(
+            emptyList<String>(),
+            RipDpiJson.decodeFromString(ResolvedRipDpiAmneziaWgConfig.serializer(), empty).carrierWsAddresses,
+        )
+        val legacy =
+            RipDpiJson.encodeToString(
+                ResolvedRipDpiAmneziaWgConfig.serializer(),
+                fullConfig.copy(carrierWsAddresses = null),
+            )
+        assertEquals(
+            null,
+            RipDpiJson.decodeFromString(ResolvedRipDpiAmneziaWgConfig.serializer(), legacy).carrierWsAddresses,
+        )
     }
 
     @Test

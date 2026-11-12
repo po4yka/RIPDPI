@@ -32,6 +32,9 @@ internal interface ServiceCoordinatorHost {
 internal interface VpnCoordinatorHost :
     ServiceCoordinatorHost,
     VpnTunnelBuilderHost {
+    fun resolveHost(host: String): Array<String> =
+        throw java.net.UnknownHostException("VPN underlay resolver unavailable")
+
     fun prepareDirectDnsUnderlay(
         candidates: List<String>,
         leaseGeneration: Long?,

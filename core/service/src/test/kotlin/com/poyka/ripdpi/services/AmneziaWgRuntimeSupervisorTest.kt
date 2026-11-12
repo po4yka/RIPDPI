@@ -321,6 +321,15 @@ internal class RecordingAmneziaWgRuntimeConfigResolver : AmneziaWgRuntimeConfigR
                     i4 = request.obfuscation.i4,
                     i5 = request.obfuscation.i5,
                 ),
+            carrier =
+                if (request.carrier ==
+                    AwgActivationRequest.CARRIER_WS
+                ) {
+                    com.poyka.ripdpi.core.RipDpiAmneziaWgCarrierKind.Ws
+                } else {
+                    com.poyka.ripdpi.core.RipDpiAmneziaWgCarrierKind.Udp
+                },
+            carrierWsUrl = request.carrierWsUrl,
             localSocksHost = "127.0.0.1",
             localSocksPort = 10808,
         )

@@ -195,6 +195,10 @@ pub struct AmneziaWgProfileConfig {
     /// (network-fingerprint-privacy).
     #[serde(default)]
     pub carrier_ws_url: String,
+    /// Explicit numeric bootstrap candidates. Missing preserves legacy host lookup;
+    /// an explicit empty list fails closed. URL identity is unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub carrier_ws_addresses: Option<Vec<String>>,
     /// Loopback SOCKS5 bind host (e.g. `127.0.0.1`).
     pub local_socks_host: String,
     /// Loopback SOCKS5 bind port.
@@ -788,9 +792,9 @@ impl AmneziaWgRuntime {
     /// A WS carrier with an empty `carrier_ws_url` is a config error
     /// (`InvalidInput`) — there is nothing to connect to.
     ///
-    /// # Cancel safety
-    /// Not cancel-safe in aggregate (it mutates the failure counter on error),
-    /// but `run` never selects over it.
+    /// # Cancel safety:
+    /// cancel-safe: cancellation drops unpublished sockets. Counter and error updates
+    /// after a completed connect are synchronous and cannot be interrupted by cancellation.
     async fn open_carrier(&self) -> io::Result<Option<WgCarrier>> {
         match self.config.carrier {
             AmneziaWgCarrierKind::Udp => Ok(None),
@@ -805,8 +809,14 @@ impl AmneziaWgRuntime {
                     return Err(error);
                 }
                 let protector = self.platform.carrier_protector();
-                let connect =
-                    timeout(WS_CARRIER_CONNECT_TIMEOUT, connect_ws_carrier(&self.config.carrier_ws_url, &protector));
+                let connect = timeout(
+                    WS_CARRIER_CONNECT_TIMEOUT,
+                    connect_ws_carrier(
+                        &self.config.carrier_ws_url,
+                        self.config.carrier_ws_addresses.as_deref(),
+                        &protector,
+                    ),
+                );
                 let connected = connect.await.unwrap_or_else(|_| {
                     Err(io::Error::new(io::ErrorKind::TimedOut, "AmneziaWG WS carrier connect timed out"))
                 });
@@ -1117,6 +1127,37 @@ mod tests {
             .expect("stop must interrupt a pending carrier connect")
             .expect("runtime task must join")
             .expect("stop before readiness is a clean shutdown");
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: invalid addresses fail before a connection is created.
+    #[tokio::test]
+    async fn explicit_ws_bootstrap_rejects_empty_and_non_numeric_addresses() {
+        for addresses in [vec![], vec!["carrier.invalid".to_string()], vec!["127.0.0.1:443".to_string()]] {
+            let config = AmneziaWgProfileConfig {
+                carrier: AmneziaWgCarrierKind::Ws,
+                carrier_ws_url: "wss://carrier.invalid/wg".to_string(),
+                carrier_ws_addresses: Some(addresses),
+                ..Default::default()
+            };
+            let runtime = AmneziaWgRuntime::new(config);
+            let error = runtime.open_carrier().await.err().expect("invalid bootstrap rejected");
+            assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+            assert_eq!(runtime.telemetry().ws_carrier_handshakes, 0);
+            assert_eq!(runtime.telemetry().ws_carrier_handshake_failures, 1);
+        }
+    }
+
+    #[test]
+    fn ws_bootstrap_wire_contract_preserves_absent_and_explicit_empty() {
+        let mut config = AmneziaWgProfileConfig::default();
+        let legacy = serde_json::to_value(&config).expect("legacy config");
+        assert!(legacy.get("carrierWsAddresses").is_none());
+        config.carrier_ws_addresses = Some(Vec::new());
+        let explicit = serde_json::to_value(&config).expect("explicit bootstrap");
+        assert_eq!(explicit["carrierWsAddresses"], serde_json::json!([]));
+        let restored: AmneziaWgProfileConfig = serde_json::from_value(explicit).expect("round trip");
+        assert_eq!(restored.carrier_ws_addresses, Some(Vec::new()));
     }
 
     #[tokio::test]

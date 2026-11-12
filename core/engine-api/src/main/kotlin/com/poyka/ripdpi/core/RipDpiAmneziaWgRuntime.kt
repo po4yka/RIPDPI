@@ -130,6 +130,7 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val amnezia: RipDpiAmneziaWgObfuscationConfig = RipDpiAmneziaWgObfuscationConfig(),
     val carrier: RipDpiAmneziaWgCarrierKind = RipDpiAmneziaWgCarrierKind.Udp,
     val carrierWsUrl: String = "",
+    val carrierWsAddresses: List<String>? = null,
     val localSocksHost: String,
     val localSocksPort: Int,
 ) {

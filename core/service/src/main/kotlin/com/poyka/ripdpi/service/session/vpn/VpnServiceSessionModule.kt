@@ -65,6 +65,8 @@ import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.Optional
 import java.util.UUID
@@ -237,7 +239,19 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         factory: AmneziaWgRuntimeSupervisorFactory,
         dispatchers: AppCoroutineDispatchers,
-    ): AmneziaWgRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = dispatchers.io)
+    ): AmneziaWgRuntimeSupervisor =
+        factory.create(
+            scope = host.serviceScope,
+            dispatcher = dispatchers.io,
+            resolveWsEndpoint = { hostname ->
+                val lookup = host.serviceScope.async(dispatchers.io) { host.resolveHost(hostname).toList() }
+                try {
+                    withTimeout(AwgBootstrapTimeoutMillis) { lookup.await() }
+                } finally {
+                    lookup.cancel()
+                }
+            },
+        )
 
     @Provides
     @ServiceSessionScope
@@ -445,3 +459,5 @@ private const val XrayBootstrapTimeoutMillis = 5_000L
 
 internal fun vpnProtectSocketPath(filesDir: File): String =
     File(filesDir, "vp-${UUID.randomUUID().toString().replace("-", "")}").absolutePath
+
+private const val AwgBootstrapTimeoutMillis = 10_000L

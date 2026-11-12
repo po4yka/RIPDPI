@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::io;
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use rustls::pki_types::ServerName;
@@ -14,7 +15,7 @@ use tokio_tungstenite::{WebSocketStream, client_async_with_config};
 use url::Url;
 
 use crate::WsCarrier;
-use crate::connect::{CarrierSocketProtector, connect_protected_carrier_host};
+use crate::connect::{CarrierSocketProtector, connect_protected_carrier_addresses, connect_protected_carrier_host};
 
 const DEFAULT_WSS_PORT: u16 = 443;
 const BINARY_SUBPROTOCOL: &str = "binary";
@@ -134,7 +135,7 @@ pub async fn connect_wss_carrier<P>(endpoint: &WssEndpoint, protector: &P) -> io
 where
     P: CarrierSocketProtector + ?Sized,
 {
-    connect_wss_carrier_with_config(endpoint, protector, None).await
+    connect_wss_carrier_with_config(endpoint, protector, None, None).await
 }
 
 /// Open a protected WSS carrier with an explicit receive datagram limit.
@@ -154,7 +155,24 @@ where
     P: CarrierSocketProtector + ?Sized,
 {
     let config = receive_config(max_datagram_size)?;
-    connect_wss_carrier_with_config(endpoint, protector, Some(config)).await
+    connect_wss_carrier_with_config(endpoint, protector, Some(config), None).await
+}
+
+/// Open a carrier at numeric bootstrap addresses while preserving URL identity.
+///
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the unpublished connection and its sockets.
+pub async fn connect_wss_carrier_with_receive_limit_at_addresses<P>(
+    endpoint: &WssEndpoint,
+    protector: &P,
+    max_datagram_size: usize,
+    addresses: &[IpAddr],
+) -> io::Result<WssCarrier>
+where
+    P: CarrierSocketProtector + ?Sized,
+{
+    let config = receive_config(max_datagram_size)?;
+    connect_wss_carrier_with_config(endpoint, protector, Some(config), Some(addresses)).await
 }
 
 fn receive_config(max_datagram_size: usize) -> io::Result<WebSocketConfig> {
@@ -170,11 +188,15 @@ async fn connect_wss_carrier_with_config<P>(
     endpoint: &WssEndpoint,
     protector: &P,
     config: Option<WebSocketConfig>,
+    addresses: Option<&[IpAddr]>,
 ) -> io::Result<WssCarrier>
 where
     P: CarrierSocketProtector + ?Sized,
 {
-    let stream = connect_protected_carrier_host(endpoint.host(), endpoint.port(), protector).await?;
+    let stream = match addresses {
+        Some(addresses) => connect_protected_carrier_addresses(addresses, endpoint.port(), protector).await?,
+        None => connect_protected_carrier_host(endpoint.host(), endpoint.port(), protector).await?,
+    };
     stream.set_nodelay(true)?;
     let request =
         endpoint.build_client_request().map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
@@ -272,6 +294,52 @@ mod tests {
         headers.insert("Sec-WebSocket-Protocol", HeaderValue::from_static(BINARY_SUBPROTOCOL));
         assert!(validate_binary_subprotocol(&headers).is_ok());
     }
+    /// # Cancel safety:
+    /// cancel-safe: both local stream ends are owned by the joined futures.
+    #[tokio::test]
+    async fn pinned_address_preserves_the_url_tls_and_http_identity() {
+        use tokio::io::AsyncReadExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
+        let port = listener.local_addr().expect("address").port();
+        let endpoint = WssEndpoint::parse(&format!("wss://carrier.invalid:{port}/wg?profile=a")).expect("endpoint");
+        let request = endpoint.build_client_request().expect("request");
+        assert_eq!(request.headers()["Host"], format!("carrier.invalid:{port}"));
+        assert_eq!(request.uri().path_and_query().expect("path").as_str(), "/wg?profile=a");
+        let peer = async {
+            let (mut stream, _) = listener.accept().await.expect("accept numeric candidate");
+            let mut acceptor = rustls::server::Acceptor::default();
+            let mut bytes = [0; 4096];
+            loop {
+                let len = stream.read(&mut bytes).await.expect("ClientHello bytes");
+                assert_ne!(len, 0, "TLS ClientHello completes before EOF");
+                acceptor.read_tls(&mut &bytes[..len]).expect("TLS record");
+                if let Some(accepted) = acceptor.accept().expect("ClientHello") {
+                    assert_eq!(accepted.client_hello().server_name(), Some("carrier.invalid"));
+                    break;
+                }
+            }
+        };
+        let addresses = ["127.0.0.1".parse().expect("numeric bootstrap")];
+        let connected = connect_wss_carrier_with_receive_limit_at_addresses(&endpoint, &|_| Ok(()), 65536, &addresses);
+        let (result, ()) =
+            tokio::time::timeout(std::time::Duration::from_secs(1), async { tokio::join!(connected, peer) })
+                .await
+                .expect("owned peer receives TLS without resolving carrier.invalid");
+        assert!(result.is_err(), "peer deliberately provides no trusted certificate");
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: rejected input starts no network operation.
+    #[tokio::test]
+    async fn explicit_empty_bootstrap_does_not_fall_back_to_hostname_resolution() {
+        let endpoint = WssEndpoint::parse("wss://carrier.invalid/wg").expect("endpoint");
+        let error = connect_wss_carrier_with_receive_limit_at_addresses(&endpoint, &|_| Ok(()), 65536, &[])
+            .await
+            .err()
+            .expect("empty explicit bootstrap rejected");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+
     /// # Cancel safety:
     /// cancel-safe: the test owns and drops both stream ends.
     async fn read_wire_with_limit(

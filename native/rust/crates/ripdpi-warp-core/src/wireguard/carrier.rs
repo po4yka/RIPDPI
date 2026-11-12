@@ -6,7 +6,7 @@ use tokio::sync::Mutex;
 
 use ripdpi_wireguard_ws::{
     CarrierSocketProtector, WsCarrierError, WsCarrierReceiver, WsCarrierSender, WssCarrierStream, WssEndpoint,
-    connect_wss_carrier_with_receive_limit,
+    connect_wss_carrier_with_receive_limit, connect_wss_carrier_with_receive_limit_at_addresses,
 };
 
 #[cfg(test)]
@@ -204,14 +204,37 @@ impl WgCarrier {
 ///
 /// cancel-safe: a dropped future drops the in-flight connect/handshake, closing
 /// the carrier socket. No caller-visible state is published before the `Ok`.
-pub(crate) async fn connect_ws_carrier<P>(request_url: &str, protector: &P) -> io::Result<WgCarrier>
+pub(crate) async fn connect_ws_carrier<P>(
+    request_url: &str,
+    addresses: Option<&[String]>,
+    protector: &P,
+) -> io::Result<WgCarrier>
 where
     P: CarrierSocketProtector + ?Sized,
 {
     let wss_endpoint = WssEndpoint::parse(request_url).map_err(|error| {
         io::Error::new(io::ErrorKind::InvalidInput, format!("invalid carrier WSS endpoint: {error}"))
     })?;
-    let carrier = connect_wss_carrier_with_receive_limit(&wss_endpoint, protector, crate::support::MAX_PACKET).await?;
+    let carrier = match addresses {
+        Some(addresses) => {
+            let addresses: Vec<std::net::IpAddr> = addresses
+                .iter()
+                .map(|address| {
+                    address.parse().map_err(|_| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "carrier bootstrap requires numeric IP addresses")
+                    })
+                })
+                .collect::<io::Result<_>>()?;
+            connect_wss_carrier_with_receive_limit_at_addresses(
+                &wss_endpoint,
+                protector,
+                crate::support::MAX_PACKET,
+                &addresses,
+            )
+            .await?
+        }
+        None => connect_wss_carrier_with_receive_limit(&wss_endpoint, protector, crate::support::MAX_PACKET).await?,
+    };
     let (sender, receiver) = carrier.split();
     Ok(WgCarrier::Ws(Box::new(SplitWsCarrier::new(sender, receiver))))
 }

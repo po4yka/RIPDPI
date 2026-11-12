@@ -2,8 +2,10 @@
 
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ResolvedRipDpiAmneziaWgConfig
 import com.poyka.ripdpi.core.RipDpiAmneziaWgFactory
 import com.poyka.ripdpi.core.RipDpiAmneziaWgRuntime
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalog
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
@@ -14,10 +16,14 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
@@ -44,9 +50,14 @@ internal class AmneziaWgRuntimeSupervisor(
     private val stopTimeoutMillis: Long = 5_000L,
     private val activeRegistry: ActiveAwgRuntimeRegistry,
     private val handshakeAttempts: (AwgActivationRequest) -> Int = { 1 },
+    private val resolveWsEndpoint: (suspend (String) -> List<String>)? = null,
 ) {
     private var amneziaWgRuntime: RipDpiAmneziaWgRuntime? = null
     private var amneziaWgJob: Job? = null
+    private var setup: Deferred<ResolvedRipDpiAmneziaWgConfig>? = null
+
+    @Volatile
+    private var sessionToken: Any = Any()
 
     @Volatile
     private var stopRequested: Boolean = false
@@ -79,8 +90,32 @@ internal class AmneziaWgRuntimeSupervisor(
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(amneziaWgJob == null) { "AmneziaWG fields not null" }
+        val token = sessionToken
+        val preparing =
+            scope.async(dispatcher) {
+                val config = runtimeConfigResolver.resolve(request)
+                val resolver = resolveWsEndpoint
+                if (request.carrier != AwgActivationRequest.CARRIER_WS || resolver == null) {
+                    config
+                } else {
+                    val host = ("https://" + request.carrierWsUrl.substring(6)).toHttpUrl().host
+                    val addresses = if (NumericIp.parseAddress(host) != null) listOf(host) else resolver(host)
+                    require(addresses.isNotEmpty() && addresses.all { NumericIp.parseAddress(it) != null }) {
+                        "AmneziaWG WS bootstrap returned no usable numeric addresses"
+                    }
+                    config.copy(carrierWsAddresses = addresses.distinct())
+                }
+            }
+        setup = preparing
+        val resolvedConfig =
+            try {
+                preparing.await()
+            } finally {
+                withContext(NonCancellable) { preparing.cancelAndJoin() }
+                if (setup === preparing) setup = null
+            }
+        if (sessionToken !== token) throw CancellationException("AmneziaWG setup stopped")
         val runtime = amneziaWgFactory.create()
-        val resolvedConfig = runtimeConfigResolver.resolve(request)
         val consumedConfiguration = ConsumedUpstreamConfiguration.awg(resolvedConfig)
         amneziaWgRuntime = runtime
         stopRequested = false
@@ -145,6 +180,8 @@ internal class AmneziaWgRuntimeSupervisor(
     }
 
     suspend fun stop() {
+        sessionToken = Any()
+        setup?.cancelAndJoin()
         activeRegistry.revoke(activeRegistration)
         val runtime = amneziaWgRuntime ?: return
         val job = amneziaWgJob
@@ -192,6 +229,7 @@ internal open class AmneziaWgRuntimeSupervisorFactory
         open fun create(
             scope: CoroutineScope,
             dispatcher: CoroutineDispatcher,
+            resolveWsEndpoint: (suspend (String) -> List<String>)? = null,
         ): AmneziaWgRuntimeSupervisor =
             AmneziaWgRuntimeSupervisor(
                 scope = scope,
@@ -199,6 +237,7 @@ internal open class AmneziaWgRuntimeSupervisorFactory
                 amneziaWgFactory = amneziaWgFactory,
                 runtimeConfigResolver = runtimeConfigResolver,
                 activeRegistry = activeRegistry,
+                resolveWsEndpoint = resolveWsEndpoint,
                 handshakeAttempts = { request ->
                     AwgCohortCatalogData(cohortCatalog.get().all()).handshakeAttemptsFor(request.obfuscation)
                 },

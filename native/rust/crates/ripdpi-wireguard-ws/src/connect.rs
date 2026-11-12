@@ -157,6 +157,25 @@ where
     sockets.connect_first(targets, protector).await
 }
 
+/// Connect numeric bootstrap candidates without running hostname resolution.
+///
+/// # Cancel safety:
+/// cancel-safe: dropping the future closes all candidate and in-flight sockets.
+pub(crate) async fn connect_protected_carrier_addresses<P>(
+    addresses: &[IpAddr],
+    port: u16,
+    protector: &P,
+) -> io::Result<TcpStream>
+where
+    P: CarrierSocketProtector + ?Sized,
+{
+    if addresses.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "carrier bootstrap addresses are empty"));
+    }
+    let targets = addresses.iter().map(|ip| SocketAddr::new(*ip, port)).collect();
+    ProtectedCarrierSockets::new(protector)?.connect_first(interleave_families(targets), protector).await
+}
+
 /// Bound on a connect attempt that another address follows, so a black-holed address leaves
 /// time for the next one. The last attempt is bounded only by the caller's carrier timeout.
 const CONNECT_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);

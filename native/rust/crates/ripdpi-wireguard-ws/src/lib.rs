@@ -62,7 +62,7 @@ mod receive;
 pub use connect::{CarrierSocketProtector, connect_protected_carrier};
 pub use endpoint::{
     WssCarrier, WssCarrierStream, WssEndpoint, WssEndpointError, connect_wss_carrier,
-    connect_wss_carrier_with_receive_limit,
+    connect_wss_carrier_with_receive_limit, connect_wss_carrier_with_receive_limit_at_addresses,
 };
 
 /// Errors produced by the WireGuard-over-WebSocket carrier.
