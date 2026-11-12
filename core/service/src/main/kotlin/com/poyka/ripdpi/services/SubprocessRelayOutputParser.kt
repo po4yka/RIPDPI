@@ -42,10 +42,18 @@ internal sealed interface SubprocessRelayOutputEvent {
 
 internal class SubprocessRelayOutputParser {
     private val naiveUpstreamParser = NaiveUpstreamOutputParser()
+    private var managedVersion = false
+    private var managedComplete = false
+    private var managedFailed = false
+    private var pendingListener: InetSocketAddress? = null
 
     /** Drops per-process parser state; the supervisor calls it on each process start. */
     fun reset() {
         naiveUpstreamParser.reset()
+        managedVersion = false
+        managedComplete = false
+        managedFailed = false
+        pendingListener = null
     }
 
     fun parse(
@@ -53,19 +61,76 @@ internal class SubprocessRelayOutputParser {
         spec: SubprocessSocksRelayLaunchSpec,
     ): SubprocessRelayOutputEvent? {
         val trimmed = redactSensitive(line.trim(), spec)
-        val managedClientListener =
-            spec.managedClientBridge
-                ?.let { bridgeSpec ->
-                    parseManagedClientListenerLine(trimmed, bridgeSpec.methodName)
-                }
+        if (spec.managedClientBridge != null) return parseManaged(trimmed, spec)
 
         // The upstream Chromium client does not speak the RIPDPI-* protocol; its lines are plain output.
         return when {
             trimmed.isBlank() -> null
-            managedClientListener != null -> SubprocessRelayOutputEvent.ManagedClientListener(managedClientListener)
             spec.binaryName == NaiveUpstreamBinaryName -> naiveUpstreamParser.parse(trimmed, spec.runtimeKind)
             else -> parseStructuredEvent(trimmed) ?: parsePlainError(trimmed)
         }
+    }
+
+    private fun parseManaged(
+        line: String,
+        spec: SubprocessSocksRelayLaunchSpec,
+    ): SubprocessRelayOutputEvent? {
+        if (managedFailed) return null
+        val method = requireNotNull(spec.managedClientBridge).methodName
+        val keyword = line.substringBefore(' ')
+        val negotiationOpen = managedVersion && !managedComplete
+        return when (keyword) {
+            in PlainErrorPrefixes -> {
+                managedError(line, spec)
+            }
+
+            "VERSION" -> {
+                if (managedVersion || line != "VERSION 1") {
+                    managedError("Invalid managed PT version negotiation", spec)
+                } else {
+                    managedVersion = true
+                    null
+                }
+            }
+
+            "CMETHOD" -> {
+                if (!negotiationOpen) {
+                    managedError("Managed PT method outside negotiation", spec)
+                } else if (line.split(' ').getOrNull(1) != method) {
+                    null
+                } else {
+                    val listener = parseManagedClientListenerLine(line, method)
+                    if (listener == null || pendingListener != null) {
+                        managedError("Invalid managed PT SOCKS listener", spec)
+                    } else {
+                        pendingListener = listener
+                        null
+                    }
+                }
+            }
+
+            "CMETHODS" -> {
+                val listener = pendingListener
+                if (line != "CMETHODS DONE" || !negotiationOpen || listener == null) {
+                    managedError("Incomplete managed PT negotiation", spec)
+                } else {
+                    managedComplete = true
+                    SubprocessRelayOutputEvent.ManagedClientListener(listener)
+                }
+            }
+
+            else -> {
+                parseStructuredEvent(line)
+            }
+        }
+    }
+
+    private fun managedError(
+        message: String,
+        spec: SubprocessSocksRelayLaunchSpec,
+    ): SubprocessRelayOutputEvent.Error {
+        managedFailed = true
+        return SubprocessRelayOutputEvent.Error(spec.runtimeKind, "managed_pt_startup", message)
     }
 
     private fun parseStructuredEvent(line: String): SubprocessRelayOutputEvent? =

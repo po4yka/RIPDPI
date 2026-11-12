@@ -44,9 +44,12 @@ internal fun parseManagedClientListenerLine(
     if (delimiter <= 0 || delimiter == parts[3].lastIndex) {
         return null
     }
-    val host = parts[3].substring(0, delimiter)
+    val host = parts[3].substring(0, delimiter).removeSurrounding("[", "]")
     val port = parts[3].substring(delimiter + 1).toIntOrNull() ?: return null
-    return InetSocketAddress(host, port)
+    if (port !in 1..65_535) return null
+    val address = NumericIp.parseAddress(host)?.toInetAddress() ?: return null
+    if (!address.isLoopbackAddress) return null
+    return InetSocketAddress(address, port)
 }
 
 internal fun splitPtAuthArgs(arguments: String): Pair<ByteArray, ByteArray> {

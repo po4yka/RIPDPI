@@ -24,6 +24,17 @@ class PluggableTransportSocksBridgeWireTest {
     // -------------------------------------------------------------------------
 
     @Test
+    fun `managed listener requires numeric loopback and valid port`() {
+        listOf("192.0.2.1:1234", "localhost:1234", "127.0.0.1:0", "127.0.0.1:65536").forEach {
+            assertNull(parseManagedClientListenerLine("CMETHOD obfs4 socks5 $it", "obfs4"))
+        }
+        assertEquals(
+            InetSocketAddress("::1", 1234),
+            parseManagedClientListenerLine("CMETHOD obfs4 socks5 [::1]:1234", "obfs4"),
+        )
+    }
+
+    @Test
     fun `parseManagedClientListenerLine returns address for well-formed webtunnel line`() {
         val result = parseManagedClientListenerLine("CMETHOD webtunnel socks5 127.0.0.1:43123", "webtunnel")
         assertEquals(InetSocketAddress("127.0.0.1", 43123), result)

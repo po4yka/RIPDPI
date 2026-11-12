@@ -74,10 +74,12 @@ internal class SubprocessRelayReadinessProbe(
         currentListener: () -> InetSocketAddress?,
         isRunning: () -> Boolean,
         onFailure: (String) -> Unit,
+        startupFailure: () -> String? = { null },
     ): InetSocketAddress {
         var listener: InetSocketAddress? = null
         withTimeoutOrNull<Unit>(timeoutMs) {
             while (listener == null) {
+                startupFailure()?.let { error(it) }
                 listener = currentListener()
                 if (listener == null) {
                     if (!isRunning()) {

@@ -21,6 +21,61 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalCoroutinesApi::class)
 class SubprocessRelayComponentsTest {
     @Test
+    fun `managed negotiation rejects missing version and retains terminal failure`() {
+        val spec = launchSpec(managedClientBridge = ManagedClientSocksBridgeSpec("obfs4", "127.0.0.1", 443, ""))
+        val parser = SubprocessRelayOutputParser()
+        assertTrue(parser.parse("CMETHOD obfs4 socks5 127.0.0.1:1234", spec) is SubprocessRelayOutputEvent.Error)
+        assertNull(parser.parse("VERSION 1", spec))
+        assertNull(parser.parse("CMETHODS DONE", spec))
+        parser.reset()
+        assertNull(parser.parse("VERSION 1", spec))
+        val failure = parser.parse("CMETHOD-ERROR obfs4 unavailable", spec) as SubprocessRelayOutputEvent.Error
+        assertEquals("CMETHOD-ERROR obfs4 unavailable", failure.message)
+        assertNull(parser.parse("CMETHODS DONE", spec))
+    }
+
+    @Test
+    fun `managed negotiation rejects unsupported version and missing listener`() {
+        val spec = launchSpec(managedClientBridge = ManagedClientSocksBridgeSpec("obfs4", "127.0.0.1", 443, ""))
+        val parser = SubprocessRelayOutputParser()
+        assertTrue(parser.parse("VERSION 2", spec) is SubprocessRelayOutputEvent.Error)
+        parser.reset()
+        parser.parse("VERSION 1", spec)
+        assertTrue(parser.parse("CMETHODS DONE", spec) is SubprocessRelayOutputEvent.Error)
+    }
+
+    @Test
+    fun `managed line reader preserves lines and rejects an oversized line`() {
+        val reader = java.io.StringReader("VERSION 1\r\nCMETHODS DONE\n")
+        assertEquals("VERSION 1", readManagedPtLine(reader))
+        assertEquals("CMETHODS DONE", readManagedPtLine(reader))
+        assertNull(readManagedPtLine(reader))
+        org.junit.Assert.assertThrows(java.io.IOException::class.java) {
+            readManagedPtLine(java.io.StringReader("CMETHODS DONE"))
+        }
+        org.junit.Assert.assertThrows(java.io.IOException::class.java) {
+            readManagedPtLine(java.io.StringReader("x".repeat(8_193)))
+        }
+    }
+
+    @Test
+    fun `managed readiness preserves the helper failure`() =
+        runTest {
+            val probe = SubprocessRelayReadinessProbe()
+            val failure =
+                runCatching {
+                    probe.waitForManagedClientListener(
+                        ManagedClientSocksBridgeSpec("obfs4", "127.0.0.1", 443, ""),
+                        currentListener = { null },
+                        isRunning = { true },
+                        onFailure = {},
+                        startupFailure = { "helper failed to bind" },
+                    )
+                }.exceptionOrNull()
+            assertEquals("helper failed to bind", failure?.message)
+        }
+
+    @Test
     fun `output parser redacts structured errors and detects managed listener`() {
         val parser = SubprocessRelayOutputParser()
         val spec =
@@ -35,7 +90,12 @@ class SubprocessRelayComponentsTest {
                 redactedValues = listOf("secret-token"),
             )
 
-        val listenerEvent = parser.parse("CMETHOD webtunnel socks5 127.0.0.1:43123", spec)
+        assertNull(parser.parse("VERSION 1", spec))
+        assertNull(parser.parse("LOG SEVERITY=notice MESSAGE=ready", spec))
+        assertNull(parser.parse("STATUS TYPE=version IMPLEMENTATION=lyrebird VERSION=1", spec))
+        assertNull(parser.parse("UNKNOWN error ignored", spec))
+        assertNull(parser.parse("CMETHOD webtunnel socks5 127.0.0.1:43123", spec))
+        val listenerEvent = parser.parse("CMETHODS DONE", spec)
         val errorEvent = parser.parse("RIPDPI-ERROR|webtunnel|auth|token secret-token failed", spec)
 
         assertEquals(

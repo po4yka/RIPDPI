@@ -153,6 +153,7 @@ class SubprocessSocksRelayManager
                         readinessProbe.waitForManagedClientListener(
                             bridgeSpec = managedClientBridgeSpec,
                             currentListener = bridgeOrchestrator::currentManagedClientListener,
+                            startupFailure = { lastError.takeIf { lastFailureClass != null } },
                             isRunning = processSupervisor::isRunning,
                             onFailure = ::markFailed,
                         )
@@ -169,7 +170,10 @@ class SubprocessSocksRelayManager
                     isRunning = processSupervisor::isRunning,
                     onFailure = ::markFailed,
                 )
-                runtimeStateOverride = null
+                synchronized(this) {
+                    lastError.takeIf { spec.managedClientBridge != null && lastFailureClass != null }?.let { error(it) }
+                    runtimeStateOverride = null
+                }
             } catch (
                 @Suppress("TooGenericExceptionCaught") error: Exception,
             ) {
@@ -237,6 +241,7 @@ class SubprocessSocksRelayManager
             runtimeStateOverride = "failed"
         }
 
+        @Synchronized
         internal fun handleProcessOutputEvent(event: SubprocessRelayOutputEvent) {
             when (event) {
                 is SubprocessRelayOutputEvent.ManagedClientListener -> {

@@ -95,11 +95,24 @@ internal class SubprocessRelayProcessSupervisor(
             isDaemon = true,
         ) {
             try {
-                activeProcess.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
+                activeProcess.inputStream.bufferedReader().use { reader ->
+                    while (true) {
+                        val line =
+                            if (spec.managedClientBridge ==
+                                null
+                            ) {
+                                reader.readLine()
+                            } else {
+                                readManagedPtLine(reader)
+                            }
+                        if (line == null) break
                         outputParser.parse(line, spec)?.let(onOutputEvent)
                     }
                 }
+            } catch (error: ManagedPtControlLineException) {
+                onOutputEvent(
+                    SubprocessRelayOutputEvent.Error(spec.runtimeKind, "managed_pt_startup", error.message.orEmpty()),
+                )
             } catch (_: IOException) {
                 // Process.destroy() closes stdout under the blocked read: that is EOF.
             }
@@ -118,5 +131,29 @@ internal class SubprocessRelayProcessSupervisor(
             process = null
             processOutputThread = null
         }
+    }
+}
+
+private const val ManagedPtLineLimit = 8_192
+
+private class ManagedPtControlLineException(
+    message: String,
+) : IOException(message)
+
+internal fun readManagedPtLine(reader: java.io.Reader): String? {
+    val line = StringBuilder()
+    while (true) {
+        val next = reader.read()
+        if (next == -1) {
+            if (line.isNotEmpty()) throw ManagedPtControlLineException("Unterminated managed PT control line")
+            return null
+        }
+        if (next == '\n'.code) return line.toString().removeSuffix("\r")
+        if (line.length ==
+            ManagedPtLineLimit
+        ) {
+            throw ManagedPtControlLineException("Managed PT control line exceeds limit")
+        }
+        line.append(next.toChar())
     }
 }
