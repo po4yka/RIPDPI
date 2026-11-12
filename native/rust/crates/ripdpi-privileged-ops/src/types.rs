@@ -1,5 +1,23 @@
 use std::time::Duration;
 
+#[derive(Debug)]
+pub struct TcpSendProgressError {
+    pub bytes_committed: usize,
+    pub source: std::io::Error,
+}
+
+impl std::fmt::Display for TcpSendProgressError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{} ({} payload bytes committed)", self.source, self.bytes_committed)
+    }
+}
+
+impl std::error::Error for TcpSendProgressError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
+}
+
 pub type TcpStageWait = (bool, Duration);
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

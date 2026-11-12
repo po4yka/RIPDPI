@@ -37,6 +37,8 @@ pub struct HelperResponse {
     pub ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
+    /// Command data. A failed `send_fake_tcp` may report `bytes_committed`;
+    /// clients must bound this count by the request's original payload length.
     #[serde(default)]
     pub data: serde_json::Value,
     /// Helper's [`PROTOCOL_VERSION`] at the time the response was minted.

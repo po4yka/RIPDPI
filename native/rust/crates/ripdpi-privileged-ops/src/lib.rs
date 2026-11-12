@@ -42,7 +42,7 @@ pub use tcp_repair::swap_replacement_fd;
 pub use ttl::{enable_recv_ttl, read_chunk_with_ttl, try_set_stream_ttl_with_outcome};
 pub use types::{
     FakeTcpOptions, IpFragmentationCapabilities, OrderedTcpSegment, TcpActivationState, TcpFlagOverrides,
-    TcpPayloadSegment, TcpStageWait,
+    TcpPayloadSegment, TcpSendProgressError, TcpStageWait,
 };
 pub use {
     capabilities::{detect_default_ttl, probe_ip_fragmentation_capabilities},

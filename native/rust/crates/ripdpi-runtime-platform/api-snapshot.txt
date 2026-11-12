@@ -30,6 +30,7 @@ pub use ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities
 pub use ripdpi_runtime_platform::raw_packet::OrderedTcpSegment
 pub use ripdpi_runtime_platform::raw_packet::TcpFlagOverrides
 pub use ripdpi_runtime_platform::raw_packet::TcpPayloadSegment
+pub use ripdpi_runtime_platform::raw_packet::TcpSendProgressError
 pub use ripdpi_runtime_platform::raw_packet::TcpStageWait
 pub fn ripdpi_runtime_platform::raw_packet::probe_ip_fragmentation_capabilities(core::option::Option<&str>) -> std::io::error::Result<ripdpi_privileged_ops::types::IpFragmentationCapabilities>
 pub fn ripdpi_runtime_platform::raw_packet::send_fake_rst(&std::net::tcp::TcpStream, u8, core::option::Option<&str>, ripdpi_privileged_ops::types::TcpFlagOverrides, core::option::Option<ripdpi_config::model::tcp::IpIdMode>) -> std::io::error::Result<()>

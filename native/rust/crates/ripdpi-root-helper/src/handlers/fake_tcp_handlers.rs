@@ -74,9 +74,18 @@ pub fn handle_send_fake_tcp(fd: RawFd, params: FakeTcpParams) -> (HelperResponse
         Err(e) => {
             // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_fake_tcp failed");
-            (HelperResponse::error(e.to_string()), None)
+            (fake_tcp_error_response(e), None)
         }
     }
+}
+
+fn fake_tcp_error_response(error: std::io::Error) -> HelperResponse {
+    let mut response = HelperResponse::error(error.to_string());
+    if let Some(progress) = error.get_ref().and_then(|source| source.downcast_ref::<platform::TcpSendProgressError>()) {
+        response.error = Some(progress.source.to_string());
+        response.data = serde_json::json!({ "bytes_committed": progress.bytes_committed });
+    }
+    response
 }
 
 pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParams) -> (HelperResponse, Option<RawFd>) {
@@ -217,5 +226,25 @@ pub fn handle_send_ordered_tcp_segments(
             error!(%e, "send_ordered_tcp_segments failed");
             (HelperResponse::error(e.to_string()), None)
         }
+    }
+}
+
+#[cfg(test)]
+mod progress_tests {
+    use super::*;
+
+    #[test]
+    fn fake_tcp_error_response_keeps_progress_and_first_error() {
+        let response = fake_tcp_error_response(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            platform::TcpSendProgressError {
+                bytes_committed: 3,
+                source: std::io::Error::new(std::io::ErrorKind::TimedOut, "send queue did not drain"),
+            },
+        ));
+        let encoded = serde_json::to_value(response).expect("error response");
+        assert_eq!(encoded["ok"], false);
+        assert_eq!(encoded["error"], "send queue did not drain");
+        assert_eq!(encoded["data"], serde_json::json!({ "bytes_committed": 3 }));
     }
 }

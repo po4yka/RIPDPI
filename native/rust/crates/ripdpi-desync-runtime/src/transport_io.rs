@@ -8,7 +8,7 @@ mod strategy_actions;
 pub(crate) use errors::transport_result;
 pub(crate) use errors::{log_android_desync_fallback, strategy_execution_error, strategy_result};
 #[allow(unused_imports)]
-pub(crate) use progress::WriteProgressError;
+pub use progress::WriteProgressError;
 pub(crate) use progress::{write_payload_progress, write_strategy_payload_named, write_transport_payload};
 #[allow(unused_imports)]
 pub(crate) use socket_options::send_out_of_band;

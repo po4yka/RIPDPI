@@ -6,9 +6,22 @@ use crate::types::OutboundSendError;
 use super::errors::strategy_execution_error;
 
 #[derive(Debug)]
-pub(crate) struct WriteProgressError {
-    pub(crate) written: usize,
-    pub(crate) source: io::Error,
+/// A write failed after the socket accepted the reported bytes.
+pub struct WriteProgressError {
+    pub written: usize,
+    pub source: io::Error,
+}
+
+impl std::fmt::Display for WriteProgressError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{} after {} committed bytes", self.source, self.written)
+    }
+}
+
+impl std::error::Error for WriteProgressError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.source)
+    }
 }
 
 pub(crate) fn write_payload_progress(stream: &mut TcpStream, bytes: &[u8]) -> Result<(), WriteProgressError> {

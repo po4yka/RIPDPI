@@ -18,7 +18,7 @@ use crate::linux::tcp_repair::{
     TCP_NO_QUEUE, TCP_REPAIR_ON, TcpTimestampSnapshot, disable_tcp_repair, queue_payload_as_sent, set_tcp_repair,
     set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
-use crate::{FakeTcpOptions, TcpStageWait};
+use crate::{FakeTcpOptions, TcpSendProgressError, TcpStageWait};
 
 pub fn send_fake_tcp(
     stream: &TcpStream,
@@ -53,6 +53,7 @@ pub fn send_fake_tcp(
 
     let restore_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream).unwrap_or(64) };
     let mut md5_applied = false;
+    let mut moved = 0usize;
 
     let result = (|| {
         region.write(fake_prefix);
@@ -88,7 +89,6 @@ pub fn send_fake_tcp(
             return Err(io::Error::new(io::ErrorKind::WriteZero, "partial vmsplice during fake tcp send"));
         }
 
-        let mut moved = 0usize;
         while moved < original_prefix.len() {
             let chunk = nix::fcntl::splice(
                 &pipe_r,
@@ -106,23 +106,32 @@ pub fn send_fake_tcp(
         }
 
         wait_tcp_stage_fd(fd, wait.0, wait.1)?;
-        // The send queue still references these pages. Put the real bytes in
-        // them before the TTL goes back up, so the kernel retransmits the real
-        // data in place of the lost fake (byedpi restore_state).
-        region.write(original_prefix);
-        if md5_applied {
-            set_tcp_md5sig(stream, 0)?;
-        }
-        set_stream_ttl(stream, restore_ttl)?;
         Ok(())
     })();
 
-    if md5_applied {
-        let _ = set_tcp_md5sig(stream, 0);
-    }
-    let _ = set_stream_ttl(stream, restore_ttl);
-    drop(region);
-    result
+    finish_stream_fake_send(stream, &mut region, original_prefix, md5_applied, restore_ttl, moved, result)
+}
+
+fn finish_stream_fake_send(
+    stream: &TcpStream,
+    region: &mut MmapRegion,
+    original_prefix: &[u8],
+    md5_applied: bool,
+    restore_ttl: u8,
+    moved: usize,
+    result: io::Result<()>,
+) -> io::Result<()> {
+    // TCP can retain these pages after any partial splice or wait failure.
+    region.write(original_prefix);
+    let md5_result = if md5_applied { set_tcp_md5sig(stream, 0) } else { Ok(()) };
+    let ttl_result = set_stream_ttl(stream, restore_ttl);
+    result.and(md5_result).and(ttl_result).map_err(|source| {
+        if moved == 0 {
+            source
+        } else {
+            io::Error::new(source.kind(), TcpSendProgressError { bytes_committed: moved, source })
+        }
+    })
 }
 
 /// Adds the TCP MD5 option to the fake. Returns false when the kernel lacks
@@ -269,3 +278,6 @@ pub(crate) fn mutate_fake_timestamp(
     };
     Ok(Some(timestamp))
 }
+
+#[cfg(test)]
+mod tests;

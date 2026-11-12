@@ -7,8 +7,8 @@ use nix::errno::Errno;
 use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr, connect, socket};
 
 use ripdpi_root_helper_protocol::{
-    CMD_PROTOCOL_PREFLIGHT, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message_with_deadline, send_message,
-    valid_session_nonce, validate_request,
+    CMD_PROTOCOL_PREFLIGHT, CMD_SEND_FAKE_TCP, HelperRequest, HelperResponse, PROTOCOL_VERSION,
+    recv_message_with_deadline, send_message, valid_session_nonce, validate_request,
 };
 
 /// Upper bound for one connect to the helper socket. A blocking AF_UNIX
@@ -25,6 +25,8 @@ const COMMAND_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[cfg(test)]
 mod deadline_tests;
+#[cfg(test)]
+mod progress_tests;
 
 pub(super) struct ClientTransport {
     socket_path: String,
@@ -112,8 +114,7 @@ impl ClientTransport {
         }
 
         if !response.ok {
-            let msg = response.error.unwrap_or_else(|| "unknown helper error".into());
-            return Err(io::Error::other(msg));
+            return Err(command_error(command, &request.params, response));
         }
         if reply_fd.is_some() && !descriptor.may_return_outbound_fd {
             return Err(io::Error::new(
@@ -123,6 +124,21 @@ impl ClientTransport {
         }
 
         Ok((response, reply_fd))
+    }
+}
+
+fn command_error(command: &str, params: &serde_json::Value, response: HelperResponse) -> io::Error {
+    let error = io::Error::other(response.error.unwrap_or_else(|| "unknown helper error".into()));
+    let Some(value) = response.data.get("bytes_committed").filter(|_| command == CMD_SEND_FAKE_TCP) else {
+        return error;
+    };
+    let written = value.as_u64().and_then(|count| usize::try_from(count).ok());
+    let payload_len = params.get("original_prefix").and_then(serde_json::Value::as_array).map(Vec::len);
+    match (written, payload_len) {
+        (Some(bytes_committed), Some(limit)) if bytes_committed <= limit => {
+            io::Error::new(error.kind(), ripdpi_privileged_ops::TcpSendProgressError { bytes_committed, source: error })
+        }
+        _ => io::Error::new(io::ErrorKind::InvalidData, "invalid committed byte count in fake TCP helper error"),
     }
 }
 
