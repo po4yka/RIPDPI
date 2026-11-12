@@ -2,7 +2,7 @@
 
 **Scope:** non-rooted Android, proxy-mode path only — Rust holds a real OS socket fd (`TcpStream` / `UdpSocket`) and applies options or sequencing in userspace. The `ripdpi-root-helper` crate (raw sockets, `TCP_REPAIR`, `IP_HDRINCL`) is the root-only L3 path and is out of scope except where noted as a contrast.
 
-**Audit date:** 2026-05-29. All file:line citations are relative to `native/rust/` unless otherwise noted.
+**Audit date:** 2026-05-29. Primitive 3 and its summary were corrected on 2026-11-12. Other detailed sections remain historical. All source paths are relative to `native/rust/` unless otherwise noted.
 
 > **Current-state correction (2026-07-26).** The detailed audit below is a
 > historical snapshot and several runtime conclusions have since changed.
@@ -24,9 +24,10 @@
 |---|---|---|---|---|
 | `TCP_MD5SIG` (`DesyncAction::SetMd5Sig`) | **no-op** (needs-device) | `setsockopt(IPPROTO_TCP, TCP_MD5SIG, ...)` | `CAP_NET_ADMIN` — no variant in `RuntimeCapability`, no pre-probe | Source audit + host test `md5sig_setsockopt_is_not_silently_swallowed`; Android kernel policy needs device |
 | IP\_TTL fake-TTL via `setsockopt` on `TcpStream` | **partial** (needs-device) | `setsockopt(IPPROTO_IP, IP_TTL, ttl)` / `setsockopt(IPPROTO_IPV6, IPV6_UNICAST_HOPS, ttl)` | None on desktop Linux; Android SELinux/kernel policy may deny — explicit EPERM swallow gate at `tcp_lowering.rs:102` | Source audit + host test `ip_ttl_setsockopt_is_applied_on_connected_stream`; Android kernel/SELinux needs device |
-| `fakedsplit` / `fakeddisorder` (ordered-segments, multi-disorder, seqovl) | **no-op** (needs-device) | `setsockopt(IPPROTO_TCP, TCP_REPAIR=19, 1)` + `socket(AF_INET, SOCK_RAW, IPPROTO_RAW)` | `CAP_NET_ADMIN` for `TCP_REPAIR`; `CAP_NET_RAW` for raw socket — both denied on unprivileged Android UID | Source audit + host tests `tcp_repair_setsockopt_fails_without_cap_net_admin`, `raw_socket_creation_fails_without_cap_net_raw`; Android OEM kernels need device |
+| `fakedsplit` / `fakeddisorder` default transport | **platform-dependent approximation** | TTL options, `vmsplice`, and `splice` on Linux/Android | No raw capability is required for the default stream path; TTL and kernel behavior still require validation | Source path traced; syscall probes alone do not prove payload delivery or DPI effect |
+| Fake-family ordered raw transport | **requires raw capabilities** | `TCP_REPAIR` and `SOCK_RAW` | Custom order or sequential mode selects the ordered sender; raw permissions or a registered root helper are required | Source path traced; repair/raw socket probes test separate prerequisites, not the complete sender |
 
-> **Correction of a common misconception:** `fakedsplit` / `fakeddisorder` are **not** userspace stream-level approximations. They craft real L3/L4 packets via `SOCK_RAW` + `IP_HDRINCL` and freeze kernel send state via `TCP_REPAIR`. Both require capabilities an unprivileged Android app UID does not hold, so on non-rooted Android they degrade to a plain (weaker) split/write before any crafted packet is emitted.
+> The default fake-family transport and the ordered raw transport are separate paths. `fakeddisorder` is not `MultiDisorder`. A successful syscall probe does not establish packet order, real-payload delivery, or DPI effectiveness. See Primitive 3 for the current boundaries.
 
 ---
 
@@ -163,76 +164,74 @@ When the kernel rejects it (EPERM on Android):
 
 ---
 
-## Primitive 3 — `fakedsplit` / `fakeddisorder` (ordered-segments, multi-disorder, seqovl)
+## Primitive 3 — Fake-family stream and raw transports
 
-### What they are
+### Execution owners
 
-These primitives craft real L3/L4 TCP segments via raw sockets and inject them with custom sequence numbers and TTLs. They are not userspace stream approximations — they require kernel-level socket repair state and raw packet injection.
+`crates/ripdpi-desync-runtime/src/tcp_plan/execution/dispatcher.rs` routes `FakeSplit`
+and `FakeDisorder` to the fake-family executor. The `FakeDisorder` executor is
+`crates/ripdpi-desync-runtime/src/tcp_fake_family/fake_disorder.rs`.
+`MultiDisorder` uses a separate executor. It must not be used as evidence for
+`fakeddisorder` behavior.
 
-- **fakedsplit** (`send_ordered_tcp_segments`): uses `TCP_REPAIR` to freeze the kernel send queue, snapshots the current sequence number (`snd_nxt`), builds N crafted TCP segments via `SOCK_RAW`+`IP_HDRINCL`+`sendto`, then writes the genuine bytes into the repair-mode send queue (`TCP_REPAIR_QUEUE=TCP_SEND_QUEUE`), so the kernel advances its send pointer past the payload and keeps the real bytes for retransmission without transmitting them again.
-- **fakeddisorder** (`send_multi_disorder_tcp`): same `TCP_REPAIR` snapshot, builds ≥3 crafted segments covering the full payload, sends them in **reverse order** (`packets.iter().rev()` at `fragmentation.rs:173`), then calls `write_all(payload)` to send the real in-order payload.
-- **seqovl** (`send_seqovl_tcp`): builds one raw packet with `seq = snd_nxt - fake_prefix.len()` — the overlap means the server TCP stack discards the overlapping bytes (already-ACKed range), while a DPI device that sees only the start of the segment sees fake content.
+| Selected path | Implementation | Permission and behavior boundary |
+|---|---|---|
+| Default order and duplicate sequence mode, without raw-only options | `crates/ripdpi-privileged-ops/src/linux/raw_packet/fake_tcp.rs::send_fake_tcp` | The Linux/Android stream path uses an anonymous mapping, `vmsplice`, `splice`, TTL changes, and replacement of queued fake bytes with real bytes. It does not require `TCP_REPAIR` or `SOCK_RAW`. |
+| Secondary fake or timestamp modifier | `send_fake_tcp_via_raw_packets` in the same file | These configured modifiers select raw transport. If the sender cannot apply them, it returns the raw-path error instead of silently dropping the selected feature and using the stream path. |
+| Fake/original flag overrides or an explicit raw requirement | `send_fake_tcp_via_raw_packets` | These options require the exact raw path. Its errors are returned instead of silently replacing the requested flags with an ordinary write. |
+| Non-default fake order or sequential sequence mode | `crates/ripdpi-desync-runtime/src/tcp_fake_family/options.rs`, then `crates/ripdpi-privileged-ops/src/linux/raw_packet/tcp_payload.rs::send_ordered_tcp_segments` | The ordered sender uses `TCP_REPAIR` and `SOCK_RAW`. Genuine bytes remain in the TCP send queue for retransmission. Failure to enter repair mode returns an error before the batch is sent. |
+| Terminal split boundary | `fake_disorder.rs::execute_boundary_fallback` | No second region exists, so this path sends no fake. It uses a TTL-sensitive ordinary write and wait. Its receipt must describe the lowered operation. |
 
-### Syscalls required
+For `fakeddisorder`, TTL 1 initially suppresses the first real region on a routed
+path. The second region uses the configured fake transport. This is the
+Linux/Android approximation described by the app; it is not a promise of the
+same packet sequence as upstream zapret. A local endpoint can receive a TTL-1
+fake, so a successful loopback TLS exchange is not a suitable fake-expiry test.
 
-```
-setsockopt(fd, IPPROTO_TCP, TCP_REPAIR=19, &1, 4)      — freeze kernel send state
-getsockopt(fd, IPPROTO_TCP, TCP_REPAIR_QUEUE=20, ...)  — snapshot sequence number / ACK / window
-socket(AF_INET, SOCK_RAW, IPPROTO_RAW)                 — raw IPv4 send socket
-setsockopt(raw_fd, IPPROTO_IP, IP_HDRINCL, &1, 4)      — caller supplies full IP header
-sendto(raw_fd, crafted_packet, len, 0, &sockaddr, addrlen)
-setsockopt(fd, IPPROTO_TCP, TCP_REPAIR, &0, 4)         — disable TCP_REPAIR after snapshot
-write(stream_fd, payload, len)                         — real payload (multi_disorder / seqovl paths)
-```
+### Runtime dispatch and capability gates
 
-### Call sites
+`crates/ripdpi-runtime-platform/src/fake_send/fake_tcp.rs` first uses a reachable
+registered root helper, then uses the local privileged-operations implementation
+when no helper is selected. Root mode is opt-in. A helper is one route to raw
+permissions, not the only possible runtime capability signal.
 
-- `crates/ripdpi-privileged-ops/src/linux/raw_packet/tcp_payload.rs:63` — `send_ordered_tcp_segments`: `set_tcp_repair(fd, TCP_REPAIR_ON)?` at line 83
-- `crates/ripdpi-privileged-ops/src/linux/fragmentation.rs:133` — `send_multi_disorder_tcp`: `set_tcp_repair(fd, TCP_REPAIR_ON)?` at line 159; reverse-order send at line 173
-- `crates/ripdpi-privileged-ops/src/linux/raw_packet/raw_socket.rs:39` — `Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?`
-- `crates/ripdpi-privileged-ops/src/linux/tcp_repair/sockopt.rs:53` — `set_tcp_repair` implementation
-- `crates/ripdpi-privileged-ops/src/linux/raw_packet/tcp_payload.rs:185` — `send_seqovl_tcp`: same `TCP_REPAIR_ON` pattern
+`supports_fake_retransmit()` in `crates/ripdpi-runtime-platform/src/retransmit.rs` is a
+compile-time Linux/Android flag. It is not a probe of raw permissions. It causes
+fake-family plans to use their specialized executor on those platforms.
+`seqovl_supported()` probes TCP repair capability for the sequence-overlap path;
+it does not disable every `fakedsplit` or `fakeddisorder` configuration.
 
-### Capability gap
+Raw paths require both TCP repair and raw-socket access. Their availability
+must be checked in the actual app/helper context. Failure of one raw primitive
+does not establish that the default stream path is unavailable. An error's
+fallback label is diagnostic metadata; it does not itself execute that fallback.
 
-Two distinct capabilities are required and both are denied for unprivileged UIDs on stock Android:
+### What host probes establish
 
-1. **`CAP_NET_ADMIN`** — required by the Linux kernel for `setsockopt(IPPROTO_TCP, TCP_REPAIR, 1)`. Denied for unprivileged app UIDs on stock AOSP.
-2. **`CAP_NET_RAW`** — required to open `socket(AF_INET, SOCK_RAW, IPPROTO_RAW)`. Android's `INTERNET` permission grants only `SOCK_DGRAM`/`SOCK_STREAM`; `SOCK_RAW` with `IPPROTO_RAW` is denied for unprivileged UIDs.
+The host tests in
+`crates/ripdpi-proxy-runtime-desync-adapter/tests/desync_primitive_audit_probe.rs`
+check individual socket operations and small in-memory layouts. In particular:
 
-The `RuntimeCapability` enum (`crates/ripdpi-capabilities/src/lib.rs:7-8`) names `RawTcpFakeSend` and `ReplacementSocket` as runtime-probed capabilities, but there is no automatic pre-gate that prevents the strategy from being attempted — the EPERM is encountered at the first actual syscall.
+- `tcp_repair_setsockopt_fails_without_cap_net_admin` observes one repair request.
+- `raw_socket_creation_fails_without_cap_net_raw` observes one raw socket request.
+- `multi_disorder_segments_are_emitted_in_reverse_order` checks a local vector
+  reversal. It does not call the `fakeddisorder` executor or send packets.
+- The ordered-segment TTL test checks supplied segment values. It does not
+  establish the emitted header bytes or the selected runtime path.
 
-### Capability probe
-
-`seqovl_supported()` at `crates/ripdpi-runtime-platform/src/retransmit.rs:22-26` (also exposed via `crates/ripdpi-proxy-runtime-desync-adapter/src/desync_platform/capability.rs:36-38`) calls `probe_tcp_repair()` at `crates/ripdpi-privileged-ops/src/linux/tcp_repair.rs:29`. If `setsockopt(TCP_REPAIR)` returns `EPERM`, the probe returns `false` and `seqovl_supported()` memoizes `false`.
-
-However, `supports_fake_retransmit()` (`retransmit.rs:13-18`) is a **compile-time const** returning `true` for `linux|android` targets. This means `requires_special_tcp_execution` always returns `true` on Android, so `execute_tcp_plan` is always attempted. The EPERM only surfaces at the actual `set_tcp_repair` call — not before.
-
-Additionally, the `ActivationContext.seqovl_supported` field (`crates/ripdpi-desync/src/types.rs:79`) is **written** from the probe result at `desync_platform.rs:200` but is **not read** in any production code path inside `ripdpi-desync` — production reads use the `seqovl_supported()` function probe directly, not the struct field (verified: `.seqovl_supported` field-read sites in non-test production code are zero; the only `.seqovl_supported()` reads are the trait method, a different symbol). The probe gates `WriteSeqOverlap` actions in the planner for `SeqOverlap` steps, but does not gate `fakedsplit`/`fakeddisorder` execution.
-
-### Error handling
-
-All errors are propagated, not swallowed:
-
-- `set_tcp_repair(fd, TCP_REPAIR_ON)?` at `tcp_payload.rs:83` and `fragmentation.rs:159` — `?` immediately aborts on `EPERM`.
-- `Socket::new(SOCK_RAW)` failure at `raw_socket.rs:40` — propagated via `?`.
-- All `io::Error`s are lifted to `OutboundSendError::StrategyExecution { source, source_errno, fallback, ... }` by `strategy_result()` at `errors.rs:26-34`.
-- The `fallback` field encodes the degraded strategy name (e.g., `split` for `seqovl`, `tlsrec_split` for `tlsrec_seqovl`).
-- Cleanup `let _ = disable_tcp_repair(...)` calls at `tcp_payload.rs:127-128` and `fragmentation.rs:183-185` are intentional cleanup-path discards only, executed after the primary result is already determined.
-
-The connection falls back to the degraded strategy (plain `split` / `disorder` without crafted raw packets) — a qualitatively different, weaker DPI bypass technique.
-
-### Wire behavior
-
-On non-rooted Android without a registered root helper: the very first `set_tcp_repair(TCP_REPAIR_ON)` call returns `EPERM`. No raw packets are crafted. No crafted TCP segments with discriminating TTLs or custom sequence numbers hit the wire. The strategy falls back. The intended mechanism — reversed raw segments, seqovl overlap, TTL-discriminated fakedsplit — is never executed.
-
-On the reverse-order disorder mechanism specifically: `packets.iter().rev()` at `fragmentation.rs:173` is a pure Rust iterator operation that is correct in isolation (verified by test `multi_disorder_segments_are_emitted_in_reverse_order`), but it is never reached on a non-rooted device because the `TCP_REPAIR` prerequisite fails first.
-
-The root-helper dispatch (`root_helper_dispatch.rs`) is the only escape hatch. It is only active on rooted devices with a registered privileged helper process.
+Passing these probes does not prove actual fake bytes, TTL or Hop Limit on the
+wire, sequence order, retransmission content, complete payload delivery, or DPI
+effectiveness. Those claims require an independent packet capture and a peer
+that checks the original application bytes. Android kernel policy, root-helper
+routing, error cleanup, and cancellation require their own runtime evidence.
 
 ### Verdict
 
-**no-op** on non-rooted stock Android (needs-device to confirm OEM kernel/SELinux edge cases).
+The default Linux/Android fake-family path is a stream approximation. Ordered
+and exact raw variants have additional permission requirements. There is no
+single non-root no-op verdict for all `fakedsplit` and `fakeddisorder` variants.
+Device-specific behavior and external DPI compatibility remain unverified by
+these host probes.
 
 ---
 
@@ -264,13 +263,13 @@ The following claims cannot be settled from source code analysis on a developer 
 
 **Runtime check:** On target device: connect a TCP socket to a remote address, call `setsockopt(IPPROTO_IP, IP_TTL, 42)`, call `getsockopt(IPPROTO_IP, IP_TTL)` and assert readback == 42. Run as a VPN service UID (i.e., with `BIND_VPN_SERVICE` permission). Repeat on Android 12, 13, 14, and 15 with stock Pixel firmware and one OEM device.
 
-**Impact:** If the setsockopt succeeds, fake-TTL segments do land on the wire with the intended short TTL and the primitive is effective. If denied, the silent-swallow gate at `tcp_lowering.rs:67` means the payload is sent without TTL modification — genuine no-op for that code path.
+**Impact:** successful readback establishes the socket option in the tested context. Packet capture must check emitted TTL or Hop Limit, and the peer must check the original bytes before a delivery or DPI claim is made. If the option is denied, inspect the selected executor and its receipt to establish the actual fallback.
 
 ---
 
 ### Item 3 — `TCP_REPAIR` / `SOCK_RAW`: OEM kernel/debug build exceptions
 
-**Claim:** `setsockopt(IPPROTO_TCP, TCP_REPAIR, 1)` and `socket(AF_INET, SOCK_RAW, IPPROTO_RAW)` both return `EPERM` for an unprivileged UID on stock Android, making `fakedsplit` / `fakeddisorder` / `seqovl` no-ops.
+**Claim to check:** the selected raw path may lack TCP repair or raw-socket permission in the app UID. This concerns ordered/exact raw variants, not the default fake-family stream path.
 
 **What source analysis says:** Stock AOSP kernels require `CAP_NET_ADMIN` for `TCP_REPAIR` and `CAP_NET_RAW` for raw sockets. The capability probe at `retransmit.rs:22-26` (`seqovl_supported()`) would return `false` on any kernel that denies `TCP_REPAIR`.
 
@@ -280,16 +279,16 @@ The following claims cannot be settled from source code analysis on a developer 
 
 **Runtime check 2 — SOCK\_RAW:** `socket(AF_INET, SOCK_RAW, IPPROTO_RAW)` as a VPN UID. Assert returned fd is negative with `errno == EPERM` or `EACCES`.
 
-**Impact:** If either syscall succeeds on a given device, `fakedsplit`/`fakeddisorder` would be effective on that device. The `seqovl_supported()` probe would automatically detect this and allow the strategy to be selected.
+**Impact:** success of one syscall establishes only that prerequisite in the tested context. Both raw prerequisites, the selected sender, packet bytes, and peer delivery must be checked before making a raw-path claim. The `seqovl_supported()` result does not select all fake-family variants, and neither probe proves DPI effectiveness.
 
 ---
 
 ## Out of Scope
 
-`ripdpi-root-helper` crate: `FakeRst`, `MultiDisorder` via raw sockets, `IpFrag2`, `fake_tcp_handlers`, `udp_fragment_handlers`, `tcp_fragment_handlers` — these operate on the root-only L3 raw-packet path. They are effective when a privileged helper process is registered but are inaccessible on non-rooted Android. They are not described here.
+`ripdpi-root-helper` operations, including `FakeRst`, `MultiDisorder`, `IpFrag2`, and raw fake-payload handlers, are outside this non-root app-UID audit. A registered helper can provide raw permissions; registration alone does not prove packet bytes, delivery, or external compatibility.
 
 ---
 
 ## Audit method
 
-Generated by a multi-agent workflow (`android-desync-primitive-audit`, 2026-05-29): three independent readers (one per primitive) located every `setsockopt`/`send` call site and its error handling; a dedicated agent authored and ran host-side instrumentation tests (`crates/ripdpi-proxy-runtime-desync-adapter/tests/desync_primitive_audit_probe.rs`, 10 tests, all passing on host); three adversarial verifiers re-read the cited code independently and attempted to refute each verdict. The original framing hypothesis — that `fakedsplit`/`fakeddisorder` are userspace stream-level approximations — was refuted during verification and corrected above. Every runtime claim that depends on Android kernel/SELinux policy for an unprivileged UID is flagged needs-device rather than asserted from host behavior.
+Generated by a multi-agent workflow (`android-desync-primitive-audit`, 2026-05-29): three independent readers (one per primitive) located every `setsockopt`/`send` call site and its error handling; a dedicated agent authored and ran host-side instrumentation tests (`crates/ripdpi-proxy-runtime-desync-adapter/tests/desync_primitive_audit_probe.rs`, 10 tests, all passing on host); three adversarial verifiers re-read the cited code independently and attempted to refute each verdict. The original report conflated the default stream path with the ordered raw path. The 2026-11-12 correction above replaces that conclusion with the current execution owners and evidence limits. Every runtime claim that depends on Android kernel/SELinux policy for an unprivileged UID is flagged needs-device rather than asserted from host behavior.

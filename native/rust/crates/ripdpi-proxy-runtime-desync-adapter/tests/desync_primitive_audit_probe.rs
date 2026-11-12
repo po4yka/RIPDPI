@@ -9,9 +9,9 @@
 //!   1. TCP_MD5SIG — no-op on unprivileged userspace path (EPERM/Unsupported).
 //!   2. IP_TTL fake-TTL setsockopt — applied on connected stream on desktop Linux;
 //!      Android kernel policy may differ (needs_device).
-//!   3. fakedsplit / fakeddisorder — requires TCP_REPAIR (CAP_NET_ADMIN) + SOCK_RAW
-//!      (CAP_NET_RAW); probed via seqovl_supported() and gated off without root.
-//!      The segment-ordering logic is deterministic and fully host-testable.
+//!   3. Ordered raw transport — TCP_REPAIR and SOCK_RAW are separate prerequisites.
+//!      The default fakedsplit/fakeddisorder stream transport does not require them.
+//!      Local layout examples do not execute either fake-family sender.
 //!
 //! All tests are pure host (x86_64-unknown-linux-gnu / aarch64-apple-darwin
 //! or similar).  Where Android kernel policy may differ from desktop Linux the
@@ -345,30 +345,21 @@ fn android_ttl_ignore_gate_covers_expected_errnos() {
 }
 
 // ===========================================================================
-// PRIMITIVE 3 — fakedsplit / fakeddisorder (ordered-segments and multi-disorder)
+// PRIMITIVE 3 — ordered raw transport prerequisites and local layout examples
 // ===========================================================================
 //
-// Code path under audit:
-//   ripdpi-proxy-runtime-desync-adapter/src/desync_platform/ordered_segments.rs  →
-//   ripdpi-runtime-platform raw_packet::send_ordered_tcp_segments  →
-//   ripdpi-privileged-ops/src/linux/raw_packet/tcp_payload.rs:63
-//     set_tcp_repair(fd, TCP_REPAIR_ON)?  ← requires CAP_NET_ADMIN
-//     socket(AF_INET, SOCK_RAW, IPPROTO_RAW)  ← requires CAP_NET_RAW
+// The ordered-segment sender enters TCP_REPAIR, snapshots socket state, and
+// sends crafted packets through SOCK_RAW. MultiDisorder is a separate raw
+// sender; it is not the FakeDisorder executor.
 //
-//   ripdpi-proxy-runtime-desync-adapter/src/desync_platform/fragmentation.rs →
-//   ripdpi-privileged-ops/src/linux/fragmentation.rs:133
-//     send_multi_disorder_tcp: same TCP_REPAIR + SOCK_RAW requirements
+// Default fakedsplit/fakeddisorder can use the Linux/Android stream fake sender
+// (mmap, vmsplice, splice, and TTL). Non-default fake order or sequential mode
+// selects the ordered raw sender. seqovl_supported() does not gate every
+// fake-family variant, and supports_fake_retransmit() is a platform flag.
 //
-// On non-rooted Android: both capabilities are denied (EPERM).
-// seqovl_supported() probes TCP_REPAIR at startup; if denied → false →
-// strategy is gated off entirely.
-//
-// What IS fully host-testable (no device required):
-//   a) seqovl_supported() returns false when TCP_REPAIR probe fails.
-//   b) The segment ordering algorithm (REVERSE for disorder, IN-ORDER for
-//      fakedsplit) is deterministic and can be driven against an in-memory
-//      representation.
-//   c) The capability gate is unconditional — no path bypasses the probe.
+// The tests below observe individual syscalls or local values. They do not
+// prove the selected sender, emitted bytes, packet order, payload delivery,
+// or DPI effectiveness. Those claims require independent runtime evidence.
 
 /// Confirm: on a host where TCP_REPAIR is unavailable (non-root, or macOS),
 /// setsockopt(IPPROTO_TCP, TCP_REPAIR=19, 1) returns an error, NOT Ok.
@@ -418,9 +409,8 @@ fn tcp_repair_setsockopt_fails_without_cap_net_admin() {
             );
         }
         eprintln!(
-            "NOTICE: setsockopt(TCP_REPAIR=1) SUCCEEDED — this process has CAP_NET_ADMIN. \
-             fakedsplit/fakeddisorder would be EFFECTIVE in this environment. \
-             The seqovl_supported() probe would return true."
+            "NOTICE: setsockopt(TCP_REPAIR=1) SUCCEEDED in this test context. \
+             This confirms one raw-path prerequisite, not a complete sender or DPI effect."
         );
         // Do not fail — success is valid in a privileged CI environment.
         return;
@@ -438,8 +428,8 @@ fn tcp_repair_setsockopt_fails_without_cap_net_admin() {
     // Implication: seqovl_supported() will return false because
     // probe_tcp_repair() calls set_tcp_repair(TCP_REPAIR_ON) and if it fails
     // the probe returns Err, so `tcp_repair=false` in the capability struct.
-    // Strategy selection gating means fakedsplit/fakeddisorder are
-    // effectively disabled on this unprivileged host.
+    // This does not disable the default fake-family stream transport or prove
+    // the result of a separate helper-backed raw request.
     //
     // NOTE (needs_device): a physical Android device is required to confirm
     // that stock AOSP / OEM kernels enforce this EPERM for an unprivileged
@@ -448,8 +438,8 @@ fn tcp_repair_setsockopt_fails_without_cap_net_admin() {
 
 /// Confirm: SOCK_RAW socket creation fails for an unprivileged process.
 ///
-/// This is the second capability required for fakedsplit/fakeddisorder:
-///   ripdpi-privileged-ops/src/linux/raw_packet/raw_socket.rs:39:
+/// This is a prerequisite for the ordered raw sender, not the default stream sender:
+///   ripdpi-privileged-ops/src/linux/raw_packet/raw_socket.rs::open_raw_socket:
 ///     Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(IPPROTO_RAW)))?
 ///
 /// Without CAP_NET_RAW, socket(AF_INET, SOCK_RAW, IPPROTO_RAW) returns EPERM.
@@ -466,9 +456,9 @@ fn raw_socket_creation_fails_without_cap_net_raw() {
             libc::close(fd);
         }
         eprintln!(
-            "NOTICE: socket(SOCK_RAW, IPPROTO_RAW) SUCCEEDED — this process has CAP_NET_RAW. \
-             fakedsplit/fakeddisorder raw-packet injection would be EFFECTIVE here. \
-             On a non-rooted Android VPN UID this call should fail with EPERM."
+            "NOTICE: socket(SOCK_RAW, IPPROTO_RAW) SUCCEEDED in this test context. \
+             This confirms one raw-path prerequisite, not packet bytes or DPI effect. \
+             Android app-UID policy requires a separate device check."
         );
         // Not a test failure — privileged CI environment is a valid state.
         return;
@@ -481,8 +471,8 @@ fn raw_socket_creation_fails_without_cap_net_raw() {
     );
     // Implication: send_raw_packets (which wraps SOCK_RAW + IP_HDRINCL) will
     // propagate this EPERM as OutboundSendError::StrategyExecution.
-    // The fallback strategy (e.g. 'split') is selected via the `fallback`
-    // field in strategy_execution_error().
+    // A fallback label in an error does not itself execute a replacement
+    // strategy. The caller and selected transport determine the next action.
 }
 
 /// Confirm: the multi-disorder segment ordering is REVERSE of the input order.
@@ -491,11 +481,9 @@ fn raw_socket_creation_fails_without_cap_net_raw() {
 ///   send_raw_packets_with_delay(target, packets.iter().rev().map(Vec::as_slice), ...)
 ///
 /// This test drives the ordering logic in isolation — no raw socket required.
-/// It is the fully host-testable part of fakeddisorder.
-///
-/// The host-vs-Android caveat here is NONE: the ordering algorithm is pure
-/// Rust with no OS dependency.  The caveat is only whether the raw-socket
-/// send completes on the wire, which requires device testing.
+/// This example checks a local vector reversal. It does not invoke the
+/// production MultiDisorder sender or the separate FakeDisorder executor.
+/// Packet bytes, delivery, and Android behavior need independent checks.
 #[test]
 fn multi_disorder_segments_are_emitted_in_reverse_order() {
     // Simulate the packet list the production code builds, then verify that
@@ -514,16 +502,8 @@ fn multi_disorder_segments_are_emitted_in_reverse_order() {
     assert_eq!(reversed[1], segment_b.as_slice(), "second emitted segment should be the MIDDLE payload slice");
     assert_eq!(reversed[2], segment_a.as_slice(), "third emitted segment should be the FIRST payload slice");
 
-    // The write_all(payload) call at fragmentation.rs:end then sends the REAL
-    // in-order payload so the server's TCP stack receives data in the correct
-    // order.  The DPI device sees the reversed raw packets first — the server
-    // sees the correct in-order stream write.
-    //
-    // The wire guarantee (that these actually arrive as separate TCP segments
-    // rather than being coalesced by NIC TSO) requires a physical device test.
-    // On the raw-packet path (SOCK_RAW sendto), each packet bypasses the
-    // kernel TCP stack and leaves the NIC as a discrete IP datagram —
-    // BUT confirming this on a real Android device requires needs_device=true.
+    // A vector assertion cannot establish raw send order, TCP retransmission
+    // contents, or what a peer receives. It is not a wire acceptance test.
 }
 
 /// Confirm: the fakedsplit ordered-segment layout preserves per-segment TTL

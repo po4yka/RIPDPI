@@ -303,9 +303,10 @@ Sequence behavior:
 
 Runtime policy:
 
-- Non-default `altorder` can still use the normal fake/original execution path when exact raw sequence control is not required.
-- `seqmode=sequential` and any combination with other raw-only features (original TCP flag overrides, exact `seqgroup`, and similar settings) are executed through the generalized raw TCP batch sender.
-- If exact sequential fake sequencing would require raw/`TCP_REPAIR` support and that capability is unavailable, the step falls back to the generalized raw TCP batch sender. Note: explicit *fail-closed* gates are exercised by tests for the `ipfrag2` and original-TCP-flag-override paths; an equivalent tested gate for `seqmode=sequential` specifically is not yet in place, so do not rely on a hard fail-closed guarantee for that path on capability-restricted devices (see `android-desync-primitive-capabilities.md`).
+- For `fake`, `fakedsplit`, and `fakeddisorder`, non-default `altorder` or `seqmode=sequential` selects the ordered raw TCP sender. It requires TCP repair and raw-socket access through the local process or a registered root helper.
+- Default order with duplicate sequencing and no raw-only options can use the Linux/Android stream fake transport. Configured secondary payloads and timestamp modifiers select raw transport. If the sender cannot apply them, it returns an error instead of silently dropping the selected feature.
+- Exact raw requirements, including TCP flag overrides, return errors if the required sender cannot run. An error's fallback label does not itself send a replacement payload. Check the actual runtime receipt and the selected executor rather than assuming a plain split occurred.
+- Host capability probes establish individual prerequisites. Packet capture and a peer payload check are required to establish actual fake bytes, packet order, and complete delivery; they are also required before claiming a DPI effect.
 - `hostfake` rejects non-default `altorder` without `midhost=` in both Kotlin and native validation.
 
 Example DSL:
@@ -404,8 +405,8 @@ The runtime now supports:
 | `disorder` | Send segment with TTL trick (DPI sees, server ignores expired packet) | offset | All |
 | `multidisorder` | Split at 2+ markers, send resulting 3+ segments in reverse order via raw sockets | 2+ marker offsets, `inter_segment_delay_ms` (0-100, default 0) | Linux/Android |
 | `fake` | Fake packet (TTL/checksum-invalidated) before real payload | TTL, `md5sig` | All |
-| `fakedsplit` | Fake packet + split at marker | TTL, `md5sig`, offset | Linux/Android (raw + `TCP_REPAIR`; degrades to a plain split on non-rooted Android) |
-| `fakeddisorder` | Fake packet + disorder | TTL, `md5sig`, offset | Linux/Android (raw + `TCP_REPAIR`; degrades to a plain split on non-rooted Android) |
+| `fakedsplit` | Fake-backed split at marker | TTL, `md5sig`, offset | Linux/Android; default stream transport, ordered/exact variants require raw access |
+| `fakeddisorder` | Fake-backed disorder approximation | TTL, `md5sig`, offset | Linux/Android; default stream transport, ordered/exact variants require raw access |
 | `hostfake` | Fake packet with spoofed hostname | `midhost_offset`, `fake_host_template` | Linux/Android (raw fake-packet path) |
 | `oob` | Out-of-band urgent data byte injection | `oob_data` byte | All |
 | `disoob` | Disorder + OOB combination | `oob_data` byte | All |
@@ -535,14 +536,14 @@ When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=
 ```mermaid
 flowchart LR
     FP["Fake payload builder\n(profile / rand / rndsni)"] --> SP{"Send path?"}
-    SP -- "Socket path\n(fake/fakedsplit/fakeddisorder)" --> S1["SetTtl(fake_ttl)"]
+    SP -- "Linux/Android stream path\ndefault fake-family options" --> S1["Set socket TTL\n1 for first disorder region"]
     S1 --> S2{"md5sig?"}
     S2 -- Yes --> S3["SetMd5Sig(5)\nkernel applies Kind=19"]
-    S2 -- No --> S4["Write(fake) via socket"]
+    S2 -- No --> S4["vmsplice fake pages\nsplice into TCP"]
     S3 --> S4
-    S4 --> S5["SetMd5Sig(0)\nRestoreDefaultTtl"]
+    S4 --> S5["Replace pages with real bytes\nClear MD5; restore TTL"]
 
-    SP -- "Raw packet path\n(seqovl/multidisorder/ipfrag2)" --> R1["build_tcp_segment_packet()"]
+    SP -- "Ordered/exact fake transport\nor separate raw methods" --> R1["build_tcp_segment_packet()"]
     R1 --> R2{"inject_md5?"}
     R2 -- Yes --> R3["Append Kind=19\n18B option via\nset_options_raw()"]
     R2 -- No --> R4["send_raw_packets()\nvia IPPROTO_RAW"]
