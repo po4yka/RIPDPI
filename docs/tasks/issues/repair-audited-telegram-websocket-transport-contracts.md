@@ -2,7 +2,7 @@
 id: TRN-1794494451740063
 title: Repair audited Telegram WebSocket transport contracts
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: TUN-06 repair team
