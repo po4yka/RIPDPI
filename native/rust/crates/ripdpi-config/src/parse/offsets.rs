@@ -108,10 +108,6 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
         None => 0,
     };
 
-    if parts.next().is_some() {
-        return Err(ConfigError::invalid("offset", Some(spec)));
-    }
-
     let expr = if let Ok(delta) = base.parse::<i64>() {
         OffsetExpr::absolute(delta)
     } else if let Some(expr) = parse_adaptive_offset_expr(base)? {
@@ -122,7 +118,7 @@ pub fn parse_offset_expr(spec: &str) -> Result<OffsetExpr, ConfigError> {
         return Err(ConfigError::invalid("offset", Some(spec)));
     };
 
-    if expr.base.is_adaptive() && (repeats != 0 || skip != 0) {
+    if parts.next().is_some() || (expr.base.is_adaptive() && (repeats != 0 || skip != 0)) {
         return Err(ConfigError::invalid("offset", Some(spec)));
     }
 

@@ -1,7 +1,7 @@
 use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 
 use crate::{
-    ConfigError, DesyncMode, EntropyMode, SeqOverlapFakeMode, TcpChainStep, TcpChainStepKind, TcpFlagOverrides,
+    ConfigError, EntropyMode, SeqOverlapFakeMode, TcpChainStep, TcpChainStepKind, TcpFlagOverrides,
     TcpSeqOverlapPayload,
 };
 
@@ -55,13 +55,9 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             state.group().actions.shannon_entropy_target_permil = Some((f * 1000.0) as u32);
         }
         "-s" | "--split" | "--seqovl" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f" | "--fake" => {
-            let value = next_value(args, idx, arg)?;
-            let offset = parse_offset_expr(value)?;
+            let offset = parse_offset_expr(next_value(args, idx, arg)?)?;
             if matches!(arg, "-s" | "--split") && (offset.repeats > 1 || offset.skip != 0) {
-                return Err(ConfigError::invalid(
-                    arg,
-                    Some("split does not support repeated offsets or a non-zero skip"),
-                ));
+                return Err(ConfigError::invalid(arg, Some("split cannot repeat or skip")));
             }
             if arg == "--seqovl" {
                 if state.group().actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SeqOverlap) {
@@ -74,16 +70,14 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
                     .with_seq_overlap_payload(TcpSeqOverlapPayload::profile(12));
                 state.group().actions.tcp_chain.push(step);
             } else {
-                let mode = match arg {
-                    "-s" | "--split" => DesyncMode::Split,
-                    "-d" | "--disorder" => DesyncMode::Disorder,
-                    "-o" | "--oob" => DesyncMode::Oob,
-                    "-q" | "--disoob" => DesyncMode::Disoob,
-                    _ => DesyncMode::Fake,
+                let kind = match arg {
+                    "-s" | "--split" => TcpChainStepKind::Split,
+                    "-d" | "--disorder" => TcpChainStepKind::Disorder,
+                    "-o" | "--oob" => TcpChainStepKind::Oob,
+                    "-q" | "--disoob" => TcpChainStepKind::Disoob,
+                    _ => TcpChainStepKind::Fake,
                 };
-                if let Some(kind) = TcpChainStepKind::from_mode(mode) {
-                    state.group().actions.tcp_chain.push(TcpChainStep::new(kind, offset));
-                }
+                state.group().actions.tcp_chain.push(TcpChainStep::new(kind, offset));
             }
         }
         "--seqovl-overlap" => {
