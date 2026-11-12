@@ -103,14 +103,12 @@ fn md5sig_setsockopt_is_not_silently_swallowed() {
     let err = io::Error::last_os_error();
     let errno = err.raw_os_error().unwrap_or(0);
 
-    // On Linux, upstream kernels commonly report EPERM because the tcp_md5sig
-    // path checks capable(CAP_NET_ADMIN), but some hosted kernels reject the
-    // zeroed audit fixture as EINVAL first. Either proves the error surfaces; it
-    // is NOT Ok(()).
+    // Linux may refuse this audit fixture or lack TCP_MD5SIG. Each outcome
+    // must remain an explicit syscall error rather than a successful result.
     #[cfg(target_os = "linux")]
     assert!(
-        errno == libc::EPERM || errno == libc::EINVAL,
-        "Linux: setsockopt(TCP_MD5SIG) should fail with EPERM/EINVAL for an unprivileged UID, got errno={errno}"
+        matches!(errno, libc::EPERM | libc::EINVAL | libc::ENOPROTOOPT | libc::EOPNOTSUPP),
+        "Linux: TCP_MD5SIG must report refusal or unsupported, got errno={errno}"
     );
 
     #[cfg(not(target_os = "linux"))]

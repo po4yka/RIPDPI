@@ -28,6 +28,7 @@ fn helper_failure(data: serde_json::Value) -> io::Error {
         serde_json::json!({ "original_prefix": [1, 2, 3], "fake_prefix": [0, 0, 0], "ttl": 1, "default_ttl": 64 }),
         Some(stream.as_fd()),
         "abcdefghijklmnopqrstuvwxyzABCDEF",
+        None,
     );
     server.join().expect("helper server");
     std::fs::remove_file(path).expect("remove helper socket");
