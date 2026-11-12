@@ -2,7 +2,7 @@
 id: RST-1794498457070491
 title: Repair DPI-06 data safety and execution evidence
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: DPI-06 repair lead
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: dpi06-audit-repairs
 created: 2026-11-12
 updated: 2026-11-12
+status_detail: Seven confirmed findings repaired; scoped checks passed; broader BPF permission limits recorded in verification.
 ---
 
 ## Goal
