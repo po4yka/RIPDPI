@@ -490,6 +490,13 @@ impl WireGuardTunnel {
                 }
             };
             let size = received.len;
+            // A tunnel with AmneziaWG settings keeps the peer at its configured addresses; only plain WireGuard roams.
+            if let Some(address) = received.source
+                && self.amnezia.is_some()
+                && !self.outbound.lock().await.endpoints.contains(&address)
+            {
+                continue;
+            }
             let source = match received.source {
                 Some(address) => CookieSource::Udp(address),
                 None => CookieSource::Connection(self.carrier_cookie_id),
@@ -971,7 +978,7 @@ mod tests {
     /// # Cancel safety:
     /// NOT cancel-safe: the test owns a receive task and aborts it after the bounded exchange.
     #[tokio::test]
-    async fn authenticated_response_from_new_udp_port_establishes_the_tunnel() {
+    async fn authenticated_response_from_foreign_udp_port_cannot_establish_the_tunnel() {
         let (tunnel, socket, mut peer) =
             tunnel_and_peer_with_config(WarpAmneziaConfig { enabled: true, ..Default::default() }).await;
         let consumer = spawn_consume(&tunnel);
@@ -985,7 +992,13 @@ mod tests {
             };
             let foreign = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
             foreign.send_to(response, client).await.unwrap();
-            let (size, _) = foreign.recv_from(&mut datagram).await.unwrap();
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), socket.recv(&mut datagram)).await.is_err(),
+                "a foreign response must not produce confirmation"
+            );
+            assert!(!tunnel.is_handshake_established());
+            socket.send_to(response, client).await.unwrap();
+            let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
             assert_eq!(&datagram[..4], &[4, 0, 0, 0]);
             assert!(size >= 32);
             assert!(tunnel.is_handshake_established());
@@ -993,7 +1006,7 @@ mod tests {
         .await;
         consumer.abort();
         let _ = consumer.await;
-        result.expect("authenticated endpoint roaming");
+        result.expect("source-bound receive");
     }
 
     #[test]
