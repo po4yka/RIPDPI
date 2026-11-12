@@ -39,12 +39,18 @@ pub(crate) fn execute(
 
     let bytes_committed = if opts.custom_order {
         let ordering = configured_step.fake_ordering();
+        let first_fakes = std::iter::once(first_fake.as_slice())
+            .chain(first_secondary_fake.iter().map(Vec::as_slice))
+            .collect::<Vec<_>>();
+        let second_fakes = std::iter::once(second_fake.as_slice())
+            .chain(second_secondary_fake.iter().map(Vec::as_slice))
+            .collect::<Vec<_>>();
         let mut emissions = ordered_disorder_emissions(
             ordering.order,
             chunk,
-            &first_fake,
+            &first_fakes,
             second,
-            &second_fake,
+            &second_fakes,
             ctx.lowering.restore_ttl,
             opts,
         );
@@ -223,44 +229,26 @@ fn send_first_disorder_segment(
 fn ordered_disorder_emissions<'a>(
     order: FakeOrder,
     chunk: &'a [u8],
-    first_fake: &'a [u8],
+    first_fakes: &[&'a [u8]],
     second: &'a [u8],
-    second_fake: &'a [u8],
+    second_fakes: &[&'a [u8]],
     real_ttl: u8,
     opts: FakeStepOptions,
 ) -> Vec<FakeEmission<'a>> {
     let second_offset = chunk.len();
+    let first_fakes = first_fakes.iter().map(|&payload| fake(payload, 1, 0, opts));
+    let second_fakes = second_fakes.iter().map(|&payload| fake(payload, opts.fake_ttl, second_offset, opts));
+    let first_real = genuine(chunk, 1, 0, opts);
+    let second_real = genuine(second, real_ttl, second_offset, opts);
     match order {
-        FakeOrder::BeforeEach => vec![
-            fake(first_fake, 1, 0, opts),
-            genuine(chunk, 1, 0, opts),
-            fake(second_fake, opts.fake_ttl, second_offset, opts),
-            genuine(second, real_ttl, second_offset, opts),
-        ],
-        FakeOrder::AllFakesFirst => vec![
-            fake(first_fake, 1, 0, opts),
-            fake(second_fake, opts.fake_ttl, second_offset, opts),
-            genuine(chunk, 1, 0, opts),
-            genuine(second, real_ttl, second_offset, opts),
-        ],
-        FakeOrder::RealFakeRealFake => vec![
-            genuine(chunk, 1, 0, opts),
-            fake(first_fake, 1, 0, opts),
-            genuine(second, real_ttl, second_offset, opts),
-            fake(second_fake, opts.fake_ttl, second_offset, opts),
-        ],
-        FakeOrder::AllRealsFirst => vec![
-            genuine(chunk, 1, 0, opts),
-            genuine(second, real_ttl, second_offset, opts),
-            fake(first_fake, 1, 0, opts),
-            fake(second_fake, opts.fake_ttl, second_offset, opts),
-        ],
-        _ => vec![
-            fake(first_fake, 1, 0, opts),
-            genuine(chunk, 1, 0, opts),
-            fake(second_fake, opts.fake_ttl, second_offset, opts),
-            genuine(second, real_ttl, second_offset, opts),
-        ],
+        FakeOrder::AllFakesFirst => first_fakes.chain(second_fakes).chain([first_real, second_real]).collect(),
+        FakeOrder::RealFakeRealFake => {
+            std::iter::once(first_real).chain(first_fakes).chain([second_real]).chain(second_fakes).collect()
+        }
+        FakeOrder::AllRealsFirst => {
+            [first_real, second_real].into_iter().chain(first_fakes).chain(second_fakes).collect()
+        }
+        _ => first_fakes.chain([first_real]).chain(second_fakes).chain([second_real]).collect(),
     }
 }
 
@@ -271,3 +259,6 @@ fn fake(payload: &[u8], ttl: u8, original_offset: usize, opts: FakeStepOptions) 
 fn genuine(payload: &[u8], ttl: u8, original_offset: usize, opts: FakeStepOptions) -> FakeEmission<'_> {
     FakeEmission { role: FakeEmissionRole::Genuine, payload, ttl, flags: opts.original_flags, original_offset }
 }
+
+#[cfg(test)]
+mod tests;
