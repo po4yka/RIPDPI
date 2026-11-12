@@ -127,48 +127,65 @@ internal class ManagedClientSocksBridge(
 ) : Closeable {
     private val activeSockets = Collections.synchronizedSet(mutableSetOf<Socket>())
     private val clientSlots = Semaphore(MaxConcurrentBridgeClients)
+    private var closed = false
 
     @Volatile private var serverSocket: ServerSocket? = null
 
     @Volatile private var acceptThread: Thread? = null
 
-    fun start() {
-        // This listener is only for the app's local proxy stack.
-        val loopback =
-            listenHost.equals("localhost", ignoreCase = true) ||
-                NumericIp.parseAddress(listenHost.trim())?.let { parsed ->
-                    val address = if (parsed.isIPv6 && parsed.toIPv6().isIPv4Mapped) parsed.toIPv4() else parsed
-                    address.toInetAddress().isLoopbackAddress
-                } == true
-        require(loopback) {
-            "PT SOCKS bridge must listen on a loopback address"
+    fun start() =
+        synchronized(activeSockets) {
+            check(!closed && serverSocket == null) { "PT SOCKS bridge is already started or closed" }
+            // This listener is only for the app's local proxy stack.
+            val loopback =
+                listenHost.equals("localhost", ignoreCase = true) ||
+                    NumericIp.parseAddress(listenHost.trim())?.let { parsed ->
+                        val address = if (parsed.isIPv6 && parsed.toIPv6().isIPv4Mapped) parsed.toIPv4() else parsed
+                        address.toInetAddress().isLoopbackAddress
+                    } == true
+            require(loopback) {
+                "PT SOCKS bridge must listen on a loopback address"
+            }
+            val listener =
+                ServerSocket().apply {
+                    reuseAddress = true
+                    bind(InetSocketAddress(listenHost, listenPort))
+                }
+            serverSocket = listener
+            acceptThread =
+                thread(
+                    name = "pt-socks-bridge-$listenPort",
+                    isDaemon = true,
+                ) {
+                    acceptLoop(listener)
+                }
         }
-        val listener =
-            ServerSocket().apply {
-                reuseAddress = true
-                bind(InetSocketAddress(listenHost, listenPort))
-            }
-        serverSocket = listener
-        acceptThread =
-            thread(
-                name = "pt-socks-bridge-$listenPort",
-                isDaemon = true,
-            ) {
-                acceptLoop(listener)
-            }
-    }
 
     override fun close() {
+        val sockets =
+            synchronized(activeSockets) {
+                closed = true
+                activeSockets.toList().also { activeSockets.clear() }
+            }
         runCatching { serverSocket?.close() }
         serverSocket = null
         runCatching { acceptThread?.interrupt() }
         acceptThread = null
-        val sockets = synchronized(activeSockets) { activeSockets.toList() }
         sockets.forEach { socket ->
             runCatching { socket.close() }
         }
-        activeSockets.clear()
     }
+
+    private fun admitSocket(socket: Socket): Boolean =
+        synchronized(activeSockets) {
+            if (closed) {
+                runCatching { socket.close() }
+                false
+            } else {
+                activeSockets += socket
+                true
+            }
+        }
 
     private fun acceptLoop(listener: ServerSocket) {
         while (!listener.isClosed) {
@@ -183,7 +200,10 @@ internal class ManagedClientSocksBridge(
                 runCatching { client.close() }
                 continue
             }
-            activeSockets += client
+            if (!admitSocket(client)) {
+                clientSlots.release()
+                return
+            }
             thread(
                 name = "pt-socks-bridge-client-$listenPort",
                 isDaemon = true,
@@ -207,7 +227,6 @@ internal class ManagedClientSocksBridge(
         outer.soTimeout = LocalHandshakeTimeoutMillis
         negotiateOuterHandshake(outer)
         val upstream = connectUpstreamListener(outer)
-        activeSockets += upstream
         upstream.use { inner ->
             try {
                 connectUpstream(inner)
@@ -230,12 +249,14 @@ internal class ManagedClientSocksBridge(
 
     private fun connectUpstreamListener(outer: Socket): Socket {
         val upstream = Socket()
+        if (!admitSocket(upstream)) throw SocketException("PT SOCKS bridge is closed")
         try {
             upstream.connect(upstreamListener, LocalHandshakeTimeoutMillis)
             // The PT replies to CONNECT only after it dials and handshakes with the bridge.
             upstream.soTimeout = PtConnectReplyTimeoutMillis
             return upstream
         } catch (error: IOException) {
+            activeSockets -= upstream
             runCatching { upstream.close() }
             writeOuterReply(outer, replyCode = if (error is ConnectException) RepConnectionRefused else RepFailure)
             throw error

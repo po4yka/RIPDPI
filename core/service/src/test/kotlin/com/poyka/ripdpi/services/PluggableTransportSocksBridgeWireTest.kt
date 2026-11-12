@@ -24,6 +24,34 @@ class PluggableTransportSocksBridgeWireTest {
     // -------------------------------------------------------------------------
 
     @Test
+    fun `closing bridge ends a handshake and prevents restart`() {
+        val port = ServerSocket(0).use { it.localPort }
+        val bridge =
+            ManagedClientSocksBridge(
+                "127.0.0.1",
+                port,
+                InetSocketAddress("127.0.0.1", 9),
+                ManagedClientSocksBridgeSpec("obfs4", "192.0.2.1", 443, ""),
+                credentials,
+            )
+        try {
+            bridge.start()
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 5_000
+                socket.getOutputStream().write(byteArrayOf(5, 1, 2))
+                val reply = ByteArray(2)
+                DataInputStream(socket.getInputStream()).readFully(reply)
+                assertArrayEquals(byteArrayOf(5, 2), reply)
+                bridge.close()
+                assertEquals(-1, socket.getInputStream().read())
+            }
+            org.junit.Assert.assertThrows(IllegalStateException::class.java) { bridge.start() }
+        } finally {
+            bridge.close()
+        }
+    }
+
+    @Test
     fun `managed listener requires numeric loopback and valid port`() {
         listOf("192.0.2.1:1234", "localhost:1234", "127.0.0.1:0", "127.0.0.1:65536").forEach {
             assertNull(parseManagedClientListenerLine("CMETHOD obfs4 socks5 $it", "obfs4"))
