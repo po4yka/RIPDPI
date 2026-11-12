@@ -2,6 +2,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind};
+use ripdpi_desync::DISORDER_TTL;
 
 use super::flags::step_original_tcp_flags;
 use crate::tcp_lowering::{TcpLoweringCapabilities, send_oob_with_android_ttl_fallback};
@@ -119,7 +120,7 @@ pub(crate) fn execute_ttl_sensitive_tcp_step(
         TcpChainStepKind::Disorder => {
             let ttl_modified = ctx.lowering.set_ttl_named(
                 ctx.writer,
-                1,
+                DISORDER_TTL,
                 "set_ttl_disorder",
                 step_family,
                 step_fallback,
@@ -164,7 +165,7 @@ pub(crate) fn execute_ttl_sensitive_tcp_step(
         TcpChainStepKind::Disoob => {
             let ttl_modified = ctx.lowering.set_ttl_named(
                 ctx.writer,
-                1,
+                DISORDER_TTL,
                 "set_ttl_disoob",
                 step_family,
                 step_fallback,
