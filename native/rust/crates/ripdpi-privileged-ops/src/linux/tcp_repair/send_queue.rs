@@ -31,7 +31,5 @@ pub(crate) fn queue_payload_as_sent(stream: &TcpStream, payload: &[u8]) -> io::R
 pub(crate) fn sequence_after_payload(sequence_number: u32, payload_len: usize) -> io::Result<u32> {
     let payload_len = u32::try_from(payload_len)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "payload too large for TCP sequence arithmetic"))?;
-    sequence_number
-        .checked_add(payload_len)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "TCP sequence arithmetic overflow"))
+    Ok(sequence_number.wrapping_add(payload_len))
 }

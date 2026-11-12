@@ -6,8 +6,23 @@ use crate::linux::tcp_info::{
     tcp_has_notsent, tcp_total_retransmissions_from_info, wait_tcp_stage_fd,
 };
 use crate::linux::tcp_repair::{
-    TcpTimestampSnapshot, TcpWindowScaleSnapshot, decode_tcp_repair_options, probe_tcp_repair,
+    TcpTimestampSnapshot, TcpWindowScaleSnapshot, decode_tcp_repair_options, probe_tcp_repair, sequence_after_payload,
 };
+
+#[test]
+fn tcp_sequence_addition_wraps_at_the_wire_boundary() {
+    assert_eq!(sequence_after_payload(0xffff_fffe, 4).expect("wrap sequence"), 2);
+    assert_eq!(sequence_after_payload(u32::MAX, 1).expect("wrap to zero"), 0);
+    assert_eq!(sequence_after_payload(100, 4).expect("ordinary sequence"), 104);
+    assert_eq!(sequence_after_payload(u32::MAX, 0).expect("empty payload"), u32::MAX);
+}
+
+#[test]
+#[cfg(target_pointer_width = "64")]
+fn tcp_sequence_addition_rejects_lengths_outside_the_wire_space() {
+    let error = sequence_after_payload(0, u32::MAX as usize + 1).expect_err("oversized payload");
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+}
 
 #[test]
 fn tcp_total_retransmissions_prefers_total_counter_and_falls_back_to_retransmits() {
