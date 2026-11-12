@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -50,6 +51,8 @@ internal data class NativeTcpChainStep(
     val tcpFlagsUnset: String = "",
     val tcpFlagsOrigSet: String = "",
     val tcpFlagsOrigUnset: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val randomFakeHost: Boolean = false,
 )
 
 @Serializable
@@ -175,6 +178,7 @@ internal object ChainCodec {
             marker = step.marker,
             midhostMarker = step.midhostMarker,
             fakeHostTemplate = step.fakeHostTemplate,
+            randomFakeHost = step.randomFakeHost,
             fakeOrder = step.fakeOrder,
             fakeSeqMode = step.fakeSeqMode,
             overlapSize = step.overlapSize,
@@ -198,6 +202,7 @@ internal object ChainCodec {
             marker = step.marker,
             midhostMarker = step.midhostMarker,
             fakeHostTemplate = step.fakeHostTemplate,
+            randomFakeHost = step.randomFakeHost,
             fakeOrder = step.fakeOrder,
             fakeSeqMode = step.fakeSeqMode,
             overlapSize = step.overlapSize,

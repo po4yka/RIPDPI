@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -19,6 +20,8 @@ internal data class AppSettingsTcpChainSnapshot(
     val tcpFlagsUnset: String? = null,
     val tcpFlagsOrigSet: String? = null,
     val tcpFlagsOrigUnset: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val randomFakeHost: Boolean = false,
 )
 
 @Serializable

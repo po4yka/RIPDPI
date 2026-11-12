@@ -28,6 +28,7 @@ private fun StrategyTcpStep.toModel(kind: TcpChainStepKind): TcpChainStepModel =
             marker = normalizeTcpMarker(kind, marker),
             midhostMarker = normalizeMidhostMarker(kind, midhostMarker),
             fakeHostTemplate = normalizeFakeHostTemplate(kind, fakeHostTemplate),
+            randomFakeHost = randomFakeHost,
             fakeOrder = normalizeFakeOrderForModel(kind, fakeOrder),
             fakeSeqMode = normalizeFakeSeqModeForModel(kind, fakeSeqMode),
             overlapSize = overlapSize,
@@ -65,6 +66,7 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
             .setMarker(normalizeTcpMarker(step))
             .setMidhostMarker(normalizeMidhostMarker(step.kind, step.midhostMarker))
             .setFakeHostTemplate(normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate))
+            .setRandomFakeHost(step.randomFakeHost)
             .setFakeOrder(normalizeFakeOrderForProto(step.kind, step.fakeOrder))
             .setFakeSeqMode(normalizeFakeSeqModeForProto(step.kind, step.fakeSeqMode))
             .setOverlapSize(normalizeSeqOverlapSize(step.kind, step.overlapSize))

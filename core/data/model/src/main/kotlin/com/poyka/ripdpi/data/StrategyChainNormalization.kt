@@ -62,6 +62,7 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
         marker = normalizeTcpMarker(step.kind, step.marker),
         midhostMarker = normalizeMidhostMarker(step.kind, step.midhostMarker),
         fakeHostTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate),
+        randomFakeHost = step.kind == TcpChainStepKind.HostFake && step.randomFakeHost,
         fakeOrder = normalizeFakeOrderForModel(step.kind, step.fakeOrder),
         fakeSeqMode = normalizeFakeSeqModeForModel(step.kind, step.fakeSeqMode),
         overlapSize = normalizeSeqOverlapSize(step.kind, step.overlapSize),

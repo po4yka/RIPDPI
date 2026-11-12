@@ -50,6 +50,7 @@ private fun formatTcpStepSummary(step: TcpChainStepModel): String =
             append(" host=")
             append(normalizedTemplate)
         }
+        if (normalized.randomFakeHost) append(" random=true")
         if (normalized.kind.supportsFakeOrdering && normalized.fakeOrder != FakeOrderDefault) {
             append(" altorder=")
             append(normalized.fakeOrder)
@@ -107,6 +108,7 @@ private fun formatTcpStepDsl(step: TcpChainStepModel): String =
             append(" host=")
             append(normalizedTemplate)
         }
+        if (normalized.randomFakeHost) append(" random=true")
         if (normalized.kind.supportsFakeOrdering && normalized.fakeOrder != FakeOrderDefault) {
             append(" altorder=")
             append(normalized.fakeOrder)

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 const val StrategyIpv6ExtensionProfileNone = "none"
@@ -109,6 +110,8 @@ data class TcpChainStepModel(
     val tcpFlagsUnset: String = "",
     val tcpFlagsOrigSet: String = "",
     val tcpFlagsOrigUnset: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val randomFakeHost: Boolean = false,
 )
 
 @Serializable

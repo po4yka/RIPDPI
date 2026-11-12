@@ -35,6 +35,7 @@ message StrategyTcpStep {
   string tcp_flags_orig_unset = 15;
   string fake_order = 16;
   string fake_seq_mode = 17;
+  bool random_fake_host = 430;
 }
 
 message StrategyUdpStep {

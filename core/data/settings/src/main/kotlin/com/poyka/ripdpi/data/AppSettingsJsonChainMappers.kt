@@ -11,6 +11,7 @@ internal fun AppSettings.toTcpChainSnapshots(): List<AppSettingsTcpChainSnapshot
             marker = it.marker,
             midhostMarker = it.midhostMarker.takeIf(String::isNotBlank),
             fakeHostTemplate = it.fakeHostTemplate.takeIf(String::isNotBlank),
+            randomFakeHost = TcpChainStepKind.fromWireName(it.kind) == TcpChainStepKind.HostFake && it.randomFakeHost,
             overlapSize = it.overlapSize.takeIf { value -> value > 0 },
             fakeMode =
                 it.fakeMode.takeIf { value ->
@@ -62,7 +63,9 @@ private fun AppSettings.Builder.addTcpChainStepSnapshot(step: AppSettingsTcpChai
             .setMarker(step.marker)
             .setMidhostMarker(step.midhostMarker.orEmpty())
             .setFakeHostTemplate(step.fakeHostTemplate.orEmpty())
-            .setOverlapSize(step.overlapSize ?: 0)
+            .setRandomFakeHost(
+                TcpChainStepKind.fromWireName(step.kind) == TcpChainStepKind.HostFake && step.randomFakeHost,
+            ).setOverlapSize(step.overlapSize ?: 0)
             .setFakeMode(step.fakeMode.orEmpty())
             .setFragmentCount(step.fragmentCount)
             .setMinFragmentSize(step.minFragmentSize)

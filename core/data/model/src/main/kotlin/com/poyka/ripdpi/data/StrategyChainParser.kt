@@ -114,6 +114,7 @@ private class TcpStepDraft(
 ) {
     private var midhostMarker = ""
     private var fakeHostTemplate = ""
+    private var randomFakeHost = false
     private var fakeOrder = FakeOrderDefault
     private var fakeSeqMode = FakeSeqModeDuplicate
     private var overlapSize = 0
@@ -158,6 +159,14 @@ private class TcpStepDraft(
                     "Adaptive markers are not supported for hostfake midhost on line $lineNumber"
                 }
                 midhostMarker = normalized
+                true
+            }
+
+            "random" -> {
+                require(kind == TcpChainStepKind.HostFake) {
+                    "random is only supported for hostfake on line $lineNumber"
+                }
+                randomFakeHost = value.toBooleanStrictOrNull() ?: error("Invalid random value on line $lineNumber")
                 true
             }
 
@@ -344,6 +353,7 @@ private class TcpStepDraft(
                 marker = marker,
                 midhostMarker = midhostMarker,
                 fakeHostTemplate = fakeHostTemplate,
+                randomFakeHost = randomFakeHost,
                 fakeOrder = fakeOrder,
                 fakeSeqMode = fakeSeqMode,
                 overlapSize = overlapSize,

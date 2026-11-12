@@ -308,6 +308,7 @@ Runtime policy:
 - Exact raw requirements, including TCP flag overrides, return errors if the required sender cannot run. An error's fallback label does not itself send a replacement payload. Check the actual runtime receipt and the selected executor rather than assuming a plain split occurred.
 - Host capability probes establish individual prerequisites. Packet capture and a peer payload check are required to establish actual fake bytes, packet order, and complete delivery; they are also required before claiming a DPI effect.
 - `hostfake` rejects non-default `altorder` without `midhost=` in both Kotlin and native validation.
+- `hostfake` accepts `random=true` or `random=false` in the DSL. This maps to the default-false `randomFakeHost` JSON field and survives saved settings and recommendations. False is omitted from JSON. Other step kinds reject this DSL option. Normal sends already use a fresh seed; the explicit flag makes the hostname generator choose its own fresh seed.
 
 Example DSL:
 

@@ -11,6 +11,18 @@ import org.junit.Test
 
 class AppSettingsJsonSerializationTest {
     @Test
+    fun `backup keeps random hostfake mode for normalized step kinds`() {
+        val payload =
+            """
+            {"tcpChainSteps":[{"kind":" HOSTFAKE ","marker":"endhost","randomFakeHost":true}]}
+            """.trimIndent()
+        val restored = appSettingsFromJson(payload)
+
+        assertTrue(restored.effectiveTcpChainSteps().single().randomFakeHost)
+        assertTrue(appSettingsFromJson(restored.toJson()).effectiveTcpChainSteps().single().randomFakeHost)
+    }
+
+    @Test
     fun `flat snapshot preserves values from every section`() {
         val payload =
             """

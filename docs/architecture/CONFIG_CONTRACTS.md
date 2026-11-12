@@ -448,6 +448,8 @@ values; never rename or repurpose an existing one.**
 | **Telemetry event domains** | `proxy`, `relay`, `warp`, `amneziawg`, `tunnel`, `diagnostics`, `monitor` (`android-support/src/events.rs`; `amneziawg` routes to the process-local WARP-family ring) | `NativeEventRecord` ring; Kotlin telemetry coordinators |
 | **Telemetry event `kind`** | per-event `kind` strings, e.g. `runtime_ready` (read by Kotlin `NativeRuntimeSnapshot.nativeEvents`) | `ripdpi-telemetry`; Kotlin |
 
+**HostFake random mode:** `StrategyTcpStep.random_fake_host` is a default-false boolean. Kotlin keeps it through native JSON (`randomFakeHost`), protobuf storage, settings backups and the `random=true` HostFake DSL option. False is omitted from JSON, so existing false-mode payloads keep their shape. Other TCP step kinds normalize the flag to false.
+
 **Important compatibility behaviors:**
 
 - An **unknown TCP/UDP step kind is rejected** by both Kotlin and Rust. Strategy steps are security-sensitive executable identifiers, so accepting the surrounding config while silently dropping an unknown step could change runtime strategy semantics. Environment-classification strings remain tolerant and fall back to `Unknown`; do not generalize that behavior to strategy identifiers.
