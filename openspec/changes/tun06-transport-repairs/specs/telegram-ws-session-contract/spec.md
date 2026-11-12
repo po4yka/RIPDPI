@@ -66,3 +66,12 @@ The implementation MUST reject an obfuscated2 init with a zero second word befor
 
 - **WHEN** an init has a valid tag but an invalid second word
 - **THEN** classification rejects it while supported valid init vectors remain accepted.
+
+### Requirement: REQ-TRN-1794494451740063-F8 — Worker close propagation
+
+The implementation MUST preserve a close without a status and MUST NOT pass reserved observation codes to the WebSocket close API.
+
+#### Scenario: Verify F8
+
+- **WHEN** either peer closes without a status or disconnects abnormally
+- **THEN** the relay propagates an empty close or a valid error close without a close API exception; ordinary status and reason remain unchanged.

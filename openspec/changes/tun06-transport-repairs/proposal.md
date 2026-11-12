@@ -9,6 +9,7 @@ The TUN-06 audit found seven defects in Worker binary handling, test-DC routing,
 ## What Changes
 
 - Fix each audit finding F1 through F7 in a separate code commit.
+- Fix F8, the Worker close-code defect confirmed while checking the audit's lifetime hypothesis, in a separate commit.
 - Preserve binary data on current Worker runtimes and accept canonical production and test paths.
 - Use an exact direct destination as the DC authority, complete partial init data, and reject a forbidden init prefix.
 - Cancel every runtime bootstrap path when the runtime stops.

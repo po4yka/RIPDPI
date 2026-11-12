@@ -10,6 +10,7 @@ Task ID: `TRN-1794494451740063`. Repair F1-F7 from the TUN-06 audit on current m
 ## Decisions
 
 - Set both Worker sockets to arraybuffer before acceptance. Keep binary ordering and the existing size cap. Accept only canonical kws1-5 hosts and production/test paths.
+- Propagate an empty close through `close()` without arguments. Map abnormal observation code 1006 to valid error code 1011. Preserve ordinary wire status and reason. A real local workerd empty-close test confirmed F8: the old relay throws for reserved code 1005 and changes the downstream result to 1011.
 - Classify structurally valid direct init against the exact destination before any carrier opens. Outside the exact table, retain existing explicit-DC behavior. Do not trust a subnet guess over client context.
 - Share init completion across fresh, preserved, and prepared paths with a total read budget. Keep collected bytes on EOF/error and preserve remainder.
 - Reuse the existing cancellable open and prepared relay interfaces. Apply one DNS/open budget and runtime shutdown callback to legacy and changed-DC paths. Do not add a second transport abstraction.
@@ -19,7 +20,7 @@ Task ID: `TRN-1794494451740063`. Repair F1-F7 from the TUN-06 audit on current m
 ## Contracts and ownership
 
 - Runtime writer: WS tunnel/transport/bootstrap and proxy runtime/adapters, plus owning tests; F2/F4/F5/F7.
-- Worker writer: reference Worker, local tests, and guide; F1/F3.
+- Worker writer: reference Worker, local tests, guide, and dedicated Worker CI workflow; F1/F3/F8.
 - Credential writer: core:data:runtime-state provisioner/store/callers and tests; F6.
 - Coordinator: task and OpenSpec files, combined generated snapshots, validation, and serial integration. Ownership is also recorded in the portfolio task before writes.
 - No protobuf/JNI/wire schema, dependency lock, locale, golden, or baseline edits are planned. Report any required contract expansion before changing it.
