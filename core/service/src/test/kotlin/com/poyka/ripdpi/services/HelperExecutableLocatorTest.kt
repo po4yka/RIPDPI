@@ -42,21 +42,21 @@ class HelperExecutableLocatorTest {
     }
 
     @Test
-    fun `Snowflake and obfs4 resolve the shared Lyrebird upstream`() {
-        val packaged = packagedLibrary("liblyrebird.upstream.so")
+    fun `Snowflake and obfs4 resolve their separate pinned upstreams`() {
+        val snowflake = packagedLibrary("libripdpi-snowflake.upstream.so")
+        val obfs4 = packagedLibrary("libripdpi-obfs4.upstream.so")
         val manifest =
             """
             {
               "artifacts": [
-                {"abi":"arm64-v8a","outputName":"ripdpi-snowflake","upstreamBinary":"lyrebird.upstream"},
-                {"abi":"arm64-v8a","outputName":"ripdpi-obfs4","upstreamBinary":"lyrebird.upstream"}
+                {"abi":"arm64-v8a","outputName":"ripdpi-snowflake","upstreamBinary":"ripdpi-snowflake.upstream"},
+                {"abi":"arm64-v8a","outputName":"ripdpi-obfs4","upstreamBinary":"ripdpi-obfs4.upstream"}
               ]
             }
             """.trimIndent()
 
-        for (outputName in listOf("ripdpi-snowflake", "ripdpi-obfs4")) {
-            assertEquals(packaged, locator(manifest).locatePluggableTransport(outputName))
-        }
+        assertEquals(snowflake, locator(manifest).locatePluggableTransport("ripdpi-snowflake"))
+        assertEquals(obfs4, locator(manifest).locatePluggableTransport("ripdpi-obfs4"))
     }
 
     @Test
@@ -129,7 +129,9 @@ class HelperExecutableLocatorTest {
     @Test
     fun `manifest with upstream that is not packaged fails closed`() {
         val manifest =
-            """{"artifacts":[{"abi":"arm64-v8a","outputName":"ripdpi-obfs4","upstreamBinary":"lyrebird.upstream"}]}"""
+            """{"artifacts":[{"abi":"arm64-v8a","outputName":"ripdpi-obfs4",
+                |"upstreamBinary":"ripdpi-obfs4.upstream"}]}
+            """.trimMargin()
 
         assertThrows(IllegalStateException::class.java) {
             locator(manifest).locatePluggableTransport("ripdpi-obfs4")

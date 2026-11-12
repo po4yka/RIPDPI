@@ -197,7 +197,8 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             val bridgeLines =
                 listOf(
                     bridgeLine,
-                    "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=https://broker.example/",
+                    "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955 " +
+                        "url=https://broker.example/",
                     "Bridge webtunnel 192.0.2.2:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 " +
                         "url=https://bridge.example/connect",
                 )

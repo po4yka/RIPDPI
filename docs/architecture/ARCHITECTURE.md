@@ -122,7 +122,8 @@ assets are packaged into the APK. See
   `ripdpi-cloudflare-origin`, and `ripdpi-webtunnel` are workspace `bin` crates
   packaged into APK assets and run as separate processes (not JNI-embedded).
   `native/pluggable-transports/sources.json` also describes external PT assets:
-  `ripdpi-snowflake` / `ripdpi-obfs4` from Lyrebird and `ripdpi-cloudflared`
+  `ripdpi-snowflake` from the official Snowflake client, `ripdpi-obfs4` from
+  Lyrebird, and `ripdpi-cloudflared`
   from Cloudflare's `cloudflared`.
 - `ripdpi` (desktop CLI, `crates/ripdpi-cli`) is a development binary for
   macOS/Linux and is **not** packaged in the APK.

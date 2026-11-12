@@ -41,19 +41,6 @@ data class RustNativeArtifact(
     val outputName: String,
 )
 
-data class PluggableTransportSource(
-    val id: String,
-    val sourceType: String,
-    val repoUrl: String?,
-    val commit: String?,
-    val goToolchain: String?,
-    val cgoEnabled: Boolean,
-    val packagePath: String?,
-    val packageName: String?,
-    val sourceBinaryName: String,
-    val outputNames: List<String>,
-)
-
 @CacheableTask
 abstract class BuildRustNativeLibsTask
     @Inject
@@ -916,6 +903,7 @@ abstract class BuildPluggableTransportAssetsTask
                                     "repoUrl" to source.repoUrl,
                                     "commit" to source.commit,
                                     "goToolchain" to source.goToolchain,
+                                    "goLinkerFlags" to source.goLinkerFlags,
                                     "cgoEnabled" to source.cgoEnabled,
                                     "packagePath" to source.packagePath,
                                     "packageName" to source.packageName,
@@ -946,6 +934,7 @@ abstract class BuildPluggableTransportAssetsTask
                                             "repoUrl" to source.repoUrl,
                                             "commit" to source.commit,
                                             "goToolchain" to source.goToolchain,
+                                            "goLinkerFlags" to source.goLinkerFlags,
                                             "cgoEnabled" to source.cgoEnabled,
                                             "packagePath" to source.packagePath,
                                             "packageName" to source.packageName,
@@ -978,6 +967,7 @@ abstract class BuildPluggableTransportAssetsTask
                     repoUrl = data["repoUrl"]?.toString()?.takeIf(String::isNotBlank),
                     commit = data["commit"]?.toString()?.takeIf(String::isNotBlank),
                     goToolchain = data["goToolchain"]?.toString()?.takeIf(String::isNotBlank),
+                    goLinkerFlags = pluggableTransportGoLinkerFlags(data),
                     cgoEnabled = data["cgoEnabled"]?.toString()?.toBooleanStrictOrNull() ?: false,
                     packagePath = data["packagePath"]?.toString()?.takeIf(String::isNotBlank),
                     packageName = data["packageName"]?.toString()?.takeIf(String::isNotBlank),
@@ -1071,6 +1061,7 @@ abstract class BuildPluggableTransportAssetsTask
                 require(record.requireString("sourceId") == source.id) {
                     "Prebuilt pluggable transport artifact $abi/$outputName has an unexpected source"
                 }
+                verifyPluggableTransportGoLinkerFlags(record, source.goLinkerFlags, source.id)
                 require(record["mode"] == "source") {
                     "Prebuilt pluggable transport artifact $abi/$outputName was not source-built"
                 }
@@ -1148,6 +1139,7 @@ abstract class BuildPluggableTransportAssetsTask
                 require(record.optionalString("goToolchain") == source.goToolchain) {
                     "Prebuilt pluggable transport source ${source.id} has an unexpected Go toolchain"
                 }
+                verifyPluggableTransportGoLinkerFlags(record, source.goLinkerFlags, source.id)
                 require(record.optionalString("packagePath") == source.packagePath) {
                     "Prebuilt pluggable transport source ${source.id} has an unexpected package path"
                 }
@@ -1277,7 +1269,7 @@ abstract class BuildPluggableTransportAssetsTask
                         "build",
                         "-trimpath",
                         "-buildvcs=false",
-                        "-ldflags=-s -w -buildid=",
+                        pluggableTransportGoLinkerArgument(source.goLinkerFlags),
                         "-o",
                         outputFile.absolutePath,
                         packagePath,

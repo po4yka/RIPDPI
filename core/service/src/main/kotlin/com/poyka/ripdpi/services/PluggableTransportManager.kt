@@ -176,7 +176,8 @@ open class PluggableTransportManager
                         subprocessManager
                             .resolvePluggableTransportBinary(TorBridgeTransportBinaries.getValue(protocol))
                             .absolutePath,
-                    arguments = emptyList(),
+                    arguments =
+                        if (protocol == RelayKindSnowflake) listOf("-covertdtls-config", "mimic") else emptyList(),
                     runOnStartup = false,
                 )
             }
