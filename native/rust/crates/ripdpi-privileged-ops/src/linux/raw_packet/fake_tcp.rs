@@ -50,7 +50,16 @@ pub fn send_fake_tcp(
         || options.secondary_fake_prefix.is_some()
         || options.timestamp_delta_ticks.is_some();
     if requires_raw_path {
-        return send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, real_ttl, md5sig, options, wait);
+        return send_fake_tcp_via_raw_packets(
+            stream,
+            original_prefix,
+            fake_prefix,
+            ttl,
+            real_ttl,
+            md5sig,
+            options,
+            wait,
+        );
     }
 
     let fd = stream.as_raw_fd();

@@ -8,7 +8,8 @@ use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr, connect, soc
 
 use ripdpi_root_helper_protocol::{
     CMD_PROTOCOL_PREFLIGHT, CMD_SEND_FAKE_TCP, HelperRequest, HelperResponse, PROTOCOL_VERSION,
-    recv_message_with_deadline, send_request_message, valid_session_nonce, validate_request, validate_request_with_peer,
+    recv_message_with_deadline, send_request_message, valid_session_nonce, validate_request,
+    validate_request_with_peer,
 };
 
 /// Upper bound for one connect to the helper socket. A blocking AF_UNIX

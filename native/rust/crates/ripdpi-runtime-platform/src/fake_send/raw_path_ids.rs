@@ -92,7 +92,10 @@ mod tests {
                             mode,
                         );
                         if is_ipv4 && mode == Some(IpIdMode::Zero) {
-                            assert_eq!(prepared.expect_err("IPv4 zero ID is unsupported").kind(), io::ErrorKind::Unsupported);
+                            assert_eq!(
+                                prepared.expect_err("IPv4 zero ID is unsupported").kind(),
+                                io::ErrorKind::Unsupported
+                            );
                             continue;
                         }
                         let options = prepared.expect("prepare fake options");

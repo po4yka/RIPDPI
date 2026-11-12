@@ -1,5 +1,6 @@
 use std::io::Read;
 use std::net::TcpListener;
+use std::time::Duration;
 
 use super::*;
 
@@ -176,7 +177,8 @@ fn stream_fake_failure_restores_queued_real_bytes_before_ttl() {
     )
     .expect_err("fault follows the actual splice");
     assert!(error.to_string().contains("injected failure after fake splice"));
-    let progress = error.get_ref().and_then(|error| error.downcast_ref::<TcpSendProgressError>()).expect("known splice progress");
+    let progress =
+        error.get_ref().and_then(|error| error.downcast_ref::<TcpSendProgressError>()).expect("known splice progress");
     assert_eq!(progress.bytes_committed, b"real-payload".len());
     assert_eq!(get_stream_ttl(&client).expect("read restored TTL"), 64);
     let mut actual = [0; 12];

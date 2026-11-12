@@ -70,7 +70,9 @@ mod tests {
             super::super::WriteProgressError { written: 3, source: io::Error::from_raw_os_error(libc::EPIPE) },
         );
         let error = strategy_result::<()>(Err(source), "send_fake", "fakeddisorder", None, 7)
-            .expect_err("send failed after committing bytes");
+            .expect_err("send failed after committing bytes")
+            .with_possible_payload_commit();
+        assert!(error.payload_commit_uncertain());
         let mut received = [0; 3];
         reader.read_exact(&mut received).expect("peer payload");
         assert_eq!(&received, b"abc");
