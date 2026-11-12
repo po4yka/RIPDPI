@@ -72,7 +72,8 @@ impl RuntimeState {
             }
         };
         // A closed in-flight write can hide accepted bytes, including a TFO payload.
-        if error.bytes_committed() > 0 || error.payload_commit_uncertain() || error.kind() == io::ErrorKind::BrokenPipe {
+        if error.bytes_committed() > 0 || error.payload_commit_uncertain() || error.kind() == io::ErrorKind::BrokenPipe
+        {
             failure.action = RuntimeFailureAction::SurfaceOnly;
         }
         failure

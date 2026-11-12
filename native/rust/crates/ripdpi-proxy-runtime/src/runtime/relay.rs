@@ -204,9 +204,9 @@ mod tests {
         assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=0"));
         assert!(failure.evidence.tags.iter().any(|tag| tag == "payloadCommitUncertain=true"));
         assert_eq!(error.bytes_committed(), 0);
-}
+    }
 
-#[test]
+    #[test]
     fn partial_transport_first_write_failures_do_not_retry_matching_group() {
         let error = super::super::desync::OutboundSendError::transport(io::Error::new(
             io::ErrorKind::TimedOut,
@@ -227,6 +227,7 @@ mod tests {
                 strategy_family: "split",
                 fallback: None,
                 bytes_committed: 0,
+                payload_commit_uncertain: false,
                 source_errno: None,
                 execution_receipt: test_strategy_execution_receipt("split", 0),
                 source: io::Error::from(io::ErrorKind::BrokenPipe),
