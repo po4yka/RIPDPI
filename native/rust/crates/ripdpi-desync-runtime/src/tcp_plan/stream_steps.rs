@@ -141,6 +141,17 @@ pub(crate) fn execute_ttl_sensitive_tcp_step(
                 step_fallback,
                 bytes_committed,
             )?;
+            // The kernel reads the TTL when it transmits the segment, so keep it
+            // lowered until the chunk has left the send queue.
+            await_writable_action_named(
+                ctx.writer,
+                ctx.config.timeouts.wait_send,
+                Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
+                "await_writable_disorder",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
             if should_restore_ttl {
                 let _ = ctx.lowering.restore_default_ttl_named(
                     ctx.writer,
@@ -151,15 +162,6 @@ pub(crate) fn execute_ttl_sensitive_tcp_step(
                     bytes_committed,
                 )?;
             }
-            await_writable_action_named(
-                ctx.writer,
-                ctx.config.timeouts.wait_send,
-                Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
-                "await_writable_disorder",
-                step_family,
-                step_fallback,
-                bytes_committed,
-            )?;
             Ok(bytes_committed)
         }
         TcpChainStepKind::Disoob => {

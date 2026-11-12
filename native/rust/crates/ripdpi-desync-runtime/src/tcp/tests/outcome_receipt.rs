@@ -29,6 +29,8 @@ struct ReceiptTestPlatform {
     ordered_fake_segments: Mutex<usize>,
     /// Bytes of those fake segments, in send order.
     ordered_fake_payloads: Mutex<Vec<Vec<u8>>>,
+    /// The socket TTL seen by each send-queue wait.
+    stage_ttls: Mutex<Vec<u32>>,
 }
 
 impl TcpPlatformCapabilities for ReceiptTestPlatform {
@@ -62,7 +64,8 @@ impl TcpSocketOptions for ReceiptTestPlatform {
         Err(io::Error::new(io::ErrorKind::Unsupported, "window clamp unsupported in receipt test"))
     }
 
-    fn wait_tcp_stage(&self, _stream: &TcpStream, _wait_send: bool, _await_interval: Duration) -> io::Result<()> {
+    fn wait_tcp_stage(&self, stream: &TcpStream, _wait_send: bool, _await_interval: Duration) -> io::Result<()> {
+        self.stage_ttls.lock().expect("stage ttl log").push(stream.ttl()?);
         let mut faults = self.faults.lock().expect("receipt fault queue");
         match faults.front() {
             Some(FaultSpec::WaitStage(kind)) => {
@@ -1479,4 +1482,53 @@ fn unfiltered_disorder_skips_later_rounds() {
     let mut buf = vec![0u8; payload.len()];
     server.read_exact(&mut buf).expect("read relayed payload");
     assert_eq!(&buf, payload);
+}
+
+#[test]
+fn plan_executor_keeps_disorder_ttl_until_the_send_queue_drains() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    for kind in [TcpChainStepKind::Disorder, TcpChainStepKind::Disoob] {
+        let mut group = test_group();
+        // The fake step routes the plan through the plan executor.
+        group.actions.tcp_chain = vec![
+            TcpChainStep::new(kind, OffsetExpr::absolute(3)),
+            TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(10)),
+        ];
+        let (mut client, mut server) = connected_pair();
+        let default_ttl = client.ttl().expect("default TTL");
+        let progress =
+            OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+        let context = activation_context_from_progress(
+            progress,
+            ActivationTransport::Tcp,
+            Some(payload),
+            None,
+            None,
+            None,
+            AdaptivePlannerHints::default(),
+        );
+        let platform = ReceiptTestPlatform::default();
+
+        send_prepared_with_group(
+            &mut client,
+            &platform,
+            &RuntimeConfig::default(),
+            &group,
+            payload,
+            progress,
+            context,
+            None,
+            None,
+            &default_ttl_unavailable(),
+            None,
+        )
+        .expect("plan executes");
+
+        let stage_ttls = platform.stage_ttls.lock().expect("stage ttl log").clone();
+        assert_eq!(stage_ttls.first(), Some(&u32::from(ripdpi_desync::DISORDER_TTL)), "{kind:?}");
+        assert_eq!(client.ttl().expect("restored TTL"), default_ttl, "{kind:?}");
+        let mut buf = vec![0u8; payload.len()];
+        server.read_exact(&mut buf).expect("read relayed payload");
+        assert_eq!(&buf, payload);
+    }
 }
