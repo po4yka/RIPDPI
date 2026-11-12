@@ -119,7 +119,7 @@ fn execute_boundary_fallback(
         ctx.writer,
         chunk,
         ttl_modified,
-        ctx.config.network.default_ttl,
+        if ttl_modified { 1 } else { ctx.config.network.default_ttl },
         ctx.config.process.protect_path.as_deref(),
         ctx.md5sig,
         opts.original_flags,
@@ -162,6 +162,9 @@ fn send_first_disorder_segment(
     bytes_committed: usize,
     opts: FakeStepOptions,
 ) -> Result<(usize, bool), OutboundSendError> {
+    let mut options = opts.tcp_options(ctx.config.process.protect_path.as_deref(), first_secondary_fake);
+    // Keep the original TTL when another modifier already selects raw transport.
+    options.force_raw_original = true;
     match send_fake_tcp_action_named(
         ctx.writer,
         chunk,
@@ -169,7 +172,7 @@ fn send_first_disorder_segment(
         1,
         ctx.md5sig,
         ctx.config.network.default_ttl,
-        opts.tcp_options(ctx.config.process.protect_path.as_deref(), first_secondary_fake),
+        options,
         ctx.group.actions.ip_id_mode,
         opts.wait,
         "send_fake_fakeddisorder",

@@ -22,6 +22,7 @@ type FaultQueue = Mutex<VecDeque<FaultSpec>>;
 #[derive(Default)]
 struct ReceiptTestPlatform {
     faults: FaultQueue,
+    require_disorder_raw_original: bool,
     /// The socket TTL seen by each fake RST send.
     fake_rst_ttls: Mutex<Vec<u32>>,
     /// Fake segments handed to the raw ordered-segment sender.
@@ -95,11 +96,15 @@ impl TcpFakeSender for ReceiptTestPlatform {
         ttl: u8,
         _md5sig: bool,
         _default_ttl: u8,
-        _options: FakeTcpOptions<'_>,
+        options: FakeTcpOptions<'_>,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
         _wait: TcpStageWait,
     ) -> io::Result<()> {
-        if ttl == 1 {
+        if self.require_disorder_raw_original {
+            if options.require_raw_path || options.force_raw_original != (ttl == 1) {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "incorrect disorder original transport"));
+            }
+        } else if ttl == 1 {
             return Err(io::Error::from_raw_os_error(libc::EPERM));
         }
         let mut stream = stream;
@@ -931,6 +936,48 @@ fn special_plan_failure_preserves_plan_and_marker_provenance() {
     assert!(receipt.planned_steps > 0);
     assert!(receipt.resolved_offset.is_some());
     assert!(receipt.terminal_reason.is_some());
+}
+
+#[test]
+fn fake_disorder_preserves_first_original_transport_without_requiring_raw() {
+    let payload = b"GET / HTTP/1.1\r\nHost: audit.invalid\r\n\r\n";
+    let mut group = test_group();
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, OffsetExpr::host(1)));
+    group.actions.fake_tcp_timestamp_enabled = true;
+    let (mut client, mut server) = connected_pair();
+    server.set_read_timeout(Some(Duration::from_secs(2))).expect("peer read timeout");
+    let progress =
+        OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        Some(8),
+        AdaptivePlannerHints::default(),
+    );
+    let platform = ReceiptTestPlatform { require_disorder_raw_original: true, ..ReceiptTestPlatform::default() };
+
+    let outcome = send_prepared_with_group(
+        &mut client,
+        &platform,
+        &RuntimeConfig::default(),
+        &group,
+        payload,
+        progress,
+        context,
+        Some(8),
+        None,
+        &default_ttl_unavailable(),
+        None,
+    )
+    .expect("first original transport must retain the disorder TTL without requiring raw selection");
+
+    let mut received = vec![0; payload.len()];
+    server.read_exact(&mut received).expect("read original payload");
+    assert_eq!(received, payload);
+    assert_eq!(outcome.execution_receipt.effective_family, Some(TcpStrategyFamily::FakeDisorder));
 }
 
 #[test]
