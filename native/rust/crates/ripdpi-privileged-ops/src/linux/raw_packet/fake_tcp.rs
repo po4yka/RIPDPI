@@ -10,7 +10,7 @@ use std::os::fd::{AsFd, AsRawFd};
 use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable};
 
 use crate::linux::mmap_region::MmapRegion;
-use crate::linux::raw_packet::packet_builder::build_fake_tcp_packets;
+use crate::linux::raw_packet::packet_builder::{build_fake_tcp_packets, validate_explicit_ipv4_identifications};
 use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, set_tcp_md5sig, try_set_stream_ttl_with_outcome};
 use crate::linux::tcp_info::wait_tcp_stage_fd;
@@ -42,6 +42,7 @@ pub fn send_fake_tcp(
     if options.original_ttl == Some(0) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "original TCP TTL must be nonzero"));
     }
+    validate_explicit_ipv4_identifications(stream.local_addr()?, stream.peer_addr()?, &options.ipv4_identifications)?;
     let real_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream)? };
     let requires_raw_path = !options.fake_flags.is_empty()
         || !options.orig_flags.is_empty()

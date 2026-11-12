@@ -303,3 +303,17 @@ pub(crate) fn build_ordered_tcp_packets(
     }
     Ok(packets)
 }
+
+pub(crate) fn validate_explicit_ipv4_identifications(
+    source: SocketAddr,
+    target: SocketAddr,
+    identifications: &[u16],
+) -> io::Result<()> {
+    if matches!((source, target), (SocketAddr::V4(_), SocketAddr::V4(_))) && identifications.contains(&0) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "IP_HDRINCL cannot preserve an exact zero IPv4 Identification",
+        ));
+    }
+    Ok(())
+}

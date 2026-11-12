@@ -378,7 +378,7 @@ Mode behavior:
 - `seq`: monotonic per-flow IDs for raw-built IPv4 datagrams
 - `seqgroup`: same monotonic sequence, but mixed fake+original TCP paths promote the original payload onto the raw/TCP_REPAIR replacement-socket path so fake and original packets participate in the exact same ID stream
 - `rnd`: randomized non-zero IDs
-- `zero`: always write ID `0`
+- `zero`: unsupported for raw IPv4 TCP on the `IP_HDRINCL` backend; fails before transmission. IPv6 ignores this IPv4-only setting.
 
 Fail-closed behavior:
 

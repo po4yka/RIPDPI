@@ -11,7 +11,7 @@ use crate::detect_default_ttl;
 use crate::linux::raw_packet::fake_tcp::mutate_fake_timestamp;
 use crate::linux::raw_packet::packet_builder::{
     apply_tcp_flag_overrides_to_packet, build_error_to_io, build_ordered_tcp_packets, build_tcp_segment_packet,
-    fragment_identification, resolve_raw_ttl,
+    fragment_identification, resolve_raw_ttl, validate_explicit_ipv4_identifications,
 };
 use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::get_stream_ttl;
@@ -31,6 +31,7 @@ pub fn send_fake_rst(
 ) -> io::Result<()> {
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
+    validate_explicit_ipv4_identifications(source, target, ipv4_identification.as_slice())?;
     let ttl = fake_rst_ttl(get_stream_ttl(stream)?, default_ttl)?;
     let fd = stream.as_raw_fd();
 
@@ -92,6 +93,7 @@ pub fn send_ordered_tcp_segments(
 
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
+    validate_explicit_ipv4_identifications(source, target, ipv4_identifications)?;
     let fd = stream.as_raw_fd();
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
@@ -220,6 +222,7 @@ pub fn send_flagged_tcp_payload(
 
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
+    validate_explicit_ipv4_identifications(source, target, ipv4_identification.as_slice())?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
 
@@ -267,6 +270,7 @@ pub fn send_seqovl_tcp(
 
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
+    validate_explicit_ipv4_identifications(source, target, ipv4_identification.as_slice())?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
 

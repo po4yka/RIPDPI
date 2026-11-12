@@ -608,3 +608,59 @@ fn ordered_packet_batch_adds_decoy_md5_only_to_fake_segments() {
         assert_eq!(decoded_packet_fields(&packets[1]), (64, false, b"real".as_slice()));
     }
 }
+
+#[test]
+fn explicit_zero_ipv4_ids_are_rejected_before_repair_or_emission() {
+    use std::io::Read;
+    use std::time::Duration;
+    let (client, mut peer) = connected_pair();
+    let error = raw_packet::send_fake_tcp(
+        &client,
+        b"real",
+        b"fake",
+        8,
+        false,
+        64,
+        crate::FakeTcpOptions { require_raw_path: true, ipv4_identifications: vec![0], ..Default::default() },
+        (false, Duration::ZERO),
+    )
+    .expect_err("zero wire ID cannot be preserved");
+    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    let segments = [crate::OrderedTcpSegment {
+        payload: b"real",
+        ttl: 64,
+        flags: TcpFlagOverrides::default(),
+        sequence_offset: 0,
+        use_fake_timestamp: false,
+    }];
+    let error = raw_packet::send_ordered_tcp_segments(
+        &client,
+        &segments,
+        4,
+        64,
+        None,
+        false,
+        None,
+        &[0],
+        (false, Duration::ZERO),
+    )
+    .expect_err("ordered zero wire ID cannot be preserved");
+    assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    peer.set_nonblocking(true).expect("nonblocking observation");
+    assert_eq!(peer.read(&mut [0; 16]).expect_err("no payload was emitted").kind(), io::ErrorKind::WouldBlock);
+}
+
+#[test]
+fn explicit_ipv4_id_validation_leaves_implicit_and_ipv6_ids_unchanged() {
+    let source = "192.0.2.1:12345".parse().expect("source");
+    let target = "198.51.100.2:443".parse().expect("target");
+    raw_packet::validate_explicit_ipv4_identifications(source, target, &[])
+        .expect("implicit IDs are not exact requests");
+    raw_packet::validate_explicit_ipv4_identifications(source, target, &[1, 2]).expect("nonzero exact IDs");
+    raw_packet::validate_explicit_ipv4_identifications(
+        "[2001:db8::1]:12345".parse().expect("IPv6 source"),
+        "[2001:db8::2]:443".parse().expect("IPv6 target"),
+        &[0],
+    )
+    .expect("IPv6 has no IPv4 Identification");
+}

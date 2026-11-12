@@ -48,7 +48,7 @@ pub fn send_ordered_tcp_segments(
 ) -> io::Result<()> {
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
-    let ipv4_identifications = raw_path_ids::reserve_for_addresses(source, target, ip_id_mode, segments.len());
+    let ipv4_identifications = raw_path_ids::reserve_for_addresses(source, target, ip_id_mode, segments.len())?;
     if let Some(result) = root_helper_dispatch::send_ordered_tcp_segments(
         stream,
         segments,

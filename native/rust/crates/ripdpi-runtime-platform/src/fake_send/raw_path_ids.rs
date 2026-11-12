@@ -7,6 +7,7 @@ use crate::FakeTcpOptions;
 use crate::ipv4_ids::{reserve_ipv4_identifications, reserve_stream_ipv4_identifications};
 
 pub(crate) fn reserve_one_for_stream(stream: &TcpStream, ip_id_mode: Option<IpIdMode>) -> io::Result<Option<u16>> {
+    validate_ipv4_id_mode(stream.local_addr()?, stream.peer_addr()?, ip_id_mode)?;
     Ok(reserve_stream_ipv4_identifications(stream, ip_id_mode, 1)?.into_iter().next())
 }
 
@@ -15,8 +16,9 @@ pub(crate) fn reserve_for_addresses(
     target: SocketAddr,
     ip_id_mode: Option<IpIdMode>,
     packet_count: usize,
-) -> Vec<u16> {
-    reserve_ipv4_identifications(source, target, ip_id_mode, packet_count)
+) -> io::Result<Vec<u16>> {
+    validate_ipv4_id_mode(source, target, ip_id_mode)?;
+    Ok(reserve_ipv4_identifications(source, target, ip_id_mode, packet_count))
 }
 
 pub(crate) fn prepare_fake_tcp_options<'a>(
@@ -30,6 +32,7 @@ pub(crate) fn prepare_fake_tcp_options<'a>(
     }
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
+    validate_ipv4_id_mode(source, target, ip_id_mode)?;
     let supports_ipv4_ids = matches!((source, target), (SocketAddr::V4(_), SocketAddr::V4(_)));
     let require_raw_path = options.require_raw_path || (supports_ipv4_ids && ip_id_mode.is_some());
     let force_raw_original =
@@ -50,6 +53,16 @@ pub(crate) fn prepare_fake_tcp_options<'a>(
     Ok(options)
 }
 
+fn validate_ipv4_id_mode(source: SocketAddr, target: SocketAddr, mode: Option<IpIdMode>) -> io::Result<()> {
+    if matches!((source, target, mode), (SocketAddr::V4(_), SocketAddr::V4(_), Some(IpIdMode::Zero))) {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "IP_HDRINCL cannot preserve an exact zero IPv4 Identification",
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::TcpListener;
@@ -67,7 +80,7 @@ mod tests {
             {
                 for force_original in [false, true] {
                     for require_raw in [false, true] {
-                        let options = prepare_fake_tcp_options(
+                        let prepared = prepare_fake_tcp_options(
                             &client,
                             b"primary",
                             FakeTcpOptions {
@@ -77,8 +90,12 @@ mod tests {
                                 ..Default::default()
                             },
                             mode,
-                        )
-                        .expect("prepare fake options");
+                        );
+                        if is_ipv4 && mode == Some(IpIdMode::Zero) {
+                            assert_eq!(prepared.expect_err("IPv4 zero ID is unsupported").kind(), io::ErrorKind::Unsupported);
+                            continue;
+                        }
+                        let options = prepared.expect("prepare fake options");
 
                         let expected_original = force_original || (is_ipv4 && mode == Some(IpIdMode::SeqGroup));
                         assert_eq!(options.force_raw_original, expected_original);
@@ -91,5 +108,45 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn exact_zero_ipv4_mode_is_rejected_before_id_reservation() {
+        let source = "192.0.2.1:12345".parse().expect("source");
+        let target = "198.51.100.2:443".parse().expect("target");
+        assert_eq!(
+            reserve_for_addresses(source, target, Some(IpIdMode::Zero), 2).expect_err("unsupported wire ID").kind(),
+            io::ErrorKind::Unsupported
+        );
+        assert_eq!(reserve_for_addresses(source, target, None, 2).expect("default IDs"), Vec::<u16>::new());
+        assert_eq!(reserve_for_addresses(source, target, Some(IpIdMode::Seq), 2).expect("sequential IDs").len(), 2);
+    }
+
+    #[test]
+    fn zero_ipv4_default_fake_and_single_packet_options_fail_before_dispatch() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let client = TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+        let (_peer, _) = listener.accept().expect("accept");
+        assert_eq!(
+            prepare_fake_tcp_options(&client, b"fake", FakeTcpOptions::default(), Some(IpIdMode::Zero))
+                .expect_err("default fake must reject zero")
+                .kind(),
+            io::ErrorKind::Unsupported
+        );
+        assert_eq!(
+            reserve_one_for_stream(&client, Some(IpIdMode::Zero))
+                .expect_err("single raw packet must reject zero")
+                .kind(),
+            io::ErrorKind::Unsupported
+        );
+    }
+
+    #[test]
+    fn ipv6_ignores_the_ipv4_only_zero_mode() {
+        let source = "[2001:db8::1]:12345".parse().expect("source");
+        let target = "[2001:db8::2]:443".parse().expect("target");
+        assert!(
+            reserve_for_addresses(source, target, Some(IpIdMode::Zero), 2).expect("IPv6 has no IPv4 ID").is_empty()
+        );
     }
 }
