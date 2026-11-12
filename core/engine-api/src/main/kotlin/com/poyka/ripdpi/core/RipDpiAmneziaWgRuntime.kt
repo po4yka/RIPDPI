@@ -83,6 +83,14 @@ enum class RipDpiAmneziaWgCarrierKind {
 
     @SerialName("ws")
     Ws,
+    ;
+
+    /** Allows WSS setup and peer authentication without changing the UDP deadline. */
+    fun readyTimeoutMillis(): Long =
+        when (this) {
+            Udp -> defaultAmneziaWgReadyTimeoutMs
+            Ws -> 40_000L
+        }
 }
 
 /**

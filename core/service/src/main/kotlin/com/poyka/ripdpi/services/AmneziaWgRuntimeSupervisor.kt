@@ -121,7 +121,7 @@ internal class AmneziaWgRuntimeSupervisor(
 
         @Suppress("TooGenericExceptionCaught")
         try {
-            runtime.awaitReady()
+            runtime.awaitReady(resolvedConfig.carrier.readyTimeoutMillis())
             consumed = consumedConfiguration
             activeRegistration =
                 activeRegistry.register(resolvedConfig) { amneziaWgRuntime === runtime && job.isActive }

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -56,6 +57,30 @@ class RuntimeReadinessTest {
                     ),
                 ),
         )
+
+    @Test
+    fun awgWsReadinessAllowsCarrierSetupBeforePeerAuthentication() =
+        runTest {
+            val ready = CompletableDeferred<Unit>()
+            launch {
+                delay(10_000)
+                delay(6_000)
+                ready.complete(Unit)
+            }
+            awaitRuntimeReady(
+                startupSignal = ready,
+                timeoutMillis = RipDpiAmneziaWgCarrierKind.Ws.readyTimeoutMillis(),
+                pollIntervalMillis = 25L,
+                timeoutMessagePrefix = "AWG readiness timed out",
+                pollTelemetry = { pendingSnapshot() },
+            )
+            assertEquals(16_000L, testScheduler.currentTime)
+        }
+
+    @Test
+    fun awgUdpReadinessRetainsItsExistingDeadline() {
+        assertEquals(15_000L, RipDpiAmneziaWgCarrierKind.Udp.readyTimeoutMillis())
+    }
 
     @Test
     fun alreadyCompletedSignalReturnsWithoutPolling() =
