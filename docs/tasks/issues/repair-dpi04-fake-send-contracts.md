@@ -2,7 +2,7 @@
 id: ENG-1794501890187395
 title: Repair DPI-04 fake send safety and payload contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: DPI-04 repair coordinator
