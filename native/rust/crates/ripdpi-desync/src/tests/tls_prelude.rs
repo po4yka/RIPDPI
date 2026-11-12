@@ -209,3 +209,22 @@ fn tlsrec_offset_zero_skips_only_the_zero_repeat() {
     assert_eq!(tls_record_lengths(&tampered.bytes), vec![50, 50, payload_len - 100]);
     assert_eq!(tampered.tls_prelude.applied_count, 1);
 }
+
+#[test]
+fn tls_prelude_rejects_offset_adjustment_underflow() {
+    let fake = complete_fake_tls();
+    let offset = OffsetExpr::marker(OffsetBase::PayloadRand, i64::MIN);
+    for step in [
+        TcpChainStep::new(TcpChainStepKind::TlsRec, offset),
+        TcpChainStep::new(TcpChainStepKind::TlsRandRec, offset).with_tls_randrec_payload(TcpTlsRandRecPayload {
+            fragment_count: 4,
+            min_fragment_size: 16,
+            max_fragment_size: 96,
+        }),
+    ] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![step];
+
+        assert_eq!(apply_tamper(&group, &fake, 0), Err(DesyncError));
+    }
+}

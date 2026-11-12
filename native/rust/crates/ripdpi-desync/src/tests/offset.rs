@@ -79,6 +79,58 @@ fn gen_offset_returns_none_for_ech_extension_marker_when_absent() {
     );
 }
 
+#[test]
+fn gen_offset_rejects_overflow_for_payload_and_protocol_markers() {
+    let http = b"\r\nGET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
+    let tls = rust_packet_seeds::tls_client_hello_ech();
+    for (buffer, bases) in [
+        (
+            http.as_slice(),
+            [
+                OffsetBase::PayloadEnd,
+                OffsetBase::PayloadMid,
+                OffsetBase::Host,
+                OffsetBase::EndHost,
+                OffsetBase::HostMid,
+                OffsetBase::HostRand,
+                OffsetBase::Sld,
+                OffsetBase::MidSld,
+                OffsetBase::EndSld,
+                OffsetBase::Method,
+            ]
+            .as_slice(),
+        ),
+        (tls.as_slice(), [OffsetBase::SniExt, OffsetBase::ExtLen, OffsetBase::EchExt].as_slice()),
+    ] {
+        for &base in bases {
+            let mut info = ProtoInfo::default();
+            let mut rng = OracleRng::seeded(0);
+            assert_eq!(
+                gen_offset(OffsetExpr::marker(base, i64::MAX), buffer, buffer.len(), 0, &mut info, &mut rng),
+                None,
+                "{base:?} must reject an unrepresentable position"
+            );
+        }
+    }
+}
+
+#[test]
+fn gen_offset_rejects_overflow_for_random_payload_cursor() {
+    for (delta, cursor) in [(i64::MAX, 1), (i64::MIN, -1)] {
+        assert_eq!(
+            gen_offset(
+                OffsetExpr::marker(OffsetBase::PayloadRand, delta),
+                b"0123456789",
+                10,
+                cursor,
+                &mut ProtoInfo::default(),
+                &mut OracleRng::seeded(0),
+            ),
+            None,
+        );
+    }
+}
+
 // ---- gen_offset absolute mode ----
 
 #[test]

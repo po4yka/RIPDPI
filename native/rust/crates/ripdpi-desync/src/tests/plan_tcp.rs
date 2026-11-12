@@ -10,6 +10,17 @@ fn seqovl_step(pos: i64) -> TcpChainStep {
 }
 
 #[test]
+fn plan_tcp_rejects_extreme_marker_offsets_without_panicking() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    for delta in [i64::MIN, i64::MAX] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(delta))];
+
+        assert_eq!(plan_tcp(&group, payload, 7, 64, tcp_context(payload)), Err(DesyncError));
+    }
+}
+
+#[test]
 fn plan_tcp_rejects_send_offset_before_cursor() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mut group = DesyncGroup::new(0);

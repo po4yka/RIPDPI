@@ -112,9 +112,9 @@ fn apply_tlsrec_prelude_step(
             break;
         };
         if offset.needs_tls_record_adjustment() {
-            pos -= 5;
+            pos = pos.checked_sub(5).ok_or(DesyncError)?;
         }
-        pos += (offset.skip as i64) * ((total - remaining) as i64);
+        pos = pos.checked_add(i64::from(offset.skip) * i64::from(total - remaining)).ok_or(DesyncError)?;
         if pos < lp {
             break;
         }
@@ -167,7 +167,7 @@ fn apply_tlsrandrec_prelude_step(
         return Ok(None);
     };
     if offset.needs_tls_record_adjustment() {
-        marker -= 5;
+        marker = marker.checked_sub(5).ok_or(DesyncError)?;
     }
     if marker < 0 || marker > state.payload.len() as i64 {
         return Ok(None);

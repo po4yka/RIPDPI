@@ -11,36 +11,37 @@ pub(crate) fn gen_offset(
     info: &mut ProtoInfo,
     rng: &mut OracleRng,
 ) -> Option<i64> {
-    let pos = match expr.base {
+    let add_delta = |position: usize| i64::try_from(position).ok()?.checked_add(expr.delta);
+    match expr.base {
         OffsetBase::Abs => {
             if expr.delta < 0 {
-                n as i64 + expr.delta
+                add_delta(n)
             } else {
-                expr.delta
+                Some(expr.delta)
             }
         }
-        OffsetBase::PayloadEnd => n as i64 + expr.delta,
-        OffsetBase::PayloadMid => (n / 2) as i64 + expr.delta,
+        OffsetBase::PayloadEnd => add_delta(n),
+        OffsetBase::PayloadMid => add_delta(n / 2),
         OffsetBase::PayloadRand => {
             let available = n.saturating_sub(lp.max(0) as usize);
-            expr.delta + lp + rng.next_mod(available.max(1)) as i64
+            expr.delta.checked_add(lp)?.checked_add(i64::try_from(rng.next_mod(available.max(1))).ok()?)
         }
         OffsetBase::Host => {
             let host = resolve_host_range(buffer, info, expr.proto)?;
-            host.start_offset(0)? as i64 + expr.delta
+            add_delta(host.start_offset(0)?)
         }
         OffsetBase::EndHost => {
             let host = resolve_host_range(buffer, info, expr.proto)?;
-            host.end_offset(host.host.len())? as i64 + expr.delta
+            add_delta(host.end_offset(host.host.len())?)
         }
         OffsetBase::HostMid => {
             let host = resolve_host_range(buffer, info, expr.proto)?;
-            host.start_offset(host.host.len() / 2)? as i64 + expr.delta
+            add_delta(host.start_offset(host.host.len() / 2)?)
         }
         OffsetBase::HostRand => {
             let host = resolve_host_range(buffer, info, expr.proto)?;
             let host_index = rng.next_mod(host.host.len().max(1));
-            host.start_offset(host_index)? as i64 + expr.delta
+            add_delta(host.start_offset(host_index)?)
         }
         OffsetBase::Sld | OffsetBase::MidSld | OffsetBase::EndSld => {
             let host = resolve_host_range(buffer, info, expr.proto)?;
@@ -51,23 +52,23 @@ pub(crate) fn gen_offset(
                 OffsetBase::EndSld => host.end_offset(sld_end)?,
                 _ => unreachable!(),
             };
-            offset as i64 + expr.delta
+            add_delta(offset)
         }
         OffsetBase::Method => {
             init_proto_info(buffer, info);
-            info.http.map(|http| http.method_start as i64 + expr.delta)?
+            info.http.and_then(|http| add_delta(http.method_start))
         }
         OffsetBase::ExtLen => {
             init_proto_info(buffer, info);
-            info.tls.as_ref().map(|tls| tls.markers.ext_len_start as i64 + expr.delta)?
+            info.tls.as_ref().and_then(|tls| add_delta(tls.markers.ext_len_start))
         }
         OffsetBase::EchExt => {
             init_proto_info(buffer, info);
-            info.tls.as_ref().and_then(|tls| tls.markers.ech_ext_start.map(|offset| offset as i64 + expr.delta))?
+            info.tls.as_ref().and_then(|tls| add_delta(tls.markers.ech_ext_start?))
         }
         OffsetBase::SniExt => {
             init_proto_info(buffer, info);
-            info.tls.as_ref().map(|tls| tls.markers.sni_ext_start as i64 + expr.delta)?
+            info.tls.as_ref().and_then(|tls| add_delta(tls.markers.sni_ext_start))
         }
         OffsetBase::AutoBalanced
         | OffsetBase::AutoHost
@@ -75,9 +76,8 @@ pub(crate) fn gen_offset(
         | OffsetBase::AutoEndHost
         | OffsetBase::AutoMethod
         | OffsetBase::AutoSniExt
-        | OffsetBase::AutoExtLen => return None,
-    };
-    Some(pos)
+        | OffsetBase::AutoExtLen => None,
+    }
 }
 
 fn adaptive_candidate_bases(expr: OffsetExpr, info: &mut ProtoInfo, buffer: &[u8]) -> &'static [OffsetBase] {
