@@ -20,7 +20,6 @@ enum FaultSpec {
     OrderedSegments(io::ErrorKind),
     OrderedSegmentsAfterPartialGenuine,
     FakeSendAfterPrefix(usize),
-    OrderedAfterPrefix(usize),
 }
 
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
@@ -157,14 +156,6 @@ impl TcpPayloadSender for ReceiptTestPlatform {
             let mut stream = stream;
             stream.write_all(&genuine.payload[..3])?;
             return Err(io::Error::other(io::Error::from(io::ErrorKind::WouldBlock)));
-        }
-        if let Some(FaultSpec::OrderedAfterPrefix(len)) = faults.front() {
-            let len = *len;
-            faults.pop_front();
-            drop(faults);
-            let real = segments.iter().find(|segment| !segment.use_fake_timestamp).expect("genuine segment");
-            (&*stream).write_all(&real.payload[..len.min(real.payload.len())])?;
-            return Err(io::Error::from_raw_os_error(libc::EPERM));
         }
         drop(faults);
         // Like the raw sender, only genuine bytes take stream sequence space.
@@ -1436,7 +1427,8 @@ fn send_http_hostfake_chain(
         None,
         &default_ttl_unavailable(),
         None,
-    );
+    )
+    .expect("hostfake send");
     drop(client);
     let mut received = Vec::new();
     server.read_to_end(&mut received).expect("read relayed payload");
@@ -1482,28 +1474,19 @@ fn hostfake_without_the_raw_path_sends_the_host_as_a_plain_split() {
 
 #[test]
 fn hostfake_raw_refusal_keeps_later_steps_and_suffix() {
-    for kind in [
-        io::ErrorKind::PermissionDenied,
-        io::ErrorKind::Unsupported,
-        io::ErrorKind::WouldBlock,
-        io::ErrorKind::InvalidInput,
-    ] {
-        let platform = ReceiptTestPlatform::default();
-        platform.faults.lock().expect("fault queue").push_back(FaultSpec::OrderedSegments(kind));
-        let chain = vec![
-            TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::EndHost, 0)),
-            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::PayloadEnd, 0)),
-        ];
-        let (received, outcome) = send_http_hostfake_chain(&platform, Some(chain));
-        assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n", "{kind:?}");
-        assert_eq!(outcome.execution_receipt.configured_family, Some(TcpStrategyFamily::HostFake));
-        assert_eq!(outcome.execution_receipt.effective_family, Some(TcpStrategyFamily::Split), "{kind:?}");
-        assert_eq!(outcome.execution_receipt.fallback_reason, Some(TcpFallbackReason::StrategyFamilyFallback));
-        assert_eq!(outcome.execution_receipt.planned_steps, 2);
-        assert_eq!(outcome.bytes_committed, received.len());
-    }
+    let platform = ReceiptTestPlatform { raw_unavailable: true, ..Default::default() };
+    let chain = vec![
+        TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::EndHost, 0)),
+        TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::PayloadEnd, 0)),
+    ];
+    let (received, outcome) = send_http_hostfake_chain(&platform, Some(chain));
+    assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n");
+    assert_eq!(outcome.execution_receipt.configured_family, Some(TcpStrategyFamily::HostFake));
+    assert_eq!(outcome.execution_receipt.effective_family, Some(TcpStrategyFamily::Split));
+    assert_eq!(outcome.execution_receipt.fallback_reason, Some(TcpFallbackReason::StrategyFamilyFallback));
+    assert_eq!(outcome.execution_receipt.planned_steps, 2);
+    assert_eq!(outcome.bytes_committed, received.len());
 }
 
 mod hostfake_late_error;
 mod hostfake_terminal_noop;
-

@@ -3,14 +3,7 @@ use super::*;
 #[test]
 fn terminal_empty_fake_disorder_keeps_the_committed_hostfake_family() {
     for raw_refused in [false, true] {
-        let platform = ReceiptTestPlatform::default();
-        if raw_refused {
-            platform
-                .faults
-                .lock()
-                .expect("fault queue")
-                .push_back(FaultSpec::OrderedSegments(io::ErrorKind::PermissionDenied));
-        }
+        let platform = ReceiptTestPlatform { raw_unavailable: raw_refused, ..Default::default() };
         let chain = vec![
             TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0)),
             TcpChainStep::new(TcpChainStepKind::FakeDisorder, OffsetExpr::marker(OffsetBase::PayloadEnd, 0)),

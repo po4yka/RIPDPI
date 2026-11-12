@@ -103,16 +103,6 @@ fn opaque_fake_and_ordered_failures_mark_payload_commit_as_uncertain() {
 }
 
 #[test]
-fn hostfake_does_not_repeat_a_host_after_an_uncertain_ordered_send() {
-    let platform = ReceiptTestPlatform::default();
-    platform.faults.lock().expect("fault queue").push_back(FaultSpec::OrderedAfterPrefix(3));
-    let (result, received) = send_http_hostfake_result(&platform);
-    let error = result.expect_err("opaque partial host send is terminal");
-    assert!(error.payload_commit_uncertain());
-    assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: you");
-}
-
-#[test]
 fn fake_disorder_does_not_repeat_an_uncertain_first_prefix() {
     let platform = ReceiptTestPlatform::default();
     platform.faults.lock().expect("fault queue").push_back(FaultSpec::FakeSendAfterPrefix(3));

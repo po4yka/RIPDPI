@@ -37,6 +37,7 @@ fn late_ordered_failure_does_not_replay_the_host() {
     )
     .expect_err("late send failure must be terminal");
     assert_eq!(error.kind(), io::ErrorKind::Other);
+    assert!(error.payload_commit_uncertain());
     drop(client);
     let mut received = Vec::new();
     server.read_to_end(&mut received).expect("read committed prefix");
