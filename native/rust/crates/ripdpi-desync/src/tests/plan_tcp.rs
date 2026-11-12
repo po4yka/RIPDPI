@@ -1188,8 +1188,8 @@ fn plan_tcp_hostfake_resolves_fragmented_tls_host_after_tlsrec_prelude() {
     let step = &group.actions.tcp_chain[1];
     let span =
         resolve_hostfake_span(step, &tampered.bytes, 0, tampered.bytes.len(), 23).expect("resolve fragmented hostfake");
-    let fake_host =
-        build_hostfake_bytes(&tampered.bytes[span.host_start..span.host_end], Some("googlevideo.com"), 23, false);
+    let fake_host = build_hostfake_region_bytes(&tampered.bytes, span, Some("googlevideo.com"), 23, false)
+        .expect("fragmented fake hostname");
 
     let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 23, 32, tcp_context(DEFAULT_FAKE_TLS)).expect("plan tls hostfake");
 

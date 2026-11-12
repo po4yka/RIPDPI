@@ -88,6 +88,35 @@ fn normalize_fake_host_template(value: &str) -> Option<String> {
     Some(trimmed)
 }
 
+/// Builds a fake hostname region and keeps TLS record headers between its fragments.
+/// Returns `None` when `span` does not match the hostname in `buffer`.
+pub fn build_hostfake_region_bytes(
+    buffer: &[u8],
+    span: HostFakeSpan,
+    template: Option<&str>,
+    seed: u32,
+    random: bool,
+) -> Option<Vec<u8>> {
+    let mut info = ProtoInfo::default();
+    let host = resolve_host_range(buffer, &mut info, OffsetProto::Any)?;
+    if host.start != span.host_start || host.end != span.host_end {
+        return None;
+    }
+    let mut output = buffer.get(span.host_start..span.host_end)?.to_vec();
+    let fake = build_hostfake_bytes(host.host, template, seed, random);
+    let contiguous = host.start..host.end;
+    let mut source = 0usize;
+    for range in host.spans.unwrap_or(std::slice::from_ref(&contiguous)) {
+        let start = range.start.checked_sub(span.host_start)?;
+        let end = range.end.checked_sub(span.host_start)?;
+        let target = output.get_mut(start..end)?;
+        let source_end = source.checked_add(target.len())?;
+        target.copy_from_slice(fake.get(source..source_end)?);
+        source = source_end;
+    }
+    (source == fake.len()).then_some(output)
+}
+
 pub fn build_hostfake_bytes(real_host: &[u8], template: Option<&str>, seed: u32, random: bool) -> Vec<u8> {
     let mut rng = if random { OracleRng::seeded(rand::random::<u32>()) } else { OracleRng::seeded(seed) };
     let mut output = vec![0; real_host.len()];

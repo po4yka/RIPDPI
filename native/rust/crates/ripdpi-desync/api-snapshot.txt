@@ -188,6 +188,7 @@ pub fn ripdpi_desync::apply_tls_template_record_choreography(&str, &[u8]) -> cor
 pub fn ripdpi_desync::build_fake_packet(&ripdpi_config::model::group::DesyncGroup, &[u8], u32) -> core::result::Result<ripdpi_desync::FakePacketPlan, ripdpi_desync::DesyncError>
 pub fn ripdpi_desync::build_fake_region_bytes(&ripdpi_desync::FakePacketPlan, usize, usize) -> alloc::vec::Vec<u8>
 pub fn ripdpi_desync::build_hostfake_bytes(&[u8], core::option::Option<&str>, u32, bool) -> alloc::vec::Vec<u8>
+pub fn ripdpi_desync::build_hostfake_region_bytes(&[u8], ripdpi_desync::HostFakeSpan, core::option::Option<&str>, u32, bool) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_desync::build_secondary_fake_packet(&ripdpi_config::model::group::DesyncGroup, &[u8], u32) -> core::result::Result<core::option::Option<ripdpi_desync::FakePacketPlan>, ripdpi_desync::DesyncError>
 pub fn ripdpi_desync::build_seqovl_fake_prefix(&ripdpi_config::model::group::DesyncGroup, &[u8], u32, usize, ripdpi_config::model::tcp::SeqOverlapFakeMode) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_desync::DesyncError>
 pub fn ripdpi_desync::init_proto_info(&[u8], &mut ripdpi_desync::ProtoInfo)

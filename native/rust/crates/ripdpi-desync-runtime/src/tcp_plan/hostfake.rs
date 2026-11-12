@@ -64,7 +64,7 @@ pub(crate) fn execute_tcp_hostfake_step(
     }
 
     let real_host = &ctx.plan.tampered[span.host_start..span.host_end];
-    let host_payload = HostFakePayload::new(configured_step, real_host, ctx.seed);
+    let host_payload = HostFakePayload::new(configured_step, &ctx.plan.tampered, span, ctx.seed)?;
     let fake_ttl = ctx.resolved_fake_ttl.or(ctx.group.actions.ttl).unwrap_or(8);
     let fake_flags = step_fake_tcp_flags(configured_step);
     let original_flags = step_original_tcp_flags(configured_step);

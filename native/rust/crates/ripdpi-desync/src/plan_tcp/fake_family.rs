@@ -1,5 +1,5 @@
 use super::actions::{push_fake_actions, push_split_actions};
-use crate::fake::{build_fake_packet, build_hostfake_bytes, resolve_hostfake_span};
+use crate::fake::{build_fake_packet, build_hostfake_region_bytes, resolve_hostfake_span};
 use crate::types::{DesyncAction, DesyncError};
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
 
@@ -51,9 +51,19 @@ pub(super) fn push_fake_chunk_actions(
 }
 
 pub(super) fn push_hostfake_actions(actions: &mut Vec<DesyncAction>, plan: HostfakePlan<'_>) -> TcpChainStepKind {
-    let Some(span) =
+    let resolved =
         resolve_hostfake_span(plan.step, plan.tampered, plan.step_start as usize, plan.step_end as usize, plan.seed)
-    else {
+            .and_then(|span| {
+                let fake = build_hostfake_region_bytes(
+                    plan.tampered,
+                    span,
+                    plan.step.fake_host_template(),
+                    plan.seed,
+                    plan.step.random_fake_host(),
+                )?;
+                Some((span, fake))
+            });
+    let Some((span, fake_host)) = resolved else {
         push_split_actions(actions, plan.tampered[plan.step_start as usize..plan.step_end as usize].to_vec());
         return TcpChainStepKind::Split;
     };
@@ -63,8 +73,6 @@ pub(super) fn push_hostfake_actions(actions: &mut Vec<DesyncAction>, plan: Hostf
     }
 
     let real_host = &plan.tampered[span.host_start..span.host_end];
-    let fake_host =
-        build_hostfake_bytes(real_host, plan.step.fake_host_template(), plan.seed, plan.step.random_fake_host());
     push_fake_actions(actions, real_host, fake_host.clone(), plan.group, plan.default_ttl, plan.fake_ttl);
 
     if let Some(midhost) = span.midhost {

@@ -14,7 +14,7 @@ pub(crate) struct ResolvedHostRange<'a> {
     pub start: usize,
     pub end: usize,
     pub host: &'a [u8],
-    spans: Option<&'a [Range<usize>]>,
+    pub spans: Option<&'a [Range<usize>]>,
 }
 
 impl<'a> ResolvedHostRange<'a> {

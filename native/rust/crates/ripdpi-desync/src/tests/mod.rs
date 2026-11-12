@@ -2,6 +2,7 @@ mod client_hello_offsets;
 mod dmap_ambiguity_probe;
 mod fake;
 mod first_flight_ir;
+mod hostfake_tls;
 mod offset;
 mod phase11_goldens;
 mod phase4_goldens;
