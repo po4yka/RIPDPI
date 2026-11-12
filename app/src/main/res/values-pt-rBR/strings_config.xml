@@ -582,8 +582,8 @@ split midsld
 fake_burst 3</string>
     <string name="ripdpi_hostfake_available_title">Direcionamento de hostname disponível</string>
     <string name="ripdpi_hostfake_available_body">Adicione uma etapa hostfake quando quiser chunks fake apenas ao redor do trecho do Host HTTP ou do SNI TLS, em vez de falsificar o payload inteiro.</string>
-    <string name="ripdpi_hostfake_ready_title">Direcionamento de hostname pronto</string>
-    <string name="ripdpi_hostfake_ready_body">A estratégia de desvio salva já contém etapas hostfake e as usará na próxima inicialização do RIPDPI.</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake configurado</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake precisa de root e suporte a pacotes raw. Caso contrário, o RIPDPI usa uma divisão simples.</string>
     <string name="ripdpi_hostfake_restart_title">Reinicie para aplicar o hostfake</string>
     <string name="ripdpi_hostfake_restart_body">O hostfake está configurado nas configurações, mas a sessão RIPDPI em execução foi iniciada antes desta alteração na cadeia.</string>
     <string name="ripdpi_hostfake_protocols_off_title">HTTP e HTTPS estão desativados</string>

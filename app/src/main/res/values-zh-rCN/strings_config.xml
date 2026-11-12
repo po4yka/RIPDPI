@@ -183,7 +183,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_fake_tls_waiting_title">可用于 HTTPS fake 步骤</string>
     <string name="ripdpi_hostfake_available_body">如果希望仅在 HTTP Host 或 TLS SNI 范围附近发出假数据块,而不是伪造整个负载,请添加 hostfake 步骤。</string>
     <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
-    <string name="ripdpi_hostfake_ready_body">已保存的绕过策略已包含 hostfake 步骤,将在下一次 RIPDPI 启动时使用。</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake 需要 root 权限和原始数据包支持。否则，RIPDPI 将使用普通分段。</string>
     <string name="ripdpi_hostfake_scope_note">Hostfake 仅作用于 Host/SNI 大小的数据块。它不使用完整的 Fake TLS 配置文件或 fake 偏移标记。</string>
     <string name="ripdpi_hostfake_summary_label_midhost">真实主机分割</string>
     <string name="ripdpi_hostfake_summary_label_tls_example">TLS 示例</string>
@@ -408,7 +408,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_hostfake_available_title">主机名定向可用</string>
     <string name="ripdpi_hostfake_example_tls">tlsrec extlen
 hostfake endhost host=cdn.discordapp.net</string>
-    <string name="ripdpi_hostfake_ready_title">主机名定向已就绪</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake 已配置</string>
     <string name="ripdpi_hostfake_summary_end_marker_none">使用默认步骤边界</string>
     <string name="ripdpi_hostfake_summary_label_profile">链配置文件</string>
     <string name="ripdpi_hostfake_summary_label_transport">伪造传输</string>

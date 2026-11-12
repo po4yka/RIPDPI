@@ -726,7 +726,7 @@ Origen: %2$s</string>
     <string name="ripdpi_fake_tls_summary_sni_fixed">Nombre de host fijo: %1$s</string>
     <string name="ripdpi_host_mixed_case_setting">Host con mayúsculas y minúsculas</string>
     <string name="ripdpi_hostfake_cli_title">Controlado por línea de comandos</string>
-    <string name="ripdpi_hostfake_ready_body">La estrategia de bypass guardada ya contiene pasos hostfake y los usará en el próximo inicio de RIPDPI.</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake necesita root y compatibilidad con paquetes raw. De lo contrario, RIPDPI usa una división simple.</string>
     <string name="ripdpi_hostfake_summary_end_marker_none">Usar el límite de paso predeterminado</string>
     <string name="ripdpi_hostfake_summary_label_scope">Alcance de tráfico</string>
     <string name="ripdpi_hostfake_summary_midhost_whole">Mantener el host real como un solo tramo</string>
@@ -963,7 +963,7 @@ Origen: %2$s</string>
     <string name="ripdpi_fake_tls_summary_sni_randomized">Nombre de host aleatorizado con la misma longitud que el SNI falso configurado</string>
     <string name="ripdpi_host_remove_spaces_setting">Eliminar espacios del host</string>
     <string name="ripdpi_hostfake_example_http">hostfake endhost+8 midhost=midsld host=googlevideo.com</string>
-    <string name="ripdpi_hostfake_ready_title">Selección de nombre de host lista</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake configurado</string>
     <string name="ripdpi_hostfake_summary_label_end_marker">Límite del segmento</string>
     <string name="ripdpi_hostfake_summary_label_template">Host falso principal</string>
     <string name="ripdpi_hostfake_summary_scope_https">Solo SNI de TLS</string>

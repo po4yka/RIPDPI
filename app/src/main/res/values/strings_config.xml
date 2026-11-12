@@ -596,8 +596,8 @@ split midsld
 fake_burst 3</string>
     <string name="ripdpi_hostfake_available_title">Hostname targeting available</string>
     <string name="ripdpi_hostfake_available_body">Add a hostfake step when you want fake chunks only around the HTTP Host or TLS SNI span instead of faking the whole payload.</string>
-    <string name="ripdpi_hostfake_ready_title">Hostname targeting ready</string>
-    <string name="ripdpi_hostfake_ready_body">The saved bypass strategy already contains hostfake steps and will use them on the next RIPDPI start.</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake configured</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake needs root and raw packet support. Otherwise, RIPDPI uses a plain split.</string>
     <string name="ripdpi_hostfake_restart_title">Restart to apply hostfake</string>
     <string name="ripdpi_hostfake_restart_body">Hostfake is configured in settings, but the running RIPDPI session started before this chain change.</string>
     <string name="ripdpi_hostfake_protocols_off_title">HTTP and HTTPS are off</string>

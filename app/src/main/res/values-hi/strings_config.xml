@@ -582,8 +582,8 @@ split midsld
 fake_burst 3</string>
     <string name="ripdpi_hostfake_available_title">होस्टनेम लक्ष्यीकरण उपलब्ध</string>
     <string name="ripdpi_hostfake_available_body">जब आप पूरे पेलोड को फ़ेक करने के बजाय केवल HTTP Host या TLS SNI स्पैन के आसपास फ़ेक चंक चाहते हैं, तो एक hostfake चरण जोड़ें।</string>
-    <string name="ripdpi_hostfake_ready_title">होस्टनेम लक्ष्यीकरण तैयार</string>
-    <string name="ripdpi_hostfake_ready_body">सहेजी गई बायपास स्ट्रैटेजी में पहले से ही hostfake चरण मौजूद हैं और अगली RIPDPI शुरुआत पर उनका उपयोग करेगी।</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake कॉन्फ़िगर किया गया</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake के लिए रूट और raw पैकेट समर्थन आवश्यक है। इनके बिना RIPDPI साधारण विभाजन का उपयोग करता है।</string>
     <string name="ripdpi_hostfake_restart_title">hostfake लागू करने के लिए पुनरारंभ करें</string>
     <string name="ripdpi_hostfake_restart_body">hostfake सेटिंग्स में कॉन्फ़िगर किया गया है, लेकिन चल रहा RIPDPI सत्र इस चेन परिवर्तन से पहले शुरू हुआ था।</string>
     <string name="ripdpi_hostfake_protocols_off_title">HTTP और HTTPS बंद हैं</string>

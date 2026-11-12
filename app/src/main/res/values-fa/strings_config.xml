@@ -582,8 +582,8 @@ split midsld
 fake_burst 3</string>
     <string name="ripdpi_hostfake_available_title">هدف‌گذاری نام میزبان در دسترس است</string>
     <string name="ripdpi_hostfake_available_body">یک مرحلهٔ hostfake اضافه کنید وقتی می‌خواهید تکه‌های fake فقط در اطراف بخش HTTP Host یا TLS SNI باشند به‌جای fake کردن کل بار.</string>
-    <string name="ripdpi_hostfake_ready_title">هدف‌گذاری نام میزبان آماده است</string>
-    <string name="ripdpi_hostfake_ready_body">راهبرد عبور ذخیره‌شده از قبل شامل مراحل hostfake است و در شروع بعدی RIPDPI از آن‌ها استفاده می‌کند.</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake پیکربندی شده</string>
+    <string name="ripdpi_hostfake_ready_body">Hostfake به روت و پشتیبانی از بسته‌های raw نیاز دارد. در غیر این صورت، RIPDPI از تقسیم ساده استفاده می‌کند.</string>
     <string name="ripdpi_hostfake_restart_title">برای اعمال hostfake راه‌اندازی مجدد کنید</string>
     <string name="ripdpi_hostfake_restart_body">hostfake در تنظیمات پیکربندی شده، اما نشست در حال اجرای RIPDPI پیش از این تغییر زنجیره شروع شد.</string>
     <string name="ripdpi_hostfake_protocols_off_title">HTTP و HTTPS خاموش هستند</string>

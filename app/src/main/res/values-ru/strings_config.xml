@@ -421,8 +421,8 @@ split midsld
 fake_burst 3</string>
     <string name="ripdpi_hostfake_available_title">Таргетинг по имени хоста доступен</string>
     <string name="ripdpi_hostfake_available_body">Добавьте шаг hostfake, если вы хотите, чтобы фейковые фрагменты создавались только вокруг диапазона HTTP Host или TLS SNI, а не подделывали всю полезную нагрузку целиком.</string>
-    <string name="ripdpi_hostfake_ready_title">Таргетинг по имени хоста готов</string>
-    <string name="ripdpi_hostfake_ready_body">Сохранённая стратегия обхода уже содержит шаги hostfake и будет их использовать при следующем запуске RIPDPI.</string>
+    <string name="ripdpi_hostfake_ready_title">Hostfake настроен</string>
+    <string name="ripdpi_hostfake_ready_body">Для hostfake нужны root и поддержка raw-пакетов. Иначе RIPDPI использует обычное разбиение.</string>
     <string name="ripdpi_hostfake_restart_title">Перезапустите для применения hostfake</string>
     <string name="ripdpi_hostfake_restart_body">Hostfake настроен в параметрах, но текущий сеанс RIPDPI был запущен до изменения цепочки.</string>
     <string name="ripdpi_hostfake_protocols_off_title">HTTP и HTTPS отключены</string>

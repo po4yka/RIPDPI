@@ -582,8 +582,8 @@ split midsld
 fake_burst 3</string>
     <string name="ripdpi_hostfake_available_title">استهداف اسم المضيف متاح</string>
     <string name="ripdpi_hostfake_available_body">أضف خطوة hostfake عندما تريد مقاطع مزيفة فقط حول نطاق HTTP Host أو TLS SNI بدلاً من تزوير الحمولة بالكامل.</string>
-    <string name="ripdpi_hostfake_ready_title">استهداف اسم المضيف جاهز</string>
-    <string name="ripdpi_hostfake_ready_body">استراتيجية التجاوز المحفوظة تحتوي بالفعل على خطوات hostfake وستستخدمها عند بدء RIPDPI التالي.</string>
+    <string name="ripdpi_hostfake_ready_title">تم إعداد Hostfake</string>
+    <string name="ripdpi_hostfake_ready_body">يتطلب Hostfake صلاحيات root ودعم حزم raw. بخلاف ذلك، يستخدم RIPDPI تقسيماً عادياً.</string>
     <string name="ripdpi_hostfake_restart_title">أعد التشغيل لتطبيق hostfake</string>
     <string name="ripdpi_hostfake_restart_body">تم تكوين Hostfake في الإعدادات، لكن جلسة RIPDPI الحالية بدأت قبل تغيير هذه السلسلة.</string>
     <string name="ripdpi_hostfake_protocols_off_title">HTTP وHTTPS معطّلان</string>
