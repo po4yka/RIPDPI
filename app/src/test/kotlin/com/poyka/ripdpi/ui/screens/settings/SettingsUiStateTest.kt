@@ -185,18 +185,29 @@ class SettingsUiStateTest {
 
     @Test
     fun `warp amnezia preset is exposed and custom fields stay gated`() {
-        val balancedState =
+        val balancedSettings =
             defaults
                 .toBuilder()
                 .setWarpEnabled(true)
                 .setWarpAmneziaWireProfile("awg-3.1-ranges-v1")
                 .setWarpAmneziaPreset(WarpAmneziaPresetBalanced)
+                .setWarpAmneziaEnabled(true)
                 .build()
-                .toUiState()
+        val balancedState = balancedSettings.toUiState()
 
         assertEquals(WarpAmneziaPresetBalanced, balancedState.warp.amneziaPreset)
         assertTrue(balancedState.warp.amneziaEnabled)
         assertFalse(balancedState.warp.amneziaControlsEnabled)
+
+        val disabledState =
+            balancedSettings
+                .toBuilder()
+                .setWarpAmneziaEnabled(false)
+                .build()
+                .toUiState()
+        assertEquals(WarpAmneziaPresetBalanced, disabledState.warp.amneziaPreset)
+        assertFalse(disabledState.warp.amneziaEnabled)
+        assertFalse(disabledState.warp.amneziaControlsEnabled)
 
         val customState =
             defaults
