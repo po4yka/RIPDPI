@@ -2,7 +2,7 @@
 id: RST-1794499062183726
 title: Repair hostfake payload and execution contracts
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: DPI-07 repair team
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-hostfake-audit-contracts
 created: 2026-11-12
 updated: 2026-11-12
+closed_at: "2026-11-12T18:28:36Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: F1-F6 and conservative H1 handling implemented; independent review approved; combined Rust669, UI/theme93, Kotlin owner1474 plus final412, Linux7, clippy, staticAnalysis, ci-gates, architecture and locked metadata passed. Live raw/device/external acceptance remains unrun.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "repair-hostfake-audit-contracts",
+  "evidence_summary": "F1-F6 and conservative H1 handling implemented; independent review approved; combined Rust669, UI/theme93, Kotlin owner1474 plus final412, Linux7, clippy, staticAnalysis, ci-gates, architecture and locked metadata passed. Live raw/device/external acceptance remains unrun.",
+  "execution_sha256": "ef881f26eca99daa6fba6f32f78899033a05c40635467d2eaa04175dadaa0647",
+  "issue_sha256": "4885161ccf0403926caec19188a29a4ae4cacecea79f278ec1d71c999ebc3c55",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T18:28:36Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794499062183726"
+}
