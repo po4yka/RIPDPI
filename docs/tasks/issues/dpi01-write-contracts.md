@@ -2,7 +2,7 @@
 id: ENG-1794498355495843
 title: Repair TCP split configuration and write contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: split-contract-integration
