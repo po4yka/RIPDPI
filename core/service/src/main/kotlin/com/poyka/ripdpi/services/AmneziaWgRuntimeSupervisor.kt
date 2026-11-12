@@ -52,6 +52,13 @@ internal class AmneziaWgRuntimeSupervisor(
     private var setup: Deferred<ResolvedRipDpiAmneziaWgConfig>? = null
     private var recoveryJob: Job? = null
     private val lifecycleMutex = Mutex()
+    private val stopSignal = AtomicReference<RuntimeStopSignal?>()
+
+    private class RuntimeStopSignal(
+        val runtime: RipDpiAmneziaWgRuntime,
+    ) {
+        val result = CompletableDeferred<Result<Unit>>()
+    }
 
     @Volatile
     private var sessionToken: Any = Any()
@@ -219,8 +226,9 @@ internal class AmneziaWgRuntimeSupervisor(
         recoveryJob?.cancelAndJoin()
         recoveryJob = null
         setup?.cancelAndJoin()
-        runCatching { amneziaWgRuntime?.stop() }
+        val signalFailure = amneziaWgRuntime?.let { signalRuntimeStop(it).exceptionOrNull() }
         lifecycleMutex.withLock { stopRuntime() }
+        signalFailure?.let { throw it }
     }
 
     private suspend fun stopRuntime() {
@@ -228,12 +236,14 @@ internal class AmneziaWgRuntimeSupervisor(
         val runtime = amneziaWgRuntime ?: return
         val job = amneziaWgJob
         stopRequested = true
+        val signalFailure = signalRuntimeStop(runtime).exceptionOrNull()
         val failure =
-            runCatching {
-                runtime.stop()
-                awaitSupervisorWorkerCompletion(job, stopTimeoutMillis)
-            }.exceptionOrNull()
-        if (job?.isCompleted != true) throw RuntimeCleanupPendingException(failure)
+            runCatching { awaitSupervisorWorkerCompletion(job, stopTimeoutMillis) }.exceptionOrNull()
+                ?: signalFailure
+        if (job?.isCompleted != true) {
+            stopSignal.get()?.takeIf { it.runtime === runtime }?.let { stopSignal.compareAndSet(it, null) }
+            throw RuntimeCleanupPendingException(failure)
+        }
         if (amneziaWgRuntime === runtime) {
             amneziaWgJob = null
             amneziaWgRuntime = null
@@ -241,7 +251,27 @@ internal class AmneziaWgRuntimeSupervisor(
             exitReporting = null
             stopRequested = false
         }
+        stopSignal.get()?.takeIf { it.runtime === runtime }?.let { stopSignal.compareAndSet(it, null) }
         failure?.let { throw it }
+    }
+
+    private suspend fun signalRuntimeStop(runtime: RipDpiAmneziaWgRuntime): Result<Unit> {
+        var selected: RuntimeStopSignal? = null
+        while (selected == null) {
+            if (amneziaWgRuntime !== runtime) return Result.success(Unit)
+            val previous = stopSignal.get()
+            if (previous?.runtime === runtime) {
+                selected = previous
+            } else {
+                val signal = RuntimeStopSignal(runtime)
+                if (stopSignal.compareAndSet(previous, signal)) {
+                    stopRequested = true
+                    withContext(NonCancellable) { signal.result.complete(runCatching { runtime.stop() }) }
+                    selected = signal
+                }
+            }
+        }
+        return selected.result.await()
     }
 
     private fun recoverWsCarrier(

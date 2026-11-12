@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.service.awg.AmneziaWgRuntimeConfigResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -43,6 +44,34 @@ class AmneziaWgRuntimeSupervisorTest {
             advanceUntilIdle()
 
             assertEquals(listOf(SupervisorExitCause.ExpectedStop), exits)
+        }
+
+    @Test
+    fun suspendingStopSignalsOnceAndPublishesExpectedExitBeforeNativeCompletion() =
+        runTest {
+            val factory = TestRipDpiAmneziaWgFactory()
+            val supervisor =
+                AmneziaWgRuntimeSupervisor(
+                    backgroundScope,
+                    StandardTestDispatcher(testScheduler),
+                    factory,
+                    RecordingAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
+                )
+            val exits = mutableListOf<SupervisorExitCause>()
+            supervisor.start(sampleRequest()) { exits += it }
+            val runtime = factory.lastRuntime
+            val stopGate = CompletableDeferred<Unit>()
+            runtime.stopGate = stopGate
+            val stopping = backgroundScope.launch { supervisor.stop() }
+            runCurrent()
+            runtime.complete(0)
+            runCurrent()
+            assertEquals(listOf(SupervisorExitCause.ExpectedStop), exits)
+            stopGate.complete(Unit)
+            stopping.join()
+            assertEquals(1, runtime.stopCount)
+            assertEquals(null, supervisor.runtime)
         }
 
     @Test
@@ -224,6 +253,7 @@ internal class TestAmneziaWgRuntime : RipDpiAmneziaWgRuntime {
     var awaitReadyFailure: Exception? = null
     var awaitReadyGate: CompletableDeferred<Unit>? = null
     var stopFailure: Throwable? = null
+    var stopGate: CompletableDeferred<Unit>? = null
     var telemetryFailure: Throwable? = null
     var telemetry: NativeRuntimeSnapshot =
         NativeRuntimeSnapshot(
@@ -254,6 +284,7 @@ internal class TestAmneziaWgRuntime : RipDpiAmneziaWgRuntime {
 
     override suspend fun stop() {
         stopCount += 1
+        stopGate?.await()
         stopFailure?.let { throw it }
         if (!exitCode.isCompleted) {
             exitCode.complete(0)
