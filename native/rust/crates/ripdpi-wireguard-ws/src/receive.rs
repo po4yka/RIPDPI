@@ -71,16 +71,20 @@ where
     if !matches!(state, ReadState::Open) {
         return Err(WsCarrierError::Closed);
     }
-    match stream.next().await {
-        Some(Ok(Message::Close(_))) => {
-            *state = ReadState::Closing(Instant::now() + CLOSE_REPLY_TIMEOUT);
-            Err(WsCarrierError::Closed)
+    loop {
+        match stream.next().await {
+            // The transport flushes queued Pong on its next read without blocking inbound data.
+            Some(Ok(Message::Ping(_) | Message::Pong(_))) => continue,
+            Some(Ok(Message::Close(_))) => {
+                *state = ReadState::Closing(Instant::now() + CLOSE_REPLY_TIMEOUT);
+                return Err(WsCarrierError::Closed);
+            }
+            None => {
+                *state = ReadState::Closed;
+                return Err(WsCarrierError::Closed);
+            }
+            Some(message) => return unframe_message(message?),
         }
-        None => {
-            *state = ReadState::Closed;
-            Err(WsCarrierError::Closed)
-        }
-        Some(message) => unframe_message(message?),
     }
 }
 

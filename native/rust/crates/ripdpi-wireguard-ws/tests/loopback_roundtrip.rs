@@ -277,3 +277,85 @@ async fn cancelled_send_slot_does_not_drop_the_peer_close_reply() {
     drop(sender);
     assert_eq!(peer.read(&mut [0]).await.expect("no cancelled datagram"), 0);
 }
+
+/// # Cancel safety:
+/// cancel-safe: the test owns both stream ends and joins its peer task.
+#[tokio::test]
+async fn normal_ping_and_pong_do_not_become_datagrams() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
+    for split in [false, true] {
+        let (local, mut peer) = tokio::io::duplex(128);
+        let ws = WebSocketStream::from_raw_socket(local, Role::Client, None).await;
+        let replying = tokio::spawn(async move {
+            peer.write_all(&[0x89, 3, 1, 2, 3, 0x8a, 1, 9, 0x82, 1, 42]).await.expect("literal peer controls and data");
+            let mut reply = [0; 9];
+            tokio::time::timeout(std::time::Duration::from_secs(1), peer.read_exact(&mut reply))
+                .await
+                .expect("Pong arrives promptly")
+                .expect("Pong frame");
+            assert_eq!(&reply[..2], &[0x8a, 0x83], "client sends masked Pong");
+            let payload: Vec<_> = (0..3).map(|i| reply[6 + i] ^ reply[2 + i % 4]).collect();
+            assert_eq!(payload, [1, 2, 3]);
+        });
+        let carrier = WsCarrier::new(ws);
+        let datagram = if split {
+            let (_sender, mut receiver) = carrier.split();
+            receiver.recv_datagram().await
+        } else {
+            let mut carrier = carrier;
+            carrier.recv_datagram().await
+        }
+        .expect("valid controls do not cause datagram errors");
+        assert_eq!(datagram, [42]);
+        replying.await.expect("peer joins");
+    }
+}
+
+/// # Cancel safety:
+/// cancel-safe: both ends and the pending send are test-owned and dropped after the bounded Close.
+#[tokio::test(start_paused = true)]
+async fn pending_send_does_not_block_ping_data_or_the_close_deadline() {
+    use ripdpi_wireguard_ws::WsCarrierError;
+    use tokio::io::AsyncWriteExt;
+    use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
+    let (local, mut peer) = tokio::io::duplex(64);
+    let ws = WebSocketStream::from_raw_socket(local, Role::Client, None).await;
+    let (sender, mut receiver) = WsCarrier::new(ws).split();
+    let payload = [7; 256];
+    let mut sending = Box::pin(sender.send_datagram(&payload));
+    assert!(futures::poll!(&mut sending).is_pending(), "peer does not drain the first send");
+    peer.write_all(&[0x89, 1, 9, 0x82, 1, 42, 0x88, 2, 0x03, 0xe8]).await.expect("literal Ping, data and Close");
+    let datagram = tokio::time::timeout(std::time::Duration::from_millis(250), receiver.recv_datagram())
+        .await
+        .expect("data must not wait for the sender mutex")
+        .expect("binary data");
+    assert_eq!(datagram, [42]);
+    let closed = tokio::time::timeout(std::time::Duration::from_secs(6), receiver.recv_datagram())
+        .await
+        .expect("Close must reach its own five-second deadline despite pending send");
+    assert!(matches!(closed, Err(WsCarrierError::Transport(tokio_tungstenite::tungstenite::Error::Io(error)))
+        if error.kind() == std::io::ErrorKind::TimedOut));
+    drop(sending);
+}
+
+/// # Cancel safety:
+/// cancel-safe: both ends are test-owned and the cancelled send is never retried.
+#[tokio::test]
+async fn pending_unsplit_write_does_not_block_ping_followed_by_data() {
+    use tokio::io::AsyncWriteExt;
+    use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Role};
+    let (local, mut peer) = tokio::io::duplex(64);
+    let ws = WebSocketStream::from_raw_socket(local, Role::Client, None).await;
+    let mut carrier = WsCarrier::new(ws);
+    let payload = [7; 256];
+    let mut sending = Box::pin(carrier.send_datagram(&payload));
+    assert!(futures::poll!(&mut sending).is_pending());
+    drop(sending);
+    peer.write_all(&[0x89, 1, 9, 0x82, 1, 42]).await.expect("literal Ping and data");
+    let datagram = tokio::time::timeout(std::time::Duration::from_millis(250), carrier.recv_datagram())
+        .await
+        .expect("receive must not wait for write progress")
+        .expect("binary data");
+    assert_eq!(datagram, [42]);
+}
