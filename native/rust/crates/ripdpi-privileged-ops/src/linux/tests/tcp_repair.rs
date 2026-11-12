@@ -25,6 +25,36 @@ fn tcp_sequence_addition_rejects_lengths_outside_the_wire_space() {
 }
 
 #[test]
+fn raw_packet_sequence_wrap_preserves_payload_ranges() {
+    let payload = b"abcdefghijkl";
+    let segments =
+        [crate::TcpPayloadSegment { start: 0, end: 8 }, crate::TcpPayloadSegment { start: 8, end: payload.len() }];
+    let mut snapshot = super::sample_tcp_repair_snapshot();
+    snapshot.sequence_number = 0xffff_fffc;
+    let packets = crate::linux::fragmentation::build_multi_disorder_packets(
+        "192.0.2.1:12345".parse().expect("source address"),
+        "198.51.100.2:443".parse().expect("target address"),
+        64,
+        payload,
+        &segments,
+        &snapshot,
+        false,
+        crate::TcpFlagOverrides::default(),
+        &[],
+    )
+    .expect("raw packet sequence crosses the boundary");
+
+    for (packet, (expected_sequence, expected_payload)) in
+        packets.iter().zip([(0xffff_fffc, &payload[..8]), (4, &payload[8..])])
+    {
+        let (_, tcp_packet) = etherparse::Ipv4Header::from_slice(packet).expect("decode IPv4 header");
+        let (tcp, actual_payload) = etherparse::TcpHeader::from_slice(tcp_packet).expect("decode TCP header");
+        assert_eq!(tcp.sequence_number, expected_sequence);
+        assert_eq!(actual_payload, expected_payload);
+    }
+}
+
+#[test]
 fn tcp_total_retransmissions_prefers_total_counter_and_falls_back_to_retransmits() {
     let info =
         LinuxTcpInfo { tcpi_state: TCP_ESTABLISHED, tcpi_total_retrans: 5, tcpi_retransmits: 2, ..Default::default() };
