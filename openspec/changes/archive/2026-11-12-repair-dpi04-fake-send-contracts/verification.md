@@ -20,14 +20,14 @@ deployment_evidence: No release or deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-FAKE-ACTIVATION | ENG-1794502313284304 | Commit 4febc093e7; real TCP peer receives the original 100 bytes when an explicit round filter or the default first-round gate skips round 2; explicit round 2 remains available | Passed local peer regression |
-| REQ-FAKE-CLEANUP | ENG-1794502315444353 | Commit e1b25b59c2; actual vmsplice/splice error injection, peer byte equality, normal TTL restored, known progress retained | Passed Linux regression |
-| REQ-FAKE-REPLAY | ENG-1794502317963326 | Commit 4d841bda2a; opaque fake/ordered uncertainty is terminal; known 7+3 byte progress is retained; actual partial HostFake/FakeDisorder peer receives one prefix | Passed local regression and review |
-| REQ-FAKE-GENUINE | ENG-1794502321010120 | Commit ec34385184; actual common emitter builder decoded as IPv4/IPv6; genuine TTL is normal, MD5 absent; explicit first FakeDisorder TTL remains 1; independent checksum checks | Passed serialization regression; privileged wire unverified |
-| REQ-FAKE-INPUT | ENG-1794502324054173 | Commit 8313d1b995; malformed Unicode escape uses checked slicing; CLI and parser regressions preserve escape behavior | Passed config suite |
-| REQ-FAKE-SEQUENCE | ENG-1794502326974327 | Commit c54485ff48 adds decoded packet boundary evidence; incoming main already contains the same wrapping-add root fix from DPI-06 | Passed modulo and packet regression |
-| REQ-FAKE-HELPER | ENG-1794502329017041 | Commit 41387d94f6; real UnixStream/SCM_RIGHTS payload equality, bounded admission and legacy refusal, advertised limits even for small requests, bounded progress replies | Passed helper/protocol/platform suites |
-| REQ-FAKE-IPID | ENG-1794502330712741 | Commit d9c7e044b6; explicit IPv4 zero IDs fail before repair/emission; IPv6 remains available | Passed pre-emission regression; zero-ID backend explicitly unsupported |
+| REQ-FAKE-ACTIVATION | ENG-1794502313284304 | Commit 4febc093e7; real TCP peer receives the original 100 bytes when an explicit round filter or the default first-round gate skips round 2; explicit round 2 remains available; Passed local peer regression | passed |
+| REQ-FAKE-CLEANUP | ENG-1794502315444353 | Commit e1b25b59c2; actual vmsplice/splice error injection, peer byte equality, normal TTL restored, known progress retained; Passed Linux regression | passed |
+| REQ-FAKE-REPLAY | ENG-1794502317963326 | Commit 4d841bda2a; opaque fake/ordered uncertainty is terminal; known 7+3 byte progress is retained; actual partial HostFake/FakeDisorder peer receives one prefix; Passed local regression and review | passed |
+| REQ-FAKE-GENUINE | ENG-1794502321010120 | Commit ec34385184; actual common emitter builder decoded as IPv4/IPv6; genuine TTL is normal, MD5 absent; explicit first FakeDisorder TTL remains 1; independent checksum checks; Passed serialization regression; privileged wire unverified | passed |
+| REQ-FAKE-INPUT | ENG-1794502324054173 | Commit 8313d1b995; malformed Unicode escape uses checked slicing; CLI and parser regressions preserve escape behavior; Passed config suite | passed |
+| REQ-FAKE-SEQUENCE | ENG-1794502326974327 | Commit c54485ff48 adds decoded packet boundary evidence; incoming main already contains the same wrapping-add root fix from DPI-06; Passed modulo and packet regression | passed |
+| REQ-FAKE-HELPER | ENG-1794502329017041 | Commit 41387d94f6; real UnixStream/SCM_RIGHTS payload equality, bounded admission and legacy refusal, advertised limits even for small requests, bounded progress replies; Passed helper/protocol/platform suites | passed |
+| REQ-FAKE-IPID | ENG-1794502330712741 | Commit d9c7e044b6; explicit IPv4 zero IDs fail before repair/emission; IPv6 remains available; Passed pre-emission regression; zero-ID backend explicitly unsupported | passed |
 
 ## Exact source and integration
 

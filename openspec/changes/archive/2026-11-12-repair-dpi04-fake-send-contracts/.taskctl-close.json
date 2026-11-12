@@ -1,0 +1,11 @@
+{
+  "change": "repair-dpi04-fake-send-contracts",
+  "evidence_summary": "Eight DPI-04 findings have separate repair commits and independent reviews. Exact-source Linux contracts 560 passed; privileged 93 passed and three BPF EPERM failures recorded outside DPI-04; relay 48 passed; affected Clippy and offline CI gates passed. Android raw/root and external compatibility remain unverified.",
+  "execution_sha256": "aa0ccba87bfdf3fd76cec29ed0b8678e30eb162f34236941da62793f57c90023",
+  "issue_sha256": "0af6656d7b444f90f5770a9833e85a605c52347ca8195f3030c2ff26f92ce8d1",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T18:54:50Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794501890187395"
+}

@@ -2,7 +2,7 @@
 id: ENG-1794501890187395
 title: Repair DPI-04 fake send safety and payload contracts
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: DPI-04 repair coordinator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-dpi04-fake-send-contracts
 created: 2026-11-12
 updated: 2026-11-12
+closed_at: "2026-11-12T18:54:50Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Eight DPI-04 findings have separate repair commits and independent reviews. Exact-source Linux contracts 560 passed; privileged 93 passed and three BPF EPERM failures recorded outside DPI-04; relay 48 passed; affected Clippy and offline CI gates passed. Android raw/root and external compatibility remain unverified.
 ---
 
 ## Goal
