@@ -1,0 +1,11 @@
+{
+  "change": "dpi01-write-contracts",
+  "evidence_summary": "Verified source b9e726c588: 1108 Rust tests, four optimized regressions, six-crate Clippy, source and task gates passed; full Gradle passed at 5a8eb74228; source main push verified.",
+  "execution_sha256": "7a06fb67bf452cda2b4c67eb1f5a5925465f8e54e1428a6182b20cfae81e0e66",
+  "issue_sha256": "0575b17d3cd100a80f398afd5456e98c4ce066c0115e00313333abef23d87d0d",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T19:28:32Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794498355495843"
+}

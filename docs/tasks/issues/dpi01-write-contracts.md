@@ -2,7 +2,7 @@
 id: ENG-1794498355495843
 title: Repair TCP split configuration and write contracts
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: split-contract-integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi01-write-contracts
 created: 2026-11-12
 updated: 2026-11-12
+closed_at: "2026-11-12T19:28:32Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Verified source b9e726c588: 1108 Rust tests, four optimized regressions, six-crate Clippy, source and task gates passed; full Gradle passed at 5a8eb74228; source main push verified."
 ---
 
 ## Goal
