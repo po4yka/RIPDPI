@@ -16,3 +16,4 @@ The portfolio record owns the exact parallel file lanes. Each worker must preser
 Run the owning service/app unit suites, affected module ktlint/detekt checks, and just ci-gates on the combined tree. Use the shared build gate for compilation. Do not bless UI fixtures or change baselines. Record real-helper evidence separately from tests with local doubles. Independent review precedes implementation commits.
 - [ ] RLY-1794478726909442 Reject malformed obfs4 certificates before Tor activation #bug !high @item:RLY-1794477185649013
 - [ ] RLY-1794478845733549 Isolate stopped helper output from later process runs #bug !high @item:RLY-1794477185649013
+- [ ] RLY-1794479241816365 Retain helper errors through local SOCKS readiness failure #bug !high @item:RLY-1794477185649013

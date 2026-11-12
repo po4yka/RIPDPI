@@ -35,6 +35,7 @@ Repair the confirmed TUN-07 relay and identity defects, complete the managed PT 
 - F2 worker: service PermissionCheckedRelayConfigResolver and RuntimeLocalNetworkPreflightTest.
 - PT worker: PluggableTransportManager/SocksBridge, SubprocessRelayOutputParser/ProcessSupervisor/ReadinessProbe/SocksRelayManager and their existing tests. Separate commits for negotiation, socket ownership and argument encoding.
 - PT worker follow-up: SubprocessRelayProcessSupervisor and its owning tests only; isolate output-reader events between process runs.
+- Failure-reason worker: SubprocessRelayReadinessProbe, SubprocessSocksRelayManager and SubprocessRelayComponentsTest; preserve typed helper errors after listener negotiation.
 - Certificate worker: data/settings TorBridgeValidation and TorBridgeValidationTest; app ConnectionTorValidationTest; service UpstreamRelayRuntimeConfigResolverTest after the F1 writer releases ownership.
 - Coordinator: task/OpenSpec records, validation evidence, artifact verification and integration.
 - Each writer uses an isolated worktree. No writer edits dependencies, schemas, locale sets, goldens, or baselines. Any newly required shared file is assigned before editing.
