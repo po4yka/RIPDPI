@@ -21,7 +21,7 @@ use crate::strategy_family::{effective_tcp_strategy_family, strategy_fallback_fa
 use crate::sync::AtomicBool;
 use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_lowering::TcpLoweringCapabilities;
-use crate::transport_io::write_strategy_payload_named;
+use crate::transport_io::{set_stream_ttl, write_strategy_payload_named};
 use crate::types::OutboundSendError;
 
 #[derive(Debug)]
@@ -90,6 +90,39 @@ pub(crate) fn execute_tcp_plan(
     strategy: TcpPlanStrategyContext,
     session_ttl_unavailable: &AtomicBool,
 ) -> Result<TcpPlanExecutionOutcome, OutboundSendError> {
+    let mut lowering_caps =
+        TcpLoweringCapabilities::snapshot(writer, config.network.default_ttl, session_ttl_unavailable);
+    let result = execute_tcp_plan_steps(
+        writer,
+        TcpPlanInput { config, group, plan, seed, resolved_fake_ttl, strategy },
+        &mut lowering_caps,
+    );
+    // Safety net: a step can fail after it lowered the TTL; restore it so the
+    // rest of the connection does not keep a TTL-limited socket.
+    if result.is_err() && !lowering_caps.ttl_actions_unavailable() {
+        let _ = set_stream_ttl(writer, lowering_caps.restore_ttl);
+    }
+    // Propagate per-connection discovery to the session-level flag so
+    // subsequent connections skip TTL actions immediately.
+    lowering_caps.persist(session_ttl_unavailable);
+    result
+}
+
+struct TcpPlanInput<'a> {
+    config: &'a RuntimeConfig,
+    group: &'a DesyncGroup,
+    plan: &'a DesyncPlan,
+    seed: u32,
+    resolved_fake_ttl: Option<u8>,
+    strategy: TcpPlanStrategyContext,
+}
+
+fn execute_tcp_plan_steps(
+    writer: &mut TcpStream,
+    input: TcpPlanInput<'_>,
+    lowering_caps: &mut TcpLoweringCapabilities,
+) -> Result<TcpPlanExecutionOutcome, OutboundSendError> {
+    let TcpPlanInput { config, group, plan, seed, resolved_fake_ttl, strategy } = input;
     let strategy_family = strategy.configured_family;
     let (initial_effective_family, _) =
         effective_tcp_strategy_family(strategy_family, plan, strategy.tls_prelude_applied);
@@ -101,8 +134,6 @@ pub(crate) fn execute_tcp_plan(
     } else {
         None
     };
-    let mut lowering_caps =
-        TcpLoweringCapabilities::snapshot(writer, config.network.default_ttl, session_ttl_unavailable);
     let md5sig = group.actions.md5sig;
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind().is_tls_prelude()).collect::<Vec<_>>();
@@ -174,7 +205,7 @@ pub(crate) fn execute_tcp_plan(
             plan,
             seed,
             resolved_fake_ttl,
-            lowering: &mut lowering_caps,
+            lowering: &mut *lowering_caps,
             md5sig,
             fake_packets: fake_packets.as_ref(),
         };
@@ -236,10 +267,6 @@ pub(crate) fn execute_tcp_plan(
         real_writes_committed = real_writes_committed.saturating_add(1);
         completed_actions = completed_actions.saturating_add(1);
     }
-
-    // Propagate per-connection discovery to the session-level flag so
-    // subsequent connections skip TTL actions immediately.
-    lowering_caps.persist(session_ttl_unavailable);
 
     Ok(TcpPlanExecutionOutcome {
         bytes_committed,

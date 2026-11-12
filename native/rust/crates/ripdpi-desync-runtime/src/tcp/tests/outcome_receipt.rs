@@ -1532,3 +1532,49 @@ fn plan_executor_keeps_disorder_ttl_until_the_send_queue_drains() {
         assert_eq!(&buf, payload);
     }
 }
+
+#[test]
+fn plan_executor_restores_ttl_when_a_disorder_step_fails() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut group = test_group();
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::Disorder, OffsetExpr::absolute(3)),
+        TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(10)),
+    ];
+    let (mut client, _server) = connected_pair();
+    let default_ttl = client.ttl().expect("default TTL");
+    let progress =
+        OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+    let platform = ReceiptTestPlatform::default();
+    platform.faults.lock().expect("receipt fault queue").push_back(FaultSpec::WaitStage(io::ErrorKind::TimedOut));
+
+    let result = send_prepared_with_group(
+        &mut client,
+        &platform,
+        &RuntimeConfig::default(),
+        &group,
+        payload,
+        progress,
+        context,
+        None,
+        None,
+        &default_ttl_unavailable(),
+        None,
+    );
+
+    assert!(result.is_err(), "the injected wait failure must fail the send");
+    assert_eq!(
+        platform.stage_ttls.lock().expect("stage ttl log").first(),
+        Some(&u32::from(ripdpi_desync::DISORDER_TTL))
+    );
+    assert_eq!(client.ttl().expect("TTL after failure"), default_ttl);
+}
