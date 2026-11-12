@@ -2,7 +2,7 @@
 id: RLY-1794486295363382
 title: Repair remaining TUN-10 managed transport contracts
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: PT repair coordinator
