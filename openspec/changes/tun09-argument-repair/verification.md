@@ -1,11 +1,11 @@
 ---
 task_id: TRN-1794489808420764
 change: tun09-argument-repair
-commit_sha: null
+commit_sha: 22ce45bd96fc7ce6cdc5c97d2d28459a829d3f42
 local: passed
 local_evidence: Owning Rust and JVM tests, lint, independent review and combined source gates passed.
 remote_ci: required
-remote_ci_evidence: No pushed repair revision yet.
+remote_ci_evidence: Checks for the final pushed revision have not been observed.
 device: not_applicable
 device_evidence: Parser repair does not change Android socket or route lifecycle. Physical and live Tor acceptance remain unverified.
 artifact: passed
@@ -22,7 +22,7 @@ deployment_evidence: No deployment is owned by this change.
 |---|---|---|---|
 | REQ-TUN09-BOUNDARIES | TRN-1794489899877262 | Five new regressions failed before the fix and passed after it; unknown options no longer pass through bridge-line tokenization | Passed |
 | REQ-TUN09-GRAMMAR | TRN-1794489899877262 | Pinned goptlib vectors, first-value duplicate tests and malformed-entry tests; all 49 owning crate tests passed | Passed |
-| REQ-TUN09-SCOPE | TRN-1794489900533410 | 76 JVM/UI tests, managed helper tests, three independent reference loopback cases and read-only review passed; integration is pending | Partial |
+| REQ-TUN09-SCOPE | TRN-1794489900533410 | 76 JVM/UI tests, managed helper tests, three independent reference loopback cases and read-only review passed; main fast-forward observed at the recorded source SHA | Passed |
 
 ## Finding disposition
 
@@ -33,7 +33,7 @@ Audit: `/Users/npochaev/Downloads/RIPDPI_network_audits/TUN-09.md`, source `3e62
 | F1: raw PT used as general TCP egress | Current main rejects standalone WebTunnel, hides its selection chip and retains Tor bridge activation. Existing repair was revalidated, not duplicated. | `0552aaae27948fd626b471f9cdf1cc0e841197f4`; scope document `ea9c2ca80b03b8d07b5c6a0b47cd9e1095f76dfe` |
 | F2: ignored TOR_PT_PROXY | Current helper emits PROXY-ERROR and exits before listener setup for unsupported proxy configuration. | `f5afd3060fb43f70c9d7cfed6854687df4505b88` |
 | F3: version-list and IPC errors | Current helper selects version 1 from a valid list and emits typed protocol errors. Existing F2/F3 repair was revalidated, not split or duplicated. | `f5afd3060fb43f70c9d7cfed6854687df4505b88` |
-| F4: lost argument boundaries | Shared semantic validation consumes parsed pairs directly. Escaped delimiters, opaque values and first-value selection match pinned goptlib. Empty entries fail. | This change |
+| F4: lost argument boundaries | Shared semantic validation consumes parsed pairs directly. Escaped delimiters, opaque values and first-value selection match pinned goptlib. Empty entries fail. | `22ce45bd96fc7ce6cdc5c97d2d28459a829d3f42` |
 
 The original library-task hypothesis does not establish a defect in the supported subprocess lifecycle. No embedding contract is added. Android readiness, stderr and stop repairs already exist on the base revision and passed the selected lifecycle suite.
 
@@ -87,6 +87,12 @@ The original audit's independently built reference WebTunnel v0.0.3 server was r
 `CARGO_BUILD_JOBS=4 CMAKE_BUILD_PARALLEL_LEVEL=4 CARGO_INCREMENTAL=0 RUSTC_WRAPPER=sccache CARGO_TARGET_DIR=/private/tmp/ripdpi-tun09-source-gates-target build-gate --lane ripdpi -- just ci-gates` passed. Log: `/private/tmp/tun09-ci-gates.log`. All host API snapshots match; the runtime-platform snapshot is Linux-owned and is skipped by the gate on Darwin. The API tool starts its own Cargo command without a locked option; this nested tool limitation is not evidence of a locked invocation. Dependency inputs, lockfile, snapshots and baselines remain unchanged.
 
 Explicit `cargo metadata --manifest-path native/rust/Cargo.toml --locked --no-deps --format-version 1` also passed. Architecture health in the combined gate has 18 existing indicators, zero new, worsened or stale entries.
+
+## Integration
+
+The normal commit hooks passed. `git fetch origin` and `git rebase origin/main` left the reviewed source unchanged. Main was clean at `48b7b184d716abd47cb0f0c9b5859984150c5fd4`; `git merge --ff-only fix/tun09-webtunnel` advanced it to `22ce45bd96fc7ce6cdc5c97d2d28459a829d3f42`. This evidence-only commit follows the source commit. Remote CI remains required, so the task stays in review and is not archived.
+
+The preserved logs, patch and checksums are in `/Users/npochaev/Downloads/RIPDPI_network_audits/TUN-09-repair-evidence-20261112-173327/`. The initial audit and registry are unchanged. A separate repair addendum is `TUN-09-remediation-20261112.md` beside the original report.
 
 ## Evidence boundary
 

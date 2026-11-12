@@ -2,7 +2,7 @@
 id: TRN-1794489808420764
 title: Preserve WebTunnel transport argument boundaries
 kind: bug
-status: doing
+status: review
 area: transport
 priority: medium
 owner: WebTunnel repair coordinator
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: tun09-argument-repair
 created: 2026-11-12
 updated: 2026-11-12
+status_detail: F4 repair and local gates passed; main fast-forward observed at 22ce45bd96. Remote CI remains required.
 ---
 
 ## Goal
