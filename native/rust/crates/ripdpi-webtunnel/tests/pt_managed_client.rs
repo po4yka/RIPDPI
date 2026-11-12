@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
 use std::time::{Duration, Instant};
 
 use local_network_fixture::WebTunnelFixture;
@@ -44,6 +44,100 @@ fn managed_client_env_rejects_missing_or_unsupported_version() {
         ManagedClientEnvironment::parse(&unsupported).expect_err("unsupported version").to_string(),
         "unsupported TOR_PT_MANAGED_TRANSPORT_VER: 2",
     );
+}
+
+#[test]
+fn binary_negotiates_supported_version_from_a_list() {
+    for versions in ["1", "2,1", "1,1a,2b,this_is_a_valid_ver"] {
+        let mut env = managed_env("webtunnel");
+        env.insert("TOR_PT_MANAGED_TRANSPORT_VER".to_owned(), versions.to_owned());
+        let output = run_managed_binary(&env, false);
+        assert!(output.status.success(), "{versions}: {output:?}");
+        let stdout = String::from_utf8(output.stdout).expect("PT stdout UTF-8");
+        let lines = stdout.lines().collect::<Vec<_>>();
+        assert_eq!(lines.len(), 3, "one VERSION and a complete client transcript");
+        assert_eq!(lines[0], "VERSION 1");
+        let address = lines[1].strip_prefix("CMETHOD webtunnel socks5 ").expect("SOCKS listener");
+        assert!(address.parse::<SocketAddr>().expect("listener address").ip().is_loopback());
+        assert_eq!(lines[2], "CMETHODS DONE");
+    }
+}
+
+#[test]
+fn binary_reports_version_and_environment_errors_on_stdout() {
+    for (key, value, expected) in [
+        ("TOR_PT_MANAGED_TRANSPORT_VER", None, "ENV-ERROR TOR_PT_MANAGED_TRANSPORT_VER is required\n"),
+        ("TOR_PT_MANAGED_TRANSPORT_VER", Some("2,3"), "VERSION-ERROR no-version\n"),
+        ("TOR_PT_MANAGED_TRANSPORT_VER", Some("1,,2"), "ENV-ERROR TOR_PT_MANAGED_TRANSPORT_VER is malformed\n"),
+        ("TOR_PT_MANAGED_TRANSPORT_VER", Some("1, 2"), "ENV-ERROR TOR_PT_MANAGED_TRANSPORT_VER is malformed\n"),
+        ("TOR_PT_MANAGED_TRANSPORT_VER", Some("1,é"), "ENV-ERROR TOR_PT_MANAGED_TRANSPORT_VER is malformed\n"),
+        ("TOR_PT_STATE_LOCATION", None, "VERSION 1\nENV-ERROR TOR_PT_STATE_LOCATION is required\n"),
+        ("TOR_PT_STATE_LOCATION", Some("relative"), "VERSION 1\nENV-ERROR TOR_PT_STATE_LOCATION must be absolute\n"),
+        ("TOR_PT_CLIENT_TRANSPORTS", None, "VERSION 1\nENV-ERROR TOR_PT_CLIENT_TRANSPORTS is required\n"),
+        ("TOR_PT_CLIENT_TRANSPORTS", Some(",,"), "VERSION 1\nENV-ERROR TOR_PT_CLIENT_TRANSPORTS is required\n"),
+        ("TOR_PT_PROXY", Some("socks5://127.0.0.1:1080"), "VERSION 1\nPROXY-ERROR upstream proxies are unsupported\n"),
+    ] {
+        let mut env = managed_env("webtunnel");
+        if let Some(value) = value {
+            env.insert(key.to_owned(), value.to_owned());
+        } else {
+            env.remove(key);
+        }
+        let output = run_managed_binary(&env, false);
+        assert!(!output.status.success(), "{key}={value:?} must fail");
+        assert_eq!(String::from_utf8(output.stdout).expect("PT stdout UTF-8"), expected, "{key}={value:?}");
+    }
+}
+
+#[test]
+fn binary_ignores_unknown_transports() {
+    let output = run_managed_binary(&managed_env("snowflake,obfs4"), false);
+    assert!(output.status.success(), "{output:?}");
+    assert_eq!(output.stdout, b"VERSION 1\nCMETHODS DONE\n");
+}
+
+#[cfg(unix)]
+#[test]
+fn binary_reports_listener_initialization_failure_as_cmethod_error() {
+    let output = run_managed_binary(&managed_env("webtunnel"), true);
+    assert!(!output.status.success(), "the descriptor limit must prevent listener initialization");
+    let stdout = String::from_utf8(output.stdout).expect("PT stdout UTF-8");
+    let lines = stdout.lines().collect::<Vec<_>>();
+    assert_eq!(lines.len(), 3, "{stdout:?}; stderr: {:?}", output.stderr);
+    assert_eq!(lines[0], "VERSION 1");
+    assert!(lines[1].starts_with("CMETHOD-ERROR webtunnel "), "{stdout:?}");
+    assert_eq!(lines[2], "CMETHODS DONE");
+}
+
+fn run_managed_binary(env: &BTreeMap<String, String>, restrict_descriptors: bool) -> Output {
+    let binary = env!("CARGO_BIN_EXE_ripdpi-webtunnel");
+    let mut command = if restrict_descriptors {
+        let mut command = Command::new("/bin/sh");
+        // Only the child loses file descriptors. Listener initialization fails
+        // through the real OS, without an injected production test seam.
+        command.args(["-c", "ulimit -n 4; exec \"$1\"", "pt-bind-test", binary]);
+        command
+    } else {
+        Command::new(binary)
+    };
+    let mut child = command
+        .env_clear()
+        .envs(env)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn PT helper");
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while child.try_wait().expect("poll PT helper").is_none() {
+        if Instant::now() >= deadline {
+            child.kill().expect("stop stalled PT helper");
+            let output = child.wait_with_output().expect("reap stalled PT helper");
+            panic!("PT helper did not exit: {output:?}");
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    child.wait_with_output().expect("read PT helper output")
 }
 
 #[test]

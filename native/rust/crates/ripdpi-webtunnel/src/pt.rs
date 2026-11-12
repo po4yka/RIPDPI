@@ -4,6 +4,7 @@ use std::fmt;
 use std::future::Future;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
+use std::path::Path;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -58,8 +59,12 @@ pub enum PtEnvironmentError {
     MissingManagedTransportVersion,
     #[error("unsupported TOR_PT_MANAGED_TRANSPORT_VER: {0}")]
     UnsupportedManagedTransportVersion(String),
+    #[error("TOR_PT_MANAGED_TRANSPORT_VER is malformed")]
+    MalformedManagedTransportVersion,
     #[error("TOR_PT_STATE_LOCATION is required")]
     MissingStateLocation,
+    #[error("TOR_PT_STATE_LOCATION must be absolute")]
+    RelativeStateLocation,
     #[error("TOR_PT_CLIENT_TRANSPORTS is required")]
     MissingClientTransports,
 }
@@ -68,7 +73,9 @@ pub enum PtEnvironmentError {
 pub enum PtRuntimeError {
     #[error(transparent)]
     Environment(#[from] PtEnvironmentError),
-    #[error("PROXY-ERROR {0}")]
+    #[error("upstream proxies are unsupported")]
+    UnsupportedProxy,
+    #[error(transparent)]
     Io(#[from] io::Error),
 }
 
@@ -95,11 +102,15 @@ pub struct SocksConnectRequest {
 
 impl ManagedClientEnvironment {
     pub fn parse(env: &BTreeMap<String, String>) -> Result<Self, PtEnvironmentError> {
-        let version = required_env(env, "TOR_PT_MANAGED_TRANSPORT_VER")?;
-        if version != SUPPORTED_MANAGED_VERSION {
-            return Err(PtEnvironmentError::UnsupportedManagedTransportVersion(version.to_owned()));
-        }
+        negotiate_managed_version(env)?;
+        Self::parse_configuration(env)
+    }
+
+    fn parse_configuration(env: &BTreeMap<String, String>) -> Result<Self, PtEnvironmentError> {
         let state_location = required_env(env, "TOR_PT_STATE_LOCATION")?.to_owned();
+        if !Path::new(&state_location).is_absolute() {
+            return Err(PtEnvironmentError::RelativeStateLocation);
+        }
         let client_transports = required_env(env, "TOR_PT_CLIENT_TRANSPORTS")?
             .split(',')
             .map(str::trim)
@@ -121,6 +132,12 @@ impl ManagedClientEnvironment {
 
 pub fn pt_client_transcript(config: &ManagedClientEnvironment, listener_addr: SocketAddr) -> Vec<String> {
     let mut lines = vec![format!("VERSION {SUPPORTED_MANAGED_VERSION}")];
+    lines.extend(pt_client_methods(config, listener_addr));
+    lines
+}
+
+fn pt_client_methods(config: &ManagedClientEnvironment, listener_addr: SocketAddr) -> Vec<String> {
+    let mut lines = Vec::new();
     if config.requests_webtunnel() {
         lines.push(format!("CMETHOD {TRANSPORT_NAME} socks5 {listener_addr}"));
     }
@@ -159,11 +176,45 @@ pub fn run_managed_client<R: Read, W: Write>(
     mut stdout: W,
     env: &BTreeMap<String, String>,
 ) -> Result<(), PtRuntimeError> {
-    let config = ManagedClientEnvironment::parse(env)?;
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    listener.set_nonblocking(true)?;
-    let listener_addr = listener.local_addr()?;
-    for line in pt_client_transcript(&config, listener_addr) {
+    if let Err(error) = negotiate_managed_version(env) {
+        if matches!(error, PtEnvironmentError::UnsupportedManagedTransportVersion(_)) {
+            writeln!(stdout, "VERSION-ERROR no-version")?;
+        } else {
+            writeln!(stdout, "ENV-ERROR {error}")?;
+        }
+        stdout.flush()?;
+        return Err(error.into());
+    }
+    writeln!(stdout, "VERSION {SUPPORTED_MANAGED_VERSION}")?;
+    stdout.flush()?;
+    let config = match ManagedClientEnvironment::parse_configuration(env) {
+        Ok(config) => config,
+        Err(error) => {
+            writeln!(stdout, "ENV-ERROR {error}")?;
+            stdout.flush()?;
+            return Err(error.into());
+        }
+    };
+    if env.contains_key("TOR_PT_PROXY") {
+        writeln!(stdout, "PROXY-ERROR upstream proxies are unsupported")?;
+        stdout.flush()?;
+        return Err(PtRuntimeError::UnsupportedProxy);
+    }
+    if !config.requests_webtunnel() {
+        writeln!(stdout, "CMETHODS DONE")?;
+        stdout.flush()?;
+        return Ok(());
+    }
+    let (listener, listener_addr) = match initialize_client_listener() {
+        Ok(listener) => listener,
+        Err(error) => {
+            writeln!(stdout, "CMETHOD-ERROR {TRANSPORT_NAME} unable to initialize listener")?;
+            writeln!(stdout, "CMETHODS DONE")?;
+            stdout.flush()?;
+            return Err(error.into());
+        }
+    };
+    for line in pt_client_methods(&config, listener_addr) {
         writeln!(stdout, "{line}")?;
     }
     stdout.flush()?;
@@ -181,6 +232,26 @@ pub fn run_managed_client<R: Read, W: Write>(
         }
     }
     accept_thread.join().map_err(|_| io::Error::other("managed client accept thread panicked"))??;
+    Ok(())
+}
+
+fn initialize_client_listener() -> io::Result<(TcpListener, SocketAddr)> {
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    listener.set_nonblocking(true)?;
+    let address = listener.local_addr()?;
+    // Runtime initialization errors belong to CMETHOD-ERROR, before readiness.
+    pt_runtime()?;
+    Ok((listener, address))
+}
+
+fn negotiate_managed_version(env: &BTreeMap<String, String>) -> Result<(), PtEnvironmentError> {
+    let versions = required_env(env, "TOR_PT_MANAGED_TRANSPORT_VER")?;
+    if versions.split(',').any(|version| version.is_empty() || !version.bytes().all(|byte| byte.is_ascii_graphic())) {
+        return Err(PtEnvironmentError::MalformedManagedTransportVersion);
+    }
+    if !versions.split(',').any(|version| version == SUPPORTED_MANAGED_VERSION) {
+        return Err(PtEnvironmentError::UnsupportedManagedTransportVersion(versions.to_owned()));
+    }
     Ok(())
 }
 
