@@ -1,4 +1,4 @@
-const TELEGRAM_WS_HOST = /^kws[1-5](?:-test)?\.web\.telegram\.org$/;
+const TELEGRAM_WS_HOST = /^kws[1-5]\.web\.telegram\.org$/;
 const MAX_FRAME_BYTES = 1024 * 1024;
 
 function reject(status) {
@@ -42,7 +42,7 @@ function parseUpstream(value) {
   if (url.protocol !== "wss:") return null;
   if (url.username || url.password || url.hash) return null;
   if (url.port && url.port !== "443") return null;
-  if (url.pathname !== "/apiws" || url.search) return null;
+  if ((url.pathname !== "/apiws" && url.pathname !== "/apiws_test") || url.search) return null;
   if (!TELEGRAM_WS_HOST.test(url.hostname)) return null;
   return url;
 }

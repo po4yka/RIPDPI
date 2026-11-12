@@ -2,12 +2,12 @@ function check(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-async function connect(env) {
+async function connect(env, upstream = "wss://kws2.web.telegram.org/apiws") {
   const response = await env.RELAY.fetch("https://relay.test/", {
     headers: {
       Upgrade: "websocket",
       Authorization: "Bearer local-test-token",
-      "X-Ripdpi-Upstream": "wss://kws2.web.telegram.org/apiws",
+      "X-Ripdpi-Upstream": upstream,
     },
   });
   check(response.status === 101, `upgrade returned ${response.status}`);
@@ -69,6 +69,46 @@ export const rejectedFrames = {
       const event = await closed;
       check(event.type === "close" && event.code === 1003, "invalid frame was not rejected with 1003");
       socket.close(1000);
+    }
+  },
+};
+
+export const canonicalGateways = {
+  async test(_controller, env) {
+    for (const host of ["kws1", "kws2", "kws3", "kws4", "kws5"]) {
+      for (const path of ["apiws", "apiws_test"]) {
+        const socket = await connect(env, `wss://${host}.web.telegram.org/${path}`);
+        const closed = nextEvent(socket);
+        socket.close(1000);
+        await closed;
+      }
+    }
+  },
+};
+
+export const rejectedUpstreams = {
+  async test(_controller, env) {
+    for (const upstream of [
+      "wss://kws2-test.web.telegram.org/apiws",
+      "wss://kws0.web.telegram.org/apiws",
+      "wss://kws6.web.telegram.org/apiws",
+      "wss://kws2.web.telegram.org.example/apiws",
+      "wss://kws2.web.telegram.org/other",
+      "wss://kws2.web.telegram.org/apiws_test/extra",
+      "https://kws2.web.telegram.org/apiws",
+      "wss://user:password@kws2.web.telegram.org/apiws",
+      "wss://kws2.web.telegram.org:444/apiws",
+      "wss://kws2.web.telegram.org/apiws?test=1",
+      "wss://kws2.web.telegram.org/apiws#fragment",
+    ]) {
+      const response = await env.RELAY.fetch("https://relay.test/", {
+        headers: {
+          Upgrade: "websocket",
+          Authorization: "Bearer local-test-token",
+          "X-Ripdpi-Upstream": upstream,
+        },
+      });
+      check(response.status === 400, `invalid upstream returned ${response.status}: ${upstream}`);
     }
   },
 };

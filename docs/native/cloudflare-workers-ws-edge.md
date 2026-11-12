@@ -10,7 +10,12 @@ When Worker mode is unset, RIPDPI connects directly to Telegram's official WebSo
 
 ```text
 kws{dc}.web.telegram.org:443 /apiws
+kws{dc}.web.telegram.org:443 /apiws_test
 ```
+
+The native client encodes DCs 1–5 with `/apiws` for production and `/apiws_test`
+for the test environment, using the same gateway hostnames. This encoding does
+not establish external availability of every test DC.
 
 When Worker mode is configured, RIPDPI connects to the configured Worker URL instead:
 
@@ -22,6 +27,7 @@ The native client keeps TLS verification enabled and uses the Worker hostname fo
 
 ```text
 X-Ripdpi-Upstream: wss://kws{dc}.web.telegram.org/apiws
+X-Ripdpi-Upstream: wss://kws{dc}.web.telegram.org/apiws_test
 ```
 
 The Worker must validate that header against the Telegram WebSocket gateway allow-list before dialing upstream.
@@ -53,7 +59,8 @@ It is intentionally small:
 
 - requires `Authorization: Bearer <token>`
 - accepts only `GET` requests with `Upgrade: websocket`
-- validates `X-Ripdpi-Upstream` against `wss://kws{dc}.web.telegram.org/apiws`
+- accepts `X-Ripdpi-Upstream` only for `kws{dc}.web.telegram.org`, with DC 1–5,
+  with path `/apiws` or `/apiws_test`; `kws{dc}-test` hosts are not valid
 - rejects fragments, userinfo, non-443 upstream ports, and non-`wss` upstream schemes
 - fails closed with a short status code when validation fails
 
@@ -89,8 +96,9 @@ npx --yes workerd@1.20260515.1 test docs/native/cloudflare-workers/relay.workerd
 ```
 
 The workerd test uses the Workers runtime with a local echo service and no
-outbound network access. It checks binary bytes, the 1 MiB limit, and text-frame
-rejection with the current WebSocket `binaryType` default. Both relay sockets
+outbound network access. It checks binary bytes, the 1 MiB limit, text-frame
+rejection, and the production/test gateway allowlist with the current WebSocket
+`binaryType` default. Both relay sockets
 explicitly use `arraybuffer`, independent of the deployment compatibility date.
 
 ## Cost and platform limits
