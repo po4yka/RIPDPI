@@ -37,8 +37,9 @@ synchronous per-connection OS threads. The host kernel owns TCP headers.
 - Integration owner owns portfolio, OpenSpec, board and combined checks.
 - Cargo.lock, dependencies, protobufs, locales and baselines have no planned edits.
   Generated snapshots change only through their owning generator when required.
-- The generic strategy trait projection is not an active production caller;
-  its unsupported urgent projection is tracked as a residual boundary.
+- The generic strategy action enum cannot preserve urgent semantics. Its TCP
+  adapter rejects urgent plans atomically. The native production path remains
+  available. This is a separate repair of the internal gap found in the audit.
 
 ## Risks / Trade-offs
 

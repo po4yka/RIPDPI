@@ -58,3 +58,11 @@ Application byte counts and payload receipts MUST exclude the inserted urgent by
 - **WHEN** six original bytes are sent with one OOB insertion
 - **THEN** application counts equal six; partial counts include only accepted original bytes
 
+### Requirement: REQ-OOB-PROJECTION — Reject unsupported urgent projection
+
+The generic strategy adapter MUST reject urgent actions before it changes the output plan. It MUST NOT expose an ordinary byte insertion as an urgent send.
+
+#### Scenario: Generic adapter receives an urgent action
+
+- **WHEN** a caller requests an OOB plan through the generic strategy trait
+- **THEN** the call returns an error and leaves the output plan unchanged; the native TCP runtime remains available
