@@ -24,6 +24,7 @@ Repair the confirmed TUN-07 relay and identity defects, complete the managed PT 
 - Valid Arti identities pass permission preflight without modification.
 - Managed PT readiness requires a valid version, loopback listener, and completed negotiation; startup errors retain their cause.
 - Stop prevents new socket ownership; PT arguments escape all specified separators.
+- Output from a stopped helper cannot alter a later process run.
 - Invalid obfs4 certificate encoding or length fails before Tor activation.
 - Relevant behavior tests, static analysis, CI source gates and independent review pass before integration.
 - Record source/artifact evidence separately from unperformed external or physical acceptance.
@@ -33,6 +34,7 @@ Repair the confirmed TUN-07 relay and identity defects, complete the managed PT 
 - F1 worker: app ModeEditorRelaySection and ModeEditorScreenTest; service LocalPathRelayKindResolver, UpstreamRelayValidationSupport and UpstreamRelayRuntimeConfigResolverTest.
 - F2 worker: service PermissionCheckedRelayConfigResolver and RuntimeLocalNetworkPreflightTest.
 - PT worker: PluggableTransportManager/SocksBridge, SubprocessRelayOutputParser/ProcessSupervisor/ReadinessProbe/SocksRelayManager and their existing tests. Separate commits for negotiation, socket ownership and argument encoding.
+- PT worker follow-up: SubprocessRelayProcessSupervisor and its owning tests only; isolate output-reader events between process runs.
 - Certificate worker: data/settings TorBridgeValidation and TorBridgeValidationTest; app ConnectionTorValidationTest; service UpstreamRelayRuntimeConfigResolverTest after the F1 writer releases ownership.
 - Coordinator: task/OpenSpec records, validation evidence, artifact verification and integration.
 - Each writer uses an isolated worktree. No writer edits dependencies, schemas, locale sets, goldens, or baselines. Any newly required shared file is assigned before editing.

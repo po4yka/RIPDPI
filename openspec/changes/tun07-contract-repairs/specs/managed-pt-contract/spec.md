@@ -4,6 +4,15 @@ Define reliable local contracts for Tor pluggable transport integration without 
 
 ## ADDED Requirements
 
+### Requirement: REQ-TUN07-RUN — Isolate helper output per run
+
+The implementation MUST prevent output from a stopped helper from changing parser or runtime state for a later run.
+
+#### Scenario: Drop stopped helper output
+
+- **WHEN** a stopped helper reader resumes after a later helper has started
+- **THEN** its pending output cannot change the later helper's negotiation or failure state.
+
 ### Requirement: REQ-TUN07-CERT — Validate certificate format
 
 The implementation MUST reject an obfs4 certificate with invalid unpadded standard Base64 encoding or a decoded length other than 52 bytes before Tor activation. The helper MUST retain its own certificate and authentication checks.
