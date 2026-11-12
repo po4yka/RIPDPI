@@ -2,7 +2,7 @@
 id: SVC-1794477234440384
 title: Recover established WireGuard WebSocket sessions
 kind: bug
-status: review
+status: done
 area: service
 priority: high
 owner: TUN-05 recovery worker
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: tun05-ws-recovery
 created: 2026-11-12
 updated: 2026-11-12
+closed_at: "2026-11-12T11:09:32Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source 38b8f4bac6 matches the verified application tree: 2288 Kotlin and 234 Rust tests, staticAnalysis, ci-gates and independent reviews passed. Device and external acceptance are not claimed."
 ---
 
 ## Goal

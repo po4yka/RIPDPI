@@ -1,0 +1,11 @@
+{
+  "change": "tun05-ws-control-messages",
+  "evidence_summary": "Source 38b8f4bac6 matches the verified application tree: 2288 Kotlin and 234 Rust tests, staticAnalysis, ci-gates and independent reviews passed. Device and external acceptance are not claimed.",
+  "execution_sha256": "028360bea477c638b0757011198f6023b266cc3cc3c5482b21f9ec4d2ec1dc4c",
+  "issue_sha256": "51b2b18eb217797abac5c1bd6566bc0342e9e9ba32a030fb37ca7f83ef7fea1c",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T11:09:31Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794478552541413"
+}

@@ -1,0 +1,11 @@
+{
+  "change": "tun05-startup-validation",
+  "evidence_summary": "Source 38b8f4bac6 matches the verified application tree: 2288 Kotlin and 234 Rust tests, staticAnalysis, ci-gates and independent reviews passed. Device and external acceptance are not claimed.",
+  "execution_sha256": "362ffd03e4c7c71ace9591137767df6be1153306f2fb63bb05ba24bba9e720d0",
+  "issue_sha256": "62a5a22a86d53589edd21baf682a881e9c3202a888b82656a8d96c3f8b3174f5",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T11:09:26Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1794477195384429"
+}

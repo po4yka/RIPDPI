@@ -1,0 +1,11 @@
+{
+  "change": "tun05-ws-recovery",
+  "evidence_summary": "Source 38b8f4bac6 matches the verified application tree: 2288 Kotlin and 234 Rust tests, staticAnalysis, ci-gates and independent reviews passed. Device and external acceptance are not claimed.",
+  "execution_sha256": "caf73231dfbd610d29c1118eef4eb06edd7c0857908774e495edc752042f2674",
+  "issue_sha256": "382377c9b4f6c894e3645e54e0d1e639e58c0001bbab51b2b3855b4db7945dad",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T11:09:32Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "SVC-1794477234440384"
+}

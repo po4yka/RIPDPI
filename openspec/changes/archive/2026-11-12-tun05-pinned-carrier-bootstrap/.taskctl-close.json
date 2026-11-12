@@ -1,0 +1,11 @@
+{
+  "change": "tun05-pinned-carrier-bootstrap",
+  "evidence_summary": "Source 38b8f4bac6 matches the verified application tree: 2288 Kotlin and 234 Rust tests, staticAnalysis, ci-gates and independent reviews passed. Device and external acceptance are not claimed.",
+  "execution_sha256": "a9b52a54daf3295a97fe871188576240896461be61eaa9085a44025172b23142",
+  "issue_sha256": "e3426a36b413a57f016ba87ce91d8ab32b39198d76d694a1a5bdb495769cefda",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T11:09:29Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794477836924583"
+}
