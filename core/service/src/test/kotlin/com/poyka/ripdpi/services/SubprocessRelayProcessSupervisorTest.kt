@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -16,6 +17,9 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.io.PipedInputStream
+import java.io.PipedOutputStream
+import java.net.InetSocketAddress
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -128,6 +132,61 @@ class SubprocessRelayProcessSupervisorTest {
         assertNull("a closed stdout must not reach the process handler", uncaught.get())
     }
 
+    @Test
+    fun `pending output from a stopped run cannot change the next negotiation`() {
+        assertPendingOutputIsIgnored("VERSION 1\nCMETHOD webtunnel socks5 127.0.0.1:41001\nCMETHODS DONE\n")
+    }
+
+    @Test
+    fun `pending malformed output from a stopped run cannot fail the next negotiation`() {
+        assertPendingOutputIsIgnored("CMETHODS DONE")
+    }
+
+    private fun assertPendingOutputIsIgnored(transcript: String) {
+        val pendingOutput = PausedOutput(transcript)
+        val nextOutput = PipedInputStream()
+        val writer = PipedOutputStream(nextOutput)
+        val processes =
+            ArrayDeque(
+                listOf(
+                    FakeProcess(exitOnTimedWait = true, stdout = pendingOutput),
+                    FakeProcess(exitOnTimedWait = true, stdout = nextOutput),
+                ),
+            )
+        val supervisor = SubprocessRelayProcessSupervisor(SubprocessRelayOutputParser()) { processes.removeFirst() }
+        val state = AtomicReference<SubprocessRelayOutputEvent?>()
+        val ready = CountDownLatch(1)
+        val spec =
+            launchSpec().copy(
+                managedClientBridge = ManagedClientSocksBridgeSpec("webtunnel", "127.0.0.1", 443, ""),
+            )
+        val receive: (SubprocessRelayOutputEvent) -> Unit = { event ->
+            state.set(event)
+            ready.countDown()
+        }
+        try {
+            supervisor.start(ProcessBuilder(), spec, receive)
+            assertTrue(pendingOutput.pending.await(5, TimeUnit.SECONDS))
+            assertNull(supervisor.stop())
+            supervisor.start(ProcessBuilder(), spec, receive)
+            pendingOutput.resume.countDown()
+            pendingOutput.reader.get().join(5_000)
+            assertFalse("the old output reader must exit", pendingOutput.reader.get().isAlive)
+            assertNull("the stopped run must not publish its buffered transcript", state.get())
+            writer.write("VERSION 1\nCMETHOD webtunnel socks5 127.0.0.1:41002\nCMETHODS DONE\n".toByteArray())
+            writer.flush()
+            assertTrue(ready.await(5, TimeUnit.SECONDS))
+            assertEquals(
+                SubprocessRelayOutputEvent.ManagedClientListener(InetSocketAddress("127.0.0.1", 41002)),
+                state.get(),
+            )
+        } finally {
+            pendingOutput.resume.countDown()
+            writer.close()
+            supervisor.stop()
+        }
+    }
+
     private fun supervisor(process: Process) =
         SubprocessRelayProcessSupervisor(
             outputParser = SubprocessRelayOutputParser(),
@@ -149,6 +208,7 @@ private class FakeProcess(
     var stopException: IOException? = null,
     private val stdoutFailure: IOException? = null,
     private val blockingWaitGate: CountDownLatch? = null,
+    private val stdout: InputStream = ByteArrayInputStream(byteArrayOf()),
 ) : Process() {
     private var running = true
     var destroyedForcibly = false
@@ -168,7 +228,7 @@ private class FakeProcess(
             object : InputStream() {
                 override fun read(): Int = throw failure
             }
-        } ?: ByteArrayInputStream(byteArrayOf())
+        } ?: stdout
 
     override fun getErrorStream(): InputStream = ByteArrayInputStream(byteArrayOf())
 
@@ -198,5 +258,34 @@ private class FakeProcess(
     override fun destroyForcibly(): Process {
         destroyedForcibly = true
         return this
+    }
+}
+
+private class PausedOutput(
+    transcript: String,
+) : ByteArrayInputStream(transcript.toByteArray()) {
+    val pending = CountDownLatch(1)
+    val resume = CountDownLatch(1)
+    val reader = AtomicReference<Thread>()
+
+    override fun read(
+        target: ByteArray,
+        offset: Int,
+        length: Int,
+    ): Int {
+        val count = super.read(target, offset, length)
+        if (count > 0) {
+            reader.set(Thread.currentThread())
+            pending.countDown()
+            // A completed read can still return buffered bytes after process termination.
+            while (resume.count != 0L) {
+                try {
+                    resume.await()
+                } catch (_: InterruptedException) {
+                    // stop interrupts the reader; retain the pending bytes until the test releases them.
+                }
+            }
+        }
+        return count
     }
 }

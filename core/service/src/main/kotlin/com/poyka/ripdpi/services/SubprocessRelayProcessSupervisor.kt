@@ -15,6 +15,8 @@ internal class SubprocessRelayProcessSupervisor(
 
     @Volatile private var processOutputThread: Thread? = null
 
+    private var outputOwner: Any? = null
+
     @Synchronized
     fun start(
         processBuilder: ProcessBuilder,
@@ -38,12 +40,15 @@ internal class SubprocessRelayProcessSupervisor(
                 .onFailure(error::addSuppressed)
             throw error
         }
-        processOutputThread = startProcessOutputThread(activeProcess, spec, onOutputEvent)
+        val owner = Any()
+        outputOwner = owner
+        processOutputThread = startProcessOutputThread(activeProcess, owner, spec, onOutputEvent)
         return activeProcess
     }
 
     @Synchronized
     fun stop(): String? {
+        outputOwner = null
         processOutputThread?.interrupt()
         val activeProcess = process
         if (activeProcess == null) {
@@ -87,6 +92,7 @@ internal class SubprocessRelayProcessSupervisor(
 
     private fun startProcessOutputThread(
         activeProcess: Process,
+        owner: Any,
         spec: SubprocessSocksRelayLaunchSpec,
         onOutputEvent: (SubprocessRelayOutputEvent) -> Unit,
     ): Thread =
@@ -106,13 +112,24 @@ internal class SubprocessRelayProcessSupervisor(
                                 readManagedPtLine(reader)
                             }
                         if (line == null) break
-                        outputParser.parse(line, spec)?.let(onOutputEvent)
+                        // Fence both parser state and delivery against stop and the next run's reset.
+                        synchronized(this@SubprocessRelayProcessSupervisor) {
+                            if (outputOwner === owner) outputParser.parse(line, spec)?.let(onOutputEvent)
+                        }
                     }
                 }
             } catch (error: ManagedPtControlLineException) {
-                onOutputEvent(
-                    SubprocessRelayOutputEvent.Error(spec.runtimeKind, "managed_pt_startup", error.message.orEmpty()),
-                )
+                synchronized(this@SubprocessRelayProcessSupervisor) {
+                    if (outputOwner === owner) {
+                        onOutputEvent(
+                            SubprocessRelayOutputEvent.Error(
+                                spec.runtimeKind,
+                                "managed_pt_startup",
+                                error.message.orEmpty(),
+                            ),
+                        )
+                    }
+                }
             } catch (_: IOException) {
                 // Process.destroy() closes stdout under the blocked read: that is EOF.
             }
@@ -128,6 +145,7 @@ internal class SubprocessRelayProcessSupervisor(
     @Synchronized
     private fun release(activeProcess: Process) {
         if (process === activeProcess) {
+            outputOwner = null
             process = null
             processOutputThread = null
         }
