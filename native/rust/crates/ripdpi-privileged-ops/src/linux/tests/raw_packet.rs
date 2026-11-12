@@ -458,3 +458,153 @@ fn raw_sockets_inherit_the_mark_of_the_socket_they_stand_in_for() {
     raw_packet::inherit_socket_mark(&socket, source.as_fd()).expect("copy the source mark");
     assert_eq!(get_u32_sockopt(socket.as_raw_fd(), libc::SOL_SOCKET, libc::SO_MARK).expect("read mark"), 0x0004_1234);
 }
+
+fn decoded_packet_fields(packet: &[u8]) -> (u8, bool, &[u8]) {
+    let (ttl, offset) = match packet[0] >> 4 {
+        4 => (packet[8], usize::from(packet[0] & 15) * 4),
+        6 => (packet[7], 40),
+        version => panic!("unexpected IP version {version}"),
+    };
+    let tcp = &packet[offset..];
+    let header_len = usize::from(tcp[12] >> 4) * 4;
+    let mut index = 20;
+    let mut md5 = false;
+    while index < header_len {
+        match tcp[index] {
+            0 => break,
+            1 => index += 1,
+            kind => {
+                let len = usize::from(tcp[index + 1]);
+                assert!(len >= 2 && index + len <= header_len);
+                md5 |= kind == 19 && len == 18;
+                index += len;
+            }
+        }
+    }
+    (ttl, md5, &tcp[header_len..])
+}
+
+#[test]
+fn fake_packet_batch_keeps_genuine_ttl_and_md5_independent() {
+    for (source, target) in [("192.0.2.1:50000", "198.51.100.2:443"), ("[2001:db8::1]:50000", "[2001:db8::2]:443")] {
+        let options = crate::FakeTcpOptions {
+            force_raw_original: true,
+            secondary_fake_prefix: Some(b"second-fake"),
+            ipv4_identifications: vec![1, 2, 3],
+            ..Default::default()
+        };
+        let packets = raw_packet::build_fake_tcp_packets(
+            source.parse().expect("source"),
+            target.parse().expect("target"),
+            8,
+            37,
+            &sample_tcp_repair_snapshot(),
+            b"real-payload",
+            b"first-fake",
+            true,
+            &options,
+        )
+        .expect("build the actual fake and genuine batch");
+        assert_eq!(packets.len(), 3);
+        assert_eq!(decoded_packet_fields(&packets[0]), (8, true, b"first-fake".as_slice()));
+        assert_eq!(decoded_packet_fields(&packets[1]), (8, true, b"second-fake".as_slice()));
+        assert_eq!(decoded_packet_fields(&packets[2]), (37, false, b"real-payload".as_slice()));
+    }
+}
+
+#[test]
+fn raw_fake_preserves_explicit_disorder_ttl_without_changing_normal_fake() {
+    for (source, target) in [("192.0.2.1:50000", "198.51.100.2:443"), ("[2001:db8::1]:50000", "[2001:db8::2]:443")] {
+        for (original_ttl, fake_ttl, expected_ttl) in [(None, 8, 64), (Some(1), 1, 1)] {
+            let options = crate::FakeTcpOptions {
+                original_ttl,
+                force_raw_original: true,
+                ipv4_identifications: vec![1, 2],
+                ..Default::default()
+            };
+            let packets = raw_packet::build_fake_tcp_packets(
+                source.parse().expect("source"),
+                target.parse().expect("target"),
+                fake_ttl,
+                64,
+                &sample_tcp_repair_snapshot(),
+                b"real",
+                b"fake",
+                true,
+                &options,
+            )
+            .expect("encode the actual original packet");
+            assert_eq!(decoded_packet_fields(&packets[0]), (fake_ttl, true, b"fake".as_slice()));
+            assert_eq!(decoded_packet_fields(&packets[1]), (expected_ttl, false, b"real".as_slice()));
+        }
+    }
+}
+
+#[test]
+fn explicit_zero_original_ttl_is_rejected_before_emission() {
+    use std::io::Read;
+    use std::time::Duration;
+    let (client, mut peer) = connected_pair();
+    let error = raw_packet::send_fake_tcp(
+        &client,
+        b"real",
+        b"fake",
+        8,
+        false,
+        64,
+        crate::FakeTcpOptions { original_ttl: Some(0), require_raw_path: true, ..Default::default() },
+        (false, Duration::ZERO),
+    )
+    .expect_err("zero original TTL is invalid");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    peer.set_nonblocking(true).expect("observe without blocking");
+    assert_eq!(peer.read(&mut [0; 4]).expect_err("no bytes emitted").kind(), io::ErrorKind::WouldBlock);
+    let error = raw_packet::build_fake_tcp_packets(
+        "192.0.2.1:50000".parse().expect("source"),
+        "198.51.100.2:443".parse().expect("target"),
+        8,
+        64,
+        &sample_tcp_repair_snapshot(),
+        b"real",
+        b"fake",
+        false,
+        &crate::FakeTcpOptions { original_ttl: Some(0), force_raw_original: true, ..Default::default() },
+    )
+    .expect_err("builder rejects an invalid explicit TTL too");
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+}
+
+#[test]
+fn ordered_packet_batch_adds_decoy_md5_only_to_fake_segments() {
+    let segments = [
+        crate::OrderedTcpSegment {
+            payload: b"fake",
+            ttl: 8,
+            flags: TcpFlagOverrides::default(),
+            sequence_offset: 0,
+            use_fake_timestamp: true,
+        },
+        crate::OrderedTcpSegment {
+            payload: b"real",
+            ttl: 64,
+            flags: TcpFlagOverrides::default(),
+            sequence_offset: 0,
+            use_fake_timestamp: false,
+        },
+    ];
+    let snapshot = sample_tcp_repair_snapshot();
+    for (source, target) in [("192.0.2.1:50000", "198.51.100.2:443"), ("[2001:db8::1]:50000", "[2001:db8::2]:443")] {
+        let packets = raw_packet::build_ordered_tcp_packets(
+            source.parse().expect("source"),
+            target.parse().expect("target"),
+            &snapshot,
+            &segments,
+            snapshot.options.timestamp,
+            true,
+            &[1, 2],
+        )
+        .expect("build the actual ordered batch");
+        assert_eq!(decoded_packet_fields(&packets[0]), (8, true, b"fake".as_slice()));
+        assert_eq!(decoded_packet_fields(&packets[1]), (64, false, b"real".as_slice()));
+    }
+}

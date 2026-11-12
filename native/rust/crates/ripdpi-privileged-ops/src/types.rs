@@ -43,6 +43,7 @@ pub struct OrderedTcpSegment<'a> {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FakeTcpOptions<'a> {
+    pub original_ttl: Option<u8>,
     pub secondary_fake_prefix: Option<&'a [u8]>,
     pub timestamp_delta_ticks: Option<i32>,
     pub protect_path: Option<&'a str>,

@@ -10,7 +10,7 @@ use std::os::fd::{AsFd, AsRawFd};
 use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable};
 
 use crate::linux::mmap_region::MmapRegion;
-use crate::linux::raw_packet::packet_builder::{build_tcp_segment_packet, fragment_identification};
+use crate::linux::raw_packet::packet_builder::build_fake_tcp_packets;
 use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::{get_stream_ttl, set_stream_ttl, set_tcp_md5sig, try_set_stream_ttl_with_outcome};
 use crate::linux::tcp_info::wait_tcp_stage_fd;
@@ -39,20 +39,24 @@ pub fn send_fake_tcp(
         return Ok(());
     }
 
+    if options.original_ttl == Some(0) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "original TCP TTL must be nonzero"));
+    }
+    let real_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream)? };
     let requires_raw_path = !options.fake_flags.is_empty()
         || !options.orig_flags.is_empty()
         || options.require_raw_path
         || options.secondary_fake_prefix.is_some()
         || options.timestamp_delta_ticks.is_some();
     if requires_raw_path {
-        return send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, md5sig, options, wait);
+        return send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, real_ttl, md5sig, options, wait);
     }
 
     let fd = stream.as_raw_fd();
     let region_len = original_prefix.len().max(fake_prefix.len());
     let mut region = MmapRegion::new(region_len)?;
 
-    let restore_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream).unwrap_or(64) };
+    let restore_ttl = real_ttl;
     let mut md5_applied = false;
     let mut moved = 0usize;
 
@@ -161,6 +165,7 @@ fn send_fake_tcp_via_raw_packets(
     original_prefix: &[u8],
     fake_prefix: &[u8],
     ttl: u8,
+    real_ttl: u8,
     md5sig: bool,
     options: FakeTcpOptions<'_>,
     wait: TcpStageWait,
@@ -173,46 +178,17 @@ fn send_fake_tcp_via_raw_packets(
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
 
-        let timestamp = mutate_fake_timestamp(snapshot.options.timestamp, options.timestamp_delta_ticks)?;
-        let mut packets = Vec::with_capacity(
-            1 + usize::from(options.secondary_fake_prefix.is_some())
-                + usize::from(options.force_raw_original || !options.orig_flags.is_empty()),
-        );
-        let mut identifications = options.ipv4_identifications.iter().copied();
-        packets.push(build_tcp_segment_packet(
+        let packets = build_fake_tcp_packets(
             source,
             target,
             ttl,
-            identifications
-                .next()
-                .map_or_else(|| fragment_identification(source, target, original_prefix.len()), u32::from),
-            snapshot.sequence_number,
-            snapshot.acknowledgment_number,
-            snapshot.window_size,
-            timestamp,
-            true,
+            real_ttl,
+            &snapshot,
+            original_prefix,
             fake_prefix,
             md5sig,
-            options.fake_flags,
-        )?);
-        if let Some(secondary_fake_prefix) = options.secondary_fake_prefix.filter(|payload| !payload.is_empty()) {
-            packets.push(build_tcp_segment_packet(
-                source,
-                target,
-                ttl,
-                identifications
-                    .next()
-                    .map_or_else(|| fragment_identification(source, target, secondary_fake_prefix.len()), u32::from),
-                snapshot.sequence_number,
-                snapshot.acknowledgment_number,
-                snapshot.window_size,
-                timestamp,
-                true,
-                secondary_fake_prefix,
-                md5sig,
-                options.fake_flags,
-            )?);
-        }
+            &options,
+        )?;
 
         if options.orig_flags.is_empty() && !options.force_raw_original {
             send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path, stream.as_fd())?;
@@ -223,23 +199,6 @@ fn send_fake_tcp_via_raw_packets(
             use std::io::Write;
             (&*stream).write_all(original_prefix)?;
         } else {
-            let original_packet = build_tcp_segment_packet(
-                source,
-                target,
-                ttl,
-                identifications
-                    .next()
-                    .map_or_else(|| fragment_identification(source, target, original_prefix.len()), u32::from),
-                snapshot.sequence_number,
-                snapshot.acknowledgment_number,
-                snapshot.window_size,
-                snapshot.options.timestamp,
-                true,
-                original_prefix,
-                md5sig,
-                options.orig_flags,
-            )?;
-            packets.push(original_packet);
             send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path, stream.as_fd())?;
             queue_payload_as_sent(stream, original_prefix)?;
             set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;

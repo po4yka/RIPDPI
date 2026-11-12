@@ -25,6 +25,9 @@ pub(crate) fn prepare_fake_tcp_options<'a>(
     mut options: FakeTcpOptions<'a>,
     ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<FakeTcpOptions<'a>> {
+    if options.original_ttl == Some(0) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "original TCP TTL must be nonzero"));
+    }
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     let supports_ipv4_ids = matches!((source, target), (SocketAddr::V4(_), SocketAddr::V4(_)));

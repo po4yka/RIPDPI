@@ -4,21 +4,21 @@
 //! overlap, flagged payload, or reset behavior.
 
 use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::net::TcpStream;
 use std::os::fd::{AsFd, AsRawFd};
 
 use crate::detect_default_ttl;
 use crate::linux::raw_packet::fake_tcp::mutate_fake_timestamp;
 use crate::linux::raw_packet::packet_builder::{
-    apply_tcp_flag_overrides_to_packet, build_error_to_io, build_tcp_segment_packet, fragment_identification,
-    resolve_raw_ttl,
+    apply_tcp_flag_overrides_to_packet, build_error_to_io, build_ordered_tcp_packets, build_tcp_segment_packet,
+    fragment_identification, resolve_raw_ttl,
 };
 use crate::linux::raw_packet::raw_socket::send_raw_packets;
 use crate::linux::socket_options::get_stream_ttl;
 use crate::linux::tcp_info::wait_tcp_stage_fd;
 use crate::linux::tcp_repair::{
-    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpRepairSnapshot, disable_tcp_repair, queue_payload_as_sent, sequence_after_payload,
-    set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, queue_payload_as_sent, set_tcp_repair, set_tcp_repair_queue,
+    snapshot_tcp_repair_state,
 };
 use crate::{OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 
@@ -97,13 +97,18 @@ pub fn send_ordered_tcp_segments(
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
+        let fake_timestamp = if segments.iter().any(|segment| segment.use_fake_timestamp) {
+            mutate_fake_timestamp(snapshot.options.timestamp, timestamp_delta_ticks)?
+        } else {
+            snapshot.options.timestamp
+        };
         let packets = build_ordered_tcp_packets(
             source,
             target,
-            segments,
             &snapshot,
+            segments,
+            fake_timestamp,
             md5sig,
-            timestamp_delta_ticks,
             ipv4_identifications,
         )?;
 
@@ -150,44 +155,6 @@ fn finish_ordered_send(operation: io::Result<()>, repair_restoration: io::Result
         Ok(()) => operation,
         Err(restoration) => Err(io::Error::other(OrderedSendRestoreError { operation: operation.err(), restoration })),
     }
-}
-
-fn build_ordered_tcp_packets(
-    source: SocketAddr,
-    target: SocketAddr,
-    segments: &[OrderedTcpSegment<'_>],
-    snapshot: &TcpRepairSnapshot,
-    md5sig: bool,
-    timestamp_delta_ticks: Option<i32>,
-    ipv4_identifications: &[u16],
-) -> io::Result<Vec<Vec<u8>>> {
-    let fake_timestamp = if segments.iter().any(|segment| segment.use_fake_timestamp) {
-        mutate_fake_timestamp(snapshot.options.timestamp, timestamp_delta_ticks)?
-    } else {
-        snapshot.options.timestamp
-    };
-    let mut packets = Vec::with_capacity(segments.len());
-    let mut identifications = ipv4_identifications.iter().copied();
-    for segment in segments {
-        let sequence_number = sequence_after_payload(snapshot.sequence_number, segment.sequence_offset)?;
-        packets.push(build_tcp_segment_packet(
-            source,
-            target,
-            segment.ttl,
-            identifications
-                .next()
-                .map_or_else(|| fragment_identification(source, target, segment.payload.len()), u32::from),
-            sequence_number,
-            snapshot.acknowledgment_number,
-            snapshot.window_size,
-            if segment.use_fake_timestamp { fake_timestamp } else { snapshot.options.timestamp },
-            true,
-            segment.payload,
-            md5sig && segment.use_fake_timestamp,
-            segment.flags,
-        )?);
-    }
-    Ok(packets)
 }
 
 /// Rebuilds the real `[0, len)` bytes from the genuine segments, the ones
@@ -375,10 +342,10 @@ mod tests {
                 let packets = build_ordered_tcp_packets(
                     source.parse().unwrap(),
                     target.parse().unwrap(),
-                    &segments,
                     &snapshot,
-                    md5,
+                    &segments,
                     None,
+                    md5,
                     &[1, 2],
                 )
                 .expect("build ordered packets");

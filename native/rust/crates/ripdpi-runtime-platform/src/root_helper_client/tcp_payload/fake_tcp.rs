@@ -21,6 +21,7 @@ impl RootHelperClient {
         wait: TcpStageWait,
     ) -> io::Result<Option<OwnedFd>> {
         let params = command_params(FakeTcpParams {
+            original_ttl: options.original_ttl,
             original_prefix: original_prefix.to_vec(),
             fake_prefix: fake_prefix.to_vec(),
             ttl,

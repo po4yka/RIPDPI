@@ -36,6 +36,8 @@ pub struct FakeRstParams {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FakeTcpParams {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_ttl: Option<u8>,
     pub original_prefix: Vec<u8>,
     pub fake_prefix: Vec<u8>,
     pub ttl: u8,
@@ -304,6 +306,19 @@ mod tests {
             serde_json::from_str::<IpFragUdpParams>(r#"{"payload":[1],"split_offset":0,"default_ttl":64}"#).is_err()
         );
         assert!(serde_json::from_str::<RawIpPacketParams>(r#"{"target_addr":"203.0.113.5:443"}"#).is_err());
+    }
+
+    #[test]
+    fn fake_original_ttl_is_optional_in_legacy_encoding_and_round_trips_when_set() {
+        let mut params: FakeTcpParams =
+            serde_json::from_str(r#"{"original_prefix":[1],"fake_prefix":[2],"ttl":8,"default_ttl":64}"#)
+                .expect("legacy fake request");
+        assert_eq!(params.original_ttl, None);
+        assert!(serde_json::to_value(&params).expect("legacy encoding").get("original_ttl").is_none());
+        params.original_ttl = Some(1);
+        let encoded = serde_json::to_vec(&params).expect("explicit override");
+        let decoded: FakeTcpParams = serde_json::from_slice(&encoded).expect("override round trip");
+        assert_eq!(decoded.original_ttl, Some(1));
     }
 
     #[test]

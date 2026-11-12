@@ -18,4 +18,6 @@ pub use tcp_payload::{send_fake_rst, send_flagged_tcp_payload, send_ordered_tcp_
 #[cfg(test)]
 pub(super) use fake_tcp::mutate_fake_timestamp;
 #[cfg(test)]
+pub(super) use packet_builder::{build_fake_tcp_packets, build_ordered_tcp_packets};
+#[cfg(test)]
 pub(super) use raw_socket::inherit_socket_mark;

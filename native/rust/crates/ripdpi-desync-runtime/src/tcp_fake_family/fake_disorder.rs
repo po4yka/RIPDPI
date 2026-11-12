@@ -188,6 +188,7 @@ fn send_first_disorder_segment(
     let ttl = if lower_to_fake_split { opts.fake_ttl } else { 1 };
     let mut options = opts.tcp_options(ctx.config.process.protect_path.as_deref(), first_secondary_fake);
     options.force_raw_original = !lower_to_fake_split;
+    options.original_ttl = (!lower_to_fake_split).then_some(1);
     send_fake_tcp_action_named(
         ctx.writer,
         chunk,

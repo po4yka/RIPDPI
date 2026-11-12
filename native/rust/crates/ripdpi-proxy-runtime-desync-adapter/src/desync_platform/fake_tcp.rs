@@ -96,6 +96,7 @@ fn map_fake_tcp_progress(error: io::Error, payload_len: usize) -> io::Error {
 
 fn to_runtime_fake_options<'a>(options: DesyncFakeTcpOptions<'a>) -> runtime_platform::raw_packet::FakeTcpOptions<'a> {
     runtime_platform::raw_packet::FakeTcpOptions {
+        original_ttl: options.original_ttl,
         secondary_fake_prefix: options.secondary_fake_prefix,
         timestamp_delta_ticks: options.timestamp_delta_ticks,
         protect_path: options.protect_path,

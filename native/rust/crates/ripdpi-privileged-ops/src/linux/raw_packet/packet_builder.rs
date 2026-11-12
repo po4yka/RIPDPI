@@ -11,8 +11,9 @@ use ripdpi_config::{
     TCP_FLAG_R3, TCP_FLAG_RST, TCP_FLAG_SYN, TCP_FLAG_URG,
 };
 
-use crate::TcpFlagOverrides;
-use crate::linux::tcp_repair::TcpTimestampSnapshot;
+use super::fake_tcp::mutate_fake_timestamp;
+use crate::linux::tcp_repair::{TcpRepairSnapshot, TcpTimestampSnapshot, sequence_after_payload};
+use crate::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides};
 
 pub(crate) fn resolve_raw_ttl(default_ttl: u8) -> u8 {
     if default_ttl != 0 { default_ttl } else { 64 }
@@ -211,4 +212,94 @@ pub(crate) fn build_tcp_segment_packet(
             "multidisorder raw TCP send requires matching source and destination IP families",
         )),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn build_fake_tcp_packets(
+    source: SocketAddr,
+    target: SocketAddr,
+    fake_ttl: u8,
+    real_ttl: u8,
+    snapshot: &TcpRepairSnapshot,
+    original: &[u8],
+    primary_fake: &[u8],
+    md5sig: bool,
+    options: &FakeTcpOptions<'_>,
+) -> io::Result<Vec<Vec<u8>>> {
+    if options.original_ttl == Some(0) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "original TCP TTL must be nonzero"));
+    }
+    let timestamp = mutate_fake_timestamp(snapshot.options.timestamp, options.timestamp_delta_ticks)?;
+    let mut packets = Vec::with_capacity(3);
+    let mut identifications = options.ipv4_identifications.iter().copied();
+    let mut fake_packet = |payload: &[u8]| {
+        build_tcp_segment_packet(
+            source,
+            target,
+            fake_ttl,
+            identifications.next().map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
+            snapshot.sequence_number,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            timestamp,
+            true,
+            payload,
+            md5sig,
+            options.fake_flags,
+        )
+    };
+    packets.push(fake_packet(primary_fake)?);
+    if let Some(secondary) = options.secondary_fake_prefix.filter(|payload| !payload.is_empty()) {
+        packets.push(fake_packet(secondary)?);
+    }
+    if options.force_raw_original || !options.orig_flags.is_empty() {
+        packets.push(build_tcp_segment_packet(
+            source,
+            target,
+            options.original_ttl.unwrap_or(real_ttl),
+            identifications.next().map_or_else(|| fragment_identification(source, target, original.len()), u32::from),
+            snapshot.sequence_number,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            snapshot.options.timestamp,
+            true,
+            original,
+            false,
+            options.orig_flags,
+        )?);
+    }
+    Ok(packets)
+}
+
+pub(crate) fn build_ordered_tcp_packets(
+    source: SocketAddr,
+    target: SocketAddr,
+    snapshot: &TcpRepairSnapshot,
+    segments: &[OrderedTcpSegment<'_>],
+    fake_timestamp: Option<TcpTimestampSnapshot>,
+    md5sig: bool,
+    ipv4_identifications: &[u16],
+) -> io::Result<Vec<Vec<u8>>> {
+    let mut packets = Vec::with_capacity(segments.len());
+    let mut identifications = ipv4_identifications.iter().copied();
+    for segment in segments {
+        let sequence = sequence_after_payload(snapshot.sequence_number, segment.sequence_offset)?;
+        packets.push(build_tcp_segment_packet(
+            source,
+            target,
+            segment.ttl,
+            identifications
+                .next()
+                .map_or_else(|| fragment_identification(source, target, segment.payload.len()), u32::from),
+            sequence,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            if segment.use_fake_timestamp { fake_timestamp } else { snapshot.options.timestamp },
+            true,
+            segment.payload,
+            md5sig && segment.use_fake_timestamp,
+            segment.flags,
+        )?);
+    }
+    Ok(packets)
 }

@@ -283,6 +283,8 @@ is allowed only before raw emission starts. HostFake checks raw capability
 before its plain split fallback. FakeDisorder probes TTL one and restores the
 real TTL before it enters the opaque sender; later send errors cannot trigger
 a second send of the prefix.
+The first genuine FakeDisorder segment can use an explicit TTL of one. This
+override does not change the normal socket TTL used for restoration.
 
 ### Fake ordering variants
 

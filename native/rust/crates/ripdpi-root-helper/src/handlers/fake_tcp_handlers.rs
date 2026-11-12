@@ -48,6 +48,7 @@ pub fn handle_send_fake_tcp(fd: RawFd, params: FakeTcpParams) -> (HelperResponse
     // descriptor exactly once — so it is never leaked or double-closed.
     let stream = unsafe { adopt_tcp_stream(fd) };
     let options = platform::FakeTcpOptions {
+        original_ttl: params.original_ttl,
         secondary_fake_prefix: params.secondary_fake_prefix.as_deref(),
         timestamp_delta_ticks: params.timestamp_delta_ticks,
         protect_path: None,
