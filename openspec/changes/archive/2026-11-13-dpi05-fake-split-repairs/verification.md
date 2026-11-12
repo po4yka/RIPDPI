@@ -5,7 +5,7 @@ commit_sha: 547e5a172e42e6550106a9ade80df38258dc95c8
 local: passed
 local_evidence: Six findings are closed by published common fixes plus the owned profile, context and oracle changes. Final runtime163, adapter36, platform53, planner166, loopback2, fakeTCP6, payload5, rawpacket22 and protocol55 tests passed. Seven-crate all-target Clippy, API113, just ci-gates, locked metadata, oracle15 and shell checks passed. Full proxy/helper sandbox failures are recorded below.
 remote_ci: not_applicable
-remote_ci_evidence: No hosted CI run is claimed. Local integration and push are tracked separately from CI.
+remote_ci_evidence: The requested direct push was accepted with the GitHub user bypass. The server reported PR, ci-required and CodeQL results unconfirmed at push time. No hosted CI success is claimed.
 device: not_applicable
 device_evidence: Physical or privileged device activation was not authorized. Android wire compatibility is not claimed.
 artifact: passed
@@ -20,12 +20,12 @@ deployment_evidence: No release or deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DPI05-PROGRESS | ENG-1794499996971989 | Published page/progress/no-replay fixes; two actual partial-splice/wait peer-byte tests; runtime safety suite | Passed locally |
-| REQ-DPI05-PROFILES | ENG-1794500005944193 | Four-order/two-sequence profile matrix, executor handoff and loopback tests | Passed locally |
-| REQ-DPI05-MD5 | ENG-1794500007476648 | Common fake-only packet builder and independent IPv4/IPv6 byte/option checks | Passed locally |
-| REQ-DPI05-TTL | ENG-1794500008685404 | Explicit genuine TTL and published normal/disorder packet-byte and runtime checks | Passed locally |
-| REQ-DPI05-ORACLE | ENG-1794500010219878 | Independent fifteen-test oracle suite, shell entry and full Android compilation | Passed locally; live capture not authorized |
-| REQ-DPI05-FAMILY | ENG-1794500011657144 | Actual peer A bytes and second-region family/fallback/progress regression | Passed locally |
+| REQ-DPI05-PROGRESS | ENG-1794499996971989 | Published page/progress/no-replay fixes; two actual partial-splice/wait peer-byte tests; runtime safety suite | passed |
+| REQ-DPI05-PROFILES | ENG-1794500005944193 | Four-order/two-sequence profile matrix, executor handoff and loopback tests | passed |
+| REQ-DPI05-MD5 | ENG-1794500007476648 | Common fake-only packet builder and independent IPv4/IPv6 byte/option checks | passed |
+| REQ-DPI05-TTL | ENG-1794500008685404 | Explicit genuine TTL and published normal/disorder packet-byte and runtime checks | passed |
+| REQ-DPI05-ORACLE | ENG-1794500010219878 | Independent fifteen-test oracle suite, shell entry and full Android compilation; live device capture was not authorized | passed |
+| REQ-DPI05-FAMILY | ENG-1794500011657144 | Actual peer A bytes and second-region family/fallback/progress regression | passed |
 
 ## Closure matrix
 
@@ -132,3 +132,7 @@ ANDROID_SERIAL="$AUTHORIZED_SERIAL" RIPDPI_PACKET_SMOKE_SCENARIO_FILTER=android_
 ```
 
 Acceptance requires source bytes, packet ranges, first-emission order, sequence, TTL, options and peer stream checks. An indirect capture or a low-TTL-only packet is not full evidence. BPF, UDP-route and executable-fixture cases also need a suitable authorized test host. No hosted CI or real-secret test is claimed.
+
+## Git integration
+
+The implementation and review evidence were fast-forwarded to main and pushed to origin/main at `439cbdcc2713af19ed0d91d91d93073217427a6d`. `git ls-remote origin refs/heads/main` returned that exact SHA. GitHub reported its configured user bypass for the PR rule, expected `ci-required`, and CodeQL results waiting at push time. Those remote checks are not represented as successful local or hosted evidence. No branch rule was changed by this task.

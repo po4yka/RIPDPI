@@ -1,0 +1,11 @@
+{
+  "change": "dpi05-fake-split-repairs",
+  "evidence_summary": "F1-F6 code and evidence reached origin/main439cbdcc2713af19ed0d91d91d93073217427a6d. Relevant local tests, oracle, API, CI gates and Android compilation passed; sandbox exceptions and remote PR/CI/CodeQL bypass are documented. No device compatibility is claimed.",
+  "execution_sha256": "02f2496cb63e0b55f7573f0ce13d6fe04877addf8b5f550f9799a45383e57d7d",
+  "issue_sha256": "8033f6890306d7bc432e2e280347f22bcc264d5dd49639cf0adcc4b0b3014e73",
+  "outcome": "done",
+  "prepared_at": "2026-11-12T21:12:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794499735949864"
+}
