@@ -33,3 +33,29 @@ pub(crate) fn sequence_after_payload(sequence_number: u32, payload_len: usize) -
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "payload too large for TCP sequence arithmetic"))?;
     Ok(sequence_number.wrapping_add(payload_len))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::sequence_after_payload;
+
+    #[test]
+    fn sequence_arithmetic_wraps_at_the_tcp_sequence_limit() {
+        for (sequence, offset, expected) in [
+            (0, 0, 0),
+            (10, 17, 27),
+            (u32::MAX, 0, u32::MAX),
+            (u32::MAX, 1, 0),
+            (u32::MAX - 1, 3, 1),
+            (1, u32::MAX as usize, 0),
+        ] {
+            assert_eq!(sequence_after_payload(sequence, offset).expect("valid TCP sequence offset"), expected);
+        }
+    }
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    fn sequence_arithmetic_rejects_offsets_above_u32() {
+        let error = sequence_after_payload(1, u32::MAX as usize + 1).expect_err("unrepresentable offset");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    }
+}
