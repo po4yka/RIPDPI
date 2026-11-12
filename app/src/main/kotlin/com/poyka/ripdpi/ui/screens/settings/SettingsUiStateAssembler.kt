@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.WarpPayloadGenSuggestion
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
@@ -11,12 +12,22 @@ import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.settings.state.toUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.state.SettingsUiState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val SettingsStateSubscriptionMillis = 5_000L
@@ -34,17 +45,23 @@ internal data class SettingsUiStateAssemblySnapshot(
     val systemPrivateDnsStatus: SystemPrivateDnsStatus = SystemPrivateDnsStatus.UNKNOWN,
 )
 
+private data class SettingsUiNetworkState(
+    val warpSuggestion: WarpPayloadGenSuggestion? = null,
+    val systemPrivateDnsStatus: SystemPrivateDnsStatus = SystemPrivateDnsStatus.UNKNOWN,
+)
+
 private data class SettingsUiStateStaticAssemblySnapshot(
     val settings: AppSettings,
     val rememberedNetworkCount: Int,
     val hostAutolearnStorePresent: Boolean,
     val biometricAvailability: Int,
     val routingProtectionSnapshot: RoutingProtectionCatalogSnapshot,
-    val warpSuggestion: WarpPayloadGenSuggestion?,
     val seqovlSupported: Boolean,
-    val systemPrivateDnsStatus: SystemPrivateDnsStatus,
 ) {
-    fun withTelemetry(serviceTelemetry: ServiceTelemetrySnapshot): SettingsUiStateAssemblySnapshot =
+    fun withTelemetry(
+        serviceTelemetry: ServiceTelemetrySnapshot,
+        network: SettingsUiNetworkState,
+    ): SettingsUiStateAssemblySnapshot =
         SettingsUiStateAssemblySnapshot(
             settings = settings,
             serviceTelemetry = serviceTelemetry,
@@ -52,9 +69,9 @@ private data class SettingsUiStateStaticAssemblySnapshot(
             hostAutolearnStorePresent = hostAutolearnStorePresent,
             biometricAvailability = biometricAvailability,
             routingProtectionSnapshot = routingProtectionSnapshot,
-            warpSuggestion = warpSuggestion,
+            warpSuggestion = network.warpSuggestion,
             seqovlSupported = seqovlSupported,
-            systemPrivateDnsStatus = systemPrivateDnsStatus,
+            systemPrivateDnsStatus = network.systemPrivateDnsStatus,
         )
 }
 
@@ -63,12 +80,21 @@ internal class SettingsUiStateAssembler
     constructor(
         private val biometricCapabilityChecker: BiometricCapabilityChecker,
         private val dispatchers: AppCoroutineDispatchers,
+        private val networkHandoverMonitor: NetworkHandoverMonitor,
     ) {
         fun assemble(
             scope: CoroutineScope,
             settingsUiDependencies: SettingsUiDependencies,
             hostAutolearnStoreRefresh: StateFlow<Int>,
         ): StateFlow<SettingsUiState> {
+            val networkStates =
+                networkRefreshes()
+                    .map { buildNetworkState(settingsUiDependencies) }
+                    .catch { failure ->
+                        if (failure is CancellationException || failure !is Exception) throw failure
+                        emit(SettingsUiNetworkState())
+                    }.distinctUntilChanged()
+                    .flowOn(dispatchers.io)
             val staticSnapshots =
                 combine(
                     settingsUiDependencies.appSettingsRepository.settings,
@@ -86,14 +112,29 @@ internal class SettingsUiStateAssembler
             return combine(
                 staticSnapshots,
                 settingsUiDependencies.serviceStateStore.telemetry,
-            ) { staticSnapshot, telemetry ->
-                buildUiState(staticSnapshot.withTelemetry(telemetry))
+                networkStates,
+            ) { staticSnapshot, telemetry, network ->
+                buildUiState(staticSnapshot.withTelemetry(telemetry, network))
             }.stateIn(
                 scope = scope,
                 started = SharingStarted.WhileSubscribed(SettingsStateSubscriptionMillis),
                 initialValue = SettingsUiState(isHydrated = false),
             )
         }
+
+        private fun networkRefreshes(): Flow<Unit> =
+            channelFlow {
+                // Start observation before capture so a handover cannot become a silent baseline.
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    try {
+                        networkHandoverMonitor.observe().collect { send(Unit) }
+                    } catch (cancelled: CancellationException) {
+                        this@channelFlow.cancel(cancelled)
+                        throw cancelled
+                    }
+                }
+                send(Unit)
+            }
 
         internal fun buildAssemblySnapshot(
             settings: AppSettings,
@@ -105,30 +146,30 @@ internal class SettingsUiStateAssembler
                 settings = settings,
                 rememberedNetworkCount = rememberedNetworkCount,
                 settingsUiDependencies = settingsUiDependencies,
-            ).withTelemetry(serviceTelemetry)
+            ).withTelemetry(serviceTelemetry, buildNetworkState(settingsUiDependencies))
 
         private fun buildStaticAssemblySnapshot(
             settings: AppSettings,
             rememberedNetworkCount: Int,
             settingsUiDependencies: SettingsUiDependencies,
-        ): SettingsUiStateStaticAssemblySnapshot {
-            val networkSnapshot =
-                runCatching { settingsUiDependencies.networkSnapshotProvider.capture() }.getOrNull()
-            return SettingsUiStateStaticAssemblySnapshot(
+        ): SettingsUiStateStaticAssemblySnapshot =
+            SettingsUiStateStaticAssemblySnapshot(
                 settings = settings,
                 rememberedNetworkCount = rememberedNetworkCount,
                 hostAutolearnStorePresent = settingsUiDependencies.hostAutolearnStoreController.hasStore(),
                 biometricAvailability = biometricCapabilityChecker.canAuthenticate(),
                 routingProtectionSnapshot = settingsUiDependencies.routingProtectionCatalogService.snapshot(),
+                seqovlSupported = settingsUiDependencies.enginePlatformCapabilities.seqovlSupported(),
+            )
+
+        private fun buildNetworkState(settingsUiDependencies: SettingsUiDependencies): SettingsUiNetworkState {
+            val networkSnapshot = runCatching { settingsUiDependencies.networkSnapshotProvider.capture() }.getOrNull()
+            return SettingsUiNetworkState(
                 warpSuggestion =
                     networkSnapshot?.let {
-                        runCatching {
-                            settingsUiDependencies.warpPayloadGenCatalog.suggestFor(it)
-                        }.getOrNull()
+                        runCatching { settingsUiDependencies.warpPayloadGenCatalog.suggestFor(it) }.getOrNull()
                     },
-                seqovlSupported = settingsUiDependencies.enginePlatformCapabilities.seqovlSupported(),
-                // Derived Kotlin-side from the captured snapshot's privateDnsMode;
-                // informational only and never a VPN DNS policy source.
+                // Presentation only; this does not change VPN DNS policy.
                 systemPrivateDnsStatus = mapPrivateDnsModeToStatus(networkSnapshot?.privateDnsMode),
             )
         }
