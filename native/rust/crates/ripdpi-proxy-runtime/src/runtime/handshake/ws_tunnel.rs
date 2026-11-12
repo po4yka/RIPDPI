@@ -1,5 +1,6 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
+use std::time::Instant;
 
 use super::super::state::RuntimeState;
 use super::super::ws::{RuntimeTelegramDc, RuntimeWsTunnelConfig, WsSeedClassification, runtime_exact_telegram_dc};
@@ -48,7 +49,7 @@ pub(super) fn run_ws_tunnel_prepared(
     seed_request: Option<Vec<u8>>,
     state: &RuntimeState,
 ) -> WsTunnelResult {
-    let seed_request = match seed_request.map_or_else(|| read_mtproto_seed(&mut client), Ok) {
+    let seed_request = match complete_mtproto_seed(&mut client, seed_request.unwrap_or_default()) {
         Ok(seed) => seed,
         Err(error) => return WsTunnelResult::ShortInit { seed_request: error.seed_request, error: error.error },
     };
@@ -108,7 +109,7 @@ where
 }
 
 fn run_ws_tunnel_with_seed_impl<ResolveAddr, RelayWs>(
-    client: TcpStream,
+    mut client: TcpStream,
     target: SocketAddr,
     seed_request: Vec<u8>,
     state: &RuntimeState,
@@ -119,12 +120,10 @@ where
     ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
     RelayWs: FnOnce(&RuntimeState, TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
 {
-    if seed_request.len() < 64 {
-        return WsTunnelResult::ShortInit {
-            seed_request,
-            error: io::Error::new(io::ErrorKind::UnexpectedEof, "short MTProto init"),
-        };
-    }
+    let seed_request = match complete_mtproto_seed(&mut client, seed_request) {
+        Ok(seed) => seed,
+        Err(error) => return WsTunnelResult::ShortInit { seed_request: error.seed_request, error: error.error },
+    };
 
     match classify_seed_for_target(&seed_request[..64], target, state) {
         WsSeedClassification::NotMtproto => {
@@ -201,29 +200,42 @@ struct SeedReadError {
 }
 
 fn read_mtproto_seed(client: &mut TcpStream) -> Result<Vec<u8>, SeedReadError> {
-    let mut seed_request = vec![0u8; 64];
-    let mut read = 0usize;
+    complete_mtproto_seed(client, Vec::new())
+}
 
-    while read < seed_request.len() {
-        match client.read(&mut seed_request[read..]) {
-            Ok(0) => {
-                seed_request.truncate(read);
-                return Err(SeedReadError {
-                    seed_request,
-                    error: io::Error::new(io::ErrorKind::UnexpectedEof, "short MTProto init"),
-                });
+fn complete_mtproto_seed(client: &mut TcpStream, mut seed_request: Vec<u8>) -> Result<Vec<u8>, SeedReadError> {
+    if seed_request.len() >= 64 {
+        return Ok(seed_request);
+    }
+    let previous_timeout = match client.read_timeout() {
+        Ok(timeout) => timeout,
+        Err(error) => return Err(SeedReadError { seed_request, error }),
+    };
+    let budget = previous_timeout.unwrap_or(super::HANDSHAKE_TIMEOUT).min(super::HANDSHAKE_TIMEOUT);
+    let deadline = Instant::now() + budget;
+    let read_result = (|| {
+        let mut remaining = [0; 64];
+        while seed_request.len() < 64 {
+            let timeout = deadline.saturating_duration_since(Instant::now());
+            if timeout.is_zero() {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, "MTProto init deadline expired"));
             }
-            Ok(count) => {
-                read += count;
-            }
-            Err(error) => {
-                seed_request.truncate(read);
-                return Err(SeedReadError { seed_request, error });
+            client.set_read_timeout(Some(timeout))?;
+            let needed = 64 - seed_request.len();
+            match client.read(&mut remaining[..needed]) {
+                Ok(0) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "short MTProto init")),
+                Ok(count) => seed_request.extend_from_slice(&remaining[..count]),
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(error),
             }
         }
+        Ok(())
+    })();
+    let restored = client.set_read_timeout(previous_timeout);
+    match read_result.and(restored) {
+        Ok(()) => Ok(seed_request),
+        Err(error) => Err(SeedReadError { seed_request, error }),
     }
-
-    Ok(seed_request)
 }
 
 #[cfg(all(test, not(feature = "loom")))]
@@ -348,13 +360,13 @@ pub(super) mod tests {
             origin.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
             let (mut peer, client) = connected_pair();
             peer.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
-            peer.write_all(&seed).unwrap();
+            peer.write_all(&seed[8..]).unwrap();
             let result = run_ws_tunnel_prepared(
                 client,
                 SocketAddr::from(([149, 154, 167, 51], 443)),
                 RuntimeTelegramDc::production(2),
                 Box::new(PreparedCarrier(ready)),
-                None,
+                Some(seed[..8].to_vec()),
                 &runtime_state(),
             );
             assert!(matches!(result, WsTunnelResult::ValidatedMtproto { .. }));
@@ -538,6 +550,78 @@ pub(super) mod tests {
                 && preserved == seed_request
                 && error.kind() == io::ErrorKind::ConnectionRefused
         ));
+    }
+
+    #[test]
+    fn preserved_partial_init_reads_remaining_bytes_before_relay() {
+        use std::io::Write;
+        let mut seed = build_test_init_packet(2);
+        seed.extend_from_slice(b"coalesced payload");
+        for split in [1, 8, 56, 63, 64, seed.len()] {
+            let (mut peer, client) = connected_pair();
+            peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+            peer.write_all(&seed[split..]).unwrap();
+            peer.shutdown(std::net::Shutdown::Write).unwrap();
+            let result = run_ws_tunnel_with_seed_impl(
+                client,
+                SocketAddr::from(([149, 154, 167, 51], 443)),
+                seed[..split].to_vec(),
+                &runtime_state(),
+                |_state, _dc| Ok(SocketAddr::from(([127, 0, 0, 1], 443))),
+                |_state, mut client, _dc, mut seed, _config| {
+                    client.read_to_end(&mut seed)?;
+                    client.write_all(&seed)
+                },
+            );
+            assert!(matches!(result, WsTunnelResult::ValidatedMtproto { .. }), "split={split}");
+            let mut received = Vec::new();
+            peer.read_to_end(&mut received).unwrap();
+            assert_eq!(received, seed);
+        }
+    }
+
+    #[test]
+    fn preserved_partial_init_keeps_all_bytes_on_eof() {
+        use std::io::Write;
+        let (mut peer, client) = connected_pair();
+        peer.write_all(&[4, 5, 6]).unwrap();
+        peer.shutdown(std::net::Shutdown::Write).unwrap();
+        let result = run_ws_tunnel_with_seed_impl(
+            client,
+            SocketAddr::from(([149, 154, 167, 51], 443)),
+            vec![1, 2, 3],
+            &runtime_state(),
+            |_state, _dc| unreachable!("short init must not resolve"),
+            |_state, _client, _dc, _seed, _config| unreachable!("short init must not relay"),
+        );
+        assert!(matches!(result, WsTunnelResult::ShortInit { seed_request, error }
+            if seed_request == [1, 2, 3, 4, 5, 6] && error.kind() == io::ErrorKind::UnexpectedEof));
+    }
+
+    #[test]
+    fn partial_init_has_one_deadline_and_restores_the_socket_timeout() {
+        use std::io::Write;
+        let (mut peer, mut client) = connected_pair();
+        let timeout = Some(Duration::from_millis(100));
+        client.set_read_timeout(timeout).unwrap();
+        let writer = thread::spawn(move || {
+            for _ in 0..64 {
+                if peer.write_all(&[7]).is_err() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(20));
+            }
+        });
+        let started = Instant::now();
+        let error = complete_mtproto_seed(&mut client, vec![1, 2, 3]).expect_err("bounded init");
+        assert!(matches!(error.error.kind(), io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock));
+        assert!(error.seed_request.starts_with(&[1, 2, 3]));
+        assert!(error.seed_request[3..].iter().all(|byte| *byte == 7));
+        assert!(error.seed_request.len() < 64);
+        assert!(started.elapsed() < Duration::from_millis(500));
+        assert_eq!(client.read_timeout().unwrap(), timeout);
+        drop(client);
+        writer.join().unwrap();
     }
 
     #[test]
