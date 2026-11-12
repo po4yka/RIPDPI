@@ -2,7 +2,7 @@
 id: RLY-1794491312461911
 title: Repair Snowflake source and bridge configuration contracts
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Snowflake repair coordinator
@@ -16,15 +16,18 @@ updated: 2026-11-12
 
 ## Goal
 
-Describe the observable outcome.
+Close TUN-08 F2 and F3 while retaining the Tor-only activation and lifecycle repairs already on main.
 
 ## Acceptance criteria
 
-Define verifiable completion criteria.
+- Build an official pinned Snowflake client with an effective default DTLS mimic policy and record source/ABI evidence.
+- Reject missing, malformed and conflicting rendezvous configuration before app persistence and native setup.
+- Observe owning regression tests, independent review and required combined source gates.
+- Integrate each remaining defect as a separate commit and push main. Record unobserved Android/external acceptance and remote CI honestly.
 
 ## Ownership
 
-- Source worker: native/pluggable-transports/sources.json, source-specific build tests and Snowflake ADR. One serialized owner for the PT manifest; no Cargo/Gradle dependency catalogs.
+- Source worker: native/pluggable-transports/sources.json, source-specific build/receipt handling and tests, Snowflake ADR, and the narrow Tor process default arguments plus manager tests. One serialized owner for the PT manifest; no Cargo/Gradle dependency catalogs.
 - Validation worker: TorBridgeValidation.kt and its settings, service and app validation tests.
 - Coordinator: task/OpenSpec artifacts, combined gates, evidence, commits and main integration.
 - Review agents: read-only; no source changes. Each writer uses a separate worktree.
