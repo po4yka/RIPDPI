@@ -26,7 +26,7 @@ internal fun AppSettingsSnapshot.withWarpSnapshot(settings: AppSettings): AppSet
                 warpScannerParallelism =
                     settings.warpScannerParallelism.takeIf { it > 0 } ?: DefaultWarpScannerParallelism,
                 warpScannerMaxRttMs = settings.warpScannerMaxRttMs.takeIf { it > 0 } ?: DefaultWarpScannerMaxRttMs,
-                warpAmneziaEnabled = settings.warpAmneziaEnabled,
+                warpAmneziaEnabled = settings.toWarpSettingsModel().amnezia.enabled,
                 warpAmneziaJc = settings.warpAmneziaJc,
                 warpAmneziaJmin = settings.warpAmneziaJmin,
                 warpAmneziaJmax = settings.warpAmneziaJmax,
@@ -121,5 +121,6 @@ internal fun AppSettings.Builder.applyWarpSnapshot(snapshot: AppSettingsSnapshot
                 amneziaSettings.requireSupportedProfile()
             }
             builder.setWarpAmneziaPreset(preset)
+            builder.setWarpAmneziaEnabled(resolveWarpAmneziaProfile(preset, amneziaSettings).settings.enabled)
         }
 }

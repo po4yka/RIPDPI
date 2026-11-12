@@ -9,6 +9,32 @@ import org.junit.Test
 
 class RipDpiProxyUIPreferencesSettingsWriterTest {
     @Test
+    fun `WARP preset enable state survives native preferences and protobuf projection`() {
+        val presets = listOf("off", "random", "quic_imitation", "tls_imitation", "dns_imitation", "custom")
+        for (preset in presets) {
+            for (enabled in listOf(false, true)) {
+                val preferences =
+                    RipDpiProxyUIPreferences(
+                        warp =
+                            RipDpiWarpConfig(
+                                amneziaPreset = preset,
+                                amnezia = RipDpiWarpAmneziaConfig(enabled = enabled),
+                            ),
+                    )
+                val stored =
+                    AppSettings.parseFrom(
+                        preferences.applyToSettings(AppSettings.getDefaultInstance()).toByteArray(),
+                    )
+                val projected = RipDpiProxyUIPreferences.fromSettings(stored).warp
+                val expected = enabled && preset !in setOf("off", "random")
+
+                assertEquals("$preset/$enabled", expected, stored.warpAmneziaEnabled)
+                assertEquals(expected, projected.amnezia.enabled)
+            }
+        }
+    }
+
+    @Test
     fun `TCP recommendation preserves unmeasured QUIC and unrelated settings`() {
         val settings =
             AppSettings

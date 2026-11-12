@@ -209,9 +209,10 @@ fun resolveWarpAmneziaProfile(
         WarpAmneziaPresetTlsImitation,
         WarpAmneziaPresetDnsImitation,
         -> {
+            val settings = builtInWarpPresetProfiles[normalizedPreset] ?: WarpAmneziaSettings()
             WarpAmneziaPresetProfile(
                 normalizedPreset,
-                builtInWarpPresetProfiles[normalizedPreset] ?: WarpAmneziaSettings(),
+                settings.copy(enabled = settings.enabled && rawSettings.enabled),
             )
         }
 

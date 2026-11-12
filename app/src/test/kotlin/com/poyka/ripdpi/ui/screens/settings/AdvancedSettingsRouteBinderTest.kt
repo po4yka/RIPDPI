@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.FakeOrderInterleaveRealFirst
 import com.poyka.ripdpi.data.FakeSeqModeSequential
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -19,6 +20,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AdvancedSettingsRouteBinderTest {
+    @Test
+    fun `explicit WARP preset selection stores the effective enable state`() {
+        val presets = listOf("off", "random", "quic_imitation", "tls_imitation", "dns_imitation", "custom")
+        for (preset in presets) {
+            val recorder = RecordingSettingsMutations()
+            val binder = AdvancedSettingsBinder(recorder::updateSetting)
+            binder.onOptionSelected(
+                setting = AdvancedOptionSetting.WarpAmneziaPreset,
+                value = preset,
+                uiState = SettingsUiState(),
+            )
+
+            val stored = recorder.singleUpdate().settings
+            val expected = preset !in setOf("off", "random")
+            assertEquals(preset, stored.warpAmneziaPreset)
+            assertEquals(preset, expected, stored.warpAmneziaEnabled)
+            assertEquals(expected, stored.toWarpSettingsModel().amnezia.enabled)
+        }
+    }
+
     @Test
     fun `toggle handler registry covers every toggle setting`() {
         assertEquals(AdvancedToggleSetting.entries.toSet(), toggleHandlers.keys)

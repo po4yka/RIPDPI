@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
 import com.poyka.ripdpi.data.WarpAmneziaPresetOff
+import com.poyka.ripdpi.data.WarpAmneziaPresetRandom
 import com.poyka.ripdpi.data.WarpAmneziaSettings
 import com.poyka.ripdpi.data.normalizeWarpAmneziaPreset
 import com.poyka.ripdpi.data.normalizeWarpEndpointSelectionMode
@@ -41,7 +41,7 @@ internal class WarpSettingsMutationWriter(
                 i3 = uiState.warp.amneziaI3,
                 i4 = uiState.warp.amneziaI4,
                 i5 = uiState.warp.amneziaI5,
-                enabled = uiState.warp.amneziaEnabled,
+                enabled = normalized != WarpAmneziaPresetOff && normalized != WarpAmneziaPresetRandom,
                 jc = uiState.warp.amneziaJc,
                 jmin = uiState.warp.amneziaJmin,
                 jmax = uiState.warp.amneziaJmax,
@@ -57,12 +57,7 @@ internal class WarpSettingsMutationWriter(
         val resolved =
             resolveWarpAmneziaProfile(
                 preset = normalized,
-                rawSettings =
-                    if (normalized == WarpAmneziaPresetCustom) {
-                        rawSettings.copy(enabled = true)
-                    } else {
-                        rawSettings
-                    },
+                rawSettings = rawSettings,
             ).settings
 
         updateValue("warpAmneziaPreset", normalized) {
@@ -73,7 +68,7 @@ internal class WarpSettingsMutationWriter(
             setWarpAmneziaI4(resolved.i4)
             setWarpAmneziaI5(resolved.i5)
             setWarpAmneziaPreset(normalized)
-            setWarpAmneziaEnabled(normalized != WarpAmneziaPresetOff)
+            setWarpAmneziaEnabled(resolved.enabled)
             setWarpAmneziaJc(resolved.jc)
             setWarpAmneziaJmin(resolved.jmin)
             setWarpAmneziaJmax(resolved.jmax)

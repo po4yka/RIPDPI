@@ -2,6 +2,10 @@ package com.poyka.ripdpi.data
 
 import com.google.protobuf.CodedOutputStream
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -9,6 +13,44 @@ import org.junit.Test
 import java.io.ByteArrayOutputStream
 
 class WarpWirePersistenceTest {
+    @Test
+    fun `preset backups preserve canonical enable state through JSON and protobuf`() {
+        val presets = listOf("off", "random", "quic_imitation", "tls_imitation", "dns_imitation", "custom")
+        for (preset in presets) {
+            for (enabled in listOf(false, true)) {
+                val expected = enabled && preset !in setOf("off", "random")
+                val restored =
+                    appSettingsFromJson(
+                        """
+                        {
+                          "warpAmneziaWireProfile":"awg-3.1-ranges-v1",
+                          "warpAmneziaPreset":"$preset", "warpAmneziaEnabled":$enabled,
+                          "warpAmneziaH1":"1", "warpAmneziaH2":"2",
+                          "warpAmneziaH3":"3", "warpAmneziaH4":"4",
+                          "warpAmneziaI1":"<b 0xaabb>"
+                        }
+                        """.trimIndent(),
+                    )
+                val protobuf = AppSettings.parseFrom(restored.toByteArray())
+                val roundTrip = appSettingsFromJson(protobuf.toJson())
+                val exported =
+                    Json.parseToJsonElement(
+                        protobuf
+                            .toBuilder()
+                            .setWarpAmneziaEnabled(enabled)
+                            .build()
+                            .toJson(),
+                    )
+
+                assertEquals("$preset/$enabled", expected, restored.warpAmneziaEnabled)
+                assertEquals(expected, protobuf.toWarpSettingsModel().amnezia.enabled)
+                assertEquals(expected, roundTrip.warpAmneziaEnabled)
+                assertEquals(expected, exported.jsonObject["warpAmneziaEnabled"]?.jsonPrimitive?.boolean ?: false)
+                assertEquals(protobuf.toWarpSettingsModel().amnezia, roundTrip.toWarpSettingsModel().amnezia)
+            }
+        }
+    }
+
     @Test
     fun `untouched disabled settings remain off through JSON backup`() {
         for (stored in listOf(

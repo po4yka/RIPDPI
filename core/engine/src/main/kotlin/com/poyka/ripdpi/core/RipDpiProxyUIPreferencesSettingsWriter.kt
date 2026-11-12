@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.normalizeRelayXhttpMode
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import com.poyka.ripdpi.proto.AppSettings
 
@@ -247,6 +248,7 @@ private fun AppSettings.Builder.applyWarpPreferences(preferences: RipDpiProxyUIP
     setWarpAmneziaS2(warp.amnezia.s2)
     setWarpAmneziaS3(warp.amnezia.s3)
     setWarpAmneziaS4(warp.amnezia.s4)
+    setWarpAmneziaEnabled(build().toWarpSettingsModel().amnezia.enabled)
 }
 
 private fun AppSettings.Builder.applyRuntimePreferences(preferences: RipDpiProxyUIPreferences) {

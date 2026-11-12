@@ -6,6 +6,30 @@ import org.junit.Test
 
 class WarpSettingsNormalizationTest {
     @Test
+    fun `preset enable state respects explicit disable and fixed disabled modes`() {
+        val presets =
+            listOf(
+                "off",
+                "random",
+                "quic_imitation",
+                "tls_imitation",
+                "dns_imitation",
+                "custom",
+                "balanced",
+                "aggressive",
+            )
+        for (preset in presets) {
+            for (enabled in listOf(false, true)) {
+                val raw = WarpAmneziaSettings(enabled = enabled, i1 = "<b 0xaabb>")
+                val resolved = resolveWarpAmneziaProfile(preset, raw).settings
+
+                assertEquals("$preset/$enabled", enabled && preset !in setOf("off", "random"), resolved.enabled)
+                assertEquals(if (preset == "custom") raw.i1 else "", resolved.i1)
+            }
+        }
+    }
+
+    @Test
     fun `invalid custom settings are refused without replacing their wire parameters`() {
         listOf(
             WarpAmneziaSettings(jc = Int.MAX_VALUE),
