@@ -163,6 +163,32 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
         }
 
     @Test
+    fun `Tor rejects incomplete Snowflake rendezvous before runtime setup`() =
+        runTest {
+            val resolver = resolver()
+            listOf("", "url=broker.example", "url=https://broker.example/ sqscreds=opaque").forEach { options ->
+                val failure =
+                    runCatching {
+                        resolver.resolve(
+                            config =
+                                RipDpiRelayConfig(
+                                    enabled = true,
+                                    kind = RelayKindTor,
+                                    profileId = "tor-profile",
+                                    ptBridgeLine = "snowflake - 0BAC39417268B96B9F514E7F63FA6FBA1A788955 $options",
+                                ),
+                            inputs = testRelayResolutionInputs(),
+                            expectedSelection =
+                                com.poyka.ripdpi.data
+                                    .RuntimeConfigurationSelection("native"),
+                        )
+                    }.exceptionOrNull()
+                assertTrue(options, failure is IllegalArgumentException)
+                assertEquals("Tor relay backend requires a valid managed-transport bridge line", failure?.message)
+            }
+        }
+
+    @Test
     fun `resolve tor family emits state directories bridge lines and managed pt binaries`() =
         runTest {
             val cert = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMw"
@@ -171,7 +197,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             val bridgeLines =
                 listOf(
                     bridgeLine,
-                    "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955",
+                    "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=https://broker.example/",
                     "Bridge webtunnel 192.0.2.2:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 " +
                         "url=https://bridge.example/connect",
                 )

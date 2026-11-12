@@ -13,6 +13,9 @@ class ConnectionTorValidationTest {
         assertEquals("required", validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
         listOf(
             "Bridge 192.0.2.1:443",
+            "snowflake - 0BAC39417268B96B9F514E7F63FA6FBA1A788955",
+            "snowflake - 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=broker.example",
+            "snowflake - 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=https://broker.example/ sqscreds=opaque",
             "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=invalid iat-mode=0",
             "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=$cert",
             "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=$cert iat-mode=3",
@@ -27,7 +30,7 @@ class ConnectionTorValidationTest {
         }
         listOf(
             "obfs4 192.0.2.1:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 cert=$cert iat-mode=0",
-            "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955",
+            "Bridge snowflake 192.0.2.1:80 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=https://broker.example/",
             "webtunnel [2001:db8::1]:443 0BAC39417268B96B9F514E7F63FA6FBA1A788955 url=https://bridge.example/secret",
         ).forEach { line ->
             assertNull(line, validateConfigDraft(draft.copy(relayPtBridgeLine = line))[ConnectionFieldRelayCredentials])

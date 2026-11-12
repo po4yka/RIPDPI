@@ -44,8 +44,42 @@ private fun validTorTransportOptions(
     when (transport) {
         RelayKindObfs4 -> validObfs4Certificate(values["cert"]) && values["iat-mode"] in setOf("0", "1", "2")
         RelayKindWebTunnel -> validTorWebTunnelUrl(values["url"])
-        else -> true // Snowflake supplies defaults for omitted transport options.
+        RelayKindSnowflake -> validSnowflakeRendezvous(values)
+        else -> false
     }
+
+private fun validSnowflakeRendezvous(values: Map<String, String>): Boolean {
+    val queue = values["sqsqueue"]
+    return if (queue != null) {
+        val url = torRendezvousUrl(queue) ?: return false
+        // Snowflake 2.15.3 extracts the AWS region from this hostname and exits if it does not match.
+        val supportedHost = Regex("sqs\\.[\\w-]+\\.amazonaws\\.com").matches(url.host)
+        supportedHost && "sqscreds" in values && "url" !in values && "ampcache" !in values
+    } else {
+        val broker = torRendezvousUrl(values["url"]) ?: return false
+        val cacheValid = values["ampcache"]?.let { validSnowflakeAmpCache(broker, it) } ?: true
+        cacheValid && "sqscreds" !in values
+    }
+}
+
+private fun validSnowflakeAmpCache(
+    broker: URI,
+    rawCacheUrl: String,
+): Boolean {
+    val cache = torRendezvousUrl(rawCacheUrl) ?: return false
+    val defaultPort = if (broker.scheme.equals("https", ignoreCase = true)) "443" else "80"
+    // AMP encoding accepts only the exact default publisher port, and no publisher userinfo.
+    val publisherValid =
+        broker.rawUserInfo == null && (broker.port == -1 || broker.rawAuthority.endsWith(":$defaultPort"))
+    return publisherValid && cache.rawQuery.isNullOrEmpty() && cache.rawFragment.isNullOrEmpty()
+}
+
+private fun torRendezvousUrl(rawUrl: String?): URI? {
+    val url = runCatching { URI(rawUrl.orEmpty()) }.getOrNull() ?: return null
+    val schemeValid = url.scheme.equals("http", ignoreCase = true) || url.scheme.equals("https", ignoreCase = true)
+    val portValid = url.port == -1 || url.port in 1..TorBridgeMaxPort
+    return url.takeIf { schemeValid && !url.host.isNullOrBlank() && portValid }
+}
 
 private fun validObfs4Certificate(encoded: String?): Boolean {
     if (encoded == null) return false
