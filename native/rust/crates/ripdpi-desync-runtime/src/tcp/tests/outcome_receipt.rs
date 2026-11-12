@@ -1589,7 +1589,9 @@ fn ttl_less_disorder_reports_the_degraded_family() {
         (vec![disorder.clone()], TcpStrategyFamily::Split),
         (vec![disoob], TcpStrategyFamily::OutOfBand),
         // The fake step routes the plan through the plan executor.
-        (vec![disorder, fake], TcpStrategyFamily::Split),
+        (vec![disorder.clone(), fake], TcpStrategyFamily::Split),
+        // A disorder step after another primary step is degraded as well.
+        (vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(1)), disorder], TcpStrategyFamily::Split),
     ];
     for (chain, expected) in cases {
         let mut group = test_group();

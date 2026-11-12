@@ -175,11 +175,14 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         )
                     })?;
                     let bytes_committed = outcome.bytes_committed;
-                    // Without a TTL change the disorder chunk left with the default
-                    // TTL, so report the family that actually ran.
-                    let ttl_less = effective_family.and_then(ttl_less_family).filter(|_| outcome.ttl_unavailable);
-                    let used_family_fallback = used_family_fallback || ttl_less.is_some();
-                    let effective_family = ttl_less.or(effective_family);
+                    // A disorder chunk that left with the default TTL was a plain
+                    // write, so report the family that actually ran.
+                    let used_family_fallback = used_family_fallback || outcome.disorder_ttl_skipped;
+                    let effective_family = if outcome.disorder_ttl_skipped {
+                        effective_family.map(|family| ttl_less_family(family).unwrap_or(family))
+                    } else {
+                        effective_family
+                    };
                     Ok(OutboundSendOutcome {
                         bytes_committed,
                         strategy_family: effective_family,

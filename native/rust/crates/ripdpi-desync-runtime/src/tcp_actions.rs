@@ -54,8 +54,8 @@ pub(crate) fn execute_tcp_actions(
 
 pub(crate) struct TcpActionsOutcome {
     pub(crate) bytes_committed: usize,
-    /// A `SetTtl` action was planned but this connection could not change the TTL.
-    pub(crate) ttl_unavailable: bool,
+    /// A disorder or disoob chunk left with the default TTL.
+    pub(crate) disorder_ttl_skipped: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -229,9 +229,8 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
     // subsequent connections skip TTL actions immediately.
     lowering_caps.persist(session_ttl_unavailable);
 
-    let ttl_unavailable = lowering_caps.ttl_actions_unavailable()
-        && actions.iter().any(|action| matches!(action, DesyncAction::SetTtl(_)));
-    result.map(|bytes_committed| TcpActionsOutcome { bytes_committed, ttl_unavailable }).map_err(|err| {
+    let disorder_ttl_skipped = lowering_caps.disorder_ttl_skipped();
+    result.map(|bytes_committed| TcpActionsOutcome { bytes_committed, disorder_ttl_skipped }).map_err(|err| {
         let terminal_reason = match &err {
             OutboundSendError::Transport { .. } => TcpTerminalReason::Transport,
             OutboundSendError::StrategyExecution { .. } => TcpTerminalReason::StrategyExecution,

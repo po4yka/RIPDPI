@@ -1,5 +1,7 @@
 use std::net::TcpStream;
 
+use ripdpi_desync::DISORDER_TTL;
+
 use super::accounting::{ActionContext, FallbackAccounting};
 
 use crate::strategy_family::{restore_ttl_action_name, set_ttl_action_name, write_action_name};
@@ -38,6 +40,9 @@ impl TtlOobActionExecutor {
             accounting.fallback(),
             accounting.bytes_committed(),
         )?;
+        if !should_restore_ttl {
+            lowering_caps.mark_disorder_ttl_skipped();
+        }
         *ttl_modified = should_restore_ttl;
         accounting.set_bytes_committed(committed);
         Ok(true)
@@ -67,6 +72,9 @@ impl TtlOobActionExecutor {
                     accounting.fallback(),
                     accounting.bytes_committed(),
                 )?;
+                if !should_restore_ttl {
+                    lowering_caps.mark_disorder_ttl_skipped();
+                }
                 *ttl_modified = should_restore_ttl;
                 accounting.set_bytes_committed(committed);
             } else {
@@ -105,6 +113,8 @@ impl TtlOobActionExecutor {
             accounting.bytes_committed(),
         )? {
             *ttl_modified = true;
+        } else if ttl == DISORDER_TTL {
+            lowering_caps.mark_disorder_ttl_skipped();
         }
         Ok(())
     }

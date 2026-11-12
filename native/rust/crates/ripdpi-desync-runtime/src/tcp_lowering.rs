@@ -20,6 +20,8 @@ pub(crate) enum TcpTtlCapabilityState {
 pub(crate) struct TcpLoweringCapabilities {
     pub(crate) restore_ttl: u8,
     ttl_write: TcpTtlCapabilityState,
+    /// A disorder or disoob chunk left with the default TTL.
+    disorder_ttl_skipped: bool,
 }
 
 impl TcpLoweringCapabilities {
@@ -37,7 +39,7 @@ impl TcpLoweringCapabilities {
         } else {
             TcpTtlCapabilityState::Unknown
         };
-        Self { restore_ttl, ttl_write }
+        Self { restore_ttl, ttl_write, disorder_ttl_skipped: false }
     }
 
     pub(crate) fn persist(self, session_ttl_unavailable: &AtomicBool) {
@@ -47,6 +49,14 @@ impl TcpLoweringCapabilities {
             // eventual visibility without synchronization overhead.
             session_ttl_unavailable.store(true, Ordering::Relaxed);
         }
+    }
+
+    pub(crate) fn mark_disorder_ttl_skipped(&mut self) {
+        self.disorder_ttl_skipped = true;
+    }
+
+    pub(crate) fn disorder_ttl_skipped(self) -> bool {
+        self.disorder_ttl_skipped
     }
 
     pub(crate) fn ttl_actions_unavailable(self) -> bool {
@@ -256,7 +266,12 @@ mod tests {
     #[test]
     fn persist_carries_discovered_unavailability_to_session() {
         let session = AtomicBool::new(false);
-        TcpLoweringCapabilities { restore_ttl: 64, ttl_write: TcpTtlCapabilityState::Unavailable }.persist(&session);
+        TcpLoweringCapabilities {
+            restore_ttl: 64,
+            ttl_write: TcpTtlCapabilityState::Unavailable,
+            disorder_ttl_skipped: false,
+        }
+        .persist(&session);
 
         assert!(session.load(Ordering::Relaxed));
     }
@@ -264,7 +279,11 @@ mod tests {
     #[test]
     fn set_ttl_named_skips_when_marked_unavailable() {
         let (client, _server) = connected_pair();
-        let mut caps = TcpLoweringCapabilities { restore_ttl: 64, ttl_write: TcpTtlCapabilityState::Unavailable };
+        let mut caps = TcpLoweringCapabilities {
+            restore_ttl: 64,
+            ttl_write: TcpTtlCapabilityState::Unavailable,
+            disorder_ttl_skipped: false,
+        };
 
         assert!(!caps.set_ttl_named(&client, 42, "set_ttl", "disorder", None, 0).unwrap());
     }
@@ -272,7 +291,11 @@ mod tests {
     #[test]
     fn restore_ttl_named_skips_when_marked_unavailable() {
         let (client, _server) = connected_pair();
-        let mut caps = TcpLoweringCapabilities { restore_ttl: 64, ttl_write: TcpTtlCapabilityState::Unavailable };
+        let mut caps = TcpLoweringCapabilities {
+            restore_ttl: 64,
+            ttl_write: TcpTtlCapabilityState::Unavailable,
+            disorder_ttl_skipped: false,
+        };
 
         assert!(!caps.restore_default_ttl_named(&client, 42, "restore_default_ttl", "disorder", None, 0).unwrap());
     }

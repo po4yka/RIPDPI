@@ -141,6 +141,9 @@ pub(crate) fn execute_ttl_sensitive_tcp_step(
                 step_fallback,
                 bytes_committed,
             )?;
+            if !should_restore_ttl {
+                ctx.lowering.mark_disorder_ttl_skipped();
+            }
             // The kernel reads the TTL when it transmits the segment, so keep it
             // lowered until the chunk has left the send queue.
             await_writable_action_named(
@@ -185,6 +188,9 @@ pub(crate) fn execute_ttl_sensitive_tcp_step(
                 step_fallback,
                 bytes_committed,
             )?;
+            if !should_restore_ttl {
+                ctx.lowering.mark_disorder_ttl_skipped();
+            }
             await_writable_action_named(
                 ctx.writer,
                 ctx.config.timeouts.wait_send,

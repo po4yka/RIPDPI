@@ -108,15 +108,10 @@ pub(crate) fn execute_tcp_plan(
     // subsequent connections skip TTL actions immediately.
     lowering_caps.persist(session_ttl_unavailable);
     let mut outcome = result?;
-    // Without a TTL change the disorder chunk left with the default TTL, so
+    // A disorder chunk that left with the default TTL was a plain write, so
     // report the family that actually ran.
-    let has_disorder_step =
-        plan.steps.iter().any(|step| matches!(step.kind, TcpChainStepKind::Disorder | TcpChainStepKind::Disoob));
-    if has_disorder_step
-        && lowering_caps.ttl_actions_unavailable()
-        && let Some(family) = outcome.effective_family.and_then(ttl_less_family)
-    {
-        outcome.effective_family = Some(family);
+    if lowering_caps.disorder_ttl_skipped() {
+        outcome.effective_family = outcome.effective_family.map(|family| ttl_less_family(family).unwrap_or(family));
         outcome.used_family_fallback = true;
     }
     Ok(outcome)
