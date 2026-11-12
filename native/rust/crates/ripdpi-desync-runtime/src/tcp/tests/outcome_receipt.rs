@@ -18,12 +18,15 @@ enum FaultSpec {
     WaitStage(io::ErrorKind),
     OrderedSegments(io::ErrorKind),
     OrderedSegmentsAfterPartialGenuine,
+    FakeSendAfterPrefix(usize),
+    OrderedAfterPrefix(usize),
 }
 
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
 
 #[derive(Default)]
 struct ReceiptTestPlatform {
+    raw_unavailable: bool,
     faults: FaultQueue,
     require_disorder_raw_original: bool,
     /// The socket TTL seen by each fake RST send.
@@ -42,7 +45,7 @@ impl TcpPlatformCapabilities for ReceiptTestPlatform {
     }
 
     fn seqovl_supported(&self) -> bool {
-        false
+        !self.raw_unavailable
     }
 
     fn supports_fake_retransmit(&self) -> bool {
@@ -106,6 +109,15 @@ impl TcpFakeSender for ReceiptTestPlatform {
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
         _wait: TcpStageWait,
     ) -> io::Result<()> {
+        let mut faults = self.faults.lock().expect("receipt fault queue");
+        if let Some(FaultSpec::FakeSendAfterPrefix(len)) = faults.front() {
+            let len = *len;
+            faults.pop_front();
+            drop(faults);
+            (&*stream).write_all(&original_prefix[..len.min(original_prefix.len())])?;
+            return Err(io::Error::from_raw_os_error(libc::EPERM));
+        }
+        drop(faults);
         if self.require_disorder_raw_original {
             if options.require_raw_path || options.force_raw_original != (ttl == 1) {
                 return Err(io::Error::new(io::ErrorKind::InvalidData, "incorrect disorder original transport"));
@@ -144,6 +156,14 @@ impl TcpPayloadSender for ReceiptTestPlatform {
             let mut stream = stream;
             stream.write_all(&genuine.payload[..3])?;
             return Err(io::Error::other(io::Error::from(io::ErrorKind::WouldBlock)));
+        }
+        if let Some(FaultSpec::OrderedAfterPrefix(len)) = faults.front() {
+            let len = *len;
+            faults.pop_front();
+            drop(faults);
+            let real = segments.iter().find(|segment| !segment.use_fake_timestamp).expect("genuine segment");
+            (&*stream).write_all(&real.payload[..len.min(real.payload.len())])?;
+            return Err(io::Error::from_raw_os_error(libc::EPERM));
         }
         drop(faults);
         // Like the raw sender, only genuine bytes take stream sequence space.
@@ -1242,7 +1262,7 @@ fn fake_disorder_ttl_lowering_records_effective_fake_split_family() {
         Some(8),
         AdaptivePlannerHints::default(),
     );
-    let unavailable = default_ttl_unavailable();
+    let unavailable = AtomicBool::new(true);
 
     let outcome = send_prepared_with_group(
         &mut client,
@@ -1462,8 +1482,7 @@ fn send_http_hostfake_chain(
         None,
         &default_ttl_unavailable(),
         None,
-    )
-    .expect("hostfake send");
+    );
     drop(client);
     let mut received = Vec::new();
     server.read_to_end(&mut received).expect("read relayed payload");
@@ -1497,12 +1516,7 @@ fn hostfake_decoys_differ_between_sends_of_the_same_round() {
 
 #[test]
 fn hostfake_without_the_raw_path_sends_the_host_as_a_plain_split() {
-    let platform = ReceiptTestPlatform::default();
-    platform
-        .faults
-        .lock()
-        .expect("receipt fault queue")
-        .push_back(FaultSpec::OrderedSegments(io::ErrorKind::PermissionDenied));
+    let platform = ReceiptTestPlatform { raw_unavailable: true, ..Default::default() };
 
     let (received, outcome) = send_http_hostfake(&platform);
 
@@ -1538,3 +1552,102 @@ fn hostfake_raw_refusal_keeps_later_steps_and_suffix() {
 
 mod hostfake_late_error;
 mod hostfake_terminal_noop;
+
+#[test]
+fn opaque_fake_and_ordered_failures_mark_payload_commit_as_uncertain() {
+    let (client, _peer) = connected_pair();
+    let platform = ReceiptTestPlatform::default();
+    let fake_error = crate::platform::with_tcp_desync_platform(&platform, || {
+        crate::transport_io::send_fake_tcp_action_named(
+            &client,
+            b"real",
+            b"fake",
+            1,
+            false,
+            64,
+            FakeTcpOptions::default(),
+            None,
+            (false, Duration::ZERO),
+            "send_fake",
+            "fake",
+            None,
+            0,
+        )
+        .expect_err("opaque fake operation fails")
+    });
+    assert_eq!(fake_error.bytes_committed(), 0);
+    assert!(fake_error.payload_commit_uncertain());
+
+    platform.faults.lock().expect("fault queue").push_back(FaultSpec::OrderedSegments(io::ErrorKind::PermissionDenied));
+    let ordered_error = crate::platform::with_tcp_desync_platform(&platform, || {
+        crate::transport_io::send_ordered_fake_segments_action_named(
+            &client,
+            &[],
+            4,
+            64,
+            None,
+            false,
+            None,
+            None,
+            (false, Duration::ZERO),
+            "send_fake",
+            "fake",
+            None,
+            0,
+        )
+        .expect_err("opaque ordered operation fails")
+    });
+    assert_eq!(ordered_error.bytes_committed(), 0);
+    assert!(ordered_error.payload_commit_uncertain());
+}
+
+#[test]
+fn hostfake_does_not_repeat_a_host_after_an_uncertain_ordered_send() {
+    let platform = ReceiptTestPlatform::default();
+    platform.faults.lock().expect("fault queue").push_back(FaultSpec::OrderedAfterPrefix(3));
+    let (result, received) = send_http_hostfake_result(&platform);
+    let error = result.expect_err("opaque partial host send is terminal");
+    assert!(error.payload_commit_uncertain());
+    assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: you");
+}
+
+#[test]
+fn fake_disorder_does_not_repeat_an_uncertain_first_prefix() {
+    let platform = ReceiptTestPlatform::default();
+    platform.faults.lock().expect("fault queue").push_back(FaultSpec::FakeSendAfterPrefix(3));
+    let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
+    let mut group = test_group();
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, OffsetExpr::host(1)));
+    let (mut client, mut peer) = connected_pair();
+    let progress =
+        OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        Some(8),
+        AdaptivePlannerHints::default(),
+    );
+    let error = send_prepared_with_group(
+        &mut client,
+        &platform,
+        &RuntimeConfig::default(),
+        &group,
+        payload,
+        progress,
+        context,
+        Some(8),
+        None,
+        &default_ttl_unavailable(),
+        None,
+    )
+    .expect_err("partial opaque send");
+    assert!(error.payload_commit_uncertain());
+    assert_eq!(error.bytes_committed(), 0);
+    drop(client);
+    let mut received = Vec::new();
+    peer.read_to_end(&mut received).expect("read committed prefix");
+    assert_eq!(received, b"GET");
+}

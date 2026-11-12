@@ -101,6 +101,7 @@ mod tests {
             strategy_family: "disorder",
             fallback: Some("split"),
             bytes_committed: 0,
+            payload_commit_uncertain: false,
             source_errno: Some(libc::EINVAL),
             execution_receipt: test_strategy_execution_receipt("disorder", 0),
             source: io::Error::from_raw_os_error(libc::EINVAL),
@@ -119,6 +120,7 @@ mod tests {
             strategy_family: "split",
             fallback: None,
             bytes_committed: 0,
+            payload_commit_uncertain: false,
             source_errno: None,
             execution_receipt: test_strategy_execution_receipt("split", 0),
             source: io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
@@ -137,6 +139,7 @@ mod tests {
             strategy_family: "disorder",
             fallback: Some("split"),
             bytes_committed: 0,
+            payload_commit_uncertain: false,
             source_errno: Some(libc::EROFS),
             execution_receipt: test_strategy_execution_receipt("disorder", 0),
             source: io::Error::from_raw_os_error(libc::EROFS),
@@ -154,6 +157,7 @@ mod tests {
             strategy_family: "split",
             fallback: None,
             bytes_committed: 0,
+            payload_commit_uncertain: false,
             source_errno: Some(libc::EROFS),
             execution_receipt: test_strategy_execution_receipt("split", 0),
             source: io::Error::from_raw_os_error(libc::EROFS),
@@ -172,6 +176,7 @@ mod tests {
             strategy_family: "split",
             fallback: None,
             bytes_committed: 3,
+            payload_commit_uncertain: false,
             source_errno: Some(libc::EROFS),
             execution_receipt: test_strategy_execution_receipt("split", 3),
             source: io::Error::from_raw_os_error(libc::EROFS),
@@ -180,6 +185,25 @@ mod tests {
         assert_eq!(failure.class, RuntimeFailureClass::StrategyExecutionFailure);
         assert_eq!(failure.action, RuntimeFailureAction::SurfaceOnly);
         assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=3"));
+    }
+
+    #[test]
+    fn uncertain_fake_commit_disables_replay_without_changing_exact_bytes() {
+        let error = super::super::desync::OutboundSendError::StrategyExecution {
+            action: "send_fake",
+            strategy_family: "fake",
+            fallback: None,
+            bytes_committed: 0,
+            payload_commit_uncertain: true,
+            source_errno: Some(libc::EPERM),
+            execution_receipt: test_strategy_execution_receipt("fake", 0),
+            source: io::Error::from_raw_os_error(libc::EPERM),
+        };
+        let failure = classify_first_write_failure(&error);
+        assert_eq!(failure.action, RuntimeFailureAction::SurfaceOnly);
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=0"));
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "payloadCommitUncertain=true"));
+        assert_eq!(error.bytes_committed(), 0);
     }
 
     fn test_strategy_execution_receipt(

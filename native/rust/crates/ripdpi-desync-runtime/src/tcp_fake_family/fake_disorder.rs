@@ -184,14 +184,15 @@ fn send_first_disorder_segment(
     bytes_committed: usize,
     opts: FakeStepOptions,
 ) -> Result<(usize, bool), OutboundSendError> {
+    let lower_to_fake_split = !probe_disorder_ttl(ctx, step_family, step_fallback, bytes_committed)?;
+    let ttl = if lower_to_fake_split { opts.fake_ttl } else { 1 };
     let mut options = opts.tcp_options(ctx.config.process.protect_path.as_deref(), first_secondary_fake);
-    // Keep the original TTL when another modifier already selects raw transport.
-    options.force_raw_original = true;
-    match send_fake_tcp_action_named(
+    options.force_raw_original = !lower_to_fake_split;
+    send_fake_tcp_action_named(
         ctx.writer,
         chunk,
         first_fake,
-        1,
+        ttl,
         ctx.md5sig,
         ctx.config.network.default_ttl,
         options,
@@ -201,28 +202,51 @@ fn send_first_disorder_segment(
         step_family,
         step_fallback,
         bytes_committed,
-    ) {
-        Ok(bytes_committed) => Ok((bytes_committed, false)),
-        Err(err) if should_ignore_android_ttl_error(err.source_error()) => {
-            log_android_desync_fallback("send_fake_fakeddisorder", "fakedsplit", &err);
-            send_fake_tcp_action_named(
-                ctx.writer,
-                chunk,
-                first_fake,
-                opts.fake_ttl,
-                ctx.md5sig,
-                ctx.config.network.default_ttl,
-                opts.tcp_options(ctx.config.process.protect_path.as_deref(), first_secondary_fake),
-                ctx.group.actions.ip_id_mode,
-                opts.wait,
-                "send_fake_fakeddisorder",
+    )
+    .map(|committed| (committed, lower_to_fake_split))
+}
+
+fn probe_disorder_ttl(
+    ctx: &mut TcpFakeFamilyExecContext<'_>,
+    step_family: &'static str,
+    step_fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<bool, OutboundSendError> {
+    if ctx.lowering.ttl_actions_unavailable() {
+        return Ok(false);
+    }
+    let probe = set_stream_ttl(ctx.writer, 1);
+    if let Err(source) = set_stream_ttl(ctx.writer, ctx.lowering.restore_ttl) {
+        // A socket with an unrestored TTL must not carry later real writes.
+        let _ = ctx.writer.shutdown(std::net::Shutdown::Both);
+        return Err(strategy_execution_error(
+            "restore_default_ttl_fakeddisorder",
+            step_family,
+            step_fallback,
+            bytes_committed,
+            source,
+        ));
+    }
+    match probe {
+        Ok(()) => Ok(true),
+        Err(source) if should_ignore_android_ttl_error(&source) => {
+            let error = strategy_execution_error(
+                "probe_ttl_fakeddisorder",
                 step_family,
                 step_fallback,
                 bytes_committed,
-            )
-            .map(|bytes_committed| (bytes_committed, true))
+                source,
+            );
+            log_android_desync_fallback("probe_ttl_fakeddisorder", "fakedsplit", &error);
+            Ok(false)
         }
-        Err(err) => Err(err),
+        Err(source) => Err(strategy_execution_error(
+            "probe_ttl_fakeddisorder",
+            step_family,
+            step_fallback,
+            bytes_committed,
+            source,
+        )),
     }
 }
 

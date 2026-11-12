@@ -438,6 +438,7 @@ pub enum OutboundSendError {
         strategy_family: &'static str,
         fallback: Option<&'static str>,
         bytes_committed: usize,
+        payload_commit_uncertain: bool,
         source_errno: Option<i32>,
         execution_receipt: Box<TcpExecutionReceipt>,
         source: io::Error,
@@ -475,6 +476,7 @@ impl OutboundSendError {
                 strategy_family,
                 fallback,
                 bytes_committed,
+                payload_commit_uncertain,
                 source_errno,
                 source,
                 ..
@@ -483,6 +485,7 @@ impl OutboundSendError {
                 strategy_family,
                 fallback,
                 bytes_committed,
+                payload_commit_uncertain,
                 source_errno,
                 execution_receipt: Box::new(execution_receipt),
                 source,
@@ -500,6 +503,18 @@ impl OutboundSendError {
         }
     }
 
+    /// True when an opaque send may have emitted payload beyond the exact counter.
+    pub fn payload_commit_uncertain(&self) -> bool {
+        matches!(self, Self::StrategyExecution { payload_commit_uncertain: true, .. })
+    }
+
+    pub(crate) fn with_possible_payload_commit(mut self) -> Self {
+        if let Self::StrategyExecution { payload_commit_uncertain, .. } = &mut self {
+            *payload_commit_uncertain = true;
+        }
+        self
+    }
+
     pub fn bytes_committed(&self) -> usize {
         match self {
             Self::Transport { execution_receipt, .. } => {
@@ -514,11 +529,22 @@ impl std::fmt::Display for OutboundSendError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Transport { source, .. } => source.fmt(formatter),
-            Self::StrategyExecution { action, strategy_family, fallback, bytes_committed, source, .. } => {
+            Self::StrategyExecution {
+                action,
+                strategy_family,
+                fallback,
+                bytes_committed,
+                payload_commit_uncertain,
+                source,
+                ..
+            } => {
                 write!(
                     formatter,
                     "desync action={action} strategy_family={strategy_family} bytes_committed={bytes_committed}"
                 )?;
+                if *payload_commit_uncertain {
+                    write!(formatter, " payload_commit_uncertain=true")?;
+                }
                 if let Some(fallback) = fallback {
                     write!(formatter, " fallback={fallback}")?;
                 }

@@ -64,7 +64,10 @@ impl RuntimeState {
                 if let Some(fallback_family) = fallback {
                     failure = failure.with_tag("fallback", (*fallback_family).to_string());
                 }
-                if *bytes_committed > 0 {
+                if error.payload_commit_uncertain() {
+                    failure = failure.with_tag("payloadCommitUncertain", "true");
+                }
+                if *bytes_committed > 0 || error.payload_commit_uncertain() {
                     failure.action = RuntimeFailureAction::SurfaceOnly;
                 }
                 failure

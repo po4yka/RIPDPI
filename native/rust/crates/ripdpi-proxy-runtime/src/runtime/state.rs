@@ -545,6 +545,7 @@ mod state_coverage_tests {
             strategy_family: "tls_record_split",
             fallback: None,
             bytes_committed: 37,
+            payload_commit_uncertain: false,
             source_errno: None,
             execution_receipt: test_strategy_execution_receipt("tls_record_split", 37),
             source: io::Error::new(io::ErrorKind::BrokenPipe, "partial write"),

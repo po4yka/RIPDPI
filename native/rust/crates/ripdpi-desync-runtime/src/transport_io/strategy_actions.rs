@@ -136,6 +136,7 @@ pub(crate) fn send_fake_tcp_action_named(
         fallback,
         bytes_committed,
     )
+    .map_err(OutboundSendError::with_possible_payload_commit)
     .map(|()| bytes_committed + original_prefix.len())
 }
 
@@ -172,6 +173,7 @@ pub(crate) fn send_ordered_fake_segments_action_named(
         fallback,
         bytes_committed,
     )
+    .map_err(OutboundSendError::with_possible_payload_commit)
     .map(|()| bytes_committed + original_payload_len)
 }
 

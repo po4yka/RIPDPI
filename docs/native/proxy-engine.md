@@ -274,6 +274,16 @@ Equivalent JSON fragment:
 }
 ```
 
+### Fake send failures and replay
+
+Opaque fake and ordered sends report uncertain payload commitment separately
+from the exact byte count. The runtime does not replay a request after this
+outcome, even when a pre-emission failure is possible. Raw-to-stream downgrade
+is allowed only before raw emission starts. HostFake checks raw capability
+before its plain split fallback. FakeDisorder probes TTL one and restores the
+real TTL before it enters the opaque sender; later send errors cannot trigger
+a second send of the prefix.
+
 ### Fake ordering variants
 
 Fake-family TCP steps also support zapret-style ordering control for how fake and genuine spans are emitted on a single outbound write.

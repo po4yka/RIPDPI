@@ -14,6 +14,7 @@ pub(crate) fn strategy_execution_error(
         strategy_family,
         fallback,
         bytes_committed,
+        payload_commit_uncertain: false,
         source_errno: source.raw_os_error(),
         execution_receipt: Box::new(TcpExecutionReceipt::failed_strategy_execution(
             Some(strategy_family),

@@ -14,8 +14,10 @@ use self::construction::HostFakePayload;
 use self::emission_order::{build_custom_ordered_segments, build_default_ordered_segments, needs_custom_ordering};
 use self::privileged_send::send_hostfake_ordered_segments;
 use self::real_write::{write_hostfake_payload, write_hostfake_payload_with_optional_flags};
+use crate::platform;
 use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_plan::flags::{step_fake_tcp_flags, step_original_tcp_flags};
+use crate::transport_io::strategy_execution_error;
 use crate::types::OutboundSendError;
 
 pub(crate) struct TcpHostFakeExecContext<'a> {
@@ -52,6 +54,17 @@ pub(crate) fn execute_tcp_hostfake_step(
         return Ok((bytes_committed, TcpStepControl::ContinueAtWithFallback(end, Some("split"))));
     };
 
+    let raw_available = platform::seqovl_supported();
+    let original_flags = step_original_tcp_flags(configured_step);
+    if !raw_available && !original_flags.is_empty() {
+        return Err(strategy_execution_error(
+            "send_fake_hostfake",
+            step_family,
+            step_fallback,
+            bytes_committed,
+            io::Error::new(io::ErrorKind::Unsupported, "original TCP flags require the raw path"),
+        ));
+    }
     let mut bytes_committed = bytes_committed;
     if start < span.host_start {
         bytes_committed = write_hostfake_payload(
@@ -67,7 +80,6 @@ pub(crate) fn execute_tcp_hostfake_step(
     let host_payload = HostFakePayload::new(configured_step, &ctx.plan.tampered, span, ctx.seed)?;
     let fake_ttl = ctx.resolved_fake_ttl.or(ctx.group.actions.ttl).unwrap_or(8);
     let fake_flags = step_fake_tcp_flags(configured_step);
-    let original_flags = step_original_tcp_flags(configured_step);
     let midhost_split = span.midhost.map(|midhost| midhost - span.host_start);
 
     // The fakes must be injected beside the real host without taking sequence
@@ -94,6 +106,20 @@ pub(crate) fn execute_tcp_hostfake_step(
             original_flags,
         )
     };
+    if !raw_available {
+        bytes_committed = write_real_host_parts(
+            ctx,
+            configured_step,
+            span.host_start,
+            span.host_end,
+            span.midhost,
+            step_family,
+            step_fallback,
+            bytes_committed,
+        )?;
+        bytes_committed = write_hostfake_suffix(ctx, span.host_end, end, step_family, step_fallback, bytes_committed)?;
+        return Ok((bytes_committed, TcpStepControl::ContinueAtWithFallback(end, Some("split"))));
+    }
     let mut control = TcpStepControl::ContinueAt(end);
     bytes_committed = match send_hostfake_ordered_segments(
         ctx,
@@ -104,7 +130,7 @@ pub(crate) fn execute_tcp_hostfake_step(
         bytes_committed,
     ) {
         Ok(committed) => committed,
-        Err(error) if should_lower_hostfake_to_split(error.kind()) => {
+        Err(error) if !error.payload_commit_uncertain() && should_lower_hostfake_to_split(error.kind()) => {
             control = TcpStepControl::ContinueAtWithFallback(end, Some("split"));
             tracing::debug!("hostfake raw path unavailable, sending the host as a plain split: {error}");
             write_real_host_parts(

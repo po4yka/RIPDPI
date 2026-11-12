@@ -202,3 +202,18 @@ fn write_strategy_named_error_has_metadata() {
 // ---------------------------------------------------------------
 // execute_tcp_actions tests
 // ---------------------------------------------------------------
+
+#[test]
+fn possible_payload_commit_survives_error_conversions_without_inventing_bytes() {
+    let error = strategy_execution_error("send_fake", "fake", None, 0, io::Error::other("opaque send failure"))
+        .with_possible_payload_commit();
+    let receipt = error.execution_receipt().expect("failure receipt").clone();
+    let error = error.with_execution_receipt(receipt);
+    assert_eq!(error.bytes_committed(), 0);
+    assert!(error.payload_commit_uncertain());
+    let io_error = error.into_io_error();
+    let inner = io_error.get_ref().and_then(|value| value.downcast_ref::<OutboundSendError>()).expect("typed error");
+    assert_eq!(inner.bytes_committed(), 0);
+    assert!(inner.payload_commit_uncertain());
+    assert!(io_error.to_string().contains("payload_commit_uncertain=true"));
+}
