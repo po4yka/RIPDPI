@@ -359,7 +359,7 @@ fn plain_fallback_failures_keep_partial_progress_and_configured_marker() {
     let payload: Vec<u8> = (0..8 * 1024 * 1024).map(|index| (index % 251) as u8).collect();
     for inactive in [false, true] {
         let mut group = test_group();
-        let step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(payload.len() as i64 + 1));
+        let step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(-(payload.len() as i64) - 1));
         group.actions.tcp_chain.push(if inactive {
             step.with_activation_filter(Some(ripdpi_config::ActivationFilter {
                 round: Some(NumericRange::new(2, 2)),
