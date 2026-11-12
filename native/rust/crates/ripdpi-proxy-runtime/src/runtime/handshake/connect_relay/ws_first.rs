@@ -2,9 +2,7 @@ use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 
 use super::super::super::state::RuntimeState;
-use super::super::ws_tunnel::{
-    WsTunnelResult, run_ws_tunnel_prepared, should_ws_tunnel_first, with_dialed_dc_fallback,
-};
+use super::super::ws_tunnel::{WsTunnelResult, run_ws_tunnel_prepared, should_ws_tunnel_first};
 use super::ConnectRelayError;
 use super::reply::SuccessReply;
 
@@ -46,7 +44,6 @@ where
 
     write_success_reply_fn(client, reply, None).map_err(|err| ConnectRelayError::new(err, false))?;
     let result = run_ws_tunnel_fn(client.try_clone().map_err(|err| ConnectRelayError::new(err, true))?, state);
-    let result = with_dialed_dc_fallback(result, client, target, state);
     Ok(Some(always_ws_outcome(result)))
 }
 
@@ -70,8 +67,9 @@ pub(super) fn normal_after_carrier_failure(
         host_hint.as_deref(),
         &SuccessReply::Socks4,
         |client, upstream, buffer_size| {
+            use super::super::ws_tunnel::classify_seed_for_target;
             use crate::runtime::relay::{FirstOutboundRead, read_first_client_payload};
-            use crate::runtime::ws::{WsSeedClassification, runtime_exact_telegram_dc};
+            use crate::runtime::ws::WsSeedClassification;
             let mut watched_upstream = Some(upstream);
             let mut seed = loop {
                 match read_first_client_payload(
@@ -105,11 +103,8 @@ pub(super) fn normal_after_carrier_failure(
                     Err(err) => return Err(err),
                 }
             }
-            let validated_mtproto = match state.classify_mtproto_seed(&seed) {
-                WsSeedClassification::ValidatedMtproto { .. } => true,
-                WsSeedClassification::UnmappableDc { dc: None, .. } => runtime_exact_telegram_dc(target).is_some(),
-                WsSeedClassification::NotMtproto | WsSeedClassification::UnmappableDc { dc: Some(_), .. } => false,
-            };
+            let validated_mtproto =
+                matches!(classify_seed_for_target(&seed, target, state), WsSeedClassification::ValidatedMtproto { .. });
             if validated_mtproto {
                 return Err(carrier_error.into_io_error());
             }

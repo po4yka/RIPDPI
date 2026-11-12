@@ -28,9 +28,10 @@ pub(super) enum WsTunnelResult {
 
 /// Execute the WebSocket tunnel relay after sniffing the first 64 bytes from
 /// the client connection.
-pub(super) fn run_ws_tunnel(client: TcpStream, state: &RuntimeState) -> WsTunnelResult {
+pub(super) fn run_ws_tunnel(client: TcpStream, target: SocketAddr, state: &RuntimeState) -> WsTunnelResult {
     run_ws_tunnel_with(
         client,
+        target,
         state,
         read_mtproto_seed,
         RuntimeState::resolve_ws_tunnel_addr,
@@ -51,19 +52,13 @@ pub(super) fn run_ws_tunnel_prepared(
         Ok(seed) => seed,
         Err(error) => return WsTunnelResult::ShortInit { seed_request: error.seed_request, error: error.error },
     };
-    let dc = match state.classify_mtproto_seed(&seed_request) {
+    let dc = match classify_seed_for_target(&seed_request, target, state) {
         WsSeedClassification::ValidatedMtproto { dc } => Some(dc),
-        WsSeedClassification::UnmappableDc { dc: None, .. } => runtime_exact_telegram_dc(target),
-        WsSeedClassification::NotMtproto | WsSeedClassification::UnmappableDc { dc: Some(_), .. } => None,
+        _ => None,
     };
     if dc != Some(provisional_dc) {
         drop(prepared);
-        let fallback_client = match client.try_clone() {
-            Ok(client) => client,
-            Err(error) => return WsTunnelResult::WsOpenOrRelayFailed { dc: provisional_dc, seed_request, error },
-        };
-        let result = run_ws_tunnel_with_seed(client, seed_request, state);
-        return with_dialed_dc_fallback(result, &fallback_client, target, state);
+        return run_ws_tunnel_with_seed(client, target, seed_request, state);
     }
     match prepared.relay(client, seed_request.clone()) {
         Ok(()) => WsTunnelResult::ValidatedMtproto { dc: provisional_dc },
@@ -75,11 +70,13 @@ pub(super) fn run_ws_tunnel_prepared(
 /// the desync pipeline.
 pub(super) fn run_ws_tunnel_with_seed(
     client: TcpStream,
+    target: SocketAddr,
     seed_request: Vec<u8>,
     state: &RuntimeState,
 ) -> WsTunnelResult {
     run_ws_tunnel_with_seed_impl(
         client,
+        target,
         seed_request,
         state,
         RuntimeState::resolve_ws_tunnel_addr,
@@ -89,6 +86,7 @@ pub(super) fn run_ws_tunnel_with_seed(
 
 fn run_ws_tunnel_with<ReadSeed, ResolveAddr, RelayWs>(
     mut client: TcpStream,
+    target: SocketAddr,
     state: &RuntimeState,
     read_seed: ReadSeed,
     resolve_addr: ResolveAddr,
@@ -106,11 +104,12 @@ where
         }
     };
 
-    run_ws_tunnel_with_seed_impl(client, seed_request, state, resolve_addr, relay_ws)
+    run_ws_tunnel_with_seed_impl(client, target, seed_request, state, resolve_addr, relay_ws)
 }
 
 fn run_ws_tunnel_with_seed_impl<ResolveAddr, RelayWs>(
     client: TcpStream,
+    target: SocketAddr,
     seed_request: Vec<u8>,
     state: &RuntimeState,
     resolve_addr: ResolveAddr,
@@ -127,7 +126,7 @@ where
         };
     }
 
-    match state.classify_mtproto_seed(&seed_request[..64]) {
+    match classify_seed_for_target(&seed_request[..64], target, state) {
         WsSeedClassification::NotMtproto => {
             tracing::debug!("WS tunnel skipped: first request is not valid MTProto obfuscated2");
             WsTunnelResult::NotMtproto { seed_request }
@@ -142,56 +141,21 @@ where
     }
 }
 
-/// Retries an init whose DC field is not a valid DC with the DC of the dialed
-/// address, when that address is one of Telegram's exact bootstrap addresses.
-///
-/// The official Android client leaves the whole DC field random on direct
-/// connections, so its init never names a DC; the address it dialed does. Only
-/// the exact address table is used, never a subnet guess. Every other result
-/// is returned unchanged, including a valid media or CDN DC.
-pub(super) fn with_dialed_dc_fallback(
-    result: WsTunnelResult,
-    client: &TcpStream,
+/// Direct clients can leave the DC field random. An exact bootstrap address
+/// is authoritative after the obfuscated2 prefix and transport tag pass.
+/// Unknown addresses keep the explicit DC semantics; subnet guesses are excluded.
+pub(super) fn classify_seed_for_target(
+    seed_request: &[u8],
     target: SocketAddr,
     state: &RuntimeState,
-) -> WsTunnelResult {
-    with_dialed_dc_fallback_impl(
-        result,
-        client,
-        target,
-        state,
-        RuntimeState::resolve_ws_tunnel_addr,
-        RuntimeState::relay_ws_tunnel,
-    )
-}
-
-fn with_dialed_dc_fallback_impl<ResolveAddr, RelayWs>(
-    result: WsTunnelResult,
-    client: &TcpStream,
-    target: SocketAddr,
-    state: &RuntimeState,
-    resolve_addr: ResolveAddr,
-    relay_ws: RelayWs,
-) -> WsTunnelResult
-where
-    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(&RuntimeState, TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
-{
-    let WsTunnelResult::UnmappableDc { raw_dc, dc: None, seed_request } = result else {
-        return result;
-    };
-    let Some(dc) = runtime_exact_telegram_dc(target) else {
-        return WsTunnelResult::UnmappableDc { raw_dc, dc: None, seed_request };
-    };
-    let client = match client.try_clone() {
-        Ok(client) => client,
-        Err(error) => {
-            tracing::warn!("WS tunnel: cannot reuse client for dialed-address DC{}: {error}", dc.number());
-            return WsTunnelResult::UnmappableDc { raw_dc, dc: None, seed_request };
-        }
-    };
-    tracing::info!("WS tunnel: MTProto init names no valid DC, using DC{} of the dialed address", dc.number());
-    open_ws_tunnel_for_dc(client, seed_request, dc, state, resolve_addr, relay_ws)
+) -> WsSeedClassification {
+    let classification = state.classify_mtproto_seed(seed_request);
+    if !matches!(classification, WsSeedClassification::NotMtproto)
+        && let Some(dc) = runtime_exact_telegram_dc(target)
+    {
+        return WsSeedClassification::ValidatedMtproto { dc };
+    }
+    classification
 }
 
 fn open_ws_tunnel_for_dc<ResolveAddr, RelayWs>(
@@ -367,7 +331,17 @@ pub(super) mod tests {
     #[test]
     fn prepared_carrier_reuses_the_socket_for_seed_and_dialed_dc_fallback() {
         use std::io::Write;
-        for seed in [build_test_init_packet(2), build_android_direct_init_packet()] {
+        // Independent OpenSSL AES-256-CTR vectors: key 01..20, IV a1..b0,
+        // zero plaintext with tag eeeeeeee, signed DC, and random tail 9c3f.
+        // Direct clients leave the DC random, including these valid-looking values.
+        for tail in [[0x19, 0xa7], [0xe6, 0x58], [0x0a, 0x80], [0x63, 0x36]] {
+            let mut seed = vec![
+                0xdc, 0x9a, 0x31, 0x46, 0x7e, 0x1d, 0x21, 0x53, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09,
+                0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a,
+                0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab,
+                0xac, 0xad, 0xae, 0xaf, 0xb0, 0x29, 0x92, 0xcf, 0xda, 0, 0, 0x2c, 0xcc,
+            ];
+            seed[60..62].copy_from_slice(&tail);
             let carrier = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
             let ready = TcpStream::connect(carrier.local_addr().unwrap()).unwrap();
             let (mut origin, _) = carrier.accept().unwrap();
@@ -446,6 +420,7 @@ pub(super) mod tests {
 
         let result = run_ws_tunnel_with_seed_impl(
             relay_client,
+            SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request,
             &state,
             |_state, _dc| unreachable!("should not resolve"),
@@ -462,6 +437,7 @@ pub(super) mod tests {
 
         let result = run_ws_tunnel_with_seed_impl(
             relay_client,
+            SocketAddr::from(([127, 0, 0, 1], 443)),
             build_test_init_packet(-3),
             &state,
             |_state, _dc| unreachable!("should not resolve"),
@@ -489,6 +465,7 @@ pub(super) mod tests {
 
         let result = run_ws_tunnel_with_seed_impl(
             relay_client,
+            SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request.clone(),
             &state,
             |_state, dc| {
@@ -519,6 +496,7 @@ pub(super) mod tests {
 
         let result = run_ws_tunnel_with_seed_impl(
             relay_client,
+            SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request.clone(),
             &state,
             |_state, _dc| Err(io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out")),
@@ -544,6 +522,7 @@ pub(super) mod tests {
 
         let result = run_ws_tunnel_with_seed_impl(
             relay_client,
+            SocketAddr::from(([127, 0, 0, 1], 443)),
             seed_request.clone(),
             &state,
             |_state, _dc| Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 443))),
@@ -572,6 +551,7 @@ pub(super) mod tests {
 
         let result = run_ws_tunnel_with(
             relay_client,
+            SocketAddr::from(([127, 0, 0, 1], 443)),
             &state,
             read_mtproto_seed,
             |_state, _dc| unreachable!("should not resolve"),
@@ -587,73 +567,30 @@ pub(super) mod tests {
     }
 
     #[test]
-    fn android_direct_init_uses_dc_of_exact_dialed_address() {
-        let (_app, relay_client) = connected_pair();
+    fn exact_target_wins_over_random_direct_dc_field() {
         let state = runtime_state();
-        let seed_request = build_android_direct_init_packet();
-        let unmappable = run_ws_tunnel_with_seed_impl(
-            relay_client.try_clone().expect("clone relay client"),
-            seed_request.clone(),
-            &state,
-            |_state, _dc| unreachable!("an init without a DC must not resolve"),
-            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
-        );
-        assert!(matches!(unmappable, WsTunnelResult::UnmappableDc { dc: None, .. }));
-
-        let dialed = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 51), 443));
-        let result = with_dialed_dc_fallback_impl(
-            unmappable,
-            &relay_client,
-            dialed,
-            &state,
-            |_state, dc| {
-                assert_eq!(dc, RuntimeTelegramDc::production(2));
-                Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 443)))
-            },
-            |_state, _client, dc, forwarded_seed, _config| {
-                assert_eq!(dc, RuntimeTelegramDc::production(2));
-                assert_eq!(forwarded_seed, seed_request);
-                Ok(())
-            },
-        );
-
-        assert!(matches!(result, WsTunnelResult::ValidatedMtproto { dc } if dc == RuntimeTelegramDc::production(2)));
+        let exact = SocketAddr::from(([149, 154, 167, 51], 443));
+        for raw_dc in [1, -2, 10_002, -28_293] {
+            assert!(matches!(
+                classify_seed_for_target(&build_test_init_packet(raw_dc), exact, &state),
+                WsSeedClassification::ValidatedMtproto { dc } if dc == RuntimeTelegramDc::production(2)
+            ));
+        }
     }
 
     #[test]
-    fn dialed_dc_fallback_never_guesses_from_a_subnet_or_overrides_a_media_dc() {
-        let (_app, relay_client) = connected_pair();
+    fn target_classification_does_not_guess_subnets_or_accept_non_mtproto() {
         let state = runtime_state();
-        let subnet_only = SocketAddr::from((Ipv4Addr::new(149, 154, 165, 10), 443));
-        let unmappable = WsTunnelResult::UnmappableDc {
-            raw_dc: -28_293,
-            dc: None,
-            seed_request: build_android_direct_init_packet(),
-        };
-        let result = with_dialed_dc_fallback_impl(
-            unmappable,
-            &relay_client,
-            subnet_only,
-            &state,
-            |_state, _dc| unreachable!("a subnet guess must not resolve"),
-            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
-        );
-        assert!(matches!(result, WsTunnelResult::UnmappableDc { dc: None, .. }));
-
-        let exact = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 51), 443));
-        let media = WsTunnelResult::UnmappableDc {
-            raw_dc: -2,
-            dc: RuntimeTelegramDc::from_raw(-2),
-            seed_request: build_test_init_packet(-2),
-        };
-        let result = with_dialed_dc_fallback_impl(
-            media,
-            &relay_client,
-            exact,
-            &state,
-            |_state, _dc| unreachable!("a media DC is not retried"),
-            |_state, _client, _dc, _seed_request, _config| unreachable!("should not relay"),
-        );
-        assert!(matches!(result, WsTunnelResult::UnmappableDc { raw_dc: -2, dc: Some(_), .. }));
+        let subnet = SocketAddr::from(([149, 154, 165, 10], 443));
+        let exact = SocketAddr::from(([149, 154, 167, 51], 443));
+        assert!(matches!(
+            classify_seed_for_target(&build_android_direct_init_packet(), subnet, &state),
+            WsSeedClassification::UnmappableDc { dc: None, .. }
+        ));
+        assert!(matches!(
+            classify_seed_for_target(&build_test_init_packet(-2), subnet, &state),
+            WsSeedClassification::UnmappableDc { dc: Some(_), .. }
+        ));
+        assert!(matches!(classify_seed_for_target(&[0; 64], exact, &state), WsSeedClassification::NotMtproto));
     }
 }
