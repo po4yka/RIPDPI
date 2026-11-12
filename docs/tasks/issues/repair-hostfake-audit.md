@@ -2,7 +2,7 @@
 id: RST-1794499062183726
 title: Repair hostfake payload and execution contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: DPI-07 repair team

@@ -17,7 +17,7 @@ Use serialized lanes in docs/tasks/issues/repair-hostfake-audit.md. Parent owns 
 - [x] RST-1794499246094525 Align native and Kotlin hostname validation #bug !high @item:RST-1794499062183726
 - [x] RST-1794499246590676 Preserve random HostFake mode in Android configuration #bug !high @item:RST-1794499062183726
 - [x] RST-1794499247075214 Keep late ordered send errors terminal #bug !high @item:RST-1794499062183726
-- [ ] RST-1794499247594825 Review independent fixes and pass combined source gates #bug !high @item:RST-1794499062183726
+- [x] RST-1794499247594825 Review independent fixes and pass combined source gates #bug !high @item:RST-1794499062183726
 
 ## Verification
 
