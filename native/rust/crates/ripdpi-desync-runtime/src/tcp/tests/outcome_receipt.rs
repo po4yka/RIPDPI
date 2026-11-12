@@ -342,6 +342,53 @@ fn filtered_split_host_plus_one_sends_plain_payload_with_activation_skipped_rece
 }
 
 #[test]
+fn inactive_fake_group_preserves_payload_before_entropy_padding() {
+    let payload = [0xaa; 100];
+    let mut group = test_group();
+    group.actions.entropy_mode = EntropyMode::Popcount;
+    group
+        .actions
+        .tcp_chain
+        .push(TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0)));
+    group.set_round_activation(Some(NumericRange::new(1, 1)));
+    let progress = OutboundProgress { round: 2, payload_size: payload.len(), stream_start: 100, stream_end: 199 };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(&payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+    let (mut client, mut server) = connected_pair();
+    server.set_read_timeout(Some(Duration::from_secs(1))).expect("set read deadline");
+    let outcome = send_prepared_with_group(
+        &mut client,
+        &ReceiptTestPlatform::default(),
+        &RuntimeConfig::default(),
+        &group,
+        &payload,
+        progress,
+        context,
+        None,
+        None,
+        &default_ttl_unavailable(),
+        None,
+    )
+    .expect("inactive fake group sends the original payload");
+    drop(client);
+    let mut received = Vec::new();
+    server.read_to_end(&mut received).expect("read the complete original payload");
+
+    assert_eq!(received, payload);
+    assert_eq!(outcome.bytes_committed, payload.len());
+    assert_eq!(outcome.execution_receipt.payload_bytes_committed, payload.len());
+    assert_eq!(outcome.execution_receipt.disposition, TcpExecutionDisposition::ActivationSkipped);
+    assert_eq!(outcome.strategy_family, None);
+}
+
+#[test]
 fn split_host_plus_one_wait_failure_preserves_plan_and_committed_prefix() {
     let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
     let prefix = b"GET /watch HTTP/1.1\r\nHost: y";

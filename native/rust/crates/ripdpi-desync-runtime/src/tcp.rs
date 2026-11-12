@@ -67,13 +67,13 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
     pcap_hook: Option<&PcapHook>,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
     platform::with_tcp_desync_platform(platform_ops, || {
-        // Only apply evolver-suggested entropy padding when the group has fake
-        // steps; without fakes the padding bytes reach the upstream server and
-        // corrupt the application stream.
-        let entropy_override = context.adaptive.entropy_mode.filter(|_| group_has_fake_steps(group));
-        let effective_payload = apply_entropy_padding(group, payload, entropy_override);
         let strategy_family = strategy_family_override.or_else(|| primary_tcp_strategy_family(group));
         if should_desync_tcp(group, context) {
+            // Only apply evolver-suggested entropy padding when the group has fake
+            // steps; without fakes the padding bytes reach the upstream server and
+            // corrupt the application stream.
+            let entropy_override = context.adaptive.entropy_mode.filter(|_| group_has_fake_steps(group));
+            let effective_payload = apply_entropy_padding(group, payload, entropy_override);
             let seed = desync_seed(progress.round);
             let strategy = TcpDesyncStrategy::new(group, seed, config.network.default_ttl, context);
             // Build any injected fake decoy from the unpadded `payload` so its
@@ -211,7 +211,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                 }
             }
         } else {
-            let bytes_committed = write_transport_payload(writer, &effective_payload)?;
+            let bytes_committed = write_transport_payload(writer, payload)?;
             Ok(OutboundSendOutcome {
                 bytes_committed,
                 strategy_family: None,
