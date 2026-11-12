@@ -95,6 +95,8 @@ export default {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     const upstreamSocket = upstreamResponse.webSocket;
+    server.binaryType = "arraybuffer";
+    upstreamSocket.binaryType = "arraybuffer";
     server.accept();
     upstreamSocket.accept();
     bridge(server, upstreamSocket);

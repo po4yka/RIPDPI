@@ -85,7 +85,13 @@ Run the repository validation before deployment:
 ```bash
 node --check docs/native/cloudflare-workers/relay.js
 node --test docs/native/cloudflare-workers/relay.test.mjs
+npx --yes workerd@1.20260515.1 test docs/native/cloudflare-workers/relay.workerd.capnp
 ```
+
+The workerd test uses the Workers runtime with a local echo service and no
+outbound network access. It checks binary bytes, the 1 MiB limit, and text-frame
+rejection with the current WebSocket `binaryType` default. Both relay sockets
+explicitly use `arraybuffer`, independent of the deployment compatibility date.
 
 ## Cost and platform limits
 
