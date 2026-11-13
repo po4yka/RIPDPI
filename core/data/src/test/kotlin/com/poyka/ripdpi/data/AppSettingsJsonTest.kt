@@ -84,7 +84,7 @@ class AppSettingsJsonTest {
                 .setFakeTlsSniMode(FakeTlsSniModeRandomized)
                 .setHttpFakeProfile(HttpFakeProfileCloudflareGet)
                 .setTlsFakeProfile(TlsFakeProfileGoogleChrome)
-                .setOobData("payload")
+                .setOobData("\u00ff")
                 .setDropSack(true)
                 .setDesyncHttp(false)
                 .setDesyncHttps(true)

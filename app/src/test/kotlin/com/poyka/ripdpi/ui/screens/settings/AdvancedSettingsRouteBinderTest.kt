@@ -21,6 +21,28 @@ import org.junit.Test
 
 class AdvancedSettingsRouteBinderTest {
     @Test
+    fun `OOB setting rejects characters outside the byte range without changing settings`() {
+        var stored =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setOobData("z")
+                .build()
+        val binder =
+            AdvancedSettingsBinder { _, _, transform ->
+                stored = stored.toBuilder().apply(transform).build()
+            }
+
+        for (value in listOf("\u0100", "Ж", "ab")) {
+            binder.onTextConfirmed(AdvancedTextSetting.OobData, value, SettingsUiState())
+            assertEquals("z", stored.oobData)
+        }
+        for (value in listOf("", "\u0000", "\u007f", "\u0080", "\u00ff")) {
+            binder.onTextConfirmed(AdvancedTextSetting.OobData, value, SettingsUiState())
+            assertEquals(value, stored.oobData)
+        }
+    }
+
+    @Test
     fun `explicit WARP preset selection stores the effective enable state`() {
         val presets = listOf("off", "random", "quic_imitation", "tls_imitation", "dns_imitation", "custom")
         for (preset in presets) {

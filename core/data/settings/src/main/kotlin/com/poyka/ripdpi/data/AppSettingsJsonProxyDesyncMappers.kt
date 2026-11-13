@@ -74,6 +74,7 @@ internal fun AppSettingsSnapshot.withProxyDesyncSnapshot(settings: AppSettings):
 
 internal fun AppSettings.Builder.applyProxyDesyncSnapshot(snapshot: AppSettingsSnapshot): AppSettings.Builder {
     val proxy = snapshot.proxyDesync
+    require(isValidOobData(proxy.oobData)) { "OOB data must be empty or contain one byte" }
     return setProxyIp(proxy.proxyIp)
         .setProxyPort(proxy.proxyPort)
         .setMaxConnections(proxy.maxConnections)

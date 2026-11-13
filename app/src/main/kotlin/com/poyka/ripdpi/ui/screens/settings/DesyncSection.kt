@@ -24,6 +24,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isValidFakeOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
+import com.poyka.ripdpi.data.isValidOobData
 import com.poyka.ripdpi.data.isValidSplitOffsetExpression
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.usesSingleOffset
@@ -603,7 +604,7 @@ private fun OobDataSetting(model: DesyncSectionModel) {
         title = stringResource(R.string.oob_data),
         value = model.uiState.fake.oobData,
         enabled = model.visualEditorEnabled,
-        validator = { it.length <= 1 },
+        validator = ::isValidOobData,
         invalidMessage = stringResource(R.string.advanced_settings_error_oob_data),
         disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),

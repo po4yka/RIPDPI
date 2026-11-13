@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.isTlsPrelude
+import com.poyka.ripdpi.data.isValidOobData
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeTcpFlagMask
 import com.poyka.ripdpi.data.parseStrategyChainDsl
@@ -19,7 +20,6 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 private const val MinTtl = 1
 private const val MaxTtl = 255
 private const val AdaptiveTtlDeltaSentinel = -1
-private const val MaxOobDataLength = 1
 
 private sealed interface PrimaryDesyncMethodChoice {
     data class Selected(
@@ -277,7 +277,7 @@ internal class DesyncSettingsMutationWriter(
     }
 
     fun updateOobData(value: String) {
-        if (value.length <= MaxOobDataLength) {
+        if (isValidOobData(value)) {
             updateValue("oobData", value) {
                 setOobData(value)
             }

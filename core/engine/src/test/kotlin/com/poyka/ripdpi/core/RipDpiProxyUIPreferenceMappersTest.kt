@@ -12,6 +12,32 @@ import org.junit.Test
 
 class RipDpiProxyUIPreferenceMappersTest {
     @Test
+    fun `OOB mapper uses the default byte for saved values outside the byte contract`() {
+        for (value in listOf("\u0100", "Ж", "ab")) {
+            val settings = AppSettings.newBuilder().setOobData(value).build()
+
+            assertEquals('a', buildFakePacketConfig(settings).oobChar)
+        }
+    }
+
+    @Test
+    fun `OOB mapper keeps byte values and the empty default sentinel`() {
+        val cases =
+            listOf(
+                "" to 'a',
+                "\u0000" to '\u0000',
+                "\u007f" to '\u007f',
+                "\u0080" to '\u0080',
+                "\u00ff" to '\u00ff',
+            )
+        for ((value, expected) in cases) {
+            val settings = AppSettings.newBuilder().setOobData(value).build()
+
+            assertEquals(expected, buildFakePacketConfig(settings).oobChar)
+        }
+    }
+
+    @Test
     fun desyncMapperBuildsChainAndFakeTransportSlices() {
         val settings =
             AppSettings

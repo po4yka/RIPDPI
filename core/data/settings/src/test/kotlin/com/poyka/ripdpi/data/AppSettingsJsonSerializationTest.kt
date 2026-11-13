@@ -23,6 +23,19 @@ class AppSettingsJsonSerializationTest {
     }
 
     @Test
+    fun `OOB data import and export preserve byte values and the empty sentinel`() {
+        for (value in listOf("", "\u0000", "\u007f", "\u0080", "\u00ff")) {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setOobData(value)
+                    .build()
+
+            assertEquals(value, appSettingsFromJson(settings.toJson()).oobData)
+        }
+    }
+
+    @Test
     fun `flat snapshot preserves values from every section`() {
         val payload =
             """

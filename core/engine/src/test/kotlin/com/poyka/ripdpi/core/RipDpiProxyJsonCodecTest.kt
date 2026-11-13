@@ -16,18 +16,60 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 private const val TestLocalProxyAuth = "alpha-123"
 
 class RipDpiProxyJsonCodecTest {
+    @Test
+    fun `native OOB encoding preserves byte values`() {
+        for (code in listOf(0, 127, 128, 255)) {
+            val preferences = RipDpiProxyUIPreferences(fakePackets = RipDpiFakePacketConfig(oobChar = code.toChar()))
+            val json = preferences.toNativeConfigJson()
+            val fakePackets =
+                Json
+                    .parseToJsonElement(json)
+                    .jsonObject
+                    .getValue("fakePackets")
+                    .jsonObject
+
+            assertEquals(code, fakePackets.getValue("oobChar").jsonPrimitive.int)
+            assertEquals(code.toChar(), decodeRipDpiProxyUiPreferences(json)?.fakePackets?.oobChar)
+        }
+    }
+
+    @Test
+    fun `native OOB integer is validated before converting it to a Char`() {
+        val valid = Json.parseToJsonElement(RipDpiProxyUIPreferences().toNativeConfigJson()).jsonObject
+        val fakePackets = valid.getValue("fakePackets").jsonObject
+        for (code in listOf(-1, 256, 1046, 65536)) {
+            val invalid =
+                JsonObject(valid + ("fakePackets" to JsonObject(fakePackets + ("oobChar" to JsonPrimitive(code)))))
+
+            assertNull(decodeRipDpiProxyUiPreferences(invalid.toString()))
+        }
+    }
+
+    @Test
+    fun `native OOB encoding rejects a model Char outside the byte range`() {
+        val preferences = RipDpiProxyUIPreferences(fakePackets = RipDpiFakePacketConfig(oobChar = 'Ж'))
+
+        assertThrows(IllegalArgumentException::class.java) {
+            preferences.toNativeConfigJson()
+        }
+    }
+
     @Test
     fun `Lua-only runtime context survives UI and command line encoding`() {
         val yaml = "version: 1\nstrategies:\n  - id: lua\n"

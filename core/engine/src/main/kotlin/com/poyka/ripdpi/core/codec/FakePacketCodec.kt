@@ -48,7 +48,11 @@ internal data class NativeFakePacketConfig(
     val entropyPaddingMax: Int = 256,
     val shannonEntropyTargetPermil: Int = 7920,
     val tlsFingerprintProfile: String = "chrome_stable",
-)
+) {
+    init {
+        require(oobChar in 0..UByte.MAX_VALUE.toInt()) { "OOB data must fit one byte" }
+    }
+}
 
 @Serializable
 internal data class NativeParserEvasionConfig(

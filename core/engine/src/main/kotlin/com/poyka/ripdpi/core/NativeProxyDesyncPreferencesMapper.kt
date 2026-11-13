@@ -23,6 +23,7 @@ import com.poyka.ripdpi.data.effectiveTlsFakeProfile
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.entropyModeFromProto
+import com.poyka.ripdpi.data.isValidOobData
 import com.poyka.ripdpi.data.normalizeFakeTlsSource
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
@@ -60,7 +61,7 @@ internal fun buildFakePacketConfig(settings: AppSettings): RipDpiFakePacketConfi
         tlsFakeProfile = settings.effectiveTlsFakeProfile(),
         udpFakeProfile = settings.effectiveUdpFakeProfile(),
         fakeOffsetMarker = settings.effectiveFakeOffsetMarker(),
-        oobChar = settings.oobData.firstOrNull() ?: 'a',
+        oobChar = oobDataChar(settings.oobData),
         dropSack = settings.dropSack,
         // Root-gated: never request TCP_MD5SIG unless root mode is enabled.
         md5sig = settings.fakeMd5Sig && settings.rootModeEnabled,
@@ -81,6 +82,9 @@ internal fun buildFakePacketConfig(settings: AppSettings): RipDpiFakePacketConfi
             settings.shannonEntropyTargetPermil.takeIf { it > 0 } ?: DefaultShannonEntropyTargetPermil,
         tlsFingerprintProfile = normalizeTlsFingerprintProfile(settings.tlsFingerprintProfile),
     )
+
+// A value saved before byte validation must not block every service start; the settings field marks it invalid.
+private fun oobDataChar(value: String): Char = value.takeIf(::isValidOobData)?.firstOrNull() ?: 'a'
 
 internal fun buildAdaptiveFallbackConfig(settings: AppSettings): RipDpiAdaptiveFallbackConfig {
     val adaptive = settings.toAdaptiveFallbackSettingsModel()
