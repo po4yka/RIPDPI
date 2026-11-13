@@ -4,11 +4,11 @@ mod quic;
 mod sequencing;
 
 use crate::types::{ActivationContext, AdaptiveUdpBurstProfile, DesyncAction, activation_filter_matches};
-use ripdpi_config::{DesyncGroup, UdpChainStepKind};
+use ripdpi_config::{ActivationFilter, DesyncGroup, UdpChainStepKind};
 
 use self::fragmentation::build_ip_fragmented_udp_action;
 use self::packet_family::{UdpPreludeState, build_udp_prelude_packets};
-use self::quic::normalized_quic_plan_input;
+use self::quic::{normalized_quic_plan_input, quic_initial_header_version};
 use self::sequencing::append_ttl_wrapped_packets;
 
 pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: ActivationContext) -> Vec<DesyncAction> {
@@ -35,6 +35,11 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
             if step.kind != UdpChainStepKind::IpFrag2Udp && step.count <= 0 {
                 continue;
             }
+            if step.kind == UdpChainStepKind::FakeBurst
+                && !fake_burst_round_matches(group, step.activation_filter, payload, context)
+            {
+                continue;
+            }
 
             if let Some(action) = build_ip_fragmented_udp_action(step, payload, context, normalized_quic.as_ref()) {
                 actions.push(action);
@@ -56,6 +61,21 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
     }
 
     actions
+}
+
+/// Without an explicit `round` range, a fake burst covers the first datagram
+/// and any QUIC Initial, so a long flow's later datagrams stay untouched.
+fn fake_burst_round_matches(
+    group: &DesyncGroup,
+    step_filter: Option<ActivationFilter>,
+    payload: &[u8],
+    context: ActivationContext,
+) -> bool {
+    let has_round = |filter: Option<ActivationFilter>| filter.is_some_and(|filter| filter.round.is_some());
+    context.round <= 1
+        || has_round(group.activation_filter())
+        || has_round(step_filter)
+        || quic_initial_header_version(payload).is_some()
 }
 
 fn adjusted_udp_burst_count(base_count: i32, context: ActivationContext) -> i32 {

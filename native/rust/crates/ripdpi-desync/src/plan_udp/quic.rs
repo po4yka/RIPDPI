@@ -3,8 +3,17 @@ use crate::normalize_quic_initial;
 use ripdpi_config::DesyncGroup;
 use ripdpi_packets::{
     QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed, build_browser_like_quic_initial_seed,
-    packetize_quic_initial, parse_quic_initial_seed,
+    is_quic_initial, packetize_quic_initial, parse_quic_initial_seed,
 };
+
+/// Version of a QUIC long-header Initial datagram. Unlike
+/// `normalized_quic_plan_input`, this does not need a complete ClientHello.
+pub(super) fn quic_initial_header_version(payload: &[u8]) -> Option<u32> {
+    if !is_quic_initial(payload) {
+        return None;
+    }
+    Some(u32::from_be_bytes(payload.get(1..5)?.try_into().ok()?))
+}
 
 pub(super) const QUIC_INITIAL_MIN_PREFIX: usize = 256;
 

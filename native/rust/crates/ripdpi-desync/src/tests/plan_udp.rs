@@ -752,3 +752,46 @@ fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
     // The original fake data must still appear as the tail of the packet.
     assert_eq!(&fake_packet[fake_packet.len() - HIGH_POPCOUNT_FAKE.len()..], HIGH_POPCOUNT_FAKE);
 }
+
+fn fake_burst_with_round(round: Option<NumericRange<i64>>) -> DesyncGroup {
+    let mut group = DesyncGroup::new(0);
+    group.actions.fake_data = Some(b"udp-fake".to_vec());
+    let mut step = fake_burst_step();
+    step.activation_filter = round.map(|round| ActivationFilter { round: Some(round), ..Default::default() });
+    group.actions.udp_chain = vec![step];
+    group
+}
+
+fn udp_context_at_round(payload: &[u8], round: i64) -> ActivationContext {
+    ActivationContext { round, ..udp_context(payload) }
+}
+
+#[test]
+fn fake_burst_without_round_skips_later_non_initial_datagrams() {
+    let group = fake_burst_with_round(None);
+    let payload = [0x40_u8, 1, 2, 3, 4, 5, 6, 7, 8];
+
+    let actions = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2));
+
+    assert_eq!(actions, vec![DesyncAction::Write(payload.to_vec())]);
+}
+
+#[test]
+fn fake_burst_without_round_still_fires_on_later_quic_initial() {
+    let group = fake_burst_with_round(None);
+    let payload = rust_packet_seeds::quic_initial_with_host(1, "docs.example.test");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2));
+
+    assert!(actions.contains(&DesyncAction::Write(b"udp-fake".to_vec())));
+}
+
+#[test]
+fn fake_burst_explicit_step_round_applies_at_later_rounds() {
+    let group = fake_burst_with_round(Some(NumericRange::new(1, 5)));
+    let payload = [0x40_u8, 1, 2, 3, 4, 5, 6, 7, 8];
+
+    let actions = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2));
+
+    assert!(actions.contains(&DesyncAction::Write(b"udp-fake".to_vec())));
+}
