@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::scm_rights::MAX_MESSAGE_BYTES;
-use crate::{CMD_SEND_FAKE_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, FakeTcpParams, HelperRequest, OrderedTcpSegmentsParams};
+use crate::{
+    CMD_SEND_FAKE_TCP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, FakeTcpParams, HelperRequest,
+    MultiDisorderParams, OrderedTcpSegmentsParams,
+};
 
 pub(crate) const MAX_BULK_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_TCP_PAYLOAD_BYTES: usize = u16::MAX as usize;
@@ -18,6 +21,8 @@ struct BulkTcpLimits {
     max_payload_bytes: usize,
     max_aggregate_bytes: usize,
     max_segments: usize,
+    #[serde(default)]
+    multidisorder: bool,
 }
 
 const BULK_TCP_LIMITS: BulkTcpLimits = BulkTcpLimits {
@@ -25,6 +30,7 @@ const BULK_TCP_LIMITS: BulkTcpLimits = BulkTcpLimits {
     max_payload_bytes: MAX_TCP_PAYLOAD_BYTES,
     max_aggregate_bytes: MAX_TCP_AGGREGATE_BYTES,
     max_segments: MAX_ORDERED_TCP_SEGMENTS,
+    multidisorder: true,
 };
 
 /// Additive preflight metadata; the v3 parameter representation stays unchanged.
@@ -36,7 +42,10 @@ pub fn bulk_tcp_preflight_data() -> Value {
 /// A legacy preflight without limits permits control-sized requests only.
 pub fn validate_request_with_peer(request: &HelperRequest, encoded_len: usize, preflight: &Value) -> io::Result<()> {
     validate_frame_limit(request, encoded_len, BULK_TCP_LIMITS)?;
-    if !matches!(request.command.as_str(), CMD_SEND_FAKE_TCP | CMD_SEND_ORDERED_TCP_SEGMENTS) {
+    if !matches!(
+        request.command.as_str(),
+        CMD_SEND_FAKE_TCP | CMD_SEND_ORDERED_TCP_SEGMENTS | CMD_SEND_MULTI_DISORDER_TCP
+    ) {
         return Ok(());
     }
     let limits = match preflight.get("bulk_tcp") {
@@ -45,6 +54,9 @@ pub fn validate_request_with_peer(request: &HelperRequest, encoded_len: usize, p
         None if encoded_len <= MAX_MESSAGE_BYTES => BULK_TCP_LIMITS,
         None => return Err(invalid("root helper did not advertise bulk TCP request limits")),
     };
+    if request.command == CMD_SEND_MULTI_DISORDER_TCP && encoded_len > MAX_MESSAGE_BYTES && !limits.multidisorder {
+        return Err(invalid("root helper did not advertise bulk multidisorder requests"));
+    }
     validate_request_limits(request, encoded_len, limits)
 }
 
@@ -66,7 +78,10 @@ fn decode_request(json: &[u8]) -> io::Result<HelperRequest> {
 }
 
 fn validate_frame_limit(request: &HelperRequest, encoded_len: usize, limits: BulkTcpLimits) -> io::Result<()> {
-    let bulk = matches!(request.command.as_str(), CMD_SEND_FAKE_TCP | CMD_SEND_ORDERED_TCP_SEGMENTS);
+    let bulk = matches!(
+        request.command.as_str(),
+        CMD_SEND_FAKE_TCP | CMD_SEND_ORDERED_TCP_SEGMENTS | CMD_SEND_MULTI_DISORDER_TCP
+    );
     let frame_limit = if bulk { limits.max_message_bytes.min(MAX_BULK_REQUEST_BYTES) } else { MAX_MESSAGE_BYTES };
     if encoded_len > frame_limit {
         return Err(invalid(format!("root-helper request exceeds its {frame_limit}-byte command limit")));
@@ -99,6 +114,25 @@ fn validate_request_limits(request: &HelperRequest, encoded_len: usize, limits: 
                 return Err(invalid("root-helper original TCP payload exceeds its limit"));
             }
             validate_payload_lengths(params.segments.iter().map(|segment| segment.payload.len()), limits)
+        }
+        CMD_SEND_MULTI_DISORDER_TCP => {
+            let params: MultiDisorderParams =
+                serde_json::from_value(request.params.clone()).map_err(|error| invalid(error.to_string()))?;
+            validate_payload_lengths([params.payload.len()], limits)?;
+            if !(3..=limits.max_segments.min(MAX_ORDERED_TCP_SEGMENTS)).contains(&params.segments.len()) {
+                return Err(invalid("root-helper multidisorder segment count must be between 3 and its limit"));
+            }
+            let mut cursor = 0;
+            for segment in &params.segments {
+                if segment.start != cursor || segment.end <= segment.start || segment.end > params.payload.len() {
+                    return Err(invalid("invalid root-helper multidisorder payload segments"));
+                }
+                cursor = segment.end;
+            }
+            if cursor != params.payload.len() {
+                return Err(invalid("root-helper multidisorder segments must cover the full payload"));
+            }
+            Ok(())
         }
         _ => Ok(()),
     }

@@ -94,3 +94,93 @@ fn advertised_bulk_fake_request_preserves_payloads_and_descriptor() {
         fixture.join();
     }
 }
+
+fn multidisorder_params(len: usize) -> serde_json::Value {
+    serde_json::json!({
+        "payload": vec![255_u8; len], "default_ttl": 64,
+        "segments": [{ "start": 0, "end": 1 }, { "start": 1, "end": 2 }, { "start": 2, "end": len }],
+    })
+}
+
+#[test]
+fn generic_bulk_advertisement_does_not_deliver_a_large_multidisorder_command() {
+    let (completed, wait_for_client) = std::sync::mpsc::channel();
+    let fixture = TransportFixture::start_listener(move |listener| {
+        let (stream, _) = listener.accept().expect("protocol preflight");
+        recv_message(&stream, "closed").expect("preflight request");
+        let mut metadata = ripdpi_root_helper_protocol::bulk_tcp_preflight_data();
+        metadata["bulk_tcp"].as_object_mut().expect("bulk object").remove("multidisorder");
+        send_message(
+            &stream,
+            &serde_json::to_vec(&current_response(HelperResponse::success(metadata))).expect("preflight JSON"),
+            None,
+        )
+        .expect("legacy preflight reply");
+        wait_for_client.recv_timeout(std::time::Duration::from_secs(3)).expect("client finished");
+        listener.set_nonblocking(true).expect("nonblocking listener");
+        assert_eq!(listener.accept().expect_err("no command connection").kind(), io::ErrorKind::WouldBlock);
+    });
+    let fd = std::fs::File::open("/dev/null").expect("request fd");
+    let error = fixture
+        .transport
+        .send_command(
+            ripdpi_root_helper_protocol::CMD_SEND_MULTI_DISORDER_TCP,
+            multidisorder_params(2048),
+            Some(fd.as_fd()),
+        )
+        .expect_err("old helper must not receive a bulk multidisorder request");
+    completed.send(()).expect("notify server");
+    fixture.join();
+    assert!(is_not_delivered(&error));
+    assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    assert!(error.to_string().contains("did not advertise bulk multidisorder"));
+}
+
+#[test]
+fn advertised_bulk_multidisorder_preserves_payload_and_passed_descriptor() {
+    use ripdpi_root_helper_protocol::{
+        CMD_SEND_MULTI_DISORDER_TCP, MultiDisorderParams, bulk_tcp_preflight_data, recv_request_message,
+    };
+    use std::io::Read;
+    use std::os::unix::net::UnixStream;
+
+    let fixture = TransportFixture::start_listener(move |listener| {
+        let (preflight, _) = listener.accept().expect("preflight");
+        recv_message(&preflight, "closed").expect("preflight request");
+        send_message(
+            &preflight,
+            &serde_json::to_vec(&current_response(HelperResponse::success(bulk_tcp_preflight_data())))
+                .expect("preflight JSON"),
+            None,
+        )
+        .expect("preflight response");
+        let (stream, _) = listener.accept().expect("bulk command");
+        let (json, fd) = recv_request_message(&stream, "closed").expect("bulk request");
+        let request: ripdpi_root_helper_protocol::HelperRequest = serde_json::from_slice(&json).expect("request JSON");
+        assert_eq!(request.command, CMD_SEND_MULTI_DISORDER_TCP);
+        let params: MultiDisorderParams = serde_json::from_value(request.params).expect("params");
+        assert_eq!(params.payload, vec![255; 16384]);
+        assert_eq!(
+            params.segments.iter().map(|segment| (segment.start, segment.end)).collect::<Vec<_>>(),
+            [(0, 1), (1, 2), (2, 16384)]
+        );
+        let mut passed = UnixStream::from(fd.expect("passed descriptor"));
+        passed.write_all(b"alive").expect("write passed socket");
+        send_message(
+            &stream,
+            &serde_json::to_vec(&current_response(HelperResponse::success(serde_json::Value::Null)))
+                .expect("response JSON"),
+            None,
+        )
+        .expect("response");
+    });
+    let (passed, mut peer) = UnixStream::pair().expect("passed socket");
+    fixture
+        .transport
+        .send_command(CMD_SEND_MULTI_DISORDER_TCP, multidisorder_params(16384), Some(passed.as_fd()))
+        .expect("bulk multidisorder request");
+    let mut bytes = [0; 5];
+    peer.read_exact(&mut bytes).expect("read passed socket");
+    assert_eq!(&bytes, b"alive");
+    fixture.join();
+}

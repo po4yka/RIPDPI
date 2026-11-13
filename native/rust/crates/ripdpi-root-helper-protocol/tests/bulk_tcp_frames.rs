@@ -11,6 +11,9 @@ use ripdpi_root_helper_protocol::{
 };
 use serde_json::{Value, json};
 
+#[path = "bulk_tcp_frames/multidisorder.rs"]
+mod multidisorder;
+
 const MAX_BULK_REQUEST_BYTES: usize = 1_048_576;
 const MAX_TCP_PAYLOAD_BYTES: usize = 65_535;
 const MAX_ORDERED_TCP_SEGMENTS: usize = 64;
@@ -59,6 +62,7 @@ fn ordered_params(len: usize) -> OrderedTcpSegmentsParams {
 fn round_trip(request: HelperRequest) {
     let expected = serde_json::to_vec(&request).expect("encode request");
     let (sender, receiver) = UnixStream::pair().expect("IPC pair");
+    receiver.set_read_timeout(Some(std::time::Duration::from_secs(2))).expect("receiver timeout");
     let (passed, mut peer) = UnixStream::pair().expect("passed socket");
     let (actual, fd) = std::thread::scope(|scope| {
         let send = scope.spawn(|| send_request_message(&sender, &expected, Some(passed.as_fd())));

@@ -36,7 +36,7 @@ pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>
     send_frame(stream, json, fd, MAX_MESSAGE_BYTES)
 }
 
-/// Send a command-bounded request; only fake and ordered TCP commands admit bulk bytes.
+/// Send a command-bounded request; fake, ordered and multidisorder TCP commands admit bulk bytes.
 pub fn send_request_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>) -> io::Result<()> {
     validate_request_message(json)?;
     send_frame(stream, json, fd, MAX_BULK_REQUEST_BYTES)
