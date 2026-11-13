@@ -28,6 +28,9 @@ use support::tls::attempt_socks5_tls_round_trip;
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
+#[path = "packet_smoke/disoob.rs"]
+mod disoob;
+
 const ENABLE_ENV: &str = "RIPDPI_RUN_PACKET_SMOKE";
 const ARTIFACT_DIR_ENV: &str = "RIPDPI_PACKET_SMOKE_ARTIFACT_DIR";
 const INTERFACE_ENV: &str = "RIPDPI_PACKET_SMOKE_IFACE";
@@ -112,7 +115,7 @@ fn cli_packet_smoke_tcp_disorder_family() {
         |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "disorder"),
         // `-t` is the fake TTL; the disorder chunk always uses TTL 1.
         |run| {
-            assert_outbound_ttl(run, run.manifest.tcp_echo_port, 1)?;
+            assert_outbound_ttl(&run.packets, run.manifest.tcp_echo_port, 1)?;
             assert_no_outbound_ttl(run, run.manifest.tcp_echo_port, 2)
         },
     );
@@ -135,7 +138,7 @@ fn cli_packet_smoke_tcp_fake_family() {
             // produce observable TTL changes in tcpdump on loopback (kernel
             // dependent). Accept either captured TTL evidence or CLI log
             // confirming the fake strategy was applied.
-            assert_outbound_ttl(run, run.manifest.tls_echo_port, 5)
+            assert_outbound_ttl(&run.packets, run.manifest.tls_echo_port, 5)
                 .or_else(|_| assert_stderr_contains(run, "strategy_family=fake"))
         },
     );
@@ -148,7 +151,7 @@ fn cli_packet_smoke_tcp_oob_family() {
         |_paths| vec!["-o", "host+1"].into_iter().map(str::to_string).collect(),
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
         |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "oob"),
-        |run| assert_outbound_urgent(run, run.manifest.tcp_echo_port),
+        |run| assert_outbound_urgent(&run.packets, run.manifest.tcp_echo_port),
     );
 }
 
@@ -156,12 +159,20 @@ fn cli_packet_smoke_tcp_oob_family() {
 fn cli_packet_smoke_tcp_disoob_family() {
     run_capture_scenario(
         "cli_packet_smoke_tcp_disoob_family",
-        |_paths| vec!["-t", "3", "-q", "host+1"].into_iter().map(str::to_string).collect(),
+        |_paths| {
+            vec!["-g", "64", "-t", "3", "-q", "host+1", "--oob-data", "\\x58"].into_iter().map(str::to_string).collect()
+        },
         |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
-        |proxy_port, fixture| drive_http_echo_best_effort(proxy_port, fixture, "disoob"),
+        |proxy_port, fixture| drive_http_echo_strict(proxy_port, fixture, "disoob"),
         |run| {
-            assert_outbound_urgent(run, run.manifest.tcp_echo_port)?;
-            assert_outbound_ttl(run, run.manifest.tcp_echo_port, 3)
+            let payload =
+                format!("GET /disoob HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", run.manifest.fixture_domain);
+            disoob::assert_tcp_disoob(
+                &run.packets,
+                run.manifest.tcp_echo_port,
+                payload.as_bytes(),
+                b"GET /disoob HTTP/1.1\r\nHost: ".len() + 1,
+            )
         },
     );
 }
@@ -196,7 +207,7 @@ fn cli_packet_smoke_tcp_transport_knobs_family() {
         |manifest| format!("tcp and port {}", manifest.tls_echo_port),
         drive_tls_probe_best_effort,
         |run| {
-            assert_outbound_ttl(run, run.manifest.tls_echo_port, 6)
+            assert_outbound_ttl(&run.packets, run.manifest.tls_echo_port, 6)
                 .or_else(|_| assert_stderr_contains(run, "strategy_family=fake"))
         },
     );
@@ -585,7 +596,7 @@ fn push_args<const N: usize>(args: &mut Vec<String>, values: [&str; N]) {
 
 fn assert_generated_tcp_http(run: &ScenarioRun, metadata: &Value) -> Result<(), String> {
     if generated_axis_value(metadata, "oob_byte_placement") != "off" {
-        assert_outbound_urgent(run, run.manifest.tcp_echo_port)?;
+        assert_outbound_urgent(&run.packets, run.manifest.tcp_echo_port)?;
     } else {
         assert_tcp_payload_to_port_captured(run, run.manifest.tcp_echo_port)?;
     }
@@ -595,7 +606,7 @@ fn assert_generated_tcp_http(run: &ScenarioRun, metadata: &Value) -> Result<(), 
 fn assert_generated_tcp_tls(run: &ScenarioRun, metadata: &Value) -> Result<(), String> {
     assert_tcp_payload_to_port_captured(run, run.manifest.tls_echo_port)?;
     if generated_axis_value(metadata, "oob_byte_placement") != "off" {
-        assert_outbound_urgent(run, run.manifest.tls_echo_port)?;
+        assert_outbound_urgent(&run.packets, run.manifest.tls_echo_port)?;
     }
     assert_generated_ttl_if_enabled(run, metadata, run.manifest.tls_echo_port)
         .or_else(|_| assert_stderr_contains(run, "strategy_family=fake"))
@@ -615,7 +626,7 @@ fn assert_generated_ttl_if_enabled(run: &ScenarioRun, metadata: &Value, port: u1
         "off" => Ok(()),
         ttl => {
             let ttl = ttl.parse::<u8>().map_err(|err| format!("invalid fake_ttl_ladder value: {err}"))?;
-            assert_outbound_ttl(run, port, ttl)
+            assert_outbound_ttl(&run.packets, port, ttl)
         }
     }
 }
@@ -923,17 +934,16 @@ fn assert_no_outbound_ttl(run: &ScenarioRun, port: u16, ttl: u8) -> Result<(), S
     }
 }
 
-fn assert_outbound_ttl(run: &ScenarioRun, port: u16, ttl: u8) -> Result<(), String> {
-    if run.packets.iter().any(|packet| {
+fn assert_outbound_ttl(packets: &[Value], port: u16, ttl: u8) -> Result<(), String> {
+    if packets.iter().any(|packet| {
         is_outbound_to_port(packet, port)
             && (field_u64(packet, "ip.ttl") == Some(u64::from(ttl))
                 || field_u64(packet, "ipv6.hlim") == Some(u64::from(ttl)))
     }) {
         Ok(())
     } else {
-        let outbound_count = run.packets.iter().filter(|p| is_outbound_to_port(p, port)).count();
-        let observed_ttls: Vec<_> = run
-            .packets
+        let outbound_count = packets.iter().filter(|p| is_outbound_to_port(p, port)).count();
+        let observed_ttls: Vec<_> = packets
             .iter()
             .filter(|p| is_outbound_to_port(p, port))
             .filter_map(|p| field_u64(p, "ip.ttl").or_else(|| field_u64(p, "ipv6.hlim")))
@@ -945,8 +955,8 @@ fn assert_outbound_ttl(run: &ScenarioRun, port: u16, ttl: u8) -> Result<(), Stri
     }
 }
 
-fn assert_outbound_urgent(run: &ScenarioRun, port: u16) -> Result<(), String> {
-    if run.packets.iter().any(|packet| {
+fn assert_outbound_urgent(packets: &[Value], port: u16) -> Result<(), String> {
+    if packets.iter().any(|packet| {
         is_tcp_outbound(packet, port)
             && (field_u64(packet, "tcp.flags.urg") == Some(1) || field_u64(packet, "tcp.urgent_pointer") == Some(1))
     }) {
