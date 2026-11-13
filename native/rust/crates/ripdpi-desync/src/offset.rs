@@ -205,8 +205,8 @@ pub(crate) fn random_tail_fragment_lengths(
             lengths.push(remaining_len);
             break;
         }
-        let min_here = min_size.max(remaining_len.saturating_sub(max_size * (remaining_count - 1)));
-        let max_here = max_size.min(remaining_len.saturating_sub(min_size * (remaining_count - 1)));
+        let min_here = min_size.max(remaining_len.saturating_sub(max_size.saturating_mul(remaining_count - 1)));
+        let max_here = max_size.min(remaining_len.saturating_sub(min_size.saturating_mul(remaining_count - 1)));
         if min_here > max_here {
             return None;
         }

@@ -215,7 +215,7 @@ fn resolve_tlsrandrec_fragment_sizes(
     let max_fragment_size = payload.max_fragment_size.max(min_fragment_size as i32) as usize;
     let budget = context
         .tcp_segment_hint
-        .map_or((max_fragment_size * fragment_count.max(1)) as i64, TcpSegmentHint::adaptive_budget)
+        .map_or(max_fragment_size.saturating_mul(fragment_count.max(1)) as i64, TcpSegmentHint::adaptive_budget)
         .max(min_fragment_size as i64) as usize;
     match context.adaptive.tlsrandrec_profile.unwrap_or(AdaptiveTlsRandRecProfile::Balanced) {
         AdaptiveTlsRandRecProfile::Balanced => (min_fragment_size, max_fragment_size),

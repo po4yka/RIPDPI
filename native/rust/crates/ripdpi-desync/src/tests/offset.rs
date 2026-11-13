@@ -310,6 +310,16 @@ fn random_tail_fragment_lengths_basic() {
 }
 
 #[test]
+fn random_tail_fragment_lengths_handles_large_size_bounds() {
+    let mut rng = OracleRng::seeded(42);
+    let lengths = random_tail_fragment_lengths(6, 3, 1, usize::MAX, &mut rng).expect("feasible fragments");
+
+    assert_eq!(lengths.len(), 3);
+    assert_eq!(lengths.iter().sum::<usize>(), 6);
+    assert!(lengths.iter().all(|&len| len > 0));
+}
+
+#[test]
 fn random_tail_fragment_lengths_single_fragment() {
     let mut rng = OracleRng::seeded(0);
     let lengths = random_tail_fragment_lengths(42, 1, 1, 100, &mut rng).expect("single");
