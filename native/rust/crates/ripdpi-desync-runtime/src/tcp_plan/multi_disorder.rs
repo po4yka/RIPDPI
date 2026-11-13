@@ -49,6 +49,19 @@ pub(crate) struct PreparedMultiDisorderTcpPlan {
     pub(crate) segments: Vec<platform::TcpPayloadSegment>,
 }
 
+pub(crate) fn validate_multi_disorder_tcp_settings(steps: &[TcpChainStep]) -> Result<(), OutboundSendError> {
+    let mut markers = steps.iter().filter(|step| step.kind() == TcpChainStepKind::MultiDisorder);
+    if let Some(first) = markers.next()
+        && markers.any(|step| !step.inherits_multidisorder_settings(first))
+    {
+        return Err(OutboundSendError::transport(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "multidisorder markers must inherit the first marker settings",
+        )));
+    }
+    Ok(())
+}
+
 pub(crate) fn prepare_multi_disorder_tcp_plan(
     send_steps: &[TcpChainStep],
     plan: &DesyncPlan,
@@ -60,6 +73,7 @@ pub(crate) fn prepare_multi_disorder_tcp_plan(
             "invalid multidisorder tcp chain configuration",
         )));
     }
+    validate_multi_disorder_tcp_settings(send_steps)?;
     if plan.steps.len() < 3 || plan.steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
         return Err(OutboundSendError::transport(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -98,15 +112,16 @@ pub(crate) fn prepare_multi_disorder_tcp_plan(
             "multidisorder tcp plan missing source send step index",
         ))
     })?;
-    let source_step = send_steps.get(source_index).ok_or_else(|| {
+    send_steps.get(source_index).ok_or_else(|| {
         OutboundSendError::transport(io::Error::new(
             io::ErrorKind::InvalidData,
             "multidisorder tcp plan source send step index out of range",
         ))
     })?;
+    let first_step = &send_steps[0];
     let strategy_family = strategy_family.unwrap_or("multidisorder");
     let fallback = strategy_fallback_family(strategy_family);
-    let inter_segment_delay_ms = source_step.inter_segment_delay_ms();
-    let original_flags = step_original_tcp_flags(source_step);
+    let inter_segment_delay_ms = first_step.inter_segment_delay_ms();
+    let original_flags = step_original_tcp_flags(first_step);
     Ok(PreparedMultiDisorderTcpPlan { strategy_family, fallback, inter_segment_delay_ms, original_flags, segments })
 }

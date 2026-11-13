@@ -112,6 +112,7 @@ mod capability_policy;
 mod entropy_padding;
 mod errors_and_results;
 mod fake_ordering;
+mod multi_disorder_settings;
 mod outcome_receipt;
 mod special_plan;
 mod strategy_metadata;

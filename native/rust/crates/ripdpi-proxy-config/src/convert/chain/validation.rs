@@ -106,6 +106,14 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
         if multidisorder_count < 2 {
             return Err(ProxyConfigError::InvalidConfig("multidisorder must declare at least two markers".to_string()));
         }
+        let mut markers = steps.iter().filter(|step| step.kind() == TcpChainStepKind::MultiDisorder);
+        if let Some(first) = markers.next()
+            && markers.any(|step| !step.inherits_multidisorder_settings(first))
+        {
+            return Err(ProxyConfigError::InvalidConfig(
+                "multidisorder markers must inherit the first marker settings".to_string(),
+            ));
+        }
     }
 
     Ok(())

@@ -282,6 +282,40 @@ fn ui_payload_rejects_singleton_multidisorder_step() {
 }
 
 #[test]
+fn ui_payload_rejects_conflicting_multidisorder_settings() {
+    for (flags, unset, delay) in [("cwr", "", 0), ("", "psh", 0), ("", "", 40)] {
+        let mut ui = minimal_ui();
+        let mut later = tcp_step("multidisorder", "2");
+        later.tcp_flags_orig_set = flags.to_string();
+        later.tcp_flags_orig_unset = unset.to_string();
+        later.inter_segment_delay_ms = delay;
+        ui.chains.tcp_steps = vec![tcp_step("multidisorder", "0"), later];
+
+        let error = runtime_config_from_payload(ui_payload(ui)).expect_err("conflicting grouped settings");
+
+        assert!(error.to_string().contains("multidisorder markers must inherit the first marker settings"));
+    }
+}
+
+#[test]
+fn ui_payload_accepts_inherited_or_equivalent_multidisorder_settings() {
+    for (flags, unset, delay) in [("", "", 0), ("0", "0", 0), ("0x80", "psh", 17)] {
+        let mut ui = minimal_ui();
+        let mut first = tcp_step("multidisorder", "4");
+        first.tcp_flags_orig_set = "cwr".to_string();
+        first.tcp_flags_orig_unset = "psh".to_string();
+        first.inter_segment_delay_ms = 17;
+        let mut later = tcp_step("multidisorder", "2");
+        later.tcp_flags_orig_set = flags.to_string();
+        later.tcp_flags_orig_unset = unset.to_string();
+        later.inter_segment_delay_ms = delay;
+        ui.chains.tcp_steps = vec![first, later];
+
+        runtime_config_from_payload(ui_payload(ui)).expect("inherited grouped settings");
+    }
+}
+
+#[test]
 fn ui_payload_rejects_mixed_multidisorder_chain() {
     let mut ui = minimal_ui();
     ui.chains.tcp_steps = vec![tcp_step("multidisorder", "host+1"), tcp_step("split", "midsld")];

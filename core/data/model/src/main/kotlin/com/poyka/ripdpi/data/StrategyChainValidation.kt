@@ -101,6 +101,16 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
         require(multidisorderCount >= 2) {
             "multidisorder must declare at least two markers"
         }
+        val markers = steps.filter { it.kind == TcpChainStepKind.MultiDisorder }
+        val firstSet = parseTcpFlagMask(markers.first().tcpFlagsOrigSet)
+        val firstUnset = parseTcpFlagMask(markers.first().tcpFlagsOrigUnset)
+        require(
+            markers.drop(1).all { step ->
+                val set = parseTcpFlagMask(step.tcpFlagsOrigSet)
+                val unset = parseTcpFlagMask(step.tcpFlagsOrigUnset)
+                (set == 0 || set == firstSet) && (unset == 0 || unset == firstUnset)
+            },
+        ) { "multidisorder markers must inherit the first marker settings" }
     }
 }
 

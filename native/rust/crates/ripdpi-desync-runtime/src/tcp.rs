@@ -11,7 +11,9 @@ use crate::activation::apply_entropy_padding;
 use crate::strategy_family::{effective_tcp_strategy_family, primary_tcp_strategy_family, ttl_less_family};
 use crate::sync::AtomicBool;
 use crate::tcp_actions::execute_tcp_actions_with_ttl_state;
-use crate::tcp_plan::{TcpPlanStrategyContext, execute_tcp_plan, requires_special_tcp_execution};
+use crate::tcp_plan::{
+    TcpPlanStrategyContext, execute_tcp_plan, requires_special_tcp_execution, validate_multi_disorder_tcp_settings,
+};
 use crate::transport_io::{write_strategy_payload_named, write_transport_payload};
 use crate::types::{
     OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
@@ -67,6 +69,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
     pcap_hook: Option<&PcapHook>,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
     platform::with_tcp_desync_platform(platform_ops, || {
+        validate_multi_disorder_tcp_settings(&group.effective_tcp_chain())?;
         let strategy_family = strategy_family_override.or_else(|| primary_tcp_strategy_family(group));
         if should_desync_tcp(group, context) {
             // Only apply evolver-suggested entropy padding when the group has fake

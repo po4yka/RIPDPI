@@ -491,6 +491,7 @@ pub struct ripdpi_config::TcpChainStep
 impl ripdpi_config::TcpChainStep
 pub const fn ripdpi_config::TcpChainStep::activation_filter(&self) -> core::option::Option<ripdpi_config::ActivationFilter>
 pub fn ripdpi_config::TcpChainStep::fake_host_template(&self) -> core::option::Option<&str>
+pub fn ripdpi_config::TcpChainStep::inherits_multidisorder_settings(&self, &Self) -> bool
 pub const fn ripdpi_config::TcpChainStep::inter_segment_delay_ms(&self) -> u32
 pub const fn ripdpi_config::TcpChainStep::kind(&self) -> ripdpi_config::TcpChainStepKind
 pub const fn ripdpi_config::TcpChainStep::midhost_offset(&self) -> core::option::Option<ripdpi_config::OffsetExpr>

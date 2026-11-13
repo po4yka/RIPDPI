@@ -246,6 +246,18 @@ impl TcpChainStep {
         self.common.inter_segment_delay_ms = delay_ms;
         self
     }
+
+    /// Whether this marker's non-default grouped settings agree with the first marker.
+    /// Default fields inherit the first marker's flags and delay.
+    pub fn inherits_multidisorder_settings(&self, first: &Self) -> bool {
+        let flags = self.original_flag_overrides();
+        let first_flags = first.original_flag_overrides();
+        let set = flags.set.unwrap_or_default();
+        let unset = flags.unset.unwrap_or_default();
+        (set == 0 || set == first_flags.set.unwrap_or_default())
+            && (unset == 0 || unset == first_flags.unset.unwrap_or_default())
+            && (self.inter_segment_delay_ms() == 0 || self.inter_segment_delay_ms() == first.inter_segment_delay_ms())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
