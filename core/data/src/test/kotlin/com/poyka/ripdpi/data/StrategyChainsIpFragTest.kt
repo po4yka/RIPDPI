@@ -98,14 +98,18 @@ class StrategyChainsIpFragTest {
 
     @Test
     fun `ipfrag steps must remain isolated within their chains`() {
-        val tcpResult =
-            parseStrategyChainDsl(
-                """
-                [tcp]
-                ipfrag2 host+1
-                split endhost
-                """.trimIndent(),
+        val invalidTcpChains =
+            listOf(
+                "ipfrag2 host+1\nsplit endhost",
+                "split host+1\nipfrag2 endhost",
+                "disorder host+1\nipfrag2 endhost",
+                "ipfrag2 host+1\nipfrag2 endhost",
+                "tlsrec extlen\nsplit host+1\nipfrag2 endhost",
             )
+        invalidTcpChains.forEach { chain ->
+            val tcpResult = parseStrategyChainDsl("[tcp]\n$chain")
+            assertTrue(chain, tcpResult.isFailure)
+        }
         val udpResult =
             parseStrategyChainDsl(
                 """
@@ -115,7 +119,6 @@ class StrategyChainsIpFragTest {
                 """.trimIndent(),
             )
 
-        assertTrue(tcpResult.isFailure)
         assertTrue(udpResult.isFailure)
     }
 }

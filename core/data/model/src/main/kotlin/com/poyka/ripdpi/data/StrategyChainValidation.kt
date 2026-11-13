@@ -82,7 +82,9 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
                 }
                 if (step.kind == TcpChainStepKind.IpFrag2) {
                     sawIpFrag2 = true
-                    require(index == steps.lastIndex) { "ipfrag2 must be the only tcp send step" }
+                    require(sendStepCount == 0 && index == steps.lastIndex) {
+                        "ipfrag2 must be the only tcp send step"
+                    }
                 } else {
                     require(!sawIpFrag2) { "ipfrag2 must be the only tcp send step" }
                 }

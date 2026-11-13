@@ -75,7 +75,7 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
             }
             if kind == TcpChainStepKind::IpFrag2 {
                 saw_ipfrag2 = true;
-                if index + 1 != steps.len() {
+                if send_step_count != 0 || index + 1 != steps.len() {
                     return Err(ProxyConfigError::InvalidConfig("ipfrag2 must be the only tcp send step".to_string()));
                 }
             } else if saw_ipfrag2 {

@@ -1044,14 +1044,22 @@ fn empty_fake_offset_marker_uses_compat_default_offset() {
 }
 
 #[test]
-fn ui_payload_rejects_non_terminal_ipfrag2_step() {
-    let mut ui = minimal_ui();
-    ui.chains.tcp_steps =
-        vec![tcp_step("tlsrec", "extlen"), tcp_step("ipfrag2", "host+2"), tcp_step("split", "endhost")];
+fn ui_payload_rejects_ipfrag2_mixed_with_other_send_steps() {
+    let chains = [
+        vec![tcp_step("tlsrec", "extlen"), tcp_step("ipfrag2", "host+2"), tcp_step("split", "endhost")],
+        vec![tcp_step("split", "host+2"), tcp_step("ipfrag2", "endhost")],
+        vec![tcp_step("disorder", "host+2"), tcp_step("ipfrag2", "endhost")],
+        vec![tcp_step("ipfrag2", "host+2"), tcp_step("ipfrag2", "endhost")],
+        vec![tcp_step("tlsrec", "extlen"), tcp_step("split", "host+2"), tcp_step("ipfrag2", "endhost")],
+    ];
+    for chain in chains {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = chain;
 
-    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-terminal ipfrag2");
+        let err = runtime_config_from_payload(ui_payload(ui)).expect_err("ipfrag2 mixed with another send step");
 
-    assert!(err.to_string().contains("ipfrag2 must be the only tcp send step"));
+        assert!(err.to_string().contains("ipfrag2 must be the only tcp send step"));
+    }
 }
 
 #[test]
