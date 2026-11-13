@@ -2,7 +2,7 @@
 id: RST-1794557321446019
 title: Repair DPI-14 TCP fragmentation contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: primary
