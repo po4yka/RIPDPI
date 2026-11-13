@@ -37,13 +37,21 @@ pub(super) fn record_connect_telemetry(
     group_index: usize,
     started: Instant,
 ) {
-    let elapsed = started.elapsed().as_secs_f64();
-    connect_platform::record_connection_setup_duration(group_index, elapsed);
-    let upstream_addr = stream.peer_addr().unwrap_or(target);
-    let upstream_rtt_ms = connect_platform::tcp_round_trip_time_ms(stream)
-        .ok()
-        .flatten()
-        .or_else(|| Some(started.elapsed().as_millis() as u64));
+    // A deferred TCP Fast Open socket has sent no SYN yet: no handshake time exists.
+    let peer = stream.peer_addr();
+    let deferred = peer.as_ref().is_err_and(|err| err.kind() == std::io::ErrorKind::NotConnected);
+    if !deferred {
+        connect_platform::record_connection_setup_duration(group_index, started.elapsed().as_secs_f64());
+    }
+    let upstream_addr = peer.unwrap_or(target);
+    let upstream_rtt_ms = if deferred {
+        None
+    } else {
+        connect_platform::tcp_round_trip_time_ms(stream)
+            .ok()
+            .flatten()
+            .or_else(|| Some(started.elapsed().as_millis() as u64))
+    };
     state.note_upstream_connected(upstream_addr, upstream_rtt_ms);
 }
 
