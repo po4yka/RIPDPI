@@ -190,6 +190,21 @@ fn ui_payload_accepts_leading_syndata_with_or_without_tls_prelude() {
 }
 
 #[test]
+fn ui_payload_rejects_fakerst_that_unsets_rst_flag() {
+    let mut ui = minimal_ui();
+    ui.root_mode = true;
+    let mut step = tcp_step("fakerst", "host+2");
+    step.tcp_flags_unset = "rst".to_string();
+    ui.chains.tcp_steps = vec![step.clone(), tcp_step("split", "host+1")];
+    let err = runtime_config_from_payload(ui_payload(ui.clone())).expect_err("fakerst unset rst");
+    assert!(err.to_string().contains("fakerst must not unset the rst flag"));
+
+    step.tcp_flags_unset = "psh".to_string();
+    ui.chains.tcp_steps = vec![step, tcp_step("split", "host+1")];
+    runtime_config_from_payload(ui_payload(ui)).expect("fakerst unsetting another flag");
+}
+
+#[test]
 fn ui_payload_rejects_tcp_state_predicates_on_group_activation_filter() {
     let mut ui = minimal_ui();
     ui.chains.group_activation_filter = Some(activation_filter_with_tcp_state());

@@ -344,8 +344,8 @@ chunk is still written and the receipt reports `split` with
 `StrategyFamilyFallback`.
 
 **Config fields**: `offset`; `fake_flags` (`TcpFlagOverrides`) control the
-injected RST's TCP flags, `original_flags` control the following real
-write's flags.
+injected RST's TCP flags. The fake `unset` mask must not contain `rst`.
+The step is fake-only: validation rejects `original_flags`.
 
 **Emitter tier**: `LabDiagnosticsOnly` -- the most restrictive tier in
 `EmitterTier`/`StrategyEmitterTier` (stricter than `RootedProduction`).

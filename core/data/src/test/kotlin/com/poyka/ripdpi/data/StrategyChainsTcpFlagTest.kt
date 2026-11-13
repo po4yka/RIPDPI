@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.proto.AppSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StrategyChainsTcpFlagTest {
@@ -72,5 +73,23 @@ class StrategyChainsTcpFlagTest {
                 udpSteps = emptyList(),
             )
         }
+    }
+
+    @Test
+    fun `fakerst rejects only an unset mask that clears rst`() {
+        fun chainWith(
+            kind: TcpChainStepKind,
+            unset: String,
+        ) = runCatching {
+            AppSettings.newBuilder().setStrategyChains(
+                tcpSteps = listOf(TcpChainStepModel(kind = kind, marker = "host+2", tcpFlagsUnset = unset)),
+                udpSteps = emptyList(),
+            )
+        }
+
+        assertTrue(chainWith(TcpChainStepKind.FakeRst, "rst").isFailure)
+        assertTrue(chainWith(TcpChainStepKind.FakeRst, "psh|rst").isFailure)
+        assertTrue(chainWith(TcpChainStepKind.FakeRst, "psh").isSuccess)
+        assertTrue(chainWith(TcpChainStepKind.Fake, "rst").isSuccess)
     }
 }

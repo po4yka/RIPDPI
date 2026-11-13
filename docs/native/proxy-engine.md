@@ -233,7 +233,7 @@ Validation rules:
 
 - Fake masks are allowed only on steps that emit synthetic TCP packets: `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `seqovl`, and `fakerst`
 - Original masks are allowed only on steps that emit original payload bytes: `split`, `syndata`, `disorder`, `multidisorder`, `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, and `ipfrag2`
-- `fakerst` is fake-only
+- `fakerst` is fake-only, and its fake `unset` mask must not contain `rst` (the step would then emit a packet without RST)
 - `oob` and `disoob` reject all four mask fields in v1
 - Set and unset masks for the same target must not overlap
 

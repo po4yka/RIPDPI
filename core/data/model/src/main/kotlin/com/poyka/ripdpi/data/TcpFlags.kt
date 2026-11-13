@@ -112,6 +112,9 @@ fun validateTcpFlagMasks(
     require(kind.supportsFakeTcpFlags || (fakeSet == 0 && fakeUnset == 0)) {
         "${kind.wireName} must not declare fake TCP flag masks"
     }
+    require(kind != TcpChainStepKind.FakeRst || fakeUnset and tcpFlagMaskByName.getValue("rst") == 0) {
+        "fakerst must not unset the rst flag"
+    }
     require(kind.supportsOriginalTcpFlags || (origSet == 0 && origUnset == 0)) {
         "${kind.wireName} must not declare original TCP flag masks"
     }

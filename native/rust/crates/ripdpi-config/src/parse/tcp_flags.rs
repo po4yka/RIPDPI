@@ -80,6 +80,9 @@ pub fn validate_tcp_flag_masks(
     if (fake_set != 0 || fake_unset != 0) && !kind.supports_fake_tcp_flags() {
         return Err(ConfigError::invalid(field_name, Some("fake TCP flag masks are not supported for this step kind")));
     }
+    if kind == TcpChainStepKind::FakeRst && (fake_unset & TCP_FLAG_RST) != 0 {
+        return Err(ConfigError::invalid(field_name, Some("fakerst must not unset the rst flag")));
+    }
     if (orig_set != 0 || orig_unset != 0) && !kind.supports_orig_tcp_flags() {
         return Err(ConfigError::invalid(
             field_name,
@@ -90,9 +93,7 @@ pub fn validate_tcp_flag_masks(
 }
 
 fn normalize_mask(mask: Option<u16>) -> Result<u16, ConfigError> {
-    let Some(mask) = mask else {
-        return Ok(0);
-    };
+    let mask = mask.unwrap_or(0);
     if (mask & !TCP_FLAG_MASK_ALL) != 0 {
         return Err(ConfigError::invalid("tcp-flags", Some(mask.to_string())));
     }
@@ -151,5 +152,14 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn validate_tcp_flag_masks_rejects_unsetting_rst_on_fakerst_only() {
+        let check = |kind, unset| validate_tcp_flag_masks(kind, None, Some(unset), None, None, "tcpChainSteps");
+        assert!(check(TcpChainStepKind::FakeRst, TCP_FLAG_RST).is_err());
+        assert!(check(TcpChainStepKind::FakeRst, TCP_FLAG_PSH | TCP_FLAG_RST).is_err());
+        assert!(check(TcpChainStepKind::FakeRst, TCP_FLAG_PSH).is_ok());
+        assert!(check(TcpChainStepKind::Fake, TCP_FLAG_RST).is_ok());
     }
 }
