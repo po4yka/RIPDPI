@@ -220,14 +220,13 @@ fn resolve_tlsrandrec_fragment_sizes(
     match context.adaptive.tlsrandrec_profile.unwrap_or(AdaptiveTlsRandRecProfile::Balanced) {
         AdaptiveTlsRandRecProfile::Balanced => (min_fragment_size, max_fragment_size),
         AdaptiveTlsRandRecProfile::Tight => {
-            let adjusted_min = min_fragment_size.clamp(1, 16);
-            let adjusted_max = max_fragment_size.min((budget / fragment_count.max(1)).max(adjusted_min));
-            (adjusted_min, adjusted_max.max(adjusted_min))
+            let adjusted_max = max_fragment_size.min((budget / fragment_count.max(1)).max(min_fragment_size));
+            (min_fragment_size, adjusted_max)
         }
         AdaptiveTlsRandRecProfile::Wide => {
-            let adjusted_min = min_fragment_size.max(24);
-            let adjusted_max = max_fragment_size.max(adjusted_min).min(budget.max(adjusted_min));
-            (adjusted_min, adjusted_max.max(adjusted_min))
+            let adjusted_min = min_fragment_size.max(24).min(max_fragment_size);
+            let adjusted_max = max_fragment_size.min(budget.max(adjusted_min));
+            (adjusted_min, adjusted_max)
         }
     }
 }
