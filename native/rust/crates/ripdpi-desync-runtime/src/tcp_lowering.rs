@@ -112,11 +112,6 @@ impl TcpLoweringCapabilities {
 
         match set_stream_ttl(stream, ttl) {
             Ok(()) => Ok(true),
-            Err(source) if should_ignore_android_ttl_error(&source) => {
-                self.ttl_write = TcpTtlCapabilityState::Unavailable;
-                tracing::warn!("TTL desync action unavailable on this Android build: {}", source);
-                Ok(false)
-            }
             Err(source) => Err(strategy_execution_error(action, strategy_family, fallback, bytes_committed, source)),
         }
     }
@@ -318,6 +313,24 @@ mod tests {
         };
 
         assert!(!caps.restore_default_ttl_named(&client, 42, "restore_default_ttl", "disorder", None, 0).unwrap());
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[test]
+    fn failed_restore_reports_error_and_preserves_accepted_progress() {
+        let (client, _server) = connected_pair();
+        let mut caps = TcpLoweringCapabilities::snapshot(&client, 64, &AtomicBool::new(false));
+        assert!(caps.set_ttl_named(&client, 1, "set_ttl_disoob", "disoob", Some("oob"), 0).unwrap());
+
+        // TTL 0 makes the real IPv4 socket reject restoration without a fault seam.
+        let error = caps
+            .restore_default_ttl_named(&client, 0, "restore_default_ttl_disoob", "disoob", Some("oob"), 17)
+            .expect_err("a rejected restore must stop the send");
+
+        assert_eq!(error.bytes_committed(), 17);
+        assert_eq!(error.source_error().raw_os_error(), Some(libc::EINVAL));
+        assert_eq!(client.ttl().expect("TTL after rejected restore"), 1);
+        assert!(!caps.ttl_actions_unavailable(), "restore failure must not suppress the cleanup attempt");
     }
 
     #[test]
