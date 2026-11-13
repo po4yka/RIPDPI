@@ -1,5 +1,5 @@
 use super::{TcpPlanStepExecContext, TcpPlanStepInput};
-use crate::strategy_family::{log_ipfrag2_flow_fallback, should_fallback_ipfrag2_tcp_error_kind};
+use crate::strategy_family::{log_ipfrag2_flow_fallback, should_fallback_ipfrag2_tcp_error};
 use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_plan::flags::step_original_tcp_flags;
 use crate::transport_io::{send_ip_fragmented_tcp_action_named, write_strategy_payload_with_optional_flags_named};
@@ -33,7 +33,7 @@ pub(super) fn execute(
         input.bytes_committed,
     ) {
         Ok(committed) => (committed, TcpStepControl::BreakPlan),
-        Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
+        Err(err) if should_fallback_ipfrag2_tcp_error(err.source_error()) => {
             log_ipfrag2_flow_fallback(&err);
             let committed = write_strategy_payload_with_optional_flags_named(
                 ctx.writer,

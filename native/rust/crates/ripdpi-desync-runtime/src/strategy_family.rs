@@ -153,6 +153,10 @@ pub(crate) fn write_action_name(strategy_family: &'static str) -> &'static str {
     }
 }
 
+pub(crate) fn should_fallback_ipfrag2_tcp_error(error: &io::Error) -> bool {
+    crate::platform::TcpFragmentSendError::before_send(error) && should_fallback_ipfrag2_tcp_error_kind(error.kind())
+}
+
 pub(crate) fn should_fallback_ipfrag2_tcp_error_kind(kind: io::ErrorKind) -> bool {
     matches!(kind, io::ErrorKind::InvalidInput | io::ErrorKind::WouldBlock | io::ErrorKind::Unsupported)
 }

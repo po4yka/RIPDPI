@@ -527,6 +527,8 @@ impl OutboundSendError {
     /// True when an opaque send may have emitted payload beyond the exact counter.
     pub fn payload_commit_uncertain(&self) -> bool {
         matches!(self, Self::StrategyExecution { payload_commit_uncertain: true, .. })
+            || crate::platform::TcpFragmentSendError::from_error(self.source_error())
+                .is_some_and(|phase| phase.payload_commit_uncertain)
     }
 
     pub(crate) fn with_possible_payload_commit(mut self) -> Self {

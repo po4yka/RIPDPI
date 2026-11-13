@@ -200,6 +200,7 @@ pub(crate) fn send_flagged_tcp_payload_action_named(
         fallback,
         bytes_committed,
     )
+    .map_err(OutboundSendError::with_possible_payload_commit)
     .map(|()| bytes_committed + payload.len())
 }
 
@@ -230,7 +231,8 @@ pub(crate) fn send_ip_fragmented_tcp_action_named(
             ipv6_ext,
             flags,
             ip_id_mode,
-        ),
+        )
+        .map_err(platform::TcpFragmentSendError::classify),
         action,
         strategy_family,
         fallback,

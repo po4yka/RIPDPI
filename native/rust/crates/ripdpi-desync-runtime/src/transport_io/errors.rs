@@ -14,8 +14,11 @@ pub(crate) fn strategy_execution_error(
         strategy_family,
         fallback,
         bytes_committed,
-        payload_commit_uncertain: false,
-        source_errno: source.raw_os_error(),
+        payload_commit_uncertain: crate::platform::TcpFragmentSendError::from_error(&source)
+            .is_some_and(|phase| phase.payload_commit_uncertain),
+        source_errno: source.raw_os_error().or_else(|| {
+            crate::platform::TcpFragmentSendError::from_error(&source).and_then(|phase| phase.source.raw_os_error())
+        }),
         execution_receipt: Box::new(TcpExecutionReceipt::failed_strategy_execution(
             Some(strategy_family),
             0,

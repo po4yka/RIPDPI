@@ -412,6 +412,7 @@ fn plan_ipfrag2_fallback_with_original_flags_fails_closed() {
         &unavailable,
     )
     .expect_err("ipfrag2 fallback with original flags should fail closed");
+    assert!(err.payload_commit_uncertain());
     assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
     server.set_read_timeout(Some(Duration::from_millis(100))).ok();
     let mut buf = vec![0u8; 5];

@@ -45,6 +45,9 @@ impl TcpFragmentSender for ReceiptTestPlatform {
         flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
+        if let Some(result) = self.fragment_fault(stream, payload) {
+            return result;
+        }
         let emit = {
             let mut faults = self.faults.lock().expect("receipt fault queue");
             if matches!(faults.front(), Some(FaultSpec::EmitIpFragments)) {
@@ -59,7 +62,13 @@ impl TcpFragmentSender for ReceiptTestPlatform {
         }
         Err(io::Error::new(
             self.ipfrag_error_kind.unwrap_or(io::ErrorKind::Unsupported),
-            "ipfrag unsupported in receipt test",
+            crate::platform::TcpFragmentSendError {
+                source: io::Error::new(
+                    self.ipfrag_error_kind.unwrap_or(io::ErrorKind::Unsupported),
+                    "ipfrag unsupported in receipt test",
+                ),
+                payload_commit_uncertain: false,
+            },
         ))
     }
 

@@ -26,6 +26,7 @@ pub mod ripdpi_runtime_platform::protect
 pub use ripdpi_runtime_platform::protect::<<ripdpi_native_protect::*>>
 pub mod ripdpi_runtime_platform::raw_packet
 pub use ripdpi_runtime_platform::raw_packet::FakeTcpOptions
+pub use ripdpi_runtime_platform::raw_packet::IpFragmentSendError
 pub use ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities
 pub use ripdpi_runtime_platform::raw_packet::OrderedTcpSegment
 pub use ripdpi_runtime_platform::raw_packet::TcpFlagOverrides

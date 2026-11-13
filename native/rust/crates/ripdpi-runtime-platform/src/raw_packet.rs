@@ -15,6 +15,6 @@ pub use super::ip_fragmentation::{
     send_ip_fragmented_udp, send_ip_fragmented_udp_reserved, send_multi_disorder_tcp, send_multi_disorder_tcp_reserved,
 };
 pub use ripdpi_privileged_ops::{
-    FakeTcpOptions, IpFragmentationCapabilities, OrderedTcpSegment, TcpFlagOverrides, TcpPayloadSegment,
-    TcpSendProgressError, TcpStageWait,
+    FakeTcpOptions, IpFragmentSendError, IpFragmentationCapabilities, OrderedTcpSegment, TcpFlagOverrides,
+    TcpPayloadSegment, TcpSendProgressError, TcpStageWait,
 };

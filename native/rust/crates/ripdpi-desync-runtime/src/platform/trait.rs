@@ -85,6 +85,8 @@ pub trait TcpPayloadSender {
 
 #[allow(clippy::too_many_arguments)]
 pub trait TcpFragmentSender {
+    /// Return a `TcpFragmentSendError` to report proven pre-send rejection.
+    /// An unclassified failure is treated as possibly committed payload.
     fn send_ip_fragmented_tcp(
         &self,
         stream: &TcpStream,

@@ -18,6 +18,7 @@ mod fake_send_safety;
 mod fake_split;
 mod ip_fragment_eligibility;
 mod ip_fragment_profiles;
+mod ip_fragment_progress;
 mod multi_disorder;
 mod seq_overlap;
 
@@ -27,6 +28,8 @@ enum FaultSpec {
     SeqOverlap(io::ErrorKind),
     OrderedSegmentsAfterPartialGenuine,
     FakeSendAfterPrefix(usize),
+    FragmentAfterPrefix(io::ErrorKind),
+    FlaggedAfterPrefix(io::ErrorKind),
     FakePayload { bytes: Vec<u8>, kind: io::ErrorKind },
     MultiDisorderAfterPrefix { written: usize, report_progress: bool },
     EmitIpFragments,
@@ -209,6 +212,9 @@ impl TcpPayloadSender for ReceiptTestPlatform {
         _flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
+        if let Some(result) = self.flagged_fault(_stream, _payload) {
+            return result;
+        }
         Err(io::Error::new(io::ErrorKind::Unsupported, "flagged payload unsupported in receipt test"))
     }
 

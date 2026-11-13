@@ -4,7 +4,7 @@ use super::accounting::{ActionContext, FallbackAccounting};
 
 use crate::platform;
 use crate::strategy_family::{
-    log_ipfrag2_flow_fallback, should_fallback_ipfrag2_tcp_error_kind, should_fallback_seqovl_error_kind,
+    log_ipfrag2_flow_fallback, should_fallback_ipfrag2_tcp_error, should_fallback_seqovl_error_kind,
 };
 use crate::tcp_lowering::should_ignore_android_ttl_error;
 use crate::transport_io::{
@@ -85,7 +85,7 @@ impl PrivilegedActionExecutor {
                 accounting.bytes_committed(),
             ) {
                 Ok(committed) => accounting.set_bytes_committed(committed),
-                Err(err) if strategy_family == "ipfrag2" && should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
+                Err(err) if strategy_family == "ipfrag2" && should_fallback_ipfrag2_tcp_error(err.source_error()) => {
                     log_ipfrag2_flow_fallback(&err);
                     let committed = write_strategy_payload_named(
                         writer,
@@ -110,9 +110,11 @@ impl PrivilegedActionExecutor {
                 ipv6_ext,
                 platform::TcpFlagOverrides::default(),
                 context.ip_id_mode,
-            ) {
+            )
+            .map_err(platform::TcpFragmentSendError::classify)
+            {
                 Ok(()) => accounting.add_bytes_committed(bytes.len()),
-                Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
+                Err(err) if should_fallback_ipfrag2_tcp_error(&err) => {
                     log_ipfrag2_flow_fallback(&err);
                     accounting.add_transport_write(write_transport_payload(writer, bytes))?;
                 }

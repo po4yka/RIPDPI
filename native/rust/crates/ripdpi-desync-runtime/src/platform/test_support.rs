@@ -166,7 +166,13 @@ impl TcpFragmentSender for TestTcpDesyncPlatform {
         _flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Unsupported, "packet-owned TCP desync requires TCP_INFO support"))
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            super::TcpFragmentSendError {
+                source: io::Error::new(io::ErrorKind::Unsupported, "packet-owned TCP desync requires TCP_INFO support"),
+                payload_commit_uncertain: false,
+            },
+        ))
     }
 
     fn send_multi_disorder_tcp(

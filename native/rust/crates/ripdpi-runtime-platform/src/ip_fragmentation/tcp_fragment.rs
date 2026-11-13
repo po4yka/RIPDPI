@@ -92,7 +92,13 @@ pub fn send_ip_fragmented_tcp_reserved(
     _flags: TcpFlagOverrides,
     _ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        ripdpi_privileged_ops::IpFragmentSendError {
+            source: io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
+            payload_commit_uncertain: false,
+        },
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -135,5 +141,11 @@ pub fn send_ip_fragmented_tcp(
     _flags: TcpFlagOverrides,
     _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        ripdpi_privileged_ops::IpFragmentSendError {
+            source: io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
+            payload_commit_uncertain: false,
+        },
+    ))
 }
