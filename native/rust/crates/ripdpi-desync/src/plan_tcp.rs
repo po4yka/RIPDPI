@@ -171,6 +171,8 @@ fn plan_tcp_with_fake_reference(
     let mut actions = Vec::new();
     let mut lp = 0i64;
     let fake_ttl = context.resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
+    // Linux keeps one urgent mark per socket, so a second mark makes the earlier byte inline peer data.
+    let mut urgent_allowed = context.round == 1 && context.stream_start == 0 && context.payload_size > 0;
 
     if send_steps.iter().any(|step| step.kind() == TcpChainStepKind::MultiDisorder) {
         let steps = plan_multi_disorder_steps(&send_steps, &tampered.bytes, &mut info, &mut rng, context)?;
@@ -229,7 +231,12 @@ fn plan_tcp_with_fake_reference(
                     continue;
                 }
             }
+            TcpChainStepKind::Oob | TcpChainStepKind::Disoob if !urgent_allowed => {
+                planned_kind = TcpChainStepKind::Split;
+                push_split_actions(&mut actions, chunk);
+            }
             TcpChainStepKind::Oob => {
+                urgent_allowed = false;
                 actions.push(DesyncAction::WriteUrgent {
                     prefix: chunk,
                     urgent_byte: group.actions.oob_data.unwrap_or(b'a'),
@@ -239,6 +246,7 @@ fn plan_tcp_with_fake_reference(
                 push_disorder_actions(&mut actions, chunk, default_ttl, DISORDER_TTL);
             }
             TcpChainStepKind::Disoob => {
+                urgent_allowed = false;
                 push_disoob_actions(&mut actions, chunk, group.actions.oob_data.unwrap_or(b'a'), default_ttl);
             }
             TcpChainStepKind::Fake => {

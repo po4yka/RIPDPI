@@ -736,6 +736,74 @@ fn plan_tcp_disoob_combines_ttl_and_urgent() {
 }
 
 #[test]
+fn plan_tcp_urgent_steps_emit_once_in_the_initial_buffer() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::Oob, split_expr(2)),
+        TcpChainStep::new(TcpChainStepKind::Disoob, split_expr(4)),
+        TcpChainStep::new(TcpChainStepKind::Oob, split_expr(6)),
+    ];
+    let payload = b"abcdefgh";
+    let plan = plan_tcp(&group, payload, 0, 64, tcp_context(payload)).expect("plan urgent chain");
+
+    assert_eq!(
+        plan.steps.iter().map(|step| step.kind).collect::<Vec<_>>(),
+        vec![TcpChainStepKind::Oob, TcpChainStepKind::Split, TcpChainStepKind::Split],
+    );
+    assert_eq!(plan.actions.iter().filter(|action| matches!(action, DesyncAction::WriteUrgent { .. })).count(), 1);
+    assert!(!plan.actions.iter().any(|action| matches!(action, DesyncAction::SetTtl(_))));
+}
+
+#[test]
+fn plan_tcp_urgent_steps_lower_to_split_outside_the_initial_buffer() {
+    let payload = b"abcdef";
+    for kind in [TcpChainStepKind::Oob, TcpChainStepKind::Disoob] {
+        for (round, stream_start) in [(2, 0), (1, 6), (2, 6)] {
+            let mut group = DesyncGroup::new(0);
+            group.actions.tcp_chain.push(TcpChainStep::new(kind, split_expr(2)));
+            let context = ActivationContext { round, stream_start, ..tcp_context(payload) };
+            let plan = plan_tcp(&group, payload, 0, 64, context).expect("plan later urgent step");
+
+            assert!(
+                plan.steps.iter().all(|step| step.kind == TcpChainStepKind::Split),
+                "{kind:?} {round} {stream_start}"
+            );
+            let written = plan
+                .actions
+                .iter()
+                .map(|action| match action {
+                    DesyncAction::Write(bytes) => Ok(bytes.as_slice()),
+                    DesyncAction::AwaitWritable => Ok(&[][..]),
+                    other => Err(format!("{other:?}")),
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .expect("only ordinary writes");
+            assert_eq!(written.concat(), payload);
+        }
+    }
+}
+
+#[test]
+fn plan_tcp_urgent_steps_do_not_emit_for_empty_original_payloads() {
+    for payload in [b"".as_slice(), b"padding".as_slice()] {
+        for kind in [TcpChainStepKind::Oob, TcpChainStepKind::Disoob] {
+            let mut group = DesyncGroup::new(0);
+            group.actions.tcp_chain.push(TcpChainStep::new(kind, split_expr(0)));
+            let context = ActivationContext { payload_size: 0, ..tcp_context(payload) };
+            let plan = plan_tcp(&group, payload, 0, 64, context).expect("plan empty urgent payload");
+
+            assert_eq!(plan.steps[0].kind, TcpChainStepKind::Split);
+            assert!(
+                !plan
+                    .actions
+                    .iter()
+                    .any(|action| matches!(action, DesyncAction::WriteUrgent { .. } | DesyncAction::SetTtl(_)))
+            );
+        }
+    }
+}
+
+#[test]
 fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
     let fake = complete_fake_tls();
     let mut group = DesyncGroup::new(0);
