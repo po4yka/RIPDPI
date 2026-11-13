@@ -206,16 +206,18 @@ pub fn execute_udp_actions(
     };
     // Through a SOCKS5 UDP relay no low TTL drops a decoy before the target: the relay
     // forwards every datagram at full TTL. Send only the real payload when the plan has it.
-    let skip_decoys =
-        ctx.socks_udp_frame && actions.iter().any(|action| udp_write_bytes(action) == Some(logical_payload));
+    // Only the last write carrying the payload is the real one; earlier equal writes are decoys.
+    let real_index = actions.iter().rposition(|action| udp_write_bytes(action) == Some(logical_payload));
+    let skip_decoys = ctx.socks_udp_frame && real_index.is_some();
     let mut ttl_changed = false;
-    for action in actions {
-        if skip_decoys && udp_write_bytes(action).is_some_and(|bytes| bytes != logical_payload) {
+    for (index, action) in actions.iter().enumerate() {
+        let is_real = Some(index) == real_index;
+        if skip_decoys && !is_real && udp_write_bytes(action).is_some() {
             outcome.completed_actions = outcome.completed_actions.saturating_add(1);
             outcome.fallback_reason.get_or_insert(UdpExecutionFallbackReason::RelayPathSkippedPacketMutation);
             continue;
         }
-        let action_outcome = match execute_udp_action(ctx, action, logical_payload) {
+        let action_outcome = match execute_udp_action(ctx, action, is_real) {
             Ok(action_outcome) => action_outcome,
             Err(source) => {
                 if ttl_changed {
@@ -286,19 +288,12 @@ pub fn execute_udp_payload_plan(
 fn execute_udp_action(
     ctx: UdpActionExecContext<'_>,
     action: &UdpDesyncAction,
-    logical_payload: &[u8],
+    is_real: bool,
 ) -> io::Result<UdpActionOutcome> {
     match action {
-        DesyncAction::Write(bytes) => execute_udp_write_action(ctx, bytes, bytes == logical_payload),
+        DesyncAction::Write(bytes) => execute_udp_write_action(ctx, bytes, is_real),
         DesyncAction::WriteIpFragmentedUdp { bytes, split_offset, disorder, ipv6_ext } => {
-            execute_udp_fragmented_write_action(
-                ctx,
-                bytes,
-                *split_offset,
-                *disorder,
-                *ipv6_ext,
-                bytes == logical_payload,
-            )
+            execute_udp_fragmented_write_action(ctx, bytes, *split_offset, *disorder, *ipv6_ext, is_real)
         }
         DesyncAction::SetTtl(ttl) => execute_udp_ttl_action(ctx, *ttl),
         DesyncAction::Delay(ms) => execute_udp_delay_action(*ms),
@@ -669,5 +664,49 @@ mod tests {
 
         assert!(result.is_err(), "oversized decoy must fail");
         assert_eq!(SockRef::from(&sender).ttl_v4().expect("read IPv4 TTL"), 64);
+    }
+
+    #[test]
+    fn decoy_equal_to_payload_is_not_a_real_write() {
+        let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        peer.set_read_timeout(Some(Duration::from_millis(200))).expect("peer timeout");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
+        let actions = [
+            DesyncAction::SetTtl(8),
+            DesyncAction::Write(b"p".to_vec()),
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(64),
+            DesyncAction::Write(b"p".to_vec()),
+        ];
+
+        let outcome = execute_udp_actions(loopback_ctx(&sender, false), &actions, b"p").expect("direct plan");
+
+        assert_eq!(outcome.real_writes_committed, 1);
+        assert_eq!(outcome.technique_actions_completed, 1);
+        let mut buf = [0u8; 8];
+        assert!(peer.recv(&mut buf).is_ok() && peer.recv(&mut buf).is_ok(), "both datagrams are sent");
+    }
+
+    #[test]
+    fn relay_path_skips_decoy_equal_to_payload() {
+        let relay = UdpSocket::bind("127.0.0.1:0").expect("bind relay");
+        relay.set_read_timeout(Some(Duration::from_millis(200))).expect("relay timeout");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(relay.local_addr().expect("relay addr")).expect("connect sender");
+        let actions = [
+            DesyncAction::SetTtl(8),
+            DesyncAction::Write(b"p".to_vec()),
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(64),
+            DesyncAction::Write(b"p".to_vec()),
+        ];
+
+        let outcome = execute_udp_actions(loopback_ctx(&sender, true), &actions, b"p").expect("relay plan");
+
+        let mut buf = [0u8; 64];
+        assert!(relay.recv(&mut buf).is_ok(), "one framed datagram arrives");
+        assert!(relay.recv(&mut buf).is_err(), "the equal decoy must not reach the relay");
+        assert_eq!(outcome.real_writes_committed, 1);
     }
 }
