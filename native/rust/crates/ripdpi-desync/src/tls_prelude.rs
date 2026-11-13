@@ -111,7 +111,7 @@ fn apply_tlsrec_prelude_step(
         let Some(mut pos) = resolved else {
             break;
         };
-        if offset.needs_tls_record_adjustment() {
+        if !offset.base.is_adaptive() && offset.needs_tls_record_adjustment() {
             pos = pos.checked_sub(5).ok_or(DesyncError)?;
         }
         pos = pos.checked_add(i64::from(offset.skip) * i64::from(total - remaining)).ok_or(DesyncError)?;
@@ -166,7 +166,7 @@ fn apply_tlsrandrec_prelude_step(
     let Some(mut marker) = resolved else {
         return Ok(None);
     };
-    if offset.needs_tls_record_adjustment() {
+    if !offset.base.is_adaptive() && offset.needs_tls_record_adjustment() {
         marker = marker.checked_sub(5).ok_or(DesyncError)?;
     }
     if marker < 0 || marker > state.payload.len() as i64 {
