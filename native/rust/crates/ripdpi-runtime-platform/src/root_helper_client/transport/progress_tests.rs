@@ -7,25 +7,41 @@ use ripdpi_privileged_ops::TcpSendProgressError;
 use ripdpi_root_helper_protocol::{CAPABILITY_VERSION, HelperResponse, PROTOCOL_VERSION, recv_message, send_message};
 
 use super::{CMD_SEND_FAKE_TCP, ClientTransport};
+use ripdpi_root_helper_protocol::CMD_SEND_SEQOVL_TCP;
 
 fn helper_failure(data: serde_json::Value) -> io::Error {
+    helper_failure_for(CMD_SEND_FAKE_TCP, data)
+}
+
+fn helper_failure_for(command: &str, data: serde_json::Value) -> io::Error {
+    helper_reply_for(command, Some(data))
+}
+
+fn helper_reply_for(command: &str, data: Option<serde_json::Value>) -> io::Error {
     let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos();
     let path = std::env::temp_dir().join(format!("rhs-p-{}-{unique}.sock", std::process::id()));
     let listener = UnixListener::bind(&path).expect("helper listener");
     let server = std::thread::spawn(move || {
         let (stream, _) = listener.accept().expect("helper client");
         let (_request, _fd) = recv_message(&stream, "client closed").expect("request");
-        let mut response = HelperResponse::error("queue did not drain");
-        response.data = data;
-        let response = response.with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
-        send_message(&stream, &serde_json::to_vec(&response).expect("response"), None).expect("send response");
+        if let Some(data) = data {
+            let mut response = HelperResponse::error("queue did not drain");
+            response.data = data;
+            let response = response.with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
+            send_message(&stream, &serde_json::to_vec(&response).expect("response"), None).expect("send response");
+        }
     });
     let tcp_listener = TcpListener::bind("127.0.0.1:0").expect("TCP listener");
     let stream = TcpStream::connect(tcp_listener.local_addr().expect("TCP address")).expect("TCP stream");
     let (_peer, _) = tcp_listener.accept().expect("TCP peer");
+    let params = if command == CMD_SEND_SEQOVL_TCP {
+        serde_json::json!({ "real_chunk": [1, 2, 3], "fake_prefix": [0, 0, 0], "default_ttl": 64 })
+    } else {
+        serde_json::json!({ "original_prefix": [1, 2, 3], "fake_prefix": [0, 0, 0], "ttl": 1, "default_ttl": 64 })
+    };
     let result = ClientTransport::new(path.to_string_lossy().into_owned()).send_command_once(
-        CMD_SEND_FAKE_TCP,
-        serde_json::json!({ "original_prefix": [1, 2, 3], "fake_prefix": [0, 0, 0], "ttl": 1, "default_ttl": 64 }),
+        command,
+        params,
         Some(stream.as_fd()),
         "abcdefghijklmnopqrstuvwxyzABCDEF",
         None,
@@ -33,6 +49,46 @@ fn helper_failure(data: serde_json::Value) -> io::Error {
     server.join().expect("helper server");
     std::fs::remove_file(path).expect("remove helper socket");
     result.expect_err("helper send failed")
+}
+
+#[test]
+fn seqovl_helper_reply_loss_is_terminal_after_delivery() {
+    let error = helper_reply_for(CMD_SEND_SEQOVL_TCP, None);
+    assert_eq!(error.kind(), io::ErrorKind::Other);
+    assert!(!super::is_not_delivered(&error));
+    assert_eq!(helper_reply_for(CMD_SEND_FAKE_TCP, None).kind(), io::ErrorKind::UnexpectedEof);
+}
+
+#[test]
+fn seqovl_helper_error_preserves_only_explicit_safe_refusals() {
+    for (label, kind) in [
+        ("invalid_input", io::ErrorKind::InvalidInput),
+        ("would_block", io::ErrorKind::WouldBlock),
+        ("unsupported", io::ErrorKind::Unsupported),
+        ("permission_denied", io::ErrorKind::PermissionDenied),
+    ] {
+        let error = helper_failure_for(CMD_SEND_SEQOVL_TCP, serde_json::json!({ "seqovl_safe_refusal": label }));
+        assert_eq!(error.kind(), kind);
+        assert_eq!(error.to_string(), "queue did not drain");
+    }
+}
+
+#[test]
+fn seqovl_helper_error_with_unknown_outcome_stays_terminal() {
+    for data in [
+        serde_json::Value::Null,
+        serde_json::json!({ "seqovl_safe_refusal": "other" }),
+        serde_json::json!({ "seqovl_safe_refusal": "timed_out" }),
+        serde_json::json!({ "seqovl_safe_refusal": true }),
+        serde_json::json!({ "seqovl_safe_refusal": null }),
+        serde_json::json!({ "bytes_committed": 1 }),
+    ] {
+        assert_eq!(helper_failure_for(CMD_SEND_SEQOVL_TCP, data).kind(), io::ErrorKind::Other);
+    }
+    assert_eq!(
+        helper_failure(serde_json::json!({ "seqovl_safe_refusal": "would_block" })).kind(),
+        io::ErrorKind::Other
+    );
 }
 
 #[test]

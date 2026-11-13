@@ -145,7 +145,7 @@ pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperRespons
         Err(e) => {
             // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_seqovl_tcp failed");
-            (HelperResponse::error(e.to_string()), None)
+            (HelperResponse::seqovl_error(&e), None)
         }
     }
 }

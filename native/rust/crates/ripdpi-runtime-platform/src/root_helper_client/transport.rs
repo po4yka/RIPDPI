@@ -7,9 +7,8 @@ use nix::errno::Errno;
 use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr, connect, socket};
 
 use ripdpi_root_helper_protocol::{
-    CMD_PROTOCOL_PREFLIGHT, CMD_SEND_FAKE_TCP, HelperRequest, HelperResponse, PROTOCOL_VERSION,
-    recv_message_with_deadline, send_request_message, valid_session_nonce, validate_request,
-    validate_request_with_peer,
+    CMD_PROTOCOL_PREFLIGHT, CMD_SEND_FAKE_TCP, CMD_SEND_SEQOVL_TCP, HelperRequest, HelperResponse, PROTOCOL_VERSION,
+    send_request_message, valid_session_nonce, validate_request, validate_request_with_peer,
 };
 
 /// Upper bound for one connect to the helper socket. A blocking AF_UNIX
@@ -28,6 +27,7 @@ const COMMAND_READ_TIMEOUT: Duration = Duration::from_secs(30);
 mod deadline_tests;
 #[cfg(test)]
 mod progress_tests;
+mod response;
 
 pub(super) struct ClientTransport {
     socket_path: String,
@@ -122,15 +122,7 @@ impl ClientTransport {
             })
             .map_err(not_delivered)?;
 
-        let (resp_bytes, reply_fd) =
-            recv_message_with_deadline(&stream, "helper closed connection", Instant::now() + read_timeout)?;
-
-        let response: HelperResponse = serde_json::from_slice(&resp_bytes)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid response: {e}")))?;
-
-        if let Err(error) = response.validate_protocol_version() {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, error));
-        }
+        let (response, reply_fd) = response::receive_response(&stream, command, read_timeout)?;
 
         if !response.ok {
             return Err(command_error(command, &request.params, response));
@@ -147,7 +139,11 @@ impl ClientTransport {
 }
 
 fn command_error(command: &str, params: &serde_json::Value, response: HelperResponse) -> io::Error {
+    let seqovl_refusal = (command == CMD_SEND_SEQOVL_TCP).then(|| response.seqovl_safe_refusal_kind()).flatten();
     let error = io::Error::other(response.error.unwrap_or_else(|| "unknown helper error".into()));
+    if let Some(kind) = seqovl_refusal {
+        return io::Error::new(kind, error);
+    }
     let Some(value) = response.data.get("bytes_committed").filter(|_| command == CMD_SEND_FAKE_TCP) else {
         return error;
     };

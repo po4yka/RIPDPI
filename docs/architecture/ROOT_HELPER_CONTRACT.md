@@ -288,6 +288,18 @@ only when delivery is known not to have occurred, including failed pure
 preflight. An error after command delivery is returned without a blind local
 retry, which could duplicate an operation.
 
+For `v3/send_seqovl_tcp`, a failed response may include additive
+`data.seqovl_safe_refusal` metadata: `invalid_input`, `would_block`,
+`unsupported`, or `permission_denied`. The raw sender reserves these outer
+error kinds for a proven refusal before emission with TCP repair restored.
+The client preserves that kind only for this command. Errors after a possible
+send, repair-restoration errors, missing metadata, unknown labels and malformed
+values remain terminal. Old helpers remain compatible and keep their errors
+terminal. No protocol-version change is needed for this optional data field.
+After a seqovl request is delivered, a lost or invalid reply and a failed fd
+replacement are terminal `Other` errors. First-write classification must not
+retry the original request when genuine commit is unknown.
+
 **Fallback audit.** Every `with_root_helper()` dispatch site in
 `ripdpi-runtime-platform` was verified to have an explicit local fallback:
 

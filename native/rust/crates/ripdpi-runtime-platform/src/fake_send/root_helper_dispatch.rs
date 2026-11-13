@@ -115,7 +115,8 @@ pub(crate) fn send_seqovl_tcp(
             flags,
             ipv4_identification,
         )?;
-        swap_stream_replacement_fd(stream, res)?;
+        // The helper may already have committed the genuine payload.
+        swap_stream_replacement_fd(stream, res).map_err(io::Error::other)?;
         Ok(())
     })
 }

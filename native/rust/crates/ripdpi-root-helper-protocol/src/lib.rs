@@ -15,6 +15,7 @@ mod commands;
 mod params;
 mod request_limits;
 mod scm_rights;
+mod seqovl_refusal;
 mod wire;
 
 pub use command_descriptor::{

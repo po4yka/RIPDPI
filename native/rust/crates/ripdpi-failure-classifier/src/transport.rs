@@ -89,6 +89,16 @@ mod tests {
     }
 
     #[test]
+    fn uncertain_helper_outcome_does_not_retry_the_original_request() {
+        for kind in [io::ErrorKind::TimedOut, io::ErrorKind::UnexpectedEof, io::ErrorKind::ConnectionReset] {
+            let error = io::Error::other(io::Error::from(kind));
+            let failure = classify_transport_error(FailureStage::FirstWrite, &error);
+            assert_eq!(failure.class, FailureClass::Unknown);
+            assert_eq!(failure.action, FailureAction::SurfaceOnly);
+        }
+    }
+
+    #[test]
     fn invalid_input_transport_errors_remain_unknown_outside_desync_strategy_path() {
         for stage in [FailureStage::Connect, FailureStage::FirstResponse] {
             let err = io::Error::from_raw_os_error(libc::EINVAL);

@@ -39,6 +39,8 @@ pub struct HelperResponse {
     pub error: Option<String>,
     /// Command data. A failed `send_fake_tcp` may report `bytes_committed`;
     /// clients must bound this count by the request's original payload length.
+    /// A failed `send_seqovl_tcp` may report `seqovl_safe_refusal`; only the
+    /// explicit safe kinds permit replay after repair restoration.
     #[serde(default)]
     pub data: serde_json::Value,
     /// Helper's [`PROTOCOL_VERSION`] at the time the response was minted.
