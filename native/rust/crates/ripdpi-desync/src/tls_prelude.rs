@@ -6,7 +6,7 @@ use crate::types::{
     DesyncError, ProtoInfo, TamperResult, TcpSegmentHint, TlsPreludeApplication, activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPayload};
-use ripdpi_packets::{IS_HTTP, OracleRng, mod_http_inplace};
+use ripdpi_packets::{IS_HTTP, OracleRng, is_tls_client_hello, mod_http_inplace};
 use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, apply_record_choreography, plan_first_flight};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -277,6 +277,7 @@ fn apply_prelude(
     }
     if let Some(tlsminor) = group.actions.tlsminor
         && info.tls.is_some()
+        && is_tls_client_hello(&output)
         && output.len() > 2
     {
         output[2] = tlsminor;

@@ -1,8 +1,8 @@
 use std::ops::Range;
 
 use ripdpi_packets::{
-    QuicCryptoFrameInfo, QuicInitialLayout, TlsClientHelloLayout, TlsExtensionInfo, parse_quic_initial_layout,
-    parse_tls_client_hello_handshake_layout, parse_tls_client_hello_layout,
+    QuicCryptoFrameInfo, QuicInitialLayout, TlsClientHelloLayout, TlsExtensionInfo, is_tls_client_hello,
+    parse_quic_initial_layout, parse_tls_client_hello_handshake_layout, parse_tls_client_hello_layout,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -195,6 +195,9 @@ fn normalize_tls_from_layout(
 }
 
 pub fn normalize_tls_client_hello(packet: &[u8]) -> Option<TlsClientHelloIr> {
+    if !is_tls_client_hello(packet) {
+        return None;
+    }
     let layout = parse_tls_client_hello_layout(packet)?;
     if layout.host_spans.len() != 1 {
         return None;

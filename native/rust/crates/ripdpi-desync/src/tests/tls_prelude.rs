@@ -52,6 +52,71 @@ fn apply_tamper_tlsrandrec_is_noop_for_non_tls_payloads() {
 }
 
 #[test]
+fn tls_prelude_leaves_non_handshake_envelopes_unchanged() {
+    for standalone_fake in [false, true] {
+        for (byte, value) in [(0, 0x17), (0, 0xff), (1, 0x04)] {
+            let mut input = if standalone_fake { DEFAULT_FAKE_TLS.to_vec() } else { complete_fake_tls() };
+            input[byte] = value;
+            for step in
+                [TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(64)), tlsrandrec_step(0, 4, 1, 4096)]
+            {
+                for tlsminor in [None, Some(3)] {
+                    let mut group = DesyncGroup::new(0);
+                    group.actions.tlsminor = tlsminor;
+                    group.actions.tcp_chain = vec![step.clone()];
+                    let context = tcp_context(&input);
+                    let tampered = if standalone_fake {
+                        apply_tls_prelude_steps_to_fake(&group, &group.actions.tcp_chain, &input, 7, context)
+                    } else {
+                        apply_tls_prelude_steps(&group, &group.actions.tcp_chain, &input, 7, context)
+                    }
+                    .expect("unsupported envelope is a no-op");
+
+                    assert_eq!(tampered.bytes, input);
+                    assert_eq!(tampered.tls_prelude.applied_count, 0);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn tls_prelude_preserves_payload_with_record_minor_overrides() {
+    for standalone_fake in [false, true] {
+        let input = if standalone_fake { DEFAULT_FAKE_TLS.to_vec() } else { rust_packet_seeds::tls_client_hello() };
+        for minor in [0x01, 0x03, 0xff] {
+            for step in
+                [TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(64)), tlsrandrec_step(0, 4, 1, 4096)]
+            {
+                let mut group = DesyncGroup::new(0);
+                group.actions.tlsminor = Some(minor);
+                group.actions.tcp_chain = vec![step];
+                let context = tcp_context(&input);
+                let tampered = if standalone_fake {
+                    apply_tls_prelude_steps_to_fake(&group, &group.actions.tcp_chain, &input, 7, context)
+                } else {
+                    apply_tls_prelude_steps(&group, &group.actions.tcp_chain, &input, 7, context)
+                }
+                .expect("supported handshake envelope");
+
+                assert_eq!(tampered.tls_prelude.applied_count, 1);
+                let mut payload = Vec::new();
+                let mut records = tampered.bytes.as_slice();
+                while !records.is_empty() {
+                    let header = records.get(..5).expect("complete record header");
+                    assert_eq!(&header[..3], &[0x16, 0x03, minor]);
+                    let length = usize::from(u16::from_be_bytes([header[3], header[4]]));
+                    assert!(length > 0);
+                    payload.extend_from_slice(records.get(5..5 + length).expect("complete record payload"));
+                    records = &records[5 + length..];
+                }
+                assert_eq!(payload, input[5..]);
+            }
+        }
+    }
+}
+
+#[test]
 fn apply_tamper_tlsrandrec_is_noop_when_marker_cannot_be_resolved() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![
