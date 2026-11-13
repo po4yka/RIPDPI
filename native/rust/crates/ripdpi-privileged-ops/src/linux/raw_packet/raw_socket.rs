@@ -9,6 +9,8 @@ use std::os::fd::{AsRawFd, BorrowedFd};
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
+use crate::fragmentation::fragment_send_error;
+
 use crate::linux::socket_options::{get_u32_sockopt, set_c_int_sockopt, setsockopt_raw};
 
 pub(crate) fn probe_raw_socket(
@@ -29,7 +31,13 @@ pub(crate) fn send_raw_fragments(
     protect_path: Option<&str>,
     mark_source: BorrowedFd<'_>,
 ) -> io::Result<()> {
-    send_raw_packets(target, packets, protect_path, mark_source)
+    let socket =
+        open_raw_socket(target, protect_path, mark_source).map_err(|error| fragment_send_error(error, false))?;
+    let sockaddr = raw_send_target(target);
+    for packet in packets {
+        socket.send_to(packet, &sockaddr).map_err(|error| fragment_send_error(error, true))?;
+    }
+    Ok(())
 }
 
 /// Sends caller-built IP packets from a fresh raw socket.

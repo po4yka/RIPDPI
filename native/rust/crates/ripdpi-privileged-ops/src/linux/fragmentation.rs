@@ -4,7 +4,6 @@
 //! capture before crafting fragmented packets.
 
 use std::io;
-use std::io::Write;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::{AsFd, AsRawFd};
 
@@ -13,6 +12,7 @@ use ripdpi_ipfrag::{
 };
 use socket2::Domain;
 
+use crate::fragmentation::{finish_fragment_send, fragment_send_error};
 use crate::linux::raw_packet::{
     build_error_to_io, build_tcp_segment_packet, fragment_identification, probe_raw_socket, resolve_raw_ttl,
     send_raw_fragments, send_raw_packets_with_delay,
@@ -119,14 +119,12 @@ pub fn send_ip_fragmented_tcp(
         } else {
             send_raw_fragments(target, [&pair.first, &pair.second], protect_path, stream.as_fd())?;
         }
-        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)?;
-        (&*stream).write_all(payload)
+        queue_payload_as_sent(stream, payload).map_err(|error| fragment_send_error(error, true))
     })();
 
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
+    let queue_restoration = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let repair_restoration = disable_tcp_repair(fd);
+    finish_fragment_send(result, queue_restoration.and(repair_restoration))
 }
 
 #[allow(clippy::too_many_arguments)]

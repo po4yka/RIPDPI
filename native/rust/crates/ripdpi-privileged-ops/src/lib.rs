@@ -28,7 +28,7 @@ pub use experimental_tier3::{
     IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole, IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind,
     SynHideTcpSpec, recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_raw_ip_packet, send_syn_hide_tcp,
 };
-pub use fragmentation::{send_ip_fragmented_tcp, send_ip_fragmented_udp};
+pub use fragmentation::{IpFragmentSendError, send_ip_fragmented_tcp, send_ip_fragmented_udp};
 pub use raw_packet::{
     send_fake_rst, send_fake_tcp, send_flagged_tcp_payload, send_multi_disorder_tcp, send_ordered_tcp_segments,
     send_seqovl_tcp,
