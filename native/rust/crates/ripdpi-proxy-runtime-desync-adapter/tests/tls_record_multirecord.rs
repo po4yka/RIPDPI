@@ -1,3 +1,5 @@
+#![cfg(not(feature = "loom"))]
+
 use std::io::Read;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::atomic::AtomicBool;

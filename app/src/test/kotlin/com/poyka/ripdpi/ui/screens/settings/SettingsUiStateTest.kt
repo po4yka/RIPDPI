@@ -1296,7 +1296,7 @@ class SettingsUiStateTest {
                             TcpChainStepModel(
                                 kind = TcpChainStepKind.MultiDisorder,
                                 marker = "host",
-                                tcpFlagsOrigSet = "psh",
+                                tcpFlagsOrigSet = "ack",
                             ),
                         ),
                     udpSteps = emptyList(),
@@ -1484,7 +1484,8 @@ class SettingsUiStateTest {
         val settings =
             defaults
                 .toBuilder()
-                .withPrimaryDesyncMethod("split", "")
+                .clearTcpChainSteps()
+                .addTcpChainSteps(StrategyTcpStep.newBuilder().setKind("split"))
                 .build()
 
         assertEquals(DefaultSplitMarker, settings.toUiState().desync.splitMarker)

@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.proto.StrategyTcpStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -480,13 +481,16 @@ class StrategyPassageSceneTest {
     @Test
     fun `a step after seqovl leaves no scene because seqovl ends the plan cursor`() {
         val settings =
-            activeSettings().setStrategyChains(
-                listOf(
-                    tcp(TcpChainStepKind.SeqOverlap, "host").copy(overlapSize = 8, fakeMode = "rand"),
-                    tcp(TcpChainStepKind.Split, "endhost"),
-                ),
-                emptyList(),
-            )
+            activeSettings()
+                .clearTcpChainSteps()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("seqovl")
+                        .setMarker("host")
+                        .setOverlapSize(8)
+                        .setFakeMode("rand"),
+                ).addTcpChainSteps(StrategyTcpStep.newBuilder().setKind("split").setMarker("endhost"))
 
         assertNull(strategyPassageFor(settings.setRootModeEnabled(true).build()))
     }

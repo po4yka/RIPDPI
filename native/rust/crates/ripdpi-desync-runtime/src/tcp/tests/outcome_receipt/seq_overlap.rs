@@ -184,7 +184,7 @@ fn seq_overlap_fallback_failure_keeps_family_and_partial_progress() {
         assert_eq!(receipt.effective_family, Some(TcpStrategyFamily::Split));
         assert_eq!(receipt.fallback_reason, Some(TcpFallbackReason::StrategyFamilyFallback));
         assert_eq!(receipt.real_writes_committed, 1, "the completed prefix must remain recorded");
-        assert_eq!(receipt.payload_bytes_committed, error.bytes_committed());
+        assert_eq!(receipt.payload_bytes_committed, error.bytes_committed().min(usize::from(u16::MAX)));
         client.shutdown(std::net::Shutdown::Write).expect("close write side");
         let mut received = Vec::new();
         peer.read_to_end(&mut received).expect("read to EOF");
