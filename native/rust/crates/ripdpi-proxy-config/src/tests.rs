@@ -19,3 +19,5 @@ use tests_support::*;
 mod tests_conversion;
 #[path = "tests_runtime.rs"]
 mod tests_runtime;
+#[path = "tests_tlsrandrec.rs"]
+mod tests_tlsrandrec;

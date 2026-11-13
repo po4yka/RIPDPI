@@ -18,17 +18,38 @@ pub(crate) fn parse_tlsrandrec_fragment_fields(
     field_name: &str,
 ) -> Result<ParsedTlsRandRec, ProxyConfigError> {
     match kind {
-        TcpChainStepKind::TlsRandRec => Ok(ParsedTlsRandRec {
-            fragment_count: normalize_tlsrandrec_step_field(step.fragment_count, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT),
-            min_fragment_size: normalize_tlsrandrec_step_field(
-                step.min_fragment_size,
-                TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
-            ),
-            max_fragment_size: normalize_tlsrandrec_step_field(
-                step.max_fragment_size,
-                TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE,
-            ),
-        }),
+        TcpChainStepKind::TlsRandRec => {
+            let parsed = ParsedTlsRandRec {
+                fragment_count: normalize_tlsrandrec_step_field(
+                    step.fragment_count,
+                    TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
+                ),
+                min_fragment_size: normalize_tlsrandrec_step_field(
+                    step.min_fragment_size,
+                    TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
+                ),
+                max_fragment_size: normalize_tlsrandrec_step_field(
+                    step.max_fragment_size,
+                    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE,
+                ),
+            };
+            if !(2..=16).contains(&parsed.fragment_count) {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "{field_name} kind=tlsrandrec fragmentCount must be in 2..=16"
+                )));
+            }
+            if !(1..=4096).contains(&parsed.min_fragment_size) {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "{field_name} kind=tlsrandrec minFragmentSize must be in 1..=4096"
+                )));
+            }
+            if !(parsed.min_fragment_size..=4096).contains(&parsed.max_fragment_size) {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "{field_name} kind=tlsrandrec maxFragmentSize must be between minFragmentSize and 4096"
+                )));
+            }
+            Ok(parsed)
+        }
         _ => {
             if step.fragment_count != 0 || step.min_fragment_size != 0 || step.max_fragment_size != 0 {
                 return Err(ProxyConfigError::InvalidConfig(format!(
