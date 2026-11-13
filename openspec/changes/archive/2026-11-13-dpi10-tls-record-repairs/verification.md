@@ -98,3 +98,37 @@ first-flight inspection window and size limits are unchanged. No-SNI and
 unsupported metadata layouts remain outside transformation support. The public
 first-flight IR, dependencies, schemas, baselines and golden fixtures were not
 changed. These boundaries are documented in `docs/native/tls-record-prelude.md`.
+
+
+## Final integration after archive
+
+Origin/main advanced to `77b07adcad` with DPI-09 runtime safety changes during
+closeout. The job was rebased again. The lifecycle receipt and evidence above
+retain the SHA that was verified at archive time. The following fresh run proves
+the final combined source at `fe3f2873da7250c84cf38f23abb91cfc5212bde1`.
+
+All ten commands listed above were run again through the same build gate and
+returned exit 0. The suites reported 204 + 184 + 52 = 440 passed, with zero failed,
+ignored or filtered. The independent OpenSSL oracle again passed all 31 wire
+cases and 28 full TLS handshakes. The final `checks.json` and `results.json` name
+this run; earlier a66 results are retained under `verified-a66db05272/`. The
+synthetic private key was removed after the successful run.
+
+Independent integration review found no actionable issue. It confirmed that
+ordinary rootless TLS writes do not activate the urgent-send/TTL branches changed
+by DPI-09, and that all upstream fixes were retained. The documentation conflict
+was resolved by keeping both the TLS budget and upstream platform disclaimer.
+No production or test source changed after this final run.
+
+Final finding commits after rebase:
+
+| Finding | Commit |
+|---|---|
+| F1 adaptive coordinates | fd3597a104 |
+| F2 repeat budget | c18dc96640 |
+| F3 non-vacuous adaptive tests | f30120e11c |
+| G1 multi-record and ECH metadata | 0464a99a01 |
+
+A fresh fetch after this run showed no incoming commit. Final documentation and
+history checks pass before the authorized fast-forward main integration and push.
+No hosted CI, Android or external-network acceptance is inferred from publication.
