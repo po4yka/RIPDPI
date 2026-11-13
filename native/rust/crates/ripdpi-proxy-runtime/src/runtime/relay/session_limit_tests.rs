@@ -77,7 +77,16 @@ fn retry_session(fail_replacement: bool) {
     let relay_state = state.clone();
     let (finished_tx, finished_rx) = mpsc::sync_channel(1);
     let relay = thread::spawn(move || {
-        let result = super::relay(client, upstream, &relay_state, target, route, None, None, guard);
+        let result = super::relay(
+            client,
+            upstream,
+            &relay_state,
+            target,
+            route,
+            None,
+            crate::runtime::relay::RelayFlow::default(),
+            guard,
+        );
         finished_tx.send(result).expect("report relay result");
     });
     if let Some(fallback) = fallback {

@@ -14,6 +14,8 @@ pub(super) struct UpstreamRoute {
     /// replaced together with the socket when the first exchange retries.
     pub(super) cap_guard: Option<ExitIpSessionGuard>,
     pub(super) same_sni_guard: Option<SameSniProfileGuard>,
+    /// Client host hint the upstream was opened with; a replacement connect must reuse it.
+    pub(super) host_hint: Option<String>,
 }
 
 pub(super) fn connect_immediate_route(
@@ -23,9 +25,9 @@ pub(super) fn connect_immediate_route(
 ) -> Result<UpstreamRoute, ConnectRelayError> {
     let same_sni_guard = acquire_same_sni_guard(state, host_hint.as_deref());
     let (upstream, route, cap_guard) =
-        super::super::super::routing::connect_target(target, state, None, false, host_hint)
+        super::super::super::routing::connect_target(target, state, None, false, host_hint.clone())
             .map_err(|err| ConnectRelayError::new(err, false))?;
-    Ok(UpstreamRoute { upstream, route, seed_request: None, cap_guard, same_sni_guard })
+    Ok(UpstreamRoute { upstream, route, seed_request: None, cap_guard, same_sni_guard, host_hint })
 }
 
 pub(super) fn connect_provisional_route(
@@ -36,9 +38,9 @@ pub(super) fn connect_provisional_route(
 ) -> Result<UpstreamRoute, ConnectRelayError> {
     let same_sni_guard = acquire_same_sni_guard(state, host.as_deref());
     let (upstream, route, cap_guard) =
-        super::super::super::routing::connect_provisional_target_with_route(target, state, route, host)
+        super::super::super::routing::connect_provisional_target_with_route(target, state, route, host.clone())
             .map_err(|err| ConnectRelayError::new(err, false))?;
-    Ok(UpstreamRoute { upstream, route, cap_guard, same_sni_guard, seed_request: None })
+    Ok(UpstreamRoute { upstream, route, cap_guard, same_sni_guard, seed_request: None, host_hint: host })
 }
 
 pub(super) fn connect_delayed_route(
@@ -51,9 +53,9 @@ pub(super) fn connect_delayed_route(
     let host = state.extract_relay_payload_host(&payload).or(host_hint);
     let same_sni_guard = acquire_same_sni_guard(state, host.as_deref());
     let (upstream, route, cap_guard) =
-        super::super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)
+        super::super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host.clone())
             .map_err(|err| ConnectRelayError::with_seed_request(err, true, Some(payload.clone())))?;
-    Ok(UpstreamRoute { upstream, route, seed_request: Some(payload), cap_guard, same_sni_guard })
+    Ok(UpstreamRoute { upstream, route, seed_request: Some(payload), cap_guard, same_sni_guard, host_hint: host })
 }
 
 pub(super) fn connect_ws_seed_route(
@@ -65,9 +67,9 @@ pub(super) fn connect_ws_seed_route(
     let same_sni_guard = acquire_same_sni_guard(state, host_hint.as_deref());
     let seed_request = (!seed_request.is_empty()).then_some(seed_request);
     let (upstream, route, cap_guard) =
-        super::super::super::routing::connect_target(target, state, seed_request.as_deref(), true, host_hint)
+        super::super::super::routing::connect_target(target, state, seed_request.as_deref(), true, host_hint.clone())
             .map_err(|err| ConnectRelayError::new(err, true))?;
-    Ok(UpstreamRoute { upstream, route, seed_request, cap_guard, same_sni_guard })
+    Ok(UpstreamRoute { upstream, route, seed_request, cap_guard, same_sni_guard, host_hint })
 }
 
 /// Pass-through flows carry the client's own TLS stack, so the learned

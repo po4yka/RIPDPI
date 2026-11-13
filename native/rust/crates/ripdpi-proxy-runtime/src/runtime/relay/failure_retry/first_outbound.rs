@@ -61,12 +61,20 @@ fn clear_first_write_bound(upstream: &TcpStream) {
     let _ = upstream.set_write_timeout(None);
 }
 
+/// Per-flow context of a relay: the correlation token and the client host hint the upstream
+/// was opened with, which a replacement connect must reuse.
+#[derive(Default)]
+pub(crate) struct RelayFlow {
+    pub(crate) attempt_token: Option<AttemptCorrelationId>,
+    pub(crate) host_hint: Option<String>,
+}
+
 pub(super) struct FirstOutboundCoordinator<'a> {
     state: &'a RuntimeState,
     target: SocketAddr,
     route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
-    attempt_token: Option<AttemptCorrelationId>,
+    flow: RelayFlow,
 }
 
 impl<'a> FirstOutboundCoordinator<'a> {
@@ -75,9 +83,9 @@ impl<'a> FirstOutboundCoordinator<'a> {
         target: SocketAddr,
         route: RuntimeConnectionRoute,
         seed_request: Option<Vec<u8>>,
-        attempt_token: Option<AttemptCorrelationId>,
+        flow: RelayFlow,
     ) -> Self {
-        Self { state, target, route, seed_request, attempt_token }
+        Self { state, target, route, seed_request, flow }
     }
 
     fn run(
@@ -95,8 +103,13 @@ impl<'a> FirstOutboundCoordinator<'a> {
             // lets a server-first peer speak. One replacement per flow: it is not deferred.
             drop(upstream);
             drop(cap_guard.take());
-            let (new_upstream, new_route, new_guard) =
-                reconnect_target_without_tfo(self.target, self.state, self.route.clone(), None, None)?;
+            let (new_upstream, new_route, new_guard) = reconnect_target_without_tfo(
+                self.target,
+                self.state,
+                self.route.clone(),
+                self.flow.host_hint.clone(),
+                None,
+            )?;
             upstream = new_upstream;
             cap_guard = new_guard;
             self.route = new_route;
@@ -151,7 +164,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 &first_payload.original_request,
                 first_payload.host.as_deref(),
                 &mut session_state,
-                self.attempt_token.as_ref(),
+                self.flow.attempt_token.as_ref(),
             ) {
                 Ok(strategy_family) => {
                     clear_first_write_bound(&upstream);
@@ -261,8 +274,8 @@ pub(crate) fn prepare_relay(
     target: SocketAddr,
     route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
-    attempt_token: Option<AttemptCorrelationId>,
+    flow: RelayFlow,
     cap_guard: Option<ExitIpSessionGuard>,
 ) -> io::Result<PreparedRelay> {
-    FirstOutboundCoordinator::new(state, target, route, seed_request, attempt_token).run(client, upstream, cap_guard)
+    FirstOutboundCoordinator::new(state, target, route, seed_request, flow).run(client, upstream, cap_guard)
 }

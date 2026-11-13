@@ -93,7 +93,7 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
         target,
         RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
         None,
-        None,
+        crate::runtime::relay::RelayFlow::default(),
         None,
     )
     .expect("prepare must hand off unread continuation");

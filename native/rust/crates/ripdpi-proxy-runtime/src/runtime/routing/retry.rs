@@ -411,6 +411,44 @@ mod tests {
         accept_thread.join().expect("accept thread finished");
     }
 
+    /// The host hint decides the destination egress, so a replacement connect that drops it
+    /// can reach a destination the original connect was not allowed to reach.
+    #[test]
+    fn replacement_connect_keeps_the_host_hint_for_destination_policy() {
+        use ripdpi_proxy_runtime_adapter::model::config::{
+            DestinationDomainMatcher, DestinationDomainMatcherKind, DestinationRoutingAction,
+            DestinationRoutingNetwork, DestinationRoutingPolicy, DestinationRoutingRule,
+        };
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream listener");
+        let target = listener.local_addr().expect("listener addr");
+        let config = RuntimeConfig {
+            groups: vec![DesyncGroup::new(0)],
+            destination_routing: DestinationRoutingPolicy {
+                rules: vec![DestinationRoutingRule {
+                    action: DestinationRoutingAction::Block,
+                    network: DestinationRoutingNetwork::Tcp,
+                    domains: vec![DestinationDomainMatcher {
+                        kind: DestinationDomainMatcherKind::Exact,
+                        value: "blocked.example".into(),
+                    }],
+                    ip_ranges: vec![],
+                    destination_ports: vec![],
+                }],
+                default_action: DestinationRoutingAction::Direct,
+                canonical_digest: "test".into(),
+            },
+            ..Default::default()
+        };
+        let state = RuntimeState::test(config);
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+
+        let err =
+            reconnect_target_without_tfo(target, &state, route.clone(), Some("blocked.example".to_string()), None)
+                .expect_err("the host rule blocks the replacement");
+        assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
+        assert!(reconnect_target_without_tfo(target, &state, route, None, None).is_ok());
+    }
+
     #[test]
     fn reconnect_returns_connect_error_when_route_retries_are_exhausted() {
         let closed_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind closed listener");

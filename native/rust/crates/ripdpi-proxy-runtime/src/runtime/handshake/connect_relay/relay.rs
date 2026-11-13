@@ -4,6 +4,7 @@ use super::super::super::state::RuntimeState;
 use super::ConnectRelayError;
 use super::reply::{SuccessReply, write_success_reply};
 use super::routes::{UpstreamRoute, connect_delayed_route, connect_immediate_route, connect_ws_seed_route};
+use crate::runtime::relay::RelayFlow;
 use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
@@ -85,7 +86,7 @@ fn relay_upstream(
         target,
         upstream_route.route,
         upstream_route.seed_request,
-        attempt_token,
+        RelayFlow { attempt_token, host_hint: upstream_route.host_hint },
         upstream_route.cap_guard,
     )
     .map_err(|err| ConnectRelayError::new(err, success_reply_sent))
