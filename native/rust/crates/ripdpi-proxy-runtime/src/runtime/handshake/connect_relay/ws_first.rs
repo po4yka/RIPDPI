@@ -59,6 +59,7 @@ pub(super) fn normal_after_carrier_failure(
     }
     let route = crate::runtime::routing::select_route(state, target, None, host_hint.as_deref(), true)
         .map_err(|err| ConnectRelayError::new(err, false))?;
+    let mut carrier_error = Some(carrier_error);
     let connected = super::socks_delay::connect_with(
         client,
         state,
@@ -80,6 +81,7 @@ pub(super) fn normal_after_carrier_failure(
                 )? {
                     FirstOutboundRead::Payload(payload) => break payload,
                     FirstOutboundRead::ClientClosed => return Ok(FirstOutboundRead::ClientClosed),
+                    FirstOutboundRead::DeferredIdle => return Ok(FirstOutboundRead::DeferredIdle),
                     FirstOutboundRead::ServerFirst => {
                         let mut banner = vec![0; buffer_size];
                         let mut reader = upstream;
@@ -106,7 +108,7 @@ pub(super) fn normal_after_carrier_failure(
             let validated_mtproto =
                 matches!(classify_seed_for_target(&seed, target, state), WsSeedClassification::ValidatedMtproto { .. });
             if validated_mtproto {
-                return Err(carrier_error.into_io_error());
+                return Err(carrier_error.take().expect("validated seed ends the first read").into_io_error());
             }
             Ok(FirstOutboundRead::Payload(seed))
         },

@@ -291,3 +291,70 @@ fn a_discovered_owned_stack_host_never_receives_application_bytes() {
     assert_eq!(provisional.read(&mut [0; 1]).unwrap(), 0);
     sender.join().unwrap();
 }
+
+/// One SOCKS5 flow to a server-first origin that writes a banner on accept and expects
+/// nothing from the client. Returns how long the banner took after the CONNECT reply.
+fn server_first_banner_flow(origin: &TcpListener) -> std::time::Duration {
+    use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
+    let mut config = RuntimeConfig::default();
+    config.network.delay_conn = true;
+    config.groups[0].matches.proto = ripdpi_packets::IS_HTTP;
+    config.groups[0].actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1))];
+    let (mut peer, worker) = socks_client(origin.local_addr().unwrap(), config);
+    let mut reply = [0; 10];
+    peer.read_exact(&mut reply).unwrap();
+    assert_eq!(&reply[..4], &[5, 0, 0, 1]);
+    let started = std::time::Instant::now();
+    let (mut server, _) = origin.accept().unwrap();
+    server.write_all(b"SSH-2.0-test\r\n").unwrap();
+    let mut banner = [0; 14];
+    peer.read_exact(&mut banner).unwrap();
+    let elapsed = started.elapsed();
+    assert_eq!(&banner, b"SSH-2.0-test\r\n");
+    drop(peer);
+    drop(server);
+    assert!(worker.join().unwrap().is_ok());
+    elapsed
+}
+
+#[test]
+fn syn_data_group_relays_a_server_first_banner_over_one_connection() {
+    let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    server_first_banner_flow(&origin);
+    origin.set_nonblocking(true).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(origin.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+}
+
+/// With a cached cookie the provisional TFO socket is deferred and sends no SYN, so a
+/// server-first origin stays silent until the idle window replaces the socket.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[test]
+fn deferred_tfo_provisional_socket_is_replaced_so_a_server_first_banner_arrives() {
+    let sysctl = std::fs::read_to_string("/proc/sys/net/ipv4/tcp_fastopen").unwrap_or_default();
+    if !sysctl.trim().parse::<u32>().is_ok_and(|bits| bits & 0x3 == 0x3) {
+        eprintln!("skipped: net.ipv4.tcp_fastopen needs client and server bits (0x3), got {sysctl:?}");
+        return;
+    }
+    use std::os::fd::AsRawFd;
+    let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let qlen: libc::c_int = 16;
+    // SAFETY: the listener fd is live; `qlen` is a valid c_int for the option.
+    let rc = unsafe {
+        libc::setsockopt(
+            origin.as_raw_fd(),
+            libc::IPPROTO_TCP,
+            libc::TCP_FASTOPEN,
+            (&raw const qlen).cast(),
+            std::mem::size_of::<libc::c_int>() as libc::socklen_t,
+        )
+    };
+    assert_eq!(rc, 0);
+    // The first flow requests and caches the cookie for the loopback server.
+    server_first_banner_flow(&origin);
+    let elapsed = server_first_banner_flow(&origin);
+    assert!(elapsed < std::time::Duration::from_secs(2), "banner took {elapsed:?}");
+    origin.set_nonblocking(true).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(origin.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+}

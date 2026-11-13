@@ -57,7 +57,7 @@ pub(super) fn connect_with(
     route: crate::runtime::types::RuntimeConnectionRoute,
     host_hint: Option<&str>,
     reply: &SuccessReply,
-    read_payload: impl FnOnce(&mut TcpStream, &TcpStream, usize) -> io::Result<FirstOutboundRead<Vec<u8>>>,
+    mut read_payload: impl FnMut(&mut TcpStream, &TcpStream, usize) -> io::Result<FirstOutboundRead<Vec<u8>>>,
 ) -> Result<DelayConnect, ConnectRelayError> {
     // Standard clients wait for CONNECT success before sending the payload.
     // The first SYN follows IP/default policy; payload policy gates application bytes.
@@ -71,16 +71,45 @@ pub(super) fn connect_with(
     let provisional_route =
         crate::runtime::routing::select_route(state, target, None, host_hint, false).unwrap_or_else(|_| route.clone());
     let mut connected = connect_provisional_route(target, state, provisional_route, host_hint.map(str::to_owned))?;
-    let active = state
+    let mut active = state
         .register_active_upstream_tcp_socket(&connected.upstream)
         .map_err(|err| ConnectRelayError::new(err, false))?;
     write_success_reply(client, reply, Some(&connected.upstream)).map_err(|err| ConnectRelayError::new(err, false))?;
-    let payload = match read_payload(client, &connected.upstream, state.delayed_connect_buffer_size())
-        .map_err(|err| ConnectRelayError::new(err, true))?
-    {
+    let mut read = read_payload(client, &connected.upstream, state.delayed_connect_buffer_size())
+        .map_err(|err| ConnectRelayError::new(err, true))?;
+    if read == FirstOutboundRead::DeferredIdle {
+        // The deferred socket sent no SYN, so replacing it with a plain connect is free on the
+        // wire and lets a server-first peer speak. One replacement per flow: it is not deferred.
+        drop(active);
+        let old_cap_guard = connected.cap_guard.take();
+        drop(old_cap_guard);
+        let (upstream, route, cap_guard) = crate::runtime::routing::reconnect_target_without_tfo(
+            target,
+            state,
+            connected.route.clone(),
+            host_hint.map(str::to_owned),
+            None,
+        )
+        .map_err(|err| ConnectRelayError::new(err, true))?;
+        connected.upstream = upstream;
+        connected.route = route;
+        connected.cap_guard = cap_guard;
+        active = state
+            .register_active_upstream_tcp_socket(&connected.upstream)
+            .map_err(|err| ConnectRelayError::new(err, true))?;
+        read = read_payload(client, &connected.upstream, state.delayed_connect_buffer_size())
+            .map_err(|err| ConnectRelayError::new(err, true))?;
+    }
+    let payload = match read {
         FirstOutboundRead::Payload(payload) => payload,
         FirstOutboundRead::ClientClosed | FirstOutboundRead::ServerFirst => {
             return Ok(DelayConnect::Connected(Box::new(connected)));
+        }
+        FirstOutboundRead::DeferredIdle => {
+            return Err(ConnectRelayError::new(
+                io::Error::new(io::ErrorKind::TimedOut, "replacement upstream is still deferred"),
+                true,
+            ));
         }
     };
     let host = state.extract_relay_payload_host(&payload).or_else(|| host_hint.map(str::to_owned));

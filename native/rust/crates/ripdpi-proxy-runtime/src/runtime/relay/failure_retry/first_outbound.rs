@@ -12,6 +12,7 @@ use crate::runtime::relay::failure_retry::first_outbound::route_retry::{
 };
 use crate::runtime::relay::first_exchange::needs_first_exchange;
 use crate::runtime::relay::session::{FirstOutboundSession, RelaySession};
+use crate::runtime::routing::reconnect_target_without_tfo;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
@@ -80,7 +81,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
     }
 
     fn run(
-        self,
+        mut self,
         client: &mut TcpStream,
         upstream: TcpStream,
         cap_guard: Option<ExitIpSessionGuard>,
@@ -88,7 +89,23 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let mut cap_guard = cap_guard;
         // Close the socket before releasing its physical-session permit on errors.
         let mut upstream = upstream;
-        let first_payload = match prepare_first_payload(client, &upstream, self.state, self.seed_request)? {
+        let mut first_read = prepare_first_payload(client, &upstream, self.state, self.seed_request)?;
+        if matches!(first_read, FirstOutboundRead::DeferredIdle) {
+            // A deferred TFO socket sent no SYN, so a plain replacement is free on the wire and
+            // lets a server-first peer speak. One replacement per flow: it is not deferred.
+            drop(upstream);
+            drop(cap_guard.take());
+            let (new_upstream, new_route, new_guard) =
+                reconnect_target_without_tfo(self.target, self.state, self.route.clone(), None, None)?;
+            upstream = new_upstream;
+            cap_guard = new_guard;
+            self.route = new_route;
+            first_read = prepare_first_payload(client, &upstream, self.state, None)?;
+        }
+        let first_payload = match first_read {
+            FirstOutboundRead::DeferredIdle => {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, "replacement upstream is still deferred"));
+            }
             FirstOutboundRead::Payload(first_payload) => first_payload,
             FirstOutboundRead::ClientClosed => {
                 clear_first_write_bound(&upstream);

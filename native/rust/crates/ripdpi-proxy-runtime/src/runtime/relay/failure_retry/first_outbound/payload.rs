@@ -6,6 +6,17 @@ use crate::runtime::state::RuntimeState;
 
 const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// How long a client may stay silent before a deferred TFO upstream is replaced. A deferred
+/// socket has sent no SYN, so a server-first peer cannot speak until the socket connects.
+/// A client that writes first does so within a loopback round trip of the CONNECT reply;
+/// 300 ms leaves slack for a loaded device and delays a server banner by no more.
+const DEFERRED_IDLE_WINDOW: Duration = Duration::from_millis(300);
+
+/// True for a TCP Fast Open socket whose connect returned before any SYN went out.
+fn is_deferred_tfo(stream: &TcpStream) -> bool {
+    stream.peer_addr().is_err_and(|err| err.kind() == io::ErrorKind::NotConnected)
+}
+
 pub(super) struct FirstPayload {
     pub(super) original_request: Vec<u8>,
     pub(super) host: Option<String>,
@@ -22,6 +33,9 @@ pub(in crate::runtime) enum FirstOutboundRead<T> {
     /// The upstream sent bytes or FIN before the client sent any byte.
     /// The upstream bytes or EOF stay unread in the socket for the relay.
     ServerFirst,
+    /// The upstream is a deferred TFO socket and the client stayed silent for the idle
+    /// window. The caller replaces it with a connect without TFO and waits again.
+    DeferredIdle,
 }
 
 impl<T> FirstOutboundRead<T> {
@@ -30,6 +44,7 @@ impl<T> FirstOutboundRead<T> {
             Self::Payload(payload) => FirstOutboundRead::Payload(f(payload)),
             Self::ClientClosed => FirstOutboundRead::ClientClosed,
             Self::ServerFirst => FirstOutboundRead::ServerFirst,
+            Self::DeferredIdle => FirstOutboundRead::DeferredIdle,
         }
     }
 }
@@ -65,10 +80,14 @@ pub(in crate::runtime) fn read_first_client_payload(
     let mut buffer = vec![0u8; buffer_size];
     let mut assembler = RuntimeState::first_outbound_request_assembler(hostname_policy);
     let mut watch_upstream = true;
+    let deferred = upstream.is_some_and(is_deferred_tfo);
     let result = (|| {
         loop {
             let now = Instant::now();
-            let timeout = assembler.timeout(now).unwrap_or(FIRST_OUTBOUND_IDLE_TIMEOUT);
+            let mut timeout = assembler.timeout(now).unwrap_or(FIRST_OUTBOUND_IDLE_TIMEOUT);
+            if deferred && !assembler.is_buffering() {
+                timeout = timeout.min(DEFERRED_IDLE_WINDOW);
+            }
             // Only a flow whose client has sent nothing yet can be server-first.
             // After the client has sent bytes, the TLS ClientHello reassembly
             // path below owns the wait, so no client bytes are dropped.
@@ -82,12 +101,16 @@ pub(in crate::runtime) fn read_first_client_payload(
                         if upstream.peek(&mut [0u8; 1]).is_ok() {
                             break Ok(FirstOutboundRead::ServerFirst);
                         }
+                        if deferred {
+                            break Ok(FirstOutboundRead::DeferredIdle);
+                        }
                         // Upstream error before any byte: keep the
                         // client-first path, which surfaces the failure on the
                         // first write and lets route retry handle it.
                         watch_upstream = false;
                         continue;
                     }
+                    Ok(FirstReadable::Neither) if deferred => break Ok(FirstOutboundRead::DeferredIdle),
                     Ok(FirstReadable::Neither) => continue,
                     Err(err) => break Err(err),
                 }
