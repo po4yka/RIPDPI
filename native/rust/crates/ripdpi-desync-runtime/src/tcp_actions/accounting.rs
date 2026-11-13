@@ -1,4 +1,4 @@
-use crate::types::{OutboundSendError, TcpExecutionReceipt, TcpTerminalReason};
+use crate::types::{OutboundSendError, TcpExecutionReceipt, TcpFallbackReason, TcpStrategyFamily, TcpTerminalReason};
 
 pub(super) struct ActionContext {
     pub(super) strategy_family: Option<&'static str>,
@@ -9,6 +9,7 @@ pub(super) struct ActionContext {
 
 pub(super) struct FallbackAccounting {
     fallback: Option<&'static str>,
+    seq_overlap_fell_back: bool,
     bytes_committed: usize,
     attempted_actions: usize,
     completed_actions: usize,
@@ -21,6 +22,7 @@ impl FallbackAccounting {
     pub(super) fn new(fallback: Option<&'static str>) -> Self {
         Self {
             fallback,
+            seq_overlap_fell_back: false,
             bytes_committed: 0,
             attempted_actions: 0,
             completed_actions: 0,
@@ -32,6 +34,14 @@ impl FallbackAccounting {
 
     pub(super) fn fallback(&self) -> Option<&'static str> {
         self.fallback
+    }
+
+    pub(super) fn mark_seq_overlap_fallback(&mut self) {
+        self.seq_overlap_fell_back = true;
+    }
+
+    pub(super) fn seq_overlap_fell_back(&self) -> bool {
+        self.seq_overlap_fell_back
     }
 
     pub(super) fn bytes_committed(&self) -> usize {
@@ -64,15 +74,13 @@ impl FallbackAccounting {
         self.completed_actions = self.completed_actions.saturating_add(1);
     }
 
-    pub(super) fn complete_real_write(&mut self, bytes_committed: usize) {
+    pub(super) fn record_real_write(&mut self, bytes_committed: usize) {
         self.real_writes_committed = self.real_writes_committed.saturating_add(1);
         self.payload_bytes_committed = self.payload_bytes_committed.saturating_add(bytes_committed);
-        self.complete_action();
     }
 
-    pub(super) fn complete_real_writes(&mut self, writes: usize, bytes_committed: usize) {
-        self.real_writes_committed = self.real_writes_committed.saturating_add(writes);
-        self.payload_bytes_committed = self.payload_bytes_committed.saturating_add(bytes_committed);
+    pub(super) fn complete_real_write(&mut self, bytes_committed: usize) {
+        self.record_real_write(bytes_committed);
         self.complete_action();
     }
 
@@ -91,7 +99,7 @@ impl FallbackAccounting {
         terminal_reason: TcpTerminalReason,
         observed_bytes_committed: usize,
     ) -> TcpExecutionReceipt {
-        TcpExecutionReceipt::failed_strategy_execution(
+        let mut receipt = TcpExecutionReceipt::failed_strategy_execution(
             strategy_family,
             self.attempted_actions,
             self.completed_actions,
@@ -99,6 +107,11 @@ impl FallbackAccounting {
             self.completed_awaits,
             self.payload_bytes_committed.max(observed_bytes_committed),
             terminal_reason,
-        )
+        );
+        if self.seq_overlap_fell_back {
+            receipt.effective_family = self.fallback.map(TcpStrategyFamily::from_token);
+            receipt.fallback_reason = Some(TcpFallbackReason::StrategyFamilyFallback);
+        }
+        receipt
     }
 }

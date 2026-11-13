@@ -143,11 +143,18 @@ impl PrivilegedActionExecutor {
         ) {
             Ok(()) => {
                 accounting.add_bytes_committed(real_chunk.len());
+                if !real_chunk.is_empty() {
+                    accounting.record_real_write(real_chunk.len());
+                }
                 Self::write_seq_overlap_remainder(writer, remainder, accounting)?;
             }
             Err(err) if should_fallback_seqovl_error_kind(err.kind()) => {
                 tracing::warn!("seqovl fallback to split: {err}");
+                accounting.mark_seq_overlap_fallback();
                 accounting.add_transport_write(write_transport_payload(writer, real_chunk))?;
+                if !real_chunk.is_empty() {
+                    accounting.record_real_write(real_chunk.len());
+                }
                 Self::write_seq_overlap_remainder(writer, remainder, accounting)?;
             }
             Err(err) => return Err(OutboundSendError::transport(err)),
@@ -175,6 +182,7 @@ impl PrivilegedActionExecutor {
     ) -> Result<(), OutboundSendError> {
         if !remainder.is_empty() {
             accounting.add_transport_write(write_transport_payload(writer, remainder))?;
+            accounting.record_real_write(remainder.len());
         }
         Ok(())
     }

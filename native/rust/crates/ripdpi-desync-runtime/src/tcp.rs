@@ -8,7 +8,9 @@ use ripdpi_desync::{
 use ripdpi_session::OutboundProgress;
 
 use crate::activation::apply_entropy_padding;
-use crate::strategy_family::{effective_tcp_strategy_family, primary_tcp_strategy_family, ttl_less_family};
+use crate::strategy_family::{
+    effective_tcp_strategy_family, primary_tcp_strategy_family, strategy_fallback_family, ttl_less_family,
+};
 use crate::sync::AtomicBool;
 use crate::tcp_actions::execute_tcp_actions_with_ttl_state;
 use crate::tcp_plan::{
@@ -178,10 +180,12 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                         )
                     })?;
                     let bytes_committed = outcome.bytes_committed;
-                    // A disorder chunk that left with the default TTL was a plain
-                    // write, so report the family that actually ran.
-                    let used_family_fallback = used_family_fallback || outcome.disorder_ttl_skipped;
-                    let effective_family = if outcome.disorder_ttl_skipped {
+                    // Report the family that ran when raw overlap or TTL lowering was unavailable.
+                    let used_family_fallback =
+                        used_family_fallback || outcome.disorder_ttl_skipped || outcome.seq_overlap_fell_back;
+                    let effective_family = if outcome.seq_overlap_fell_back {
+                        effective_family.and_then(strategy_fallback_family).or(effective_family)
+                    } else if outcome.disorder_ttl_skipped {
                         effective_family.map(|family| ttl_less_family(family).unwrap_or(family))
                     } else {
                         effective_family
@@ -244,6 +248,17 @@ fn failure_with_plan(
     effective_family: Option<&'static str>,
     fallback_reason: Option<TcpFallbackReason>,
 ) -> OutboundSendError {
+    let runtime_fallback = matches!(effective_family, Some("seqovl" | "tlsrec_seqovl"))
+        && error
+            .execution_receipt()
+            .is_some_and(|receipt| receipt.fallback_reason == Some(TcpFallbackReason::StrategyFamilyFallback));
+    let effective_family = if runtime_fallback {
+        effective_family.and_then(strategy_fallback_family).or(effective_family)
+    } else {
+        effective_family
+    };
+    let fallback_reason =
+        if runtime_fallback { Some(TcpFallbackReason::StrategyFamilyFallback) } else { fallback_reason };
     let terminal_reason = match &error {
         OutboundSendError::Transport { .. } if error.kind() == std::io::ErrorKind::InvalidData => {
             TcpTerminalReason::Planning

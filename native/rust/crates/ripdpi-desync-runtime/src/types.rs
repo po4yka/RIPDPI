@@ -412,7 +412,7 @@ impl TcpActionReceiptSummary {
                     summary.payload_bytes = summary.payload_bytes.saturating_add(prefix.len());
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, remainder, .. } => {
-                    summary.real_writes = summary.real_writes.saturating_add(2);
+                    summary.real_writes = summary.real_writes.saturating_add(1 + usize::from(!remainder.is_empty()));
                     summary.payload_bytes =
                         summary.payload_bytes.saturating_add(real_chunk.len().saturating_add(remainder.len()));
                 }

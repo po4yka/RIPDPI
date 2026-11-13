@@ -56,6 +56,7 @@ pub(crate) struct TcpActionsOutcome {
     pub(crate) bytes_committed: usize,
     /// A disorder or disoob chunk left with the default TTL.
     pub(crate) disorder_ttl_skipped: bool,
+    pub(crate) seq_overlap_fell_back: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -166,7 +167,7 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
                         &context,
                         &mut accounting,
                     )?;
-                    accounting.complete_real_writes(2, real_chunk.len().saturating_add(remainder.len()));
+                    accounting.complete_action();
                 }
                 DesyncAction::WriteIpFragmentedUdp { .. } => {
                     return Err(OutboundSendError::transport(io::Error::new(
@@ -232,16 +233,22 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
     lowering_caps.persist(session_ttl_unavailable);
 
     let disorder_ttl_skipped = lowering_caps.disorder_ttl_skipped();
-    result.map(|bytes_committed| TcpActionsOutcome { bytes_committed, disorder_ttl_skipped }).map_err(|err| {
-        let terminal_reason = match &err {
-            OutboundSendError::Transport { .. } => TcpTerminalReason::Transport,
-            OutboundSendError::StrategyExecution { .. } => TcpTerminalReason::StrategyExecution,
-        };
-        let observed_bytes_committed = err.bytes_committed();
-        err.with_execution_receipt(accounting.failure_receipt(
-            strategy_family,
-            terminal_reason,
-            observed_bytes_committed,
-        ))
-    })
+    result
+        .map(|bytes_committed| TcpActionsOutcome {
+            bytes_committed,
+            disorder_ttl_skipped,
+            seq_overlap_fell_back: accounting.seq_overlap_fell_back(),
+        })
+        .map_err(|err| {
+            let terminal_reason = match &err {
+                OutboundSendError::Transport { .. } => TcpTerminalReason::Transport,
+                OutboundSendError::StrategyExecution { .. } => TcpTerminalReason::StrategyExecution,
+            };
+            let observed_bytes_committed = err.bytes_committed();
+            err.with_execution_receipt(accounting.failure_receipt(
+                strategy_family,
+                terminal_reason,
+                observed_bytes_committed,
+            ))
+        })
 }
