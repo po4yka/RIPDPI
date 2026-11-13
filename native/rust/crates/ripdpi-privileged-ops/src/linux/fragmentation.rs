@@ -19,8 +19,8 @@ use crate::linux::raw_packet::{
 };
 use crate::linux::socket_options::get_stream_ttl;
 use crate::linux::tcp_repair::{
-    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpRepairSnapshot, disable_tcp_repair, probe_tcp_repair, sequence_after_payload,
-    set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
+    TCP_NO_QUEUE, TCP_REPAIR_ON, TcpRepairSnapshot, disable_tcp_repair, finish_tcp_repair, probe_tcp_repair,
+    queue_payload_as_sent, sequence_after_payload, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
 };
 use crate::{IpFragmentationCapabilities, TcpFlagOverrides, TcpPayloadSegment};
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
@@ -177,14 +177,13 @@ pub fn send_multi_disorder_tcp(
             stream.as_fd(),
             inter_segment_delay_ms,
         )?;
+        queue_payload_as_sent(stream, payload)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)?;
-        (&*stream).write_all(payload)
+        disable_tcp_repair(fd)
     })();
 
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
+    finish_tcp_repair(result, disable_tcp_repair(fd))
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -148,7 +148,10 @@ fn send_ip_fragmented_tcp_requires_raw_send_path_for_non_empty_payload() {
 
 #[test]
 fn send_multi_disorder_tcp_requires_raw_send_path_for_non_empty_payload() {
-    let (client, _server) = connected_pair();
+    use std::io::{Read, Write};
+    use std::time::Duration;
+
+    let (client, mut server) = connected_pair();
     let protect_path = missing_protect_socket_path("multidisorder-tcp");
     let payload = b"multidisorder";
     let segments = [
@@ -169,6 +172,14 @@ fn send_multi_disorder_tcp_requires_raw_send_path_for_non_empty_payload() {
         &[],
     )
     .expect_err("non-empty multidisorder TCP payload must not be accepted without raw/protect work");
+
+    server.set_read_timeout(Some(Duration::from_millis(20))).expect("bounded peer read");
+    let error = server.read(&mut [0; 1]).expect_err("failed raw send must not write plain bytes");
+    assert!(matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut));
+    (&client).write_all(b"after").expect("normal stream remains writable after failure");
+    let mut continued = [0; 5];
+    server.read_exact(&mut continued).expect("read stream continuation");
+    assert_eq!(&continued, b"after");
 }
 
 #[test]

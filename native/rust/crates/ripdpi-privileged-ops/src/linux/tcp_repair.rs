@@ -3,6 +3,7 @@
 //! Privileged boundaries include TCP_REPAIR socket options, queue sequence reads,
 //! and repair-mode writes that mark crafted payloads as sent.
 
+mod finish;
 mod fionread;
 mod options;
 mod send_queue;
@@ -13,6 +14,7 @@ use std::io;
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::os::fd::AsRawFd;
 
+pub(crate) use finish::finish_tcp_repair;
 pub(crate) use options::TcpTimestampSnapshot;
 #[cfg(test)]
 pub(crate) use options::{TcpRepairOptionsSnapshot, TcpWindowScaleSnapshot, decode_tcp_repair_options};

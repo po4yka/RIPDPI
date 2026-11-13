@@ -2,6 +2,7 @@ mod fake_send_failures;
 mod fd;
 mod ffi_boundary_validation;
 mod ffi_layout;
+mod multi_disorder;
 mod raw_packet;
 mod socket_options;
 mod tcp_repair;
