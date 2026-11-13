@@ -208,14 +208,24 @@ pub fn execute_udp_actions(
     // forwards every datagram at full TTL. Send only the real payload when the plan has it.
     let skip_decoys =
         ctx.socks_udp_frame && actions.iter().any(|action| udp_write_bytes(action) == Some(logical_payload));
+    let mut ttl_changed = false;
     for action in actions {
         if skip_decoys && udp_write_bytes(action).is_some_and(|bytes| bytes != logical_payload) {
             outcome.completed_actions = outcome.completed_actions.saturating_add(1);
             outcome.fallback_reason.get_or_insert(UdpExecutionFallbackReason::RelayPathSkippedPacketMutation);
             continue;
         }
-        let action_outcome =
-            execute_udp_action(ctx, action, logical_payload).map_err(|source| UdpExecutionError { source, outcome })?;
+        let action_outcome = match execute_udp_action(ctx, action, logical_payload) {
+            Ok(action_outcome) => action_outcome,
+            Err(source) => {
+                if ttl_changed {
+                    // Best effort: do not leave a decoy TTL on the socket for later datagrams of the flow.
+                    let _ = set_socket_ttl(ctx, ctx.default_ttl);
+                }
+                return Err(UdpExecutionError { source, outcome });
+            }
+        };
+        ttl_changed |= !ctx.socks_udp_frame && matches!(action, DesyncAction::SetTtl(_));
         outcome.completed_actions = outcome.completed_actions.saturating_add(1);
         outcome.real_writes_committed =
             outcome.real_writes_committed.saturating_add(action_outcome.real_writes_committed);
@@ -391,11 +401,7 @@ fn execute_udp_ttl_action(ctx: UdpActionExecContext<'_>, ttl: u8) -> io::Result<
             fallback_reason: Some(UdpExecutionFallbackReason::RelayPathSkippedPacketMutation),
         });
     }
-    let socket = socket2::SockRef::from(ctx.upstream);
-    match ctx.target {
-        SocketAddr::V4(_) => socket.set_ttl_v4(ttl as u32),
-        SocketAddr::V6(_) => socket.set_unicast_hops_v6(ttl as u32),
-    }?;
+    set_socket_ttl(ctx, ttl)?;
     Ok(UdpActionOutcome {
         real_writes_committed: 0,
         payload_bytes_committed: 0,
@@ -403,6 +409,14 @@ fn execute_udp_ttl_action(ctx: UdpActionExecContext<'_>, ttl: u8) -> io::Result<
         ipv6_extension_profile: None,
         fallback_reason: None,
     })
+}
+
+fn set_socket_ttl(ctx: UdpActionExecContext<'_>, ttl: u8) -> io::Result<()> {
+    let socket = socket2::SockRef::from(ctx.upstream);
+    match ctx.target {
+        SocketAddr::V4(_) => socket.set_ttl_v4(u32::from(ttl)),
+        SocketAddr::V6(_) => socket.set_unicast_hops_v6(u32::from(ttl)),
+    }
 }
 
 fn execute_udp_delay_action(ms: u16) -> io::Result<UdpActionOutcome> {
@@ -625,5 +639,35 @@ mod tests {
             55,
             "TTL must be unchanged when routing through a SOCKS5 UDP relay",
         );
+    }
+
+    fn loopback_ctx(upstream: &UdpSocket, socks_udp_frame: bool) -> UdpActionExecContext<'_> {
+        UdpActionExecContext {
+            upstream,
+            target: "127.0.0.1:443".parse().expect("IPv4 target"),
+            default_ttl: 64,
+            protect_path: None,
+            ip_id_mode: None,
+            socks_udp_frame,
+        }
+    }
+
+    #[test]
+    fn failed_decoy_write_restores_default_ttl() {
+        let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
+        let actions = [
+            DesyncAction::SetTtl(8),
+            DesyncAction::Write(vec![0; 70_000]),
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(64),
+            DesyncAction::Write(b"real".to_vec()),
+        ];
+
+        let result = execute_udp_actions(loopback_ctx(&sender, false), &actions, b"real");
+
+        assert!(result.is_err(), "oversized decoy must fail");
+        assert_eq!(SockRef::from(&sender).ttl_v4().expect("read IPv4 TTL"), 64);
     }
 }
