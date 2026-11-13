@@ -54,6 +54,12 @@ impl PreparedRelay {
     }
 }
 
+/// Steady-state relay writes keep no send timeout. The connect path set one only to
+/// bound a deferred TCP Fast Open handshake, which a returned first write completes.
+fn clear_first_write_bound(upstream: &TcpStream) {
+    let _ = upstream.set_write_timeout(None);
+}
+
 pub(super) struct FirstOutboundCoordinator<'a> {
     state: &'a RuntimeState,
     target: SocketAddr,
@@ -85,6 +91,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let first_payload = match prepare_first_payload(client, &upstream, self.state, self.seed_request)? {
             FirstOutboundRead::Payload(first_payload) => first_payload,
             FirstOutboundRead::ClientClosed => {
+                clear_first_write_bound(&upstream);
                 return Ok(PreparedRelay::without_first_payload(
                     upstream,
                     self.route,
@@ -100,6 +107,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     group_index = self.route.group_index,
                     "upstream became readable first; relaying without the first-write exchange"
                 );
+                clear_first_write_bound(&upstream);
                 let mut session = FirstOutboundSession::new();
                 session.lua_flow = self.state.new_lua_flow();
                 return Ok(PreparedRelay::without_first_payload(upstream, self.route, session, cap_guard));
@@ -129,6 +137,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 self.attempt_token.as_ref(),
             ) {
                 Ok(strategy_family) => {
+                    clear_first_write_bound(&upstream);
                     success_strategy_family = strategy_family;
                     // A retry resends this payload; the client sent it once.
                     if !first_payload_counted {

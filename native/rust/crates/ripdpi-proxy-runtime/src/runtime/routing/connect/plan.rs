@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
 use super::super::super::state::{RouteConnectPolicy, RuntimeState};
 use super::error::ConnectAttemptError;
-use super::post_connect::{apply_group_socket_options, record_connect_telemetry};
+use super::post_connect::{apply_group_socket_options, bound_deferred_first_write, record_connect_telemetry};
 use super::socket::connect_socket_detailed_observed;
 use super::socks::connect_via_socks;
 use crate::runtime::destination_routing::DestinationEgress;
@@ -145,6 +145,7 @@ fn connect_target_via_group_with_policy(
         state.note_upstream_connect_failed(target, rtt_ms, kind);
         return Err(err);
     }
+    bound_deferred_first_write(&stream, policy.connect_timeout);
     record_connect_telemetry(state, &stream, target, group_index, started);
     Ok(stream)
 }

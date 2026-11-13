@@ -40,8 +40,7 @@ impl RuntimeState {
     pub(in crate::runtime) fn classify_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
         let mut failure = match error {
             OutboundSendError::Transport { source, .. } => {
-                runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, source)
-                    .with_tag("bytesCommitted", error.bytes_committed().to_string())
+                first_write_transport_failure(source).with_tag("bytesCommitted", error.bytes_committed().to_string())
             }
             OutboundSendError::StrategyExecution {
                 action,
@@ -59,7 +58,7 @@ impl RuntimeState {
                     *source_errno,
                     error.to_string(),
                 )
-                .unwrap_or_else(|| runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, source));
+                .unwrap_or_else(|| first_write_transport_failure(source));
                 failure = failure.with_tag("strategyFamily", (*strategy_family).to_string());
                 failure = failure.with_tag("bytesCommitted", bytes_committed.to_string());
                 if let Some(fallback_family) = fallback {
@@ -97,5 +96,27 @@ impl RuntimeState {
             resolver_label: &answers.label,
         });
         runtime_classify_response_failure(request, response, dns_evidence)
+    }
+}
+
+/// A blocking upstream socket returns `WouldBlock` only when the send timeout that
+/// bounds a deferred TCP Fast Open handshake expires; that is a silent drop.
+fn first_write_transport_failure(source: &io::Error) -> RuntimeClassifiedFailure {
+    if source.kind() == io::ErrorKind::WouldBlock {
+        let timed_out = io::Error::new(io::ErrorKind::TimedOut, source.to_string());
+        return runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, &timed_out);
+    }
+    runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, source)
+}
+
+#[cfg(test)]
+mod first_write_tests {
+    use super::*;
+
+    #[test]
+    fn send_timeout_on_first_write_is_a_silent_drop() {
+        let failure = first_write_transport_failure(&io::Error::from(io::ErrorKind::WouldBlock));
+        assert_eq!(failure.class, RuntimeFailureClass::SilentDrop);
+        assert_eq!(failure.stage, RuntimeFailureStage::FirstWrite);
     }
 }

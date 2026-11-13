@@ -1,5 +1,5 @@
 use std::net::{SocketAddr, TcpStream};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use ripdpi_proxy_runtime_adapter::platform::connect as connect_platform;
 
@@ -28,6 +28,17 @@ pub(super) fn apply_group_socket_options(
         let _ = connect_platform::attach_strip_timestamps(stream);
     }
     Ok(())
+}
+
+/// A deferred TCP Fast Open connect returns before any SYN. Bound the first write, which
+/// sends the SYN, by the connect timeout; the relay clears the bound after that write.
+pub(super) fn bound_deferred_first_write(stream: &TcpStream, connect_timeout: Option<Duration>) {
+    let deferred = stream.peer_addr().is_err_and(|err| err.kind() == std::io::ErrorKind::NotConnected);
+    if let (true, Some(timeout)) = (deferred, connect_timeout)
+        && let Err(err) = stream.set_write_timeout(Some(timeout))
+    {
+        tracing::debug!("set write timeout on deferred TFO socket failed (non-fatal): {err}");
+    }
 }
 
 pub(super) fn record_connect_telemetry(
@@ -66,6 +77,70 @@ mod tests {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
         let stream = TcpStream::connect(listener.local_addr().expect("listener addr")).expect("connect");
         (stream, listener)
+    }
+
+    /// Kernel PoC S3 (DPI-02): with a cached cookie, connect() returns before any SYN and
+    /// the first blocking write waits for the whole SYN retry schedule when the server's
+    /// accept queue is full. The send timeout must cut that wait at the connect timeout.
+    #[test]
+    fn deferred_tfo_first_write_times_out_with_the_connect_timeout() {
+        use std::io::Write;
+        use std::time::Duration;
+
+        let sysctl = std::fs::read_to_string("/proc/sys/net/ipv4/tcp_fastopen").unwrap_or_default();
+        if !sysctl.trim().parse::<u32>().is_ok_and(|bits| bits & 0x3 == 0x3) {
+            eprintln!("skipped: net.ipv4.tcp_fastopen needs client and server bits (0x3), got {sysctl:?}");
+            return;
+        }
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let target = listener.local_addr().expect("listener addr");
+        let qlen: libc::c_int = 16;
+        // SAFETY: the listener fd is live; `qlen` is a valid c_int for the option.
+        let rc = unsafe {
+            libc::setsockopt(
+                listener.as_raw_fd(),
+                libc::IPPROTO_TCP,
+                libc::TCP_FASTOPEN,
+                (&raw const qlen).cast(),
+                std::mem::size_of::<libc::c_int>() as libc::socklen_t,
+            )
+        };
+        assert_eq!(rc, 0, "TCP_FASTOPEN on listener: {}", std::io::Error::last_os_error());
+
+        let timeout = Duration::from_millis(500);
+        let connect = || {
+            super::super::socket::connect_socket_detailed(
+                target,
+                Ipv4Addr::UNSPECIFIED.into(),
+                None,
+                true,
+                Some(timeout),
+                None,
+            )
+        };
+        // The first TFO connection requests a cookie; the kernel caches it for the next one.
+        let mut primer = connect().expect("cookie-request connect");
+        primer.write_all(b"x").expect("write on cookie-request connection");
+        drop(listener.accept().expect("accept primer"));
+        drop(primer);
+
+        // Backlog 0 plus connections nobody accepts leave no room in the accept queue.
+        // SAFETY: re-listening on a live listener fd only changes its backlog.
+        assert_eq!(unsafe { libc::listen(listener.as_raw_fd(), 0) }, 0);
+        let _fillers: Vec<TcpStream> =
+            (0..3).filter_map(|_| TcpStream::connect_timeout(&target, Duration::from_millis(200)).ok()).collect();
+
+        let mut stream = connect().expect("deferred connect returns without a SYN");
+        if stream.peer_addr().is_ok() {
+            eprintln!("skipped: no cookie cached, the connect was not deferred");
+            return;
+        }
+        bound_deferred_first_write(&stream, Some(timeout));
+        let started = Instant::now();
+        let err = stream.write(b"hello").expect_err("first write must not complete");
+        let elapsed = started.elapsed();
+        assert!(matches!(err.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut), "{err}");
+        assert!(elapsed < timeout + Duration::from_millis(500), "first write blocked for {elapsed:?}");
     }
 
     /// Reads back the attached classic BPF program (SO_GET_FILTER shares the
