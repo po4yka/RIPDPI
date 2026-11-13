@@ -1,0 +1,11 @@
+{
+  "change": "dpi09-ttl-safety",
+  "evidence_summary": "736 host library tests, seven wire-oracle tests, workspace all-target Clippy, source gates and task contracts passed; Linux runtime 170 and stage module 14 passed; independent reviews clear; Android and full CLI capture remain unverified.",
+  "execution_sha256": "659f6a5e797aa841c56e254d580ff7b41baea6246abeb312c33606cdaf1f51ef",
+  "issue_sha256": "0cf71e010a29c7de806cbf6025fb976f551d11498f51ac6ff42be1891e3fa018",
+  "outcome": "done",
+  "prepared_at": "2026-11-13T10:26:05Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794557091175687"
+}

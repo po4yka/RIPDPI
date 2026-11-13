@@ -2,7 +2,7 @@
 id: ENG-1794557091175687
 title: Close the remaining Disoob audit gaps
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: dpi09-integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi09-ttl-safety
 created: 2026-11-13
 updated: 2026-11-13
+closed_at: "2026-11-13T10:26:05Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 736 host library tests, seven wire-oracle tests, workspace all-target Clippy, source gates and task contracts passed; Linux runtime 170 and stage module 14 passed; independent reviews clear; Android and full CLI capture remain unverified.
 ---
 
 ## Goal

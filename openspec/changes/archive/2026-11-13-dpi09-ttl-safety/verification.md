@@ -23,7 +23,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-OOB-TTL-RESTORE | ENG-1794557266916478 | Real Linux TTL setter error and read-back; caller progress retained; Linux runtime suite | passed |
 | REQ-OOB-TTL-FAMILY | ENG-1794557268725615 | Native IPv6 and mapped-peer socket tests; inactive family remains unchanged | passed |
 | REQ-OOB-STAGE-DEADLINE | ENG-1794557269707410 | Real Linux stalled peer; both wait modes time out; accepted source bytes are preserved | passed |
-| REQ-OOB-WIRE-EVIDENCE | ENG-1794557270566971 | Seven independent packet-oracle tests and strict echo wired into the named smoke scenario | passed; full runtime capture not run |
+| REQ-OOB-WIRE-EVIDENCE | ENG-1794557270566971 | Seven independent packet-oracle tests and strict echo wired into the named smoke scenario; full runtime capture not run | passed |
 | REQ-OOB-PLATFORM-SCOPE | ENG-1794557271420486 | Both urgent-method platform rows reviewed against the native wait adapter | passed |
 | REQ-OOB-TTL-RESTORE | ENG-1794557272429801 | Combined locked tests, workspace Clippy, source gates and independent reviews | passed |
 
