@@ -12,11 +12,6 @@ const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 /// 300 ms leaves slack for a loaded device and delays a server banner by no more.
 const DEFERRED_IDLE_WINDOW: Duration = Duration::from_millis(300);
 
-/// True for a TCP Fast Open socket whose connect returned before any SYN went out.
-fn is_deferred_tfo(stream: &TcpStream) -> bool {
-    stream.peer_addr().is_err_and(|err| err.kind() == io::ErrorKind::NotConnected)
-}
-
 pub(super) struct FirstPayload {
     pub(super) original_request: Vec<u8>,
     pub(super) host: Option<String>,
@@ -80,7 +75,7 @@ pub(in crate::runtime) fn read_first_client_payload(
     let mut buffer = vec![0u8; buffer_size];
     let mut assembler = RuntimeState::first_outbound_request_assembler(hostname_policy);
     let mut watch_upstream = true;
-    let deferred = upstream.is_some_and(is_deferred_tfo);
+    let deferred = upstream.is_some_and(ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_deferred);
     let result = (|| {
         loop {
             let now = Instant::now();

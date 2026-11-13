@@ -33,7 +33,7 @@ pub(super) fn apply_group_socket_options(
 /// A deferred TCP Fast Open connect returns before any SYN. Bound the first write, which
 /// sends the SYN, by the connect timeout; the relay clears the bound after that write.
 pub(super) fn bound_deferred_first_write(stream: &TcpStream, connect_timeout: Option<Duration>) {
-    let deferred = stream.peer_addr().is_err_and(|err| err.kind() == std::io::ErrorKind::NotConnected);
+    let deferred = connect_platform::tcp_fast_open_deferred(stream);
     if let (true, Some(timeout)) = (deferred, connect_timeout)
         && let Err(err) = stream.set_write_timeout(Some(timeout))
     {
@@ -50,7 +50,7 @@ pub(super) fn record_connect_telemetry(
 ) {
     // A deferred TCP Fast Open socket has sent no SYN yet: no handshake time exists.
     let peer = stream.peer_addr();
-    let deferred = peer.as_ref().is_err_and(|err| err.kind() == std::io::ErrorKind::NotConnected);
+    let deferred = connect_platform::tcp_fast_open_deferred(stream);
     if !deferred {
         connect_platform::record_connection_setup_duration(group_index, started.elapsed().as_secs_f64());
     }

@@ -264,6 +264,15 @@ pub mod connect {
         nix::sys::socket::getsockopt(stream, nix::sys::socket::sockopt::TcpFastOpenConnect).unwrap_or(false)
     }
 
+    /// True for a TCP Fast Open socket whose connect returned before any SYN went out: the
+    /// option is set and there is no peer yet. Always false where the option does not exist.
+    /// TCP_INFO is not reachable through the safe nix API, so a socket reset after its
+    /// handshake (state CLOSE) cannot be told apart from a deferred one.
+    pub fn tcp_fast_open_deferred(stream: &TcpStream) -> bool {
+        tcp_fast_open_connect_active(stream)
+            && stream.peer_addr().is_err_and(|err| err.kind() == io::ErrorKind::NotConnected)
+    }
+
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     pub fn tcp_fast_open_connect_active(_stream: &TcpStream) -> bool {
         false

@@ -167,7 +167,7 @@ pub(super) fn connect_with(
     );
     // A deferred TFO socket has sent no SYN: reuse it only when the first write may carry
     // SYN data for this route, otherwise drop it (free on the wire) and reconnect.
-    let deferred = connected.upstream.peer_addr().is_err_and(|err| err.kind() == io::ErrorKind::NotConnected);
+    let deferred = ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_deferred(&connected.upstream);
     let reusable_socket = !deferred || state.route_uses_direct_syn_data_tfo(&route, Some(&payload));
     if compatible_connect_policy && egress == initial_egress && original_targets == payload_targets && reusable_socket {
         connected.route = route;
