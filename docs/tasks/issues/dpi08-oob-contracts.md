@@ -2,7 +2,7 @@
 id: ENG-1794501878605236
 title: Preserve TCP payload across OOB execution
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: OOB repair team
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dpi08-oob-contracts
 created: 2026-11-12
-updated: 2026-11-12
+updated: 2026-11-13
 ---
 
 ## Goal
