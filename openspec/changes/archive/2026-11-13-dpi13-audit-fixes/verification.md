@@ -5,7 +5,7 @@ commit_sha: ca1090077bea873f2de9a70c0c50c0881e3ddaee
 local: passed
 local_evidence: Combined source tree passed 801 Rust tests, 78 Kotlin model tests, host and restricted Linux clippy, full staticAnalysis, ci-gates, architecture and locked metadata. Separate finding commits passed normal hooks and isolated Rust checks. Independent pr-reviewer and F4 unsafe review found no unresolved issue.
 remote_ci: not_applicable
-remote_ci_evidence: Hosted CI acceptance is not claimed; this change requires local checks and an ordinary authorized main push.
+remote_ci_evidence: Hosted CI acceptance is not claimed. The user requested direct main publication; GitHub accepted the ordinary push with existing bypass rights and reported ci-required expected and CodeQL waiting. Branch protection settings were not changed.
 device: not_applicable
 device_evidence: Physical-device and root activation were not authorized. Successful raw send, repair queue ACK/retransmission and external compatibility remain unverified.
 artifact: not_applicable
@@ -85,3 +85,7 @@ python3 scripts/ci/check_architecture_health.py --check
 python3 -m json.tool core/data/src/test/resources/contract/protocol-liveness.schema.json > /dev/null
 ./taskctl validate
 ```
+
+## Publication receipt
+
+The authorized ordinary `git push origin main` published `c54490b1ff416ef9a6f886ddf0636f114859b7af`. `git ls-remote origin refs/heads/main` matched local main. GitHub reported an existing bypass for the PR rule, expected `ci-required` status and pending CodeQL results. No branch protection setting or quality gate was changed. This receipt proves publication only; it does not prove hosted CI or CodeQL success.

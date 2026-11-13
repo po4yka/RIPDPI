@@ -1,0 +1,11 @@
+{
+  "change": "dpi13-audit-fixes",
+  "evidence_summary": "F1-F5 have separate published commits; 801 Rust and 78 Kotlin tests, restricted Linux regressions and clippy, staticAnalysis and local source gates passed. Independent review passed. Raw/device/external and hosted CI acceptance are not claimed.",
+  "execution_sha256": "2c55c4b325a6a8de4e5c3782a857d29c2a2b6a6f09acd401465877cee9f4ae4c",
+  "issue_sha256": "45afbcdbffd7573e6e8e21a35128b43356deae1f5974a1f94622754d9cd5e21d",
+  "outcome": "done",
+  "prepared_at": "2026-11-13T10:21:06Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794556971423909"
+}

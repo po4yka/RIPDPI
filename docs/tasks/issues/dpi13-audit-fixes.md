@@ -2,7 +2,7 @@
 id: RST-1794556971423909
 title: Fix multidisorder delivery and configuration contracts
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: DPI-13 team
@@ -13,6 +13,9 @@ openspec_change: dpi13-audit-fixes
 created: 2026-11-13
 updated: 2026-11-13
 status_detail: Five finding commits passed independent review and combined local gates
+closed_at: "2026-11-13T10:21:06Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: F1-F5 have separate published commits; 801 Rust and 78 Kotlin tests, restricted Linux regressions and clippy, staticAnalysis and local source gates passed. Independent review passed. Raw/device/external and hosted CI acceptance are not claimed.
 ---
 
 ## Goal
