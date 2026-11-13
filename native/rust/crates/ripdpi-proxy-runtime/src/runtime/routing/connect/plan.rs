@@ -18,12 +18,26 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     acquire_cap_slot: bool,
     egress: DestinationEgress,
 ) -> Result<(TcpStream, Option<ripdpi_session_limit::ExitIpSessionGuard>), ConnectAttemptError> {
-    let policy =
-        state.route_connect_policy(group_index, payload, allow_tfo, egress).ok_or_else(|| ConnectAttemptError {
-            source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
-            tcp_total_retransmissions: None,
-            tcp_fast_open_enabled: false,
-        })?;
+    let policy = state.route_connect_policy(group_index, payload, allow_tfo, egress).ok_or_else(missing_group_error)?;
+    connect_target_candidates_with_policy(targets, logical_target, state, group_index, &policy, acquire_cap_slot)
+}
+
+pub(in crate::runtime::routing) fn missing_group_error() -> ConnectAttemptError {
+    ConnectAttemptError {
+        source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
+        tcp_total_retransmissions: None,
+        tcp_fast_open_enabled: false,
+    }
+}
+
+pub(in crate::runtime::routing) fn connect_target_candidates_with_policy(
+    targets: &[SocketAddr],
+    logical_target: Option<&str>,
+    state: &RuntimeState,
+    group_index: usize,
+    policy: &RouteConnectPolicy,
+    acquire_cap_slot: bool,
+) -> Result<(TcpStream, Option<ripdpi_session_limit::ExitIpSessionGuard>), ConnectAttemptError> {
     // This budget counts direct sockets; relay carriers own a separate limiter.
     let acquire_cap_slot = acquire_cap_slot && policy.upstream_socks_addr.is_none();
     let mut last_error = None;
@@ -48,7 +62,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
         } else {
             None
         };
-        match connect_target_via_group_with_policy(candidate, logical_target, state, group_index, &policy) {
+        match connect_target_via_group_with_policy(candidate, logical_target, state, group_index, policy) {
             Ok(stream) => return Ok((stream, guard)),
             Err(err) => {
                 last_error = Some(err); // guard drops here -> slot freed for the failed candidate
@@ -69,7 +83,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
             target: "ripdpi::proxy::exit_ip_cap",
             "all route candidates at per-exit-IP cap; proceeding without a slot (advisory cap)"
         );
-        match connect_target_via_group_with_policy(candidate, logical_target, state, group_index, &policy) {
+        match connect_target_via_group_with_policy(candidate, logical_target, state, group_index, policy) {
             Ok(stream) => return Ok((stream, None)),
             Err(err) => last_error = Some(err),
         }

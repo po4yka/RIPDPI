@@ -47,8 +47,12 @@ pub fn connection_route_requests_direct_syn_data_tfo_with(
     route: &ConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
-    syn_data_payload_tolerates_replay(payload)
-        && settings.direct_syn_data_groups.get(route.group_index).copied().unwrap_or(false)
+    syn_data_payload_tolerates_replay(payload) && route_group_uses_direct_syn_data_with(settings, route)
+}
+
+/// True when the route's group carries a direct SYN-data step, whatever the payload.
+pub fn route_group_uses_direct_syn_data_with(settings: &TcpRouteSynDataSettings, route: &ConnectionRoute) -> bool {
+    settings.direct_syn_data_groups.get(route.group_index).copied().unwrap_or(false)
 }
 
 #[derive(Clone)]

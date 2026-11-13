@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
 use super::super::state::RuntimeState;
-use super::connect::connect_target_candidates_via_group;
+use super::connect::{connect_target_candidates_via_group, connect_target_candidates_with_policy, missing_group_error};
 use super::failure::{advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure};
 use super::policy::{preferred_targets_for_transport, select_route};
 use crate::runtime::destination_routing::DestinationEgress;
@@ -40,13 +40,40 @@ pub(in crate::runtime) fn connect_target_with_route(
     connect_target_with_route_and_egress(target, state, route, payload, host, egress)
 }
 
+/// Opens the provisional upstream of a SOCKS5 delayed connect. A direct SYN-data group
+/// connects with TFO, so the first payload can reuse the socket instead of reconnecting.
+pub(in crate::runtime) fn connect_provisional_target_with_route(
+    target: SocketAddr,
+    state: &RuntimeState,
+    route: RuntimeConnectionRoute,
+    host: Option<String>,
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
+    let egress = state.destination_egress(target, host.as_deref(), RuntimeTransportProtocol::Tcp);
+    if egress == DestinationEgress::Block {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"));
+    }
+    connect_target_with_route_and_egress_mode(target, state, route, None, host, egress, true)
+}
+
 fn connect_target_with_route_and_egress(
+    target: SocketAddr,
+    state: &RuntimeState,
+    route: RuntimeConnectionRoute,
+    payload: Option<&[u8]>,
+    host: Option<String>,
+    egress: DestinationEgress,
+) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
+    connect_target_with_route_and_egress_mode(target, state, route, payload, host, egress, false)
+}
+
+fn connect_target_with_route_and_egress_mode(
     target: SocketAddr,
     state: &RuntimeState,
     mut route: RuntimeConnectionRoute,
     payload: Option<&[u8]>,
     host: Option<String>,
     egress: DestinationEgress,
+    provisional_syn_data: bool,
 ) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
     let mut retries: usize = 0;
     loop {
@@ -54,16 +81,30 @@ fn connect_target_with_route_and_egress(
         let attempt_targets =
             preferred_targets_for_transport(state, target, host.as_deref(), RuntimeTransportProtocol::Tcp);
         note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, RuntimeTransportProtocol::Tcp)?;
-        match connect_target_candidates_via_group(
-            &attempt_targets,
-            host.as_deref(),
-            state,
-            route.group_index,
-            payload,
-            true,
-            true,
-            egress,
-        ) {
+        let first_attempt = if provisional_syn_data {
+            state.route_provisional_connect_policy(&route, egress).ok_or_else(missing_group_error).and_then(|policy| {
+                connect_target_candidates_with_policy(
+                    &attempt_targets,
+                    host.as_deref(),
+                    state,
+                    route.group_index,
+                    &policy,
+                    true,
+                )
+            })
+        } else {
+            connect_target_candidates_via_group(
+                &attempt_targets,
+                host.as_deref(),
+                state,
+                route.group_index,
+                payload,
+                true,
+                true,
+                egress,
+            )
+        };
+        match first_attempt {
             Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
                 if err.is_shutdown_cancelled(state.shutdown_requested()) {

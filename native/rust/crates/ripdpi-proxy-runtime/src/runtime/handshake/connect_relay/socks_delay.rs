@@ -7,6 +7,7 @@ use super::reply::{SuccessReply, write_success_reply};
 use super::routes::{acquire_same_sni_guard, connect_delayed_route, connect_provisional_route};
 use crate::runtime::destination_routing::DestinationEgress;
 use crate::runtime::relay::{FirstOutboundRead, read_first_client_payload};
+use crate::runtime::state::RouteConnectPolicy;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeTransportProtocol;
 
@@ -126,19 +127,20 @@ pub(super) fn connect_with(
         host.as_deref(),
         RuntimeTransportProtocol::Tcp,
     );
-    let payload_connect_required = state.route_uses_direct_syn_data_tfo(&route, Some(&payload));
+    // The provisional policy may differ from the payload policy only in the TFO bit, which
+    // depends on the payload.
     let compatible_connect_policy = matches!(
         (
-            state.route_connect_policy(connected.route.group_index, None, true, initial_egress),
+            state.route_provisional_connect_policy(&connected.route, initial_egress),
             state.route_connect_policy(route.group_index, Some(&payload), true, egress),
         ),
-        (Some(initial), Some(selected)) if initial == selected
+        (Some(initial), Some(selected)) if RouteConnectPolicy { tfo_enabled: selected.tfo_enabled, ..initial.clone() } == selected
     );
-    if compatible_connect_policy
-        && egress == initial_egress
-        && original_targets == payload_targets
-        && !payload_connect_required
-    {
+    // A deferred TFO socket has sent no SYN: reuse it only when the first write may carry
+    // SYN data for this route, otherwise drop it (free on the wire) and reconnect.
+    let deferred = connected.upstream.peer_addr().is_err_and(|err| err.kind() == io::ErrorKind::NotConnected);
+    let reusable_socket = !deferred || state.route_uses_direct_syn_data_tfo(&route, Some(&payload));
+    if compatible_connect_policy && egress == initial_egress && original_targets == payload_targets && reusable_socket {
         connected.route = route;
         connected.seed_request = Some(payload);
         if host.as_deref() != host_hint {

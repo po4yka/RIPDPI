@@ -20,9 +20,9 @@ use super::config::{
     TcpRouteSynDataSettings, UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
     connection_route_requests_direct_syn_data_tfo_with, delayed_route_matches_payload_with, ensure_default_ttl,
     first_response_timeout, first_response_timeout_count_limit, listener_settings, primary_tcp_strategy_family_with,
-    relay_group_settings_with, route_requires_delay_payload_with, runtime_config_projection_with_geo,
-    should_rebind_udp_source_port_with, tcp_rotation_seed_with, tcp_route_connect_settings_with, udp_flow_at_capacity,
-    udp_group_settings_with,
+    relay_group_settings_with, route_group_uses_direct_syn_data_with, route_requires_delay_payload_with,
+    runtime_config_projection_with_geo, should_rebind_udp_source_port_with, tcp_rotation_seed_with,
+    tcp_route_connect_settings_with, udp_flow_at_capacity, udp_group_settings_with,
 };
 use super::destination_routing::{DestinationEgress, DestinationRoutingEvaluator};
 use super::desync::{

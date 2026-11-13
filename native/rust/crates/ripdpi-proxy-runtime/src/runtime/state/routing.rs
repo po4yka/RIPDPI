@@ -21,6 +21,17 @@ impl RuntimeState {
     ) -> bool {
         connection_route_requests_direct_syn_data_tfo_with(&self.route_syn_data_settings, route, payload)
     }
+    /// Policy of the provisional SOCKS5 delayed connect, opened before any payload exists.
+    /// A direct SYN-data group opens it with TFO so the payload can reuse the socket.
+    pub(in crate::runtime) fn route_provisional_connect_policy(
+        &self,
+        route: &RuntimeConnectionRoute,
+        egress: DestinationEgress,
+    ) -> Option<RouteConnectPolicy> {
+        let mut policy = self.route_connect_policy(route.group_index, None, true, egress)?;
+        policy.tfo_enabled |= route_group_uses_direct_syn_data_with(&self.route_syn_data_settings, route);
+        Some(policy)
+    }
     pub(in crate::runtime) fn route_connect_policy(
         &self,
         group_index: usize,

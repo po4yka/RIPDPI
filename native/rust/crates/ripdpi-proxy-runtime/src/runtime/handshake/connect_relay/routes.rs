@@ -36,7 +36,7 @@ pub(super) fn connect_provisional_route(
 ) -> Result<UpstreamRoute, ConnectRelayError> {
     let same_sni_guard = acquire_same_sni_guard(state, host.as_deref());
     let (upstream, route, cap_guard) =
-        super::super::super::routing::connect_target_with_route(target, state, route, None, host)
+        super::super::super::routing::connect_provisional_target_with_route(target, state, route, host)
             .map_err(|err| ConnectRelayError::new(err, false))?;
     Ok(UpstreamRoute { upstream, route, cap_guard, same_sni_guard, seed_request: None })
 }

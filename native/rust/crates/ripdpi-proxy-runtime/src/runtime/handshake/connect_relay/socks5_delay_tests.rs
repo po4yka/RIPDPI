@@ -195,7 +195,7 @@ fn refused_delayed_connect_returns_rep05_to_a_client_waiting_for_the_reply() {
 }
 
 #[test]
-fn syn_data_reconnects_with_the_payload_before_forwarding() {
+fn syn_data_group_serves_a_delayed_connect_with_one_origin_connection() {
     use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
     let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
     let (mut peer, mut client) = pair();
@@ -212,25 +212,57 @@ fn syn_data_reconnects_with_the_payload_before_forwarding() {
     let state = RuntimeState::test(config);
     let outcome =
         maybe_delay_connect(&mut client, &state, origin.local_addr().unwrap(), None, Some(HandshakeKind::Socks5));
-    let (mut provisional, _) = origin.accept().unwrap();
-    assert_eq!(provisional.read(&mut [0; 1]).unwrap(), 0);
-    // Where the platform lacks TFO the payload connect still succeeds, without TFO.
-    let DelayConnect::Connected(connected) = outcome.unwrap() else {
+    let DelayConnect::Connected(mut connected) = outcome.unwrap() else {
         panic!("connected delayed route");
     };
-    // A second real connection proves that the provisional socket was replaced.
-    origin.set_nonblocking(true).unwrap();
-    let (_, source) = origin.accept().unwrap();
+    let payload = b"GET / HTTP/1.0\r\n\r\n";
+    assert_eq!(connected.seed_request.as_deref(), Some(&payload[..]));
+    // The relay's first write; a deferred TFO socket connects here.
+    connected.upstream.write_all(payload).unwrap();
+    let (mut server, source) = origin.accept().unwrap();
     assert_eq!(connected.upstream.local_addr().unwrap(), source);
-    let policy = state
-        .route_connect_policy(
-            connected.route.group_index,
-            connected.seed_request.as_deref(),
-            true,
-            crate::runtime::destination_routing::DestinationEgress::Tunneled,
-        )
-        .unwrap();
-    assert!(policy.tfo_enabled, "SynData requires a TFO-enabled payload connect");
+    let mut got = [0; 18];
+    server.read_exact(&mut got).unwrap();
+    assert_eq!(&got, payload);
+    // The provisional connection is the only one: no second connection arrives.
+    origin.set_nonblocking(true).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(origin.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
+    sender.join().unwrap();
+}
+
+/// A deferred TFO socket has sent nothing, so a payload that SYN data must not carry
+/// reconnects without TFO and still reaches the origin exactly once.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[test]
+fn deferred_syn_data_socket_is_replaced_for_a_payload_that_is_not_replay_safe() {
+    use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
+    let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let (mut peer, mut client) = pair();
+    let sender = std::thread::spawn(move || {
+        let mut reply = [0; 10];
+        peer.read_exact(&mut reply).unwrap();
+        peer.write_all(b"POST / HTTP/1.0\r\n\r\n").unwrap();
+    });
+    let mut config = RuntimeConfig::default();
+    config.network.delay_conn = true;
+    config.groups[0].matches.proto = ripdpi_packets::IS_HTTP;
+    config.groups[0].actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1))];
+    let state = RuntimeState::test(config);
+    let outcome =
+        maybe_delay_connect(&mut client, &state, origin.local_addr().unwrap(), None, Some(HandshakeKind::Socks5));
+    let DelayConnect::Connected(mut connected) = outcome.unwrap() else {
+        panic!("connected delayed route");
+    };
+    let payload = b"POST / HTTP/1.0\r\n\r\n";
+    connected.upstream.write_all(payload).unwrap();
+    let (mut server, _) = origin.accept().unwrap();
+    let mut got = [0; 19];
+    server.read_exact(&mut got).unwrap();
+    assert_eq!(&got, payload);
+    origin.set_nonblocking(true).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert_eq!(origin.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
     sender.join().unwrap();
 }
 
