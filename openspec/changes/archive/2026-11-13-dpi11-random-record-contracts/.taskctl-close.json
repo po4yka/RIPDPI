@@ -1,0 +1,11 @@
+{
+  "change": "dpi11-random-record-contracts",
+  "evidence_summary": "369 owning tests, clippy all targets, source gates, architecture, locked metadata, formatting, and independent reviews passed at 54660c4e1c671f94ae473f36ee060290745e93c2 after integration on 5007962b8a9bb9dd65c4e512f0d22be360af2491. Four repair commits are complete.",
+  "execution_sha256": "2685d7fea104fd77c7a7eb5194a3306804d7eaf49087bb577a55c49b2d5d1ea8",
+  "issue_sha256": "289869944c14c06c4026e4280380ac797f91873a748b19d7a06ea0ccbc6a62ad",
+  "outcome": "done",
+  "prepared_at": "2026-11-13T09:35:49Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794557083402232"
+}

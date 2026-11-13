@@ -2,7 +2,7 @@
 id: RST-1794557083402232
 title: Enforce TLS random-record validation and envelope contracts
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: dpi11-audit
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi11-random-record-contracts
 created: 2026-11-13
 updated: 2026-11-13
+closed_at: "2026-11-13T09:35:49Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 369 owning tests, clippy all targets, source gates, architecture, locked metadata, formatting, and independent reviews passed at 54660c4e1c671f94ae473f36ee060290745e93c2 after integration on 5007962b8a9bb9dd65c4e512f0d22be360af2491. Four repair commits are complete.
 ---
 
 ## Goal
