@@ -15,6 +15,7 @@ use crate::runtime::relay::session::{FirstOutboundSession, RelaySession};
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
+use ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_connect_active;
 use ripdpi_session_limit::ExitIpSessionGuard;
 
 mod execution;
@@ -142,6 +143,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                         &route,
                         first_payload.host.clone(),
                         &first_payload.original_request,
+                        tcp_fast_open_connect_active(&upstream),
                         err,
                         &mut retry_state,
                     )?;
@@ -194,6 +196,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                             route: &route,
                             host: first_payload.host.clone(),
                             original_request: &first_payload.original_request,
+                            socket_used_tfo: tcp_fast_open_connect_active(&upstream),
                             failure: &failure,
                             response_bytes,
                         },

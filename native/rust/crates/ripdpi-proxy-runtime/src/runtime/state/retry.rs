@@ -58,21 +58,30 @@ impl RuntimeState {
     pub(in crate::runtime) fn max_route_retries(&self) -> usize {
         self.route_retry_settings.max_route_retries
     }
+    /// One retry without TCP Fast Open is allowed only when the failed socket used it.
+    /// RFC 7413 section 4.1.3.1: no SYN-ACK is the main negative response, so a silent
+    /// drop after a TFO attempt retries too.
     pub(in crate::runtime) fn first_write_failure_retries_syn_data_without_tfo(
-        route_requests_direct_syn_data_tfo: bool,
+        socket_used_tfo: bool,
         failure: &RuntimeClassifiedFailure,
         already_retried: bool,
     ) -> bool {
         !already_retried
-            && route_requests_direct_syn_data_tfo
+            && socket_used_tfo
             && failure.action != RuntimeFailureAction::SurfaceOnly
-            && matches!(failure.class, RuntimeFailureClass::ConnectFailure | RuntimeFailureClass::TcpReset)
+            && tfo_retry_class(failure)
     }
     pub(in crate::runtime) fn connect_failure_retries_without_tfo(
         tcp_fast_open_enabled: bool,
         failure: &RuntimeClassifiedFailure,
     ) -> bool {
-        tcp_fast_open_enabled
-            && matches!(failure.class, RuntimeFailureClass::ConnectFailure | RuntimeFailureClass::TcpReset)
+        tcp_fast_open_enabled && tfo_retry_class(failure)
     }
+}
+
+fn tfo_retry_class(failure: &RuntimeClassifiedFailure) -> bool {
+    matches!(
+        failure.class,
+        RuntimeFailureClass::ConnectFailure | RuntimeFailureClass::TcpReset | RuntimeFailureClass::SilentDrop
+    )
 }

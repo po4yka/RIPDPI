@@ -11,7 +11,6 @@ use crate::runtime::relay::failure_retry::retry_logic::{
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::routing::{
     advance_route_for_failure, emit_failure_classified, reconnect_target, reconnect_target_without_tfo,
-    route_uses_direct_syn_data_tfo,
 };
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeConnectionRoute;
@@ -33,6 +32,8 @@ pub(super) struct FirstResponseFailureContext<'a> {
     pub(super) route: &'a RuntimeConnectionRoute,
     pub(super) host: Option<String>,
     pub(super) original_request: &'a [u8],
+    /// Whether the socket that failed used TCP Fast Open.
+    pub(super) socket_used_tfo: bool,
     pub(super) failure: &'a RuntimeClassifiedFailure,
     pub(super) response_bytes: Option<Vec<u8>>,
 }
@@ -43,6 +44,7 @@ pub(super) fn handle_first_write_failure(
     route: &RuntimeConnectionRoute,
     host: Option<String>,
     original_request: &[u8],
+    socket_used_tfo: bool,
     err: OutboundSendError,
     retry_state: &mut RouteRetryState,
 ) -> io::Result<ReconnectedRoute> {
@@ -50,7 +52,7 @@ pub(super) fn handle_first_write_failure(
         return Err(err.into_io_error());
     }
     let failure = classify_first_write_failure(&err);
-    if should_retry_syn_data(state, route, original_request, &failure, retry_state) {
+    if should_retry_syn_data(socket_used_tfo, &failure, retry_state) {
         tracing::debug!(
             group_index = route.group_index,
             target = %target,
@@ -74,7 +76,7 @@ pub(super) fn handle_first_response_failure(
     retry_state: &mut RouteRetryState,
     context: FirstResponseFailureContext<'_>,
 ) -> io::Result<Option<ReconnectedRoute>> {
-    if should_retry_syn_data(context.state, context.route, context.original_request, context.failure, retry_state) {
+    if should_retry_syn_data(context.socket_used_tfo, context.failure, retry_state) {
         tracing::debug!(
             group_index = context.route.group_index,
             target = %context.target,
@@ -121,14 +123,11 @@ pub(super) fn handle_first_response_failure(
 }
 
 fn should_retry_syn_data(
-    state: &RuntimeState,
-    route: &RuntimeConnectionRoute,
-    original_request: &[u8],
+    socket_used_tfo: bool,
     failure: &RuntimeClassifiedFailure,
     retry_state: &RouteRetryState,
 ) -> bool {
-    let route_requests_direct_syn_data_tfo = route_uses_direct_syn_data_tfo(state, route, Some(original_request));
-    should_retry_syn_data_without_tfo(route_requests_direct_syn_data_tfo, failure, retry_state.syn_data_retry_attempted)
+    should_retry_syn_data_without_tfo(socket_used_tfo, failure, retry_state.syn_data_retry_attempted)
 }
 
 fn reconnect_without_tfo(
@@ -244,6 +243,7 @@ mod tests {
                 route: &route,
                 host: Some("example.com".to_string()),
                 original_request: b"GET / HTTP/1.1\r\n\r\n",
+                socket_used_tfo: false,
                 failure: &failure,
                 response_bytes: None,
             },
@@ -276,6 +276,7 @@ mod tests {
                 route: &route,
                 host: None,
                 original_request: b"GET / HTTP/1.1\r\n\r\n",
+                socket_used_tfo: false,
                 failure: &failure,
                 response_bytes: Some(b"HTTP/1.1 403 Forbidden\r\n\r\n".to_vec()),
             },
@@ -308,6 +309,7 @@ mod tests {
                 route: &route,
                 host: None,
                 original_request: b"GET / HTTP/1.1\r\n\r\n",
+                socket_used_tfo: false,
                 failure: &failure,
                 response_bytes: None,
             },

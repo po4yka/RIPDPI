@@ -130,14 +130,6 @@ pub(in crate::runtime) fn reconnect_target_without_tfo(
     reconnect_target_with_tfo_mode(target, state, route, host, payload, false)
 }
 
-pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
-    state: &RuntimeState,
-    route: &RuntimeConnectionRoute,
-    payload: Option<&[u8]>,
-) -> bool {
-    state.route_uses_direct_syn_data_tfo(route, payload)
-}
-
 fn reconnect_target_with_tfo_mode(
     target: SocketAddr,
     state: &RuntimeState,
@@ -325,6 +317,30 @@ mod tests {
         assert!(RuntimeState::connect_failure_retries_without_tfo(true, &reset_failure));
         assert!(!RuntimeState::connect_failure_retries_without_tfo(false, &connect_failure));
         assert!(!RuntimeState::connect_failure_retries_without_tfo(false, &reset_failure));
+    }
+
+    #[test]
+    fn silent_drop_after_tfo_retries_without_tfo_once() {
+        let drop_failure = RuntimeState::classify_connect_transport_error(&io::Error::from(io::ErrorKind::TimedOut));
+        assert_eq!(drop_failure.class, RuntimeFailureClass::SilentDrop);
+
+        assert!(RuntimeState::connect_failure_retries_without_tfo(true, &drop_failure));
+        assert!(!RuntimeState::connect_failure_retries_without_tfo(false, &drop_failure));
+        assert!(RuntimeState::first_write_failure_retries_syn_data_without_tfo(true, &drop_failure, false));
+        assert!(!RuntimeState::first_write_failure_retries_syn_data_without_tfo(true, &drop_failure, true));
+    }
+
+    #[test]
+    fn first_write_failure_without_tfo_socket_skips_the_no_tfo_retry() {
+        let reset = RuntimeClassifiedFailure::new(
+            RuntimeFailureClass::TcpReset,
+            RuntimeFailureStage::FirstWrite,
+            RuntimeFailureAction::RetryWithMatchingGroup,
+            "reset",
+        );
+
+        assert!(RuntimeState::first_write_failure_retries_syn_data_without_tfo(true, &reset, false));
+        assert!(!RuntimeState::first_write_failure_retries_syn_data_without_tfo(false, &reset, false));
     }
 
     #[test]

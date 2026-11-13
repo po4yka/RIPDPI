@@ -124,7 +124,7 @@ pub mod connect {
         control: TcpConnectControl<'_>,
     ) -> Result<TcpStream, TcpConnectError> {
         let observer = control.observer;
-        let socket = new_tcp_socket(target, tfo)?;
+        let socket = new_tcp_socket(target)?;
         if let Some(observer) = observer {
             observer.on_socket_created();
         }
@@ -147,12 +147,11 @@ pub mod connect {
                         };
                         observer.on_protect_finished(outcome);
                     }
-                    connect_error(source, tfo)
+                    connect_error(source, false)
                 })?;
         }
-        if tfo {
-            enable_tcp_fastopen_if_supported(&socket).map_err(|source| connect_error(source, tfo))?;
-        }
+        // From here `tfo` means applied on this socket, not requested.
+        let tfo = tfo && enable_tcp_fastopen_if_supported(&socket).map_err(|source| connect_error(source, false))?;
         bind_socket(&socket, bind_ip, target).map_err(|source| connect_error(source, tfo))?;
         if let Some(rcvbuf) = pre_connect_rcvbuf {
             let _ = set_rcvbuf(&socket, rcvbuf);
@@ -237,24 +236,37 @@ pub mod connect {
         metrics::histogram!("ripdpi_connection_setup_duration_seconds", "group" => group_label).record(elapsed_seconds);
     }
 
-    fn new_tcp_socket(target: SocketAddr, tfo: bool) -> Result<Socket, TcpConnectError> {
+    fn new_tcp_socket(target: SocketAddr) -> Result<Socket, TcpConnectError> {
         let domain = match target {
             SocketAddr::V4(_) => Domain::IPV4,
             SocketAddr::V6(_) => Domain::IPV6,
         };
-        Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).map_err(|source| connect_error(source, tfo))
+        Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).map_err(|source| connect_error(source, false))
     }
 
-    fn enable_tcp_fastopen_if_supported(socket: &Socket) -> io::Result<()> {
+    /// Returns whether TCP Fast Open is active on the socket. A platform or kernel
+    /// that does not offer it is not an error: the connect then runs without it.
+    fn enable_tcp_fastopen_if_supported(socket: &Socket) -> io::Result<bool> {
         match enable_tcp_fastopen_connect(socket) {
-            Ok(()) => Ok(()),
-            #[cfg(target_os = "android")]
-            Err(err) if should_ignore_android_tfo_error(&err) => {
-                tracing::debug!("TCP Fast Open unavailable on this Android build: {err}");
-                Ok(())
+            Ok(()) => Ok(true),
+            Err(err) if err.kind() == io::ErrorKind::Unsupported || should_ignore_android_tfo_error(&err) => {
+                tracing::debug!("TCP Fast Open unavailable, connecting without it: {err}");
+                Ok(false)
             }
             Err(err) => Err(err),
         }
+    }
+
+    /// True when `TCP_FASTOPEN_CONNECT` is set on the socket, so the first write
+    /// can carry the SYN payload. Always false where the option does not exist.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn tcp_fast_open_connect_active(stream: &TcpStream) -> bool {
+        nix::sys::socket::getsockopt(stream, nix::sys::socket::sockopt::TcpFastOpenConnect).unwrap_or(false)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    pub fn tcp_fast_open_connect_active(_stream: &TcpStream) -> bool {
+        false
     }
 
     fn bind_socket(socket: &Socket, bind_ip: IpAddr, target: SocketAddr) -> io::Result<()> {

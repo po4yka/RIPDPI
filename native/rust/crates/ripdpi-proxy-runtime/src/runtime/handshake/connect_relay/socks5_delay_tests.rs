@@ -214,32 +214,23 @@ fn syn_data_reconnects_with_the_payload_before_forwarding() {
         maybe_delay_connect(&mut client, &state, origin.local_addr().unwrap(), None, Some(HandshakeKind::Socks5));
     let (mut provisional, _) = origin.accept().unwrap();
     assert_eq!(provisional.read(&mut [0; 1]).unwrap(), 0);
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    {
-        let DelayConnect::Connected(connected) = outcome.unwrap() else {
-            panic!("connected delayed route");
-        };
-        // A second real connection proves that the provisional socket was replaced.
-        origin.set_nonblocking(true).unwrap();
-        let (_, source) = origin.accept().unwrap();
-        assert_eq!(connected.upstream.local_addr().unwrap(), source);
-        let policy = state
-            .route_connect_policy(
-                connected.route.group_index,
-                connected.seed_request.as_deref(),
-                true,
-                crate::runtime::destination_routing::DestinationEgress::Tunneled,
-            )
-            .unwrap();
-        assert!(policy.tfo_enabled, "SynData requires a TFO-enabled payload connect");
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    {
-        // This host rejects TFO at socket construction; reuse would wrongly succeed.
-        let err = outcome.err().expect("payload-aware TFO connect must reach the platform");
-        assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
-        assert!(err.success_reply_sent());
-    }
+    // Where the platform lacks TFO the payload connect still succeeds, without TFO.
+    let DelayConnect::Connected(connected) = outcome.unwrap() else {
+        panic!("connected delayed route");
+    };
+    // A second real connection proves that the provisional socket was replaced.
+    origin.set_nonblocking(true).unwrap();
+    let (_, source) = origin.accept().unwrap();
+    assert_eq!(connected.upstream.local_addr().unwrap(), source);
+    let policy = state
+        .route_connect_policy(
+            connected.route.group_index,
+            connected.seed_request.as_deref(),
+            true,
+            crate::runtime::destination_routing::DestinationEgress::Tunneled,
+        )
+        .unwrap();
+    assert!(policy.tfo_enabled, "SynData requires a TFO-enabled payload connect");
     sender.join().unwrap();
 }
 
