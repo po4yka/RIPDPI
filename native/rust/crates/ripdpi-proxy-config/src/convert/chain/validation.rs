@@ -33,18 +33,6 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
             }
         } else {
             saw_send_step = true;
-            if kind == TcpChainStepKind::SynData {
-                if saw_syndata {
-                    return Err(ProxyConfigError::InvalidConfig(
-                        "syndata must appear at most once per tcp chain".to_string(),
-                    ));
-                }
-                // A later step's first write would carry the SYN under a cached TFO cookie.
-                if send_step_count != 0 {
-                    return Err(ProxyConfigError::InvalidConfig("syndata must be the first tcp send step".to_string()));
-                }
-                saw_syndata = true;
-            }
             if kind == TcpChainStepKind::SeqOverlap {
                 if saw_seqovl {
                     return Err(ProxyConfigError::InvalidConfig(
@@ -63,6 +51,20 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
                     return Err(ProxyConfigError::InvalidConfig("seqovl overlapSize must be in 1..=32".to_string()));
                 }
                 saw_seqovl = true;
+            } else if saw_seqovl {
+                return Err(ProxyConfigError::InvalidConfig("seqovl must be the last tcp send step".to_string()));
+            }
+            if kind == TcpChainStepKind::SynData {
+                if saw_syndata {
+                    return Err(ProxyConfigError::InvalidConfig(
+                        "syndata must appear at most once per tcp chain".to_string(),
+                    ));
+                }
+                // A later step's first write would carry the SYN under a cached TFO cookie.
+                if send_step_count != 0 {
+                    return Err(ProxyConfigError::InvalidConfig("syndata must be the first tcp send step".to_string()));
+                }
+                saw_syndata = true;
             }
             if kind == TcpChainStepKind::MultiDisorder {
                 multidisorder_count += 1;

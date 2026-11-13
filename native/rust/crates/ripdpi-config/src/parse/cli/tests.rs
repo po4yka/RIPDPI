@@ -230,6 +230,15 @@ fn parse_cli_rejects_duplicate_seqovl_step() {
 }
 
 #[test]
+fn parse_cli_rejects_send_steps_after_seqovl() {
+    for option in ["--split", "--disorder", "--fake", "--oob", "--disoob"] {
+        let args = ["--seqovl", "2", option, "4"].map(str::to_owned);
+        let error = parse_cli(&args, &StartupEnv::default()).expect_err("send step after terminal seqovl");
+        assert!(error.to_string().contains("seqovl must be the last tcp send step"), "{option}: {error}");
+    }
+}
+
+#[test]
 fn parse_cli_rejects_non_leading_seqovl_step() {
     let args = vec!["--split".to_string(), "host+1".to_string(), "--seqovl".to_string(), "midsld".to_string()];
     let err = parse_cli(&args, &StartupEnv::default()).expect_err("non-leading seqovl");

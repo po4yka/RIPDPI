@@ -93,6 +93,17 @@ pub(super) fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGrou
     Ok(groups.last_mut().expect("new group"))
 }
 
+pub(super) fn validate_seqovl_terminal(config: RuntimeConfig) -> Result<RuntimeConfig, ConfigError> {
+    for group in &config.groups {
+        if let Some(index) = group.actions.tcp_chain.iter().position(|step| step.kind() == TcpChainStepKind::SeqOverlap)
+            && group.actions.tcp_chain[index + 1..].iter().any(|step| !step.kind().is_tls_prelude())
+        {
+            return Err(ConfigError::invalid("--seqovl", Some("seqovl must be the last tcp send step")));
+        }
+    }
+    Ok(config)
+}
+
 pub(super) fn seqovl_step_mut(group: &mut DesyncGroup) -> Option<&mut TcpChainStep> {
     group.actions.tcp_chain.iter_mut().rev().find(|step| step.kind() == TcpChainStepKind::SeqOverlap)
 }

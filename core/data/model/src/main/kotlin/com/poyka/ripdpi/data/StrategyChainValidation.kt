@@ -65,6 +65,8 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
                     require(!sawSeqOverlap) { "seqovl must appear at most once per tcp chain" }
                     require(sendStepCount == 0) { "seqovl must be the first tcp send step" }
                     sawSeqOverlap = true
+                } else {
+                    require(!sawSeqOverlap) { "seqovl must be the last tcp send step" }
                 }
                 if (step.kind == TcpChainStepKind.SynData) {
                     require(!sawSynData) { "syndata must appear at most once per tcp chain" }

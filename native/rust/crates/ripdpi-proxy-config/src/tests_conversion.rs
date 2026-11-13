@@ -152,6 +152,17 @@ fn ui_payload_rejects_duplicate_seqovl_step() {
 }
 
 #[test]
+fn ui_payload_rejects_send_steps_after_seqovl() {
+    for kind in ["split", "disorder", "fake", "oob", "disoob", "syndata", "fakedsplit", "hostfake"] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = vec![seqovl_step("2", 12, "profile"), tcp_step(kind, "4")];
+
+        let error = runtime_config_from_payload(ui_payload(ui)).expect_err("send step after terminal seqovl");
+        assert!(error.to_string().contains("seqovl must be the last tcp send step"), "{kind}: {error}");
+    }
+}
+
+#[test]
 fn ui_payload_rejects_non_leading_seqovl_step() {
     let mut ui = minimal_ui();
     ui.chains.tcp_steps = vec![tcp_step("split", "host+1"), seqovl_step("midsld", 12, "profile")];

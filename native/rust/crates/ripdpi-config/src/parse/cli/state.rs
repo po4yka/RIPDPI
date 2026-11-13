@@ -2,7 +2,7 @@ use std::net::IpAddr;
 
 use crate::{ConfigError, DesyncGroup, HOST_AUTOLEARN_DEFAULT_STORE_FILE, RuntimeConfig, StartupEnv};
 
-use super::helpers::add_group;
+use super::helpers::{add_group, validate_seqovl_terminal};
 
 pub(super) struct CliState {
     pub config: RuntimeConfig,
@@ -48,6 +48,6 @@ impl CliState {
         if self.config.host_autolearn.enabled && self.config.host_autolearn.store_path.is_none() {
             self.config.host_autolearn.store_path = Some(HOST_AUTOLEARN_DEFAULT_STORE_FILE.to_owned());
         }
-        Ok(self.config)
+        validate_seqovl_terminal(self.config)
     }
 }
