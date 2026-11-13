@@ -1,0 +1,11 @@
+{
+  "change": "dpi08-oob-contracts",
+  "evidence_summary": "Seven DPI-08 repair commits up to c9d964d440 pass locked Rust tests, five-crate Clippy, just ci-gates and the owning Kotlin unit tests; a Linux run shows the prefix-pressure tests fail on the old send and pass on the fix. No packet capture, device or hosted CI run.",
+  "execution_sha256": "cc2c9b25e97249cef983870e9b24afcf7ebd0d0a51454660ae1c865df2c10e7a",
+  "issue_sha256": "5e20c4b7df05a12e45df536847e7625f845add25c3cb0f3b18d0812d9b0eabfe",
+  "outcome": "done",
+  "prepared_at": "2026-11-13T06:44:27Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794501878605236"
+}

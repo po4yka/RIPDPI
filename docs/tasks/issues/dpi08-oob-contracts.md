@@ -2,7 +2,7 @@
 id: ENG-1794501878605236
 title: Preserve TCP payload across OOB execution
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: OOB repair team
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi08-oob-contracts
 created: 2026-11-12
 updated: 2026-11-13
+closed_at: "2026-11-13T06:44:27Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Seven DPI-08 repair commits up to c9d964d440 pass locked Rust tests, five-crate Clippy, just ci-gates and the owning Kotlin unit tests; a Linux run shows the prefix-pressure tests fail on the old send and pass on the fix. No packet capture, device or hosted CI run.
 ---
 
 ## Goal
