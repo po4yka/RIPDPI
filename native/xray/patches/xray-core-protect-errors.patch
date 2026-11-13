@@ -1,3 +1,26 @@
+--- a/common/buf/multi_buffer.go
++++ b/common/buf/multi_buffer.go
+@@ -251 +251 @@
+-// IsEmpty returns true if the MultiBuffer has no content.
++// IsEmpty returns true if the MultiBuffer has neither bytes nor UDP datagrams.
+@@ -254 +254 @@
+-		if !b.IsEmpty() {
++		if !b.IsEmpty() || b != nil && b.UDP != nil {
+--- a/common/buf/reader.go
++++ b/common/buf/reader.go
+@@ -3,0 +4 @@
++	"github.com/xtls/xray-core/common/net"
+@@ -4,0 +6 @@
++	stdnet "net"
+@@ -19,0 +22,8 @@
++		}
++		// A successful zero-byte UDP receive is a datagram, not an empty stream read.
++		if peer, ok := r.(interface{ RemoteAddr() stdnet.Addr }); ok {
++			if address, ok := peer.RemoteAddr().(*stdnet.UDPAddr); ok {
++				destination := net.DestinationFromAddr(address)
++				b.UDP = &destination
++				return b, nil
++			}
 --- a/core/functions.go
 +++ b/core/functions.go
 @@ -24,0 +25 @@
@@ -10,103 +33,18 @@
 +		return instance, err
 --- a/core/xray.go
 +++ b/core/xray.go
-@@ -165 +165,2 @@
+@@ -167 +167,2 @@
 -// The instance is not started at this point.
 +// The instance is not started at this point. On error, the caller owns the
 +// returned partial instance and must close it before releasing ownership.
-@@ -172 +173 @@
+@@ -174 +175 @@
 -		return nil, err
 +		return server, err
-@@ -177,0 +179 @@
+@@ -179,0 +181 @@
 +// NewWithContext has the same partial-instance ownership contract as New.
-@@ -183 +185 @@
+@@ -185 +187 @@
 -		return nil, err
 +		return server, err
---- a/transport/internet/system_dialer.go
-+++ b/transport/internet/system_dialer.go
-@@ -69 +69 @@
--					errors.LogInfoInner(ctx, err, "failed to apply external controller")
-+					return err
-@@ -126 +126 @@
--					errors.LogInfoInner(ctx, err, "failed to apply external controller")
-+					return err
---- a/transport/internet/system_listener.go
-+++ b/transport/internet/system_listener.go
-@@ -25,0 +26,5 @@
-+		for _, controller := range controllers {
-+			if err := controller(network, address, c); err != nil {
-+				return err
-+			}
-+		}
-@@ -27,5 +31,0 @@
--			for _, controller := range controllers {
--				if err := controller(network, address, c); err != nil {
--					errors.LogInfoInner(ctx, err, "failed to apply external controller")
--				}
--			}
---- a/proxy/socks/server.go
-+++ b/proxy/socks/server.go
-@@ -29,5 +29,6 @@
--	config        *ServerConfig
--	policyManager policy.Manager
--	cone          bool
--	udpFilter     *UDPFilter
--	httpServer    *http.Server
-+	config          *ServerConfig
-+	policyManager   policy.Manager
-+	cone            bool
-+	udpFilter       *UDPFilter
-+	managedControls managedControlRegistry
-+	httpServer      *http.Server
-@@ -83,0 +85,9 @@
-+		var owner *managedControl
-+		if inbound.Tag == managedInboundTag {
-+			var err error
-+			ctx, owner, err = s.registerManagedControl(ctx, conn)
-+			if err != nil {
-+				return err
-+			}
-+			defer s.retireManagedControl(owner)
-+		}
-@@ -96 +106 @@
--		return s.processTCP(ctx, conn, dispatcher, firstbyte)
-+		return s.processTCP(ctx, conn, dispatcher, firstbyte, owner)
-@@ -104 +114 @@
--func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatcher routing.Dispatcher, firstbyte []byte) error {
-+func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatcher routing.Dispatcher, firstbyte []byte, owner *managedControl) error {
-@@ -116,4 +126,6 @@
--		config:       s.config,
--		address:      inbound.Gateway.Address,
--		port:         inbound.Gateway.Port,
--		localAddress: net.IPAddress(conn.LocalAddr().(*net.TCPAddr).IP),
-+		config:          s.config,
-+		address:         inbound.Gateway.Address,
-+		port:            inbound.Gateway.Port,
-+		localAddress:    net.IPAddress(conn.LocalAddr().(*net.TCPAddr).IP),
-+		managedUDP:      inbound.Tag == managedInboundTag,
-+		allowManagedUDP: s.acceptsManagedUDP(ctx),
-@@ -172,0 +185,3 @@
-+		if svrSession.privateUDP {
-+			return s.handleManagedUDP(ctx, conn, reader, dispatcher, request, owner)
-+		}
-@@ -189 +204,5 @@
--	if s.udpFilter != nil && !s.udpFilter.Check(conn.RemoteAddr()) {
-+	_, private := conn.(*managedUDPConn)
-+	if inbound := session.InboundFromContext(ctx); inbound != nil && inbound.Tag == managedInboundTag && !private {
-+		return errors.New("managed UDP requires an authenticated private association")
-+	}
-+	if !private && s.udpFilter != nil && !s.udpFilter.Check(conn.RemoteAddr()) {
-@@ -222,0 +242,5 @@
-+	var managed *managedUDPDispatch
-+	if s.acceptsManagedUDP(ctx) {
-+		managed = &managedUDPDispatch{entries: make(map[managedUDPAuthority]*managedUDPEntry), dispatcher: dispatcher, conn: conn}
-+		defer managed.close()
-+	}
-@@ -238,0 +263,4 @@
-+			if managed != nil && payload.Len() >= 4 && payload.Byte(3) == 5 {
-+				managed.dispatch(ctx, payload)
-+				continue
-+			}
 --- /dev/null
 +++ b/proxy/socks/managed_udp.go
 @@ -0,0 +1,150 @@
@@ -260,107 +198,109 @@
 +	payload.UDP = &authority.destination
 +	entry.dispatcher.Dispatch(ctx, authority.destination, payload)
 +}
---- a/transport/internet/udp/dispatcher.go
-+++ b/transport/internet/udp/dispatcher.go
-@@ -7,0 +8 @@
-+	"sync/atomic"
-@@ -27 +28 @@
--	closed bool
-+	closed atomic.Bool
-@@ -36 +37 @@
--	if c.closed {
-+	if !c.closed.CompareAndSwap(false, true) {
-@@ -39 +39,0 @@
--	c.closed = true
-@@ -60,0 +61,7 @@
-+// IsActive reports whether this dispatcher still owns a live ray.
-+func (v *Dispatcher) IsActive() bool {
-+	v.RLock()
-+	defer v.RUnlock()
-+	return v.conn != nil && !v.conn.closed.Load()
-+}
+--- /dev/null
++++ b/proxy/socks/managed_udp_owner.go
+@@ -0,0 +1,100 @@
++package socks
 +
-@@ -80 +87 @@
--		if v.conn.closed {
-+		if v.conn.closed.Load() {
-@@ -114,0 +122 @@
-+		payload.Release()
---- a/common/buf/multi_buffer.go
-+++ b/common/buf/multi_buffer.go
-@@ -251 +251 @@
--// IsEmpty returns true if the MultiBuffer has no content.
-+// IsEmpty returns true if the MultiBuffer has neither bytes nor UDP datagrams.
-@@ -254 +254 @@
--		if !b.IsEmpty() {
-+		if !b.IsEmpty() || b != nil && b.UDP != nil {
---- a/common/buf/reader.go
-+++ b/common/buf/reader.go
-@@ -3,0 +4 @@
++import (
++	"context"
++	"sync"
++	"time"
++
++	"github.com/xtls/xray-core/common/errors"
 +	"github.com/xtls/xray-core/common/net"
-@@ -4,0 +6 @@
-+	stdnet "net"
-@@ -19,0 +22,8 @@
-+		}
-+		// A successful zero-byte UDP receive is a datagram, not an empty stream read.
-+		if peer, ok := r.(interface{ RemoteAddr() stdnet.Addr }); ok {
-+			if address, ok := peer.RemoteAddr().(*stdnet.UDPAddr); ok {
-+				destination := net.DestinationFromAddr(address)
-+				b.UDP = &destination
-+				return b, nil
-+			}
---- a/transport/pipe/impl.go
-+++ b/transport/pipe/impl.go
-@@ -55,0 +56,11 @@
-+// Empty UDP packets still own buffers and must consume the pipe budget.
-+func (p *pipe) bufferedSize() int32 {
-+	size := p.data.Len()
-+	for _, b := range p.data {
-+		if b != nil && b.UDP != nil && b.IsEmpty() {
-+			size += max(b.Cap(), 1)
-+		}
-+	}
-+	return size
++)
++
++type managedControlRegistry struct {
++	sync.Mutex
++	closed bool
++	active map[*managedControl]struct{}
 +}
 +
-@@ -59 +70 @@
--		if !forRead && p.option.isFull(p.data.Len()) {
-+		if !forRead && p.option.isFull(p.bufferedSize()) {
---- a/proxy/socks/protocol.go
-+++ b/proxy/socks/protocol.go
-@@ -43,4 +43,7 @@
--	config       *ServerConfig
--	address      net.Address
--	port         net.Port
--	localAddress net.Address
-+	config          *ServerConfig
-+	address         net.Address
-+	port            net.Port
-+	localAddress    net.Address
-+	managedUDP      bool
-+	allowManagedUDP bool
-+	privateUDP      bool
-@@ -156,0 +160,5 @@
-+		if s.managedUDP && (buffer.Byte(0) != socks5Version || buffer.Byte(2) != 0) {
-+			buffer.Release()
-+			writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
-+			return nil, errors.New("invalid managed SOCKS request")
-+		}
-@@ -167,0 +176,7 @@
-+	case managedUDPCommand:
-+		if !s.allowManagedUDP || !s.config.UdpEnabled {
-+			writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
-+			return nil, errors.New("private UDP is not available")
-+		}
-+		s.privateUDP = true
-+		request.Command = protocol.RequestCommandUDP
-@@ -169 +184 @@
--		if !s.config.UdpEnabled {
-+		if s.managedUDP || !s.config.UdpEnabled {
-@@ -189,0 +205,4 @@
-+	if s.privateUDP {
-+		// The private listener must bind before returning its endpoint and nonce.
-+		return request, nil
++type managedControl struct {
++	sync.Mutex
++	control  net.Conn
++	relay    net.PacketConn
++	cancel   context.CancelFunc
++	stopOnce sync.Once
++	closed   bool
++	done     chan struct{}
++}
++
++func (o *managedControl) attachRelay(relay net.PacketConn) bool {
++	o.Lock()
++	defer o.Unlock()
++	if o.closed {
++		return false
 +	}
++	o.relay = relay
++	return true
++}
++
++func (o *managedControl) stop() {
++	o.stopOnce.Do(func() {
++		o.Lock()
++		o.closed = true
++		relay := o.relay
++		o.Unlock()
++		o.cancel()
++		o.control.Close()
++		if relay != nil {
++			relay.Close()
++		}
++	})
++}
++
++func (s *Server) registerManagedControl(ctx context.Context, control net.Conn) (context.Context, *managedControl, error) {
++	ctx, cancel := context.WithCancel(ctx)
++	owner := &managedControl{control: control, cancel: cancel, done: make(chan struct{})}
++	s.managedControls.Lock()
++	if s.managedControls.closed {
++		s.managedControls.Unlock()
++		owner.stop()
++		return ctx, nil, errors.New("managed SOCKS server is closed")
++	}
++	if s.managedControls.active == nil {
++		s.managedControls.active = make(map[*managedControl]struct{})
++	}
++	s.managedControls.active[owner] = struct{}{}
++	s.managedControls.Unlock()
++	context.AfterFunc(ctx, owner.stop)
++	return ctx, owner, nil
++}
++
++func (s *Server) retireManagedControl(owner *managedControl) {
++	owner.stop()
++	s.managedControls.Lock()
++	delete(s.managedControls.active, owner)
++	close(owner.done)
++	s.managedControls.Unlock()
++}
++
++// Close is called by the inbound worker even when its connection context is Background.
++func (s *Server) Close() error {
++	s.managedControls.Lock()
++	s.managedControls.closed = true
++	active := make([]*managedControl, 0, len(s.managedControls.active))
++	for owner := range s.managedControls.active {
++		active = append(active, owner)
++	}
++	s.managedControls.Unlock()
++	deadline := time.NewTimer(2 * time.Second)
++	defer deadline.Stop()
++	for _, owner := range active {
++		go owner.stop()
++	}
++	for _, owner := range active {
++		select {
++		case <-owner.done:
++		case <-deadline.C:
++			return errors.New("managed SOCKS controls did not stop before deadline")
++		}
++	}
++	return nil
++}
 --- /dev/null
 +++ b/proxy/socks/managed_udp_session.go
 @@ -0,0 +1,119 @@
@@ -483,106 +423,169 @@
 +	}()
 +	return s.handleUDPPayload(ctx, conn, dispatcher)
 +}
---- /dev/null
-+++ b/proxy/socks/managed_udp_owner.go
-@@ -0,0 +1,100 @@
-+package socks
-+
-+import (
-+	"context"
-+	"sync"
-+	"time"
-+
-+	"github.com/xtls/xray-core/common/errors"
-+	"github.com/xtls/xray-core/common/net"
-+)
-+
-+type managedControlRegistry struct {
-+	sync.Mutex
-+	closed bool
-+	active map[*managedControl]struct{}
-+}
-+
-+type managedControl struct {
-+	sync.Mutex
-+	control  net.Conn
-+	relay    net.PacketConn
-+	cancel   context.CancelFunc
-+	stopOnce sync.Once
-+	closed   bool
-+	done     chan struct{}
-+}
-+
-+func (o *managedControl) attachRelay(relay net.PacketConn) bool {
-+	o.Lock()
-+	defer o.Unlock()
-+	if o.closed {
-+		return false
-+	}
-+	o.relay = relay
-+	return true
-+}
-+
-+func (o *managedControl) stop() {
-+	o.stopOnce.Do(func() {
-+		o.Lock()
-+		o.closed = true
-+		relay := o.relay
-+		o.Unlock()
-+		o.cancel()
-+		o.control.Close()
-+		if relay != nil {
-+			relay.Close()
+--- a/proxy/socks/protocol.go
++++ b/proxy/socks/protocol.go
+@@ -46,4 +46,7 @@
+-	config       *ServerConfig
+-	address      net.Address
+-	port         net.Port
+-	localAddress net.Address
++	config          *ServerConfig
++	address         net.Address
++	port            net.Port
++	localAddress    net.Address
++	managedUDP      bool
++	allowManagedUDP bool
++	privateUDP      bool
+@@ -159,0 +163,5 @@
++		if s.managedUDP && (buffer.Byte(0) != socks5Version || buffer.Byte(2) != 0) {
++			buffer.Release()
++			writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
++			return nil, nil, errors.New("invalid managed SOCKS request")
 +		}
-+	})
+@@ -170,0 +179,7 @@
++	case managedUDPCommand:
++		if !s.allowManagedUDP || !s.config.UdpEnabled {
++			writeSocks5Response(writer, statusCmdNotSupport, net.AnyIP, net.Port(0))
++			return nil, nil, errors.New("private UDP is not available")
++		}
++		s.privateUDP = true
++		request.Command = protocol.RequestCommandUDP
+@@ -172 +187 @@
+-		if !s.config.UdpEnabled {
++		if s.managedUDP || !s.config.UdpEnabled {
+@@ -192,0 +208,4 @@
++	if s.privateUDP {
++		// The private listener must bind before returning its endpoint and nonce.
++		return request, nil, nil
++	}
+--- a/proxy/socks/server.go
++++ b/proxy/socks/server.go
+@@ -30,4 +30,5 @@
+-	config        *ServerConfig
+-	policyManager policy.Manager
+-	cone          bool
+-	httpServer    *http.Server
++	config          *ServerConfig
++	policyManager   policy.Manager
++	cone            bool
++	managedControls managedControlRegistry
++	httpServer      *http.Server
+@@ -78,0 +80,9 @@
++		var owner *managedControl
++		if inbound.Tag == managedInboundTag {
++			var err error
++			ctx, owner, err = s.registerManagedControl(ctx, conn)
++			if err != nil {
++				return err
++			}
++			defer s.retireManagedControl(owner)
++		}
+@@ -91 +101 @@
+-		return s.processTCP(ctx, conn, dispatcher, firstbyte)
++		return s.processTCP(ctx, conn, dispatcher, firstbyte, owner)
+@@ -97 +107 @@
+-func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatcher routing.Dispatcher, firstbyte []byte) error {
++func (s *Server) processTCP(ctx context.Context, conn stat.Connection, dispatcher routing.Dispatcher, firstbyte []byte, owner *managedControl) error {
+@@ -109,4 +119,6 @@
+-		config:       s.config,
+-		address:      inbound.Gateway.Address,
+-		port:         inbound.Gateway.Port,
+-		localAddress: net.IPAddress(conn.LocalAddr().(*net.TCPAddr).IP),
++		config:          s.config,
++		address:         inbound.Gateway.Address,
++		port:            inbound.Gateway.Port,
++		localAddress:    net.IPAddress(conn.LocalAddr().(*net.TCPAddr).IP),
++		managedUDP:      inbound.Tag == managedInboundTag,
++		allowManagedUDP: s.acceptsManagedUDP(ctx),
+@@ -168,0 +181,3 @@
++		if svrSession.privateUDP {
++			return s.handleManagedUDP(ctx, conn, reader, dispatcher, request, owner)
++		}
+@@ -195,0 +211,9 @@
++	_, private := conn.(*managedUDPConn)
++	if inbound := session.InboundFromContext(ctx); inbound != nil && inbound.Tag == managedInboundTag && !private {
++		return errors.New("managed UDP requires an authenticated private association")
++	}
++	var managed *managedUDPDispatch
++	if s.acceptsManagedUDP(ctx) {
++		managed = &managedUDPDispatch{entries: make(map[managedUDPAuthority]*managedUDPEntry), dispatcher: dispatcher, conn: conn}
++		defer managed.close()
++	}
+@@ -250,0 +275,4 @@
++			if managed != nil && payload.Len() >= 4 && payload.Byte(3) == 5 {
++				managed.dispatch(ctx, payload)
++				continue
++			}
+--- a/transport/internet/system_listener.go
++++ b/transport/internet/system_listener.go
+@@ -24,0 +25,5 @@
++		for _, controller := range controllers {
++			if err := controller(network, address, c); err != nil {
++				return err
++			}
++		}
+@@ -26,5 +30,0 @@
+-			for _, controller := range controllers {
+-				if err := controller(network, address, c); err != nil {
+-					errors.LogInfoInner(ctx, err, "failed to apply external controller")
+-				}
+-			}
+--- a/transport/internet/udp/dispatcher.go
++++ b/transport/internet/udp/dispatcher.go
+@@ -7,0 +8 @@
++	"sync/atomic"
+@@ -27 +28 @@
+-	closed bool
++	closed atomic.Bool
+@@ -36 +37 @@
+-	if c.closed {
++	if !c.closed.CompareAndSwap(false, true) {
+@@ -39 +39,0 @@
+-	c.closed = true
+@@ -60,0 +61,7 @@
++// IsActive reports whether this dispatcher still owns a live ray.
++func (v *Dispatcher) IsActive() bool {
++	v.RLock()
++	defer v.RUnlock()
++	return v.conn != nil && !v.conn.closed.Load()
 +}
 +
-+func (s *Server) registerManagedControl(ctx context.Context, control net.Conn) (context.Context, *managedControl, error) {
-+	ctx, cancel := context.WithCancel(ctx)
-+	owner := &managedControl{control: control, cancel: cancel, done: make(chan struct{})}
-+	s.managedControls.Lock()
-+	if s.managedControls.closed {
-+		s.managedControls.Unlock()
-+		owner.stop()
-+		return ctx, nil, errors.New("managed SOCKS server is closed")
-+	}
-+	if s.managedControls.active == nil {
-+		s.managedControls.active = make(map[*managedControl]struct{})
-+	}
-+	s.managedControls.active[owner] = struct{}{}
-+	s.managedControls.Unlock()
-+	context.AfterFunc(ctx, owner.stop)
-+	return ctx, owner, nil
-+}
-+
-+func (s *Server) retireManagedControl(owner *managedControl) {
-+	owner.stop()
-+	s.managedControls.Lock()
-+	delete(s.managedControls.active, owner)
-+	close(owner.done)
-+	s.managedControls.Unlock()
-+}
-+
-+// Close is called by the inbound worker even when its connection context is Background.
-+func (s *Server) Close() error {
-+	s.managedControls.Lock()
-+	s.managedControls.closed = true
-+	active := make([]*managedControl, 0, len(s.managedControls.active))
-+	for owner := range s.managedControls.active {
-+		active = append(active, owner)
-+	}
-+	s.managedControls.Unlock()
-+	deadline := time.NewTimer(2 * time.Second)
-+	defer deadline.Stop()
-+	for _, owner := range active {
-+		go owner.stop()
-+	}
-+	for _, owner := range active {
-+		select {
-+		case <-owner.done:
-+		case <-deadline.C:
-+			return errors.New("managed SOCKS controls did not stop before deadline")
+@@ -80 +87 @@
+-		if v.conn.closed {
++		if v.conn.closed.Load() {
+@@ -114,0 +122 @@
++		payload.Release()
+--- a/transport/pipe/impl.go
++++ b/transport/pipe/impl.go
+@@ -55,0 +56,11 @@
++// Empty UDP packets still own buffers and must consume the pipe budget.
++func (p *pipe) bufferedSize() int32 {
++	size := p.data.Len()
++	for _, b := range p.data {
++		if b != nil && b.UDP != nil && b.IsEmpty() {
++			size += max(b.Cap(), 1)
 +		}
 +	}
-+	return nil
++	return size
 +}
++
+@@ -59 +70 @@
+-		if !forRead && p.option.isFull(p.data.Len()) {
++		if !forRead && p.option.isFull(p.bufferedSize()) {
+--- a/transport/internet/system_dialer.go
++++ b/transport/internet/system_dialer.go
+@@ -59,0 +60 @@
++		unboundSource := srcAddr == nil
+@@ -96 +97,10 @@
+-		packetConn, err := lc.ListenPacket(ctx, srcAddr.Network(), srcAddr.String())
++		// Darwin can alias a dual-stack ephemeral port with a live IPv4 loopback
++		// socket. Keep unbound local paths in the destination address family.
++		network := srcAddr.Network()
++		if runtime.GOOS == "darwin" && unboundSource && destAddr.IP.IsLoopback() {
++			network = "udp6"
++			if destAddr.IP.To4() != nil {
++				network = "udp4"
++			}
++		}
++		packetConn, err := lc.ListenPacket(ctx, network, srcAddr.String())

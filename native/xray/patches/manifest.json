@@ -1,15 +1,24 @@
 {
   "schemaVersion": 1,
-  "libxray": "v26.3.27",
-  "libxrayCommit": "38ae3cd8914d5bc2a7f81122fc6206efe3c07ad6",
-  "xrayCore": "1.260327.0",
-  "xrayCoreModuleSum": "h1:g4TzxMwyPrxslZh6uD+FiG3lXKTrnNO+b4ky2OhogHE=",
+  "libxray": "v26.11.9",
+  "libxrayCommit": "5a0f7d8d1c28b34afb5727b04b26a10f6dbac7e3",
+  "xrayCore": "1.260327.1-0.20261109052709-676eaf66f8f0",
+  "xrayCoreModuleSum": "h1:p2uoadP+ulClbJ9dn+QioF2SfBqRly6VoKJosHqwcRo=",
   "patches": {
-    "grpc-stdlib-trailer-prefix.patch": "3650c3927711a5d2b8e02531e9cad74334f3cb468dd19eb856a54d96b23d5d66",
-    "libxray-managed-runtime.patch": "884f9c2d154614f1c476c68280f5147610681162cf5c92dc851c8dc2550d60bf",
-    "xray-core-protect-errors.patch": "b82b9dbcc2c07c4c98a4ad0e22a1b862bce1c5bc39c34092b4f9bb742e018e1a"
+    "libxray-managed-runtime.patch": "3e3869b41b335d111c9a663ea8e8bb85e396b3a387829b4d171e79a1ece62c21",
+    "xray-core-protect-errors.patch": "e189cde10846f1f489b3e16a70b6993c4ef247af5c52f12ffc6bbcde98112e68",
+    "stun-android-public-dialer.patch": "718ca9e3f157831ebba25eeb6368f4589fb9f6abb677e633fa31a0b42945ad7b"
   },
-  "grpc": "1.79.3",
-  "grpcModuleSum": "h1:sybAEdRIEtvcD68Gx7dmnwjZKlyfuc61Dyo9pGXXkKE=",
-  "goVersion": "go1.27.3"
+  "grpc": "1.85.0",
+  "grpcModuleSum": "h1:BPBCfuVRQ1qvBhKDOq9uvQllMvO59rKsYhXpp7Dd8vw=",
+  "goVersion": "go1.27.4",
+  "upstreamFixes": {
+    "grpc-stdlib-trailer-prefix": {
+      "version": "1.85.0",
+      "source": "internal/transport/handler_server.go",
+      "required": "http.TrailerPrefix"
+    }
+  },
+  "stun": "3.1.7",
+  "stunModuleSum": "h1:uRXMTlGLf89WgItGNyZ6aR5jMTX0NBbybXADpQCzn+E="
 }

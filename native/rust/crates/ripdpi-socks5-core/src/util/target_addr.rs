@@ -123,7 +123,7 @@ impl TargetAddr {
             }
             TargetAddr::Domain(domain, port) => {
                 debug!("SOCKS target encoded target_kind=domain");
-                if domain.len() > u8::max_value() as usize {
+                if domain.len() > u8::MAX as usize {
                     return Err(AddrError::DomainLenTooLong(domain.len()));
                 }
                 buf.extend_from_slice(&[consts::SOCKS5_ADDR_TYPE_DOMAIN_NAME, domain.len() as u8]);

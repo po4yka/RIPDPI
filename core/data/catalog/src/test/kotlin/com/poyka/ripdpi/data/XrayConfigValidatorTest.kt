@@ -213,6 +213,68 @@ class XrayConfigValidatorTest {
     }
 
     @Test
+    fun `Go stable successor tags use the ancestor release date for the regression window`() {
+        val config = parse("""{"outbounds":[{"streamSettings":{"network":"xhttp","security":"reality"}}]}""")
+        val versions =
+            mapOf(
+                "v26.1.17" to false,
+                "1.260117.0" to false,
+                "1.260117.1-0.20260119120000-676eaf66f8f0" to true,
+                "1.260117.1-0.20261109052709-676eaf66f8f0" to true,
+                "v26.1.18" to true,
+                "1.260118.0" to true,
+                "1.260118.1-0.20261109052709-676eaf66f8f0" to true,
+                "v26.2.5" to true,
+                "1.260205.0" to true,
+                "1.260205.1-0.20261109052709-676eaf66f8f0" to true,
+                "v26.2.6" to false,
+                "1.260206.0" to false,
+                "1.260206.1-0.20261109052709-676eaf66f8f0" to false,
+                "1.260327.1-0.20261109052709-676eaf66f8f0" to false,
+                "v1.260327.1-0.20261109052709-676eaf66f8f0" to false,
+            )
+        for ((tag, broken) in versions) {
+            val result = XrayConfigValidator.validate(config, XrayConfigValidator.Context(tag))
+            assertEquals(
+                tag,
+                broken,
+                result.any { it.code == XrayConfigValidator.ErrorCode.REALITY_XHTTP_BROKEN_AT_TAG },
+            )
+        }
+    }
+
+    @Test
+    fun `unknown and malformed Go pseudo versions remain unverified`() {
+        val config = parse("""{"outbounds":[{"streamSettings":{"network":"xhttp","security":"reality"}}]}""")
+        val versions =
+            listOf(
+                "unknown",
+                "1.260327.1-rc.20261109052709-676eaf66f8f0",
+                "1.260327.0-0.20261109052709-676eaf66f8f0",
+                "1.260327.01-0.20261109052709-676eaf66f8f0",
+                "1.260327.1-0.20260230052709-676eaf66f8f0",
+                "1.260327.1-0.20261309052709-676eaf66f8f0",
+                "1.260327.1-0.20261109242709-676eaf66f8f0",
+                "1.260327.1-0.20261109056009-676eaf66f8f0",
+                "1.260327.1-0.20261109052760-676eaf66f8f0",
+                "1.260327.1-0.2026110905270-676eaf66f8f0",
+                "1.260230.1-0.20261109052709-676eaf66f8f0",
+                "1.261327.1-0.20261109052709-676eaf66f8f0",
+                "1.260327.1-0.20261109052709-676eaf66f8f",
+                "1.260327.1-0.20261109052709-676eaf66f8f00",
+                "1.260327.1-0.20261109052709-676eaf66f8fg",
+                "1.260327.1-0.20261109052709-676EAF66F8F0",
+                "1.260327.1-0.20261109052709-676eaf66f8f0+incompatible",
+                "26.3.27-0.20261109052709-676eaf66f8f0",
+                "2.260327.1-0.20261109052709-676eaf66f8f0",
+            )
+        for (tag in versions) {
+            val result = XrayConfigValidator.validate(config, XrayConfigValidator.Context(tag))
+            assertTrue(tag, result.any { it.code == XrayConfigValidator.ErrorCode.REALITY_XHTTP_BROKEN_AT_TAG })
+        }
+    }
+
+    @Test
     fun `non-vless outbound is ignored by vless flow rule`() {
         val config =
             parse(

@@ -160,7 +160,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: "26.13.1"
           cache: npm
           cache-dependency-path: tools/tasking/package-lock.json
 
@@ -281,7 +281,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: "26.13.1"
 
       - name: Lint DESIGN.md
         run: npx --yes @google/design.md lint DESIGN.md
@@ -1480,7 +1480,7 @@ jobs:
           setup-gradle: "false"
 
       - name: Install cargo-bloat
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-bloat
 
@@ -1535,7 +1535,7 @@ jobs:
           toolchain: nightly
           components: miri,rust-src
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1554,9 +1554,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
-          tool: cargo-deny@0.19.8
+          tool: cargo-deny@0.20.2
 
       - name: Validate advisory waiver governance
         run: python3 scripts/ci/check_rust_advisory_waivers.py
@@ -1578,9 +1578,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
-          tool: cargo-deny@0.19.8
+          tool: cargo-deny@0.20.2
 
       - name: Validate advisory waiver governance
         run: python3 scripts/ci/check_rust_advisory_waivers.py
@@ -1603,10 +1603,10 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
           components: rustfmt, clippy
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1687,9 +1687,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1697,7 +1697,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-nextest
 
@@ -1739,10 +1739,10 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-nextest
 
@@ -1781,9 +1781,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1792,7 +1792,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-nextest
 
@@ -1842,7 +1842,7 @@ jobs:
           toolchain: nightly
           components: rust-src
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: |
             native/rust -> target
@@ -1852,7 +1852,7 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-fuzz
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-fuzz
 
@@ -1874,8 +1874,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1" # Keep in sync with native/rust/rust-toolchain.toml
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+          toolchain: "1.100.0" # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1884,7 +1884,7 @@ jobs:
       - name: Install rustdoc JSON toolchain for cargo-public-api
         run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-public-api@0.52.0
       - name: Check Rust public API snapshots
@@ -1982,9 +1982,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -1993,7 +1993,7 @@ jobs:
           save-if: false
 
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-nextest
 
@@ -2002,7 +2002,7 @@ jobs:
 
       - name: Run pinned VLESS, SSH, Mieru, and AnyTLS upstream peers
         env:
-          GOTOOLCHAIN: go1.27.2
+          GOTOOLCHAIN: go1.27.4
           GOSUMDB: sum.golang.org
           GOPROXY: https://proxy.golang.org,direct
         run: |
@@ -2034,9 +2034,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2163,7 +2163,7 @@ jobs:
           setup-android-ndk: "false"
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-llvm-cov
 
@@ -2201,9 +2201,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -2741,7 +2741,7 @@ jobs:
         if: matrix.api == 35
         working-directory: scripts/fixtures/xray-provider-peer
         env:
-          GOTOOLCHAIN: go1.27.2
+          GOTOOLCHAIN: go1.27.4
           GOSUMDB: sum.golang.org
           GOPROXY: https://proxy.golang.org,direct
           GOMAXPROCS: "2"
@@ -2975,9 +2975,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -3003,9 +3003,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -3053,9 +3053,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -3150,7 +3150,7 @@ jobs:
           setup-android-ndk: "false"
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-llvm-cov
 
@@ -3500,9 +3500,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -3543,9 +3543,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
@@ -3631,9 +3631,9 @@ jobs:
       # Keep in sync with native/rust/rust-toolchain.toml
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.98.1"
+          toolchain: "1.100.0"
 
-      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: native/rust -> target
           cache-on-failure: true

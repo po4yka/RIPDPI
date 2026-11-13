@@ -130,14 +130,14 @@ RIPDPI записывает операционные метаданные для
 
 ## Требования к сборке
 
-Требования: JDK 21, Android SDK (platform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, Android Rust targets для нужных ABI, [`just`](https://just.systems) (task runner; рецепты `justfile` повторяют CI) и [`lefthook`](https://github.com/evilmartians/lefthook) (выполните `lefthook install` один раз, чтобы подключить pre-commit-проверки).
+Требования: JDK 21, Android SDK (platform `37.2`, CMake `4.1.2`), Android NDK `30.0.16248370`, Rust toolchain `1.100.0`, Android Rust targets для нужных ABI, [`just`](https://just.systems) (task runner; рецепты `justfile` повторяют CI) и [`lefthook`](https://github.com/evilmartians/lefthook) (выполните `lefthook install` один раз, чтобы подключить pre-commit-проверки).
 
 Релизным сборкам и CI нужен настоящий libXray AAR с патчами; локальная debug-сборка без него использует stub (функции Xray недоступны). Подготовьте amd64 Go, закреплённые версии `gomobile` и `gobind`, а также `ANDROID_NDK_HOME` по [инструкции libXray](docs/native/libxray-packaging.md#build). Сборщику нужен новый или пустой каталог `native/xray/artifacts/` и доступ к закреплённым исходникам. Для повторного использования проверенного каталога артефактов, соответствующих текущим версиям, передайте Gradle `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts`. Проверка перед упаковкой сохраняется.
 
 Установите нужные пакеты SDK через Android CLI 1.0+:
 
 ```bash
-android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
+android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 ```
 
 Локальные сборки по умолчанию используют `host` (`ripdpi.localNativeAbisDefault`) — ABI определяется по архитектуре хоста (например, `arm64-v8a` на Apple Silicon). Для эмулятора: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.

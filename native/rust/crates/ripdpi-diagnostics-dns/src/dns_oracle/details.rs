@@ -34,7 +34,7 @@ pub(super) fn detail_entries<T>(assessment: &DnsOracleAssessment<T>) -> Vec<Prob
     push_detail(
         &mut details,
         "oracleSelectedResolverId",
-        assessment.selected.as_ref().map(|candidate| resolver_label(&candidate.endpoint)).unwrap_or_default(),
+        assessment.selected.as_ref().map_or_default(|candidate| resolver_label(&candidate.endpoint)),
     );
     push_detail(&mut details, "oracleAgreementResolvers", assessment.agreement_resolver_ids.join("|"));
     push_detail(&mut details, "oracleDisagreementResolvers", assessment.disagreement_resolver_ids.join("|"));

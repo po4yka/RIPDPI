@@ -65,7 +65,7 @@ impl ProxyTelemetryState {
         // Ordering: AcqRel/Acquire -- active_sessions gates display logic; use AcqRel on success
         // and Acquire on load so the decrement is visible to concurrent snapshot readers.
         self.active_sessions
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| Some(value.saturating_sub(1)))
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |value| Some(value.saturating_sub(1)))
             .ok();
     }
 

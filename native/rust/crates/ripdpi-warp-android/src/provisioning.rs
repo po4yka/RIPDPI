@@ -110,7 +110,7 @@ async fn execute_async(request: NativeWarpProvisioningHttpRequest) -> io::Result
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let port = parsed.port_or_known_default().unwrap_or(443);
     let path = parsed.path().to_string();
-    let query_suffix = parsed.query().map(|query| format!("?{query}")).unwrap_or_default();
+    let query_suffix = parsed.query().map_or_default(|query| format!("?{query}"));
     let target_path = format!("{path}{query_suffix}");
 
     let tcp = connect_transport(&host, port, request.proxy.as_ref()).await?;

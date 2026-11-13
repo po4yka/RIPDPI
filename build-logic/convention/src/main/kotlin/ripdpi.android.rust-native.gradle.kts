@@ -330,18 +330,16 @@ abstract class BuildRustNativeLibsTask
                                 androidCmakePath != null && cachedCmake != null &&
                                     cachedCmake != androidCmakePath
                             ) ||
-                                (cachedCc != null && cachedCc != config.linker.absolutePath) ||
-                                (cachedCxx != null && cachedCxx != config.cxx.absolutePath)
+                                (cachedCc != null && cachedCc != config.linker.resolveSibling("clang").absolutePath) ||
+                                (cachedCxx != null && cachedCxx != config.cxx.resolveSibling("clang++").absolutePath)
                         if (stale) {
                             // Delete the entire Cargo build-script run directory. The CMake cache
                             // lives under <run>/out/build; deleting only OUT_DIR leaves Cargo's
                             // build-script output/fingerprint intact and the next link can fail on
                             // missing archives. Removing <run> invalidates Cargo's own fingerprint
                             // without making boring-sys watch its mutable generated output.
-                            val cargoBuildScriptDir = cacheFile.parentFile.parentFile.parentFile
-                            if (!cargoBuildScriptDir.name.startsWith("boring-sys-")) {
-                                return@forEach
-                            }
+                            val cargoBuildScriptDir =
+                                boringSslCargoRunDirectory(cacheFile, abiCargoTargetDir) ?: return@forEach
                             logger.warn(
                                 "Deleting stale BoringSSL Cargo build-script directory " +
                                     "(cmake=$cachedCmake, cc=$cachedCc, cxx=$cachedCxx): " +

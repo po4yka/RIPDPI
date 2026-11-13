@@ -120,7 +120,7 @@ pub(crate) fn reserve_ipv4_identifications(
         return Vec::new();
     };
     let allocator = IPV4_ID_ALLOCATOR.get_or_init(|| Mutex::new(Ipv4IdAllocator::default()));
-    allocator.lock().map(|mut guard| guard.reserve(source, target, mode, count)).unwrap_or_default()
+    allocator.lock().map_or_default(|mut guard| guard.reserve(source, target, mode, count))
 }
 
 /// Returns the ID to put in both IPv4 fragments of one datagram. Zero is not

@@ -19,7 +19,7 @@ sign-off gates are unchanged.
 The isolated `:testing:awg-interop` instrumentation host packages the actual
 `ripdpi-amneziawg-android` JNI library without other app runtimes. The runner
 requires committed source, an exact baseline peer checkout, pinned Go 1.27.3,
-NDK 29.0.14206865, and an installed arm64 Google APIs image. It leases an emulator
+NDK 30.0.16248370, and an installed arm64 Google APIs image. It leases an emulator
 through the shared pool and measures IPv4/IPv6 TCP, UDP and DNS at MTUs 1280 and
 1420 over three native start/stop cycles per MTU.
 

@@ -337,15 +337,14 @@ fi
 
 if [[ "$using_temp_docker_config" == "true" ]]; then
   for image in \
-    coredns/coredns:latest \
-    kennethreitz/httpbin:latest \
-    wiremock/wiremock:latest \
-    caddy:latest \
-    alpine/socat:latest \
-    shopify/toxiproxy:latest \
-    golang:1.22-alpine \
-    golang:1.24-alpine \
-    alpine:3.20; do
+    coredns/coredns:1.15.0@sha256:0a9d8c8ddf34347eb59aad9a8784f0710de88d6d112726d11d271f9bc6daca26 \
+    kennethreitz/httpbin@sha256:599fe5e5073102dbb0ee3dbb65f049dab44fa9fc251f6835c9990f8fb196a72b \
+    wiremock/wiremock:3.13.2@sha256:0d4ecb3e4dc8213fd7a4d37d6a78f6e6b553a6d2e15bd51b0999781282ac61b3 \
+    caddy:2.11.9@sha256:4e2425f6009577e7c651010f16679c28f7d12df3e7b1914f941a7a3370746b3c \
+    alpine/socat:1.8.1.3@sha256:e8a6e8868a8e6e01d9c2c321a8f8d4474d2d741d962462e5c5a124a8e66a0055 \
+    ghcr.io/shopify/toxiproxy:2.13.0@sha256:5d3dae09bc185dcc5ff6cf43abf6062a4a720aff0c4306a471e773acdcd107aa \
+    golang:1.27.4-alpine \
+    alpine:3.24.4; do
     docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image" >/dev/null
   done
   local_image_specs=(

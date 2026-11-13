@@ -6,7 +6,7 @@
 # uses the entrypoint-live.sh wrapper to load nft rules before starting
 # the Python handler.
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 ARG DEBIAN_FRONTEND=noninteractive
 

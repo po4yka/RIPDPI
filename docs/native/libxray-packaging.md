@@ -20,10 +20,33 @@ gate, the version pins, and the license/notice obligations live in the repo.
 
 The current build accepts only the stable source and patch policy in
 `native/xray/patches/manifest.json`. It checks the upstream libXray commit,
-Xray-core and gRPC module checksums, and all three patch digests before applying
+Xray-core, gRPC, and STUN module checksums, and all patch digests before applying
 the patches in isolated source copies. The artifact verifier binds the AAR,
 build recipe, patch manifest, `build-go.mod`, and `build-go.sum` by digest.
 A matching version label alone is insufficient.
+
+The Android adapter uses upstream `Invoke` API version 3 with plain JSON for
+run, stop, state, and version requests. `SetDNS` and `ResetDNS` own the protected
+resolver. The JSON config carries `xray.location.asset` in its `env` object.
+The public engine/service contract does not change. The gRPC trailer-prefix fix
+is included in the checksum-pinned gRPC 1.85.0 source and is no longer a local
+patch; preparation verifies that fixed source before packaging.
+
+The checksum-pinned Pion STUN source uses an Android dialer that needs no
+interface enumeration or private Go cache hooks. It resolves named IPv6 zones
+with the public, unprivileged `SIOCGIFINDEX` ioctl and passes numeric scopes to
+Go sockets. Custom networks and non-Android default networking keep their
+existing behavior. The producer runs the STUN suite, including named/numeric
+IPv6 loopback exchange and custom virtual-network delivery, before packaging.
+
+
+Xray-core blocks private Freedom destinations reached through proxy inbounds
+such as VLESS unless a matching `finalRules` entry permits them. Local runtime
+fixtures allow only their owned TCP loopback address and port, then block all
+other destinations. Provider client configs use a SOCKS inbound and VLESS
+outbound, so private VLESS server endpoints need no allowance for this rule.
+Imported server configs that relay to a private service need an explicit allow
+rule for that trusted service. The upstream default guard remains active.
 
 The managed SOCKS inbound uses tag `ripdpi-managed-socks-in-v1`, loopback binding,
 and password authentication. UDP uses the existing authenticated local RUF1 hop:
@@ -91,7 +114,7 @@ Run from the repository root. Install the SDK/NDK declared in
 `gradle.properties`, JDK tools including `javap`, Python 3.12+, Git, and an
 **amd64 or macOS arm64 Go host toolchain**. Set `ANDROID_SDK_ROOT` to that SDK installation.
 The current CI producer is `.github/actions/build-xray/action.yml`; it selects
-Go `go1.27.3` from the patch manifest and installs the exact catalog versions of `gomobile` and `gobind`.
+Go `go1.27.4` from the patch manifest and installs the exact catalog versions of `gomobile` and `gobind`.
 The following bootstrap reads these values from their owners:
 
 ```sh
@@ -145,14 +168,14 @@ set is not overwritten. Keep all four files together when reusing an artifact.
 ## Host architecture
 
 The builder supports amd64 hosts and native arm64 macOS. The pinned gomobile
-selects the NDK `darwin-x86_64` directory on either macOS architecture; NDK 29
+selects the NDK `darwin-x86_64` directory on either macOS architecture; NDK 30
 contains a universal clang binary. Rosetta is not required on Apple Silicon.
 Linux arm64 remains unsupported by the pinned gomobile Android toolchain.
 Verification runs on any host architecture with Python and JDK `javap`.
 
 ## Container lane
 
-`scripts/native/libxray-build.Dockerfile` pins Go 1.27.3 and preserves the
+`scripts/native/libxray-build.Dockerfile` pins Go 1.27.4 and preserves the
 pinned `gobind`. Its Go version must match `native/xray/patches/manifest.json`.
 The producer refuses a different active compiler before building.
 

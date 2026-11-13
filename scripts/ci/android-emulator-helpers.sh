@@ -113,7 +113,7 @@ clean_android_boring_sys_build_cache() {
   local build_root="$cargo_target_root/$rust_target/debug/build"
 
   [[ -d "$build_root" ]] || return 0
-  find "$build_root" -maxdepth 1 -type d -name 'boring-sys-*' -exec rm -rf {} +
+  find "$build_root" -maxdepth 1 -type d \( -name 'boring-sys-*' -o -name 'boring-sys' \) -exec rm -rf {} +
 }
 
 resolve_avdmanager_bin() {

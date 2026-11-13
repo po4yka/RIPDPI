@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +10,49 @@ from scripts.ci import verify_native_bloat
 
 
 class VerifyNativeBloatTest(unittest.TestCase):
+    def assert_boring_cache_cleanup(self, cleanup) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            target_root = root / "target"
+            target = "aarch64-linux-android"
+            build_root = target_root / target / "debug/build"
+            old = build_root / "boring-sys-0123456789abcdef"
+            current = build_root / "boring-sys/0123456789abcdef"
+            keep = build_root / "other-crate-0123456789abcdef/out/build/CMakeCache.txt"
+            release = target_root / target / "release/build/boring-sys-0123456789abcdef/out/build/CMakeCache.txt"
+            for path in (old / "out/build/CMakeCache.txt", current / "out/build/CMakeCache.txt", keep, release):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("retained data", encoding="utf-8")
+            foreign = root / "foreign"
+            foreign.mkdir()
+            (foreign / "keep").write_text("foreign data", encoding="utf-8")
+            alias = build_root / "boring-sys-foreign"
+            alias.symlink_to(foreign, target_is_directory=True)
+
+            cleanup(target_root, target)
+
+            self.assertFalse(old.exists())
+            self.assertFalse(current.exists())
+            self.assertEqual("retained data", keep.read_text(encoding="utf-8"))
+            self.assertEqual("retained data", release.read_text(encoding="utf-8"))
+            self.assertEqual("foreign data", (foreign / "keep").read_text(encoding="utf-8"))
+            self.assertTrue(alias.is_symlink())
+
+    def test_clean_boring_cache_handles_both_layouts_without_other_data_loss(self) -> None:
+        self.assert_boring_cache_cleanup(verify_native_bloat.clean_boring_sys_build_cache)
+
+    def test_shell_boring_cache_cleanup_handles_both_layouts_without_other_data_loss(self) -> None:
+        helper = Path(__file__).resolve().parents[2] / "scripts/ci/android-emulator-helpers.sh"
+
+        def cleanup(root: Path, target: str) -> None:
+            subprocess.run(
+                ["bash", "-c", 'source "$1"; clean_android_boring_sys_build_cache "$2" "$3"',
+                 "cache-cleanup", str(helper), str(root), target],
+                check=True, capture_output=True, text=True,
+            )
+
+        self.assert_boring_cache_cleanup(cleanup)
+
     def test_parse_bloat_output_reads_last_json_line(self) -> None:
         payload = verify_native_bloat.parse_bloat_output(
             "\n".join(

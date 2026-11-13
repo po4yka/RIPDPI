@@ -2,7 +2,7 @@
 
 Verbatim copies of four skills from [Ponytail](https://github.com/DietrichGebert/ponytail) by Dietrich Gebert, MIT License (see `LICENSE` in this directory).
 
-- Upstream commit: `09c434ab73ca43761c5d8b0c5d341926c2fba710` (2026-10-18, package version 5.3.2).
+- Upstream commit: `7801d061243d7b753bad0e0b3c057cd250b11755` (package version 5.3.3).
 - Skills: `ponytail`, `ponytail-review`, `ponytail-audit`, `ponytail-debt`. They are exposed to Codex through the symlinks in `.agents/skills/`, and to Claude Code and GitHub Copilot through the `.claude/skills/` and `.github/skills/` mirrors.
 - Not vendored: `ponytail-help` and `ponytail-gain` describe plugin-only features (statusline band, mode flag files, benchmark files). The lifecycle hooks are not used, because they write mode state and a statusline entry under the user's home directory.
 

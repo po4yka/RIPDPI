@@ -242,7 +242,7 @@ impl XudpTelemetryState {
     pub(crate) fn association_closed(&self, reason: &'static str) {
         let _ = self
             .active_associations
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |active| Some(active.saturating_sub(1)));
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |active| Some(active.saturating_sub(1)));
         self.closed_associations.fetch_add(1, Ordering::Relaxed);
         self.last_termination_reason.store(Some(Arc::new(reason.to_string())));
     }
@@ -281,7 +281,7 @@ impl XudpTelemetryState {
         }
         let _ = self
             .consecutive_udp_failures
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |failures| Some(failures.saturating_add(1)));
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |failures| Some(failures.saturating_add(1)));
         self.reconnect_pending.store(true, Ordering::Relaxed);
     }
 

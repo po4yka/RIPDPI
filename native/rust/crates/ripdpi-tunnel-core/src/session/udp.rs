@@ -212,7 +212,7 @@ impl UdpSession {
     pub(crate) async fn send_to_target(&self, dst: &TargetAddr, payload: &[u8]) -> io::Result<()> {
         let id = self
             .next_datagram_id
-            .fetch_update(std::sync::atomic::Ordering::Relaxed, std::sync::atomic::Ordering::Relaxed, |id| {
+            .try_update(std::sync::atomic::Ordering::Relaxed, std::sync::atomic::Ordering::Relaxed, |id| {
                 id.checked_add(1)
             })
             .map_err(|_| io::Error::other("SOCKS5 UDP datagram IDs exhausted"))?;

@@ -25,7 +25,7 @@ impl FaultController {
     }
 
     pub fn snapshot(&self) -> Vec<FixtureFaultSpec> {
-        self.inner.lock().map(|faults| faults.clone()).unwrap_or_default()
+        self.inner.lock().map_or_default(|faults| faults.clone())
     }
 
     pub(crate) fn take_matching<F>(&self, target: FixtureFaultTarget, predicate: F) -> Option<FixtureFaultSpec>

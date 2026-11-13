@@ -202,7 +202,7 @@ mod ws;
 pub(super) use listener::{ActiveSocketRegistry, ClientSlotGuard};
 
 pub(in crate::runtime) fn now_epoch_ms() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|duration| duration.as_millis() as u64).unwrap_or_default()
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or_default(|duration| duration.as_millis() as u64)
 }
 impl RuntimeState {
     pub(in crate::runtime) fn with_app_scope(&self, app_scope: Option<String>) -> Self {

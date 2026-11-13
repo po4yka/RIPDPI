@@ -77,11 +77,8 @@ impl ProxyTelemetryState {
         let last_autolearn_action = strings.last_autolearn_action.clone();
         let last_block_signal = strings.last_block_signal.clone();
         let last_block_provider = strings.last_block_provider.clone();
-        let direct_path_learning_signals = self
-            .direct_path_learning_signals
-            .lock()
-            .map(|mut signals| std::mem::take(&mut *signals))
-            .unwrap_or_default();
+        let direct_path_learning_signals =
+            self.direct_path_learning_signals.lock().map_or_default(|mut signals| std::mem::take(&mut *signals));
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
             schema_version: SNAPSHOT_SCHEMA_VERSION,

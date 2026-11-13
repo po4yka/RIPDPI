@@ -14,8 +14,8 @@ pub struct ProcessGuard {
 impl ProcessGuard {
     pub fn prepare(settings: ProcessSettings) -> io::Result<Self> {
         process_platform::reset_shutdown_request();
-        let inner = process_platform::ProcessGuard::prepare(settings)?;
         install_signal_handlers()?;
+        let inner = process_platform::ProcessGuard::prepare(settings)?;
         Ok(Self { _inner: inner })
     }
 }

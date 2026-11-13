@@ -50,7 +50,7 @@ jobs:
       contents: read
       actions: read
     env:
-      GOTOOLCHAIN: go1.27.2
+      GOTOOLCHAIN: go1.27.4
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
@@ -273,7 +273,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: "26.13.1"
 
       - name: Set up Bun
         # pinact will re-pin this SHA on next run

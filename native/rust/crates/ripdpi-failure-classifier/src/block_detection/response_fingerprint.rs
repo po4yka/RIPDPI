@@ -11,8 +11,7 @@ pub fn match_blockpage_response(
             FingerprintLocation::Header(name) => headers
                 .iter()
                 .find(|(header, _)| header.eq_ignore_ascii_case(name))
-                .map(|(_, value)| value.to_lowercase())
-                .unwrap_or_default(),
+                .map_or_default(|(_, value)| value.to_lowercase()),
         };
         let pattern = fingerprint.pattern.to_lowercase();
         let matched = match fingerprint.pattern_type {

@@ -1,3 +1,3 @@
 module ripdpi-test-lab-udp-echo
 
-go 1.22
+go 1.27.4

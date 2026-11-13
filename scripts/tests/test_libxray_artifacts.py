@@ -19,7 +19,7 @@ ARTIFACTS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(ARTIFACTS)
 
 
-def elf_fixture(abi: str, alignment: int = 16384, go_version: str = "go1.27.3") -> bytes:
+def elf_fixture(abi: str, alignment: int = 16384, go_version: str = "go1.27.4") -> bytes:
     elf_class, machine = ARTIFACTS.MACHINES[abi]
     payload = bytearray(128)
     payload[:6] = b"\x7fELF" + bytes([elf_class, 1])
@@ -61,10 +61,11 @@ def artifact_fixture(directory: Path) -> dict:
                 "libxrayCommit": patches["libxrayCommit"], "xrayCore": versions["xray-core"],
                 "xrayCoreModuleSum": patches["xrayCoreModuleSum"], "gomobile": versions["gomobile"],
                 "grpc": patches["grpc"], "grpcModuleSum": patches["grpcModuleSum"],
+                "stun": patches["stun"], "stunModuleSum": patches["stunModuleSum"],
                 "minSdk": properties["ripdpi.minSdk"], "ndkVersion": properties["ripdpi.nativeNdkVersion"],
                 "patchManifestSha256": ARTIFACTS.digest(ARTIFACTS.PATCHES / "manifest.json"),
                 "buildRecipeSha256": ARTIFACTS.digest(ROOT / "scripts/native/build-libxray.sh"),
-                "goVersion": "go1.27.3", "abis": ["arm64-v8a"]}
+                "goVersion": "go1.27.4", "abis": ["arm64-v8a"]}
     with zipfile.ZipFile(directory / "libxray.aar", "w") as archive:
         archive.writestr("jni/arm64-v8a/libgojni.so", elf_fixture("arm64-v8a"))
         archive.writestr("classes.jar", b"unit-api")
@@ -77,6 +78,30 @@ def artifact_fixture(directory: Path) -> dict:
 
 
 class LibXrayArtifactTest(unittest.TestCase):
+    def test_gomobile_requires_current_invoke_and_dns_api(self) -> None:
+        signatures = "\n".join((
+            "public static native java.lang.String invoke(java.lang.String);",
+            "public static native void registerDialerController(libXray.DialerController);",
+            "public static native void registerListenerController(libXray.DialerController);",
+            "public static native void setDNS(libXray.DialerController, java.lang.String) throws java.lang.Exception;",
+            "public static native void resetDNS();",
+            "public abstract boolean protectFd(long);",
+        ))
+        import io
+        payload = io.BytesIO()
+        with zipfile.ZipFile(payload, "w") as archive:
+            for name in ("libXray/LibXray.class", "libXray/DialerController.class", "go/Seq.class"):
+                archive.writestr(name, b"parser-fixture")
+        with patch.object(ARTIFACTS.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, signatures)):
+            ARTIFACTS.inspect_api(payload.getvalue())
+        for signature in ("invoke", "setDNS", "resetDNS"):
+            with self.subTest(signature=signature), patch.object(
+                ARTIFACTS.subprocess, "run",
+                return_value=subprocess.CompletedProcess([], 0, signatures.replace(signature, "obsolete")),
+            ):
+                with self.assertRaisesRegex(ValueError, "API signature missing"):
+                    ARTIFACTS.inspect_api(payload.getvalue())
+
     def test_go_provenance_uses_the_compiled_module_toolchain(self) -> None:
         with tempfile.TemporaryDirectory() as temporary, patch.object(ARTIFACTS.subprocess, "check_output", return_value="go1.27.0\n") as go:
             directory = Path(temporary)
@@ -131,7 +156,8 @@ class LibXrayArtifactTest(unittest.TestCase):
 
     def test_unknown_channel_and_stale_patch_provenance_are_rejected(self) -> None:
         for key, value in (("channel", "unknown"), ("patchManifestSha256", "0" * 64),
-                           ("buildRecipeSha256", "0" * 64), ("minSdk", "1")):
+                           ("buildRecipeSha256", "0" * 64), ("minSdk", "1"),
+                           ("stun", "0.0.0"), ("stunModuleSum", "h1:wrong")):
             with self.subTest(key=key), tempfile.TemporaryDirectory() as temporary, patch.object(ARTIFACTS, "inspect_api"):
                 directory = Path(temporary)
                 metadata = artifact_fixture(directory)
@@ -178,9 +204,9 @@ class LibXrayArtifactTest(unittest.TestCase):
         for abi in ARTIFACTS.MACHINES:
             with self.subTest(abi=abi):
                 payload = elf_fixture(abi)
-                ARTIFACTS.inspect_go_version(payload, abi, "go1.27.3")
+                ARTIFACTS.inspect_go_version(payload, abi, "go1.27.4")
                 with self.assertRaisesRegex(ValueError, "embedded Go toolchain"):
-                    ARTIFACTS.inspect_go_version(elf_fixture(abi, go_version="go1.27.2"), abi, "go1.27.3")
+                    ARTIFACTS.inspect_go_version(elf_fixture(abi, go_version="go1.27.2"), abi, "go1.27.4")
                 wide = payload[4] == 2
                 for offset, replacement, message in (
                     (40 if wide else 32, b"\xff" * (8 if wide else 4), "section headers"),
@@ -191,15 +217,15 @@ class LibXrayArtifactTest(unittest.TestCase):
                     malformed = bytearray(payload)
                     malformed[offset:offset + len(replacement)] = replacement
                     with self.assertRaisesRegex(ValueError, message):
-                        ARTIFACTS.inspect_go_version(malformed, abi, "go1.27.3")
+                        ARTIFACTS.inspect_go_version(malformed, abi, "go1.27.4")
                 with self.assertRaisesRegex(ValueError, "section bounds"):
-                    ARTIFACTS.inspect_go_version(payload[:-1], abi, "go1.27.3")
+                    ARTIFACTS.inspect_go_version(payload[:-1], abi, "go1.27.4")
                 duplicate = bytearray(payload)
                 struct.pack_into("<I", duplicate, 128, 11)
                 struct.pack_into("<QQ" if wide else "<II", duplicate, 128 + (24 if wide else 16),
-                                 len(payload) - (33 + len("go1.27.3")), 33 + len("go1.27.3"))
+                                 len(payload) - (33 + len("go1.27.4")), 33 + len("go1.27.4"))
                 with self.assertRaisesRegex(ValueError, "missing or duplicate"):
-                    ARTIFACTS.inspect_go_version(duplicate, abi, "go1.27.3")
+                    ARTIFACTS.inspect_go_version(duplicate, abi, "go1.27.4")
 
     def test_build_preflight_checks_compiler_and_supported_host(self) -> None:
         versions, properties, _ = ARTIFACTS.policy()
@@ -218,9 +244,9 @@ class LibXrayArtifactTest(unittest.TestCase):
                           "if sys.argv[1] == 'env': print(os.environ['TEST_GO_' + sys.argv[2]])\n" +
                           f"else: print('v{versions['gomobile']}')\n")
             go.chmod(0o755)
-            for version, host, arch, expected in (("go1.27.3", "darwin", "arm64", 0),
-                                                   ("go1.27.3", "linux", "amd64", 0),
-                                                   ("go1.27.3", "linux", "arm64", 69),
+            for version, host, arch, expected in (("go1.27.4", "darwin", "arm64", 0),
+                                                   ("go1.27.4", "linux", "amd64", 0),
+                                                   ("go1.27.4", "linux", "arm64", 69),
                                                    ("go1.27.2", "darwin", "arm64", 69)):
                 with self.subTest(version=version, host=host, arch=arch):
                     environment = dict(os.environ, PATH=str(directory) + os.pathsep + os.environ["PATH"],

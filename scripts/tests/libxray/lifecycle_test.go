@@ -122,8 +122,14 @@ func TestManagedJSONConstructionFailureRetainsOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, run := range map[string]func() error{
-		"JSON": func() error { return RunXrayFromJSON(t.TempDir(), "", config) },
-		"file": func() error { return RunXray(t.TempDir(), "", configPath) },
+		"JSON": func() error { return RunXray(config) },
+		"file": func() error {
+			payload, err := os.ReadFile(configPath)
+			if err != nil {
+				return err
+			}
+			return RunXray(string(payload))
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if err := run(); err == nil {
@@ -147,7 +153,7 @@ func TestManagedPartialStartRetainsOwner(t *testing.T) {
 	}
 	defer occupied.Close()
 	config := fmt.Sprintf(`{"inbounds":[{"listen":"127.0.0.1","port":%d,"protocol":"socks"}],"outbounds":[{"protocol":"freedom"}]}`, occupied.Addr().(*net.TCPAddr).Port)
-	if err := RunXrayFromJSON(t.TempDir(), "", config); err == nil {
+	if err := RunXray(config); err == nil {
 		t.Fatal("occupied inbound was accepted")
 	}
 	defer StopXray()
@@ -161,7 +167,7 @@ func TestManagedPartialStartRetainsOwner(t *testing.T) {
 		t.Fatal("clean Stop did not release owner")
 	}
 	occupied.Close()
-	if err := RunXrayFromJSON(t.TempDir(), "", config); err != nil {
+	if err := RunXray(config); err != nil {
 		t.Fatal(err)
 	}
 	if !GetXrayState() {
@@ -226,7 +232,7 @@ func TestManagedStartDoesNotReplaceOwner(t *testing.T) {
 	}
 	coreServer = instance
 	defer StopXray()
-	if err := RunXrayFromJSON(t.TempDir(), "", "{}"); err == nil {
+	if err := RunXray("{}"); err == nil {
 		t.Fatal("overlapping native start accepted")
 	}
 	if coreServer != instance {

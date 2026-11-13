@@ -41,14 +41,7 @@ class RustNativeTaskLayoutTest(unittest.TestCase):
         build_script = BORING_SYS_BUILD_SCRIPT.read_text(encoding="utf-8")
 
         self.assertNotIn('cargo:rerun-if-changed={}", bssl_dir.display()', build_script)
-        self.assertIn(
-            "val cargoBuildScriptDir = cacheFile.parentFile.parentFile.parentFile",
-            plugin,
-        )
-        self.assertIn(
-            'cargoBuildScriptDir.name.startsWith("boring-sys-")',
-            plugin,
-        )
+        # NativeBuildPolicyTest exercises both Cargo layouts and ownership boundaries.
         self.assertIn(
             "fileSystemOperations.delete { delete(cargoBuildScriptDir) }",
             plugin,

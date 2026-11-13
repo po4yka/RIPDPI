@@ -41,7 +41,7 @@ allow = [
 ]
 exceptions = [
     { allow = ["Unlicense"], crate = "async_executors@0.7.0" },
-    { allow = ["CC0-1.0"], crate = "notify@8.2.0" },
+    { allow = ["CC0-1.0"], crate = "notify@8.2.2" },
     { allow = ["MPL-2.0"], crate = "option-ext@0.2.0" },
     { allow = ["MPL-2.0"], crate = "priority-queue@2.7.0" },
 ]

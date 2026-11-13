@@ -188,7 +188,7 @@ impl HealthRegistry {
             Ok(inner) => {
                 let now = (inner.clock)();
                 let half_life = inner.half_life;
-                let weights = inner.scopes.get(scope).map(|state| state.calibration.weights(now)).unwrap_or_default();
+                let weights = inner.scopes.get(scope).map_or_default(|state| state.calibration.weights(now));
                 let mut scored: Vec<(usize, bool, f64)> = labels
                     .iter()
                     .enumerate()

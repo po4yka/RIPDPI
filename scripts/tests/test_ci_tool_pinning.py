@@ -79,7 +79,7 @@ class CiToolPinningTest(unittest.TestCase):
         )
         properties = (ROOT / "gradle.properties").read_text(encoding="utf-8")
 
-        self.assertIn("ripdpi.nativeCmakeVersion=3.31.6", properties)
+        self.assertIn("ripdpi.nativeCmakeVersion=4.1.2", properties)
         self.assertIn("steps.native-toolchain.outputs.cmake", action)
         self.assertIn('"cmake/${{ steps.native-toolchain.outputs.cmake }}"', action)
         self.assertIn("-cmake-${{ steps.native-toolchain.outputs.cmake }}-", action)
@@ -184,18 +184,18 @@ class CiToolPinningTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2",
+            "uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39",
             source,
         )
-        self.assertIn("tool: cargo-fuzz@0.13.1", source)
+        self.assertIn("tool: cargo-fuzz@0.13.2", source)
         self.assertNotIn("install cargo-fuzz", source)
 
     def test_android_cli_uses_versioned_digest_verified_binary(self) -> None:
         source = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
             encoding="utf-8"
         )
-        self.assertIn('android_cli_version="1.0.15857036"', source)
-        self.assertIn('android_cli_sha256="e5b6930e', source)
+        self.assertIn('android_cli_version="1.1.16919734"', source)
+        self.assertIn('android_cli_sha256="9803784d', source)
         self.assertIn("linux_x86_64/android-cli", source)
         self.assertIn("sha256sum --check --strict", source)
         self.assertIn('version_output="$(android --no-metrics --version 2>&1)"', source)

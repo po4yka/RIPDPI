@@ -8,7 +8,7 @@ import re
 import subprocess
 import tempfile
 
-OUTBOUND_VERSION = "go1.27.2"
+OUTBOUND_VERSION = "go1.27.4"
 
 
 def digest(path):

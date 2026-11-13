@@ -208,7 +208,7 @@ def clean_boring_sys_build_cache(cargo_target_dir: Path, target: str) -> None:
     if not build_root.is_dir():
         return
 
-    for candidate in build_root.glob("boring-sys-*"):
+    for candidate in [*build_root.glob("boring-sys-*"), build_root / "boring-sys"]:
         if candidate.is_dir():
             shutil.rmtree(candidate, ignore_errors=True)
 

@@ -1,8 +1,8 @@
 # RIPDPI Quinn TLS error patch
 
-Published quinn-proto 0.11.18 archive, SHA-256
-`a9746dbde176634f4f2f1faf2404e30a31b2bc1e9cafb5329c95d8177a18c9fc`.
-Upstream revision: `eaec0db4bcb698f76df736d89938743c88a2ad5f`.
+Published quinn-proto 0.11.19 archive, SHA-256
+`0e750cca55fe4f0439a15d0bb529da9651e79993e8e72c61a899a36d462befbe`.
+Upstream revision: `8192ed399a26a6e8f0aba43d10ec8badaa5b905e`.
 The upstream Apache-2.0 and MIT license files are preserved.
 
 The Rustls client config can install a per-session typed TLS error callback.

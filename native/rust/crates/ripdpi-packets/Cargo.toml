@@ -15,5 +15,5 @@ nom = { version = "8", default-features = false, features = ["alloc"] }
 ring = { workspace = true }
 
 [dev-dependencies]
-proptest = "1.11"
+proptest = "1.12"
 tls-parser = "0.12"

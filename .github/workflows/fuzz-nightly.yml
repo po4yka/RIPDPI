@@ -28,15 +28,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: nightly-2026-06-12
+          toolchain: nightly-2026-11-13
       - name: Install cargo-fuzz
-        uses: taiki-e/install-action@3a3daafd3b7f23b8f65d9f5ba2db203fb59b79e2 # v2.90.2
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
-          tool: cargo-fuzz@0.13.1
+          tool: cargo-fuzz@0.13.2
       - name: Run fuzz targets
         env:
           RIPDPI_FUZZ_SECONDS: ${{ inputs.fuzz_seconds || 600 }}
-          RIPDPI_FUZZ_RUST_TOOLCHAIN: nightly-2026-06-12
+          RIPDPI_FUZZ_RUST_TOOLCHAIN: nightly-2026-11-13
           RIPDPI_FUZZ_SHARD_COUNT: "6"
           RIPDPI_FUZZ_SHARD_INDEX: ${{ matrix.shard }}
           RIPDPI_FUZZ_ARTIFACTS_DIR: ${{ runner.temp }}/fuzz-artifacts

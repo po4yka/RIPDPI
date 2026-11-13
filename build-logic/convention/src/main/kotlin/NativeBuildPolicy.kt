@@ -257,3 +257,24 @@ internal fun Project.resolvedPluggableTransportAssetsMode(): String {
 internal fun Project.resolvedPluggableTransportAssetsStrictFailures(): Boolean =
     providers.gradleProperty("ripdpi.pluggableTransportAssetsStrictFailures").orNull?.toBooleanStrictOrNull()
         ?: (isCiBuild() || isReleaseLikeBuild())
+
+internal fun boringSslCargoRunDirectory(
+    cacheFile: File,
+    cargoTargetRoot: File,
+): File? {
+    val cache = cacheFile.canonicalFile
+    if (cache.name != "CMakeCache.txt" ||
+        !cache.toPath().startsWith(cargoTargetRoot.canonicalFile.toPath())
+    ) {
+        return null
+    }
+    val build = cache.parentFile ?: return null
+    val out = build.parentFile ?: return null
+    val run = out.parentFile ?: return null
+    val owner = run.parentFile ?: return null
+    if (build.name != "build" || out.name != "out") return null
+    val legacy = owner.name == "build" && run.name.matches(Regex("boring-sys-[0-9a-f]{16}"))
+    val current =
+        owner.name == "boring-sys" && owner.parentFile?.name == "build" && run.name.matches(Regex("[0-9a-f]{16}"))
+    return run.takeIf { legacy || current }
+}

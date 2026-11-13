@@ -115,7 +115,7 @@ impl RelayTelemetryState {
     pub fn session_closed(&self) {
         // Ordering: active_sessions is an approximate gauge for telemetry only;
         // saturating the decrement does not publish or consume other data.
-        self.active_sessions.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| value.checked_sub(1)).ok();
+        self.active_sessions.try_update(Ordering::Relaxed, Ordering::Relaxed, |value| value.checked_sub(1)).ok();
     }
 
     /// HTTP response bytes accepted by the client transport, including framing and local errors.

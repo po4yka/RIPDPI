@@ -43,7 +43,7 @@ func startUDPServer(t *testing.T, tag string) int {
 	port := reservation.Addr().(*net.TCPAddr).Port
 	reservation.Close()
 	config := fmt.Sprintf(`{"inbounds":[{"tag":%q,"listen":"127.0.0.1","port":%d,"protocol":"socks","settings":{"auth":"password","accounts":[{"user":"u","pass":"p"}],"udp":true}}],"outbounds":[{"protocol":"freedom"}]}`, tag, port)
-	if err := RunXrayFromJSON(t.TempDir(), "", config); err != nil {
+	if err := RunXray(config); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

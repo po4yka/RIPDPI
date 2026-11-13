@@ -19,7 +19,7 @@ import time
 import uuid
 
 NGINX_IMAGE = (
-    "nginx@sha256:30f1c0d78e0ad60901648be663a710bdadf19e4c10ac6782c235200619158284"
+    "nginx:1.30.6@sha256:42c68eab6f7e22611786a9fe1d1c019e275c50185bd54b8f75dc2b9184322703"
 )
 
 

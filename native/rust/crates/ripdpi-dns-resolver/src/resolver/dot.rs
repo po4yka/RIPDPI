@@ -171,16 +171,13 @@ fn dot_pin_verifier_accepts(
     let Some(end_entity) = context.cert().and_then(|cert| cert.to_der().ok()).map(CertificateDer::from) else {
         return false;
     };
-    let intermediates = context
-        .untrusted()
-        .map(|chain| {
-            chain
-                .iter()
-                .skip(1)
-                .filter_map(|certificate| certificate.to_der().ok().map(CertificateDer::from))
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let intermediates = context.untrusted().map_or_default(|chain| {
+        chain
+            .iter()
+            .skip(1)
+            .filter_map(|certificate| certificate.to_der().ok().map(CertificateDer::from))
+            .collect::<Vec<_>>()
+    });
     if verifier.verify_server_cert(&end_entity, &intermediates, server_name, &[], UnixTime::now()).is_ok() {
         context.set_error(Ok(()));
         true

@@ -255,14 +255,7 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
 
     if should_use_cmake_cross_compilation(config) {
         boringssl_cmake.define("CMAKE_CROSSCOMPILING", "true");
-        if config.target_os == "android" {
-            if let Some(android_target) = android_compiler_target(config) {
-                boringssl_cmake
-                    .define("CMAKE_C_COMPILER_TARGET", &android_target)
-                    .define("CMAKE_CXX_COMPILER_TARGET", &android_target)
-                    .define("CMAKE_ASM_COMPILER_TARGET", &android_target);
-            }
-        } else {
+        if config.target_os != "android" {
             boringssl_cmake
                 .define("CMAKE_C_COMPILER_TARGET", &config.target)
                 .define("CMAKE_CXX_COMPILER_TARGET", &config.target)
@@ -270,7 +263,7 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
         }
     }
 
-    if !config.features.fips {
+    if !config.features.fips && config.target_os != "android" {
         if let Some(cc) = &config.env.cc {
             boringssl_cmake.define("CMAKE_C_COMPILER", cc);
         }
@@ -309,8 +302,12 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
             eprintln!("android toolchain={toolchain_file}");
             boringssl_cmake.define("CMAKE_TOOLCHAIN_FILE", toolchain_file);
 
-            // 21 is the minimum level tested. You can give higher value.
-            boringssl_cmake.define("CMAKE_SYSTEM_VERSION", "21");
+            // The NDK owns compiler selection and derives its target from this API.
+            if let Some(target) = android_compiler_target(config) {
+                let api = target.rsplit(|ch: char| !ch.is_ascii_digit()).next().unwrap_or_default();
+                assert!(!api.is_empty(), "Android compiler target must include its API level");
+                boringssl_cmake.define("ANDROID_PLATFORM", format!("android-{api}"));
+            }
             boringssl_cmake.define("CMAKE_ANDROID_STL_TYPE", "c++_shared");
 
             // On macOS hosts (especially Apple Silicon), cmake's Platform/Darwin.cmake
@@ -520,6 +517,9 @@ fn get_extra_clang_args_for_bindgen(config: &Config) -> Vec<String> {
             }
         }
         "android" => {
+            if let Some(target) = android_compiler_target(config) {
+                params.push(format!("--target={target}"));
+            }
             let mut android_sysroot = config
                 .env
                 .android_ndk_home

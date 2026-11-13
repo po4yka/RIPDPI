@@ -218,7 +218,7 @@ def build(args):
         raise ValueError("pinned Go compiler unavailable")
     checked(go + ["build", "-mod=readonly", "-p", "2", "-trimpath", "-o", str(output / "peer-binary"), "."], cwd=peer, env=go_env)
     sdk = Path(os.environ.get("ANDROID_HOME", Path.home() / "Library/Android/sdk"))
-    ndk = sdk / "ndk/29.0.14206865"
+    ndk = sdk / "ndk/30.0.16248370"
     compiler = ndk / "toolchains/llvm/prebuilt/darwin-x86_64/bin"
     env = dict(os.environ)
     for name in ("SDKROOT", "MACOSX_DEPLOYMENT_TARGET", "CFLAGS", "CXXFLAGS", "CPPFLAGS", "LDFLAGS", "RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS"):

@@ -21,7 +21,7 @@ impl EventLog {
     }
 
     pub fn snapshot(&self) -> Vec<FixtureEvent> {
-        self.inner.lock().map(|events| events.clone()).unwrap_or_default()
+        self.inner.lock().map_or_default(|events| events.clone())
     }
 
     pub fn clear(&self) {

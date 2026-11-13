@@ -63,8 +63,7 @@ pub(super) fn observe_rotation_inbound_chunk(
         .ok()
         .flatten()
         .zip(retrans_baseline)
-        .map(|(current, baseline)| current.saturating_sub(baseline))
-        .unwrap_or_default();
+        .map_or_default(|(current, baseline)| current.saturating_sub(baseline));
     if let Ok(mut rotation) = rotation.lock() {
         if rotation.retransmission_failure_matches_observation(stream_start, retrans_delta) {
             rotation.observe_round_failure(
@@ -106,8 +105,7 @@ pub(super) fn observe_rotation_transport_failure(
         .ok()
         .flatten()
         .zip(retrans_baseline)
-        .map(|(current, baseline)| current.saturating_sub(baseline))
-        .unwrap_or_default();
+        .map_or_default(|(current, baseline)| current.saturating_sub(baseline));
     note_block_signal_for_failure(state, host.as_deref(), &failure, None);
     if let Ok(mut rotation) = rotation.lock() {
         rotation.observe_round_failure(

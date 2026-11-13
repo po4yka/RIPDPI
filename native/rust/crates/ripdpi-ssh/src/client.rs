@@ -277,11 +277,11 @@ fn host_key_rejection(policy: &SshHostKeyPolicy) -> SshError {
     match policy {
         SshHostKeyPolicy::Tofu { pinned_fingerprint: None } => SshError::HostKeyUntrusted(String::new()),
         SshHostKeyPolicy::Tofu { pinned_fingerprint: Some(pinned) } => {
-            let expected = parse_fingerprint(pinned).map(|fp| fp.sha256_base64).unwrap_or_default();
+            let expected = parse_fingerprint(pinned).map_or_default(|fp| fp.sha256_base64);
             SshError::HostKeyMismatch { expected, got: String::new() }
         }
         SshHostKeyPolicy::Strict { fingerprint } => {
-            let expected = parse_fingerprint(fingerprint).map(|fp| fp.sha256_base64).unwrap_or_default();
+            let expected = parse_fingerprint(fingerprint).map_or_default(|fp| fp.sha256_base64);
             SshError::HostKeyMismatch { expected, got: String::new() }
         }
     }

@@ -16,7 +16,7 @@ SPEC.loader.exec_module(BUILDER)
 class SourceLockTest(unittest.TestCase):
     def test_checked_sources_match_lock(self):
         manifest = BUILDER.verify_sources(ROOT / "native/zapret2")
-        self.assertEqual(manifest["upstream"]["commit"], "ca950d838a0ee7dc32bb6ae5e65e54488c1bfe3b")
+        self.assertEqual(manifest["upstream"]["commit"], "038c97e5819df10f8e8c22a2f1fffe57f2f7379b")
 
     def assert_tamper_rejected(self, name, expected):
         with tempfile.TemporaryDirectory(prefix="nfqws2-source-lock-") as directory:
@@ -28,7 +28,7 @@ class SourceLockTest(unittest.TestCase):
                 BUILDER.verify_sources(source)
 
     def test_dependency_archive_tamper_rejected(self):
-        self.assert_tamper_rejected("archives/lua-5.4.8.tar.gz", "Dependency checksum mismatch")
+        self.assert_tamper_rejected("archives/lua-5.5.1.tar.gz", "Dependency checksum mismatch")
 
     def test_upstream_source_tamper_rejected(self):
         self.assert_tamper_rejected("upstream/nfq2/darkmagic.c", "Upstream checksum mismatch")

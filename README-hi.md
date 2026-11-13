@@ -132,14 +132,14 @@ Relay ट्रैफ़िक गोपनीयता आपके द्व�
 
 ## Build आवश्यकताएँ
 
-आवश्यकताएँ: JDK 21, Android SDK (platform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, आवश्यक ABIs के लिए Android Rust targets, [`just`](https://just.systems) (task runner; `justfile` recipes CI को प्रतिबिंबित करती हैं), और [`lefthook`](https://github.com/evilmartians/lefthook) (pre-commit gates को वायर करने के लिए एक बार `lefthook install` चलाएँ)।
+आवश्यकताएँ: JDK 21, Android SDK (platform `37.2`, CMake `4.1.2`), Android NDK `30.0.16248370`, Rust toolchain `1.100.0`, आवश्यक ABIs के लिए Android Rust targets, [`just`](https://just.systems) (task runner; `justfile` recipes CI को प्रतिबिंबित करती हैं), और [`lefthook`](https://github.com/evilmartians/lefthook) (pre-commit gates को वायर करने के लिए एक बार `lefthook install` चलाएँ)।
 
 रिलीज़ बिल्ड और CI को patches वाला वास्तविक libXray AAR चाहिए; इसके बिना लोकल debug बिल्ड stub इस्तेमाल करता है (Xray सुविधाएँ उपलब्ध नहीं)। [libXray packaging](docs/native/libxray-packaging.md#build) के अनुसार amd64 Go, pinned `gomobile` और `gobind`, तथा `ANDROID_NDK_HOME` तैयार करें। Producer को नया या खाली `native/xray/artifacts/` directory और pinned sources तक पहुँच चाहिए। वर्तमान versions से मेल खाने वाली verified artifact directory को पुनः उपयोग करने के लिए Gradle को `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` दें; packaging gate फिर भी उस directory को verify करता है।
 
 Android CLI 1.0+ से आवश्यक SDK पैकेज स्थापित करें:
 
 ```bash
-android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
+android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 ```
 
 स्थानीय builds डिफ़ॉल्ट रूप से `host` (`ripdpi.localNativeAbisDefault`) पर सेट होते हैं, जो host आर्किटेक्चर पर रिज़ॉल्व होता है (जैसे Apple Silicon पर `arm64-v8a`)। एमुलेटर के लिए: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`।

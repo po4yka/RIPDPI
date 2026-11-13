@@ -97,8 +97,8 @@ fn apply_auto_sort(
     }
 
     if let Some(next_route) = next {
-        let current_pri = policy.groups.get(route.group_index).map(|group| group.pri).unwrap_or_default();
-        let next_pri = policy.groups.get(next_route.group_index).map(|group| group.pri).unwrap_or_default();
+        let current_pri = policy.groups.get(route.group_index).map_or_default(|group| group.pri);
+        let next_pri = policy.groups.get(next_route.group_index).map_or_default(|group| group.pri);
         if current_pri > next_pri {
             policy.swap_groups(route.group_index, next_route.group_index);
         }

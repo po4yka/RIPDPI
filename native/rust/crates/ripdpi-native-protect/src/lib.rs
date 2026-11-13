@@ -319,7 +319,7 @@ impl ResolveThreadSlot {
     fn acquire() -> Option<Self> {
         // Relaxed: the counter only bounds the thread count; it publishes no data.
         PROTECTED_RESOLVE_THREADS
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |count| {
                 (count < MAX_PROTECTED_RESOLVE_THREADS).then_some(count + 1)
             })
             .ok()

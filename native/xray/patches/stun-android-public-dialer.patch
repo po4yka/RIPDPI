@@ -1,0 +1,310 @@
+--- a/client.go
++++ b/client.go
+@@ -22 +21,0 @@
+-	"github.com/pion/transport/v4/stdnet"
+@@ -53 +52 @@
+-	nw := cfg.Net
++	var nw dialNet = cfg.Net
+@@ -55 +54 @@
+-		nw, err = stdnet.NewNet()
++		nw, err = newDefaultNet()
+--- /dev/null
++++ b/default_net.go
+@@ -0,0 +1,78 @@
++package stun
++
++import (
++	"github.com/pion/transport/v4"
++	"net"
++	"strconv"
++	"strings"
++)
++
++// DialURI needs dialing only; interface enumeration is not part of its contract.
++type dialNet interface {
++	Dial(string, string) (net.Conn, error)
++	DialUDP(string, *net.UDPAddr, *net.UDPAddr) (transport.UDPConn, error)
++}
++type publicNet struct{}
++
++func numericZone(zone string) (string, error) {
++	if zone == "" {
++		return zone, nil
++	}
++	if strings.IndexByte(zone, 0) >= 0 {
++		return "", &net.AddrError{Err: "invalid IPv6 zone", Addr: zone}
++	}
++	if _, err := strconv.ParseUint(zone, 10, 32); err == nil {
++		return zone, nil
++	}
++	index, err := interfaceIndex(zone)
++	if err != nil {
++		return "", err
++	}
++	return strconv.Itoa(index), nil
++}
++func scopedAddress(address string) (string, error) {
++	host, port, err := net.SplitHostPort(address)
++	if err != nil {
++		return address, nil
++	}
++	ip, zone, found := strings.Cut(host, "%")
++	parsed := net.ParseIP(ip)
++	if !found || parsed == nil || parsed.To4() != nil {
++		return address, nil
++	}
++	zone, err = numericZone(zone)
++	if err != nil {
++		return "", err
++	}
++	return net.JoinHostPort(ip+"%"+zone, port), nil
++}
++func scopedUDPAddr(address *net.UDPAddr) (*net.UDPAddr, error) {
++	if address == nil || address.Zone == "" || address.IP.To16() == nil || address.IP.To4() != nil {
++		return address, nil
++	}
++	zone, err := numericZone(address.Zone)
++	if err != nil {
++		return nil, err
++	}
++	copy := *address
++	copy.Zone = zone
++	return &copy, nil
++}
++func (publicNet) Dial(network, address string) (net.Conn, error) {
++	address, err := scopedAddress(address)
++	if err != nil {
++		return nil, err
++	}
++	return net.Dial(network, address)
++}
++func (publicNet) DialUDP(network string, local, remote *net.UDPAddr) (transport.UDPConn, error) {
++	local, err := scopedUDPAddr(local)
++	if err != nil {
++		return nil, err
++	}
++	remote, err = scopedUDPAddr(remote)
++	if err != nil {
++		return nil, err
++	}
++	return net.DialUDP(network, local, remote)
++}
+--- /dev/null
++++ b/default_net_android.go
+@@ -0,0 +1,21 @@
++package stun
++
++import "golang.org/x/sys/unix"
++
++func newDefaultNet() (dialNet, error) { return publicNet{}, nil }
++func interfaceIndex(name string) (int, error) {
++	request, err := unix.NewIfreq(name)
++	if err != nil {
++		return 0, err
++	}
++	// SIOCGIFINDEX works without root and does not use Android-restricted netlink.
++	fd, err := unix.Socket(unix.AF_INET, unix.SOCK_DGRAM|unix.SOCK_CLOEXEC, 0)
++	if err != nil {
++		return 0, err
++	}
++	defer unix.Close(fd)
++	if err := unix.IoctlIfreq(fd, unix.SIOCGIFINDEX, request); err != nil {
++		return 0, err
++	}
++	return int(request.Uint32()), nil
++}
+--- /dev/null
++++ b/default_net_other.go
+@@ -0,0 +1,17 @@
++//go:build !android
++
++package stun
++
++import (
++	"github.com/pion/transport/v4/stdnet"
++	"net"
++)
++
++func newDefaultNet() (dialNet, error) { return stdnet.NewNet() }
++func interfaceIndex(name string) (int, error) {
++	iface, err := net.InterfaceByName(name)
++	if err != nil {
++		return 0, err
++	}
++	return iface.Index, nil
++}
+--- /dev/null
++++ b/default_net_test.go
+@@ -0,0 +1,172 @@
++package stun
++
++import (
++	"fmt"
++	"github.com/pion/transport/v4/vnet"
++	"net"
++	"strconv"
++	"testing"
++	"time"
++)
++
++func TestPublicNetScopedIPv6(t *testing.T) {
++	if got, err := scopedUDPAddr(nil); got != nil || err != nil {
++		t.Fatalf("nil: %v %v", got, err)
++	}
++	mapped := "[::ffff:127.0.0.1%irrelevant-zone]:7"
++	if got, err := scopedAddress(mapped); got != mapped || err != nil {
++		t.Fatalf("mapped IPv4 zone: %q %v", got, err)
++	}
++	unspecified := &net.UDPAddr{Zone: "irrelevant-zone"}
++	if got, err := scopedUDPAddr(unspecified); got != unspecified || err != nil {
++		t.Fatalf("unspecified zone: %v %v", got, err)
++	}
++	ipv4 := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: "irrelevant-zone"}
++	if got, err := scopedUDPAddr(ipv4); got != ipv4 || err != nil {
++		t.Fatalf("IPv4 zone: %v %v", got, err)
++	}
++	if got, err := numericZone("4294967295"); got != "4294967295" || err != nil {
++		t.Fatalf("uint32 scope: %s %v", got, err)
++	}
++	for _, zone := range []string{"4294967296", "lo\x00ignored"} {
++		if _, err := numericZone(zone); err == nil {
++			t.Fatalf("invalid zone accepted: %q", zone)
++		}
++	}
++
++	interfaces, err := net.Interfaces()
++	if err != nil {
++		t.Fatal(err)
++	}
++	var loop net.Interface
++	for _, iface := range interfaces {
++		if iface.Flags&net.FlagLoopback != 0 {
++			loop = iface
++			break
++		}
++	}
++	if loop.Index == 0 {
++		t.Fatal("loopback interface missing")
++	}
++	numeric := strconv.Itoa(loop.Index)
++	for _, zone := range []string{loop.Name, numeric, ""} {
++		t.Run("zone="+zone, func(t *testing.T) {
++			got, err := numericZone(zone)
++			want := numeric
++			if zone == "" {
++				want = ""
++			}
++			if err != nil || got != want {
++				t.Fatalf("zone: got %q, %v; want %q", got, err, want)
++			}
++			original := &net.UDPAddr{IP: net.IPv6loopback, Zone: zone}
++			normalized, err := scopedUDPAddr(original)
++			if err != nil || normalized.Zone != want || original.Zone != zone {
++				t.Fatalf("UDP zone/input mutation: %v %v", normalized, err)
++			}
++			server, err := net.ListenUDP("udp6", &net.UDPAddr{IP: net.IPv6loopback})
++			if err != nil {
++				t.Fatal(err)
++			}
++			defer server.Close()
++			if err := server.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
++				t.Fatal(err)
++			}
++			target := *server.LocalAddr().(*net.UDPAddr)
++			target.Zone = zone
++			host := "::1"
++			if zone != "" {
++				host += "%" + zone
++			}
++			address := net.JoinHostPort(host, strconv.Itoa(target.Port))
++			normalizedText, err := scopedAddress(address)
++			wantHost := "::1"
++			if want != "" {
++				wantHost += "%" + want
++			}
++			if err != nil || normalizedText != net.JoinHostPort(wantHost, strconv.Itoa(target.Port)) {
++				t.Fatalf("address: %s %v", normalizedText, err)
++			}
++			clients := []func() (net.Conn, error){
++				func() (net.Conn, error) { return (publicNet{}).Dial("udp6", address) },
++				func() (net.Conn, error) { return (publicNet{}).DialUDP("udp6", original, &target) },
++			}
++			for i, dial := range clients {
++				client, err := dial()
++				if err != nil {
++					t.Fatal(err)
++				}
++				defer client.Close()
++				if original.Zone != zone || target.Zone != zone {
++					t.Fatal("caller UDPAddr was modified")
++				}
++				if err := client.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
++					t.Fatal(err)
++				}
++				payload := []byte(fmt.Sprintf("scoped-%s-%d", zone, i))
++				if _, err := client.Write(payload); err != nil {
++					t.Fatal(err)
++				}
++				buf := make([]byte, 128)
++				count, source, err := server.ReadFromUDP(buf)
++				if err != nil || string(buf[:count]) != string(payload) {
++					t.Fatalf("server: %q %v", buf[:count], err)
++				}
++				if _, err := server.WriteToUDP(buf[:count], source); err != nil {
++					t.Fatal(err)
++				}
++				count, err = client.Read(buf)
++				if err != nil || string(buf[:count]) != string(payload) {
++					t.Fatalf("reply: %q %v", buf[:count], err)
++				}
++			}
++		})
++	}
++	if _, err := numericZone("no-such-ripdpi0"); err == nil {
++		t.Fatal("unknown named zone accepted")
++	}
++}
++
++func TestDialURICustomNet(t *testing.T) {
++	virtual, err := vnet.NewNet(&vnet.NetConfig{})
++	if err != nil {
++		t.Fatal(err)
++	}
++	server, err := virtual.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer server.Close()
++	if err := server.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
++		t.Fatal(err)
++	}
++	uri, err := ParseURI("stun:" + server.LocalAddr().String())
++	if err != nil {
++		t.Fatal(err)
++	}
++	config := &DialConfig{Net: virtual}
++	client, err := DialURI(uri, config)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer client.Close()
++	request := MustBuild(TransactionID, BindingRequest)
++	if _, err := client.c.Write(request.Raw); err != nil {
++		t.Fatal(err)
++	}
++	buf := make([]byte, 1024)
++	size, _, err := server.ReadFrom(buf)
++	if err != nil {
++		t.Fatal(err)
++	}
++	message := New()
++	if err := Decode(buf[:size], message); err != nil {
++		t.Fatal(err)
++	}
++	if message.Type != BindingRequest || message.TransactionID != request.TransactionID {
++		t.Fatal("custom network did not deliver STUN request")
++	}
++	if config.Net != virtual {
++		t.Fatal("caller network was modified")
++	}
++}

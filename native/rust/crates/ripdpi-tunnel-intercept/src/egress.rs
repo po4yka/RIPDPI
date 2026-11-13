@@ -99,7 +99,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         lua_socket_owned: bool,
         injector: I,
     ) -> Self {
-        let rules = strategy_yaml.map(|yaml| parse_rules(yaml, base_dir, lua_socket_owned)).unwrap_or_default();
+        let rules = strategy_yaml.map_or_default(|yaml| parse_rules(yaml, base_dir, lua_socket_owned));
         Self { rules, injector, http_first_payloads: http::HttpFirstPayloads::default() }
     }
 

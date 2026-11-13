@@ -130,14 +130,14 @@ Mehrstufige Relay-Ketten führen eine geordnete Liste von 2 bis 4 TCP-Hops (Eing
 
 ## Build-Voraussetzungen
 
-Voraussetzungen: JDK 21, Android SDK (Plattform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust-Toolchain `1.98.1`, Android-Rust-Targets für die benötigten ABIs, [`just`](https://just.systems) (Task-Runner; die Rezepte der `justfile` spiegeln CI) und [`lefthook`](https://github.com/evilmartians/lefthook) (einmal `lefthook install` ausführen, um die Pre-Commit-Prüfungen einzurichten).
+Voraussetzungen: JDK 21, Android SDK (Plattform `37.2`, CMake `4.1.2`), Android NDK `30.0.16248370`, Rust-Toolchain `1.100.0`, Android-Rust-Targets für die benötigten ABIs, [`just`](https://just.systems) (Task-Runner; die Rezepte der `justfile` spiegeln CI) und [`lefthook`](https://github.com/evilmartians/lefthook) (einmal `lefthook install` ausführen, um die Pre-Commit-Prüfungen einzurichten).
 
 Release-Builds und CI benötigen das echte gepatchte libXray-AAR; lokale Debug-Builds nutzen ohne es einen Stub (Xray-Funktionen nicht verfügbar). amd64-Go, die festgelegten Versionen von `gomobile` und `gobind` sowie `ANDROID_NDK_HOME` gemäß [libXray-Anleitung](docs/native/libxray-packaging.md#build) vorbereiten. Der Erzeuger benötigt ein neues oder leeres Verzeichnis `native/xray/artifacts/` und Zugriff auf die festgelegten Quellen. Ein geprüftes, zu den aktuellen Versionen passendes Artefaktverzeichnis lässt sich mit `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` an Gradle übergeben; die Paketierungsprüfung bleibt aktiv.
 
 Installieren Sie die benötigten SDK-Pakete mit Android CLI 1.0+:
 
 ```bash
-android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
+android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 ```
 
 Lokale Builds verwenden standardmäßig `host` (`ripdpi.localNativeAbisDefault`) — die ABI wird aus der Host-Architektur abgeleitet (z. B. `arm64-v8a` auf Apple Silicon). Für den Emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.

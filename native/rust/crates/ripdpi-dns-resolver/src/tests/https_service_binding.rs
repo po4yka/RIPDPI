@@ -124,12 +124,10 @@ fn https_answer(
     response.metadata.response_code = ResponseCode::NoError;
     response.add_query(request.queries[0].clone());
     let record = |(owner, priority, target, public_name): &(&str, u16, &str, Option<&str>)| {
-        let params = public_name
-            .map(|name| {
-                let list = build_ech_config_list(vec![build_ech_config_entry_v18(1, name)]);
-                vec![(SvcParamKey::EchConfigList, SvcParamValue::EchConfigList(EchConfigList(list)))]
-            })
-            .unwrap_or_default();
+        let params = public_name.map_or_default(|name| {
+            let list = build_ech_config_list(vec![build_ech_config_entry_v18(1, name)]);
+            vec![(SvcParamKey::EchConfigList, SvcParamValue::EchConfigList(EchConfigList(list)))]
+        });
         let binding = SVCB::new(*priority, Name::from_ascii(target).expect("target"), params);
         Record::from_rdata(Name::from_ascii(owner).expect("owner"), 120, RData::HTTPS(HTTPS(binding)))
     };

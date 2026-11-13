@@ -38,14 +38,14 @@ biometric = "1.1.0"
 process-phoenix = "3.0.0"
 splashscreen = "1.2.0"
 kotlinx-collections-immutable = "0.5.2"
-kotlinx-serialization = "1.12.0"
+kotlinx-serialization = "1.13.0"
 kaml = "0.104.0"
 ipaddress = "5.6.2"
 room = "2.8.5"
 robolectric = "4.17"
-roborazzi = "1.77.0"
+roborazzi = "1.79.0"
 leakcanary = "2.14"
-compose-preview-plugin = "2.86.0"
+compose-preview-plugin = "2.91.0"
 retrofit = "3.0.0"
 okhttp = "5.5.1"
 profileinstaller = "1.4.1"
@@ -53,7 +53,7 @@ work = "2.12.0"
 androidx-hilt = "1.4.0"
 security-crypto = "1.1.0"
 brotli = "0.1.2"
-zstd-jni = "1.5.7-25"
+zstd-jni = "1.5.7-26"
 camerax = "1.6.2"
 mlkit-barcode = "17.3.0"
 zxing-core = "3.5.4"
@@ -88,11 +88,11 @@ glance = "1.2.0"
 # See docs/native/libxray-packaging.md for the full runbook.
 # Verified against upstream 2026-05-30 in the gomobile container lane
 # (scripts/native/libxray-build.Dockerfile): libXray uses CalVer tags mirroring
-# xray-core; `xray-core` is the go.mod module version libXray v26.3.27 vendors
-# (git tag v26.3.27 == module v1.260327.0). libXray v26.x requires Go >= 1.26.2.
-libxray = "v26.3.27"
-xray-core = "1.260327.0"
-gomobile = "0.0.0-20260529142300-ecb4cd65260a"
+# xray-core; `xray-core` is the paired module revision from libXray v26.11.9.
+# That libXray release requires Go >= 1.27.3.
+libxray = "v26.11.9"
+xray-core = "1.260327.1-0.20261109052709-676eaf66f8f0"
+gomobile = "0.0.0-20261011034528-197770444867"
 libxray-canary = "main"
 xray-core-canary = "main"
 

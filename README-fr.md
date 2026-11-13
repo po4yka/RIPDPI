@@ -130,14 +130,14 @@ Les chaînes de relais multi-sauts transportent une liste ordonnée de 2 à 4 sa
 
 ## Prérequis de compilation
 
-Prérequis : JDK 21, Android SDK (plateforme `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain Rust `1.98.1`, cibles Android Rust pour les ABI nécessaires, [`just`](https://just.systems) (exécuteur de tâches ; les recettes du `justfile` reproduisent la CI) et [`lefthook`](https://github.com/evilmartians/lefthook) (exécutez `lefthook install` une fois pour activer les contrôles pre-commit).
+Prérequis : JDK 21, Android SDK (plateforme `37.2`, CMake `4.1.2`), Android NDK `30.0.16248370`, toolchain Rust `1.100.0`, cibles Android Rust pour les ABI nécessaires, [`just`](https://just.systems) (exécuteur de tâches ; les recettes du `justfile` reproduisent la CI) et [`lefthook`](https://github.com/evilmartians/lefthook) (exécutez `lefthook install` une fois pour activer les contrôles pre-commit).
 
 Les builds release et la CI exigent le vrai AAR libXray patché ; sans lui, les builds debug locaux utilisent un stub (fonctions Xray indisponibles). Préparez Go amd64, les versions fixées de `gomobile` et `gobind`, ainsi que `ANDROID_NDK_HOME` selon [la procédure libXray](docs/native/libxray-packaging.md#build). Le producteur nécessite un dossier `native/xray/artifacts/` neuf ou vide et un accès aux sources fixées. Pour réutiliser un dossier vérifié conforme aux versions actuelles, passez `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` à Gradle ; la vérification avant empaquetage reste active.
 
 Installez les paquets SDK requis avec Android CLI 1.0+ :
 
 ```bash
-android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
+android sdk install platforms/android-37.2 ndk/30.0.16248370 cmake/4.1.2
 ```
 
 Les compilations locales utilisent par défaut `host` (`ripdpi.localNativeAbisDefault`) : l'ABI est dérivée de l'architecture de l'hôte (par ex. `arm64-v8a` sur Apple Silicon). Pour l'émulateur : `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.

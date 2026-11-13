@@ -142,8 +142,10 @@ func TestManagedListenerProtection(t *testing.T) {
 func TestManagedDnsProtection(t *testing.T) {
 	protector := &testProtector{}
 	listener := udpEcho(t)
-	InitDns(protector, listener.LocalAddr().String())
-	defer ResetDns()
+	if err := SetDNS(protector, listener.LocalAddr().String()); err != nil {
+		t.Fatal(err)
+	}
+	defer ResetDNS()
 	conn, err := net.DefaultResolver.Dial(context.Background(), "udp", "ignored")
 	if conn != nil {
 		conn.Close()

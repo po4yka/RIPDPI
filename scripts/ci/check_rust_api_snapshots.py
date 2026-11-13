@@ -51,7 +51,7 @@ class SnapshotViolation:
 
 def load_cargo_metadata(manifest_path: Path = WORKSPACE_MANIFEST) -> dict[str, Any]:
     result = subprocess.run(
-        ["cargo", "metadata", "--manifest-path", str(manifest_path), "--format-version", "1", "--no-deps"],
+        ["cargo", "metadata", "--locked", "--manifest-path", str(manifest_path), "--format-version", "1", "--no-deps"],
         check=True,
         capture_output=True,
         text=True,

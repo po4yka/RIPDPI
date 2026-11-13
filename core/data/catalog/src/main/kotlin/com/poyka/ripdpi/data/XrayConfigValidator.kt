@@ -5,6 +5,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import java.time.DateTimeException
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.ResolverStyle
 
 /**
  * Provider validation policy: Vision is required for the supported TCP shape
@@ -155,13 +160,51 @@ object XrayConfigValidator {
      * Unknown builds are not evidence that the combination is safe.
      */
     private fun isBrokenRealityXhttpTag(tag: String): Boolean {
-        val parts = tag.removePrefix("v").split('.').map { it.toIntOrNull() }
-        if (parts.size != VersionParts || parts.any { it == null }) return true
-        val version = if (parts[0] == 1) parts[1]!! else parts[0]!! * YearScale + parts[1]!! * MonthScale + parts[2]!!
-        return version in BrokenRealityXhttpVersion until FixedRealityXhttpVersion
+        val normalized = tag.removePrefix("v")
+        val pseudoBase = goPseudoBaseDate(normalized)
+        // A successor needs a fixed ancestor; a pre-regression base can still acquire the bug.
+        if (pseudoBase != null) return pseudoBase < FixedRealityXhttpVersion
+        val parts = normalized.split('.').map { it.toIntOrNull() }
+        return if (parts.size != VersionParts || parts.any { it == null }) {
+            true
+        } else {
+            val version =
+                if (parts[0] ==
+                    1
+                ) {
+                    parts[1]!!
+                } else {
+                    parts[0]!! * YearScale + parts[1]!! * MonthScale + parts[2]!!
+                }
+            version in BrokenRealityXhttpVersion until FixedRealityXhttpVersion
+        }
     }
 
+    private fun goPseudoBaseDate(tag: String): Int? {
+        val match = GoStableSuccessorVersion.matchEntire(tag) ?: return null
+        val version = match.groupValues[1].toInt()
+        return try {
+            LocalDate.of(
+                CalendarBaseYear + version / YearScale,
+                version / MonthScale % MonthScale,
+                version % MonthScale,
+            )
+            LocalDateTime.parse(match.groupValues[2], GoPseudoTimestamp)
+            // A later commit date does not establish a fix for a broken ancestor release.
+            version
+        } catch (_: DateTimeException) {
+            null
+        }
+    }
+
+    private val GoStableSuccessorVersion = Regex("""1\.([0-9]{6})\.[1-9][0-9]*-0\.([0-9]{14})-[0-9a-f]{12}""")
+    private val GoPseudoTimestamp =
+        DateTimeFormatter
+            .ofPattern(
+                "uuuuMMddHHmmss",
+            ).withResolverStyle(ResolverStyle.STRICT)
     private const val VersionParts = 3
+    private const val CalendarBaseYear = 2000
     private const val YearScale = 10_000
     private const val MonthScale = 100
     private const val BrokenRealityXhttpVersion = 260118

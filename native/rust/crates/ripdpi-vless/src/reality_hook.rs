@@ -669,8 +669,8 @@ mod tests {
     #[test]
     #[cfg_attr(miri, ignore)]
     fn live_boringssl_client_hello_hook_seals_with_extracted_x25519_key_share() {
-        assert!(BORING_HOOK_VECTOR.contains("\"boring\": \"=5.4.0\""));
-        assert!(BORING_HOOK_VECTOR.contains("\"tokio-boring\": \"=5.4.0\""));
+        assert!(BORING_HOOK_VECTOR.contains("\"boring\": \"=5.5.0\""));
+        assert!(BORING_HOOK_VECTOR.contains("\"tokio-boring\": \"=5.5.0\""));
         assert!(BORING_HOOK_VECTOR.contains("\"fixedNowSecs\": 1700000000"));
         assert!(BORING_HOOK_VECTOR.contains("\"shortIdHex\": \"abcd\""));
 

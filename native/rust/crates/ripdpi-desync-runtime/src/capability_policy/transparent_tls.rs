@@ -161,8 +161,7 @@ fn transparent_tls_family_chain(
 }
 
 fn transparent_tls_variant_seed(strategy_family: &'static str, payload: &[u8]) -> u32 {
-    let epoch_nanos =
-        SystemTime::now().duration_since(UNIX_EPOCH).map(|value| value.as_nanos() as u64).unwrap_or_default();
+    let epoch_nanos = SystemTime::now().duration_since(UNIX_EPOCH).map_or_default(|value| value.as_nanos() as u64);
     let mut mix = epoch_nanos ^ ((payload.len() as u64) << 16);
     for byte in strategy_family.bytes() {
         mix = mix.rotate_left(5) ^ u64::from(byte);

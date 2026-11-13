@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-13
+goal: OUT-1794578142905704 Migrate libXray API and preserve native protection
+  contracts

@@ -1,26 +1,24 @@
 # Reproducible container lane for the libXray Android ABI packaging.
 # Builds the exact toolchain scripts/native/build-libxray.sh needs:
-#   Go 1.27.3 (certificate verifier security fix) + Android SDK + NDK + gomobile.
-# Matches RIPDPI gradle.properties: compileSdk=36, NDK=29.0.14206865.
+#   Go 1.27.4 (certificate verifier security fix) + Android SDK + NDK + gomobile.
+# Matches RIPDPI gradle.properties: compileSdk=37.2, NDK=30.0.16248370.
 #
-# HOST ARCHITECTURE: build and run this image on x86_64. The Android NDK ships
-# only an x86_64 host toolchain (linux-x86_64 / darwin-x86_64); `gomobile bind`
-# runs the host clang, so on arm64 it panics "unsupported GOARCH: arm64". On
-# Apple Silicon, run under amd64 emulation (see docs/native/libxray-packaging.md
-# § Host architecture). Verified end-to-end (toolchain + libXray v26.3.27 clone +
-# xray-core drift gate) on 2026-05-30; the cross-compile itself needs x86_64.
+# HOST ARCHITECTURE: build and run this Linux image on x86_64. The pinned
+# gomobile does not support Linux arm64 Android builds. The host producer also
+# supports native arm64 macOS through the NDK's universal clang binary; see
+# docs/native/libxray-packaging.md, Host architecture.
 #
 # Usage:
 #   docker build --platform linux/amd64 -f scripts/native/libxray-build.Dockerfile -t ripdpi/libxray-build .
 #   docker run --rm --platform linux/amd64 -v "$PWD":/work:ro -e RIPDPI_XRAY_AAR_DIR=/artifacts \
 #     ripdpi/libxray-build -c 'cd /work && bash scripts/native/build-libxray.sh \
 #       && bash scripts/native/verify-libxray-artifacts.sh'
-FROM golang:1.27.3-bookworm
+FROM golang:1.27.4-trixie
 
-ARG ANDROID_CMDLINE_TOOLS_VERSION=11076708
-ARG ANDROID_PLATFORM=android-36
-ARG ANDROID_BUILD_TOOLS=36.0.0
-ARG NDK_VERSION=29.0.14206865
+ARG ANDROID_CMDLINE_TOOLS_VERSION=16111833
+ARG ANDROID_PLATFORM=android-37.2
+ARG ANDROID_BUILD_TOOLS=37.0.0
+ARG NDK_VERSION=30.0.16248370
 
 ENV DEBIAN_FRONTEND=noninteractive \
     ANDROID_SDK_ROOT=/opt/android-sdk \
@@ -32,7 +30,7 @@ RUN printf '#!/bin/sh\nn=0; until "$@"; do n=$((n+1)); [ $n -ge 5 ] && exit 1; e
 
 RUN retry apt-get update \
     && apt-get install -y --no-install-recommends \
-        openjdk-17-jdk-headless unzip git curl file ca-certificates \
+        openjdk-21-jdk-headless unzip git curl file ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools" \
@@ -55,8 +53,8 @@ ENV ANDROID_NDK_HOME="${ANDROID_SDK_ROOT}/ndk/${NDK_VERSION}" \
 # gomobile toolchain, pinned to gradle/libs.versions.toml `gomobile`.
 # Keep this version aligned with native/xray/patches/manifest.json.
 # Keep the public checksum database enabled.
-ARG GOMOBILE_VERSION=v0.0.0-20260529142300-ecb4cd65260a
-ENV GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOTOOLCHAIN=go1.27.3
+ARG GOMOBILE_VERSION=v0.0.0-20261011034528-197770444867
+ENV GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOTOOLCHAIN=go1.27.4
 RUN retry go install golang.org/x/mobile/cmd/gomobile@${GOMOBILE_VERSION} \
     && retry go install golang.org/x/mobile/cmd/gobind@${GOMOBILE_VERSION}
 ENV PATH="/go/bin:${PATH}"

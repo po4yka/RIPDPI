@@ -68,7 +68,7 @@ impl MonitorSession {
 
     pub fn poll_passive_events_json(&self) -> Result<Option<String>, String> {
         let session_id = self.active_session_id.lock().map_err(|_| "monitor session id poisoned".to_string())?.clone();
-        let events = session_id.as_deref().map(|id| self.platform_bridge.drain_passive_events(id)).unwrap_or_default();
+        let events = session_id.as_deref().map_or_default(|id| self.platform_bridge.drain_passive_events(id));
         passive_events_to_json(events)
     }
 

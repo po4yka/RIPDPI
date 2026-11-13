@@ -22,9 +22,9 @@ ABIS = {
 }
 
 ZLIB_BINARY_MANUALS = (
-    "zlib-1.3.2/contrib/dotzlib/DotZLib.chm",
-    "zlib-1.3.2/doc/crc-doc.1.0.pdf",
-    "zlib-1.3.2/zlib.3.pdf",
+    "contrib/dotzlib/DotZLib.chm",
+    "doc/crc-doc.1.0.pdf",
+    "zlib.3.pdf",
 )
 
 
@@ -33,6 +33,7 @@ def repack_zlib(source, original):
     manifest_path = source / "sources.json"
     manifest = json.loads(manifest_path.read_text())
     dep = next(item for item in manifest["dependencies"] if item["name"] == "zlib")
+    manuals = tuple(f"zlib-{dep['version']}/{name}" for name in ZLIB_BINARY_MANUALS)
     original_sha = dep.get("upstreamSha256", dep["sha256"])
     if sha256(original) != original_sha:
         raise ValueError("Original zlib archive checksum mismatch")
@@ -40,10 +41,10 @@ def repack_zlib(source, original):
     files = {}
     with tarfile.open(original) as upstream, tarfile.open(fileobj=data, mode="w", format=tarfile.USTAR_FORMAT) as output:
         members = sorted(upstream.getmembers(), key=lambda member: member.name)
-        if not set(ZLIB_BINARY_MANUALS).issubset({member.name for member in members}):
+        if not set(manuals).issubset({member.name for member in members}):
             raise ValueError("Pinned zlib manual inventory changed")
         for member in members:
-            if member.name in ZLIB_BINARY_MANUALS:
+            if member.name in manuals:
                 continue
             path = Path(member.name)
             if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
@@ -62,7 +63,7 @@ def repack_zlib(source, original):
     (source / "archives" / name).write_bytes(archive)
     dep.update(archive=name, sha256=hashlib.sha256(archive).hexdigest(), upstreamSha256=original_sha,
                repack={"format": "USTAR, zero uid/gid/mtime, sorted names, XZ preset 9",
-                       "excludedFiles": list(ZLIB_BINARY_MANUALS), "files": files})
+                       "excludedFiles": list(manuals), "files": files})
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Repacked zlib: {len(archive)} bytes, {len(files)} unchanged files, SHA256={dep['sha256']}")
 
@@ -134,8 +135,8 @@ def build_one(args, source, manifest, abi):
         if not args.ndk:
             raise ValueError("Android builds require --ndk")
         properties = (args.ndk / "source.properties").read_text()
-        if "Pkg.Revision = 29.0.14206865" not in properties:
-            raise ValueError("nfqws2 requires the pinned NDK 29.0.14206865")
+        if "Pkg.Revision = 30.0.16248370" not in properties:
+            raise ValueError("nfqws2 requires the pinned NDK 30.0.16248370")
         host = "darwin-x86_64" if platform.system() == "Darwin" else "linux-x86_64"
         tools = args.ndk / "toolchains" / "llvm" / "prebuilt" / host / "bin"
         clang_target, configure_target = ABIS[abi]
@@ -201,7 +202,7 @@ def build_one(args, source, manifest, abi):
     shutil.copytree(source / "upstream/files", args.output / "zapret2/files", dirs_exist_ok=True)
     shutil.copytree(source / "licenses", args.output / "zapret2/licenses", dirs_exist_ok=True)
     shutil.copy2(source / "sources.json", args.output / "zapret2/sources.json")
-    (dest / "nfqws2.build.json").write_text(json.dumps({"upstreamCommit": commit, "sourcesSha256": sha256(source / "sources.json"), "abi": abi, "api": args.api if args.platform == "android" else None, "ndk": "29.0.14206865" if args.platform == "android" else None, "luaVersion": lua["version"], "sha256": sha256(dest / "nfqws2")}, indent=2) + "\n")
+    (dest / "nfqws2.build.json").write_text(json.dumps({"upstreamCommit": commit, "sourcesSha256": sha256(source / "sources.json"), "abi": abi, "api": args.api if args.platform == "android" else None, "ndk": "30.0.16248370" if args.platform == "android" else None, "luaVersion": lua["version"], "sha256": sha256(dest / "nfqws2")}, indent=2) + "\n")
     print(f"Built {abi}: {sha256(dest / 'nfqws2')}", flush=True)
 
 

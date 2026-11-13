@@ -109,10 +109,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_StrategyEngineNativeBindings_l
         let mut env = env;
         match env
             .with_env(|env| -> jni::errors::Result<jobjectArray> {
-                let paths = LOADED_SCRIPT_PATHS
-                    .lock()
-                    .map(|paths| paths.iter().map(|path| path.to_string_lossy().to_string()).collect::<Vec<_>>())
-                    .unwrap_or_default();
+                let paths = LOADED_SCRIPT_PATHS.lock().map_or_default(|paths| {
+                    paths.iter().map(|path| path.to_string_lossy().to_string()).collect::<Vec<_>>()
+                });
                 string_array(env, &paths)
             })
             .into_outcome()

@@ -18,7 +18,7 @@ pub(super) fn classify_target_dns_integrity(
     oracle_assessment: &DnsOracleAssessment<DnsOracleResponse>,
 ) -> Option<StrategyDnsClassification> {
     let encrypted_addresses =
-        oracle_assessment.selected.as_ref().map(|selected| selected.value.addresses.clone()).unwrap_or_default();
+        oracle_assessment.selected.as_ref().map_or_default(|selected| selected.value.addresses.clone());
     let encrypted_ips = encrypted_addresses.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect::<Vec<_>>();
     if oracle_assessment.trust.allows_tampering_classification() && encrypted_ips.is_empty() {
         return None;

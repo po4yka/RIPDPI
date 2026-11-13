@@ -124,10 +124,10 @@ license = "MIT"
 
 [workspace.dependencies]
 shadowsocks = { path = "vendor/shadowsocks", version = "=1.25.0", default-features = false, features = ["aead-cipher", "aead-cipher-2022", "security-replay-attack-detect"] }
-prost = "0.14.4"
-prost-build = "0.14.4"
+prost = "0.14.6"
+prost-build = "0.14.6"
 protoc-bin-vendored = "3.3.0"
-ipnet = "2.12.1"
+ipnet = "2.12.2"
 android-support = { path = "crates/android-support" }
 golden-test-support = { path = "crates/golden-test-support" }
 local-network-fixture = { path = "crates/local-network-fixture" }
@@ -252,7 +252,7 @@ anyhow = "1"
 crypto_box = { version = "0.9", features = ["chacha20", "salsa20"] }
 etherparse = "0.21"
 pico-args = "0.5"
-psl = "2.1.248"
+psl = "2.1.253"
 hex = "0.4"
 jni = "0.22"
 libc = "0.2"
@@ -262,8 +262,8 @@ log = "0.4"
 loom = "0.7"
 metrics = "0.24"
 lru = "0.19"
-maxminddb = "0.32"
-memmap2 = "0.9.11"
+maxminddb = "0.33"
+memmap2 = "0.9.12"
 mlua = "0.12"
 mio = { version = "1.2", features = ["net", "os-poll"] }
 nix = { version = "0.31", features = ["net", "ioctl", "fs", "mman", "signal", "process", "uio", "zerocopy"] }
@@ -276,7 +276,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 similar = "3"
 yaml_serde = "0.10.7"
-toml = "1.1"
+toml = "1.2"
 socket2 = "0.6"
 proptest = "1"
 rcgen = "0.14"
@@ -310,8 +310,8 @@ yamux = "0.14"
 # update cannot silently swap in a vendored-BoringSSL revision that
 # renames or removes any of those symbols. See
 # docs/design/reality-boringssl-patch.md.
-boring = "=5.4.0"
-tokio-boring = "=5.4.0"
+boring = "=5.5.0"
+tokio-boring = "=5.5.0"
 webpki-roots = "1.0"
 flume = "0.12"
 crossbeam-queue = "0.3"
@@ -330,7 +330,7 @@ blake2 = "0.11"
 futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.10"
-ringbuf = { version = "0.5.2", features = ["alloc"] }
+ringbuf = { version = "0.6.0", features = ["alloc"] }
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"

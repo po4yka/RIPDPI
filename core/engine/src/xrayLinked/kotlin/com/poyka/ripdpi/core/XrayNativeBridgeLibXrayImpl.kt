@@ -3,10 +3,17 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.io.File
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import java.net.InetSocketAddress
 import java.net.Socket
-import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -20,30 +27,10 @@ import java.util.concurrent.atomic.AtomicReference
  * `LibXray` until it runs on a device.
  */
 internal interface LibXrayFfi {
-    /**
-     * Build the (base64) run request. Mirrors
-     * `String LibXray.newXrayRunFromJSONRequest(datDir, mphCachePath, configJSON)`,
-     * which is declared `throws Exception`.
-     */
+    /** Upstream API version 3 uses plain JSON for requests and responses. */
+    fun invoke(requestJson: String): String
+
     @Throws(Exception::class)
-    fun newRunFromJsonRequest(
-        datDir: String,
-        mphCachePath: String,
-        configJson: String,
-    ): String
-
-    /** Mirrors `String LibXray.runXrayFromJSON(base64Text)` — base64 CallResponse. */
-    fun runXrayFromJson(base64Request: String): String
-
-    /** Mirrors `String LibXray.stopXray()` — base64 CallResponse. */
-    fun stopXray(): String
-
-    /** Mirrors `String LibXray.xrayVersion()` — base64 CallResponse with version in `data`. */
-    fun xrayVersion(): String
-
-    /** Mirrors `boolean LibXray.getXrayState()` — run-state liveness. */
-    fun getXrayState(): Boolean
-
     fun initDns(
         controller: libXray.DialerController,
         server: String,
@@ -51,43 +38,23 @@ internal interface LibXrayFfi {
 
     fun resetDns()
 
-    /** Mirrors `void LibXray.registerDialerController(DialerController)`. */
     fun registerDialer(controller: libXray.DialerController)
 
-    /** Mirrors `void LibXray.registerListenerController(DialerController)`. */
     fun registerListener(controller: libXray.DialerController)
 }
 
-/**
- * Production [LibXrayFfi] that delegates to the gomobile-bound `libXray.LibXray`.
- *
- * This is the ONLY class that references `libXray.LibXray`; loading it triggers
- * the gojni native library load and therefore must never run on a host JVM.
- */
+/** Keeps the Android-only gojni loader outside host-test code. */
 internal class GomobileLibXrayFfi : LibXrayFfi {
-    @Throws(Exception::class)
-    override fun newRunFromJsonRequest(
-        datDir: String,
-        mphCachePath: String,
-        configJson: String,
-    ): String = libXray.LibXray.newXrayRunFromJSONRequest(datDir, mphCachePath, configJson)
-
-    override fun runXrayFromJson(base64Request: String): String = libXray.LibXray.runXrayFromJSON(base64Request)
-
-    override fun stopXray(): String = libXray.LibXray.stopXray()
-
-    override fun xrayVersion(): String = libXray.LibXray.xrayVersion()
-
-    override fun getXrayState(): Boolean = libXray.LibXray.getXrayState()
+    override fun invoke(requestJson: String): String = libXray.LibXray.invoke(requestJson)
 
     override fun initDns(
         controller: libXray.DialerController,
         server: String,
     ) {
-        libXray.LibXray.initDns(controller, server)
+        libXray.LibXray.setDNS(controller, server)
     }
 
-    override fun resetDns() = libXray.LibXray.resetDns()
+    override fun resetDns() = libXray.LibXray.resetDNS()
 
     override fun registerDialer(controller: libXray.DialerController) {
         libXray.LibXray.registerDialerController(controller)
@@ -126,13 +93,6 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
 ) : XrayNativeBridge {
     /** Public production constructor — uses the gomobile-backed FFI. */
     constructor(datDir: String) : this(datDir, GomobileLibXrayFfi())
-
-    /**
-     * Stable MPH-cache target under [datDir]. xray-core falls back to the raw
-     * `.dat` when no cache is present; this gives a future `BuildMphCache` step a
-     * fixed location without an extra Hilt binding.
-     */
-    private val mphCachePath: String = File(datDir, MPH_CACHE_FILE_NAME).absolutePath
 
     private val protectController = AtomicReference<XrayProtectController?>()
     private var dialerRegistered = false
@@ -174,26 +134,34 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
                 },
                 "127.0.0.1:53",
             )
-            val request = ffi.newRunFromJsonRequest(datDir, mphCachePath, jsonConfig)
-            val response = ffi.runXrayFromJson(request)
-            if (parseCallResponseSuccess(response)) START_OK else START_REJECTED
+            val config = JSON.parseToJsonElement(jsonConfig).jsonObject.toMutableMap()
+            val environment =
+                when (val current = config["env"]) {
+                    null, JsonNull -> mutableMapOf()
+                    is JsonObject -> current.toMutableMap()
+                    else -> error("Xray environment must be an object or null")
+                }
+            environment["xray.location.asset"] = JsonPrimitive(datDir)
+            config["env"] = JsonObject(environment)
+            val response = invoke("runXray", buildJsonObject { put("xrayJson", JsonObject(config).toString()) })
+            if (response?.success == true) START_OK else START_REJECTED
         } catch (_: Exception) {
-            // newXrayRunFromJSONRequest is `throws Exception`; any native failure
-            // is a rejected start, not a thrown bridge error.
+            // A native/API failure rejects activation without exposing configuration data.
             START_REJECTED
         }
     }
 
     override fun stop() {
         protectController.set(null)
-        check(parseCallResponseSuccess(ffi.stopXray())) { "Xray native cleanup failed" }
+        check(invoke("stopXray")?.success == true) { "Xray native cleanup failed" }
         ffi.resetDns()
         inbound = null
     }
 
     override fun version(): String {
-        val data = runCatching { decodeCallResponseData(ffi.xrayVersion()) }.getOrNull()
-        return "Xray " + (data?.takeIf(String::isNotBlank) ?: "unknown")
+        val data = runCatching { invoke("xrayVersion")?.takeIf(CallResponse::success)?.data as? JsonObject }.getOrNull()
+        val version = (data?.get("version") as? JsonPrimitive)?.contentOrNull
+        return "Xray " + (version?.takeIf(String::isNotBlank) ?: "unknown")
     }
 
     override fun listenerReady(): Boolean {
@@ -213,40 +181,38 @@ class XrayNativeBridgeLibXrayImpl internal constructor(
         }.getOrDefault(false)
     }
 
-    override fun isAlive(): Boolean = runCatching { ffi.getXrayState() }.getOrDefault(false)
+    override fun isAlive(): Boolean =
+        runCatching {
+            val data = invoke("getXrayState")?.takeIf(CallResponse::success)?.data as? JsonObject
+            val running = data?.get("running") as? JsonPrimitive
+            running?.takeUnless(JsonPrimitive::isString)?.booleanOrNull == true
+        }.getOrDefault(false)
 
-    /**
-     * libXray `nodep.CallResponse[T]` — gomobile returns this base64-encoded.
-     * The error key is `error` (omitempty), not `err`.
-     */
     @Serializable
     private data class CallResponse(
         val success: Boolean = false,
-        val data: String = "",
+        val data: JsonElement = JsonNull,
         @SerialName("error") val error: String = "",
     )
 
-    /** Decode a base64 CallResponse; an empty string is a marshal failure. */
-    private fun parseCallResponse(base64Text: String): CallResponse? {
-        if (base64Text.isEmpty()) return null
-        return runCatching {
-            val json = String(Base64.getDecoder().decode(base64Text), Charsets.UTF_8)
-            JSON.decodeFromString(CallResponse.serializer(), json)
-        }.getOrNull()
+    private fun invoke(
+        method: String,
+        payload: JsonObject = buildJsonObject {},
+    ): CallResponse? {
+        val request =
+            buildJsonObject {
+                put("apiVersion", 3)
+                put("method", method)
+                put("payload", payload)
+            }
+        val response = ffi.invoke(request.toString())
+        return runCatching { JSON.decodeFromString(CallResponse.serializer(), response) }.getOrNull()
     }
-
-    /** True only when the response decodes and reports `success`. */
-    private fun parseCallResponseSuccess(base64Text: String): Boolean = parseCallResponse(base64Text)?.success == true
-
-    /** The `data` field of a successful CallResponse, or null on any failure. */
-    private fun decodeCallResponseData(base64Text: String): String? =
-        parseCallResponse(base64Text)?.takeIf(CallResponse::success)?.data
 
     private companion object {
         const val ReadinessTimeoutMillis = 200
         const val START_OK = 0
         const val START_REJECTED = 1
-        const val MPH_CACHE_FILE_NAME = "geo.mph"
         val JSON = RipDpiJson
     }
 }

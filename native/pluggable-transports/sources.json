@@ -5,7 +5,7 @@
       "id": "snowflake",
       "repoUrl": "https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake.git",
       "commit": "3bd77dc0f574255d072f70a840e18c0af3d43866",
-      "goToolchain": "go1.26.10",
+      "goToolchain": "go1.27.4",
       "goLinkerFlags": [
         "-checklinkname=0"
       ],
@@ -19,8 +19,8 @@
     {
       "id": "lyrebird",
       "repoUrl": "https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird.git",
-      "commit": "fc105a03c0e0acc2479301c361c012ffed359c43",
-      "goToolchain": "go1.22.12",
+      "commit": "59ac7e400c384773f5584dbe366516ad04a33d9f",
+      "goToolchain": "go1.27.4",
       "cgoEnabled": true,
       "packagePath": "./cmd/lyrebird",
       "sourceBinaryName": "lyrebird",
@@ -40,8 +40,8 @@
     {
       "id": "cloudflared",
       "repoUrl": "https://github.com/cloudflare/cloudflared.git",
-      "commit": "2026.2.0",
-      "goToolchain": "go1.24.0",
+      "commit": "2026.11.0",
+      "goToolchain": "go1.27.4",
       "cgoEnabled": true,
       "packagePath": "./cmd/cloudflared",
       "sourceBinaryName": "cloudflared",

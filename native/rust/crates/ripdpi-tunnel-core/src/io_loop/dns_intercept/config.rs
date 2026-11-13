@@ -61,7 +61,7 @@ pub(in crate::io_loop) fn parse_dns_cache(
         let Some(runtime) = runtime else {
             return Ok(None);
         };
-        let cache_size = config.mapdns.as_ref().map(|value| value.cache_size as usize).unwrap_or_default();
+        let cache_size = config.mapdns.as_ref().map_or_default(|value| value.cache_size as usize);
         if cache_size == 0 {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "mapdns.cache_size must be greater than zero"));
         }

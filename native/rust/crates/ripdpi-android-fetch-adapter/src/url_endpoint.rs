@@ -23,7 +23,7 @@ pub(crate) fn parse_url_endpoint(url: &Url) -> io::Result<UrlEndpoint> {
     };
     let port = url.port_or_known_default().unwrap_or(default_port(url.scheme()));
     let path = url.path().to_string();
-    let query_suffix = url.query().map(|query| format!("?{query}")).unwrap_or_default();
+    let query_suffix = url.query().map_or_default(|query| format!("?{query}"));
     Ok(UrlEndpoint { host, http_host, port, target_path: format!("{path}{query_suffix}") })
 }
 

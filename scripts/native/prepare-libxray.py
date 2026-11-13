@@ -51,20 +51,25 @@ def main() -> None:
         raise ValueError("upstream source must be a fresh clean checkout")
     modules = (
         ("github.com/xtls/xray-core", versions["xray-core"], patches["xrayCoreModuleSum"], "xray-core", "xray-core-protect-errors.patch"),
-        ("google.golang.org/grpc", patches["grpc"], patches["grpcModuleSum"], "grpc", "grpc-stdlib-trailer-prefix.patch"),
+        ("google.golang.org/grpc", patches["grpc"], patches["grpcModuleSum"], "grpc", None),
+        ("github.com/pion/stun/v3", patches["stun"], patches["stunModuleSum"], "stun", "stun-android-public-dialer.patch"),
     )
     for module, version, checksum, name, patch in modules:
         target = source.parent / name
         module_copy(source, module, "v" + version, checksum, target)
-        run(["git", "apply", "--unidiff-zero", "--check", str(PATCHES / patch)], target)
-        run(["git", "apply", "--unidiff-zero", str(PATCHES / patch)], target)
+        if patch is not None:
+            run(["git", "apply", "--unidiff-zero", "--check", str(PATCHES / patch)], target)
+            run(["git", "apply", "--unidiff-zero", str(PATCHES / patch)], target)
+        else:
+            # The checksum-pinned gRPC release contains the former local fix.
+            fixed = (target / "internal/transport/handler_server.go").read_text()
+            if "http.TrailerPrefix" not in fixed:
+                raise ValueError("pinned gRPC is missing the upstream trailer fix")
     patch = PATCHES / "libxray-managed-runtime.patch"
     run(["git", "apply", "--unidiff-zero", "--check", str(patch)], source)
     run(["git", "apply", "--unidiff-zero", str(patch)], source)
     for module, _, _, name, _ in modules:
         run(["go", "mod", "edit", "-replace", f"{module}=../{name}"], source)
-    # gomobile's pinned source graph selects x/net 0.54.0. The existing gRPC
-    # release needs only its obsolete TrailerPrefix reference moved to net/http.
     run(["go", "get", "golang.org/x/mobile@v" + versions["gomobile"]], source)
     run(["go", "mod", "verify"], source)
     actual = json.loads(run(["go", "list", "-m", "-json", "golang.org/x/mobile"], source, True))

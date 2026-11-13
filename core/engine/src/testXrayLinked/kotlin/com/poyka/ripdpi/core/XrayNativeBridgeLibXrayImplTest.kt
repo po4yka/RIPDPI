@@ -1,5 +1,12 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.serialization.RipDpiJson
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -7,7 +14,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetAddress
 import java.net.ServerSocket
-import java.util.Base64
 import java.util.concurrent.CompletableFuture
 
 /**
@@ -22,8 +28,8 @@ import java.util.concurrent.CompletableFuture
  */
 class XrayNativeBridgeLibXrayImplTest {
     /**
-     * Fake [LibXrayFfi] that records calls and replays scripted base64
-     * CallResponse strings. Never loads gojni.
+     * Fake [LibXrayFfi] that records requests and returns scripted JSON
+     * Invoke responses. Never loads gojni.
      */
     private class FakeLibXrayFfi(
         var runResponse: String = encodeCallResponse(success = true),
@@ -33,45 +39,46 @@ class XrayNativeBridgeLibXrayImplTest {
         var throwOnRequest: Boolean = false,
     ) : LibXrayFfi {
         val calls: MutableList<String> = mutableListOf()
-        var lastDatDir: String? = null
-        var lastMphCachePath: String? = null
         var lastConfigJson: String? = null
         val registeredDialers: MutableList<libXray.DialerController> = mutableListOf()
         val registeredListeners: MutableList<libXray.DialerController> = mutableListOf()
 
-        override fun newRunFromJsonRequest(
-            datDir: String,
-            mphCachePath: String,
-            configJson: String,
-        ): String {
-            calls += "newRunFromJsonRequest"
-            lastDatDir = datDir
-            lastMphCachePath = mphCachePath
-            lastConfigJson = configJson
-            if (throwOnRequest) {
-                throw IllegalStateException("simulated native request failure")
+        override fun invoke(requestJson: String): String {
+            val request = RipDpiJson.parseToJsonElement(requestJson).jsonObject
+            assertEquals(3, request.getValue("apiVersion").jsonPrimitive.int)
+            val method = request.getValue("method").jsonPrimitive.content
+            calls += method
+            return when (method) {
+                "runXray" -> {
+                    lastConfigJson =
+                        request
+                            .getValue("payload")
+                            .jsonObject
+                            .getValue("xrayJson")
+                            .jsonPrimitive.content
+                    if (throwOnRequest) error("simulated native invocation failure")
+                    runResponse
+                }
+
+                "stopXray" -> {
+                    stopResponse
+                }
+
+                "xrayVersion" -> {
+                    versionResponse
+                }
+
+                "getXrayState" -> {
+                    buildJsonObject {
+                        put("success", true)
+                        put("data", buildJsonObject { put("running", xrayStateValue) })
+                    }.toString()
+                }
+
+                else -> {
+                    error("Unexpected native method: $method")
+                }
             }
-            return "base64-request"
-        }
-
-        override fun runXrayFromJson(base64Request: String): String {
-            calls += "runXrayFromJson"
-            return runResponse
-        }
-
-        override fun stopXray(): String {
-            calls += "stopXray"
-            return stopResponse
-        }
-
-        override fun xrayVersion(): String {
-            calls += "xrayVersion"
-            return versionResponse
-        }
-
-        override fun getXrayState(): Boolean {
-            calls += "getXrayState"
-            return xrayStateValue
         }
 
         override fun initDns(
@@ -132,12 +139,69 @@ class XrayNativeBridgeLibXrayImplTest {
         val code = bridge.start(CONFIG_WITH_SECRET)
 
         assertEquals(0, code)
-        assertEquals(listOf("initDns:127.0.0.1:53", "newRunFromJsonRequest", "runXrayFromJson"), ffi.calls)
-        // datDir + a derived mph path under it are passed through verbatim.
-        assertEquals(DAT_DIR, ffi.lastDatDir)
-        assertNotNull(ffi.lastMphCachePath)
-        assertTrue(ffi.lastMphCachePath!!.startsWith(DAT_DIR))
-        assertEquals(CONFIG_WITH_SECRET, ffi.lastConfigJson)
+        assertEquals(listOf("initDns:127.0.0.1:53", "runXray"), ffi.calls)
+        val actual = RipDpiJson.parseToJsonElement(ffi.lastConfigJson!!).jsonObject
+        assertEquals(
+            DAT_DIR,
+            actual
+                .getValue("env")
+                .jsonObject
+                .getValue("xray.location.asset")
+                .jsonPrimitive.content,
+        )
+        assertEquals(RipDpiJson.parseToJsonElement(CONFIG_WITH_SECRET), JsonObject(actual - "env"))
+    }
+
+    @Test
+    fun `Invoke keeps existing config environment and the managed asset directory`() {
+        val ffi = FakeLibXrayFfi()
+        val bridge = XrayNativeBridgeLibXrayImpl(DAT_DIR, ffi)
+        bridge.registerProtect { true }
+        val config = CONFIG_WITH_SECRET.replaceFirst("{", "{\"env\":{\"keep\":\"present\"},")
+
+        assertEquals(0, bridge.start(config))
+
+        val environment =
+            RipDpiJson
+                .parseToJsonElement(ffi.lastConfigJson!!)
+                .jsonObject
+                .getValue("env")
+                .jsonObject
+        assertEquals("present", environment.getValue("keep").jsonPrimitive.content)
+        assertEquals(DAT_DIR, environment.getValue("xray.location.asset").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `Invoke treats null environment as empty while retaining the asset directory`() {
+        val ffi = FakeLibXrayFfi()
+        val bridge = XrayNativeBridgeLibXrayImpl(DAT_DIR, ffi)
+        bridge.registerProtect { true }
+        val config = CONFIG_WITH_SECRET.replaceFirst("{", "{\"env\":null,")
+
+        assertEquals(0, bridge.start(config))
+
+        val actual = RipDpiJson.parseToJsonElement(requireNotNull(ffi.lastConfigJson)).jsonObject
+        assertEquals(
+            DAT_DIR,
+            actual
+                .getValue("env")
+                .jsonObject
+                .getValue("xray.location.asset")
+                .jsonPrimitive.content,
+        )
+        assertEquals(RipDpiJson.parseToJsonElement(CONFIG_WITH_SECRET), JsonObject(actual - "env"))
+    }
+
+    @Test
+    fun `Invoke rejects environment values that are neither objects nor null`() {
+        for (environment in listOf("[]", "\"invalid\"", "42")) {
+            val ffi = FakeLibXrayFfi()
+            val bridge = XrayNativeBridgeLibXrayImpl(DAT_DIR, ffi)
+            bridge.registerProtect { true }
+
+            assertTrue(bridge.start(CONFIG_WITH_SECRET.replaceFirst("{", "{\"env\":$environment,")) != 0)
+            assertEquals(null, ffi.lastConfigJson)
+        }
     }
 
     @Test
@@ -171,19 +235,18 @@ class XrayNativeBridgeLibXrayImplTest {
     }
 
     @Test
-    fun `start returns non-zero when the request builder throws and never escapes`() {
+    fun `start returns non-zero when Invoke throws and never escapes`() {
         val ffi = FakeLibXrayFfi(throwOnRequest = true)
         val bridge = XrayNativeBridgeLibXrayImpl(DAT_DIR, ffi)
 
         bridge.registerProtect { true }
         ffi.calls.clear()
         assertTrue(bridge.start(CONFIG_WITH_SECRET) != 0)
-        // runXrayFromJson is never reached after the request builder throws.
-        assertEquals(listOf("initDns:127.0.0.1:53", "newRunFromJsonRequest"), ffi.calls)
+        assertEquals(listOf("initDns:127.0.0.1:53", "runXray"), ffi.calls)
     }
 
     @Test
-    fun `version extracts data from the base64 CallResponse`() {
+    fun `version extracts the typed Invoke data`() {
         val ffi = FakeLibXrayFfi(versionResponse = encodeCallResponse(success = true, data = "26.3.27"))
         val bridge = XrayNativeBridgeLibXrayImpl(DAT_DIR, ffi)
 
@@ -234,8 +297,8 @@ class XrayNativeBridgeLibXrayImplTest {
         bridge.start(CONFIG_WITH_SECRET)
 
         val registerIdx = ffi.calls.indexOf("registerDialer")
-        val startIdx = ffi.calls.indexOf("runXrayFromJson")
-        assertTrue("registerDialer before runXrayFromJson", registerIdx in 0 until startIdx)
+        val startIdx = ffi.calls.indexOf("runXray")
+        assertTrue("registerDialer before runXray", registerIdx in 0 until startIdx)
     }
 
     @Test
@@ -371,20 +434,16 @@ class XrayNativeBridgeLibXrayImplTest {
                 """[{"settings":{"vnext":[{"users":""" +
                 """[{"id":"d0c0ffee-dead-beef-cafe-000000000001"}]}]}}]}"""
 
-        /** Build a base64-encoded `nodep.CallResponse` JSON, as gomobile returns. */
+        /** An independent fixture for the upstream API version 3 response. */
         fun encodeCallResponse(
             success: Boolean,
             data: String = "",
             error: String = "",
-        ): String {
-            val json =
-                buildString {
-                    append("{\"success\":").append(success)
-                    if (data.isNotEmpty()) append(",\"data\":\"").append(data).append("\"")
-                    if (error.isNotEmpty()) append(",\"error\":\"").append(error).append("\"")
-                    append("}")
-                }
-            return Base64.getEncoder().encodeToString(json.toByteArray(Charsets.UTF_8))
-        }
+        ): String =
+            buildJsonObject {
+                put("success", success)
+                put("data", buildJsonObject { if (data.isNotEmpty()) put("version", data) })
+                put("error", error)
+            }.toString()
     }
 }

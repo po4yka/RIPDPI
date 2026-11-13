@@ -46,6 +46,6 @@ improper_ctypes = "warn"
 improper_ctypes_definitions = "warn"
 
 [clippy]
-msrv = "1.98.1"
+msrv = "1.100.0"
 too-many-arguments-threshold = 8
 type-complexity-threshold = 300

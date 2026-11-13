@@ -1,20 +1,20 @@
 # nfqws2 root backend
 
 This directory contains the native upstream backend at commit
-`ca950d838a0ee7dc32bb6ae5e65e54488c1bfe3b`. The Android service owns root
+`038c97e5819df10f8e8c22a2f1fffe57f2f7379b`. The Android service owns root
 activation, process supervision, protection-server lifetime, and NFQUEUE rules.
 The existing in-process Lua sandbox has separate assets and dependencies.
 
 `sources.json` locks the upstream C headers and sources, all six Lua libraries,
 payload files, dependency archives, integration patches, bridge, and license
 notices with SHA256. The upstream source is unchanged. The build applies the
-upstream Android netfilter patch, the NDK 29 IPv4 helper patch, and the Android
+upstream Android netfilter patch, the NDK IPv4 helper patch, and the Android
 VPN protection patch only in its private output directory.
 
-Dependencies are static PUC Lua 5.4.8, zlib 1.3.2, libmnl 1.0.5,
+Dependencies are static PUC Lua 5.5.1, zlib 1.4, libmnl 1.0.5,
 libnfnetlink 1.0.2, and libnetfilter_queue 1.0.5. The checked archives contain
 their source and license notices. The zlib source archive omits only three
-binary manuals to meet the repository file-size limit. All 251 retained files
+binary manuals to meet the repository file-size limit. All 260 retained files
 match the official archive byte for byte. `sources.json` records the official
 URL and checksum, each retained file checksum, and the exact exclusions.
 `licenses/` contains the notices that are also packaged with the backend.
@@ -23,12 +23,12 @@ Builds need no network access.
 To regenerate the zlib source archive from the verified official download:
 
 ```sh
-python3 scripts/native/build-nfqws2.py --repack-zlib /tmp/zlib-1.3.2.tar.gz
+python3 scripts/native/build-nfqws2.py --repack-zlib /tmp/zlib-1.4.tar.gz
 ```
 
 ## Android build
 
-Requirements: Python 3.12+, make, patch, and Android NDK `29.0.14206865`.
+Requirements: Python 3.12+, make, patch, and Android NDK `30.0.16248370`.
 The minimum Android API is 27. Both 64-bit binaries use 16 KiB ELF page alignment.
 
 ```sh

@@ -33,9 +33,13 @@ def policy() -> tuple[dict, dict, dict]:
     patches = json.loads((PATCHES / "manifest.json").read_text())
     if patches["schemaVersion"] != 1 or patches["libxray"] != versions["libxray"] or patches["xrayCore"] != versions["xray-core"]:
         raise ValueError("patch set does not match the pinned stable sources")
-    expected = {"libxray-managed-runtime.patch", "xray-core-protect-errors.patch", "grpc-stdlib-trailer-prefix.patch"}
+    expected = {"libxray-managed-runtime.patch", "xray-core-protect-errors.patch", "stun-android-public-dialer.patch"}
     if set(patches["patches"]) != expected:
         raise ValueError("mandatory native protection/ownership patches are missing")
+    if patches.get("upstreamFixes") != {"grpc-stdlib-trailer-prefix": {
+        "version": "1.85.0", "source": "internal/transport/handler_server.go", "required": "http.TrailerPrefix",
+    }}:
+        raise ValueError("reviewed upstream gRPC fix policy is missing")
     for name, expected_digest in patches["patches"].items():
         if digest(PATCHES / name) != expected_digest:
             raise ValueError(f"patch digest mismatch: {name}")
@@ -125,11 +129,10 @@ def inspect_api(classes: bytes) -> None:
         result = subprocess.run([javap, "-classpath", str(jar_path), "libXray.LibXray", "libXray.DialerController"],
                                 capture_output=True, text=True, check=True, timeout=30)
     for signature in (
-        "String newXrayRunFromJSONRequest(java.lang.String, java.lang.String, java.lang.String) throws java.lang.Exception;",
-        "String runXrayFromJSON(java.lang.String);", "String stopXray();", "boolean getXrayState();",
-        "String xrayVersion();", "void registerDialerController(libXray.DialerController);",
-        "void registerListenerController(libXray.DialerController);", "void initDns(libXray.DialerController, java.lang.String);",
-        "void resetDns();", "boolean protectFd(long);",
+        "String invoke(java.lang.String);", "void registerDialerController(libXray.DialerController);",
+        "void registerListenerController(libXray.DialerController);",
+        "void setDNS(libXray.DialerController, java.lang.String) throws java.lang.Exception;",
+        "void resetDNS();", "boolean protectFd(long);",
     ):
         if signature not in result.stdout:
             raise ValueError(f"gomobile API signature missing: {signature}")
@@ -143,7 +146,8 @@ def verify(directory: Path, abis: str | None = None, release: bool = False) -> d
     fields = {"schemaVersion": 2, "channel": "stable", "libxray": versions["libxray"],
               "libxrayCommit": patches["libxrayCommit"], "xrayCore": versions["xray-core"],
               "xrayCoreModuleSum": patches["xrayCoreModuleSum"], "grpc": patches["grpc"],
-              "grpcModuleSum": patches["grpcModuleSum"], "gomobile": versions["gomobile"],
+              "grpcModuleSum": patches["grpcModuleSum"], "stun": patches["stun"],
+              "stunModuleSum": patches["stunModuleSum"], "gomobile": versions["gomobile"],
               "ndkVersion": properties["ripdpi.nativeNdkVersion"], "minSdk": properties["ripdpi.minSdk"],
               "patchManifestSha256": digest(PATCHES / "manifest.json"),
               "buildRecipeSha256": digest(ROOT / "scripts/native/build-libxray.sh")}
@@ -190,7 +194,8 @@ def create(directory: Path, sources: Path, abis: str) -> None:
     metadata = {"schemaVersion": 2, "channel": "stable", "libxray": versions["libxray"],
                 "libxrayCommit": patches["libxrayCommit"], "xrayCore": versions["xray-core"],
                 "xrayCoreModuleSum": patches["xrayCoreModuleSum"], "grpc": patches["grpc"],
-                "grpcModuleSum": patches["grpcModuleSum"], "gomobile": versions["gomobile"],
+                "grpcModuleSum": patches["grpcModuleSum"], "stun": patches["stun"],
+              "stunModuleSum": patches["stunModuleSum"], "gomobile": versions["gomobile"],
                 "ndkVersion": properties["ripdpi.nativeNdkVersion"], "minSdk": properties["ripdpi.minSdk"],
                 "patchManifestSha256": digest(PATCHES / "manifest.json"), "abis": abis.split(","),
                 "buildRecipeSha256": digest(ROOT / "scripts/native/build-libxray.sh"),

@@ -15,7 +15,7 @@ use thiserror::Error;
 use tracing::{debug, error, trace, trace_span, warn};
 
 use crate::{
-    Dir, Duration, EndpointConfig, Frame, INITIAL_MTU, Instant, MAX_CID_SIZE, MAX_STREAM_COUNT,
+    Dir, Duration, EndpointConfig, Frame, Instant, MAX_CID_SIZE, MAX_STREAM_COUNT,
     MIN_INITIAL_SIZE, Side, StreamId, TIMER_GRANULARITY, TokenStore, Transmit, TransportError,
     TransportErrorCode, VarInt,
     cid_generator::ConnectionIdGenerator,
@@ -474,6 +474,8 @@ impl Connection {
         // packets, this can be earlier than the start of the current QUIC packet.
         let mut datagram_start = 0;
         let mut segment_size = usize::from(self.path.current_mtu());
+        // The peer's maximum UDP payload size can reduce the path MTU below our configured minimum.
+        let min_mtu = Ord::min(self.config.min_mtu, self.path.current_mtu());
 
         if let Some(challenge) = self.send_path_challenge(now, buf) {
             return Some(challenge);
@@ -641,7 +643,7 @@ impl Connection {
                 // Finish current packet
                 if let Some(mut builder) = builder_storage.take() {
                     if pad_datagram {
-                        builder.pad_to(MIN_INITIAL_SIZE);
+                        builder.pad_to(min_mtu);
                     }
 
                     if num_datagrams > 1 || pad_datagram_to_mtu {
@@ -653,7 +655,7 @@ impl Connection {
                         // optimal value.
                         //
                         // Additionally, if this datagram is a loss probe and `segment_size` is
-                        // larger than `INITIAL_MTU`, then padding it to `segment_size` to continue
+                        // larger than `min_mtu`, then padding it to `segment_size` to continue
                         // the GSO batch would risk failure to recover from a reduction in path
                         // MTU. Loss probes are the only packets for which we might grow
                         // `buf_capacity` by less than `segment_size`.
@@ -697,7 +699,7 @@ impl Connection {
                         // end up trying to send an empty packet. We can't easily compute the right
                         // segment size before the original call to `space_can_send`, because at
                         // that time we haven't determined whether we're going to coalesce with the
-                        // first datagram or potentially pad it to `MIN_INITIAL_SIZE`.
+                        // first datagram or potentially pad it to `min_mtu`.
                         if space_id == SpaceId::Data {
                             let frame_space_1rtt =
                                 segment_size.saturating_sub(self.predict_1rtt_overhead(Some(pn)));
@@ -716,7 +718,7 @@ impl Connection {
                         // Clamp the datagram to at most the minimum MTU to ensure that loss probes
                         // can get through and enable recovery even if the path MTU has shrank
                         // unexpectedly.
-                        std::cmp::min(segment_size, usize::from(INITIAL_MTU))
+                        std::cmp::min(segment_size, usize::from(min_mtu))
                     }
                 };
                 buf_capacity += next_datagram_size_limit;
@@ -796,6 +798,8 @@ impl Connection {
                 // especially important with ack delay, since the peer might not
                 // have gotten any other ACK for the data earlier on.
                 if !self.spaces[space_id].pending_acks.ranges().is_empty() {
+                    // Reserve room for CONNECTION_CLOSE even when an Initial token leaves
+                    // little space after the header.
                     Self::try_populate_acks(
                         now,
                         self.receiving_ecn,
@@ -803,18 +807,11 @@ impl Connection {
                         &mut self.spaces[space_id],
                         buf,
                         &mut self.stats,
-                        buf_capacity,
+                        builder.max_size - frame::ConnectionClose::SIZE_BOUND,
                     );
                 }
 
-                // Since there only 64 ACK frames there will always be enough space
-                // to encode the ConnectionClose frame too. However we still have the
-                // check here to prevent crashes if something changes.
-                debug_assert!(
-                    buf.len() + frame::ConnectionClose::SIZE_BOUND < builder.max_size,
-                    "ACKs should leave space for ConnectionClose"
-                );
-                if buf.len() + frame::ConnectionClose::SIZE_BOUND < builder.max_size {
+                if buf.len() + frame::ConnectionClose::SIZE_BOUND <= builder.max_size {
                     let max_frame_size = builder.max_size - buf.len();
                     match self.state {
                         State::Closed(state::Closed { ref reason }) => {
@@ -921,10 +918,10 @@ impl Connection {
         // Finish the last packet
         if let Some(mut builder) = builder_storage {
             if pad_datagram {
-                builder.pad_to(MIN_INITIAL_SIZE);
+                builder.pad_to(min_mtu);
             }
 
-            // If this datagram is a loss probe and `segment_size` is larger than `INITIAL_MTU`,
+            // If this datagram is a loss probe and `segment_size` is larger than `min_mtu`,
             // then padding it to `segment_size` would risk failure to recover from a reduction in
             // path MTU.
             // Loss probes are the only packets for which we might grow `buf_capacity`
@@ -4116,6 +4113,92 @@ fn negotiate_max_idle_timeout(x: Option<VarInt>, y: Option<VarInt>) -> Option<Du
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "rustls-ring")]
+    #[test]
+    fn large_initial_token_leaves_room_for_close() {
+        let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(cert.cert.der().clone()).unwrap();
+        let config = crate::ClientConfig::with_root_certificates(Arc::new(roots)).unwrap();
+        // With 40 bytes of header overhead, a 16-byte tag, and a 35-byte ACK,
+        // a 1084-byte token leaves exactly ConnectionClose::SIZE_BOUND bytes.
+        for (token_len, ack_fits) in [
+            (1083, true),
+            (1084, true),
+            (1085, false),
+            (1100, false),
+            // Exactly enough frame space for CONNECTION_CLOSE alone.
+            (1119, false),
+        ] {
+            config
+                .token_store
+                .insert("localhost", vec![0; token_len].into());
+            let mut endpoint =
+                crate::Endpoint::new(Arc::new(EndpointConfig::default()), None, true, None);
+            let now = Instant::now();
+            let (_, mut conn) = endpoint
+                .connect(
+                    now,
+                    config.clone(),
+                    "[::1]:4433".parse().unwrap(),
+                    "localhost",
+                )
+                .unwrap();
+            let keys = conn
+                .crypto
+                .initial_keys(&conn.initial_dst_cid, Side::Server);
+            let space = &mut conn.spaces[SpaceId::Initial];
+            for pn in (0..32).step_by(2) {
+                space.pending_acks.insert_one(pn, now);
+                space.dedup.insert(pn);
+                space
+                    .pending_acks
+                    .packet_received(now, pn, true, &space.dedup);
+            }
+            conn.close(now, 0u32.into(), Bytes::new());
+            let mut buf = Vec::new();
+            assert!(conn.poll_transmit(now, 1, &mut buf).is_some());
+            assert!(buf.len() <= 1200);
+            assert!(!conn.close);
+
+            let (packet, rest) = PartialDecode::new(
+                buf.as_slice().into(),
+                &FixedLengthConnectionIdParser::new(0),
+                crate::DEFAULT_SUPPORTED_VERSIONS,
+                false,
+            )
+            .unwrap();
+            assert!(rest.is_none());
+            let mut packet = packet.finish(Some(&*keys.header.remote)).unwrap();
+            assert_eq!(packet.header_data.len(), 40 + token_len);
+            keys.packet
+                .remote
+                .decrypt(0, &packet.header_data, &mut packet.payload)
+                .unwrap();
+            let mut frames = frame::Iter::new(packet.payload.freeze())
+                .unwrap()
+                .map(Result::unwrap)
+                .filter(|frame| !matches!(frame, Frame::Padding));
+            if ack_fits {
+                assert!(
+                    matches!(frames.next(), Some(Frame::Ack(_))),
+                    "token {token_len}"
+                );
+            }
+            assert!(
+                matches!(
+                    frames.next(),
+                    Some(Frame::Close(Close::Connection(frame::ConnectionClose {
+                        error_code: TransportErrorCode::APPLICATION_ERROR,
+                        ..
+                    })))
+                ),
+                "token {token_len}"
+            );
+            assert!(frames.next().is_none());
+        }
+    }
 
     #[test]
     fn negotiate_max_idle_timeout_commutative() {

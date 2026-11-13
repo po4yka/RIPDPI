@@ -75,7 +75,7 @@ fn selinux_mode() -> Option<&'static str> {
 }
 
 fn read_lines(path: &str) -> Vec<String> {
-    fs::read_to_string(path).map(|content| content.lines().map(str::to_owned).collect()).unwrap_or_default()
+    fs::read_to_string(path).map_or_default(|content| content.lines().map(str::to_owned).collect())
 }
 
 #[cfg(test)]

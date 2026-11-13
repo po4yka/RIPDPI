@@ -73,7 +73,7 @@ trap 'rm -rf "$work_dir" "$stage_dir"' EXIT
 source_url="${RIPDPI_LIBXRAY_SOURCE_REPOSITORY:-https://github.com/XTLS/libXray.git}"
 git clone --depth 1 --branch "$libxray_ref" "$source_url" "$work_dir/libXray"
 python3 "$repo_root/scripts/native/prepare-libxray.py" "$work_dir/libXray"
-python3 "$repo_root/scripts/native/test-libxray-protection.py" "$work_dir/libXray" "$work_dir/xray-core" --grpc "$work_dir/grpc"
+python3 "$repo_root/scripts/native/test-libxray-protection.py" "$work_dir/libXray" "$work_dir/xray-core" --grpc "$work_dir/grpc" --stun "$work_dir/stun"
 targets=()
 IFS=',' read -r -a abis <<<"$abis_csv"
 for abi in "${abis[@]}"; do

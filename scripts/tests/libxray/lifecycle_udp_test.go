@@ -191,7 +191,7 @@ func TestManagedUDPAuthorityRoutingPreservesPin(t *testing.T) {
 		"outbounds":[{"tag":"deny","protocol":"blackhole"},{"tag":"alpha","protocol":"socks","settings":{"servers":[{"address":"127.0.0.1","port":%d}]}},{"tag":"beta","protocol":"socks","settings":{"servers":[{"address":"127.0.0.1","port":%d}]}}],
 		"routing":{"domainStrategy":"AsIs","rules":[{"type":"field","domain":["full:alpha.invalid"],"outboundTag":"alpha"},{"type":"field","domain":["full:beta.invalid"],"outboundTag":"beta"}]}
 	}`, inboundPort, alpha, beta)
-	if err := RunXrayFromJSON(t.TempDir(), "", config); err != nil {
+	if err := RunXray(config); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {

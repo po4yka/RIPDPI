@@ -27,17 +27,15 @@ pub fn detail_value<'a>(probe: &'a ProbeResult, key: &str) -> Option<&'a str> {
 }
 
 pub fn detail_list(probe: &ProbeResult, key: &str) -> Vec<String> {
-    detail_value(probe, key)
-        .map(|value| {
-            value
-                .split('|')
-                .flat_map(|entry| entry.split(','))
-                .map(str::trim)
-                .filter(|entry| !entry.is_empty() && *entry != "none" && *entry != "unknown")
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
+    detail_value(probe, key).map_or_default(|value| {
+        value
+            .split('|')
+            .flat_map(|entry| entry.split(','))
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty() && *entry != "none" && *entry != "unknown")
+            .map(str::to_string)
+            .collect()
+    })
 }
 
 pub fn transport_failure(text: &str) -> TransportFailureKind {

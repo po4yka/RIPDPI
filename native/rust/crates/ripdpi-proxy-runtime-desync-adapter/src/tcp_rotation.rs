@@ -120,7 +120,7 @@ impl CircularTcpRotationController {
         self.desync_suppressed = false;
         tracing::info!(
             host = host.unwrap_or(""),
-            target = target.map(|value| value.to_string()).unwrap_or_default(),
+            target = target.map_or_default(|value| value.to_string()),
             from_family = previous,
             to_family = next,
             round,
@@ -130,7 +130,7 @@ impl CircularTcpRotationController {
         if wrapped {
             tracing::info!(
                 host = host.unwrap_or(""),
-                target = target.map(|value| value.to_string()).unwrap_or_default(),
+                target = target.map_or_default(|value| value.to_string()),
                 from_family = previous,
                 to_family = next,
                 round,
@@ -237,11 +237,11 @@ impl CircularTcpRotationController {
             let to_family = self.candidate_family(self.advance_target_index());
             tracing::info!(
                 host = host.unwrap_or(""),
-                target = target.map(|value| value.to_string()).unwrap_or_default(),
+                target = target.map_or_default(|value| value.to_string()),
                 from_family,
                 to_family,
                 reason = reason.as_str(),
-                round = self.observed_round.as_ref().map(|value| value.round).unwrap_or_default(),
+                round = self.observed_round.as_ref().map_or_default(|value| value.round),
                 retrans_delta,
                 fail_count = self.consecutive_failures,
                 rst_count = self.consecutive_rsts,

@@ -1,10 +1,10 @@
 # RIPDPI BoringSSL vendor notes
 
-The source is the published `boring-sys` 5.4.0 crate:
+The source is the published `boring-sys` 5.5.0 crate:
 
-- Archive: `https://static.crates.io/crates/boring-sys/boring-sys-5.4.0.crate`
-- SHA-256: `4986392770df40d11d0d6294b0dd8399570f4a6e76d6953c7a34f7dd1defbd76`
-- Upstream Git revision: `309bf35b9eb97fc21040915a5f4a886941965c47`.
+- Archive: `https://static.crates.io/crates/boring-sys/boring-sys-5.5.0.crate`
+- SHA-256: `666b6d090823b306ff043582051c10afd83ad4170cb5d677cb33f45c475d6feb`
+- Upstream Git revision: `bbdc50f0462a5e2ee3cdd71b09ea7a5eccd77240`.
 
 The local changes are:
 
@@ -13,6 +13,9 @@ The local changes are:
   build entry points; the upstream install/export interface is not used by RIPDPI.
   Cargo watches the checked-in BoringSSL sources and patches. It does not watch
   the generated CMake output directory.
+  The NDK toolchain owns CMake compiler selection. `ANDROID_PLATFORM` and
+  bindgen use the API level from the selected Android compiler. This prevents
+  compiler changes from resetting an existing CMake cache to the host platform.
   Keep these changes when the crate is imported.
 - `deps/boringssl/include/openssl/ssl.h` and the four files in
   `deps/boringssl/ssl/` named `handshake_client.cc`, `internal.h`,
@@ -22,7 +25,7 @@ The local changes are:
 
 For an update, extract the published crate, compare it with the previous
 published crate, and apply these local changes to the new source. Do not change
-only the package version. BoringSSL has no stable internal ABI. Version 5.4.0
+only the package version. BoringSSL has no stable internal ABI. Version 5.5.0
 uses `FromOpaque` in public functions to access `SSLImpl` and `SSLContext`.
 The hook still runs after ClientHello serialization and before `add_message`.
 

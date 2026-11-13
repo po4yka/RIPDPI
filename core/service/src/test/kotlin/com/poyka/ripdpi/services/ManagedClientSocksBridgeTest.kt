@@ -46,11 +46,14 @@ class ManagedClientSocksBridgeTest {
 
     @Test
     fun `unreachable pluggable transport listener gets REP 05`() {
-        val closedPort = freePort()
-
+        // Reserve the upstream port until the bridge has bound its own listener.
+        val bridgePort =
+            ServerSocket(0).use { upstream ->
+                bridge(upstream = InetSocketAddress("127.0.0.1", upstream.localPort))
+            }
         val reply =
             requestReply(
-                bridge(upstream = InetSocketAddress("127.0.0.1", closedPort)),
+                bridgePort,
                 byteArrayOf(0x05, 0x01, 0x00, 0x01, 127, 0, 0, 1, 0, 80),
             )
 

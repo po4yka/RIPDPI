@@ -435,7 +435,7 @@ bool file_mod_signature(const char *filename, file_mod_sig *ms)
 		FILE_MOD_RESET(ms);
 		return false;
 	}
-	ms->mod_time = st.st_mtime;
+	ms->mod_time = st.st_mtim;
 	ms->size = st.st_size;
 	return true;
 }

@@ -58,7 +58,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.12"
+          python-version: "3.15.2"
 
       - name: Install pinned emitter contract dependencies
         run: python3 -m pip install jsonschema==4.26.0 PyYAML==6.0.3 cryptography==50.0.2

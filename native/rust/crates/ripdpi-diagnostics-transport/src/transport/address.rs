@@ -237,7 +237,7 @@ impl LookupBudget {
     fn try_acquire(self: &Arc<Self>) -> Option<LookupPermit> {
         // Ordering: this atomic is only a capacity counter; it does not publish lookup data.
         self.active
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |active| (active < self.limit).then_some(active + 1))
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |active| (active < self.limit).then_some(active + 1))
             .ok()
             .map(|_| LookupPermit { budget: Arc::clone(self) })
     }

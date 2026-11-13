@@ -348,7 +348,7 @@ impl ResolutionLimiter {
 
     fn try_acquire(self: &Arc<Self>) -> Option<ResolutionPermit> {
         self.active
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < self.max).then_some(active + 1))
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |active| (active < self.max).then_some(active + 1))
             .ok()
             .map(|_| ResolutionPermit { limiter: Arc::clone(self) })
     }

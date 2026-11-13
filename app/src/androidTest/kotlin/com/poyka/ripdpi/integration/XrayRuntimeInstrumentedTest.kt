@@ -140,7 +140,11 @@ class XrayRuntimeInstrumentedTest {
              "settings":{"vnext":[{"address":"127.0.0.1","port":$vless,
                 "users":[{"id":"$clientId","encryption":"none"}]}]},
              "streamSettings":{"network":"tcp","security":"none"},"mux":{"enabled":false}},
-            {"tag":"echo-direct","protocol":"freedom"}
+            {"tag":"echo-direct","protocol":"freedom",
+             "settings":{"finalRules":[
+               {"action":"allow","network":"tcp","ip":["127.0.0.1/32"],"port":$echo},
+               {"action":"block"}
+             ]}}
           ],
           "routing":{"domainStrategy":"AsIs","rules":[
             {"type":"field","inboundTag":["client-socks"],"outboundTag":"vless-loopback"},

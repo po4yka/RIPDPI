@@ -72,7 +72,7 @@ runs:
     # auto-downloading from foojay (whose pinned package ids rotate and return 400).
     # The compile version is listed last so JAVA_HOME is unchanged for back-compat;
     # setup-gradle wires every installed JDK into Gradle's toolchain discovery.
-    - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+    - uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
       if: inputs.setup-java == 'true'
       with:
         distribution: temurin
@@ -81,10 +81,10 @@ runs:
           ${{ inputs.java-version }}
 
     # Keep in sync with native/rust/rust-toolchain.toml
-    - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+    - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
       if: inputs.setup-rust == 'true'
       with:
-        toolchain: "1.98.1"
+        toolchain: "1.100.0"
         components: ${{ inputs.rust-components }}
 
     # Android CLI is downloaded from a versioned official URL and verified
@@ -95,8 +95,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        readonly android_cli_version="1.0.15857036"
-        readonly android_cli_sha256="e5b6930e96a1e898a69f0194c68f5867bc83fa86dde87ab733ab5493d0c8e7c2"
+        readonly android_cli_version="1.1.16919734"
+        readonly android_cli_sha256="9803784ddf24d4699929eece519ffa8b066afa9a2b93bd58749b3c6d2caaeeec"
         android_cli="$RUNNER_TEMP/android-cli"
         curl -fsSL \
           "https://dl.google.com/android/cli/$android_cli_version/linux_x86_64/android-cli" \
@@ -144,7 +144,7 @@ runs:
     - name: Cache Android SDK and NDK
       if: inputs.skip-android-sdk-ndk != 'true'
       id: cache-android-sdk
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.android
         key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ steps.native-toolchain.outputs.ndk }}-cmake-${{ steps.native-toolchain.outputs.cmake }}-ndk-${{ inputs.setup-android-ndk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
@@ -162,7 +162,7 @@ runs:
         test -x "$sdk_root/platform-tools/adb"
         printf '%s\n' "$sdk_root/platform-tools" >> "$GITHUB_PATH"
 
-    - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+    - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       if: inputs.setup-rust == 'true'
       with:
         workspaces: ${{ inputs.rust-cache-workspaces }}
@@ -227,7 +227,7 @@ runs:
 
     - name: Restore shared Gradle build cache (read-only)
       if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only == 'true'
-      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/gradle-build-cache
         key: ${{ inputs.gradle-cache-key-prefix }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
@@ -237,7 +237,7 @@ runs:
 
     - name: Shared Gradle build cache
       if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only != 'true'
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ runner.temp }}/gradle-build-cache
         key: ${{ inputs.gradle-cache-key-prefix }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
@@ -245,7 +245,7 @@ runs:
           ${{ inputs.gradle-cache-key-prefix }}-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
           ${{ inputs.gradle-cache-key-prefix }}-
 
-    - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+    - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
       if: inputs.setup-gradle == 'true'
       with:
         cache-read-only: ${{ inputs.gradle-cache-read-only }}

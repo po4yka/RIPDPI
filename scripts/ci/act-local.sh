@@ -18,7 +18,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DEFAULT_WORKFLOW="${REPO_ROOT}/.github/workflows/ci.yml"
 ACT_DIR="${REPO_ROOT}/.github/act"
 WORKSPACE_MANIFEST="$REPO_ROOT/native/rust/Cargo.toml"
-ACT_UBUNTU_IMAGE="${ACT_UBUNTU_IMAGE:-catthehacker/ubuntu:act-latest}"
+ACT_UBUNTU_IMAGE="${ACT_UBUNTU_IMAGE:-catthehacker/ubuntu:act-latest@sha256:e9477821e58d295c0b0b4478cdf6c29a7b0749f0fa09f97fed7c8f1f77b114f4}"
 case "$(uname -m)" in
   arm64|aarch64) default_act_container_arch="linux/arm64" ;;
   *) default_act_container_arch="linux/amd64" ;;
