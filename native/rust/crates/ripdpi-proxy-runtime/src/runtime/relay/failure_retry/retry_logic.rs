@@ -46,6 +46,10 @@ pub(crate) fn classify_first_write_failure(error: &OutboundSendError) -> Runtime
     RuntimeState::classify_first_write_failure(error)
 }
 
+pub(crate) fn classify_bounded_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
+    RuntimeState::classify_first_write_failure_with_bound(error, true)
+}
+
 pub(crate) fn should_retry_syn_data_without_tfo(
     route_requests_direct_syn_data_tfo: bool,
     failure: &RuntimeClassifiedFailure,

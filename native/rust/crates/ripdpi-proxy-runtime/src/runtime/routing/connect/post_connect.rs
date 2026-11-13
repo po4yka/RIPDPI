@@ -137,9 +137,19 @@ mod tests {
         }
         bound_deferred_first_write(&stream, Some(timeout));
         let started = Instant::now();
-        let err = stream.write(b"hello").expect_err("first write must not complete");
+        // tcp_sendmsg_fastopen waits up to SO_SNDTIMEO for the handshake. It then either fails
+        // or returns the bytes it copied into the SYN while the socket is still unconnected.
+        let result = stream.write(b"hello");
         let elapsed = started.elapsed();
-        assert!(matches!(err.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut), "{err}");
+        match result {
+            Err(err) => {
+                assert!(matches!(err.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut), "{err}");
+            }
+            Ok(_) => assert_eq!(
+                stream.peer_addr().expect_err("no handshake completed").kind(),
+                std::io::ErrorKind::NotConnected
+            ),
+        }
         assert!(elapsed < timeout + Duration::from_millis(500), "first write blocked for {elapsed:?}");
     }
 

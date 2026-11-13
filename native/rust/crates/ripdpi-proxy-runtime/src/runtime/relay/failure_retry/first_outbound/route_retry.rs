@@ -6,7 +6,7 @@ use ripdpi_session_limit::ExitIpSessionGuard;
 use crate::runtime::desync::OutboundSendError;
 use crate::runtime::failure::{RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass};
 use crate::runtime::relay::failure_retry::retry_logic::{
-    classify_first_write_failure, should_retry_syn_data_without_tfo,
+    classify_bounded_first_write_failure, classify_first_write_failure, should_retry_syn_data_without_tfo,
 };
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::routing::{
@@ -44,14 +44,18 @@ pub(super) fn handle_first_write_failure(
     route: &RuntimeConnectionRoute,
     host: Option<String>,
     original_request: &[u8],
-    socket_used_tfo: bool,
+    upstream: &TcpStream,
     err: OutboundSendError,
     retry_state: &mut RouteRetryState,
 ) -> io::Result<ReconnectedRoute> {
     if state.shutdown_requested() {
         return Err(err.into_io_error());
     }
-    let failure = classify_first_write_failure(&err);
+    let socket_used_tfo = ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_connect_active(upstream);
+    // The connect path set the write timeout only on a deferred TFO socket.
+    let send_bounded = upstream.write_timeout().ok().flatten().is_some();
+    let failure =
+        if send_bounded { classify_bounded_first_write_failure(&err) } else { classify_first_write_failure(&err) };
     if should_retry_syn_data(socket_used_tfo, &failure, retry_state) {
         tracing::debug!(
             group_index = route.group_index,
@@ -201,6 +205,9 @@ mod tests {
         control.request_shutdown();
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind target");
         listener.set_nonblocking(true).expect("nonblocking target");
+        let upstream_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream");
+        let upstream =
+            std::net::TcpStream::connect(upstream_listener.local_addr().expect("upstream")).expect("connect upstream");
         let mut retry = RouteRetryState::default();
         let result = handle_first_write_failure(
             &state,
@@ -208,6 +215,7 @@ mod tests {
             &route(),
             None,
             b"request",
+            &upstream,
             OutboundSendError::transport(io::Error::from(io::ErrorKind::ConnectionReset)),
             &mut retry,
         );

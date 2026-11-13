@@ -169,7 +169,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                         &route,
                         first_payload.host.clone(),
                         &first_payload.original_request,
-                        tcp_fast_open_connect_active(&upstream),
+                        &upstream,
                         err,
                         &mut retry_state,
                     )?;

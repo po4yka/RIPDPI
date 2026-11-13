@@ -38,10 +38,17 @@ impl RuntimeState {
         runtime_classify_first_response_partial_tls_timeout()
     }
     pub(in crate::runtime) fn classify_first_write_failure(error: &OutboundSendError) -> RuntimeClassifiedFailure {
+        Self::classify_first_write_failure_with_bound(error, false)
+    }
+    /// `send_bounded` is true when the upstream carries the deferred-connect send timeout,
+    /// the only source of a `WouldBlock` that means a silent drop.
+    pub(in crate::runtime) fn classify_first_write_failure_with_bound(
+        error: &OutboundSendError,
+        send_bounded: bool,
+    ) -> RuntimeClassifiedFailure {
         let mut failure = match error {
-            OutboundSendError::Transport { source, .. } => {
-                first_write_transport_failure(source).with_tag("bytesCommitted", error.bytes_committed().to_string())
-            }
+            OutboundSendError::Transport { source, .. } => first_write_transport_failure(source, send_bounded)
+                .with_tag("bytesCommitted", error.bytes_committed().to_string()),
             OutboundSendError::StrategyExecution {
                 action,
                 strategy_family,
@@ -58,7 +65,7 @@ impl RuntimeState {
                     *source_errno,
                     error.to_string(),
                 )
-                .unwrap_or_else(|| first_write_transport_failure(source));
+                .unwrap_or_else(|| first_write_transport_failure(source, send_bounded));
                 failure = failure.with_tag("strategyFamily", (*strategy_family).to_string());
                 failure = failure.with_tag("bytesCommitted", bytes_committed.to_string());
                 if let Some(fallback_family) = fallback {
@@ -99,10 +106,11 @@ impl RuntimeState {
     }
 }
 
-/// A blocking upstream socket returns `WouldBlock` only when the send timeout that
-/// bounds a deferred TCP Fast Open handshake expires; that is a silent drop.
-fn first_write_transport_failure(source: &io::Error) -> RuntimeClassifiedFailure {
-    if source.kind() == io::ErrorKind::WouldBlock {
+/// A blocking upstream socket returns `WouldBlock` for the send timeout that bounds a
+/// deferred TCP Fast Open handshake; that is a silent drop. Without that bound the
+/// error is not remapped.
+fn first_write_transport_failure(source: &io::Error, send_bounded: bool) -> RuntimeClassifiedFailure {
+    if send_bounded && source.kind() == io::ErrorKind::WouldBlock {
         let timed_out = io::Error::new(io::ErrorKind::TimedOut, source.to_string());
         return runtime_classify_transport_error(RuntimeFailureStage::FirstWrite, &timed_out);
     }
@@ -115,8 +123,14 @@ mod first_write_tests {
 
     #[test]
     fn send_timeout_on_first_write_is_a_silent_drop() {
-        let failure = first_write_transport_failure(&io::Error::from(io::ErrorKind::WouldBlock));
+        let failure = first_write_transport_failure(&io::Error::from(io::ErrorKind::WouldBlock), true);
         assert_eq!(failure.class, RuntimeFailureClass::SilentDrop);
         assert_eq!(failure.stage, RuntimeFailureStage::FirstWrite);
+    }
+
+    #[test]
+    fn would_block_without_the_send_bound_is_not_a_silent_drop() {
+        let failure = first_write_transport_failure(&io::Error::from(io::ErrorKind::WouldBlock), false);
+        assert_ne!(failure.class, RuntimeFailureClass::SilentDrop);
     }
 }
