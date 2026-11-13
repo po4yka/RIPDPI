@@ -156,12 +156,13 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
                     )?;
                     accounting.complete_real_write(bytes.len());
                 }
-                DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+                DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder, flags } => {
                     PrivilegedActionExecutor::write_seq_overlap(
                         writer,
                         real_chunk,
                         fake_prefix,
                         remainder,
+                        *flags,
                         &context,
                         &mut accounting,
                     )?;

@@ -127,6 +127,7 @@ impl PrivilegedActionExecutor {
         real_chunk: &[u8],
         fake_prefix: &[u8],
         remainder: &[u8],
+        flags: ripdpi_config::TcpFlagOverrides,
         context: &ActionContext,
         accounting: &mut FallbackAccounting,
     ) -> Result<(), OutboundSendError> {
@@ -137,7 +138,7 @@ impl PrivilegedActionExecutor {
             context.default_ttl,
             None,
             context.md5sig,
-            platform::TcpFlagOverrides::default(),
+            platform::TcpFlagOverrides { set: flags.set.unwrap_or_default(), unset: flags.unset.unwrap_or_default() },
             context.ip_id_mode,
         ) {
             Ok(()) => {

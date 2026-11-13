@@ -55,6 +55,7 @@ pub ripdpi_desync::DesyncAction::WriteIpFragmentedUdp::ipv6_ext: ripdpi_ipfrag::
 pub ripdpi_desync::DesyncAction::WriteIpFragmentedUdp::split_offset: usize
 pub ripdpi_desync::DesyncAction::WriteSeqOverlap
 pub ripdpi_desync::DesyncAction::WriteSeqOverlap::fake_prefix: alloc::vec::Vec<u8>
+pub ripdpi_desync::DesyncAction::WriteSeqOverlap::flags: ripdpi_config::model::tcp::payload::flags::TcpFlagOverrides
 pub ripdpi_desync::DesyncAction::WriteSeqOverlap::real_chunk: alloc::vec::Vec<u8>
 pub ripdpi_desync::DesyncAction::WriteSeqOverlap::remainder: alloc::vec::Vec<u8>
 pub ripdpi_desync::DesyncAction::WriteUrgent

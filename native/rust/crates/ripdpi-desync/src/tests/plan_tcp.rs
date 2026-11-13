@@ -307,7 +307,7 @@ fn plan_tcp_seqovl_keeps_kind_when_supported_in_first_window() {
     );
     assert_eq!(plan.actions.len(), 1);
     match &plan.actions[0] {
-        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder, .. } => {
             assert_eq!(real_chunk, b"hello");
             assert_eq!(fake_prefix.len(), 12); // overlap_size from seqovl_step
             assert_eq!(remainder, b" world");
@@ -330,7 +330,7 @@ fn plan_tcp_seqovl_keeps_semantic_step_when_capability_is_absent() {
     );
     assert_eq!(plan.actions.len(), 1);
     match &plan.actions[0] {
-        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder, .. } => {
             assert_eq!(real_chunk, b"hello");
             assert_eq!(fake_prefix.len(), 12);
             assert_eq!(remainder, b" world");
@@ -375,7 +375,7 @@ fn plan_tcp_seqovl_keeps_kind_when_large_first_write_still_splits_inside_first_w
     );
     assert_eq!(plan.actions.len(), 1);
     match &plan.actions[0] {
-        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder, .. } => {
             assert_eq!(real_chunk.len(), 1_500);
             assert_eq!(fake_prefix.len(), 12);
             assert_eq!(remainder.len(), 101);
@@ -1439,4 +1439,23 @@ fn generic_tcp_strategy_keeps_the_urgent_action_and_original_prefix() {
 
     assert_eq!(plan.actions[0], StrategyAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'!' });
     assert!(!plan.actions.iter().any(|action| matches!(action, StrategyAction::Write(bytes) if bytes.contains(&b'!'))));
+}
+
+#[test]
+fn plan_tcp_seqovl_preserves_configured_tcp_flags() {
+    let flags = ripdpi_config::TcpFlagOverrides {
+        set: Some(ripdpi_config::TCP_FLAG_ECE),
+        unset: Some(ripdpi_config::TCP_FLAG_PSH),
+    };
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain.push(seqovl_step(2).with_seq_overlap_payload(TcpSeqOverlapPayload {
+        overlap_size: 4,
+        fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
+        fake_flags: flags,
+    }));
+    let plan = plan_tcp(&group, b"ABCD", 7, 64, tcp_context(b"ABCD")).expect("plan overlap");
+    let DesyncAction::WriteSeqOverlap { flags: actual, .. } = &plan.actions[0] else {
+        panic!("expected overlap action");
+    };
+    assert_eq!(*actual, flags);
 }

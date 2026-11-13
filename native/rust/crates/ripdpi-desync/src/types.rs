@@ -179,6 +179,7 @@ pub enum DesyncAction {
         real_chunk: Vec<u8>,
         fake_prefix: Vec<u8>,
         remainder: Vec<u8>,
+        flags: ripdpi_config::TcpFlagOverrides,
     },
     WriteUrgent {
         prefix: Vec<u8>,

@@ -241,6 +241,7 @@ Validation rules:
 Runtime semantics:
 
 - Fake packet flag overrides are applied by the shared raw TCP segment builder used by fake sends, fake RST, seq-overlap helpers, multi-disorder, and TCP IP fragmentation.
+- For `seqovl`, fake flag overrides modify the single TCP header shared by the fake prefix and genuine bytes. They do not create a separate fake-only segment.
 - Original-payload flag overrides do not use normal stream writes. The runtime sends the payload through the raw TCP / TCP_REPAIR path and then queues the same bytes as already sent in the repair-mode send queue, exactly like other raw original-payload techniques.
 - If the required raw capability is unavailable, RIPDPI fails closed instead of silently sending the original payload with the kernel's default flags.
 

@@ -240,6 +240,7 @@ fn actions_seqovl_fallback_to_split() {
         real_chunk: b"ab".to_vec(),
         fake_prefix: b"xx".to_vec(),
         remainder: b"cd".to_vec(),
+        flags: ripdpi_config::TcpFlagOverrides::disabled(),
     }];
     // On macOS, send_seqovl_tcp returns Unsupported -> fallback writes real_chunk + remainder
     let result = execute_tcp_actions(

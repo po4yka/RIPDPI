@@ -99,7 +99,7 @@ fn strategy_action_from_native(action: DesyncAction) -> StrategyAction {
         | DesyncAction::WriteIpFragmentedUdp { bytes, split_offset: _, disorder: _, ipv6_ext: _ } => {
             StrategyAction::RawSend(bytes)
         }
-        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder, .. } => {
             let mut bytes = fake_prefix;
             bytes.extend(real_chunk);
             bytes.extend(remainder);
@@ -226,7 +226,12 @@ fn plan_tcp_with_fake_reference(
                     let split = (pos - lp) as usize;
                     let real_chunk = chunk[..split].to_vec();
                     let remainder = tampered.bytes[pos as usize..].to_vec();
-                    actions.push(DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder });
+                    actions.push(DesyncAction::WriteSeqOverlap {
+                        real_chunk,
+                        fake_prefix,
+                        remainder,
+                        flags: payload.fake_flags,
+                    });
                     steps.push(PlannedStep {
                         kind: planned_kind,
                         start: lp,

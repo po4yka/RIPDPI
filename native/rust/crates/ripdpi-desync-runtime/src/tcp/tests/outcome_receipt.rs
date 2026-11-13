@@ -17,10 +17,12 @@ mod fake_rst;
 mod fake_send_safety;
 mod fake_split;
 mod multi_disorder;
+mod seq_overlap;
 
 enum FaultSpec {
     WaitStage(io::ErrorKind),
     OrderedSegments(io::ErrorKind),
+    SeqOverlap(io::ErrorKind),
     OrderedSegmentsAfterPartialGenuine,
     FakeSendAfterPrefix(usize),
     FakePayload { bytes: Vec<u8>, kind: io::ErrorKind },
@@ -217,6 +219,12 @@ impl TcpPayloadSender for ReceiptTestPlatform {
         _flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
+        let mut faults = self.faults.lock().expect("receipt fault queue");
+        if let Some(FaultSpec::SeqOverlap(kind)) = faults.front() {
+            let kind = *kind;
+            faults.pop_front();
+            return Err(io::Error::new(kind, "injected seqovl failure"));
+        }
         Err(io::Error::new(io::ErrorKind::Unsupported, "seqovl unsupported in receipt test"))
     }
 }
