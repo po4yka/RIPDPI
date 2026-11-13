@@ -46,7 +46,8 @@
             "uniqueItems": true,
             "items": { "$ref": "#/$defs/profile" }
           },
-          "min_failed_vantages": { "type": "integer", "minimum": 1, "default": 2 }
+          "min_failed_vantages": { "type": "integer", "minimum": 1, "default": 2 },
+          "awg_ipv6": { "enum": ["dualstack", "ipv4-only"], "default": "dualstack" }
         },
         "additionalProperties": false
       }
