@@ -413,7 +413,7 @@ The runtime now supports:
 | Kind | Description | Key parameters | Platform |
 | --- | --- | --- | --- |
 | `split` | TCP segmentation at marker offset | offset | All |
-| `syndata` | SYN-data-style split family using the normal split writer path | offset | All |
+| `syndata` | Split whose first chunk rides the SYN through TCP Fast Open when a server cookie is cached; replay-safe payloads only; first send step | offset | Linux/Android (plain split elsewhere) |
 | `seqovl` | Sequence overlap -- fake prefix sent with seq shifted back via TCP_REPAIR, server discards overlap, DPI caches fake | offset, `overlap_size` (1-32, default 12), `fake_mode` (`profile` or `rand`) | Linux/Android |
 | `disorder` | Send segment with TTL trick (DPI sees, server ignores expired packet) | offset | All |
 | `multidisorder` | Split at 2+ markers, send resulting 3+ segments in reverse order via raw sockets | 2+ marker offsets, `inter_segment_delay_ms` (0-100, default 0) | Linux/Android |

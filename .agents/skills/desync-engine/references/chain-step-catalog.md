@@ -276,12 +276,30 @@ increasingly rare.
 **Description**: Plans identically to `Split` (`plan_tcp.rs` matches
 `Split | SynData` in the same arm) -- the payload is written as a normal
 ordered segment. The distinct behavior lives one layer up, at connection
-setup: `group_uses_direct_syn_data_tfo()` (in
-`ripdpi-proxy-runtime-adapter/src/model/config/tcp_connect.rs`) checks
-whether the desync group has a `SynData` step and no `ext_socks` upstream
-configured; if so, the FIRST outbound connect on that route requests
-direct TCP Fast Open (TFO), sending the request payload inside the SYN
-packet itself instead of after the three-way handshake.
+setup. `group_uses_direct_syn_data_tfo()` (in
+`ripdpi-proxy-runtime-adapter/src/model/config/tcp_connect.rs`) is true when
+the group has a `SynData` step and no `ext_socks` upstream. Such a group
+delays the upstream connect until the client payload is known, and the
+upstream socket sets `TCP_FASTOPEN_CONNECT` only when that payload is
+replay-safe (TLS ClientHello, or an HTTP `GET`/`HEAD`/`OPTIONS` request;
+RFC 7413 section 6.1).
+
+This is not a raw fake SYN (zapret `syndata` sends a crafted SYN with a
+blob; RIPDPI does not). The kernel decides what goes into the SYN:
+
+- No cached cookie for the server: a normal handshake with a cookie
+  request; the payload follows the handshake. The kernel caches the cookie.
+- Cached cookie: `connect()` returns before any SYN is sent, and the first
+  write (`payload[..offset]`) is sent in the SYN.
+- Kernel or sysctl without client TFO (`net.ipv4.tcp_fastopen` bit 1), or a
+  non-Linux host: the socket connects without TFO.
+
+For a SOCKS5 delayed connect the provisional upstream socket is opened with
+TFO and reused for the payload, so the origin sees one connection per flow.
+A deferred socket (no SYN sent yet) is replaced by a plain connect when the
+payload is not replay-safe, or when the client stays silent for 300 ms
+(server-first protocols such as SSH). Neither replacement sends anything on
+the deferred socket.
 
 **Actions generated**: Same as `Split` -- `Write(chunk)`, `AwaitWritable`.
 The TFO request happens at the socket-connect layer, not in the
@@ -289,17 +307,22 @@ The TFO request happens at the socket-connect layer, not in the
 
 **Config fields**: `offset` (same as `Split`).
 
-**Fallback**: `first_write_failure_retries_syn_data_without_tfo()` retries
-the first outbound connect without TFO if the initial TFO write fails,
-so a network path that rejects TFO SYN data does not hard-fail the
-connection.
+**Validation**: `SynData` must be the first tcp send step and may appear
+once (`tlsrec`/`tlsrandrec` preludes may precede it). Both the Rust config
+conversion and the Kotlin chain validation enforce this.
+
+**Fallback**: when a connect, first write or first response on a socket
+that had TFO applied fails (reset, refusal or silent drop), the runtime
+retries once without TFO (RFC 7413 section 4.1.3.1). The first write of a
+deferred socket is bounded by the connect timeout through `SO_SNDTIMEO`.
 
 **Emitter tier**: `NonRootProduction` -- no root or raw-socket capability
 required; TFO is a standard Linux socket option.
 
-**When to use**: To save a round trip on the very first request of a
-connection when the upstream is reached directly (no SOCKS hop) and the
-network path is known to support TFO.
+**When to use**: To save a round trip on the first request of a repeat
+connection to a server that supports TFO, when the upstream is reached
+directly (no SOCKS hop). It has no effect on the first connection to a
+server, and no effect on paths that drop TFO options.
 
 ---
 

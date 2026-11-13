@@ -131,7 +131,7 @@ Step-by-step flow when a TCP payload is sent through `send_with_group()`:
 | `TlsRec` | TLS record-layer split (prelude step) | Splits TLS record, not TCP segment |
 | `TlsRandRec` | Random TLS record fragmentation (prelude step) | Multiple random-sized TLS records |
 | `IpFrag2` | IP-layer fragmentation of the TCP segment | Only on round 1; kernel reassembly trick |
-| `SynData` | Same segment plan as `Split`, but the connection's first outbound socket requests direct TCP Fast Open with the payload riding the SYN | Only applies to the direct (non-SOCKS) route; retried without TFO on first-write failure |
+| `SynData` | Same segment plan as `Split`; for a direct group the upstream socket requests TCP Fast Open, so the first chunk rides the SYN only when a TFO cookie for the server is cached | Linux/Android only; not a raw fake SYN; replay-safe payloads only (TLS ClientHello, `GET`/`HEAD`/`OPTIONS`); first tcp send step, at most once; one retry without TFO |
 | `FakeRst` | Injects a fake TCP RST at the wire layer before writing the real chunk | Root/raw-socket only (`LabDiagnosticsOnly` emitter tier); not for non-root production builds |
 
 This table is generated from `TcpChainStepKind` (`native/rust/crates/ripdpi-config/src/model/tcp.rs`). See `references/chain-step-catalog.md` for the full catalog with config fields; when a variant is added or removed, regenerate both tables from the enum in the same change rather than hand-editing one.
