@@ -426,12 +426,17 @@ The root helper accepts large multidisorder requests only after it advertises co
 | `fakedsplit` | Fake-backed split at marker | TTL, `md5sig`, offset | Linux/Android; default stream transport, ordered/exact variants require raw access |
 | `fakeddisorder` | Fake-backed disorder approximation | TTL, `md5sig`, offset | Linux/Android; default stream transport, ordered/exact variants require raw access |
 | `hostfake` | Fake packet with spoofed hostname | `midhost_offset`, `fake_host_template` | Linux/Android (raw fake-packet path) |
-| `oob` | Out-of-band urgent data byte injection | `oob_data` byte | All |
-| `disoob` | Disorder + OOB combination | `oob_data` byte | All |
+| `oob` | Out-of-band urgent data byte injection | `oob_data` byte | Linux/Android |
+| `disoob` | Disorder + OOB combination | `oob_data` byte | Linux/Android |
 | `tlsrec` | TLS record splitting at extension boundary | offset (e.g. `extlen`, `sniext`, `echext`) | All |
 | `tlsrandrec` | Random TLS record fragmentation | `fragment_count`, `min_fragment_size`, `max_fragment_size` | All |
 | `ipfrag2` | IP-level packet fragmentation (DF cleared, MF set, 8-byte aligned offset) | offset | Linux/Android |
 | `fakerst` | Rooted fake TCP RST emission before the original payload write | `fake_tcp_flags` | Rooted (requires root mode) |
+
+`oob` and `disoob` require native TCP send-stage waiting on Linux or Android. Planner and
+packet-oracle unit tests on other hosts do not establish runtime support. On an
+unsupported host, the send-stage error can occur after the prefix and urgent byte
+were sent.
 
 Native `multidisorder` and `ipfrag2` require raw IPv4 sockets and TCP_REPAIR. When IPv6 is enabled, they also require raw IPv6 sockets. The runtime checks these capabilities at startup and rejects the configuration if a required capability is absent. Native `multidisorder` does not automatically fall back to `split` after a raw send error. A missing root helper can select the local raw path, which still requires process privileges.
 
