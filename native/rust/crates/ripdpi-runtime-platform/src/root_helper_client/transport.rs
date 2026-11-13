@@ -25,6 +25,7 @@ const COMMAND_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[cfg(test)]
 mod deadline_tests;
+mod fragment_error;
 #[cfg(test)]
 mod progress_tests;
 mod response;
@@ -139,6 +140,9 @@ impl ClientTransport {
 }
 
 fn command_error(command: &str, params: &serde_json::Value, response: HelperResponse) -> io::Error {
+    if command == ripdpi_root_helper_protocol::CMD_SEND_IP_FRAGMENTED_TCP {
+        return fragment_error::decode(response);
+    }
     let seqovl_refusal = (command == CMD_SEND_SEQOVL_TCP).then(|| response.seqovl_safe_refusal_kind()).flatten();
     let error = io::Error::other(response.error.unwrap_or_else(|| "unknown helper error".into()));
     if let Some(kind) = seqovl_refusal {

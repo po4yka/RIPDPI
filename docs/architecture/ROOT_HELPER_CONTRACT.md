@@ -200,6 +200,21 @@ refactor of either layer cannot silently disable the rule. The drift tests
 `every_command_descriptor_has_a_dispatch_handler` (already present) pin the
 bidirectional coverage.
 
+### TCP fragment failures
+
+A failed `v4/send_ip_fragmented_tcp` response carries typed `data` fields:
+`error_kind` (the normalized Rust I/O kind), `raw_os_error` (an optional original
+Linux errno in 1–4095), and `payload_commit_uncertain` (a required boolean).
+`IpFragmentErrorData` owns this representation and its validation. The helper
+copies a known fragment-send boundary; an untyped failure is uncertain.
+
+The client preserves both the normalized kind and an original errno. For example,
+an unavailable capability remains `Unsupported` with nested `EPERM`; it must not
+turn back into `PermissionDenied`. Only an explicit pre-send boundary can permit
+strategy fallback. A legacy null `data` response or malformed metadata cannot
+claim that no packet left. Malformed metadata is a terminal `InvalidData` error;
+unknown in-flight failures retain uncertain delivery at the runtime adapter.
+
 ### File-descriptor passing
 
 `SCM_RIGHTS` carries at most **one fd per message** in each direction

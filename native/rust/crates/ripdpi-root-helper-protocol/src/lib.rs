@@ -12,6 +12,7 @@
 
 mod command_descriptor;
 mod commands;
+mod fragment_error;
 mod params;
 mod request_limits;
 mod scm_rights;
@@ -27,6 +28,7 @@ pub use commands::{
     CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_RAW_IP_PACKET,
     CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN, CMD_START_NFQWS2, CMD_STOP_NFQWS2,
 };
+pub use fragment_error::IpFragmentErrorData;
 pub use params::{
     FakeRstParams, FakeTcpParams, FlaggedTcpPayloadParams, IpFragTcpParams, IpFragUdpParams, MultiDisorderParams,
     Nfqws2Status, OrderedTcpSegmentParams, OrderedTcpSegmentsParams, RawIpPacketParams, SegmentSpec, SeqOvlParams,
