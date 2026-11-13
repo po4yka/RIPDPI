@@ -797,6 +797,45 @@ fn fake_burst_explicit_step_round_applies_at_later_rounds() {
 }
 
 #[test]
+fn fake_burst_explicit_group_round_applies_at_later_rounds() {
+    let mut group = fake_burst_with_round(None);
+    group.set_round_activation(Some(NumericRange::new(1, 5)));
+    let payload = [0x40_u8, 1, 2, 3, 4, 5, 6, 7, 8];
+
+    let actions = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2));
+
+    assert!(actions.contains(&DesyncAction::Write(b"udp-fake".to_vec())));
+}
+
+#[test]
+fn round_default_does_not_gate_other_udp_steps() {
+    let mut group = DesyncGroup::new(0);
+    let mut step = fake_burst_step();
+    step.kind = UdpChainStepKind::QuicPaddingLadder;
+    group.actions.udp_chain = vec![step];
+    let payload = rust_packet_seeds::quic_initial_with_host(1, "docs.example.test");
+
+    let first = plan_udp(&group, &payload, 64, udp_context(&payload));
+    let later = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 3));
+
+    assert!(first.len() > 1, "padding ladder emits decoys");
+    assert_eq!(later.len(), first.len(), "round 3 keeps the padding ladder");
+}
+
+#[test]
+fn fake_burst_planner_caps_count_built_outside_parsers() {
+    let mut group = DesyncGroup::new(0);
+    let mut step = fake_burst_step();
+    step.count = 1_000_000;
+    group.actions.udp_chain = vec![step];
+
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+    let writes = actions.iter().filter(|action| matches!(action, DesyncAction::Write(_))).count();
+
+    assert_eq!(writes, 64 + 1, "64 decoys plus the real datagram");
+}
+
+#[test]
 fn quic_fake_profile_applies_to_initial_with_incomplete_client_hello() {
     let payload = rust_packet_seeds::quic_initial_with_crypto_gap(1, "docs.example.test");
     let mut group = DesyncGroup::new(0);

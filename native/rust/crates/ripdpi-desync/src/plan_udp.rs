@@ -4,7 +4,7 @@ mod quic;
 mod sequencing;
 
 use crate::types::{ActivationContext, AdaptiveUdpBurstProfile, DesyncAction, activation_filter_matches};
-use ripdpi_config::{ActivationFilter, DesyncGroup, UdpChainStepKind};
+use ripdpi_config::{ActivationFilter, DesyncGroup, MAX_FAKE_BURST_COUNT, UdpChainStepKind};
 
 use self::fragmentation::build_ip_fragmented_udp_action;
 use self::packet_family::{UdpPreludeState, build_udp_prelude_packets};
@@ -79,7 +79,7 @@ fn fake_burst_round_matches(
 }
 
 fn adjusted_udp_burst_count(base_count: i32, context: ActivationContext) -> i32 {
-    let base_count = base_count.max(1);
+    let base_count = base_count.clamp(1, MAX_FAKE_BURST_COUNT);
     match context.adaptive.udp_burst_profile.unwrap_or(AdaptiveUdpBurstProfile::Balanced) {
         AdaptiveUdpBurstProfile::Balanced => base_count,
         AdaptiveUdpBurstProfile::Conservative => base_count.saturating_sub(1).max(1),
