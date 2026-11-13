@@ -111,7 +111,11 @@ pub(crate) fn raw_send_target(target: SocketAddr) -> SockAddr {
 /// helper, which runs outside the app) it takes the fwmark of `mark_source`,
 /// so the crafted packets route like the protected app socket and stay out
 /// of the VPN.
-fn open_raw_socket(target: SocketAddr, protect_path: Option<&str>, mark_source: BorrowedFd<'_>) -> io::Result<Socket> {
+pub(super) fn open_raw_socket(
+    target: SocketAddr,
+    protect_path: Option<&str>,
+    mark_source: BorrowedFd<'_>,
+) -> io::Result<Socket> {
     let socket = match target {
         SocketAddr::V4(_) => {
             let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;

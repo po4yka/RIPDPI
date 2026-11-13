@@ -13,7 +13,7 @@ use crate::linux::raw_packet::packet_builder::{
     apply_tcp_flag_overrides_to_packet, build_error_to_io, build_ordered_tcp_packets, build_tcp_segment_packet,
     fragment_identification, resolve_raw_ttl, validate_explicit_ipv4_identifications,
 };
-use crate::linux::raw_packet::raw_socket::send_raw_packets;
+use crate::linux::raw_packet::raw_socket::{open_raw_socket, raw_send_target, send_raw_packets};
 use crate::linux::socket_options::get_stream_ttl;
 use crate::linux::tcp_info::wait_tcp_stage_fd;
 use crate::linux::tcp_repair::{
@@ -247,6 +247,7 @@ pub fn send_seqovl_tcp(
     let fd = stream.as_raw_fd();
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let mut emission_possible = false;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
 
@@ -270,20 +271,32 @@ pub fn send_seqovl_tcp(
             md5sig,
             flags,
         )?;
-        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path, stream.as_fd())?;
+        let socket = open_raw_socket(target, protect_path, stream.as_fd())?;
+        let destination = raw_send_target(target);
+        emission_possible = true;
+        socket.send_to(&packet, &destination)?;
         queue_payload_as_sent(stream, real_chunk)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)
     })();
 
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
+    finish_seqovl_send(result, disable_tcp_repair(fd), emission_possible)
+}
+
+fn finish_seqovl_send(
+    operation: io::Result<()>,
+    repair_restoration: io::Result<()>,
+    emission_possible: bool,
+) -> io::Result<()> {
+    // A raw attempt or repair-queue write can leave genuine bytes committed.
+    let operation = if emission_possible { operation.map_err(io::Error::other) } else { operation };
+    finish_tcp_repair(operation, repair_restoration)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{build_ordered_tcp_packets, genuine_ordered_payload};
+    use super::{build_ordered_tcp_packets, finish_seqovl_send, genuine_ordered_payload};
     use crate::linux::tcp_repair::{TcpRepairOptionsSnapshot, TcpRepairSnapshot, TcpRepairWindow};
     use crate::{OrderedTcpSegment, TcpFlagOverrides};
 
@@ -364,6 +377,48 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn seqovl_post_attempt_errors_are_terminal_even_after_successful_restore() {
+        for kind in [
+            std::io::ErrorKind::WouldBlock,
+            std::io::ErrorKind::InvalidInput,
+            std::io::ErrorKind::PermissionDenied,
+            std::io::ErrorKind::Unsupported,
+        ] {
+            let error = finish_seqovl_send(Err(std::io::Error::new(kind, "send or repair queue failed")), Ok(()), true)
+                .expect_err("an attempted send cannot be replayed");
+            assert_eq!(error.kind(), std::io::ErrorKind::Other);
+            let original =
+                error.get_ref().and_then(|error| error.downcast_ref::<std::io::Error>()).expect("original send error");
+            assert_eq!(original.kind(), kind);
+            assert_eq!(original.to_string(), "send or repair queue failed");
+        }
+    }
+
+    #[test]
+    fn seqovl_failed_restore_blocks_preflight_fallback_and_keeps_both_errors() {
+        let error = finish_seqovl_send(
+            Err(std::io::Error::new(std::io::ErrorKind::WouldBlock, "inbound queue is not empty")),
+            Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "repair off denied")),
+            false,
+        )
+        .expect_err("a socket with unknown repair state cannot accept a fallback write");
+        assert_eq!(error.kind(), std::io::ErrorKind::Other);
+        assert!(error.to_string().contains("inbound queue is not empty"));
+        assert!(error.to_string().contains("repair off denied"));
+    }
+
+    #[test]
+    fn seqovl_restored_preflight_refusal_remains_fallback_safe() {
+        let error = finish_seqovl_send(Err(std::io::Error::from(std::io::ErrorKind::WouldBlock)), Ok(()), false)
+            .expect_err("preflight refused before any raw send");
+        assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock);
+        assert!(finish_seqovl_send(Ok(()), Ok(()), true).is_ok());
+        assert!(
+            finish_seqovl_send(Ok(()), Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)), true,).is_err()
+        );
     }
 
     #[test]
