@@ -220,9 +220,11 @@ pub fn execute_udp_actions(
         let action_outcome = match execute_udp_action(ctx, action, is_real) {
             Ok(action_outcome) => action_outcome,
             Err(source) => {
-                if ttl_changed {
+                if ttl_changed && ctx.default_ttl != 0 {
                     // Best effort: do not leave a decoy TTL on the socket for later datagrams of the flow.
-                    let _ = set_socket_ttl(ctx, ctx.default_ttl);
+                    if let Err(restore_error) = set_socket_ttl(ctx, ctx.default_ttl) {
+                        tracing::warn!(%restore_error, "UDP desync could not restore the default TTL after a failed action");
+                    }
                 }
                 return Err(UdpExecutionError { source, outcome });
             }
@@ -664,6 +666,30 @@ mod tests {
 
         assert!(result.is_err(), "oversized decoy must fail");
         assert_eq!(SockRef::from(&sender).ttl_v4().expect("read IPv4 TTL"), 64);
+    }
+
+    #[test]
+    fn failed_decoy_write_restores_default_ipv6_hop_limit() {
+        let Ok(peer) = UdpSocket::bind("[::1]:0") else {
+            eprintln!("skipping: IPv6 loopback unavailable");
+            return;
+        };
+        let sender = UdpSocket::bind("[::1]:0").expect("bind IPv6 sender");
+        sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
+        let actions = [
+            DesyncAction::SetTtl(8),
+            DesyncAction::Write(vec![0; 70_000]),
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(64),
+            DesyncAction::Write(b"real".to_vec()),
+        ];
+        let ctx =
+            UdpActionExecContext { target: "[::1]:443".parse().expect("IPv6 target"), ..loopback_ctx(&sender, false) };
+
+        let result = execute_udp_actions(ctx, &actions, b"real");
+
+        assert!(result.is_err(), "oversized decoy must fail");
+        assert_eq!(SockRef::from(&sender).unicast_hops_v6().expect("read IPv6 hop limit"), 64);
     }
 
     #[test]
