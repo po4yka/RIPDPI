@@ -264,7 +264,7 @@ pub fn send_seqovl_tcp(
             ipv4_identification,
             path_mtu,
         )?;
-        let socket = open_raw_socket(target, protect_path, stream.as_fd())?;
+        let socket = open_raw_socket(target, protect_path, stream.as_fd(), false)?;
         let destination = raw_send_target(target);
         emission_possible = true;
         socket.send_to(&packet, &destination).map_err(|error| seqovl_send_error(error, &mut emission_possible))?;

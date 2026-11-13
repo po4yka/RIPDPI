@@ -12,6 +12,7 @@ use ripdpi_ipfrag::{
 };
 use socket2::Domain;
 
+use crate::fragmentation::preflight::{capability_error, tcp_fragment_build_error};
 use crate::fragmentation::{finish_fragment_send, fragment_send_error};
 use crate::linux::raw_packet::{
     build_error_to_io, build_tcp_segment_packet, fragment_identification, probe_raw_socket, resolve_raw_ttl,
@@ -87,7 +88,7 @@ pub fn send_ip_fragmented_tcp(
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
 
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    set_tcp_repair(fd, TCP_REPAIR_ON).map_err(capability_error)?;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
 
@@ -112,7 +113,7 @@ pub fn send_ip_fragmented_tcp(
             payload,
             split_offset,
         )
-        .map_err(build_error_to_io)?;
+        .map_err(tcp_fragment_build_error)?;
 
         if disorder {
             send_raw_fragments(target, [&pair.second, &pair.first], protect_path, stream.as_fd())?;

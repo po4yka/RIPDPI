@@ -10,6 +10,7 @@ use std::os::fd::{AsRawFd, BorrowedFd};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::fragmentation::fragment_send_error;
+use crate::fragmentation::preflight::{capability_error, protection_error, validate_fragment_mtu};
 
 use crate::linux::socket_options::{get_u32_sockopt, set_c_int_sockopt, setsockopt_raw};
 
@@ -32,8 +33,16 @@ pub(crate) fn send_raw_fragments(
     mark_source: BorrowedFd<'_>,
 ) -> io::Result<()> {
     let socket =
-        open_raw_socket(target, protect_path, mark_source).map_err(|error| fragment_send_error(error, false))?;
-    let sockaddr = raw_send_target(target);
+        open_raw_socket(target, protect_path, mark_source, true).map_err(|error| fragment_send_error(error, false))?;
+    let mut raw_target = target;
+    raw_target.set_port(0);
+    let sockaddr = raw_send_target(raw_target);
+    socket.connect(&sockaddr).map_err(|error| fragment_send_error(error, false))?;
+    let (level, option) =
+        if target.is_ipv4() { (libc::IPPROTO_IP, libc::IP_MTU) } else { (libc::IPPROTO_IPV6, libc::IPV6_MTU) };
+    let mtu = get_u32_sockopt(socket.as_raw_fd(), level, option).map_err(|error| fragment_send_error(error, false))?;
+    validate_fragment_mtu([packets[0].len(), packets[1].len()], mtu)
+        .map_err(|error| fragment_send_error(error, false))?;
     for packet in packets {
         socket.send_to(packet, &sockaddr).map_err(|error| fragment_send_error(error, true))?;
     }
@@ -53,7 +62,7 @@ pub(crate) fn send_raw_packets<'a, I>(
 where
     I: IntoIterator<Item = &'a [u8]>,
 {
-    let socket = open_raw_socket(target, protect_path, mark_source)?;
+    let socket = open_raw_socket(target, protect_path, mark_source, false)?;
     let sockaddr = raw_send_target(target);
     for packet in packets {
         socket.send_to(packet, &sockaddr)?;
@@ -74,7 +83,7 @@ where
     if inter_segment_delay_ms == 0 {
         return send_raw_packets(target, packets, protect_path, mark_source);
     }
-    let socket = open_raw_socket(target, protect_path, mark_source)?;
+    let socket = open_raw_socket(target, protect_path, mark_source, false)?;
     let sockaddr = raw_send_target(target);
     let delay = std::time::Duration::from_millis(u64::from(inter_segment_delay_ms));
     let mut first = true;
@@ -123,25 +132,30 @@ pub(super) fn open_raw_socket(
     target: SocketAddr,
     protect_path: Option<&str>,
     mark_source: BorrowedFd<'_>,
+    fragmented: bool,
 ) -> io::Result<Socket> {
+    let map_capability_error = |error| if fragmented { capability_error(error) } else { error };
+    let map_protection_error = |error| if fragmented { protection_error(error) } else { error };
     let socket = match target {
         SocketAddr::V4(_) => {
-            let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
-            crate::protect_socket(&socket, protect_path)?;
+            let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))
+                .map_err(map_capability_error)?;
+            crate::protect_socket(&socket, protect_path).map_err(map_protection_error)?;
             // SAFETY: socket fd is valid (just created above) and IP_HDRINCL optval is a C integer.
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IP, libc::IP_HDRINCL, &1i32) }?;
             socket
         }
         SocketAddr::V6(_) => {
-            let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
-            crate::protect_socket(&socket, protect_path)?;
+            let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))
+                .map_err(map_capability_error)?;
+            crate::protect_socket(&socket, protect_path).map_err(map_protection_error)?;
             // SAFETY: socket fd is valid (just created above) and IPV6_HDRINCL optval is a C integer.
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_HDRINCL, &1i32) }?;
             socket
         }
     };
     if protect_path.is_none() {
-        inherit_socket_mark(&socket, mark_source)?;
+        inherit_socket_mark(&socket, mark_source).map_err(map_protection_error)?;
     }
     Ok(socket)
 }

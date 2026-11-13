@@ -1,3 +1,6 @@
+#[cfg(any(target_os = "linux", target_os = "android", test))]
+pub(crate) mod preflight;
+
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 

@@ -424,6 +424,17 @@ fn raw_ipv6_sends_accept_a_target_with_a_transport_port() {
 
     let (mark_source, _peer) = connected_pair();
     let result = raw_packet::send_raw_fragments(target, [&packet, &packet], None, mark_source.as_fd());
+    if let Err(error) = &result
+        && error.kind() == io::ErrorKind::Unsupported
+    {
+        let phase = error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<crate::IpFragmentSendError>())
+            .expect("fragment capability denial retains its emission boundary");
+        assert!(!phase.payload_commit_uncertain);
+        assert!(matches!(phase.raw_os_error(), Some(libc::EPERM | libc::EACCES)));
+        return;
+    }
     // Without CAP_NET_RAW (or with IPv6 loopback off) the raw socket cannot open.
     if matches!(&result, Err(error) if matches!(error.kind(), io::ErrorKind::PermissionDenied | io::ErrorKind::AddrNotAvailable))
     {
