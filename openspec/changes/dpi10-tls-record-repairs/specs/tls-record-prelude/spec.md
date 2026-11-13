@@ -34,7 +34,7 @@ The prelude MUST reject repeat requests above a documented finite per-step work 
 
 ### Requirement: REQ-TLSREC-MULTIRECORD — Preserve complete ClientHello records
 
-The prelude MUST resolve supported semantic markers on complete ClientHello messages across plaintext handshake records. It MUST preserve the reassembled handshake bytes and all following wire bytes. Existing input record boundaries SHALL remain unless a configured record operation replaces them.
+For inputs that fit the existing synthetic record length representation, the prelude MUST resolve supported semantic markers on complete ClientHello messages across plaintext handshake records. Inputs above that limit SHALL remain unchanged. It MUST preserve the reassembled handshake bytes and all following wire bytes. Existing input record boundaries SHALL remain unless a configured record operation replaces them.
 
 #### Scenario: Handshake fields or SNI cross records
 

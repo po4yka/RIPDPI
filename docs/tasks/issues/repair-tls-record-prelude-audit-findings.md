@@ -2,7 +2,7 @@
 id: RST-1794557076132326
 title: Repair TLS record prelude audit findings
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: dpi10-integration
