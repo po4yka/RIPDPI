@@ -19,7 +19,8 @@ Task RST-1794556971423909 addresses audit F1-F5. Native multidisorder uses one t
 ## Contracts and ownership
 
 - Runtime worker owns F1/F3 in configuration, desync runtime and Kotlin chain validation/tests. IPC worker alone owns root-helper protocol capability metadata and bulk framing/tests. Emitter worker owns privileged sender and narrow sender tests. Integrator owns native docs and all planning records.
-- No protobuf, JNI, storage schema, Cargo.lock, dependency version, locale, golden or baseline edits are planned. No new async runtime: TCP work remains synchronous on per-connection OS threads.
+- A narrow method on the existing TcpChainStep owns the shared Rust settings rule. The runtime worker owns the generated ripdpi-config API snapshot if this addition changes it. No new trait hierarchy is introduced.
+- No protobuf, JNI, storage schema, Cargo.lock, dependency version, locale, golden or architecture-baseline edits are planned. No new async runtime: TCP work remains synchronous on per-connection OS threads.
 - Relevant locked versions: ripdpi local crates 0.1.0; compiler pin 1.98.1. Workers read exact dependency versions from Cargo.lock before edits.
 
 ## Risks / Trade-offs

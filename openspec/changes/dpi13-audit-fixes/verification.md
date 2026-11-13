@@ -1,13 +1,13 @@
 ---
 task_id: RST-1794556971423909
 change: dpi13-audit-fixes
-commit_sha: null
-local: required
-local_evidence: Targeted regressions, combined source gates and independent review are pending.
+commit_sha: 7227f367eb12620bcbcd19beed415d8d9ee5e373
+local: passed
+local_evidence: Combined source tree passed 786 Rust tests, 78 Kotlin model tests, host and restricted Linux clippy, full staticAnalysis, ci-gates, architecture and locked metadata. Separate finding commits passed normal hooks and isolated Rust checks. Independent pr-reviewer and F4 unsafe review found no unresolved issue.
 remote_ci: not_applicable
-remote_ci_evidence: No hosted CI acceptance is claimed; the user requests source fixes, local checks and an ordinary main push.
+remote_ci_evidence: Hosted CI acceptance is not claimed; this change requires local checks and an ordinary authorized main push.
 device: not_applicable
-device_evidence: No physical-device or root activation is authorized or required to claim the local contract fixes; raw kernel acceptance remains unverified.
+device_evidence: Physical-device and root activation were not authorized. Successful raw send, repair queue ACK/retransmission and external compatibility remain unverified.
 artifact: not_applicable
 artifact_evidence: No packaged Android binary or release artifact is requested.
 deployment: not_applicable
@@ -20,10 +20,47 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-MD-REPLAY | RST-1794557095307425 | Targeted runtime regression and retry classification checks | Pending |
-| REQ-MD-BULK | RST-1794557095887616 | Helper protocol and bulk transport regression tests | Pending |
-| REQ-MD-SETTINGS | RST-1794557096567987 | Configuration validation and marker-order boundary tests | Pending |
-| REQ-MD-QUEUE | RST-1794557097247048 | Privileged sender queue and restoration tests | Pending |
-| REQ-MD-GATES | RST-1794557097896136 | Documentation compared with current startup gate and executor | Pending |
+| REQ-MD-REPLAY | RST-1794557095307425 | Actual loopback peer receives abc before opaque and known-progress timeout; uncertainty retained; invalid pre-send plan stays certain. Included in the 786-test Rust run and isolated F1 checks. | passed |
+| REQ-MD-BULK | RST-1794557095887616 | 58 protocol tests pass, including real UnixStream/SCM_RIGHTS byte and descriptor round trips, 1/2/4/16KiB and maximum payload, negotiated/legacy limits and malformed ranges. Four Linux client bulk tests pass. | passed |
+| REQ-MD-SETTINGS | RST-1794557096567987 | Rust parser/runtime tests cover first-owner inheritance, marker0, sorting, duplicates, inactive owner and rejection before any peer bytes. Kotlin model suite: 78 tests, including two new grouped-settings tests. Generated config API snapshot adds one method. | passed |
+| REQ-MD-QUEUE | RST-1794557097247048 | Linux multidisorder tests: 5 passed; restoration tests: 3 passed; Linux clippy passed. Explicit IPv4/IPv6 masks, SEQ wrap, no plain bytes on early failure and loopback continuation checked. | passed |
+| REQ-MD-GATES | RST-1794557097896136 | Documentation compared with startup capability validation and both multidisorder/ipfrag2 executors. Combined review corrected the ipfrag2 boundary claim. | passed |
 
-Combined review and source gates: RST-1794557098495856.
+Combined review and gates: RST-1794557098495856.
+
+## Exact local checks
+
+All compiler-backed commands ran through `build-gate --lane ripdpi`. Rust used 1.98.1, at most four Cargo/CMake jobs and a target directory owned by this worktree. Gradle used the configured 5GiB heap, 3GiB Kotlin heap and at most four workers.
+
+From the checkout root:
+
+```sh
+cargo test --locked --jobs 4 --manifest-path native/rust/Cargo.toml -p ripdpi-config -p ripdpi-desync -p ripdpi-desync-runtime -p ripdpi-proxy-config -p ripdpi-root-helper-protocol
+cargo clippy --locked --jobs 4 --manifest-path native/rust/Cargo.toml -p ripdpi-config -p ripdpi-desync -p ripdpi-desync-runtime -p ripdpi-proxy-config -p ripdpi-root-helper-protocol -p ripdpi-privileged-ops -p ripdpi-runtime-platform --all-targets -- -D warnings
+./gradlew :core:data:model:testDebugUnitTest --max-workers=4 -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4
+./gradlew staticAnalysis --max-workers=4 -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4
+just ci-gates
+python3 scripts/ci/check_architecture_health.py
+cargo metadata --locked --manifest-path native/rust/Cargo.toml --format-version 1 --no-deps
+cargo fmt --manifest-path native/rust/Cargo.toml --all -- --check
+git diff --check
+```
+
+Observed results: 786 Rust tests passed, 0 failed/ignored; 78 Kotlin tests passed, 0 failed/errors/skipped. `staticAnalysis` succeeded with 826 tasks. All nine combined phases returned exit0. The owning `check_rust_api_snapshots` generator updated only the ripdpi-config method entry; the complete 13-target API gate matched.
+
+Restricted Linux image `ripdpi-dpi05-linux-check:rust1.98.1` ran as uid1000 with `--network none --cap-drop ALL --security-opt no-new-privileges`; source and host Cargo caches were read-only. Inside the container:
+
+```sh
+cargo test --locked --offline --jobs 4 -p ripdpi-privileged-ops multi -- --nocapture
+cargo test --locked --offline --jobs 4 -p ripdpi-privileged-ops restoration -- --nocapture
+cargo test --locked --offline --jobs 4 -p ripdpi-runtime-platform root_helper_client::transport::tests::bulk_tests -- --nocapture
+cargo clippy --locked --offline --jobs 4 -p ripdpi-privileged-ops -p ripdpi-runtime-platform --all-targets -- -D warnings
+```
+
+Observed: 5 + 3 + 4 tests passed and Linux clippy passed. No privileged successful send ran. A separate earlier full privileged-ops run reported 97 passed / 3 failed: unchanged BPF attach tests returned EPERM without capabilities. That full suite is not reported as green; no test or enforcement was removed.
+
+Logs for this local run are under `/tmp/dpi13-combined-*.log`, `/tmp/dpi13-commit-fixes.log`, and the worker logs named in the audit handoff. Temporary queued commands cancelled before admission are not counted as runs. The first partial-staging commit attempt failed because the hook saw a mixed F1/F3 snapshot; each final finding commit instead used an isolated staged tree and normal hooks.
+
+## Evidence limits
+
+C: implementation and callers reviewed. V: the named local tests, loopback delivery, packet bytes and error/transport contracts only. Raw TCP_REPAIR success, kernel retransmission under loss, Android VPN/root-helper routing and external-network E are not established. No S/E certification is claimed from static analysis. No golden, dependency, lockfile or baseline relaxation was used.
