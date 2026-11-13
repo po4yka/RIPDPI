@@ -2,7 +2,7 @@
 id: ENG-1794557091175687
 title: Close the remaining Disoob audit gaps
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: dpi09-integration
