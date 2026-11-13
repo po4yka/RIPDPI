@@ -22,7 +22,7 @@ synchronous per-connection OS threads. The host kernel owns TCP headers.
   Repair ordinary and urgent accumulation in the strategy-free action path.
 - Reject OOB repeats greater than one and nonzero skip at CLI and grouped-native
   admission. Keep repeat 0 or 1 with skip 0. Reject extra offset components.
-- Parse hex as ASCII bytes. Retain other established escape behavior.
+- Parse hex without UTF-8 slicing. Keep the ByeDPI literal fallback for malformed escapes.
 - Validate empty or single byte-range characters consistently across UI,
   settings import, mapper and native codec. Do not change persisted schema.
 - Use six separate repair commits, one per audit finding. Read-only independent
@@ -37,9 +37,9 @@ synchronous per-connection OS threads. The host kernel owns TCP headers.
 - Integration owner owns portfolio, OpenSpec, board and combined checks.
 - Cargo.lock, dependencies, protobufs, locales and baselines have no planned edits.
   Generated snapshots change only through their owning generator when required.
-- The generic strategy action enum cannot preserve urgent semantics. Its TCP
-  adapter rejects urgent plans atomically. The native production path remains
-  available. This is a separate repair of the internal gap found in the audit.
+- The generic strategy enum already has WriteUrgent. Its TCP adapter preserves
+  that variant and exact bytes. It does not flatten the action into normal Write.
+  This is a separate repair of the internal gap found in the audit.
 
 ## Risks / Trade-offs
 

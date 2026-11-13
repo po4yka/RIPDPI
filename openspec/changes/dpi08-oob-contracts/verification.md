@@ -26,4 +26,4 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-OOB-OFFSET | ENG-1794502126010205 | CLI and grouped native admission regression | Pending |
 | REQ-OOB-BYTE | ENG-1794502127402016 | Kotlin model, settings, engine and app unit tests | Pending |
 | REQ-OOB-COUNT | ENG-1794502129321790 | runtime receipts and normal peer bytes | Pending |
-| REQ-OOB-PROJECTION | ENG-1794502510792935 | generic adapter error and unchanged output plan regression | Pending |
+| REQ-OOB-PROJECTION | ENG-1794502510792935 | generic adapter exact urgent action regression | Pending |

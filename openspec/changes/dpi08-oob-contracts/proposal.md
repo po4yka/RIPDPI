@@ -12,9 +12,9 @@ inserted byte as application data.
 
 - Limit urgent emission to the first nonempty outbound buffer, once per plan.
 - Send the original prefix with progress tracking, then one urgent byte.
-- Reject malformed hex escapes, unsupported OOB repeats and invalid UI bytes.
+- Parse malformed hex escapes without a panic. Reject unsupported OOB repeats and invalid UI bytes.
 - Exclude inserted bytes from application counts.
-- Reject unsupported generic urgent projections instead of inserting normal bytes.
+- Preserve generic urgent projections instead of inserting normal bytes.
 - BREAKING: unsafe repeated OOB parameters are rejected. Later runtime urgent
   steps become ordinary splits. UI characters above byte 255 are rejected.
 

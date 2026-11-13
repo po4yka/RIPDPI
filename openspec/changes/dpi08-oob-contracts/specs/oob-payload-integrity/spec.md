@@ -22,14 +22,14 @@ The runtime MUST send the original prefix with progress tracking before sending 
 - **WHEN** send buffer pressure causes a prefix or urgent send error
 - **THEN** the reported payload progress is accurate and the request is not replayed on the same stream
 
-### Requirement: REQ-OOB-HEX — Reject malformed hex safely
+### Requirement: REQ-OOB-HEX — Parse malformed hex safely
 
-The parser MUST return ConfigError for malformed hex escapes without slicing UTF-8 at invalid boundaries.
+The parser MUST NOT panic or slice UTF-8 at an invalid boundary on a malformed hex escape. It MUST keep the ByeDPI `parse_cform` fallback, which writes the escape characters as literal bytes.
 
-#### Scenario: Reject malformed hex safely
+#### Scenario: Parse malformed hex safely
 
-- **WHEN** oob-data contains a malformed escape such as a hex marker followed by a Unicode character
-- **THEN** configuration parsing returns an error without a panic
+- **WHEN** oob-data or fake data contains a hex marker followed by a Unicode character
+- **THEN** configuration parsing succeeds without a panic and keeps the literal fallback bytes
 
 ### Requirement: REQ-OOB-OFFSET — Reject unsupported repeats
 
@@ -58,11 +58,11 @@ Application byte counts and payload receipts MUST exclude the inserted urgent by
 - **WHEN** six original bytes are sent with one OOB insertion
 - **THEN** application counts equal six; partial counts include only accepted original bytes
 
-### Requirement: REQ-OOB-PROJECTION — Reject unsupported urgent projection
+### Requirement: REQ-OOB-PROJECTION — Preserve urgent projection
 
-The generic strategy adapter MUST reject urgent actions before it changes the output plan. It MUST NOT expose an ordinary byte insertion as an urgent send.
+The generic strategy adapter MUST preserve urgent actions using the existing WriteUrgent variant, including the exact prefix and urgent byte. It MUST NOT replace an urgent action with an ordinary byte insertion.
 
 #### Scenario: Generic adapter receives an urgent action
 
 - **WHEN** a caller requests an OOB plan through the generic strategy trait
-- **THEN** the call returns an error and leaves the output plan unchanged; the native TCP runtime remains available
+- **THEN** the output plan contains WriteUrgent with the exact original prefix and configured byte; no ordinary Write contains the inserted urgent byte
