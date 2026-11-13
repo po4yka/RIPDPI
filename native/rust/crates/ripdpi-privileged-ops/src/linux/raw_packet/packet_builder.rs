@@ -215,6 +215,51 @@ pub(crate) fn build_tcp_segment_packet(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub(crate) fn build_seqovl_tcp_packet(
+    source: SocketAddr,
+    target: SocketAddr,
+    ttl: u8,
+    snapshot: &TcpRepairSnapshot,
+    real_chunk: &[u8],
+    fake_prefix: &[u8],
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+    path_mtu: Option<u32>,
+) -> io::Result<Vec<u8>> {
+    let payload_len = fake_prefix
+        .len()
+        .checked_add(real_chunk.len())
+        .ok_or_else(|| value_too_large_io("seqovl payload length overflow"))?;
+    if snapshot.options.mss.filter(|mss| *mss != 0).is_some_and(|mss| payload_len > usize::from(mss)) {
+        return Err(value_too_large_io("seqovl payload exceeds negotiated TCP MSS"));
+    }
+    let overlap_seq = snapshot.sequence_number.wrapping_sub(fake_prefix.len() as u32);
+    let mut overlap_payload = Vec::with_capacity(payload_len);
+    overlap_payload.extend_from_slice(fake_prefix);
+    overlap_payload.extend_from_slice(real_chunk);
+    let identification = ipv4_identification.map_or(snapshot.sequence_number, u32::from);
+    let packet = build_tcp_segment_packet(
+        source,
+        target,
+        ttl,
+        identification,
+        overlap_seq,
+        snapshot.acknowledgment_number,
+        snapshot.window_size,
+        snapshot.options.timestamp,
+        true,
+        &overlap_payload,
+        md5sig,
+        flags,
+    )?;
+    if path_mtu.filter(|mtu| *mtu != 0).is_some_and(|mtu| packet.len() > mtu as usize) {
+        return Err(value_too_large_io("seqovl packet exceeds path MTU"));
+    }
+    Ok(packet)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_fake_tcp_packets(
     source: SocketAddr,
     target: SocketAddr,
@@ -317,3 +362,7 @@ pub(crate) fn validate_explicit_ipv4_identifications(
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "packet_builder/seqovl_tests.rs"]
+mod seqovl_tests;

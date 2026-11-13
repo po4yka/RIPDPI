@@ -10,12 +10,12 @@ use std::os::fd::{AsFd, AsRawFd};
 use crate::detect_default_ttl;
 use crate::linux::raw_packet::fake_tcp::mutate_fake_timestamp;
 use crate::linux::raw_packet::packet_builder::{
-    apply_tcp_flag_overrides_to_packet, build_error_to_io, build_ordered_tcp_packets, build_tcp_segment_packet,
-    fragment_identification, resolve_raw_ttl, validate_explicit_ipv4_identifications,
+    apply_tcp_flag_overrides_to_packet, build_error_to_io, build_ordered_tcp_packets, build_seqovl_tcp_packet,
+    build_tcp_segment_packet, fragment_identification, resolve_raw_ttl, validate_explicit_ipv4_identifications,
 };
 use crate::linux::raw_packet::raw_socket::{open_raw_socket, raw_send_target, send_raw_packets};
 use crate::linux::socket_options::get_stream_ttl;
-use crate::linux::tcp_info::wait_tcp_stage_fd;
+use crate::linux::tcp_info::{read_tcp_info, wait_tcp_stage_fd};
 use crate::linux::tcp_repair::{
     TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, finish_tcp_repair, queue_payload_as_sent, set_tcp_repair,
     set_tcp_repair_queue, snapshot_tcp_repair_state,
@@ -246,35 +246,28 @@ pub fn send_seqovl_tcp(
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
     let fd = stream.as_raw_fd();
 
+    let path_mtu = read_tcp_info(fd)?.and_then(|info| (info.tcpi_pmtu != 0).then_some(info.tcpi_pmtu));
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let mut emission_possible = false;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
 
-        let overlap_seq = snapshot.sequence_number.wrapping_sub(fake_prefix.len() as u32);
-        let mut overlap_payload = Vec::with_capacity(fake_prefix.len() + real_chunk.len());
-        overlap_payload.extend_from_slice(fake_prefix);
-        overlap_payload.extend_from_slice(real_chunk);
-
-        let identification = ipv4_identification.map_or(snapshot.sequence_number, u32::from);
-        let packet = build_tcp_segment_packet(
+        let packet = build_seqovl_tcp_packet(
             source,
             target,
             ttl,
-            identification,
-            overlap_seq,
-            snapshot.acknowledgment_number,
-            snapshot.window_size,
-            snapshot.options.timestamp,
-            true,
-            &overlap_payload,
+            &snapshot,
+            real_chunk,
+            fake_prefix,
             md5sig,
             flags,
+            ipv4_identification,
+            path_mtu,
         )?;
         let socket = open_raw_socket(target, protect_path, stream.as_fd())?;
         let destination = raw_send_target(target);
         emission_possible = true;
-        socket.send_to(&packet, &destination)?;
+        socket.send_to(&packet, &destination).map_err(|error| seqovl_send_error(error, &mut emission_possible))?;
         queue_payload_as_sent(stream, real_chunk)?;
         set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
         disable_tcp_repair(fd)
@@ -294,9 +287,19 @@ fn finish_seqovl_send(
     finish_tcp_repair(operation, repair_restoration)
 }
 
+fn seqovl_send_error(error: io::Error, emission_possible: &mut bool) -> io::Error {
+    if error.raw_os_error() == Some(libc::EMSGSIZE) {
+        // This single datagram was not emitted; queue state is still untouched.
+        *emission_possible = false;
+        io::Error::new(io::ErrorKind::InvalidInput, error)
+    } else {
+        error
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{build_ordered_tcp_packets, finish_seqovl_send, genuine_ordered_payload};
+    use super::{build_ordered_tcp_packets, finish_seqovl_send, genuine_ordered_payload, seqovl_send_error};
     use crate::linux::tcp_repair::{TcpRepairOptionsSnapshot, TcpRepairSnapshot, TcpRepairWindow};
     use crate::{OrderedTcpSegment, TcpFlagOverrides};
 
@@ -419,6 +422,39 @@ mod tests {
         assert!(
             finish_seqovl_send(Ok(()), Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)), true,).is_err()
         );
+    }
+
+    #[test]
+    fn seqovl_atomic_size_refusal_is_safe_only_after_successful_restore() {
+        let mut emission_possible = true;
+        let error = seqovl_send_error(std::io::Error::from_raw_os_error(libc::EMSGSIZE), &mut emission_possible);
+        assert!(!emission_possible);
+        let error = finish_seqovl_send(Err(error), Ok(()), emission_possible).expect_err("size refusal");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        let mut emission_possible = true;
+        let error = seqovl_send_error(std::io::Error::from_raw_os_error(libc::EMSGSIZE), &mut emission_possible);
+        let error = finish_seqovl_send(
+            Err(error),
+            Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+            emission_possible,
+        )
+        .expect_err("repair failure remains terminal");
+        assert_eq!(error.kind(), std::io::ErrorKind::Other);
+    }
+
+    #[test]
+    fn seqovl_unknown_send_error_never_becomes_safe() {
+        for error in [
+            std::io::Error::from_raw_os_error(libc::EPERM),
+            std::io::Error::from(std::io::ErrorKind::WouldBlock),
+            std::io::Error::other(std::io::Error::from_raw_os_error(libc::EMSGSIZE)),
+        ] {
+            let mut emission_possible = true;
+            let error = seqovl_send_error(error, &mut emission_possible);
+            assert!(emission_possible);
+            let error = finish_seqovl_send(Err(error), Ok(()), emission_possible).expect_err("uncertain send");
+            assert_eq!(error.kind(), std::io::ErrorKind::Other);
+        }
     }
 
     #[test]
