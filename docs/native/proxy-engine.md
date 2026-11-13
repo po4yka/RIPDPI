@@ -409,6 +409,10 @@ The runtime now supports:
 - group-wide IPv4 ID control for raw IPv4 TCP and fragmentation paths, including exact `seqgroup` promotion for mixed fake/original flows
 - grouped `multidisorder` TCP runs where each contiguous terminal step contributes one marker and the runtime sends the resulting regions in reverse order
 
+For `multidisorder`, the first declared marker sets the original TCP flags and inter-segment delay for the whole run. Default fields on later markers inherit these values. A non-default field on a later marker must agree with the first marker, or configuration validation rejects the chain. Sorting, duplicate positions, activation and empty regions do not select a different settings owner.
+
+The root helper accepts large multidisorder requests only after it advertises command-specific bulk support. Payload and segment limits apply before privileged dispatch. A legacy helper retains the control-frame limit. If a grouped send fails after delivery can have started, the runtime marks delivery as uncertain and does not automatically replay the original request.
+
 #### TCP chain step kinds (complete reference)
 
 | Kind | Description | Key parameters | Platform |
@@ -417,7 +421,7 @@ The runtime now supports:
 | `syndata` | Split whose first chunk rides the SYN through TCP Fast Open when a server cookie is cached; replay-safe payloads only; first send step | offset | Linux/Android (plain split elsewhere) |
 | `seqovl` | Sequence overlap -- fake prefix sent with seq shifted back via TCP_REPAIR, server discards overlap, DPI caches fake | offset, `overlap_size` (1-32, default 12), `fake_mode` (`profile` or `rand`) | Linux/Android |
 | `disorder` | Send segment with TTL trick (DPI sees, server ignores expired packet) | offset | All |
-| `multidisorder` | Split at 2+ markers, send resulting 3+ segments in reverse order via raw sockets | 2+ marker offsets, `inter_segment_delay_ms` (0-100, default 0) | Linux/Android |
+| `multidisorder` | Split at 2+ markers, send resulting 3+ segments in reverse order via raw sockets | 2+ marker offsets, `inter_segment_delay_ms` (0-500, default 0; helper total delay at most 1000 ms) | Linux/Android |
 | `fake` | Fake packet (TTL/checksum-invalidated) before real payload | TTL, `md5sig` | All |
 | `fakedsplit` | Fake-backed split at marker | TTL, `md5sig`, offset | Linux/Android; default stream transport, ordered/exact variants require raw access |
 | `fakeddisorder` | Fake-backed disorder approximation | TTL, `md5sig`, offset | Linux/Android; default stream transport, ordered/exact variants require raw access |
@@ -429,7 +433,9 @@ The runtime now supports:
 | `ipfrag2` | IP-level packet fragmentation (DF cleared, MF set, 8-byte aligned offset) | offset | Linux/Android |
 | `fakerst` | Rooted fake TCP RST emission before the original payload write | `fake_tcp_flags` | Rooted (requires root mode) |
 
-Rooted-production steps requiring raw sockets (`seqovl`, `multidisorder`, `ipfrag2`) probe TCP_REPAIR and raw socket capabilities at startup and gracefully degrade to `split` when unavailable.
+Native `multidisorder` and `ipfrag2` require raw IPv4 sockets and TCP_REPAIR. When IPv6 is enabled, they also require raw IPv6 sockets. The runtime checks these capabilities at startup and rejects the configuration if a required capability is absent. Native `multidisorder` does not automatically fall back to `split` after a raw send error. A missing root helper can select the local raw path, which still requires process privileges.
+
+A `multidisorder` planning error uses ordinary TCP delivery and reports `PlanFailedPlainFallback`. For example, resolved active markers can fail to form three non-empty regions. A chain skipped by activation reports `ActivationSkipped`. These outcomes do not mean that multidisorder ran. The separate `seqovl` executor can fall back to `split` when its raw operation is unavailable.
 
 #### TCP desync pipeline
 
@@ -529,7 +535,7 @@ Fragments IP packets so inspected payload (SNI in TLS, hostname in HTTP) falls i
 
 #### Multi-disorder inter-segment delay
 
-`inter_segment_delay_ms` (0-100, default 0) inserts a `thread::sleep` between reversed-order segment sends. Without delay, routers may coalesce the burst and reorder packets back to original order.
+`inter_segment_delay_ms` (0-500, default 0; helper total delay at most 1000 ms) inserts a `thread::sleep` between reversed-order segment sends. Without delay, routers may coalesce the burst and reorder packets back to original order.
 
 #### ECH fragmentation
 
@@ -641,7 +647,7 @@ The fake-transport path now includes:
 - TCP window clamping (`TCP_WINDOW_CLAMP`) to force small server response segments
 - QUIC source port binding for port-based filtering compatibility tests
 
-`hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs. `multidisorder` is different: it uses packet-owned TCP repair plus raw IPv4/IPv6 injection to emit the real payload segments in reverse order, then leaves repair mode and writes the payload on the live stream at the same sequence numbers.
+`hostfake`, `fakedsplit`, and `fakeddisorder` reuse that same fake-payload and fake-transport pipeline instead of shipping separate blob knobs. `multidisorder` is different: it uses packet-owned TCP repair plus raw IPv4/IPv6 injection to emit the real payload segments in reverse order, then queues the original bytes as already sent while TCP_REPAIR is active. The kernel retains these bytes for retransmission. The sender restores repair state before it returns; it does not immediately write the payload again with the kernel's default flags.
 
 ### QUIC handshake variation surface
 
