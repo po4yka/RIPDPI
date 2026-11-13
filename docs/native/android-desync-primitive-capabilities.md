@@ -198,7 +198,7 @@ permissions, not the only possible runtime capability signal.
 `supports_fake_retransmit()` in `crates/ripdpi-runtime-platform/src/retransmit.rs` is a
 compile-time Linux/Android flag. It is not a probe of raw permissions. It causes
 fake-family plans to use their specialized executor on those platforms.
-`seqovl_supported()` probes TCP repair capability for the sequence-overlap path;
+`seqovl_supported()` requires TCP repair and raw access to at least one IP family;
 it does not disable every `fakedsplit` or `fakeddisorder` configuration.
 
 Raw paths require both TCP repair and raw-socket access. Their availability

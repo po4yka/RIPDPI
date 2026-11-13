@@ -23,7 +23,7 @@ Task ENG-1794557051102648 repairs the DPI-12 findings. The existing action and p
 - runtime-worker owns ripdpi-desync action/planner and ripdpi-desync-runtime for F1/F2; exhaustive action callers belong to this lane.
 - config-worker owns core/data/model chain validation, config CLI, proxy-config chain validation for F3; runtime-platform/retransmit.rs for G1.
 - privileged-worker owns ripdpi-privileged-ops seqovl raw sender and tests for F5 then F4.
-- primary agent owns F6 root-helper handlers, runtime-platform/root_helper_client, API snapshots, all task/OpenSpec state and generated board.
+- primary agent owns F6 root-helper handlers, runtime-platform/root_helper_client, failure-classifier retry regression, API snapshots, all task/OpenSpec state and generated board.
 - No Cargo.lock, version catalog, locale, protobuf, JNI signature or golden fixture change is planned. Root-helper metadata is additive and fails closed when absent or invalid.
 
 ## Risks / Trade-offs

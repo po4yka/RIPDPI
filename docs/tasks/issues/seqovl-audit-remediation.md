@@ -2,7 +2,7 @@
 id: ENG-1794557051102648
 title: Fix seqovl execution and fallback contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: Primary agent
@@ -32,6 +32,6 @@ Fix the seven confirmed DPI-12 findings without changing unrelated TCP methods.
 - runtime-worker: F1 and F2; ripdpi-desync action/planner and ripdpi-desync-runtime, plus exhaustive action callers.
 - config-worker: F3 and G1; Kotlin chain validation, ripdpi-config CLI, ripdpi-proxy-config validation, runtime-platform/retransmit.rs.
 - privileged-worker: F5 then F4; ripdpi-privileged-ops raw seqovl sender and its pure regression tests.
-- primary agent: F6; root-helper handlers and runtime-platform/root_helper_client error round-trip; planning and integration.
+- primary agent: F6; root-helper handlers, runtime-platform/root_helper_client response policy, and failure-classifier retry regression; planning and integration.
 - Serialized lane: primary agent owns API snapshots, shared protocol files, task/OpenSpec state and generated board. No dependency, locale, golden or baseline edits are planned.
 - Every writer uses its own worktree. Review agents do not edit files.
