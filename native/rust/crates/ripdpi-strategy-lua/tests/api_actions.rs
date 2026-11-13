@@ -86,7 +86,6 @@ fn lua_zapret_compat_actions_append_typed_plan_actions() {
             function typed_actions(desync)
                 desync.fake(7, "rand", "/tmp/fake.bin")
                 desync.oob(2, 33)
-                desync.fake_rst(5)
                 desync.udplen(4)
                 return VERDICT_MODIFY
             end
@@ -118,10 +117,30 @@ fn lua_zapret_compat_actions_append_typed_plan_actions() {
                 payload_file: Some("/tmp/fake.bin".to_owned()),
             },
             DesyncAction::WriteUrgent { prefix: b"pa".to_vec(), urgent_byte: 33 },
-            DesyncAction::SendFakeRst { ttl: Some(5) },
             DesyncAction::UdpLen { delta: 4 },
         ]
     );
+}
+
+#[test]
+fn lua_fake_rst_binding_is_absent() {
+    let engine = LuaStrategyEngine::new().expect("lua vm");
+    engine.load_bytes("rst", b"function rst(desync) return desync.fake_rst(5) end").expect("load script");
+    engine.register_function("rst").expect("register rst");
+    let strategy = engine.make_strategy("rst").expect("make strategy");
+    let dissect = Dissect::default();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &ConnectionState::default(),
+        caps: &Capabilities::default(),
+        flow_id: FlowId(3),
+        payload: b"",
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+
+    assert!(strategy.plan(&ctx, &mut plan).is_err());
+    assert!(plan.actions.is_empty());
 }
 
 #[test]

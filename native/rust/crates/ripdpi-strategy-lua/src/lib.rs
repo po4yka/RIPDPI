@@ -1366,17 +1366,6 @@ mod enabled {
             .map_err(to_call)?;
         desync.set("oob", oob).map_err(to_call)?;
 
-        let fake_rst_plan = Arc::clone(&call_plan);
-        let fake_rst = lua
-            .create_function(move |_, ttl: Option<u8>| {
-                let mut plan = lock_lua_call_plan(&fake_rst_plan)?;
-                plan.push(DesyncAction::SendFakeRst { ttl })?;
-                plan.verdict = Some(StrategyVerdict::Apply);
-                Ok(VERDICT_MODIFY)
-            })
-            .map_err(to_call)?;
-        desync.set("fake_rst", fake_rst).map_err(to_call)?;
-
         let udplen_plan = Arc::clone(&call_plan);
         let udplen = lua
             .create_function(move |_, delta: i16| {
