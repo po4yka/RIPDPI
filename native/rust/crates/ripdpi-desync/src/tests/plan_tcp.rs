@@ -444,7 +444,7 @@ fn plan_tcp_ipfrag2_falls_back_after_first_round() {
 
     assert_eq!(
         plan.steps,
-        vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 5, source_send_step_index: Some(0) }]
+        vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 11, source_send_step_index: Some(0) }]
     );
     assert_eq!(plan.actions, vec![DesyncAction::Write(payload.to_vec())]);
 }
@@ -1458,4 +1458,24 @@ fn plan_tcp_seqovl_preserves_configured_tcp_flags() {
         panic!("expected overlap action");
     };
     assert_eq!(*actual, flags);
+}
+
+#[test]
+fn plan_tcp_ipfrag2_boundary_offsets_use_one_full_plain_write() {
+    let payload = b"hello world";
+    for offset in [0, payload.len() as i64, payload.len() as i64 + 1] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::IpFrag2, split_expr(offset)));
+        let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("boundary plan");
+        assert_eq!(plan.actions, vec![DesyncAction::Write(payload.to_vec())]);
+        assert_eq!(
+            plan.steps,
+            vec![PlannedStep {
+                kind: TcpChainStepKind::Split,
+                start: 0,
+                end: payload.len() as i64,
+                source_send_step_index: Some(0)
+            }]
+        );
+    }
 }

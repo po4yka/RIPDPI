@@ -20,7 +20,7 @@ pub(super) fn push_ipfrag2_or_fallback(
     lp: i64,
     pos: i64,
     round: i64,
-) {
+) -> bool {
     if round == 1 && pos > 0 && pos < tampered.len() as i64 {
         let payload = step.ip_frag_payload();
         actions.push(DesyncAction::WriteIpFragmentedTcp {
@@ -29,7 +29,9 @@ pub(super) fn push_ipfrag2_or_fallback(
             disorder: payload.is_some_and(|payload| payload.disorder),
             ipv6_ext: ipv6_ext_from_tcp_step(step),
         });
+        true
     } else {
         actions.push(DesyncAction::Write(tampered[lp as usize..].to_vec()));
+        false
     }
 }

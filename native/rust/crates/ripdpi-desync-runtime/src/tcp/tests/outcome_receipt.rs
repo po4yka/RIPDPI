@@ -16,6 +16,7 @@ mod disorder_ttl;
 mod fake_rst;
 mod fake_send_safety;
 mod fake_split;
+mod ip_fragment_eligibility;
 mod multi_disorder;
 mod seq_overlap;
 
@@ -33,6 +34,7 @@ type FaultQueue = Mutex<VecDeque<FaultSpec>>;
 
 #[derive(Default)]
 pub(super) struct ReceiptTestPlatform {
+    ipfrag_error_kind: Option<io::ErrorKind>,
     raw_unavailable: bool,
     faults: FaultQueue,
     require_disorder_raw_original: bool,
@@ -242,7 +244,10 @@ impl TcpFragmentSender for ReceiptTestPlatform {
         _flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Unsupported, "ipfrag unsupported in receipt test"))
+        Err(io::Error::new(
+            self.ipfrag_error_kind.unwrap_or(io::ErrorKind::Unsupported),
+            "ipfrag unsupported in receipt test",
+        ))
     }
 
     fn send_multi_disorder_tcp(

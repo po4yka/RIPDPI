@@ -201,11 +201,11 @@ fn plan_tcp_with_fake_reference(
 
         match step.kind() {
             TcpChainStepKind::IpFrag2 => {
-                push_ipfrag2_or_fallback(&mut actions, step, &tampered.bytes, lp, pos, context.round);
+                let fragmented = push_ipfrag2_or_fallback(&mut actions, step, &tampered.bytes, lp, pos, context.round);
                 steps.push(PlannedStep {
-                    kind: planned_kind,
+                    kind: if fragmented { planned_kind } else { TcpChainStepKind::Split },
                     start: lp,
-                    end: pos,
+                    end: if fragmented { pos } else { tampered.bytes.len() as i64 },
                     source_send_step_index: planned_source,
                 });
                 lp = tampered.bytes.len() as i64;
