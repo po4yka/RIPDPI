@@ -5,7 +5,7 @@ use crate::{
     TcpSeqOverlapPayload,
 };
 
-use super::super::helpers::{next_value, parse_ttl_byte, parse_wsize, seqovl_step_mut};
+use super::super::helpers::{next_value, parse_ttl_byte, parse_wsize, repeats_or_skips, seqovl_step_mut};
 use super::super::state::CliState;
 use crate::parse::fake_profiles::{
     apply_fake_tls_mod_token, data_from_str, file_or_inline_bytes, parse_http_fake_profile, parse_tls_fake_profile,
@@ -55,12 +55,9 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             state.group().actions.shannon_entropy_target_permil = Some((f * 1000.0) as u32);
         }
         "-s" | "--split" | "--seqovl" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f" | "--fake" => {
-            let value = next_value(args, idx, arg)?;
-            let offset = parse_offset_expr(value)?;
-            if matches!(arg, "-s" | "--split" | "-o" | "--oob" | "-q" | "--disoob")
-                && (offset.repeats > 1 || offset.skip != 0)
-            {
-                return Err(ConfigError::invalid(arg, Some(value)));
+            let offset = parse_offset_expr(next_value(args, idx, arg)?)?;
+            if matches!(arg, "-s" | "--split" | "-o" | "--oob" | "-q" | "--disoob") && repeats_or_skips(offset) {
+                return Err(ConfigError::invalid(arg, Some("offset cannot repeat or skip")));
             }
             if arg == "--seqovl" {
                 if state.group().actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SeqOverlap) {

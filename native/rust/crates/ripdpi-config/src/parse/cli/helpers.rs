@@ -64,6 +64,11 @@ pub(super) fn split_plugin_options(spec: &str) -> Vec<String> {
     spec.split(' ').filter(|token| !token.is_empty()).map(ToOwned::to_owned).collect()
 }
 
+/// Returns whether `offset` asks for more than one split point: a repeat count above 1 or a skip.
+pub(super) fn repeats_or_skips(offset: crate::OffsetExpr) -> bool {
+    offset.repeats > 1 || offset.skip != 0
+}
+
 pub(super) fn next_value<'a>(args: &'a [String], idx: &mut usize, option: &str) -> Result<&'a str, ConfigError> {
     *idx += 1;
     args.get(*idx).map(String::as_str).ok_or_else(|| ConfigError::invalid(option, Option::<String>::None))

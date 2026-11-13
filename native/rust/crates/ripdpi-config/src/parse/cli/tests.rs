@@ -797,7 +797,7 @@ fn parse_cli_rejects_urgent_offset_repeats_and_skip() {
             let error = parse_cli(&args, &StartupEnv::default()).expect_err("unsupported urgent offset");
 
             assert_eq!(error.option, option);
-            assert_eq!(error.value.as_deref(), Some(offset));
+            assert_eq!(error.value.as_deref(), Some("offset cannot repeat or skip"), "{option} {offset}");
         }
         for offset in ["2", "2:1", "2:1:0"] {
             let args = vec![option.to_string(), offset.to_string()];
