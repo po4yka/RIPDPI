@@ -145,78 +145,66 @@ fn plan_tcp_auto_marker_falls_back_to_payload_target_without_semantics() {
 
 #[test]
 fn plan_tcp_tlsrec_supports_adaptive_marker_resolution() {
-    let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
-    let mut auto_group = DesyncGroup::new(0);
-    auto_group.actions.tcp_chain =
-        vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))];
-    let mut explicit_group = DesyncGroup::new(0);
-    explicit_group.actions.tcp_chain =
-        vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::SniExt, 0))];
+    for (payload, boundary) in super::tls_prelude_adaptive::captured_hellos() {
+        let mut auto_group = DesyncGroup::new(0);
+        auto_group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))];
+        let mut explicit_group = DesyncGroup::new(0);
+        explicit_group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::SniExt, 0))];
+        let context = tcp_context_with_hint(
+            payload,
+            TcpSegmentHint { snd_mss: Some(boundary as i64), advmss: None, pmtu: None, ip_header_overhead: 40 },
+        );
 
-    let auto_plan = plan_tcp(
-        &auto_group,
-        DEFAULT_FAKE_TLS,
-        7,
-        64,
-        tcp_context_with_hint(
-            DEFAULT_FAKE_TLS,
-            TcpSegmentHint {
-                snd_mss: None,
-                advmss: None,
-                pmtu: Some(markers.sni_ext_start as i64 + 41),
-                ip_header_overhead: 40,
-            },
-        ),
-    )
-    .expect("auto tlsrec plan");
-    let explicit_plan = plan_tcp(&explicit_group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS))
-        .expect("explicit tlsrec plan");
+        let auto_plan = plan_tcp(&auto_group, payload, 7, 64, context).expect("auto tlsrec plan");
+        let explicit_plan =
+            plan_tcp(&explicit_group, payload, 7, 64, tcp_context(payload)).expect("explicit tlsrec plan");
 
-    assert_eq!(auto_plan.tampered, explicit_plan.tampered);
+        for plan in [&auto_plan, &explicit_plan] {
+            assert_eq!(plan.tls_prelude.applied_count, 1);
+            super::tls_prelude_adaptive::assert_record_reassembly(payload, &plan.tampered, boundary, 2);
+        }
+        assert_eq!(auto_plan.tampered, explicit_plan.tampered);
+    }
 }
 
 #[test]
 fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
-    let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
-    let mut auto_group = DesyncGroup::new(0);
-    auto_group.actions.tcp_chain = vec![
-        TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
-            .with_tls_randrec_payload(TcpTlsRandRecPayload {
-                fragment_count: 4,
-                min_fragment_size: 16,
-                max_fragment_size: 32,
-            }),
-    ];
-    let mut explicit_group = DesyncGroup::new(0);
-    explicit_group.actions.tcp_chain = vec![
-        TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::SniExt, 0))
-            .with_tls_randrec_payload(TcpTlsRandRecPayload {
-                fragment_count: 4,
-                min_fragment_size: 16,
-                max_fragment_size: 32,
-            }),
-    ];
+    for (payload, boundary) in super::tls_prelude_adaptive::captured_hellos() {
+        let mut auto_group = DesyncGroup::new(0);
+        auto_group.actions.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
+                .with_tls_randrec_payload(TcpTlsRandRecPayload {
+                    fragment_count: 4,
+                    min_fragment_size: 16,
+                    max_fragment_size: 64,
+                }),
+        ];
+        let mut explicit_group = DesyncGroup::new(0);
+        explicit_group.actions.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::SniExt, 0))
+                .with_tls_randrec_payload(TcpTlsRandRecPayload {
+                    fragment_count: 4,
+                    min_fragment_size: 16,
+                    max_fragment_size: 64,
+                }),
+        ];
+        let context = tcp_context_with_hint(
+            payload,
+            TcpSegmentHint { snd_mss: Some(boundary as i64), advmss: None, pmtu: None, ip_header_overhead: 40 },
+        );
 
-    let auto_plan = plan_tcp(
-        &auto_group,
-        DEFAULT_FAKE_TLS,
-        7,
-        64,
-        tcp_context_with_hint(
-            DEFAULT_FAKE_TLS,
-            TcpSegmentHint {
-                snd_mss: None,
-                advmss: None,
-                pmtu: Some(markers.sni_ext_start as i64 + 41),
-                ip_header_overhead: 40,
-            },
-        ),
-    )
-    .expect("auto tlsrandrec plan");
-    let explicit_plan = plan_tcp(&explicit_group, DEFAULT_FAKE_TLS, 7, 64, tcp_context(DEFAULT_FAKE_TLS))
-        .expect("explicit tlsrandrec plan");
+        let auto_plan = plan_tcp(&auto_group, payload, 7, 64, context).expect("auto tlsrandrec plan");
+        let explicit_plan =
+            plan_tcp(&explicit_group, payload, 7, 64, tcp_context(payload)).expect("explicit tlsrandrec plan");
 
-    assert_eq!(auto_plan.tampered, explicit_plan.tampered);
+        for plan in [&auto_plan, &explicit_plan] {
+            assert_eq!(plan.tls_prelude.applied_count, 1);
+            super::tls_prelude_adaptive::assert_record_reassembly(payload, &plan.tampered, boundary, 5);
+        }
+        assert_eq!(auto_plan.tampered, explicit_plan.tampered);
+    }
 }
 
 #[test]
