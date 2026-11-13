@@ -206,8 +206,9 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
                     accounting.complete_action();
                 }
                 DesyncAction::SendFakeRst => {
-                    PrivilegedActionExecutor::send_fake_rst(writer, &context);
-                    accounting.complete_action();
+                    if PrivilegedActionExecutor::send_fake_rst(writer, &context) {
+                        accounting.complete_action();
+                    }
                 }
                 DesyncAction::Delay(ms) => {
                     // std-thread-safe: each connection runs on its own dedicated OS thread

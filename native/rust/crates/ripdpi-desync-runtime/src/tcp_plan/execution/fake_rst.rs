@@ -10,7 +10,10 @@ pub(super) fn execute(
     input: &TcpPlanStepInput<'_>,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
     // The RST carries the live sequence numbers, so it may leave only at the
-    // lowered TTL; without a TTL write the step sends no RST.
+    // lowered TTL; without a TTL write the step sends no RST. A step whose RST
+    // did not leave still writes its chunk and reports the plain split family.
+    // Every `fakerst` step runs here, flagged or not.
+    let mut rst_sent = false;
     let fake_ttl = ctx.resolved_fake_ttl.or(ctx.group.actions.ttl).unwrap_or(8).max(1);
     if ctx.lowering.set_ttl_named(
         ctx.writer,
@@ -20,13 +23,14 @@ pub(super) fn execute(
         input.step_fallback,
         input.bytes_committed,
     )? {
-        let _ = platform::send_fake_rst(
+        rst_sent = platform::send_fake_rst(
             ctx.writer,
             ctx.config.network.default_ttl,
             ctx.config.process.protect_path.as_deref(),
             step_fake_tcp_flags(input.configured_step),
             ctx.group.actions.ip_id_mode,
-        );
+        )
+        .is_ok();
         ctx.lowering.restore_default_ttl_named(
             ctx.writer,
             ctx.lowering.restore_ttl,
@@ -35,6 +39,9 @@ pub(super) fn execute(
             input.step_fallback,
             input.bytes_committed,
         )?;
+    }
+    if !rst_sent {
+        ctx.lowering.mark_fake_rst_unsent();
     }
     let bytes_committed = write_strategy_payload_with_optional_flags_named(
         ctx.writer,

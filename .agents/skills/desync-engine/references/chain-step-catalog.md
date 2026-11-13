@@ -334,9 +334,14 @@ overrides. Unlike the other fake-packet steps, this constructs and injects
 the RST at the raw-socket layer rather than through ordinary
 `TcpStream::write`.
 
-**Actions generated**: Not expressed as a portable `DesyncAction` sequence;
-executed directly by `tcp_plan/execution/fake_rst.rs`, which calls
-`platform::send_fake_rst()` then `write_strategy_payload_with_optional_flags_named()`.
+**Actions generated**: The planner emits `SetTtl(fake_ttl)`, `SendFakeRst`,
+`RestoreDefaultTtl`, then the chunk write, but `requires_special_tcp_execution`
+routes every `fakerst` step to `tcp_plan/execution/fake_rst.rs`. That executor
+lowers the TTL, calls `platform::send_fake_rst()` with the config's
+`protect_path` and the step's fake flags, restores the TTL, and writes the
+chunk. When no reset leaves (TTL lowering unavailable or the send fails), the
+chunk is still written and the receipt reports `split` with
+`StrategyFamilyFallback`.
 
 **Config fields**: `offset`; `fake_flags` (`TcpFlagOverrides`) control the
 injected RST's TCP flags, `original_flags` control the following real

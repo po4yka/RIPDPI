@@ -27,6 +27,7 @@ pub(crate) fn requires_special_tcp_execution(
                 | TcpChainStepKind::Fake
                 | TcpChainStepKind::IpFrag2
                 | TcpChainStepKind::HostFake
+                | TcpChainStepKind::FakeRst
         ) || source_step.is_some_and(tcp_step_has_flag_overrides)
     }) || plan.steps.iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)

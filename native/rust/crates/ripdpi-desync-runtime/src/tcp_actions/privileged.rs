@@ -154,14 +154,17 @@ impl PrivilegedActionExecutor {
         Ok(())
     }
 
-    pub(super) fn send_fake_rst(writer: &mut TcpStream, context: &ActionContext) {
-        let _ = platform::send_fake_rst(
+    /// Returns whether the reset left. TCP plans run `fakerst` in the plan
+    /// executor, so this path carries no `protect_path` or step flags.
+    pub(super) fn send_fake_rst(writer: &mut TcpStream, context: &ActionContext) -> bool {
+        platform::send_fake_rst(
             writer,
             context.default_ttl,
             None,
             platform::TcpFlagOverrides::default(),
             context.ip_id_mode,
-        );
+        )
+        .is_ok()
     }
 
     fn write_seq_overlap_remainder(

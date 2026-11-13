@@ -22,6 +22,8 @@ pub(crate) struct TcpLoweringCapabilities {
     ttl_write: TcpTtlCapabilityState,
     /// A disorder or disoob chunk left with the default TTL.
     disorder_ttl_skipped: bool,
+    /// A fake RST step sent no reset, so its chunk was a plain split write.
+    fake_rst_unsent: bool,
 }
 
 impl TcpLoweringCapabilities {
@@ -39,7 +41,7 @@ impl TcpLoweringCapabilities {
         } else {
             TcpTtlCapabilityState::Unknown
         };
-        Self { restore_ttl, ttl_write, disorder_ttl_skipped: false }
+        Self { restore_ttl, ttl_write, disorder_ttl_skipped: false, fake_rst_unsent: false }
     }
 
     pub(crate) fn persist(self, session_ttl_unavailable: &AtomicBool) {
@@ -57,6 +59,14 @@ impl TcpLoweringCapabilities {
 
     pub(crate) fn disorder_ttl_skipped(self) -> bool {
         self.disorder_ttl_skipped
+    }
+
+    pub(crate) fn mark_fake_rst_unsent(&mut self) {
+        self.fake_rst_unsent = true;
+    }
+
+    pub(crate) fn fake_rst_unsent(self) -> bool {
+        self.fake_rst_unsent
     }
 
     pub(crate) fn ttl_actions_unavailable(self) -> bool {
@@ -277,6 +287,7 @@ mod tests {
             restore_ttl: 64,
             ttl_write: TcpTtlCapabilityState::Unavailable,
             disorder_ttl_skipped: false,
+            fake_rst_unsent: false,
         }
         .persist(&session);
 
@@ -290,6 +301,7 @@ mod tests {
             restore_ttl: 64,
             ttl_write: TcpTtlCapabilityState::Unavailable,
             disorder_ttl_skipped: false,
+            fake_rst_unsent: false,
         };
 
         assert!(!caps.set_ttl_named(&client, 42, "set_ttl", "disorder", None, 0).unwrap());
@@ -302,6 +314,7 @@ mod tests {
             restore_ttl: 64,
             ttl_write: TcpTtlCapabilityState::Unavailable,
             disorder_ttl_skipped: false,
+            fake_rst_unsent: false,
         };
 
         assert!(!caps.restore_default_ttl_named(&client, 42, "restore_default_ttl", "disorder", None, 0).unwrap());

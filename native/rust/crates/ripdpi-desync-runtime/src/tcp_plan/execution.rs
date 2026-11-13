@@ -114,6 +114,12 @@ pub(crate) fn execute_tcp_plan(
         outcome.effective_family = outcome.effective_family.map(|family| ttl_less_family(family).unwrap_or(family));
         outcome.used_family_fallback = true;
     }
+    // A fake RST step that sent no reset ran as a plain split write.
+    if lowering_caps.fake_rst_unsent() {
+        outcome.effective_family =
+            outcome.effective_family.map(|family| if family == "fakerst" { "split" } else { family });
+        outcome.used_family_fallback = true;
+    }
     Ok(outcome)
 }
 
