@@ -174,6 +174,12 @@ fn plan_tcp_with_fake_reference(
     // Linux keeps one urgent mark per socket, so a second mark makes the earlier byte inline peer data.
     let mut urgent_allowed = context.round == 1 && context.stream_start == 0 && context.payload_size > 0;
 
+    if send_steps.iter().any(|step| {
+        matches!(step.kind(), TcpChainStepKind::Oob | TcpChainStepKind::Disoob)
+            && !((0..=1).contains(&step.offset().repeats) && step.offset().skip == 0)
+    }) {
+        return Err(DesyncError);
+    }
     if send_steps.iter().any(|step| step.kind() == TcpChainStepKind::MultiDisorder) {
         let steps = plan_multi_disorder_steps(&send_steps, &tampered.bytes, &mut info, &mut rng, context)?;
         if steps.is_empty() {

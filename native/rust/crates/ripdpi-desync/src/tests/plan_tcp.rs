@@ -804,6 +804,21 @@ fn plan_tcp_urgent_steps_do_not_emit_for_empty_original_payloads() {
 }
 
 #[test]
+fn plan_tcp_urgent_steps_reject_unsupported_native_repeats_and_skip() {
+    let payload = b"abcdef";
+    for kind in [TcpChainStepKind::Oob, TcpChainStepKind::Disoob] {
+        for (repeats, skip) in [(-1, 0), (2, 0), (1, 1), (0, -1)] {
+            let mut group = DesyncGroup::new(0);
+            group
+                .actions
+                .tcp_chain
+                .push(TcpChainStep::new(kind, OffsetExpr::absolute(2).with_repeat_skip(repeats, skip)));
+            assert!(plan_tcp(&group, payload, 0, 64, tcp_context(payload)).is_err());
+        }
+    }
+}
+
+#[test]
 fn plan_tcp_chain_preserves_tlsrec_prelude_and_send_step_order() {
     let fake = complete_fake_tls();
     let mut group = DesyncGroup::new(0);

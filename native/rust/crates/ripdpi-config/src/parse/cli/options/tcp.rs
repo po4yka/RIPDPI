@@ -55,9 +55,12 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             state.group().actions.shannon_entropy_target_permil = Some((f * 1000.0) as u32);
         }
         "-s" | "--split" | "--seqovl" | "-d" | "--disorder" | "-o" | "--oob" | "-q" | "--disoob" | "-f" | "--fake" => {
-            let offset = parse_offset_expr(next_value(args, idx, arg)?)?;
-            if matches!(arg, "-s" | "--split") && (offset.repeats > 1 || offset.skip != 0) {
-                return Err(ConfigError::invalid(arg, Some("split cannot repeat or skip")));
+            let value = next_value(args, idx, arg)?;
+            let offset = parse_offset_expr(value)?;
+            if matches!(arg, "-s" | "--split" | "-o" | "--oob" | "-q" | "--disoob")
+                && (offset.repeats > 1 || offset.skip != 0)
+            {
+                return Err(ConfigError::invalid(arg, Some(value)));
             }
             if arg == "--seqovl" {
                 if state.group().actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SeqOverlap) {

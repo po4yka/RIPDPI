@@ -182,6 +182,8 @@ mod tests {
             "1:3:5:garbage",
             "host+2:1:0:ignored",
             "host+2:1:0:",
+            "2:3:1:garbage",
+            "2:3:1:",
         ] {
             assert!(parse_offset_expr(spec).is_err(), "{spec} should be rejected");
         }

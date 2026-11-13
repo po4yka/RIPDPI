@@ -787,3 +787,31 @@ fn parse_cli_oob_data_flag() {
     };
     assert_eq!(config.groups[0].actions.oob_data, Some(0x42));
 }
+
+#[test]
+fn parse_cli_rejects_urgent_offset_repeats_and_skip() {
+    for option in ["--oob", "-o", "--disoob", "-q"] {
+        for offset in ["2:2", "2:3:1", "2:1:1", "2:1:-1"] {
+            let args = vec![option.to_string(), offset.to_string()];
+
+            let error = parse_cli(&args, &StartupEnv::default()).expect_err("unsupported urgent offset");
+
+            assert_eq!(error.option, option);
+            assert_eq!(error.value.as_deref(), Some(offset));
+        }
+        for offset in ["2", "2:1", "2:1:0"] {
+            let args = vec![option.to_string(), offset.to_string()];
+            assert!(parse_cli(&args, &StartupEnv::default()).is_ok(), "{option} {offset}");
+        }
+    }
+}
+
+#[test]
+fn parse_cli_preserves_tls_offset_repeats_and_skip() {
+    let args = vec!["--tlsrec".to_string(), "host+2:3:1".to_string()];
+    let ParseResult::Run(config) = parse_cli(&args, &StartupEnv::default()).expect("TLS repeat offset") else {
+        panic!("expected runnable config");
+    };
+
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset(), OffsetExpr::host(2).with_repeat_skip(3, 1));
+}

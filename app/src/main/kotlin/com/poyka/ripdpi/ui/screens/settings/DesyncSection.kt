@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.isValidFakeOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.isValidSplitOffsetExpression
 import com.poyka.ripdpi.data.primaryTcpChainStep
+import com.poyka.ripdpi.data.usesSingleOffset
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -171,7 +172,7 @@ private fun SplitMarkerSetting(model: DesyncSectionModel) {
     if (uiState.desync.hasAdaptiveSplitPreset) return
     val markerKind = primaryTcpChainStep(uiState.desync.tcpChainSteps)?.kind ?: TcpChainStepKind.Split
     val markerValidator =
-        if (markerKind == TcpChainStepKind.Split) ::isValidSplitOffsetExpression else ::isValidOffsetExpression
+        if (markerKind.usesSingleOffset) ::isValidSplitOffsetExpression else ::isValidOffsetExpression
     AdvancedTextSetting(
         title = stringResource(R.string.ripdpi_split_marker_setting),
         description = stringResource(R.string.config_split_marker_helper),

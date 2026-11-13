@@ -16,6 +16,11 @@ pub(crate) fn parse_step_offset(
             "{field_name} split does not support repeated offsets or a non-zero skip"
         )));
     }
+    if matches!(kind, TcpChainStepKind::Oob | TcpChainStepKind::Disoob) && (offset.repeats > 1 || offset.skip != 0) {
+        return Err(ProxyConfigError::InvalidConfig(format!(
+            "{field_name} oob/disoob does not support offset repeats or skip"
+        )));
+    }
     ensure_hostfake_allows_offset(kind, offset.base.is_adaptive(), field_name)?;
     Ok(offset)
 }

@@ -71,6 +71,10 @@ fun isValidOffsetExpression(value: String): Boolean {
     return true
 }
 
+/** Split, OOB and Disoob accept one offset: a repeat count of 1 and no skip. */
+val TcpChainStepKind.usesSingleOffset: Boolean
+    get() = this == TcpChainStepKind.Split || this == TcpChainStepKind.Oob || this == TcpChainStepKind.Disoob
+
 fun isValidSplitOffsetExpression(value: String): Boolean {
     if (!isValidOffsetExpression(value)) {
         return false

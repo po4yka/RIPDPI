@@ -1,6 +1,35 @@
 use super::*;
 
 #[test]
+fn ui_payload_rejects_urgent_offset_repeats_and_skip() {
+    for kind in ["oob", "disoob"] {
+        for marker in ["2:2", "2:3:1", "2:1:1", "2:1:-1"] {
+            let mut ui = minimal_ui();
+            ui.chains.tcp_steps = vec![tcp_step(kind, marker)];
+
+            let error = runtime_config_from_payload(ui_payload(ui)).expect_err("unsupported urgent offset");
+
+            assert!(error.to_string().contains("does not support offset repeats or skip"), "{kind} {marker}");
+        }
+        for marker in ["2", "2:1", "2:1:0"] {
+            let mut ui = minimal_ui();
+            ui.chains.tcp_steps = vec![tcp_step(kind, marker)];
+            assert!(runtime_config_from_payload(ui_payload(ui)).is_ok(), "{kind} {marker}");
+        }
+    }
+}
+
+#[test]
+fn ui_payload_preserves_tls_offset_repeats_and_skip() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "host+2:3:1")];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("TLS repeat offset");
+
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset(), OffsetExpr::host(2).with_repeat_skip(3, 1));
+}
+
+#[test]
 fn ui_payload_parses_hostfake_and_quic_profile() {
     let mut ui = minimal_ui();
     ui.chains.tcp_steps = vec![ProxyUiTcpChainStep {
