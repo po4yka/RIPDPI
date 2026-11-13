@@ -44,6 +44,7 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
     var sawSendStep = false
     var sawIpFrag2 = false
     var sawSeqOverlap = false
+    var sawSynData = false
     var sendStepCount = 0
     var multidisorderCount = 0
     steps.forEachIndexed { index, step ->
@@ -60,6 +61,11 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
                     require(!sawSeqOverlap) { "seqovl must appear at most once per tcp chain" }
                     require(sendStepCount == 0) { "seqovl must be the first tcp send step" }
                     sawSeqOverlap = true
+                }
+                if (step.kind == TcpChainStepKind.SynData) {
+                    require(!sawSynData) { "syndata must appear at most once per tcp chain" }
+                    require(sendStepCount == 0) { "syndata must be the first tcp send step" }
+                    sawSynData = true
                 }
                 if (step.kind == TcpChainStepKind.MultiDisorder) {
                     multidisorderCount += 1

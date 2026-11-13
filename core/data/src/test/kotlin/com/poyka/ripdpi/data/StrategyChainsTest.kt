@@ -143,6 +143,34 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `syndata validation rejects duplicates and non leading send steps`() {
+        val duplicate =
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.SynData, "1"),
+                TcpChainStepModel(TcpChainStepKind.SynData, "5"),
+            )
+        val nonLeading =
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.Disorder, "1"),
+                TcpChainStepModel(TcpChainStepKind.SynData, "5"),
+            )
+        val leading =
+            listOf(
+                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                TcpChainStepModel(TcpChainStepKind.SynData, "1"),
+                TcpChainStepModel(TcpChainStepKind.Disorder, "5"),
+            )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setStrategyChains(duplicate, emptyList())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setStrategyChains(nonLeading, emptyList())
+        }
+        AppSettings.newBuilder().setStrategyChains(leading, emptyList())
+    }
+
+    @Test
     fun `seqovl parser rejects invalid fake mode and overlap`() {
         val invalidFakeMode = parseStrategyChainDsl("[tcp]\nseqovl midsld fake=bogus")
         val zeroOverlap = parseStrategyChainDsl("[tcp]\nseqovl midsld overlap=0")
