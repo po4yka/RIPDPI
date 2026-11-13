@@ -82,7 +82,6 @@ pub(super) fn connect_with(
         // wire and lets a server-first peer speak. One replacement per flow: it is not deferred.
         drop(active);
         let old_cap_guard = connected.cap_guard.take();
-        drop(old_cap_guard);
         let (upstream, route, cap_guard) = crate::runtime::routing::reconnect_target_without_tfo(
             target,
             state,
@@ -91,7 +90,9 @@ pub(super) fn connect_with(
             None,
         )
         .map_err(|err| ConnectRelayError::new(err, true))?;
+        // Close the old socket before releasing its physical-session permit.
         connected.upstream = upstream;
+        drop(old_cap_guard);
         connected.route = route;
         connected.cap_guard = cap_guard;
         active = state
@@ -158,17 +159,20 @@ pub(super) fn connect_with(
     );
     // The provisional policy may differ from the payload policy only in the TFO bit, which
     // depends on the payload.
+    let provisional_policy = state.route_provisional_connect_policy(&connected.route, initial_egress);
+    let selected_policy = state.route_connect_policy(route.group_index, Some(&payload), true, egress);
     let compatible_connect_policy = matches!(
-        (
-            state.route_provisional_connect_policy(&connected.route, initial_egress),
-            state.route_connect_policy(route.group_index, Some(&payload), true, egress),
-        ),
-        (Some(initial), Some(selected)) if RouteConnectPolicy { tfo_enabled: selected.tfo_enabled, ..initial.clone() } == selected
+        (&provisional_policy, &selected_policy),
+        (Some(initial), Some(selected))
+            if RouteConnectPolicy { tfo_enabled: selected.tfo_enabled, ..initial.clone() } == *selected
     );
-    // A deferred TFO socket has sent no SYN: reuse it only when the first write may carry
-    // SYN data for this route, otherwise drop it (free on the wire) and reconnect.
+    // SYN data needs a socket opened with TFO. A deferred socket has sent no SYN: it is reusable
+    // only for a route that sends SYN data, otherwise drop it (free on the wire) and reconnect.
+    // A connected plain socket cannot become a SYN-data connect, so it is not reused for one.
+    let wants_syn_data = state.route_uses_direct_syn_data_tfo(&route, Some(&payload));
+    let provisional_tfo = provisional_policy.is_some_and(|policy| policy.tfo_enabled);
     let deferred = ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_deferred(&connected.upstream);
-    let reusable_socket = !deferred || state.route_uses_direct_syn_data_tfo(&route, Some(&payload));
+    let reusable_socket = if deferred { wants_syn_data } else { !wants_syn_data || provisional_tfo };
     if compatible_connect_policy && egress == initial_egress && original_targets == payload_targets && reusable_socket {
         connected.route = route;
         connected.seed_request = Some(payload);

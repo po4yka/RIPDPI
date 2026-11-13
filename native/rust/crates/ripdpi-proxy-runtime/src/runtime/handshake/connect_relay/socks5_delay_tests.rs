@@ -358,3 +358,31 @@ fn deferred_tfo_provisional_socket_is_replaced_so_a_server_first_banner_arrives(
     std::thread::sleep(std::time::Duration::from_millis(300));
     assert_eq!(origin.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
 }
+
+#[test]
+fn a_plain_provisional_connection_is_not_reused_for_a_syn_data_route() {
+    use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind};
+    let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let mut config = RuntimeConfig::default();
+    config.network.delay_conn = true;
+    config.groups[0].matches.proto = ripdpi_packets::IS_HTTPS;
+    let mut syn_data = DesyncGroup::new(1);
+    syn_data.matches.proto = ripdpi_packets::IS_HTTP;
+    syn_data.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1))];
+    config.groups.push(syn_data);
+    let (mut peer, worker) = socks_client(origin.local_addr().unwrap(), config);
+    let (mut provisional, _) = origin.accept().unwrap();
+    provisional.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
+    let mut success = [0; 10];
+    peer.read_exact(&mut success).unwrap();
+    peer.write_all(b"GET / HTTP/1.0\r\n\r\n").unwrap();
+    // The plain provisional socket carries nothing; the SYN-data route gets its own connection.
+    let mut initial_data = Vec::new();
+    provisional.read_to_end(&mut initial_data).unwrap();
+    assert!(initial_data.is_empty());
+    // The relay's SYN-data first write needs Linux, so only the second connection is checked.
+    let (replacement, _) = origin.accept().unwrap();
+    drop(replacement);
+    drop(peer);
+    let _ = worker.join().unwrap();
+}
