@@ -30,7 +30,10 @@ pub fn build_probe_client_hello(domain: &str) -> Vec<u8> {
 }
 
 pub fn payload_has_ech(payload: &[u8]) -> bool {
-    ripdpi_packets::tls_marker_info(payload).and_then(|markers| markers.ech_ext_start).is_some()
+    ripdpi_packets::is_tls_client_hello(payload)
+        && ripdpi_packets::parse_tls_client_hello_layout(payload)
+            .and_then(|layout| layout.markers.ech_ext_start)
+            .is_some()
 }
 
 pub fn group_accepts_any_or_non_http_tls(group: &ripdpi_config::DesyncGroup) -> bool {
@@ -368,6 +371,28 @@ mod tests {
         let sni = ripdpi_packets::parse_tls(&hello);
         assert!(sni.is_some(), "SNI should be extractable after patching");
         assert_eq!(sni.unwrap().len(), "discord.com".len(), "SNI length must match domain");
+    }
+
+    #[test]
+    fn payload_has_ech_accepts_split_sni_without_inventing_ech() {
+        for (source, split, expected) in [
+            (tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome), 122, true),
+            (&include_bytes!("../../ripdpi-packets/tests/fixtures/curl_tls13_example_com.bin")[..], 96, false),
+        ] {
+            let mut payload = Vec::new();
+            for part in [&source[5..5 + split], &source[5 + split..]] {
+                payload.extend_from_slice(&source[..3]);
+                payload.extend_from_slice(&u16::try_from(part.len()).unwrap().to_be_bytes());
+                payload.extend_from_slice(part);
+            }
+            assert_eq!(payload_has_ech(&payload), expected);
+            for (offset, byte) in [(0, 0x17), (1, 0x02)] {
+                let mut invalid = source.to_vec();
+                invalid[offset] = byte;
+                assert!(ripdpi_packets::parse_tls_client_hello_layout(&invalid).is_some());
+                assert!(!payload_has_ech(&invalid), "non-TLS envelope is not a ClientHello");
+            }
+        }
     }
 
     #[test]

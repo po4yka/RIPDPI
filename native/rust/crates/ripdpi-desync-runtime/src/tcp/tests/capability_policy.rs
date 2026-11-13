@@ -63,6 +63,49 @@ fn activation_context_from_progress_maps_tcp_state_and_ech_from_payload() {
 }
 
 #[test]
+fn ech_activation_uses_the_layout_when_sni_crosses_records() {
+    let source = ripdpi_packets::tls_fake_profile_bytes(ripdpi_packets::TlsFakeProfile::GoogleChrome);
+    assert_eq!(&source[125..139], b"www.google.com");
+    let mut payload = Vec::new();
+    for part in [&source[5..127], &source[127..]] {
+        payload.extend_from_slice(&source[..3]);
+        payload.extend_from_slice(&u16::try_from(part.len()).unwrap().to_be_bytes());
+        payload.extend_from_slice(part);
+    }
+    let progress =
+        OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(&payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+    assert_eq!(context.tcp_state.has_ech, Some(true));
+    for (offset, byte) in [(0, 0x17), (1, 0x02)] {
+        let mut invalid = source.to_vec();
+        invalid[offset] = byte;
+        assert!(ripdpi_packets::parse_tls_client_hello_layout(&invalid).is_some());
+        let context = activation_context_from_progress(
+            OutboundProgress { payload_size: invalid.len(), stream_end: invalid.len() - 1, ..progress },
+            ActivationTransport::Tcp,
+            Some(&invalid),
+            None,
+            None,
+            None,
+            AdaptivePlannerHints::default(),
+        );
+        assert_eq!(context.tcp_state.has_ech, Some(false));
+    }
+    assert!(activation_filter_matches(
+        Some(ripdpi_config::ActivationFilter { tcp_has_ech: Some(true), ..Default::default() }),
+        context
+    ));
+}
+
+#[test]
 fn special_tcp_execution_includes_fake_approximation_steps() {
     let mut group = test_group();
     let non_terminal_fake_step_plan = DesyncPlan {

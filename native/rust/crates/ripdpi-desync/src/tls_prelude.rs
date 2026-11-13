@@ -1,4 +1,3 @@
-use crate::normalize_tls_client_hello;
 use crate::offset::{gen_offset, insert_boundary, random_tail_fragment_lengths, resolve_adaptive_offset};
 use crate::proto::init_proto_info;
 use crate::types::{
@@ -6,7 +5,7 @@ use crate::types::{
     DesyncError, ProtoInfo, TamperResult, TcpSegmentHint, TlsPreludeApplication, activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPayload};
-use ripdpi_packets::{IS_HTTP, OracleRng, is_tls_client_hello, mod_http_inplace};
+use ripdpi_packets::{IS_HTTP, OracleRng, is_tls_client_hello, mod_http_inplace, parse_tls_client_hello_layout};
 use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, apply_record_choreography, plan_first_flight};
 
 const MAX_TLSREC_ITERATIONS: i32 = 1024;
@@ -16,8 +15,8 @@ struct TlsPreludeState {
     header: [u8; 3],
     payload: Vec<u8>,
     boundaries: Vec<usize>,
-    /// Bytes after the ClientHello record (a coalesced CCS or early-data
-    /// record), passed through unchanged after the re-framed record.
+    /// Wire bytes after the last record that contains the ClientHello,
+    /// passed through unchanged after the re-framed records.
     tail: Vec<u8>,
 }
 
@@ -25,26 +24,34 @@ impl TlsPreludeState {
     /// `require_complete` is true for the real stream payload, where more bytes
     /// of the record may follow; a standalone fake has nothing after it.
     fn from_record(buffer: &[u8], require_complete: bool) -> Option<Self> {
-        // A first record whose body is still in flight must not be re-framed:
-        // the rewritten length would no longer match the bytes that follow.
-        let declared = usize::from(u16::from_be_bytes([*buffer.get(3)?, *buffer.get(4)?]));
-        if require_complete && buffer.len() < 5 + declared {
-            return None;
-        }
-        let ir = normalize_tls_client_hello(buffer)?;
+        let layout = parse_tls_client_hello_layout(buffer)?;
         let header = [*buffer.first()?, *buffer.get(1)?, *buffer.get(2)?];
-        let mut payload = Vec::new();
-        let mut boundaries = Vec::with_capacity(ir.record_boundaries.len());
-
-        for boundary in &ir.record_boundaries {
-            payload.extend_from_slice(buffer.get(boundary.payload.clone())?);
-            boundaries.push(payload.len());
-        }
-
-        if payload.is_empty() || boundaries.last().copied() != Some(payload.len()) {
+        if header[..2] != [0x16, 0x03] {
             return None;
         }
-        let tail = buffer.get(ir.record_boundaries.last()?.payload.end..)?.to_vec();
+        let handshake_end = layout.handshake_payload_len.checked_add(4)?;
+        let mut payload = Vec::new();
+        let mut boundaries = Vec::new();
+        let mut tail_start = 0;
+        for span in &layout.record_payload_spans {
+            let length = buffer.get(span.start.checked_sub(2)?..span.start)?;
+            let declared = usize::from(u16::from_be_bytes([length[0], length[1]]));
+            if declared == 0 || (require_complete && (span.len() != declared || declared > 16_384)) {
+                return None;
+            }
+            payload.extend_from_slice(buffer.get(span.clone())?);
+            u16::try_from(payload.len()).ok()?;
+            boundaries.push(payload.len());
+            tail_start = span.end;
+            if payload.len() >= handshake_end {
+                break;
+            }
+        }
+        // Single-record templates retain the parser's existing tolerance for a cut handshake.
+        if payload.is_empty() || (require_complete && boundaries.len() > 1 && payload.len() < handshake_end) {
+            return None;
+        }
+        let tail = buffer.get(tail_start..)?.to_vec();
 
         Some(Self { header, payload, boundaries, tail })
     }
@@ -346,7 +353,10 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             tcp_state: ActivationTcpState {
-                has_ech: normalize_tls_client_hello(input).map(|ir| ir.has_ech),
+                has_ech: ripdpi_packets::is_tls_client_hello(input)
+                    .then_some(input)
+                    .and_then(parse_tls_client_hello_layout)
+                    .map(|layout| layout.markers.ech_ext_start.is_some()),
                 ..ActivationTcpState::default()
             },
             resolved_fake_ttl: None,

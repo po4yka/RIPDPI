@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use ripdpi_config::{DesyncGroup, EntropyMode};
 use ripdpi_desync::{ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints};
-use ripdpi_packets::{entropy, tls_marker_info};
+use ripdpi_packets::{entropy, parse_tls_client_hello_layout};
 use ripdpi_session::OutboundProgress;
 
 use crate::platform;
@@ -16,7 +16,11 @@ pub fn activation_context_from_progress(
     resolved_fake_ttl: Option<u8>,
     adaptive: AdaptivePlannerHints,
 ) -> ActivationContext {
-    let has_ech = payload.and_then(tls_marker_info).and_then(|markers| markers.ech_ext_start).is_some();
+    let has_ech = payload
+        .filter(|bytes| ripdpi_packets::is_tls_client_hello(bytes))
+        .and_then(parse_tls_client_hello_layout)
+        .and_then(|layout| layout.markers.ech_ext_start)
+        .is_some();
     let tcp_state = tcp_activation_state.map_or(
         ActivationTcpState { has_ech: Some(has_ech), ..ActivationTcpState::default() },
         |state| ActivationTcpState {

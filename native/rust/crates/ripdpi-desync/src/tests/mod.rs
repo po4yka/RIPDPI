@@ -11,6 +11,7 @@ mod plan_udp;
 mod runtime_bounds;
 mod tls_prelude;
 mod tls_prelude_adaptive;
+mod tls_prelude_multirecord;
 
 #[allow(dead_code)]
 mod rust_packet_seeds {
