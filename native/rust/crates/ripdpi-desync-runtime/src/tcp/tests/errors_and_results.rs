@@ -121,9 +121,9 @@ fn transport_result_err_wraps_as_transport() {
 
 #[test]
 fn write_payload_progress_full_payload() {
-    let (mut client, mut server) = connected_pair();
+    let (client, mut server) = connected_pair();
     let payload = b"hello world test data";
-    write_payload_progress(&mut client, payload).expect("write succeeds");
+    write_payload_progress(&client, payload).expect("write succeeds");
     let mut buf = vec![0u8; payload.len()];
     use std::io::Read;
     server.read_exact(&mut buf).expect("read succeeds");
@@ -132,13 +132,13 @@ fn write_payload_progress_full_payload() {
 
 #[test]
 fn write_payload_progress_closed_stream_errors() {
-    let (mut client, server) = connected_pair();
+    let (client, server) = connected_pair();
     drop(server);
     // Write enough data to overwhelm kernel buffers and trigger an error
     let big = vec![0u8; 1024 * 1024];
     let mut got_error = false;
     for _ in 0..16 {
-        if write_payload_progress(&mut client, &big).is_err() {
+        if write_payload_progress(&client, &big).is_err() {
             got_error = true;
             break;
         }

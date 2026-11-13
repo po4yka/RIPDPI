@@ -5,15 +5,25 @@ use socket2::SockRef;
 
 use crate::types::OutboundSendError;
 
-pub(crate) fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::Result<()> {
-    let mut packet = Vec::with_capacity(prefix.len() + 1);
-    packet.extend_from_slice(prefix);
-    packet.push(urgent_byte);
-    let sent = SockRef::from(writer).send_out_of_band(&packet)?;
-    if sent != packet.len() {
-        return Err(io::Error::new(io::ErrorKind::WriteZero, "partial MSG_OOB send"));
+use super::progress::{WriteProgressError, write_payload_progress};
+
+/// Writes `prefix` as ordinary data, then sends only `urgent_byte` with MSG_OOB.
+///
+/// One MSG_OOB send of the whole buffer can be split under send-buffer pressure. Linux then
+/// marks the last byte of each pushed part urgent, which removes source bytes from the peer stream.
+/// On error, `written` counts accepted prefix bytes; `written == prefix.len()` means the urgent
+/// send was attempted and its result is unknown to the peer.
+pub(crate) fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> Result<(), WriteProgressError> {
+    write_payload_progress(writer, prefix)?;
+    loop {
+        let source = match SockRef::from(writer).send_out_of_band(&[urgent_byte]) {
+            Ok(1) => return Ok(()),
+            Ok(_) => io::Error::new(io::ErrorKind::WriteZero, "MSG_OOB send accepted no byte"),
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
+            Err(err) => err,
+        };
+        return Err(WriteProgressError { written: prefix.len(), source });
     }
-    Ok(())
 }
 
 pub(crate) fn get_stream_ttl(stream: &TcpStream) -> io::Result<u8> {
@@ -38,5 +48,7 @@ pub(crate) fn send_transport_oob_payload(
     urgent_byte: u8,
 ) -> Result<usize, OutboundSendError> {
     // The inserted urgent byte is not application data, so it is not counted.
-    send_out_of_band(writer, prefix, urgent_byte).map(|()| prefix.len()).map_err(OutboundSendError::transport)
+    send_out_of_band(writer, prefix, urgent_byte)
+        .map(|()| prefix.len())
+        .map_err(|progress| OutboundSendError::transport_with_progress(progress.source, progress.written))
 }

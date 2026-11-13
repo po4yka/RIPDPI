@@ -560,3 +560,52 @@ fn actions_delay_does_not_affect_bytes_committed() {
     server.read_exact(&mut buf).expect("read_exact");
     assert_eq!(&buf, b"helloworld");
 }
+
+#[test]
+fn oob_partial_prefix_preserves_peer_bytes_and_reports_accepted_progress() {
+    use std::io::Read;
+
+    let (client, mut server) = connected_pair();
+    socket2::SockRef::from(&client).set_send_buffer_size(1024).expect("small send buffer");
+    client.set_nonblocking(true).expect("nonblocking sender");
+    server.set_read_timeout(Some(Duration::from_secs(1))).expect("peer timeout");
+    let payload = (0..1024 * 1024).map(|index| (index % 251) as u8).collect::<Vec<_>>();
+    let err = send_oob_action_named(&client, &payload, b'!', "send_oob", "oob", None, 10)
+        .expect_err("a stalled peer must leave an incomplete prefix");
+    client.shutdown(std::net::Shutdown::Write).expect("finish partial outbound");
+    let mut received = Vec::new();
+    server.read_to_end(&mut received).expect("read accepted original bytes");
+
+    assert!(!received.is_empty());
+    assert!(received.len() < payload.len());
+    assert_eq!(err.bytes_committed(), 10 + received.len());
+    assert_eq!(received, payload[..received.len()]);
+}
+
+#[test]
+fn oob_blocking_prefix_under_send_buffer_pressure_keeps_every_source_byte() {
+    use std::io::Read;
+
+    // Linux marks the last byte of each pushed part of one MSG_OOB send urgent, so a split
+    // send of the whole prefix removed source bytes from the peer stream.
+    let (client, mut server) = connected_pair();
+    socket2::SockRef::from(&client).set_send_buffer_size(4096).expect("small send buffer");
+    let payload = (0..300_000).map(|index| (index % 251) as u8).collect::<Vec<_>>();
+    let reader = std::thread::spawn(move || {
+        let mut received = Vec::new();
+        let mut chunk = [0u8; 1024];
+        loop {
+            std::thread::sleep(Duration::from_micros(200));
+            match server.read(&mut chunk).expect("read peer stream") {
+                0 => return received,
+                read => received.extend_from_slice(&chunk[..read]),
+            }
+        }
+    });
+
+    let committed = send_oob_action_named(&client, &payload, b'!', "send_oob", "oob", None, 0).expect("send urgent");
+    client.shutdown(std::net::Shutdown::Write).expect("finish outbound");
+
+    assert_eq!(committed, payload.len());
+    assert_eq!(reader.join().expect("reader thread"), payload);
+}

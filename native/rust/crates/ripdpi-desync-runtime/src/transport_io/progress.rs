@@ -24,7 +24,8 @@ impl std::error::Error for WriteProgressError {
     }
 }
 
-pub(crate) fn write_payload_progress(stream: &mut TcpStream, bytes: &[u8]) -> Result<(), WriteProgressError> {
+pub(crate) fn write_payload_progress(stream: &TcpStream, bytes: &[u8]) -> Result<(), WriteProgressError> {
+    let mut stream = stream;
     let mut written = 0usize;
     while written < bytes.len() {
         match stream.write(&bytes[written..]) {

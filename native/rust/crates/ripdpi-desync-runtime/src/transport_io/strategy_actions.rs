@@ -6,7 +6,7 @@ use crate::strategy_family::restore_ttl_action_name;
 use crate::tcp_lowering::{TcpLoweringCapabilities, write_payload_with_android_ttl_fallback};
 use crate::types::OutboundSendError;
 
-use super::errors::{strategy_result, transport_result};
+use super::errors::{strategy_execution_error, strategy_result, transport_result};
 use super::progress::write_strategy_payload_named;
 use super::raw_socket;
 use super::socket_options::send_out_of_band;
@@ -99,9 +99,10 @@ pub(crate) fn send_oob_action_named(
     fallback: Option<&'static str>,
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
-    strategy_result(send_out_of_band(writer, prefix, urgent_byte), action, strategy_family, fallback, bytes_committed)
-        // The inserted urgent byte is not application data, so it is not counted.
-        .map(|()| bytes_committed + prefix.len())
+    // The inserted urgent byte is not application data, so it is not counted.
+    send_out_of_band(writer, prefix, urgent_byte).map(|()| bytes_committed + prefix.len()).map_err(|progress| {
+        strategy_execution_error(action, strategy_family, fallback, bytes_committed + progress.written, progress.source)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]

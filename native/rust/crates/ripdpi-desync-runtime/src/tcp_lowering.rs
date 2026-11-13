@@ -182,7 +182,14 @@ pub(crate) fn send_oob_with_android_ttl_fallback(
 ) -> Result<(bool, usize), OutboundSendError> {
     match send_oob_action_named(writer, prefix, urgent_byte, action, strategy_family, fallback, bytes_committed) {
         Ok(committed) => Ok((ttl_modified, committed)),
-        Err(err) if ttl_modified && should_ignore_android_ttl_error(err.source_error()) => {
+        // Retry only before any prefix byte was accepted: a replay after progress or after an
+        // attempted urgent send could duplicate peer bytes or set a second urgent mark.
+        Err(err)
+            if ttl_modified
+                && !prefix.is_empty()
+                && err.bytes_committed() == bytes_committed
+                && should_ignore_android_ttl_error(err.source_error()) =>
+        {
             // Restore before marking TTL actions unavailable: an unavailable state
             // makes the restore a no-op and would leave the socket TTL lowered.
             lowering.restore_default_ttl_named(
