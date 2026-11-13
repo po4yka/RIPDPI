@@ -105,11 +105,7 @@ fn strategy_action_from_native(action: DesyncAction) -> StrategyAction {
             bytes.extend(remainder);
             StrategyAction::Write(bytes)
         }
-        DesyncAction::WriteUrgent { prefix, urgent_byte } => {
-            let mut bytes = prefix;
-            bytes.push(urgent_byte);
-            StrategyAction::Write(bytes)
-        }
+        DesyncAction::WriteUrgent { prefix, urgent_byte } => StrategyAction::WriteUrgent { prefix, urgent_byte },
         DesyncAction::SetTtl(ttl) => StrategyAction::SetTtl(ttl),
         DesyncAction::RestoreDefaultTtl => StrategyAction::RestoreDefaultTtl,
         DesyncAction::SetMd5Sig { key_len: _ }

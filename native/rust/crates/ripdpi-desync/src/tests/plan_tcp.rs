@@ -1340,3 +1340,32 @@ fn plan_tcp_http_mutation_waits_for_a_complete_initial_head() {
     let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).unwrap();
     assert_eq!(plan.tampered, payload);
 }
+
+#[test]
+fn generic_tcp_strategy_keeps_the_urgent_action_and_original_prefix() {
+    use ripdpi_strategy_trait::{
+        Capabilities, ConnectionState, DesyncAction as StrategyAction, DesyncPlan as StrategyPlan, DesyncStrategy,
+        Dissect, FlowDirection, FlowId, StrategyContext,
+    };
+
+    let mut group = DesyncGroup::new(0);
+    group.actions.oob_data = Some(b'!');
+    group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Oob, split_expr(2)));
+    let payload = b"abcdef";
+    let strategy = TcpDesyncStrategy::new(&group, 0, 64, tcp_context(payload));
+    let (dissect, conn, caps) = (Dissect::default(), ConnectionState::default(), Capabilities::default());
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &conn,
+        caps: &caps,
+        flow_id: FlowId(1),
+        payload,
+        direction: FlowDirection::default(),
+    };
+    let mut plan = StrategyPlan::default();
+
+    DesyncStrategy::plan(&strategy, &ctx, &mut plan).expect("generic urgent plan");
+
+    assert_eq!(plan.actions[0], StrategyAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'!' });
+    assert!(!plan.actions.iter().any(|action| matches!(action, StrategyAction::Write(bytes) if bytes.contains(&b'!'))));
+}
