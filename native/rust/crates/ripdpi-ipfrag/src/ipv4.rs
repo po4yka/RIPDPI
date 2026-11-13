@@ -12,6 +12,9 @@ pub(crate) fn build_ipv4_fragment_pair(
     transport: &[u8],
     split: usize,
 ) -> Result<IpFragmentPair, BuildError> {
+    if transport.len() > usize::from(u16::MAX) - Ipv4Header::MIN_LEN {
+        return Err(BuildError::ValueTooLarge);
+    }
     let first = &transport[..split];
     let second = &transport[split..];
 

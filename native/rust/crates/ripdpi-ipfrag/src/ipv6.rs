@@ -102,6 +102,10 @@ pub(crate) fn build_ipv6_fragment_pair(
 
     // Calculate payload lengths including all extension headers.
     let frag_dest_opt_len = frag_dest_opt.as_ref().map_or(0, Vec::len);
+    let original_payload_len = unfrag_ext.len() + frag_dest_opt_len + transport.len();
+    if original_payload_len > usize::from(u16::MAX) {
+        return Err(BuildError::ValueTooLarge);
+    }
     let first_payload_len = unfrag_ext.len() + Ipv6FragmentHeader::LEN + frag_dest_opt_len + first_transport.len();
     let second_payload_len = unfrag_ext.len() + Ipv6FragmentHeader::LEN + second_transport.len();
 
