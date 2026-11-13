@@ -108,7 +108,10 @@ pub(super) fn normal_after_carrier_failure(
             let validated_mtproto =
                 matches!(classify_seed_for_target(&seed, target, state), WsSeedClassification::ValidatedMtproto { .. });
             if validated_mtproto {
-                return Err(carrier_error.take().expect("validated seed ends the first read").into_io_error());
+                return Err(carrier_error.take().map_or_else(
+                    || io::Error::other("carrier error already consumed"),
+                    ConnectRelayError::into_io_error,
+                ));
             }
             Ok(FirstOutboundRead::Payload(seed))
         },
