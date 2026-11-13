@@ -1,7 +1,7 @@
 ---
 task_id: RST-1794556971423909
 change: dpi13-audit-fixes
-commit_sha: 9b9580924bed920186cda9015a8a1d927011d101
+commit_sha: ca1090077bea873f2de9a70c0c50c0881e3ddaee
 local: passed
 local_evidence: Combined source tree passed 801 Rust tests, 78 Kotlin model tests, host and restricted Linux clippy, full staticAnalysis, ci-gates, architecture and locked metadata. Separate finding commits passed normal hooks and isolated Rust checks. Independent pr-reviewer and F4 unsafe review found no unresolved issue.
 remote_ci: not_applicable
@@ -70,3 +70,18 @@ C: implementation and callers reviewed. V: the named local tests, loopback deliv
 The final source commit is the F4 commit named above. The job was rebased onto origin/main `894fb66bf7ab64ff94da61e9801607144786957e`. An independent pr-reviewer checked the upstream intersections with F1-F5 and found no actionable issue. Upstream FakeRst, TLS bounds, Kotlin root-mode checks and restoration behavior were preserved. Verification logs were refreshed on the rebased tree. The earlier pre-rebase Rust run had 786 passing tests; the rebased run has 801.
 
 All nine rebased check phases returned exit0 (`REBASED_BATCH_EXIT=0`). The rebased `staticAnalysis` run succeeded in 5m27s with 826 tasks: 195 executed, 21 from cache and 610 up-to-date. Linux regressions again passed 5 + 3 + 4 tests; Linux clippy passed.
+
+## Final fixture-only rebase
+
+Before publication, origin/main advanced to `5a1c0045fde51a9605e32600ec4ab93106218b34`. The job was rebased once more. `git diff --name-only 4a78dd7127 HEAD` listed only `core/data/src/test/resources/contract/protocol-liveness.schema.json`, an upstream fixture update. All production source, test code, manifests, compiler inputs for the named Rust/model runs, and DPI-13 documentation remained byte-identical to the fully checked tree. The compiler-backed results above were reused. The repository fixture-contract tests, cross-language runtime contract gate, protocol-fixture version gate, architecture check, JSON syntax check and task validation were run again. No source fix or baseline change was added in this rebase.
+
+Final fixture-only checks: 62 repository fixture tests passed (exit0); all named source/task gates and the JSON syntax check passed (exit0). Commands:
+
+```sh
+python3 -m unittest scripts.tests.test_fleet_fixtures scripts.tests.test_netem_transaction scripts.tests.test_phase16_matrix scripts.tests.test_protocol_fixture_versions
+python3 scripts/ci/check_cross_language_runtime_contracts.py
+python3 scripts/ci/check_protocol_fixture_versions.py
+python3 scripts/ci/check_architecture_health.py --check
+python3 -m json.tool core/data/src/test/resources/contract/protocol-liveness.schema.json > /dev/null
+./taskctl validate
+```
