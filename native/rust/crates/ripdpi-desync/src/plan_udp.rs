@@ -83,6 +83,6 @@ fn adjusted_udp_burst_count(base_count: i32, context: ActivationContext) -> i32 
     match context.adaptive.udp_burst_profile.unwrap_or(AdaptiveUdpBurstProfile::Balanced) {
         AdaptiveUdpBurstProfile::Balanced => base_count,
         AdaptiveUdpBurstProfile::Conservative => base_count.saturating_sub(1).max(1),
-        AdaptiveUdpBurstProfile::Aggressive => base_count.saturating_add(1).min(16),
+        AdaptiveUdpBurstProfile::Aggressive => base_count.saturating_add(1).min(16).max(base_count),
     }
 }

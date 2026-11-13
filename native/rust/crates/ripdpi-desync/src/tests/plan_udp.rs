@@ -814,3 +814,19 @@ fn quic_fake_profile_applies_to_initial_with_incomplete_client_hello() {
     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
     assert_eq!(actions[1], DesyncAction::Write(default_fake_quic_compat()));
 }
+
+#[test]
+fn aggressive_burst_profile_never_lowers_the_configured_count() {
+    let payload = [0x40_u8, 1, 2, 3];
+    let mut context = udp_context(&payload);
+    context.adaptive.udp_burst_profile = Some(AdaptiveUdpBurstProfile::Aggressive);
+    for (configured, expected) in [(3, 4), (16, 16), (20, 20)] {
+        let mut group = fake_burst_with_round(None);
+        group.actions.udp_chain[0].count = configured;
+        let writes = plan_udp(&group, &payload, 64, context)
+            .iter()
+            .filter(|action| **action == DesyncAction::Write(b"udp-fake".to_vec()))
+            .count();
+        assert_eq!(writes, expected, "configured count {configured}");
+    }
+}
