@@ -82,9 +82,9 @@ class RootHelperInstrumentedTest {
 
     private companion object {
         private const val RootHelperSmokeArg = "ripdpi.rootHelperSmoke"
-        private const val RootHelperProtocolVersion = 3
+        private const val RootHelperProtocolVersion = 4
         private const val MaxMessageBytes = 8192
-        private const val ProbeCapabilitiesCommand = "v3/probe_capabilities"
+        private const val ProbeCapabilitiesCommand = "v4/probe_capabilities"
         private const val RawIpv4Capability = "raw_ipv4"
         private const val RawIpv6Capability = "raw_ipv6"
         private const val TcpRepairCapability = "tcp_repair"

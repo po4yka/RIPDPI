@@ -121,7 +121,7 @@ class RootHelperNfqwsTest {
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, command, params ->
                         commands += command
-                        if (command == "v3/start_nfqws2") {
+                        if (command == "v4/start_nfqws2") {
                             assertNotNull(params["owner_pid"])
                             assertTrue(params["args"].toString().contains("zapret-tests.lua"))
                         }
@@ -132,7 +132,7 @@ class RootHelperNfqwsTest {
             manager.start(context)
             manager.syncNfqws(context, settings())
             manager.syncNfqws(context, settings())
-            assertEquals(listOf("v3/start_nfqws2", "v3/nfqws2_status"), commands)
+            assertEquals(listOf("v4/start_nfqws2", "v4/nfqws2_status"), commands)
             assertTrue(manager.nfqwsActive)
             manager.monitorNfqws(backgroundScope) { failure = it }
             runCurrent()
@@ -226,9 +226,9 @@ class RootHelperNfqwsTest {
                     endpointCleanup = { _, _ -> },
                     nfqwsExtractor = { context.filesDir },
                     nfqwsRequester = { _, _, command, _ ->
-                        if (command == "v3/stop_nfqws2" && rejectStop) throw IOException("rule removal pending")
+                        if (command == "v4/stop_nfqws2" && rejectStop) throw IOException("rule removal pending")
                         buildJsonObject {
-                            put("running", command == "v3/start_nfqws2")
+                            put("running", command == "v4/start_nfqws2")
                             put("cleanup_pending", false)
                         }
                     },

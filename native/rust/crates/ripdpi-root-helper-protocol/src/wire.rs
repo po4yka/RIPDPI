@@ -9,7 +9,7 @@ pub const MAX_SESSION_NONCE_BYTES: usize = 128;
 /// to gate features they need a known-recent helper for. Deserialization keeps
 /// accepting missing values so clients can report a precise compatibility
 /// error, but privileged operations must not trust an unversioned response.
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
 
 /// Capability-set version stamped by the helper on every response.
 ///
@@ -157,7 +157,7 @@ mod tests {
     fn helper_request_serializes_command_params_and_nonce_in_order() {
         let request = HelperRequest {
             protocol_version: Some(PROTOCOL_VERSION),
-            command: "v3/send_fake_rst".to_string(),
+            command: "v4/send_fake_rst".to_string(),
             params: json!({ "default_ttl": 64 }),
             session_nonce: Some("abcdefghijklmnopqrstuvwxyzABCDEF".to_string()),
         };
@@ -165,7 +165,7 @@ mod tests {
         assert_eq!(
             encoded,
             concat!(
-                r#"{"protocol_version":3,"command":"v3/send_fake_rst","params":{"default_ttl":64},"#,
+                r#"{"protocol_version":4,"command":"v4/send_fake_rst","params":{"default_ttl":64},"#,
                 r#""session_nonce":"abcdefghijklmnopqrstuvwxyzABCDEF"}"#,
             ),
         );
@@ -175,12 +175,12 @@ mod tests {
     fn helper_request_omits_null_params_and_absent_nonce() {
         let request = HelperRequest {
             protocol_version: Some(PROTOCOL_VERSION),
-            command: "v3/shutdown".to_string(),
+            command: "v4/shutdown".to_string(),
             params: Value::Null,
             session_nonce: None,
         };
         let encoded = serde_json::to_string(&request).expect("serialize request");
-        assert_eq!(encoded, r#"{"protocol_version":3,"command":"v3/shutdown"}"#);
+        assert_eq!(encoded, r#"{"protocol_version":4,"command":"v4/shutdown"}"#);
     }
 
     #[test]
@@ -202,7 +202,7 @@ mod tests {
         // the JSON payload — the request object has exactly four keys.
         let request = HelperRequest {
             protocol_version: Some(PROTOCOL_VERSION),
-            command: "v3/send_fake_tcp".to_string(),
+            command: "v4/send_fake_tcp".to_string(),
             params: json!({ "ttl": 1 }),
             session_nonce: Some("abcdefghijklmnopqrstuvwxyzABCDEF".to_string()),
         };
@@ -218,7 +218,7 @@ mod tests {
     fn helper_request_requires_the_current_protocol_version() {
         let current = HelperRequest {
             protocol_version: Some(PROTOCOL_VERSION),
-            command: "v3/shutdown".to_string(),
+            command: "v4/shutdown".to_string(),
             params: Value::Null,
             session_nonce: None,
         };

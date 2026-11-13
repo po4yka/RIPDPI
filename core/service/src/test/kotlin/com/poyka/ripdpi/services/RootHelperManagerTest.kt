@@ -488,7 +488,7 @@ private class ChattyProcess(
         private set
 
     fun startLogging() {
-        val line = "2026-10-13T00:00:00Z  INFO ripdpi_root_helper: received command command=v3/nfqws2_status\n"
+        val line = "2026-10-13T00:00:00Z  INFO ripdpi_root_helper: received command command=v4/nfqws2_status\n"
         val bytes = line.toByteArray(Charsets.US_ASCII)
         listOf(stdoutSink, stderrSink).forEach { sink ->
             thread(name = "fake-root-helper-writer", isDaemon = true) {

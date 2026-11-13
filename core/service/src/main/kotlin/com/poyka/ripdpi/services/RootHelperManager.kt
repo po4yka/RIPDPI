@@ -140,7 +140,7 @@ open class RootHelperManager
             withContext(nfqwsDispatcher) {
                 val prior = backendSession.get()
                 if (prior?.args == requested && prior.protectPath == protectPath && prior.running) {
-                    val status = nfqwsRequester(socket, nonce, "v3/nfqws2_status", buildJsonObject {})
+                    val status = nfqwsRequester(socket, nonce, "v4/nfqws2_status", buildJsonObject {})
                     if (status["running"]?.jsonPrimitive?.booleanOrNull == true) return@withContext
                 }
                 backendMonitor?.cancel()
@@ -160,7 +160,7 @@ open class RootHelperManager
                             },
                         )
                     }
-                val status = nfqwsRequester(socket, nonce, "v3/start_nfqws2", params)
+                val status = nfqwsRequester(socket, nonce, "v4/start_nfqws2", params)
                 check(status["running"]?.jsonPrimitive?.booleanOrNull == true) { "nfqws2 did not activate" }
                 if (!backendSession.compareAndSet(pending, pending.copy(running = true))) {
                     throw RuntimeCleanupPendingException()
@@ -172,7 +172,7 @@ open class RootHelperManager
             socket: String,
             nonce: String,
         ) = withContext(nfqwsDispatcher) {
-            val status = nfqwsRequester(socket, nonce, "v3/stop_nfqws2", buildJsonObject {})
+            val status = nfqwsRequester(socket, nonce, "v4/stop_nfqws2", buildJsonObject {})
             if (status["running"] != JsonPrimitive(false) ||
                 status["cleanup_pending"] != JsonPrimitive(false)
             ) {
@@ -202,7 +202,7 @@ open class RootHelperManager
                                         nfqwsRequester(
                                             socket,
                                             nonce,
-                                            "v3/nfqws2_status",
+                                            "v4/nfqws2_status",
                                             buildJsonObject {},
                                         )
                                     if (status["running"]?.jsonPrimitive?.booleanOrNull == true) {

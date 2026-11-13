@@ -21,7 +21,13 @@ pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (Hel
         params.default_ttl,
         None,
         params.disorder,
-        ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        ripdpi_ipfrag::Ipv6ExtHeaders {
+            hop_by_hop: params.ipv6_hop_by_hop,
+            dest_opt: params.ipv6_dest_opt,
+            dest_opt_fragmentable: params.ipv6_dest_opt_fragmentable,
+            routing: params.ipv6_routing,
+            second_frag_next_override: params.ipv6_second_frag_next_override,
+        },
         platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
         params.ipv4_identification,
     ) {

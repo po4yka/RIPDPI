@@ -146,7 +146,7 @@ mod tests {
         let (sender, receiver) = UnixStream::pair().expect("IPC pair");
         let request = serde_json::json!({
             "protocol_version": PROTOCOL_VERSION,
-            "command": "v3/send_ordered_tcp_segments",
+            "command": "v4/send_ordered_tcp_segments",
             "session_nonce": nonce,
             "params": {
                 "segments": [{"payload": [], "ttl": 64, "sequence_offset": 0}],
@@ -168,7 +168,7 @@ mod tests {
         let (sender, receiver) = UnixStream::pair().expect("next IPC pair");
         let request = serde_json::json!({
             "protocol_version": PROTOCOL_VERSION,
-            "command": "v3/protocol_preflight",
+            "command": "v4/protocol_preflight",
             "session_nonce": nonce,
         });
         send_message(&sender, &serde_json::to_vec(&request).expect("encode preflight"), None).expect("send preflight");

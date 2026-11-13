@@ -24,74 +24,74 @@
 /// Runtime-side conversion from this JSON shape to typed runtime capability
 /// outcomes lives in `ripdpi-runtime-platform`, where those capability types
 /// are adapted for the platform client.
-pub const CMD_PROBE_CAPABILITIES: &str = "v3/probe_capabilities";
+pub const CMD_PROBE_CAPABILITIES: &str = "v4/probe_capabilities";
 
 /// Pure wire-version preflight used before any command with side effects.
 ///
 /// The helper performs no capability probe, socket operation, or fd exchange;
 /// the response carries version fields and additive bounded TCP request limits.
-pub const CMD_PROTOCOL_PREFLIGHT: &str = "v3/protocol_preflight";
+pub const CMD_PROTOCOL_PREFLIGHT: &str = "v4/protocol_preflight";
 
 /// Emit a fake TCP segment (TTL-limited / decoy) ahead of the real payload.
 /// The client passes the live TCP socket fd via `SCM_RIGHTS`; the helper may
 /// return a replacement fd the client swaps in with `dup2`.
-pub const CMD_SEND_FAKE_TCP: &str = "v3/send_fake_tcp";
+pub const CMD_SEND_FAKE_TCP: &str = "v4/send_fake_tcp";
 
 /// Emit a fake TCP RST segment on the client's TCP socket fd, which is passed
 /// via `SCM_RIGHTS`.
-pub const CMD_SEND_FAKE_RST: &str = "v3/send_fake_rst";
+pub const CMD_SEND_FAKE_RST: &str = "v4/send_fake_rst";
 
 /// Send a TCP payload with overridden TCP flags on the passed socket fd; the
 /// helper may return a replacement fd.
-pub const CMD_SEND_FLAGGED_TCP_PAYLOAD: &str = "v3/send_flagged_tcp_payload";
+pub const CMD_SEND_FLAGGED_TCP_PAYLOAD: &str = "v4/send_flagged_tcp_payload";
 
 /// Send a sequence-overlapped TCP segment (a fake prefix overlapping the real
 /// chunk) on the passed socket fd; the helper may return a replacement fd.
-pub const CMD_SEND_SEQOVL_TCP: &str = "v3/send_seqovl_tcp";
+pub const CMD_SEND_SEQOVL_TCP: &str = "v4/send_seqovl_tcp";
 
 /// Send several TCP segments out of order on the passed socket fd; the helper
 /// may return a replacement fd.
-pub const CMD_SEND_MULTI_DISORDER_TCP: &str = "v3/send_multi_disorder_tcp";
+pub const CMD_SEND_MULTI_DISORDER_TCP: &str = "v4/send_multi_disorder_tcp";
 
 /// Send explicitly ordered TCP segments on the passed socket fd; the helper
 /// may return a replacement fd.
-pub const CMD_SEND_ORDERED_TCP_SEGMENTS: &str = "v3/send_ordered_tcp_segments";
+pub const CMD_SEND_ORDERED_TCP_SEGMENTS: &str = "v4/send_ordered_tcp_segments";
 
 /// Send an IP-fragmented TCP packet on the passed socket fd; the helper may
 /// return a replacement fd.
-pub const CMD_SEND_IP_FRAGMENTED_TCP: &str = "v3/send_ip_fragmented_tcp";
+pub const CMD_SEND_IP_FRAGMENTED_TCP: &str = "v4/send_ip_fragmented_tcp";
 
 /// Send an IP-fragmented UDP datagram. The client passes the live UDP socket
 /// fd via `SCM_RIGHTS`.
-pub const CMD_SEND_IP_FRAGMENTED_UDP: &str = "v3/send_ip_fragmented_udp";
+pub const CMD_SEND_IP_FRAGMENTED_UDP: &str = "v4/send_ip_fragmented_udp";
 
 /// Experimental (`lab_diagnostics_only`): emit a SYN-hide TCP probe to the
 /// target. No fd is passed; the helper opens its own raw socket.
-pub const CMD_SEND_SYN_HIDE_TCP: &str = "v3/send_syn_hide_tcp";
+pub const CMD_SEND_SYN_HIDE_TCP: &str = "v4/send_syn_hide_tcp";
 
 /// Experimental (`lab_diagnostics_only`): send a UDP datagram wrapped in an
 /// ICMP packet. No fd is passed.
-pub const CMD_SEND_ICMP_WRAPPED_UDP: &str = "v3/send_icmp_wrapped_udp";
+pub const CMD_SEND_ICMP_WRAPPED_UDP: &str = "v4/send_icmp_wrapped_udp";
 
 /// Experimental (`lab_diagnostics_only`): receive an ICMP-wrapped UDP
 /// datagram. The parsed message is returned in the response `data`. No fd is
 /// passed.
-pub const CMD_RECV_ICMP_WRAPPED_UDP: &str = "v3/recv_icmp_wrapped_udp";
+pub const CMD_RECV_ICMP_WRAPPED_UDP: &str = "v4/recv_icmp_wrapped_udp";
 
 /// Experimental (`lab_diagnostics_only`): send a caller-supplied raw IP packet
 /// to a target address. No fd is passed.
-pub const CMD_SEND_RAW_IP_PACKET: &str = "v3/send_raw_ip_packet";
+pub const CMD_SEND_RAW_IP_PACKET: &str = "v4/send_raw_ip_packet";
 
 /// Start the app-owned foreground nfqws2 backend. No fd is passed.
-pub const CMD_START_NFQWS2: &str = "v3/start_nfqws2";
+pub const CMD_START_NFQWS2: &str = "v4/start_nfqws2";
 /// Remove owned NFQUEUE rules and stop the backend. No fd is passed.
-pub const CMD_STOP_NFQWS2: &str = "v3/stop_nfqws2";
+pub const CMD_STOP_NFQWS2: &str = "v4/stop_nfqws2";
 /// Read backend readiness and cleanup state. No fd is passed.
-pub const CMD_NFQWS2_STATUS: &str = "v3/nfqws2_status";
+pub const CMD_NFQWS2_STATUS: &str = "v4/nfqws2_status";
 
 /// Ask the helper to finish the in-flight request and exit cleanly. No fd is
 /// passed; issued by `RootHelperManager` during shutdown.
-pub const CMD_SHUTDOWN: &str = "v3/shutdown";
+pub const CMD_SHUTDOWN: &str = "v4/shutdown";
 
 #[cfg(test)]
 mod tests {
@@ -130,24 +130,24 @@ mod tests {
     fn command_wire_strings_are_frozen() {
         // These literals are the cross-process wire contract; a diff here must
         // be a deliberate, reviewed protocol change, never an incidental edit.
-        assert_eq!(CMD_PROBE_CAPABILITIES, "v3/probe_capabilities");
-        assert_eq!(CMD_PROTOCOL_PREFLIGHT, "v3/protocol_preflight");
-        assert_eq!(CMD_SEND_FAKE_TCP, "v3/send_fake_tcp");
-        assert_eq!(CMD_SEND_FAKE_RST, "v3/send_fake_rst");
-        assert_eq!(CMD_SEND_FLAGGED_TCP_PAYLOAD, "v3/send_flagged_tcp_payload");
-        assert_eq!(CMD_SEND_SEQOVL_TCP, "v3/send_seqovl_tcp");
-        assert_eq!(CMD_SEND_MULTI_DISORDER_TCP, "v3/send_multi_disorder_tcp");
-        assert_eq!(CMD_SEND_ORDERED_TCP_SEGMENTS, "v3/send_ordered_tcp_segments");
-        assert_eq!(CMD_SEND_IP_FRAGMENTED_TCP, "v3/send_ip_fragmented_tcp");
-        assert_eq!(CMD_SEND_IP_FRAGMENTED_UDP, "v3/send_ip_fragmented_udp");
-        assert_eq!(CMD_SEND_SYN_HIDE_TCP, "v3/send_syn_hide_tcp");
-        assert_eq!(CMD_SEND_ICMP_WRAPPED_UDP, "v3/send_icmp_wrapped_udp");
-        assert_eq!(CMD_RECV_ICMP_WRAPPED_UDP, "v3/recv_icmp_wrapped_udp");
-        assert_eq!(CMD_SEND_RAW_IP_PACKET, "v3/send_raw_ip_packet");
-        assert_eq!(CMD_START_NFQWS2, "v3/start_nfqws2");
-        assert_eq!(CMD_STOP_NFQWS2, "v3/stop_nfqws2");
-        assert_eq!(CMD_NFQWS2_STATUS, "v3/nfqws2_status");
-        assert_eq!(CMD_SHUTDOWN, "v3/shutdown");
+        assert_eq!(CMD_PROBE_CAPABILITIES, "v4/probe_capabilities");
+        assert_eq!(CMD_PROTOCOL_PREFLIGHT, "v4/protocol_preflight");
+        assert_eq!(CMD_SEND_FAKE_TCP, "v4/send_fake_tcp");
+        assert_eq!(CMD_SEND_FAKE_RST, "v4/send_fake_rst");
+        assert_eq!(CMD_SEND_FLAGGED_TCP_PAYLOAD, "v4/send_flagged_tcp_payload");
+        assert_eq!(CMD_SEND_SEQOVL_TCP, "v4/send_seqovl_tcp");
+        assert_eq!(CMD_SEND_MULTI_DISORDER_TCP, "v4/send_multi_disorder_tcp");
+        assert_eq!(CMD_SEND_ORDERED_TCP_SEGMENTS, "v4/send_ordered_tcp_segments");
+        assert_eq!(CMD_SEND_IP_FRAGMENTED_TCP, "v4/send_ip_fragmented_tcp");
+        assert_eq!(CMD_SEND_IP_FRAGMENTED_UDP, "v4/send_ip_fragmented_udp");
+        assert_eq!(CMD_SEND_SYN_HIDE_TCP, "v4/send_syn_hide_tcp");
+        assert_eq!(CMD_SEND_ICMP_WRAPPED_UDP, "v4/send_icmp_wrapped_udp");
+        assert_eq!(CMD_RECV_ICMP_WRAPPED_UDP, "v4/recv_icmp_wrapped_udp");
+        assert_eq!(CMD_SEND_RAW_IP_PACKET, "v4/send_raw_ip_packet");
+        assert_eq!(CMD_START_NFQWS2, "v4/start_nfqws2");
+        assert_eq!(CMD_STOP_NFQWS2, "v4/stop_nfqws2");
+        assert_eq!(CMD_NFQWS2_STATUS, "v4/nfqws2_status");
+        assert_eq!(CMD_SHUTDOWN, "v4/shutdown");
     }
 
     #[test]
@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn command_wire_strings_are_versioned_lowercase_snake_case() {
         for command in ALL_COMMANDS {
-            let operation = command.strip_prefix("v3/").expect("command must be namespaced to protocol v3");
+            let operation = command.strip_prefix("v4/").expect("command must be namespaced to protocol v4");
             assert!(!operation.is_empty(), "command operation must not be empty");
             assert!(
                 operation.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'),

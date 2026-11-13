@@ -54,7 +54,7 @@ cannot.
   (owner read/write only), and runs `restorecon` so the SELinux label allows
   the app uid to connect (`ripdpi-root-helper/src/main.rs`,
   `prepare_socket_for_app`).
-- **Framing (protocol v3):** each JSON object is prefixed by a 4-byte big-endian
+- **Framing (protocol v4):** each JSON object is prefixed by a 4-byte big-endian
   payload length. Generic control frames and nonbulk requests keep the
   **8192-byte cap** (`MAX_MESSAGE_BYTES`). Only `send_fake_tcp` and
   `send_ordered_tcp_segments` requests can use the bounded bulk envelope below.
@@ -68,9 +68,12 @@ cannot.
   outgoing response with `PROTOCOL_VERSION` / `CAPABILITY_VERSION` from
   `wire.rs`. Both version fields are `#[serde(skip_serializing_if =
   "Option::is_none")]` and `#[serde(default)]` — a legacy client reads them
-  as `None` at decode. Both ends then require the exact v3 protocol version
+  as `None` at decode. Both ends then require the exact v4 protocol version
   before they trust a response or run an operation. The bundled client and
-  helper binary must match.
+  helper binary must match. Protocol v4 carries the TCP fragment request's
+  IPv6 extension profile, including fragmentable destination options and the
+  second fragment's Next Header override. A v3 peer is rejected before a
+  privileged operation, so it cannot silently omit a selected profile.
 - The client connects **per operation**, sends one JSON command plus, for the
   socket-bound commands, the relevant socket file descriptor via **`SCM_RIGHTS`**
   ancillary data. The helper replies with a JSON response and, for
@@ -92,7 +95,7 @@ cannot.
 The pure protocol preflight returns additive `data.bulk_tcp` limits. The client
 checks these limits before it connects to send a bulk command or transfers its
 socket descriptor. A legacy helper without this advertisement accepts only
-control-sized requests. The version-three JSON byte arrays and command strings
+control-sized requests. The version-four JSON byte arrays and command strings
 remain unchanged; the advertisement does not change the capability-probe schema.
 
 - The bulk JSON envelope is at most **1 MiB**. This holds three 65535-byte spans
@@ -141,24 +144,24 @@ work** (it is a deliberate, security-reviewed change).
 
 | `CMD_*` | Wire string | Privileged operation | Client→helper fd | Helper→client reply fd |
 |---------|-------------|----------------------|------------------|------------------------|
-| `CMD_PROTOCOL_PREFLIGHT` | `v3/protocol_preflight` | Pure protocol-version handshake and bulk request limits; no capability probe or privileged operation | — | — |
-| `CMD_PROBE_CAPABILITIES` | `v3/probe_capabilities` | Probe raw-socket / `TCP_REPAIR` support | — | — |
-| `CMD_SEND_FAKE_TCP` | `v3/send_fake_tcp` | Emit a TTL-limited / decoy TCP segment | TCP socket fd | optional replacement fd |
-| `CMD_SEND_FAKE_RST` | `v3/send_fake_rst` | Emit a fake TCP RST | TCP socket fd | — |
-| `CMD_SEND_FLAGGED_TCP_PAYLOAD` | `v3/send_flagged_tcp_payload` | Send a TCP payload with overridden flags | TCP socket fd | optional replacement fd |
-| `CMD_SEND_SEQOVL_TCP` | `v3/send_seqovl_tcp` | Send a sequence-overlapped TCP segment | TCP socket fd | optional replacement fd |
-| `CMD_SEND_MULTI_DISORDER_TCP` | `v3/send_multi_disorder_tcp` | Send TCP segments out of order | TCP socket fd | optional replacement fd |
-| `CMD_SEND_ORDERED_TCP_SEGMENTS` | `v3/send_ordered_tcp_segments` | Send explicitly ordered TCP segments | TCP socket fd | optional replacement fd |
-| `CMD_SEND_IP_FRAGMENTED_TCP` | `v3/send_ip_fragmented_tcp` | Send an IP-fragmented TCP packet | TCP socket fd | optional replacement fd |
-| `CMD_SEND_IP_FRAGMENTED_UDP` | `v3/send_ip_fragmented_udp` | Send an IP-fragmented UDP datagram | UDP socket fd | — |
-| `CMD_SEND_SYN_HIDE_TCP` | `v3/send_syn_hide_tcp` | Experimental: SYN-hide TCP probe | — | — |
-| `CMD_SEND_ICMP_WRAPPED_UDP` | `v3/send_icmp_wrapped_udp` | Experimental: UDP wrapped in ICMP | — | — |
-| `CMD_RECV_ICMP_WRAPPED_UDP` | `v3/recv_icmp_wrapped_udp` | Experimental: receive ICMP-wrapped UDP | — | — |
-| `CMD_SEND_RAW_IP_PACKET` | `v3/send_raw_ip_packet` | Experimental: send a caller-supplied raw IP packet | — | — |
-| `CMD_START_NFQWS2` | `v3/start_nfqws2` | Start the app's nfqws2 binary as root on queue 49379 and install the private IPv4/IPv6 mangle chains | — | — |
-| `CMD_STOP_NFQWS2` | `v3/stop_nfqws2` | Stop nfqws2 and remove the owned chains | — | — |
-| `CMD_NFQWS2_STATUS` | `v3/nfqws2_status` | Report the nfqws2 state | — | — |
-| `CMD_SHUTDOWN` | `v3/shutdown` | Finish the in-flight request and exit | — | — |
+| `CMD_PROTOCOL_PREFLIGHT` | `v4/protocol_preflight` | Pure protocol-version handshake and bulk request limits; no capability probe or privileged operation | — | — |
+| `CMD_PROBE_CAPABILITIES` | `v4/probe_capabilities` | Probe raw-socket / `TCP_REPAIR` support | — | — |
+| `CMD_SEND_FAKE_TCP` | `v4/send_fake_tcp` | Emit a TTL-limited / decoy TCP segment | TCP socket fd | optional replacement fd |
+| `CMD_SEND_FAKE_RST` | `v4/send_fake_rst` | Emit a fake TCP RST | TCP socket fd | — |
+| `CMD_SEND_FLAGGED_TCP_PAYLOAD` | `v4/send_flagged_tcp_payload` | Send a TCP payload with overridden flags | TCP socket fd | optional replacement fd |
+| `CMD_SEND_SEQOVL_TCP` | `v4/send_seqovl_tcp` | Send a sequence-overlapped TCP segment | TCP socket fd | optional replacement fd |
+| `CMD_SEND_MULTI_DISORDER_TCP` | `v4/send_multi_disorder_tcp` | Send TCP segments out of order | TCP socket fd | optional replacement fd |
+| `CMD_SEND_ORDERED_TCP_SEGMENTS` | `v4/send_ordered_tcp_segments` | Send explicitly ordered TCP segments | TCP socket fd | optional replacement fd |
+| `CMD_SEND_IP_FRAGMENTED_TCP` | `v4/send_ip_fragmented_tcp` | Send an IP-fragmented TCP packet | TCP socket fd | optional replacement fd |
+| `CMD_SEND_IP_FRAGMENTED_UDP` | `v4/send_ip_fragmented_udp` | Send an IP-fragmented UDP datagram | UDP socket fd | — |
+| `CMD_SEND_SYN_HIDE_TCP` | `v4/send_syn_hide_tcp` | Experimental: SYN-hide TCP probe | — | — |
+| `CMD_SEND_ICMP_WRAPPED_UDP` | `v4/send_icmp_wrapped_udp` | Experimental: UDP wrapped in ICMP | — | — |
+| `CMD_RECV_ICMP_WRAPPED_UDP` | `v4/recv_icmp_wrapped_udp` | Experimental: receive ICMP-wrapped UDP | — | — |
+| `CMD_SEND_RAW_IP_PACKET` | `v4/send_raw_ip_packet` | Experimental: send a caller-supplied raw IP packet | — | — |
+| `CMD_START_NFQWS2` | `v4/start_nfqws2` | Start the app's nfqws2 binary as root on queue 49379 and install the private IPv4/IPv6 mangle chains | — | — |
+| `CMD_STOP_NFQWS2` | `v4/stop_nfqws2` | Stop nfqws2 and remove the owned chains | — | — |
+| `CMD_NFQWS2_STATUS` | `v4/nfqws2_status` | Report the nfqws2 state | — | — |
+| `CMD_SHUTDOWN` | `v4/shutdown` | Finish the in-flight request and exit | — | — |
 
 Per-command parameter structs live in
 `ripdpi-root-helper-protocol/src/params.rs` and are serialized into the

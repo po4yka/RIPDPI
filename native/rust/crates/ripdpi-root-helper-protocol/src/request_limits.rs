@@ -33,7 +33,7 @@ const BULK_TCP_LIMITS: BulkTcpLimits = BulkTcpLimits {
     multidisorder: true,
 };
 
-/// Additive preflight metadata; the v3 parameter representation stays unchanged.
+/// Additive preflight metadata; the v4 parameter representation stays unchanged.
 pub fn bulk_tcp_preflight_data() -> Value {
     serde_json::json!({ "bulk_tcp": BULK_TCP_LIMITS })
 }

@@ -17,6 +17,7 @@ mod fake_rst;
 mod fake_send_safety;
 mod fake_split;
 mod ip_fragment_eligibility;
+mod ip_fragment_profiles;
 mod multi_disorder;
 mod seq_overlap;
 
@@ -28,6 +29,7 @@ enum FaultSpec {
     FakeSendAfterPrefix(usize),
     FakePayload { bytes: Vec<u8>, kind: io::ErrorKind },
     MultiDisorderAfterPrefix { written: usize, report_progress: bool },
+    EmitIpFragments,
 }
 
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
@@ -228,52 +230,6 @@ impl TcpPayloadSender for ReceiptTestPlatform {
             return Err(io::Error::new(kind, "injected seqovl failure"));
         }
         Err(io::Error::new(io::ErrorKind::Unsupported, "seqovl unsupported in receipt test"))
-    }
-}
-
-impl TcpFragmentSender for ReceiptTestPlatform {
-    fn send_ip_fragmented_tcp(
-        &self,
-        _stream: &TcpStream,
-        _payload: &[u8],
-        _split_offset: usize,
-        _default_ttl: u8,
-        _protect_path: Option<&str>,
-        _disorder: bool,
-        _ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
-        _flags: TcpFlagOverrides,
-        _ip_id_mode: Option<ripdpi_config::IpIdMode>,
-    ) -> io::Result<()> {
-        Err(io::Error::new(
-            self.ipfrag_error_kind.unwrap_or(io::ErrorKind::Unsupported),
-            "ipfrag unsupported in receipt test",
-        ))
-    }
-
-    fn send_multi_disorder_tcp(
-        &self,
-        stream: &TcpStream,
-        payload: &[u8],
-        _segments: &[TcpPayloadSegment],
-        _default_ttl: u8,
-        _protect_path: Option<&str>,
-        _inter_segment_delay_ms: u32,
-        _md5sig: bool,
-        _original_flags: TcpFlagOverrides,
-        _ip_id_mode: Option<ripdpi_config::IpIdMode>,
-    ) -> io::Result<()> {
-        let fault = self.faults.lock().expect("receipt fault queue").pop_front();
-        if let Some(FaultSpec::MultiDisorderAfterPrefix { written, report_progress }) = fault {
-            let mut stream = stream;
-            stream.write_all(&payload[..written])?;
-            let source = io::Error::from(io::ErrorKind::TimedOut);
-            return Err(if report_progress {
-                io::Error::new(source.kind(), crate::transport_io::WriteProgressError { written, source })
-            } else {
-                source
-            });
-        }
-        Err(io::Error::new(io::ErrorKind::Unsupported, "multi-disorder unsupported in receipt test"))
     }
 }
 

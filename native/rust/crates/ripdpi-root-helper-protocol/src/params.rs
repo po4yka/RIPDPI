@@ -163,6 +163,16 @@ pub struct IpFragTcpParams {
     pub tcp_flags_unset: u16,
     #[serde(default)]
     pub ipv4_identification: Option<u16>,
+    #[serde(default)]
+    pub ipv6_hop_by_hop: bool,
+    #[serde(default)]
+    pub ipv6_dest_opt: bool,
+    #[serde(default)]
+    pub ipv6_dest_opt_fragmentable: bool,
+    #[serde(default)]
+    pub ipv6_routing: bool,
+    #[serde(default)]
+    pub ipv6_second_frag_next_override: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -248,7 +258,9 @@ mod tests {
         ));
         assert_params_json_stable::<IpFragTcpParams>(concat!(
             r#"{"payload":[1,2,3],"split_offset":2,"default_ttl":64,"disorder":true,"#,
-            r#""tcp_flags_set":0,"tcp_flags_unset":0,"ipv4_identification":null}"#,
+            r#""tcp_flags_set":0,"tcp_flags_unset":0,"ipv4_identification":null,"#,
+            r#""ipv6_hop_by_hop":true,"ipv6_dest_opt":true,"ipv6_dest_opt_fragmentable":true,"#,
+            r#""ipv6_routing":true,"ipv6_second_frag_next_override":59}"#,
         ));
         assert_params_json_stable::<IpFragUdpParams>(concat!(
             r#"{"target_addr":"203.0.113.5:443","payload":[1,2],"split_offset":1,"#,
@@ -341,5 +353,10 @@ mod tests {
             .expect("minimal IpFragTcpParams");
         assert!(!ip_frag.disorder);
         assert!(ip_frag.ipv4_identification.is_none());
+        assert!(!ip_frag.ipv6_hop_by_hop);
+        assert!(!ip_frag.ipv6_dest_opt);
+        assert!(!ip_frag.ipv6_dest_opt_fragmentable);
+        assert!(!ip_frag.ipv6_routing);
+        assert!(ip_frag.ipv6_second_frag_next_override.is_none());
     }
 }

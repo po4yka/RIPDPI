@@ -45,12 +45,13 @@ pub fn send_ip_fragmented_tcp_reserved(
 ) -> io::Result<()> {
     let ipv4_identification = fragment_identification(ipv4_identification);
     if let Some(result) = root_helper::with_reachable_root_helper(|h| {
-        let res = h.send_ip_fragmented_tcp(
+        let res = h.send_ip_fragmented_tcp_with_ipv6_ext(
             stream.as_fd(),
             payload,
             split_offset,
             default_ttl,
             disorder,
+            ipv6_ext,
             flags,
             ipv4_identification,
         )?;

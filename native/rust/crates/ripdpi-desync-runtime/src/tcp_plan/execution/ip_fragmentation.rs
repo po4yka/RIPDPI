@@ -9,14 +9,22 @@ pub(super) fn execute(
     ctx: &mut TcpPlanStepExecContext<'_>,
     input: &TcpPlanStepInput<'_>,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
+    let payload = input.configured_step.ip_frag_payload();
+    let extensions = input.configured_step.ipv6_extension_payload();
     let (bytes_committed, control) = match send_ip_fragmented_tcp_action_named(
         ctx.writer,
         &ctx.plan.tampered,
         input.end,
         ctx.config.network.default_ttl,
         ctx.config.process.protect_path.as_deref(),
-        false, // disorder not available in legacy plan path
-        ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        payload.is_some_and(|payload| payload.disorder),
+        ripdpi_ipfrag::Ipv6ExtHeaders {
+            hop_by_hop: extensions.hop_by_hop,
+            dest_opt: extensions.dest_opt,
+            dest_opt_fragmentable: extensions.dest_opt2,
+            routing: extensions.routing,
+            second_frag_next_override: extensions.second_frag_next_override,
+        },
         step_original_tcp_flags(input.configured_step),
         ctx.group.actions.ip_id_mode,
         "write_ipfrag2",

@@ -90,7 +90,7 @@ internal object NfqwsBackendAssets {
 
 /** The helper uses a bounded big-endian length frame, not newline-delimited JSON. */
 internal object RootHelperIpc {
-    private const val Version = 3
+    private const val Version = 4
     private const val MaxMessageBytes = 8192
     private const val StartTimeoutMillis = 15000
     private const val RequestTimeoutMillis = 2000
@@ -100,7 +100,7 @@ internal object RootHelperIpc {
         socketPath: String,
         noncePath: String?,
     ) {
-        noncePath?.let { request(socketPath, it, "v3/shutdown", buildJsonObject {}) }
+        noncePath?.let { request(socketPath, it, "v4/shutdown", buildJsonObject {}) }
     }
 
     fun request(
@@ -109,7 +109,7 @@ internal object RootHelperIpc {
         command: String,
         params: JsonObject,
     ): JsonObject {
-        val timeoutMillis = if (command == "v3/start_nfqws2") StartTimeoutMillis else RequestTimeoutMillis
+        val timeoutMillis = if (command == "v4/start_nfqws2") StartTimeoutMillis else RequestTimeoutMillis
         val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis.toLong())
         return requestBefore(socketPath, noncePath, command, params, deadlineNanos)
     }
@@ -119,7 +119,7 @@ internal object RootHelperIpc {
         noncePath: String?,
         deadlineNanos: Long,
     ) {
-        noncePath?.let { requestBefore(socketPath, it, "v3/shutdown", buildJsonObject {}, deadlineNanos) }
+        noncePath?.let { requestBefore(socketPath, it, "v4/shutdown", buildJsonObject {}, deadlineNanos) }
     }
 
     private fun requestBefore(

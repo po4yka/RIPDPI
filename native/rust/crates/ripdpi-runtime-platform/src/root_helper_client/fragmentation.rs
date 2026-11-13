@@ -21,6 +21,30 @@ impl RootHelperClient {
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,
     ) -> io::Result<Option<OwnedFd>> {
+        self.send_ip_fragmented_tcp_with_ipv6_ext(
+            stream_fd,
+            payload,
+            split_offset,
+            default_ttl,
+            disorder,
+            ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+            flags,
+            ipv4_identification,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn send_ip_fragmented_tcp_with_ipv6_ext(
+        &self,
+        stream_fd: BorrowedFd<'_>,
+        payload: &[u8],
+        split_offset: usize,
+        default_ttl: u8,
+        disorder: bool,
+        ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+        flags: TcpFlagOverrides,
+        ipv4_identification: Option<u16>,
+    ) -> io::Result<Option<OwnedFd>> {
         let params = command_params(IpFragTcpParams {
             payload: payload.to_vec(),
             split_offset,
@@ -29,6 +53,11 @@ impl RootHelperClient {
             tcp_flags_set: flags.set,
             tcp_flags_unset: flags.unset,
             ipv4_identification,
+            ipv6_hop_by_hop: ipv6_ext.hop_by_hop,
+            ipv6_dest_opt: ipv6_ext.dest_opt,
+            ipv6_dest_opt_fragmentable: ipv6_ext.dest_opt_fragmentable,
+            ipv6_routing: ipv6_ext.routing,
+            ipv6_second_frag_next_override: ipv6_ext.second_frag_next_override,
         })?;
         let (_resp, fd) = self.transport.send_command(CMD_SEND_IP_FRAGMENTED_TCP, params, Some(stream_fd))?;
         Ok(fd)
@@ -86,3 +115,6 @@ impl RootHelperClient {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests;
