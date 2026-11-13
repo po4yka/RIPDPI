@@ -433,6 +433,10 @@ The root helper accepts large multidisorder requests only after it advertises co
 | `ipfrag2` | IP-level packet fragmentation (DF cleared, MF set, 8-byte aligned offset) | offset | Linux/Android |
 | `fakerst` | Rooted fake TCP RST emission before the original payload write | `fake_tcp_flags` | Rooted (requires root mode) |
 
+A `tlsrec` step permits at most 1024 offset iterations, including zero and duplicate
+positions. A larger repeat count causes a planner error. The runtime then uses
+the existing plain-payload fallback instead of sending a partial record change.
+
 `oob` and `disoob` require native TCP send-stage waiting on Linux or Android. Planner and
 packet-oracle unit tests on other hosts do not establish runtime support. On an
 unsupported host, the send-stage error can occur after the prefix and urgent byte

@@ -9,6 +9,8 @@ use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPa
 use ripdpi_packets::{IS_HTTP, OracleRng, is_tls_client_hello, mod_http_inplace};
 use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, apply_record_choreography, plan_first_flight};
 
+const MAX_TLSREC_ITERATIONS: i32 = 1024;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TlsPreludeState {
     header: [u8; 3],
@@ -84,13 +86,17 @@ fn apply_tlsrec_prelude_step(
     rng: &mut OracleRng,
     context: ActivationContext,
 ) -> Result<Option<usize>, DesyncError> {
+    let offset = step.offset();
+    let total = offset.repeats.max(1);
+    // Bound work even when repeated offsets add no record boundary.
+    if total > MAX_TLSREC_ITERATIONS {
+        return Err(DesyncError);
+    }
     let Some(record) = state.synthetic_record() else {
         return Ok(None);
     };
-    let offset = step.offset();
     let mut info = ProtoInfo::default();
     let mut lp = 0i64;
-    let total = offset.repeats.max(1);
     let mut remaining = total;
     let mut resolved_offset = None;
     while remaining > 0 {

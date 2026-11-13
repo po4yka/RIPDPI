@@ -276,6 +276,66 @@ fn tlsrec_offset_zero_skips_only_the_zero_repeat() {
 }
 
 #[test]
+fn tlsrec_repeat_budget_rejects_excess_before_emitting_a_partial_prelude() {
+    let input = include_bytes!("../../../ripdpi-packets/tests/fixtures/curl_tls12_example_com.bin");
+    let mut group = DesyncGroup::new(0);
+    for marker in [0, 64] {
+        group.actions.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(32)),
+            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(marker).with_repeat_skip(1025, 0)),
+        ];
+
+        assert_eq!(apply_tamper(&group, input, 7), Err(DesyncError));
+    }
+}
+
+#[test]
+fn tlsrec_repeat_budget_accepts_the_limit_without_duplicate_or_empty_records() {
+    let input = include_bytes!("../../../ripdpi-packets/tests/fixtures/curl_tls12_example_com.bin");
+    let mut group = DesyncGroup::new(0);
+    for (marker, lengths, applied_count) in [(0, vec![203], 0), (64, vec![64, 139], 1)] {
+        group.actions.tcp_chain =
+            vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(marker).with_repeat_skip(1024, 0))];
+
+        let tampered = apply_tamper(&group, input, 7).expect("bounded repeated offset");
+
+        assert_eq!(tls_record_lengths(&tampered.bytes), lengths);
+        assert_eq!(tampered.tls_prelude.applied_count, applied_count);
+        assert_eq!(tls_handshake_payload(&tampered.bytes), input[5..]);
+    }
+}
+
+#[test]
+fn tlsrec_repeat_budget_keeps_a_useful_skip_after_a_duplicate_boundary() {
+    let input = include_bytes!("../../../ripdpi-packets/tests/fixtures/curl_tls12_example_com.bin");
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(64)),
+        TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(64).with_repeat_skip(2, 16)),
+    ];
+
+    let tampered = apply_tamper(&group, input, 7).expect("duplicate followed by a useful boundary");
+
+    assert_eq!(tls_record_lengths(&tampered.bytes), vec![64, 16, 123]);
+    assert_eq!(tampered.tls_prelude.applied_count, 2);
+    assert_eq!(tls_handshake_payload(&tampered.bytes), input[5..]);
+}
+
+fn tls_handshake_payload(buffer: &[u8]) -> Vec<u8> {
+    let mut payload = Vec::new();
+    let mut cursor = 0;
+    while cursor < buffer.len() {
+        assert_eq!(buffer[cursor], 0x16);
+        let len = usize::from(u16::from_be_bytes([buffer[cursor + 3], buffer[cursor + 4]]));
+        assert!(len > 0);
+        payload.extend_from_slice(&buffer[cursor + 5..cursor + 5 + len]);
+        cursor += 5 + len;
+    }
+    assert_eq!(cursor, buffer.len());
+    payload
+}
+
+#[test]
 fn tls_prelude_rejects_offset_adjustment_underflow() {
     let fake = complete_fake_tls();
     let offset = OffsetExpr::marker(OffsetBase::PayloadRand, i64::MIN);
