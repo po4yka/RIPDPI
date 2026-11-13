@@ -6,6 +6,7 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
     let mut saw_send_step = false;
     let mut saw_ipfrag2 = false;
     let mut saw_seqovl = false;
+    let mut saw_syndata = false;
     let mut send_step_count = 0usize;
     let mut multidisorder_count = 0usize;
 
@@ -32,6 +33,18 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
             }
         } else {
             saw_send_step = true;
+            if kind == TcpChainStepKind::SynData {
+                if saw_syndata {
+                    return Err(ProxyConfigError::InvalidConfig(
+                        "syndata must appear at most once per tcp chain".to_string(),
+                    ));
+                }
+                // A later step's first write would carry the SYN under a cached TFO cookie.
+                if send_step_count != 0 {
+                    return Err(ProxyConfigError::InvalidConfig("syndata must be the first tcp send step".to_string()));
+                }
+                saw_syndata = true;
+            }
             if kind == TcpChainStepKind::SeqOverlap {
                 if saw_seqovl {
                     return Err(ProxyConfigError::InvalidConfig(

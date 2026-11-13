@@ -162,6 +162,34 @@ fn ui_payload_rejects_non_leading_seqovl_step() {
 }
 
 #[test]
+fn ui_payload_rejects_syndata_after_another_send_step_or_twice() {
+    for (steps, message) in [
+        (vec![tcp_step("disorder", "1"), tcp_step("syndata", "5")], "syndata must be the first tcp send step"),
+        (vec![tcp_step("syndata", "1"), tcp_step("syndata", "5")], "syndata must appear at most once per tcp chain"),
+    ] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = steps;
+
+        let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid syndata chain");
+
+        assert!(err.to_string().contains(message), "{err}");
+    }
+}
+
+#[test]
+fn ui_payload_accepts_leading_syndata_with_or_without_tls_prelude() {
+    for steps in [
+        vec![tcp_step("syndata", "1"), tcp_step("disorder", "5")],
+        vec![tcp_step("tlsrec", "extlen"), tcp_step("syndata", "1")],
+    ] {
+        let mut ui = minimal_ui();
+        ui.chains.tcp_steps = steps;
+
+        runtime_config_from_payload(ui_payload(ui)).expect("valid syndata chain");
+    }
+}
+
+#[test]
 fn ui_payload_rejects_tcp_state_predicates_on_group_activation_filter() {
     let mut ui = minimal_ui();
     ui.chains.group_activation_filter = Some(activation_filter_with_tcp_state());
