@@ -1,4 +1,4 @@
-use crate::types::{TcpExecutionReceipt, TcpTerminalReason};
+use crate::types::{OutboundSendError, TcpExecutionReceipt, TcpTerminalReason};
 
 pub(super) struct ActionContext {
     pub(super) strategy_family: Option<&'static str>,
@@ -44,6 +44,16 @@ impl FallbackAccounting {
 
     pub(super) fn add_bytes_committed(&mut self, bytes_committed: usize) {
         self.bytes_committed += bytes_committed;
+    }
+
+    /// Adds a per-call transport write to the plan total, on success and on error.
+    pub(super) fn add_transport_write(
+        &mut self,
+        result: Result<usize, OutboundSendError>,
+    ) -> Result<(), OutboundSendError> {
+        let committed = result.map_err(|error| error.after_prior_progress(self.bytes_committed))?;
+        self.add_bytes_committed(committed);
+        Ok(())
     }
 
     pub(super) fn begin_action(&mut self) {

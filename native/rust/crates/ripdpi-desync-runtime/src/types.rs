@@ -409,7 +409,7 @@ impl TcpActionReceiptSummary {
                 }
                 DesyncAction::WriteUrgent { prefix, .. } => {
                     summary.real_writes = summary.real_writes.saturating_add(1);
-                    summary.payload_bytes = summary.payload_bytes.saturating_add(prefix.len().saturating_add(1));
+                    summary.payload_bytes = summary.payload_bytes.saturating_add(prefix.len());
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, remainder, .. } => {
                     summary.real_writes = summary.real_writes.saturating_add(2);
@@ -532,6 +532,16 @@ impl OutboundSendError {
     pub(crate) fn with_possible_payload_commit(mut self) -> Self {
         if let Self::StrategyExecution { payload_commit_uncertain, .. } = &mut self {
             *payload_commit_uncertain = true;
+        }
+        self
+    }
+
+    /// Adds progress that earlier actions in the same plan committed before this error.
+    pub(crate) fn after_prior_progress(mut self, prior: usize) -> Self {
+        match &mut self {
+            Self::Transport { bytes_committed, .. } | Self::StrategyExecution { bytes_committed, .. } => {
+                *bytes_committed = bytes_committed.saturating_add(prior);
+            }
         }
         self
     }

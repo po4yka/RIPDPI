@@ -90,8 +90,7 @@ impl TtlOobActionExecutor {
                 accounting.set_bytes_committed(committed);
             }
         } else {
-            let committed = send_transport_oob_payload(writer, prefix, urgent_byte)?;
-            accounting.set_bytes_committed(committed);
+            accounting.add_transport_write(send_transport_oob_payload(writer, prefix, urgent_byte))?;
         }
         Ok(())
     }

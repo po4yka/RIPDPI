@@ -19,8 +19,7 @@ fn actions_write_only_no_strategy() {
         None,
         None,
     );
-    // write_transport_payload returns bytes.len() (not accumulated), so last write's len is returned
-    assert_eq!(result.unwrap(), 5);
+    assert_eq!(result.unwrap(), 10);
     let mut buf = vec![0u8; 10];
     use std::io::Read;
     server.read_exact(&mut buf).expect("read");
@@ -147,7 +146,7 @@ fn actions_write_urgent_no_strategy() {
         None,
         None,
     );
-    assert_eq!(result.unwrap(), 3); // prefix.len() + 1
+    assert_eq!(result.unwrap(), 2); // the urgent byte is not application data
 }
 
 #[test]
@@ -167,7 +166,7 @@ fn actions_write_urgent_with_strategy() {
         None,
         None,
     );
-    assert_eq!(result.unwrap(), 3);
+    assert_eq!(result.unwrap(), 2);
 }
 
 // ipfrag2 fallback tests: on non-Linux, send_ip_fragmented_tcp returns
@@ -525,7 +524,7 @@ fn send_out_of_band_sends_prefix_plus_byte() {
 fn send_oob_action_named_accumulates() {
     let (client, _server) = connected_pair();
     let result = send_oob_action_named(&client, b"ab", b'!', "send_oob", "oob", None, 10);
-    assert_eq!(result.unwrap(), 13); // 10 + 2 + 1
+    assert_eq!(result.unwrap(), 12); // 10 + 2; the urgent byte is not application data
 }
 
 // ---------------------------------------------------------------
@@ -554,7 +553,7 @@ fn actions_delay_does_not_affect_bytes_committed() {
         None,
     );
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), 5); // last write's len (write_transport_payload returns per-call bytes)
+    assert_eq!(result.unwrap(), 10);
 
     let mut buf = vec![0u8; 10];
     use std::io::Read;

@@ -339,6 +339,6 @@ mod tests {
         )
         .unwrap();
         assert!(ttl_modified);
-        assert_eq!(committed, 13);
+        assert_eq!(committed, 12);
     }
 }

@@ -52,6 +52,8 @@ fn oob_later_steps_and_payloads_preserve_peer_bytes_and_report_split_fallback() 
 
         assert_eq!(received, b"abcdefghijkl");
         assert_eq!(outcomes[0].execution_receipt.effective_family, Some(TcpStrategyFamily::OutOfBand));
+        assert_eq!(outcomes[0].bytes_committed, 6);
+        assert_eq!(outcomes[0].execution_receipt.payload_bytes_committed, 6);
         assert_ne!(outcomes[1].execution_receipt.effective_family, Some(TcpStrategyFamily::OutOfBand));
     }
 }

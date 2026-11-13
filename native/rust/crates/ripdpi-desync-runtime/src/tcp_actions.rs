@@ -110,7 +110,7 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
                         &context,
                         &mut accounting,
                     )?;
-                    accounting.complete_real_write(prefix.len().saturating_add(1));
+                    accounting.complete_real_write(prefix.len());
                 }
                 DesyncAction::SetTtl(ttl) => {
                     TtlOobActionExecutor::set_ttl(

@@ -26,8 +26,7 @@ impl RawWriteActionExecutor {
             )?;
             accounting.set_bytes_committed(committed);
         } else {
-            let committed = write_transport_payload(writer, bytes)?;
-            accounting.set_bytes_committed(committed);
+            accounting.add_transport_write(write_transport_payload(writer, bytes))?;
         }
         Ok(())
     }

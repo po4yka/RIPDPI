@@ -114,8 +114,7 @@ impl PrivilegedActionExecutor {
                 Ok(()) => accounting.add_bytes_committed(bytes.len()),
                 Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
                     log_ipfrag2_flow_fallback(&err);
-                    let committed = write_transport_payload(writer, bytes)?;
-                    accounting.set_bytes_committed(committed);
+                    accounting.add_transport_write(write_transport_payload(writer, bytes))?;
                 }
                 Err(err) => return Err(OutboundSendError::transport(err)),
             }
@@ -147,8 +146,7 @@ impl PrivilegedActionExecutor {
             }
             Err(err) if should_fallback_seqovl_error_kind(err.kind()) => {
                 tracing::warn!("seqovl fallback to split: {err}");
-                let committed = write_transport_payload(writer, real_chunk)?;
-                accounting.add_bytes_committed(committed);
+                accounting.add_transport_write(write_transport_payload(writer, real_chunk))?;
                 Self::write_seq_overlap_remainder(writer, remainder, accounting)?;
             }
             Err(err) => return Err(OutboundSendError::transport(err)),
@@ -172,8 +170,7 @@ impl PrivilegedActionExecutor {
         accounting: &mut FallbackAccounting,
     ) -> Result<(), OutboundSendError> {
         if !remainder.is_empty() {
-            let committed = write_transport_payload(writer, remainder)?;
-            accounting.add_bytes_committed(committed);
+            accounting.add_transport_write(write_transport_payload(writer, remainder))?;
         }
         Ok(())
     }

@@ -100,7 +100,8 @@ pub(crate) fn send_oob_action_named(
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
     strategy_result(send_out_of_band(writer, prefix, urgent_byte), action, strategy_family, fallback, bytes_committed)
-        .map(|()| bytes_committed + prefix.len() + 1)
+        // The inserted urgent byte is not application data, so it is not counted.
+        .map(|()| bytes_committed + prefix.len())
 }
 
 #[allow(clippy::too_many_arguments)]
