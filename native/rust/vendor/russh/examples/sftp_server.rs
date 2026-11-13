@@ -42,8 +42,8 @@ impl SshSession {
 impl russh::server::Handler for SshSession {
     type Error = anyhow::Error;
 
-    async fn auth_password(&mut self, user: &str, password: &str) -> Result<Auth, Self::Error> {
-        info!("credentials: {user}, {password}");
+    async fn auth_password(&mut self, user: &str, _password: &str) -> Result<Auth, Self::Error> {
+        info!("password authentication for {user}");
         Ok(Auth::Accept)
     }
 
