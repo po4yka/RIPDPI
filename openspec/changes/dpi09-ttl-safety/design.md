@@ -15,8 +15,10 @@ only the remaining DPI-09 findings and confirmed TTL/stage failure paths.
 
 - Keep the existing TTL-unavailable fallback for an initial failed lowering.
   Treat a failed restoration as a terminal error, with accepted progress intact.
-- Mirror the active-family TTL getter in the setter. Do not accept an unrelated
-  family success as proof that the active family changed.
+- Share active-family TTL selection between getter and setter. Linux and
+  Android mapped IPv4 peers use IP_TTL; other hosts use the native socket
+  family because their mapped sockets can reject IP_TTL. Do not accept an
+  unrelated family success as proof that the active family changed.
 - Keep wait_send as an initial pacing choice. Both deadline branches must fail
   if the kernel still reports unsent bytes.
 - Use a sequence-aware independent packet oracle plus strict local echo. Allow

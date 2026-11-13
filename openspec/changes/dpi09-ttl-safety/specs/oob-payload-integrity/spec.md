@@ -20,13 +20,21 @@ failure. Initial TTL unavailability MAY retain the existing Oob fallback.
 
 ### Requirement: REQ-OOB-TTL-FAMILY — Set the active address family
 
-A socket TTL operation MUST change IPv4 TTL for an IPv4 peer or IPv6 Hop Limit
-for an IPv6 peer. Success in another address family MUST NOT hide a failure.
+A socket TTL operation MUST select the option that controls the connected
+peer on the current OS. IPv4 peers use IPv4 TTL and native IPv6 peers use IPv6
+Hop Limit. Linux and Android IPv4-mapped IPv6 peers MUST use IPv4 TTL for both
+read and write. Other hosts MUST retain their native socket-family option.
+Success in another address family MUST NOT hide a failure.
 
 #### Scenario: IPv6 socket has independent IPv4 and IPv6 values
 
 - **WHEN** an IPv6 peer socket receives a requested Hop Limit change
 - **THEN** the IPv6 value changes and its inactive IPv4 TTL is not changed
+
+#### Scenario: Linux socket connects to an IPv4-mapped IPv6 peer
+
+- **WHEN** the socket has different IPv4 TTL and IPv6 Hop Limit values
+- **THEN** the getter reads IPv4 TTL and the setter changes only IPv4 TTL
 
 ### Requirement: REQ-OOB-STAGE-DEADLINE — Fail an undrained stage
 
