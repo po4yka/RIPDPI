@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-13
+goal: RST-1794557083402232 Enforce TLS random-record validation and envelope
+  contracts
