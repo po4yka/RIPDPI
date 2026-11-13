@@ -338,10 +338,12 @@ production strategy-probe candidate pool intended for non-root Android.
 UDP payload. All fakes are sent at low TTL.
 
 **Fake content selection** (in `udp_fake_payload()`):
-1. If `QuicFakeProfile::RealisticInitial` and QUIC detected: crafts a
+1. If `QuicFakeProfile::RealisticInitial` and the payload is a QUIC
+   long-header Initial (a complete ClientHello is not required): crafts a
    realistic QUIC Initial with fake host.
-2. If `QuicFakeProfile::CompatDefault`: static fake QUIC bytes.
-3. Otherwise: `fake_data` or `udp_fake_profile` bytes.
+2. If `QuicFakeProfile::CompatDefault` and QUIC Initial: static fake QUIC bytes.
+3. Otherwise: `fake_data` or `udp_fake_profile` bytes. `fake_offset` is the
+   TCP fake offset and is ignored here.
 
 **Config fields**: `count` (burst size), adjusted by
 `AdaptiveUdpBurstProfile`.

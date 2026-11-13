@@ -33,16 +33,12 @@ pub(super) fn udp_fake_payload(
         }
     }
 
-    let mut fake = group
+    // `fake_offset` is the TCP fake offset and must not trim the UDP fake.
+    let fake = group
         .actions
         .fake_data
         .clone()
         .unwrap_or_else(|| udp_fake_profile_bytes(group.actions.udp_fake_profile).to_vec());
-    if let Some(offset) = group.actions.fake_offset
-        && let Some(pos) = offset.absolute_positive().filter(|pos| (*pos as usize) < fake.len())
-    {
-        fake = fake[pos as usize..].to_vec();
-    }
 
     apply_entropy_padding_to_fake(group, fake)
 }

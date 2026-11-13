@@ -830,3 +830,18 @@ fn aggressive_burst_profile_never_lowers_the_configured_count() {
         assert_eq!(writes, expected, "configured count {configured}");
     }
 }
+
+#[test]
+fn udp_fake_ignores_the_tcp_fake_offset() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_fake_profile = UdpFakeProfile::StunBinding;
+    group.actions.fake_offset = Some(OffsetExpr::absolute(8));
+    group.actions.udp_chain = vec![fake_burst_step()];
+
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+
+    assert_eq!(
+        actions[1],
+        DesyncAction::Write(ripdpi_packets::udp_fake_profile_bytes(UdpFakeProfile::StunBinding).to_vec())
+    );
+}

@@ -119,8 +119,8 @@ steps with unresolvable adaptive offsets without error.
   record header size) from the resolved position to convert from record
   coordinates to payload coordinates.
 - `OffsetExpr::absolute_positive()` -- returns `Some(delta)` only for
-  `Abs` base with non-negative delta. Used by `udp_fake_payload()` to
-  slice fake data.
+  `Abs` base with non-negative delta. `udp_fake_payload()` does not use
+  `fake_offset`: it is the TCP fake offset and never trims a UDP fake.
 
 ## TLS ClientHello semantic markers
 
