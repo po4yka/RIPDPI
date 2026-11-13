@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.IpIdModeDefault
 import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.formatActivationFilterSummary
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
@@ -154,7 +155,8 @@ data class DesyncCoreUiState(
             }.toImmutableList(),
     val seqOverlapSteps: ImmutableList<TcpChainStepModel> =
         tcpChainSteps.filter { it.kind == TcpChainStepKind.SeqOverlap }.toImmutableList(),
-    val hasUdpFakeBurst: Boolean = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 },
+    val hasUdpFakeBurst: Boolean =
+        udpChainSteps.any { it.kind == UdpChainStepKind.FakeBurst && it.count > 0 },
 ) {
     val primaryTcpFlagStep: TcpChainStepModel?
         get() = primaryTcpChainStep(tcpChainSteps)

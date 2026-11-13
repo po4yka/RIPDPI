@@ -45,6 +45,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
@@ -61,6 +62,8 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.NumericRange
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import com.poyka.ripdpi.settings.state.toUiState
+import com.poyka.ripdpi.ui.state.SettingsUiState
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -910,6 +913,64 @@ class SettingsUiStateTest {
 
         assertTrue(state.desync.hasUdpFakeBurst)
         assertTrue(state.udpFakeProfileActiveInStrategy)
+    }
+
+    @Test
+    fun `udp fake count and burst flag ignore non burst udp steps`() {
+        val mixed =
+            defaults
+                .toBuilder()
+                .setDesyncUdp(true)
+                .setStrategyChains(
+                    tcpSteps = emptyList(),
+                    udpSteps =
+                        listOf(
+                            UdpChainStepModel(count = 2, kind = UdpChainStepKind.QuicSniSplit),
+                            UdpChainStepModel(count = 3),
+                        ),
+                ).build()
+                .toUiState()
+        val sniSplitOnly =
+            defaults
+                .toBuilder()
+                .setDesyncUdp(true)
+                .setStrategyChains(
+                    tcpSteps = emptyList(),
+                    udpSteps = listOf(UdpChainStepModel(count = 1, kind = UdpChainStepKind.QuicSniSplit)),
+                ).build()
+                .toUiState()
+
+        assertEquals(3, mixed.desync.udpFakeCount)
+        assertTrue(mixed.desync.hasUdpFakeBurst)
+        assertEquals(0, sniSplitOnly.desync.udpFakeCount)
+        assertFalse(sniSplitOnly.desync.hasUdpFakeBurst)
+    }
+
+    @Test
+    fun `updateUdpBurstCount only edits the fake burst step`() {
+        val sniSplit = UdpChainStepModel(count = 2, kind = UdpChainStepKind.QuicSniSplit)
+        val uiState =
+            SettingsUiState(
+                desync =
+                    DesyncCoreUiState(
+                        udpChainSteps = persistentListOf(sniSplit, UdpChainStepModel(count = 3)),
+                    ),
+            )
+        var mutation: SettingsMutation? = null
+        val writer = DesyncSettingsMutationWriter { _, _, m -> mutation = m }
+
+        fun applied(value: String): List<UdpChainStepModel> {
+            writer.updateUdpBurstCount(value, uiState)
+            return AppSettings
+                .newBuilder()
+                .apply(mutation!!)
+                .build()
+                .effectiveUdpChainSteps()
+        }
+
+        assertEquals(listOf(sniSplit, UdpChainStepModel(count = 5)), applied("5"))
+        assertEquals(listOf(sniSplit, UdpChainStepModel(count = 64)), applied("500"))
+        assertEquals(listOf(sniSplit), applied("0"))
     }
 
     @Test

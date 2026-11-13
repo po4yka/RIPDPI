@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.isValidOobData
@@ -20,6 +21,9 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 private const val MinTtl = 1
 private const val MaxTtl = 255
 private const val AdaptiveTtlDeltaSentinel = -1
+
+// Mirrors MAX_FAKE_BURST_COUNT in native/rust ripdpi-config src/constants.rs (Kotlin owner is module-internal).
+private const val MaxFakeBurstCount = 64
 
 private sealed interface PrimaryDesyncMethodChoice {
     data class Selected(
@@ -289,13 +293,21 @@ internal class DesyncSettingsMutationWriter(
         uiState: SettingsUiState,
     ) {
         value.toIntOrNull()?.let { count ->
-            val normalized = count.coerceAtLeast(0)
-            val existing = uiState.desync.udpChainSteps.firstOrNull()
+            val normalized = count.coerceIn(0, MaxFakeBurstCount)
+            val steps = uiState.desync.udpChainSteps
             val updatedUdpSteps =
-                if (normalized == 0) {
-                    emptyList()
-                } else {
-                    listOf(existing?.copy(count = normalized) ?: UdpChainStepModel(count = normalized))
+                when {
+                    normalized == 0 -> {
+                        steps.filterNot { it.kind == UdpChainStepKind.FakeBurst }
+                    }
+
+                    steps.any { it.kind == UdpChainStepKind.FakeBurst } -> {
+                        steps.map { if (it.kind == UdpChainStepKind.FakeBurst) it.copy(count = normalized) else it }
+                    }
+
+                    else -> {
+                        steps + UdpChainStepModel(count = normalized)
+                    }
                 }
             updateValue("udpFakeCount", normalized.toString()) {
                 setStrategyChains(

@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
@@ -110,7 +111,10 @@ internal fun AppSettings.buildDesyncUiState(chain: ChainAnalysisResult): DesyncC
         chainSummary = formatChainSummary(chain.tcpChainSteps, chain.udpChainSteps),
         chainDsl = formatStrategyChainDsl(chain.tcpChainSteps, chain.udpChainSteps),
         splitMarker = chain.primaryTcpStep?.marker ?: effectiveSplitMarker(),
-        udpFakeCount = chain.udpChainSteps.sumOf { it.count.coerceAtLeast(0) },
+        udpFakeCount =
+            chain.udpChainSteps
+                .filter { it.kind == UdpChainStepKind.FakeBurst }
+                .sumOf { it.count.coerceAtLeast(0) },
         defaultTtl = defaultTtl,
         customTtl = customTtl,
     )
