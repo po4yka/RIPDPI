@@ -1,4 +1,4 @@
-use crate::{ConfigError, UdpChainStep, UdpChainStepKind};
+use crate::{ConfigError, MAX_FAKE_BURST_COUNT, UdpChainStep, UdpChainStepKind};
 
 use super::super::helpers::next_value;
 use super::super::state::CliState;
@@ -24,7 +24,7 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
         "-a" | "--udp-fake" => {
             let value = next_value(args, idx, arg)?;
             let count = value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-            if count < 0 {
+            if !(0..=MAX_FAKE_BURST_COUNT).contains(&count) {
                 return Err(ConfigError::invalid(arg, Some(value)));
             }
             if count > 0 {

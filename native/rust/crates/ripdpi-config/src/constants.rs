@@ -1,5 +1,8 @@
 pub const VERSION: &str = "17.3";
 
+/// Largest accepted `count` for a `fake_burst` UDP step; parsers reject more.
+pub const MAX_FAKE_BURST_COUNT: i32 = 64;
+
 pub const DETECT_HTTP_LOCAT: u32 = 1;
 pub const DETECT_TLS_HANDSHAKE_FAILURE: u32 = 2;
 pub const DETECT_RECONN: u32 = 16;

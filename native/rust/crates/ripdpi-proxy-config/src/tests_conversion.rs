@@ -986,6 +986,19 @@ fn ui_payload_rejects_split_bytes_for_non_ipfrag_udp_steps() {
 }
 
 #[test]
+fn ui_payload_limits_fake_burst_count() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![udp_step("fake_burst", 64)];
+    runtime_config_from_payload(ui_payload(ui)).expect("64 is accepted");
+
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![udp_step("fake_burst", 65)];
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("65 is rejected");
+
+    assert!(err.to_string().contains("fake_burst count must be at most 64"));
+}
+
+#[test]
 fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
     let mut ui = minimal_ui();
     ui.chains.udp_steps = vec![

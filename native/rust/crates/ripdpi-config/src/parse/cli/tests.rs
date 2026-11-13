@@ -294,6 +294,17 @@ fn parse_cli_reads_fake_payload_profiles() {
 }
 
 #[test]
+fn parse_cli_limits_udp_fake_count() {
+    let parse = |count: &str| parse_cli(&["--udp-fake".to_string(), count.to_string()], &StartupEnv::default());
+
+    let ParseResult::Run(config) = parse("64").expect("64 is accepted") else {
+        panic!("expected runnable config");
+    };
+    assert_eq!(config.groups[0].actions.udp_chain[0].count, 64);
+    assert!(parse("65").is_err());
+}
+
+#[test]
 fn parse_cli_reads_extended_http_parser_evasions() {
     let args = vec!["--mod-http".to_string(), "h,d,r,m,u".to_string()];
 

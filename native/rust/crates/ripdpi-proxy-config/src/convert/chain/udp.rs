@@ -1,4 +1,4 @@
-use ripdpi_config::{UdpChainStep, UdpChainStepKind};
+use ripdpi_config::{MAX_FAKE_BURST_COUNT, UdpChainStep, UdpChainStepKind};
 
 use crate::types::{ProxyConfigError, ProxyUiUdpChainStep};
 
@@ -32,6 +32,11 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
         }
 
         let kind = parse_udp_chain_step_kind(&step.kind)?;
+        if kind == UdpChainStepKind::FakeBurst && step.count > MAX_FAKE_BURST_COUNT {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "udpChainSteps kind=fake_burst count must be at most {MAX_FAKE_BURST_COUNT}"
+            )));
+        }
         if kind == UdpChainStepKind::IpFrag2Udp {
             if step.count != 0 {
                 return Err(ProxyConfigError::InvalidConfig(
