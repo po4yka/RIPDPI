@@ -75,6 +75,61 @@ fn invalid_fds_report_errors_for_tcp_state_helpers() {
 }
 
 #[test]
+fn wait_tcp_stage_times_out_while_peer_leaves_bytes_unsent() {
+    use std::io::{Read, Write};
+    use std::net::{Shutdown, TcpListener, TcpStream};
+    use std::os::fd::AsRawFd;
+    use std::time::Instant;
+
+    use socket2::{Domain, Protocol, Socket, Type};
+
+    // Limit the advertised window before the handshake so an unread peer leaves source bytes queued.
+    let listener = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).expect("TCP listener");
+    listener.set_recv_buffer_size(4096).expect("small peer receive buffer");
+    listener
+        .bind(&"127.0.0.1:0".parse::<std::net::SocketAddr>().expect("loopback address").into())
+        .expect("bind listener");
+    listener.listen(1).expect("listen");
+    let listener: TcpListener = listener.into();
+    let mut client = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect");
+    let (mut server, _) = listener.accept().expect("accept");
+    socket2::SockRef::from(&client).set_send_buffer_size(16384).expect("small source send buffer");
+    client.set_nonblocking(true).expect("nonblocking source");
+    let payload = [0x5a; 65536];
+    let mut accepted = 0usize;
+    let fill_deadline = Instant::now() + Duration::from_secs(2);
+    while Instant::now() < fill_deadline {
+        match client.write(&payload) {
+            Ok(0) => panic!("source accepted no bytes"),
+            Ok(count) => accepted += count,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                if tcp_has_notsent(client.as_raw_fd()).expect("queued source bytes") {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(error) => panic!("fill source send buffer: {error}"),
+        }
+    }
+    assert!(accepted > 0, "source bytes reached the socket");
+    assert!(tcp_has_notsent(client.as_raw_fd()).expect("TCP_INFO"), "unread peer must leave bytes unsent");
+
+    for wait_send in [false, true] {
+        let error = wait_tcp_stage_fd(client.as_raw_fd(), wait_send, Duration::from_millis(10))
+            .expect_err("a stalled send queue is not a completed stage");
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut, "wait_send={wait_send}");
+        assert!(tcp_has_notsent(client.as_raw_fd()).expect("TCP_INFO after wait"));
+    }
+
+    client.shutdown(Shutdown::Write).expect("finish source writes");
+    server.set_read_timeout(Some(Duration::from_secs(5))).expect("peer drain timeout");
+    let mut received = Vec::new();
+    server.read_to_end(&mut received).expect("drain the original source bytes");
+    assert_eq!(received, vec![0x5a; accepted]);
+}
+
+#[test]
 fn decode_tcp_repair_options_preserves_negotiated_timestamp_state() {
     // SAFETY: LinuxTcpInfo mirrors the kernel tcp_info layout; zeroed is a
     // valid base before filling the fields relevant to this decoder.

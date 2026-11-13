@@ -195,9 +195,6 @@ pub(crate) fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         if Instant::now() >= deadline {
-            if wait_send {
-                return Ok(());
-            }
             return Err(io::Error::new(io::ErrorKind::TimedOut, "timed out waiting for tcp send queue to drain"));
         }
         thread::sleep(sleep_for);
