@@ -61,14 +61,15 @@ pub fn send_fake_rst(
 }
 
 /// The RST carries the exact live sequence numbers, so a copy that reaches
-/// the server resets the connection. Refuse unless the caller lowered the
-/// socket TTL below the default.
+/// the server resets the connection. Refuse when the caller did not lower the
+/// socket TTL below the default. A lowered TTL does not prove the reset expires
+/// in transit: on a short path it can still reach the server.
 fn fake_rst_ttl(socket_ttl: u8, default_ttl: u8) -> io::Result<u8> {
     let default_ttl = if default_ttl != 0 { default_ttl } else { detect_default_ttl().unwrap_or(64) };
     if socket_ttl >= default_ttl {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "fake RST needs a socket TTL below the default; refusing a reset that would reach the server",
+            "fake RST needs a socket TTL below the default; refusing a reset sent at the default TTL",
         ));
     }
     Ok(socket_ttl)
