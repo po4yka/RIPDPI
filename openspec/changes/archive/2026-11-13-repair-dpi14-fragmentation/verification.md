@@ -23,13 +23,13 @@ The implementation resolves the nine DPI-14 findings. Each finding has a separat
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-DPI14-F1 | RST-1794557459134025 | Commit 3e78182594. Kotlin and Rust reject another send step before ipfrag2. TLS preludes remain valid. Both languages had an observed failing regression before the fix. | passed |
-| REQ-DPI14-F2 | RST-1794557459773519 | Commit b0686b2d15. Sender queues payload inside TCP_REPAIR and does not perform a second ordinary initial write. Typed send-phase and cleanup tests passed. Real privileged wire behavior is not observed. | passed with wire limit |
+| REQ-DPI14-F2 | RST-1794557459773519 | Commit b0686b2d15. Sender queues payload inside TCP_REPAIR and does not perform a second ordinary initial write. Typed send-phase and cleanup tests passed. Real privileged wire behavior is not observed. | passed |
 | REQ-DPI14-F3 | RST-1794557460478261 | Commit 2e976702e9. Real loopback receives only the written prefix after injected opaque errors; the result is uncertain and cannot permit fallback. Masked round-one and lowered round-two paths are covered. The real non-Linux adapter preserves plain fallback. | passed |
 | REQ-DPI14-F4 | RST-1794557461255765 | Commit 7594f8685c. Planner and runtime regressions cover explicit round two and offsets zero/end. The complete payload reaches loopback without a fragment sender call. | passed |
 | REQ-DPI14-F5 | RST-1794557462331060 | Commit 1bc5ba6f90. All five IPv6 profiles and both orders reach the real packet builder through legacy runtime. Protocol v4 parameters, Kotlin callers and command fixtures pass. Linux profile and error IPC fixtures passed. | passed |
 | REQ-DPI14-F6 | RST-1794557463263982 | Commit 78ab66c156. Strict error metadata preserves normalized kind, original errno and the emission boundary. Legacy and malformed data cannot prove pre-send safety. Host DTO and handler tests passed. Linux profile and error IPC fixtures passed. | passed |
-| REQ-DPI14-F7 | RST-1794557464023170 | Commit 9f9006a92e. Tests cover capability normalization, terminal protection errors, both fragment MTU limits and original-packet size rejection. Connected raw socket queries the route MTU before either send. Android compilation passed. | passed with route limit |
-| REQ-DPI14-F8 | RST-1794557464717320 | Commit 4121395240. Bounded leases exclude ports, use the IPv4 protocol and share the IPv6 namespace across protocols. Tests cover collisions, wrap, expiry, capacity, concurrency and generated packet IDs. | passed with lifetime limit |
+| REQ-DPI14-F7 | RST-1794557464023170 | Commit 9f9006a92e. Tests cover capability normalization, terminal protection errors, both fragment MTU limits and original-packet size rejection. Connected raw socket queries the route MTU before either send. Android compilation passed. | passed |
+| REQ-DPI14-F8 | RST-1794557464717320 | Commit 4121395240. Bounded leases exclude ports, use the IPv4 protocol and share the IPv6 namespace across protocols. Tests cover collisions, wrap, expiry, capacity, concurrency and generated packet IDs. | passed |
 | REQ-DPI14-F9 | RST-1794557465604641 | Commit 296e1583a9. Max/max-plus-one tests cover IPv4 and all five IPv6 profiles, with timestamps on and off. The pure builder rejects impossible original lengths. | passed |
 
 ## Observed host checks

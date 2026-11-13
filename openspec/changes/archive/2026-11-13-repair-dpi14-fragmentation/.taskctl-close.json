@@ -1,0 +1,11 @@
+{
+  "change": "repair-dpi14-fragmentation",
+  "evidence_summary": "1125 Rust and 66 Kotlin tests; Linux IPC and all-targets Clippy; 28 PCAP oracle cases; Android compilation of four packages; source gates and independent reviews passed. Three BPF EPERM failures remain under cap-drop. Privileged wire and device acceptance were not run.",
+  "execution_sha256": "b8124de22a7ea5a21d831c03f3fb02d299ce63f0721ebf27216b3ecfe4040059",
+  "issue_sha256": "1e84d2ebf234a43c31cb9622db3b85c95b4354917803d3d572c558fdf752588b",
+  "outcome": "done",
+  "prepared_at": "2026-11-13T11:30:10Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794557321446019"
+}
