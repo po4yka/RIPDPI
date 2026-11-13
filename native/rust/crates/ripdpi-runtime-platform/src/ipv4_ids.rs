@@ -125,8 +125,9 @@ pub(crate) fn reserve_ipv4_identifications(
 
 /// Returns the ID to put in both IPv4 fragments of one datagram. Zero is not
 /// usable: an `IP_HDRINCL` socket fills a zero ID per packet (raw(7)), so the
-/// two fragments would carry different IDs and never reassemble. `None` lets
-/// the sender derive a nonzero per-datagram ID.
+/// two fragments would carry different IDs and never reassemble. This is only
+/// a preferred ID: the privileged sender owns the fragment ID lease and can
+/// replace a live duplicate. `None` requests a new nonzero ID.
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 pub(crate) fn fragment_identification(reserved: Option<u16>) -> Option<u16> {
     reserved.filter(|id| *id != 0)

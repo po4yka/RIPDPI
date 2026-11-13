@@ -1,7 +1,8 @@
 //! Runtime-adaptation — IP-fragmented UDP emission.
 //!
 //! `send_ip_fragmented_udp` (plus its `_reserved` variant, which takes
-//! pre-reserved IPv4 identifications). Like the sibling `tcp` module it tries
+//! preferred IPv4 identifications; the privileged sender owns the actual leases).
+//! Like the sibling `tcp` module it tries
 //! the privileged root helper first and otherwise falls back to the local
 //! `ripdpi-privileged-ops` path; non-Linux targets return `Unsupported`. This
 //! module issues no `unsafe` of its own — the UDP path needs no descriptor

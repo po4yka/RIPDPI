@@ -1,7 +1,8 @@
 //! Runtime-adaptation — IP-fragmented TCP emission.
 //!
 //! `send_ip_fragmented_tcp` and its `_reserved` variant (which takes
-//! pre-reserved IPv4 identifications). The entry point tries the privileged
+//! preferred IPv4 identifications; the privileged sender owns the actual leases).
+//! The entry point tries the privileged
 //! root helper first via `root_helper::with_reachable_root_helper` and otherwise falls
 //! back to the local `ripdpi-privileged-ops` path; non-Linux targets return
 //! `Unsupported`.

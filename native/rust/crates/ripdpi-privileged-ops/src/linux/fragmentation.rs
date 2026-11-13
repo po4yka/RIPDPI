@@ -13,7 +13,7 @@ use ripdpi_ipfrag::{
 use socket2::Domain;
 
 use crate::fragmentation::preflight::{capability_error, tcp_fragment_build_error};
-use crate::fragmentation::{finish_fragment_send, fragment_send_error};
+use crate::fragmentation::{finish_fragment_send, fragment_send_error, reserve_fragment_identification};
 use crate::linux::raw_packet::{
     build_error_to_io, build_tcp_segment_packet, fragment_identification, probe_raw_socket, resolve_raw_ttl,
     send_raw_fragments, send_raw_packets_with_delay,
@@ -52,8 +52,12 @@ pub fn send_ip_fragmented_udp(
             src: source,
             dst: target,
             ttl,
-            identification: ipv4_identification
-                .map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
+            identification: reserve_fragment_identification(
+                source,
+                target,
+                libc::IPPROTO_UDP as u8,
+                ipv4_identification,
+            )?,
             ipv6_ext,
         },
         payload,
@@ -97,8 +101,12 @@ pub fn send_ip_fragmented_tcp(
                 src: source,
                 dst: target,
                 ttl,
-                identification: ipv4_identification
-                    .map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
+                identification: reserve_fragment_identification(
+                    source,
+                    target,
+                    libc::IPPROTO_TCP as u8,
+                    ipv4_identification,
+                )?,
                 sequence_number: snapshot.sequence_number,
                 acknowledgment_number: snapshot.acknowledgment_number,
                 window_size: snapshot.window_size,

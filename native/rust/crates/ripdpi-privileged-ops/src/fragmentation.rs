@@ -1,10 +1,15 @@
 #[cfg(any(target_os = "linux", target_os = "android", test))]
+mod identification;
+#[cfg(any(target_os = "linux", target_os = "android", test))]
 pub(crate) mod preflight;
 
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 
 use crate::types::TcpFlagOverrides;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub(crate) use identification::reserve_fragment_identification;
 
 /// Error from an IP-fragment send, with its payload delivery boundary.
 #[derive(Debug)]
