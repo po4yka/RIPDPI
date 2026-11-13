@@ -1,0 +1,11 @@
+{
+  "change": "dpi10-tls-record-repairs",
+  "evidence_summary": "Source a66db0527290dd16df76ad21c64279066dd28814 passed 439 tests, workspace all-targets check, Clippy, formatting, ci-gates, locked metadata and task validation. Independent production-loopback OpenSSL oracle passed 31 cases with 28 full handshakes. Independent integration review found no actionable issue; F1 F2 F3 and G1 have separate commits.",
+  "execution_sha256": "4f1f49cb10c6f237044fca6f894c01ff6aae3b9737c8392c6c8a41b4a0c6aee2",
+  "issue_sha256": "a0abe08e6941745699373fafd555ba35d7fb914e7339b7a413bd84bd3b5914a5",
+  "outcome": "done",
+  "prepared_at": "2026-11-13T10:29:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794557076132326"
+}

@@ -2,7 +2,7 @@
 id: RST-1794557076132326
 title: Repair TLS record prelude audit findings
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: dpi10-integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi10-tls-record-repairs
 created: 2026-11-13
 updated: 2026-11-13
+closed_at: "2026-11-13T10:29:16Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Source a66db0527290dd16df76ad21c64279066dd28814 passed 439 tests, workspace all-targets check, Clippy, formatting, ci-gates, locked metadata and task validation. Independent production-loopback OpenSSL oracle passed 31 cases with 28 full handshakes. Independent integration review found no actionable issue; F1 F2 F3 and G1 have separate commits.
 ---
 
 ## Goal
