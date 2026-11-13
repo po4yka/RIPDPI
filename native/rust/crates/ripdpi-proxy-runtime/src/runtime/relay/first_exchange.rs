@@ -131,7 +131,11 @@ pub(super) fn read_first_response(
                         reader.restart_deadline(state);
                         continue;
                     }
-                } else if state.relay_first_response_reports_timeout_failure() {
+                } else if state.relay_first_response_reports_timeout_failure()
+                    // A TFO socket still unconnected here never got a SYN-ACK: report the
+                    // silent drop so the no-TFO retry can run.
+                    || ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_deferred(upstream)
+                {
                     let failure = RuntimeState::classify_first_response_transport_error(&err);
                     Ok(FirstResponse::Failure { failure, response_bytes: None })
                 } else {

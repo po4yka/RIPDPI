@@ -52,8 +52,10 @@ pub(super) fn handle_first_write_failure(
         return Err(err.into_io_error());
     }
     let socket_used_tfo = ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_connect_active(upstream);
-    // The connect path set the write timeout only on a deferred TFO socket.
-    let send_bounded = upstream.write_timeout().ok().flatten().is_some();
+    // The connect path sets the write timeout only on a deferred TFO socket. A WouldBlock means a
+    // silent drop only while the handshake is still unanswered.
+    let send_bounded = upstream.write_timeout().ok().flatten().is_some()
+        && ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_deferred(upstream);
     let failure =
         if send_bounded { classify_bounded_first_write_failure(&err) } else { classify_first_write_failure(&err) };
     if should_retry_syn_data(socket_used_tfo, &failure, retry_state) {

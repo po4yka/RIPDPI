@@ -81,7 +81,9 @@ pub(super) fn connect_with(
         // The deferred socket sent no SYN, so replacing it with a plain connect is free on the
         // wire and lets a server-first peer speak. One replacement per flow: it is not deferred.
         drop(active);
-        let old_cap_guard = connected.cap_guard.take();
+        // A deferred socket has no wire session, so its exit-IP permit is released before the
+        // reconnect: holding it would make the replacement compete with this flow for a slot.
+        drop(connected.cap_guard.take());
         let (upstream, route, cap_guard) = crate::runtime::routing::reconnect_target_without_tfo(
             target,
             state,
@@ -90,9 +92,7 @@ pub(super) fn connect_with(
             None,
         )
         .map_err(|err| ConnectRelayError::new(err, true))?;
-        // Close the old socket before releasing its physical-session permit.
         connected.upstream = upstream;
-        drop(old_cap_guard);
         connected.route = route;
         connected.cap_guard = cap_guard;
         active = state
@@ -168,7 +168,9 @@ pub(super) fn connect_with(
     );
     // SYN data needs a socket opened with TFO. A deferred socket has sent no SYN: it is reusable
     // only for a route that sends SYN data, otherwise drop it (free on the wire) and reconnect.
-    // A connected plain socket cannot become a SYN-data connect, so it is not reused for one.
+    // A connected socket is reused for a SYN-data route only when it was opened with TFO: without a
+    // cookie that connect was the cookie-requesting handshake, and reconnecting would cost a second
+    // origin connection. A socket opened without TFO is replaced so the route can request TFO.
     let wants_syn_data = state.route_uses_direct_syn_data_tfo(&route, Some(&payload));
     let provisional_tfo = provisional_policy.is_some_and(|policy| policy.tfo_enabled);
     let deferred = ripdpi_proxy_runtime_adapter::platform::connect::tcp_fast_open_deferred(&connected.upstream);
