@@ -795,3 +795,22 @@ fn fake_burst_explicit_step_round_applies_at_later_rounds() {
 
     assert!(actions.contains(&DesyncAction::Write(b"udp-fake".to_vec())));
 }
+
+#[test]
+fn quic_fake_profile_applies_to_initial_with_incomplete_client_hello() {
+    let payload = rust_packet_seeds::quic_initial_with_crypto_gap(1, "docs.example.test");
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![fake_burst_step()];
+
+    group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+    let DesyncAction::Write(fake) = &actions[1] else {
+        panic!("expected fake write, got {:?}", actions[1]);
+    };
+    assert_eq!(fake[0] & 0x80, 0x80, "decoy must be a QUIC long header");
+    assert_eq!(fake.len(), 1200);
+
+    group.actions.quic_fake_profile = QuicFakeProfile::CompatDefault;
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+    assert_eq!(actions[1], DesyncAction::Write(default_fake_quic_compat()));
+}

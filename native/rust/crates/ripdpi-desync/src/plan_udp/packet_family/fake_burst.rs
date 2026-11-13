@@ -7,25 +7,25 @@ use ripdpi_packets::{
 
 use crate::types::ActivationContext;
 
-use super::super::quic::{NormalizedQuicPlannerInput, effective_quic_realistic_host};
+use super::super::quic::{NormalizedQuicPlannerInput, effective_quic_realistic_host, quic_initial_header_version};
 
 pub(super) fn udp_fake_payload(
     group: &DesyncGroup,
-    _payload: &[u8],
+    payload: &[u8],
     context: ActivationContext,
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
 ) -> Vec<u8> {
     let quic_fake_profile = context.adaptive.quic_fake_profile.unwrap_or(group.actions.quic_fake_profile);
+    // An Initial whose ClientHello spans datagrams has no normalized input but still has a header version.
+    let quic_version = normalized_quic.map(|quic| quic.version).or_else(|| quic_initial_header_version(payload));
     if quic_fake_profile != QuicFakeProfile::Disabled
-        && let Some(quic) = normalized_quic
+        && let Some(version) = quic_version
     {
         match quic_fake_profile {
             QuicFakeProfile::Disabled => {}
             QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
             QuicFakeProfile::RealisticInitial => {
-                if let Some(fake) =
-                    build_realistic_quic_initial(quic.version, Some(effective_quic_realistic_host(group)))
-                {
+                if let Some(fake) = build_realistic_quic_initial(version, Some(effective_quic_realistic_host(group))) {
                     return fake;
                 }
             }
