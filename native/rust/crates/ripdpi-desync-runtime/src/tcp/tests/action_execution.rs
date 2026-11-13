@@ -514,6 +514,52 @@ fn set_stream_ttl_loopback() {
 }
 
 #[test]
+fn set_stream_ttl_changes_ipv6_hop_limit() {
+    let listener = TcpListener::bind("[::1]:0").expect("IPv6 listener");
+    let client = TcpStream::connect(listener.local_addr().expect("IPv6 listener address")).expect("IPv6 client");
+    let (_server, _) = listener.accept().expect("accept IPv6 client");
+    socket2::SockRef::from(&client).set_unicast_hops_v6(37).expect("initial IPv6 hop limit");
+
+    set_stream_ttl(&client, 42).expect("set IPv6 hop limit");
+
+    assert_eq!(socket2::SockRef::from(&client).unicast_hops_v6().expect("IPv6 hop limit"), 42);
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[test]
+fn set_stream_ttl_keeps_inactive_ipv4_ttl_on_ipv6_socket() {
+    let listener = TcpListener::bind("[::1]:0").expect("IPv6 listener");
+    let client = TcpStream::connect(listener.local_addr().expect("IPv6 listener address")).expect("IPv6 client");
+    let (_server, _) = listener.accept().expect("accept IPv6 client");
+    let socket = socket2::SockRef::from(&client);
+    socket.set_ttl_v4(37).expect("inactive IPv4 TTL");
+    socket.set_unicast_hops_v6(51).expect("initial IPv6 hop limit");
+
+    set_stream_ttl(&client, 42).expect("set active IPv6 hop limit");
+
+    assert_eq!(socket.unicast_hops_v6().expect("active IPv6 hop limit"), 42);
+    assert_eq!(socket.ttl_v4().expect("inactive IPv4 TTL"), 37);
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[test]
+fn set_stream_ttl_uses_ipv4_ttl_for_mapped_ipv6_peer() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("IPv4 listener");
+    let address = listener.local_addr().expect("IPv4 listener address");
+    let client = TcpStream::connect((Ipv4Addr::LOCALHOST.to_ipv6_mapped(), address.port())).expect("mapped client");
+    let (_server, _) = listener.accept().expect("accept mapped client");
+    let socket = socket2::SockRef::from(&client);
+    socket.set_ttl_v4(37).expect("active IPv4 TTL");
+    socket.set_unicast_hops_v6(51).expect("inactive IPv6 hop limit");
+
+    assert_eq!(crate::transport_io::get_stream_ttl(&client).expect("active TTL"), 37);
+    set_stream_ttl(&client, 42).expect("set active IPv4 TTL");
+
+    assert_eq!(socket.ttl_v4().expect("active IPv4 TTL"), 42);
+    assert_eq!(socket.unicast_hops_v6().expect("inactive IPv6 hop limit"), 51);
+}
+
+#[test]
 fn send_out_of_band_sends_prefix_plus_byte() {
     let (client, _server) = connected_pair();
     let result = send_out_of_band(&client, b"abc", b'!');
