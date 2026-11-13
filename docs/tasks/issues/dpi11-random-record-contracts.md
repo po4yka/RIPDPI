@@ -2,7 +2,7 @@
 id: RST-1794557083402232
 title: Enforce TLS random-record validation and envelope contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: dpi11-audit
@@ -29,7 +29,7 @@ Enforce the existing DPI-11 configuration and TLS framing safety contracts.
 ## Ownership
 
 - config_bounds: ripdpi-proxy-config/src/convert/chain/tcp/tlsrandrec.rs, src/tests.rs, src/tests_tlsrandrec.rs.
-- tls_envelope: ripdpi-desync/src/first_flight_ir.rs and src/tests/tls_prelude.rs; optional existing first_flight_ir tests.
-- runtime_bounds: ripdpi-desync/src/tls_prelude.rs, src/offset.rs, src/tests/offset.rs, and a new owning runtime-bounds test module.
+- tls_envelope: ripdpi-desync/src/first_flight_ir.rs, the tlsminor guard in apply_prelude, and src/tests/tls_prelude.rs; optional existing first_flight_ir tests.
+- runtime_bounds: only resolve_tlsrandrec_fragment_sizes in ripdpi-desync/src/tls_prelude.rs, src/offset.rs, src/tests/offset.rs, and a new owning runtime-bounds test module.
 - dpi11-audit: task records, OpenSpec artifacts, generated board, integration, and combined validation.
 - pr-reviewer: read-only review. Each writer uses a separate worktree. No writer changes lockfiles, manifests, locales, baselines, or golden fixtures.

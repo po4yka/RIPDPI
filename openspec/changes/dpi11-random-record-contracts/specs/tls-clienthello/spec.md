@@ -1,7 +1,3 @@
-## Purpose
-
-Keep TLS record rewriting within the existing configuration, envelope, and payload safety contracts.
-
 ## ADDED Requirements
 
 ### Requirement: REQ-TLS-RANDREC-CONFIG — Validate native fragment settings

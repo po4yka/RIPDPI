@@ -18,8 +18,8 @@ The changes repair existing contracts identified by the DPI-11 audit. Each defec
 ## Contracts and ownership
 
 - config_bounds owns ripdpi-proxy-config converter and its tests.
-- tls_envelope owns ripdpi-desync first_flight_ir.rs and existing envelope tests.
-- runtime_bounds owns ripdpi-desync offset.rs, tls_prelude.rs, and arithmetic/adaptive tests.
+- tls_envelope owns ripdpi-desync first_flight_ir.rs, the tlsminor guard in apply_prelude, and existing envelope tests.
+- runtime_bounds owns ripdpi-desync offset.rs, only resolve_tlsrandrec_fragment_sizes in tls_prelude.rs, and arithmetic/adaptive tests.
 - dpi11-audit exclusively owns task/OpenSpec/board files and integration.
 - No serialized schema, baseline, locale, or lockfile changes.
 
