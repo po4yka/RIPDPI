@@ -16,6 +16,7 @@ mod disorder_ttl;
 mod fake_rst;
 mod fake_send_safety;
 mod fake_split;
+mod multi_disorder;
 
 enum FaultSpec {
     WaitStage(io::ErrorKind),
@@ -23,6 +24,7 @@ enum FaultSpec {
     OrderedSegmentsAfterPartialGenuine,
     FakeSendAfterPrefix(usize),
     FakePayload { bytes: Vec<u8>, kind: io::ErrorKind },
+    MultiDisorderAfterPrefix { written: usize, report_progress: bool },
 }
 
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
@@ -237,8 +239,8 @@ impl TcpFragmentSender for ReceiptTestPlatform {
 
     fn send_multi_disorder_tcp(
         &self,
-        _stream: &TcpStream,
-        _payload: &[u8],
+        stream: &TcpStream,
+        payload: &[u8],
         _segments: &[TcpPayloadSegment],
         _default_ttl: u8,
         _protect_path: Option<&str>,
@@ -247,6 +249,17 @@ impl TcpFragmentSender for ReceiptTestPlatform {
         _original_flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
+        let fault = self.faults.lock().expect("receipt fault queue").pop_front();
+        if let Some(FaultSpec::MultiDisorderAfterPrefix { written, report_progress }) = fault {
+            let mut stream = stream;
+            stream.write_all(&payload[..written])?;
+            let source = io::Error::from(io::ErrorKind::TimedOut);
+            return Err(if report_progress {
+                io::Error::new(source.kind(), crate::transport_io::WriteProgressError { written, source })
+            } else {
+                source
+            });
+        }
         Err(io::Error::new(io::ErrorKind::Unsupported, "multi-disorder unsupported in receipt test"))
     }
 }

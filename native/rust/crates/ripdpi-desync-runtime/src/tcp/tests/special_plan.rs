@@ -41,6 +41,7 @@ fn execute_multidisorder_tcp_plan_rejects_non_contiguous_segment_bounds() {
     .expect_err("reject gapped multidisorder plan");
 
     assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+    assert!(!err.payload_commit_uncertain());
     assert!(err.to_string().contains("invalid multidisorder tcp segment bounds"));
 }
 

@@ -37,6 +37,7 @@ pub(crate) fn execute_multi_disorder_tcp_plan(
         prepared.fallback,
         0,
     )
+    .map_err(OutboundSendError::with_possible_payload_commit)
     .map(|()| plan.tampered.len())
 }
 
