@@ -98,11 +98,13 @@ internal suspend fun persistConfigSaveRequest(
 ): ConnectionSaveOutcome {
     val relayArtifacts = dependencies.relayArtifacts
     val relayProfileRecords = relayArtifacts.listProfiles()
+    val rootModeEnabled = dependencies.appSettingsRepository.snapshot().rootModeEnabled
     if (
         validateConfigDraft(
             draft = request.draft,
             supportsMasquePrivacyPass = supportsMasquePrivacyPass,
             relayProfiles = relayProfileRecords,
+            rootModeEnabled = rootModeEnabled,
         ).isNotEmpty()
     ) {
         return ConnectionSaveOutcome.ValidationFailed

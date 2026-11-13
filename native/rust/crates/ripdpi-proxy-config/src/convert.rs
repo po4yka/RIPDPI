@@ -168,7 +168,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
 
     let (mut primary_group, group_protocol_state) =
         protocol::build_primary_group(groups.len(), &hosts, &protocols, &quic, &parser_evasions)?;
-    chain::apply_chain_section(&mut primary_group, &chains)?;
+    chain::apply_chain_section(&mut primary_group, &chains, root_mode)?;
     fake_packet::apply_fake_packet_section(&mut primary_group, &fake_packets, root_mode)?;
     relay::attach_upstream_to_group(&mut primary_group, relay_upstream.as_ref());
 

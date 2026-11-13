@@ -333,6 +333,7 @@ data class ConnectionUiState(
     val relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
     val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,
+    val rootModeEnabled: Boolean = false,
     val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl,
     val isEditorDirty: Boolean = false,
     val isEditorLoading: Boolean = false,

@@ -347,14 +347,13 @@ chunk is still written and the receipt reports `split` with
 injected RST's TCP flags. The fake `unset` mask must not contain `rst`.
 The step is fake-only: validation rejects `original_flags`.
 
-**Emitter tier**: `LabDiagnosticsOnly` -- the most restrictive tier in
-`EmitterTier`/`StrategyEmitterTier` (stricter than `RootedProduction`).
-Requires raw-socket access and is not eligible for non-root production
-builds; see the "Non-rooted Android constraints" section of `SKILL.md`.
+**Emitter tier**: `RootedProduction`, the same tier as `SeqOverlap` and
+`HostFake`. Requires raw-socket access. Without root mode, Kotlin chain
+validation rejects the step and `runtime_config_from_ui` drops it; see the
+"Non-rooted Android constraints" section of `SKILL.md`.
 
-**When to use**: Lab/diagnostics evaluation of RST-injection evasion only,
-on rooted or desktop-Linux test hardware. Do not wire this into a
-production strategy-probe candidate pool intended for non-root Android.
+**When to use**: RST-injection evasion on a rooted device with root mode
+on. The strategy probe offers it only in the full matrix.
 
 ---
 

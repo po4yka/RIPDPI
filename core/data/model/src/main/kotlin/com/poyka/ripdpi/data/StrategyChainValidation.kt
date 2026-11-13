@@ -21,8 +21,12 @@ fun validateStrategyChainUsage(
     udpSteps: List<UdpChainStepModel>,
     mode: Mode,
     useCommandLineSettings: Boolean,
+    rootModeEnabled: Boolean,
 ) {
     validateTcpChain(tcpSteps)
+    require(rootModeEnabled || tcpSteps.none { it.kind == TcpChainStepKind.FakeRst }) {
+        "fakerst requires root mode"
+    }
     validateUdpChain(udpSteps)
     if (usesIpFragmentation(tcpSteps = tcpSteps, udpSteps = udpSteps)) {
         require(mode == Mode.VPN) { "ipfrag2 is only supported in VPN mode" }

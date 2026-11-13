@@ -812,7 +812,7 @@ fn tcp_step_kinds_map_to_expected_emitter_tiers() {
     assert_eq!(TcpChainStepKind::HostFake.emitter_tier(), EmitterTier::RootedProduction);
     assert_eq!(TcpChainStepKind::MultiDisorder.emitter_tier(), EmitterTier::RootedProduction);
     assert_eq!(TcpChainStepKind::IpFrag2.emitter_tier(), EmitterTier::RootedProduction);
-    assert_eq!(TcpChainStepKind::FakeRst.emitter_tier(), EmitterTier::LabDiagnosticsOnly);
+    assert_eq!(TcpChainStepKind::FakeRst.emitter_tier(), EmitterTier::RootedProduction);
 }
 
 #[test]

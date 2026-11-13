@@ -70,6 +70,7 @@ internal fun validateConfigDraft(
     draft: ConnectionDraft,
     supportsMasquePrivacyPass: Boolean = false,
     relayProfiles: List<RelayProfileRecord> = emptyList(),
+    rootModeEnabled: Boolean = false,
 ): ImmutableMap<String, String> =
     buildMap {
         putAll(validateBaseDraft(draft))
@@ -84,7 +85,7 @@ internal fun validateConfigDraft(
         if (draft.relayEnabled && !draft.useCommandLineSettings) {
             putAll(validateRelayDraft(draft, supportsMasquePrivacyPass, relayProfiles))
         }
-        validateStrategyDraft(draft)?.let { put(ConnectionFieldStrategyChain, it) }
+        validateStrategyDraft(draft, rootModeEnabled)?.let { put(ConnectionFieldStrategyChain, it) }
     }.toImmutableMap()
 
 private fun validateBaseDraft(draft: ConnectionDraft): Map<String, String> =
@@ -531,7 +532,10 @@ private fun masqueAuthError(
         }
     }
 
-private fun validateStrategyDraft(draft: ConnectionDraft): String? =
+private fun validateStrategyDraft(
+    draft: ConnectionDraft,
+    rootModeEnabled: Boolean,
+): String? =
     if (draft.useCommandLineSettings) {
         null
     } else {
@@ -542,6 +546,7 @@ private fun validateStrategyDraft(draft: ConnectionDraft): String? =
                     udpSteps = chain.udpSteps,
                     mode = draft.mode,
                     useCommandLineSettings = draft.useCommandLineSettings,
+                    rootModeEnabled = rootModeEnabled,
                 )
             }
         if (chainValidation.isFailure) "invalid_chain" else null

@@ -7,7 +7,7 @@ pub fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCan
         "Fake RST (TTL trick)",
         "fake_rst",
         build_fake_rst_candidate(base),
-        vec!["Sends a fake RST with low TTL to clear DPI state; lab-only rooted experiment"],
+        vec!["Sends a fake RST with low TTL to clear DPI state; requires root"],
     ));
     candidates.push(candidate_spec_with_notes(
         "fake_synfin",

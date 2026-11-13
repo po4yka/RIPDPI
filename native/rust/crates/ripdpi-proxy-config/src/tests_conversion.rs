@@ -190,6 +190,35 @@ fn ui_payload_accepts_leading_syndata_with_or_without_tls_prelude() {
 }
 
 #[test]
+fn ui_payload_drops_fakerst_without_root_mode() {
+    let fake_rst_steps = |config: &ripdpi_config::RuntimeConfig| {
+        let group = &config.groups[0];
+        let rotation = group.actions.rotation_policy.iter().flat_map(|policy| &policy.candidates);
+        group
+            .actions
+            .tcp_chain
+            .iter()
+            .chain(rotation.flat_map(|candidate| &candidate.tcp_chain))
+            .filter(|step| step.kind() == TcpChainStepKind::FakeRst)
+            .count()
+    };
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("fakerst", "host+2"), tcp_step("split", "host+1")];
+    ui.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig {
+        candidates: vec![ProxyUiTcpRotationCandidate { tcp_steps: vec![tcp_step("fakerst", "host+2")] }],
+        ..ProxyUiTcpRotationConfig::default()
+    });
+
+    let config = runtime_config_from_payload(ui_payload(ui.clone())).expect("fakerst without root");
+    assert_eq!(fake_rst_steps(&config), 0);
+    assert_eq!(config.groups[0].actions.tcp_chain.len(), 1);
+
+    ui.root_mode = true;
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("fakerst with root");
+    assert_eq!(fake_rst_steps(&config), 2);
+}
+
+#[test]
 fn ui_payload_rejects_fakerst_that_unsets_rst_flag() {
     let mut ui = minimal_ui();
     ui.root_mode = true;

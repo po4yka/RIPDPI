@@ -339,7 +339,7 @@ fn rooted_and_lab_candidates_are_partitioned_between_quick_and_full_matrix() {
     assert!(full_candidates.iter().any(|candidate| candidate.id == "fake_rst"));
     assert_eq!(
         full_candidates.iter().find(|candidate| candidate.id == "fake_rst").expect("fake_rst").emitter_tier,
-        StrategyEmitterTier::LabDiagnosticsOnly
+        StrategyEmitterTier::RootedProduction
     );
     let fake_rst = full_candidates.iter().find(|candidate| candidate.id == "fake_rst").expect("fake_rst");
     assert_eq!(fake_rst.config.fake_packets.tls_fake_profile, TLS_FAKE_PROFILE_GOOGLE_CHROME);
@@ -678,7 +678,7 @@ fn rooted_pool_contains_root_only_candidates() {
     let multi_disorder = rooted.iter().find(|c| c.id == "multi_disorder").expect("multi_disorder");
     assert!(
         !rooted.iter().any(|c| c.id == "fake_rst"),
-        "fake_rst is lab-only and must not appear in the rooted production pool"
+        "fake_rst is a rooted full-matrix candidate and stays out of the rooted quick pool"
     );
     assert!(
         multi_disorder.requires_capabilities.contains(&RuntimeCapability::RootHelperAvailable),

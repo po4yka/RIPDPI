@@ -234,6 +234,7 @@ Validation rules:
 - Fake masks are allowed only on steps that emit synthetic TCP packets: `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `seqovl`, and `fakerst`
 - Original masks are allowed only on steps that emit original payload bytes: `split`, `syndata`, `disorder`, `multidisorder`, `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, and `ipfrag2`
 - `fakerst` is fake-only, and its fake `unset` mask must not contain `rst` (the step would then emit a packet without RST)
+- `fakerst` requires root mode: Kotlin chain validation rejects it, and `runtime_config_from_ui` drops it (including inside `tcpRotation` candidates) when `root_mode` is false, so a saved config still starts
 - `oob` and `disoob` reject all four mask fields in v1
 - Set and unset masks for the same target must not overlap
 
@@ -426,7 +427,7 @@ The runtime now supports:
 | `tlsrec` | TLS record splitting at extension boundary | offset (e.g. `extlen`, `sniext`, `echext`) | All |
 | `tlsrandrec` | Random TLS record fragmentation | `fragment_count`, `min_fragment_size`, `max_fragment_size` | All |
 | `ipfrag2` | IP-level packet fragmentation (DF cleared, MF set, 8-byte aligned offset) | offset | Linux/Android |
-| `fakerst` | Lab-diagnostics fake TCP RST emission before the original payload write | `fake_tcp_flags` | Lab diagnostics |
+| `fakerst` | Rooted fake TCP RST emission before the original payload write | `fake_tcp_flags` | Rooted (requires root mode) |
 
 Rooted-production steps requiring raw sockets (`seqovl`, `multidisorder`, `ipfrag2`) probe TCP_REPAIR and raw socket capabilities at startup and gracefully degrade to `split` when unavailable.
 

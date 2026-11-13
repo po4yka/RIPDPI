@@ -57,7 +57,10 @@ internal fun ModeEditorChainBlockEditor(
 ) {
     val chainOverridden = draft.useCommandLineSettings
     var showRaw by rememberSaveable { mutableStateOf(false) }
-    val chainState = remember(draft.chainDsl, draft.mode, draft.useCommandLineSettings) { draft.chainValidationState() }
+    val chainState =
+        remember(draft.chainDsl, draft.mode, draft.useCommandLineSettings, uiState.rootModeEnabled) {
+            draft.chainValidationState(uiState.rootModeEnabled)
+        }
     val showRawEditor = showRaw || chainState.chain == null
 
     Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
@@ -480,7 +483,7 @@ private data class ChainValidationState(
     val error: String?,
 )
 
-private fun ConnectionDraft.chainValidationState(): ChainValidationState {
+private fun ConnectionDraft.chainValidationState(rootModeEnabled: Boolean): ChainValidationState {
     val parsed =
         parseStrategyChainDsl(chainDsl).fold(
             onSuccess = { it },
@@ -492,6 +495,7 @@ private fun ConnectionDraft.chainValidationState(): ChainValidationState {
             udpSteps = parsed.udpSteps,
             mode = mode,
             useCommandLineSettings = useCommandLineSettings,
+            rootModeEnabled = rootModeEnabled,
         )
     }.fold(
         onSuccess = { ChainValidationState(chain = parsed, error = null) },

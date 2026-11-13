@@ -132,7 +132,7 @@ Step-by-step flow when a TCP payload is sent through `send_with_group()`:
 | `TlsRandRec` | Random TLS record fragmentation (prelude step) | Multiple random-sized TLS records |
 | `IpFrag2` | IP-layer fragmentation of the TCP segment | Only on round 1; kernel reassembly trick |
 | `SynData` | Same segment plan as `Split`; for a direct group the upstream socket requests TCP Fast Open, so the first chunk rides the SYN only when a TFO cookie for the server is cached | Linux/Android only; not a raw fake SYN; replay-safe payloads only (TLS ClientHello, `GET`/`HEAD`/`OPTIONS`); first tcp send step, at most once; one retry without TFO |
-| `FakeRst` | Injects a fake TCP RST at the wire layer before writing the real chunk | Root/raw-socket only (`LabDiagnosticsOnly` emitter tier); not for non-root production builds |
+| `FakeRst` | Injects a fake TCP RST at the wire layer before writing the real chunk | Root/raw-socket only (`RootedProduction` emitter tier); Kotlin validation rejects it without root mode; config conversion drops it |
 
 This table is generated from `TcpChainStepKind` (`native/rust/crates/ripdpi-config/src/model/tcp.rs`). See `references/chain-step-catalog.md` for the full catalog with config fields; when a variant is added or removed, regenerate both tables from the enum in the same change rather than hand-editing one.
 
@@ -168,7 +168,7 @@ Candidates are ordered modern-first (most effective on censored networks tested 
 
 ### Non-rooted Android constraints
 
-**Not feasible** without root (`SOCK_RAW` + `TCP_REPAIR`): `FakeRst`, `HostFake`, `IpFrag2`, `MultiDisorder`, `SeqOverlap`. `TcpChainStepKind::emitter_tier()` is the source of truth: each of these steps is `RootedProduction` or `LabDiagnosticsOnly`. Without root, the engine writes `HostFake`, `SeqOverlap`, and `FakeRst` as plain cuts, so these steps send no decoy. The strategy probe skips a candidate that contains `HostFake`, because a pass would only prove a plain split.
+**Not feasible** without root (`SOCK_RAW` + `TCP_REPAIR`): `FakeRst`, `HostFake`, `IpFrag2`, `MultiDisorder`, `SeqOverlap`. `TcpChainStepKind::emitter_tier()` is the source of truth: each of these steps is `RootedProduction`. Without root, the engine writes `HostFake`, `SeqOverlap`, and `FakeRst` as plain cuts, so these steps send no decoy. The strategy probe skips a candidate that contains `HostFake`, because a pass would only prove a plain split.
 
 ### TTL fallback on Android VPN/tun
 

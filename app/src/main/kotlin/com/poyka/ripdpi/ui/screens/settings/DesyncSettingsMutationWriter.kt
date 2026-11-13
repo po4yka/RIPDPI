@@ -64,6 +64,7 @@ internal class DesyncSettingsMutationWriter(
                 udpSteps = parsed.udpSteps,
                 mode = uiState.selectedMode,
                 useCommandLineSettings = uiState.enableCmdSettings,
+                rootModeEnabled = uiState.rootModeEnabled,
             )
         }.getOrNull() ?: return
         updateValue("chainDsl", value) {

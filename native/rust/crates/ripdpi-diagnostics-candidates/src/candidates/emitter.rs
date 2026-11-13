@@ -39,7 +39,6 @@ pub(super) fn tier_override(candidate_id: &str) -> Option<StrategyEmitterTier> {
     match candidate_id {
         "fake_synfin"
         | "fake_pshurg"
-        | "fake_rst"
         | "ipfrag2_hopbyhop"
         | "ipfrag2_hopbyhop2"
         | "ipfrag2_destopt"

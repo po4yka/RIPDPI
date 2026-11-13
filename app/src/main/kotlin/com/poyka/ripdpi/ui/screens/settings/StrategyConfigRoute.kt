@@ -463,6 +463,7 @@ private fun validateStrategyConfigText(
             udpSteps = chain.udpSteps,
             mode = uiState.selectedMode,
             useCommandLineSettings = uiState.enableCmdSettings,
+            rootModeEnabled = uiState.rootModeEnabled,
         )
     }
 

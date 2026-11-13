@@ -104,6 +104,7 @@ internal class ConnectionUiStateFactory(
                     draft = draft,
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                     relayProfiles = projection.relayProfileRecords,
+                    rootModeEnabled = projection.settings.rootModeEnabled,
                 ),
             relayProfiles = projection.relayProfiles,
             vpnProfiles = projection.vpnProfiles,
@@ -120,6 +121,7 @@ internal class ConnectionUiStateFactory(
                     }.toImmutableList(),
             relayPresetSuggestion = relayPresetSuggestion,
             supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+            rootModeEnabled = projection.settings.rootModeEnabled,
             masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
             isEditorDirty = projection.editorState.session.isDirty,
             isEditorLoading =
