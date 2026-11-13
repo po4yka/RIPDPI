@@ -114,4 +114,14 @@ class StrategyChainsActivationFilterTest {
             AppSettings.newBuilder().setGroupActivationFilterCompat(ActivationFilterModel(tcpHasTimestamp = true))
         }
     }
+
+    @Test
+    fun `dsl bounds fake burst count to 64`() {
+        assertTrue(parseStrategyChainDsl("[udp]\nfake_burst 64").isSuccess)
+
+        val rejected = parseStrategyChainDsl("[udp]\nfake_burst 65")
+
+        assertTrue(rejected.isFailure)
+        assertTrue(rejected.exceptionOrNull()?.message?.contains("fake_burst count must be between 0 and 64") == true)
+    }
 }

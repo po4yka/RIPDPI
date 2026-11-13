@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.data
 
 internal const val MaxSeqOverlapSize = 32
+
+// Mirrors MAX_FAKE_BURST_COUNT in native/rust ripdpi-config src/constants.rs.
+private const val MaxFakeBurstCount = 64
 internal const val MaxHostLabelLength = 16
 internal const val MaxDnsTlsRandRecFragmentSize = 4096
 
@@ -172,7 +175,9 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
     validateNoTcpStatePredicates(step.activationFilter, "${step.kind.wireName} activationFilter")
     when (step.kind) {
         UdpChainStepKind.FakeBurst -> {
-            require(step.count >= 0) { "fake_burst count must be non-negative" }
+            require(step.count in 0..MaxFakeBurstCount) {
+                "fake_burst count must be between 0 and $MaxFakeBurstCount"
+            }
             require(step.splitBytes == 0) { "fake_burst must not declare splitBytes" }
             require(step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone) {
                 "fake_burst must not declare ipv6ExtensionProfile"
