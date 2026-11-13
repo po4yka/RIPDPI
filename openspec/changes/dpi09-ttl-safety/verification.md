@@ -1,9 +1,9 @@
 ---
 task_id: ENG-1794557091175687
 change: dpi09-ttl-safety
-commit_sha: "d76039a908feeff16942c52e9454dcab5abc53c7"
+commit_sha: "99157964becd971daac2448ed073cfea25f60b57"
 local: passed
-local_evidence: Exact code SHA passed 731 host library tests, seven Disoob oracle tests, workspace all-target Clippy, source gates and task contracts; Linux runtime passed 170 tests and TCP stage module passed 14 tests; independent reviews found no blocker.
+local_evidence: At commit_sha, 736 host library tests, seven Disoob oracle tests, workspace all-target Clippy and task contracts passed; source gates passed before a metadata-only rebase; Linux runtime passed 170 and TCP stage module passed 14 tests; independent reviews found no blocker.
 remote_ci: not_applicable
 remote_ci_evidence: No hosted CI run is claimed or required as local repair evidence.
 device: not_applicable
@@ -31,7 +31,7 @@ deployment_evidence: No deployment is owned by this change.
 
 The DPI-09 audit used main at 7cdc4bd49de465a85058236132ecba3597b76638.
 The repair started at 2d74ada2c26d38423439c3e00bd612f312cf3f84 and was rebased
-on 894fb66bf7ab64ff94da61e9801607144786957e before the final checks.
+on 2824082bff0428eb269e0576712174f6f6a91776 before the final integration checks.
 
 | Audit item | Repair commit | Observed evidence or current contract | State |
 |---|---|---|---|
@@ -39,11 +39,11 @@ on 894fb66bf7ab64ff94da61e9801607144786957e before the final checks.
 | F2 multiple urgent marks | Existing main b3a51e8971 | One urgent action in the initial original buffer; later urgent steps become Split; planner and peer tests rerun | closed before this change |
 | F3 ignored repeat and skip | Existing main 197df0b548, c9d964d440 | Unsupported urgent repeats and skip rejected by CLI, JSON, Kotlin and native planner; native suites rerun | closed before this change |
 | H3 generic urgent projection | Existing main 398e05e47c | Typed WriteUrgent projection regression rerun | closed before this change |
-| H2 active TTL family | 31c69631f4b2cb524d073cebbbde9d709ca6d09b | Getter and setter share the OS-correct active-family choice, including mapped peers | closed |
-| H1 restore failure | 1f206c9ad6e4de2fdaf776a158188abaa1c0338e | A rejected restore returns an error instead of TTL-unavailable success | closed |
-| F4 smoke oracle | 7da5435d22d159336ec4477108853c8d7d5f6b38 | Strict local echo; sequence-aware byte, urgent-pointer and TTL checks | closed in code and oracle tests |
-| H4 stage deadline | d76039a908feeff16942c52e9454dcab5abc53c7 | A blocked send queue returns TimedOut in both modes | closed |
-| F5 platform claim | 9fec7374a2a1ff59bbcfe6fe9ddc5a49357c3be3 | Oob and Disoob state Linux/Android; host-test limits are explicit | closed |
+| H2 active TTL family | cd041db341586e994f9c54824b8e633814b86081 | Getter and setter share the OS-correct active-family choice, including mapped peers | closed |
+| H1 restore failure | 1f0ec898d1655ce58337f1fe923fb0d86ac88a8d | A rejected restore returns an error instead of TTL-unavailable success | closed |
+| F4 smoke oracle | 143b37ef661e1baea8af7607a808994cef1edca3 | Strict local echo; sequence-aware byte, urgent-pointer and TTL checks | closed in code and oracle tests |
+| H4 stage deadline | 84856475214c57d73a1b32bcf25dd5e52a82f77a | A blocked send queue returns TimedOut in both modes | closed |
+| F5 platform claim | 4dd62baf9150b62d0c1bd7b8c1755f7f3e987ae1 | Oob and Disoob state Linux/Android; host-test limits are explicit | closed |
 
 ## Reproductions and limits
 
@@ -91,8 +91,8 @@ cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 
 
 Results at the recorded code SHA:
 
-- Host libraries: config 190, desync 185, desync-runtime 180, privileged-ops 6,
-  proxy-config 170: 731 passed, zero failed or ignored.
+- Host libraries: config 190, desync 185, desync-runtime 183, privileged-ops 6,
+  proxy-config 172: 736 passed, zero failed or ignored.
 - Oracle: seven passed, zero failed or ignored; 26 unrelated tests filtered.
 - Workspace all-target Clippy: exit 0, warnings denied.
 - Source gates: exit 0. They include architecture health, LoC/hotspot budgets,
@@ -109,14 +109,23 @@ Results at the recorded code SHA:
 
 The first combined tree at 23d5ebc6f5b22e87e898c645eabb718bc518f9dd passed
 722 library tests, seven oracle tests and the same Clippy/source/task gates.
-The later tlsrandrec commits changed shared planner/config inputs, so affected
-gates were repeated after rebase. Final counts above use that rebased run.
+The later tlsrandrec and DPI-13 commits changed shared planner/config inputs,
+so affected gates were repeated after rebase. Final counts above use the final
+integration run at commit_sha. Source gates passed at
+302f0097af2bd4821bfdcad84ff023e5e9cee990. The next rebase included only the
+DPI-13 task archive and deletion; native/rust had no diff. The merged board was
+stale and was regenerated through taskctl; task validation then passed. Native
+tests, oracle and workspace Clippy were also repeated at commit_sha. No source
+gate input changed after its successful run, apart from task lifecycle metadata
+which passed its owning validation.
 
 ## Local evidence files
 
 Temporary logs are not published test fixtures:
 
-- /private/tmp/dpi09-rebased-results.json and dpi09-rebased-*.log: final combined gates.
+- /private/tmp/dpi09-integrated-results.json and dpi09-integrated-*.log: final native and task checks.
+- /private/tmp/dpi09-merged-source-gates.log: final successful source gates before the metadata-only rebase.
+- /private/tmp/dpi09-rebased-results.json and dpi09-rebased-*.log: earlier combined run.
 - /private/tmp/dpi09-runtime-h2-before.log: inactive-family red.
 - /private/tmp/dpi09-runtime-linux-before-extra.log: genuine restore and mapped-getter reds.
 - /private/tmp/dpi09-runtime-linux-after-batch.log: Linux runtime 170 passed.
