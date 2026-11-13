@@ -4,6 +4,8 @@ use std::time::Duration;
 use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind, UpstreamSocksAuth};
 use ripdpi_runtime_decision_ports::policy_ports::ConnectionRoute;
 
+use crate::model::session::is_tls_client_hello_payload;
+
 use super::{connect_timeout, protect_path_owned, selected_desync_group};
 
 pub fn tcp_fast_open_enabled(config: &RuntimeConfig) -> bool {
@@ -15,8 +17,18 @@ pub fn group_uses_direct_syn_data_tfo(group: &DesyncGroup) -> bool {
         && group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
 }
 
+/// RFC 7413 sections 6.1 and 6.3.1: SYN data can reach the server twice, so only a
+/// payload that tolerates replay may ride it: a TLS ClientHello, or an HTTP GET, HEAD
+/// or OPTIONS request. Other payloads connect without TFO; the split still runs.
+fn syn_data_payload_tolerates_replay(payload: Option<&[u8]>) -> bool {
+    payload.is_some_and(|bytes| {
+        is_tls_client_hello_payload(bytes)
+            || [&b"GET "[..], b"HEAD ", b"OPTIONS "].iter().any(|method| bytes.starts_with(method))
+    })
+}
+
 pub fn group_requests_direct_syn_data_tfo(group: &DesyncGroup, payload: Option<&[u8]>) -> bool {
-    payload.is_some_and(|bytes| !bytes.is_empty()) && group_uses_direct_syn_data_tfo(group)
+    syn_data_payload_tolerates_replay(payload) && group_uses_direct_syn_data_tfo(group)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,7 +47,7 @@ pub fn connection_route_requests_direct_syn_data_tfo_with(
     route: &ConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
-    payload.is_some_and(|bytes| !bytes.is_empty())
+    syn_data_payload_tolerates_replay(payload)
         && settings.direct_syn_data_groups.get(route.group_index).copied().unwrap_or(false)
 }
 
@@ -120,7 +132,7 @@ pub fn tcp_route_connect_settings_with(
 ) -> Option<TcpRouteConnectSettings> {
     let profile = table.groups.get(group_index)?;
     let tfo_enabled = allow_tfo
-        && (profile.tfo_enabled || (payload.is_some_and(|bytes| !bytes.is_empty()) && profile.direct_syn_data_tfo));
+        && (profile.tfo_enabled || (syn_data_payload_tolerates_replay(payload) && profile.direct_syn_data_tfo));
     Some(TcpRouteConnectSettings {
         tfo_enabled,
         upstream_socks_addr: profile.upstream_socks_addr,
@@ -178,6 +190,43 @@ mod tests {
             Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)), auth: None });
         assert!(!group_uses_direct_syn_data_tfo(&group));
         assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
+    }
+
+    #[test]
+    fn syn_data_tfo_only_carries_replay_tolerant_payloads() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+        // TLS record with a ClientHello that carries an SNI extension for "a.io".
+        let mut client_hello = vec![0x16, 0x03, 0x01, 0x00, 0x3c, 0x01, 0x00, 0x00, 0x38, 0x03, 0x03];
+        client_hello.extend_from_slice(&[0x11; 32]);
+        client_hello.extend_from_slice(&[0x00, 0x00, 0x02, 0x13, 0x01, 0x01, 0x00, 0x00, 0x0d]);
+        client_hello.extend_from_slice(&[0x00, 0x00, 0x00, 0x09, 0x00, 0x07, 0x00, 0x00, 0x04]);
+        client_hello.extend_from_slice(b"a.io");
+
+        for payload in
+            [&client_hello[..], b"GET / HTTP/1.1\r\n\r\n", b"HEAD / HTTP/1.1\r\n\r\n", b"OPTIONS * HTTP/1.1\r\n\r\n"]
+        {
+            assert!(group_requests_direct_syn_data_tfo(&group, Some(payload)), "{payload:?}");
+        }
+        let app_data: &[u8] = &[0x17, 0x03, 0x03, 0x00, 0x01, 0x00];
+        for payload in [&b"POST / HTTP/1.1\r\n\r\n"[..], b"SSH-2.0-test\r\n", app_data] {
+            assert!(!group_requests_direct_syn_data_tfo(&group, Some(payload)), "{payload:?}");
+        }
+        let settings = tcp_route_syn_data_settings(&RuntimeConfig { groups: vec![group], ..Default::default() });
+        let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+        assert!(!connection_route_requests_direct_syn_data_tfo_with(&settings, &route, Some(b"POST / HTTP/1.1\r\n")));
+    }
+
+    #[test]
+    fn syn_data_group_connects_without_tfo_for_replay_unsafe_payload() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+        let mut config = RuntimeConfig { groups: vec![group], ..Default::default() };
+        config.network.tfo = false;
+        let table = tcp_route_connect_settings_table(&config);
+
+        let post = tcp_route_connect_settings_with(&table, 0, Some(b"POST / HTTP/1.1\r\n\r\n"), true).unwrap();
+        assert!(!post.tfo_enabled);
     }
 
     #[test]
