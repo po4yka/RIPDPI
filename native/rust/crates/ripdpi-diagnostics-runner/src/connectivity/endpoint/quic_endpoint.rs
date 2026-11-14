@@ -1,6 +1,6 @@
 use ripdpi_packets::{QUIC_V1_VERSION, QuicResponseKind, build_probe_quic_initial, validate_quic_response};
 
-use crate::connectivity::adapters::transport::{TargetAddress, TransportConfig, relay_udp_payload_observed};
+use crate::connectivity::adapters::transport::{TargetAddress, TransportConfig, relay_udp_payload_matching_observed};
 
 use super::target_parse::connect_target_from_parts;
 use super::types::EndpointProbeObservation;
@@ -22,10 +22,18 @@ pub(super) fn run_quic_endpoint_probe(
     let connect_target = connect_target_from_parts(Some(host_name), connect_ip)
         .unwrap_or_else(|| TargetAddress::Host(host_name.to_string()));
     let payload = build_probe_quic_initial(QUIC_V1_VERSION, Some(host_name));
-    let response =
-        payload.as_deref().ok_or_else(|| std::io::Error::other("QUIC Initial generation failed").into()).and_then(
-            |payload| relay_udp_payload_observed(std::slice::from_ref(&connect_target), port, transport, payload),
-        );
+    let response = payload
+        .as_deref()
+        .ok_or_else(|| std::io::Error::other("QUIC Initial generation failed").into())
+        .and_then(|payload| {
+            relay_udp_payload_matching_observed(
+                std::slice::from_ref(&connect_target),
+                port,
+                transport,
+                payload,
+                &|response| validate_quic_response(payload, response).is_some(),
+            )
+        });
     let kind = response
         .as_ref()
         .ok()

@@ -23,7 +23,7 @@ pub use types::{
     ConnectionStream, RouteExperimentConfig, RouteExperimentReport, Socks5Credentials, TargetAddress, TransportConfig,
     TransportConnectError, TransportConnectResult, TransportError, TransportFailureStage, UdpRelayResult,
 };
-pub use udp::{relay_udp_direct, relay_udp_payload_observed};
+pub use udp::{relay_udp_direct, relay_udp_payload_matching_observed, relay_udp_payload_observed};
 pub use watchdog::run_with_socket_watchdog;
 
 pub use address::start_address_resolution;

@@ -10,6 +10,17 @@ pub fn relay_udp_via_socks5(
     payload: &[u8],
     credentials: Option<&Socks5Credentials>,
 ) -> Result<(Vec<u8>, SocketAddr), TransportError> {
+    relay_udp_via_socks5_matching(proxy_host, proxy_port, destination, payload, credentials, &|_| true)
+}
+
+pub(crate) fn relay_udp_via_socks5_matching(
+    proxy_host: &str,
+    proxy_port: u16,
+    destination: SocketAddr,
+    payload: &[u8],
+    credentials: Option<&Socks5Credentials>,
+    accept_response: &dyn Fn(&[u8]) -> bool,
+) -> Result<(Vec<u8>, SocketAddr), TransportError> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
     let deadline = Instant::now() + timeout;
     let mut control = connect_control(proxy_host, proxy_port, credentials, deadline)?;
@@ -87,9 +98,16 @@ pub fn relay_udp_via_socks5(
             None => &bytes[..size],
         };
         match decode_socks5_udp_frame(body) {
-            Ok((source, payload)) if source == destination => return Ok((payload, udp.local_addr()?)),
+            Ok((source, payload)) if source == destination => {
+                if accept_response(&payload) {
+                    return Ok((payload, udp.local_addr()?));
+                }
+                continue;
+            }
             _ if nonce.is_some() => continue,
-            Ok(_) => return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP source mismatch").into()),
+            Ok(_) => {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5 UDP source mismatch").into());
+            }
             Err(error) => return Err(error),
         }
     }
@@ -173,7 +191,9 @@ fn read_until(control: &mut TcpStream, mut bytes: &mut [u8], deadline: Instant) 
     while !bytes.is_empty() {
         control.set_read_timeout(Some(remaining(deadline)?))?;
         match control.read(bytes) {
-            Ok(0) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "SOCKS5 control closed")),
+            Ok(0) => {
+                return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "SOCKS5 control closed"));
+            }
             Ok(size) => bytes = &mut bytes[size..],
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => return Err(error),

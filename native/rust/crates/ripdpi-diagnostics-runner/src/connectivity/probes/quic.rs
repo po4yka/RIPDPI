@@ -1,6 +1,8 @@
 use ripdpi_packets::{QUIC_V1_VERSION, QuicResponseKind, build_probe_quic_initial, validate_quic_response};
 
-use crate::connectivity::adapters::transport::{TransportConfig, quic_connect_targets, relay_udp_payload_observed};
+use crate::connectivity::adapters::transport::{
+    TransportConfig, quic_connect_targets, relay_udp_payload_matching_observed,
+};
 use crate::connectivity::adapters::util::now_ms;
 use crate::types::{ProbeDetail, ProbeResult, QuicTarget};
 
@@ -14,7 +16,11 @@ pub fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -> Probe
     let response = payload
         .as_deref()
         .ok_or_else(|| std::io::Error::other("QUIC Initial generation failed").into())
-        .and_then(|payload| relay_udp_payload_observed(&connect_targets, target.port, transport, payload));
+        .and_then(|payload| {
+            relay_udp_payload_matching_observed(&connect_targets, target.port, transport, payload, &|response| {
+                validate_quic_response(payload, response).is_some()
+            })
+        });
     let kind = response
         .as_ref()
         .ok()
@@ -193,5 +199,33 @@ mod tests {
                 .any(|detail| detail.key == "measurementScope" && detail.value == "quic_initial_response")
         );
         assert!(result.details.iter().any(|detail| detail.key == "http3Validated" && detail.value == "false"));
+    }
+
+    #[test]
+    fn dpi24_quic_probe_ignores_unrelated_vn_before_correlated_reply() {
+        let server = UdpSocket::bind("127.0.0.1:0").unwrap();
+        server.set_read_timeout(Some(std::time::Duration::from_secs(1))).unwrap();
+        let port = server.local_addr().unwrap().port();
+        let worker = thread::spawn(move || {
+            let mut request = [0; 2048];
+            let (_, peer) = server.recv_from(&mut request).unwrap();
+            let dcid_len = usize::from(request[5]);
+            let scid_offset = 6 + dcid_len;
+            let scid_len = usize::from(request[scid_offset]);
+            let mut response = vec![0x80, 0, 0, 0, 0, scid_len as u8];
+            response.extend_from_slice(&request[scid_offset + 1..scid_offset + 1 + scid_len]);
+            response.push(dcid_len as u8);
+            response.extend_from_slice(&request[6..6 + dcid_len]);
+            response.extend_from_slice(&ripdpi_packets::QUIC_V2_VERSION.to_be_bytes());
+            let mut unrelated = response.clone();
+            unrelated[6] ^= 1;
+            server.send_to(&unrelated, peer).unwrap();
+            server.send_to(&response, peer).unwrap();
+        });
+        let target =
+            QuicTarget { host: "localhost".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
+        let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
+        worker.join().unwrap();
+        assert_eq!(result.outcome, "quic_response");
     }
 }

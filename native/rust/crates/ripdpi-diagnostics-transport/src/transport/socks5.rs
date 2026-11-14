@@ -15,6 +15,7 @@ use super::types::{
 
 mod udp;
 pub use udp::relay_udp_via_socks5;
+pub(super) use udp::relay_udp_via_socks5_matching;
 
 #[cfg(test)]
 mod private_udp_tests;

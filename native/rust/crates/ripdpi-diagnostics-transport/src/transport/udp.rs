@@ -1,11 +1,11 @@
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr};
-use std::time::Duration;
+use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+use std::time::{Duration, Instant};
 
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::route_experiment::{relay_udp_direct_with_route_experiment, route_identity};
-use super::socks5::relay_udp_via_socks5;
+use super::socks5::relay_udp_via_socks5_matching;
 use super::tcp::candidate_address_groups;
 use super::types::{TargetAddress, TransportConfig, TransportError, UdpRelayResult};
 
@@ -15,10 +15,22 @@ pub fn relay_udp_payload_observed(
     transport: &TransportConfig,
     payload: &[u8],
 ) -> Result<UdpRelayResult, TransportError> {
+    relay_udp_payload_matching_observed(targets, port, transport, payload, &|_| true)
+}
+
+/// Ignore rejected peer payloads within each exchange's original receive deadline.
+pub fn relay_udp_payload_matching_observed(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    payload: &[u8],
+    accept_response: &dyn Fn(&[u8]) -> bool,
+) -> Result<UdpRelayResult, TransportError> {
     relay_udp_candidates(
         candidate_address_groups(targets, port, super::resolve_addresses_with_timeout),
         transport,
         payload,
+        accept_response,
     )
 }
 
@@ -26,6 +38,7 @@ fn relay_udp_candidates(
     groups: impl Iterator<Item = Result<Vec<SocketAddr>, TransportError>>,
     transport: &TransportConfig,
     payload: &[u8],
+    accept_response: &dyn Fn(&[u8]) -> bool,
 ) -> Result<UdpRelayResult, TransportError> {
     let mut last_error = TransportError::NoSocketAddrs;
     let mut attempted = false;
@@ -42,7 +55,7 @@ fn relay_udp_candidates(
         attempted = true;
         if let TransportConfig::Direct { route_experiment: Some(config) } = transport {
             let identity = route_identity(&destinations);
-            match relay_udp_direct_with_route_experiment(&destinations, payload, config, &identity) {
+            match relay_udp_direct_with_route_experiment(&destinations, payload, config, &identity, accept_response) {
                 Ok(result) => return Ok(result),
                 Err(error) => {
                     last_error = TransportError::RouteExperiment(error);
@@ -52,10 +65,17 @@ fn relay_udp_candidates(
         }
         for destination in destinations {
             let result = match transport {
-                TransportConfig::Direct { .. } => relay_udp_direct_exchange(destination, payload, true),
-                TransportConfig::Socks5 { host, port, credentials } => {
-                    relay_udp_via_socks5(host, *port, destination, payload, credentials.as_ref())
+                TransportConfig::Direct { .. } => {
+                    relay_udp_direct_exchange(destination, payload, true, accept_response)
                 }
+                TransportConfig::Socks5 { host, port, credentials } => relay_udp_via_socks5_matching(
+                    host,
+                    *port,
+                    destination,
+                    payload,
+                    credentials.as_ref(),
+                    accept_response,
+                ),
             };
             match result {
                 Ok((bytes, local_addr)) => {
@@ -74,7 +94,7 @@ fn relay_udp_candidates(
 }
 
 pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), TransportError> {
-    relay_udp_direct_exchange(server, payload, false)
+    relay_udp_direct_exchange(server, payload, false, &|_| true)
 }
 
 /// With `retransmit`, a datagram lost on the first try is sent once more
@@ -84,29 +104,49 @@ fn relay_udp_direct_exchange(
     server: SocketAddr,
     payload: &[u8],
     retransmit: bool,
+    accept_response: &dyn Fn(&[u8]) -> bool,
 ) -> Result<(Vec<u8>, SocketAddr), TransportError> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
     let first_wait = if retransmit { timeout / 2 } else { timeout };
     let bind_addr: SocketAddr =
         if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
     let socket = super::protect::protected_udp_bind(bind_addr, server)?;
-    // A zero read timeout is rejected by the platform; 1 ms is the floor.
-    socket.set_read_timeout(Some(first_wait.max(Duration::from_millis(1))))?;
     socket.set_write_timeout(Some(timeout))?;
     socket.connect(server)?;
     socket.send(payload)?;
-    let mut buf = [0u8; 2048];
-    let size = match socket.recv(&mut buf) {
+    let started = Instant::now();
+    let deadline = started + timeout;
+    let bytes = match recv_udp_matching(&socket, started + first_wait, accept_response) {
         Err(error) if retransmit && matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-            socket.set_read_timeout(Some(timeout.saturating_sub(first_wait).max(Duration::from_millis(1))))?;
             socket.send(payload)?;
-            socket.recv(&mut buf)
+            recv_udp_matching(&socket, deadline, accept_response)
         }
         other => other,
     }
     .map_err(TransportError::udp_recv_error)?;
     let local_addr = socket.local_addr()?;
-    Ok((buf[..size].to_vec(), local_addr))
+    Ok((bytes, local_addr))
+}
+
+pub(super) fn recv_udp_matching(
+    socket: &UdpSocket,
+    deadline: Instant,
+    accept_response: &dyn Fn(&[u8]) -> bool,
+) -> io::Result<Vec<u8>> {
+    let mut bytes = [0; 2048];
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "UDP receive deadline exceeded"));
+        }
+        socket.set_read_timeout(Some(remaining.max(Duration::from_millis(1))))?;
+        match socket.recv(&mut bytes) {
+            Ok(size) if accept_response(&bytes[..size]) => return Ok(bytes[..size].to_vec()),
+            Ok(_) => continue,
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(error) => return Err(error),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -239,6 +279,7 @@ mod tests {
                     credentials: Some(credentials),
                 },
                 b"quic probe",
+                &|_| true,
             )
         });
         server.join().expect("SOCKS fixture thread");
@@ -292,7 +333,12 @@ mod tests {
                     thread::sleep(timeout + Duration::from_millis(1));
                     Err(crate::transport::DnsResolveError::Timeout)
                 });
-                relay_udp_candidates(groups, &TransportConfig::Direct { route_experiment: experiment }, b"probe")
+                relay_udp_candidates(
+                    groups,
+                    &TransportConfig::Direct { route_experiment: experiment },
+                    b"probe",
+                    &|_| true,
+                )
             });
             worker.join().unwrap();
             assert_eq!(result.unwrap().payload, b"probe");
@@ -327,8 +373,12 @@ mod tests {
                 calls.set(calls.get() + 1);
                 Ok(vec![address])
             });
-            let result =
-                relay_udp_candidates(groups, &TransportConfig::Direct { route_experiment: experiment }, b"probe");
+            let result = relay_udp_candidates(
+                groups,
+                &TransportConfig::Direct { route_experiment: experiment },
+                b"probe",
+                &|_| true,
+            );
             worker.join().unwrap();
             assert_eq!(result.unwrap().payload, b"probe");
             assert_eq!(calls.get(), 1);
@@ -353,3 +403,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "udp/correlation_tests.rs"]
+mod correlation_tests;
