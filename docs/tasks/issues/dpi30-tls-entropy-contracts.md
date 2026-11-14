@@ -2,7 +2,7 @@
 id: ENG-1794672016726805
 title: Repair DPI-30 TLS version and entropy contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: DPI-30 integrator

@@ -8,4 +8,4 @@
 - [x] ENG-1794672218548079 Repair F4 TLS minor and multi-record prelude composition #bug !high @item:ENG-1794672016726805
 - [x] ENG-1794672219205759 Repair F5 no-SNI TLS minor override #bug !high @item:ENG-1794672016726805
 - [x] ENG-1794672219849243 Repair F6 record version and popcount units documentation #bug !high @item:ENG-1794672016726805
-- [ ] ENG-1794672221066041 Validate combined tree and independent review before main integration #bug !high @item:ENG-1794672016726805
+- [x] ENG-1794672221066041 Validate combined tree and independent review before main integration #bug !high @item:ENG-1794672016726805
