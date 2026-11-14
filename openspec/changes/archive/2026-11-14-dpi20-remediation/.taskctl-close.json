@@ -1,0 +1,11 @@
+{
+  "change": "dpi20-remediation",
+  "evidence_summary": "Three P2 corrections are committed on main and pushed at 05f91ba333. Rust 1589 passed; explicit wire 9/9; model 94/0; strict Clippy, model Detekt/lint, ci-gates, architecture, locked metadata and task contracts passed. Separate review found no actionable defects. Physical/external/hosted acceptance remains unclaimed.",
+  "execution_sha256": "8eeaa6164e4d343b09aaca20a1bef9065aeeb030c31d966e7456adf9b26b9987",
+  "issue_sha256": "c42783693eac7d440341855c0ac3066967ab9c763b49b41ac059779e301cf876",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T12:33:41Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794637887235609"
+}

@@ -2,7 +2,7 @@
 id: ENG-1794637887235609
 title: Fix DPI-20 resource limits and QUIC response contracts
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: DPI-20 integrator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi20-remediation
 created: 2026-11-14
 updated: 2026-11-14
+closed_at: "2026-11-14T12:33:41Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Three P2 corrections are committed on main and pushed at 05f91ba333. Rust 1589 passed; explicit wire 9/9; model 94/0; strict Clippy, model Detekt/lint, ci-gates, architecture, locked metadata and task contracts passed. Separate review found no actionable defects. Physical/external/hosted acceptance remains unclaimed.
 ---
 
 ## Goal
