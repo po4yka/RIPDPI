@@ -68,6 +68,28 @@ pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
     crate::linux::set_rcvbuf(fd, size)
 }
 
+/// Returns the current kernel receive-buffer size.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn get_rcvbuf(fd: &impl AsRawFd) -> io::Result<u32> {
+    crate::linux::get_rcvbuf(fd)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn get_rcvbuf(_fd: &impl AsRawFd) -> io::Result<u32> {
+    Err(io::ErrorKind::Unsupported.into())
+}
+
+/// Returns the current kernel TCP receive-window clamp.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
+    crate::linux::get_tcp_window_clamp(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn get_tcp_window_clamp(_stream: &TcpStream) -> io::Result<u32> {
+    Err(io::ErrorKind::Unsupported.into())
+}
+
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn set_rcvbuf(_fd: &impl AsRawFd, _size: u32) -> io::Result<()> {
     crate::unsupported()

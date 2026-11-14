@@ -191,21 +191,15 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
                     }
                     accounting.complete_await();
                 }
-                DesyncAction::SetWindowClamp(size) => {
-                    let _ = platform::set_tcp_window_clamp(writer, *size);
-                    accounting.complete_action();
+                DesyncAction::SetWindowClamp(size) | DesyncAction::SetWsize { window: size } => {
+                    if platform::set_tcp_window_clamp(writer, *size).is_ok() {
+                        accounting.complete_action();
+                    }
                 }
-                DesyncAction::RestoreWindowClamp => {
-                    let _ = platform::set_tcp_window_clamp(writer, RESTORE_WINDOW_CLAMP);
-                    accounting.complete_action();
-                }
-                DesyncAction::SetWsize { window } => {
-                    let _ = platform::set_tcp_window_clamp(writer, *window);
-                    accounting.complete_action();
-                }
-                DesyncAction::RestoreWsize => {
-                    let _ = platform::set_tcp_window_clamp(writer, RESTORE_WINDOW_CLAMP);
-                    accounting.complete_action();
+                DesyncAction::RestoreWindowClamp | DesyncAction::RestoreWsize => {
+                    if platform::set_tcp_window_clamp(writer, RESTORE_WINDOW_CLAMP).is_ok() {
+                        accounting.complete_action();
+                    }
                 }
                 DesyncAction::SendFakeRst => {
                     if PrivilegedActionExecutor::send_fake_rst(writer, &context) {

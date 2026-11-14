@@ -311,7 +311,7 @@ fn actions_attach_detach_drop_sack_noop() {
 
 #[test]
 fn actions_window_clamp_ignored_on_unsupported() {
-    let (mut client, _server) = connected_pair();
+    let (mut client, mut server) = connected_pair();
     let unavailable = default_ttl_unavailable();
     let actions =
         vec![DesyncAction::SetWindowClamp(1024), DesyncAction::Write(b"x".to_vec()), DesyncAction::RestoreWindowClamp];
@@ -328,6 +328,34 @@ fn actions_window_clamp_ignored_on_unsupported() {
         None,
     );
     assert_eq!(result.unwrap(), 1);
+    server.set_read_timeout(Some(Duration::from_secs(2))).expect("read timeout");
+    let mut received = [0; 1];
+    std::io::Read::read_exact(&mut server, &mut received).expect("real payload");
+    assert_eq!(&received, b"x");
+}
+
+#[test]
+fn failed_window_option_is_not_a_completed_action() {
+    let (mut client, _server) = connected_pair();
+    client.shutdown(std::net::Shutdown::Write).expect("shutdown write");
+    let actions = vec![DesyncAction::SetWindowClamp(0), DesyncAction::Write(b"x".to_vec())];
+    let error = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &default_ttl_unavailable(),
+        false,
+        None,
+        None,
+    )
+    .expect_err("write side is closed");
+    let receipt = error.execution_receipt().expect("execution receipt");
+    assert_eq!(receipt.attempted_actions, 2);
+    assert_eq!(receipt.completed_actions, 0);
+    assert_eq!(receipt.payload_bytes_committed, 0);
 }
 
 #[test]

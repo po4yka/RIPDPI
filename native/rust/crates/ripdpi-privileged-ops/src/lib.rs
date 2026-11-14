@@ -35,7 +35,7 @@ pub use raw_packet::{
 };
 pub use socket_options::{
     attach_drop_sack, attach_strip_timestamps, bind_udp_low_port, detach_drop_sack, enable_tcp_fastopen_connect,
-    original_dst, set_rcvbuf, set_tcp_md5sig, set_tcp_window_clamp, wait_tcp_stage,
+    get_rcvbuf, get_tcp_window_clamp, original_dst, set_rcvbuf, set_tcp_md5sig, set_tcp_window_clamp, wait_tcp_stage,
 };
 pub use tcp_info::{tcp_activation_state, tcp_round_trip_time_ms, tcp_segment_hint, tcp_total_retransmissions};
 pub use tcp_repair::swap_replacement_fd;

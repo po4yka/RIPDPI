@@ -141,7 +141,6 @@ pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
 }
 
 /// Read the current `TCP_WINDOW_CLAMP` value on a socket.
-#[cfg(test)]
 pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
     Ok(get_c_int_sockopt(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP)? as u32)
 }
@@ -158,7 +157,6 @@ pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
 }
 
 /// Read the current `SO_RCVBUF` value on a socket.
-#[cfg(test)]
 pub fn get_rcvbuf(fd: &impl AsRawFd) -> io::Result<u32> {
     Ok(get_c_int_sockopt(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF)? as u32)
 }

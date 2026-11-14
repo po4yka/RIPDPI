@@ -39,8 +39,8 @@ pub use raw_packet::{
     send_fake_rst, send_fake_tcp, send_flagged_tcp_payload, send_ordered_tcp_segments, send_seqovl_tcp,
 };
 pub use socket_options::{
-    bind_udp_low_port, enable_recv_ttl, enable_tcp_fastopen_connect, read_chunk_with_ttl, set_rcvbuf, set_tcp_md5sig,
-    set_tcp_window_clamp, try_set_stream_ttl_with_outcome,
+    bind_udp_low_port, enable_recv_ttl, enable_tcp_fastopen_connect, get_rcvbuf, get_tcp_window_clamp,
+    read_chunk_with_ttl, set_rcvbuf, set_tcp_md5sig, set_tcp_window_clamp, try_set_stream_ttl_with_outcome,
 };
 pub use tcp_info::{
     tcp_activation_state, tcp_round_trip_time_ms, tcp_segment_hint, tcp_total_retransmissions, wait_tcp_stage,
