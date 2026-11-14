@@ -58,8 +58,25 @@ fn entropy_padding_combined_mode_works() {
     group.actions.entropy_mode = EntropyMode::Combined;
     // High entropy: needs Shannon padding
     let payload: Vec<u8> = (0..2048).map(|i| (i % 256) as u8).collect();
+    let capped = apply_entropy_padding(&group, &payload, None);
+    assert_eq!(&*capped, &payload, "the default budget cannot meet both targets");
+    group.actions.entropy_padding_max = 1024;
     let result = apply_entropy_padding(&group, &payload, None);
-    assert!(result.len() > payload.len(), "combined mode should pad high-entropy");
+    assert!(result.len() > payload.len(), "a joint solution fits the larger budget");
+    let set_bits: u64 = result.iter().map(|byte| u64::from(byte.count_ones())).sum();
+    assert!(set_bits as f64 / result.len() as f64 <= 3.4);
+    let mut frequencies = std::collections::BTreeMap::<u8, usize>::new();
+    for &byte in &*result {
+        *frequencies.entry(byte).or_default() += 1;
+    }
+    let shannon: f64 = frequencies
+        .values()
+        .map(|&count| {
+            let probability = count as f64 / result.len() as f64;
+            -probability * probability.log2()
+        })
+        .sum();
+    assert!(shannon <= 7.92);
 }
 
 #[test]
