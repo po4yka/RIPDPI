@@ -1,6 +1,7 @@
 mod client_hello_offsets;
 mod dmap_ambiguity_probe;
 mod fake;
+mod fake_regressions;
 mod first_flight_ir;
 mod hostfake_tls;
 mod offset;
