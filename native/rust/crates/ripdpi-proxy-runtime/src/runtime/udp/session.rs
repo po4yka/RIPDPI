@@ -15,6 +15,7 @@ pub(super) struct UdpFlowSession {
     state: RuntimeSessionState,
     quic_contexts: Vec<TrackedInitial>,
     quic_context_overflow: bool,
+    quic_confirmed: bool,
     pending_context: Option<usize>,
     pending_initial: Option<Vec<u8>>,
 }
@@ -25,13 +26,18 @@ impl UdpFlowSession {
             state: RuntimeState::new_session_state(),
             quic_contexts: Vec::new(),
             quic_context_overflow: false,
+            quic_confirmed: false,
             pending_context: None,
             pending_initial: None,
         }
     }
 
     pub(super) fn response_matches_outbound(&mut self, payload: &[u8]) -> bool {
-        if !self.feedback_is_eligible() {
+        if !self.feedback_is_eligible()
+            || (self.quic_confirmed
+                && payload.first().is_some_and(|byte| byte & 0x80 != 0)
+                && payload.get(1..5) == Some([0; 4].as_slice()))
+        {
             return false;
         }
         if self.quic_contexts.is_empty() {
@@ -54,6 +60,7 @@ impl UdpFlowSession {
     pub(super) fn reset_response_evidence(&mut self) {
         self.quic_contexts.clear();
         self.quic_context_overflow = false;
+        self.quic_confirmed = false;
         self.pending_context = None;
         self.pending_initial = None;
     }
@@ -63,7 +70,9 @@ impl UdpFlowSession {
     }
 
     pub(super) fn observe_upstream_response(&mut self, payload: &[u8]) {
+        let quic_confirmed = self.quic_confirmed || !self.quic_contexts.is_empty();
         self.reset_response_evidence();
+        self.quic_confirmed = quic_confirmed;
         RuntimeState::observe_session_inbound_payload(&mut self.state, payload);
     }
 
@@ -132,6 +141,22 @@ mod tests {
         env!("CARGO_MANIFEST_DIR"),
         "/../ripdpi-packets/tests/fixtures/quic/rfc9001-server-initial.bin"
     ));
+
+    #[test]
+    fn dpi20_late_vn_does_not_count_as_real_response() {
+        let mut session = UdpFlowSession::new();
+        session.observe_committed_datagram(REQUEST, true);
+        assert!(session.response_matches_outbound(RESPONSE));
+        session.observe_upstream_response(RESPONSE);
+        assert!(session.response_matches_outbound(b"later server datagram"));
+        let vn = [0x80, 0, 0, 0, 0, 0, 8, 0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08, 0x6b, 0x33, 0x43, 0xcf];
+        assert!(!session.response_matches_outbound(&vn), "late VN must not advance a confirmed QUIC flow");
+        session.observe_upstream_response(b"later server datagram");
+        assert!(!session.response_matches_outbound(&vn), "retain the guard across later server datagrams");
+        session.reset_response_evidence();
+        assert!(session.response_matches_outbound(&vn), "target reset must restore generic UDP behavior");
+        assert!(UdpFlowSession::new().response_matches_outbound(&vn));
+    }
 
     #[test]
     fn dpi24_retention_is_bounded_and_released_after_acceptance() {

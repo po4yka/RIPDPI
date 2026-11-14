@@ -27,8 +27,8 @@ Bound DPI-20 work, preserve its selected version, and keep decoy replies separat
 
 ## Parallel ownership
 
-- F1 worker: Kotlin StrategyChainValidation and owning tests; Rust proxy-config convert/chain/udp.rs and count tests; desync plan_udp and tamper_version resource guards and owning tests.
+- F1 worker: Kotlin StrategyChainValidation and owning tests; Rust config CLI and proxy-config convert/chain/udp.rs and count tests; desync plan_udp and tamper_version resource guards and owning tests.
 - F2 worker: proxy-config convert/protocol.rs and tests/quic_fake_version_config.rs; proxy-runtime tests/wire_e2e.rs; docs/architecture/quic-initial-packetizer.md.
-- F3 worker: proxy-runtime runtime/udp state, session, pump, feedback and owning tests.
+- F3 worker and integrator: proxy-runtime runtime/udp state, session, pump, feedback and owning tests.
 - Integrator: this portfolio record, OpenSpec artifacts, combined validation, review, commits, and main integration.
-- Serialized lanes: no worker changes dependencies, Cargo.lock, schemas, public API snapshots, baselines, locales or golden fixtures. Integrator owns task board generation. Each writer uses a separate worktree.
+- Serialized lanes: no worker changes dependencies, Cargo.lock, schemas, existing public API snapshots, baselines, locales or golden fixtures. Integrator owns task board generation. Each writer uses a separate worktree.

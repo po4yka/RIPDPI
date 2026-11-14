@@ -59,7 +59,12 @@ fn version_negotiation(seed: &QuicInitialSeed) -> Vec<u8> {
 
 #[test]
 fn quic_decoy_response_does_not_complete_the_real_flow() {
-    for version in [QUIC_V1_VERSION, QUIC_V2_VERSION] {
+    for (version, kind) in [
+        (QUIC_V1_VERSION, UdpChainStepKind::QuicPacketNumberGap),
+        (QUIC_V2_VERSION, UdpChainStepKind::QuicPacketNumberGap),
+        (QUIC_V1_VERSION, UdpChainStepKind::QuicFakeVersion),
+        (QUIC_V2_VERSION, UdpChainStepKind::QuicFakeVersion),
+    ] {
         let peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("peer");
         peer.set_read_timeout(Some(Duration::from_secs(2))).expect("peer timeout");
         let target = peer.local_addr().expect("peer address");
@@ -77,7 +82,7 @@ fn quic_decoy_response_does_not_complete_the_real_flow() {
             authoritative_host: None,
         };
         let mut group = DesyncGroup::new(0);
-        group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::QuicPacketNumberGap, 1)];
+        group.actions.udp_chain = vec![UdpChainStep::new(kind, 1)];
         let state = test_runtime_state(RuntimeConfig { groups: vec![group], ..Default::default() });
         let mut flows = HashMap::from([(key.clone(), flow_entry_for(upstream, target))]);
         let original = real_initial(version);
@@ -92,7 +97,9 @@ fn quic_decoy_response_does_not_complete_the_real_flow() {
         let mut wire = [0u8; 2048];
         let n = peer.recv(&mut wire).expect("receive actual decoy");
         let decoy = wire[..n].to_vec();
-        let decoy_seed = parse_quic_initial_seed(&decoy).expect("decode actual decoy");
+        let mut protected_seed = decoy.clone();
+        protected_seed[1..5].copy_from_slice(&version.to_be_bytes());
+        let decoy_seed = parse_quic_initial_seed(&protected_seed).expect("decode actual decoy seed");
         let n = peer.recv(&mut wire).expect("receive actual original");
         assert_eq!(&wire[..n], &original);
         let real_seed = parse_quic_initial_seed(&original).expect("decode original");
@@ -151,6 +158,16 @@ fn quic_decoy_response_does_not_complete_the_real_flow() {
         let entry = flows.get(&key).expect("flow");
         assert!(entry.answered);
         assert!(!entry.awaiting_response);
+        let confirmed_activity = entry.last_used;
+        let confirmed_round = entry.session.round_count();
+        for late_vn in [&decoy_reply, &real_reply] {
+            pump_reply(late_vn, &mut flows);
+            let entry = flows.get(&key).expect("flow");
+            assert!(entry.answered);
+            assert!(!entry.awaiting_response);
+            assert_eq!(entry.last_used, confirmed_activity, "late VN must not refresh activity");
+            assert_eq!(entry.session.round_count(), confirmed_round, "late VN must not advance the session");
+        }
     }
 }
 
