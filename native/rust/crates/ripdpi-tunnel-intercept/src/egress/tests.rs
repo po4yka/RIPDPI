@@ -1179,3 +1179,12 @@ fn http_authority_metadata_preserves_raw_host_markers() {
     let end = dissect.markers[&MarkerName::HostEnd];
     assert_eq!(&payload[start..end], b"decoy.example");
 }
+
+#[test]
+fn invalid_ipv6_extension_type_does_not_create_a_direct_action() {
+    let yaml = "version: 1\nstrategies:\n  - id: ipv6\n    steps:\n      - type: ipv6_ext\n";
+    let config = ripdpi_strategy_config::parse_yaml_str(yaml, ".").expect("default config");
+    let mut step = config.strategies[0].steps[0].clone();
+    step.ext_type = Some("definitely_invalid".to_owned());
+    assert!(EgressAction::from_step(&step).is_none());
+}

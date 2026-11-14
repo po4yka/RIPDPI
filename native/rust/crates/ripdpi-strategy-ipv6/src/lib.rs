@@ -34,12 +34,13 @@ pub enum Ipv6ExtType {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Ipv6ExtHdrStrategy {
     ext_type: Ipv6ExtType,
+    invalid_ext_type: bool,
 }
 
 impl Ipv6ExtHdrStrategy {
     /// Creates a strategy for the supplied extension header type.
     pub const fn new(ext_type: Ipv6ExtType) -> Self {
-        Self { ext_type }
+        Self { ext_type, invalid_ext_type: false }
     }
 
     /// Returns the configured extension header type.
@@ -58,6 +59,9 @@ impl DesyncStrategy for Ipv6ExtHdrStrategy {
     }
 
     fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
+        if self.invalid_ext_type {
+            return Err(StrategyError::InvalidConfig("invalid ipv6_ext ext_type".to_owned()));
+        }
         if self.ext_type == Ipv6ExtType::Routing {
             return Err(StrategyError::InvalidConfig("ipv6_ext routing is not supported".to_owned()));
         }
@@ -154,8 +158,14 @@ pub fn strategy_by_id(id: &str) -> Option<Box<dyn DesyncStrategy>> {
 /// [`Ipv6ExtType::default`] (`DestOpts`), matching the historic
 /// `Ipv6ExtHdrStrategy::default()`.
 fn build_ipv6_ext(params: &StrategyStepParams) -> Box<dyn DesyncStrategy> {
-    let ext_type = params.ext_type.as_deref().and_then(Ipv6ExtType::parse).unwrap_or_default();
-    Box::new(Ipv6ExtHdrStrategy::new(ext_type))
+    let mut strategy = Ipv6ExtHdrStrategy::default();
+    if let Some(value) = params.ext_type.as_deref() {
+        match Ipv6ExtType::parse(value) {
+            Some(ext_type) => strategy.ext_type = ext_type,
+            None => strategy.invalid_ext_type = true,
+        }
+    }
+    Box::new(strategy)
 }
 
 #[linkme::distributed_slice(ripdpi_strategy_trait::STRATEGY_STEP_REGISTRATIONS)]

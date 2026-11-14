@@ -361,8 +361,11 @@ fn load_raw(raw: RawConfig, base_dir: &Path) -> Result<LoadedStrategyConfig, Str
         .into_iter()
         .map(|strategy| {
             for step in &strategy.steps {
-                if step.kind == StepType::Ipv6Ext && step.ext_type.as_deref() == Some("routing") {
-                    return Err(StrategyConfigError::UnsupportedIpv6ExtensionType("routing".to_owned()));
+                if step.kind == StepType::Ipv6Ext
+                    && let Some(value) = step.ext_type.as_deref()
+                    && !matches!(value, "hopbyhop" | "hop_by_hop" | "destopts" | "dest_opts" | "destination_options")
+                {
+                    return Err(StrategyConfigError::UnsupportedIpv6ExtensionType(value.to_owned()));
                 }
             }
             let hosts = resolve_hosts(strategy.matcher.hosts, base_dir)?;

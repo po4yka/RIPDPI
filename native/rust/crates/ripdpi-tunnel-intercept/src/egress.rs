@@ -292,7 +292,10 @@ impl EgressAction {
                 Some(Self::UdpLen { delta })
             }
             StepType::Ipv6Ext => {
-                let ext_type = step.ext_type.as_deref().and_then(Ipv6ExtType::parse).unwrap_or_default();
+                let ext_type = match step.ext_type.as_deref() {
+                    Some(value) => Ipv6ExtType::parse(value)?,
+                    None => Ipv6ExtType::default(),
+                };
                 if ext_type == Ipv6ExtType::Routing {
                     return None;
                 }

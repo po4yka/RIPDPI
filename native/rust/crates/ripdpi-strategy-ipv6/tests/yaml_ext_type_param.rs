@@ -1,3 +1,5 @@
+mod common;
+
 use ripdpi_strategy_config::{StepType, parse_yaml_str};
 use ripdpi_strategy_registry::StrategyRegistry;
 
@@ -20,4 +22,24 @@ strategies:
     assert_eq!(step.ext_type.as_deref(), Some("destopts"));
     assert_eq!(step.kind.registry_id(), "ipv6_ext");
     assert!(registry.get(step.kind.registry_id()).is_some());
+}
+
+#[test]
+fn manually_supplied_unknown_type_obeys_drop_policy_without_raw_output() {
+    use ripdpi_strategy_config::OnFail;
+    use ripdpi_strategy_trait::{ConnectionState, DesyncPlan, Dissect, StrategyVerdict};
+
+    let yaml = "version: 1\nstrategies:\n  - id: ipv6\n    steps:\n      - type: ipv6_ext\n";
+    let mut config = parse_yaml_str(yaml, ".").expect("default config");
+    config.strategies[0].steps[0].ext_type = Some("definitely_invalid".to_owned());
+    config.strategies[0].on_fail = OnFail::Drop;
+    let registry = StrategyRegistry::from_loaded_config(&config).expect("materialize strategy");
+    let dissect = Dissect { is_ipv6: true, ..Dissect::default() };
+    let conn = ConnectionState::default();
+    let caps = common::vpn_caps();
+    let packet = common::ipv6_tcp_packet();
+    let ctx = common::vpn_ipv6_context(&dissect, &conn, &caps, &packet);
+    let mut plan = DesyncPlan::default();
+    assert_eq!(registry.execute(&ctx, &mut plan), StrategyVerdict::Drop);
+    assert!(plan.actions.is_empty());
 }
