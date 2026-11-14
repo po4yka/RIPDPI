@@ -70,6 +70,11 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
                 "udpChainSteps kind=quic_padding_ladder count must be at most {MAX_QUIC_PADDING_LADDER_COUNT}"
             )));
         }
+        if kind == UdpChainStepKind::QuicVersionNegotiationDecoy && step.count > MAX_FAKE_BURST_COUNT {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "udpChainSteps kind=quic_version_negotiation_decoy count must be at most {MAX_FAKE_BURST_COUNT}"
+            )));
+        }
         if kind == UdpChainStepKind::IpFrag2Udp {
             if step.count != 0 {
                 return Err(ProxyConfigError::InvalidConfig(

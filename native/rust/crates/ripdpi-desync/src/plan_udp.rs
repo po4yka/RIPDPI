@@ -32,6 +32,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
         let mut remaining_gap_packets = MAX_FAKE_BURST_COUNT;
 
+        let mut version_decoys_remaining = MAX_FAKE_BURST_COUNT;
         for mut step in chain {
             if !activation_filter_matches(step.activation_filter, context) {
                 continue;
@@ -73,6 +74,14 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                 continue;
             }
 
+            // Internal callers can bypass config admission; bound copies before allocation.
+            if step.kind == UdpChainStepKind::QuicVersionNegotiationDecoy {
+                step.count = step.count.min(version_decoys_remaining);
+                if step.count == 0 {
+                    continue;
+                }
+            }
+
             if let Some(action) = build_ip_fragmented_udp_action(step, payload, context, normalized_quic.as_ref()) {
                 actions.push(action);
                 wrote_original = true;
@@ -81,6 +90,9 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
 
             let prelude_packets =
                 build_udp_prelude_packets(group, payload, context, normalized_quic.as_ref(), step, &mut prelude_state);
+            if step.kind == UdpChainStepKind::QuicVersionNegotiationDecoy {
+                version_decoys_remaining -= prelude_packets.len() as i32;
+            }
             append_ttl_wrapped_packets(&mut actions, group, default_ttl, prelude_packets);
         }
     }

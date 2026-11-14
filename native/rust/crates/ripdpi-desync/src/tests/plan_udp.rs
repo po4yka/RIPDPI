@@ -1180,3 +1180,25 @@ fn dummy_prepend_skips_oversized_hosts_and_packets() {
         assert_eq!(actions, vec![DesyncAction::Write(payload.clone())]);
     }
 }
+
+#[test]
+fn plan_udp_bounds_quic_version_decoy_copies_across_steps() {
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("budget.example.test")).expect("input");
+    for counts in [vec![65], vec![32, 33], vec![i32::MAX, i32::MAX]] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.udp_chain = counts
+            .into_iter()
+            .map(|count| UdpChainStep::new(UdpChainStepKind::QuicVersionNegotiationDecoy, count))
+            .collect();
+        let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+        let writes = actions
+            .iter()
+            .filter_map(|action| match action {
+                DesyncAction::Write(bytes) => Some(bytes),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(writes.len(), 65, "64 decoys and original");
+        assert_eq!(writes.last().copied(), Some(&payload));
+    }
+}

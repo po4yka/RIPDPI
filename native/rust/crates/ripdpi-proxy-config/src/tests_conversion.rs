@@ -1326,3 +1326,22 @@ fn ui_payload_limits_dummy_prepend_counts() {
         assert!(err.to_string().contains("64"));
     }
 }
+
+#[test]
+fn ui_payload_bounds_quic_version_decoy_counts_and_combined_repeats() {
+    for count in [-1, 65, i32::MAX] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps = vec![udp_step("quic_version_negotiation_decoy", count)];
+        assert!(runtime_config_from_payload(ui_payload(ui)).is_err(), "count {count}");
+    }
+    for counts in [vec![0], vec![64], vec![32, 32]] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps =
+            counts.into_iter().map(|count| udp_step("quic_version_negotiation_decoy", count)).collect();
+        runtime_config_from_payload(ui_payload(ui)).expect("bounded decoy repeats");
+    }
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps =
+        vec![udp_step("quic_version_negotiation_decoy", 32), udp_step("quic_version_negotiation_decoy", 33)];
+    assert!(runtime_config_from_payload(ui_payload(ui)).is_err());
+}

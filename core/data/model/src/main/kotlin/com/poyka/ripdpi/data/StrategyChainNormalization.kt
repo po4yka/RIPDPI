@@ -85,7 +85,12 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
 
 fun normalizeUdpChainStepModel(step: UdpChainStepModel): UdpChainStepModel =
     step.copy(
-        count = if (step.kind == UdpChainStepKind.IpFrag2Udp) 0 else step.count.coerceAtLeast(0),
+        count =
+            when (step.kind) {
+                UdpChainStepKind.IpFrag2Udp -> 0
+                UdpChainStepKind.QuicVersionNegotiationDecoy -> step.count
+                else -> step.count.coerceAtLeast(0)
+            },
         splitBytes =
             if (step.kind == UdpChainStepKind.IpFrag2Udp) {
                 roundIpFragmentBoundary(step.splitBytes)

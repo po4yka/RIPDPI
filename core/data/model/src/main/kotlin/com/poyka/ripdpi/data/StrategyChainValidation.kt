@@ -152,6 +152,11 @@ internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
         }
         remainingGapPackets -= step.count
     }
+    val versionDecoyCount =
+        normalized.filter { it.kind == UdpChainStepKind.QuicVersionNegotiationDecoy }.sumOf { it.count.toLong() }
+    require(versionDecoyCount <= MaxFakeBurstCount) {
+        "quic_version_negotiation_decoy combined count must be at most $MaxFakeBurstCount"
+    }
     if (normalized.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
         require(normalized.size == 1) { "ipfrag2_udp must be the only udp chain step" }
     }
@@ -230,6 +235,11 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
     validateNoTcpStatePredicates(step.activationFilter, "${step.kind.wireName} activationFilter")
     require(step.kind != UdpChainStepKind.QuicCryptoSplit || step.count <= MaxFakeBurstCount) {
         "quic_crypto_split count must be at most $MaxFakeBurstCount"
+    }
+    if (step.kind == UdpChainStepKind.QuicVersionNegotiationDecoy) {
+        require(step.count in 0..MaxFakeBurstCount) {
+            "quic_version_negotiation_decoy count must be between 0 and $MaxFakeBurstCount"
+        }
     }
     when (step.kind) {
         UdpChainStepKind.FakeBurst,

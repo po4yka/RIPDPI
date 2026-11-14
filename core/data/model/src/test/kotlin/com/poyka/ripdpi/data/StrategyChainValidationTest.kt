@@ -129,4 +129,26 @@ class StrategyChainValidationTest {
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull()?.message?.contains("quic_crypto_split") == true)
     }
+
+    @Test
+    fun `QUIC version decoy repeats have a per chain budget`() {
+        val kind = UdpChainStepKind.QuicVersionNegotiationDecoy
+        for (count in listOf(-1, 65, Int.MAX_VALUE)) {
+            assertTrue(
+                "count $count",
+                runCatching { validateUdpChain(listOf(UdpChainStepModel(count, kind))) }.isFailure,
+            )
+        }
+        for (counts in listOf(listOf(0), listOf(64), listOf(32, 32))) {
+            validateUdpChain(counts.map { UdpChainStepModel(it, kind) })
+        }
+        assertTrue(
+            runCatching {
+                validateUdpChain(listOf(UdpChainStepModel(32, kind), UdpChainStepModel(33, kind)))
+            }.isFailure,
+        )
+        validateUdpChain(
+            listOf(UdpChainStepModel(64, kind), UdpChainStepModel(65, UdpChainStepKind.QuicSniSplit)),
+        )
+    }
 }

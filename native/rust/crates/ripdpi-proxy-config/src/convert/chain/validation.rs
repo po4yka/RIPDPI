@@ -146,6 +146,16 @@ pub(crate) fn validate_udp_chain(steps: &[UdpChainStep]) -> Result<(), ProxyConf
         }
         remaining_gap_packets -= step.count;
     }
+    let mut repeats = 0i32;
+    for step in steps.iter().filter(|step| step.kind == UdpChainStepKind::QuicVersionNegotiationDecoy) {
+        repeats = repeats.saturating_add(step.count);
+        if repeats > ripdpi_config::MAX_FAKE_BURST_COUNT {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "udpChainSteps quic_version_negotiation_decoy combined count must be at most {}",
+                ripdpi_config::MAX_FAKE_BURST_COUNT
+            )));
+        }
+    }
     Ok(())
 }
 
