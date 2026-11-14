@@ -125,6 +125,17 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
 }
 
 pub(crate) fn validate_udp_chain(steps: &[UdpChainStep]) -> Result<(), ProxyConfigError> {
+    if steps.iter().any(|step| {
+        step.kind != UdpChainStepKind::IpFrag2Udp
+            && (step.ipv6_hop_by_hop
+                || step.ipv6_dest_opt
+                || step.ipv6_dest_opt2
+                || step.ipv6_frag_next_override.is_some())
+    }) {
+        return Err(ProxyConfigError::InvalidConfig(
+            "udpChainSteps ipv6ExtensionProfile is only supported for kind=ipfrag2_udp".to_string(),
+        ));
+    }
     let dummy_count = steps
         .iter()
         .filter(|step| step.kind == UdpChainStepKind::DummyPrepend)

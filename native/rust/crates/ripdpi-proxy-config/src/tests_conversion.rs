@@ -635,6 +635,66 @@ fn ui_payload_rejects_unknown_ipv6_extension_profile() {
 }
 
 #[test]
+fn ui_payload_rejects_udp_ipv6_profiles_without_ipfrag2() {
+    for kind in [
+        "fake_burst",
+        "dummy_prepend",
+        "quic_sni_split",
+        "quic_fake_version",
+        "quic_crypto_split",
+        "quic_padding_ladder",
+        "quic_cid_churn",
+        "quic_packet_number_gap",
+        "quic_version_negotiation_decoy",
+        "quic_multi_initial_realistic",
+    ] {
+        for profile in ["hopByHop", "hopByHop2", "destOpt", "hopByHopDestOpt"] {
+            let mut ui = minimal_ui();
+            let mut step = udp_step(kind, 1);
+            step.ipv6_extension_profile = profile.to_string();
+            ui.chains.udp_steps = vec![step];
+
+            let error = runtime_config_from_payload(ui_payload(ui)).expect_err("IPv6 profile without ipfrag2_udp");
+
+            assert!(
+                error.to_string().contains("ipv6ExtensionProfile is only supported for kind=ipfrag2_udp"),
+                "{kind}: {profile}: {error}"
+            );
+        }
+        for profile in ["none", "", "  none  "] {
+            let mut ui = minimal_ui();
+            let mut step = udp_step(kind, 1);
+            step.ipv6_extension_profile = profile.to_string();
+            ui.chains.udp_steps = vec![step];
+            assert!(runtime_config_from_payload(ui_payload(ui)).is_ok(), "{kind}: {profile}");
+        }
+    }
+}
+
+#[test]
+fn ui_payload_preserves_udp_ipfrag2_ipv6_profiles() {
+    for (profile, expected) in [
+        ("none", (false, false, false)),
+        ("", (false, false, false)),
+        ("hopByHop", (true, false, false)),
+        ("hopByHop2", (true, false, true)),
+        ("destOpt", (false, true, false)),
+        ("hopByHopDestOpt", (true, true, false)),
+    ] {
+        let mut ui = minimal_ui();
+        let mut step = udp_step("ipfrag2_udp", 0);
+        step.split_bytes = 8;
+        step.ipv6_extension_profile = profile.to_string();
+        ui.chains.udp_steps = vec![step];
+
+        let config = runtime_config_from_payload(ui_payload(ui)).expect("supported IPv6 profile");
+        let step = config.groups[0].actions.udp_chain[0];
+
+        assert_eq!((step.ipv6_hop_by_hop, step.ipv6_dest_opt, step.ipv6_dest_opt2), expected, "{profile}");
+    }
+}
+
+#[test]
 fn legacy_flat_ui_json_is_rejected() {
     let err = parse_proxy_config_json(
         &serde_json::json!({
