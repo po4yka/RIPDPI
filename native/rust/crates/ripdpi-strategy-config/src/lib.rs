@@ -42,6 +42,8 @@ pub enum StrategyConfigError {
     HostListPathEscape { reference: String },
     #[error("unsupported strategy config version {0}")]
     UnsupportedVersion(u32),
+    #[error("unsupported ipv6_ext ext_type {0}; expected hopbyhop or destopts")]
+    UnsupportedIpv6ExtensionType(String),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -358,6 +360,11 @@ fn load_raw(raw: RawConfig, base_dir: &Path) -> Result<LoadedStrategyConfig, Str
         .strategies
         .into_iter()
         .map(|strategy| {
+            for step in &strategy.steps {
+                if step.kind == StepType::Ipv6Ext && step.ext_type.as_deref() == Some("routing") {
+                    return Err(StrategyConfigError::UnsupportedIpv6ExtensionType("routing".to_owned()));
+                }
+            }
             let hosts = resolve_hosts(strategy.matcher.hosts, base_dir)?;
             Ok(LoadedStrategy {
                 id: strategy.id,

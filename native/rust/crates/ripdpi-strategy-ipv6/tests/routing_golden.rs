@@ -3,14 +3,25 @@ mod common;
 use ripdpi_strategy_ipv6::{Ipv6ExtType, apply_ipv6_ext_header};
 
 #[test]
-fn routing_injection_uses_routing_outer_header() {
+fn routing_injection_is_rejected() {
     let packet = common::ipv6_tcp_packet();
+    assert_eq!(apply_ipv6_ext_header(&packet, Ipv6ExtType::Routing), None);
+}
 
-    let output = apply_ipv6_ext_header(&packet, Ipv6ExtType::Routing).expect("inject routing");
+#[test]
+fn routing_strategy_returns_configuration_error_without_actions() {
+    use ripdpi_strategy_ipv6::Ipv6ExtHdrStrategy;
+    use ripdpi_strategy_trait::{ConnectionState, DesyncPlan, DesyncStrategy, Dissect, StrategyError};
 
-    assert_eq!(output[6], 43);
-    assert_eq!(&output[40..48], &[6, 0, 4, 0, 0, 0, 0, 0]);
-    assert_eq!(&output[48..], &packet[40..]);
+    let strategy = Ipv6ExtHdrStrategy::new(Ipv6ExtType::Routing);
+    let packet = common::ipv6_tcp_packet();
+    let dissect = Dissect { is_ipv6: true, ..Dissect::default() };
+    let conn = ConnectionState::default();
+    let caps = common::vpn_caps();
+    let ctx = common::vpn_ipv6_context(&dissect, &conn, &caps, &packet);
+    let mut plan = DesyncPlan::default();
+    assert!(matches!(strategy.plan(&ctx, &mut plan), Err(StrategyError::InvalidConfig(_))));
+    assert!(plan.actions.is_empty());
 }
 
 #[test]

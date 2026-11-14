@@ -26,7 +26,7 @@ pub enum Ipv6ExtType {
     /// Destination options header.
     #[default]
     DestOpts,
-    /// Routing header.
+    /// Routing header. This variant is not supported for injection.
     Routing,
 }
 
@@ -58,6 +58,9 @@ impl DesyncStrategy for Ipv6ExtHdrStrategy {
     }
 
     fn plan(&self, ctx: &StrategyContext<'_>, plan: &mut DesyncPlan) -> Result<StrategyPlanOutcome, StrategyError> {
+        if self.ext_type == Ipv6ExtType::Routing {
+            return Err(StrategyError::InvalidConfig("ipv6_ext routing is not supported".to_owned()));
+        }
         if !self.matches(ctx) {
             return Ok(StrategyPlanOutcome::Skipped);
         }
@@ -95,13 +98,14 @@ pub fn apply_ipv6_ext_header(packet: &[u8], ext_type: Ipv6ExtType) -> Option<Vec
     if packet.len() < IPV6_HEADER_LEN + payload_len_usize || payload_len_usize < min_tcp_header_len(packet) {
         return None;
     }
+    let extension = extension_header(ext_type)?;
     let next_payload_len = payload_len.checked_add(EXT_HEADER_LEN as u16)?;
 
     let mut output = Vec::with_capacity(IPV6_HEADER_LEN + usize::from(next_payload_len));
     output.extend_from_slice(&packet[..IPV6_HEADER_LEN]);
     output[IPV6_PAYLOAD_LEN_OFFSET..IPV6_PAYLOAD_LEN_OFFSET + 2].copy_from_slice(&next_payload_len.to_be_bytes());
     output[IPV6_NEXT_HEADER_OFFSET] = ext_type.next_header();
-    output.extend_from_slice(&extension_header(ext_type));
+    output.extend_from_slice(&extension);
     output.extend_from_slice(&packet[IPV6_HEADER_LEN..IPV6_HEADER_LEN + payload_len_usize]);
 
     let tcp_offset = IPV6_HEADER_LEN + EXT_HEADER_LEN;
@@ -163,7 +167,7 @@ static IPV6_EXT_REGISTRATION: StrategyStepRegistration = StrategyStepRegistratio
         required_tier: CapabilityTier::Tier3,
         required_capabilities: &[RuntimeCapability::VpnMode],
         needs_parameters: true,
-        parameter_schema: "ext_type: hopbyhop|destopts|routing (default destopts)",
+        parameter_schema: "ext_type: hopbyhop|destopts (default destopts; routing unsupported)",
     },
     factory: StrategyStepFactory::Configured(build_ipv6_ext),
 };
@@ -188,10 +192,10 @@ impl Ipv6ExtType {
     }
 }
 
-fn extension_header(ext_type: Ipv6ExtType) -> [u8; EXT_HEADER_LEN] {
+fn extension_header(ext_type: Ipv6ExtType) -> Option<[u8; EXT_HEADER_LEN]> {
     match ext_type {
-        Ipv6ExtType::HopByHop | Ipv6ExtType::DestOpts => [TCP_NEXT_HEADER, 0, 1, 4, 0, 0, 0, 0],
-        Ipv6ExtType::Routing => [TCP_NEXT_HEADER, 0, 4, 0, 0, 0, 0, 0],
+        Ipv6ExtType::HopByHop | Ipv6ExtType::DestOpts => Some([TCP_NEXT_HEADER, 0, 1, 4, 0, 0, 0, 0]),
+        Ipv6ExtType::Routing => None,
     }
 }
 
