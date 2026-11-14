@@ -6,12 +6,12 @@ Bound synthetic QUIC Initial generation and preserve packet integrity before the
 
 ### Requirement: REQ-CID-BUDGET — Bound CID churn work
 
-The implementation MUST reject CID churn counts outside 0..64 and cumulative CID churn counts above 64 in a configured chain. The planner MUST also bound internally constructed chains to 64 CID churn decoys. Other steps retain their current behavior.
+The implementation MUST reject effective CID churn counts outside 0..64 and cumulative CID churn counts above 64 in a configured chain. The planner MUST also bound internally constructed chains to 64 CID churn decoys. Other steps retain their current behavior.
 
 #### Scenario: Excessive configuration
 
 - **WHEN** a chain contains count 65, i32 maximum, or two CID churn counts whose sum exceeds 64
-- **THEN** Kotlin and native validation reject it before packet generation.
+- **THEN** Kotlin and native validation reject it before packet generation. Existing Kotlin normalization of negative counts to zero remains unchanged.
 
 #### Scenario: Internal defensive bound
 
@@ -29,12 +29,12 @@ The implementation MUST use distinct DCIDs across all CID churn decoys in one pl
 
 ### Requirement: REQ-CID-LENGTH — Exact padded Initial size
 
-The implementation MUST account for the final QUIC Length field width when padding an Initial. A target that can contain the unpadded packet MUST produce that exact datagram size, including transition-gap values and 65507 bytes. A valid maximum IPv4 input MUST NOT gain bytes in its CID churn prelude.
+For targets representable without changing the unpadded payload, the builder MUST emit the exact size. Otherwise it MUST retain the payload and emit the smallest valid size above the target. Synthetic CID churn for a valid 65507-byte IPv4 input MUST stay within 65507 bytes.
 
 #### Scenario: Varint and transport boundaries
 
 - **WHEN** an Initial is generated at a Length width boundary or at the IPv4 UDP payload maximum
-- **THEN** the emitted packet has the requested size, independent decoding succeeds, and loopback execution sends decoys followed by the unchanged original.
+- **THEN** the packet has the exact target when representable, otherwise the smallest valid size above it; independent decoding succeeds, and the 65507-byte loopback case sends decoys followed by the unchanged original.
 
 ### Requirement: REQ-CID-SCOPE — Preserve activation and transport limits
 

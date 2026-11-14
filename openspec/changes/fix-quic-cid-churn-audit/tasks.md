@@ -14,7 +14,7 @@ Run targeted core:data:model unit tests, locked Cargo tests for config/desync/pa
 
 ## Execution
 
-- [ ] ENG-1794638032319330 Bound CID churn configuration and planner work with regression tests #bug !high @item:ENG-1794637897912969
-- [ ] ENG-1794638033677169 Make CID churn IDs distinct across the generated plan and verify packet integrity #bug !high @item:ENG-1794637897912969
-- [ ] ENG-1794638037254859 Fix Initial padding width and verify maximum IPv4 loopback emission #bug !high @item:ENG-1794637897912969
-- [ ] ENG-1794638039475187 Review the combined fixes and run required integration gates #bug !high @item:ENG-1794637897912969
+- [x] ENG-1794638032319330 Bound CID churn configuration and planner work with regression tests #bug !high @item:ENG-1794637897912969
+- [x] ENG-1794638033677169 Make CID churn IDs distinct across the generated plan and verify packet integrity #bug !high @item:ENG-1794637897912969
+- [x] ENG-1794638037254859 Fix Initial padding width and verify maximum IPv4 loopback emission #bug !high @item:ENG-1794637897912969
+- [x] ENG-1794638039475187 Review the combined fixes and run required integration gates #bug !high @item:ENG-1794637897912969
