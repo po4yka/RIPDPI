@@ -1,7 +1,8 @@
+use rand::{TryCryptoRng, rngs::SysRng};
 use ripdpi_config::DesyncGroup;
-use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout, packetize_quic_initial};
+use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed, packetize_quic_initial};
 
-use super::super::quic::{NormalizedQuicPlannerInput, browser_like_quic_seed, packetize_browser_like_quic_initial};
+use super::super::quic::{NormalizedQuicPlannerInput, browser_like_quic_seed, browser_like_quic_seed_for};
 
 pub(super) fn build_quic_cid_churn_packets(
     group: &DesyncGroup,
@@ -31,23 +32,30 @@ pub(super) fn build_quic_packet_number_gap_packets(
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    if normalized_quic.is_none() {
+    let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
-    }
+    };
+    let Some(seed) = fresh_quic_gap_seed(group, normalized_quic.version, &mut SysRng) else {
+        return Vec::new();
+    };
 
     (0..count.max(1) as usize)
         .filter_map(|idx| {
-            let mut layout =
-                QuicInitialPacketLayout::contiguous(normalized_quic.map_or(1200, |quic| quic.datagram_len.max(1200)));
+            let mut layout = QuicInitialPacketLayout::contiguous(normalized_quic.datagram_len.max(1200));
             layout.packet_number = ((idx as u32) + 1) * 2;
-            packetize_browser_like_quic_initial(
-                group,
-                normalized_quic,
-                QuicInitialBrowserProfile::ChromeAndroid,
-                layout,
-            )
+            packetize_quic_initial(&seed, &layout)
         })
         .collect()
+}
+
+fn fresh_quic_gap_seed(group: &DesyncGroup, version: u32, rng: &mut impl TryCryptoRng) -> Option<QuicInitialSeed> {
+    // Packet numbers restart in each series, so its Initial keys must also change.
+    let mut entropy = [0u8; 32];
+    rng.try_fill_bytes(&mut entropy).ok()?;
+    let mut seed =
+        browser_like_quic_seed_for(group, version, &entropy[16..], QuicInitialBrowserProfile::ChromeAndroid)?;
+    seed.dcid = entropy[..16].to_vec();
+    Some(seed)
 }
 
 #[cfg(test)]
@@ -81,5 +89,31 @@ mod tests {
     #[test]
     fn quic_cid_churn_v2_does_not_repeat_at_zero_mask() {
         assert_distinct_cids(QUIC_V2_VERSION);
+    }
+
+    struct PartialEntropyFailure;
+
+    impl rand::TryRng for PartialEntropyFailure {
+        type Error = std::io::Error;
+
+        fn try_next_u32(&mut self) -> Result<u32, Self::Error> {
+            Err(std::io::Error::other("entropy unavailable"))
+        }
+
+        fn try_next_u64(&mut self) -> Result<u64, Self::Error> {
+            Err(std::io::Error::other("entropy unavailable"))
+        }
+
+        fn try_fill_bytes(&mut self, output: &mut [u8]) -> Result<(), Self::Error> {
+            output.fill(0xab);
+            Err(std::io::Error::other("entropy unavailable"))
+        }
+    }
+
+    impl rand::TryCryptoRng for PartialEntropyFailure {}
+
+    #[test]
+    fn no_gap_seed_after_entropy_failure() {
+        assert!(fresh_quic_gap_seed(&DesyncGroup::new(0), QUIC_V1_VERSION, &mut PartialEntropyFailure).is_none());
     }
 }
