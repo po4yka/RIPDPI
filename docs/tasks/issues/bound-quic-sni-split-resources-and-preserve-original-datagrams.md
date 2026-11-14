@@ -37,4 +37,4 @@ Reject excessive QUIC SNI split counts before activation and bound planner work.
 
 ## Validation status
 
-Both fixes are implemented in separate commits. Rebased Rust974 and Kotlin85 tests, strict Clippy, source gates and independent review passed. Full staticAnalysis is blocked by canonical Maven Central routing on this host. Keep this task in review; do not archive or close it as accepted until that gate is resolved.
+Both fixes are implemented in separate commits. Fresh rebase2 validation passed: 1021 Rust tests, 92 Kotlin model tests, strict Clippy, full staticAnalysis --offline, source gates, locked metadata and independent review. Earlier Maven routing and disk-capacity failures are resolved and retained as history. Verification records the exact tested source and remaining device/external scope. Main integration and push are the final delivery steps.
