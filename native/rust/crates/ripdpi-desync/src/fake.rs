@@ -66,28 +66,6 @@ fn fill_random_host_like(output: &mut [u8], rng: &mut OracleRng) {
     }
 }
 
-fn looks_like_ip_literal(value: &str) -> bool {
-    value.parse::<std::net::IpAddr>().is_ok()
-}
-
-fn normalize_fake_host_template(value: &str) -> Option<String> {
-    let trimmed = value.trim().trim_end_matches('.').to_ascii_lowercase();
-    if trimmed.is_empty() || trimmed.contains(':') || looks_like_ip_literal(&trimmed) {
-        return None;
-    }
-    if trimmed.starts_with('.') || trimmed.ends_with('.') || trimmed.contains("..") {
-        return None;
-    }
-    if trimmed.bytes().any(|byte| !(byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'.'))
-    {
-        return None;
-    }
-    if trimmed.split('.').any(|label| label.is_empty() || label.starts_with('-') || label.ends_with('-')) {
-        return None;
-    }
-    Some(trimmed)
-}
-
 /// Builds a fake hostname region and keeps TLS record headers between its fragments.
 /// Returns `None` when `span` does not match the hostname in `buffer`.
 pub fn build_hostfake_region_bytes(
@@ -122,7 +100,7 @@ pub fn build_hostfake_bytes(real_host: &[u8], template: Option<&str>, seed: u32,
     let mut output = vec![0; real_host.len()];
     fill_random_host_like(&mut output, &mut rng);
 
-    let Some(template) = template.and_then(normalize_fake_host_template) else {
+    let Some(template) = template.and_then(|value| ripdpi_config::normalize_fake_host_template(value).ok()) else {
         return output;
     };
     let suffix = template.as_bytes();
