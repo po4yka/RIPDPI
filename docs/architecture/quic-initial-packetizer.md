@@ -40,8 +40,9 @@ unchanged original datagram. The prelude uses the layout packet number and is
 expected to expire before the server. The client keeps ownership of packet
 numbers, ACK state and retransmission. Split input must contain a complete
 ClientHello in a UDP datagram of at least 1200 bytes. A split that exceeds the
-input datagram budget is skipped. An optional prelude send failure falls back
-to the original with explicit fallback evidence.
+input datagram budget is skipped. A local size or buffer error on an optional plain prelude send falls back
+to the original with explicit fallback evidence when the default TTL can be
+restored. Network/ICMP flow errors remain terminal.
 
 Production-facing families:
 

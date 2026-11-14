@@ -6,12 +6,12 @@ Keep QUIC CRYPTO split preludes bounded and preserve the original client data an
 
 ### Requirement: REQ-QUIC-ORIGINAL — Preserve original UDP sends
 
-An optional prelude MUST NOT suppress a usable original payload when its size exceeds the input budget or its send fails. Fallback receipts MUST NOT report Applied.
+An optional prelude MUST NOT suppress a usable original payload when its size exceeds the input budget or its send fails with a local size or buffer error. Fallback receipts MUST NOT report Applied. Other flow/network send errors remain terminal.
 
 #### Scenario: Preserve original UDP sends
 
-- **WHEN** a prelude exceeds the budget or fails before the original write
-- **THEN** the original is sent once with the normal TTL, or its own error is reported with accurate counters
+- **WHEN** a prelude exceeds the budget or has a local size or buffer error before the original write
+- **THEN** the original is sent once with the known normal TTL, or a TTL restoration or original-send error is reported with accurate counters
 
 ### Requirement: REQ-QUIC-TTL — Preserve fixed TTL policy
 
@@ -42,7 +42,7 @@ Kotlin and Rust parsing MUST accept only counts from zero through 64 and a combi
 
 ### Requirement: REQ-QUIC-MINIMUM — Reject short client Initial input
 
-The planner MUST NOT shape client Initial datagrams shorter than 1200 bytes. It MUST retain support for short packets coalesced inside a complete 1200-byte datagram.
+The CRYPTO split planner MUST NOT shape client Initial datagrams shorter than 1200 bytes. It MUST retain support for short packets coalesced inside a complete 1200-byte datagram.
 
 #### Scenario: Reject short client Initial input
 

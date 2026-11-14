@@ -9,7 +9,7 @@ DPI-19 is a low-TTL decoy prelude followed by the original datagram. Its packeti
 
 ## Decisions
 
-- Reject split packets larger than the input datagram in the shared input packetizer helper. Retain runtime protection when optional prelude sends fail; skip remaining decoys, restore TTL and send the pending original with explicit fallback evidence.
+- Reject split packets larger than the input datagram in the shared input packetizer helper. Retain runtime protection when optional plain prelude sends fail with local size or buffer errors; skip remaining decoys, restore the known default TTL and send the pending original with explicit fallback evidence. Network/ICMP flow errors remain terminal.
 - Copy fixed TTL policy when the UDP group is built. Do not add adaptive TTL behavior in this change.
 - Compare covered CRYPTO bytes before copy; reject conflicts instead of selecting last-wins semantics.
 - Limit each and combined CRYPTO split count to 64. Apply a remaining quota before packet cloning for typed planner callers. This bounds CRYPTO split output bytes to about 4 MiB at the accepted datagram limit.
