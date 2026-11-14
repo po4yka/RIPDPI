@@ -287,6 +287,9 @@ fn apply_prelude(
         info = ProtoInfo::default();
         init_proto_info(&output, &mut info);
     }
+    // Keep the original record layout when the override changes only the first header.
+    let prelude_state =
+        if prelude_steps.is_empty() { None } else { TlsPreludeState::from_record(&output, require_complete) };
     if let Some(tlsminor) = group.actions.tlsminor
         && info.tls.is_some()
         && is_tls_client_hello(&output)
@@ -299,7 +302,10 @@ fn apply_prelude(
     let mut applied_steps = Vec::new();
     if !prelude_steps.is_empty() {
         let mut rng = OracleRng::seeded(seed);
-        if let Some(mut state) = TlsPreludeState::from_record(&output, require_complete) {
+        if let Some(mut state) = prelude_state {
+            if let Some(tlsminor) = group.actions.tlsminor {
+                state.header[2] = tlsminor;
+            }
             for step in prelude_steps {
                 if !activation_filter_matches(step.activation_filter(), context) {
                     continue;
