@@ -2,7 +2,7 @@
 id: RST-1794677660326601
 title: Fix DPI-29 ordered TCP safety and ordering contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Primary integrator
