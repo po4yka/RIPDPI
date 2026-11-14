@@ -1133,7 +1133,7 @@ Source: %2$s</string>
     <string name="config_chain_step_disorder_explanation">Sends an early low-TTL segment before the real ordering.</string>
     <string name="config_chain_step_disorder_label">Disorder</string>
     <string name="config_chain_step_dummy_prepend_add">Add dummy</string>
-    <string name="config_chain_step_dummy_prepend_explanation">Prepends non-QUIC dummy datagrams.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">Prepends dummy packets to parsed QUIC Initial datagrams.</string>
     <string name="config_chain_step_dummy_prepend_label">Dummy prepend</string>
     <string name="config_chain_step_fake_add">Add fake</string>
     <string name="config_chain_step_fake_burst_add">Add UDP fake</string>

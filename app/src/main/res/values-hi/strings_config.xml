@@ -1128,7 +1128,7 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_disorder_explanation">वास्तविक क्रम से पहले एक प्रारंभिक कम-TTL सेगमेंट भेजता है।</string>
     <string name="config_chain_step_disorder_label">Disorder</string>
     <string name="config_chain_step_dummy_prepend_add">dummy जोड़ें</string>
-    <string name="config_chain_step_dummy_prepend_explanation">गैर-QUIC डमी डेटाग्राम सामने जोड़ता है।</string>
+    <string name="config_chain_step_dummy_prepend_explanation">पार्स किए गए QUIC Initial डेटाग्राम से पहले डमी पैकेट जोड़ता है।</string>
     <string name="config_chain_step_dummy_prepend_label">Dummy prepend</string>
     <string name="config_chain_step_fake_add">fake जोड़ें</string>
     <string name="config_chain_step_fake_burst_add">UDP fake जोड़ें</string>

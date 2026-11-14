@@ -1109,7 +1109,7 @@ Quelle: %2$s</string>
     <string name="config_chain_step_disorder_explanation">Sendet ein frühes Low-TTL-Segment vor der eigentlichen Reihenfolge.</string>
     <string name="config_chain_step_disorder_label">Disorder</string>
     <string name="config_chain_step_dummy_prepend_add">Dummy hinzufügen</string>
-    <string name="config_chain_step_dummy_prepend_explanation">Stellt Nicht-QUIC-Dummy-Datagramme voran.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">Stellt geparsten QUIC-Initial-Datagrammen Dummy-Pakete voran.</string>
     <string name="config_chain_step_dummy_prepend_label">Dummy-Prepend</string>
     <string name="config_chain_step_fake_add">Fake hinzufügen</string>
     <string name="config_chain_step_fake_burst_add">UDP-Fake hinzufügen</string>

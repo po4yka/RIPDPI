@@ -1105,7 +1105,7 @@ Fonte: %2$s</string>
     <string name="config_chain_step_disorder_explanation">Envia um segmento inicial com TTL baixo antes da ordenação real.</string>
     <string name="config_chain_step_disorder_label">Desordem</string>
     <string name="config_chain_step_dummy_prepend_add">Adicionar dummy</string>
-    <string name="config_chain_step_dummy_prepend_explanation">Antepõe datagramas dummy que não são QUIC.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">Antepõe pacotes fictícios aos datagramas QUIC Initial analisados.</string>
     <string name="config_chain_step_dummy_prepend_label">Prefixo dummy</string>
     <string name="config_chain_step_fake_add">Adicionar fake</string>
     <string name="config_chain_step_fake_burst_add">Adicionar fake UDP</string>

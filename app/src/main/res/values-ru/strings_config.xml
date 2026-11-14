@@ -1063,7 +1063,7 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_disorder_explanation">Отправляет ранний сегмент с низким TTL до реального порядка.</string>
     <string name="config_chain_step_disorder_label">Разупорядочивание</string>
     <string name="config_chain_step_dummy_prepend_add">Добавить заглушку</string>
-    <string name="config_chain_step_dummy_prepend_explanation">Добавляет в начало фиктивные не-QUIC датаграммы.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">Добавляет фиктивные пакеты перед разобранными датаграммами QUIC Initial.</string>
     <string name="config_chain_step_dummy_prepend_label">Заглушка в начале</string>
     <string name="config_chain_step_fake_add">Добавить fake</string>
     <string name="config_chain_step_fake_burst_add">Добавить UDP fake</string>

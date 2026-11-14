@@ -1107,7 +1107,7 @@ fake_burst 3</string>
     <string name="config_chain_step_disorder_explanation">在真实排序之前发送一个早到的低 TTL 分段。</string>
     <string name="config_chain_step_disorder_label">乱序</string>
     <string name="config_chain_step_dummy_prepend_add">添加假数据</string>
-    <string name="config_chain_step_dummy_prepend_explanation">在前面预置非 QUIC 的假数据报。</string>
+    <string name="config_chain_step_dummy_prepend_explanation">在已解析的 QUIC Initial 数据报前添加虚拟数据包。</string>
     <string name="config_chain_step_dummy_prepend_label">前置假数据</string>
     <string name="config_chain_step_fake_add">添加伪造</string>
     <string name="config_chain_step_fake_burst_add">添加 UDP 伪造</string>

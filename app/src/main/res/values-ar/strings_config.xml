@@ -1113,7 +1113,7 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_disorder_explanation">يرسل مقطعًا مبكرًا منخفض TTL قبل الترتيب الحقيقي.</string>
     <string name="config_chain_step_disorder_label">فوضى</string>
     <string name="config_chain_step_dummy_prepend_add">إضافة dummy</string>
-    <string name="config_chain_step_dummy_prepend_explanation">يضيف مخططات بيانات وهمية غير QUIC في المقدمة.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">يضيف حزمًا وهمية قبل مخططات بيانات QUIC Initial التي تم تحليلها.</string>
     <string name="config_chain_step_dummy_prepend_label">إضافة وهمية مسبقة</string>
     <string name="config_chain_step_fake_add">إضافة fake</string>
     <string name="config_chain_step_fake_burst_add">إضافة UDP وهمي</string>

@@ -1109,7 +1109,7 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_disorder_explanation">پیش از ترتیب واقعی، یک قطعهٔ زودهنگام با TTL پایین می‌فرستد.</string>
     <string name="config_chain_step_disorder_label">بی‌نظمی</string>
     <string name="config_chain_step_dummy_prepend_add">افزودن dummy</string>
-    <string name="config_chain_step_dummy_prepend_explanation">دیتاگرام‌های ساختگی غیر-QUIC را در ابتدا می‌افزاید.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">بسته‌های ساختگی را پیش از دیتاگرام‌های QUIC Initial تجزیه‌شده اضافه می‌کند.</string>
     <string name="config_chain_step_dummy_prepend_label">افزودن ساختگی در ابتدا</string>
     <string name="config_chain_step_fake_add">افزودن fake</string>
     <string name="config_chain_step_fake_burst_add">افزودن fake برای UDP</string>

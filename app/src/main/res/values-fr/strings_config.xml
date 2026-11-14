@@ -1109,7 +1109,7 @@ Source : %2$s</string>
     <string name="config_chain_step_disorder_explanation">Envoie un segment précoce à TTL bas avant l\'ordonnancement réel.</string>
     <string name="config_chain_step_disorder_label">Désordre</string>
     <string name="config_chain_step_dummy_prepend_add">Ajouter un leurre</string>
-    <string name="config_chain_step_dummy_prepend_explanation">Préfixe des datagrammes leurres non-QUIC.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">Ajoute des paquets factices avant les datagrammes QUIC Initial analysés.</string>
     <string name="config_chain_step_dummy_prepend_label">Préfixe leurre</string>
     <string name="config_chain_step_fake_add">Ajouter un faux</string>
     <string name="config_chain_step_fake_burst_add">Ajouter un faux UDP</string>

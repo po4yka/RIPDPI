@@ -1109,7 +1109,7 @@ Origen: %2$s</string>
     <string name="config_chain_step_disorder_explanation">Envía un segmento temprano de TTL bajo antes del orden real.</string>
     <string name="config_chain_step_disorder_label">Desorden</string>
     <string name="config_chain_step_dummy_prepend_add">Añadir señuelo</string>
-    <string name="config_chain_step_dummy_prepend_explanation">Antepone datagramas señuelo no QUIC.</string>
+    <string name="config_chain_step_dummy_prepend_explanation">Antepone paquetes señuelo a datagramas QUIC Initial analizados.</string>
     <string name="config_chain_step_dummy_prepend_label">Anteponer señuelo</string>
     <string name="config_chain_step_fake_add">Añadir fake</string>
     <string name="config_chain_step_fake_burst_add">Añadir fake UDP</string>
