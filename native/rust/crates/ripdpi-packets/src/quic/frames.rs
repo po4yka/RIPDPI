@@ -141,7 +141,16 @@ pub(super) fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool
     let mut covered = vec![false; max_end];
     for frame in frames {
         let end = frame.crypto_offset + frame.data_len;
-        data[frame.crypto_offset..end].copy_from_slice(&payload[frame.data_offset..frame.data_offset + frame.data_len]);
+        let bytes = &payload[frame.data_offset..frame.data_offset + frame.data_len];
+        if data[frame.crypto_offset..end]
+            .iter()
+            .zip(&covered[frame.crypto_offset..end])
+            .zip(bytes)
+            .any(|((previous, received), incoming)| *received && previous != incoming)
+        {
+            return None;
+        }
+        data[frame.crypto_offset..end].copy_from_slice(bytes);
         covered[frame.crypto_offset..end].fill(true);
     }
 

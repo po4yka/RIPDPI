@@ -619,15 +619,21 @@ fn build_quic_initial_from_tls_rejects_empty() {
 }
 
 #[test]
-fn defrag_overlapping_frames_uses_last_write_wins() {
-    // Two frames that overlap: [0..3] "ABC" and [1..4] "XYZ"
-    let mut payload = make_crypto_frame(0, b"ABC");
-    payload.extend(make_crypto_frame(1, b"XYZ"));
-    let (data, complete) = defrag_quic_crypto_frames(&payload).expect("overlap");
-    assert!(complete);
-    assert_eq!(data.len(), 4);
-    // Second frame overwrites bytes 1..4
-    assert_eq!(&data[1..4], b"XYZ");
+fn defrag_rejects_conflicting_overlaps_in_either_order() {
+    let first = make_crypto_frame(0, b"ABC");
+    let second = make_crypto_frame(1, b"XYZ");
+    for payload in [[first.as_slice(), second.as_slice()].concat(), [second.as_slice(), first.as_slice()].concat()] {
+        assert!(defrag_quic_crypto_frames(&payload).is_none());
+    }
+}
+
+#[test]
+fn defrag_matching_overlaps_preserve_bytes_in_either_order() {
+    let first = make_crypto_frame(0, b"ABC");
+    let second = make_crypto_frame(1, b"BCD");
+    for payload in [[first.as_slice(), second.as_slice()].concat(), [second.as_slice(), first.as_slice()].concat()] {
+        assert_eq!(defrag_quic_crypto_frames(&payload), Some((b"ABCD".to_vec(), true)));
+    }
 }
 
 #[test]

@@ -94,6 +94,64 @@ fn coalesced_initials_cannot_mix_connection_or_version_contexts() {
 }
 
 #[test]
+fn conflicting_crypto_overlaps_cannot_produce_an_initial_seed() {
+    let conflicting_byte = [HELLO[10] ^ 1];
+    let original = make_crypto_frame(0, HELLO);
+    let conflicting = make_crypto_frame(10, &conflicting_byte);
+    for version in [QUIC_V1_VERSION, QUIC_V2_VERSION] {
+        for plaintext in [
+            [original.as_slice(), conflicting.as_slice()].concat(),
+            [conflicting.as_slice(), original.as_slice()].concat(),
+        ] {
+            let packet = build_quic_initial_raw(version, &QUIC_FAKE_DCID, &QUIC_FAKE_SCID, &[], plaintext, 1200, 0)
+                .expect("authenticated overlapping CRYPTO");
+            assert!(parse_quic_initial(&packet).is_none());
+            assert!(parse_quic_initial_layout(&packet).is_none());
+            assert!(parse_quic_initial_seed(&packet).is_none());
+        }
+    }
+}
+
+#[test]
+fn coalesced_crypto_retransmissions_preserve_the_complete_client_hello() {
+    let conflicting_byte = [HELLO[130] ^ 1];
+    for version in [QUIC_V1_VERSION, QUIC_V2_VERSION] {
+        let first = build_quic_initial_raw(
+            version,
+            &QUIC_FAKE_DCID,
+            &QUIC_FAKE_SCID,
+            &[],
+            make_crypto_frame(0, &HELLO[..160]),
+            600,
+            0,
+        )
+        .expect("first Initial");
+        let retransmission = make_crypto_frame(120, &HELLO[120..]);
+        for conflict in [false, true] {
+            let mut plaintext = retransmission.clone();
+            if conflict {
+                plaintext.extend(make_crypto_frame(130, &conflicting_byte));
+            }
+            let second = build_quic_initial_raw(version, &QUIC_FAKE_DCID, &QUIC_FAKE_SCID, &[], plaintext, 600, 1)
+                .expect("retransmitted CRYPTO Initial");
+            for datagram in
+                [[first.as_slice(), second.as_slice()].concat(), [second.as_slice(), first.as_slice()].concat()]
+            {
+                if conflict {
+                    assert!(parse_quic_initial(&datagram).is_none());
+                    assert!(parse_quic_initial_seed(&datagram).is_none());
+                } else {
+                    let parsed = parse_quic_initial(&datagram).expect("matching CRYPTO overlap");
+                    assert_eq!(parsed.client_hello, HELLO);
+                    let seed = parse_quic_initial_seed(&datagram).expect("complete seed");
+                    assert_eq!(&seed.client_hello[TLS_RECORD_HEADER_LEN..], HELLO);
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn ack_only_initial_and_short_header_tail_keep_the_same_client_hello() {
     for packet in COALESCED {
         let version = u32::from_be_bytes(packet[1..5].try_into().unwrap());
