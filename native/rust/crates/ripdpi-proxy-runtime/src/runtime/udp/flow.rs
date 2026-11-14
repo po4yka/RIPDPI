@@ -45,7 +45,7 @@ pub(super) struct UdpFlowActivationState {
     pub(super) host: Option<String>,
     pub(super) payload: Vec<u8>,
     pub(super) awaiting_response: bool,
-    /// An upstream response arrived on the current target. Later client datagrams then
+    /// A response attributed to real traffic arrived on the current target. Later client datagrams then
     /// never re-arm `awaiting_response`, so idle expiry cannot judge the flow unanswered.
     pub(super) answered: bool,
     pub(super) upstream: UdpSocket,
@@ -122,7 +122,7 @@ pub(super) fn expire_udp_flows(
         let Some(mut entry) = flow_state.remove(key) else {
             continue;
         };
-        if !entry.is_active(state) || !entry.awaiting_response {
+        if !entry.is_active(state) || !entry.awaiting_response || !entry.session.feedback_is_eligible() {
             continue;
         }
         if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {

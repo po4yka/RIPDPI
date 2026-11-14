@@ -63,11 +63,16 @@ pub(super) fn pump_udp_upstream_responses(
                 } else {
                     &upstream_buffer[..n]
                 };
-                entry.last_used = Instant::now();
-                entry.session.observe_upstream_response(response);
-                entry.answered = true;
-                note_udp_first_response_success(state, entry)?;
-                maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
+                let matches_outbound = entry.session.response_matches_outbound(response);
+                if matches_outbound || !entry.session.feedback_is_eligible() {
+                    entry.last_used = Instant::now();
+                }
+                if matches_outbound {
+                    entry.session.observe_upstream_response(response);
+                    entry.answered = true;
+                    note_udp_first_response_success(state, entry)?;
+                    maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
+                }
                 if key.preserve_host_in_response
                     && let Some(host) = entry.host.as_deref()
                 {
@@ -197,8 +202,8 @@ pub(super) fn send_udp_flow_payload(
     entry.last_used = now;
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
-    entry.awaiting_response = !entry.answered;
     let progress = entry.session.observe_datagram_outbound(payload);
+    entry.awaiting_response = !entry.answered && entry.session.feedback_is_eligible();
     if let Some(flow) = &entry.lua_flow
         && let Some(plan) =
             flow.plan(entry.upstream.local_addr()?, entry.current_target, "udp", payload, entry.host.as_deref(), None)?
@@ -213,7 +218,8 @@ pub(super) fn send_udp_flow_payload(
             &plan,
         )
         .map_err(ripdpi_proxy_runtime_adapter::udp_desync::UdpExecutionError::into_io_error)?;
-        entry.awaiting_response = !entry.answered && outcome.real_writes_committed > 0;
+        entry.awaiting_response =
+            !entry.answered && entry.session.feedback_is_eligible() && outcome.real_writes_committed > 0;
         return Ok(());
     }
     let actions = state.plan_udp_flow_actions(
