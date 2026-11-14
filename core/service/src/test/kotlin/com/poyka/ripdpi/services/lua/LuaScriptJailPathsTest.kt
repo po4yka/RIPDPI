@@ -8,6 +8,13 @@ import java.nio.file.Files
 
 class LuaScriptJailPathsTest {
     @Test
+    fun `bundled dependencies do not change custom script paths`() {
+        assertEquals(listOf("zapret-lib.lua", "zapret-antidpi.lua"), luaStrategyScriptPaths("zapret-antidpi.lua"))
+        assertEquals(listOf("candidate.lua"), luaStrategyScriptPaths("candidate.lua"))
+        assertEquals(listOf("custom/zapret-antidpi.lua"), luaStrategyScriptPaths("custom/zapret-antidpi.lua"))
+    }
+
+    @Test
     fun `lua script path is stored relative to the jail the runtime loads from`() {
         val root = Files.createTempDirectory("lua-jail").toFile()
         try {

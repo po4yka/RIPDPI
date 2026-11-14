@@ -49,3 +49,7 @@ fun relativizeLuaScriptPaths(
 
 private fun String.isScriptPathsItem(keyIndent: Int): Boolean =
     trimStart().startsWith("-") && length - trimStart().length >= keyIndent
+
+/** The bundled strategy library calls helpers from zapret-lib.lua. Custom scripts stay standalone. */
+fun luaStrategyScriptPaths(scriptPath: String): List<String> =
+    if (scriptPath == "zapret-antidpi.lua") listOf("zapret-lib.lua", scriptPath) else listOf(scriptPath)

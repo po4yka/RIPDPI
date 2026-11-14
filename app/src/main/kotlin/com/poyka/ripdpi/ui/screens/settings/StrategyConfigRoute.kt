@@ -23,6 +23,7 @@ import com.poyka.ripdpi.services.NativeStrategyConfigRuntime
 import com.poyka.ripdpi.services.StrategyConfigRuntime
 import com.poyka.ripdpi.services.lua.LuaAssetManager
 import com.poyka.ripdpi.services.lua.luaJailRelativeScriptPath
+import com.poyka.ripdpi.services.lua.luaStrategyScriptPaths
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -556,7 +557,12 @@ private fun luaRuntimeValidationBanner(
             context.getString(R.string.strategy_config_native_unavailable)
         } else {
             baseDir.fold(
-                onSuccess = { dir -> runtime.loadLuaScript(dir, path) },
+                onSuccess = { dir ->
+                    val relative = luaJailRelativeScriptPath(dir, path) ?: path
+                    luaStrategyScriptPaths(relative).firstNotNullOfOrNull { script ->
+                        runtime.loadLuaScript(dir, File(dir, script).path)
+                    }
+                },
                 onFailure = { strategyConfigInternalErrorMessage(context) },
             )
         }
@@ -569,6 +575,7 @@ private fun luaRuntimeValidationBanner(
             )
         }
 
+        // The editor VM is process-global; activation loads the saved paths into a separate VM.
         runtime?.listLuaStrategies()?.none { it == function } != false -> {
             StrategyConfigBanner(
                 title = context.getString(R.string.strategy_config_invalid_title),
@@ -626,16 +633,22 @@ internal fun luaStrategyConfigYaml(
     function: String,
     scriptPath: String,
 ): String =
-    """
-    version: 1
-    strategies:
-      - id: "${yamlQuote("lua:$function")}"
-        steps:
-          - type: lua
-            function: "${yamlQuote(function)}"
-            script_paths:
-              - "${yamlQuote(scriptPath)}"
-    """.trimIndent()
+    buildString {
+        append(
+            """
+            version: 1
+            strategies:
+              - id: "${yamlQuote("lua:$function")}"
+                steps:
+                  - type: lua
+                    function: "${yamlQuote(function)}"
+                    script_paths:
+            """.trimIndent(),
+        )
+        luaStrategyScriptPaths(scriptPath).forEach { path ->
+            append("\n          - \"${yamlQuote(path)}\"")
+        }
+    }
 
 private fun yamlQuote(value: String): String =
     value

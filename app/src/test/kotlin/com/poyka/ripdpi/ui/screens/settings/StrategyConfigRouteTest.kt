@@ -43,6 +43,26 @@ class StrategyConfigRouteTest {
     }
 
     @Test
+    fun `bundled strategy YAML loads its helper library first`() {
+        val yaml = luaStrategyConfigYaml("http_domcase", "zapret-antidpi.lua")
+
+        assertEquals(
+            """
+            version: 1
+            strategies:
+              - id: "lua:http_domcase"
+                steps:
+                  - type: lua
+                    function: "http_domcase"
+                    script_paths:
+                      - "zapret-lib.lua"
+                      - "zapret-antidpi.lua"
+            """.trimIndent(),
+            yaml,
+        )
+    }
+
+    @Test
     fun `save cleanup failure banner never exposes a raw internal path`() =
         runTest {
             val rawPath = "/data/user/0/com.poyka.ripdpi/no_backup/private.json"
