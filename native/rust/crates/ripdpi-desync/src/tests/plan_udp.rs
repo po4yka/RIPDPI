@@ -614,7 +614,9 @@ fn plan_udp_quic_decoys_stay_within_a_1500_byte_path() {
     for kind in [UdpChainStepKind::QuicPaddingLadder, UdpChainStepKind::QuicMultiInitialRealistic] {
         for (count, built) in [(1, 1), (4, 4), (31, 31), (max, max as usize), (1000, max as usize)] {
             // The multi-initial step always builds at least two decoys.
-            let built = if kind == UdpChainStepKind::QuicMultiInitialRealistic { built.max(2) } else { built };
+            let built = if kind == UdpChainStepKind::QuicMultiInitialRealistic {
+                if count > ripdpi_config::MAX_QUIC_MULTI_INITIAL_COUNT { 0 } else { built.max(2) }
+            } else { built };
             for quic_fake_host in [None, Some(long_host.clone())] {
                 let mut group = DesyncGroup::new(0);
                 group.actions.quic_fake_host = quic_fake_host.clone();
@@ -638,6 +640,10 @@ fn plan_udp_quic_decoys_stay_within_a_1500_byte_path() {
 
                     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
+                    if built == 0 {
+                        assert_eq!(actions, vec![DesyncAction::Write(payload.clone())]);
+                        continue;
+                    }
                     let lengths = actions[1..=built]
                         .iter()
                         .map(|action| match action {
@@ -650,7 +656,11 @@ fn plan_udp_quic_decoys_stay_within_a_1500_byte_path() {
                     assert_eq!(writes, built + 1, "{case}");
                     let ceiling = input_len.max(1452);
                     assert!(lengths.iter().all(|&len| (1200..=ceiling).contains(&len)), "{case}");
-                    assert!(lengths.windows(2).all(|pair| pair[0] < pair[1]), "{case}");
+                    if kind == UdpChainStepKind::QuicMultiInitialRealistic {
+                        assert_eq!(lengths, vec![1200; built], "{case}");
+                    } else {
+                        assert!(lengths.windows(2).all(|pair| pair[0] < pair[1]), "{case}");
+                    }
                 }
             }
         }

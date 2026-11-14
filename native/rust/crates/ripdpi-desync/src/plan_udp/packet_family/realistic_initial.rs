@@ -2,7 +2,7 @@ use ripdpi_config::{DesyncGroup, MAX_QUIC_PADDING_LADDER_COUNT};
 use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout};
 
 use super::super::quic::{
-    NormalizedQuicPlannerInput, QuicDecoyBasis, packetize_browser_like_quic_initial, packetize_decoy_for_basis,
+    NormalizedQuicPlannerInput, QuicDecoyBasis, packetize_decoy_for_basis,
     packetize_synthetic_quic_initial,
     quic_browser_profile_for_index,
 };
@@ -67,19 +67,18 @@ pub(super) fn build_quic_multi_initial_realistic_packets(
         return Vec::new();
     };
 
-    let count = count.clamp(2, MAX_QUIC_PADDING_LADDER_COUNT);
-    let rungs = (0..count as usize).map(|idx| idx * 8).collect::<Vec<_>>();
-    let lengths = decoy_datagram_lengths(Some(normalized_quic.datagram_len), &rungs);
-    lengths
-        .into_iter()
-        .enumerate()
-        .filter_map(|(idx, len)| {
-            packetize_synthetic_quic_initial(
-                group,
-                normalized_quic,
-                quic_browser_profile_for_index(idx),
-                numbered_layout(len, idx),
-            )
+    // A local input does not establish the remote PMTU. PADDING fills the
+    // minimum QUIC budget; index-based growth must not expand that budget.
+    (0..count.max(2) as usize)
+        .filter_map(|idx| {
+            let layout = QuicInitialPacketLayout::contiguous(QUIC_MIN_INITIAL_DATAGRAM);
+            let packet =
+                packetize_synthetic_quic_initial(group, normalized_quic, quic_browser_profile_for_index(idx), layout)?;
+            (packet.len() <= QUIC_MIN_INITIAL_DATAGRAM).then_some(packet)
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "realistic_initial_tests.rs"]
+mod tests;

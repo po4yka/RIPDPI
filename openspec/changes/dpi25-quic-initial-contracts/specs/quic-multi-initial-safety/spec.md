@@ -42,7 +42,7 @@ Kotlin and native config validation MUST reject per-step or aggregate DPI-25 cou
 
 ### Requirement: REQ-DPI25-SIZE — Bound encoded size
 
-Each decoy MUST fit the 1200-byte encoded datagram budget when no remote PMTU is known. Index padding MUST stay within that budget. A seed that cannot fit MUST be omitted without losing the original.
+Each decoy MUST fit the 1200-byte encoded datagram budget when no remote PMTU is known. PADDING MUST fill this fixed budget instead of increasing datagram size by index. A seed that cannot fit MUST be omitted without losing the original.
 
 #### Scenario: A large local input does not prove remote PMTU
 

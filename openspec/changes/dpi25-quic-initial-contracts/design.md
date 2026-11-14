@@ -12,7 +12,7 @@ See proposal.md and portfolio ENG-1794638006879351. The strategy is a synthetic 
 - Reuse the existing protocol-correct probe ClientHello helper through a used explicit-CID seed API. Keep frozen legacy builders and hash tests unchanged.
 - Use independent connections for alternating profiles. A single stream cannot carry different ClientHello messages at the same CRYPTO offset.
 - Keep a count limit of 32 for each step and for the entire DPI-25 chain. Fail before allocation for invalid internal models.
-- Use the conservative 1200-byte QUIC datagram size without remote PMTU evidence. Bound the final encoded packet, not only its requested minimum.
+- Use the conservative 1200-byte QUIC datagram size without remote PMTU evidence. PADDING fills that fixed size; remove index-based length growth. Check the final encoded packet, not only its requested minimum.
 - Propagate fixed/adaptive TTL and use the existing resolver. Do not train adaptive TTL from relay outcomes where no prelude ran.
 
 ## Contracts and ownership
