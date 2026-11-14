@@ -1,9 +1,9 @@
 ---
 task_id: ENG-1794638006879351
 change: dpi25-quic-initial-contracts
-commit_sha: 5cc3d66283a19621deada6f96aaffe28d7704b53
+commit_sha: d5e3cad075ac4a592a8c9da5536157f9e961cb5e
 local: blocked
-local_evidence: 966 owning Rust tests and 11 owning Kotlin tests passed. Build, wire oracle, ci-gates, architecture health, locked metadata and separate review passed. Full staticAnalysis is blocked by missing shared-cache files and Maven Central No route to host; the single online recovery restored Kotlin tests but not full static analysis.
+local_evidence: 974 owning Rust tests and 12 owning Kotlin tests passed. Build, wire oracle, ci-gates, architecture health, locked metadata and separate review passed. Full staticAnalysis is blocked by missing shared-cache files and Maven Central No route to host; one online recovery restored Kotlin tests but not full static analysis. The final landing batch passed all nine executed stages; full staticAnalysis was not repeated after the last main sync.
 remote_ci: not_applicable
 remote_ci_evidence: Local acceptance owns these source gates. No hosted CI result is claimed; the authorized main push can start hosted checks.
 device: not_applicable
@@ -31,11 +31,11 @@ deployment_evidence: No release or deployment is owned by this change.
 
 | Finding | Commit | Change |
 |---|---|---|
-| F1 | 178beffb33 | Build a separate valid synthetic QUIC seed instead of using the TCP TLS template on the DPI-25 path |
-| F2 | c4b513c8ce | Give each alternating decoy an independent connection and fresh seed/CIDs |
-| F3 | 07398ce468 | Preserve fixed/adaptive UDP TTL and consume the existing resolver result |
-| F4 | 86c4a2c35c | Bound each step and the aggregate DPI-25 chain at 32 packets across Kotlin, native conversion and planner |
-| F5 | f7d47d01ee | Check actual encoded length against the fixed 1200-byte unknown-PMTU budget |
+| F1 | b92d741908 | Build a separate valid synthetic QUIC seed instead of using the TCP TLS template on the DPI-25 path |
+| F2 | 1f28a337dd | Give each alternating decoy an independent connection and fresh seed/CIDs |
+| F3 | 9afd285cc4 | Preserve fixed/adaptive UDP TTL and consume the existing resolver result |
+| F4 | f76801971c | Bound each step and the aggregate DPI-25 chain at 32 packets across Kotlin, native conversion and planner |
+| F5 | 70510ee9fb | Check actual encoded length against the fixed 1200-byte unknown-PMTU budget |
 
 The combined tree preserves the concurrent CRYPTO split, CID churn, DummyPrepend and padding ladder repairs. The ladder keeps its own connection basis, numbered packets and length checks. The integration removes one duplicate fixed-TTL assignment; adaptive TTL remains present.
 
@@ -58,11 +58,11 @@ cargo metadata --locked --format-version 1
 | Suite | Passed | Failed / ignored / filtered |
 |---|---:|---|
 | ripdpi-config | 191 | 0 / 0 / 0 |
-| ripdpi-desync | 225 | 0 / 0 / 0 |
-| ripdpi-packets | 317 | 0 / 0 / 0 |
-| ripdpi-proxy-config | 183 | 0 / 0 / 0 |
+| ripdpi-desync | 226 | 0 / 0 / 0 |
+| ripdpi-packets | 323 | 0 / 0 / 0 |
+| ripdpi-proxy-config | 184 | 0 / 0 / 0 |
 | ripdpi-proxy-runtime-desync-adapter | 50 | 0 / 0 / 0 |
-| Total | 966 | 0 / 0 / 0 |
+| Total | 974 | 0 / 0 / 0 |
 
 Commands from the checkout root:
 
@@ -79,9 +79,9 @@ python3 scripts/ci/check_architecture_health.py
 just checkout-doctor
 ```
 
-The Rust checks, build, owning Kotlin test, ci-gates, architecture and locked metadata returned exit 0. The copied recovery JUnit XML reports 11 tests and no errors, failures or skipped tests. Rust API snapshots match. No baseline was expanded. Commit hooks passed strict Clippy for the changed Rust crates and formatting checks.
+The Rust checks, build, owning Kotlin test, ci-gates, architecture and locked metadata returned exit 0. The copied landing JUnit XML reports 12 tests and no errors, failures or skipped tests. Rust API snapshots match. No baseline was expanded. Commit hooks passed strict Clippy for the changed Rust crates and formatting checks.
 
-The final full staticAnalysis did not pass. Its first offline run found missing shared Gradle transforms and dependencies. One online retry with a fresh configuration restored the Kotlin test gate, but staticAnalysis stopped after 252 tasks because Maven Central returned `No route to host` for the gson 2.8.9 POM and kotlin-stdlib-common 2.2.21 POM. The failed tasks include `:core:service:checkDebugTestFixturesAarMetadata` and `:app:loadKtlintReporters`. This result establishes an environment blocker, not a source defect. Exact errors are in `recovery-static-analysis.log` and exit codes in `release-status.json` and `recovery-status.json`. No dependency version, repository or trust setting was changed.
+The most recent full staticAnalysis attempt did not pass. It preceded the last main sync; the gate was not repeated on the final landing tree because the dependency-resolution blocker remains unresolved. Its first offline run found missing shared Gradle transforms and dependencies. One online retry with a fresh configuration restored the Kotlin test gate, but staticAnalysis stopped after 252 tasks because Maven Central returned `No route to host` for the gson 2.8.9 POM and kotlin-stdlib-common 2.2.21 POM. The failed tasks include `:core:service:checkDebugTestFixturesAarMetadata` and `:app:loadKtlintReporters`. This result establishes an environment blocker, not a source defect. Exact errors are in `recovery-static-analysis.log` and exit codes in `release-status.json` and `recovery-status.json`. No dependency version, repository or trust setting was changed.
 
 The earlier combined tree passed full staticAnalysis in 3m03s with 827 tasks; this result is historical and is not transferred to the final rebased tree. The next required check is the same full staticAnalysis command above when Maven Central is reachable. Keep the task in review with local acceptance blocked; do not archive it as fully accepted.
 
@@ -89,7 +89,7 @@ Earlier shared-target API errors were not used as acceptance. The final source g
 
 ## Independent wire acceptance
 
-Persistent scratch evidence is under `/Users/npochaev/GitHub/RIPDPI-dpi25-repairs/.audit-dpi25/`. It is outside the committed application source. The final batch is the release validation script; individual exit codes are in `release-status.json` and `release-status.tsv`. The sole Gradle retry is recorded in `recovery-status.json`.
+Persistent scratch evidence is under `/Users/npochaev/GitHub/RIPDPI-dpi25-repairs/.audit-dpi25/`. It is outside the committed application source. The final batch is the landing validation script; individual exit codes are in `landing-status.json` and `landing-status.tsv`. Its nine executed stages all passed. Strict Clippy covers all five packages with `--locked --jobs 4 --all-targets --no-deps -- -D warnings`; full staticAnalysis is a separate blocked gate. The sole Gradle retry is recorded in `recovery-status.json`.
 
 The normal Cargo JSON identifies the exact linked libraries. `compile.py` links an external public-caller harness against those artifacts. The harness uses production UI config conversion, group selection, planning and the actual UDP emitter over connected loopback sockets. It does not use a recorded-call fake.
 
@@ -108,7 +108,7 @@ The matrix is v1/v2 × IPv4/IPv6 × counts 0/1/2/3/32 × direct/SOCKS relay: 40 
 | Byte-identical direct originals | 20 |
 | SOCKS frames containing byte-identical originals | 20 |
 
-Raw data: `v1_input.bin`, `v2_input.bin` and the 196 `*_relay*.bin` outputs. `release-decoded.json` records decoded fields, receiver events and SHA-256 values. `release-linked-artifacts.json` records library hashes. `release-rust-tests.log`, `recovery-kotlin-gradle.log`, the copied recovery JUnit XML, `recovery-static-analysis.log`, `release-ci-gates.log` and release architecture/metadata files preserve the gate evidence.
+Raw data: `v1_input.bin`, `v2_input.bin` and the 196 `*_relay*.bin` outputs. `landing-decoded.json` records decoded fields, receiver events and SHA-256 values. `landing-linked-artifacts.json` records library hashes. `landing-rust-tests.log`, `landing-kotlin-gradle.log`, the copied landing JUnit XML, `landing-clippy.log`, `recovery-static-analysis.log`, `landing-ci-gates.log` and landing architecture/metadata files preserve the gate evidence.
 
 ## Evidence limits and remaining checks
 
