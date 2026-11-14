@@ -78,6 +78,15 @@ fn fake_sni_change_still_applies_to_valid_captured_client_hello() {
 }
 
 #[test]
+fn fixed_fake_sni_applies_to_default_compat_profile() {
+    let real = real_client_hello();
+    let mut group = group(FakePacketSource::Profile, false, true);
+    group.actions.tls_fake_profile = TlsFakeProfile::CompatDefault;
+    let fake = build_fake_packet(&group, &real, 7).expect("fake");
+    assert_eq!(sni_of(&fake.bytes).as_deref(), Some(DECOY_SNI.as_bytes()));
+}
+
+#[test]
 fn hostfake_longer_template_keeps_a_valid_host_shape() {
     for (host, template) in [("a.ru", "googlevideo.com"), ("x.io", "a-b.example")] {
         let out = build_hostfake_bytes(host.as_bytes(), Some(template), 5, false);

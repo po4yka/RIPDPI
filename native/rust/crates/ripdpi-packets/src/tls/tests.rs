@@ -414,6 +414,75 @@ fn change_tls_sni_replaces_hostname() {
     assert_eq!(sni.unwrap().len(), new_host.len(), "SNI length should match new host length");
 }
 
+/// Independent walker: record, handshake, random, session id, ciphers,
+/// compression, then the extension list. Returns the SNI and the extension types.
+fn walk_sni(bytes: &[u8]) -> Option<(Vec<u8>, Vec<u16>)> {
+    let u16_at = |at: usize| Some(usize::from(u16::from_be_bytes([*bytes.get(at)?, *bytes.get(at + 1)?])));
+    let mut at = 5 + 4 + 2 + 32;
+    at += 1 + usize::from(*bytes.get(at)?);
+    at += 2 + u16_at(at)?;
+    at += 1 + usize::from(*bytes.get(at)?);
+    let end = at + 2 + u16_at(at)?;
+    if end != bytes.len() {
+        return None;
+    }
+    at += 2;
+    let (mut sni, mut kinds) = (None, Vec::new());
+    while at < end {
+        let (kind, len) = (u16_at(at)?, u16_at(at + 2)?);
+        if at + 4 + len > end {
+            return None;
+        }
+        if kind == 0 {
+            let name_len = u16_at(at + 4 + 3)?;
+            sni = Some(bytes.get(at + 9..at + 9 + name_len)?.to_vec());
+        }
+        kinds.push(u16::try_from(kind).ok()?);
+        at += 4 + len;
+    }
+    Some((sni?, kinds))
+}
+
+#[test]
+fn change_tls_sni_rewrites_every_builtin_fake_profile() {
+    use crate::fake_profiles::{TlsFakeProfile::*, tls_fake_profile_bytes};
+    let profiles = [
+        CompatDefault,
+        IanaFirefox,
+        GoogleChrome,
+        GoogleChromeHrr,
+        VkChrome,
+        SberbankChrome,
+        RutrackerKyber,
+        BigsizeIana,
+    ];
+    for profile in profiles {
+        let input = tls_fake_profile_bytes(profile);
+        for host in [&b"a.io"[..], b"www.iana.org", b"a-much-longer-decoy.example.net"] {
+            for capacity in [input.len(), input.len() + 64] {
+                let out = change_tls_sni_seeded_like_c(input, host, capacity, 3);
+                let ctx = format!("{profile:?} host={} cap={capacity}", String::from_utf8_lossy(host));
+                if out.rc != 0 {
+                    // Only a longer host with no spare bytes may be refused.
+                    assert!(host.len() > 17 && capacity == input.len(), "{ctx}: rc={}", out.rc);
+                    assert_eq!(out.bytes, input, "{ctx}: failure must keep input");
+                    continue;
+                }
+                let (sni, kinds) = walk_sni(&out.bytes).unwrap_or_else(|| panic!("{ctx}: output not well-formed"));
+                assert_eq!(sni.len(), host.len(), "{ctx}");
+                assert_eq!(read_u16(&out.bytes, 3).unwrap(), out.bytes.len() - 5, "{ctx}");
+                assert_eq!(read_u24(&out.bytes, 6).unwrap() + 4, read_u16(&out.bytes, 3).unwrap(), "{ctx}");
+                assert!(out.bytes.len() <= capacity, "{ctx}");
+                // A shorter host frees bytes; a padding extension absorbs them so the length
+                // is kept. Profiles without padding may end up shorter than the capacity.
+                if capacity == input.len() && host.len() < 8 && kinds.contains(&0x0015) {
+                    assert_eq!(out.bytes.len(), capacity, "{ctx}");
+                }
+            }
+        }
+    }
+}
+
 #[test]
 fn change_tls_sni_rejects_a_following_record_without_losing_bytes() {
     let mut input = include_bytes!("../../tests/fixtures/curl_tls13_example_com.bin").to_vec();
