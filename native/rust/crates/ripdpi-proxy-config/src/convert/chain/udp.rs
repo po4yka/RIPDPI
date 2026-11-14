@@ -26,12 +26,21 @@ pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyC
 
 pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec<UdpChainStep>, ProxyConfigError> {
     let mut parsed = Vec::with_capacity(steps.len());
+    let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
     for step in steps {
         if step.count < 0 {
             return Err(ProxyConfigError::InvalidConfig("udpChainSteps count must be non-negative".to_string()));
         }
 
         let kind = parse_udp_chain_step_kind(&step.kind)?;
+        if kind == UdpChainStepKind::QuicCidChurn {
+            if step.count > cid_churn_budget {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "udpChainSteps quic_cid_churn total count must be at most {MAX_FAKE_BURST_COUNT}"
+                )));
+            }
+            cid_churn_budget -= step.count;
+        }
         if kind == UdpChainStepKind::FakeBurst && step.count > MAX_FAKE_BURST_COUNT {
             return Err(ProxyConfigError::InvalidConfig(format!(
                 "udpChainSteps kind=fake_burst count must be at most {MAX_FAKE_BURST_COUNT}"
@@ -78,3 +87,6 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
     }
     Ok(parsed)
 }
+
+#[cfg(test)]
+mod budget_tests;

@@ -124,6 +124,11 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
 internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
     val normalized = steps.map(::normalizeUdpChainStepModel)
     normalized.forEach(::validateUdpStepOptions)
+    require(
+        normalized.sumOf { step ->
+            if (step.kind == UdpChainStepKind.QuicCidChurn) step.count.toLong() else 0L
+        } <= MaxFakeBurstCount,
+    ) { "quic_cid_churn total count must be at most $MaxFakeBurstCount" }
     val dummyCount = normalized.filter { it.kind == UdpChainStepKind.DummyPrepend }.sumOf { it.count.toLong() }
     require(dummyCount <= MaxDummyPrependCount) { "dummy_prepend total count must be at most $MaxDummyPrependCount" }
     if (normalized.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {

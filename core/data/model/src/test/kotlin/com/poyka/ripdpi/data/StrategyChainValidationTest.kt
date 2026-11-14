@@ -49,4 +49,28 @@ class StrategyChainValidationTest {
             )
         }
     }
+
+    @Test
+    fun `CID churn count and chain total stay within the budget`() {
+        for (count in listOf(0, 1, 64)) {
+            val chain = parseStrategyChainDsl("[udp]\nquic_cid_churn $count").getOrThrow()
+            assertEquals(count, chain.udpSteps.single().count)
+        }
+        for (count in listOf(65, Int.MAX_VALUE)) {
+            assertTrue(parseStrategyChainDsl("[udp]\nquic_cid_churn $count").isFailure)
+        }
+        assertTrue(parseStrategyChainDsl("[udp]\nquic_cid_churn 32\nquic_cid_churn 33").isFailure)
+        assertTrue(parseStrategyChainDsl("[udp]\nquic_cid_churn 32\nquic_cid_churn 32").isSuccess)
+    }
+
+    @Test
+    fun `CID churn model counts cannot exceed the budget`() {
+        for (count in listOf(65, Int.MAX_VALUE)) {
+            val result =
+                runCatching {
+                    validateUdpChain(listOf(UdpChainStepModel(count = count, kind = UdpChainStepKind.QuicCidChurn)))
+                }
+            assertTrue("count $count", result.isFailure)
+        }
+    }
 }

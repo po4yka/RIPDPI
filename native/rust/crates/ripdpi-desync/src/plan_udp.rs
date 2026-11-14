@@ -28,6 +28,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         let normalized_quic = normalized_quic_plan_input(payload);
         let mut prelude_state = UdpPreludeState::default();
         let mut dummy_prepend_remaining = MAX_DUMMY_PREPEND_COUNT;
+        let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
 
         for mut step in chain {
             if !activation_filter_matches(step.activation_filter, context) {
@@ -39,6 +40,13 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
             if step.kind == UdpChainStepKind::DummyPrepend {
                 step.count = step.count.min(dummy_prepend_remaining);
                 dummy_prepend_remaining -= step.count;
+                if step.count == 0 {
+                    continue;
+                }
+            }
+            if step.kind == UdpChainStepKind::QuicCidChurn {
+                step.count = step.count.min(cid_churn_budget);
+                cid_churn_budget -= step.count;
                 if step.count == 0 {
                     continue;
                 }
@@ -94,3 +102,6 @@ fn adjusted_udp_burst_count(base_count: i32, context: ActivationContext) -> i32 
         AdaptiveUdpBurstProfile::Aggressive => base_count.saturating_add(1).min(16).max(base_count),
     }
 }
+
+#[cfg(test)]
+mod budget_tests;
