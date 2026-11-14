@@ -30,6 +30,9 @@ pub(super) struct NormalizedQuicPlannerInput {
 }
 
 pub(super) fn normalized_quic_plan_input(payload: &[u8]) -> Option<NormalizedQuicPlannerInput> {
+    if payload.len() < 1200 {
+        return None;
+    }
     let ir = normalize_quic_initial(payload)?;
     let seed = parse_quic_initial_seed(payload)?;
     let client_hello_len = ir.tls_client_hello.raw.len();

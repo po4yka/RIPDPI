@@ -391,6 +391,28 @@ fn quic_crypto_split_keeps_the_original_when_framing_exceeds_its_budget() {
 }
 
 #[test]
+fn quic_crypto_split_declines_short_initial_datagrams() {
+    let mut seed = ripdpi_packets::parse_quic_initial_seed(include_bytes!(
+        "../../../ripdpi-packets/tests/fixtures/quic-initial/token-v1.bin"
+    ))
+    .expect("independent complete ClientHello");
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::QuicCryptoSplit, 1)];
+    for version in [ripdpi_packets::QUIC_V1_VERSION, QUIC_V2_VERSION] {
+        seed.version = version;
+        for len in [300, 1199] {
+            let payload = ripdpi_packets::packetize_quic_initial(
+                &seed,
+                &ripdpi_packets::QuicInitialPacketLayout::contiguous(len),
+            )
+            .expect("complete Initial with short datagram");
+            assert_eq!(payload.len(), len);
+            assert_eq!(plan_udp(&group, &payload, 64, udp_context(&payload)), vec![DesyncAction::Write(payload)],);
+        }
+    }
+}
+
+#[test]
 fn plan_udp_quic_multi_initial_realistic_uses_builtin_host_when_no_override_is_set() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {
@@ -986,7 +1008,8 @@ fn round_default_does_not_gate_other_udp_steps() {
     let mut step = fake_burst_step();
     step.kind = UdpChainStepKind::QuicPaddingLadder;
     group.actions.udp_chain = vec![step];
-    let payload = rust_packet_seeds::quic_initial_with_host(1, "docs.example.test");
+    let payload = build_realistic_quic_initial(ripdpi_packets::QUIC_V1_VERSION, Some("docs.example.test"))
+        .expect("complete 1200-byte Initial");
 
     let first = plan_udp(&group, &payload, 64, udp_context(&payload));
     let later = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 3));
