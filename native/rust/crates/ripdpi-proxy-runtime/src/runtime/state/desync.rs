@@ -238,6 +238,7 @@ fn runtime_desync_execution_receipt(receipt: &TcpExecutionReceipt) -> Option<Des
         receipt.fallback_reason.and_then(runtime_desync_fallback_reason),
         receipt.terminal_reason.and_then(runtime_desync_terminal_reason),
     )
+    .map(|projected| projected.with_http_mutated(receipt.http_mutated))
 }
 
 fn runtime_tls_prelude_evidence(receipt: &TcpExecutionReceipt) -> Option<Option<DesyncTlsPreludeEvidence>> {
@@ -356,6 +357,18 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
     use ripdpi_proxy_runtime_adapter::udp_desync::UdpExecutionFallbackReason;
     use std::sync::Arc;
+
+    #[test]
+    fn http_mutation_result_survives_failed_runtime_receipt_projection() {
+        for http_mutated in [None, Some(false), Some(true)] {
+            let mut source =
+                TcpExecutionReceipt::failed_strategy_execution(None, 1, 0, 0, 0, 0, TcpTerminalReason::Transport);
+            source.http_mutated = http_mutated;
+            let receipt = runtime_desync_execution_receipt(&source).expect("failure receipt");
+            assert_eq!(receipt.http_mutated(), http_mutated);
+            assert_eq!(receipt.disposition(), DesyncExecutionDisposition::ExecutionFailed);
+        }
+    }
 
     #[test]
     fn lua_socket_receipt_reaches_runtime_evidence() {

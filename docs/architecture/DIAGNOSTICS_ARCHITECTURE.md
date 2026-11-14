@@ -354,11 +354,14 @@ and transport, never on the runner or the monitor engine.
 
 ## Wire contract & golden discipline
 
-`DIAGNOSTICS_ENGINE_SCHEMA_VERSION` (`ripdpi-diagnostics-contracts/src/wire.rs`,
-currently `5`) versions the `ScanRequest`/`ScanReport`/progress payloads. The
-JVM `DiagnosticsContractGovernanceTest` and `ripdpi-monitor-engine`'s
-`tests/contract_fixtures.rs` are golden contracts — a payload-shape change
-requires a schema bump and a supervised re-bless. See
+`DIAGNOSTICS_ENGINE_SCHEMA_VERSION` in
+`native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs` versions the
+`ScanRequest`/`ScanReport`/progress payloads. New fields need compatibility
+defaults. Optional additive fields can preserve the current schema version when
+old payloads and omitted-field output remain compatible. Breaking shape changes
+require a schema bump and an authorized golden update, as defined in the owning
+[`ripdpi-diagnostics-contracts` README](../../native/rust/crates/ripdpi-diagnostics-contracts/README.md).
+The JVM `DiagnosticsContractGovernanceTest` checks the shared contract. See
 [`CONFIG_CONTRACTS.md`](CONFIG_CONTRACTS.md) §9 and
 [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md).
 

@@ -787,6 +787,7 @@ pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::connect
 pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::disposition: ripdpi_diagnostics_contracts::types::StrategyExecutionDisposition
 pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::effective_family: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyExecutionFamily>
 pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::fallback_reason: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyFallbackReason>
+pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::http_mutated: core::option::Option<bool>
 pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::marker_base: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyOffsetMarkerBase>
 pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::marker_delta: core::option::Option<i16>
 pub ripdpi_diagnostics_contracts::types::StrategyDesyncExecutionReceipt::payload_bytes_committed: u16

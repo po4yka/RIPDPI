@@ -145,6 +145,7 @@ fn plan_tcp_with_fake_reference(
 ) -> Result<DesyncPlan, DesyncError> {
     if !tcp_group_activation_matches(group, context) {
         return Ok(DesyncPlan {
+            http_mutated: (group.actions.mod_http != 0).then_some(false),
             tampered: input.to_vec(),
             steps: Vec::new(),
             proto: ProtoInfo::default(),
@@ -185,7 +186,14 @@ fn plan_tcp_with_fake_reference(
         if steps.is_empty() {
             actions.push(DesyncAction::Write(tampered.bytes.clone()));
         }
-        return Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions, tls_prelude });
+        return Ok(DesyncPlan {
+            http_mutated: tampered.http_mutated,
+            tampered: tampered.bytes,
+            steps,
+            proto: info,
+            actions,
+            tls_prelude,
+        });
     }
 
     for (source_send_step_index, step) in send_steps.iter().enumerate() {
@@ -335,5 +343,12 @@ fn plan_tcp_with_fake_reference(
         actions.push(DesyncAction::Write(tampered.bytes[lp as usize..].to_vec()));
     }
 
-    Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions, tls_prelude })
+    Ok(DesyncPlan {
+        http_mutated: tampered.http_mutated,
+        tampered: tampered.bytes,
+        steps,
+        proto: info,
+        actions,
+        tls_prelude,
+    })
 }

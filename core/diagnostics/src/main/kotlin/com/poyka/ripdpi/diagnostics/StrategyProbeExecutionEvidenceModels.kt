@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -143,6 +144,9 @@ data class StrategyDesyncExecutionReceipt(
     val udpIpv6ExtensionProfile: StrategyUdpIpv6ExtensionProfile? = null,
     val fallbackReason: StrategyFallbackReason? = null,
     val terminalReason: StrategyTerminalReason? = null,
+    // HTTP transformation only; null also covers unknown legacy evidence.
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val httpMutated: Boolean? = null,
 )
 
 @Serializable

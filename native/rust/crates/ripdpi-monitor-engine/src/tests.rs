@@ -62,6 +62,7 @@ impl DirectCandidateRuntime {
             .cloned()
             .map(|attempt_token| {
                 let receipt = crate::types::StrategyDesyncExecutionReceipt {
+                    http_mutated: None,
                     connection_ordinal: 1,
                     transport: crate::types::StrategyExecutionTransport::Tcp,
                     disposition: crate::types::StrategyExecutionDisposition::Applied,

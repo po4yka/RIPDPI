@@ -142,6 +142,8 @@ pub enum TcpFallbackReason {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct TcpExecutionReceipt {
+    /// HTTP transformation only; None means unconfigured or unknown legacy evidence, not delivery.
+    pub http_mutated: Option<bool>,
     pub disposition: TcpExecutionDisposition,
     pub configured_family: Option<TcpStrategyFamily>,
     pub effective_family: Option<TcpStrategyFamily>,
@@ -212,6 +214,7 @@ impl TcpExecutionReceipt {
     ) -> Self {
         let (marker_base, marker_delta) = plan_marker(group, plan);
         Self {
+            http_mutated: plan.http_mutated,
             disposition: TcpExecutionDisposition::Applied,
             configured_family: configured_family.map(TcpStrategyFamily::from_token),
             effective_family: effective_family.map(TcpStrategyFamily::from_token),
@@ -248,6 +251,7 @@ impl TcpExecutionReceipt {
         ));
         let (marker_base, marker_delta) = configured_marker(group);
         Self {
+            http_mutated: (group.actions.mod_http != 0).then_some(false),
             disposition,
             configured_family: configured_family.map(TcpStrategyFamily::from_token),
             effective_family: None,
@@ -296,6 +300,7 @@ impl TcpExecutionReceipt {
         terminal_reason: TcpTerminalReason,
     ) -> Self {
         Self {
+            http_mutated: None,
             disposition: TcpExecutionDisposition::ExecutionFailed,
             configured_family: strategy_family.map(TcpStrategyFamily::from_token),
             effective_family: strategy_family.map(TcpStrategyFamily::from_token),
@@ -335,6 +340,7 @@ impl TcpExecutionReceipt {
             .unwrap_or_else(|| Self::failed_strategy_execution(configured_family, 0, 0, 0, 0, 0, terminal_reason));
         let observed_write = usize::from(source.payload_bytes_committed > 0);
         Self {
+            http_mutated: plan.http_mutated,
             disposition: TcpExecutionDisposition::ExecutionFailed,
             configured_family: configured_family.map(TcpStrategyFamily::from_token),
             effective_family: effective_family.map(TcpStrategyFamily::from_token),

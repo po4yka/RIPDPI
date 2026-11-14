@@ -16,6 +16,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -28,6 +29,30 @@ class DiagnosticsWireContractTest {
             encodeDefaults = true
             explicitNulls = true
         }
+
+    @Test
+    fun `http mutation receipt evidence keeps absence false and true distinct`() {
+        val legacy =
+            StrategyDesyncExecutionReceipt(
+                disposition = StrategyExecutionDisposition.ACTIVATION_SKIPPED,
+                plannedSteps = 0,
+                attemptedActions = 1,
+                completedActions = 1,
+                realWritesCommitted = 1,
+                completedAwaits = 0,
+                payloadBytesCommitted = 37,
+            )
+        val encodedLegacy = contractJson.encodeToJsonElement(legacy).jsonObject
+        assertFalse(encodedLegacy.containsKey("httpMutated"))
+        assertNull(contractJson.decodeFromJsonElement<StrategyDesyncExecutionReceipt>(encodedLegacy).httpMutated)
+        for (value in listOf(false, true)) {
+            val encoded = contractJson.encodeToJsonElement(legacy.copy(httpMutated = value)).jsonObject
+            assertEquals(JsonPrimitive(value), encoded["httpMutated"])
+            val decoded = contractJson.decodeFromJsonElement<StrategyDesyncExecutionReceipt>(encoded)
+            assertEquals(value, decoded.httpMutated)
+            assertEquals(StrategyExecutionDisposition.ACTIVATION_SKIPPED, decoded.disposition)
+        }
+    }
 
     @Test
     fun `diagnostics schema version matches contract fixture`() {

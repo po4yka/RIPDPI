@@ -14,6 +14,7 @@ fn last_split_delays_nonempty_tail_in_special_executor() {
         .tcp_chain
         .push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(2)).with_inter_segment_delay_ms(80));
     let plan = DesyncPlan {
+        http_mutated: None,
         tampered: payload.to_vec(),
         steps: vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 2, source_send_step_index: Some(0) }],
         proto: ProtoInfo::default(),

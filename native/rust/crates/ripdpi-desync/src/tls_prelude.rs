@@ -281,12 +281,13 @@ fn apply_prelude(
     let mut info = ProtoInfo::default();
     init_proto_info(&output, &mut info);
 
+    let mut http_mutated = (group.actions.mod_http != 0).then_some(false);
     if group.actions.mod_http != 0
         && info.kind == IS_HTTP
         && context.stream_start == 0
         && ripdpi_packets::http_request_head_end(&output).is_some()
     {
-        mod_http_inplace(&mut output, group.actions.mod_http);
+        http_mutated = Some(mod_http_inplace(&mut output, group.actions.mod_http) == 0);
         info = ProtoInfo::default();
         init_proto_info(&output, &mut info);
     }
@@ -332,6 +333,7 @@ fn apply_prelude(
 
     let exact = (applied_steps.len() == 1).then(|| applied_steps[0]);
     Ok(TamperResult {
+        http_mutated,
         bytes: output,
         proto: info,
         tls_prelude: TlsPreludeApplication {
@@ -379,7 +381,7 @@ pub fn apply_tls_template_record_choreography(profile: &str, input: &[u8]) -> Re
     let output = apply_record_choreography(profile, input).ok_or(DesyncError)?;
     let mut info = ProtoInfo::default();
     init_proto_info(&output, &mut info);
-    Ok(TamperResult { bytes: output, proto: info, tls_prelude: TlsPreludeApplication::default() })
+    Ok(TamperResult { http_mutated: None, bytes: output, proto: info, tls_prelude: TlsPreludeApplication::default() })
 }
 
 pub fn plan_tls_template_first_flight(profile: &str, input: &[u8]) -> Result<TlsTemplateFirstFlightPlan, DesyncError> {

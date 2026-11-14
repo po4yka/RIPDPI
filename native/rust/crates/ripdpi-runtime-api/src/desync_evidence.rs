@@ -64,6 +64,7 @@ impl DesyncExecutionEvidence {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DesyncExecutionReceipt {
+    http_mutated: Option<bool>,
     transport: DesyncExecutionTransport,
     disposition: DesyncExecutionDisposition,
     configured_family: Option<DesyncStrategyFamily>,
@@ -168,6 +169,7 @@ impl DesyncExecutionReceipt {
             DesyncExecutionDisposition::ExecutionFailed => terminal_reason.is_some(),
         };
         (valid && coherent_actions && tls_prelude_coherent && udp_profile_coherent).then_some(Self {
+            http_mutated: None,
             transport,
             disposition,
             configured_family,
@@ -187,6 +189,19 @@ impl DesyncExecutionReceipt {
             fallback_reason,
             terminal_reason,
         })
+    }
+
+    /// Records HTTP byte transformation independently of chain execution and delivery.
+    /// None means unconfigured or unknown legacy evidence.
+    /// HTTP evidence is ignored for non-TCP receipts.
+    #[must_use]
+    pub fn with_http_mutated(mut self, http_mutated: Option<bool>) -> Self {
+        self.http_mutated = http_mutated.filter(|_| self.transport == DesyncExecutionTransport::Tcp);
+        self
+    }
+
+    pub fn http_mutated(&self) -> Option<bool> {
+        self.http_mutated
     }
 
     pub fn transport(&self) -> DesyncExecutionTransport {

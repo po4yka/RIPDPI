@@ -109,6 +109,7 @@ fn ech_activation_uses_the_layout_when_sni_crosses_records() {
 fn special_tcp_execution_includes_fake_approximation_steps() {
     let mut group = test_group();
     let non_terminal_fake_step_plan = DesyncPlan {
+        http_mutated: None,
         tampered: b"payload".to_vec(),
         steps: vec![PlannedStep {
             kind: TcpChainStepKind::FakeSplit,
@@ -121,6 +122,7 @@ fn special_tcp_execution_includes_fake_approximation_steps() {
         tls_prelude: TlsPreludeApplication::default(),
     };
     let terminal_fake_step_plan = DesyncPlan {
+        http_mutated: None,
         tampered: b"payload".to_vec(),
         steps: vec![PlannedStep {
             kind: TcpChainStepKind::FakeSplit,
@@ -141,6 +143,7 @@ fn special_tcp_execution_includes_fake_approximation_steps() {
     group.actions.tcp_chain.clear();
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset()));
     let non_terminal_fake_disorder_plan = DesyncPlan {
+        http_mutated: None,
         tampered: b"payload".to_vec(),
         steps: vec![PlannedStep {
             kind: TcpChainStepKind::FakeDisorder,
@@ -153,6 +156,7 @@ fn special_tcp_execution_includes_fake_approximation_steps() {
         tls_prelude: TlsPreludeApplication::default(),
     };
     let terminal_fake_disorder_plan = DesyncPlan {
+        http_mutated: None,
         tampered: b"payload".to_vec(),
         steps: vec![PlannedStep {
             kind: TcpChainStepKind::FakeDisorder,
@@ -171,6 +175,7 @@ fn special_tcp_execution_includes_fake_approximation_steps() {
     group.actions.tcp_chain.clear();
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
     let fake_plan = DesyncPlan {
+        http_mutated: None,
         tampered: b"payload".to_vec(),
         steps: vec![PlannedStep { kind: TcpChainStepKind::Fake, start: 0, end: 3, source_send_step_index: Some(0) }],
         proto: ProtoInfo::default(),
@@ -183,6 +188,7 @@ fn special_tcp_execution_includes_fake_approximation_steps() {
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, test_offset()));
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(4)));
     let multidisorder_plan = DesyncPlan {
+        http_mutated: None,
         tampered: b"payload".to_vec(),
         steps: vec![
             PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 3, source_send_step_index: Some(0) },

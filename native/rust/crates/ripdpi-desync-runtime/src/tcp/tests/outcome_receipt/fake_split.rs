@@ -74,6 +74,7 @@ fn fake_split_second_region_failure_preserves_step_context_and_progress() {
     let group = test_group();
     let config = RuntimeConfig::default();
     let plan = ripdpi_desync::DesyncPlan {
+        http_mutated: None,
         tampered: payload.to_vec(),
         steps: Vec::new(),
         proto: ProtoInfo::default(),

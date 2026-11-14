@@ -302,6 +302,7 @@ fn filtered_split_host_plus_one_sends_plain_payload_with_activation_skipped_rece
     let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
     for (modifier, expected) in [
         (0, payload.as_slice()),
+        (ripdpi_packets::MH_METHODEOL, payload.as_slice()),
         (ripdpi_packets::MH_HMIX, b"GET /watch HTTP/1.1\r\nhOsT: youtube.com\r\n\r\n".as_slice()),
     ] {
         let mut group = test_group();
@@ -349,6 +350,7 @@ fn filtered_split_host_plus_one_sends_plain_payload_with_activation_skipped_rece
         let mut received = Vec::new();
         server.read_to_end(&mut received).expect("read the complete plain payload");
         assert_eq!(received, expected);
+        assert_eq!(outcome.execution_receipt.http_mutated, (modifier != 0).then_some(received != payload));
 
         let receipt = outcome.execution_receipt;
         assert_eq!(receipt.real_writes_committed, 1);
@@ -430,8 +432,9 @@ fn plain_fallback_failures_keep_partial_progress_and_configured_marker() {
 #[test]
 fn split_host_plus_one_wait_failure_preserves_plan_and_committed_prefix() {
     let payload = b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n";
-    let prefix = b"GET /watch HTTP/1.1\r\nHost: y";
+    let prefix = b"GET /watch HTTP/1.1\r\nhOsT: y";
     let mut group = test_group();
+    group.actions.mod_http = ripdpi_packets::MH_HMIX;
     group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(1)));
     let platform = ReceiptTestPlatform::default();
     platform.faults.lock().expect("receipt fault queue").push_back(FaultSpec::WaitStage(io::ErrorKind::TimedOut));
@@ -475,6 +478,7 @@ fn split_host_plus_one_wait_failure_preserves_plan_and_committed_prefix() {
     assert_eq!(received, prefix);
 
     let receipt = error.execution_receipt().expect("failure must include an execution receipt");
+    assert_eq!(receipt.http_mutated, Some(true));
     assert_eq!(receipt.disposition, TcpExecutionDisposition::ExecutionFailed);
     assert_eq!(receipt.configured_family, Some(TcpStrategyFamily::Split));
     assert_eq!(receipt.effective_family, Some(TcpStrategyFamily::Split));

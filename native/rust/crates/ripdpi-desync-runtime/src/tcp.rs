@@ -101,16 +101,14 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                     )
                     .map_err(|error| failure_with_plan(error, group, &plan, strategy_family, None, None))?
                     .bytes_committed;
-                    Ok(OutboundSendOutcome {
+                    let mut receipt = TcpExecutionReceipt::plain(
+                        TcpExecutionDisposition::ActivationSkipped,
+                        group,
+                        strategy_family,
                         bytes_committed,
-                        strategy_family: None,
-                        execution_receipt: TcpExecutionReceipt::plain(
-                            TcpExecutionDisposition::ActivationSkipped,
-                            group,
-                            strategy_family,
-                            bytes_committed,
-                        ),
-                    })
+                    );
+                    receipt.http_mutated = plan.http_mutated;
+                    Ok(OutboundSendOutcome { bytes_committed, strategy_family: None, execution_receipt: receipt })
                 }
                 Ok(plan) if requires_special_tcp_execution(group, &plan, platform_ops.supports_fake_retransmit()) => {
                     let tls_prelude_applied = plan.tls_prelude.applied_count > 0;

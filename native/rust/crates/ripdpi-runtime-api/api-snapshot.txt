@@ -89,6 +89,7 @@ pub fn ripdpi_runtime_api::DesyncExecutionReceipt::configured_family(&self) -> c
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::disposition(&self) -> ripdpi_runtime_api::DesyncExecutionDisposition
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::effective_family(&self) -> core::option::Option<ripdpi_runtime_api::DesyncStrategyFamily>
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::fallback_reason(&self) -> core::option::Option<ripdpi_runtime_api::DesyncFallbackReason>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::http_mutated(&self) -> core::option::Option<bool>
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::marker_base(&self) -> core::option::Option<ripdpi_runtime_api::DesyncOffsetMarkerBase>
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::marker_delta(&self) -> core::option::Option<i16>
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::payload_bytes_committed(&self) -> usize
@@ -101,6 +102,7 @@ pub fn ripdpi_runtime_api::DesyncExecutionReceipt::tls_record_prelude_applied(&s
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::transport(&self) -> ripdpi_runtime_api::DesyncExecutionTransport
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::try_new(ripdpi_runtime_api::DesyncExecutionTransport, ripdpi_runtime_api::DesyncExecutionDisposition, core::option::Option<ripdpi_runtime_api::DesyncStrategyFamily>, core::option::Option<ripdpi_runtime_api::DesyncStrategyFamily>, core::option::Option<ripdpi_runtime_api::DesyncOffsetMarkerBase>, core::option::Option<i16>, core::option::Option<u16>, u16, u16, u16, usize, usize, usize, bool, core::option::Option<ripdpi_runtime_api::DesyncTlsPreludeEvidence>, core::option::Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile>, core::option::Option<ripdpi_runtime_api::DesyncFallbackReason>, core::option::Option<ripdpi_runtime_api::DesyncTerminalReason>) -> core::option::Option<Self>
 pub fn ripdpi_runtime_api::DesyncExecutionReceipt::udp_ipv6_extension_profile(&self) -> core::option::Option<ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile>
+pub fn ripdpi_runtime_api::DesyncExecutionReceipt::with_http_mutated(self, core::option::Option<bool>) -> Self
 pub struct ripdpi_runtime_api::DesyncTlsPreludeEvidence
 impl ripdpi_runtime_api::DesyncTlsPreludeEvidence
 pub fn ripdpi_runtime_api::DesyncTlsPreludeEvidence::applied_count(&self) -> u16

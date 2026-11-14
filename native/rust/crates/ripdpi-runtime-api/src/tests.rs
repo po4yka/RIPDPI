@@ -567,3 +567,36 @@ fn network_snapshot_concurrent_reads_never_block_writer() {
     let final_snap = control.current_network_snapshot().expect("final snapshot");
     assert_eq!(final_snap.transport, format!("net-{}", iterations - 1));
 }
+
+#[test]
+fn http_mutation_evidence_is_optional_and_tcp_only() {
+    for transport in [DesyncExecutionTransport::Tcp, DesyncExecutionTransport::Udp] {
+        let receipt = DesyncExecutionReceipt::try_new(
+            transport,
+            DesyncExecutionDisposition::ActivationSkipped,
+            None,
+            None,
+            None,
+            None,
+            None,
+            0,
+            1,
+            1,
+            1,
+            0,
+            37,
+            false,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("plain receipt");
+        assert_eq!(receipt.http_mutated(), None);
+        for value in [None, Some(false), Some(true)] {
+            let marked = receipt.clone().with_http_mutated(value);
+            assert_eq!(marked.http_mutated(), if transport == DesyncExecutionTransport::Tcp { value } else { None });
+            assert_eq!(marked.disposition(), DesyncExecutionDisposition::ActivationSkipped);
+        }
+    }
+}

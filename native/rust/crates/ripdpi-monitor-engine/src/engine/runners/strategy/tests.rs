@@ -112,6 +112,7 @@ fn strategy_candidate_summary(
                 crate::types::StrategyProbeResponseStage::ResponseNotObserved
             },
             receipts: vec![StrategyDesyncExecutionReceipt {
+                http_mutated: None,
                 connection_ordinal: 1,
                 transport: crate::types::StrategyExecutionTransport::Tcp,
                 disposition: StrategyExecutionDisposition::Applied,

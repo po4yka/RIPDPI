@@ -38,6 +38,7 @@ fn project_runtime_execution_receipt(
     receipt: &ripdpi_runtime_api::DesyncExecutionReceipt,
 ) -> Option<StrategyDesyncExecutionReceipt> {
     Some(StrategyDesyncExecutionReceipt {
+        http_mutated: receipt.http_mutated(),
         connection_ordinal: connection_ordinal.min(u16::MAX as u64) as u16,
         transport: project_transport(receipt.transport())?,
         disposition: project_disposition(receipt.disposition())?,
@@ -281,10 +282,12 @@ mod tests {
             None,
             None,
         )
-        .expect("valid split receipt");
+        .expect("valid split receipt")
+        .with_http_mutated(Some(true));
 
         let projected = project_runtime_execution_receipt(2, &receipt).expect("known receipt projection");
 
+        assert_eq!(projected.http_mutated, Some(true));
         assert_eq!(projected.connection_ordinal, 2);
         assert_eq!(projected.transport, StrategyExecutionTransport::Tcp);
         assert_eq!(projected.disposition, StrategyExecutionDisposition::Applied);

@@ -256,6 +256,9 @@ pub enum StrategyProbeResponseStage {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct StrategyDesyncExecutionReceipt {
+    /// HTTP byte transformation, not delivery; absent evidence can be legacy or unconfigured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub http_mutated: Option<bool>,
     #[serde(default)]
     pub connection_ordinal: u16,
     #[serde(default)]

@@ -180,6 +180,7 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
                     complete: true,
                     response_stage: StrategyProbeResponseStage::ResponseObserved,
                     receipts: vec![StrategyDesyncExecutionReceipt {
+                        http_mutated: None,
                         connection_ordinal: 1,
                         transport: crate::types::StrategyExecutionTransport::Tcp,
                         disposition: StrategyExecutionDisposition::Applied,
@@ -238,6 +239,7 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
                     complete: true,
                     response_stage: StrategyProbeResponseStage::ResponseObserved,
                     receipts: vec![StrategyDesyncExecutionReceipt {
+                        http_mutated: None,
                         connection_ordinal: 1,
                         transport: crate::types::StrategyExecutionTransport::Udp,
                         disposition: StrategyExecutionDisposition::Applied,
@@ -461,5 +463,29 @@ fn execution_plan_fixture() -> ExecutionPlanSnapshot {
             skipped_by_stage_budget_steps: 0,
             skipped_by_global_deadline_steps: 1,
         }],
+    }
+}
+
+#[test]
+fn http_mutation_receipt_field_is_optional_and_preserves_false() {
+    let legacy = serde_json::json!({
+        "disposition": "ACTIVATION_SKIPPED",
+        "configuredFamily": null, "effectiveFamily": null,
+        "markerBase": null, "markerDelta": null, "resolvedOffset": null,
+        "plannedSteps": 0, "attemptedActions": 1, "completedActions": 1,
+        "realWritesCommitted": 1, "completedAwaits": 0, "payloadBytesCommitted": 37,
+        "fallbackReason": null, "terminalReason": null
+    });
+    let receipt: StrategyDesyncExecutionReceipt = serde_json::from_value(legacy).expect("legacy receipt");
+    assert_eq!(receipt.http_mutated, None);
+    assert!(serde_json::to_value(&receipt).unwrap().get("httpMutated").is_none());
+    for value in [false, true] {
+        let mut receipt = receipt.clone();
+        receipt.http_mutated = Some(value);
+        let encoded = serde_json::to_value(&receipt).unwrap();
+        assert_eq!(encoded["httpMutated"], value);
+        let decoded: StrategyDesyncExecutionReceipt = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.http_mutated, Some(value));
+        assert_eq!(decoded.disposition, StrategyExecutionDisposition::ActivationSkipped);
     }
 }

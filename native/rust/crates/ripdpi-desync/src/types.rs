@@ -206,6 +206,8 @@ pub enum DesyncAction {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TamperResult {
+    /// HTTP transformation only; None means no configured modifier or unknown legacy evidence.
+    pub http_mutated: Option<bool>,
     pub bytes: Vec<u8>,
     pub proto: ProtoInfo,
     pub tls_prelude: TlsPreludeApplication,
@@ -230,6 +232,8 @@ pub struct FakePacketPlan {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DesyncPlan {
+    /// HTTP transformation only; None means no configured modifier or unknown legacy evidence.
+    pub http_mutated: Option<bool>,
     pub tampered: Vec<u8>,
     pub steps: Vec<PlannedStep>,
     pub proto: ProtoInfo,

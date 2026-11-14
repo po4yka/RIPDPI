@@ -377,6 +377,7 @@ fn test_desync_evidence_with_ordinal(
 
 fn test_strategy_desync_receipt(connection_ordinal: u16) -> crate::types::StrategyDesyncExecutionReceipt {
     crate::types::StrategyDesyncExecutionReceipt {
+        http_mutated: None,
         connection_ordinal,
         transport: crate::types::StrategyExecutionTransport::Tcp,
         disposition: crate::types::StrategyExecutionDisposition::Applied,

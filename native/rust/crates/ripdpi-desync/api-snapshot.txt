@@ -100,6 +100,7 @@ pub ripdpi_desync::DesiredBoundaryPlan::udp_datagram_boundaries: alloc::vec::Vec
 pub struct ripdpi_desync::DesyncError
 pub struct ripdpi_desync::DesyncPlan
 pub ripdpi_desync::DesyncPlan::actions: alloc::vec::Vec<ripdpi_desync::DesyncAction>
+pub ripdpi_desync::DesyncPlan::http_mutated: core::option::Option<bool>
 pub ripdpi_desync::DesyncPlan::proto: ripdpi_desync::ProtoInfo
 pub ripdpi_desync::DesyncPlan::steps: alloc::vec::Vec<ripdpi_desync::PlannedStep>
 pub ripdpi_desync::DesyncPlan::tampered: alloc::vec::Vec<u8>
@@ -137,6 +138,7 @@ pub ripdpi_desync::QuicInitialIr::tls_client_hello: ripdpi_desync::TlsClientHell
 pub ripdpi_desync::QuicInitialIr::version: u32
 pub struct ripdpi_desync::TamperResult
 pub ripdpi_desync::TamperResult::bytes: alloc::vec::Vec<u8>
+pub ripdpi_desync::TamperResult::http_mutated: core::option::Option<bool>
 pub ripdpi_desync::TamperResult::proto: ripdpi_desync::ProtoInfo
 pub ripdpi_desync::TamperResult::tls_prelude: ripdpi_desync::TlsPreludeApplication
 pub struct ripdpi_desync::TcpDesyncStrategy<'a>

@@ -9,6 +9,7 @@ fn execute_multidisorder_tcp_plan_rejects_non_contiguous_segment_bounds() {
         &RuntimeConfig::default(),
         &multidisorder_chain(),
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![
                 PlannedStep {
@@ -53,6 +54,7 @@ fn execute_multidisorder_tcp_plan_rejects_partial_payload_coverage() {
         &RuntimeConfig::default(),
         &multidisorder_chain(),
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![
                 PlannedStep {
@@ -97,6 +99,7 @@ fn prepare_multidisorder_tcp_plan_accepts_contiguous_full_payload() {
     let prepared = prepare_multi_disorder_tcp_plan(
         &chain,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![
                 PlannedStep {
@@ -153,6 +156,7 @@ fn plan_rejects_step_count_mismatch() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![
                 PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 3, source_send_step_index: Some(0) },
@@ -183,6 +187,7 @@ fn plan_rejects_negative_start() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::Split,
@@ -215,6 +220,7 @@ fn plan_rejects_negative_end() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::Split,
@@ -247,6 +253,7 @@ fn plan_rejects_out_of_order_bounds() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::Split,
@@ -279,6 +286,7 @@ fn plan_rejects_end_beyond_payload() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abc".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::Split,
@@ -311,6 +319,7 @@ fn plan_split_step_writes_chunk() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"hello".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::Split,
@@ -354,6 +363,7 @@ fn plan_ipfrag2_fallback_writes_full_payload() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"hello".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::IpFrag2,
@@ -395,6 +405,7 @@ fn plan_ipfrag2_fallback_with_original_flags_fails_closed() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"hello".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::IpFrag2,
@@ -434,6 +445,7 @@ fn plan_fakerst_writes_payload_after_fake_reset_attempt() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"ping".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::FakeRst,
@@ -472,6 +484,7 @@ fn plan_hostfake_without_resolved_span_writes_chunk() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: payload.to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::HostFake,
@@ -518,6 +531,7 @@ fn plan_hostfake_without_resolved_span_with_original_flags_fails_closed() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: payload.to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::HostFake,
@@ -560,6 +574,7 @@ fn plan_fakesplit_terminal_step_with_original_flags_fails_closed() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"hello".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::FakeSplit,
@@ -602,6 +617,7 @@ fn plan_fakeddisorder_terminal_step_with_original_flags_fails_closed() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"hello".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::FakeDisorder,
@@ -639,6 +655,7 @@ fn plan_tlsrec_step_errors() {
         &RuntimeConfig::default(),
         &group,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![PlannedStep {
                 kind: TcpChainStepKind::TlsRec,
@@ -671,6 +688,7 @@ fn multidisorder_rejects_mixed_kinds_in_chain() {
         &RuntimeConfig::default(),
         &chain,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![
                 PlannedStep {
@@ -713,6 +731,7 @@ fn multidisorder_rejects_single_step() {
         &RuntimeConfig::default(),
         &chain,
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![
                 PlannedStep {
@@ -754,6 +773,7 @@ fn multidisorder_rejects_too_few_planned() {
         &RuntimeConfig::default(),
         &multidisorder_chain(),
         &DesyncPlan {
+            http_mutated: None,
             tampered: b"abcdef".to_vec(),
             steps: vec![
                 PlannedStep {
