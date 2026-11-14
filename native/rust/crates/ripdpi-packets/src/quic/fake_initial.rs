@@ -7,7 +7,8 @@ use super::build::build_quic_initial_raw;
 use super::datagram::decode_quic_initial_datagram;
 use super::frames::{append_segmented_quic_crypto_frames, encode_quic_varint};
 use super::parse::supported_quic_version;
-use super::{QUIC_FAKE_DCID, QUIC_FAKE_INITIAL_TARGET_LEN, QUIC_FAKE_SCID, QUIC_INITIAL_MIN_LEN};
+use super::probe::probe_client_hello;
+use super::{QUIC_FAKE_DCID, QUIC_FAKE_INITIAL_TARGET_LEN, QUIC_FAKE_SCID, QUIC_INITIAL_MIN_LEN, QUIC_MAX_CID_LEN};
 
 fn padded_tls_client_hello(template: &[u8]) -> Vec<u8> {
     let mut client_hello = template.to_vec();
@@ -153,6 +154,33 @@ pub fn build_browser_like_quic_initial_seed(
     profile: QuicInitialBrowserProfile,
 ) -> Option<QuicInitialSeed> {
     build_quic_initial_seed_for_tls_profile(version, host_override, tls_profile_for_quic_browser(profile))
+}
+
+/// Build a synthetic QUIC ClientHello with caller-owned connection IDs.
+///
+/// The ClientHello uses fresh TLS random and key shares, h3 ALPN, and QUIC
+/// transport parameters bound to `scid`. The profile selects a browser-shaped
+/// TLS extension order; it does not assert parity with a browser version.
+/// Returns `None` for an unsupported version, a DCID outside 8..=20 bytes,
+/// an SCID above 20 bytes, or a ClientHello generation failure.
+pub fn build_browser_like_quic_initial_seed_with_cids(
+    version: u32,
+    host_override: Option<&str>,
+    profile: QuicInitialBrowserProfile,
+    dcid: &[u8],
+    scid: &[u8],
+) -> Option<QuicInitialSeed> {
+    // RFC 9000 section 7.2 requires at least eight bytes in the first client DCID.
+    if !supported_quic_version(version)
+        || !(8..=QUIC_MAX_CID_LEN).contains(&dcid.len())
+        || scid.len() > QUIC_MAX_CID_LEN
+    {
+        return None;
+    }
+    let tls_profile = tls_profile_for_quic_browser(profile);
+    let client_hello =
+        probe_client_hello(tls_fake_profile_bytes(tls_profile), host_override, scid, &ring::rand::SystemRandom::new())?;
+    Some(QuicInitialSeed { version, dcid: dcid.to_vec(), scid: scid.to_vec(), token: Vec::new(), client_hello })
 }
 
 fn build_quic_initial_seed_for_tls_profile(

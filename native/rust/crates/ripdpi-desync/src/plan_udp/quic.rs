@@ -3,8 +3,8 @@ use crate::normalize_quic_initial;
 use ripdpi_config::DesyncGroup;
 use ripdpi_packets::{
     QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed,
-    build_browser_like_quic_initial_seed, is_quic_initial, is_tls_client_hello, packetize_quic_initial,
-    parse_quic_initial_seed,
+    build_browser_like_quic_initial_seed, build_browser_like_quic_initial_seed_with_cids, is_quic_initial,
+    is_tls_client_hello, packetize_quic_initial, parse_quic_initial_seed,
 };
 
 /// Version of a QUIC long-header Initial datagram. Unlike
@@ -243,4 +243,21 @@ pub(super) fn quic_browser_profile_for_index(idx: usize) -> QuicInitialBrowserPr
     } else {
         QuicInitialBrowserProfile::FirefoxAndroid
     }
+}
+
+pub(super) fn packetize_synthetic_quic_initial(
+    group: &DesyncGroup,
+    normalized_quic: &NormalizedQuicPlannerInput,
+    profile: QuicInitialBrowserProfile,
+    layout: QuicInitialPacketLayout,
+) -> Option<Vec<u8>> {
+    let legacy = browser_like_quic_seed(group, Some(normalized_quic), profile)?;
+    let seed = build_browser_like_quic_initial_seed_with_cids(
+        normalized_quic.version,
+        Some(effective_quic_realistic_host(group)),
+        profile,
+        &legacy.dcid,
+        &legacy.scid,
+    )?;
+    packetize_quic_initial(&seed, &layout)
 }

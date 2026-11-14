@@ -3,6 +3,7 @@ use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout};
 
 use super::super::quic::{
     NormalizedQuicPlannerInput, QuicDecoyBasis, packetize_browser_like_quic_initial, packetize_decoy_for_basis,
+    packetize_synthetic_quic_initial,
     quic_browser_profile_for_index,
 };
 
@@ -73,9 +74,9 @@ pub(super) fn build_quic_multi_initial_realistic_packets(
         .into_iter()
         .enumerate()
         .filter_map(|(idx, len)| {
-            packetize_browser_like_quic_initial(
+            packetize_synthetic_quic_initial(
                 group,
-                Some(normalized_quic),
+                normalized_quic,
                 quic_browser_profile_for_index(idx),
                 numbered_layout(len, idx),
             )

@@ -48,7 +48,12 @@ pub fn build_profiled_probe_quic_initial(
     packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
 }
 
-fn probe_client_hello(template: &[u8], host: Option<&str>, scid: &[u8], random: &SystemRandom) -> Option<Vec<u8>> {
+pub(super) fn probe_client_hello(
+    template: &[u8],
+    host: Option<&str>,
+    scid: &[u8],
+    random: &SystemRandom,
+) -> Option<Vec<u8>> {
     let mut template = template.to_vec();
     template.resize(template.len().max(read_u16(&template, 3)?.checked_add(5)?), 0);
     let parsed = crate::tls_nom::parse_client_hello_record(&template)?;

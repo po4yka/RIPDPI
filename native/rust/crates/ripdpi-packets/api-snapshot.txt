@@ -206,6 +206,7 @@ pub const ripdpi_packets::QUIC_V2_VERSION: u32
 pub const ripdpi_packets::TLS_RECORD_HEADER_LEN: usize
 pub fn ripdpi_packets::build_browser_like_quic_initial(u32, core::option::Option<&str>, ripdpi_packets::QuicInitialBrowserProfile) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_browser_like_quic_initial_seed(u32, core::option::Option<&str>, ripdpi_packets::QuicInitialBrowserProfile) -> core::option::Option<ripdpi_packets::QuicInitialSeed>
+pub fn ripdpi_packets::build_browser_like_quic_initial_seed_with_cids(u32, core::option::Option<&str>, ripdpi_packets::QuicInitialBrowserProfile, &[u8], &[u8]) -> core::option::Option<ripdpi_packets::QuicInitialSeed>
 pub fn ripdpi_packets::build_generic_quic_initial(u32, core::option::Option<&str>) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_probe_quic_initial(u32, core::option::Option<&str>) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_profiled_probe_quic_initial(u32, core::option::Option<&str>, ripdpi_packets::QuicProbeProfile) -> core::option::Option<alloc::vec::Vec<u8>>

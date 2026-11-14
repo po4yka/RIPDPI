@@ -10,8 +10,9 @@ mod tamper;
 
 pub use build::{build_quic_initial_from_tls, default_fake_quic_compat};
 pub use fake_initial::{
-    build_browser_like_quic_initial, build_browser_like_quic_initial_seed, build_generic_quic_initial,
-    build_realistic_quic_initial, packetize_quic_initial, parse_quic_initial_seed,
+    build_browser_like_quic_initial, build_browser_like_quic_initial_seed,
+    build_browser_like_quic_initial_seed_with_cids, build_generic_quic_initial, build_realistic_quic_initial,
+    packetize_quic_initial, parse_quic_initial_seed,
 };
 pub use parse::{is_quic_initial, parse_quic_initial, parse_quic_initial_layout};
 pub use probe::{QuicProbeProfile, build_probe_quic_initial, build_profiled_probe_quic_initial};
@@ -44,5 +45,7 @@ use frames::{append_quic_crypto_frame, defrag_quic_crypto_frames, encode_quic_va
 #[cfg(test)]
 use parse::parse_quic_initial_header;
 
+#[cfg(test)]
+mod synthetic_seed_tests;
 #[cfg(test)]
 mod tests;
