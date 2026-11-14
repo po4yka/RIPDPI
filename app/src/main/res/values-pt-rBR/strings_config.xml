@@ -481,6 +481,7 @@
     <string name="http_fake_profile_title">Payload fake de HTTP</string>
     <string name="http_fake_profile_body">Payload base para pacotes fake de HTTP. Ele muda apenas o formato plausível da requisição, não o comportamento do transporte.</string>
     <string name="tls_fake_profile_title">Payload fake de TLS</string>
+    <string name="tls_fake_secondary_profile_title">Segundo payload fake de TLS</string>
     <string name="tls_fake_profile_body">ClientHello fake base antes de o RIPDPI aplicar SNI TLS fake, randomização, Session ID, padding ou ajuste de tamanho.</string>
     <string name="udp_fake_profile_title">Payload fake de UDP</string>
     <string name="udp_fake_profile_body">Payload base para tráfego genérico de fake_burst UDP. Os payloads fake de QUIC Initial continuam controlados separadamente abaixo.</string>

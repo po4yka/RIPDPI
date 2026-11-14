@@ -137,6 +137,7 @@ internal fun AppSettings.buildFakeUiState(): FakeTransportUiState =
         fakeTlsSize = fakeTlsSize,
         fakeTlsSniMode = effectiveFakeTlsSniMode(),
         tlsFakeProfile = effectiveTlsFakeProfile(),
+        fakeTlsSecondaryProfile = fakeTlsSecondaryProfile,
         udpFakeProfile = effectiveUdpFakeProfile(),
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,

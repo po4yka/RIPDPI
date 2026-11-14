@@ -9,6 +9,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 
 internal data class AdvancedSettingsContentState(
     val visualEditorEnabled: Boolean,
@@ -25,6 +26,7 @@ internal data class AdvancedSettingsContentState(
     val httpFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val fakeTlsSniModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val tlsFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val fakeTlsSecondaryProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val fakeOrderOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val fakeSeqModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val ipIdModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
@@ -57,6 +59,7 @@ internal fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adv
         httpFakeProfileOptions = rememberHttpFakeProfileOptions(),
         fakeTlsSniModeOptions = rememberFakeTlsSniModeOptions(),
         tlsFakeProfileOptions = rememberTlsFakeProfileOptions(),
+        fakeTlsSecondaryProfileOptions = rememberFakeTlsSecondaryProfileOptions(),
         fakeOrderOptions = rememberFakeOrderOptions(),
         fakeSeqModeOptions = rememberFakeSeqModeOptions(),
         ipIdModeOptions = rememberIpIdModeOptions(),
@@ -106,6 +109,12 @@ private fun rememberTlsFakeProfileOptions() =
         labelArrayRes = R.array.tls_fake_profiles,
         valueArrayRes = R.array.tls_fake_profiles_entries,
     )
+
+@Composable
+private fun rememberFakeTlsSecondaryProfileOptions(): ImmutableList<RipDpiDropdownOption<String>> {
+    val off = RipDpiDropdownOption("", stringResource(R.string.quic_fake_preset_off_title))
+    return (listOf(off) + rememberTlsFakeProfileOptions()).toImmutableList()
+}
 
 @Composable
 private fun rememberFakeOrderOptions() =

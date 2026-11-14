@@ -38,6 +38,15 @@ internal fun FakePayloadLibraryControls(model: DesyncSectionModel) {
     )
     HttpFakePayloadProfile(model)
     TlsFakePayloadProfile(model)
+    AdvancedDropdownSetting(
+        title = stringResource(R.string.tls_fake_secondary_profile_title),
+        value = model.uiState.fake.fakeTlsSecondaryProfile,
+        options = model.options.fakeTlsSecondaryProfileOptions,
+        setting = AdvancedOptionSetting.FakeTlsSecondaryProfile,
+        onSelected = model.actions.onOptionSelected,
+        enabled = model.visualEditorEnabled,
+        modifier = Modifier.padding(bottom = RipDpiThemeTokens.spacing.sm),
+    )
     UdpFakePayloadProfile(model)
 }
 

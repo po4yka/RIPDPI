@@ -243,6 +243,8 @@ internal val desyncOptionHandlers: Map<AdvancedOptionSetting, DesyncOptionHandle
             { value, _ -> updateValue("fakeTlsSniMode", value) { setFakeTlsSniMode(value) } },
         AdvancedOptionSetting.TlsFakeProfile to
             { value, _ -> updateValue("tlsFakeProfile", value) { setTlsFakeProfile(value) } },
+        AdvancedOptionSetting.FakeTlsSecondaryProfile to
+            { value, _ -> updateValue("fakeTlsSecondaryProfile", value) { setFakeTlsSecondaryProfile(value) } },
         AdvancedOptionSetting.TlsFingerprintProfile to
             { value, _ -> updateValue("tlsFingerprintProfile", value) { setTlsFingerprintProfile(value) } },
         AdvancedOptionSetting.EntropyMode to

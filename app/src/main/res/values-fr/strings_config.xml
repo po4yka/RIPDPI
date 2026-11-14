@@ -385,6 +385,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_fake_set_title">Paquet fake : définir les drapeaux</string>
     <string name="tls_fake_profile_interaction">SNI fake TLS, randomisation, duplication de Session ID, remplissage et ajustement de taille se superposent à ce profil de base.</string>
     <string name="tls_fake_profile_title">Payload fake TLS</string>
+    <string name="tls_fake_secondary_profile_title">Second payload fake TLS</string>
     <string name="udp_fake_profile_scope_off">La stratégie de contournement UDP est désactivée, donc ce payload fake générique est actuellement inactif.</string>
     <string name="ws_tunnel_mode_label">Mode tunnel WS</string>
     <string name="activation_window_custom_title">Fenêtre personnalisée enregistrée</string>

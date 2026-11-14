@@ -323,6 +323,7 @@
     <string name="http_fake_profile_title">Fake-нагрузка HTTP</string>
     <string name="http_fake_profile_body">Базовая нагрузка для fake HTTP-пакетов. Изменяет только форму правдоподобного запроса, а не транспортное поведение.</string>
     <string name="tls_fake_profile_title">Fake-нагрузка TLS</string>
+    <string name="tls_fake_secondary_profile_title">Вторая fake-нагрузка TLS</string>
     <string name="tls_fake_profile_body">Базовый fake ClientHello до того, как RIPDPI применит Fake TLS SNI, рандомизацию, Session ID, заполнение или настройку размера.</string>
     <string name="udp_fake_profile_title">Fake-нагрузка UDP</string>
     <string name="udp_fake_profile_body">Базовая нагрузка для общего UDP fake_burst трафика. Fake-нагрузки QUIC Initial по-прежнему управляются отдельно ниже.</string>

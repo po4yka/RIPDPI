@@ -4902,6 +4902,7 @@ app:tls_fake_profile_scope_live
 app:tls_fake_profile_scope_off
 app:tls_fake_profile_scope_ready
 app:tls_fake_profile_title
+app:tls_fake_secondary_profile_title
 app:udp_fake_profile_body
 app:udp_fake_profile_interaction
 app:udp_fake_profile_interaction_quic_override

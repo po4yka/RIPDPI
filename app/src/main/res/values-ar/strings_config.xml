@@ -481,6 +481,7 @@
     <string name="http_fake_profile_title">حمولة HTTP المزيفة</string>
     <string name="http_fake_profile_body">الحمولة الأساسية لحزم HTTP المزيفة. تغير فقط شكل الطلب المقنع، وليس سلوك النقل.</string>
     <string name="tls_fake_profile_title">حمولة TLS المزيفة</string>
+    <string name="tls_fake_secondary_profile_title">حمولة TLS المزيفة الثانية</string>
     <string name="tls_fake_profile_body">حزمة ClientHello الوهمية الأساسية قبل أن يطبّق RIPDPI تعديلات SNI في TLS الوهمي أو العشوائية أو معرّف الجلسة أو الحشو أو ضبط الحجم.</string>
     <string name="udp_fake_profile_title">حمولة UDP المزيفة</string>
     <string name="udp_fake_profile_body">الحمولة الأساسية لحركة UDP العامة fake_burst المزيفة. تظل حمولات QUIC الأولية المزيفة مُتحكَّماً بها بشكل منفصل أدناه.</string>

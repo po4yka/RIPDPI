@@ -99,6 +99,7 @@ class SettingsUiStateTest {
         assertEquals(0, state.fake.fakeTlsSize)
         assertEquals(FakePayloadProfileCompatDefault, state.fake.httpFakeProfile)
         assertEquals(FakePayloadProfileCompatDefault, state.fake.tlsFakeProfile)
+        assertEquals("", state.fake.fakeTlsSecondaryProfile)
         assertEquals(FakePayloadProfileCompatDefault, state.fake.udpFakeProfile)
         assertFalse(state.fake.hasCustomFakePayloadProfiles)
         assertFalse(state.canResetFakePayloadLibrary)
@@ -1634,6 +1635,7 @@ class SettingsUiStateTest {
                 .setFakeTlsPadEncap(true)
                 .setFakeTlsSize(-24)
                 .setFakeTlsSniMode(FakeTlsSniModeRandomized)
+                .setFakeTlsSecondaryProfile(TlsFakeProfileGoogleChrome)
                 .build()
 
         val state = settings.toUiState()
@@ -1642,6 +1644,7 @@ class SettingsUiStateTest {
         assertTrue(state.fakeTlsControlsRelevant)
         assertTrue(state.fake.hasCustomFakeTlsProfile)
         assertEquals(FakeTlsSniModeRandomized, state.fake.fakeTlsSniMode)
+        assertEquals(TlsFakeProfileGoogleChrome, state.fake.fakeTlsSecondaryProfile)
         assertEquals(-24, state.fake.fakeTlsSize)
         assertTrue(state.fake.fakeTlsUseOriginal)
         assertTrue(state.fake.fakeTlsRandomize)

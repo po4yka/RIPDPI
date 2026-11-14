@@ -385,6 +385,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_fake_set_title">Fake-Paket: Flags setzen</string>
     <string name="tls_fake_profile_interaction">Fake-TLS-SNI, Randomisierung, Session-ID-Duplikation, Padding und Größenabstimmung schichten sich auf dieses Basisprofil.</string>
     <string name="tls_fake_profile_title">TLS-Fake-Payload</string>
+    <string name="tls_fake_secondary_profile_title">Zweite TLS-Fake-Payload</string>
     <string name="udp_fake_profile_scope_off">UDP-Bypass-Strategie ist deaktiviert, daher ist diese generische Fake-Payload derzeit inaktiv.</string>
     <string name="ws_tunnel_mode_label">WS-Tunnelmodus</string>
     <string name="activation_window_custom_title">Benutzerdefiniertes Fenster gespeichert</string>

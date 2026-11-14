@@ -303,6 +303,7 @@ internal class SettingsMaintenanceActions(
             updateDirect {
                 setHttpFakeProfile(FakePayloadProfileCompatDefault)
                 setTlsFakeProfile(FakePayloadProfileCompatDefault)
+                setFakeTlsSecondaryProfile("")
                 setUdpFakeProfile(FakePayloadProfileCompatDefault)
             }
             emit(

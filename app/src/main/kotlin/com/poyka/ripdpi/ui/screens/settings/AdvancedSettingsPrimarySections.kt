@@ -50,6 +50,7 @@ internal fun LazyListScope.advancedSettingsPrimarySections(
                 fakeTlsBaseOptions = contentState.fakeTlsBaseOptions,
                 fakeTlsSniModeOptions = contentState.fakeTlsSniModeOptions,
                 tlsFakeProfileOptions = contentState.tlsFakeProfileOptions,
+                fakeTlsSecondaryProfileOptions = contentState.fakeTlsSecondaryProfileOptions,
                 fakeOrderOptions = contentState.fakeOrderOptions,
                 fakeSeqModeOptions = contentState.fakeSeqModeOptions,
                 ipIdModeOptions = contentState.ipIdModeOptions,

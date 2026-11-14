@@ -481,6 +481,7 @@
     <string name="http_fake_profile_title">HTTP फ़ेक पेलोड</string>
     <string name="http_fake_profile_body">HTTP फ़ेक पैकेट के लिए आधार पेलोड। यह केवल विश्वसनीय अनुरोध आकार बदलता है, ट्रांसपोर्ट व्यवहार नहीं।</string>
     <string name="tls_fake_profile_title">TLS फ़ेक पेलोड</string>
+    <string name="tls_fake_secondary_profile_title">दूसरा TLS फ़ेक पेलोड</string>
     <string name="tls_fake_profile_body">RIPDPI द्वारा Fake TLS SNI, रैंडमाइज़ेशन, Session ID, पैडिंग, या आकार ट्यूनिंग लागू करने से पहले का आधार फ़ेक ClientHello।</string>
     <string name="udp_fake_profile_title">UDP फ़ेक पेलोड</string>
     <string name="udp_fake_profile_body">सामान्य UDP fake_burst ट्रैफ़िक के लिए आधार पेलोड। QUIC Initial फ़ेक पेलोड अभी भी नीचे अलग से नियंत्रित होते हैं।</string>

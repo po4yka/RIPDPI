@@ -481,6 +481,7 @@
     <string name="http_fake_profile_title">بار fake HTTP</string>
     <string name="http_fake_profile_body">بار پایه برای بسته‌های fake HTTP. فقط شکل قابل‌اعتماد درخواست را تغییر می‌دهد، نه رفتار حمل‌و‌نقل.</string>
     <string name="tls_fake_profile_title">بار fake TLS</string>
+    <string name="tls_fake_secondary_profile_title">بار fake TLS دوم</string>
     <string name="tls_fake_profile_body">ClientHello fake پایه قبل از اعمال SNI fake TLS، تصادفی‌سازی، Session ID، padding یا تنظیم اندازه توسط RIPDPI.</string>
     <string name="udp_fake_profile_title">بار fake UDP</string>
     <string name="udp_fake_profile_body">بار پایه برای ترافیک fake_burst عمومی UDP. بارهای fake QUIC Initial هنوز جداگانه در زیر کنترل می‌شوند.</string>

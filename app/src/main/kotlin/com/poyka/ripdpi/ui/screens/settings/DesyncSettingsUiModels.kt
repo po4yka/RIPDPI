@@ -93,6 +93,7 @@ data class FakeTransportUiState(
     val fakeTlsSize: Int = 0,
     val fakeTlsSniMode: String = FakeTlsSniModeFixed,
     val tlsFakeProfile: String = FakePayloadProfileCompatDefault,
+    val fakeTlsSecondaryProfile: String = "",
     val udpFakeProfile: String = FakePayloadProfileCompatDefault,
     val oobData: String = "a",
     val dropSack: Boolean = false,

@@ -16,6 +16,7 @@ internal enum class AdvancedOptionSetting {
     FakeTlsBase,
     FakeTlsSniMode,
     TlsFakeProfile,
+    FakeTlsSecondaryProfile,
     HostsMode,
     WarpRouteMode,
     WarpEndpointSelectionMode,

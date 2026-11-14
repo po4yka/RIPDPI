@@ -63,6 +63,7 @@ internal data class DesyncSectionOptions(
     val fakeTlsBaseOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val fakeTlsSniModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val tlsFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val fakeTlsSecondaryProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val fakeOrderOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val fakeSeqModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     val ipIdModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
