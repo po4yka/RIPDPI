@@ -22,7 +22,7 @@ Preserve HTTP request data and expose HTTP mutation outcomes independently of TC
 
 - Method EOL does not remove meaningful User-Agent bytes or change body bytes. Unsafe inputs remain unchanged.
 - Method EOL does not add a second prefix to an already-prefixed request.
-- HTTP mutation result is separate from chain disposition and distinguishes unconfigured, unchanged or declined, and changed outcomes through required receipt consumers.
+- HTTP mutation result is separate from chain disposition and distinguishes absent legacy or unknown evidence, explicitly unchanged or declined bytes, and changed bytes through required receipt consumers.
 - Regression tests, an independent read-only review, affected Rust checks, and `just ci-gates` pass. Device and external-network evidence stay separate.
 
 ## Ownership and shared-file lanes

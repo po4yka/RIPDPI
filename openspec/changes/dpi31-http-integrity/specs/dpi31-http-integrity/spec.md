@@ -31,13 +31,19 @@ Method EOL MUST leave an already-prefixed request unchanged rather than add anot
 
 ### Requirement: REQ-DPI31-RECEIPT — Report HTTP mutation independently
 
-Execution results MUST expose an HTTP mutation outcome independently of TCP chain disposition. Required receipt consumers MUST preserve the distinction between an unconfigured modifier, unchanged bytes including a declined mutation, and changed bytes without disclosing request contents.
+Execution results MUST expose an HTTP mutation outcome independently of TCP chain disposition. Required receipt consumers MUST preserve the distinction between absent legacy or unknown evidence, explicitly unchanged bytes including a declined mutation, and changed bytes without disclosing request contents.
 
 #### Scenario: Modifier changes bytes while send steps are inactive
 
 - **WHEN** HTTP mutation changes bytes but no TCP send step or TLS prelude applies
 - **THEN** the result records the HTTP change independently
 - **AND** the existing chain ActivationSkipped semantics remain valid
+
+#### Scenario: Legacy receipt omits the additive evidence
+
+- **WHEN** a receipt does not contain HTTP mutation evidence
+- **THEN** consumers preserve the absence as unknown evidence
+- **AND** they do not infer that the modifier was unconfigured or that delivery succeeded
 
 #### Scenario: Modifier makes no change or declines input
 
