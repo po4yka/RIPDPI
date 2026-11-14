@@ -616,7 +616,9 @@ fn plan_udp_quic_decoys_stay_within_a_1500_byte_path() {
             // The multi-initial step always builds at least two decoys.
             let built = if kind == UdpChainStepKind::QuicMultiInitialRealistic {
                 if count > ripdpi_config::MAX_QUIC_MULTI_INITIAL_COUNT { 0 } else { built.max(2) }
-            } else { built };
+            } else {
+                built
+            };
             for quic_fake_host in [None, Some(long_host.clone())] {
                 let mut group = DesyncGroup::new(0);
                 group.actions.quic_fake_host = quic_fake_host.clone();

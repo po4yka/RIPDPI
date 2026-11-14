@@ -2,8 +2,7 @@ use ripdpi_config::{DesyncGroup, MAX_QUIC_PADDING_LADDER_COUNT};
 use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout};
 
 use super::super::quic::{
-    NormalizedQuicPlannerInput, QuicDecoyBasis, packetize_decoy_for_basis,
-    packetize_synthetic_quic_initial,
+    NormalizedQuicPlannerInput, QuicDecoyBasis, packetize_decoy_for_basis, packetize_synthetic_quic_initial,
     quic_browser_profile_for_index,
 };
 

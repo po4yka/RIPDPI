@@ -1,5 +1,6 @@
 use ripdpi_config::{
-    MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_PADDING_LADDER_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT, UdpChainStep, UdpChainStepKind,
+    MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT, MAX_QUIC_PADDING_LADDER_COUNT,
+    UdpChainStep, UdpChainStepKind,
 };
 
 use crate::types::{ProxyConfigError, ProxyUiUdpChainStep};

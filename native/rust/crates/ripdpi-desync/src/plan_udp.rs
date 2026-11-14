@@ -4,7 +4,10 @@ mod quic;
 mod sequencing;
 
 use crate::types::{ActivationContext, AdaptiveUdpBurstProfile, DesyncAction, activation_filter_matches};
-use ripdpi_config::{ActivationFilter, DesyncGroup, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT, UdpChainStepKind};
+use ripdpi_config::{
+    ActivationFilter, DesyncGroup, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT,
+    UdpChainStepKind,
+};
 
 use self::fragmentation::build_ip_fragmented_udp_action;
 use self::packet_family::{UdpPreludeState, build_udp_prelude_packets};
