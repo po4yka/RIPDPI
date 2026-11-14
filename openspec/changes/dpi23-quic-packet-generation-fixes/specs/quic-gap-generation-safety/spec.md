@@ -6,7 +6,7 @@ Keep QUIC packet-number-gap decoys bounded and separate from evidence that the o
 
 ### Requirement: REQ-DPI23-BOUNDS — Bound gap generation
 
-Admission MUST reject a negative count, a count above 64, or a chain whose total requested gap count exceeds 64. Direct model planning MUST emit at most 64 gap decoys per datagram and MUST preserve the original datagram once. Nonmatching activation filters MUST NOT consume the runtime budget.
+Native and DSL admission MUST reject negative counts. Kotlin model normalization MAY retain its existing conversion of negative model values to zero. Admission MUST reject a count above 64 or a chain whose total requested gap count exceeds 64. Direct model planning MUST emit at most 64 gap decoys per datagram and MUST preserve the original datagram once. Nonmatching activation filters MUST NOT consume the runtime budget.
 
 #### Scenario: Oversized configured count
 
@@ -55,3 +55,13 @@ A long-header response that does not match a known real client Initial context M
 
 - **WHEN** a non-Initial outbound datagram follows the real Initial
 - **THEN** response attribution retains the real Initial context without requiring a full QUIC endpoint
+
+#### Scenario: Multiple real connections share one UDP flow
+
+- **WHEN** a delayed response matches an earlier real Initial while another real Initial is pending
+- **THEN** the earlier real context remains eligible for response attribution
+
+#### Scenario: Correlation capacity is exceeded
+
+- **WHEN** more than 64 distinct real Initial contexts occur in one flow
+- **THEN** delivery continues, but ambiguous response evidence cannot produce success learning, failure learning or timeout-based route advancement
