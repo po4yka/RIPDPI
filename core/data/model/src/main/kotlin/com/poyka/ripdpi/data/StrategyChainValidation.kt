@@ -4,6 +4,9 @@ internal const val MaxSeqOverlapSize = 32
 
 // Mirrors MAX_FAKE_BURST_COUNT in native/rust ripdpi-config src/constants.rs.
 private const val MaxFakeBurstCount = 64
+
+// Mirrors MAX_DUMMY_PREPEND_COUNT in native/rust ripdpi-config.
+private const val MaxDummyPrependCount = 64
 internal const val MaxHostLabelLength = 16
 internal const val MaxDnsTlsRandRecFragmentSize = 4096
 
@@ -121,6 +124,8 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
 internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
     val normalized = steps.map(::normalizeUdpChainStepModel)
     normalized.forEach(::validateUdpStepOptions)
+    val dummyCount = normalized.filter { it.kind == UdpChainStepKind.DummyPrepend }.sumOf { it.count.toLong() }
+    require(dummyCount <= MaxDummyPrependCount) { "dummy_prepend total count must be at most $MaxDummyPrependCount" }
     if (normalized.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
         require(normalized.size == 1) { "ipfrag2_udp must be the only udp chain step" }
     }
@@ -198,17 +203,19 @@ internal fun validateTcpStepOptions(step: TcpChainStepModel) {
 internal fun validateUdpStepOptions(step: UdpChainStepModel) {
     validateNoTcpStatePredicates(step.activationFilter, "${step.kind.wireName} activationFilter")
     when (step.kind) {
-        UdpChainStepKind.FakeBurst -> {
-            require(step.count in 0..MaxFakeBurstCount) {
-                "fake_burst count must be between 0 and $MaxFakeBurstCount"
+        UdpChainStepKind.FakeBurst,
+        UdpChainStepKind.DummyPrepend,
+        -> {
+            val maxCount = if (step.kind == UdpChainStepKind.DummyPrepend) MaxDummyPrependCount else MaxFakeBurstCount
+            require(step.count in 0..maxCount) {
+                "${step.kind.wireName} count must be between 0 and $maxCount"
             }
-            require(step.splitBytes == 0) { "fake_burst must not declare splitBytes" }
+            require(step.splitBytes == 0) { "${step.kind.wireName} must not declare splitBytes" }
             require(step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone) {
-                "fake_burst must not declare ipv6ExtensionProfile"
+                "${step.kind.wireName} must not declare ipv6ExtensionProfile"
             }
         }
 
-        UdpChainStepKind.DummyPrepend,
         UdpChainStepKind.QuicSniSplit,
         UdpChainStepKind.QuicFakeVersion,
         UdpChainStepKind.QuicCryptoSplit,

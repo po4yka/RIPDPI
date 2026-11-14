@@ -1,4 +1,6 @@
-use ripdpi_config::{FakeOrder, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind};
+use ripdpi_config::{
+    FakeOrder, MAX_DUMMY_PREPEND_COUNT, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+};
 
 use crate::types::ProxyConfigError;
 
@@ -122,6 +124,15 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
 }
 
 pub(crate) fn validate_udp_chain(steps: &[UdpChainStep]) -> Result<(), ProxyConfigError> {
+    let dummy_count = steps
+        .iter()
+        .filter(|step| step.kind == UdpChainStepKind::DummyPrepend)
+        .fold(0_i32, |count, step| count.saturating_add(step.count));
+    if dummy_count > MAX_DUMMY_PREPEND_COUNT {
+        return Err(ProxyConfigError::InvalidConfig(format!(
+            "dummy_prepend total count must be at most {MAX_DUMMY_PREPEND_COUNT}"
+        )));
+    }
     if steps.iter().any(|step| step.kind == UdpChainStepKind::IpFrag2Udp) && steps.len() != 1 {
         return Err(ProxyConfigError::InvalidConfig("ipfrag2_udp must be the only udp chain step".to_string()));
     }

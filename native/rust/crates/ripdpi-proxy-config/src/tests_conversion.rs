@@ -1244,3 +1244,19 @@ fn ui_payload_preserves_single_split_and_tlsrec_repetition() {
         ripdpi_config::OffsetExpr::absolute(1).with_repeat_skip(3, 5)
     );
 }
+
+#[test]
+fn ui_payload_limits_dummy_prepend_counts() {
+    for counts in [vec![0], vec![64], vec![32, 32]] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps = counts.into_iter().map(|count| udp_step("dummy_prepend", count)).collect();
+        runtime_config_from_payload(ui_payload(ui)).expect("bounded dummy count accepted");
+    }
+    for counts in [vec![65], vec![32, 33]] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps = counts.into_iter().map(|count| udp_step("dummy_prepend", count)).collect();
+        let err = runtime_config_from_payload(ui_payload(ui)).expect_err("excessive dummy count rejected");
+        assert!(err.to_string().contains("dummy_prepend"));
+        assert!(err.to_string().contains("64"));
+    }
+}

@@ -884,3 +884,38 @@ fn udp_fake_ignores_the_tcp_fake_offset() {
         DesyncAction::Write(ripdpi_packets::udp_fake_profile_bytes(UdpFakeProfile::StunBinding).to_vec())
     );
 }
+
+#[test]
+fn dummy_prepend_planner_bounds_direct_model_counts_and_keeps_original() {
+    for version in [1, QUIC_V2_VERSION] {
+        let payload = build_realistic_quic_initial(version, Some("original.example.test")).unwrap();
+        for counts in [vec![65], vec![32, 33], vec![i32::MAX]] {
+            let mut group = DesyncGroup::new(0);
+            group.actions.udp_chain =
+                counts.into_iter().map(|count| UdpChainStep::new(UdpChainStepKind::DummyPrepend, count)).collect();
+            let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+            let writes: Vec<_> = actions
+                .iter()
+                .filter_map(|action| match action {
+                    DesyncAction::Write(bytes) => Some(bytes),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(writes.len(), 65, "at most 64 dummy datagrams plus the original");
+            assert!(writes[..64].iter().all(|bytes| bytes.len() <= 4096));
+            assert_eq!(writes[64], &payload);
+        }
+    }
+}
+
+#[test]
+fn dummy_prepend_skips_oversized_hosts_and_packets() {
+    let payload = build_realistic_quic_initial(1, Some("original.example.test")).unwrap();
+    for host_len in [4096, 4097] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.quic_fake_host = Some("a".repeat(host_len));
+        group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::DummyPrepend, 2)];
+        let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+        assert_eq!(actions, vec![DesyncAction::Write(payload.clone())]);
+    }
+}

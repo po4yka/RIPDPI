@@ -4,7 +4,7 @@ mod quic;
 mod sequencing;
 
 use crate::types::{ActivationContext, AdaptiveUdpBurstProfile, DesyncAction, activation_filter_matches};
-use ripdpi_config::{ActivationFilter, DesyncGroup, MAX_FAKE_BURST_COUNT, UdpChainStepKind};
+use ripdpi_config::{ActivationFilter, DesyncGroup, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, UdpChainStepKind};
 
 use self::fragmentation::build_ip_fragmented_udp_action;
 use self::packet_family::{UdpPreludeState, build_udp_prelude_packets};
@@ -27,13 +27,21 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
     if !chain.is_empty() {
         let normalized_quic = normalized_quic_plan_input(payload);
         let mut prelude_state = UdpPreludeState::default();
+        let mut dummy_prepend_remaining = MAX_DUMMY_PREPEND_COUNT;
 
-        for step in chain {
+        for mut step in chain {
             if !activation_filter_matches(step.activation_filter, context) {
                 continue;
             }
             if step.kind != UdpChainStepKind::IpFrag2Udp && step.count <= 0 {
                 continue;
+            }
+            if step.kind == UdpChainStepKind::DummyPrepend {
+                step.count = step.count.min(dummy_prepend_remaining);
+                dummy_prepend_remaining -= step.count;
+                if step.count == 0 {
+                    continue;
+                }
             }
             if step.kind == UdpChainStepKind::FakeBurst
                 && !fake_burst_round_matches(group, step.activation_filter, payload, context)

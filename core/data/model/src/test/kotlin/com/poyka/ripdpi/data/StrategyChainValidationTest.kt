@@ -21,4 +21,32 @@ class StrategyChainValidationTest {
 
         assertEquals(listOf(TcpChainStepKind.TlsRec, TcpChainStepKind.SeqOverlap), chain.tcpSteps.map { it.kind })
     }
+
+    @Test
+    fun `dummy prepend accepts bounded counts and rejects excess per step or chain`() {
+        for (counts in listOf(listOf(0), listOf(64), listOf(32, 32))) {
+            validateUdpChain(counts.map { UdpChainStepModel(kind = UdpChainStepKind.DummyPrepend, count = it) })
+        }
+        for (counts in listOf(listOf(65), listOf(32, 33))) {
+            val result =
+                runCatching {
+                    validateUdpChain(counts.map { UdpChainStepModel(kind = UdpChainStepKind.DummyPrepend, count = it) })
+                }
+            assertTrue(result.isFailure)
+            assertTrue(
+                result
+                    .exceptionOrNull()
+                    ?.message
+                    .orEmpty()
+                    .contains("dummy_prepend"),
+            )
+            assertTrue(
+                result
+                    .exceptionOrNull()
+                    ?.message
+                    .orEmpty()
+                    .contains("64"),
+            )
+        }
+    }
 }
