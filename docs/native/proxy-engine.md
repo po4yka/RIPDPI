@@ -616,7 +616,13 @@ Configures the urgent byte value used by `oob` and `disoob` chain steps. The urg
 
 #### TLS minor version override (`tlsminor`)
 
-Forces the TLS record layer minor version byte. Value is the minor version: `0x01` = TLS 1.0, `0x02` = TLS 1.1, `0x03` = TLS 1.2, `0x04` = TLS 1.3. Some middlebox filters target specific TLS versions.
+Overrides the minor version byte in the first ClientHello record header.
+This does not select the negotiated TLS version. TLS 1.3 uses the legacy record
+version `0x0303`; an initial ClientHello may also use `0x0301` for compatibility
+([RFC 8446 §5.1](https://www.rfc-editor.org/rfc/rfc8446.html#section-5.1)).
+Setting the minor byte to `0x04` does not negotiate TLS 1.3. Other values can
+cause a peer to reject the record. With a TLS record prelude, the override also
+applies to the generated record headers.
 
 #### HTTP modifications (`mod_http`)
 
@@ -655,7 +661,7 @@ Configuration:
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
 | `entropy_mode` | `EntropyMode` | `disabled` | Padding mode |
-| `entropy_padding_target_permil` | `u32` | - | Target popcount in permil (e.g. 3400 = 3.4%) |
+| `entropy_padding_target_permil` | `u32` | - | Target popcount in permil (e.g. 3400 = 3.4 set bits/byte) |
 | `entropy_padding_max` | `u32` | 256 | Maximum padding bytes |
 | `shannon_entropy_target_permil` | `u32` | - | Target Shannon entropy in permil (e.g. 7920 = 7.92 bits/byte) |
 
