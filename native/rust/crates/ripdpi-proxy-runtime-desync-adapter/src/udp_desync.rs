@@ -219,6 +219,12 @@ pub fn execute_udp_actions(
         }
         let action_outcome = match execute_udp_action(ctx, action, is_real) {
             Ok(action_outcome) => action_outcome,
+            Err(source) if !is_real && udp_write_bytes(action).is_some() && is_decoy_local_send_error(&source) => {
+                // A failed decoy must not cost the real datagram: a later SetTtl restores the TTL.
+                // It is not counted as completed, so it stays out of `technique_actions_completed`.
+                tracing::debug!(%source, "UDP desync decoy write failed; skipping decoy");
+                continue;
+            }
             Err(source) => {
                 if ttl_changed && ctx.default_ttl != 0 {
                     // Best effort: do not leave a decoy TTL on the socket for later datagrams of the flow.
@@ -455,6 +461,18 @@ fn applied_ipv6_extension_profile(
     ipv6_extension_profile(headers)
 }
 
+/// Errors the decoy itself causes (EMSGSIZE, ENOBUFS, a full send buffer). A pending ICMP
+/// error reported by the connected socket belongs to the flow and still aborts the plan.
+fn is_decoy_local_send_error(error: &io::Error) -> bool {
+    !matches!(
+        error.kind(),
+        io::ErrorKind::ConnectionRefused
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::HostUnreachable
+            | io::ErrorKind::NetworkUnreachable
+    )
+}
+
 fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
     matches!(kind, io::ErrorKind::InvalidInput)
 }
@@ -650,8 +668,9 @@ mod tests {
     }
 
     #[test]
-    fn failed_decoy_write_restores_default_ttl() {
+    fn failed_decoy_write_still_sends_real_and_restores_default_ttl() {
         let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        peer.set_read_timeout(Some(Duration::from_millis(500))).expect("peer timeout");
         let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
         sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
         let actions = [
@@ -662,18 +681,37 @@ mod tests {
             DesyncAction::Write(b"real".to_vec()),
         ];
 
-        let result = execute_udp_actions(loopback_ctx(&sender, false), &actions, b"real");
+        let outcome = execute_udp_actions(loopback_ctx(&sender, false), &actions, b"real")
+            .unwrap_or_else(|error| panic!("failed decoy must not abort the plan: {}", error.source));
 
-        assert!(result.is_err(), "oversized decoy must fail");
+        let mut buf = [0u8; 16];
+        let n = peer.recv(&mut buf).expect("peer receives the real datagram");
+        assert_eq!(&buf[..n], b"real");
+        assert_eq!(outcome.real_writes_committed, 1);
+        assert_eq!(outcome.technique_actions_completed, 0);
         assert_eq!(SockRef::from(&sender).ttl_v4().expect("read IPv4 TTL"), 64);
     }
 
     #[test]
-    fn failed_decoy_write_restores_default_ipv6_hop_limit() {
+    fn failed_real_write_still_returns_error() {
+        let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
+        let real = vec![7u8; 70_000];
+        let actions = [DesyncAction::Write(b"decoy".to_vec()), DesyncAction::Write(real.clone())];
+
+        let result = execute_udp_actions(loopback_ctx(&sender, false), &actions, &real);
+
+        assert!(result.is_err(), "oversized real write must fail");
+    }
+
+    #[test]
+    fn failed_decoy_write_still_sends_real_and_restores_default_ipv6_hop_limit() {
         let Ok(peer) = UdpSocket::bind("[::1]:0") else {
             eprintln!("skipping: IPv6 loopback unavailable");
             return;
         };
+        peer.set_read_timeout(Some(Duration::from_millis(500))).expect("peer timeout");
         let sender = UdpSocket::bind("[::1]:0").expect("bind IPv6 sender");
         sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
         let actions = [
@@ -686,9 +724,13 @@ mod tests {
         let ctx =
             UdpActionExecContext { target: "[::1]:443".parse().expect("IPv6 target"), ..loopback_ctx(&sender, false) };
 
-        let result = execute_udp_actions(ctx, &actions, b"real");
+        let outcome = execute_udp_actions(ctx, &actions, b"real")
+            .unwrap_or_else(|error| panic!("failed decoy must not abort the plan: {}", error.source));
 
-        assert!(result.is_err(), "oversized decoy must fail");
+        let mut buf = [0u8; 16];
+        let n = peer.recv(&mut buf).expect("peer receives the real datagram");
+        assert_eq!(&buf[..n], b"real");
+        assert_eq!(outcome.real_writes_committed, 1);
         assert_eq!(SockRef::from(&sender).unicast_hops_v6().expect("read IPv6 hop limit"), 64);
     }
 
