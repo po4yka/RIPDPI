@@ -502,6 +502,15 @@ Additional QUIC chain step kinds accepted by the parser (`native/rust/crates/rip
 
 The native parser matches literal wire strings: it accepts a collapsed all-lowercase spelling and a snake_case spelling for most kinds (e.g. `quicsnisplit` or `quic_sni_split`). It does **not** lowercase its input, so raw PascalCase (`QuicSniSplit`) is rejected with an unknown-kind error -- the Kotlin layer lowercases wire names before they reach Rust. Exceptions accepted in their exact snake form only: `fake_burst` and `ipfrag2_udp`.
 
+`quic_sni_split` accepts counts from 0 through 64. The sum of its counts in one
+group must not exceed 64, including repeated CLI flags. Zero disables that
+step. The planner also limits direct Rust models to 64 split packet copies.
+
+The method requires a complete ClientHello within one UDP datagram. It can
+combine CRYPTO data from several Initial packets in that datagram. It does
+not assemble data across datagrams or decrypt ECH Inner; the split uses the
+visible SNI in ClientHelloOuter. Both new CRYPTO frames remain in one packet.
+
 #### TUN-egress packet action kinds
 
 The VPN tunnel can apply packet actions before forwarding the original session to the local SOCKS5 bridge:

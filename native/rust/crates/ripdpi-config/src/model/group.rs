@@ -8,6 +8,9 @@ use super::{
 /// Largest accepted DummyPrepend count per step and across one UDP chain.
 pub const MAX_DUMMY_PREPEND_COUNT: i32 = 64;
 
+/// Largest accepted total count for QUIC SNI split steps in one UDP chain.
+pub const MAX_QUIC_SNI_SPLIT_COUNT: i32 = 64;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AutoTtlConfig {
     pub delta: i8,

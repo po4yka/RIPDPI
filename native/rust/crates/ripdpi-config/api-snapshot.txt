@@ -640,6 +640,7 @@ pub const ripdpi_config::MAX_DUMMY_PREPEND_COUNT: i32
 pub const ripdpi_config::MAX_FAKE_BURST_COUNT: i32
 pub const ripdpi_config::MAX_QUIC_MULTI_INITIAL_COUNT: i32
 pub const ripdpi_config::MAX_QUIC_PADDING_LADDER_COUNT: i32
+pub const ripdpi_config::MAX_QUIC_SNI_SPLIT_COUNT: i32
 pub const ripdpi_config::TCP_FLAG_ACK: u16
 pub const ripdpi_config::TCP_FLAG_AE: u16
 pub const ripdpi_config::TCP_FLAG_CWR: u16

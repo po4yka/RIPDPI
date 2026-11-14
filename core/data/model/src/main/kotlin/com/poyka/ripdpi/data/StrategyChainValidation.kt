@@ -5,6 +5,9 @@ internal const val MaxSeqOverlapSize = 32
 // Mirrors the UDP decoy ceiling MAX_FAKE_BURST_COUNT in native/rust ripdpi-config src/constants.rs.
 private const val MaxFakeBurstCount = 64
 
+// Mirrors MAX_QUIC_SNI_SPLIT_COUNT in native/rust ripdpi-config src/model/group.rs.
+private const val MaxQuicSniSplitCount = 64
+
 // Mirrors MAX_DUMMY_PREPEND_COUNT in native/rust ripdpi-config.
 private const val MaxDummyPrependCount = 64
 
@@ -130,6 +133,13 @@ internal fun validateTcpChain(steps: List<TcpChainStepModel>) {
 internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
     val normalized = steps.map(::normalizeUdpChainStepModel)
     normalized.forEach(::validateUdpStepOptions)
+    val quicSniSplitCount =
+        normalized.sumOf {
+            if (it.kind == UdpChainStepKind.QuicSniSplit) it.count.toLong() else 0L
+        }
+    require(quicSniSplitCount <= MaxQuicSniSplitCount) {
+        "quic_sni_split total count must be at most $MaxQuicSniSplitCount"
+    }
     require(
         normalized.sumOf { step ->
             if (step.kind == UdpChainStepKind.QuicCidChurn) step.count.toLong() else 0L

@@ -1,6 +1,6 @@
 use ripdpi_config::{
     MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT, MAX_QUIC_PADDING_LADDER_COUNT,
-    UdpChainStep, UdpChainStepKind,
+    MAX_QUIC_SNI_SPLIT_COUNT, UdpChainStep, UdpChainStepKind,
 };
 
 use crate::types::{ProxyConfigError, ProxyUiUdpChainStep};
@@ -30,6 +30,8 @@ pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyC
 pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec<UdpChainStep>, ProxyConfigError> {
     let mut parsed = Vec::with_capacity(steps.len());
     let mut remaining_crypto_splits = MAX_FAKE_BURST_COUNT;
+
+    let mut quic_sni_split_budget = MAX_QUIC_SNI_SPLIT_COUNT;
     let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
     for step in steps {
         if step.count < 0 {
@@ -37,6 +39,14 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
         }
 
         let kind = parse_udp_chain_step_kind(&step.kind)?;
+        if kind == UdpChainStepKind::QuicSniSplit {
+            if step.count > quic_sni_split_budget {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "udpChainSteps kind=quic_sni_split total count must be at most {MAX_QUIC_SNI_SPLIT_COUNT}"
+                )));
+            }
+            quic_sni_split_budget -= step.count;
+        }
         if kind == UdpChainStepKind::QuicCidChurn {
             if step.count > cid_churn_budget {
                 return Err(ProxyConfigError::InvalidConfig(format!(

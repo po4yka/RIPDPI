@@ -835,3 +835,5 @@ fn parse_cli_preserves_tls_offset_repeats_and_skip() {
 
     assert_eq!(config.groups[0].actions.tcp_chain[0].offset(), OffsetExpr::host(2).with_repeat_skip(3, 1));
 }
+
+mod quic_sni_budget;

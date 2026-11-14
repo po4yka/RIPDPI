@@ -6,7 +6,7 @@ mod sequencing;
 use crate::types::{ActivationContext, AdaptiveUdpBurstProfile, DesyncAction, activation_filter_matches};
 use ripdpi_config::{
     ActivationFilter, DesyncGroup, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT,
-    UdpChainStepKind,
+    MAX_QUIC_SNI_SPLIT_COUNT, UdpChainStepKind,
 };
 
 use self::fragmentation::build_ip_fragmented_udp_action;
@@ -47,6 +47,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
     if !chain.is_empty() {
         let normalized_quic = normalized_quic_plan_input(payload);
         let mut prelude_state = UdpPreludeState::default();
+        let mut quic_sni_split_budget = MAX_QUIC_SNI_SPLIT_COUNT;
         let mut dummy_prepend_remaining = MAX_DUMMY_PREPEND_COUNT;
         let mut remaining_crypto_splits = MAX_FAKE_BURST_COUNT;
         let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
@@ -59,6 +60,13 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
             }
             if step.kind != UdpChainStepKind::IpFrag2Udp && step.count <= 0 {
                 continue;
+            }
+            if step.kind == UdpChainStepKind::QuicSniSplit {
+                if quic_sni_split_budget == 0 {
+                    continue;
+                }
+                step.count = step.count.min(quic_sni_split_budget);
+                quic_sni_split_budget -= step.count;
             }
             if step.kind == UdpChainStepKind::DummyPrepend {
                 step.count = step.count.min(dummy_prepend_remaining);

@@ -1269,3 +1269,5 @@ fn plan_udp_bounds_quic_version_decoy_copies_across_steps() {
         assert_eq!(writes.last().copied(), Some(&payload));
     }
 }
+
+mod quic_sni_budget;

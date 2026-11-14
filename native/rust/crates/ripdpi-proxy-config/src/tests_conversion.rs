@@ -1360,3 +1360,6 @@ fn ui_payload_bounds_quic_version_decoy_counts_and_combined_repeats() {
         vec![udp_step("quic_version_negotiation_decoy", 32), udp_step("quic_version_negotiation_decoy", 33)];
     assert!(runtime_config_from_payload(ui_payload(ui)).is_err());
 }
+
+#[path = "tests_conversion/quic_sni_budget.rs"]
+mod quic_sni_budget;

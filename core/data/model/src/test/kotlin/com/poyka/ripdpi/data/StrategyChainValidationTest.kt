@@ -182,7 +182,27 @@ class StrategyChainValidationTest {
             }.isFailure,
         )
         validateUdpChain(
-            listOf(UdpChainStepModel(64, kind), UdpChainStepModel(65, UdpChainStepKind.QuicSniSplit)),
+            listOf(UdpChainStepModel(64, kind), UdpChainStepModel(64, UdpChainStepKind.QuicSniSplit)),
         )
+    }
+
+    @Test
+    fun `QUIC SNI split accepts bounded per-step and total counts`() {
+        for (counts in listOf(listOf(0), listOf(64), listOf(32, 32))) {
+            validateUdpChain(counts.map { UdpChainStepModel(kind = UdpChainStepKind.QuicSniSplit, count = it) })
+        }
+    }
+
+    @Test
+    fun `QUIC SNI split rejects excessive per-step and total counts`() {
+        for (counts in listOf(listOf(65), listOf(32, 33), listOf(Int.MAX_VALUE, Int.MAX_VALUE))) {
+            val result =
+                runCatching {
+                    validateUdpChain(counts.map { UdpChainStepModel(kind = UdpChainStepKind.QuicSniSplit, count = it) })
+                }
+
+            assertTrue(counts.toString(), result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message?.contains("quic_sni_split") == true)
+        }
     }
 }
