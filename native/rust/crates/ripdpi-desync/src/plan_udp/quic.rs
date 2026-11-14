@@ -1,4 +1,5 @@
 use crate::normalize_quic_initial;
+use rand::{TryRng, rngs::SysRng};
 
 use ripdpi_config::DesyncGroup;
 use ripdpi_packets::{
@@ -251,13 +252,18 @@ pub(super) fn packetize_synthetic_quic_initial(
     profile: QuicInitialBrowserProfile,
     layout: QuicInitialPacketLayout,
 ) -> Option<Vec<u8>> {
-    let legacy = browser_like_quic_seed(group, Some(normalized_quic), profile)?;
+    // Alternating ClientHello profiles belong to independent connections.
+    let mut random = SysRng;
+    let mut dcid = [0; 16];
+    let mut scid = [0; 16];
+    random.try_fill_bytes(&mut dcid).ok()?;
+    random.try_fill_bytes(&mut scid).ok()?;
     let seed = build_browser_like_quic_initial_seed_with_cids(
         normalized_quic.version,
         Some(effective_quic_realistic_host(group)),
         profile,
-        &legacy.dcid,
-        &legacy.scid,
+        &dcid,
+        &scid,
     )?;
     packetize_quic_initial(&seed, &layout)
 }
