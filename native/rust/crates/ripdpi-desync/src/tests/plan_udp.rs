@@ -537,6 +537,60 @@ fn plan_udp_quic_decoys_stay_within_a_1500_byte_path() {
 }
 
 #[test]
+fn plan_udp_quic_ladder_decoys_vary_per_flow_and_per_rung() {
+    use ripdpi_packets::{QuicInitialPacketLayout, packetize_quic_initial, parse_quic_initial_seed};
+
+    // RFC 9001 Appendix A test-vector DCID, the old constant of every decoy.
+    const OLD_FIXED_DCID: [u8; 8] = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
+    // Record header (5), handshake header (4) and legacy version (2) precede the random.
+    const RANDOM: std::ops::Range<usize> = 11..43;
+
+    let mut group = DesyncGroup::new(0);
+    let mut step = fake_burst_step();
+    step.kind = UdpChainStepKind::QuicPaddingLadder;
+    step.count = 4;
+    group.actions.udp_chain = vec![step];
+    let base = build_realistic_quic_initial(QUIC_V2_VERSION, Some("flow.example.test")).expect("input quic");
+    let input_with_dcid = |dcid: [u8; 8]| {
+        let mut seed = parse_quic_initial_seed(&base).expect("input seed");
+        seed.dcid = dcid.to_vec();
+        packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(1200)).expect("input with dcid")
+    };
+    let ladder = |input: &[u8]| -> Vec<(Vec<u8>, ripdpi_packets::QuicInitialSeed)> {
+        plan_udp(&group, input, 64, udp_context(input))[1..5]
+            .iter()
+            .map(|action| {
+                let DesyncAction::Write(packet) = action else { panic!("expected ladder packet, got {action:?}") };
+                (packet.clone(), parse_quic_initial_seed(packet).expect("decrypt decoy"))
+            })
+            .collect()
+    };
+
+    let dcids = [[1_u8, 2, 3, 4, 5, 6, 7, 8], [8_u8, 7, 6, 5, 4, 3, 2, 1]];
+    let ladders = dcids.map(|dcid| ladder(&input_with_dcid(dcid)));
+    for (dcid, rungs) in dcids.iter().zip(&ladders) {
+        for (idx, (packet, seed)) in rungs.iter().enumerate() {
+            assert_ne!(seed.dcid, OLD_FIXED_DCID);
+            assert_ne!(seed.dcid, dcid.to_vec());
+            assert_eq!(seed.dcid, rungs[0].1.dcid, "one flow keeps one decoy DCID");
+            // Rung `idx` carries packet number `idx`: rebuilding it from the
+            // decrypted seed with that number reproduces the datagram.
+            let layout = {
+                let mut layout = QuicInitialPacketLayout::contiguous(packet.len());
+                layout.packet_number = idx as u32;
+                layout
+            };
+            assert_eq!(packetize_quic_initial(seed, &layout).as_ref(), Some(packet), "rung {idx} packet number");
+        }
+    }
+    assert_ne!(ladders[0][0].1.dcid, ladders[1][0].1.dcid, "different flows get different DCIDs");
+    assert_ne!(
+        ladders[0][0].1.client_hello[RANDOM], ladders[1][0].1.client_hello[RANDOM],
+        "different flows get different ClientHello randoms"
+    );
+}
+
+#[test]
 fn plan_udp_quic_multi_initial_realistic_packets_are_distinct() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {

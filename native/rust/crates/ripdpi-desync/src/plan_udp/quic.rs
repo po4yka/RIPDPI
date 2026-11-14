@@ -3,7 +3,7 @@ use crate::normalize_quic_initial;
 use ripdpi_config::DesyncGroup;
 use ripdpi_packets::{
     QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed, build_browser_like_quic_initial_seed,
-    is_quic_initial, packetize_quic_initial, parse_quic_initial_seed,
+    is_quic_initial, is_tls_client_hello, packetize_quic_initial, parse_quic_initial_seed,
 };
 
 /// Version of a QUIC long-header Initial datagram. Unlike
@@ -61,15 +61,67 @@ pub(super) fn effective_quic_realistic_host(group: &DesyncGroup) -> &str {
     group.actions.quic_fake_host.as_deref().unwrap_or(DEFAULT_QUIC_FAKE_HOST)
 }
 
+/// Deterministic bytes for one decoy field: splitmix64 over an FNV-1a hash of
+/// the input DCID and a field label. Decoys of one flow agree and decoys of
+/// different flows differ, with no fixed value shared by every user.
+fn derived_bytes<const N: usize>(dcid: &[u8], label: u8) -> [u8; N] {
+    let mut state = dcid
+        .iter()
+        .chain([&label])
+        .fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3));
+    let mut out = [0_u8; N];
+    for chunk in out.chunks_mut(8) {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut mixed = state;
+        mixed = (mixed ^ (mixed >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        mixed = (mixed ^ (mixed >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        mixed ^= mixed >> 31;
+        chunk.copy_from_slice(&mixed.to_be_bytes()[..chunk.len()]);
+    }
+    out
+}
+
+/// Offset of the ClientHello random in a TLS record: record header (5),
+/// handshake type and length (4), legacy version (2).
+const CLIENT_HELLO_RANDOM_OFFSET: usize = 5 + 4 + 2;
+const CLIENT_HELLO_RANDOM_LEN: usize = 32;
+
+/// Decoy seed for a flow whose input Initial has version `version` and
+/// destination connection ID `input_dcid`. The decoy keeps the seed's source
+/// connection ID: the ClientHello's `initial_source_connection_id` transport
+/// parameter must match it.
+pub(super) fn browser_like_quic_seed_for(
+    group: &DesyncGroup,
+    version: u32,
+    input_dcid: &[u8],
+    profile: QuicInitialBrowserProfile,
+) -> Option<QuicInitialSeed> {
+    let mut seed = build_browser_like_quic_initial_seed(version, Some(effective_quic_realistic_host(group)), profile)?;
+    let mut dcid = derived_bytes::<8>(input_dcid, 1);
+    if dcid.as_slice() == input_dcid {
+        dcid[0] ^= 0xff;
+    }
+    seed.dcid = dcid.to_vec();
+
+    let random_end = CLIENT_HELLO_RANDOM_OFFSET + CLIENT_HELLO_RANDOM_LEN;
+    let mut client_hello = seed.client_hello.clone();
+    if let Some(random) = client_hello.get_mut(CLIENT_HELLO_RANDOM_OFFSET..random_end) {
+        random.copy_from_slice(&derived_bytes::<CLIENT_HELLO_RANDOM_LEN>(input_dcid, 2));
+        if is_tls_client_hello(&client_hello) {
+            seed.client_hello = client_hello;
+        }
+    }
+    Some(seed)
+}
+
 pub(super) fn browser_like_quic_seed(
     group: &DesyncGroup,
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     profile: QuicInitialBrowserProfile,
 ) -> Option<QuicInitialSeed> {
     let normalized_quic = normalized_quic?;
-    build_browser_like_quic_initial_seed(normalized_quic.version, Some(effective_quic_realistic_host(group)), profile)
+    browser_like_quic_seed_for(group, normalized_quic.version, &normalized_quic.seed.dcid, profile)
 }
-
 pub(super) fn packetize_input_quic_initial(
     normalized_quic: &NormalizedQuicPlannerInput,
     layout: QuicInitialPacketLayout,

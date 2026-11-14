@@ -25,6 +25,14 @@ fn decoy_datagram_lengths(input_len: Option<usize>, rungs: &[usize]) -> Vec<usiz
     rungs.iter().map(|rung| (start + rung).min(ceiling)).collect()
 }
 
+/// Each decoy of a flow takes the next packet number, so no two share an AEAD
+/// nonce (RFC 9000, section 12.3).
+fn numbered_layout(len: usize, idx: usize) -> QuicInitialPacketLayout {
+    let mut layout = QuicInitialPacketLayout::contiguous(len);
+    layout.packet_number = idx as u32;
+    layout
+}
+
 pub(super) fn build_quic_padding_ladder_packets(
     group: &DesyncGroup,
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
@@ -35,14 +43,15 @@ pub(super) fn build_quic_padding_ladder_packets(
     let lengths = decoy_datagram_lengths(normalized_quic.map(|quic| quic.datagram_len), &rungs);
     lengths
         .into_iter()
-        .filter_map(|len| {
+        .enumerate()
+        .filter_map(|(idx, len)| {
             // The builder pads the datagram to exactly `len`: the decoy's
             // natural size is below 1200, so it never passes the ceiling.
             packetize_browser_like_quic_initial(
                 group,
                 normalized_quic,
                 QuicInitialBrowserProfile::ChromeAndroid,
-                QuicInitialPacketLayout::contiguous(len),
+                numbered_layout(len, idx),
             )
         })
         .collect()
@@ -68,7 +77,7 @@ pub(super) fn build_quic_multi_initial_realistic_packets(
                 group,
                 Some(normalized_quic),
                 quic_browser_profile_for_index(idx),
-                QuicInitialPacketLayout::contiguous(len),
+                numbered_layout(len, idx),
             )
         })
         .collect()
