@@ -2,7 +2,7 @@
 id: ENG-1794637889757963
 title: Bound dummy prepend work and repair its contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: DPI-17 remediation team
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: fix-dpi17-audit-findings
 created: 2026-11-14
 updated: 2026-11-14
-status_detail: "Resume completion: official Maven access is restored; run JVM/lint and resolve remaining CI/CodeQL failures before closure."
+status_detail: "Accepted exact 415 source: local gates, full CI, all five emulator APIs, five Xray API35 cases, CodeQL and artifact provenance passed."
 ---
 
 ## Goal

@@ -1,32 +1,44 @@
 ---
 task_id: ENG-1794637889757963
 change: fix-dpi17-audit-findings
-commit_sha: a33c8d3afa9ffcc9c5a40bd6430700e4ad965258
+commit_sha: 415af9446dc06ed962ef379b7aac655ca87c6ee6
 local: passed
-local_evidence: Final a33c8d3afa tree passed 796 native tests, enabled v1/v2 wire, six-crate Clippy, locked metadata, just ci-gates, 87 Kotlin/JVM tests and app/service Android lint. XML confirms zero failed, errored or skipped JVM tests and zero Error/Fatal lint findings. Final build-logic suite passed 53 tests and strict Android OBFS4 cross-builds passed four ABIs.
-remote_ci: blocked
-remote_ci_evidence: Full push CI 43583732581 failed only API35 Xray acceptance and its aggregate; the test expected obsolete core version 26.3.27 although the pinned runtime starts as 26.11.9. CodeQL 43583732472 passed all three languages with zero new results. Both stale test assertions are corrected locally; a successful full CI and CodeQL run on the correction are still required.
+local_evidence: Final c48b84610e tree passed 834 native tests, enabled v1/v2 wire, six-crate Clippy, locked metadata, just ci-gates, 94 model JVM tests, 12 selected app tests, AndroidTest compilation and app/service Android lint. Matching XML confirms zero test failures/errors/skips and zero Error/Fatal lint findings. Build-logic and strict four-ABI OBFS4 validation also passed.
+remote_ci: passed
+remote_ci_evidence: Exact415 full CI 43600255158 passed all required gates (70 jobs: 55 success, 15 intended skips, zero failures/cancellations; ci-required success). API35 actual JUnit has all five expected Xray methods passed, zero failures/errors/skips. Same-SHA CodeQL 43599499488 passed three languages with 39/3/0 existing SARIF results and zero added/removed results.
 device: not_applicable
 device_evidence: Physical-device and root acceptance were not requested. CI emulator checks are recorded under remote_ci; external QUIC peer compatibility is not claimed.
 artifact: passed
-artifact_evidence: Exact-a33 CI artifact 14109564274 passed strict source mode; its GitHub ZIP digest, source and four ABI patch identities, actual launcher/upstream payload hashes, Go 1.27.4, CGO and empty Lyrebird linker flags were verified. Durable receipts are in /Users/npochaev/Downloads/RIPDPI_network_audits/DPI-17-evidence-20261114/ci/.
+artifact_evidence: Exact415 producer artifact 14115534641 and sealed APK consumer 14117470618 were verified against GitHub ZIP digests. All four Lyrebird ABI receipts and payloads match pin, patch and Go settings; Full/Simple x86_64 APK packaged manifests and payloads match producer. Durable primary results are under Downloads/RIPDPI_network_audits/DPI-17-evidence-20261114/ci/.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
 
 # Verification
 
+## Final acceptance
+
+Accepted source: 415af9446dc06ed962ef379b7aac655ca87c6ee6. [Full CI 43600255158](https://github.com/po4yka/RIPDPI/actions/runs/43600255158) completed successfully: 70 jobs, 55 success, 15 intended skips, zero failures or cancellations; ci-required succeeded. All five emulator API jobs passed. API35 artifact 14118180668 matched GitHub's SHA-256; its actual xray-provider JUnit contains exactly the five expected methods, all passed with zero failures, errors or skips. Native logcat also records core 26.11.9 startup; both strict assertions for full bridge output `Xray 26.11.9` executed successfully. No remaining null/unknown-version failure was observed in this acceptance.
+
+The same-source [CodeQL 43599499488](https://github.com/po4yka/RIPDPI/actions/runs/43599499488) passed all three languages. Actual SARIF results are Rust 39, Java/Kotlin three and Actions zero, with zero added/removed results against verified a33 and empty analysis errors. Existing results are not described as zero results.
+
+Producer artifact 14115534641 and consumer artifact 14117470618 were checked against GitHub ZIP digests. The four-ABI source receipts and actual Lyrebird launcher/upstream payloads match the reviewed pin, patch and Go settings. The sealed consumer binds all six APK hashes to exact415. Full and Simple x86_64 app APKs contain the exact producer manifest and upstream payload. Local gates remain 834 native tests, enabled production v1/v2 wire, six-crate Clippy, source/API gates, 94 model and 12 selected app JVM tests, AndroidTest compilation and app/service lint with zero Error/Fatal findings. Local results are c48 with unchanged production inputs; bridge-prefix and added test-resource outcomes are established by the exact415 hosted gates.
+
+Primary durable evidence: /Users/npochaev/Downloads/RIPDPI_network_audits/DPI-17-evidence-20261114/ci/head415-ci-full-verified-summary.json, head415-codeql-verified-summary.json, head415-asset-provenance-verified.json, head415-consumer-provenance-verified.json and head415-android35-xray/TEST-instrumentation.xml. Historical notes below retain earlier blocked, failed and cancelled attempts; they do not override this accepted result.
+
+Physical-device/root-mode activation, external QUIC peer compatibility and DPI efficacy were not run or claimed. CI emulator and owned-runner acceptance does not establish these separate outcomes.
+
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DUMMY-COUNT | ENG-1794638159294108 | Full native owning suites and 87 Kotlin JVM tests, including boundary and direct-model cases | Passed |
+| REQ-DUMMY-COUNT | ENG-1794638159294108 | Full native owning suites and 94 model JVM tests, including boundary and direct-model cases | Passed |
 | REQ-DUMMY-BYTES | ENG-1794638159294108 | v1/v2 direct counts and oversized host/output tests in desync suite | Passed |
 | REQ-DUMMY-COMPAT | ENG-1794638159294108 | Full owning native suites and production loopback original byte equality; local scope only | Passed |
 | REQ-DUMMY-UI | ENG-1794638174316919 | Ten locales, export/parity, standalone Kotlin lint and both Android lint targets | Passed |
 | REQ-DUMMY-WIRE | ENG-1794649284222091 | Correctly padded authenticated v1/v2 seeds and enabled production loopback regression passed twice | Passed |
 | REQ-DUMMY-ASSET | ENG-1794641528622974 | 53 build-logic tests, four local strict ABI builds and exact-SHA CI source/artifact receipts with actual payload hash verification | Passed |
-| REQ-DUMMY-ACCEPT | ENG-1794641528622974 | Owning JVM/lint gate and exact-SHA CI/CodeQL checks | Required |
+| REQ-DUMMY-ACCEPT | ENG-1794641528622974 | Local gates, exact415 full CI and CodeQL, actual API35 five-case JUnit and producer/consumer payload receipts | Passed |
 
 ## Observed local checks
 
@@ -119,13 +131,45 @@ The corrected AndroidTest source compiled and app lint passed locally in 9m25s (
 
 Actual snapshot version was not printed by the original failed assertion, so a further null/unknown issue remains unexcluded until the corrected five-method API35 suite passes. Durable failure artifacts and source trace: /Users/npochaev/Downloads/RIPDPI_network_audits/DPI-17-evidence-20261114/ci/a33-android35-xray/ and a33-xray-version-triage.md in its parent directory.
 
+## Corrected delivery and latest local checks
+
+Commit c48b84610ed05fe02d984ccd6591be3ad5e346bf delivers the Xray version-test correction after preserving upstream main through 05f91ba333e12df29460d271c2b86f57e6ac3164. Affected gates were repeated after the intervening DPI18/20/24/25 changes.
+
+All current local checks passed: 834 native tests with zero skipped; enabled exact wire test, one passed and eight unrelated tests filtered; six-crate Clippy; locked Cargo metadata; full just ci-gates. Gradle passed in 2m09s with 656 tasks (147 executed, nine from cache, 500 up-to-date). Matching XML reports 94 model tests in 19 suites and 12 selected app tests in two suites, all with zero failures, errors or skips. AndroidTest compilation and app/service lint completed. App lint has zero Error/Fatal findings, 4098 warnings and four hints; service has zero Error/Fatal findings and 17 warnings.
+
+The normal build slot was occupied; the owner explicitly approved use of default with the same four-worker/job limit. Only the verified pending wrapper for this task was stopped. Its first retry found the ignored script missing; the next attempt failed on ENOSPC while writing architecture-health.json before tests. The filesystem then had 39 GiB free and later 45 GiB, without deletion by this task. The failed log was retained, and the unchanged source passed on retry. Test scripts and logs now use the durable audit evidence directory; Cargo uses task-owned /Users/npochaev/.cache/ripdpi-dpi17-final targets.
+
+Exact commands and final local reports are in /Users/npochaev/Downloads/RIPDPI_network_audits/DPI-17-evidence-20261114/run-current-checks.sh and local-c48b84610ed0/. The full hosted checks are [CI 43595782212](https://github.com/po4yka/RIPDPI/actions/runs/43595782212) and [CodeQL 43595782202](https://github.com/po4yka/RIPDPI/actions/runs/43595782202). The corrected API35 suite must pass all five selected methods with no skips before closure.
+
+## Stable full acceptance run
+
+The c48 push CI and CodeQL runs were cancelled by the documentation-only DPI20 closure push. The newer e1e038afed22d1526b60c95b18a05c8f1b615279 differs from c48 only in three task/OpenSpec commits. Its six-job documentation CI skipped assets and instrumentation and is not used to replace the cancelled full run.
+
+The owner-authorized CI verification continued through the existing workflow_dispatch path with soak_profile=smoke and other opt-ins left false. The router selects full CI for this event, including all five emulator APIs and the real API35 Xray selector. The manual concurrency group differs from push CI, so later task-documentation pushes cannot cancel this full run. No workflow, condition or check was changed.
+
+[Full CI 43597411696](https://github.com/po4yka/RIPDPI/actions/runs/43597411696) runs on exact E1. The same-SHA [CodeQL 43596343496](https://github.com/po4yka/RIPDPI/actions/runs/43596343496) completed successfully for all three languages: Rust analysis 2167481150 has 39 results, Java 2167474017 has three, Actions 2167440015 has zero, and all error fields are empty. Actual SARIF comparison against verified a33 found zero added and zero removed results; open alerts are zero. Durable e1-codeql-verified-summary.json and actual current SARIFs are in the ci evidence directory.
+
+The source and build inputs tested locally on c48 are unchanged in E1. Local results remain 834 native tests, one enabled wire test covering v1/v2, 94 model plus 12 selected app JVM tests, successful AndroidTest compilation, both lint targets and source/API gates. Only portfolio metadata validation was repeated for the documentation rebase. Full CI and the five-method API35 result remain required before closure.
+
+## Full bridge-version contract correction
+
+The first version-test repair used the core value 26.11.9 directly. That exact equality was too narrow: XrayNativeBridgeLibXrayImpl.version() returns the literal prefix `Xray ` plus the core version. Commit 500374d34dab8d048857c3de0e64f7c9f7d8bb29, already landed by the parallel repair, corrects the shared expected value to `Xray 26.11.9`. Both strict assertEquals checks remain. Their full expected value now matches the bridge contract instead of only the underlying Go core value.
+
+The task's own manual E1 run 43597411696 was cancelled deliberately once this known incorrect expectation was identified. Its producer and sealed APK Go provenance remain useful component evidence; its overall CI and API35 result are not accepted as passed. No foreign workflow was cancelled.
+
+The corrected [full manual CI 43600255158](https://github.com/po4yka/RIPDPI/actions/runs/43600255158) and [CodeQL 43599499488](https://github.com/po4yka/RIPDPI/actions/runs/43599499488) use exact source 415af9446dc06ed962ef379b7aac655ca87c6ee6. Authoritative source checks confirmed the expected bridge string and both assertion sites. Compared with locally validated c48, production native/app/build inputs are unchanged; changes are the expected-value test, task/OpenSpec documents and a liveness test-resource fixture. No local rerun of the added fixture or bridge-prefix runtime assertion is claimed; the full hosted checks must establish those outcomes.
+
+## Corrected-source CodeQL
+
+[CodeQL 43599499488](https://github.com/po4yka/RIPDPI/actions/runs/43599499488) completed successfully on exact 415af9446dc06ed962ef379b7aac655ca87c6ee6. Actual downloaded analyses have empty error fields: Rust 2167605639 has 39 results, Java 2167571042 has three, Actions 2167540527 has zero. Multiset comparison by rule, path and message against verified a33 found zero added and zero removed results. Open alerts are zero; the 39 plus three existing SARIF results are not reported as zero results. Durable head415-codeql-verified-summary.json and actual SARIFs are in the ci evidence directory.
+
 ## Previous blocked validation
 
 The exact combined Gradle command was ./gradlew :core:data:model:testDebugUnitTest :app:lintGithubFullDebug :core:service:lintDebug --offline -Pripdpi.skipNativeBuild=true. It failed before test/lint execution because protobuf Gradle plugin 0.10.1 was not cached. Earlier online lint blocked on Maven/Plugin Portal connections; bounded official endpoint attempts timed out. Log: /tmp/dpi17-combined-android-offline.log.
 
 A bounded actual-source kotlinc 2.4.21 fallback also failed before JUnit execution: generated protobuf code required a newer runtime than cached protobuf-java 3.25.5, and the required IPAddress artifact was absent. No stubs, source stripping, dependency changes or weakened checks were used. Commands and logs: /tmp/ripdpi-dpi17-kotlin-validation/README.md. This fallback does not replace the Gradle gate.
 
-Rerun the exact Gradle command without --offline once official dependency access is restored. Device, root, external QUIC peer, DPI efficacy and visual acceptance are not claimed. Official dependency access recovered during completion. This record is not archive-ready until the resumed local and hosted acceptance checks pass.
+Rerun the exact Gradle command without --offline once official dependency access is restored. Device, root, external QUIC peer, DPI efficacy and visual acceptance are not claimed. Official dependency access recovered during completion. Those blocked attempts were superseded by the final acceptance above.
 
 ## Delivered fixes
 
