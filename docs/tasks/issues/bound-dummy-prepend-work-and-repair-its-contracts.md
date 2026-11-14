@@ -2,7 +2,7 @@
 id: ENG-1794637889757963
 title: Bound dummy prepend work and repair its contracts
 kind: bug
-status: doing
+status: blocked
 area: engine
 priority: high
 owner: DPI-17 remediation team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: fix-dpi17-audit-findings
 created: 2026-11-14
 updated: 2026-11-14
+status_detail: Implementation and native/source gates are complete; JVM tests and Android lint require unavailable official dependency artifacts. See verification.md.
 ---
 
 ## Goal
