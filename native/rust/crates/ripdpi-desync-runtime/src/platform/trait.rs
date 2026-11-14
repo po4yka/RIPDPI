@@ -24,6 +24,7 @@ pub trait TcpSocketOptions {
 
 #[allow(clippy::too_many_arguments)]
 pub trait TcpFakeSender {
+    /// Return `TcpFragmentSendError` with a false phase only when socket state is safe.
     fn send_fake_rst(
         &self,
         stream: &TcpStream,

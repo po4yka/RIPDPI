@@ -11,11 +11,11 @@ use crate::types::TcpFlagOverrides;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) use identification::reserve_fragment_identification;
 
-/// Error from an IP-fragment send, with its payload delivery boundary.
+/// Error from a fragment or fake-RST operation, with its delivery and socket-state boundary.
 #[derive(Debug)]
 pub struct IpFragmentSendError {
     pub source: io::Error,
-    /// True if a packet may have left or TCP repair state could not be restored.
+    /// True if original payload may have left or TCP repair state could not be restored.
     pub payload_commit_uncertain: bool,
 }
 

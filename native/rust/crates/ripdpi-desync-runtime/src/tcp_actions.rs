@@ -202,7 +202,7 @@ pub(crate) fn execute_tcp_actions_with_ttl_state(
                     }
                 }
                 DesyncAction::SendFakeRst => {
-                    if PrivilegedActionExecutor::send_fake_rst(writer, &context) {
+                    if PrivilegedActionExecutor::send_fake_rst(writer, &context)? {
                         accounting.complete_action();
                     }
                 }

@@ -9,6 +9,7 @@ use ripdpi_root_helper_protocol::{
 use tracing::{debug, error};
 
 use super::fd_adoption::adopt_tcp_stream;
+use super::fragment_error::fragment_error_response;
 
 pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, ttl = params.default_ttl, "send_fake_rst");
@@ -34,7 +35,7 @@ pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse
         Err(e) => {
             // Drop `stream` to close the socket exactly once on the error path.
             error!(%e, "send_fake_rst failed");
-            (HelperResponse::error(e.to_string()), None)
+            (fragment_error_response(e), None)
         }
     }
 }

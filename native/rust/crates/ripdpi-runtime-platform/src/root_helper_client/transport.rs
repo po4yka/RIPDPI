@@ -144,6 +144,7 @@ fn command_error(command: &str, params: &serde_json::Value, response: HelperResp
         command,
         ripdpi_root_helper_protocol::CMD_SEND_IP_FRAGMENTED_TCP
             | ripdpi_root_helper_protocol::CMD_SEND_IP_FRAGMENTED_UDP
+            | ripdpi_root_helper_protocol::CMD_SEND_FAKE_RST
     ) {
         return fragment_error::decode(response);
     }

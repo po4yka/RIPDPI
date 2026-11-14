@@ -170,3 +170,73 @@ fn fakerst_without_ttl_lowering_reports_the_plain_split_it_ran() {
     server.read_exact(&mut buf).expect("read relayed payload");
     assert_eq!(&buf, payload);
 }
+
+#[test]
+fn fakerst_uncertain_failure_stops_both_executors_before_original_bytes() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n";
+    for plan_executor in [true, false] {
+        for phase in [Some(true), None] {
+            let platform = ReceiptTestPlatform::default();
+            platform.faults.lock().expect("fault queue").push_back(FaultSpec::FakeRstFailure(phase));
+            let (mut client, mut server) = connected_pair();
+            let default_ttl = client.ttl().expect("default TTL");
+            let error = if plan_executor {
+                let mut group = test_group();
+                group.actions.ttl = Some(5);
+                group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeRst, OffsetExpr::host(1)));
+                let progress = OutboundProgress {
+                    round: 1,
+                    payload_size: payload.len(),
+                    stream_start: 0,
+                    stream_end: payload.len() - 1,
+                };
+                let context = activation_context_from_progress(
+                    progress,
+                    ActivationTransport::Tcp,
+                    Some(payload),
+                    None,
+                    None,
+                    None,
+                    AdaptivePlannerHints::default(),
+                );
+                send_prepared_with_group(
+                    &mut client,
+                    &platform,
+                    &RuntimeConfig::default(),
+                    &group,
+                    payload,
+                    progress,
+                    context,
+                    None,
+                    None,
+                    &default_ttl_unavailable(),
+                    None,
+                )
+                .expect_err("uncertain RST state must stop the plan")
+            } else {
+                crate::platform::with_tcp_desync_platform(&platform, || {
+                    execute_tcp_actions(
+                        &mut client,
+                        &[DesyncAction::SendFakeRst, DesyncAction::Write(payload.to_vec())],
+                        64,
+                        false,
+                        Duration::from_millis(10),
+                        Some("fakerst"),
+                        &default_ttl_unavailable(),
+                        false,
+                        None,
+                        None,
+                    )
+                })
+                .expect_err("uncertain RST state must stop the action list")
+            };
+            assert!(error.payload_commit_uncertain());
+            assert_eq!(error.bytes_committed(), 0);
+            assert_eq!(client.ttl().expect("restored TTL"), default_ttl);
+            client.shutdown(std::net::Shutdown::Write).expect("finish write");
+            let mut received = Vec::new();
+            server.read_to_end(&mut received).expect("read peer bytes");
+            assert!(received.is_empty());
+        }
+    }
+}

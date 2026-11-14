@@ -90,7 +90,7 @@ pub fn send_ip_fragmented_tcp(
     .map_err(project_fragment_error)
 }
 
-fn project_fragment_error(error: io::Error) -> io::Error {
+pub(super) fn project_fragment_error(error: io::Error) -> io::Error {
     let kind = error.kind();
     let Some(phase) =
         error.get_ref().and_then(|source| source.downcast_ref::<runtime_platform::raw_packet::IpFragmentSendError>())

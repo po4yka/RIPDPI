@@ -47,6 +47,7 @@ pub fn send_fake_rst(
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {
     runtime_platform::raw_packet::send_fake_rst(stream, default_ttl, protect_path, to_runtime_flags(flags), ip_id_mode)
+        .map_err(super::fragmentation::project_fragment_error)
 }
 
 #[allow(clippy::too_many_arguments)]

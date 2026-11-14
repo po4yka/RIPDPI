@@ -29,7 +29,7 @@ pub fn send_fake_rst_reserved(
     _flags: TcpFlagOverrides,
     _ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    ripdpi_privileged_ops::send_fake_rst(_stream, _default_ttl, _protect_path, _flags, _ipv4_identification)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -41,7 +41,12 @@ pub fn send_fake_rst(
     flags: TcpFlagOverrides,
     ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    let ipv4_identification = raw_path_ids::reserve_one_for_stream(stream, ip_id_mode)?;
+    let ipv4_identification = raw_path_ids::reserve_one_for_stream(stream, ip_id_mode).map_err(|source| {
+        io::Error::new(
+            source.kind(),
+            ripdpi_privileged_ops::IpFragmentSendError { source, payload_commit_uncertain: false },
+        )
+    })?;
     send_fake_rst_reserved(stream, default_ttl, protect_path, flags, ipv4_identification)
 }
 
@@ -54,5 +59,5 @@ pub fn send_fake_rst(
     _flags: TcpFlagOverrides,
     _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+    send_fake_rst_reserved(_stream, _default_ttl, _protect_path, _flags, None)
 }

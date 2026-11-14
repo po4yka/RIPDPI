@@ -13,6 +13,7 @@ pub fn send_fake_rst(
     ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     crate::linux::send_fake_rst(stream, default_ttl, protect_path, flags, ipv4_identification)
+        .map_err(|error| crate::fragmentation::fragment_send_error(error, false))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -24,7 +25,7 @@ pub fn send_fake_rst(
     _flags: TcpFlagOverrides,
     _ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    crate::unsupported()
+    crate::unsupported().map_err(|error| crate::fragmentation::fragment_send_error(error, false))
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -34,6 +34,7 @@ enum FaultSpec {
     FakePayload { bytes: Vec<u8>, kind: io::ErrorKind },
     MultiDisorderAfterPrefix { written: usize, report_progress: bool },
     EmitIpFragments,
+    FakeRstFailure(Option<bool>),
 }
 
 type FaultQueue = Mutex<VecDeque<FaultSpec>>;
@@ -114,10 +115,29 @@ impl TcpFakeSender for ReceiptTestPlatform {
     ) -> io::Result<()> {
         self.fake_rst_ttls.lock().expect("fake rst ttl log").push(stream.ttl().expect("read socket ttl"));
         self.fake_rst_protect_paths.lock().expect("fake rst protect log").push(protect_path.map(str::to_owned));
+        let mut faults = self.faults.lock().expect("receipt fault queue");
+        if let Some(FaultSpec::FakeRstFailure(phase)) = faults.front() {
+            let phase = *phase;
+            faults.pop_front();
+            let source = io::Error::new(io::ErrorKind::Unsupported, "fake RST cleanup failed");
+            return Err(match phase {
+                Some(payload_commit_uncertain) => io::Error::new(
+                    source.kind(),
+                    crate::platform::TcpFragmentSendError { source, payload_commit_uncertain },
+                ),
+                None => source,
+            });
+        }
         if self.fake_rst_succeeds {
             return Ok(());
         }
-        Err(io::Error::new(io::ErrorKind::Unsupported, "fake rst unsupported in receipt test"))
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            crate::platform::TcpFragmentSendError {
+                source: io::Error::new(io::ErrorKind::Unsupported, "fake rst unsupported in receipt test"),
+                payload_commit_uncertain: false,
+            },
+        ))
     }
 
     fn send_fake_tcp(

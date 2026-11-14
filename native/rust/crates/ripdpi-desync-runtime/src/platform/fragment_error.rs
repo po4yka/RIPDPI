@@ -1,10 +1,10 @@
 use std::io;
 
-/// Emission state supplied by a TCP fragment sender.
+/// Delivery and socket-restoration state supplied by a TCP fragment or fake-RST sender.
 #[derive(Debug)]
 pub struct TcpFragmentSendError {
     pub source: io::Error,
-    /// False only when the sender proves that emission did not start.
+    /// False only when original payload was not emitted and socket state is safe.
     pub payload_commit_uncertain: bool,
 }
 

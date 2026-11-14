@@ -82,7 +82,13 @@ impl TcpFakeSender for TestTcpDesyncPlatform {
         _flags: TcpFlagOverrides,
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            super::TcpFragmentSendError {
+                source: io::Error::from(io::ErrorKind::Unsupported),
+                payload_commit_uncertain: false,
+            },
+        ))
     }
 
     fn send_fake_tcp(

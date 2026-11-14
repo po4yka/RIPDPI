@@ -8,6 +8,7 @@ use std::net::TcpStream;
 use std::os::fd::{AsFd, AsRawFd};
 
 use crate::detect_default_ttl;
+use crate::fragmentation::finish_fragment_send;
 use crate::linux::raw_packet::fake_tcp::mutate_fake_timestamp;
 use crate::linux::raw_packet::packet_builder::{
     apply_tcp_flag_overrides_to_packet, build_error_to_io, build_ordered_tcp_packets, build_seqovl_tcp_packet,
@@ -56,9 +57,9 @@ pub fn send_fake_rst(
         apply_tcp_flag_overrides_to_packet(&mut packet, source, target, 0, flags)?;
         send_raw_packets(target, [packet.as_slice()], protect_path, stream.as_fd())
     })();
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
+    let queue_restoration = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let repair_restoration = disable_tcp_repair(fd);
+    finish_fragment_send(result, queue_restoration.and(repair_restoration))
 }
 
 /// The RST carries the exact live sequence numbers, so a copy that reaches

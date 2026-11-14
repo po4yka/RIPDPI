@@ -200,13 +200,14 @@ refactor of either layer cannot silently disable the rule. The drift tests
 `every_command_descriptor_has_a_dispatch_handler` (already present) pin the
 bidirectional coverage.
 
-### TCP fragment failures
+### TCP fragment and fake-RST failures
 
-A failed `v4/send_ip_fragmented_tcp` response carries typed `data` fields:
+A failed `v4/send_ip_fragmented_tcp` or `v4/send_fake_rst` response carries typed `data` fields:
 `error_kind` (the normalized Rust I/O kind), `raw_os_error` (an optional original
 Linux errno in 1–4095), and `payload_commit_uncertain` (a required boolean).
 `IpFragmentErrorData` owns this representation and its validation. The helper
-copies a known fragment-send boundary; an untyped failure is uncertain.
+copies a known send boundary; an untyped failure is uncertain. For fake RST,
+uncertainty also covers a socket that could not leave TCP repair mode.
 
 The client preserves both the normalized kind and an original errno. For example,
 an unavailable capability remains `Unsupported` with nested `EPERM`; it must not
