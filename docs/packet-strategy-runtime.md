@@ -61,6 +61,12 @@ and command-line preferences carry `strategyChainYaml` and `luaScriptBaseDir` in
 the optional runtime context. In non-root VPN mode, `luaSocketOwned` tells TUN
 to skip Lua steps; other TUN rules remain active. Root mode retains TUN Lua.
 
+On the TUN packet path, payload-only `VERDICT_MODIFY` is materialized as a
+replacement packet. TCP payload length must stay unchanged because this
+adapter does not translate later sequence numbers or acknowledgments. Header
+changes require a supported packet action; unsupported MODIFY results follow
+`on_fail` before any packet is sent.
+
 The socket planner accepts string-return writes, payload-only `VERDICT_MODIFY`,
 ordered TCP splits, and a single UDP payload replacement. It accepts a
 `rawsend_dissect` TCP replacement only when all segments preserve the original

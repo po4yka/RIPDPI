@@ -386,7 +386,7 @@ mod enabled {
             let call_plan = Arc::new(Mutex::new(LuaCallPlan::default()));
             let desync = create_desync_table(&inner.lua, ctx, conn, Arc::clone(&call_plan), socket_tcp, func_name)?;
             let dis = desync.get::<Table>("dis").map_err(to_call)?;
-            let baseline = socket_tcp.map(|_| header_snapshot(&dis, false)).transpose().map_err(to_call)?;
+            let baseline = header_snapshot(&dis, false).map_err(to_call)?;
             let result = call_lua_strategy_function(&function, desync.clone(), *takes_ctx)?;
             let mut call_plan = take_call_plan(call_plan)?;
             let output = match result {
@@ -404,9 +404,32 @@ mod enabled {
                     return Err(LuaError::Call(format!("unsupported Lua strategy return type: {}", other.type_name())));
                 }
             };
-            if let (Some(tcp), Some(baseline)) = (socket_tcp, baseline) {
-                let dis = desync.get::<Table>("dis").map_err(to_call)?;
+            let dis = desync.get::<Table>("dis").map_err(to_call)?;
+            if let Some(tcp) = socket_tcp {
                 return socket_outcome(ctx.payload, tcp, dis, baseline, call_plan, output);
+            }
+            let mut output = output;
+            if output.is_none() && call_plan.verdict == Some(StrategyVerdict::Apply) {
+                if header_snapshot(&dis, false).map_err(to_call)? != baseline {
+                    return Err(LuaError::Call("unsupported Lua packet header modification".to_owned()));
+                }
+                let modified = dis.get::<LuaString>("payload").map_err(to_call)?;
+                let modifier_only = call_plan
+                    .actions
+                    .iter()
+                    .all(|action| matches!(action, DesyncAction::SetTtl(_) | DesyncAction::RestoreDefaultTtl));
+                if modifier_only {
+                    let udp = ctx.dissect.is_udp.unwrap_or_else(|| is_udp_classified(&ctx.dissect.proto));
+                    // The packet adapter does not translate later TCP sequence numbers or ACKs.
+                    if !udp && modified.as_bytes().len() != ctx.payload.len() {
+                        return Err(LuaError::Call(
+                            "Lua TCP packet modification must preserve payload length".to_owned(),
+                        ));
+                    }
+                    output = Some(modified.as_bytes().to_vec());
+                } else if modified.as_bytes().as_ref() != ctx.payload {
+                    return Err(LuaError::Call("Lua payload modification conflicts with packet actions".to_owned()));
+                }
             }
             Ok(LuaCallOutcome { output, actions: call_plan.actions, verdict: call_plan.verdict })
         }

@@ -1237,3 +1237,6 @@ fn lua_activation_errors_reject_the_entire_configuration() {
     }
     assert!(TunEgressInterceptor::new(Some("invalid: ["), RecordingInjector::default()).is_err());
 }
+
+#[path = "packet_modify_tests.rs"]
+mod packet_modify_tests;

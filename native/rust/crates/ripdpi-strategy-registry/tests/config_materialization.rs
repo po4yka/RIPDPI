@@ -272,7 +272,9 @@ fn lua_noop_and_explicit_verdicts_remain_terminal() {
         let mut plan = DesyncPlan::default();
 
         assert_eq!(registry.execute(&ctx, &mut plan), expected, "Lua return {lua_return}");
-        assert!(plan.actions.is_empty(), "Lua return {lua_return} must not run the later split step");
+        let expected_actions =
+            if lua_return == "VERDICT_MODIFY" { vec![DesyncAction::Write(b"payload".to_vec())] } else { Vec::new() };
+        assert_eq!(plan.actions, expected_actions, "Lua return {lua_return} must not run the later split step");
     }
     let _ = std::fs::remove_dir_all(dir);
 }
