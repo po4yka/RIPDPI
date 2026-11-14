@@ -209,31 +209,36 @@ fn udp_quic_chain_steps_emit_dummy_split_and_fake_version_packets() {
         return;
     }
     let _guard = test_guard();
-    let recording = RecordingUdpServer::start(WIRE_UDP_ECHO_PORT).expect("start recording server");
+    for version in [0x0000_0001, 0x6b33_43cf] {
+        let recording = RecordingUdpServer::start(0).expect("start recording server");
 
-    let config = udp_quic_chain_config();
-    let proxy = start_proxy(config, None);
-    let (_control, relay) = socks_udp_associate(proxy.port);
-    let udp = udp_proxy_client();
+        let config = udp_quic_chain_config();
+        let proxy = start_proxy(config, None);
+        let (_control, relay) = socks_udp_associate(proxy.port);
+        let udp = udp_proxy_client();
 
-    let real_payload = rust_packet_seeds::quic_initial_with_host(0x0000_0001, "wire.example.test");
-    let echoed = udp_proxy_roundtrip_with_socket(&udp, relay, recording.port(), &real_payload);
-    assert_eq!(echoed, real_payload, "real payload should echo back");
+        let real_payload = rust_packet_seeds::quic_initial_with_host(version, "wire.example.test");
+        let echoed = udp_proxy_roundtrip_with_socket(&udp, relay, recording.port(), &real_payload);
+        assert_eq!(echoed, real_payload, "real payload should echo back");
 
-    std::thread::sleep(Duration::from_millis(200));
-    drop(proxy);
+        std::thread::sleep(Duration::from_millis(200));
+        drop(proxy);
 
-    let packets = recording.snapshot();
-    assert!(packets.len() >= 4, "expected >= 4 packets (3 prelude + 1 real), got {}", packets.len());
+        let packets = recording.snapshot();
+        assert_eq!(packets.len(), 4, "expected three prelude packets and the original");
 
-    assert_eq!(packets[0].len(), 64);
-    assert_eq!(packets[0][0] & 0x80, 0, "dummy prepend should not look like QUIC long header");
+        assert_ne!(packets[0][0] & 0x80, 0, "dummy prepend must carry a QUIC long header");
+        let dummy = parse_quic_initial(&packets[0]).expect("parse dummy QUIC Initial");
+        assert_eq!(dummy.version, version);
+        assert_eq!(dummy.host(), b"www.wikipedia.org");
+        assert_ne!(packets[0], real_payload);
 
-    let split = parse_quic_initial(&packets[1]).expect("parse split SNI prelude");
-    assert_eq!(split.host(), b"wire.example.test");
+        let split = parse_quic_initial(&packets[1]).expect("parse split SNI prelude");
+        assert_eq!(split.host(), b"wire.example.test");
 
-    assert_eq!(&packets[2][1..5], &0x1a2b_3c4du32.to_be_bytes());
-    assert_eq!(packets.last().unwrap(), &real_payload, "last packet should be the real QUIC Initial");
+        assert_eq!(&packets[2][1..5], &0x1a2b_3c4du32.to_be_bytes());
+        assert_eq!(packets.last().unwrap(), &real_payload, "last packet should be the real QUIC Initial");
+    }
 }
 
 // ── Layer 2: AF_PACKET capture (Linux + CAP_NET_RAW) ──
