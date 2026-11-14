@@ -591,6 +591,56 @@ fn plan_udp_quic_ladder_decoys_vary_per_flow_and_per_rung() {
 }
 
 #[test]
+fn plan_udp_quic_padding_ladder_needs_only_the_initial_header() {
+    let mut group = DesyncGroup::new(0);
+    let mut step = fake_burst_step();
+    step.kind = UdpChainStepKind::QuicPaddingLadder;
+    step.count = 3;
+    group.actions.udp_chain = vec![step];
+
+    // The ClientHello does not fit one datagram, so there is no normalized input.
+    let payload = rust_packet_seeds::quic_initial_with_crypto_gap(1, "docs.example.test");
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+    let writes = actions
+        .iter()
+        .filter_map(|action| match action {
+            DesyncAction::Write(packet) => Some(packet),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(writes.len(), 3 + 1, "three decoys plus the real datagram");
+    assert_eq!(writes[3], &payload, "the real datagram goes out once, last");
+    for decoy in &writes[..3] {
+        let parsed = parse_quic_initial(decoy).expect("decoy is a decryptable Initial");
+        assert_eq!(parsed.host(), b"www.wikipedia.org");
+        assert!(decoy.len() >= 1200);
+    }
+
+    let long_header_prefix = |version: [u8; 4]| {
+        let mut bytes = vec![0xc3];
+        bytes.extend_from_slice(&version);
+        bytes.extend_from_slice(&[8, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0]);
+        bytes.resize(1200, 0);
+        bytes
+    };
+    let mut truncated_dcid = long_header_prefix([0, 0, 0, 1]);
+    truncated_dcid.truncate(10);
+    let malformed: [Vec<u8>; 7] = [
+        Vec::new(),
+        vec![0xc3],
+        vec![0x43; 1200],
+        long_header_prefix(0x1a2a_3a4a_u32.to_be_bytes()),
+        b"not a quic datagram, just some text".repeat(40),
+        truncated_dcid,
+        vec![0xc3, 0, 0, 0, 1, 8],
+    ];
+    for payload in malformed {
+        let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+        assert_eq!(actions, vec![DesyncAction::Write(payload.clone())], "malformed input {payload:02x?}");
+    }
+}
+
+#[test]
 fn plan_udp_quic_multi_initial_realistic_packets_are_distinct() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {

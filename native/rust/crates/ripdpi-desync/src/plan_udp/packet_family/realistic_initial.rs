@@ -2,7 +2,8 @@ use ripdpi_config::{DesyncGroup, MAX_QUIC_PADDING_LADDER_COUNT};
 use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout};
 
 use super::super::quic::{
-    NormalizedQuicPlannerInput, packetize_browser_like_quic_initial, quic_browser_profile_for_index,
+    NormalizedQuicPlannerInput, QuicDecoyBasis, packetize_browser_like_quic_initial, packetize_decoy_for_basis,
+    quic_browser_profile_for_index,
 };
 
 /// Smallest client Initial datagram (RFC 9000, section 14.1).
@@ -35,24 +36,22 @@ fn numbered_layout(len: usize, idx: usize) -> QuicInitialPacketLayout {
 
 pub(super) fn build_quic_padding_ladder_packets(
     group: &DesyncGroup,
-    normalized_quic: Option<&NormalizedQuicPlannerInput>,
+    basis: Option<&QuicDecoyBasis>,
     count: i32,
 ) -> Vec<Vec<u8>> {
+    let Some(basis) = basis else {
+        return Vec::new();
+    };
     let count = count.clamp(1, MAX_QUIC_PADDING_LADDER_COUNT);
     let rungs = (0..count as usize).map(|idx| 8 * (idx + 1)).collect::<Vec<_>>();
-    let lengths = decoy_datagram_lengths(normalized_quic.map(|quic| quic.datagram_len), &rungs);
+    let lengths = decoy_datagram_lengths(Some(basis.datagram_len), &rungs);
     lengths
         .into_iter()
         .enumerate()
         .filter_map(|(idx, len)| {
             // The builder pads the datagram to exactly `len`: the decoy's
             // natural size is below 1200, so it never passes the ceiling.
-            packetize_browser_like_quic_initial(
-                group,
-                normalized_quic,
-                QuicInitialBrowserProfile::ChromeAndroid,
-                numbered_layout(len, idx),
-            )
+            packetize_decoy_for_basis(group, basis, QuicInitialBrowserProfile::ChromeAndroid, numbered_layout(len, idx))
         })
         .collect()
 }

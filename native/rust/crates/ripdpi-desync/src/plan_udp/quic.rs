@@ -2,8 +2,9 @@ use crate::normalize_quic_initial;
 
 use ripdpi_config::DesyncGroup;
 use ripdpi_packets::{
-    QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed, build_browser_like_quic_initial_seed,
-    is_quic_initial, is_tls_client_hello, packetize_quic_initial, parse_quic_initial_seed,
+    QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed,
+    build_browser_like_quic_initial_seed, is_quic_initial, is_tls_client_hello, packetize_quic_initial,
+    parse_quic_initial_seed,
 };
 
 /// Version of a QUIC long-header Initial datagram. Unlike
@@ -59,6 +60,52 @@ const DEFAULT_QUIC_FAKE_HOST: &str = "www.wikipedia.org";
 
 pub(super) fn effective_quic_realistic_host(group: &DesyncGroup) -> &str {
     group.actions.quic_fake_host.as_deref().unwrap_or(DEFAULT_QUIC_FAKE_HOST)
+}
+
+/// What realistic decoys take from the input Initial: its header fields and
+/// datagram length. They need no ClientHello, so a ClientHello that spans
+/// several datagrams does not stop them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct QuicDecoyBasis {
+    pub(super) version: u32,
+    pub(super) datagram_len: usize,
+    dcid: Vec<u8>,
+}
+
+impl QuicDecoyBasis {
+    pub(super) fn from_normalized(normalized_quic: &NormalizedQuicPlannerInput) -> Self {
+        Self {
+            version: normalized_quic.version,
+            datagram_len: normalized_quic.datagram_len,
+            dcid: normalized_quic.seed.dcid.clone(),
+        }
+    }
+
+    /// Basis of a long-header Initial of a supported version whose header holds
+    /// the whole DCID. Anything else gives `None`.
+    pub(super) fn from_payload(payload: &[u8]) -> Option<Self> {
+        let version = quic_initial_header_version(payload)?;
+        if !matches!(version, QUIC_V1_VERSION | QUIC_V2_VERSION) {
+            return None;
+        }
+        let dcid_len = usize::from(*payload.get(5)?);
+        let dcid = payload.get(6..6 + dcid_len)?.to_vec();
+        Some(Self { version, datagram_len: payload.len(), dcid })
+    }
+
+    /// Basis from the normalized input when there is one, else from the header.
+    pub(super) fn of_input(normalized_quic: Option<&NormalizedQuicPlannerInput>, payload: &[u8]) -> Option<Self> {
+        normalized_quic.map(Self::from_normalized).or_else(|| Self::from_payload(payload))
+    }
+}
+
+pub(super) fn packetize_decoy_for_basis(
+    group: &DesyncGroup,
+    basis: &QuicDecoyBasis,
+    profile: QuicInitialBrowserProfile,
+    layout: QuicInitialPacketLayout,
+) -> Option<Vec<u8>> {
+    packetize_quic_initial(&browser_like_quic_seed_for(group, basis.version, &basis.dcid, profile)?, &layout)
 }
 
 /// Deterministic bytes for one decoy field: splitmix64 over an FNV-1a hash of

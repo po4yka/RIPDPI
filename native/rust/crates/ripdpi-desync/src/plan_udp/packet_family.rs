@@ -14,7 +14,7 @@ use self::realistic_initial::{build_quic_multi_initial_realistic_packets, build_
 use self::split::{build_dummy_prepend_packets, build_quic_crypto_split_packets, build_quic_sni_split_packets};
 use self::tamper_version::{build_quic_fake_version_packets, build_quic_version_negotiation_decoy_packets};
 use super::adjusted_udp_burst_count;
-use super::quic::NormalizedQuicPlannerInput;
+use super::quic::{NormalizedQuicPlannerInput, QuicDecoyBasis};
 
 #[derive(Default)]
 pub(super) struct UdpPreludeState {
@@ -43,7 +43,10 @@ pub(super) fn build_udp_prelude_packets(
         UdpChainStepKind::QuicSniSplit => build_quic_sni_split_packets(normalized_quic, step.count),
         UdpChainStepKind::QuicFakeVersion => build_quic_fake_version_packets(group, normalized_quic, step.count),
         UdpChainStepKind::QuicCryptoSplit => build_quic_crypto_split_packets(normalized_quic, step.count),
-        UdpChainStepKind::QuicPaddingLadder => build_quic_padding_ladder_packets(group, normalized_quic, step.count),
+        UdpChainStepKind::QuicPaddingLadder => {
+            let basis = QuicDecoyBasis::of_input(normalized_quic, payload);
+            build_quic_padding_ladder_packets(group, basis.as_ref(), step.count)
+        }
         UdpChainStepKind::QuicCidChurn => {
             let packets = build_quic_cid_churn_packets(group, normalized_quic, step.count, state.quic_cid_ordinal);
             state.quic_cid_ordinal += packets.len() as u64;
