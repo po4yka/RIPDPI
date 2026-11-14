@@ -200,9 +200,10 @@ refactor of either layer cannot silently disable the rule. The drift tests
 `every_command_descriptor_has_a_dispatch_handler` (already present) pin the
 bidirectional coverage.
 
-### TCP fragment and fake-RST failures
+### Packet send failures
 
-A failed `v4/send_ip_fragmented_tcp` or `v4/send_fake_rst` response carries typed `data` fields:
+A failed `v4/send_ip_fragmented_tcp`, `v4/send_ip_fragmented_udp` or
+`v4/send_fake_rst` response carries typed `data` fields:
 `error_kind` (the normalized Rust I/O kind), `raw_os_error` (an optional original
 Linux errno in 1–4095), and `payload_commit_uncertain` (a required boolean).
 `IpFragmentErrorData` owns this representation and its validation. The helper
@@ -212,7 +213,9 @@ uncertainty also covers a socket that could not leave TCP repair mode.
 The client preserves both the normalized kind and an original errno. For example,
 an unavailable capability remains `Unsupported` with nested `EPERM`; it must not
 turn back into `PermissionDenied`. Only an explicit pre-send boundary can permit
-strategy fallback. A legacy null `data` response or malformed metadata cannot
+strategy fallback. UDP permits the plain-datagram fallback only for a confirmed
+pre-send `InvalidInput` error. Other UDP failures remain terminal.
+A legacy null `data` response or malformed metadata cannot
 claim that no packet left. Malformed metadata is a terminal `InvalidData` error;
 unknown in-flight failures retain uncertain delivery at the runtime adapter.
 
