@@ -2,7 +2,7 @@
 id: ENG-1794638026548237
 title: Fix QUIC CRYPTO split audit findings
 kind: bug
-status: review
+status: doing
 area: engine
 priority: high
 owner: Engine maintainers
@@ -36,6 +36,10 @@ Correct DPI-19 findings F1 through F5. Preserve the original UDP payload and rej
 - Serialized lanes: count_budget alone owns API snapshot changes. Parent alone owns task/generated board and final combined gates. No Cargo.lock, dependency, locale or golden updates are planned.
 
 Final integration and evidence owner: /Users/npochaev/GitHub/RIPDPI-dpi19-integration-20261114. The paths above record the original parallel ownership. See openspec/changes/quic-crypto-split-audit-fixes/verification.md for observed checks and remaining hosted CI.
+
+Hosted-CI follow-up: an isolated worker reproduced the 1196-byte seed on revision 4f0d5e8279. The same helper repair and owning regression had already landed in a33c8d3afa while this session was paused. The duplicate prototype was not applied to main. Parent verified the existing repair, receipt E2E, and current wire output on 4502477f21. Go asset and observability failures were inherited and separately repaired upstream; no dependency or harness changes are owned by DPI-19.
+
+Final CI admission maintenance ownership: parent owns only app/src/androidTest/kotlin/com/poyka/ripdpi/e2e/XrayProviderE2ETest.kt for the two real-backend version expectations. The existing libXray pin remains authoritative; no fake-FFI, runtime, dependency or workflow changes are included. After concurrent c48b84610e, parent preserves exact equality and corrects only the shared bridge-formatted expected string to "Xray 26.11.9".
 
 ## Scope
 

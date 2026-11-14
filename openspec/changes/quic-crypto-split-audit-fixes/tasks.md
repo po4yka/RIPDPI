@@ -16,3 +16,5 @@ Use the exact per-writer paths in docs/tasks/issues/fix-quic-crypto-split-audit-
 ## Verification
 
 Run owning Rust tests with --locked, Kotlin data tests, independent loopback byte decoding, read-only review, just ci-gates, architecture health and locked metadata. Record hosted CI separately.
+- [x] ENG-1794653810860147 Repair minimum-size QUIC test seeds and verify hosted regressions #bug !high @item:ENG-1794638026548237
+- [ ] ENG-1794658594940488 Align Xray acceptance version with the packaged libXray pin #bug @item:ENG-1794638026548237

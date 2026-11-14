@@ -1658,7 +1658,9 @@ class XrayProviderE2ETest {
 
     private companion object {
         const val AttributionLogTag = "XrayNegativeProbe"
-        const val ExpectedXrayCoreVersion = "26.11.9"
+
+        // The bridge prefixes the core version before it reaches telemetry and diagnostics.
+        const val ExpectedXrayCoreVersion = "Xray 26.11.9"
         const val ProfileId = "xray-provider-acceptance"
     }
 }
