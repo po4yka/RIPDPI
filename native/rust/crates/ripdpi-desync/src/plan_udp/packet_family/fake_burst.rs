@@ -34,11 +34,8 @@ pub(super) fn udp_fake_payload(
     }
 
     // `fake_offset` is the TCP fake offset and must not trim the UDP fake.
-    let fake = group
-        .actions
-        .fake_data
-        .clone()
-        .unwrap_or_else(|| udp_fake_profile_bytes(group.actions.udp_fake_profile).to_vec());
+    // Raw `fake_data` is TCP-only and never reaches UDP fakes.
+    let fake = udp_fake_profile_bytes(group.actions.udp_fake_profile).to_vec();
 
     apply_entropy_padding_to_fake(group, fake)
 }

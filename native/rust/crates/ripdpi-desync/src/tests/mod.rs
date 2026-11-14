@@ -34,7 +34,7 @@ use ripdpi_packets::{
     DEFAULT_FAKE_HTTP, DEFAULT_FAKE_TLS, HttpFakeProfile, IS_HTTP, IS_HTTPS, MH_METHODEOL, MH_UNIXEOL, OracleRng,
     QUIC_V2_VERSION, TlsFakeProfile, UdpFakeProfile, build_realistic_quic_initial, default_fake_quic_compat,
     entropy::popcount_per_byte, http_marker_info, parse_http, parse_quic_initial, parse_quic_initial_layout, parse_tls,
-    second_level_domain_span, tls_marker_info,
+    second_level_domain_span, tls_marker_info, udp_fake_profile_bytes,
 };
 
 pub(super) fn split_expr(pos: i64) -> OffsetExpr {

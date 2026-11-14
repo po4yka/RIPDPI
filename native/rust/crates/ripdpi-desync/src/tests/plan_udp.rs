@@ -69,7 +69,7 @@ fn plan_udp_filtered_gap_steps_do_not_consume_packet_budget() {
 fn plan_udp_prefers_resolved_fake_ttl_over_fixed_ttl() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::FakeBurst, 1)];
-    group.actions.fake_data = Some(b"decoy".to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
     group.actions.ttl = Some(9);
     let payload = b"original";
 
@@ -79,7 +79,7 @@ fn plan_udp_prefers_resolved_fake_ttl_over_fixed_ttl() {
             plan_udp(&group, payload, 64, context),
             vec![
                 DesyncAction::SetTtl(expected_ttl),
-                DesyncAction::Write(b"decoy".to_vec()),
+                DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()),
                 DesyncAction::RestoreDefaultTtl,
                 DesyncAction::SetTtl(64),
                 DesyncAction::Write(payload.to_vec()),
@@ -130,7 +130,7 @@ fn plan_udp_wraps_fake_burst_and_drop_sack_actions() {
         },
     ];
     group.actions.ttl = Some(7);
-    group.actions.fake_data = Some(b"udp-fake".to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
@@ -139,12 +139,12 @@ fn plan_udp_wraps_fake_burst_and_drop_sack_actions() {
         vec![
             DesyncAction::AttachDropSack,
             DesyncAction::SetTtl(7),
-            DesyncAction::Write(b"udp-fake".to_vec()),
+            DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()),
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(64),
             DesyncAction::SetTtl(7),
-            DesyncAction::Write(b"udp-fake".to_vec()),
-            DesyncAction::Write(b"udp-fake".to_vec()),
+            DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()),
+            DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()),
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(64),
             DesyncAction::Write(b"payload".to_vec()),
@@ -185,7 +185,7 @@ fn plan_udp_step_activation_filter_skips_filtered_fake_bursts() {
             ipv6_frag_next_override: None,
         },
     ];
-    group.actions.fake_data = Some(b"udp-fake".to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
@@ -193,8 +193,8 @@ fn plan_udp_step_activation_filter_skips_filtered_fake_bursts() {
         actions,
         vec![
             DesyncAction::SetTtl(8),
-            DesyncAction::Write(b"udp-fake".to_vec()),
-            DesyncAction::Write(b"udp-fake".to_vec()),
+            DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()),
+            DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()),
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(64),
             DesyncAction::Write(b"payload".to_vec()),
@@ -307,7 +307,7 @@ fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
         ipv6_dest_opt2: false,
         ipv6_frag_next_override: None,
     }];
-    group.actions.fake_data = Some(b"udp-fake".to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
@@ -315,7 +315,7 @@ fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
         actions,
         vec![
             DesyncAction::SetTtl(8),
-            DesyncAction::Write(b"udp-fake".to_vec()),
+            DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()),
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(64),
             DesyncAction::Write(b"payload".to_vec()),
@@ -1002,9 +1002,11 @@ fn plan_udp_uses_selected_udp_profile_when_no_raw_fake_is_set() {
     assert_eq!(&fake_packet[12..19], b"\x06update");
 }
 
-// Fake data that lands inside the GFW popcount detection window (3.4-4.6):
-// 0x0F bytes have popcount 4.0/byte, triggering generate_entropy_padding.
-const HIGH_POPCOUNT_FAKE: &[u8] = &[0x0F_u8; 32];
+// The DHT profile has popcount 3.82/byte, inside the GFW detection window
+// (3.4-4.6), so it triggers generate_entropy_padding.
+fn high_popcount_fake() -> &'static [u8] {
+    udp_fake_profile_bytes(UdpFakeProfile::DhtGetPeers)
+}
 
 fn fake_burst_step() -> UdpChainStep {
     UdpChainStep {
@@ -1024,7 +1026,7 @@ fn fake_burst_step() -> UdpChainStep {
 fn entropy_padding_disabled_leaves_fake_payload_unchanged() {
     let mut group = DesyncGroup::new(0);
     group.actions.entropy_mode = EntropyMode::Disabled;
-    group.actions.fake_data = Some(HIGH_POPCOUNT_FAKE.to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DhtGetPeers;
     group.actions.udp_chain = vec![fake_burst_step()];
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
@@ -1033,18 +1035,18 @@ fn entropy_padding_disabled_leaves_fake_payload_unchanged() {
     let DesyncAction::Write(fake_packet) = &actions[1] else {
         panic!("expected fake write at actions[1], got: {:?}", actions[1]);
     };
-    assert_eq!(fake_packet.as_slice(), HIGH_POPCOUNT_FAKE);
+    assert_eq!(fake_packet.as_slice(), high_popcount_fake());
 }
 
 #[test]
 fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
     let mut group = DesyncGroup::new(0);
     group.actions.entropy_mode = EntropyMode::Popcount;
-    // Target 3.4 (permil 3400): HIGH_POPCOUNT_FAKE has popcount 4.0/byte, inside
+    // Target 3.4 (permil 3400): high_popcount_fake() has popcount 4.0/byte, inside
     // the GFW detection window, so padding will be prepended.
     group.actions.entropy_padding_target_permil = Some(3400);
     group.actions.entropy_padding_max = 256;
-    group.actions.fake_data = Some(HIGH_POPCOUNT_FAKE.to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DhtGetPeers;
     group.actions.udp_chain = vec![fake_burst_step()];
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
@@ -1054,7 +1056,7 @@ fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
         panic!("expected fake write at actions[1], got: {:?}", actions[1]);
     };
     // Packet must be longer than the original fake data (padding was prepended).
-    assert!(fake_packet.len() > HIGH_POPCOUNT_FAKE.len(), "expected padding to grow the fake packet");
+    assert!(fake_packet.len() > high_popcount_fake().len(), "expected padding to grow the fake packet");
     // Combined popcount of the padded packet must be at or below the target.
     assert!(
         popcount_per_byte(fake_packet) <= 3.4_f32,
@@ -1062,7 +1064,7 @@ fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
         popcount_per_byte(fake_packet)
     );
     // The original fake data must still appear as the tail of the packet.
-    assert_eq!(&fake_packet[fake_packet.len() - HIGH_POPCOUNT_FAKE.len()..], HIGH_POPCOUNT_FAKE);
+    assert_eq!(&fake_packet[fake_packet.len() - high_popcount_fake().len()..], high_popcount_fake());
 }
 
 #[test]
@@ -1071,13 +1073,13 @@ fn entropy_padding_zero_budget_preserves_udp_fake_in_all_modes() {
         let mut group = DesyncGroup::new(0);
         group.actions.entropy_mode = mode;
         group.actions.entropy_padding_max = 0;
-        group.actions.fake_data = Some(HIGH_POPCOUNT_FAKE.to_vec());
+        group.actions.udp_fake_profile = UdpFakeProfile::DhtGetPeers;
         group.actions.udp_chain = vec![fake_burst_step()];
         let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
         let DesyncAction::Write(fake_packet) = &actions[1] else {
             panic!("expected fake write, got: {:?}", actions[1]);
         };
-        assert_eq!(fake_packet, HIGH_POPCOUNT_FAKE, "mode {mode:?}");
+        assert_eq!(fake_packet, high_popcount_fake(), "mode {mode:?}");
     }
 }
 
@@ -1086,16 +1088,17 @@ fn combined_entropy_padding_meets_both_targets_on_udp_fake() {
     let mut group = DesyncGroup::new(0);
     group.actions.entropy_mode = EntropyMode::Combined;
     group.actions.entropy_padding_target_permil = Some(3400);
-    group.actions.shannon_entropy_target_permil = Some(500);
+    group.actions.shannon_entropy_target_permil = Some(2000);
     group.actions.entropy_padding_max = 2048;
-    group.actions.fake_data = Some(vec![0xAA; 200]);
+    group.actions.udp_fake_profile = UdpFakeProfile::DhtGetPeers;
     group.actions.udp_chain = vec![fake_burst_step()];
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
     let DesyncAction::Write(fake_packet) = &actions[1] else {
         panic!("expected fake write, got: {:?}", actions[1]);
     };
-    assert!(fake_packet.len() > 200);
-    assert_eq!(&fake_packet[fake_packet.len() - 200..], &[0xAA; 200]);
+    let fake = high_popcount_fake();
+    assert!(fake_packet.len() > fake.len());
+    assert_eq!(&fake_packet[fake_packet.len() - fake.len()..], fake);
     let mut counts = std::collections::BTreeMap::<u8, usize>::new();
     for byte in fake_packet {
         *counts.entry(*byte).or_default() += 1;
@@ -1108,13 +1111,13 @@ fn combined_entropy_padding_meets_both_targets_on_udp_fake() {
         })
         .sum();
     let set_bits: u64 = fake_packet.iter().map(|byte| u64::from(byte.count_ones())).sum();
-    assert!(entropy <= 0.5, "Shannon entropy is {entropy}");
+    assert!(entropy <= 2.0, "Shannon entropy is {entropy}");
     assert!(set_bits as f64 / fake_packet.len() as f64 <= 3.4);
 }
 
 fn fake_burst_with_round(round: Option<NumericRange<i64>>) -> DesyncGroup {
     let mut group = DesyncGroup::new(0);
-    group.actions.fake_data = Some(b"udp-fake".to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
     let mut step = fake_burst_step();
     step.activation_filter = round.map(|round| ActivationFilter { round: Some(round), ..Default::default() });
     group.actions.udp_chain = vec![step];
@@ -1142,7 +1145,7 @@ fn fake_burst_without_round_still_fires_on_later_quic_initial() {
 
     let actions = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2));
 
-    assert!(actions.contains(&DesyncAction::Write(b"udp-fake".to_vec())));
+    assert!(actions.contains(&DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec())));
 }
 
 #[test]
@@ -1152,7 +1155,7 @@ fn fake_burst_explicit_step_round_applies_at_later_rounds() {
 
     let actions = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2));
 
-    assert!(actions.contains(&DesyncAction::Write(b"udp-fake".to_vec())));
+    assert!(actions.contains(&DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec())));
 }
 
 #[test]
@@ -1163,7 +1166,7 @@ fn fake_burst_explicit_group_round_applies_at_later_rounds() {
 
     let actions = plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2));
 
-    assert!(actions.contains(&DesyncAction::Write(b"udp-fake".to_vec())));
+    assert!(actions.contains(&DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec())));
 }
 
 #[test]
@@ -1239,7 +1242,7 @@ fn aggressive_burst_profile_never_lowers_the_configured_count() {
         group.actions.udp_chain[0].count = configured;
         let writes = plan_udp(&group, &payload, 64, context)
             .iter()
-            .filter(|action| **action == DesyncAction::Write(b"udp-fake".to_vec()))
+            .filter(|action| **action == DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()))
             .count();
         assert_eq!(writes, expected, "configured count {configured}");
     }
@@ -1318,3 +1321,16 @@ fn plan_udp_bounds_quic_version_decoy_copies_across_steps() {
 }
 
 mod quic_sni_budget;
+
+#[test]
+fn udp_fake_ignores_tcp_raw_fake_data() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.entropy_mode = EntropyMode::Disabled;
+    group.actions.fake_data = Some(b"TCPFAKE".to_vec());
+    group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
+    group.actions.udp_chain = vec![fake_burst_step()];
+
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+
+    assert_eq!(actions[1], DesyncAction::Write(udp_fake_profile_bytes(UdpFakeProfile::DnsQuery).to_vec()));
+}
