@@ -106,6 +106,73 @@ fn ech_activation_uses_the_layout_when_sni_crosses_records() {
 }
 
 #[test]
+fn custom_fake_ordering_requires_special_execution_without_retransmit_support() {
+    use ripdpi_config::{ActivationFilter, TcpFakeOrdering};
+
+    let payload = b"payload";
+    let progress =
+        OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+    let cases = [
+        (FakeOrder::BeforeEach, FakeSeqMode::Duplicate, false),
+        (FakeOrder::BeforeEach, FakeSeqMode::Sequential, true),
+        (FakeOrder::AllFakesFirst, FakeSeqMode::Duplicate, true),
+        (FakeOrder::AllFakesFirst, FakeSeqMode::Sequential, true),
+        (FakeOrder::RealFakeRealFake, FakeSeqMode::Duplicate, true),
+        (FakeOrder::RealFakeRealFake, FakeSeqMode::Sequential, true),
+        (FakeOrder::AllRealsFirst, FakeSeqMode::Duplicate, true),
+        (FakeOrder::AllRealsFirst, FakeSeqMode::Sequential, true),
+    ];
+
+    for kind in [TcpChainStepKind::FakeSplit, TcpChainStepKind::FakeDisorder] {
+        for (order, seq_mode, expected) in cases {
+            for skipped_step in [false, true] {
+                let mut group = test_group();
+                if skipped_step {
+                    let step = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(1));
+                    group.actions.tcp_chain.push(
+                        step.clone()
+                            .with_fake_payload(TcpFakePayload {
+                                ordering: TcpFakeOrdering {
+                                    order: FakeOrder::AllRealsFirst,
+                                    seq_mode: FakeSeqMode::Sequential,
+                                },
+                                ..step.fake_payload().unwrap()
+                            })
+                            .with_activation_filter(Some(ActivationFilter {
+                                round: Some(NumericRange::new(2, 2)),
+                                ..Default::default()
+                            })),
+                    );
+                }
+                let step = TcpChainStep::new(kind, OffsetExpr::absolute(3));
+                group.actions.tcp_chain.push(step.clone().with_fake_payload(TcpFakePayload {
+                    ordering: TcpFakeOrdering { order, seq_mode },
+                    ..step.fake_payload().unwrap()
+                }));
+                let plan = TcpDesyncStrategy::new(&group, 1, 64, context).plan(payload).expect("fake split plan");
+
+                assert_eq!(plan.steps.len(), 1);
+                assert_eq!(plan.steps[0].source_send_step_index, Some(usize::from(skipped_step)));
+                assert_eq!(
+                    requires_special_tcp_execution(&group, &plan, false),
+                    expected,
+                    "{kind:?}/{order:?}/{seq_mode:?}, skipped step: {skipped_step}",
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn special_tcp_execution_includes_fake_approximation_steps() {
     let mut group = test_group();
     let non_terminal_fake_step_plan = DesyncPlan {

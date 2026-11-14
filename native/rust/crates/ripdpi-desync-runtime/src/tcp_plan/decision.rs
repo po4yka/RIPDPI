@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
+use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpFakeOrdering};
 use ripdpi_desync::{DesyncPlan, PlannedStep};
 
 use super::flags::tcp_step_has_flag_overrides;
@@ -29,6 +29,8 @@ pub(crate) fn requires_special_tcp_execution(
                 | TcpChainStepKind::HostFake
                 | TcpChainStepKind::FakeRst
         ) || (planned.kind != TcpChainStepKind::SeqOverlap && source_step.is_some_and(tcp_step_has_flag_overrides))
+            || (matches!(planned.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+                && source_step.is_some_and(|step| step.fake_ordering() != TcpFakeOrdering::default()))
     }) || plan.steps.iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
             && (supports_fake_retransmit
