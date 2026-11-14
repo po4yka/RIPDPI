@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-14
+goal: ENG-1794677657331523 Repair DPI-31 HTTP data integrity and mutation receipts
