@@ -143,42 +143,27 @@ fn seed_ttl(config: AutoTtlConfig, fallback_ttl: Option<u8>) -> u8 {
 }
 
 fn candidate_order(config: AutoTtlConfig, fallback_ttl: Option<u8>) -> Vec<u8> {
-    let seed = seed_ttl(config, fallback_ttl);
-    let min = config.min_ttl;
-    let max = config.max_ttl;
-    let mut out = vec![seed];
+    let seed = u16::from(seed_ttl(config, fallback_ttl));
+    let min = u16::from(config.min_ttl);
+    let max = u16::from(config.max_ttl);
+    let mut out = vec![seed as u8];
     match config.delta.cmp(&0) {
         std::cmp::Ordering::Less => {
-            for ttl in (min..seed).rev() {
-                out.push(ttl);
-            }
-            for ttl in seed.saturating_add(1)..=max {
-                out.push(ttl);
-            }
+            out.extend((min..seed).rev().map(|ttl| ttl as u8));
+            out.extend((seed + 1..=max).map(|ttl| ttl as u8));
         }
         std::cmp::Ordering::Greater => {
-            for ttl in seed.saturating_add(1)..=max {
-                out.push(ttl);
-            }
-            for ttl in (min..seed).rev() {
-                out.push(ttl);
-            }
+            out.extend((seed + 1..=max).map(|ttl| ttl as u8));
+            out.extend((min..seed).rev().map(|ttl| ttl as u8));
         }
         std::cmp::Ordering::Equal => {
-            let mut distance = 1u8;
-            while seed.saturating_sub(distance) >= min || seed.saturating_add(distance) <= max {
-                let lower = seed.saturating_sub(distance);
-                if lower >= min && lower < seed {
-                    out.push(lower);
+            for distance in 1..=(seed - min).max(max - seed) {
+                if distance <= seed - min {
+                    out.push((seed - distance) as u8);
                 }
-                let upper = seed.saturating_add(distance);
-                if upper <= max && upper > seed {
-                    out.push(upper);
+                if distance <= max - seed {
+                    out.push((seed + distance) as u8);
                 }
-                if distance == u8::MAX {
-                    break;
-                }
-                distance = distance.saturating_add(1);
             }
         }
     }
@@ -196,6 +181,9 @@ fn normalized_host(host: Option<&str>) -> Option<String> {
     }
     Some(normalized)
 }
+
+#[cfg(test)]
+mod boundary_tests;
 
 #[cfg(test)]
 mod tests {
