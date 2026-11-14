@@ -30,6 +30,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         let mut dummy_prepend_remaining = MAX_DUMMY_PREPEND_COUNT;
         let mut remaining_crypto_splits = MAX_FAKE_BURST_COUNT;
         let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
+        let mut remaining_gap_packets = MAX_FAKE_BURST_COUNT;
 
         for mut step in chain {
             if !activation_filter_matches(step.activation_filter, context) {
@@ -58,6 +59,13 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                 if step.count == 0 {
                     continue;
                 }
+            }
+            if step.kind == UdpChainStepKind::QuicPacketNumberGap {
+                step.count = step.count.min(remaining_gap_packets);
+                if step.count == 0 {
+                    continue;
+                }
+                remaining_gap_packets -= step.count;
             }
             if step.kind == UdpChainStepKind::FakeBurst
                 && !fake_burst_round_matches(group, step.activation_filter, payload, context)

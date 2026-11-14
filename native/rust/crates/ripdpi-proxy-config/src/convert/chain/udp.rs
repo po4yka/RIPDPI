@@ -44,9 +44,12 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
             }
             cid_churn_budget -= step.count;
         }
-        if kind == UdpChainStepKind::FakeBurst && step.count > MAX_FAKE_BURST_COUNT {
+        if matches!(kind, UdpChainStepKind::FakeBurst | UdpChainStepKind::QuicPacketNumberGap)
+            && step.count > MAX_FAKE_BURST_COUNT
+        {
+            let name = if kind == UdpChainStepKind::FakeBurst { "fake_burst" } else { "quic_packet_number_gap" };
             return Err(ProxyConfigError::InvalidConfig(format!(
-                "udpChainSteps kind=fake_burst count must be at most {MAX_FAKE_BURST_COUNT}"
+                "udpChainSteps kind={name} count must be at most {MAX_FAKE_BURST_COUNT}"
             )));
         }
         if kind == UdpChainStepKind::QuicCryptoSplit {

@@ -6,6 +6,38 @@ import org.junit.Test
 
 class StrategyChainValidationTest {
     @Test
+    fun `packet number gap count is bounded before execution`() {
+        for (count in listOf(0, 64)) {
+            val chain = parseStrategyChainDsl("[udp]\nquic_packet_number_gap $count").getOrThrow()
+
+            assertEquals(count, chain.udpSteps.single().count)
+        }
+        for (count in listOf(65, Int.MAX_VALUE)) {
+            val result = parseStrategyChainDsl("[udp]\nquic_packet_number_gap $count")
+
+            assertTrue(result.isFailure)
+            assertEquals(
+                "quic_packet_number_gap count must be between 0 and 64",
+                result.exceptionOrNull()?.message,
+            )
+        }
+    }
+
+    @Test
+    fun `packet number gap chain has one total packet budget`() {
+        val prefix = "[udp]\nquic_packet_number_gap 32\nquic_packet_number_gap "
+        val accepted = parseStrategyChainDsl("${prefix}32").getOrThrow()
+        val rejected = parseStrategyChainDsl("${prefix}33")
+
+        assertEquals(listOf(32, 32), accepted.udpSteps.map { it.count })
+        assertTrue(rejected.isFailure)
+        assertEquals(
+            "quic_packet_number_gap total count must be at most 64",
+            rejected.exceptionOrNull()?.message,
+        )
+    }
+
+    @Test
     fun `send steps after seqovl are rejected before execution`() {
         for (kind in listOf("split", "disorder", "fake", "oob", "disoob", "syndata", "fakedsplit", "hostfake")) {
             val result = parseStrategyChainDsl("seqovl 2\n$kind 4")

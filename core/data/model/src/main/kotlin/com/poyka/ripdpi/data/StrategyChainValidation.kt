@@ -144,6 +144,14 @@ internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
             remainingCryptoSplits -= step.count
         }
     }
+    var remainingGapPackets = MaxFakeBurstCount
+    for (step in normalized) {
+        if (step.kind != UdpChainStepKind.QuicPacketNumberGap) continue
+        require(step.count <= remainingGapPackets) {
+            "quic_packet_number_gap total count must be at most $MaxFakeBurstCount"
+        }
+        remainingGapPackets -= step.count
+    }
     if (normalized.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
         require(normalized.size == 1) { "ipfrag2_udp must be the only udp chain step" }
     }
@@ -227,6 +235,7 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
         UdpChainStepKind.FakeBurst,
         UdpChainStepKind.DummyPrepend,
         UdpChainStepKind.QuicPaddingLadder,
+        UdpChainStepKind.QuicPacketNumberGap,
         -> {
             val maxCount =
                 when (step.kind) {
@@ -247,7 +256,6 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
         UdpChainStepKind.QuicFakeVersion,
         UdpChainStepKind.QuicCryptoSplit,
         UdpChainStepKind.QuicCidChurn,
-        UdpChainStepKind.QuicPacketNumberGap,
         UdpChainStepKind.QuicVersionNegotiationDecoy,
         UdpChainStepKind.QuicMultiInitialRealistic,
         -> {

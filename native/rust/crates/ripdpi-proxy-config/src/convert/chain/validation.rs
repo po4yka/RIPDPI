@@ -1,5 +1,6 @@
 use ripdpi_config::{
-    FakeOrder, MAX_DUMMY_PREPEND_COUNT, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    FakeOrder, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, TcpChainStep, TcpChainStepKind, UdpChainStep,
+    UdpChainStepKind,
 };
 
 use crate::types::ProxyConfigError;
@@ -135,6 +136,15 @@ pub(crate) fn validate_udp_chain(steps: &[UdpChainStep]) -> Result<(), ProxyConf
     }
     if steps.iter().any(|step| step.kind == UdpChainStepKind::IpFrag2Udp) && steps.len() != 1 {
         return Err(ProxyConfigError::InvalidConfig("ipfrag2_udp must be the only udp chain step".to_string()));
+    }
+    let mut remaining_gap_packets = MAX_FAKE_BURST_COUNT;
+    for step in steps.iter().filter(|step| step.kind == UdpChainStepKind::QuicPacketNumberGap) {
+        if step.count > remaining_gap_packets {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "udpChainSteps quic_packet_number_gap total count must be at most {MAX_FAKE_BURST_COUNT}"
+            )));
+        }
+        remaining_gap_packets -= step.count;
     }
     Ok(())
 }

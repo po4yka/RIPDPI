@@ -1159,6 +1159,37 @@ fn ui_payload_limits_quic_crypto_split_counts() {
 }
 
 #[test]
+fn ui_payload_limits_quic_packet_number_gap_count() {
+    for count in [0, 64] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps = vec![udp_step("quic_packet_number_gap", count)];
+        runtime_config_from_payload(ui_payload(ui)).expect("bounded gap count is accepted");
+    }
+    for count in [65, i32::MAX] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps = vec![udp_step("quic_packet_number_gap", count)];
+        let err = runtime_config_from_payload(ui_payload(ui)).expect_err("excessive gap count is rejected");
+        assert!(err.to_string().contains("quic_packet_number_gap count must be at most 64"));
+    }
+}
+
+#[test]
+fn ui_payload_limits_total_quic_packet_number_gap_count() {
+    for (second_count, accepted) in [(32, true), (33, false)] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps =
+            vec![udp_step("quic_packet_number_gap", 32), udp_step("quic_packet_number_gap", second_count)];
+        let result = runtime_config_from_payload(ui_payload(ui));
+        if accepted {
+            result.expect("64 gap packets across the chain are accepted");
+        } else {
+            let err = result.expect_err("more than 64 gap packets across the chain are rejected");
+            assert!(err.to_string().contains("quic_packet_number_gap total count must be at most 64"));
+        }
+    }
+}
+
+#[test]
 fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
     let mut ui = minimal_ui();
     ui.chains.udp_steps = vec![

@@ -16,6 +16,56 @@ fn udp_context(payload: &[u8]) -> ActivationContext {
 }
 
 #[test]
+fn plan_udp_limits_direct_model_quic_packet_number_gap_count() {
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("gap.example.test")).expect("QUIC input");
+    for (count, expected_writes) in [(0, 1), (64, 65), (65, 65), (i32::MAX, 65)] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::QuicPacketNumberGap, count)];
+
+        let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+        let writes = actions.iter().filter_map(|action| match action {
+            DesyncAction::Write(bytes) => Some(bytes),
+            _ => None,
+        });
+        let writes = writes.collect::<Vec<_>>();
+
+        assert_eq!(writes.len(), expected_writes, "count={count}");
+        assert_eq!(writes.last().copied(), Some(&payload));
+    }
+}
+
+#[test]
+fn plan_udp_limits_total_quic_packet_number_gap_count() {
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("gap.example.test")).expect("QUIC input");
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::QuicPacketNumberGap, 33); 2];
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+    let writes = actions.iter().filter_map(|action| match action {
+        DesyncAction::Write(bytes) => Some(bytes),
+        _ => None,
+    });
+    let writes = writes.collect::<Vec<_>>();
+
+    assert_eq!(writes.len(), 65);
+    assert_eq!(writes.last().copied(), Some(&payload));
+}
+
+#[test]
+fn plan_udp_filtered_gap_steps_do_not_consume_packet_budget() {
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("gap.example.test")).expect("QUIC input");
+    let mut inactive = UdpChainStep::new(UdpChainStepKind::QuicPacketNumberGap, 64);
+    inactive.activation_filter = Some(ActivationFilter { round: Some(NumericRange::new(2, 2)), ..Default::default() });
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![inactive, UdpChainStep::new(UdpChainStepKind::QuicPacketNumberGap, 64)];
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    assert_eq!(actions.iter().filter(|action| matches!(action, DesyncAction::Write(_))).count(), 65);
+    assert_eq!(actions.last(), Some(&DesyncAction::Write(payload)));
+}
+
+#[test]
 fn plan_udp_no_fake_only_drop_sack() {
     let mut group = DesyncGroup::new(0);
     group.actions.drop_sack = true;

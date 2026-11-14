@@ -1,6 +1,6 @@
 pub const VERSION: &str = "17.3";
 
-/// Largest `fake_burst` step count and combined QUIC CRYPTO split count in one UDP chain.
+/// Largest fake-burst count and per-family CRYPTO-split, CID-churn and packet-gap chain budgets.
 pub const MAX_FAKE_BURST_COUNT: i32 = 64;
 
 pub const DETECT_HTTP_LOCAT: u32 = 1;
