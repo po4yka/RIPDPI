@@ -33,21 +33,22 @@ pub(super) fn build_quic_initial_raw(
 ) -> Option<Vec<u8>> {
     let token_varint = encode_quic_varint(token.len() as u64);
 
-    // Pad plaintext so the total packet reaches min_total_len.
-    loop {
-        let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
-        let payload_len_varint = encode_quic_varint(payload_len as u64);
-        let header_len =
-            1 + 4 + 1 + dcid.len() + 1 + scid.len() + token_varint.len() + token.len() + payload_len_varint.len();
-        let total_len = header_len + payload_len;
-        if total_len >= min_total_len {
-            break;
-        }
-        plaintext.extend(std::iter::repeat_n(0u8, min_total_len - total_len));
-    }
-
-    let payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
-    let payload_len_varint = encode_quic_varint(payload_len as u64);
+    let header_len = 1 + 4 + 1 + dcid.len() + 1 + scid.len() + token_varint.len() + token.len();
+    let unpadded_payload_len = 4 + plaintext.len() + QUIC_TAG_LEN;
+    // Select the final Length width before padding, including legal non-minimal encodings at width transitions.
+    let (payload_len, length_len, length_prefix) =
+        [(1, 0), (2, 0x40), (4, 0x80), (8, 0xc0)].into_iter().find_map(|(length_len, length_prefix)| {
+            let payload_len = unpadded_payload_len.max(min_total_len.saturating_sub(header_len + length_len));
+            (encode_quic_varint(payload_len as u64).len() <= length_len).then_some((
+                payload_len,
+                length_len,
+                length_prefix,
+            ))
+        })?;
+    plaintext.resize(payload_len - 4 - QUIC_TAG_LEN, 0);
+    let payload_len_bytes = (payload_len as u64).to_be_bytes();
+    let mut payload_len_varint = payload_len_bytes[8 - length_len..].to_vec();
+    payload_len_varint[0] |= length_prefix;
     let first_byte = if version == QUIC_V2_VERSION { 0xd3 } else { 0xc3 };
 
     let mut header = Vec::new();

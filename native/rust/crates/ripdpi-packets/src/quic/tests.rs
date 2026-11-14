@@ -470,20 +470,23 @@ fn packetize_quic_initial_split_layout_rewrites_crypto_frame_boundaries() {
 
 #[test]
 fn packetize_quic_initial_respects_padding_target() {
-    let seed = build_browser_like_quic_initial_seed(
-        QUIC_V2_VERSION,
-        Some("padding.example.test"),
-        QuicInitialBrowserProfile::ChromeAndroid,
-    )
-    .expect("seed");
-    let mut layout = QuicInitialPacketLayout::contiguous(1408);
-    layout.extra_tail_padding = 32;
-    let packetized = packetize_quic_initial(&seed, &layout).expect("packetize");
-    let reparsed = parse_quic_initial(&packetized).expect("parse packetized");
-
-    assert!(packetized.len() >= 1408);
-    assert_eq!(reparsed.version, QUIC_V2_VERSION);
-    assert_eq!(reparsed.host(), b"padding.example.test");
+    for version in [QUIC_V1_VERSION, QUIC_V2_VERSION] {
+        let seed = build_browser_like_quic_initial_seed(
+            version,
+            Some("padding.example.test"),
+            QuicInitialBrowserProfile::ChromeAndroid,
+        )
+        .expect("seed");
+        for target in [1200, 1408, 16_383, 16_384, 16_403, 16_404, 16_405, 16_406, 16_407, 16_408, 65_505, 65_507] {
+            let mut layout = QuicInitialPacketLayout::contiguous(target);
+            layout.extra_tail_padding = 32;
+            let packetized = packetize_quic_initial(&seed, &layout).expect("packetize");
+            assert_eq!(packetized.len(), target, "version={version:#x}");
+            let reparsed = parse_quic_initial(&packetized).expect("parse packetized");
+            assert_eq!(reparsed.version, version);
+            assert_eq!(reparsed.host(), b"padding.example.test");
+        }
+    }
 }
 
 #[test]
