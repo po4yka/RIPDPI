@@ -5,15 +5,20 @@ use socket2::SockRef;
 
 #[test]
 fn fixed_udp_ttl_reaches_ipv4_and_ipv6_sockets() {
-    check_udp_ttl(false, 1);
+    check_udp_ttl(false, 1, None);
+}
+
+#[test]
+fn tcp_adaptive_ttl_preserves_fixed_udp_ttl_on_ipv4_and_ipv6_sockets() {
+    check_udp_ttl(true, 9, None);
 }
 
 #[test]
 fn resolved_udp_ttl_overrides_fallback_on_ipv4_and_ipv6_sockets() {
-    check_udp_ttl(true, 3);
+    check_udp_ttl(true, 3, Some(ripdpi_config::AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 3 }));
 }
 
-fn check_udp_ttl(adaptive: bool, expected_ttl: u32) {
+fn check_udp_ttl(adaptive: bool, expected_ttl: u32, explicit_auto_ttl: Option<ripdpi_config::AutoTtlConfig>) {
     let mut ui = ProxyUiConfig::default();
     ui.protocols.desync_udp = true;
     ui.fake_packets.fake_ttl = if adaptive { 9 } else { 1 };
@@ -28,9 +33,12 @@ fn check_udp_ttl(adaptive: bool, expected_ttl: u32) {
         activation_filter: None,
         ipv6_extension_profile: "none".to_string(),
     }];
-    let config = runtime_config_from_ui(ui).expect("UDP TTL config");
+    let mut config = runtime_config_from_ui(ui).expect("UDP TTL config");
     let group_index =
         config.groups.iter().position(|group| group.matches.proto == ripdpi_packets::IS_UDP).expect("UDP group");
+    if let Some(auto_ttl) = explicit_auto_ttl {
+        config.groups[group_index].actions.auto_ttl = Some(auto_ttl);
+    }
     let planner = udp_desync_planner(&config);
     let services = ServicesStateHandle::new(ServicesState::new(config, None, None));
     let payload = ripdpi_packets::build_realistic_quic_initial(1, Some("private.example.test")).expect("input Initial");
