@@ -75,23 +75,24 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
 /// option is Timestamps (kind=8).
 ///
 /// `SO_ATTACH_FILTER` sees received segments only, so this does not remove
-/// the option from outbound segments, and the SYN has already carried it.
+/// the option from outbound segments.
 /// The program checks only the first option byte; Linux, BSD and Windows
 /// peers put NOP padding before Timestamps, so it rarely matches.
 ///
-/// **Note:** `SO_ATTACH_FILTER` replaces any prior filter. If both `drop_sack`
-/// and `strip_timestamps` are needed, call `attach_drop_sack` first — this
-/// filter will replace it. Combined filtering requires one BPF program that
-/// handles both checks.
+/// `SO_ATTACH_FILTER` replaces any prior filter. When both options are
+/// requested, the proxy keeps its drop-SACK filter and skips this filter.
 pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
-    // BPF program: check TCP data offset (byte 12, upper nibble) >= 11 words
-    // (44 bytes, meaning options exist beyond the basic 20-byte header).
-    // Then check option kind byte at offset 0x1e (byte 30 = start of options
-    // area for most common layouts where timestamps appear first).
-    // If kind == 8 (Timestamps), drop the packet (return 0).
-    // Otherwise, accept (return 0x40000).
-    let mut code = [
+    let mut code = timestamp_program();
+    let prog = libc::sock_fprog { len: code.len() as u16, filter: code.as_mut_ptr() };
+
+    // SAFETY: `prog` points to a live in-process BPF program and `fd` is a
+    // valid TCP socket descriptor owned by `stream`.
+    unsafe { setsockopt_raw(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, &prog) }
+}
+
+fn timestamp_program() -> [libc::sock_filter; 7] {
+    [
         // Load byte at offset 12 (TCP data offset + flags)
         libc::sock_filter { code: 0x30, jt: 0, jf: 0, k: 0x0000000c },
         // Shift right 4 to get data offset in 32-bit words
@@ -106,12 +107,7 @@ pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
         libc::sock_filter { code: 0x6, jt: 0, jf: 0, k: 0x00000000 },
         // Accept: return max
         libc::sock_filter { code: 0x6, jt: 0, jf: 0, k: 0x00040000 },
-    ];
-    let prog = libc::sock_fprog { len: code.len() as u16, filter: code.as_mut_ptr() };
-
-    // SAFETY: `prog` points to a live in-process BPF program and `fd` is a
-    // valid TCP socket descriptor owned by `stream`.
-    unsafe { setsockopt_raw(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, &prog) }
+    ]
 }
 
 #[cfg(test)]

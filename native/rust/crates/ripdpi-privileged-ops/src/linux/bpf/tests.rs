@@ -3,7 +3,7 @@ use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixDatagram;
 use std::time::Duration;
 
-use super::drop_sack_program;
+use super::{drop_sack_program, timestamp_program};
 
 fn filtered_pair(code: &mut [libc::sock_filter]) -> (UnixDatagram, UnixDatagram) {
     let (sender, receiver) = UnixDatagram::pair().expect("datagram pair");
@@ -57,7 +57,7 @@ fn assert_received(sender: &UnixDatagram, receiver: &UnixDatagram, bytes: &[u8])
 
 fn assert_dropped(sender: &UnixDatagram, receiver: &UnixDatagram, bytes: &[u8]) {
     sender.send(bytes).expect("send TCP bytes");
-    let error = receiver.recv(&mut [0u8; 128]).expect_err("SACK input must be dropped entirely");
+    let error = receiver.recv(&mut [0u8; 128]).expect_err("matched input must be dropped entirely");
     assert!(matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut), "{error}");
 }
 
@@ -104,4 +104,19 @@ fn drop_sack_accepts_unrecognized_or_incomplete_headers() {
         bytes.truncate(len);
         assert_received(&sender, &receiver, &bytes);
     }
+}
+
+#[test]
+fn timestamp_filter_only_drops_received_matching_segments() {
+    let (sender, receiver) = filtered_pair(&mut timestamp_program());
+    sender.set_read_timeout(Some(Duration::from_millis(50))).expect("reverse receive timeout");
+    let mut options = timestamp().to_vec();
+    options.extend_from_slice(&[1, 1]);
+    let matched = tcp_bytes(&options);
+    assert_dropped(&sender, &receiver, &matched);
+    assert_received(&receiver, &sender, &matched);
+
+    let mut padded = vec![1, 1];
+    padded.extend_from_slice(&timestamp());
+    assert_received(&sender, &receiver, &tcp_bytes(&padded));
 }

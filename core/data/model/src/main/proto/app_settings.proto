@@ -218,7 +218,9 @@ message AppSettings {
 
   // TCP window and timestamp manipulation
   int32 window_clamp = 116;            // TCP_WINDOW_CLAMP value (0 = disabled)
-  bool strip_timestamps = 117;         // Strip TCP Timestamps option from outgoing segments
+  // Drop whole received TCP segments when Timestamps is the first option.
+  // Outgoing TCP options are unchanged; drop_sack takes priority when both are set.
+  bool strip_timestamps = 117;
 
   // Banner dismiss state
   bool battery_banner_dismissed = 114;

@@ -344,36 +344,31 @@ mod af_packet_tests {
     }
 
     #[test]
-    fn af_packet_tcp_strip_timestamps_removes_ts_option() {
+    fn af_packet_tcp_strip_timestamps_preserves_outbound_options() {
         if !packet_capture_e2e_enabled() {
             eprintln!("skipping: RIPDPI_RUN_PACKET_CAPTURE_E2E!=1");
             return;
         }
         let _guard = test_guard();
         let fixture = FixtureStack::start(wire_fixture_config()).expect("start fixture");
+        let outbound_timestamps = |args: &[&str]| {
+            let capture = LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
+            let proxy = start_proxy(ephemeral_proxy_config(args), None);
+            let body =
+                socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"ts wire test");
+            assert_eq!(body, b"ts wire test");
+            std::thread::sleep(Duration::from_millis(100));
+            drop(proxy);
 
-        let capture = LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
-
-        let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--strip-timestamps"]), None);
-
-        let body =
-            socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"ts wire test");
-        assert_eq!(body, b"ts wire test");
-
-        std::thread::sleep(Duration::from_millis(100));
-        drop(proxy);
-
-        let tcp_packets = capture.packets_to_port(fixture.manifest().tcp_echo_port);
-        assert!(!tcp_packets.is_empty(), "should have captured TCP packets");
-
-        // No segment from proxy should contain TCP Timestamps option (kind=8)
-        let has_timestamps =
-            tcp_packets.iter().any(|p| p.tcp_options.as_ref().is_some_and(|opts| tcp_options_contain_kind(opts, 8)));
-
-        assert!(
-            !has_timestamps,
-            "no TCP segment to echo port should contain Timestamps option (kind=8) after stripping"
-        );
+            let packets = capture.packets_to_port(fixture.manifest().tcp_echo_port);
+            assert!(!packets.is_empty(), "should have captured TCP packets");
+            packets
+                .iter()
+                .any(|packet| packet.tcp_options.as_ref().is_some_and(|opts| tcp_options_contain_kind(opts, 8)))
+        };
+        let baseline = outbound_timestamps(&["--ip", "127.0.0.1"]);
+        let filtered = outbound_timestamps(&["--ip", "127.0.0.1", "--strip-timestamps"]);
+        assert_eq!(filtered, baseline, "a receive filter must preserve outgoing Timestamp negotiation");
     }
 
     #[test]
