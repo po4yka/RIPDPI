@@ -9,6 +9,26 @@ import org.junit.Test
 
 class RipDpiProxyUIPreferencesSettingsWriterTest {
     @Test
+    fun `TCP window buffer shift keeps automatic and explicit values after settings persistence`() {
+        for (scale in listOf(null, -1, 0, 14)) {
+            val preferences =
+                RipDpiProxyUIPreferences(
+                    fakePackets = RipDpiFakePacketConfig(wsizeWindow = 4096, wsizeScale = scale),
+                )
+            val stored =
+                AppSettings.parseFrom(
+                    preferences.applyToSettings(AppSettings.getDefaultInstance()).toByteArray(),
+                )
+            val projected = RipDpiProxyUIPreferences.fromSettings(stored).fakePackets
+            val expected = scale ?: -1
+
+            assertEquals("stored scale $scale", expected, stored.wsizeScale)
+            assertEquals("projected scale $scale", expected, projected.wsizeScale)
+            assertEquals(4096, projected.wsizeWindow)
+        }
+    }
+
+    @Test
     fun `WARP preset enable state survives native preferences and protobuf projection`() {
         val presets = listOf("off", "random", "quic_imitation", "tls_imitation", "dns_imitation", "custom")
         for (preset in presets) {

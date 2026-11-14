@@ -87,7 +87,7 @@ internal fun AppSettings.Builder.applyFakePacketPreferences(
     setTlsMinorValue(fakePackets.tlsMinorValue)
     setWindowClamp(fakePackets.windowClamp ?: 0)
     setWsizeWindow(fakePackets.wsizeWindow ?: 0)
-    setWsizeScale(fakePackets.wsizeScale ?: 0)
+    setWsizeScale(fakePackets.wsizeScale ?: -1)
     setStripTimestamps(fakePackets.stripTimestamps)
     setIpIdMode(normalizeIpIdMode(fakePackets.ipIdMode))
     if (includeUdp) {
