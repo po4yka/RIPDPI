@@ -1,15 +1,15 @@
 ---
 task_id: RST-1794677647125288
 change: repair-dpi26-contracts
-commit_sha: 520eab70b3596a7b9d472689fc1a3cfdd393acd8
+commit_sha: 4b4e6be7703f35b0744570bdc9e19ee9201f9624
 local: passed
-local_evidence: Combined host 438, Kotlin 43, staticAnalysis, affected diagnostics quality, just ci-gates, Clippy and fmt passed. Red regressions were observed before repair.
+local_evidence: Final rebased host 439, Linux 8, Clippy and just ci-gates passed. Kotlin 43, staticAnalysis, affected diagnostics quality and fmt passed before the final rebase; their repair inputs did not change. Red regressions were observed before repair.
 remote_ci: not_applicable
 remote_ci_evidence: Hosted CI is outside local repair acceptance; no hosted CI result is claimed.
 device: not_applicable
 device_evidence: Root, physical and external-network probes are not authorized; privileged transport remains unverified.
 artifact: passed
-artifact_evidence: Exact combined SHA 520eab70b3 passed eight unprivileged Linux IPC/handler/phase tests and locked Cargo metadata; no public API shape changed.
+artifact_evidence: Exact rebased SHA 4b4e6be770 passed eight unprivileged Linux IPC/handler/phase tests and locked Cargo metadata; no public API shape changed.
 deployment: not_applicable
 deployment_evidence: This change does not deploy an application or service.
 ---
@@ -30,7 +30,9 @@ Exact source: 520eab70b3, on origin/main 4c64d9e8c9. Host 438, all-targets Clipp
 
 ## Final checks and limits
 
-The combined Rust and source checks apply to exact commit 520eab70b3596a7b9d472689fc1a3cfdd393acd8. Combined host tests covered ripdpi-proxy-config, ripdpi-privileged-ops, ripdpi-proxy-runtime-desync-adapter, ripdpi-root-helper, ripdpi-root-helper-protocol and ripdpi-runtime-platform. Clippy used --all-targets -- -D warnings. Cargo commands used --locked --offline, Rust 1.100.0 and worktree-owned targets. Linux used UID 1000, network none, cap-drop ALL and no-new-privileges with source mounted read-only. Its eight targeted tests filtered 62/70/122 unrelated cases; none failed or were ignored. This is not a full Linux workspace test claim.
+Final rebase source: 4b4e6be7703f35b0744570bdc9e19ee9201f9624 on origin/main 5fb68930e84ace88e8de0052667e39ea719382fa. The repair files match the reviewed source above. New upstream TCP changes required another combined run: all six host packages passed 439 tests, with no failures, ignored or filtered tests; Linux passed eight tests, with no failures or ignored tests and 62/70/126 unrelated cases filtered. All-targets Clippy with -D warnings, just ci-gates, locked offline metadata and diff checks passed. The new upstream adapter test explains the host count increase from 438. Commands and results are in final-rebase-commands.txt and final-rebase-{host,linux,clippy,ci-gates}.log in the same evidence directory. The task board was regenerated after rebase. The archive and closure receipts retain the evidence snapshot from the time of closure.
+
+The earlier combined Rust and source checks apply to exact commit 520eab70b3596a7b9d472689fc1a3cfdd393acd8. Combined host tests covered ripdpi-proxy-config, ripdpi-privileged-ops, ripdpi-proxy-runtime-desync-adapter, ripdpi-root-helper, ripdpi-root-helper-protocol and ripdpi-runtime-platform. Clippy used --all-targets -- -D warnings. Cargo commands used --locked --offline, Rust 1.100.0 and worktree-owned targets. Linux used UID 1000, network none, cap-drop ALL and no-new-privileges with source mounted read-only. Its eight targeted tests filtered 62/70/122 unrelated cases; none failed or were ignored. This is not a full Linux workspace test claim.
 
 The initial host regression showed a missing typed UDP phase; the ID regression showed None instead of Some(Seq); the Kotlin regression showed non-root fragmentation was accepted. Independent review covered the original and recovered patch. Recovered F1 was tested again before integration. A Linux runner image/cache/target is local test tooling, not a production dependency.
 
