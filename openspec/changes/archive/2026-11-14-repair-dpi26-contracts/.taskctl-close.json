@@ -1,0 +1,11 @@
+{
+  "change": "repair-dpi26-contracts",
+  "evidence_summary": "Combined code SHA 520eab70b3596a7b9d472689fc1a3cfdd393acd8: 438 host tests, 8 Linux tests, 43 Kotlin tests, Clippy, rustfmt, CI source gates and independent review passed. Root/raw and device wire acceptance were not activated.",
+  "execution_sha256": "91bcbeb882324800a61e3303e6353565ab4a4d31e7611c4e0300adad9364a865",
+  "issue_sha256": "4003488bc089dafbe94cacec80f7e90bf31e09e89e11512f1099c001aa5ff7fe",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T19:22:30Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794677647125288"
+}

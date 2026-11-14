@@ -2,7 +2,7 @@
 id: RST-1794677647125288
 title: Repair DPI-26 UDP fragmentation contracts
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: Primary integrator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-dpi26-contracts
 created: 2026-11-14
 updated: 2026-11-14
+closed_at: "2026-11-14T19:22:30Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Combined code SHA 520eab70b3596a7b9d472689fc1a3cfdd393acd8: 438 host tests, 8 Linux tests, 43 Kotlin tests, Clippy, rustfmt, CI source gates and independent review passed. Root/raw and device wire acceptance were not activated."
 ---
 
 ## Goal
