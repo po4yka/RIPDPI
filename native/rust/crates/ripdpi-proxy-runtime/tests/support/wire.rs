@@ -90,30 +90,125 @@ pub fn tcp_options_contain_kind(options: &[u8], target_kind: u8) -> bool {
     false
 }
 
+/// A captured IPv4 packet with parsed transport fields.
+#[derive(Debug, Clone)]
+pub struct CapturedPacket {
+    pub protocol: u8,
+    pub src_ip: Ipv4Addr,
+    pub dst_ip: Ipv4Addr,
+    pub src_port: u16,
+    pub dst_port: u16,
+    pub ttl: u8,
+    pub tcp_window: Option<u16>,
+    pub tcp_flags: Option<u8>,
+    pub tcp_sequence_number: Option<u32>,
+    pub tcp_options: Option<Vec<u8>>,
+    pub payload: Vec<u8>,
+}
+
+/// Reads the receive-window exponent offered in a SYN's TCP options.
+fn tcp_window_scale(options: &[u8]) -> Result<Option<u8>, &'static str> {
+    let mut remaining = options;
+    let mut scale = None;
+    while let Some(&kind) = remaining.first() {
+        match kind {
+            0 => break,
+            1 => remaining = &remaining[1..],
+            _ => {
+                let len = usize::from(*remaining.get(1).ok_or("truncated TCP option")?);
+                if len < 2 || len > remaining.len() {
+                    return Err("invalid TCP option length");
+                }
+                if kind == 3 {
+                    if len != 3 || scale.is_some() {
+                        return Err("invalid window scale option");
+                    }
+                    scale = Some(remaining[2].min(14));
+                }
+                remaining = &remaining[len..];
+            }
+        }
+    }
+    Ok(scale)
+}
+
+/// Returns positive receive windows after the peer passed the initial advertised edge.
+pub fn tcp_receive_windows_after_initial_edge(
+    packets: &[CapturedPacket],
+    server_port: u16,
+) -> Result<(u8, Vec<u32>), &'static str> {
+    let syn = packets
+        .iter()
+        .find(|packet| {
+            packet.protocol == 6
+                && packet.src_ip == Ipv4Addr::LOCALHOST
+                && packet.dst_ip == Ipv4Addr::LOCALHOST
+                && packet.dst_port == server_port
+                && packet.tcp_flags.is_some_and(|flags| flags & 0x12 == 0x02)
+        })
+        .ok_or("missing upstream SYN")?;
+    let outbound = |packet: &CapturedPacket| {
+        packet.protocol == 6
+            && (packet.src_ip, packet.dst_ip, packet.src_port, packet.dst_port)
+                == (syn.src_ip, syn.dst_ip, syn.src_port, syn.dst_port)
+    };
+    let inbound = |packet: &CapturedPacket| {
+        packet.protocol == 6
+            && (packet.src_ip, packet.dst_ip, packet.src_port, packet.dst_port)
+                == (syn.dst_ip, syn.src_ip, syn.dst_port, syn.src_port)
+    };
+    let syn_ack = packets
+        .iter()
+        .find(|packet| inbound(packet) && packet.tcp_flags.is_some_and(|flags| flags & 0x12 == 0x12))
+        .ok_or("missing upstream SYN-ACK")?;
+    let offered = tcp_window_scale(syn.tcp_options.as_deref().unwrap_or_default())?;
+    let accepted = tcp_window_scale(syn_ack.tcp_options.as_deref().unwrap_or_default())?;
+    let scale = if accepted.is_some() { offered.unwrap_or(0) } else { 0 };
+    let initial_window = u32::from(syn.tcp_window.ok_or("missing SYN window")?);
+    let first_peer_sequence = syn_ack.tcp_sequence_number.ok_or("missing SYN-ACK sequence")?.wrapping_add(1);
+    let mut peer_progress = 0;
+    let mut windows = Vec::new();
+    for packet in packets {
+        if inbound(packet) && !packet.payload.is_empty() {
+            let sequence = packet.tcp_sequence_number.ok_or("missing peer sequence")?;
+            let length = u32::try_from(packet.payload.len()).map_err(|_| "oversized captured payload")?;
+            // A loopback capture can contain duplicate frames; use sequence progress, not byte sums.
+            peer_progress = peer_progress.max(sequence.wrapping_add(length).wrapping_sub(first_peer_sequence));
+        }
+        if outbound(packet)
+            && peer_progress > initial_window
+            && packet.tcp_flags.is_some_and(|flags| flags & 0x17 == 0x10)
+            && let Some(window @ 1..) = packet.tcp_window
+        {
+            windows.push(u32::from(window) << scale);
+        }
+    }
+    Ok((scale, windows))
+}
+
+/// Checks every observed window so one transient small value cannot certify a clamp.
+pub fn effective_windows_respect_clamp(control: &[u32], clamped: &[u32], requested: u32, scale: u8) -> bool {
+    if scale > 14 || clamped.is_empty() {
+        return false;
+    }
+    let Some(control_max) = control.iter().copied().max() else { return false };
+    let bound = requested.saturating_add((1u32 << scale) - 1);
+    clamped.iter().all(|&window| window > 0 && window <= bound && window < control_max)
+}
+
 // ── AF_PACKET loopback capture (Linux only) ──
 
 #[cfg(target_os = "linux")]
 pub mod capture {
     use std::io;
     use std::mem;
+    use std::net::Ipv4Addr;
     use std::os::unix::io::RawFd;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::thread::{self, JoinHandle};
 
-    /// A captured IP packet with parsed header fields.
-    #[derive(Debug, Clone)]
-    pub struct CapturedPacket {
-        pub protocol: u8,
-        pub src_port: u16,
-        pub dst_port: u16,
-        pub ttl: u8,
-        pub tcp_window: Option<u16>,
-        pub tcp_flags: Option<u8>,
-        pub tcp_sequence_number: Option<u32>,
-        pub tcp_options: Option<Vec<u8>>,
-        pub payload: Vec<u8>,
-    }
+    use super::CapturedPacket;
 
     /// Captures IP packets on the loopback interface via AF_PACKET.
     ///
@@ -244,16 +339,24 @@ pub mod capture {
 
         let protocol = data[9];
         let ttl = data[8];
+        let src_ip = Ipv4Addr::new(data[12], data[13], data[14], data[15]);
+        let dst_ip = Ipv4Addr::new(data[16], data[17], data[18], data[19]);
         let transport = &data[ihl..];
 
         match protocol {
-            6 => parse_tcp_packet(transport, ttl, filter_port),
-            17 => parse_udp_packet(transport, ttl, filter_port),
+            6 => parse_tcp_packet(transport, ttl, filter_port, src_ip, dst_ip),
+            17 => parse_udp_packet(transport, ttl, filter_port, src_ip, dst_ip),
             _ => None,
         }
     }
 
-    fn parse_tcp_packet(data: &[u8], ttl: u8, filter_port: u16) -> Option<CapturedPacket> {
+    fn parse_tcp_packet(
+        data: &[u8],
+        ttl: u8,
+        filter_port: u16,
+        src_ip: Ipv4Addr,
+        dst_ip: Ipv4Addr,
+    ) -> Option<CapturedPacket> {
         if data.len() < 20 {
             return None;
         }
@@ -277,6 +380,8 @@ pub mod capture {
 
         Some(CapturedPacket {
             protocol: 6,
+            src_ip,
+            dst_ip,
             src_port,
             dst_port,
             ttl,
@@ -288,7 +393,13 @@ pub mod capture {
         })
     }
 
-    fn parse_udp_packet(data: &[u8], ttl: u8, filter_port: u16) -> Option<CapturedPacket> {
+    fn parse_udp_packet(
+        data: &[u8],
+        ttl: u8,
+        filter_port: u16,
+        src_ip: Ipv4Addr,
+        dst_ip: Ipv4Addr,
+    ) -> Option<CapturedPacket> {
         if data.len() < 8 {
             return None;
         }
@@ -304,6 +415,8 @@ pub mod capture {
 
         Some(CapturedPacket {
             protocol: 17,
+            src_ip,
+            dst_ip,
             src_port,
             dst_port,
             ttl,
@@ -319,6 +432,97 @@ pub mod capture {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clamp_comparison_rejects_transient_small_windows() {
+        assert!(effective_windows_respect_clamp(&[65536], &[8192, 7168], 8192, 0));
+        assert!(!effective_windows_respect_clamp(&[65536], &[8192, 65536], 8192, 0));
+        assert!(!effective_windows_respect_clamp(&[65536], &[0], 8192, 0));
+        assert!(!effective_windows_respect_clamp(&[65536], &[], 8192, 0));
+        assert!(!effective_windows_respect_clamp(&[], &[8192], 8192, 0));
+        assert!(!effective_windows_respect_clamp(&[65536], &[8192], 8192, 15));
+    }
+
+    #[test]
+    fn window_scale_options_validate_lengths_and_cap_the_exponent() {
+        assert_eq!(tcp_window_scale(&[2, 4, 0x05, 0xb4, 1, 3, 3, 10, 0]), Ok(Some(10)));
+        assert_eq!(tcp_window_scale(&[3, 3, 255]), Ok(Some(14)));
+        assert_eq!(tcp_window_scale(&[0, 3, 3, 10]), Ok(None));
+        for options in [&[3, 2][..], &[3, 3][..], &[2, 0][..], &[3, 3, 2, 3, 3, 2][..]] {
+            assert!(tcp_window_scale(options).is_err(), "malformed options: {options:?}");
+        }
+    }
+
+    fn window_packet(outbound: bool, flags: u8, sequence: u32, window: u16, options: &[u8]) -> CapturedPacket {
+        CapturedPacket {
+            protocol: 6,
+            src_ip: Ipv4Addr::LOCALHOST,
+            dst_ip: Ipv4Addr::LOCALHOST,
+            src_port: if outbound { 41000 } else { 42000 },
+            dst_port: if outbound { 42000 } else { 41000 },
+            ttl: 64,
+            tcp_window: Some(window),
+            tcp_flags: Some(flags),
+            tcp_sequence_number: Some(sequence),
+            tcp_options: Some(options.to_vec()),
+            payload: Vec::new(),
+        }
+    }
+
+    fn window_handshake() -> Vec<CapturedPacket> {
+        vec![
+            window_packet(true, 0x02, 100, 1, &[3, 3, 10]),
+            window_packet(false, 0x12, 200, 65535, &[3, 3, 10]),
+            window_packet(true, 0x10, 101, 64, &[]),
+        ]
+    }
+
+    fn peer_byte(sequence: u32) -> CapturedPacket {
+        let mut packet = window_packet(false, 0x10, sequence, 65535, &[]);
+        packet.payload.push(42);
+        packet
+    }
+
+    #[test]
+    fn receive_windows_use_negotiated_scale_after_the_initial_edge() {
+        let mut packets = window_handshake();
+        packets.push(peer_byte(201));
+        packets.push(window_packet(true, 0x10, 101, 64, &[]));
+        assert_eq!(tcp_receive_windows_after_initial_edge(&packets, 42000), Ok((10, Vec::new())));
+        packets.push(peer_byte(202));
+        packets.push(window_packet(true, 0x10, 101, 64, &[]));
+        // RFC 7323: 64 * 2^10 = 65536 bytes; this is not a tiny window.
+        assert_eq!(tcp_receive_windows_after_initial_edge(&packets, 42000), Ok((10, vec![65536])));
+        packets[1].tcp_options = None;
+        assert_eq!(tcp_receive_windows_after_initial_edge(&packets, 42000), Ok((0, vec![64])));
+    }
+
+    #[test]
+    fn receive_windows_exclude_zero_close_and_other_flows() {
+        let mut packets = window_handshake();
+        packets.extend([peer_byte(201), peer_byte(202)]);
+        for (flags, window) in [(0x10, 0), (0x11, 64), (0x14, 64), (0x12, 64)] {
+            packets.push(window_packet(true, flags, 101, window, &[]));
+        }
+        let mut other_ip = window_packet(true, 0x10, 101, 64, &[]);
+        other_ip.src_ip = Ipv4Addr::new(127, 0, 0, 2);
+        packets.push(other_ip);
+        let mut other_port = window_packet(true, 0x10, 101, 64, &[]);
+        other_port.src_port += 1;
+        packets.push(other_port);
+        assert_eq!(tcp_receive_windows_after_initial_edge(&packets, 42000), Ok((10, Vec::new())));
+    }
+
+    #[test]
+    fn duplicate_peer_frames_do_not_exhaust_the_initial_window() {
+        let mut packets = window_handshake();
+        packets[0].tcp_window = Some(2);
+        packets.extend([peer_byte(201), peer_byte(201), peer_byte(201)]);
+        packets.push(window_packet(true, 0x10, 101, 64, &[]));
+        assert_eq!(tcp_receive_windows_after_initial_edge(&packets, 42000), Ok((10, Vec::new())));
+        packets.retain(|packet| packet.tcp_flags != Some(0x12));
+        assert_eq!(tcp_receive_windows_after_initial_edge(&packets, 42000), Err("missing upstream SYN-ACK"));
+    }
 
     #[test]
     fn tcp_options_find_timestamps_kind_8() {

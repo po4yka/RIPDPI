@@ -297,7 +297,9 @@ mod af_packet_tests {
     use super::*;
     use support::socks5::socks_connect_ip_round_trip_with_retry;
     use support::wire::capture::LoopbackCapture;
-    use support::wire::tcp_options_contain_kind;
+    use support::wire::{
+        effective_windows_respect_clamp, tcp_options_contain_kind, tcp_receive_windows_after_initial_edge,
+    };
 
     #[test]
     fn af_packet_tcp_window_clamp_produces_small_window() {
@@ -308,32 +310,36 @@ mod af_packet_tests {
         let _guard = test_guard();
         let fixture = FixtureStack::start(wire_fixture_config()).expect("start fixture");
 
-        let capture = LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
+        let observe = |clamp| {
+            use std::io::{Read, Write};
 
-        let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1", "--window-clamp", "2"]), None);
-
-        let body =
-            socks_connect_ip_round_trip_with_retry(proxy.port, fixture.manifest().tcp_echo_port, b"clamp wire test");
-        assert_eq!(body, b"clamp wire test");
-
-        std::thread::sleep(Duration::from_millis(100));
-        drop(proxy);
-
-        let tcp_packets = capture.packets_to_port(fixture.manifest().tcp_echo_port);
-        assert!(!tcp_packets.is_empty(), "should have captured TCP packets");
-
-        // Non-SYN segments from the proxy should advertise a small window
-        let data_segments: Vec<_> = tcp_packets
-            .iter()
-            .filter(|p| p.tcp_flags.is_some_and(|f| f & 0x02 == 0)) // exclude SYN
-            .collect();
-
-        let has_small_window = data_segments.iter().any(|p| p.tcp_window.unwrap_or(u16::MAX) <= 128);
-
+            let capture = LoopbackCapture::start(fixture.manifest().tcp_echo_port).expect("start loopback capture");
+            let args: &[&str] =
+                if clamp { &["--ip", "127.0.0.1", "--window-clamp", "8192"] } else { &["--ip", "127.0.0.1"] };
+            let proxy = start_proxy(ephemeral_proxy_config(args), None);
+            let mut stream = support::socks5::socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
+            let payload: Vec<u8> = (0..4096).map(|index| (index % 251) as u8).collect();
+            let mut body = vec![0; payload.len()];
+            // Drain each echo to bound both directions, and exceed the largest unscaled SYN window.
+            for _ in 0..32 {
+                stream.write_all(&payload).expect("write window probe chunk");
+                stream.read_exact(&mut body).expect("read window probe chunk");
+                assert_eq!(body, payload, "window request must preserve the echoed bytes");
+            }
+            std::thread::sleep(Duration::from_millis(100));
+            let packets = capture.snapshot();
+            let observation = tcp_receive_windows_after_initial_edge(&packets, fixture.manifest().tcp_echo_port)
+                .expect("capture must contain this upstream TCP handshake and window fields");
+            assert!(!observation.1.is_empty(), "missing positive established windows after the initial edge");
+            drop(stream);
+            drop(proxy);
+            observation
+        };
+        let (_, control_windows) = observe(false);
+        let (scale, clamped_windows) = observe(true);
         assert!(
-            has_small_window,
-            "expected at least one non-SYN segment with window <= 128 (clamp=2), windows: {:?}",
-            data_segments.iter().map(|p| p.tcp_window).collect::<Vec<_>>()
+            effective_windows_respect_clamp(&control_windows, &clamped_windows, 8192, scale),
+            "expected all positive effective windows near clamp 8192 below control {control_windows:?}; scale={scale}, windows={clamped_windows:?}"
         );
     }
 
