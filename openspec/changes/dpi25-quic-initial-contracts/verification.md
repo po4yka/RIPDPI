@@ -1,9 +1,9 @@
 ---
 task_id: ENG-1794638006879351
 change: dpi25-quic-initial-contracts
-commit_sha: ef5c6a626a2ddcb8fec58228a625775f9a4eb111
-local: passed
-local_evidence: 959 owning Rust tests and 9 owning Kotlin tests passed. Full staticAnalysis, ci-gates, architecture health, locked metadata, commit hooks and separate read-only review passed on the combined source tree.
+commit_sha: 5cc3d66283a19621deada6f96aaffe28d7704b53
+local: blocked
+local_evidence: 966 owning Rust tests and 11 owning Kotlin tests passed. Build, wire oracle, ci-gates, architecture health, locked metadata and separate review passed. Full staticAnalysis is blocked by missing shared-cache files and Maven Central No route to host; the single online recovery restored Kotlin tests but not full static analysis.
 remote_ci: not_applicable
 remote_ci_evidence: Local acceptance owns these source gates. No hosted CI result is claimed; the authorized main push can start hosted checks.
 device: not_applicable
@@ -25,17 +25,17 @@ deployment_evidence: No release or deployment is owned by this change.
 | REQ-DPI25-TTL | ENG-1794638219805332 | Fixed and adaptive settings survive UDP group conversion; resolver result reaches the planner; actual IPv4/IPv6 socket tests verify selected settings and restoration | passed |
 | REQ-DPI25-COUNT | ENG-1794638221270523 | Kotlin/native per-step and chain limits of 32; count one means two packets, zero disables; invalid internal counts return original-only before chain cloning | passed |
 | REQ-DPI25-SIZE | ENG-1794638223409621 | Encoded size is 1200 bytes; boundary tests cover both versions, a 253-byte host, input sizes through 65000, and oversized seed omission; independent decrypt verifies emitted packets | passed |
-| REQ-DPI25-FALLBACK | ENG-1794638231446674 | Original-only invalid-model cases, upstream prelude-error fallback tests, real direct/relay execution, all source gates and independent review | passed |
+| REQ-DPI25-FALLBACK | ENG-1794638231446674 | Original-only invalid-model cases, upstream prelude-error fallback tests, real direct/relay execution, source gates and independent review; full staticAnalysis remains blocked by repository access | behavior passed; gate blocked |
 
 ## Repair commits
 
 | Finding | Commit | Change |
 |---|---|---|
-| F1 | 6cf0ed9da7 | Build a separate valid synthetic QUIC seed instead of using the TCP TLS template on the DPI-25 path |
-| F2 | 2a83979619 | Give each alternating decoy an independent connection and fresh seed/CIDs |
-| F3 | 6d233cfc2c | Preserve fixed/adaptive UDP TTL and consume the existing resolver result |
-| F4 | f879def449 | Bound each step and the aggregate DPI-25 chain at 32 packets across Kotlin, native conversion and planner |
-| F5 | 3fe0af5360 | Check actual encoded length against the fixed 1200-byte unknown-PMTU budget |
+| F1 | 178beffb33 | Build a separate valid synthetic QUIC seed instead of using the TCP TLS template on the DPI-25 path |
+| F2 | c4b513c8ce | Give each alternating decoy an independent connection and fresh seed/CIDs |
+| F3 | 07398ce468 | Preserve fixed/adaptive UDP TTL and consume the existing resolver result |
+| F4 | 86c4a2c35c | Bound each step and the aggregate DPI-25 chain at 32 packets across Kotlin, native conversion and planner |
+| F5 | f7d47d01ee | Check actual encoded length against the fixed 1200-byte unknown-PMTU budget |
 
 The combined tree preserves the concurrent CRYPTO split, CID churn, DummyPrepend and padding ladder repairs. The ladder keeps its own connection basis, numbered packets and length checks. The integration removes one duplicate fixed-TTL assignment; adaptive TTL remains present.
 
@@ -58,32 +58,38 @@ cargo metadata --locked --format-version 1
 | Suite | Passed | Failed / ignored / filtered |
 |---|---:|---|
 | ripdpi-config | 191 | 0 / 0 / 0 |
-| ripdpi-desync | 221 | 0 / 0 / 0 |
-| ripdpi-packets | 316 | 0 / 0 / 0 |
-| ripdpi-proxy-config | 181 | 0 / 0 / 0 |
+| ripdpi-desync | 225 | 0 / 0 / 0 |
+| ripdpi-packets | 317 | 0 / 0 / 0 |
+| ripdpi-proxy-config | 183 | 0 / 0 / 0 |
 | ripdpi-proxy-runtime-desync-adapter | 50 | 0 / 0 / 0 |
-| Total | 959 | 0 / 0 / 0 |
+| Total | 966 | 0 / 0 / 0 |
 
 Commands from the checkout root:
 
 ```sh
 env -u CARGO_BUILD_JOBS ./gradlew :core:data:model:testDebugUnitTest \
-  --tests com.poyka.ripdpi.data.StrategyChainValidationTest --offline \
-  --max-workers=4 -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4
-env -u CARGO_BUILD_JOBS ./gradlew staticAnalysis --offline \
-  --max-workers=4 -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4
+  --tests com.poyka.ripdpi.data.StrategyChainValidationTest --no-configuration-cache \
+  --max-workers=4 -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 \
+  -Dorg.gradle.internal.http.connectionTimeout=3000 -Dorg.gradle.internal.http.socketTimeout=5000
+env -u CARGO_BUILD_JOBS ./gradlew staticAnalysis --no-configuration-cache \
+  --max-workers=4 -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 \
+  -Dorg.gradle.internal.http.connectionTimeout=3000 -Dorg.gradle.internal.http.socketTimeout=5000
 just ci-gates
 python3 scripts/ci/check_architecture_health.py
 just checkout-doctor
 ```
 
-All returned exit 0. The JUnit XML reports 9 tests and no errors, failures or skipped tests. Final staticAnalysis completed in 3m03s with 827 tasks. Rust API snapshots match. No baseline was expanded. Commit hooks also passed strict Clippy for the changed Rust crates and formatting checks.
+The Rust checks, build, owning Kotlin test, ci-gates, architecture and locked metadata returned exit 0. The copied recovery JUnit XML reports 11 tests and no errors, failures or skipped tests. Rust API snapshots match. No baseline was expanded. Commit hooks passed strict Clippy for the changed Rust crates and formatting checks.
 
-Earlier offline/plugin-resolution failures and the shared-target API mismatch were not used as acceptance. The final checks above passed with the resolved cache and isolated Cargo target. The first temporary worktrees and later `build/reports` disappeared during the session; their exact removal cause is not established. The final evidence is stored outside `build` and includes fresh raw captures.
+The final full staticAnalysis did not pass. Its first offline run found missing shared Gradle transforms and dependencies. One online retry with a fresh configuration restored the Kotlin test gate, but staticAnalysis stopped after 252 tasks because Maven Central returned `No route to host` for the gson 2.8.9 POM and kotlin-stdlib-common 2.2.21 POM. The failed tasks include `:core:service:checkDebugTestFixturesAarMetadata` and `:app:loadKtlintReporters`. This result establishes an environment blocker, not a source defect. Exact errors are in `recovery-static-analysis.log` and exit codes in `release-status.json` and `recovery-status.json`. No dependency version, repository or trust setting was changed.
+
+The earlier combined tree passed full staticAnalysis in 3m03s with 827 tasks; this result is historical and is not transferred to the final rebased tree. The next required check is the same full staticAnalysis command above when Maven Central is reachable. Keep the task in review with local acceptance blocked; do not archive it as fully accepted.
+
+Earlier shared-target API errors were not used as acceptance. The final source gates use the isolated Cargo target and passed. Temporary worktrees and later `build/reports` disappeared during the session; their exact removal cause is not established. The current evidence is outside `build` and includes fresh raw captures.
 
 ## Independent wire acceptance
 
-Persistent scratch evidence is under `/Users/npochaev/GitHub/RIPDPI-dpi25-repairs/.audit-dpi25/`. It is outside the committed application source. The final batch is `run-final-validation.sh`; individual exit codes are in `final-status.json` and `final-status.tsv`.
+Persistent scratch evidence is under `/Users/npochaev/GitHub/RIPDPI-dpi25-repairs/.audit-dpi25/`. It is outside the committed application source. The final batch is the release validation script; individual exit codes are in `release-status.json` and `release-status.tsv`. The sole Gradle retry is recorded in `recovery-status.json`.
 
 The normal Cargo JSON identifies the exact linked libraries. `compile.py` links an external public-caller harness against those artifacts. The harness uses production UI config conversion, group selection, planning and the actual UDP emitter over connected loopback sockets. It does not use a recorded-call fake.
 
@@ -102,12 +108,12 @@ The matrix is v1/v2 × IPv4/IPv6 × counts 0/1/2/3/32 × direct/SOCKS relay: 40 
 | Byte-identical direct originals | 20 |
 | SOCKS frames containing byte-identical originals | 20 |
 
-Raw data: `v1_input.bin`, `v2_input.bin` and the 196 `*_relay*.bin` outputs. `final-decoded.json` records decoded fields, receiver events and SHA-256 values. `final-linked-artifacts.json` records library hashes. `final-rust-tests.log`, `final-kotlin-gradle.log`, the copied final JUnit XML, `final-static-analysis.log`, `final-ci-gates.log` and final architecture/metadata files preserve the gate evidence.
+Raw data: `v1_input.bin`, `v2_input.bin` and the 196 `*_relay*.bin` outputs. `release-decoded.json` records decoded fields, receiver events and SHA-256 values. `release-linked-artifacts.json` records library hashes. `release-rust-tests.log`, `recovery-kotlin-gradle.log`, the copied recovery JUnit XML, `recovery-static-analysis.log`, `release-ci-gates.log` and release architecture/metadata files preserve the gate evidence.
 
 ## Evidence limits and remaining checks
 
 - C: Source paths and callers were inspected. Separate read-only review found no actionable issue in the repairs or either conflict resolution.
-- V: The final combined source passed the checks and host socket runs above. Socket option snapshots and restoration were observed; received IP TTL/hop-limit ancillary data was not captured.
+- V: The final combined source passed the Rust/Kotlin tests, source gates and host socket runs above. Full staticAnalysis remains blocked as described above. Socket option snapshots and restoration were observed; received IP TTL/hop-limit ancillary data was not captured.
 - S: Selected Initial/TLS/ALPN/transport-parameter/nonce requirements were checked. This does not certify all QUIC behavior. See RFC 9000 sections 12.3 and 14.1, RFC 9001 sections 5.3, 8.2 and 8.4, and RFC 9114 section 3.2, as cited in the audit.
 - E: Exact Chrome/Firefox version fingerprints, a complete browser handshake, Android device behavior, external network compatibility and DPI effectiveness remain unestablished. No physical-device probe, external active probe or root activation was run.
 
