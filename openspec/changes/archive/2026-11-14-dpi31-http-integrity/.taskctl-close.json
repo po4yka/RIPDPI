@@ -1,0 +1,11 @@
+{
+  "change": "dpi31-http-integrity",
+  "evidence_summary": "F1 F2 and H1 repairs committed; post-rebase 1936 Rust tests passed with 15 existing ignored, strict nine-crate Clippy, 8 Kotlin contract tests and module lint passed; ci-gates, architecture health and locked metadata passed; independent review approved. Physical and hosted CI acceptance not claimed.",
+  "execution_sha256": "6a827f9e198e11fe60e529d270a4900837183220892b44450b0e109fe937c5bc",
+  "issue_sha256": "1495d9036fae8f3de27eba296aa657195fdf208afbba0db7e31b7af0d6108607",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T18:27:08Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794677657331523"
+}

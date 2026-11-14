@@ -2,7 +2,7 @@
 id: ENG-1794677657331523
 title: Repair DPI-31 HTTP data integrity and mutation receipts
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: HTTP integrity integrator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi31-http-integrity
 created: 2026-11-14
 updated: 2026-11-14
+closed_at: "2026-11-14T18:27:08Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: F1 F2 and H1 repairs committed; post-rebase 1936 Rust tests passed with 15 existing ignored, strict nine-crate Clippy, 8 Kotlin contract tests and module lint passed; ci-gates, architecture health and locked metadata passed; independent review approved. Physical and hosted CI acceptance not claimed.
 ---
 
 ## Goal
