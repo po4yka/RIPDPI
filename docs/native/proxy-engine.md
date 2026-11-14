@@ -318,6 +318,7 @@ Sequence behavior:
 Runtime policy:
 
 - For `fake`, `fakedsplit`, and `fakeddisorder`, non-default `altorder` or `seqmode=sequential` selects the ordered raw TCP sender. It requires TCP repair and raw-socket access through the local process or a registered root helper.
+- Ordered batches that exceed the negotiated MSS or route MTU are rejected before the first packet is sent. An unavailable size limit also causes rejection. The MSS check includes extra fake TCP options; negotiated timestamps are counted once. The ordered sender does not split those packets.
 - Default order with duplicate sequencing and no raw-only options can use the Linux/Android stream fake transport. Configured secondary payloads and timestamp modifiers select raw transport. If the sender cannot apply them, it returns an error instead of silently dropping the selected feature.
 - Exact raw requirements, including TCP flag overrides, return errors if the required sender cannot run. An error's fallback label does not itself send a replacement payload. Check the actual runtime receipt and the selected executor rather than assuming a plain split occurred.
 - Host capability probes establish individual prerequisites. Packet capture and a peer payload check are required to establish actual fake bytes, packet order, and complete delivery; they are also required before claiming a DPI effect.

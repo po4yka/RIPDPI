@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-14
+goal: RST-1794677660326601 Fix DPI-29 ordered TCP safety and ordering contracts

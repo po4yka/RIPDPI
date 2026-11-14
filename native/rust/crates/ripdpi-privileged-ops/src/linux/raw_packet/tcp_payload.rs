@@ -12,9 +12,10 @@ use crate::linux::raw_packet::fake_tcp::mutate_fake_timestamp;
 use crate::linux::raw_packet::packet_builder::{
     apply_tcp_flag_overrides_to_packet, build_error_to_io, build_ordered_tcp_packets, build_seqovl_tcp_packet,
     build_tcp_segment_packet, fragment_identification, resolve_raw_ttl, validate_explicit_ipv4_identifications,
+    validate_ordered_tcp_packet_sizes,
 };
 use crate::linux::raw_packet::raw_socket::{open_raw_socket, raw_send_target, send_raw_packets};
-use crate::linux::socket_options::get_stream_ttl;
+use crate::linux::socket_options::{get_stream_ttl, get_u32_sockopt};
 use crate::linux::tcp_info::{read_tcp_info, wait_tcp_stage_fd};
 use crate::linux::tcp_repair::{
     TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, finish_tcp_repair, queue_payload_as_sent, set_tcp_repair,
@@ -96,6 +97,12 @@ pub fn send_ordered_tcp_segments(
     let target = stream.peer_addr()?;
     validate_explicit_ipv4_identifications(source, target, ipv4_identifications)?;
     let fd = stream.as_raw_fd();
+    let socket = open_raw_socket(target, protect_path, stream.as_fd(), false)?;
+    let destination = raw_send_target(target);
+    socket.connect(&destination)?;
+    let (level, option) =
+        if target.is_ipv4() { (libc::IPPROTO_IP, libc::IP_MTU) } else { (libc::IPPROTO_IPV6, libc::IPV6_MTU) };
+    let path_mtu = get_u32_sockopt(socket.as_raw_fd(), level, option)?;
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
@@ -114,10 +121,14 @@ pub fn send_ordered_tcp_segments(
             md5sig,
             ipv4_identifications,
         )?;
+        // Keep exact packet boundaries and IDs; reject the whole batch before its first send.
+        validate_ordered_tcp_packet_sizes(segments, &packets, &snapshot, path_mtu)?;
 
         // Once a raw send is attempted, an error cannot prove that no packet left.
         (|| -> io::Result<()> {
-            send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path, stream.as_fd())?;
+            for packet in &packets {
+                socket.send_to(packet, &destination)?;
+            }
             if original_payload_len != 0 {
                 queue_payload_as_sent(stream, &genuine_payload)?;
             }

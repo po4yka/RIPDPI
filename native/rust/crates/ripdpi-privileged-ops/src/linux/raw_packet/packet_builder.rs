@@ -349,6 +349,45 @@ pub(crate) fn build_ordered_tcp_packets(
     Ok(packets)
 }
 
+pub(crate) fn validate_ordered_tcp_packet_sizes(
+    segments: &[OrderedTcpSegment<'_>],
+    packets: &[Vec<u8>],
+    snapshot: &TcpRepairSnapshot,
+    path_mtu: u32,
+) -> io::Result<()> {
+    let mss = snapshot
+        .options
+        .mss
+        .filter(|mss| *mss != 0)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Unsupported, "ordered TCP sends require a negotiated MSS"))?;
+    if path_mtu == 0 {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "ordered TCP sends require a path MTU"));
+    }
+    if segments.len() != packets.len() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "ordered TCP packets must match their segments"));
+    }
+    let stream_options_len = if snapshot.options.timestamp.is_some() { 12 } else { 0 };
+    for (segment, packet) in segments.iter().zip(packets) {
+        let ip_len = match packet.first().map(|byte| byte >> 4) {
+            Some(4) => Ipv4Header::MIN_LEN,
+            Some(6) => Ipv6Header::LEN,
+            _ => return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid ordered TCP packet family")),
+        };
+        // TCP_INFO's send MSS already excludes normal timestamp options, but not fake-only options.
+        let extra_options = packet
+            .len()
+            .saturating_sub(segment.payload.len())
+            .saturating_sub(ip_len + TcpHeader::MIN_LEN + stream_options_len);
+        if segment.payload.len().checked_add(extra_options).is_none_or(|length| length > usize::from(mss)) {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "ordered TCP segment exceeds negotiated MSS"));
+        }
+    }
+    if packets.iter().any(|packet| packet.len() > path_mtu as usize) {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "ordered TCP packet exceeds path MTU"));
+    }
+    Ok(())
+}
+
 pub(crate) fn validate_explicit_ipv4_identifications(
     source: SocketAddr,
     target: SocketAddr,
@@ -366,3 +405,7 @@ pub(crate) fn validate_explicit_ipv4_identifications(
 #[cfg(test)]
 #[path = "packet_builder/seqovl_tests.rs"]
 mod seqovl_tests;
+
+#[cfg(test)]
+#[path = "packet_builder/ordered_tests.rs"]
+mod ordered_tests;
