@@ -45,7 +45,7 @@ pub(crate) fn execute_tcp_fake_family_step(
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
     match kind {
         TcpChainStepKind::Fake => {
-            fake::execute(ctx, configured_step, chunk, start, end, step_family, step_fallback, bytes_committed)
+            fake::execute(ctx, configured_step, chunk, end, step_family, step_fallback, bytes_committed)
         }
         TcpChainStepKind::FakeSplit => {
             fake_split::execute(ctx, configured_step, chunk, start, end, step_family, step_fallback, bytes_committed)

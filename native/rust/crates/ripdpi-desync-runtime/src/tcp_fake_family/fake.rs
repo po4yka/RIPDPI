@@ -1,5 +1,6 @@
 use crate::activation::pad_fake_payload;
 use ripdpi_config::TcpChainStep;
+use ripdpi_desync::FakePacketPlan;
 
 use crate::emissions::{build_plain_fake_emissions, ordered_segments_from_emissions};
 use crate::transport_io::{send_fake_tcp_action_named, send_ordered_fake_segments_action_named};
@@ -8,12 +9,23 @@ use crate::types::OutboundSendError;
 use super::options::FakeStepOptions;
 use super::{TcpFakeFamilyExecContext, TcpStepControl};
 
+/// A plain fake always starts at its own `fake_offset`, whatever the position of the real chunk.
+fn plain_fake_chunks(
+    primary: &FakePacketPlan,
+    secondary: Option<&FakePacketPlan>,
+    span: usize,
+) -> (Vec<u8>, Option<Vec<u8>>) {
+    (
+        ripdpi_desync::build_fake_region_bytes(primary, 0, span),
+        secondary.map(|fake| ripdpi_desync::build_fake_region_bytes(fake, 0, span)),
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn execute(
     ctx: &mut TcpFakeFamilyExecContext<'_>,
     configured_step: &TcpChainStep,
     chunk: &[u8],
-    start: usize,
     end: usize,
     step_family: &'static str,
     step_fallback: Option<&'static str>,
@@ -21,12 +33,9 @@ pub(crate) fn execute(
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
     let fake = &ctx.fake_packets.primary;
     let span = chunk.len();
-    let fake_chunk: Vec<u8> = (0..span).map(|i| fake.bytes[(fake.fake_offset + i) % fake.bytes.len()]).collect();
+    let (fake_chunk, secondary_fake_chunk) = plain_fake_chunks(fake, ctx.fake_packets.secondary.as_ref(), span);
     let fake_chunk = pad_fake_payload(ctx.group, fake_chunk);
-    let secondary_fake_chunk =
-        ctx.fake_packets.secondary.as_ref().map(|secondary| {
-            pad_fake_payload(ctx.group, ripdpi_desync::build_fake_region_bytes(secondary, start, span))
-        });
+    let secondary_fake_chunk = secondary_fake_chunk.map(|chunk| pad_fake_payload(ctx.group, chunk));
     let opts = FakeStepOptions::new(ctx, configured_step);
 
     if (fake_chunk.len() > chunk.len() || secondary_fake_chunk.as_ref().is_some_and(|fake| fake.len() > chunk.len()))
@@ -86,4 +95,26 @@ pub(crate) fn execute(
         )?
     };
     Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ripdpi_desync::ProtoInfo;
+
+    fn plan(bytes: &[u8], fake_offset: usize) -> FakePacketPlan {
+        FakePacketPlan { bytes: bytes.to_vec(), fake_offset, proto: ProtoInfo::default() }
+    }
+
+    #[test]
+    fn plain_fake_chunks_start_at_fake_offset_and_wrap_after_it() {
+        let primary = plan(b"HEADabcde", 4);
+        let secondary = plan(b"XYZ123", 3);
+
+        let (p, s) = plain_fake_chunks(&primary, Some(&secondary), 7);
+
+        assert_eq!(p, b"abcdeab");
+        assert_eq!(s.as_deref(), Some(&b"1231231"[..]));
+        assert_eq!(plain_fake_chunks(&primary, None, 3), (b"abc".to_vec(), None));
+    }
 }
