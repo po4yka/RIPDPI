@@ -76,3 +76,14 @@ fn fake_sni_change_still_applies_to_valid_captured_client_hello() {
     let fake = build_fake_packet(&group(FakePacketSource::CapturedClientHello, false, true), &real, 7).expect("fake");
     assert_eq!(sni_of(&fake.bytes).as_deref(), Some(DECOY_SNI.as_bytes()));
 }
+
+#[test]
+fn hostfake_longer_template_keeps_a_valid_host_shape() {
+    for (host, template) in [("a.ru", "googlevideo.com"), ("x.io", "a-b.example")] {
+        let out = build_hostfake_bytes(host.as_bytes(), Some(template), 5, false);
+        assert_eq!(out.len(), host.len());
+        assert!(out[0].is_ascii_lowercase(), "{out:?}");
+        assert_ne!(out.last(), Some(&b'.'));
+        assert!(out.split(|byte| *byte == b'.').all(|label| !label.is_empty()), "{out:?}");
+    }
+}

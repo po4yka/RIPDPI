@@ -126,9 +126,11 @@ pub fn build_hostfake_bytes(real_host: &[u8], template: Option<&str>, seed: u32,
         return output;
     };
     let suffix = template.as_bytes();
-    if suffix.len() >= output.len() {
-        let output_len = output.len();
-        output.copy_from_slice(&suffix[suffix.len() - output_len..]);
+    if suffix.len() > output.len() {
+        return output;
+    }
+    if suffix.len() == output.len() {
+        output.copy_from_slice(suffix);
         return output;
     }
 
