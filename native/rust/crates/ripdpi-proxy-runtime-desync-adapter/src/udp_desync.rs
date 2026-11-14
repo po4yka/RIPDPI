@@ -219,7 +219,12 @@ pub fn execute_udp_actions(
         }
         let action_outcome = match execute_udp_action(ctx, action, is_real) {
             Ok(action_outcome) => action_outcome,
-            Err(source) if !is_real && udp_write_bytes(action).is_some() && is_decoy_local_send_error(&source) => {
+            Err(source)
+                if real_index.is_some()
+                    && !is_real
+                    && udp_write_bytes(action).is_some()
+                    && is_decoy_local_send_error(&source) =>
+            {
                 // A failed decoy must not cost the real datagram: a later SetTtl restores the TTL.
                 // It is not counted as completed, so it stays out of `technique_actions_completed`.
                 tracing::debug!(%source, "UDP desync decoy write failed; skipping decoy");
@@ -461,16 +466,15 @@ fn applied_ipv6_extension_profile(
     ipv6_extension_profile(headers)
 }
 
-/// Errors the decoy itself causes (EMSGSIZE, ENOBUFS, a full send buffer). A pending ICMP
-/// error reported by the connected socket belongs to the flow and still aborts the plan.
+/// Errors the decoy itself causes: too large (EMSGSIZE), no buffer space
+/// (ENOBUFS) or a full send buffer. Any other error, such as a pending ICMP
+/// error that the connected socket reports on the next send, belongs to the flow
+/// and still aborts the plan. EMSGSIZE can also come from an ICMP
+/// fragmentation-needed message; the decoy is then too large for the path, and
+/// skipping it is still right.
 fn is_decoy_local_send_error(error: &io::Error) -> bool {
-    !matches!(
-        error.kind(),
-        io::ErrorKind::ConnectionRefused
-            | io::ErrorKind::ConnectionReset
-            | io::ErrorKind::HostUnreachable
-            | io::ErrorKind::NetworkUnreachable
-    )
+    error.kind() == io::ErrorKind::WouldBlock
+        || matches!(error.raw_os_error(), Some(code) if code == libc::EMSGSIZE || code == libc::ENOBUFS)
 }
 
 fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
@@ -703,6 +707,24 @@ mod tests {
         let result = execute_udp_actions(loopback_ctx(&sender, false), &actions, &real);
 
         assert!(result.is_err(), "oversized real write must fail");
+    }
+
+    #[test]
+    fn pending_icmp_error_on_a_decoy_write_still_aborts_the_plan() {
+        let closed = UdpSocket::bind("127.0.0.1:0").expect("bind closed peer");
+        let closed_addr = closed.local_addr().expect("closed addr");
+        drop(closed);
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(closed_addr).expect("connect sender");
+        // The port-unreachable reply to this probe stays pending on the socket.
+        let _ = sender.send(b"probe");
+        thread::sleep(Duration::from_millis(200));
+        let actions = [DesyncAction::Write(b"decoy".to_vec()), DesyncAction::Write(b"real".to_vec())];
+
+        let error = execute_udp_actions(loopback_ctx(&sender, false), &actions, b"real")
+            .expect_err("a flow error on the decoy write must abort the plan");
+
+        assert_eq!(error.into_io_error().kind(), io::ErrorKind::ConnectionRefused);
     }
 
     #[test]

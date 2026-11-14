@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 loom = { workspace = true, optional = true }
+libc = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
 ripdpi-desync-runtime = { workspace = true }
@@ -27,9 +28,6 @@ ripdpi-strategy-registry = { workspace = true, features = ["lua-strategies"] }
 ripdpi-strategy-trait = { workspace = true }
 socket2 = { workspace = true }
 tracing = { workspace = true }
-
-[dev-dependencies]
-libc = { workspace = true }
 
 [features]
 loom = ["dep:loom", "ripdpi-desync-runtime/loom"]
