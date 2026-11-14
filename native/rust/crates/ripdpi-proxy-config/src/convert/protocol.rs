@@ -87,6 +87,7 @@ pub(crate) fn append_udp_group(groups: &mut Vec<DesyncGroup>, primary_group: &De
 
     let mut udp_group = DesyncGroup::new(groups.len());
     udp_group.matches.proto = IS_UDP;
+    udp_group.actions.ttl = primary_group.actions.ttl;
     udp_group.actions.udp_chain = primary_group.actions.udp_chain.clone();
     udp_group.actions.quic_fake_profile = primary_group.actions.quic_fake_profile;
     udp_group.actions.quic_fake_host = primary_group.actions.quic_fake_host.clone();
@@ -111,3 +112,6 @@ pub fn parse_quic_fake_profile(value: &str) -> Result<QuicFakeProfile, ProxyConf
         _ => Err(ProxyConfigError::InvalidConfig(format!("Unknown quicFakeProfile: {value}"))),
     }
 }
+
+#[cfg(test)]
+mod tests;
