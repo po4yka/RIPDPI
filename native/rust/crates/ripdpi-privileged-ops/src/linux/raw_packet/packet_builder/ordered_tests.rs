@@ -63,6 +63,7 @@ fn ordered_batch_rejects_a_later_mss_overflow_before_admission() {
 
 #[test]
 fn ordered_batch_checks_complete_packet_mtu_and_preserves_wire_fields() {
+    let mut ipv4_identifications = std::collections::HashSet::new();
     for (source, target, ip_len) in
         [("192.0.2.10:12345", "198.51.100.20:443", 20), ("[2001:db8::10]:12345", "[2001:db8::20]:443", 40)]
     {
@@ -97,7 +98,10 @@ fn ordered_batch_checks_complete_packet_mtu_and_preserves_wire_fields() {
                     assert_eq!(tcp[13], 0x18);
                     let mut pseudo = Vec::new();
                     if ip_len == 20 {
-                        assert_eq!(u16::from_be_bytes(packet[4..6].try_into().unwrap()), [11, 12][index]);
+                        let identification = u16::from_be_bytes(packet[4..6].try_into().unwrap());
+                        assert_ne!(identification, 0);
+                        assert!(ipv4_identifications.insert(identification), "live IPv4 IDs must not repeat");
+                        assert_eq!(packet[6] & 0x60, 0, "packets remain eligible for fragmentation");
                         assert_eq!(packet[8], [7, 64][index]);
                         assert_eq!(checksum(&packet[..20]), 0);
                         assert_eq!(usize::from(u16::from_be_bytes(packet[2..4].try_into().unwrap())), packet.len());
@@ -117,6 +121,7 @@ fn ordered_batch_checks_complete_packet_mtu_and_preserves_wire_fields() {
             }
         }
     }
+    assert_eq!(ipv4_identifications.len(), 8);
 }
 
 #[test]
