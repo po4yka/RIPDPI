@@ -28,7 +28,7 @@ The packetizer owns:
 ## Invariants
 
 1. Semantic split offsets are defined in defragmented ClientHello byte space.
-2. Supported seed version, connection ID, CRYPTO framing, packet-number, and datagram-length changes go through full Initial encryption and header protection. Header-version decoys are explicit exceptions: they replace only the version field after packetization and retain the seed ciphertext, tag, and header protection.
+2. Valid version, connection ID, CRYPTO framing, packet-number, and datagram-length rewrites go through full Initial re-encryption and header protection. Header-version decoys first build a valid synthetic Initial, then replace only its four version bytes. They preserve the seed ciphertext, header protection, and authentication tag; they do not convert the packet to a valid Initial of another version or implement version negotiation.
 3. Parsed-packet rewrites preserve the original Initial seed unless a tactic explicitly requests a browser-like synthetic seed.
 4. Browser-like seeds reuse the committed TLS fake-profile corpus.
 5. Weak mutation families stay explicit and demotable instead of silently entering the production probe pool.

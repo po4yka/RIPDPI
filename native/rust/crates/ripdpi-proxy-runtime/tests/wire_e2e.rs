@@ -14,6 +14,9 @@ use ripdpi_packets::{IS_UDP, parse_quic_initial};
 #[cfg(target_os = "linux")]
 use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
 use ripdpi_proxy_runtime_adapter::model::config::{UdpChainStep, UdpChainStepKind};
+use ripdpi_proxy_runtime_adapter::model::proxy_config::{
+    ProxyUiConfig, ProxyUiUdpChainStep, parse_proxy_config_json, runtime_config_from_payload,
+};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
 
@@ -238,6 +241,52 @@ fn udp_quic_chain_steps_emit_dummy_split_and_fake_version_packets() {
 
         assert_eq!(&packets[2][1..5], &0x1a2b_3c4du32.to_be_bytes());
         assert_eq!(packets.last().unwrap(), &real_payload, "last packet should be the real QUIC Initial");
+    }
+}
+
+#[test]
+fn ui_quic_fake_version_preserves_custom_and_default_versions_on_wire() {
+    if !wire_e2e_enabled() {
+        eprintln!("skipping: RIPDPI_RUN_WIRE_E2E!=1");
+        return;
+    }
+    let _guard = test_guard();
+    for version in [0x0000_0001, 0x6b33_43cf] {
+        for (fake_version, expected) in [(None, 0x1a2a_3a4au32), (Some(0xdead_beef), 0xdead_beef)] {
+            let recording = RecordingUdpServer::start(0).expect("start recording server");
+            let mut ui = ProxyUiConfig::default();
+            ui.protocols.desync_udp = true;
+            ui.fake_packets.quic_fake_version = fake_version;
+            ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+                kind: "quic_fake_version".to_string(),
+                count: 2,
+                split_bytes: 0,
+                activation_filter: None,
+                ipv6_extension_profile: "none".to_string(),
+            }];
+            let mut json = serde_json::to_value(ui).expect("serialize UI config");
+            json["kind"] = "ui".into();
+            json["schemaVersion"] = 2.into();
+            let payload = parse_proxy_config_json(&json.to_string()).expect("parse native config JSON");
+            let mut config = runtime_config_from_payload(payload).expect("convert native config");
+            config.network.listen.listen_port = 0;
+            let proxy = start_proxy(config, None);
+            let (_control, relay) = socks_udp_associate(proxy.port);
+            let udp = udp_proxy_client();
+            let real_payload = rust_packet_seeds::quic_initial_with_host(version, "wire.example.test");
+
+            let echoed = udp_proxy_roundtrip_with_socket(&udp, relay, recording.port(), &real_payload);
+            assert_eq!(echoed, real_payload, "real payload must echo intact");
+            std::thread::sleep(Duration::from_millis(200));
+            drop(proxy);
+
+            let packets = recording.snapshot();
+            assert_eq!(packets.len(), 3, "two decoys and one real datagram");
+            assert_eq!(packets[0], packets[1], "repeated decoys must preserve their bytes");
+            assert!(packets[0].len() >= 1200, "version decoy must preserve the Initial minimum size");
+            assert_eq!(&packets[0][1..5], &expected.to_be_bytes(), "input {version:08x}, override {fake_version:?}");
+            assert_eq!(packets[2], real_payload, "last datagram must be the unchanged original");
+        }
     }
 }
 
