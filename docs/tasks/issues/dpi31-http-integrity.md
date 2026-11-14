@@ -2,7 +2,7 @@
 id: ENG-1794677657331523
 title: Repair DPI-31 HTTP data integrity and mutation receipts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: HTTP integrity integrator

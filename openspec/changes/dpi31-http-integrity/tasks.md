@@ -13,10 +13,10 @@ Preserve meaningful request data and expose independent HTTP mutation outcomes w
 
 ## Execution
 
-- [ ] ENG-1794677777812641 Preserve meaningful User-Agent bytes in packets Method EOL and verify data-preservation regressions #bug !high @item:ENG-1794677657331523
-- [ ] ENG-1794677778638690 Decline Method EOL on prefixed requests and verify metadata-preservation regressions #bug !high @item:ENG-1794677657331523
-- [ ] ENG-1794677779483214 Propagate optional HTTP mutation evidence through native and Kotlin receipts with compatibility tests #bug !high @item:ENG-1794677657331523
-- [ ] ENG-1794677781056020 Run independent review and affected Rust Kotlin contract and source gates before integration #chore !high @item:ENG-1794677657331523
+- [x] ENG-1794677777812641 Preserve meaningful User-Agent bytes in packets Method EOL and verify data-preservation regressions #bug !high @item:ENG-1794677657331523
+- [x] ENG-1794677778638690 Decline Method EOL on prefixed requests and verify metadata-preservation regressions #bug !high @item:ENG-1794677657331523
+- [x] ENG-1794677779483214 Propagate optional HTTP mutation evidence through native and Kotlin receipts with compatibility tests #bug !high @item:ENG-1794677657331523
+- [x] ENG-1794677781056020 Run independent review and affected Rust Kotlin contract and source gates before integration #chore !high @item:ENG-1794677657331523
 
 ## Verification
 
