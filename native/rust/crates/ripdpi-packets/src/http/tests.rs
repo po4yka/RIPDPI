@@ -157,6 +157,24 @@ fn mod_http_like_c_method_eol_reclaims_only_optional_user_agent_whitespace() {
 }
 
 #[test]
+fn mod_http_like_c_method_eol_declines_already_prefixed_requests() {
+    for prefix in ["\r\n", "\n"] {
+        let input = format!(
+            "{prefix}POST / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent  \r\nContent-Length: 4\r\n\r\nBODY"
+        );
+        let markers = http_marker_info(input.as_bytes()).expect("original HTTP markers");
+        let head_end = http_request_head_end(input.as_bytes()).expect("original complete head");
+
+        let mutation = mod_http_like_c(input.as_bytes(), MH_METHODEOL);
+
+        assert_eq!(mutation.bytes, input.as_bytes(), "prefix {prefix:?}");
+        assert_eq!(mutation.rc, -1, "prefix {prefix:?}");
+        assert_eq!(http_marker_info(&mutation.bytes), Some(markers));
+        assert_eq!(http_request_head_end(&mutation.bytes), Some(head_end));
+    }
+}
+
+#[test]
 fn mod_http_like_c_best_effort_skips_eol_mutations_without_user_agent() {
     let input = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mutation = mod_http_like_c(input, MH_UNIXEOL | MH_METHODEOL);
