@@ -20,7 +20,7 @@ Kotlin and Rust MUST reject DPI-24 counts outside 0 through 64 and a combined DP
 
 ### Requirement: REQ-DPI24-CORRELATION — Require correlated success
 
-Before its first accepted response, a supported QUIC flow MUST require a correlated Initial or Retry with valid integrity before success, session acceptance, migration, or timeout suppression. A later outbound datagram MUST NOT remove this requirement. Transparent UDP forwarding MUST remain available.
+Before its first accepted response, a supported QUIC flow MUST require a correlated, integrity-valid Initial or Retry before success, session acceptance, or migration. An outbound follow-up MUST NOT remove the retained request. Unrelated replies MUST remain forwarded without refreshing response state.
 
 #### Scenario: A reply belongs to the decoy
 
@@ -31,6 +31,34 @@ Before its first accepted response, a supported QUIC flow MUST require a correla
 
 - **WHEN** a correlated v1 or v2 Initial or Retry passes integrity checks
 - **THEN** success is recorded and the retained Initial is released
+
+### Requirement: REQ-DPI24-COMPAT — Preserve compatible version replies
+
+The runtime MUST allow a different v1/v2 Initial version only when the complete client offer permits it. Retry MUST use the original version. If a compatible Initial has valid CID and integrity but the offer is unavailable, it MUST remain unverified: forward it without success or session acceptance; idle expiry MUST NOT learn failure or trigger fallback.
+
+#### Scenario: A compatible version was announced
+
+- **WHEN** a CID- and integrity-valid v2 Initial answers a v1 request that advertised v2, or the inverse pair
+- **THEN** the runtime accepts it without changing the active single-version probe validator
+
+#### Scenario: A compatible reply has an incomplete offer
+
+- **WHEN** a compatible v1/v2 Initial has valid CID and integrity but its client offer is unavailable
+- **THEN** it is forwarded without success accounting and idle expiry is neutral
+
+### Requirement: REQ-DPI24-GREASE — Preserve greased replies
+
+The runtime MUST accept a CID- and integrity-valid Initial or original-version Retry with Fixed Bit zero when the complete client offer contains one empty grease_quic_bit parameter. If the offer is unavailable, the reply MUST remain unverified and idle expiry MUST be neutral. The active probe validator MUST retain its existing contract.
+
+#### Scenario: The client permits a cleared Fixed Bit
+
+- **WHEN** a valid server Initial or Retry clears the Fixed Bit after the client offers grease_quic_bit
+- **THEN** the runtime accepts it using the original header bytes for integrity verification
+
+#### Scenario: The offer is unavailable
+
+- **WHEN** an integrity-valid reply clears the Fixed Bit but the retained ClientHello is incomplete
+- **THEN** it is forwarded without success accounting and idle expiry is neutral
 
 ### Requirement: REQ-DPI24-PROBE — Keep one receive deadline
 
