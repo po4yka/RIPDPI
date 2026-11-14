@@ -89,6 +89,7 @@ pub(crate) fn append_udp_group(groups: &mut Vec<DesyncGroup>, primary_group: &De
     udp_group.matches.proto = IS_UDP;
     udp_group.actions.ttl = primary_group.actions.ttl;
     udp_group.actions.udp_chain = primary_group.actions.udp_chain.clone();
+    udp_group.actions.ip_id_mode = primary_group.actions.ip_id_mode;
     udp_group.actions.auto_ttl = primary_group.actions.auto_ttl;
     udp_group.actions.quic_fake_profile = primary_group.actions.quic_fake_profile;
     udp_group.actions.quic_fake_host = primary_group.actions.quic_fake_host.clone();
