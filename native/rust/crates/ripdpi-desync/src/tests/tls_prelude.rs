@@ -353,3 +353,46 @@ fn tls_prelude_rejects_offset_adjustment_underflow() {
         assert_eq!(apply_tamper(&group, &fake, 0), Err(DesyncError));
     }
 }
+
+fn no_sni_client_hello() -> Vec<u8> {
+    let mut body = vec![3, 3];
+    body.extend_from_slice(&[0x42; 32]);
+    body.extend_from_slice(&[0, 0, 2, 0xc0, 0x2f, 1, 0, 0, 0]);
+    let mut handshake = vec![1];
+    handshake.extend_from_slice(&(body.len() as u32).to_be_bytes()[1..]);
+    handshake.extend_from_slice(&body);
+    let mut record = vec![0x16, 3, 1];
+    record.extend_from_slice(&(handshake.len() as u16).to_be_bytes());
+    record.extend_from_slice(&handshake);
+    record
+}
+
+#[test]
+fn tlsminor_changes_complete_client_hello_without_sni() {
+    let input = no_sni_client_hello();
+    assert!(ripdpi_packets::is_tls_client_hello(&input));
+    assert!(parse_tls(&input).is_none());
+    for minor in [0, 1, 3, 255] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tlsminor = Some(minor);
+        let result = apply_tamper(&group, &input, 7).expect("no-SNI version override");
+        let mut expected = input.clone();
+        expected[2] = minor;
+        assert_eq!(result.bytes, expected);
+    }
+}
+
+#[test]
+fn tlsminor_leaves_incomplete_or_malformed_no_sni_client_hello_unchanged() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tlsminor = Some(3);
+    let input = no_sni_client_hello();
+    for len in 0..input.len() {
+        assert_eq!(apply_tamper(&group, &input[..len], 7).unwrap().bytes, input[..len]);
+    }
+    for (index, byte) in [(0, 0x17), (1, 4), (5, 2), (3, 0xff), (8, 0xff), (44, 0xff), (50, 1)] {
+        let mut invalid = input.clone();
+        invalid[index] = byte;
+        assert_eq!(apply_tamper(&group, &invalid, 7).unwrap().bytes, invalid);
+    }
+}

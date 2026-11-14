@@ -110,3 +110,42 @@ pub(super) fn parse_client_hello_layout(buffer: &[u8]) -> Option<TlsClientHelloL
         host_spans,
     })
 }
+
+/// Validate complete contributing records and the first handshake's extension lengths.
+pub(super) fn complete_client_hello(buffer: &[u8]) -> Option<()> {
+    let payloads = RecordPayloads::collect(buffer)?;
+    let handshake_end = read_u24(&payloads.flat, 1)?.checked_add(4)?;
+    let handshake = payloads.flat.get(..handshake_end)?;
+    let parsed = parse_client_hello_handshake(handshake)?;
+    let session_len = usize::from(*handshake.get(38)?);
+    let cipher_offset = 39 + session_len;
+    let cipher_len = read_u16(handshake, cipher_offset)?;
+    let compression_len = usize::from(*handshake.get(cipher_offset + 2 + cipher_len)?);
+    if session_len > 32 || cipher_len < 2 || cipher_len % 2 != 0 || compression_len == 0 {
+        return None;
+    }
+    let mut complete = 0;
+    for span in &payloads.spans {
+        let declared = read_u16(buffer, span.start.checked_sub(2)?)?;
+        if declared == 0 || declared > 16_384 || span.len() != declared {
+            return None;
+        }
+        complete += span.len();
+        if complete >= handshake_end {
+            break;
+        }
+    }
+    if parsed.ext_len_offset == handshake_end {
+        return Some(());
+    }
+    let extension_len = read_u16(handshake, parsed.ext_len_offset)?;
+    if parsed.ext_len_offset + 2 + extension_len != handshake_end
+        || parsed.extensions.iter().any(|extension| extension.data.len() != extension.declared_len)
+        || parsed.extensions.iter().map(|extension| extension.declared_len + 4).sum::<usize>() != extension_len
+        || (parsed.extensions.iter().any(|extension| extension.ext_type == 0)
+            && to_marker_info(&parsed, handshake.len()).is_none())
+    {
+        return None;
+    }
+    Some(())
+}

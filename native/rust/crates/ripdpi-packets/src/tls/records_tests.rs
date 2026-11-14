@@ -164,3 +164,47 @@ fn malformed_server_name_extensions_yield_no_host() {
         assert_eq!(parse_tls(&buffer), None, "{name}");
     }
 }
+
+#[test]
+fn complete_client_hello_recognition_validates_records_without_sni() {
+    for extensions in [vec![], vec![alpn()]] {
+        let payload = client_hello_payload(&extensions);
+        for split in [vec![], vec![1], vec![38, payload.len() - 1]] {
+            let input = records(&payload, &split);
+            assert!(is_complete_tls_client_hello(&input));
+            assert!(parse_tls_client_hello_layout(&input).is_none());
+            for length in 0..input.len() {
+                assert!(!is_complete_tls_client_hello(&input[..length]));
+            }
+        }
+    }
+    let mut extensionless = client_hello_payload(&[]);
+    extensionless.truncate(extensionless.len() - 2);
+    let length = (extensionless.len() - 4) as u32;
+    extensionless[1..4].copy_from_slice(&length.to_be_bytes()[1..]);
+    assert!(is_complete_tls_client_hello(&records(&extensionless, &[])));
+    let malformed_sni = records(&client_hello_payload(&[ext(0, &[0, 1, 2])]), &[]);
+    assert!(!is_complete_tls_client_hello(&malformed_sni));
+}
+
+#[test]
+fn complete_client_hello_rejects_invalid_mandatory_lengths() {
+    let original = client_hello_payload(&[]);
+    let mut invalid_session = original.clone();
+    invalid_session[38] = 33;
+    invalid_session.insert(71, 0xbb);
+    let mut empty_ciphers = original.clone();
+    empty_ciphers[71..73].copy_from_slice(&[0, 0]);
+    empty_ciphers.drain(73..77);
+    let mut odd_ciphers = original.clone();
+    odd_ciphers[71..73].copy_from_slice(&[0, 3]);
+    odd_ciphers.remove(76);
+    let mut empty_compression = original;
+    empty_compression[77] = 0;
+    empty_compression.remove(78);
+    for mut payload in [invalid_session, empty_ciphers, odd_ciphers, empty_compression] {
+        let length = (payload.len() - 4) as u32;
+        payload[1..4].copy_from_slice(&length.to_be_bytes()[1..]);
+        assert!(!is_complete_tls_client_hello(&records(&payload, &[])));
+    }
+}

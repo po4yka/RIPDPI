@@ -64,6 +64,9 @@ fn parse_client_hello_handshake_nom<'a>(
 
     // Extensions list -- use min(declared, available) to tolerate truncated templates
     let ext_len_offset = original.offset(input);
+    if input.is_empty() {
+        return Ok((input, ClientHelloParsed { ext_len_offset, extensions: Vec::new() }));
+    }
     let (input, ext_total_len) = be_u16(input)?;
     let actual_ext_len = core::cmp::min(ext_total_len as usize, input.len());
     let (rest, mut ext_data) = take(actual_ext_len)(input)?;

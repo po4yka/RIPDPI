@@ -7,6 +7,11 @@ pub fn is_tls_client_hello(buffer: &[u8]) -> bool {
     buffer.len() > 5 && read_u16(buffer, 0) == Some(0x1603) && buffer[5] == 0x01
 }
 
+/// Recognizes a complete ClientHello without requiring a server-name extension.
+pub fn is_complete_tls_client_hello(buffer: &[u8]) -> bool {
+    is_tls_client_hello(buffer) && super::records::complete_client_hello(buffer).is_some()
+}
+
 pub fn is_tls_server_hello(buffer: &[u8]) -> bool {
     buffer.len() > 5 && read_u16(buffer, 0) == Some(0x1603) && buffer[5] == 0x02
 }

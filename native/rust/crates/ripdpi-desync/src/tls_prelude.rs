@@ -5,7 +5,10 @@ use crate::types::{
     DesyncError, ProtoInfo, TamperResult, TcpSegmentHint, TlsPreludeApplication, activation_filter_matches,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPayload};
-use ripdpi_packets::{IS_HTTP, OracleRng, is_tls_client_hello, mod_http_inplace, parse_tls_client_hello_layout};
+use ripdpi_packets::{
+    IS_HTTP, OracleRng, is_complete_tls_client_hello, is_tls_client_hello, mod_http_inplace,
+    parse_tls_client_hello_layout,
+};
 use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, apply_record_choreography, plan_first_flight};
 
 const MAX_TLSREC_ITERATIONS: i32 = 1024;
@@ -291,7 +294,7 @@ fn apply_prelude(
     let prelude_state =
         if prelude_steps.is_empty() { None } else { TlsPreludeState::from_record(&output, require_complete) };
     if let Some(tlsminor) = group.actions.tlsminor
-        && info.tls.is_some()
+        && (info.tls.is_some() || is_complete_tls_client_hello(&output))
         && is_tls_client_hello(&output)
         && output.len() > 2
     {

@@ -220,6 +220,7 @@ pub fn ripdpi_packets::http_fake_profile_bytes(ripdpi_packets::HttpFakeProfile) 
 pub fn ripdpi_packets::http_marker_info(&[u8]) -> core::option::Option<ripdpi_packets::HttpMarkerInfo>
 pub fn ripdpi_packets::http_request_authority(&[u8]) -> core::option::Option<ripdpi_packets::HttpHost<'_>>
 pub fn ripdpi_packets::http_request_head_end(&[u8]) -> core::option::Option<usize>
+pub fn ripdpi_packets::is_complete_tls_client_hello(&[u8]) -> bool
 pub fn ripdpi_packets::is_http(&[u8]) -> bool
 pub fn ripdpi_packets::is_http_redirect(&[u8], &[u8]) -> bool
 pub fn ripdpi_packets::is_http_request_prefix(&[u8]) -> bool
