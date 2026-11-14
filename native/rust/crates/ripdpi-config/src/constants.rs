@@ -1,6 +1,6 @@
 pub const VERSION: &str = "17.3";
 
-/// Largest accepted `count` for a `fake_burst` UDP step; parsers reject more.
+/// Largest `fake_burst` step count and combined QUIC CRYPTO split count in one UDP chain.
 pub const MAX_FAKE_BURST_COUNT: i32 = 64;
 
 pub const DETECT_HTTP_LOCAT: u32 = 1;

@@ -73,4 +73,28 @@ class StrategyChainValidationTest {
             assertTrue("count $count", result.isFailure)
         }
     }
+
+    @Test
+    fun `QUIC crypto split count is bounded before execution`() {
+        for (count in listOf(0, 1, 64)) {
+            assertTrue(parseStrategyChainDsl("[udp]\nquic_crypto_split $count").isSuccess)
+        }
+
+        for (count in listOf(65, Int.MAX_VALUE)) {
+            val result = parseStrategyChainDsl("[udp]\nquic_crypto_split $count")
+
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message?.contains("quic_crypto_split") == true)
+        }
+    }
+
+    @Test
+    fun `QUIC crypto split counts share a chain budget`() {
+        assertTrue(parseStrategyChainDsl("[udp]\nquic_crypto_split 32\nquic_crypto_split 32").isSuccess)
+
+        val result = parseStrategyChainDsl("[udp]\nquic_crypto_split 32\nquic_crypto_split 33")
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message?.contains("quic_crypto_split") == true)
+    }
 }

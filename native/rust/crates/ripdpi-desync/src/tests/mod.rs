@@ -8,6 +8,7 @@ mod phase11_goldens;
 mod phase4_goldens;
 mod plan_tcp;
 mod plan_udp;
+mod plan_udp_budget;
 mod runtime_bounds;
 mod tls_prelude;
 mod tls_prelude_adaptive;

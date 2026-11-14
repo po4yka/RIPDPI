@@ -28,6 +28,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         let normalized_quic = normalized_quic_plan_input(payload);
         let mut prelude_state = UdpPreludeState::default();
         let mut dummy_prepend_remaining = MAX_DUMMY_PREPEND_COUNT;
+        let mut remaining_crypto_splits = MAX_FAKE_BURST_COUNT;
         let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
 
         for mut step in chain {
@@ -47,6 +48,13 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
             if step.kind == UdpChainStepKind::QuicCidChurn {
                 step.count = step.count.min(cid_churn_budget);
                 cid_churn_budget -= step.count;
+                if step.count == 0 {
+                    continue;
+                }
+            }
+            if step.kind == UdpChainStepKind::QuicCryptoSplit {
+                step.count = step.count.min(remaining_crypto_splits);
+                remaining_crypto_splits -= step.count;
                 if step.count == 0 {
                     continue;
                 }

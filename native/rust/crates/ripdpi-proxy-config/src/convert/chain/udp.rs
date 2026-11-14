@@ -28,6 +28,7 @@ pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyC
 
 pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec<UdpChainStep>, ProxyConfigError> {
     let mut parsed = Vec::with_capacity(steps.len());
+    let mut remaining_crypto_splits = MAX_FAKE_BURST_COUNT;
     let mut cid_churn_budget = MAX_FAKE_BURST_COUNT;
     for step in steps {
         if step.count < 0 {
@@ -47,6 +48,14 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
             return Err(ProxyConfigError::InvalidConfig(format!(
                 "udpChainSteps kind=fake_burst count must be at most {MAX_FAKE_BURST_COUNT}"
             )));
+        }
+        if kind == UdpChainStepKind::QuicCryptoSplit {
+            if step.count > remaining_crypto_splits {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "udpChainSteps kind=quic_crypto_split combined count must be at most {MAX_FAKE_BURST_COUNT}"
+                )));
+            }
+            remaining_crypto_splits -= step.count;
         }
         if kind == UdpChainStepKind::DummyPrepend && step.count > MAX_DUMMY_PREPEND_COUNT {
             return Err(ProxyConfigError::InvalidConfig(format!(

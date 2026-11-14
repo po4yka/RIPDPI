@@ -1137,6 +1137,28 @@ fn ui_payload_limits_quic_padding_ladder_count() {
 }
 
 #[test]
+fn ui_payload_limits_quic_crypto_split_counts() {
+    for count in [0, 1, 64] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps = vec![udp_step("quic_crypto_split", count)];
+        runtime_config_from_payload(ui_payload(ui)).expect("bounded CRYPTO split count");
+    }
+    for count in [65, i32::MAX] {
+        let mut ui = minimal_ui();
+        ui.chains.udp_steps = vec![udp_step("quic_crypto_split", count)];
+        let err = runtime_config_from_payload(ui_payload(ui)).expect_err("excess CRYPTO split count");
+        assert!(err.to_string().contains("quic_crypto_split"));
+    }
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![udp_step("quic_crypto_split", 32), udp_step("quic_crypto_split", 32)];
+    runtime_config_from_payload(ui_payload(ui)).expect("64 combined CRYPTO split packets");
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![udp_step("quic_crypto_split", 32), udp_step("quic_crypto_split", 33)];
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("excess combined CRYPTO split count");
+    assert!(err.to_string().contains("quic_crypto_split"));
+}
+
+#[test]
 fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
     let mut ui = minimal_ui();
     ui.chains.udp_steps = vec![

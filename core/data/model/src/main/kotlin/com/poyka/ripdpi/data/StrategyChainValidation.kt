@@ -2,7 +2,7 @@ package com.poyka.ripdpi.data
 
 internal const val MaxSeqOverlapSize = 32
 
-// Mirrors MAX_FAKE_BURST_COUNT in native/rust ripdpi-config src/constants.rs.
+// Mirrors the UDP decoy ceiling MAX_FAKE_BURST_COUNT in native/rust ripdpi-config src/constants.rs.
 private const val MaxFakeBurstCount = 64
 
 // Mirrors MAX_DUMMY_PREPEND_COUNT in native/rust ripdpi-config.
@@ -135,6 +135,15 @@ internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
     ) { "quic_cid_churn total count must be at most $MaxFakeBurstCount" }
     val dummyCount = normalized.filter { it.kind == UdpChainStepKind.DummyPrepend }.sumOf { it.count.toLong() }
     require(dummyCount <= MaxDummyPrependCount) { "dummy_prepend total count must be at most $MaxDummyPrependCount" }
+    var remainingCryptoSplits = MaxFakeBurstCount
+    for (step in normalized) {
+        if (step.kind == UdpChainStepKind.QuicCryptoSplit) {
+            require(step.count <= remainingCryptoSplits) {
+                "quic_crypto_split combined count must be at most $MaxFakeBurstCount"
+            }
+            remainingCryptoSplits -= step.count
+        }
+    }
     if (normalized.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
         require(normalized.size == 1) { "ipfrag2_udp must be the only udp chain step" }
     }
@@ -211,6 +220,9 @@ internal fun validateTcpStepOptions(step: TcpChainStepModel) {
 
 internal fun validateUdpStepOptions(step: UdpChainStepModel) {
     validateNoTcpStatePredicates(step.activationFilter, "${step.kind.wireName} activationFilter")
+    require(step.kind != UdpChainStepKind.QuicCryptoSplit || step.count <= MaxFakeBurstCount) {
+        "quic_crypto_split count must be at most $MaxFakeBurstCount"
+    }
     when (step.kind) {
         UdpChainStepKind.FakeBurst,
         UdpChainStepKind.DummyPrepend,
