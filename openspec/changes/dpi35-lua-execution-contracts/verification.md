@@ -1,9 +1,9 @@
 ---
 task_id: RST-1794684393149595
 change: dpi35-lua-execution-contracts
-commit_sha: 8357f0fc515aeae7723f8df1c2640a2fe6b96d89
+commit_sha: efadd22929fd1f5b6a0d4cdb7f2ff2af614a53e7
 local: passed
-local_evidence: 1144 unique Rust tests, nine selected Kotlin tests, five-package all-targets Clippy, full staticAnalysis, ci-gates and independent reviews passed. See commands and limits below.
+local_evidence: 1146 unique Rust tests, nine selected Kotlin tests, five-package all-targets Clippy, full staticAnalysis, ci-gates and independent reviews passed. See commands and limits below.
 remote_ci: required
 remote_ci_evidence: Hosted CI will be checked after the authorized push; no remote pass is claimed.
 device: required
@@ -27,24 +27,24 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-LUA-ACTIVATION | RST-1794684608788278 | Invalid syntax, file, function, path and YAML return construction errors across on_fail policies. The service root-owner extraction test passes. | passed |
 | REQ-LUA-CLOCK | RST-1794684611101060 | The real VM returns two integers with seconds bracketed by the host clock and valid subsecond nanoseconds. | passed |
 
-## Observed checks
+## Observed checks on the rebased tree
 
-The six repair commits end at `commit_sha`. This later evidence commit changes documentation and task state only. All compiler-backed commands used `build-gate --lane ripdpi`. Cargo used the pinned Rust 1.100.0 toolchain, `--locked`, at most four jobs and one worktree-local target. Local debug information was disabled to reduce disk use; assertions and overflow checks stayed enabled.
+The six repair commits end at `commit_sha`, after rebase on main `2c7ac9a54a90997fd571fd172feb0b42c1ad62ac`. The later evidence commits change documentation and task state only. The rebase preserved the upstream socket-window rejection before Lua owner filtering and both activation/window regression groups. One fallible constructor owns the behavior; the redundant try-constructor was removed and all callers were checked again.
+
+All compiler-backed commands used `build-gate --lane ripdpi`, pinned Rust 1.100.0, at most four jobs, and one worktree-local Cargo target. Local debug information was disabled to reduce disk use; assertions and overflow checks stayed enabled. Gradle used four workers, a 5 GiB heap and a 3 GiB Kotlin heap.
 
 | Check | Result | Evidence |
 |---|---|---|
-| `cargo test --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry --features ripdpi-strategy-registry/lua-strategies -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core` | Retained Lua portion: 63 passed, zero failed/ignored. The first registry integration run exposed an old empty-action expectation for MODIFY. The owning assertion was corrected to require Write(payload), while still excluding later Split. | `/tmp/dpi35-combined-rust-tests.log` |
-| `cargo test --locked --jobs 4 -p ripdpi-strategy-registry --features lua-strategies` | 52 passed, zero failed/ignored after the assertion correction. The final commit check repeats only this package after the formatter-only assertion change. | `/tmp/dpi35-combined-registry-tests.log`; `/tmp/dpi35-registry-final-commit.log` |
-| `cargo test --locked --jobs 4 -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core` | 607 passed, zero failed/ignored. | `/tmp/dpi35-combined-tunnel-tests.log` |
-| `cargo test --locked --jobs 4 -p ripdpi-proxy-runtime --lib` | 422 passed, zero failed/ignored, including the real sender lifetime regression. | `/tmp/dpi35-combined-proxy-tests.log` |
-| `cargo clippy --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core -p ripdpi-proxy-runtime --all-targets -- -D warnings` | Exit 0. Existing Cargo manifest unused-dependency notices remain informational. | `/tmp/dpi35-combined-clippy.log` |
-| `./gradlew -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4 :core:service:testDebugUnitTest --tests '*LuaScriptJailPathsTest' --tests '*LuaConnectionPolicyResolverTest' :app:testGithubFullDebugUnitTest --tests '*StrategyConfigRouteTest' staticAnalysis` | Exit 0; nine tests, zero failures/errors/skipped. Full staticAnalysis passed. Local heap caps: Gradle 5 GiB, Kotlin 3 GiB. | `/tmp/dpi35-kotlin-checks.log`; module JUnit XML results |
-| `just ci-gates` | Exit 0; architecture, source budgets, contracts, locale/translation and API snapshot gates passed. No baseline was extended. | `/tmp/dpi35-ci-gates-final.log` |
-| `cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1 --no-deps` | Exit 0; 113 workspace members. | `/tmp/dpi35-cargo-metadata.json` |
-| Independent read-only review | No remaining actionable findings. The initial modifier-only F2 concern was repaired and re-reviewed. | Separate implementation and review agents; no reviewer source writes |
-| Normal commit hooks | All six code commits passed their normal hooks. An initial intent-to-add stash failure was resolved by removing only this task's intent entries; a formatting failure was fixed in the owning assertion. No gate was disabled. | `/tmp/dpi35-commit-f1.log` through finding-specific commit logs |
+| `cargo test --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry --features ripdpi-strategy-registry/lua-strategies -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core` | 723 passed, zero failed/ignored. | `/tmp/dpi35-rebased-rust-tests.log` |
+| `cargo test --locked --jobs 4 -p ripdpi-proxy-runtime --lib` | 423 passed, zero failed/ignored, including the real sender lifetime regression. | `/tmp/dpi35-rebased-proxy-tests.log` |
+| `cargo clippy --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core -p ripdpi-proxy-runtime --all-targets -- -D warnings` | Exit 0. Existing Cargo manifest unused-dependency notices remain informational. | `/tmp/dpi35-rebased-clippy.log` |
+| `./gradlew -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4 :core:service:testDebugUnitTest --tests '*LuaScriptJailPathsTest' --tests '*LuaConnectionPolicyResolverTest' :app:testGithubFullDebugUnitTest --tests '*StrategyConfigRouteTest' staticAnalysis` | Exit 0; nine tests, zero failures/errors/skipped. Full staticAnalysis passed. | `/tmp/dpi35-rebased-kotlin-checks.log`; module JUnit XML results |
+| `just ci-gates` | Exit 0; architecture, source budgets, contracts, locale/translation and API snapshot gates passed. No baseline was extended. | `/tmp/dpi35-rebased-ci-gates.log` |
+| `cargo metadata --manifest-path Cargo.toml --locked --format-version 1 --no-deps` from native/rust | Exit 0; 113 workspace members. | `/tmp/dpi35-rebased-metadata.json` |
+| Independent read-only review after rebase | No actionable findings. The F5 conflict resolution retained upstream window admission and strict Lua activation errors. | Clean reviewed HEAD `f06a56333a95145394301c31b4c99036542e4b1b`; no reviewer writes |
+| Normal commit hooks | All six original repair commits passed their normal hooks. No gate was disabled. Rebase conflict changes were then re-reviewed and compiler gates repeated. | `/tmp/dpi35-commit-f1.log` through finding-specific commit logs |
 
-The total is 1144 unique Rust tests, not a sum that counts repeated registry tests twice. The first three implementation worktrees also recorded red regressions and narrow green suites before integration.
+The total is 1146 unique Rust tests. Before rebase, 1144 unique Rust tests and the same nine Kotlin tests passed; the final run includes two new upstream admission regressions. Original implementation worktrees recorded red regressions before their narrow green suites. The initial registry empty-action assertion was corrected to require Write(payload), while still excluding later Split. Formatting was corrected before commit. Earlier logs remain separate from the rebased acceptance logs.
 
 ## Limits
 
