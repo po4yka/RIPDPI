@@ -36,7 +36,6 @@ tests read. They are listed here by purpose:
 | `probe-matrix-report.schema.json` | Schema: probe matrix report |
 | `probe-matrix-target.schema.json` | Schema: secret-bearing probe matrix target profile |
 | `protocol-liveness.schema.json` | Schema: protocol liveness sentinel policy |
-| `liveness-runtime-pins.json` | Pinned runtime versions and archive hashes for liveness sentinels |
 | `real-vps-awg-nat-evidence.schema.json` | Schema: real VPS AmneziaWG NAT evidence (v4) |
 | `snell-refinement-result.schema.json` | Schema: Snell refinement result |
 | `negative/` | Invalid bundle documents that the bundle schema must reject (see `negative/README.md`) |
