@@ -2,7 +2,7 @@
 id: RST-1794684264866031
 title: Repair DPI-36 packet error handling and scope claims
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: medium
 owner: packet-repair
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dpi36-packet-errors
 created: 2026-11-14
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 ## Goal
