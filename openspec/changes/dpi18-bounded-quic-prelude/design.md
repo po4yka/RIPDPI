@@ -11,7 +11,7 @@ Task ENG-1794637894202698 addresses F1 and F2. Planner and socket operations are
 
 - Limit DPI-18 to 64 copies per step and per group in Kotlin, JSON and CLI. Cap active copies before building packets for direct models.
 - Limit rebuilt packets to input length and a conservative UDP payload cap. Combined with the decoder's 65535-byte cap, copy storage remains below 4 MiB.
-- On ordinary optional write failure before a known original, restore TTL and attempt the original once. Record fallback; preserve required-send and restoration errors.
+- On a recoverable local send error before a known original, restore TTL and attempt the original once. Record fallback; preserve required-send and restoration errors.
 - Use bounded tests and loopback sockets. No external probes, root, OOM runs or golden blessing.
 
 ## Contracts and ownership
@@ -30,3 +30,5 @@ Task ENG-1794637894202698 addresses F1 and F2. Planner and socket operations are
 ## Migration Plan
 
 No storage migration. Roll back by normal revert. Run owning Rust tests with --locked, Kotlin model tests, static analysis, just ci-gates, architecture health, locked Cargo metadata and independent review. Keep separate commits per finding and test the combined tree.
+
+The count constant stays with the other UDP chain limits in the group model. A private CLI child module owns flag validation, so existing hotspot budgets do not grow.

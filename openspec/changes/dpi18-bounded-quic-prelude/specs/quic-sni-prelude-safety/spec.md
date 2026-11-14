@@ -24,11 +24,11 @@ An optional rebuilt packet MUST NOT exceed input size or the supported UDP limit
 
 ### Requirement: REQ-DPI18-SEND — Preserve required sends
 
-A failed optional ordinary write MUST NOT prevent a later original write. Required TTL restoration and original-send failures MUST remain errors. Fallback MUST NOT count as completed optional work.
+A recoverable local send error on an optional ordinary write MUST NOT prevent a later original write. Other flow errors MUST remain errors. Required TTL restoration and original-send failures MUST remain errors. Fallback MUST NOT count as completed optional work.
 
 #### Scenario: Optional failure
 
-- **WHEN** an optional write fails before the original
+- **WHEN** an optional write has a local send error before the original
 - **THEN** execution restores TTL and attempts the original once with fallback evidence
 
 ### Requirement: REQ-DPI18-SCOPE — Preserve existing boundaries

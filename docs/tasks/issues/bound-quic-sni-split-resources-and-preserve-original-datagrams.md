@@ -2,7 +2,7 @@
 id: ENG-1794637894202698
 title: Bound QUIC SNI split resources and preserve original datagrams
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: dpi18-integration
@@ -12,11 +12,12 @@ spec_mode: required
 openspec_change: dpi18-bounded-quic-prelude
 created: 2026-11-14
 updated: 2026-11-14
+status_detail: Fixes and observed checks are complete; full staticAnalysis remains blocked by Maven Central routing.
 ---
 
 ## Goal
 
-Reject excessive QUIC SNI split counts before activation and bound planner work. Preserve the original UDP payload when an optional QUIC prelude exceeds its size budget or its send fails.
+Reject excessive QUIC SNI split counts before activation and bound planner work. Preserve the original UDP payload when an optional QUIC prelude exceeds its size budget or has a recoverable local send error. Keep other flow errors visible.
 
 ## Acceptance criteria
 
@@ -30,6 +31,10 @@ Reject excessive QUIC SNI split counts before activation and bound planner work.
 
 - bounds worker: isolated `/tmp/ripdpi-dpi18-bounds-20261114`; Kotlin model/config validation and owning tests; Rust config, proxy-config and `ripdpi-desync/src/plan_udp.rs` plus dedicated budget regression tests. No writes to split.rs or UDP emitter.
 - datagram worker: isolated `/tmp/ripdpi-dpi18-datagram-20261114`; split packet sizing and `ripdpi-proxy-runtime-desync-adapter/src/udp_desync.rs` with owning tests. No config validation or resource-budget edits.
-- integration owner: this task, OpenSpec, generated API snapshots, combined gates, review, commits, main integration and push.
+- integration owner: this task, OpenSpec, docs/native/proxy-engine.md, generated API snapshots, combined gates, review, commits, main integration and push.
 - hypothesis reviewer: read-only source review; no writes.
 - Serialized lanes: Cargo.lock and dependency manifests are unchanged. Only integration owner may regenerate API snapshots. No golden or baseline blessing. Shared plan_udp test file belongs to bounds worker; datagram tests use a separate owning module.
+
+## Validation status
+
+Both fixes are implemented in separate commits. Rebased Rust974 and Kotlin85 tests, strict Clippy, source gates and independent review passed. Full staticAnalysis is blocked by canonical Maven Central routing on this host. Keep this task in review; do not archive or close it as accepted until that gate is resolved.

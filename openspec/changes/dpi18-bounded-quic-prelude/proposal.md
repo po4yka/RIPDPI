@@ -11,7 +11,7 @@ Excessive repetition counts can exhaust memory. An optional datagram error can p
 - Reject excessive individual and aggregate DPI-18 counts.
 - Bound planner allocations for direct Rust models.
 - Skip optional packets that exceed the input size.
-- Preserve the original after optional send failures.
+- Preserve the original after recoverable local send failures.
 - Compatibility: excessive configurations are rejected; wire and storage schemas stay unchanged.
 
 ## Capabilities
