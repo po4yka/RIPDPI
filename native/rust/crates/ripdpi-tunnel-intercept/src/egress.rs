@@ -99,8 +99,28 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         lua_socket_owned: bool,
         injector: I,
     ) -> Self {
-        let rules = strategy_yaml.map_or_default(|yaml| parse_rules(yaml, base_dir, lua_socket_owned));
+        let rules = strategy_yaml
+            .and_then(|yaml| match parse_rules(yaml, base_dir, lua_socket_owned) {
+                Ok(rules) => Some(rules),
+                Err(error) => {
+                    warn!("unsupported TUN egress strategy: {error}");
+                    None
+                }
+            })
+            .unwrap_or_default();
         Self { rules, injector, http_first_payloads: http::HttpFirstPayloads::default() }
+    }
+
+    /// Rejects window steps that have no socket owner before forwarding starts.
+    pub fn try_new_with_lua_owner(
+        strategy_yaml: Option<&str>,
+        base_dir: &Path,
+        lua_socket_owned: bool,
+        injector: I,
+    ) -> io::Result<Self> {
+        let rules =
+            strategy_yaml.map(|yaml| parse_rules(yaml, base_dir, lua_socket_owned)).transpose()?.unwrap_or_default();
+        Ok(Self { rules, injector, http_first_payloads: http::HttpFirstPayloads::default() })
     }
 
     pub fn handle_packet(&mut self, packet: &[u8]) -> bool {
@@ -231,16 +251,24 @@ impl<I: TunPacketInjector + Send> TunEgressPacketHandler for TunEgressIntercepto
     }
 }
 
-fn parse_rules(strategy_yaml: &str, base_dir: &Path, lua_socket_owned: bool) -> Vec<EgressRule> {
+fn parse_rules(strategy_yaml: &str, base_dir: &Path, lua_socket_owned: bool) -> io::Result<Vec<EgressRule>> {
     match ripdpi_strategy_config::parse_yaml_str(strategy_yaml, base_dir) {
-        Ok(config) => config
-            .strategies
-            .iter()
-            .flat_map(|strategy| rules_for_strategy(strategy, &config.base_dir, lua_socket_owned))
-            .collect(),
+        Ok(config) => {
+            if let Some(kind) = config.unsupported_socket_window_step() {
+                return Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    format!("strategy step {kind} has no production socket executor"),
+                ));
+            }
+            Ok(config
+                .strategies
+                .iter()
+                .flat_map(|strategy| rules_for_strategy(strategy, &config.base_dir, lua_socket_owned))
+                .collect())
+        }
         Err(error) => {
             warn!("failed to parse strategy YAML for TUN egress interception: {error}");
-            Vec::new()
+            Ok(Vec::new())
         }
     }
 }

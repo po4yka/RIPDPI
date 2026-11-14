@@ -1,3 +1,4 @@
+use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -19,7 +20,7 @@ pub(super) fn build_loop_runtime(
     auth: Auth,
     mapdns_runtime: Option<MapDnsRuntime>,
     split_dns_policy: Option<Arc<SplitDnsPolicy>>,
-) -> LoopRuntime {
+) -> io::Result<LoopRuntime> {
     let mapdns_classify = mapdns_runtime.map(|value| {
         (
             match value.intercept_addr.ip() {
@@ -36,7 +37,7 @@ pub(super) fn build_loop_runtime(
         "denylist" => UidFlowPolicy::denying(policy_uids),
         _ => UidFlowPolicy::disarmed(),
     };
-    LoopRuntime {
+    Ok(LoopRuntime {
         proxy_sockaddr,
         auth,
         mapdns_runtime,
@@ -52,16 +53,16 @@ pub(super) fn build_loop_runtime(
             RawSynAckPacketInjector::new(config.misc.protect_path.clone()),
         ),
         // Jail the egress `lua`-step `script_paths` to the app's absolute `<filesDir>/lua` dir when supplied, not `"."` (ill-defined Android CWD).
-        tun_egress_interceptor: Box::new(TunEgressInterceptor::new_with_lua_owner(
+        tun_egress_interceptor: Box::new(TunEgressInterceptor::try_new_with_lua_owner(
             config.misc.strategy_chain_yaml.as_deref(),
             config.misc.lua_script_base_dir.as_deref().map_or(std::path::Path::new("."), std::path::Path::new),
             config.misc.lua_socket_owned,
             RawTunPacketInjector::new(config.misc.protect_path.clone()),
-        )),
+        )?),
         udp_idle_timeout: Duration::from_millis(u64::from(config.misc.udp_read_write_timeout)),
         tcp_buffer_size: config.misc.tcp_buffer_size as usize,
         tcp_connect_timeout: Duration::from_millis(u64::from(config.misc.connect_timeout)),
         tcp_read_write_timeout: Duration::from_millis(u64::from(config.misc.tcp_read_write_timeout)),
         protect_path: config.misc.protect_path.clone(),
-    }
+    })
 }

@@ -53,6 +53,12 @@ impl SocketLuaStrategies {
 
     fn from_yaml(yaml: &str, base_dir: &Path) -> io::Result<Option<Arc<Self>>> {
         let config = parse_yaml_str(yaml, base_dir).map_err(invalid_config)?;
+        if let Some(kind) = config.unsupported_socket_window_step() {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("strategy step {kind} has no production socket executor"),
+            ));
+        }
         let mut rules = Vec::new();
         for strategy in config.strategies {
             if !strategy.steps.iter().any(|step| step.kind.registry_id() == "lua") {
@@ -453,6 +459,25 @@ mod tests {
         context.strategy_chain_yaml =
             Some("version: 1\nstrategies:\n  - id: split\n    steps:\n      - type: split\n".to_owned());
         assert!(SocketLuaStrategies::load(Some(&context)).unwrap().is_none());
+    }
+
+    #[test]
+    fn socket_load_rejects_window_steps_without_an_executor() {
+        for kind in ["wsize", "wssize"] {
+            for prefix in ["", "      - type: split\n"] {
+                let context = ProxyRuntimeContext {
+                    strategy_chain_yaml: Some(format!(
+                        "version: 1\nstrategies:\n  - id: window\n    steps:\n{prefix}      - type: {kind}\n"
+                    )),
+                    lua_script_base_dir: Some("/missing-ripdpi-script-directory".to_owned()),
+                    ..ProxyRuntimeContext::default()
+                };
+                let result = SocketLuaStrategies::load(Some(&context));
+                let Err(error) = result else { panic!("{kind} must fail production admission") };
+                assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+                assert!(error.to_string().contains(kind));
+            }
+        }
     }
 
     #[test]

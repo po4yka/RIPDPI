@@ -1188,3 +1188,24 @@ fn invalid_ipv6_extension_type_does_not_create_a_direct_action() {
     step.ext_type = Some("definitely_invalid".to_owned());
     assert!(EgressAction::from_step(&step).is_none());
 }
+
+#[test]
+fn production_constructor_rejects_window_steps_without_socket_ownership() {
+    for kind in ["wsize", "wssize"] {
+        for lua_socket_owned in [false, true] {
+            let yaml = format!("version: 1\nstrategies:\n  - id: window\n    steps:\n      - type: {kind}\n");
+            let result = TunEgressInterceptor::try_new_with_lua_owner(
+                Some(&yaml),
+                Path::new("."),
+                lua_socket_owned,
+                RecordingInjector::default(),
+            );
+            let Err(error) = result else { panic!("{kind} must fail production admission") };
+            assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+            assert!(error.to_string().contains(kind));
+        }
+    }
+    assert!(
+        TunEgressInterceptor::try_new_with_lua_owner(None, Path::new("."), false, RecordingInjector::default()).is_ok()
+    );
+}

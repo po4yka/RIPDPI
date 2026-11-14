@@ -53,7 +53,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         .map_err(|error| io::Error::other(format!("compile split DNS policy: {error}")))?;
 
     let max_sessions = config.misc.max_session_count as usize;
-    let runtime = build_loop_runtime(&config, proxy_sockaddr, auth, mapdns_runtime, split_dns_policy);
+    let runtime = build_loop_runtime(&config, proxy_sockaddr, auth, mapdns_runtime, split_dns_policy)?;
 
     let (udp_tx, udp_rx) = mpsc::channel(256);
     let (dns_req_tx, dns_resp_rx) = build_dns_worker(&config, &cancel)?;

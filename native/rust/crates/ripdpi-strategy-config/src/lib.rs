@@ -58,6 +58,17 @@ pub struct LoadedStrategyConfig {
     pub strategies: Vec<LoadedStrategy>,
 }
 
+impl LoadedStrategyConfig {
+    /// Returns a window step that has no production socket executor.
+    pub fn unsupported_socket_window_step(&self) -> Option<&'static str> {
+        self.strategies.iter().flat_map(|strategy| &strategy.steps).find_map(|step| match &step.kind {
+            StepType::Wsize => Some("wsize"),
+            StepType::Wssize => Some("wssize"),
+            _ => None,
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LoadedStrategy {
     pub id: String,
