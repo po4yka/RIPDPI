@@ -2,12 +2,12 @@
 
 ## Execution
 
-- [ ] PRX-1794677889882075 Correct the hint contract and preserve automatic settings #bug !high @item:PRX-1794677617943037
-- [ ] PRX-1794677895341059 Reject overflowing and invalid socket window values #bug !high @item:PRX-1794677617943037
-- [ ] PRX-1794677902771029 Record applied and degraded socket option outcomes #bug !high @item:PRX-1794677617943037
-- [ ] PRX-1794677906705947 Reject unsupported production window YAML steps #bug !high @item:PRX-1794677617943037
-- [ ] PRX-1794677909411409 Verify negotiated positive windows with an independent oracle #bug !high @item:PRX-1794677617943037
-- [ ] PRX-1794677915743236 Review combined repairs and run required integration gates #bug !high @item:PRX-1794677617943037
+- [x] PRX-1794677889882075 Correct the hint contract and preserve automatic settings #bug !high @item:PRX-1794677617943037
+- [x] PRX-1794677895341059 Reject overflowing and invalid socket window values #bug !high @item:PRX-1794677617943037
+- [x] PRX-1794677902771029 Record applied and degraded socket option outcomes #bug !high @item:PRX-1794677617943037
+- [x] PRX-1794677906705947 Reject unsupported production window YAML steps #bug !high @item:PRX-1794677617943037
+- [x] PRX-1794677909411409 Verify negotiated positive windows with an independent oracle #bug !high @item:PRX-1794677617943037
+- [x] PRX-1794677915743236 Review combined repairs and run required integration gates #bug !high @item:PRX-1794677617943037
 
 ## Ownership
 

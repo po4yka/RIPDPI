@@ -2,7 +2,7 @@
 id: PRX-1794677617943037
 title: Repair TCP window configuration contracts and evidence
 kind: bug
-status: doing
+status: review
 area: proxy
 priority: high
 owner: Window repair integrator
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: dpi32-window-contracts
 created: 2026-11-14
 updated: 2026-11-14
+status_detail: All local checks and independent review passed on the rebased repairs; exact pushed commit CI remains pending.
 ---
 
 ## Goal
