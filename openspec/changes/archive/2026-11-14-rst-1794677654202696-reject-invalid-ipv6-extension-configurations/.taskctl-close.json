@@ -1,0 +1,11 @@
+{
+  "change": "rst-1794677654202696-reject-invalid-ipv6-extension-configurations",
+  "evidence_summary": "Implementation fc50dd301a61861978f70af83bcb26c0fafa665e: pinned Rust suites passed 298 tests; independent review clean; ci-gates, architecture health and locked metadata passed. Darwin excludes Linux-owned runtime-platform snapshot. No device or external compatibility claim.",
+  "execution_sha256": "1f3bd0614d50ce8275efc8c5c1429eabea2efc77ecab960141d680db561cc95e",
+  "issue_sha256": "b98f47710423a0841dbed1bbbfbc3fe4743f696fa6b2e55d01af1e4bbefc600b",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T18:01:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794677654202696"
+}

@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-14T18:01:07Z",
+  "change": "rst-1794677654202696-reject-invalid-ipv6-extension-configurations",
+  "commit_sha": "fc50dd301a61861978f70af83bcb26c0fafa665e",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1794677654202696"
+}
