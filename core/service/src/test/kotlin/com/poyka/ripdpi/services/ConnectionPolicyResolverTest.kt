@@ -789,10 +789,10 @@ class LuaConnectionPolicyResolverTest {
                             if (effectiveRoot) null else luaDir.absolutePath,
                             runtime?.get("luaScriptBaseDir")?.jsonPrimitive?.contentOrNull,
                         )
-                        assertEquals(!effectiveRoot, luaDir.resolve("zapret-lib.lua").isFile)
-                        assertEquals(!effectiveRoot, luaDir.resolve("zapret-antidpi.lua").isFile)
-                        assertEquals(!effectiveRoot, luaDir.resolve("lua-manifest.json").isFile)
-                        assertEquals(!effectiveRoot, luaDir.resolve("LICENSE.zapret2.txt").isFile)
+                        assertEquals(true, luaDir.resolve("zapret-lib.lua").isFile)
+                        assertEquals(true, luaDir.resolve("zapret-antidpi.lua").isFile)
+                        assertEquals(true, luaDir.resolve("lua-manifest.json").isFile)
+                        assertEquals(true, luaDir.resolve("LICENSE.zapret2.txt").isFile)
                     }
                 }
             }

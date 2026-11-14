@@ -43,7 +43,7 @@ end
             &self.0,
             lua_socket_owned,
             RawTunPacketInjector::new(None),
-        )
+        ).unwrap()
     }
 }
 

@@ -13,7 +13,7 @@ fn udp_protocol_rules_do_not_inject_other_protocols_on_either_ip_family() {
             "version: 1\nstrategies:\n  - id: udp-scoped\n    match:\n      proto: [{protocol}]\n      port: [443]\n    steps:\n      - type: udplen\n        delta: 4\n"
         );
         for ipv6 in [false, true] {
-            let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+            let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default()).unwrap();
             for (detected, payload, _) in &payloads {
                 let packet = udp_packet(ipv6, 49152, 443, payload);
                 let before = interceptor.injector.packets.len();
@@ -58,7 +58,7 @@ fn udp_empty_and_any_filters_keep_unknown_datagrams() {
         let yaml = format!(
             "version: 1\nstrategies:\n  - id: udp-any\n{matcher}    steps:\n      - type: udplen\n        delta: 4\n"
         );
-        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default());
+        let mut interceptor = TunEgressInterceptor::new(Some(&yaml), RecordingInjector::default()).unwrap();
         for ipv6 in [false, true] {
             assert!(!interceptor.handle_packet(&udp_packet(ipv6, 49152, 443, b"abc")));
         }
@@ -75,7 +75,7 @@ fn tun_lua_receives_existing_udp_protocol_and_subtype() {
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     for ipv6 in [false, true] {
         for (protocol, payload, subtype) in udp_protocol_payloads() {
             let packet = udp_packet(ipv6, 49152, 443, &payload);
@@ -104,7 +104,7 @@ fn tun_lua_gets_known_transport_and_shared_tcp_class() {
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     assert!(interceptor.handle_packet(&ipv4_udp_packet(49152, 3478, &[0xAA; 20])));
     assert_eq!(packet_payload(interceptor.injector.packets.last().unwrap()), b"udp:49152:3478/unknown/true");
     let hello = [0x16, 0x03, 0x01, 0x00, 0x20, 0x01, 0x00, 0x00, 0x1c];
@@ -166,7 +166,7 @@ strategies:
       - type: udplen
         delta: 4
 "#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
 
     assert!(!interceptor.handle_packet(&packet));
 
@@ -193,7 +193,7 @@ strategies:
       - type: fake
         ttl: 5
 "#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
     let other = tcp_stream_packet(101, false, b"GET / HTTP/1.1\r\nHost: notexample.com\r\n\r\n");
     let matching = tcp_stream_packet(301, false, b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n");
     let unknown = tcp_stream_packet(201, false, b"raw tcp payload");
@@ -208,7 +208,7 @@ strategies:
     assert_eq!(interceptor.injector.packets.len(), 1);
 
     let tls_rule = yaml.replace("proto: [http]", "proto: [tls]");
-    let mut tls_interceptor = TunEgressInterceptor::new(Some(&tls_rule), RecordingInjector::default());
+    let mut tls_interceptor = TunEgressInterceptor::new(Some(&tls_rule), RecordingInjector::default()).unwrap();
     assert!(!tls_interceptor.handle_packet(&matching));
     assert!(tls_interceptor.injector.packets.is_empty());
 }
@@ -227,7 +227,7 @@ strategies:
       - type: udplen
         delta: 4
 "#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
     let other = build_realistic_quic_initial(QUIC_V1_VERSION, Some("other.example.test")).expect("QUIC initial");
     let matching = build_realistic_quic_initial(QUIC_V1_VERSION, Some("video.example.com")).expect("QUIC initial");
 
@@ -251,7 +251,7 @@ strategies:
       - type: fake
         ttl: 5
 "#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
 
     assert!(!interceptor.handle_packet(&packet));
 
@@ -275,7 +275,7 @@ strategies:
       - type: ipv6Ext
         ext_type: destopts
 "#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
 
     assert!(!interceptor.handle_packet(&packet));
 
@@ -295,7 +295,7 @@ strategies:
     steps:
       - type: udplen
 "#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), FailingInjector);
+    let mut interceptor = TunEgressInterceptor::new(Some(yaml), FailingInjector).unwrap();
 
     assert!(!interceptor.handle_packet(&packet));
 }
@@ -330,7 +330,7 @@ strategies:
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     assert!(interceptor.handle_packet(&packet));
     assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-raw");
@@ -354,7 +354,7 @@ end
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     for port in 10_000..11_024 {
         assert!(interceptor.handle_packet(&ipv4_tcp_packet(port, 443, b"abc")));
@@ -394,7 +394,7 @@ end
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     let source = SocketAddr::new([10, 0, 0, 2].into(), 20_000);
     for port in 10_000..10_070 {
         assert!(interceptor.handle_packet(&ipv4_udp_packet(20_000, port, b"abc")));
@@ -429,7 +429,7 @@ fn lua_consumed_tcp_fin_releases_state() {
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     let packet = ipv4_tcp_packet(20_000, 443, b"abc");
     assert!(interceptor.handle_packet(&packet));
     let mut fin = ipv4_tcp_packet(20_000, 443, b"");
@@ -452,7 +452,7 @@ fn lua_tun_failure_uses_configured_drop_policy() {
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     assert!(interceptor.handle_packet(&ipv4_tcp_packet(20_000, 443, b"abc")));
     assert!(interceptor.injector.packets.is_empty());
 }
@@ -484,7 +484,7 @@ strategies:
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     assert!(!interceptor.handle_packet(&packet));
     assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"lua-sidecar");
@@ -521,7 +521,7 @@ strategies:
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     assert!(interceptor.handle_packet(&packet));
     assert_eq!(interceptor.injector.packets.len(), 1);
@@ -566,7 +566,7 @@ strategies:
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     assert!(!interceptor.handle_packet(&tcp_stream_packet(100, true, b"")));
     assert!(interceptor.handle_packet(&packet));
@@ -661,7 +661,7 @@ strategies:
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     assert!(interceptor.handle_packet(&packet));
     assert_eq!(packet_payload(&interceptor.injector.packets[0]), &payload[..expected_host]);
@@ -699,7 +699,7 @@ strategies:
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     // The decoy's UDP length exceeds its bytes, so receivers discard it: it can never stand in for
     // the app's datagram, which must still reach the flow.
@@ -740,7 +740,7 @@ strategies:
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
 
     assert!(interceptor.handle_packet(&packet));
     assert_eq!(packet_payload(&interceptor.injector.packets[0]), b"ab");
@@ -774,7 +774,8 @@ strategies:
 "#,
         script.display()
     );
-    let mut interceptor = TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), FailsSecondInjector(0));
+    let mut interceptor =
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), FailsSecondInjector(0)).unwrap();
 
     assert!(!interceptor.handle_packet(&packet));
 }
@@ -806,7 +807,8 @@ strategies:
 "#,
         script.display()
     );
-    let mut interceptor = TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), FailsSecondInjector(0));
+    let mut interceptor =
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), FailsSecondInjector(0)).unwrap();
 
     assert!(!interceptor.handle_packet(&packet));
     assert_eq!(interceptor.injector.0, 2);
@@ -830,7 +832,8 @@ strategies:
         std::path::Path::new("."),
         true,
         RecordingInjector::default(),
-    );
+    )
+    .unwrap();
     let packet = ipv4_tcp_packet(49152, 443, b"abcdef");
     assert!(!interceptor.handle_packet(&packet));
     assert_eq!(interceptor.rules.len(), 1, "only Lua must move to the socket owner");
@@ -977,7 +980,7 @@ fn upstream_lua_split_matches_complete_option_packets() {
     ] {
         let packet = decode(original);
         let mut interceptor =
-            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
         assert!(interceptor.handle_packet(&packet));
         assert_eq!(interceptor.injector.packets, vec![decode(first), decode(second)]);
         assert_eq!(packet, decode(original));
@@ -1000,12 +1003,12 @@ fn upstream_lua_rewrite_matches_complete_tcp_and_udp_packets() {
         (IPV6_HOP_UDP, IPV6_HOP_UDP_REWRITE),
     ] {
         let mut interceptor =
-            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
         assert!(interceptor.handle_packet(&decode(original)));
         assert_eq!(interceptor.injector.packets, vec![decode(expected)]);
     }
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     assert!(!interceptor.handle_packet(&decode(IPV6_AH_UDP)));
     assert!(interceptor.injector.packets.is_empty());
 }
@@ -1016,7 +1019,7 @@ fn upstream_fake_ttl_matches_complete_packets_and_forwards_original() {
     let yaml = "version: 1\nstrategies:\n  - id: upstream-fake\n    steps:\n      - type: fake\n        ttl: 3\n";
     for (original, expected) in [(IPV4_TCP, IPV4_TCP_LOW_TTL), (IPV6_TCP, IPV6_TCP_LOW_TTL)] {
         let packet = decode(original);
-        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
         assert!(!interceptor.handle_packet(&packet));
         assert_eq!(interceptor.injector.packets, vec![decode(expected)]);
         assert_eq!(packet, decode(original));
@@ -1030,7 +1033,8 @@ fn lua_interceptor(name: &str, body: &str) -> (LuaScriptFixture, TunEgressInterc
         "version: 1\nstrategies:\n  - id: lua-egress\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{}]\n",
         script.display()
     );
-    let interceptor = TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+    let interceptor =
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     (script, interceptor)
 }
 
@@ -1105,7 +1109,7 @@ fn malformed_input_cannot_execute_a_tun_strategy() {
     for input in [IPV4_UDP, IPV6_HOP_UDP] {
         let mut packet = decode(input);
         *packet.last_mut().unwrap() ^= 1;
-        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+        let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
         assert!(!interceptor.handle_packet(&packet));
         assert!(interceptor.injector.packets.is_empty());
     }
@@ -1122,7 +1126,7 @@ fn tun_http_detection_requires_complete_first_data_after_syn() {
         script.display()
     );
     let mut interceptor =
-        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).unwrap();
     let http = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let packet = tcp_stream_packet(101, false, http);
     assert!(!interceptor.handle_packet(&packet));
@@ -1194,7 +1198,7 @@ fn production_constructor_rejects_window_steps_without_socket_ownership() {
     for kind in ["wsize", "wssize"] {
         for lua_socket_owned in [false, true] {
             let yaml = format!("version: 1\nstrategies:\n  - id: window\n    steps:\n      - type: {kind}\n");
-            let result = TunEgressInterceptor::try_new_with_lua_owner(
+            let result = TunEgressInterceptor::new_with_lua_owner(
                 Some(&yaml),
                 Path::new("."),
                 lua_socket_owned,
@@ -1206,6 +1210,29 @@ fn production_constructor_rejects_window_steps_without_socket_ownership() {
         }
     }
     assert!(
-        TunEgressInterceptor::try_new_with_lua_owner(None, Path::new("."), false, RecordingInjector::default()).is_ok()
+        TunEgressInterceptor::new_with_lua_owner(None, Path::new("."), false, RecordingInjector::default()).is_ok()
     );
+}
+
+#[test]
+fn lua_activation_errors_reject_the_entire_configuration() {
+    let script = write_lua_script("lua-activation-error", "function candidate(");
+    for policy in ["next_strategy", "fallback_plain", "drop"] {
+        let yaml = format!(
+            "version: 1\nstrategies:\n  - id: lua\n    on_fail: {policy}\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{}]\n",
+            script.display()
+        );
+        let result = TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+        assert!(matches!(result, Err(error) if error.kind() == io::ErrorKind::InvalidInput));
+    }
+    std::fs::write(script.dir().join(script.display()), "function other() end").unwrap();
+    for path in [script.display().to_owned(), "missing.lua".into(), "../outside.lua".into()] {
+        let yaml = format!(
+            "version: 1\nstrategies:\n  - id: lua\n    steps:\n      - type: lua\n        function: candidate\n        script_paths: [{path}]\n"
+        );
+        assert!(
+            TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default()).is_err()
+        );
+    }
+    assert!(TunEgressInterceptor::new(Some("invalid: ["), RecordingInjector::default()).is_err());
 }

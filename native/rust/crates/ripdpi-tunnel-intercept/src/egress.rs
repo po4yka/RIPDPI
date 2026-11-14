@@ -78,7 +78,7 @@ pub struct TunEgressInterceptor<I> {
 impl<I: TunPacketInjector> TunEgressInterceptor<I> {
     /// Builds an interceptor from inline strategy YAML, resolving `lua` step
     /// `script_paths` relative to the current directory.
-    pub fn new(strategy_yaml: Option<&str>, injector: I) -> Self {
+    pub fn new(strategy_yaml: Option<&str>, injector: I) -> io::Result<Self> {
         Self::new_with_base_dir(strategy_yaml, Path::new("."), injector)
     }
 
@@ -88,31 +88,12 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
     /// `script_paths` entry that canonicalizes outside it (absolute path or
     /// `../` escape) is rejected. File-backed callers pass the directory of
     /// the strategy file; inline-YAML callers pass `.`.
-    pub fn new_with_base_dir(strategy_yaml: Option<&str>, base_dir: &Path, injector: I) -> Self {
+    pub fn new_with_base_dir(strategy_yaml: Option<&str>, base_dir: &Path, injector: I) -> io::Result<Self> {
         Self::new_with_lua_owner(strategy_yaml, base_dir, false, injector)
     }
 
     /// Skips Lua steps when the proxy owns their non-root socket execution.
     pub fn new_with_lua_owner(
-        strategy_yaml: Option<&str>,
-        base_dir: &Path,
-        lua_socket_owned: bool,
-        injector: I,
-    ) -> Self {
-        let rules = strategy_yaml
-            .and_then(|yaml| match parse_rules(yaml, base_dir, lua_socket_owned) {
-                Ok(rules) => Some(rules),
-                Err(error) => {
-                    warn!("unsupported TUN egress strategy: {error}");
-                    None
-                }
-            })
-            .unwrap_or_default();
-        Self { rules, injector, http_first_payloads: http::HttpFirstPayloads::default() }
-    }
-
-    /// Rejects window steps that have no socket owner before forwarding starts.
-    pub fn try_new_with_lua_owner(
         strategy_yaml: Option<&str>,
         base_dir: &Path,
         lua_socket_owned: bool,
@@ -252,37 +233,26 @@ impl<I: TunPacketInjector + Send> TunEgressPacketHandler for TunEgressIntercepto
 }
 
 fn parse_rules(strategy_yaml: &str, base_dir: &Path, lua_socket_owned: bool) -> io::Result<Vec<EgressRule>> {
-    match ripdpi_strategy_config::parse_yaml_str(strategy_yaml, base_dir) {
-        Ok(config) => {
-            if let Some(kind) = config.unsupported_socket_window_step() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Unsupported,
-                    format!("strategy step {kind} has no production socket executor"),
-                ));
+    let config = ripdpi_strategy_config::parse_yaml_str(strategy_yaml, base_dir)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid TUN strategy configuration"))?;
+    if let Some(kind) = config.unsupported_socket_window_step() {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!("strategy step {kind} has no production socket executor"),
+        ));
+    }
+    let mut rules = Vec::new();
+    for strategy in &config.strategies {
+        for step in &strategy.steps {
+            if lua_socket_owned && step.kind == StepType::Lua {
+                continue;
             }
-            Ok(config
-                .strategies
-                .iter()
-                .flat_map(|strategy| rules_for_strategy(strategy, &config.base_dir, lua_socket_owned))
-                .collect())
-        }
-        Err(error) => {
-            warn!("failed to parse strategy YAML for TUN egress interception: {error}");
-            Ok(Vec::new())
+            if let Some(action) = EgressRuleAction::from_step(step, &config.base_dir, strategy.on_fail)? {
+                rules.push(EgressRule { matcher: PacketMatcher::from_strategy(strategy), action });
+            }
         }
     }
-}
-
-fn rules_for_strategy(strategy: &LoadedStrategy, base_dir: &Path, lua_socket_owned: bool) -> Vec<EgressRule> {
-    strategy
-        .steps
-        .iter()
-        .filter(|step| !lua_socket_owned || step.kind != StepType::Lua)
-        .filter_map(|step| {
-            EgressRuleAction::from_step(step, base_dir, strategy.on_fail)
-                .map(|action| EgressRule { matcher: PacketMatcher::from_strategy(strategy), action })
-        })
-        .collect()
+    Ok(rules)
 }
 
 struct EgressRule {
@@ -343,14 +313,14 @@ impl EgressAction {
 }
 
 impl EgressRuleAction {
-    fn from_step(step: &StrategyStep, base_dir: &Path, on_fail: OnFail) -> Option<Self> {
+    fn from_step(step: &StrategyStep, base_dir: &Path, on_fail: OnFail) -> io::Result<Option<Self>> {
         if step.kind == StepType::Lua {
-            return Self::lua_strategy(step, base_dir, on_fail);
+            return Self::lua_strategy(step, base_dir, on_fail).map(Some);
         }
-        EgressAction::from_step(step).map(Self::Direct)
+        Ok(EgressAction::from_step(step).map(Self::Direct))
     }
 
-    fn lua_strategy(step: &StrategyStep, base_dir: &Path, on_fail: OnFail) -> Option<Self> {
+    fn lua_strategy(step: &StrategyStep, base_dir: &Path, on_fail: OnFail) -> io::Result<Self> {
         let config = LoadedStrategyConfig {
             version: 1,
             base_dir: base_dir.to_path_buf(),
@@ -361,17 +331,14 @@ impl EgressRuleAction {
                 on_fail,
             }],
         };
-        match StrategyRegistry::from_loaded_config(&config) {
-            Ok(registry) => Some(Self::Strategy {
-                registry,
-                forward_original: step.forward_original.unwrap_or(false),
-                udp_flows: HashMap::new(),
-            }),
-            Err(error) => {
-                warn!("failed to materialize Lua TUN egress strategy: {error}");
-                None
-            }
-        }
+        // Lua can put private script content in its error. Return a stable activation error.
+        let registry = StrategyRegistry::from_loaded_config(&config)
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid TUN Lua strategy configuration"))?;
+        Ok(Self::Strategy {
+            registry,
+            forward_original: step.forward_original.unwrap_or(false),
+            udp_flows: HashMap::new(),
+        })
     }
 
     fn apply<I: TunPacketInjector>(

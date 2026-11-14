@@ -177,18 +177,16 @@ internal class ConnectionPolicyRuntimeContextAssembler
             runtimeContext: RipDpiRuntimeContext?,
             settings: AppSettings,
         ): RipDpiRuntimeContext? {
-            val yaml =
-                settings.strategyChainYaml.takeIf {
-                    it.isNotBlank() && !rootHelperManager.nfqwsActive &&
-                        rootHelperManager.socketPath == null
-                }
-            if (runtimeContext == null && yaml == null) return null
+            val configuredYaml = settings.strategyChainYaml.takeIf { it.isNotBlank() && !rootHelperManager.nfqwsActive }
+            // Both Lua owners need the extracted files before runtime setup.
             val luaScriptBaseDir =
-                yaml?.let {
+                configuredYaml?.let {
                     withContext(Dispatchers.IO) {
                         LuaAssetManager.ensureExtracted(context).toAbsolutePath().toString()
                     }
                 }
+            val yaml = configuredYaml.takeIf { rootHelperManager.socketPath == null }
+            if (runtimeContext == null && yaml == null) return null
             val jailedYaml =
                 if (yaml != null && luaScriptBaseDir != null) {
                     withContext(Dispatchers.IO) { relativizeLuaScriptPaths(yaml, luaScriptBaseDir) }
@@ -197,7 +195,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
                 }
             return (runtimeContext ?: RipDpiRuntimeContext()).copy(
                 strategyChainYaml = jailedYaml,
-                luaScriptBaseDir = luaScriptBaseDir,
+                luaScriptBaseDir = luaScriptBaseDir.takeIf { yaml != null },
             )
         }
 
