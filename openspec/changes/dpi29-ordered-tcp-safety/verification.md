@@ -1,7 +1,7 @@
 ---
 task_id: RST-1794677660326601
 change: dpi29-ordered-tcp-safety
-commit_sha: 76a028b6ab928891befe74ad13da7448c4d7a390
+commit_sha: 5f65d3c1fb340ca9d4a03d8c3a179cf695b400a8
 local: passed
 local_evidence: 284 host tests, 7 pure production-source tests, Android compile check, Clippy, ci-gates and independent reviews passed; see the limits below.
 remote_ci: required
@@ -79,3 +79,24 @@ baseline, locale or generated native artifact changed.
   separate explicit authorization.
 - Hosted CI must be inspected after publication. The task remains in review;
   local evidence does not satisfy the remote or device gates.
+
+## Rebased integration evidence
+
+The four commits were rebased without conflicts onto `origin/main`
+`4c64d9e8c9`. Upstream DPI-31 and DPI-33 changes were reviewed for their effect
+on these repairs. Independent integration review found no new issue.
+
+The same nextest, doctest and Clippy commands above were repeated on clean
+commit `5f65d3c1fb340ca9d4a03d8c3a179cf695b400a8`. All returned exit 0:
+284 host tests passed, zero skipped; doctest suites contained zero tests;
+Clippy passed with `-D warnings`. Commands, exit codes and package counts are
+recorded in `/tmp/dpi29-rebased-results.json`; logs are
+`/tmp/dpi29-rebased-{nextest,doctests,clippy}.log`.
+`just ci-gates` also passed on this rebased tree; its log is
+`/tmp/dpi29-rebased-ci-gates.log`.
+
+After all these checks finished, the temporary worktree directory was removed
+by an external process. No task command requested its deletion. The commits
+and logs survived. The same commit was checked out in the persistent
+`RIPDPI-worktrees/dpi29-publication-20261114` worktree for publication.
+This evidence update does not change production or test sources.
