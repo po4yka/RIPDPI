@@ -210,7 +210,13 @@ mod enabled {
         pub fn load_bytes(&self, name: &str, bytes: &[u8]) -> Result<(), LuaError> {
             let inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
             inner.reset_watchdog();
-            inner.lua.load(bytes).set_name(name).exec().map_err(|error| LuaError::ScriptLoad(error.to_string()))
+            inner
+                .lua
+                .load(bytes)
+                .set_mode(ChunkMode::Text)
+                .set_name(name)
+                .exec()
+                .map_err(|error| LuaError::ScriptLoad(error.to_string()))
         }
 
         /// Loads Lua bytes and registers new global functions defined by the chunk.
@@ -218,7 +224,13 @@ mod enabled {
             let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
             inner.reset_watchdog();
             let before = global_function_names(&inner.lua)?;
-            inner.lua.load(bytes).set_name(name).exec().map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            inner
+                .lua
+                .load(bytes)
+                .set_mode(ChunkMode::Text)
+                .set_name(name)
+                .exec()
+                .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             let after = global_function_names(&inner.lua)?;
             let mut names = after.difference(&before).cloned().collect::<HashSet<_>>();
             names.extend(inner.registered.keys().filter(|name| after.contains(*name)).cloned());
@@ -254,6 +266,7 @@ mod enabled {
                 .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             harden_base_library(&lua)?;
             lua.load(bytes)
+                .set_mode(ChunkMode::Text)
                 .set_name(name)
                 .into_function()
                 .map(|_| ())
@@ -674,6 +687,32 @@ mod enabled {
 
             engine.load_script_registering_globals("ok.lua").expect("relative path inside the jail should load");
             assert_eq!(engine.list_registered_functions().unwrap(), vec!["jailed_ok"]);
+        }
+
+        #[test]
+        fn external_loaders_reject_valid_precompiled_chunks() {
+            let source = b"function bytecode_probe() return 42 end";
+            let compiler = mlua::Lua::new();
+            let bytecode =
+                compiler.load(source.as_slice()).into_function().expect("compile trusted source").dump(false);
+            let dir = tempdir();
+            let path = dir.path().join("compiled.lua");
+            std::fs::write(&path, &bytecode).expect("write compiled chunk");
+            let engine = LuaStrategyEngine::new_jailed(dir.path()).expect("jailed Lua VM should initialize");
+
+            for (entry, rejected) in [
+                ("load_bytes", engine.load_bytes("compiled", &bytecode).is_err()),
+                (
+                    "load_bytes_registering_globals",
+                    engine.load_bytes_registering_globals("compiled", &bytecode).is_err(),
+                ),
+                ("load_script", engine.load_script("compiled.lua").is_err()),
+                ("load_script_registering_globals", engine.load_script_registering_globals("compiled.lua").is_err()),
+                ("validate_bytes", LuaStrategyEngine::validate_bytes("compiled", &bytecode).is_err()),
+                ("validate_script", LuaStrategyEngine::validate_script(&path).is_err()),
+            ] {
+                assert!(rejected, "{entry} must reject precompiled chunks");
+            }
         }
 
         #[test]
