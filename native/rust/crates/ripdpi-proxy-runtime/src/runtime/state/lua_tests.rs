@@ -146,6 +146,49 @@ fn lua_nonroot_tcp_keeps_logical_destination_after_socks_first_write() {
     assert_eq!(&bytes, b"1ab2cd");
 }
 
+#[test]
+fn lua_nonroot_tcp_keeps_live_state_and_bypasses_overflow_for_the_session() {
+    let (state, _dir) =
+        lua_runtime("function candidate(d) d.conn.n=(d.conn.n or 0)+1; return tostring(d.conn.n)..d.dis.payload end");
+    let (mut writer, mut reader) = connected_pair();
+    let first = state.new_lua_flow().unwrap();
+    let mut received = [0; 3];
+    send(&state, &mut writer, &first, b"ab");
+    reader.read_exact(&mut received).unwrap();
+    assert_eq!(&received, b"1ab");
+
+    let mut admitted = Vec::new();
+    for _ in 1..1024 {
+        let flow = state.new_lua_flow().unwrap();
+        send(&state, &mut writer, &flow, b"ab");
+        reader.read_exact(&mut received).unwrap();
+        assert_eq!(&received, b"1ab");
+        admitted.push(flow);
+    }
+    let bypassed = state.new_lua_flow().unwrap();
+    let mut plain = [0; 2];
+    for _ in 0..2049 {
+        let flow = state.new_lua_flow().unwrap();
+        send(&state, &mut writer, &flow, b"ab");
+        reader.read_exact(&mut plain).unwrap();
+        assert_eq!(&plain, b"ab");
+    }
+    send(&state, &mut writer, &bypassed, b"ab");
+    reader.read_exact(&mut plain).unwrap();
+    assert_eq!(&plain, b"ab");
+
+    send(&state, &mut writer, &first, b"cd");
+    reader.read_exact(&mut received).unwrap();
+    assert_eq!(&received, b"2cd");
+    drop(admitted);
+    send(&state, &mut writer, &bypassed, b"ef");
+    reader.read_exact(&mut plain).unwrap();
+    assert_eq!(&plain, b"ef", "a bypassed flow must not activate in the middle of its stream");
+    send(&state, &mut writer, &first, b"gh");
+    reader.read_exact(&mut received).unwrap();
+    assert_eq!(&received, b"3gh");
+}
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 #[test]
 fn lua_nonroot_tcp_reads_physical_socket_mss_on_each_send() {

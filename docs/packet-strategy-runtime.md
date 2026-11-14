@@ -90,6 +90,12 @@ the first write through relay teardown, retain the logical target behind an
 upstream SOCKS server, and close state on TCP or UDP flow removal. No new
 outbound socket or per-packet JNI call is used.
 
+Each Lua step retains at most 1024 admitted flow states. Once the limit is
+reached, new flows pass unchanged until the engine is replaced. Closing an
+admitted flow releases its state but does not reopen admission after overload.
+This prevents a previously bypassed flow from starting first-payload logic
+midway through a connection.
+
 ## Root Helper Lifecycle
 
 The root helper is opt-in and only starts when root mode is enabled. The service waits for a connectable Unix socket before publishing the path to native code, so the tunnel does not start with a stale helper path.

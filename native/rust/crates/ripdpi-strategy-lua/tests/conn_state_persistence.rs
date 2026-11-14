@@ -2,7 +2,7 @@
 
 use ripdpi_strategy_lua::LuaStrategyEngine;
 use ripdpi_strategy_trait::{
-    Capabilities, ConnectionState, DesyncPlan, Dissect, FlowDirection, FlowId, StrategyContext,
+    Capabilities, ConnectionState, DesyncAction, DesyncPlan, Dissect, FlowDirection, FlowId, StrategyContext,
 };
 
 #[test]
@@ -40,10 +40,12 @@ fn lua_strategy_persists_per_flow_connection_state() {
     assert_eq!(engine.connection_count(FlowId(9)).expect("read count"), Some(2));
     engine.close_connection(FlowId(9)).expect("close");
     assert_eq!(engine.connection_count(FlowId(9)).expect("read missing count"), None);
+    strategy.plan(&ctx, &mut DesyncPlan::default()).expect("reopened flow");
+    assert_eq!(engine.connection_count(FlowId(9)).expect("read reopened count"), Some(1));
 }
 
 #[test]
-fn lua_strategy_evicts_least_recently_used_flow_at_capacity() {
+fn lua_strategy_keeps_admitted_state_and_bypasses_new_flows_at_capacity() {
     let engine = LuaStrategyEngine::new().expect("lua vm");
     engine
         .load_bytes("counter", b"function count(desync) desync.conn.count = (desync.conn.count or 0) + 1 end")
@@ -70,26 +72,25 @@ fn lua_strategy_evicts_least_recently_used_flow_at_capacity() {
         call(flow_id).expect("admit flow");
     }
     call(0).expect("existing flow must remain usable");
-    // A flow whose close was missed must not block new flows forever.
-    call(1024).expect("a new flow is admitted at capacity");
+    call(1024).expect("capacity overflow passes through");
 
-    assert_eq!(engine.connection_count(FlowId(0)).expect("read count"), Some(2), "recent flow keeps its state");
-    assert_eq!(engine.connection_count(FlowId(1)).expect("read count"), None, "least recently used flow is evicted");
+    assert_eq!(engine.connection_count(FlowId(0)).expect("read count"), Some(2));
+    assert_eq!(engine.connection_count(FlowId(1)).expect("read count"), Some(1), "admitted state is not evicted");
     assert_eq!(engine.connection_count(FlowId(2)).expect("read count"), Some(1));
-    assert_eq!(engine.connection_count(FlowId(1024)).expect("read new count"), Some(1));
+    assert_eq!(engine.connection_count(FlowId(1024)).expect("read bypassed count"), None);
 }
 
 #[test]
-fn lua_strategy_passes_an_evicted_flow_through_instead_of_restarting_it() {
+fn lua_strategy_latches_bypass_and_preserves_live_state_after_flow_churn() {
     let engine = LuaStrategyEngine::new().expect("lua vm");
     engine
         .load_bytes(
             "first_packet",
             br#"
             function first_packet(desync)
-                if desync.conn.seen then return nil end
-                desync.conn.seen = true
-                return "first-packet-burst"
+                desync.conn.count = (desync.conn.count or 0) + 1
+                if desync.conn.count == 1 then return "first-packet-burst" end
+                return "continued"
             end
             "#,
         )
@@ -113,14 +114,19 @@ fn lua_strategy_passes_an_evicted_flow_through_instead_of_restarting_it() {
         plan.actions
     };
 
-    for flow_id in 0..=1024 {
-        assert_eq!(call(flow_id).len(), 1, "flow {flow_id} runs its first-packet branch once");
+    for flow_id in 0..1024 {
+        assert_eq!(call(flow_id), vec![DesyncAction::Write(b"first-packet-burst".to_vec())]);
     }
-    assert!(!engine.has_connection(FlowId(0)).expect("has connection"), "flow 0 was evicted");
+    for flow_id in 1024..4097 {
+        assert!(call(flow_id).is_empty(), "an unknown flow passes through after capacity overflow");
+        assert!(!engine.has_connection(FlowId(flow_id)).expect("has connection"));
+    }
+    assert_eq!(call(0), vec![DesyncAction::Write(b"continued".to_vec())]);
+    assert_eq!(engine.connection_count(FlowId(0)).expect("read live count"), Some(2));
 
-    assert!(call(0).is_empty(), "a later packet of an evicted flow must not rerun the first-packet branch");
-    assert!(!engine.has_connection(FlowId(0)).expect("has connection"), "the evicted flow gets no new state");
-
-    engine.close_connection(FlowId(0)).expect("close");
-    assert_eq!(call(0).len(), 1, "a closed flow id starts fresh");
+    engine.close_connection(FlowId(1)).expect("close admitted flow");
+    assert!(call(1024).is_empty(), "a bypassed flow must not start its script when a slot becomes free");
+    assert!(call(1).is_empty(), "admission remains closed until engine replacement");
+    assert_eq!(call(0), vec![DesyncAction::Write(b"continued".to_vec())]);
+    assert_eq!(engine.connection_count(FlowId(0)).expect("read live count"), Some(3));
 }
