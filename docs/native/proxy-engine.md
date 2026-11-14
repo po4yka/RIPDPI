@@ -307,7 +307,10 @@ Step-specific behavior:
 
 - `fake` is treated as a one-region case: - `0` and `1` both collapse to fake(s) before the original payload - `2` and `3` both collapse to the original payload before fake(s)
 - `fakedsplit` and `fakeddisorder` use the full two-region ordering model
-- `hostfake` uses the full two-region ordering model only when `midhost=` is present. Prefix bytes before the host and suffix bytes after the host stay in their normal positions, while the host-region block is reordered internally.
+- `hostfake` keeps prefix bytes before the host and suffix bytes after the host in their normal positions.
+- `hostfake` with `altorder=0` and `seqmode=duplicate` keeps its default layout: the whole fake host, the real host, then the whole fake host again. A resolved `midhost=` splits only the real host. Both whole-host fakes use sequence offset zero. This is an exception to the general `altorder=0` rule.
+- With a resolved `midhost=`, the other `hostfake` order and sequence combinations use the full two-region model. For example, `altorder=0 seqmode=sequential` sends the first fake part, first real part, second fake part, then second real part. Changing the sequence mode can therefore change packet boundaries and order as well as sequence offsets.
+- Without `midhost=`, `hostfake` accepts only `altorder=0`. Both sequence modes send the whole fake host, real host, then whole fake host. `duplicate` gives both fakes offset zero; `sequential` gives the second fake an offset equal to the fake host length. The real host keeps offset zero.
 
 Sequence behavior:
 

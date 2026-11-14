@@ -22,5 +22,5 @@ deployment_evidence: No deployment is owned by this change.
 |---|---|---|---|
 | REQ-ORDERED-SIZE | RST-1794677880409389 | 22 host tests, 7 pure production-source tests, Android aarch64 --tests check, PR and raw-boundary review passed | passed |
 | REQ-ORDERED-DISPATCH | RST-1794677885136148 | runtime activation/source-index matrix and production adapter peer test (14 custom variants, zero committed bytes) passed | passed |
-| REQ-HOSTFAKE-DEFAULT | RST-1794677892236274 | literal bytes/offset layout test and documentation review | required |
-| REQ-ORDERED-SIZE | RST-1794677898562549 | independent review and combined ci-gates | required |
+| REQ-HOSTFAKE-DEFAULT | RST-1794677892236274 | four literal bytes/offset layouts and documentation review passed | passed |
+| REQ-ORDERED-SIZE | RST-1794677898562549 | PR review, raw-boundary review, 284 host tests, Clippy and ci-gates passed | passed |
