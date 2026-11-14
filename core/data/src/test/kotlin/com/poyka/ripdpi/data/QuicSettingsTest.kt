@@ -72,6 +72,14 @@ class QuicSettingsTest {
         assertEquals(QuicFakeProfileDisabled, normalizeQuicFakeProfile(""))
     }
 
+    @Test
+    fun `normalizeFakeSni accepts DNS hosts and rejects IP literals and long names`() {
+        assertEquals("www.example.org", normalizeFakeSni("WWW.Example.org."))
+        assertEquals("", normalizeFakeSni("1.2.3.4"))
+        assertEquals("", normalizeFakeSni("bad host/ü"))
+        assertEquals("", normalizeFakeSni("a".repeat(300) + ".com"))
+    }
+
     // -- normalizeQuicFakeHost --
 
     @Test

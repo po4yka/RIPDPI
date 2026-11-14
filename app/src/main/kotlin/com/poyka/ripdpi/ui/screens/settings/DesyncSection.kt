@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.isValidFakeOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
 import com.poyka.ripdpi.data.isValidOobData
 import com.poyka.ripdpi.data.isValidSplitOffsetExpression
+import com.poyka.ripdpi.data.normalizeFakeSni
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.usesSingleOffset
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -465,6 +466,7 @@ private fun FakeTlsDropdowns(model: DesyncSectionModel) {
             title = stringResource(R.string.sni_of_fake_packet),
             value = uiState.fake.fakeSni,
             enabled = model.visualEditorEnabled,
+            validator = { input -> input.isBlank() || normalizeFakeSni(input).isNotEmpty() },
             disabledMessage = stringResource(R.string.advanced_settings_visual_controls_disabled),
             setting = AdvancedTextSetting.FakeSni,
             onConfirm = model.actions.onTextConfirmed,

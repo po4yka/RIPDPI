@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.normalizeAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.normalizeEntropyMode
+import com.poyka.ripdpi.data.normalizeFakeSni
 import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeFakeTlsSource
 import com.poyka.ripdpi.data.normalizeHttpFakeProfile
@@ -36,7 +37,7 @@ internal fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFa
                 config.adaptiveFakeTtlFallback,
                 config.fakeTtl.takeIf { it > 0 } ?: DefaultAdaptiveFakeTtlFallback,
             ),
-        fakeSni = config.fakeSni.ifBlank { DefaultFakeSni },
+        fakeSni = normalizeFakeSni(config.fakeSni).ifEmpty { DefaultFakeSni },
         httpFakeProfile = normalizeHttpFakeProfile(config.httpFakeProfile.ifBlank { FakePayloadProfileCompatDefault }),
         fakeTlsSource = normalizeFakeTlsSource(config.fakeTlsSource),
         fakeTlsSecondaryProfile =

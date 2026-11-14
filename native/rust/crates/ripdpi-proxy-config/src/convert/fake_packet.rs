@@ -12,6 +12,22 @@ use crate::types::{
 
 use super::legacy_payload_adapter::parse_offset_expr_field;
 
+/// Longest DNS name allowed on the wire (RFC 1035).
+const MAX_FAKE_SNI_LEN: usize = 253;
+
+/// RFC 6066 section 3: HostName is an ASCII DNS name without a trailing dot and
+/// is never an IP literal.
+fn normalize_fixed_fake_sni(value: &str) -> Result<String, ProxyConfigError> {
+    // Blank keeps the existing "no explicit SNI" behavior (the bypass preset).
+    if value.is_empty() {
+        return Ok(String::new());
+    }
+    ripdpi_config::normalize_fake_host_template(value)
+        .ok()
+        .filter(|host| host.len() <= MAX_FAKE_SNI_LEN)
+        .ok_or_else(|| ProxyConfigError::InvalidConfig("Invalid fakePackets.fakeSni".to_string()))
+}
+
 pub(crate) fn apply_fake_packet_section(
     group: &mut ripdpi_config::DesyncGroup,
     fake_packets: &ProxyUiFakePacketConfig,
@@ -141,7 +157,7 @@ pub(crate) fn apply_fake_packet_section(
         if fake_tls_sni_mode == FAKE_TLS_SNI_MODE_RANDOMIZED {
             group.actions.fake_mod |= FM_RNDSNI;
         } else {
-            group.actions.fake_sni_list.push(fake_packets.fake_sni.clone());
+            group.actions.fake_sni_list.push(normalize_fixed_fake_sni(&fake_packets.fake_sni)?);
         }
         if fake_packets.fake_tls_size < -65535 || fake_packets.fake_tls_size > 65535 {
             return Err(ProxyConfigError::InvalidConfig("fakeTlsSize must be in -65535..=65535".to_string()));

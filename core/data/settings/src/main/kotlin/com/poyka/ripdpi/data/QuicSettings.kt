@@ -77,6 +77,12 @@ fun normalizeQuicFakeHost(value: String): String {
     return if (isIpv4Literal) "" else trimmed
 }
 
+private const val MaxFakeSniLength = 253
+
+/** Fixed fake TLS SNI: a DNS host name (RFC 6066), or "" when invalid. */
+fun normalizeFakeSni(value: String): String =
+    normalizeQuicFakeHost(value).takeIf { it.length <= MaxFakeSniLength }.orEmpty()
+
 fun AppSettings.effectiveQuicFakeProfile(): String = normalizeQuicFakeProfile(quicFakeProfile)
 
 fun AppSettings.effectiveQuicFakeHost(): String = normalizeQuicFakeHost(quicFakeHost)
