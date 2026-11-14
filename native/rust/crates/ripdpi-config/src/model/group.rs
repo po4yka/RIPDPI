@@ -99,6 +99,9 @@ pub enum EntropyMode {
     Combined,
 }
 
+/// Largest number of synthetic multi-Initial packets per step and UDP chain.
+pub const MAX_QUIC_MULTI_INITIAL_COUNT: i32 = 32;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DesyncGroupActionSettings {
     pub ttl: Option<u8>,

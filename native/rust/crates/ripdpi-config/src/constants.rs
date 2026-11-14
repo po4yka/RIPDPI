@@ -3,9 +3,6 @@ pub const VERSION: &str = "17.3";
 /// Largest fake-burst count and per-family CRYPTO-split, CID-churn and packet-gap chain budgets.
 pub const MAX_FAKE_BURST_COUNT: i32 = 64;
 
-/// Largest number of synthetic multi-Initial packets per step and UDP chain.
-pub const MAX_QUIC_MULTI_INITIAL_COUNT: i32 = 32;
-
 pub const DETECT_HTTP_LOCAT: u32 = 1;
 pub const DETECT_TLS_HANDSHAKE_FAILURE: u32 = 2;
 pub const DETECT_RECONN: u32 = 16;

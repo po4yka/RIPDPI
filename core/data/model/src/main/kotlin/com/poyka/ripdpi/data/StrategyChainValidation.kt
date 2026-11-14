@@ -11,7 +11,7 @@ private const val MaxDummyPrependCount = 64
 // Mirrors MAX_QUIC_PADDING_LADDER_COUNT in native/rust ripdpi-config: 31 rungs of 8 bytes fit 1200..1452.
 private const val MaxQuicPaddingLadderCount = 31
 
-// Mirrors MAX_QUIC_MULTI_INITIAL_COUNT in native/rust ripdpi-config src/constants.rs.
+// Mirrors MAX_QUIC_MULTI_INITIAL_COUNT in native/rust ripdpi-config src/model/group.rs.
 private const val MaxQuicMultiInitialCount = 32
 internal const val MaxHostLabelLength = 16
 internal const val MaxDnsTlsRandRecFragmentSize = 4096
