@@ -2,7 +2,7 @@
 id: ENG-1794637894202698
 title: Bound QUIC SNI split resources and preserve original datagrams
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: dpi18-integration
@@ -13,6 +13,9 @@ openspec_change: dpi18-bounded-quic-prelude
 created: 2026-11-14
 updated: 2026-11-14
 status_detail: Fixes and observed checks are complete; full staticAnalysis remains blocked by Maven Central routing.
+closed_at: "2026-11-14T12:13:35Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: F1 3a6762d9f1 and F2 3c2f863018 delivered by fast-forward and push to origin/main at 8ae43fe025. Fresh 1021 Rust tests, 92 Kotlin tests, strict Clippy, full staticAnalysis, ci-gates, locked metadata and independent review passed. Device/external compatibility is outside this change.
 ---
 
 ## Goal
