@@ -129,6 +129,22 @@ mod tests {
     }
 
     #[test]
+    fn programmatic_window_settings_reject_invalid_socket_values() {
+        use ripdpi_proxy_runtime_adapter::model::config::WsizeConfig;
+
+        for (window, scale) in [(0, None), (262144, Some(14)), (u32::MAX, None)] {
+            let mut config = RuntimeConfig::default();
+            config.groups[0].actions.wsize = Some(WsizeConfig { window, scale });
+            assert_eq!(super::validate_proxy_config(&config).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        }
+        for clamp in [0, i32::MAX as u32 + 1, u32::MAX] {
+            let mut config = RuntimeConfig::default();
+            config.groups[0].actions.window_clamp = Some(clamp);
+            assert_eq!(super::validate_proxy_config(&config).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        }
+    }
+
+    #[test]
     fn listener_rejects_unrepresentable_socks5_tokens_before_bind() {
         let occupied = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve listener address");
         for mixed in [false, true] {

@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind, UpstreamSocksAuth};
+use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStepKind, UpstreamSocksAuth, WsizeConfig};
 use ripdpi_runtime_decision_ports::policy_ports::ConnectionRoute;
 
 use crate::model::session::is_tls_client_hello_payload;
@@ -110,11 +110,7 @@ pub fn tcp_route_connect_settings_table(config: &RuntimeConfig) -> TcpRouteConne
 }
 
 fn tcp_route_connect_profile(config: &RuntimeConfig, group: &DesyncGroup) -> TcpRouteConnectProfile {
-    let pre_connect_rcvbuf = group.actions.wsize.map(|w| match w.scale {
-        Some(scale) if (scale as u32) < 32 => w.window.checked_shl(scale as u32).unwrap_or(u32::MAX),
-        Some(_) => u32::MAX,
-        None => w.window,
-    });
+    let pre_connect_rcvbuf = group.actions.wsize.and_then(WsizeConfig::receive_buffer_size);
     TcpRouteConnectProfile {
         tfo_enabled: tcp_fast_open_enabled(config),
         direct_syn_data_tfo: group_uses_direct_syn_data_tfo(group),
@@ -287,6 +283,32 @@ mod tests {
         assert_eq!(settings.connect_timeout, Some(Duration::from_millis(1500)));
         assert_eq!(settings.protect_path.as_deref(), Some("/tmp/protect.sock"));
         assert!(settings.drop_sack);
+    }
+
+    #[test]
+    fn tcp_route_connect_settings_keep_buffer_hint_and_clamp_distinct() {
+        let mut config = RuntimeConfig::default();
+        config.groups[0].actions.wsize = Some(WsizeConfig { window: 4096, scale: Some(2) });
+
+        let settings = tcp_route_connect_settings(&config, 0, None, true).expect("connect settings");
+
+        assert_eq!(settings.pre_connect_rcvbuf, Some(16_384));
+        assert_eq!(settings.window_clamp, Some(4096));
+    }
+
+    #[test]
+    fn tcp_route_connect_settings_do_not_wrap_invalid_receive_buffer_requests() {
+        let mut config = RuntimeConfig::default();
+        for wsize in [
+            WsizeConfig { window: 262_144, scale: Some(14) },
+            WsizeConfig { window: i32::MAX as u32 + 1, scale: None },
+            WsizeConfig { window: 1, scale: Some(u8::MAX) },
+        ] {
+            config.groups[0].actions.wsize = Some(wsize);
+            let settings = tcp_route_connect_settings(&config, 0, None, true).expect("connect settings");
+
+            assert_eq!(settings.pre_connect_rcvbuf, None, "{wsize:?}");
+        }
     }
 
     #[test]

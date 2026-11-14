@@ -10,6 +10,26 @@ use crate::{
 use ripdpi_packets::{HttpFakeProfile, MH_HMIX, MH_SPACE, TlsFakeProfile, UdpFakeProfile};
 
 #[test]
+fn window_buffer_request_respects_the_signed_socket_domain() {
+    for (window, scale, expected) in [
+        (1, None, Some(1)),
+        (4096, Some(0), Some(4096)),
+        (4096, Some(2), Some(16_384)),
+        (i32::MAX as u32, None, Some(2_147_483_647)),
+        (131_071, Some(14), Some(2_147_467_264)),
+        (0, None, None),
+        (i32::MAX as u32 + 1, None, None),
+        (u32::MAX, Some(1), None),
+        (131_072, Some(14), None),
+        (262_144, Some(14), None),
+        (1, Some(15), None),
+        (1, Some(u8::MAX), None),
+    ] {
+        assert_eq!(WsizeConfig { window, scale }.receive_buffer_size(), expected, "{window}/{scale:?}");
+    }
+}
+
+#[test]
 fn common_suffix_match_dot_boundary() {
     // "notexample.com" should NOT match rule "example.com"
     assert!(!common_suffix_match("notexample.com", "example.com"));

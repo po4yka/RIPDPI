@@ -2,14 +2,15 @@ use crate::{
     ConfigError, DETECT_CONNECT, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_QUIC_BREAKAGE,
     DETECT_RECONN, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_ERR,
     DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST, DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind,
-    WsizeConfig,
 };
 
 mod address;
 mod filters;
+mod window;
 
 pub(crate) use address::parse_numeric_addr;
 pub use filters::{parse_host_filter_spec, parse_hosts_spec, parse_ipset_spec};
+pub(super) use window::{parse_window_clamp, parse_wsize};
 
 pub(super) fn parse_auto_detect_token(token: &str) -> Option<u32> {
     match token.trim().to_ascii_lowercase().as_str() {
@@ -72,17 +73,6 @@ pub(super) fn repeats_or_skips(offset: crate::OffsetExpr) -> bool {
 pub(super) fn next_value<'a>(args: &'a [String], idx: &mut usize, option: &str) -> Result<&'a str, ConfigError> {
     *idx += 1;
     args.get(*idx).map(String::as_str).ok_or_else(|| ConfigError::invalid(option, Option::<String>::None))
-}
-
-pub(super) fn parse_wsize(arg: &str, value: &str) -> Result<WsizeConfig, ConfigError> {
-    let invalid = || ConfigError::invalid(arg, Some(value.to_string()));
-    let (win_str, scale_str) = value.split_once(':').map_or((value, None), |(w, s)| (w, Some(s)));
-    let window = win_str.parse::<u32>().map_err(|_| invalid())?;
-    let scale = scale_str.map(|s| s.parse::<u8>().map_err(|_| invalid())).transpose()?;
-    if scale.is_some_and(|s| s > 14) {
-        return Err(invalid());
-    }
-    Ok(WsizeConfig { window, scale })
 }
 
 pub(super) fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGroup, ConfigError> {

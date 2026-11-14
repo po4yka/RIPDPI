@@ -2,7 +2,7 @@ use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 
 use super::{
     ActivationFilter, FakePacketSource, FilterSet, IpIdMode, NumericRange, OffsetExpr, RotationPolicy, TcpChainStep,
-    UdpChainStep, UpstreamSocksConfig,
+    UdpChainStep, UpstreamSocksConfig, WsizeConfig,
 };
 
 /// Largest accepted DummyPrepend count per step and across one UDP chain.
@@ -16,19 +16,6 @@ pub struct AutoTtlConfig {
     pub delta: i8,
     pub min_ttl: u8,
     pub max_ttl: u8,
-}
-
-/// TCP receive window control through socket options.
-/// `SO_RCVBUF` is a pre-connect buffer hint; the OS selects the negotiated scale.
-/// `TCP_WINDOW_CLAMP` is applied after connect and does not change an advertised
-/// window immediately or set the size of each incoming segment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WsizeConfig {
-    /// Desired TCP receive window size in bytes.
-    pub window: u32,
-    /// Optional receive-buffer shift (0-14), not a negotiated scale override.
-    /// `SO_RCVBUF` requests `window << scale`, or `window` when this is `None`.
-    pub scale: Option<u8>,
 }
 
 #[non_exhaustive]

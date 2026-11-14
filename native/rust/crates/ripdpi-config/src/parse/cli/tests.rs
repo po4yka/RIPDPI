@@ -529,6 +529,32 @@ fn cli_rejects_wsize_invalid_value() {
 }
 
 #[test]
+fn cli_rejects_invalid_socket_window_values() {
+    for (option, value) in [
+        ("--window-clamp", "0"),
+        ("--window-clamp", "2147483648"),
+        ("--window-clamp", "4294967295"),
+        ("--wsize", "0"),
+        ("--wsize", "2147483648"),
+        ("--wsize", "131072:14"),
+        ("--wsize", "262144:14"),
+    ] {
+        let args = [option.to_owned(), value.to_owned()];
+        assert!(parse_cli(&args, &StartupEnv::default()).is_err(), "{option} {value}");
+    }
+}
+
+#[test]
+fn cli_accepts_socket_window_boundaries() {
+    for value in ["1", "1152", "65535", "65536", "2147483647", "131071:14"] {
+        let args = ["--wsize".to_owned(), value.to_owned()];
+        assert!(parse_cli(&args, &StartupEnv::default()).is_ok(), "--wsize {value}");
+    }
+    let args = ["--window-clamp".to_owned(), "2147483647".to_owned()];
+    assert!(parse_cli(&args, &StartupEnv::default()).is_ok());
+}
+
+#[test]
 fn cli_parses_strategy_evolution() {
     let args: Vec<String> =
         ["--strategy-evolution", "--evolution-epsilon", "0.2"].iter().map(ToString::to_string).collect();

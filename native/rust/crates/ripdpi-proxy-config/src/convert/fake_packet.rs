@@ -47,14 +47,21 @@ pub(crate) fn apply_fake_packet_section(
     group.actions.fake_tcp_timestamp_enabled = fake_packets.fake_tcp_timestamp_enabled;
     group.actions.fake_tcp_timestamp_delta_ticks = fake_packets.fake_tcp_timestamp_delta_ticks;
     group.actions.drop_sack = fake_packets.drop_sack;
-    group.actions.window_clamp = fake_packets.window_clamp;
+    group.actions.window_clamp = fake_packets.window_clamp.filter(|&clamp| clamp > 0);
+    if group.actions.window_clamp.is_some_and(|clamp| clamp > i32::MAX as u32) {
+        return Err(ProxyConfigError::InvalidConfig("Invalid fakePackets.windowClamp".to_string()));
+    }
     group.actions.wsize = if let Some(window) = fake_packets.wsize_window.filter(|&window| window > 0) {
         let scale = match fake_packets.wsize_scale {
             None | Some(-1) => None,
             Some(value @ 0..=14) => Some(value as u8),
             _ => return Err(ProxyConfigError::InvalidConfig("Invalid fakePackets.wsizeScale".to_string())),
         };
-        Some(WsizeConfig { window, scale })
+        let config = WsizeConfig { window, scale };
+        if config.receive_buffer_size().is_none() {
+            return Err(ProxyConfigError::InvalidConfig("Invalid fakePackets.wsizeWindow".to_string()));
+        }
+        Some(config)
     } else {
         None
     };
@@ -244,6 +251,34 @@ mod tests {
                 ProxyUiFakePacketConfig { wsize_window: Some(1024), wsize_scale: Some(scale), ..Default::default() };
             assert!(apply_fake_packet_section(&mut group, &fake_packets, false).is_err());
         }
+    }
+
+    #[test]
+    fn window_options_reject_values_outside_the_socket_domain() {
+        for fake_packets in [
+            ProxyUiFakePacketConfig { window_clamp: Some(2_147_483_648), ..Default::default() },
+            ProxyUiFakePacketConfig { wsize_window: Some(u32::MAX), ..Default::default() },
+            ProxyUiFakePacketConfig { wsize_window: Some(262_144), wsize_scale: Some(14), ..Default::default() },
+        ] {
+            let mut group = ripdpi_config::DesyncGroup::new(0);
+            assert!(apply_fake_packet_section(&mut group, &fake_packets, false).is_err());
+        }
+    }
+
+    #[test]
+    fn zero_ui_window_options_remain_disabled() {
+        let mut group = ripdpi_config::DesyncGroup::new(0);
+        let fake_packets = ProxyUiFakePacketConfig {
+            window_clamp: Some(0),
+            wsize_window: Some(0),
+            wsize_scale: Some(14),
+            ..Default::default()
+        };
+
+        apply_fake_packet_section(&mut group, &fake_packets, false).expect("disabled windows");
+
+        assert_eq!(group.actions.window_clamp, None);
+        assert_eq!(group.actions.wsize, None);
     }
 
     fn tlsminor_after_conversion(enabled: bool, value: u8) -> Option<u8> {

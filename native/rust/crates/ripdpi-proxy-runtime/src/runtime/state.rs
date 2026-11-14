@@ -210,9 +210,20 @@ impl RuntimeState {
     }
 
     pub(super) fn validate_runtime_requirements(config: &RuntimeConfig) -> io::Result<()> {
+        Self::validate_window_settings(config)?;
         Self::validate_upstream_socks_auth(config)?;
         validate_ip_fragmentation_support(&raw_packet_requirements(config))?;
         Self::validate_listener_auth(config, config.network.listen.listen_ip)
+    }
+    fn validate_window_settings(config: &RuntimeConfig) -> io::Result<()> {
+        for group in &config.groups {
+            if group.actions.wsize.is_some_and(|window| window.receive_buffer_size().is_none())
+                || group.actions.window_clamp.is_some_and(|clamp| clamp == 0 || clamp > i32::MAX as u32)
+            {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "TCP window request exceeds the socket range"));
+            }
+        }
+        Ok(())
     }
     pub(super) fn validate_listener_auth(config: &RuntimeConfig, bound_ip: IpAddr) -> io::Result<()> {
         let token = config.network.listen.auth_token.as_deref();
@@ -260,6 +271,7 @@ impl RuntimeState {
         control: Option<std::sync::Arc<EmbeddedProxyControl>>,
         ws_transport: std::sync::Arc<dyn WsTransport>,
     ) -> io::Result<Self> {
+        Self::validate_window_settings(&config)?;
         Self::validate_upstream_socks_auth(&config)?;
         let telemetry = control.as_ref().and_then(|c| c.telemetry_sink()).or_else(current_runtime_telemetry);
         let runtime_context = control.as_ref().and_then(|c| c.runtime_context());

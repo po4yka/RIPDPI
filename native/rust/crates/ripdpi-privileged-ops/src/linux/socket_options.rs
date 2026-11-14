@@ -135,7 +135,8 @@ pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
 /// rejects `size=0` on established sockets with `EINVAL` (only `TCP_CLOSE`
 /// sockets accept it).
 pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
-    let val = size as libc::c_int;
+    let val = libc::c_int::try_from(size)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "TCP window clamp exceeds signed socket range"))?;
     set_c_int_sockopt(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP, val)
 }
 
@@ -151,7 +152,8 @@ pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
 /// overhead.  Setting this **before** `connect()` influences the TCP window
 /// scale factor negotiated in the SYN packet.
 pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
-    let val = size as libc::c_int;
+    let val = libc::c_int::try_from(size)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "receive buffer exceeds signed socket range"))?;
     set_c_int_sockopt(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF, val)
 }
 

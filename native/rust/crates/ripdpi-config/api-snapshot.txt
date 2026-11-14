@@ -612,6 +612,8 @@ pub ripdpi_config::UpstreamSocksConfig::auth: core::option::Option<ripdpi_config
 pub struct ripdpi_config::WsizeConfig
 pub ripdpi_config::WsizeConfig::scale: core::option::Option<u8>
 pub ripdpi_config::WsizeConfig::window: u32
+impl ripdpi_config::WsizeConfig
+pub fn ripdpi_config::WsizeConfig::receive_buffer_size(self) -> core::option::Option<u32>
 pub const ripdpi_config::AUTO_NOPOST: u32
 pub const ripdpi_config::AUTO_RECONN: u32
 pub const ripdpi_config::AUTO_SORT: u32

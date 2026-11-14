@@ -19,8 +19,7 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
         "-Y" | "--drop-sack" => state.group().actions.drop_sack = true,
         "--window-clamp" => {
             let value = next_value(args, idx, arg)?;
-            state.group().actions.window_clamp =
-                Some(value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?);
+            state.group().actions.window_clamp = Some(super::super::helpers::parse_window_clamp(arg, value)?);
         }
         "--wsize" => {
             let value = next_value(args, idx, arg)?;

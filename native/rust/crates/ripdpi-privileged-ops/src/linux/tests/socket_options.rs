@@ -168,6 +168,23 @@ fn rcvbuf_set_and_readback() {
 }
 
 #[test]
+fn window_options_reject_signed_wrap_without_changing_the_socket() {
+    let (client, _server) = connected_pair();
+    let baseline_clamp = get_tcp_window_clamp(&client).expect("baseline clamp");
+    let baseline_buffer = get_rcvbuf(&client).expect("baseline buffer");
+
+    for size in [i32::MAX as u32 + 1, u32::MAX] {
+        assert_eq!(
+            set_tcp_window_clamp(&client, size).expect_err("oversized clamp").kind(),
+            io::ErrorKind::InvalidInput
+        );
+        assert_eq!(set_rcvbuf(&client, size).expect_err("oversized buffer").kind(), io::ErrorKind::InvalidInput);
+        assert_eq!(get_tcp_window_clamp(&client).expect("unchanged clamp"), baseline_clamp);
+        assert_eq!(get_rcvbuf(&client).expect("unchanged buffer"), baseline_buffer);
+    }
+}
+
+#[test]
 fn bpf_drop_sack_filter_attaches_and_detaches_cleanly() {
     // The kernel's SO_GET_FILTER readback uses an unusual return-value
     // convention (instruction count is delivered through the syscall ret,
