@@ -132,6 +132,13 @@ pub fn plan_udp_actions_for_runtime(
     let config = &context.planner.config;
     let group = crate::model::config::selected_desync_group(config, request.group_index)
         .ok_or_else(|| io::Error::other("missing udp route group"))?;
+    let resolved_fake_ttl = context.adaptive_hints.resolve_fake_ttl(
+        ripdpi_runtime_services::decision_helpers::network_scope_key(config),
+        request.group_index,
+        request.target,
+        request.host,
+        group,
+    )?;
     let adaptive_hints = resolve_udp_hints_for_runtime(&context, &request, group)?;
     let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
     crate::model::proxy_config::emit_morph_hint_applied(
@@ -146,7 +153,7 @@ pub fn plan_udp_actions_for_runtime(
         Some(request.payload),
         None,
         None,
-        None,
+        resolved_fake_ttl,
         adaptive_hints,
     );
     Ok(plan_udp_actions(group, request.payload, request.default_ttl, activation))
@@ -502,6 +509,9 @@ fn is_decoy_local_send_error(error: &io::Error) -> bool {
 fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
     matches!(kind, io::ErrorKind::InvalidInput)
 }
+
+#[cfg(test)]
+mod ttl_tests;
 
 #[cfg(test)]
 mod tests {

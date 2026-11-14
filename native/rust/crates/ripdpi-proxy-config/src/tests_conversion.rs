@@ -1222,6 +1222,18 @@ fn ech_fake_offset_marker_is_rejected() {
 }
 
 #[test]
+fn ui_payload_preserves_udp_fake_ttl() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.fake_ttl = 1;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("fixed UDP fake TTL config");
+    let udp_group = config.groups.iter().find(|group| group.matches.proto == IS_UDP).expect("UDP group");
+
+    assert_eq!(udp_group.actions.ttl, Some(1));
+    assert_eq!(udp_group.actions.auto_ttl, None);
+}
+
+#[test]
 fn ui_payload_maps_adaptive_fake_ttl_and_fallback() {
     let mut ui = minimal_ui();
     ui.fake_packets.fake_ttl = 11;
@@ -1236,6 +1248,9 @@ fn ui_payload_maps_adaptive_fake_ttl_and_fallback() {
 
     assert_eq!(group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),);
     assert_eq!(group.actions.ttl, Some(9));
+    let udp_group = config.groups.iter().find(|group| group.matches.proto == IS_UDP).expect("UDP group");
+    assert_eq!(udp_group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }));
+    assert_eq!(udp_group.actions.ttl, Some(9));
 }
 
 #[test]

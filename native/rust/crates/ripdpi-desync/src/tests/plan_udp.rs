@@ -66,6 +66,29 @@ fn plan_udp_filtered_gap_steps_do_not_consume_packet_budget() {
 }
 
 #[test]
+fn plan_udp_prefers_resolved_fake_ttl_over_fixed_ttl() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::FakeBurst, 1)];
+    group.actions.fake_data = Some(b"decoy".to_vec());
+    group.actions.ttl = Some(9);
+    let payload = b"original";
+
+    for (resolved_fake_ttl, expected_ttl) in [(None, 9), (Some(3), 3)] {
+        let context = ActivationContext { resolved_fake_ttl, ..udp_context(payload) };
+        assert_eq!(
+            plan_udp(&group, payload, 64, context),
+            vec![
+                DesyncAction::SetTtl(expected_ttl),
+                DesyncAction::Write(b"decoy".to_vec()),
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::SetTtl(64),
+                DesyncAction::Write(payload.to_vec()),
+            ]
+        );
+    }
+}
+
+#[test]
 fn plan_udp_no_fake_only_drop_sack() {
     let mut group = DesyncGroup::new(0);
     group.actions.drop_sack = true;

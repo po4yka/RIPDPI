@@ -6,13 +6,14 @@ pub(super) fn append_ttl_wrapped_packets(
     actions: &mut Vec<DesyncAction>,
     group: &DesyncGroup,
     default_ttl: u8,
+    resolved_fake_ttl: Option<u8>,
     prelude_packets: Vec<Vec<u8>>,
 ) {
     if prelude_packets.is_empty() {
         return;
     }
 
-    actions.push(DesyncAction::SetTtl(group.actions.ttl.unwrap_or(8)));
+    actions.push(DesyncAction::SetTtl(resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8)));
     for packet in prelude_packets {
         actions.push(DesyncAction::Write(packet));
     }

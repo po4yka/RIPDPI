@@ -93,7 +93,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
             if step.kind == UdpChainStepKind::QuicVersionNegotiationDecoy {
                 version_decoys_remaining -= prelude_packets.len() as i32;
             }
-            append_ttl_wrapped_packets(&mut actions, group, default_ttl, prelude_packets);
+            append_ttl_wrapped_packets(&mut actions, group, default_ttl, context.resolved_fake_ttl, prelude_packets);
         }
     }
 
