@@ -1,0 +1,11 @@
+{
+  "change": "rust100-contracts-cleanup",
+  "evidence_summary": "1536 affected tests passed; workspace lint and CI source gates passed; full workspace Android arm64 and armv7 cross-checks passed; independent general, async, and JNI reviews passed.",
+  "execution_sha256": "d20b624fb960d8e19f92ea5c2f3004a3b90eb8f93c853e7be934532b7e3137d4",
+  "issue_sha256": "4f3994f042310a75cc1d348dbf5ffd75ccd63e16e2db05388a1f354da0f4f7e7",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T04:34:15Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794629289019737"
+}
