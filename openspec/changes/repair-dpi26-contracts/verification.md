@@ -22,4 +22,4 @@ deployment_evidence: This change does not deploy an application or service.
 |---|---|---|---|
 | REQ-DPI26-F1 | RST-1794677761670924 | Safe error-contract regression and review pending | pending |
 | REQ-DPI26-F2 | RST-1794677762354249 | Observed red None versus Some(Seq), then full ripdpi-proxy-config tests passed; independent review found no issue. Logs /tmp/dpi26-f2-{red-isolated,green}.log | passed |
-| REQ-DPI26-F3 | RST-1794677763048279 | Kotlin root-admission regressions and combined gates pending | pending |
+| REQ-DPI26-F3 | RST-1794677763048279 | Observed red admission test, then 43 StrategyChain Kotlin tests and full staticAnalysis passed; independent review found no issue. Logs /tmp/dpi26-f3-{red,green}.log and /tmp/dpi26-static-analysis.log | passed |

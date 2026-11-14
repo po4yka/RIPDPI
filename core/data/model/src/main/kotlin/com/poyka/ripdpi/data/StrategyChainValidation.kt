@@ -43,6 +43,7 @@ fun validateStrategyChainUsage(
     if (usesIpFragmentation(tcpSteps = tcpSteps, udpSteps = udpSteps)) {
         require(mode == Mode.VPN) { "ipfrag2 is only supported in VPN mode" }
         require(!useCommandLineSettings) { "ipfrag2 is not supported while command line settings are enabled" }
+        require(rootModeEnabled) { "ipfrag2 requires root mode" }
     }
     require(
         tcpSteps.none {

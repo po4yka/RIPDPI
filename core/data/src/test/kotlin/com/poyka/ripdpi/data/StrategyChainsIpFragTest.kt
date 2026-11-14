@@ -57,7 +57,7 @@ class StrategyChainsIpFragTest {
                 udpSteps,
                 Mode.Proxy,
                 useCommandLineSettings = false,
-                rootModeEnabled = false,
+                rootModeEnabled = true,
             )
         }
         assertThrows(IllegalArgumentException::class.java) {
@@ -66,13 +66,38 @@ class StrategyChainsIpFragTest {
                 udpSteps,
                 Mode.VPN,
                 useCommandLineSettings = true,
-                rootModeEnabled = false,
+                rootModeEnabled = true,
             )
         }
 
         validateStrategyChainUsage(
             tcpSteps,
             udpSteps,
+            Mode.VPN,
+            useCommandLineSettings = false,
+            rootModeEnabled = true,
+        )
+    }
+
+    @Test
+    fun `ipfrag usage requires root mode for each transport`() {
+        val tcp = listOf(TcpChainStepModel(TcpChainStepKind.IpFrag2, "host+2"))
+        val udp = listOf(UdpChainStepModel(count = 0, kind = UdpChainStepKind.IpFrag2Udp, splitBytes = 8))
+        listOf(tcp to emptyList(), emptyList<TcpChainStepModel>() to udp).forEach { (tcpSteps, udpSteps) ->
+            val error =
+                assertThrows(IllegalArgumentException::class.java) {
+                    validateStrategyChainUsage(tcpSteps, udpSteps, Mode.VPN, false, rootModeEnabled = false)
+                }
+            assertEquals("ipfrag2 requires root mode", error.message)
+            validateStrategyChainUsage(tcpSteps, udpSteps, Mode.VPN, false, rootModeEnabled = true)
+        }
+    }
+
+    @Test
+    fun `ordinary strategies remain valid without root mode`() {
+        validateStrategyChainUsage(
+            listOf(TcpChainStepModel(TcpChainStepKind.Split, "host+1")),
+            listOf(UdpChainStepModel(count = 1, kind = UdpChainStepKind.FakeBurst)),
             Mode.VPN,
             useCommandLineSettings = false,
             rootModeEnabled = false,
