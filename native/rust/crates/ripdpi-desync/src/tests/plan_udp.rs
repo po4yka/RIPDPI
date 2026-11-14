@@ -487,38 +487,51 @@ fn plan_udp_quic_padding_ladder_rungs_have_distinct_lengths() {
 
 #[test]
 fn plan_udp_quic_decoys_stay_within_a_1500_byte_path() {
-    for (kind, count) in [(UdpChainStepKind::QuicPaddingLadder, 4), (UdpChainStepKind::QuicMultiInitialRealistic, 4)] {
-        let mut group = DesyncGroup::new(0);
-        group.actions.udp_chain = vec![UdpChainStep {
-            kind,
-            count,
-            split_bytes: 0,
-            activation_filter: None,
-            ip_frag_disorder: false,
-            ipv6_hop_by_hop: false,
-            ipv6_dest_opt: false,
-            ipv6_dest_opt2: false,
-            ipv6_frag_next_override: None,
-        }];
-        for input_len in [1200, 1452, 1472] {
-            let mut payload =
-                build_realistic_quic_initial(QUIC_V2_VERSION, Some("mtu.example.test")).expect("input quic");
-            assert!(payload.len() <= input_len);
-            // A client pads its Initial datagram up to the path maximum.
-            payload.resize(input_len, 0);
+    // Four labels of 63/63/63/61 characters make a 253-character host.
+    let long_host = [63, 63, 63, 61].map(|len| "a".repeat(len)).join(".");
+    let max = ripdpi_config::MAX_QUIC_PADDING_LADDER_COUNT;
+    for kind in [UdpChainStepKind::QuicPaddingLadder, UdpChainStepKind::QuicMultiInitialRealistic] {
+        for (count, built) in [(1, 1), (4, 4), (31, 31), (max, max as usize), (1000, max as usize)] {
+            // The multi-initial step always builds at least two decoys.
+            let built = if kind == UdpChainStepKind::QuicMultiInitialRealistic { built.max(2) } else { built };
+            for quic_fake_host in [None, Some(long_host.clone())] {
+                let mut group = DesyncGroup::new(0);
+                group.actions.quic_fake_host = quic_fake_host.clone();
+                group.actions.udp_chain = vec![UdpChainStep {
+                    kind,
+                    count,
+                    split_bytes: 0,
+                    activation_filter: None,
+                    ip_frag_disorder: false,
+                    ipv6_hop_by_hop: false,
+                    ipv6_dest_opt: false,
+                    ipv6_dest_opt2: false,
+                    ipv6_frag_next_override: None,
+                }];
+                for input_len in [1200, 1250, 1452, 1472] {
+                    let mut payload =
+                        build_realistic_quic_initial(QUIC_V2_VERSION, Some("mtu.example.test")).expect("input quic");
+                    assert!(payload.len() <= input_len);
+                    // A client pads its Initial datagram up to the path maximum.
+                    payload.resize(input_len, 0);
 
-            let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+                    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
-            let lengths = actions[1..=count as usize]
-                .iter()
-                .map(|action| match action {
-                    DesyncAction::Write(packet) => packet.len(),
-                    other => panic!("{kind:?}: expected decoy packet, got {other:?}"),
-                })
-                .collect::<Vec<_>>();
-            let ceiling = input_len.max(1452);
-            assert!(lengths.iter().all(|&len| len <= ceiling), "{kind:?} input {input_len}: {lengths:?}");
-            assert!(lengths.windows(2).all(|pair| pair[0] < pair[1]), "{kind:?} input {input_len}: {lengths:?}");
+                    let lengths = actions[1..=built]
+                        .iter()
+                        .map(|action| match action {
+                            DesyncAction::Write(packet) => packet.len(),
+                            other => panic!("{kind:?}: expected decoy packet, got {other:?}"),
+                        })
+                        .collect::<Vec<_>>();
+                    let case = format!("{kind:?} count {count} input {input_len} host {quic_fake_host:?}: {lengths:?}");
+                    let writes = actions.iter().filter(|action| matches!(action, DesyncAction::Write(_))).count();
+                    assert_eq!(writes, built + 1, "{case}");
+                    let ceiling = input_len.max(1452);
+                    assert!(lengths.iter().all(|&len| (1200..=ceiling).contains(&len)), "{case}");
+                    assert!(lengths.windows(2).all(|pair| pair[0] < pair[1]), "{case}");
+                }
+            }
         }
     }
 }

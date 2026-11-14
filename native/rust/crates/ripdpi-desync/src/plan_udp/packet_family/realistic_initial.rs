@@ -33,19 +33,16 @@ pub(super) fn build_quic_padding_ladder_packets(
     let count = count.clamp(1, MAX_QUIC_PADDING_LADDER_COUNT);
     let rungs = (0..count as usize).map(|idx| 8 * (idx + 1)).collect::<Vec<_>>();
     let lengths = decoy_datagram_lengths(normalized_quic.map(|quic| quic.datagram_len), &rungs);
-    rungs
+    lengths
         .into_iter()
-        .zip(lengths)
-        .filter_map(|(rung, len)| {
-            // The rung goes into the minimum length too: the builder pads up to
-            // that minimum, which would otherwise absorb the tail padding.
-            let mut layout = QuicInitialPacketLayout::contiguous(len);
-            layout.extra_tail_padding = rung;
+        .filter_map(|len| {
+            // The builder pads the datagram to exactly `len`: the decoy's
+            // natural size is below 1200, so it never passes the ceiling.
             packetize_browser_like_quic_initial(
                 group,
                 normalized_quic,
                 QuicInitialBrowserProfile::ChromeAndroid,
-                layout,
+                QuicInitialPacketLayout::contiguous(len),
             )
         })
         .collect()
@@ -60,20 +57,18 @@ pub(super) fn build_quic_multi_initial_realistic_packets(
         return Vec::new();
     };
 
-    let rungs = (0..count.max(2) as usize).map(|idx| idx * 8).collect::<Vec<_>>();
+    let count = count.clamp(2, MAX_QUIC_PADDING_LADDER_COUNT);
+    let rungs = (0..count as usize).map(|idx| idx * 8).collect::<Vec<_>>();
     let lengths = decoy_datagram_lengths(Some(normalized_quic.datagram_len), &rungs);
-    rungs
+    lengths
         .into_iter()
-        .zip(lengths)
         .enumerate()
-        .filter_map(|(idx, (rung, len))| {
-            let mut layout = QuicInitialPacketLayout::contiguous(len);
-            layout.extra_tail_padding = rung;
+        .filter_map(|(idx, len)| {
             packetize_browser_like_quic_initial(
                 group,
                 Some(normalized_quic),
                 quic_browser_profile_for_index(idx),
-                layout,
+                QuicInitialPacketLayout::contiguous(len),
             )
         })
         .collect()
