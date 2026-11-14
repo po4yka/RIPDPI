@@ -420,7 +420,7 @@ fn browser_like_quic_initial_wire_images_are_stable() {
                 QuicInitialBrowserProfile::ChromeAndroid,
             )
             .expect("build chrome-like packet"),
-            9_608_150_740_566_105_141,
+            4_058_808_032_572_889_994,
         ),
         (
             "firefox121",
@@ -430,12 +430,12 @@ fn browser_like_quic_initial_wire_images_are_stable() {
                 QuicInitialBrowserProfile::FirefoxAndroid,
             )
             .expect("build firefox-like packet"),
-            17_210_174_290_090_500_254,
+            703_241_862_559_958_511,
         ),
         (
             "generic_v1",
             build_generic_quic_initial(QUIC_V1_VERSION, Some("fixture.example.test")).expect("build generic packet"),
-            10_643_788_562_179_451_509,
+            521_263_095_396_912_457,
         ),
     ];
 
@@ -900,3 +900,71 @@ mod completeness_tests;
 
 #[path = "datagram_tests.rs"]
 mod datagram_tests;
+
+fn be16(data: &[u8], at: usize) -> usize {
+    usize::from(u16::from_be_bytes([data[at], data[at + 1]]))
+}
+
+/// Walks a TLS ClientHello record independently of the production transform.
+/// Returns (session_id_len, extensions as (type, data)), asserting all length fields.
+fn walk_client_hello(record: &[u8]) -> (usize, Vec<(usize, Vec<u8>)>) {
+    assert_eq!(record[0], 0x16);
+    assert_eq!(be16(record, 3), record.len() - 5, "record length");
+    assert_eq!(record[5], 0x01);
+    let hs_len = (usize::from(record[6]) << 16) | be16(record, 7);
+    assert_eq!(hs_len, record.len() - 9, "handshake length");
+    let sid_len = usize::from(record[9 + 34]);
+    let mut at = 9 + 35 + sid_len;
+    at += 2 + be16(record, at);
+    at += 1 + usize::from(record[at]);
+    let ext_total = be16(record, at);
+    at += 2;
+    assert_eq!(at + ext_total, record.len(), "extensions length");
+    let mut exts = Vec::new();
+    while at < record.len() {
+        let len = be16(record, at + 2);
+        exts.push((be16(record, at), record[at + 4..at + 4 + len].to_vec()));
+        at += 4 + len;
+    }
+    assert_eq!(at, record.len());
+    (sid_len, exts)
+}
+
+#[test]
+fn browser_like_quic_initial_client_hello_is_quic_correct() {
+    for version in [QUIC_V1_VERSION, QUIC_V2_VERSION] {
+        for profile in [QuicInitialBrowserProfile::ChromeAndroid, QuicInitialBrowserProfile::FirefoxAndroid] {
+            let packet = build_browser_like_quic_initial(version, Some("quic.example.test"), profile).expect("build");
+            let seed = parse_quic_initial_seed(&packet).expect("decrypt and parse");
+            let (sid_len, exts) = walk_client_hello(&seed.client_hello);
+            assert_eq!(sid_len, 0);
+            let get = |id: usize| -> Vec<&Vec<u8>> { exts.iter().filter(|e| e.0 == id).map(|e| &e.1).collect() };
+            assert_eq!(get(0x10), vec![&vec![0, 3, 2, b'h', b'3']]);
+            assert_eq!(get(0x2b), vec![&vec![2, 0x03, 0x04]]);
+            let sni = get(0x00);
+            assert_eq!(sni.len(), 1);
+            assert_eq!(&sni[0][5..], b"quic.example.test");
+            let tp = get(0x39);
+            assert_eq!(tp.len(), 1);
+            let tp = tp[0];
+            // All ids and lengths are < 64, so they are single-byte varints.
+            let (mut at, mut ids) = (0, Vec::new());
+            while at < tp.len() {
+                let (id, len) = (tp[at], usize::from(tp[at + 1]));
+                if id == 0x0f {
+                    assert_eq!(&tp[at + 2..at + 2 + len], seed.scid.as_slice());
+                }
+                ids.push(id);
+                at += 2 + len;
+            }
+            assert_eq!(at, tp.len());
+            for required in [0x01, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0f] {
+                assert!(ids.contains(&required), "missing transport parameter {required:#x}");
+            }
+        }
+    }
+    let generic = build_generic_quic_initial(QUIC_V1_VERSION, Some("quic.example.test")).expect("generic");
+    let (sid_len, exts) = walk_client_hello(&parse_quic_initial_seed(&generic).expect("seed").client_hello);
+    assert_eq!(sid_len, 0);
+    assert!(exts.iter().any(|e| e.0 == 0x39));
+}

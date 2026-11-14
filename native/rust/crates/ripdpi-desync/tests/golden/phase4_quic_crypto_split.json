@@ -1,30 +1,29 @@
 {
   "input": {
     "crypto_frame_boundaries": [
-      757
+      765
     ],
     "crypto_frames": [
       {
         "crypto_range": [
           0,
-          757
+          765
         ],
         "packet_payload_range": [
           4,
-          761
+          769
         ]
       }
     ],
     "packet_len": 1200,
     "tls": {
       "alpn": [
-        "h2",
-        "http/1.1"
+        "h3"
       ],
       "authority": "docs.example.test",
       "authority_span": [
-        120,
-        137
+        88,
+        105
       ],
       "grease": {
         "cipher_suites": [],
@@ -44,41 +43,40 @@
   },
   "rewritten": {
     "crypto_frame_boundaries": [
-      378,
-      757
+      382,
+      765
     ],
     "crypto_frames": [
       {
         "crypto_range": [
           0,
-          378
+          382
         ],
         "packet_payload_range": [
           4,
-          382
+          386
         ]
       },
       {
         "crypto_range": [
-          378,
-          757
+          382,
+          765
         ],
         "packet_payload_range": [
-          387,
-          766
+          391,
+          774
         ]
       }
     ],
     "packet_len": 1200,
     "tls": {
       "alpn": [
-        "h2",
-        "http/1.1"
+        "h3"
       ],
       "authority": "docs.example.test",
       "authority_span": [
-        120,
-        137
+        88,
+        105
       ],
       "grease": {
         "cipher_suites": [],

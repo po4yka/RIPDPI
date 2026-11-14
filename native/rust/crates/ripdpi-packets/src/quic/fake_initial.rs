@@ -5,7 +5,7 @@ use crate::{TlsFakeProfile, tls_fake_profile_bytes};
 
 use super::build::build_quic_initial_raw;
 use super::datagram::decode_quic_initial_datagram;
-use super::frames::append_segmented_quic_crypto_frames;
+use super::frames::{append_segmented_quic_crypto_frames, encode_quic_varint};
 use super::parse::supported_quic_version;
 use super::{QUIC_FAKE_DCID, QUIC_FAKE_INITIAL_TARGET_LEN, QUIC_FAKE_SCID, QUIC_INITIAL_MIN_LEN};
 
@@ -36,6 +36,117 @@ fn tls_profile_for_quic_browser(profile: QuicInitialBrowserProfile) -> TlsFakePr
     }
 }
 
+const EXT_ALPN: usize = 0x0010;
+const EXT_PADDING: usize = 0x0015;
+const EXT_SUPPORTED_VERSIONS: usize = 0x002b;
+const EXT_QUIC_TRANSPORT_PARAMETERS: usize = 0x0039;
+/// TCP-only ALPS (old and new codepoints) advertises `h2` settings and contradicts the QUIC `h3` ALPN.
+const EXT_ALPS_OLD: usize = 0x4469;
+const EXT_ALPS: usize = 0x44cd;
+
+fn quic_transport_parameters(scid: &[u8], profile: TlsFakeProfile) -> Vec<u8> {
+    let mut params: Vec<(u64, Vec<u8>)> = if profile == TlsFakeProfile::IanaFirefox {
+        [
+            (0x04, 25_165_824),
+            (0x05, 12_582_912),
+            (0x06, 1_048_576),
+            (0x07, 1_048_576),
+            (0x08, 16),
+            (0x09, 16),
+            (0x01, 30_000),
+            (0x0e, 8),
+        ]
+        .map(|(id, value)| (id, encode_quic_varint(value)))
+        .into()
+    } else {
+        [
+            (0x01, 30_000),
+            (0x03, 1472),
+            (0x04, 15_728_640),
+            (0x05, 6_291_456),
+            (0x06, 6_291_456),
+            (0x07, 6_291_456),
+            (0x08, 100),
+            (0x09, 103),
+            (0x0e, 4),
+        ]
+        .map(|(id, value)| (id, encode_quic_varint(value)))
+        .into()
+    };
+    params.push((0x0f, scid.to_vec()));
+    let mut out = Vec::new();
+    for (id, value) in params {
+        out.extend_from_slice(&encode_quic_varint(id));
+        out.extend_from_slice(&encode_quic_varint(value.len() as u64));
+        out.extend_from_slice(&value);
+    }
+    out
+}
+
+fn push_extension(out: &mut Vec<u8>, id: usize, data: &[u8]) -> Option<()> {
+    out.extend_from_slice(&u16::try_from(id).ok()?.to_be_bytes());
+    out.extend_from_slice(&u16::try_from(data.len()).ok()?.to_be_bytes());
+    out.extend_from_slice(data);
+    Some(())
+}
+
+/// Rewrites a TCP ClientHello record into a QUIC ClientHello (RFC 9001 4.2, 8.1, 8.2, 8.4): empty legacy session
+/// id, TLS 1.3 only, ALPN `h3`, a `quic_transport_parameters` extension, and no TCP-only padding or ALPS.
+/// Extension order of the template is kept; replaced extensions stay in place, missing ones are appended.
+fn quic_client_hello_from_tcp_template(record: &[u8], scid: &[u8], profile: TlsFakeProfile) -> Option<Vec<u8>> {
+    let hs_len = read_u16(record, 7)? + (usize::from(*record.get(6)?) << 16);
+    let body = record.get(TLS_RECORD_HEADER_LEN + 4..TLS_RECORD_HEADER_LEN + 4 + hs_len)?;
+    let sid_len = usize::from(*body.get(34)?);
+    let cs_start = 35 + sid_len;
+    let mut pos = cs_start;
+    let cs_len = read_u16(body, pos)?;
+    let cs_end = pos + 2 + cs_len;
+    let comp_len = usize::from(*body.get(cs_end)?);
+    pos = cs_end + 1 + comp_len;
+    let ext_len = read_u16(body, pos)?;
+    let mut exts = body.get(pos + 2..pos + 2 + ext_len)?;
+
+    let mut new_exts = Vec::new();
+    let (mut alpn, mut versions) = (false, false);
+    while !exts.is_empty() {
+        let id = read_u16(exts, 0)?;
+        let len = read_u16(exts, 2)?;
+        let data = exts.get(4..4 + len)?;
+        exts = &exts[4 + len..];
+        match id {
+            EXT_ALPN => {
+                alpn = true;
+                push_extension(&mut new_exts, id, &[0, 3, 2, b'h', b'3'])?;
+            }
+            EXT_SUPPORTED_VERSIONS => {
+                versions = true;
+                push_extension(&mut new_exts, id, &[2, 0x03, 0x04])?;
+            }
+            EXT_PADDING | EXT_QUIC_TRANSPORT_PARAMETERS | EXT_ALPS | EXT_ALPS_OLD => {}
+            _ => push_extension(&mut new_exts, id, data)?,
+        }
+    }
+    if !alpn {
+        push_extension(&mut new_exts, EXT_ALPN, &[0, 3, 2, b'h', b'3'])?;
+    }
+    if !versions {
+        push_extension(&mut new_exts, EXT_SUPPORTED_VERSIONS, &[2, 0x03, 0x04])?;
+    }
+    push_extension(&mut new_exts, EXT_QUIC_TRANSPORT_PARAMETERS, &quic_transport_parameters(scid, profile))?;
+
+    let mut hello = Vec::new();
+    hello.extend_from_slice(&body[..32 + 2]);
+    hello.push(0);
+    hello.extend_from_slice(&body[cs_start..pos]);
+    hello.extend_from_slice(&u16::try_from(new_exts.len()).ok()?.to_be_bytes());
+    hello.extend_from_slice(&new_exts);
+
+    let mut handshake = vec![0x01];
+    handshake.extend_from_slice(&u32::try_from(hello.len()).ok()?.to_be_bytes()[1..]);
+    handshake.extend_from_slice(&hello);
+    tls_record_from_handshake(&handshake)
+}
+
 pub fn build_browser_like_quic_initial_seed(
     version: u32,
     host_override: Option<&str>,
@@ -57,6 +168,9 @@ fn build_quic_initial_seed_for_tls_profile(
             client_hello = mutation.bytes;
         }
     }
+    // The transport parameters carry initial_source_connection_id, which RFC 9000 7.3 requires to equal the
+    // Initial header SCID. Both use QUIC_FAKE_SCID here; a caller that changes `seed.scid` must rebuild the hello.
+    let client_hello = quic_client_hello_from_tcp_template(&client_hello, &QUIC_FAKE_SCID, profile)?;
     Some(QuicInitialSeed {
         version: if supported_quic_version(version) { version } else { QUIC_V1_VERSION },
         dcid: QUIC_FAKE_DCID.to_vec(),
