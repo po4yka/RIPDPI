@@ -815,6 +815,38 @@ fn plan_udp_quic_multi_initial_realistic_packets_are_distinct() {
 }
 
 #[test]
+fn plan_udp_rejects_invalid_multi_initial_models_before_generation() {
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("budget.example.test")).expect("input");
+    for counts in [vec![-1], vec![33], vec![i32::MAX], vec![32, 1], vec![1; 17]] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.udp_chain = counts
+            .into_iter()
+            .map(|count| UdpChainStep::new(UdpChainStepKind::QuicMultiInitialRealistic, count))
+            .collect();
+        assert_eq!(plan_udp(&group, &payload, 64, udp_context(&payload)), vec![DesyncAction::Write(payload.clone())]);
+    }
+}
+
+#[test]
+fn plan_udp_multi_initial_budget_counts_emitted_packets() {
+    let payload =
+        build_realistic_quic_initial(ripdpi_packets::QUIC_V1_VERSION, Some("budget.example.test")).expect("input");
+    for (counts, expected_decoys) in [(vec![0], 0), (vec![1], 2), (vec![2], 2), (vec![32, 0], 32), (vec![1; 16], 32)] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.udp_chain = counts
+            .into_iter()
+            .map(|count| UdpChainStep::new(UdpChainStepKind::QuicMultiInitialRealistic, count))
+            .collect();
+        let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+        assert_eq!(
+            actions.iter().filter(|action| matches!(action, DesyncAction::Write(_))).count(),
+            expected_decoys + 1
+        );
+        assert_eq!(actions.last(), Some(&DesyncAction::Write(payload.clone())));
+    }
+}
+
+#[test]
 fn plan_udp_quic_version_negotiation_decoy_uses_ir_seed_authority() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {

@@ -1,6 +1,5 @@
 use ripdpi_config::{
-    FakeOrder, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, TcpChainStep, TcpChainStepKind, UdpChainStep,
-    UdpChainStepKind,
+    FakeOrder, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
 };
 
 use crate::types::ProxyConfigError;
@@ -156,6 +155,18 @@ pub(crate) fn validate_udp_chain(steps: &[UdpChainStep]) -> Result<(), ProxyConf
             )));
         }
     }
+    let mut remaining = MAX_QUIC_MULTI_INITIAL_COUNT;
+    for step in steps {
+        if step.kind == UdpChainStepKind::QuicMultiInitialRealistic && step.count > 0 {
+            let count = step.count.max(2);
+            if count > remaining {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "udpChainSteps quic_multi_initial_realistic packet total must be at most {MAX_QUIC_MULTI_INITIAL_COUNT}"
+                )));
+            }
+            remaining -= count;
+        }
+    }
     Ok(())
 }
 
@@ -177,5 +188,24 @@ fn tcp_chain_step_kind_label(kind: TcpChainStepKind) -> &'static str {
         TcpChainStepKind::IpFrag2 => "ipfrag2",
         TcpChainStepKind::FakeRst => "fakerst",
         _ => "unknown",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multi_initial_chain_counts_actual_packets() {
+        let step = |count| UdpChainStep::new(UdpChainStepKind::QuicMultiInitialRealistic, count);
+        for (steps, accepted) in [
+            (vec![step(32), step(0)], true),
+            (vec![step(32), step(1)], false),
+            (vec![step(1); 16], true),
+            (vec![step(1); 17], false),
+            (vec![step(i32::MAX), step(i32::MAX)], false),
+        ] {
+            assert_eq!(validate_udp_chain(&steps).is_ok(), accepted, "steps={steps:?}");
+        }
     }
 }

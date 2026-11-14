@@ -11,6 +11,8 @@ private const val MaxDummyPrependCount = 64
 // Mirrors MAX_QUIC_PADDING_LADDER_COUNT in native/rust ripdpi-config: 31 rungs of 8 bytes fit 1200..1452.
 private const val MaxQuicPaddingLadderCount = 31
 
+// Mirrors MAX_QUIC_MULTI_INITIAL_COUNT in native/rust ripdpi-config src/constants.rs.
+private const val MaxQuicMultiInitialCount = 32
 internal const val MaxHostLabelLength = 16
 internal const val MaxDnsTlsRandRecFragmentSize = 4096
 
@@ -157,6 +159,16 @@ internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
     require(versionDecoyCount <= MaxFakeBurstCount) {
         "quic_version_negotiation_decoy combined count must be at most $MaxFakeBurstCount"
     }
+    var remainingMultiInitialPackets = MaxQuicMultiInitialCount
+    normalized.forEach { step ->
+        if (step.kind == UdpChainStepKind.QuicMultiInitialRealistic && step.count > 0) {
+            val packets = step.count.coerceAtLeast(2)
+            require(packets <= remainingMultiInitialPackets) {
+                "quic_multi_initial_realistic packet total must be at most $MaxQuicMultiInitialCount"
+            }
+            remainingMultiInitialPackets -= packets
+        }
+    }
     if (normalized.any { it.kind == UdpChainStepKind.IpFrag2Udp }) {
         require(normalized.size == 1) { "ipfrag2_udp must be the only udp chain step" }
     }
@@ -270,6 +282,9 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
         UdpChainStepKind.QuicMultiInitialRealistic,
         -> {
             require(step.count >= 0) { "${step.kind.wireName} count must be non-negative" }
+            require(step.kind != UdpChainStepKind.QuicMultiInitialRealistic || step.count <= MaxQuicMultiInitialCount) {
+                "quic_multi_initial_realistic count must be at most $MaxQuicMultiInitialCount"
+            }
             require(step.splitBytes == 0) { "${step.kind.wireName} must not declare splitBytes" }
             require(step.ipv6ExtensionProfile == StrategyIpv6ExtensionProfileNone) {
                 "${step.kind.wireName} must not declare ipv6ExtensionProfile"

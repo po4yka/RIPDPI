@@ -1,5 +1,5 @@
 use ripdpi_config::{
-    MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_PADDING_LADDER_COUNT, UdpChainStep, UdpChainStepKind,
+    MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_PADDING_LADDER_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT, UdpChainStep, UdpChainStepKind,
 };
 
 use crate::types::{ProxyConfigError, ProxyUiUdpChainStep};
@@ -75,6 +75,11 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
                 "udpChainSteps kind=quic_version_negotiation_decoy count must be at most {MAX_FAKE_BURST_COUNT}"
             )));
         }
+        if kind == UdpChainStepKind::QuicMultiInitialRealistic && step.count > MAX_QUIC_MULTI_INITIAL_COUNT {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "udpChainSteps kind=quic_multi_initial_realistic count must be at most {MAX_QUIC_MULTI_INITIAL_COUNT}"
+            )));
+        }
         if kind == UdpChainStepKind::IpFrag2Udp {
             if step.count != 0 {
                 return Err(ProxyConfigError::InvalidConfig(
@@ -114,3 +119,22 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
 
 #[cfg(test)]
 mod budget_tests;
+
+#[cfg(test)]
+mod multi_initial_tests {
+    use super::*;
+
+    #[test]
+    fn multi_initial_count_is_bounded() {
+        for (count, accepted) in [(0, true), (1, true), (2, true), (32, true), (33, false), (i32::MAX, false)] {
+            let step = ProxyUiUdpChainStep {
+                kind: "quic_multi_initial_realistic".to_string(),
+                count,
+                split_bytes: 0,
+                activation_filter: None,
+                ipv6_extension_profile: "none".to_string(),
+            };
+            assert_eq!(parse_proxy_udp_chain(&[step]).is_ok(), accepted, "count={count}");
+        }
+    }
+}

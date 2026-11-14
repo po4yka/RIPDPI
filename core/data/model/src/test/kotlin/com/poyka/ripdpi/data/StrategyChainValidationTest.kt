@@ -38,6 +38,40 @@ class StrategyChainValidationTest {
     }
 
     @Test
+    fun `multi initial count has a finite limit`() {
+        for ((count, accepted) in listOf(
+            0 to true,
+            1 to true,
+            2 to true,
+            32 to true,
+            33 to false,
+            Int.MAX_VALUE to false,
+        )) {
+            val result = parseStrategyChainDsl("[udp]\nquic_multi_initial_realistic $count")
+
+            assertEquals("count=$count", accepted, result.isSuccess)
+        }
+    }
+
+    @Test
+    fun `multi initial chain budget counts the minimum two packets`() {
+        for (
+        (counts, accepted) in
+        listOf(
+            listOf(32, 0) to true,
+            listOf(32, 1) to false,
+            List(16) { 1 } to true,
+            List(17) { 1 } to false,
+            listOf(Int.MAX_VALUE, Int.MAX_VALUE) to false,
+        )
+        ) {
+            val source = "[udp]\n" + counts.joinToString("\n") { "quic_multi_initial_realistic $it" }
+
+            assertEquals("counts=$counts", accepted, parseStrategyChainDsl(source).isSuccess)
+        }
+    }
+
+    @Test
     fun `send steps after seqovl are rejected before execution`() {
         for (kind in listOf("split", "disorder", "fake", "oob", "disoob", "syndata", "fakedsplit", "hostfake")) {
             val result = parseStrategyChainDsl("seqovl 2\n$kind 4")

@@ -4,7 +4,7 @@ mod quic;
 mod sequencing;
 
 use crate::types::{ActivationContext, AdaptiveUdpBurstProfile, DesyncAction, activation_filter_matches};
-use ripdpi_config::{ActivationFilter, DesyncGroup, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, UdpChainStepKind};
+use ripdpi_config::{ActivationFilter, DesyncGroup, MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_MULTI_INITIAL_COUNT, UdpChainStepKind};
 
 use self::fragmentation::build_ip_fragmented_udp_action;
 use self::packet_family::{UdpPreludeState, build_udp_prelude_packets};
@@ -14,6 +14,23 @@ use self::sequencing::append_ttl_wrapped_packets;
 pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: ActivationContext) -> Vec<DesyncAction> {
     if !activation_filter_matches(group.activation_filter(), context) {
         return vec![DesyncAction::Write(payload.to_vec())];
+    }
+
+    // Validate internal models before cloning the chain or generating packets.
+    let mut remaining = MAX_QUIC_MULTI_INITIAL_COUNT;
+    for step in &group.actions.udp_chain {
+        if step.kind == UdpChainStepKind::QuicMultiInitialRealistic {
+            if !(0..=MAX_QUIC_MULTI_INITIAL_COUNT).contains(&step.count) {
+                return vec![DesyncAction::Write(payload.to_vec())];
+            }
+            if step.count > 0 {
+                let count = step.count.max(2);
+                if count > remaining {
+                    return vec![DesyncAction::Write(payload.to_vec())];
+                }
+                remaining -= count;
+            }
+        }
     }
 
     let mut actions = Vec::new();
