@@ -37,6 +37,7 @@ impl UdpExecutionError {
 pub enum UdpExecutionFallbackReason {
     RelayPathSkippedPacketMutation,
     IpFragmentationFallback,
+    PreludeWriteFailed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -222,7 +223,7 @@ pub fn execute_udp_actions(
             Err(source)
                 if real_index.is_some()
                     && !is_real
-                    && udp_write_bytes(action).is_some()
+                    && matches!(action, DesyncAction::WriteIpFragmentedUdp { .. })
                     && is_decoy_local_send_error(&source) =>
             {
                 // A failed decoy must not cost the real datagram: a later SetTtl restores the TTL.
@@ -231,6 +232,22 @@ pub fn execute_udp_actions(
                 continue;
             }
             Err(source) => {
+                if matches!(action, DesyncAction::Write(_))
+                    && real_index.is_some_and(|real| index < real)
+                    && is_decoy_local_send_error(&source)
+                    && (!ttl_changed || ctx.default_ttl != 0)
+                {
+                    outcome.fallback_reason = Some(UdpExecutionFallbackReason::PreludeWriteFailed);
+                    if ttl_changed {
+                        set_socket_ttl(ctx, ctx.default_ttl).map_err(|source| UdpExecutionError { source, outcome })?;
+                    }
+                    let original = execute_udp_write_action(ctx, logical_payload, true)
+                        .map_err(|source| UdpExecutionError { source, outcome })?;
+                    outcome.completed_actions = outcome.completed_actions.saturating_add(1);
+                    outcome.real_writes_committed = original.real_writes_committed;
+                    outcome.payload_bytes_committed = original.payload_bytes_committed;
+                    return Ok(outcome);
+                }
                 if ttl_changed && ctx.default_ttl != 0 {
                     // Best effort: do not leave a decoy TTL on the socket for later datagrams of the flow.
                     if let Err(restore_error) = set_socket_ttl(ctx, ctx.default_ttl) {
@@ -490,6 +507,61 @@ mod tests {
     use super::*;
 
     #[test]
+    fn failed_optional_prelude_preserves_the_original_and_default_ttl() {
+        for bind in ["127.0.0.1:0", "[::1]:0"] {
+            let peer = UdpSocket::bind(bind).expect("bind peer");
+            peer.set_read_timeout(Some(Duration::from_millis(200))).expect("peer timeout");
+            let sender = UdpSocket::bind(bind).expect("bind sender");
+            let target = peer.local_addr().expect("peer address");
+            sender.connect(target).expect("connect sender");
+            let ctx = UdpActionExecContext {
+                upstream: &sender,
+                target,
+                default_ttl: 64,
+                protect_path: None,
+                ip_id_mode: None,
+                socks_udp_frame: false,
+            };
+            let actions = [
+                DesyncAction::SetTtl(8),
+                DesyncAction::Write(vec![0; 65_536]),
+                DesyncAction::Write(b"remaining decoy".to_vec()),
+                DesyncAction::RestoreDefaultTtl,
+                DesyncAction::SetTtl(64),
+                DesyncAction::Write(b"original".to_vec()),
+            ];
+            let outcome = execute_udp_actions(ctx, &actions, b"original").expect("original fallback");
+            let mut bytes = [0; 64];
+            let count = peer.recv(&mut bytes).expect("receive original");
+            assert_eq!(&bytes[..count], b"original");
+            assert!(peer.recv(&mut bytes).is_err(), "remaining decoys are skipped");
+            assert_eq!(outcome.real_writes_committed, 1);
+            assert_eq!(outcome.payload_bytes_committed, 8);
+            assert!(outcome.completed_actions < outcome.attempted_actions);
+            assert_eq!(outcome.fallback_reason, Some(UdpExecutionFallbackReason::PreludeWriteFailed));
+            let socket = SockRef::from(&sender);
+            let ttl = if target.is_ipv4() { socket.ttl_v4() } else { socket.unicast_hops_v6() };
+            assert_eq!(ttl.expect("read restored TTL"), 64);
+        }
+    }
+
+    #[test]
+    fn failed_original_after_prelude_fallback_remains_an_execution_error() {
+        let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(peer.local_addr().expect("peer address")).expect("connect sender");
+        let original = vec![1; 70_000];
+        let actions =
+            [DesyncAction::SetTtl(8), DesyncAction::Write(vec![0; 65_536]), DesyncAction::Write(original.clone())];
+        let error = execute_udp_actions(loopback_ctx(&sender, false), &actions, &original)
+            .expect_err("the original is also too large");
+        assert_eq!(error.outcome.real_writes_committed, 0);
+        assert_eq!(error.outcome.payload_bytes_committed, 0);
+        assert_eq!(error.outcome.fallback_reason, Some(UdpExecutionFallbackReason::PreludeWriteFailed));
+        assert_eq!(SockRef::from(&sender).ttl_v4().expect("read restored TTL"), 64);
+    }
+
+    #[test]
     fn ipv6_extension_headers_project_to_exact_bounded_profile() {
         use ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile as Profile;
 
@@ -692,6 +764,7 @@ mod tests {
         let n = peer.recv(&mut buf).expect("peer receives the real datagram");
         assert_eq!(&buf[..n], b"real");
         assert_eq!(outcome.real_writes_committed, 1);
+        assert_eq!(outcome.fallback_reason, Some(UdpExecutionFallbackReason::PreludeWriteFailed));
         assert_eq!(outcome.technique_actions_completed, 0);
         assert_eq!(SockRef::from(&sender).ttl_v4().expect("read IPv4 TTL"), 64);
     }
@@ -753,6 +826,7 @@ mod tests {
         let n = peer.recv(&mut buf).expect("peer receives the real datagram");
         assert_eq!(&buf[..n], b"real");
         assert_eq!(outcome.real_writes_committed, 1);
+        assert_eq!(outcome.fallback_reason, Some(UdpExecutionFallbackReason::PreludeWriteFailed));
         assert_eq!(SockRef::from(&sender).unicast_hops_v6().expect("read IPv6 hop limit"), 64);
     }
 

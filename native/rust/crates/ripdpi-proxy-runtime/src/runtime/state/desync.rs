@@ -405,29 +405,34 @@ mod tests {
 
     #[test]
     fn udp_plain_fallback_is_distinct_from_activation_skip() {
-        let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 8));
-        let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
-        let attempt_token = AttemptCorrelationId::new("udp-plain-fallback").expect("valid attempt token");
+        for (family, fallback, completed, techniques) in [
+            ("quic_ipfrag2", UdpExecutionFallbackReason::IpFragmentationFallback, 5, 0),
+            ("quic_crypto_split", UdpExecutionFallbackReason::PreludeWriteFailed, 2, 1),
+        ] {
+            let control = Arc::new(EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 8));
+            let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
+            let attempt_token = AttemptCorrelationId::new("udp-plain-fallback").expect("valid attempt token");
 
-        assert!(state.record_udp_desync_execution_evidence(
-            Some(&attempt_token),
-            Some("quic_ipfrag2"),
-            UdpExecutionOutcome {
-                attempted_actions: 2,
-                completed_actions: 2,
-                real_writes_committed: 1,
-                payload_bytes_committed: 256,
-                technique_actions_completed: 0,
-                ipv6_extension_profile: None,
-                fallback_reason: Some(UdpExecutionFallbackReason::IpFragmentationFallback),
-            },
-        ));
+            assert!(state.record_udp_desync_execution_evidence(
+                Some(&attempt_token),
+                Some(family),
+                UdpExecutionOutcome {
+                    attempted_actions: 5,
+                    completed_actions: completed,
+                    real_writes_committed: 1,
+                    payload_bytes_committed: 256,
+                    technique_actions_completed: techniques,
+                    ipv6_extension_profile: None,
+                    fallback_reason: Some(fallback),
+                },
+            ));
 
-        let evidence = control.desync_execution_evidence();
-        assert_eq!(evidence.len(), 1);
-        assert_eq!(evidence[0].receipt().disposition(), DesyncExecutionDisposition::PlanFailedPlainFallback);
-        assert_eq!(evidence[0].receipt().effective_family(), None);
-        assert_eq!(evidence[0].receipt().fallback_reason(), Some(DesyncFallbackReason::StrategyFamilyFallback));
+            let evidence = control.desync_execution_evidence();
+            assert_eq!(evidence.len(), 1);
+            assert_eq!(evidence[0].receipt().disposition(), DesyncExecutionDisposition::PlanFailedPlainFallback);
+            assert_eq!(evidence[0].receipt().effective_family(), None);
+            assert_eq!(evidence[0].receipt().fallback_reason(), Some(DesyncFallbackReason::StrategyFamilyFallback));
+        }
     }
 
     #[test]

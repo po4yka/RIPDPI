@@ -220,7 +220,8 @@ pub(super) fn packetize_input_quic_initial(
     normalized_quic: &NormalizedQuicPlannerInput,
     layout: QuicInitialPacketLayout,
 ) -> Option<Vec<u8>> {
-    packetize_quic_initial(&normalized_quic.seed, &layout)
+    let packet = packetize_quic_initial(&normalized_quic.seed, &layout)?;
+    (packet.len() <= normalized_quic.datagram_len).then_some(packet)
 }
 
 pub(super) fn packetize_browser_like_quic_initial(

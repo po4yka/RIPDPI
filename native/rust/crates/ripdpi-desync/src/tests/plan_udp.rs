@@ -365,6 +365,32 @@ fn plan_udp_quic_crypto_split_uses_first_flight_ir_boundary() {
 }
 
 #[test]
+fn quic_crypto_split_keeps_the_original_when_framing_exceeds_its_budget() {
+    let mut seed = ripdpi_packets::parse_quic_initial_seed(include_bytes!(
+        "../../../ripdpi-packets/tests/fixtures/quic-initial/token-v1.bin"
+    ))
+    .expect("independent RFC ClientHello");
+    seed.token.clear();
+    // Add a TLS padding extension so the 1150-byte handshake fills a 1200-byte Initial.
+    seed.client_hello.extend_from_slice(&[0, 21, 3, 137]);
+    seed.client_hello.extend_from_slice(&[0; 905]);
+    seed.client_hello[3..5].copy_from_slice(&1150u16.to_be_bytes());
+    seed.client_hello[6..9].copy_from_slice(&[0, 4, 122]);
+    seed.client_hello[52..54].copy_from_slice(&1101u16.to_be_bytes());
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::QuicCryptoSplit, 1)];
+    for version in [ripdpi_packets::QUIC_V1_VERSION, QUIC_V2_VERSION] {
+        seed.version = version;
+        let payload =
+            ripdpi_packets::packetize_quic_initial(&seed, &ripdpi_packets::QuicInitialPacketLayout::contiguous(1200))
+                .expect("packetize tight Initial");
+        assert_eq!(payload.len(), 1200);
+        assert!(normalize_quic_initial(&payload).is_some());
+        assert_eq!(plan_udp(&group, &payload, 64, udp_context(&payload)), vec![DesyncAction::Write(payload)],);
+    }
+}
+
+#[test]
 fn plan_udp_quic_multi_initial_realistic_uses_builtin_host_when_no_override_is_set() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {
