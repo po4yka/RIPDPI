@@ -216,7 +216,7 @@ pub(super) fn try_advance_udp_preferred_target(
     entry: &mut UdpFlowActivationState,
     now: Instant,
 ) -> io::Result<bool> {
-    let payload = entry.payload.clone();
+    let payload = entry.pending_payload().to_vec();
     let mut next_index = entry.target_index + 1;
     while let Some(selection) = select_udp_flow_target(
         state,
@@ -234,6 +234,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.source_rebind_policy = selection.source_rebind_policy;
         entry.execution_family = selection.execution_family;
         entry.remote_feedback.reset_socket();
+        entry.session.reset_response_evidence();
         entry.upstream = selection.upstream;
         entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;
@@ -346,6 +347,7 @@ fn update_udp_flow_selection(
         entry.source_rebind_policy = selection.source_rebind_policy;
         entry.execution_family = selection.execution_family;
         entry.remote_feedback.reset_socket();
+        entry.session.reset_response_evidence();
         entry.upstream = selection.upstream;
         entry.upstream_socks = selection.upstream_socks;
         entry.current_target = selection.target;

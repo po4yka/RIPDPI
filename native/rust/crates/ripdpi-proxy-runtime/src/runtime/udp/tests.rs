@@ -1308,3 +1308,6 @@ fn oversized_upstream_datagram_is_dropped_without_ending_the_association() {
     assert_eq!(result.map_err(|err| err.to_string()), Ok(true));
     assert!(flow_state.contains_key(&flow_key), "the flow must survive one oversized datagram");
 }
+
+#[path = "tests/quic_correlation.rs"]
+mod quic_correlation;

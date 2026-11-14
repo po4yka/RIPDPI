@@ -1,21 +1,50 @@
 use super::*;
 use ripdpi_packets::{
-    QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed,
-    build_browser_like_quic_initial_seed, packetize_quic_initial, parse_quic_initial_seed,
-    validate_quic_version_negotiation_response,
+    QUIC_V1_VERSION, QUIC_V2_VERSION, QuicInitialPacketLayout, QuicInitialSeed, packetize_quic_initial,
+    parse_quic_initial_seed, validate_quic_version_negotiation_response,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{UdpChainStep, UdpChainStepKind};
 
 fn real_initial(version: u32) -> Vec<u8> {
-    let mut seed = build_browser_like_quic_initial_seed(
-        version,
-        Some("real.example.test"),
-        QuicInitialBrowserProfile::ChromeAndroid,
-    )
-    .expect("Initial seed");
-    seed.dcid = vec![0xa0; 8];
-    seed.scid = vec![0xb0; 8];
-    packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(1200)).expect("real Initial")
+    if version == QUIC_V1_VERSION {
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ripdpi-packets/tests/fixtures/quic/rfc9001-client-initial.bin"
+        ))
+        .to_vec()
+    } else {
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ripdpi-packets/tests/fixtures/quic/rfc9369-client-initial.bin"
+        ))
+        .to_vec()
+    }
+}
+
+fn real_responses(version: u32) -> (&'static [u8], &'static [u8]) {
+    if version == QUIC_V1_VERSION {
+        (
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../ripdpi-packets/tests/fixtures/quic/rfc9001-server-initial.bin"
+            )),
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../ripdpi-packets/tests/fixtures/quic/rfc9001-retry.bin"
+            )),
+        )
+    } else {
+        (
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../ripdpi-packets/tests/fixtures/quic/rfc9369-server-initial.bin"
+            )),
+            include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../ripdpi-packets/tests/fixtures/quic/rfc9369-retry.bin"
+            )),
+        )
+    }
 }
 
 fn version_negotiation(seed: &QuicInitialSeed) -> Vec<u8> {
@@ -117,6 +146,8 @@ fn quic_decoy_response_does_not_complete_the_real_flow() {
         let real_reply = version_negotiation(&real_seed);
         assert!(validate_quic_version_negotiation_response(&original, &real_reply));
         pump_reply(&real_reply, &mut flows);
+        assert!(!flows.get(&key).expect("flow").answered, "VN does not establish the selected version");
+        pump_reply(real_responses(version).0, &mut flows);
         let entry = flows.get(&key).expect("flow");
         assert!(entry.answered);
         assert!(!entry.awaiting_response);
@@ -127,32 +158,29 @@ fn quic_decoy_response_does_not_complete_the_real_flow() {
 fn quic_reply_correlation_keeps_server_cid_changes_and_retry_context() {
     for version in [QUIC_V1_VERSION, QUIC_V2_VERSION] {
         let original = real_initial(version);
-        let mut seed = parse_quic_initial_seed(&original).expect("original seed");
+        let seed = parse_quic_initial_seed(&original).expect("original seed");
         let mut session = UdpFlowSession::new();
-        session.observe_datagram_outbound(&original);
-        for prefix in if version == QUIC_V1_VERSION { [0xc0, 0xe0, 0xf0] } else { [0xd0, 0xf0, 0xc0] } {
-            let mut reply = vec![prefix];
-            reply.extend_from_slice(&version.to_be_bytes());
-            reply.push(seed.scid.len() as u8);
-            reply.extend_from_slice(&seed.scid);
-            reply.push(8);
-            reply.extend_from_slice(&[0xc0; 8]);
-            assert!(session.response_matches_outbound(&reply), "server Initial/Handshake/Retry may select its own CID");
-            reply[6] ^= 1;
-            assert!(!session.response_matches_outbound(&reply), "a different client CID is not this flow's reply");
+        session.observe_committed_datagram(&original, true);
+        for reply in [real_responses(version).0, real_responses(version).1] {
+            assert!(session.response_matches_outbound(reply), "independent Initial/Retry may select a server CID");
+            let mut wrong_cid = reply.to_vec();
+            wrong_cid[5] = 1;
+            wrong_cid.insert(6, 0xaa);
+            assert!(!session.response_matches_outbound(&wrong_cid));
         }
-        assert!(session.response_matches_outbound(b"\x40opaque-short-header"));
-        let first_reply = version_negotiation(&seed);
-        seed.dcid = vec![0xd0; 8];
-        let after_retry =
-            packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(1200)).expect("post-Retry Initial");
-        session.observe_datagram_outbound(&after_retry);
-        session.observe_datagram_outbound(b"\x40later-client-data");
-        assert!(
-            session.response_matches_outbound(&first_reply),
-            "a delayed reply to an earlier real Initial remains correlated"
-        );
-        assert!(session.response_matches_outbound(&version_negotiation(&seed)));
+        assert!(!session.response_matches_outbound(b"\x40opaque-short-header"));
+        assert!(!session.response_matches_outbound(&version_negotiation(&seed)));
+        let mut bare = vec![if version == QUIC_V1_VERSION { 0xc0 } else { 0xd0 }];
+        bare.extend_from_slice(&version.to_be_bytes());
+        bare.extend_from_slice(&[0, 0]);
+        assert!(!session.response_matches_outbound(&bare), "a bare matching header has no integrity evidence");
+        let next = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../ripdpi-packets/tests/fixtures/quic/compatible/v1-v2-post-retry-client.bin"
+        ));
+        session.observe_committed_datagram(next, true);
+        session.observe_committed_datagram(b"\x40later-client-data", true);
+        assert!(session.response_matches_outbound(real_responses(version).0), "earlier real contexts are not evicted");
     }
 }
 
@@ -163,7 +191,7 @@ fn quic_reply_correlation_bounds_untrusted_header_lengths() {
     let reply = version_negotiation(&seed);
     let mut session = UdpFlowSession::new();
     assert!(session.response_matches_outbound(&reply), "generic UDP keeps its existing response policy");
-    session.observe_datagram_outbound(&original);
+    session.observe_committed_datagram(&original, true);
     for len in 1..(7 + seed.scid.len() + seed.dcid.len()) {
         assert!(!session.response_matches_outbound(&reply[..len]), "truncated long header len={len}");
     }
@@ -179,32 +207,37 @@ fn quic_reply_correlation_bounds_untrusted_header_lengths() {
 fn quic_reply_contexts_deduplicate_and_bound_multiplexed_connections() {
     let original = real_initial(QUIC_V1_VERSION);
     let mut seed = parse_quic_initial_seed(&original).expect("original seed");
-    let first_reply = version_negotiation(&seed);
+    let first_reply = real_responses(QUIC_V1_VERSION).0;
     let mut session = UdpFlowSession::new();
     for _ in 0..128 {
-        session.observe_datagram_outbound(&original);
+        session.observe_committed_datagram(&original, true);
     }
     for connection in 1u8..64 {
-        seed.scid[0] = connection;
-        seed.dcid[0] = connection;
+        seed.scid = vec![connection; 8];
+        seed.dcid = vec![connection; 8];
         let next =
             packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(1200)).expect("multiplexed Initial");
-        session.observe_datagram_outbound(&next);
+        session.observe_committed_datagram(&next, true);
         assert!(session.feedback_is_eligible(), "retransmissions do not consume the context limit");
     }
-    assert!(session.response_matches_outbound(&first_reply), "the first of many real connections remains recognized");
-    assert!(session.response_matches_outbound(&version_negotiation(&seed)));
-    seed.scid[0] = 64;
-    seed.dcid[0] = 64;
+    assert!(session.response_matches_outbound(first_reply), "the first of many real connections remains recognized");
+    assert!(!session.response_matches_outbound(&version_negotiation(&seed)), "VN stays negative with a matching CID");
+    seed.scid = vec![64; 8];
+    seed.dcid = vec![64; 8];
     let overflow = packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(1200)).expect("overflow Initial");
-    session.observe_datagram_outbound(&overflow);
+    session.observe_committed_datagram(&overflow, true);
     assert!(!session.feedback_is_eligible());
-    assert!(!session.response_matches_outbound(&first_reply), "overflow is ambiguous, not positive success evidence");
+    assert!(!session.response_matches_outbound(first_reply), "overflow is ambiguous, not positive success evidence");
     assert!(!session.response_matches_outbound(b"\x40opaque-short-header"));
 }
 
 #[test]
 fn ambiguous_quic_flow_keeps_delivery_and_disarms_silent_failure() {
+    assert_ambiguous_flow_policy(false);
+    assert_ambiguous_flow_policy(true);
+}
+
+fn assert_ambiguous_flow_policy(hard_error: bool) {
     let peer = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("peer");
     peer.set_read_timeout(Some(Duration::from_secs(2))).expect("peer timeout");
     let target = peer.local_addr().expect("peer address");
@@ -225,11 +258,15 @@ fn ambiguous_quic_flow_keeps_delivery_and_disarms_silent_failure() {
     let original = real_initial(QUIC_V1_VERSION);
     let mut seed = parse_quic_initial_seed(&original).expect("original seed");
     for connection in 0u8..65 {
-        seed.scid[0] = connection;
-        seed.dcid[0] = connection;
+        seed.scid = vec![connection; 8];
+        seed.dcid = vec![connection; 8];
         let next = packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(1200)).expect("Initial");
-        entry.session.observe_datagram_outbound(&next);
+        entry.session.observe_committed_datagram(&next, true);
     }
+    let fallback = UdpSocket::bind("127.0.0.1:0").unwrap();
+    fallback.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    entry.target_candidates.push(fallback.local_addr().unwrap());
+    let pending = entry.pending_payload().to_vec();
     let state = test_runtime_state(RuntimeConfig::default());
     super::super::upstream_pump::send_udp_flow_payload(&state, &mut entry, b"\x40real-data", Instant::now(), None)
         .expect("send real data");
@@ -268,6 +305,15 @@ fn ambiguous_quic_flow_keeps_delivery_and_disarms_silent_failure() {
     assert!(entry.last_used > last_activity, "ambiguous traffic still records activity");
     assert!(!entry.answered);
     assert!(!entry.awaiting_response);
+    if hard_error {
+        super::super::flow::retire_failed_udp_flow(&state, &mut flows, &key, None, Instant::now()).unwrap();
+        let mut actual = [0; 2048];
+        let n = fallback.recv(&mut actual).unwrap();
+        assert_eq!(&actual[..n], pending);
+        assert!(flows.get(&key).unwrap().session.feedback_is_eligible());
+        assert!(flows.get(&key).unwrap().awaiting_response);
+        return;
+    }
     let expiry = entry.last_used + UDP_FLOW_IDLE_TIMEOUT + Duration::from_millis(1);
     super::super::flow::expire_udp_flows(&state, &mut flows, None, expiry, &mut Vec::new())
         .expect("expire ambiguous flow");

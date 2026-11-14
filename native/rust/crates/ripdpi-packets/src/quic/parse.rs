@@ -41,7 +41,19 @@ pub(super) fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHead
 }
 
 pub(super) fn parse_quic_initial_response_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
-    if buffer.len() < 7 || (buffer[0] & 0xc0) != 0xc0 {
+    parse_quic_initial_response_header_inner(buffer, false)
+}
+
+pub(super) fn parse_quic_initial_response_header_for_runtime(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
+    parse_quic_initial_response_header_inner(buffer, true)
+}
+
+fn parse_quic_initial_response_header_inner(
+    buffer: &[u8],
+    allow_clear_fixed_bit: bool,
+) -> Option<QuicInitialHeader<'_>> {
+    let prefix_mask = if allow_clear_fixed_bit { 0x80 } else { 0xc0 };
+    if buffer.len() < 7 || (buffer[0] & prefix_mask) != prefix_mask {
         return None;
     }
     let version = read_u32(buffer, 1)?;
@@ -49,7 +61,8 @@ pub(super) fn parse_quic_initial_response_header(buffer: &[u8]) -> Option<QuicIn
         return None;
     }
     let expected_prefix = if is_quic_v2(version) { 0xd0 } else { 0xc0 };
-    if (buffer[0] & 0xf0) != expected_prefix {
+    let type_mask = if allow_clear_fixed_bit { 0xb0 } else { 0xf0 };
+    if (buffer[0] & type_mask) != (expected_prefix & type_mask) {
         return None;
     }
 

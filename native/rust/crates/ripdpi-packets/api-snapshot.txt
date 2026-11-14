@@ -80,6 +80,10 @@ pub ripdpi_packets::HttpFakeProfile::IanaGet
 pub enum ripdpi_packets::QuicInitialBrowserProfile
 pub ripdpi_packets::QuicInitialBrowserProfile::ChromeAndroid
 pub ripdpi_packets::QuicInitialBrowserProfile::FirefoxAndroid
+pub enum ripdpi_packets::QuicInitialResponseDisposition
+pub ripdpi_packets::QuicInitialResponseDisposition::Accepted
+pub ripdpi_packets::QuicInitialResponseDisposition::Rejected
+pub ripdpi_packets::QuicInitialResponseDisposition::UnverifiableClientOffer
 pub enum ripdpi_packets::QuicProbeProfile
 pub ripdpi_packets::QuicProbeProfile::Chrome
 pub ripdpi_packets::QuicProbeProfile::Firefox
@@ -145,6 +149,9 @@ pub ripdpi_packets::QuicInitialPacketLayout::packet_number: u32
 impl ripdpi_packets::QuicInitialPacketLayout
 pub fn ripdpi_packets::QuicInitialPacketLayout::contiguous(usize) -> Self
 pub fn ripdpi_packets::QuicInitialPacketLayout::split_at(usize, usize) -> Self
+pub struct ripdpi_packets::QuicInitialResponseContext
+impl ripdpi_packets::QuicInitialResponseContext
+pub fn ripdpi_packets::QuicInitialResponseContext::matches_connection(&self, &Self) -> bool
 pub struct ripdpi_packets::QuicInitialSeed
 pub ripdpi_packets::QuicInitialSeed::client_hello: alloc::vec::Vec<u8>
 pub ripdpi_packets::QuicInitialSeed::dcid: alloc::vec::Vec<u8>
@@ -205,6 +212,7 @@ pub fn ripdpi_packets::build_profiled_probe_quic_initial(u32, core::option::Opti
 pub fn ripdpi_packets::build_quic_initial_from_tls(u32, &[u8], usize) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_realistic_quic_initial(u32, core::option::Option<&str>) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::change_tls_sni_seeded_like_c(&[u8], &[u8], usize, u32) -> ripdpi_packets::PacketMutation
+pub fn ripdpi_packets::classify_quic_initial_response_context(&ripdpi_packets::QuicInitialResponseContext, &[u8]) -> ripdpi_packets::QuicInitialResponseDisposition
 pub fn ripdpi_packets::default_fake_quic_compat() -> alloc::vec::Vec<u8>
 pub fn ripdpi_packets::duplicate_tls_session_id_inplace(&mut [u8], &[u8]) -> isize
 pub fn ripdpi_packets::http_fake_profile_bytes(ripdpi_packets::HttpFakeProfile) -> &'static [u8]
@@ -225,6 +233,7 @@ pub fn ripdpi_packets::padencap_tls_like_c(&[u8], usize) -> ripdpi_packets::Pack
 pub fn ripdpi_packets::parse_http(&[u8]) -> core::option::Option<ripdpi_packets::HttpHost<'_>>
 pub fn ripdpi_packets::parse_quic_initial(&[u8]) -> core::option::Option<ripdpi_packets::QuicInitialInfo>
 pub fn ripdpi_packets::parse_quic_initial_layout(&[u8]) -> core::option::Option<ripdpi_packets::QuicInitialLayout>
+pub fn ripdpi_packets::parse_quic_initial_response_context(&[u8]) -> core::option::Option<ripdpi_packets::QuicInitialResponseContext>
 pub fn ripdpi_packets::parse_quic_initial_seed(&[u8]) -> core::option::Option<ripdpi_packets::QuicInitialSeed>
 pub fn ripdpi_packets::parse_tls(&[u8]) -> core::option::Option<&[u8]>
 pub fn ripdpi_packets::parse_tls_client_hello_handshake_layout(&[u8]) -> core::option::Option<ripdpi_packets::TlsClientHelloLayout>

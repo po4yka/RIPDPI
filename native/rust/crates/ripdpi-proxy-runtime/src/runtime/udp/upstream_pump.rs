@@ -68,9 +68,9 @@ pub(super) fn pump_udp_upstream_responses(
                     entry.last_used = Instant::now();
                 }
                 if matches_outbound {
-                    entry.session.observe_upstream_response(response);
                     entry.answered = true;
                     note_udp_first_response_success(state, entry)?;
+                    entry.session.observe_upstream_response(response);
                     maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
                 }
                 if key.preserve_host_in_response
@@ -203,6 +203,7 @@ pub(super) fn send_udp_flow_payload(
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
     let progress = entry.session.observe_datagram_outbound(payload);
+    let context = entry.session.prepare_initial(payload, !entry.answered);
     entry.awaiting_response = !entry.answered && entry.session.feedback_is_eligible();
     if let Some(flow) = &entry.lua_flow
         && let Some(plan) =
@@ -216,8 +217,19 @@ pub(super) fn send_udp_flow_payload(
             entry.packet_settings,
             entry.socks_framed(),
             &plan,
-        )
-        .map_err(ripdpi_proxy_runtime_adapter::udp_desync::UdpExecutionError::into_io_error)?;
+        );
+        let outcome = match outcome {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                if error.outcome.real_writes_committed > 0 {
+                    entry.session.register_sent_initial(context);
+                }
+                return Err(error.into_io_error());
+            }
+        };
+        if outcome.real_writes_committed > 0 {
+            entry.session.register_sent_initial(context);
+        }
         entry.awaiting_response =
             !entry.answered && entry.session.feedback_is_eligible() && outcome.real_writes_committed > 0;
         return Ok(());
@@ -245,6 +257,9 @@ pub(super) fn send_udp_flow_payload(
     ) {
         Ok(outcome) => outcome,
         Err(error) => {
+            if error.outcome.real_writes_committed > 0 {
+                entry.session.register_sent_initial(context);
+            }
             entry.remote_feedback.execution_failed(error.outcome.real_writes_committed);
             state.record_udp_desync_failure_evidence(
                 entry.attempt_token.as_ref(),
@@ -254,6 +269,11 @@ pub(super) fn send_udp_flow_payload(
             return Err(error.into_io_error());
         }
     };
+    if outcome.real_writes_committed > 0 {
+        entry.session.register_sent_initial(context);
+    }
+    entry.awaiting_response =
+        !entry.answered && entry.session.feedback_is_eligible() && outcome.real_writes_committed > 0;
     entry.remote_feedback.record_send(payload);
     state.record_udp_desync_execution_evidence(entry.attempt_token.as_ref(), entry.execution_family, outcome);
     Ok(())

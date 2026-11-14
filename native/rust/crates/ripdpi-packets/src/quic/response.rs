@@ -1,3 +1,10 @@
+mod compatible;
+
+pub use compatible::{
+    QuicInitialResponseContext, QuicInitialResponseDisposition, classify_quic_initial_response_context,
+    parse_quic_initial_response_context,
+};
+
 use ring::aead::{AES_128_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
 
 use super::crypto::quic_derive_initial_secret;
@@ -39,13 +46,25 @@ pub fn validate_quic_response(request: &[u8], response: &[u8]) -> Option<QuicRes
         validate_retry_tag(version, sent.dcid, response)?;
         return Some(QuicResponseKind::Retry);
     }
-    let header = parse_quic_initial_response_header(response)?;
+    validate_server_initial(sent.dcid, response)?;
+    Some(QuicResponseKind::Initial)
+}
+
+fn validate_server_initial(request_dcid: &[u8], response: &[u8]) -> Option<()> {
+    validate_server_initial_with_header(request_dcid, response, parse_quic_initial_response_header(response)?)
+}
+
+fn validate_server_initial_with_header(
+    request_dcid: &[u8],
+    response: &[u8],
+    header: super::parse::QuicInitialHeader<'_>,
+) -> Option<()> {
     if !header.token.is_empty() {
         return None;
     }
-    let secret = quic_derive_initial_secret(sent.dcid, version, "tls13 server in")?;
+    let secret = quic_derive_initial_secret(request_dcid, header.version, "tls13 server in")?;
     decrypt_quic_initial_with_secret(response, header, &secret)?;
-    Some(QuicResponseKind::Initial)
+    Some(())
 }
 
 /// Check the echoed connection IDs and version list of a Version Negotiation reply.

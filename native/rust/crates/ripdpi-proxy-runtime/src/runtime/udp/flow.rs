@@ -69,6 +69,10 @@ impl UdpFlowActivationState {
         self.upstream_socks.is_some()
     }
 
+    pub(super) fn pending_payload(&self) -> &[u8] {
+        self.session.pending_initial().unwrap_or(&self.payload)
+    }
+
     pub(super) fn is_active(&self, state: &RuntimeState) -> bool {
         self.running.load(Ordering::Relaxed)
             && !state.shutdown_requested()
@@ -122,7 +126,11 @@ pub(super) fn expire_udp_flows(
         let Some(mut entry) = flow_state.remove(key) else {
             continue;
         };
-        if !entry.is_active(state) || !entry.awaiting_response || !entry.session.feedback_is_eligible() {
+        if !entry.is_active(state)
+            || !entry.awaiting_response
+            || !entry.session.feedback_is_eligible()
+            || entry.session.has_unverifiable_client_offer()
+        {
             continue;
         }
         if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {

@@ -74,6 +74,8 @@ Each series uses a fresh 128-bit DCID from the OS. Its SCID and ClientHello fiel
 
 The UDP runtime retains up to 64 distinct real Initial CID pairs for response attribution. An unrelated long-header reply is forwarded without marking real traffic successful or extending its response deadline. On context overflow, delivery continues, but ambiguous replies and silence do not produce learning evidence. This correlation does not authenticate the peer or validate a full QUIC handshake.
 
+Before the first accepted response, success requires a CID-correlated Initial with valid AEAD or a Retry with a valid integrity tag. VN, bare headers, and short packets do not establish success. Contexts store parsed offers and CIDs; only one bounded Initial is retained for fallback.
+
 ## Header-version decoys
 
 `quic_version_negotiation_decoy` sends a client-to-server Initial-shaped decoy. It sets the header version to the input version XOR `0x0f0f0f0f`, then sends the original datagram separately. It does not send a server Version Negotiation packet with version zero and a supported-version list. For v1/v2 input, the XOR values are not reserved QUIC versions. A server response is not guaranteed. The persisted ID remains unchanged.

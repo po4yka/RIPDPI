@@ -20,20 +20,15 @@ pub(super) fn note_udp_first_response_success(
         return Ok(());
     }
 
+    let payload = entry.pending_payload();
     note_direct_path_quic_success(state, entry.host.as_deref(), &entry.target_candidates)?;
-    note_adaptive_udp_success(
-        state,
-        entry.current_target,
-        entry.route.group_index,
-        entry.host.as_deref(),
-        &entry.payload,
-    )?;
+    note_adaptive_udp_success(state, entry.current_target, entry.route.group_index, entry.host.as_deref(), payload)?;
     note_retry_success(
         state,
         entry.current_target,
         entry.route.group_index,
         entry.host.as_deref(),
-        Some(&entry.payload),
+        Some(payload),
         RuntimeTransportProtocol::Udp,
     )?;
     note_route_success_for_transport(
@@ -51,7 +46,8 @@ pub(super) fn note_udp_first_response_success(
 pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
     // Silence alone cannot tell a block from loss or a one-way protocol: only an unanswered
     // QUIC handshake packet is evidence of QUIC breakage for the host.
-    let quic_handshake = is_quic_long_header(&entry.payload);
+    let payload = entry.pending_payload();
+    let quic_handshake = is_quic_long_header(payload);
     if quic_handshake && let Some(failure) = RuntimeState::udp_flow_timeout_failure() {
         note_block_signal_for_failure(state, entry.host.as_deref(), &failure, None);
     }
@@ -61,26 +57,26 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         failed_target,
         entry.route.group_index,
         entry.host.as_deref(),
-        Some(entry.payload.as_slice()),
+        Some(payload),
         RuntimeTransportProtocol::Udp,
     )?;
     if quic_handshake {
         note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates)?;
     }
-    note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
+    note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), payload)?;
     state.note_evolver_failure(RuntimeState::silent_drop_failure_class());
     let retry_penalties = build_retry_selection_penalties(
         state,
         failed_target,
         entry.host.as_deref(),
-        Some(entry.payload.as_slice()),
+        Some(payload),
         RuntimeTransportProtocol::Udp,
     )?;
     let next = state.advance_route(
         &entry.route,
         RuntimeRouteAdvance {
             dest: failed_target,
-            payload: Some(entry.payload.as_slice()),
+            payload: Some(payload),
             transport: RuntimeTransportProtocol::Udp,
             trigger: RuntimeState::connect_failure_trigger(),
             can_reconnect: true,

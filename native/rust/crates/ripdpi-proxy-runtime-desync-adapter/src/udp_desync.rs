@@ -10,6 +10,11 @@ use crate::platform;
 pub use ripdpi_desync::ActivationTransport;
 pub type UdpDesyncAction = DesyncAction;
 
+pub use ripdpi_packets::{
+    QuicInitialResponseContext, QuicInitialResponseDisposition, classify_quic_initial_response_context,
+    parse_quic_initial_response_context,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UdpExecutionOutcome {
     pub attempted_actions: usize,
