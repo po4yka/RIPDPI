@@ -1,9 +1,9 @@
 ---
 task_id: RST-1794629289019737
 change: rust100-contracts-cleanup
-commit_sha: null
-local: required
-local_evidence: All planned local gates passed on Rust 1.100.0; record the implementation commit SHA after commit.
+commit_sha: 29924d9121f7df0962c6f4a43a08631292a4de2b
+local: passed
+local_evidence: All planned local gates passed on Rust 1.100.0; the implementation commit is recorded above.
 remote_ci: not_applicable
 remote_ci_evidence: Hosted CI is not an acceptance gate for this local source refactor; report its state separately.
 device: not_applicable

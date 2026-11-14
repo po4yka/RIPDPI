@@ -2,7 +2,7 @@
 id: RST-1794629289019737
 title: Adopt Rust 1.100 contracts and cleanup APIs
 kind: chore
-status: doing
+status: review
 area: rust-native
 priority: medium
 owner: Rust maintainer
