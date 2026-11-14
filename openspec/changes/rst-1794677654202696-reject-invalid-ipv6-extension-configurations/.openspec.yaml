@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-14
+goal: RST-1794677654202696 Reject invalid IPv6 extension configurations
