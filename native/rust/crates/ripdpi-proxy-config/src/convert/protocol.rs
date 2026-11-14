@@ -80,22 +80,31 @@ pub(crate) fn build_primary_group(
     Ok((group, GroupProtocolState { tcp_proto, udp_enabled: protocols.desync_udp }))
 }
 
-pub(crate) fn append_udp_group(groups: &mut Vec<DesyncGroup>, primary_group: &DesyncGroup, udp_enabled: bool) {
+pub(crate) fn append_udp_group(
+    groups: &mut Vec<DesyncGroup>,
+    primary_group: &DesyncGroup,
+    fixed_fake_ttl: i32,
+    udp_enabled: bool,
+) -> Result<(), ProxyConfigError> {
     if !udp_enabled {
-        return;
+        return Ok(());
     }
 
     let mut udp_group = DesyncGroup::new(groups.len());
     udp_group.matches.proto = IS_UDP;
-    udp_group.actions.ttl = primary_group.actions.ttl;
+    udp_group.actions.ttl = if fixed_fake_ttl > 0 {
+        Some(u8::try_from(fixed_fake_ttl).map_err(|_| ProxyConfigError::InvalidConfig("Invalid fakeTtl".to_string()))?)
+    } else {
+        None
+    };
     udp_group.actions.udp_chain = primary_group.actions.udp_chain.clone();
     udp_group.actions.ip_id_mode = primary_group.actions.ip_id_mode;
-    udp_group.actions.auto_ttl = primary_group.actions.auto_ttl;
     udp_group.actions.quic_fake_profile = primary_group.actions.quic_fake_profile;
     udp_group.actions.quic_fake_host = primary_group.actions.quic_fake_host.clone();
     udp_group.actions.quic_fake_version = primary_group.actions.quic_fake_version;
     udp_group.matches.activation_filter = primary_group.matches.activation_filter;
     groups.push(udp_group);
+    Ok(())
 }
 
 pub fn parse_quic_initial_mode(value: &str) -> Result<QuicInitialMode, ProxyConfigError> {

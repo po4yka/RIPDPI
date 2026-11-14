@@ -174,7 +174,12 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
 
     let primary_group_snapshot = primary_group.clone();
     groups.push(primary_group);
-    protocol::append_udp_group(&mut groups, &primary_group_snapshot, group_protocol_state.udp_enabled);
+    protocol::append_udp_group(
+        &mut groups,
+        &primary_group_snapshot,
+        fake_packets.fake_ttl,
+        group_protocol_state.udp_enabled,
+    )?;
     adaptive_runtime_context::append_fallback_groups(
         &mut groups,
         &config,

@@ -1309,8 +1309,8 @@ fn ui_payload_maps_adaptive_fake_ttl_and_fallback() {
     assert_eq!(group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),);
     assert_eq!(group.actions.ttl, Some(9));
     let udp_group = config.groups.iter().find(|group| group.matches.proto == IS_UDP).expect("UDP group");
-    assert_eq!(udp_group.actions.auto_ttl, Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }));
-    assert_eq!(udp_group.actions.ttl, Some(9));
+    assert_eq!(udp_group.actions.auto_ttl, None);
+    assert_eq!(udp_group.actions.ttl, Some(11));
 }
 
 #[test]

@@ -31,11 +31,14 @@ fn udp_group_preserves_selected_ipv4_id_policy() {
 
 #[test]
 fn udp_group_preserves_configured_fixed_fake_ttl() {
-    for ttl in [1u8, 23, 255] {
+    for (ttl, adaptive, fallback) in
+        [(1u8, false, 8), (23, false, 8), (255, false, 8), (1, true, 8), (11, true, 8), (255, true, 1), (11, true, 255)]
+    {
         let mut ui = ProxyUiConfig::default();
         ui.protocols.desync_udp = true;
         ui.fake_packets.fake_ttl = i32::from(ttl);
-        ui.fake_packets.adaptive_fake_ttl_enabled = false;
+        ui.fake_packets.adaptive_fake_ttl_enabled = adaptive;
+        ui.fake_packets.adaptive_fake_ttl_fallback = fallback;
         ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
             kind: "quic_crypto_split".to_string(),
             count: 1,
@@ -57,4 +60,14 @@ fn udp_group_preserves_configured_fixed_fake_ttl() {
         assert_eq!(group.actions.ttl, Some(ttl));
         assert_eq!(group.actions.auto_ttl, None);
     }
+}
+
+#[test]
+fn udp_group_rejects_invalid_fixed_ttl_even_with_valid_adaptive_fallback() {
+    let mut ui = ProxyUiConfig::default();
+    ui.protocols.desync_udp = true;
+    ui.fake_packets.fake_ttl = 256;
+    ui.fake_packets.adaptive_fake_ttl_enabled = true;
+    ui.fake_packets.adaptive_fake_ttl_fallback = 8;
+    assert!(runtime_config_from_ui(ui).is_err());
 }
