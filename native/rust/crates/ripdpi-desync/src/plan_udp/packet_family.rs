@@ -19,6 +19,7 @@ use super::quic::NormalizedQuicPlannerInput;
 #[derive(Default)]
 pub(super) struct UdpPreludeState {
     fake_burst_payload: Option<Vec<u8>>,
+    quic_cid_ordinal: u64,
 }
 
 pub(super) fn build_udp_prelude_packets(
@@ -43,7 +44,11 @@ pub(super) fn build_udp_prelude_packets(
         UdpChainStepKind::QuicFakeVersion => build_quic_fake_version_packets(group, normalized_quic, step.count),
         UdpChainStepKind::QuicCryptoSplit => build_quic_crypto_split_packets(normalized_quic, step.count),
         UdpChainStepKind::QuicPaddingLadder => build_quic_padding_ladder_packets(group, normalized_quic, step.count),
-        UdpChainStepKind::QuicCidChurn => build_quic_cid_churn_packets(group, normalized_quic, step.count),
+        UdpChainStepKind::QuicCidChurn => {
+            let packets = build_quic_cid_churn_packets(group, normalized_quic, step.count, state.quic_cid_ordinal);
+            state.quic_cid_ordinal += packets.len() as u64;
+            packets
+        }
         UdpChainStepKind::QuicPacketNumberGap => {
             build_quic_packet_number_gap_packets(group, normalized_quic, step.count)
         }
