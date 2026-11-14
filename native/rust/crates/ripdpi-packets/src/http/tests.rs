@@ -122,14 +122,38 @@ fn mod_http_like_c_applies_unix_eol_with_user_agent_padding() {
 }
 
 #[test]
-fn mod_http_like_c_applies_method_eol_and_trims_user_agent() {
-    let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\n\r\n";
-    let mutation = mod_http_like_c(input, MH_METHODEOL);
-    let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+fn mod_http_like_c_method_eol_preserves_user_agent_without_spare_whitespace() {
+    let body = b"\0Host: body.example\r\n";
+    for user_agent in ["", "a", "ab", "agent", "agent/1.0 (test)", "agent ", "agent\t"] {
+        let mut input = format!(
+            "POST / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: {user_agent}\r\nContent-Length: {}\r\n\r\n",
+            body.len()
+        )
+        .into_bytes();
+        input.extend_from_slice(body);
 
-    assert_eq!(mutation.rc, 0);
-    assert_eq!(mutation.bytes.len(), input.len());
-    assert_eq!(output, "\r\nGET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: age\r\n\r\n");
+        let mutation = mod_http_like_c(&input, MH_METHODEOL);
+
+        assert_eq!(mutation.bytes, input, "User-Agent: {user_agent:?}");
+        assert_eq!(mutation.rc, -1, "User-Agent: {user_agent:?}");
+    }
+}
+
+#[test]
+fn mod_http_like_c_method_eol_reclaims_only_optional_user_agent_whitespace() {
+    for whitespace in ["  ", "\t\t", " \t", "\t "] {
+        let input = format!(
+            "POST / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent/1.0 (test){whitespace}\r\nContent-Length: 4\r\n\r\nBODY"
+        );
+        let mutation = mod_http_like_c(input.as_bytes(), MH_METHODEOL);
+
+        assert_eq!(mutation.rc, 0, "whitespace {whitespace:?}");
+        assert_eq!(mutation.bytes.len(), input.len());
+        assert_eq!(
+            mutation.bytes,
+            b"\r\nPOST / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent/1.0 (test)\r\nContent-Length: 4\r\n\r\nBODY"
+        );
+    }
 }
 
 #[test]

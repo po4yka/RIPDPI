@@ -161,7 +161,9 @@ fn apply_http_unix_eol(input: &[u8]) -> Option<Vec<u8>> {
 fn apply_http_method_eol(input: &[u8]) -> Option<Vec<u8>> {
     let layout = parse_http_request_layout(input)?;
     let user_agent = layout.user_agent_index.and_then(|index| layout.header_lines.get(index)).copied()?;
-    if user_agent.end < user_agent.value_start + 2 {
+    if user_agent.end < user_agent.value_start + 2
+        || !input[user_agent.end - 2..user_agent.end].iter().all(|byte| matches!(byte, b' ' | b'\t'))
+    {
         return None;
     }
 
