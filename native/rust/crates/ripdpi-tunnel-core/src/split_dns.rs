@@ -146,7 +146,7 @@ fn canonical_qname(raw: &str) -> Option<&str> {
     if raw.is_empty() || raw.len() > 1_024 || !raw.is_ascii() {
         return None;
     }
-    let qname = raw.strip_suffix('.').unwrap_or(raw);
+    let qname = raw.trim_suffix('.');
     if qname.is_empty() || qname.len() > 253 {
         return None;
     }
@@ -355,6 +355,7 @@ mod tests {
         let policy = compile(Vec::new(), Some("route_policy_unavailable"));
 
         assert_eq!(policy.evaluate("bad..example"), proxy(Some("invalid_qname")));
+        assert_eq!(policy.evaluate("example.test.."), proxy(Some("invalid_qname")));
         assert_eq!(policy.evaluate(&"a".repeat(1_025)), proxy(Some("invalid_qname")));
         assert_eq!(policy.evaluate("unmatched.example"), proxy(Some("route_policy_unavailable")));
     }

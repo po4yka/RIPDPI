@@ -40,7 +40,7 @@ impl OwnedSession for SshCarrier {
 
 impl RelaySession for SshSession {
     type Stream = SshChannelStream;
-    type Datagram = ();
+    type Datagram = !;
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {

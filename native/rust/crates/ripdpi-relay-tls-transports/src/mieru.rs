@@ -44,7 +44,7 @@ impl OwnedSession for MieruCarrier {
 
 impl RelaySession for MieruSession {
     type Stream = ripdpi_mieru::MieruStream;
-    type Datagram = ();
+    type Datagram = !;
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {

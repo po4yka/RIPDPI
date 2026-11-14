@@ -117,12 +117,9 @@ async fn main() -> io::Result<()> {
 
     match parse_config() {
         Ok(config) => {
-            if let Err(error) = run(config).await {
-                emit_structured_error(&error);
-                Err(error)
-            } else {
-                Ok(())
-            }
+            let Err(error) = run(config).await;
+            emit_structured_error(&error);
+            Err(error)
         }
         Err(error) => {
             emit_structured_error(&error);

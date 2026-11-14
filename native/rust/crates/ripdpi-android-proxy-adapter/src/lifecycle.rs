@@ -20,23 +20,6 @@ pub(crate) fn proxy_error(code: &'static str, message: impl Into<String>) -> Nat
     NativeBridgeError::new(NativeBridgeErrorDomain::Proxy, code, message)
 }
 
-/// Drop guard that resets proxy state to `Idle` if the session is still
-/// `Running` when the guard is dropped (e.g. due to a panic inside the
-/// blocking runtime call). After a normal return the caller must
-/// [`std::mem::forget`] the guard to skip the redundant reset.
-pub(crate) struct IdleGuard<'a> {
-    pub(crate) state: &'a std::sync::Mutex<ProxySessionState>,
-}
-
-impl Drop for IdleGuard<'_> {
-    fn drop(&mut self) {
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        if matches!(*state, ProxySessionState::Running { .. }) {
-            *state = ProxySessionState::Idle;
-        }
-    }
-}
-
 pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {
     let session = match lookup_proxy_session(handle) {
         Ok(session) => session,

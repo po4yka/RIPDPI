@@ -110,7 +110,9 @@ struct OriginServer {
     next_session_seq: Arc<AtomicU64>,
 }
 
-pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
+/// # Cancel safety:
+/// cancel-safe: bind owns its partial listener; cancelling serve drops the listener, while spawned connections run on.
+pub(crate) async fn run(config: OriginConfig) -> io::Result<!> {
     let listener = TcpListener::bind(&config.listen).await?;
     let listener_address = listener.local_addr()?.to_string();
     println!("{STRUCTURED_READY_PREFIX}{}|{listener_address}", env!("CARGO_PKG_VERSION"));
@@ -127,11 +129,11 @@ pub(crate) async fn run(config: OriginConfig) -> io::Result<()> {
 /// Serves HTTP/1 connections from `listener`. An accept error is reported
 /// and retried, never returned: it would end the helper and the tunnel.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// cancel-safe: connections run in spawned tasks; dropping the accept loop
-/// only stops new connections.
-async fn serve(listener: TcpListener, server: OriginServer) -> io::Result<()> {
+/// cancel-safe: accept and retry sleep retain the owned listener; dropping the accept loop
+/// only stops new connections, while spawned connections run on.
+async fn serve(listener: TcpListener, server: OriginServer) -> ! {
     let connection_slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));
     loop {
         let stream = match listener.accept().await {

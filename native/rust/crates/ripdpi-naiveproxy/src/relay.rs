@@ -29,7 +29,7 @@ static UPSTREAM_OK_PENDING: AtomicBool = AtomicBool::new(true);
 
 /// Runs `future` with a deadline and maps expiry to `TimedOut`.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe if `future` is: dropping it drops `future`.
 async fn before<T>(deadline: Instant, phase: &str, future: impl Future<Output = io::Result<T>>) -> io::Result<T> {
@@ -46,7 +46,7 @@ async fn before<T>(deadline: Instant, phase: &str, future: impl Future<Output = 
 /// start or after a failure is reported as a `RIPDPI-UPSTREAM-OK` line: the
 /// service then knows the upstream works and stops showing an old failure.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: dropping it drops the stream being opened, see
 /// [`open_https_connect_tunnel`].
@@ -73,7 +73,9 @@ fn report_open(ok_pending: &AtomicBool, outcome: Result<(), &io::Error>, out: &m
     }
 }
 
-pub(crate) async fn run(config: NaiveProxyConfig) -> io::Result<()> {
+/// # Cancel safety:
+/// cancel-safe: bind owns its partial listener; cancelling the accept loop drops the listener, while spawned clients run on.
+pub(crate) async fn run(config: NaiveProxyConfig) -> io::Result<!> {
     let listener = TcpListener::bind(&config.listen).await?;
     println!("{STRUCTURED_READY_PREFIX}{}", env!("CARGO_PKG_VERSION"));
 
@@ -97,7 +99,9 @@ const ENOMEM: i32 = 12;
 const ENFILE: i32 = 23;
 const EMFILE: i32 = 24;
 
-pub(crate) async fn serve_listener(listener: TcpListener, config: Arc<NaiveProxyConfig>) -> io::Result<()> {
+/// # Cancel safety:
+/// cancel-safe: delegates to the accept/retry-sleep loop, which retains its owned listener until dropped.
+pub(crate) async fn serve_listener(listener: TcpListener, config: Arc<NaiveProxyConfig>) -> io::Result<!> {
     serve_listener_with_limit(listener, config, MAX_CONCURRENT_TUNNELS).await
 }
 
@@ -105,14 +109,14 @@ pub(crate) async fn serve_listener(listener: TcpListener, config: Arc<NaiveProxy
 /// accept failure of one pending connection or a resource shortage does not
 /// end the helper.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// cancel-safe: dropping it stops accepting; spawned client tasks run on.
+/// cancel-safe: accept and retry sleep retain the owned listener; dropping it stops accepting, while spawned clients run on.
 async fn serve_listener_with_limit(
     listener: TcpListener,
     config: Arc<NaiveProxyConfig>,
     limit: usize,
-) -> io::Result<()> {
+) -> io::Result<!> {
     let permits = Arc::new(Semaphore::new(limit));
     let mut at_limit = false;
     loop {

@@ -1,10 +1,11 @@
+use std::mem::DropGuard;
 use std::sync::{Arc, PoisonError};
 
 use jni::Env;
 use jni::sys::{jint, jlong};
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
-use crate::lifecycle::{IdleGuard, open_proxy_listener, positive_os_error, proxy_error};
+use crate::lifecycle::{open_proxy_listener, positive_os_error, proxy_error};
 use crate::quality_sink::CompositeProxyTelemetrySink;
 use crate::registry::{
     ProxySessionState, ProxyStartTransition, clear_proxy_stop_request, lookup_proxy_session, try_mark_proxy_running,
@@ -77,7 +78,12 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
         }
     }
 
-    let guard = IdleGuard { state: &session.state };
+    let guard = DropGuard::new(&session.state, |state| {
+        let mut state = state.lock().unwrap_or_else(PoisonError::into_inner);
+        if matches!(*state, ProxySessionState::Running { .. }) {
+            *state = ProxySessionState::Idle;
+        }
+    });
     let result = ripdpi_proxy_runtime::run_proxy_with_embedded_control(
         config,
         listener,
@@ -87,7 +93,7 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
     *state = ProxySessionState::Idle;
     drop(state);
-    std::mem::forget(guard);
+    DropGuard::dismiss(guard);
 
     if let Err(err) = &result {
         session.telemetry.on_client_error(err.to_string());

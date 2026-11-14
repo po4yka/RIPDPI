@@ -79,7 +79,7 @@ pub fn shadowtls_proxy_target(factory: &ShadowTlsSessionFactory) -> String {
 
 impl RelaySession for ShadowTlsSession {
     type Stream = Box<dyn ripdpi_vless::AsyncIo>;
-    type Datagram = ();
+    type Datagram = !;
     type Error = io::Error;
 
     async fn open_stream(&self, target: &str) -> Result<Self::Stream, Self::Error> {

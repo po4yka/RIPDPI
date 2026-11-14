@@ -21,7 +21,7 @@ pub fn normalize_server_name(name: &str) -> Result<String, Error> {
         return Ok(ip.to_string());
     }
 
-    let name = name.strip_suffix('.').unwrap_or(name);
+    let name = name.trim_suffix('.');
     let valid = !name.is_empty()
         && name.len() <= 253
         && rustls::pki_types::DnsName::try_from(name).is_ok()

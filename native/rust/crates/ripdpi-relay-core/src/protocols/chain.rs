@@ -345,7 +345,7 @@ impl std::error::Error for HopTaggedError {
 
 impl RelaySession for ChainRelaySession {
     type Stream = Box<dyn ChainAsyncIo>;
-    type Datagram = ();
+    type Datagram = !;
     type Error = io::Error;
 
     /// # Cancel safety

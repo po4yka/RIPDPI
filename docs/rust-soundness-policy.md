@@ -1018,7 +1018,7 @@ A `Drop` implementation MUST NOT dereference a raw back-pointer under any circum
 
 In order of preference for a child-of-parent relationship where the child's Drop must notify the parent:
 
-1. **Lifetime-bound `&'a Parent`**. The child cannot outlive the parent because the borrow check forbids it. The Drop impl reads `self.parent.method()` through a safe `&Parent` reference. Examples in the workspace: `ripdpi-android-proxy-adapter/src/lifecycle.rs::IdleGuard<'_>` resets `ProxySessionState` via `&'a Mutex<...>`; `ripdpi-desync-runtime/src/platform/registry.rs::Restore<'_>` restores a thread-local via `&'a RefCell<...>`.
+1. **Lifetime-bound `&'a Parent`**. The child cannot outlive the parent because the borrow check forbids it. The Drop impl reads `self.parent.method()` through a safe `&Parent` reference. Examples in the workspace: the `DropGuard` in `ripdpi-android-proxy-adapter/src/lifecycle_start.rs::start_session` resets `ProxySessionState` through a borrowed `Mutex<...>`; `ripdpi-desync-runtime/src/platform/registry.rs::Restore<'_>` restores a thread-local via `&'a RefCell<...>`.
 
 2. **`Arc<Parent>`**. The parent stays alive for the child's entire lifetime (including Drop) because the strong count contains the child's reference. The Drop impl reads `self.parent.method()` through `Arc::deref`. Examples: `ripdpi-proxy-runtime/src/runtime/state/listener.rs:: ClientSlotGuard` decrements a shared `Arc<AtomicUsize>`; `ripdpi-relay-mux/src/lease.rs::LeaseGuard<S>` releases leases through `Arc<Mutex<RelayMuxState<S>>>`.
 
@@ -1039,7 +1039,7 @@ Audit log: the workspace has ZERO production occurrences of a raw back-pointer f
 
 | Drop impl | Parent relationship | Safe shape used |
 |---|---|---|
-| `IdleGuard<'_>` | ProxySessionState reset to Idle | Lifetime-bound `&'a Mutex<...>` |
+| Proxy start `DropGuard` | ProxySessionState reset to Idle | Lifetime-bound `&'a Mutex<...>` |
 | `Restore<'_>` | Thread-local slot restored | Lifetime-bound `&'a RefCell<...>` |
 | `ClientSlotGuard` | Shared AtomicUsize decremented | `Arc<AtomicUsize>` |
 | `LeaseGuard<S>` | RelayMuxState lease released | `Arc<Mutex<RelayMuxState<S>>>` |
@@ -1218,7 +1218,7 @@ The escape valve `ManuallyDrop` provides (suppress automatic Drop while keeping 
 `ManuallyDrop<T>` (qualified as `std::mem::ManuallyDrop<T>`, `core::mem::ManuallyDrop<T>`, or unqualified) is FORBIDDEN in production Rust crates under `native/rust/crates/*/src/**`. Any new occurrence must restructure to one of:
 
 1. **`Option<T>`** with `Option::take()` for explicit teardown ordering. The borrow checker proves the value is consumed exactly once; `Drop` runs automatically on the `None` slot (which is trivial); the `Some` case runs `T`'s destructor at the explicit `take()` site. This is the canonical replacement and matches the rest of the workspace's discipline (`TemporaryProxyRuntime::handle`, `EchoLoopback::shutdown` + `join_handle`, etc.).
-2. **Private RAII guard** (`ScopedHandle<T, F>`, `IdleGuard<'_>`). The destructor is the single ownership-transfer point; safe code cannot bypass it (move-only handle, no `Copy`/`Clone`).
+2. **Private RAII guard** (`ScopedHandle<T, F>`, or `DropGuard<T, F>` with private cleanup state). The destructor is the single ownership-transfer point; safe code cannot bypass it (move-only handle, no `Copy`/`Clone`).
 3. **Explicit enum state** (`Idle` / `Running` / `Destroyed` carrying the resource inside the active variant). The variant's `Drop` runs at the transition point; the state transition is in `match`-checked safe code.
 4. **`mem::take` + `Default`** when the value's `Default:: default()` is provably cheap to drop (`Vec::new()`, `None`, `String::new()`). Use `mem::take` to swap the field out for the empty value and consume the original by value, calling `T`'s destructor through `drop()`.
 
@@ -1247,7 +1247,7 @@ The scanner-side allowlist validator (`scripts/ci/check_unsafe_boundaries.py::lo
 
 `scripts/ci/check_unsafe_boundaries.py` runs on every PR (via `scripts/ci/run-rust-lint.sh`). The `ManuallyDrop` pattern in that scanner's `PATTERNS` dict flags any new occurrence of the type. The four unit tests in `scripts/ci/tests/test_check_unsafe_boundaries.py` cover the field-shape match, the local-binding match, the substring guard (must NOT match `ManuallyDropped` / `manually_drop_*`), and the whitespace-tolerant `ManuallyDrop  <T>` form.
 
-`mem::forget` is a separate but related pattern that suppresses Drop without `ManuallyDrop`. The four production `mem::forget` sites in the workspace (`soundness-canaries/src/lib.rs::take`, `ripdpi-privileged-ops/src/linux/fd.rs::close_owned_fd`, `ripdpi-android-proxy-adapter/src/lifecycle.rs::start_session`'s `IdleGuard` disarm, and the same disarm pattern in `ripdpi-proxy-runtime/src/runtime/listeners.rs`) are each allowlisted with documented enforcement and matching construction sites. New `mem::forget` occurrences inherit the existing allowlist discipline -- no new CI surface needed because the unsafe-boundary scanner already requires the allowlist entry on the surrounding `Box::into_raw` / `unsafe impl Send` / `Vec::set_len` patterns that the `mem::forget` site typically pairs with.
+`mem::forget` is a separate but related pattern that suppresses Drop without `ManuallyDrop`. The proxy start path uses `DropGuard::dismiss` to disable cleanup without forgetting the guard. Remaining explicit `mem::forget` sites retain their existing enforcement and matching construction checks. New `mem::forget` occurrences inherit the existing allowlist discipline -- no new CI surface needed because the unsafe-boundary scanner already requires the allowlist entry on the surrounding `Box::into_raw` / `unsafe impl Send` / `Vec::set_len` patterns that the `mem::forget` site typically pairs with.
 
 ### Cross-references
 

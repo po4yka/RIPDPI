@@ -390,6 +390,11 @@ async fn dropped_attempts_are_recorded_as_failures() {
     let query = b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x03com\x00\x00\x01\x00\x01";
 
     let first_before = pool.try_order()[0];
+    drop(pool.exchange(query));
+    assert_eq!(pool.try_order()[0], first_before, "an unpolled exchange must not affect ranking");
+    for key in &pool.inner.keys {
+        assert_eq!(pool.health_registry().observation_count_in_scope(pool.network_scope(), key), 0);
+    }
     let _ = tokio::time::timeout(Duration::from_millis(100), pool.exchange(query)).await;
     let first_after = pool.try_order()[0];
     assert_ne!(first_before, first_after, "a cancelled attempt must demote the resolver it hit");

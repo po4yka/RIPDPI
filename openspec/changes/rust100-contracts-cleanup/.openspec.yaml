@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-14
+goal: RST-1794629289019737 Adopt Rust 1.100 contracts and cleanup APIs

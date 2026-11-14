@@ -31,7 +31,7 @@ pub(super) struct AttemptError {
 
 impl ScriptPool {
     pub(super) fn new(ids: Vec<String>, cooldown: Duration) -> Self {
-        let cooling_until_ms = ids.iter().map(|_| AtomicU64::new(0)).collect();
+        let cooling_until_ms = Vec::from_fn(ids.len(), |_| AtomicU64::new(0));
         Self { ids, cooldown, next: AtomicUsize::new(0), cooling_until_ms, epoch: Instant::now() }
     }
 
@@ -51,7 +51,7 @@ impl ScriptPool {
         }
         // Ordering: the counter only spreads requests; no state is published through it.
         let start = self.next.fetch_add(1, Ordering::Relaxed) % len;
-        let mut order: Vec<usize> = (0..len).map(|offset| (start + offset) % len).collect();
+        let mut order = Vec::from_fn(len, |offset| (start + offset) % len);
         order.sort_by_key(|&index| self.is_cooling(index, now_ms));
         order
     }

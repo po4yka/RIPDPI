@@ -25,7 +25,10 @@ async fn main() -> io::Result<()> {
     }
 
     match parse_config() {
-        Ok(config) => run(config).await,
+        Ok(config) => {
+            let Err(error) = run(config).await;
+            Err(error)
+        }
         Err(error) => {
             emit_structured_error(classify_error(&error), &error);
             Err(error)

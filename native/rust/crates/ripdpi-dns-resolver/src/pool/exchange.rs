@@ -1,24 +1,9 @@
+use std::mem::DropGuard;
 use std::time::Instant;
 
 use super::ResolverPool;
 use super::health_updates::elapsed_ms;
 use crate::types::{EncryptedDnsError, EncryptedDnsExchangeSuccess};
-
-/// Records a failure for the resolver when an attempt future is dropped before it completes.
-struct AttemptGuard<'a> {
-    pool: &'a ResolverPool,
-    idx: usize,
-    started: Instant,
-    armed: bool,
-}
-
-impl Drop for AttemptGuard<'_> {
-    fn drop(&mut self) {
-        if self.armed {
-            self.pool.record_attempt_failure(self.idx, elapsed_ms(self.started));
-        }
-    }
-}
 
 impl ResolverPool {
     /// Tries each resolver in health-ranked order, returning the first successful response.
@@ -27,7 +12,7 @@ impl ResolverPool {
     ///
     /// # Cancel safety:
     /// cancel-safe: the only `.await` is the per-resolver `exchange_with_metadata` call (itself cancel-safe).
-    /// If the future is dropped there, `AttemptGuard` records exactly one failure for that resolver (no DoQ
+    /// If the future is dropped there, the guard records exactly one failure for that resolver (no DoQ
     /// demotion, because the cause is unknown). Attempts that already finished keep their recorded outcome.
     /// A completed attempt disarms the guard before it records, with no `.await` in between, so a drop never
     /// adds a second record. Dropping `exchange` for any reason, including shutdown or a lost `select!` race,
@@ -38,9 +23,11 @@ impl ResolverPool {
         let mut last_error = EncryptedDnsError::InvalidEndpoint("no resolvers tried".to_string());
         for idx in order {
             let started = Instant::now();
-            let mut guard = AttemptGuard { pool: self, idx, started, armed: true };
+            let guard = DropGuard::new((idx, started), |(idx, started)| {
+                self.record_attempt_failure(idx, elapsed_ms(started));
+            });
             let result = self.inner.resolvers[idx].exchange_with_metadata(query).await;
-            guard.armed = false;
+            DropGuard::dismiss(guard);
             match result {
                 Ok(success) => {
                     self.record_success(idx, &success);
