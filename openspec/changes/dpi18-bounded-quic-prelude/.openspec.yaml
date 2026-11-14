@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-14
+goal: ENG-1794637894202698 Bound QUIC SNI split resources and preserve original
+  datagrams
