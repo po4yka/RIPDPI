@@ -10,11 +10,11 @@ Follow the exact worker lanes in docs/tasks/issues/dpi27-packet-parameter-correc
 
 ## Execution
 
-- [ ] RST-1794678235803087 F1 associate adaptive feedback with its attempt and verify stale results #bug !high @item:RST-1794677915101106
+- [x] RST-1794678235803087 F1 associate adaptive feedback with its attempt and verify stale results #bug !high @item:RST-1794677915101106
 - [x] RST-1794678245393545 F2 reserve non-atomic raw IPv4 IDs and verify cross-flow bytes #bug !high @item:RST-1794677915101106
 - [x] RST-1794678253764740 F3 reject false SACK matches with kernel regressions #bug !high @item:RST-1794677915101106
 - [x] RST-1794678258153648 F4 preserve fixed UDP TTL and verify mixed configuration #bug !high @item:RST-1794677915101106
-- [ ] RST-1794678262798271 F5 enumerate boundary TTL candidates once per cycle #bug !high @item:RST-1794677915101106
+- [x] RST-1794678262798271 F5 enumerate boundary TTL candidates once per cycle #bug !high @item:RST-1794677915101106
 - [x] RST-1794678269799237 F6 align timestamp schema and tests with receive filtering #bug @item:RST-1794677915101106
 
 ## Verification

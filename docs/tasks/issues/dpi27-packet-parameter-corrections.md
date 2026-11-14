@@ -2,7 +2,7 @@
 id: RST-1794677915101106
 title: Correct DPI-27 packet parameter contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Integrator
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dpi27-packet-parameter-corrections
 created: 2026-11-14
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 ## Goal
