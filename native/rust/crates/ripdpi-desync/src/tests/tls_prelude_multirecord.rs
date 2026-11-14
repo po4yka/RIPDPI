@@ -153,3 +153,38 @@ fn tlsrec_keeps_client_hello_shaped_non_tls_envelopes_unchanged() {
         assert_eq!(result.bytes, input);
     }
 }
+
+#[test]
+fn tlsminor_composes_with_each_prelude_on_fragmented_client_hello() {
+    for (source, sni_marker) in [(TLS12, 105usize), (TLS13, 89)] {
+        let original = &source[5..];
+        for split in [1, sni_marker + 7, original.len() - 1] {
+            let input = record_stream(&source[..3], original, &[split]);
+            for minor in [3, 0xff] {
+                for step in [
+                    TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(32)),
+                    tlsrandrec_step(32, 3, 1, 4096),
+                ] {
+                    let mut group = DesyncGroup::new(0);
+                    group.actions.tlsminor = Some(minor);
+                    group.actions.tcp_chain = vec![step];
+                    let result = apply_tamper(&group, &input, 7).expect("version and prelude");
+                    assert_eq!(result.tls_prelude.applied_count, 1);
+                    let (_, rebuilt) = reassemble(&result.bytes, &[0x16, 0x03, minor]);
+                    assert_eq!(rebuilt, original);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn tlsminor_alone_changes_only_the_first_record_header() {
+    let input = record_stream(&TLS13[..3], &TLS13[5..], &[1, 40, 95]);
+    let mut group = DesyncGroup::new(0);
+    group.actions.tlsminor = Some(3);
+    let result = apply_tamper(&group, &input, 7).expect("version override");
+    let mut expected = input;
+    expected[2] = 3;
+    assert_eq!(result.bytes, expected);
+}
