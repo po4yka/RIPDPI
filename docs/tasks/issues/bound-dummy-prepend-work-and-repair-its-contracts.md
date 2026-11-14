@@ -2,7 +2,7 @@
 id: ENG-1794637889757963
 title: Bound dummy prepend work and repair its contracts
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: DPI-17 remediation team
@@ -13,6 +13,9 @@ openspec_change: fix-dpi17-audit-findings
 created: 2026-11-14
 updated: 2026-11-14
 status_detail: "Accepted exact 415 source: local gates, full CI, all five emulator APIs, five Xray API35 cases, CodeQL and artifact provenance passed."
+closed_at: "2026-11-14T14:29:16Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Exact415 full CI43600255158 and CodeQL43599499488 passed; API35 real Xray JUnit5/5 without skips; producer/consumer provenance verified; local native834, JVM94+12, wire, Clippy, source and lint gates passed.
 ---
 
 ## Goal

@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-14T14:29:15Z",
+  "change": "fix-dpi17-audit-findings",
+  "commit_sha": "415af9446dc06ed962ef379b7aac655ca87c6ee6",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "ENG-1794637889757963"
+}

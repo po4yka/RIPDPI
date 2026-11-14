@@ -1,0 +1,11 @@
+{
+  "change": "fix-dpi17-audit-findings",
+  "evidence_summary": "Exact415 full CI43600255158 and CodeQL43599499488 passed; API35 real Xray JUnit5/5 without skips; producer/consumer provenance verified; local native834, JVM94+12, wire, Clippy, source and lint gates passed.",
+  "execution_sha256": "1e4bdc77f55fcdb97a853ce2904bb7dba5b8895539532b2d65e1c2ac8c2d75b6",
+  "issue_sha256": "66dded4a6393b5658872df5f035738c869c0c302811726ced1010229c28e81af",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T14:29:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794637889757963"
+}
