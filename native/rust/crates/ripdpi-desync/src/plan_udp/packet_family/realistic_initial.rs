@@ -49,9 +49,10 @@ pub(super) fn build_quic_padding_ladder_packets(
         .into_iter()
         .enumerate()
         .filter_map(|(idx, len)| {
-            // The builder pads the datagram to exactly `len`: the decoy's
-            // natural size is below 1200, so it never passes the ceiling.
+            // The builder pads to `len`; a decoy whose natural size passed it
+            // would break the ceiling, so it is dropped.
             packetize_decoy_for_basis(group, basis, QuicInitialBrowserProfile::ChromeAndroid, numbered_layout(len, idx))
+                .filter(|packet| packet.len() == len)
         })
         .collect()
 }

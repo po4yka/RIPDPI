@@ -94,8 +94,17 @@ impl QuicDecoyBasis {
     }
 
     /// Basis from the normalized input when there is one, else from the header.
-    pub(super) fn of_input(normalized_quic: Option<&NormalizedQuicPlannerInput>, payload: &[u8]) -> Option<Self> {
-        normalized_quic.map(Self::from_normalized).or_else(|| Self::from_payload(payload))
+    /// The header alone counts only for the first datagram of a flow
+    /// (`first_datagram`): later Initials without a whole ClientHello are its
+    /// second half, ACKs or retransmissions, and get no new burst.
+    pub(super) fn of_input(
+        normalized_quic: Option<&NormalizedQuicPlannerInput>,
+        payload: &[u8],
+        first_datagram: bool,
+    ) -> Option<Self> {
+        normalized_quic
+            .map(Self::from_normalized)
+            .or_else(|| first_datagram.then(|| Self::from_payload(payload)).flatten())
     }
 }
 
@@ -133,10 +142,33 @@ fn derived_bytes<const N: usize>(dcid: &[u8], label: u8) -> [u8; N] {
 const CLIENT_HELLO_RANDOM_OFFSET: usize = 5 + 4 + 2;
 const CLIENT_HELLO_RANDOM_LEN: usize = 32;
 
+/// Start of the only occurrence of `marker` in `bytes`, or `None` when it is
+/// missing or repeated.
+fn unique_marker(bytes: &[u8], marker: &[u8]) -> Option<usize> {
+    let mut hits = bytes.windows(marker.len()).enumerate().filter(|(_, window)| *window == marker);
+    match (hits.next(), hits.next()) {
+        (Some((start, _)), None) => Some(start),
+        _ => None,
+    }
+}
+
+/// Writes `value` at `at` when the whole range fits.
+fn overwrite(bytes: &mut [u8], at: usize, value: &[u8]) -> bool {
+    let Some(slot) = bytes.get_mut(at..at + value.len()) else {
+        return false;
+    };
+    slot.copy_from_slice(value);
+    true
+}
+
+/// X25519 key_share entry header: group 0x001d, key length 32.
+const X25519_KEY_SHARE_MARKER: [u8; 4] = [0x00, 0x1d, 0x00, 0x20];
+
 /// Decoy seed for a flow whose input Initial has version `version` and
-/// destination connection ID `input_dcid`. The decoy keeps the seed's source
-/// connection ID: the ClientHello's `initial_source_connection_id` transport
-/// parameter must match it.
+/// destination connection ID `input_dcid`. DCID, SCID, ClientHello random and
+/// X25519 key share are derived per flow. The SCID changes together with the
+/// ClientHello's `initial_source_connection_id` transport parameter, which must
+/// repeat it.
 pub(super) fn browser_like_quic_seed_for(
     group: &DesyncGroup,
     version: u32,
@@ -154,8 +186,23 @@ pub(super) fn browser_like_quic_seed_for(
     let mut client_hello = seed.client_hello.clone();
     if let Some(random) = client_hello.get_mut(CLIENT_HELLO_RANDOM_OFFSET..random_end) {
         random.copy_from_slice(&derived_bytes::<CLIENT_HELLO_RANDOM_LEN>(input_dcid, 2));
+        if let Some(at) = unique_marker(&client_hello, &X25519_KEY_SHARE_MARKER) {
+            overwrite(&mut client_hello, at + X25519_KEY_SHARE_MARKER.len(), &derived_bytes::<32>(input_dcid, 3));
+        }
+        // initial_source_connection_id (0x0f) repeats the header SCID: change both or neither.
+        let mut scid_param = vec![0x0f, seed.scid.len() as u8];
+        scid_param.extend_from_slice(&seed.scid);
+        let scid = derived_bytes::<4>(input_dcid, 4);
+        if seed.scid.len() == scid.len()
+            && let Some(at) = unique_marker(&client_hello, &scid_param)
+            && overwrite(&mut client_hello, at + 2, &scid)
+        {
+            seed.scid = scid.to_vec();
+        }
         if is_tls_client_hello(&client_hello) {
             seed.client_hello = client_hello;
+        } else {
+            return None;
         }
     }
     Some(seed)

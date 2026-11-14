@@ -588,6 +588,30 @@ fn plan_udp_quic_ladder_decoys_vary_per_flow_and_per_rung() {
         ladders[0][0].1.client_hello[RANDOM], ladders[1][0].1.client_hello[RANDOM],
         "different flows get different ClientHello randoms"
     );
+
+    // Bytes that follow the only occurrence of `marker` in the ClientHello.
+    let after_marker = |hello: &[u8], marker: &[u8], len: usize| -> Vec<u8> {
+        let starts: Vec<usize> =
+            (0..=hello.len() - marker.len()).filter(|&at| &hello[at..at + marker.len()] == marker).collect();
+        assert_eq!(starts.len(), 1, "marker {marker:02x?} must occur once");
+        hello[starts[0] + marker.len()..starts[0] + marker.len() + len].to_vec()
+    };
+    for rungs in &ladders {
+        let seed = &rungs[0].1;
+        assert_ne!(seed.scid, [0x11, 0x22, 0x33, 0x44], "decoy SCID is not the old constant");
+        // initial_source_connection_id (0x0f) must repeat the header SCID.
+        let mut scid_param = vec![0x0f, seed.scid.len() as u8];
+        scid_param.extend_from_slice(&seed.scid);
+        after_marker(&seed.client_hello, &scid_param, 0);
+    }
+    assert_ne!(ladders[0][0].1.scid, ladders[1][0].1.scid, "different flows get different SCIDs");
+    // X25519 key_share entry: group 0x001d, key length 32.
+    let x25519 = [0x00, 0x1d, 0x00, 0x20];
+    assert_ne!(
+        after_marker(&ladders[0][0].1.client_hello, &x25519, 32),
+        after_marker(&ladders[1][0].1.client_hello, &x25519, 32),
+        "different flows get different X25519 key shares"
+    );
 }
 
 #[test]
@@ -610,6 +634,12 @@ fn plan_udp_quic_padding_ladder_needs_only_the_initial_header() {
         .collect::<Vec<_>>();
     assert_eq!(writes.len(), 3 + 1, "three decoys plus the real datagram");
     assert_eq!(writes[3], &payload, "the real datagram goes out once, last");
+    // A later datagram of the flow is the ClientHello's second half, an ACK or a
+    // retransmission: it gets no new burst.
+    assert_eq!(
+        plan_udp(&group, &payload, 64, udp_context_at_round(&payload, 2)),
+        vec![DesyncAction::Write(payload.clone())]
+    );
     for decoy in &writes[..3] {
         let parsed = parse_quic_initial(decoy).expect("decoy is a decryptable Initial");
         assert_eq!(parsed.host(), b"www.wikipedia.org");

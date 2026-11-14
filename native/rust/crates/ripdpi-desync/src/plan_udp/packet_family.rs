@@ -44,7 +44,7 @@ pub(super) fn build_udp_prelude_packets(
         UdpChainStepKind::QuicFakeVersion => build_quic_fake_version_packets(group, normalized_quic, step.count),
         UdpChainStepKind::QuicCryptoSplit => build_quic_crypto_split_packets(normalized_quic, step.count),
         UdpChainStepKind::QuicPaddingLadder => {
-            let basis = QuicDecoyBasis::of_input(normalized_quic, payload);
+            let basis = QuicDecoyBasis::of_input(normalized_quic, payload, context.round <= 1);
             build_quic_padding_ladder_packets(group, basis.as_ref(), step.count)
         }
         UdpChainStepKind::QuicCidChurn => {
