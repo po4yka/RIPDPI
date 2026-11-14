@@ -66,6 +66,14 @@ Supported by the UDP/desync layer but not currently emitted by `ripdpi-diagnosti
 - `quic_cid_churn`
 - `quic_packet_number_gap`
 
+## Packet-number gap series
+
+`quic_packet_number_gap` accepts counts from 0 to 64. The total requested count across the chain must not exceed 64. Zero disables the step. Direct model planning also limits active gap steps to 64 decoys per datagram and preserves the original datagram.
+
+Each series uses a fresh 128-bit DCID from the OS. Its SCID and ClientHello fields are derived from separate OS entropy; the SCID matches the ClientHello transport parameter. Its packet numbers remain 2, 4, 6, and so on. If entropy is unavailable, no decoys are sent and the original datagram is preserved.
+
+The UDP runtime retains up to 64 distinct real Initial CID pairs for response attribution. An unrelated long-header reply is forwarded without marking real traffic successful or extending its response deadline. On context overflow, delivery continues, but ambiguous replies and silence do not produce learning evidence. This correlation does not authenticate the peer or validate a full QUIC handshake.
+
 ## Verification
 
 `ripdpi-packets` unit tests pin browser-like seed generation, parsed-seed round trips, CRYPTO split packetization, padding target preservation, and packet-number variation.
