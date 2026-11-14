@@ -1,0 +1,11 @@
+{
+  "change": "dpi27-packet-parameter-corrections",
+  "evidence_summary": "Seven defects corrected and published at main450acd447c. Local Rust suites, Android tests/lint, source gates and independent byte/kernel checks passed within documented limits; three TCP attach EPERM failures and unrun raw/device/external checks are recorded.",
+  "execution_sha256": "31ce106ab7c0e5a2109934be3048282a44d25d1ca28c132de22e893dcb6cc36e",
+  "issue_sha256": "2856539254c473f03d8e71438f6dcfe3ab7d51069fe430e25fe3dcbadc82c722",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T20:37:32Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1794677915101106"
+}

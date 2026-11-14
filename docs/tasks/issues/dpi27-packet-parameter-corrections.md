@@ -2,7 +2,7 @@
 id: RST-1794677915101106
 title: Correct DPI-27 packet parameter contracts
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: Integrator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi27-packet-parameter-corrections
 created: 2026-11-14
 updated: 2026-11-15
+closed_at: "2026-11-14T20:37:32Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Seven defects corrected and published at main450acd447c. Local Rust suites, Android tests/lint, source gates and independent byte/kernel checks passed within documented limits; three TCP attach EPERM failures and unrun raw/device/external checks are recorded.
 ---
 
 ## Goal
