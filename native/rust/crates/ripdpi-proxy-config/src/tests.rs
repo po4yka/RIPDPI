@@ -17,6 +17,8 @@ use tests_support::*;
 
 #[path = "tests_conversion.rs"]
 mod tests_conversion;
+#[path = "tests_fake_sni.rs"]
+mod tests_fake_sni;
 #[path = "tests_runtime.rs"]
 mod tests_runtime;
 #[path = "tests_tlsrandrec.rs"]

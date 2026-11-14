@@ -1,6 +1,6 @@
 use ripdpi_config::{
-    EntropyMode, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, FakePacketSource, IpIdMode, TcpChainStepKind,
-    WsizeConfig,
+    EntropyMode, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI, FakePacketSource, IpIdMode, SeqOverlapFakeMode,
+    TcpChainStepKind, WsizeConfig,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 
@@ -95,8 +95,19 @@ pub(crate) fn apply_fake_packet_section(
         group.actions.shannon_entropy_target_permil = Some(value);
     }
 
-    let has_fake_step = group.effective_tcp_chain().iter().any(|step| {
-        matches!(step.kind(), TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+    let rotation_chains = group
+        .actions
+        .rotation_policy
+        .iter()
+        .flat_map(|policy| policy.candidates.iter().flat_map(|candidate| candidate.tcp_chain.iter().cloned()));
+    // Fakes are built for the base chain, every rotation candidate chain, and
+    // seq-overlap steps that use the profile fake mode.
+    let has_fake_step = group.effective_tcp_chain().into_iter().chain(rotation_chains).any(|step| match step.kind() {
+        TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder => true,
+        TcpChainStepKind::SeqOverlap => {
+            step.seq_overlap_payload().is_some_and(|payload| payload.fake_mode == SeqOverlapFakeMode::Profile)
+        }
+        _ => false,
     });
     let has_oob_step = group
         .effective_tcp_chain()
