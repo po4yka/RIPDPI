@@ -2,14 +2,14 @@
 task_id: ENG-1794637889757963
 change: fix-dpi17-audit-findings
 commit_sha: 1cf170c07a14a0d9a3ee6183dbcb53e3e64f5f27
-local: blocked
-local_evidence: Native suites with 389 tests, enabled v1/v2 wire regression, targeted Clippy, standalone ktlint, locale parity/export and isolated just ci-gates passed. Gradle JVM tests and Android lint could not run because required dependency artifacts are unavailable.
-remote_ci: not_applicable
-remote_ci_evidence: Hosted CI is not an acceptance gate owned by this local repair; no hosted result is claimed.
+local: passed
+local_evidence: Owning JVM tests passed (81 tests, zero failures/errors/skips); app and service Android lint passed with zero Error/Fatal findings. Final build-logic suite passed (53 tests); four strict Android ABI builds, managed loopback, source checks and independent review passed. Native and integration gates will be repeated after rebase.
+remote_ci: required
+remote_ci_evidence: Completion requires CI and CodeQL success on the delivered source SHA; current push runs are being inspected.
 device: not_applicable
 device_evidence: No device or root behavior changes; no physical acceptance requested.
-artifact: not_applicable
-artifact_evidence: No APK or release artifact requested.
+artifact: required
+artifact_evidence: Completion requires strict OBFS4 Android builds for four ABIs and matching source-patch receipts; no APK publication is requested.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -20,11 +20,13 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DUMMY-COUNT | ENG-1794638159294108 | Full desync and proxy-config suites, boundary and direct-model tests | Native passed; Kotlin JVM gate blocked |
+| REQ-DUMMY-COUNT | ENG-1794638159294108 | Full desync and proxy-config suites, boundary and direct-model tests | Native and 81 Kotlin JVM tests passed |
 | REQ-DUMMY-BYTES | ENG-1794638159294108 | v1/v2 direct counts and oversized host/output tests in desync suite | Passed |
 | REQ-DUMMY-COMPAT | ENG-1794638159294108 | Full owning native suites and production loopback original byte equality | Passed locally; no device claim |
-| REQ-DUMMY-UI | ENG-1794638174316919 | Ten locales, export/parity and standalone Kotlin lint | Source checks passed; Android lint blocked |
+| REQ-DUMMY-UI | ENG-1794638174316919 | Ten locales, export/parity and standalone Kotlin lint | Source checks and both Android lint targets passed |
 | REQ-DUMMY-WIRE | ENG-1794638179707591 | Enabled production loopback regression for v1/v2 | Passed |
+| REQ-DUMMY-ASSET | ENG-1794641528622974 | Pinned-patch negative tests and strict Android Go builds | 53 tests and four ABI builds passed; hosted packaging pending |
+| REQ-DUMMY-ACCEPT | ENG-1794641528622974 | Owning JVM/lint gate and exact-SHA CI/CodeQL checks | Required |
 
 ## Observed local checks
 
@@ -38,13 +40,34 @@ Run Cargo from native/rust with pinned Rust 1.100.0 and --locked.
 - Standalone ktlint 1.8.0 checked both changed Kotlin files after formatting: passed. All ten locale sets and the unchanged translation-key export passed their owning source checks.
 - Independent read-only review found no remaining actionable defect. Pre-commit and commit-message hooks passed for all three fix commits.
 
-## Unresolved validation
+## Observed completion checks
+
+- `build-gate --lane ripdpi -- env -u CARGO_BUILD_JOBS ./gradlew :core:data:model:testDebugUnitTest :app:lintGithubFullDebug :core:service:lintDebug -Pripdpi.skipNativeBuild=true --max-workers=4 -Pripdpi.nativeCpuBudget=4`: passed in 6m30s, 623 tasks (419 executed, 204 from cache). Model XML: 19 suites, 81 tests, zero failures, errors or skips. Both lint targets completed with zero Error/Fatal findings. App reports 4097 warnings and four hints; service reports 17 warnings. Log: /tmp/dpi17-completion-gradle.log. XML/HTML reports are under the owning modules in the completion worktree.
+- The [CI run on 4ca0947874](https://github.com/po4yka/RIPDPI/actions/runs/43574051616) failed in the artifact-action pin assertion and the Lyrebird link step (`anet: invalid reference to net.zoneCache`). The observability composite uses the official upload-artifact v7.0.2 commit. The test now checks that same commit. All 45 CI contract tests passed: `python3 -m unittest scripts.tests.test_build_observability_contracts scripts.tests.test_measure_native_abi_parallelism scripts.tests.test_package_native_symbols scripts.tests.test_release_artifact_uploads scripts.tests.test_rust_native_task_layout scripts.tests.test_verify_jni_readiness_mapping`. Log: /tmp/dpi17-ci-contracts-green.log.
+- `build-gate --lane ripdpi -- env -u CARGO_BUILD_JOBS ./gradlew -p build-logic :convention:test --max-workers=4 -Pripdpi.nativeCpuBudget=4`: 53 tests in 14 classes passed for the final three-file patch. Log: /tmp/dpi17-obfs4-buildlogic-test-final.log.
+- Standalone ktlint passed for all four changed Kotlin/build-logic files. Log: /tmp/dpi17-buildlogic-ktlint.log.
+- The final pinned upstream checkout passed commit, three preimage, patch and three postimage checks. Four actual Android binaries built with Go 1.27.4, CGO_ENABLED=1 and NDK 30.0.16248370 API 27 clang. Each command used empty GOFLAGS, `GOPROXY=off`, unchanged checksum verification, `-mod=readonly -p=4 -trimpath -buildvcs=false -ldflags='-s -w -buildid='`, the ABI-specific GOARCH and CC/CXX, and the package `./cmd/lyrebird`. Go's default linkname checks remained enabled. `go.mod` and `go.sum` did not change.
+- Each Android dependency graph excluded anet and Pion. The graphs contained 228 packages for ARM32, ARM64 and x86, and 229 for x86_64. `file` and actual `go version -m` checked ELF architecture, GOOS=android, GOARCH and CGO_ENABLED=1.
+- The real host binary passed managed startup on loopback: VERSION 1, CMETHOD obfs4 socks5 127.0.0.1, CMETHODS DONE; SOCKS5 greeting 050100 returned 0500; closing stdin produced exit 0. No remote peer was contacted.
+- The first aggregate script exited 2 after the successful builds because its temporary smoke helper disappeared. The helper was restored in the isolated worktree. The remaining smoke and receipt checks then passed without a repeated build. Logs: /tmp/dpi17-obfs4-validate-final.log and /tmp/dpi17-obfs4-managed-receipts-final.log. Scripts and generated receipt: /tmp/ripdpi-dpi17-obfs4-build-20261114/build/verification/dpi17-obfs4/. This receipt proves local cross-builds; it is not a prebuilt asset bundle.
+- Independent read-only review of the final patch found no actionable critical or warning findings. No compiler check, baseline, golden fixture, dependency pin or workflow security control was weakened.
+
+The reviewed source-patch manifest SHA-256 is `779126470ad7064ee73b55ea7a66079615d4e97d33a2bec20d8068fd54e6d8a1`. Local binary SHA-256 values:
+
+| ABI | SHA-256 |
+|---|---|
+| armeabi-v7a | 350319317b8665020bf4da20a52889004fd9c723ad175eca94481281710ef5d3 |
+| arm64-v8a | 333ac32f39c6127ad8cf2c8106662d012c71fb6e28c8411310ae2cdfb9f9744b |
+| x86 | 75cad16e884e2aed4813bc115a2ebea58a780580a941e2ce1a5088e4cddbea22 |
+| x86_64 | 6866c3b73e478eb3b47c389b9c118ba44d1ced14a0524166d569ee2b7e94ff98 |
+
+## Previous blocked validation
 
 The exact combined Gradle command was ./gradlew :core:data:model:testDebugUnitTest :app:lintGithubFullDebug :core:service:lintDebug --offline -Pripdpi.skipNativeBuild=true. It failed before test/lint execution because protobuf Gradle plugin 0.10.1 was not cached. Earlier online lint blocked on Maven/Plugin Portal connections; bounded official endpoint attempts timed out. Log: /tmp/dpi17-combined-android-offline.log.
 
 A bounded actual-source kotlinc 2.4.21 fallback also failed before JUnit execution: generated protobuf code required a newer runtime than cached protobuf-java 3.25.5, and the required IPAddress artifact was absent. No stubs, source stripping, dependency changes or weakened checks were used. Commands and logs: /tmp/ripdpi-dpi17-kotlin-validation/README.md. This fallback does not replace the Gradle gate.
 
-Rerun the exact Gradle command without --offline once official dependency access is restored. Device, root, external QUIC peer, DPI efficacy and visual acceptance are not claimed. This record remains blocked and is not archive-ready.
+Rerun the exact Gradle command without --offline once official dependency access is restored. Device, root, external QUIC peer, DPI efficacy and visual acceptance are not claimed. Official dependency access recovered during completion. This record is not archive-ready until the resumed local and hosted acceptance checks pass.
 
 ## Delivered fixes
 

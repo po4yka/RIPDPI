@@ -10,4 +10,5 @@ data class PluggableTransportSource(
     val packageName: String?,
     val sourceBinaryName: String,
     val outputNames: List<String>,
+    val sourcePatchSha256: String? = null,
 )

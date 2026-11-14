@@ -2,7 +2,7 @@
 id: ENG-1794637889757963
 title: Bound dummy prepend work and repair its contracts
 kind: bug
-status: blocked
+status: doing
 area: engine
 priority: high
 owner: DPI-17 remediation team
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: fix-dpi17-audit-findings
 created: 2026-11-14
 updated: 2026-11-14
-status_detail: Implementation and native/source gates are complete; JVM tests and Android lint require unavailable official dependency artifacts. See verification.md.
+status_detail: "Resume completion: official Maven access is restored; run JVM/lint and resolve remaining CI/CodeQL failures before closure."
 ---
 
 ## Goal
@@ -27,6 +27,8 @@ Fix the three confirmed DPI-17 audit findings: bound DummyPrepend work, correct 
 - Correct the explanatory string in all ten locales.
 - Run real loopback wire regression with the environment gate enabled; verify generated QUIC and the original payload.
 - Pass affected unit tests, locale lint, source CI gates, and independent review.
+- Pass Kotlin/JVM tests, app/service Android lint, and exact-SHA CI and CodeQL checks before closure.
+- Build the existing OBFS4 asset for all four Android ABIs with reviewed source-patch provenance and default Go linkname checks.
 
 ## Ownership
 
@@ -34,6 +36,12 @@ Fix the three confirmed DPI-17 audit findings: bound DummyPrepend work, correct 
 - ui_contract: isolated fix/dpi17-ui-contract worktree; all locale resource sets and owning translation export only. This agent is the sole locale writer.
 - integrator: fix/dpi17-audit-remediation worktree; portfolio/OpenSpec artifacts, wire_e2e regression, combined validation, independent review, commits, main integration and authorized push.
 - Review agents are read-only. Cargo.lock, dependency versions, API snapshots, baselines and golden fixtures have no delegated writer; any necessary generated changes are serialized by the integrator.
+
+## Completion ownership
+
+- Completion integrator: fix/dpi17-completion worktree; task/OpenSpec metadata, scripts/tests/test_build_observability_contracts.py, Gradle diagnosis and integration.
+- completion_android: read-only JVM/lint execution on the combined worktree.
+- completion_ci: sole writer in fix/dpi17-obfs4-build for Lyrebird patch files, pluggable source manifest, build-logic patch application/provenance and owning tests. Root owns task/OpenSpec files.
 
 ## Scope
 

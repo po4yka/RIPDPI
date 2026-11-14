@@ -1,0 +1,62 @@
+--- a/transports/transports.go
++++ b/transports/transports.go
+@@ -36,3 +35,0 @@
+-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird/transports/snowflake"
+-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird/transports/webtunnel"
+-
+@@ -40,3 +36,0 @@
+-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird/transports/meeklite"
+-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird/transports/obfs2"
+-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird/transports/obfs3"
+@@ -44 +37,0 @@
+-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird/transports/scramblesuit"
+@@ -91,3 +83,0 @@
+-		new(meeklite.Transport),
+-		new(obfs2.Transport),
+-		new(obfs3.Transport),
+@@ -95,3 +84,0 @@
+-		new(scramblesuit.Transport),
+-		new(snowflake.Transport),
+-		webtunnel.Transport,
+--- a/cmd/lyrebird/lyrebird.go
++++ b/cmd/lyrebird/lyrebird.go
+@@ -42 +41,0 @@
+-	"slices"
+@@ -50 +48,0 @@
+-	sf "gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/client/lib"
+@@ -70 +68 @@
+-	ptClientProxy, err := ptGetProxy(slices.Contains(ptClientInfo.MethodNames, "snowflake"))
++	ptClientProxy, err := ptGetProxy(false)
+@@ -166,11 +163,0 @@
+-		// The snowflake library takes care of configuring the proxy, so rather than
+-		// relying on dialfn, we need to add the proxy URL to the Snowflake args
+-		if name == "snowflake" {
+-			config, ok := args.(sf.ClientConfig)
+-			if !ok {
+-				log.Errorf("Error adding snowflake proxy URL to args")
+-				return
+-			}
+-			config.CommunicationProxy = proxyURI
+-			args = config
+-		}
+--- a/cmd/lyrebird/pt_extras.go
++++ b/cmd/lyrebird/pt_extras.go
+@@ -39 +38,0 @@
+-	"gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/snowflake/v2/common/proxy"
+@@ -97,16 +95,0 @@
+-	}
+-
+-	// Snowflake has extra restrictions on which proxy types are supported.
+-	// Perform the necessary checks if snowflake is one of the configured
+-	// transports.
+-	if isSnowflake {
+-		if err := proxy.CheckProxyProtocolSupport(spec); err != nil {
+-			return nil, pt.ProxyError("proxy is not supported:" + err.Error())
+-		} else {
+-			client := proxy.NewSocks5UDPClient(spec)
+-			conn, err := client.ListenPacket("udp", nil)
+-			if err != nil {
+-				return nil, pt.ProxyError("proxy test failure:" + err.Error())
+-			}
+-			conn.Close()
+-		}

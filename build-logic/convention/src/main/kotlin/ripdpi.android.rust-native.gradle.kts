@@ -663,6 +663,10 @@ abstract class BuildPluggableTransportAssetsTask
         @get:PathSensitive(PathSensitivity.RELATIVE)
         abstract val sourcesManifest: RegularFileProperty
 
+        @get:InputDirectory
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val sourcePatchesDir: DirectoryProperty
+
         @get:InputFile
         @get:PathSensitive(PathSensitivity.RELATIVE)
         abstract val rustWorkspaceManifest: RegularFileProperty
@@ -794,6 +798,7 @@ abstract class BuildPluggableTransportAssetsTask
                                     when (source.sourceType) {
                                         "go" -> {
                                             val repoDir = syncPinnedRepo(reposDir, source)
+                                            applyReviewedSourcePatch(source, repoDir)
                                             buildGoBinary(
                                                 source = source,
                                                 abi = abi,
@@ -902,6 +907,7 @@ abstract class BuildPluggableTransportAssetsTask
                                     "commit" to source.commit,
                                     "goToolchain" to source.goToolchain,
                                     "goLinkerFlags" to source.goLinkerFlags,
+                                    "sourcePatchSha256" to source.sourcePatchSha256,
                                     "cgoEnabled" to source.cgoEnabled,
                                     "packagePath" to source.packagePath,
                                     "packageName" to source.packageName,
@@ -933,6 +939,7 @@ abstract class BuildPluggableTransportAssetsTask
                                             "commit" to source.commit,
                                             "goToolchain" to source.goToolchain,
                                             "goLinkerFlags" to source.goLinkerFlags,
+                                            "sourcePatchSha256" to source.sourcePatchSha256,
                                             "cgoEnabled" to source.cgoEnabled,
                                             "packagePath" to source.packagePath,
                                             "packageName" to source.packageName,
@@ -971,7 +978,9 @@ abstract class BuildPluggableTransportAssetsTask
                     packageName = data["packageName"]?.toString()?.takeIf(String::isNotBlank),
                     sourceBinaryName = data.requireString("sourceBinaryName"),
                     outputNames = (data["outputNames"] as? List<*>)?.map { it.toString() }.orEmpty(),
+                    sourcePatchSha256 = data["sourcePatchSha256"]?.toString(),
                 ).also { source ->
+                    reviewedPluggableTransportSourcePatch(source, sourcePatchesDir.get().asFile)
                     require(source.sourceType == "go" || source.sourceType == "rust") {
                         "Source ${source.id} has unsupported sourceType=${source.sourceType}"
                     }
@@ -1060,6 +1069,7 @@ abstract class BuildPluggableTransportAssetsTask
                     "Prebuilt pluggable transport artifact $abi/$outputName has an unexpected source"
                 }
                 verifyPluggableTransportGoLinkerFlags(record, source.goLinkerFlags, source.id)
+                verifyPluggableTransportSourcePatchReceipt(record, source)
                 require(record["mode"] == "source") {
                     "Prebuilt pluggable transport artifact $abi/$outputName was not source-built"
                 }
@@ -1138,6 +1148,7 @@ abstract class BuildPluggableTransportAssetsTask
                     "Prebuilt pluggable transport source ${source.id} has an unexpected Go toolchain"
                 }
                 verifyPluggableTransportGoLinkerFlags(record, source.goLinkerFlags, source.id)
+                verifyPluggableTransportSourcePatchReceipt(record, source)
                 require(record.optionalString("packagePath") == source.packagePath) {
                     "Prebuilt pluggable transport source ${source.id} has an unexpected package path"
                 }
@@ -1230,6 +1241,29 @@ abstract class BuildPluggableTransportAssetsTask
                     "$description failed after $attempts attempts"
                 }
             throw GradleException(failureMessage, lastError)
+        }
+
+        private fun applyReviewedSourcePatch(
+            source: PluggableTransportSource,
+            repoDir: File,
+        ) {
+            val patch = reviewedPluggableTransportSourcePatch(source, sourcePatchesDir.get().asFile) ?: return
+            val head = ByteArrayOutputStream()
+            execOperations
+                .exec {
+                    workingDir = repoDir
+                    standardOutput = head
+                    commandLine(gitExecutable.get(), "rev-parse", "HEAD")
+                }.assertNormalExitValue()
+            patch.verifyInput(repoDir, head.toString(Charsets.UTF_8).trim())
+            for (arguments in listOf(listOf("apply", "--unidiff-zero", "--check"), listOf("apply", "--unidiff-zero"))) {
+                execOperations
+                    .exec {
+                        workingDir = repoDir
+                        commandLine(listOf(gitExecutable.get()) + arguments + patch.file.absolutePath)
+                    }.assertNormalExitValue()
+            }
+            patch.verifyOutput(repoDir)
         }
 
         private fun buildGoBinary(
@@ -1876,6 +1910,7 @@ val buildPluggableTransportAssets =
         description = "Builds source-pinned pluggable transport helper assets or stub launchers."
 
         sourcesManifest.set(ptSourcesManifestFile)
+        sourcePatchesDir.set(rootProject.layout.projectDirectory.dir("native/pluggable-transports/patches"))
         rustWorkspaceManifest.set(rustWorkspaceManifestFile)
         rustSources.from(rustWorkspaceCrateSources())
         rustSources.from(

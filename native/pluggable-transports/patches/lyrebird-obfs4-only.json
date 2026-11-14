@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "sourceId": "lyrebird",
+  "commit": "59ac7e400c384773f5584dbe366516ad04a33d9f",
+  "patch": "lyrebird-obfs4-only.patch",
+  "patchSha256": "3245c3c1e004d277009e076d989afac3b30c6af25bac310ddeb790edc44a4d50",
+  "preimages": {
+    "transports/transports.go": "406f90874e4b80f37a2af19d082e9d43d9263607dbde391fa714c18e203f5289",
+    "cmd/lyrebird/lyrebird.go": "c63c47c0953fd0558314136d40bf261b6cf6dbf67bfdc41e7e60e6a33a405553",
+    "cmd/lyrebird/pt_extras.go": "559539cee489eef81d23ea5012a62c2ad34e710c1071f8acf0cd2a499208c9d7"
+  },
+  "postimages": {
+    "transports/transports.go": "6ca6ec607f11a595f1770b1b8d1ad0b65976d89eaddd5de45396c099b599e3f3",
+    "cmd/lyrebird/lyrebird.go": "a29b5914ff6eb9a207c06cb030ac91e22c85b20b70e6dcd13f26fd38029fb25e",
+    "cmd/lyrebird/pt_extras.go": "65124b1a2c3b944805f5d5f8fd31dd833cee0dae6d7cd70a3302a62a9f2f3848"
+  }
+}

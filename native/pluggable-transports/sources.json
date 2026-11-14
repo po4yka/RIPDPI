@@ -26,7 +26,8 @@
       "sourceBinaryName": "lyrebird",
       "outputNames": [
         "ripdpi-obfs4"
-      ]
+      ],
+      "sourcePatchSha256": "779126470ad7064ee73b55ea7a66079615d4e97d33a2bec20d8068fd54e6d8a1"
     },
     {
       "id": "ripdpi-webtunnel",

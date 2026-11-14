@@ -48,3 +48,21 @@ The enabled regression MUST check the current QUIC representation and fake autho
 
 - **WHEN** RIPDPI_RUN_WIRE_E2E is 1
 - **THEN** the test checks current representation and the original instead of the obsolete 64-byte packet.
+
+### Requirement: REQ-DUMMY-ACCEPT — Complete acceptance before closure
+
+The change MUST pass owning Kotlin/JVM tests, app and service Android lint, CI and CodeQL before closure. Build compatibility repairs MUST retain compiler and security checks.
+
+#### Scenario: Final validation
+
+- **WHEN** the completion commit is checked
+- **THEN** exact-SHA evidence records successful local and hosted checks before the task is closed.
+
+### Requirement: REQ-DUMMY-ASSET — Preserve checked asset provenance
+
+The OBFS4 build MUST apply its reviewed patch only to pinned source and record patch provenance in generated and prebuilt metadata. It MUST reject wrong commits, preimages, patch digests and stale receipts, and keep Go linkname checks enabled.
+
+#### Scenario: Verified OBFS4 asset
+
+- **WHEN** Lyrebird is prepared for the packaged OBFS4 binary
+- **THEN** only obfs4 is registered and all supported ABI builds pass with linkname checks enabled, while separate transport assets remain available.
