@@ -29,6 +29,7 @@ pub fn parse_udp_chain_step_kind(value: &str) -> Result<UdpChainStepKind, ProxyC
 
 pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec<UdpChainStep>, ProxyConfigError> {
     let mut parsed = Vec::with_capacity(steps.len());
+    let mut remaining_quic_fake_version_count = MAX_FAKE_BURST_COUNT;
     let mut remaining_crypto_splits = MAX_FAKE_BURST_COUNT;
 
     let mut quic_sni_split_budget = MAX_QUIC_SNI_SPLIT_COUNT;
@@ -55,13 +56,29 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
             }
             cid_churn_budget -= step.count;
         }
-        if matches!(kind, UdpChainStepKind::FakeBurst | UdpChainStepKind::QuicPacketNumberGap)
-            && step.count > MAX_FAKE_BURST_COUNT
+        if matches!(
+            kind,
+            UdpChainStepKind::FakeBurst | UdpChainStepKind::QuicFakeVersion | UdpChainStepKind::QuicPacketNumberGap
+        ) && step.count > MAX_FAKE_BURST_COUNT
         {
-            let name = if kind == UdpChainStepKind::FakeBurst { "fake_burst" } else { "quic_packet_number_gap" };
+            let name = if kind == UdpChainStepKind::FakeBurst {
+                "fake_burst"
+            } else if kind == UdpChainStepKind::QuicFakeVersion {
+                "quic_fake_version"
+            } else {
+                "quic_packet_number_gap"
+            };
             return Err(ProxyConfigError::InvalidConfig(format!(
                 "udpChainSteps kind={name} count must be at most {MAX_FAKE_BURST_COUNT}"
             )));
+        }
+        if kind == UdpChainStepKind::QuicFakeVersion {
+            if step.count > remaining_quic_fake_version_count {
+                return Err(ProxyConfigError::InvalidConfig(format!(
+                    "udpChainSteps quic_fake_version total count must be at most {MAX_FAKE_BURST_COUNT}"
+                )));
+            }
+            remaining_quic_fake_version_count -= step.count;
         }
         if kind == UdpChainStepKind::QuicCryptoSplit {
             if step.count > remaining_crypto_splits {

@@ -141,6 +141,10 @@ internal fun validateUdpChain(steps: List<UdpChainStepModel>) {
         "quic_sni_split total count must be at most $MaxQuicSniSplitCount"
     }
     require(
+        normalized.sumOf { if (it.kind == UdpChainStepKind.QuicFakeVersion) it.count.toLong() else 0L } <=
+            MaxFakeBurstCount,
+    ) { "quic_fake_version total count must be at most $MaxFakeBurstCount" }
+    require(
         normalized.sumOf { step ->
             if (step.kind == UdpChainStepKind.QuicCidChurn) step.count.toLong() else 0L
         } <= MaxFakeBurstCount,
@@ -265,6 +269,7 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
     }
     when (step.kind) {
         UdpChainStepKind.FakeBurst,
+        UdpChainStepKind.QuicFakeVersion,
         UdpChainStepKind.DummyPrepend,
         UdpChainStepKind.QuicPaddingLadder,
         UdpChainStepKind.QuicPacketNumberGap,
@@ -285,7 +290,6 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
         }
 
         UdpChainStepKind.QuicSniSplit,
-        UdpChainStepKind.QuicFakeVersion,
         UdpChainStepKind.QuicCryptoSplit,
         UdpChainStepKind.QuicCidChurn,
         UdpChainStepKind.QuicVersionNegotiationDecoy,

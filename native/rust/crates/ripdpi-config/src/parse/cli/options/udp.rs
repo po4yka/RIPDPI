@@ -1,3 +1,4 @@
+mod quic_fake_version;
 mod quic_sni_split;
 
 use crate::{ConfigError, MAX_FAKE_BURST_COUNT, UdpChainStep, UdpChainStepKind};
@@ -14,11 +15,7 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             state.group().actions.udp_chain.push(UdpChainStep::new(UdpChainStepKind::DummyPrepend, 1));
         }
         "--quic-fake-version" => {
-            let value = next_value(args, idx, arg)?;
-            let version = u32::from_str_radix(value.trim_start_matches("0x").trim_start_matches("0X"), 16)
-                .map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-            state.group().actions.quic_fake_version = version;
-            state.group().actions.udp_chain.push(UdpChainStep::new(UdpChainStepKind::QuicFakeVersion, 1));
+            quic_fake_version::apply(state.group(), next_value(args, idx, arg)?)?;
         }
         "--quic-migrate" => state.group().actions.quic_migrate_after_handshake = true,
         "-a" | "--udp-fake" => {

@@ -14,6 +14,9 @@ pub(super) fn build_quic_fake_version_packets(
     else {
         return Vec::new();
     };
+    if seed_packet.len() > u16::MAX as usize {
+        return Vec::new();
+    }
     let Some(packet) = tamper_quic_version(&seed_packet, group.actions.quic_fake_version) else {
         return Vec::new();
     };

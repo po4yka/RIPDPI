@@ -6,6 +6,26 @@ import org.junit.Test
 
 class StrategyChainValidationTest {
     @Test
+    fun `QUIC fake version accepts counts within the chain budget`() {
+        for (counts in listOf(listOf(0), listOf(1), listOf(64), listOf(32, 32))) {
+            val source = "[udp]\n" + counts.joinToString("\n") { "quic_fake_version $it" }
+
+            val chain = parseStrategyChainDsl(source).getOrThrow()
+
+            assertEquals(counts, chain.udpSteps.map { it.count })
+        }
+    }
+
+    @Test
+    fun `QUIC fake version rejects counts over the chain budget`() {
+        for (counts in listOf(listOf(65), listOf(Int.MAX_VALUE), listOf(32, 33), listOf(64, 1))) {
+            val source = "[udp]\n" + counts.joinToString("\n") { "quic_fake_version $it" }
+
+            assertTrue("accepted $counts", parseStrategyChainDsl(source).isFailure)
+        }
+    }
+
+    @Test
     fun `packet number gap count is bounded before execution`() {
         for (count in listOf(0, 64)) {
             val chain = parseStrategyChainDsl("[udp]\nquic_packet_number_gap $count").getOrThrow()
