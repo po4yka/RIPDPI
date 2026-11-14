@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-14
+goal: RST-1794677915101106 Correct DPI-27 packet parameter contracts
