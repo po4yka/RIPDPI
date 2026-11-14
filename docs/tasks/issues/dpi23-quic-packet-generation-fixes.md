@@ -2,7 +2,7 @@
 id: ENG-1794637912833130
 title: Correct DPI-23 QUIC packet generation audit findings
 kind: bug
-status: review
+status: done
 area: engine
 priority: medium
 owner: DPI-23 integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi23-quic-packet-generation-fixes
 created: 2026-11-14
 updated: 2026-11-14
+closed_at: "2026-11-14T09:44:03Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Three reviewed fixes; 1314 Rust and 87 Kotlin tests passed; independent actual-emitter TShark oracle and all source gates passed. Code commit 90728fab830c7b4fd26a3e27989fe8ff231becc9.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "dpi23-quic-packet-generation-fixes",
+  "evidence_summary": "Three reviewed fixes; 1314 Rust and 87 Kotlin tests passed; independent actual-emitter TShark oracle and all source gates passed. Code commit 90728fab830c7b4fd26a3e27989fe8ff231becc9.",
+  "execution_sha256": "66b84b077e9f379e64167c5254c348b56482655dae33dd6190eae086ef53b582",
+  "issue_sha256": "080de65e2aaae2899a9b6a13282d437dcc635d1e1590417ba8dd7986355069e3",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T09:44:03Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794637912833130"
+}
