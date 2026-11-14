@@ -2,7 +2,7 @@
 id: RST-1794677647125288
 title: Repair DPI-26 UDP fragmentation contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Primary integrator
