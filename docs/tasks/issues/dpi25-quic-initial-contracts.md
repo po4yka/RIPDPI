@@ -2,7 +2,7 @@
 id: ENG-1794638006879351
 title: Repair DPI-25 QUIC Initial contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: Network engine team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: dpi25-quic-initial-contracts
 created: 2026-11-14
 updated: 2026-11-14
+status_detail: Five repairs, final owning tests, source gates and independent wire acceptance passed.
 ---
 
 ## Goal
