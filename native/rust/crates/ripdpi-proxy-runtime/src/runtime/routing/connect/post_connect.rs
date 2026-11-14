@@ -157,7 +157,7 @@ mod tests {
     /// SO_ATTACH_FILTER option number). The kernel takes and returns the length in
     /// instructions, and returns 0 on success.
     fn attached_filter(stream: &TcpStream) -> Vec<libc::sock_filter> {
-        let mut insns = [libc::sock_filter { code: 0, jt: 0, jf: 0, k: 0 }; 16];
+        let mut insns = [libc::sock_filter { code: 0, jt: 0, jf: 0, k: 0 }; 64];
         let mut len = insns.len() as libc::socklen_t;
         // SAFETY: `stream` owns a live socket fd for the call; `insns` is a writable
         // buffer of `len` sock_filter entries, which is the unit SO_GET_FILTER uses.
@@ -193,10 +193,16 @@ mod tests {
 
         apply_group_socket_options(&both, &policy(true, true)).expect("both filters requested");
 
-        // drop-SACK checks data offset >= 0x0b and option byte 0x22; the timestamp
-        // program checks 0x08 and 0x14 instead, so these k values tell them apart.
-        let filter = attached_filter(&both);
-        assert_eq!(filter.len(), 7, "a filter must stay attached");
-        assert_eq!((filter[2].k, filter[3].k), (0x0b, 0x22), "drop-SACK must stay attached");
+        let (drop_only, _drop_listener) = connected_stream();
+        apply_group_socket_options(&drop_only, &policy(true, false)).expect("drop-SACK only");
+        let instructions = |stream: &TcpStream| {
+            attached_filter(stream)
+                .into_iter()
+                .map(|instruction| (instruction.code, instruction.jt, instruction.jf, instruction.k))
+                .collect::<Vec<_>>()
+        };
+        let combined = instructions(&both);
+        assert!(!combined.is_empty(), "a filter must stay attached");
+        assert_eq!(combined, instructions(&drop_only), "drop-SACK must stay attached");
     }
 }
