@@ -20,7 +20,7 @@ zapret (bol-van/zapret) is the closest peer to RIPDPI's transparent-mode desync 
 | 6 | QUIC fake version (`fake_quic_version`) | Sends a QUIC Initial with a tampered/reserved version field so the DPI's QUIC parser rejects it; the server either ignores it or sends Version Negotiation. | `nfq/desync.c` → `quic_repack_initial()` version field tamper | Yes — `QuicFakeVersion` (`UdpChainStepKind::QuicFakeVersion`) |
 | 7 | QUIC Initial fragmentation (QUIC-layer split, not IP) | Splits the QUIC CRYPTO frame so the SNI straddles two datagrams; DPI sees incomplete ClientHello in the first datagram. | `nfq/desync.c` → `quic_repack_initial()` crypto offset | Yes — `QuicSniSplit` (split at SNI boundary) + `QuicCryptoSplit` (split at CRYPTO frame boundary) |
 | 8 | QUIC padding / dummy prepend | Prepends one or more valid-looking but padding-only QUIC Initials to confuse stateful DPI that tracks packet count or expects SNI in packet N. | `nfq/desync.c` → `quic_make_fake_initial()` padding variant | Yes — `DummyPrepend` + `QuicPaddingLadder` |
-| 9 | Version Negotiation decoy | Synthesises a server-to-client Version Negotiation packet before the real Initial so the DPI thinks negotiation already happened. | `nfq/desync.c` → `quic_make_vneg_packet()` | Yes — `QuicVersionNegotiationDecoy` |
+| 9 | Version Negotiation response | A real VN packet is a server response with version zero and a supported-version list. | Upstream mapping not verified in this note. | No — the legacy `QuicVersionNegotiationDecoy` arm sends a client-to-server Initial with an XOR version change. |
 | 10 | CID churn | Sends multiple Initials each with a slightly different Destination Connection ID; DPI keyed on DCID misses the real flow. | `nfq/desync.c` → loop over `quic_repack_initial()` with DCID mutation | Yes — `QuicCidChurn` |
 | 11 | Packet-number gap | Sends decoy Initials with non-zero packet numbers; DPI expecting packet_number==0 for the first Initial discards them. | `nfq/desync.c` → `quic_repack_initial()` pn field | Yes — `QuicPacketNumberGap` |
 | 12 | Multi-Initial realistic | Sends 2+ Initials with browser-realistic padding/layout before the real one; mimics Chrome's multi-datagram Initial behaviour. | `nfq/desync.c` → `quic_make_multi_initial()` | Yes — `QuicMultiInitialRealistic` |
@@ -39,7 +39,7 @@ zapret (bol-van/zapret) is the closest peer to RIPDPI's transparent-mode desync 
 | IP fragmentation | `IpFrag2Udp` | — | Fully covered including disorder flag. |
 | IPv6 ext headers | `IpFrag2Udp` + `Ipv6ExtHeaders` flags | — | Covered: `hop_by_hop`, `dest_opt`, `dest_opt_fragmentable`, `second_frag_next_override`. |
 | QUIC fake version | `QuicFakeVersion` | — | Covered. |
-| Version Negotiation decoy | `QuicVersionNegotiationDecoy` | — | Covered. |
+| Version Negotiation response | `QuicVersionNegotiationDecoy` (legacy name) | — | Header-version mutation only; no server VN packet. |
 | CID churn | `QuicCidChurn` | — | Covered. |
 | Packet-number gap | `QuicPacketNumberGap` | — | Covered. |
 | Multi-Initial realistic | `QuicMultiInitialRealistic` | — | Covered. |
@@ -49,7 +49,7 @@ zapret (bol-van/zapret) is the closest peer to RIPDPI's transparent-mode desync 
 | **QUIC SNI encryption decoy** | None | `QuicEchDecoy` | zapret does not implement this yet either, but it is the natural next primitive: send a QUIC Initial with a crafted ECH outer ClientHello so the DPI sees a different SNI. Coverage gain: any DPI that SNI-matches but does not verify ECH consistency. |
 | **Payload-length jitter** | None | `QuicLengthJitter` | Vary the QUIC Initial datagram length across retransmits; counters DPI heuristics that fingerprint by length. zapret issue tracker references this as a planned primitive. |
 
-**Summary:** RIPDPI already has full coverage of every zapret QUIC/UDP primitive that has shipped. The two gaps are forward-looking arms not yet in zapret either.
+**Scope correction:** This historical mapping does not establish full upstream feature coverage. In particular, the legacy `QuicVersionNegotiationDecoy` arm only changes an Initial header version. It does not implement a server Version Negotiation response. The two proposals below remain separate from this correction.
 
 ---
 
@@ -80,7 +80,7 @@ All paths are relative to `https://github.com/bol-van/zapret` (as of 2026-05):
 | UDP fake packet / QUIC fake | `nfq/desync.c` | `send_fake_udp()`, `quic_make_fake_initial()` |
 | QUIC Initial repack (version, CID, PN, crypto split) | `nfq/desync.c` | `quic_repack_initial()` |
 | QUIC Multi-Initial | `nfq/desync.c` | `quic_make_multi_initial()` |
-| Version Negotiation decoy | `nfq/desync.c` | `quic_make_vneg_packet()` |
+| Version Negotiation response | Not verified | No pinned upstream source in this note |
 | IP fragmentation | `nfq/ipfrag.c` | `send_ipfrag()`, `ipv6_add_dest_opt()` |
 | TTL game (fake TTL + hopbyhop) | `nfq/desync.c` | `send_fake_udp()` TTL param; `nfq/ipfrag.c` hop-by-hop extension |
 | TCP OOB / disorder (TCP only) | `nfq/desync.c` | `send_oob()`, `send_disorder()` |

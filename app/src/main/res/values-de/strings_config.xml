@@ -1162,9 +1162,9 @@ Quelle: %2$s</string>
     <string name="config_chain_step_quic_sni_split_add">SNI-Split hinzufügen</string>
     <string name="config_chain_step_quic_sni_split_explanation">Teilt die SNI-Ansicht des QUIC-Initial auf.</string>
     <string name="config_chain_step_quic_sni_split_label">QUIC-SNI-Split</string>
-    <string name="config_chain_step_quic_vn_decoy_add">VN-Lockvogel hinzufügen</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">Fügt QUIC-Versionsaushandlungs-Lockvögel hinzu.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">Versionsaushandlungs-Lockvogel</string>
+    <string name="config_chain_step_quic_vn_decoy_add">XOR-Versionsköder hinzufügen</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">Fügt Initial-Köder mit per XOR geänderter Version hinzu.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">XOR-Versionsköder</string>
     <string name="config_chain_step_seqovl_add">Seqovl hinzufügen</string>
     <string name="config_chain_step_seqovl_explanation">Überlappt TCP-Sequenzbytes, um die Reassemblierung zu verwirren.</string>
     <string name="config_chain_step_seqovl_label">Sequenzüberlappung</string>

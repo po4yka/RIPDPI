@@ -1160,9 +1160,9 @@ fake_burst 3</string>
     <string name="config_chain_step_quic_sni_split_add">添加 SNI 拆分</string>
     <string name="config_chain_step_quic_sni_split_explanation">拆分 QUIC Initial 的 SNI 视图。</string>
     <string name="config_chain_step_quic_sni_split_label">QUIC SNI 拆分</string>
-    <string name="config_chain_step_quic_vn_decoy_add">添加 VN 诱饵</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">添加 QUIC 版本协商诱饵。</string>
-    <string name="config_chain_step_quic_vn_decoy_label">版本协商诱饵</string>
+    <string name="config_chain_step_quic_vn_decoy_add">添加版本 XOR 诱饵</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">添加通过 XOR 修改版本的 Initial 诱饵。</string>
+    <string name="config_chain_step_quic_vn_decoy_label">版本 XOR 诱饵</string>
     <string name="config_chain_step_seqovl_add">添加 seqovl</string>
     <string name="config_chain_step_seqovl_explanation">重叠 TCP 序列字节以扰乱重组。</string>
     <string name="config_chain_step_seqovl_label">序列重叠</string>

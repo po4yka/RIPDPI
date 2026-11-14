@@ -1420,7 +1420,7 @@
     <string name="diagnostics_signature_lane_quic_dummy_prepend">Добавление пустого пакета QUIC</string>
     <string name="diagnostics_signature_lane_quic_crypto_split">Разделение CRYPTO в QUIC</string>
     <string name="diagnostics_signature_lane_quic_packet_number_gap">Пропуск номера пакета QUIC</string>
-    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">Ложное согласование версии QUIC</string>
+    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">Обманка версии QUIC с XOR</string>
     <string name="diagnostics_signature_lane_quic_multi_initial_realistic">Несколько реалистичных Initial QUIC</string>
     <string name="diagnostics_signature_lane_dns_encrypted_doh">Зашифрованный DNS (DoH)</string>
     <string name="diagnostics_signature_lane_dns_encrypted_dot">Зашифрованный DNS (DoT)</string>

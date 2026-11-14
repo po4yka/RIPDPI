@@ -235,7 +235,7 @@ fun strategyLaneFamilyLabel(family: String): String {
         "quic_padding_ladder" -> "QUIC padding ladder"
         "quic_cid_churn" -> "QUIC CID churn"
         "quic_packet_number_gap" -> "QUIC packet number gap"
-        "quic_version_negotiation_decoy" -> "QUIC version negotiation decoy"
+        "quic_version_negotiation_decoy" -> "QUIC version XOR decoy"
         "quic_multi_initial_realistic" -> "QUIC multi-initial realistic"
         "dns_plain_udp" -> "Plain DNS"
         "dns_encrypted_doh" -> "Encrypted DNS (DoH)"

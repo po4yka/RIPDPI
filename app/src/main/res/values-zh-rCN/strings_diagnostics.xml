@@ -1349,7 +1349,7 @@
     <string name="diagnostics_signature_lane_quic_dummy_prepend">QUIC 前置占位包</string>
     <string name="diagnostics_signature_lane_quic_crypto_split">QUIC CRYPTO 拆分</string>
     <string name="diagnostics_signature_lane_quic_packet_number_gap">QUIC 数据包编号间隙</string>
-    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">QUIC 版本协商诱饵</string>
+    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">QUIC 版本 XOR 诱饵</string>
     <string name="diagnostics_signature_lane_quic_multi_initial_realistic">多个真实 QUIC Initial</string>
     <string name="diagnostics_signature_lane_dns_encrypted_doh">加密 DNS (DoH)</string>
     <string name="diagnostics_signature_lane_dns_encrypted_dot">加密 DNS (DoT)</string>

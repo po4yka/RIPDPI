@@ -548,7 +548,13 @@ fn build_quic_candidates_prioritize_active_techniques_and_keep_disabled_last() {
     assert_eq!(ids.last().copied(), Some("quic_disabled"));
     assert!(ids.contains(&"quic_crypto_split"));
     assert!(ids.contains(&"quic_padding_ladder"));
-    assert!(ids.contains(&"quic_version_negotiation_decoy"));
+    let version_decoy = candidates
+        .iter()
+        .find(|candidate| candidate.id == "quic_version_negotiation_decoy")
+        .expect("version XOR decoy");
+    assert_eq!(version_decoy.label, "QUIC version XOR decoy");
+    assert_eq!(version_decoy.family, "quic_version_negotiation_decoy");
+    assert_eq!(version_decoy.config.chains.udp_steps[0].kind, "quic_version_negotiation_decoy");
     assert!(ids.contains(&"quic_multi_initial_realistic"));
     assert!(!ids.contains(&"quic_compat_burst"));
     assert!(!ids.contains(&"quic_realistic_burst"));

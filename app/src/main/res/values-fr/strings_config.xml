@@ -1162,9 +1162,9 @@ Source : %2$s</string>
     <string name="config_chain_step_quic_sni_split_add">Ajouter un fractionnement SNI</string>
     <string name="config_chain_step_quic_sni_split_explanation">Fractionne la vue du SNI dans le QUIC Initial.</string>
     <string name="config_chain_step_quic_sni_split_label">Fractionnement SNI QUIC</string>
-    <string name="config_chain_step_quic_vn_decoy_add">Ajouter un leurre VN</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">Ajoute des leurres de négociation de version QUIC.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">Leurre de négociation de version</string>
+    <string name="config_chain_step_quic_vn_decoy_add">Ajouter un leurre de version XOR</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">Ajoute des leurres Initial avec une version modifiée par XOR.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">Leurre de version XOR</string>
     <string name="config_chain_step_seqovl_add">Ajouter seqovl</string>
     <string name="config_chain_step_seqovl_explanation">Chevauche les octets de séquence TCP pour brouiller le réassemblage.</string>
     <string name="config_chain_step_seqovl_label">Chevauchement de séquence</string>

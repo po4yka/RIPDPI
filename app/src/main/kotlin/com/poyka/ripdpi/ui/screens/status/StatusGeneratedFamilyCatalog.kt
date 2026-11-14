@@ -48,6 +48,9 @@ internal val homeGeneratedHumanFamilyTokens =
         "Quic padding ladder" to "quic_padding_ladder",
         "Quic sni split" to "quic_sni_split",
         "Quic version negotiation decoy" to "quic_version_negotiation_decoy",
+        "QUIC version negotiation decoy" to "quic_version_negotiation_decoy",
+        "Quic version XOR decoy" to "quic_version_negotiation_decoy",
+        "QUIC version XOR decoy" to "quic_version_negotiation_decoy",
         "Quic compat burst" to "quic_compat_burst",
         "Quic realistic burst" to "quic_realistic_burst",
     )

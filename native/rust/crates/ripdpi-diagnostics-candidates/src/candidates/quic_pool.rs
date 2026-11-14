@@ -47,10 +47,10 @@ pub fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateS
     candidates.push(with_quic_layout_family(
         candidate_spec_with_notes(
             "quic_version_negotiation_decoy",
-            "QUIC version negotiation decoy",
+            "QUIC version XOR decoy",
             "quic_version_negotiation_decoy",
             build_quic_version_negotiation_decoy_candidate(base_tcp),
-            vec!["Injects a browser-like header-version decoy before the real Initial"],
+            vec!["Sends an Initial with an XOR version change; it does not send a Version Negotiation packet"],
         ),
         "quic_version_negotiation_decoy",
     ));

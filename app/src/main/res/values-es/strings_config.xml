@@ -1162,9 +1162,9 @@ Origen: %2$s</string>
     <string name="config_chain_step_quic_sni_split_add">Añadir división SNI</string>
     <string name="config_chain_step_quic_sni_split_explanation">Divide la vista del SNI del QUIC Initial.</string>
     <string name="config_chain_step_quic_sni_split_label">División SNI QUIC</string>
-    <string name="config_chain_step_quic_vn_decoy_add">Añadir señuelo VN</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">Añade señuelos de negociación de versión QUIC.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">Señuelo de negociación de versión</string>
+    <string name="config_chain_step_quic_vn_decoy_add">Añadir señuelo de versión XOR</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">Añade señuelos Initial con la versión modificada mediante XOR.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">Señuelo de versión XOR</string>
     <string name="config_chain_step_seqovl_add">Añadir seqovl</string>
     <string name="config_chain_step_seqovl_explanation">Superpone bytes de secuencia TCP para confundir el reensamblado.</string>
     <string name="config_chain_step_seqovl_label">Superposición de secuencia</string>

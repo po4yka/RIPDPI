@@ -1166,9 +1166,9 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_quic_sni_split_add">إضافة تقسيم SNI</string>
     <string name="config_chain_step_quic_sni_split_explanation">يقسّم عرض SNI في QUIC Initial.</string>
     <string name="config_chain_step_quic_sni_split_label">تقسيم QUIC SNI</string>
-    <string name="config_chain_step_quic_vn_decoy_add">إضافة طُعم VN</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">يضيف طُعوم التفاوض على إصدار QUIC.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">طُعم التفاوض على الإصدار</string>
+    <string name="config_chain_step_quic_vn_decoy_add">إضافة طُعم إصدار XOR</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">يضيف طُعوم Initial بإصدار معدّل باستخدام XOR.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">طُعم إصدار XOR</string>
     <string name="config_chain_step_seqovl_add">إضافة seqovl</string>
     <string name="config_chain_step_seqovl_explanation">يتداخل في بايتات تسلسل TCP لإرباك إعادة التجميع.</string>
     <string name="config_chain_step_seqovl_label">تداخل التسلسل</string>

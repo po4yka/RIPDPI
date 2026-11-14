@@ -91,6 +91,30 @@ class StatusPersianGeneratedPresentationTest {
     }
 
     @Test
+    fun `legacy and current version decoy names use the same corrected label`() {
+        val names =
+            listOf(
+                "Quic version negotiation decoy",
+                "QUIC version negotiation decoy",
+                "Quic version XOR decoy",
+                "QUIC version XOR decoy",
+            )
+        val raw =
+            homeOutcome().copy(
+                appliedSettings = names.map { DiagnosticsAppliedSetting("QUIC lane", it) },
+            )
+        assertEquals(
+            List(names.size) { "QUIC version XOR decoy" },
+            projectHome(raw, "en").analysisSheet!!.appliedSettings.map { it.value },
+        )
+        assertEquals(
+            List(names.size) { "طعمهٔ نسخهٔ QUIC با XOR" },
+            projectHome(raw, "fa").analysisSheet!!.appliedSettings.map { it.value },
+        )
+        assertEquals(names, raw.appliedSettings.map { it.value })
+    }
+
+    @Test
     fun `resolver rationale translates template while retaining resolver protocol and IP`() {
         val rationale =
             "UDP DNS showed dns_mismatch while Custom Resolver returned matching encrypted answers over " +

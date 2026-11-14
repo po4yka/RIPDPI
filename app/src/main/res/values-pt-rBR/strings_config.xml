@@ -1158,9 +1158,9 @@ Fonte: %2$s</string>
     <string name="config_chain_step_quic_sni_split_add">Adicionar divisão de SNI</string>
     <string name="config_chain_step_quic_sni_split_explanation">Divide a visualização do SNI no Initial do QUIC.</string>
     <string name="config_chain_step_quic_sni_split_label">Divisão de SNI QUIC</string>
-    <string name="config_chain_step_quic_vn_decoy_add">Adicionar chamariz VN</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">Adiciona chamarizes de negociação de versão QUIC.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">Chamariz de negociação de versão</string>
+    <string name="config_chain_step_quic_vn_decoy_add">Adicionar chamariz de versão XOR</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">Adiciona chamarizes Initial com a versão alterada por XOR.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">Chamariz de versão XOR</string>
     <string name="config_chain_step_seqovl_add">Adicionar seqovl</string>
     <string name="config_chain_step_seqovl_explanation">Sobrepõe bytes de sequência TCP para confundir a remontagem.</string>
     <string name="config_chain_step_seqovl_label">Sobreposição de sequência</string>

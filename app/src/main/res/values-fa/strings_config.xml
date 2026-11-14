@@ -1162,9 +1162,9 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_quic_sni_split_add">افزودن SNI split</string>
     <string name="config_chain_step_quic_sni_split_explanation">نمای SNI در QUIC Initial را تقسیم می‌کند.</string>
     <string name="config_chain_step_quic_sni_split_label">تقسیم SNI در QUIC</string>
-    <string name="config_chain_step_quic_vn_decoy_add">افزودن VN decoy</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">طعمه‌های مذاکرهٔ نسخهٔ QUIC را می‌افزاید.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">طعمهٔ مذاکرهٔ نسخه</string>
+    <string name="config_chain_step_quic_vn_decoy_add">افزودن طعمهٔ نسخه با XOR</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">طعمه‌های Initial را با نسخه‌ای که با XOR تغییر کرده است اضافه می‌کند.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">طعمهٔ نسخه با XOR</string>
     <string name="config_chain_step_seqovl_add">افزودن seqovl</string>
     <string name="config_chain_step_seqovl_explanation">بایت‌های توالی TCP را همپوشان می‌کند تا بازچینش را گیج کند.</string>
     <string name="config_chain_step_seqovl_label">همپوشانی توالی</string>

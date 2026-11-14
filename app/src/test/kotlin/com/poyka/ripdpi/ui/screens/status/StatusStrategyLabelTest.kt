@@ -82,6 +82,10 @@ class StatusStrategyLabelTest {
                 .copy(quicStrategyFamily = "quic_sni_split", tlsRecordSplitEnabled = false, routeGroup = null)
                 .facetMap()
         assertEquals("QUIC SNI split", facets["QUIC"])
+        assertEquals(
+            "QUIC version XOR decoy",
+            signature.copy(quicStrategyFamily = "quic_version_negotiation_decoy").facetMap()["QUIC"],
+        )
         assertFalse("TLS record split" in facets)
         assertFalse("Route" in facets)
     }

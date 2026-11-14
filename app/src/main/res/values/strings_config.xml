@@ -1186,9 +1186,9 @@ Source: %2$s</string>
     <string name="config_chain_step_quic_sni_split_add">Add SNI split</string>
     <string name="config_chain_step_quic_sni_split_explanation">Splits the QUIC Initial SNI view.</string>
     <string name="config_chain_step_quic_sni_split_label">QUIC SNI split</string>
-    <string name="config_chain_step_quic_vn_decoy_add">Add VN decoy</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">Adds QUIC version-negotiation decoys.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">Version negotiation decoy</string>
+    <string name="config_chain_step_quic_vn_decoy_add">Add version XOR decoy</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">Adds Initial decoys with an XOR version change.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">Version XOR decoy</string>
     <string name="config_chain_step_seqovl_add">Add seqovl</string>
     <string name="config_chain_step_seqovl_explanation">Overlaps TCP sequence bytes to confuse reassembly.</string>
     <string name="config_chain_step_seqovl_label">Sequence overlap</string>

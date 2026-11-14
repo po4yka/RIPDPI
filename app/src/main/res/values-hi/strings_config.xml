@@ -1181,9 +1181,9 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_quic_sni_split_add">SNI स्प्लिट जोड़ें</string>
     <string name="config_chain_step_quic_sni_split_explanation">QUIC Initial के SNI दृश्य को विभाजित करता है।</string>
     <string name="config_chain_step_quic_sni_split_label">QUIC SNI स्प्लिट</string>
-    <string name="config_chain_step_quic_vn_decoy_add">VN डिकॉय जोड़ें</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">QUIC संस्करण-नेगोशिएशन डिकॉय जोड़ता है।</string>
-    <string name="config_chain_step_quic_vn_decoy_label">संस्करण नेगोशिएशन डिकॉय</string>
+    <string name="config_chain_step_quic_vn_decoy_add">XOR संस्करण डिकॉय जोड़ें</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">XOR से बदले संस्करण वाले Initial डिकॉय जोड़ता है।</string>
+    <string name="config_chain_step_quic_vn_decoy_label">XOR संस्करण डिकॉय</string>
     <string name="config_chain_step_seqovl_add">seqovl जोड़ें</string>
     <string name="config_chain_step_seqovl_explanation">रीअसेंबली को भ्रमित करने के लिए TCP सीक्वेंस बाइट्स को ओवरलैप करता है।</string>
     <string name="config_chain_step_seqovl_label">सीक्वेंस ओवरलैप</string>

@@ -1378,7 +1378,7 @@
     <string name="diagnostics_signature_lane_quic_dummy_prepend">Paquete de relleno QUIC inicial</string>
     <string name="diagnostics_signature_lane_quic_crypto_split">División CRYPTO de QUIC</string>
     <string name="diagnostics_signature_lane_quic_packet_number_gap">Salto en número de paquete QUIC</string>
-    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">Señuelo de negociación de versión QUIC</string>
+    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">Señuelo de versión XOR de QUIC</string>
     <string name="diagnostics_signature_lane_quic_multi_initial_realistic">Varios Initial QUIC realistas</string>
     <string name="diagnostics_signature_lane_dns_encrypted_doh">DNS cifrado (DoH)</string>
     <string name="diagnostics_signature_lane_dns_encrypted_dot">DNS cifrado (DoT)</string>

@@ -1,6 +1,6 @@
 # QUIC Initial Packetizer
 
-QUIC Initial shaping is owned by a packetizer surface in `ripdpi-packets`. `ripdpi-desync` owns semantic planning and asks the packetizer for valid wire images instead of mutating encrypted Initial bytes directly.
+QUIC Initial shaping is owned by a packetizer surface in `ripdpi-packets`. `ripdpi-desync` owns semantic planning and asks the packetizer for protected Initial seeds. Header-version decoys then change the version field after packet protection.
 
 ## Responsibilities
 
@@ -28,7 +28,7 @@ The packetizer owns:
 ## Invariants
 
 1. Semantic split offsets are defined in defragmented ClientHello byte space.
-2. Version, connection ID, CRYPTO framing, packet-number, and datagram-length changes go through full Initial re-encryption and header protection.
+2. Supported seed version, connection ID, CRYPTO framing, packet-number, and datagram-length changes go through full Initial encryption and header protection. Header-version decoys are explicit exceptions: they replace only the version field after packetization and retain the seed ciphertext, tag, and header protection.
 3. Parsed-packet rewrites preserve the original Initial seed unless a tactic explicitly requests a browser-like synthetic seed.
 4. Browser-like seeds reuse the committed TLS fake-profile corpus.
 5. Weak mutation families stay explicit and demotable instead of silently entering the production probe pool.
@@ -50,7 +50,7 @@ Production-facing families:
 - `quic_sni_split`
 - `quic_crypto_split`
 - `quic_padding_ladder`
-- `quic_version_negotiation_decoy`
+- `quic_version_negotiation_decoy` (legacy ID; displayed as QUIC version XOR decoy)
 - `quic_fake_version`
 - `quic_dummy_prepend`
 
@@ -73,6 +73,12 @@ Supported by the UDP/desync layer but not currently emitted by `ripdpi-diagnosti
 Each series uses a fresh 128-bit DCID from the OS. Its SCID and ClientHello fields are derived from separate OS entropy; the SCID matches the ClientHello transport parameter. Its packet numbers remain 2, 4, 6, and so on. If entropy is unavailable, no decoys are sent and the original datagram is preserved.
 
 The UDP runtime retains up to 64 distinct real Initial CID pairs for response attribution. An unrelated long-header reply is forwarded without marking real traffic successful or extending its response deadline. On context overflow, delivery continues, but ambiguous replies and silence do not produce learning evidence. This correlation does not authenticate the peer or validate a full QUIC handshake.
+
+## Header-version decoys
+
+`quic_version_negotiation_decoy` sends a client-to-server Initial-shaped decoy. It sets the header version to the input version XOR `0x0f0f0f0f`, then sends the original datagram separately. It does not send a server Version Negotiation packet with version zero and a supported-version list. For v1/v2 input, the XOR values are not reserved QUIC versions. A server response is not guaranteed. The persisted ID remains unchanged.
+
+`quic_fake_version` uses the same header-only mutation with its configured version. Neither family claims valid packet protection for the replacement version.
 
 ## Verification
 

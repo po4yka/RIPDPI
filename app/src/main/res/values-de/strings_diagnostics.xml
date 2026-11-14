@@ -1377,7 +1377,7 @@
     <string name="diagnostics_signature_lane_quic_dummy_prepend">QUIC-Füllpaket voranstellen</string>
     <string name="diagnostics_signature_lane_quic_crypto_split">QUIC-CRYPTO aufteilen</string>
     <string name="diagnostics_signature_lane_quic_packet_number_gap">Lücke in QUIC-Paketnummern</string>
-    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">Täuschung zur QUIC-Versionsaushandlung</string>
+    <string name="diagnostics_signature_lane_quic_version_negotiation_decoy">QUIC-XOR-Versionsköder</string>
     <string name="diagnostics_signature_lane_quic_multi_initial_realistic">Mehrere realistische QUIC-Initial-Pakete</string>
     <string name="diagnostics_signature_lane_dns_encrypted_doh">Verschlüsseltes DNS (DoH)</string>
     <string name="diagnostics_signature_lane_dns_encrypted_dot">Verschlüsseltes DNS (DoT)</string>

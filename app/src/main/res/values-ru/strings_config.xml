@@ -1116,9 +1116,9 @@ fakeddisorder endhost</string>
     <string name="config_chain_step_quic_sni_split_add">Добавить разбиение SNI</string>
     <string name="config_chain_step_quic_sni_split_explanation">Разбивает представление SNI в QUIC Initial.</string>
     <string name="config_chain_step_quic_sni_split_label">Разбиение QUIC SNI</string>
-    <string name="config_chain_step_quic_vn_decoy_add">Добавить VN-обманку</string>
-    <string name="config_chain_step_quic_vn_decoy_explanation">Добавляет обманки согласования версий QUIC.</string>
-    <string name="config_chain_step_quic_vn_decoy_label">Обманка согласования версий</string>
+    <string name="config_chain_step_quic_vn_decoy_add">Добавить обманку версии с XOR</string>
+    <string name="config_chain_step_quic_vn_decoy_explanation">Добавляет отвлекающие Initial с версией, изменённой через XOR.</string>
+    <string name="config_chain_step_quic_vn_decoy_label">Обманка версии с XOR</string>
     <string name="config_chain_step_seqovl_add">Добавить seqovl</string>
     <string name="config_chain_step_seqovl_explanation">Перекрывает байты последовательности TCP, чтобы сбить пересборку.</string>
     <string name="config_chain_step_seqovl_label">Перекрытие последовательности</string>
