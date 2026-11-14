@@ -578,7 +578,8 @@ When ECH is absent, `echext`-based steps are silently skipped (graceful no-op). 
 When `md5sig` is enabled, fake packets include a TCP MD5 Signature option (Kind=19, RFC 2385) with 16 random bytes. Some middlebox implementations drop packets with unrecognized TCP options from connection tracking.
 
 - Socket-level path (`Write` action): kernel applies MD5 via `setsockopt(TCP_MD5SIG)` during fake send window
-- Raw packet paths (`seqovl`, `multidisorder`, `ipfrag2`): Kind=19 option injected directly into TCP header via `set_options_raw()` in `build_tcp_segment_packet()`
+- Raw packet paths (`seqovl`, `multidisorder`): Kind=19 option injected directly into TCP header via `set_options_raw()` in `build_tcp_segment_packet()`
+- The `ipfrag2` fragment builder does not add the MD5 option.
 - 18-byte option (kind + length + 16-byte deterministic signature from sequence number)
 
 #### Fake packet dual path
