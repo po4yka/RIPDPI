@@ -18,6 +18,7 @@ Task ENG-1794637907795927 corrects audit defects in an existing raw header-versi
 - Forward unrelated UDP but do not count it as QUIC success or accepted session traffic. Unverified compatibility can arise only after valid CID and AEAD, never from VN or invalid integrity. Reset neutral state on a new socket, target, or connection context, and keep hard socket errors actionable. Parse a complete offer independently of SNI.
 - Reproduce the early-reply hypothesis first. A filtered receive API shares one deadline across direct, SOCKS, and route-experiment paths; generic callers keep current behavior.
 - Preserve saved executable IDs and old human report aliases; change displayed names only.
+- Upstream `90728fab83` added multiplexed QUIC connections during this work. Preserve its 64-context limit, deduplication, no-eviction policy, and capacity-neutral activity/expiry. Store compact packet-owned CID/version/offer contexts and one latest raw request. A delayed unknown offer for A must not suppress the pending B timeout. Replace upstream header-only/VN success assertions with independently protected replies; retain their multiplexing and forwarding intent.
 
 ## Contracts and ownership
 

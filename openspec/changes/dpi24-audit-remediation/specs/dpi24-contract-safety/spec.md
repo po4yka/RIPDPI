@@ -82,3 +82,26 @@ UI and documentation MUST describe an Initial-shaped version XOR decoy. The save
 
 - **WHEN** a saved ID or old human-readable name is loaded
 - **THEN** it resolves to the same family with the corrected displayed name
+
+### Requirement: REQ-DPI24-VERIFY — Validate the assembled correction
+
+The correction MUST pass affected Rust and Kotlin tests, lint, static analysis, source and API contract gates, and independent review. Verification MUST identify the tested source and any checks that did not run.
+
+#### Scenario: The corrections are assembled
+
+- **WHEN** the independent fixes share one checkout
+- **THEN** the affected suites and required gates run on that assembled source
+
+### Requirement: REQ-DPI24-MULTIPLEX — Preserve bounded connection contexts
+
+Correlation MUST preserve up to 64 distinct connection contexts on one UDP tuple without eviction. Retransmission MUST NOT consume capacity. Contexts MUST store compact offer and CID state; only one pending raw Initial is retained. Overflow MUST preserve forwarding and neutral idle expiry. Unknown offers from older contexts MUST NOT suppress failure for a newer pending connection.
+
+#### Scenario: An earlier connection replies late
+
+- **WHEN** requests A and B use different CIDs and a valid response to A arrives after B
+- **THEN** A can pass its own integrity and offer checks
+
+#### Scenario: Capacity is exceeded
+
+- **WHEN** a 65th distinct valid request arrives
+- **THEN** existing contexts remain and idle expiry does not learn failure
