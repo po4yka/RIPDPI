@@ -2,7 +2,7 @@
 id: ENG-1794637907795927
 title: Correct DPI-24 resource and response contracts
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: DPI-24 remediation

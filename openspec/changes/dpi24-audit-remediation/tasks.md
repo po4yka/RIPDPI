@@ -7,4 +7,4 @@
 - [x] ENG-1794638233396968 Reproduce and correct early QUIC probe response completion #bug @item:ENG-1794637907795927
 - [x] ENG-1794638240063808 Correct DPI-24 names documentation and report aliases #bug @item:ENG-1794637907795927
 - [x] ENG-1794638243019809 Validate combined fixes and complete independent review #chore !high @item:ENG-1794637907795927
-- [ ] ENG-1794650771683081 Preserve multiplexed QUIC contexts when merging upstream correlation #bug !high @item:ENG-1794637907795927
+- [x] ENG-1794650771683081 Preserve multiplexed QUIC contexts when merging upstream correlation #bug !high @item:ENG-1794637907795927
