@@ -778,6 +778,7 @@ mod tests {
         let mut buf = [0u8; 16];
         let n = peer.recv(&mut buf).expect("peer receives the real datagram");
         assert_eq!(&buf[..n], b"real");
+        assert!(peer.recv(&mut buf).is_err(), "original arrives once");
         assert_eq!(outcome.real_writes_committed, 1);
         assert_eq!(outcome.fallback_reason, Some(UdpExecutionFallbackReason::PreludeWriteFailed));
         assert_eq!(outcome.technique_actions_completed, 0);
@@ -840,9 +841,52 @@ mod tests {
         let mut buf = [0u8; 16];
         let n = peer.recv(&mut buf).expect("peer receives the real datagram");
         assert_eq!(&buf[..n], b"real");
+        assert!(peer.recv(&mut buf).is_err(), "original arrives once");
         assert_eq!(outcome.real_writes_committed, 1);
         assert_eq!(outcome.fallback_reason, Some(UdpExecutionFallbackReason::PreludeWriteFailed));
         assert_eq!(SockRef::from(&sender).unicast_hops_v6().expect("read IPv6 hop limit"), 64);
+    }
+
+    #[test]
+    fn dpi18_failed_original_write_is_not_suppressed() {
+        let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
+        let original = vec![0; 70_000];
+        let actions = [DesyncAction::Write(original.clone())];
+        let error = execute_udp_actions(loopback_ctx(&sender, false), &actions, &original)
+            .expect_err("original send failure stays an error");
+        assert_eq!(error.outcome.real_writes_committed, 0);
+        assert_eq!(error.outcome.completed_actions, 0);
+    }
+
+    #[test]
+    fn dpi18_fallback_requires_a_known_ttl_after_ttl_changes() {
+        let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        peer.set_read_timeout(Some(Duration::from_millis(200))).expect("peer timeout");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
+        let actions =
+            [DesyncAction::SetTtl(8), DesyncAction::Write(vec![0; 70_000]), DesyncAction::Write(b"real".to_vec())];
+        let ctx = UdpActionExecContext { default_ttl: 0, ..loopback_ctx(&sender, false) };
+        let error = execute_udp_actions(ctx, &actions, b"real").expect_err("cannot restore unknown TTL");
+        assert_eq!(error.outcome.real_writes_committed, 0);
+        let mut buf = [0; 16];
+        assert!(peer.recv(&mut buf).is_err(), "original must not use the fake TTL");
+    }
+
+    #[test]
+    fn dpi18_failed_fallback_original_keeps_error_and_fallback_evidence() {
+        let peer = UdpSocket::bind("127.0.0.1:0").expect("bind peer");
+        let sender = UdpSocket::bind("127.0.0.1:0").expect("bind sender");
+        sender.connect(peer.local_addr().expect("peer addr")).expect("connect sender");
+        let original = vec![0; 70_000];
+        let actions = [DesyncAction::Write(original.clone()), DesyncAction::Write(original.clone())];
+        let error = execute_udp_actions(loopback_ctx(&sender, false), &actions, &original)
+            .expect_err("original send failure stays an error");
+        assert_eq!(error.outcome.real_writes_committed, 0);
+        assert_eq!(error.outcome.completed_actions, 0);
+        assert!(error.outcome.fallback_reason.is_some());
     }
 
     #[test]

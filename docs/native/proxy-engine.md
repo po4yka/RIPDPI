@@ -511,6 +511,13 @@ combine CRYPTO data from several Initial packets in that datagram. It does
 not assemble data across datagrams or decrypt ECH Inner; the split uses the
 visible SNI in ClientHelloOuter. Both new CRYPTO frames remain in one packet.
 
+A rebuilt split packet is skipped if it exceeds the original datagram size
+or 65,507 bytes. If an ordinary optional write has a local send error before the original,
+the UDP adapter restores the default TTL and attempts the original once.
+Required TTL restoration and original-send errors remain errors. Recovery
+records a fallback instead of a completed technique. Relay paths still skip
+optional packet mutation. Other flow errors remain fatal.
+
 #### TUN-egress packet action kinds
 
 The VPN tunnel can apply packet actions before forwarding the original session to the local SOCKS5 bridge:
