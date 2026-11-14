@@ -21,6 +21,7 @@ pub(super) fn execute_first_write(
     let send_result = state.send_tcp_desync_payload(
         upstream,
         DesyncSendRequest {
+            fake_ttl_attempt: Some(&mut session_state.fake_ttl_attempt),
             lua_flow: session_state.lua_flow.as_deref(),
             group_index: route.group_index,
             group_override: None,

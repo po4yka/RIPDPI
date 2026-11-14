@@ -8,6 +8,7 @@ use std::time::Instant;
 
 use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
+use super::super::failure_retry::record_stream_fake_ttl_success;
 use super::super::half_close::HalfCloseLinger;
 use super::super::platform as relay_platform;
 use super::super::session::RelaySharedSession;
@@ -144,9 +145,11 @@ pub(super) fn flush_outbound_payload(
     } else {
         None
     };
+    let mut fake_ttl_attempt = session.begin_fake_ttl_send()?;
     let send_result = state.send_tcp_desync_payload(
         writer,
         DesyncSendRequest {
+            fake_ttl_attempt: Some(&mut fake_ttl_attempt),
             lua_flow: session.lua_flow.as_deref(),
             group_index,
             group_override: group.as_ref(),
@@ -156,7 +159,12 @@ pub(super) fn flush_outbound_payload(
             target: peer_addr,
         },
     );
+    let fake_ttl_feedback = session.finish_fake_ttl_send(fake_ttl_attempt)?;
     state.note_upstream_application_send_result(&send_result);
+    if let Some(feedback) = fake_ttl_feedback {
+        record_stream_fake_ttl_success(state, peer_addr, group_index, host.as_deref(), feedback)?;
+        session.complete_fake_ttl_feedback()?;
+    }
     let send_outcome = send_result.map_err(OutboundSendError::into_io_error)?;
     state.note_application_traffic(send_outcome.bytes_committed as u64, 0);
     tracing::trace!(

@@ -51,6 +51,9 @@ pub(super) fn execute(
                 ));
             }
         };
+        if rst_sent {
+            ctx.lowering.note_fake_ttl_attempt(fake_ttl);
+        }
         restoration?;
     }
     if !rst_sent {

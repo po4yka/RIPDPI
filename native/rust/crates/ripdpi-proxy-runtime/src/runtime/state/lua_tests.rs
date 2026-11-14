@@ -46,6 +46,7 @@ fn send(
         .send_tcp_desync_payload(
             writer,
             DesyncSendRequest {
+                fake_ttl_attempt: None,
                 lua_flow: Some(flow),
                 group_index: 0,
                 group_override: None,
@@ -127,6 +128,7 @@ fn lua_nonroot_tcp_keeps_logical_destination_after_socks_first_write() {
         .send_tcp_desync_payload(
             &mut writer,
             DesyncSendRequest {
+                fake_ttl_attempt: None,
                 lua_flow: Some(&flow),
                 group_index: 0,
                 group_override: None,
@@ -170,6 +172,7 @@ fn lua_nonroot_tcp_reads_physical_socket_mss_on_each_send() {
                 .send_tcp_desync_payload(
                     &mut writer,
                     DesyncSendRequest {
+                        fake_ttl_attempt: None,
                         lua_flow: Some(&flow),
                         group_index: 0,
                         group_override: None,

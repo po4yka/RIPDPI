@@ -149,7 +149,8 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                             execution.completed_awaits,
                             execution.bytes_committed,
                             tls_prelude_applied,
-                        ),
+                        )
+                        .with_adaptive_fake_ttl(execution.adaptive_fake_ttl),
                     })
                 }
                 Ok(plan) => {

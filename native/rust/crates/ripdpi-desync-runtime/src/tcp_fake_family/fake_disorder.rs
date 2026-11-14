@@ -75,6 +75,7 @@ pub(crate) fn execute(
         );
         emissions.retain(|emission| !emission.payload.is_empty());
         let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);
+        ctx.lowering.note_ordered_fake_ttl_attempt(&ordered_segments);
         send_ordered_fake_segments_action_named(
             ctx.writer,
             &ordered_segments,
@@ -105,6 +106,9 @@ pub(crate) fn execute(
                 opts,
             )?
         };
+        if !second.is_empty() && !second_fake.is_empty() {
+            ctx.lowering.note_fake_ttl_attempt(opts.fake_ttl);
+        }
         let bytes_committed = send_fake_tcp_action_named(
             ctx.writer,
             second,
@@ -208,6 +212,9 @@ fn send_first_disorder_segment(
     let mut options = opts.tcp_options(ctx.config.process.protect_path.as_deref(), first_secondary_fake);
     options.force_raw_original = !lower_to_fake_split;
     options.original_ttl = (!lower_to_fake_split).then_some(1);
+    if !chunk.is_empty() && !first_fake.is_empty() {
+        ctx.lowering.note_fake_ttl_attempt(ttl);
+    }
     send_fake_tcp_action_named(
         ctx.writer,
         chunk,

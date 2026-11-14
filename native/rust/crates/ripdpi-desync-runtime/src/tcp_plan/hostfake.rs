@@ -28,6 +28,7 @@ pub(crate) struct TcpHostFakeExecContext<'a> {
     pub(crate) seed: u32,
     pub(crate) resolved_fake_ttl: Option<u8>,
     pub(crate) real_ttl: u8,
+    pub(crate) lowering: &'a mut crate::tcp_lowering::TcpLoweringCapabilities,
     pub(crate) md5sig: bool,
 }
 

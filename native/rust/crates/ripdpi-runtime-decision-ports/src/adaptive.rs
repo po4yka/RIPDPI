@@ -50,6 +50,14 @@ pub trait AdaptiveContextPort: Send + Sync {
     fn network_scope_key(&self, config: &RuntimeConfig) -> Option<String>;
 }
 
+/// The selected TTL and the resolver state for one send.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FakeTtlAttempt {
+    pub ttl: u8,
+    pub generation: u64,
+    pub revision: u64,
+}
+
 /// Feedback port for adaptive tuning, fake-TTL, and strategy evolution.
 pub trait AdaptiveFeedbackPort: Send + Sync {
     fn note_tcp_success(
@@ -84,9 +92,21 @@ pub trait AdaptiveFeedbackPort: Send + Sync {
         payload: &[u8],
     ) -> io::Result<()>;
 
-    fn note_fake_ttl_success(&self, group_index: usize, target: SocketAddr, host: Option<&str>) -> io::Result<()>;
+    fn note_fake_ttl_success(
+        &self,
+        group_index: usize,
+        target: SocketAddr,
+        host: Option<&str>,
+        attempt: FakeTtlAttempt,
+    ) -> io::Result<()>;
 
-    fn note_fake_ttl_failure(&self, group_index: usize, target: SocketAddr, host: Option<&str>) -> io::Result<()>;
+    fn note_fake_ttl_failure(
+        &self,
+        group_index: usize,
+        target: SocketAddr,
+        host: Option<&str>,
+        attempt: FakeTtlAttempt,
+    ) -> io::Result<()>;
 
     fn note_server_ttl(
         &self,
@@ -94,6 +114,7 @@ pub trait AdaptiveFeedbackPort: Send + Sync {
         target: SocketAddr,
         host: Option<&str>,
         observed_ttl: u8,
+        attempt: FakeTtlAttempt,
     ) -> io::Result<()>;
 
     fn note_evolver_failure(&self, class: FailureClass);
@@ -133,7 +154,7 @@ pub trait AdaptiveHintPort: Send + Sync {
         target: SocketAddr,
         host: Option<&str>,
         group: &DesyncGroup,
-    ) -> io::Result<Option<u8>>;
+    ) -> io::Result<Option<FakeTtlAttempt>>;
 
     fn resolve_tcp_hints_with_evolver(
         &self,

@@ -2,7 +2,7 @@ use crate::ServicesStateHandle;
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_runtime_adaptive::adaptive_port::{AdaptiveContextPort, AdaptiveHintPort};
+use ripdpi_runtime_adaptive::adaptive_port::{AdaptiveContextPort, AdaptiveHintPort, FakeTtlAttempt};
 use ripdpi_runtime_adaptive::morph_policy;
 use ripdpi_runtime_adaptive::strategy_context;
 use ripdpi_runtime_adaptive::strategy_context::merge_udp_hints_with_capability;
@@ -48,7 +48,7 @@ impl AdaptiveHintPort for ServicesStateHandle {
         target: SocketAddr,
         host: Option<&str>,
         group: &DesyncGroup,
-    ) -> io::Result<Option<u8>> {
+    ) -> io::Result<Option<FakeTtlAttempt>> {
         let Some(auto_ttl) = group.actions.auto_ttl else {
             return Ok(None);
         };

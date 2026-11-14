@@ -18,6 +18,7 @@ use crate::sync::AtomicBool;
 
 pub use crate::socket_lua::{PayloadPlan, SocketLuaFlow, SocketLuaStrategies};
 pub use ripdpi_desync_runtime::send_payload_segments as send_lua_payload_segments;
+pub use ripdpi_runtime_decision_ports::adaptive_ports::FakeTtlAttempt;
 
 pub use ripdpi_desync_runtime::{
     OutboundSendError, OutboundSendOutcome, PcapHook, TcpExecutionDisposition, TcpExecutionReceipt, TcpFallbackReason,
@@ -43,6 +44,7 @@ pub struct TcpDesyncExecutionContext<'a> {
 }
 
 pub struct DesyncSendRequest<'a> {
+    pub fake_ttl_attempt: Option<&'a mut Option<FakeTtlAttempt>>,
     pub lua_flow: Option<&'a crate::socket_lua::SocketLuaFlow>,
     pub group_index: usize,
     pub group_override: Option<&'a ripdpi_config::DesyncGroup>,
@@ -151,13 +153,23 @@ pub fn send_tcp_desync_payload(
         apply_tcp_capability_policy(group, capability, request.payload, request.progress);
     let effective_group = effective_group.as_ref();
     let scope_key = ripdpi_runtime_services::decision_helpers::network_scope_key(config);
-    let resolved_fake_ttl = context.adaptive_hints.resolve_fake_ttl(
-        scope_key,
-        request.group_index,
-        request.target,
-        request.host,
-        effective_group,
-    )?;
+    let bound_fake_ttl = request.fake_ttl_attempt.as_deref().copied().flatten();
+    let fake_ttl_attempt = if effective_group.actions.auto_ttl.is_some() {
+        if let Some(bound) = bound_fake_ttl {
+            Some(bound)
+        } else {
+            context.adaptive_hints.resolve_fake_ttl(
+                scope_key,
+                request.group_index,
+                request.target,
+                request.host,
+                effective_group,
+            )?
+        }
+    } else {
+        None
+    };
+    let resolved_fake_ttl = fake_ttl_attempt.map(|attempt| attempt.ttl);
     let adaptive_hints = context.adaptive_hints.resolve_tcp_hints_with_evolver(
         config,
         context.runtime_context,
@@ -189,7 +201,7 @@ pub fn send_tcp_desync_payload(
         resolved_fake_ttl,
         adaptive_hints,
     );
-    send_prepared_with_runtime_platform(
+    let result = send_prepared_with_runtime_platform(
         writer,
         config,
         &morphed_group,
@@ -200,7 +212,18 @@ pub fn send_tcp_desync_payload(
         strategy_family_override,
         context.ttl_unavailable,
         context.pcap_hook,
-    )
+    );
+    let used_ttl = match &result {
+        Ok(outcome) => outcome.execution_receipt.adaptive_fake_ttl,
+        Err(error) => error.execution_receipt().and_then(|receipt| receipt.adaptive_fake_ttl),
+    };
+    if let Some(attempt) = fake_ttl_attempt
+        && used_ttl == Some(attempt.ttl)
+        && let Some(slot) = request.fake_ttl_attempt
+    {
+        *slot = Some(attempt);
+    }
+    result
 }
 
 pub fn activation_context_from_progress(

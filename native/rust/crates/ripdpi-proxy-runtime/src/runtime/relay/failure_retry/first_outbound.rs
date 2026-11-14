@@ -8,7 +8,8 @@ use crate::runtime::relay::failure_retry::first_outbound::response::{
     FirstResponseContext, FirstResponseDecision, handle_first_response,
 };
 use crate::runtime::relay::failure_retry::first_outbound::route_retry::{
-    FirstResponseFailureContext, RouteRetryState, handle_first_response_failure, handle_first_write_failure,
+    FirstResponseFailureContext, FirstWriteFailureContext, RouteRetryState, handle_first_response_failure,
+    handle_first_write_failure,
 };
 use crate::runtime::relay::first_exchange::needs_first_exchange;
 use crate::runtime::relay::session::{FirstOutboundSession, RelaySession};
@@ -177,13 +178,16 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 }
                 Err(err) => {
                     let retry = handle_first_write_failure(
-                        self.state,
-                        self.target,
-                        &route,
-                        first_payload.host.clone(),
-                        &first_payload.original_request,
-                        &upstream,
-                        err,
+                        FirstWriteFailureContext {
+                            state: self.state,
+                            target: self.target,
+                            route: &route,
+                            host: first_payload.host.clone(),
+                            original_request: &first_payload.original_request,
+                            upstream: &upstream,
+                            err,
+                            fake_ttl_attempt: session_state.fake_ttl_attempt,
+                        },
                         &mut retry_state,
                     )?;
                     // The registry owns a cloned descriptor for the old socket.

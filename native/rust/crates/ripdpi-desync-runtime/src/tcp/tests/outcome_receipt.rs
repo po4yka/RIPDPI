@@ -12,6 +12,7 @@ use crate::platform::{
 };
 use crate::types::{TcpExecutionDisposition, TcpFallbackReason, TcpOffsetMarkerBase, TcpStrategyFamily};
 
+mod adaptive_ttl;
 mod disorder_ttl;
 mod entropy_shaping;
 mod fake_rst;

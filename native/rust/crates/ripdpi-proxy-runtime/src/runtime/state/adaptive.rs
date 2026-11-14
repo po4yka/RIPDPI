@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::desync::FakeTtlAttempt;
 
 impl RuntimeState {
     pub(in crate::runtime) fn note_adaptive_tcp_success(
@@ -42,16 +43,18 @@ impl RuntimeState {
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,
+        attempt: FakeTtlAttempt,
     ) -> io::Result<()> {
-        AdaptiveFeedbackPort::note_fake_ttl_success(&self.services, group_index, target, host)
+        AdaptiveFeedbackPort::note_fake_ttl_success(&self.services, group_index, target, host, attempt)
     }
     pub(in crate::runtime) fn note_adaptive_fake_ttl_failure(
         &self,
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,
+        attempt: FakeTtlAttempt,
     ) -> io::Result<()> {
-        AdaptiveFeedbackPort::note_fake_ttl_failure(&self.services, group_index, target, host)
+        AdaptiveFeedbackPort::note_fake_ttl_failure(&self.services, group_index, target, host, attempt)
     }
     pub(in crate::runtime) fn note_server_ttl(
         &self,
@@ -59,8 +62,9 @@ impl RuntimeState {
         group_index: usize,
         host: Option<&str>,
         observed_ttl: u8,
+        attempt: FakeTtlAttempt,
     ) -> io::Result<()> {
-        AdaptiveFeedbackPort::note_server_ttl(&self.services, group_index, target, host, observed_ttl)
+        AdaptiveFeedbackPort::note_server_ttl(&self.services, group_index, target, host, observed_ttl, attempt)
     }
     pub(in crate::runtime) fn note_evolver_success(&self) {
         AdaptiveFeedbackPort::note_evolver_success(&self.services);
@@ -69,3 +73,6 @@ impl RuntimeState {
         AdaptiveFeedbackPort::note_evolver_failure(&self.services, class);
     }
 }
+
+#[cfg(all(test, not(any(target_os = "linux", target_os = "android"))))]
+mod tests;

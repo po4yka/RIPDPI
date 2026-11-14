@@ -479,7 +479,7 @@ mod tests {
         )
         .with_tag("action", "set_ttl")
         .with_tag("errno", libc::EINVAL.to_string());
-        let next = advance_route_for_failure(&state, target, &initial, None, Some(&payload), &failure)
+        let next = advance_route_for_failure(&state, target, &initial, None, Some(&payload), &failure, None)
             .expect("advance route")
             .expect("fallback route");
         assert_eq!(next.group_index, 1);
@@ -495,6 +495,7 @@ mod tests {
             .send_tcp_desync_payload(
                 &mut upstream,
                 DesyncSendRequest {
+                    fake_ttl_attempt: None,
                     lua_flow: None,
                     group_index: next.group_index,
                     group_override: None,

@@ -34,6 +34,7 @@ pub(crate) struct TcpPlanExecutionOutcome {
     pub(crate) completed_actions: usize,
     pub(crate) real_writes_committed: usize,
     pub(crate) completed_awaits: usize,
+    pub(crate) adaptive_fake_ttl: Option<u8>,
 }
 
 #[derive(Clone, Copy)]
@@ -94,6 +95,7 @@ pub(crate) fn execute_tcp_plan(
 ) -> Result<TcpPlanExecutionOutcome, OutboundSendError> {
     let mut lowering_caps =
         TcpLoweringCapabilities::snapshot(writer, config.network.default_ttl, session_ttl_unavailable);
+    lowering_caps.track_fake_ttl(resolved_fake_ttl);
     let result = execute_tcp_plan_steps(
         writer,
         TcpPlanInput { config, group, plan, seed, resolved_fake_ttl, strategy },
@@ -107,7 +109,9 @@ pub(crate) fn execute_tcp_plan(
     // Propagate per-connection discovery to the session-level flag so
     // subsequent connections skip TTL actions immediately.
     lowering_caps.persist(session_ttl_unavailable);
-    let mut outcome = result?;
+    let adaptive_fake_ttl = lowering_caps.fake_ttl_attempted();
+    let mut outcome = result.map_err(|error| error.with_adaptive_fake_ttl(adaptive_fake_ttl))?;
+    outcome.adaptive_fake_ttl = adaptive_fake_ttl;
     // A disorder chunk that left with the default TTL was a plain write, so
     // report the family that actually ran.
     if lowering_caps.disorder_ttl_skipped() {
@@ -169,6 +173,7 @@ fn execute_tcp_plan_steps(
             completed_actions: plan.steps.len(),
             real_writes_committed: plan.steps.len(),
             completed_awaits: 0,
+            adaptive_fake_ttl: None,
         });
     }
     if send_steps.len() < plan.steps.len() {
@@ -292,6 +297,7 @@ fn execute_tcp_plan_steps(
         completed_actions,
         real_writes_committed,
         completed_awaits,
+        adaptive_fake_ttl: None,
     })
 }
 

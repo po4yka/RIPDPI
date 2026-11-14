@@ -2,7 +2,7 @@ use crate::ServicesStateHandle;
 use crate::strategy_evolution::StrategyEvolutionResolver;
 use ripdpi_failure_classifier::FailureClass;
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use ripdpi_runtime_adaptive::adaptive_port::AdaptiveFeedbackPort;
+use ripdpi_runtime_adaptive::adaptive_port::{AdaptiveFeedbackPort, FakeTtlAttempt};
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
 use ripdpi_runtime_adaptive::strategy_context::network_scope_key;
 use std::io;
@@ -68,11 +68,23 @@ impl AdaptiveFeedbackPort for ServicesStateHandle {
         let scope_key = network_scope_key(&self.0.config);
         self.with_tuning(|resolver| resolver.note_udp_failure(scope_key, group_index, target, host, payload))
     }
-    fn note_fake_ttl_success(&self, group_index: usize, target: SocketAddr, host: Option<&str>) -> io::Result<()> {
-        self.with_fake_ttl(|resolver| resolver.note_success(group_index, target, host))
+    fn note_fake_ttl_success(
+        &self,
+        group_index: usize,
+        target: SocketAddr,
+        host: Option<&str>,
+        attempt: FakeTtlAttempt,
+    ) -> io::Result<()> {
+        self.with_fake_ttl(|resolver| resolver.note_success(group_index, target, host, attempt))
     }
-    fn note_fake_ttl_failure(&self, group_index: usize, target: SocketAddr, host: Option<&str>) -> io::Result<()> {
-        self.with_fake_ttl(|resolver| resolver.note_failure(group_index, target, host))
+    fn note_fake_ttl_failure(
+        &self,
+        group_index: usize,
+        target: SocketAddr,
+        host: Option<&str>,
+        attempt: FakeTtlAttempt,
+    ) -> io::Result<()> {
+        self.with_fake_ttl(|resolver| resolver.note_failure(group_index, target, host, attempt))
     }
     fn note_server_ttl(
         &self,
@@ -80,8 +92,9 @@ impl AdaptiveFeedbackPort for ServicesStateHandle {
         target: SocketAddr,
         host: Option<&str>,
         observed_ttl: u8,
+        attempt: FakeTtlAttempt,
     ) -> io::Result<()> {
-        self.with_fake_ttl(|resolver| resolver.note_server_ttl(group_index, target, host, observed_ttl))
+        self.with_fake_ttl(|resolver| resolver.note_server_ttl(group_index, target, host, observed_ttl, attempt))
     }
     fn note_evolver_failure(&self, class: FailureClass) {
         self.with_evolver(|evolver| evolver.record_failure(class));

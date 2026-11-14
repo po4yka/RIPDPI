@@ -1,3 +1,4 @@
+use crate::runtime::desync::FakeTtlAttempt;
 use std::io;
 use std::net::SocketAddr;
 
@@ -17,6 +18,7 @@ pub(super) fn record_failure_feedback(
     host: Option<&str>,
     payload: Option<&[u8]>,
     failure: &RuntimeClassifiedFailure,
+    fake_ttl_attempt: Option<FakeTtlAttempt>,
 ) -> io::Result<bool> {
     note_retry_failure(state, target, route.group_index, host, payload, RuntimeTransportProtocol::Tcp)?;
     let penalize = RuntimeState::failure_penalizes_strategy(failure);
@@ -39,7 +41,7 @@ pub(super) fn record_failure_feedback(
     if let Some(payload) = payload {
         note_adaptive_tcp_failure(state, target, route.group_index, host, payload)?;
     }
-    note_adaptive_fake_ttl_failure(state, target, route.group_index, host)?;
+    note_adaptive_fake_ttl_failure(state, target, route.group_index, host, fake_ttl_attempt)?;
     state.note_evolver_failure(failure.class);
     Ok(true)
 }

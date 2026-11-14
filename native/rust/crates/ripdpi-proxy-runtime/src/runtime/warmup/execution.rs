@@ -6,7 +6,7 @@ use super::autolearn::{advance_after_failure, record_route_success};
 use super::block_signal::record_block_signal;
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
-use crate::runtime::desync::DesyncSendRequest;
+use crate::runtime::desync::{DesyncSendRequest, FakeTtlAttempt};
 use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::routing::{classify_response_failure, connect_target, emit_failure_classified};
 use crate::runtime::state::RuntimeState;
@@ -29,9 +29,11 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
 
     let lua_flow = state.new_lua_flow();
     let progress = RuntimeState::single_payload_progress(payload.len());
+    let mut fake_ttl_attempt = None;
     let send_result = state.send_tcp_desync_payload(
         &mut upstream,
         DesyncSendRequest {
+            fake_ttl_attempt: Some(&mut fake_ttl_attempt),
             lua_flow: lua_flow.as_deref(),
             group_index: route.group_index,
             group_override: None,
@@ -46,7 +48,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
         let io_err = err.into_io_error();
         let failure = RuntimeState::classify_warmup_send_error(&io_err);
         emit_failure_classified(state, target, &failure, Some(domain));
-        return advance_after_failure(state, target, &route, domain, &payload, &failure);
+        return advance_after_failure(state, target, &route, domain, &payload, &failure, fake_ttl_attempt);
     }
 
     let _ = warmup_platform::enable_recv_ttl(&upstream);
@@ -61,11 +63,12 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
             domain,
             &payload,
             RuntimeState::classify_warmup_closed_before_response(),
+            fake_ttl_attempt,
         ),
         Ok(n) => {
             let response = &response_buf[..n];
             if let Some(failure) = classify_response_failure(state, target, &payload, response, Some(domain)) {
-                handle_blocked_response(state, target, &route, domain, &payload, failure)
+                handle_blocked_response(state, target, &route, domain, &payload, failure, fake_ttl_attempt)
             } else {
                 record_route_success(state, target, &route, domain)?;
                 Ok(false)
@@ -73,7 +76,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
         }
         Err(err) => {
             let failure = RuntimeState::classify_warmup_first_response_error(&err);
-            handle_blocked_response(state, target, &route, domain, &payload, failure)
+            handle_blocked_response(state, target, &route, domain, &payload, failure, fake_ttl_attempt)
         }
     }
 }
@@ -85,8 +88,9 @@ fn handle_blocked_response(
     domain: &str,
     payload: &[u8],
     failure: RuntimeClassifiedFailure,
+    fake_ttl_attempt: Option<FakeTtlAttempt>,
 ) -> io::Result<bool> {
     record_block_signal(state, domain, &failure);
     emit_failure_classified(state, target, &failure, Some(domain));
-    advance_after_failure(state, target, route, domain, payload, &failure)
+    advance_after_failure(state, target, route, domain, payload, &failure, fake_ttl_attempt)
 }

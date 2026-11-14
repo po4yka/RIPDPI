@@ -59,6 +59,7 @@ pub(super) fn record_relay_result(
             context.success_payload,
             context.success_strategy_family,
             context.primary_strategy_family,
+            final_state.fake_ttl_attempt,
         )?;
     }
     if let Err(err) = relay_result

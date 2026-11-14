@@ -16,6 +16,7 @@ pub(super) fn send_hostfake_ordered_segments(
 ) -> Result<usize, OutboundSendError> {
     let timestamp_delta_ticks =
         ctx.group.actions.fake_tcp_timestamp_enabled.then_some(ctx.group.actions.fake_tcp_timestamp_delta_ticks);
+    ctx.lowering.note_ordered_fake_ttl_attempt(ordered_segments);
     send_ordered_fake_segments_action_named(
         ctx.writer,
         ordered_segments,

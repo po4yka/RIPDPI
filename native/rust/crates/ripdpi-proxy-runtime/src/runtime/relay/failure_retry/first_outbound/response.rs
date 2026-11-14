@@ -67,7 +67,14 @@ pub(super) fn handle_first_response(
             if RuntimeState::should_track_strategy_target(context.target)
                 && let Some(ttl) = server_ttl
             {
-                note_server_ttl_for_route(context.state, context.target, context.route.group_index, context.host, ttl)?;
+                note_server_ttl_for_route(
+                    context.state,
+                    context.target,
+                    context.route.group_index,
+                    context.host,
+                    ttl,
+                    session_state.fake_ttl_attempt,
+                )?;
             }
             record_stream_relay_success(
                 context.state,
@@ -77,6 +84,7 @@ pub(super) fn handle_first_response(
                 Some(context.original_request),
                 context.success_strategy_family,
                 context.primary_strategy_family,
+                session_state.fake_ttl_attempt,
             )?;
             Ok(FirstResponseDecision::Complete { recorded_success: true })
         }

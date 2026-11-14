@@ -144,6 +144,9 @@ pub enum TcpFallbackReason {
 pub struct TcpExecutionReceipt {
     /// HTTP transformation only; None means unconfigured or unknown legacy evidence, not delivery.
     pub http_mutated: Option<bool>,
+    /// Selected adaptive TTL passed to an actual fake sender invocation.
+    /// On failure this records an attempted call, not confirmed wire delivery.
+    pub adaptive_fake_ttl: Option<u8>,
     pub disposition: TcpExecutionDisposition,
     pub configured_family: Option<TcpStrategyFamily>,
     pub effective_family: Option<TcpStrategyFamily>,
@@ -168,6 +171,11 @@ pub struct TcpExecutionReceipt {
 }
 
 impl TcpExecutionReceipt {
+    pub(crate) fn with_adaptive_fake_ttl(mut self, ttl: Option<u8>) -> Self {
+        self.adaptive_fake_ttl = ttl;
+        self
+    }
+
     pub fn tls_prelude_kind_token(&self) -> Option<&'static str> {
         self.tls_prelude_kind.and_then(|kind| match kind {
             ripdpi_config::TcpChainStepKind::TlsRec => Some("tlsrec"),
@@ -215,6 +223,7 @@ impl TcpExecutionReceipt {
         let (marker_base, marker_delta) = plan_marker(group, plan);
         Self {
             http_mutated: plan.http_mutated,
+            adaptive_fake_ttl: None,
             disposition: TcpExecutionDisposition::Applied,
             configured_family: configured_family.map(TcpStrategyFamily::from_token),
             effective_family: effective_family.map(TcpStrategyFamily::from_token),
@@ -252,6 +261,7 @@ impl TcpExecutionReceipt {
         let (marker_base, marker_delta) = configured_marker(group);
         Self {
             http_mutated: (group.actions.mod_http != 0).then_some(false),
+            adaptive_fake_ttl: None,
             disposition,
             configured_family: configured_family.map(TcpStrategyFamily::from_token),
             effective_family: None,
@@ -301,6 +311,7 @@ impl TcpExecutionReceipt {
     ) -> Self {
         Self {
             http_mutated: None,
+            adaptive_fake_ttl: None,
             disposition: TcpExecutionDisposition::ExecutionFailed,
             configured_family: strategy_family.map(TcpStrategyFamily::from_token),
             effective_family: strategy_family.map(TcpStrategyFamily::from_token),
@@ -348,6 +359,7 @@ impl TcpExecutionReceipt {
             marker_delta,
             resolved_offset: bounded_offset(plan.steps.first().and_then(|step| usize::try_from(step.end).ok())),
             planned_steps: bounded_count(plan.steps.len().saturating_add(plan.tls_prelude.applied_count)),
+            adaptive_fake_ttl: source.adaptive_fake_ttl,
             attempted_actions: bounded_count(source.attempted_actions.max(observed_write)),
             completed_actions: bounded_count(source.completed_actions.max(observed_write)),
             real_writes_committed: bounded_count(source.real_writes_committed.max(observed_write)),
@@ -521,6 +533,24 @@ impl OutboundSendError {
                 execution_receipt: Some(Box::new(execution_receipt)),
             },
         }
+    }
+
+    pub(crate) fn with_adaptive_fake_ttl(self, ttl: Option<u8>) -> Self {
+        if ttl.is_none() {
+            return self;
+        }
+        let receipt = self.execution_receipt().cloned().unwrap_or_else(|| {
+            TcpExecutionReceipt::failed_strategy_execution(
+                None,
+                0,
+                0,
+                0,
+                0,
+                self.bytes_committed(),
+                TcpTerminalReason::Transport,
+            )
+        });
+        self.with_execution_receipt(receipt.with_adaptive_fake_ttl(ttl))
     }
 
     pub fn execution_receipt(&self) -> Option<&TcpExecutionReceipt> {

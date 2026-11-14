@@ -15,6 +15,7 @@ pub(super) fn execute(
         seed: ctx.seed,
         resolved_fake_ttl: ctx.resolved_fake_ttl,
         real_ttl: ctx.lowering.restore_ttl,
+        lowering: ctx.lowering,
         md5sig: ctx.md5sig,
     };
     execute_tcp_hostfake_step(

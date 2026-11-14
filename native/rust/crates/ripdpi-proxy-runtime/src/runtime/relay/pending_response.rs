@@ -3,12 +3,11 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
-use super::super::adaptive::note_server_ttl_for_route;
 use super::super::failure::{RuntimeFailureAction, RuntimeFailureClass};
 use super::super::routing::emit_failure_classified;
 use super::super::state::RuntimeState;
 use super::super::types::RuntimeConnectionRoute;
-use super::failure_retry::record_stream_relay_success;
+use super::failure_retry::{record_stream_fake_ttl_success, record_stream_relay_success};
 use super::first_exchange::{FirstResponse, FirstResponseReader, read_first_response};
 use super::session::{FirstResponseOutcome, RelaySharedSession};
 use crate::sync::Arc;
@@ -47,6 +46,7 @@ impl PendingFirstResponse {
             reader,
         )? {
             FirstResponse::Forward(bytes, server_ttl) => {
+                let fake_ttl_feedback = session.accept_fake_ttl_response(server_ttl)?;
                 if let Some(start) = self.tls_send_start {
                     state.note_tls_handshake_completed(self.target, start.elapsed().as_millis() as u64);
                 }
@@ -56,16 +56,15 @@ impl PendingFirstResponse {
                 client.write_all(&bytes)?;
                 state.note_application_traffic(0, bytes.len() as u64);
                 if has_payload {
-                    if RuntimeState::should_track_strategy_target(self.target)
-                        && let Some(ttl) = server_ttl
-                    {
-                        note_server_ttl_for_route(
+                    if let Some(feedback) = fake_ttl_feedback {
+                        record_stream_fake_ttl_success(
                             state,
                             self.target,
                             self.route.group_index,
                             self.host.as_deref(),
-                            ttl,
+                            feedback,
                         )?;
+                        session.complete_fake_ttl_feedback()?;
                     }
                     record_stream_relay_success(
                         state,
@@ -75,6 +74,7 @@ impl PendingFirstResponse {
                         Some(&self.original_request),
                         self.success_strategy_family,
                         self.primary_strategy_family,
+                        None,
                     )?;
                 }
                 session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: has_payload })
@@ -104,3 +104,6 @@ impl PendingFirstResponse {
         }
     }
 }
+
+#[cfg(all(test, not(any(target_os = "linux", target_os = "android"))))]
+mod tests;

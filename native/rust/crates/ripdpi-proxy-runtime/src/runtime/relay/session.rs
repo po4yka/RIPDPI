@@ -2,11 +2,21 @@ use crate::sync::{Arc, Mutex};
 
 use std::io;
 
+use crate::runtime::desync::FakeTtlAttempt;
+
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 
 use super::pending_response::PendingFirstResponse;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeOutboundProgress, RuntimeRelayRotationSeed, RuntimeSessionState};
+
+mod fake_ttl_feedback;
+
+pub(super) use fake_ttl_feedback::FakeTtlFeedback;
+use fake_ttl_feedback::FakeTtlFeedbackLedger;
+
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone, Copy, Default)]
 pub(super) enum FirstResponseOutcome {
@@ -33,6 +43,7 @@ pub(super) struct RelaySession {
     state: RuntimeSessionState,
     first_response: FirstResponseOutcome,
     pending_response: Option<PendingFirstResponse>,
+    pub(super) fake_ttl_attempt: Option<FakeTtlAttempt>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
@@ -40,6 +51,7 @@ pub(super) struct FirstOutboundSession {
     state: RuntimeSessionState,
     first_response: FirstResponseOutcome,
     pending_response: Option<PendingFirstResponse>,
+    pub(super) fake_ttl_attempt: Option<FakeTtlAttempt>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
@@ -49,6 +61,7 @@ impl FirstOutboundSession {
             state: RuntimeState::new_session_state(),
             first_response: FirstResponseOutcome::Unobserved,
             pending_response: None,
+            fake_ttl_attempt: None,
             lua_flow: None,
         }
     }
@@ -58,6 +71,7 @@ impl FirstOutboundSession {
             state: self.state,
             first_response: self.first_response,
             pending_response: self.pending_response,
+            fake_ttl_attempt: self.fake_ttl_attempt,
             lua_flow: self.lua_flow,
         }
     }
@@ -96,6 +110,13 @@ impl RelaySession {
     pub(super) fn into_shared(self) -> RelaySharedSession {
         RelaySharedSession {
             state: Arc::new(Mutex::new(self.state)),
+            fake_ttl_feedback: Arc::new(Mutex::new(FakeTtlFeedbackLedger::new(
+                self.fake_ttl_attempt,
+                matches!(
+                    self.first_response,
+                    FirstResponseOutcome::Accepted { success_recorded: true } | FirstResponseOutcome::Rejected
+                ),
+            ))),
             first_response: Arc::new(Mutex::new(self.first_response)),
             lua_flow: self.lua_flow,
         }
@@ -118,18 +139,52 @@ impl RelaySession {
 
 #[derive(Clone)]
 pub(super) struct RelaySharedSession {
+    // Never nest these locks. Copy state or claim an event, release the guard,
+    // then perform socket I/O, cache feedback, or acquire another session lock.
+    fake_ttl_feedback: Arc<Mutex<FakeTtlFeedbackLedger>>,
     state: Arc<Mutex<RuntimeSessionState>>,
     first_response: Arc<Mutex<FirstResponseOutcome>>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
 impl RelaySharedSession {
+    pub(super) fn fake_ttl_attempt(&self) -> io::Result<Option<FakeTtlAttempt>> {
+        let ledger = self.fake_ttl_feedback.lock().map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?;
+        Ok(ledger.bound_attempt)
+    }
+
+    pub(super) fn begin_fake_ttl_send(&self) -> io::Result<Option<FakeTtlAttempt>> {
+        self.fake_ttl_feedback.lock().map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?.begin_send()
+    }
+
+    pub(super) fn finish_fake_ttl_send(&self, attempt: Option<FakeTtlAttempt>) -> io::Result<Option<FakeTtlFeedback>> {
+        self.fake_ttl_feedback
+            .lock()
+            .map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?
+            .finish_send(attempt)
+    }
+
+    pub(super) fn accept_fake_ttl_response(&self, server_ttl: Option<u8>) -> io::Result<Option<FakeTtlFeedback>> {
+        let mut ledger =
+            self.fake_ttl_feedback.lock().map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?;
+        Ok(ledger.accept_response(server_ttl))
+    }
+
+    pub(super) fn complete_fake_ttl_feedback(&self) -> io::Result<()> {
+        let mut ledger =
+            self.fake_ttl_feedback.lock().map_err(|_| io::Error::other("fake TTL feedback mutex poisoned"))?;
+        ledger.complete_feedback();
+        Ok(())
+    }
+
     pub(super) fn snapshot(&self) -> io::Result<RelaySession> {
         let first_response = *self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))?;
+        let fake_ttl_attempt = self.fake_ttl_attempt()?;
         self.state.lock().map_err(|_| io::Error::other("session mutex poisoned")).map(|state| RelaySession {
             state: state.clone(),
             first_response,
             pending_response: None,
+            fake_ttl_attempt,
             lua_flow: self.lua_flow.clone(),
         })
     }

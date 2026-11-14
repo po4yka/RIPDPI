@@ -1,3 +1,4 @@
+use crate::runtime::desync::FakeTtlAttempt;
 use std::io;
 use std::net::SocketAddr;
 
@@ -29,8 +30,17 @@ pub(crate) fn advance_after_failure(
     domain: &str,
     payload: &[u8],
     failure: &RuntimeClassifiedFailure,
+    fake_ttl_attempt: Option<FakeTtlAttempt>,
 ) -> io::Result<bool> {
-    let advanced = advance_route_for_failure(state, target, route, Some(domain.to_owned()), Some(payload), failure)?;
+    let advanced = advance_route_for_failure(
+        state,
+        target,
+        route,
+        Some(domain.to_owned()),
+        Some(payload),
+        failure,
+        fake_ttl_attempt,
+    )?;
     Ok(advanced.is_some())
 }
 
@@ -55,7 +65,7 @@ mod tests {
 
         flush_updates(&state);
         record_route_success(&state, target, &route, "example.com").expect("record route success");
-        let _ = advance_after_failure(&state, target, &route, "example.com", b"GET / HTTP/1.1\r\n\r\n", &failure)
+        let _ = advance_after_failure(&state, target, &route, "example.com", b"GET / HTTP/1.1\r\n\r\n", &failure, None)
             .expect("advance after failure");
     }
 }

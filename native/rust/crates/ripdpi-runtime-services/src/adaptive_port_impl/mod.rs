@@ -62,7 +62,7 @@ impl ServicesStateHandle {
             retry_lane_for_payload(transport, payload),
             target_key(host, target),
             group_index,
-            adaptive_signature_hash(resolved_fake_ttl, adaptive_hints),
+            adaptive_signature_hash(resolved_fake_ttl.map(|attempt| attempt.ttl), adaptive_hints),
         )))
     }
 }

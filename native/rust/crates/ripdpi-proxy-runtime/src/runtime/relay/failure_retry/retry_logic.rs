@@ -2,14 +2,30 @@ use std::io;
 use std::net::SocketAddr;
 
 use crate::runtime::adaptive::{
-    note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success,
+    note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success, note_server_ttl_for_route,
 };
-use crate::runtime::desync::OutboundSendError;
+use crate::runtime::desync::{FakeTtlAttempt, OutboundSendError};
 use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::retry::note_retry_success;
 use crate::runtime::routing::{note_route_success, preferred_targets_for_transport};
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
+
+pub(in crate::runtime::relay) fn record_stream_fake_ttl_success(
+    state: &RuntimeState,
+    target: SocketAddr,
+    group_index: usize,
+    host: Option<&str>,
+    feedback: crate::runtime::relay::session::FakeTtlFeedback,
+) -> io::Result<()> {
+    if !RuntimeState::should_track_strategy_target(target) {
+        return Ok(());
+    }
+    if let Some(ttl) = feedback.server_ttl {
+        note_server_ttl_for_route(state, target, group_index, host, ttl, Some(feedback.attempt))?;
+    }
+    note_adaptive_fake_ttl_success(state, target, group_index, host, Some(feedback.attempt))
+}
 
 pub(crate) fn record_stream_relay_success(
     state: &RuntimeState,
@@ -19,6 +35,7 @@ pub(crate) fn record_stream_relay_success(
     success_payload: Option<&[u8]>,
     strategy_family: Option<&str>,
     primary_strategy_family: Option<&str>,
+    fake_ttl_attempt: Option<FakeTtlAttempt>,
 ) -> io::Result<()> {
     if !RuntimeState::should_track_strategy_target(target) {
         return Ok(());
@@ -36,7 +53,7 @@ pub(crate) fn record_stream_relay_success(
         )?;
         note_direct_path_tcp_success(state, success_host, &targets, strategy_family.or(primary_strategy_family))?;
     }
-    note_adaptive_fake_ttl_success(state, target, route.group_index, success_host)?;
+    note_adaptive_fake_ttl_success(state, target, route.group_index, success_host, fake_ttl_attempt)?;
     state.note_evolver_success();
     note_route_success(state, target, route, success_host)?;
     Ok(())

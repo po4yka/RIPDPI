@@ -3,6 +3,8 @@ use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_config::AutoTtlConfig;
 
+use crate::adaptive_port::FakeTtlAttempt;
+
 /// Bounds per-target fake-TTL state for a long session, like `MAX_ADAPTIVE_STATES`.
 const MAX_FAKE_TTL_STATES: usize = 1024;
 
@@ -20,6 +22,10 @@ struct AdaptiveFakeTtlKey {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct AdaptiveFakeTtlState {
+    config: AutoTtlConfig,
+    fallback_ttl: Option<u8>,
+    generation: u64,
+    revision: u64,
     seed: u8,
     candidates: Vec<u8>,
     candidate_index: usize,
@@ -42,7 +48,7 @@ impl AdaptiveFakeTtlResolver {
         host: Option<&str>,
         config: AutoTtlConfig,
         fallback_ttl: Option<u8>,
-    ) -> u8 {
+    ) -> FakeTtlAttempt {
         let key = AdaptiveFakeTtlKey {
             group_index,
             target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
@@ -56,57 +62,95 @@ impl AdaptiveFakeTtlResolver {
             }
         }
         self.access_sequence = self.access_sequence.saturating_add(1);
-        let state = self.states.entry(key).or_insert_with(|| AdaptiveFakeTtlState::new(config, fallback_ttl, None));
+        let generation = self.access_sequence;
+        let state =
+            self.states.entry(key).or_insert_with(|| AdaptiveFakeTtlState::new(config, fallback_ttl, None, generation));
         let effective = state.detected_fallback.or(fallback_ttl);
-        if state.seed != seed_ttl(config, effective) || state.candidates != candidate_order(config, effective) {
+        if state.config != config
+            || state.fallback_ttl != fallback_ttl
+            || (state.pinned_ttl.is_none() && state.seed != seed_ttl(config, effective))
+        {
             let detected = state.detected_fallback;
-            *state = AdaptiveFakeTtlState::new(config, fallback_ttl, detected);
+            *state = AdaptiveFakeTtlState::new(config, fallback_ttl, detected, generation);
         }
         state.last_used_seq = self.access_sequence;
         let ttl = state.current_ttl();
         let group_label = format!("{group_index}");
         metrics::gauge!("ripdpi_fake_ttl_effective", "group" => group_label).set(f64::from(ttl));
-        ttl
+        FakeTtlAttempt { ttl, generation: state.generation, revision: state.revision }
     }
 
-    pub fn note_success(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>) {
-        if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
-            group_index,
-            target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
-        }) {
-            state.pinned_ttl = Some(state.current_ttl());
+    pub fn note_success(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>, attempt: FakeTtlAttempt) {
+        if let Some(state) = self.state_for_attempt(group_index, dest, host, attempt)
+            && let Some(index) = state.candidates.iter().position(|&ttl| ttl == attempt.ttl)
+        {
+            state.candidate_index = index;
+            state.pinned_ttl = Some(attempt.ttl);
+            state.revision = state.revision.wrapping_add(1);
         }
     }
 
-    pub fn note_failure(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>) {
-        if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
-            group_index,
-            target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
-        }) {
+    pub fn note_failure(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>, attempt: FakeTtlAttempt) {
+        if let Some(state) = self.state_for_attempt(group_index, dest, host, attempt)
+            && state.revision == attempt.revision
+            && state.current_ttl() == attempt.ttl
+        {
             state.pinned_ttl = None;
             state.advance();
+            state.revision = state.revision.wrapping_add(1);
             let group_label = format!("{group_index}");
             metrics::counter!("ripdpi_fake_ttl_advances_total", "group" => group_label).increment(1);
         }
     }
 
-    pub fn note_server_ttl(&mut self, group_index: usize, dest: SocketAddr, host: Option<&str>, observed_ttl: u8) {
-        let detected = detected_from_observed_ttl(observed_ttl);
-        if let Some(state) = self.states.get_mut(&AdaptiveFakeTtlKey {
-            group_index,
-            target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
-        }) {
-            state.detected_fallback = Some(detected);
+    pub fn note_server_ttl(
+        &mut self,
+        group_index: usize,
+        dest: SocketAddr,
+        host: Option<&str>,
+        observed_ttl: u8,
+        attempt: FakeTtlAttempt,
+    ) {
+        if let Some(state) = self.state_for_attempt(group_index, dest, host, attempt)
+            && state.revision == attempt.revision
+        {
+            state.detected_fallback = Some(detected_from_observed_ttl(observed_ttl));
         }
+    }
+
+    fn state_for_attempt(
+        &mut self,
+        group_index: usize,
+        dest: SocketAddr,
+        host: Option<&str>,
+        attempt: FakeTtlAttempt,
+    ) -> Option<&mut AdaptiveFakeTtlState> {
+        self.states
+            .get_mut(&AdaptiveFakeTtlKey {
+                group_index,
+                target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
+            })
+            .filter(|state| state.generation == attempt.generation)
     }
 }
 
 impl AdaptiveFakeTtlState {
-    fn new(config: AutoTtlConfig, fallback_ttl: Option<u8>, detected_fallback: Option<u8>) -> Self {
+    fn new(config: AutoTtlConfig, fallback_ttl: Option<u8>, detected_fallback: Option<u8>, generation: u64) -> Self {
         let effective = detected_fallback.or(fallback_ttl);
         let candidates = candidate_order(config, effective);
         let seed = seed_ttl(config, effective);
-        Self { seed, candidates, candidate_index: 0, pinned_ttl: None, detected_fallback, last_used_seq: 0 }
+        Self {
+            config,
+            fallback_ttl,
+            generation,
+            revision: 0,
+            seed,
+            candidates,
+            candidate_index: 0,
+            pinned_ttl: None,
+            detected_fallback,
+            last_used_seq: 0,
+        }
     }
 
     fn current_ttl(&self) -> u8 {
@@ -186,120 +230,7 @@ fn normalized_host(host: Option<&str>) -> Option<String> {
 mod boundary_tests;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+mod feedback_tests;
 
-    fn config(delta: i8, min_ttl: u8, max_ttl: u8) -> AutoTtlConfig {
-        AutoTtlConfig { delta, min_ttl, max_ttl }
-    }
-
-    fn addr(port: u16) -> SocketAddr {
-        SocketAddr::from(([127, 0, 0, 1], port))
-    }
-
-    #[test]
-    fn resolver_keeps_at_most_the_most_recent_targets() {
-        let mut resolver = AdaptiveFakeTtlResolver::default();
-        let cfg = config(-1, 3, 12);
-        resolver.resolve(0, addr(443), Some("first.example"), cfg, Some(8));
-        for index in 0..MAX_FAKE_TTL_STATES {
-            resolver.resolve(0, addr(443), Some(&format!("host-{index}.example")), cfg, Some(8));
-        }
-        assert_eq!(resolver.states.len(), MAX_FAKE_TTL_STATES);
-        let first = AdaptiveFakeTtlKey { group_index: 0, target: AdaptiveFakeTtlTarget::Host("first.example".into()) };
-        assert!(!resolver.states.contains_key(&first), "the least recently resolved target is evicted");
-    }
-
-    #[test]
-    fn negative_delta_prefers_lower_candidates_first() {
-        assert_eq!(candidate_order(config(-1, 3, 12), Some(8)), vec![8, 7, 6, 5, 4, 3, 9, 10, 11, 12]);
-    }
-
-    #[test]
-    fn positive_delta_prefers_higher_candidates_first() {
-        assert_eq!(candidate_order(config(1, 3, 12), Some(8)), vec![8, 9, 10, 11, 12, 7, 6, 5, 4, 3]);
-    }
-
-    #[test]
-    fn zero_delta_alternates_outward_from_seed() {
-        assert_eq!(candidate_order(config(0, 3, 12), Some(8)), vec![8, 7, 9, 6, 10, 5, 11, 4, 12, 3]);
-    }
-
-    #[test]
-    fn success_pins_and_failure_advances_or_wraps() {
-        let mut resolver = AdaptiveFakeTtlResolver::default();
-        let host = Some("Example.com");
-        let target = addr(443);
-        assert_eq!(resolver.resolve(0, target, host, config(-1, 3, 5), Some(5)), 5);
-        resolver.note_failure(0, target, host);
-        assert_eq!(resolver.resolve(0, target, host, config(-1, 3, 5), Some(5)), 4);
-        resolver.note_success(0, target, host);
-        resolver.note_failure(0, target, host);
-        assert_eq!(resolver.resolve(0, target, host, config(-1, 3, 5), Some(5)), 3);
-        resolver.note_failure(0, target, host);
-        assert_eq!(resolver.resolve(0, target, host, config(-1, 3, 5), Some(5)), 5);
-    }
-
-    #[test]
-    fn host_and_address_keys_remain_isolated() {
-        let mut resolver = AdaptiveFakeTtlResolver::default();
-        let config = config(-1, 3, 6);
-        let target = addr(443);
-        assert_eq!(resolver.resolve(0, target, Some("video.example"), config, Some(6)), 6);
-        resolver.note_failure(0, target, Some("video.example"));
-        assert_eq!(resolver.resolve(0, target, Some("video.example"), config, Some(6)), 5);
-        assert_eq!(resolver.resolve(0, target, None, config, Some(6)), 6);
-        assert_eq!(resolver.resolve(1, target, Some("video.example"), config, Some(6)), 6);
-    }
-
-    #[test]
-    fn detected_from_observed_ttl_computes_hop_count_correctly() {
-        assert_eq!(detected_from_observed_ttl(56), 7); // 64-56=8 hops, detected=7
-        assert_eq!(detected_from_observed_ttl(117), 10); // 128-117=11 hops, detected=10
-        assert_eq!(detected_from_observed_ttl(230), 24); // 255-230=25 hops, detected=24
-        assert_eq!(detected_from_observed_ttl(64), 1); // 64-64=0 hops, detected=max(1,0-1)=1
-        assert_eq!(detected_from_observed_ttl(1), 62); // 64-1=63 hops, detected=62
-    }
-
-    #[test]
-    fn note_server_ttl_seeds_candidates_from_detected_hop_count() {
-        let mut resolver = AdaptiveFakeTtlResolver::default();
-        let cfg = config(-1, 3, 20);
-        let target = addr(443);
-        let host = Some("hop.example");
-
-        // First resolve: uses static fallback=8
-        assert_eq!(resolver.resolve(0, target, host, cfg, Some(8)), 8);
-
-        // Server responds with TTL=56: reference=64, hops=8, detected=7
-        resolver.note_server_ttl(0, target, host, 56);
-
-        // Failure clears pin -> next resolve rebuilds candidates from detected=7
-        resolver.note_failure(0, target, host);
-        assert_eq!(resolver.resolve(0, target, host, cfg, Some(8)), 7);
-    }
-
-    #[test]
-    fn note_server_ttl_for_unknown_key_does_not_panic() {
-        let mut resolver = AdaptiveFakeTtlResolver::default();
-        // Key was never resolved; should be silently ignored
-        resolver.note_server_ttl(0, addr(443), Some("unknown.example"), 60);
-    }
-
-    #[test]
-    fn detected_fallback_preserved_across_config_rebuild() {
-        let mut resolver = AdaptiveFakeTtlResolver::default();
-        let target = addr(443);
-        let host = Some("rebuild.example");
-
-        // Initial resolve
-        resolver.resolve(0, target, host, config(0, 3, 15), Some(8));
-        // TTL=58: 64-58=6 hops, detected=5
-        resolver.note_server_ttl(0, target, host, 58);
-
-        // Force rebuild by triggering seed mismatch (change effective fallback via note_failure which clears pin)
-        resolver.note_failure(0, target, host);
-        let ttl = resolver.resolve(0, target, host, config(0, 3, 15), Some(8));
-        assert_eq!(ttl, 5); // detected fallback used as seed
-    }
-}
+#[cfg(test)]
+mod tests;

@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_session_limit::ExitIpSessionGuard;
 
-use crate::runtime::desync::OutboundSendError;
+use crate::runtime::desync::{FakeTtlAttempt, OutboundSendError};
 use crate::runtime::failure::{RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass};
 use crate::runtime::relay::failure_retry::retry_logic::{
     classify_bounded_first_write_failure, classify_first_write_failure, should_retry_syn_data_without_tfo,
@@ -38,16 +38,23 @@ pub(super) struct FirstResponseFailureContext<'a> {
     pub(super) response_bytes: Option<Vec<u8>>,
 }
 
+pub(super) struct FirstWriteFailureContext<'a> {
+    pub(super) state: &'a RuntimeState,
+    pub(super) target: SocketAddr,
+    pub(super) route: &'a RuntimeConnectionRoute,
+    pub(super) host: Option<String>,
+    pub(super) original_request: &'a [u8],
+    pub(super) upstream: &'a TcpStream,
+    pub(super) err: OutboundSendError,
+    pub(super) fake_ttl_attempt: Option<FakeTtlAttempt>,
+}
+
 pub(super) fn handle_first_write_failure(
-    state: &RuntimeState,
-    target: SocketAddr,
-    route: &RuntimeConnectionRoute,
-    host: Option<String>,
-    original_request: &[u8],
-    upstream: &TcpStream,
-    err: OutboundSendError,
+    context: FirstWriteFailureContext<'_>,
     retry_state: &mut RouteRetryState,
 ) -> io::Result<ReconnectedRoute> {
+    let FirstWriteFailureContext { state, target, route, host, original_request, upstream, err, fake_ttl_attempt } =
+        context;
     if state.shutdown_requested() {
         return Err(err.into_io_error());
     }
@@ -68,8 +75,15 @@ pub(super) fn handle_first_write_failure(
     }
 
     emit_failure_classified(state, target, &failure, host.as_deref());
-    let Some(next_route) =
-        advance_route_for_failure(state, target, route, host.clone(), Some(original_request), &failure)?
+    let Some(next_route) = advance_route_for_failure(
+        state,
+        target,
+        route,
+        host.clone(),
+        Some(original_request),
+        &failure,
+        fake_ttl_attempt,
+    )?
     else {
         return Err(err.into_io_error());
     };
@@ -108,6 +122,7 @@ pub(super) fn handle_first_response_failure(
         context.host.clone(),
         Some(context.original_request),
         context.failure,
+        session_state.fake_ttl_attempt,
     )? {
         return reconnect_route(context.state, context.target, next_route, context.host, context.original_request)
             .map(Some);
@@ -212,13 +227,16 @@ mod tests {
             std::net::TcpStream::connect(upstream_listener.local_addr().expect("upstream")).expect("connect upstream");
         let mut retry = RouteRetryState::default();
         let result = handle_first_write_failure(
-            &state,
-            listener.local_addr().expect("target"),
-            &route(),
-            None,
-            b"request",
-            &upstream,
-            OutboundSendError::transport(io::Error::from(io::ErrorKind::ConnectionReset)),
+            FirstWriteFailureContext {
+                state: &state,
+                target: listener.local_addr().expect("target"),
+                route: &route(),
+                host: None,
+                original_request: b"request",
+                upstream: &upstream,
+                err: OutboundSendError::transport(io::Error::from(io::ErrorKind::ConnectionReset)),
+                fake_ttl_attempt: None,
+            },
             &mut retry,
         );
         let Err(error) = result else {

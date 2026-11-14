@@ -49,6 +49,7 @@ pub(crate) fn execute(
             opts.original_flags,
         );
         let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);
+        ctx.lowering.note_ordered_fake_ttl_attempt(&ordered_segments);
         send_ordered_fake_segments_action_named(
             ctx.writer,
             &ordered_segments,
@@ -65,6 +66,9 @@ pub(crate) fn execute(
             bytes_committed,
         )?
     } else {
+        if !chunk.is_empty() && !fake_chunk.is_empty() {
+            ctx.lowering.note_fake_ttl_attempt(opts.fake_ttl);
+        }
         send_fake_tcp_action_named(
             ctx.writer,
             chunk,

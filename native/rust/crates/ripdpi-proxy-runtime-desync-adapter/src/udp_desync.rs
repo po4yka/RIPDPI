@@ -139,6 +139,7 @@ pub fn plan_udp_actions_for_runtime(
         request.host,
         group,
     )?;
+    let resolved_fake_ttl = resolved_fake_ttl.map(|attempt| attempt.ttl);
     let adaptive_hints = resolve_udp_hints_for_runtime(&context, &request, group)?;
     let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
     crate::model::proxy_config::emit_morph_hint_applied(

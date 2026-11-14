@@ -19,6 +19,8 @@ pub(crate) enum TcpTtlCapabilityState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct TcpLoweringCapabilities {
     pub(crate) restore_ttl: u8,
+    tracked_fake_ttl: Option<u8>,
+    fake_ttl_attempted: Option<u8>,
     ttl_write: TcpTtlCapabilityState,
     /// A disorder or disoob chunk left with the default TTL.
     disorder_ttl_skipped: bool,
@@ -41,7 +43,36 @@ impl TcpLoweringCapabilities {
         } else {
             TcpTtlCapabilityState::Unknown
         };
-        Self { restore_ttl, ttl_write, disorder_ttl_skipped: false, fake_rst_unsent: false }
+        Self {
+            restore_ttl,
+            tracked_fake_ttl: None,
+            fake_ttl_attempted: None,
+            ttl_write,
+            disorder_ttl_skipped: false,
+            fake_rst_unsent: false,
+        }
+    }
+
+    pub(crate) fn track_fake_ttl(&mut self, ttl: Option<u8>) {
+        self.tracked_fake_ttl = ttl;
+    }
+
+    pub(crate) fn note_fake_ttl_attempt(&mut self, ttl: u8) {
+        if self.tracked_fake_ttl == Some(ttl) {
+            self.fake_ttl_attempted = Some(ttl);
+        }
+    }
+
+    pub(crate) fn note_ordered_fake_ttl_attempt(&mut self, segments: &[platform::OrderedTcpSegment<'_>]) {
+        for segment in segments {
+            if segment.use_fake_timestamp && !segment.payload.is_empty() {
+                self.note_fake_ttl_attempt(segment.ttl);
+            }
+        }
+    }
+
+    pub(crate) fn fake_ttl_attempted(self) -> Option<u8> {
+        self.fake_ttl_attempted
     }
 
     pub(crate) fn persist(self, session_ttl_unavailable: &AtomicBool) {
@@ -280,6 +311,8 @@ mod tests {
         let session = AtomicBool::new(false);
         TcpLoweringCapabilities {
             restore_ttl: 64,
+            tracked_fake_ttl: None,
+            fake_ttl_attempted: None,
             ttl_write: TcpTtlCapabilityState::Unavailable,
             disorder_ttl_skipped: false,
             fake_rst_unsent: false,
@@ -294,6 +327,8 @@ mod tests {
         let (client, _server) = connected_pair();
         let mut caps = TcpLoweringCapabilities {
             restore_ttl: 64,
+            tracked_fake_ttl: None,
+            fake_ttl_attempted: None,
             ttl_write: TcpTtlCapabilityState::Unavailable,
             disorder_ttl_skipped: false,
             fake_rst_unsent: false,
@@ -307,6 +342,8 @@ mod tests {
         let (client, _server) = connected_pair();
         let mut caps = TcpLoweringCapabilities {
             restore_ttl: 64,
+            tracked_fake_ttl: None,
+            fake_ttl_attempted: None,
             ttl_write: TcpTtlCapabilityState::Unavailable,
             disorder_ttl_skipped: false,
             fake_rst_unsent: false,
