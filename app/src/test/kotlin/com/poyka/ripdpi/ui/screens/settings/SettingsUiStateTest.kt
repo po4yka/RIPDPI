@@ -1054,7 +1054,7 @@ class SettingsUiStateTest {
     }
 
     @Test
-    fun `adaptive fake ttl stays relevant for disoob chain transport`() {
+    fun `adaptive fake ttl is not used by disoob chain transport`() {
         val settings =
             defaults
                 .toBuilder()
@@ -1073,12 +1073,12 @@ class SettingsUiStateTest {
         assertFalse(state.usesFakeTransport)
         assertTrue(state.hasDisoob)
         assertTrue(state.isOob)
-        assertTrue(state.fakeTtlControlsRelevant)
-        assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertFalse(state.fakeTtlControlsRelevant)
+        assertFalse(state.showAdaptiveFakeTtlProfile)
     }
 
     @Test
-    fun `adaptive fake ttl stays relevant for disoob`() {
+    fun `adaptive fake ttl is not used by legacy disoob`() {
         val settings =
             defaults
                 .toBuilder()
@@ -1089,8 +1089,17 @@ class SettingsUiStateTest {
 
         assertTrue(state.isOob)
         assertTrue(state.hasDisoob)
-        assertTrue(state.fakeTtlControlsRelevant)
-        assertTrue(state.showAdaptiveFakeTtlProfile)
+        assertFalse(state.fakeTtlControlsRelevant)
+        assertFalse(state.showAdaptiveFakeTtlProfile)
+
+        val savedProfile =
+            settings
+                .toBuilder()
+                .setAdaptiveFakeTtlEnabled(true)
+                .build()
+                .toUiState()
+        assertFalse(savedProfile.fakeTtlControlsRelevant)
+        assertTrue(savedProfile.showAdaptiveFakeTtlProfile)
     }
 
     @Test

@@ -4,7 +4,7 @@ Task ID: `RST-1794677915101106`
 
 ## Why
 
-The audit found stale feedback, repeated IPv4 IDs, false SACK drops, TCP settings copied to UDP, repeated boundary candidates, and conflicting timestamp documentation. These faults can change transport behavior and hide the actual supported scope.
+The audit and source repair found stale feedback, repeated IPv4 IDs, false SACK drops, TCP settings copied to UDP, repeated boundary candidates, and conflicting timestamp documentation. These faults can change transport behavior and hide the actual supported scope.
 
 ## What Changes
 
@@ -14,6 +14,7 @@ The audit found stale feedback, repeated IPv4 IDs, false SACK drops, TCP setting
 - Preserve fixed UDP TTL when adaptive TCP TTL is enabled.
 - Enumerate each candidate once per cycle at byte boundaries.
 - Describe and test receive-side timestamp drops without promising outbound removal.
+- Remove the incorrect DISOOB target from fake TTL settings without changing its fixed TTL 1.
 - BREAKING internal Rust port signatures carry attempt identity. Stored settings and JNI/protobuf field numbers remain compatible.
 
 ## Capabilities

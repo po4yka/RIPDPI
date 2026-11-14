@@ -503,7 +503,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_selector_title">Адаптивный фейковый TTL</string>
     <string name="adaptive_fake_ttl_selector_body">Выберите, должен ли RIPDPI использовать один фиксированный фейковый TTL или обучаться рабочему TCP фейковому TTL в пределах сохранённого окна в течение текущего сеанса.</string>
     <string name="adaptive_fake_ttl_mode_fixed_title">Фиксированный TTL</string>
-    <string name="adaptive_fake_ttl_mode_fixed_body">Использовать один сохранённый TTL для TCP фейковых пакетов, фрагментов hostfake и записей disoob.</string>
+    <string name="adaptive_fake_ttl_mode_fixed_body">Использовать один сохранённый TTL для TCP фейковых пакетов и фрагментов hostfake.</string>
     <string name="adaptive_fake_ttl_mode_adaptive_title">Адаптивный TTL</string>
     <string name="adaptive_fake_ttl_mode_adaptive_body">Рекомендуется. Начать с запасного TTL, искать меньшие значения в пределах сохранённого окна и зафиксировать первый рабочий TTL для текущего сеанса.</string>
     <string name="adaptive_fake_ttl_mode_custom_title">Пользовательский адаптивный</string>
@@ -516,7 +516,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_fixed_title">Фиксированный фейковый TTL</string>
     <string name="adaptive_fake_ttl_fixed_body">Использовать один сохранённый TTL только для TCP фейковых пакетов. UDP фейковые всплески сохраняют собственное фиксированное поведение.</string>
     <string name="adaptive_fake_ttl_saved_title">Адаптивный фейковый TTL сохранён</string>
-    <string name="adaptive_fake_ttl_saved_body">Адаптивный профиль фейкового TTL сохранён, но ни один текущий шаг TCP фейкового транспорта его не использует, пока снова не станет активным fake, hostfake или disoob трафик.</string>
+    <string name="adaptive_fake_ttl_saved_body">Адаптивный профиль фейкового TTL сохранён, но ни один текущий шаг TCP фейкового транспорта его не использует, пока снова не станет активным fake или hostfake трафик.</string>
     <string name="adaptive_fake_ttl_restart_title">Перезапустите для применения адаптивного фейкового TTL</string>
     <string name="adaptive_fake_ttl_restart_body">Текущий сеанс RIPDPI был запущен до изменения адаптивного фейкового TTL. Перезапустите или переподключитесь для применения сохранённого окна обучения.</string>
     <string name="adaptive_fake_ttl_adaptive_title">Адаптивный фейковый TTL готов</string>
@@ -537,13 +537,12 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_summary_fallback_value">Запасной TTL %1$d</string>
     <string name="adaptive_fake_ttl_summary_fallback_fixed">Фиксированный TTL %1$d</string>
     <string name="adaptive_fake_ttl_scope_cli">Параметры командной строки определяют логику эффективного фейкового TTL.</string>
-    <string name="adaptive_fake_ttl_scope_idle">Сейчас этот профиль не используется ни активными TCP фейковыми пакетами, ни фрагментами hostfake, ни записями disoob.</string>
-    <string name="adaptive_fake_ttl_scope_adaptive">Используется только для TCP фейковых пакетов, фрагментов hostfake и записей disoob. UDP фейковые всплески остаются фиксированными.</string>
-    <string name="adaptive_fake_ttl_scope_fixed">Используется как сохранённый фиксированный TTL для TCP фейковых пакетов, фрагментов hostfake и записей disoob.</string>
+    <string name="adaptive_fake_ttl_scope_idle">Сейчас этот профиль не используется ни активными TCP фейковыми пакетами, ни фрагментами hostfake.</string>
+    <string name="adaptive_fake_ttl_scope_adaptive">Используется только для TCP фейковых пакетов и фрагментов hostfake. UDP фейковые всплески остаются фиксированными.</string>
+    <string name="adaptive_fake_ttl_scope_fixed">Используется как сохранённый фиксированный TTL для TCP фейковых пакетов и фрагментов hostfake.</string>
     <string name="adaptive_fake_ttl_targets_none">Нет активного шага TCP фейкового транспорта</string>
     <string name="adaptive_fake_ttl_targets_fake">Фейковые пакеты</string>
     <string name="adaptive_fake_ttl_targets_hostfake">Фрагменты hostfake</string>
-    <string name="adaptive_fake_ttl_targets_disoob">Записи DISOOB</string>
     <string name="adaptive_fake_ttl_learning_runtime">Определяется только в течение текущего сеанса. Успешные TTL не сохраняются между перезапусками.</string>
     <string name="adaptive_fake_ttl_learning_fixed">Обучения нет. RIPDPI всегда использует сохранённый фиксированный TTL.</string>
     <string name="adaptive_fake_ttl_badge_fixed">Фиксированный</string>
@@ -553,7 +552,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_badge_runtime_learned">Определяется в сеансе</string>
     <string name="adaptive_fake_ttl_badge_fake">Fake</string>
     <string name="adaptive_fake_ttl_badge_hostfake">Hostfake</string>
-    <string name="adaptive_fake_ttl_badge_disoob">DISOOB</string>
     <string name="adaptive_fake_ttl_reset_action">Сбросить до фиксированного TTL</string>
     <string name="adaptive_fake_ttl_min_title">Минимальный TTL</string>
     <string name="adaptive_fake_ttl_min_body">Нижняя граница окна адаптивного поиска TCP фейкового TTL.</string>

@@ -1,6 +1,6 @@
 ## Context
 
-The six findings affect existing packet parameters. See proposal.md. Implementation work uses separate worktrees, with ownership in the portfolio record.
+The seven findings affect existing packet parameters. See proposal.md. Implementation work uses separate worktrees, with ownership in the portfolio record.
 
 ## Goals / Non-Goals
 
@@ -9,11 +9,12 @@ The six findings affect existing packet parameters. See proposal.md. Implementat
 
 ## Decisions
 
-- F1 carries TTL, generation and revision from resolve to feedback. Cache replacement and config rebuild invalidate earlier attempts. A successful attempt can pin only its actual TTL; old failures cannot undo a newer success. Server-hop feedback also respects generation.
+- F1 carries TTL, generation and revision from resolve to feedback. Cache replacement and config rebuild invalidate earlier attempts. A successful attempt can pin only its actual TTL; old failures cannot undo a newer success. Server-hop feedback also respects generation. Actual-use receipts gate token publication; a short-lock session ledger defers fake-only success feedback until an in-flight send publishes its receipt. No network I/O runs under that lock.
 - F2 uses the existing sender-owned IP-tuple lease for DF=false raw TCP packets. Per-flow and random values are preferences; the sender can replace a live collision. Keep DF and MTU behavior. Preserve the existing 120-second, process-local lease scope and explicit exhaustion errors.
 - F3 keeps fixed-layout support. Prove the NOP/NOP/Timestamp/NOP/NOP prefix and SACK option length before return-zero. Unsupported or malformed layouts pass through. Do not add an option scanner.
 - F4 derives fixed UDP TTL from the saved fake TTL before the adaptive TCP fallback replaces the primary action. UDP does not inherit TCP auto_ttl.
 - F5 computes bounds in a wider integer type and converts only values in range.
+- F7 removes DISOOB from fake TTL relevance and target/badge labels, updates all locale scope text and exports, and preserves saved profile visibility. This corrects a UI claim, not the fixed TTL 1 wire behavior. The matching RDS reference is vpn-quick-vs-advanced.html; no layout/token redesign.
 - F6 corrects comments and test direction. Preserve the current dropSack priority guard and existing opt-in capture gate.
 
 ## Contracts and ownership

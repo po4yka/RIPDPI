@@ -729,7 +729,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_selector_title">TTL falso adaptativo</string>
     <string name="adaptive_fake_ttl_selector_body">Escolha se o RIPDPI deve manter um único TTL falso fixo ou aprender um TTL falso TCP funcional dentro da janela salva durante a execução atual.</string>
     <string name="adaptive_fake_ttl_mode_fixed_title">TTL fixo</string>
-    <string name="adaptive_fake_ttl_mode_fixed_body">Mantém um único TTL salvo para pacotes falsos TCP, fragmentos hostfake e gravações disoob.</string>
+    <string name="adaptive_fake_ttl_mode_fixed_body">Mantém um único TTL salvo para pacotes falsos TCP e fragmentos hostfake.</string>
     <string name="adaptive_fake_ttl_mode_adaptive_title">TTL adaptativo</string>
     <string name="adaptive_fake_ttl_mode_adaptive_body">Recomendado. Começa pelo TTL de fallback, busca primeiro os valores menores dentro da janela salva e fixa o primeiro TTL funcional para a execução atual.</string>
     <string name="adaptive_fake_ttl_mode_custom_title">Adaptativo personalizado</string>
@@ -742,7 +742,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_fixed_title">TTL falso fixo</string>
     <string name="adaptive_fake_ttl_fixed_body">Usa um único TTL salvo apenas para pacotes falsos TCP. As rajadas falsas UDP mantêm o comportamento fixo próprio.</string>
     <string name="adaptive_fake_ttl_saved_title">TTL falso adaptativo salvo</string>
-    <string name="adaptive_fake_ttl_saved_body">Um perfil de TTL falso adaptativo está armazenado, mas nenhuma etapa de transporte falso TCP em curso o utiliza até que o tráfego fake, hostfake ou disoob fique ativo novamente.</string>
+    <string name="adaptive_fake_ttl_saved_body">Um perfil de TTL falso adaptativo está armazenado, mas nenhuma etapa de transporte falso TCP em curso o utiliza até que o tráfego fake ou hostfake fique ativo novamente.</string>
     <string name="adaptive_fake_ttl_restart_title">Reinicie para aplicar o TTL falso adaptativo</string>
     <string name="adaptive_fake_ttl_restart_body">A sessão do RIPDPI em execução foi iniciada antes desta mudança de TTL falso adaptativo. Reinicie ou reconecte para aplicar a janela de aprendizado salva.</string>
     <string name="adaptive_fake_ttl_adaptive_title">TTL falso adaptativo pronto</string>
@@ -763,13 +763,12 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_summary_fallback_value">TTL de fallback %1$d</string>
     <string name="adaptive_fake_ttl_summary_fallback_fixed">TTL fixo %1$d</string>
     <string name="adaptive_fake_ttl_scope_cli">As configurações da linha de comando escolhem a lógica efetiva de TTL falso.</string>
-    <string name="adaptive_fake_ttl_scope_idle">Nenhum pacote falso TCP, fragmento hostfake ou gravação disoob ativo está usando este perfil agora.</string>
-    <string name="adaptive_fake_ttl_scope_adaptive">Usado apenas para pacotes falsos TCP, fragmentos hostfake e gravações disoob. As rajadas falsas UDP permanecem fixas.</string>
-    <string name="adaptive_fake_ttl_scope_fixed">Usado como TTL fixo salvo para pacotes falsos TCP, fragmentos hostfake e gravações disoob.</string>
+    <string name="adaptive_fake_ttl_scope_idle">Nenhum pacote falso TCP ou fragmento hostfake ativo está usando este perfil agora.</string>
+    <string name="adaptive_fake_ttl_scope_adaptive">Usado apenas para pacotes falsos TCP e fragmentos hostfake. As rajadas falsas UDP permanecem fixas.</string>
+    <string name="adaptive_fake_ttl_scope_fixed">Usado como TTL fixo salvo para pacotes falsos TCP e fragmentos hostfake.</string>
     <string name="adaptive_fake_ttl_targets_none">Nenhuma etapa ativa de transporte falso TCP</string>
     <string name="adaptive_fake_ttl_targets_fake">Pacotes falsos</string>
     <string name="adaptive_fake_ttl_targets_hostfake">Fragmentos hostfake</string>
-    <string name="adaptive_fake_ttl_targets_disoob">Gravações DISOOB</string>
     <string name="adaptive_fake_ttl_learning_runtime">Aprendido apenas durante a execução atual. TTLs bem-sucedidos não são mantidos entre reinícios.</string>
     <string name="adaptive_fake_ttl_learning_fixed">Sem aprendizado. O RIPDPI sempre usa o TTL fixo salvo.</string>
     <string name="adaptive_fake_ttl_badge_fixed">Fixo</string>
@@ -779,7 +778,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_badge_runtime_learned">Aprendido em execução</string>
     <string name="adaptive_fake_ttl_badge_fake">Falso</string>
     <string name="adaptive_fake_ttl_badge_hostfake">Hostfake</string>
-    <string name="adaptive_fake_ttl_badge_disoob">DISOOB</string>
     <string name="adaptive_fake_ttl_reset_action">Redefinir para TTL fixo</string>
     <string name="adaptive_fake_ttl_min_title">TTL mínimo</string>
     <string name="adaptive_fake_ttl_min_body">Limite inferior da janela de busca de TTL falso TCP adaptativo.</string>

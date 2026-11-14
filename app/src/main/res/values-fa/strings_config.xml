@@ -691,11 +691,11 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_max_body">حد بالای پنجره جست‌وجوی TTL جعلی تطبیقی TCP.</string>
     <string name="adaptive_fake_ttl_min_title">حداقل TTL</string>
     <string name="adaptive_fake_ttl_mode_custom_badge">حفظ‌شده</string>
-    <string name="adaptive_fake_ttl_mode_fixed_body">یک TTL ذخیره‌شده را برای بسته‌های جعلی TCP، تکه‌های hostfake و نوشتن‌های disoob نگه می‌دارد.</string>
+    <string name="adaptive_fake_ttl_mode_fixed_body">یک TTL ذخیره‌شده را برای بسته‌های جعلی TCP و تکه‌های hostfake نگه می‌دارد.</string>
     <string name="adaptive_fake_ttl_mode_selected">انتخاب‌شده</string>
     <string name="adaptive_fake_ttl_restart_title">برای اعمال TTL جعلی تطبیقی، راه‌اندازی مجدد کنید</string>
-    <string name="adaptive_fake_ttl_scope_adaptive">فقط برای بسته‌های جعلی TCP، تکه‌های hostfake و نوشتن‌های disoob استفاده می‌شود. شلیک‌های جعلی UDP ثابت می‌مانند.</string>
-    <string name="adaptive_fake_ttl_scope_idle">در حال حاضر هیچ بسته جعلی فعال TCP، تکه hostfake یا نوشتن disoob از این نمایه استفاده نمی‌کند.</string>
+    <string name="adaptive_fake_ttl_scope_adaptive">فقط برای بسته‌های جعلی TCP و تکه‌های hostfake استفاده می‌شود. شلیک‌های جعلی UDP ثابت می‌مانند.</string>
+    <string name="adaptive_fake_ttl_scope_idle">در حال حاضر هیچ بسته جعلی فعال TCP یا تکه hostfake از این نمایه استفاده نمی‌کند.</string>
     <string name="adaptive_fake_ttl_summary_fallback_fixed">TTL ثابت %1$d</string>
     <string name="adaptive_fake_ttl_summary_label_learning">در حال یادگیری</string>
     <string name="adaptive_fake_ttl_summary_label_targets">استفاده‌شده توسط</string>
@@ -801,14 +801,13 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_mode_custom_body">نمایه ذخیره‌شده از سوگیری تطبیقی سفارشی %1$d استفاده می‌کند. برای جایگزینی آن در ویرایشگر بصری، TTL ثابت یا TTL تطبیقی را انتخاب کنید.</string>
     <string name="adaptive_fake_ttl_mode_fixed_title">TTL ثابت</string>
     <string name="adaptive_fake_ttl_reset_action">بازنشانی به TTL ثابت</string>
-    <string name="adaptive_fake_ttl_saved_body">یک نمایه fake TTL تطبیقی ذخیره شده است، اما تا زمانی که ترافیک fake، hostfake یا disoob دوباره فعال نشود، هیچ مرحله ترابری fake TCP فعلی از آن استفاده نمی‌کند.</string>
+    <string name="adaptive_fake_ttl_saved_body">یک نمایه fake TTL تطبیقی ذخیره شده است، اما تا زمانی که ترافیک fake یا hostfake دوباره فعال نشود، هیچ مرحله ترابری fake TCP فعلی از آن استفاده نمی‌کند.</string>
     <string name="adaptive_fake_ttl_scope_cli">تنظیمات خط فرمان، منطق fake TTL مؤثر را انتخاب می‌کنند.</string>
     <string name="adaptive_fake_ttl_selector_body">انتخاب کنید که RIPDPI یک fake TTL ثابت را نگه دارد یا طی اجرای فعلی یک fake TTL کارآمد برای TCP را در محدوده ذخیره‌شده بیاموزد.</string>
     <string name="adaptive_fake_ttl_summary_fallback_value">TTL بازگشتی %1$d</string>
     <string name="adaptive_fake_ttl_summary_label_mode">حالت</string>
     <string name="adaptive_fake_ttl_summary_label_window">محدوده TTL</string>
     <string name="adaptive_fake_ttl_summary_mode_fixed">TTL ثابت</string>
-    <string name="adaptive_fake_ttl_targets_disoob">نوشتن‌های DISOOB</string>
     <string name="adaptive_fake_ttl_targets_none">هیچ مرحله ترابری fake TCP فعالی وجود ندارد</string>
     <string name="desync_https">راهبرد عبور HTTPS</string>
     <string name="fake_order_card_hostfake_order_locked">ترتیب غیرپیش‌فرض hostfake نیاز به نشانگر midhost split دارد. برای فعال کردن تغییرات altorder، در chain DSL مقدار `midhost=` اضافه کنید.</string>
@@ -901,7 +900,6 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_card_step_label">مرحله اصلی</string>
     <string name="tcp_flag_fake_set_title">بسته fake: تنظیم پرچم‌ها</string>
     <string name="adaptive_fake_ttl_adaptive_title">TTL جعلی تطبیقی آماده است</string>
-    <string name="adaptive_fake_ttl_badge_disoob">DISOOB</string>
     <string name="adaptive_fake_ttl_badge_hostfake">Hostfake</string>
     <string name="adaptive_fake_ttl_cli_body">کنترل‌های بصری TTL جعلی تطبیقی تا زمانی که آرگومان‌های خام RIPDPI فعال هستند متوقف شده‌اند. منطق فعال TTL جعلی از نمایه خط فرمان شما می‌آید.</string>
     <string name="adaptive_fake_ttl_custom_title">TTL جعلی تطبیقی سفارشی آماده است</string>
@@ -913,7 +911,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_mode_recommended">توصیه‌شده</string>
     <string name="adaptive_fake_ttl_restart_body">نشست در حال اجرای RIPDPI پیش از این تغییر TTL جعلی تطبیقی شروع شده است. برای اعمال محدودهٔ یادگیری ذخیره‌شده، راه‌اندازی مجدد یا دوباره متصل شوید.</string>
     <string name="adaptive_fake_ttl_saved_title">TTL جعلی تطبیقی ذخیره شد</string>
-    <string name="adaptive_fake_ttl_scope_fixed">به عنوان TTL ثابت ذخیره‌شده برای بسته‌های جعلی TCP، تکه‌های hostfake و نوشتن‌های disoob استفاده می‌شود.</string>
+    <string name="adaptive_fake_ttl_scope_fixed">به عنوان TTL ثابت ذخیره‌شده برای بسته‌های جعلی TCP و تکه‌های hostfake استفاده می‌شود.</string>
     <string name="adaptive_fake_ttl_selector_title">TTL جعلی تطبیقی</string>
     <string name="adaptive_fake_ttl_summary_label_fallback">جایگزین</string>
     <string name="adaptive_fake_ttl_summary_label_scope">اعمال می‌شود وقتی</string>

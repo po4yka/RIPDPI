@@ -185,7 +185,6 @@ private fun adaptiveFakeTtlTargetSummary(uiState: SettingsUiState): String {
         buildList {
             if (uiState.isFake) add(stringResource(R.string.adaptive_fake_ttl_targets_fake))
             if (uiState.hasHostFake) add(stringResource(R.string.adaptive_fake_ttl_targets_hostfake))
-            if (uiState.hasDisoob) add(stringResource(R.string.adaptive_fake_ttl_targets_disoob))
         }
     return targetLabels.ifEmpty { listOf(stringResource(R.string.adaptive_fake_ttl_targets_none)) }.joinToString()
 }
@@ -211,9 +210,6 @@ private fun adaptiveFakeTtlBadges(uiState: SettingsUiState): List<Pair<String, S
         }
         if (uiState.hasHostFake) {
             add(stringResource(R.string.adaptive_fake_ttl_badge_hostfake) to SummaryCapsuleTone.Info)
-        }
-        if (uiState.hasDisoob) {
-            add(stringResource(R.string.adaptive_fake_ttl_badge_disoob) to SummaryCapsuleTone.Warning)
         }
     }
 

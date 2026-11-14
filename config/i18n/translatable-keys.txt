@@ -61,7 +61,6 @@ app:adaptive_fake_ttl_adaptive_body
 app:adaptive_fake_ttl_adaptive_title
 app:adaptive_fake_ttl_badge_adaptive
 app:adaptive_fake_ttl_badge_custom
-app:adaptive_fake_ttl_badge_disoob
 app:adaptive_fake_ttl_badge_fake
 app:adaptive_fake_ttl_badge_fixed
 app:adaptive_fake_ttl_badge_hostfake
@@ -114,7 +113,6 @@ app:adaptive_fake_ttl_summary_mode_custom
 app:adaptive_fake_ttl_summary_mode_fixed
 app:adaptive_fake_ttl_summary_window_fixed
 app:adaptive_fake_ttl_summary_window_value
-app:adaptive_fake_ttl_targets_disoob
 app:adaptive_fake_ttl_targets_fake
 app:adaptive_fake_ttl_targets_hostfake
 app:adaptive_fake_ttl_targets_none

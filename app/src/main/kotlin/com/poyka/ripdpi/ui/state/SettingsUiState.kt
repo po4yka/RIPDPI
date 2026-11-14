@@ -138,7 +138,7 @@ data class SettingsUiState(
         get() = desyncHttpsEnabled && (isFake || usesSeqOverlapFakeProfile)
 
     val fakeTtlControlsRelevant: Boolean
-        get() = usesFakeTransport || hasDisoob
+        get() = usesFakeTransport
 
     val showAdaptiveFakeTtlProfile: Boolean
         get() = enableCmdSettings || fakeTtlControlsRelevant || fake.hasAdaptiveFakeTtl

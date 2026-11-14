@@ -729,7 +729,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_selector_title">TTL زائف تكيُّفي</string>
     <string name="adaptive_fake_ttl_selector_body">اختر ما إذا كان RIPDPI يجب أن يحافظ على TTL زائف ثابت واحد أو يتعلَّم TTL زائفاً فعَّالاً لـ TCP ضمن النافذة المحفوظة أثناء التشغيل الحالي.</string>
     <string name="adaptive_fake_ttl_mode_fixed_title">TTL ثابت</string>
-    <string name="adaptive_fake_ttl_mode_fixed_body">الاحتفاظ بـ TTL محفوظ واحد للحزم الزائفة لـ TCP وأجزاء hostfake وكتابات disoob.</string>
+    <string name="adaptive_fake_ttl_mode_fixed_body">الاحتفاظ بـ TTL محفوظ واحد للحزم الزائفة لـ TCP وأجزاء hostfake.</string>
     <string name="adaptive_fake_ttl_mode_adaptive_title">TTL تكيُّفي</string>
     <string name="adaptive_fake_ttl_mode_adaptive_body">موصى به. البدء من TTL الاحتياطي، والبحث في القيم الأدنى أولاً ضمن النافذة المحفوظة، وتثبيت أول TTL فعَّال للتشغيل الحالي.</string>
     <string name="adaptive_fake_ttl_mode_custom_title">تكيُّفي مخصَّص</string>
@@ -742,7 +742,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_fixed_title">TTL زائف ثابت</string>
     <string name="adaptive_fake_ttl_fixed_body">استخدام TTL محفوظ واحد للحزم الزائفة لـ TCP فقط. تحتفظ الرشقات الزائفة لـ UDP بسلوكها الثابت الخاص.</string>
     <string name="adaptive_fake_ttl_saved_title">تمَّ حفظ TTL زائف تكيُّفي</string>
-    <string name="adaptive_fake_ttl_saved_body">ملف تعريف TTL زائف تكيُّفي مخزَّن، لكن لا توجد خطوة نقل TCP زائفة حالية تستخدمه حتى تصبح حركة fake أو hostfake أو disoob نشطةً مجدَّداً.</string>
+    <string name="adaptive_fake_ttl_saved_body">ملف تعريف TTL زائف تكيُّفي مخزَّن، لكن لا توجد خطوة نقل TCP زائفة حالية تستخدمه حتى تصبح حركة fake أو hostfake نشطةً مجدَّداً.</string>
     <string name="adaptive_fake_ttl_restart_title">أعد التشغيل لتطبيق TTL الزائف التكيُّفي</string>
     <string name="adaptive_fake_ttl_restart_body">بدأت جلسة RIPDPI الجارية قبل تغيير TTL الزائف التكيُّفي هذا. أعد التشغيل أو إعادة الاتصال لتطبيق نافذة التعلُّم المحفوظة.</string>
     <string name="adaptive_fake_ttl_adaptive_title">TTL زائف تكيُّفي جاهز</string>
@@ -763,13 +763,12 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_summary_fallback_value">TTL الاحتياطي %1$d</string>
     <string name="adaptive_fake_ttl_summary_fallback_fixed">TTL الثابت %1$d</string>
     <string name="adaptive_fake_ttl_scope_cli">تختار إعدادات سطر الأوامر منطق TTL الوهمي الفعّال.</string>
-    <string name="adaptive_fake_ttl_scope_idle">لا توجد حزم TCP وهمية نشطة، أو أجزاء hostfake، أو كتابات disoob تستخدم هذا الملف الشخصي الآن.</string>
-    <string name="adaptive_fake_ttl_scope_adaptive">يُستخدم فقط لحزم TCP الوهمية وأجزاء hostfake وكتابات disoob. تبقى حزم UDP الوهمية ثابتة.</string>
-    <string name="adaptive_fake_ttl_scope_fixed">يُستخدم بوصفه TTL الثابت المحفوظ لحزم TCP الوهمية وأجزاء hostfake وكتابات disoob.</string>
+    <string name="adaptive_fake_ttl_scope_idle">لا توجد حزم TCP وهمية نشطة أو أجزاء hostfake تستخدم هذا الملف الشخصي الآن.</string>
+    <string name="adaptive_fake_ttl_scope_adaptive">يُستخدم فقط لحزم TCP الوهمية وأجزاء hostfake. تبقى حزم UDP الوهمية ثابتة.</string>
+    <string name="adaptive_fake_ttl_scope_fixed">يُستخدم بوصفه TTL الثابت المحفوظ لحزم TCP الوهمية وأجزاء hostfake.</string>
     <string name="adaptive_fake_ttl_targets_none">لا توجد خطوة نقل TCP وهمية نشطة</string>
     <string name="adaptive_fake_ttl_targets_fake">حزم وهمية</string>
     <string name="adaptive_fake_ttl_targets_hostfake">أجزاء Hostfake</string>
-    <string name="adaptive_fake_ttl_targets_disoob">كتابات DISOOB</string>
     <string name="adaptive_fake_ttl_learning_runtime">يتم التعلم خلال الجلسة الحالية فقط. لا تُحفظ قيم TTL الناجحة عبر إعادة التشغيل.</string>
     <string name="adaptive_fake_ttl_learning_fixed">لا يوجد تعلم. يستخدم RIPDPI دائماً TTL الثابت المحفوظ.</string>
     <string name="adaptive_fake_ttl_badge_fixed">ثابت</string>
@@ -779,7 +778,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_badge_runtime_learned">مُتعلَّم وقت التشغيل</string>
     <string name="adaptive_fake_ttl_badge_fake">وهمي</string>
     <string name="adaptive_fake_ttl_badge_hostfake">Hostfake</string>
-    <string name="adaptive_fake_ttl_badge_disoob">DISOOB</string>
     <string name="adaptive_fake_ttl_reset_action">إعادة ضبط TTL الثابت</string>
     <string name="adaptive_fake_ttl_min_title">الحد الأدنى لـ TTL</string>
     <string name="adaptive_fake_ttl_min_body">الحد الأدنى لنافذة بحث TTL الوهمي التكيفي لـ TCP.</string>

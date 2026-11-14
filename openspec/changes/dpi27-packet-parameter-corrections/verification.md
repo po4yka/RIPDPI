@@ -26,3 +26,4 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-DPI27-UDP | RST-1794678258153648 | Planned regression and owning gate | required |
 | REQ-DPI27-CANDIDATES | RST-1794678262798271 | Planned regression and owning gate | required |
 | REQ-DPI27-TIMESTAMPS | RST-1794678269799237 | Planned regression and owning gate | required |
+| REQ-DPI27-SCOPE | RST-1794683533527463 | Settings state regression, locale lint and render | required |

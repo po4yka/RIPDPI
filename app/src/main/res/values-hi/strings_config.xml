@@ -729,7 +729,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_selector_title">अनुकूली नकली TTL</string>
     <string name="adaptive_fake_ttl_selector_body">चुनें कि RIPDPI एक निश्चित नकली TTL रखे या वर्तमान रन के दौरान सहेजी गई विंडो के भीतर एक काम करने वाला TCP नकली TTL सीखे।</string>
     <string name="adaptive_fake_ttl_mode_fixed_title">निश्चित TTL</string>
-    <string name="adaptive_fake_ttl_mode_fixed_body">TCP नकली पैकेटों, hostfake खंडों और disoob राइट्स के लिए एक सहेजा गया TTL रखें।</string>
+    <string name="adaptive_fake_ttl_mode_fixed_body">TCP नकली पैकेटों और hostfake खंडों के लिए एक सहेजा गया TTL रखें।</string>
     <string name="adaptive_fake_ttl_mode_adaptive_title">अनुकूली TTL</string>
     <string name="adaptive_fake_ttl_mode_adaptive_body">अनुशंसित. फॉलबैक TTL से शुरू करें, सहेजी गई विंडो के भीतर पहले कम मानों की खोज करें, और मौजूदा रन के लिए पहले काम करने वाले TTL को पिन करें.</string>
     <string name="adaptive_fake_ttl_mode_custom_title">कस्टम अनुकूली</string>
@@ -742,7 +742,7 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_fixed_title">स्थिर फ़ेक TTL</string>
     <string name="adaptive_fake_ttl_fixed_body">केवल TCP फ़ेक पैकेट के लिए एक सहेजा गया TTL उपयोग करें. UDP फ़ेक बर्स्ट अपना खुद का स्थिर व्यवहार बनाए रखते हैं.</string>
     <string name="adaptive_fake_ttl_saved_title">अनुकूली फ़ेक TTL सहेजा गया</string>
-    <string name="adaptive_fake_ttl_saved_body">एक अनुकूली फ़ेक TTL प्रोफ़ाइल संग्रहीत है, लेकिन जब तक fake, hostfake, या disoob ट्रैफ़िक दोबारा सक्रिय नहीं होता तब तक कोई मौजूदा TCP फ़ेक ट्रांसपोर्ट चरण इसका उपयोग नहीं कर रहा.</string>
+    <string name="adaptive_fake_ttl_saved_body">एक अनुकूली फ़ेक TTL प्रोफ़ाइल संग्रहीत है, लेकिन जब तक fake या hostfake ट्रैफ़िक दोबारा सक्रिय नहीं होता तब तक कोई मौजूदा TCP फ़ेक ट्रांसपोर्ट चरण इसका उपयोग नहीं कर रहा.</string>
     <string name="adaptive_fake_ttl_restart_title">अनुकूली फ़ेक TTL लागू करने के लिए पुनः आरंभ करें</string>
     <string name="adaptive_fake_ttl_restart_body">चल रहा RIPDPI सत्र इस अनुकूली फ़ेक TTL बदलाव से पहले शुरू हुआ था. सहेजी गई लर्निंग विंडो लागू करने के लिए पुनः आरंभ करें या फिर से कनेक्ट करें.</string>
     <string name="adaptive_fake_ttl_adaptive_title">अनुकूली फ़ेक TTL तैयार</string>
@@ -763,13 +763,12 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_summary_fallback_value">फॉलबैक TTL %1$d</string>
     <string name="adaptive_fake_ttl_summary_fallback_fixed">स्थिर TTL %1$d</string>
     <string name="adaptive_fake_ttl_scope_cli">कमांड लाइन सेटिंग्स प्रभावी फ़ेक TTL लॉजिक चुनती हैं.</string>
-    <string name="adaptive_fake_ttl_scope_idle">अभी कोई सक्रिय TCP फ़ेक पैकेट, hostfake खंड, या disoob राइट इस प्रोफ़ाइल का उपयोग नहीं कर रहे.</string>
-    <string name="adaptive_fake_ttl_scope_adaptive">केवल TCP फ़ेक पैकेट, hostfake खंड, और disoob राइट के लिए उपयोग होता है. UDP फ़ेक बर्स्ट स्थिर रहते हैं.</string>
-    <string name="adaptive_fake_ttl_scope_fixed">TCP फ़ेक पैकेट, hostfake खंड, और disoob राइट के लिए सहेजे गए स्थिर TTL के रूप में उपयोग होता है.</string>
+    <string name="adaptive_fake_ttl_scope_idle">अभी कोई सक्रिय TCP फ़ेक पैकेट या hostfake खंड इस प्रोफ़ाइल का उपयोग नहीं कर रहे.</string>
+    <string name="adaptive_fake_ttl_scope_adaptive">केवल TCP फ़ेक पैकेट और hostfake खंड के लिए उपयोग होता है. UDP फ़ेक बर्स्ट स्थिर रहते हैं.</string>
+    <string name="adaptive_fake_ttl_scope_fixed">TCP फ़ेक पैकेट और hostfake खंड के लिए सहेजे गए स्थिर TTL के रूप में उपयोग होता है.</string>
     <string name="adaptive_fake_ttl_targets_none">कोई सक्रिय TCP फ़ेक ट्रांसपोर्ट चरण नहीं</string>
     <string name="adaptive_fake_ttl_targets_fake">फ़ेक पैकेट</string>
     <string name="adaptive_fake_ttl_targets_hostfake">Hostfake खंड</string>
-    <string name="adaptive_fake_ttl_targets_disoob">DISOOB राइट</string>
     <string name="adaptive_fake_ttl_learning_runtime">केवल मौजूदा रन के दौरान सीखा गया. सफल TTL पुनः आरंभ पर बने नहीं रहते.</string>
     <string name="adaptive_fake_ttl_learning_fixed">कोई लर्निंग नहीं. RIPDPI हमेशा सहेजे गए स्थिर TTL का उपयोग करता है.</string>
     <string name="adaptive_fake_ttl_badge_fixed">स्थिर</string>
@@ -779,7 +778,6 @@ fakeddisorder endhost</string>
     <string name="adaptive_fake_ttl_badge_runtime_learned">रनटाइम में सीखा गया</string>
     <string name="adaptive_fake_ttl_badge_fake">फ़ेक</string>
     <string name="adaptive_fake_ttl_badge_hostfake">Hostfake</string>
-    <string name="adaptive_fake_ttl_badge_disoob">DISOOB</string>
     <string name="adaptive_fake_ttl_reset_action">स्थिर TTL पर रीसेट करें</string>
     <string name="adaptive_fake_ttl_min_title">न्यूनतम TTL</string>
     <string name="adaptive_fake_ttl_min_body">अनुकूली TCP फ़ेक TTL खोज विंडो का निचला किनारा.</string>

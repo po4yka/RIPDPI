@@ -16,7 +16,7 @@ updated: 2026-11-14
 
 ## Goal
 
-Correct the six DPI-27 audit findings without adding new packet methods or outbound timestamp stripping.
+Correct the six DPI-27 audit findings and the confirmed DISOOB UI scope error without adding new packet methods or outbound timestamp stripping.
 
 ## Acceptance criteria
 
@@ -25,8 +25,10 @@ Each finding has a regression and its own implementation commit. Affected tests,
 
 ## Ownership and serialized paths
 
-- Adaptive worker: F1 and F5; adaptive resolver, decision ports, services adaptive ports, desync adapter attempt carrier, proxy-runtime adaptive first-outbound/response/session feedback callers. Separate worktree and separate finding commits.
-- IPv4 worker: F2; shared raw TCP packet builder and its new test module, existing ID lease integration, runtime IPv4 candidate comments, and only ripdpi_ip_id_mode_body in all ten locale resource sets. This worker is the sole locale writer.
+- Adaptive worker: F1 and F5; adaptive resolver, decision ports, services adaptive ports, desync adapter attempt carrier, proxy-runtime adaptive first-outbound/response/session feedback callers and desync-runtime actual execution facts. Separate worktree and separate finding commits.
+- IPv4 worker: F2; shared raw TCP packet builder and its new test module, existing ID lease integration, runtime IPv4 candidate comments, and only ripdpi_ip_id_mode_body in all ten locale resource sets. This worker owns the IP-ID key. After its committed handoff, the integrator alone owns the DISOOB scope keys and export.
 - BPF worker: F3 and F6; linux/bpf.rs and its new kernel test module, test-only post_connect filter comparison, proto timestamp comment, and gated wire timestamp test. This worker is the sole proto writer; no schema numbers change.
 - Integrator: F4 converter/protocol.rs and converter tests, task/OpenSpec records, generated API snapshots through the owning tool, combined validation and integration. No worker edits generated reports, lockfiles, baselines or goldens.
 - Review agents are read-only. Shared Cargo.lock, version catalog, registry/schema constants and goldens are outside the implementation scope.
+
+- Integrator F7: existing SettingsUiState relevance and Compose target/badge conditions, existing state regressions, three scope strings and two removed DISOOB labels across every locale, translation export. Match existing advanced settings components; no RDS layout/token change.

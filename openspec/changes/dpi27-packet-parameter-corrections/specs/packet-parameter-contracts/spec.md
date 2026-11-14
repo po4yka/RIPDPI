@@ -58,3 +58,16 @@ The implementation MUST describe strip_timestamps as a receive-side whole-segmen
 - **WHEN** the timestamp filter is attached to one socket and the same input is sent in both directions
 - **THEN** matching inbound bytes are dropped and outbound bytes remain unchanged.
 
+### Requirement: REQ-DPI27-SCOPE — Exclude fixed DISOOB from the fake TTL profile
+
+The settings UI MUST exclude DISOOB from fake TTL targets because both execution paths use fixed TTL 1. It MUST retain access to an already saved adaptive profile and preserve all stored values.
+
+#### Scenario: DISOOB without a saved adaptive profile
+
+- **WHEN** the active method is DISOOB and adaptive fake TTL is disabled
+- **THEN** fake TTL controls are not presented as active for DISOOB.
+
+#### Scenario: Saved adaptive profile with DISOOB
+
+- **WHEN** a user has enabled adaptive fake TTL and selects DISOOB
+- **THEN** the saved profile remains visible for inspection or reset, but DISOOB is not listed as a target.
