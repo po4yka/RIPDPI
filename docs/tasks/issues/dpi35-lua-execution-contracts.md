@@ -2,7 +2,7 @@
 id: RST-1794684393149595
 title: Repair DPI-35 Lua execution contracts
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Native strategy
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dpi35-lua-execution-contracts
 created: 2026-11-14
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 ## Goal
