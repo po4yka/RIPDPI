@@ -135,6 +135,7 @@ pub fn send_ip_fragmented_udp(
         ipv6_ext,
         ipv4_identification,
     )
+    .map_err(|error| fragment_send_error(error, false))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -150,7 +151,7 @@ pub fn send_ip_fragmented_udp(
     _ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     _ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
-    crate::unsupported()
+    crate::unsupported().map_err(|error| fragment_send_error(error, false))
 }
 
 #[cfg(test)]
@@ -194,6 +195,30 @@ mod tests {
         let phase = error.get_ref().unwrap().downcast_ref::<IpFragmentSendError>().unwrap();
         assert!(phase.payload_commit_uncertain);
         assert_eq!(phase.source.raw_os_error(), Some(libc::EIO));
+    }
+
+    #[test]
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    fn unsupported_udp_fragment_send_reports_pre_send_failure() {
+        let socket = std::net::UdpSocket::bind("127.0.0.1:0").expect("UDP socket");
+        let error = super::send_ip_fragmented_udp(
+            &socket,
+            "127.0.0.1:443".parse().expect("loopback target"),
+            b"original payload",
+            8,
+            64,
+            None,
+            false,
+            ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+            None,
+        )
+        .expect_err("raw UDP fragmentation unsupported on this host");
+        let phase = error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<IpFragmentSendError>())
+            .expect("explicit UDP fragment send phase");
+        assert!(!phase.payload_commit_uncertain);
+        assert_eq!(phase.source.kind(), std::io::ErrorKind::Unsupported);
     }
 
     #[test]

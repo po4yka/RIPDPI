@@ -140,7 +140,11 @@ impl ClientTransport {
 }
 
 fn command_error(command: &str, params: &serde_json::Value, response: HelperResponse) -> io::Error {
-    if command == ripdpi_root_helper_protocol::CMD_SEND_IP_FRAGMENTED_TCP {
+    if matches!(
+        command,
+        ripdpi_root_helper_protocol::CMD_SEND_IP_FRAGMENTED_TCP
+            | ripdpi_root_helper_protocol::CMD_SEND_IP_FRAGMENTED_UDP
+    ) {
         return fragment_error::decode(response);
     }
     let seqovl_refusal = (command == CMD_SEND_SEQOVL_TCP).then(|| response.seqovl_safe_refusal_kind()).flatten();

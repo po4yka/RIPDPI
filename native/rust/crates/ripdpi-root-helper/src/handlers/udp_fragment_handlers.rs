@@ -5,6 +5,7 @@ use ripdpi_root_helper_protocol::{HelperResponse, IpFragUdpParams};
 use tracing::{debug, error};
 
 use super::fd_adoption::adopt_udp_socket;
+use super::fragment_error::fragment_error_response;
 
 pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, split = params.split_offset, "send_ip_fragmented_udp");
@@ -47,7 +48,41 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
         Err(e) => {
             // Drop `socket` to close the descriptor exactly once on error.
             error!(%e, "send_ip_fragmented_udp failed");
-            (HelperResponse::error(e.to_string()), None)
+            (fragment_error_response(e), None)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::UdpSocket;
+    use std::os::fd::IntoRawFd;
+
+    #[test]
+    fn invalid_udp_split_reports_pre_send_failure_and_closes_descriptor() {
+        let socket = UdpSocket::bind("127.0.0.1:0").expect("UDP socket");
+        let source = socket.local_addr().expect("source address");
+        let params = IpFragUdpParams {
+            target_addr: "127.0.0.1:443".to_owned(),
+            payload: vec![0; 1200],
+            split_offset: 1208,
+            default_ttl: 64,
+            disorder: false,
+            ipv4_identification: None,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt_fragmentable: false,
+            ipv6_routing: false,
+            ipv6_second_frag_next_override: None,
+        };
+        let (response, reply_fd) = handle_send_ip_fragmented_udp(socket.into_raw_fd(), params);
+        assert!(!response.ok);
+        assert!(reply_fd.is_none());
+        let expected_kind =
+            if cfg!(any(target_os = "linux", target_os = "android")) { "InvalidInput" } else { "Unsupported" };
+        assert_eq!(response.data["error_kind"], expected_kind);
+        assert_eq!(response.data["payload_commit_uncertain"], false);
+        UdpSocket::bind(source).expect("handler released its inbound descriptor");
     }
 }

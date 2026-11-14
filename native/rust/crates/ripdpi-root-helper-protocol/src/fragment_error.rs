@@ -2,7 +2,7 @@ use std::io::{self, ErrorKind};
 
 use serde::{Deserialize, Serialize};
 
-/// TCP fragment failure data. Missing legacy data cannot prove a pre-send rejection.
+/// IP fragment failure data. Missing legacy data cannot prove a pre-send rejection.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IpFragmentErrorData {

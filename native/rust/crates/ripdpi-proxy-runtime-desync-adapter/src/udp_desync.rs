@@ -408,7 +408,7 @@ fn execute_udp_fragmented_write_action(
         ctx.ip_id_mode,
     ) {
         Ok(()) => None,
-        Err(err) if should_fallback_ipfrag_udp_error_kind(err.kind()) => {
+        Err(err) if should_fallback_ipfrag_udp_error(&err) => {
             ctx.upstream.send(bytes)?;
             Some(UdpExecutionFallbackReason::IpFragmentationFallback)
         }
@@ -506,8 +506,12 @@ fn is_decoy_local_send_error(error: &io::Error) -> bool {
         || matches!(error.raw_os_error(), Some(code) if code == libc::EMSGSIZE || code == libc::ENOBUFS)
 }
 
-fn should_fallback_ipfrag_udp_error_kind(kind: io::ErrorKind) -> bool {
-    matches!(kind, io::ErrorKind::InvalidInput)
+fn should_fallback_ipfrag_udp_error(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::InvalidInput
+        && error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<platform::raw_packet::IpFragmentSendError>())
+            .is_some_and(|phase| phase.source.kind() == io::ErrorKind::InvalidInput && !phase.payload_commit_uncertain)
 }
 
 #[cfg(test)]
@@ -520,6 +524,34 @@ mod tests {
     use socket2::SockRef;
 
     use super::*;
+
+    #[test]
+    fn udp_fragment_fallback_requires_confirmed_pre_send_invalid_input() {
+        use platform::raw_packet::IpFragmentSendError;
+
+        for kind in [
+            io::ErrorKind::InvalidInput,
+            io::ErrorKind::Unsupported,
+            io::ErrorKind::WouldBlock,
+            io::ErrorKind::InvalidData,
+            io::ErrorKind::Other,
+            io::ErrorKind::PermissionDenied,
+            io::ErrorKind::TimedOut,
+        ] {
+            for uncertain in [false, true] {
+                let error = io::Error::new(
+                    kind,
+                    IpFragmentSendError { source: io::Error::from(kind), payload_commit_uncertain: uncertain },
+                );
+                assert_eq!(
+                    should_fallback_ipfrag_udp_error(&error),
+                    kind == io::ErrorKind::InvalidInput && !uncertain,
+                    "{kind:?}, uncertain={uncertain}",
+                );
+            }
+        }
+        assert!(!should_fallback_ipfrag_udp_error(&io::Error::from(io::ErrorKind::InvalidInput)));
+    }
 
     #[test]
     fn failed_optional_prelude_preserves_the_original_and_default_ttl() {

@@ -1,6 +1,7 @@
 mod capabilities;
 mod fake_tcp_handlers;
 mod fd_adoption;
+mod fragment_error;
 mod privileged_adapters;
 mod tcp_fragment_handlers;
 mod udp_fragment_handlers;
