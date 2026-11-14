@@ -3,7 +3,7 @@ task_id: ENG-1794637889757963
 change: fix-dpi17-audit-findings
 commit_sha: 1cf170c07a14a0d9a3ee6183dbcb53e3e64f5f27
 local: passed
-local_evidence: Owning JVM tests passed (81 tests, zero failures/errors/skips); app and service Android lint passed with zero Error/Fatal findings. Final build-logic suite passed (53 tests); four strict Android ABI builds, managed loopback, source checks and independent review passed. Native and integration gates will be repeated after rebase.
+local_evidence: The combined JVM and app/service lint gate passed with matching XML (85 tests, zero failures/errors/skips; zero Error/Fatal lint findings). The final seed repair passed 786 native tests, enabled v1/v2 wire twice, six-crate Clippy, source CI gates and independent review. Final rebase checks remain required if production inputs change.
 remote_ci: required
 remote_ci_evidence: Completion requires CI and CodeQL success on the delivered source SHA; current push runs are being inspected.
 device: not_applicable
@@ -20,11 +20,11 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DUMMY-COUNT | ENG-1794638159294108 | Full desync and proxy-config suites, boundary and direct-model tests | Native and 81 Kotlin JVM tests passed |
+| REQ-DUMMY-COUNT | ENG-1794638159294108 | Full native owning suites and 85 Kotlin JVM tests, including boundary and direct-model cases | Passed |
 | REQ-DUMMY-BYTES | ENG-1794638159294108 | v1/v2 direct counts and oversized host/output tests in desync suite | Passed |
-| REQ-DUMMY-COMPAT | ENG-1794638159294108 | Full owning native suites and production loopback original byte equality | Passed locally; no device claim |
-| REQ-DUMMY-UI | ENG-1794638174316919 | Ten locales, export/parity and standalone Kotlin lint | Source checks and both Android lint targets passed |
-| REQ-DUMMY-WIRE | ENG-1794638179707591 | Enabled production loopback regression for v1/v2 | Passed |
+| REQ-DUMMY-COMPAT | ENG-1794638159294108 | Full owning native suites and production loopback original byte equality; local scope only | Passed |
+| REQ-DUMMY-UI | ENG-1794638174316919 | Ten locales, export/parity, standalone Kotlin lint and both Android lint targets | Passed |
+| REQ-DUMMY-WIRE | ENG-1794649284222091 | Correctly padded authenticated v1/v2 seeds and enabled production loopback regression passed twice | Passed |
 | REQ-DUMMY-ASSET | ENG-1794641528622974 | Pinned-patch negative tests and strict Android Go builds | 53 tests and four ABI builds passed; hosted packaging pending |
 | REQ-DUMMY-ACCEPT | ENG-1794641528622974 | Owning JVM/lint gate and exact-SHA CI/CodeQL checks | Required |
 
@@ -60,6 +60,24 @@ The reviewed source-patch manifest SHA-256 is `779126470ad7064ee73b55ea7a6607961
 | arm64-v8a | 333ac32f39c6127ad8cf2c8106662d012c71fb6e28c8411310ae2cdfb9f9744b |
 | x86 | 75cad16e884e2aed4813bc115a2ebea58a780580a941e2ce1a5088e4cddbea22 |
 | x86_64 | 6866c3b73e478eb3b47c389b9c118ba44d1ced14a0524166d569ee2b7e94ff98 |
+
+## Post-rebase validation and workspace recovery
+
+On c5eee724928b9fc529a2a888e3d7cb6621bf41bf, owning native suites passed 785 tests with zero skipped; doctests had zero tests; six-crate Clippy passed. The enabled exact wire test failed: one datagram arrived instead of four. The shared seed appears shorter than the new production 1200-byte minimum. Keep that production gate; repair the shared test seed and repeat the wire check.
+
+The exact combined JVM/lint command also passed after rebase in 2m53s (623 tasks: 152 executed, 10 from cache, 461 up-to-date). Matching JUnit and lint XML could not be read after the worktree disappeared. The command success is preserved in /tmp/dpi17-completion-gradle-rebased.log; pre-rebase counts are not post-rebase counts.
+
+The parent observed exit 0 from the full `just ci-gates` command on this tree with an isolated API target. Its log and native logs were lost with the worktree. A new persistent worktree at /Users/npochaev/GitHub/RIPDPI-worktrees/dpi17-completion-final-20261114 was prepared through `just setup` and `just checkout-doctor`. It retains the committed changes. Required acceptance remains open until the seed repair and final checks finish.
+
+## Final seed correction and persistent local results
+
+The shared seed counted the four packet-number bytes twice. A new owner test failed with actual length 1196 versus expected 1200 before the correction. The [RFC 9000 section 14.1](https://www.rfc-editor.org/rfc/rfc9000.html#section-14.1) minimum applies to the UDP payload carrying a client Initial. The fix removes the repeated packet-number term. It does not relax production validation. The regression checks the literal size and independent authenticated parser results for v1/v2, version, SNI and complete CRYPTO.
+
+After the fix, the new regression passed both variants; the exact enabled wire test passed twice (one test passed, seven unrelated tests filtered each time). Four full owning suites passed 786 tests with zero skipped. Six-crate Clippy and cargo fmt passed. The independent reviewer found no actionable issue and checked other seed callers. Logs and exact commands: /Users/npochaev/GitHub/RIPDPI-worktrees/dpi17-wire-seed-20261114/build/verification/dpi17-wire-seed/.
+
+On b8f1338dd73cf22e7691e28e9760af180bca878c, the exact combined JVM/lint gate passed in 4m17s (623 tasks: 535 executed, 88 from cache). Matching XML reports 19 suites, 85 tests, zero failures, errors or skips; all seven StrategyChainValidationTest cases passed. App lint has zero Error/Fatal findings, 4097 warnings and four hints. Service lint has zero Error/Fatal findings and 17 warnings. Persistent copies: /Users/npochaev/GitHub/RIPDPI-worktrees/dpi17-completion-final-20261114/build/verification/dpi17-android/.
+
+`build-gate --lane ripdpi -- env CARGO_BUILD_JOBS=4 CARGO_TARGET_DIR=/Users/npochaev/GitHub/RIPDPI-worktrees/dpi17-completion-final-20261114/build/verification/dpi17-final/api-target just ci-gates` passed on the root tree with the seed fix. The API gate checked 13 targets and skipped the Linux-owned runtime-platform snapshot on macOS. Log: build/verification/dpi17-final/ci-gates.log in the persistent completion worktree.
 
 ## Previous blocked validation
 

@@ -42,6 +42,7 @@ Fix the three confirmed DPI-17 audit findings: bound DummyPrepend work, correct 
 - Completion integrator: fix/dpi17-completion worktree; task/OpenSpec metadata, scripts/tests/test_build_observability_contracts.py, Gradle diagnosis and integration.
 - completion_android: read-only JVM/lint execution on the combined worktree.
 - completion_ci: sole writer in fix/dpi17-obfs4-build for Lyrebird patch files, pluggable source manifest, build-logic patch application/provenance and owning tests. Root owns task/OpenSpec files.
+- wire_seed_fix: isolated fix/dpi17-wire-seed worktree; shared Rust QUIC seed padding and its owning regression in ripdpi-packets/src/quic/tests.rs. No production behavior or minimum-length gate changes.
 
 ## Scope
 

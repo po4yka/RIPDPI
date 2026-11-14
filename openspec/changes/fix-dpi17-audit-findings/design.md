@@ -26,7 +26,7 @@ Task ENG-1794637889757963 covers the three confirmed audit findings. The current
 
 - Counts above the limit are no longer accepted. Report a specific validation error.
 - Oversized internal hosts skip the prelude and retain the original.
-- Existing fail-fast behavior after an actual send error remains; UDP delivery is not guaranteed.
+- The current UDP adapter skips local decoy send errors (EMSGSIZE, ENOBUFS and WouldBlock). It restores changed TTL and sends the original once when the plan has a known real write. Flow errors and a failed original send still propagate; UDP delivery is not guaranteed.
 
 ## Migration Plan
 

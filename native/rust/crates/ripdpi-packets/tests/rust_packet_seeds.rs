@@ -256,7 +256,7 @@ fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usi
 
     loop {
         let payload_len = 4 + plaintext.len() + 16;
-        let header_len = 1 + 4 + 1 + dcid.len() + 1 + scid.len() + 1 + encode_quic_varint(payload_len as u64).len() + 4;
+        let header_len = 1 + 4 + 1 + dcid.len() + 1 + scid.len() + 1 + encode_quic_varint(payload_len as u64).len();
         let total_len = header_len + payload_len;
         if total_len >= 1200 {
             break;

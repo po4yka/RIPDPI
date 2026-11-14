@@ -7,3 +7,4 @@
 - [x] ENG-1794638179707591 Repair the wire contract and run enabled loopback regression #bug @item:ENG-1794637889757963
 - [x] ENG-1794638181037681 Review combined changes and run integration gates #chore !high @item:ENG-1794637889757963
 - [ ] ENG-1794641528622974 Repair required CI build compatibility and verify CI and CodeQL before closure #bug !high @item:ENG-1794637889757963
+- [x] ENG-1794649284222091 Repair the shared QUIC Initial seed and repeat enabled wire regression #bug !high @item:ENG-1794637889757963

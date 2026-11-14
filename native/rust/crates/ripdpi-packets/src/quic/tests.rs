@@ -8,6 +8,18 @@ mod rust_packet_seeds {
 }
 
 #[test]
+fn shared_quic_seeds_meet_initial_datagram_minimum_and_authenticate() {
+    for (version, host) in [(QUIC_V1_VERSION, "docs.example.test"), (QUIC_V2_VERSION, "media.example.test")] {
+        let packet = rust_packet_seeds::quic_initial_with_host(version, host);
+        assert_eq!(packet.len(), 1200, "single Initial seed must meet the datagram minimum");
+        let parsed = parse_quic_initial(&packet).expect("authenticate shared QUIC seed");
+        assert_eq!(parsed.version, version);
+        assert_eq!(parsed.host(), host.as_bytes());
+        assert!(parsed.is_crypto_complete);
+    }
+}
+
+#[test]
 fn parse_quic_initial_extracts_v1_sni() {
     let packet =
         build_realistic_quic_initial(QUIC_V1_VERSION, Some("docs.example.test")).expect("build quic initial v1");
