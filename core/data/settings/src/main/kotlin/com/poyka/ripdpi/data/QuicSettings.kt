@@ -15,7 +15,7 @@ private fun hasInvalidHostnameStructure(trimmed: String): Boolean =
         trimmed.endsWith('.') || trimmed.contains("..")
 
 private fun containsInvalidHostnameChar(trimmed: String): Boolean =
-    !trimmed.all { it.isLowerCase() || it.isDigit() || it == '-' || it == '.' }
+    !trimmed.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' || it == '.' }
 
 private val KnownQuicInitialModes =
     setOf(
@@ -63,13 +63,12 @@ fun normalizeQuicFakeProfile(value: String): String {
 
 @Suppress("ReturnCount")
 fun normalizeQuicFakeHost(value: String): String {
-    val trimmed = value.trim().trimEnd('.').lowercase()
-    if (hasInvalidHostnameStructure(trimmed)) {
+    val raw = value.trim().trimEnd('.')
+    // Reject non-ASCII before lowercasing: U+212A (Kelvin sign) lowercases to ASCII 'k'.
+    if (hasInvalidHostnameStructure(raw) || containsInvalidHostnameChar(raw)) {
         return ""
     }
-    if (containsInvalidHostnameChar(trimmed)) {
-        return ""
-    }
+    val trimmed = raw.lowercase()
     if (trimmed.split('.').any { label -> label.isEmpty() || label.startsWith('-') || label.endsWith('-') }) {
         return ""
     }
@@ -78,10 +77,14 @@ fun normalizeQuicFakeHost(value: String): String {
 }
 
 private const val MaxFakeSniLength = 253
+private const val MaxFakeSniLabelLength = 63
 
 /** Fixed fake TLS SNI: a DNS host name (RFC 6066), or "" when invalid. */
 fun normalizeFakeSni(value: String): String =
-    normalizeQuicFakeHost(value).takeIf { it.length <= MaxFakeSniLength }.orEmpty()
+    normalizeQuicFakeHost(value)
+        .takeIf { host ->
+            host.length <= MaxFakeSniLength && host.split('.').all { it.length <= MaxFakeSniLabelLength }
+        }.orEmpty()
 
 fun AppSettings.effectiveQuicFakeProfile(): String = normalizeQuicFakeProfile(quicFakeProfile)
 

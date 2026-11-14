@@ -80,6 +80,22 @@ class QuicSettingsTest {
         assertEquals("", normalizeFakeSni("a".repeat(300) + ".com"))
     }
 
+    @Test
+    fun `normalizeFakeSni rejects non-ASCII hosts and enforces the 63 byte label limit`() {
+        listOf("bücher.de", "пример.рф", "١.example", "\u212A.example").forEach {
+            assertEquals("", normalizeFakeSni(it))
+        }
+        assertEquals("a".repeat(63) + ".com", normalizeFakeSni("a".repeat(63) + ".com"))
+        assertEquals("", normalizeFakeSni("a".repeat(64) + ".com"))
+    }
+
+    @Test
+    fun `normalizeQuicFakeHost rejects non-ASCII hosts`() {
+        listOf("bücher.de", "пример.рф", "١.example", "\u212A.example").forEach {
+            assertEquals("", normalizeQuicFakeHost(it))
+        }
+    }
+
     // -- normalizeQuicFakeHost --
 
     @Test

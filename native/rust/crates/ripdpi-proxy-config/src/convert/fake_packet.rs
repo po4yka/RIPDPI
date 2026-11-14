@@ -15,16 +15,21 @@ use super::legacy_payload_adapter::parse_offset_expr_field;
 /// Longest DNS name allowed on the wire (RFC 1035).
 const MAX_FAKE_SNI_LEN: usize = 253;
 
+/// Longest label allowed in a DNS name (RFC 1035).
+const MAX_FAKE_SNI_LABEL_LEN: usize = 63;
+
 /// RFC 6066 section 3: HostName is an ASCII DNS name without a trailing dot and
-/// is never an IP literal.
-fn normalize_fixed_fake_sni(value: &str) -> Result<String, ProxyConfigError> {
-    // Blank keeps the existing "no explicit SNI" behavior (the bypass preset).
-    if value.is_empty() {
-        return Ok(String::new());
+/// is never an IP literal. Blank returns `None`: no explicit SNI is requested.
+fn normalize_fixed_fake_sni(value: &str) -> Result<Option<String>, ProxyConfigError> {
+    if value.trim().is_empty() {
+        return Ok(None);
     }
     ripdpi_config::normalize_fake_host_template(value)
         .ok()
-        .filter(|host| host.len() <= MAX_FAKE_SNI_LEN)
+        .filter(|host| {
+            host.len() <= MAX_FAKE_SNI_LEN && host.split('.').all(|label| label.len() <= MAX_FAKE_SNI_LABEL_LEN)
+        })
+        .map(Some)
         .ok_or_else(|| ProxyConfigError::InvalidConfig("Invalid fakePackets.fakeSni".to_string()))
 }
 
@@ -157,7 +162,9 @@ pub(crate) fn apply_fake_packet_section(
         if fake_tls_sni_mode == FAKE_TLS_SNI_MODE_RANDOMIZED {
             group.actions.fake_mod |= FM_RNDSNI;
         } else {
-            group.actions.fake_sni_list.push(normalize_fixed_fake_sni(&fake_packets.fake_sni)?);
+            if let Some(host) = normalize_fixed_fake_sni(&fake_packets.fake_sni)? {
+                group.actions.fake_sni_list.push(host);
+            }
         }
         if fake_packets.fake_tls_size < -65535 || fake_packets.fake_tls_size > 65535 {
             return Err(ProxyConfigError::InvalidConfig("fakeTlsSize must be in -65535..=65535".to_string()));
@@ -268,6 +275,19 @@ mod tests {
         // Not requested -> stays false regardless of root mode.
         assert!(!md5sig_after_conversion(false, true));
         assert!(!md5sig_after_conversion(false, false));
+    }
+
+    #[test]
+    fn fixed_fake_sni_blank_is_omitted_and_labels_are_capped() {
+        assert_eq!(normalize_fixed_fake_sni("").unwrap(), None);
+        assert_eq!(normalize_fixed_fake_sni("  \t").unwrap(), None);
+        let ok = format!("{}.com", "a".repeat(63));
+        assert_eq!(normalize_fixed_fake_sni(&ok).unwrap(), Some(ok.clone()));
+        assert!(normalize_fixed_fake_sni(&format!("{}.com", "a".repeat(64))).is_err());
+        let mut group = ripdpi_config::DesyncGroup::new(0);
+        let fake_packets = ProxyUiFakePacketConfig { fake_sni: " ".to_string(), ..Default::default() };
+        apply_fake_packet_section(&mut group, &fake_packets, false).expect("blank fake SNI converts");
+        assert!(group.actions.fake_sni_list.is_empty());
     }
 
     #[test]
