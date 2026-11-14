@@ -7,6 +7,10 @@ private const val MaxFakeBurstCount = 64
 
 // Mirrors MAX_DUMMY_PREPEND_COUNT in native/rust ripdpi-config.
 private const val MaxDummyPrependCount = 64
+
+// Mirrors MAX_QUIC_PADDING_LADDER_COUNT in native/rust ripdpi-config: 31 rungs of 8 bytes fit 1200..1452.
+private const val MaxQuicPaddingLadderCount = 31
+
 internal const val MaxHostLabelLength = 16
 internal const val MaxDnsTlsRandRecFragmentSize = 4096
 
@@ -210,8 +214,14 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
     when (step.kind) {
         UdpChainStepKind.FakeBurst,
         UdpChainStepKind.DummyPrepend,
+        UdpChainStepKind.QuicPaddingLadder,
         -> {
-            val maxCount = if (step.kind == UdpChainStepKind.DummyPrepend) MaxDummyPrependCount else MaxFakeBurstCount
+            val maxCount =
+                when (step.kind) {
+                    UdpChainStepKind.DummyPrepend -> MaxDummyPrependCount
+                    UdpChainStepKind.QuicPaddingLadder -> MaxQuicPaddingLadderCount
+                    else -> MaxFakeBurstCount
+                }
             require(step.count in 0..maxCount) {
                 "${step.kind.wireName} count must be between 0 and $maxCount"
             }
@@ -224,7 +234,6 @@ internal fun validateUdpStepOptions(step: UdpChainStepModel) {
         UdpChainStepKind.QuicSniSplit,
         UdpChainStepKind.QuicFakeVersion,
         UdpChainStepKind.QuicCryptoSplit,
-        UdpChainStepKind.QuicPaddingLadder,
         UdpChainStepKind.QuicCidChurn,
         UdpChainStepKind.QuicPacketNumberGap,
         UdpChainStepKind.QuicVersionNegotiationDecoy,

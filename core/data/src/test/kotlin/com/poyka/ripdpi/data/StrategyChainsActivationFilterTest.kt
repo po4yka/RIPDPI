@@ -116,6 +116,18 @@ class StrategyChainsActivationFilterTest {
     }
 
     @Test
+    fun `dsl bounds quic padding ladder count to 31`() {
+        assertTrue(parseStrategyChainDsl("[udp]\nquic_padding_ladder 31").isSuccess)
+
+        val rejected = parseStrategyChainDsl("[udp]\nquic_padding_ladder 2147483647")
+
+        assertTrue(rejected.isFailure)
+        assertTrue(
+            rejected.exceptionOrNull()?.message?.contains("quic_padding_ladder count must be between 0 and 31") == true,
+        )
+    }
+
+    @Test
     fun `dsl bounds fake burst count to 64`() {
         assertTrue(parseStrategyChainDsl("[udp]\nfake_burst 64").isSuccess)
 
