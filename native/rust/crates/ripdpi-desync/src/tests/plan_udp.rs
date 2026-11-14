@@ -1081,6 +1081,37 @@ fn entropy_padding_zero_budget_preserves_udp_fake_in_all_modes() {
     }
 }
 
+#[test]
+fn combined_entropy_padding_meets_both_targets_on_udp_fake() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.entropy_mode = EntropyMode::Combined;
+    group.actions.entropy_padding_target_permil = Some(3400);
+    group.actions.shannon_entropy_target_permil = Some(500);
+    group.actions.entropy_padding_max = 2048;
+    group.actions.fake_data = Some(vec![0xAA; 200]);
+    group.actions.udp_chain = vec![fake_burst_step()];
+    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+    let DesyncAction::Write(fake_packet) = &actions[1] else {
+        panic!("expected fake write, got: {:?}", actions[1]);
+    };
+    assert!(fake_packet.len() > 200);
+    assert_eq!(&fake_packet[fake_packet.len() - 200..], &[0xAA; 200]);
+    let mut counts = std::collections::BTreeMap::<u8, usize>::new();
+    for byte in fake_packet {
+        *counts.entry(*byte).or_default() += 1;
+    }
+    let entropy: f64 = counts
+        .values()
+        .map(|&count| {
+            let probability = count as f64 / fake_packet.len() as f64;
+            -probability * probability.log2()
+        })
+        .sum();
+    let set_bits: u64 = fake_packet.iter().map(|byte| u64::from(byte.count_ones())).sum();
+    assert!(entropy <= 0.5, "Shannon entropy is {entropy}");
+    assert!(set_bits as f64 / fake_packet.len() as f64 <= 3.4);
+}
+
 fn fake_burst_with_round(round: Option<NumericRange<i64>>) -> DesyncGroup {
     let mut group = DesyncGroup::new(0);
     group.actions.fake_data = Some(b"udp-fake".to_vec());

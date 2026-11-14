@@ -253,12 +253,66 @@ fn build_structured_padding(len: usize) -> Vec<u8> {
 
 /// Generate padding that satisfies both popcount and Shannon entropy targets.
 ///
-/// Returns the larger of the two padding buffers needed, or empty if the
-/// payload already passes both checks.
+/// Returns empty if the payload already passes both checks or no valid
+/// ASCII or structured prefix is found within `max_pad`.
 pub fn generate_combined_padding(payload: &[u8], popcount_target: f32, shannon_target: f32, max_pad: usize) -> Vec<u8> {
+    if payload.is_empty() || max_pad == 0 || payload.len().checked_add(max_pad).is_none() {
+        return Vec::new();
+    }
+    if is_popcount_exempt(payload) && shannon_entropy(payload) <= shannon_target {
+        return Vec::new();
+    }
+    let payload_freq = byte_frequencies(payload);
+    let targets_met = |pad_len: usize, structured: bool| {
+        let mut pad_freq = [0usize; 256];
+        if structured {
+            for (index, &byte) in TLS_HEADER_PATTERN.iter().enumerate() {
+                pad_freq[byte as usize] +=
+                    pad_len / TLS_HEADER_PATTERN.len() + usize::from(index < pad_len % TLS_HEADER_PATTERN.len());
+            }
+        } else {
+            pad_freq[PAD_BYTE as usize] = pad_len;
+        }
+        let total = (payload.len() + pad_len) as f64;
+        let mut set_bits = 0.0;
+        let mut entropy = 0.0;
+        for (byte, (&payload_count, &pad_count)) in payload_freq.iter().zip(&pad_freq).enumerate() {
+            let count = f64::from(payload_count) + pad_count as f64;
+            set_bits += count * f64::from((byte as u8).count_ones());
+            if count > 0.0 {
+                let probability = count / total;
+                entropy -= probability * probability.log2();
+            }
+        }
+        set_bits / total <= f64::from(popcount_target) && entropy <= f64::from(shannon_target)
+    };
+
     let popcount_pad = generate_entropy_padding(payload, popcount_target, max_pad);
     let shannon_pad = generate_shannon_padding(payload, shannon_target, max_pad);
-    if shannon_pad.len() >= popcount_pad.len() { shannon_pad } else { popcount_pad }
+    let (candidate, structured) =
+        if shannon_pad.len() >= popcount_pad.len() { (shannon_pad, true) } else { (popcount_pad, false) };
+    if !candidate.is_empty() && targets_met(candidate.len(), structured) {
+        return candidate;
+    }
+
+    // Each search is logarithmic in the byte budget and allocates only its final prefix.
+    for structured in [false, true] {
+        if !targets_met(max_pad, structured) {
+            continue;
+        }
+        let mut lo = 1;
+        let mut hi = max_pad;
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2;
+            if targets_met(mid, structured) {
+                hi = mid;
+            } else {
+                lo = mid + 1;
+            }
+        }
+        return if structured { build_structured_padding(lo) } else { vec![PAD_BYTE; lo] };
+    }
+    Vec::new()
 }
 
 #[cfg(test)]
@@ -391,10 +445,30 @@ mod tests {
     }
 
     #[test]
+    fn combined_padding_keeps_both_targets_after_padding() {
+        let payload = [0xAA; 200];
+        let padding = generate_combined_padding(&payload, 3.4, 0.5, 2048);
+        assert!(!padding.is_empty(), "a joint solution fits the budget");
+        assert!(padding.len() <= 2048);
+        let combined = [padding.as_slice(), &payload].concat();
+        let a_count = combined.iter().filter(|&&byte| byte == b'A').count();
+        let probability = a_count as f64 / combined.len() as f64;
+        let binary_entropy = -probability * probability.log2() - (1.0 - probability) * (1.0 - probability).log2();
+        let set_bits: u64 = combined.iter().map(|byte| u64::from(byte.count_ones())).sum();
+        assert!(binary_entropy <= 0.5, "Shannon entropy is {binary_entropy}");
+        assert!(set_bits as f64 / combined.len() as f64 <= 3.4);
+    }
+
+    #[test]
+    fn combined_padding_returns_empty_when_budget_cannot_meet_both_targets() {
+        assert!(generate_combined_padding(&[0xAA; 200], 3.4, 0.5, 50).is_empty());
+    }
+
+    #[test]
     fn combined_padding_handles_high_entropy() {
         // High entropy payload that needs Shannon padding
         let payload: Vec<u8> = (0..2048).map(|i| (i % 256) as u8).collect();
-        let padding = generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 512);
+        let padding = generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 1024);
         assert!(!padding.is_empty());
         let combined = shannon_entropy_combined(&payload, &padding);
         assert!(combined <= 7.92, "expected <= 7.92, got {combined}");
@@ -616,12 +690,13 @@ mod tests {
     }
 
     #[test]
-    fn combined_padding_picks_longer_of_two() {
+    fn combined_padding_preserves_reached_popcount_target() {
         // Payload needs popcount padding but not Shannon padding
         let payload = vec![0xAA; 200]; // popcount 4.0 (needs padding), entropy 0.0 (fine)
-        let popcount_only = generate_entropy_padding(&payload, POPCOUNT_EXEMPT_LOW, 512);
-        let shannon_only = generate_shannon_padding(&payload, 7.92, 512);
-        let combined = generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 512);
-        assert_eq!(combined.len(), popcount_only.len().max(shannon_only.len()));
+        let padding = generate_combined_padding(&payload, POPCOUNT_EXEMPT_LOW, 7.92, 512);
+        assert!(!padding.is_empty());
+        let combined = [padding.as_slice(), payload.as_slice()].concat();
+        assert!(popcount_per_byte(&combined) <= POPCOUNT_EXEMPT_LOW);
+        assert!(shannon_entropy(&combined) <= 7.92);
     }
 }

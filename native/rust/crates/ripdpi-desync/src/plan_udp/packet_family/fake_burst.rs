@@ -1,7 +1,7 @@
 use ripdpi_config::{DesyncGroup, EntropyMode, QuicFakeProfile};
 use ripdpi_packets::{
     build_realistic_quic_initial, default_fake_quic_compat,
-    entropy::{generate_entropy_padding, generate_shannon_padding},
+    entropy::{generate_combined_padding, generate_entropy_padding, generate_shannon_padding},
     udp_fake_profile_bytes,
 };
 
@@ -67,10 +67,7 @@ fn apply_entropy_padding_to_fake(group: &DesyncGroup, fake: Vec<u8>) -> Vec<u8> 
         EntropyMode::Combined => {
             let popcount_target = group.actions.entropy_padding_target_permil.map_or(3.4_f32, |p| p as f32 / 1000.0);
             let shannon_target = group.actions.shannon_entropy_target_permil.map_or(7.92_f32, |p| p as f32 / 1000.0);
-            // Apply whichever padding is larger (more defensive).
-            let pop_pad = generate_entropy_padding(&fake, popcount_target, max_pad);
-            let sha_pad = generate_shannon_padding(&fake, shannon_target, max_pad);
-            if sha_pad.len() >= pop_pad.len() { sha_pad } else { pop_pad }
+            generate_combined_padding(&fake, popcount_target, shannon_target, max_pad)
         }
         // EntropyMode is #[non_exhaustive]; no padding for unknown future variants.
         _ => return fake,
