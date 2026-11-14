@@ -1,9 +1,9 @@
 ---
 task_id: RST-1794684393149595
 change: dpi35-lua-execution-contracts
-commit_sha: efadd22929fd1f5b6a0d4cdb7f2ff2af614a53e7
+commit_sha: 335da50ed2234e277cd01a45c8fee1bcbde4dbfb
 local: passed
-local_evidence: 1146 unique Rust tests, nine selected Kotlin tests, five-package all-targets Clippy, full staticAnalysis, ci-gates and independent reviews passed. See commands and limits below.
+local_evidence: 1154 unique Rust tests, nine selected Kotlin tests, five-package all-targets Clippy, full staticAnalysis, ci-gates and independent reviews passed. See commands and limits below.
 remote_ci: required
 remote_ci_evidence: Hosted CI will be checked after the authorized push; no remote pass is claimed.
 device: required
@@ -29,22 +29,22 @@ deployment_evidence: No deployment is owned by this change.
 
 ## Observed checks on the rebased tree
 
-The six repair commits end at `commit_sha`, after rebase on main `2c7ac9a54a90997fd571fd172feb0b42c1ad62ac`. The later evidence commits change documentation and task state only. The rebase preserved the upstream socket-window rejection before Lua owner filtering and both activation/window regression groups. One fallible constructor owns the behavior; the redundant try-constructor was removed and all callers were checked again.
+The six repair commits end at `commit_sha`, after rebase on main `579be6f82d6bdb20b88cdff2115903b8a245a658`. The later evidence commits change documentation and task state only. A second clean rebase added the DPI-27 runtime changes; range-diff confirms that the six repairs are unchanged. Independent review checked the new adaptive-TTL callers, shared Lua owner and retry lifetime. The rebase preserved the upstream socket-window rejection before Lua owner filtering and both activation/window regression groups. One fallible constructor owns the behavior; the redundant try-constructor was removed and all callers were checked again.
 
 All compiler-backed commands used `build-gate --lane ripdpi`, pinned Rust 1.100.0, at most four jobs, and one worktree-local Cargo target. Local debug information was disabled to reduce disk use; assertions and overflow checks stayed enabled. Gradle used four workers, a 5 GiB heap and a 3 GiB Kotlin heap.
 
 | Check | Result | Evidence |
 |---|---|---|
-| `cargo test --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry --features ripdpi-strategy-registry/lua-strategies -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core` | 723 passed, zero failed/ignored. | `/tmp/dpi35-rebased-rust-tests.log` |
-| `cargo test --locked --jobs 4 -p ripdpi-proxy-runtime --lib` | 423 passed, zero failed/ignored, including the real sender lifetime regression. | `/tmp/dpi35-rebased-proxy-tests.log` |
-| `cargo clippy --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core -p ripdpi-proxy-runtime --all-targets -- -D warnings` | Exit 0. Existing Cargo manifest unused-dependency notices remain informational. | `/tmp/dpi35-rebased-clippy.log` |
-| `./gradlew -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4 :core:service:testDebugUnitTest --tests '*LuaScriptJailPathsTest' --tests '*LuaConnectionPolicyResolverTest' :app:testGithubFullDebugUnitTest --tests '*StrategyConfigRouteTest' staticAnalysis` | Exit 0; nine tests, zero failures/errors/skipped. Full staticAnalysis passed. | `/tmp/dpi35-rebased-kotlin-checks.log`; module JUnit XML results |
-| `just ci-gates` | Exit 0; architecture, source budgets, contracts, locale/translation and API snapshot gates passed. No baseline was extended. | `/tmp/dpi35-rebased-ci-gates.log` |
-| `cargo metadata --manifest-path Cargo.toml --locked --format-version 1 --no-deps` from native/rust | Exit 0; 113 workspace members. | `/tmp/dpi35-rebased-metadata.json` |
-| Independent read-only review after rebase | No actionable findings. The F5 conflict resolution retained upstream window admission and strict Lua activation errors. | Clean reviewed HEAD `f06a56333a95145394301c31b4c99036542e4b1b`; no reviewer writes |
+| `cargo test --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry --features ripdpi-strategy-registry/lua-strategies -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core` | 723 passed, zero failed/ignored. | `/tmp/dpi35-final-rust-tests.log` |
+| `cargo test --locked --jobs 4 -p ripdpi-proxy-runtime --lib` | 431 passed, zero failed/ignored, including the real sender lifetime regression. | `/tmp/dpi35-final-proxy-tests.log` |
+| `cargo clippy --locked --jobs 4 -p ripdpi-strategy-lua -p ripdpi-strategy-registry -p ripdpi-tunnel-intercept -p ripdpi-tunnel-core -p ripdpi-proxy-runtime --all-targets -- -D warnings` | Exit 0. Existing Cargo manifest unused-dependency notices remain informational. | `/tmp/dpi35-final-clippy.log` |
+| `./gradlew -Pripdpi.skipNativeBuild=true -Pripdpi.nativeCpuBudget=4 --max-workers=4 :core:service:testDebugUnitTest --tests '*LuaScriptJailPathsTest' --tests '*LuaConnectionPolicyResolverTest' :app:testGithubFullDebugUnitTest --tests '*StrategyConfigRouteTest' staticAnalysis` | Exit 0; nine tests, zero failures/errors/skipped. Full staticAnalysis passed. | `/tmp/dpi35-final-kotlin-checks.log`; module JUnit XML results |
+| `just ci-gates` | Exit 0; architecture, source budgets, contracts, locale/translation and API snapshot gates passed. No baseline was extended. | `/tmp/dpi35-final-ci-gates.log` |
+| `cargo metadata --manifest-path Cargo.toml --locked --format-version 1 --no-deps` from native/rust | Exit 0; 113 workspace members. | `/tmp/dpi35-final-metadata.json` |
+| Independent read-only review after rebase | No actionable findings. The F5 conflict resolution retained upstream window admission and strict Lua activation errors. | Clean reviewed HEAD `b4bcf41246ec50d32d718558c684a105ae171a48`; range-diff and DPI-27 caller/lifetime review; no reviewer writes |
 | Normal commit hooks | All six original repair commits passed their normal hooks. No gate was disabled. Rebase conflict changes were then re-reviewed and compiler gates repeated. | `/tmp/dpi35-commit-f1.log` through finding-specific commit logs |
 
-The total is 1146 unique Rust tests. Before rebase, 1144 unique Rust tests and the same nine Kotlin tests passed; the final run includes two new upstream admission regressions. Original implementation worktrees recorded red regressions before their narrow green suites. The initial registry empty-action assertion was corrected to require Write(payload), while still excluding later Split. Formatting was corrected before commit. Earlier logs remain separate from the rebased acceptance logs.
+The total is 1154 unique Rust tests. Earlier acceptance on base 2c7ac9a54a recorded 1146 tests. The final base adds eight upstream proxy regressions. Before the first rebase, 1144 unique Rust tests and the same nine Kotlin tests passed. Original implementation worktrees recorded red regressions before their narrow green suites. The initial registry empty-action assertion was corrected to require Write(payload), while still excluding later Split. Formatting was corrected before commit. Earlier logs remain separate from the rebased acceptance logs.
 
 ## Limits
 
