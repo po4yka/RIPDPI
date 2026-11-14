@@ -1,13 +1,13 @@
 ---
 task_id: ENG-1794638026548237
 change: quic-crypto-split-audit-fixes
-commit_sha: 500374d34dab8d048857c3de0e64f7c9f7d8bb29
+commit_sha: 415af9446dc06ed962ef379b7aac655ca87c6ee6
 local: passed
 local_evidence: The 500374d34d test revision passed AndroidTest Kotlin compilation, ktlint and isolated ci-gates. On prior4502477f21,783 owning Rust units and the formerly failing UDP receipt E2E passed. Original repair gates are recorded below.
-remote_ci: blocked
-remote_ci_evidence: Exact 4502477f21 CI43589374459 finished with50 successful jobs and one primary API35 Xray assertion failure. Test-only pin alignment is pending a new Android CI run. Historical failed/cancelled runs are not claimed as passed.
-device: required
-device_evidence: The CI admission test repair requires the API35 Xray E2E suite. It does not claim physical-device or DPI-19-specific Android wire acceptance.
+remote_ci: passed
+remote_ci_evidence: Exact415 push CI43599499520 passed with38 successful and31 route-skipped jobs,0 failures/cancellations. API35 Xray acceptance executed5/5 cases without skips. Additional full dispatch43600255158 is still running and is not claimed as passed. Historical failed/cancelled runs remain separate.
+device: passed
+device_evidence: Exact415 API35 emulator Xray suite passed5/5 required cases,0 skips; JUnit and raw instrumentation statuses were checked. This is CI-admission evidence, not physical-device or DPI-19-specific Android wire acceptance.
 artifact: passed
 artifact_evidence: Exact500374d34d loopback and aioquic1.3.0/TShark4.6.9 replay passed28 datagrams. Archive SHA256 c0cc60df545f267e2a0e4db3cd401383a720182ee4e30173ba0c8db48c94e4d5; durable evidence is in /Users/npochaev/Downloads/RIPDPI_network_audits/DPI-19-fix-evidence-20261114/post-resume500/.
 deployment: not_applicable
@@ -159,7 +159,8 @@ local compile attempt lacked the pinned upstream NaiveProxy artifact. The
 repository fetch script verified and supplied the arm64 artifact; no task
 was skipped. An independent read-only review verified the format contract
 and the unchanged F1-F5 boundary in later main commits. The actual snapshot
-value in the historical failed CI remains unknown; the new CI is required.
+value in the historical failed CI remains unknown; the later passing CI
+executes both exact assertions on the real backend.
 
 The fresh locked wire probe passed 1/1, and independent tools passed 28/28
 input/output datagrams on 500374d34d. All 3312 native/model source files
@@ -168,3 +169,41 @@ matched before/after, SHA256:
 Ten originals were unchanged, 18 datagrams arrived, and min-size/offset
 checks passed. Artifact SHA256 is in the frontmatter. No full unit suite or
 Xray runtime acceptance is inferred from this narrow wire replay.
+
+## Hosted acceptance after publication
+
+Commit 500374d34d and the four-file Markdown update 4220419a3a were pushed
+to main. The remote SHA was checked after the push. GitHub reported that
+the account bypassed required pull-request and check rules; this change
+did not alter protection rules. A successful push is not CI evidence.
+
+CI43599111206 and CodeQL43599111145 on exact422 were cancelled before
+API35 execution. CI had54 cancelled jobs and two failed aggregate gates;
+there were no artifacts or actual Xray test results. Annotations on three
+CI root jobs state that a higher-priority waiting request for
+ci-push-refs/heads/main caused cancellation. Both cancelled CodeQL jobs
+state the same reason for codeql-refs/heads/main. All five ended at
+13:23:12Z, when the later main push run was created. The annotations do
+not name its run ID. Harness, fleet-fixtures and Secret Scan passed.
+
+Later main415af9446d adds only41 lines in two contract test-resource
+files relative to422. It preserves the native/model and Xray test source
+verified on500. Push CI43599499520 completed with success:38 successful
+jobs,31 skipped by route,0 failures and0 cancellations. Its API35 job
+132469570177 also passed. Artifact14116904252 contains all five required
+XrayProviderE2ETest cases, each with one raw START and one raw PASS status,
+no negative status and no JUnit skip/failure/error. The owning JUnit
+validator passed for each required case with expected-total5 and
+forbid-skips. Both exact version assertions therefore executed and passed;
+no literal snapshot field dump is claimed. Artifact digest:
+c5fa02d94c2c3dae401b9132ea8fbba7e0e4a022a86b3a4fb66669d84b7bc94b.
+
+The additional full dispatch43600255158 is still running. At14:15:04Z it
+had48 successful jobs,15 skipped,0 failures/cancellations, and six active
+release/API jobs. Its pending result is not required to establish the
+already passed push admission and is not reported as success. This
+session did not dispatch, rerun or cancel either workflow.
+Raw422 metadata, logs, annotations and checksums are preserved under
+/Users/npochaev/Downloads/RIPDPI_network_audits/DPI-19-fix-evidence-20261114/post-resume422/hosted-ci/.
+Exact415 evidence is under the adjacent post-resume415/hosted-ci/ path;
+43599499520/api35-five-case-proof.json links the raw artifact and validators.

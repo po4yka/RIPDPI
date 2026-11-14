@@ -2,7 +2,7 @@
 id: ENG-1794638026548237
 title: Fix QUIC CRYPTO split audit findings
 kind: bug
-status: doing
+status: review
 area: engine
 priority: high
 owner: Engine maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: quic-crypto-split-audit-fixes
 created: 2026-11-14
 updated: 2026-11-14
+status_detail: Five fixes and CI admission verified; exact415 push CI and all five API35 Xray cases passed.
 ---
 
 ## Goal
