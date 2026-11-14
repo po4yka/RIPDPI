@@ -94,7 +94,7 @@ pub fn printable_ascii_fraction(data: &[u8]) -> f32 {
 ///
 /// `max_pad` caps the padding length to avoid excessive bloat.
 pub fn generate_entropy_padding(payload: &[u8], target: f32, max_pad: usize) -> Vec<u8> {
-    if payload.is_empty() || is_popcount_exempt(payload) {
+    if payload.is_empty() || max_pad == 0 || is_popcount_exempt(payload) {
         return Vec::new();
     }
     let current = popcount_per_byte(payload);
@@ -330,6 +330,14 @@ mod tests {
         let encrypted = vec![0xAA; 1000];
         let padding = generate_entropy_padding(&encrypted, POPCOUNT_EXEMPT_LOW, 50);
         assert!(padding.len() <= 50);
+    }
+
+    #[test]
+    fn entropy_padding_zero_budget_all_modes() {
+        let payload = [0xAA; 100];
+        assert!(generate_entropy_padding(&payload, 3.4, 0).is_empty());
+        assert!(generate_shannon_padding(&payload, 0.5, 0).is_empty());
+        assert!(generate_combined_padding(&payload, 3.4, 0.5, 0).is_empty());
     }
 
     #[test]

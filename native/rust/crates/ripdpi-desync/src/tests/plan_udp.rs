@@ -1065,6 +1065,22 @@ fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
     assert_eq!(&fake_packet[fake_packet.len() - HIGH_POPCOUNT_FAKE.len()..], HIGH_POPCOUNT_FAKE);
 }
 
+#[test]
+fn entropy_padding_zero_budget_preserves_udp_fake_in_all_modes() {
+    for mode in [EntropyMode::Disabled, EntropyMode::Popcount, EntropyMode::Shannon, EntropyMode::Combined] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.entropy_mode = mode;
+        group.actions.entropy_padding_max = 0;
+        group.actions.fake_data = Some(HIGH_POPCOUNT_FAKE.to_vec());
+        group.actions.udp_chain = vec![fake_burst_step()];
+        let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+        let DesyncAction::Write(fake_packet) = &actions[1] else {
+            panic!("expected fake write, got: {:?}", actions[1]);
+        };
+        assert_eq!(fake_packet, HIGH_POPCOUNT_FAKE, "mode {mode:?}");
+    }
+}
+
 fn fake_burst_with_round(round: Option<NumericRange<i64>>) -> DesyncGroup {
     let mut group = DesyncGroup::new(0);
     group.actions.fake_data = Some(b"udp-fake".to_vec());
