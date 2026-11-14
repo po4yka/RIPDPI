@@ -124,15 +124,14 @@ pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
     unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_MD5SIG, &md5) }
 }
 
-/// Clamp the TCP receive window to force the server to send small segments.
+/// Bound growth of the TCP receive window.
 ///
-/// Setting `size` to a low value (e.g., 1 or 2) causes the kernel to advertise
-/// a tiny window, preventing DPI from reassembling the response stream. The
-/// kernel enforces a floor of `SOCK_MIN_RCVBUF / 2` so the effective window
-/// will not drop below ~1152 bytes regardless of how small `size` is.
+/// The kernel imposes a floor of `SOCK_MIN_RCVBUF / 2` (typically 1152 bytes).
+/// A successful request does not immediately shrink an advertised window or
+/// set the size of each segment.
 ///
-/// To remove the clamp on an already-connected socket, pass a value larger
-/// than any reasonable advertised window (e.g., `1_000_000`); modern Linux
+/// To relax the clamp on a connected socket, request a larger bound. This does
+/// not restore its previous buffer size or negotiated scale. Modern Linux
 /// rejects `size=0` on established sockets with `EINVAL` (only `TCP_CLOSE`
 /// sockets accept it).
 pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {

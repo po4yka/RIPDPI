@@ -18,17 +18,16 @@ pub struct AutoTtlConfig {
     pub max_ttl: u8,
 }
 
-/// TCP window size control. Combines pre-connect `SO_RCVBUF` (to influence
-/// window scale negotiation) with post-connect `TCP_WINDOW_CLAMP` (to cap the
-/// advertised receive window). Together they force the server to send small
-/// segments from the very first data packet.
+/// TCP receive window control through socket options.
+/// `SO_RCVBUF` is a pre-connect buffer hint; the OS selects the negotiated scale.
+/// `TCP_WINDOW_CLAMP` is applied after connect and does not change an advertised
+/// window immediately or set the size of each incoming segment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WsizeConfig {
     /// Desired TCP receive window size in bytes.
     pub window: u32,
-    /// Optional window scale factor override (0-14).
-    /// When set, `SO_RCVBUF` is tuned to produce this scale factor in the SYN.
-    /// When `None`, `SO_RCVBUF` is set to `window` to let the kernel pick.
+    /// Optional receive-buffer shift (0-14), not a negotiated scale override.
+    /// `SO_RCVBUF` requests `window << scale`, or `window` when this is `None`.
     pub scale: Option<u8>,
 }
 
