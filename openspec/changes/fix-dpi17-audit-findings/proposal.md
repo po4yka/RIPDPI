@@ -28,5 +28,6 @@ DPI-17 accepts unbounded packet counts and builds the full prelude before forwar
 
 - Kotlin data/model validation and locale resources.
 - Native config validation, DummyPrepend planner and owning tests.
-- Proxy runtime wire regression test. No dependency or schema field changes.
+- Proxy runtime wire regression test. No dependency or runtime/wire schema field changes.
 - Build-logic patch verification and provenance for the existing OBFS4 asset.
+- Add sourcePatchSha256 to build metadata. Reject old Lyrebird prebuilt receipts that do not identify the patch.

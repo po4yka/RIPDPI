@@ -20,7 +20,7 @@ Task ENG-1794637889757963 covers the three confirmed audit findings. The current
 - resource_budget: isolated worktree; Kotlin core/data/model validation/tests and native ripdpi-config constants, ripdpi-proxy-config validation/tests and ripdpi-desync planner/tests.
 - ui_contract: isolated worktree; all ten locale sets, as the only locale writer.
 - Integrator: portfolio/OpenSpec, wire_e2e, generated API snapshots, combined validation and integration.
-- No schema field, Cargo.lock, baseline or golden changes. A narrow upstream compatibility correction may be required for a failing CI asset build; preserve compiler checks and record its exact source pin.
+- No runtime/wire schema field, Cargo.lock, baseline or golden changes. Build metadata gains sourcePatchSha256 to identify the reviewed OBFS4 correction; preserve compiler checks and record the exact source pin.
 
 ## Risks / Trade-offs
 

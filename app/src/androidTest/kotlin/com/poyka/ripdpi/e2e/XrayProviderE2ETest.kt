@@ -1162,10 +1162,10 @@ class XrayProviderE2ETest {
                 state.telemetry.value.xrayProviderSnapshot
                     ?.listenerState,
             )
-            assertTrue(
+            assertEquals(
+                ExpectedXrayCoreVersion,
                 state.telemetry.value.xrayProviderSnapshot
-                    ?.xrayVersion
-                    ?.contains("26.3.27") == true,
+                    ?.xrayVersion,
             )
             assertLiveDiagnosticsAction()
             runBlocking { controller.stop() }
@@ -1273,7 +1273,7 @@ class XrayProviderE2ETest {
         InstrumentationRegistry.getInstrumentation().runOnMainSync { diagnostics.runProbe() }
         awaitUntil { diagnostics.probeReport.value != null && !diagnostics.probeRunning.value }
         val report = requireNotNull(diagnostics.probeReport.value)
-        assertTrue(report.snapshot.xrayVersion?.contains("26.3.27") == true)
+        assertEquals(ExpectedXrayCoreVersion, report.snapshot.xrayVersion)
         assertEquals(XrayListenerState.Bound, report.snapshot.listenerState)
         assertEquals(
             mapOf(
@@ -1658,6 +1658,7 @@ class XrayProviderE2ETest {
 
     private companion object {
         const val AttributionLogTag = "XrayNegativeProbe"
+        const val ExpectedXrayCoreVersion = "26.11.9"
         const val ProfileId = "xray-provider-acceptance"
     }
 }
