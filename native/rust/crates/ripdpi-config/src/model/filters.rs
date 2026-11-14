@@ -2,6 +2,10 @@ use std::net::IpAddr;
 
 use ipnet::IpNet;
 
+/// Largest accepted `count` for a `quic_padding_ladder` UDP step: 8-byte rungs
+/// that fit between the 1200-byte Initial minimum and a 1452-byte datagram.
+pub const MAX_QUIC_PADDING_LADDER_COUNT: i32 = 31;
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FilterSet {
     pub hosts: Vec<String>,

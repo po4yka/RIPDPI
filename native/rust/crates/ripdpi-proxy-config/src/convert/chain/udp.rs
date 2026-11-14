@@ -1,4 +1,6 @@
-use ripdpi_config::{MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, UdpChainStep, UdpChainStepKind};
+use ripdpi_config::{
+    MAX_DUMMY_PREPEND_COUNT, MAX_FAKE_BURST_COUNT, MAX_QUIC_PADDING_LADDER_COUNT, UdpChainStep, UdpChainStepKind,
+};
 
 use crate::types::{ProxyConfigError, ProxyUiUdpChainStep};
 
@@ -49,6 +51,11 @@ pub(crate) fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec
         if kind == UdpChainStepKind::DummyPrepend && step.count > MAX_DUMMY_PREPEND_COUNT {
             return Err(ProxyConfigError::InvalidConfig(format!(
                 "udpChainSteps kind=dummy_prepend count must be at most {MAX_DUMMY_PREPEND_COUNT}"
+            )));
+        }
+        if kind == UdpChainStepKind::QuicPaddingLadder && step.count > MAX_QUIC_PADDING_LADDER_COUNT {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "udpChainSteps kind=quic_padding_ladder count must be at most {MAX_QUIC_PADDING_LADDER_COUNT}"
             )));
         }
         if kind == UdpChainStepKind::IpFrag2Udp {

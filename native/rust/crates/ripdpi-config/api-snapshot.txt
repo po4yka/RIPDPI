@@ -638,6 +638,7 @@ pub const ripdpi_config::HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS: i64
 pub const ripdpi_config::HOST_AUTOLEARN_DEFAULT_STORE_FILE: &str
 pub const ripdpi_config::MAX_DUMMY_PREPEND_COUNT: i32
 pub const ripdpi_config::MAX_FAKE_BURST_COUNT: i32
+pub const ripdpi_config::MAX_QUIC_PADDING_LADDER_COUNT: i32
 pub const ripdpi_config::TCP_FLAG_ACK: u16
 pub const ripdpi_config::TCP_FLAG_AE: u16
 pub const ripdpi_config::TCP_FLAG_CWR: u16

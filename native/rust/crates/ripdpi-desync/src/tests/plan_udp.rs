@@ -836,6 +836,21 @@ fn fake_burst_planner_caps_count_built_outside_parsers() {
 }
 
 #[test]
+fn quic_padding_ladder_planner_caps_count_built_outside_parsers() {
+    let mut group = DesyncGroup::new(0);
+    let mut step = fake_burst_step();
+    step.kind = UdpChainStepKind::QuicPaddingLadder;
+    step.count = 1_000_000;
+    group.actions.udp_chain = vec![step];
+    let payload = rust_packet_seeds::quic_initial_with_host(1, "docs.example.test");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+    let writes = actions.iter().filter(|action| matches!(action, DesyncAction::Write(_))).count();
+
+    assert_eq!(writes, ripdpi_config::MAX_QUIC_PADDING_LADDER_COUNT as usize + 1, "MAX decoys plus the real datagram");
+}
+
+#[test]
 fn quic_fake_profile_applies_to_initial_with_incomplete_client_hello() {
     let payload = rust_packet_seeds::quic_initial_with_crypto_gap(1, "docs.example.test");
     let mut group = DesyncGroup::new(0);

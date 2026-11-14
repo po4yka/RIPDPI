@@ -1124,6 +1124,19 @@ fn ui_payload_limits_fake_burst_count() {
 }
 
 #[test]
+fn ui_payload_limits_quic_padding_ladder_count() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![udp_step("quic_padding_ladder", 31)];
+    runtime_config_from_payload(ui_payload(ui)).expect("31 is accepted");
+
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![udp_step("quic_padding_ladder", 32)];
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("32 is rejected");
+
+    assert!(err.to_string().contains("quic_padding_ladder count must be at most 31"));
+}
+
+#[test]
 fn ui_payload_rejects_mixed_ipfrag2_udp_chain() {
     let mut ui = minimal_ui();
     ui.chains.udp_steps = vec![

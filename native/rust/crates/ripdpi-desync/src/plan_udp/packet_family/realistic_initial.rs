@@ -1,4 +1,4 @@
-use ripdpi_config::DesyncGroup;
+use ripdpi_config::{DesyncGroup, MAX_QUIC_PADDING_LADDER_COUNT};
 use ripdpi_packets::{QuicInitialBrowserProfile, QuicInitialPacketLayout};
 
 use super::super::quic::{
@@ -30,7 +30,8 @@ pub(super) fn build_quic_padding_ladder_packets(
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    let rungs = (0..count.max(1) as usize).map(|idx| 8 * (idx + 1)).collect::<Vec<_>>();
+    let count = count.clamp(1, MAX_QUIC_PADDING_LADDER_COUNT);
+    let rungs = (0..count as usize).map(|idx| 8 * (idx + 1)).collect::<Vec<_>>();
     let lengths = decoy_datagram_lengths(normalized_quic.map(|quic| quic.datagram_len), &rungs);
     rungs
         .into_iter()
