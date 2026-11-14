@@ -2,7 +2,7 @@
 id: RST-1794677654202696
 title: Reject invalid IPv6 extension configurations
 kind: bug
-status: doing
+status: review
 area: rust-native
 priority: medium
 owner: IPv6 validation team
