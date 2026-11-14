@@ -1,0 +1,11 @@
+{
+  "change": "dpi30-tls-entropy-contracts",
+  "evidence_summary": "800 Rust tests, strict Clippy, rebased ci-gates, Android arm64 compile-only, 26 final plus 6 targeted local TLS handshakes, and independent review passed; physical/root/external acceptance not claimed.",
+  "execution_sha256": "33c940d490d24dff1b4a6c0e7b5f3545f42c92d827c5e1f033829bb7db9ffdfe",
+  "issue_sha256": "072f7adbae377de48e28195cc3aff668f309ea468a853163ecfc6d45d6cec657",
+  "outcome": "done",
+  "prepared_at": "2026-11-14T17:14:07Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794672016726805"
+}

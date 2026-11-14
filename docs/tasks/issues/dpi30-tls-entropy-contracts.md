@@ -2,7 +2,7 @@
 id: ENG-1794672016726805
 title: Repair DPI-30 TLS version and entropy contracts
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: DPI-30 integrator
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi30-tls-entropy-contracts
 created: 2026-11-14
 updated: 2026-11-14
+closed_at: "2026-11-14T17:14:07Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: 800 Rust tests, strict Clippy, rebased ci-gates, Android arm64 compile-only, 26 final plus 6 targeted local TLS handshakes, and independent review passed; physical/root/external acceptance not claimed.
 ---
 
 ## Goal
