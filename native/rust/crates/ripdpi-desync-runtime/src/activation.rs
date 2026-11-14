@@ -44,7 +44,7 @@ pub fn activation_context_from_progress(
     }
 }
 
-/// Prepend entropy-aware padding to the payload if the group's entropy
+/// Prepend entropy-aware padding to final fake bytes if the group's entropy
 /// mode is enabled. An adaptive override (from strategy evolution) takes
 /// precedence over the group's configured mode. Returns `Cow::Borrowed`
 /// (zero allocation) when no padding is needed.
@@ -93,5 +93,13 @@ pub(crate) fn apply_entropy_padding<'a>(
         let mut padded = padding;
         padded.extend_from_slice(payload);
         Cow::Owned(padded)
+    }
+}
+
+/// Preserve ownership when final fake bytes need no padding.
+pub(crate) fn pad_fake_payload(group: &DesyncGroup, payload: Vec<u8>) -> Vec<u8> {
+    match apply_entropy_padding(group, &payload, None) {
+        Cow::Owned(padded) => padded,
+        Cow::Borrowed(_) => payload,
     }
 }

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::net::TcpStream;
 use std::time::Duration;
 
@@ -7,7 +8,6 @@ use ripdpi_desync::{
 };
 use ripdpi_session::OutboundProgress;
 
-use crate::activation::apply_entropy_padding;
 use crate::strategy_family::{
     effective_tcp_strategy_family, primary_tcp_strategy_family, strategy_fallback_family, ttl_less_family,
 };
@@ -74,17 +74,18 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
         validate_multi_disorder_tcp_settings(&group.effective_tcp_chain())?;
         let strategy_family = strategy_family_override.or_else(|| primary_tcp_strategy_family(group));
         if should_desync_tcp(group, context) {
-            // Only apply evolver-suggested entropy padding when the group has fake
-            // steps; without fakes the padding bytes reach the upstream server and
-            // corrupt the application stream.
-            let entropy_override = context.adaptive.entropy_mode.filter(|_| group_has_fake_steps(group));
-            let effective_payload = apply_entropy_padding(group, payload, entropy_override);
+            let effective_group = match context.adaptive.entropy_mode.filter(|_| group_has_fake_steps(group)) {
+                Some(mode) => {
+                    let mut effective = group.clone();
+                    effective.actions.entropy_mode = mode;
+                    Cow::Owned(effective)
+                }
+                None => Cow::Borrowed(group),
+            };
+            let group = effective_group.as_ref();
             let seed = desync_seed(progress.round);
             let strategy = TcpDesyncStrategy::new(group, seed, config.network.default_ttl, context);
-            // Build any injected fake decoy from the unpadded `payload` so its
-            // captured-ClientHello fidelity and sizing survive entropy padding,
-            // while the genuine server-bound writes still use `effective_payload`.
-            match strategy.plan_with_fake_reference(&effective_payload, payload) {
+            match strategy.plan(payload) {
                 Ok(plan) if plan.steps.is_empty() && plan.tls_prelude.applied_count == 0 => {
                     let bytes_committed = execute_tcp_actions_with_ttl_state(
                         writer,
@@ -204,7 +205,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
                     })
                 }
                 Err(_) => {
-                    let bytes_committed = write_transport_payload(writer, &effective_payload).map_err(|error| {
+                    let bytes_committed = write_transport_payload(writer, payload).map_err(|error| {
                         let receipt =
                             TcpExecutionReceipt::failed_plain(group, strategy_family, error.bytes_committed());
                         error.with_execution_receipt(receipt)

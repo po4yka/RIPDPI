@@ -96,7 +96,7 @@ fn clear_child_capabilities() {
     assert_eq!(result, 0, "clear child capabilities: {}", io::Error::last_os_error());
 }
 
-fn assert_raw_fake_modifier_does_not_fall_back(test_name: &str, options: FakeTcpOptions<'_>) {
+fn assert_raw_fake_modifier_does_not_fall_back(test_name: &str, options: FakeTcpOptions<'_>, fake_prefix: &[u8]) {
     const CHILD_ENV: &str = "RIPDPI_RAW_FAKE_MODIFIER_TEST_CHILD";
     if std::env::var(CHILD_ENV).ok().as_deref() != Some(test_name) {
         let status = std::process::Command::new(std::env::current_exe().expect("test executable"))
@@ -109,9 +109,17 @@ fn assert_raw_fake_modifier_does_not_fall_back(test_name: &str, options: FakeTcp
     }
     clear_child_capabilities();
     let (stream, mut peer) = connected_pair();
-    let error =
-        send_fake_tcp(&stream, b"REAL", b"REAL", 1, false, 37, options, (false, std::time::Duration::from_millis(1)))
-            .expect_err("a requested raw modifier requires raw permissions");
+    let error = send_fake_tcp(
+        &stream,
+        b"REAL",
+        fake_prefix,
+        1,
+        false,
+        37,
+        options,
+        (false, std::time::Duration::from_millis(1)),
+    )
+    .expect_err("a requested raw modifier requires raw permissions");
     assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
     stream.shutdown(std::net::Shutdown::Write).expect("finish stream");
     let mut actual = Vec::new();
@@ -124,6 +132,7 @@ fn secondary_raw_fake_modifier_requires_raw_transport() {
     assert_raw_fake_modifier_does_not_fall_back(
         "linux::raw_packet::fake_tcp::tests::secondary_raw_fake_modifier_requires_raw_transport",
         FakeTcpOptions { secondary_fake_prefix: Some(b"SECONDARY"), ..Default::default() },
+        b"REAL",
     );
 }
 
@@ -132,6 +141,7 @@ fn timestamp_raw_fake_modifier_requires_raw_transport() {
     assert_raw_fake_modifier_does_not_fall_back(
         "linux::raw_packet::fake_tcp::tests::timestamp_raw_fake_modifier_requires_raw_transport",
         FakeTcpOptions { timestamp_delta_ticks: Some(1), ..Default::default() },
+        b"REAL",
     );
 }
 
@@ -184,4 +194,13 @@ fn stream_fake_failure_restores_queued_real_bytes_before_ttl() {
     let mut actual = [0; 12];
     peer.read_exact(&mut actual).expect("read queued pages after the error");
     assert_eq!(&actual, b"real-payload");
+}
+
+#[test]
+fn enlarged_fake_requires_packet_owned_transport() {
+    assert_raw_fake_modifier_does_not_fall_back(
+        "linux::raw_packet::fake_tcp::tests::enlarged_fake_requires_packet_owned_transport",
+        FakeTcpOptions::default(),
+        b"PADDED-FAKE",
+    );
 }

@@ -1,3 +1,4 @@
+use crate::activation::pad_fake_payload;
 use ripdpi_config::{FakeOrder, TcpChainStep};
 use ripdpi_desync::build_fake_region_bytes;
 
@@ -30,13 +31,31 @@ pub(crate) fn execute(
         return execute_boundary_fallback(ctx, chunk, step_family, step_fallback, bytes_committed, opts);
     }
 
-    let first_fake = build_fake_region_bytes(&ctx.fake_packets.primary, start, chunk.len());
-    let second_fake = build_fake_region_bytes(&ctx.fake_packets.primary, end, second.len());
-    let first_secondary_fake =
-        ctx.fake_packets.secondary.as_ref().map(|secondary| build_fake_region_bytes(secondary, start, chunk.len()));
-    let second_secondary_fake =
-        ctx.fake_packets.secondary.as_ref().map(|secondary| build_fake_region_bytes(secondary, end, second.len()));
+    let first_fake =
+        pad_fake_payload(ctx.group, build_fake_region_bytes(&ctx.fake_packets.primary, start, chunk.len()));
+    let second_fake =
+        pad_fake_payload(ctx.group, build_fake_region_bytes(&ctx.fake_packets.primary, end, second.len()));
+    let first_secondary_fake = ctx
+        .fake_packets
+        .secondary
+        .as_ref()
+        .map(|secondary| pad_fake_payload(ctx.group, build_fake_region_bytes(secondary, start, chunk.len())));
+    let second_secondary_fake = ctx
+        .fake_packets
+        .secondary
+        .as_ref()
+        .map(|secondary| pad_fake_payload(ctx.group, build_fake_region_bytes(secondary, end, second.len())));
 
+    if (first_fake.len() > chunk.len()
+        || second_fake.len() > second.len()
+        || first_secondary_fake.as_ref().is_some_and(|fake| fake.len() > chunk.len())
+        || second_secondary_fake.as_ref().is_some_and(|fake| fake.len() > second.len()))
+        && !crate::platform::seqovl_supported()
+    {
+        let committed =
+            super::write_entropy_fallback(ctx, configured_step, chunk, second, step_family, bytes_committed)?;
+        return Ok((committed, TcpStepControl::BreakPlanWithFallback(Some("split"))));
+    }
     let bytes_committed = if opts.custom_order {
         let ordering = configured_step.fake_ordering();
         let first_fakes = std::iter::once(first_fake.as_slice())

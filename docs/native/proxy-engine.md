@@ -647,13 +647,21 @@ The runtime infers hop distance from the SYN-ACK TTL (common initial TTLs: 64, 1
 
 ### Entropy padding
 
-Counters entropy-based middlebox detection models using popcount and Shannon entropy.
+Applies popcount or Shannon padding to the final emitted fake payload. The
+runtime does not add entropy bytes to the genuine TCP stream. If padding makes
+a fake longer than its genuine fragment, the sender needs raw packet capability.
+The non-root splice path cannot transmit the extra bytes without changing the
+real stream. When raw transmission is unavailable, the runtime uses an explicit
+Split fallback and sends the genuine bytes unchanged.
+
+Combined mode checks both targets on the final fake bytes. If no supported
+prefix meets both targets within the byte budget, it returns no padding.
 
 | Mode | Detection model | Technique |
 | --- | --- | --- |
-| `popcount` | Bitwise popcount | Pads payload with printable ASCII to reach target popcount ratio |
+| `popcount` | Bitwise popcount | Pads fake bytes with printable ASCII toward the popcount target |
 | `shannon` | middlebox Shannon entropy analysis | Adjusts byte distribution to target Shannon entropy |
-| `combined` | Both models simultaneously | Applies both padding strategies |
+| `combined` | Both models simultaneously | Checks both targets on the same fake bytes |
 | `disabled` | None | No entropy manipulation (default) |
 
 Configuration:
@@ -662,7 +670,7 @@ Configuration:
 | --- | --- | --- | --- |
 | `entropy_mode` | `EntropyMode` | `disabled` | Padding mode |
 | `entropy_padding_target_permil` | `u32` | - | Target popcount in permil (e.g. 3400 = 3.4 set bits/byte) |
-| `entropy_padding_max` | `u32` | 256 | Maximum padding bytes |
+| `entropy_padding_max` | `u32` | 256 | Maximum extra bytes per fake emission |
 | `shannon_entropy_target_permil` | `u32` | - | Target Shannon entropy in permil (e.g. 7920 = 7.92 bits/byte) |
 
 ### Fake payload and fake transport surface

@@ -13,6 +13,7 @@ use crate::platform::{
 use crate::types::{TcpExecutionDisposition, TcpFallbackReason, TcpOffsetMarkerBase, TcpStrategyFamily};
 
 mod disorder_ttl;
+mod entropy_shaping;
 mod fake_rst;
 mod fake_send_safety;
 mod fake_split;
@@ -131,6 +132,9 @@ impl TcpFakeSender for ReceiptTestPlatform {
         _ip_id_mode: Option<ripdpi_config::IpIdMode>,
         _wait: TcpStageWait,
     ) -> io::Result<()> {
+        if self.raw_unavailable && _fake_prefix.len() > original_prefix.len() {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "splice cannot grow a fake"));
+        }
         let mut faults = self.faults.lock().expect("receipt fault queue");
         if let Some(FaultSpec::FakeSendAfterPrefix(len)) = faults.front() {
             let len = *len;

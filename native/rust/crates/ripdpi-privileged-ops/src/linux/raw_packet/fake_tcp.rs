@@ -44,7 +44,9 @@ pub fn send_fake_tcp(
     }
     validate_explicit_ipv4_identifications(stream.local_addr()?, stream.peer_addr()?, &options.ipv4_identifications)?;
     let real_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream)? };
-    let requires_raw_path = !options.fake_flags.is_empty()
+    // Spliced pages share the real TCP sequence space and cannot carry an enlarged decoy.
+    let requires_raw_path = fake_prefix.len() > original_prefix.len()
+        || !options.fake_flags.is_empty()
         || !options.orig_flags.is_empty()
         || options.require_raw_path
         || options.secondary_fake_prefix.is_some()

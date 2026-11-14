@@ -29,7 +29,7 @@ Correct the six confirmed DPI-30 findings without changing protocol scope.
 ## Parallel ownership
 
 - Integrator: task/OpenSpec/board records, docs/native/proxy-engine.md (F6), combined gates and integration.
-- F1 worker: runtime TCP entropy placement, TCP fake construction/emission, associated tests.
+- F1 worker: runtime TCP entropy placement, TCP fake construction/emission, privileged-ops Linux fake_tcp sender selection and owning tests.
 - F2/F3 worker: packets entropy.rs, UDP fake_burst shared algorithm call, associated tests.
 - F4/F5 worker: TLS prelude and TLS record recognition, associated tests.
 - Serialized lanes: integrator owns task/spec/board; no lockfile/schema/locale/baseline/golden changes planned.

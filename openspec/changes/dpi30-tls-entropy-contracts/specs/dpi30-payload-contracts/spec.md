@@ -13,6 +13,11 @@ The runtime MUST pad only fake bytes and preserve genuine payloads in normal, ad
 - **WHEN** entropy shaping is configured
 - **THEN** real bytes contain no entropy prefix
 
+#### Scenario: Expanded fake without raw support
+
+- **WHEN** a padded fake is longer than the genuine fragment and raw transmission is unavailable
+- **THEN** runtime uses an explicit Split fallback with unchanged genuine bytes and does not claim that the padded fake was sent
+
 ### Requirement: REQ-DPI30-JOINT — Meet joint targets
 
 Combined padding MUST satisfy both metrics on final bytes or return empty when no solution is found within budget.
@@ -57,4 +62,3 @@ Documentation MUST distinguish record minor mutation from negotiated TLS and use
 
 - **WHEN** minor4 or target3400 is configured
 - **THEN** no TLS1.3 negotiation or 3.4 percent claim is made
-

@@ -56,3 +56,51 @@ pub(crate) fn execute_tcp_fake_family_step(
         _ => unreachable!("non-fake-family step dispatched to fake-family executor"),
     }
 }
+
+fn write_entropy_fallback(
+    ctx: &mut TcpFakeFamilyExecContext<'_>,
+    configured_step: &TcpChainStep,
+    first: &[u8],
+    second: &[u8],
+    step_family: &'static str,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    let mut committed = crate::transport_io::write_strategy_payload_with_optional_flags_named(
+        ctx.writer,
+        first,
+        ctx.config.network.default_ttl,
+        ctx.config.process.protect_path.as_deref(),
+        ctx.md5sig,
+        crate::tcp_plan::step_original_tcp_flags(configured_step),
+        ctx.group.actions.ip_id_mode,
+        "write_entropy_split",
+        step_family,
+        Some("split"),
+        bytes_committed,
+    )?;
+    if !second.is_empty() {
+        crate::transport_io::await_writable_action_named(
+            ctx.writer,
+            ctx.config.timeouts.wait_send,
+            std::time::Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
+            "await_entropy_split",
+            step_family,
+            Some("split"),
+            committed,
+        )?;
+        committed = crate::transport_io::write_strategy_payload_with_optional_flags_named(
+            ctx.writer,
+            second,
+            ctx.config.network.default_ttl,
+            ctx.config.process.protect_path.as_deref(),
+            ctx.md5sig,
+            crate::tcp_plan::step_original_tcp_flags(configured_step),
+            ctx.group.actions.ip_id_mode,
+            "write_entropy_split",
+            step_family,
+            Some("split"),
+            committed,
+        )?;
+    }
+    Ok(committed)
+}

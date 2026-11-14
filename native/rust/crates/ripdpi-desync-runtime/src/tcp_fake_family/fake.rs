@@ -1,3 +1,4 @@
+use crate::activation::pad_fake_payload;
 use ripdpi_config::TcpChainStep;
 
 use crate::emissions::{build_plain_fake_emissions, ordered_segments_from_emissions};
@@ -21,13 +22,19 @@ pub(crate) fn execute(
     let fake = &ctx.fake_packets.primary;
     let span = chunk.len();
     let fake_chunk: Vec<u8> = (0..span).map(|i| fake.bytes[(fake.fake_offset + i) % fake.bytes.len()]).collect();
-    let secondary_fake_chunk = ctx
-        .fake_packets
-        .secondary
-        .as_ref()
-        .map(|secondary| ripdpi_desync::build_fake_region_bytes(secondary, start, span));
+    let fake_chunk = pad_fake_payload(ctx.group, fake_chunk);
+    let secondary_fake_chunk =
+        ctx.fake_packets.secondary.as_ref().map(|secondary| {
+            pad_fake_payload(ctx.group, ripdpi_desync::build_fake_region_bytes(secondary, start, span))
+        });
     let opts = FakeStepOptions::new(ctx, configured_step);
 
+    if (fake_chunk.len() > chunk.len() || secondary_fake_chunk.as_ref().is_some_and(|fake| fake.len() > chunk.len()))
+        && !crate::platform::seqovl_supported()
+    {
+        let committed = super::write_entropy_fallback(ctx, configured_step, chunk, &[], step_family, bytes_committed)?;
+        return Ok((committed, TcpStepControl::ContinueAtWithFallback(end, Some("split"))));
+    }
     let bytes_committed = if opts.custom_order {
         let ordering = configured_step.fake_ordering();
         let fake_refs: Vec<&[u8]> =

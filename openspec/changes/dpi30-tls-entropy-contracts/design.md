@@ -9,7 +9,7 @@ See proposal.md and the six DPI-30 audit findings.
 
 ## Decisions
 
-- Move TCP entropy shaping to final fake emission bytes. Keep ordinary and fallback real payloads unchanged. Resolve adaptive mode in the effective group.
+- Move TCP entropy shaping to final fake emission bytes. Keep ordinary and fallback real payloads unchanged. Resolve adaptive mode in the effective group. An expanded fake uses the existing raw sender; without raw support use an explicit Split fallback because vmsplice cannot grow fake bytes without changing genuine sequence space.
 - Validate joint metrics using histograms and bounded padding candidates. Respect existing empty-result behavior when no solution is found.
 - Cache TLS prelude state before version mutation. Recognize complete no-SNI ClientHello messages without weakening malformed-input guards.
 - Keep each finding in a separate commit. The integrator serializes shared task records.

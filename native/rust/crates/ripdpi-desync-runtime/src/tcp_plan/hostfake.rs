@@ -120,6 +120,31 @@ pub(crate) fn execute_tcp_hostfake_step(
         bytes_committed = write_hostfake_suffix(ctx, span.host_end, end, step_family, step_fallback, bytes_committed)?;
         return Ok((bytes_committed, TcpStepControl::ContinueAtWithFallback(end, Some("split"))));
     }
+    let fake_payloads: Vec<_> = if ctx.group.actions.entropy_mode == ripdpi_config::EntropyMode::Disabled {
+        Vec::new()
+    } else {
+        ordered_segments
+            .iter()
+            .map(|segment| {
+                if segment.use_fake_timestamp {
+                    crate::activation::apply_entropy_padding(ctx.group, segment.payload, None)
+                } else {
+                    std::borrow::Cow::Borrowed(segment.payload)
+                }
+            })
+            .collect()
+    };
+    let mut fake_offset = 0usize;
+    let mut ordered_segments = ordered_segments;
+    for (segment, payload) in ordered_segments.iter_mut().zip(&fake_payloads) {
+        segment.payload = payload;
+        if segment.use_fake_timestamp
+            && configured_step.fake_ordering().seq_mode == ripdpi_config::FakeSeqMode::Sequential
+        {
+            segment.sequence_offset = fake_offset;
+            fake_offset = fake_offset.saturating_add(payload.len());
+        }
+    }
     let mut control = TcpStepControl::ContinueAt(end);
     bytes_committed = match send_hostfake_ordered_segments(
         ctx,

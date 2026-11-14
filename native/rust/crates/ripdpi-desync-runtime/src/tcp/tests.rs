@@ -13,7 +13,7 @@ use ripdpi_packets::{entropy, http_marker_info};
 use ripdpi_proxy_config::ProxyDirectPathCapability;
 use std::net::{Ipv4Addr, TcpListener};
 
-use crate::activation::activation_context_from_progress;
+use crate::activation::{activation_context_from_progress, apply_entropy_padding};
 use crate::capability_policy::{
     TWO_PHASE_FIRST_WRITE_MAX, TWO_PHASE_FIRST_WRITE_MIN, TWO_PHASE_GAP_MS_MAX, TWO_PHASE_GAP_MS_MIN,
     TransparentTlsFamilyError, apply_tcp_capability_fallback, apply_tcp_capability_policy,
