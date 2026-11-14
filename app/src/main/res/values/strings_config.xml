@@ -1006,7 +1006,7 @@ Source: %2$s</string>
     <string name="ripdpi_tlsminor_value_title">TLS record minor version</string>
     <string name="ripdpi_tlsminor_value_body">Overwrite the minor-version byte (0–255) in the TLS record header of the genuine first-flight packet.</string>
     <string name="ripdpi_ip_id_mode_title">IPv4 ID mode</string>
-    <string name="ripdpi_ip_id_mode_body">Controls IPv4 identification values for raw fake and fragment paths. Seqgroup also promotes mixed fake/original TCP sends onto the raw replacement path so IDs stay exact.</string>
+    <string name="ripdpi_ip_id_mode_body">Sets preferred IPv4 IDs for raw fake and fragment paths. The sender can choose another ID to prevent reuse. Seqgroup also sends mixed fake/original TCP packets through the raw path.</string>
     <string name="desync_udp_category" translatable="false">UDP</string>
     <string name="desync_http_category" translatable="false">HTTP</string>
     <string name="desync_https_category" translatable="false">HTTPS</string>

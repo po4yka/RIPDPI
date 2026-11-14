@@ -1,4 +1,4 @@
-//! The privileged sender owns fragment IDs across all callers, including helpers.
+//! The privileged sender owns non-atomic datagram IDs across raw TCP and fragment callers.
 //! Never evict a live lease.
 
 use std::collections::{HashSet, VecDeque};

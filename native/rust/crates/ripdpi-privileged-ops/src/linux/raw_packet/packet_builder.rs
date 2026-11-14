@@ -12,6 +12,7 @@ use ripdpi_config::{
 };
 
 use super::fake_tcp::mutate_fake_timestamp;
+use crate::fragmentation::reserve_fragment_identification;
 use crate::linux::tcp_repair::{TcpRepairSnapshot, TcpTimestampSnapshot, sequence_after_payload};
 use crate::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides};
 
@@ -172,7 +173,10 @@ pub(crate) fn build_tcp_segment_packet(
                 .map_err(|_| value_too_large_io("IPv4 packet too large"))?;
             let mut ip = Ipv4Header::new(payload_length, ttl, ip_number::TCP, src.ip().octets(), dst.ip().octets())
                 .map_err(|_| value_too_large_io("IPv4 packet too large"))?;
-            ip.identification = identification as u16;
+            // DF=false shares the fragment reassembly namespace, including across TCP ports.
+            ip.identification =
+                reserve_fragment_identification(source, target, libc::IPPROTO_TCP as u8, Some(identification as u16))?
+                    as u16;
             ip.dont_fragment = false;
             ip.more_fragments = false;
             ip.header_checksum = ip.calc_header_checksum();
@@ -409,3 +413,7 @@ mod seqovl_tests;
 #[cfg(test)]
 #[path = "packet_builder/ordered_tests.rs"]
 mod ordered_tests;
+
+#[cfg(test)]
+#[path = "packet_builder/ipv4_id_tests.rs"]
+mod ipv4_id_tests;

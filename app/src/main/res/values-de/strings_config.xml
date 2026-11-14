@@ -742,7 +742,7 @@ Quelle: %2$s</string>
     <string name="ripdpi_http_parser_safe_none">Keine sicheren Parser-Anpassungen ausgewählt.</string>
     <string name="ripdpi_http_parser_scope_cli">Die Befehlszeileneinstellungen wählen die aktiven HTTP-Parser-Mutationen aus.</string>
     <string name="ripdpi_http_parser_summary_label_probing">Automatische Probe</string>
-    <string name="ripdpi_ip_id_mode_body">Steuert die IPv4-Identifikationswerte für Raw-Fake- und Fragment-Pfade. Seqgroup verschiebt zudem gemischte Fake-/Original-TCP-Sends auf den Raw-Replacement-Pfad, damit die IDs exakt bleiben.</string>
+    <string name="ripdpi_ip_id_mode_body">Legt bevorzugte IPv4-IDs für rohe Fake-Pakete und Fragmente fest. Der Sender kann eine andere ID wählen, um eine Wiederverwendung zu verhindern. Seqgroup sendet auch gemischte Fake-/Original-TCP-Pakete über den Raw-Pfad.</string>
     <string name="ripdpi_protocols_hint">Deaktivieren Sie HTTP und HTTPS, um die TCP-Bypass-Strategie ohne Protokollfilter anzuwenden. UDP-Bypass wird separat konfiguriert.</string>
     <string name="ripdpi_seqovl_available_title">Sequenzüberlappung verfügbar</string>
     <string name="ripdpi_seqovl_restart_body">Die laufende RIPDPI-Sitzung wurde vor dieser Chain-Änderung gestartet, daher wird seqovl erst wirksam, wenn RIPDPI sich neu verbindet oder neu startet.</string>

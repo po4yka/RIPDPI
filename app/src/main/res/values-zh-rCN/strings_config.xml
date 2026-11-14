@@ -202,7 +202,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_saved_title">已保存供以后使用</string>
     <string name="ripdpi_http_parser_scope_restart">已保存的解析器调整将在 RIPDPI 重新连接或重启后生效。</string>
     <string name="ripdpi_http_parser_summary_label_profile">配置文件</string>
-    <string name="ripdpi_ip_id_mode_body">控制原始 fake 和分片路径的 IPv4 标识值。Seqgroup 还会将混合的 fake/原始 TCP 发送提升到原始替换路径,以保持 ID 精确。</string>
+    <string name="ripdpi_ip_id_mode_body">设置原始伪造数据包和分片路径的首选 IPv4 ID。发送器可以选择其他 ID，以避免重复使用。Seqgroup 也会通过原始路径发送混合的伪造和原始 TCP 数据包。</string>
     <string name="ripdpi_protocols_category">协议</string>
     <string name="ripdpi_readme_link">RIPDPI 工作原理</string>
     <string name="ripdpi_seqovl_cli_title">由命令行控制</string>

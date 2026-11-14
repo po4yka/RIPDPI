@@ -1,11 +1,11 @@
 //! Runtime-adaptation — process-global IPv4 identification allocator.
 //!
-//! Hands out IPv4 IP-ID values for locally crafted packets, keyed per flow,
+//! Proposes IPv4 IP-ID values for locally crafted packets, keyed per flow,
 //! honouring the configured [`IpIdMode`](ripdpi_config::IpIdMode) (sequential,
 //! grouped, random, zero). State is a process-global `OnceLock<Mutex<...>>`
-//! shared across all flows. Crate-internal (`pub(crate)`): the `fake_send` /
-//! `ip_fragmentation` modules consume it for their local (non-root-helper)
-//! paths; it is not part of the crate's public surface.
+//! shared across all flows. The `fake_send` / `ip_fragmentation` modules use
+//! these proposals for local and root-helper sends.
+//! The privileged sender owns live datagram IDs and can replace a proposed ID.
 
 use std::collections::HashMap;
 use std::io;

@@ -936,7 +936,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_host_pad_setting">Заголовок Pad для Host</string>
     <string name="ripdpi_http_host_tab_setting">Разделитель табуляции в Host</string>
     <string name="ripdpi_http_method_space_setting">Дополнительный пробел в методе</string>
-    <string name="ripdpi_ip_id_mode_body">Управляет значениями идентификации IPv4 для путей сырых fake и фрагментов. Seqgroup также продвигает смешанные fake/оригинальные TCP-отправки на путь сырой замены, чтобы ID оставались точными.</string>
+    <string name="ripdpi_ip_id_mode_body">Задаёт предпочтительные IPv4 ID для сырых ложных пакетов и фрагментов. Отправитель может выбрать другой ID, чтобы избежать повторного использования. Seqgroup также отправляет ложные и исходные TCP-пакеты через сырой путь.</string>
     <string name="ripdpi_ip_id_mode_title">Режим IPv4 ID</string>
     <string name="ripdpi_seqovl_available_body">Используйте seqovl, когда устройство поддерживает бэкенд packet-owned. До этого сохранённые шаги seqovl остаются обратимыми, но во время выполнения откатываются к split.</string>
     <string name="ripdpi_seqovl_available_title">Доступно перекрытие последовательностей</string>

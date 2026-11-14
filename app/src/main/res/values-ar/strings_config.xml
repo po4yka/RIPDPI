@@ -989,7 +989,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tlsminor_value_title">الإصدار الأصغر لسجل TLS</string>
     <string name="ripdpi_tlsminor_value_body">يستبدل بايت الإصدار الأصغر (0–255) في ترويسة سجل TLS للحزمة الأولى الحقيقية.</string>
     <string name="ripdpi_ip_id_mode_title">وضع معرّف IPv4</string>
-    <string name="ripdpi_ip_id_mode_body">يتحكم في قيم تعريف IPv4 لمسارات الحزم الوهمية والمجزّأة. يعزّز Seqgroup أيضاً إرسال TCP الوهمي/الأصلي المختلط على مسار الاستبدال الخام للحفاظ على دقة المعرّفات.</string>
+    <string name="ripdpi_ip_id_mode_body">يحدد معرّفات IPv4 المفضلة لمسارات الحزم الوهمية والمجزّأة الخام. يمكن للمرسل اختيار معرّف آخر لمنع إعادة الاستخدام. يرسل Seqgroup أيضاً حزم TCP الوهمية والأصلية عبر المسار الخام.</string>
     <string name="ripdpi_protocols_category">البروتوكولات</string>
     <string name="ripdpi_protocols_hint">ألغِ تحديد HTTP وHTTPS لتطبيق استراتيجية تجاوز TCP دون مرشح بروتوكول. يُضبط تجاوز UDP بشكل منفصل.</string>
     <string name="tcp_flag_card_title">صياغة علامات TCP</string>

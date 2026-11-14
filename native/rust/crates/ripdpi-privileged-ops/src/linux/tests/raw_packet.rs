@@ -70,8 +70,9 @@ fn build_multi_disorder_packets_preserves_payload_ranges_sequence_numbers_and_fl
         assert_eq!(tcp_payload, &payload[segment.start..segment.end]);
     }
 
-    assert_eq!(identifications[1], identifications[0].wrapping_add(1));
-    assert_eq!(identifications[2], identifications[1].wrapping_add(1));
+    // The sender can skip IDs reserved by another live datagram.
+    assert!(identifications.iter().all(|id| *id != 0));
+    assert_eq!(identifications.iter().copied().collect::<std::collections::HashSet<_>>().len(), 3);
 }
 
 #[test]

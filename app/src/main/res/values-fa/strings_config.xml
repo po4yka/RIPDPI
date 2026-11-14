@@ -757,7 +757,7 @@ fakeddisorder endhost</string>
     <string name="ripdpi_http_parser_scope_http_off">در حال حاضر هیچ جریان بصری زنده راهبرد عبور HTTP از این تنظیمات parser استفاده نمی‌کند.</string>
     <string name="ripdpi_http_parser_summary_label_aggressive">evasion‌های تهاجمی</string>
     <string name="ripdpi_http_parser_summary_label_safe">تنظیمات ایمن parser</string>
-    <string name="ripdpi_ip_id_mode_body">مقادیر identification IPv4 برای مسیرهای fake خام و fragment را کنترل می‌کند. Seqgroup همچنین ارسال‌های مختلط fake/original TCP را به مسیر جایگزین خام ترفیع می‌دهد تا IDها دقیق باقی بمانند.</string>
+    <string name="ripdpi_ip_id_mode_body">شناسه‌های ترجیحی IPv4 را برای مسیرهای بسته‌های جعلی خام و قطعه‌ها تنظیم می‌کند. فرستنده می‌تواند برای جلوگیری از استفادهٔ مجدد، شناسهٔ دیگری انتخاب کند. Seqgroup بسته‌های TCP جعلی و اصلی را نیز از مسیر خام می‌فرستد.</string>
     <string name="ripdpi_no_domain_setting">بدون دامنه</string>
     <string name="ripdpi_proxy_port_setting">پورت</string>
     <string name="strategy_config_active_path_label">منبع فعال</string>

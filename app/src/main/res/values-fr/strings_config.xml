@@ -742,7 +742,7 @@ Source : %2$s</string>
     <string name="ripdpi_http_parser_safe_none">Aucun ajustement de parseur sûr sélectionné.</string>
     <string name="ripdpi_http_parser_scope_cli">Les paramètres de ligne de commande choisissent les mutations actives du parseur HTTP.</string>
     <string name="ripdpi_http_parser_summary_label_probing">Sondage automatique</string>
-    <string name="ripdpi_ip_id_mode_body">Contrôle les valeurs d\'identification IPv4 pour les chemins de faux paquets et de fragments bruts. Seqgroup promeut également les envois TCP mixtes factices/originaux sur le chemin de remplacement brut afin que les ID restent exacts.</string>
+    <string name="ripdpi_ip_id_mode_body">Définit les ID IPv4 préférés pour les chemins de faux paquets et de fragments bruts. L\'émetteur peut choisir un autre ID pour éviter sa réutilisation. Seqgroup envoie aussi les paquets TCP factices et originaux par le chemin brut.</string>
     <string name="ripdpi_protocols_hint">Décochez HTTP et HTTPS pour appliquer la stratégie de contournement TCP sans filtre de protocole. Le contournement UDP se configure séparément.</string>
     <string name="ripdpi_seqovl_available_title">Chevauchement de séquence disponible</string>
     <string name="ripdpi_seqovl_restart_body">La session RIPDPI en cours a démarré avant ce changement de chaîne, donc seqovl ne prendra pas effet tant que RIPDPI ne se reconnectera pas ou ne redémarrera pas.</string>
