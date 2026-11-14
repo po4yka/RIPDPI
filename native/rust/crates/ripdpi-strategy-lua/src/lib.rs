@@ -572,7 +572,7 @@ mod enabled {
                 lua.create_function(|_, ()| {
                     let elapsed =
                         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
-                    Ok(i64::try_from(elapsed.as_nanos()).unwrap_or(i64::MAX))
+                    Ok((i64::try_from(elapsed.as_secs()).unwrap_or(i64::MAX), elapsed.subsec_nanos()))
                 })
                 .map_err(to_load)?,
             )
