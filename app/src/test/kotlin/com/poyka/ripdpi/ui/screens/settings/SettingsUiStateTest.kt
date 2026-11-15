@@ -1624,6 +1624,32 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `secondary tls fake profile alone marks the payload library custom and resettable`() {
+        val state =
+            defaults
+                .toBuilder()
+                .setFakeTlsSecondaryProfile(TlsFakeProfileGoogleChrome)
+                .build()
+                .toUiState()
+
+        assertTrue(state.fake.hasCustomFakePayloadProfiles)
+        assertTrue(state.canResetFakePayloadLibrary)
+    }
+
+    @Test
+    fun `unknown secondary tls fake profile is shown as off`() {
+        val state =
+            defaults
+                .toBuilder()
+                .setFakeTlsSecondaryProfile("no_such_profile")
+                .build()
+                .toUiState()
+
+        assertEquals("", state.fake.fakeTlsSecondaryProfile)
+        assertFalse(state.fake.hasCustomFakePayloadProfiles)
+    }
+
+    @Test
     fun `fake tls profile is exposed in ui state`() {
         val settings =
             defaults

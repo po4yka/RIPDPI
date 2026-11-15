@@ -1009,7 +1009,7 @@ fake_burst 3</string>
     <string name="tcp_flag_orig_clear_title">原始数据包:清除标志</string>
     <string name="tls_fake_profile_scope_hostfake">当前 HTTPS 流量使用 hostfake 分块,而非完整伪 ClientHello。</string>
     <string name="tls_fake_profile_title">TLS 伪载荷</string>
-    <string name="tls_fake_secondary_profile_title">第二 TLS 伪载荷</string>
+    <string name="tls_fake_secondary_profile_title">第二个 TLS 伪载荷</string>
     <string name="ws_tunnel_mode_fallback">回退(最后手段)</string>
     <string name="ws_tunnel_allow_insecure_sni_label">允许不安全的 SNI(禁用 TLS 验证)</string>
     <string name="ws_tunnel_allow_insecure_sni_helper">即使会禁用隧道的 TLS 证书验证,仍使用 WS 隧道的伪造 SNI 伪装。仅在使用可信运营商配置时启用。</string>

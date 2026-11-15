@@ -120,7 +120,8 @@ data class FakeTransportUiState(
         get() =
             httpFakeProfile != FakePayloadProfileCompatDefault ||
                 tlsFakeProfile != FakePayloadProfileCompatDefault ||
-                udpFakeProfile != FakePayloadProfileCompatDefault
+                udpFakeProfile != FakePayloadProfileCompatDefault ||
+                fakeTlsSecondaryProfile.isNotEmpty()
 
     val hasCustomFakeTlsProfile: Boolean
         get() =

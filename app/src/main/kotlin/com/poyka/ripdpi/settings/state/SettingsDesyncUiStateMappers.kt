@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.effectiveUdpFakeProfile
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
+import com.poyka.ripdpi.data.normalizeTlsFakeProfile
 import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
@@ -137,7 +138,7 @@ internal fun AppSettings.buildFakeUiState(): FakeTransportUiState =
         fakeTlsSize = fakeTlsSize,
         fakeTlsSniMode = effectiveFakeTlsSniMode(),
         tlsFakeProfile = effectiveTlsFakeProfile(),
-        fakeTlsSecondaryProfile = fakeTlsSecondaryProfile,
+        fakeTlsSecondaryProfile = effectiveTlsSecondaryFakeProfile(),
         udpFakeProfile = effectiveUdpFakeProfile(),
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,
@@ -163,3 +164,9 @@ internal fun AppSettings.buildTlsPreludeUiState(chain: ChainAnalysisResult): Tls
             chain.tlsRecStep?.maxFragmentSize?.takeIf { it > 0 }
                 ?: DefaultTlsRandRecMaxFragmentSize,
     )
+
+// An unknown stored id means "no secondary profile", unlike the primary profile's compat default.
+private fun AppSettings.effectiveTlsSecondaryFakeProfile(): String {
+    val id = fakeTlsSecondaryProfile.trim().lowercase()
+    return id.takeIf { it.isNotEmpty() && normalizeTlsFakeProfile(it) == it } ?: ""
+}
