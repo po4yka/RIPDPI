@@ -87,7 +87,7 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
-    fun `fat header stress result is healthy when domain reachability succeeds`() {
+    fun `fat header stress result stays attention after unrelated domain reachability succeeds`() {
         val reportResults =
             listOf(
                 ProbeResult("tcp_fat_header", "8.8.8.8:443 (Google DNS)", "tcp_reset"),
@@ -101,9 +101,10 @@ class DiagnosticsOutcomeTaxonomyTest {
                 reportResults = reportResults,
             )
 
-        assertEquals(DiagnosticsOutcomeBucket.Healthy, classification.bucket)
-        assertEquals(DiagnosticsOutcomeTone.Positive, classification.uiTone)
-        assertEquals("info", classification.eventLevel)
+        assertEquals(DiagnosticsOutcomeBucket.Attention, classification.bucket)
+        assertEquals(DiagnosticsOutcomeTone.Warning, classification.uiTone)
+        assertEquals("warn", classification.eventLevel)
+        assertEquals(DiagnosticsAttentionKind.ProbeArtifact, classification.attentionKind)
     }
 
     @Test

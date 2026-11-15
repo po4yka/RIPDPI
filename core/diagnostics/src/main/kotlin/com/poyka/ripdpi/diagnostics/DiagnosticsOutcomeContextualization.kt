@@ -7,12 +7,6 @@ internal fun ProbeResult.isContextualCdnDnsVariance(reportResults: List<ProbeRes
         hasWeakDnsDivergenceEvidence() &&
         reportResults.hasHealthyReachabilityForDnsTarget(target)
 
-internal fun ProbeResult.isContextualTcpStressProbeSensitivity(reportResults: List<ProbeResult>): Boolean =
-    probeType == "tcp_fat_header" &&
-        outcome in tcpStressProbeOutcomes &&
-        reportResults.hasHealthyDomainReachability() &&
-        !reportResults.hasDomainReachabilityFailure()
-
 private fun ProbeResult.hasWeakDnsDivergenceEvidence(): Boolean {
     val detailMap = details.associate { it.key to it.value }
     val hasBooleanStrongSignal = booleanStrongDnsDivergenceKeys.any { detailMap[it] == "true" }
@@ -39,12 +33,6 @@ private fun List<ProbeResult>.hasHealthyReachabilityForDnsTarget(dnsTarget: Stri
             result.target.normalizedProbeAuthority().isSameDnsSite(dnsAuthority)
     }
 }
-
-private fun List<ProbeResult>.hasHealthyDomainReachability(): Boolean =
-    any { result -> result.probeType == "domain_reachability" && result.outcome == "tls_ok" }
-
-private fun List<ProbeResult>.hasDomainReachabilityFailure(): Boolean =
-    any { result -> result.probeType == "domain_reachability" && result.outcome != "tls_ok" }
 
 private fun String.isKnownGeoDnsDomain(): Boolean {
     val authority = normalizedProbeAuthority()
@@ -91,13 +79,4 @@ private val geoDnsDomains =
         "googlevideo.com",
         "gstatic.com",
         "cloudflare.com",
-    )
-
-private val tcpStressProbeOutcomes =
-    setOf(
-        "tcp_16kb_blocked",
-        "tcp_reset",
-        "tcp_timeout",
-        "tcp_freeze_after_threshold",
-        "tls_handshake_failed",
     )

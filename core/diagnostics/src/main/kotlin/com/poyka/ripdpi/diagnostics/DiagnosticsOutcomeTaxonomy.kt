@@ -65,16 +65,6 @@ object DiagnosticsOutcomeTaxonomy {
                 )
             }
 
-            result.isContextualTcpStressProbeSensitivity(reportResults) -> {
-                base.copy(
-                    bucket = DiagnosticsOutcomeBucket.Healthy,
-                    uiTone = DiagnosticsOutcomeTone.Positive,
-                    eventLevel = "info",
-                    healthyEnoughForSummary = true,
-                    attentionKind = null,
-                )
-            }
-
             result.isTlsOkWithHttpFetchArtifact() -> {
                 base.copy(attentionKind = DiagnosticsAttentionKind.ProbeArtifact)
             }

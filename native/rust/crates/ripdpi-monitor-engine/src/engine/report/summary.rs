@@ -119,11 +119,11 @@ pub(in crate::engine) fn connectivity_analytics_summary(
     path_mode: &crate::types::ScanPathMode,
 ) -> String {
     let mut buckets = BucketCounts::default();
+    let mut has_connectivity_success = false;
     let mut dns_compatible_divergence = 0usize;
     let mut dns_contextual_downgraded = 0usize;
     let mut dns_suspicious = 0usize;
     let mut tcp_attention = 0usize;
-    let mut tcp_contextual_downgraded = 0usize;
     let mut tcp_resets = 0usize;
     let mut tcp_transfer_cutoff = 0usize;
     let mut domain_tls_ok = 0usize;
@@ -133,6 +133,7 @@ pub(in crate::engine) fn connectivity_analytics_summary(
     for result in results {
         let bucket = effective_probe_bucket(result, results, path_mode);
         buckets.add_bucket(bucket);
+        has_connectivity_success |= bucket == ProbeOutcomeBucket::Healthy && result.probe_type != "network_environment";
         match result.probe_type.as_str() {
             "dns_integrity" => match result.outcome.as_str() {
                 "dns_compatible_divergence" => {
@@ -149,13 +150,8 @@ pub(in crate::engine) fn connectivity_analytics_summary(
                 _ => {}
             },
             "tcp_fat_header" => {
-                if !matches!(result.outcome.as_str(), "tcp_fat_header_ok" | "fat_ok" | "tcp_ok" | "whitelist_sni_ok") {
+                if bucket == ProbeOutcomeBucket::Attention {
                     tcp_attention += 1;
-                    let tcp_stress_downgraded = is_tcp_stress_probe_sensitivity_outcome(&result.outcome)
-                        && bucket == ProbeOutcomeBucket::Healthy;
-                    if tcp_stress_downgraded {
-                        tcp_contextual_downgraded += 1;
-                    }
                 }
                 if result.outcome == "tcp_reset" {
                     tcp_resets += 1;
@@ -182,8 +178,20 @@ pub(in crate::engine) fn connectivity_analytics_summary(
         }
     }
 
+    let verdict = if buckets.failed > 0 {
+        "network_failures_detected"
+    } else if buckets.attention > 0 {
+        "attention_required"
+    } else if !has_connectivity_success {
+        "connectivity_inconclusive"
+    } else if dns_contextual_downgraded > 0 {
+        "healthy_connectivity_with_cdn_dns_variance"
+    } else {
+        "healthy_connectivity"
+    };
+
     format!(
-        "Diagnostics analytics total={} healthy={} attention={} failed={} inconclusive={} dns_compatible_divergence={} dns_contextual_downgraded={} dns_suspicious={} tcp_attention={} tcp_contextual_downgraded={} tcp_resets={} tcp_transfer_cutoff={} domain_tls_ok={} domain_http_ok_or_redirect={} domain_http_unreachable={} network_verdict={}",
+        "Diagnostics analytics total={} healthy={} attention={} failed={} inconclusive={} dns_compatible_divergence={} dns_contextual_downgraded={} dns_suspicious={} tcp_attention={} tcp_resets={} tcp_transfer_cutoff={} domain_tls_ok={} domain_http_ok_or_redirect={} domain_http_unreachable={} network_verdict={verdict}",
         results.len(),
         buckets.healthy,
         buckets.attention,
@@ -193,13 +201,11 @@ pub(in crate::engine) fn connectivity_analytics_summary(
         dns_contextual_downgraded,
         dns_suspicious,
         tcp_attention,
-        tcp_contextual_downgraded,
         tcp_resets,
         tcp_transfer_cutoff,
         domain_tls_ok,
         domain_http_ok_or_redirect,
         domain_http_unreachable,
-        network_verdict(results, path_mode),
     )
 }
 
@@ -227,32 +233,10 @@ fn effective_probe_bucket(
     results: &[ProbeResult],
     path_mode: &crate::types::ScanPathMode,
 ) -> ProbeOutcomeBucket {
-    let base = classify_probe_outcome(&result.probe_type, path_mode, &result.outcome).bucket;
-    let contextual_healthy =
-        is_contextual_cdn_dns_variance(result, results) || is_contextual_tcp_stress_probe_sensitivity(result, results);
-    if contextual_healthy { ProbeOutcomeBucket::Healthy } else { base }
-}
-
-fn network_verdict(results: &[ProbeResult], path_mode: &crate::types::ScanPathMode) -> &'static str {
-    let has_failed =
-        results.iter().any(|result| effective_probe_bucket(result, results, path_mode) == ProbeOutcomeBucket::Failed);
-    if has_failed {
-        return "network_failures_detected";
-    }
-    let has_contextual_dns = results.iter().any(|result| is_contextual_cdn_dns_variance(result, results));
-    let has_tcp_stress = results.iter().any(|result| {
-        result.probe_type == "tcp_fat_header" && is_tcp_stress_probe_sensitivity_outcome(&result.outcome)
-    });
-    let has_other_attention = results.iter().any(|result| {
-        result.probe_type != "tcp_fat_header"
-            && effective_probe_bucket(result, results, path_mode) == ProbeOutcomeBucket::Attention
-    });
-    match (has_other_attention, has_contextual_dns, has_tcp_stress) {
-        (false, true, true) => "healthy_connectivity_with_cdn_dns_variance_and_tcp_stress_probe_sensitivity",
-        (false, false, true) => "healthy_connectivity_with_tcp_stress_probe_sensitivity",
-        (false, true, _) => "healthy_connectivity_with_cdn_dns_variance",
-        (false, false, _) => "healthy_connectivity",
-        _ => "attention_required",
+    if is_contextual_cdn_dns_variance(result, results) {
+        ProbeOutcomeBucket::Healthy
+    } else {
+        classify_probe_outcome(&result.probe_type, path_mode, &result.outcome).bucket
     }
 }
 
@@ -262,20 +246,6 @@ fn is_contextual_cdn_dns_variance(result: &ProbeResult, results: &[ProbeResult])
         && is_known_geodns_domain(&result.target)
         && has_weak_dns_divergence_evidence(result)
         && has_healthy_domain_reachability(&result.target, results)
-}
-
-fn is_contextual_tcp_stress_probe_sensitivity(result: &ProbeResult, results: &[ProbeResult]) -> bool {
-    result.probe_type == "tcp_fat_header"
-        && is_tcp_stress_probe_sensitivity_outcome(&result.outcome)
-        && has_healthy_domain_reachability_any(results)
-        && !has_domain_reachability_failure(results)
-}
-
-fn is_tcp_stress_probe_sensitivity_outcome(outcome: &str) -> bool {
-    matches!(
-        outcome,
-        "tcp_16kb_blocked" | "tcp_reset" | "tcp_timeout" | "tcp_freeze_after_threshold" | "tls_handshake_failed"
-    )
 }
 
 fn has_weak_dns_divergence_evidence(result: &ProbeResult) -> bool {
@@ -314,14 +284,6 @@ fn has_healthy_domain_reachability(dns_target: &str, results: &[ProbeResult]) ->
             && candidate.outcome == "tls_ok"
             && same_dns_site(&dns_host, &normalized_probe_authority(&candidate.target))
     })
-}
-
-fn has_healthy_domain_reachability_any(results: &[ProbeResult]) -> bool {
-    results.iter().any(|candidate| candidate.probe_type == "domain_reachability" && candidate.outcome == "tls_ok")
-}
-
-fn has_domain_reachability_failure(results: &[ProbeResult]) -> bool {
-    results.iter().any(|candidate| candidate.probe_type == "domain_reachability" && candidate.outcome != "tls_ok")
 }
 
 fn is_dns_finding(result: &ProbeResult) -> bool {
