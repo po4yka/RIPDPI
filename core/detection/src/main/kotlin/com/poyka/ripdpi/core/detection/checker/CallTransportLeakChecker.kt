@@ -314,11 +314,11 @@ private class DefaultCallTransportStunClient(
                     val transactionId = ByteArray(StunTransactionIdBytes).also(random::nextBytes)
                     val request = buildStunBindingRequest(transactionId)
                     val target = InetAddress.getByName(server.host)
-                    socket.send(DatagramPacket(request, request.size, target, server.port))
-                    val buffer = ByteArray(MaxUdpPacketBytes)
-                    val response = DatagramPacket(buffer, buffer.size)
-                    socket.receive(response)
-                    StunBindingResponseDecoder.reflexiveAddress(buffer.copyOf(response.length), transactionId)
+                    socket.connect(java.net.InetSocketAddress(target, server.port))
+                    socket.send(DatagramPacket(request, request.size))
+                    socket.receiveStunResponse(timeoutMs) { response ->
+                        StunBindingResponseDecoder.reflexiveAddress(response, transactionId)
+                    }
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -332,7 +332,6 @@ private const val StunBindingRequest = 0x0001
 private const val StunMagicCookie = 0x2112A442
 private const val StunHeaderBytes = 20
 private const val StunTransactionIdBytes = 12
-private const val MaxUdpPacketBytes = 1_500
 
 private fun buildStunBindingRequest(transactionId: ByteArray): ByteArray =
     ByteBuffer

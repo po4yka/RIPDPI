@@ -79,18 +79,17 @@ class Socks5UdpAssociateStunClient(
             val transactionId = ByteArray(StunTransactionIdBytes).also(random::nextBytes)
             val request = buildStunBindingRequest(transactionId)
             val payload = buildSocks5UdpDatagram(StunHost, StunPort, request)
-            socket.send(DatagramPacket(payload, payload.size, relay.address, relay.port))
-            val buffer = ByteArray(MaxUdpPacketBytes)
-            val response = DatagramPacket(buffer, buffer.size)
-            socket.receive(response)
-            parseSocks5UdpStunResponse(buffer.copyOf(response.length), transactionId)
+            socket.connect(relay)
+            socket.send(DatagramPacket(payload, payload.size))
+            socket.receiveStunResponse(timeoutMs) { response ->
+                parseSocks5UdpStunResponse(response, transactionId, StunHost, StunPort)
+            }
         }
 
     private companion object {
         const val StunHost = "stun.l.google.com"
         const val StunPort = 19_302
         const val DefaultTimeoutMs = 3_000
-        const val MaxUdpPacketBytes = 1_500
     }
 }
 
@@ -165,7 +164,7 @@ private fun OutputStream.writeSocks5TargetRequest(
 
 private fun InputStream.readSocks5Reply(): Boolean {
     val header = readFully(SocksHeaderBytes)
-    if (header[0].unsigned() != SocksVersion || header[1].unsigned() != SocksSuccess) {
+    if (header[0].unsigned() != SocksVersion || header[1].unsigned() != SocksSuccess || header[2].unsigned() != 0) {
         return false
     }
     skipSocks5Address(header[SocksAddressTypeIndex].unsigned())
@@ -177,14 +176,16 @@ private fun InputStream.readSocks5UdpRelay(proxyHost: String): InetSocketAddress
     val header = readFully(SocksHeaderBytes)
     check(header[0].unsigned() == SocksVersion)
     check(header[1].unsigned() == SocksSuccess)
+    check(header[2].unsigned() == 0)
     val address =
         when (header[SocksAddressTypeIndex].unsigned()) {
             SocksAddressIpv4 -> InetAddress.getByAddress(readFully(Ipv4AddressBytes)).relayHostOrNull()
             SocksAddressIpv6 -> InetAddress.getByAddress(readFully(Ipv6AddressBytes)).relayHostOrNull()
-            SocksAddressDomain -> readFully(read()).decodeToString()
+            SocksAddressDomain -> readFully(read().also { check(it > 0) }).decodeToString()
             else -> error("unsupported SOCKS5 UDP relay address type")
         } ?: proxyHost
     val port = readFully(SocksPortBytes).toUShortInt()
+    check(port != 0)
     return InetSocketAddress(address, port)
 }
 
@@ -195,7 +196,7 @@ private fun InputStream.skipSocks5Address(addressType: Int) {
     when (addressType) {
         SocksAddressIpv4 -> readFully(Ipv4AddressBytes)
         SocksAddressIpv6 -> readFully(Ipv6AddressBytes)
-        SocksAddressDomain -> readFully(read())
+        SocksAddressDomain -> readFully(read().also { check(it > 0) })
         else -> error("unsupported SOCKS5 address type")
     }
 }
@@ -235,32 +236,52 @@ private fun buildSocks5UdpDatagram(
 private fun parseSocks5UdpStunResponse(
     packet: ByteArray,
     transactionId: ByteArray,
+    targetHost: String,
+    targetPort: Int,
 ): String? {
-    val stunOffset = packet.socks5UdpPayloadOffset() ?: return null
-    if (packet.size < stunOffset) return null
+    val stunOffset = packet.socks5UdpPayloadOffset(targetHost, targetPort) ?: return null
     return StunBindingResponseDecoder.reflexiveAddress(packet.copyOfRange(stunOffset, packet.size), transactionId)
 }
 
-private fun ByteArray.socks5UdpPayloadOffset(): Int? {
-    if (size < SocksHeaderBytes || this[2].toInt() != 0) return null
-    return when (this[SocksAddressTypeIndex].unsigned()) {
-        SocksAddressIpv4 -> {
-            SocksUdpAddressStartBytes + Ipv4AddressBytes + SocksPortBytes
-        }
-
-        SocksAddressIpv6 -> {
-            SocksUdpAddressStartBytes + Ipv6AddressBytes + SocksPortBytes
-        }
-
-        SocksAddressDomain -> {
-            SocksUdpAddressStartBytes + 1 + this[SocksUdpAddressStartBytes].unsigned() +
-                SocksPortBytes
-        }
-
-        else -> {
-            null
-        }
+private fun ByteArray.socks5UdpPayloadOffset(
+    targetHost: String,
+    targetPort: Int,
+): Int? {
+    if (size < SocksHeaderBytes || this[0].unsigned() != 0 || this[1].unsigned() != 0 || this[2].unsigned() != 0) {
+        return null
     }
+    val addressStart = SocksUdpAddressStartBytes
+    val addressEnd =
+        when (this[SocksAddressTypeIndex].unsigned()) {
+            SocksAddressIpv4 -> {
+                addressStart + Ipv4AddressBytes
+            }
+
+            SocksAddressIpv6 -> {
+                addressStart + Ipv6AddressBytes
+            }
+
+            SocksAddressDomain -> {
+                if (size <= addressStart) return null
+                addressStart + 1 + this[addressStart].unsigned()
+            }
+
+            else -> {
+                return null
+            }
+        }
+    val payloadOffset = addressEnd + SocksPortBytes
+    if (size < payloadOffset) return null
+    val originMatches =
+        if (this[SocksAddressTypeIndex].unsigned() == SocksAddressDomain) {
+            copyOfRange(addressStart + 1, addressEnd).decodeToString().equals(targetHost, ignoreCase = true)
+        } else {
+            // The connected relay owns DNS for the domain target; its numeric origin must be usable.
+            val address = InetAddress.getByAddress(copyOfRange(addressStart, addressEnd))
+            !address.isAnyLocalAddress && !address.isMulticastAddress
+        }
+    if (!originMatches || copyOfRange(addressEnd, payloadOffset).toUShortInt() != targetPort) return null
+    return payloadOffset
 }
 
 private fun Int.toUShortBytes(): ByteArray =

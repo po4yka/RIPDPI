@@ -114,7 +114,8 @@ class BypassProxyProbesIpv6Test {
                 .put(transactionId)
                 .put(attributes)
                 .array()
-        val reply = byteArrayOf(0, 0, 0, 4) + ByteArray(16) + 19_302.toPortBytes() + stun
+        val reply =
+            byteArrayOf(0, 0, 0, 4) + InetAddress.getByName("2001:db8::20").address + 19_302.toPortBytes() + stun
         relay.send(DatagramPacket(reply, reply.size, request.socketAddress))
     }
 

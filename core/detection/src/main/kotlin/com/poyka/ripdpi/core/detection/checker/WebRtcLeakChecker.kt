@@ -85,11 +85,9 @@ object WebRtcLeakChecker {
                 val sendPacket = DatagramPacket(request, request.size, address, port)
                 socket.send(sendPacket)
 
-                val response = ByteArray(1500)
-                val recvPacket = DatagramPacket(response, response.size)
-                socket.receive(recvPacket)
-
-                validBindingResponse(response, recvPacket.length, request)
+                socket.receiveStunResponse(3000) { response ->
+                    true.takeIf { validBindingResponse(response, response.size, request) }
+                } == true
             }
         } catch (_: java.net.SocketTimeoutException) {
             false
