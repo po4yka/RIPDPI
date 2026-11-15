@@ -2,7 +2,7 @@
 id: DGN-1794732408586377
 title: Repair DIA-04 DNS integrity and ECH evidence
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: DNS diagnostics maintainers
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dia04-dns-integrity
 created: 2026-11-15
 updated: 2026-11-15
-status_detail: The user approved the narrow monitor-engine JSON golden update. The isolated golden specialist is updating and verifying the owning fixture before final integration.
+status_detail: All eight repairs and the approved monitor golden are committed. Final nine-package local checks passed; hosted CI acceptance remains separate.
 ---
 
 ## Goal
@@ -39,4 +39,5 @@ Repair the eight confirmed DIA-04 findings without adding a resolver protocol or
 - Serialized handoff: ech-dns encrypted.rs and lib.rs belong to the oracle writer through F7; only after explicit release and adoption of that committed source may the CDN writer edit the hooks-aware export for F4.
 - Primary writer: F2 and F6. Owns diagnostics-contracts DNS overlap helper and tests, diagnostics-dns compression analysis and tests, monitor-engine golden scrub tests, task and specification artifacts, combined checks and main integration.
 - Each writer uses a separate worktree. Review agents are read-only. Only the primary writer updates task state and integrates commits.
-- Cargo.lock, dependency versions, schemas, locale sets, golden fixtures and baseline files have no writer: changes to these files are not planned.
+- Approved golden handoff: the golden-blesser owns native/rust/crates/ripdpi-monitor-engine/tests/golden/ in an isolated worktree. The user explicitly approved the narrow owning test. Only final_report.json changed; the parent reviewed the full diff.
+- Cargo.lock, dependency versions, schemas, locale sets and baseline files have no writer: changes to these files are not planned.

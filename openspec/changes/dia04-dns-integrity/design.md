@@ -16,7 +16,7 @@ Task DGN-1794732408586377 repairs eight confirmed DIA-04 audit findings. Preserv
 
 ## Ownership and contracts
 
-The portfolio record defines writers and the serialized encrypted.rs/lib.rs handoff. The primary writer alone owns task and OpenSpec files. No Kotlin DTO, JNI, protobuf, dependency, locale, baseline or golden migration is planned. ProbeDetail additions remain compatible optional facts. Public Rust API snapshots are regenerated only if an intentional API change requires it.
+The portfolio record defines writers and the serialized encrypted.rs/lib.rs handoff. The primary writer alone owns task and OpenSpec files. No Kotlin DTO, JNI, protobuf, dependency, locale or baseline migration is planned. The user approved the monitor-engine JSON golden family update through its narrow owning test; only final_report.json changed. ProbeDetail additions remain compatible optional facts. Public Rust API snapshots are regenerated only if an intentional API change requires it.
 
 ## Validation
 

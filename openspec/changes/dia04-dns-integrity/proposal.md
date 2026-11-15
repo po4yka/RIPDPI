@@ -26,4 +26,4 @@ The DIA-04 audit found false resolver agreement, hidden sinkhole addresses, lost
 ## Impact
 
 - Rust diagnostics contracts, runner, DNS, TLS, ECH DNS and existing platform socket connectors.
-- No backend, protocol expansion, user secret, golden fixture or dependency change.
+- No backend, protocol expansion, user secret or dependency change. The user approved the narrow monitor-engine report golden update for incoming TLS observation evidence.
