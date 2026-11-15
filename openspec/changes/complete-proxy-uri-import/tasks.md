@@ -23,3 +23,4 @@ Owning runtime-state/core-data/app/service/engine Kotlin tests, locked Mieru/rel
 - [x] OUT-1794723329887849 Add typed TUIC URI persistence activation and lossless export #feature !high @item:OUT-1794722656313653
 - [ ] OUT-1794723333000951 Apply pinned advanced Mieru TCP settings with oracle and loopback tests #feature !high @item:OUT-1794722656313653
 - [ ] OUT-1794723336494326 Review combined changes run gates integrate main and push #chore !high @item:OUT-1794722656313653
+- [ ] OUT-1794749897872895 Remove inherited diagnostics lint blockers without behavior changes #chore !high @item:OUT-1794722656313653
