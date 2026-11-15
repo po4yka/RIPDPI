@@ -28,6 +28,31 @@ import org.robolectric.annotation.LooperMode
 @LooperMode(LooperMode.Mode.PAUSED)
 class DiagnosticsLocalNetworkPreflightTest {
     @Test
+    fun `invalid QUIC Initial targets reach native input validation without permission deferrals`() =
+        runTest {
+            val context = ApplicationProvider.getApplicationContext<Application>()
+            shadowOf(context).denyPermissions(LocalNetworkPermission)
+            val targets =
+                listOf(
+                    QuicTarget(host = "192.168.50.2", port = 0),
+                    QuicTarget(host = "bad label.example", connectIp = "192.168.50.3"),
+                )
+            val request =
+                EngineScanRequestWire(
+                    profileId = "invalid-quic",
+                    displayName = "Invalid QUIC",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    quicTargets = targets,
+                    probeTasks = targets.map { EngineProbeTaskWire(EngineProbeTaskFamily.QUIC, it.host, it.host) },
+                )
+
+            val admission = AndroidLocalNetworkAccess(context).prepareScanEndpoints(request)
+
+            assertEquals(request, admission.request)
+            assertEquals(emptyList<ProbeResult>(), admission.deferred)
+        }
+
+    @Test
     fun `raw probe families defer local endpoints without removing same-id public TCP task`() =
         runTest {
             val context = ApplicationProvider.getApplicationContext<Application>()

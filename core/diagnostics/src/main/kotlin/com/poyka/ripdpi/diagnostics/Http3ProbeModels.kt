@@ -69,19 +69,18 @@ data class Http3ProbeEvidence(
     val pathScope: Http3PathScope = Http3PathScope.RAW_PATH,
 )
 
-internal fun isHttp3Host(host: String): Boolean =
-    isIpProbeV4(host) || isIpProbeV6(host) ||
-        (
-            host.length in 1..Http3MaxHostLength &&
-                host.split('.').all { label ->
-                    label.length in 1..Http3MaxLabelLength && label.first() != '-' && label.last() != '-' &&
-                        label.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' }
-                }
-        )
+internal fun isHttp3Host(host: String): Boolean = isIpProbeV4(host) || isIpProbeV6(host) || isAsciiDnsHost(host)
+
+internal fun isAsciiDnsHost(host: String): Boolean =
+    host.length in 1..DnsHostMaxLength &&
+        host.split('.').all { label ->
+            label.length in 1..DnsLabelMaxLength && label.first() != '-' && label.last() != '-' &&
+                label.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '-' }
+        }
 
 private const val Http3MinTimeoutMs = 250L
 private const val Http3MaxTimeoutMs = 15_000L
 internal const val Http3MaxResponseBytes = 262_144L
 private const val Http3MaxPathLength = 1_024
-private const val Http3MaxHostLength = 253
-private const val Http3MaxLabelLength = 63
+private const val DnsHostMaxLength = 253
+private const val DnsLabelMaxLength = 63

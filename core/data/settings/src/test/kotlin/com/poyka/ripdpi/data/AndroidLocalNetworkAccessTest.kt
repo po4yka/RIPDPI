@@ -91,13 +91,13 @@ class AndroidLocalNetworkAccessTest {
             )
             val resolver = Shadow.extract<UnresolvedHostnameNetworkShadow>(network)
 
-            val failure =
-                runCatching {
-                    AndroidLocalNetworkAccess(context).requireDirectEndpoint("unresolved.example", 443)
-                }.exceptionOrNull()
-
-            assertEquals(listOf("unresolved.example"), resolver.lookups)
-            assertNull(failure)
+            val hosts = listOf("unresolved.example", "unresolved.example.")
+            val access = AndroidLocalNetworkAccess(context)
+            hosts.forEach { host ->
+                val failure = runCatching { access.requireDirectEndpoint(host, 443) }.exceptionOrNull()
+                assertNull(failure)
+            }
+            assertEquals(hosts, resolver.lookups)
         }
 
     @Test

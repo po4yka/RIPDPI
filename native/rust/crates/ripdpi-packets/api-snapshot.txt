@@ -219,6 +219,7 @@ pub fn ripdpi_packets::build_probe_quic_initial(u32, core::option::Option<&str>)
 pub fn ripdpi_packets::build_profiled_probe_quic_initial(u32, core::option::Option<&str>, ripdpi_packets::QuicProbeProfile) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_quic_initial_from_tls(u32, &[u8], usize) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn ripdpi_packets::build_realistic_quic_initial(u32, core::option::Option<&str>) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn ripdpi_packets::canonical_quic_probe_host(&str) -> core::option::Option<&str>
 pub fn ripdpi_packets::change_tls_sni_seeded_like_c(&[u8], &[u8], usize, u32) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::classify_quic_initial_response_context(&ripdpi_packets::QuicInitialResponseContext, &[u8]) -> ripdpi_packets::QuicInitialResponseDisposition
 pub fn ripdpi_packets::default_fake_quic_compat() -> alloc::vec::Vec<u8>

@@ -71,6 +71,48 @@ class DiagnosticsScanRequestFactoryTest {
     }
 
     @Test
+    fun `connectivity planner canonicalizes QUIC SNI and matches the task id`() {
+        val settings = defaultDiagnosticsAppSettings()
+        val intent =
+            strategyProbeIntent(settings, null)
+                .copy(
+                    kind = ScanKind.CONNECTIVITY,
+                    strategyProbe = null,
+                    quicTargets =
+                        listOf(
+                            QuicTarget(host = "Bücher.Example.", connectIp = "192.0.2.1"),
+                            QuicTarget(host = "faß.example", port = IpProbeMaxPort),
+                            QuicTarget(host = "192.0.2.33"),
+                            QuicTarget(host = "2001:DB8::1"),
+                            QuicTarget(host = "bad label.example", port = 0),
+                            QuicTarget(host = "foo%7A.example", port = -1),
+                            QuicTarget(host = "overflow.example", port = IpProbeMaxPort + 1),
+                        ),
+                )
+        val context = strategyProbeContext(settings, null)
+        val request = DefaultEngineRequestEncoder().encode(DefaultDiagnosticsPlanner().plan(intent, context))
+
+        val expectedHosts =
+            listOf(
+                "xn--bcher-kva.example.",
+                "xn--fa-hia.example",
+                "192.0.2.33",
+                "2001:DB8::1",
+                "bad label.example",
+                "foo%7A.example",
+                "overflow.example",
+            )
+        assertEquals(expectedHosts, request.quicTargets.map(QuicTarget::host))
+        val quicTaskHosts = request.probeTasks.filter { it.family == EngineProbeTaskFamily.QUIC }.map { it.targetId }
+        assertEquals(expectedHosts, quicTaskHosts)
+        assertEquals("192.0.2.1", request.quicTargets.first().connectIp)
+        assertEquals(
+            listOf(443, IpProbeMaxPort, 443, 443, 0, 0, 0),
+            request.quicTargets.map(QuicTarget::port),
+        )
+    }
+
+    @Test
     fun `strategy probe injects canonical default runtime context when active dns is plain and no preference exists`() =
         runTest {
             val settings =

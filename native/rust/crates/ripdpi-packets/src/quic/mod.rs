@@ -15,7 +15,9 @@ pub use fake_initial::{
     packetize_quic_initial, parse_quic_initial_seed,
 };
 pub use parse::{is_quic_initial, parse_quic_initial, parse_quic_initial_layout};
-pub use probe::{QuicProbeProfile, build_probe_quic_initial, build_profiled_probe_quic_initial};
+pub use probe::{
+    QuicProbeProfile, build_probe_quic_initial, build_profiled_probe_quic_initial, canonical_quic_probe_host,
+};
 pub use response::{
     QuicInitialResponseContext, QuicInitialResponseDisposition, QuicProbeResponseKind, QuicResponseKind,
     classify_quic_initial_response_context, parse_quic_initial_response_context, validate_quic_probe_response,

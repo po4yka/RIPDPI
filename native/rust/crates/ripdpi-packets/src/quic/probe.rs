@@ -48,12 +48,34 @@ pub fn build_profiled_probe_quic_initial(
     packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
 }
 
+/// Return the canonical ASCII endpoint name for a QUIC probe, or reject an invalid name.
+/// IP literals are retained here and omitted from the ClientHello SNI.
+pub fn canonical_quic_probe_host(host: &str) -> Option<&str> {
+    if host.parse::<IpAddr>().is_ok() {
+        return Some(host);
+    }
+    let name = host.strip_suffix('.').unwrap_or(host);
+    let valid = name.len() <= 253
+        && name.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+        });
+    valid.then_some(name)
+}
+
 pub(super) fn probe_client_hello(
     template: &[u8],
     host: Option<&str>,
     scid: &[u8],
     random: &SystemRandom,
 ) -> Option<Vec<u8>> {
+    let host = match host {
+        Some(host) => Some(canonical_quic_probe_host(host)?),
+        None => None,
+    };
     let mut template = template.to_vec();
     template.resize(template.len().max(read_u16(&template, 3)?.checked_add(5)?), 0);
     let parsed = crate::tls_nom::parse_client_hello_record(&template)?;
@@ -105,9 +127,6 @@ pub(super) fn probe_client_hello(
 }
 
 fn server_name(host: &str) -> Option<Vec<u8>> {
-    if host.is_empty() {
-        return None;
-    }
     let mut name = vec![0];
     append_u16_vector(&mut name, host.as_bytes())?;
     let mut list = Vec::new();

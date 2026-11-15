@@ -53,9 +53,9 @@ class AndroidLocalNetworkAccess
             port: Int,
         ): Boolean {
             if (host.isBlank()) return false
-            val normalized = host.removeSurrounding("[", "]").trimEnd('.')
+            val normalized = host.removeSurrounding("[", "]")
             val required =
-                normalized.endsWith(".local", ignoreCase = true) ||
+                normalized.trimEnd('.').endsWith(".local", ignoreCase = true) ||
                     run {
                         val manager = context.getSystemService(ConnectivityManager::class.java)
                         val network = manager?.selectLocalNetworkUnderlay()

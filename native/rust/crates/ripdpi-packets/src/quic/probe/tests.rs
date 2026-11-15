@@ -103,3 +103,16 @@ fn probe_client_hello_uses_unpredictable_random_and_valid_key_shares() {
     }
     assert_eq!(checked, [0x001d, 0x0017]);
 }
+
+#[test]
+fn active_probe_uses_canonical_ascii_sni_and_rejects_invalid_names() {
+    let packet = build_probe_quic_initial(QUIC_V1_VERSION, Some("xn--e1afmkfd.xn--p1ai.")).expect("A-label probe");
+    assert_eq!(crate::quic::parse_quic_initial(&packet).expect("parsed probe").host(), b"xn--e1afmkfd.xn--p1ai");
+
+    let long_label = format!("{}.test", "x".repeat(64));
+    for host in
+        ["", ".", " example.test", "example.test ", "example..test", "-abc.test", "abc-.test", "пример.рф", &long_label]
+    {
+        assert!(build_probe_quic_initial(QUIC_V1_VERSION, Some(host)).is_none(), "accepted {host:?}");
+    }
+}

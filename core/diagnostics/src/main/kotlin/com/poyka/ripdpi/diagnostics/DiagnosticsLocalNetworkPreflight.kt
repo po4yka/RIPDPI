@@ -66,7 +66,12 @@ private class LocalNetworkScanFilter(
                 },
             quicTargets =
                 allowed(request.quicTargets, EngineProbeTaskFamily.QUIC, "quic_reachability", { it.host }) {
-                    requireHosts(it.connectIps, it.connectIp, it.host, it.port)
+                    // Native input validation reports malformed Initial targets without opening a socket.
+                    val validInitialTarget =
+                        it.port in 1..IpProbeMaxPort && it.host.canonicalQuicProbeHostOrNull() != null
+                    if (request.kind != ScanKind.CONNECTIVITY || validInitialTarget) {
+                        requireHosts(it.connectIps, it.connectIp, it.host, it.port)
+                    }
                 },
             dnsTargets =
                 allowed(request.dnsTargets, EngineProbeTaskFamily.DNS, "dns_integrity", { it.domain }) {

@@ -5,6 +5,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.PreferredEdgeTransportQuic
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.PreferredEdgeTransportThroughput
@@ -27,6 +28,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -208,10 +210,20 @@ internal class DefaultDiagnosticsPlanner
                 }
             val quicTargets =
                 intent.quicTargets.map { target ->
-                    target.withPreferredEdges(
-                        context.preferredEdges[target.host.lowercase()].orEmpty(),
-                        PreferredEdgeTransportQuic,
-                    )
+                    val planned =
+                        if (intent.kind == ScanKind.CONNECTIVITY) {
+                            target.copy(
+                                host = target.host.canonicalQuicProbeHostOrNull() ?: target.host,
+                                // A port outside the wire's u16 range would reject the whole request.
+                                port = target.port.takeIf { it in 1..IpProbeMaxPort } ?: 0,
+                            )
+                        } else {
+                            target
+                        }
+                    val edges =
+                        context.preferredEdges[planned.host.lowercase()]
+                            ?: context.preferredEdges[target.host.lowercase()]
+                    planned.withPreferredEdges(edges.orEmpty(), PreferredEdgeTransportQuic)
                 }
             val throughputTargets =
                 intent.throughputTargets.map { target ->
@@ -327,6 +339,23 @@ private fun DomainTarget.withPreferredEdges(
 ): DomainTarget {
     val ordered = edges.filter { it.transportKind == transportKind }.map { it.ip }
     return copy(connectIps = ordered, connectIp = ordered.firstOrNull() ?: connectIp)
+}
+
+internal fun String.canonicalQuicProbeHostOrNull(): String? {
+    if (NumericIp.parseAddress(this) != null) return this
+    if ('%' in this || any(Char::isWhitespace)) return null
+    return try {
+        HttpUrl
+            .Builder()
+            .scheme("https")
+            .host(this)
+            .build()
+            .host
+            // Keep an explicit root label for the lookup. Native removes it for SNI.
+            .takeIf { isAsciiDnsHost(it.removeSuffix(".")) }
+    } catch (_: IllegalArgumentException) {
+        null
+    }
 }
 
 private fun QuicTarget.withPreferredEdges(
