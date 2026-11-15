@@ -38,6 +38,7 @@ mod tests {
         TlsObservation {
             status: status.to_string(),
             version: None,
+            negotiated_alpn: None,
             error: None,
             failure_stage: None,
             failure_duration_ms: None,

@@ -22,6 +22,7 @@ struct SuccessObservationParts {
 pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsClientProfile) -> TlsObservation {
     let transport_open_ms = Some(result.transport_open_ms);
     let tls_handshake_ms = Some(result.tls_handshake_ms);
+    let negotiated_alpn = result.negotiated_alpn;
     let cert_chain_length = result.cert_chain_length;
     let cert_issuer = result.cert_issuer;
     let local_socket_ttl = result.local_socket_ttl;
@@ -44,6 +45,7 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
     TlsObservation {
         status: mapped.status,
         version: mapped.version,
+        negotiated_alpn,
         error: mapped.error,
         failure_stage: None,
         failure_duration_ms: None,
@@ -121,6 +123,7 @@ pub(crate) fn from_probe_error(mut err: ProbeStreamError) -> TlsObservation {
     TlsObservation {
         status: status.to_string(),
         version: None,
+        negotiated_alpn: None,
         error: Some(err.message),
         failure_stage,
         failure_duration_ms: (!interrupted).then_some(failure_duration_ms),

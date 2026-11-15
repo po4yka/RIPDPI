@@ -34,6 +34,7 @@ pub fn append_tls_attempt_details(
         ("CertChainLength", attempt.cert_chain_length.map(|length| length.to_string())),
         ("CertificateVerification", Some(attempt.certificate_verification.as_str().to_string())),
         ("CertIssuer", attempt.cert_issuer.clone()),
+        ("NegotiatedAlpn", attempt.negotiated_alpn.clone()),
         ("LocalSocketTtl", attempt.local_socket_ttl.map(|ttl| ttl.to_string())),
         ("LocalSocketTtlLeg", attempt.local_socket_ttl.map(|_| socket_leg.to_string())),
         ("Ja3Fingerprint", attempt.ja3_fingerprint.clone()),

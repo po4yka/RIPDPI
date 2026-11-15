@@ -260,6 +260,7 @@ mod tests {
         TlsObservation {
             status: "tls_handshake_failed".into(),
             version: None,
+            negotiated_alpn: None,
             error: Some("connection timed out".into()),
             failure_stage: Some(ProbeStreamFailureStage::TcpConnect),
             failure_duration_ms: Some(100),
@@ -298,6 +299,7 @@ mod tests {
         let success = TlsObservation {
             status: "tls_ok".into(),
             version: Some("TLS1.3".into()),
+            negotiated_alpn: Some("http/1.1".into()),
             error: None,
             failure_stage: None,
             failure_duration_ms: None,
@@ -341,6 +343,8 @@ mod tests {
         assert_eq!(detail("tls13Status"), "tls_handshake_failed");
         assert_eq!(detail("tls13Error"), "connection timed out");
         assert_eq!(detail("tlsRetryStatus"), "tls_ok");
+        assert_eq!(detail("tlsRetryNegotiatedAlpn"), "http/1.1");
+        assert!(!result.details.iter().any(|detail| detail.key == "tls13NegotiatedAlpn"));
         assert_eq!(detail("retryOnlySuccess"), "true");
         assert_eq!(detail("tls12Error"), "connection timed out");
         assert_eq!(detail("connectedIp"), "127.0.0.2");
@@ -400,6 +404,7 @@ mod tests {
         let tls13 = TlsObservation {
             status: "tls_ok".into(),
             version: Some("TLS1.3".into()),
+            negotiated_alpn: None,
             error: None,
             failure_stage: None,
             failure_duration_ms: None,

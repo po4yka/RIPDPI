@@ -412,6 +412,7 @@ fn tls_signal_reports_version_split_low_confidence() {
     let tls13 = TlsObservation {
         status: "tls_handshake_failed".to_string(),
         version: None,
+        negotiated_alpn: None,
         error: Some("blocked".to_string()),
         failure_stage: None,
         failure_duration_ms: None,
@@ -445,6 +446,7 @@ fn tls_signal_reports_version_split_low_confidence() {
     let tls12 = TlsObservation {
         status: "tls_ok".to_string(),
         version: Some("TLS1.2".to_string()),
+        negotiated_alpn: None,
         error: None,
         failure_stage: None,
         failure_duration_ms: None,

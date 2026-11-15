@@ -9,6 +9,7 @@ use crate::transport::{ConnectionStream, RouteExperimentReport, TransportFailure
 pub struct TlsObservation {
     pub status: String,
     pub version: Option<String>,
+    pub negotiated_alpn: Option<String>,
     pub error: Option<String>,
     pub failure_stage: Option<ProbeStreamFailureStage>,
     pub failure_duration_ms: Option<u64>,

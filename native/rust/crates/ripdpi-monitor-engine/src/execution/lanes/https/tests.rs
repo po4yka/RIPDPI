@@ -41,6 +41,7 @@ fn https_probe_report_keeps_each_peer_with_its_own_measurements() {
     tls12.connected_addr = Some("192.0.2.2:443".parse().unwrap());
     tls12.transport_open_ms = Some(13);
     tls12.tls_handshake_ms = Some(17);
+    tls12.negotiated_alpn = Some("h2".into());
     tls12.ja3_fingerprint = Some("de4795e56a15bf5fbccf14d36b3380f5".into());
     tls12.local_socket_ttl = Some(64);
     let mut tls_ech = tls_observation("tls_ok", None);
@@ -61,6 +62,8 @@ fn https_probe_report_keeps_each_peer_with_its_own_measurements() {
     assert_eq!(detail_value(&details, "tls12PeerRole"), "socks_requested_destination");
     assert_eq!(detail_value(&details, "tls12TransportOpenMs"), "13");
     assert_eq!(detail_value(&details, "tls12HandshakeMs"), "17");
+    assert_eq!(detail_value(&details, "tls12NegotiatedAlpn"), "h2");
+    assert!(!details.iter().any(|detail| detail.key == "tls13NegotiatedAlpn"));
     assert_eq!(detail_value(&details, "tls12Ja3Fingerprint"), "de4795e56a15bf5fbccf14d36b3380f5");
     assert_eq!(detail_value(&details, "tls12LocalSocketTtl"), "64");
     assert_eq!(detail_value(&details, "tls12LocalSocketTtlLeg"), "client_to_proxy");
@@ -122,6 +125,7 @@ fn tls_observation(status: &str, error: Option<&str>) -> TlsObservation {
     TlsObservation {
         status: status.to_string(),
         version: None,
+        negotiated_alpn: None,
         error: error.map(str::to_string),
         failure_stage: None,
         failure_duration_ms: None,

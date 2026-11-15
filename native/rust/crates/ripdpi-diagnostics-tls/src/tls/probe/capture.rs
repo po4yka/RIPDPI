@@ -334,10 +334,10 @@ mod tests {
 
     #[test]
     fn successful_handshakes_keep_the_first_client_hello_plan() {
-        for (profile, version) in [
-            (TlsClientProfile::Auto, rustls::ProtocolVersion::TLSv1_3),
-            (TlsClientProfile::Tls12Only, rustls::ProtocolVersion::TLSv1_2),
-            (TlsClientProfile::Tls13Only, rustls::ProtocolVersion::TLSv1_3),
+        for (profile, version, alpn) in [
+            (TlsClientProfile::Auto, rustls::ProtocolVersion::TLSv1_3, Some("h2")),
+            (TlsClientProfile::Tls12Only, rustls::ProtocolVersion::TLSv1_2, Some("http/1.1")),
+            (TlsClientProfile::Tls13Only, rustls::ProtocolVersion::TLSv1_3, None),
         ] {
             let certificate = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
             let provider = Arc::new(rustls::crypto::ring::default_provider());
@@ -347,7 +347,7 @@ mod tests {
                 rustls::client::WebPkiServerVerifier::builder_with_provider(Arc::new(roots), provider.clone())
                     .build()
                     .unwrap();
-            let server_config = ServerConfig::builder_with_provider(provider)
+            let mut server_config = ServerConfig::builder_with_provider(provider)
                 .with_safe_default_protocol_versions()
                 .unwrap()
                 .with_no_client_auth()
@@ -356,6 +356,7 @@ mod tests {
                     rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()).into(),
                 )
                 .unwrap();
+            server_config.alpn_protocols = alpn.map(|value| value.as_bytes().to_vec()).into_iter().collect();
             let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
             let port = listener.local_addr().unwrap().port();
             let server = std::thread::spawn(move || {
@@ -368,7 +369,7 @@ mod tests {
                 }
             });
 
-            let mut result = open_probe_stream(
+            let result = open_probe_stream(
                 &TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)),
                 port,
                 &direct_transport(),
@@ -383,8 +384,9 @@ mod tests {
             assert_eq!(stream.conn.protocol_version(), Some(version), "{profile:?}");
             assert!(result.ja3_fingerprint.is_some(), "{profile:?}");
             server.join().unwrap();
-            result.stream.shutdown();
             assert!(result.tls_template_first_flight_plan.is_some(), "{profile:?}: first-flight plan missing");
+            let observation = crate::tls::probe::observation::from_probe_stream_result(result, profile);
+            assert_eq!(observation.negotiated_alpn.as_deref(), alpn);
         }
     }
 
