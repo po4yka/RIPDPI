@@ -40,6 +40,33 @@ class DpiSuiteVerdictAggregatorTest {
     }
 
     @Test
+    fun doqDisagreementAndMissingChecksKeepDnsSummaryInconclusive() {
+        val dns = dnsIntegrity(DnsIntegrityVerdict.DNS_OK).result
+        val agreed = DoqProbeResult("Resolver", "127.0.0.1", "example.test", DoqVerdict.DOQ_OK, emptyList(), 1)
+        val divergent = agreed.copy(verdict = DoqVerdict.DOQ_INTEGRITY_DIVERGENT)
+        val timeout = agreed.copy(verdict = DoqVerdict.DOQ_TIMEOUT)
+        val cases =
+            listOf(
+                listOf(divergent, agreed) to "2/2 observed, 1 flagged",
+                listOf(timeout, agreed) to "2/2 observed, 1 flagged",
+                listOf(agreed) to "1/2 observed, 0 flagged",
+                emptyList<DoqProbeResult>() to "0/2 observed, 0 flagged",
+            )
+        cases.forEach { (observed, expectedLine) ->
+            val result = DpiSuiteProbeResult.DnsIntegrity(dns.copy(doqResults = observed, doqExpectedChecks = 2))
+            val aggregate = DpiSuiteVerdictAggregator.aggregate(listOf(result))
+            assertEquals(SuiteVerdict.INCONCLUSIVE, aggregate.verdict)
+            assertEquals("DNS comparison: 0/1 flagged · DoQ: $expectedLine", aggregate.summaryLines.single())
+        }
+        val complete = DpiSuiteProbeResult.DnsIntegrity(dns.copy(doqResults = listOf(agreed), doqExpectedChecks = 1))
+        assertEquals(SuiteVerdict.CLEAN, DpiSuiteVerdictAggregator.aggregate(listOf(complete)).verdict)
+        assertEquals(
+            "DNS comparison: 0/1 flagged · DoQ: skipped",
+            DpiSuiteVerdictAggregator.aggregate(listOf(DpiSuiteProbeResult.DnsIntegrity(dns))).summaryLines.single(),
+        )
+    }
+
+    @Test
     fun interruptedTcp16TrainDoesNotEstablishDpi() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(

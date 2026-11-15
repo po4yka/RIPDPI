@@ -32,7 +32,8 @@ object DpiSuiteVerdictAggregator {
     private fun isClean(result: DpiSuiteProbeResult): Boolean =
         when (result) {
             is DpiSuiteProbeResult.DnsIntegrity -> {
-                result.result.domains.allMeasured { it.verdict == DnsIntegrityVerdict.DNS_OK }
+                result.result.domains.allMeasured { it.verdict == DnsIntegrityVerdict.DNS_OK } &&
+                    !result.result.doqIncomplete
             }
 
             is DpiSuiteProbeResult.DnsAvailability -> {
@@ -99,7 +100,12 @@ object DpiSuiteVerdictAggregator {
         when (result) {
             is DpiSuiteProbeResult.DnsIntegrity -> {
                 val flagged = result.result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK }
-                "DNS comparison: $flagged/${result.result.domains.size} flagged"
+                val doq = result.result
+                val doqSummary =
+                    doq.doqExpectedChecks?.let { expected ->
+                        "${doq.doqResults.size}/$expected observed, ${doq.doqFlagged} flagged"
+                    } ?: "skipped"
+                "DNS comparison: $flagged/${doq.domains.size} flagged · DoQ: $doqSummary"
             }
 
             is DpiSuiteProbeResult.DnsAvailability -> {

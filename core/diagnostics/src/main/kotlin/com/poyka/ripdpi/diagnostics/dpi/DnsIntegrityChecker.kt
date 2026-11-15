@@ -53,7 +53,11 @@ data class DnsIntegrityResult(
     val dohBlocked: Int,
     val doqResults: List<DoqProbeResult> = emptyList(),
     val dohBootstrapResults: List<DohBootstrapResult> = emptyList(),
+    val doqExpectedChecks: Int? = doqResults.size.takeIf { it > 0 },
 ) {
+    val doqFlagged: Int = doqResults.count { it.verdict != DoqVerdict.DOQ_OK }
+    val doqMissing: Int = ((doqExpectedChecks ?: 0) - doqResults.size).coerceAtLeast(0)
+    val doqIncomplete: Boolean = doqExpectedChecks == 0 || doqMissing > 0 || doqFlagged > 0
     val dohUnavailable: Int =
         domains.count {
             it.verdict == DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE || it.verdict == DnsIntegrityVerdict.DOH_BLOCKED
@@ -95,6 +99,7 @@ class DnsIntegrityChecker(
             dohBlocked = results.count { result -> result.verdict == DnsIntegrityVerdict.DOH_BLOCKED },
             doqResults = doqResults,
             dohBootstrapResults = dohBootstrapResults,
+            doqExpectedChecks = doqProbe?.expectedChecks(domains),
         )
     }
 

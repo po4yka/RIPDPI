@@ -46,6 +46,19 @@ private fun DpiSuiteProbeResult.detailRows(
     stringResolver: StringResolver,
 ): ImmutableList<DiagnosticsDpiSuiteProbeDetailUiModel> =
     when (this) {
+        is DpiSuiteProbeResult.DnsIntegrity -> {
+            result.doqResults
+                .groupingBy { it.verdict }
+                .eachCount()
+                .map { (verdict, count) ->
+                    DiagnosticsDpiSuiteProbeDetailUiModel(
+                        label = verdict.displayLabel(stringResolver),
+                        detail = count.toString(),
+                        tone = verdict.tone(),
+                    )
+                }.toPersistentList()
+        }
+
         is DpiSuiteProbeResult.DomainReachability -> {
             results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows(stringResolver)
         }
@@ -473,15 +486,18 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
 
 private fun DpiSuiteProbeResult.DnsIntegrity.statusResource(): Int =
     when {
-        result.domains.isNotEmpty() && result.domains.all { it.verdict == DnsIntegrityVerdict.DNS_OK } -> {
+        !result.doqIncomplete && result.domains.isNotEmpty() &&
+            result.domains.all { it.verdict == DnsIntegrityVerdict.DNS_OK } -> {
             R.string.diagnostics_cidr_whitelist_status_ok
         }
 
-        result.domains.any {
-            it.verdict == DnsIntegrityVerdict.DNS_DISAGREEMENT ||
-                it.verdict == DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT ||
-                it.verdict == DnsIntegrityVerdict.FAKE_IP
-        } -> {
+        result.doqFlagged > 0 ||
+            result.domains.any {
+                it.verdict == DnsIntegrityVerdict.DNS_DISAGREEMENT ||
+                    it.verdict == DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT ||
+                    it.verdict == DnsIntegrityVerdict.FAKE_IP
+            }
+        -> {
             R.string.diagnostics_dns_integrity_metric_flagged
         }
 
@@ -516,12 +532,15 @@ private fun DpiSuiteProbeResult.detailLabel(stringResolver: StringResolver): Str
     when (this) {
         is DpiSuiteProbeResult.DnsIntegrity -> {
             val flagged = result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK }
-            stringResolver.getString(
-                R.string.diagnostics_dpi_suite_dns_integrity_format,
-                flagged,
-                result.domains.size,
-                result.stubIps.size,
-            )
+            val dns =
+                stringResolver.getString(
+                    R.string.diagnostics_dpi_suite_dns_integrity_format,
+                    flagged,
+                    result.domains.size,
+                    result.stubIps.size,
+                )
+            val doq = stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doq_checks)
+            "$dns · $doq ${result.doqCoverageLabel(stringResolver)}"
         }
 
         is DpiSuiteProbeResult.DnsAvailability -> {
@@ -605,9 +624,11 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
         }
 
         is DpiSuiteProbeResult.DnsIntegrity -> {
-            countTone(
-                result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK },
-            )
+            if (result.doqIncomplete) {
+                DiagnosticsTone.Warning
+            } else {
+                countTone(result.domains.count { domain -> domain.verdict != DnsIntegrityVerdict.DNS_OK })
+            }
         }
 
         is DpiSuiteProbeResult.DnsAvailability -> {

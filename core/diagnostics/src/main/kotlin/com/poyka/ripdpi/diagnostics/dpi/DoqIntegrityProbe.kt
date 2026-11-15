@@ -107,6 +107,8 @@ class DoqIntegrityProbe(
     private val timeoutMs: Long = DefaultDoqTimeoutMs,
     private val concurrency: Int = DefaultDoqConcurrency,
 ) {
+    internal fun expectedChecks(domains: List<String>): Int = providers.size * domains.size
+
     suspend fun run(
         domains: List<String>,
         dohResults: Map<String, List<String>>,

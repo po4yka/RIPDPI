@@ -8,8 +8,13 @@ import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniResult
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.AttemptStatus
 import com.poyka.ripdpi.diagnostics.dpi.CompatibleSni
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityDomainResult
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
+import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
+import com.poyka.ripdpi.diagnostics.dpi.DoqProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.DoqVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
@@ -39,6 +44,21 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 class DiagnosticsDpiSuiteUiMapperTest {
     private val stringResolver = ResourceStringResolver()
+
+    @Test
+    fun dnsRowShowsDoqDisagreementAndMissingCoverage() {
+        val dns =
+            DnsIntegrityDomainResult("example.test", DnsIntegrityVerdict.DNS_OK, emptyList(), emptySet(), emptySet())
+        val doq =
+            DoqProbeResult("Resolver", "127.0.0.1", dns.domain, DoqVerdict.DOQ_INTEGRITY_DIVERGENT, emptyList(), 1)
+        val result = DnsIntegrityResult(listOf(dns), emptySet(), 0, listOf(doq), doqExpectedChecks = 2)
+        val row = DpiSuiteProbeResult.DnsIntegrity(result).toDpiSuiteProbeRowUiModel(stringResolver)
+
+        assertEquals(DiagnosticsTone.Warning, row.tone)
+        assertTrue(row.detail.contains("DoQ checks 1/2"))
+        assertEquals("doq integrity divergent", row.detailRows.single().label)
+        assertEquals("1", row.detailRows.single().detail)
+    }
 
     @Test
     fun domainReachabilityRowIncludesDiagnosticTlsFallbackState() {

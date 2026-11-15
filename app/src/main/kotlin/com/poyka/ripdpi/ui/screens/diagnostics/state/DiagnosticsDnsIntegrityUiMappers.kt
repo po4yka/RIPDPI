@@ -13,20 +13,19 @@ import kotlinx.collections.immutable.toPersistentList
 
 internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): DiagnosticsDnsIntegrityToolUiModel {
     val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
-    val doqFlagged = doqResults.count { result -> result.verdict != DoqVerdict.DOQ_OK }
     val bootstrapFlagged = dohBootstrapResults.count { result -> result.verdict != BootstrapVerdict.OK }
     val checked = domains.size
     return DiagnosticsDnsIntegrityToolUiModel(
         state = DiagnosticsDnsIntegrityState.Complete,
         summary =
-            if (flagged == 0 && doqFlagged == 0 && bootstrapFlagged == 0) {
+            if (flagged == 0 && !doqIncomplete && bootstrapFlagged == 0 && checked > 0) {
                 stringResolver.getQuantityString(R.plurals.diagnostics_dns_complete_agree, checked, checked)
             } else {
                 stringResolver.getString(
                     R.string.diagnostics_dns_integrity_complete_flagged,
                     flagged,
                     checked,
-                    doqFlagged,
+                    doqFlagged + doqMissing,
                     bootstrapFlagged,
                 )
             },
@@ -35,7 +34,6 @@ internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): Diagn
                 stringResolver,
                 checked,
                 flagged,
-                doqFlagged,
                 bootstrapFlagged,
             ),
         rows =
@@ -79,6 +77,10 @@ private fun DnsIntegrityDomainResult.toDomainUiModel(strings: StringResolver): D
             ).toPersistentList(),
     )
 
+internal fun DnsIntegrityResult.doqCoverageLabel(strings: StringResolver): String =
+    doqExpectedChecks?.let { expected -> "${doqResults.size}/$expected" }
+        ?: strings.getString(R.string.diagnostics_probe_status_skipped)
+
 private fun DiagnosticsContextGroupUiModel.withResolver(resolver: String?): DiagnosticsContextGroupUiModel =
     resolver?.let { copy(title = "$title · $it") } ?: this
 
@@ -86,7 +88,6 @@ private fun DnsIntegrityResult.buildDnsIntegrityMetrics(
     stringResolver: StringResolver,
     checked: Int,
     flagged: Int,
-    doqFlagged: Int,
     bootstrapFlagged: Int,
 ) = buildList {
     add(
@@ -117,14 +118,14 @@ private fun DnsIntegrityResult.buildDnsIntegrityMetrics(
             countTone(dohUnavailable),
         ),
     )
-    if (doqResults.isNotEmpty()) {
-        add(
-            DiagnosticsMetricUiModel(
-                stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doq_checks),
-                doqResults.size.toString(),
-                DiagnosticsTone.Info,
-            ),
-        )
+    add(
+        DiagnosticsMetricUiModel(
+            stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doq_checks),
+            doqCoverageLabel(stringResolver),
+            if (doqIncomplete) DiagnosticsTone.Warning else DiagnosticsTone.Neutral,
+        ),
+    )
+    if (doqExpectedChecks != null) {
         add(
             DiagnosticsMetricUiModel(
                 stringResolver.getString(R.string.diagnostics_dns_integrity_metric_doq_flagged),
@@ -203,7 +204,7 @@ private fun DnsIntegrityVerdict.dnsVerdictLabel(): Int =
         DnsIntegrityVerdict.UNKNOWN -> R.string.diagnostics_dns_unknown
     }
 
-private fun DoqVerdict.displayLabel(strings: StringResolver): String =
+internal fun DoqVerdict.displayLabel(strings: StringResolver): String =
     strings.getString(
         when (this) {
             DoqVerdict.DOQ_OK -> R.string.diagnostics_doq_ok
@@ -252,7 +253,7 @@ private fun DnsIntegrityVerdict.tone(): DiagnosticsTone =
         DnsIntegrityVerdict.UNKNOWN -> DiagnosticsTone.Neutral
     }
 
-private fun DoqVerdict.tone(): DiagnosticsTone =
+internal fun DoqVerdict.tone(): DiagnosticsTone =
     when (this) {
         DoqVerdict.DOQ_OK -> DiagnosticsTone.Positive
 
