@@ -72,6 +72,32 @@ class ScannerUriDispatcherTest {
     }
 
     @Test
+    fun `malformed secret-bearing payloads never enter the error model`() {
+        val secret = "fixture-secret"
+        val schemes =
+            listOf(
+                "vless",
+                "ss",
+                "mieru",
+                "mierus",
+                "naive+https",
+                "naive+quic",
+                "trojan",
+                "hysteria2",
+                "hy2",
+                "anytls",
+                "ssh",
+                "tuic",
+            )
+        for (scheme in schemes) {
+            val result = ScannerUriDispatcher.dispatch("$scheme://$secret@h:bad?key=$secret")
+
+            assertEquals(ScannerScanResult.Invalid("<redacted>"), result)
+            assertTrue(secret !in result.toString())
+        }
+    }
+
+    @Test
     fun `https subscription qr payload resolves to a long-lived subscription`() {
         val payload = recognized("https://sub.example.com/s/token123") as ImportPayload.Subscription
 
