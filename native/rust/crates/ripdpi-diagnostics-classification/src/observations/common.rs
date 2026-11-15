@@ -94,6 +94,7 @@ pub(crate) fn tls_status(status: Option<&str>) -> TlsProbeStatus {
         "tls_ok" => TlsProbeStatus::Ok,
         "tls_version_split" => TlsProbeStatus::VersionSplit,
         "tls_cert_invalid" => TlsProbeStatus::CertInvalid,
+        "interrupted" => TlsProbeStatus::Interrupted,
         "not_run" => TlsProbeStatus::NotRun,
         _ => TlsProbeStatus::HandshakeFailed,
     }

@@ -12,6 +12,7 @@ pub use ripdpi_ech_dns::{
     encrypted_dns_endpoint_for_target, encrypted_dns_protocol, exchange_encrypted_dns_query,
     extract_ech_config_list_from_https_response, parse_bootstrap_ips, parse_dns_response, parse_dns_response_for_query,
     parse_url_host, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
+    resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort,
     resolve_https_service_bindings_via_encrypted_dns_with_endpoint, resolve_outbound_ech_config_via_encrypted_dns,
     resolve_via_encrypted_dns, resolve_via_encrypted_dns_with_raw, skip_dns_name,
 };

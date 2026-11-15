@@ -255,6 +255,7 @@ enum class TlsProbeStatus {
     HANDSHAKE_FAILED,
     VERSION_SPLIT,
     CERT_INVALID,
+    INTERRUPTED,
     NOT_RUN,
 }
 

@@ -182,7 +182,22 @@ pub fn resolve_https_ech_configs_via_encrypted_dns_with_endpoint(
     endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
 ) -> EchResolutionOutcome {
-    resolve_https_ech_configs_via_encrypted_dns_with_hooks(domain, endpoint, transport, EncryptedDnsConnectHooks::new())
+    resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(domain, endpoint, transport, &|| None)
+}
+
+/// Resolve ECH without starting another HTTPS alias lookup after cancellation.
+pub fn resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(
+    domain: &str,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> EchResolutionOutcome {
+    follow_https_aliases(domain, |name| {
+        if let Some(reason) = should_abort() {
+            return Err(format!("probe_aborted:{reason}"));
+        }
+        exchange_encrypted_dns_query(name, DNS_RECORD_TYPE_HTTPS, endpoint.clone(), transport)
+    })
 }
 
 /// Preserve the caller-owned socket policy for the ECH bootstrap lookup.

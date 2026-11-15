@@ -1,14 +1,13 @@
-use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::candidates::{StrategyCandidateSpec, target_probe_pause_ms};
-use crate::execution::runtime::{CandidateRuntimeLease, run_candidate_warmup};
+use crate::execution::runtime::{CandidateRuntimeLease, candidate_abort_reason, run_candidate_warmup};
 use crate::execution::scoring::{
     CandidateExecution, CandidateScore, build_candidate_execution, cancelled_candidate_execution,
     failed_candidate_execution,
 };
-use crate::tls::tls_key_log_callback_for_path;
+use crate::tls::{ProbeStreamOptions, tls_key_log_callback_for_path};
 use crate::types::DomainTarget;
 use crate::util::stable_probe_hash;
 
@@ -25,11 +24,17 @@ pub(super) fn execute_started_tcp_candidate(
     context: TcpCandidateExecutionContext<'_>,
     probe_started: Instant,
 ) -> CandidateExecution {
+    let interrupted = || candidate_abort_reason(context.cancel).is_some();
     let transport = runtime.runtime().transport();
     let generation = runtime.runtime().generation();
     let key_log = context.keylog_path.map(tls_key_log_callback_for_path);
-    run_candidate_warmup(spec, &transport, targets, context.tls_verifier, key_log.as_ref());
-    if context.cancel.load(Ordering::Acquire) {
+    let options = ProbeStreamOptions {
+        certificate_policy: context.tls_verifier.into(),
+        key_log: key_log.as_ref(),
+        ..ProbeStreamOptions::default()
+    };
+    run_candidate_warmup(spec, &transport, targets, &options, context.cancel);
+    if interrupted() {
         runtime.shutdown();
         return cancelled_candidate_execution(spec, CandidateScore::default(), 3);
     }
@@ -38,7 +43,7 @@ pub(super) fn execute_started_tcp_candidate(
     ordered_targets.sort_by_key(|target| stable_probe_hash(stable_probe_hash(probe_seed, spec.id), &target.host));
 
     for (chunk_index, chunk) in ordered_targets.chunks(PARALLEL_DOMAIN_BATCH_SIZE).enumerate() {
-        if context.cancel.load(Ordering::Acquire) {
+        if interrupted() {
             runtime.shutdown();
             return cancelled_candidate_execution(spec, score, 3);
         }
@@ -46,15 +51,9 @@ pub(super) fn execute_started_tcp_candidate(
             thread::sleep(Duration::from_millis(target_probe_pause_ms(probe_seed, spec, &chunk[0].host)));
         }
         let ordinal_base = chunk_index as u64 * PARALLEL_DOMAIN_BATCH_SIZE as u64 * 2;
-        let Ok(chunk_results) = probe_domain_chunk(
-            chunk,
-            runtime.runtime(),
-            generation,
-            ordinal_base,
-            spec,
-            context.tls_verifier,
-            key_log.as_ref(),
-        ) else {
+        let Ok(chunk_results) =
+            probe_domain_chunk(chunk, runtime.runtime(), generation, ordinal_base, spec, &options, context.cancel)
+        else {
             let terminal_receipt = runtime.shutdown();
             let mut execution =
                 failed_candidate_execution(spec, targets.len() * 2, 3, "candidate probe worker panicked".to_string());
@@ -66,7 +65,7 @@ pub(super) fn execute_started_tcp_candidate(
                 score.add(sample);
             }
         }
-        if context.cancel.load(Ordering::Acquire) {
+        if interrupted() {
             runtime.shutdown();
             return cancelled_candidate_execution(spec, score, 3);
         }

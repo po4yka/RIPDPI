@@ -1,4 +1,4 @@
-use ripdpi_diagnostics_tls::tls::{EchConfigSource, TlsObservation, ech_status_label};
+use ripdpi_diagnostics_tls::tls::{EchConfigSource, TlsObservation, ech_status_label, preferred_tls_observation};
 use ripdpi_diagnostics_transport::transport::TransportConfig;
 
 use crate::types::*;
@@ -88,6 +88,59 @@ pub fn append_tls_attempt_details(
             value.map(|value| ProbeDetail { key: format!("{initial_prefix}{suffix}"), value })
         }));
     }
+}
+
+/// Select the observed attempt that owns the aggregate peer and TLS summary.
+pub fn select_tls_report_attempt<'a>(
+    outcome: &str,
+    tls13: &'a TlsObservation,
+    tls12: &'a TlsObservation,
+    tls_ech: &'a TlsObservation,
+) -> (&'static str, &'a TlsObservation) {
+    if outcome == "tls_ech_only"
+        || (outcome == "tls_cert_invalid"
+            && tls_ech.certificate_anomaly
+            && !tls13.certificate_anomaly
+            && !tls12.certificate_anomaly)
+    {
+        return ("tlsEch", tls_ech);
+    }
+    if std::ptr::eq(preferred_tls_observation(tls13, tls12), tls12) {
+        return ("tls12", tls12);
+    }
+    if tls13.status != "tls_ok" && !tls13.certificate_anomaly {
+        if (tls13.tls_peer_response_after_client_hello != Some(true)
+            && tls12.tls_peer_response_after_client_hello == Some(true))
+            || (tls13.transport_open_ms.is_none() && tls12.transport_open_ms.is_some())
+        {
+            return ("tls12", tls12);
+        }
+        if tls13.transport_open_ms.is_none() && tls_ech.transport_open_ms.is_some() {
+            return ("tlsEch", tls_ech);
+        }
+    }
+    ("tls13", tls13)
+}
+
+/// Describe which destination the TLS version comparison covers.
+pub fn append_tls_comparison_details(
+    details: &mut Vec<ProbeDetail>,
+    outcome: &str,
+    tls13: &TlsObservation,
+    tls12: &TlsObservation,
+    transport: &TransportConfig,
+) {
+    if outcome != "tls_version_split" {
+        return;
+    }
+    let scope = match (tls13.connected_addr, tls12.connected_addr, transport) {
+        (Some(a), Some(b), TransportConfig::Direct { .. }) if a == b => "same_peer",
+        (Some(_), Some(_), TransportConfig::Direct { .. }) => "mixed_peers",
+        (Some(a), Some(b), TransportConfig::Socks5 { .. }) if a == b => "same_requested_destination",
+        (Some(_), Some(_), TransportConfig::Socks5 { .. }) => "mixed_requested_destinations",
+        _ => "unknown_peer",
+    };
+    details.push(ProbeDetail { key: "tlsVersionComparisonScope".to_string(), value: scope.to_string() });
 }
 
 pub fn summarize_probe_event(probe: &ProbeResult) -> String {

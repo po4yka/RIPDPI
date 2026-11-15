@@ -1,11 +1,9 @@
-use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::thread;
 
-use rustls::client::danger::ServerCertVerifier;
-
 use crate::candidates::StrategyCandidateSpec;
-use crate::execution::scoring::ProbeSample;
-use crate::tls::TlsKeyLogCallback;
+use crate::execution::{runtime::candidate_abort_reason, scoring::ProbeSample};
+use crate::tls::ProbeStreamOptions;
 use crate::types::DomainTarget;
 use crate::{CandidateAttemptCorrelationId, CandidateProbeRuntime};
 
@@ -18,8 +16,8 @@ pub(super) fn probe_domain_chunk(
     generation: u64,
     ordinal_base: u64,
     spec: &StrategyCandidateSpec,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
+    options: &ProbeStreamOptions<'_>,
+    cancel: &AtomicBool,
 ) -> Result<Vec<Vec<ProbeSample>>, ProbeWorkerPanicked> {
     let deadline = ripdpi_diagnostics_contracts::util::active_scan_io_deadline();
     let attempts = chunk
@@ -43,9 +41,17 @@ pub(super) fn probe_domain_chunk(
             .map(|(target, http_token, http_transport, https_token, https_transport)| {
                 s.spawn(move || {
                     ripdpi_diagnostics_contracts::util::with_scan_io_deadline(deadline, || {
+                        let should_abort = || candidate_abort_reason(cancel);
+                        if should_abort().is_some() {
+                            return Vec::new();
+                        }
                         let mut http = run_http_strategy_probe(&http_transport, target, spec);
                         http.attempt_token = http_token;
-                        let mut https = run_https_strategy_probe(&https_transport, target, spec, tls_verifier, key_log);
+                        if should_abort().is_some() {
+                            return vec![http];
+                        }
+                        let mut https =
+                            run_https_strategy_probe(&https_transport, target, spec, options, &should_abort);
                         https.attempt_token = https_token;
                         vec![http, https]
                     })

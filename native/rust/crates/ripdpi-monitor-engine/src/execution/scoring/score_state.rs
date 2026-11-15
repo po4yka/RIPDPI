@@ -27,6 +27,10 @@ pub struct CandidateScore {
 
 impl CandidateScore {
     pub fn add(&mut self, sample: ProbeSample) {
+        if sample.result.outcome == "not_run" {
+            self.results.push(sample.result);
+            return;
+        }
         if let Some(token) = sample.attempt_token.clone() {
             self.attempts.push((token, sample.success));
         }

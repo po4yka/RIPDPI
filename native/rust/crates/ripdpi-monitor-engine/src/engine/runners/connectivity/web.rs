@@ -19,7 +19,7 @@ impl ConnectivityProbeFamily for WebFamily {
     const PHASE: &'static str = "reachability";
     const ARTIFACT_SOURCE: &'static str = "domain_reachability";
 
-    const DROP_INTERRUPTED_RESULT: bool = true;
+    const DROP_EMPTY_INTERRUPTED_RESULT: bool = true;
 
     fn targets(plan: &ExecutionPlan) -> Vec<Self::Target> {
         plan.request.domain_targets.clone()
@@ -68,7 +68,7 @@ mod interrupted_probe_tests {
     use crate::types::{DomainTarget, ScanRequest, SharedState};
 
     #[test]
-    fn interrupted_web_probe_is_omitted_from_network_evidence() {
+    fn interrupted_web_probe_preserves_captured_client_hello() {
         for cancel_on_client_hello in [false, true] {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             listener.set_nonblocking(true).unwrap();
@@ -107,15 +107,19 @@ mod interrupted_probe_tests {
                     };
                     socket.set_nonblocking(false).unwrap();
                     socket.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-                    let mut content_type = [0];
-                    socket.read_exact(&mut content_type).unwrap();
-                    assert_eq!(content_type, [0x16]);
+                    let mut header = [0; 5];
+                    socket.read_exact(&mut header).unwrap();
+                    assert_eq!(header[0], 0x16);
+                    let mut record = vec![0; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+                    socket.read_exact(&mut record).unwrap();
+                    assert_eq!(record[0], 0x01);
                     let interrupted_at = Instant::now();
                     if cancel_on_client_hello {
                         cancel.store(true, Ordering::Release);
                     }
                     let mut leftover = Vec::new();
                     socket.read_to_end(&mut leftover).unwrap();
+                    assert!(matches!(listener.accept(), Err(error) if error.kind() == ErrorKind::WouldBlock));
                     interrupted_at.elapsed()
                 });
                 runtime.set_scan_deadline(
@@ -124,13 +128,23 @@ mod interrupted_probe_tests {
                 );
                 assert!(matches!(coordinator.run(&plan, &mut runtime, None), RunnerOutcome::Cancelled));
                 let peer_wait = peer.join().unwrap();
-                assert!(runtime.results.is_empty(), "administrative stop entered network evidence");
+                let [probe] = runtime.results.as_slice() else { panic!("expected one partial Web result") };
+                assert_eq!(probe.outcome, "not_run");
+                let detail =
+                    |key: &str| probe.details.iter().find(|detail| detail.key == key).map(|d| d.value.as_str());
+                assert_eq!(detail("tls13Status"), Some("interrupted"));
+                assert!(detail("tls13Ja3Fingerprint").is_some());
+                assert!(detail("tls13Error").is_some_and(|error| error.contains("scan_")));
+                assert_eq!(detail("tlsError"), Some("none"));
+                assert_eq!(detail("tls12Status"), Some("not_run"));
+                assert_eq!(detail("tlsEchStatus"), Some("not_run"));
+                assert_eq!(detail("httpStatus"), Some("not_run"));
                 let stage = &runtime.stage_executions()[0];
-                assert_eq!(stage.executed_steps, 0);
+                assert_eq!(stage.executed_steps, 1);
                 if cancel_on_client_hello {
                     assert!(peer_wait < Duration::from_millis(900), "cancel left TLS waiting: {peer_wait:?}");
                 } else {
-                    assert_eq!(stage.skipped_by_global_deadline_steps, 1);
+                    assert_eq!(stage.skipped_by_global_deadline_steps, 0);
                 }
             });
         }

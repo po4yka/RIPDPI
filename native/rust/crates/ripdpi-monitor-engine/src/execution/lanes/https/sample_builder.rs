@@ -1,12 +1,8 @@
 mod sample_result;
 
-use std::sync::Arc;
-
-use rustls::client::danger::ServerCertVerifier;
-
 use crate::candidates::StrategyCandidateSpec;
 use crate::execution::scoring::ProbeSample;
-use crate::tls::TlsKeyLogCallback;
+use crate::tls::ProbeStreamOptions;
 use crate::transport::TransportConfig;
 use crate::types::DomainTarget;
 
@@ -19,18 +15,18 @@ pub(super) fn build_https_probe_sample(
     transport: &TransportConfig,
     target: &DomainTarget,
     candidate: &StrategyCandidateSpec,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
+    options: &ProbeStreamOptions<'_>,
+    should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
 ) -> ProbeSample {
-    let observations = collect_https_observations(transport, target, tls_verifier, key_log);
-    let outcome = classify_https_outcome(&observations);
+    let observations = collect_https_observations(transport, target, options, should_abort);
+    let outcome = classify_https_outcome(&observations, should_abort().is_some());
     let mut details = build_https_probe_details(candidate, &observations, &outcome, transport);
 
     let retry = apply_https_retry_policy(
         transport,
         target,
-        tls_verifier,
-        key_log,
+        options,
+        should_abort,
         observations.https_port,
         &outcome,
         &mut details,

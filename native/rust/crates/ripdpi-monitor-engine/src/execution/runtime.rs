@@ -7,6 +7,15 @@ mod tcp_launch;
 mod unavailable;
 mod warmup;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub(in crate::execution) fn candidate_abort_reason(cancel: &AtomicBool) -> Option<&'static str> {
+    cancel
+        .load(Ordering::Acquire)
+        .then_some("scan_cancelled")
+        .or_else(|| crate::util::bounded_scan_io_timeout(crate::util::IO_TIMEOUT).err())
+}
+
 #[cfg(test)]
 pub(crate) use adaptive_freeze::freeze_adaptive_fake_ttl_for_probe;
 pub use contracts::{

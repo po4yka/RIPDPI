@@ -45,7 +45,9 @@ fn tls_transport_failure(result: &ProbeResult) -> TransportFailureKind {
 }
 
 fn tls_error(result: &ProbeResult) -> Option<&str> {
-    if detail_value(result, "tlsStatus") == Some("tls_ok") || result.outcome == "tls_ok" {
+    if matches!(detail_value(result, "tlsStatus"), Some("tls_ok" | "interrupted" | "not_run"))
+        || result.outcome == "tls_ok"
+    {
         return None;
     }
     detail_value(result, "tlsError").filter(|value| *value != "none")
@@ -78,6 +80,25 @@ mod tests {
             let domain = build_domain_observation(&result).domain.unwrap();
             assert_eq!(domain.transport_failure, expected, "stage={stage}");
             assert_eq!(domain.tls_error.as_deref(), Some("connection timed out"));
+        }
+    }
+
+    #[test]
+    fn administrative_tls_stop_does_not_become_transport_reset() {
+        for status in ["interrupted", "not_run"] {
+            let result = ProbeResult {
+                probe_type: "domain_reachability".into(),
+                target: "example.com".into(),
+                outcome: "not_run".into(),
+                details: vec![
+                    ProbeDetail { key: "tlsStatus".into(), value: status.into() },
+                    ProbeDetail { key: "tlsError".into(), value: "probe_aborted:scan_cancelled".into() },
+                    ProbeDetail { key: "tlsFailureStage".into(), value: "tls_handshake".into() },
+                ],
+            };
+            let domain = build_domain_observation(&result).domain.unwrap();
+            assert_eq!(domain.transport_failure, TransportFailureKind::None);
+            assert_eq!(domain.tls_error, None);
         }
     }
 

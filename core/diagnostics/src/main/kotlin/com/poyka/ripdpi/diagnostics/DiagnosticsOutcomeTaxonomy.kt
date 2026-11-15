@@ -223,7 +223,7 @@ private fun bucketDnsIntegrity(
 private fun bucketDomainReachability(outcome: String): DiagnosticsOutcomeBucket =
     when (outcome) {
         "tls_ok" -> DiagnosticsOutcomeBucket.Healthy
-        "tls_version_split", "tls_ech_only", "http_ok" -> DiagnosticsOutcomeBucket.Attention
+        "tls_version_split", "tls_ech_only", "tls_retry_only", "http_ok" -> DiagnosticsOutcomeBucket.Attention
         "tls_cert_invalid", "http_blockpage", "unreachable" -> DiagnosticsOutcomeBucket.Failed
         else -> legacyBucketForOutcome(outcome)
     }

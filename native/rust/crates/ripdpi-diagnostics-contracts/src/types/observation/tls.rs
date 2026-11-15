@@ -7,5 +7,6 @@ pub enum TlsProbeStatus {
     HandshakeFailed,
     VersionSplit,
     CertInvalid,
+    Interrupted,
     NotRun,
 }

@@ -7,16 +7,16 @@ use ripdpi_diagnostics_tls::tls::TlsObservation;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::adapters::http::{
-    describe_http_observation, is_blockpage, try_http_request_targets_with_cancel,
+    HttpObservation, describe_http_observation, is_blockpage, try_http_request_targets_with_cancel,
 };
 use crate::connectivity::adapters::tls::{
-    ApplicationProtocolPolicy, ProbeStreamOptions, TlsClientProfile, append_tls_comparison_details,
-    classify_tls_signal, preferred_tls_observation, tls_key_log_callback_for_path,
-    try_tls_handshake_targets_with_options_and_abort,
+    ApplicationProtocolPolicy, ProbeStreamOptions, TlsClientProfile, classify_tls_signal,
+    tls_key_log_callback_for_path, try_tls_handshake_targets_with_options_and_abort,
 };
 use crate::connectivity::adapters::transport::{TargetAddress, TransportConfig, domain_connect_targets};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
+use super::super::report::{append_tls_attempt_details, append_tls_comparison_details, select_tls_report_attempt};
 use super::super::trigger_fuzzing::{append_http_trigger_fuzzing_details, append_tls_trigger_fuzzing_details};
 use super::support::append_route_details;
 
@@ -78,21 +78,18 @@ fn run_domain_probe_with_tls_probe(
     cancel: Option<&AtomicBool>,
     mut probe_tls: impl FnMut(&[TargetAddress], u16, TlsClientProfile) -> TlsObservation,
 ) -> Result<ProbeResult, &'static str> {
-    let check_abort = || abort_reason(cancel).map_or(Ok(()), Err);
-    check_abort()?;
+    let should_abort = || abort_reason(cancel);
+    if let Some(reason) = should_abort() {
+        return Err(reason);
+    }
     let https_port = target.https_port.unwrap_or(443);
     let http_port = target.http_port.unwrap_or(80);
     let connect_targets = domain_connect_targets(target);
-    let mut probe_profile = |profile| -> Result<_, &'static str> {
-        check_abort()?;
-        let observation = probe_tls(&connect_targets, https_port, profile);
-        check_abort()?;
-        Ok(observation)
-    };
-    let mut tls13 = probe_profile(TlsClientProfile::Tls13Only)?;
-    let tls12 = probe_profile(TlsClientProfile::Tls12Only)?;
-    let tls_ech = probe_profile(TlsClientProfile::Tls13WithEch)?;
-    let http = try_http_request_targets_with_cancel(
+    let mut probe_profile = |profile| probe_tls(&connect_targets, https_port, profile);
+    let tls13 = probe_profile(TlsClientProfile::Tls13Only);
+    let tls12 = probe_profile(TlsClientProfile::Tls12Only);
+    let tls_ech = probe_profile(TlsClientProfile::Tls13WithEch);
+    let mut http = try_http_request_targets_with_cancel(
         &connect_targets,
         http_port,
         transport,
@@ -100,58 +97,45 @@ fn run_domain_probe_with_tls_probe(
         &target.http_path,
         cancel,
     );
-    check_abort()?;
+    if http.error.as_deref().is_some_and(is_administrative_stop) {
+        http.status = "not_run".to_string();
+    }
+    if let Some(reason) = should_abort() {
+        let tls_measured = [&tls13, &tls12, &tls_ech].into_iter().any(|attempt| attempt.status != "not_run");
+        if !tls_measured && http.status == "not_run" {
+            return Err(reason);
+        }
+    }
     let alt_svc_value = http.response.as_ref().and_then(|r| r.headers.get("alt-svc")).cloned();
     let h3_advertised = alt_svc_value.as_ref().is_some_and(|v| v.contains("h3"));
 
-    let outcome = if tls13.certificate_anomaly || tls12.certificate_anomaly {
-        "tls_cert_invalid".to_string()
-    } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
-        "tls_ok".to_string()
-    } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
-        "tls_version_split".to_string()
-    } else if tls_ech.status == "tls_ok" {
-        "tls_ech_only".to_string()
-    } else if is_blockpage(&http) {
-        "http_blockpage".to_string()
-    } else if http.status == "http_ok" {
-        "http_ok".to_string()
+    let initial_outcome = classify_domain_outcome(&tls13, &tls12, &tls_ech, &http);
+    let retry = (initial_outcome == "unreachable" && should_abort().is_none())
+        .then(|| probe_profile(TlsClientProfile::Tls13Only));
+    let retry_success = retry.as_ref().is_some_and(|attempt| attempt.status == "tls_ok");
+    let outcome = if retry_success {
+        "tls_retry_only"
+    } else if initial_outcome == "unreachable" && should_abort().is_some() {
+        "not_run"
     } else {
-        "unreachable".to_string()
+        initial_outcome
     };
-
-    // Single retry on total failure to distinguish transient from consistent blocking
-    let (outcome, probe_retry_count) = if outcome == "unreachable" {
-        let retry = probe_profile(TlsClientProfile::Tls13Only)?;
-        if retry.status == "tls_ok" {
-            tls13 = retry;
-            ("tls_ok".to_string(), 1usize)
-        } else {
-            ("unreachable".to_string(), 1usize)
-        }
+    let (selected_prefix, preferred_tls) = if let Some(retry) = retry.as_ref().filter(|_| retry_success) {
+        ("tlsRetry", retry)
     } else {
-        (outcome, 0usize)
+        select_tls_report_attempt(outcome, &tls13, &tls12, &tls_ech)
     };
-    let tls_signal = classify_tls_signal(&tls13, &tls12);
-    let preferred_tls = preferred_tls_observation(&tls13, &tls12);
-    let route_local_addr =
-        if outcome == "tls_ech_only" { tls_ech.local_addr } else { preferred_tls.local_addr.or(tls_ech.local_addr) };
-    let route_report = if outcome == "tls_ech_only" {
-        tls_ech.route_report.as_ref()
-    } else {
-        preferred_tls.route_report.as_ref().or(tls_ech.route_report.as_ref())
-    };
-    let connected_addr = if outcome == "tls_ech_only" {
-        tls_ech.connected_addr
-    } else {
-        preferred_tls.connected_addr.or(tls_ech.connected_addr)
+    let tls_signal = match outcome {
+        "tls_ech_only" | "tls_retry_only" | "tls_cert_invalid" | "not_run" => outcome,
+        _ => classify_tls_signal(&tls13, &tls12),
     };
 
     let mut result = ProbeResult {
         probe_type: "domain_reachability".to_string(),
         target: target.host.clone(),
-        outcome,
+        outcome: outcome.to_string(),
         details: vec![
+            ProbeDetail { key: "tlsReportedAttempt".to_string(), value: selected_prefix.to_string() },
             ProbeDetail { key: "tlsStatus".to_string(), value: preferred_tls.status.clone() },
             ProbeDetail {
                 key: "tlsVersion".to_string(),
@@ -159,44 +143,18 @@ fn run_domain_probe_with_tls_probe(
             },
             ProbeDetail {
                 key: "tlsError".to_string(),
-                value: preferred_tls.error.clone().unwrap_or_else(|| "none".to_string()),
+                value: preferred_tls
+                    .error
+                    .as_deref()
+                    .filter(|error| !is_administrative_stop(error))
+                    .unwrap_or("none")
+                    .to_string(),
             },
             ProbeDetail {
                 key: "tlsFailureStage".to_string(),
                 value: preferred_tls.failure_stage.map_or("none", |stage| stage.as_str()).to_string(),
             },
             ProbeDetail { key: "tlsSignal".to_string(), value: tls_signal.to_string() },
-            ProbeDetail { key: "tls13Status".to_string(), value: tls13.status.clone() },
-            ProbeDetail {
-                key: "tls13Version".to_string(),
-                value: tls13.version.clone().unwrap_or_else(|| "unknown".to_string()),
-            },
-            ProbeDetail {
-                key: "tls13Error".to_string(),
-                value: tls13.error.clone().unwrap_or_else(|| "none".to_string()),
-            },
-            ProbeDetail { key: "tls12Status".to_string(), value: tls12.status.clone() },
-            ProbeDetail {
-                key: "tls12Version".to_string(),
-                value: tls12.version.clone().unwrap_or_else(|| "unknown".to_string()),
-            },
-            ProbeDetail {
-                key: "tls12Error".to_string(),
-                value: tls12.error.clone().unwrap_or_else(|| "none".to_string()),
-            },
-            ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status.clone() },
-            ProbeDetail {
-                key: "tlsEchVersion".to_string(),
-                value: tls_ech.version.clone().unwrap_or_else(|| "unknown".to_string()),
-            },
-            ProbeDetail {
-                key: "tlsEchError".to_string(),
-                value: tls_ech.error.clone().unwrap_or_else(|| "none".to_string()),
-            },
-            ProbeDetail {
-                key: "tlsEchResolutionDetail".to_string(),
-                value: tls_ech.ech_resolution_detail.clone().unwrap_or_else(|| "none".to_string()),
-            },
             ProbeDetail { key: "httpStatus".to_string(), value: http.status.clone() },
             ProbeDetail { key: "httpStatusCode".to_string(), value: http_status_code(&http.status) },
             ProbeDetail { key: "httpStatusClass".to_string(), value: http_status_class(&http.status) },
@@ -204,10 +162,18 @@ fn run_domain_probe_with_tls_probe(
             ProbeDetail { key: "h3Advertised".to_string(), value: h3_advertised.to_string() },
             ProbeDetail { key: "altSvc".to_string(), value: alt_svc_value.unwrap_or_else(|| "none".to_string()) },
             ProbeDetail { key: "isControl".to_string(), value: target.is_control.to_string() },
-            ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
+            ProbeDetail { key: "probeRetryCount".to_string(), value: usize::from(retry.is_some()).to_string() },
         ],
     };
-    append_tls_comparison_details(&mut result.details, &result.outcome, &tls13, &tls12, &tls_ech);
+    for (prefix, attempt) in [("tls13", &tls13), ("tls12", &tls12), ("tlsEch", &tls_ech)] {
+        append_tls_attempt_details(&mut result.details, prefix, attempt, transport);
+    }
+    if let Some(retry) = &retry {
+        append_tls_attempt_details(&mut result.details, "tlsRetry", retry, transport);
+        result.details.push(ProbeDetail { key: "retryOnlySuccess".to_string(), value: retry_success.to_string() });
+    }
+    append_tls_comparison_details(&mut result.details, outcome, &tls13, &tls12, transport);
+    let connected_addr = preferred_tls.connected_addr;
     if let Some(addr) = connected_addr {
         result.details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
     }
@@ -222,17 +188,46 @@ fn run_domain_probe_with_tls_probe(
             result.details.insert(0, ProbeDetail { key: "resolved".into(), value: address.to_string() });
         }
     }
-    append_route_details(&mut result.details, "", route_local_addr, route_report);
-    check_abort()?;
-    if http.status != "http_ok" {
+    append_route_details(&mut result.details, "", preferred_tls.local_addr, preferred_tls.route_report.as_ref());
+    if should_abort().is_none() && http.status != "http_ok" {
         append_http_trigger_fuzzing_details(&mut result.details, target, transport, http.status.as_str());
     }
-    check_abort()?;
-    if preferred_tls.status != "tls_ok" {
+    if should_abort().is_none() && preferred_tls.status != "tls_ok" {
         append_tls_trigger_fuzzing_details(&mut result.details, target, transport, preferred_tls.status.as_str());
     }
-    check_abort()?;
     Ok(result)
+}
+
+fn is_administrative_stop(error: &str) -> bool {
+    matches!(error.strip_prefix("probe_aborted:").unwrap_or(error), "scan_cancelled" | "scan_deadline_exceeded")
+}
+
+fn classify_domain_outcome(
+    tls13: &TlsObservation,
+    tls12: &TlsObservation,
+    tls_ech: &TlsObservation,
+    http: &HttpObservation,
+) -> &'static str {
+    let incomplete = |attempt: &TlsObservation| matches!(attempt.status.as_str(), "interrupted" | "not_run");
+    if tls13.certificate_anomaly || tls12.certificate_anomaly {
+        "tls_cert_invalid"
+    } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
+        "tls_ok"
+    } else if tls13.status == "tls_ok" || tls12.status == "tls_ok" {
+        if incomplete(tls13) || incomplete(tls12) { "not_run" } else { "tls_version_split" }
+    } else if tls_ech.certificate_anomaly {
+        "tls_cert_invalid"
+    } else if tls_ech.status == "tls_ok" {
+        "tls_ech_only"
+    } else if is_blockpage(http) {
+        "http_blockpage"
+    } else if http.status == "http_ok" {
+        "http_ok"
+    } else if http.status == "not_run" || incomplete(tls13) || incomplete(tls12) || tls_ech.status == "interrupted" {
+        "not_run"
+    } else {
+        "unreachable"
+    }
 }
 
 fn http_status_code(status: &str) -> String {
@@ -298,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    fn successful_retry_replaces_tls_failure_evidence() {
+    fn successful_retry_keeps_the_original_tls_failure_evidence() {
         let failure = failed_probe();
         let success = TlsObservation {
             status: "tls_ok".into(),
@@ -327,24 +322,76 @@ mod tests {
             None,
             |_, _, _| {
                 attempts += 1;
-                if attempts == 4 { success.clone() } else { failure.clone() }
+                match attempts {
+                    3 => TlsObservation { status: "not_run".into(), ..failure.clone() },
+                    4 => success.clone(),
+                    _ => failure.clone(),
+                }
             },
         )
         .unwrap();
         assert_eq!(attempts, 4);
-        assert_eq!(result.outcome, "tls_ok");
+        assert_eq!(result.outcome, "tls_retry_only");
         let detail = |key: &str| result.details.iter().find(|detail| detail.key == key).unwrap().value.as_str();
         assert_eq!(detail("tlsStatus"), "tls_ok");
         assert_eq!(detail("tlsVersion"), "TLS1.3");
         assert_eq!(detail("tlsError"), "none");
         assert_eq!(detail("tlsFailureStage"), "none");
-        assert_eq!(detail("tls13Status"), "tls_ok");
-        assert_eq!(detail("tls13Error"), "none");
+        assert_eq!(detail("tlsReportedAttempt"), "tlsRetry");
+        assert_eq!(detail("tls13Status"), "tls_handshake_failed");
+        assert_eq!(detail("tls13Error"), "connection timed out");
+        assert_eq!(detail("tlsRetryStatus"), "tls_ok");
+        assert_eq!(detail("retryOnlySuccess"), "true");
         assert_eq!(detail("tls12Error"), "connection timed out");
         assert_eq!(detail("connectedIp"), "127.0.0.2");
         let domain = observation_for_probe(&result).unwrap().domain.unwrap();
         assert_eq!(domain.transport_failure, TransportFailureKind::None);
         assert_eq!(domain.tls_error, None);
+    }
+
+    #[test]
+    fn domain_summary_uses_the_clear_attempt_with_a_measured_peer() {
+        let tls13 = TlsObservation {
+            error: Some("no addresses".into()),
+            failure_stage: Some(ProbeStreamFailureStage::DnsResolution),
+            ..failed_probe()
+        };
+        let tls12 = TlsObservation {
+            failure_stage: Some(ProbeStreamFailureStage::TlsHandshake),
+            transport_open_ms: Some(1),
+            tls_handshake_ms: Some(200),
+            tls_server_hello_received: Some(false),
+            connected_addr: Some("127.0.0.2:443".parse().unwrap()),
+            ..failed_probe()
+        };
+        let http_server = crate::test_fixtures::HttpTextServer::start_text("HTTP/1.1 200 OK", "ok");
+        let target = DomainTarget {
+            host: "localhost".into(),
+            connect_ip: Some("127.0.0.1".into()),
+            connect_ips: Vec::new(),
+            https_port: Some(443),
+            http_port: Some(http_server.port()),
+            http_path: "/".into(),
+            is_control: false,
+            concurrency_probe: None,
+        };
+        let result = super::run_domain_probe_with_tls_probe(
+            &target,
+            &super::TransportConfig::Direct { route_experiment: None },
+            None,
+            |_, _, profile| match profile {
+                TlsClientProfile::Tls13Only => tls13.clone(),
+                TlsClientProfile::Tls12Only => tls12.clone(),
+                _ => failed_probe(),
+            },
+        )
+        .unwrap();
+        let detail = |key: &str| result.details.iter().find(|detail| detail.key == key).unwrap().value.as_str();
+        assert_eq!(detail("tlsReportedAttempt"), "tls12");
+        assert_eq!(detail("connectedIp"), "127.0.0.2");
+        assert_eq!(detail("tlsError"), "connection timed out");
+        assert_eq!(detail("tlsFailureStage"), "tls_handshake");
+        assert_eq!(detail("tls13Error"), "no addresses");
     }
 
     #[test]
@@ -392,14 +439,15 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.outcome, "tls_version_split");
+        assert!(!result.details.iter().any(|detail| detail.key == "tls13AlertCode"));
         assert!(
             result
                 .details
                 .iter()
                 .any(|detail| { detail.key == "tlsVersionComparisonScope" && detail.value == "same_peer" })
         );
-        assert!(result.details.iter().any(|detail| detail.key == "tlsAlertCode" && detail.value == "70"));
-        assert!(result.details.iter().any(|detail| detail.key == "tlsAlertSource" && detail.value == "unknown"));
+        assert!(result.details.iter().any(|detail| detail.key == "tls12AlertCode" && detail.value == "70"));
+        assert!(result.details.iter().any(|detail| detail.key == "tls12AlertSource" && detail.value == "unknown"));
     }
 
     #[test]

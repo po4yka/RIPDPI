@@ -25,7 +25,6 @@ internal data class DirectModePolicyEvaluation(
     val verdict: DirectModeVerdict?,
 )
 
-private const val VerdictPriorityOwnedStack = 3
 private const val VerdictPriorityNoDirectSolution = 2
 private const val VerdictPriorityTransparentWorks = 1
 
@@ -110,7 +109,6 @@ private data class DirectModeTransportSignals(
     val hasQuicBlocked: Boolean,
     val hasTlsFailureWithoutResponse: Boolean,
     val hasTlsPostClientHelloFailure: Boolean,
-    val hasOwnedStackOnly: Boolean,
     val allAttemptsFailed: Boolean,
     val noDirectTlsFailure: Boolean,
     val noDirectQuicFailure: Boolean,
@@ -127,13 +125,12 @@ private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransp
     val hasTlsFailureWithoutResponse = results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = false) }
     val hasTlsPostClientHelloFailure =
         results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = true) }
-    val hasOwnedStackOnly = results.any { it.outcome == "tls_ech_only" }
     val allAttemptsFailed = results.isNotEmpty() && results.all(ProbeResult::isDirectModeFailure)
-    val noDirectTlsFailure = allAttemptsFailed && (hasOwnedStackOnly || hasTlsFailureWithoutResponse)
+    val noDirectTlsFailure = allAttemptsFailed && hasTlsFailureWithoutResponse
     val noDirectQuicFailure = allAttemptsFailed && hasQuicBlocked && !noDirectTlsFailure
     val transportClass =
         when {
-            hasOwnedStackOnly || hasTlsFailureWithoutResponse -> DirectTransportClass.SNI_TLS_SUSPECT
+            hasTlsFailureWithoutResponse -> DirectTransportClass.SNI_TLS_SUSPECT
             hasQuicBlocked -> DirectTransportClass.QUIC_BLOCK_SUSPECT
             else -> null
         }
@@ -142,7 +139,6 @@ private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransp
         hasQuicBlocked = hasQuicBlocked,
         hasTlsFailureWithoutResponse = hasTlsFailureWithoutResponse,
         hasTlsPostClientHelloFailure = hasTlsPostClientHelloFailure,
-        hasOwnedStackOnly = hasOwnedStackOnly,
         allAttemptsFailed = allAttemptsFailed,
         noDirectTlsFailure = noDirectTlsFailure,
         noDirectQuicFailure = noDirectQuicFailure,
@@ -156,21 +152,6 @@ private fun deriveTransportPolicy(
 ): TransportPolicy {
     val base =
         when {
-            signals.hasOwnedStackOnly -> {
-                TransportPolicy(
-                    quicMode = if (signals.hasQuicBlocked) QuicMode.HARD_DISABLE else QuicMode.ALLOW,
-                    preferredStack = PreferredStack.H2,
-                    dnsMode = DnsMode.SYSTEM,
-                    tcpFamily =
-                        if (signals.hasTlsFailureWithoutResponse) {
-                            normalizeStrategyFamilyToTcpFamily("tlsrec")
-                        } else {
-                            TcpFamily.NONE
-                        },
-                    outcome = DirectModeOutcome.OWNED_STACK_ONLY,
-                )
-            }
-
             signals.allAttemptsFailed -> {
                 TransportPolicy(
                     quicMode =
@@ -220,7 +201,6 @@ private fun deriveTransportPolicy(
 
 private fun deriveReasonCode(signals: DirectModeTransportSignals): DirectModeReasonCode? =
     when {
-        signals.hasOwnedStackOnly -> DirectModeReasonCode.OWNED_STACK_REQUIRED
         signals.hasTlsPostClientHelloFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
         signals.noDirectTlsFailure -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
         signals.noDirectQuicFailure -> DirectModeReasonCode.QUIC_BLOCKED
@@ -253,13 +233,7 @@ private fun buildVerdict(
         }
 
         DirectModeOutcome.OWNED_STACK_ONLY -> {
-            DirectModeVerdict(
-                result = DirectModeVerdictResult.OWNED_STACK_ONLY,
-                reasonCode = reasonCode,
-                transportClass = signals.transportClass,
-                authority = authority,
-                cooldownUntil = cooldownUntil,
-            )
+            null
         }
 
         DirectModeOutcome.NO_DIRECT_SOLUTION -> {
@@ -306,10 +280,9 @@ private fun deriveDirectModePolicyEvaluation(
 
 private fun DirectModePolicyEvaluation.priority(): Int =
     when (verdict?.result) {
-        DirectModeVerdictResult.OWNED_STACK_ONLY -> VerdictPriorityOwnedStack
+        DirectModeVerdictResult.OWNED_STACK_ONLY, null -> 0
         DirectModeVerdictResult.NO_DIRECT_SOLUTION -> VerdictPriorityNoDirectSolution
         DirectModeVerdictResult.TRANSPARENT_WORKS -> VerdictPriorityTransparentWorks
-        null -> 0
     }
 
 private fun deriveDnsPolicyObservation(results: List<ProbeResult>): DirectModeDnsPolicyObservation {
@@ -370,7 +343,6 @@ private fun ProbeResult.directModeAuthority(): String? =
 
 private fun ProbeResult.isDirectModeFailure(): Boolean =
     when {
-        outcome == "tls_ech_only" -> false
         edgeSuccess() -> false
         outcome in setOf("quic_error", "tls_handshake_failed", "unreachable", "http_unreachable") -> true
         outcome.contains("blocked", ignoreCase = true) -> true

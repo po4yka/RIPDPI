@@ -279,6 +279,7 @@ pub ripdpi_diagnostics_contracts::types::ThroughputProbeStatus::Measured
 pub enum ripdpi_diagnostics_contracts::types::TlsProbeStatus
 pub ripdpi_diagnostics_contracts::types::TlsProbeStatus::CertInvalid
 pub ripdpi_diagnostics_contracts::types::TlsProbeStatus::HandshakeFailed
+pub ripdpi_diagnostics_contracts::types::TlsProbeStatus::Interrupted
 pub ripdpi_diagnostics_contracts::types::TlsProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::types::TlsProbeStatus::Ok
 pub ripdpi_diagnostics_contracts::types::TlsProbeStatus::VersionSplit
@@ -1350,6 +1351,7 @@ pub ripdpi_diagnostics_contracts::ThroughputProbeStatus::Measured
 pub enum ripdpi_diagnostics_contracts::TlsProbeStatus
 pub ripdpi_diagnostics_contracts::TlsProbeStatus::CertInvalid
 pub ripdpi_diagnostics_contracts::TlsProbeStatus::HandshakeFailed
+pub ripdpi_diagnostics_contracts::TlsProbeStatus::Interrupted
 pub ripdpi_diagnostics_contracts::TlsProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::TlsProbeStatus::Ok
 pub ripdpi_diagnostics_contracts::TlsProbeStatus::VersionSplit

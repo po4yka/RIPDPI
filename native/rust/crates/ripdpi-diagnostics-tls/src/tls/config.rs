@@ -13,7 +13,7 @@ use crate::transport::{TargetAddress, TransportConfig};
 use ripdpi_diagnostics_dns::cdn_ech::opportunistic_ech_config_for_ip;
 use ripdpi_diagnostics_dns::dns::{
     EchResolutionOutcome, encrypted_dns_endpoint_for_resolver_id,
-    resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
+    resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -74,11 +74,17 @@ pub(super) fn resolve_ech_config(
     server_name: &str,
     connected_addr: Option<SocketAddr>,
     transport: &TransportConfig,
+    should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> Result<(Vec<u8>, EchConfigSource), EchLookupFailure> {
     let template_metadata = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
     let resolver_id = template_metadata.template.ech_bootstrap_resolver_id.unwrap_or("adguard");
     let bootstrap_endpoint = encrypted_dns_endpoint_for_resolver_id(resolver_id);
-    let lookup = resolve_https_ech_configs_via_encrypted_dns_with_endpoint(server_name, bootstrap_endpoint, transport);
+    let lookup = resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort(
+        server_name,
+        bootstrap_endpoint,
+        transport,
+        should_abort,
+    );
     select_ech_config(lookup, connected_addr)
 }
 

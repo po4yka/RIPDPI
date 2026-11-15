@@ -1,9 +1,6 @@
 use crate::candidates::StrategyCandidateSpec;
-use crate::connectivity::append_tls_attempt_details;
-use crate::tls::{
-    TlsClientProfile, TlsObservation, append_tls_comparison_details, planned_tls_template_metadata,
-    planned_tls_template_profile, preferred_tls_observation,
-};
+use crate::connectivity::{append_tls_attempt_details, append_tls_comparison_details, select_tls_report_attempt};
+use crate::tls::{TlsClientProfile, TlsObservation, planned_tls_template_metadata, planned_tls_template_profile};
 use crate::transport::TransportConfig;
 use crate::types::ProbeDetail;
 
@@ -19,7 +16,7 @@ pub(super) fn build_https_probe_details(
     let tls13 = &observations.tls13;
     let tls12 = &observations.tls12;
     let tls_ech = &observations.tls_ech;
-    let (selected_prefix, selected) = report_attempt(observations, outcome);
+    let (selected_prefix, selected) = select_tls_report_attempt(outcome, tls13, tls12, tls_ech);
     let tls13_template = planned_tls_template_metadata(TlsClientProfile::Tls13Only);
     let tls12_template = planned_tls_template_metadata(TlsClientProfile::Tls12Only);
     let tls_ech_template = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
@@ -76,7 +73,11 @@ pub(super) fn build_https_probe_details(
         ProbeDetail { key: "tlsReportedAttempt".to_string(), value: selected_prefix.to_string() },
         ProbeDetail {
             key: "tlsError".to_string(),
-            value: selected.error.clone().unwrap_or_else(|| "none".to_string()),
+            value: if matches!(selected.status.as_str(), "interrupted" | "not_run") {
+                "none".to_string()
+            } else {
+                selected.error.clone().unwrap_or_else(|| "none".to_string())
+            },
         },
     ]);
     push_ech_observation_details(&mut details, tls_ech);
@@ -90,35 +91,8 @@ pub(super) fn build_https_probe_details(
         key: "tlsEchTemplateCapable".to_string(),
         value: tls_ech_template.template.ech_capable.to_string(),
     });
-    append_tls_comparison_details(&mut details, outcome, tls13, tls12, tls_ech);
+    append_tls_comparison_details(&mut details, outcome, tls13, tls12, transport);
     details
-}
-
-fn report_attempt<'a>(
-    observations: &'a HttpsObservationCollection,
-    outcome: &str,
-) -> (&'static str, &'a TlsObservation) {
-    if outcome == "tls_ech_only" {
-        return ("tlsEch", &observations.tls_ech);
-    }
-    let tls13 = &observations.tls13;
-    let tls12 = &observations.tls12;
-    let preferred = preferred_tls_observation(tls13, tls12);
-    if !std::ptr::eq(preferred, tls13) {
-        return ("tls12", tls12);
-    }
-    if tls13.status != "tls_ok" && !tls13.certificate_anomaly {
-        if (tls13.tls_peer_response_after_client_hello != Some(true)
-            && tls12.tls_peer_response_after_client_hello == Some(true))
-            || (tls13.transport_open_ms.is_none() && tls12.transport_open_ms.is_some())
-        {
-            return ("tls12", tls12);
-        }
-        if tls13.transport_open_ms.is_none() && observations.tls_ech.transport_open_ms.is_some() {
-            return ("tlsEch", &observations.tls_ech);
-        }
-    }
-    ("tls13", tls13)
 }
 
 fn push_ech_observation_details(details: &mut Vec<ProbeDetail>, tls_ech: &TlsObservation) {

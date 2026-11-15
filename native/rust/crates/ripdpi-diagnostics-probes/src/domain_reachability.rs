@@ -121,7 +121,9 @@ impl Probe for DomainReachabilityProbe {
 fn classify_verdict(outcome: DomainReachabilityOutcome) -> ProbeVerdict {
     match outcome {
         DomainReachabilityOutcome::TlsOk | DomainReachabilityOutcome::HttpOk => ProbeVerdict::Pass,
-        DomainReachabilityOutcome::TlsEchOnly => ProbeVerdict::Fail { class: "domain-sni-blocked".to_string() },
+        DomainReachabilityOutcome::TlsEchOnly => {
+            ProbeVerdict::Inconclusive { reason: "clear TLS was unavailable; ECH succeeded".to_string() }
+        }
         DomainReachabilityOutcome::TlsVersionSplit => {
             ProbeVerdict::Fail { class: "domain-tls-version-split".to_string() }
         }

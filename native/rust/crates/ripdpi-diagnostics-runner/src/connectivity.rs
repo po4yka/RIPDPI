@@ -23,7 +23,10 @@ pub use probes::{
     run_dns_probe_with_context, run_domain_probe, run_domain_probe_with_key_log, run_quic_probe, run_service_probe,
     run_tcp_probe, run_tcp_probe_with_cancel, run_throughput_probe, run_throughput_probe_with_progress,
 };
-pub use report::{append_tls_attempt_details, build_network_environment_probe, summarize_probe_event};
+pub use report::{
+    append_tls_attempt_details, append_tls_comparison_details, build_network_environment_probe,
+    select_tls_report_attempt, summarize_probe_event,
+};
 
 /// Stores progress and returns whether this session transition was accepted.
 /// A terminal session has a single, irreversible progress transition.

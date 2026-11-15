@@ -1,4 +1,3 @@
-use ripdpi_diagnostics_contracts::types::ProbeDetail;
 use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
 use rustls::client::EchStatus;
 
@@ -44,53 +43,6 @@ pub fn preferred_tls_observation<'a>(tls13: &'a TlsObservation, tls12: &'a TlsOb
         tls12
     } else {
         tls13
-    }
-}
-
-/// Record the comparison scope and first measured handshake failure without mixing attempts.
-pub fn append_tls_comparison_details(
-    details: &mut Vec<ProbeDetail>,
-    outcome: &str,
-    tls13: &TlsObservation,
-    tls12: &TlsObservation,
-    tls_ech: &TlsObservation,
-) {
-    if outcome == "tls_version_split" {
-        details.push(ProbeDetail {
-            key: "tlsVersionComparisonScope".to_string(),
-            value: tls_version_comparison_scope(tls13, tls12).to_string(),
-        });
-    }
-
-    let attempts = [("tls13", tls13), ("tls12", tls12), ("tls_ech", tls_ech)];
-    let Some((profile, failed)) =
-        attempts.into_iter().find(|(_, attempt)| attempt.failure_stage.is_some() && attempt.tls_handshake_ms.is_some())
-    else {
-        return;
-    };
-
-    details.push(ProbeDetail { key: "tlsFailureProfile".to_string(), value: profile.to_string() });
-    if let Some(server_hello) = failed.tls_server_hello_received {
-        details.push(ProbeDetail { key: "tlsServerHelloReceived".to_string(), value: server_hello.to_string() });
-    }
-    if let Some(code) = failed.tls_alert_code {
-        details.push(ProbeDetail { key: "tlsAlertCode".to_string(), value: code.to_string() });
-        details.push(ProbeDetail { key: "tlsAlertSource".to_string(), value: "unknown".to_string() });
-    }
-    if let Some(description) = &failed.tls_alert_description {
-        details.push(ProbeDetail { key: "tlsAlertDescription".to_string(), value: description.clone() });
-    }
-    if let Some(ms) = failed.tls_handshake_ms {
-        details.push(ProbeDetail { key: "tlsFailureHandshakeMs".to_string(), value: ms.to_string() });
-    }
-}
-
-/// Whether the TLS versions were probed at the same known destination.
-fn tls_version_comparison_scope(tls13: &TlsObservation, tls12: &TlsObservation) -> &'static str {
-    match (tls13.connected_addr, tls12.connected_addr) {
-        (Some(tls13_addr), Some(tls12_addr)) if tls13_addr == tls12_addr => "same_peer",
-        (Some(_), Some(_)) => "mixed_peers",
-        _ => "unknown_peer",
     }
 }
 

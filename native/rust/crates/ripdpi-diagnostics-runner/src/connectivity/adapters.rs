@@ -34,8 +34,7 @@ pub(crate) mod http {
 pub(crate) mod tls {
     pub use ripdpi_diagnostics_tls::tls::{
         ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
-        append_tls_comparison_details, classify_tls_signal, open_probe_stream_targets_with_options,
-        preferred_tls_observation, tls_key_log_callback_for_path, try_tls_handshake,
+        classify_tls_signal, open_probe_stream_targets_with_options, tls_key_log_callback_for_path, try_tls_handshake,
         try_tls_handshake_targets_with_options_and_abort, try_tls_handshake_with_key_log,
     };
 }

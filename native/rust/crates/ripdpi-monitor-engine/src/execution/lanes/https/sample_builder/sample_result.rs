@@ -11,7 +11,7 @@ pub(super) fn build_https_sample(
 ) -> ProbeSample {
     debug_assert!(matches!(
         outcome.as_str(),
-        "tls_cert_invalid" | "tls_ok" | "tls_version_split" | "tls_ech_only" | "tls_handshake_failed"
+        "tls_cert_invalid" | "tls_ok" | "tls_version_split" | "tls_ech_only" | "tls_handshake_failed" | "not_run"
     ));
     ProbeSample {
         result: ProbeResult {
@@ -21,7 +21,7 @@ pub(super) fn build_https_sample(
             details,
         },
         success: matches!(outcome.as_str(), "tls_ok" | "tls_version_split"),
-        weight: 2,
+        weight: if outcome == "not_run" { 0 } else { 2 },
         domain: Some(target.host.clone()),
         is_control: target.is_control,
         attempt_token: None,

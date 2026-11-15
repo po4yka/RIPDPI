@@ -1,10 +1,5 @@
-use std::sync::Arc;
-
-use rustls::client::danger::ServerCertVerifier;
-
 use crate::tls::{
-    TlsClientProfile, TlsKeyLogCallback, TlsObservation, try_tls_handshake_targets,
-    try_tls_handshake_targets_with_key_log,
+    ProbeStreamOptions, TlsClientProfile, TlsObservation, try_tls_handshake_targets_with_options_and_abort,
 };
 use crate::transport::{TargetAddress, TransportConfig};
 
@@ -13,58 +8,17 @@ pub(super) fn collect_tls_profile_observations(
     port: u16,
     transport: &TransportConfig,
     server_name: &str,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
+    options: &ProbeStreamOptions<'_>,
+    should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
 ) -> (TlsObservation, TlsObservation, TlsObservation) {
-    let tls13 = try_tls_handshake_targets_with_optional_key_log(
-        targets,
-        port,
-        transport,
-        server_name,
-        TlsClientProfile::Tls13Only,
-        tls_verifier,
-        key_log,
-    );
-    let tls12 = try_tls_handshake_targets_with_optional_key_log(
-        targets,
-        port,
-        transport,
-        server_name,
-        TlsClientProfile::Tls12Only,
-        tls_verifier,
-        key_log,
-    );
-    let tls_ech = try_tls_handshake_targets_with_optional_key_log(
-        targets,
-        port,
-        transport,
-        server_name,
-        TlsClientProfile::Tls13WithEch,
-        tls_verifier,
-        key_log,
-    );
-    (tls13, tls12, tls_ech)
-}
-
-pub(super) fn try_tls_handshake_targets_with_optional_key_log(
-    targets: &[TargetAddress],
-    port: u16,
-    transport: &TransportConfig,
-    server_name: &str,
-    profile: TlsClientProfile,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> TlsObservation {
-    match key_log {
-        Some(key_log) => try_tls_handshake_targets_with_key_log(
-            targets,
-            port,
-            transport,
-            server_name,
+    let probe = |profile| {
+        let options = ProbeStreamOptions {
             profile,
-            tls_verifier,
-            Some(key_log),
-        ),
-        None => try_tls_handshake_targets(targets, port, transport, server_name, profile, tls_verifier),
-    }
+            application_protocol: options.application_protocol,
+            certificate_policy: options.certificate_policy,
+            key_log: options.key_log,
+        };
+        try_tls_handshake_targets_with_options_and_abort(targets, port, transport, server_name, &options, should_abort)
+    };
+    (probe(TlsClientProfile::Tls13Only), probe(TlsClientProfile::Tls12Only), probe(TlsClientProfile::Tls13WithEch))
 }

@@ -96,7 +96,8 @@ internal fun ScanReport.resultsForDirectModePolicy(): List<ProbeResult> =
         }
 
 internal fun ProbeResult.isDirectModePolicyEvidence(): Boolean =
-    !probeType.startsWith("strategy_") || detailValue("candidateId")?.trim() == "baseline_plain_direct"
+    outcome != "tls_ech_only" &&
+        (!probeType.startsWith("strategy_") || detailValue("candidateId")?.trim() == "baseline_plain_direct")
 
 private fun ProbeResult.isTcpFatHeaderProbe(): Boolean = probeType == ProbeTypeTcpFatHeader
 

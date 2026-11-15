@@ -479,8 +479,13 @@ private fun HttpProbeStatus.bucket(): DiagnosticsOutcomeBucket =
 private fun TlsProbeStatus.bucket(): DiagnosticsOutcomeBucket =
     when (this) {
         TlsProbeStatus.OK -> DiagnosticsOutcomeBucket.Healthy
+
         TlsProbeStatus.HANDSHAKE_FAILED, TlsProbeStatus.CERT_INVALID -> DiagnosticsOutcomeBucket.Failed
-        TlsProbeStatus.VERSION_SPLIT, TlsProbeStatus.NOT_RUN -> DiagnosticsOutcomeBucket.Inconclusive
+
+        TlsProbeStatus.VERSION_SPLIT,
+        TlsProbeStatus.INTERRUPTED,
+        TlsProbeStatus.NOT_RUN,
+        -> DiagnosticsOutcomeBucket.Inconclusive
     }
 
 private fun EndpointProbeStatus.bucket(): DiagnosticsOutcomeBucket =

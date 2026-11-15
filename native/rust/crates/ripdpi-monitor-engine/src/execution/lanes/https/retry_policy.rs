@@ -1,11 +1,7 @@
 mod handshake;
 
-use std::sync::Arc;
-
-use rustls::client::danger::ServerCertVerifier;
-
 use crate::connectivity::append_tls_attempt_details;
-use crate::tls::TlsKeyLogCallback;
+use crate::tls::ProbeStreamOptions;
 use crate::transport::TransportConfig;
 use crate::types::{DomainTarget, ProbeDetail};
 
@@ -18,14 +14,14 @@ pub(super) struct HttpsRetryDecision {
 pub(super) fn apply_https_retry_policy(
     transport: &TransportConfig,
     target: &DomainTarget,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
+    options: &ProbeStreamOptions<'_>,
+    should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
     https_port: u16,
     outcome: &str,
     details: &mut Vec<ProbeDetail>,
 ) -> HttpsRetryDecision {
-    if outcome == "tls_handshake_failed" {
-        let retry = retry_tls13_handshake(transport, target, tls_verifier, key_log, https_port);
+    if outcome == "tls_handshake_failed" && should_abort().is_none() {
+        let retry = retry_tls13_handshake(transport, target, options, should_abort, https_port);
         let retry_success = retry.status == "tls_ok";
         append_tls_attempt_details(details, "tlsRetry", &retry, transport);
         details.push(ProbeDetail { key: "retryOnlySuccess".to_string(), value: retry_success.to_string() });
@@ -48,7 +44,7 @@ mod tests {
     use rustls::pki_types::PrivateKeyDer;
     use rustls::{ServerConfig, ServerConnection};
 
-    use crate::tls::NoCertificateVerification;
+    use crate::tls::{NoCertificateVerification, ProbeStreamOptions};
     use crate::transport::TransportConfig;
     use crate::types::{DomainTarget, ProbeDetail};
 
@@ -74,8 +70,11 @@ mod tests {
         let decision = apply_https_retry_policy(
             &transport,
             &target,
-            Some(&verifier),
-            None,
+            &ProbeStreamOptions {
+                certificate_policy: crate::tls::ProbeCertificatePolicy::Custom(&verifier),
+                ..ProbeStreamOptions::default()
+            },
+            &|| None,
             server.addr.port(),
             "tls_handshake_failed",
             &mut details,

@@ -106,7 +106,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "domain_reachability" => match outcome {
             "tls_ok" => ProbeOutcomeBucket::Healthy,
-            "tls_version_split" | "tls_ech_only" | "http_ok" => ProbeOutcomeBucket::Attention,
+            "tls_version_split" | "tls_ech_only" | "tls_retry_only" | "http_ok" => ProbeOutcomeBucket::Attention,
             "tls_cert_invalid" | "http_blockpage" | "unreachable" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },

@@ -99,8 +99,11 @@ pub(crate) fn capture_tls_handshake(
         let (bytes, source) = if let Some(configs) = options.ech_retry_configs {
             (configs.to_vec(), EchConfigSource::RetryConfigs)
         } else {
-            resolve_ech_config(&server_name.to_str(), connected_addr, options.transport)
-                .map_err(|failure| ech_setup_error(failure, None))?
+            let resolved = resolve_ech_config(&server_name.to_str(), connected_addr, options.transport, should_abort);
+            if let Some(reason) = should_abort() {
+                return Err(format!("probe_aborted:{reason}").into());
+            }
+            resolved.map_err(|failure| ech_setup_error(failure, None))?
         };
         let config = build_ech_client_config_from_list(
             bytes,
@@ -587,8 +590,14 @@ mod tests {
         });
 
         let elapsed = started.elapsed();
-        assert_eq!(observation.status, "tls_handshake_failed");
-        assert_eq!(observation.error.as_deref(), Some("scan_deadline_exceeded"));
+        assert_eq!(observation.status, "interrupted");
+        assert!(matches!(
+            observation.error.as_deref(),
+            Some("scan_deadline_exceeded" | "probe_aborted:scan_deadline_exceeded")
+        ));
+        assert_eq!(observation.failure_stage, None);
+        assert_eq!(observation.client_hello_capture, ClientHelloCapture::Complete);
+        assert!(observation.ja3_fingerprint.is_some());
         assert!(elapsed < Duration::from_secs(2), "handshake ran for {elapsed:?}");
         server.join().unwrap();
     }

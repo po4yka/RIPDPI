@@ -15,7 +15,7 @@ pub(super) trait ConnectivityProbeFamily {
     const PHASE: &'static str;
     const ARTIFACT_SOURCE: &'static str;
 
-    const DROP_INTERRUPTED_RESULT: bool = false;
+    const DROP_EMPTY_INTERRUPTED_RESULT: bool = false;
 
     fn targets(plan: &ExecutionPlan) -> Vec<Self::Target>;
     fn message(target: &Self::Target) -> String;
@@ -42,7 +42,7 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
         }
         let message = F::message(&target);
         let probe = F::run_probe(&target, plan, &plan.probe_context, cancel, tls_verifier);
-        if F::DROP_INTERRUPTED_RESULT && interrupted(cancel) {
+        if F::DROP_EMPTY_INTERRUPTED_RESULT && probe.details.is_empty() && interrupted(cancel) {
             return CollectedStageOutcome::Cancelled(steps);
         }
         steps.push(CollectedStep::from_probe(F::PHASE, message, probe, F::ARTIFACT_SOURCE, &plan.request.path_mode));

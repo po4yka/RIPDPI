@@ -84,6 +84,7 @@ fn tls_status_maps_all_variants() {
     assert_eq!(tls_status(Some("tls_ok")), TlsProbeStatus::Ok);
     assert_eq!(tls_status(Some("tls_version_split")), TlsProbeStatus::VersionSplit);
     assert_eq!(tls_status(Some("tls_cert_invalid")), TlsProbeStatus::CertInvalid);
+    assert_eq!(tls_status(Some("interrupted")), TlsProbeStatus::Interrupted);
     assert_eq!(tls_status(Some("not_run")), TlsProbeStatus::NotRun);
     assert_eq!(tls_status(None), TlsProbeStatus::NotRun);
     assert_eq!(tls_status(Some("unknown")), TlsProbeStatus::HandshakeFailed);

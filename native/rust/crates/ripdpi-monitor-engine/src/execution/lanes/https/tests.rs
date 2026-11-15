@@ -64,7 +64,7 @@ fn https_probe_report_keeps_each_peer_with_its_own_measurements() {
     assert_eq!(detail_value(&details, "tls12Ja3Fingerprint"), "de4795e56a15bf5fbccf14d36b3380f5");
     assert_eq!(detail_value(&details, "tls12LocalSocketTtl"), "64");
     assert_eq!(detail_value(&details, "tls12LocalSocketTtlLeg"), "client_to_proxy");
-    assert_eq!(detail_value(&details, "tlsVersionComparisonScope"), "mixed_peers");
+    assert_eq!(detail_value(&details, "tlsVersionComparisonScope"), "mixed_requested_destinations");
     assert_eq!(detail_value(&details, "tls13ConnectedIp"), "192.0.2.1");
     assert_eq!(detail_value(&details, "tls13AlertCode"), "70");
     assert_eq!(detail_value(&details, "tls13AlertSource"), "unknown");
@@ -79,6 +79,43 @@ fn https_probe_report_keeps_each_peer_with_its_own_measurements() {
     let details = build_https_probe_details(&candidate, &observations, "tls_handshake_failed", &transport);
     assert_eq!(detail_value(&details, "tlsReportedAttempt"), "tls12");
     assert_eq!(detail_value(&details, "connectedIp"), "192.0.2.2");
+}
+
+#[test]
+fn ech_certificate_failure_is_separate_from_successful_clear_tls() {
+    use super::outcome_classification::classify_https_outcome;
+
+    let mut tls_ech = tls_observation("tls_cert_invalid", Some("invalid outer certificate"));
+    tls_ech.certificate_anomaly = true;
+    let mut observations = HttpsObservationCollection {
+        tls13: tls_observation("tls_ok", None),
+        tls12: tls_observation("tls_ok", None),
+        tls_ech,
+        latency_ms: 20,
+        https_port: 443,
+    };
+    assert_eq!(classify_https_outcome(&observations, false), "tls_ok");
+
+    observations.tls13.status = "tls_handshake_failed".into();
+    observations.tls12.status = "tls_handshake_failed".into();
+    assert_eq!(classify_https_outcome(&observations, false), "tls_cert_invalid");
+}
+
+#[test]
+fn interrupted_ech_preserves_a_completed_clear_tls_comparison() {
+    use super::outcome_classification::classify_https_outcome;
+
+    let mut observations = HttpsObservationCollection {
+        tls13: tls_observation("tls_handshake_failed", Some("connection reset")),
+        tls12: tls_observation("tls_ok", None),
+        tls_ech: tls_observation("interrupted", Some("probe_aborted:scan_cancelled")),
+        latency_ms: 20,
+        https_port: 443,
+    };
+    assert_eq!(classify_https_outcome(&observations, true), "tls_version_split");
+
+    observations.tls13.status = "interrupted".into();
+    assert_eq!(classify_https_outcome(&observations, true), "not_run");
 }
 
 fn tls_observation(status: &str, error: Option<&str>) -> TlsObservation {

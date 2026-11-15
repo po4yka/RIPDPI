@@ -6,9 +6,7 @@ mod probe;
 mod types;
 mod verifier;
 
-pub use classification::{
-    append_tls_comparison_details, classify_tls_signal, ech_status_label, preferred_tls_observation, tls_version_label,
-};
+pub use classification::{classify_tls_signal, ech_status_label, preferred_tls_observation, tls_version_label};
 pub use config::{default_root_store, make_server_name, planned_tls_template_metadata, planned_tls_template_profile};
 pub use key_log::{TlsKeyLogCallback, TlsKeyLogFile, tls_key_log_callback_for_path};
 pub use probe::{

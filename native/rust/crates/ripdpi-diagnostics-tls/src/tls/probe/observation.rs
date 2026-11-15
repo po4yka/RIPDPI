@@ -3,7 +3,9 @@ use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
 use crate::transport::ConnectionStream;
 
 use super::super::classification::tls_version_label;
-use super::super::types::{EchConfigSource, ProbeStreamError, ProbeStreamResult, TlsClientProfile, TlsObservation};
+use super::super::types::{
+    EchConfigSource, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamResult, TlsClientProfile, TlsObservation,
+};
 use super::ech;
 
 struct SuccessObservationParts {
@@ -79,7 +81,10 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
 }
 
 pub(crate) fn from_probe_error(mut err: ProbeStreamError) -> TlsObservation {
-    let failure_stage = err.stage;
+    let interrupted = err.message.starts_with("probe_aborted:")
+        || err.message == "scan_deadline_exceeded"
+        || err.message == "scan_cancelled";
+    let failure_stage = (!interrupted).then_some(err.stage);
     let failure_duration_ms = err.duration_ms;
     let certificate_anomaly = err.rejected_server_certificate();
     let client_hello = err.client_hello.take().map_or_else(Default::default, |evidence| *evidence);
@@ -92,7 +97,13 @@ pub(crate) fn from_probe_error(mut err: ProbeStreamError) -> TlsObservation {
         None => (None, None),
     };
     let mut lookup_outcome = lookup_failure.as_ref().map(ech::from_resolution_error);
-    let status = if lookup_outcome.is_some() {
+    let status = if interrupted {
+        if err.stage != ProbeStreamFailureStage::StreamSetup || err.transport_open_ms.is_some() {
+            "interrupted"
+        } else {
+            "not_run"
+        }
+    } else if lookup_outcome.is_some() {
         "not_run"
     } else if certificate_anomaly {
         "tls_cert_invalid"
@@ -111,8 +122,8 @@ pub(crate) fn from_probe_error(mut err: ProbeStreamError) -> TlsObservation {
         status: status.to_string(),
         version: None,
         error: Some(err.message),
-        failure_stage: Some(failure_stage),
-        failure_duration_ms: Some(failure_duration_ms),
+        failure_stage,
+        failure_duration_ms: (!interrupted).then_some(failure_duration_ms),
         certificate_anomaly,
         ech_resolution_detail: resolution_detail,
         ech_config_source,
