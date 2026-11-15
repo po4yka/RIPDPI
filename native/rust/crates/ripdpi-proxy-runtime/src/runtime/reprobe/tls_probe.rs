@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use super::super::failure::RuntimeProbeResult;
@@ -31,11 +31,20 @@ pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: O
 
     let mut header = [0u8; 5];
     match stream.read_exact(&mut header) {
-        Ok(()) => {
-            let handshake_type = read_handshake_type(&mut stream, header);
-            RuntimeState::classify_probe_tls_response(header, handshake_type)
-        }
-        Err(err) => RuntimeState::classify_probe_read_error(&err),
+        Ok(()) => match read_handshake_type(&mut stream, header) {
+            Ok(handshake_type) => RuntimeState::classify_probe_tls_response(header, handshake_type),
+            Err(err) => classify_bounded_read_error(&err),
+        },
+        Err(err) => classify_bounded_read_error(&err),
+    }
+}
+
+fn classify_bounded_read_error(error: &io::Error) -> RuntimeProbeResult {
+    // This blocking socket has a receive timeout; Unix reports its expiry as WouldBlock.
+    if error.kind() == io::ErrorKind::WouldBlock {
+        RuntimeProbeResult::DpiFailure("timeout")
+    } else {
+        RuntimeState::classify_probe_read_error(error)
     }
 }
 
@@ -82,25 +91,79 @@ pub(crate) fn build_minimal_client_hello(sni: &str) -> Vec<u8> {
     record
 }
 
-fn read_handshake_type(stream: &mut impl Read, header: [u8; 5]) -> Option<u8> {
+fn read_handshake_type(stream: &mut impl Read, header: [u8; 5]) -> io::Result<Option<u8>> {
     if header[0] != 0x16 {
-        return None;
+        return Ok(None);
     }
 
     let mut handshake_type = [0u8; 1];
-    if stream.read_exact(&mut handshake_type).is_ok() { Some(handshake_type[0]) } else { None }
+    stream.read_exact(&mut handshake_type)?;
+    Ok(Some(handshake_type[0]))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Cursor;
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+
+    fn probe_stalled_response(prefix: Option<[u8; 5]>) -> RuntimeProbeResult {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind origin");
+        let target = listener.local_addr().expect("origin address");
+        let (release, released) = mpsc::channel();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept probe");
+            stream.set_read_timeout(Some(Duration::from_secs(7))).expect("bound origin read");
+            let mut header = [0; 5];
+            stream.read_exact(&mut header).expect("read ClientHello header");
+            let mut payload = vec![0; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+            stream.read_exact(&mut payload).expect("read ClientHello payload");
+            if let Some(header) = prefix {
+                stream.write_all(&header).expect("write response header");
+            }
+            released.recv_timeout(Duration::from_secs(7)).expect("hold origin until probe finishes");
+        });
+        let result = probe_tls_handshake(target, "localhost", None);
+        release.send(()).expect("release origin");
+        server.join().expect("origin worker");
+        result
+    }
+
+    #[test]
+    fn blocking_probe_header_timeout_is_reported_as_timeout() {
+        assert_eq!(probe_stalled_response(None), RuntimeProbeResult::DpiFailure("timeout"));
+    }
+
+    #[test]
+    fn blocking_probe_handshake_byte_timeout_is_reported_as_timeout() {
+        assert_eq!(
+            probe_stalled_response(Some([0x16, 0x03, 0x03, 0x00, 0x04])),
+            RuntimeProbeResult::DpiFailure("timeout")
+        );
+    }
+
+    #[test]
+    fn nonblocking_probe_unreadiness_is_not_a_timeout_or_dpi_failure() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind origin");
+        let mut client = TcpStream::connect(listener.local_addr().expect("origin address")).expect("connect origin");
+        let (_origin, _) = listener.accept().expect("accept client");
+        client.set_nonblocking(true).expect("nonblocking client");
+        let error = client.read(&mut [0; 5]).expect_err("no response is ready");
+        assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock);
+        assert_eq!(RuntimeState::classify_probe_read_error(&error), RuntimeProbeResult::NetworkError("read_failed"));
+    }
 
     #[test]
     fn read_handshake_type_ignores_non_handshake_records() {
         let mut stream = Cursor::new([0x02]);
 
-        assert_eq!(read_handshake_type(&mut stream, [0x15, 0x03, 0x03, 0x00, 0x02]), None);
+        assert_eq!(
+            read_handshake_type(&mut stream, [0x15, 0x03, 0x03, 0x00, 0x02]).expect("non-handshake header"),
+            None
+        );
         assert_eq!(stream.position(), 0);
     }
 
@@ -108,14 +171,22 @@ mod tests {
     fn read_handshake_type_reads_first_handshake_byte() {
         let mut stream = Cursor::new([0x02, 0x00, 0x00, 0x00]);
 
-        assert_eq!(read_handshake_type(&mut stream, [0x16, 0x03, 0x03, 0x00, 0x04]), Some(0x02));
+        assert_eq!(
+            read_handshake_type(&mut stream, [0x16, 0x03, 0x03, 0x00, 0x04]).expect("handshake byte"),
+            Some(0x02)
+        );
         assert_eq!(stream.position(), 1);
     }
 
     #[test]
-    fn read_handshake_type_returns_none_when_payload_is_missing() {
+    fn read_handshake_type_propagates_missing_payload() {
         let mut stream = Cursor::new([]);
 
-        assert_eq!(read_handshake_type(&mut stream, [0x16, 0x03, 0x03, 0x00, 0x01]), None);
+        assert_eq!(
+            read_handshake_type(&mut stream, [0x16, 0x03, 0x03, 0x00, 0x01])
+                .expect_err("missing handshake byte")
+                .kind(),
+            io::ErrorKind::UnexpectedEof
+        );
     }
 }
