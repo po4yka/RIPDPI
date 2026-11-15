@@ -16,6 +16,7 @@ import okhttp3.EventListener
 import okhttp3.OkHttpClient
 import okio.Buffer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.TimeUnit
 
@@ -28,7 +29,13 @@ class TelegramTransferClientsTest {
                     val payload = ByteArray(4 * 1024 * 1024)
                     downloadServer.enqueue(MockResponse.Builder().body(Buffer().write(payload)).build())
                     uploadServer.bodyLimit = 0
-                    uploadServer.enqueue(MockResponse.Builder().code(413).build())
+                    uploadServer.enqueue(
+                        MockResponse
+                            .Builder()
+                            .code(413)
+                            .headersDelay(250, TimeUnit.MILLISECONDS)
+                            .build(),
+                    )
                     downloadServer.start()
                     uploadServer.start()
                     val result =
@@ -49,6 +56,7 @@ class TelegramTransferClientsTest {
                     assertEquals(TelegramSpeedTest.UploadBytes, uploaded.bodySize)
                     assertEquals(uploaded.bodySize, result.upload.bytesTotal)
                     assertEquals(413, result.upload.httpStatus)
+                    assertTrue(requireNotNull(result.upload.responseDelayMs) >= 200)
                     assertEquals(TelegramTransferFailure.HTTP_REJECTED, result.upload.failure)
                     assertEquals(TelegramTestVerdict.PARTIAL, result.verdict)
                 }
@@ -73,6 +81,10 @@ class TelegramTransferClientsTest {
 
                 assertEquals(5L, probe.run().download.bytesTotal)
                 assertEquals(TelegramTransferFailure.PROTOCOL, probe.run().download.failure)
+                val partialResponse = probe.run().download
+                assertEquals(206, partialResponse.httpStatus)
+                assertEquals(0L, partialResponse.bytesTotal)
+                assertEquals(TelegramTransferFailure.PROTOCOL, partialResponse.failure)
                 assertEquals("identity", server.takeRequest(1, TimeUnit.SECONDS)?.headers?.get("Accept-Encoding"))
             }
         }

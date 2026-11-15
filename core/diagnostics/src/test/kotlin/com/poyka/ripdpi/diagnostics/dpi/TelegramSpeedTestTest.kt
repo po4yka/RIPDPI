@@ -10,6 +10,7 @@ import org.junit.Assert.assertNotSame
 import org.junit.Test
 import java.net.ConnectException
 import java.net.SocketTimeoutException
+import java.util.concurrent.TimeUnit
 
 class TelegramSpeedTestTest {
     @Test
@@ -67,6 +68,37 @@ class TelegramSpeedTestTest {
 
             assertEquals(TelegramProbeStatus.OK, result.upload.status)
             assertEquals(TelegramSpeedTest.UploadBytes, result.upload.bytesTotal)
+        }
+
+    @Test
+    fun uploadRatesUsePayloadTimeAndExcludeTheHttpReplyDelay() =
+        runTest {
+            val clock = FakeClock()
+            val test =
+                telegramTest(
+                    clock = clock,
+                    upload =
+                        TelegramTransferClient {
+                            clock.now = 500
+                            it.payloadStarted()
+                            clock.now = 750
+                            it.transferred(1_000)
+                            clock.now = 1_000
+                            it.transferred(250)
+                            clock.now = 3_000
+                            it.responseHeaders(200)
+                        },
+                )
+
+            val upload = test.run().upload
+
+            assertEquals(1_250L, upload.bytesTotal)
+            assertEquals(TelegramSpeedTest.UploadBytes, upload.payloadTargetBytes)
+            assertEquals(500L, upload.firstPayloadDelayMs)
+            assertEquals(500L, upload.durationMs)
+            assertEquals(2_500L, upload.avgBps)
+            assertEquals(4_000L, upload.peakBps)
+            assertEquals(2_000L, upload.responseDelayMs)
         }
 
     @Test
@@ -207,7 +239,7 @@ class TelegramSpeedTestTest {
             downloadClient = download,
             uploadClient = upload,
             dcPinger = TelegramDcPinger(socketConnector = dcConnector),
-            clockMs = clock::current,
+            clockNs = clock::nanos,
         )
 
     private fun transferChunks(totalBytes: Long) =
@@ -225,7 +257,7 @@ class TelegramSpeedTestTest {
     private class FakeClock {
         var now: Long = 0
 
-        fun current(): Long = now
+        fun nanos(): Long = TimeUnit.MILLISECONDS.toNanos(now)
     }
 
     private class FakeDcConnector(

@@ -11,6 +11,7 @@ import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.ProtocolException
 import java.net.UnknownHostException
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLException
 
 enum class TelegramTestVerdict {
@@ -40,6 +41,7 @@ enum class TelegramTransferFailure {
 
 data class ProbeStats(
     val status: TelegramProbeStatus,
+    /** Payload bytes read by GET or accepted by completed local POST sink writes. */
     val bytesTotal: Long,
     val durationMs: Long,
     val avgBps: Long,
@@ -47,6 +49,10 @@ data class ProbeStats(
     val dropAtSec: Int? = null,
     val httpStatus: Int? = null,
     val failure: TelegramTransferFailure? = null,
+    val firstPayloadDelayMs: Long? = null,
+    /** GET setup to response headers or final local POST write to response headers. */
+    val responseDelayMs: Long? = null,
+    val payloadTargetBytes: Long? = null,
 )
 
 data class TelegramTestResult(
@@ -82,6 +88,9 @@ private fun ProbeStats.toDetails(prefix: String): List<ProbeDetail> =
         ProbeDetail("${prefix}DropAtSec", dropAtSec?.toString() ?: "none"),
         ProbeDetail("${prefix}HttpStatus", httpStatus?.toString() ?: "none"),
         ProbeDetail("${prefix}Error", failure?.name?.lowercase() ?: "none"),
+        ProbeDetail("${prefix}FirstPayloadDelayMs", firstPayloadDelayMs?.toString() ?: "none"),
+        ProbeDetail("${prefix}ResponseDelayMs", responseDelayMs?.toString() ?: "none"),
+        ProbeDetail("${prefix}PayloadTargetBytes", payloadTargetBytes?.toString() ?: "none"),
     )
 
 enum class TelegramTransferKind {
@@ -118,7 +127,7 @@ class TelegramSpeedTest(
     private val downloadClient: TelegramTransferClient = OkHttpTelegramDownloadClient(),
     private val uploadClient: TelegramTransferClient = OkHttpTelegramUploadClient(),
     private val dcPinger: TelegramDcPinger = TelegramDcPinger(),
-    private val clockMs: () -> Long = System::currentTimeMillis,
+    private val clockNs: () -> Long = System::nanoTime,
 ) {
     suspend fun run(): TelegramTestResult = runInternal(onProgress = null)
 
@@ -152,7 +161,7 @@ class TelegramSpeedTest(
         client: TelegramTransferClient,
         onProgress: ((TelegramTestProgress.Transfer) -> Unit)?,
     ): ProbeStats {
-        val sample = TelegramTransferSample(kind, clockMs, onProgress)
+        val sample = TelegramTransferSample(kind, clockNs, onProgress)
         val failure =
             try {
                 val completed = withTimeoutOrNull(TotalTimeoutMs) { client.transfer(sample) } != null
@@ -197,47 +206,72 @@ class TelegramSpeedTest(
 
 private class TelegramTransferSample(
     private val kind: TelegramTransferKind,
-    private val clockMs: () -> Long,
+    private val clockNs: () -> Long,
     private val onProgress: ((TelegramTestProgress.Transfer) -> Unit)?,
 ) : TelegramTransferObserver {
-    private val startMs = clockMs()
-    private var payloadStartMs = startMs
-    private var lastDataMs: Long? = null
+    private val startNs = clockNs()
+    private var payloadStartNs: Long? = null
+    private var lastDataNs: Long? = null
+    private var responseNs: Long? = null
     private var bytesTotal = 0L
-    private var peakChunk = 0L
+    private var windowStartNs = startNs
+    private var windowStartBytes = 0L
+    private var peakBps = 0L
 
     var httpStatus: Int? = null
         private set
 
     override fun payloadStarted() {
-        payloadStartMs = clockMs()
+        val now = clockNs()
+        payloadStartNs = now
+        windowStartNs = now
     }
 
     override fun transferred(byteCount: Int) {
+        val now = clockNs()
         bytesTotal += byteCount
-        peakChunk = maxOf(peakChunk, byteCount.toLong())
-        val now = clockMs()
-        lastDataMs = now
-        val elapsedMs = (now - payloadStartMs).coerceAtLeast(1)
-        onProgress?.invoke(TelegramTestProgress.Transfer(kind, bytesTotal, elapsedMs, bytesTotal * 1_000 / elapsedMs))
+        lastDataNs = now
+        val windowNs = now - windowStartNs
+        if (windowNs >= MinimumPeakWindowNs) {
+            peakBps = maxOf(peakBps, bytesPerSecond(bytesTotal - windowStartBytes, windowNs))
+            windowStartNs = now
+            windowStartBytes = bytesTotal
+        }
+        val elapsedNs = payloadDurationNs()
+        onProgress?.invoke(
+            TelegramTestProgress.Transfer(kind, bytesTotal, elapsedNs.millis(), bytesPerSecond(bytesTotal, elapsedNs)),
+        )
     }
 
     override fun responseHeaders(status: Int) {
         httpStatus = status
+        responseNs = clockNs()
     }
 
     fun responseFailure(): TelegramTransferFailure? =
         when {
-            httpStatus == null -> TelegramTransferFailure.PROTOCOL
-            !httpStatus.isAccepted() -> TelegramTransferFailure.HTTP_REJECTED
-            else -> null
+            httpStatus == null -> {
+                TelegramTransferFailure.PROTOCOL
+            }
+
+            !httpStatus.isAccepted() -> {
+                TelegramTransferFailure.HTTP_REJECTED
+            }
+
+            kind == TelegramTransferKind.DOWNLOAD && httpStatus != HttpFullResponse -> {
+                TelegramTransferFailure.PROTOCOL
+            }
+
+            else -> {
+                null
+            }
         }
 
     fun stats(
         expectedBytes: Long,
         failure: TelegramTransferFailure?,
     ): ProbeStats {
-        val durationMs = ((lastDataMs ?: payloadStartMs) - payloadStartMs).coerceAtLeast(0)
+        val durationNs = payloadDurationNs()
         val status =
             when {
                 failure == TelegramTransferFailure.TIMEOUT -> TelegramProbeStatus.STALLED
@@ -245,22 +279,43 @@ private class TelegramTransferSample(
                 bytesTotal < expectedBytes -> TelegramProbeStatus.INCOMPLETE
                 else -> TelegramProbeStatus.OK
             }
+        val average = bytesPerSecond(bytesTotal, durationNs)
+        val responseStartNs = if (kind == TelegramTransferKind.UPLOAD) lastDataNs else startNs
         return ProbeStats(
             status = status,
             bytesTotal = bytesTotal,
-            durationMs = durationMs,
-            avgBps = if (durationMs > 0) bytesTotal * 1_000 / durationMs else 0,
-            peakBps = peakChunk,
+            durationMs = durationNs.millis(),
+            avgBps = average,
+            peakBps = maxOf(average, peakBps),
             dropAtSec =
-                lastDataMs?.takeIf { status == TelegramProbeStatus.STALLED }?.let {
-                    ((it - startMs) / 1_000)
-                        .toInt()
+                lastDataNs?.takeIf { status == TelegramProbeStatus.STALLED }?.let {
+                    TimeUnit.NANOSECONDS.toSeconds(it - startNs).toInt()
                 },
             httpStatus = httpStatus,
             failure = failure,
+            firstPayloadDelayMs = payloadStartNs?.let { (it - startNs).millis() },
+            responseDelayMs = responseStartNs?.let { from -> responseNs?.let { (it - from).millis() } },
+            payloadTargetBytes = expectedBytes,
         )
     }
+
+    private fun payloadDurationNs(): Long = payloadStartNs?.let { start -> lastDataNs?.let { it - start } } ?: 0
+
+    private fun Long.millis(): Long = TimeUnit.NANOSECONDS.toMillis(this)
+
+    private fun bytesPerSecond(
+        bytes: Long,
+        durationNs: Long,
+    ): Long = if (durationNs >= MinimumRateDurationNs) bytes * NanosecondsPerSecond / durationNs else 0
+
+    private companion object {
+        const val MinimumRateDurationNs = 1_000_000L
+        const val MinimumPeakWindowNs = 250_000_000L
+        const val NanosecondsPerSecond = 1_000_000_000L
+    }
 }
+
+internal const val HttpFullResponse = 200
 
 private fun Int?.isAccepted(): Boolean = this != null && this in 200..299
 

@@ -37,7 +37,7 @@ class OkHttpTelegramDownloadClient(
                 .build()
         client.newCall(request).readTransferResponse { response ->
             observer.responseHeaders(response.code)
-            if (response.isSuccessful) readPayload(response, observer)
+            if (response.code == HttpFullResponse) readPayload(response, observer)
         }
     }
 
@@ -45,8 +45,7 @@ class OkHttpTelegramDownloadClient(
         response: Response,
         observer: TelegramTransferObserver,
     ) {
-        val encoding = response.header("Content-Encoding")
-        if (encoding != null && !encoding.equals("identity", ignoreCase = true)) {
+        if (response.headers("Content-Encoding").any { !it.equals("identity", ignoreCase = true) }) {
             throw ProtocolException("Telegram download response uses an unexpected content encoding")
         }
         val input = response.body.byteStream()
