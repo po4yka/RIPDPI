@@ -256,45 +256,7 @@ class SshProfileViewModel
             _uiState.update { it.copy(saving = true) }
             val importId = importedProfileId
             saveFlow.save(
-                block = {
-                    val original = editingDraft
-                    if (importId != null) {
-                        relayActivator.saveImport(profile.copy(id = importId))
-                    } else if (original == null) {
-                        relayActivator.activateExplicitly(profile)
-                    } else {
-                        val authChanged = profile.authType != original.relaySshAuthType
-                        relayArtifacts.persist(
-                            original.copy(
-                                relayServer = profile.server,
-                                relayServerPort = profile.serverPort.toString(),
-                                relaySshUsername = profile.username,
-                                relaySshAuthType = profile.authType,
-                                relaySshPassword =
-                                    if (authChanged && profile.authType == RelaySshAuthTypePrivateKey) {
-                                        ""
-                                    } else {
-                                        editor.rawText(SshEditorField.PASSWORD)
-                                    },
-                                relaySshPrivateKey =
-                                    if (authChanged && profile.authType == RelaySshAuthTypePassword) {
-                                        ""
-                                    } else {
-                                        editor.rawText(SshEditorField.PRIVATE_KEY)
-                                    },
-                                relaySshPrivateKeyPassphrase =
-                                    if (authChanged && profile.authType == RelaySshAuthTypePassword) {
-                                        ""
-                                    } else {
-                                        editor.rawText(SshEditorField.PRIVATE_KEY_PASSPHRASE)
-                                    },
-                                relaySshHostKeyFingerprint = profile.hostKeyFingerprint.orEmpty(),
-                                relaySshStrictHostKey = profile.strictHostKey,
-                            ),
-                        )
-                        true
-                    }
-                },
+                block = { saveProfile(profile, editor, importId) },
             ) { saved ->
                 val error =
                     when {
@@ -303,6 +265,54 @@ class SshProfileViewModel
                         else -> R.string.relay_editor_activation_failed
                     }
                 _uiState.update { it.copy(saving = false, errorMessage = error) }
+            }
+        }
+
+        private suspend fun saveProfile(
+            profile: ProxyProfile.Ssh,
+            editor: SshProfileEditorState,
+            importId: String?,
+        ): Boolean {
+            val original = editingDraft
+            return when {
+                importId != null -> {
+                    relayActivator.saveImport(profile.copy(id = importId))
+                }
+
+                original == null -> {
+                    relayActivator.activateExplicitly(profile)
+                }
+
+                else -> {
+                    val authChanged = profile.authType != original.relaySshAuthType
+                    val switchedToKey = authChanged && profile.authType == RelaySshAuthTypePrivateKey
+                    val switchedToPassword = authChanged && profile.authType == RelaySshAuthTypePassword
+                    relayArtifacts.persist(
+                        original.copy(
+                            relayServer = profile.server,
+                            relayServerPort = profile.serverPort.toString(),
+                            relaySshUsername = profile.username,
+                            relaySshAuthType = profile.authType,
+                            relaySshPassword =
+                                editor
+                                    .rawText(
+                                        SshEditorField.PASSWORD,
+                                    ).takeUnless { switchedToKey }
+                                    .orEmpty(),
+                            relaySshPrivateKey =
+                                editor.rawText(SshEditorField.PRIVATE_KEY).takeUnless { switchedToPassword }.orEmpty(),
+                            relaySshPrivateKeyPassphrase =
+                                editor
+                                    .rawText(
+                                        SshEditorField.PRIVATE_KEY_PASSPHRASE,
+                                    ).takeUnless { switchedToPassword }
+                                    .orEmpty(),
+                            relaySshHostKeyFingerprint = profile.hostKeyFingerprint.orEmpty(),
+                            relaySshStrictHostKey = profile.strictHostKey,
+                        ),
+                    )
+                    true
+                }
             }
         }
     }
