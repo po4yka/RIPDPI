@@ -46,6 +46,7 @@ class DefaultHomeDetectionStageRunner
                         DetectionRunnerConfig(
                             ownProxyPort = settings.proxyPort.takeIf { it > 0 },
                             ownPackageName = context.packageName,
+                            networkRequestsEnabled = settings.detectionCheckNetworkRequestsEnabled,
                             encryptedDnsEnabled = settings.dnsMode == "encrypted",
                             webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
                             tlsFingerprintProfile = settings.tlsFingerprintProfile.ifEmpty { "chrome_stable" },

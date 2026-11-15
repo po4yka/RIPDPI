@@ -50,6 +50,7 @@ class DetectionResultPresenterTest {
             assertTrue(!it.includeBypassCheck)
             assertTrue(!it.bypassScanOptions.proxyScanEnabled)
             assertTrue(!it.bypassScanOptions.xrayApiScanEnabled)
+            assertTrue(!it.networkRequestsEnabled)
             assertTrue(!it.includeRttTriangulationCheck)
             assertTrue(!it.includeCdnPullingCheck)
             assertTrue(!it.includeCallTransportCheck)
@@ -65,6 +66,7 @@ class DetectionResultPresenterTest {
             }
         DetectionResultPresenter.runnerConfig(withNetwork, "pkg").let {
             assertTrue(it.includeTimingAnalysis)
+            assertTrue(it.networkRequestsEnabled)
             assertTrue(it.includeRttTriangulationCheck)
             assertTrue(it.includeCdnPullingCheck)
             assertTrue(it.includeCallTransportCheck)

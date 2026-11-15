@@ -38,7 +38,7 @@ internal class DetectionPipelineScheduler(
             val excludePorts = setOfNotNull(config.ownProxyPort)
 
             val geoIpDeferred =
-                if (config.includeGeoIpCheck) {
+                if (config.networkRequestsEnabled && config.includeGeoIpCheck) {
                     async {
                         reporter.started(DetectionStage.GEO_IP)
                         geoIpChecker.check(config.resolverConfig).also {
@@ -79,7 +79,12 @@ internal class DetectionPipelineScheduler(
                         bypassChecker
                             .check(
                                 excludePorts = excludePorts,
-                                options = config.bypassScanOptions,
+                                options =
+                                    config.bypassScanOptions.copy(
+                                        networkRequestsEnabled =
+                                            config.networkRequestsEnabled &&
+                                                config.bypassScanOptions.networkRequestsEnabled,
+                                    ),
                                 onProgress = reporter::bypassProgress,
                             ).also {
                                 reporter.completed(DetectionStage.BYPASS)
@@ -99,7 +104,7 @@ internal class DetectionPipelineScheduler(
                     null
                 }
             val webRtcDeferred =
-                if (config.includeWebRtcCheck) {
+                if (config.networkRequestsEnabled && config.includeWebRtcCheck) {
                     async {
                         webRtcLeakChecker.check(config.webRtcProtectionEnabled).also {
                             reporter.completed(DetectionStage.WEBRTC_LEAK)
@@ -119,7 +124,7 @@ internal class DetectionPipelineScheduler(
                     null
                 }
             val ipComparisonDeferred =
-                if (config.includeIpComparisonCheck) {
+                if (config.networkRequestsEnabled && config.includeIpComparisonCheck) {
                     async {
                         reporter.started(DetectionStage.IP_COMPARISON)
                         ipComparisonChecker.check(config.resolverConfig).also {
@@ -130,7 +135,7 @@ internal class DetectionPipelineScheduler(
                     null
                 }
             val cdnPullingDeferred =
-                if (config.includeCdnPullingCheck) {
+                if (config.networkRequestsEnabled && config.includeCdnPullingCheck) {
                     async {
                         reporter.started(DetectionStage.CDN_PULLING)
                         cdnPullingChecker
@@ -162,7 +167,7 @@ internal class DetectionPipelineScheduler(
             val locationSignals = locationSignalsDeferred?.await()
             val bypassResult = bypassDeferred?.await()
             val icmpSpoofing =
-                if (config.includeIcmpSpoofingCheck) {
+                if (config.networkRequestsEnabled && config.includeIcmpSpoofingCheck) {
                     reporter.started(DetectionStage.ICMP_SPOOFING)
                     icmpSpoofingChecker
                         .check(homeRoutedRoaming = locationSignals.isHomeRoutedRoaming())
@@ -173,7 +178,7 @@ internal class DetectionPipelineScheduler(
                     null
                 }
             val rttTriangulation =
-                if (config.includeRttTriangulationCheck) {
+                if (config.networkRequestsEnabled && config.includeRttTriangulationCheck) {
                     reporter.started(DetectionStage.RTT_TRIANGULATION)
                     rttTriangulationChecker
                         .check(homeCountryIso = locationSignals.homeCountryIso())
@@ -184,7 +189,7 @@ internal class DetectionPipelineScheduler(
                     null
                 }
             val callTransport =
-                if (config.includeCallTransportCheck) {
+                if (config.networkRequestsEnabled && config.includeCallTransportCheck) {
                     reporter.started(DetectionStage.CALL_TRANSPORT)
                     callTransportChecker
                         .check(proxyEndpoint = bypassResult?.proxyEndpoint)
@@ -196,7 +201,7 @@ internal class DetectionPipelineScheduler(
                 }
 
             val timingDeferred =
-                if (config.includeTimingAnalysis) {
+                if (config.networkRequestsEnabled && config.includeTimingAnalysis) {
                     async {
                         timingAnalysisChecker.check().also {
                             reporter.completed(DetectionStage.TIMING_ANALYSIS)

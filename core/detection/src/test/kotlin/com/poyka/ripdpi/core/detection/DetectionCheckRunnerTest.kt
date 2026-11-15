@@ -97,6 +97,37 @@ class DetectionCheckRunnerTest {
         }
 
     @Test
+    fun `network requests off preserves local observations without active results`() =
+        runTest {
+            val result =
+                FakeDetectionPorts().newRunner().run(
+                    context = RuntimeEnvironment.getApplication(),
+                    config =
+                        DetectionRunnerConfig(
+                            networkRequestsEnabled = false,
+                            includeIcmpSpoofingCheck = true,
+                            includeRttTriangulationCheck = true,
+                            includeCdnPullingCheck = true,
+                            includeCallTransportCheck = true,
+                        ),
+                )
+
+            assertEquals("GeoIP", result.geoIp.name)
+            assertEquals(DetectionCheckStatus.SKIPPED, result.geoIp.status)
+            assertEquals("direct", result.directSigns.name)
+            assertEquals("indirect", result.indirectSigns.name)
+            assertEquals("location", result.locationSignals.name)
+            assertEquals("dns", result.dnsLeak?.name)
+            assertNull(result.webRtcLeak)
+            assertNull(result.ipComparison)
+            assertNull(result.timingAnalysis)
+            assertNull(result.icmpSpoofing)
+            assertNull(result.rttTriangulation)
+            assertNull(result.cdnPulling)
+            assertNull(result.callTransport)
+        }
+
+    @Test
     fun `runner uses disabled defaults without calling disabled ports`() =
         runTest {
             val ports = FakeDetectionPorts()

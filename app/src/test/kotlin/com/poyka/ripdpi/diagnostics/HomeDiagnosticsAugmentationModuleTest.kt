@@ -18,8 +18,10 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VerdictExplanation
 import com.poyka.ripdpi.core.detection.VpnAppKind
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -27,6 +29,36 @@ import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 class HomeDiagnosticsAugmentationModuleTest {
+    @Test
+    fun `home detection preserves disabled network request setting`() =
+        runTest {
+            var runConfig: DetectionRunnerConfig? = null
+            val result = inventoryOnlyDetectionResult()
+            val runner =
+                DefaultHomeDetectionStageRunner(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository =
+                        FakeAppSettingsRepository(
+                            AppSettings.newBuilder().setDetectionCheckNetworkRequestsEnabled(false).build(),
+                        ),
+                    detectionCheckRunner =
+                        object : DetectionCheckRunner {
+                            override suspend fun run(
+                                context: Context,
+                                config: DetectionRunnerConfig,
+                                onProgress: (suspend (com.poyka.ripdpi.core.detection.DetectionProgress) -> Unit)?,
+                            ): DetectionCheckResult {
+                                runConfig = config
+                                return result
+                            }
+                        },
+                )
+
+            runner.run { _, _ -> }
+
+            assertFalse(requireNotNull(runConfig).networkRequestsEnabled)
+        }
+
     @Test
     fun `inventory-only detection maps to one review signal without network claim`() =
         runTest {

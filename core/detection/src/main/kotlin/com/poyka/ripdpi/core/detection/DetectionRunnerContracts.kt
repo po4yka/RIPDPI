@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 data class DetectionRunnerConfig(
     val ownProxyPort: Int? = null,
     val ownPackageName: String? = null,
+    val networkRequestsEnabled: Boolean = true,
     val includeGeoIpCheck: Boolean = true,
     val includeBypassCheck: Boolean = true,
     val includeLocationCheck: Boolean = true,
@@ -33,6 +34,7 @@ data class BypassScanOptions(
     val proxyScanEnabled: Boolean = true,
     val xrayApiScanEnabled: Boolean = true,
     val callTransportProbeEnabled: Boolean = true,
+    val networkRequestsEnabled: Boolean = true,
     val portRange: BypassPortRange = BypassPortRange.Popular,
 )
 

@@ -125,7 +125,7 @@ object BypassChecker {
             var directIp: String? = null
             var proxyIp: String? = null
 
-            if (proxyEndpoint != null) {
+            if (proxyEndpoint != null && options.networkRequestsEnabled) {
                 onProgress?.invoke(Progress("IP check", "Fetching direct IP and IP via proxy..."))
 
                 val directDeferred =
@@ -201,7 +201,7 @@ object BypassChecker {
                 xrayApiScanResult = xrayApiScanResult,
                 findings = findings,
                 detected = false,
-                needsReview = xrayApiScanResult != null,
+                needsReview = proxyEndpoint != null || xrayApiScanResult != null,
                 evidence = evidence,
                 proxyScanStatus = proxyScan.status,
                 xrayScanStatus = xrayScan.status,

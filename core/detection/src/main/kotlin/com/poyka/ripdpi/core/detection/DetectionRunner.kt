@@ -60,6 +60,7 @@ class DefaultDetectionCheckRunner
                     config = config,
                     onProgress = onProgress,
                 ),
+                config = config,
             )
     }
 

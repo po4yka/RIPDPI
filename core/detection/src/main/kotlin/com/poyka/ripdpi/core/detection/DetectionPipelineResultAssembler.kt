@@ -27,18 +27,31 @@ internal class DetectionPipelineResultAssembler(
     private val verdictEvaluator: DetectionVerdictEvaluator,
     private val asnResolver: SuspendingIpAsnResolver = DEFAULT_ASN_RESOLVER,
 ) {
-    suspend fun assemble(outputs: DetectionPipelineOutputs): DetectionCheckResult {
+    suspend fun assemble(
+        outputs: DetectionPipelineOutputs,
+        config: DetectionRunnerConfig,
+    ): DetectionCheckResult {
         val locationSignals = outputs.locationSignals ?: DetectionDisabledResults.locationSignals()
         val bypassResult = outputs.bypassResult ?: DetectionDisabledResults.bypass()
         val ipConsensus =
-            IpConsensusBuilder.buildResolved(
-                geoIp = outputs.geoIp,
-                bypassResult = bypassResult,
-                ipComparison = outputs.ipComparison,
-                cdnPulling = outputs.cdnPulling,
-                callTransport = outputs.callTransport,
-                asnResolver = asnResolver,
-            )
+            if (config.networkRequestsEnabled) {
+                IpConsensusBuilder.buildResolved(
+                    geoIp = outputs.geoIp,
+                    bypassResult = bypassResult,
+                    ipComparison = outputs.ipComparison,
+                    cdnPulling = outputs.cdnPulling,
+                    callTransport = outputs.callTransport,
+                    asnResolver = asnResolver,
+                )
+            } else {
+                IpConsensusBuilder.build(
+                    geoIp = outputs.geoIp,
+                    bypassResult = bypassResult,
+                    ipComparison = outputs.ipComparison,
+                    cdnPulling = outputs.cdnPulling,
+                    callTransport = outputs.callTransport,
+                )
+            }
         val verdictExplanation =
             verdictEvaluator.explain(
                 geoIp = outputs.geoIp,
@@ -90,6 +103,7 @@ internal object DetectionDisabledResults {
             name = "GeoIP",
             detected = false,
             findings = listOf(Finding("GeoIP check disabled")),
+            status = DetectionCheckStatus.SKIPPED,
         )
 
     fun locationSignals(): CategoryResult =
