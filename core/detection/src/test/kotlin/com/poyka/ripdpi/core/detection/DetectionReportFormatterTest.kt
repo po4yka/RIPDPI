@@ -4,6 +4,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DetectionReportFormatterTest {
+    @Test
+    fun `unmeasured and failed checks are not reported as successful`() {
+        val result =
+            DetectionCheckResult(
+                geoIp = emptyCategory("GeoIP").copy(status = DetectionCheckStatus.ERROR),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+                dnsLeak =
+                    com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
+                        .resultFrom(listOf("192.0.2.53"), true),
+                verdict = Verdict.NOT_DETECTED,
+            )
+
+        val report = DetectionReportFormatter.format(result)
+
+        assertTrue(report.contains("--- GeoIP ---\nStatus: ERROR"))
+        assertTrue(report.contains("--- DNS settings ---\nStatus: OBSERVATION ONLY"))
+    }
+
     private fun emptyCategory(name: String) =
         CategoryResult(
             name = name,

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection
 
 import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -312,6 +313,48 @@ class StealthScoreTest {
 
         assertEquals("Your traffic is distinguishable by Android VPN binding", verdict.headline)
         assertEquals("Android VPN binding", verdict.dominantSignal)
+    }
+
+    @Test
+    fun `missing measurements do not get a clean exposure verdict`() {
+        for (status in listOf(
+            DetectionCheckStatus.ERROR,
+            DetectionCheckStatus.INCONCLUSIVE,
+            DetectionCheckStatus.SKIPPED,
+        )) {
+            val result = cleanResult().copy(geoIp = emptyCategory("GeoIP").copy(status = status))
+
+            val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
+
+            assertEquals("Checks are incomplete", verdict.headline)
+            assertEquals("incomplete checks", verdict.dominantSignal)
+        }
+    }
+
+    @Test
+    fun `incomplete execution preserves confirmed positive signals`() {
+        val result =
+            cleanResult().copy(
+                geoIp = emptyCategory("GeoIP").copy(status = DetectionCheckStatus.INCONCLUSIVE, detected = true),
+            )
+
+        val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
+
+        assertEquals("Additional diagnostic signals need review", verdict.headline)
+    }
+
+    @Test
+    fun `DNS settings observation is complete within its scope but does not claim a leak test`() {
+        val dns =
+            com.poyka.ripdpi.core.detection.checker.DnsLeakChecker
+                .resultFrom(listOf("192.0.2.53"), true)
+        val result = cleanResult().copy(dnsLeak = dns)
+
+        val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
+
+        assertFalse(result.hasIncompleteChecks)
+        assertEquals("You look like ordinary HTTPS traffic", verdict.headline)
+        assertTrue(verdict.reason.contains("without a leak test"))
     }
 
     @Test

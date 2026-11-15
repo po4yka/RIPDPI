@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.export
 
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -15,6 +16,71 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DetectionJsonExportFormatterTest {
+    @Test
+    fun `execution state distinguishes errors observations and skipped categories`() {
+        val fixture = detectionExportFixture()
+        val result =
+            fixture.copy(
+                geoIp = fixture.geoIp.copy(status = DetectionCheckStatus.ERROR),
+                dnsLeak = fixture.geoIp.copy(status = DetectionCheckStatus.OBSERVATION_ONLY),
+                ipComparison = null,
+            )
+
+        val results =
+            parseJson(
+                DetectionJsonExportFormatter.format(result, exportMetadata()),
+            ).getValue("results").jsonObject
+
+        assertEquals(
+            "ERROR",
+            results
+                .getValue("geoIp")
+                .jsonObject
+                .getValue("status")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "true",
+            results
+                .getValue("geoIp")
+                .jsonObject
+                .getValue("hasError")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "OBSERVATION_ONLY",
+            results
+                .getValue("dnsLeak")
+                .jsonObject
+                .getValue("status")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "false",
+            results
+                .getValue("dnsLeak")
+                .jsonObject
+                .getValue("hasError")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "SKIPPED",
+            results
+                .getValue("ipComparison")
+                .jsonObject
+                .getValue("status")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "false",
+            results
+                .getValue("ipComparison")
+                .jsonObject
+                .getValue("hasError")
+                .jsonPrimitive.content,
+        )
+    }
+
     @Test
     fun `json contains required top level keys`() {
         val root = parseJson(DetectionJsonExportFormatter.format(detectionExportFixture(), exportMetadata()))

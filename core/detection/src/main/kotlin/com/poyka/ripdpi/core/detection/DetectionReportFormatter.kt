@@ -22,7 +22,7 @@ object DetectionReportFormatter {
                 appendCategory("Indirect Signs", report.indirectSigns)
                 appendCategory("Location Signals", report.locationSignals)
                 appendBypass(report.bypassResult, privacyModeEnabled)
-                report.dnsLeak?.let { appendCategory("DNS Leak", it) }
+                report.dnsLeak?.let { appendCategory("DNS settings", it) }
                 report.webRtcLeak?.let { appendCategory("WebRTC Leak", it) }
                 appendCategory(LocalTlsReportTitle, report.tlsFingerprintForReport())
                 report.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
@@ -58,9 +58,13 @@ object DetectionReportFormatter {
                 category.executionStatus != CheckExecutionStatus.COMPLETED -> category.executionStatus.name
                 category.detected -> "DETECTED"
                 category.needsReview -> "NEEDS REVIEW"
+                category.status != DetectionCheckStatus.COMPLETE -> category.status.name.replace('_', ' ')
                 else -> "OK"
             }
         appendLine("Status: $status")
+        if ((category.detected || category.needsReview) && category.status != DetectionCheckStatus.COMPLETE) {
+            appendLine("Execution: ${category.status.name}")
+        }
         for (finding in category.findings) {
             val prefix =
                 when {

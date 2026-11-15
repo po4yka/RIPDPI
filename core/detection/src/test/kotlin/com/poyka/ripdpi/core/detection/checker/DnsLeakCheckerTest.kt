@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -11,6 +12,7 @@ class DnsLeakCheckerTest {
 
         assertFalse(result.detected)
         assertFalse(result.needsReview)
+        assertEquals(DetectionCheckStatus.OBSERVATION_ONLY, result.status)
         assertEquals(emptyList<Any>(), result.evidence)
         assertEquals(
             listOf(
@@ -19,5 +21,13 @@ class DnsLeakCheckerTest {
             ),
             result.findings.map { it.description },
         )
+    }
+
+    @Test
+    fun `missing link properties remain inconclusive`() {
+        val result = DnsLeakChecker.resultFrom(emptyList(), encryptedDnsEnabled = true)
+
+        assertEquals(DetectionCheckStatus.INCONCLUSIVE, result.status)
+        assertFalse(result.detected)
     }
 }

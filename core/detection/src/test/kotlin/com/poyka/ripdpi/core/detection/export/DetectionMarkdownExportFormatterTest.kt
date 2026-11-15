@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.export
 
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -9,6 +10,45 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DetectionMarkdownExportFormatterTest {
+    @Test
+    fun `partial positive evidence keeps its execution status`() {
+        val fixture = detectionExportFixture()
+        val output =
+            DetectionMarkdownExportFormatter.format(
+                result =
+                    fixture.copy(
+                        geoIp = fixture.geoIp.copy(detected = true, status = DetectionCheckStatus.INCONCLUSIVE),
+                    ),
+                metadata = exportMetadata(),
+            )
+
+        assertTrue(output.contains("## GeoIp\n\n- status: [DETECTED]\n- execution: INCONCLUSIVE"))
+    }
+
+    @Test
+    fun `inconclusive checks and skipped sections are explicit`() {
+        val fixture = detectionExportFixture()
+        val output =
+            DetectionMarkdownExportFormatter.format(
+                result =
+                    fixture.copy(
+                        geoIp =
+                            fixture.geoIp.copy(
+                                detected = false,
+                                needsReview = false,
+                                findings = emptyList(),
+                                evidence = emptyList(),
+                                status = DetectionCheckStatus.INCONCLUSIVE,
+                            ),
+                        ipComparison = null,
+                    ),
+                metadata = exportMetadata(),
+            )
+
+        assertTrue(output.contains("## GeoIp\n\n- status: [INCONCLUSIVE]"))
+        assertTrue(output.contains("| IpComparison | [SKIPPED] |"))
+    }
+
     @Test
     fun `output contains summary code block`() {
         val output =

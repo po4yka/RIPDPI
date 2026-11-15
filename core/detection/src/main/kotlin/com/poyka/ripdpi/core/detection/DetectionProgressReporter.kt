@@ -80,7 +80,7 @@ private object DetectionStageProgressMessages {
             }
 
             DetectionStage.DNS_LEAK -> {
-                DetectionStageProgressMessage("DNS Leak", "Checking DNS leak exposure...")
+                DetectionStageProgressMessage("DNS settings", "Reading DNS settings...")
             }
 
             DetectionStage.WEBRTC_LEAK -> {

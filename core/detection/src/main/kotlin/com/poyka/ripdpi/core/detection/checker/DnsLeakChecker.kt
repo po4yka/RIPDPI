@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core.detection.checker
 import android.content.Context
 import android.net.ConnectivityManager
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.withContext
@@ -22,8 +23,14 @@ object DnsLeakChecker {
         encryptedDnsEnabled: Boolean,
     ): CategoryResult =
         CategoryResult(
-            name = "DNS Leak",
+            name = "DNS settings",
             detected = false,
+            status =
+                if (activeDnsServers.isEmpty()) {
+                    DetectionCheckStatus.INCONCLUSIVE
+                } else {
+                    DetectionCheckStatus.OBSERVATION_ONLY
+                },
             findings =
                 listOf(
                     Finding(

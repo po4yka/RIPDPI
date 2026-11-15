@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.ExposureStatus
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.LocalTlsReportTitle
@@ -124,6 +125,9 @@ object DetectionMarkdownExportFormatter {
             return
         }
         appendLine("- status: ${category.statusTag()}")
+        if (category.status != DetectionCheckStatus.COMPLETE) {
+            appendLine("- execution: ${category.status.name}")
+        }
         appendRows("findings", category.findings.map(Finding::description))
         appendRows("evidence", category.evidence.map { "[${it.scope}] ${it.description}" })
         appendLine()
@@ -276,6 +280,7 @@ object DetectionMarkdownExportFormatter {
             needsReview -> "[REVIEW]"
             findings.any { it.detected } || evidence.any { it.detected } -> "[DETECTED]"
             findings.any { it.needsReview } -> "[REVIEW]"
+            status != DetectionCheckStatus.COMPLETE -> "[${status.name}]"
             else -> "[OK]"
         }
 

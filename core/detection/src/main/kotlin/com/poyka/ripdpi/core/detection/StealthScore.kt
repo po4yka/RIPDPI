@@ -196,7 +196,12 @@ object ExposureVerdictBuilder {
             }
             return ExposureVerdict(
                 headline = "You look like ordinary HTTPS traffic",
-                reason = cleanReason(stealthScore),
+                reason =
+                    if (result.dnsLeak?.status == DetectionCheckStatus.OBSERVATION_ONLY) {
+                        "Completed probes reported no detection signals. DNS settings were observed without a leak test."
+                    } else {
+                        cleanReason(stealthScore)
+                    },
                 adjustmentHint = cleanHint(stealthScore),
                 dominantSignal = "ordinary HTTPS baseline",
             )
