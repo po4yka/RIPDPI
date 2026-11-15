@@ -61,6 +61,8 @@
 //! - **Sleep time counts.** On Linux and Android the monotonic reading is
 //!   `CLOCK_BOOTTIME`, which keeps running while the device is suspended
 //!   (`CLOCK_MONOTONIC`, behind [`Instant`], stops). Other hosts use [`Instant`].
+//!   If the initial BOOTTIME probe fails, the process keeps Instant until restart.
+//!   A later BOOTTIME read failure holds its last tick until the next good read.
 //! - **One source moves the clock a bounded distance.** In-window corrections
 //!   re-anchor, but never further than [`MAX_PLAUSIBLE_DRIFT_SECS`] from the
 //!   reference (the first anchor or the last voted one), so repeated small steps
@@ -94,7 +96,7 @@ pub trait Clock: Send + Sync + 'static {
     fn monotonic_nanos(&self) -> u128;
 }
 
-/// The production clock: device wall clock + a process-monotonic [`Instant`].
+/// The device wall clock and a process-stable monotonic source.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemClock;
 
@@ -108,16 +110,55 @@ impl Clock for SystemClock {
     }
 
     fn monotonic_nanos(&self) -> u128 {
+        static CLOCK: OnceLock<MonotonicClock> = OnceLock::new();
+        CLOCK.get_or_init(MonotonicClock::new).now()
+    }
+}
+
+enum MonotonicClock {
+    Instant(Instant),
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    BootTime(BootReading),
+}
+
+impl MonotonicClock {
+    fn new() -> Self {
         #[cfg(any(target_os = "linux", target_os = "android"))]
-        if let Ok(now) = nix::time::clock_gettime(nix::time::ClockId::CLOCK_BOOTTIME) {
-            let secs = u128::try_from(now.tv_sec()).unwrap_or(0);
-            let nanos = u128::try_from(now.tv_nsec()).unwrap_or(0);
-            return secs * 1_000_000_000 + nanos;
+        if let Some(initial) = boot_time_nanos() {
+            return Self::BootTime(BootReading(Mutex::new(initial)));
         }
-        // CLOCK_BOOTTIME exists since Linux 2.6.39, so only other hosts reach this.
-        static BASE: OnceLock<Instant> = OnceLock::new();
-        let base = *BASE.get_or_init(Instant::now);
-        base.elapsed().as_nanos()
+        Self::Instant(Instant::now())
+    }
+
+    fn now(&self) -> u128 {
+        match self {
+            Self::Instant(base) => base.elapsed().as_nanos(),
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            Self::BootTime(previous) => previous.keep_latest(boot_time_nanos()),
+        }
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn boot_time_nanos() -> Option<u128> {
+    let now = nix::time::clock_gettime(nix::time::ClockId::CLOCK_BOOTTIME).ok()?;
+    let secs = u128::try_from(now.tv_sec()).ok()?;
+    let nanos = u128::try_from(now.tv_nsec()).ok()?;
+    Some(secs * 1_000_000_000 + nanos)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android", test))]
+struct BootReading(Mutex<u128>);
+
+#[cfg(any(target_os = "linux", target_os = "android", test))]
+impl BootReading {
+    fn keep_latest(&self, sample: Option<u128>) -> u128 {
+        let mut previous = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        // An error must not switch to a different monotonic epoch.
+        if let Some(sample) = sample {
+            *previous = (*previous).max(sample);
+        }
+        *previous
     }
 }
 
@@ -125,13 +166,16 @@ impl Clock for SystemClock {
 /// established network time before the observation is rejected as implausible.
 /// 10 minutes comfortably exceeds real intra-session drift and both Mieru's
 /// (~3 min) and Shadowsocks SIP022's (30 s) own freshness windows, while bounding
-/// how far a rogue/misconfigured server can move the shared clock.
+/// how far incorrect observations can move the relay clock.
 const MAX_PLAUSIBLE_DRIFT_SECS: u64 = 600;
 
 /// Earliest plausible network time (2023-01-01T00:00:00Z). An observation before
 /// it is rejected, even as the first anchor, so a zero or garbage stamp cannot
 /// set the shared clock.
 const MIN_PLAUSIBLE_UNIX_SECS: i64 = 1_672_531_200;
+
+/// Latest second representable by the supported minute-based wire timestamps.
+const MAX_PLAUSIBLE_UNIX_SECS: i64 = u32::MAX as i64 * 60 + 59;
 
 /// Distinct sources whose rejected observations must agree before they re-anchor
 /// the clock. One rogue or misconfigured server cannot move it alone.
@@ -186,6 +230,17 @@ impl Anchor {
         let elapsed_secs = i64::try_from(elapsed_nanos / 1_000_000_000).unwrap_or(i64::MAX);
         self.net_unix.saturating_add(elapsed_secs)
     }
+}
+
+fn sample_wall(clock: &dyn Clock) -> Anchor {
+    let before = clock.monotonic_nanos();
+    let net_unix = clock.wall_unix_secs();
+    let mono_nanos = clock.monotonic_nanos();
+    // Sample again if suspension or scheduling delayed the wall-to-monotonic pair.
+    if mono_nanos.saturating_sub(before) >= 1_000_000_000 {
+        return Anchor { net_unix: clock.wall_unix_secs(), mono_nanos: clock.monotonic_nanos() };
+    }
+    Anchor { net_unix, mono_nanos }
 }
 
 /// Rejected observations that agree with the first one, from distinct sources.
@@ -300,10 +355,7 @@ impl NetworkTimeProvider {
     #[must_use]
     pub fn snapshot(&self) -> NetworkTimeSnapshot {
         let guard = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        let anchor = guard.anchor.unwrap_or_else(|| Anchor {
-            net_unix: self.clock.wall_unix_secs(),
-            mono_nanos: self.clock.monotonic_nanos(),
-        });
+        let anchor = guard.anchor.unwrap_or_else(|| sample_wall(self.clock.as_ref()));
         NetworkTimeSnapshot { clock: Arc::clone(&self.clock), anchor }
     }
 
@@ -337,7 +389,7 @@ impl NetworkTimeProvider {
     /// observations from [`RECALIBRATION_SOURCES`] distinct sources that agree
     /// with the first of them within [`RECALIBRATION_WINDOW_SECS`] re-anchor it.
     pub fn calibrate(&self, observed_network_unix: i64, source: TimeSource) -> bool {
-        if observed_network_unix < MIN_PLAUSIBLE_UNIX_SECS {
+        if !(MIN_PLAUSIBLE_UNIX_SECS..=MAX_PLAUSIBLE_UNIX_SECS).contains(&observed_network_unix) {
             return false;
         }
         let mono = self.clock.monotonic_nanos();
@@ -365,7 +417,9 @@ impl NetworkTimeProvider {
             // Bootstrap. A device clock inside the observation's error bound is an
             // equally valid estimate and is finer than a coarse stamp, so keep it.
             let wall = self.clock.wall_unix_secs();
-            let observation = if wall.saturating_sub(observed_network_unix).unsigned_abs() <= source.uncertainty_secs {
+            let observation = if (MIN_PLAUSIBLE_UNIX_SECS..=MAX_PLAUSIBLE_UNIX_SECS).contains(&wall)
+                && wall.abs_diff(observed_network_unix) <= source.uncertainty_secs
+            {
                 Anchor { net_unix: wall, mono_nanos: mono }
             } else {
                 observation
@@ -638,6 +692,24 @@ mod tests {
         assert!(!provider.calibrate(T0 + 1_000, source("rogue")));
         assert!(!provider.calibrate(T0 + 1_500, source("rogue")));
         assert_eq!(provider.now_unix(), T0 + 500);
+    }
+
+    #[test]
+    fn bootstrap_rejects_unrepresentable_times_and_keeps_anchor_in_range() {
+        let provider = NetworkTimeProvider::fixed(T0 - 1);
+        let coarse = TimeSource::new("test", "coarse", 1, 30);
+        assert!(!provider.calibrate(i64::MAX, coarse));
+        assert!(!provider.is_calibrated());
+        assert!(provider.calibrate(T0, coarse));
+        assert_eq!(provider.now_unix(), T0);
+    }
+
+    #[test]
+    fn boot_read_failure_preserves_epoch_and_last_tick() {
+        let boot = BootReading(Mutex::new(1_000_000_000));
+        assert_eq!(boot.keep_latest(None), 1_000_000_000);
+        assert_eq!(boot.keep_latest(Some(500_000_000)), 1_000_000_000);
+        assert_eq!(boot.keep_latest(Some(2_000_000_000)), 2_000_000_000);
     }
 
     #[test]
