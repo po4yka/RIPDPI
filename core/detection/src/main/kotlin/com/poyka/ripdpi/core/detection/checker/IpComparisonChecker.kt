@@ -31,7 +31,6 @@ import java.io.IOException
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
-import java.net.SocketTimeoutException
 import java.net.URI
 import java.util.concurrent.TimeUnit
 
@@ -200,14 +199,6 @@ object IpComparisonChecker {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (endpoint.addressFamily == IpComparisonAddressFamily.IPV6) {
-                    return endpointResult(
-                        endpoint = endpoint,
-                        dnsRecords = IpComparisonDnsRecords(),
-                        status = IpComparisonEndpointStatus.SKIPPED,
-                        errorMessage = "IPv6 DNS unavailable: ${e.safeMessage()}",
-                    )
-                }
                 return endpointResult(
                     endpoint = endpoint,
                     dnsRecords = IpComparisonDnsRecords(),
@@ -236,16 +227,10 @@ object IpComparisonChecker {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            val status =
-                if (endpoint.addressFamily == IpComparisonAddressFamily.IPV6 && e.isIpv6Unavailable()) {
-                    IpComparisonEndpointStatus.SKIPPED
-                } else {
-                    IpComparisonEndpointStatus.ERROR
-                }
             endpointResult(
                 endpoint = endpoint,
                 dnsRecords = dnsRecords,
-                status = status,
+                status = IpComparisonEndpointStatus.ERROR,
                 errorMessage = e.safeMessage(),
             )
         }
@@ -312,8 +297,6 @@ object IpComparisonChecker {
         NumericIp.parseAddress(value)?.let {
             if (it.isIPv4) IpComparisonAddressFamily.IPV4 else IpComparisonAddressFamily.IPV6
         }
-
-    private fun Exception.isIpv6Unavailable(): Boolean = this is SocketTimeoutException || this is IOException
 
     private fun Throwable.safeMessage(): String = message?.takeIf(String::isNotBlank) ?: javaClass.simpleName
 

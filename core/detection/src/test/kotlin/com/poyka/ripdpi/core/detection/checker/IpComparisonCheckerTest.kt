@@ -182,6 +182,48 @@ class IpComparisonCheckerTest {
         }
 
     @Test
+    fun `reachable ipv6 server HTTP failure is an error`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start(InetAddress.getByName("::1"), 0)
+                server.enqueue(MockResponse(code = 500, body = "server failure"))
+                val endpoint =
+                    IpComparisonEndpointDescriptor(
+                        label = "IPv6 loopback",
+                        url = "http://[::1]:${server.port}/ip",
+                        group = IpComparisonEndpointGroup.RU,
+                        addressFamily = IpComparisonAddressFamily.IPV6,
+                    )
+
+                val result = IpComparisonChecker.check(dispatchers = testDispatchers(), endpoints = listOf(endpoint))
+
+                assertEquals(IpComparisonEndpointStatus.ERROR, result.endpoints.single().status)
+                assertEquals("HTTP 500", result.endpoints.single().errorMessage)
+            }
+        }
+
+    @Test
+    fun `reachable ipv6 server invalid payload is an error`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start(InetAddress.getByName("::1"), 0)
+                server.enqueue(MockResponse(body = "no reflected address"))
+                val endpoint =
+                    IpComparisonEndpointDescriptor(
+                        label = "IPv6 loopback",
+                        url = "http://[::1]:${server.port}/ip",
+                        group = IpComparisonEndpointGroup.RU,
+                        addressFamily = IpComparisonAddressFamily.IPV6,
+                    )
+
+                val result = IpComparisonChecker.check(dispatchers = testDispatchers(), endpoints = listOf(endpoint))
+
+                assertEquals(IpComparisonEndpointStatus.ERROR, result.endpoints.single().status)
+                assertEquals("No reflected IP in response", result.endpoints.single().errorMessage)
+            }
+        }
+
+    @Test
     fun `default endpoint client extracts ipv6 from delimited body`() =
         runTest {
             MockWebServer().use { server ->
