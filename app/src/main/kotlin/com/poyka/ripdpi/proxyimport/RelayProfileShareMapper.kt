@@ -37,27 +37,11 @@ object RelayProfileShareMapper {
         credentials: RelayCredentialRecord?,
     ): ShareableRelayProfile? {
         if (!record.canRepresentConnection(credentials)) return null
-        val profile = record.toProxyProfile(credentials) ?: return null
-        val shareUri = ProxyUriCodec.encodeOrNull(profile) ?: return null
-        val imported = ProxyUriCodec.parse(shareUri) ?: return null
-        // An SSH link without a pin opens the host-key approval editor before activation.
-        val needsHostKeyApproval = imported is ProxyProfile.Ssh && imported.hostKeyFingerprint.isNullOrBlank()
-        if (!needsHostKeyApproval && !validateNativeRelayProfileResult(imported).getOrDefault(false)) return null
-        return ShareableRelayProfile(profile, shareUri)
-    }
-
-    private fun RelayProfileRecord.canRepresentConnection(credentials: RelayCredentialRecord?): Boolean {
-        // Local listener settings belong to the receiving device. These settings affect the remote connection.
-        if (outboundBindIp.isNotBlank() || finalmaskType !in setOf("", RelayFinalmaskTypeOff)) return false
-        val uriEnablesUdp =
-            relayProfileSupportsUdpAssociation(kind, true, vlessTransport, vlessFlow, credentials?.shadowsocksMethod)
-        if (uriEnablesUdp && !udpEnabled) return false
-        return when (kind) {
-            RelayKindTrojan -> trojanRootCertificatePem.isBlank()
-            RelayKindNaiveProxy -> naivePath.isBlank() && (serverName.isBlank() || serverName == server)
-            RelayKindVless -> vlessTransport == RelayVlessTransportXhttp
-            RelayKindVlessReality -> vlessTransport in setOf(RelayVlessTransportRealityTcp, RelayVlessTransportXhttp)
-            else -> true
+        return record.toProxyProfile(credentials)?.let { profile ->
+            ProxyUriCodec
+                .encodeOrNull(profile)
+                ?.takeIf(::canImportShareUri)
+                ?.let { shareUri -> ShareableRelayProfile(profile, shareUri) }
         }
     }
 
@@ -271,6 +255,28 @@ object RelayProfileShareMapper {
                 strictHostKey = sshStrictHostKey,
             ).takeIf { hasAuthSecret && server.isNotBlank() && serverPort > 0 }
     }
+}
+
+private fun RelayProfileRecord.canRepresentConnection(credentials: RelayCredentialRecord?): Boolean {
+    // Local listener settings belong to the receiving device. These settings affect the remote connection.
+    if (outboundBindIp.isNotBlank() || finalmaskType !in setOf("", RelayFinalmaskTypeOff)) return false
+    val uriEnablesUdp =
+        relayProfileSupportsUdpAssociation(kind, true, vlessTransport, vlessFlow, credentials?.shadowsocksMethod)
+    return (!uriEnablesUdp || udpEnabled) &&
+        when (kind) {
+            RelayKindTrojan -> trojanRootCertificatePem.isBlank()
+            RelayKindNaiveProxy -> naivePath.isBlank() && (serverName.isBlank() || serverName == server)
+            RelayKindVless -> vlessTransport == RelayVlessTransportXhttp
+            RelayKindVlessReality -> vlessTransport in setOf(RelayVlessTransportRealityTcp, RelayVlessTransportXhttp)
+            else -> true
+        }
+}
+
+private fun canImportShareUri(uri: String): Boolean {
+    val imported = ProxyUriCodec.parse(uri) ?: return false
+    // An SSH link without a pin opens the host-key approval editor before activation.
+    val needsHostKeyApproval = imported is ProxyProfile.Ssh && imported.hostKeyFingerprint.isNullOrBlank()
+    return needsHostKeyApproval || validateNativeRelayProfileResult(imported).getOrDefault(false)
 }
 
 private fun RelayProfileRecord.shareName(): String =
