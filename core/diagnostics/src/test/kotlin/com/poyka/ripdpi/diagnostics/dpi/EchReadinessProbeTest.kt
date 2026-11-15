@@ -4,6 +4,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
@@ -14,7 +15,11 @@ class EchReadinessProbeTest {
         runTest {
             val probe =
                 EchReadinessProbe(
-                    resolver = HttpsRrResolver(query = HttpsRrQuery { emptyList() }),
+                    resolver =
+                        HttpsRrResolver(
+                            query = HttpsRrQuery { HttpsRrResponse(HttpsRrOutcome.NODATA) },
+                            fallbackQuery = null,
+                        ),
                     tlsHandshake = FakeEchTlsHandshake(EchTlsHandshakeResult(negotiatedEch = true, latencyMs = 10)),
                 )
 
@@ -146,11 +151,48 @@ class EchReadinessProbeTest {
             assertEquals(results.map { result -> EchProbeVerdict.ECH_OK }.toSet(), results.map { it.verdict }.toSet())
         }
 
+    @Test
+    fun observedRrsetWithoutEchAndSystemFailureKeepSeparateTargetResults() =
+        runTest {
+            val probe =
+                EchReadinessProbe(
+                    resolver =
+                        HttpsRrResolver(
+                            query =
+                                HttpsRrQuery { host ->
+                                    if (host == "records.example") {
+                                        HttpsRrResponse(
+                                            HttpsRrOutcome.ANSWER,
+                                            listOf(HttpsRrRecord(priority = 1, targetName = ".", echConfig = null)),
+                                        )
+                                    } else {
+                                        HttpsRrResponse(HttpsRrOutcome.HTTP_ERROR, httpStatus = 503)
+                                    }
+                                },
+                            fallbackQuery =
+                                HttpsRrQuery {
+                                    HttpsRrResponse(androidLookupFailure(android.net.DnsResolver.ERROR_SYSTEM, null))
+                                },
+                        ),
+                )
+            val (observed, failed) = probe.checkAll(listOf("records.example", "failed.example"))
+            assertEquals(EchProbeVerdict.ECH_NO_CONFIG, observed.verdict)
+            assertTrue(observed.httpsRrFetched)
+            assertEquals(EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE, failed.verdict)
+            assertFalse(failed.httpsRrFetched)
+            assertEquals(503, failed.httpsLookups.first().httpStatus)
+            assertEquals(HttpsRrSource.SYSTEM, failed.httpsLookups.last().source)
+            assertEquals(HttpsRrOutcome.TRANSPORT_ERROR, failed.httpsLookups.last().outcome)
+        }
+
     private fun resolverWithConfig(config: ByteArray): HttpsRrResolver =
         HttpsRrResolver(
             query =
                 HttpsRrQuery {
-                    listOf(HttpsRrRecord(priority = 1, targetName = ".", echConfig = config))
+                    HttpsRrResponse(
+                        HttpsRrOutcome.ANSWER,
+                        listOf(HttpsRrRecord(priority = 1, targetName = ".", echConfig = config)),
+                    )
                 },
         )
 

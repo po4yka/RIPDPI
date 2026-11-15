@@ -8,6 +8,9 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
+import com.poyka.ripdpi.diagnostics.dpi.HttpsRrLookupAttempt
+import com.poyka.ripdpi.diagnostics.dpi.HttpsRrOutcome
+import com.poyka.ripdpi.diagnostics.dpi.HttpsRrSource
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
@@ -144,19 +147,26 @@ private fun EchProbeResult.toEchDetailRow(stringResolver: StringResolver): Diagn
     DiagnosticsDpiSuiteProbeDetailUiModel(
         label = target,
         detail =
-            listOf(
-                verdictLabel(stringResolver),
-                stringResolver.getString(
-                    R.string.diagnostics_dpi_suite_https_rr_format,
-                    httpsRrFetched.yesNoLabel(stringResolver),
-                ),
-                stringResolver.getString(
-                    R.string.diagnostics_dpi_suite_negotiated_format,
-                    negotiatedEch.yesNoLabel(stringResolver),
-                ),
-                vanillaTlsLabel(stringResolver),
-                latencyLabel(stringResolver),
-            ).joinToString(" | "),
+            buildList {
+                add(verdictLabel(stringResolver))
+                add(
+                    stringResolver.getString(
+                        R.string.diagnostics_dpi_suite_https_rr_format,
+                        httpsRrFetched.yesNoLabel(stringResolver),
+                    ),
+                )
+                addAll(httpsLookups.distinct().map { it.label(stringResolver) })
+                if (hasMeasurement) {
+                    add(
+                        stringResolver.getString(
+                            R.string.diagnostics_dpi_suite_negotiated_format,
+                            negotiatedEch.yesNoLabel(stringResolver),
+                        ),
+                    )
+                }
+                add(vanillaTlsLabel(stringResolver))
+                add(latencyLabel(stringResolver))
+            }.joinToString(" | "),
         tone = echTone(),
     )
 
@@ -165,9 +175,50 @@ private fun EchProbeResult.verdictLabel(stringResolver: StringResolver): String 
         EchProbeVerdict.ECH_OK -> stringResolver.getString(R.string.diagnostics_dpi_suite_ech_ok)
         EchProbeVerdict.ECH_REJECTED -> stringResolver.getString(R.string.diagnostics_dpi_suite_ech_rejected)
         EchProbeVerdict.ECH_NO_CONFIG -> stringResolver.getString(R.string.diagnostics_dpi_suite_no_ech_config)
+        EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE -> stringResolver.getString(R.string.diagnostics_pmtu_inconclusive)
         EchProbeVerdict.ECH_UNKNOWN_KEY -> stringResolver.getString(R.string.diagnostics_dpi_suite_unknown_ech_key)
         EchProbeVerdict.ECH_NETWORK_BLOCK -> stringResolver.getString(R.string.diagnostics_dpi_suite_network_blocked)
     }
+
+private fun HttpsRrLookupAttempt.label(stringResolver: StringResolver): String {
+    val sourceLabel =
+        when (source) {
+            HttpsRrSource.DOH -> R.string.diagnostics_dns_source_doh_wire
+            HttpsRrSource.SYSTEM -> R.string.diagnostics_stages_lane_dns_system
+        }
+    val outcomeLabel =
+        when (outcome) {
+            HttpsRrOutcome.ANSWER -> R.string.diagnostics_cidr_whitelist_status_ok
+
+            HttpsRrOutcome.NODATA -> R.string.diagnostics_dns_nodata
+
+            HttpsRrOutcome.NXDOMAIN -> R.string.diagnostics_dns_nxdomain
+
+            HttpsRrOutcome.DNS_ERROR -> R.string.diagnostics_dns_other_rcode
+
+            HttpsRrOutcome.TRUNCATED -> R.string.diagnostics_dns_truncated
+
+            HttpsRrOutcome.MALFORMED -> R.string.diagnostics_dns_malformed
+
+            HttpsRrOutcome.TIMEOUT -> R.string.diagnostics_dns_timeout
+
+            HttpsRrOutcome.TRANSPORT_ERROR, HttpsRrOutcome.HTTP_ERROR -> R.string.diagnostics_dns_transport_error
+
+            HttpsRrOutcome.PLATFORM_UNSUPPORTED -> R.string.diagnostics_ip_unsupported
+
+            HttpsRrOutcome.NOT_OBSERVED,
+            HttpsRrOutcome.ALIAS_LIMIT,
+            HttpsRrOutcome.SERVICE_UNAVAILABLE,
+            -> R.string.diagnostics_dns_missing
+        }
+    val detail =
+        when (outcome) {
+            HttpsRrOutcome.HTTP_ERROR -> " (HTTP $httpStatus)"
+            HttpsRrOutcome.DNS_ERROR -> " (RCODE $rcode)"
+            else -> ""
+        }
+    return "${stringResolver.getString(sourceLabel)}: ${stringResolver.getString(outcomeLabel)}$detail"
+}
 
 private fun Boolean.yesNoLabel(stringResolver: StringResolver): String =
     if (this) {
@@ -194,7 +245,9 @@ private fun EchProbeResult.echTone(): DiagnosticsTone =
     when (verdict) {
         EchProbeVerdict.ECH_OK -> DiagnosticsTone.Positive
 
-        EchProbeVerdict.ECH_NO_CONFIG -> DiagnosticsTone.Neutral
+        EchProbeVerdict.ECH_NO_CONFIG,
+        EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE,
+        -> DiagnosticsTone.Neutral
 
         EchProbeVerdict.ECH_REJECTED,
         EchProbeVerdict.ECH_UNKNOWN_KEY,
@@ -252,11 +305,23 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
             }
 
             is DpiSuiteProbeResult.EchReadiness -> {
-                flaggedStatusResource(
-                    results.any { result ->
-                        result.verdict != EchProbeVerdict.ECH_OK && result.verdict != EchProbeVerdict.ECH_NO_CONFIG
-                    },
-                )
+                when {
+                    results.none { it.hasMeasurement } -> {
+                        R.string.diagnostics_pmtu_inconclusive
+                    }
+
+                    results.any { it.hasMeasurement && it.verdict != EchProbeVerdict.ECH_OK } -> {
+                        R.string.diagnostics_dns_integrity_metric_flagged
+                    }
+
+                    results.any { !it.hasMeasurement } -> {
+                        R.string.diagnostics_dpi_suite_partial
+                    }
+
+                    else -> {
+                        R.string.diagnostics_cidr_whitelist_status_ok
+                    }
+                }
             }
 
             is DpiSuiteProbeResult.Skipped -> {
@@ -404,11 +469,11 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
         }
 
         is DpiSuiteProbeResult.EchReadiness -> {
-            val flagged =
-                results.count { result ->
-                    result.verdict != EchProbeVerdict.ECH_OK && result.verdict != EchProbeVerdict.ECH_NO_CONFIG
-                }
-            countTone(flagged)
+            if (results.none { it.hasMeasurement }) {
+                DiagnosticsTone.Neutral
+            } else {
+                countTone(results.count { it.verdict != EchProbeVerdict.ECH_OK })
+            }
         }
     }
 

@@ -5,6 +5,8 @@ import android.net.DnsResolver
 import android.net.Network
 import android.os.Build
 import android.os.CancellationSignal
+import android.system.ErrnoException
+import android.system.OsConstants
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -22,13 +24,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.xbill.DNS.Type
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.SocketTimeoutException
 import java.util.Base64
 import java.util.Locale
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 data class HttpsRrRecord(
     val priority: Int,
@@ -44,60 +46,131 @@ data class HttpsRrRecord(
     override fun hashCode(): Int = 31 * (31 * priority + targetName.hashCode()) + (echConfig?.contentHashCode() ?: 0)
 }
 
+enum class HttpsRrOutcome {
+    ANSWER,
+    NODATA,
+    NXDOMAIN,
+    DNS_ERROR,
+    TRUNCATED,
+    MALFORMED,
+    TIMEOUT,
+    TRANSPORT_ERROR,
+    HTTP_ERROR,
+    PLATFORM_UNSUPPORTED,
+    NOT_OBSERVED,
+    ALIAS_LIMIT,
+    SERVICE_UNAVAILABLE,
+}
+
+data class HttpsRrResponse(
+    val outcome: HttpsRrOutcome,
+    val records: List<HttpsRrRecord> = emptyList(),
+    val rcode: Int? = null,
+    val httpStatus: Int? = null,
+)
+
+enum class HttpsRrSource {
+    DOH,
+    SYSTEM,
+}
+
+data class HttpsRrLookupAttempt(
+    val source: HttpsRrSource,
+    val outcome: HttpsRrOutcome,
+    val rcode: Int?,
+    val httpStatus: Int?,
+)
+
+data class HttpsRrLookup(
+    val record: HttpsRrRecord?,
+    val attempts: List<HttpsRrLookupAttempt>,
+) {
+    val receivedRecords: Boolean
+        get() = attempts.any { it.outcome == HttpsRrOutcome.ANSWER }
+
+    val configurationAbsent: Boolean
+        get() = attempts.groupBy { it.source }.values.any { it.last().outcome in noConfigurationOutcomes }
+
+    private companion object {
+        val noConfigurationOutcomes =
+            setOf(
+                HttpsRrOutcome.ANSWER,
+                HttpsRrOutcome.NODATA,
+                HttpsRrOutcome.NXDOMAIN,
+                HttpsRrOutcome.SERVICE_UNAVAILABLE,
+            )
+    }
+}
+
 fun interface HttpsRrQuery {
-    suspend fun query(host: String): List<HttpsRrRecord>
+    suspend fun query(host: String): HttpsRrResponse
 }
 
 class HttpsRrResolver(
     private val query: HttpsRrQuery = DohWireHttpsRrQuery(),
     private val fallbackQuery: HttpsRrQuery? = AndroidSystemHttpsRrQuery(),
 ) {
-    suspend fun fetch(host: String): HttpsRrRecord? {
-        val primary = query.fetchEchRecordOrNull(host)
-        if (primary.record != null || primary.terminal) return primary.record
-        return fallbackQuery?.fetchEchRecordOrNull(host)?.record
+    suspend fun fetch(host: String): HttpsRrLookup {
+        val attempts = mutableListOf<HttpsRrLookupAttempt>()
+        val primary = query.followAliases(host, HttpsRrSource.DOH, attempts)
+        val selected = primary.records.selectEchRecord()
+        if (selected != null || primary.outcome in terminalOutcomes || fallbackQuery == null) {
+            return HttpsRrLookup(selected, attempts)
+        }
+        val fallback = fallbackQuery.followAliases(host, HttpsRrSource.SYSTEM, attempts)
+        return HttpsRrLookup(fallback.records.selectEchRecord(), attempts)
     }
 
     private fun List<HttpsRrRecord>.selectEchRecord(): HttpsRrRecord? =
         filter { record -> !record.echConfig.isNullOrEmptyBytes() }.minByOrNull { record -> record.priority }
 
-    private suspend fun HttpsRrQuery.fetchEchRecordOrNull(host: String): LookupResult =
-        try {
-            followAliases(host)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: IOException) {
-            LookupResult()
-        } catch (_: IllegalArgumentException) {
-            LookupResult()
-        } catch (_: IllegalStateException) {
-            LookupResult()
-        }
-
-    private suspend fun HttpsRrQuery.followAliases(host: String): LookupResult {
+    private suspend fun HttpsRrQuery.followAliases(
+        host: String,
+        source: HttpsRrSource,
+        attempts: MutableList<HttpsRrLookupAttempt>,
+    ): HttpsRrResponse {
         var name = host.trimEnd('.').lowercase(Locale.ROOT)
         val visited = mutableSetOf<String>()
-        var remaining = MaxAliasHops + 1
-        while (remaining > 0 && visited.add(name)) {
-            remaining -= 1
-            val records = query(name)
-            val alias = records.firstOrNull { record -> record.priority == 0 }
-            if (alias == null) return LookupResult(record = records.selectEchRecord())
+        while (visited.size <= MaxAliasHops && visited.add(name)) {
+            val response = attempt(name)
+            attempts += HttpsRrLookupAttempt(source, response.outcome, response.rcode, response.httpStatus)
+            val alias = response.records.firstOrNull { it.priority == 0 } ?: return response
             name = alias.targetName.trimEnd('.').lowercase(Locale.ROOT)
-            if (name.isEmpty()) break
+            if (name.isEmpty()) return stopAliases(source, HttpsRrOutcome.SERVICE_UNAVAILABLE, attempts)
         }
-        return LookupResult(terminal = true)
+        return stopAliases(source, HttpsRrOutcome.ALIAS_LIMIT, attempts)
     }
 
-    private data class LookupResult(
-        val record: HttpsRrRecord? = null,
-        val terminal: Boolean = false,
-    )
+    private suspend fun HttpsRrQuery.attempt(host: String): HttpsRrResponse =
+        try {
+            query(host)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: IOException) {
+            error.toHttpsRrFailure()
+        } catch (_: IllegalArgumentException) {
+            HttpsRrResponse(HttpsRrOutcome.MALFORMED)
+        } catch (_: IllegalStateException) {
+            HttpsRrResponse(HttpsRrOutcome.TRANSPORT_ERROR)
+        }
+
+    private fun stopAliases(
+        source: HttpsRrSource,
+        outcome: HttpsRrOutcome,
+        attempts: MutableList<HttpsRrLookupAttempt>,
+    ): HttpsRrResponse {
+        attempts += HttpsRrLookupAttempt(source, outcome, rcode = null, httpStatus = null)
+        return HttpsRrResponse(outcome)
+    }
 
     private companion object {
         private const val MaxAliasHops = 3
+        val terminalOutcomes = setOf(HttpsRrOutcome.SERVICE_UNAVAILABLE, HttpsRrOutcome.ALIAS_LIMIT)
     }
 }
+
+private fun IOException.toHttpsRrFailure(): HttpsRrResponse =
+    HttpsRrResponse(if (this is InterruptedIOException) HttpsRrOutcome.TIMEOUT else HttpsRrOutcome.TRANSPORT_ERROR)
 
 class DohWireHttpsRrQuery(
     private val client: OkHttpClient =
@@ -109,7 +182,7 @@ class DohWireHttpsRrQuery(
             .build(),
     private val endpoint: String = DefaultDohEndpoint,
 ) : HttpsRrQuery {
-    override suspend fun query(host: String): List<HttpsRrRecord> =
+    override suspend fun query(host: String): HttpsRrResponse =
         suspendCancellableCoroutine { continuation ->
             val transactionId = DnsWireBuilder.randomTransactionId()
             val query = HttpsDnsWireBuilder.buildQuery(host, transactionId)
@@ -128,7 +201,7 @@ class DohWireHttpsRrQuery(
                         call: Call,
                         e: IOException,
                     ) {
-                        continuation.resumeWithException(e)
+                        continuation.resume(e.toHttpsRrFailure())
                     }
 
                     override fun onResponse(
@@ -136,14 +209,17 @@ class DohWireHttpsRrQuery(
                         response: Response,
                     ) {
                         try {
-                            val records =
+                            val result =
                                 response.use {
-                                    if (!it.isSuccessful) throw IOException("DoH HTTPS RR query failed: ${it.code}")
-                                    HttpsDnsWireParser.parseResponse(it.body.bytes(), query)
+                                    if (it.isSuccessful) {
+                                        HttpsDnsWireParser.parseResponse(it.body.bytes(), query)
+                                    } else {
+                                        HttpsRrResponse(HttpsRrOutcome.HTTP_ERROR, httpStatus = it.code)
+                                    }
                                 }
-                            continuation.resume(records)
+                            continuation.resume(result)
                         } catch (error: IOException) {
-                            continuation.resumeWithException(error)
+                            continuation.resume(error.toHttpsRrFailure())
                         }
                     }
                 },
@@ -164,44 +240,58 @@ class AndroidSystemHttpsRrQuery(
     private val executor: Executor = Executor { command -> command.run() },
 ) : HttpsRrQuery {
     @SuppressLint("NewApi", "WrongConstant")
-    override suspend fun query(host: String): List<HttpsRrRecord> {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
+    override suspend fun query(host: String): HttpsRrResponse {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return HttpsRrResponse(HttpsRrOutcome.PLATFORM_UNSUPPORTED)
+        }
         // TODO(author): DnsResolver.getInstance() deprecated; needs Context plumbing
         @Suppress("DEPRECATION")
         val resolver = resolverProvider?.invoke() ?: DnsResolver.getInstance()
-        val bytes =
-            suspendCancellableCoroutine { continuation ->
-                val cancellation = CancellationSignal()
-                continuation.invokeOnCancellation { cancellation.cancel() }
-                resolver.rawQuery(
-                    network,
-                    host,
-                    DnsResolver.CLASS_IN,
-                    HttpsDnsWireBuilder.HttpsRecordType,
-                    DnsResolver.FLAG_EMPTY,
-                    executor,
-                    cancellation,
-                    object : DnsResolver.Callback<ByteArray> {
-                        override fun onAnswer(
-                            answer: ByteArray,
-                            rcode: Int,
-                        ) {
-                            if (rcode == 0) {
-                                continuation.resume(answer)
+        return suspendCancellableCoroutine { continuation ->
+            val cancellation = CancellationSignal()
+            continuation.invokeOnCancellation { cancellation.cancel() }
+            resolver.rawQuery(
+                network,
+                host,
+                DnsResolver.CLASS_IN,
+                HttpsDnsWireBuilder.HttpsRecordType,
+                DnsResolver.FLAG_EMPTY,
+                executor,
+                cancellation,
+                object : DnsResolver.Callback<ByteArray> {
+                    override fun onAnswer(
+                        answer: ByteArray,
+                        rcode: Int,
+                    ) {
+                        val result = HttpsDnsWireParser.parseSystemResponse(answer, host)
+                        continuation.resume(
+                            if (result.rcode != null && result.rcode != rcode) {
+                                HttpsRrResponse(HttpsRrOutcome.MALFORMED)
                             } else {
-                                continuation.resume(ByteArray(0))
-                            }
-                        }
+                                result
+                            },
+                        )
+                    }
 
-                        override fun onError(error: DnsResolver.DnsException) {
-                            continuation.resumeWithException(error)
-                        }
-                    },
-                )
-            }
-        return HttpsDnsWireParser.parseSystemResponse(bytes, host)
+                    override fun onError(error: DnsResolver.DnsException) {
+                        continuation.resume(HttpsRrResponse(androidLookupFailure(error.code, error.cause)))
+                    }
+                },
+            )
+        }
     }
 }
+
+internal fun androidLookupFailure(
+    code: Int,
+    cause: Throwable?,
+): HttpsRrOutcome =
+    when {
+        code == DnsResolver.ERROR_PARSE -> HttpsRrOutcome.MALFORMED
+        cause is InterruptedIOException -> HttpsRrOutcome.TIMEOUT
+        cause is ErrnoException && cause.errno == OsConstants.ETIMEDOUT -> HttpsRrOutcome.TIMEOUT
+        else -> HttpsRrOutcome.TRANSPORT_ERROR
+    }
 
 object HttpsDnsWireBuilder {
     const val HttpsRecordType = Type.HTTPS
@@ -216,6 +306,7 @@ enum class EchProbeVerdict {
     ECH_OK,
     ECH_REJECTED,
     ECH_NO_CONFIG,
+    ECH_LOOKUP_INCONCLUSIVE,
     ECH_UNKNOWN_KEY,
     ECH_NETWORK_BLOCK,
 }
@@ -229,7 +320,11 @@ data class EchProbeResult(
     val negotiatedEch: Boolean,
     val errorDetail: String?,
     val vanillaTlsOk: Boolean? = null,
+    val httpsLookups: List<HttpsRrLookupAttempt> = emptyList(),
 ) {
+    val hasMeasurement: Boolean
+        get() = verdict != EchProbeVerdict.ECH_NO_CONFIG && verdict != EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE
+
     val echSucceededWhenBaselineTlsFailed: Boolean = vanillaTlsOk == false && verdict == EchProbeVerdict.ECH_OK
 }
 
@@ -254,32 +349,26 @@ class EchReadinessProbe(
         target: String,
         vanillaTlsOk: Boolean? = null,
     ): EchProbeResult {
-        val record =
-            try {
-                resolver.fetch(target)
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: IOException) {
-                null
-            } catch (_: IllegalArgumentException) {
-                null
-            } catch (_: IllegalStateException) {
-                null
-            }
-        val echConfig = record?.echConfig
-        if (echConfig.isNullOrEmptyBytes()) {
+        val lookup = resolver.fetch(target)
+        val configBytes = lookup.record?.echConfig
+        if (configBytes == null) {
             return EchProbeResult(
                 target = target,
-                verdict = EchProbeVerdict.ECH_NO_CONFIG,
-                httpsRrFetched = false,
+                verdict =
+                    if (lookup.configurationAbsent) {
+                        EchProbeVerdict.ECH_NO_CONFIG
+                    } else {
+                        EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE
+                    },
+                httpsRrFetched = lookup.receivedRecords,
                 echConfigBytesB64 = null,
                 tlsLatencyMs = null,
                 negotiatedEch = false,
                 errorDetail = null,
                 vanillaTlsOk = vanillaTlsOk,
+                httpsLookups = lookup.attempts,
             )
         }
-        val configBytes = requireNotNull(echConfig)
 
         return try {
             val result = tlsHandshake.connect(target, configBytes)
@@ -292,17 +381,18 @@ class EchReadinessProbe(
                 negotiatedEch = result.negotiatedEch,
                 errorDetail = null,
                 vanillaTlsOk = vanillaTlsOk,
+                httpsLookups = lookup.attempts,
             )
         } catch (error: CancellationException) {
             throw error
         } catch (error: IOException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, error)
+            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
         } catch (error: IllegalArgumentException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, error)
+            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
         } catch (error: IllegalStateException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, error)
+            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
         } catch (error: UnsupportedOperationException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, error)
+            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
         }
     }
 
@@ -310,6 +400,7 @@ class EchReadinessProbe(
         target: String,
         configBytes: ByteArray,
         vanillaTlsOk: Boolean?,
+        attempts: List<HttpsRrLookupAttempt>,
         error: Exception,
     ): EchProbeResult {
         val verdict = classifyEchFailure(error)
@@ -322,6 +413,7 @@ class EchReadinessProbe(
             negotiatedEch = false,
             errorDetail = error.message ?: error.javaClass.simpleName,
             vanillaTlsOk = vanillaTlsOk,
+            httpsLookups = attempts,
         )
     }
 

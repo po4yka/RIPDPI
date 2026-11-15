@@ -43,7 +43,7 @@ class HttpsRrAliasResolverTest {
                         fallbackQuery = null,
                     )
 
-                assertArrayEquals(EchConfig, resolver.fetch("origin.example")?.echConfig)
+                assertArrayEquals(EchConfig, resolver.fetch("origin.example").record?.echConfig)
             }
         }
 
@@ -60,7 +60,7 @@ class HttpsRrAliasResolverTest {
                         query = encodedQuery(responses),
                         fallbackQuery = encodedQuery(mapOf("origin.example" to serviceConfig())),
                     )
-                assertNull(resolver.fetch("origin.example"))
+                assertNull(resolver.fetch("origin.example").record)
             }
         }
 
@@ -80,7 +80,7 @@ class HttpsRrAliasResolverTest {
                     HttpsRrResolver(
                         query = encodedQuery(responses),
                         fallbackQuery = null,
-                    ).fetch("origin.example")
+                    ).fetch("origin.example").record
                 if (hops == 3) assertArrayEquals(EchConfig, selected?.echConfig) else assertNull(selected)
             }
         }

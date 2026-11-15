@@ -7,6 +7,7 @@ import org.xbill.DNS.Flags
 import org.xbill.DNS.HTTPSRecord
 import org.xbill.DNS.Message
 import org.xbill.DNS.Name
+import org.xbill.DNS.Rcode
 import org.xbill.DNS.SVCBBase
 import org.xbill.DNS.Section
 import org.xbill.DNS.Type
@@ -21,32 +22,57 @@ internal object HttpsDnsWireParser {
     fun parseResponse(
         bytes: ByteArray,
         query: ByteArray,
-    ): List<HttpsRrRecord> = parseSafely { DnsMessages.response(bytes, query) }
+    ): HttpsRrResponse = parseSafely { DnsMessages.response(bytes, query) }
 
     fun parseSystemResponse(
         bytes: ByteArray,
         host: String,
-    ): List<HttpsRrRecord> = parseSafely { DnsMessages.systemResponse(bytes, host, Type.HTTPS) }
+    ): HttpsRrResponse = parseSafely { DnsMessages.systemResponse(bytes, host, Type.HTTPS) }
 
-    private fun parseSafely(message: () -> Message): List<HttpsRrRecord> =
+    private fun parseSafely(message: () -> Message): HttpsRrResponse =
         try {
             records(message())
         } catch (_: IOException) {
-            emptyList()
+            HttpsRrResponse(HttpsRrOutcome.MALFORMED)
         } catch (_: IllegalArgumentException) {
-            emptyList()
+            HttpsRrResponse(HttpsRrOutcome.MALFORMED)
         }
 
-    private fun records(message: Message): List<HttpsRrRecord> {
-        if (message.rcode != 0 || message.header.getFlag(Flags.TC.toInt()) || message.question.type != Type.HTTPS) {
-            return emptyList()
+    private fun records(message: Message): HttpsRrResponse {
+        require(message.question.type == Type.HTTPS)
+        val rcode = message.rcode
+        if (message.header.getFlag(Flags.TC.toInt())) return HttpsRrResponse(HttpsRrOutcome.TRUNCATED, rcode = rcode)
+        if (rcode != Rcode.NOERROR) {
+            val outcome = if (rcode == Rcode.NXDOMAIN) HttpsRrOutcome.NXDOMAIN else HttpsRrOutcome.DNS_ERROR
+            return HttpsRrResponse(outcome, rcode = rcode)
         }
-        DnsMessages.answerChain(message)
-        return message
-            .getSection(Section.ANSWER)
-            .filterIsInstance<HTTPSRecord>()
-            .filter { it.dClass == DClass.IN && it.hasCompatibleServiceParams() }
-            .map { it.toHttpsRrRecord() ?: throw IOException("Invalid HTTPS record") }
+        val chain = DnsMessages.answerChain(message)
+        val answers =
+            message
+                .getSection(Section.ANSWER)
+                .filterIsInstance<HTTPSRecord>()
+                .filter { it.dClass == DClass.IN }
+        val records =
+            answers
+                .filter { it.hasCompatibleServiceParams() }
+                .map { it.toHttpsRrRecord() ?: throw IOException("Invalid HTTPS record") }
+        val authority = message.getSection(Section.AUTHORITY).filter { it.dClass == DClass.IN }
+        val outcome =
+            when {
+                answers.isNotEmpty() -> {
+                    HttpsRrOutcome.ANSWER
+                }
+
+                (chain.size > 1 || authority.any { it.type == Type.NS }) &&
+                    authority.none { it.type == Type.SOA && chain.last().subdomain(it.name) } -> {
+                    HttpsRrOutcome.NOT_OBSERVED
+                }
+
+                else -> {
+                    HttpsRrOutcome.NODATA
+                }
+            }
+        return HttpsRrResponse(outcome, records, rcode)
     }
 }
 

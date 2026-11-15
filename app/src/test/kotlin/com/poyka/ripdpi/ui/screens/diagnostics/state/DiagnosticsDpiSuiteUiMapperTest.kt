@@ -11,6 +11,9 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
+import com.poyka.ripdpi.diagnostics.dpi.HttpsRrLookupAttempt
+import com.poyka.ripdpi.diagnostics.dpi.HttpsRrOutcome
+import com.poyka.ripdpi.diagnostics.dpi.HttpsRrSource
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
@@ -137,6 +140,50 @@ class DiagnosticsDpiSuiteUiMapperTest {
         assertEquals("cloudflare.com", row.detailRows.single().label)
         assertEquals("ECH ok | HTTPS RR yes | negotiated yes | vanilla blocked | 42 ms", row.detailRows.single().detail)
         assertEquals(DiagnosticsTone.Positive, row.detailRows.single().tone)
+    }
+
+    @Test
+    fun allUnmeasuredEchTargetsAreInconclusiveAndShowLookupEvidence() {
+        val row =
+            DpiSuiteProbeResult
+                .EchReadiness(
+                    listOf(
+                        EchProbeResult(
+                            target = "example.com",
+                            verdict = EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE,
+                            httpsRrFetched = false,
+                            echConfigBytesB64 = null,
+                            tlsLatencyMs = null,
+                            negotiatedEch = false,
+                            errorDetail = null,
+                            httpsLookups =
+                                listOf(
+                                    HttpsRrLookupAttempt(HttpsRrSource.DOH, HttpsRrOutcome.HTTP_ERROR, null, 503),
+                                    HttpsRrLookupAttempt(
+                                        HttpsRrSource.SYSTEM,
+                                        HttpsRrOutcome.TRANSPORT_ERROR,
+                                        null,
+                                        null,
+                                    ),
+                                ),
+                        ),
+                    ),
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
+
+        assertEquals(DiagnosticsTone.Neutral, row.tone)
+        assertEquals("Inconclusive", row.status)
+        assertTrue(
+            row.detailRows
+                .single()
+                .detail
+                .contains("Transport error (HTTP 503)"),
+        )
+        assertTrue(
+            row.detailRows
+                .single()
+                .detail
+                .contains("System DNS: Transport error"),
+        )
     }
 
     private fun fallbackTlsState(): DiagnosticsTlsClientState =

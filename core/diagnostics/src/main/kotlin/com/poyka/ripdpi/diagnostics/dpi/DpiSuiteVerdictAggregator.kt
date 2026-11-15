@@ -146,11 +146,9 @@ object DpiSuiteVerdictAggregator {
 
             is DpiSuiteProbeResult.EchReadiness -> {
                 val ok = result.results.count { ech -> ech.verdict == EchProbeVerdict.ECH_OK }
-                val flagged =
-                    result.results.count { ech ->
-                        ech.verdict != EchProbeVerdict.ECH_OK && ech.verdict != EchProbeVerdict.ECH_NO_CONFIG
-                    }
-                "ECH readiness: $ok/${result.results.size} OK, $flagged flagged"
+                val flagged = result.results.count { it.hasMeasurement && it.verdict != EchProbeVerdict.ECH_OK }
+                val unmeasured = result.results.count { !it.hasMeasurement }
+                "ECH readiness: $ok/${result.results.size} OK, $flagged flagged, $unmeasured unmeasured"
             }
 
             is DpiSuiteProbeResult.Skipped -> {

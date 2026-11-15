@@ -60,6 +60,6 @@ class HttpsMandatoryRecordTest {
         val ech = SVCBBase.ParameterEch(byteArrayOf(0, 2, 3, 4))
         response.addRecord(HTTPSRecord(owner, DClass.IN, 60, 1, Name.root, params + ech), Section.ANSWER)
         response.addRecord(HTTPSRecord(owner, DClass.IN, 60, 2, Name.root, listOf(ech)), Section.ANSWER)
-        return HttpsDnsWireParser.parseResponse(response.toWire(), query.toWire())
+        return HttpsDnsWireParser.parseResponse(response.toWire(), query.toWire()).records
     }
 }

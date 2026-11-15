@@ -62,11 +62,11 @@ class HttpsRrResolverTest {
         runTest {
             val lowPriority = HttpsRrRecord(priority = 8, targetName = ".", echConfig = byteArrayOf(8))
             val highPriority = HttpsRrRecord(priority = 1, targetName = ".", echConfig = byteArrayOf(1))
-            val resolver = HttpsRrResolver(query = HttpsRrQuery { listOf(lowPriority, highPriority) })
+            val resolver = HttpsRrResolver(query = HttpsRrQuery { answers(lowPriority, highPriority) })
 
             val selected = resolver.fetch("cloudflare.com")
 
-            assertEquals(highPriority, selected)
+            assertEquals(highPriority, selected.record)
         }
 
     @Test
@@ -74,11 +74,11 @@ class HttpsRrResolverTest {
         runTest {
             val noEch = HttpsRrRecord(priority = 1, targetName = ".", echConfig = null)
             val withEch = HttpsRrRecord(priority = 5, targetName = ".", echConfig = byteArrayOf(5))
-            val resolver = HttpsRrResolver(query = HttpsRrQuery { listOf(noEch, withEch) })
+            val resolver = HttpsRrResolver(query = HttpsRrQuery { answers(noEch, withEch) })
 
             val selected = resolver.fetch("fastly.com")
 
-            assertEquals(withEch, selected)
+            assertEquals(withEch, selected.record)
         }
 
     @Test
@@ -88,12 +88,12 @@ class HttpsRrResolverTest {
             val resolver =
                 HttpsRrResolver(
                     query = HttpsRrQuery { error("DoH unavailable") },
-                    fallbackQuery = HttpsRrQuery { listOf(fallback) },
+                    fallbackQuery = HttpsRrQuery { answers(fallback) },
                 )
 
             val selected = resolver.fetch("cloudflare-ech.com")
 
-            assertEquals(fallback, selected)
+            assertEquals(fallback, selected.record)
         }
 
     @Test
@@ -102,13 +102,13 @@ class HttpsRrResolverTest {
             val fallback = HttpsRrRecord(priority = 1, targetName = ".", echConfig = byteArrayOf(9))
             val resolver =
                 HttpsRrResolver(
-                    query = HttpsRrQuery { listOf(HttpsRrRecord(priority = 1, targetName = ".", echConfig = null)) },
-                    fallbackQuery = HttpsRrQuery { listOf(fallback) },
+                    query = HttpsRrQuery { answers(HttpsRrRecord(priority = 1, targetName = ".", echConfig = null)) },
+                    fallbackQuery = HttpsRrQuery { answers(fallback) },
                 )
 
             val selected = resolver.fetch("cloudflare-ech.com")
 
-            assertEquals(fallback, selected)
+            assertEquals(fallback, selected.record)
         }
 
     @Test
@@ -119,7 +119,7 @@ class HttpsRrResolverTest {
                     query = HttpsRrQuery { throw CancellationException("cancelled") },
                     fallbackQuery =
                         HttpsRrQuery {
-                            listOf(HttpsRrRecord(priority = 1, targetName = ".", echConfig = byteArrayOf(9)))
+                            answers(HttpsRrRecord(priority = 1, targetName = ".", echConfig = byteArrayOf(9)))
                         },
                 )
 
@@ -133,7 +133,7 @@ class HttpsRrResolverTest {
         runTest {
             val resolver =
                 HttpsRrResolver(
-                    query = HttpsRrQuery { emptyList() },
+                    query = HttpsRrQuery { HttpsRrResponse(HttpsRrOutcome.NODATA) },
                     fallbackQuery = HttpsRrQuery { throw CancellationException("cancelled") },
                 )
 
@@ -157,8 +157,22 @@ class HttpsRrResolverTest {
         val query = HttpsDnsWireBuilder.buildQuery("example.com", 0x1234)
         val valid = httpsResponse(query)
         val ech = byteArrayOf(0, 2, 3, 4)
-        assertArrayEquals(ech, HttpsDnsWireParser.parseResponse(valid, query).single().echConfig)
-        assertArrayEquals(ech, HttpsDnsWireParser.parseSystemResponse(valid, "example.com").single().echConfig)
+        assertArrayEquals(
+            ech,
+            HttpsDnsWireParser
+                .parseResponse(valid, query)
+                .records
+                .single()
+                .echConfig,
+        )
+        assertArrayEquals(
+            ech,
+            HttpsDnsWireParser
+                .parseSystemResponse(valid, "example.com")
+                .records
+                .single()
+                .echConfig,
+        )
 
         val wrongHost = HttpsDnsWireBuilder.buildQuery("unrelated.example", 0x1234)
         val wrongType = DnsWireBuilder.buildQuery("example.com", 0x1234)
@@ -174,9 +188,9 @@ class HttpsRrResolverTest {
             truncated,
             valid + byteArrayOf(0),
         )) {
-            assertTrue(HttpsDnsWireParser.parseResponse(response, query).isEmpty())
+            assertTrue(HttpsDnsWireParser.parseResponse(response, query).records.isEmpty())
         }
-        assertTrue(HttpsDnsWireParser.parseSystemResponse(valid, "unrelated.example").isEmpty())
+        assertTrue(HttpsDnsWireParser.parseSystemResponse(valid, "unrelated.example").records.isEmpty())
     }
 
     @Test
@@ -192,9 +206,31 @@ class HttpsRrResolverTest {
                 httpsRdata(1, ".", listOf(svcParam(SvcParamKeyEch, byteArrayOf(0, 5, 1)))),
             )
         malformed.forEach { rdata ->
-            assertTrue(HttpsDnsWireParser.parseResponse(httpsResponse(query, rdata = rdata), query).isEmpty())
+            assertTrue(HttpsDnsWireParser.parseResponse(httpsResponse(query, rdata = rdata), query).records.isEmpty())
         }
     }
+
+    @Test
+    fun preservesWireDnsStatusAndTruncation() {
+        val query = HttpsDnsWireBuilder.buildQuery("example.com", 0x1234)
+        val record = httpsResponse(query)
+        val noRecords = record.copyOf(query.size).apply { this[7] = 0 }
+        for ((flags, expected, rcode) in listOf(
+            Triple(0x8180, HttpsRrOutcome.NODATA, 0),
+            Triple(0x8183, HttpsRrOutcome.NXDOMAIN, 3),
+            Triple(0x8182, HttpsRrOutcome.DNS_ERROR, 2),
+            Triple(0x8380, HttpsRrOutcome.TRUNCATED, 0),
+        )) {
+            val wire = noRecords.copyOf().apply { u16(flags).copyInto(this, destinationOffset = 2) }
+            val response = HttpsDnsWireParser.parseResponse(wire, query)
+            assertEquals(expected, response.outcome)
+            assertEquals(rcode, response.rcode)
+            assertTrue(response.records.isEmpty())
+        }
+        assertEquals(HttpsRrOutcome.MALFORMED, HttpsDnsWireParser.parseResponse(byteArrayOf(1), query).outcome)
+    }
+
+    private fun answers(vararg records: HttpsRrRecord) = HttpsRrResponse(HttpsRrOutcome.ANSWER, records.toList())
 
     private fun httpsResponse(
         query: ByteArray,
