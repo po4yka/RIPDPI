@@ -113,7 +113,7 @@ pub(crate) fn tunnel_pcap_redact_entry(mut env: EnvUnowned<'_>, source_path: JSt
         .with_env(move |env| -> jni::errors::Result<jlong> {
             let path =
                 source_path.try_to_string(env).map(PathBuf::from).map_err(|_| jni::errors::Error::JavaException)?;
-            Ok(pcap::pcap_redact_entry(path, dest_fd) as jlong)
+            Ok(pcap::pcap_redact_entry(path, dest_fd))
         })
         .into_outcome()
     {

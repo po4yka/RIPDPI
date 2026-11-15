@@ -15,9 +15,8 @@ pub struct PcapRecord {
 
 /// Streaming reader over a classic-libpcap file.
 ///
-/// Tolerant of truncated-tail records (returns the last good record
-/// then `None` at the next call) - this is the common case after a
-/// `SIGKILL` mid-write.
+/// A partial record is an error. A reader returns all complete records
+/// before the incomplete one.
 pub struct PcapReader<R: Read> {
     inner: R,
     snaplen: u32,
@@ -57,14 +56,22 @@ impl<R: Read> PcapReader<R> {
         self.snaplen
     }
 
-    /// Next record, or `None` at clean EOF or partial-tail.
+    /// Read the next record. Return `None` only at a record boundary.
+    ///
+    /// # Errors
+    ///
+    /// Return [`io::ErrorKind::UnexpectedEof`] for an incomplete record.
     pub fn next_record(&mut self) -> io::Result<Option<PcapRecord>> {
         let mut header = [0u8; PCAP_PACKET_HEADER_LEN];
-        match self.inner.read_exact(&mut header) {
-            Ok(()) => {}
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
-            Err(e) => return Err(e),
-        }
+        let read = loop {
+            match self.inner.read(&mut header) {
+                Ok(0) => return Ok(None),
+                Ok(read) => break read,
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(error),
+            }
+        };
+        self.inner.read_exact(&mut header[read..])?;
         let ts_sec = u32::from_le_bytes([header[0], header[1], header[2], header[3]]);
         let ts_usec = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
         let incl_len = u32::from_le_bytes([header[8], header[9], header[10], header[11]]);
@@ -82,11 +89,7 @@ impl<R: Read> PcapReader<R> {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid pcap captured length"));
         }
         let mut bytes = vec![0u8; incl_len as usize];
-        match self.inner.read_exact(&mut bytes) {
-            Ok(()) => {}
-            Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
-            Err(e) => return Err(e),
-        }
+        self.inner.read_exact(&mut bytes)?;
         let ts_micros = u64::from(ts_sec) * u64::from(MICROS_PER_SECOND) + u64::from(ts_usec);
         Ok(Some(PcapRecord { ts_micros, orig_len, bytes }))
     }

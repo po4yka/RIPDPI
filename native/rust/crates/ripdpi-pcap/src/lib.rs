@@ -314,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn reader_tolerates_truncated_tail() {
+    fn reader_and_rewrite_report_a_partial_record() {
         let p1 = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], b"first");
         let p2 = make_ipv4_tcp([10, 0, 0, 3], [10, 0, 0, 4], b"second");
         let mut buf = Vec::new();
@@ -323,17 +323,21 @@ mod tests {
             writer.write_packet(1_000_000, &p1).unwrap();
             writer.write_packet(2_000_000, &p2).unwrap();
         }
-        // Truncate mid second record: keep first packet entirely + the
-        // 16-byte header of p2 + half of p2's body.
-        let p1_total = 16 + p1.len();
-        let truncate_at = 24 + p1_total + 16 + (p2.len() / 2);
-        buf.truncate(truncate_at);
-        let mut reader = PcapReader::new(Cursor::new(&buf)).unwrap();
-        let r1 = reader.next_record().unwrap().expect("first record present");
-        assert_eq!(r1.bytes, p1);
-        // Second record body is truncated -> read_exact returns
-        // UnexpectedEof -> we return Ok(None).
+        let first_record_end = 24 + 16 + p1.len();
+        let mut reader = PcapReader::new(Cursor::new(&buf[..first_record_end])).unwrap();
+        assert!(reader.next_record().unwrap().is_some());
         assert!(reader.next_record().unwrap().is_none());
+
+        for incomplete_len in [1, 16 + p2.len() / 2] {
+            let source = &buf[..first_record_end + incomplete_len];
+            let mut reader = PcapReader::new(Cursor::new(source)).unwrap();
+            assert_eq!(reader.next_record().unwrap().unwrap().bytes, p1);
+            assert_eq!(reader.next_record().unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
+            assert_eq!(
+                rewrite_endpoints(Cursor::new(source), Vec::new()).unwrap_err().kind(),
+                std::io::ErrorKind::UnexpectedEof,
+            );
+        }
     }
 
     // -- redaction ---------------------------------------------------------

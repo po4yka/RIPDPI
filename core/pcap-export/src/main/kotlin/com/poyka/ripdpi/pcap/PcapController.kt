@@ -3,14 +3,23 @@ package com.poyka.ripdpi.pcap
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.provider.DocumentsContract
 import com.poyka.ripdpi.jni.PcapBridge
 import com.poyka.ripdpi.serialization.RipDpiJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
+import java.io.EOFException
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
+import java.io.InputStream
+import java.nio.channels.Channels
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,12 +30,8 @@ import javax.inject.Singleton
  * existing session handle (from Tun2SocksTunnel) to start / stop. The
  * native side enforces single-capture-per-session.
  *
- * SAF integration: [redactToUri] takes a Uri obtained from
- * `ActivityResultContracts.CreateDocument` and opens it via
- * ContentResolver, calls `ParcelFileDescriptor.detachFd()` to transfer
- * ownership to Rust, then invokes `jniPcapRedactToFile`. The contract
- * is enforced HERE - the only call site for `jniPcapRedactToFile` - so
- * the fd-ownership rule in the Rust SAFETY block holds.
+ * Redaction completes in private storage before the document picker opens.
+ * Only the staged output can be published to the resulting document URI.
  */
 @Singleton
 class PcapController
@@ -84,35 +89,110 @@ class PcapController
                 }
             }
 
-        /**
-         * Clear endpoint IPs, unknown options, and packet payloads in a
-         * .pcap export to the user-selected Uri. Timestamps, sizes, ports,
-         * and fixed headers remain visible. The Uri must come from a SAF
-         * CreateDocument result. Returns bytes written.
-         *
-         * Closes the ParcelFileDescriptor's fd by transferring ownership
-         * to native (detachFd). Native side closes the fd on completion.
-         */
-        suspend fun redactToUri(
-            source: File,
-            dest: Uri,
-        ): Long =
-            withContext(Dispatchers.IO) {
-                val pfd = contentResolver.openFileDescriptor(dest, "w") ?: return@withContext 0L
-                // detachFd transfers ownership to Rust. The PFD wrapper no longer
-                // owns the fd after this call - per AOSP docs, the wrapper goes
-                // into a "detached" state and close() on PFD is a no-op. Rust
-                // closes the fd via OwnedFd::from_raw_fd drop. See SAFETY block
-                // in native/rust/.../session/pcap.rs::pcap_redact_entry.
-                val detachedFd = pfd.detachFd()
-                PcapBridge.jniPcapRedactToFile(source.absolutePath, detachedFd)
+        suspend fun prepareRedactedExport(fileName: String): PreparedPcapExport {
+            var draft: PreparedPcapExport? = null
+            try {
+                return withContext(Dispatchers.IO) {
+                    val source = resolvePcapCapture(captureDirectory, fileName)
+                    val staged = PcapExportStaging.create(context.cacheDir)
+                    draft = staged
+                    val bytes = redactToPrivateFile(source, staged.file)
+                    if (bytes == IncompleteCapture) throw EOFException("Capture ends in an incomplete record")
+                    if (bytes <= 0 || bytes != staged.file.length()) throw IOException("Could not redact capture")
+                    staged
+                }.also { draft = null }
+            } finally {
+                draft?.let { withContext(NonCancellable + Dispatchers.IO) { it.close() } }
             }
+        }
+
+        suspend fun publishRedactedExport(
+            staged: PreparedPcapExport?,
+            destination: Uri,
+        ) {
+            try {
+                publishPcapDocument(
+                    writeDocument = {
+                        val source = staged?.file ?: throw FileNotFoundException("Prepared capture unavailable")
+                        writeRedactedDocument(source, destination)
+                    },
+                    deleteDocument = {
+                        DocumentsContract.isDocumentUri(context, destination) &&
+                            DocumentsContract.deleteDocument(contentResolver, destination)
+                    },
+                )
+            } finally {
+                staged?.close()
+            }
+        }
+
+        private suspend fun writeRedactedDocument(
+            source: File,
+            destination: Uri,
+        ) = withContext(Dispatchers.IO) {
+            if (!DocumentsContract.isDocumentUri(context, destination)) throw IOException("Invalid document")
+            source.inputStream().use { input ->
+                val signal = CancellationSignal()
+                openPcapDocument(signal::cancel) {
+                    contentResolver.openFileDescriptor(destination, "wt", signal)
+                        ?: throw IOException("Could not open PCAP document")
+                }.use { descriptor ->
+                    runInterruptible { copyToProvider(input, descriptor) }
+                }
+            }
+        }
+
+        private fun copyToProvider(
+            input: InputStream,
+            descriptor: ParcelFileDescriptor,
+        ) {
+            ParcelFileDescriptor.AutoCloseOutputStream(descriptor).use { output ->
+                try {
+                    // The channel lets cancellation interrupt writes to a provider pipe.
+                    input.copyTo(Channels.newOutputStream(output.channel))
+                    if (descriptor.canDetectErrors()) descriptor.checkError()
+                } catch (error: IOException) {
+                    if (descriptor.canDetectErrors()) {
+                        runCatching { descriptor.closeWithError("Could not write PCAP") }
+                            .exceptionOrNull()
+                            ?.let(error::addSuppressed)
+                    }
+                    throw error
+                }
+            }
+        }
+
+        private fun redactToPrivateFile(
+            source: File,
+            destination: File,
+        ): Long {
+            val bridge =
+                try {
+                    PcapBridge
+                } catch (error: LinkageError) {
+                    throw IOException("Could not load native PCAP redaction", error)
+                }
+            val sourcePath = source.absolutePath
+            return ParcelFileDescriptor.open(destination, ParcelFileDescriptor.MODE_WRITE_ONLY).use { descriptor ->
+                val fd = descriptor.detachFd()
+                try {
+                    bridge.jniPcapRedactToFile(sourcePath, fd)
+                } catch (error: UnsatisfiedLinkError) {
+                    // A missing JNI symbol never took ownership of the detached descriptor.
+                    runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
+                        .exceptionOrNull()
+                        ?.let(error::addSuppressed)
+                    throw IOException("Could not call native PCAP redaction", error)
+                }
+            }
+        }
 
         companion object {
             /** The requested segment size for local captures. Native code owns the storage cap. */
             const val DEFAULT_MAX_FILE_BYTES: Long = 16L * 1024L * 1024L
             const val DEFAULT_MAX_FILES: Int = 3
 
+            private const val IncompleteCapture = -1L
             private val JSON = RipDpiJson
 
             internal fun decodeMetadataList(json: String?): List<PcapCaptureMetadata> {

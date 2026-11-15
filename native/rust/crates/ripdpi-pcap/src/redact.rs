@@ -10,6 +10,11 @@ use crate::writer::PcapWriter;
 /// The name is kept for existing callers. It does not promise full anonymity:
 /// packet timing, sizes, ports, and fixed header fields remain visible.
 /// Returns the number of bytes written to `dst`.
+///
+/// # Errors
+///
+/// A truncated header or record returns [`io::ErrorKind::UnexpectedEof`].
+/// The destination can contain a prefix on error. Stage it before publishing.
 pub fn rewrite_endpoints<R: Read, W: Write>(src: R, dst: W) -> io::Result<u64> {
     let mut reader = PcapReader::new(src)?;
     let mut writer = PcapWriter::new(dst, reader.snaplen())?;

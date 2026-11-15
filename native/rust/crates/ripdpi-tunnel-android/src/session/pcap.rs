@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, ErrorKind};
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -225,23 +225,26 @@ pub(crate) fn adopt_pcap_dest_fd(dest_fd: i32) -> Option<OwnedFd> {
 
 /// Inner entry: read `source_path`, clear endpoint addresses, unknown options,
 /// and packet payloads, then write the rewritten pcap stream to `dest_fd`.
-/// Returns bytes-written on success or 0 on any failure (source open
-/// failure, invalid fd, IO error during rewrite).
+/// Returns bytes written, -1 for an incomplete source, or 0 for another failure.
 ///
-pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_owned: OwnedFd) -> u64 {
+pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_owned: OwnedFd) -> i64 {
     let source = match File::open(&source_path) {
         Ok(f) => BufReader::new(f),
         Err(err) => {
-            log::warn!("pcap_redact_entry: open source {}: {err}", source_path.display());
+            log::warn!("pcap_redact_entry: open source: {err}");
             return 0;
         }
     };
     let dest_file = File::from(dest_owned);
     let dest = BufWriter::new(dest_file);
-    rewrite_endpoints(source, dest).unwrap_or_else(|err| {
-        log::warn!("pcap_redact_entry: rewrite_endpoints: {err}");
-        0
-    })
+    match rewrite_endpoints(source, dest) {
+        Ok(written) => i64::try_from(written).unwrap_or(0),
+        Err(err) if err.kind() == ErrorKind::UnexpectedEof => -1,
+        Err(err) => {
+            log::warn!("pcap_redact_entry: rewrite_endpoints: {err}");
+            0
+        }
+    }
 }
 
 /// Return a `PacketObserver` view of the active capture-set for the
@@ -456,6 +459,15 @@ mod tests {
     #[test]
     fn pcap_redact_entry_negative_fd_returns_zero() {
         assert!(adopt_pcap_dest_fd(-1).is_none());
+    }
+
+    #[test]
+    fn pcap_redact_entry_distinguishes_an_incomplete_source() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("incomplete.pcap");
+        std::fs::write(&src, b"\xd4\xc3\xb2\xa1").unwrap();
+        let dest = File::create(dir.path().join("draft.pcap")).unwrap();
+        assert_eq!(pcap_redact_entry(src, dest.into()), -1);
     }
 
     #[test]

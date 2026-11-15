@@ -3,10 +3,10 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.pcap.PcapReader
 import com.poyka.ripdpi.pcap.PcapReaderRecord
+import com.poyka.ripdpi.pcap.resolvePcapCapture
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import java.io.File
-import java.io.FileNotFoundException
 import java.net.InetAddress
 import java.util.Locale
 
@@ -39,25 +39,11 @@ internal data class CapturePackets(
     val hasMore: Boolean,
 )
 
-internal fun captureFile(
-    directory: File,
-    fileName: String,
-): File {
-    if (fileName.isBlank() || fileName != File(fileName).name || !fileName.endsWith(".pcap")) {
-        throw FileNotFoundException("Invalid capture name")
-    }
-    val file = File(directory, fileName).canonicalFile
-    if (file.parentFile != directory.canonicalFile || !file.isFile) {
-        throw FileNotFoundException("Capture unavailable")
-    }
-    return file
-}
-
 internal fun readCapturePackets(
     directory: File,
     fileName: String,
 ): CapturePackets =
-    PcapReader.open(captureFile(directory, fileName)).use { reader ->
+    PcapReader.open(resolvePcapCapture(directory, fileName)).use { reader ->
         val packets = ArrayList<PcapPacket>()
         var firstTimestamp = 0L
         var visibleBytes = 0L
