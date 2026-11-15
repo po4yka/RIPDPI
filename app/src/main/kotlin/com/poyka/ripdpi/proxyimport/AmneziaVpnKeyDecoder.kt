@@ -44,7 +44,8 @@ internal object AmneziaVpnKeyDecoder {
 
     private fun confFromJson(bytes: ByteArray): String? {
         val root =
-            bytes.takeIf { it.size <= MaxDecompressedBytes }
+            bytes
+                .takeIf { it.size <= MaxDecompressedBytes }
                 ?.let(::decodeUtf8OrNull)
                 ?.let { json -> runCatching { Json.parseToJsonElement(json) as? JsonObject }.getOrNull() }
                 ?: return null
