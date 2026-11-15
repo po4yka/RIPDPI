@@ -267,8 +267,13 @@ private fun List<Long>.averageMillis(): Long? =
         average().roundToLong()
     }
 
+// Stack-trace recovery can wrap the IOException that OkHttp uses to report an EOF.
 private fun IOException.isPeerClose(): Boolean =
-    this is EOFException || this is SocketException || cause is EOFException
+    generateSequence<Throwable>(this) { it.cause }
+        .take(MaxFailureCauseDepth)
+        .any { it is EOFException || it is SocketException }
+
+private const val MaxFailureCauseDepth = 4
 
 private fun IOException.tcp16ErrorLabel(): String =
     when (this) {

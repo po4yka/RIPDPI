@@ -131,7 +131,11 @@ class Tcp16FatHeaderProbeTest {
 
                 val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
 
-                assertEquals(Tcp16Verdict.PADDED_TRAIN_INTERRUPTED, result.verdict)
+                assertEquals(
+                    "${result.failedStage}: ${result.errorDetail}",
+                    Tcp16Verdict.PADDED_TRAIN_INTERRUPTED,
+                    result.verdict,
+                )
                 assertTrue(result.alive)
                 assertEquals(Tcp16Stage.READ_RESPONSE, result.failedStage)
                 assertEquals(
@@ -140,6 +144,23 @@ class Tcp16FatHeaderProbeTest {
                         .sumOf { requireNotNull(it?.headers?.get("X-Pad")).length },
                     result.completedPaddingBytes,
                 )
+            }
+        }
+
+    @Test
+    fun malformedHttpResponseIsNotAClosedPaddedTrain() =
+        runTest {
+            MockWebServer().use { server ->
+                repeat(5) { server.enqueue(okHeadResponse()) }
+                server.enqueue(MockResponse.Builder().status("unexpected response").build())
+                server.start()
+
+                val result = probe().runTarget(mockTarget(server), responseTimeHintMs = 25)
+
+                assertEquals(Tcp16Verdict.ERROR, result.verdict)
+                assertEquals(Tcp16Stage.READ_RESPONSE, result.failedStage)
+                assertTrue(result.completedPaddingBytes > 8 * 1_024)
+                assertEquals(6, server.requestCount)
             }
         }
 
