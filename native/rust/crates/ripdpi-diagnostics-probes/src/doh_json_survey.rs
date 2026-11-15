@@ -21,12 +21,11 @@
 //! dependency is pulled through this crate.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_diagnostics_contracts::util::{
-    DEFAULT_DOH_JSON_RESOLVERS, encode_doh_json_query_name, parse_doh_json_ip_answer,
-};
+use ripdpi_diagnostics_contracts::util::{DEFAULT_DOH_JSON_RESOLVERS, parse_doh_json_ip_answer};
 
 use crate::probes::doh_survey::DohHttpClient;
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
+use ripdpi_diagnostics_http::http::build_doh_json_query_url;
 
 // ── stable probe id ───────────────────────────────────────────────────────────
 
@@ -40,6 +39,11 @@ pub const DOH_JSON_SURVEY_PROBE_ID: &str = "doh_json_survey";
 /// Reachability status of a single DoH-JSON resolver endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DohJsonResolverStatus {
+    /// The local endpoint or query is invalid; no request was sent.
+    InvalidRequest {
+        /// Description of the invalid local input.
+        detail: String,
+    },
     /// The resolver answered with at least one usable A or AAAA record.
     Ok {
         /// First IP address returned by the resolver.
@@ -161,7 +165,10 @@ pub struct DohJsonResolverEndpoint {
     /// Short human-readable label (e.g. `"google"`, `"cloudflare"`).
     pub label: String,
     /// JSON DoH endpoint URL (e.g. `"https://dns.google/resolve"`). The runner
-    /// appends `?name=…&type=A&ct=application/dns-json`.
+    /// adds encoded `name`, `type=A` and JSON content selection parameters.
+    /// Existing unrelated query parameters are retained; conflicting query
+    /// fields, fragments and user information are rejected. HTTP is allowed
+    /// only for literal loopback test endpoints.
     pub url: String,
 }
 
@@ -204,23 +211,29 @@ impl<C: DohHttpClient> DohJsonSurveyRunner<C> {
     /// Survey all configured JSON resolvers in parallel and return a
     /// [`DohJsonSurveyProbe`] ready for verdict computation.
     /// # Cancel safety:
-    /// conditionally cancel-safe: at `client.get(...).await` and
-    /// `join_all(...).await`, dropping the future discards only local results.
-    /// Each client GET future must release resources safely when dropped; a
-    /// resolver may already have received the request.
+    /// cancel-safe: provided client GET futures release local resources on drop,
+    /// cancelling at `client.get(...).await` or `join_all(...).await` discards
+    /// only local URLs and results. A resolver may already have received a request.
     pub async fn survey(&self, _ctx: &ProbeContext) -> DohJsonSurveyProbe {
-        let Some(query_name) = encode_doh_json_query_name(&self.query_host) else {
-            return DohJsonSurveyProbe::new(Vec::new());
-        };
         let futures: Vec<_> = self
             .resolvers
             .iter()
             .map(|ep| {
-                let url = format!("{}?name={query_name}&type=A&ct=application/dns-json", ep.url);
+                let url = build_doh_json_query_url(&ep.url, &self.query_host);
                 let timeout = self.timeout;
                 let client = &self.client;
                 let label = ep.label.clone();
                 async move {
+                    let url = match url {
+                        Ok(url) => url,
+                        Err(detail) => {
+                            return DohJsonResolverResult {
+                                resolver_label: label,
+                                status: DohJsonResolverStatus::InvalidRequest { detail: detail.to_string() },
+                                round_trip_ms: None,
+                            };
+                        }
+                    };
                     let start = std::time::Instant::now();
                     let raw = client.get(&url, timeout).await;
                     let round_trip_ms = Some(start.elapsed().as_millis() as u64);

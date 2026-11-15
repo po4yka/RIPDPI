@@ -23,4 +23,6 @@ pub use response_parser::{
     parse_http_response, parse_http_response_head, read_http_headers, read_http_headers_io, read_http_response,
 };
 pub use types::{HttpObservation, HttpResponse};
-pub use url_helpers::{HttpsEndpoint, extract_host_from_url, extract_path_from_url, parse_https_endpoint};
+pub use url_helpers::{
+    HttpsEndpoint, build_doh_json_query_url, extract_host_from_url, extract_path_from_url, parse_https_endpoint,
+};

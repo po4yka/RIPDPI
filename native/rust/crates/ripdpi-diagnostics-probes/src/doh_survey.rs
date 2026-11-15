@@ -23,6 +23,7 @@
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
 use ripdpi_diagnostics_contracts::util::parse_doh_json_ip_answer;
+use ripdpi_diagnostics_http::http::build_doh_json_query_url;
 
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
 
@@ -36,6 +37,11 @@ pub const DOH_SURVEY_PROBE_ID: &str = "doh_survey";
 /// Reachability status of a single DoH resolver.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DohResolverStatus {
+    /// The local endpoint or query is invalid; no request was sent.
+    InvalidRequest {
+        /// Description of the invalid local input.
+        detail: String,
+    },
     /// The resolver answered with at least one usable A or AAAA record.
     Ok {
         /// First IP address returned by the resolver.
@@ -150,7 +156,9 @@ pub struct DohResolverEndpoint {
     /// Short human-readable label (e.g. `"cloudflare"`, `"google"`).
     pub label: String,
     /// Vendor JSON DoH endpoint URL
-    /// (e.g. `"https://cloudflare-dns.com/dns-query"`).
+    /// (e.g. `"https://cloudflare-dns.com/dns-query"`). Existing query parameters
+    /// are retained; reserved query fields, fragments and user information are
+    /// rejected. HTTP is allowed only for literal loopback test endpoints.
     pub url: String,
 }
 
@@ -169,7 +177,8 @@ pub struct DohResolverEndpoint {
 pub trait DohHttpClient: Send + Sync {
     /// Execute a GET request to `url` and return the raw body bytes and HTTP
     /// status code, or an error string if the request failed at the
-    /// network/TLS layer.
+    /// network/TLS layer. Vendor clients must request `application/dns-json`
+    /// with the Accept header; a `ct` parameter is provider-specific.
     ///
     /// The future must complete within `timeout`; implementations should
     /// enforce the deadline internally and return `Err("timeout")` (or an
@@ -196,6 +205,8 @@ pub struct DohSurveyRunner<C> {
     pub timeout: std::time::Duration,
     /// Resolver endpoints to survey. When [`ProbeContext::resolver_hint`] is
     /// present, a synthetic `"user-active"` endpoint is prepended at runtime.
+    /// This JSON adapter accepts endpoint URLs; opaque resolver IDs yield
+    /// `InvalidRequest` without network I/O.
     pub resolvers: Vec<DohResolverEndpoint>,
     /// HTTP client implementation. Generic so the parent wires whatever stack
     /// is available without touching this crate's `Cargo.toml`.
@@ -203,9 +214,13 @@ pub struct DohSurveyRunner<C> {
 }
 
 impl<C: DohHttpClient> DohSurveyRunner<C> {
-    /// Survey all configured resolvers (plus the user-active resolver from
-    /// `ctx.resolver_hint` when present) in parallel and return a
-    /// [`DohSurveyProbe`] ready for verdict computation.
+    /// Survey configured resolvers and the optional user-active endpoint in parallel.
+    /// Return a probe ready for verdict computation.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: provided client GET futures release local resources on drop,
+    /// cancelling at `client.get(...).await` or `join_all(...).await` discards
+    /// only local URLs and results. A resolver may already have received a request.
     pub async fn survey(&self, ctx: &ProbeContext) -> DohSurveyProbe {
         // Build the effective resolver list: user-active first (audit fix A-1),
         // then the statically configured resolvers.
@@ -218,11 +233,21 @@ impl<C: DohHttpClient> DohSurveyRunner<C> {
         let futures: Vec<_> = effective
             .into_iter()
             .map(|ep| {
-                let url = format!("{}?name={}&type=A", ep.url, self.query_host);
+                let url = build_doh_json_query_url(&ep.url, &self.query_host);
                 let timeout = self.timeout;
                 let client = &self.client;
                 let label = ep.label.clone();
                 async move {
+                    let url = match url {
+                        Ok(url) => url,
+                        Err(detail) => {
+                            return DohResolverResult {
+                                resolver_label: label,
+                                status: DohResolverStatus::InvalidRequest { detail: detail.to_string() },
+                                round_trip_ms: None,
+                            };
+                        }
+                    };
                     let start = std::time::Instant::now();
                     let raw = client.get(&url, timeout).await;
                     let round_trip_ms = Some(start.elapsed().as_millis() as u64);
