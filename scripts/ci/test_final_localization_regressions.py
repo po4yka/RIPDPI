@@ -82,8 +82,8 @@ class FinalLocalizationRegressionsTest(unittest.TestCase):
     def test_comparison_groups_and_retries_keep_their_meaning(self):
         ar = self.catalogs["values-ar"]
         zh = self.catalogs["values-zh-rCN"]
-        for key in ("diagnostics_profile_desc_throttling", "diagnostics_cidr_whitelist_summary_detected",
-                    "diagnostics_rkn_complete", "diagnostics_rkn_group_control", "diagnostics_rkn_running"):
+        for key in ("diagnostics_cidr_whitelist_summary_detected", "diagnostics_rkn_complete",
+                    "diagnostics_rkn_group_control", "diagnostics_rkn_running"):
             with self.subTest(locale="ar", key=key):
                 self.assertNotIn("تحكم", text(ar[key]))
             with self.subTest(locale="zh-CN", key=key):
@@ -95,6 +95,15 @@ class FinalLocalizationRegressionsTest(unittest.TestCase):
             self.assertIn("nouvelles tentatives", text(self.catalogs["values-fr"][key]).lower())
         self.assertEqual("Обновления", text(self.catalogs["values-ru"]["updates_section_title"]))
         self.assertEqual("Paquetes de estrategias", text(self.catalogs["values-es"]["strategy_pack_section_title"]))
+
+    def test_neutral_download_description_states_provider_comparison_is_unavailable(self):
+        key = "diagnostics_profile_desc_throttling"
+        ar = text(self.catalogs["values-ar"][key])
+        zh = text(self.catalogs["values-zh-rCN"][key])
+        self.assertIn("مقارنة مزوّدي الخدمة غير متاحة", ar)
+        self.assertIn("无法比较服务提供商", zh)
+        self.assertNotIn("تحكم", ar)
+        self.assertNotIn("控制", zh)
 
 
 if __name__ == "__main__":
