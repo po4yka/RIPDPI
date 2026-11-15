@@ -42,12 +42,17 @@ Direct CDN refresh MUST protect each non-loopback socket when protection is acti
 
 ### Requirement: REQ-DIA04-EVIDENCE — Response attribution
 
-Reported answer facts and endpoint metadata MUST refer to the same observed attempt. A report without oracle selection MUST label the observed response role explicitly.
+Reported answer facts and endpoint metadata MUST refer to the same observed attempt. A report without oracle selection MUST label the observed response role explicitly. Typed DNS address arrays MUST contain only valid IP addresses; error strings MUST remain in status or details.
 
 #### Scenario: Verify response attribution
 
 - **WHEN** the primary fails and fallback B is selected
 - **THEN** answer metadata MUST identify B and retain the primary attempt separately
+
+#### Scenario: Keep error text out of address arrays
+
+- **WHEN** a current address detail is an error that contains an IP-like token after a delimiter
+- **THEN** its typed address array MUST be empty and MUST NOT use a stale legacy address field
 
 ### Requirement: REQ-DIA04-COMPRESSION — Valid compression chains
 
@@ -75,4 +80,3 @@ Persisted ECH admission MUST parse the complete list and require a supported ent
 
 - **WHEN** the list declares a version but omits its inner length and content
 - **THEN** admission MUST fail without making the cache fresh
-

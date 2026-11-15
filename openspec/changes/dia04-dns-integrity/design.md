@@ -10,7 +10,7 @@ Task DGN-1794732408586377 repairs eight confirmed DIA-04 audit findings. Preserv
 - Check unexpected sinkhole addresses before public overlap shortcuts. Keep matching private answers and ordinary CDN divergence distinguishable.
 - Keep response metadata and semantic facts tied to the same selected or explicitly observed-first attempt. Preserve negative observations without claiming selected consensus.
 - Add explicit bounded EDNS only to diagnostic queries so the generic proxy restore contract remains intact. Preserve numeric EDE and discard extra text.
-- Use full existing ECH parsing for persisted admission. Connect the real fallback consumer to the updater after protecting its network source.
+- Use full existing ECH parsing for persisted admission. The real fallback consumer reads only a fresh cached or restored configuration. A stale or missing cache uses bundled bytes; only the protected refresh producer performs network I/O. This preserves the IN_PATH transport and avoids network work under the cache lock.
 - Use the existing protected socket machinery and resolver socket factory hooks. Do not add unsafe code or a blocking Tokio connector.
 - Validate DNS compression by bounds and real cycles with a bounded traversal; do not mistake a short safety budget for malformed wire data.
 
@@ -20,7 +20,7 @@ The portfolio record defines writers and the serialized encrypted.rs/lib.rs hand
 
 ## Validation
 
-Each fix has a failing regression before its source change and a separate commit after read-only review. Use Rust 1.100.0 and Cargo --locked. Run owning package suites and all-target clippy, formatting, metadata, task checks and just ci-gates on the combined tree. Protect failure tests use local callbacks; wire tests use loopback and independently specified bytes. No active external or physical-device probe is authorized by this repair request.
+Reuse the observed audit reproduction when the defective source is unchanged; otherwise observe a new failing regression before the source change. Keep each regression with its fix in a separate commit after read-only review. Use Rust 1.100.0 and Cargo --locked. Run owning package suites and all-target clippy, formatting, metadata, task checks and just ci-gates on the combined tree. Protect failure tests use local callbacks; wire tests use loopback and independently specified bytes. No active external or physical-device probe is authorized by this repair request.
 
 ## Rollback and limits
 
