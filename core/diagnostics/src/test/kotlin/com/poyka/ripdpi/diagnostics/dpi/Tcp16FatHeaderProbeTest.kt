@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -22,6 +23,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.Proxy
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.measureTimeMillis
@@ -168,30 +170,33 @@ class Tcp16FatHeaderProbeTest {
         }
 
     @Test(timeout = 30_000)
-    fun cancellingTheRunStopsTheBlockedRequestAtOnce() =
+    fun cancellingTheRunStopsTheBlockedRequestOnOneThread() =
         runBlocking {
-            MockWebServer().use { server ->
-                val seen = AtomicInteger()
-                val stalled = CountDownLatch(1)
-                server.dispatcher =
-                    object : Dispatcher() {
-                        override fun dispatch(request: RecordedRequest): MockResponse =
-                            if (seen.incrementAndGet() == 2) {
-                                stalled.countDown()
-                                MockResponse.Builder().onResponseStart(SocketEffect.Stall).build()
-                            } else {
-                                okHeadResponse()
-                            }
-                    }
-                server.start()
-                val run =
-                    launch(Dispatchers.Default) { probe().runTarget(mockTarget(server), responseTimeHintMs = 10_000) }
-                assertTrue(stalled.await(5, TimeUnit.SECONDS))
+            Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { dispatcher ->
+                MockWebServer().use { server ->
+                    val seen = AtomicInteger()
+                    val stalled = CountDownLatch(1)
+                    server.dispatcher =
+                        object : Dispatcher() {
+                            override fun dispatch(request: RecordedRequest): MockResponse =
+                                if (seen.incrementAndGet() == 2) {
+                                    stalled.countDown()
+                                    MockResponse.Builder().onResponseStart(SocketEffect.Stall).build()
+                                } else {
+                                    okHeadResponse()
+                                }
+                        }
+                    server.start()
+                    val probe = Tcp16FatHeaderProbe(dispatcher = dispatcher)
+                    val run =
+                        launch(Dispatchers.Default) { probe.runTarget(mockTarget(server), responseTimeHintMs = 10_000) }
+                    assertTrue(stalled.await(5, TimeUnit.SECONDS))
 
-                val cancelMs = measureTimeMillis { run.cancelAndJoin() }
+                    val cancelMs = measureTimeMillis { run.cancelAndJoin() }
 
-                assertTrue("cancel took $cancelMs ms", cancelMs < 3_000)
-                assertEquals(2, seen.get())
+                    assertTrue("cancel took $cancelMs ms", cancelMs < 3_000)
+                    assertEquals(2, seen.get())
+                }
             }
         }
 
@@ -220,7 +225,7 @@ class Tcp16FatHeaderProbeTest {
                 val delegate = OkHttpTcp16RequestRunner()
                 val runner =
                     object : Tcp16RequestRunner {
-                        override fun execute(
+                        override suspend fun execute(
                             target: Tcp16Target,
                             request: Tcp16FatHeaderRequest,
                             tracker: Tcp16ConnectionTracker,
@@ -343,7 +348,7 @@ class Tcp16FatHeaderProbeTest {
                 var targetTracker: Tcp16ConnectionTracker? = null
                 val runner =
                     object : Tcp16RequestRunner {
-                        override fun execute(
+                        override suspend fun execute(
                             target: Tcp16Target,
                             request: Tcp16FatHeaderRequest,
                             tracker: Tcp16ConnectionTracker,
@@ -405,7 +410,7 @@ class Tcp16FatHeaderProbeTest {
                 Tcp16FatHeaderProbe(
                     requestRunner =
                         object : Tcp16RequestRunner {
-                            override fun execute(
+                            override suspend fun execute(
                                 target: Tcp16Target,
                                 request: Tcp16FatHeaderRequest,
                                 tracker: Tcp16ConnectionTracker,
@@ -434,7 +439,7 @@ class Tcp16FatHeaderProbeTest {
                 Tcp16FatHeaderProbe(
                     requestRunner =
                         object : Tcp16RequestRunner {
-                            override fun execute(
+                            override suspend fun execute(
                                 target: Tcp16Target,
                                 request: Tcp16FatHeaderRequest,
                                 tracker: Tcp16ConnectionTracker,

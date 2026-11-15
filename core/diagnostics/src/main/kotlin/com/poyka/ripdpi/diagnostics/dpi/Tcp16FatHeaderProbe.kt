@@ -3,15 +3,12 @@ package com.poyka.ripdpi.diagnostics.dpi
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpich.RandomHostHeaderGenerator
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -85,19 +82,9 @@ class Tcp16FatHeaderProbe(
                 )
             }
             val tracker = Tcp16ConnectionTracker()
-            // execute() blocks and ignores coroutine cancellation, so a sibling cancels the in-flight call.
-            val canceller =
-                launch(start = CoroutineStart.UNDISPATCHED) {
-                    try {
-                        awaitCancellation()
-                    } finally {
-                        tracker.cancelActiveCall()
-                    }
-                }
             try {
                 runRequestTrain(target, responseTimeHintMs, randomHostname, tracker)
             } finally {
-                canceller.cancel()
                 tracker.close()
             }
         }

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.NumericIp
+import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Connection
 import okhttp3.ConnectionPool
@@ -19,7 +20,6 @@ import java.net.UnknownHostException
 import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 
 data class Tcp16FatHeaderRequest(
     val requestIndex: Int,
@@ -38,7 +38,7 @@ data class Tcp16FatHeaderResponse(
 interface Tcp16RequestRunner {
     fun supports(target: Tcp16Target): Boolean = true
 
-    fun execute(
+    suspend fun execute(
         target: Tcp16Target,
         request: Tcp16FatHeaderRequest,
         tracker: Tcp16ConnectionTracker,
@@ -64,26 +64,6 @@ class Tcp16ConnectionTracker {
 
     internal fun beginRequest() {
         stage = Tcp16Stage.SETUP
-    }
-
-    private val activeCall = AtomicReference<Call?>()
-
-    @Volatile
-    private var cancelled = false
-
-    /** Registers the in-flight call so [cancelActiveCall] can stop it; cancels it at once after a cancel. */
-    fun track(call: Call) {
-        activeCall.set(call)
-        if (cancelled) call.cancel()
-    }
-
-    fun untrack(call: Call) {
-        activeCall.compareAndSet(call, null)
-    }
-
-    fun cancelActiveCall() {
-        cancelled = true
-        activeCall.get()?.cancel()
     }
 
     /** Closes the idle keep-alive socket so it does not outlive the target run. */
@@ -139,7 +119,7 @@ class OkHttpTcp16RequestRunner(
     override fun supports(target: Tcp16Target): Boolean =
         baseClient.connectionSpecs.any { spec -> spec.isTls == (target.transport == Tcp16Transport.HTTPS) }
 
-    override fun execute(
+    override suspend fun execute(
         target: Tcp16Target,
         request: Tcp16FatHeaderRequest,
         tracker: Tcp16ConnectionTracker,
@@ -168,21 +148,27 @@ class OkHttpTcp16RequestRunner(
             )
         call.timeout().timeout(request.timeoutMs, TimeUnit.MILLISECONDS)
         val startedNanos = System.nanoTime()
-        tracker.track(call)
-        try {
-            call.execute().use { response ->
-                val elapsedMs = ((System.nanoTime() - startedNanos) / NanosPerMillis).coerceAtLeast(1)
-                return Tcp16FatHeaderResponse(
-                    statusCode = response.code,
-                    elapsedMs = elapsedMs,
-                    connectionClose =
-                        response.headers
-                            .values("Connection")
-                            .any { value -> value.split(',').any { it.trim().equals("close", ignoreCase = true) } },
-                )
-            }
-        } finally {
-            tracker.untrack(call)
+        return suspendCancellableCoroutine { continuation ->
+            // Cancellation can close the socket even while this dispatcher is blocked in execute().
+            continuation.invokeOnCancellation { call.cancel() }
+            if (!continuation.isActive) return@suspendCancellableCoroutine
+            continuation.resumeWith(
+                runCatching {
+                    call.execute().use { response ->
+                        val elapsedMs = ((System.nanoTime() - startedNanos) / NanosPerMillis).coerceAtLeast(1)
+                        Tcp16FatHeaderResponse(
+                            statusCode = response.code,
+                            elapsedMs = elapsedMs,
+                            connectionClose =
+                                response.headers
+                                    .values("Connection")
+                                    .any { value ->
+                                        value.split(',').any { it.trim().equals("close", ignoreCase = true) }
+                                    },
+                        )
+                    }
+                },
+            )
         }
     }
 
