@@ -1,24 +1,22 @@
-use std::net::{IpAddr, Shutdown};
+use std::collections::HashSet;
+use std::net::{IpAddr, SocketAddr};
 use std::time::Instant;
 
 use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
+use ripdpi_ws_transport_port::{TelegramDcClass, exact_dc_from_ip};
 
-use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed};
+use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed_with_abort};
 use crate::types::TelegramTarget;
-use ripdpi_ws_transport_port::{WsTunnelDecision, classify_target};
 
-const FALLBACK_MTPROTO_PORT: u16 = 80;
-const PRIMARY_MTPROTO_PORT: u16 = 443;
+use super::ws_tunnel::telegram_transport_path;
 
+#[derive(Default)]
 pub(crate) struct TelegramDcResult {
     pub(crate) reachable: usize,
     pub(crate) total: usize,
+    pub(crate) planned: usize,
+    pub(crate) abort_reason: Option<&'static str>,
     pub(crate) results: Vec<String>,
-}
-
-#[cfg(test)]
-pub(crate) fn telegram_dc_probe(target: &TelegramTarget, transport: &TransportConfig) -> TelegramDcResult {
-    telegram_dc_probe_with_abort(target, transport, &deadline_abort_reason)
 }
 
 pub(crate) fn telegram_dc_probe_with_abort(
@@ -26,125 +24,73 @@ pub(crate) fn telegram_dc_probe_with_abort(
     transport: &TransportConfig,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramDcResult {
-    let mut results = Vec::new();
-    let mut reachable = 0usize;
-    let mut total = 0usize;
+    let mut result = TelegramDcResult::default();
+    let mut seen = HashSet::new();
+    let path = telegram_transport_path(transport);
+    let abort = || should_abort().or_else(deadline_abort_reason);
 
     for dc in &target.dc_endpoints {
-        if let Some(reason) = should_abort() {
-            results.push(format!("dc_probe_aborted:{reason}"));
-            break;
-        }
-        total += 1;
-        let ip: IpAddr = match dc.ip.parse() {
-            Ok(ip) => ip,
-            Err(_) => {
-                results.push(format!("{}:fail:parse_error", dc.label));
-                continue;
-            }
+        let label_valid = !dc.label.trim().is_empty()
+            && dc.label.len() <= 64
+            && !dc.label.contains(|ch: char| ch.is_control() || matches!(ch, ':' | '|'));
+        let label = if label_valid { &dc.label } else { "DC" };
+        let address = dc.ip.parse::<IpAddr>().ok().filter(|_| dc.port != 0).map(|ip| SocketAddr::new(ip, dc.port));
+        let Some(address) = address.filter(|_| label_valid) else {
+            result.planned += 1;
+            result.results.push(format!("{label}:invalid_target::path={path}"));
+            continue;
         };
-        let dc_label = match classify_target(ip) {
-            WsTunnelDecision::Tunnel(dc) => format!("dc{}", dc.number()),
-            WsTunnelDecision::Passthrough => {
-                results.push(format!("{}:fail:not_telegram_dc", dc.label));
-                continue;
-            }
-        };
-        let mut port_results = Vec::new();
-        let mut rtts = Vec::new();
-        for port in dc_probe_ports(dc.port) {
-            if let Some(reason) = should_abort() {
-                port_results.push(format!("{port}:fail:{reason}"));
-                break;
-            }
-            let start = std::time::Instant::now();
-            // Route through the protect-aware transport seam so the probe fd is
-            // protected before connect when the VPN is up (DIAG-2), matching the
-            // sibling download/upload probes.
-            match connect_transport_observed(std::slice::from_ref(&TargetAddress::Ip(ip)), port, transport) {
-                Ok(result) => {
-                    let rtt_ms = start.elapsed().as_millis();
-                    result.stream.shutdown(Shutdown::Both).ok();
-                    rtts.push(rtt_ms);
-                    port_results.push(format!("{port}:ok:{rtt_ms}ms"));
-                }
-                Err(_) => {
-                    port_results.push(format!("{port}:fail"));
-                }
-            }
+        if !seen.insert(address) {
+            continue;
         }
-        let is_reachable = !rtts.is_empty();
-        if is_reachable {
-            reachable += 1;
+        result.planned += 1;
+        let family = if address.is_ipv4() { "ipv4" } else { "ipv6" };
+        // The exact bootstrap table annotates the address. Every valid configured pair is probed.
+        let bootstrap = exact_dc_from_ip(address.ip()).map_or("", |dc| match dc.class() {
+            TelegramDcClass::Production => ";bootstrap=production",
+            TelegramDcClass::Test => ";bootstrap=test",
+            TelegramDcClass::MediaOrCdn => ";bootstrap=media_or_cdn",
+        });
+        let endpoint = format!("address={address};family={family};path={path}{bootstrap}");
+        if let Some(reason) = abort() {
+            result.abort_reason = Some(reason);
+            result.results.push(format!("{label}:not_run::{endpoint}"));
+            continue;
         }
-        let median = median_rtt_ms(&mut rtts).map_or_else(|| "none".to_string(), |rtt| rtt.to_string());
-        results
-            .push(format!("{dc_label}:reachable={is_reachable}:medianRttMs={median}:ports={}", port_results.join(",")));
-    }
 
-    TelegramDcResult { reachable, total, results }
+        let start = Instant::now();
+        result.total += 1;
+        let connection = connect_transport_observed_with_abort(
+            &[TargetAddress::Ip(address.ip())],
+            address.port(),
+            transport,
+            &abort,
+        );
+        if let Some(reason) = abort() {
+            result.abort_reason = Some(reason);
+            result.results.push(format!("{label}:{reason}::{endpoint}"));
+            continue;
+        }
+        match connection {
+            Ok(connection) => {
+                result.reachable += 1;
+                let elapsed = start.elapsed().as_millis();
+                let route = connection
+                    .route_report
+                    .map_or_else(String::new, |report| format!(";route={}", report.selected_bucket_kind));
+                result.results.push(format!("{label}:ok:{elapsed}ms:{endpoint}{route}"));
+            }
+            Err(error) => {
+                result.results.push(format!("{label}:fail::{};stage={}", endpoint, error.stage.as_str()));
+            }
+        }
+    }
+    result
 }
 
 pub(crate) fn deadline_abort_reason() -> Option<&'static str> {
     active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline).then_some("deadline_exceeded")
 }
 
-fn dc_probe_ports(configured_port: u16) -> Vec<u16> {
-    let mut ports = Vec::with_capacity(3);
-    for port in [configured_port, PRIMARY_MTPROTO_PORT, FALLBACK_MTPROTO_PORT] {
-        if !ports.contains(&port) {
-            ports.push(port);
-        }
-    }
-    ports
-}
-
-fn median_rtt_ms(rtts: &mut [u128]) -> Option<u128> {
-    if rtts.is_empty() {
-        return None;
-    }
-    rtts.sort_unstable();
-    Some(rtts[rtts.len() / 2])
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::types::TelegramDcEndpoint;
-
-    #[test]
-    fn dc_probe_ports_include_primary_and_fallback_without_duplicates() {
-        assert_eq!(dc_probe_ports(PRIMARY_MTPROTO_PORT), vec![443, 80]);
-        assert_eq!(dc_probe_ports(FALLBACK_MTPROTO_PORT), vec![80, 443]);
-        assert_eq!(dc_probe_ports(5222), vec![5222, 443, 80]);
-    }
-
-    #[test]
-    fn median_rtt_reports_middle_successful_attempt() {
-        let mut rtts = vec![30, 10, 20];
-        assert_eq!(median_rtt_ms(&mut rtts), Some(20));
-        assert_eq!(median_rtt_ms(&mut []), None);
-    }
-
-    #[test]
-    fn dc_probe_rejects_catalog_ips_missing_from_ws_tunnel_dc_table() {
-        let target = TelegramTarget {
-            media_url: "https://telegram.org/".to_string(),
-            upload_ip: "149.154.167.99".to_string(),
-            upload_port: 443,
-            dc_endpoints: vec![TelegramDcEndpoint {
-                ip: "203.0.113.10".to_string(),
-                label: "dc-test".to_string(),
-                port: 443,
-            }],
-            stall_timeout_ms: 10,
-            total_timeout_ms: 10,
-            upload_size_bytes: 1,
-        };
-
-        let result = telegram_dc_probe(&target, &TransportConfig::Direct { route_experiment: None });
-        assert_eq!(result.total, 1);
-        assert_eq!(result.reachable, 0);
-        assert_eq!(result.results, vec!["dc-test:fail:not_telegram_dc"]);
-    }
-}
+mod tests;

@@ -1,4 +1,5 @@
 use std::io;
+use std::net::SocketAddr;
 
 use ripdpi_diagnostics_transport::ws_tls::{WsOverTlsConnector, WsOverTlsTarget, WsProbeFailure};
 
@@ -7,6 +8,18 @@ use crate::transport::TransportConfig;
 
 const TELEGRAM_WS_HOST: &str = "kws2.web.telegram.org";
 const TELEGRAM_WS_PATH: &str = "/apiws";
+
+pub(crate) fn telegram_ws_endpoint() -> String {
+    format!("wss://{TELEGRAM_WS_HOST}{TELEGRAM_WS_PATH}")
+}
+
+pub(crate) fn telegram_transport_path(transport: &TransportConfig) -> &'static str {
+    match transport {
+        TransportConfig::Direct { route_experiment: Some(_) } => "direct_route_experiment",
+        TransportConfig::Direct { route_experiment: None } => "direct",
+        TransportConfig::Socks5 { .. } => "socks5",
+    }
+}
 
 pub(crate) fn ws_open_failure_stage(status: &str) -> Option<&'static str> {
     match status {
@@ -22,6 +35,7 @@ pub(crate) struct TelegramWsProbeResult {
     pub(crate) open_ms: Option<u64>,
     pub(crate) error: Option<String>,
     pub(crate) http_status: Option<u16>,
+    pub(crate) peer: Option<SocketAddr>,
 }
 
 impl TelegramWsProbeResult {
@@ -32,6 +46,7 @@ impl TelegramWsProbeResult {
             open_ms: duration_ms,
             error: Some(format!("probe_aborted:{reason}")),
             http_status: None,
+            peer: None,
         }
     }
 }
@@ -45,7 +60,15 @@ pub(crate) fn telegram_ws_tunnel_probe_with_abort_callback(
 ) -> TelegramWsProbeResult {
     telegram_ws_tunnel_probe_with_target(
         transport,
-        |target| WsOverTlsConnector.probe_with_key_log_and_abort(&target, key_log.cloned(), should_abort),
+        |target| {
+            let stream = WsOverTlsConnector.connect_with_key_log_and_abort(&target, key_log.cloned(), should_abort)?;
+            // A SOCKS socket peer is the proxy. It cannot identify the WS server address.
+            let peer = match target.transport {
+                TransportConfig::Direct { .. } => stream.get_ref().sock.peer_addr().ok(),
+                TransportConfig::Socks5 { .. } => None,
+            };
+            Ok(peer)
+        },
         should_abort,
     )
 }
@@ -62,7 +85,7 @@ pub(crate) fn telegram_ws_tunnel_probe_with<ProbeWs>(
 where
     ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
 {
-    telegram_ws_tunnel_probe_with_target(transport, probe_ws, &|| None)
+    telegram_ws_tunnel_probe_with_target(transport, |target| probe_ws(target).map(|()| None), &|| None)
 }
 
 #[cfg(test)]
@@ -73,7 +96,11 @@ pub(crate) fn telegram_ws_tunnel_probe_with_abort<ProbeWs>(
 where
     ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
 {
-    telegram_ws_tunnel_probe_with_target(&crate::transport::direct_transport(), probe_ws, should_abort)
+    telegram_ws_tunnel_probe_with_target(
+        &crate::transport::direct_transport(),
+        |target| probe_ws(target).map(|()| None),
+        should_abort,
+    )
 }
 
 fn telegram_ws_tunnel_probe_with_target<ProbeWs>(
@@ -82,7 +109,7 @@ fn telegram_ws_tunnel_probe_with_target<ProbeWs>(
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramWsProbeResult
 where
-    ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
+    ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<Option<SocketAddr>>,
 {
     if let Some(reason) = should_abort() {
         return TelegramWsProbeResult::aborted(reason, None);
@@ -99,7 +126,7 @@ where
             return TelegramWsProbeResult::aborted(reason, Some(start.elapsed().as_millis() as u64));
         }
         match result {
-            Ok(()) => {
+            Ok(peer) => {
                 let elapsed_ms = start.elapsed().as_millis() as u64;
                 TelegramWsProbeResult {
                     status: "ok".to_string(),
@@ -107,6 +134,7 @@ where
                     open_ms: Some(elapsed_ms),
                     error: None,
                     http_status: None,
+                    peer,
                 }
             }
             Err(e) => ws_error_result(e, start),
@@ -129,6 +157,7 @@ where
                 open_ms: Some(elapsed_ms),
                 error: Some(format!("panic during Telegram WS tunnel probe: {message}")),
                 http_status: None,
+                peer: None,
             }
         }
     }
@@ -154,5 +183,28 @@ fn ws_error_result(error: io::Error, start: std::time::Instant) -> TelegramWsPro
         open_ms: Some(elapsed_ms),
         error: Some(error.to_string()),
         http_status,
+        peer: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+
+    use super::*;
+
+    #[test]
+    fn opening_that_completes_after_deadline_is_not_successful_evidence() {
+        let expired = Cell::new(false);
+        let result = telegram_ws_tunnel_probe_with_abort(
+            |_| {
+                expired.set(true);
+                Ok(())
+            },
+            &|| expired.get().then_some("deadline_exceeded"),
+        );
+        assert_eq!(result.status, "deadline_exceeded");
+        assert_eq!(result.abort_reason, Some("deadline_exceeded"));
+        assert!(result.open_ms.is_some());
     }
 }

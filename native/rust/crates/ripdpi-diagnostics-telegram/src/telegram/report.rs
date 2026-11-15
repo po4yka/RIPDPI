@@ -5,7 +5,10 @@ use crate::types::{ProbeDetail, ProbeResult, TelegramTarget};
 use super::dc::{TelegramDcResult, deadline_abort_reason, telegram_dc_probe_with_abort};
 use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
 use super::transfer::{TelegramTransferResult, telegram_download_probe_with_abort, telegram_upload_probe_with_abort};
-use super::ws_tunnel::{TelegramWsProbeResult, telegram_ws_tunnel_probe_with_abort_callback, ws_open_failure_stage};
+use super::ws_tunnel::{
+    TelegramWsProbeResult, telegram_transport_path, telegram_ws_endpoint, telegram_ws_tunnel_probe_with_abort_callback,
+    ws_open_failure_stage,
+};
 
 pub fn run_telegram_probe(
     target: &TelegramTarget,
@@ -49,7 +52,7 @@ pub fn run_telegram_probe_with_abort(
         probe_type: "telegram_availability".to_string(),
         target: "telegram.org".to_string(),
         outcome: verdict.to_string(),
-        details: build_telegram_details(verdict, quality_score, dl, ul, dc, ws),
+        details: build_telegram_details(verdict, quality_score, dl, ul, dc, ws, transport),
     }
 }
 
@@ -64,6 +67,7 @@ fn build_telegram_details(
     ul: TelegramTransferResult,
     dc: TelegramDcResult,
     ws: TelegramWsProbeResult,
+    transport: &TransportConfig,
 ) -> Vec<ProbeDetail> {
     let mut details = vec![ProbeDetail { key: "verdict".to_string(), value: verdict.to_string() }];
     if let Some(score) = quality_score {
@@ -78,7 +82,16 @@ fn build_telegram_details(
     if let Some(stage) = ws_open_failure_stage(&ws.status) {
         details.push(ProbeDetail { key: "wsTunnelFailureStage".to_string(), value: stage.to_string() });
     }
+    if let Some(peer) = ws.peer {
+        details.push(ProbeDetail { key: "wsTunnelPeer".to_string(), value: peer.to_string() });
+    }
+    if let Some(reason) = dc.abort_reason {
+        details.push(ProbeDetail { key: "dcAbortReason".to_string(), value: reason.to_string() });
+    }
     details.extend([
+        ProbeDetail { key: "wsTunnelEndpoint".to_string(), value: telegram_ws_endpoint() },
+        ProbeDetail { key: "wsTunnelPath".to_string(), value: telegram_transport_path(transport).to_string() },
+        ProbeDetail { key: "dcPlanned".to_string(), value: dc.planned.to_string() },
         ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },
         ProbeDetail { key: "downloadAvgBps".to_string(), value: dl.avg_bps.to_string() },
         ProbeDetail { key: "downloadPeakBps".to_string(), value: dl.peak_bps.to_string() },

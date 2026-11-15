@@ -63,7 +63,7 @@ fn make_transfer(status: &str, duration_ms: u64) -> TelegramTransferResult {
 }
 
 fn make_dc(reachable: usize, total: usize) -> TelegramDcResult {
-    TelegramDcResult { reachable, total, results: vec![] }
+    TelegramDcResult { reachable, total, planned: total, ..TelegramDcResult::default() }
 }
 
 fn make_ws(status: &str, open_ms: u64) -> TelegramWsProbeResult {
@@ -73,6 +73,7 @@ fn make_ws(status: &str, open_ms: u64) -> TelegramWsProbeResult {
         open_ms: Some(open_ms),
         error: None,
         http_status: None,
+        peer: None,
     }
 }
 
