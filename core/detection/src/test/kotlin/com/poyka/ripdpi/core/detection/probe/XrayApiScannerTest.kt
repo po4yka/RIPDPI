@@ -15,9 +15,15 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.ProxySelector
+import java.net.SocketAddress
+import java.net.URI
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -84,6 +90,43 @@ class XrayApiScannerTest {
                 }
             }
         }
+
+    @Test
+    fun `loopback RPC ignores HTTP and SOCKS proxy selection`() =
+        runBlocking {
+            val previous = ProxySelector.getDefault()
+            val selections = AtomicInteger()
+            withServer({ it.succeed() }) { port ->
+                ProxySelector.setDefault(
+                    object : ProxySelector() {
+                        override fun select(uri: URI): List<Proxy> {
+                            selections.incrementAndGet()
+                            val type = if (uri.scheme == "socket") Proxy.Type.SOCKS else Proxy.Type.HTTP
+                            return listOf(Proxy(type, InetSocketAddress("127.0.0.1", 1)))
+                        }
+
+                        override fun connectFailed(
+                            uri: URI,
+                            address: SocketAddress,
+                            error: IOException,
+                        ) = Unit
+                    },
+                )
+                try {
+                    assertEquals(port, scanner(listOf(port)).findXrayApi {}?.endpoint?.port)
+                    assertEquals(0, selections.get())
+                } finally {
+                    ProxySelector.setDefault(previous)
+                }
+            }
+        }
+
+    @Test
+    fun `loopback RPC rejects hostnames and non-loopback literals`() {
+        listOf("localhost", "192.0.2.1").forEach { host ->
+            assertThrows(IllegalArgumentException::class.java) { XrayApiClient(host, dispatchers) }
+        }
+    }
 
     private fun scanner(
         ports: List<Int>,

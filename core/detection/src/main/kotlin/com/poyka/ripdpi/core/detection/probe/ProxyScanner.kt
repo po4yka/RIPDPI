@@ -15,9 +15,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.coroutineContext
 
-class ProxyScanner(
+private val DetectionLoopbackHosts = listOf("127.0.0.1", "::1")
+private val ValidProxyScanPorts = 1..65535
+
+internal class ProxyScanner(
     private val dispatchers: AppCoroutineDispatchers,
-    private val loopbackHosts: List<String> = listOf("127.0.0.1", "::1"),
+    private val loopbackHosts: List<String> = DetectionLoopbackHosts,
     private val popularPorts: List<Int> =
         (
             VpnAppCatalog.localhostProxyPorts + listOf(1081, 7890, 7891)
@@ -32,6 +35,11 @@ class ProxyScanner(
     private val scanDeadlineMs: Long = LocalScanDeadlineMs,
 ) {
     init {
+        require(loopbackHosts.isNotEmpty() && loopbackHosts.all(DetectionLoopbackHosts::contains))
+        require(popularPorts.all(ValidProxyScanPorts::contains))
+        require(
+            scanRange.isEmpty() || (scanRange.first in ValidProxyScanPorts && scanRange.last in ValidProxyScanPorts),
+        )
         require(maxConcurrency > 0)
     }
 

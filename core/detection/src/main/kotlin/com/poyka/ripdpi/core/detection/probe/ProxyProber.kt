@@ -5,6 +5,7 @@ package com.poyka.ripdpi.core.detection.probe
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.Socket
 import java.net.SocketTimeoutException
 
@@ -38,6 +39,7 @@ object ProxyProber {
         connectTimeoutMs: Int,
         readTimeoutMs: Int,
     ): PortProbeResult {
+        require(host in DetectionLoopbackHosts) { "Local probes require a numeric loopback address" }
         val socksResult = probeSocks5NoAuth(host, port, connectTimeoutMs, readTimeoutMs)
         return when (socksResult) {
             PortProbeResult.SOCKS5_NO_AUTH,
@@ -56,7 +58,7 @@ object ProxyProber {
         connectTimeoutMs: Int,
         readTimeoutMs: Int,
     ): PortProbeResult =
-        Socket().use { socket ->
+        Socket(Proxy.NO_PROXY).use { socket ->
             try {
                 socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
             } catch (_: Exception) {
@@ -91,7 +93,7 @@ object ProxyProber {
         connectTimeoutMs: Int,
         readTimeoutMs: Int,
     ): PortProbeResult =
-        Socket().use { socket ->
+        Socket(Proxy.NO_PROXY).use { socket ->
             try {
                 socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
             } catch (_: Exception) {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
@@ -20,7 +21,7 @@ import kotlin.coroutines.resume
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class XrayApiScanner(
     private val dispatchers: AppCoroutineDispatchers,
-    private val loopbackHosts: List<String> = listOf("127.0.0.1", "::1"),
+    private val loopbackHosts: List<String> = DetectionLoopbackHosts,
     private val scanRange: IntRange = 1024..65535,
     private val scanPorts: List<Int>? = null,
     private val connectTimeoutMs: Int = 200,
@@ -141,7 +142,7 @@ class XrayApiScanner(
         host: String,
         port: Int,
     ): Boolean =
-        Socket().use { socket ->
+        Socket(Proxy.NO_PROXY).use { socket ->
             suspendCancellableCoroutine { continuation ->
                 continuation.invokeOnCancellation { runCatching { socket.close() } }
                 if (continuation.isActive) {

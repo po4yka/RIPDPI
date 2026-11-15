@@ -24,15 +24,22 @@ class XrayApiClient(
     private val host: String = "127.0.0.1",
     private val dispatchers: AppCoroutineDispatchers,
 ) {
+    private val address = detectionLoopbackAddress(host)
+
     suspend fun listOutbounds(
         port: Int,
         deadlineMs: Long = 600,
     ): Result<XrayApiScanResult> =
         withContext(dispatchers.io) {
+            require(port in 1..65535)
+            require(deadlineMs > 0)
+            val socketFactory = LoopbackSocketFactory(address, deadlineMs.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             val channel =
                 OkHttpChannelBuilder
                     .forAddress(host, port)
                     .usePlaintext()
+                    .proxyDetector { null }
+                    .socketFactory(socketFactory)
                     .disableRetry()
                     .build()
 
@@ -94,6 +101,7 @@ class XrayApiClient(
                 Result.failure(e)
             } finally {
                 channel.shutdownNow()
+                runCatching { socketFactory.close() }
             }
         }
 

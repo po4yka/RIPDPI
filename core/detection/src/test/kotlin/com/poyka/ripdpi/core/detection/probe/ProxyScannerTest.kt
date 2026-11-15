@@ -21,6 +21,22 @@ class ProxyScannerTest {
         )
 
     @Test
+    fun refusesNonliteralLoopbackHostsAndOutOfRangePorts() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ProxyScanner(dispatchers, loopbackHosts = listOf("localhost"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProxyScanner(dispatchers, loopbackHosts = listOf("192.0.2.1"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProxyScanner(dispatchers, popularPorts = listOf(65536))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            ProxyScanner(dispatchers, scanRange = 0..1000)
+        }
+    }
+
+    @Test
     fun popularPortOutsideSelectedRangeIsNotOpened() {
         ServerSocket(0, 1, loopback).use { popular ->
             ServerSocket(0, 1, loopback).use { selected ->
