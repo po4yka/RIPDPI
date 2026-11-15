@@ -75,6 +75,13 @@ class TelegramTransferClientsTest {
                         .body("encoded")
                         .build(),
                 )
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(206)
+                        .body("part")
+                        .build(),
+                )
                 server.start()
                 val download = OkHttpTelegramDownloadClient(url = server.url("/download").toString(), sampleBytes = 5)
                 val probe = test(download, acceptedUpload)
@@ -124,6 +131,7 @@ class TelegramTransferClientsTest {
                         .bodyDelay(8, TimeUnit.SECONDS)
                         .build(),
                 )
+                server.start()
                 val bodyStarted = CompletableDeferred<Unit>()
                 val cancelled = CompletableDeferred<Unit>()
                 val client =
