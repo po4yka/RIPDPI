@@ -32,7 +32,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-IMP03-F10 | DAT-1794721005420338 | SelectorInitialPreferenceImportTest, SelectorInitialPreferenceTest, SubscriptionInitialPreferenceTest, and BackupGroupRedactionTest: nested default remapping, Room persistence, explicit override/clear, SHARE redaction, and FULL retention. | lane passed; combined gates pending |
 | REQ-IMP03-F11 | DAT-1794721005921256 | SubscriptionPayloadEncodingTest, XrayBase64EncodingImportTest, and SubscriptionEncodingRefreshTest: reporting text decoder, terminal bootstrap error, and preservation of saved members/routes. | combined gates pending |
 | REQ-IMP03-H3 | DAT-1794721832362283 | SubscriptionDeclaredPolicyTest: explicit manual selector clears previous automatic policy; absent declarations retain it. | lane passed; combined gates pending |
-| REQ-IMP03-H2 | DAT-1794722137487267 | Real-parser host probe measured 2/8 MiB without ANR evidence. Manual input budget, background validation, stale result, and deferred restore regression tests remain pending integration. | combined gates pending |
+| REQ-IMP03-H2 | DAT-1794722137487267 | Real-parser host probe plus XrayImportBudgetTest and XrayProfileImportViewModelTest: byte/node budgets, off-Main validation, stale generations, blank confirmation before validation/provider toggle, and late restore ownership. | targeted 44 tests passed; combined gates pending |
 
 ## Observed checkpoints
 
@@ -40,7 +40,7 @@ deployment_evidence: No deployment is owned by this change.
 - The combined subscription JVM suite passed 117 tests, with zero failures, errors, or skipped tests. Runtime-state ktlint, lintDebug, and detekt passed after the bootstrap link-list extraction. Command: `./gradlew :core:data:runtime-state:testDebugUnitTest --tests 'com.poyka.ripdpi.data.subscription.*' :core:data:runtime-state:ktlintCheck :core:data:runtime-state:lintDebug :core:data:runtime-state:detekt --max-workers=2 --no-build-cache --console=plain`.
 - Locked Cargo metadata passed for 113 workspace members. The final metadata capture uses a target directory owned by this worktree.
 - The first offline CI source checks passed through architecture health, file limits, runtime contracts, route coverage, locale parity, and translation export. Its Rust API phase was stopped after discovery of an ambient shared Cargo target directory. This interrupted run is not a completed `just ci-gates` result.
-- The H2 lane passed 35 app tests plus app/service lint and app detekt. The additional deferred-restore regression and final combined checks remain pending.
+- The H2 lane passed 44 final targeted tests (31 ViewModel, 9 activation, 4 parser budget), with zero failures, errors, or skipped tests. Blank confirmation and late restore/persistence regressions failed before the final fix. The frozen applied diff received final independent clearance. Earlier app/service lint and app detekt passed before the last admission/restore delta; final combined staticAnalysis remains pending.
 
 ## Evidence boundaries
 

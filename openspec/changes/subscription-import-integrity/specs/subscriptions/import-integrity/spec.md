@@ -135,3 +135,10 @@ Manual Xray validation MUST apply the existing subscription byte and node budget
 
 - **WHEN** an earlier durable restore completes while newer input is being validated
 - **THEN** the restore result cannot clear the current validation status or its current error state
+- **AND** a late restore result cannot clear persistence-owned state or re-enable edits during confirmation
+
+#### Scenario: Native confirmation cannot bypass the input budget
+
+- **WHEN** native confirmation is attempted with nonempty whitespace input before explicit validation, after a size rejection, or after a provider change
+- **THEN** oversized input cannot reach persistence through the blank-input shortcut
+- **AND** byte counting remains outside Main, literal empty native mode selection remains available, and a persistence failure can be retried

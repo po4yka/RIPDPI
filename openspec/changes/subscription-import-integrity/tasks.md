@@ -15,4 +15,4 @@
 - [x] DAT-1794721005921256 Fix F11 strict payload decoding and credential regressions #bug !high @item:DAT-1794720910687853
 - [ ] DAT-1794721006435935 Review combined changes and run integration gates and remote CI #bug !high @item:DAT-1794720910687853
 - [x] DAT-1794721832362283 Fix H3 declared manual selector policy reset and regressions #bug !high @item:DAT-1794720910687853
-- [ ] DAT-1794722137487267 Fix H2 manual Xray budgets and background validation regressions #bug !high @item:DAT-1794720910687853
+- [x] DAT-1794722137487267 Fix H2 manual Xray budgets and background validation regressions #bug !high @item:DAT-1794720910687853
