@@ -71,7 +71,9 @@ pub(super) fn pump_udp_upstream_responses(
                     entry.answered = true;
                     note_udp_first_response_success(state, entry)?;
                     entry.session.observe_upstream_response(response);
-                    maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
+                    if entry.session.has_quic_response_context() {
+                        maybe_rebind_udp_source_port(state, entry, response, protect_path)?;
+                    }
                 }
                 if key.preserve_host_in_response
                     && let Some(host) = entry.host.as_deref()

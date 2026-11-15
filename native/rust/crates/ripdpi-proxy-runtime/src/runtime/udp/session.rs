@@ -53,6 +53,11 @@ impl UdpFlowSession {
         false
     }
 
+    // Initial-response evidence identifies QUIC, but does not confirm its handshake.
+    pub(super) fn has_quic_response_context(&self) -> bool {
+        self.quic_confirmed
+    }
+
     pub(super) fn has_unverifiable_client_offer(&self) -> bool {
         self.pending_context.is_some_and(|index| self.quic_contexts[index].unverifiable_offer)
     }
