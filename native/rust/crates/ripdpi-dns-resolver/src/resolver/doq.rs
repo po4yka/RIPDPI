@@ -370,5 +370,5 @@ mod tests {
 }
 
 #[cfg(test)]
-#[path = "doq_tests.rs"]
+#[path = "../tests/doq_wire.rs"]
 mod wire_tests;
