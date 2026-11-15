@@ -1546,6 +1546,29 @@ fn monitor_session_report_exports_execution_plan_snapshot() {
 }
 
 #[test]
+fn monitor_golden_scrub_keeps_tls_failure_semantics() {
+    for profile in ["tls13", "tls12", "tlsEch"] {
+        for (duration, expected) in [("1", "0"), ("99", "0"), ("none", "none")] {
+            let duration_key = format!("{profile}FailureDurationMs");
+            let mut value = serde_json::json!({"details": [
+                {"key": duration_key, "value": duration},
+                {"key": "tls13FailureStage", "value": "tcp_connect"},
+                {"key": "tls13CertificateVerification", "value": "not_completed"},
+            ]});
+            scrub_monitor_json(&mut value, 0);
+            assert_eq!(
+                value,
+                serde_json::json!({"details": [
+                    {"key": duration_key, "value": expected},
+                    {"key": "tls13FailureStage", "value": "tcp_connect"},
+                    {"key": "tls13CertificateVerification", "value": "not_completed"},
+                ]})
+            );
+        }
+    }
+}
+
+#[test]
 fn monitor_json_contracts_match_goldens() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start(move |_request| {

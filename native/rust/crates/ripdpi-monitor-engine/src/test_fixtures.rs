@@ -471,6 +471,13 @@ pub fn scrub_monitor_json(value: &mut Value, http_port: u16) {
                     scrub_monitor_json(item, http_port);
                     if let Some(detail_key) = detail_key.as_deref() {
                         scrub_flaky_http_fuzz_detail(detail_key, item);
+                        if matches!(
+                            detail_key,
+                            "tls13FailureDurationMs" | "tls12FailureDurationMs" | "tlsEchFailureDurationMs"
+                        ) && item.as_str().is_some_and(|duration| duration.parse::<u64>().is_ok())
+                        {
+                            *item = Value::from("0");
+                        }
                     }
                 } else {
                     scrub_monitor_json(item, http_port);
