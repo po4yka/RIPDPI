@@ -2,9 +2,14 @@ package com.poyka.ripdpi.diagnostics.dpich
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -84,11 +89,33 @@ class SnowflakeStunReachabilityProbeTest {
             assertEquals(PtProbeStatus.TIMEOUT, trace.status)
         }
 
+    @Test
+    fun cancellationClosesSocketWhileWaitingForTheBindingResponse() =
+        runBlocking {
+            DatagramSocket(0, Loopback).use { server ->
+                DatagramSocket().use { client ->
+                    server.soTimeout = 5_000
+                    val inbound = async(Dispatchers.IO) { server.receiveRequest() }
+                    val probe =
+                        SnowflakeStunReachabilityProbe(
+                            endpoint = PtEndpoint(Loopback.hostAddress!!, server.localPort),
+                            socketFactory = { client },
+                        )
+                    val job = launch(Dispatchers.IO) { probe.run(8_000) }
+                    inbound.await()
+
+                    withTimeout(2_000) { job.cancelAndJoin() }
+
+                    assertTrue(client.isClosed)
+                }
+            }
+        }
+
     private suspend fun exchange(
         timeoutMs: Long = 1_000,
         respond: DatagramSocket.() -> Unit,
     ): PtProbeTrace =
-        kotlinx.coroutines.coroutineScope {
+        coroutineScope {
             DatagramSocket(0, Loopback).use { server ->
                 server.soTimeout = 3_000
                 val peer = async(Dispatchers.IO) { server.respond() }

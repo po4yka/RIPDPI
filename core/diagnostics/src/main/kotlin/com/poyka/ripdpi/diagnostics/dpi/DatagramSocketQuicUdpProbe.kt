@@ -33,7 +33,7 @@ class DatagramSocketQuicUdpProbe internal constructor(
         withContext(Dispatchers.IO) {
             try {
                 withTimeoutOrNull(timeoutMs.toLong()) {
-                    exchange(resolve(target), port, packet, timeoutMs)
+                    exchange(resolveProbeAddress(target, lookupScope, resolveAddress), port, packet, timeoutMs)
                 } ?: QuicProbeSample(response = null, latencyMs = null)
             } catch (_: SocketTimeoutException) {
                 QuicProbeSample(response = null, latencyMs = null)
@@ -79,23 +79,26 @@ class DatagramSocketQuicUdpProbe internal constructor(
         )
     }
 
-    private suspend fun resolve(target: String): InetAddress {
-        NumericIp.parseAddress(target)?.let { return it.toInetAddress() }
-        LookupSlots.acquire()
-        val pending = lookupScope.async { resolveAddress(target) }
-        // Keep admission until the detached lookup finishes, including when its caller is cancelled.
-        pending.invokeOnCompletion { LookupSlots.release() }
-        return pending.await()
-    }
-
     private companion object {
         private const val MaxDatagramBytes = 65_535
         private const val NanosPerMillis = 1_000_000L
-        private const val MaxConcurrentLookups = 2
-
-        // System getaddrinfo can finish after cancellation; bound its workers without delaying the caller.
-        private val LookupSlots = Semaphore(MaxConcurrentLookups)
-        private val DefaultLookupScope =
-            CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(MaxConcurrentLookups))
     }
 }
+
+internal suspend fun resolveProbeAddress(
+    target: String,
+    lookupScope: CoroutineScope = DefaultLookupScope,
+    resolveAddress: (String) -> InetAddress = InetAddress::getByName,
+): InetAddress {
+    NumericIp.parseAddress(target)?.let { return it.toInetAddress() }
+    LookupSlots.acquire()
+    val pending = lookupScope.async { resolveAddress(target) }
+    // Keep admission until the detached lookup finishes, including when its caller is cancelled.
+    pending.invokeOnCompletion { LookupSlots.release() }
+    return pending.await()
+}
+
+private const val MaxConcurrentLookups = 2
+private val LookupSlots = Semaphore(MaxConcurrentLookups)
+private val DefaultLookupScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(MaxConcurrentLookups))

@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -18,22 +17,26 @@ class SnowflakeStunReachabilityProbe(
 ) : PtSubprobe {
     override suspend fun run(timeoutMs: Long): PtProbeTrace {
         val startedAt = System.nanoTime()
-        val deadline = startedAt + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+        val deadline = deadlineAfter(timeoutMs)
         val status =
             try {
-                val destination = InetSocketAddress(endpoint.host, endpoint.port)
-                socketFactory().use { socket ->
-                    val id = transactionId()
-                    require(id.size == TransactionIdBytes)
-                    exchange(socket, destination, id, deadline)
+                val destination = withTimeoutOrNull(timeoutMs) { endpoint.resolve() }
+                if (destination == null) {
+                    PtProbeStatus.TIMEOUT
+                } else {
+                    socketFactory().use { socket ->
+                        val id = transactionId()
+                        require(id.size == TransactionIdBytes)
+                        socket.withCancellation { exchange(socket, destination, id, deadline) }
+                    }
                 }
             } catch (_: IOException) {
                 PtProbeStatus.NETWORK_ERROR
             }
-        return PtProbeTrace(endpoint.toString(), status, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt))
+        return PtProbeTrace(endpoint.toString(), status, elapsedMs(startedAt))
     }
 
-    private suspend fun exchange(
+    private fun exchange(
         socket: DatagramSocket,
         destination: InetSocketAddress,
         id: ByteArray,
@@ -52,12 +55,10 @@ class SnowflakeStunReachabilityProbe(
         var waitNanos = TimeUnit.MILLISECONDS.toNanos(InitialWaitMs)
         var invalidResponse = false
         repeat(MaxTransmissions) {
-            currentCoroutineContext().ensureActive()
             if (deadline - System.nanoTime() <= 0) return result(invalidResponse)
             socket.send(outbound)
             val attemptDeadline = minOf(deadline, System.nanoTime() + waitNanos)
             while (attemptDeadline - System.nanoTime() > 0) {
-                currentCoroutineContext().ensureActive()
                 val waitMs = TimeUnit.NANOSECONDS.toMillis(attemptDeadline - System.nanoTime()).coerceAtLeast(1)
                 socket.soTimeout = waitMs.toInt()
                 reply.length = buffer.size

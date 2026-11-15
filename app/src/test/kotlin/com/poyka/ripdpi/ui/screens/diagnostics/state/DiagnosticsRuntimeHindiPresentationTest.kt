@@ -13,10 +13,13 @@ import com.poyka.ripdpi.diagnostics.dpich.PtProbeTrace
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -243,6 +246,55 @@ class DiagnosticsRuntimeHindiPresentationTest {
             assertEquals(1, probeCalls)
             assertEquals(DiagnosticsPluggableTransportState.Disabled, controller.tool.value.state)
             assertTrue(controller.tool.value.privacyModeEnabled)
+        }
+
+    @Test
+    fun `a resumed PT check waits for a cancelled check to release its resources`() =
+        runTest {
+            val localizedContext = context("en")
+            val settings = settings()
+            val cleanup = CompletableDeferred<Unit>()
+            val observed = PtProbeTrace("Exact_Host.test", PtProbeStatus.CONNECTED, 1)
+            var probeCalls = 0
+            val controller =
+                DiagnosticsPluggableTransportController(
+                    scope = backgroundScope,
+                    appSettingsRepository = settings,
+                    assetLoader = DpiAssetLoader(localizedContext),
+                    stringResolver = AndroidStringResolver(localizedContext),
+                    runProbe = {
+                        probeCalls += 1
+                        if (probeCalls == 1) {
+                            try {
+                                awaitCancellation()
+                            } finally {
+                                withContext(NonCancellable) { cleanup.await() }
+                            }
+                        }
+                        result(observed)
+                    },
+                )
+            runCurrent()
+            controller.run()
+            runCurrent()
+
+            settings.update { setDetectionCheckPrivacyModeEnabled(true) }
+            runCurrent()
+            settings.update { setDetectionCheckPrivacyModeEnabled(false) }
+            runCurrent()
+            controller.run()
+            runCurrent()
+
+            assertEquals(1, probeCalls)
+            assertEquals(DiagnosticsPluggableTransportState.Disabled, controller.tool.value.state)
+            cleanup.complete(Unit)
+            runCurrent()
+            assertEquals(DiagnosticsPluggableTransportState.Idle, controller.tool.value.state)
+
+            controller.run()
+            runCurrent()
+            assertEquals(2, probeCalls)
+            assertEquals(DiagnosticsPluggableTransportState.Complete, controller.tool.value.state)
         }
 
     @Test

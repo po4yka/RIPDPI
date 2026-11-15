@@ -86,13 +86,14 @@ internal class DiagnosticsPluggableTransportController(
                                 }
                             },
                     )
+                if (settings.detectionCheckPrivacyModeEnabled) probeJob?.join()
             }
         }
     }
 
     fun run() {
         val current = _tool.value
-        if (current.state == DiagnosticsPluggableTransportState.Running) {
+        if (current.state == DiagnosticsPluggableTransportState.Running || probeJob?.isCompleted == false) {
             return
         }
         if (current.privacyModeEnabled) {

@@ -1,14 +1,18 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
@@ -190,6 +194,49 @@ class PluggableTransportReachabilityProbeTest {
             val trace = MeekReachabilityProbe(fronts = emptyList()).run(1_000)
 
             assertEquals(PtProbeStatus.NOT_CONFIGURED, trace.status)
+        }
+
+    @Test
+    fun cancellingHeadClosesTheActiveHttpCall() =
+        runBlocking {
+            val address = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
+            ServerSocket(0, 1, address).use { server ->
+                server.soTimeout = 5_000
+                val requestReceived = CompletableDeferred<Unit>()
+                val peer =
+                    async(Dispatchers.IO) {
+                        server.accept().use { socket ->
+                            socket.soTimeout = 5_000
+                            val request = socket.getInputStream().bufferedReader()
+                            assertEquals("HEAD /front HTTP/1.1", request.readLine())
+                            while (request.readLine()?.isNotEmpty() == true) {
+                                // Drain the request before waiting for the client's close.
+                            }
+                            requestReceived.complete(Unit)
+                            request.read()
+                        }
+                    }
+                val probe = MeekReachabilityProbe(fronts = listOf("http://127.0.0.1:${server.localPort}/front"))
+                val job = launch { probe.run(8_000) }
+                withTimeout(5_000) { requestReceived.await() }
+
+                job.cancelAndJoin()
+
+                assertEquals(-1, peer.await())
+            }
+        }
+
+    @Test
+    fun frontBeyondTargetLimitDoesNotOpenNetworkConnection() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                val targets = List(8) { "invalid target $it" } + server.url("/not-probed").toString()
+                val trace = MeekReachabilityProbe(fronts = targets).run(1_000)
+
+                assertEquals(PtProbeStatus.INVALID_TARGET, trace.status)
+                assertEquals(0, server.requestCount)
+            }
         }
 }
 
