@@ -1430,6 +1430,8 @@
     <string name="diagnostics_dpi_suite_asn_format">Groupes ASN vérifiés : %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Cibles ayant réussi le test d’empreinte QUIC Initial : %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">Cibles ayant accepté ECH : %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Liaison HTTPS indisponible pour ce test</string>
+    <string name="diagnostics_dpi_suite_ech_config_unusable">Aucune configuration ECH utilisable</string>
     <string name="diagnostics_dpi_suite_telegram_format">téléchargement : %1$s, envoi : %2$s, DC : %3$d/%4$d</string>
     <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 n’a détecté aucun ASN bloqué</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI détecté</string>

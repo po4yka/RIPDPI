@@ -167,7 +167,7 @@ class NativeBridgeInstrumentedTest {
             val payload =
                 NativeEchTlsHandshakeBridge.connect(
                     handle,
-                    """{"target":"127.0.0.1","echConfigBytesB64":"%%%","connectTimeoutMs":10000}""",
+                    """{"origin":"localhost","connectHost":"127.0.0.1","connectPort":443,"echConfigBytesB64":"%%%","connectTimeoutMs":10000}""",
                 )
             assertTrue(requireNotNull(payload).contains("\"cancelled\":true"))
         } finally {

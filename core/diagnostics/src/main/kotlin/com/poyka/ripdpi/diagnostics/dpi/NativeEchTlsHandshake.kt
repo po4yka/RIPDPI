@@ -48,19 +48,26 @@ class NativeEchTlsHandshake(
         RipDpiEncodeDefaultsJson
 
     override suspend fun connect(
-        target: String,
+        endpoint: EchTlsEndpoint,
         echConfig: ByteArray,
     ): EchTlsHandshakeResult =
         withContext(Dispatchers.IO) {
             val requestJson =
                 json.encodeToString(
                     NativeEchTlsHandshakeRequest(
-                        target = target,
+                        origin = endpoint.origin,
+                        connectHost = endpoint.host,
+                        connectPort = endpoint.port,
                         echConfigBytesB64 = Base64.getEncoder().encodeToString(echConfig),
                     ),
                 )
             val requestHandle = bindings.createRequest()
-            if (requestHandle == 0L) throw IOException("native ECH TLS request could not be created")
+            if (requestHandle == 0L) {
+                throw EchTlsSetupException(
+                    EchTlsSetupFailure.UNAVAILABLE,
+                    "native ECH TLS request could not be created",
+                )
+            }
             val payload =
                 try {
                     suspendCancellableCoroutine { continuation ->
@@ -69,7 +76,10 @@ class NativeEchTlsHandshake(
                             runCatching {
                                 val result =
                                     bindings.connect(requestHandle, requestJson)
-                                        ?: throw IOException("native ECH TLS bridge returned no response")
+                                        ?: throw EchTlsSetupException(
+                                            EchTlsSetupFailure.UNAVAILABLE,
+                                            "native ECH TLS bridge returned no response",
+                                        )
                                 continuation.resume(result)
                             }.exceptionOrNull()?.let { error ->
                                 if (error !is Exception) throw error
@@ -84,9 +94,15 @@ class NativeEchTlsHandshake(
                 try {
                     json.decodeFromString(NativeEchTlsHandshakeResponse.serializer(), payload)
                 } catch (error: SerializationException) {
-                    throw IOException("native ECH TLS bridge returned malformed response", error)
+                    throw EchTlsSetupException(
+                        EchTlsSetupFailure.UNAVAILABLE,
+                        "native ECH TLS bridge returned malformed response",
+                    ).apply { initCause(error) }
                 }
             if (response.cancelled) throw CancellationException("native ECH TLS handshake cancelled")
+            response.transportSetup?.let { failure ->
+                throw EchTlsSetupException(failure, response.error)
+            }
             response.error?.takeIf(String::isNotBlank)?.let { message ->
                 throw IOException(message)
             }
@@ -99,7 +115,9 @@ class NativeEchTlsHandshake(
 
 @Serializable
 private data class NativeEchTlsHandshakeRequest(
-    val target: String,
+    val origin: String,
+    val connectHost: String,
+    val connectPort: Int,
     @SerialName("echConfigBytesB64")
     val echConfigBytesB64: String,
     @SerialName("connectTimeoutMs")
@@ -114,6 +132,7 @@ private data class NativeEchTlsHandshakeResponse(
     val latencyMs: Long? = null,
     val error: String? = null,
     val cancelled: Boolean = false,
+    val transportSetup: EchTlsSetupFailure? = null,
 )
 
 private const val DefaultNativeEchConnectTimeoutMs = 10_000L

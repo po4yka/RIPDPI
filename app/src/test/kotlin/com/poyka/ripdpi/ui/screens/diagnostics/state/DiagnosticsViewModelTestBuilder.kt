@@ -23,6 +23,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DnsAvailabilitySurvey
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityChecker
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityScanner
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
+import com.poyka.ripdpi.diagnostics.dpi.EchTlsEndpoint
 import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
 import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshakeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
@@ -174,7 +175,7 @@ private object StubRemoteDeviceAcceptanceGate : RemoteDeviceAcceptanceGate {
 
 private object StubEchTlsHandshake : EchTlsHandshake {
     override suspend fun connect(
-        target: String,
+        endpoint: EchTlsEndpoint,
         echConfig: ByteArray,
     ): EchTlsHandshakeResult = EchTlsHandshakeResult(negotiatedEch = false, latencyMs = null)
 }

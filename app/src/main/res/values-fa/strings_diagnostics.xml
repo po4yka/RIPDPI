@@ -1429,6 +1429,8 @@
     <string name="diagnostics_dpi_suite_asn_format">گروه‌های ASN بررسی‌شده: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">هدف‌های پذیرفته‌شده در بررسی اثر انگشت ⁨QUIC Initial⁩: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">هدف‌های پذیرفته‌شده با ⁨ECH⁩: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">پیوند HTTPS برای این آزمون در دسترس نیست</string>
+    <string name="diagnostics_dpi_suite_ech_config_unusable">پیکربندی ECH قابل استفاده‌ای وجود ندارد</string>
     <string name="diagnostics_dpi_suite_telegram_format">دریافت: %1$s، ارسال: %2$s، ⁨DC⁩: %3$d/%4$d</string>
     <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 هیچ ASN مسدودی شناسایی نکرد</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI شناسایی شد</string>

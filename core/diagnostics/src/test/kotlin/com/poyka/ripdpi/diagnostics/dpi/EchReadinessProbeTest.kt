@@ -132,7 +132,7 @@ class EchReadinessProbeTest {
                     tlsHandshake =
                         object : EchTlsHandshake {
                             override suspend fun connect(
-                                target: String,
+                                endpoint: EchTlsEndpoint,
                                 echConfig: ByteArray,
                             ): EchTlsHandshakeResult {
                                 val nowActive = active.incrementAndGet()
@@ -185,6 +185,70 @@ class EchReadinessProbeTest {
             assertEquals(HttpsRrOutcome.TRANSPORT_ERROR, failed.httpsLookups.last().outcome)
         }
 
+    @Test
+    fun h3OnlyAndUnusableConfigDoNotPreventTheNextTcpBinding() =
+        runTest {
+            val h3 = HttpsRrRecord(1, "h3.example", byteArrayOf(1), supportsTcp = false)
+            val unusable = HttpsRrRecord(2, "unusable.example", byteArrayOf(2))
+            val alternative = HttpsRrRecord(3, "tcp.example", byteArrayOf(3), port = 8443)
+            val resolver =
+                HttpsRrResolver(
+                    query = HttpsRrQuery { HttpsRrResponse(HttpsRrOutcome.ANSWER, listOf(h3, unusable, alternative)) },
+                    fallbackQuery = null,
+                )
+            val probe =
+                EchReadinessProbe(
+                    resolver = resolver,
+                    tlsHandshake =
+                        object : EchTlsHandshake {
+                            override suspend fun connect(
+                                endpoint: EchTlsEndpoint,
+                                echConfig: ByteArray,
+                            ): EchTlsHandshakeResult {
+                                if (endpoint.host == "unusable.example") {
+                                    throw EchTlsSetupException(
+                                        EchTlsSetupFailure.UNUSABLE_CONFIG,
+                                        "unsupported version",
+                                    )
+                                }
+                                assertEquals(EchTlsEndpoint("origin.example", "tcp.example", 8443), endpoint)
+                                assertEquals(3.toByte(), echConfig.single())
+                                return EchTlsHandshakeResult(negotiatedEch = true, latencyMs = 7)
+                            }
+                        },
+                )
+
+            assertEquals(EchProbeVerdict.ECH_OK, probe.check("origin.example").verdict)
+        }
+
+    @Test
+    fun missingTcpBindingAndUnusableConfigAreNotTlsRejection() =
+        runTest {
+            val onlyH3 = HttpsRrRecord(1, "h3.example", byteArrayOf(1), supportsTcp = false)
+            val unsupported =
+                EchReadinessProbe(
+                    resolver =
+                        HttpsRrResolver(
+                            query = HttpsRrQuery { HttpsRrResponse(HttpsRrOutcome.ANSWER, listOf(onlyH3)) },
+                            fallbackQuery = null,
+                        ),
+                    tlsHandshake = FakeEchTlsHandshake(error = IllegalStateException("unexpected TCP probe")),
+                ).check("origin.example")
+            assertEquals(EchProbeVerdict.ECH_UNSUPPORTED_ENDPOINT, unsupported.verdict)
+            assertFalse(unsupported.hasMeasurement)
+
+            val unusable =
+                EchReadinessProbe(
+                    resolver = resolverWithConfig(byteArrayOf(1)),
+                    tlsHandshake =
+                        FakeEchTlsHandshake(
+                            error = EchTlsSetupException(EchTlsSetupFailure.UNUSABLE_CONFIG, null),
+                        ),
+                ).check("origin.example")
+            assertEquals(EchProbeVerdict.ECH_UNUSABLE_CONFIG, unusable.verdict)
+            assertFalse(unusable.hasMeasurement)
+        }
+
     private fun resolverWithConfig(config: ByteArray): HttpsRrResolver =
         HttpsRrResolver(
             query =
@@ -201,7 +265,7 @@ class EchReadinessProbeTest {
         private val error: Exception? = null,
     ) : EchTlsHandshake {
         override suspend fun connect(
-            target: String,
+            endpoint: EchTlsEndpoint,
             echConfig: ByteArray,
         ): EchTlsHandshakeResult {
             error?.let { throw it }

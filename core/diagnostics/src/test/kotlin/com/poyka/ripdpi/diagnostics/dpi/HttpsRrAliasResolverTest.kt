@@ -7,6 +7,7 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import okio.Buffer
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.xbill.DNS.DClass
@@ -43,7 +44,10 @@ class HttpsRrAliasResolverTest {
                         fallbackQuery = null,
                     )
 
-                assertArrayEquals(EchConfig, resolver.fetch("origin.example").record?.echConfig)
+                val record = resolver.fetch("origin.example").candidates.single()
+                assertEquals("alias.example", record.ownerName)
+                assertEquals(".", record.targetName)
+                assertArrayEquals(TestEchConfigList, record.echConfig)
             }
         }
 
@@ -60,7 +64,7 @@ class HttpsRrAliasResolverTest {
                         query = encodedQuery(responses),
                         fallbackQuery = encodedQuery(mapOf("origin.example" to serviceConfig())),
                     )
-                assertNull(resolver.fetch("origin.example").record)
+                assertNull(resolver.fetch("origin.example").candidates.firstOrNull())
             }
         }
 
@@ -80,8 +84,8 @@ class HttpsRrAliasResolverTest {
                     HttpsRrResolver(
                         query = encodedQuery(responses),
                         fallbackQuery = null,
-                    ).fetch("origin.example").record
-                if (hops == 3) assertArrayEquals(EchConfig, selected?.echConfig) else assertNull(selected)
+                    ).fetch("origin.example").candidates.firstOrNull()
+                if (hops == 3) assertArrayEquals(TestEchConfigList, selected?.echConfig) else assertNull(selected)
             }
         }
 
@@ -106,15 +110,13 @@ class HttpsRrAliasResolverTest {
                 )
             }.toWire()
 
-    private fun serviceConfig(): String = "1 . ech=${Base64.getEncoder().encodeToString(EchConfig)}"
-
-    private companion object {
-        val EchConfig =
-            (
-                "003efe0d003a0000200020bb2f29e3e3057e0419d52fc5f44118776f8db61ce" +
-                    "a4fdf76079b93606c5a62480008000100010001000300076563682e636f6d0000"
-            ).chunked(2)
-                .map { it.toInt(16).toByte() }
-                .toByteArray()
-    }
+    private fun serviceConfig(): String = "1 . ech=${Base64.getEncoder().encodeToString(TestEchConfigList)}"
 }
+
+internal val TestEchConfigList =
+    (
+        "003efe0d003a0000200020bb2f29e3e3057e0419d52fc5f44118776f8db61ce" +
+            "a4fdf76079b93606c5a62480008000100010001000300076563682e636f6d0000"
+    ).chunked(2)
+        .map { it.toInt(16).toByte() }
+        .toByteArray()

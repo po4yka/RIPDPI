@@ -22,7 +22,12 @@ class NativeEchCancellationTest {
     fun cancellationStopsTheNativeWorkerAndReleasesItsHandle() =
         runTest(timeout = 10.seconds) {
             val bindings = BlockingBindings()
-            val active = launch { NativeEchTlsHandshake(bindings).connect("cancel.example", byteArrayOf(1)) }
+            val active =
+                launch {
+                    NativeEchTlsHandshake(
+                        bindings,
+                    ).connect(EchTlsEndpoint("cancel.example", "cancel.example", 443), byteArrayOf(1))
+                }
             assertTrue(withContext(Dispatchers.IO) { bindings.started.await(3, TimeUnit.SECONDS) })
 
             active.cancelAndJoin()
@@ -37,7 +42,12 @@ class NativeEchCancellationTest {
         runTest {
             val bindings = BlockingBindings()
             bindings.cancelRequest(1L)
-            val result = runCatching { NativeEchTlsHandshake(bindings).connect("cancel.example", byteArrayOf(1)) }
+            val result =
+                runCatching {
+                    NativeEchTlsHandshake(
+                        bindings,
+                    ).connect(EchTlsEndpoint("cancel.example", "cancel.example", 443), byteArrayOf(1))
+                }
 
             assertTrue(result.exceptionOrNull() is CancellationException)
             assertFalse(bindings.reserved.get())
@@ -50,7 +60,12 @@ class NativeEchCancellationTest {
                 listOf(IOException("io failure"), IllegalStateException("bridge failure"), AssertionError("fatal"))
             for (failure in failures) {
                 val bindings = FailingBindings(failure, waitForCancellation = false)
-                val error = runCatching { NativeEchTlsHandshake(bindings).connect("test.example", byteArrayOf(1)) }
+                val error =
+                    runCatching {
+                        NativeEchTlsHandshake(
+                            bindings,
+                        ).connect(EchTlsEndpoint("test.example", "test.example", 443), byteArrayOf(1))
+                    }
                 assertEquals(failure.javaClass, error.exceptionOrNull()?.javaClass)
                 assertEquals(failure.message, error.exceptionOrNull()?.message)
                 assertEquals(1, bindings.releases.get())
@@ -61,7 +76,12 @@ class NativeEchCancellationTest {
     fun cancellationWinsWhenBridgeFailsAndReleasesTheRequestOnce() =
         runTest(timeout = 10.seconds) {
             val bindings = FailingBindings(IOException("late failure"), waitForCancellation = true)
-            val active = launch { NativeEchTlsHandshake(bindings).connect("test.example", byteArrayOf(1)) }
+            val active =
+                launch {
+                    NativeEchTlsHandshake(
+                        bindings,
+                    ).connect(EchTlsEndpoint("test.example", "test.example", 443), byteArrayOf(1))
+                }
             assertTrue(withContext(Dispatchers.IO) { bindings.started.await(3, TimeUnit.SECONDS) })
 
             active.cancelAndJoin()

@@ -1436,6 +1436,8 @@
     <string name="diagnostics_dpi_suite_asn_format">जाँचे गए ASN समूह: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">QUIC Initial फ़िंगरप्रिंट जाँच पास करने वाले लक्ष्य: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_ech_format">ECH स्वीकार करने वाले लक्ष्य: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">इस जाँच के लिए HTTPS बाइंडिंग उपलब्ध नहीं है</string>
+    <string name="diagnostics_dpi_suite_ech_config_unusable">उपयोग योग्य ECH कॉन्फ़िगरेशन नहीं है</string>
     <string name="diagnostics_dpi_suite_telegram_format">डाउनलोड: %1$s, अपलोड: %2$s, DC: %3$d/%4$d</string>
     <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 को कोई अवरुद्ध ASN नहीं मिला</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI मिला</string>

@@ -9,12 +9,7 @@ import android.system.ErrnoException
 import android.system.OsConstants
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -25,8 +20,6 @@ import okhttp3.Response
 import org.xbill.DNS.Type
 import java.io.IOException
 import java.io.InterruptedIOException
-import java.net.SocketTimeoutException
-import java.util.Base64
 import java.util.Locale
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
@@ -36,14 +29,27 @@ data class HttpsRrRecord(
     val priority: Int,
     val targetName: String,
     val echConfig: ByteArray?,
+    val ownerName: String? = null,
+    val port: Int = HttpsDefaultPort,
+    val supportsTcp: Boolean = true,
 ) {
     override fun equals(other: Any?): Boolean =
         other is HttpsRrRecord &&
             priority == other.priority &&
             targetName == other.targetName &&
+            ownerName == other.ownerName &&
+            port == other.port &&
+            supportsTcp == other.supportsTcp &&
             echConfig.contentEqualsNullable(other.echConfig)
 
-    override fun hashCode(): Int = 31 * (31 * priority + targetName.hashCode()) + (echConfig?.contentHashCode() ?: 0)
+    override fun hashCode(): Int {
+        var hash = priority
+        hash = 31 * hash + targetName.hashCode()
+        hash = 31 * hash + (ownerName?.hashCode() ?: 0)
+        hash = 31 * hash + port
+        hash = 31 * hash + supportsTcp.hashCode()
+        return 31 * hash + (echConfig?.contentHashCode() ?: 0)
+    }
 }
 
 enum class HttpsRrOutcome {
@@ -82,7 +88,8 @@ data class HttpsRrLookupAttempt(
 )
 
 data class HttpsRrLookup(
-    val record: HttpsRrRecord?,
+    val candidates: List<HttpsRrRecord>,
+    val hasIncompatibleBinding: Boolean,
     val attempts: List<HttpsRrLookupAttempt>,
 ) {
     val receivedRecords: Boolean
@@ -113,16 +120,22 @@ class HttpsRrResolver(
     suspend fun fetch(host: String): HttpsRrLookup {
         val attempts = mutableListOf<HttpsRrLookupAttempt>()
         val primary = query.followAliases(host, HttpsRrSource.DOH, attempts)
-        val selected = primary.records.selectEchRecord()
-        if (selected != null || primary.outcome in terminalOutcomes || fallbackQuery == null) {
-            return HttpsRrLookup(selected, attempts)
+        val primaryBindings = primary.records.echBindings()
+        val primaryCandidates = primaryBindings.filter(HttpsRrRecord::supportsTcp)
+        if (primaryCandidates.isNotEmpty() || primary.outcome in terminalOutcomes || fallbackQuery == null) {
+            return HttpsRrLookup(primaryCandidates, primaryBindings.any { !it.supportsTcp }, attempts)
         }
         val fallback = fallbackQuery.followAliases(host, HttpsRrSource.SYSTEM, attempts)
-        return HttpsRrLookup(fallback.records.selectEchRecord(), attempts)
+        val fallbackBindings = fallback.records.echBindings()
+        return HttpsRrLookup(
+            fallbackBindings.filter(HttpsRrRecord::supportsTcp),
+            (primaryBindings + fallbackBindings).any { !it.supportsTcp },
+            attempts,
+        )
     }
 
-    private fun List<HttpsRrRecord>.selectEchRecord(): HttpsRrRecord? =
-        filter { record -> !record.echConfig.isNullOrEmptyBytes() }.minByOrNull { record -> record.priority }
+    private fun List<HttpsRrRecord>.echBindings(): List<HttpsRrRecord> =
+        filter { record -> !record.echConfig.isNullOrEmptyBytes() }.sortedBy { it.priority }
 
     private suspend fun HttpsRrQuery.followAliases(
         host: String,
@@ -134,7 +147,15 @@ class HttpsRrResolver(
         while (visited.size <= MaxAliasHops && visited.add(name)) {
             val response = attempt(name)
             attempts += HttpsRrLookupAttempt(source, response.outcome, response.rcode, response.httpStatus)
-            val alias = response.records.firstOrNull { it.priority == 0 } ?: return response
+            val alias = response.records.firstOrNull { it.priority == 0 }
+            if (alias == null) {
+                return response.copy(
+                    records =
+                        response.records.map { record ->
+                            record.copy(ownerName = record.ownerName ?: name)
+                        },
+                )
+            }
             name = alias.targetName.trimEnd('.').lowercase(Locale.ROOT)
             if (name.isEmpty()) return stopAliases(source, HttpsRrOutcome.SERVICE_UNAVAILABLE, attempts)
         }
@@ -304,175 +325,6 @@ object HttpsDnsWireBuilder {
     ): ByteArray = DnsMessages.query(domain, Type.HTTPS, transactionId)
 }
 
-enum class EchProbeVerdict {
-    ECH_OK,
-    ECH_REJECTED,
-    ECH_NO_CONFIG,
-    ECH_LOOKUP_INCONCLUSIVE,
-    ECH_UNKNOWN_KEY,
-    ECH_NETWORK_BLOCK,
-}
-
-data class EchProbeResult(
-    val target: String,
-    val verdict: EchProbeVerdict,
-    val httpsRrFetched: Boolean,
-    val echConfigBytesB64: String?,
-    val tlsLatencyMs: Long?,
-    val negotiatedEch: Boolean,
-    val errorDetail: String?,
-    val vanillaTlsOk: Boolean? = null,
-    val httpsLookups: List<HttpsRrLookupAttempt> = emptyList(),
-) {
-    val hasMeasurement: Boolean
-        get() = verdict != EchProbeVerdict.ECH_NO_CONFIG && verdict != EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE
-
-    val echSucceededWhenBaselineTlsFailed: Boolean = vanillaTlsOk == false && verdict == EchProbeVerdict.ECH_OK
-}
-
-data class EchTlsHandshakeResult(
-    val negotiatedEch: Boolean,
-    val latencyMs: Long?,
-)
-
-interface EchTlsHandshake {
-    suspend fun connect(
-        target: String,
-        echConfig: ByteArray,
-    ): EchTlsHandshakeResult
-}
-
-class EchReadinessProbe(
-    private val resolver: HttpsRrResolver = HttpsRrResolver(),
-    private val tlsHandshake: EchTlsHandshake = UnsupportedEchTlsHandshake,
-    private val concurrency: Int = DefaultConcurrency,
-) {
-    suspend fun check(
-        target: String,
-        vanillaTlsOk: Boolean? = null,
-    ): EchProbeResult {
-        val lookup = resolver.fetch(target)
-        val configBytes = lookup.record?.echConfig
-        if (configBytes == null) {
-            return EchProbeResult(
-                target = target,
-                verdict =
-                    if (lookup.configurationAbsent) {
-                        EchProbeVerdict.ECH_NO_CONFIG
-                    } else {
-                        EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE
-                    },
-                httpsRrFetched = lookup.receivedRecords,
-                echConfigBytesB64 = null,
-                tlsLatencyMs = null,
-                negotiatedEch = false,
-                errorDetail = null,
-                vanillaTlsOk = vanillaTlsOk,
-                httpsLookups = lookup.attempts,
-            )
-        }
-
-        return try {
-            val result = tlsHandshake.connect(target, configBytes)
-            EchProbeResult(
-                target = target,
-                verdict = if (result.negotiatedEch) EchProbeVerdict.ECH_OK else EchProbeVerdict.ECH_REJECTED,
-                httpsRrFetched = true,
-                echConfigBytesB64 = Base64.getEncoder().encodeToString(configBytes),
-                tlsLatencyMs = result.latencyMs,
-                negotiatedEch = result.negotiatedEch,
-                errorDetail = null,
-                vanillaTlsOk = vanillaTlsOk,
-                httpsLookups = lookup.attempts,
-            )
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: IOException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
-        } catch (error: IllegalArgumentException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
-        } catch (error: IllegalStateException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
-        } catch (error: UnsupportedOperationException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, lookup.attempts, error)
-        }
-    }
-
-    private fun buildFailedEchProbeResult(
-        target: String,
-        configBytes: ByteArray,
-        vanillaTlsOk: Boolean?,
-        attempts: List<HttpsRrLookupAttempt>,
-        error: Exception,
-    ): EchProbeResult {
-        val verdict = classifyEchFailure(error)
-        return EchProbeResult(
-            target = target,
-            verdict = verdict,
-            httpsRrFetched = true,
-            echConfigBytesB64 = Base64.getEncoder().encodeToString(configBytes),
-            tlsLatencyMs = null,
-            negotiatedEch = false,
-            errorDetail = error.message ?: error.javaClass.simpleName,
-            vanillaTlsOk = vanillaTlsOk,
-            httpsLookups = attempts,
-        )
-    }
-
-    suspend fun checkAll(
-        targets: List<String>,
-        vanillaTlsByTarget: Map<String, Boolean> = emptyMap(),
-    ): List<EchProbeResult> =
-        coroutineScope {
-            val permits = Semaphore(concurrency.coerceIn(MinConcurrency, DefaultConcurrency))
-            val checks =
-                targets.map { target ->
-                    async {
-                        permits.withPermit {
-                            check(
-                                target = target,
-                                vanillaTlsOk = vanillaTlsByTarget[target],
-                            )
-                        }
-                    }
-                }
-            checks.awaitAll()
-        }
-
-    private fun classifyEchFailure(error: Exception): EchProbeVerdict {
-        val message = (error.message ?: "").lowercase()
-        return when {
-            "ech_required" in message -> {
-                EchProbeVerdict.ECH_UNKNOWN_KEY
-            }
-
-            "encrypted_client_hello" in message -> {
-                EchProbeVerdict.ECH_REJECTED
-            }
-
-            error is SocketTimeoutException || "connect" in message || "timeout" in message -> {
-                EchProbeVerdict.ECH_NETWORK_BLOCK
-            }
-
-            else -> {
-                EchProbeVerdict.ECH_REJECTED
-            }
-        }
-    }
-
-    private companion object {
-        private const val MinConcurrency = 1
-        private const val DefaultConcurrency = 4
-    }
-}
-
-private object UnsupportedEchTlsHandshake : EchTlsHandshake {
-    override suspend fun connect(
-        target: String,
-        echConfig: ByteArray,
-    ): EchTlsHandshakeResult = throw UnsupportedOperationException("ECH TLS handshake bridge is not available")
-}
-
 private fun ByteArray?.contentEqualsNullable(other: ByteArray?): Boolean =
     when {
         this == null && other == null -> true
@@ -481,3 +333,5 @@ private fun ByteArray?.contentEqualsNullable(other: ByteArray?): Boolean =
     }
 
 private fun ByteArray?.isNullOrEmptyBytes(): Boolean = this == null || isEmpty()
+
+internal const val HttpsDefaultPort = 443

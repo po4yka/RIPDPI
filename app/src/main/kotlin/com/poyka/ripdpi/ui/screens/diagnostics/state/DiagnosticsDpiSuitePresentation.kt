@@ -172,12 +172,37 @@ private fun EchProbeResult.toEchDetailRow(stringResolver: StringResolver): Diagn
 
 private fun EchProbeResult.verdictLabel(stringResolver: StringResolver): String =
     when (verdict) {
-        EchProbeVerdict.ECH_OK -> stringResolver.getString(R.string.diagnostics_dpi_suite_ech_ok)
-        EchProbeVerdict.ECH_REJECTED -> stringResolver.getString(R.string.diagnostics_dpi_suite_ech_rejected)
-        EchProbeVerdict.ECH_NO_CONFIG -> stringResolver.getString(R.string.diagnostics_dpi_suite_no_ech_config)
-        EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE -> stringResolver.getString(R.string.diagnostics_pmtu_inconclusive)
-        EchProbeVerdict.ECH_UNKNOWN_KEY -> stringResolver.getString(R.string.diagnostics_dpi_suite_unknown_ech_key)
-        EchProbeVerdict.ECH_NETWORK_BLOCK -> stringResolver.getString(R.string.diagnostics_dpi_suite_network_blocked)
+        EchProbeVerdict.ECH_OK -> {
+            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_ok)
+        }
+
+        EchProbeVerdict.ECH_REJECTED -> {
+            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_rejected)
+        }
+
+        EchProbeVerdict.ECH_NO_CONFIG -> {
+            stringResolver.getString(R.string.diagnostics_dpi_suite_no_ech_config)
+        }
+
+        EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE -> {
+            stringResolver.getString(R.string.diagnostics_pmtu_inconclusive)
+        }
+
+        EchProbeVerdict.ECH_UNSUPPORTED_ENDPOINT -> {
+            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_endpoint_unsupported)
+        }
+
+        EchProbeVerdict.ECH_UNUSABLE_CONFIG -> {
+            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_config_unusable)
+        }
+
+        EchProbeVerdict.ECH_UNKNOWN_KEY -> {
+            stringResolver.getString(R.string.diagnostics_dpi_suite_unknown_ech_key)
+        }
+
+        EchProbeVerdict.ECH_NETWORK_BLOCK -> {
+            stringResolver.getString(R.string.diagnostics_dpi_suite_network_blocked)
+        }
     }
 
 private fun HttpsRrLookupAttempt.label(stringResolver: StringResolver): String {
@@ -247,6 +272,8 @@ private fun EchProbeResult.echTone(): DiagnosticsTone =
 
         EchProbeVerdict.ECH_NO_CONFIG,
         EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE,
+        EchProbeVerdict.ECH_UNSUPPORTED_ENDPOINT,
+        EchProbeVerdict.ECH_UNUSABLE_CONFIG,
         -> DiagnosticsTone.Neutral
 
         EchProbeVerdict.ECH_REJECTED,

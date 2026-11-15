@@ -25,7 +25,7 @@ const BORING_ECH_KEY_2: &[u8] = &[
 /// teardown closes any pending peer if the test future is dropped.
 #[tokio::test]
 async fn native_ech_retries_a_trusted_stale_key_once() {
-    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "127.0.0.1".into()]).unwrap();
+    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "origin.example".into()]).unwrap();
     let mut roots = rustls::RootCertStore::empty();
     roots.add(certificate.cert.der().clone()).unwrap();
     let mut acceptor = boring::ssl::SslAcceptor::mozilla_intermediate_v5(boring::ssl::SslMethod::tls()).unwrap();
@@ -52,13 +52,19 @@ async fn native_ech_retries_a_trusted_stale_key_once() {
                     assert!(matches!(tls.read(&mut byte).await, Ok(0) | Err(_)));
                 }
             } else {
-                assert!(handshake.expect("fresh ECH accepted").ssl().ech_accepted());
+                let tls = handshake.expect("fresh ECH accepted");
+                assert!(tls.ssl().ech_accepted());
+                assert_eq!(tls.ssl().servername(boring::ssl::NameType::HOST_NAME), Some("origin.example"));
             }
         }
     });
     let operation = native_ech_retry::connect(
-        "127.0.0.1",
-        address.port(),
+        native_ech_retry::EchEndpoint {
+            server_name: "origin.example",
+            host: "127.0.0.1",
+            port: address.port(),
+            require_public_address: false,
+        },
         BORING_ECH_CONFIG_LIST.to_vec(),
         Duration::from_secs(2),
         move |configs| {
