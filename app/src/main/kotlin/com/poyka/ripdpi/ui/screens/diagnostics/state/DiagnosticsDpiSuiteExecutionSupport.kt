@@ -32,7 +32,6 @@ import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 
 private const val SuiteDnsIntegrityPreviewDomainLimit = 5
 
@@ -57,13 +56,8 @@ internal class DiagnosticsDpiSuiteRunnerFactory(
             override suspend fun checkDnsIntegrity(domains: List<String>): DnsIntegrityResult =
                 dnsIntegrityChecker.check(domains)
 
-            override suspend fun collectStubIpsSilently(
-                domains: List<String>,
-                timeoutMs: Long,
-            ): Set<String> =
-                withTimeout(timeoutMs) {
-                    dnsIntegrityChecker.check(domains.take(SuiteDnsIntegrityPreviewDomainLimit)).stubIps
-                }
+            override suspend fun collectStubIps(domains: List<String>): Set<String> =
+                dnsIntegrityChecker.check(domains.take(SuiteDnsIntegrityPreviewDomainLimit)).stubIps
 
             override suspend fun runDnsAvailability(): List<DnsServerResult> = dnsAvailabilitySurvey.run()
 

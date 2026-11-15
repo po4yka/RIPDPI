@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 fun interface DpiSuiteTargetsProvider {
     suspend fun loadTargets(): DpiSuiteTargets
@@ -24,10 +25,7 @@ fun interface DpiSuiteEchTargetsProvider {
 interface DpiSuiteProbes {
     suspend fun checkDnsIntegrity(domains: List<String>): DnsIntegrityResult
 
-    suspend fun collectStubIpsSilently(
-        domains: List<String>,
-        timeoutMs: Long,
-    ): Set<String>
+    suspend fun collectStubIps(domains: List<String>): Set<String>
 
     suspend fun runDnsAvailability(): List<DnsServerResult>
 
@@ -130,7 +128,7 @@ class DpiProbeSuiteRunner(
                     if (result is DpiSuiteProbeResult.DnsIntegrity) {
                         stubIps = result.result.stubIps
                     }
-                } else if (domains.isNotEmpty() && config.needsStubIps()) {
+                } else if (domains.isNotEmpty() && DpiProbeKind.DOMAIN_REACHABILITY in config.selection) {
                     stubIps = collectStubIpsSilently(domains)
                 }
 
@@ -200,7 +198,7 @@ class DpiProbeSuiteRunner(
 
     private suspend fun collectStubIpsSilently(domains: List<String>): Set<String> =
         runCatching {
-            probes.collectStubIpsSilently(domains, SilentStubIpTimeoutMs)
+            withTimeoutOrNull(SilentStubIpTimeoutMs) { probes.collectStubIps(domains) }.orEmpty()
         }.getOrElse { error ->
             error.throwIfCancellation()
             emptySet()
@@ -283,9 +281,6 @@ class DpiProbeSuiteRunner(
 
     private fun noValidTargets(kind: DpiProbeKind): DpiSuiteProbeResult.Skipped =
         DpiSuiteProbeResult.Skipped(kind, DpiSuiteProbeResult.Skipped.NoValidTargetsReason)
-
-    private fun DpiSuiteConfig.needsStubIps(): Boolean =
-        DpiProbeKind.DOMAIN_REACHABILITY in selection || DpiProbeKind.TCP16 in selection
 
     private fun List<DomainReachabilityResult>.vanillaTlsByTarget(): Map<String, Boolean> =
         associate { result ->

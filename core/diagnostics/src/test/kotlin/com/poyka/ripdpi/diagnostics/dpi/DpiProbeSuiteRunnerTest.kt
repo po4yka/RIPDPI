@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.toList
@@ -49,10 +50,7 @@ class DpiProbeSuiteRunnerTest {
         runTest {
             val probes =
                 FakeSuiteProbes().copy(
-                    onCollectStubIps = { _, timeoutMs ->
-                        assertEquals(5_000L, timeoutMs)
-                        setOf("198.18.0.2")
-                    },
+                    onCollectStubIps = { setOf("198.18.0.2") },
                     onDomainReachability = { _, stubIps, _, _ ->
                         assertEquals(setOf("198.18.0.2"), stubIps)
                         emptyList()
@@ -64,6 +62,39 @@ class DpiProbeSuiteRunnerTest {
                 .toList()
 
             assertEquals(1, probes.collectStubIpsCalls)
+        }
+
+    @Test
+    fun tcp16OnlyStartsWithoutDnsPreview() =
+        runTest {
+            val probes = FakeSuiteProbes().copy(onCollectStubIps = { error("TCP targets have fixed addresses") })
+            val results =
+                runner(probes = probes)
+                    .run(DpiSuiteConfig(selection = setOf(DpiProbeKind.TCP16)))
+                    .filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
+                    .toList()
+
+            assertTrue(results.single().result is DpiSuiteProbeResult.Tcp16)
+        }
+
+    @Test
+    fun timedOutDnsPreviewLeavesDomainProbeAvailable() =
+        runTest {
+            val probes =
+                FakeSuiteProbes().copy(
+                    onCollectStubIps = { awaitCancellation() },
+                    onDomainReachability = { _, stubIps, _, _ ->
+                        assertTrue(stubIps.isEmpty())
+                        emptyList()
+                    },
+                )
+            val results =
+                runner(probes = probes)
+                    .run(DpiSuiteConfig(selection = setOf(DpiProbeKind.DOMAIN_REACHABILITY)))
+                    .filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
+                    .toList()
+
+            assertTrue(results.single().result is DpiSuiteProbeResult.DomainReachability)
         }
 
     @Test
@@ -420,7 +451,7 @@ class DpiProbeSuiteRunnerTest {
     private class FakeSuiteProbes(
         private val calls: MutableList<String> = mutableListOf(),
         private val onDnsIntegrity: suspend (List<String>) -> DnsIntegrityResult = { dnsIntegrityResult() },
-        private val onCollectStubIps: suspend (List<String>, Long) -> Set<String> = { _, _ -> emptySet() },
+        private val onCollectStubIps: suspend (List<String>) -> Set<String> = { emptySet() },
         private val onDnsAvailability: suspend () -> List<DnsServerResult> = { emptyList() },
         private val onDomainReachability: suspend (
             List<String>,
@@ -444,12 +475,9 @@ class DpiProbeSuiteRunnerTest {
 
         override suspend fun checkDnsIntegrity(domains: List<String>): DnsIntegrityResult = onDnsIntegrity(domains)
 
-        override suspend fun collectStubIpsSilently(
-            domains: List<String>,
-            timeoutMs: Long,
-        ): Set<String> {
+        override suspend fun collectStubIps(domains: List<String>): Set<String> {
             collectStubIpsCalls += 1
-            return onCollectStubIps(domains, timeoutMs)
+            return onCollectStubIps(domains)
         }
 
         override suspend fun runDnsAvailability(): List<DnsServerResult> = onDnsAvailability()
@@ -488,7 +516,7 @@ class DpiProbeSuiteRunnerTest {
 
         fun copy(
             onDnsIntegrity: suspend (List<String>) -> DnsIntegrityResult = this.onDnsIntegrity,
-            onCollectStubIps: suspend (List<String>, Long) -> Set<String> = this.onCollectStubIps,
+            onCollectStubIps: suspend (List<String>) -> Set<String> = this.onCollectStubIps,
             onDnsAvailability: suspend () -> List<DnsServerResult> = this.onDnsAvailability,
             onDomainReachability: suspend (List<String>, Set<String>, Int, Boolean) -> List<DomainReachabilityResult> =
                 this.onDomainReachability,
