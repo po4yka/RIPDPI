@@ -70,9 +70,7 @@ class NativeEchTlsHandshake(
         }
 
     private suspend fun exchange(requestJson: String): String {
-        val handle = bindings.createRequest()
-        if (handle == 0L) throw EchTlsException(EchTlsOutcome.UNAVAILABLE)
-
+        val handle = createRequestHandle()
         try {
             return suspendCancellableCoroutine { continuation ->
                 continuation.invokeOnCancellation { bindings.cancelRequest(handle) }
@@ -93,6 +91,9 @@ class NativeEchTlsHandshake(
         }
     }
 
+    private fun createRequestHandle(): Long =
+        bindings.createRequest().takeUnless { it == 0L } ?: throw EchTlsException(EchTlsOutcome.UNAVAILABLE)
+
     private fun decodeResponse(payload: String): EchTlsHandshakeResult {
         val response =
             try {
@@ -103,29 +104,29 @@ class NativeEchTlsHandshake(
         if (response.outcome == EchTlsOutcome.CANCELLED) {
             throw CancellationException("native ECH TLS handshake cancelled")
         }
-        val measured = response.outcome == EchTlsOutcome.ACCEPTED || response.outcome == EchTlsOutcome.REJECTED
-        val incompleteMeasurement =
-            measured &&
-                (response.stage != EchTlsStage.TLS || response.peerAddress == null || response.latencyMs == null)
-        if (response.latencyMs?.let { it < 0 } == true || response.peerAddress?.isBlank() == true ||
-            incompleteMeasurement
-        ) {
+        return response.toHandshakeResult()
+    }
+
+    private fun NativeEchTlsHandshakeResponse.toHandshakeResult(): EchTlsHandshakeResult {
+        val measured = outcome == EchTlsOutcome.ACCEPTED || outcome == EchTlsOutcome.REJECTED
+        val incompleteMeasurement = measured && (stage != EchTlsStage.TLS || peerAddress == null || latencyMs == null)
+        if (latencyMs?.let { it < 0 } == true || peerAddress?.isBlank() == true || incompleteMeasurement) {
             throw EchTlsException(EchTlsOutcome.UNAVAILABLE)
         }
         if (!measured) {
             throw EchTlsException(
-                outcome = response.outcome,
-                stage = response.stage,
-                peerAddress = response.peerAddress,
-                latencyMs = response.latencyMs,
-                retryAttempted = response.retryAttempted,
+                outcome = outcome,
+                stage = stage,
+                peerAddress = peerAddress,
+                latencyMs = latencyMs,
+                retryAttempted = retryAttempted,
             )
         }
         return EchTlsHandshakeResult(
-            negotiatedEch = response.outcome == EchTlsOutcome.ACCEPTED,
-            latencyMs = response.latencyMs,
-            peerAddress = response.peerAddress,
-            retryAttempted = response.retryAttempted,
+            negotiatedEch = outcome == EchTlsOutcome.ACCEPTED,
+            latencyMs = latencyMs,
+            peerAddress = peerAddress,
+            retryAttempted = retryAttempted,
         )
     }
 }

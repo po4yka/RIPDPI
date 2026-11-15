@@ -314,8 +314,9 @@ private class TelegramTransferSample(
 }
 
 internal const val HttpFullResponse = 200
+internal val HttpSuccessStatusRange = HttpFullResponse..299
 
-private fun Int?.isAccepted(): Boolean = this != null && this in 200..299
+private fun Int?.isAccepted(): Boolean = this != null && this in HttpSuccessStatusRange
 
 private fun IOException.transferFailure(): TelegramTransferFailure =
     when (this) {

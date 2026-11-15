@@ -105,7 +105,8 @@ class Tcp16FatHeaderProbe(
         var completedPaddingBytes = 0
         var httpStatus: Int? = null
         var end = Tcp16TrainEnd(Tcp16Verdict.OK)
-        for (requestIndex in 0 until RequestCount) {
+        var requestIndex = 0
+        while (requestIndex < RequestCount && end.verdict == Tcp16Verdict.OK) {
             currentCoroutineContext().ensureActive()
             requestedHosts += requestedHost
             val padding = if (requestIndex == 0) null else paddingPool.slice(PaddingBytes).trim()
@@ -129,11 +130,11 @@ class Tcp16FatHeaderProbe(
             currentCoroutineContext().ensureActive()
             httpStatus = response.statusCode
             end = response.trainEnd(tracker.connectionCount, requestIndex)
-            if (response.statusCode in 200..299 && tracker.connectionCount <= 1) {
+            if (response.statusCode in HttpSuccessStatusRange && tracker.connectionCount <= 1) {
                 samples += response.elapsedMs
                 completedPaddingBytes += padding?.length ?: 0
             }
-            if (end.verdict != Tcp16Verdict.OK) break
+            requestIndex++
         }
         return target.result(
             alive = tracker.connectionCount > 0 || httpStatus != null,
@@ -154,7 +155,7 @@ class Tcp16FatHeaderProbe(
     ): Tcp16TrainEnd =
         when {
             connectionCount > 1 -> Tcp16TrainEnd(Tcp16Verdict.INVALID_RECONNECTED)
-            statusCode !in 200..299 -> Tcp16TrainEnd(Tcp16Verdict.HTTP_REJECTED, "HTTP $statusCode")
+            statusCode !in HttpSuccessStatusRange -> Tcp16TrainEnd(Tcp16Verdict.HTTP_REJECTED, "HTTP $statusCode")
             connectionClose && requestIndex < RequestCount - 1 -> Tcp16TrainEnd(Tcp16Verdict.SERVER_CLOSED)
             else -> Tcp16TrainEnd(Tcp16Verdict.OK)
         }

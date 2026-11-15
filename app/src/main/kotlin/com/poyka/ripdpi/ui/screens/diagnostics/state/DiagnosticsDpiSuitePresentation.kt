@@ -426,31 +426,11 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
             }
 
             is DpiSuiteProbeResult.Tcp16 -> {
-                when {
-                    results.none { it.verdict == Tcp16Verdict.OK } -> R.string.diagnostics_pmtu_inconclusive
-                    results.any { it.verdict != Tcp16Verdict.OK } -> R.string.diagnostics_dpi_suite_partial
-                    else -> R.string.diagnostics_cidr_whitelist_status_ok
-                }
+                statusResource()
             }
 
             is DpiSuiteProbeResult.AllowlistSni -> {
-                when {
-                    results.isEmpty() || results.values.all { it.aborted && it.compatibleSnis.isEmpty() } -> {
-                        R.string.diagnostics_pmtu_inconclusive
-                    }
-
-                    results.values.any { it.aborted } -> {
-                        R.string.diagnostics_dpi_suite_partial
-                    }
-
-                    results.values.any { it.compatibleSnis.isNotEmpty() } -> {
-                        R.string.diagnostics_byoh_metric_compatible
-                    }
-
-                    else -> {
-                        R.string.asset_provider_version_none
-                    }
-                }
+                statusResource()
             }
 
             is DpiSuiteProbeResult.Telegram -> {
@@ -483,6 +463,32 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
         }
     return stringResolver.getString(resource)
 }
+
+private fun DpiSuiteProbeResult.Tcp16.statusResource(): Int =
+    when {
+        results.none { it.verdict == Tcp16Verdict.OK } -> R.string.diagnostics_pmtu_inconclusive
+        results.any { it.verdict != Tcp16Verdict.OK } -> R.string.diagnostics_dpi_suite_partial
+        else -> R.string.diagnostics_cidr_whitelist_status_ok
+    }
+
+private fun DpiSuiteProbeResult.AllowlistSni.statusResource(): Int =
+    when {
+        results.isEmpty() || results.values.all { it.aborted && it.compatibleSnis.isEmpty() } -> {
+            R.string.diagnostics_pmtu_inconclusive
+        }
+
+        results.values.any { it.aborted } -> {
+            R.string.diagnostics_dpi_suite_partial
+        }
+
+        results.values.any { it.compatibleSnis.isNotEmpty() } -> {
+            R.string.diagnostics_byoh_metric_compatible
+        }
+
+        else -> {
+            R.string.asset_provider_version_none
+        }
+    }
 
 private fun DpiSuiteProbeResult.DnsIntegrity.statusResource(): Int =
     when {

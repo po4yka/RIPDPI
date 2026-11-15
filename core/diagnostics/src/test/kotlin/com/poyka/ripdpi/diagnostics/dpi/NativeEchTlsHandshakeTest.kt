@@ -13,7 +13,10 @@ class NativeEchTlsHandshakeTest {
             val bindings =
                 FakeNativeEchTlsHandshakeBindings(
                     responseJson =
-                        """{"outcome":"accepted","stage":"tls","peerAddress":"203.0.113.8:8443","latencyMs":42,"retryAttempted":true}""",
+                        """
+                        {"outcome":"accepted","stage":"tls","peerAddress":"203.0.113.8:8443",
+                        "latencyMs":42,"retryAttempted":true}
+                        """.trimIndent(),
                 )
 
             val handshake = NativeEchTlsHandshake(bindings)
@@ -44,7 +47,10 @@ class NativeEchTlsHandshakeTest {
             val bindings =
                 FakeNativeEchTlsHandshakeBindings(
                     responseJson =
-                        """{"outcome":"certificateError","stage":"tls","peerAddress":"203.0.113.9:8443","latencyMs":31,"retryAttempted":false}""",
+                        """
+                        {"outcome":"certificateError","stage":"tls","peerAddress":"203.0.113.9:8443",
+                        "latencyMs":31,"retryAttempted":false}
+                        """.trimIndent(),
                 )
 
             val error =
@@ -70,7 +76,10 @@ class NativeEchTlsHandshakeTest {
             val native =
                 NativeEchTlsHandshake(
                     FakeNativeEchTlsHandshakeBindings(
-                        """{"outcome":"unusableConfig","stage":"setup","peerAddress":null,"latencyMs":null,"retryAttempted":false}""",
+                        """
+                        {"outcome":"unusableConfig","stage":"setup","peerAddress":null,
+                        "latencyMs":null,"retryAttempted":false}
+                        """.trimIndent(),
                     ),
                 )
             val error =
@@ -90,8 +99,14 @@ class NativeEchTlsHandshakeTest {
                     """{"negotiatedEch":false,"latencyMs":4}""",
                     """{"outcome":"accepted","stage":"tls","latencyMs":4,"retryAttempted":false}""",
                     """{"outcome":"accepted","stage":"tls","peerAddress":null,"latencyMs":4,"retryAttempted":false}""",
-                    """{"outcome":"accepted","stage":"setup","peerAddress":"203.0.113.9:8443","latencyMs":4,"retryAttempted":false}""",
-                    """{"outcome":"accepted","stage":"tls","peerAddress":"203.0.113.9:8443","latencyMs":-1,"retryAttempted":false}""",
+                    """
+                    {"outcome":"accepted","stage":"setup","peerAddress":"203.0.113.9:8443",
+                    "latencyMs":4,"retryAttempted":false}
+                    """.trimIndent(),
+                    """
+                    {"outcome":"accepted","stage":"tls","peerAddress":"203.0.113.9:8443",
+                    "latencyMs":-1,"retryAttempted":false}
+                    """.trimIndent(),
                 )
             for (payload in invalidPayloads) {
                 val handshake = NativeEchTlsHandshake(FakeNativeEchTlsHandshakeBindings(payload))

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.NumericIp
+import com.poyka.ripdpi.diagnostics.IpProbeMaxPort
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
@@ -39,7 +40,7 @@ data class Tcp16Target(
 
             NumericIp.parseAddress(ip) == null -> "TCP16 requires a numeric IP address"
 
-            port !in 1..65_535 -> "Invalid TCP16 port"
+            port !in 1..IpProbeMaxPort -> "Invalid TCP16 port"
 
             sni != null && !sni.isTcp16ServerName() -> "Invalid TCP16 TLS server name"
 
@@ -57,8 +58,7 @@ data class Tcp16Target(
             .build()
 
     private fun isValidAuthority(authority: String): Boolean {
-        val scheme = transport?.scheme ?: return false
-        val url = "$scheme://$authority".toHttpUrlOrNull() ?: return false
+        val url = transport?.let { "${it.scheme}://$authority".toHttpUrlOrNull() } ?: return false
         return url.toUri().rawAuthority == authority && url.port == port && url.encodedUsername.isEmpty()
     }
 
