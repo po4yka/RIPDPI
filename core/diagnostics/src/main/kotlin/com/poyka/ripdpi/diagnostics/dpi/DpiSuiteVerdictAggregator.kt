@@ -87,10 +87,6 @@ object DpiSuiteVerdictAggregator {
                 }
             }
 
-            is DpiSuiteProbeResult.Tcp16 -> {
-                result.results.any { tcp -> tcp.verdict == Tcp16Verdict.DETECTED_AT_KB }
-            }
-
             else -> {
                 false
             }

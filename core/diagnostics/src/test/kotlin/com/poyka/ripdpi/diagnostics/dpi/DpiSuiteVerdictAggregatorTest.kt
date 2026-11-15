@@ -31,7 +31,7 @@ class DpiSuiteVerdictAggregatorTest {
     }
 
     @Test
-    fun dpiDetectedWhenTcp16HasBlockedAsns() {
+    fun interruptedTcp16TrainDoesNotEstablishDpi() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
                 results =
@@ -41,7 +41,7 @@ class DpiSuiteVerdictAggregatorTest {
                     ),
             )
 
-        assertEquals(SuiteVerdict.DPI_DETECTED, aggregate.verdict)
+        assertEquals(SuiteVerdict.INCONCLUSIVE, aggregate.verdict)
     }
 
     @Test
@@ -75,13 +75,13 @@ class DpiSuiteVerdictAggregatorTest {
     }
 
     @Test
-    fun mixedWhenDnsAndTcp16BothBlocked() {
+    fun mixedWhenDnsInterferenceAndQuicFingerprintFailureAreObserved() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
                 results =
                     listOf(
                         dnsIntegrity(verdict = DnsIntegrityVerdict.DNS_INTERCEPTION),
-                        tcp16(verdict = Tcp16Verdict.DETECTED_AT_KB),
+                        quicH3(verdict = QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK),
                     ),
             )
 
@@ -196,7 +196,7 @@ class DpiSuiteVerdictAggregatorTest {
             )
         assertEquals(
             SuiteVerdict.DPI_DETECTED,
-            DpiSuiteVerdictAggregator.aggregate(failures + tcp16(Tcp16Verdict.DETECTED_AT_KB)).verdict,
+            DpiSuiteVerdictAggregator.aggregate(failures + quicH3(QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK)).verdict,
         )
         assertEquals(
             SuiteVerdict.DNS_INTERFERENCE,
