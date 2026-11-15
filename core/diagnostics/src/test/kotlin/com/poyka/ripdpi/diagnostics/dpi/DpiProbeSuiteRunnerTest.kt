@@ -295,6 +295,32 @@ class DpiProbeSuiteRunnerTest {
         }
 
     @Test
+    fun quicProbeReportsTargetsBeyondTheRunLimit() =
+        runTest {
+            val supplied = List(130) { index -> "quic$index.example" }
+            val probes =
+                FakeSuiteProbes().copy(
+                    onQuicH3 = { admitted, _ ->
+                        assertEquals(supplied.take(128), admitted)
+                        emptyList()
+                    },
+                )
+            val result =
+                runner(probes = probes)
+                    .run(
+                        DpiSuiteConfig(
+                            selection = setOf(DpiProbeKind.QUIC_H3),
+                            customTargets = DpiSuiteTargets.fromEntries(supplied),
+                        ),
+                    ).toList()
+                    .filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
+                    .single()
+                    .result as DpiSuiteProbeResult.QuicH3
+
+            assertEquals(2, result.skippedTargetCount)
+        }
+
+    @Test
     fun quicH3ProbeCapsSuiteConcurrencyAtEight() =
         runTest {
             val observedConcurrency = mutableListOf<Int>()

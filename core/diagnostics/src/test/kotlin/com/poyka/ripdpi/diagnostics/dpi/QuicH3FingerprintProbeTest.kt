@@ -1,12 +1,24 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.UnknownHostException
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.TimeMark
 
 class QuicH3FingerprintProbeTest {
     @Test
@@ -179,13 +191,12 @@ class QuicH3FingerprintProbeTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun nonQuicReplyIsNotResentAndTheTargetKeepsOneTimeBudget() =
+    fun retriesOnlyMissingTemplatesWithinTheTargetDeadline() =
         runTest {
             val socket =
                 RecordingQuicUdpProbe(
-                    successes = emptySet(),
-                    nonQuicResponses = setOf(QuicFingerprint.GENERIC_V1),
-                    nonQuicReplyDelayMs = 500,
+                    successes = setOf(QuicFingerprint.GENERIC_V1),
+                    successfulReplyDelayMs = 500,
                 )
             val probe =
                 QuicH3FingerprintProbe(
@@ -196,24 +207,16 @@ class QuicH3FingerprintProbeTest {
                     timeSource = testScheduler.timeSource,
                 )
 
-            probe.check("example.com")
+            val result = probe.check("example.com")
 
-            // First pass: three silent sends (3 x 3 s) and one non-QUIC reply after 0.5 s. The three lost
-            // fingerprints are resent once, together, with the 2.5 s left of the 4 x 3 s target budget.
-            assertEquals(
-                listOf(
-                    QuicFingerprint.CHROME_120,
-                    QuicFingerprint.FIREFOX_121,
-                    QuicFingerprint.GENERIC_V1,
-                    QuicFingerprint.VN_PROBE,
-                    QuicFingerprint.CHROME_120,
-                    QuicFingerprint.FIREFOX_121,
-                    QuicFingerprint.VN_PROBE,
-                ),
-                socket.probedFingerprints,
-            )
+            // Three silent attempts consume nine seconds. The successful control leaves 2.5 seconds
+            // for the three missing templates to retry once in parallel.
             assertEquals(listOf(2_500, 2_500, 2_500), socket.sendTimeoutsMs.drop(4))
             assertEquals(12_000L, testScheduler.currentTime)
+            assertEquals(
+                listOf(QuicProbeOutcome.NO_RESPONSE, QuicProbeOutcome.NO_RESPONSE),
+                result.attempts.getValue(QuicFingerprint.CHROME_120).map { it.outcome },
+            )
         }
 
     @Test
@@ -239,12 +242,17 @@ class QuicH3FingerprintProbeTest {
         runTest {
             val reflector =
                 object : QuicUdpProbe {
-                    override suspend fun sendInitial(
+                    override suspend fun resolve(
                         target: String,
+                        timeoutMs: Int,
+                    ): InetAddress = LoopbackAddress
+
+                    override suspend fun sendInitial(
+                        address: InetAddress,
                         port: Int,
                         fingerprint: QuicFingerprint,
                         packet: ByteArray,
-                        timeoutMs: Int,
+                        deadline: TimeMark,
                         accepts: (ByteArray) -> Boolean,
                     ): QuicProbeSample = testedReply(packet, 5L, accepts)
                 }
@@ -259,36 +267,126 @@ class QuicH3FingerprintProbeTest {
         runTest {
             val healthy = RecordingQuicUdpProbe(successes = QuicFingerprint.entries.toSet())
             val socket =
-                object : QuicUdpProbe {
-                    override suspend fun sendInitial(
+                object : QuicUdpProbe by healthy {
+                    override suspend fun resolve(
                         target: String,
+                        timeoutMs: Int,
+                    ): InetAddress =
+                        if (target == "broken.invalid") throw UnknownHostException(target) else LoopbackAddress
+                }
+
+            val results = probe(socket).checkAll(listOf("broken.invalid", "example.com"))
+
+            assertEquals(QuicProbeStartFailure.DNS_ERROR, results[0].startFailure)
+            assertTrue(results[0].attempts.isEmpty())
+            assertEquals(QuicProbeVerdict.QUIC_OK, results[1].verdict)
+        }
+
+    @Test
+    fun laterSocketErrorPreservesPreviousAndFollowingReplies() =
+        runTest {
+            val healthy = RecordingQuicUdpProbe(successes = QuicFingerprint.entries.toSet())
+            val socket =
+                object : QuicUdpProbe by healthy {
+                    override suspend fun sendInitial(
+                        address: InetAddress,
                         port: Int,
                         fingerprint: QuicFingerprint,
                         packet: ByteArray,
-                        timeoutMs: Int,
+                        deadline: TimeMark,
                         accepts: (ByteArray) -> Boolean,
                     ): QuicProbeSample {
-                        if (target == "x.com/i/api") throw java.net.UnknownHostException(target)
-                        return healthy.sendInitial(target, port, fingerprint, packet, timeoutMs, accepts)
+                        if (fingerprint == QuicFingerprint.FIREFOX_121) throw IOException("fixture socket failure")
+                        return healthy.sendInitial(address, port, fingerprint, packet, deadline, accepts)
                     }
                 }
 
-            val results = probe(socket).checkAll(listOf("x.com/i/api", "cloudflare.com"))
+            val result = probe(socket).check("example.com")
 
+            assertEquals(QuicProbeVerdict.QUIC_DEGRADED, result.verdict)
             assertEquals(
-                listOf(QuicProbeVerdict.QUIC_TIMEOUT, QuicProbeVerdict.QUIC_OK),
-                results.map(QuicProbeResult::verdict),
+                QuicProbeOutcome.TRANSPORT_ERROR,
+                result.attempts
+                    .getValue(QuicFingerprint.FIREFOX_121)
+                    .single()
+                    .outcome,
             )
+            assertTrue(result.chromeOk && result.genericOk && result.vnOk)
         }
 
-    private fun probe(successes: Set<QuicFingerprint>): QuicH3FingerprintProbe =
+    @Test(timeout = 10_000)
+    fun pinsOneResolvedAddressForEveryTemplateAndItsRetry() =
+        runBlocking<Unit> {
+            val lookups = AtomicInteger()
+            val withheld = QuicFingerprint.CHROME_120.ordinal.toByte()
+            DatagramSocket(0, LoopbackAddress).use { server ->
+                server.soTimeout = 2_000
+                val responder =
+                    async(Dispatchers.IO) {
+                        var withheldOnce = false
+                        repeat(5) {
+                            val request = DatagramPacket(ByteArray(16), 16)
+                            server.receive(request)
+                            if (request.data[0] != withheld || withheldOnce) {
+                                server.send(
+                                    DatagramPacket(SuccessfulReply, SuccessfulReply.size, request.socketAddress),
+                                )
+                            } else {
+                                withheldOnce = true
+                            }
+                        }
+                    }
+                try {
+                    val probe =
+                        QuicH3FingerprintProbe(
+                            socket =
+                                DatagramSocketQuicUdpProbe {
+                                    if (lookups.incrementAndGet() == 1) {
+                                        LoopbackAddress
+                                    } else {
+                                        InetAddress.getByAddress(byteArrayOf(127, 0, 0, 2))
+                                    }
+                                },
+                            packetFactory =
+                                QuicInitialPacketFactory {
+                                    template,
+                                    _,
+                                    ->
+                                    byteArrayOf(template.ordinal.toByte())
+                                },
+                            responseValidator = AcceptSuccessfulReplies,
+                            port = server.localPort,
+                            timeoutMs = 300,
+                        )
+
+                    val result = probe.check("peer.invalid")
+
+                    assertEquals(1, lookups.get())
+                    assertEquals("127.0.0.1", result.peerAddress)
+                    assertEquals(QuicProbeVerdict.QUIC_OK, result.verdict)
+                    assertEquals(
+                        listOf(QuicProbeOutcome.NO_RESPONSE, QuicProbeOutcome.CORRELATED_RESPONSE),
+                        result.attempts.getValue(QuicFingerprint.CHROME_120).map { it.outcome },
+                    )
+                    responder.await()
+                } finally {
+                    server.close()
+                    responder.cancelAndJoin()
+                }
+            }
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun TestScope.probe(successes: Set<QuicFingerprint>): QuicH3FingerprintProbe =
         probe(RecordingQuicUdpProbe(successes = successes))
 
-    private fun probe(socket: QuicUdpProbe): QuicH3FingerprintProbe =
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun TestScope.probe(socket: QuicUdpProbe): QuicH3FingerprintProbe =
         QuicH3FingerprintProbe(
             socket = socket,
             packetFactory = QuicFingerprintFactory::createSynthetic,
             responseValidator = AcceptSuccessfulReplies,
+            timeSource = testScheduler.timeSource,
         )
 }
 
@@ -296,19 +394,25 @@ private class RecordingQuicUdpProbe(
     private val successes: Set<QuicFingerprint>,
     private val nonQuicResponses: Set<QuicFingerprint> = emptySet(),
     private val droppedFirstSends: Int = 0,
-    private val nonQuicReplyDelayMs: Long = 0,
+    private val successfulReplyDelayMs: Long = 0,
 ) : QuicUdpProbe {
     val probedFingerprints = mutableListOf<QuicFingerprint>()
     val sendTimeoutsMs = mutableListOf<Int>()
 
-    override suspend fun sendInitial(
+    override suspend fun resolve(
         target: String,
+        timeoutMs: Int,
+    ): InetAddress = LoopbackAddress
+
+    override suspend fun sendInitial(
+        address: InetAddress,
         port: Int,
         fingerprint: QuicFingerprint,
         packet: ByteArray,
-        timeoutMs: Int,
+        deadline: TimeMark,
         accepts: (ByteArray) -> Boolean,
     ): QuicProbeSample {
+        val timeoutMs = (-deadline.elapsedNow()).inWholeMilliseconds.toInt().coerceAtLeast(0)
         probedFingerprints += fingerprint
         sendTimeoutsMs += timeoutMs
         return when {
@@ -317,11 +421,12 @@ private class RecordingQuicUdpProbe(
             }
 
             fingerprint in successes -> {
+                delay(successfulReplyDelayMs)
                 testedReply(SuccessfulReply, if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L, accepts)
             }
 
             fingerprint in nonQuicResponses -> {
-                delay(nonQuicReplyDelayMs)
+                delay(timeoutMs.toLong())
                 testedReply(byteArrayOf(0x01, 0x02, 0x03), 25L, accepts)
             }
 
@@ -334,11 +439,12 @@ private class RecordingQuicUdpProbe(
     /** A real socket waits out its whole timeout when nothing answers. */
     private suspend fun silence(timeoutMs: Int): QuicProbeSample {
         delay(timeoutMs.toLong())
-        return QuicProbeSample(response = null, latencyMs = null)
+        return QuicProbeSample(QuicProbeOutcome.NO_RESPONSE)
     }
 }
 
 // These tokens exercise verdict and retry orchestration; native RFC tests own wire validation.
+private val LoopbackAddress = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
 private val SuccessfulReply = byteArrayOf(0x7f)
 private val AcceptSuccessfulReplies =
     QuicProbeResponseValidator {
@@ -355,7 +461,7 @@ private fun testedReply(
     accepts: (ByteArray) -> Boolean,
 ): QuicProbeSample =
     if (accepts(response)) {
-        QuicProbeSample(response = response, latencyMs = latencyMs)
+        QuicProbeSample(QuicProbeOutcome.CORRELATED_RESPONSE, latencyMs = latencyMs)
     } else {
-        QuicProbeSample(response = null, latencyMs = null, invalidDatagrams = 1)
+        QuicProbeSample(QuicProbeOutcome.UNCORRELATED_RESPONSE, invalidDatagrams = 1)
     }

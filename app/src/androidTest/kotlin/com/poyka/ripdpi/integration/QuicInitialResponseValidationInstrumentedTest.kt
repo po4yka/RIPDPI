@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DatagramSocketQuicUdpProbe
 import com.poyka.ripdpi.diagnostics.dpi.NativeQuicInitialPacketBindings
 import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicH3FingerprintProbe
+import com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
@@ -19,6 +20,8 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 @RunWith(AndroidJUnit4::class)
 class QuicInitialResponseValidationInstrumentedTest {
@@ -87,15 +90,16 @@ class QuicInitialResponseValidationInstrumentedTest {
                     try {
                         val sample =
                             DatagramSocketQuicUdpProbe().sendInitial(
-                                "127.0.0.1",
+                                loopback,
                                 server.localPort,
                                 QuicFingerprint.GENERIC_V1,
                                 request,
-                                3_000,
-                            ) { response -> bindings.validate(request, response, false) }
-                        val response = requireNotNull(sample.response)
-                        assertArrayEquals(expected, response)
-                        assertTrue(bindings.validate(request, response, false))
+                                TimeSource.Monotonic.markNow() + 3_000.milliseconds,
+                            ) { response ->
+                                assertArrayEquals(expected, response)
+                                bindings.validate(request, response, false)
+                            }
+                        assertEquals(QuicProbeOutcome.CORRELATED_RESPONSE, sample.outcome)
                         responder.join(3_000)
                     } finally {
                         responder.join(3_000)

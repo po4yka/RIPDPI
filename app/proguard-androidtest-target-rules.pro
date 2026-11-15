@@ -16,10 +16,13 @@
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.DatagramSocketQuicUdpProbe {
     public <init>();
-    public java.lang.Object sendInitial(java.lang.String,int,com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint,byte[],int,kotlin.jvm.functions.Function1,kotlin.coroutines.Continuation);
+    public java.lang.Object sendInitial(java.net.InetAddress,int,com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint,byte[],kotlin.time.TimeMark,kotlin.jvm.functions.Function1,kotlin.coroutines.Continuation);
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.diagnostics.dpi.QuicProbeSample {
-    public byte[] getResponse();
+    public com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome getOutcome();
+}
+-keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome {
+    public static final com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome CORRELATED_RESPONSE;
 }
 -keepclassmembers,allowobfuscation,includedescriptorclasses enum com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint {
     public static final com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint GENERIC_V1;

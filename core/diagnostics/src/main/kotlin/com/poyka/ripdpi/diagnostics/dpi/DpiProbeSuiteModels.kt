@@ -97,6 +97,7 @@ sealed interface DpiSuiteProbeResult {
 
     data class QuicH3(
         val results: List<QuicProbeResult>,
+        val skippedTargetCount: Int = 0,
     ) : DpiSuiteProbeResult {
         override val kind: DpiProbeKind = DpiProbeKind.QUIC_H3
     }

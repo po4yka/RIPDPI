@@ -55,7 +55,7 @@ object DpiSuiteVerdictAggregator {
             }
 
             is DpiSuiteProbeResult.QuicH3 -> {
-                result.results.allMeasured { it.verdict == QuicProbeVerdict.QUIC_OK }
+                result.skippedTargetCount == 0 && result.results.allMeasured { it.verdict == QuicProbeVerdict.QUIC_OK }
             }
 
             is DpiSuiteProbeResult.EchReadiness -> {

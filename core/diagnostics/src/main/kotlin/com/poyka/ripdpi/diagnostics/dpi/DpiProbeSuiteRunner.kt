@@ -158,20 +158,7 @@ class DpiProbeSuiteRunner(
                             add(
                                 async {
                                     runProbe(DpiProbeKind.QUIC_H3) {
-                                        if (targets.quic.isEmpty()) {
-                                            noValidTargets(DpiProbeKind.QUIC_H3)
-                                        } else {
-                                            DpiSuiteProbeResult.QuicH3(
-                                                probes.runQuicH3(
-                                                    targets = targets.quic,
-                                                    concurrency =
-                                                        config.concurrency.coerceIn(
-                                                            MinProbeConcurrency,
-                                                            QuicH3MaxConcurrency,
-                                                        ),
-                                                ),
-                                            )
-                                        }
+                                        runQuicTemplates(targets.quic, config.concurrency)
                                     }
                                 },
                             )
@@ -200,6 +187,16 @@ class DpiProbeSuiteRunner(
                 }
             send(DpiSuiteEvent.SuiteCompleted(aggregate))
         }
+
+    private suspend fun runQuicTemplates(
+        targets: List<String>,
+        concurrency: Int,
+    ): DpiSuiteProbeResult {
+        if (targets.isEmpty()) return noValidTargets(DpiProbeKind.QUIC_H3)
+        val admitted = targets.take(QuicH3MaxTargets)
+        val results = probes.runQuicH3(admitted, concurrency.coerceIn(MinProbeConcurrency, QuicH3MaxConcurrency))
+        return DpiSuiteProbeResult.QuicH3(results, skippedTargetCount = targets.size - admitted.size)
+    }
 
     private suspend fun collectStubIpsSilently(domains: List<String>): Set<String> =
         runCatching {
@@ -299,6 +296,7 @@ class DpiProbeSuiteRunner(
         private const val ProbeProgressTotal = 1
         private const val MinProbeConcurrency = 1
         private const val QuicH3MaxConcurrency = 8
+        private const val QuicH3MaxTargets = 128
         private const val EchReadinessMaxConcurrency = 4
         private const val SilentStubIpTimeoutMs = 5_000L
         private val SequentialProbeKinds =

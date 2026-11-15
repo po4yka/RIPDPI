@@ -8,10 +8,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.CoroutineContext
 import kotlin.system.measureTimeMillis
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 
 class DatagramSocketQuicUdpProbeTest {
     @Test(timeout = 10_000)
@@ -44,14 +46,18 @@ class DatagramSocketQuicUdpProbeTest {
                     try {
                         val sample =
                             DatagramSocketQuicUdpProbe().sendInitial(
-                                "127.0.0.1",
+                                loopback,
                                 server.localPort,
                                 QuicFingerprint.GENERIC_V1,
                                 byteArrayOf(1),
-                                3_000,
+                                TimeSource.Monotonic.markNow() + 3_000.milliseconds,
                             ) { it.contentEquals(reply) }
                         responder.await()
-                        assertArrayEquals("single UDP response of $size bytes", reply, sample.response)
+                        assertEquals(
+                            "single UDP response of $size bytes",
+                            QuicProbeOutcome.CORRELATED_RESPONSE,
+                            sample.outcome,
+                        )
                     } finally {
                         server.close()
                         responder.cancelAndJoin()
@@ -79,13 +85,13 @@ class DatagramSocketQuicUdpProbeTest {
                     try {
                         val sample =
                             DatagramSocketQuicUdpProbe().sendInitial(
-                                "127.0.0.1",
+                                loopback,
                                 server.localPort,
                                 QuicFingerprint.GENERIC_V1,
                                 byteArrayOf(1),
-                                3_000,
+                                TimeSource.Monotonic.markNow() + 3_000.milliseconds,
                             ) { it.contentEquals(expected) }
-                        assertArrayEquals(expected, sample.response)
+                        assertEquals(QuicProbeOutcome.CORRELATED_RESPONSE, sample.outcome)
                         assertEquals(1, sample.invalidDatagrams)
                         responder.await()
                     } finally {
@@ -105,11 +111,11 @@ class DatagramSocketQuicUdpProbeTest {
                     val pending =
                         launch(Dispatchers.Default) {
                             DatagramSocketQuicUdpProbe().sendInitial(
-                                target = "127.0.0.1",
+                                address = loopback,
                                 port = server.localPort,
                                 fingerprint = QuicFingerprint.GENERIC_V1,
                                 packet = byteArrayOf(1),
-                                timeoutMs = 3_000,
+                                deadline = TimeSource.Monotonic.markNow() + 3_000.milliseconds,
                             ) { true }
                         }
                     val received = DatagramPacket(ByteArray(16), 16)
@@ -143,13 +149,7 @@ class DatagramSocketQuicUdpProbeTest {
             val pending =
                 List(8) {
                     launch(Dispatchers.Default) {
-                        probe.sendInitial(
-                            "blocked.invalid",
-                            443,
-                            QuicFingerprint.GENERIC_V1,
-                            byteArrayOf(1),
-                            3_000,
-                        ) { true }
+                        probe.resolve("blocked.invalid", 3_000)
                     }
                 }
             try {
@@ -197,13 +197,7 @@ class DatagramSocketQuicUdpProbeTest {
             val blocked =
                 List(2) {
                     launch(Dispatchers.Default) {
-                        probe.sendInitial(
-                            "blocked.invalid",
-                            443,
-                            QuicFingerprint.GENERIC_V1,
-                            byteArrayOf(1),
-                            3_000,
-                        ) { true }
+                        probe.resolve("blocked.invalid", 3_000)
                     }
                 }
             try {
@@ -211,24 +205,12 @@ class DatagramSocketQuicUdpProbeTest {
                 repeat(10) {
                     val result =
                         withTimeout(500) {
-                            probe.sendInitial(
-                                "queued.invalid",
-                                443,
-                                QuicFingerprint.GENERIC_V1,
-                                byteArrayOf(1),
-                                20,
-                            ) { true }
+                            probe.resolve("blocked.invalid", 20)
                         }
-                    assertNull(result.response)
+                    assertNull(result)
                     val cancelled =
                         launch(Dispatchers.Default) {
-                            probe.sendInitial(
-                                "cancelled.invalid",
-                                443,
-                                QuicFingerprint.GENERIC_V1,
-                                byteArrayOf(1),
-                                3_000,
-                            ) { true }
+                            probe.resolve("blocked.invalid", 3_000)
                         }
                     cancelled.cancelAndJoin()
                 }
@@ -261,16 +243,10 @@ class DatagramSocketQuicUdpProbeTest {
             try {
                 val started = System.nanoTime()
                 val result =
-                    probe.sendInitial(
-                        "blocked.invalid",
-                        443,
-                        QuicFingerprint.GENERIC_V1,
-                        byteArrayOf(1),
-                        100,
-                    ) { true }
+                    probe.resolve("blocked.invalid", 100)
                 val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
 
-                assertNull(result.response)
+                assertNull(result)
                 assertTrue("timeout took $elapsed ms", elapsed < 500)
                 assertFalse(lookupFinished.get())
             } finally {
@@ -279,29 +255,38 @@ class DatagramSocketQuicUdpProbeTest {
         }
 
     @Test(timeout = 10_000)
-    fun resolutionAndReceiveShareOneDeadline() =
+    fun invalidRepliesDoNotExtendReceiveDeadline() =
         runBlocking {
             DatagramSocket(0, loopback).use { server ->
-                val delay = CountDownLatch(1)
-                val probe =
-                    DatagramSocketQuicUdpProbe {
-                        delay.await(200, TimeUnit.MILLISECONDS)
-                        loopback
+                server.soTimeout = 1_000
+                val responder =
+                    launch(Dispatchers.IO) {
+                        val received = DatagramPacket(ByteArray(16), 16)
+                        server.receive(received)
+                        val invalid = byteArrayOf(3)
+                        repeat(8) {
+                            server.send(DatagramPacket(invalid, invalid.size, received.socketAddress))
+                            delay(75)
+                        }
                     }
-                val started = System.nanoTime()
-                val result =
-                    probe.sendInitial(
-                        "slow.invalid",
-                        server.localPort,
-                        QuicFingerprint.GENERIC_V1,
-                        byteArrayOf(1),
-                        400,
-                    ) { true }
-                val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
+                try {
+                    val started = System.nanoTime()
+                    val result =
+                        DatagramSocketQuicUdpProbe().sendInitial(
+                            loopback,
+                            server.localPort,
+                            QuicFingerprint.GENERIC_V1,
+                            byteArrayOf(1),
+                            TimeSource.Monotonic.markNow() + 350.milliseconds,
+                        ) { false }
+                    val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
 
-                assertNull(result.response)
-                assertTrue("shared deadline took $elapsed ms", elapsed < 550)
-                assertTrue("deadline fired before the receive phase", elapsed >= 350)
+                    assertEquals(QuicProbeOutcome.UNCORRELATED_RESPONSE, result.outcome)
+                    assertTrue("invalid packets before deadline must remain evidence", result.invalidDatagrams in 1..7)
+                    assertTrue("invalid packets extended receive deadline to $elapsed ms", elapsed < 550)
+                } finally {
+                    responder.cancelAndJoin()
+                }
             }
         }
 

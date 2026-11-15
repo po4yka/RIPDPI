@@ -16,6 +16,7 @@ import java.net.InetAddress
 import java.net.SocketTimeoutException
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.time.TimeMark
 
 class DatagramSocketQuicUdpProbe internal constructor(
     private val lookupScope: CoroutineScope = DefaultLookupScope,
@@ -23,29 +24,32 @@ class DatagramSocketQuicUdpProbe internal constructor(
 ) : QuicUdpProbe {
     constructor() : this(resolveAddress = InetAddress::getByName)
 
-    override suspend fun sendInitial(
+    override suspend fun resolve(
         target: String,
+        timeoutMs: Int,
+    ): InetAddress? = withTimeoutOrNull(timeoutMs.toLong()) { resolveProbeAddress(target, lookupScope, resolveAddress) }
+
+    override suspend fun sendInitial(
+        address: InetAddress,
         port: Int,
         fingerprint: QuicFingerprint,
         packet: ByteArray,
-        timeoutMs: Int,
+        deadline: TimeMark,
         accepts: (ByteArray) -> Boolean,
-    ): QuicProbeSample {
-        val deadline = System.nanoTime() + timeoutMs * NanosPerMillis
-        val address =
-            withTimeoutOrNull(timeoutMs.toLong()) {
-                resolveProbeAddress(target, lookupScope, resolveAddress)
-            } ?: return QuicProbeSample(response = null, latencyMs = null)
-        return withContext(Dispatchers.IO) {
-            exchange(address, port, packet, deadline, accepts)
+    ): QuicProbeSample =
+        withContext(Dispatchers.IO) {
+            if (deadline.hasPassedNow()) {
+                QuicProbeSample(QuicProbeOutcome.BUDGET_EXHAUSTED)
+            } else {
+                exchange(address, port, packet, deadline, accepts)
+            }
         }
-    }
 
     private suspend fun exchange(
         address: InetAddress,
         port: Int,
         packet: ByteArray,
-        deadline: Long,
+        deadline: TimeMark,
         accepts: (ByteArray) -> Boolean,
     ): QuicProbeSample =
         DatagramSocket().use { socket ->
@@ -66,13 +70,13 @@ class DatagramSocketQuicUdpProbe internal constructor(
         address: InetAddress,
         port: Int,
         packet: ByteArray,
-        deadline: Long,
+        deadline: TimeMark,
         accepts: (ByteArray) -> Boolean,
     ): QuicProbeSample {
         socket.connect(address, port)
         val startedAt = System.nanoTime()
-        if (deadline - startedAt <= 0) {
-            return QuicProbeSample(response = null, latencyMs = null)
+        if (deadline.hasPassedNow()) {
+            return QuicProbeSample(QuicProbeOutcome.BUDGET_EXHAUSTED)
         }
         socket.send(DatagramPacket(packet, packet.size, address, port))
         val buffer = ByteArray(MaxDatagramBytes)
@@ -80,7 +84,7 @@ class DatagramSocketQuicUdpProbe internal constructor(
         var invalidDatagrams = 0
         var receivedBytes = 0
         while (invalidDatagrams < MaxReceivedDatagrams && receivedBytes < MaxReceivedBytes) {
-            val remainingNanos = deadline - System.nanoTime()
+            val remainingNanos = (-deadline.elapsedNow()).inWholeNanoseconds
             if (remainingNanos <= 0) break
             socket.soTimeout = ((remainingNanos + NanosPerMillis - 1) / NanosPerMillis).toInt()
             response.length = buffer.size
@@ -88,21 +92,31 @@ class DatagramSocketQuicUdpProbe internal constructor(
                 socket.receive(response)
             } catch (_: SocketTimeoutException) {
                 break
+            } catch (_: IOException) {
+                return QuicProbeSample(QuicProbeOutcome.TRANSPORT_ERROR, invalidDatagrams = invalidDatagrams)
             }
             val receivedAt = System.nanoTime()
-            if (deadline - receivedAt <= 0) break
+            if (deadline.hasPassedNow()) break
             receivedBytes += response.length
             val payload = buffer.copyOf(response.length)
             if (receivedBytes <= MaxReceivedBytes && accepts(payload)) {
                 return QuicProbeSample(
-                    response = payload,
+                    outcome = QuicProbeOutcome.CORRELATED_RESPONSE,
                     latencyMs = (receivedAt - startedAt) / NanosPerMillis,
                     invalidDatagrams = invalidDatagrams,
                 )
             }
             invalidDatagrams++
         }
-        return QuicProbeSample(response = null, latencyMs = null, invalidDatagrams = invalidDatagrams)
+        val outcome =
+            if (invalidDatagrams ==
+                0
+            ) {
+                QuicProbeOutcome.NO_RESPONSE
+            } else {
+                QuicProbeOutcome.UNCORRELATED_RESPONSE
+            }
+        return QuicProbeSample(outcome, invalidDatagrams = invalidDatagrams)
     }
 
     private companion object {
