@@ -21,7 +21,6 @@ fn plain_fake_chunks(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn execute(
     ctx: &mut TcpFakeFamilyExecContext<'_>,
     configured_step: &TcpChainStep,

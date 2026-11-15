@@ -87,6 +87,17 @@ fn fixed_fake_sni_applies_to_default_compat_profile() {
 }
 
 #[test]
+fn fixed_fake_sni_keeps_bigsize_profile_oversized() {
+    let real = real_client_hello();
+    let mut group = group(FakePacketSource::Profile, false, true);
+    group.actions.tls_fake_profile = TlsFakeProfile::BigsizeIana;
+    let fake = build_fake_packet(&group, &real, 7).expect("fake");
+    assert_eq!(sni_of(&fake.bytes).as_deref(), Some(DECOY_SNI.as_bytes()));
+    assert_eq!(fake.bytes[3..5], [0xFF, 0xFF]);
+    assert_eq!(fake.bytes[6..9], [0xFF, 0xFF, 0xFF]);
+}
+
+#[test]
 fn hostfake_longer_template_keeps_a_valid_host_shape() {
     for (host, template) in [("a.ru", "googlevideo.com"), ("x.io", "a-b.example")] {
         let out = build_hostfake_bytes(host.as_bytes(), Some(template), 5, false);

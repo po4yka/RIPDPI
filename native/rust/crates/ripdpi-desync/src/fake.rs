@@ -278,6 +278,8 @@ fn build_fake_packet_internal(
         || (matches!(fake_tls_source, FakePacketSource::CapturedClientHello)
             && info.kind == IS_HTTPS
             && !(allow_raw_fake_data && group.actions.fake_data.is_some()));
+    let mut profile_output =
+        !from_input && info.kind == IS_HTTPS && !(allow_raw_fake_data && group.actions.fake_data.is_some());
     let sni_requested = fixed_sni.is_some() || (group.actions.fake_mod & FM_RNDSNI) != 0;
     let mut output = if orig_override { input.to_vec() } else { base };
 
@@ -287,6 +289,12 @@ fn build_fake_packet_internal(
         // Fail closed: never let the client's real SNI reach the wire in a fake.
         output = tls_fake_profile_bytes(tls_fake_profile).to_vec();
         apply_tls_fake_mods(&mods, &mut output);
+        profile_output = true;
+    }
+    if profile_output && tls_fake_profile == ripdpi_packets::TlsFakeProfile::BigsizeIana && output.len() >= 9 {
+        // The profile exists to carry oversized lengths; the mods above normalize them away.
+        output[3..5].copy_from_slice(&[0xFF, 0xFF]);
+        output[6..9].copy_from_slice(&[0xFF, 0xFF, 0xFF]);
     }
 
     let fake_offset = group
