@@ -46,3 +46,8 @@
     public <init>();
     public java.lang.String probeEndpoint(java.lang.String,com.poyka.ripdpi.core.WarpProbeSocketController);
 }
+
+-keepclassmembers,allowobfuscation,includedescriptorclasses class com.poyka.ripdpi.core.NativeGeoDatabaseValidator {
+    public <init>();
+    public void validate(java.lang.String,boolean);
+}

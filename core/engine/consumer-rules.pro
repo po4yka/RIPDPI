@@ -76,3 +76,8 @@
 -keepclassmembers class com.poyka.ripdpi.core.RipDpiWarpNativeBindings {
     native java.lang.String jniProbeEndpoint(java.lang.String);
 }
+
+# The geo asset admission method uses a dedicated JNI declaring class.
+-keepclasseswithmembernames class com.poyka.ripdpi.core.NativeGeoDatabaseValidator {
+    native <methods>;
+}

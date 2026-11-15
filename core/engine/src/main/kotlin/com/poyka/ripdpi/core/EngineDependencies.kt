@@ -139,6 +139,10 @@ abstract class RipDpiProxyBindingsModule {
     @Binds
     @Singleton
     abstract fun bindRipDpiProxyBindings(bindings: RipDpiProxyNativeBindings): RipDpiProxyBindings
+
+    @Binds
+    @Singleton
+    abstract fun bindGeoDatabaseValidator(bindings: NativeGeoDatabaseValidator): GeoDatabaseValidator
 }
 
 @Module

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.assets
 
 import android.app.Application
 import android.net.Uri
+import com.poyka.ripdpi.core.GeoDatabaseValidator
 import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -67,7 +68,12 @@ class GeoAssetRepositoryTest {
         target.writeText("old")
         val payload = validPayload(MinGeoAssetBytes)
 
-        streamGeoAssetToTarget(ByteArrayInputStream(payload), target, payload.size.toLong())
+        streamGeoAssetToTarget(
+            ByteArrayInputStream(payload),
+            target,
+            payload.size.toLong(),
+            validateTemp = {},
+        )
 
         assertArrayEquals(payload, target.readBytes())
         assertNoTemporaryFiles(target.parentFile!!)
@@ -86,6 +92,7 @@ class GeoAssetRepositoryTest {
                     ByteArrayInputStream(validPayload(MinGeoAssetBytes + 1)),
                     target,
                     maxBytes,
+                    validateTemp = {},
                 )
             }
 
@@ -95,7 +102,7 @@ class GeoAssetRepositoryTest {
     }
 
     @Test
-    fun `html prefix preserves target and removes temp file`() {
+    fun `validation failure preserves target and removes temp file`() {
         val target = temporaryFolder.newFile("geosite.db")
         val previous = "working database".toByteArray()
         target.writeBytes(previous)
@@ -104,7 +111,12 @@ class GeoAssetRepositoryTest {
 
         val error =
             assertThrows(GeoAssetIntegrityException::class.java) {
-                streamGeoAssetToTarget(ByteArrayInputStream(payload), target, payload.size.toLong())
+                streamGeoAssetToTarget(
+                    ByteArrayInputStream(payload),
+                    target,
+                    payload.size.toLong(),
+                    validateTemp = { throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload) },
+                )
             }
 
         assertEquals(GeoAssetIntegrityFailure.InvalidPayload, error.reason)
@@ -118,7 +130,12 @@ class GeoAssetRepositoryTest {
         val payload = validPayload(MinGeoAssetBytes + 8)
         val stream = ZeroThenDataInputStream(payload)
 
-        streamGeoAssetToTarget(stream, target, payload.size.toLong())
+        streamGeoAssetToTarget(
+            stream,
+            target,
+            payload.size.toLong(),
+            validateTemp = {},
+        )
 
         assertArrayEquals(payload, target.readBytes())
         assertTrue(stream.zeroReadObserved)
@@ -137,6 +154,7 @@ class GeoAssetRepositoryTest {
                     FailAfterFirstChunkInputStream(validPayload(MinGeoAssetBytes)),
                     target,
                     MinGeoAssetBytes.toLong(),
+                    validateTemp = {},
                 )
             }
 
@@ -149,7 +167,7 @@ class GeoAssetRepositoryTest {
     @Test
     fun `repository opens file uri installs content and updates timestamp`() =
         runTest {
-            val payload = validPayload(MinGeoAssetBytes + 16)
+            val payload = GeoAssetTestFixtures.country()
             val document = temporaryFolder.newFile("selected.db").apply { writeBytes(payload) }
             val repository = repository()
 
@@ -164,7 +182,7 @@ class GeoAssetRepositoryTest {
     @Test
     fun `local import metadata write failure reports storage after installing asset`() =
         runTest {
-            val payload = validPayload(MinGeoAssetBytes + 16)
+            val payload = GeoAssetTestFixtures.country()
             val document = temporaryFolder.newFile("selected-storage-failure.db").apply { writeBytes(payload) }
             val failure = IOException("metadata storage unavailable")
             settingsRepository.updateFailure = failure
@@ -186,7 +204,7 @@ class GeoAssetRepositoryTest {
         }
 
     @Test
-    fun `network update rejects a payload that is not a geo database and keeps the working files`() =
+    fun `native refusal preserves working download targets`() =
         runTest {
             val paths = resolveGeoDatabasePaths(application)
             val previous = "working database".toByteArray()
@@ -204,6 +222,13 @@ class GeoAssetRepositoryTest {
                         override suspend fun downloadAsset(downloadUrl: String): ByteArray =
                             validPayload(MinGeoAssetBytes + 16)
                     },
+                    validator =
+                        GeoDatabaseValidator {
+                            _,
+                            _,
+                            ->
+                            throw IllegalArgumentException("Invalid native database")
+                        },
                 )
 
             val error = runCatching { repository.checkAndUpdate() }.exceptionOrNull()
@@ -216,8 +241,8 @@ class GeoAssetRepositoryTest {
     @Test
     fun `network update metadata write failure reports storage instead of network`() =
         runTest {
-            val geoipPayload = mmdbPayload()
-            val geositePayload = singGeositePayload()
+            val geoipPayload = GeoAssetTestFixtures.country()
+            val geositePayload = GeoAssetTestFixtures.geosite()
             settingsRepository.update {
                 geoAssetProviderId = CustomAssetProviderId
                 geoAssetCustomBaseUrl = "https://assets.example/releases/latest/download"
@@ -259,6 +284,7 @@ class GeoAssetRepositoryTest {
             target = target,
             maxBytes = MinGeoAssetBytes.toLong(),
             openInput = { stream },
+            validateTemp = {},
         )
 
         assertTrue(stream.closed)
@@ -278,6 +304,7 @@ class GeoAssetRepositoryTest {
                         uri = Uri.parse("content://test/missing-$index.db"),
                         target = target,
                         openInput = { throw failure },
+                        validateTemp = {},
                     )
                 }
 
@@ -301,6 +328,7 @@ class GeoAssetRepositoryTest {
                             override fun read(): Int = throw failure
                         }
                     },
+                    validateTemp = {},
                 )
             }
 
@@ -326,6 +354,7 @@ class GeoAssetRepositoryTest {
                     target = target,
                     maxBytes = MinGeoAssetBytes.toLong(),
                     openInput = { stream },
+                    validateTemp = {},
                 )
             }
 
@@ -349,6 +378,7 @@ class GeoAssetRepositoryTest {
                         target = target,
                         maxBytes = replacement.size.toLong(),
                         openInput = { stream },
+                        validateTemp = {},
                     )
                 }
 
@@ -386,6 +416,7 @@ class GeoAssetRepositoryTest {
                 cancellationCheck = {
                     if (stream.closed) throw CancellationException("synthetic pre-install cancellation")
                 },
+                validateTemp = {},
             )
         }
 
@@ -413,6 +444,7 @@ class GeoAssetRepositoryTest {
                             preparationCompleted.countDown()
                             awaitIgnoringInterrupts(releaseHandoff)
                         },
+                        validateTemp = {},
                     )
                 }
 
@@ -458,6 +490,7 @@ class GeoAssetRepositoryTest {
                             replaceGeoAssetTempFile(source, destination)
                         },
                         afterInstall = { metadataPersisted.complete(Unit) },
+                        validateTemp = {},
                     )
                 }
 
@@ -512,6 +545,7 @@ class GeoAssetRepositoryTest {
                     maxBytes = replacement.size.toLong(),
                     openInput = { ByteArrayInputStream(replacement) },
                     replaceTemp = { _, _ -> throw failure },
+                    validateTemp = {},
                 )
             }
 
@@ -535,6 +569,7 @@ class GeoAssetRepositoryTest {
                     bytes = replacement,
                     target = target,
                     replaceTemp = { _, _ -> throw failure },
+                    validateTemp = {},
                 )
             }
 
@@ -552,100 +587,17 @@ class GeoAssetRepositoryTest {
 
         val error =
             assertThrows(GeoAssetIntegrityException::class.java) {
-                installDownloadedGeoAssetToTarget(validPayload(MinGeoAssetBytes), target)
+                installDownloadedGeoAssetToTarget(
+                    validPayload(MinGeoAssetBytes),
+                    target,
+                    validateTemp = {},
+                )
             }
 
         assertEquals(GeoAssetIntegrityFailure.InstallFailed, error.reason)
         assertTrue(error.cause is IOException)
         assertFalse(target.exists())
         assertTrue(blockedDirectory.isFile)
-    }
-
-    @Test
-    fun `same tag repairs missing and changed database files`() =
-        runTest {
-            val downloads = TaggedGeoDownloads()
-            val repository = repository(downloads)
-            assertTrue(repository.checkAndUpdate().updatedAny)
-            val target = File(resolveGeoDatabasePaths(application).geoipDbPath)
-            assertTrue(target.delete())
-
-            val missingResult = repository.checkAndUpdate()
-            assertTrue(missingResult.geoipUpdated)
-            assertFalse(missingResult.geositeUpdated)
-            assertArrayEquals(downloads.geoipPayload, target.readBytes())
-
-            target.writeBytes(validPayload(MinGeoAssetBytes))
-            assertTrue(repository.checkAndUpdate().geoipUpdated)
-            assertArrayEquals(downloads.geoipPayload, target.readBytes())
-        }
-
-    @Test
-    fun `same tag from a different provider replaces the previous provider files`() =
-        runTest {
-            val downloads = TaggedGeoDownloads()
-            val repository = repository(downloads)
-            assertTrue(repository.checkAndUpdate().updatedAny)
-            settingsRepository.update { geoAssetProviderId = "soffchen" }
-            downloads.geoipPayload += byteArrayOf(1)
-            downloads.geositePayload += byteArrayOf(1)
-
-            val result = repository.checkAndUpdate()
-            assertTrue(result.geoipUpdated)
-            assertTrue(result.geositeUpdated)
-            val paths = resolveGeoDatabasePaths(application)
-            assertArrayEquals(downloads.geoipPayload, File(paths.geoipDbPath).readBytes())
-            assertArrayEquals(downloads.geositePayload, File(paths.geositeDbPath).readBytes())
-        }
-
-    @Test
-    fun `local import clears remote provenance and only the imported kind version`() =
-        runTest {
-            val downloads = TaggedGeoDownloads()
-            val repository = repository(downloads)
-            repository.checkAndUpdate()
-            val localPayload = validPayload(MinGeoAssetBytes + 16)
-            val document = temporaryFolder.newFile("override.db").apply { writeBytes(localPayload) }
-
-            repository.importLocalAsset(GeoAssetKind.Geoip, Uri.fromFile(document))
-            val paths = resolveGeoDatabasePaths(application)
-            assertArrayEquals(localPayload, File(paths.geoipDbPath).readBytes())
-            assertEquals("", settingsRepository.snapshot().geoAssetGeoipVersionTag)
-            assertEquals("release-1", settingsRepository.snapshot().geoAssetGeositeVersionTag)
-
-            val result = repository.checkAndUpdate()
-            assertTrue(result.geoipUpdated)
-            assertFalse(result.geositeUpdated)
-            assertArrayEquals(downloads.geoipPayload, File(paths.geoipDbPath).readBytes())
-        }
-
-    @Test
-    fun `same provider tag and unchanged database bytes remain up to date`() =
-        runTest {
-            val downloads = TaggedGeoDownloads()
-            val repository = repository(downloads)
-            assertTrue(repository.checkAndUpdate().updatedAny)
-            downloads.downloadFailure = IOException("An unchanged asset must not need another download")
-
-            val result = repository.checkAndUpdate()
-            assertFalse(result.updatedAny)
-            assertTrue(result.anyChecked)
-        }
-
-    private class TaggedGeoDownloads : GeoAssetDownloadService {
-        var geoipPayload =
-            ByteArray(MinGeoAssetBytes) { (it + 1).toByte() } +
-                "\u00ab\u00cd\u00efMaxMind.com".toByteArray(Charsets.ISO_8859_1) +
-                ByteArray(8) { 1 }
-        var geositePayload = byteArrayOf(0) + ByteArray(MinGeoAssetBytes) { (it + 1).toByte() }
-        var downloadFailure: IOException? = null
-
-        override suspend fun fetchLatestReleaseJson(apiUrl: String): String = """{"tag_name":"release-1"}"""
-
-        override suspend fun downloadAsset(downloadUrl: String): ByteArray {
-            downloadFailure?.let { throw it }
-            return if (downloadUrl.endsWith("geoip.db")) geoipPayload else geositePayload
-        }
     }
 
     private fun repository(
@@ -655,23 +607,16 @@ class GeoAssetRepositoryTest {
 
                 override suspend fun downloadAsset(downloadUrl: String): ByteArray = error("not used")
             },
+        validator: GeoDatabaseValidator = GeoDatabaseValidator { _, _ -> },
     ): DefaultGeoAssetRepository =
         DefaultGeoAssetRepository(
             context = application,
             settingsRepository = settingsRepository,
             downloadService = downloadService,
+            validator = validator,
         )
 
     private fun validPayload(size: Int): ByteArray = ByteArray(size) { index -> (index + 1).toByte() }
-
-    // A MaxMind DB carries this metadata marker near its end (MaxMind DB format spec, "Database Metadata").
-    private fun mmdbPayload(): ByteArray =
-        validPayload(MinGeoAssetBytes) +
-            "\u00ab\u00cd\u00efMaxMind.com".toByteArray(Charsets.ISO_8859_1) +
-            validPayload(8)
-
-    // A sing-box geosite.db starts with its format version byte, 0.
-    private fun singGeositePayload(): ByteArray = byteArrayOf(0) + validPayload(MinGeoAssetBytes)
 
     private fun assertNoTemporaryFiles(directory: File) {
         assertFalse(

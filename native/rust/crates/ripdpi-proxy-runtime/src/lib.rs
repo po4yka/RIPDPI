@@ -13,6 +13,8 @@ mod process;
 mod runtime;
 mod same_sni_cap;
 
+pub use ripdpi_geo::{GeoDatabaseKind, validate_database as validate_geo_database};
+
 pub use process::{ProcessGuard, ProcessSettings, prepare_embedded, process_settings};
 pub use runtime::{
     ProxyRuntimeCleanupReceipt, RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, create_listener,

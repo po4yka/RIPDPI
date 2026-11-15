@@ -2,18 +2,17 @@ package com.poyka.ripdpi.assets
 
 import android.content.Context
 import android.net.Uri
+import com.poyka.ripdpi.core.GeoDatabaseValidator
 import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.assets.AssetProvider
 import com.poyka.ripdpi.data.assets.GeoAssetKind
 import com.poyka.ripdpi.data.assets.GeoAssetRepo
-import com.poyka.ripdpi.data.assets.MinGeoAssetBytes
 import com.poyka.ripdpi.data.assets.assetProviderById
 import com.poyka.ripdpi.data.assets.customAssetDownloadUrl
 import com.poyka.ripdpi.data.assets.githubLatestReleaseApiUrl
 import com.poyka.ripdpi.data.assets.githubReleaseAssetDownloadUrl
 import com.poyka.ripdpi.data.assets.isAssetUpdateAvailable
-import com.poyka.ripdpi.data.assets.isPlausibleGeoAssetPayload
 import com.poyka.ripdpi.data.assets.parseGithubLatestReleaseTag
 import com.poyka.ripdpi.proto.AppSettings
 import dagger.Binds
@@ -88,35 +87,6 @@ interface GeoAssetRepository {
 
 internal const val GeoAssetMaxLocalImportBytes: Long = 64L * 1024L * 1024L
 
-// MaxMind DB metadata marker; the metadata section sits within the last 128 KiB of the file.
-private val MmdbMetadataMarker = byteArrayOf(0xAB.toByte(), 0xCD.toByte(), 0xEF.toByte()) + "MaxMind.com".toByteArray()
-private const val MmdbMetadataSearchBytes = 128 * 1024
-
-// The native geosite loader accepts a v2ray GeoSiteList (field-1 tag) or a sing-box geosite.db (version 0).
-private const val GeositeListEntryTag: Byte = 0x0a
-private const val SingGeositeVersion: Byte = 0
-
-/**
- * Format check that matches what the native geo runtime can load. A payload that fails it would
- * disable geo matching once installed, so it must never replace the working database.
- */
-internal fun hasGeoAssetFormatMarker(
-    kind: GeoAssetKind,
-    bytes: ByteArray,
-): Boolean =
-    when (kind) {
-        GeoAssetKind.Geoip -> {
-            val searchStart = maxOf(0, bytes.size - MmdbMetadataSearchBytes)
-            (bytes.size - MmdbMetadataMarker.size downTo searchStart).any { start ->
-                MmdbMetadataMarker.indices.all { bytes[start + it] == MmdbMetadataMarker[it] }
-            }
-        }
-
-        GeoAssetKind.Geosite -> {
-            bytes.firstOrNull().let { it == GeositeListEntryTag || it == SingGeositeVersion }
-        }
-    }
-
 @Singleton
 class DefaultGeoAssetRepository
     @Inject
@@ -124,6 +94,7 @@ class DefaultGeoAssetRepository
         @param:ApplicationContext private val context: Context,
         private val settingsRepository: AppSettingsRepository,
         private val downloadService: GeoAssetDownloadService,
+        private val validator: GeoDatabaseValidator,
     ) : GeoAssetRepository {
         private val operationMutex = Mutex()
 
@@ -170,6 +141,7 @@ class DefaultGeoAssetRepository
                 uri = uri,
                 target = targetFile(kind),
                 openInput = context.contentResolver::openInputStream,
+                validateTemp = { validateAsset(kind, it) },
                 afterInstall = {
                     invalidateGeoAssetProvenance(targetFile(kind))
                     persistAssetMetadata {
@@ -224,14 +196,30 @@ class DefaultGeoAssetRepository
             return SingleAssetOutcome(checked = true, updated = true, newTag = tag)
         }
 
-        private fun applyValidatedAsset(
+        private suspend fun applyValidatedAsset(
             kind: GeoAssetKind,
             bytes: ByteArray,
         ) {
-            if (!isPlausibleGeoAssetPayload(bytes) || !hasGeoAssetFormatMarker(kind, bytes)) {
-                throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload)
+            val operationContext = currentCoroutineContext()
+            installDownloadedGeoAssetToTarget(
+                bytes,
+                targetFile(kind),
+                validateTemp = {
+                    validateAsset(kind, it)
+                    operationContext.ensureActive()
+                },
+            )
+        }
+
+        private fun validateAsset(
+            kind: GeoAssetKind,
+            file: File,
+        ) {
+            try {
+                validator.validate(file.absolutePath, kind == GeoAssetKind.Geosite)
+            } catch (error: IllegalArgumentException) {
+                throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload, error)
             }
-            installDownloadedGeoAssetToTarget(bytes, targetFile(kind))
         }
 
         private suspend fun persistTagsAndTimestamp(
@@ -293,8 +281,9 @@ internal fun streamGeoAssetUriToTarget(
     openInput: (Uri) -> InputStream?,
     replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
     cancellationCheck: () -> Unit = {},
+    validateTemp: (File) -> Unit,
 ) {
-    val temp = prepareGeoAssetUriTemp(uri, target, maxBytes, openInput, cancellationCheck)
+    val temp = prepareGeoAssetUriTemp(uri, target, maxBytes, openInput, cancellationCheck, validateTemp)
     try {
         cancellationCheck()
         installGeoAssetTemp(temp, target, replaceTemp)
@@ -311,13 +300,14 @@ internal suspend fun streamGeoAssetUriToTargetInterruptibly(
     replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
     afterPrepare: (File) -> Unit = {},
     afterInstall: suspend () -> Unit = {},
+    validateTemp: (File) -> Unit,
 ) {
     val operationContext = currentCoroutineContext()
     val cancellationCheck = { operationContext.ensureActive() }
     val preparedTemp = AtomicReference<File?>()
     try {
         runInterruptible(Dispatchers.IO) {
-            prepareGeoAssetUriTemp(uri, target, maxBytes, openInput, cancellationCheck)
+            prepareGeoAssetUriTemp(uri, target, maxBytes, openInput, cancellationCheck, validateTemp)
                 .also { temp ->
                     preparedTemp.set(temp)
                     afterPrepare(temp)
@@ -354,28 +344,31 @@ private fun prepareGeoAssetUriTemp(
     maxBytes: Long,
     openInput: (Uri) -> InputStream?,
     cancellationCheck: () -> Unit,
+    validateTemp: (File) -> Unit,
 ): File {
     cancellationCheck()
     val input = openGeoAssetInput(uri, openInput)
     var temp: File? = null
+    var prepared = false
     try {
         input.use { temp = writeGeoAssetInputToTemp(it, target, maxBytes, cancellationCheck) }
         cancellationCheck()
+        validateTemp(checkNotNull(temp))
+        cancellationCheck()
+        prepared = true
         return checkNotNull(temp)
     } catch (error: GeoAssetIntegrityException) {
-        temp?.delete()
         throw error
     } catch (error: CancellationException) {
-        temp?.delete()
         throw error
     } catch (error: IOException) {
-        temp?.delete()
         cancellationCheck()
         throwUnableToOpen(error)
     } catch (error: SecurityException) {
-        temp?.delete()
         cancellationCheck()
         throwUnableToOpen(error)
+    } finally {
+        if (!prepared) temp?.delete()
     }
 }
 
@@ -383,9 +376,11 @@ internal fun streamGeoAssetToTarget(
     input: InputStream,
     target: File,
     maxBytes: Long = GeoAssetMaxLocalImportBytes,
+    validateTemp: (File) -> Unit,
 ) {
     val temp = writeGeoAssetInputToTemp(input, target, maxBytes)
     try {
+        validateTemp(temp)
         installGeoAssetTemp(temp, target)
     } finally {
         temp.delete()
@@ -396,10 +391,12 @@ internal fun installDownloadedGeoAssetToTarget(
     bytes: ByteArray,
     target: File,
     replaceTemp: (File, File) -> Unit = ::replaceGeoAssetTempFile,
+    validateTemp: (File) -> Unit,
 ) {
     val temp = createGeoAssetTempFile(target)
     try {
         writeGeoAssetTemp(temp) { output -> output.write(bytes) }
+        validateTemp(temp)
         installGeoAssetTemp(temp, target, replaceTemp)
     } finally {
         temp.delete()
@@ -412,7 +409,7 @@ private fun writeGeoAssetInputToTemp(
     maxBytes: Long,
     cancellationCheck: () -> Unit = {},
 ): File {
-    require(maxBytes >= MinGeoAssetBytes) { "Local geo asset limit must allow the validation prefix." }
+    require(maxBytes >= 0L) { "Local geo asset limit must not be negative." }
     val temp = createGeoAssetTempFile(target)
     var prepared = false
     try {
@@ -423,11 +420,6 @@ private fun writeGeoAssetInputToTemp(
         }
 
         cancellationCheck()
-        // This prefix is equivalent to the complete-payload decision while the validator checks
-        // only minimum length and the first 16 bytes. Update both contracts together if it deepens.
-        if (!isPlausibleGeoAssetPayload(copyState.validationPrefix())) {
-            throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.InvalidPayload)
-        }
         prepared = true
         return temp
     } finally {
@@ -515,8 +507,6 @@ private inline fun readGeoAssetInput(
 private class GeoAssetCopyState(
     private val maxBytes: Long,
 ) {
-    private val prefix = ByteArray(MinGeoAssetBytes)
-    private var prefixSize = 0
     private var totalBytes = 0L
 
     fun write(
@@ -527,9 +517,6 @@ private class GeoAssetCopyState(
         if (totalBytes > maxBytes - count.toLong()) {
             throw GeoAssetIntegrityException(GeoAssetIntegrityFailure.TooLarge)
         }
-        val prefixCount = minOf(count, prefix.size - prefixSize).coerceAtLeast(0)
-        if (prefixCount > 0) bytes.copyInto(prefix, prefixSize, 0, prefixCount)
-        prefixSize += prefixCount
         try {
             output.write(bytes, 0, count)
         } catch (error: IOException) {
@@ -539,8 +526,6 @@ private class GeoAssetCopyState(
         }
         totalBytes += count
     }
-
-    fun validationPrefix(): ByteArray = prefix.copyOf(prefixSize)
 }
 
 internal fun replaceGeoAssetTempFile(

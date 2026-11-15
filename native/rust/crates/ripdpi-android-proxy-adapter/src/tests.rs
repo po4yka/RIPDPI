@@ -281,6 +281,46 @@ fn typed_bridge_payload_tolerates_unknown_future_fields() {
 }
 
 #[test]
+fn exported_jni_geo_validation_uses_complete_format_and_recovers_after_errors() {
+    let _serial = lock_jni_tests();
+    let dir = temp_dir();
+    let country = dir.join("country.mmdb");
+    fs::write(&country, include_bytes!("../../ripdpi-geo/tests/fixtures/GeoIP2-Country-Test.mmdb"))
+        .expect("country fixture");
+    let geosite = dir.join("geosite.dat");
+    let tiny = b"\x0a\x0b\x0a\x02US\x12\x05\x08\x03\x12\x01x";
+    fs::write(&geosite, tiny).expect("tiny protobuf fixture");
+    let extended = dir.join("extended.dat");
+    fs::write(&extended, [b"\x18\x01".as_slice(), tiny.as_slice()].concat()).expect("unknown first field");
+    let malformed = dir.join("malformed.db");
+    fs::write(&malformed, [0, 1]).expect("truncated sing fixture");
+
+    with_env(|env| {
+        for (path, is_geosite) in [(&country, false), (&geosite, true), (&extended, true)] {
+            assert_eq!(jni_validate_database(env, path, is_geosite), jni::sys::JNI_TRUE);
+            assert_no_exception(env);
+        }
+        for (path, is_geosite) in
+            [(&country, true), (&geosite, false), (&malformed, true), (&dir.join("missing.db"), false)]
+        {
+            assert_eq!(jni_validate_database(env, path, is_geosite), jni::sys::JNI_FALSE);
+            let error = take_exception(env);
+            assert!(error.starts_with("java.lang.IllegalArgumentException:"), "{error}");
+        }
+        jni_validate_database(env, &country, false);
+        assert_no_exception(env);
+        jni_validate_database(env, &geosite, true);
+        assert_no_exception(env);
+    });
+    fs::remove_dir_all(dir).expect("remove validation fixtures");
+}
+
+fn jni_validate_database(env: &mut Env<'_>, path: &Path, is_geosite: bool) -> jni::sys::jboolean {
+    let path = env.new_string(path.to_string_lossy()).expect("create validation path");
+    crate::proxy_validate_geo_database_entry(env_to_unowned(env), path, is_geosite)
+}
+
+#[test]
 fn exported_jni_geoip_metadata_reports_asn_database_record() {
     let _serial = lock_jni_tests();
     let dir = temp_dir();

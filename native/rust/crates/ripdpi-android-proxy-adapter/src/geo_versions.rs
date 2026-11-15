@@ -4,8 +4,8 @@ use std::str::FromStr;
 use android_support::throw_illegal_argument_env;
 use jni::Env;
 use jni::objects::JString;
-use jni::sys::jstring;
-use ripdpi_proxy_runtime::RuntimeGeoIpMetadata;
+use jni::sys::{jboolean, jstring};
+use ripdpi_proxy_runtime::{GeoDatabaseKind, RuntimeGeoIpMetadata, validate_geo_database};
 use serde::Serialize;
 
 use ripdpi_android_bridge_support::JniProxyError;
@@ -73,6 +73,22 @@ fn encode_metadata(env: &mut Env<'_>, metadata: Option<RuntimeGeoIpMetadata>) ->
         Err(err) => {
             JniProxyError::Serialization(err).throw(env);
             std::ptr::null_mut()
+        }
+    }
+}
+
+/// Validates one complete database without installing it or loading an unrelated database.
+pub(crate) fn validate_database(env: &mut Env<'_>, path: JString, is_geosite: jboolean) -> jboolean {
+    let Ok(path) = path.try_to_string(env) else {
+        throw_illegal_argument_env(env, "Invalid geo database path");
+        return jni::sys::JNI_FALSE;
+    };
+    let kind = if is_geosite != jni::sys::JNI_FALSE { GeoDatabaseKind::Geosite } else { GeoDatabaseKind::Geoip };
+    match validate_geo_database(std::path::Path::new(&path), kind) {
+        Ok(()) => jni::sys::JNI_TRUE,
+        Err(error) => {
+            JniProxyError::InvalidConfig(error.to_string()).throw(env);
+            jni::sys::JNI_FALSE
         }
     }
 }

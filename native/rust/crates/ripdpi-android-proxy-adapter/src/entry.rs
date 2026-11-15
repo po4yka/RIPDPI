@@ -1,12 +1,12 @@
 use android_support::init_android_logging;
 use jni::objects::JString;
-use jni::sys::{jint, jlong, jstring};
+use jni::sys::{jboolean, jint, jlong, jstring};
 use jni::{EnvUnowned, Outcome};
 
 use ripdpi_android_bridge_support::{NativeBridgeError, NativeBridgeErrorDomain, extract_panic_message};
 
 use crate::entry_error::{log_and_throw, log_and_throw_with_payload};
-use crate::geo_versions::geoip_metadata;
+use crate::geo_versions::{geoip_metadata, validate_database};
 use crate::lifecycle::{create_session, destroy_session, start_session, stop_session, update_network_snapshot};
 use crate::telemetry::{poll_proxy_forwarding_evidence, poll_proxy_telemetry};
 
@@ -185,6 +185,25 @@ pub fn proxy_geoip_metadata_entry(
         Outcome::Panic(payload) => {
             log_and_throw(&mut env, "Proxy geoip metadata lookup panicked", &extract_panic_message(payload));
             std::ptr::null_mut()
+        }
+    }
+}
+
+/// Validates an asset with the runtime parser before the caller installs its file.
+pub fn proxy_validate_geo_database_entry(mut env: EnvUnowned<'_>, path: JString, is_geosite: jboolean) -> jboolean {
+    init_android_logging("ripdpi-native");
+    match env
+        .with_env(move |env| -> jni::errors::Result<jboolean> { Ok(validate_database(env, path, is_geosite)) })
+        .into_outcome()
+    {
+        Outcome::Ok(result) => result,
+        Outcome::Err(error) => {
+            log_and_throw(&mut env, "Geo database validation failed", &error.to_string());
+            jni::sys::JNI_FALSE
+        }
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Geo database validation panicked", &extract_panic_message(payload));
+            jni::sys::JNI_FALSE
         }
     }
 }

@@ -97,7 +97,8 @@ val BuiltInAssetProviders: List<AssetProvider> =
          * `Country.mmdb`. The full `geosite.dat` exceeds the download size limit, so geosite comes
          * from `geosite-ru-only.dat` (v2ray format; the RU-BLOCKED, RU-AVAILABLE-ONLY-INSIDE,
          * CATEGORY-GOV-RU, CATEGORY-ADS-ALL and PRIVATE categories). No per-release checksum pin
-         * exists upstream, so integrity is enforced entirely by isPlausibleGeoAssetPayload.
+         * exists upstream. The service validates the complete native format before installation;
+         * this does not authenticate the publisher.
          *
          * Provider URLs: https://github.com/runetfreedom/russia-blocked-geoip and
          * https://github.com/runetfreedom/russia-blocked-geosite
@@ -179,12 +180,9 @@ fun isAssetUpdateAvailable(
 }
 
 /**
- * Minimal validity gate for a downloaded geo database before it goes live. We fail closed: a
- * corrupt or blocked download must never replace a working database. The accepted formats (a
- * sing-box `geoip.db` or a MaxMind `.mmdb`, a sing-box `geosite.db` or a v2ray `geosite.dat`) share
- * no common magic, so this gate accepts any binary of at least [MinGeoAssetBytes] that is not a
- * captured HTML error/redirect page (which a blocking middlebox typically returns). It does not
- * parse the format; a file the native loader (`ripdpi-geo`) cannot parse still fails at load time.
+ * Legacy size and HTML-prefix heuristic. This does not parse a geo database or prove validity.
+ * The service uses the complete native parser before it installs a downloaded or imported file.
+ * A false result can also reject a small valid database; do not use this helper as an admission gate.
  */
 fun isPlausibleGeoAssetPayload(payload: ByteArray): Boolean {
     if (payload.size < MinGeoAssetBytes) {
@@ -200,7 +198,7 @@ fun isPlausibleGeoAssetPayload(payload: ByteArray): Boolean {
     return !looksLikeHtml
 }
 
-/** Minimum plausible size for a real geo database; anything smaller is treated as corrupt. */
+/** Minimum payload size for the legacy prefix heuristic, not a format requirement. */
 const val MinGeoAssetBytes = 64
 
 private const val HtmlSniffPrefixBytes = 16
