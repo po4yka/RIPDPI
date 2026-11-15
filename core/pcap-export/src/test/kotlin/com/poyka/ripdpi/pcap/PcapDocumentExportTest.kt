@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -138,6 +139,39 @@ class PcapDocumentExportTest {
         }
 
     @Test
+    fun `provider exceptions retain their identity and publication rollback`() =
+        runTest {
+            for (failure in listOf(
+                ProviderCheckedFailure(7),
+                ProviderRuntimeFailure(11),
+            )) {
+                val document = temp.newFile()
+                val published =
+                    runCatching {
+                        publishPcapDocument({ throw failure }, document::delete)
+                    }.exceptionOrNull() as PcapDocumentWriteException
+                assertSame(failure, published.cause)
+                assertTrue(published.documentRemoved)
+                assertFalse(document.exists())
+
+                val opened = runCatching { openPcapDocument<Closeable>({}) { throw failure } }.exceptionOrNull()
+                assertSame(failure, opened)
+            }
+        }
+
+    @Test
+    fun `fatal provider errors propagate without publication recovery`() =
+        runTest {
+            val failure = AssertionError("provider fatal failure")
+            val document = temp.newFile()
+            val published = runCatching { publishPcapDocument({ throw failure }, document::delete) }.exceptionOrNull()
+            assertSame(failure, published)
+            assertTrue(document.exists())
+            val opened = runCatching { openPcapDocument<Closeable>({}) { throw failure } }.exceptionOrNull()
+            assertSame(failure, opened)
+        }
+
+    @Test
     fun `staging reaps old process drafts and leaves live preparations alone`() {
         val cache = temp.newFolder()
         PcapExportStaging.create(cache).use { live ->
@@ -153,3 +187,11 @@ class PcapDocumentExportTest {
         }
     }
 }
+
+private class ProviderCheckedFailure(
+    val providerCode: Int,
+) : Exception("provider checked failure")
+
+private class ProviderRuntimeFailure(
+    val providerCode: Int,
+) : IllegalStateException("provider runtime failure")

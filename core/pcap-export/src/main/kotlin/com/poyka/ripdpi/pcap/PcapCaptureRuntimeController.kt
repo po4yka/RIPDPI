@@ -322,8 +322,11 @@ class PcapCaptureRuntimeController
                 } catch (_: Exception) {
                     return stopFailedLocked(captureSetId, "stop_failed")
                 }
-            if (result == null) return stopFailedLocked(captureSetId, "session_unavailable")
-            return publishStopLocked(captureSetId, result)
+            return if (result == null) {
+                stopFailedLocked(captureSetId, "session_unavailable")
+            } else {
+                publishStopLocked(captureSetId, result)
+            }
         }
 
         private fun publishStopLocked(

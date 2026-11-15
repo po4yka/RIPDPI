@@ -43,15 +43,15 @@ internal suspend fun publishPcapDocument(
     writeDocument: suspend () -> Unit,
     deleteDocument: () -> Boolean,
 ) {
-    try {
-        writeDocument()
-    } catch (failure: Exception) {
-        val removed =
-            withContext(NonCancellable + Dispatchers.IO) {
-                runCatching { deleteDocument() }.getOrDefault(false)
-            }
-        if (failure is CancellationException) throw failure
-        throw PcapDocumentWriteException(removed, failure)
+    val failure = runCatching { writeDocument() }.exceptionOrNull() ?: return
+    if (failure !is Exception) throw failure
+    val removed =
+        withContext(NonCancellable + Dispatchers.IO) {
+            runCatching { deleteDocument() }.getOrDefault(false)
+        }
+    throw when (failure) {
+        is CancellationException -> failure
+        else -> PcapDocumentWriteException(removed, failure)
     }
 }
 
@@ -63,9 +63,8 @@ internal suspend fun <T : Closeable> openPcapDocument(
         continuation.invokeOnCancellation { runCatching(cancelOpen) }
         if (!continuation.isActive) return@suspendCancellableCoroutine
         val document =
-            try {
-                open()
-            } catch (error: Exception) {
+            runCatching(open).getOrElse { error ->
+                if (error !is Exception) throw error
                 continuation.resumeWithException(error)
                 return@suspendCancellableCoroutine
             }

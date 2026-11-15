@@ -65,20 +65,27 @@ internal object PcapExportStaging {
         try {
             openOwnerFile(ownerFile).use { owner ->
                 owner.tryLock()?.use {
-                    val drafts =
-                        directory.listFiles().orEmpty().filter { file ->
-                            file.name.startsWith(DraftPrefix) && file.name.endsWith(DraftSuffix)
-                        }
-                    if (drafts.all { it.delete() }) {
-                        ownerFile.delete()
-                        directory.delete()
-                    }
+                    removeDrafts(directory, ownerFile)
                 }
             }
         } catch (_: OverlappingFileLockException) {
             // Another owner in this JVM is still using the folder.
         } catch (_: IOException) {
             // A later process retries if the cache could not be read or removed.
+        }
+    }
+
+    private fun removeDrafts(
+        directory: File,
+        ownerFile: File,
+    ) {
+        val drafts =
+            directory.listFiles().orEmpty().filter { file ->
+                file.name.startsWith(DraftPrefix) && file.name.endsWith(DraftSuffix)
+            }
+        if (drafts.all { it.delete() }) {
+            ownerFile.delete()
+            directory.delete()
         }
     }
 
