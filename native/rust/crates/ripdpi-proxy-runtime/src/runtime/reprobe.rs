@@ -1,9 +1,7 @@
-// Lightweight network re-probe: when the OS network fingerprint changes
-// (WiFi -> cellular, different WiFi SSID, etc.), spawn a background thread that
-// tests a small set of known-blocked domains with the current desync strategy.
-// If most probes fail with DPI signatures, the strategy evolver and adaptive
-// tuning cache are reset so the runtime can re-learn appropriate parameters
-// for the new network.
+// Baseline TLS reachability probe after an OS network identity change.
+// Repeated transport failures reset learned strategy state for the new network.
+// The probe does not apply the current desync strategy; origin TLS rejection
+// is inconclusive and does not count toward a reset.
 //
 // Design constraints:
 // - Must not block the listener accept loop.

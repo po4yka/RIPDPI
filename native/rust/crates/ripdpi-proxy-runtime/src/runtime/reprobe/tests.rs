@@ -2,8 +2,6 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::{
     NetworkReprobeTracker, NetworkSnapshot, network_snapshot_identity,
 };
 
-use super::tls_probe::build_minimal_client_hello;
-
 #[test]
 fn reprobe_tracker_skips_initial_snapshot() {
     let tracker = NetworkReprobeTracker::new();
@@ -96,21 +94,4 @@ fn snapshot_identity_includes_cellular_operator() {
     let id = network_snapshot_identity(&snap);
     assert!(id.contains("cellular"));
     assert!(id.contains("25001"));
-}
-
-#[test]
-fn build_minimal_client_hello_starts_with_tls_record_header() {
-    let hello = build_minimal_client_hello("example.com");
-    assert_eq!(hello[0], 0x16, "content type must be Handshake");
-    assert_eq!(hello[1], 0x03, "major version");
-    assert_eq!(hello[2], 0x01, "minor version (TLS 1.0)");
-    // The 4th handshake byte (after the 5-byte record header) should be
-    // ClientHello type = 0x01.
-    assert_eq!(hello[5], 0x01, "handshake type must be ClientHello");
-}
-
-#[test]
-fn build_minimal_client_hello_contains_sni() {
-    let hello = build_minimal_client_hello("test.example.org");
-    assert!(hello.windows(b"test.example.org".len()).any(|w| w == b"test.example.org"));
 }

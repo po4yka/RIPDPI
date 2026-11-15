@@ -2,7 +2,7 @@ use ripdpi_proxy_runtime_adapter::model::services::ReprobeResetHandle;
 
 const FAILURE_THRESHOLD: usize = 2;
 
-pub(crate) fn reset_if_strategy_mismatch(
+pub(crate) fn reset_after_baseline_failures(
     failures: usize,
     successes: usize,
     target_count: usize,
@@ -10,7 +10,7 @@ pub(crate) fn reset_if_strategy_mismatch(
 ) {
     if failures >= FAILURE_THRESHOLD {
         tracing::info!(
-            "network_reprobe: strategy_mismatch ({failures}/{target_count} failed), resetting evolver and adaptive cache"
+            "network_reprobe: baseline_failures ({failures}/{target_count} failed), resetting evolver and adaptive cache"
         );
         reset_handle.reset_strategy_state();
     } else {
@@ -29,8 +29,8 @@ mod tests {
         let services = new_services_handle(RuntimeConfig::default(), None, None);
         let reset_handle = reprobe_reset_handle(&services);
 
-        reset_if_strategy_mismatch(0, 3, 3, &reset_handle);
-        reset_if_strategy_mismatch(1, 2, 3, &reset_handle);
-        reset_if_strategy_mismatch(2, 1, 3, &reset_handle);
+        reset_after_baseline_failures(0, 3, 3, &reset_handle);
+        reset_after_baseline_failures(1, 2, 3, &reset_handle);
+        reset_after_baseline_failures(2, 1, 3, &reset_handle);
     }
 }

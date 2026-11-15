@@ -35,7 +35,8 @@ pub fn classify_probe_tls_response(header: [u8; 5], handshake_type: Option<u8>) 
     if header[0] == 0x16 {
         classify_handshake_record(handshake_type)
     } else if header[0] == 0x15 {
-        ProbeResult::DpiFailure("tls_alert")
+        // An origin protocol or configuration rejection does not establish DPI interference.
+        ProbeResult::NetworkError("tls_rejected")
     } else if header.starts_with(b"HTTP/") {
         ProbeResult::DpiFailure("http_blockpage")
     } else {

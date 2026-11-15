@@ -6,9 +6,8 @@ use super::super::routing::connect_socket;
 use super::super::state::RuntimeState;
 use super::target_catalog::PROBE_TIMEOUT;
 
-/// Attempt a raw TLS ClientHello to `target` and read the first response bytes.
-/// Returns `Success` if we get a ServerHello (TLS record type 0x16, handshake
-/// type 0x02), `DpiFailure` if we see signs of DPI interference.
+/// Send a baseline TLS ClientHello and check for a ServerHello.
+/// This probe does not apply the current desync strategy or complete an authenticated handshake.
 pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: Option<&str>) -> RuntimeProbeResult {
     let stream =
         match connect_socket(target, IpAddr::V4(Ipv4Addr::UNSPECIFIED), protect_path, false, Some(PROBE_TIMEOUT)) {
@@ -23,7 +22,7 @@ pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: O
         return RuntimeProbeResult::NetworkError("set_timeout_failed");
     }
 
-    let client_hello = build_minimal_client_hello(sni);
+    let client_hello = RuntimeState::build_probe_client_hello(sni);
     let mut stream = stream;
     if let Err(err) = stream.write_all(&client_hello) {
         return RuntimeState::classify_probe_write_error(&err);
@@ -46,49 +45,6 @@ fn classify_bounded_read_error(error: &io::Error) -> RuntimeProbeResult {
     } else {
         RuntimeState::classify_probe_read_error(error)
     }
-}
-
-/// Build a minimal TLS 1.0 ClientHello with the given SNI. This is a stripped-
-/// down version -- just enough to trigger DPI SNI classification.
-pub(crate) fn build_minimal_client_hello(sni: &str) -> Vec<u8> {
-    let sni_bytes = sni.as_bytes();
-    let sni_list_len = (sni_bytes.len() + 3) as u16;
-    let sni_ext_len = sni_list_len + 2;
-
-    // SNI extension (type 0x0000)
-    let mut extensions = Vec::new();
-    extensions.extend_from_slice(&[0x00, 0x00]);
-    extensions.extend_from_slice(&sni_ext_len.to_be_bytes());
-    extensions.extend_from_slice(&sni_list_len.to_be_bytes());
-    extensions.push(0x00); // host_name type
-    extensions.extend_from_slice(&(sni_bytes.len() as u16).to_be_bytes());
-    extensions.extend_from_slice(sni_bytes);
-
-    let mut body = Vec::new();
-    body.extend_from_slice(&[0x03, 0x01]); // client_version: TLS 1.0
-    body.extend_from_slice(&[0u8; 32]); // Random (32 bytes)
-    body.push(0); // session_id length = 0
-    body.extend_from_slice(&[0x00, 0x02, 0x00, 0x9c]); // TLS_RSA_WITH_AES_128_GCM_SHA256
-    body.extend_from_slice(&[0x01, 0x00]); // Compression methods: null
-    body.extend_from_slice(&(extensions.len() as u16).to_be_bytes());
-    body.extend_from_slice(&extensions);
-
-    let handshake_len = body.len() as u32;
-    let mut handshake = Vec::with_capacity(4 + body.len());
-    handshake.push(0x01); // ClientHello
-    handshake.push((handshake_len >> 16) as u8);
-    handshake.push((handshake_len >> 8) as u8);
-    handshake.push(handshake_len as u8);
-    handshake.extend_from_slice(&body);
-
-    let record_len = handshake.len() as u16;
-    let mut record = Vec::with_capacity(5 + handshake.len());
-    record.push(0x16); // ContentType: Handshake
-    record.extend_from_slice(&[0x03, 0x01]); // TLS 1.0
-    record.extend_from_slice(&record_len.to_be_bytes());
-    record.extend_from_slice(&handshake);
-
-    record
 }
 
 fn read_handshake_type(stream: &mut impl Read, header: [u8; 5]) -> io::Result<Option<u8>> {
@@ -188,5 +144,71 @@ mod tests {
                 .kind(),
             io::ErrorKind::UnexpectedEof
         );
+    }
+
+    fn probe_rustls_origin(version: &'static rustls::SupportedProtocolVersion) {
+        let certificate = rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).expect("test certificate");
+        let config = rustls::ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+            .with_protocol_versions(&[version])
+            .expect("test protocol version")
+            .with_no_client_auth()
+            .with_single_cert(
+                vec![certificate.cert.der().clone()],
+                rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der()).into(),
+            )
+            .expect("test server config");
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind origin");
+        let target = listener.local_addr().expect("origin address");
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept probe");
+            stream.set_read_timeout(Some(Duration::from_secs(7))).expect("bound origin read");
+            let mut header = [0; 5];
+            stream.read_exact(&mut header).expect("ClientHello header");
+            let mut hello = header.to_vec();
+            let mut payload = vec![0; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+            stream.read_exact(&mut payload).expect("ClientHello payload");
+            hello.extend(payload);
+            let mut tls = rustls::ServerConnection::new(std::sync::Arc::new(config)).expect("test server");
+            tls.read_tls(&mut Cursor::new(hello)).expect("read TLS");
+            let result = tls.process_new_packets().map(|_| ());
+            let sni = tls.server_name().map(str::to_owned);
+            tls.write_tls(&mut stream).expect("write server flight");
+            (result, sni)
+        });
+        let result = probe_tls_handshake(target, "localhost", None);
+        let (origin_result, sni) = server.join().expect("origin worker");
+        assert_eq!(result, RuntimeProbeResult::Success, "independent origin result: {origin_result:?}");
+        assert!(origin_result.is_ok(), "independent origin rejected ClientHello: {origin_result:?}");
+        assert_eq!(sni.as_deref(), Some("localhost"));
+    }
+
+    #[test]
+    fn reprobe_client_hello_is_accepted_by_tls12_origin() {
+        probe_rustls_origin(&rustls::version::TLS12);
+    }
+
+    #[test]
+    fn reprobe_client_hello_is_accepted_by_tls13_origin() {
+        probe_rustls_origin(&rustls::version::TLS13);
+    }
+
+    #[test]
+    fn origin_tls_rejections_do_not_report_dpi_failure() {
+        for code in [40, 42, 70, 112, 120] {
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind origin");
+            let target = listener.local_addr().expect("origin address");
+            let server = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().expect("accept probe");
+                stream.set_read_timeout(Some(Duration::from_secs(7))).expect("bound origin read");
+                let mut header = [0; 5];
+                stream.read_exact(&mut header).expect("ClientHello header");
+                let mut payload = vec![0; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+                stream.read_exact(&mut payload).expect("ClientHello payload");
+                stream.write_all(&[0x15, 0x03, 0x03, 0x00, 0x02, 0x02, code]).expect("origin rejection");
+            });
+            let result = probe_tls_handshake(target, "localhost", None);
+            server.join().expect("origin worker");
+            assert_eq!(result, RuntimeProbeResult::NetworkError("tls_rejected"), "origin alert {code}");
+        }
     }
 }

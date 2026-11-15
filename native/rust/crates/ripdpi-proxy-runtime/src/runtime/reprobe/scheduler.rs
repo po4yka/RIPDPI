@@ -6,7 +6,7 @@ use ripdpi_proxy_runtime_adapter::model::services::ReprobeResetHandle;
 use super::super::failure::RuntimeProbeResult;
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;
-use super::reset_policy::reset_if_strategy_mismatch;
+use super::reset_policy::reset_after_baseline_failures;
 use super::target_catalog::{PROBE_TARGETS, TOTAL_DEADLINE};
 use super::tls_probe::probe_tls_handshake;
 
@@ -52,10 +52,8 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
         .ok();
 }
 
-/// Perform the actual reprobe: connect to each probe domain on port 443 and
-/// attempt a raw TLS ClientHello. A failure is classified as a DPI signature
-/// if the connection is reset, times out, or receives a TLS alert before the
-/// ServerHello completes.
+/// Collect baseline TLS observations from each probe domain on port 443.
+/// Origin TLS rejection is inconclusive and cannot authorize a strategy reset.
 fn run_reprobe(protect_path: Option<String>, reset_handle: &ReprobeResetHandle) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
@@ -83,11 +81,11 @@ fn run_reprobe(protect_path: Option<String>, reset_handle: &ReprobeResetHandle) 
                 failures += 1;
             }
             RuntimeProbeResult::NetworkError(reason) => {
-                // Network errors (DNS, routing) are not DPI -- don't count them.
+                // Routing errors and origin TLS rejection do not count toward a reset.
                 tracing::debug!("network_reprobe: {} network error ({reason}), skipping", target_def.domain);
             }
         }
     }
 
-    reset_if_strategy_mismatch(failures, successes, PROBE_TARGETS.len(), reset_handle);
+    reset_after_baseline_failures(failures, successes, PROBE_TARGETS.len(), reset_handle);
 }
