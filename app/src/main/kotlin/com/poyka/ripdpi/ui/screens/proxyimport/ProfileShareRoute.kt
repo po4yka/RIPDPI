@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -87,7 +89,13 @@ private fun copyText(
     label: String,
     text: String,
 ) {
-    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText(label, text))
+    val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
+    val clip = ClipData.newPlainText(label, text)
+    clip.description.extras =
+        PersistableBundle().apply {
+            putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+        }
+    clipboard.setPrimaryClip(clip)
     Toast.makeText(context, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
 }
 

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
 import android.app.Application
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.res.Configuration
 import android.os.LocaleList
 import androidx.compose.runtime.CompositionLocalProvider
@@ -13,8 +15,15 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
+import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
+import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -68,6 +77,33 @@ class ProfileShareLocaleTest {
                 assertEquals(expected, shared)
                 assertTrue(copied.contains(uri))
                 assertTrue(copied.contains(profile.displayName))
+            }
+        }
+    }
+
+    @Test
+    fun `copying a profile link and setup sheet marks the clipboard as sensitive`() {
+        val record = RelayProfileRecord(kind = RelayKindTrojan, server = "proxy.example", udpEnabled = true)
+        val profiles = FakeRelayProfileStore()
+        val credentials = FakeRelayCredentialStore()
+        runBlocking {
+            profiles.save(record)
+            credentials.save(RelayCredentialRecord(profileId = record.id, trojanPassword = "fixture"))
+        }
+        val viewModel = ProfileShareRouteViewModel(profiles, credentials, NoOpProfileMutationCoordinator)
+        val clipboard = RuntimeEnvironment.getApplication().getSystemService(ClipboardManager::class.java)
+        composeRule.setContent {
+            RipDpiTheme {
+                ProfileShareRoute(profileId = record.id, onBack = {}, viewModel = viewModel)
+            }
+        }
+
+        for (tag in listOf(RipDpiTestTags.ProfileShareCopyLink, RipDpiTestTags.ProfileShareCopySheet)) {
+            composeRule.onNodeWithTag(tag).performScrollTo().performClick()
+            composeRule.runOnIdle {
+                val clip = requireNotNull(clipboard.primaryClip)
+                assertTrue(clip.getItemAt(0).text.contains("trojan://"))
+                assertTrue(clip.description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE) == true)
             }
         }
     }
