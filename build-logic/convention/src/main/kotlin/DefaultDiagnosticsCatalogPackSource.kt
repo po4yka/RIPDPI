@@ -45,8 +45,8 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             ),
             TargetPackDefinition(
                 id = "ru-control",
-                version = 1,
-                tcpTargets = DiagnosticsCatalogSharedData.defaultTcpTargets,
+                version = 2,
+                tcpTargets = DiagnosticsCatalogSharedData.tcpTlsControls,
                 whitelistSni = DiagnosticsCatalogSharedData.defaultWhitelist,
             ),
             TargetPackDefinition(
@@ -113,7 +113,7 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             ),
             TargetPackDefinition(
                 id = "neutral-control",
-                version = 2,
+                version = 3,
                 domainTargets =
                     domainTargets(
                         """
@@ -122,7 +122,7 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                         """.trimIndent(),
                         isControl = true,
                     ),
-                tcpTargets = DiagnosticsCatalogSharedData.neutralTcpTargets,
+                tcpTargets = DiagnosticsCatalogSharedData.tcpTlsControls,
                 throughputTargets =
                     listOf(
                         ThroughputTargetDefinition(

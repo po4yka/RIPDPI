@@ -101,6 +101,7 @@ internal data class TcpTargetDefinition(
     val ip: String,
     val port: Int = 443,
     val asn: String? = null,
+    val sni: String? = null,
 )
 
 internal data class QuicTargetDefinition(

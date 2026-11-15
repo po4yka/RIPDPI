@@ -399,6 +399,7 @@ private fun TcpTargetDefinition.toJson(): JsonObject =
         put("ip", ip)
         put("port", port)
         asn?.let { put("asn", it) }
+        sni?.let { put("sni", it) }
     }
 
 private fun QuicTargetDefinition.toJson(): JsonObject =

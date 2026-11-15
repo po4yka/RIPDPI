@@ -30,7 +30,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "default",
             name = "Default diagnostics",
-            version = 4,
+            version = 5,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
@@ -46,7 +46,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                 ),
             dnsTargets =
                 defaultDnsDomains.map { domain -> DnsTargetDefinition(domain = domain) },
-            tcpTargets = DiagnosticsCatalogSharedData.defaultTcpTargets,
+            tcpTargets = DiagnosticsCatalogSharedData.tcpTlsControls,
             whitelistSni = DiagnosticsCatalogSharedData.defaultWhitelist,
         )
 
@@ -66,13 +66,13 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "automatic-probing",
             name = "Automatic probing",
-            version = 4,
+            version = 5,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_PROBING,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
-            packRefs = listOf(packRef("neutral-control", 2)),
+            packRefs = listOf(packRef("neutral-control", 3)),
             domainTargets =
                 domainTargets(
                     """
@@ -98,13 +98,13 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "automatic-audit",
             name = "Automatic audit",
-            version = 4,
+            version = 5,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
-            packRefs = listOf(packRef("neutral-control", 2)),
+            packRefs = listOf(packRef("neutral-control", 3)),
             domainTargets =
                 domainTargets(
                     """
@@ -129,7 +129,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "dpi-detector-full",
             name = "DPI Detector Full",
-            version = 3,
+            version = 4,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
@@ -151,7 +151,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-web-connectivity",
             name = "Russia Web Connectivity",
-            version = 3,
+            version = 4,
             family = CatalogDiagnosticProfileFamily.WEB_CONNECTIVITY,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -161,7 +161,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                 listOf(
                     packRef("ru-independent-media", 1),
                     packRef("ru-global-platforms", 1),
-                    packRef("ru-control", 1),
+                    packRef("ru-control", 2),
                 ),
             domainTargets = independentMedia.domainTargets + globalPlatforms.domainTargets,
             dnsTargets = independentMedia.dnsTargets + globalPlatforms.dnsTargets,
@@ -176,7 +176,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-messaging",
             name = "Russia Messaging Services",
-            version = 4,
+            version = 5,
             family = CatalogDiagnosticProfileFamily.MESSAGING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -185,7 +185,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             packRefs =
                 listOf(
                     packRef("ru-messaging", 2),
-                    packRef("ru-control", 1),
+                    packRef("ru-control", 2),
                 ),
             domainTargets = messaging.domainTargets,
             quicTargets = messaging.quicTargets,
@@ -199,7 +199,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-circumvention",
             name = "Russia Sensitive Services Reachability",
-            version = 3,
+            version = 4,
             family = CatalogDiagnosticProfileFamily.CIRCUMVENTION,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -208,7 +208,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             packRefs =
                 listOf(
                     packRef("ru-circumvention", 1),
-                    packRef("ru-control", 1),
+                    packRef("ru-control", 2),
                 ),
             domainTargets = circumvention.domainTargets,
             circumventionTargets = circumvention.circumventionTargets,
@@ -221,7 +221,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-throttling",
             name = "Russia Throttling Check",
-            version = 5,
+            version = 6,
             family = CatalogDiagnosticProfileFamily.THROTTLING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -230,7 +230,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             packRefs =
                 listOf(
                     packRef("ru-throttling", 2),
-                    packRef("neutral-control", 2),
+                    packRef("neutral-control", 3),
                 ),
             domainTargets = throttling.domainTargets + control.domainTargets,
             throughputTargets = throttling.throughputTargets + control.throughputTargets,
@@ -258,7 +258,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 8,
+            version = 9,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -271,7 +271,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("ru-messaging", 2),
                     packRef("ru-circumvention", 1),
                     packRef("ru-throttling", 2),
-                    packRef("neutral-control", 2),
+                    packRef("neutral-control", 3),
                 ),
             domainTargets =
                 (
@@ -297,7 +297,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     www.whatsapp.com
                     """.trimIndent(),
                 ),
-            tcpTargets = DiagnosticsCatalogSharedData.neutralTcpTargets,
+            tcpTargets = neutralControl.tcpTargets,
             serviceTargets = messaging.serviceTargets,
             circumventionTargets = circumvention.circumventionTargets,
             throughputTargets = neutralControl.throughputTargets,
@@ -315,7 +315,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-strategy",
             name = "Russia DPI Strategy Probe",
-            version = 2,
+            version = 3,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
@@ -328,7 +328,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("ru-global-platforms", 1),
                     packRef("ru-messaging", 2),
                     packRef("ru-circumvention", 1),
-                    packRef("neutral-control", 2),
+                    packRef("neutral-control", 3),
                 ),
             domainTargets =
                 (

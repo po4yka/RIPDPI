@@ -152,7 +152,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         }
 
         val messagingProfile = profiles.single { it.id == "ru-messaging" }
-        assertEquals(4, messagingProfile.version)
+        assertEquals(5, messagingProfile.version)
         messagingProfile.serviceTargets.forEach { target ->
             assertNull(target.bootstrapUrl, "Profile target ${target.id} should not ship a bootstrap URL")
             assertNotNull(target.tcpEndpointHost, "Profile target ${target.id} still needs a TCP endpoint host")
@@ -172,7 +172,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         val fullProfile = profiles.single { it.id == "ru-dpi-full" }
         val telegramTarget = requireNotNull(fullProfile.telegramTarget)
 
-        assertEquals(8, fullProfile.version)
+        assertEquals(9, fullProfile.version)
         assertEquals("https://telegram.org/img/Telegram200million.png", telegramTarget.mediaUrl)
         assertEquals(5, telegramTarget.dcEndpoints.size)
         assertEquals(listOf("DC1", "DC2", "DC3", "DC4", "DC5"), telegramTarget.dcEndpoints.map { it.label })
@@ -206,7 +206,7 @@ class DiagnosticsCatalogLegalSafetyTest {
                 "ru-global-platforms@1",
                 "ru-messaging@2",
                 "ru-circumvention@1",
-                "neutral-control@2",
+                "neutral-control@3",
             ),
             strategy.packRefs,
         )
@@ -272,7 +272,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         val defaultProfile = profiles.single { it.id == "default" }
         val resolverAuditProfile = profiles.single { it.id == "resolver-audit" }
 
-        assertEquals(4, defaultProfile.version)
+        assertEquals(5, defaultProfile.version)
         assertEquals(listOf("cloudflare.com", "google.com", "youtube.com"), defaultProfile.dnsTargets.map { it.domain })
         assertTrue(defaultProfile.dnsTargets.all { it.udpServer == null })
 

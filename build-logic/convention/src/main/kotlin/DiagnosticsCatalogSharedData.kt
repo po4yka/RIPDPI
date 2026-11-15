@@ -3,22 +3,23 @@ internal object DiagnosticsCatalogSharedData {
 
     val defaultWhitelist = listOf("vk.com", "dzen.ru", "2gis.com")
 
-    val defaultTcpTargets =
-        tcpTargets(
-            """
-            CF-01|Cloudflare|172.67.70.222|443|13335
-            GOOG-01|Google DNS|8.8.8.8|443|15169
-            Q9-01|Quad9|9.9.9.9|443|19281
-            """.trimIndent(),
-        )
-
-    val neutralTcpTargets =
-        tcpTargets(
-            """
-            CF-01|Cloudflare|172.67.70.222|443|13335
-            GOOG-01|Google DNS|8.8.8.8|443|15169
-            Q9-01|Quad9|9.9.9.9|443|19281
-            """.trimIndent(),
+    // Both providers publish the HTTPS hostname for these resolver addresses.
+    val tcpTlsControls =
+        listOf(
+            TcpTargetDefinition(
+                id = "CF-DNS",
+                provider = "Cloudflare DNS",
+                ip = "1.1.1.1",
+                asn = "13335",
+                sni = "cloudflare-dns.com",
+            ),
+            TcpTargetDefinition(
+                id = "GOOG-01",
+                provider = "Google DNS",
+                ip = "8.8.8.8",
+                asn = "15169",
+                sni = "dns.google",
+            ),
         )
 
     val dpiTelegramTarget =
