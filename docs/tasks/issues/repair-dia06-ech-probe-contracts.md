@@ -2,7 +2,7 @@
 id: DGN-1794732423381679
 title: Repair DIA-06 ECH probe contracts
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: dia06-integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: repair-dia06-ech-probe-contracts
 created: 2026-11-15
 updated: 2026-11-15
+closed_at: "2026-11-15T10:58:00Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Six DIA-06 fixes are separate commits on main and pushed to origin at fa7cd279ea32175e02c54b752877995dc7ba498d. Final source e76f12019402e57cb2d466ad6ea7ce3e6400c8ae passed 163 tests, strict Clippy, exact ci-gates, architecture, locked metadata and task contracts; general and async reviews passed. External and device compatibility are not claimed.
 ---
 
 ## Goal
