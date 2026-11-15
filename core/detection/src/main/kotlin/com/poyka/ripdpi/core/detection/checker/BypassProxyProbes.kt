@@ -270,7 +270,8 @@ private fun ByteArray.socks5UdpPayloadOffset(
     targetHost: String,
     targetPort: Int,
 ): Int? {
-    if (size < SocksHeaderBytes || this[0].unsigned() != 0 || this[1].unsigned() != 0 || this[2].unsigned() != 0) {
+    if (size < SocksHeaderBytes) return null
+    if (this[0].unsigned() != 0 || this[1].unsigned() != 0 || this[2].unsigned() != 0) {
         return null
     }
     val addressStart = SocksUdpAddressStartBytes

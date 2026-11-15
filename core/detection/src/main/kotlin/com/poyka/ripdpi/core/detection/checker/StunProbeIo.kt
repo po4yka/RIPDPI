@@ -9,18 +9,15 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import java.io.Closeable
 import java.net.InetAddress
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 internal suspend fun <T> Closeable.withStunCancellation(action: () -> T): T =
     suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation { runCatching { close() } }
         if (continuation.isActive) {
-            try {
-                continuation.resume(action())
-            } catch (error: Exception) {
-                continuation.resumeWithException(error)
-            }
+            val result = runCatching(action)
+            val failure = result.exceptionOrNull()
+            if (failure != null && failure !is Exception) throw failure
+            continuation.resumeWith(result)
         }
     }
 
