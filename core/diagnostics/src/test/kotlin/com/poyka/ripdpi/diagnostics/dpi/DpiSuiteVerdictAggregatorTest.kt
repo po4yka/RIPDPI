@@ -5,6 +5,15 @@ import org.junit.Test
 
 class DpiSuiteVerdictAggregatorTest {
     @Test
+    fun unsupportedTargetsAreExcludedButNeverCountAsMeasurements() {
+        val unsupported = tcp16(Tcp16Verdict.UNSUPPORTED)
+        assertEquals(SuiteVerdict.INCONCLUSIVE, DpiSuiteVerdictAggregator.aggregate(listOf(unsupported)).verdict)
+        val completed = tcp16(Tcp16Verdict.OK)
+        val mixed = completed.copy(results = completed.results + unsupported.results)
+        assertEquals(SuiteVerdict.CLEAN, DpiSuiteVerdictAggregator.aggregate(listOf(mixed)).verdict)
+    }
+
+    @Test
     fun inapplicableSniDoesNotChangeSuccessfulMeasuredVerdict() {
         val skipped = DpiSuiteProbeResult.Skipped(DpiProbeKind.WHITELIST_SNI, DpiSuiteSkipReason.NOT_APPLICABLE)
         assertEquals(
@@ -37,7 +46,7 @@ class DpiSuiteVerdictAggregatorTest {
                 results =
                     listOf(
                         dnsIntegrity(verdict = DnsIntegrityVerdict.DNS_OK),
-                        tcp16(verdict = Tcp16Verdict.DETECTED_AT_KB),
+                        tcp16(verdict = Tcp16Verdict.PADDED_TRAIN_INTERRUPTED),
                     ),
             )
 
@@ -75,17 +84,17 @@ class DpiSuiteVerdictAggregatorTest {
     }
 
     @Test
-    fun mixedWhenDnsInterferenceAndQuicFingerprintFailureAreObserved() {
+    fun quicTemplateLossDoesNotAddDpiToDnsInterference() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
                 results =
                     listOf(
                         dnsIntegrity(verdict = DnsIntegrityVerdict.DNS_INTERCEPTION),
-                        quicH3(verdict = QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK),
+                        quicH3(QuicProbeOutcome.NO_RESPONSE),
                     ),
             )
 
-        assertEquals(SuiteVerdict.MIXED, aggregate.verdict)
+        assertEquals(SuiteVerdict.DNS_INTERFERENCE, aggregate.verdict)
     }
 
     @Test
@@ -127,7 +136,6 @@ class DpiSuiteVerdictAggregatorTest {
         val incomplete =
             listOf(
                 quicH3(QuicProbeOutcome.NO_RESPONSE),
-                telegram(TelegramTestVerdict.BLOCKED),
                 telegram(TelegramTestVerdict.ERROR),
                 telegram(TelegramTestVerdict.PARTIAL),
                 tcp16(Tcp16Verdict.DEAD),
@@ -196,7 +204,7 @@ class DpiSuiteVerdictAggregatorTest {
             )
         assertEquals(
             SuiteVerdict.DPI_DETECTED,
-            DpiSuiteVerdictAggregator.aggregate(failures + quicH3(QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK)).verdict,
+            DpiSuiteVerdictAggregator.aggregate(failures + domainReachability(DomainVerdict.ISP_PAGE)).verdict,
         )
         assertEquals(
             SuiteVerdict.DNS_INTERFERENCE,
@@ -247,8 +255,8 @@ class DpiSuiteVerdictAggregatorTest {
                     port = 443,
                     alive = true,
                     verdict = verdict,
-                    detectedAtKb = if (verdict == Tcp16Verdict.DETECTED_AT_KB) 16 else null,
-                    measuredRttMs = 20,
+                    completedPaddingBytes = if (verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED) 16_384 else 0,
+                    meanResponseMs = 20,
                     errorDetail = null,
                     connectionCount = 1,
                 ),

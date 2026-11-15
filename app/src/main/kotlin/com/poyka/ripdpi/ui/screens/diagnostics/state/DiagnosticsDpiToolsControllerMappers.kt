@@ -199,17 +199,12 @@ internal fun CompressionProbeRunResult.toUiModel(
 internal fun List<Tcp16ProbeResult>.toTcp16UiModel(
     stringResolver: StringResolver,
 ): DiagnosticsTcp16FatHeaderToolUiModel {
-    val detected = count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+    val detected = count { result -> result.verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED }
     val invalid = count { result -> result.verdict == Tcp16Verdict.INVALID_RECONNECTED }
-    val unavailable = count { result -> result.verdict == Tcp16Verdict.DEAD || result.verdict == Tcp16Verdict.ERROR }
+    val complete = count { it.verdict == Tcp16Verdict.OK }
     return DiagnosticsTcp16FatHeaderToolUiModel(
         state = DiagnosticsTcp16FatHeaderState.Complete,
-        summary =
-            if (detected == 0 && invalid == 0) {
-                stringResolver.getQuantityString(R.plurals.diagnostics_tcp16_complete_clean, size, size)
-            } else {
-                stringResolver.getString(R.string.diagnostics_tcp16_complete_detected, detected, invalid)
-            },
+        summary = stringResolver.getString(R.string.diagnostics_dpi_suite_tcp16_completed, complete, size),
         metrics =
             (
                 listOf(
@@ -219,14 +214,9 @@ internal fun List<Tcp16ProbeResult>.toTcp16UiModel(
                         DiagnosticsTone.Info,
                     ),
                     DiagnosticsMetricUiModel(
-                        stringResolver.getString(R.string.diagnostics_tcp16_metric_detected),
+                        stringResolver.getString(R.string.diagnostics_dpi_suite_train_interrupted),
                         detected.toString(),
                         countTone(detected),
-                    ),
-                    DiagnosticsMetricUiModel(
-                        stringResolver.getString(R.string.diagnostics_tcp16_metric_unavailable),
-                        unavailable.toString(),
-                        DiagnosticsTone.Neutral,
                     ),
                     DiagnosticsMetricUiModel(
                         stringResolver.getString(R.string.diagnostics_tcp16_metric_single_socket_invalid),
@@ -242,7 +232,7 @@ internal fun List<Tcp16ProbeResult>.toTcp16UiModel(
                 .map { summary -> summary.toUiModel() }
                 .toPersistentList(),
         detectedResults =
-            filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+            filter { it.canCompareSni }
                 .map { result ->
                     DiagnosticsTcp16DetectedTargetUiModel(
                         targetId = result.targetId,
@@ -255,7 +245,7 @@ internal fun List<Tcp16ProbeResult>.toTcp16UiModel(
 }
 
 private fun Tcp16AsnSummary.toUiModel(): DiagnosticsTcp16AsnUiModel {
-    val warningCount = detected + errors + invalidReconnected
+    val warningCount = detected + dead + errors + invalidReconnected + unsupported
     return DiagnosticsTcp16AsnUiModel(
         asn = asn,
         providers = providers.joinToString(),
@@ -263,6 +253,7 @@ private fun Tcp16AsnSummary.toUiModel(): DiagnosticsTcp16AsnUiModel {
         detected = detected.toString(),
         dead = dead.toString(),
         errors = (errors + invalidReconnected).toString(),
+        unsupported = unsupported.toString(),
         tone = countTone(warningCount),
     )
 }

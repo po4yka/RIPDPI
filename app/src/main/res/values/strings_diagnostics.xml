@@ -924,12 +924,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: System resolution failed</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Not validated</string>
-    <string name="diagnostics_tcp16_complete_detected">Targets with TCP16 closure patterns: %1$d; failed reconnect validations: %2$d.</string>
     <string name="diagnostics_tcp16_failed">TCP16 fat-header probe failed.</string>
-    <string name="diagnostics_tcp16_metric_detected">detected</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">single-socket invalid</string>
     <string name="diagnostics_tcp16_metric_targets">targets</string>
-    <string name="diagnostics_tcp16_metric_unavailable">unavailable</string>
     <string name="diagnostics_tcp16_running">Running TCP16 fat-header probe across bundled targets...</string>
     <string name="diagnostics_tls_metric_mode">TLS mode</string>
     <string name="diagnostics_tls_metric_profile">TLS profile</string>
@@ -1067,10 +1064,6 @@
     <plurals name="diagnostics_ipv4_whitelist_cached_provider">
         <item quantity="one">Cached %1$d /24 range for %2$s.</item>
         <item quantity="other">Cached %1$d /24 ranges for %2$s.</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="one">No TCP16 fat-header closure pattern detected across %1$d target.</item>
-        <item quantity="other">No TCP16 fat-header closure pattern detected across %1$d targets.</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="one">%1$s trend, %2$d sample</item>
@@ -1430,8 +1423,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH ok</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH rejected</string>
     <string name="diagnostics_dpi_suite_no_ech_config">no ECH config</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">unknown ECH key</string>
-    <string name="diagnostics_dpi_suite_network_blocked">network blocked</string>
     <string name="diagnostics_dpi_suite_yes">yes</string>
     <string name="diagnostics_dpi_suite_no">no</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">No selected DPI probe reported warnings.</string>
@@ -1448,8 +1439,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">Flagged domains: %1$d/%2$d; stub IPs: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">Resolvers available: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">Domains reachable: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">Targets with TCP16 closure pattern: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">ASN groups checked: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Targets with complete Initial/VN replies: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">Unmatched UDP reply</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">Receive limit reached</string>
@@ -1464,7 +1453,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI detected</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">DNS interference</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Mixed</string>
-    <string name="diagnostics_dpi_suite_slow">slow</string>
     <string name="diagnostics_dpi_suite_stalled">stalled</string>
     <string name="diagnostics_dpi_suite_error">error</string>
     <string name="diagnostics_dpi_suite_probe_running">Probe is in progress.</string>
@@ -1806,8 +1794,8 @@
     <string name="diagnostics_pt_status_network_error">Network error</string>
     <string name="diagnostics_pt_status_invalid_response">Invalid response</string>
     <string name="diagnostics_pt_status_invalid_target">Invalid endpoint</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s detected</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · dead %2$s · errors %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s trains interrupted</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · unreachable %2$s · errors %3$s · unsupported %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">HTTP/3 response confirmed</string>
     <string name="diagnostics_http3_tls">TLS certificate and hostname verified</string>
@@ -2008,4 +1996,14 @@
     <string name="diagnostics_outcome_coverage_unknown">Coverage unknown</string>
     <string name="diagnostics_outcome_stale">Saved result from a different network</string>
     <string name="diagnostics_outcome_historical">Saved evidence; current network match unknown</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">Completed TCP16 trains: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">Padding in completed requests: %1$d bytes</string>
+    <string name="diagnostics_dpi_suite_http_rejected">HTTP request rejected</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">Padded train interrupted</string>
+    <string name="diagnostics_dpi_suite_peer_closed">Peer closed the connection</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">No usable TLS baseline</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">The TLS baseline did not reproduce the interruption</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">Upload payload written by client: %1$d bytes</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">HTTP response wait: %1$d ms</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">Certificate verification failed</string>
 </resources>

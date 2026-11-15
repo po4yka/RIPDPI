@@ -260,10 +260,21 @@ class DpiProbeSuiteRunner(
             runProbe(DpiProbeKind.WHITELIST_SNI) {
                 val reason =
                     when {
-                        DpiProbeKind.TCP16 !in selection -> DpiSuiteSkipReason.PREREQUISITE_NOT_SELECTED
-                        tcp16Results.any { it.verdict == Tcp16Verdict.DETECTED_AT_KB } -> null
-                        tcp16Results.any { it.verdict == Tcp16Verdict.OK } -> DpiSuiteSkipReason.NOT_APPLICABLE
-                        else -> DpiSuiteSkipReason.PREREQUISITE_UNAVAILABLE
+                        DpiProbeKind.TCP16 !in selection -> {
+                            DpiSuiteSkipReason.PREREQUISITE_NOT_SELECTED
+                        }
+
+                        tcp16Results.any { it.canCompareSni } -> {
+                            null
+                        }
+
+                        tcp16Results.any { it.verdict == Tcp16Verdict.OK && it.transport == Tcp16Transport.HTTPS } -> {
+                            DpiSuiteSkipReason.NOT_APPLICABLE
+                        }
+
+                        else -> {
+                            DpiSuiteSkipReason.PREREQUISITE_UNAVAILABLE
+                        }
                     }
                 if (reason == null) {
                     DpiSuiteProbeResult.AllowlistSni(probes.findAllowlistSni(tcp16Results))

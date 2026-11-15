@@ -931,12 +931,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: सिस्टम रिज़ॉल्यूशन विफल</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">सत्यापित नहीं</string>
-    <string name="diagnostics_tcp16_complete_detected">TCP16 क्लोज़र पैटर्न वाले लक्ष्य: %1$d; विफल पुनः-कनेक्ट सत्यापन: %2$d।</string>
     <string name="diagnostics_tcp16_failed">TCP16 fat-header probe विफल।</string>
-    <string name="diagnostics_tcp16_metric_detected">पता चला</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">single-socket अमान्य</string>
     <string name="diagnostics_tcp16_metric_targets">लक्ष्य</string>
-    <string name="diagnostics_tcp16_metric_unavailable">अनुपलब्ध</string>
     <string name="diagnostics_tcp16_running">बंडल किए गए लक्ष्यों पर TCP16 fat-header probe चलाया जा रहा है...</string>
     <string name="diagnostics_tls_metric_mode">TLS मोड</string>
     <string name="diagnostics_tls_metric_profile">TLS प्रोफ़ाइल</string>
@@ -1047,10 +1044,6 @@
     <plurals name="diagnostics_ipv4_whitelist_cached_provider">
         <item quantity="one">%2$s के लिए %1$d /24 रेंज कैश की गई.</item>
         <item quantity="other">%2$s के लिए %1$d /24 रेंज कैश की गईं.</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="one">%1$d लक्ष्य में कोई TCP16 fat-header क्लोज़र पैटर्न नहीं मिला।</item>
-        <item quantity="other">%1$d लक्ष्यों में कोई TCP16 fat-header क्लोज़र पैटर्न नहीं मिला।</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="one">%1$s का रुझान, %2$d नमूना</item>
@@ -1410,8 +1403,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH काम कर रहा है</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH अस्वीकृत</string>
     <string name="diagnostics_dpi_suite_no_ech_config">ECH कॉन्फ़िगरेशन नहीं</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">अज्ञात ECH कुंजी</string>
-    <string name="diagnostics_dpi_suite_network_blocked">नेटवर्क अवरुद्ध</string>
     <string name="diagnostics_dpi_suite_yes">हाँ</string>
     <string name="diagnostics_dpi_suite_no">नहीं</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">चुनी गई DPI जाँचों ने कोई चेतावनी नहीं दी।</string>
@@ -1428,8 +1419,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">चिह्नित डोमेन: %1$d/%2$d; स्टब IP: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">उपलब्ध रिज़ॉल्वर: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">उपलब्ध डोमेन: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">TCP16 बंद होने के पैटर्न वाले लक्ष्य: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">जाँचे गए ASN समूह: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">पूर्ण Initial/VN जवाब वाले लक्ष्य: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">UDP का बेमेल जवाब</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">जवाब पाने की सीमा पूरी हुई</string>
@@ -1444,7 +1433,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI मिला</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">DNS हस्तक्षेप</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">मिश्रित हस्तक्षेप</string>
-    <string name="diagnostics_dpi_suite_slow">धीमा</string>
     <string name="diagnostics_dpi_suite_stalled">रुका हुआ</string>
     <string name="diagnostics_dpi_suite_error">त्रुटि</string>
     <string name="diagnostics_dpi_suite_probe_running">जाँच चल रही है।</string>
@@ -1786,8 +1774,8 @@
     <string name="diagnostics_pt_status_network_error">नेटवर्क त्रुटि</string>
     <string name="diagnostics_pt_status_invalid_response">अमान्य जवाब</string>
     <string name="diagnostics_pt_status_invalid_target">अमान्य एंडपॉइंट</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s में पता चला</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · अनुपलब्ध %2$s · त्रुटियाँ %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s शृंखलाएँ बीच में रुकीं</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · पहुँच से बाहर %2$s · त्रुटियाँ %3$s · असमर्थित %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">HTTP/3 प्रतिक्रिया की पुष्टि</string>
     <string name="diagnostics_http3_tls">TLS प्रमाणपत्र और होस्ट नाम सत्यापित</string>
@@ -1988,4 +1976,14 @@
     <string name="diagnostics_outcome_coverage_unknown">जाँच का दायरा अज्ञात है</string>
     <string name="diagnostics_outcome_stale">किसी दूसरे नेटवर्क का सहेजा गया परिणाम</string>
     <string name="diagnostics_outcome_historical">सहेजे गए साक्ष्य; मौजूदा नेटवर्क से मिलान अज्ञात है</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">पूरी हुई TCP16 शृंखलाएँ: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">पूरे हुए अनुरोधों में पैडिंग: %1$d बाइट</string>
+    <string name="diagnostics_dpi_suite_http_rejected">HTTP अनुरोध अस्वीकार हुआ</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">पैडिंग वाली शृंखला बीच में रुकी</string>
+    <string name="diagnostics_dpi_suite_peer_closed">सर्वर ने कनेक्शन बंद किया</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">कोई उपयोगी TLS आधार परीक्षण नहीं मिला</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">TLS आधार परीक्षण में रुकावट दोबारा नहीं हुई</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">क्लाइंट ने अपलोड के लिए लिखे: %1$d बाइट</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">HTTP जवाब का इंतज़ार: %1$d मिलीसेकंड</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">प्रमाणपत्र का सत्यापन विफल हुआ</string>
 </resources>

@@ -82,6 +82,7 @@ internal fun Tcp16FatHeaderProbeCard(
                                 row.providers,
                                 row.dead,
                                 row.errors,
+                                row.unsupported,
                             ),
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
@@ -141,7 +142,7 @@ internal fun AllowlistSniFinderCard(
                 tool.rows.forEach { row ->
                     StatusIndicator(
                         label =
-                            pluralStringResource(
+                            row.failure ?: pluralStringResource(
                                 R.plurals.diagnostics_sni_row_compatible,
                                 row.compatibleSnis.size,
                                 row.asn,
@@ -160,7 +161,9 @@ internal fun AllowlistSniFinderCard(
                         style = RipDpiThemeTokens.type.monoSmall,
                         color = colors.mutedForeground,
                     )
-                    CompatibleSniValues(row.compatibleSnis, clipboardManager)
+                    if (row.failure == null || row.compatibleSnis.isNotEmpty()) {
+                        CompatibleSniValues(row.compatibleSnis, clipboardManager)
+                    }
                 }
             }
         }

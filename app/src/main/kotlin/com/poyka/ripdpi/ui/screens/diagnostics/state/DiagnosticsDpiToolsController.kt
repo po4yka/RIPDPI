@@ -10,7 +10,6 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
-import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.dpich.HttpCompressionProber
 import com.poyka.ripdpi.diagnostics.rkn.RknLayeredProbePipeline
 import com.poyka.ripdpi.diagnostics.rkn.RknTarget
@@ -254,7 +253,7 @@ internal class DiagnosticsDpiToolsController(
                     randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
                 )
             }.onSuccess { results ->
-                latestTcp16DetectedResults = results.filter { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
+                latestTcp16DetectedResults = results.filter { it.canCompareSni }
                 _tcp16FatHeaderTool.value = results.toTcp16UiModel(stringResolver)
                 _allowlistSniTool.value =
                     _allowlistSniTool.value.copy(

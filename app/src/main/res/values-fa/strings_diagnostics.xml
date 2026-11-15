@@ -897,12 +897,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: تفکیک نام سیستم ناموفق بود</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">تأییدنشده</string>
-    <string name="diagnostics_tcp16_complete_detected">اهداف دارای الگوی بسته‌شدن ⁨TCP16⁩: %1$d؛ تأییدهای ناموفق اتصال مجدد: %2$d.</string>
     <string name="diagnostics_tcp16_failed">کاوش سرآیند چاق TCP16 ناموفق بود.</string>
-    <string name="diagnostics_tcp16_metric_detected">شناسایی‌شده</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">تک‌سوکت نامعتبر</string>
     <string name="diagnostics_tcp16_metric_targets">هدف‌ها</string>
-    <string name="diagnostics_tcp16_metric_unavailable">در دسترس نیست</string>
     <string name="diagnostics_tcp16_running">در حال اجرای کاوش سرآیند چاق TCP16 روی هدف‌های همراه‌شده...</string>
     <string name="diagnostics_tls_metric_mode">حالت TLS</string>
     <string name="diagnostics_tls_metric_profile">نمایه TLS</string>
@@ -1040,10 +1037,6 @@
     <plurals name="diagnostics_ipv4_whitelist_cached_provider">
         <item quantity="one">%1$d بازهٔ /24 برای %2$s در حافظهٔ نهان ذخیره شد.</item>
         <item quantity="other">%1$d بازهٔ /24 برای %2$s در حافظهٔ نهان ذخیره شد.</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="one">در %1$d هدف هیچ الگوی بسته‌شدن سرآیند چاق TCP16 شناسایی نشد.</item>
-        <item quantity="other">در %1$d هدف هیچ الگوی بسته‌شدن سرآیند چاق TCP16 شناسایی نشد.</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="one">روند %1$s، %2$d نمونه</item>
@@ -1403,8 +1396,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH کار می‌کند</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH رد شد</string>
     <string name="diagnostics_dpi_suite_no_ech_config">بدون تنظیمات ECH</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">کلید ECH ناشناخته</string>
-    <string name="diagnostics_dpi_suite_network_blocked">شبکه مسدود است</string>
     <string name="diagnostics_dpi_suite_yes">بله</string>
     <string name="diagnostics_dpi_suite_no">خیر</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">بررسی‌های DPI انتخاب‌شده هشداری گزارش نکردند.</string>
@@ -1421,8 +1412,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">دامنه‌های علامت‌گذاری‌شده: %1$d/%2$d؛ IP ساختگی: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">حل‌کننده‌های در دسترس: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">دامنه‌های در دسترس: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">هدف‌های دارای الگوی بسته‌شدن ⁨TCP16⁩: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">گروه‌های ASN بررسی‌شده: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">هدف‌های دارای پاسخ کامل Initial/VN: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">پاسخ UDP نامنطبق</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">حد دریافت پر شد</string>
@@ -1437,7 +1426,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI شناسایی شد</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">دخالت در DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">دخالت ترکیبی</string>
-    <string name="diagnostics_dpi_suite_slow">کند</string>
     <string name="diagnostics_dpi_suite_stalled">متوقف</string>
     <string name="diagnostics_dpi_suite_error">خطا</string>
     <string name="diagnostics_dpi_suite_probe_running">بررسی در حال اجرا است.</string>
@@ -1779,8 +1767,8 @@
     <string name="diagnostics_pt_status_network_error">خطای شبکه</string>
     <string name="diagnostics_pt_status_invalid_response">پاسخ نامعتبر</string>
     <string name="diagnostics_pt_status_invalid_target">نقطهٔ پایانی نامعتبر</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s شناسایی شد</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · دسترس‌ناپذیر %2$s · خطاها %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s از %3$s دنباله قطع شد</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · دسترس‌ناپذیر %2$s · خطا %3$s · پشتیبانی‌نشده %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">پاسخ HTTP/3 تأیید شد</string>
     <string name="diagnostics_http3_tls">گواهی TLS و نام میزبان بررسی شد</string>
@@ -1981,4 +1969,14 @@
     <string name="diagnostics_outcome_coverage_unknown">دامنه بررسی نامشخص است</string>
     <string name="diagnostics_outcome_stale">نتیجه ذخیره‌شده مربوط به شبکه دیگری است</string>
     <string name="diagnostics_outcome_historical">شواهد ذخیره‌شده؛ تطابق با شبکه فعلی نامشخص است</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">دنباله‌های TCP16 تکمیل‌شده: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">دادهٔ پرکننده در درخواست‌های کامل: %1$d بایت</string>
+    <string name="diagnostics_dpi_suite_http_rejected">درخواست HTTP رد شد</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">دنبالهٔ دارای دادهٔ پرکننده قطع شد</string>
+    <string name="diagnostics_dpi_suite_peer_closed">سرور اتصال را بست</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">آزمون مرجع TLS قابل استفاده نیست</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">آزمون مرجع TLS قطعی را بازتولید نکرد</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">دادهٔ بارگذاری نوشته‌شده توسط کارخواه: %1$d بایت</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">انتظار پاسخ HTTP: %1$d میلی‌ثانیه</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">اعتبارسنجی گواهی ناموفق بود</string>
 </resources>

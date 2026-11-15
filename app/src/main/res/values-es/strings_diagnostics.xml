@@ -897,12 +897,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: Falló la resolución del sistema</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">No validada</string>
-    <string name="diagnostics_tcp16_complete_detected">Objetivos con patrones de cierre TCP16: %1$d; validaciones de reconexión fallidas: %2$d.</string>
     <string name="diagnostics_tcp16_failed">La sonda de encabezado gordo TCP16 falló.</string>
-    <string name="diagnostics_tcp16_metric_detected">detectados</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">socket único no válido</string>
     <string name="diagnostics_tcp16_metric_targets">objetivos</string>
-    <string name="diagnostics_tcp16_metric_unavailable">no disponible</string>
     <string name="diagnostics_tcp16_running">Ejecutando la sonda de encabezado gordo TCP16 en los objetivos incluidos...</string>
     <string name="diagnostics_tls_metric_mode">Modo TLS</string>
     <string name="diagnostics_tls_metric_profile">Perfil TLS</string>
@@ -1041,10 +1038,6 @@
     <plurals name="diagnostics_ipv4_whitelist_cached_provider">
         <item quantity="one">Se almacenó en caché %1$d rango /24 para %2$s.</item>
         <item quantity="other">Se almacenaron en caché %1$d rangos /24 para %2$s.</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="one">No se detectó ningún patrón de cierre de encabezado gordo TCP16 en %1$d objetivo.</item>
-        <item quantity="other">No se detectó ningún patrón de cierre de encabezado gordo TCP16 en %1$d objetivos.</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="one">Tendencia de %1$s, %2$d muestra</item>
@@ -1404,8 +1397,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH funciona</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH rechazado</string>
     <string name="diagnostics_dpi_suite_no_ech_config">sin configuración ECH</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">clave ECH desconocida</string>
-    <string name="diagnostics_dpi_suite_network_blocked">red bloqueada</string>
     <string name="diagnostics_dpi_suite_yes">sí</string>
     <string name="diagnostics_dpi_suite_no">no</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">Las pruebas DPI seleccionadas no notificaron advertencias.</string>
@@ -1422,8 +1413,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">Dominios señalados: %1$d/%2$d; IP de relleno: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">Resolutores disponibles: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">Dominios accesibles: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">Destinos con cierre típico TCP16: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">Grupos ASN comprobados: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Destinos con respuestas Initial/VN completas: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">Respuesta UDP sin coincidencia</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">Límite de recepción alcanzado</string>
@@ -1438,7 +1427,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI detectado</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">Interferencia DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Interferencia mixta</string>
-    <string name="diagnostics_dpi_suite_slow">lento</string>
     <string name="diagnostics_dpi_suite_stalled">detenido</string>
     <string name="diagnostics_dpi_suite_error">error</string>
     <string name="diagnostics_dpi_suite_probe_running">La prueba está en curso.</string>
@@ -1783,8 +1771,8 @@
     <string name="diagnostics_pt_status_network_error">Error de red</string>
     <string name="diagnostics_pt_status_invalid_response">Respuesta no válida</string>
     <string name="diagnostics_pt_status_invalid_target">Punto de conexión no válido</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s detectados</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · sin respuesta %2$s · errores %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s series interrumpidas</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · inaccesibles %2$s · errores %3$s · no compatibles %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">Respuesta HTTP/3 confirmada</string>
     <string name="diagnostics_http3_tls">Certificado TLS y nombre del servidor verificados</string>
@@ -1997,4 +1985,14 @@
     <string name="diagnostics_outcome_coverage_unknown">Cobertura desconocida</string>
     <string name="diagnostics_outcome_stale">Resultado guardado de otra red</string>
     <string name="diagnostics_outcome_historical">Datos guardados; coincidencia con la red actual desconocida</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">Series TCP16 completadas: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">Relleno en solicitudes completadas: %1$d bytes</string>
+    <string name="diagnostics_dpi_suite_http_rejected">Solicitud HTTP rechazada</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">Serie con relleno interrumpida</string>
+    <string name="diagnostics_dpi_suite_peer_closed">El servidor cerró la conexión</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">Sin prueba TLS de referencia utilizable</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">La prueba TLS de referencia no reprodujo la interrupción</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">Carga escrita por el cliente: %1$d bytes</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">Espera de respuesta HTTP: %1$d ms</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">Falló la verificación del certificado</string>
 </resources>

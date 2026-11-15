@@ -169,7 +169,7 @@ class NativeBridgeInstrumentedTest {
                     handle,
                     """{"origin":"localhost","connectHost":"127.0.0.1","connectPort":443,"echConfigBytesB64":"%%%","connectTimeoutMs":10000}""",
                 )
-            assertTrue(requireNotNull(payload).contains("\"cancelled\":true"))
+            assertTrue(requireNotNull(payload).contains("\"outcome\":\"cancelled\""))
         } finally {
             NativeEchTlsHandshakeBridge.releaseRequest(handle)
         }

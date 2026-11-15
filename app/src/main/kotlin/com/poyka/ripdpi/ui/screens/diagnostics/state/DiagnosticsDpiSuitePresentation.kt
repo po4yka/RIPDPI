@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteSkipReason
+import com.poyka.ripdpi.diagnostics.dpi.EchBindingAttempt
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrLookupAttempt
@@ -21,13 +22,13 @@ import com.poyka.ripdpi.diagnostics.dpi.QuicProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
 import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
+import com.poyka.ripdpi.diagnostics.dpi.TelegramTransferKind
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.userMessage
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
-import java.util.Locale
 
 internal fun DpiSuiteProbeResult.toDpiSuiteProbeRowUiModel(
     stringResolver: StringResolver,
@@ -50,7 +51,23 @@ private fun DpiSuiteProbeResult.detailRows(
         }
 
         is DpiSuiteProbeResult.Tcp16 -> {
-            results.mapNotNull { result -> result.tlsClientState }.toDiagnosticsTlsDetailRows(stringResolver)
+            (
+                results.mapNotNull { it.tlsClientState }.toDiagnosticsTlsDetailRows(stringResolver) +
+                    results.filter { it.verdict != Tcp16Verdict.OK }.map { it.toSuiteDetail(stringResolver) }
+            ).toPersistentList()
+        }
+
+        is DpiSuiteProbeResult.AllowlistSni -> {
+            results.values.map { it.toSuiteDetail(stringResolver) }.toPersistentList()
+        }
+
+        is DpiSuiteProbeResult.Telegram -> {
+            (
+                listOf(
+                    result.download.toSuiteDetail(stringResolver, TelegramTransferKind.DOWNLOAD),
+                    result.upload.toSuiteDetail(stringResolver, TelegramTransferKind.UPLOAD),
+                ) + result.dcResults.map { it.toSuiteDetail(stringResolver) }
+            ).toPersistentList()
         }
 
         is DpiSuiteProbeResult.QuicH3 -> {
@@ -58,7 +75,11 @@ private fun DpiSuiteProbeResult.detailRows(
         }
 
         is DpiSuiteProbeResult.EchReadiness -> {
-            results.map { result -> result.toEchDetailRow(stringResolver) }.toPersistentList()
+            results
+                .flatMap { result ->
+                    listOf(result.toEchDetailRow(stringResolver)) +
+                        result.bindingAttempts.map { it.toEchDetailRow(stringResolver) }
+                }.toPersistentList()
         }
 
         else -> {
@@ -206,7 +227,7 @@ private fun EchProbeResult.toEchDetailRow(stringResolver: StringResolver): Diagn
         label = target,
         detail =
             buildList {
-                add(verdictLabel(stringResolver))
+                add(verdict.label(stringResolver))
                 add(
                     stringResolver.getString(
                         R.string.diagnostics_dpi_suite_https_rr_format,
@@ -224,50 +245,84 @@ private fun EchProbeResult.toEchDetailRow(stringResolver: StringResolver): Diagn
                 }
                 add(latencyLabel(stringResolver))
             }.joinToString(" | "),
-        tone = echTone(),
+        tone = verdict.echTone(),
     )
 
-private fun EchProbeResult.verdictLabel(stringResolver: StringResolver): String =
-    when (verdict) {
-        EchProbeVerdict.ECH_OK -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_ok)
-        }
+private fun EchBindingAttempt.toEchDetailRow(strings: StringResolver): DiagnosticsDpiSuiteProbeDetailUiModel =
+    DiagnosticsDpiSuiteProbeDetailUiModel(
+        label = diagnosticPeerLabel(endpoint.host, endpoint.port),
+        detail =
+            buildList {
+                add(
+                    strings.getString(
+                        R.string.diagnostics_dpi_suite_https_rr_format,
+                        strings.getString(source.labelRes()),
+                    ),
+                )
+                add(verdict.label(strings))
+                peerAddress?.let(::add)
+                latencyMs?.let { add(strings.getString(R.string.diagnostics_transfer_ms, it)) }
+            }.joinToString(" | "),
+        tone = verdict.echTone(),
+    )
 
-        EchProbeVerdict.ECH_REJECTED -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_rejected)
-        }
+private fun EchProbeVerdict.label(strings: StringResolver): String =
+    strings.getString(
+        when (this) {
+            EchProbeVerdict.ECH_OK -> {
+                R.string.diagnostics_dpi_suite_ech_ok
+            }
 
-        EchProbeVerdict.ECH_NO_CONFIG -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_no_ech_config)
-        }
+            EchProbeVerdict.ECH_REJECTED -> {
+                R.string.diagnostics_dpi_suite_ech_rejected
+            }
 
-        EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE -> {
-            stringResolver.getString(R.string.diagnostics_pmtu_inconclusive)
-        }
+            EchProbeVerdict.ECH_NO_CONFIG -> {
+                R.string.diagnostics_dpi_suite_no_ech_config
+            }
 
-        EchProbeVerdict.ECH_UNSUPPORTED_ENDPOINT -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_endpoint_unsupported)
-        }
+            EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE, EchProbeVerdict.ECH_HANDSHAKE_INCONCLUSIVE -> {
+                R.string.diagnostics_pmtu_inconclusive
+            }
 
-        EchProbeVerdict.ECH_UNUSABLE_CONFIG -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_ech_config_unusable)
-        }
+            EchProbeVerdict.ECH_UNSUPPORTED_ENDPOINT -> {
+                R.string.diagnostics_dpi_suite_ech_endpoint_unsupported
+            }
 
-        EchProbeVerdict.ECH_UNKNOWN_KEY -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_unknown_ech_key)
-        }
+            EchProbeVerdict.ECH_UNUSABLE_CONFIG -> {
+                R.string.diagnostics_dpi_suite_ech_config_unusable
+            }
 
-        EchProbeVerdict.ECH_NETWORK_BLOCK -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_network_blocked)
-        }
+            EchProbeVerdict.ECH_TIMEOUT -> {
+                R.string.diagnostics_ip_timeout
+            }
+
+            EchProbeVerdict.ECH_TRANSPORT_ERROR -> {
+                R.string.diagnostics_dns_transport_error
+            }
+
+            EchProbeVerdict.ECH_TLS_ERROR -> {
+                R.string.diagnostics_replay_error_tls_handshake_failed
+            }
+
+            EchProbeVerdict.ECH_CERTIFICATE_ERROR -> {
+                R.string.diagnostics_dpi_suite_ech_certificate_failure
+            }
+
+            EchProbeVerdict.ECH_BRIDGE_UNAVAILABLE -> {
+                R.string.diagnostics_ip_unsupported
+            }
+        },
+    )
+
+private fun HttpsRrSource.labelRes(): Int =
+    when (this) {
+        HttpsRrSource.DOH -> R.string.diagnostics_dns_source_doh_wire
+        HttpsRrSource.SYSTEM -> R.string.diagnostics_stages_lane_dns_system
     }
 
 private fun HttpsRrLookupAttempt.label(stringResolver: StringResolver): String {
-    val sourceLabel =
-        when (source) {
-            HttpsRrSource.DOH -> R.string.diagnostics_dns_source_doh_wire
-            HttpsRrSource.SYSTEM -> R.string.diagnostics_stages_lane_dns_system
-        }
+    val sourceLabel = source.labelRes()
     val outcomeLabel =
         when (outcome) {
             HttpsRrOutcome.ANSWER -> R.string.diagnostics_cidr_whitelist_status_ok
@@ -316,19 +371,23 @@ private fun EchProbeResult.latencyLabel(stringResolver: StringResolver): String 
         ?.let { latency -> stringResolver.getString(R.string.diagnostics_transfer_ms, latency) }
         ?: stringResolver.getString(R.string.diagnostics_dpi_suite_no_latency)
 
-private fun EchProbeResult.echTone(): DiagnosticsTone =
-    when (verdict) {
+private fun EchProbeVerdict.echTone(): DiagnosticsTone =
+    when (this) {
         EchProbeVerdict.ECH_OK -> DiagnosticsTone.Positive
 
         EchProbeVerdict.ECH_NO_CONFIG,
         EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE,
+        EchProbeVerdict.ECH_HANDSHAKE_INCONCLUSIVE,
+        EchProbeVerdict.ECH_BRIDGE_UNAVAILABLE,
         EchProbeVerdict.ECH_UNSUPPORTED_ENDPOINT,
         EchProbeVerdict.ECH_UNUSABLE_CONFIG,
         -> DiagnosticsTone.Neutral
 
         EchProbeVerdict.ECH_REJECTED,
-        EchProbeVerdict.ECH_UNKNOWN_KEY,
-        EchProbeVerdict.ECH_NETWORK_BLOCK,
+        EchProbeVerdict.ECH_TIMEOUT,
+        EchProbeVerdict.ECH_TRANSPORT_ERROR,
+        EchProbeVerdict.ECH_TLS_ERROR,
+        EchProbeVerdict.ECH_CERTIFICATE_ERROR,
         -> DiagnosticsTone.Warning
     }
 
@@ -354,23 +413,39 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
             }
 
             is DpiSuiteProbeResult.Tcp16 -> {
-                if (results.none { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }) {
-                    R.string.diagnostics_cidr_whitelist_status_ok
-                } else {
-                    R.string.diagnostics_tcp16_metric_detected
+                when {
+                    results.none { it.verdict == Tcp16Verdict.OK } -> R.string.diagnostics_pmtu_inconclusive
+                    results.any { it.verdict != Tcp16Verdict.OK } -> R.string.diagnostics_dpi_suite_partial
+                    else -> R.string.diagnostics_cidr_whitelist_status_ok
                 }
             }
 
             is DpiSuiteProbeResult.AllowlistSni -> {
-                if (results.isEmpty()) {
-                    R.string.asset_provider_version_none
-                } else {
-                    R.string.diagnostics_byoh_metric_compatible
+                when {
+                    results.isEmpty() || results.values.all { it.aborted && it.compatibleSnis.isEmpty() } -> {
+                        R.string.diagnostics_pmtu_inconclusive
+                    }
+
+                    results.values.any { it.aborted } -> {
+                        R.string.diagnostics_dpi_suite_partial
+                    }
+
+                    results.values.any { it.compatibleSnis.isNotEmpty() } -> {
+                        R.string.diagnostics_byoh_metric_compatible
+                    }
+
+                    else -> {
+                        R.string.asset_provider_version_none
+                    }
                 }
             }
 
             is DpiSuiteProbeResult.Telegram -> {
-                return result.verdict.name.dpiStatusLabel(stringResolver)
+                when (result.verdict) {
+                    TelegramTestVerdict.OK -> R.string.diagnostics_cidr_whitelist_status_ok
+                    TelegramTestVerdict.PARTIAL -> R.string.diagnostics_dpi_suite_partial
+                    TelegramTestVerdict.ERROR -> R.string.diagnostics_dpi_suite_error
+                }
             }
 
             is DpiSuiteProbeResult.QuicH3 -> {
@@ -460,22 +535,21 @@ private fun DpiSuiteProbeResult.detailLabel(stringResolver: StringResolver): Str
         }
 
         is DpiSuiteProbeResult.Tcp16 -> {
-            val detected = results.count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }
-            stringResolver.getString(R.string.diagnostics_dpi_suite_tcp16_format, detected, results.size)
+            val complete = results.count { it.verdict == Tcp16Verdict.OK }
+            stringResolver.getString(R.string.diagnostics_dpi_suite_tcp16_completed, complete, results.size)
         }
 
         is DpiSuiteProbeResult.AllowlistSni -> {
-            stringResolver.getString(R.string.diagnostics_dpi_suite_asn_format, results.size)
+            val count = results.values.sumOf { it.compatibleSnis.size }
+            stringResolver.getQuantityString(R.plurals.diagnostics_sni_complete, count, count, results.size)
         }
 
         is DpiSuiteProbeResult.Telegram -> {
             val reachable = result.dcResults.count { dc -> dc.reachable }
             stringResolver.getString(
                 R.string.diagnostics_dpi_suite_telegram_format,
-                result.download.status.name
-                    .dpiStatusLabel(stringResolver),
-                result.upload.status.name
-                    .dpiStatusLabel(stringResolver),
+                stringResolver.getString(result.download.status.labelRes()),
+                stringResolver.getString(result.upload.status.labelRes()),
                 reachable,
                 result.dcResults.size,
             )
@@ -549,9 +623,10 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
         }
 
         is DpiSuiteProbeResult.Tcp16 -> {
-            countTone(
-                results.count { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB },
-            )
+            when {
+                results.isEmpty() || results.all { it.verdict == Tcp16Verdict.UNSUPPORTED } -> DiagnosticsTone.Neutral
+                else -> countTone(results.count { it.verdict != Tcp16Verdict.OK })
+            }
         }
 
         is DpiSuiteProbeResult.AllowlistSni -> {
@@ -564,15 +639,11 @@ private fun DpiSuiteProbeResult.tone(): DiagnosticsTone =
                     DiagnosticsTone.Positive
                 }
 
-                TelegramTestVerdict.PARTIAL,
-                TelegramTestVerdict.SLOW,
-                -> {
+                TelegramTestVerdict.PARTIAL -> {
                     DiagnosticsTone.Warning
                 }
 
-                TelegramTestVerdict.BLOCKED,
-                TelegramTestVerdict.ERROR,
-                -> {
+                TelegramTestVerdict.ERROR -> {
                     DiagnosticsTone.Negative
                 }
             }
@@ -685,17 +756,6 @@ internal fun SuiteVerdict.label(stringResolver: StringResolver): String =
             SuiteVerdict.INCONCLUSIVE -> R.string.diagnostics_pmtu_inconclusive
         },
     )
-
-private fun String.dpiStatusLabel(stringResolver: StringResolver): String =
-    when (lowercase(Locale.US)) {
-        "ok" -> stringResolver.getString(R.string.diagnostics_cidr_whitelist_status_ok)
-        "partial" -> stringResolver.getString(R.string.diagnostics_dpi_suite_partial)
-        "slow" -> stringResolver.getString(R.string.diagnostics_dpi_suite_slow)
-        "stalled" -> stringResolver.getString(R.string.diagnostics_dpi_suite_stalled)
-        "blocked" -> stringResolver.getString(R.string.diagnostics_dpi_suite_blocked)
-        "error" -> stringResolver.getString(R.string.diagnostics_dpi_suite_error)
-        else -> this
-    }
 
 internal fun DiagnosticsDpiSuiteToolUiModel.withFailure(
     error: Throwable,

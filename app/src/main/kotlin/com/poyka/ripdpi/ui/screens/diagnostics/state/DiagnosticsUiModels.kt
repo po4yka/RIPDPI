@@ -261,6 +261,7 @@ data class DiagnosticsTcp16AsnUiModel(
     val dead: String,
     val errors: String,
     val tone: DiagnosticsTone,
+    val unsupported: String = "0",
 )
 
 @Stable
@@ -295,6 +296,7 @@ data class DiagnosticsAllowlistSniAsnUiModel(
     val triedCount: String,
     val compatibleSnis: ImmutableList<DiagnosticsCompatibleSniUiModel>,
     val tone: DiagnosticsTone,
+    val failure: String? = null,
 )
 
 @Stable

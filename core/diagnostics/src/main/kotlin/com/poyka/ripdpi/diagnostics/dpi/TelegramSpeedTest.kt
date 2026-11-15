@@ -16,9 +16,7 @@ import javax.net.ssl.SSLException
 
 enum class TelegramTestVerdict {
     OK,
-    SLOW,
     PARTIAL,
-    BLOCKED,
     ERROR,
 }
 

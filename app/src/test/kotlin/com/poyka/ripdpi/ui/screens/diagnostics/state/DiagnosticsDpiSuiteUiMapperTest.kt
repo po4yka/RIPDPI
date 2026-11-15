@@ -3,8 +3,11 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 import android.app.Application
 import com.poyka.ripdpi.activities.ResourceStringResolver
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
+import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniFailure
+import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniResult
 import com.poyka.ripdpi.diagnostics.dpi.AttemptResult
 import com.poyka.ripdpi.diagnostics.dpi.AttemptStatus
+import com.poyka.ripdpi.diagnostics.dpi.CompatibleSni
 import com.poyka.ripdpi.diagnostics.dpi.DomainReachabilityResult
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
@@ -14,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrLookupAttempt
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrOutcome
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrSource
+import com.poyka.ripdpi.diagnostics.dpi.ProbeStats
 import com.poyka.ripdpi.diagnostics.dpi.QuicFingerprint
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeOutcome
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeResult
@@ -21,6 +25,9 @@ import com.poyka.ripdpi.diagnostics.dpi.QuicProbeSample
 import com.poyka.ripdpi.diagnostics.dpi.QuicProbeStartFailure
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Verdict
+import com.poyka.ripdpi.diagnostics.dpi.TelegramProbeStatus
+import com.poyka.ripdpi.diagnostics.dpi.TelegramTestResult
+import com.poyka.ripdpi.diagnostics.dpi.TelegramTestVerdict
 import com.poyka.ripdpi.platform.StringResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -72,8 +79,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
                             port = 443,
                             alive = true,
                             verdict = Tcp16Verdict.OK,
-                            detectedAtKb = null,
-                            measuredRttMs = 20,
+                            meanResponseMs = 20,
                             errorDetail = null,
                             connectionCount = 1,
                             tlsClientState = fallbackTlsState(),
@@ -85,6 +91,102 @@ class DiagnosticsDpiSuiteUiMapperTest {
             row.detailRows.any { detail ->
                 detail.label == "TLS mode" && detail.detail == "Android template fallback"
             },
+        )
+    }
+
+    @Test
+    fun failedAndUnsupportedTcp16TargetsDoNotGetAnOkStatus() {
+        val row =
+            DpiSuiteProbeResult
+                .Tcp16(
+                    listOf(
+                        Tcp16ProbeResult(
+                            targetId = "target",
+                            asn = "AS64500",
+                            provider = "Example",
+                            ip = "192.0.2.1",
+                            port = 80,
+                            alive = false,
+                            verdict = Tcp16Verdict.UNSUPPORTED,
+                            meanResponseMs = null,
+                            errorDetail = null,
+                            connectionCount = 0,
+                        ),
+                    ),
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
+
+        assertEquals("Inconclusive", row.status)
+        assertEquals("Completed TCP16 trains: 0/1", row.detail)
+        assertEquals("Not supported", row.detailRows.single().detail)
+    }
+
+    @Test
+    fun emptySniComparisonReportsNoCompatibleNames() {
+        val result = AllowlistSniResult("AS64500", "Example", "192.0.2.1", emptyList(), 3)
+
+        val row =
+            DpiSuiteProbeResult
+                .AllowlistSni(
+                    mapOf(result.asn to result),
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
+
+        assertEquals(DiagnosticsTone.Neutral, row.detailRows.single().tone)
+        assertEquals("192.0.2.1:443", row.detailRows.single().label)
+        assertTrue(row.status.equals("none", ignoreCase = true))
+    }
+
+    @Test
+    fun timedOutSniComparisonKeepsTheCandidatesAlreadyMeasured() {
+        val result =
+            AllowlistSniResult(
+                asn = "AS64500",
+                provider = "Example",
+                ip = "192.0.2.1",
+                compatibleSnis = listOf(CompatibleSni("candidate.example", 1)),
+                triedCount = 3,
+                failure = AllowlistSniFailure.SEARCH_TIMED_OUT,
+            )
+
+        val row =
+            DpiSuiteProbeResult
+                .AllowlistSni(
+                    mapOf(result.asn to result),
+                ).toDpiSuiteProbeRowUiModel(stringResolver)
+
+        assertEquals("partial", row.status)
+        assertEquals(DiagnosticsTone.Warning, row.detailRows.single().tone)
+        assertEquals("candidate.example | Timed out", row.detailRows.single().detail)
+    }
+
+    @Test
+    fun telegramShowsBothDirectionsAndTheUploadHttpStatus() {
+        val result =
+            TelegramTestResult(
+                verdict = TelegramTestVerdict.PARTIAL,
+                download = ProbeStats(TelegramProbeStatus.OK, 33, 25, 1320, 1440),
+                upload = ProbeStats(TelegramProbeStatus.ERROR, 50, 12, 4166, 4166, httpStatus = 413),
+                dcResults = emptyList(),
+            )
+
+        val row = DpiSuiteProbeResult.Telegram(result).toDpiSuiteProbeRowUiModel(stringResolver)
+
+        assertTrue(
+            row.detailRows
+                .first()
+                .detail
+                .contains("Body received: 33 bytes"),
+        )
+        assertTrue(
+            row.detailRows
+                .last()
+                .detail
+                .contains("Upload payload written by client: 50 bytes"),
+        )
+        assertTrue(
+            row.detailRows
+                .last()
+                .detail
+                .contains("HTTP status: 413"),
         )
     }
 

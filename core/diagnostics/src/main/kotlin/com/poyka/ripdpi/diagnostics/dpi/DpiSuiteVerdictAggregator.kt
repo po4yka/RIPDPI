@@ -44,7 +44,10 @@ object DpiSuiteVerdictAggregator {
             }
 
             is DpiSuiteProbeResult.Tcp16 -> {
-                result.results.allMeasured { it.verdict == Tcp16Verdict.OK }
+                result.results.filterNot { it.verdict == Tcp16Verdict.UNSUPPORTED }.allMeasured {
+                    it.verdict ==
+                        Tcp16Verdict.OK
+                }
             }
 
             is DpiSuiteProbeResult.AllowlistSni -> {
@@ -112,8 +115,8 @@ object DpiSuiteVerdictAggregator {
 
             is DpiSuiteProbeResult.Tcp16 -> {
                 val ok = result.results.count { tcp -> tcp.verdict == Tcp16Verdict.OK }
-                val detected = result.results.count { tcp -> tcp.verdict == Tcp16Verdict.DETECTED_AT_KB }
-                "TCP 16-20KB: $ok/${result.results.size} OK, $detected detected"
+                val interrupted = result.results.count { tcp -> tcp.verdict == Tcp16Verdict.PADDED_TRAIN_INTERRUPTED }
+                "TCP16: $ok/${result.results.size} complete, $interrupted interrupted"
             }
 
             is DpiSuiteProbeResult.AllowlistSni -> {

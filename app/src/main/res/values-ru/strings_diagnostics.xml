@@ -701,12 +701,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: ошибка системного разрешения имён</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Не проверено</string>
-    <string name="diagnostics_tcp16_complete_detected">Целей с шаблонами закрытия TCP16: %1$d; неудачных проверок переподключения: %2$d.</string>
     <string name="diagnostics_tcp16_failed">Зонд толстого заголовка TCP16 не удался.</string>
-    <string name="diagnostics_tcp16_metric_detected">обнаружено</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">одиночный сокет недопустим</string>
     <string name="diagnostics_tcp16_metric_targets">цели</string>
-    <string name="diagnostics_tcp16_metric_unavailable">недоступно</string>
     <string name="diagnostics_tcp16_running">Запуск зонда толстого заголовка TCP16 по встроенным целям…</string>
     <string name="diagnostics_tls_metric_mode">Режим TLS</string>
     <string name="diagnostics_tls_metric_profile">Профиль TLS</string>
@@ -869,12 +866,6 @@
         <item quantity="few">Закэшировано %1$d диапазона /24 для %2$s.</item>
         <item quantity="many">Закэшировано %1$d диапазонов /24 для %2$s.</item>
         <item quantity="other">Закэшировано %1$d диапазона /24 для %2$s.</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="one">Шаблон закрытия с толстым заголовком TCP16 не обнаружен для %1$d цели.</item>
-        <item quantity="few">Шаблон закрытия с толстым заголовком TCP16 не обнаружен среди %1$d целей.</item>
-        <item quantity="many">Шаблон закрытия с толстым заголовком TCP16 не обнаружен среди %1$d целей.</item>
-        <item quantity="other">Шаблон закрытия с толстым заголовком TCP16 не обнаружен среди %1$d целей.</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="one">График %1$s, точек: %2$d</item>
@@ -1446,8 +1437,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH работает</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH отклонён</string>
     <string name="diagnostics_dpi_suite_no_ech_config">нет настроек ECH</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">неизвестный ключ ECH</string>
-    <string name="diagnostics_dpi_suite_network_blocked">сеть заблокирована</string>
     <string name="diagnostics_dpi_suite_yes">да</string>
     <string name="diagnostics_dpi_suite_no">нет</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">Выбранные проверки DPI не выявили предупреждений.</string>
@@ -1464,8 +1453,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">Доменов с замечаниями: %1$d/%2$d; IP-заглушек: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">Доступно резолверов: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">Доступно доменов: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">Целей с характерным для TCP16 закрытием: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">Проверено групп ASN: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Целей с полными ответами Initial/VN: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">Ответ UDP не совпал с запросом</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">Достигнут лимит приёма</string>
@@ -1480,7 +1467,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">Обнаружен DPI</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">Вмешательство в DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Смешанное вмешательство</string>
-    <string name="diagnostics_dpi_suite_slow">медленно</string>
     <string name="diagnostics_dpi_suite_stalled">остановлено</string>
     <string name="diagnostics_dpi_suite_error">ошибка</string>
     <string name="diagnostics_dpi_suite_probe_running">Проверка выполняется.</string>
@@ -1828,8 +1814,8 @@
     <string name="diagnostics_pt_status_network_error">Ошибка сети</string>
     <string name="diagnostics_pt_status_invalid_response">Некорректный ответ</string>
     <string name="diagnostics_pt_status_invalid_target">Некорректный адрес</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s: обнаружено %2$s/%3$s</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · недоступно %2$s · ошибок %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: прервано серий %2$s/%3$s</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · недоступно: %2$s · ошибки: %3$s · не поддерживается: %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">Ответ HTTP/3 подтверждён</string>
     <string name="diagnostics_http3_tls">Сертификат TLS и имя сервера проверены</string>
@@ -2054,4 +2040,14 @@
     <string name="diagnostics_outcome_coverage_unknown">Охват проверки неизвестен</string>
     <string name="diagnostics_outcome_stale">Сохранённый результат другой сети</string>
     <string name="diagnostics_outcome_historical">Сохранённые данные; соответствие текущей сети неизвестно</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">Завершённые серии TCP16: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">Заполнение в завершённых запросах: %1$d байт</string>
+    <string name="diagnostics_dpi_suite_http_rejected">HTTP-запрос отклонён</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">Серия с заполнением прервана</string>
+    <string name="diagnostics_dpi_suite_peer_closed">Сервер закрыл соединение</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">Нет пригодной контрольной пробы TLS</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">Контрольная проба TLS не воспроизвела прерывание</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">Клиент записал при отправке %1$d байт</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">Ожидание ответа HTTP: %1$d мс</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">Не удалось проверить сертификат</string>
 </resources>

@@ -34,23 +34,24 @@ internal fun List<AllowlistSniResult>.toAllowlistSniUiModel(
                 ),
             ).toPersistentList(),
         rows =
-            map { result -> result.toUiModel() }
+            map { result -> result.toUiModel(strings) }
                 .toPersistentList(),
         enabled = true,
     )
 }
 
-private fun AllowlistSniResult.toUiModel(): DiagnosticsAllowlistSniAsnUiModel =
+private fun AllowlistSniResult.toUiModel(strings: StringResolver): DiagnosticsAllowlistSniAsnUiModel =
     DiagnosticsAllowlistSniAsnUiModel(
         asn = asn,
         provider = provider,
-        ip = ip,
+        ip = diagnosticPeerLabel(ip, port),
+        failure = failure?.let { strings.getString(it.labelRes()) },
         triedCount = triedCount.toString(),
         compatibleSnis =
             compatibleSnis
                 .map { sni -> sni.toUiModel() }
                 .toPersistentList(),
-        tone = compatibleTone(compatibleSnis.size),
+        tone = if (aborted) DiagnosticsTone.Warning else compatibleTone(compatibleSnis.size),
     )
 
 private fun CompatibleSni.toUiModel(): DiagnosticsCompatibleSniUiModel =

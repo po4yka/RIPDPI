@@ -897,12 +897,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: Systemauflösung fehlgeschlagen</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">Nicht validiert</string>
-    <string name="diagnostics_tcp16_complete_detected">Ziele mit TCP16-Closure-Muster: %1$d; fehlgeschlagene Reconnect-Validierungen: %2$d.</string>
     <string name="diagnostics_tcp16_failed">TCP16-Fat-Header-Probe fehlgeschlagen.</string>
-    <string name="diagnostics_tcp16_metric_detected">erkannt</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">Single-Socket ungültig</string>
     <string name="diagnostics_tcp16_metric_targets">Ziele</string>
-    <string name="diagnostics_tcp16_metric_unavailable">nicht verfügbar</string>
     <string name="diagnostics_tcp16_running">TCP16-Fat-Header-Probe wird über gebündelte Ziele ausgeführt …</string>
     <string name="diagnostics_tls_metric_mode">TLS-Modus</string>
     <string name="diagnostics_tls_metric_profile">TLS-Profil</string>
@@ -1040,10 +1037,6 @@
     <plurals name="diagnostics_ipv4_whitelist_cached_provider">
         <item quantity="one">%1$d /24-Bereich für %2$s zwischengespeichert.</item>
         <item quantity="other">%1$d /24-Bereiche für %2$s zwischengespeichert.</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="one">Kein TCP16-Fat-Header-Closure-Muster bei %1$d Ziel erkannt.</item>
-        <item quantity="other">Kein TCP16-Fat-Header-Closure-Muster über %1$d Ziele hinweg erkannt.</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="one">%1$s-Trend, %2$d Messwert</item>
@@ -1403,8 +1396,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH funktioniert</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH abgelehnt</string>
     <string name="diagnostics_dpi_suite_no_ech_config">keine ECH-Konfiguration</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">unbekannter ECH-Schlüssel</string>
-    <string name="diagnostics_dpi_suite_network_blocked">Netzwerk blockiert</string>
     <string name="diagnostics_dpi_suite_yes">ja</string>
     <string name="diagnostics_dpi_suite_no">nein</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">Die ausgewählten DPI-Prüfungen meldeten keine Warnungen.</string>
@@ -1421,8 +1412,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">Auffällige Domains: %1$d/%2$d; Platzhalter-IPs: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">Verfügbare Resolver: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">Erreichbare Domains: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">Ziele mit TCP16-Schließmuster: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">Geprüfte ASN-Gruppen: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">Ziele mit vollständigen Initial/VN-Antworten: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">UDP-Antwort passt nicht</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">Empfangslimit erreicht</string>
@@ -1437,7 +1426,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI erkannt</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">DNS-Eingriff</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Gemischte Eingriffe</string>
-    <string name="diagnostics_dpi_suite_slow">langsam</string>
     <string name="diagnostics_dpi_suite_stalled">stillstehend</string>
     <string name="diagnostics_dpi_suite_error">Fehler</string>
     <string name="diagnostics_dpi_suite_probe_running">Prüfung läuft.</string>
@@ -1779,8 +1767,8 @@
     <string name="diagnostics_pt_status_network_error">Netzwerkfehler</string>
     <string name="diagnostics_pt_status_invalid_response">Ungültige Antwort</string>
     <string name="diagnostics_pt_status_invalid_target">Ungültiger Endpunkt</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s erkannt</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · nicht erreichbar %2$s · Fehler %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: %2$s/%3$s Serien unterbrochen</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · nicht erreichbar %2$s · Fehler %3$s · nicht unterstützt %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">HTTP/3-Antwort bestätigt</string>
     <string name="diagnostics_http3_tls">TLS-Zertifikat und Hostname geprüft</string>
@@ -1981,4 +1969,14 @@
     <string name="diagnostics_outcome_coverage_unknown">Prüfumfang unbekannt</string>
     <string name="diagnostics_outcome_stale">Gespeichertes Ergebnis aus einem anderen Netzwerk</string>
     <string name="diagnostics_outcome_historical">Gespeicherte Daten; Übereinstimmung mit aktuellem Netzwerk unbekannt</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">Abgeschlossene TCP16-Serien: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">Fülldaten in abgeschlossenen Anfragen: %1$d Byte</string>
+    <string name="diagnostics_dpi_suite_http_rejected">HTTP-Anfrage abgelehnt</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">Serie mit Fülldaten unterbrochen</string>
+    <string name="diagnostics_dpi_suite_peer_closed">Server hat die Verbindung geschlossen</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">Keine nutzbare TLS-Referenzmessung</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">Die TLS-Referenzmessung zeigte keine Unterbrechung</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">Vom Client geschriebene Upload-Nutzdaten: %1$d Byte</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">Wartezeit auf HTTP-Antwort: %1$d ms</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">Zertifikatsprüfung fehlgeschlagen</string>
 </resources>

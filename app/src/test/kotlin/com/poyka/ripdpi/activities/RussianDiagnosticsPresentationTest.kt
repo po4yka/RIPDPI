@@ -63,7 +63,7 @@ class RussianDiagnosticsPresentationTest {
                     listOf(
                         EchProbeResult(
                             target = "target_1.example",
-                            verdict = EchProbeVerdict.ECH_UNKNOWN_KEY,
+                            verdict = EchProbeVerdict.ECH_REJECTED,
                             httpsRrFetched = true,
                             echConfigBytesB64 = null,
                             tlsLatencyMs = null,
@@ -76,7 +76,7 @@ class RussianDiagnosticsPresentationTest {
         assertEquals("Целей, принявших ECH: 0/1", row.detail)
         assertEquals("target_1.example", row.detailRows.single().label)
         assertEquals(
-            "неизвестный ключ ECH | HTTPS RR: да | согласовано: нет | задержка не измерена",
+            "ECH отклонён | HTTPS RR: да | согласовано: нет | задержка не измерена",
             row.detailRows.single().detail,
         )
         assertEquals(DiagnosticsTone.Warning, row.detailRows.single().tone)

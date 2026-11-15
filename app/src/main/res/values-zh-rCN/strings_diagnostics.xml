@@ -896,12 +896,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS：系统解析失败</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI：%1$s</string>
     <string name="diagnostics_scan_network_not_validated">未验证</string>
-    <string name="diagnostics_tcp16_complete_detected">显示 TCP16 关闭模式的目标：%1$d；失败的重连验证：%2$d。</string>
     <string name="diagnostics_tcp16_failed">TCP16 肥头部探针失败。</string>
-    <string name="diagnostics_tcp16_metric_detected">已检测到</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">单套接字无效</string>
     <string name="diagnostics_tcp16_metric_targets">目标</string>
-    <string name="diagnostics_tcp16_metric_unavailable">不可用</string>
     <string name="diagnostics_tcp16_running">正在对内置目标运行 TCP16 肥头部探针……</string>
     <string name="diagnostics_tls_metric_mode">TLS 模式</string>
     <string name="diagnostics_tls_metric_profile">TLS 配置文件</string>
@@ -1024,9 +1021,6 @@
     </plurals>
     <plurals name="diagnostics_ipv4_whitelist_cached_provider">
         <item quantity="other">已为 %2$s 缓存 %1$d 个 /24 范围。</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="other">在 %1$d 个目标中未检测到 TCP16 肥头部关闭模式。</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="other">%1$s 趋势，共 %2$d 个样本</item>
@@ -1375,8 +1369,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH 正常</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH 被拒绝</string>
     <string name="diagnostics_dpi_suite_no_ech_config">无 ECH 配置</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">未知 ECH 密钥</string>
-    <string name="diagnostics_dpi_suite_network_blocked">网络已阻断</string>
     <string name="diagnostics_dpi_suite_yes">是</string>
     <string name="diagnostics_dpi_suite_no">否</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">所选 DPI 检查未报告警告。</string>
@@ -1393,8 +1385,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">异常域名：%1$d/%2$d；占位 IP：%3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">可用解析器：%1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">可访问域名：%1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">符合 TCP16 关闭模式的目标：%1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">已检查 ASN 组：%1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">收到完整 Initial/VN 响应的目标：%1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">UDP 响应与请求不匹配</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">已达到接收上限</string>
@@ -1409,7 +1399,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">检测到 DPI</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">DNS 干扰</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">混合干扰</string>
-    <string name="diagnostics_dpi_suite_slow">缓慢</string>
     <string name="diagnostics_dpi_suite_stalled">已停滞</string>
     <string name="diagnostics_dpi_suite_error">错误</string>
     <string name="diagnostics_dpi_suite_probe_running">检查正在进行。</string>
@@ -1748,8 +1737,8 @@
     <string name="diagnostics_pt_status_network_error">网络错误</string>
     <string name="diagnostics_pt_status_invalid_response">无效响应</string>
     <string name="diagnostics_pt_status_invalid_target">无效端点</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s：检测到 %2$s/%3$s</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · 不可达 %2$s · 错误 %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s：%2$s/%3$s 个序列中断</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · 无法访问 %2$s · 错误 %3$s · 不支持 %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">已确认 HTTP/3 响应</string>
     <string name="diagnostics_http3_tls">已验证 TLS 证书和主机名</string>
@@ -1938,4 +1927,14 @@
     <string name="diagnostics_outcome_coverage_unknown">检查范围未知</string>
     <string name="diagnostics_outcome_stale">来自其他网络的已保存结果</string>
     <string name="diagnostics_outcome_historical">已保存的证据；是否匹配当前网络未知</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">已完成的 TCP16 序列：%1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">已完成请求中的填充：%1$d 字节</string>
+    <string name="diagnostics_dpi_suite_http_rejected">HTTP 请求被拒绝</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">填充请求序列中断</string>
+    <string name="diagnostics_dpi_suite_peer_closed">服务器关闭了连接</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">没有可用的 TLS 基准测试</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">TLS 基准测试未复现中断</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">客户端写入的上传数据：%1$d 字节</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">HTTP 响应等待时间：%1$d 毫秒</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">证书验证失败</string>
 </resources>

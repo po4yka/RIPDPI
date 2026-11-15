@@ -128,17 +128,21 @@ class DiagnosticsToolHindiCaptionsTest {
         }
         (0..2).forEach { count ->
             val label =
-                if (hindi) "AS6450$count: $count/3 में पता चला" else "AS6450$count: $count/3 detected"
+                if (hindi) {
+                    "AS6450$count: $count/3 शृंखलाएँ बीच में रुकीं"
+                } else {
+                    "AS6450$count: $count/3 trains interrupted"
+                }
             val detail =
                 if (hindi) {
-                    "Raw_Provider_$count · अनुपलब्ध $count · त्रुटियाँ $count"
+                    "Raw_Provider_$count · पहुँच से बाहर $count · त्रुटियाँ $count · असमर्थित 0"
                 } else {
-                    "Raw_Provider_$count · dead $count · errors $count"
+                    "Raw_Provider_$count · unreachable $count · errors $count · unsupported 0"
                 }
             composeRule.onNodeWithText(label).assertIsDisplayed()
             composeRule.onNodeWithText(detail).assertIsDisplayed()
         }
-        if (hindi) composeRule.onNodeWithText("AS64500: 0/3 detected").assertDoesNotExist()
+        if (hindi) composeRule.onNodeWithText("AS64500: 0/3 trains interrupted").assertDoesNotExist()
         capture("${if (hindi) "hindi" else "english"}-tcp16-$fontScale.png")
     }
 

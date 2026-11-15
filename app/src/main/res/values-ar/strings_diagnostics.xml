@@ -900,12 +900,9 @@
     <string name="diagnostics_scan_dns_baseline_resolution_failed">DNS: فشل تحليل النظام</string>
     <string name="diagnostics_scan_dpi_failure_label">DPI: %1$s</string>
     <string name="diagnostics_scan_network_not_validated">غير مُتحقَّق منه</string>
-    <string name="diagnostics_tcp16_complete_detected">الأهداف ذات أنماط إغلاق ⁨TCP16⁩: %1$d؛ عمليات التحقق الفاشلة بإعادة الاتصال: %2$d.</string>
     <string name="diagnostics_tcp16_failed">فشل مسبار ترويسة TCP16 الكبيرة.</string>
-    <string name="diagnostics_tcp16_metric_detected">مكتشف</string>
     <string name="diagnostics_tcp16_metric_single_socket_invalid">مقبس مفرد غير صالح</string>
     <string name="diagnostics_tcp16_metric_targets">أهداف</string>
-    <string name="diagnostics_tcp16_metric_unavailable">غير متاح</string>
     <string name="diagnostics_tcp16_running">جارٍ تشغيل مسبار ترويسة TCP16 الكبيرة عبر الأهداف المُجمّعة…</string>
     <string name="diagnostics_tls_metric_mode">وضع TLS</string>
     <string name="diagnostics_tls_metric_profile">ملف TLS</string>
@@ -1103,14 +1100,6 @@
         <item quantity="few">تم تخزين %1$d نطاقات /24 لـ %2$s مؤقتًا.</item>
         <item quantity="many">تم تخزين %1$d نطاق /24 لـ %2$s مؤقتًا.</item>
         <item quantity="other">تم تخزين %1$d نطاق /24 لـ %2$s مؤقتًا.</item>
-    </plurals>
-    <plurals name="diagnostics_tcp16_complete_clean">
-        <item quantity="zero">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفًا.</item>
-        <item quantity="one">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدف.</item>
-        <item quantity="two">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفين.</item>
-        <item quantity="few">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d أهداف.</item>
-        <item quantity="many">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفًا.</item>
-        <item quantity="other">لم يُكتشف نمط إغلاق ترويسة TCP16 الكبيرة عبر %1$d هدفًا.</item>
     </plurals>
     <plurals name="diagnostics_sparkline_chart_description">
         <item quantity="zero">اتجاه %1$s، %2$d عينة</item>
@@ -1514,8 +1503,6 @@
     <string name="diagnostics_dpi_suite_ech_ok">ECH يعمل</string>
     <string name="diagnostics_dpi_suite_ech_rejected">ECH مرفوض</string>
     <string name="diagnostics_dpi_suite_no_ech_config">لا توجد إعدادات ECH</string>
-    <string name="diagnostics_dpi_suite_unknown_ech_key">مفتاح ECH غير معروف</string>
-    <string name="diagnostics_dpi_suite_network_blocked">الشبكة محظورة</string>
     <string name="diagnostics_dpi_suite_yes">نعم</string>
     <string name="diagnostics_dpi_suite_no">لا</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">لم تبلغ اختبارات DPI المحددة عن تحذيرات.</string>
@@ -1532,8 +1519,6 @@
     <string name="diagnostics_dpi_suite_dns_integrity_format">النطاقات المحددة: %1$d/%2$d؛ عناوين IP وهمية: %3$d</string>
     <string name="diagnostics_dpi_suite_dns_availability_format">محللات الأسماء المتاحة: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_domains_format">النطاقات المتاحة: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_format">الأهداف ذات نمط إغلاق ⁨TCP16⁩: %1$d/%2$d</string>
-    <string name="diagnostics_dpi_suite_asn_format">مجموعات ASN المفحوصة: %1$d</string>
     <string name="diagnostics_dpi_suite_quic_format">الأهداف ذات ردود Initial/VN المكتملة: %1$d/%2$d</string>
     <string name="diagnostics_dpi_suite_quic_unmatched">رد UDP غير مطابق</string>
     <string name="diagnostics_dpi_suite_quic_receive_limit">بلوغ حد الاستقبال</string>
@@ -1548,7 +1533,6 @@
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">اكتُشف DPI</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">تدخل في DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">تدخل مختلط</string>
-    <string name="diagnostics_dpi_suite_slow">بطيء</string>
     <string name="diagnostics_dpi_suite_stalled">متوقف</string>
     <string name="diagnostics_dpi_suite_error">خطأ</string>
     <string name="diagnostics_dpi_suite_probe_running">الفحص قيد التنفيذ.</string>
@@ -1902,8 +1886,8 @@
     <string name="diagnostics_pt_status_network_error">خطأ في الشبكة</string>
     <string name="diagnostics_pt_status_invalid_response">استجابة غير صالحة</string>
     <string name="diagnostics_pt_status_invalid_target">نقطة نهاية غير صالحة</string>
-    <string name="diagnostics_tcp16_row_detected">%1$s: تم رصد %2$s/%3$s</string>
-    <string name="diagnostics_tcp16_row_detail">%1$s · غير متاح %2$s · أخطاء %3$s</string>
+    <string name="diagnostics_tcp16_row_detected">%1$s: انقطعت %2$s من %3$s سلسلة</string>
+    <string name="diagnostics_tcp16_row_detail">%1$s · غير متاح %2$s · أخطاء %3$s · غير مدعوم %4$s</string>
     <string name="diagnostics_http3_title">HTTP/3</string>
     <string name="diagnostics_http3_validated">تم تأكيد استجابة HTTP/3</string>
     <string name="diagnostics_http3_tls">تم التحقق من شهادة TLS واسم المضيف</string>
@@ -2152,4 +2136,14 @@
     <string name="diagnostics_outcome_coverage_unknown">نطاق الفحص غير معروف</string>
     <string name="diagnostics_outcome_stale">نتيجة محفوظة من شبكة أخرى</string>
     <string name="diagnostics_outcome_historical">أدلة محفوظة؛ تطابقها مع الشبكة الحالية غير معروف</string>
+    <string name="diagnostics_dpi_suite_tcp16_completed">سلاسل TCP16 المكتملة: %1$d/%2$d</string>
+    <string name="diagnostics_dpi_suite_completed_padding">الحشو في الطلبات المكتملة: %1$d بايت</string>
+    <string name="diagnostics_dpi_suite_http_rejected">رُفض طلب HTTP</string>
+    <string name="diagnostics_dpi_suite_train_interrupted">انقطعت سلسلة الطلبات المحشوّة</string>
+    <string name="diagnostics_dpi_suite_peer_closed">أغلق الخادم الاتصال</string>
+    <string name="diagnostics_dpi_suite_sni_no_tls_baseline">لا يوجد اختبار TLS مرجعي صالح</string>
+    <string name="diagnostics_dpi_suite_sni_baseline_changed">لم يكرر اختبار TLS المرجعي الانقطاع</string>
+    <string name="diagnostics_dpi_suite_upload_bytes_written">بيانات الرفع التي كتبها العميل: %1$d بايت</string>
+    <string name="diagnostics_dpi_suite_http_response_wait">انتظار استجابة HTTP: %1$d مللي ثانية</string>
+    <string name="diagnostics_dpi_suite_ech_certificate_failure">تعذّر التحقق من الشهادة</string>
 </resources>
