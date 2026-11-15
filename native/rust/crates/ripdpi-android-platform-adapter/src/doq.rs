@@ -238,22 +238,23 @@ async fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeD
         return Ok(vec![ip]);
     }
     let endpoint = endpoint.to_owned();
-    let ips = bounded_platform_lookup(&BOOTSTRAP_LOOKUPS, move || {
-        let mut ips = Vec::new();
-        for address in (endpoint.as_str(), port).to_socket_addrs()? {
-            let ip = address.ip();
-            if !ips.contains(&ip) {
-                ips.push(ip);
-            }
-            if ips.len() == MAX_BOOTSTRAP_ADDRESSES {
-                break;
-            }
-        }
-        Ok(ips)
-    })
-    .await?;
+    let ips = bounded_platform_lookup(&BOOTSTRAP_LOOKUPS, move || platform_bootstrap_ips(&endpoint, port)).await?;
     if ips.is_empty() {
         return Err(NativeDoqError::new(NativeDoqErrorKind::Bootstrap, "DoQ bootstrap returned no addresses"));
+    }
+    Ok(ips)
+}
+
+fn platform_bootstrap_ips(endpoint: &str, port: u16) -> io::Result<Vec<IpAddr>> {
+    let mut ips = Vec::new();
+    for address in (endpoint, port).to_socket_addrs()? {
+        let ip = address.ip();
+        if !ips.contains(&ip) {
+            ips.push(ip);
+        }
+        if ips.len() == MAX_BOOTSTRAP_ADDRESSES {
+            break;
+        }
     }
     Ok(ips)
 }
