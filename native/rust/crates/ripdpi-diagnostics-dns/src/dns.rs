@@ -16,7 +16,8 @@ pub use ripdpi_ech_dns::{
     parse_url_host, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
     resolve_https_ech_configs_via_encrypted_dns_with_endpoint_and_abort,
     resolve_https_service_bindings_via_encrypted_dns_with_endpoint, resolve_outbound_ech_config_via_encrypted_dns,
-    resolve_via_encrypted_dns, resolve_via_encrypted_dns_with_raw, skip_dns_name,
+    resolve_via_encrypted_dns, resolve_via_encrypted_dns_with_cancel, resolve_via_encrypted_dns_with_raw,
+    skip_dns_name,
 };
 
 pub use udp::{

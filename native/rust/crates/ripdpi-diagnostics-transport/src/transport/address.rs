@@ -498,6 +498,16 @@ pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<Socket
     resolve_addresses_with_timeout(target, port, timeout)
 }
 
+/// Resolve both address families within the scan deadline and stop waiting on cancellation.
+pub fn resolve_addresses_with_cancel(
+    target: &TargetAddress,
+    port: u16,
+    should_cancel: &dyn Fn() -> bool,
+) -> Result<Vec<SocketAddr>, DnsResolveError> {
+    let timeout = crate::util::bounded_scan_io_timeout(DNS_RESOLVE_TIMEOUT).map_err(|_| DnsResolveError::Timeout)?;
+    resolve_addresses_with_timeout_and_abort(target, port, timeout, Some(&|| should_cancel().then_some("cancelled")))
+}
+
 pub(crate) fn resolve_addresses_with_timeout(
     target: &TargetAddress,
     port: u16,

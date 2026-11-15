@@ -16,28 +16,20 @@ pub(super) fn classify_target_dns_integrity(
     system_resolution_failed: bool,
     system_error_kind: Option<DnsResolveError>,
     oracle_assessment: &DnsOracleAssessment<DnsOracleResponse>,
-) -> Option<StrategyDnsClassification> {
+) -> StrategyDnsClassification {
     let encrypted_addresses =
         oracle_assessment.selected.as_ref().map_or_default(|selected| selected.value.addresses.clone());
     let encrypted_ips = encrypted_addresses.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect::<Vec<_>>();
-    if oracle_assessment.trust.allows_tampering_classification() && encrypted_ips.is_empty() {
-        return None;
-    }
-
-    let (resolver_override_needed, outcome) = if system_resolution_failed
-        && oracle_assessment.trust.allows_tampering_classification()
+    let (resolver_override_needed, outcome) = if !oracle_assessment.trust.allows_tampering_classification()
+        || encrypted_ips.is_empty()
     {
+        (false, "dns_oracle_unavailable")
+    } else if system_resolution_failed {
         if system_error_kind == Some(DnsResolveError::Nxdomain) {
             (true, "dns_nxdomain_mismatch")
         } else {
             (true, "dns_system_resolution_failed")
         }
-    } else if system_resolution_failed {
-        // Both failed or the encrypted oracle was not trusted enough to prove
-        // resolver interference. Skip to avoid false positives.
-        return None;
-    } else if !oracle_assessment.trust.allows_tampering_classification() {
-        (false, "dns_oracle_unavailable")
     } else {
         let system_ip_strings = system_targets.iter().map(SocketAddr::ip).map(|ip| ip.to_string()).collect::<Vec<_>>();
         let encrypted_ip_strings = encrypted_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
@@ -49,5 +41,5 @@ pub(super) fn classify_target_dns_integrity(
         }
     };
 
-    Some(StrategyDnsClassification { resolver_override_needed, outcome, encrypted_addresses, encrypted_ips })
+    StrategyDnsClassification { resolver_override_needed, outcome, encrypted_addresses, encrypted_ips }
 }

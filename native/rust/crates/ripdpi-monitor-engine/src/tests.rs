@@ -924,7 +924,7 @@ fn target_probe_pause_is_deterministic_for_same_seed_candidate_and_target() {
 }
 
 #[test]
-fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
+fn strategy_dns_baseline_does_not_compare_a_connection_pin_as_a_system_answer() {
     let _serial = lock_network_probes();
     let doh = HttpTextServer::start_dns_message("198.51.100.11");
     let runtime_context = ProxyRuntimeContext {
@@ -961,12 +961,11 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
         }],
         Some(&runtime_context),
     )
-    .expect("dns tampering");
+    .expect("DNS baseline result");
 
-    let failure = baseline.failure.as_ref().expect("dns tampering");
-    assert_eq!(failure.class, FailureClass::DnsTampering);
-    assert_eq!(failure.action, FailureAction::ResolverOverrideRecommended);
-    assert_eq!(baseline.results.first().map(|result| result.outcome.as_str()), Some("dns_sinkhole_substitution"));
+    assert!(baseline.failure.is_none());
+    assert!(baseline.encrypted_ip_overrides.is_empty());
+    assert_eq!(baseline.results.first().map(|result| result.outcome.as_str()), Some("not_applicable"));
 }
 
 #[test]
@@ -1052,53 +1051,22 @@ fn monitor_session_strategy_probe_terminates_on_candidate_runtime_failure_termin
 }
 
 #[test]
-fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
+fn monitor_session_strategy_probe_runs_candidates_when_dns_baseline_is_not_applicable() {
     let _serial = lock_network_probes();
-    let doh = HttpTextServer::start_dns_message("198.51.100.11");
-    let runtime_context = ProxyRuntimeContext {
-        encrypted_dns: Some(ProxyEncryptedDnsContext {
-            resolver_id: Some("doh".to_string()),
-            protocol: "doh".to_string(),
-            host: "127.0.0.1".to_string(),
-            port: doh.port(),
-            tls_server_name: None,
-            bootstrap_ips: vec!["127.0.0.1".to_string()],
-            doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
-            dnscrypt_provider_name: None,
-            dnscrypt_public_key: None,
-        }),
-        protect_path: None,
-        preferred_edges: std::collections::BTreeMap::default(),
-        direct_path_capabilities: Vec::new(),
-        morph_policy: None,
-        connection_concurrency: None,
-        strategy_chain_yaml: None,
-        lua_script_base_dir: None,
-    };
-    let mut request = strategy_probe_request_with_runtime_context(
-        minimal_ui_config(),
-        "quick_v1",
-        "automatic-probing",
-        "Automatic probing",
-        Some(runtime_context),
-    );
-    request.domain_targets = vec![DomainTarget {
-        host: "blocked.example".to_string(),
-        connect_ip: Some("203.0.113.10".to_string()),
-        connect_ips: vec![],
-        https_port: Some(443),
-        http_port: Some(80),
-        http_path: "/".to_string(),
-        is_control: false,
-        concurrency_probe: None,
-    }];
+    let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
+    let mut request = strategy_probe_request(minimal_ui_config());
+    request.domain_targets[0].http_port = Some(server.port());
     let session = monitor_session_with_direct_candidate_runtime();
 
-    session.start_scan("session-strategy-dns-short".to_string(), request.into()).expect("start strategy probe");
+    session.start_scan("session-strategy-dns-skipped".to_string(), request.into()).expect("start strategy probe");
     let report = wait_for_report(&session);
-    let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
-    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
+    assert!(
+        report.results.iter().any(|probe| probe.probe_type == "dns_integrity" && probe.outcome == "not_applicable")
+    );
+    let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
+    assert_ne!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
+    assert!(strategy_probe.tcp_candidates.iter().any(|candidate| candidate.succeeded_targets > 0));
 }
 
 #[test]
@@ -1151,38 +1119,12 @@ fn monitor_session_full_matrix_reports_single_lane_recommendation_and_audit_cove
 }
 
 #[test]
-fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
+fn monitor_session_full_matrix_keeps_coverage_when_pinned_candidates_fail() {
     let _serial = lock_network_probes();
-    let doh = HttpTextServer::start_dns_message("198.51.100.11");
-    let runtime_context = ProxyRuntimeContext {
-        encrypted_dns: Some(ProxyEncryptedDnsContext {
-            resolver_id: Some("doh".to_string()),
-            protocol: "doh".to_string(),
-            host: "127.0.0.1".to_string(),
-            port: doh.port(),
-            tls_server_name: None,
-            bootstrap_ips: vec!["127.0.0.1".to_string()],
-            doh_url: Some(format!("http://127.0.0.1:{}/dns-query", doh.port())),
-            dnscrypt_provider_name: None,
-            dnscrypt_public_key: None,
-        }),
-        protect_path: None,
-        preferred_edges: std::collections::BTreeMap::default(),
-        direct_path_capabilities: Vec::new(),
-        morph_policy: None,
-        connection_concurrency: None,
-        strategy_chain_yaml: None,
-        lua_script_base_dir: None,
-    };
-    let mut request = strategy_probe_request_with_runtime_context(
-        minimal_ui_config(),
-        "full_matrix_v1",
-        "automatic-audit",
-        "Automatic audit",
-        Some(runtime_context),
-    );
+    let mut request =
+        strategy_probe_request_with_suite(minimal_ui_config(), "full_matrix_v1", "automatic-audit", "Automatic audit");
     request.domain_targets = vec![DomainTarget {
-        host: "blocked.example".to_string(),
+        host: "localhost".to_string(),
         connect_ip: Some("127.0.0.1".to_string()),
         connect_ips: vec![],
         https_port: Some(9),
@@ -1192,19 +1134,22 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
         concurrency_probe: None,
     }];
     request.quic_targets = vec![QuicTarget {
-        host: "blocked.example".to_string(),
+        host: "localhost".to_string(),
         connect_ip: Some("127.0.0.1".to_string()),
         connect_ips: vec![],
         port: 9,
     }];
     let session = monitor_session_with_direct_candidate_runtime();
 
-    session.start_scan("session-audit-dns-short".to_string(), request.into()).expect("start automatic audit");
+    session.start_scan("session-audit-dns-skipped".to_string(), request.into()).expect("start automatic audit");
     let report = wait_for_report(&session);
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
 
-    assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
-    assert!(strategy_probe.recommendation.is_none(), "skipped candidates cannot produce a verified recommendation");
+    assert!(
+        report.results.iter().any(|probe| probe.probe_type == "dns_integrity" && probe.outcome == "not_applicable")
+    );
+    assert_ne!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
+    assert!(strategy_probe.recommendation.is_none(), "failed candidates cannot produce a verified recommendation");
     let assessment = strategy_probe.audit_assessment.as_ref().expect("audit coverage without a winner");
     assert_eq!(assessment.coverage.winner_coverage_percent, 0);
     assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Low);

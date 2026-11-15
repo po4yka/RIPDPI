@@ -161,6 +161,19 @@ pub fn resolve_via_encrypted_dns(
     result
 }
 
+/// Resolve an address within the current probe budget and drop the exchange on cancellation.
+pub fn resolve_via_encrypted_dns_with_cancel(
+    domain: &str,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+    should_cancel: &dyn Fn() -> bool,
+) -> Result<Vec<String>, String> {
+    let (resolver, packet) =
+        prepare_exchange(domain, DNS_RECORD_TYPE_A, endpoint, transport, EncryptedDnsConnectHooks::new())?;
+    let raw = resolver.exchange_blocking_with_cancel(&packet, should_cancel).map_err(|err| err.to_string())?;
+    extract_ip_answers(&raw).map_err(|err| err.to_string())
+}
+
 /// Like [`resolve_via_encrypted_dns`] but also returns the raw response bytes
 /// for record-level comparison with the UDP response.
 pub fn resolve_via_encrypted_dns_with_raw(
@@ -396,6 +409,9 @@ pub fn supported_ech_config(config_list: &[u8]) -> Option<(String, Vec<u8>)> {
 
 #[cfg(test)]
 mod ech_selection_tests;
+
+#[cfg(test)]
+mod strategy_cancel_tests;
 
 #[cfg(test)]
 mod tests {

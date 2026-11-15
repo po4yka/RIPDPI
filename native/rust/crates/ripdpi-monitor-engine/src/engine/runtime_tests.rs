@@ -5,6 +5,9 @@ mod recommendation;
 #[path = "runtime_tests/telegram_checkpoint.rs"]
 mod telegram_checkpoint;
 
+#[path = "runtime_tests/dns_baseline.rs"]
+mod dns_baseline;
+
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

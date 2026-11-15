@@ -5,7 +5,10 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::classification::classified_failure_probe_result;
+use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering_with_context_and_cancellation;
+use crate::types::ProbeResult;
+use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
@@ -35,59 +38,67 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
         let Some(strategy_plan) = plan.strategy.as_ref() else {
             return RunnerOutcome::Completed;
         };
-        let targets = &plan.request.domain_targets;
-        let context = strategy_plan.runtime_context.as_ref();
-        let Some(baseline) = detect_strategy_probe_dns_tampering_with_context_and_cancellation(
-            targets,
-            context,
-            &plan.probe_context,
-            || runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline(),
-        ) else {
-            return RunnerOutcome::Completed;
-        };
-        let Some(failure) = baseline.failure.as_ref() else {
-            // Clean network: keep the collected DNS-integrity evidence and close
-            // the stage's progress step instead of dropping both.
-            let target_count = baseline.results.len();
-            let message = format!("Baseline DNS integrity verified across {target_count} targets");
-            let artifacts = RunnerArtifacts::from_results(baseline.results.clone(), "strategy_probe", "info", message);
-            runtime.record_step(
-                plan,
-                self.phase(),
-                "Strategy baseline DNS integrity verified".to_string(),
-                Some("dns_baseline".to_string()),
-                None,
-                None,
-                artifacts,
-            );
-            tracing::info!(targets = baseline.results.len(), "strategy probe: baseline DNS clean");
-            return RunnerOutcome::Completed;
-        };
-        let artifacts = RunnerArtifacts::from_results(
-            baseline.results.clone(),
-            "strategy_probe",
-            "warn",
-            format!("Baseline classified as {} with {}", failure.class.as_str(), failure.action.as_str(),),
-        );
+        let stop = || runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline();
+        let deadline = [runtime.stage_deadline(), runtime.scan_deadline()].into_iter().flatten().min();
+        let baseline = with_scan_io_deadline(deadline, || {
+            detect_strategy_probe_dns_tampering_with_context_and_cancellation(
+                &plan.request.domain_targets,
+                strategy_plan.runtime_context.as_ref(),
+                &plan.probe_context,
+                stop,
+            )
+        });
+        let interrupted = stop();
+        let mut results = Vec::new();
+        if let Some(baseline) = baseline {
+            if let Some(failure) = baseline.failure {
+                results.push(classified_failure_probe_result("Current strategy", &failure));
+                runtime.strategy.baseline_failure = Some(failure);
+            }
+            overrides::record_dns_override_targets(plan, runtime, &baseline.encrypted_ip_overrides);
+            results.extend(baseline.results);
+        }
+        if interrupted {
+            // The current stage remains incomplete. Keep earlier targets without consuming its planned step.
+            runtime.observations.extend(observations_for_results(&results));
+            runtime.results.extend(results);
+            return RunnerOutcome::Cancelled;
+        }
+        if results.is_empty() {
+            results.push(ProbeResult {
+                probe_type: "dns_integrity".to_string(),
+                target: "Strategy DNS baseline".to_string(),
+                outcome: "dns_oracle_unavailable".to_string(),
+                details: Vec::new(),
+            });
+        }
+        let (outcome, message, level) = baseline_status(runtime, &results);
         runtime.record_step(
             plan,
             self.phase(),
-            "Strategy baseline DNS classification".to_string(),
+            message.to_string(),
             Some("dns_baseline".to_string()),
-            Some(failure.class.as_str().to_string()),
+            Some(outcome.to_string()),
             None,
-            artifacts,
+            RunnerArtifacts::from_results(results, "strategy_probe", level, message.to_string()),
         );
-        runtime.results.push(classified_failure_probe_result("Current strategy", failure));
-        tracing::info!(failure_class = ?failure.class, action = ?failure.action, "strategy probe: baseline classified");
-        runtime.strategy.baseline_failure = Some(failure.clone());
-
-        // If we have encrypted IP overrides, build override targets so TCP/QUIC
-        // runners can probe using trusted IPs instead of poisoned system DNS.
-        overrides::record_dns_override_targets(plan, runtime, &baseline.encrypted_ip_overrides);
-
-        // Continue to TCP/QUIC runners instead of short-circuiting, so we get
-        // actual strategy effectiveness data even on DNS-tampered networks.
         RunnerOutcome::Completed
+    }
+}
+
+fn baseline_status(runtime: &ExecutionRuntime, results: &[ProbeResult]) -> (&'static str, &'static str, &'static str) {
+    if let Some(failure) = &runtime.strategy.baseline_failure {
+        return (failure.class.as_str(), "Strategy DNS baseline classified a resolver failure", "warn");
+    }
+
+    let mut outcomes = results.iter().map(|result| result.outcome.as_str());
+    if outcomes.clone().all(|outcome| outcome == "not_applicable") {
+        ("not_applicable", "Strategy DNS baseline has no applicable targets", "info")
+    } else if outcomes.clone().all(|outcome| outcome == "dns_match") {
+        ("dns_match", "Strategy DNS baseline answers matched", "info")
+    } else if outcomes.any(|outcome| matches!(outcome, "dns_match" | "dns_compatible_divergence")) {
+        ("partial", "Strategy DNS baseline has limited comparison evidence", "info")
+    } else {
+        ("dns_oracle_unavailable", "Strategy DNS baseline could not compare resolver answers", "info")
     }
 }

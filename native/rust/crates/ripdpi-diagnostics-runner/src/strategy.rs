@@ -12,7 +12,7 @@ mod resolution;
 use self::adapters::candidates::{StrategyProbeBaseline, strategy_probe_encrypted_dns_label};
 use self::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
 use crate::probe_context::ProbeExecutionContext;
-use crate::types::{DomainTarget, ProbeResult};
+use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
 use self::classification::classify_target_dns_integrity;
 use self::details::build_dns_integrity_result;
@@ -64,8 +64,26 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
     let mut classified = None;
     let mut encrypted_ip_overrides: Vec<(String, IpAddr)> = Vec::new();
 
-    visit_strategy_dns_targets_until_cancelled(targets, &is_cancelled, |target| {
-        let system_resolution = resolve_system_target(target);
+    for target in targets {
+        if is_cancelled() {
+            break;
+        }
+        if should_skip_strategy_dns_target(target) {
+            results.push(ProbeResult {
+                probe_type: "dns_integrity".to_string(),
+                target: target.host.clone(),
+                outcome: "not_applicable".to_string(),
+                details: vec![ProbeDetail {
+                    key: "reason".to_string(),
+                    value: "No system DNS comparison for a numeric, local, or pinned target".to_string(),
+                }],
+            });
+            continue;
+        }
+        let system_resolution = resolve_system_target(target, &is_cancelled);
+        if is_cancelled() {
+            break;
+        }
         let oracle_assessment = fallback_encrypted_dns_assessment(
             target,
             resolver_endpoint.clone(),
@@ -73,16 +91,17 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
             probe_context,
             &is_cancelled,
         );
+        if is_cancelled() {
+            break;
+        }
 
-        let Some(evaluation) = evaluate_strategy_dns_target(
+        let evaluation = evaluate_strategy_dns_target(
             target,
             &resolver_context,
             &resolver_label,
             &system_resolution,
             &oracle_assessment,
-        ) else {
-            return;
-        };
+        );
         let encrypted_ips = evaluation.encrypted_ips;
         let resolver_override_needed = evaluation.resolver_override_needed;
         results.push(evaluation.result);
@@ -99,7 +118,7 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
                 );
             }
         }
-    });
+    }
 
     // Keep the collected DNS-integrity evidence even on a clean network so the
     // baseline stage still records its results and progress step.
@@ -109,34 +128,19 @@ pub fn detect_strategy_probe_dns_tampering_with_context_and_cancellation(
     Some(StrategyProbeBaseline { failure: classified, results, encrypted_ip_overrides })
 }
 
-fn visit_strategy_dns_targets_until_cancelled(
-    targets: &[DomainTarget],
-    is_cancelled: &impl Fn() -> bool,
-    mut visit: impl FnMut(&DomainTarget),
-) {
-    for target in targets {
-        if is_cancelled() {
-            break;
-        }
-        if !should_skip_strategy_dns_target(target) {
-            visit(target);
-        }
-    }
-}
-
 fn evaluate_strategy_dns_target(
     target: &DomainTarget,
     resolver_context: &ripdpi_proxy_config::ProxyEncryptedDnsContext,
     resolver_label: &str,
     system_resolution: &SystemDnsResolution,
     oracle_assessment: &DnsOracleAssessment<DnsOracleResponse>,
-) -> Option<StrategyDnsTargetEvaluation> {
+) -> StrategyDnsTargetEvaluation {
     let classification = classify_target_dns_integrity(
         &system_resolution.targets,
         system_resolution.failed(),
         system_resolution.error_kind,
         oracle_assessment,
-    )?;
+    );
     let result = build_dns_integrity_result(
         target,
         resolver_context,
@@ -146,11 +150,11 @@ fn evaluate_strategy_dns_target(
         &classification,
     );
 
-    Some(StrategyDnsTargetEvaluation {
+    StrategyDnsTargetEvaluation {
         result,
         resolver_override_needed: classification.resolver_override_needed,
         encrypted_ips: classification.encrypted_ips,
-    })
+    }
 }
 
 #[cfg(test)]
@@ -165,7 +169,10 @@ mod tests {
     use crate::types::DomainTarget;
 
     use super::resolution::SystemDnsResolution;
-    use super::{evaluate_strategy_dns_target, visit_strategy_dns_targets_until_cancelled};
+    use super::{
+        ProbeExecutionContext, detect_strategy_probe_dns_tampering_with_context_and_cancellation,
+        evaluate_strategy_dns_target,
+    };
 
     fn endpoint(id: &str) -> EncryptedDnsEndpoint {
         EncryptedDnsEndpoint {
@@ -211,11 +218,15 @@ mod tests {
 
     #[test]
     fn cancelled_strategy_dns_does_not_start_system_resolution() {
-        let mut visited = 0;
+        let context = ProbeExecutionContext::new(ripdpi_diagnostics_transport::transport::direct_transport());
+        let baseline = detect_strategy_probe_dns_tampering_with_context_and_cancellation(
+            &[target(), target()],
+            None,
+            &context,
+            || true,
+        );
 
-        visit_strategy_dns_targets_until_cancelled(&[target(), target()], &|| true, |_| visited += 1);
-
-        assert_eq!(visited, 0);
+        assert!(baseline.is_none());
     }
 
     #[test]
@@ -252,8 +263,7 @@ mod tests {
                 error_kind: None,
             },
             &assessment,
-        )
-        .expect("probe result");
+        );
 
         assert_eq!(evaluation.result.outcome, "dns_oracle_unavailable");
         assert!(!evaluation.resolver_override_needed);
@@ -296,8 +306,7 @@ mod tests {
                 error_kind: None,
             },
             &assessment,
-        )
-        .expect("probe result");
+        );
 
         assert_eq!(evaluation.result.outcome, "dns_sinkhole_substitution");
         assert!(evaluation.resolver_override_needed);
@@ -341,8 +350,7 @@ mod tests {
                 error_kind: Some(crate::strategy::adapters::transport::DnsResolveError::Timeout),
             },
             &assessment,
-        )
-        .expect("probe result");
+        );
 
         let details = evaluation
             .result
@@ -358,7 +366,7 @@ mod tests {
     }
 
     #[test]
-    fn strategy_baseline_rejects_trusted_empty_oracle_answers() {
+    fn strategy_baseline_records_empty_oracle_answers_as_inconclusive() {
         let answers = BTreeMap::from([
             ("primary".to_string(), Ok(DnsOracleResponse { addresses: Vec::new(), raw_response: None })),
             ("fallback".to_string(), Ok(DnsOracleResponse { addresses: Vec::new(), raw_response: None })),
@@ -390,6 +398,7 @@ mod tests {
             &assessment,
         );
 
-        assert!(evaluation.is_none());
+        assert_eq!(evaluation.result.outcome, "dns_oracle_unavailable");
+        assert!(!evaluation.resolver_override_needed);
     }
 }

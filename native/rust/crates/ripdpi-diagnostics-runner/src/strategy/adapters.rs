@@ -6,7 +6,7 @@ pub(crate) mod candidates {
 }
 
 pub(crate) mod dns {
-    pub use ripdpi_diagnostics_dns::dns::resolve_via_encrypted_dns;
+    pub use ripdpi_diagnostics_dns::dns::resolve_via_encrypted_dns_with_cancel;
 }
 
 pub(crate) mod dns_oracle {
@@ -17,7 +17,7 @@ pub(crate) mod dns_oracle {
 
 pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::{
-        DnsResolveError, TargetAddress, domain_connect_target, resolve_addresses,
+        DnsResolveError, TargetAddress, domain_connect_target, resolve_addresses_with_cancel,
     };
 }
 
