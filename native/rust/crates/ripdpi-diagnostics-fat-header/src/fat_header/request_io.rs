@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::io::{self, ErrorKind, Write};
 use std::net::IpAddr;
 
 use crate::http::{parse_http_response_head, read_http_headers_io};
@@ -11,9 +11,22 @@ pub(super) fn write_padded_head_request(
     stream: &mut ConnectionStream,
     index: usize,
     host_header: &str,
-) -> std::io::Result<()> {
+    application_bytes_written: &mut usize,
+) -> io::Result<()> {
     let payload = padded_head_request(index, host_header);
-    stream.write_all(payload.as_bytes()).and_then(|_| stream.flush())
+    let mut remaining = payload.as_bytes();
+    while !remaining.is_empty() {
+        match stream.write(remaining) {
+            Ok(0) => return Err(ErrorKind::WriteZero.into()),
+            Ok(written) => {
+                *application_bytes_written += written;
+                remaining = &remaining[written..];
+            }
+            Err(err) if err.kind() == ErrorKind::Interrupted => {}
+            Err(err) => return Err(err),
+        }
+    }
+    stream.flush()
 }
 
 /// The parts of a response head the probe acts on.
@@ -69,10 +82,6 @@ pub(super) fn effective_host_header(target: &TcpTarget, host_header: &str) -> St
         Ok(IpAddr::V4(ip)) => ip.to_string(),
         Err(_) => "localhost".to_string(),
     }
-}
-
-pub(super) fn padded_head_request_len(index: usize, host_header: &str) -> usize {
-    padded_head_request(index, host_header).len()
 }
 
 fn padded_head_request(index: usize, host_header: &str) -> String {

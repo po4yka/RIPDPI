@@ -9,9 +9,7 @@ use crate::types::TcpTarget;
 use crate::util::{FAT_HEADER_REQUESTS, IO_TIMEOUT, fat_threshold_reached};
 
 use super::classification::classify_fat_io_error;
-use super::request_io::{
-    ResponseHead, effective_host_header, padded_head_request_len, read_response_headers, write_padded_head_request,
-};
+use super::request_io::{ResponseHead, effective_host_header, read_response_headers, write_padded_head_request};
 use super::status_types::{FatHeaderObservation, FatHeaderStatus};
 use super::timing::ProbeTiming;
 use super::tls_setup::open_fat_header_probe_stream;
@@ -88,11 +86,10 @@ fn padded_head_sequence(
         if arm_socket_timeouts(stream).is_err() {
             return deadline_exceeded(counters, transport_open_ms);
         }
-        if let Err(err) = write_padded_head_request(stream, index, host_header) {
+        if let Err(err) = write_padded_head_request(stream, index, host_header, &mut counters.bytes_sent) {
             if scan_deadline_passed() {
                 return deadline_exceeded(counters, transport_open_ms);
             }
-            counters.bytes_sent += padded_head_request_len(index, host_header);
             let status = classify_fat_io_error(err.kind(), counters.bytes_sent, counters.responses_seen);
             return FatHeaderObservation::io_failed(
                 status,
@@ -103,7 +100,6 @@ fn padded_head_sequence(
                 counters.responses_seen,
             );
         }
-        counters.bytes_sent += padded_head_request_len(index, host_header);
         timing.mark_io_success();
 
         match read_response_headers(stream) {
@@ -203,4 +199,42 @@ fn inconclusive_response(
 struct FatHeaderCounters {
     bytes_sent: usize,
     responses_seen: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use std::net::{Shutdown, TcpListener};
+    use std::time::Duration;
+
+    #[test]
+    fn failed_write_counts_no_unsent_bytes() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let socket = TcpStream::connect(addr).unwrap();
+        let (mut peer, _) = listener.accept().unwrap();
+        peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        socket.shutdown(Shutdown::Write).unwrap();
+        let host = "control.test";
+        let target = TcpTarget {
+            id: "loopback".into(),
+            provider: "loopback".into(),
+            ip: "127.0.0.1".into(),
+            port: addr.port(),
+            sni: None,
+            asn: None,
+            host_header: Some(host.into()),
+            fat_header_requests: Some(1),
+            alt_port: None,
+        };
+
+        let obs = padded_head_sequence(&mut ConnectionStream::Plain(socket), &target, host, None);
+        let mut received = Vec::new();
+        peer.read_to_end(&mut received).unwrap();
+        assert!(received.is_empty());
+        assert_eq!(obs.bytes_sent, 0);
+        assert_eq!(obs.responses_seen, 0);
+        assert!(obs.error.is_some());
+    }
 }
