@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1794732375813278
 change: correct-dia05-dns-json-contracts
-commit_sha: 05e066f944ee1b89420f33c831f645bbf90d99a6
+commit_sha: 6aa83b8ce26ac400e01c9bffade80bc7539f0e5f
 local: passed
 local_evidence: "124 targeted tests passed on the combined tree with Rust 1.100.0, locked offline Cargo, private target, build-gate ripdpi and four jobs. Clippy all-targets for four affected crates, format, just ci-gates, independent review and both independent oracles passed. See commands and limits below."
 remote_ci: not_applicable
@@ -28,7 +28,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-DGN-1794732375813278-006 | DGN-1794732697109380 | Both runners sent the correct real loopback GET. Python urllib.parse independently decoded captured query values. Invalid query/path endpoints caused no TCP connection; malformed ports and escapes passed rejection tests. | passed |
 | Combined source gates | DGN-1794732708545147 | 124 targeted tests, clippy, format, just ci-gates, architecture health, locked Cargo metadata, independent review and oracles | passed |
 
-Validated base: `07626efa72fdab91f062f3acfaea27ef8e558a7a`. The source tree remained byte-for-byte unchanged when the two reviewed rebase adaptations were folded into F3 and F6.
+Final validation base: `0218a6b688d94ddad256f2e2f47e9e3afc30d1bd`. The original F3/F6 history fold kept its checked source unchanged. Later rebases retained upstream API changes, including secure/key-log arguments, and passed all affected checks again.
 
 ## Observed local checks
 
