@@ -29,3 +29,20 @@ fn ipv4_udp_packet(payload: &[u8]) -> Vec<u8> {
     packet[28..].copy_from_slice(payload);
     packet
 }
+
+#[test]
+fn nonpositive_delta_cannot_emit_an_ordinary_ipv4_datagram() {
+    let packet = ipv4_udp_packet(b"hello");
+    for delta in [0, -1, i16::MIN] {
+        assert!(apply_udplen(&packet, delta).is_none(), "delta {delta}");
+    }
+}
+
+#[test]
+fn padded_udp_input_cannot_become_an_accepted_sidecar() {
+    let mut packet = ipv4_udp_packet(b"hello");
+    packet.extend_from_slice(&[0; 8]);
+    let total_len = packet.len() as u16;
+    packet[2..4].copy_from_slice(&total_len.to_be_bytes());
+    assert!(apply_udplen(&packet, 4).is_none());
+}

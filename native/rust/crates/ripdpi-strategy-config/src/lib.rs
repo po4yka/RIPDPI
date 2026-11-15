@@ -42,6 +42,8 @@ pub enum StrategyConfigError {
     HostListPathEscape { reference: String },
     #[error("unsupported strategy config version {0}")]
     UnsupportedVersion(u32),
+    #[error("udplen delta {0} must be non-negative; zero is a no-op")]
+    InvalidUdpLengthDelta(i32),
     #[error("unsupported ipv6_ext ext_type {0}; expected hopbyhop or destopts")]
     UnsupportedIpv6ExtensionType(String),
 }
@@ -372,6 +374,11 @@ fn load_raw(raw: RawConfig, base_dir: &Path) -> Result<LoadedStrategyConfig, Str
         .into_iter()
         .map(|strategy| {
             for step in &strategy.steps {
+                if step.kind == StepType::Udplen
+                    && let Some(delta) = step.delta.filter(|delta| *delta < 0)
+                {
+                    return Err(StrategyConfigError::InvalidUdpLengthDelta(delta));
+                }
                 if step.kind == StepType::Ipv6Ext
                     && let Some(value) = step.ext_type.as_deref()
                     && !matches!(value, "hopbyhop" | "hop_by_hop" | "destopts" | "dest_opts" | "destination_options")

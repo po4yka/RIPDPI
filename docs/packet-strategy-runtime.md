@@ -140,6 +140,13 @@ original packet. A Lua `desync.udplen` packet is always a sidecar: its UDP lengt
 exceeds its bytes, so it cannot replace the original, which only `VERDICT_DROP`
 consumes.
 
+`udplen` uses a non-negative delta. Zero sends no packet and does not stop
+later Lua actions or an explicit DROP. Negative YAML/TOML values fail
+configuration admission. Negative Lua values fail the action before
+emission. A positive sidecar requires UDP Length to match the carried UDP
+segment before the change; it then advertises more bytes than the packet
+contains.
+
 ```mermaid
 flowchart LR
     A["Packet from Android TUN"] --> B["Parse IP + transport headers"]

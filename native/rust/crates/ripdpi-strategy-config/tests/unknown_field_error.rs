@@ -46,3 +46,23 @@ fn ipv6_extension_aliases_and_missing_default_remain_supported() {
         assert_eq!(config.strategies[0].steps[0].ext_type.as_deref(), value);
     }
 }
+
+#[test]
+fn negative_udplen_is_rejected_in_yaml_and_toml() {
+    for delta in [-1, i32::MIN] {
+        let yaml =
+            format!("version: 1\nstrategies:\n  - id: udp\n    steps:\n      - type: udplen\n        delta: {delta}\n");
+        let toml = format!(
+            "version = 1\n[[strategies]]\nid = 'udp'\n[[strategies.steps]]\ntype = 'udplen'\ndelta = {delta}\n"
+        );
+        assert!(parse_yaml_str(&yaml, ".").is_err());
+        assert!(ripdpi_strategy_config::parse_toml_str(&toml, ".").is_err());
+    }
+}
+
+#[test]
+fn zero_udplen_is_an_admitted_noop() {
+    let yaml = "version: 1\nstrategies:\n  - id: udp\n    steps:\n      - type: udplen\n        delta: 0\n";
+    let config = parse_yaml_str(yaml, ".").unwrap();
+    assert_eq!(config.strategies[0].steps[0].delta, Some(0));
+}

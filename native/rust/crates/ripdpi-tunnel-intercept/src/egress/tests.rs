@@ -1240,3 +1240,32 @@ fn lua_activation_errors_reject_the_entire_configuration() {
 
 #[path = "packet_modify_tests.rs"]
 mod packet_modify_tests;
+
+#[test]
+fn zero_udplen_never_injects_or_consumes_the_original() {
+    let packet = ipv4_udp_packet(31000, 443, b"hello");
+    let original = packet.clone();
+    let yaml = "version: 1\nstrategies:\n  - id: zero\n    steps:\n      - type: udplen\n        delta: 0\n";
+    let mut direct = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default()).unwrap();
+    assert!(!direct.handle_packet(&packet));
+    assert!(direct.injector.packets.is_empty());
+    for body in ["return desync.udplen(0)", "desync.udplen(0)\nreturn VERDICT_MODIFY"] {
+        let (_script, mut lua) = lua_interceptor("lua-udplen-zero", body);
+        assert!(!lua.handle_packet(&packet));
+        assert!(lua.injector.packets.is_empty());
+    }
+    assert_eq!(packet, original);
+}
+
+#[test]
+fn zero_udplen_does_not_suppress_later_actions_or_explicit_drop() {
+    let packet = ipv4_udp_packet(31000, 443, b"hello");
+    let (_script, mut chain) =
+        lua_interceptor("lua-udplen-zero-chain", "desync.udplen(0)\ndesync.udplen(4)\nreturn VERDICT_MODIFY");
+    assert!(!chain.handle_packet(&packet));
+    assert_eq!(chain.injector.packets.len(), 1);
+    assert_eq!(&chain.injector.packets[0][24..26], &17u16.to_be_bytes());
+    let (_script, mut drop) = lua_interceptor("lua-udplen-zero-drop", "desync.udplen(0)\nreturn VERDICT_DROP");
+    assert!(drop.handle_packet(&packet));
+    assert!(drop.injector.packets.is_empty());
+}

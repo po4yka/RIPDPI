@@ -179,3 +179,26 @@ fn lua_plan_rejects_unbounded_action_and_byte_growth() {
         assert!(strategy.plan(&ctx, &mut plan).is_err(), "{function} must exceed the plan budget");
     }
 }
+
+#[test]
+fn lua_udplen_rejects_negative_delta_before_queuing_actions() {
+    let engine = LuaStrategyEngine::new().unwrap();
+    engine.load_bytes("negative", b"function negative(d) return d.udplen(-1) end").unwrap();
+    engine.register_function("negative").unwrap();
+    let strategy = engine.make_strategy("negative").unwrap();
+    let dissect = Dissect::default();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &ConnectionState::default(),
+        caps: &Capabilities::default(),
+        flow_id: FlowId(3),
+        payload: b"hello",
+        direction: FlowDirection::Outbound,
+    };
+    let mut plan = DesyncPlan::default();
+    let error = strategy.plan(&ctx, &mut plan).expect_err("negative delta");
+    assert!(
+        matches!(error, ripdpi_strategy_trait::StrategyError::LuaTypeError(message) if message.contains("non-negative"))
+    );
+    assert!(plan.actions.is_empty());
+}

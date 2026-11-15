@@ -65,8 +65,13 @@ impl DesyncStrategy for UdpLenStrategy {
     }
 }
 
-/// Applies UDP length falsification to a raw IPv4 or IPv6 packet.
+/// Applies positive UDP length falsification to a complete raw IPv4 or IPv6 datagram.
+///
+/// Zero is a no-op. Negative deltas and inconsistent input lengths are rejected.
 pub fn apply_udplen(packet: &[u8], delta: i16) -> Option<Vec<u8>> {
+    if delta <= 0 {
+        return None;
+    }
     let version = packet.first()? >> 4;
     match version {
         4 => apply_udplen_ipv4(packet, delta),
@@ -122,7 +127,7 @@ static UDPLEN_REGISTRATION: StrategyStepRegistration = StrategyStepRegistration 
         required_tier: CapabilityTier::Tier3,
         required_capabilities: &[RuntimeCapability::VpnMode],
         needs_parameters: true,
-        parameter_schema: "delta: signed UDP length-field delta (default 4)",
+        parameter_schema: "delta: non-negative UDP length-field delta; zero is a no-op (default 4)",
     },
     factory: StrategyStepFactory::Configured(build_udplen),
 };
@@ -159,6 +164,9 @@ fn apply_udplen_ipv6(packet: &[u8], delta: i16) -> Option<Vec<u8>> {
 
 fn adjusted_udp_len(packet: &[u8], offset: usize, delta: i16) -> Option<u16> {
     let current = u16::from_be_bytes([*packet.get(offset)?, *packet.get(offset + 1)?]);
+    if usize::from(current) != packet.len().checked_sub(offset.checked_sub(4)?)? {
+        return None;
+    }
     let next = i32::from(current) + i32::from(delta);
     (UDP_HEADER_LEN as i32..=i32::from(u16::MAX)).contains(&next).then_some(next as u16)
 }

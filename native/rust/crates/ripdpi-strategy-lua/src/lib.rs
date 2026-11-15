@@ -1412,6 +1412,9 @@ mod enabled {
         let udplen_plan = Arc::clone(&call_plan);
         let udplen = lua
             .create_function(move |_, delta: i16| {
+                if delta < 0 {
+                    return Err(mlua::Error::external("udplen delta must be non-negative; zero is a no-op"));
+                }
                 let mut plan = lock_lua_call_plan(&udplen_plan)?;
                 plan.push(DesyncAction::UdpLen { delta })?;
                 plan.verdict = Some(StrategyVerdict::Apply);

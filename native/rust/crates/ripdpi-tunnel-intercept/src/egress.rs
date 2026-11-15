@@ -416,6 +416,8 @@ fn execute_registry_action<I: TunPacketInjector>(
         StrategyVerdict::Drop => true,
     };
 
+    // Zero keeps Lua MODIFY inert during planning; it is not a failed packet injection.
+    plan.actions.retain(|action| !matches!(action, DesyncAction::UdpLen { delta: 0 }));
     let mut injected = false;
     // A decoy no receiver accepts (udplen) never replaces the original; only DROP consumes it.
     let mut decoy_sent = false;
