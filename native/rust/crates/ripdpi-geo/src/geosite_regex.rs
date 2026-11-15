@@ -3,12 +3,12 @@ use std::borrow::Cow;
 use regex::Regex;
 
 pub(super) fn compile(pattern: &str) -> Result<Regex, regex::Error> {
-    Regex::new(&unquote(pattern))
+    Regex::new(&translate_go_pattern(pattern)?)
 }
 
-fn unquote(pattern: &str) -> Cow<'_, str> {
-    if !pattern.contains(r"\Q") {
-        return Cow::Borrowed(pattern);
+fn translate_go_pattern(pattern: &str) -> Result<Cow<'_, str>, regex::Error> {
+    if !pattern.contains(r"\Q") && !pattern.contains('[') {
+        return Ok(Cow::Borrowed(pattern));
     }
     let mut output = String::with_capacity(pattern.len());
     let mut chars = pattern.chars();
@@ -18,6 +18,11 @@ fn unquote(pattern: &str) -> Cow<'_, str> {
     while let Some(ch) = chars.next() {
         if ch != '\\' {
             if in_class {
+                if ch == '-' && chars.as_str().starts_with('-') {
+                    return Err(regex::Error::Syntax(
+                        "unsupported consecutive hyphens in a GeoSite regex class".to_owned(),
+                    ));
+                }
                 if ch == '[' && chars.as_str().starts_with(':') {
                     let rest = chars.as_str();
                     if let Some(end) = rest.find(":]") {
@@ -37,7 +42,7 @@ fn unquote(pattern: &str) -> Cow<'_, str> {
                     class_initial = false;
                 }
                 class_negation = false;
-                if ch == '[' {
+                if matches!(ch, '[' | '&' | '~') {
                     output.push('\\');
                 }
             } else if ch == '[' {
@@ -67,7 +72,7 @@ fn unquote(pattern: &str) -> Cow<'_, str> {
             class_negation = false;
         }
     }
-    Cow::Owned(output)
+    Ok(Cow::Owned(output))
 }
 
 #[cfg(test)]
