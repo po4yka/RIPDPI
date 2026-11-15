@@ -11,11 +11,24 @@ use super::super::super::state::RuntimeState;
 use super::super::failure_retry::record_stream_fake_ttl_success;
 use super::super::half_close::HalfCloseLinger;
 use super::super::platform as relay_platform;
-use super::super::session::RelaySharedSession;
+use super::super::session::{FirstResponseOutcome, RelaySharedSession};
 use super::RELAY_IDLE_TIMEOUT;
 use super::RelayOutboundContext;
 use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
+
+fn retire_local_observation(
+    state: &RuntimeState,
+    session: &RelaySharedSession,
+    rotation: Option<&Arc<Mutex<CircularTcpRotationController>>>,
+) -> io::Result<()> {
+    if let Some(rotation) = rotation {
+        rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?.observe_round_inconclusive();
+    }
+    session.finish_first_response(FirstResponseOutcome::Neutral)?;
+    session.finish_evolution_response(state, false)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(
     reader: &mut TcpStream,
@@ -35,7 +48,12 @@ pub(super) fn copy_inbound_half(
         let _ = reader.set_read_timeout(Some(window.min(RELAY_IDLE_TIMEOUT)));
     }
     loop {
-        match reader.read(&mut buffer) {
+        let read_result = reader.read(&mut buffer);
+        if state.shutdown_requested() {
+            retire_local_observation(state, &session, rotation.as_ref())?;
+            return Err(io::Error::new(io::ErrorKind::Interrupted, "proxy stopped during relay"));
+        }
+        match read_result {
             Ok(0) => {
                 observe_rotation_transport_failure(
                     state,
@@ -59,7 +77,10 @@ pub(super) fn copy_inbound_half(
                         &buffer[..n],
                     );
                 }
-                writer.write_all(&buffer[..n])?;
+                if let Err(err) = writer.write_all(&buffer[..n]) {
+                    retire_local_observation(state, &session, rotation.as_ref())?;
+                    return Err(err);
+                }
                 state.note_application_traffic(0, n as u64);
                 linger.on_data();
                 detector.record_bytes(&buffer[..n]);
@@ -192,7 +213,12 @@ pub(super) fn copy_outbound_half(
     let mut linger = HalfCloseLinger::default();
     loop {
         let _ = reader.set_read_timeout(Some(RELAY_IDLE_TIMEOUT));
-        match reader.read(&mut buffer) {
+        let read_result = reader.read(&mut buffer);
+        if context.state.shutdown_requested() {
+            retire_local_observation(&context.state, &session, rotation.as_ref())?;
+            return Err(io::Error::new(io::ErrorKind::Interrupted, "proxy stopped during relay"));
+        }
+        match read_result {
             Ok(0) => break,
             Ok(n) => {
                 flush_outbound_payload(
@@ -212,7 +238,11 @@ pub(super) fn copy_outbound_half(
                 }
                 continue;
             }
-            Err(err) => return Err(err),
+            Err(err) => {
+                // The caller closes upstream on this client error; that induced EOF is not a peer failure.
+                retire_local_observation(&context.state, &session, rotation.as_ref())?;
+                return Err(err);
+            }
         }
     }
     peer_done.store(true, Ordering::Release);

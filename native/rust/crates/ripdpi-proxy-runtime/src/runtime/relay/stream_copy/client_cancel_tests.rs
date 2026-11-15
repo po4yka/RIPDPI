@@ -140,3 +140,136 @@ fn a_client_that_leaves_before_the_first_response_is_not_a_failure() {
         assert_eq!(run(scenario), Vec::<String>::new());
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+enum RotationEnd {
+    ClientReset,
+    ClientFinOriginFin,
+    ClientFinOriginReset,
+    ClientFinOriginResponse,
+    RuntimeStop,
+}
+
+fn run_rotation(end: RotationEnd) -> Option<String> {
+    use ripdpi_proxy_runtime_adapter::model::config::{RotationCandidate, RotationPolicy};
+    use ripdpi_proxy_runtime_adapter::model::ports::PolicyLearningPort;
+    use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
+    use std::sync::mpsc;
+
+    const FIRST: &[u8] = b"GET /first HTTP/1.1\r\nHost: fixture.test\r\n\r\n";
+    const NEXT: &[u8] = b"GET /next HTTP/1.1\r\nHost: fixture.test\r\n\r\n";
+    const RESPONSE: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+    let (mut client, mut app) = pair();
+    let (upstream, mut origin) = pair();
+    for socket in [&app, &origin] {
+        socket.set_read_timeout(Some(Duration::from_secs(3))).expect("bounded fixture read");
+    }
+    let target = upstream.peer_addr().expect("target");
+    let mut config = RuntimeConfig::default();
+    config.host_autolearn.enabled = true;
+    config.groups[0].actions.rotation_policy =
+        Some(RotationPolicy { candidates: vec![RotationCandidate::default()], ..RotationPolicy::default() });
+    let control = std::sync::Arc::new(EmbeddedProxyControl::new(None));
+    let state = RuntimeState::test_with_control(config, control.clone());
+    let _client_guard = state.register_active_tcp_socket(&client).expect("register client");
+    let _upstream_guard = state.register_active_upstream_tcp_socket(&upstream).expect("register upstream");
+    let (next_tx, next_rx) = mpsc::sync_channel(1);
+    let server = thread::spawn(move || {
+        let mut first = vec![0; FIRST.len()];
+        origin.read_exact(&mut first).expect("first request arrives");
+        assert_eq!(first, FIRST);
+        origin.write_all(RESPONSE).expect("accepted first response");
+        let mut next = vec![0; NEXT.len()];
+        origin.read_exact(&mut next).expect("new rotation round arrives");
+        assert_eq!(next, NEXT);
+        next_tx.send(()).expect("new round is on the wire");
+        match end {
+            RotationEnd::ClientReset | RotationEnd::RuntimeStop => {
+                assert_eq!(origin.read(&mut [0]).expect("local relay shutdown closes upstream"), 0);
+            }
+            RotationEnd::ClientFinOriginFin => {
+                assert_eq!(origin.read(&mut [0]).expect("client FIN reaches origin"), 0);
+            }
+            RotationEnd::ClientFinOriginReset => {
+                assert_eq!(origin.read(&mut [0]).expect("client FIN reaches origin"), 0);
+                rst(origin);
+            }
+            RotationEnd::ClientFinOriginResponse => {
+                assert_eq!(origin.read(&mut [0]).expect("client FIN reaches origin"), 0);
+                origin.write_all(RESPONSE).expect("response after client FIN");
+            }
+        }
+    });
+    app.write_all(FIRST).expect("initial request");
+    let prepared = prepare_relay(
+        &mut client,
+        upstream,
+        &state,
+        target,
+        RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 },
+        None,
+        crate::runtime::relay::RelayFlow::default(),
+        None,
+    )
+    .expect("real first exchange accepted");
+    assert!(prepared.success_recorded, "fixture must pass the production first-response path");
+    assert_eq!(prepared.success_host.as_deref(), Some("fixture.test"));
+    // One prior signal is unconfirmed. Cancellation must not provide its second confirmation.
+    state.note_block_signal("fixture.test", crate::runtime::failure::RuntimeBlockSignal::TcpReset, None, true);
+    assert_eq!(state.test_services().autolearn_state().last_block_signal, None);
+    let stopping_state = state.clone();
+    let app_thread = thread::spawn(move || {
+        let mut response = vec![0; RESPONSE.len()];
+        app.read_exact(&mut response).expect("accepted response delivered");
+        assert_eq!(response, RESPONSE);
+        app.write_all(NEXT).expect("next request");
+        next_rx.recv_timeout(Duration::from_secs(3)).expect("wait for actual next round bytes");
+        match end {
+            RotationEnd::ClientReset => rst(app),
+            RotationEnd::RuntimeStop => {
+                control.request_shutdown();
+                stopping_state.shutdown_active_tcp_sockets();
+            }
+            _ => {
+                app.shutdown(Shutdown::Write).expect("ordinary client half-close");
+                if matches!(end, RotationEnd::ClientFinOriginResponse) {
+                    app.read_exact(&mut response).expect("response survives ordinary FIN");
+                    assert_eq!(response, RESPONSE);
+                } else {
+                    let _ = app.read(&mut [0]);
+                }
+            }
+        }
+    });
+    let settings = RelayStreamSettings {
+        group: state.relay_group(0).expect("relay group"),
+        rotation_seed: state.relay_rotation_seed(0).expect("rotation policy"),
+    };
+    let _ =
+        relay_streams(client, prepared.upstream, &state, 0, settings, prepared.session_state, prepared.success_host);
+    app_thread.join().expect("app worker");
+    server.join().expect("origin worker");
+    state.test_services().autolearn_state().last_block_signal
+}
+
+#[test]
+fn client_reset_during_a_rotation_round_is_not_a_block_signal() {
+    assert_eq!(run_rotation(RotationEnd::ClientReset), None);
+}
+
+#[test]
+fn runtime_stop_during_a_rotation_round_is_not_a_block_signal() {
+    assert_eq!(run_rotation(RotationEnd::RuntimeStop), None);
+}
+
+#[test]
+fn ordinary_client_fin_preserves_genuine_origin_closure_failures() {
+    for end in [RotationEnd::ClientFinOriginFin, RotationEnd::ClientFinOriginReset] {
+        assert_eq!(run_rotation(end).as_deref(), Some("tcp_reset"), "{end:?}");
+    }
+}
+
+#[test]
+fn ordinary_client_fin_preserves_a_later_origin_response() {
+    assert_eq!(run_rotation(RotationEnd::ClientFinOriginResponse), None);
+}
