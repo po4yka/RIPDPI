@@ -164,7 +164,7 @@ internal object GeoIpProviderParser {
             countryCode =
                 snapshot.countryCode
                     .uppercase(Locale.ROOT)
-                    .takeIf { COUNTRY_CODE.matches(it) }
+                    .takeIf { it in CountryCodes }
                     .orEmpty(),
             asn = normalizeAsn(snapshot.asn).ifBlank { "N/A" },
         )
@@ -184,7 +184,7 @@ internal object GeoIpProviderParser {
                 (this?.opt(key) as? String)?.trim()?.takeIf { it.isNotBlank() && it !in setOf("N/A", "null") }
             }.orEmpty()
 
-    private val COUNTRY_CODE = Regex("[A-Z]{2}")
+    private val CountryCodes = Locale.getISOCountries().toSet()
 }
 
 private fun firstMeaningful(

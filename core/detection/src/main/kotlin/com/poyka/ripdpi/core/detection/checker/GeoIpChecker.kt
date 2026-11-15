@@ -162,7 +162,18 @@ object GeoIpChecker {
         if (validSnapshots.isEmpty() || validSnapshots.map { it.ip }.distinct().size != 1) {
             return errorResult("GeoIP provider responses do not identify one public IP")
         }
-        val result = evaluate(mergeSnapshots(validSnapshots))
+        val base = evaluate(mergeSnapshots(validSnapshots))
+        val countryOpinionCount = validSnapshots.count { it.countryCode.isNotBlank() }
+        val asnOpinionCount = validSnapshots.count { it.asn != "N/A" }
+        val result =
+            base.copy(
+                findings =
+                    base.findings +
+                        listOf(
+                            Finding("GeoIP country opinions: $countryOpinionCount/${validSnapshots.size}"),
+                            Finding("GeoIP ASN opinions: $asnOpinionCount/${validSnapshots.size}"),
+                        ),
+            )
         if (validSnapshots.size >= MIN_PROVIDER_COUNT) return result
         return result.copy(
             findings =
@@ -212,13 +223,13 @@ object GeoIpChecker {
             detected = snapshot.isProxy,
         )
 
+        val traitsIncomplete = snapshot.isHosting == null || snapshot.isProxy == null
+        val identityIncomplete = snapshot.countryCode.isBlank() || snapshot.asn == "N/A"
         return CategoryResult(
             name = "GeoIP",
             detected = snapshot.isHosting == true || snapshot.isProxy == true,
             status =
-                if (snapshot.isHosting == null ||
-                    snapshot.isProxy == null
-                ) {
+                if (traitsIncomplete || identityIncomplete) {
                     DetectionCheckStatus.INCONCLUSIVE
                 } else {
                     DetectionCheckStatus.COMPLETE
@@ -235,32 +246,33 @@ object GeoIpChecker {
         val proxyMajority = snapshots.mapNotNull { it.isProxy }.traitConsensus()
         val hostingMajority =
             snapshots.mapNotNull { it.isHosting }.traitConsensus()
-        val countryCode = majorityString(snapshots, GeoIpSnapshot::countryCode)
+        val countryCode = stringConsensus(snapshots, GeoIpSnapshot::countryCode)
         val countrySnapshot =
             snapshots
-                .filter { it.countryCode == countryCode }
-                .maxByOrNull { it.fetchedAtIndex }
-                ?: snapshots.maxBy { it.fetchedAtIndex }
-        val asn = majorityString(snapshots, GeoIpSnapshot::asn)
-        val asnSnapshot =
-            snapshots
-                .filter { it.asn == asn }
-                .maxByOrNull { it.fetchedAtIndex }
-                ?: countrySnapshot
+                .filter { countryCode.isNotBlank() && it.countryCode == countryCode }
+                .minByOrNull { it.providerName }
+        val asn = stringConsensus(snapshots, GeoIpSnapshot::asn)
+        val asnSnapshot = snapshots.filter { asn.isNotBlank() && it.asn == asn }.minByOrNull { it.providerName }
+        val proxyValues = snapshots.mapNotNull { it.isProxy }.toSet()
+        val hostingValues = snapshots.mapNotNull { it.isHosting }.toSet()
+        val countryValues = snapshots.map { it.countryCode }.filter(String::isNotBlank).toSet()
+        val asnValues = snapshots.map { it.asn }.filter { it != "N/A" }.toSet()
         val conflictingProviders =
             snapshots
                 .filter {
-                    (proxyMajority != null && it.isProxy != null && it.isProxy != proxyMajority) ||
-                        (hostingMajority != null && it.isHosting != null && it.isHosting != hostingMajority)
+                    (proxyValues.size > 1 && it.isProxy != null && it.isProxy != proxyMajority) ||
+                        (hostingValues.size > 1 && it.isHosting != null && it.isHosting != hostingMajority) ||
+                        (countryValues.size > 1 && it.countryCode.isNotBlank() && it.countryCode != countryCode) ||
+                        (asnValues.size > 1 && it.asn != "N/A" && it.asn != asn)
                 }.map { it.providerName }
 
         return GeoIpSnapshot(
-            ip = snapshots.last().ip,
-            country = countrySnapshot.country,
-            countryCode = countrySnapshot.countryCode,
-            isp = asnSnapshot.isp,
-            org = asnSnapshot.org,
-            asn = asnSnapshot.asn,
+            ip = snapshots.first().ip,
+            country = countrySnapshot?.country ?: "N/A",
+            countryCode = countryCode,
+            isp = asnSnapshot?.isp ?: "N/A",
+            org = asnSnapshot?.org ?: "N/A",
+            asn = asn.ifBlank { "N/A" },
             isProxy = proxyMajority,
             isHosting = hostingMajority,
             providerName = "consensus",
@@ -270,17 +282,14 @@ object GeoIpChecker {
         )
     }
 
-    private fun majorityString(
+    private fun stringConsensus(
         snapshots: List<GeoIpSnapshot>,
         selector: (GeoIpSnapshot) -> String,
     ): String {
-        val groups = snapshots.groupBy(selector)
-        val maxCount = groups.values.maxOf { it.size }
-        val tiedValues = groups.filterValues { it.size == maxCount }.keys
-        return snapshots
-            .filter { selector(it) in tiedValues }
-            .maxBy { it.fetchedAtIndex }
-            .let(selector)
+        val opinions = snapshots.filter { selector(it).isNotBlank() && selector(it) != "N/A" }
+        if (opinions.size < MIN_PROVIDER_COUNT) return ""
+        val winner = opinions.groupBy(selector).maxByOrNull { it.value.size }
+        return winner?.takeIf { it.value.size > opinions.size / 2 }?.key.orEmpty()
     }
 
     private fun errorResult(message: String): CategoryResult =

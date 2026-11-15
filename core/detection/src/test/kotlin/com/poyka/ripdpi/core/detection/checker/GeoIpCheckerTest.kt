@@ -282,7 +282,9 @@ class GeoIpCheckerTest {
 
         assertTrue(result.detected)
         assertTrue(result.findings.any { it.description == "Provider count: 5" })
-        assertTrue(result.findings.any { it.description == "Conflicting providers: iplookup.it, ipbot.com" })
+        assertTrue(
+            result.findings.any { it.description == "Conflicting providers: ipquery.io, iplookup.it, ipbot.com" },
+        )
         assertTrue(result.findings.any { it.description == "IP in known proxy/VPN database: yes" })
     }
 
@@ -372,7 +374,7 @@ class GeoIpCheckerTest {
         }
 
     @Test
-    fun `country tie uses most recent successful response`() {
+    fun `country tie remains unknown`() {
         val result =
             GeoIpChecker.evaluateConsensus(
                 listOf(
@@ -383,7 +385,8 @@ class GeoIpCheckerTest {
                 ),
             )
 
-        assertTrue(result.findings.any { it.description == "Country: Germany (DE)" })
+        assertTrue(result.findings.any { it.description == "Country: N/A ()" })
+        assertEquals(DetectionCheckStatus.INCONCLUSIVE, result.status)
     }
 
     private class FakeGeoIpProviderClient(
