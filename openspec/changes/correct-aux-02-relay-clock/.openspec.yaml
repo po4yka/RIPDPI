@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-15
+goal: RLY-1794757174777852 Correct AUX-02 relay clock trust and replay handling
