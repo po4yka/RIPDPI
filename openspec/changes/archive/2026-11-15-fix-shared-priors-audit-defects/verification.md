@@ -47,3 +47,11 @@ The final tree includes origin/main at ee25ddb7f6b33d7a6b5508c953720820f4dcda25.
 - Actual generated BuildConfig still contains both supplied URLs and the configured-key flag. This does not establish a production APK key.
 - Locked full Cargo metadata resolves successfully. Architecture health is included in the passing source gates.
 - Logs: /tmp/ripdpi-aux05-rebased-ci-gates.log and /tmp/ripdpi-aux05-rebased-gradle.log. Focused test and Clippy logs are under /tmp/aux05-http-green.log, /tmp/aux05-config-tests.log, /tmp/ripdpi-aux05-mean-cargo-tests.log and /tmp/ripdpi-aux05-mean-clippy.log.
+
+## Final integration after concurrent main update
+
+The original acceptance SHA in the frontmatter remains the first verified checkpoint. The final integration checkpoint is `f33f3dfde2f6c1aa92c32ca4fbd7ee7ecafd8454`, based on `e93e88121f9eb60b3415323ac0c3c001714205c0`. The later main commit changes Backup/TUIC/Mieru integration, not any of the nine AUX-05 implementation/test files. Their Git blobs are identical to the original verified checkpoint.
+
+`just ci-gates` passed again. Full `staticAnalysis`, generated BuildConfig and all 24 shared-priors/cache service tests passed again, with zero failures/errors/skips. The Rust strategy and build-logic inputs remain unchanged; their 143 and 4 passing tests and clean Clippy results still apply. Task validation passed after rebase and the generated board count was refreshed.
+
+Final run logs: `/tmp/ripdpi-aux05-integration-ci-gates.log` and `/tmp/ripdpi-aux05-integration-gradle.log`. No release key, APK, device, external publisher, or hosted CI result is implied by this local evidence.
