@@ -54,10 +54,10 @@ pub fn server_config(host: String, port: u16, name: &str, password: String) -> i
 
 /// One factory shares replay state across all TCP connections.
 #[must_use]
-pub fn client_context() -> SharedContext {
+pub fn client_context(time: Arc<NetworkTimeProvider>) -> SharedContext {
     let mut context = Context::new(ServerType::Local);
     context.set_replay_attack_policy(ReplayAttackPolicy::Reject);
-    context.set_timestamp_provider(Arc::new(|| NetworkTimeProvider::shared().now_unix_u64()));
+    context.set_timestamp_provider(Arc::new(move || time.now_unix_u64()));
     Arc::new(context)
 }
 

@@ -24,6 +24,20 @@ fn factory(host: &str, port: u16, method: &str, credential: &str) -> Shadowsocks
     .unwrap()
 }
 
+#[test]
+fn each_factory_has_its_own_time_even_when_endpoints_match() {
+    let (method, key) = METHODS[3];
+    let first = factory("example.test", 443, method, key);
+    let shared = first.clone();
+    let fresh = factory("example.test", 443, method, key);
+    let server_time = first.config.time.now_unix() + 120;
+    assert!(first.config.time.calibrate(server_time, TimeSource::new("shadowsocks", "example.test", 443, 1)));
+    assert!(shared.config.time.is_calibrated());
+    assert!(shared.config.context.now_timestamp().abs_diff(u64::try_from(server_time).unwrap()) <= 1);
+    assert!(!fresh.config.time.is_calibrated());
+    assert!(fresh.config.context.now_timestamp().abs_diff(u64::try_from(server_time).unwrap()) > 30);
+}
+
 /// # Cancel safety:
 /// cancel-safe: the runtime owns the server tasks and both ends of every stream.
 #[tokio::test]
@@ -232,7 +246,7 @@ async fn udp_upstream_exchange_rejects_bad_packets_and_reuses_buffer() {
         let factory = factory("127.0.0.1", port, method, credential);
         let session = factory.create_session().await.unwrap();
         let mut client = session.open_datagram().await.unwrap();
-        let timestamp = Arc::new(std::sync::atomic::AtomicU64::new(NetworkTimeProvider::shared().now_unix_u64()));
+        let timestamp = Arc::new(std::sync::atomic::AtomicU64::new(factory.config.time.now_unix_u64()));
         let clock = Arc::clone(&timestamp);
         let server_context = Arc::new({
             let mut context = Context::new(ServerType::Server);
@@ -253,10 +267,10 @@ async fn udp_upstream_exchange_rejects_bad_packets_and_reuses_buffer() {
         let mut control = control.unwrap();
         control.server_session_id = 123;
         let allocation = client.receive_buffer.as_ptr();
-        timestamp.store(NetworkTimeProvider::shared().now_unix_u64() - 31, std::sync::atomic::Ordering::Relaxed);
+        timestamp.store(factory.config.time.now_unix_u64() - 31, std::sync::atomic::Ordering::Relaxed);
         server.send_to_with_ctrl(peer, &address, &control, b"stale timestamp").await.unwrap();
         // This atomic supplies only a scalar test clock, with no associated memory publication.
-        timestamp.store(NetworkTimeProvider::shared().now_unix_u64(), std::sync::atomic::Ordering::Relaxed);
+        timestamp.store(factory.config.time.now_unix_u64(), std::sync::atomic::Ordering::Relaxed);
         // Wrong recipient must not consume this packet ID or calibrate the clock.
         control.client_session_id ^= 1;
         server.send_to_with_ctrl(peer, &address, &control, b"wrong recipient").await.unwrap();

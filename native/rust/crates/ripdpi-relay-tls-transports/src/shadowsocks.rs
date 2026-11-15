@@ -144,6 +144,7 @@ struct ShadowsocksClientConfig {
     server_host: String,
     server_port: u16,
     server: ServerConfig,
+    time: Arc<NetworkTimeProvider>,
     context: SharedContext,
     outbound_bind_ip: Option<IpAddr>,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
@@ -163,12 +164,15 @@ impl ShadowsocksSessionFactory {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     ) -> io::Result<Self> {
         let server = ripdpi_shadowsocks::server_config(server_host.clone(), server_port, &method, password)?;
+        let time = Arc::new(NetworkTimeProvider::system());
+        let context = ripdpi_shadowsocks::client_context(Arc::clone(&time));
         Ok(Self {
             config: Arc::new(ShadowsocksClientConfig {
                 server_host,
                 server_port,
                 server,
-                context: ripdpi_shadowsocks::client_context(),
+                time,
+                context,
                 outbound_bind_ip,
                 socket_protection,
             }),
@@ -272,7 +276,7 @@ impl ShadowsocksUdpSession {
             };
             if !self.calibrated {
                 let source = TimeSource::new("shadowsocks", &self.config.server_host, self.config.server_port, 1);
-                NetworkTimeProvider::shared().calibrate(i64::try_from(timestamp).unwrap_or(i64::MAX), source);
+                self.config.time.calibrate(i64::try_from(timestamp).unwrap_or(i64::MAX), source);
                 self.calibrated = true;
             }
             return Ok((address.to_string(), self.receive_buffer[..read].to_vec()));
