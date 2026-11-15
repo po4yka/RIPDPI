@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicBool;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::ProbeExecutionContext;
-use crate::engine::runtime::{CollectedStageOutcome, CollectedStep, ExecutionPlan, RunnerArtifacts};
+use crate::engine::runtime::{CollectedStageOutcome, CollectedStep, ExecutionPlan};
 use crate::types::ProbeResult;
 
 use super::interrupted;
@@ -45,14 +45,7 @@ pub(super) fn collect_family_steps<F: ConnectivityProbeFamily>(
         if F::DROP_INTERRUPTED_RESULT && interrupted(cancel) {
             return CollectedStageOutcome::Cancelled(steps);
         }
-        let latest_probe_outcome = Some(probe.outcome.clone());
-        steps.push(CollectedStep {
-            phase: F::PHASE,
-            latest_probe_target: Some(message.clone()),
-            message,
-            latest_probe_outcome,
-            artifacts: RunnerArtifacts::from_probe(probe, F::ARTIFACT_SOURCE, &plan.request.path_mode),
-        });
+        steps.push(CollectedStep::from_probe(F::PHASE, message, probe, F::ARTIFACT_SOURCE, &plan.request.path_mode));
         if interrupted(cancel) {
             return CollectedStageOutcome::Cancelled(steps);
         }

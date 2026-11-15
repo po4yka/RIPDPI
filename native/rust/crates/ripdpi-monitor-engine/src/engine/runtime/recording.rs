@@ -2,6 +2,7 @@ use super::artifacts::RunnerArtifacts;
 use super::plan::ExecutionPlan;
 use super::stage::RunnerOutcome;
 use super::state::ExecutionRuntime;
+use crate::types::{ProbeResult, ScanPathMode};
 
 /// A single recorded step collected outside of `ExecutionRuntime`, used by the
 /// parallel runner path to accumulate results without shared mutable state.
@@ -11,6 +12,24 @@ pub(in crate::engine) struct CollectedStep {
     pub(in crate::engine) latest_probe_target: Option<String>,
     pub(in crate::engine) latest_probe_outcome: Option<String>,
     pub(in crate::engine) artifacts: RunnerArtifacts,
+}
+
+impl CollectedStep {
+    pub(in crate::engine) fn from_probe(
+        phase: &'static str,
+        message: String,
+        probe: ProbeResult,
+        source: &str,
+        path_mode: &ScanPathMode,
+    ) -> Self {
+        Self {
+            phase,
+            latest_probe_target: Some(message.clone()),
+            message,
+            latest_probe_outcome: Some(probe.outcome.clone()),
+            artifacts: RunnerArtifacts::from_probe(probe, source, path_mode),
+        }
+    }
 }
 
 pub(in crate::engine) enum CollectedStageOutcome {

@@ -328,7 +328,7 @@ class DiagnosticsModelsCompatibilityTest {
         assertEquals(TelegramWsProbeOutcome.NOT_RUN, telegram.wsTunnelOutcome)
         assertNull(telegram.qualityScore)
         val encoded = json.encodeToString(TelegramObservationFact.serializer(), telegram)
-        assertTrue("" qualityScore "" !in encoded)
+        assertTrue("\"qualityScore\"" !in encoded)
     }
 
     @Test
