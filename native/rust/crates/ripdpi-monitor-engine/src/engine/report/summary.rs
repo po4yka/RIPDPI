@@ -182,7 +182,7 @@ pub(in crate::engine) fn connectivity_analytics_summary(
         "network_failures_detected"
     } else if buckets.attention > 0 {
         "attention_required"
-    } else if !has_connectivity_success {
+    } else if buckets.inconclusive > 0 || !has_connectivity_success {
         "connectivity_inconclusive"
     } else if dns_contextual_downgraded > 0 {
         "healthy_connectivity_with_cdn_dns_variance"

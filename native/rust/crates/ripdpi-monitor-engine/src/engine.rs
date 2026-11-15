@@ -87,6 +87,58 @@ mod tests {
     }
 
     #[test]
+    fn connectivity_analytics_summary_keeps_unknown_results_inconclusive() {
+        let unknown = probe("doh_json_survey", "example.com", "inconclusive");
+        for results in [
+            vec![unknown.clone()],
+            vec![probe("network_environment", "wifi", "network_available"), unknown.clone()],
+            vec![probe("domain_reachability", "example.com", "tls_ok"), unknown],
+        ] {
+            let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
+            assert!(analytics.ends_with("network_verdict=connectivity_inconclusive"), "{analytics}");
+        }
+    }
+
+    #[test]
+    fn connectivity_analytics_summary_does_not_call_an_empty_report_healthy() {
+        let analytics = connectivity_analytics_summary(&[], &crate::types::ScanPathMode::RawPath);
+        assert!(analytics.ends_with("network_verdict=connectivity_inconclusive"), "{analytics}");
+    }
+
+    #[test]
+    fn connectivity_analytics_summary_keeps_unknown_over_contextual_health() {
+        let results = vec![
+            dns_compatible_probe("google.com", "0"),
+            probe("domain_reachability", "google.com", "tls_ok"),
+            probe("doh_json_survey", "example.com", "inconclusive"),
+        ];
+        let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
+        assert!(analytics.contains("healthy=2"), "{analytics}");
+        assert!(analytics.contains("inconclusive=1"), "{analytics}");
+        assert!(analytics.ends_with("network_verdict=connectivity_inconclusive"), "{analytics}");
+    }
+
+    #[test]
+    fn connectivity_analytics_summary_keeps_failure_and_attention_over_unknown() {
+        let unknown = probe("doh_json_survey", "example.com", "inconclusive");
+        for (mut results, expected) in [
+            (vec![probe("network_environment", "wifi", "vpn_tunnel_down")], "attention_required"),
+            (vec![probe("tcp_fat_header", "8.8.8.8:443", "tcp_timeout")], "attention_required"),
+            (
+                vec![
+                    probe("network_environment", "wifi", "network_unavailable"),
+                    probe("tcp_fat_header", "8.8.8.8:443", "tcp_timeout"),
+                ],
+                "network_failures_detected",
+            ),
+        ] {
+            results.push(unknown.clone());
+            let analytics = connectivity_analytics_summary(&results, &crate::types::ScanPathMode::RawPath);
+            assert!(analytics.ends_with(&format!("network_verdict={expected}")), "{analytics}");
+        }
+    }
+
+    #[test]
     fn connectivity_summary_treats_weak_cdn_dns_variance_as_healthy_when_reachable() {
         let results = vec![
             probe("network_environment", "wifi", "network_available"),
