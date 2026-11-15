@@ -112,8 +112,14 @@ fn native_compatibility_contract_retains_retired_outcomes() {
     assert_eq!(
         compatibility_only,
         BTreeSet::from(
-            ["udp_timeout_transient", "tcp_16kb_blocked", "tcp_freeze_after_threshold", "whitelist_sni_failed"]
-                .map(str::to_string)
+            [
+                "udp_timeout_transient",
+                "tcp_16kb_blocked",
+                "tcp_freeze_after_threshold",
+                "whitelist_sni_failed",
+                "quic_empty"
+            ]
+            .map(str::to_string)
         )
     );
 }
@@ -129,6 +135,7 @@ fn compatible_native_outcome_tokens() -> BTreeSet<String> {
     }
     // The former runner emitted this outcome. Report readers still classify it.
     tokens.insert("whitelist_sni_failed".to_string());
+    tokens.insert("quic_empty".to_string());
     tokens
 }
 
@@ -155,6 +162,8 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs", "fn tcp_probe_outcome"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "pub fn run_quic_probe"),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "fn record_reply"),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "fn transport_outcome"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/service.rs", "pub fn run_service_probe"),
         (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/service.rs",

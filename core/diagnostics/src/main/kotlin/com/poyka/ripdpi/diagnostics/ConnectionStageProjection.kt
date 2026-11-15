@@ -35,7 +35,7 @@ fun ProbeResult.toConnectionStageScale(): ConnectionStageScale? {
 
             "quic_reachability", "strategy_quic" -> {
                 listOf(
-                    quicConnectionLane(evidence["status"], evidence.duration("latencyMs")),
+                    quicConnectionLane(evidence["status"] ?: outcome, evidence.duration("latencyMs")),
                 )
             }
 

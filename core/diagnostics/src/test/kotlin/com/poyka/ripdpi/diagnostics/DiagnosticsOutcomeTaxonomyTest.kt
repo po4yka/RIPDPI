@@ -38,6 +38,29 @@ class DiagnosticsOutcomeTaxonomyTest {
     }
 
     @Test
+    fun `QUIC Initial responses without crypto and inconclusive attempts are not healthy`() {
+        val outcomes =
+            mapOf(
+                "quic_initial_ack" to DiagnosticsOutcomeBucket.Attention,
+                "quic_initial_other" to DiagnosticsOutcomeBucket.Attention,
+                "quic_initial_close" to DiagnosticsOutcomeBucket.Attention,
+                "quic_retry" to DiagnosticsOutcomeBucket.Attention,
+                "quic_version_negotiation" to DiagnosticsOutcomeBucket.Attention,
+                "quic_invalid_response" to DiagnosticsOutcomeBucket.Attention,
+                "quic_timeout" to DiagnosticsOutcomeBucket.Attention,
+                "quic_setup_error" to DiagnosticsOutcomeBucket.Inconclusive,
+                "quic_cancelled" to DiagnosticsOutcomeBucket.Inconclusive,
+                "quic_deadline_exceeded" to DiagnosticsOutcomeBucket.Inconclusive,
+            )
+        outcomes.forEach { (outcome, bucket) ->
+            val classification =
+                DiagnosticsOutcomeTaxonomy.classifyProbeOutcome("quic_reachability", ScanPathMode.RAW_PATH, outcome)
+            assertEquals(outcome, bucket, classification.bucket)
+            assertEquals(outcome, false, classification.healthyEnoughForSummary)
+        }
+    }
+
+    @Test
     fun `masque h3 tcp unsupported maps to failed bucket`() {
         val classification =
             DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(

@@ -100,6 +100,27 @@ class DiagnosticsProbePresentationTest {
     }
 
     @Test
+    fun quicInitialProbeShowsObservationAndDistinguishesUnrunChecks() {
+        val statuses =
+            mapOf(
+                "quic_initial_close" to R.string.diagnostics_stages_observed,
+                "quic_retry" to R.string.diagnostics_stages_observed,
+                "quic_version_negotiation" to R.string.diagnostics_stages_observed,
+                "quic_timeout" to R.string.diagnostics_stages_timed_out,
+                "quic_setup_error" to R.string.diagnostics_stages_not_reached,
+                "quic_cancelled" to R.string.diagnostics_stages_cancelled,
+                "quic_deadline_exceeded" to R.string.diagnostics_scan_termination_deadline_exceeded,
+            )
+        statuses.forEach { (outcome, label) ->
+            assertEquals(
+                outcome,
+                label,
+                diagnosticProbeOutcomeResource(probe("quic_reachability", outcome, DiagnosticsTone.Warning)),
+            )
+        }
+    }
+
+    @Test
     fun unknownProbeTypeHasNeutralLocalizedTitle() {
         assertEquals(R.string.diagnostics_probe_check_title, diagnosticProbeTitleResource("future_probe"))
         assertEquals(R.string.diagnostics_matrix_title, diagnosticProbeTitleResource("selective_availability"))

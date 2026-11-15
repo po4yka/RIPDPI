@@ -1,82 +1,117 @@
-use ripdpi_packets::{QUIC_V1_VERSION, QuicResponseKind, build_probe_quic_initial, validate_quic_response};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
+
+use ripdpi_packets::{
+    QUIC_V1_VERSION, QuicInitialPacketLayout, QuicProbeResponseKind, build_probe_quic_initial,
+    canonical_quic_probe_host, packetize_quic_initial, parse_quic_initial_seed, validate_quic_probe_response,
+};
 
 use crate::connectivity::adapters::transport::{
-    TransportConfig, quic_connect_targets, relay_udp_payload_matching_observed,
+    TransportConfig, TransportError, UdpRelayResult, quic_connect_targets, relay_quic_probe_observed,
 };
-use crate::connectivity::adapters::util::now_ms;
 use crate::types::{ProbeDetail, ProbeResult, QuicTarget};
 
 use super::support::append_route_details;
 
-pub fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -> ProbeResult {
-    let started = now_ms();
-    let connect_targets = quic_connect_targets(target);
-    let payload = build_probe_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str()));
-    // The direct transport retransmits a lost Initial once within the same wait.
-    let response = payload
-        .as_deref()
-        .ok_or_else(|| std::io::Error::other("QUIC Initial generation failed").into())
-        .and_then(|payload| {
-            relay_udp_payload_matching_observed(&connect_targets, target.port, transport, payload, &|response| {
-                validate_quic_response(payload, response).is_some()
-            })
-        });
-    let kind = response
-        .as_ref()
-        .ok()
-        .and_then(|result| payload.as_deref().and_then(|request| validate_quic_response(request, &result.payload)));
-    let latency_ms = now_ms().saturating_sub(started);
-    let (outcome, status, error, connected_addr, local_addr, route_report) = match response {
-        Ok(result) if kind == Some(QuicResponseKind::Initial) => (
-            "quic_initial_response".to_string(),
-            "quic_initial_response".to_string(),
-            "none".to_string(),
-            result.connected_addr,
-            result.local_addr,
-            result.route_report,
-        ),
-        Ok(result) if kind.is_some() => (
-            "quic_response".to_string(),
-            "quic_response".to_string(),
-            "none".to_string(),
-            result.connected_addr,
-            result.local_addr,
-            result.route_report,
-        ),
-        Ok(result) => (
-            if result.payload.is_empty() { "quic_empty" } else { "quic_error" }.to_string(),
-            if result.payload.is_empty() { "quic_empty" } else { "quic_error" }.to_string(),
-            if result.payload.is_empty() { "none" } else { "invalid QUIC response" }.to_string(),
-            result.connected_addr,
-            result.local_addr,
-            result.route_report,
-        ),
-        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err.to_string(), None, None, None),
+pub fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig, cancel: &AtomicBool) -> ProbeResult {
+    let started = Instant::now();
+    let response = if cancel.load(Ordering::Acquire) {
+        Err(TransportError::ProbeAborted("cancelled"))
+    } else if target.port == 0 {
+        Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "QUIC target port must be nonzero").into())
+    } else if canonical_quic_probe_host(&target.host).is_none() {
+        Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid QUIC target host").into())
+    } else {
+        relay_quic_probe_observed(
+            &quic_connect_targets(target),
+            target.port,
+            transport,
+            cancel,
+            &mut || build_probe_flight(&target.host),
+            &|request, response| validate_quic_probe_response(request, response).is_some(),
+        )
     };
-    let mut result = ProbeResult {
+    let mut details = vec![
+        ProbeDetail { key: "measurementScope".to_string(), value: "quic_initial_response".to_string() },
+        ProbeDetail { key: "http3Validated".to_string(), value: "false".to_string() },
+        ProbeDetail { key: "latencyMs".to_string(), value: started.elapsed().as_millis().to_string() },
+        ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
+    ];
+    let (outcome, error) = match response {
+        Ok((observation, request)) => record_reply(&mut details, &request, observation),
+        Err(error) => (transport_outcome(&error), error.to_string()),
+    };
+    details.push(ProbeDetail { key: "status".to_string(), value: outcome.to_string() });
+    details.push(ProbeDetail { key: "error".to_string(), value: error });
+    ProbeResult {
         probe_type: "quic_reachability".to_string(),
         target: target.host.clone(),
-        outcome,
-        details: vec![
-            ProbeDetail { key: "measurementScope".to_string(), value: "quic_initial_response".to_string() },
-            ProbeDetail { key: "http3Validated".to_string(), value: "false".to_string() },
-            ProbeDetail { key: "status".to_string(), value: status },
-            ProbeDetail { key: "error".to_string(), value: error },
-            ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
-            ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
-        ],
-    };
-    if let Some(addr) = connected_addr {
-        result.details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
+        outcome: outcome.into(),
+        details,
     }
-    append_route_details(&mut result.details, "", local_addr, route_report.as_ref());
-    result
+}
+
+fn build_probe_flight(host: &str) -> Option<(Vec<u8>, Vec<u8>)> {
+    let initial = build_probe_quic_initial(QUIC_V1_VERSION, Some(host))?;
+    let seed = parse_quic_initial_seed(&initial)?;
+    let mut layout = QuicInitialPacketLayout::contiguous(initial.len());
+    layout.packet_number = 1;
+    let repeat = packetize_quic_initial(&seed, &layout)?;
+    Some((initial, repeat))
+}
+
+fn record_reply(details: &mut Vec<ProbeDetail>, request: &[u8], observation: UdpRelayResult) -> (&'static str, String) {
+    let outcome = match validate_quic_probe_response(request, &observation.payload) {
+        Some(QuicProbeResponseKind::InitialCrypto) => "quic_initial_response",
+        Some(QuicProbeResponseKind::InitialAck) => "quic_initial_ack",
+        Some(QuicProbeResponseKind::InitialOther) => "quic_initial_other",
+        Some(QuicProbeResponseKind::InitialClose) => "quic_initial_close",
+        Some(QuicProbeResponseKind::Retry) => "quic_retry",
+        Some(QuicProbeResponseKind::VersionNegotiation) => "quic_version_negotiation",
+        None => return ("quic_invalid_response", "invalid QUIC response".to_string()),
+    };
+    if let Some(addr) = observation.connected_addr {
+        details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
+    }
+    append_route_details(details, "", observation.local_addr, observation.route_report.as_ref());
+    (outcome, "none".to_string())
+}
+
+fn transport_outcome(error: &TransportError) -> &'static str {
+    match error {
+        TransportError::ProbeAborted("cancelled") => "quic_cancelled",
+        TransportError::ProbeAborted("deadline_exceeded") | TransportError::ScanDeadlineExceeded => {
+            "quic_deadline_exceeded"
+        }
+        TransportError::UdpRecvTimeout | TransportError::UdpRecvWouldBlock => "quic_timeout",
+        TransportError::UdpRecvUnmatched => "quic_invalid_response",
+        TransportError::UdpRecvFailed { .. } => "quic_error",
+        _ => "quic_setup_error",
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::{net::UdpSocket, thread};
+
+    #[test]
+    fn repeated_flight_uses_the_same_initial_context() {
+        let (initial, repeat) = build_probe_flight("localhost").unwrap();
+        assert_eq!((initial.len(), repeat.len()), (1200, 1200));
+        assert_ne!(initial, repeat);
+        assert_eq!(parse_quic_initial_seed(&initial), parse_quic_initial_seed(&repeat));
+    }
+
+    #[test]
+    fn invalid_quic_target_is_reported_as_setup_failure() {
+        let raw = TransportConfig::Direct { route_experiment: None };
+        for (host, port) in [("invalid host", 443), ("", 443), ("localhost", 0)] {
+            let target = QuicTarget { host: host.into(), connect_ip: None, connect_ips: vec![], port };
+            let result = run_quic_probe(&target, &raw, &AtomicBool::new(false));
+            assert_eq!(result.outcome, "quic_setup_error");
+        }
+    }
 
     #[test]
     fn quic_probe_uses_later_pinned_address() {
@@ -104,9 +139,10 @@ mod tests {
             connect_ips: vec!["127.0.0.1".into()],
             port,
         };
-        let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
+        let result =
+            run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None }, &AtomicBool::new(false));
         worker.join().unwrap();
-        assert_eq!(result.outcome, "quic_response");
+        assert_eq!(result.outcome, "quic_version_negotiation");
         assert!(
             result
                 .details
@@ -144,10 +180,11 @@ mod tests {
         // An IP host keeps the single loopback candidate (no ::1 fallback).
         let target =
             QuicTarget { host: "127.0.0.1".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
-        let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
+        let result =
+            run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None }, &AtomicBool::new(false));
 
         assert_eq!(worker.join().unwrap(), 2, "the server must see the retransmitted Initial");
-        assert_eq!(result.outcome, "quic_response");
+        assert_eq!(result.outcome, "quic_version_negotiation");
     }
 
     // A blocked path drops every Initial. The retransmit must fit in the wait
@@ -169,10 +206,11 @@ mod tests {
             QuicTarget { host: "127.0.0.1".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
 
         let started = std::time::Instant::now();
-        let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
+        let result =
+            run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None }, &AtomicBool::new(false));
         let elapsed = started.elapsed();
 
-        assert_ne!(result.outcome, "quic_response");
+        assert_eq!(result.outcome, "quic_timeout");
         let one_wait = crate::connectivity::adapters::util::IO_TIMEOUT;
         assert!(elapsed < one_wait + std::time::Duration::from_millis(400), "probe waited {elapsed:?}");
         assert_eq!(worker.join().unwrap(), 2, "the Initial must still be retransmitted once");
@@ -186,12 +224,14 @@ mod tests {
             let mut payload = [0; 2048];
             let (size, peer) = server.recv_from(&mut payload).unwrap();
             server.send_to(&payload[..size], peer).unwrap();
+            server
         });
         let target =
-            QuicTarget { host: "localhost".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
-        let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
+            QuicTarget { host: "127.0.0.1".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
+        let result =
+            run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None }, &AtomicBool::new(false));
         worker.join().unwrap();
-        assert_eq!(result.outcome, "quic_error");
+        assert_eq!(result.outcome, "quic_invalid_response");
         assert!(
             result
                 .details
@@ -224,8 +264,9 @@ mod tests {
         });
         let target =
             QuicTarget { host: "localhost".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
-        let result = run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None });
+        let result =
+            run_quic_probe(&target, &TransportConfig::Direct { route_experiment: None }, &AtomicBool::new(false));
         worker.join().unwrap();
-        assert_eq!(result.outcome, "quic_response");
+        assert_eq!(result.outcome, "quic_version_negotiation");
     }
 }

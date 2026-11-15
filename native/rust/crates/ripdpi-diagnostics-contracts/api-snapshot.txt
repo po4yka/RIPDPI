@@ -93,11 +93,22 @@ pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Telegram
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Throughput
 pub ripdpi_diagnostics_contracts::types::ProbeTaskFamily::Web
 pub enum ripdpi_diagnostics_contracts::types::QuicProbeStatus
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Cancelled
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::DeadlineExceeded
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Empty
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Error
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::InitialAck
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::InitialClose
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::InitialOther
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::InitialResponse
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::InvalidResponse
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Response
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Retry
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::SetupError
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Timeout
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::Unknown
+pub ripdpi_diagnostics_contracts::types::QuicProbeStatus::VersionNegotiation
 pub enum ripdpi_diagnostics_contracts::types::ScanCompletionKind
 pub ripdpi_diagnostics_contracts::types::ScanCompletionKind::Normal
 pub ripdpi_diagnostics_contracts::types::ScanCompletionKind::PartialResults
@@ -1089,6 +1100,7 @@ pub const ripdpi_diagnostics_contracts::util::FAT_HEADER_THRESHOLD_BYTES: usize
 pub const ripdpi_diagnostics_contracts::util::HTTP_FAKE_PROFILE_CLOUDFLARE_GET: &str
 pub const ripdpi_diagnostics_contracts::util::IO_TIMEOUT: core::time::Duration
 pub const ripdpi_diagnostics_contracts::util::MAX_HTTP_BYTES: usize
+pub const ripdpi_diagnostics_contracts::util::MAX_ROUTE_EXPERIMENT_ATTEMPTS: usize
 pub const ripdpi_diagnostics_contracts::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1: &str
 pub const ripdpi_diagnostics_contracts::util::STRATEGY_PROBE_SUITE_QUICK_V1: &str
 pub const ripdpi_diagnostics_contracts::util::TELEGRAM_CHUNK_SIZE: usize
@@ -1305,11 +1317,22 @@ pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Telegram
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Throughput
 pub ripdpi_diagnostics_contracts::ProbeTaskFamily::Web
 pub enum ripdpi_diagnostics_contracts::QuicProbeStatus
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::Cancelled
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::DeadlineExceeded
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::Empty
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::Error
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::InitialAck
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::InitialClose
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::InitialOther
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::InitialResponse
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::InvalidResponse
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::NotRun
 pub ripdpi_diagnostics_contracts::QuicProbeStatus::Response
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::Retry
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::SetupError
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::Timeout
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::Unknown
+pub ripdpi_diagnostics_contracts::QuicProbeStatus::VersionNegotiation
 pub enum ripdpi_diagnostics_contracts::ScanKind
 pub ripdpi_diagnostics_contracts::ScanKind::Connectivity
 pub ripdpi_diagnostics_contracts::ScanKind::StrategyProbe

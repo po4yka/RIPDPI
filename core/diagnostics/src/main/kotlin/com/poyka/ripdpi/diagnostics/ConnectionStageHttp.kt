@@ -48,10 +48,23 @@ internal fun quicConnectionLane(
             ConnectionStageMeasurement(
                 ConnectionStage.QUIC_RESPONSE,
                 when (status) {
-                    "quic_initial_response", "quic_response" -> ConnectionStageState.OBSERVED
-                    "quic_timeout", "timeout" -> ConnectionStageState.TIMED_OUT
-                    "quic_error", "quic_failed" -> ConnectionStageState.FAILED
-                    "not_run" -> ConnectionStageState.NOT_REACHED
+                    "quic_initial_response",
+                    "quic_initial_ack",
+                    "quic_initial_other",
+                    "quic_initial_close",
+                    "quic_retry",
+                    "quic_version_negotiation",
+                    "quic_response",
+                    -> ConnectionStageState.OBSERVED
+
+                    "quic_timeout", "timeout", "quic_deadline_exceeded" -> ConnectionStageState.TIMED_OUT
+
+                    "quic_invalid_response", "quic_error", "quic_failed" -> ConnectionStageState.FAILED
+
+                    "quic_cancelled" -> ConnectionStageState.CANCELLED
+
+                    "quic_setup_error", "capability_skipped", "not_run" -> ConnectionStageState.NOT_REACHED
+
                     else -> ConnectionStageState.UNKNOWN
                 },
                 durationMs = latency,

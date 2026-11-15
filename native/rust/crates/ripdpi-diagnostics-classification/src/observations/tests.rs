@@ -104,10 +104,26 @@ fn tcp_status_maps_all_variants() {
 #[test]
 fn quic_status_maps_all_variants() {
     assert_eq!(quic_status("quic_initial_response"), QuicProbeStatus::InitialResponse);
+    for (outcome, expected) in [
+        ("quic_initial_ack", QuicProbeStatus::InitialAck),
+        ("quic_initial_other", QuicProbeStatus::InitialOther),
+        ("quic_initial_close", QuicProbeStatus::InitialClose),
+        ("quic_retry", QuicProbeStatus::Retry),
+        ("quic_version_negotiation", QuicProbeStatus::VersionNegotiation),
+        ("quic_timeout", QuicProbeStatus::Timeout),
+        ("quic_invalid_response", QuicProbeStatus::InvalidResponse),
+        ("quic_setup_error", QuicProbeStatus::SetupError),
+        ("quic_cancelled", QuicProbeStatus::Cancelled),
+        ("quic_deadline_exceeded", QuicProbeStatus::DeadlineExceeded),
+        ("capability_skipped", QuicProbeStatus::NotRun),
+    ] {
+        assert_eq!(quic_status(outcome), expected);
+    }
     assert_eq!(quic_status("quic_response"), QuicProbeStatus::Response);
     assert_eq!(quic_status("quic_empty"), QuicProbeStatus::Empty);
     assert_eq!(quic_status("not_run"), QuicProbeStatus::NotRun);
-    assert_eq!(quic_status("unknown"), QuicProbeStatus::Error);
+    assert_eq!(quic_status("quic_error"), QuicProbeStatus::Error);
+    assert_eq!(quic_status("unknown"), QuicProbeStatus::Unknown);
 }
 
 #[test]
@@ -358,6 +374,20 @@ fn quic_observation_builds_from_probe() {
     let quic = obs.quic.expect("quic payload");
     assert_eq!(quic.status, QuicProbeStatus::InitialResponse);
     assert_eq!(quic.transport_failure, TransportFailureKind::None);
+}
+
+#[test]
+fn quic_observation_uses_typed_timeout_close_and_cancellation() {
+    for (outcome, status, failure) in [
+        ("quic_timeout", QuicProbeStatus::Timeout, TransportFailureKind::Timeout),
+        ("quic_initial_close", QuicProbeStatus::InitialClose, TransportFailureKind::Close),
+        ("quic_cancelled", QuicProbeStatus::Cancelled, TransportFailureKind::None),
+    ] {
+        let result = probe("quic_reachability", "quic.example.com", outcome, &[]);
+        let quic = observation_for_probe(&result).unwrap().quic.unwrap();
+        assert_eq!(quic.status, status);
+        assert_eq!(quic.transport_failure, failure);
+    }
 }
 
 #[test]

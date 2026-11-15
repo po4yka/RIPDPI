@@ -239,7 +239,20 @@ private fun bucketTcpFatHeader(outcome: String): DiagnosticsOutcomeBucket =
 private fun bucketQuicReachability(outcome: String): DiagnosticsOutcomeBucket =
     when (outcome) {
         "quic_initial_response", "quic_response" -> DiagnosticsOutcomeBucket.Healthy
+
         "quic_empty", "quic_error" -> DiagnosticsOutcomeBucket.Failed
+
+        "quic_initial_ack",
+        "quic_initial_other",
+        "quic_initial_close",
+        "quic_retry",
+        "quic_version_negotiation",
+        "quic_invalid_response",
+        "quic_timeout",
+        -> DiagnosticsOutcomeBucket.Attention
+
+        "quic_setup_error", "quic_cancelled", "quic_deadline_exceeded" -> DiagnosticsOutcomeBucket.Inconclusive
+
         else -> legacyBucketForOutcome(outcome)
     }
 
@@ -415,6 +428,10 @@ private fun attentionKindForProbeOutcome(
         }
 
         probeType == "tcp_fat_header" && outcome in fatHeaderProbeArtifactOutcomes -> {
+            DiagnosticsAttentionKind.ProbeArtifact
+        }
+
+        probeType == "quic_reachability" -> {
             DiagnosticsAttentionKind.ProbeArtifact
         }
 

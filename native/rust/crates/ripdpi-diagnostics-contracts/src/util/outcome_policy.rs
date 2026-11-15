@@ -121,7 +121,14 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         "quic_reachability" => match outcome {
             "quic_initial_response" | "quic_response" => ProbeOutcomeBucket::Healthy,
             "quic_empty" | "quic_error" => ProbeOutcomeBucket::Failed,
-            _ => legacy_outcome_bucket(outcome),
+            "quic_initial_ack"
+            | "quic_initial_other"
+            | "quic_initial_close"
+            | "quic_retry"
+            | "quic_version_negotiation"
+            | "quic_timeout"
+            | "quic_invalid_response" => ProbeOutcomeBucket::Attention,
+            _ => ProbeOutcomeBucket::Inconclusive,
         },
         "service_reachability" => match outcome {
             "service_ok" => ProbeOutcomeBucket::Healthy,

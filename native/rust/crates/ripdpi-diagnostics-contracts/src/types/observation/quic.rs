@@ -8,10 +8,21 @@ use super::defaults::transport_failure_none;
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum QuicProbeStatus {
     InitialResponse,
+    InitialAck,
+    InitialOther,
+    InitialClose,
+    Retry,
+    VersionNegotiation,
+    Timeout,
+    InvalidResponse,
+    SetupError,
+    Cancelled,
+    DeadlineExceeded,
     Response,
     Empty,
     Error,
     NotRun,
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

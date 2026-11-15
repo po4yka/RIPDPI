@@ -52,7 +52,11 @@ pub fn transport_failure(text: &str) -> TransportFailureKind {
     if normalized.contains("unexpected eof") || normalized.contains("closed") || normalized.contains("close notify") {
         return TransportFailureKind::Close;
     }
-    if normalized.contains("timed out") || normalized.contains("timeout") || normalized.contains("would block") {
+    if normalized.contains("timed out")
+        || normalized.contains("timeout")
+        || normalized.contains("would block")
+        || normalized == "udp_recv_would_block"
+    {
         return TransportFailureKind::Timeout;
     }
     if normalized.contains("issuer") || normalized.contains("certificate") {
@@ -114,10 +118,21 @@ pub(crate) fn tcp_status(outcome: &str) -> TcpProbeStatus {
 pub(crate) fn quic_status(status: &str) -> QuicProbeStatus {
     match status {
         "quic_initial_response" => QuicProbeStatus::InitialResponse,
+        "quic_initial_ack" => QuicProbeStatus::InitialAck,
+        "quic_initial_other" => QuicProbeStatus::InitialOther,
+        "quic_initial_close" => QuicProbeStatus::InitialClose,
+        "quic_retry" => QuicProbeStatus::Retry,
+        "quic_version_negotiation" => QuicProbeStatus::VersionNegotiation,
+        "quic_timeout" => QuicProbeStatus::Timeout,
+        "quic_invalid_response" => QuicProbeStatus::InvalidResponse,
+        "quic_setup_error" => QuicProbeStatus::SetupError,
+        "quic_cancelled" => QuicProbeStatus::Cancelled,
+        "quic_deadline_exceeded" => QuicProbeStatus::DeadlineExceeded,
         "quic_response" => QuicProbeStatus::Response,
         "quic_empty" => QuicProbeStatus::Empty,
-        "not_run" => QuicProbeStatus::NotRun,
-        _ => QuicProbeStatus::Error,
+        "not_run" | "capability_skipped" => QuicProbeStatus::NotRun,
+        "quic_error" => QuicProbeStatus::Error,
+        _ => QuicProbeStatus::Unknown,
     }
 }
 

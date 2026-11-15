@@ -100,6 +100,34 @@ class ConnectionStageProjectionTest {
     }
 
     @Test
+    fun `QUIC stages distinguish peer responses from timeouts and unrun checks`() {
+        val states =
+            mapOf(
+                "quic_initial_ack" to ConnectionStageState.OBSERVED,
+                "quic_initial_other" to ConnectionStageState.OBSERVED,
+                "quic_initial_close" to ConnectionStageState.OBSERVED,
+                "quic_retry" to ConnectionStageState.OBSERVED,
+                "quic_version_negotiation" to ConnectionStageState.OBSERVED,
+                "quic_response" to ConnectionStageState.OBSERVED,
+                "quic_timeout" to ConnectionStageState.TIMED_OUT,
+                "quic_invalid_response" to ConnectionStageState.FAILED,
+                "quic_deadline_exceeded" to ConnectionStageState.TIMED_OUT,
+                "quic_setup_error" to ConnectionStageState.NOT_REACHED,
+                "quic_cancelled" to ConnectionStageState.CANCELLED,
+                "capability_skipped" to ConnectionStageState.NOT_REACHED,
+            )
+
+        states.forEach { (outcome, state) ->
+            val lane =
+                requireNotNull(ProbeResult("quic_reachability", "example.com", outcome).toConnectionStageScale())
+                    .lanes
+                    .single()
+            assertEquals(outcome, listOf(ConnectionStage.QUIC_RESPONSE), lane.stages.map { it.stage })
+            assertEquals(outcome, state, lane.stages.single().state)
+        }
+    }
+
+    @Test
     fun `pinned matrix skips DNS and exposes HTTP403 as received headers`() {
         val lane =
             requireNotNull(

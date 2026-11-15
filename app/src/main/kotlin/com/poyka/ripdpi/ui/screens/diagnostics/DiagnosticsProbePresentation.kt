@@ -60,12 +60,30 @@ internal fun diagnosticProbeOutcomeResource(probe: DiagnosticsProbeResultUiModel
             R.string.diagnostics_stages_succeeded
         }
 
-        "cancelled", "matrix_target_cancelled" -> {
+        "quic_initial_response",
+        "quic_initial_ack",
+        "quic_initial_other",
+        "quic_initial_close",
+        "quic_retry",
+        "quic_version_negotiation",
+        -> {
+            R.string.diagnostics_stages_observed
+        }
+
+        "cancelled", "matrix_target_cancelled", "quic_cancelled" -> {
             R.string.diagnostics_stages_cancelled
         }
 
-        "timeout", "tcp_timeout" -> {
+        "timeout", "tcp_timeout", "quic_timeout" -> {
             R.string.diagnostics_stages_timed_out
+        }
+
+        "quic_setup_error" -> {
+            R.string.diagnostics_stages_not_reached
+        }
+
+        "quic_deadline_exceeded" -> {
+            R.string.diagnostics_scan_termination_deadline_exceeded
         }
 
         else -> {

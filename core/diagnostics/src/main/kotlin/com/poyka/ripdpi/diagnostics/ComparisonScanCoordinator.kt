@@ -437,8 +437,24 @@ private fun serviceTargetOutcome(
             "quic" to
                 when (fact.quicStatus) {
                     QuicProbeStatus.INITIAL_RESPONSE, QuicProbeStatus.RESPONSE -> DiagnosticsOutcomeBucket.Healthy
+
                     QuicProbeStatus.EMPTY, QuicProbeStatus.ERROR -> DiagnosticsOutcomeBucket.Failed
-                    QuicProbeStatus.NOT_RUN -> DiagnosticsOutcomeBucket.Inconclusive
+
+                    QuicProbeStatus.INITIAL_ACK,
+                    QuicProbeStatus.INITIAL_OTHER,
+                    QuicProbeStatus.INITIAL_CLOSE,
+                    QuicProbeStatus.RETRY,
+                    QuicProbeStatus.VERSION_NEGOTIATION,
+                    QuicProbeStatus.INVALID_RESPONSE,
+                    QuicProbeStatus.TIMEOUT,
+                    -> DiagnosticsOutcomeBucket.Attention
+
+                    QuicProbeStatus.NOT_RUN,
+                    QuicProbeStatus.SETUP_ERROR,
+                    QuicProbeStatus.CANCELLED,
+                    QuicProbeStatus.DEADLINE_EXCEEDED,
+                    QuicProbeStatus.UNKNOWN,
+                    -> DiagnosticsOutcomeBucket.Inconclusive
                 },
         ),
     )
