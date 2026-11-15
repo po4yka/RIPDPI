@@ -82,6 +82,15 @@ class Tcp16FatHeaderProbe(
         randomHostname: Boolean = false,
     ): Tcp16ProbeResult =
         withContext(dispatcher) {
+            if (!requestRunner.supports(target)) {
+                return@withContext target.result(
+                    alive = false,
+                    verdict = Tcp16Verdict.UNSUPPORTED,
+                    measuredRttMs = null,
+                    errorDetail = "HTTP is unavailable for this TCP16 client",
+                    connectionCount = 0,
+                )
+            }
             val tracker = Tcp16ConnectionTracker()
             // execute() blocks and ignores coroutine cancellation, so a sibling cancels the in-flight call.
             val canceller =
@@ -273,6 +282,8 @@ data class Tcp16FatHeaderResponse(
 )
 
 interface Tcp16RequestRunner {
+    fun supports(target: Tcp16Target): Boolean = true
+
     fun execute(
         target: Tcp16Target,
         request: Tcp16FatHeaderRequest,
@@ -335,6 +346,9 @@ class Tcp16ConnectionTracker {
 class OkHttpTcp16RequestRunner(
     private val baseClient: OkHttpClient = defaultBaseClient(),
 ) : Tcp16RequestRunner {
+    override fun supports(target: Tcp16Target): Boolean =
+        baseClient.connectionSpecs.any { spec -> spec.isTls == (target.port == HttpsPort) }
+
     override fun execute(
         target: Tcp16Target,
         request: Tcp16FatHeaderRequest,

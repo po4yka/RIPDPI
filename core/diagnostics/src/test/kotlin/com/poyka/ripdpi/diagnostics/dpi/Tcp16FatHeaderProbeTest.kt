@@ -12,6 +12,7 @@ import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import mockwebserver3.SocketEffect
 import okhttp3.ConnectionPool
+import okhttp3.ConnectionSpec
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
@@ -25,6 +26,22 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.measureTimeMillis
 
 class Tcp16FatHeaderProbeTest {
+    @Test
+    fun tlsOnlyClientReportsHttpTargetAsUnsupportedBeforeConnecting() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                val client = OkHttpClient.Builder().connectionSpecs(listOf(ConnectionSpec.MODERN_TLS)).build()
+                val probe = Tcp16FatHeaderProbe(requestRunner = OkHttpTcp16RequestRunner(client))
+
+                val result = probe.runWithRttHint(mockTarget(server))
+
+                assertEquals(Tcp16Verdict.UNSUPPORTED, result.verdict)
+                assertEquals(0, result.connectionCount)
+                assertEquals(0, server.requestCount)
+            }
+        }
+
     @Test
     fun allOkUsesSixteenHeadRequestsOnOneConnection() =
         runTest {
