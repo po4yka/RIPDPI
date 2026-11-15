@@ -637,6 +637,14 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `invalid MTU is highlighted even when it is smaller than the padding`() {
+        val editor = activatableState().updateField(AwgEditorField.S1, "12").updateField(AwgEditorField.MTU, "1")
+
+        assertTrue(editor.hasFieldError(AwgEditorField.MTU))
+        assertFalse(editor.isActivatable())
+    }
+
+    @Test
     fun `the conf Endpoint requires IPv6 brackets and rejects bracketed hostnames`() {
         for (endpoint in listOf("2001:db8::1:51820", "[vpn.example.com]:51820")) {
             val conf =

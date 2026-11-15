@@ -467,8 +467,8 @@ class AmneziaWgProfileScreenTest {
         composeRule.runOnUiThread {
             viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
             viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
-            viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, "privkey")
-            viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, "pubkey")
+            viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
+            viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, AwgPeerTestKey)
             viewModel.onFieldChanged(AwgEditorField.ADDRESS, "10.8.0.2/32")
         }
 

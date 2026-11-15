@@ -255,6 +255,18 @@ class AwgActivationRequestTest {
     }
 
     @Test
+    fun `WS validates the WSS URL independently of the UDP host syntax`() {
+        val request = runtimeRequest().copy(endpointHost = "Endpoint hint")
+        assertThrows(AwgActivationInputException::class.java) { request.requireRuntimeReady() }
+
+        request
+            .copy(
+                carrier = AwgActivationRequest.CARRIER_WS,
+                carrierWsUrl = "wss://peer.example.com/path",
+            ).requireRuntimeReady()
+    }
+
+    @Test
     fun `s3 and s4 accept padding sizes up to one packet`() {
         AwgActivationObfuscation(s3 = 0, s4 = 0).requireSupportedProfile()
         AwgActivationObfuscation(s1 = 12, s2 = 12, s3 = 12, s4 = 12).requireSupportedProfile()

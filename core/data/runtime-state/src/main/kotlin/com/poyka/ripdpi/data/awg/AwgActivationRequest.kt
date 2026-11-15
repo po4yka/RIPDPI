@@ -114,7 +114,10 @@ fun AwgActivationRequest.requireRuntimeReady() {
     AwgActivationField.PrivateKey.requireValid(privateKey.isWireGuardKey())
     AwgActivationField.PeerPublicKey.requireValid(peerPublicKey.isWireGuardKey())
     AwgActivationField.PresharedKey.requireValid(presharedKey.isEmpty() || presharedKey.isWireGuardKey())
-    AwgActivationField.EndpointHost.requireValid(endpointHost.isAwgEndpointHost())
+    // Only the UDP carrier dials this host. The WS carrier dials carrierWsUrl.
+    val usesWsCarrier = carrier == AwgActivationRequest.CARRIER_WS
+    val validEndpointHost = if (usesWsCarrier) endpointHost.isNotBlank() else endpointHost.isAwgEndpointHost()
+    AwgActivationField.EndpointHost.requireValid(validEndpointHost)
     AwgActivationField.EndpointPort.requireValid(endpointPort in ValidEndpointPorts)
     AwgActivationField.Mtu.requireValid(isValidAwgMtu(mtu))
     AwgActivationField.PersistentKeepalive.requireValid(
@@ -134,7 +137,7 @@ fun AwgActivationRequest.requireRuntimeReady() {
         carrier == AwgActivationRequest.CARRIER_UDP || carrier == AwgActivationRequest.CARRIER_WS,
     )
     AwgActivationField.CarrierWsUrl.requireValid(
-        carrier != AwgActivationRequest.CARRIER_WS || isValidAwgWssUrl(carrierWsUrl),
+        !usesWsCarrier || isValidAwgWssUrl(carrierWsUrl),
     )
 }
 
