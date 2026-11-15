@@ -128,7 +128,7 @@ class TelegramTransferClientsTest {
                     MockResponse
                         .Builder()
                         .body("waiting")
-                        .bodyDelay(8, TimeUnit.SECONDS)
+                        .throttleBody(1, 8, TimeUnit.SECONDS)
                         .build(),
                 )
                 server.start()
