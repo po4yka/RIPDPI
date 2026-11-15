@@ -26,15 +26,17 @@ import kotlin.math.roundToLong
 class Tcp16FatHeaderProbe(
     private val paddingPool: RandomPaddingPool = RandomPaddingPool(),
     private val requestRunner: Tcp16RequestRunner = OkHttpTcp16RequestRunner(),
-    private val tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
+    tlsClientStateProvider: () -> DiagnosticsTlsClientState? = { null },
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val concurrency: Int = DefaultConcurrency,
 ) : Tcp16Probe {
+    private val tlsClientState = tlsClientStateProvider()
+
     fun withConcurrency(concurrency: Int): Tcp16FatHeaderProbe =
         Tcp16FatHeaderProbe(
             paddingPool = paddingPool,
             requestRunner = requestRunner,
-            tlsClientStateProvider = tlsClientStateProvider,
+            tlsClientStateProvider = { tlsClientState },
             dispatcher = dispatcher,
             concurrency = concurrency,
         )
@@ -230,7 +232,10 @@ class Tcp16FatHeaderProbe(
             httpStatus = httpStatus,
             failedStage = end.stage,
             connectionCount = connectionCount,
-            tlsClientState = tlsClientStateProvider(),
+            tlsClientState =
+                tlsClientState.takeIf {
+                    transport == Tcp16Transport.HTTPS && (connectionCount > 0 || httpStatus != null)
+                },
             requestedHosts = requestedHosts,
             transport = transport,
             tlsServerName = tlsServerName,

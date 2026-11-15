@@ -40,6 +40,7 @@ class Tcp16FatHeaderProbeTest {
                 assertEquals(Tcp16Verdict.UNSUPPORTED, result.verdict)
                 assertEquals(0, result.connectionCount)
                 assertEquals(0, server.requestCount)
+                assertNull(result.tlsClientState)
             }
         }
 
@@ -408,7 +409,7 @@ class Tcp16FatHeaderProbeTest {
         }
 
     @Test
-    fun withConcurrencyPreservesDiagnosticsTlsClientStateProvider() =
+    fun withConcurrencyPreservesTheClientProfileSnapshot() =
         runTest {
             val tlsState =
                 DiagnosticsTlsClientState(
@@ -417,6 +418,7 @@ class Tcp16FatHeaderProbeTest {
                     fallbackActive = true,
                     fallbackReason = "android_okhttp_fingerprint_template",
                 )
+            var currentState = tlsState
             val probe =
                 Tcp16FatHeaderProbe(
                     requestRunner =
@@ -427,10 +429,11 @@ class Tcp16FatHeaderProbeTest {
                                 tracker: Tcp16ConnectionTracker,
                             ): Tcp16FatHeaderResponse = Tcp16FatHeaderResponse(statusCode = 200, elapsedMs = 10)
                         },
-                    tlsClientStateProvider = { tlsState },
-                ).withConcurrency(2)
+                    tlsClientStateProvider = { currentState },
+                )
+            currentState = tlsState.copy(profileId = "firefox_stable")
 
-            val result = probe.runTarget(mockTarget(port = 443), responseTimeHintMs = 25)
+            val result = probe.withConcurrency(2).runTarget(mockTarget(port = 443), responseTimeHintMs = 25)
 
             assertEquals(tlsState, result.tlsClientState)
         }
