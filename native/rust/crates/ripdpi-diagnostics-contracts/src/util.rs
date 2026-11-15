@@ -28,7 +28,9 @@ pub use dns_helpers::{
     format_result_set, format_socket_result, ip_set, ipv4_prefix_24, ipv6_prefix_48,
     is_suspected_dns_tampering_outcome, looks_like_sinkhole, parse_doh_json_ip_answer,
 };
-pub use http_helpers::{fat_threshold_reached, find_headers_end, late_stage_cutoff, parse_content_length};
+pub use http_helpers::{
+    fat_threshold_reached, find_headers_end, is_valid_fat_header_authority, late_stage_cutoff, parse_content_length,
+};
 pub use outcome_policy::{
     ProbeOutcomeBucket, ProbeOutcomeClassification, classify_probe_outcome, event_level_for_outcome,
 };

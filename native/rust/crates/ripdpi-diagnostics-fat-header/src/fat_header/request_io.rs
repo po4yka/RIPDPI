@@ -5,6 +5,7 @@ use crate::http::{parse_http_response_head, read_http_headers_io};
 use crate::transport::ConnectionStream;
 use crate::types::TcpTarget;
 use crate::util::MAX_HTTP_BYTES;
+use ripdpi_diagnostics_contracts::util::is_valid_fat_header_authority;
 
 pub(super) fn write_padded_head_request(
     stream: &mut ConnectionStream,
@@ -52,7 +53,7 @@ pub(super) fn read_response_headers(stream: &mut ConnectionStream) -> std::io::R
     })
 }
 
-/// The Host value to send: the caller's value when it is a plausible host, otherwise the target IP.
+/// Use a valid caller-supplied authority or fall back to the target IP.
 ///
 /// The runner falls back to the free-form provider label ("CDN77 #1 HTTP"), which is not a host;
 /// strict servers answer it with `400` and close (RFC 9112 section 3.2).
@@ -60,7 +61,7 @@ pub(super) fn effective_host_header(target: &TcpTarget, host_header: &str) -> St
     let is_label_fallback = host_header == target.provider
         && target.host_header.as_deref() != Some(host_header)
         && target.sni.as_deref() != Some(host_header);
-    if !is_label_fallback && is_valid_host(host_header) {
+    if !is_label_fallback && is_valid_fat_header_authority(host_header) {
         return host_header.to_string();
     }
     match target.ip.parse::<IpAddr>() {
@@ -68,14 +69,6 @@ pub(super) fn effective_host_header(target: &TcpTarget, host_header: &str) -> St
         Ok(IpAddr::V4(ip)) => ip.to_string(),
         Err(_) => "localhost".to_string(),
     }
-}
-
-/// A host name, IPv4 literal or bracketed IPv6 literal with an optional port (RFC 3986 section 3.2.2).
-fn is_valid_host(value: &str) -> bool {
-    !value.is_empty()
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'.' | b'_' | b':' | b'[' | b']'))
 }
 
 pub(super) fn padded_head_request_len(index: usize, host_header: &str) -> usize {

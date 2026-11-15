@@ -392,3 +392,29 @@ struct OutcomeTaxonomyFixtureEntry {
     event_level: String,
     healthy_enough_for_summary: bool,
 }
+
+#[test]
+fn fat_header_authority_checks_host_and_optional_port() {
+    for authority in ["localhost", "edge.test.", "edge.test:65535", "192.0.2.1:80", "[::1]", "[2001:db8::1]:443"] {
+        assert!(is_valid_fat_header_authority(authority), "{authority}");
+    }
+    for authority in [
+        "",
+        "bad:abc",
+        "example.test:",
+        "example.test:0",
+        "example.test:+80",
+        "example.test:65536",
+        "user@example.test",
+        "bad..test",
+        "example.test/path",
+        "[oops]",
+        "[2001:db8::1]extra",
+        "[::1]:0",
+        "2001:db8::1",
+        "bad\r\nX-Other: injected",
+    ] {
+        assert!(!is_valid_fat_header_authority(authority), "{authority}");
+    }
+    assert!(!is_valid_fat_header_authority(&"a".repeat(64)));
+}

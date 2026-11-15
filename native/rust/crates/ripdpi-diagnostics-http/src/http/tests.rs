@@ -168,6 +168,16 @@ fn parse_http_response_handles_missing_reason() {
 }
 
 #[test]
+fn parse_http_response_rejects_out_of_range_status_codes() {
+    for status in ["000", "099", "600", "999"] {
+        let response = format!("HTTP/1.1 {status}\r\n\r\n");
+        assert_eq!(parse_http_response_head(response.as_bytes()).unwrap_err(), "invalid_framing");
+    }
+    let (_, response) = parse_http_response_head(b"HTTP/1.1 599\r\n\r\n").unwrap();
+    assert_eq!(response.status_code, 599);
+}
+
+#[test]
 fn read_http_response_rejects_truncated_content_length() {
     use ripdpi_diagnostics_transport::transport::ConnectionStream;
     use std::{
@@ -571,6 +581,39 @@ fn response_decoder_preserves_payload_at_every_fragment_size() {
         assert_eq!(decode_parts(wire, fragment, "GET"), (b"abc".to_vec(), Ok(())));
     }
     assert_eq!(decode_parts(b"HTTP/1.1 200 OK\r\nContent-Length: 42\r\n\r\n", 1, "HEAD"), (Vec::new(), Ok(())));
+}
+
+#[test]
+fn head_transfer_coding_is_metadata_and_does_not_require_a_body() {
+    let wire = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip\r\nTransfer-Encoding: chunked\r\n\r\n";
+    assert_eq!(decode_parts(wire, 1, "HEAD"), (Vec::new(), Ok(())));
+    let (_, response) = parse_http_response_head(wire).unwrap();
+    assert_eq!(response.headers["transfer-encoding"], "gzip, chunked");
+
+    for wire in [
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\nContent-Length: 42\r\n\r\n".as_slice(),
+        b"HTTP/1.0 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n",
+        b"HTTP/1.1 103 Early Hints\r\nTransfer-Encoding: chunked\r\n\r\n",
+        b"HTTP/1.1 204 No Content\r\nTransfer-Encoding: chunked\r\n\r\n",
+    ] {
+        assert_eq!(parse_http_response_head(wire).unwrap_err(), "invalid_framing");
+    }
+}
+
+#[test]
+fn head_transfer_codings_validate_lists_and_parameters() {
+    let valid = r#"x-example; meta = "a,b;\"c"; level=fast,, chunked"#;
+    let wire = format!("HTTP/1.1 200 OK\r\nTransfer-Encoding: {valid}\r\n\r\n");
+    assert_eq!(decode_parts(wire.as_bytes(), 1, "HEAD"), (Vec::new(), Ok(())));
+    assert!(parse_http_response_head(wire.as_bytes()).is_ok());
+
+    for coding in ["", ", ,", "two words", "chunked, CHUNKED", "chunked; x=1", "custom; bad", r#"custom; bad="open"#] {
+        let wire = format!("HTTP/1.1 200 OK\r\nTransfer-Encoding: {coding}\r\n\r\n");
+        assert_eq!(decode_parts(wire.as_bytes(), 1, "HEAD").1, Err("invalid_framing"), "{coding:?}");
+        assert_eq!(parse_http_response_head(wire.as_bytes()).unwrap_err(), "invalid_framing", "{coding:?}");
+    }
+    let repeated = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nTransfer-Encoding: CHUNKED\r\n\r\n";
+    assert_eq!(parse_http_response_head(repeated).unwrap_err(), "invalid_framing");
 }
 
 #[test]

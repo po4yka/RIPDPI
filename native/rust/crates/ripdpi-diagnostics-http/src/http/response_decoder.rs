@@ -11,7 +11,7 @@ use std::task::{Context, Poll, Wake, Waker};
 use bytes::Bytes;
 use futures::channel::mpsc;
 use futures::{SinkExt, Stream};
-use http::{HeaderMap, Method};
+use http::{HeaderMap, Method, Version, header::TRANSFER_ENCODING};
 use http_body_util::{BodyExt, Empty};
 use hyper::rt::{Read, ReadBufCursor, Write};
 
@@ -107,9 +107,9 @@ impl HttpResponseDecoder {
                 else {
                     break;
                 };
-                let (headers, _, response) =
+                let (headers, version, response) =
                     super::response_parser::parsed_head(&self.pending_head[..end]).map_err(|_| "invalid_framing")?;
-                response_framing(&headers, response.status_code, &self.method)?;
+                response_framing(&headers, version, response.status_code, &self.method)?;
                 if (100..200).contains(&response.status_code) {
                     self.informational += 1;
                     if response.status_code == 101 || self.informational > MAX_INFORMATIONAL {
@@ -249,7 +249,7 @@ async fn decode(
     *request.method_mut() = method.clone();
     let exchange = async move {
         let response = sender.send_request(request).await.map_err(decode_error)?;
-        let framing = response_framing(response.headers(), response.status().as_u16(), &method)?;
+        let framing = response_framing(response.headers(), response.version(), response.status().as_u16(), &method)?;
         let headers = response.headers().iter().fold(HashMap::<String, String>::new(), |mut headers, (name, value)| {
             let value = String::from_utf8_lossy(value.as_bytes());
             headers
@@ -292,6 +292,7 @@ async fn decode(
 
 pub(super) fn response_framing(
     headers: &HeaderMap,
+    version: Version,
     status: u16,
     method: &Method,
 ) -> Result<HttpBodyFraming, &'static str> {
@@ -309,12 +310,22 @@ pub(super) fn response_framing(
             length = Some(parsed);
         }
     }
-    let mut transfer = headers.get_all(http::header::TRANSFER_ENCODING).iter();
+    let mut transfer = headers.get_all(TRANSFER_ENCODING).iter();
     if let Some(value) = transfer.next() {
-        if length.is_some() || transfer.next().is_some() || !value.as_bytes().eq_ignore_ascii_case(b"chunked") {
+        if length.is_some() {
             return Err("invalid_framing");
         }
-        return Ok(if method == Method::HEAD || matches!(status, 204 | 205 | 304) {
+        if method == Method::HEAD {
+            // RFC 9112 sections 6.1 and 6.3: transfer codings describe the hypothetical GET body.
+            if version == Version::HTTP_10 || status < 200 || status == 204 || !valid_head_transfer_codings(headers) {
+                return Err("invalid_framing");
+            }
+            return Ok(HttpBodyFraming::Length(0));
+        }
+        if transfer.next().is_some() || !value.as_bytes().eq_ignore_ascii_case(b"chunked") {
+            return Err("invalid_framing");
+        }
+        return Ok(if matches!(status, 204 | 205 | 304) {
             HttpBodyFraming::Length(0)
         } else {
             HttpBodyFraming::Chunked
@@ -324,6 +335,68 @@ pub(super) fn response_framing(
         return Ok(HttpBodyFraming::Length(0));
     }
     Ok(length.map_or(HttpBodyFraming::Eof, HttpBodyFraming::Length))
+}
+
+fn valid_head_transfer_codings(headers: &HeaderMap) -> bool {
+    let mut found_coding = false;
+    let mut seen_chunked = false;
+    for value in headers.get_all(TRANSFER_ENCODING) {
+        let mut remaining = value.as_bytes().trim_ascii_start();
+        while !remaining.is_empty() {
+            let (coding, rest) = split_token(remaining);
+            remaining = rest.trim_ascii_start();
+            if !coding.is_empty() {
+                found_coding = true;
+                let chunked = coding.eq_ignore_ascii_case(b"chunked");
+                if chunked && std::mem::replace(&mut seen_chunked, true) {
+                    return false;
+                }
+                while let Some(parameter) = remaining.strip_prefix(b";") {
+                    if chunked {
+                        return false;
+                    }
+                    let Some(rest) = consume_transfer_parameter(parameter) else { return false };
+                    remaining = rest.trim_ascii_start();
+                }
+            }
+            if remaining.is_empty() {
+                break;
+            }
+            let Some(rest) = remaining.strip_prefix(b",") else { return false };
+            remaining = rest.trim_ascii_start();
+        }
+    }
+    found_coding
+}
+
+fn consume_transfer_parameter(input: &[u8]) -> Option<&[u8]> {
+    let (name, rest) = split_token(input.trim_ascii_start());
+    if name.is_empty() {
+        return None;
+    }
+    let value = rest.trim_ascii_start().strip_prefix(b"=")?.trim_ascii_start();
+    if let Some(quoted) = value.strip_prefix(b"\"") {
+        return after_quoted_string(quoted);
+    }
+    let (token, rest) = split_token(value);
+    (!token.is_empty()).then_some(rest)
+}
+
+fn after_quoted_string(mut input: &[u8]) -> Option<&[u8]> {
+    while let Some((&byte, rest)) = input.split_first() {
+        input = match byte {
+            b'"' => return Some(rest),
+            b'\\' => rest.split_first()?.1,
+            _ => rest,
+        };
+    }
+    None
+}
+
+fn split_token(input: &[u8]) -> (&[u8], &[u8]) {
+    let length =
+        input.iter().take_while(|&&byte| byte.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&byte)).count();
+    input.split_at(length)
 }
 
 fn decode_error(error: hyper::Error) -> &'static str {

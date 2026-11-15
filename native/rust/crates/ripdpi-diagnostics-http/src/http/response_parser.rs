@@ -55,7 +55,8 @@ pub fn read_http_headers_io(stream: &mut ConnectionStream, max_bytes: usize) -> 
         }
         bytes.push(byte[0]);
         if bytes.ends_with(b"\r\n\r\n") {
-            let (_, response) = parse_http_response_head(&bytes).map_err(io::Error::other)?;
+            let (_, response) =
+                parse_http_response_head(&bytes).map_err(|error| io::Error::new(ErrorKind::InvalidData, error))?;
             if (100..200).contains(&response.status_code) {
                 if response.status_code == 101 || informational == super::response_decoder::MAX_INFORMATIONAL {
                     return Err(io::Error::new(ErrorKind::InvalidData, "invalid_framing"));
@@ -67,13 +68,15 @@ pub fn read_http_headers_io(stream: &mut ConnectionStream, max_bytes: usize) -> 
             return Ok(bytes);
         }
     }
-    Err(io::Error::other("response_too_large"))
+    Err(io::Error::new(ErrorKind::InvalidData, "response_too_large"))
 }
 
 #[cfg(test)]
 pub(super) fn response_content_length(headers: &[u8]) -> Result<Option<usize>, String> {
-    let (headers, _, _) = parsed_head(headers)?;
-    match super::response_decoder::response_framing(&headers, 200, &http::Method::GET).map_err(str::to_string)? {
+    let (headers, version, _) = parsed_head(headers)?;
+    match super::response_decoder::response_framing(&headers, version, 200, &http::Method::GET)
+        .map_err(str::to_string)?
+    {
         HttpBodyFraming::Length(length) => usize::try_from(length).map(Some).map_err(|_| "invalid_framing".to_string()),
         _ => Ok(None),
     }
@@ -87,7 +90,7 @@ pub fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpResponse
 
 pub fn parse_http_response_head(headers: &[u8]) -> Result<(http::Version, HttpResponse), String> {
     let (headers, version, response) = parsed_head(headers)?;
-    super::response_decoder::response_framing(&headers, response.status_code, &http::Method::HEAD)
+    super::response_decoder::response_framing(&headers, version, response.status_code, &http::Method::HEAD)
         .map_err(str::to_string)?;
     Ok((version, response))
 }
@@ -105,6 +108,7 @@ pub(super) fn parsed_head(bytes: &[u8]) -> Result<(http::HeaderMap, http::Versio
     if !parsed.parse(&terminated).map_err(|_| "invalid_framing")?.is_complete() {
         return Err("response_missing_headers".to_string());
     }
+    let status_code = parsed.code.filter(|status| (100..=599).contains(status)).ok_or("invalid_framing")?;
     let mut headers = http::HeaderMap::new();
     let mut display = HashMap::<String, String>::new();
     for field in parsed.headers.iter() {
@@ -124,7 +128,7 @@ pub(super) fn parsed_head(bytes: &[u8]) -> Result<(http::HeaderMap, http::Versio
         headers,
         if parsed.version == Some(0) { http::Version::HTTP_10 } else { http::Version::HTTP_11 },
         HttpResponse {
-            status_code: parsed.code.ok_or("missing_status_code")?,
+            status_code,
             reason: parsed.reason.unwrap_or_default().to_string(),
             headers: display,
             body: Vec::new(),

@@ -243,6 +243,19 @@ fn host_header_falls_back_to_the_target_ip_for_labels_and_invalid_values() {
 }
 
 #[test]
+fn malformed_host_authority_is_replaced_before_sending_a_head() {
+    let (port, server) = serve_responses(vec![OK_KEEP_ALIVE]);
+    let mut target = local_target(port, "Fixture");
+    target.fat_header_requests = Some(1);
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+
+    let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test:abc");
+
+    assert_eq!(server.join().expect("fixture thread"), ["127.0.0.1"]);
+    assert_eq!(observation.responses_seen, 1);
+}
+
+#[test]
 fn silent_drop_after_the_first_response_is_a_freeze_after_threshold() {
     use std::io::{Read, Write};
 
@@ -312,7 +325,7 @@ fn slow_drip_response_stops_at_the_scan_deadline() {
 #[test]
 fn informational_response_does_not_hide_next_request_error() {
     let (port, server) = serve_responses(vec![
-        b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n\r\n",
         FORBIDDEN_CLOSE,
     ]);
     let mut target = local_target(port, "Fixture");
@@ -330,7 +343,6 @@ fn malformed_head_framing_is_not_counted_as_a_response() {
     for response in [
         &b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\n"[..],
         b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 0\r\n\r\n",
-        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n\r\n",
         b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
     ] {
         let (port, server) = serve_responses(vec![response]);
