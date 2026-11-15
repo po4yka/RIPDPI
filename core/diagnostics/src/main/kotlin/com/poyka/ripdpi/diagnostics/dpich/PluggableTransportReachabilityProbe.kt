@@ -17,13 +17,10 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.io.InterruptedIOException
-import java.net.DatagramPacket
-import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
-import kotlin.random.Random
 
 enum class PtProbeStatus {
     CONNECTED,
@@ -146,83 +143,6 @@ class SnowflakeBrokerReachabilityProbe(
     }
 }
 
-class SnowflakeStunReachabilityProbe(
-    private val endpoint: PtEndpoint = PtEndpoint(DefaultSnowflakeStunHost, DefaultSnowflakeStunPort),
-    private val socketFactory: () -> DatagramSocket = { DatagramSocket() },
-    private val transactionId: () -> ByteArray = { Random.nextBytes(StunTransactionIdBytes) },
-) : PtSubprobe {
-    override suspend fun run(timeoutMs: Long): PtProbeTrace {
-        val startedAt = System.nanoTime()
-        val status =
-            try {
-                socketFactory().use { socket ->
-                    socket.soTimeout = timeoutMs.toInt()
-                    val request = stunBindingRequest(transactionId())
-                    val destination = InetSocketAddress(endpoint.host, endpoint.port)
-                    socket.send(DatagramPacket(request, request.size, destination))
-                    val response = DatagramPacket(ByteArray(StunResponseBytes), StunResponseBytes)
-                    socket.receive(response)
-                    if (response.isBindingSuccessFor(request, destination)) {
-                        PtProbeStatus.BINDING_RESPONSE
-                    } else {
-                        PtProbeStatus.INVALID_RESPONSE
-                    }
-                }
-            } catch (_: SocketTimeoutException) {
-                PtProbeStatus.TIMEOUT
-            } catch (_: IOException) {
-                PtProbeStatus.NETWORK_ERROR
-            }
-        return PtProbeTrace(endpoint.toString(), status, elapsedMs(startedAt))
-    }
-
-    private fun stunBindingRequest(id: ByteArray): ByteArray = StunBindingRequestPrefix + id
-
-    private fun DatagramPacket.isBindingSuccessFor(
-        request: ByteArray,
-        destination: InetSocketAddress,
-    ): Boolean {
-        if (length < StunHeaderBytes || address != destination.address || port != destination.port) return false
-        val data = data.copyOfRange(offset, offset + length)
-        val messageLength =
-            ((data[StunMessageLengthOffset].toInt() and UnsignedByteMask) shl StunLengthHighByteShift) or
-                (data[StunMessageLengthOffset + 1].toInt() and UnsignedByteMask)
-        return data[0] == 0x01.toByte() &&
-            data[1] == 0x01.toByte() &&
-            messageLength % StunAttributeAlignment == 0 &&
-            length == StunHeaderBytes + messageLength &&
-            data
-                .copyOfRange(StunCookieOffset, StunTransactionIdOffset)
-                .contentEquals(StunBindingRequestPrefix.copyOfRange(StunCookieOffset, StunTransactionIdOffset)) &&
-            data
-                .copyOfRange(StunTransactionIdOffset, StunHeaderBytes)
-                .contentEquals(request.copyOfRange(StunTransactionIdOffset, StunHeaderBytes))
-    }
-
-    private companion object {
-        private const val StunHeaderBytes = 20
-        private const val StunMessageLengthOffset = 2
-        private const val StunCookieOffset = 4
-        private const val StunTransactionIdOffset = 8
-        private const val StunLengthHighByteShift = 8
-        private const val UnsignedByteMask = 0xFF
-        private const val StunResponseBytes = 512
-        private const val StunTransactionIdBytes = 12
-        private const val StunAttributeAlignment = 4
-        private val StunBindingRequestPrefix =
-            byteArrayOf(
-                0x00,
-                0x01,
-                0x00,
-                0x00,
-                0x21,
-                0x12,
-                0xA4.toByte(),
-                0x42,
-            )
-    }
-}
-
 class MeekReachabilityProbe(
     private val fronts: List<String> = DefaultMeekFronts,
     private val clientBuilder: (OkHttpClient.Builder.() -> Unit) -> OkHttpClient =
@@ -299,9 +219,6 @@ private fun Throwable.throwIfCancellation() {
         throw this
     }
 }
-
-private const val DefaultSnowflakeStunHost = "stun.l.google.com"
-private const val DefaultSnowflakeStunPort = 19302
 
 private val DefaultObfs4Bridges =
     listOf(
