@@ -41,8 +41,13 @@ class RussianDiagnosticsPresentationTest {
             assertRussian(verdict.summary(strings))
             assertRussian(verdict.label(strings))
         }
-        DpiProbeKind.entries.filterNot { it == DpiProbeKind.TELEGRAM }.forEach { kind ->
-            assertRussian(kind.displayLabel(strings))
+        DpiProbeKind.entries.forEach { kind ->
+            val label = kind.displayLabel(strings)
+            when (kind) {
+                DpiProbeKind.QUIC_H3 -> assertEquals("QUIC Initial/VN", label)
+                DpiProbeKind.TELEGRAM -> assertEquals("Telegram", label)
+                else -> assertRussian(label)
+            }
         }
     }
 
