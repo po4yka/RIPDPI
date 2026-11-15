@@ -67,19 +67,20 @@ impl ProtocolType {
     }
 }
 
-/// `timestamp` field = unix seconds at minute granularity.
-fn minute_timestamp(unix_secs: i64) -> u32 {
-    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
-    // device epochs fit u32-of-minutes until year ~10136.
-    let minutes = unix_secs.div_euclid(60) as u32;
-    minutes
+/// Unsigned Unix minutes stored in segment headers.
+#[derive(Clone, Copy)]
+pub(crate) struct MinuteTimestamp(u32);
+
+impl MinuteTimestamp {
+    pub(crate) fn from_unix(unix_secs: i64) -> Result<Self> {
+        u32::try_from(unix_secs.div_euclid(60)).map(Self).map_err(|_| MieruError::InvalidClock)
+    }
 }
 
 /// Recover an estimated Unix-seconds timestamp from any decrypted metadata
 /// header (bytes 2..6, the minute-granularity timestamp common to both the data
 /// and session layouts). Used to calibrate the network-time provider from a
-/// server segment. The estimate adds 30 s (mid-minute) to centre the ±60 s
-/// quantisation introduced by minute granularity.
+/// server segment. The estimate uses the midpoint of the encoded minute.
 pub(crate) fn timestamp_estimate_unix(meta: &[u8; METADATA_LEN]) -> i64 {
     let minutes = u32::from_be_bytes([meta[2], meta[3], meta[4], meta[5]]);
     i64::from(minutes) * 60 + 30
@@ -89,8 +90,9 @@ pub(crate) fn timestamp_estimate_unix(meta: &[u8; METADATA_LEN]) -> i64 {
 /// minute. Upstream rejects any other metadata (`metadata.go`), which limits the
 /// replay window of a captured segment.
 pub(crate) fn timestamp_in_window(meta: &[u8; METADATA_LEN], now_unix: i64) -> bool {
-    let stamp = i64::from(u32::from_be_bytes([meta[2], meta[3], meta[4], meta[5]]));
-    (stamp - now_unix.div_euclid(60)).abs() <= 1
+    let Ok(MinuteTimestamp(now)) = MinuteTimestamp::from_unix(now_unix) else { return false };
+    let stamp = u32::from_be_bytes([meta[2], meta[3], meta[4], meta[5]]);
+    stamp.abs_diff(now) <= 1
 }
 
 /// Whether a client may receive this type from a server. Upstream's client
@@ -132,10 +134,10 @@ pub(crate) struct DataAckMeta {
 }
 
 impl DataAckMeta {
-    pub(crate) fn marshal(&self, unix_secs: i64) -> [u8; METADATA_LEN] {
+    pub(crate) fn marshal(&self, timestamp: MinuteTimestamp) -> [u8; METADATA_LEN] {
         let mut b = [0u8; METADATA_LEN];
         b[0] = self.protocol.as_u8();
-        b[2..6].copy_from_slice(&minute_timestamp(unix_secs).to_be_bytes());
+        b[2..6].copy_from_slice(&timestamp.0.to_be_bytes());
         b[6..10].copy_from_slice(&self.session_id.to_be_bytes());
         b[10..14].copy_from_slice(&self.seq.to_be_bytes());
         b[14..18].copy_from_slice(&self.unack_seq.to_be_bytes());
@@ -178,10 +180,10 @@ pub(crate) struct SessionMeta {
 }
 
 impl SessionMeta {
-    pub(crate) fn marshal(&self, unix_secs: i64) -> [u8; METADATA_LEN] {
+    pub(crate) fn marshal(&self, timestamp: MinuteTimestamp) -> [u8; METADATA_LEN] {
         let mut b = [0u8; METADATA_LEN];
         b[0] = self.protocol.as_u8();
-        b[2..6].copy_from_slice(&minute_timestamp(unix_secs).to_be_bytes());
+        b[2..6].copy_from_slice(&timestamp.0.to_be_bytes());
         b[6..10].copy_from_slice(&self.session_id.to_be_bytes());
         b[10..14].copy_from_slice(&self.seq.to_be_bytes());
         b[14] = self.status_code;
@@ -217,6 +219,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn wire_minutes_accept_the_last_second_and_reject_overflow() {
+        let last = i64::from(u32::MAX) * 60 + 59;
+        let mut meta = [0; METADATA_LEN];
+        meta[2..6].copy_from_slice(&u32::MAX.to_be_bytes());
+        assert_eq!(MinuteTimestamp::from_unix(last).unwrap().0, u32::MAX);
+        assert!(timestamp_in_window(&meta, last));
+        for invalid in [i64::MIN, -1, last + 1, i64::MAX] {
+            assert!(matches!(MinuteTimestamp::from_unix(invalid), Err(MieruError::InvalidClock)));
+            assert!(!timestamp_in_window(&meta, invalid));
+        }
+    }
+
+    #[test]
     fn protocol_type_round_trips_all_values() {
         for v in 0u8..=11 {
             assert_eq!(ProtocolType::from_u8(v).unwrap().as_u8(), v);
@@ -237,7 +252,7 @@ mod tests {
             payload_len: 0x5152,
             suffix_len: 0x07,
         };
-        let b = meta.marshal(1_000_000_020); // 16666667 minutes
+        let b = meta.marshal(MinuteTimestamp::from_unix(1_000_000_020).expect("fixture clock")); // 16666667 minutes
         assert_eq!(b[0], 6);
         assert_eq!(&b[6..10], &[0x01, 0x02, 0x03, 0x04]); // session id, big-endian
         assert_eq!(&b[22..24], &[0x51, 0x52]); // payload len, big-endian
@@ -255,7 +270,7 @@ mod tests {
             payload_len: 7,
             suffix_len: 3,
         };
-        let b = meta.marshal(1_000_000_000);
+        let b = meta.marshal(MinuteTimestamp::from_unix(1_000_000_000).expect("fixture clock"));
         assert_eq!(b[0], 2);
         assert_eq!(b[14], 0); // status code
         assert_eq!(SessionMeta::unmarshal(&b).unwrap(), meta);
@@ -271,7 +286,9 @@ mod tests {
         ] {
             for payload_len in [0, 1024, 1025, u16::MAX] {
                 let meta = SessionMeta { protocol, session_id: 1, seq: 1, status_code: 0, payload_len, suffix_len: 0 };
-                let parsed = SessionMeta::unmarshal(&meta.marshal(1_000_000_000));
+                let parsed = SessionMeta::unmarshal(
+                    &meta.marshal(MinuteTimestamp::from_unix(1_000_000_000).expect("fixture clock")),
+                );
                 assert_eq!(parsed.is_ok(), payload_len <= 1024, "{protocol:?} payload={payload_len}");
             }
         }
@@ -290,7 +307,7 @@ mod tests {
             payload_len: 0,
             suffix_len: 0,
         }
-        .marshal(1_000_000_000);
+        .marshal(MinuteTimestamp::from_unix(1_000_000_000).expect("fixture clock"));
         assert!(SessionMeta::unmarshal(&b).is_err(), "data type must not parse as session");
     }
 }

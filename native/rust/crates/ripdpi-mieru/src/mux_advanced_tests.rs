@@ -23,7 +23,7 @@ fn config() -> MieruConfig {
 /// NOT cancel-safe: the test owns and explicitly closes its stream and carrier before it returns.
 async fn no_wait_payload_case(reply_case: u8) {
     let config = config();
-    let key = cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), NOW, 0);
+    let key = cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), NOW).expect("fixture clock");
     let (client, server) = tokio::io::duplex(65536);
     let time = Arc::new(NetworkTimeProvider::fixed(NOW));
     let connection = MieruMuxConnection::connect_over(client, &config, Arc::clone(&time)).await.expect("carrier");
@@ -66,7 +66,7 @@ async fn no_wait_payload_case(reply_case: u8) {
                         payload_len: u16::try_from(response.len()).expect("short response"),
                         suffix_len,
                     }
-                    .marshal(NOW)
+                    .marshal(MinuteTimestamp::from_unix(NOW).expect("fixture clock"))
                 },
                 Some(&response),
             )
@@ -185,7 +185,7 @@ async fn backpressured_no_wait_case(refuse: bool) {
     use std::task::Poll;
 
     let config = config();
-    let key = cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), NOW, 0);
+    let key = cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), NOW).expect("fixture clock");
     let (client, server) = tokio::io::duplex(1024);
     let (ready_tx, ready_rx) = oneshot::channel();
     let (stop_tx, stop_rx) = oneshot::channel();
@@ -224,7 +224,7 @@ async fn backpressured_no_wait_case(refuse: bool) {
                             payload_len: 10,
                             suffix_len,
                         }
-                        .marshal(NOW)
+                        .marshal(MinuteTimestamp::from_unix(NOW).expect("fixture clock"))
                     },
                     Some(&reply),
                 )

@@ -14,6 +14,7 @@ use ring::pbkdf2;
 use ring::rand::{SecureRandom, SystemRandom};
 
 use crate::error::{MieruError, Result};
+use crate::metadata::MinuteTimestamp;
 
 /// AEAD key length (bytes).
 pub(crate) const KEY_LEN: usize = 32;
@@ -24,7 +25,7 @@ pub(crate) const TAG_LEN: usize = 16;
 /// PBKDF2-HMAC-SHA256 iteration count (upstream constant).
 const PBKDF2_ITERS: u32 = 64;
 /// Key-rotation window: the time salt is rounded to the nearest 2 minutes.
-pub(crate) const SALT_ROUND_SECS: i64 = 120;
+const SALT_ROUND_SECS: i64 = 120;
 
 fn sha256(parts: &[&[u8]]) -> [u8; 32] {
     // ring has no incremental-free one-shot over multiple slices, so join first.
@@ -43,20 +44,18 @@ fn hashed_password(password: &[u8], username: &[u8]) -> [u8; 32] {
     sha256(&[password, &[0x00], username])
 }
 
-/// `timeSalt = SHA256(be_u64(round_to_nearest(unix_secs, 2min)))`.
-fn time_salt(unix_secs: i64) -> [u8; 32] {
-    let rounded = (unix_secs + SALT_ROUND_SECS / 2).div_euclid(SALT_ROUND_SECS) * SALT_ROUND_SECS;
-    #[allow(clippy::cast_sign_loss)] // negative epochs are not representable on device; rounded >= 0 in practice.
-    let be = (rounded as u64).to_be_bytes();
-    sha256(&[&be])
+/// Round to the nearest two-minute Unix boundary and hash its big-endian encoding.
+fn time_salt(unix_secs: i64) -> Result<[u8; 32]> {
+    // Valid wire minutes bound the input well below the signed arithmetic limit.
+    MinuteTimestamp::from_unix(unix_secs)?;
+    let rounded = (unix_secs + SALT_ROUND_SECS / 2) / SALT_ROUND_SECS * SALT_ROUND_SECS;
+    Ok(sha256(&[&rounded.to_be_bytes()]))
 }
 
-/// Derive the 32-byte session key for the 2-minute window at
-/// `unix_secs + window_offset * 2min`. The client uses `window_offset == 0`; a
-/// server tolerating clock skew tries `-1, 0, 1`.
-pub(crate) fn derive_key(password: &[u8], username: &[u8], unix_secs: i64, window_offset: i64) -> [u8; KEY_LEN] {
+/// Derive the 32-byte session key for the current two-minute window.
+pub(crate) fn derive_key(password: &[u8], username: &[u8], unix_secs: i64) -> Result<[u8; KEY_LEN]> {
+    let salt = time_salt(unix_secs)?;
     let hashed = hashed_password(password, username);
-    let salt = time_salt(unix_secs + window_offset * SALT_ROUND_SECS);
     let mut key = [0u8; KEY_LEN];
     pbkdf2::derive(
         pbkdf2::PBKDF2_HMAC_SHA256,
@@ -65,7 +64,7 @@ pub(crate) fn derive_key(password: &[u8], username: &[u8], unix_secs: i64, windo
         &hashed,
         &mut key,
     );
-    key
+    Ok(key)
 }
 
 /// A 24-byte AEAD nonce that increments (big-endian) per AEAD operation,
@@ -151,23 +150,21 @@ mod tests {
     }
 
     #[test]
-    fn time_salt_is_deterministic_and_window_sensitive() {
-        // Same input => same salt; a full window away => different salt. (Nearest
-        // rounding means two times <2min apart may still straddle a boundary —
-        // that is exactly why the server tries 3 windows.)
-        assert_eq!(time_salt(1_000_000_000), time_salt(1_000_000_000));
-        assert_ne!(time_salt(1_000_000_000), time_salt(1_000_000_000 + SALT_ROUND_SECS));
+    fn time_salt_rounds_to_the_nearest_two_minutes() {
+        for (time, rounded) in [(59, 0_u64), (60, 120), (179, 120), (180, 240)] {
+            assert_eq!(time_salt(time).unwrap(), sha256(&[&rounded.to_be_bytes()]));
+        }
     }
 
     #[test]
-    fn derive_key_is_deterministic_and_supports_skew_recovery() {
-        let k0 = derive_key(b"pw", b"user", 1_000_000_000, 0);
-        assert_eq!(k0, derive_key(b"pw", b"user", 1_000_000_000, 0), "deterministic");
-        assert_ne!(k0, derive_key(b"pw", b"user", 1_000_000_000, 1), "adjacent window => different key");
-        // A server one window ahead, probing offset -1, recovers the client's key
-        // regardless of where nearest-rounding placed the boundary.
-        let server_view = derive_key(b"pw", b"user", 1_000_000_000 + SALT_ROUND_SECS, -1);
-        assert_eq!(server_view, k0, "skew window recovery");
+    fn key_derivation_matches_the_time_window_vector() {
+        // SHA-256 and PBKDF2-HMAC-SHA256 from Python hashlib, with salt time 999_999_960.
+        let expected = [
+            0x6a, 0x5c, 0xe2, 0x09, 0x8e, 0x64, 0x4e, 0x93, 0x90, 0xa5, 0x44, 0x5d, 0xd2, 0x22, 0x08, 0xfd, 0x88, 0x1c,
+            0x7b, 0x1e, 0x07, 0x35, 0x5f, 0x28, 0x3f, 0x01, 0x02, 0x3d, 0x32, 0xbb, 0xca, 0xbd,
+        ];
+        assert_eq!(derive_key(b"pw", b"user", 1_000_000_000).unwrap(), expected);
+        assert_ne!(derive_key(b"pw", b"user", 1_000_000_120).unwrap(), expected);
     }
 
     #[test]
@@ -193,7 +190,7 @@ mod tests {
 
     #[test]
     fn seal_open_round_trips_and_rejects_tampering() {
-        let key = derive_key(b"pw", b"user", 1_000_000_000, 0);
+        let key = derive_key(b"pw", b"user", 1_000_000_000).expect("fixture clock");
         let nonce = Nonce::from_bytes([1u8; NONCE_LEN]);
         let ct = seal(&key, &nonce, b"hello mieru").expect("seal");
         assert_eq!(ct.len(), b"hello mieru".len() + TAG_LEN);

@@ -45,6 +45,9 @@ pub enum MieruError {
     /// metadata). The inner string describes the violation, never payload bytes.
     #[error("Mieru protocol error: {0}")]
     Protocol(String),
+    /// The clock is outside the Unix time range of the Mieru wire format.
+    #[error("Mieru device clock is outside the supported time range")]
+    InvalidClock,
     /// The server sent no valid SOCKS5 reply before the carrier closed,
     /// failed, or timed out. Upstream drops a client with a wrong
     /// username/password or a clock more than about a minute off without any

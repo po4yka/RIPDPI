@@ -31,8 +31,8 @@ use crate::MieruStream;
 use crate::config::{MieruConfig, MieruProtocol};
 use crate::error::{MieruError, Result};
 use crate::metadata::{
-    DataAckMeta, ProtocolType, SessionMeta, is_server_to_client, session_id_of, timestamp_estimate_unix,
-    timestamp_in_window,
+    DataAckMeta, MinuteTimestamp, ProtocolType, SessionMeta, is_server_to_client, session_id_of,
+    timestamp_estimate_unix, timestamp_in_window,
 };
 use crate::owned_tasks::OwnedTasks;
 #[cfg(test)]
@@ -115,8 +115,8 @@ struct MuxWriter {
 
 impl MuxWriter {
     async fn send_open(&mut self, session_id: u32, seq: &mut u32) -> Result<()> {
+        let timestamp = MinuteTimestamp::from_unix(self.time.now_unix())?;
         let suffix = self.enc.next_session_padding()?;
-        let now = self.time.now_unix();
         let this_seq = next(seq);
         self.enc
             .write_segment(
@@ -132,7 +132,7 @@ impl MuxWriter {
                         payload_len: 0,
                         suffix_len,
                     }
-                    .marshal(now)
+                    .marshal(timestamp)
                 },
                 None,
             )
@@ -140,8 +140,8 @@ impl MuxWriter {
     }
 
     async fn send_close(&mut self, protocol: ProtocolType, session_id: u32, seq: &mut u32) -> Result<()> {
+        let timestamp = MinuteTimestamp::from_unix(self.time.now_unix())?;
         let suffix = self.enc.next_session_padding()?;
-        let now = self.time.now_unix();
         let this_seq = next(seq);
         self.enc
             .write_segment(
@@ -150,7 +150,7 @@ impl MuxWriter {
                 suffix,
                 |_p, suffix_len| {
                     SessionMeta { protocol, session_id, seq: this_seq, status_code: 0, payload_len: 0, suffix_len }
-                        .marshal(now)
+                        .marshal(timestamp)
                 },
                 None,
             )
@@ -162,8 +162,8 @@ impl MuxWriter {
     /// owning writer may be aborted only while discarding the whole carrier.
     async fn send_data(&mut self, session_id: u32, seq: &mut u32, bytes: &[u8]) -> Result<()> {
         for chunk in bytes.chunks(self.enc.maximum_payload()) {
+            let timestamp = MinuteTimestamp::from_unix(self.time.now_unix())?;
             let (prefix, suffix) = self.enc.next_padding()?;
-            let now = self.time.now_unix();
             let this_seq = next(seq);
             let payload_len =
                 u16::try_from(chunk.len()).map_err(|_| MieruError::Protocol("fragment too large".to_owned()))?;
@@ -184,7 +184,7 @@ impl MuxWriter {
                             payload_len,
                             suffix_len,
                         }
-                        .marshal(now)
+                        .marshal(timestamp)
                     },
                     Some(chunk),
                 )
@@ -433,7 +433,7 @@ impl MieruMuxConnection {
         if config.protocol == MieruProtocol::Udp {
             return Err(MieruError::UdpUnsupported);
         }
-        let key = crate::cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), time.now_unix(), 0);
+        let key = crate::cipher::derive_key(config.password.as_bytes(), config.username.as_bytes(), time.now_unix())?;
         let (read_half, write_half) = tokio::io::split(transport);
         let enc = Encryptor::with_pattern(key, config.username.as_bytes().to_vec(), config.traffic_pattern.clone());
         let dec = Decryptor::new(key);
@@ -493,7 +493,7 @@ impl MieruMuxConnection {
         match self.open_stream_inner(&request).await {
             // Report a validated refusal even when the peer immediately
             // closed its logical session.
-            Err(error @ MieruError::Socks5(_)) => Err(error),
+            Err(error @ (MieruError::Socks5(_) | MieruError::InvalidClock)) => Err(error),
             Err(_) if !self.reply_clock.authenticated.load(Ordering::Acquire) => {
                 Err(MieruError::NoAuthenticatedResponse)
             }
@@ -1010,7 +1010,7 @@ mod tests {
                         payload_len,
                         suffix_len,
                     }
-                    .marshal(NOW)
+                    .marshal(MinuteTimestamp::from_unix(NOW).expect("fixture clock"))
                 },
                 Some(chunk),
             )
@@ -1021,7 +1021,7 @@ mod tests {
 
     #[tokio::test]
     async fn concurrent_streams_round_trip_without_cross_contamination() {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (client_side, server_side) = tokio::io::duplex(1 << 16);
         let server = tokio::spawn(run_mux_server(server_side, key, USERNAME.as_bytes().to_vec()));
 
@@ -1064,7 +1064,7 @@ mod tests {
 
     #[tokio::test]
     async fn stalled_stream_is_closed_alone_after_the_stall_timeout() {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (slow_tx, _slow_rx) = mpsc::channel(MAILBOX_DEPTH);
@@ -1118,7 +1118,7 @@ mod tests {
         // open would block on the semaphore forever (this is the regression test
         // for the half-idle permit leak — the test server never sends a close
         // response, so the permit cannot depend on the inbound pump ending).
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (client_side, server_side) = tokio::io::duplex(1 << 16);
         let server = tokio::spawn(run_mux_server(server_side, key, USERNAME.as_bytes().to_vec()));
 
@@ -1147,7 +1147,7 @@ mod tests {
     /// NOT cancel-safe: the complete test joins its owned peer after the observation.
     #[tokio::test]
     async fn dropping_idle_stream_releases_mailbox_and_permit() {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (client_side, server_side) = tokio::io::duplex(1 << 16);
         let mut server = tokio::spawn(run_mux_server(server_side, key, USERNAME.as_bytes().to_vec()));
         let conn = MieruMuxConnection::connect_over(
@@ -1184,7 +1184,7 @@ mod tests {
     /// NOT cancel-safe: the test explicitly joins the active writer and peer.
     #[tokio::test]
     async fn close_joins_active_pumps_and_carrier_before_return() {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (client_side, server_side) = tokio::io::duplex(1 << 16);
         let mut server = tokio::spawn(run_mux_server(server_side, key, USERNAME.as_bytes().to_vec()));
         let conn = MieruMuxConnection::connect_over(
@@ -1291,7 +1291,7 @@ mod tests {
     /// NOT cancel-safe: the test joins the carrier after exercising a cancelled frame waiter.
     #[tokio::test]
     async fn cancelling_frame_waiter_does_not_cancel_partial_carrier_write() {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let state = Arc::new(StdMutex::new(BlockingWriteState::default()));
         let blocked = Arc::new(Notify::new());
         let transport = BlockingTransport { state: Arc::clone(&state), blocked: Arc::clone(&blocked) };
@@ -1396,7 +1396,7 @@ mod tests {
                             payload_len,
                             suffix_len,
                         }
-                        .marshal(stamp)
+                        .marshal(MinuteTimestamp::from_unix(stamp).expect("fixture clock"))
                     },
                     Some(bytes),
                 )
@@ -1423,7 +1423,7 @@ mod tests {
                     suffix,
                     |_prefix, suffix_len| {
                         SessionMeta { protocol, session_id, seq: 0, status_code: 0, payload_len: 0, suffix_len }
-                            .marshal(NOW)
+                            .marshal(MinuteTimestamp::from_unix(NOW).expect("fixture clock"))
                     },
                     None,
                 )
@@ -1437,7 +1437,7 @@ mod tests {
     }
 
     async fn scripted_carrier_at(level: MieruMux) -> (MieruMuxConnection, ScriptedServer) {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (client_side, server_side) = tokio::io::duplex(8 << 20);
         let (read_half, write_half) = tokio::io::split(server_side);
         let server = ScriptedServer {
@@ -1683,7 +1683,7 @@ mod tests {
     /// stream, and other streams resume.
     #[tokio::test]
     async fn consumer_with_gaps_over_the_stall_limit_is_closed() {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (slow_tx, mut slow_rx) = mpsc::channel(MAILBOX_DEPTH);
@@ -1749,7 +1749,7 @@ mod tests {
     /// mailbox stays non-empty for longer than the stall limit, loses nothing.
     #[tokio::test]
     async fn steadily_reading_consumer_keeps_its_stream_under_back_pressure() {
-        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+        let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
         let (reader_side, mut writer_side) = tokio::io::duplex(8 << 20);
         let table: DemuxTable = Arc::new(StdMutex::new(HashMap::new()));
         let (tx, mut rx) = mpsc::channel(MAILBOX_DEPTH);

@@ -256,6 +256,7 @@ async fn skip_exact<R: AsyncRead + Unpin>(reader: &mut R, len: usize) -> Result<
 mod tests {
     use super::*;
     use crate::metadata::DataAckMeta;
+    use crate::metadata::MinuteTimestamp;
     use tokio::io::AsyncWriteExt;
 
     /// # Cancel safety:
@@ -293,7 +294,7 @@ mod tests {
     #[tokio::test]
     async fn segment_round_trips_through_a_pipe() {
         // Two codecs sharing a key model the two ends of one direction.
-        let key = cipher::derive_key(b"pw", b"user", 1_000_000_000, 0);
+        let key = cipher::derive_key(b"pw", b"user", 1_000_000_000).expect("fixture clock");
         let mut writer_codec = Encryptor::new(key, b"user".to_vec());
         let mut reader_codec = Decryptor::new(key);
 
@@ -320,7 +321,7 @@ mod tests {
                             payload_len: u16::try_from(payload_for_meta.len()).unwrap(),
                             suffix_len: suffix,
                         }
-                        .marshal(1_000_000_000)
+                        .marshal(MinuteTimestamp::from_unix(1_000_000_000).expect("fixture clock"))
                     },
                     Some(&payload),
                 )
@@ -367,7 +368,7 @@ mod tests {
     /// writes would expose a lone 24-byte nonce as the first TCP packet.
     #[tokio::test]
     async fn first_segment_is_one_write_including_the_nonce() {
-        let key = cipher::derive_key(b"pw", b"user", 1_000_000_000, 0);
+        let key = cipher::derive_key(b"pw", b"user", 1_000_000_000).expect("fixture clock");
         let mut codec = Encryptor::new(key, b"user".to_vec());
         let mut log = WriteLog::default();
         let payload = [7u8; 100];
@@ -389,7 +390,7 @@ mod tests {
                         payload_len: 100,
                         suffix_len,
                     }
-                    .marshal(1_000_000_000)
+                    .marshal(MinuteTimestamp::from_unix(1_000_000_000).expect("fixture clock"))
                 },
                 Some(&payload),
             )
@@ -407,7 +408,7 @@ mod tests {
             .find(|name| matches!(SessionPadding::for_user(name), SessionPadding::Ascii(_)))
             .expect("some user has the ASCII strategy");
         let SessionPadding::Ascii(run) = SessionPadding::for_user(&username) else { unreachable!() };
-        let key = cipher::derive_key(b"pw", &username, 1_000_000_000, 0);
+        let key = cipher::derive_key(b"pw", &username, 1_000_000_000).expect("fixture clock");
         let mut codec = Encryptor::new(key, username);
         let mut wire = Vec::new();
         let suffix_len = codec.next_session_padding().expect("padding");
@@ -425,7 +426,7 @@ mod tests {
                         payload_len: 0,
                         suffix_len,
                     }
-                    .marshal(1_000_000_000)
+                    .marshal(MinuteTimestamp::from_unix(1_000_000_000).expect("fixture clock"))
                 },
                 None,
             )

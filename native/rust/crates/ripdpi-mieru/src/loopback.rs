@@ -11,8 +11,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
 
 use crate::cipher::{self, KEY_LEN};
 use crate::config::{MieruConfig, MieruMux, MieruProtocol};
-use crate::error::Result;
-use crate::metadata::{DataAckMeta, ProtocolType};
+use crate::error::{MieruError, Result};
+use crate::metadata::{DataAckMeta, MinuteTimestamp, ProtocolType};
 use crate::mux::MieruMuxConnection;
 use crate::segment::{Decryptor, Encryptor, MAX_PDU};
 
@@ -64,7 +64,7 @@ where
                     payload_len,
                     suffix_len,
                 }
-                .marshal(NOW)
+                .marshal(MinuteTimestamp::from_unix(NOW).expect("fixture clock"))
             },
             Some(chunk),
         )
@@ -106,9 +106,11 @@ fn test_config() -> MieruConfig {
     }
 }
 
+/// # Cancel safety:
+/// cancel-safe: dropping the client closes the carrier, and the fixture peer exits on EOF.
 #[tokio::test]
 async fn client_round_trips_one_mib_through_spec_faithful_loopback() {
-    let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+    let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
     let (client_side, server_side) = tokio::io::duplex(1 << 20);
     let server = tokio::spawn(run_server(server_side, key, USERNAME.as_bytes().to_vec()));
 
@@ -158,7 +160,7 @@ async fn udp_protocol_is_rejected() {
 /// Not cancel-safe: the test explicitly joins its owned peer on either outcome.
 #[tokio::test]
 async fn dropping_idle_stream_and_connection_closes_both_carrier_halves() {
-    let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW, 0);
+    let key = cipher::derive_key(PASSWORD.as_bytes(), USERNAME.as_bytes(), NOW).expect("fixture clock");
     let (client_side, server_side) = tokio::io::duplex(1 << 16);
     let mut server = tokio::spawn(run_server(server_side, key, USERNAME.as_bytes().to_vec()));
     let client =
@@ -177,4 +179,18 @@ async fn dropping_idle_stream_and_connection_closes_both_carrier_halves() {
         .expect("dropping the stream and its connection must close the carrier")
         .expect("peer task")
         .expect("peer EOF");
+}
+
+/// # Cancel safety:
+/// cancel-safe: both ends of the test carrier and all pending I/O are locally owned.
+#[tokio::test]
+async fn invalid_clock_rejects_carrier_before_writing() {
+    for unix_secs in [i64::MIN, -1, i64::MAX] {
+        let (transport, mut peer) = tokio::io::duplex(64);
+        let time = Arc::new(NetworkTimeProvider::fixed(unix_secs));
+        let result = MieruMuxConnection::connect_over(transport, &test_config(), time).await;
+        assert!(matches!(result, Err(MieruError::InvalidClock)));
+        let read = tokio::time::timeout(std::time::Duration::from_secs(1), peer.read_u8()).await;
+        assert!(matches!(read, Ok(Err(error)) if error.kind() == std::io::ErrorKind::UnexpectedEof));
+    }
 }
