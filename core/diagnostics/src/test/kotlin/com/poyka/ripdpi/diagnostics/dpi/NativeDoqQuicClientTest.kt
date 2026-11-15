@@ -43,7 +43,7 @@ class NativeDoqQuicClientTest {
                 framedQuery.copyOfRange(DoqLengthPrefixBytes, framedQuery.size),
                 Base64.getDecoder().decode(request.getValue("queryBase64").jsonPrimitive.content),
             )
-            assertEquals(listOf("1.2.3.4"), DoqWireCodec.parseResponse(framedResponse, framedQuery))
+            assertEquals(listOf("1.2.3.4"), DoqWireCodec.parseResponse(framedResponse, framedQuery).addresses)
         }
 
     @Test

@@ -27,7 +27,7 @@ class NativeDoqQuicClientInstrumentedTest {
                     timeoutMs = 6_000,
                 )
 
-            assertTrue(DoqWireCodec.parseResponse(response, query).any(::isIpv4Literal))
+            assertTrue(DoqWireCodec.parseResponse(response, query).addresses.any(::isIpv4Literal))
         }
 
     private fun networkTestsEnabled(): Boolean =

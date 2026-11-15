@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
+import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
+import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniResult
 import com.poyka.ripdpi.diagnostics.dpi.CompatibleSni
 import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityResult
@@ -41,6 +43,7 @@ class DiagnosticsSpanishPresentationTest {
                 "DoQ rechazado por DPI",
                 "Respuestas de DoQ divergentes",
                 "Tiempo de espera de DoQ agotado",
+                "Desconocido",
             ),
             model.doqRows.map { it.verdict },
         )
@@ -62,10 +65,39 @@ class DiagnosticsSpanishPresentationTest {
     }
 
     @Test
+    fun `DoQ without an address shows the observed DNS outcome`() {
+        val result = dnsResult()
+        val doq =
+            result.doqResults.first().copy(
+                verdict = DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE,
+                resolvedIps = emptyList(),
+                response = DnsResponseSemantics(outcome = DnsResponseOutcome.NXDOMAIN, rcode = 3),
+            )
+
+        val row =
+            result
+                .copy(doqResults = listOf(doq))
+                .toUiModel(strings(Locale.forLanguageTag("es")))
+                .doqRows
+                .single()
+
+        assertEquals("Desconocido", row.verdict)
+        assertEquals("El nombre no existe (NXDOMAIN)", row.resolvedIps)
+        assertEquals("raw_error_Detail", row.detail)
+    }
+
+    @Test
     fun `English DoQ and bootstrap retain their previous labels`() {
         val model = dnsResult().toUiModel(strings(Locale.ENGLISH))
         assertEquals(
-            listOf("doq ok", "doq blocked quic", "doq dpi reject", "doq integrity divergent", "doq timeout"),
+            listOf(
+                "doq ok",
+                "doq blocked quic",
+                "doq dpi reject",
+                "doq integrity divergent",
+                "doq timeout",
+                "Unknown",
+            ),
             model.doqRows.map { it.verdict },
         )
         assertEquals(listOf("ok", "spoofed", "resolve failed"), model.dohBootstrapRows.map { it.verdict })

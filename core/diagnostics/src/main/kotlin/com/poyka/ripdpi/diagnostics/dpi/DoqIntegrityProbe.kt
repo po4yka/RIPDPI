@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.NumericIp
+import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
+import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
@@ -18,6 +20,7 @@ enum class DoqVerdict {
     DOQ_DPI_REJECT,
     DOQ_INTEGRITY_DIVERGENT,
     DOQ_TIMEOUT,
+    DOQ_INTEGRITY_INCONCLUSIVE,
 }
 
 data class DoqProvider(
@@ -35,6 +38,7 @@ data class DoqProbeResult(
     val resolvedIps: List<String>,
     val latencyMs: Long?,
     val errorDetail: String? = null,
+    val response: DnsResponseSemantics? = null,
 )
 
 interface DoqQuicClient {
@@ -74,22 +78,16 @@ object DoqWireCodec {
     fun parseResponse(
         response: ByteArray,
         query: ByteArray,
-    ): List<String> =
-        when (val length = response.doqPayloadLengthOrNull().takeIf { query.doqPayloadLengthOrNull() != null }) {
-            null -> {
-                listOf(DnsWireBuilder.PARSE_ERR)
-            }
-
-            else -> {
-                val answer =
-                    DnsWireBuilder
-                        .parseResponse(
-                            response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
-                            query.copyOfRange(DoqLengthPrefixBytes, query.size),
-                        )
-                if (answer.response?.truncated == true) listOf(DnsWireBuilder.PARSE_ERR) else answer.legacyRecords()
-            }
+    ): DnsProbeAnswer {
+        val length = response.doqPayloadLengthOrNull()
+        if (length == null || query.doqPayloadLengthOrNull() == null) {
+            return dnsFailure(DnsResponseOutcome.MALFORMED)
         }
+        return DnsWireBuilder.parseResponse(
+            response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
+            query.copyOfRange(DoqLengthPrefixBytes, query.size),
+        )
+    }
 
     private fun ByteArray.doqPayloadLengthOrNull(): Int? {
         if (size < DoqLengthPrefixBytes) return null
@@ -141,7 +139,7 @@ class DoqIntegrityProbe(
                 return null
             }
         return try {
-            val records =
+            val answer =
                 withTimeout(timeoutMs) {
                     val response =
                         client.exchange(
@@ -153,15 +151,18 @@ class DoqIntegrityProbe(
                         )
                     DoqWireCodec.parseResponse(response, query)
                 }
-            if (DnsWireBuilder.PARSE_ERR in records) throw IOException("Malformed DoQ response")
-            val ips = records.filter(::isDoqIpv4Literal)
+            val response = answer.response
+            if (response?.outcome == DnsResponseOutcome.MALFORMED || response?.truncated == true) {
+                throw IOException("Malformed DoQ response")
+            }
+            val ips = answer.addresses.filter(::isDoqIpv4Literal)
             val verdict =
-                if (ips.isNotEmpty() && dohIps.isNotEmpty() && !dnsAnswersOverlap(ips.toSet(), dohIps)) {
-                    DoqVerdict.DOQ_INTEGRITY_DIVERGENT
-                } else {
-                    DoqVerdict.DOQ_OK
+                when {
+                    ips.isEmpty() || dohIps.isEmpty() -> DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE
+                    !dnsAnswersOverlap(ips.toSet(), dohIps) -> DoqVerdict.DOQ_INTEGRITY_DIVERGENT
+                    else -> DoqVerdict.DOQ_OK
                 }
-            provider.result(domain, verdict, ips, startedAt)
+            provider.result(domain, verdict, ips, startedAt, response = response)
         } catch (error: TimeoutCancellationException) {
             provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, error.message ?: "timeout")
         } catch (error: DoqTimeoutException) {
@@ -187,6 +188,7 @@ class DoqIntegrityProbe(
         resolvedIps: List<String>,
         startedAt: Long,
         errorDetail: String? = null,
+        response: DnsResponseSemantics? = null,
     ): DoqProbeResult =
         DoqProbeResult(
             provider = name,
@@ -196,6 +198,7 @@ class DoqIntegrityProbe(
             resolvedIps = resolvedIps,
             latencyMs = System.currentTimeMillis() - startedAt,
             errorDetail = errorDetail,
+            response = response,
         )
 
     companion object {

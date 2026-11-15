@@ -6,7 +6,8 @@ internal object DoqIntegrityProbeTestFixtures {
     fun dnsResponse(
         domain: String,
         transactionId: Int,
-        ip: String,
+        ip: String?,
+        rcode: Int = 0,
     ): ByteArray {
         val question =
             DnsWireBuilder
@@ -18,29 +19,31 @@ internal object DoqIntegrityProbeTestFixtures {
                     write((transactionId shr Byte.SIZE_BITS) and ByteMask)
                     write(transactionId and ByteMask)
                     write(0x81)
-                    write(0x80)
+                    write(0x80 or rcode)
                     write(0x00)
                     write(0x01)
                     write(0x00)
-                    write(0x01)
+                    write(if (ip == null) 0 else 1)
                     write(0x00)
                     write(0x00)
                     write(0x00)
                     write(0x00)
                     write(question)
-                    write(0xC0)
-                    write(0x0C)
-                    write(0x00)
-                    write(0x01)
-                    write(0x00)
-                    write(0x01)
-                    write(0x00)
-                    write(0x00)
-                    write(0x00)
-                    write(0x3C)
-                    write(0x00)
-                    write(0x04)
-                    ip.split('.').forEach { octet -> write(octet.toInt()) }
+                    if (ip != null) {
+                        write(0xC0)
+                        write(0x0C)
+                        write(0x00)
+                        write(0x01)
+                        write(0x00)
+                        write(0x01)
+                        write(0x00)
+                        write(0x00)
+                        write(0x00)
+                        write(0x3C)
+                        write(0x00)
+                        write(0x04)
+                        ip.split('.').forEach { octet -> write(octet.toInt()) }
+                    }
                 }.toByteArray()
         return ByteArrayOutputStream(body.size + DoqLengthPrefixBytes)
             .apply {

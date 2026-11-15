@@ -169,7 +169,9 @@ private fun DoqProbeResult.toUiModel(stringResolver: StringResolver): Diagnostic
         endpoint = endpoint,
         resolvedIps =
             resolvedIps.joinToString().ifBlank {
-                stringResolver.getString(R.string.diagnostics_value_unavailable)
+                stringResolver.getString(
+                    response?.let { dnsOutcomeLabel(it.outcome) } ?: R.string.diagnostics_value_unavailable,
+                )
             },
         detail =
             errorDetail
@@ -212,6 +214,7 @@ internal fun DoqVerdict.displayLabel(strings: StringResolver): String =
             DoqVerdict.DOQ_BLOCKED_QUIC -> R.string.diagnostics_doq_blocked_quic
             DoqVerdict.DOQ_DPI_REJECT -> R.string.diagnostics_doq_dpi_reject
             DoqVerdict.DOQ_INTEGRITY_DIVERGENT -> R.string.diagnostics_doq_integrity_divergent
+            DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE -> R.string.diagnostics_dns_unknown
         },
     )
 
@@ -257,7 +260,9 @@ internal fun DoqVerdict.tone(): DiagnosticsTone =
     when (this) {
         DoqVerdict.DOQ_OK -> DiagnosticsTone.Positive
 
-        DoqVerdict.DOQ_TIMEOUT -> DiagnosticsTone.Neutral
+        DoqVerdict.DOQ_TIMEOUT,
+        DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE,
+        -> DiagnosticsTone.Neutral
 
         DoqVerdict.DOQ_BLOCKED_QUIC,
         DoqVerdict.DOQ_DPI_REJECT,

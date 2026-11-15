@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.io.ByteArrayOutputStream
 import java.io.IOException
 
 class DoqIntegrityProbeTest {
@@ -19,6 +19,41 @@ class DoqIntegrityProbeTest {
 
             assertEquals(DoqVerdict.DOQ_OK, result.verdict)
             assertEquals(listOf("1.2.3.4"), result.resolvedIps)
+        }
+
+    @Test
+    fun positiveReplyWithNoDohBaselineIsInconclusive() =
+        runTest {
+            val result = probeWithResponse("1.2.3.4").run(listOf(TestDomain), emptyMap()).single()
+
+            assertEquals(DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE, result.verdict)
+            assertEquals(DnsResponseOutcome.ANSWER, result.response?.outcome)
+            assertEquals(listOf("1.2.3.4"), result.resolvedIps)
+        }
+
+    @Test
+    fun negativeAndErrorResponsesPreserveTheirDnsOutcome() =
+        runTest {
+            val outcomes =
+                mapOf(
+                    0 to DnsResponseOutcome.NODATA,
+                    1 to DnsResponseOutcome.OTHER_RCODE,
+                    2 to DnsResponseOutcome.SERVFAIL,
+                    3 to DnsResponseOutcome.NXDOMAIN,
+                    4 to DnsResponseOutcome.OTHER_RCODE,
+                    5 to DnsResponseOutcome.REFUSED,
+                )
+            outcomes.forEach { (rcode, outcome) ->
+                val result =
+                    probeWithResponse(ip = null, rcode = rcode)
+                        .run(listOf(TestDomain), mapOf(TestDomain to listOf("1.2.3.4")))
+                        .single()
+
+                assertEquals(DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE, result.verdict)
+                assertEquals(outcome, result.response?.outcome)
+                assertEquals(rcode, result.response?.rcode)
+                assertEquals(emptyList<String>(), result.resolvedIps)
+            }
         }
 
     @Test
@@ -184,7 +219,7 @@ class DoqIntegrityProbeTest {
     fun truncatedResponseCannotBecomeSuccessfulDoqEvidence() {
         val (transactionId, query) = DoqWireCodec.buildQuery(TestDomain)
         val response = dnsResponse(transactionId, "1.2.3.4").also { it[4] = 0x83.toByte() }
-        assertEquals(listOf(DnsWireBuilder.PARSE_ERR), DoqWireCodec.parseResponse(response, query))
+        assertEquals(DnsResponseOutcome.TRUNCATED, DoqWireCodec.parseResponse(response, query).response?.outcome)
     }
 
     @Test
@@ -192,7 +227,7 @@ class DoqIntegrityProbeTest {
         val (transactionId, query) = DoqWireCodec.buildQuery(TestDomain)
         val response = dnsResponse(transactionId, "1.2.3.4")
 
-        assertEquals(listOf("1.2.3.4"), DoqWireCodec.parseResponse(response, query))
+        assertEquals(listOf("1.2.3.4"), DoqWireCodec.parseResponse(response, query).addresses)
     }
 
     @Test
@@ -217,17 +252,20 @@ class DoqIntegrityProbeTest {
     fun wireResponseRejectsAnotherQuestionAndTrailingFrameBytes() {
         val (transactionId, query) = DoqWireCodec.buildQuery("other.example")
         val response = dnsResponse(transactionId, "1.2.3.4")
-        assertEquals(listOf(DnsWireBuilder.PARSE_ERR), DoqWireCodec.parseResponse(response, query))
+        assertEquals(DnsResponseOutcome.MALFORMED, DoqWireCodec.parseResponse(response, query).response?.outcome)
 
         val (matchingId, matchingQuery) = DoqWireCodec.buildQuery(TestDomain)
         val matchingResponse = dnsResponse(matchingId, "1.2.3.4")
         assertEquals(
-            listOf(DnsWireBuilder.PARSE_ERR),
-            DoqWireCodec.parseResponse(matchingResponse + byteArrayOf(0), matchingQuery),
+            DnsResponseOutcome.MALFORMED,
+            DoqWireCodec.parseResponse(matchingResponse + byteArrayOf(0), matchingQuery).response?.outcome,
         )
     }
 
-    private fun probeWithResponse(ip: String): DoqIntegrityProbe =
+    private fun probeWithResponse(
+        ip: String?,
+        rcode: Int = 0,
+    ): DoqIntegrityProbe =
         probe(
             client =
                 object : DoqQuicClient {
@@ -237,13 +275,15 @@ class DoqIntegrityProbeTest {
                         tlsServerName: String,
                         query: ByteArray,
                         timeoutMs: Long,
-                    ): ByteArray = dnsResponse(query.transactionId(), ip)
+                    ): ByteArray =
+                        DoqIntegrityProbeTestFixtures.dnsResponse(TestDomain, query.transactionId(), ip, rcode)
                 },
         )
 
     private fun probe(
         client: DoqQuicClient,
-        providers: List<DoqProvider> = listOf(DoqProvider("test", "doq.test")),
+        providers: List<DoqProvider> =
+            listOf(DoqProvider("test", TestResolver, dohProfile = DohResolverProfile.CLOUDFLARE_STANDARD)),
         timeoutMs: Long = 1_000,
     ): DoqIntegrityProbe =
         DoqIntegrityProbe(
@@ -270,48 +310,7 @@ class DoqIntegrityProbeTest {
     private fun dnsResponse(
         transactionId: Int,
         ip: String,
-    ): ByteArray {
-        val question =
-            DnsWireBuilder
-                .buildQuery(TestDomain, transactionId)
-                .copyOfRange(12, 12 + TestDomain.length + 6)
-        val body =
-            ByteArrayOutputStream()
-                .apply {
-                    write((transactionId shr Byte.SIZE_BITS) and 0xFF)
-                    write(transactionId and 0xFF)
-                    write(0x81)
-                    write(0x80)
-                    write(0x00)
-                    write(0x01)
-                    write(0x00)
-                    write(0x01)
-                    write(0x00)
-                    write(0x00)
-                    write(0x00)
-                    write(0x00)
-                    write(question)
-                    write(0xC0)
-                    write(0x0C)
-                    write(0x00)
-                    write(0x01)
-                    write(0x00)
-                    write(0x01)
-                    write(0x00)
-                    write(0x00)
-                    write(0x00)
-                    write(0x3C)
-                    write(0x00)
-                    write(0x04)
-                    ip.split('.').forEach { octet -> write(octet.toInt()) }
-                }.toByteArray()
-        return ByteArrayOutputStream(body.size + 2)
-            .apply {
-                write((body.size shr Byte.SIZE_BITS) and 0xFF)
-                write(body.size and 0xFF)
-                write(body)
-            }.toByteArray()
-    }
+    ): ByteArray = DoqIntegrityProbeTestFixtures.dnsResponse(TestDomain, transactionId, ip)
 
     private companion object {
         private const val TestDomain = "example.com"
