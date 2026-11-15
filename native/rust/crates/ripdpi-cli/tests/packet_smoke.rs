@@ -28,6 +28,8 @@ use support::tls::attempt_socks5_tls_round_trip;
 
 static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
+#[path = "packet_smoke/adaptive.rs"]
+mod adaptive;
 #[path = "packet_smoke/disoob.rs"]
 mod disoob;
 
@@ -252,44 +254,7 @@ fn cli_packet_smoke_udp_quic_family() {
 
 #[test]
 fn cli_packet_smoke_adaptive_family() {
-    run_capture_scenario(
-        "cli_packet_smoke_adaptive_family",
-        |paths| {
-            let mut args = vec![
-                "-K",
-                "t",
-                "-s",
-                "auto(host)",
-                "--strategy-evolution",
-                "--evolution-epsilon",
-                "1.0",
-                "--host-autolearn",
-                "--host-autolearn-file",
-            ]
-            .into_iter()
-            .map(str::to_string)
-            .collect::<Vec<_>>();
-            args.push(paths.host_autolearn_store.to_string_lossy().into_owned());
-            args
-        },
-        |manifest| format!("tcp and port {}", manifest.tcp_echo_port),
-        drive_adaptive_round_trip,
-        |run| {
-            assert_fixture_event(run, "tcp_echo")?;
-            assert_stderr_contains(run, "strategy evolution selected combo")?;
-            assert_stderr_contains(run, "strategy evolution recorded success")?;
-            assert_stderr_contains(run, "autolearn event")?;
-            let autolearn_store = fs::read_to_string(&run.paths.host_autolearn_store)
-                .map_err(|err| format!("failed to read host autolearn store: {err}"))?;
-            if !autolearn_store.contains(&run.manifest.fixture_domain) {
-                return Err(format!(
-                    "expected host autolearn store to contain {}, got: {autolearn_store}",
-                    run.manifest.fixture_domain
-                ));
-            }
-            Ok(())
-        },
-    );
+    adaptive::run_capture();
 }
 
 #[test]
@@ -464,13 +429,6 @@ fn drive_udp_quic_round_trip(proxy_port: u16, fixture: &FixtureStack) -> Result<
         return Err("fallback QUIC initial did not round-trip through the UDP relay".to_string());
     }
 
-    Ok(())
-}
-
-fn drive_adaptive_round_trip(proxy_port: u16, fixture: &FixtureStack) -> Result<(), String> {
-    for round in 0..2 {
-        drive_http_echo_strict(proxy_port, fixture, &format!("adaptive-{round}"))?;
-    }
     Ok(())
 }
 
@@ -835,7 +793,10 @@ fn supports_await_writable_split() -> bool {
 fn assert_tcp_split_host_plus_one(packets: &[Value], port: u16, fixture_domain: &str) -> Result<(), String> {
     let prefix = b"GET /split HTTP/1.1\r\nHost: ";
     let expected = format!("GET /split HTTP/1.1\r\nHost: {fixture_domain}\r\nConnection: close\r\n\r\n");
-    let boundary = prefix.len() + 1;
+    assert_tcp_request_split(packets, port, &expected, prefix.len() + 1)
+}
+
+fn assert_tcp_request_split(packets: &[Value], port: u16, expected: &str, boundary: usize) -> Result<(), String> {
     let mut stream = None;
     let mut segments = Vec::new();
     for packet in packets.iter().filter(|packet| is_tcp_outbound(packet, port)) {
@@ -885,14 +846,14 @@ fn assert_tcp_split_host_plus_one(packets: &[Value], port: u16, fixture_domain: 
             return Err("TCP payload differs from expected request or has conflicting overlap".to_string());
         }
         if offset < boundary && end > boundary {
-            return Err("TCP packet crosses the Host+1 boundary".to_string());
+            return Err("TCP packet crosses the expected split boundary".to_string());
         }
         ends_at_boundary |= end == boundary;
         starts_at_boundary |= offset == boundary;
         covered[offset..end].fill(true);
     }
     if !covered.into_iter().all(|byte| byte) || !ends_at_boundary || !starts_at_boundary {
-        return Err("incomplete TCP request or missing exact Host+1 packet boundary".to_string());
+        return Err("incomplete TCP request or missing exact packet boundary".to_string());
     }
     Ok(())
 }
