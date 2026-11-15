@@ -142,6 +142,20 @@ object WireGuardConfParser {
             )
     }
 
+    /** Identifies a tunnel config for import routing. [parse] still validates its contents. */
+    fun hasInterfaceAndPeerSections(conf: String): Boolean {
+        var hasInterface = false
+        var hasPeer = false
+        for (line in conf.lineSequence()) {
+            when (sectionName(stripComment(line).trim())) {
+                "interface" -> hasInterface = true
+                "peer" -> hasPeer = true
+            }
+            if (hasInterface && hasPeer) return true
+        }
+        return false
+    }
+
     /**
      * Parses [conf] and returns either a [WireGuardConfig] or an
      * [AmneziaWgConfig] depending on whether any AmneziaWG key is present.
@@ -165,9 +179,10 @@ object WireGuardConfParser {
             val line = stripComment(rawLine).trim()
             if (line.isEmpty()) continue
 
-            if (line.startsWith("[") && line.endsWith("]")) {
+            val header = sectionName(line)
+            if (header != null) {
                 section =
-                    when (line.substring(1, line.length - 1).trim().lowercase()) {
+                    when (header) {
                         "interface" -> {
                             interfaceSeen = true
                             Section.INTERFACE
@@ -296,6 +311,13 @@ object WireGuardConfParser {
             }
         }
     }
+
+    private fun sectionName(line: String): String? =
+        line
+            .takeIf { it.startsWith('[') && it.endsWith(']') }
+            ?.substring(1, line.lastIndex)
+            ?.trim()
+            ?.lowercase()
 
     private fun stripComment(line: String): String {
         val comment = line.indexOfFirst { it == '#' || it == ';' }

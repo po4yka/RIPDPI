@@ -23,11 +23,13 @@ fun AmneziaWgEditorState.importConf(
 ): AwgConfImport {
     val result = conf.takeIf { it.isNotBlank() }?.let { runCatching { WireGuardConfParser.parse(it) } }
     val parsed = result?.getOrNull()
+    val listenPort = parsed?.interfaceSection?.listenPort ?: 0
     val unknownKey = (result?.exceptionOrNull() as? WireGuardConfUnknownKeyException)?.key
     return when {
         conf.isBlank() -> AwgConfImport.Failed(AwgConfImportFailure.UNREADABLE)
         unknownKey != null -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, unknownKey)
         parsed == null -> AwgConfImport.Failed(AwgConfImportFailure.INVALID)
+        listenPort != 0 -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, "ListenPort")
         else -> imported(conf, parsed, catalog)
     }
 }
@@ -128,7 +130,7 @@ enum class AwgConfImportFailure {
     /** The text is not a WireGuard / AmneziaWG config RIPDPI can parse. */
     INVALID,
 
-    /** The config uses a key RIPDPI does not know; [AwgConfImport.Failed.key] names it. */
+    /** The editor does not support this option; [AwgConfImport.Failed.key] names it. */
     UNSUPPORTED_OPTION,
 }
 

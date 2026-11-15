@@ -363,6 +363,28 @@ class AmneziaWgProfileViewModelTest {
     }
 
     @Test
+    fun `a fixed listen port is reported without modifying the editor`() {
+        val viewModel = viewModel()
+        viewModel.onFieldChanged(AwgEditorField.SERVER, "keep.me")
+        val conf =
+            "[Interface]\nPrivateKey = k==\nListenPort = 51820\n\n[Peer]\n" +
+                "PublicKey = p==\nEndpoint = vpn.example.com:51820"
+
+        viewModel.onConfPasted(conf)
+
+        assertEquals("keep.me", viewModel.uiState.value.editor.form.server)
+        assertEquals(
+            AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, "ListenPort"),
+            viewModel.uiState.value.confImportFailure,
+        )
+
+        viewModel.onConfPasted(conf.replace("ListenPort = 51820", "ListenPort = 0"))
+
+        assertEquals("vpn.example.com", viewModel.uiState.value.editor.form.server)
+        assertNull(viewModel.uiState.value.confImportFailure)
+    }
+
+    @Test
     fun `extra peers are reported and only the first peer is used`() {
         val viewModel = viewModel()
 

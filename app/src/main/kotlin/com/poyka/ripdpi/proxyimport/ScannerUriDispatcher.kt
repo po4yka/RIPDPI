@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.uri.AmneziaWgUriCodec
+import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import com.poyka.ripdpi.data.wireguard.toWgQuickConf
 
 /** What a block of imported text is. Shared by the QR scanner, the clipboard, and the share sheet. */
@@ -47,7 +48,7 @@ object ImportPayloadClassifier {
             ?: embeddedShareProfile(trimmed)?.let(ImportPayload::Profile)
             ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(ImportPayload::WireGuardConf)
             ?: amneziaWgConf(trimmed)?.let(ImportPayload::WireGuardConf)
-            ?: trimmed.takeIf(::looksLikeWireGuardConf)?.let(ImportPayload::WireGuardConf)
+            ?: trimmed.takeIf(WireGuardConfParser::hasInterfaceAndPeerSections)?.let(ImportPayload::WireGuardConf)
     }
 
     private fun amneziaWgConf(text: String): String? =
@@ -66,11 +67,6 @@ object ImportPayloadClassifier {
             }?.importQueryParameters()
             ?.get("url")
             ?.let { ProxyUriShareDispatcher.dispatch(it) as? ProxyImportRequest.Profile }
-
-    private fun looksLikeWireGuardConf(text: String): Boolean {
-        val sections = text.lineSequence().map { it.trim().lowercase() }.toSet()
-        return "[interface]" in sections && "[peer]" in sections
-    }
 }
 
 /** Outcome of classifying a QR-decoded text payload. */

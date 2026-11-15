@@ -101,9 +101,11 @@ class ScannerUriDispatcherTest {
     @Test
     fun `plain wireguard conf is scanned too, the editor validates it`() {
         val plain =
-            "[Interface]\nPrivateKey = privkey==\n\n[Peer]\nPublicKey = peerpub==\nEndpoint = vpn.example.com:51820"
+            "[ Interface ] # tunnel\nPrivateKey = privkey==\n\n[ pEeR ] ; peer\n" +
+                "PublicKey = peerpub==\nEndpoint = vpn.example.com:51820"
 
         assertEquals(ImportPayload.WireGuardConf(plain), recognized(plain))
+        assertTrue(ScannerUriDispatcher.dispatch("[Interface]\n# [Peer]") is ScannerScanResult.Invalid)
     }
 
     @Test
