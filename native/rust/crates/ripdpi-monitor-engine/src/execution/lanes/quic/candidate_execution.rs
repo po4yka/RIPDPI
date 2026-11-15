@@ -50,7 +50,7 @@ pub fn execute_quic_candidate(
                     || runtime.runtime().transport(),
                     |token| runtime.runtime().transport_for_attempt(token),
                 );
-                let mut sample = run_quic_strategy_probe(&transport, target, spec);
+                let mut sample = run_quic_strategy_probe(&transport, target, spec, cancel);
                 sample.attempt_token = attempt_token;
                 score.add(sample);
             }

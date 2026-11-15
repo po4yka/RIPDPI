@@ -117,7 +117,8 @@ fn native_compatibility_contract_retains_retired_outcomes() {
                 "tcp_16kb_blocked",
                 "tcp_freeze_after_threshold",
                 "whitelist_sni_failed",
-                "quic_empty"
+                "quic_empty",
+                "quic_response",
             ]
             .map(str::to_string)
         )
@@ -136,6 +137,7 @@ fn compatible_native_outcome_tokens() -> BTreeSet<String> {
     // The former runner emitted this outcome. Report readers still classify it.
     tokens.insert("whitelist_sni_failed".to_string());
     tokens.insert("quic_empty".to_string());
+    tokens.insert("quic_response".to_string());
     tokens
 }
 

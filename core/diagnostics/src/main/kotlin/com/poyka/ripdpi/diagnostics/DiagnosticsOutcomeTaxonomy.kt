@@ -124,7 +124,7 @@ private fun bucketForProbeOutcome(
         "dns_integrity" -> bucketDnsIntegrity(pathMode, outcome)
         "domain_reachability" -> bucketDomainReachability(outcome)
         "tcp_fat_header" -> bucketTcpFatHeader(outcome)
-        "quic_reachability" -> bucketQuicReachability(outcome)
+        "quic_reachability", "strategy_quic" -> bucketQuicReachability(outcome)
         "service_reachability" -> bucketServiceReachability(outcome)
         "circumvention_reachability" -> bucketCircumventionReachability(outcome)
         "telegram_availability" -> bucketTelegramAvailability(outcome)
@@ -139,7 +139,6 @@ private fun bucketStrategyProbeOutcome(
     when (probeType) {
         "strategy_http" -> bucketStrategyHttp(outcome)
         "strategy_https" -> bucketStrategyHttps(outcome)
-        "strategy_quic" -> bucketStrategyQuic(outcome)
         "strategy_failure_classification" -> bucketStrategyFailureClassification(outcome)
         "connection_concurrency" -> bucketConnectionConcurrency(outcome)
         else -> legacyBucketForOutcome(outcome)
@@ -301,13 +300,6 @@ private fun bucketStrategyHttps(outcome: String): DiagnosticsOutcomeBucket =
         "tls_ok" -> DiagnosticsOutcomeBucket.Healthy
         "tls_version_split", "tls_ech_only" -> DiagnosticsOutcomeBucket.Attention
         "tls_cert_invalid", "tls_handshake_failed" -> DiagnosticsOutcomeBucket.Failed
-        else -> legacyBucketForOutcome(outcome)
-    }
-
-private fun bucketStrategyQuic(outcome: String): DiagnosticsOutcomeBucket =
-    when (outcome) {
-        "quic_initial_response", "quic_response" -> DiagnosticsOutcomeBucket.Healthy
-        "quic_empty", "quic_error" -> DiagnosticsOutcomeBucket.Failed
         else -> legacyBucketForOutcome(outcome)
     }
 

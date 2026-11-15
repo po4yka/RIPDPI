@@ -118,7 +118,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "whitelist_sni_failed" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },
-        "quic_reachability" => match outcome {
+        "quic_reachability" | "strategy_quic" => match outcome {
             "quic_initial_response" | "quic_response" => ProbeOutcomeBucket::Healthy,
             "quic_empty" | "quic_error" => ProbeOutcomeBucket::Failed,
             "quic_initial_ack"
@@ -164,11 +164,6 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
             "tls_ok" => ProbeOutcomeBucket::Healthy,
             "tls_version_split" | "tls_ech_only" => ProbeOutcomeBucket::Attention,
             "tls_cert_invalid" | "tls_handshake_failed" => ProbeOutcomeBucket::Failed,
-            _ => legacy_outcome_bucket(outcome),
-        },
-        "strategy_quic" => match outcome {
-            "quic_initial_response" | "quic_response" => ProbeOutcomeBucket::Healthy,
-            "quic_empty" | "quic_error" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },
         "strategy_failure_classification" => match outcome {
