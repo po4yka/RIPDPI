@@ -1995,4 +1995,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Données écrites par le client : %1$d octets</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Attente de la réponse HTTP : %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Échec de la vérification du certificat</string>
+    <string name="detection_exposure_incomplete_reason">Certaines vérifications réseau n’ont pas fourni assez de mesures.</string>
+    <string name="detection_exposure_incomplete_hint">Vérifiez l’accès au réseau et relancez la vérification.</string>
 </resources>

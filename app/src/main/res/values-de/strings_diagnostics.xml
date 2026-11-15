@@ -1979,4 +1979,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Vom Client geschriebene Upload-Nutzdaten: %1$d Byte</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Wartezeit auf HTTP-Antwort: %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Zertifikatsprüfung fehlgeschlagen</string>
+    <string name="detection_exposure_incomplete_reason">Einige Netzwerkprüfungen haben nicht genügend Messwerte geliefert.</string>
+    <string name="detection_exposure_incomplete_hint">Prüfe den Netzwerkzugriff und starte die Prüfung erneut.</string>
 </resources>

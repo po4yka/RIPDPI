@@ -4,6 +4,7 @@ package com.poyka.ripdpi.core.detection.export
 
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.Finding
@@ -120,7 +121,8 @@ object DetectionJsonExportFormatter {
             mapOf(
                 "detected" to JsonPrimitive(category?.detected ?: false),
                 "needsReview" to JsonPrimitive(category?.needsReview ?: false),
-                "hasError" to JsonPrimitive(category == null),
+                "executionStatus" to JsonPrimitive(category?.executionStatus?.name ?: "NOT_RUN"),
+                "hasError" to JsonPrimitive(category?.executionStatus == CheckExecutionStatus.ERROR),
                 "findings" to JsonArray(category?.findings.orEmpty().map { it.toJson(context) }),
                 "evidence" to JsonArray(category?.evidence.orEmpty().map { it.toJson(context) }),
                 "matchedApps" to JsonArray(category?.matchedApps.orEmpty().map { context.string(it.appName) }),

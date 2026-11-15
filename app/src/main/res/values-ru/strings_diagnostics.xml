@@ -2050,4 +2050,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Клиент записал при отправке %1$d байт</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Ожидание ответа HTTP: %1$d мс</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Не удалось проверить сертификат</string>
+    <string name="detection_exposure_incomplete_reason">Некоторые сетевые проверки не дали достаточно измерений.</string>
+    <string name="detection_exposure_incomplete_hint">Проверьте доступ к сети и запустите проверку ещё раз.</string>
 </resources>

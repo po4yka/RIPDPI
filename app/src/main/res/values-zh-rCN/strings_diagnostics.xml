@@ -1937,4 +1937,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">客户端写入的上传数据：%1$d 字节</string>
     <string name="diagnostics_dpi_suite_http_response_wait">HTTP 响应等待时间：%1$d 毫秒</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">证书验证失败</string>
+    <string name="detection_exposure_incomplete_reason">部分网络检查未获得足够的测量数据。</string>
+    <string name="detection_exposure_incomplete_hint">检查网络访问权限，然后重新运行检查。</string>
 </resources>

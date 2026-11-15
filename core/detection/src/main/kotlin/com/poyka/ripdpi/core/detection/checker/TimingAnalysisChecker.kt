@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -53,6 +54,7 @@ object TimingAnalysisChecker {
                 name = "Timing Analysis",
                 detected = false,
                 findings = findings,
+                executionStatus = CheckExecutionStatus.INCONCLUSIVE,
             )
         }
 
@@ -63,6 +65,7 @@ object TimingAnalysisChecker {
                 name = "Timing Analysis",
                 detected = false,
                 findings = findings,
+                executionStatus = CheckExecutionStatus.INCONCLUSIVE,
             )
         }
 

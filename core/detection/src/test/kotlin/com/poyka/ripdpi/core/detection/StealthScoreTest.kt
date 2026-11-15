@@ -215,6 +215,75 @@ class StealthScoreTest {
     }
 
     @Test
+    fun `missing ICMP RTT or TCP measurements do not claim a clean result`() {
+        for (status in listOf(CheckExecutionStatus.INCONCLUSIVE, CheckExecutionStatus.ERROR)) {
+            val unavailable = emptyCategory("Network check").copy(executionStatus = status)
+            val results =
+                listOf(
+                    cleanResult().copy(timingAnalysis = unavailable),
+                    cleanResult().copy(
+                        icmpSpoofing = IcmpSpoofingResult(IcmpSpoofingState.INCONCLUSIVE, unavailable),
+                    ),
+                    cleanResult().copy(
+                        rttTriangulation = RttTriangulationResult(RttTriangulationState.INCONCLUSIVE, unavailable),
+                    ),
+                )
+
+            for (result in results) {
+                val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
+
+                assertEquals("Insufficient evidence", verdict.headline)
+                assertEquals("Some network checks did not produce enough measurements.", verdict.reason)
+                assertEquals("Check network access and run the check again.", verdict.adjustmentHint)
+            }
+        }
+    }
+
+    @Test
+    fun `skipped network check does not imply missing required measurements`() {
+        val result =
+            cleanResult().copy(
+                rttTriangulation =
+                    RttTriangulationResult(
+                        RttTriangulationState.SKIPPED,
+                        emptyCategory("RTT").copy(executionStatus = CheckExecutionStatus.SKIPPED),
+                    ),
+            )
+
+        assertEquals(
+            "You look like ordinary HTTPS traffic",
+            ExposureVerdictBuilder.build(result, stealthScore = 100).headline,
+        )
+    }
+
+    @Test
+    fun `missing timing measurements do not hide a confirmed local VPN signal`() {
+        val result =
+            cleanResult().copy(
+                timingAnalysis = emptyCategory("Timing").copy(executionStatus = CheckExecutionStatus.ERROR),
+                directSigns =
+                    emptyCategory("Direct").copy(
+                        detected = true,
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.HIGH,
+                                    description = "TRANSPORT_VPN",
+                                ),
+                            ),
+                    ),
+                verdict = Verdict.DETECTED,
+            )
+
+        val verdict = ExposureVerdictBuilder.build(result, stealthScore = 80)
+
+        assertEquals("Your traffic is distinguishable by Android VPN binding", verdict.headline)
+        assertEquals("Android VPN binding", verdict.dominantSignal)
+    }
+
+    @Test
     fun `unscored diagnostic signal does not get clean exposure copy`() {
         val result =
             cleanResult().copy(

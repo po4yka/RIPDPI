@@ -1995,4 +1995,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Carga escrita por el cliente: %1$d bytes</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Espera de respuesta HTTP: %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Falló la verificación del certificado</string>
+    <string name="detection_exposure_incomplete_reason">Algunas comprobaciones de red no produjeron suficientes mediciones.</string>
+    <string name="detection_exposure_incomplete_hint">Comprueba el acceso a la red y vuelve a ejecutar la comprobación.</string>
 </resources>

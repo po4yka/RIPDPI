@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionRecommendations
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -28,6 +29,30 @@ import java.util.Locale
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class DetectionGeneratedLocaleTest {
+    @Test
+    fun `missing measurement headline reason and hint resolve in every locale`() {
+        val result =
+            detectionResult().copy(
+                timingAnalysis =
+                    CategoryResult(
+                        name = "Timing",
+                        detected = false,
+                        findings = emptyList(),
+                        executionStatus = CheckExecutionStatus.INCONCLUSIVE,
+                    ),
+            )
+        val raw = ExposureVerdictBuilder.build(result, 100)
+        val strings = CurrentLocaleStrings(ApplicationProvider.getApplicationContext())
+
+        for (tag in TranslatedLocales) {
+            strings.select(tag)
+            val localized = raw.localized(strings, 100)
+            assertEquals(strings.getString(R.string.diagnostics_matrix_inconclusive), localized.headline)
+            assertNotEquals(raw.reason, localized.reason)
+            assertNotEquals(raw.adjustmentHint, localized.adjustmentHint)
+        }
+    }
+
     @Test
     fun `retained clean verdict score labels and advice resolve from current locale without changing records`() {
         val result = detectionResult()

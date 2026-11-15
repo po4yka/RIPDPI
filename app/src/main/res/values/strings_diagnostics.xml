@@ -2006,4 +2006,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Upload payload written by client: %1$d bytes</string>
     <string name="diagnostics_dpi_suite_http_response_wait">HTTP response wait: %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Certificate verification failed</string>
+    <string name="detection_exposure_incomplete_reason">Some network checks did not produce enough measurements.</string>
+    <string name="detection_exposure_incomplete_hint">Check network access and run the check again.</string>
 </resources>

@@ -52,6 +52,7 @@ object DetectionReportFormatter {
         appendLine("--- $title ---")
         val status =
             when {
+                category.executionStatus != CheckExecutionStatus.COMPLETED -> category.executionStatus.name
                 category.detected -> "DETECTED"
                 category.needsReview -> "NEEDS REVIEW"
                 else -> "OK"

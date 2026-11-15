@@ -118,6 +118,25 @@ data class VpnAppTechnicalMetadata(
     val matchedByNameHeuristic: Boolean = false,
 )
 
+enum class PingProbeFailure {
+    DNS_TIMEOUT,
+    DNS_ERROR,
+    NO_IPV4,
+    UNSUPPORTED_PLATFORM,
+    OS_ERROR,
+    TIMEOUT,
+    NO_REPLY,
+    MALFORMED_OUTPUT,
+    OUTPUT_LIMIT,
+}
+
+enum class CheckExecutionStatus {
+    COMPLETED,
+    SKIPPED,
+    INCONCLUSIVE,
+    ERROR,
+}
+
 data class CategoryResult(
     val name: String,
     val detected: Boolean,
@@ -126,6 +145,7 @@ data class CategoryResult(
     val evidence: List<EvidenceItem> = emptyList(),
     val matchedApps: List<MatchedVpnApp> = emptyList(),
     val activeApps: List<ActiveVpnApp> = emptyList(),
+    val executionStatus: CheckExecutionStatus = CheckExecutionStatus.COMPLETED,
 )
 
 enum class IpComparisonEndpointGroup {
@@ -291,6 +311,7 @@ data class BypassResult(
 )
 
 enum class IcmpSpoofingState {
+    INCONCLUSIVE,
     OK,
     NEEDS_REVIEW,
     SKIPPED,
@@ -306,6 +327,7 @@ data class IcmpSpoofingResult(
 )
 
 enum class RttTriangulationState {
+    INCONCLUSIVE,
     OK,
     NEEDS_REVIEW,
     SKIPPED,
@@ -323,6 +345,7 @@ data class RttTargetProbeResult(
     val rttMs: Double?,
     val jitterMs: Double?,
     val replied: Boolean,
+    val failure: PingProbeFailure? = null,
 )
 
 data class RttTriangulationResult(
@@ -355,3 +378,8 @@ data class DetectionCheckResult(
     val verdictNarrative: VerdictNarrative? = null,
     val callTransport: CallTransportResult? = null,
 )
+
+fun DetectionCheckResult.hasIncompleteNetworkMeasurements(): Boolean =
+    listOfNotNull(timingAnalysis, icmpSpoofing?.category, rttTriangulation?.category).any {
+        it.executionStatus == CheckExecutionStatus.INCONCLUSIVE || it.executionStatus == CheckExecutionStatus.ERROR
+    }

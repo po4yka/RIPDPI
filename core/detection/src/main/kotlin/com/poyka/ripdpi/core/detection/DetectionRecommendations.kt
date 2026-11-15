@@ -98,7 +98,7 @@ object DetectionRecommendations {
                 )
             }
 
-            if (result.verdict == Verdict.NOT_DETECTED && isEmpty()) {
+            if (result.verdict == Verdict.NOT_DETECTED && !result.hasIncompleteNetworkMeasurements() && isEmpty()) {
                 add(
                     Recommendation(
                         title = "No issues detected",

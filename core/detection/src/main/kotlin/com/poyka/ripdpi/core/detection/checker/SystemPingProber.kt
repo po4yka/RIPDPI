@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.PingProbeFailure
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runInterruptible
@@ -22,6 +23,8 @@ data class PingProbeResult(
     val rttMs: Double?,
     val jitterMs: Double? = null,
     val rawOutput: String? = null,
+    val failure: PingProbeFailure? = null,
+    val exitCode: Int? = null,
 ) {
     companion object {
         fun replied(
@@ -44,10 +47,14 @@ data class PingProbeResult(
             host: String,
             resolvedIpv4: String?,
             rawOutput: String? = null,
+            failure: PingProbeFailure = PingProbeFailure.NO_REPLY,
+            exitCode: Int? = null,
         ): PingProbeResult =
             PingProbeResult(
                 host = host,
                 resolvedIpv4 = resolvedIpv4,
+                failure = failure,
+                exitCode = exitCode,
                 replied = false,
                 rttMs = null,
                 rawOutput = rawOutput,
@@ -77,31 +84,35 @@ class SystemPingProber internal constructor(
     }
 
     override suspend fun ping(host: String): PingProbeResult {
-        val address =
+        val addresses =
             try {
                 resolveDetectionAddresses(host, TimeUnit.SECONDS.toMillis(timeoutSeconds.toLong()))
-                    ?.filterIsInstance<Inet4Address>()
-                    ?.firstOrNull()
-                    ?.hostAddress
+                    ?: return PingProbeResult.unreachable(host, null, failure = PingProbeFailure.DNS_TIMEOUT)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: IOException) {
-                null
+                return PingProbeResult.unreachable(host, null, failure = PingProbeFailure.DNS_ERROR)
             } catch (_: SecurityException) {
-                null
+                return PingProbeResult.unreachable(host, null, failure = PingProbeFailure.OS_ERROR)
             }
-        if (address == null) return PingProbeResult.unreachable(host, resolvedIpv4 = null)
+        val address =
+            addresses.filterIsInstance<Inet4Address>().firstOrNull()?.hostAddress
+                ?: return PingProbeResult.unreachable(host, null, failure = PingProbeFailure.NO_IPV4)
         return runInterruptible(dispatchers.io) { runPing(host, address) }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun runPing(
         host: String,
         address: String,
     ): PingProbeResult {
         val profile =
             commandProfile
-                ?: return PingProbeResult.unreachable(host, address, "Unsupported ping numeric-output profile")
+                ?: return PingProbeResult.unreachable(
+                    host,
+                    address,
+                    "Unsupported ping numeric-output profile",
+                    failure = PingProbeFailure.UNSUPPORTED_PLATFORM,
+                )
         val command =
             listOf("ping") +
                 (if (profile == PingCommandProfile.IPUTILS) listOf("-n") else emptyList()) +
@@ -109,30 +120,37 @@ class SystemPingProber internal constructor(
         val process =
             try {
                 processStarter(command)
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (interrupted: InterruptedException) {
-                throw interrupted
-            } catch (_: Exception) {
-                return PingProbeResult.unreachable(host, address)
+            } catch (_: IOException) {
+                return PingProbeResult.unreachable(host, address, failure = PingProbeFailure.OS_ERROR)
+            } catch (_: SecurityException) {
+                return PingProbeResult.unreachable(host, address, failure = PingProbeFailure.OS_ERROR)
             }
         return try {
             if (!process.waitFor(timeoutSeconds.toLong() * sampleCount, TimeUnit.SECONDS)) {
-                return PingProbeResult.unreachable(host, address)
+                return PingProbeResult.unreachable(host, address, failure = PingProbeFailure.TIMEOUT)
             }
-            val output = readOutput(process) ?: return PingProbeResult.unreachable(host, address)
+            val output =
+                readOutput(process)
+                    ?: return PingProbeResult.unreachable(host, address, failure = PingProbeFailure.OUTPUT_LIMIT)
             val rtt = parseRttMs(output)
             if (process.exitValue() == 0 && rtt != null) {
                 PingProbeResult.replied(host, address, rtt, jitterMs = parseJitterMs(output), rawOutput = output)
             } else {
-                PingProbeResult.unreachable(host, address, output)
+                PingProbeResult.unreachable(
+                    host,
+                    address,
+                    output,
+                    failure =
+                        when (process.exitValue()) {
+                            0 -> PingProbeFailure.MALFORMED_OUTPUT
+                            1 -> PingProbeFailure.NO_REPLY
+                            else -> PingProbeFailure.OS_ERROR
+                        },
+                    exitCode = process.exitValue(),
+                )
             }
-        } catch (cancellation: CancellationException) {
-            throw cancellation
-        } catch (interrupted: InterruptedException) {
-            throw interrupted
-        } catch (_: Exception) {
-            PingProbeResult.unreachable(host, address)
+        } catch (_: IOException) {
+            PingProbeResult.unreachable(host, address, failure = PingProbeFailure.OS_ERROR)
         } finally {
             terminateAndReap(process)
         }
@@ -145,22 +163,17 @@ class SystemPingProber internal constructor(
         return if (help?.contains("toybox", ignoreCase = true) == true) PingCommandProfile.TOYBOX else null
     }
 
-    @Suppress("TooGenericExceptionCaught")
     private fun readCapabilities(command: List<String>): String? {
         val process =
             try {
                 processStarter(command)
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (interrupted: InterruptedException) {
-                throw interrupted
-            } catch (_: Exception) {
+            } catch (_: IOException) {
+                return null
+            } catch (_: SecurityException) {
                 return null
             }
         return try {
             if (process.waitFor(CAPABILITY_TIMEOUT_MS, TimeUnit.MILLISECONDS)) readOutput(process) else null
-        } catch (interrupted: InterruptedException) {
-            throw interrupted
         } catch (_: IOException) {
             null
         } finally {

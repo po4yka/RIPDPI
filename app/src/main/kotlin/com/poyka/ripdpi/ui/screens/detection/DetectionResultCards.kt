@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateIntAsState
@@ -32,6 +33,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionProgress
 import com.poyka.ripdpi.core.detection.DetectionStage
@@ -46,6 +48,7 @@ import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VerdictExplanation
 import com.poyka.ripdpi.core.detection.VerdictNarrative
 import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
+import com.poyka.ripdpi.core.detection.hasIncompleteNetworkMeasurements
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.core.detection.ui.DetectionVisualState
@@ -112,10 +115,17 @@ internal fun VerdictScoreCard(
     onHeroTap: (() -> Unit)? = null,
 ) {
     val verdict = result.verdict
+    val presentationScore = score ?: StealthScore.compute(result)
+    val measurementsComplete = !result.hasIncompleteNetworkMeasurements()
+    val inconclusive = !measurementsComplete && verdict == Verdict.NOT_DETECTED
     val (verdictLabel, indicatorTone) =
         when (verdict) {
             Verdict.NOT_DETECTED -> {
-                stringResource(R.string.detection_check_verdict_not_detected) to StatusIndicatorTone.Active
+                if (inconclusive) {
+                    stringResource(R.string.diagnostics_pmtu_inconclusive) to StatusIndicatorTone.Warning
+                } else {
+                    stringResource(R.string.detection_check_verdict_not_detected) to StatusIndicatorTone.Active
+                }
             }
 
             Verdict.NEEDS_REVIEW -> {
@@ -139,7 +149,7 @@ internal fun VerdictScoreCard(
             verdictLabel = verdictLabel,
             indicatorTone = indicatorTone,
             narrative = narrative,
-            visualState = verdict.toDetectionVisualState(),
+            visualState = if (inconclusive) DetectionVisualState.REVIEW else verdict.toDetectionVisualState(),
             colorVisionMode = colorVisionMode,
         )
         explanation?.let {
@@ -151,16 +161,14 @@ internal fun VerdictScoreCard(
         }
         VerdictOutcomeHierarchy(
             exposureVerdict =
-                exposureVerdict
-                    .let { raw ->
-                        score?.let { currentScore ->
-                            (raw ?: ExposureVerdictBuilder.build(result, currentScore))
-                                .localized(AndroidStringResolver(LocalContext.current), currentScore)
-                        } ?: raw
-                    },
+                (exposureVerdict ?: ExposureVerdictBuilder.build(result, presentationScore))
+                    .localized(AndroidStringResolver(LocalContext.current), presentationScore),
             probeSummary = result.probeSummary(),
-            score = score,
-            label = label?.let { AndroidStringResolver(LocalContext.current).detectionGeneratedText(it) },
+            score = score.takeIf { measurementsComplete },
+            label =
+                label?.takeIf { measurementsComplete }?.let {
+                    AndroidStringResolver(LocalContext.current).detectionGeneratedText(it)
+                },
         )
     }
 }
@@ -256,10 +264,14 @@ private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
             dnsLeak?.let { add(it.detected) }
             webRtcLeak?.let { add(it.detected) }
             tlsFingerprint?.let { add(it.detected) }
-            timingAnalysis?.let { add(it.detected) }
-            icmpSpoofing?.category?.let { add(it.detected) }
+            timingAnalysis?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let { add(it.detected) }
+            icmpSpoofing?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
+                add(it.detected)
+            }
             ipComparison?.category?.let { add(it.detected) }
-            rttTriangulation?.category?.let { add(it.detected) }
+            rttTriangulation?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
+                add(it.detected)
+            }
             cdnPulling?.category?.let { add(it.detected) }
             nativeSigns?.category?.let { add(it.detected) }
             callTransport?.category?.let { add(it.detected) }
@@ -482,6 +494,7 @@ internal fun DetectionCategoryCards(
             icon = entry.icon,
             detected = entry.category.detected,
             needsReview = entry.category.needsReview,
+            executionStatus = entry.category.executionStatus,
             key = entry.key,
             expandedCategories = expandedCategories,
             onToggle = { expandedCategories = it },
@@ -619,6 +632,68 @@ private fun MutableList<CategoryEntry>.addOptionalCategory(
     category?.let { add(CategoryEntry(title, it, key, icon)) }
 }
 
+private data class CategoryCardStatus(
+    @StringRes val label: Int,
+    val tone: StatusIndicatorTone,
+    val visualState: DetectionVisualState,
+    val expand: Boolean = false,
+)
+
+private fun categoryCardStatus(
+    detected: Boolean,
+    needsReview: Boolean,
+    executionStatus: CheckExecutionStatus,
+): CategoryCardStatus =
+    when {
+        executionStatus == CheckExecutionStatus.SKIPPED -> {
+            CategoryCardStatus(
+                R.string.diagnostics_probe_status_skipped,
+                StatusIndicatorTone.Idle,
+                DetectionVisualState.NEUTRAL,
+            )
+        }
+
+        executionStatus == CheckExecutionStatus.INCONCLUSIVE -> {
+            CategoryCardStatus(
+                R.string.diagnostics_matrix_inconclusive,
+                StatusIndicatorTone.Warning,
+                DetectionVisualState.REVIEW,
+                expand = true,
+            )
+        }
+
+        executionStatus == CheckExecutionStatus.ERROR -> {
+            CategoryCardStatus(
+                R.string.detection_state_error,
+                StatusIndicatorTone.Error,
+                DetectionVisualState.ERROR,
+                expand = true,
+            )
+        }
+
+        detected -> {
+            CategoryCardStatus(
+                R.string.detection_status_detected,
+                StatusIndicatorTone.Error,
+                DetectionVisualState.DETECTED,
+                expand = true,
+            )
+        }
+
+        needsReview -> {
+            CategoryCardStatus(
+                R.string.detection_status_review,
+                StatusIndicatorTone.Warning,
+                DetectionVisualState.REVIEW,
+                expand = true,
+            )
+        }
+
+        else -> {
+            CategoryCardStatus(R.string.detection_status_ok, StatusIndicatorTone.Active, DetectionVisualState.CLEAN)
+        }
+    }
+
 @Composable
 private fun CollapsibleCard(
     title: String,
@@ -631,26 +706,16 @@ private fun CollapsibleCard(
     findings: List<Finding>,
     privacyModeEnabled: Boolean,
     colorVisionMode: DetectionColorVisionMode,
+    executionStatus: CheckExecutionStatus = CheckExecutionStatus.COMPLETED,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
 
-    val tone =
-        when {
-            detected -> StatusIndicatorTone.Error
-            needsReview -> StatusIndicatorTone.Warning
-            else -> StatusIndicatorTone.Active
-        }
-    val statusLabel =
-        when {
-            detected -> stringResource(R.string.detection_status_detected)
-            needsReview -> stringResource(R.string.detection_status_review)
-            else -> stringResource(R.string.detection_status_ok)
-        }
-    val isExpanded = key in expandedCategories || detected || needsReview
-    val visualState = detectionCategoryVisualState(detected = detected, needsReview = needsReview)
+    val status = categoryCardStatus(detected, needsReview, executionStatus)
+    val statusLabel = stringResource(status.label)
+    val isExpanded = key in expandedCategories || status.expand
 
     RipDpiCard(
         variant = RipDpiCardVariant.Outlined,
@@ -686,12 +751,12 @@ private fun CollapsibleCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 StatusVisualIndicator(
-                    state = visualState,
+                    state = status.visualState,
                     mode = colorVisionMode,
                     size = RipDpiThemeTokens.components.indicators.statusMarkerCompact,
                     contentDescription = statusLabel,
                 )
-                StatusIndicator(label = statusLabel, tone = tone)
+                StatusIndicator(label = statusLabel, tone = status.tone)
             }
         }
         AnimatedVisibility(

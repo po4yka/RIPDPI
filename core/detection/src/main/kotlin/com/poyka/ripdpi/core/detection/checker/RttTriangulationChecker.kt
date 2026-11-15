@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -56,7 +57,8 @@ object RttTriangulationChecker {
                 FOREIGN_TARGETS.map { probeTarget(prober, it, RttTargetGroup.FOREIGN) }
         val ruMedian = probes.medianFor(RttTargetGroup.RU)
         val foreignMedian = probes.medianFor(RttTargetGroup.FOREIGN)
-        val needsReview = ruMedian?.let { it > RU_MEDIAN_THRESHOLD_MS } == true
+        val complete = ruMedian != null && foreignMedian != null
+        val needsReview = complete && ruMedian?.let { it > RU_MEDIAN_THRESHOLD_MS } == true
         val confidence =
             if (needsReview) {
                 confidence(probes, foreignMedian)
@@ -84,7 +86,12 @@ object RttTriangulationChecker {
             }
 
         return RttTriangulationResult(
-            state = if (needsReview) RttTriangulationState.NEEDS_REVIEW else RttTriangulationState.OK,
+            state =
+                when {
+                    !complete -> RttTriangulationState.INCONCLUSIVE
+                    needsReview -> RttTriangulationState.NEEDS_REVIEW
+                    else -> RttTriangulationState.OK
+                },
             category =
                 CategoryResult(
                     name = NAME,
@@ -92,6 +99,8 @@ object RttTriangulationChecker {
                     findings = findings,
                     needsReview = needsReview,
                     evidence = evidence,
+                    executionStatus =
+                        if (complete) CheckExecutionStatus.COMPLETED else CheckExecutionStatus.INCONCLUSIVE,
                 ),
             targetResults = probes,
             ruMedianRttMs = ruMedian,
@@ -112,6 +121,7 @@ object RttTriangulationChecker {
             rttMs = probe.rttMs,
             jitterMs = probe.jitterMs,
             replied = probe.replied,
+            failure = probe.failure,
         )
     }
 
@@ -144,7 +154,7 @@ object RttTriangulationChecker {
                     val address = probe.resolvedIpv4 ?: "unresolved"
                     val rtt = probe.rttMs?.let { " RTT ${format(it)}ms" } ?: " no RTT"
                     val jitter = probe.jitterMs?.let { " jitter ${format(it)}ms" }.orEmpty()
-                    val status = if (probe.replied) "replied" else "failed"
+                    val status = if (probe.replied) "replied" else "failed (${probe.failure ?: "unknown"})"
                     Finding("${probe.group.label()} ${probe.host} $status via $address$rtt$jitter")
                 }.toMutableList()
 
@@ -161,6 +171,8 @@ object RttTriangulationChecker {
                     confidence = confidence,
                 ),
             )
+        } else if (ruMedian == null || foreignMedian == null) {
+            findings.add(Finding("RTT triangulation: insufficient measurements"))
         } else {
             findings.add(Finding("RTT triangulation: no suspicious Russian target latency"))
         }
@@ -192,6 +204,7 @@ object RttTriangulationChecker {
                     name = NAME,
                     detected = false,
                     findings = listOf(Finding(description)),
+                    executionStatus = CheckExecutionStatus.SKIPPED,
                 ),
         )
 

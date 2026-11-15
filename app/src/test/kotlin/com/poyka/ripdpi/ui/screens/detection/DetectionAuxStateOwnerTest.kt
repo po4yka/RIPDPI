@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.detection
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRefreshResult
@@ -287,6 +289,7 @@ class DetectionAuxStateOwnerTest {
             assertEquals(1, history.saved.size)
             assertEquals("wifi/wifi", history.saved.first().networkSummary)
             assertEquals(80, history.saved.first().stealthScore)
+            assertTrue(history.saved.first().measurementsComplete)
             assertEquals(1, networkProvider.captureCount)
             assertTrue(history.loadLatestCount >= 1)
         }
@@ -312,5 +315,39 @@ class DetectionAuxStateOwnerTest {
 
             assertEquals("unknown", history.saved.first().networkFingerprint)
             assertEquals("Unknown", history.saved.first().networkSummary)
+        }
+
+    @Test
+    fun `saved history preserves incomplete measurements without inventing a new verdict`() =
+        runTest {
+            val (_, red) = reducer()
+            val history = FakeDetectionHistoryRepository()
+            val owner =
+                DetectionAuxStateOwner(
+                    scope = testScope,
+                    reducer = red,
+                    appSettingsRepository = FakeDetectionAppSettingsRepository(),
+                    networkFingerprintProvider = FakeNetworkFingerprintProvider(),
+                    historyStore = history,
+                    communityStatsRepository = FakeCommunityStatsRepository(),
+                    detectionCheckPreferences = FakeDetectionCheckPreferenceStore(),
+                )
+            val result =
+                detectionResult(Verdict.DETECTED).copy(
+                    timingAnalysis =
+                        CategoryResult(
+                            name = "Timing",
+                            detected = false,
+                            findings = emptyList(),
+                            executionStatus = CheckExecutionStatus.INCONCLUSIVE,
+                        ),
+                )
+
+            owner.saveToHistory(result, score = 100)
+            advanceUntilIdle()
+
+            val entry = history.saved.single()
+            assertFalse(entry.measurementsComplete)
+            assertEquals(Verdict.DETECTED.name, entry.verdict)
         }
 }

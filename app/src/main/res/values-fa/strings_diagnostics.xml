@@ -1979,4 +1979,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">دادهٔ بارگذاری نوشته‌شده توسط کارخواه: %1$d بایت</string>
     <string name="diagnostics_dpi_suite_http_response_wait">انتظار پاسخ HTTP: %1$d میلی‌ثانیه</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">اعتبارسنجی گواهی ناموفق بود</string>
+    <string name="detection_exposure_incomplete_reason">برخی بررسی‌های شبکه اندازه‌گیری کافی ارائه نکردند.</string>
+    <string name="detection_exposure_incomplete_hint">دسترسی به شبکه را بررسی کنید و دوباره بررسی را اجرا کنید.</string>
 </resources>

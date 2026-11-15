@@ -25,6 +25,7 @@ data class DetectionHistoryEntry(
     val verdict: String,
     val stealthScore: Int,
     val evidenceCount: Int,
+    val measurementsComplete: Boolean = true,
 )
 
 @Serializable

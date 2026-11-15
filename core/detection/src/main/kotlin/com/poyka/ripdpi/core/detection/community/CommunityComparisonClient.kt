@@ -62,8 +62,8 @@ class CommunityComparisonClient internal constructor(
                 .build()
 
         suspend fun computeLocalStats(historyStore: DetectionHistoryRepository): CommunityStats {
-            val entries = historyStore.loadLatest(count = 50)
-            if (entries.isEmpty()) return CommunityStats()
+            val entries = historyStore.loadLatest(count = 50).filter { it.measurementsComplete }
+            if (entries.isEmpty()) return CommunityStats(isLocalOnly = true)
 
             val verdictDist = entries.groupingBy { it.verdict }.eachCount()
             val avgScore = entries.map { it.stealthScore }.average()

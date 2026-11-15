@@ -3,12 +3,14 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.IcmpSpoofingResult
 import com.poyka.ripdpi.core.detection.IcmpSpoofingState
+import com.poyka.ripdpi.core.detection.PingProbeFailure
 import java.util.Locale
 
 object IcmpSpoofingChecker {
@@ -29,6 +31,7 @@ object IcmpSpoofingChecker {
                         name = NAME,
                         detected = false,
                         findings = listOf(Finding("ICMP spoofing check skipped for home-routed roaming")),
+                        executionStatus = CheckExecutionStatus.SKIPPED,
                     ),
             )
         }
@@ -37,6 +40,12 @@ object IcmpSpoofingChecker {
         val controlProbe = prober.ping(CONTROL_TARGET)
         val blockedTargetReplied = blockedProbe.replied
         val controlRttLow = controlProbe.rttMs?.let { it < LOW_CONTROL_RTT_MS } == true
+        val complete = blockedProbe.replied && controlProbe.replied
+        val failed =
+            listOf(blockedProbe, controlProbe).any {
+                it.failure in
+                    setOf(PingProbeFailure.DNS_ERROR, PingProbeFailure.OS_ERROR, PingProbeFailure.UNSUPPORTED_PLATFORM)
+            }
         val confidence =
             if (blockedTargetReplied && controlRttLow) {
                 EvidenceConfidence.HIGH
@@ -61,7 +70,12 @@ object IcmpSpoofingChecker {
             }
 
         return IcmpSpoofingResult(
-            state = if (needsReview) IcmpSpoofingState.NEEDS_REVIEW else IcmpSpoofingState.OK,
+            state =
+                when {
+                    needsReview -> IcmpSpoofingState.NEEDS_REVIEW
+                    !complete -> IcmpSpoofingState.INCONCLUSIVE
+                    else -> IcmpSpoofingState.OK
+                },
             category =
                 CategoryResult(
                     name = NAME,
@@ -69,6 +83,12 @@ object IcmpSpoofingChecker {
                     findings = findings,
                     needsReview = needsReview,
                     evidence = evidence,
+                    executionStatus =
+                        when {
+                            complete -> CheckExecutionStatus.COMPLETED
+                            failed -> CheckExecutionStatus.ERROR
+                            else -> CheckExecutionStatus.INCONCLUSIVE
+                        },
                 ),
             blockedTargetAddress = blockedProbe.resolvedIpv4,
             blockedTargetRttMs = blockedProbe.rttMs,
@@ -102,14 +122,14 @@ object IcmpSpoofingChecker {
                     ),
                 )
             } else {
-                add(Finding("ICMP spoofing: no suspicious replies"))
+                add(Finding("ICMP spoofing: insufficient measurements"))
             }
         }
 
     private fun probeSummary(probe: PingProbeResult): Finding {
         val address = probe.resolvedIpv4 ?: "unresolved"
         val rtt = probe.rttMs?.let { " RTT ${formatRtt(it)}ms" }.orEmpty()
-        val status = if (probe.replied) "replied" else "no reply"
+        val status = if (probe.replied) "replied" else "no measurement (${probe.failure ?: PingProbeFailure.NO_REPLY})"
         return Finding("${probe.host} $status via $address$rtt")
     }
 

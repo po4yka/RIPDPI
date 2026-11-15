@@ -1,27 +1,41 @@
 package com.poyka.ripdpi.ui.screens.detection
 
+import android.graphics.Bitmap
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.IcmpSpoofingResult
+import com.poyka.ripdpi.core.detection.IcmpSpoofingState
+import com.poyka.ripdpi.core.detection.RttTriangulationResult
+import com.poyka.ripdpi.core.detection.RttTriangulationState
 import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -106,6 +120,97 @@ class DetectionScreenSemanticsTest {
             .fetchSemanticsNode()
         composeRule.onNodeWithText("Where masking applied, stealth").fetchSemanticsNode()
         composeRule.onAllNodesWithText("Stealth Score").assertCountEquals(0)
+    }
+
+    @Test
+    @Config(qualifiers = "w480dp-h1200dp")
+    fun incompleteNetworkChecksKeepTheirRenderedStatus() {
+        val result =
+            cleanDetectionResult().copy(
+                timingAnalysis = emptyCategory("Timing").copy(executionStatus = CheckExecutionStatus.ERROR),
+                icmpSpoofing =
+                    IcmpSpoofingResult(
+                        IcmpSpoofingState.SKIPPED,
+                        emptyCategory("ICMP").copy(executionStatus = CheckExecutionStatus.SKIPPED),
+                    ),
+                rttTriangulation =
+                    RttTriangulationResult(
+                        RttTriangulationState.INCONCLUSIVE,
+                        emptyCategory("RTT").copy(executionStatus = CheckExecutionStatus.INCONCLUSIVE),
+                    ),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    DetectionCategoryCards(
+                        result = result,
+                        privacyModeEnabled = false,
+                        colorVisionMode = DetectionColorVisionMode.OFF,
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("Skipped").fetchSemanticsNode()
+        composeRule.onNodeWithText("Insufficient evidence").fetchSemanticsNode()
+        composeRule.onNodeWithText("Error").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("OK").assertCountEquals(5)
+        captureStatus("dia17-category-states")
+    }
+
+    @Test
+    fun missingMeasurementsDoNotShowOrdinaryHttpsHeadline() {
+        val result =
+            cleanDetectionResult().copy(
+                timingAnalysis = emptyCategory("Timing").copy(executionStatus = CheckExecutionStatus.INCONCLUSIVE),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                DetectionCheckScreen(
+                    uiState = DetectionCheckUiState(result = result, stealthScore = 100, stealthLabel = "Excellent"),
+                    onStart = {},
+                    onStop = {},
+                    onBack = {},
+                    onDismissOnboarding = {},
+                    onReloadCommunityStats = {},
+                    onRequestPermissions = {},
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithText("You look like ordinary HTTPS traffic").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Insufficient evidence").assertCountEquals(2)
+        composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Excellent").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Not detected").assertCountEquals(0)
+        composeRule.onNodeWithText("Inconclusive").fetchSemanticsNode()
+        captureStatus("dia17-incomplete-summary")
+    }
+
+    @Test
+    fun incompleteHistoryHidesScoresAndKeepsStrongVerdicts() {
+        val complete =
+            DetectionHistoryEntry(
+                networkFingerprint = "unknown",
+                networkSummary = "Unknown",
+                timestamp = 0,
+                verdict = Verdict.NOT_DETECTED.name,
+                stealthScore = 80,
+                evidenceCount = 0,
+            )
+        val incomplete = complete.copy(stealthScore = 100, measurementsComplete = false)
+        val detected = incomplete.copy(verdict = Verdict.DETECTED.name, stealthScore = 99)
+        composeRule.setContent {
+            RipDpiTheme {
+                HistoryCard(listOf(complete, incomplete, detected))
+            }
+        }
+
+        composeRule.onNodeWithText("80").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("100").assertCountEquals(0)
+        composeRule.onAllNodesWithText("99").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Insufficient evidence").assertCountEquals(2)
+        composeRule.onNodeWithText("Detected").fetchSemanticsNode()
     }
 
     @Test
@@ -241,4 +346,18 @@ class DetectionScreenSemanticsTest {
                     emptyList()
                 },
         )
+
+    private fun captureStatus(name: String) {
+        val file = File("build/compose-previews/renders/$name.png")
+        checkNotNull(file.parentFile).mkdirs()
+        file.outputStream().use { output ->
+            assertTrue(
+                composeRule
+                    .onRoot()
+                    .captureToImage()
+                    .asAndroidBitmap()
+                    .compress(Bitmap.CompressFormat.PNG, 100, output),
+            )
+        }
+    }
 }

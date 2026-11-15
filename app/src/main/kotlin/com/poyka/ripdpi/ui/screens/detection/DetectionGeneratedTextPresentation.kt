@@ -49,6 +49,9 @@ internal fun Recommendation.localized(strings: StringResolver): Recommendation =
 private val detectionGeneratedResources =
     mapOf(
         "You look like ordinary HTTPS traffic" to R.string.detection_headline_ordinary_https,
+        "Insufficient evidence" to R.string.diagnostics_matrix_inconclusive,
+        "Some network checks did not produce enough measurements." to R.string.detection_exposure_incomplete_reason,
+        "Check network access and run the check again." to R.string.detection_exposure_incomplete_hint,
         "TLS fingerprint" to R.string.status_generated_tls_fingerprint,
         "Excellent" to R.string.status_quality_excellent,
         "Good" to R.string.status_quality_good,

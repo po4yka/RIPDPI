@@ -75,6 +75,9 @@ object DetectionDebugFormatter {
                 )
             },
         )
+        result.timingAnalysis?.let { appendCategory("timingAnalysis", it) }
+        result.icmpSpoofing?.category?.let { appendCategory("icmpSpoofing", it) }
+        result.rttTriangulation?.category?.let { appendCategory("rttTriangulation", it) }
         result.nativeSigns?.category?.let { appendCategory("nativeSigns", it) }
         result.callTransport?.category?.let { appendCategory("callTransport", it) }
         result.ipConsensus?.toCategoryResult()?.let { appendCategory("ipConsensus", it) }
@@ -86,6 +89,7 @@ object DetectionDebugFormatter {
     ) {
         appendLine("[$key]")
         appendLine("name=${category.name}")
+        appendLine("executionStatus=${category.executionStatus}")
         appendLine("detected=${category.detected}")
         appendLine("needsReview=${category.needsReview}")
         category.findings.forEachIndexed { index, finding ->

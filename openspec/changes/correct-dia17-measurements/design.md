@@ -18,7 +18,7 @@ Task DGN-1794747077897183 repairs the seven confirmed DIA-17 findings. The curre
 
 ## Contracts and ownership
 
-- Modules: core:detection and app. No Rust, JNI, protobuf, dependency or storage migration.
+- Modules: core:detection and app. No Rust, JNI, protobuf or dependency changes. History JSON gains a defaulted measurementsComplete field; old records decode as complete, with no data migration.
 - integration owns shared models, RTT and classifier outcomes, reports/exports, Compose status, all locale sets, task/spec artifacts, API snapshots and final gates.
 - ui-worker owns presenter/score and tests; ping-worker owns SystemPingProber and process tests; timing-worker owns TimingAnalysisChecker and tests. Each writer uses a separate worktree and delivers patches. Integration owns reviewed commits.
 - Serialize shared models/locales under integration; apply ping/timing patches before dependent outcome changes.

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.PingProbeFailure
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -76,6 +77,29 @@ class SystemPingProberTest {
                 assertEquals(2.0, result.rttMs!!, 0.0)
                 assertEquals(1.0, result.jitterMs!!, 0.0)
                 assertFalse(process.isAlive)
+            }
+        }
+
+    @Test(timeout = TestTimeoutMillis)
+    fun `OS failure no reply and malformed output retain their actual process outcomes`() =
+        runBlocking {
+            for ((exitCode, reason) in listOf(
+                2 to PingProbeFailure.OS_ERROR,
+                1 to PingProbeFailure.NO_REPLY,
+                0 to PingProbeFailure.MALFORMED_OUTPUT,
+            )) {
+                withFixture("exit $exitCode") { script ->
+                    val prober =
+                        SystemPingProber(dispatchers, 1, 1) { command ->
+                            ProcessBuilder(
+                                listOf(script.absolutePath) + command.drop(1),
+                            ).redirectErrorStream(true).start()
+                        }
+                    val result = prober.ping("127.0.0.1")
+                    assertEquals(reason, result.failure)
+                    assertEquals(exitCode, result.exitCode)
+                    assertFalse(result.replied)
+                }
             }
         }
 

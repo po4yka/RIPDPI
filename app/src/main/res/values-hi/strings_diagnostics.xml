@@ -1986,4 +1986,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">क्लाइंट ने अपलोड के लिए लिखे: %1$d बाइट</string>
     <string name="diagnostics_dpi_suite_http_response_wait">HTTP जवाब का इंतज़ार: %1$d मिलीसेकंड</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">प्रमाणपत्र का सत्यापन विफल हुआ</string>
+    <string name="detection_exposure_incomplete_reason">कुछ नेटवर्क जाँचों में पर्याप्त माप नहीं मिले।</string>
+    <string name="detection_exposure_incomplete_hint">नेटवर्क एक्सेस जाँचें और जाँच फिर से चलाएँ।</string>
 </resources>

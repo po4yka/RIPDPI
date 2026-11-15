@@ -4,6 +4,7 @@ package com.poyka.ripdpi.core.detection.export
 
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.ExposureStatus
 import com.poyka.ripdpi.core.detection.Finding
@@ -34,6 +35,7 @@ object DetectionMarkdownExportFormatter {
                     appendCategory("DirectSigns", result.directSigns)
                     appendCategory("IndirectSigns", result.indirectSigns)
                     appendCategory("NativeSigns", result.nativeSigns?.category)
+                    appendCategory("TimingAnalysis", result.timingAnalysis)
                     appendCategory("IcmpSpoofing", result.icmpSpoofing?.category)
                     appendCategory("RttTriangulation", result.rttTriangulation?.category)
                     appendCategory("CallTransport", result.callTransport?.category)
@@ -236,6 +238,7 @@ object DetectionMarkdownExportFormatter {
             SectionRow("CdnPulling", result.cdnPulling?.category.statusTag(), result.cdnPulling?.category.summary()),
             SectionRow("DirectSigns", result.directSigns.statusTag(), result.directSigns.summary()),
             SectionRow("IndirectSigns", result.indirectSigns.statusTag(), result.indirectSigns.summary()),
+            SectionRow("TimingAnalysis", result.timingAnalysis.statusTag(), result.timingAnalysis.summary()),
             SectionRow("NativeSigns", result.nativeSigns?.category.statusTag(), result.nativeSigns?.category.summary()),
             SectionRow(
                 "IcmpSpoofing",
@@ -264,7 +267,8 @@ object DetectionMarkdownExportFormatter {
 
     private fun CategoryResult?.statusTag(): String =
         when {
-            this == null -> "[OK]"
+            this == null -> "[NOT RUN]"
+            executionStatus != CheckExecutionStatus.COMPLETED -> "[${executionStatus.name}]"
             detected -> "[DETECTED]"
             needsReview -> "[REVIEW]"
             findings.any { it.detected } || evidence.any { it.detected } -> "[DETECTED]"

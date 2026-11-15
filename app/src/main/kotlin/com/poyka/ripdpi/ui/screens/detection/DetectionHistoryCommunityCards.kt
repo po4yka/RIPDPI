@@ -77,17 +77,29 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                     horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    verdictStatus(entry.verdict)?.let { (label, tone) ->
-                        StatusIndicator(label = stringResource(label), tone = tone)
+                    Column(horizontalAlignment = Alignment.End) {
+                        if (entry.measurementsComplete || entry.verdict != Verdict.NOT_DETECTED.name) {
+                            verdictStatus(entry.verdict)?.let { (label, tone) ->
+                                StatusIndicator(label = stringResource(label), tone = tone)
+                            }
+                        }
+                        if (!entry.measurementsComplete) {
+                            StatusIndicator(
+                                label = stringResource(R.string.diagnostics_matrix_inconclusive),
+                                tone = StatusIndicatorTone.Warning,
+                            )
+                        }
                     }
-                    val stealthScoreDescription =
-                        stringResource(R.string.detection_stealth_score_a11y, entry.stealthScore)
-                    Text(
-                        "${entry.stealthScore}",
-                        style = type.bodyEmphasis,
-                        color = colors.foreground,
-                        modifier = Modifier.semantics { contentDescription = stealthScoreDescription },
-                    )
+                    if (entry.measurementsComplete) {
+                        val stealthScoreDescription =
+                            stringResource(R.string.detection_stealth_score_a11y, entry.stealthScore)
+                        Text(
+                            "${entry.stealthScore}",
+                            style = type.bodyEmphasis,
+                            color = colors.foreground,
+                            modifier = Modifier.semantics { contentDescription = stealthScoreDescription },
+                        )
+                    }
                 }
             }
         }

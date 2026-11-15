@@ -2146,4 +2146,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">بيانات الرفع التي كتبها العميل: %1$d بايت</string>
     <string name="diagnostics_dpi_suite_http_response_wait">انتظار استجابة HTTP: %1$d مللي ثانية</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">تعذّر التحقق من الشهادة</string>
+    <string name="detection_exposure_incomplete_reason">لم تُنتج بعض فحوص الشبكة قياسات كافية.</string>
+    <string name="detection_exposure_incomplete_hint">تحقق من الوصول إلى الشبكة ثم أعد تشغيل الفحص.</string>
 </resources>

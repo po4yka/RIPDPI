@@ -177,6 +177,14 @@ object ExposureVerdictBuilder {
                     dominantSignal = signal.label,
                 )
             }
+            if (result.hasIncompleteNetworkMeasurements()) {
+                return ExposureVerdict(
+                    headline = "Insufficient evidence",
+                    reason = "Some network checks did not produce enough measurements.",
+                    adjustmentHint = "Check network access and run the check again.",
+                    dominantSignal = "Insufficient evidence",
+                )
+            }
             return ExposureVerdict(
                 headline = "You look like ordinary HTTPS traffic",
                 reason = cleanReason(stealthScore),

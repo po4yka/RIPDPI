@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core.detection.community
 
+import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
+import com.poyka.ripdpi.core.detection.DetectionHistoryRepository
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -80,6 +82,41 @@ class CommunityComparisonClientTest {
                 result.exceptionOrNull()?.message,
             )
         }
+
+    @Test
+    fun `local averages and verdict counts exclude incomplete measurements`() =
+        runTest {
+            val complete =
+                listOf(
+                    DetectionHistoryEntry("one", "wifi", 1, "DETECTED", 60, 1),
+                    DetectionHistoryEntry("two", "wifi", 2, "NOT_DETECTED", 80, 0),
+                )
+            val missing =
+                DetectionHistoryEntry("three", "wifi", 3, "NOT_DETECTED", 100, 0, measurementsComplete = false)
+            val stats = CommunityComparisonClient.computeLocalStats(StoredHistory(complete + missing))
+            assertEquals(2, stats.totalReports)
+            assertEquals(70.0, stats.averageStealthScore, 0.0)
+            assertEquals(mapOf("DETECTED" to 1, "NOT_DETECTED" to 1), stats.verdictDistribution)
+            val absent = CommunityComparisonClient.computeLocalStats(StoredHistory(listOf(missing)))
+            assertEquals(0, absent.totalReports)
+            assertTrue(absent.isLocalOnly)
+        }
+
+    private class StoredHistory(
+        private val entries: List<DetectionHistoryEntry>,
+    ) : DetectionHistoryRepository {
+        override suspend fun save(entry: DetectionHistoryEntry) = error("Read-only fixture")
+
+        override suspend fun loadLatest(count: Int) = entries.take(count)
+
+        override suspend fun findByFingerprint(fingerprint: String) =
+            entries.find {
+                it.networkFingerprint ==
+                    fingerprint
+            }
+
+        override suspend fun clear() = error("Read-only fixture")
+    }
 
     private fun fakeHttpClient(responseBuilder: (Request) -> Response): OkHttpClient =
         OkHttpClient
