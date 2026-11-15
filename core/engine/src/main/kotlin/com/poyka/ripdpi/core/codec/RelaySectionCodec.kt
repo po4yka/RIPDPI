@@ -76,7 +76,7 @@ internal data class NativeRelayConfig(
     val mieruMultiplexing: String = com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle,
     val mieruMtu: Int = com.poyka.ripdpi.data.RelayMieruMtuDefault,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val mieruHandshakeMode: String = com.poyka.ripdpi.data.MieruHandshakeStandard,
+    val mieruHandshakeMode: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val mieruTrafficPattern: com.poyka.ripdpi.data.MieruTrafficPattern? = null,
     val sshAuthType: String = com.poyka.ripdpi.data.RelaySshAuthTypePassword,
@@ -230,7 +230,7 @@ internal object RelaySectionCodec {
             mieruProtocol = value.mieruProtocol,
             mieruMultiplexing = value.mieruMultiplexing,
             mieruMtu = value.mieruMtu,
-            mieruHandshakeMode = nativeMieruHandshakeMode(value.mieruHandshakeMode),
+            mieruHandshakeMode = value.mieruHandshakeMode?.let(::nativeMieruHandshakeMode),
             mieruTrafficPattern = value.mieruTrafficPattern?.effective(),
             sshAuthType = value.sshAuthType,
             sshHostKeyFingerprint = value.sshHostKeyFingerprint,

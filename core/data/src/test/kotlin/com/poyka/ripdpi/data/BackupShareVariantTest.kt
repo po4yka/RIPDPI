@@ -188,6 +188,52 @@ class BackupShareVariantTest {
     }
 
     @Test
+    fun `SHARE export of TUIC keeps transport options and strips credentials`() {
+        val profile =
+            ProxyProfile.Tuic(
+                id = "tuic-1",
+                displayName = "My TUIC",
+                groupId = "g-1",
+                server = "tuic.example.com",
+                serverPort = 443,
+                uuid = "550e8400-e29b-41d4-a716-446655440000",
+                password = "fixture-password",
+                serverName = "front.example.com",
+                alpn = "h3",
+            )
+
+        val obj = shareExport(listOf(profile)).profiles.single()
+
+        assertEquals(JsonPrimitive("front.example.com"), obj["serverName"])
+        assertEquals(JsonPrimitive("h3"), obj["alpn"])
+        assertFalse("uuid" in obj)
+        assertFalse("password" in obj)
+    }
+
+    @Test
+    fun `SHARE export of Mieru keeps handshake mode and strips custom traffic pattern`() {
+        val profile =
+            ProxyProfile.Mieru(
+                id = "mr-1",
+                displayName = "My Mieru",
+                groupId = "g-1",
+                server = "mieru.example.com",
+                serverPort = 2096,
+                username = "user",
+                password = "fixture-password",
+                handshakeMode = MieruHandshakeNoWait,
+                trafficPattern = MieruTrafficPattern(nonce = MieruNoncePattern(customHexStrings = listOf("a1b2"))),
+            )
+
+        val obj = shareExport(listOf(profile)).profiles.single()
+
+        assertEquals(JsonPrimitive("no_wait"), obj["handshakeMode"])
+        assertFalse("trafficPattern" in obj)
+        assertFalse("username" in obj)
+        assertFalse("password" in obj)
+    }
+
+    @Test
     fun `SHARE export of RawConfig strips config and id, keeps displayName`() {
         val profile =
             ProxyProfile.RawConfig(

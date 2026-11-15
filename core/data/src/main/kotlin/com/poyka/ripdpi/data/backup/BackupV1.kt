@@ -251,6 +251,18 @@ object BackupAllowlist {
                 "pinSha256" to Classification.PUBLIC,
             )
 
+    private val tuicFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                "uuid" to Classification.REDACTED,
+                "password" to Classification.REDACTED,
+                "serverName" to Classification.PUBLIC,
+                "congestionControl" to Classification.PUBLIC,
+                "alpn" to Classification.PUBLIC,
+            )
+
     private val mieruFields: Map<String, Classification> =
         commonFields +
             mapOf(
@@ -263,6 +275,9 @@ object BackupAllowlist {
                 "protocol" to Classification.PUBLIC,
                 "multiplexing" to Classification.PUBLIC,
                 "mtu" to Classification.PUBLIC,
+                "handshakeMode" to Classification.PUBLIC,
+                // A custom nonce prefix can identify a private profile.
+                "trafficPattern" to Classification.REDACTED,
             )
 
     private val naiveFields: Map<String, Classification> =
@@ -309,6 +324,7 @@ object BackupAllowlist {
             "trojan" to trojanFields,
             "hysteria2" to hysteria2Fields,
             "anytls" to anyTlsFields,
+            "tuic" to tuicFields,
             "mieru" to mieruFields,
             "naive" to naiveFields,
             "ssh" to sshFields,

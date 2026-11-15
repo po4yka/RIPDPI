@@ -259,6 +259,5 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
           |    reality-opts: {public-key: $validKey, short-id: abcd}
         """.trimMargin()
 
-    private val unsupportedPayload =
-        "tuic://22222222-2222-2222-2222-222222222222:fixture@unsupported.example:443#unsupported"
+    private val unsupportedPayload = "wireguard://fixture@unsupported.example:51820#unsupported"
 }

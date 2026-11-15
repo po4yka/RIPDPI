@@ -84,6 +84,16 @@ class BackupAllowlistCoverageTest {
                     serverName = "front.example.com",
                     password = "pw",
                 ),
+            "tuic" to
+                ProxyProfile.Tuic(
+                    id = "tuic-1",
+                    displayName = "TUIC",
+                    groupId = "g-1",
+                    server = "tuic.example.com",
+                    serverPort = 443,
+                    uuid = "550e8400-e29b-41d4-a716-446655440000",
+                    password = "pw",
+                ),
             "mieru" to
                 ProxyProfile.Mieru(
                     id = "mieru-1",
