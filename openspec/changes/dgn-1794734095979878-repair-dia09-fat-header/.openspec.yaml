@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-15
+goal: DGN-1794734095979878 Repair DIA-09 TCP fat-header diagnostics
