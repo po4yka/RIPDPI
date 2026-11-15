@@ -349,16 +349,18 @@ class DetectionResolverNetworkStack(
         val bootstrapHosts =
             config.dohBootstrapIps
                 .mapNotNull { NumericIp.parseAddress(it)?.toInetAddress() }
-        val builder =
-            DnsOverHttps
-                .Builder()
-                .client(bootstrapClient)
-                .url(config.dohPreset.dohUrl.toHttpUrl())
-                .includeServiceMetadata(false)
-        if (bootstrapHosts.isNotEmpty()) {
-            builder.bootstrapDnsHosts(bootstrapHosts)
+        return OwnedDohDns(bootstrapClient) { client ->
+            val builder =
+                DnsOverHttps
+                    .Builder()
+                    .client(client)
+                    .url(config.dohPreset.dohUrl.toHttpUrl())
+                    .includeServiceMetadata(false)
+            if (bootstrapHosts.isNotEmpty()) {
+                builder.bootstrapDnsHosts(bootstrapHosts)
+            }
+            builder.build()
         }
-        return builder.build()
     }
 
     private fun fallbackDns(binding: DetectionNetworkBinding): Dns =
