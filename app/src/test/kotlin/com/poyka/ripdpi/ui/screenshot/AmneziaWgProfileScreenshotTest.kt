@@ -34,9 +34,9 @@ class AmneziaWgProfileScreenshotTest {
             AwgProfileForm(
                 server = "vpn.example.org",
                 serverPort = 51820,
-                interfacePrivateKey = "CJ8kY0sample+privateKeyMaterialForPreview=",
-                peerPublicKey = "9mWk0sample+peerPublicKeyForPreview1234abcd=",
-                presharedKey = "presharedKeySampleForPreview+0000000000ab=",
+                interfacePrivateKey = "CJ8kY0sample+privateKeyMaterialForPreviewAA=",
+                peerPublicKey = "9mWk0sample+peerPublicKeyForPreview1234abcA=",
+                presharedKey = "presharedKeySampleForPreview+0000000000abAA=",
                 jc = 4,
                 jmin = 8,
                 jmax = 80,
