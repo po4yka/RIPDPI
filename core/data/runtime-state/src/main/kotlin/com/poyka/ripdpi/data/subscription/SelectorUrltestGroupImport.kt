@@ -9,7 +9,6 @@ import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
 
 /**
  * Failover policy attached to a selector [ProxyGroup] imported from a sing-box
@@ -110,9 +109,6 @@ sealed interface SelectorUrltestImportResult {
  * urltest with no selector is skipped.
  */
 object SelectorUrltestGroupImport {
-    private const val SECONDS_PER_MINUTE = 60
-    private const val SECONDS_PER_HOUR = 60 * 60
-
     /**
      * Imports [payload] into a [SelectorUrltestImportResult]. Concrete profiles
      * and the generated group are stamped with [groupId].
@@ -259,13 +255,7 @@ object SelectorUrltestGroupImport {
     }
 
     private fun failoverPolicy(urltest: JsonObject?): FailoverPolicy =
-        urltest?.let { entry ->
-            FailoverPolicy.Urltest(
-                probeUrl = entry.string("url").orEmpty(),
-                intervalSeconds = parseInterval(entry.string("interval")),
-                toleranceMs = entry.int("tolerance") ?: 0,
-            )
-        } ?: FailoverPolicy.Manual
+        urltest?.let(::importUrltestPolicy) ?: FailoverPolicy.Manual
 
     private fun selectorGroup(
         groupId: String,
@@ -285,29 +275,6 @@ object SelectorUrltestGroupImport {
             packageRoutingRules = packageRoutingRules,
         )
 
-    /**
-     * Parses a sing-box duration string (`"5m"`, `"30s"`, `"1h"`, or a bare
-     * second count) into whole seconds. Unparseable input yields `0`.
-     */
-    @Suppress("ReturnCount")
-    private fun parseInterval(raw: String?): Int {
-        val value = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return 0
-        value.toIntOrNull()?.let { return it }
-        val unit = value.last()
-        val magnitude = value.dropLast(1).toIntOrNull() ?: return 0
-        return when (unit) {
-            's', 'S' -> magnitude
-            'm', 'M' -> magnitude * SECONDS_PER_MINUTE
-            'h', 'H' -> magnitude * SECONDS_PER_HOUR
-            else -> 0
-        }
-    }
-
     private fun JsonObject.string(key: String): String? =
         (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
-
-    private fun JsonObject.int(key: String): Int? {
-        val primitive = this[key] as? JsonPrimitive ?: return null
-        return primitive.intOrNull ?: primitive.contentOrNull?.toIntOrNull()
-    }
 }
