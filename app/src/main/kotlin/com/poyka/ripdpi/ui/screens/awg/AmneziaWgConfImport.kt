@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.matchCohortForConf
@@ -101,6 +102,8 @@ private fun AmneziaWgEditorState.buildFormFromConf(
         presharedKey = peer?.presharedKey.orEmpty(),
         server = host,
         serverPort = port,
+        carrier = AwgActivationRequest.CARRIER_UDP,
+        carrierWsUrl = "",
         jc = awg.jc ?: 0,
         jmin = awg.jmin ?: 0,
         jmax = awg.jmax ?: 0,

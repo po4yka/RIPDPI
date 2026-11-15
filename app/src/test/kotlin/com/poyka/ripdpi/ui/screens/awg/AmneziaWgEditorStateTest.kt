@@ -233,7 +233,7 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `manual import replaces old network policy including omitted and empty values`() {
+    fun `conf import replaces old transport settings and preserves route policy`() {
         val privateKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 })
         val peerKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 })
         val previous =
@@ -265,8 +265,9 @@ class AmneziaWgEditorStateTest {
             assertEquals(fresh.toActivationRequest("fresh").allowedIps, request.allowedIps)
             assertEquals(com.poyka.ripdpi.data.awg.AwgActivationRequest.DEFAULT_MTU, request.mtu)
             assertEquals(0, request.persistentKeepalive)
-            assertEquals("ws", request.carrier)
-            assertEquals("wss://old.example/carrier", request.carrierWsUrl)
+            assertEquals(AwgActivationRequest.CARRIER_UDP, request.carrier)
+            assertEquals("", request.carrierWsUrl)
+            assertEquals("", imported.rawText(AwgEditorField.CARRIER_WS_URL))
             if (expectedRoutes.isEmpty()) {
                 assertTrue(imported.hasFieldError(AwgEditorField.ALLOWED_IPS))
                 assertFalse(imported.isActivatable())
