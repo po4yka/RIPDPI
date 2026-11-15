@@ -1408,9 +1408,6 @@
     <string name="diagnostics_dpi_suite_network_blocked">red bloqueada</string>
     <string name="diagnostics_dpi_suite_yes">sí</string>
     <string name="diagnostics_dpi_suite_no">no</string>
-    <string name="diagnostics_dpi_suite_vanilla_ok">TLS normal funciona</string>
-    <string name="diagnostics_dpi_suite_vanilla_blocked">TLS normal bloqueado</string>
-    <string name="diagnostics_dpi_suite_vanilla_unknown">TLS normal: desconocido</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">Las pruebas DPI seleccionadas no notificaron advertencias.</string>
     <string name="diagnostics_dpi_suite_one_or_more_selected_probes_reported_dpi_like_interference">Una o más pruebas seleccionadas notificaron interferencia similar a DPI.</string>
     <string name="diagnostics_dpi_suite_dns_integrity_probes_reported_resolver_path_interference">Las pruebas de integridad DNS notificaron interferencia en la ruta al resolutor.</string>

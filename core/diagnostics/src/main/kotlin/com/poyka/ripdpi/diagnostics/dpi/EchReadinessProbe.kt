@@ -32,7 +32,6 @@ data class EchProbeResult(
     val tlsLatencyMs: Long?,
     val negotiatedEch: Boolean,
     val errorDetail: String?,
-    val vanillaTlsOk: Boolean? = null,
     val httpsLookups: List<HttpsRrLookupAttempt> = emptyList(),
 ) {
     val hasMeasurement: Boolean
@@ -46,8 +45,6 @@ data class EchProbeResult(
 
                 else -> false
             }
-
-    val echSucceededWhenBaselineTlsFailed: Boolean = vanillaTlsOk == false && verdict == EchProbeVerdict.ECH_OK
 }
 
 data class EchTlsHandshakeResult(
@@ -90,14 +87,11 @@ class EchReadinessProbe(
     private val tlsHandshake: EchTlsHandshake = UnsupportedEchTlsHandshake,
     private val concurrency: Int = DefaultConcurrency,
 ) {
-    suspend fun check(
-        target: String,
-        vanillaTlsOk: Boolean? = null,
-    ): EchProbeResult {
+    suspend fun check(target: String): EchProbeResult {
         val lookup = resolver.fetch(target)
         var setupFailure: EchProbeResult? = null
         for (candidate in lookup.candidates.take(MaxBindingAttempts)) {
-            val result = checkBinding(target, candidate, lookup.attempts, vanillaTlsOk)
+            val result = checkBinding(target, candidate, lookup.attempts)
             if (result.hasMeasurement) return result
             setupFailure = result
         }
@@ -114,7 +108,6 @@ class EchReadinessProbe(
             tlsLatencyMs = null,
             negotiatedEch = false,
             errorDetail = null,
-            vanillaTlsOk = vanillaTlsOk,
             httpsLookups = lookup.attempts,
         )
     }
@@ -123,7 +116,6 @@ class EchReadinessProbe(
         target: String,
         record: HttpsRrRecord,
         attempts: List<HttpsRrLookupAttempt>,
-        vanillaTlsOk: Boolean?,
     ): EchProbeResult {
         val origin = target.removeSuffix(".").lowercase(Locale.ROOT)
         val host = if (record.targetName == ".") requireNotNull(record.ownerName) else record.targetName
@@ -139,26 +131,24 @@ class EchReadinessProbe(
                 tlsLatencyMs = result.latencyMs,
                 negotiatedEch = result.negotiatedEch,
                 errorDetail = null,
-                vanillaTlsOk = vanillaTlsOk,
                 httpsLookups = attempts,
             )
         } catch (error: CancellationException) {
             throw error
         } catch (error: IOException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, attempts, error)
+            buildFailedEchProbeResult(target, configBytes, attempts, error)
         } catch (error: IllegalArgumentException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, attempts, error)
+            buildFailedEchProbeResult(target, configBytes, attempts, error)
         } catch (error: IllegalStateException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, attempts, error)
+            buildFailedEchProbeResult(target, configBytes, attempts, error)
         } catch (error: UnsupportedOperationException) {
-            buildFailedEchProbeResult(target, configBytes, vanillaTlsOk, attempts, error)
+            buildFailedEchProbeResult(target, configBytes, attempts, error)
         }
     }
 
     private fun buildFailedEchProbeResult(
         target: String,
         configBytes: ByteArray,
-        vanillaTlsOk: Boolean?,
         attempts: List<HttpsRrLookupAttempt>,
         error: Exception,
     ): EchProbeResult {
@@ -171,25 +161,18 @@ class EchReadinessProbe(
             tlsLatencyMs = null,
             negotiatedEch = false,
             errorDetail = error.message ?: error.javaClass.simpleName,
-            vanillaTlsOk = vanillaTlsOk,
             httpsLookups = attempts,
         )
     }
 
-    suspend fun checkAll(
-        targets: List<String>,
-        vanillaTlsByTarget: Map<String, Boolean> = emptyMap(),
-    ): List<EchProbeResult> =
+    suspend fun checkAll(targets: List<String>): List<EchProbeResult> =
         coroutineScope {
             val permits = Semaphore(concurrency.coerceIn(MinConcurrency, DefaultConcurrency))
             val checks =
                 targets.map { target ->
                     async {
                         permits.withPermit {
-                            check(
-                                target = target,
-                                vanillaTlsOk = vanillaTlsByTarget[target],
-                            )
+                            check(target)
                         }
                     }
                 }

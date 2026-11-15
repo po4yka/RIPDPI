@@ -54,7 +54,7 @@ class NscPlatformEchInstrumentedTest {
             // (1) Native bridge: confirm an ECH config is published and negotiable.
             val nativeResult =
                 EchReadinessProbe(tlsHandshake = NativeEchTlsHandshake())
-                    .check(ECH_TEST_HOST, vanillaTlsOk = true)
+                    .check(ECH_TEST_HOST)
             assertEquals(
                 "Expected $ECH_TEST_HOST to publish an HTTPS RR with an ECH config: $nativeResult",
                 true,

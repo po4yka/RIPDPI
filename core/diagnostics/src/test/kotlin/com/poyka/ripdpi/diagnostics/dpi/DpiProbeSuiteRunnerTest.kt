@@ -381,30 +381,25 @@ class DpiProbeSuiteRunnerTest {
         }
 
     @Test
-    fun echReadinessRunsAfterReachabilityWithVanillaTlsCrossReference() =
+    fun echAcceptanceAndOrdinaryDnsFailureRemainIndependent() =
         runTest {
-            val calls = mutableListOf<String>()
-            val observedVanillaTlsByTarget = mutableListOf<Map<String, Boolean>>()
             val observedConcurrency = mutableListOf<Int>()
             val probes =
-                FakeSuiteProbes(calls).copy(
+                FakeSuiteProbes().copy(
                     onDomainReachability = { _, _, _, _ ->
-                        calls += "domain-reachability"
                         listOf(
                             DomainReachabilityResult(
                                 domain = "cloudflare.com",
-                                resolvedIps = listOf("1.1.1.1"),
-                                tls13 = AttemptResult(AttemptStatus.OK, latencyMs = 40),
-                                tls12 = AttemptResult(AttemptStatus.OK, latencyMs = 45),
-                                http = AttemptResult(AttemptStatus.OK, latencyMs = 50),
-                                verdict = DomainVerdict.OK,
+                                resolvedIps = emptyList(),
+                                tls13 = AttemptResult(AttemptStatus.ERROR),
+                                tls12 = AttemptResult(AttemptStatus.ERROR),
+                                http = AttemptResult(AttemptStatus.ERROR),
+                                verdict = DomainVerdict.DNS_FAIL,
                             ),
                         )
                     },
-                    onEchReadiness = { targets, vanillaTlsByTarget, concurrency ->
-                        calls += "ech-readiness"
+                    onEchReadiness = { targets, concurrency ->
                         assertEquals(listOf("cloudflare.com"), targets)
-                        observedVanillaTlsByTarget += vanillaTlsByTarget
                         observedConcurrency += concurrency
                         listOf(
                             EchProbeResult(
@@ -415,7 +410,6 @@ class DpiProbeSuiteRunnerTest {
                                 tlsLatencyMs = 32,
                                 negotiatedEch = true,
                                 errorDetail = null,
-                                vanillaTlsOk = false,
                             ),
                         )
                     },
@@ -433,12 +427,23 @@ class DpiProbeSuiteRunnerTest {
                     ),
                 ).filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
                     .toList()
-                    .map { event -> event.kind }
+                    .map { event -> event.result }
 
-            assertEquals(listOf("domain-reachability", "ech-readiness"), calls)
-            assertEquals(listOf(mapOf("cloudflare.com" to true)), observedVanillaTlsByTarget)
             assertEquals(listOf(4), observedConcurrency)
-            assertEquals(listOf(DpiProbeKind.DOMAIN_REACHABILITY, DpiProbeKind.ECH_READINESS), results)
+            val ordinary =
+                results
+                    .filterIsInstance<DpiSuiteProbeResult.DomainReachability>()
+                    .single()
+                    .results
+                    .single()
+            val ech =
+                results
+                    .filterIsInstance<DpiSuiteProbeResult.EchReadiness>()
+                    .single()
+                    .results
+                    .single()
+            assertEquals(DomainVerdict.DNS_FAIL, ordinary.verdict)
+            assertEquals(EchProbeVerdict.ECH_OK, ech.verdict)
         }
 
     private fun runner(
@@ -473,8 +478,8 @@ class DpiProbeSuiteRunnerTest {
         private val onAllowlist: suspend (List<Tcp16ProbeResult>) -> Map<String, AllowlistSniResult> = { emptyMap() },
         private val onTelegram: suspend () -> TelegramTestResult = { telegramResult() },
         private val onQuicH3: suspend (List<String>, Int) -> List<QuicProbeResult> = { _, _ -> emptyList() },
-        private val onEchReadiness: suspend (List<String>, Map<String, Boolean>, Int) -> List<EchProbeResult> =
-            { _, _, _ -> emptyList() },
+        private val onEchReadiness: suspend (List<String>, Int) -> List<EchProbeResult> =
+            { _, _ -> emptyList() },
     ) : DpiSuiteProbes {
         var collectStubIpsCalls = 0
         var allowlistCalls = 0
@@ -516,9 +521,8 @@ class DpiProbeSuiteRunnerTest {
 
         override suspend fun runEchReadiness(
             targets: List<String>,
-            vanillaTlsByTarget: Map<String, Boolean>,
             concurrency: Int,
-        ): List<EchProbeResult> = onEchReadiness(targets, vanillaTlsByTarget, concurrency)
+        ): List<EchProbeResult> = onEchReadiness(targets, concurrency)
 
         fun copy(
             onDnsIntegrity: suspend (List<String>) -> DnsIntegrityResult = this.onDnsIntegrity,
@@ -530,7 +534,7 @@ class DpiProbeSuiteRunnerTest {
             onAllowlist: suspend (List<Tcp16ProbeResult>) -> Map<String, AllowlistSniResult> = this.onAllowlist,
             onTelegram: suspend () -> TelegramTestResult = this.onTelegram,
             onQuicH3: suspend (List<String>, Int) -> List<QuicProbeResult> = this.onQuicH3,
-            onEchReadiness: suspend (List<String>, Map<String, Boolean>, Int) -> List<EchProbeResult> =
+            onEchReadiness: suspend (List<String>, Int) -> List<EchProbeResult> =
                 this.onEchReadiness,
         ): FakeSuiteProbes =
             FakeSuiteProbes(

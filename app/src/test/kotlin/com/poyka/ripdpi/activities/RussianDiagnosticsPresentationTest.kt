@@ -69,7 +69,6 @@ class RussianDiagnosticsPresentationTest {
                             tlsLatencyMs = null,
                             negotiatedEch = false,
                             errorDetail = "wire-error",
-                            vanillaTlsOk = null,
                         ),
                     ),
                 ).toDpiSuiteProbeRowUiModel(strings)
@@ -77,7 +76,7 @@ class RussianDiagnosticsPresentationTest {
         assertEquals("Целей, принявших ECH: 0/1", row.detail)
         assertEquals("target_1.example", row.detailRows.single().label)
         assertEquals(
-            "неизвестный ключ ECH | HTTPS RR: да | согласовано: нет | обычный TLS: неизвестно | задержка не измерена",
+            "неизвестный ключ ECH | HTTPS RR: да | согласовано: нет | задержка не измерена",
             row.detailRows.single().detail,
         )
         assertEquals(DiagnosticsTone.Warning, row.detailRows.single().tone)

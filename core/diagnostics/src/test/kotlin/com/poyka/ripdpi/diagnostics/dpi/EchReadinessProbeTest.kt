@@ -38,12 +38,11 @@ class EchReadinessProbeTest {
                     tlsHandshake = FakeEchTlsHandshake(EchTlsHandshakeResult(negotiatedEch = true, latencyMs = 42)),
                 )
 
-            val result = probe.check("cloudflare.com", vanillaTlsOk = false)
+            val result = probe.check("cloudflare.com")
 
             assertEquals(EchProbeVerdict.ECH_OK, result.verdict)
             assertEquals(true, result.httpsRrFetched)
             assertEquals(true, result.negotiatedEch)
-            assertEquals(true, result.echSucceededWhenBaselineTlsFailed)
             assertEquals(42L, result.tlsLatencyMs)
         }
 

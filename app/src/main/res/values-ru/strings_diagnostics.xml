@@ -1450,9 +1450,6 @@
     <string name="diagnostics_dpi_suite_network_blocked">сеть заблокирована</string>
     <string name="diagnostics_dpi_suite_yes">да</string>
     <string name="diagnostics_dpi_suite_no">нет</string>
-    <string name="diagnostics_dpi_suite_vanilla_ok">обычный TLS работает</string>
-    <string name="diagnostics_dpi_suite_vanilla_blocked">обычный TLS заблокирован</string>
-    <string name="diagnostics_dpi_suite_vanilla_unknown">обычный TLS: неизвестно</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">Выбранные проверки DPI не выявили предупреждений.</string>
     <string name="diagnostics_dpi_suite_one_or_more_selected_probes_reported_dpi_like_interference">Одна или несколько выбранных проверок выявили вмешательство, похожее на DPI.</string>
     <string name="diagnostics_dpi_suite_dns_integrity_probes_reported_resolver_path_interference">Проверки целостности DNS выявили вмешательство на пути к резолверу.</string>

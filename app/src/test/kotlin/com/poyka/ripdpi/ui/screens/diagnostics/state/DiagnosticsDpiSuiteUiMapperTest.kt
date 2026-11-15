@@ -152,7 +152,6 @@ class DiagnosticsDpiSuiteUiMapperTest {
                             tlsLatencyMs = 42,
                             negotiatedEch = true,
                             errorDetail = null,
-                            vanillaTlsOk = false,
                         ),
                     ),
                 ).toDpiSuiteProbeRowUiModel(stringResolver)
@@ -163,7 +162,7 @@ class DiagnosticsDpiSuiteUiMapperTest {
         assertEquals("Targets that accepted ECH: 1/1", row.detail)
         assertEquals(1, row.detailRows.size)
         assertEquals("cloudflare.com", row.detailRows.single().label)
-        assertEquals("ECH ok | HTTPS RR yes | negotiated yes | vanilla blocked | 42 ms", row.detailRows.single().detail)
+        assertEquals("ECH ok | HTTPS RR yes | negotiated yes | 42 ms", row.detailRows.single().detail)
         assertEquals(DiagnosticsTone.Positive, row.detailRows.single().tone)
     }
 

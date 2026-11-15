@@ -53,7 +53,6 @@ interface DpiSuiteProbes {
 
     suspend fun runEchReadiness(
         targets: List<String>,
-        vanillaTlsByTarget: Map<String, Boolean>,
         concurrency: Int,
     ): List<EchProbeResult>
 }
@@ -212,25 +211,20 @@ class DpiProbeSuiteRunner(
         randomHostname: Boolean,
         runProbe: suspend (DpiProbeKind, suspend () -> DpiSuiteProbeResult) -> DpiSuiteProbeResult,
     ) {
-        var domainReachabilityResults = emptyList<DomainReachabilityResult>()
         if (DpiProbeKind.DOMAIN_REACHABILITY in selection) {
-            val result =
-                runProbe(DpiProbeKind.DOMAIN_REACHABILITY) {
-                    if (domains.isEmpty()) {
-                        noValidTargets(DpiProbeKind.DOMAIN_REACHABILITY)
-                    } else {
-                        DpiSuiteProbeResult.DomainReachability(
-                            probes.runDomainReachability(
-                                domains = domains,
-                                stubIps = stubIps,
-                                concurrency = concurrency,
-                                randomHostname = randomHostname,
-                            ),
-                        )
-                    }
+            runProbe(DpiProbeKind.DOMAIN_REACHABILITY) {
+                if (domains.isEmpty()) {
+                    noValidTargets(DpiProbeKind.DOMAIN_REACHABILITY)
+                } else {
+                    DpiSuiteProbeResult.DomainReachability(
+                        probes.runDomainReachability(
+                            domains = domains,
+                            stubIps = stubIps,
+                            concurrency = concurrency,
+                            randomHostname = randomHostname,
+                        ),
+                    )
                 }
-            if (result is DpiSuiteProbeResult.DomainReachability) {
-                domainReachabilityResults = result.results
             }
         }
 
@@ -239,7 +233,6 @@ class DpiProbeSuiteRunner(
                 DpiSuiteProbeResult.EchReadiness(
                     probes.runEchReadiness(
                         targets = echTargetsProvider.loadTargets(),
-                        vanillaTlsByTarget = domainReachabilityResults.vanillaTlsByTarget(),
                         concurrency = concurrency.coerceIn(MinProbeConcurrency, EchReadinessMaxConcurrency),
                     ),
                 )
@@ -283,11 +276,6 @@ class DpiProbeSuiteRunner(
 
     private fun noValidTargets(kind: DpiProbeKind): DpiSuiteProbeResult.Skipped =
         DpiSuiteProbeResult.Skipped(kind, DpiSuiteSkipReason.NO_VALID_TARGETS)
-
-    private fun List<DomainReachabilityResult>.vanillaTlsByTarget(): Map<String, Boolean> =
-        associate { result ->
-            result.domain to (result.tls13.status == AttemptStatus.OK || result.tls12.status == AttemptStatus.OK)
-        }
 
     private companion object {
         private const val ProbeProgressTotal = 1

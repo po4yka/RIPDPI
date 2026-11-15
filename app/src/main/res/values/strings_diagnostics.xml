@@ -1434,9 +1434,6 @@
     <string name="diagnostics_dpi_suite_network_blocked">network blocked</string>
     <string name="diagnostics_dpi_suite_yes">yes</string>
     <string name="diagnostics_dpi_suite_no">no</string>
-    <string name="diagnostics_dpi_suite_vanilla_ok">vanilla ok</string>
-    <string name="diagnostics_dpi_suite_vanilla_blocked">vanilla blocked</string>
-    <string name="diagnostics_dpi_suite_vanilla_unknown">vanilla unknown</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">No selected DPI probe reported warnings.</string>
     <string name="diagnostics_dpi_suite_one_or_more_selected_probes_reported_dpi_like_interference">One or more selected probes reported DPI-like interference.</string>
     <string name="diagnostics_dpi_suite_dns_integrity_probes_reported_resolver_path_interference">DNS integrity probes reported resolver-path interference.</string>

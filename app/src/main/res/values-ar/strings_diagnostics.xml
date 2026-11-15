@@ -1518,9 +1518,6 @@
     <string name="diagnostics_dpi_suite_network_blocked">الشبكة محظورة</string>
     <string name="diagnostics_dpi_suite_yes">نعم</string>
     <string name="diagnostics_dpi_suite_no">لا</string>
-    <string name="diagnostics_dpi_suite_vanilla_ok">TLS العادي يعمل</string>
-    <string name="diagnostics_dpi_suite_vanilla_blocked">TLS العادي محظور</string>
-    <string name="diagnostics_dpi_suite_vanilla_unknown">TLS العادي: غير معروف</string>
     <string name="diagnostics_dpi_suite_no_selected_dpi_probe_reported_warnings">لم تبلغ اختبارات DPI المحددة عن تحذيرات.</string>
     <string name="diagnostics_dpi_suite_one_or_more_selected_probes_reported_dpi_like_interference">أبلغ اختبار محدد واحد أو أكثر عن تدخل شبيه بـ DPI.</string>
     <string name="diagnostics_dpi_suite_dns_integrity_probes_reported_resolver_path_interference">أبلغت اختبارات سلامة DNS عن تدخل في مسار محلل الأسماء.</string>

@@ -21,7 +21,7 @@ class EchReadinessProbeInstrumentedTest {
 
             val result =
                 EchReadinessProbe(tlsHandshake = NativeEchTlsHandshake())
-                    .check("cloudflare-ech.com", vanillaTlsOk = true)
+                    .check("cloudflare-ech.com")
 
             assertEquals(
                 "Expected Cloudflare ECH test domain to publish HTTPS RR: $result",

@@ -222,7 +222,6 @@ private fun EchProbeResult.toEchDetailRow(stringResolver: StringResolver): Diagn
                         ),
                     )
                 }
-                add(vanillaTlsLabel(stringResolver))
                 add(latencyLabel(stringResolver))
             }.joinToString(" | "),
         tone = echTone(),
@@ -310,13 +309,6 @@ private fun Boolean.yesNoLabel(stringResolver: StringResolver): String =
         )
     } else {
         stringResolver.getString(R.string.diagnostics_dpi_suite_no)
-    }
-
-private fun EchProbeResult.vanillaTlsLabel(stringResolver: StringResolver): String =
-    when (vanillaTlsOk) {
-        true -> stringResolver.getString(R.string.diagnostics_dpi_suite_vanilla_ok)
-        false -> stringResolver.getString(R.string.diagnostics_dpi_suite_vanilla_blocked)
-        null -> stringResolver.getString(R.string.diagnostics_dpi_suite_vanilla_unknown)
     }
 
 private fun EchProbeResult.latencyLabel(stringResolver: StringResolver): String =

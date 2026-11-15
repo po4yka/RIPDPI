@@ -99,13 +99,12 @@ internal class DiagnosticsDpiSuiteRunnerFactory(
 
             override suspend fun runEchReadiness(
                 targets: List<String>,
-                vanillaTlsByTarget: Map<String, Boolean>,
                 concurrency: Int,
             ): List<EchProbeResult> =
                 EchReadinessProbe(
                     tlsHandshake = echTlsHandshake,
                     concurrency = concurrency,
-                ).checkAll(targets, vanillaTlsByTarget)
+                ).checkAll(targets)
         }
 
     private suspend fun loadTcp16Targets(): List<Tcp16Target> =
