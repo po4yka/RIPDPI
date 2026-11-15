@@ -2,7 +2,7 @@
 id: SVC-1794755640074922
 title: Repair AUX-04 catalog download contracts
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: repair-aux04-download-contracts
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Four finding commits are published to origin/main. AUX-04 tests and source gates pass; full static analysis is blocked by inherited PCAP/VPN Detekt issues and hosted CI is unverified.
 ---
 
 ## Goal

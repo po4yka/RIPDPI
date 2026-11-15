@@ -5,7 +5,7 @@ commit_sha: f7177d2c21c03d719014bb484d35d19fc8039e33
 local: blocked
 local_evidence: "AUX-04 regressions pass (40 Rust, 33 JVM), as do Clippy and ci-gates. Final staticAnalysis fails on seven inherited PCAP/VPN Detekt issues; see the integration section and exact log."
 remote_ci: required
-remote_ci_evidence: "Publication and exact-commit hosted CI remain pending."
+remote_ci_evidence: "Source publication eaba879e4ffccb83920623657581fc967ff79fc1 is observed on origin/main. Hosted CI success is not established; no commit statuses were returned."
 device: not_applicable
 device_evidence: "Local loopback and host tests are in scope. No physical or external acceptance is authorized."
 artifact: not_applicable
@@ -75,3 +75,7 @@ The exact log is integrated-static.log (exit 1, 827 tasks). These five files and
 - F2: 83d0ad7cfef154e7d50dc5a47a69e45cf79f21d5 — fix(fetch): reject incomplete TLS-delimited responses
 - F3: 8a7345e72ddbb3ee8a3b1ff19648f2b54c824e47 — fix(fetch): cancel owned HTTP requests through native handles
 - F4: f7177d2c21c03d719014bb484d35d19fc8039e33 — fix(browser): preserve native response content type
+
+## Publication
+
+Main was fast-forwarded to eaba879e4ffccb83920623657581fc967ff79fc1 and pushed to origin/main. A fresh git ls-remote matched that exact SHA. Publication receipts are in publication.json, main-fast-forward.log and main-push.log in the persistent evidence directory. The portfolio stays in review because inherited static-analysis failures and exact-commit hosted CI success remain unresolved. No release or deployment was performed.

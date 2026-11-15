@@ -14,7 +14,7 @@ See docs/tasks/issues/repair-aux04-download-contracts.md for exact writer lanes.
 - [x] SVC-1794755720588786 Repair F2 incomplete TLS response handling #bug !high @item:SVC-1794755640074922
 - [x] SVC-1794755721277092 Repair F3 owned HTTP cancellation lifecycle #bug !high @item:SVC-1794755640074922
 - [x] SVC-1794755722049880 Repair F4 native response media type propagation #bug !high @item:SVC-1794755640074922
-- [ ] SVC-1794755722719619 Validate review integrate and publish the four repairs #bug !high @item:SVC-1794755640074922
+- [x] SVC-1794755722719619 Validate review integrate and publish the four repairs #bug !high @item:SVC-1794755640074922
 
 ## Verification
 
