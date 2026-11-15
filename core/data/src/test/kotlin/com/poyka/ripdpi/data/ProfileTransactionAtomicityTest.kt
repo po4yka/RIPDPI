@@ -298,36 +298,7 @@ private enum class AtomicProfileFamily(
             }
 
             IMPORTED_RELAY -> {
-                val member =
-                    ProxyProfile.Trojan(
-                        id = "imported-relay",
-                        displayName = "Imported relay",
-                        groupId = "imported-group",
-                        server = "imported.example",
-                        serverPort = 443,
-                        password = "fixture-imported-secret",
-                    )
-                coordinator.upsertRelay(
-                    preparation,
-                    RelayProfileRecord(
-                        "imported-relay",
-                        RelayKindTrojan,
-                        operatorName = "Imported relay",
-                        server = "imported.example",
-                    ),
-                    RelayCredentialRecord("imported-relay", trojanPassword = "fixture-imported-secret"),
-                    false,
-                    false,
-                    importedGroup =
-                        ProxyGroup(
-                            id = "imported-group",
-                            name = "Imported relay",
-                            type = ProxyGroupType.BASIC,
-                            order = 99,
-                            isSelector = false,
-                            members = listOf(member),
-                        ),
-                )
+                writeImportedRelay(coordinator, preparation)
             }
 
             XRAY -> {
@@ -366,6 +337,42 @@ private enum class AtomicProfileFamily(
                 )
             }
         }
+    }
+
+    private suspend fun writeImportedRelay(
+        coordinator: ProfileMutationCoordinator,
+        preparation: ProfileMutationPreparation,
+    ) {
+        val member =
+            ProxyProfile.Trojan(
+                id = "imported-relay",
+                displayName = "Imported relay",
+                groupId = "imported-group",
+                server = "imported.example",
+                serverPort = 443,
+                password = "fixture-imported-secret",
+            )
+        coordinator.upsertRelay(
+            preparation,
+            RelayProfileRecord(
+                "imported-relay",
+                RelayKindTrojan,
+                operatorName = "Imported relay",
+                server = "imported.example",
+            ),
+            RelayCredentialRecord("imported-relay", trojanPassword = "fixture-imported-secret"),
+            false,
+            false,
+            importedGroup =
+                ProxyGroup(
+                    id = "imported-group",
+                    name = "Imported relay",
+                    type = ProxyGroupType.BASIC,
+                    order = 99,
+                    isSelector = false,
+                    members = listOf(member),
+                ),
+        )
     }
 
     suspend fun assertSaved(fixture: ProfileMutationTestFixture) {
