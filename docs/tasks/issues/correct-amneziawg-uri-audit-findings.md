@@ -2,7 +2,7 @@
 id: DAT-1794720880096281
 title: Correct AmneziaWG URI import contracts and redaction
 kind: bug
-status: doing
+status: review
 area: data
 priority: high
 owner: IMP-02 integrator
