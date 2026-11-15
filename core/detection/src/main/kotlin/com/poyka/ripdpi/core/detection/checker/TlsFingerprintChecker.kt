@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -11,6 +12,8 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import javax.net.ssl.SSLContext
@@ -35,91 +38,99 @@ object TlsFingerprintChecker {
         tlsFingerprintProfile: String = "chrome_stable",
     ): CategoryResult =
         withContext(dispatchers.io) {
-            val findings = mutableListOf<Finding>()
-            val evidence = mutableListOf<EvidenceItem>()
-            var detected = false
-            var needsReview = false
-            val normalizedProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile)
-
-            val localCiphers = getLocalCipherSuites()
-            val localProtocols = getLocalProtocols()
-
-            findings.add(Finding("TLS protocols: ${localProtocols.joinToString(", ")}"))
-            findings.add(Finding("Cipher suites: ${localCiphers.size} supported"))
-
-            val fingerprintHash = computeFingerprint(localCiphers, localProtocols)
-            findings.add(Finding("TLS fingerprint hash: ${fingerprintHash.take(16)}..."))
-
-            findings.add(Finding("Fingerprint profile: $normalizedProfile"))
-
-            val hasTls13 = localProtocols.any { it == "TLSv1.3" }
-            if (!hasTls13) {
-                needsReview = true
-                findings.add(
-                    Finding(
-                        description = "TLS 1.3 not supported - may be distinguishable from modern browsers",
-                        needsReview = true,
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        confidence = EvidenceConfidence.LOW,
-                    ),
-                )
-            }
-
-            val browserOverlap = localCiphers.count { it in BROWSER_CIPHER_SUITES }
-            val overlapRatio =
-                if (localCiphers.isNotEmpty()) {
-                    browserOverlap.toFloat() / BROWSER_CIPHER_SUITES.size
-                } else {
-                    0f
-                }
-
-            if (overlapRatio < 0.5f) {
-                detected = true
-                findings.add(
-                    Finding(
-                        description =
-                            "Low browser cipher overlap (${(overlapRatio * 100).toInt()}%) " +
-                                "- TLS fingerprint distinguishable from browsers",
-                        detected = true,
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        confidence = EvidenceConfidence.MEDIUM,
-                    ),
-                )
-                evidence.add(lowBrowserOverlapEvidence())
+            val configuration = readEnabledConfiguration()
+            ensureActive()
+            if (configuration == null) {
+                unavailable(CheckExecutionStatus.ERROR)
             } else {
-                findings.add(
-                    Finding("Browser cipher overlap: ${(overlapRatio * 100).toInt()}% (good)"),
-                )
+                summarizeLocalTls(tlsFingerprintProfile, configuration.ciphers, configuration.protocols)
             }
+        }
 
-            if (normalizedProfile == TlsFingerprintProfileChromeStable) {
-                findings.add(Finding("Using Chrome-stable TLS profile"))
-            }
+    internal fun summarizeLocalTls(
+        tlsFingerprintProfile: String,
+        localCiphers: List<String>,
+        localProtocols: List<String>,
+    ): CategoryResult {
+        if (localCiphers.isEmpty() || localProtocols.isEmpty()) return unavailable(CheckExecutionStatus.INCONCLUSIVE)
 
-            val hasLegacyCiphers =
-                localCiphers.any {
-                    it.contains("RC4") || it.contains("DES") || it.contains("MD5")
-                }
-            if (hasLegacyCiphers) {
-                findings.add(
-                    Finding(
-                        description = "Legacy ciphers present (RC4/DES/MD5) - unusual for modern clients",
-                        needsReview = true,
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        confidence = EvidenceConfidence.LOW,
-                    ),
-                )
-                needsReview = true
-            }
+        val findings = mutableListOf<Finding>()
+        val evidence = mutableListOf<EvidenceItem>()
+        var detected = false
+        var needsReview = false
+        val normalizedProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile)
 
-            CategoryResult(
-                name = "TLS Fingerprint",
-                detected = detected,
-                findings = findings,
-                needsReview = needsReview,
-                evidence = evidence,
+        findings.add(Finding("TLS protocols: ${localProtocols.joinToString(", ")}"))
+        findings.add(Finding("Cipher suites: ${localCiphers.size} supported"))
+
+        val fingerprintHash = computeFingerprint(localCiphers, localProtocols)
+        findings.add(Finding("TLS fingerprint hash: ${fingerprintHash.take(16)}..."))
+
+        findings.add(Finding("Fingerprint profile: $normalizedProfile"))
+
+        val hasTls13 = localProtocols.any { it == "TLSv1.3" }
+        if (!hasTls13) {
+            needsReview = true
+            findings.add(
+                Finding(
+                    description = "TLS 1.3 not supported - may be distinguishable from modern browsers",
+                    needsReview = true,
+                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                    confidence = EvidenceConfidence.LOW,
+                ),
             )
         }
+
+        val browserOverlap = localCiphers.count { it in BROWSER_CIPHER_SUITES }
+        val overlapRatio = browserOverlap.toFloat() / BROWSER_CIPHER_SUITES.size
+
+        if (overlapRatio < 0.5f) {
+            detected = true
+            findings.add(
+                Finding(
+                    description =
+                        "Low browser cipher overlap (${(overlapRatio * 100).toInt()}%) " +
+                            "- TLS fingerprint distinguishable from browsers",
+                    detected = true,
+                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                    confidence = EvidenceConfidence.MEDIUM,
+                ),
+            )
+            evidence.add(lowBrowserOverlapEvidence())
+        } else {
+            findings.add(
+                Finding("Browser cipher overlap: ${(overlapRatio * 100).toInt()}% (good)"),
+            )
+        }
+
+        if (normalizedProfile == TlsFingerprintProfileChromeStable) {
+            findings.add(Finding("Using Chrome-stable TLS profile"))
+        }
+
+        val hasLegacyCiphers =
+            localCiphers.any {
+                it.contains("RC4") || it.contains("DES") || it.contains("MD5")
+            }
+        if (hasLegacyCiphers) {
+            findings.add(
+                Finding(
+                    description = "Legacy ciphers present (RC4/DES/MD5) - unusual for modern clients",
+                    needsReview = true,
+                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                    confidence = EvidenceConfidence.LOW,
+                ),
+            )
+            needsReview = true
+        }
+
+        return CategoryResult(
+            name = "TLS Fingerprint",
+            detected = detected,
+            findings = findings,
+            needsReview = needsReview,
+            evidence = evidence,
+        )
+    }
 
     internal fun lowBrowserOverlapEvidence(): EvidenceItem =
         EvidenceItem(
@@ -130,33 +141,36 @@ object TlsFingerprintChecker {
             description = "TLS cipher suite set differs significantly from browsers",
         )
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun getLocalCipherSuites(): List<String> =
-        try {
-            val context = SSLContext.getInstance("TLS")
-            context.init(null, null, null)
-            val factory = context.socketFactory
-            val socket = factory.createSocket() as SSLSocket
-            val suites = socket.enabledCipherSuites.toList()
-            socket.close()
-            suites
-        } catch (_: Exception) {
-            emptyList()
-        }
+    private fun unavailable(status: CheckExecutionStatus): CategoryResult =
+        CategoryResult(
+            name = "TLS Fingerprint",
+            detected = false,
+            findings = listOf(Finding("Local TLS configuration is unavailable")),
+            executionStatus = status,
+        )
 
     @Suppress("TooGenericExceptionCaught")
-    private fun getLocalProtocols(): List<String> =
+    private fun readEnabledConfiguration(): EnabledTlsConfiguration? =
         try {
             val context = SSLContext.getInstance("TLS")
             context.init(null, null, null)
-            val factory = context.socketFactory
-            val socket = factory.createSocket() as SSLSocket
-            val protocols = socket.enabledProtocols.toList()
-            socket.close()
-            protocols
+            context.socketFactory.createSocket().use { socket ->
+                val tlsSocket = socket as SSLSocket
+                EnabledTlsConfiguration(
+                    ciphers = tlsSocket.enabledCipherSuites.toList(),
+                    protocols = tlsSocket.enabledProtocols.toList(),
+                )
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Exception) {
-            emptyList()
+            null
         }
+
+    private data class EnabledTlsConfiguration(
+        val ciphers: List<String>,
+        val protocols: List<String>,
+    )
 
     private fun computeFingerprint(
         ciphers: List<String>,
