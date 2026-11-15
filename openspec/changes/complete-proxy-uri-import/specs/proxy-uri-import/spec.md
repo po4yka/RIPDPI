@@ -87,12 +87,12 @@ The app MUST preserve optional protobuf field presence for pinned Mieru v3.36.0 
 
 ### Requirement: REQ-IMP01-BACKUP — Classify added URI profile fields
 
-FULL backup MUST retain all TUIC and advanced Mieru settings and credentials. SHARE backup MUST omit TUIC UUID/password and Mieru username/password while retaining their non-secret transport settings. New fields MUST have an explicit allowlist classification. The coverage test MUST detect a ProxyProfile subtype missing from its representative instances.
+FULL backup MUST retain all TUIC and advanced Mieru settings and credentials. SHARE backup MUST omit TUIC UUID/password, Mieru username/password and the Mieru traffic pattern, which can contain a profile-identifying custom nonce prefix. It MUST retain the other public transport settings, including the handshake mode. New fields MUST have an explicit allowlist classification. The coverage test MUST detect a ProxyProfile subtype missing from its representative instances.
 
 #### Scenario: Export added URI profile fields safely
 
 - **WHEN** typed TUIC and advanced Mieru profiles enter FULL or SHARE backup
-- **THEN** FULL round-trip retains their values and field presence; SHARE succeeds, preserves public settings and removes credential values
+- **THEN** FULL round-trip retains their values and field presence; SHARE succeeds, preserves public settings and removes credentials and the identifying traffic pattern
 
 ### Requirement: REQ-IMP01-ROUNDTRIP — Preserve raw Mieru preference presence
 
