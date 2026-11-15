@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-15
+goal: RST-1794722628748844 Repair privileged operation error and integrity contracts
