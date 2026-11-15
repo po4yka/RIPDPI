@@ -47,16 +47,18 @@ class RawPacketDisclosureContentTest {
             }
         }
 
-        // Disclosure body must mention raw IP packet bytes, retention, and that
-        // redacted diagnostics archives keep packet captures separate.
+        // The disclosure must describe payloads, retention limits and separate archives.
         composeRule
-            .onNodeWithText("raw IP packet bytes", substring = true)
+            .onNodeWithText("packet payloads", substring = true)
             .assertIsDisplayed()
         composeRule
-            .onNodeWithText("24 h or 3 most-recent files", substring = true)
+            .onNodeWithText("up to three files", substring = true)
             .assertIsDisplayed()
         composeRule
-            .onNodeWithText("redacted diagnostics archives do not embed them", substring = true)
+            .onNodeWithText("older than 24 hours", substring = true)
+            .assertIsDisplayed()
+        composeRule
+            .onNodeWithText("separate from redacted diagnostic archives", substring = true)
             .assertIsDisplayed()
     }
 }

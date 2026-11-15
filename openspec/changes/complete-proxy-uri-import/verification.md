@@ -82,3 +82,9 @@ The stale unsupported subscription fixture was corrected separately in eeee4f964
 ## Rebase and privacy policy reconciliation
 
 Origin e93e88121f already classified the added backup fields, changed the unsupported TUIC fixture, and partially corrected nullable handshake handling. The rebase keeps its stricter SHARE rule: Mieru trafficPattern is REDACTED because a custom nonce prefix can identify the profile. FULL backup retains the pattern. Our FULL presence tests and sealed-subtype guard remain; the SHARE regression now requires pattern removal. Its earlier PUBLIC-pattern GREEN is historical and does not validate this revised expectation. The broader raw-presence and runtime-selection fixes remain necessary beyond the upstream correction. A new combined coverage and source-gate run is required on the reconciled tree.
+
+## Full coverage on the reconciled upstream
+
+The first combined full coverage run on 10f390576b executed 10,342 fresh tests: 10,340 passed, two failed, zero errors/skips. All owned backup and engine regressions passed. The two failures were inherited PCAP disclosure assertions that still expected older text; both tests and production strings matched base 2d5806e6d077 byte for byte. The wording-only correction retains checks for payload disclosure, the three-file and 24-hour limits, and separate redacted archives. No production string, behavior or baseline change is part of that correction. The combined coverage gate is not passed until its next observed run.
+
+The corrected disclosure assertions passed both fresh native-Robolectric Compose tests (SDK35, GraphicsMode.NATIVE) in disclosure-copy-v1. This is visible-text unit evidence; no device, pixel comparison or golden update is claimed. The full combined rerun remains pending.

@@ -2083,7 +2083,9 @@ class DiagnosticsScreenTest {
         setToolsScreen(rootModeEnabled = true, pcapRecording = true)
 
         swipeToolsUntilTextVisible("packet payloads")
-        swipeToolsUntilTextVisible("redacted diagnostics archives do not embed them")
+        swipeToolsUntilTextVisible("up to three files")
+        swipeToolsUntilTextVisible("older than 24 hours")
+        swipeToolsUntilTextVisible("separate from redacted diagnostic archives")
     }
 
     @Test
