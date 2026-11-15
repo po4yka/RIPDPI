@@ -34,6 +34,7 @@ private const val DnsClassificationPriorityPoisoned = 3
 private const val DnsClassificationPriorityDivergent = 2
 
 private const val IpSetDigestByteCount = 8
+private val tlsAttemptPrefixes = listOf("tls13", "tls12", "tlsEch")
 
 private data class DirectModeDnsPolicyObservation(
     val classification: DirectDnsClassification? = null,
@@ -107,7 +108,7 @@ private fun collectDirectModePolicyEvaluations(report: ScanReport): List<DirectM
 private data class DirectModeTransportSignals(
     val hasTransparentSuccess: Boolean,
     val hasQuicBlocked: Boolean,
-    val hasTlsHandshakeFailure: Boolean,
+    val hasTlsFailureWithoutResponse: Boolean,
     val hasTlsPostClientHelloFailure: Boolean,
     val hasOwnedStackOnly: Boolean,
     val allAttemptsFailed: Boolean,
@@ -123,26 +124,23 @@ private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransp
             (result.probeType == "strategy_quic" || result.probeType == "quic_reachability") &&
                 result.outcome == "quic_error"
         }
-    val hasTlsHandshakeFailure = results.any(ProbeResult::hasTlsHandshakeFailureEvidence)
+    val hasTlsFailureWithoutResponse = results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = false) }
     val hasTlsPostClientHelloFailure =
-        results.any { result ->
-            result.hasTlsHandshakeFailureEvidence() &&
-                result.detailValue("tlsServerHelloReceived")?.toBooleanStrictOrNull() == true
-        }
+        results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = true) }
     val hasOwnedStackOnly = results.any { it.outcome == "tls_ech_only" }
     val allAttemptsFailed = results.isNotEmpty() && results.all(ProbeResult::isDirectModeFailure)
-    val noDirectTlsFailure = allAttemptsFailed && (hasOwnedStackOnly || hasTlsHandshakeFailure)
+    val noDirectTlsFailure = allAttemptsFailed && (hasOwnedStackOnly || hasTlsFailureWithoutResponse)
     val noDirectQuicFailure = allAttemptsFailed && hasQuicBlocked && !noDirectTlsFailure
     val transportClass =
         when {
-            hasOwnedStackOnly || hasTlsHandshakeFailure -> DirectTransportClass.SNI_TLS_SUSPECT
+            hasOwnedStackOnly || hasTlsFailureWithoutResponse -> DirectTransportClass.SNI_TLS_SUSPECT
             hasQuicBlocked -> DirectTransportClass.QUIC_BLOCK_SUSPECT
             else -> null
         }
     return DirectModeTransportSignals(
         hasTransparentSuccess = hasTransparentSuccess,
         hasQuicBlocked = hasQuicBlocked,
-        hasTlsHandshakeFailure = hasTlsHandshakeFailure,
+        hasTlsFailureWithoutResponse = hasTlsFailureWithoutResponse,
         hasTlsPostClientHelloFailure = hasTlsPostClientHelloFailure,
         hasOwnedStackOnly = hasOwnedStackOnly,
         allAttemptsFailed = allAttemptsFailed,
@@ -164,7 +162,7 @@ private fun deriveTransportPolicy(
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
                     tcpFamily =
-                        if (signals.hasTlsHandshakeFailure) {
+                        if (signals.hasTlsFailureWithoutResponse) {
                             normalizeStrategyFamilyToTcpFamily("tlsrec")
                         } else {
                             TcpFamily.NONE
@@ -193,7 +191,7 @@ private fun deriveTransportPolicy(
                 )
             }
 
-            signals.hasTlsHandshakeFailure -> {
+            signals.hasTlsFailureWithoutResponse -> {
                 TransportPolicy(
                     quicMode = QuicMode.HARD_DISABLE,
                     preferredStack = PreferredStack.H2,
@@ -226,7 +224,7 @@ private fun deriveReasonCode(signals: DirectModeTransportSignals): DirectModeRea
         signals.hasTlsPostClientHelloFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
         signals.noDirectTlsFailure -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
         signals.noDirectQuicFailure -> DirectModeReasonCode.QUIC_BLOCKED
-        signals.hasTlsHandshakeFailure -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
+        signals.hasTlsFailureWithoutResponse -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
         signals.hasQuicBlocked -> DirectModeReasonCode.QUIC_BLOCKED
         signals.hasTransparentSuccess -> null
         else -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
@@ -241,7 +239,7 @@ private fun buildVerdict(
 ): DirectModeVerdict? =
     when (outcome) {
         DirectModeOutcome.TRANSPARENT_OK -> {
-            if (signals.hasTransparentSuccess || signals.hasQuicBlocked || signals.hasTlsHandshakeFailure) {
+            if (signals.hasTransparentSuccess || signals.hasQuicBlocked || signals.hasTlsFailureWithoutResponse) {
                 DirectModeVerdict(
                     result = DirectModeVerdictResult.TRANSPARENT_WORKS,
                     reasonCode = reasonCode,
@@ -380,16 +378,14 @@ private fun ProbeResult.isDirectModeFailure(): Boolean =
         else -> false
     }
 
-private fun ProbeResult.hasTlsHandshakeFailureEvidence(): Boolean =
-    // The scan cannot use an alert of unknown origin to select a transport policy.
-    detailValue("tlsAlertCode") == null &&
-        (
-            outcome == "tls_handshake_failed" ||
-                detailValue("failureClass")
-                    ?.trim()
-                    ?.lowercase(Locale.US)
-                    ?.contains("tls") == true
-        )
+private fun ProbeResult.hasTlsHandshakeFailureEvidence(peerResponseReceived: Boolean): Boolean =
+    tlsAttemptPrefixes.any { prefix ->
+        // An alert of unknown origin is evidence of a response only.
+        detailValue("${prefix}Status") == "tls_handshake_failed" &&
+            detailValue("${prefix}FailureStage") == "tls_handshake" &&
+            detailValue("${prefix}PeerResponseReceived")?.toBooleanStrictOrNull() == peerResponseReceived &&
+            (peerResponseReceived || detailValue("${prefix}AlertCode") == null)
+    }
 
 private fun deriveIpSetDigest(results: List<ProbeResult>): String {
     val connectedIps =

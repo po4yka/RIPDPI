@@ -58,6 +58,7 @@ mod tests {
             tls_alert_code: None,
             tls_alert_description: None,
             tls_server_hello_received: None,
+            tls_peer_response_after_client_hello: None,
             connected_addr: None,
             local_addr: None,
             cdn_provider: None,

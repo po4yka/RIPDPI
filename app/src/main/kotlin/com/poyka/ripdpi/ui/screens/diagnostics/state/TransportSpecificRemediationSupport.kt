@@ -46,9 +46,7 @@ internal fun recommendTransportRemediation(
                     reasonCode == DirectModeReasonCode.IP_BLOCKED
                 -> TransportRemediationKind.DOMESTIC_DIRECT_RELAY_FOREIGN
 
-                transportClass == DirectTransportClass.SNI_TLS_SUSPECT ||
-                    reasonCode == DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
-                -> TransportRemediationKind.BROWSER_FALLBACK
+                transportClass == DirectTransportClass.SNI_TLS_SUSPECT -> TransportRemediationKind.BROWSER_FALLBACK
 
                 else -> TransportRemediationKind.NO_RELIABLE_RELAY_HINT
             }

@@ -30,6 +30,8 @@ pub struct TlsObservation {
     pub tls_alert_description: Option<String>,
     /// Whether rustls processed a ServerHello. `None` when TLS evidence is unavailable.
     pub tls_server_hello_received: Option<bool>,
+    /// Whether a handshake response or alert followed the ClientHello.
+    pub tls_peer_response_after_client_hello: Option<bool>,
     pub connected_addr: Option<std::net::SocketAddr>,
     pub local_addr: Option<std::net::SocketAddr>,
     pub cdn_provider: Option<String>,
@@ -151,6 +153,7 @@ pub struct ProbeStreamError {
     /// For a TLS handshake failure, whether the ServerHello was processed first.
     /// `None` when TLS evidence is unavailable.
     pub tls_server_hello_received: Option<bool>,
+    pub(super) peer_response_after_client_hello: Option<bool>,
     pub(crate) tls_alert: Option<rustls::AlertDescription>,
     pub(crate) certificate_anomaly: bool,
     pub(crate) tls_handshake_ms: Option<u64>,

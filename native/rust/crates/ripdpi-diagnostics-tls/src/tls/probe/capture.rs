@@ -40,6 +40,7 @@ pub(crate) struct ReconnectedTransport {
 pub(crate) struct CaptureTlsError {
     pub(crate) message: String,
     pub(crate) server_hello_received: Option<bool>,
+    pub(super) peer_response_after_client_hello: Option<bool>,
     pub(crate) alert: Option<rustls::AlertDescription>,
     pub(crate) certificate_anomaly: bool,
     pub(crate) handshake_ms: Option<u64>,
@@ -53,6 +54,7 @@ impl From<String> for CaptureTlsError {
         Self {
             message,
             server_hello_received: None,
+            peer_response_after_client_hello: None,
             alert: None,
             certificate_anomaly: false,
             handshake_ms: None,
@@ -123,33 +125,37 @@ pub(crate) fn capture_tls_handshake(
     while connection.is_handshaking() {
         let mut io = BoundedHandshakeIo { recording: &mut recording, should_abort };
         if let Err(err) = connection.complete_io(&mut io) {
-            // rustls sets the version and suite during HelloRetryRequest too. After a retry
-            // request, these fields cannot tell whether the final ServerHello arrived.
-            let server_hello_received = (connection.handshake_kind()
-                != Some(rustls::HandshakeKind::FullWithHelloRetryRequest))
-            .then(|| connection.negotiated_cipher_suite().is_some());
-            let handshake_ms = Some(tls_start.elapsed().as_millis() as u64);
-            let client_hello = Some(Box::new(capture_client_hello(recording.recorded_writes())));
-            if let Some(message) = administrative_error_after_io(should_abort) {
-                return Err(CaptureTlsError { server_hello_received, handshake_ms, client_hello, ..message.into() });
-            }
             let tls_error = err.get_ref().and_then(|error| error.downcast_ref::<rustls::Error>());
+            let message = if tls_error.is_some() {
+                err.to_string()
+            } else {
+                administrative_error_after_io(should_abort).unwrap_or_else(|| err.to_string())
+            };
+            let version = connection.protocol_version();
+            // rustls sets the version and cipher suite while processing HelloRetryRequest too.
+            let server_hello_received = match version {
+                Some(rustls::ProtocolVersion::TLSv1_3) => connection.negotiated_key_exchange_group().is_some(),
+                _ => connection.negotiated_cipher_suite().is_some(),
+            };
+            let handshake_ms = Some(tls_start.elapsed().as_millis() as u64);
+            let client_hello = capture_client_hello(recording.recorded_writes());
             let alert = match tls_error {
                 Some(rustls::Error::AlertReceived(alert)) => Some(*alert),
                 _ => None,
             };
-            let certificate_anomaly = matches!(
-                tls_error,
-                Some(rustls::Error::InvalidCertificate(_) | rustls::Error::NoCertificatesPresented)
-            );
+            let certificate_anomaly = matches!(tls_error, Some(rustls::Error::InvalidCertificate(_)));
+            let peer_replied = version.is_some() || alert.is_some();
+            let peer_response_after_client_hello =
+                (peer_replied || client_hello.capture == ClientHelloCapture::Complete).then_some(peer_replied);
             let ech_retry_configs = tls_error.and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
             return Err(CaptureTlsError {
-                message: err.to_string(),
-                server_hello_received,
+                message,
+                server_hello_received: Some(server_hello_received),
+                peer_response_after_client_hello,
                 alert,
                 certificate_anomaly,
                 handshake_ms,
-                client_hello,
+                client_hello: Some(Box::new(client_hello)),
                 reconnect_open_ms: None,
                 ech_retry_configs,
             });
@@ -162,6 +168,7 @@ pub(crate) fn capture_tls_handshake(
     if let Some(message) = setup_error {
         return Err(CaptureTlsError {
             server_hello_received: Some(true),
+            peer_response_after_client_hello: Some(true),
             handshake_ms: Some(tls_handshake_ms),
             client_hello: Some(Box::new(client_hello)),
             ..message.into()
@@ -477,10 +484,48 @@ mod tests {
             assert!(observation.ja3_fingerprint.is_some());
             assert_eq!(observation.tls_alert_description.as_deref(), description);
             assert_eq!(observation.tls_server_hello_received, Some(false));
+            assert_eq!(observation.tls_peer_response_after_client_hello, Some(true));
             assert_eq!(observation.status, "tls_handshake_failed");
             assert!(!observation.certificate_anomaly);
             assert!(observation.tls_handshake_ms.is_some());
         }
+    }
+
+    #[test]
+    fn hello_retry_request_is_a_response_without_a_server_hello() {
+        let (port, server) = scripted_server(|hello| {
+            let certificate = rcgen::generate_simple_self_signed(vec!["localhost".to_string()]).unwrap();
+            let key = rustls::pki_types::PrivatePkcs8KeyDer::from(certificate.signing_key.serialize_der());
+            let mut provider = rustls::crypto::ring::default_provider();
+            provider.kx_groups = vec![rustls::crypto::ring::kx_group::SECP256R1];
+            let config = ServerConfig::builder_with_provider(Arc::new(provider))
+                .with_safe_default_protocol_versions()
+                .unwrap()
+                .with_no_client_auth()
+                .with_single_cert(vec![certificate.cert.der().clone()], key.into())
+                .unwrap();
+            let mut server = ServerConnection::new(Arc::new(config)).unwrap();
+            let mut client_hello = hello;
+            server.read_tls(&mut client_hello).unwrap();
+            server.process_new_packets().unwrap();
+            let mut response = Vec::new();
+            server.write_tls(&mut response).unwrap();
+            response.extend_from_slice(&HANDSHAKE_FAILURE_ALERT);
+            response
+        });
+        let observation = try_tls_handshake(
+            &TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+            port,
+            &direct_transport(),
+            "localhost",
+            TlsClientProfile::Tls13Only,
+            None,
+        );
+        server.join().unwrap();
+
+        assert_eq!(observation.tls_alert_code, Some(0x28));
+        assert_eq!(observation.tls_server_hello_received, Some(false));
+        assert_eq!(observation.tls_peer_response_after_client_hello, Some(true));
     }
 
     #[test]

@@ -42,6 +42,18 @@ class TransportSpecificRemediationSupportTest {
     }
 
     @Test
+    fun `a failure after ClientHello alone does not recommend browser fallback`() {
+        assertEquals(
+            TransportRemediationKind.NO_RELIABLE_RELAY_HINT,
+            recommendTransportRemediation(
+                result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                reasonCode = DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE,
+                transportClass = null,
+            ),
+        )
+    }
+
+    @Test
     fun `transport remediation falls back to no reliable hint when evidence is absent`() {
         assertEquals(
             TransportRemediationKind.NO_RELIABLE_RELAY_HINT,

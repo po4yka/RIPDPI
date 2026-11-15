@@ -105,7 +105,8 @@ fn report_attempt<'a>(
         return ("tls12", tls12);
     }
     if tls13.status != "tls_ok" && !tls13.certificate_anomaly {
-        if (tls13.tls_server_hello_received != Some(true) && tls12.tls_server_hello_received == Some(true))
+        if (tls13.tls_peer_response_after_client_hello != Some(true)
+            && tls12.tls_peer_response_after_client_hello == Some(true))
             || (tls13.transport_open_ms.is_none() && tls12.transport_open_ms.is_some())
         {
             return ("tls12", tls12);

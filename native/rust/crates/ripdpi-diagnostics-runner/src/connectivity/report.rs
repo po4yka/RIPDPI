@@ -41,6 +41,7 @@ pub fn append_tls_attempt_details(
         ("AlertSource", attempt.tls_alert_code.map(|_| "unknown".to_string())),
         ("AlertDescription", attempt.tls_alert_description.clone()),
         ("ServerHelloReceived", attempt.tls_server_hello_received.map(|answer| answer.to_string())),
+        ("PeerResponseReceived", attempt.tls_peer_response_after_client_hello.map(|answer| answer.to_string())),
         ("ConnectedIp", attempt.connected_addr.map(|addr| addr.ip().to_string())),
         ("ConnectedPort", attempt.connected_addr.map(|addr| addr.port().to_string())),
         ("PeerRole", peer_role.map(str::to_string)),

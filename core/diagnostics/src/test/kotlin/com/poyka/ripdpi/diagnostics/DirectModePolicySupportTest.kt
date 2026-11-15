@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
+import com.poyka.ripdpi.data.QuicMode
+import com.poyka.ripdpi.data.TcpFamily
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -65,7 +67,7 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `tls handshake failure without server hello evidence does not claim post client hello`() {
+    fun `connect failure and legacy server hello flag do not imply a tls fault`() {
         val report =
             reportWithResults(
                 ProbeResult(
@@ -76,8 +78,10 @@ class DirectModePolicySupportTest {
                         listOf(
                             ProbeDetail("candidateId", "baseline_plain_direct"),
                             ProbeDetail("targetHost", "example.org"),
-                            ProbeDetail("tlsError", "Error with reply: Host unreachable."),
-                            ProbeDetail("tlsServerHelloReceived", "false"),
+                            ProbeDetail("tls13Status", "tls_handshake_failed"),
+                            ProbeDetail("tls13FailureStage", "tcp_connect"),
+                            ProbeDetail("tls13PeerResponseReceived", "true"),
+                            ProbeDetail("tlsServerHelloReceived", "true"),
                         ),
                 ),
             )
@@ -86,12 +90,14 @@ class DirectModePolicySupportTest {
         val verdict = deriveDirectModeVerdict(report)
 
         assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, observation.transportPolicy?.outcome)
-        assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, observation.transportClass)
+        assertEquals(QuicMode.ALLOW, observation.transportPolicy?.quicMode)
+        assertEquals(TcpFamily.NONE, observation.transportPolicy?.tcpFamily)
+        assertNull(observation.transportClass)
         assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, observation.reasonCode)
         assertNotNull(observation.cooldownUntil)
         assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
         assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, verdict?.reasonCode)
-        assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, verdict?.transportClass)
+        assertNull(verdict?.transportClass)
         assertEquals(
             "No direct solution for this authority",
             report.copy(directModeVerdict = verdict).displaySummary(),
@@ -99,7 +105,7 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `tls handshake failure with server hello evidence confirms post client hello`() {
+    fun `tls alert without a server hello records the phase without assigning a path fault`() {
         val report =
             reportWithResults(
                 ProbeResult(
@@ -110,7 +116,11 @@ class DirectModePolicySupportTest {
                         listOf(
                             ProbeDetail("candidateId", "baseline_plain_direct"),
                             ProbeDetail("targetHost", "example.org"),
-                            ProbeDetail("tlsServerHelloReceived", "true"),
+                            ProbeDetail("tls12Status", "tls_handshake_failed"),
+                            ProbeDetail("tls12FailureStage", "tls_handshake"),
+                            ProbeDetail("tls12PeerResponseReceived", "true"),
+                            ProbeDetail("tls12ServerHelloReceived", "false"),
+                            ProbeDetail("tls12AlertCode", "70"),
                         ),
                 ),
             )
@@ -120,6 +130,36 @@ class DirectModePolicySupportTest {
 
         assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, observation.reasonCode)
         assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, verdict?.reasonCode)
+        assertNull(observation.transportClass)
+        assertEquals(QuicMode.ALLOW, observation.transportPolicy?.quicMode)
+        assertEquals(TcpFamily.NONE, observation.transportPolicy?.tcpFamily)
+    }
+
+    @Test
+    fun `response from a successful tls profile does not describe a different failed profile`() {
+        val report =
+            reportWithResults(
+                ProbeResult(
+                    probeType = "domain_reachability",
+                    target = "example.org",
+                    outcome = "tls_version_split",
+                    details =
+                        listOf(
+                            ProbeDetail("targetHost", "example.org"),
+                            ProbeDetail("tls13Status", "tls_ok"),
+                            ProbeDetail("tls13FailureStage", "none"),
+                            ProbeDetail("tls13PeerResponseReceived", "true"),
+                            ProbeDetail("tls12Status", "tls_handshake_failed"),
+                            ProbeDetail("tls12FailureStage", "tls_handshake"),
+                            ProbeDetail("tls12PeerResponseReceived", "false"),
+                        ),
+                ),
+            )
+
+        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
+
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, observation.reasonCode)
+        assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, observation.transportClass)
     }
 
     @Test
@@ -148,6 +188,28 @@ class DirectModePolicySupportTest {
         assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, observation.reasonCode)
         assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
         assertNull(verdict?.transportClass)
+    }
+
+    @Test
+    fun `alert with inconsistent response flag does not select a tls remediation policy`() {
+        val probe = strategyHttpsProbe("baseline_plain_direct", "tls_handshake_failed")
+        val result =
+            probe.copy(
+                details =
+                    probe.details +
+                        listOf(
+                            ProbeDetail("tls13Status", "tls_handshake_failed"),
+                            ProbeDetail("tls13FailureStage", "tls_handshake"),
+                            ProbeDetail("tls13PeerResponseReceived", "false"),
+                            ProbeDetail("tls13AlertCode", "70"),
+                        ),
+            )
+        val observation = collectDirectPathCapabilityObservations(reportWithResults(result)).getValue("example.org")
+
+        assertNull(observation.transportClass)
+        assertEquals(DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE, observation.reasonCode)
+        assertEquals(QuicMode.ALLOW, observation.transportPolicy?.quicMode)
+        assertEquals(TcpFamily.NONE, observation.transportPolicy?.tcpFamily)
     }
 
     @Test
