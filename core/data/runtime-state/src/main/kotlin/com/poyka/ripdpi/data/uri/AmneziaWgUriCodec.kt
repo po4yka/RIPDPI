@@ -98,11 +98,11 @@ object AmneziaWgUriCodec {
             awg.h2?.let { "h2" to it },
             awg.h3?.let { "h3" to it },
             awg.h4?.let { "h4" to it },
-            awg.i1?.let { "i1" to it },
-            awg.i2?.let { "i2" to it },
-            awg.i3?.let { "i3" to it },
-            awg.i4?.let { "i4" to it },
-            awg.i5?.let { "i5" to it },
+            awg.i1?.takeIf(String::isNotEmpty)?.let { "i1" to it },
+            awg.i2?.takeIf(String::isNotEmpty)?.let { "i2" to it },
+            awg.i3?.takeIf(String::isNotEmpty)?.let { "i3" to it },
+            awg.i4?.takeIf(String::isNotEmpty)?.let { "i4" to it },
+            awg.i5?.takeIf(String::isNotEmpty)?.let { "i5" to it },
         ) + awg.v3.toUriParams()
 
     /**
