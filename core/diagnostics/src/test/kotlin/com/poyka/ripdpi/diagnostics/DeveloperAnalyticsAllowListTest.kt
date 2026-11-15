@@ -333,7 +333,6 @@ class DeveloperAnalyticsAllowListTest {
             fileStore =
                 DiagnosticsArchiveFileStore(
                     cacheDir = context.cacheDir,
-                    pcapDirectory = context.filesDir.resolve("pcap"),
                     clock =
                         DiagnosticsArchiveClock {
                             1_700_000_000_002L

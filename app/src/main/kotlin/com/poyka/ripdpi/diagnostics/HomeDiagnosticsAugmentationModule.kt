@@ -13,7 +13,6 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsPreparedFileStore
 import com.poyka.ripdpi.diagnostics.export.PreparedExportClock
-import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
 import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.Binds
@@ -180,13 +179,11 @@ abstract class HomeDiagnosticsAugmentationModule {
             @ApplicationContext context: Context,
             clock: DiagnosticsArchiveClock,
             pcapController: PcapController,
-            captureRuntime: PcapCaptureRuntimeController,
         ): DiagnosticsArchiveFileStore =
             DiagnosticsArchiveFileStore(
                 cacheDir = context.cacheDir,
                 clock = clock,
-                pcapDirectory = pcapController.captureDirectory,
-                withCaptureStorageLock = captureRuntime::withCaptureStorageLock,
+                cleanupCaptureStorage = { pcapController.cleanupCaptures() },
             )
     }
 

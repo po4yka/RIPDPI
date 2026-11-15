@@ -280,12 +280,12 @@
     <string name="diagnostics_save_logs_title">Save local logs</string>
     <string name="diagnostics_save_logs_body">Export the same app-scoped logcat snapshot as a plain-text file when you need just the local app trace; this file is created only after you choose where to save it.</string>
     <string name="diagnostics_pcap_card_title">Packet capture</string>
-    <string name="diagnostics_pcap_card_body_idle">Records raw IP packet bytes to a local PCAP file. Retention: 24 h / 3 most-recent files. PCAP is not created unless you start recording, and no automatic sharing occurs.</string>
-    <string name="diagnostics_pcap_card_body_recording">Recording raw packet bytes. Files are kept for 24 h (3 most-recent) as separate local PCAP artifacts and are not embedded in redacted diagnostics archives.</string>
+    <string name="diagnostics_pcap_card_body_idle">Record raw IP packets in a local PCAP file. Cleanup keeps up to three files and removes inactive files older than 24 hours.</string>
+    <string name="diagnostics_pcap_card_body_recording">Recording raw IP packets to local PCAP files. Redacted diagnostic archives exclude PCAP files.</string>
     <string name="diagnostics_pcap_card_start">Start recording</string>
     <string name="diagnostics_pcap_card_stop">Stop recording</string>
     <string name="diagnostics_pcap_disclosure_title">Raw-packet capture disclosure</string>
-    <string name="diagnostics_pcap_disclosure_body">Recording writes raw IP packet bytes to a local file and can include packet payloads. Retention is 24 h or 3 most-recent files, whichever is smaller, then cleanup deletes old captures. PCAP files are separate raw artifacts; redacted diagnostics archives do not embed them.</string>
+    <string name="diagnostics_pcap_disclosure_body">PCAP files can contain packet payloads. Cleanup keeps up to three files and removes inactive files older than 24 hours. PCAP files stay separate from redacted diagnostic archives.</string>
     <string name="blockcheck_section_title">Strategy probe</string>
     <string name="blockcheck_entry_title">Strategy probe</string>
     <string name="blockcheck_domains_label">Test domains</string>

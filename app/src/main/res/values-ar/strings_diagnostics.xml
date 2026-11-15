@@ -270,12 +270,12 @@
     <string name="diagnostics_save_logs_title">حفظ السجلات المحلية</string>
     <string name="diagnostics_save_logs_body">تصدير لقطة logcat المقيدة بالتطبيق كملف نص عادي عند الحاجة إلى أثر التطبيق المحلي فقط؛ يُنشأ هذا الملف بعد اختيار موقع الحفظ.</string>
     <string name="diagnostics_pcap_card_title">التقاط الحزم</string>
-    <string name="diagnostics_pcap_card_body_idle">يسجّل بايتات حزم IP الخام في ملف PCAP محلي. مدة الاحتفاظ: 24 ساعة / آخر 3 ملفات. لا يُنشئ PCAP إلا عند بدء التسجيل، ولا تتم مشاركة تلقائية.</string>
-    <string name="diagnostics_pcap_card_body_recording">يتم تسجيل بايتات الحزم الخام. تُحتفَظ الملفات لمدة 24 ساعة (آخر 3 ملفات) كملفات PCAP محلية منفصلة ولا تُضمَّن في أرشيفات التشخيص المنقّحة.</string>
+    <string name="diagnostics_pcap_card_body_idle">يسجّل حزم IP الخام في ملف PCAP محلي. تحتفظ عملية التنظيف بما يصل إلى ثلاثة ملفات وتحذف الملفات غير النشطة التي مضى عليها أكثر من 24 ساعة.</string>
+    <string name="diagnostics_pcap_card_body_recording">يجري تسجيل حزم IP الخام في ملفات PCAP محلية. لا تتضمن أرشيفات التشخيص المنقّحة ملفات PCAP.</string>
     <string name="diagnostics_pcap_card_start">بدء التسجيل</string>
     <string name="diagnostics_pcap_card_stop">إيقاف التسجيل</string>
     <string name="diagnostics_pcap_disclosure_title">إفصاح التقاط الحزم الخام</string>
-    <string name="diagnostics_pcap_disclosure_body">يكتب التسجيل بايتات حزم IP الخام إلى ملف محلي وقد يتضمن حمولات الحزم. مدة الاحتفاظ هي 24 ساعة أو آخر 3 ملفات، أيهما أصغر، ثم يحذف التنظيف الالتقاطات القديمة. ملفات PCAP هي ملفات خام منفصلة؛ ولا تُضمّنها أرشيفات التشخيص المنقّحة.</string>
+    <string name="diagnostics_pcap_disclosure_body">قد تحتوي ملفات PCAP على حمولات الحزم. تحتفظ عملية التنظيف بما يصل إلى ثلاثة ملفات وتحذف الملفات غير النشطة التي مضى عليها أكثر من 24 ساعة. تبقى ملفات PCAP منفصلة عن أرشيفات التشخيص المنقّحة.</string>
     <string name="blockcheck_section_title">فحص الاستراتيجية</string>
     <string name="blockcheck_entry_title">فحص الاستراتيجية</string>
     <string name="blockcheck_domains_label">نطاقات الاختبار</string>

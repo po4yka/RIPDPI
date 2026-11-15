@@ -486,12 +486,12 @@
     <string name="diagnostics_telegram_reachable_format">%1$s/%2$s accesibles</string>
     <string name="diagnostics_trends_section">Tendencias recientes</string>
     <string name="diagnostics_pcap_card_title">Captura de paquetes</string>
-    <string name="diagnostics_pcap_card_body_idle">Registra bytes de paquetes IP sin procesar en un archivo PCAP local. Retención: 24 h / los 3 archivos más recientes. No se crea un PCAP hasta que inicies la grabación y no se realiza ninguna compartición automática.</string>
-    <string name="diagnostics_pcap_card_body_recording">Se están registrando bytes de paquetes sin procesar. Los archivos se conservan durante 24 h (los 3 más recientes) como artefactos PCAP locales independientes y no se incluyen en los archivos de diagnóstico censurados.</string>
+    <string name="diagnostics_pcap_card_body_idle">Graba paquetes IP sin procesar en un archivo PCAP local. La limpieza conserva hasta tres archivos y elimina los inactivos de más de 24 horas.</string>
+    <string name="diagnostics_pcap_card_body_recording">Se están grabando paquetes IP sin procesar en archivos PCAP locales. Los archivos de diagnóstico censurados no incluyen archivos PCAP.</string>
     <string name="diagnostics_pcap_card_start">Iniciar grabación</string>
     <string name="diagnostics_pcap_card_stop">Detener grabación</string>
     <string name="diagnostics_pcap_disclosure_title">Aviso de captura de paquetes sin procesar</string>
-    <string name="diagnostics_pcap_disclosure_body">La grabación escribe bytes de paquetes IP sin procesar en un archivo local y puede incluir el contenido de los paquetes. Se conservan durante 24 h o hasta los 3 archivos más recientes, lo que resulte menor; después, la limpieza elimina las capturas antiguas. Los archivos PCAP son artefactos sin procesar independientes; los archivos de diagnóstico censurados no los incluyen.</string>
+    <string name="diagnostics_pcap_disclosure_body">Los archivos PCAP pueden contener las cargas útiles de los paquetes. La limpieza conserva hasta tres archivos y elimina los inactivos de más de 24 horas. Los archivos PCAP se guardan por separado de los archivos de diagnóstico censurados.</string>
     <string name="diagnostics_open_logs_body">Abre el flujo en vivo de registros con filtros para servicio, proxy, túnel y diagnósticos.</string>
     <string name="blockcheck_dns_warning">La comparación de DNS detectó una señal de manipulación para al menos un dominio.</string>
     <string name="blockcheck_diagnosis_title">Por qué este sitio está bloqueado</string>

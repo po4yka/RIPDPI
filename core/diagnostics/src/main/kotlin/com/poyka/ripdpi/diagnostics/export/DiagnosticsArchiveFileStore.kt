@@ -7,17 +7,10 @@ fun interface DiagnosticsArchiveClock {
     fun now(): Long
 }
 
-private const val PcapRetentionWindowMs = 24L * 60L * 60L * 1000L
-private const val PcapSetIdRadix = 16
-private const val PcapSetIdWidth = 16
-private const val PcapRetentionMaxFiles = 4
-private const val PcapRetentionMaxBytes = 64L * 1024L * 1024L
-
 class DiagnosticsArchiveFileStore(
     private val cacheDir: File,
     private val clock: DiagnosticsArchiveClock,
-    private val pcapDirectory: File,
-    private val withCaptureStorageLock: suspend ((Long?) -> Unit) -> Unit = { it(null) },
+    private val cleanupCaptureStorage: suspend () -> Unit = {},
     private val deleteFile: (File) -> Boolean = File::delete,
 ) {
     fun cleanup(reservedSlots: Int = 0) {
@@ -68,43 +61,7 @@ class DiagnosticsArchiveFileStore(
 
     internal fun deleteArchive(file: File) = deleteVerified(file)
 
-    suspend fun cleanupPcapFiles() =
-        withCaptureStorageLock { activeCaptureSetId ->
-            val pcapDir = pcapDirectory
-            if (!pcapDir.exists()) return@withCaptureStorageLock
-            val now = clock.now()
-            val activeSetIds = setOfNotNull(activeCaptureSetId?.toString(PcapSetIdRadix)?.padStart(PcapSetIdWidth, '0'))
-            pcapDir
-                .listFiles()
-                .orEmpty()
-                .filter { it.isFile && it.name.endsWith(PcapActiveFileSuffix) }
-                .filterNot { it.belongsToActivePcapSet(activeSetIds) }
-                .forEach(::deleteVerified)
-            pcapFiles(pcapDir)
-                .filterNot { it.belongsToActivePcapSet(activeSetIds) }
-                .filter { now - it.lastModified() > PcapRetentionWindowMs }
-                .forEach(::deleteVerified)
-            var retainedCount = 0
-            var retainedBytes = 0L
-            pcapFiles(pcapDir)
-                .filterNot { it.belongsToActivePcapSet(activeSetIds) }
-                .sortedByDescending { it.lastModified() }
-                .forEach { file ->
-                    val fileBytes = file.length()
-                    if (retainedCount < PcapRetentionMaxFiles && retainedBytes <= PcapRetentionMaxBytes - fileBytes) {
-                        retainedCount += 1
-                        retainedBytes += fileBytes
-                    } else {
-                        deleteVerified(file)
-                    }
-                }
-        }
-
-    private fun pcapFiles(directory: File): List<File> =
-        directory.listFiles().orEmpty().filter { it.isFile && it.extension == "pcap" }
-
-    private fun File.belongsToActivePcapSet(activeSetIds: Set<String>): Boolean =
-        name.substringBefore('-') in activeSetIds
+    suspend fun cleanupPcapFiles() = cleanupCaptureStorage()
 
     internal fun createTarget(): DiagnosticsArchiveTarget {
         val createdAt = clock.now()
@@ -137,10 +94,6 @@ class DiagnosticsArchiveFileStore(
         file.isFile &&
             file.name.startsWith("${DiagnosticsArchiveFormat.fileNamePrefix}.") &&
             file.name.endsWith(".tmp")
-
-    private companion object {
-        const val PcapActiveFileSuffix = ".pcap.active"
-    }
 }
 
 internal fun restrictToOwner(

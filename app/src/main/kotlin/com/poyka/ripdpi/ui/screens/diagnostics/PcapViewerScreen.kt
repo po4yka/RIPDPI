@@ -89,6 +89,7 @@ fun PcapViewerScreen(
     loading: Boolean = false,
     failureReason: String? = null,
     onRetry: (() -> Unit)? = null,
+    exportAction: (@Composable () -> Unit)? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
@@ -130,6 +131,9 @@ fun PcapViewerScreen(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 item(key = "pcap-header") { PcapFileHeader(fileName, packetCount) }
+                if (exportAction != null) {
+                    item(key = "pcap-export") { exportAction() }
+                }
                 if (loading) {
                     item(key = "pcap-loading") { PcapLoadingRow() }
                 }

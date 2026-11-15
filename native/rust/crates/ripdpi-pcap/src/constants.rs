@@ -9,9 +9,14 @@ pub const MAGIC: u32 = 0xa1b2_c3d4;
 /// TUN device emits.
 pub const LINKTYPE_RAW: u32 = 101;
 
-/// Maximum bytes captured per packet. 65535 is large enough for any
-/// IPv6 jumbogram we might see in practice (typical MTU is 1500).
+/// Default snapshot length for packets captured at the TUN interface.
 pub const SNAPLEN_DEFAULT: u32 = 65535;
 
-pub(crate) const PCAP_GLOBAL_HEADER_LEN: usize = 24;
-pub(crate) const PCAP_PACKET_HEADER_LEN: usize = 16;
+/// Encoded length of the classic PCAP file header.
+pub const PCAP_GLOBAL_HEADER_LEN: usize = 24;
+/// Encoded length of the header that precedes each packet.
+pub const PCAP_PACKET_HEADER_LEN: usize = 16;
+
+pub(crate) const PCAP_VERSION: [u8; 4] = [2, 0, 4, 0];
+pub(crate) const MAX_CAPTURED_BYTES: u32 = 262_144;
+pub(crate) const MICROS_PER_SECOND: u32 = 1_000_000;

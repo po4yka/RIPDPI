@@ -22,7 +22,6 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.pcap.PcapCaptureRuntimeController
-import com.poyka.ripdpi.pcap.PcapCaptureRuntimeState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
@@ -33,6 +32,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withTimeout
@@ -78,7 +78,7 @@ internal class MainHomeDiagnosticsActions(
     private val requestVpnStart: () -> Unit,
     // True when the saved DNS settings make startMode(VPN) refuse to start (DoQ in VPN mode).
     private val vpnStartBlockedByDns: () -> Boolean = { false },
-    private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
+    pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
     private val homePcapCaptureLeaseCoordinator = pcapCaptureRuntimeController?.let(::StatusPcapCaptureLeaseCoordinator)
     private var activeRunObservation: Job? = null
@@ -92,15 +92,6 @@ internal class MainHomeDiagnosticsActions(
         observeVerifiedVpnConnection()
         observeBlockingPermissionWhileWaiting()
         observeServiceStatusForFingerprint()
-        pcapCaptureRuntimeController?.let { controller ->
-            mutations.launch {
-                controller.state.collect { state ->
-                    homeDiagnosticsState.update { current ->
-                        current.copy(pcapRecordingRequested = state is PcapCaptureRuntimeState.Recording)
-                    }
-                }
-            }
-        }
     }
 
     private fun observeLatestManualDiagnosticSession() {
@@ -233,40 +224,40 @@ internal class MainHomeDiagnosticsActions(
     }
 
     fun runFullAnalysis() {
-        startAnalysis(quickScan = false) {
-            diagnosticsHomeCompositeRunService.startHomeAnalysis(
-                homePcapCaptureLeaseCoordinator?.runOptions(homeDiagnosticsState.value.pcapRecordingRequested)
-                    ?: DiagnosticsHomeRunOptions(),
-            )
-        }
+        startAnalysis(quickScan = false, start = diagnosticsHomeCompositeRunService::startHomeAnalysis)
     }
 
     private fun startAnalysis(
         quickScan: Boolean,
-        start: suspend () -> DiagnosticsHomeCompositeRunStarted,
+        start: suspend (DiagnosticsHomeRunOptions) -> DiagnosticsHomeCompositeRunStarted,
     ) {
         if (analysisStartJob?.isActive == true || homeDiagnosticsState.value.analysisInProgress()) return
         analysisStartJob =
             mutations.launch {
                 activeRunObservation?.cancel()
-                homeDiagnosticsState.update {
-                    it.copy(
-                        activeRunId = null,
-                        activeRunProgress = null,
-                        activeRunStageProgress = null,
-                        activeStageStepProgress = 0f,
-                        quickScanActive = quickScan,
-                        latestCompositeOutcome = null,
-                        analysisSheetVisible = false,
-                        verificationSheet = null,
-                        activeVerificationSessionId = null,
-                        waitingForVerifiedVpnStart = false,
-                        verificationProgress = null,
-                        analysisStartFailed = false,
-                        analysisStartCancelled = false,
-                        analysisStarting = true,
-                    )
-                }
+                val previous =
+                    homeDiagnosticsState.getAndUpdate {
+                        it.copy(
+                            activeRunId = null,
+                            activeRunProgress = null,
+                            activeRunStageProgress = null,
+                            activeStageStepProgress = 0f,
+                            quickScanActive = quickScan,
+                            latestCompositeOutcome = null,
+                            analysisSheetVisible = false,
+                            verificationSheet = null,
+                            activeVerificationSessionId = null,
+                            waitingForVerifiedVpnStart = false,
+                            verificationProgress = null,
+                            analysisStartFailed = false,
+                            analysisStartCancelled = false,
+                            analysisStarting = true,
+                            pcapRecordingRequested = false,
+                        )
+                    }
+                val options =
+                    homePcapCaptureLeaseCoordinator?.runOptions(previous.pcapRecordingRequested)
+                        ?: DiagnosticsHomeRunOptions()
                 val failStart: suspend () -> Unit = {
                     homeDiagnosticsState.update {
                         it.copy(
@@ -283,7 +274,7 @@ internal class MainHomeDiagnosticsActions(
                     )
                 }
                 try {
-                    val started = withTimeout(HomeAnalysisStartTimeoutMillis) { start() }
+                    val started = withTimeout(HomeAnalysisStartTimeoutMillis) { start(options) }
                     homeDiagnosticsState.update {
                         it.copy(
                             activeRunId = started.runId,
@@ -337,12 +328,7 @@ internal class MainHomeDiagnosticsActions(
     }
 
     fun runQuickAnalysis() {
-        startAnalysis(quickScan = true) {
-            diagnosticsHomeCompositeRunService.startQuickAnalysis(
-                homePcapCaptureLeaseCoordinator?.runOptions(homeDiagnosticsState.value.pcapRecordingRequested)
-                    ?: DiagnosticsHomeRunOptions(),
-            )
-        }
+        startAnalysis(quickScan = true, start = diagnosticsHomeCompositeRunService::startQuickAnalysis)
     }
 
     fun togglePcapRecording() {

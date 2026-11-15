@@ -232,14 +232,21 @@
     <string name="vpn_pcap_capture_list_empty">Aktivieren Sie die Paketaufzeichnung in den erweiterten Einstellungen.</string>
     <string name="vpn_pcap_loading">Paketmitschnitte werden geladen…</string>
     <string name="vpn_pcap_read_failed">PCAP-Daten konnten nicht gelesen werden.</string>
-    <string name="vpn_pcap_truncated">Die ersten 2.000 Pakete werden angezeigt.</string>
+    <string name="vpn_pcap_truncated">Ein Teil der Aufzeichnung wird angezeigt.</string>
     <string name="vpn_pcap_no_packets">Dieser Mitschnitt enthält keine Pakete.</string>
+    <string name="vpn_pcap_capture_limit_reached">Die Aufzeichnung wurde beim Erreichen des Größenlimits beendet.</string>
+    <string name="vpn_pcap_export_redacted">Bereinigte PCAP exportieren</string>
+    <string name="vpn_pcap_export_details">IP-Adressen und Nutzdaten werden entfernt. Zeitstempel und Ports bleiben erhalten.</string>
+    <string name="vpn_pcap_export_saved">Bereinigte PCAP gespeichert.</string>
+    <string name="vpn_pcap_export_incomplete">Diese Aufzeichnung ist unvollständig. Es wurde keine Datei erstellt.</string>
+    <string name="vpn_pcap_export_failed">Die PCAP-Datei konnte nicht exportiert werden.</string>
+    <string name="vpn_pcap_export_cleanup_failed">Export fehlgeschlagen. Entferne die unvollständige Datei am ausgewählten Speicherort.</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Entwickler</string>
     <string name="vpn_dev_pcap_toggle_label">Paketaufzeichnung (Diagnose)</string>
     <string name="vpn_dev_pcap_toggle_desc">VPN-Pakete lokal zur Überprüfung aufzeichnen. Standardmäßig deaktiviert.</string>
     <string name="vpn_dev_pcap_consent_title">Paketaufzeichnung aktivieren?</string>
-    <string name="vpn_dev_pcap_consent_warning">Wenn aktiviert, werden Paket-Header, TLS-SNI-Hostnamen, Ziel-IPs und Strategie-Fingerabdrücke der nächsten VPN-Sitzung in eine rotierende 64-MiB-Aufzeichnungsdatei auf dem Gerät geschrieben. Die Aufzeichnungen bleiben app-intern, bis Sie sie explizit exportieren.</string>
+    <string name="vpn_dev_pcap_consent_warning">Diese Einstellung erlaubt es, eine Aufzeichnung zu starten. Eine Aufzeichnung speichert unverarbeitete VPN-Pakete einschließlich IP-Adressen und Nutzdaten auf diesem Gerät. Das Deaktivieren der Einstellung beendet die Aufzeichnung.</string>
     <!-- OOM recovery surface -->
     <string name="oom_recovery_action_reconnect">Neu verbinden</string>
     <!-- Domain bypass list (routing) -->

@@ -97,6 +97,27 @@ class PcapCaptureContentTest {
         assertEquals(2_000, capture.packets.size)
         assertTrue(capture.hasMore)
     }
+
+    @Test
+    fun `viewer bounds retained packet bytes even below the packet count limit`() {
+        val directory = temporaryFolder.newFolder("pcap")
+        val file = File(directory, "large-records.pcap")
+        val globalHeader = PcapHeader.copyOf().also { it[18] = 4 }
+        val recordHeader = "01 00 00 00 00 00 00 00 00 00 04 00 00 00 04 00".decodeHex()
+        val packet = ByteArray(256 * 1024).also { it[0] = 0x60 }
+        file.outputStream().use { stream ->
+            stream.write(globalHeader)
+            repeat(65) {
+                stream.write(recordHeader)
+                stream.write(packet)
+            }
+        }
+
+        val capture = readCapturePackets(directory, file.name)
+
+        assertEquals(64, capture.packets.size)
+        assertTrue(capture.hasMore)
+    }
 }
 
 private val PcapHeader =
