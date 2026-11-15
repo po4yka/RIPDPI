@@ -583,7 +583,7 @@ fn tcp_probe_reports_whitelist_sni_success() {
     // This diagnostic deliberately uses its explicit no-verify policy with a synthetic TLS peer.
     let server = TlsHttpServer::start(
         TlsMode::Single("allow.example".to_string()),
-        FatServerMode::AllowHost("allow.example".to_string()),
+        FatServerMode::AllowSni { name: "allow.example".into(), host: "deny.example".into() },
     );
     let target = TcpTarget {
         id: "test".to_string(),
@@ -615,7 +615,7 @@ fn tcp_probe_reports_whitelist_sni_failure() {
     // This diagnostic deliberately uses its explicit no-verify policy with a synthetic TLS peer.
     let server = TlsHttpServer::start(
         TlsMode::Single("allow.example".to_string()),
-        FatServerMode::AllowHost("allow.example".to_string()),
+        FatServerMode::AllowSni { name: "allow.example".into(), host: "deny.example".into() },
     );
     let target = TcpTarget {
         id: "test".to_string(),
@@ -630,7 +630,7 @@ fn tcp_probe_reports_whitelist_sni_failure() {
     };
 
     let result = run_tcp_probe(&target, &["missing.example".to_string()], &direct_transport(), None);
-    assert_eq!(result.outcome, "whitelist_sni_failed");
+    assert_eq!(result.outcome, "inconclusive");
 }
 
 #[test]

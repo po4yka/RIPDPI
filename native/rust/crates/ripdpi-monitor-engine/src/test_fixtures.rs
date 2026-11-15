@@ -529,6 +529,8 @@ pub enum FatServerMode {
     AlwaysOk,
     CutoffAtThreshold,
     AllowHost(String),
+    AllowSni { name: String, host: String },
+    HttpResponse(&'static [u8]),
 }
 
 pub struct TlsHttpServer {
@@ -646,6 +648,19 @@ pub fn handle_tls_client(stream: TcpStream, config: Arc<ServerConfig>, fat_mode:
         return;
     };
     let mut stream = StreamOwned::new(connection, stream);
+    let fat_mode = match fat_mode {
+        FatServerMode::AllowSni { name, host } => {
+            if stream.conn.complete_io(&mut stream.sock).is_err() {
+                return;
+            }
+            if stream.conn.server_name() == Some(name.as_str()) {
+                FatServerMode::AllowHost(host)
+            } else {
+                FatServerMode::HttpResponse(b"HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n")
+            }
+        }
+        mode => mode,
+    };
     handle_fat_http_stream(&mut stream, fat_mode);
 }
 
@@ -667,11 +682,16 @@ pub fn handle_fat_http_stream(stream: &mut impl ReadWrite, fat_mode: FatServerMo
         total_read += request.len();
         let request_text = String::from_utf8_lossy(&request).to_ascii_lowercase();
         if let FatServerMode::AllowHost(expected) = &fat_mode
-            && !request_text.contains(&expected.to_ascii_lowercase())
+            && !request_text.lines().any(|line| line == format!("host: {}", expected.to_ascii_lowercase()))
         {
             return;
         }
         if matches!(&fat_mode, FatServerMode::CutoffAtThreshold) && total_read >= FAT_HEADER_THRESHOLD_BYTES {
+            return;
+        }
+        if let FatServerMode::HttpResponse(response) = fat_mode {
+            let _ = stream.write_all(response);
+            let _ = stream.flush();
             return;
         }
         let response = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";

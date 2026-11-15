@@ -111,7 +111,10 @@ fn native_compatibility_contract_retains_retired_outcomes() {
 
     assert_eq!(
         compatibility_only,
-        BTreeSet::from(["udp_timeout_transient", "tcp_16kb_blocked", "tcp_freeze_after_threshold"].map(str::to_string))
+        BTreeSet::from(
+            ["udp_timeout_transient", "tcp_16kb_blocked", "tcp_freeze_after_threshold", "whitelist_sni_failed"]
+                .map(str::to_string)
+        )
     );
 }
 

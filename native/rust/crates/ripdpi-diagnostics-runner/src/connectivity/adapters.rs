@@ -19,8 +19,8 @@ pub(crate) mod dns_oracle {
 
 pub(crate) mod fat_header {
     pub use ripdpi_diagnostics_fat_header::fat_header::{
-        FatHeaderStatus, classify_fat_header_outcome, classify_tcp_block_method, fat_status_label,
-        run_fat_header_attempt_with_key_log,
+        FatHeaderObservation, FatHeaderStatus, classify_fat_header_outcome, classify_tcp_block_method,
+        fat_status_label, run_fat_header_attempt_with_key_log,
     };
 }
 

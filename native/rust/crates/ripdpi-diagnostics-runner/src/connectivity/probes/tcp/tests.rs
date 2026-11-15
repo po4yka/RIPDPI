@@ -37,7 +37,7 @@ fn evidence_whitelist_rejects_http_errors_and_short_success() {
             &super::TransportConfig::Direct { route_experiment: None },
             None,
         );
-        assert_eq!(result.outcome, "whitelist_sni_failed", "{result:?}");
+        assert_eq!(result.outcome, "inconclusive", "{result:?}");
         assert!(result.details.iter().any(|d| d.key == "responsesSeen" && d.value == "1"), "{result:?}");
     }
 }
@@ -47,7 +47,7 @@ fn evidence_whitelist_accepts_completed_transfer() {
     use crate::test_fixtures::{FatServerMode, TlsHttpServer, TlsMode};
     let server = TlsHttpServer::start(
         TlsMode::Single("original.example".into()),
-        FatServerMode::AllowHost("allowed.example".into()),
+        FatServerMode::AllowSni { name: "allowed.example".into(), host: "original.example".into() },
     );
     let result = super::run_tcp_probe(
         &tcp_target(server.port(), Some("original.example")),
@@ -58,6 +58,9 @@ fn evidence_whitelist_accepts_completed_transfer() {
     assert_eq!(result.outcome, "whitelist_sni_ok", "{result:?}");
     assert!(result.details.iter().any(|d| d.key == "selectedSni" && d.value == "allowed.example"));
     assert!(result.details.iter().any(|d| d.key == "responsesSeen" && d.value == "3"));
+    let attempts = &result.details.iter().find(|detail| detail.key == "attempts").unwrap().value;
+    assert!(attempts.contains("original.example:inconclusive:initial"));
+    assert!(attempts.contains("allowed.example:ok:alternate_sni"));
 }
 
 #[test]
@@ -158,4 +161,27 @@ fn cancel_during_second_response_preserves_the_first_response() {
         assert_eq!(detail("responsesSeen"), "1");
         assert_eq!(detail("probeRetryCount"), "0");
     });
+}
+
+#[test]
+fn alternate_sni_candidates_skip_duplicates_baseline_and_non_dns_names() {
+    let target = tcp_target(443, Some("Base.Example."));
+    let inputs = [
+        "",
+        "BASE.EXAMPLE",
+        "127.0.0.1",
+        "bad:abc",
+        "a.example.",
+        "A.EXAMPLE",
+        "b.example",
+        "c.example",
+        "d.example",
+        "e.example",
+    ]
+    .map(str::to_string);
+
+    assert_eq!(
+        super::distinct_sni_candidates(&target, "Base.Example.", &inputs),
+        ["a.example", "b.example", "c.example", "d.example"],
+    );
 }
