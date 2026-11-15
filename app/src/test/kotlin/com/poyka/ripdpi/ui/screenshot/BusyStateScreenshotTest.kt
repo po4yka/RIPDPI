@@ -171,13 +171,13 @@ class BusyStateScreenshotTest {
                             persistentListOf(
                                 DiagnosticsPluggableTransportRowUiModel(
                                     label = "obfs4",
-                                    verdict = "reachable",
+                                    status = "reachable",
                                     detail = "handshake 214 ms",
                                     tone = DiagnosticsTone.Positive,
                                 ),
                                 DiagnosticsPluggableTransportRowUiModel(
                                     label = "snowflake",
-                                    verdict = "probing",
+                                    status = "probing",
                                     detail = "broker rendezvous",
                                     tone = DiagnosticsTone.Info,
                                 ),

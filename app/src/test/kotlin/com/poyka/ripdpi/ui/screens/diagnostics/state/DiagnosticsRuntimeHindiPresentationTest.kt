@@ -8,7 +8,8 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpich.PluggableTransportResult
-import com.poyka.ripdpi.diagnostics.dpich.PtVerdict
+import com.poyka.ripdpi.diagnostics.dpich.PtProbeStatus
+import com.poyka.ripdpi.diagnostics.dpich.PtProbeTrace
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -63,53 +64,31 @@ class DiagnosticsRuntimeHindiPresentationTest {
     }
 
     @Test
-    fun `all PT verdicts translate while evidence and severity remain exact`() {
-        val verdicts =
-            listOf(
-                PtVerdict.PtOk("Raw_Host.test:443"),
-                PtVerdict.PtBridgeBlocked("Raw_Bridge_Reason"),
-                PtVerdict.PtBrokerBlocked("Raw_Broker_Reason"),
-                PtVerdict.PtFrontBlocked("Raw_Front_Reason"),
-                PtVerdict.PtStunBlocked("Raw_STUN_Reason"),
-                PtVerdict.PtError("Raw_Error_Reason"),
-            )
-        val expectedHindi =
-            listOf("पहुँच उपलब्ध", "ब्रिज अवरुद्ध", "ब्रोकर अवरुद्ध", "फ़्रंट होस्ट अवरुद्ध", "STUN अवरुद्ध", "त्रुटि")
-        val expectedEnglish =
-            listOf("Reachable", "Bridge blocked", "Broker blocked", "Front blocked", "STUN blocked", "Error")
-        listOf("hi" to expectedHindi, "en" to expectedEnglish).forEach { (language, labels) ->
+    fun `PT presentation preserves separate operations and HTTP status codes`() {
+        listOf("hi", "en").forEach { language ->
             val strings = AndroidStringResolver(context(language))
-            val rows =
-                verdicts.flatMap { verdict ->
-                    result(verdict).toUiModel(privacyModeEnabled = false, stringResolver = strings).rows
-                }
-            assertEquals(labels, rows.chunked(3).map { it.first().verdict })
-            rows.chunked(3).forEachIndexed { index, chunk ->
-                assertEquals(listOf("obfs4", "snowflake", "meek"), chunk.map { it.label })
-                val expectedDetail =
-                    when (val verdict = verdicts[index]) {
-                        is PtVerdict.PtOk -> verdict.detail
-                        is PtVerdict.PtBridgeBlocked -> verdict.reason
-                        is PtVerdict.PtBrokerBlocked -> verdict.reason
-                        is PtVerdict.PtFrontBlocked -> verdict.reason
-                        is PtVerdict.PtStunBlocked -> verdict.reason
-                        is PtVerdict.PtError -> verdict.reason
-                    }
-                assertEquals(List(3) { expectedDetail }, chunk.map { it.detail })
-                val expectedTone =
-                    when (index) {
-                        0 -> DiagnosticsTone.Positive
-                        5 -> DiagnosticsTone.Negative
-                        else -> DiagnosticsTone.Warning
-                    }
-                assertEquals(List(3) { expectedTone }, chunk.map { it.tone })
-            }
-            val blank = result(PtVerdict.PtError(" ")).toUiModel(privacyModeEnabled = true, stringResolver = strings)
-            assertTrue(blank.privacyModeEnabled)
+            val probe =
+                PluggableTransportResult(
+                    obfs4Tcp = PtProbeTrace("", PtProbeStatus.NOT_CONFIGURED, 0),
+                    snowflakeBroker = PtProbeTrace("broker.test", PtProbeStatus.HTTP_RESPONSE, 1, 404),
+                    snowflakeStun = PtProbeTrace("stun.test:19302", PtProbeStatus.TIMEOUT, 2),
+                    meekHead = PtProbeTrace("front.test", PtProbeStatus.HTTP_RESPONSE, 3, 503),
+                )
+            val rows = probe.toUiModel(privacyModeEnabled = false, stringResolver = strings).rows
             assertEquals(
-                List(3) { if (language == "hi") "कोई विवरण नहीं" else "no detail" },
-                blank.rows.map { it.detail },
+                listOf(
+                    R.string.diagnostics_pt_label_obfs4,
+                    R.string.diagnostics_pt_label_snowflake,
+                    R.string.diagnostics_pt_label_stun,
+                    R.string.diagnostics_pt_label_meek,
+                ),
+                rows.map { it.labelResId },
             )
+            assertEquals(strings.getString(R.string.diagnostics_pt_status_not_configured), rows[0].status)
+            assertEquals("HTTP 404", rows[1].status)
+            assertEquals("HTTP 503", rows[3].status)
+            assertEquals(DiagnosticsTone.Neutral, rows[1].tone)
+            assertEquals("front.test", rows[3].detail)
         }
     }
 
@@ -152,7 +131,7 @@ class DiagnosticsRuntimeHindiPresentationTest {
                 controller.run()
                 runCurrent()
                 assertEquals(1, probeCalls)
-                completion.complete(result(PtVerdict.PtOk("Exact_Host.test")))
+                completion.complete(result(PtProbeTrace("Exact_Host.test", PtProbeStatus.CONNECTED, 1)))
                 runCurrent()
                 assertEquals(R.string.diagnostics_pt_complete, controller.tool.value.summaryResId)
                 assertEquals(DiagnosticsPluggableTransportState.Complete, controller.tool.value.state)
@@ -165,7 +144,7 @@ class DiagnosticsRuntimeHindiPresentationTest {
                     controller.tool.value.summary,
                 )
                 assertEquals(
-                    List(3) { "Exact_Host.test" },
+                    List(4) { "Exact_Host.test" },
                     controller.tool.value.rows
                         .map { it.detail },
                 )
@@ -207,7 +186,7 @@ class DiagnosticsRuntimeHindiPresentationTest {
                         stringResolver = AndroidStringResolver(localizedContext),
                         runProbe = {
                             probeCalls += 1
-                            result(PtVerdict.PtOk("Exact_Host.test"))
+                            result(PtProbeTrace("Exact_Host.test", PtProbeStatus.CONNECTED, 1))
                         },
                     )
                 runCurrent()
@@ -256,7 +235,7 @@ class DiagnosticsRuntimeHindiPresentationTest {
 
             settings.update { setDetectionCheckPrivacyModeEnabled(true) }
             runCurrent()
-            completion.complete(result(PtVerdict.PtOk("Exact_Host.test")))
+            completion.complete(result(PtProbeTrace("Exact_Host.test", PtProbeStatus.CONNECTED, 1)))
             runCurrent()
             controller.run()
             runCurrent()
@@ -279,7 +258,7 @@ class DiagnosticsRuntimeHindiPresentationTest {
                     runProbe = {
                         // What the privacy-mode collector does from another thread while the probe finishes.
                         currentCoroutineContext().cancel()
-                        result(PtVerdict.PtOk("Exact_Host.test"))
+                        result(PtProbeTrace("Exact_Host.test", PtProbeStatus.CONNECTED, 1))
                     },
                 )
             runCurrent()
@@ -303,7 +282,7 @@ class DiagnosticsRuntimeHindiPresentationTest {
                 .build(),
         )
 
-    private fun result(verdict: PtVerdict) = PluggableTransportResult(verdict, verdict, verdict, emptyList())
+    private fun result(trace: PtProbeTrace) = PluggableTransportResult(trace, trace, trace, trace)
 
     private fun idleSummary(language: String): String =
         if (language == "hi") {

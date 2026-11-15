@@ -17,10 +17,11 @@ enum class DiagnosticsPluggableTransportState {
 @Immutable
 data class DiagnosticsPluggableTransportRowUiModel(
     val label: String,
-    val verdict: String,
+    val status: String,
     val detail: String,
     val tone: DiagnosticsTone,
-    @param:StringRes val verdictResId: Int? = null,
+    @param:StringRes val statusResId: Int? = null,
+    @param:StringRes val labelResId: Int? = null,
     @param:StringRes val detailResId: Int? = null,
 )
 

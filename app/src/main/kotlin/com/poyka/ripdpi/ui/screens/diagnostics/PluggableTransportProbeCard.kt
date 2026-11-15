@@ -48,8 +48,10 @@ internal fun PluggableTransportProbeCard(
                 verticalArrangement = Arrangement.spacedBy(spacing.xs),
             ) {
                 tool.rows.forEach { row ->
+                    val label = row.labelResId?.let { stringResource(it) } ?: row.label
+                    val status = row.statusResId?.let { stringResource(it) } ?: row.status
                     StatusIndicator(
-                        label = "${row.label}: ${row.verdictResId?.let { stringResource(it) } ?: row.verdict}",
+                        label = "$label: $status",
                         tone = statusTone(row.tone),
                     )
                     androidx.compose.material3.Text(
@@ -79,7 +81,7 @@ private fun DiagnosticsPluggableTransportState.tone(): DiagnosticsTone =
     when (this) {
         DiagnosticsPluggableTransportState.Idle -> DiagnosticsTone.Neutral
         DiagnosticsPluggableTransportState.Running -> DiagnosticsTone.Info
-        DiagnosticsPluggableTransportState.Complete -> DiagnosticsTone.Positive
+        DiagnosticsPluggableTransportState.Complete -> DiagnosticsTone.Neutral
         DiagnosticsPluggableTransportState.Disabled -> DiagnosticsTone.Neutral
         DiagnosticsPluggableTransportState.Failed -> DiagnosticsTone.Negative
     }

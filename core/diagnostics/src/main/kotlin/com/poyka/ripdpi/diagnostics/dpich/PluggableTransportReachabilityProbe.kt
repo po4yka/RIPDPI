@@ -5,15 +5,18 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -22,47 +25,29 @@ import java.net.SocketTimeoutException
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
-sealed class PtVerdict {
-    data class PtOk(
-        val detail: String,
-    ) : PtVerdict()
-
-    data class PtBridgeBlocked(
-        val reason: String,
-    ) : PtVerdict()
-
-    data class PtBrokerBlocked(
-        val reason: String,
-    ) : PtVerdict()
-
-    data class PtFrontBlocked(
-        val reason: String,
-    ) : PtVerdict()
-
-    data class PtStunBlocked(
-        val reason: String,
-    ) : PtVerdict()
-
-    data class PtError(
-        val reason: String,
-    ) : PtVerdict()
+enum class PtProbeStatus {
+    CONNECTED,
+    HTTP_RESPONSE,
+    BINDING_RESPONSE,
+    NOT_CONFIGURED,
+    TIMEOUT,
+    NETWORK_ERROR,
+    INVALID_RESPONSE,
+    INVALID_TARGET,
 }
 
 data class PtProbeTrace(
-    val leg: String,
     val target: String,
-    val ok: Boolean,
+    val status: PtProbeStatus,
     val latencyMs: Long,
-    val error: String? = null,
-    /** False when the leg saw no evidence (no usable target, or only silent peers): neither "ok" nor "blocked". */
-    val conclusive: Boolean = true,
+    val httpStatusCode: Int? = null,
 )
 
 data class PluggableTransportResult(
-    val obfs4: PtVerdict,
-    val snowflake: PtVerdict,
-    val meek: PtVerdict,
-    val traces: List<PtProbeTrace>,
+    val obfs4Tcp: PtProbeTrace,
+    val snowflakeBroker: PtProbeTrace,
+    val snowflakeStun: PtProbeTrace,
+    val meekHead: PtProbeTrace,
 )
 
 fun interface PtSubprobe {
@@ -79,144 +64,57 @@ class PluggableTransportReachabilityProbe(
     suspend fun run(timeoutMs: Long = DefaultTimeoutMs): PluggableTransportResult =
         coroutineScope {
             val obfs4 = async { runLeg { obfs4Probe.run(timeoutMs) } }
-            val snowflakeBroker = async { runLeg { snowflakeBrokerProbe.run(timeoutMs) } }
-            val snowflakeStun = async { runLeg { snowflakeStunProbe.run(timeoutMs) } }
+            val broker = async { runLeg { snowflakeBrokerProbe.run(timeoutMs) } }
+            val stun = async { runLeg { snowflakeStunProbe.run(timeoutMs) } }
             val meek = async { runLeg { meekProbe.run(timeoutMs) } }
-
-            val obfs4Trace = obfs4.await()
-            val brokerTrace = snowflakeBroker.await()
-            val stunTrace = snowflakeStun.await()
-            val meekTrace = meek.await()
-            PluggableTransportResult(
-                obfs4 = obfs4Trace.toObfs4Verdict(),
-                snowflake = brokerTrace.toSnowflakeVerdict(stunTrace),
-                meek = meekTrace.toMeekVerdict(),
-                traces = listOf(obfs4Trace, brokerTrace, stunTrace, meekTrace),
-            )
+            PluggableTransportResult(obfs4.await(), broker.await(), stun.await(), meek.await())
         }
 
     private suspend fun runLeg(block: suspend () -> PtProbeTrace): PtProbeTrace =
         runCatching {
-            // Every leg does blocking socket, OkHttp or DNS I/O; callers may be on Main.
             withContext(ioDispatcher) { block() }
         }.getOrElse { error ->
             error.throwIfCancellation()
-            PtProbeTrace(
-                leg = "unknown",
-                target = "unknown",
-                ok = false,
-                latencyMs = 0,
-                error = error.message ?: error.javaClass.simpleName,
-            )
-        }
-
-    private fun PtProbeTrace.toObfs4Verdict(): PtVerdict =
-        if (ok) {
-            PtVerdict.PtOk(target)
-        } else if (leg == UnknownLeg || !conclusive) {
-            PtVerdict.PtError(error.orEmpty())
-        } else {
-            PtVerdict.PtBridgeBlocked(error.orEmpty())
-        }
-
-    private fun PtProbeTrace.toSnowflakeVerdict(stun: PtProbeTrace): PtVerdict =
-        when {
-            leg == UnknownLeg -> PtVerdict.PtError(error.orEmpty())
-            !ok -> PtVerdict.PtBrokerBlocked(error.orEmpty())
-            stun.leg == UnknownLeg -> PtVerdict.PtError(stun.error.orEmpty())
-            !stun.ok -> PtVerdict.PtStunBlocked(stun.error.orEmpty())
-            else -> PtVerdict.PtOk("$target + ${stun.target}")
-        }
-
-    private fun PtProbeTrace.toMeekVerdict(): PtVerdict =
-        if (ok) {
-            PtVerdict.PtOk(target)
-        } else if (leg == UnknownLeg) {
-            PtVerdict.PtError(error.orEmpty())
-        } else {
-            PtVerdict.PtFrontBlocked(error.orEmpty())
+            PtProbeTrace("", PtProbeStatus.NETWORK_ERROR, 0)
         }
 
     private companion object {
         private const val DefaultTimeoutMs = 8_000L
-        private const val UnknownLeg = "unknown"
     }
 }
 
 class Obfs4ReachabilityProbe(
     private val bridges: List<PtEndpoint> = DefaultObfs4Bridges,
     private val socketFactory: () -> Socket = { Socket() },
-    private val randomBytes: (Int) -> ByteArray = { size -> Random.nextBytes(size) },
 ) : PtSubprobe {
-    // The socket calls block, so withTimeout could never fire: one deadline bounds the whole leg instead.
     override suspend fun run(timeoutMs: Long): PtProbeTrace {
-        val startedAt = System.currentTimeMillis()
-        val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
-        val errors = mutableListOf<String>()
         val usable = bridges.filterNot(PtEndpoint::isDocumentationAddress)
-        if (usable.isEmpty()) {
-            // RFC 5737 placeholders never answer: report "not configured", not "blocked".
-            return PtProbeTrace(Obfs4Leg, "", false, 0, NoBridgesConfigured, conclusive = false)
-        }
-        var conclusive = false
-        var reachable: PtProbeTrace? = null
-        val pending = usable.iterator()
-        while (reachable == null && pending.hasNext()) {
+        if (usable.isEmpty()) return PtProbeTrace("", PtProbeStatus.NOT_CONFIGURED, 0)
+
+        val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+        var last = PtProbeTrace("", PtProbeStatus.TIMEOUT, 0)
+        for (bridge in usable) {
             currentCoroutineContext().ensureActive()
             val remainingMs = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime())
             if (remainingMs <= 0) break
-            val bridge = pending.next()
-            val trace = bridge.tryTcpHandshake(remainingMs)
-            if (trace.ok) {
-                reachable = trace.copy(latencyMs = System.currentTimeMillis() - startedAt)
-            } else {
-                conclusive = conclusive || trace.conclusive
-                errors += "${bridge.host}:${bridge.port}:${trace.error.orEmpty()}"
-            }
+            last = bridge.tryTcpConnect(remainingMs)
+            if (last.status == PtProbeStatus.CONNECTED) break
         }
-        return reachable ?: PtProbeTrace(
-            Obfs4Leg,
-            usable.joinToString {
-                it.host
-            },
-            false,
-            System.currentTimeMillis() - startedAt,
-            errors.joinToString(),
-            conclusive = conclusive,
-        )
+        return last
     }
 
-    private fun PtEndpoint.tryTcpHandshake(timeoutMs: Long): PtProbeTrace {
-        val startedAt = System.currentTimeMillis()
-        return try {
-            socketFactory().use { socket ->
-                socket.connect(InetSocketAddress(host, port), timeoutMs.toInt())
-                val leftAfterConnectMs = timeoutMs - (System.currentTimeMillis() - startedAt)
-                socket.soTimeout = minOf(timeoutMs / 2, leftAfterConnectMs).coerceIn(1L, MaxResponseWaitMs).toInt()
-                socket.getOutputStream().write(randomBytes(MockHandshakeBytes))
-                socket.getOutputStream().flush()
-                // Reachable needs a reply from the server. Silence is inconclusive: an obfs4 server stays
-                // silent on an invalid handshake, but so does DPI that drops data after the TCP handshake.
-                val reachable =
-                    try {
-                        socket.getInputStream().read() >= 0
-                    } catch (_: SocketTimeoutException) {
-                        val latencyMs = System.currentTimeMillis() - startedAt
-                        return PtProbeTrace(Obfs4Leg, "$host:$port", false, latencyMs, NoResponse, conclusive = false)
-                    }
-                PtProbeTrace(Obfs4Leg, "$host:$port", reachable, System.currentTimeMillis() - startedAt)
+    private fun PtEndpoint.tryTcpConnect(timeoutMs: Long): PtProbeTrace {
+        val startedAt = System.nanoTime()
+        val status =
+            try {
+                socketFactory().use { socket -> socket.connect(InetSocketAddress(host, port), timeoutMs.toInt()) }
+                PtProbeStatus.CONNECTED
+            } catch (_: SocketTimeoutException) {
+                PtProbeStatus.TIMEOUT
+            } catch (_: IOException) {
+                PtProbeStatus.NETWORK_ERROR
             }
-        } catch (error: IOException) {
-            PtProbeTrace(Obfs4Leg, "$host:$port", false, System.currentTimeMillis() - startedAt, error.message)
-        }
-    }
-
-    private companion object {
-        private const val Obfs4Leg = "obfs4"
-        private const val MockHandshakeBytes = 32
-        private const val MaxResponseWaitMs = 2_000L
-        private const val NoBridgesConfigured = "no obfs4 bridges configured"
-        private const val NoResponse = "no response after connect"
+        return PtProbeTrace(toString(), status, elapsedMs(startedAt))
     }
 }
 
@@ -225,8 +123,11 @@ fun DpiAssetLoader.loadObfs4BridgeEndpoints(): List<PtEndpoint> = loadObfs4Bridg
 fun DpiAssetLoader.loadMeekFrontUrls(): List<String> = loadMeekFronts()
 
 private fun String.toPtEndpoint(): PtEndpoint? {
-    val (host, port) = trim().substringBefore(' ') to trim().substringAfterLast(':', missingDelimiterValue = "")
-    return PtEndpoint(host = host.substringBeforeLast(':'), port = port.toIntOrNull() ?: return null)
+    val authority = trim().substringBefore(' ')
+    val port = authority.substringAfterLast(':', "").toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
+    val host =
+        authority.substringBeforeLast(':', "").removeSurrounding("[", "]").takeIf(String::isNotBlank) ?: return null
+    return PtEndpoint(host, port)
 }
 
 class SnowflakeBrokerReachabilityProbe(
@@ -234,39 +135,13 @@ class SnowflakeBrokerReachabilityProbe(
     private val clientBuilder: (OkHttpClient.Builder.() -> Unit) -> OkHttpClient =
         { configure -> OkHttpClient.Builder().apply(configure).build() },
 ) : PtSubprobe {
-    override suspend fun run(timeoutMs: Long): PtProbeTrace {
-        val startedAt = System.currentTimeMillis()
-        return try {
-            val client =
-                clientBuilder {
-                    callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                    connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                    readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                }
-            val request =
-                Request
-                    .Builder()
-                    .url(brokerUrl)
-                    .post("{}".toRequestBody(JsonMediaType))
-                    .build()
-            client.newCall(request).execute().use { response ->
-                PtProbeTrace(
-                    leg = SnowflakeBrokerLeg,
-                    target = brokerUrl,
-                    ok = response.code in BrokerReachableStatusRange,
-                    latencyMs = System.currentTimeMillis() - startedAt,
-                    error = response.takeUnless { it.code in BrokerReachableStatusRange }?.code?.toString(),
-                )
-            }
-        } catch (error: IOException) {
-            PtProbeTrace(SnowflakeBrokerLeg, brokerUrl, false, System.currentTimeMillis() - startedAt, error.message)
+    override suspend fun run(timeoutMs: Long): PtProbeTrace =
+        probeHttpEndpoint(brokerUrl, clientBuilder { endpointTimeout(timeoutMs) }) {
+            post("{}".toRequestBody(JsonMediaType))
         }
-    }
 
     private companion object {
-        private const val SnowflakeBrokerLeg = "snowflake_broker"
         private const val DefaultSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/"
-        private val BrokerReachableStatusRange = 200..499
         private val JsonMediaType = "application/json".toMediaType()
     }
 }
@@ -277,41 +152,28 @@ class SnowflakeStunReachabilityProbe(
     private val transactionId: () -> ByteArray = { Random.nextBytes(StunTransactionIdBytes) },
 ) : PtSubprobe {
     override suspend fun run(timeoutMs: Long): PtProbeTrace {
-        val startedAt = System.currentTimeMillis()
-        return try {
-            socketFactory().use { socket ->
-                socket.soTimeout = timeoutMs.toInt()
-                val request = stunBindingRequest(transactionId())
-                val destination = InetSocketAddress(endpoint.host, endpoint.port)
-                socket.send(DatagramPacket(request, request.size, destination))
-                val response = DatagramPacket(ByteArray(StunResponseBytes), StunResponseBytes)
-                socket.receive(response)
-                val valid = response.isBindingSuccessFor(request, destination)
-                PtProbeTrace(
-                    leg = SnowflakeStunLeg,
-                    target = "${endpoint.host}:${endpoint.port}",
-                    ok = valid,
-                    latencyMs = System.currentTimeMillis() - startedAt,
-                    error = if (valid) null else "invalid STUN binding response",
-                )
+        val startedAt = System.nanoTime()
+        val status =
+            try {
+                socketFactory().use { socket ->
+                    socket.soTimeout = timeoutMs.toInt()
+                    val request = stunBindingRequest(transactionId())
+                    val destination = InetSocketAddress(endpoint.host, endpoint.port)
+                    socket.send(DatagramPacket(request, request.size, destination))
+                    val response = DatagramPacket(ByteArray(StunResponseBytes), StunResponseBytes)
+                    socket.receive(response)
+                    if (response.isBindingSuccessFor(request, destination)) {
+                        PtProbeStatus.BINDING_RESPONSE
+                    } else {
+                        PtProbeStatus.INVALID_RESPONSE
+                    }
+                }
+            } catch (_: SocketTimeoutException) {
+                PtProbeStatus.TIMEOUT
+            } catch (_: IOException) {
+                PtProbeStatus.NETWORK_ERROR
             }
-        } catch (_: SocketTimeoutException) {
-            PtProbeTrace(
-                SnowflakeStunLeg,
-                endpoint.toString(),
-                false,
-                System.currentTimeMillis() - startedAt,
-                "timeout",
-            )
-        } catch (error: IOException) {
-            PtProbeTrace(
-                SnowflakeStunLeg,
-                endpoint.toString(),
-                false,
-                System.currentTimeMillis() - startedAt,
-                error.message,
-            )
-        }
+        return PtProbeTrace(endpoint.toString(), status, elapsedMs(startedAt))
     }
 
     private fun stunBindingRequest(id: ByteArray): ByteArray = StunBindingRequestPrefix + id
@@ -338,7 +200,6 @@ class SnowflakeStunReachabilityProbe(
     }
 
     private companion object {
-        private const val SnowflakeStunLeg = "snowflake_stun"
         private const val StunHeaderBytes = 20
         private const val StunMessageLengthOffset = 2
         private const val StunCookieOffset = 4
@@ -369,66 +230,61 @@ class MeekReachabilityProbe(
 ) : PtSubprobe {
     override suspend fun run(timeoutMs: Long): PtProbeTrace =
         coroutineScope {
-            val startedAt = System.currentTimeMillis()
-            val results =
-                fronts
-                    .map { front -> async { probeFront(front, timeoutMs, startedAt) } }
-                    .map { deferred -> deferred.await() }
-            results.firstOrNull { result -> result.ok }
-                ?: PtProbeTrace(
-                    MeekLeg,
-                    fronts.joinToString(),
-                    false,
-                    System.currentTimeMillis() - startedAt,
-                    results
-                        .joinToString {
-                            it.error.orEmpty()
-                        },
-                )
+            val client = clientBuilder { endpointTimeout(timeoutMs) }
+            val results = fronts.map { front -> async { probeHttpEndpoint(front, client) { head() } } }.awaitAll()
+            results.firstOrNull { it.status == PtProbeStatus.HTTP_RESPONSE }
+                ?: results.firstOrNull()
+                ?: PtProbeTrace("", PtProbeStatus.NOT_CONFIGURED, 0)
         }
+}
 
-    private fun probeFront(
-        front: String,
-        timeoutMs: Long,
-        startedAt: Long,
-    ): PtProbeTrace =
-        try {
-            val client =
-                clientBuilder {
-                    callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                    connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                    readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
-                }
-            val request =
-                Request
-                    .Builder()
-                    .url(front)
-                    .head()
-                    .build()
-            client.newCall(request).execute().use { response ->
-                PtProbeTrace(
-                    MeekLeg,
-                    front,
-                    response.code in SuccessStatusRange,
-                    System.currentTimeMillis() - startedAt,
-                    response.code.toString(),
-                )
-            }
-        } catch (error: IOException) {
-            PtProbeTrace(MeekLeg, front, false, System.currentTimeMillis() - startedAt, error.message)
+private fun OkHttpClient.Builder.endpointTimeout(timeoutMs: Long) {
+    callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+    connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+    readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+    followRedirects(false)
+    followSslRedirects(false)
+}
+
+private fun probeHttpEndpoint(
+    target: String,
+    client: OkHttpClient,
+    configure: Request.Builder.() -> Unit,
+): PtProbeTrace {
+    val url = target.toHttpUrlOrNull() ?: return PtProbeTrace("", PtProbeStatus.INVALID_TARGET, 0)
+    if (url.username.isNotEmpty() || url.password.isNotEmpty()) return PtProbeTrace("", PtProbeStatus.INVALID_TARGET, 0)
+    val endpoint =
+        url
+            .newBuilder()
+            .query(null)
+            .fragment(null)
+            .build()
+            .toString()
+    val startedAt = System.nanoTime()
+    return try {
+        val request =
+            Request
+                .Builder()
+                .url(url)
+                .apply(configure)
+                .build()
+        client.newCall(request).execute().use { response ->
+            PtProbeTrace(endpoint, PtProbeStatus.HTTP_RESPONSE, elapsedMs(startedAt), response.code)
         }
-
-    private companion object {
-        private const val MeekLeg = "meek"
-        private val SuccessStatusRange = 200..399
+    } catch (_: InterruptedIOException) {
+        PtProbeTrace(endpoint, PtProbeStatus.TIMEOUT, elapsedMs(startedAt))
+    } catch (_: IOException) {
+        PtProbeTrace(endpoint, PtProbeStatus.NETWORK_ERROR, elapsedMs(startedAt))
     }
 }
+
+private fun elapsedMs(startedAt: Long): Long = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt)
 
 data class PtEndpoint(
     val host: String,
     val port: Int,
 ) {
-    override fun toString(): String = "$host:$port"
+    override fun toString(): String = if (':' in host) "[$host]:$port" else "$host:$port"
 
     /** True for the RFC 5737 documentation ranges, which are never routable. */
     fun isDocumentationAddress(): Boolean =

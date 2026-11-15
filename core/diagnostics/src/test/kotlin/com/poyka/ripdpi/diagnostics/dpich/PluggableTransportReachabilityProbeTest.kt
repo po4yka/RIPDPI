@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -12,14 +14,12 @@ import mockwebserver3.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.IOException
-import java.io.InputStream
-import java.io.OutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
+import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketAddress
 import java.net.SocketTimeoutException
@@ -37,7 +37,7 @@ class PluggableTransportReachabilityProbeTest {
                 val leg =
                     PtSubprobe {
                         threads += Thread.currentThread().name.substringBefore(" @")
-                        PtProbeTrace("obfs4", "bridge", true, 1)
+                        PtProbeTrace("bridge", PtProbeStatus.CONNECTED, 1)
                     }
 
                 PluggableTransportReachabilityProbe(leg, leg, leg, leg, ioThreads.asCoroutineDispatcher()).run()
@@ -49,159 +49,70 @@ class PluggableTransportReachabilityProbeTest {
         }
 
     @Test
-    fun allThreePtsReachableReturnsAllOk() =
+    fun unexpectedLegFailureKeepsOtherEndpointResults() =
         runTest {
-            val result = probe().run()
-
-            assertTrue(result.obfs4 is PtVerdict.PtOk)
-            assertTrue(result.snowflake is PtVerdict.PtOk)
-            assertTrue(result.meek is PtVerdict.PtOk)
-            assertEquals(4, result.traces.size)
-        }
-
-    @Test
-    fun obfs4BridgeBlockedIsolated() =
-        runTest {
+            val broker = PtProbeTrace("broker", PtProbeStatus.HTTP_RESPONSE, 10, 404)
+            val stun = PtProbeTrace("stun", PtProbeStatus.BINDING_RESPONSE, 10)
+            val front = PtProbeTrace("front", PtProbeStatus.HTTP_RESPONSE, 10, 503)
             val result =
-                probe(
-                    obfs4 = { PtProbeTrace("obfs4", "bridge", false, 10, "rst") },
+                PluggableTransportReachabilityProbe(
+                    obfs4Probe = PtSubprobe { throw IOException("connect") },
+                    snowflakeBrokerProbe = PtSubprobe { broker },
+                    snowflakeStunProbe = PtSubprobe { stun },
+                    meekProbe = PtSubprobe { front },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 ).run()
 
-            assertTrue(result.obfs4 is PtVerdict.PtBridgeBlocked)
-            assertTrue(result.snowflake is PtVerdict.PtOk)
-            assertTrue(result.meek is PtVerdict.PtOk)
-        }
-
-    @Test
-    fun snowflakeBrokerUnreachableReturnsBrokerBlocked() =
-        runTest {
-            val result =
-                probe(
-                    snowflakeBroker = { PtProbeTrace("snowflake_broker", "broker", false, 10, "503") },
-                ).run()
-
-            assertTrue(result.snowflake is PtVerdict.PtBrokerBlocked)
-        }
-
-    @Test
-    fun snowflakeBrokerOkButStunBlockedReturnsStunBlocked() =
-        runTest {
-            val result =
-                probe(
-                    snowflakeStun = { PtProbeTrace("snowflake_stun", "stun", false, 10, "timeout") },
-                ).run()
-
-            assertTrue(result.snowflake is PtVerdict.PtStunBlocked)
-        }
-
-    @Test
-    fun meekAllFrontsBlocked() =
-        runTest {
-            val result =
-                probe(
-                    meek = { PtProbeTrace("meek", "front", false, 10, "timeout") },
-                ).run()
-
-            assertTrue(result.meek is PtVerdict.PtFrontBlocked)
-        }
-
-    @Test
-    fun onePtFailureDoesNotCancelOthers() =
-        runTest {
-            val result =
-                probe(
-                    obfs4 = { throw IllegalStateException("boom") },
-                ).run()
-
-            assertTrue(result.obfs4 is PtVerdict.PtError)
-            assertTrue(result.snowflake is PtVerdict.PtOk)
-            assertTrue(result.meek is PtVerdict.PtOk)
+            assertEquals(PtProbeStatus.NETWORK_ERROR, result.obfs4Tcp.status)
+            assertEquals(broker, result.snowflakeBroker)
+            assertEquals(stun, result.snowflakeStun)
+            assertEquals(front, result.meekHead)
         }
 
     @Test
     fun ptSubprobesRunInParallel() =
         runTest {
-            val result =
-                probe(
-                    obfs4 = {
-                        delay(50)
-                        PtProbeTrace("obfs4", "bridge", true, 50)
-                    },
-                    snowflakeBroker = {
-                        delay(50)
-                        PtProbeTrace("snowflake_broker", "broker", true, 50)
-                    },
-                    meek = {
-                        delay(50)
-                        PtProbeTrace("meek", "front", true, 50)
-                    },
-                ).run(timeoutMs = 1_000)
+            val leg =
+                PtSubprobe {
+                    delay(50)
+                    PtProbeTrace("bridge", PtProbeStatus.CONNECTED, 50)
+                }
+            PluggableTransportReachabilityProbe(leg, leg, leg, leg, StandardTestDispatcher(testScheduler)).run()
 
-            assertTrue(result.obfs4 is PtVerdict.PtOk)
-            assertTrue(result.snowflake is PtVerdict.PtOk)
-            assertTrue(result.meek is PtVerdict.PtOk)
-            // The three 50 ms legs ran in parallel on virtual time.
             assertEquals(50L, currentTime)
         }
 
     @Test
-    fun obfs4BridgeRespondsWithAnyByteReturnsOk() =
-        runTest {
-            val probe =
-                Obfs4ReachabilityProbe(
-                    bridges = listOf(PtEndpoint("10.0.0.1", 443)),
-                    socketFactory = { FakeSocket(input = byteArrayOf(1)) },
-                    randomBytes = { size -> ByteArray(size) { 7 } },
-                )
+    fun obfs4ConnectsAndClosesWithoutSendingTransportBytes() =
+        runBlocking {
+            ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { server ->
+                server.soTimeout = 2_000
+                val peer =
+                    async(Dispatchers.IO) {
+                        server.accept().use {
+                            it.soTimeout = 2_000
+                            it.getInputStream().read()
+                        }
+                    }
+                val endpoint = PtEndpoint(server.inetAddress.hostAddress!!, server.localPort)
+                val trace = Obfs4ReachabilityProbe(bridges = listOf(endpoint)).run(timeoutMs = 1_000)
 
-            val trace = probe.run(timeoutMs = 1_000)
-
-            assertTrue(trace.ok)
-            assertEquals("10.0.0.1:443", trace.target)
-        }
-
-    @Test
-    fun obfs4BridgeThatStaysSilentAfterConnectIsInconclusive() =
-        runTest {
-            // A payload-blackhole DPI and a silent obfs4 server look the same: neither "ok" nor "blocked".
-            val probe =
-                PluggableTransportReachabilityProbe(
-                    obfs4Probe =
-                        Obfs4ReachabilityProbe(
-                            bridges = listOf(PtEndpoint("10.0.0.1", 443), PtEndpoint("10.0.0.2", 443)),
-                            socketFactory = { FakeSocket(readError = SocketTimeoutException("silent")) },
-                            randomBytes = { size -> ByteArray(size) },
-                        ),
-                    snowflakeBrokerProbe = FakePtSubprobe { PtProbeTrace("snowflake", "broker", true, 1) },
-                    snowflakeStunProbe = FakePtSubprobe { PtProbeTrace("stun", "stun", true, 1) },
-                    meekProbe = FakePtSubprobe { PtProbeTrace("meek", "front", true, 1) },
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
-                )
-
-            assertTrue(probe.run(timeoutMs = 1_000).obfs4 is PtVerdict.PtError)
+                assertEquals(PtProbeStatus.CONNECTED, trace.status)
+                assertEquals(endpoint.toString(), trace.target)
+                assertEquals(-1, peer.await())
+            }
         }
 
     @Test
     fun placeholderOnlyObfs4BridgesAreReportedAsNotConfigured() =
         runTest {
-            val sockets = mutableListOf<FakeSocket>()
-            val probe =
-                PluggableTransportReachabilityProbe(
-                    obfs4Probe =
-                        Obfs4ReachabilityProbe(
-                            bridges = listOf(PtEndpoint("192.0.2.10", 443), PtEndpoint("203.0.113.5", 443)),
-                            socketFactory = { FakeSocket(input = byteArrayOf(1)).also(sockets::add) },
-                        ),
-                    snowflakeBrokerProbe = FakePtSubprobe { PtProbeTrace("snowflake", "broker", true, 1) },
-                    snowflakeStunProbe = FakePtSubprobe { PtProbeTrace("stun", "stun", true, 1) },
-                    meekProbe = FakePtSubprobe { PtProbeTrace("meek", "front", true, 1) },
-                    ioDispatcher = StandardTestDispatcher(testScheduler),
-                )
+            val trace =
+                Obfs4ReachabilityProbe(
+                    bridges = listOf(PtEndpoint("192.0.2.10", 443), PtEndpoint("203.0.113.5", 443)),
+                    socketFactory = { error("Documentation endpoint must never open a socket") },
+                ).run(timeoutMs = 1_000)
 
-            val result = probe.run(timeoutMs = 1_000)
-
-            assertTrue(result.obfs4 is PtVerdict.PtError)
-            assertEquals(0, sockets.size)
+            assertEquals(PtProbeStatus.NOT_CONFIGURED, trace.status)
         }
 
     @Test
@@ -227,56 +138,25 @@ class PluggableTransportReachabilityProbeTest {
 
             val trace = probe.run(timeoutMs = 300)
 
-            assertEquals(false, trace.ok)
+            assertEquals(PtProbeStatus.TIMEOUT, trace.status)
             assertTrue("connect timeouts $connectTimeouts", connectTimeouts.sum() <= 300)
         }
 
     @Test
-    fun obfs4BridgeTcpResetTriesAllBridgesBeforeBlockedTrace() =
-        runTest {
-            val sockets = mutableListOf<FakeSocket>()
-            val probe =
-                Obfs4ReachabilityProbe(
-                    bridges =
-                        listOf(
-                            PtEndpoint("10.0.0.1", 443),
-                            PtEndpoint("10.0.0.2", 443),
-                            PtEndpoint("10.0.0.3", 443),
-                        ),
-                    socketFactory = {
-                        FakeSocket(connectError = IOException("rst")).also(sockets::add)
-                    },
-                    randomBytes = { size -> ByteArray(size) },
-                )
-
-            val trace = probe.run(timeoutMs = 1_000)
-
-            assertEquals(false, trace.ok)
-            assertEquals(3, sockets.size)
-        }
-
-    @Test
-    fun snowflakeBrokerHttpClientErrorStillCountsReachable() =
+    fun snowflakeBrokerReportsHttpErrorsAsEndpointResponses() =
         runTest {
             MockWebServer().use { server ->
-                server.enqueue(MockResponse(code = 400, body = "{}"))
                 server.start()
-                val trace = SnowflakeBrokerReachabilityProbe(brokerUrl = server.url("/").toString()).run(1_000)
+                val broker = SnowflakeBrokerReachabilityProbe(brokerUrl = server.url("/").toString())
 
-                assertTrue(trace.ok)
-            }
-        }
+                for (code in listOf(404, 503)) {
+                    server.enqueue(MockResponse(code = code))
+                    val trace = broker.run(1_000)
 
-    @Test
-    fun snowflakeBrokerServerErrorReturnsBlockedTrace() =
-        runTest {
-            MockWebServer().use { server ->
-                server.enqueue(MockResponse(code = 503, body = "unavailable"))
-                server.start()
-                val trace = SnowflakeBrokerReachabilityProbe(brokerUrl = server.url("/").toString()).run(1_000)
-
-                assertEquals(false, trace.ok)
-                assertEquals("503", trace.error)
+                    assertEquals(PtProbeStatus.HTTP_RESPONSE, trace.status)
+                    assertEquals(code, trace.httpStatusCode)
+                    assertEquals("POST", server.takeRequest().method)
+                }
             }
         }
 
@@ -290,7 +170,7 @@ class PluggableTransportReachabilityProbeTest {
                     transactionId = { ByteArray(12) },
                 ).run(1_000)
 
-            assertTrue(trace.ok)
+            assertEquals(PtProbeStatus.BINDING_RESPONSE, trace.status)
         }
 
     @Test
@@ -312,7 +192,7 @@ class PluggableTransportReachabilityProbeTest {
                         transactionId = { ByteArray(12) },
                     ).run(1_000)
 
-                assertEquals(false, trace.ok)
+                assertEquals(PtProbeStatus.INVALID_RESPONSE, trace.status)
             }
         }
 
@@ -327,12 +207,12 @@ class PluggableTransportReachabilityProbeTest {
                         transactionId = { ByteArray(12) },
                     ).run(1_000)
 
-                assertEquals(false, trace.ok)
+                assertEquals(PtProbeStatus.INVALID_RESPONSE, trace.status)
             }
         }
 
     @Test
-    fun snowflakeStunTimeoutReturnsBlockedTrace() =
+    fun snowflakeStunTimeoutIsDistinctFromAnInvalidResponse() =
         runTest {
             val trace =
                 SnowflakeStunReachabilityProbe(
@@ -340,93 +220,43 @@ class PluggableTransportReachabilityProbeTest {
                     transactionId = { ByteArray(12) },
                 ).run(1_000)
 
-            assertEquals(false, trace.ok)
-            assertEquals("timeout", trace.error)
+            assertEquals(PtProbeStatus.TIMEOUT, trace.status)
         }
 
     @Test
-    fun meekOneFrontOkReturnsOk() =
+    fun meekHeadRecordsRedirectWithoutFollowingIt() =
         runTest {
-            MockWebServer().use { blocked ->
-                MockWebServer().use { reachable ->
-                    blocked.enqueue(MockResponse(code = 503))
-                    reachable.enqueue(MockResponse(code = 204))
-                    blocked.start()
-                    reachable.start()
-                    val trace =
-                        MeekReachabilityProbe(
-                            fronts = listOf(blocked.url("/").toString(), reachable.url("/").toString()),
-                        ).run(1_000)
+            MockWebServer().use { front ->
+                MockWebServer().use { other ->
+                    front.start()
+                    other.start()
+                    front.enqueue(
+                        MockResponse
+                            .Builder()
+                            .code(302)
+                            .addHeader("Location", other.url("/other").toString())
+                            .build(),
+                    )
+                    other.enqueue(MockResponse(code = 204))
+                    val url = front.url("/front").toString()
+                    val trace = MeekReachabilityProbe(fronts = listOf(url)).run(1_000)
 
-                    assertTrue(trace.ok)
-                    assertEquals(reachable.url("/").toString(), trace.target)
+                    assertEquals(PtProbeStatus.HTTP_RESPONSE, trace.status)
+                    assertEquals(302, trace.httpStatusCode)
+                    assertEquals(url, trace.target)
+                    assertEquals("HEAD", front.takeRequest().method)
+                    assertEquals(0, other.requestCount)
                 }
             }
         }
 
     @Test
-    fun meekAllFrontsBlockedReturnsBlockedTrace() =
+    fun emptyMeekTargetsAreNotConfigured() =
         runTest {
-            MockWebServer().use { first ->
-                MockWebServer().use { second ->
-                    first.enqueue(MockResponse(code = 503))
-                    second.enqueue(MockResponse(code = 404))
-                    first.start()
-                    second.start()
-                    val trace =
-                        MeekReachabilityProbe(
-                            fronts = listOf(first.url("/").toString(), second.url("/").toString()),
-                        ).run(1_000)
+            val trace = MeekReachabilityProbe(fronts = emptyList()).run(1_000)
 
-                    assertEquals(false, trace.ok)
-                }
-            }
+            assertEquals(PtProbeStatus.NOT_CONFIGURED, trace.status)
         }
-
-    // Legs run on the test scheduler so delays use virtual time.
-    private fun TestScope.probe(
-        obfs4: suspend () -> PtProbeTrace = { PtProbeTrace("obfs4", "bridge", true, 10) },
-        snowflakeBroker: suspend () -> PtProbeTrace = { PtProbeTrace("snowflake_broker", "broker", true, 10) },
-        snowflakeStun: suspend () -> PtProbeTrace = { PtProbeTrace("snowflake_stun", "stun", true, 10) },
-        meek: suspend () -> PtProbeTrace = { PtProbeTrace("meek", "front", true, 10) },
-    ): PluggableTransportReachabilityProbe =
-        PluggableTransportReachabilityProbe(
-            obfs4Probe = FakePtSubprobe(obfs4),
-            snowflakeBrokerProbe = FakePtSubprobe(snowflakeBroker),
-            snowflakeStunProbe = FakePtSubprobe(snowflakeStun),
-            meekProbe = FakePtSubprobe(meek),
-            ioDispatcher = StandardTestDispatcher(testScheduler),
-        )
-
-    private class FakePtSubprobe(
-        private val result: suspend () -> PtProbeTrace,
-    ) : PtSubprobe {
-        override suspend fun run(timeoutMs: Long): PtProbeTrace = result()
-    }
-
-    private class FakeSocket(
-        private val input: ByteArray = byteArrayOf(),
-        private val connectError: IOException? = null,
-        private val readError: IOException? = null,
-    ) : Socket() {
-        val output = ByteArrayOutputStream()
-
-        override fun connect(
-            endpoint: SocketAddress?,
-            timeout: Int,
-        ) {
-            connectError?.let { throw it }
-        }
-
-        override fun getInputStream(): InputStream =
-            readError?.let { error ->
-                object : InputStream() {
-                    override fun read(): Int = throw error
-                }
-            } ?: ByteArrayInputStream(input)
-
-        override fun getOutputStream(): OutputStream = output
-    }
 
     private class FakeDatagramSocket(
         private val mutateResponse: (ByteArray) -> ByteArray = { it },

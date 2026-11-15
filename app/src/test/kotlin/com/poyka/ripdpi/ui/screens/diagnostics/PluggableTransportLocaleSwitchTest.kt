@@ -21,7 +21,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.dpich.PluggableTransportResult
-import com.poyka.ripdpi.diagnostics.dpich.PtVerdict
+import com.poyka.ripdpi.diagnostics.dpich.PtProbeStatus
+import com.poyka.ripdpi.diagnostics.dpich.PtProbeTrace
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsPluggableTransportRowUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsPluggableTransportState
@@ -30,7 +31,6 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.toUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
-import kotlinx.collections.immutable.toPersistentList
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -49,39 +49,26 @@ class PluggableTransportLocaleSwitchTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun `retained English PT rows follow Hindi then English without a new probe`() {
-        val verdicts =
-            listOf(
-                PtVerdict.PtOk("Exact_Host.test:443"),
-                PtVerdict.PtBridgeBlocked("Raw_Bridge_Reason"),
-                PtVerdict.PtBrokerBlocked("Raw_Broker_Reason"),
-                PtVerdict.PtFrontBlocked("Raw_Front_Reason"),
-                PtVerdict.PtStunBlocked("Raw_STUN_Reason"),
-                PtVerdict.PtError("Raw_Error_Reason"),
-            )
-        val rows = verdicts.map { mapped(it).rows.first() }.toPersistentList()
-        val retainedTool = mapped(verdicts.first()).copy(rows = rows)
+    fun `retained PT operations localize while HTTP status and target stay exact`() {
+        val broker = PtProbeTrace("broker.test", PtProbeStatus.HTTP_RESPONSE, 1, 404)
+        val trace = PtProbeTrace("", PtProbeStatus.NOT_CONFIGURED, 0)
+        val english = context("en")
+        val tool =
+            PluggableTransportResult(trace, broker, trace, trace)
+                .toUiModel(privacyModeEnabled = false, stringResolver = AndroidStringResolver(english))
         val language = mutableStateOf("en")
-        present(language, listOf(retainedTool))
-        val english =
-            listOf("Reachable", "Bridge blocked", "Broker blocked", "Front blocked", "STUN blocked", "Error")
-        val hindi =
-            listOf("पहुँच उपलब्ध", "ब्रिज अवरुद्ध", "ब्रोकर अवरुद्ध", "फ़्रंट होस्ट अवरुद्ध", "STUN अवरुद्ध", "त्रुटि")
-        listOf("en" to english, "hi" to hindi, "en" to english).forEach { (tag, labels) ->
+        present(language, listOf(tool))
+
+        listOf("en", "hi", "en").forEach { tag ->
             composeRule.runOnIdle { language.value = tag }
-            labels.forEach { label -> composeRule.onNodeWithText("obfs4: $label").assertIsDisplayed() }
-            rows.forEach { row -> composeRule.onNodeWithText(row.detail).assertIsDisplayed() }
-            val summary =
-                if (tag == "hi") {
-                    "obfs4, Snowflake, और meek एंडपॉइंट पहुँच जाँची गई."
-                } else {
-                    "Checked obfs4, Snowflake, and meek endpoint reachability."
-                }
-            composeRule.onNodeWithText(summary).assertIsDisplayed()
-            if (tag == "hi") capture("hindi-pt-retained-verdicts.png")
+            val current = context(tag)
+            val brokerLabel = current.getString(R.string.diagnostics_pt_label_snowflake)
+            val bridgeLabel = current.getString(R.string.diagnostics_pt_label_obfs4)
+            val notConfigured = current.getString(R.string.diagnostics_pt_status_not_configured)
+            composeRule.onNodeWithText("$brokerLabel: HTTP 404").assertIsDisplayed()
+            composeRule.onNodeWithText("$bridgeLabel: $notConfigured").assertIsDisplayed()
+            composeRule.onNodeWithText("broker.test").assertIsDisplayed()
         }
-        assertTrue(retainedTool.summary.startsWith("Checked"))
-        assertTrue(retainedTool.rows.first().verdict == "Reachable")
     }
 
     @Test
@@ -121,12 +108,12 @@ class PluggableTransportLocaleSwitchTest {
 
     @Test
     fun `blank PT details follow current locale rather than cached no detail text`() {
-        val retainedTool = mapped(PtVerdict.PtError(" \t"))
+        val retainedTool = mapped(PtProbeTrace(" \t", PtProbeStatus.NETWORK_ERROR, 0))
         val language = mutableStateOf("en")
         present(language, listOf(retainedTool))
         listOf("en" to "no detail", "hi" to "कोई विवरण नहीं", "en" to "no detail").forEach { (tag, detail) ->
             composeRule.runOnIdle { language.value = tag }
-            composeRule.onAllNodesWithText(detail).assertCountEquals(3)
+            composeRule.onAllNodesWithText(detail).assertCountEquals(4)
             if (tag == "hi") {
                 composeRule.onAllNodesWithText("no detail").assertCountEquals(0)
                 capture("hindi-pt-retained-empty-detail.png")
@@ -144,7 +131,7 @@ class PluggableTransportLocaleSwitchTest {
                     persistentListOf(
                         DiagnosticsPluggableTransportRowUiModel(
                             label = "Exact_Custom_Protocol",
-                            verdict = "Exact_Custom_Verdict",
+                            status = "Exact_Custom_Verdict",
                             detail = "Exact_Custom_Detail",
                             tone = DiagnosticsTone.Warning,
                         ),
@@ -170,8 +157,8 @@ class PluggableTransportLocaleSwitchTest {
         capture("hindi-pt-retained-custom-error.png")
     }
 
-    private fun mapped(verdict: PtVerdict): DiagnosticsPluggableTransportToolUiModel =
-        PluggableTransportResult(verdict, verdict, verdict, emptyList())
+    private fun mapped(trace: PtProbeTrace): DiagnosticsPluggableTransportToolUiModel =
+        PluggableTransportResult(trace, trace, trace, trace)
             .toUiModel(privacyModeEnabled = false, stringResolver = AndroidStringResolver(context("en")))
 
     private fun present(
