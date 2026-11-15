@@ -2,7 +2,7 @@
 id: DGN-1794744781459086
 title: Correct DIA-13 DoQ integrity diagnostics
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: DIA-13 repair
