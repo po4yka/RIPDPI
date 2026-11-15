@@ -2,7 +2,7 @@
 id: SVC-1794755208139697
 title: Fix signed shared-priors audit defects
 kind: bug
-status: review
+status: done
 area: service
 priority: high
 owner: AUX-05 maintainers
@@ -13,6 +13,9 @@ openspec_change: fix-shared-priors-audit-defects
 created: 2026-11-15
 updated: 2026-11-15
 status_detail: Three atomic fixes and focused tests pass; rebased combined validation is pending.
+closed_at: "2026-11-15T15:52:42Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: AUX-05 F1-F3 fixed in three atomic commits; rebased ci-gates/staticAnalysis, 24 service tests, 4 provisioning tests, 143 Rust tests, Clippy and independent reviews passed. No release activation.
 ---
 
 ## Goal

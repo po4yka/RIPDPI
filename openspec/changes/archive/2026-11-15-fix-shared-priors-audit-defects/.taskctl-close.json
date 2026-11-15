@@ -1,0 +1,11 @@
+{
+  "change": "fix-shared-priors-audit-defects",
+  "evidence_summary": "AUX-05 F1-F3 fixed in three atomic commits; rebased ci-gates/staticAnalysis, 24 service tests, 4 provisioning tests, 143 Rust tests, Clippy and independent reviews passed. No release activation.",
+  "execution_sha256": "87c642acc052581cbccc1296a796a682e8eea07c75cf6977adbb1880e722597d",
+  "issue_sha256": "152a6b7bae53c70ce2c49012487123f8884f671a56485fdb49ba7562173634a3",
+  "outcome": "done",
+  "prepared_at": "2026-11-15T15:52:42Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "SVC-1794755208139697"
+}
