@@ -42,9 +42,8 @@ sealed interface ImportPayload {
  */
 object ImportPayloadClassifier {
     fun classify(text: String): ImportPayload? {
-        if (!isWithinImportTextLimit(text)) return null
-        val trimmed = text.trim().removePrefix(ByteOrderMark).trim()
-        if (trimmed.isEmpty()) return null
+        val trimmed = text.takeIf(::isWithinImportTextLimit)?.let { it.trim().removePrefix(ByteOrderMark).trim() }
+        if (trimmed.isNullOrEmpty()) return null
         return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
             ?: SubscriptionLinkClassifier.classify(trimmed)?.let(ImportPayload::Subscription)
             ?: embeddedShareProfile(trimmed)?.let(ImportPayload::Profile)

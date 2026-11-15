@@ -42,15 +42,27 @@ object ClipboardImportClassifier {
      * importable text is [ClipboardImportResult.Importable]; anything else is
      * [ClipboardImportResult.UnknownContent] carrying at most a known format label.
      */
-    fun classify(clipboardText: String?): ClipboardImportResult {
-        if (clipboardText == null) return ClipboardImportResult.Empty
-        if (!isWithinImportTextLimit(clipboardText)) return ClipboardImportResult.UnknownContent("")
-        if (clipboardText.isBlank()) return ClipboardImportResult.Empty
-        return ImportPayloadClassifier.classify(clipboardText)?.let(ClipboardImportResult::Importable)
-            ?: ClipboardImportResult.UnknownContent(
-                ProxyUriShareDispatcher.schemeOf(clipboardText).takeIf(ReportedSchemes::contains).orEmpty(),
-            )
-    }
+    fun classify(clipboardText: String?): ClipboardImportResult =
+        when {
+            clipboardText == null -> {
+                ClipboardImportResult.Empty
+            }
+
+            !isWithinImportTextLimit(clipboardText) -> {
+                ClipboardImportResult.UnknownContent("")
+            }
+
+            clipboardText.isBlank() -> {
+                ClipboardImportResult.Empty
+            }
+
+            else -> {
+                ImportPayloadClassifier.classify(clipboardText)?.let(ClipboardImportResult::Importable)
+                    ?: ClipboardImportResult.UnknownContent(
+                        ProxyUriShareDispatcher.schemeOf(clipboardText).takeIf(ReportedSchemes::contains).orEmpty(),
+                    )
+            }
+        }
 
     private val ReportedSchemes =
         setOf(
