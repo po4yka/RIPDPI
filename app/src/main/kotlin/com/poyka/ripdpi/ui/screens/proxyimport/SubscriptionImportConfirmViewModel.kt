@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
+import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.saveMigrationTargets
@@ -210,7 +211,11 @@ class SubscriptionImportConfirmViewModel
                             ),
                         )
                         if (subscription.kind == SubscriptionKind.BOOTSTRAP && subscription.consumedAt != null) {
-                            completeImport()
+                            if (subscription.lastRefreshFailure == SubscriptionRefreshFailure.PARSE_ERROR) {
+                                _uiState.update { it.copy(importFailed = true) }
+                            } else {
+                                completeImport()
+                            }
                         } else {
                             refreshAndCompleteImport(groupId, isNewGroup = existing == null)
                         }
@@ -295,9 +300,16 @@ class SubscriptionImportConfirmViewModel
                             true
                         }
 
+                        is BootstrapConsumeResult.ParseError -> {
+                            result.consumedAtMillis?.let { consumedAt ->
+                                saveRejectedBootstrap(state, existing, targetGroupId, groupName, order, consumedAt)
+                            }
+                            _uiState.update { it.copy(importFailed = true) }
+                            false
+                        }
+
                         is BootstrapConsumeResult.AlreadyConsumed,
                         is BootstrapConsumeResult.NetworkError,
-                        is BootstrapConsumeResult.ParseError,
                         -> {
                             _uiState.update { it.copy(importFailed = true) }
                             false
@@ -305,6 +317,39 @@ class SubscriptionImportConfirmViewModel
                     }
                 }
             if (saved) completeImport()
+        }
+
+        private suspend fun saveRejectedBootstrap(
+            state: SubscriptionImportConfirmUiState,
+            existing: ProxyGroup?,
+            groupId: String,
+            groupName: String,
+            order: Int,
+            consumedAt: Long,
+        ) {
+            val receipt: (Subscription) -> Subscription = { subscription ->
+                subscription.copy(
+                    kind = SubscriptionKind.BOOTSTRAP,
+                    consumedAt = consumedAt,
+                    lifecycleState = SubscriptionLifecycleState.UNAVAILABLE,
+                    lastRefreshFailure = SubscriptionRefreshFailure.PARSE_ERROR,
+                )
+            }
+            if (existing == null) {
+                repository.add(
+                    subscriptionGroup(null, groupId, groupName, order, receipt(Subscription(link = state.url))),
+                )
+            } else {
+                repository.updateGroup(groupId) { current ->
+                    current.subscription
+                        ?.takeIf {
+                            it.link == state.url && it == existing.subscription &&
+                                current.ownershipGeneration == existing.ownershipGeneration
+                        }?.let {
+                            current.copy(subscription = receipt(it))
+                        } ?: current
+                }
+            }
         }
 
         private class UnsavedBootstrap(

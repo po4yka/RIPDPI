@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.subscription
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -14,6 +15,7 @@ import okhttp3.Request
 import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /** HTTP 410 Gone — the deployer's bootstrap service answers this for a spent token. */
 private const val HttpGone = 410
@@ -61,6 +63,7 @@ sealed interface BootstrapConsumeResult {
     /** The 200 payload could not be parsed into any profile. */
     data class ParseError(
         val reason: String,
+        val consumedAtMillis: Long? = null,
     ) : BootstrapConsumeResult
 }
 
@@ -87,28 +90,41 @@ class BootstrapConsumer(
 
     /**
      * In-flight consumption per token. The winning caller fires the single HTTP
-     * request and completes the deferred; every caller that joins the same
-     * window awaits it and observes the winner's actual result (so a 30-way
-     * double-tap all see one [BootstrapConsumeResult.Consumed]).
+     * request and completes the deferred. Callers for the same target group
+     * share the parsed result; another group gets a spent-token result instead
+     * of foreign-owned profiles.
      */
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<BootstrapConsumeResult>>()
 
     /**
      * Settled-token cache. Once a token reaches a terminal state, any *later*
      * `consume` call (a manual refresh tap, an auto-update worker run) sees this
-     * entry and short-circuits with [BootstrapConsumeResult.AlreadyConsumed] —
-     * no network round-trip.
+     * entry and never replays the delivery. A rejected delivered payload keeps
+     * its parse error; a successfully imported token becomes AlreadyConsumed.
      */
-    private val settled = ConcurrentHashMap<String, BootstrapConsumeResult.AlreadyConsumed>()
+    private val settled = ConcurrentHashMap<String, BootstrapConsumeResult>()
+    private val deliveryHttpClient =
+        httpClient
+            .newBuilder()
+            .retryOnConnectionFailure(false)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .callTimeout(
+                (
+                    httpClient.callTimeoutMillis.takeIf { it > 0 }?.coerceAtMost(BootstrapCallTimeoutMillis)
+                        ?: BootstrapCallTimeoutMillis
+                ).toLong(),
+                TimeUnit.MILLISECONDS,
+            ).build()
 
     /**
      * Consumes the bootstrap subscription at [url], stamping produced profiles
      * with [groupId].
      *
      * Idempotent per token: once a token has reached a terminal state, every
-     * later call returns [BootstrapConsumeResult.AlreadyConsumed] with no
-     * network call. Callers that race the *same* in-flight consumption all
-     * observe the winner's live result. Never throws.
+     * later call returns the cached terminal state with no network call. Callers that race the *same* in-flight consumption all
+     * observe the winner's live result only for the same target group; another
+     * target group sees AlreadyConsumed instead of foreign-owned members. Never throws.
      */
     @Suppress("ReturnCount")
     suspend fun consume(
@@ -137,7 +153,17 @@ class BootstrapConsumer(
 
         return when (claim) {
             is Claim.Joiner -> {
-                claim.deferred.await()
+                val result = claim.deferred.await()
+                if (result is BootstrapConsumeResult.Consumed &&
+                    (
+                        result.profiles.any { it.groupId != groupId } ||
+                            result.amneziaWgProfiles.any { it.groupId != groupId }
+                    )
+                ) {
+                    BootstrapConsumeResult.AlreadyConsumed(result.consumedAtMillis)
+                } else {
+                    result
+                }
             }
 
             is Claim.Winner -> {
@@ -147,9 +173,7 @@ class BootstrapConsumer(
                     try {
                         val result = fetchOnce(url, groupId)
                         mutex.withLock {
-                            if (result.isTerminal) {
-                                settled[key] = BootstrapConsumeResult.AlreadyConsumed(terminalStamp(result))
-                            }
+                            result.terminalOutcome()?.let { settled[key] = it }
                             inFlight.remove(key)
                         }
                         claim.deferred.complete(result)
@@ -177,12 +201,12 @@ class BootstrapConsumer(
         ) : Claim
     }
 
-    /** Epoch-millis stamp carried by a terminal result. */
-    private fun terminalStamp(result: BootstrapConsumeResult): Long =
-        when (result) {
-            is BootstrapConsumeResult.Consumed -> result.consumedAtMillis
-            is BootstrapConsumeResult.AlreadyConsumed -> result.consumedAtMillis
-            else -> clockMillis()
+    private fun BootstrapConsumeResult.terminalOutcome(): BootstrapConsumeResult? =
+        when (this) {
+            is BootstrapConsumeResult.Consumed -> BootstrapConsumeResult.AlreadyConsumed(consumedAtMillis)
+            is BootstrapConsumeResult.AlreadyConsumed -> this
+            is BootstrapConsumeResult.ParseError -> takeIf { consumedAtMillis != null }
+            is BootstrapConsumeResult.NetworkError -> null
         }
 
     private suspend fun fetchOnce(
@@ -200,8 +224,9 @@ class BootstrapConsumer(
                 } catch (_: IllegalArgumentException) {
                     return@withContext BootstrapConsumeResult.ParseError("invalid bootstrap URL")
                 }
+            var delivered = false
             try {
-                httpClient.newCall(request).execute().use { response ->
+                deliveryHttpClient.newCall(request).execute().use { response ->
                     when {
                         response.code == HttpGone -> {
                             BootstrapConsumeResult.AlreadyConsumed(clockMillis())
@@ -212,18 +237,28 @@ class BootstrapConsumer(
                         }
 
                         else -> {
+                            delivered = true
                             val body =
                                 try {
                                     response.body.readBoundedSubscriptionPayload()
                                 } catch (_: SubscriptionPayloadTooLargeException) {
-                                    return@use BootstrapConsumeResult.ParseError("bootstrap payload exceeds limit")
+                                    return@use rejectedDelivery("bootstrap payload exceeds limit")
+                                } catch (_: IllegalArgumentException) {
+                                    return@use rejectedDelivery("invalid bootstrap payload encoding")
                                 }
-                            parseBody(body, groupId)
+                            when (val result = parseBody(body, groupId)) {
+                                is BootstrapConsumeResult.ParseError -> result.copy(consumedAtMillis = clockMillis())
+                                else -> result
+                            }
                         }
                     }
                 }
-            } catch (error: IOException) {
-                BootstrapConsumeResult.NetworkError(error.message ?: "network unreachable")
+            } catch (_: IOException) {
+                if (delivered) {
+                    rejectedDelivery("incomplete bootstrap payload")
+                } else {
+                    BootstrapConsumeResult.NetworkError("bootstrap request failed")
+                }
             }
         }
 
@@ -249,6 +284,9 @@ class BootstrapConsumer(
             singBoxProfileCount in 1..MaxSubscriptionProfiles &&
             singBox.profiles.fitsSubscriptionLimits()
         ) {
+            if (singBox.skipped.isNotEmpty() || !singBox.profiles.hasOnlyNativeProfiles()) {
+                return BootstrapConsumeResult.ParseError("unsupported bootstrap node")
+            }
             if (singBox.migration != null) {
                 try {
                     payload.requireMigrationUtf8()
@@ -274,20 +312,26 @@ class BootstrapConsumer(
                 failover = selector.failoverPolicy.toSelectorFailover(),
             )
         }
-        if (singBox is SingBoxParseResult.Error && body.trimStart().startsWith("{")) {
+        if (singBox is SingBoxParseResult.Error && singBox.recognizedBundle) {
             return BootstrapConsumeResult.ParseError("invalid bootstrap JSON metadata")
         }
         val base64 = Base64SubscriptionParser.parse(body, groupId)
-        if (base64.profiles.isNotEmpty() && base64.profiles.fitsSubscriptionLimits()) {
+        if (base64.warnings.isEmpty() && base64.profiles.isNotEmpty() &&
+            base64.profiles.fitsSubscriptionLimits() && base64.profiles.hasOnlyNativeProfiles()
+        ) {
             return BootstrapConsumeResult.Consumed(base64.profiles, clockMillis())
         }
         return BootstrapConsumeResult.ParseError("no profiles in bootstrap payload")
     }
 
-    private val BootstrapConsumeResult.isTerminal: Boolean
-        get() =
-            this is BootstrapConsumeResult.Consumed ||
-                this is BootstrapConsumeResult.AlreadyConsumed
+    private fun List<ProxyProfile>.hasOnlyNativeProfiles(): Boolean =
+        all { it !is ProxyProfile.RawConfig && validateNativeRelayProfileResult(it).getOrDefault(false) }
+
+    private fun rejectedDelivery(reason: String) = BootstrapConsumeResult.ParseError(reason, clockMillis())
+
+    private companion object {
+        const val BootstrapCallTimeoutMillis = 15_000
+    }
 }
 
 /**
