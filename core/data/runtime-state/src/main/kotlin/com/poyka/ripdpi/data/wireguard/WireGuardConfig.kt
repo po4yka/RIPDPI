@@ -36,8 +36,8 @@ data class WireGuardInterface(
 }
 
 /**
- * A `[Peer]` section of a WireGuard `.conf` file. AmneziaWG adds no peer-level
- * extensions, so this is shared by both [WireGuardConfig] and [AmneziaWgConfig].
+ * A `[Peer]` section shared by [WireGuardConfig] and [AmneziaWgConfig].
+ * AmneziaWG allows a keepalive range.
  */
 @Serializable
 data class WireGuardPeer(
@@ -60,9 +60,8 @@ data class WireGuardPeer(
 /**
  * AmneziaWG obfuscation parameters carried on the `[Interface]` block.
  *
- * Every field is optional: a `.conf` with none of these keys parses as a
- * vanilla [WireGuardConfig]; a `.conf` with any of these keys parses as an
- * [AmneziaWgConfig].
+ * All fields are optional. Presence in the source config identifies AmneziaWG syntax
+ * even when the parameter value is its default.
  *
  * - `jc`, `jmin`, `jmax`, `s1`, `s2`: non-negative integers (junk packet
  *   counts / sizes).
@@ -99,7 +98,7 @@ data class AmneziaWgParameters(
         v3.requireValid(listOf(s1, s2, s3, s4))
     }
 
-    /** True when no AmneziaWG key was present. */
+    /** True when the optional fields are unset and the v3 values are defaults. */
     val isEmpty: Boolean
         get() =
             jc == null && jmin == null && jmax == null && s1 == null && s2 == null &&
@@ -152,8 +151,7 @@ data class WireGuardConfig(
 ) : WireGuardConfModel
 
 /**
- * An AmneziaWG `.conf` — a WireGuard config plus the [AmneziaWgParameters]
- * obfuscation field set found on the `[Interface]` block.
+ * A `.conf` with AmneziaWG interface parameters or a ranged peer keepalive.
  */
 @Serializable
 data class AmneziaWgConfig(

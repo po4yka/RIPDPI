@@ -101,6 +101,34 @@ class WireGuardIniSubscriptionAmneziaWgTest {
     }
 
     @Test
+    fun `peer keepalive range selects AWG without changing the adjacent vanilla peer`() {
+        val conf =
+            """
+            [Interface]
+            PrivateKey = fixture-private
+            Address = 10.13.0.2/32
+
+            [Peer]
+            PublicKey = fixture-ranged-peer
+            Endpoint = range.example.com:51820
+            PersistentKeepalive = 25-35
+
+            [Peer]
+            PublicKey = fixture-scalar-peer
+            Endpoint = scalar.example.com:51820
+            PersistentKeepalive = 25
+            """.trimIndent()
+        val result = WireGuardIniSubscriptionParser.parse(conf, groupId)
+        assertTrue(result.warnings.isEmpty())
+        val ranged = result.amneziaWgProfiles.single()
+        assertEquals("range.example.com", ranged.server)
+        assertEquals(listOf("10.13.0.2/32"), ranged.interfaceAddress)
+        assertEquals(25, ranged.persistentKeepalive)
+        assertEquals(35, ranged.persistentKeepaliveMax)
+        assertEquals("scalar.example.com", result.profiles.single().server)
+    }
+
+    @Test
     fun `interface-scope AWG fields apply to every peer of a multi-peer AWG conf`() {
         val multiPeerAwg =
             """

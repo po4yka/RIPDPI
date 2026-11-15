@@ -19,8 +19,8 @@ class WireGuardConfUnknownKeyException(
  * `KeepaliveTimeout`, `MaxHandshakeAttempts`, `RandomTrailers`, `DisableCookies`,
  * and `[Peer] PersistentKeepalive = lo-hi` ranges.
  *
- * - A `.conf` with **no** AmneziaWG keys parses to a [WireGuardConfig].
- * - A `.conf` with **any** AmneziaWG key parses to an [AmneziaWgConfig].
+ * A supported AmneziaWG interface key or a ranged peer keepalive selects [AmneziaWgConfig],
+ * including syntax that selects default values. Other configs parse as [WireGuardConfig].
  *
  * The key-recognition switch and the `Integer.parseUnsignedInt` / hex parse
  * rules are ported from amnezia-vpn/amneziawg-android
@@ -84,6 +84,7 @@ object WireGuardConfParser {
 
     /** Mutable accumulator for the AmneziaWG obfuscation keys. */
     private class AmneziaWgBuilder {
+        var specified = false
         var jc: Int? = null
         var jmin: Int? = null
         var jmax: Int? = null
@@ -133,6 +134,7 @@ object WireGuardConfParser {
         var endpoint: String? = null
         var persistentKeepalive: Int? = null
         var persistentKeepaliveMax: Int? = null
+        var rangedKeepaliveSpecified = false
 
         fun build(): WireGuardPeer =
             WireGuardPeer(
@@ -173,9 +175,13 @@ object WireGuardConfParser {
         val peers = mutableListOf<WireGuardPeer>()
         var section = Section.NONE
         var currentPeer: PeerBuilder? = null
+        var rangedKeepaliveSpecified = false
 
         fun flushPeer() {
-            currentPeer?.let { peers.add(it.build()) }
+            currentPeer?.let { peer ->
+                peers.add(peer.build())
+                rangedKeepaliveSpecified = rangedKeepaliveSpecified || peer.rangedKeepaliveSpecified
+            }
             currentPeer = null
         }
 
@@ -233,7 +239,7 @@ object WireGuardConfParser {
 
         val interfaceSection = interfaceBuilder.build()
         val awg = interfaceBuilder.awg.build()
-        return if (awg.isEmpty) {
+        return if (!interfaceBuilder.awg.specified && !rangedKeepaliveSpecified) {
             WireGuardConfig(interfaceSection = interfaceSection, peers = peers)
         } else {
             awg.requireSupportedProfile()
@@ -241,40 +247,47 @@ object WireGuardConfParser {
         }
     }
 
-    // Flat dispatch over the fixed WireGuard + AmneziaWG interface key set; the branch
-    // count is inherent to the format, not accidental complexity.
-    @Suppress("CyclomaticComplexMethod")
     private fun applyInterfaceKey(
         builder: InterfaceBuilder,
         key: String,
         value: String,
     ) {
-        // Lower-case the key before dispatch, mirroring amneziawg-android's Interface.parse switch.
-        when (key.lowercase()) {
+        when (val normalizedKey = key.lowercase()) {
             "privatekey" -> builder.privateKey = value
             "address" -> builder.address += splitList(value)
             "dns" -> builder.dns += splitList(value)
             "mtu" -> builder.mtu = parseNonNegativeInt(key, value)
             "listenport" -> builder.listenPort = parseNonNegativeInt(key, value)
-            "jc" -> builder.awg.jc = parseNonNegativeInt(key, value)
-            "jmin" -> builder.awg.jmin = parseNonNegativeInt(key, value)
-            "jmax" -> builder.awg.jmax = parseNonNegativeInt(key, value)
-            "s1" -> builder.awg.s1 = parseNonNegativeInt(key, value)
-            "s2" -> builder.awg.s2 = parseNonNegativeInt(key, value)
-            "s3" -> builder.awg.s3 = parseNonNegativeInt(key, value)
-            "s4" -> builder.awg.s4 = parseNonNegativeInt(key, value)
-            "h1" -> builder.awg.h1 = parseHeader(key, value)
-            "h2" -> builder.awg.h2 = parseHeader(key, value)
-            "h3" -> builder.awg.h3 = parseHeader(key, value)
-            "h4" -> builder.awg.h4 = parseHeader(key, value)
-            "i1" -> builder.awg.i1 = parseSignature(key, value)
-            "i2" -> builder.awg.i2 = parseSignature(key, value)
-            "i3" -> builder.awg.i3 = parseSignature(key, value)
-            "i4" -> builder.awg.i4 = parseSignature(key, value)
-            "i5" -> builder.awg.i5 = parseSignature(key, value)
             in IgnoredInterfaceKeys -> Unit
-            else -> builder.awg.v3 = builder.awg.v3.withConfKey(key, value)
+            else -> applyAmneziaWgKey(builder.awg, normalizedKey, value)
         }
+    }
+
+    private fun applyAmneziaWgKey(
+        builder: AmneziaWgBuilder,
+        key: String,
+        value: String,
+    ) {
+        when (key) {
+            "jc" -> builder.jc = parseNonNegativeInt(key, value)
+            "jmin" -> builder.jmin = parseNonNegativeInt(key, value)
+            "jmax" -> builder.jmax = parseNonNegativeInt(key, value)
+            "s1" -> builder.s1 = parseNonNegativeInt(key, value)
+            "s2" -> builder.s2 = parseNonNegativeInt(key, value)
+            "s3" -> builder.s3 = parseNonNegativeInt(key, value)
+            "s4" -> builder.s4 = parseNonNegativeInt(key, value)
+            "h1" -> builder.h1 = parseHeader(key, value)
+            "h2" -> builder.h2 = parseHeader(key, value)
+            "h3" -> builder.h3 = parseHeader(key, value)
+            "h4" -> builder.h4 = parseHeader(key, value)
+            "i1" -> builder.i1 = parseSignature(key, value)
+            "i2" -> builder.i2 = parseSignature(key, value)
+            "i3" -> builder.i3 = parseSignature(key, value)
+            "i4" -> builder.i4 = parseSignature(key, value)
+            "i5" -> builder.i5 = parseSignature(key, value)
+            else -> builder.v3 = builder.v3.withConfKey(key, value)
+        }
+        builder.specified = true
     }
 
     private fun applyPeerKey(
@@ -305,6 +318,7 @@ object WireGuardConfParser {
                 val range = if (value.equals("off", ignoreCase = true)) null else parseKeepaliveRange(key, value)
                 builder.persistentKeepalive = range?.first
                 builder.persistentKeepaliveMax = range?.second
+                builder.rangedKeepaliveSpecified = builder.rangedKeepaliveSpecified || '-' in value
             }
 
             else -> {

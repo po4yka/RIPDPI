@@ -103,10 +103,8 @@ data class AmneziaWgSubscriptionProfile(
  * Outcome of a [WireGuardIniSubscriptionParser] run: vanilla WireGuard profiles,
  * AmneziaWG profiles, plus per-peer warnings.
  *
- * A single payload yields profiles of one kind per `[Interface]` block: a
- * vanilla `[Interface]` populates [profiles] and an AmneziaWG-flavored
- * `[Interface]` populates [amneziaWgProfiles]. Both lists are present on the
- * result type so the routing decision is visible to callers without a cast.
+ * AmneziaWG interface settings apply to all peers. A ranged keepalive also
+ * selects [amneziaWgProfiles] for that peer. The remaining peers populate [profiles].
  */
 data class WireGuardIniSubscriptionResult(
     val profiles: List<WireGuardSubscriptionProfile>,
@@ -254,16 +252,17 @@ object WireGuardIniSubscriptionParser {
             groupId: String,
         ) {
             val peerLabel = "[Peer] #${peerIndex + 1}"
-            val parsedPeers =
-                runCatching { WireGuardConfParser.parse(interfaceStub + peerBlock).peers }
+            val peerModel =
+                runCatching { WireGuardConfParser.parse(interfaceStub + peerBlock) }
                     .getOrElse { error ->
                         warn(peerIndex, peerLabel, "$peerLabel skipped: ${error.message ?: "could not be parsed"}")
                         return
                     }
             val model =
-                when (interfaceModel) {
-                    is AmneziaWgConfig -> interfaceModel.copy(peers = parsedPeers)
-                    is WireGuardConfig -> interfaceModel.copy(peers = parsedPeers)
+                when {
+                    interfaceModel is AmneziaWgConfig -> interfaceModel.copy(peers = peerModel.peers)
+                    peerModel is AmneziaWgConfig -> peerModel.copy(interfaceSection = interfaceModel.interfaceSection)
+                    else -> WireGuardConfig(interfaceModel.interfaceSection, peerModel.peers)
                 }
             val peer =
                 model.peers.firstOrNull() ?: run {

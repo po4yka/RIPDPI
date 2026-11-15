@@ -440,6 +440,17 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `explicit false flags and peer ranges identify AmneziaWG syntax`() {
+        assertTrue(WireGuardConfParser.parse(interfaceConf("RandomTrailers = off")) is AmneziaWgConfig)
+        assertTrue(WireGuardConfParser.parse(interfaceConf("DisableCookies = false")) is AmneziaWgConfig)
+        listOf("0-0", "25-25", "25-35").forEach { interval ->
+            val conf = interfaceConf("", "PersistentKeepalive = $interval")
+            assertTrue(interval, WireGuardConfParser.parse(conf) is AmneziaWgConfig)
+        }
+        assertTrue(WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 25")) is WireGuardConfig)
+    }
+
+    @Test
     fun `final keepalive off clears both bounds`() {
         val conf = interfaceConf("", "PersistentKeepalive = 25-35\nPersistentKeepalive = oFf")
         val peer = WireGuardConfParser.parse(conf).peers.single()
