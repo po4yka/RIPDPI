@@ -63,7 +63,8 @@ class DetectionScreenSemanticsTest {
         }
 
         composeRule.onAllNodesWithText("Insufficient evidence").assertCountEquals(2)
-        composeRule.onAllNodesWithText("OK").assertCountEquals(5)
+        composeRule.onNodeWithText("Skipped").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("OK").assertCountEquals(4)
     }
 
     @Test
@@ -85,7 +86,7 @@ class DetectionScreenSemanticsTest {
         }
 
         composeRule.onAllNodesWithText("You look like ordinary HTTPS traffic").assertCountEquals(0)
-        composeRule.onNodeWithText("Probe outcome: 0/5 signals exposed").fetchSemanticsNode()
+        composeRule.onNodeWithText("Probe outcome: 0/4 signals exposed").fetchSemanticsNode()
         composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
         composeRule.onAllNodesWithText("Excellent").assertCountEquals(0)
     }
