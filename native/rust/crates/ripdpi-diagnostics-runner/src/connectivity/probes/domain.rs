@@ -216,7 +216,7 @@ fn run_domain_probe_with_tls_probe(
         // connected. For a hostname report only the peer the actual connection selected.
         let resolved = connected_addr.or_else(|| match connect_targets.first()? {
             TargetAddress::Ip(ip) => Some(std::net::SocketAddr::new(*ip, https_port)),
-            TargetAddress::Host(_) => None,
+            TargetAddress::Host(host) => host.parse().ok().map(|ip| std::net::SocketAddr::new(ip, https_port)),
         });
         if let Some(address) = resolved {
             result.details.insert(0, ProbeDetail { key: "resolved".into(), value: address.to_string() });
