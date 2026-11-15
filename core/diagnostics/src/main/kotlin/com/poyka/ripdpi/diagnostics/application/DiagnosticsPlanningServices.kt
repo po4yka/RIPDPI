@@ -208,23 +208,7 @@ internal class DefaultDiagnosticsPlanner
                         PreferredEdgeTransportTcp,
                     )
                 }
-            val quicTargets =
-                intent.quicTargets.map { target ->
-                    val planned =
-                        if (intent.kind == ScanKind.CONNECTIVITY) {
-                            target.copy(
-                                host = target.host.canonicalQuicProbeHostOrNull() ?: target.host,
-                                // A port outside the wire's u16 range would reject the whole request.
-                                port = target.port.takeIf { it in 1..IpProbeMaxPort } ?: 0,
-                            )
-                        } else {
-                            target
-                        }
-                    val edges =
-                        context.preferredEdges[planned.host.lowercase()]
-                            ?: context.preferredEdges[target.host.lowercase()]
-                    planned.withPreferredEdges(edges.orEmpty(), PreferredEdgeTransportQuic)
-                }
+            val quicTargets = planQuicTargets(intent, context)
             val throughputTargets =
                 intent.throughputTargets.map { target ->
                     target.hostFromUrl()?.let { host ->
@@ -278,6 +262,27 @@ internal class DefaultDiagnosticsPlanner
                 confirmGoodDpiEvidence = context.confirmGoodDpiEvidence,
             )
         }
+    }
+
+private fun planQuicTargets(
+    intent: DiagnosticsIntent,
+    context: ScanContext,
+): List<QuicTarget> =
+    intent.quicTargets.map { target ->
+        val planned =
+            if (intent.kind == ScanKind.CONNECTIVITY) {
+                target.copy(
+                    host = target.host.canonicalQuicProbeHostOrNull() ?: target.host,
+                    // A port outside the wire's u16 range would reject the whole request.
+                    port = target.port.takeIf { it in 1..IpProbeMaxPort } ?: 0,
+                )
+            } else {
+                target
+            }
+        val edges =
+            context.preferredEdges[planned.host.lowercase()]
+                ?: context.preferredEdges[target.host.lowercase()]
+        planned.withPreferredEdges(edges.orEmpty(), PreferredEdgeTransportQuic)
     }
 
 @Singleton
@@ -341,22 +346,31 @@ private fun DomainTarget.withPreferredEdges(
     return copy(connectIps = ordered, connectIp = ordered.firstOrNull() ?: connectIp)
 }
 
-internal fun String.canonicalQuicProbeHostOrNull(): String? {
-    if (NumericIp.parseAddress(this) != null) return this
-    if ('%' in this || any(Char::isWhitespace)) return null
-    return try {
-        HttpUrl
-            .Builder()
-            .scheme("https")
-            .host(this)
-            .build()
-            .host
-            // Keep an explicit root label for the lookup. Native removes it for SNI.
-            .takeIf { isAsciiDnsHost(it.removeSuffix(".")) }
-    } catch (_: IllegalArgumentException) {
-        null
+internal fun String.canonicalQuicProbeHostOrNull(): String? =
+    when {
+        NumericIp.parseAddress(this) != null -> {
+            this
+        }
+
+        '%' in this || any(Char::isWhitespace) -> {
+            null
+        }
+
+        else -> {
+            try {
+                HttpUrl
+                    .Builder()
+                    .scheme("https")
+                    .host(this)
+                    .build()
+                    .host
+                    // Keep an explicit root label for the lookup. Native removes it for SNI.
+                    .takeIf { isAsciiDnsHost(it.removeSuffix(".")) }
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+        }
     }
-}
 
 private fun QuicTarget.withPreferredEdges(
     edges: List<com.poyka.ripdpi.data.PreferredEdgeCandidate>,

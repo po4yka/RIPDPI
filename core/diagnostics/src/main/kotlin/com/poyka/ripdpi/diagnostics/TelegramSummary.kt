@@ -44,18 +44,33 @@ internal fun DiagnosticsSummaryDocument.withTelegramEvidence(
 
 private fun telegramPortFacts(row: String): Sequence<String> {
     val parts = row.split(':', limit = 4)
-    val evidence = parts.getOrNull(3).orEmpty()
-    if (evidence.startsWith("ports=")) {
-        return evidence
-            .removePrefix("ports=")
-            .splitToSequence(',')
-            .mapNotNull { wire ->
-                val values = wire.split(':', limit = 3)
-                val port = values[0].toTelegramPort() ?: return@mapNotNull null
-                "port=$port status=${telegramSummaryState(values.getOrNull(1))}"
-            }
+    val evidence = parts.getOrNull(TelegramEvidenceIndex).orEmpty()
+    return when {
+        evidence.startsWith("ports=") -> {
+            evidence
+                .removePrefix("ports=")
+                .splitToSequence(',')
+                .mapNotNull { wire ->
+                    val values = wire.split(':', limit = 3)
+                    val port = values[0].toTelegramPort() ?: return@mapNotNull null
+                    "port=$port status=${telegramSummaryState(values.getOrNull(1))}"
+                }
+        }
+
+        evidence.startsWith("address=") -> {
+            telegramAddressPortFacts(parts, evidence)
+        }
+
+        else -> {
+            emptySequence()
+        }
     }
-    if (!evidence.startsWith("address=")) return emptySequence()
+}
+
+private fun telegramAddressPortFacts(
+    parts: List<String>,
+    evidence: String,
+): Sequence<String> {
     val fields = evidence.splitToSequence(';').iterator()
     val port = fields.next().substringAfterLast(':', "").toTelegramPort() ?: return emptySequence()
     val family = fields.asSequence().firstOrNull()?.removePrefix("family=")
@@ -76,8 +91,9 @@ private fun telegramPathFact(value: String?): String = if (value in TelegramPath
 
 private fun String?.toTelegramCount(): Int? = this?.toIntOrNull()?.takeIf { it >= 0 }
 
-private fun String.toTelegramPort(): Int? = toIntOrNull()?.takeIf { it in 1..65_535 }
+private fun String.toTelegramPort(): Int? = toIntOrNull()?.takeIf { it in 1..IpProbeMaxPort }
 
+private const val TelegramEvidenceIndex = 3
 private const val MaxTelegramSummaryPorts = 32
 private val TelegramFamilies = setOf("ipv4", "ipv6")
 private val TelegramPaths = setOf("direct", "direct_route_experiment", "socks5")

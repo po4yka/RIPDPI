@@ -125,19 +125,24 @@ private class LocalNetworkScanFilter(
                     requireDirectEndpoint(it.connectIpv4 ?: it.host, it.port)
                     requireDirectEndpoint(it.connectIpv6 ?: it.host, it.port)
                 }.singleOrNull(),
-            telegramTarget =
-                allowed(
-                    listOfNotNull(request.telegramTarget),
-                    EngineProbeTaskFamily.TELEGRAM,
-                    "telegram_availability",
-                    { "telegram" },
-                ) {
-                    val media = checkNotNull(telegramMedia)
-                    requireDirectEndpoint(media.host, media.networkPort())
-                    requireDirectEndpoint(it.uploadIp, it.uploadPort)
-                    it.dcEndpoints.forEach { endpoint -> requireDirectEndpoint(endpoint.ip, endpoint.port) }
-                }.singleOrNull(),
+            telegramTarget = admitTelegramTarget(request.telegramTarget, telegramMedia),
         )
+
+    private suspend fun admitTelegramTarget(
+        target: TelegramTarget?,
+        telegramMedia: URI?,
+    ): TelegramTarget? =
+        allowed(
+            listOfNotNull(target),
+            EngineProbeTaskFamily.TELEGRAM,
+            "telegram_availability",
+            { "telegram" },
+        ) {
+            val media = checkNotNull(telegramMedia)
+            requireDirectEndpoint(media.host, media.networkPort())
+            requireDirectEndpoint(it.uploadIp, it.uploadPort)
+            it.dcEndpoints.forEach { endpoint -> requireDirectEndpoint(endpoint.ip, endpoint.port) }
+        }.singleOrNull()
 
     private suspend fun <T> allowed(
         targets: List<T>,

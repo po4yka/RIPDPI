@@ -65,41 +65,7 @@ class DiagnosticsLocalNetworkPreflightTest {
                     displayName = "Mixed probe families",
                     pathMode = ScanPathMode.RAW_PATH,
                 )
-            val cases =
-                listOf(
-                    EngineProbeTaskFamily.HTTP3 to base.copy(http3Probe = Http3ProbeConfig(host = localIp)),
-                    EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(host = localIp)),
-                    EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(connectIpv4 = localIp)),
-                    EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(connectIpv6 = "fd00::1")),
-                    EngineProbeTaskFamily.HTTP3 to
-                        base.copy(http3Probe = Http3ProbeConfig(host = localIp, connectIp = "192.168.50.3")),
-                    EngineProbeTaskFamily.QUIC to base.copy(quicTargets = listOf(QuicTarget(host = localIp))),
-                    EngineProbeTaskFamily.DNS to
-                        base.copy(
-                            dnsTargets = listOf(DnsTarget(domain = localIp, udpServer = localIp)),
-                        ),
-                    EngineProbeTaskFamily.SERVICE to
-                        base.copy(
-                            serviceTargets = listOf(ServiceTarget(localIp, "service", tcpEndpointIp = localIp)),
-                        ),
-                    EngineProbeTaskFamily.CIRCUMVENTION to
-                        base.copy(
-                            circumventionTargets = listOf(CircumventionTarget(localIp, "tool", handshakeIp = localIp)),
-                        ),
-                    EngineProbeTaskFamily.THROUGHPUT to
-                        base.copy(
-                            throughputTargets = listOf(ThroughputTarget(localIp, "download", "https://$localIp/data")),
-                        ),
-                    EngineProbeTaskFamily.TELEGRAM to
-                        base.copy(
-                            telegramTarget = TelegramTarget(mediaUrl = "https://8.8.4.4/media", uploadIp = localIp),
-                        ),
-                    EngineProbeTaskFamily.TELEGRAM to
-                        base.copy(
-                            telegramTarget =
-                                TelegramTarget(mediaUrl = "https://[fd00::1]:8443?image=1", uploadIp = "8.8.4.4"),
-                        ),
-                )
+            val cases = localProbeFamilyRequests(localIp, base)
 
             for ((family, localRequest) in cases) {
                 val targetId =
@@ -497,4 +463,43 @@ class DiagnosticsLocalNetworkPreflightTest {
                     ).bucket,
             )
         }
+
+    private fun localProbeFamilyRequests(
+        localIp: String,
+        base: EngineScanRequestWire,
+    ): List<Pair<EngineProbeTaskFamily, EngineScanRequestWire>> =
+        listOf(
+            EngineProbeTaskFamily.HTTP3 to base.copy(http3Probe = Http3ProbeConfig(host = localIp)),
+            EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(host = localIp)),
+            EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(connectIpv4 = localIp)),
+            EngineProbeTaskFamily.PMTU to base.copy(pmtuProbe = PmtuProbeConfig(connectIpv6 = "fd00::1")),
+            EngineProbeTaskFamily.HTTP3 to
+                base.copy(http3Probe = Http3ProbeConfig(host = localIp, connectIp = "192.168.50.3")),
+            EngineProbeTaskFamily.QUIC to base.copy(quicTargets = listOf(QuicTarget(host = localIp))),
+            EngineProbeTaskFamily.DNS to
+                base.copy(
+                    dnsTargets = listOf(DnsTarget(domain = localIp, udpServer = localIp)),
+                ),
+            EngineProbeTaskFamily.SERVICE to
+                base.copy(
+                    serviceTargets = listOf(ServiceTarget(localIp, "service", tcpEndpointIp = localIp)),
+                ),
+            EngineProbeTaskFamily.CIRCUMVENTION to
+                base.copy(
+                    circumventionTargets = listOf(CircumventionTarget(localIp, "tool", handshakeIp = localIp)),
+                ),
+            EngineProbeTaskFamily.THROUGHPUT to
+                base.copy(
+                    throughputTargets = listOf(ThroughputTarget(localIp, "download", "https://$localIp/data")),
+                ),
+            EngineProbeTaskFamily.TELEGRAM to
+                base.copy(
+                    telegramTarget = TelegramTarget(mediaUrl = "https://8.8.4.4/media", uploadIp = localIp),
+                ),
+            EngineProbeTaskFamily.TELEGRAM to
+                base.copy(
+                    telegramTarget =
+                        TelegramTarget(mediaUrl = "https://[fd00::1]:8443?image=1", uploadIp = "8.8.4.4"),
+                ),
+        )
 }

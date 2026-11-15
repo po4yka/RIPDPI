@@ -320,7 +320,8 @@ class DiagnosticsModelsCompatibilityTest {
         val telegram =
             json.decodeFromString(
                 TelegramObservationFact.serializer(),
-                """{"verdict":"ERROR","stopReason":"DEADLINE_EXCEEDED","wsTunnelStatus":"UNKNOWN","wsTunnelOutcome":"NOT_RUN"}""",
+                "{\"verdict\":\"ERROR\",\"stopReason\":\"DEADLINE_EXCEEDED\"," +
+                    "\"wsTunnelStatus\":\"UNKNOWN\",\"wsTunnelOutcome\":\"NOT_RUN\"}",
             )
 
         assertEquals(TelegramProbeStopReason.DEADLINE_EXCEEDED, telegram.stopReason)
