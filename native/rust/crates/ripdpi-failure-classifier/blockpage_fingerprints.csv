@@ -1,10 +1,10 @@
 name,location_found,pattern_type,pattern,scope,confidence_no_fp
 rkn_standard,body,contains,zapret-info.gov.ru,nat,high
 rkn_nap,body,contains,eais.rkn.gov.ru,nat,high
-rkn_decision,body,contains,решением суда,nat,high
-rkn_blocked_ru,body,contains,доступ ограничен,nat,high
-rkn_blocked_en,body,contains,access to the resource is restricted,nat,high
-rkn_registry,body,contains,реестр запрещённых,nat,high
+rkn_decision,body,contains,решением суда,nat,low
+rkn_blocked_ru,body,contains,доступ ограничен,nat,medium
+rkn_blocked_en,body,contains,access to the resource is restricted,nat,medium
+rkn_registry,body,contains,реестр запрещённых,nat,low
 mts_block,body,contains,blocked.mts.ru,isp,high
 beeline_block,body,contains,blacklist.beeline.ru,isp,high
 megafon_block,body,contains,block.megafon.ru,isp,high

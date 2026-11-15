@@ -1,4 +1,5 @@
 use super::fingerprint_catalog::{BlockpageFingerprint, FingerprintLocation, PatternType};
+use super::http_classification::match_body_keyword;
 
 pub fn match_blockpage_response(
     headers: &[(String, String)],
@@ -19,6 +20,13 @@ pub fn match_blockpage_response(
             PatternType::Prefix => haystack.starts_with(&pattern),
             PatternType::Contains => haystack.contains(&pattern),
         };
-        matched.then(|| fingerprint.name.clone())
+        if !matched {
+            return None;
+        }
+        // Generic body text needs a short, explicit block message; an article can quote the same words.
+        let confirmed = !matches!(fingerprint.location, FingerprintLocation::Body)
+            || fingerprint.confidence == "high"
+            || match_body_keyword(body).is_some();
+        confirmed.then(|| fingerprint.name.clone())
     })
 }

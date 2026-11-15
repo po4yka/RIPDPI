@@ -67,8 +67,49 @@ fn fingerprint_match_folds_unicode_case_for_cyrillic_patterns() {
         Some("rkn_blocked_ru".to_string()),
     );
     assert_eq!(
-        match_blockpage_response(&[], "<html>Решением Суда</html>".as_bytes(), &fingerprints,),
+        match_blockpage_response(
+            &[],
+            "<html>Доступ к ресурсу ограничен Решением Суда</html>".as_bytes(),
+            &fingerprints,
+        ),
         Some("rkn_decision".to_string()),
+    );
+}
+
+#[test]
+fn weak_text_fingerprints_do_not_confirm_ordinary_content() {
+    let fingerprints = load_blockpage_fingerprints();
+    for text in [
+        "<html><h1>Новости</h1><p>Компания выиграла спор решением суда.</p></html>",
+        "<html><h1>Справка</h1><p>Документ описывает реестр запрещённых ресурсов.</p></html>",
+        "<html><p>FortiGuard показывает сообщение Access denied. Это описано решением суда.</p></html>",
+        "<html><p>Blue Coat and nfware.com products can show ERR_ACCESS_DENIED or error 1000.</p></html>",
+    ] {
+        for size in [text.len(), 12000] {
+            let mut body = text.as_bytes().to_vec();
+            body.resize(size, b' ');
+            assert_eq!(match_blockpage_response(&[], &body, &fingerprints), None, "{text}; size={size}");
+        }
+    }
+}
+
+#[test]
+fn weak_body_fingerprints_need_block_messages_but_specific_signatures_do_not() {
+    let fingerprints = load_blockpage_fingerprints();
+    for (body, expected) in [
+        ("<html>Доступ к ресурсу ограничен решением суда.</html>", "rkn_decision"),
+        ("<html>FortiGuard: This page has been blocked by your network.</html>", "fortinet_block"),
+    ] {
+        assert_eq!(match_blockpage_response(&[], body.as_bytes(), &fingerprints), Some(expected.to_string()));
+    }
+
+    let mut large_body = b"<html>blocked.mts.ru</html>".to_vec();
+    large_body.resize(12000, b' ');
+    assert_eq!(match_blockpage_response(&[], &large_body, &fingerprints), Some("mts_block".to_string()));
+    large_body.fill(b'x');
+    assert_eq!(
+        match_blockpage_response(&[("Server".to_string(), "MTS Proxy/1.0".to_string())], &large_body, &fingerprints),
+        Some("mts_header".to_string()),
     );
 }
 
