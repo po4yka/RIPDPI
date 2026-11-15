@@ -175,12 +175,14 @@ internal fun AmneziaWgProfileScreen(
                             stringResource(R.string.awg_conf_import_unreadable_body)
                         }
 
-                        AwgConfImportFailure.INVALID -> {
+                        AwgConfImportFailure.INVALID,
+                        AwgConfImportFailure.UNSUPPORTED_OPTION,
+                        -> {
                             stringResource(R.string.awg_conf_import_failed_body)
                         }
 
-                        AwgConfImportFailure.UNSUPPORTED_OPTION -> {
-                            stringResource(R.string.awg_conf_unsupported_option_body, failure.key)
+                        AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT -> {
+                            stringResource(R.string.awg_conf_unsupported_option_body, "ListenPort")
                         }
                     },
                 testTag = RipDpiTestTags.AwgConfImportFailed,

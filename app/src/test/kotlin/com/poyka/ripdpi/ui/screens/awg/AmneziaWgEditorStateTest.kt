@@ -557,12 +557,14 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `an unknown key is named without its value`() {
+    fun `an unknown key is rejected without retaining its name or value`() {
         val conf = "[Interface]\nPrivateKey = k==\nMadeUpKey = secret-value\n\n[Peer]\nPublicKey = p=="
 
         val result = AmneziaWgEditorState.initial().importConf(conf, catalog)
 
-        assertEquals(AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, "MadeUpKey"), result)
+        assertEquals(AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION), result)
+        assertTrue("MadeUpKey" !in result.toString())
+        assertTrue("secret-value" !in result.toString())
     }
 
     @Test

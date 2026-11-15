@@ -24,12 +24,12 @@ fun AmneziaWgEditorState.importConf(
     val result = conf.takeIf { it.isNotBlank() }?.let { runCatching { WireGuardConfParser.parse(it) } }
     val parsed = result?.getOrNull()
     val listenPort = parsed?.interfaceSection?.listenPort ?: 0
-    val unknownKey = (result?.exceptionOrNull() as? WireGuardConfUnknownKeyException)?.key
+    val hasUnknownKey = result?.exceptionOrNull() is WireGuardConfUnknownKeyException
     return when {
         conf.isBlank() -> AwgConfImport.Failed(AwgConfImportFailure.UNREADABLE)
-        unknownKey != null -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, unknownKey)
+        hasUnknownKey -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION)
         parsed == null -> AwgConfImport.Failed(AwgConfImportFailure.INVALID)
-        listenPort != 0 -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, "ListenPort")
+        listenPort != 0 -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT)
         else -> imported(conf, parsed, catalog)
     }
 }
@@ -130,8 +130,11 @@ enum class AwgConfImportFailure {
     /** The text is not a WireGuard / AmneziaWG config RIPDPI can parse. */
     INVALID,
 
-    /** The editor does not support this option; [AwgConfImport.Failed.key] names it. */
+    /** The config contains an unrecognised option. */
     UNSUPPORTED_OPTION,
+
+    /** The config requests a fixed local port, which the editor cannot apply. */
+    UNSUPPORTED_LISTEN_PORT,
 }
 
 /** Outcome of [AmneziaWgEditorState.importConf]. */
@@ -143,7 +146,5 @@ sealed interface AwgConfImport {
 
     data class Failed(
         val reason: AwgConfImportFailure,
-        /** The unsupported key name for [AwgConfImportFailure.UNSUPPORTED_OPTION]; never a value. */
-        val key: String = "",
     ) : AwgConfImport
 }

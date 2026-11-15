@@ -374,7 +374,7 @@ class AmneziaWgProfileViewModelTest {
 
         assertEquals("keep.me", viewModel.uiState.value.editor.form.server)
         assertEquals(
-            AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION, "ListenPort"),
+            AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT),
             viewModel.uiState.value.confImportFailure,
         )
 
