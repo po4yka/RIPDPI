@@ -20,7 +20,8 @@ import javax.inject.Inject
 private const val XrayServerHost = "203.0.113.10"
 private const val XrayProfileLink =
     "vless://00000000-0000-4000-8000-000000000002@$XrayServerHost:443" +
-        "?security=reality&pbk=AbCdEf0123456789AbCdEf0123456789AbCdEf01234&sni=www.example.com&sid=ab12#Journey"
+        "?security=reality&pbk=AbCdEf0123456789AbCdEf0123456789AbCdEf01234" +
+        "&sni=www.example.com&sid=ab12&flow=xtls-rprx-vision#Journey"
 
 /** The Xray provider import from the mode editor: a checked profile is stored and restored on reopen. */
 @HiltAndroidTest

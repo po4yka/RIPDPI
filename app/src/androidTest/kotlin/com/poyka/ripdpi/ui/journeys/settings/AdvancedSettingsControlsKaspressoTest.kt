@@ -56,7 +56,11 @@ class AdvancedSettingsControlsKaspressoTest :
         run {
             val before = AppSettingsSerializer.defaultValue.tcpFastOpen
             step("Toggle TCP fast open") {
-                with(AdvancedSettingsPage(composeRule)) { click(toggle(AdvancedToggleSetting.TcpFastOpen)) }
+                with(AdvancedSettingsPage(composeRule)) {
+                    awaitScreen()
+                    require(section("proxy"))
+                    click(toggle(AdvancedToggleSetting.TcpFastOpen))
+                }
             }
             step("The stored flag flips") {
                 composeRule.waitForSettings(appSettingsRepository) { it.tcpFastOpen != before }

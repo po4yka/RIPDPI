@@ -1,15 +1,17 @@
 package com.poyka.ripdpi.ui.journeys.imports
 
+import androidx.compose.ui.test.hasText
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
+import com.poyka.ripdpi.ui.journeys.reveal
 import com.poyka.ripdpi.ui.journeys.settings.ConnectionPage
 import com.poyka.ripdpi.ui.journeys.settings.ProfileImportConfirmPage
-import com.poyka.ripdpi.ui.journeys.waitForSettings
 import com.poyka.ripdpi.ui.journeys.waitWithTree
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -23,7 +25,7 @@ private const val SharedProfileLink =
         "?security=reality&pbk=AbCdEf0123456789AbCdEf0123456789AbCdEf01234" +
         "&sni=www.example.com&flow=xtls-rprx-vision#Journey%20Share"
 
-/** A server link shared from another app reaches the profile list and the active relay. */
+/** A server link shared from another app is saved for later selection. */
 @HiltAndroidTest
 class SharedProfileImportKaspressoTest :
     RipDpiKaspressoTest(
@@ -33,44 +35,50 @@ class SharedProfileImportKaspressoTest :
         ),
     ) {
     @Inject
-    lateinit var proxyGroupRepository: ProxyGroupRepository
+    lateinit var relayProfileStore: RelayProfileStore
 
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
 
+    private fun importedProfile() =
+        runBlocking { relayProfileStore.list() }.singleOrNull { it.operatorName == SharedProfileName }
+
     @Test
-    fun sharedServerLinkIsConfirmedAndBecomesTheActiveRelay() =
+    fun sharedServerLinkIsSavedWithoutChangingRelaySelection() =
         run {
+            ConnectionPage(composeRule).awaitScreen()
+            val before = runBlocking { appSettingsRepository.snapshot() }
             step("Another app shares a vless link as text") {
-                ConnectionPage(composeRule).awaitScreen()
                 sendToApp(shareTextIntent(SharedProfileLink))
             }
             step("The confirmation shows the profile name and server") {
                 with(ProfileImportConfirmPage(composeRule)) {
                     awaitScreen(ImportJourneyLaunchMillis)
                     composeRule.awaitText(SharedProfileName)
+                    composeRule.waitWithTree("import confirmation server never appeared") {
+                        composeRule.reveal(hasText("$SharedProfileHost:443", substring = true))
+                    }
                     confirmAdd()
                     waitGone(screenTag, ImportJourneyLaunchMillis)
                 }
             }
-            step("The profile is saved by name and its server is the configured relay") {
-                composeRule.waitWithTree("imported profile group never saved") {
-                    runBlocking { proxyGroupRepository.list() }.any { it.name == SharedProfileName }
-                }
-                composeRule.waitForSettings(appSettingsRepository) {
-                    it.relayEnabled && it.relayServer == SharedProfileHost
-                }
+            step("The relay profile is saved and the current relay selection is preserved") {
+                composeRule.waitWithTree("imported relay profile never saved") { importedProfile() != null }
+                val saved = checkNotNull(importedProfile())
+                assertEquals(SharedProfileHost, saved.server)
+                assertEquals(443, saved.serverPort)
+                val after = runBlocking { appSettingsRepository.snapshot() }
+                assertEquals(before.relayEnabled, after.relayEnabled)
+                assertEquals(before.relayProfileId, after.relayProfileId)
+                assertEquals(before.relayServer, after.relayServer)
             }
-            step("Config lists the profile and shows its server on the relay row") {
+            step("The saved relay profile appears in Config") {
                 with(ConnectionPage(composeRule)) {
                     if (!exists(screenTag)) click(bottomNavConfig)
                     awaitScreen()
-                    click(pathOption("relay"))
-                    awaitDisplayed(vpnRelay)
-                    assertEquals("$SharedProfileHost:443", stateDescription(vpnRelay))
                     click(profileChange)
                     waitFor(profileChoices)
-                    awaitProfileRow()
+                    awaitDisplayed(RipDpiTestTags.connectionRelayProfileRow(checkNotNull(importedProfile()).id))
                 }
             }
         }
