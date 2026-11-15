@@ -21,7 +21,7 @@
 //! dependency is pulled through this crate.
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_diagnostics_contracts::util::{DEFAULT_DOH_JSON_RESOLVERS, parse_doh_json_ip_answer};
+use ripdpi_diagnostics_contracts::util::{DEFAULT_DOH_JSON_RESOLVERS, DohJsonResponse, parse_doh_json_response};
 
 use crate::probes::doh_survey::DohHttpClient;
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
@@ -49,11 +49,16 @@ pub enum DohJsonResolverStatus {
         /// First IP address returned by the resolver.
         answered_ip: String,
     },
-    /// The resolver returned NXDOMAIN (RCODE 3) or a well-formed JSON envelope
-    /// with no usable A/AAAA answer (e.g. CNAME-only).
+    /// The queried name does not exist (RCODE 3).
     NxDomain,
-    /// A 2xx HTTP response contained invalid DoH JSON, or a valid JSON
-    /// response with an error RCODE other than NXDOMAIN (e.g. SERVFAIL).
+    /// NOERROR without an address of the requested type.
+    NoData,
+    /// The resolver returned another DNS error.
+    DnsError {
+        /// DNS response code.
+        rcode: u16,
+    },
+    /// A 2xx HTTP response did not satisfy the vendor DNS JSON contract.
     /// Treated as a probe *failure*, never a panic.
     MalformedJson {
         /// Short description of why the response was unusable.
@@ -83,11 +88,6 @@ impl DohJsonResolverStatus {
     fn is_ok(&self) -> bool {
         matches!(self, Self::Ok { .. })
     }
-
-    /// Returns `true` when the resolver is reachable but returned NXDOMAIN.
-    fn is_nxdomain(&self) -> bool {
-        matches!(self, Self::NxDomain)
-    }
 }
 
 /// Outcome for a single DoH-JSON resolver endpoint.
@@ -114,7 +114,6 @@ pub struct DohJsonResolverResult {
 /// | Condition | Verdict |
 /// |---|---|
 /// | At least one resolver returned `Ok` | `Pass` |
-/// | All resolvers returned `NxDomain` | `Fail { class: "doh-json-only-nxdomain" }` |
 /// | All resolvers non-`Ok`, not all `NxDomain` | `Inconclusive { reason: "no resolver answered" }` |
 /// | No resolvers configured | `Inconclusive { reason: "no resolvers configured" }` |
 #[derive(Debug, Clone)]
@@ -146,8 +145,6 @@ impl Probe for DohJsonSurveyProbe {
             ProbeVerdict::Inconclusive { reason: "no resolvers configured".to_string() }
         } else if self.results.iter().any(|r| r.status.is_ok()) {
             ProbeVerdict::Pass
-        } else if self.results.iter().all(|r| r.status.is_nxdomain()) {
-            ProbeVerdict::Fail { class: "doh-json-only-nxdomain".to_string() }
         } else {
             // Transport errors and HTTP failures do not prove censorship.
             ProbeVerdict::Inconclusive { reason: "no resolver answered".to_string() }
@@ -263,9 +260,11 @@ impl<C: DohHttpClient> DohJsonSurveyRunner<C> {
 
 /// Parse a DoH-JSON response body into a [`DohJsonResolverStatus`].
 fn parse_doh_json_answer(body: &[u8], query_host: &str) -> DohJsonResolverStatus {
-    match parse_doh_json_ip_answer(body, query_host, 1) {
-        Ok(Some(ip)) => DohJsonResolverStatus::Ok { answered_ip: ip.to_string() },
-        Ok(None) => DohJsonResolverStatus::NxDomain,
+    match parse_doh_json_response(body, query_host, 1) {
+        Ok(DohJsonResponse::Answer(ip)) => DohJsonResolverStatus::Ok { answered_ip: ip.to_string() },
+        Ok(DohJsonResponse::NoData) => DohJsonResolverStatus::NoData,
+        Ok(DohJsonResponse::NxDomain) => DohJsonResolverStatus::NxDomain,
+        Ok(DohJsonResponse::DnsError { rcode }) => DohJsonResolverStatus::DnsError { rcode },
         Err(detail) => DohJsonResolverStatus::MalformedJson { detail: detail.to_string() },
     }
 }
@@ -331,11 +330,11 @@ mod tests {
     }
 
     #[test]
-    fn all_nxdomain_yields_fail_json_only_nxdomain() {
+    fn all_nxdomain_is_inconclusive_without_a_control() {
         let results = vec![nxdomain_result("google"), nxdomain_result("cloudflare")];
         match DohJsonSurveyProbe::new(results).run(&ProbeContext::empty()).verdict {
-            ProbeVerdict::Fail { class } => assert_eq!(class, "doh-json-only-nxdomain"),
-            other => panic!("expected Fail, got {other:?}"),
+            ProbeVerdict::Inconclusive { reason } => assert_eq!(reason, "no resolver answered"),
+            other => panic!("expected Inconclusive, got {other:?}"),
         }
     }
 
@@ -352,6 +351,25 @@ mod tests {
         match DohJsonSurveyProbe::new(results).run(&ProbeContext::empty()).verdict {
             ProbeVerdict::Inconclusive { reason } => assert_eq!(reason, "no resolver answered"),
             other => panic!("expected Inconclusive, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn preserves_dns_response_kinds_without_claiming_blocking() {
+        for (rcode, expected) in [
+            (0, DohJsonResolverStatus::NoData),
+            (3, DohJsonResolverStatus::NxDomain),
+            (2, DohJsonResolverStatus::DnsError { rcode: 2 }),
+        ] {
+            let body = format!(r#"{{"Status":{rcode},"Question":[{{"name":"example.com.","type":1}}],"Answer":[]}}"#);
+            let status = parse_doh_json_answer(body.as_bytes());
+            assert_eq!(status, expected);
+            let result =
+                DohJsonResolverResult { resolver_label: "resolver".to_string(), status, round_trip_ms: Some(1) };
+            assert!(matches!(
+                DohJsonSurveyProbe::new(vec![result]).run(&ProbeContext::empty()).verdict,
+                ProbeVerdict::Inconclusive { .. }
+            ));
         }
     }
 
@@ -421,7 +439,7 @@ mod tests {
         ));
         assert!(matches!(
             parse_doh_json_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#),
-            DohJsonResolverStatus::MalformedJson { .. }
+            DohJsonResolverStatus::DnsError { rcode: 2 }
         ));
     }
 
@@ -434,9 +452,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_cname_only_envelope_is_nxdomain() {
+    fn parse_cname_only_envelope_is_nodata() {
         let body = br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example.net.","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#;
-        assert_eq!(parse_doh_json_answer(body), DohJsonResolverStatus::NxDomain);
+        assert_eq!(parse_doh_json_answer(body), DohJsonResolverStatus::NoData);
     }
 
     #[test]

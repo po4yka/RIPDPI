@@ -22,7 +22,7 @@
 //! ```
 
 use ripdpi_diagnostics_contracts::ProbeTaskFamily;
-use ripdpi_diagnostics_contracts::util::parse_doh_json_ip_answer;
+use ripdpi_diagnostics_contracts::util::{DohJsonResponse, parse_doh_json_response};
 use ripdpi_diagnostics_http::http::build_doh_json_query_url;
 
 use crate::{Probe, ProbeContext, ProbeOutcome, ProbeVerdict};
@@ -47,8 +47,15 @@ pub enum DohResolverStatus {
         /// First IP address returned by the resolver.
         answered_ip: String,
     },
-    /// The resolver returned NXDOMAIN or no usable IP answer.
+    /// The queried name does not exist (RCODE 3).
     NxDomain,
+    /// NOERROR without an address of the requested type.
+    NoData,
+    /// The resolver returned another DNS error.
+    DnsError {
+        /// DNS response code.
+        rcode: u16,
+    },
     /// The resolver did not reply within the configured timeout.
     Timeout,
     /// The resolver replied with a non-2xx HTTP status.
@@ -61,7 +68,12 @@ pub enum DohResolverStatus {
         /// Short description of the TLS failure.
         detail: String,
     },
-    /// Network, response, or resolver failure.
+    /// The response body did not satisfy the vendor DNS JSON contract.
+    MalformedJson {
+        /// Short description of the response failure.
+        detail: String,
+    },
+    /// Network failure.
     NetworkError {
         /// Short description of the network or response failure.
         detail: String,
@@ -74,9 +86,9 @@ impl DohResolverStatus {
         matches!(self, Self::Ok { .. })
     }
 
-    /// Returns `true` when the resolver is reachable but returned NXDOMAIN.
-    fn is_nxdomain(&self) -> bool {
-        matches!(self, Self::NxDomain)
+    /// Returns `true` for a DNS response without the requested address.
+    fn is_dns_result_without_address(&self) -> bool {
+        matches!(self, Self::NxDomain | Self::NoData | Self::DnsError { .. })
     }
 }
 
@@ -104,7 +116,7 @@ pub struct DohResolverResult {
 /// | Condition | Verdict |
 /// |---|---|
 /// | At least one resolver returned `Ok` | `Pass` |
-/// | All resolvers returned `NxDomain` | `Fail { class: "doh-only-nxdomain" }` |
+/// | All resolvers returned negative DNS or DNS error results | `Inconclusive` |
 /// | Resolver HTTP or transport failures, without a usable answer | `Inconclusive` |
 /// | Mixed `Ok`/non-`Ok` (at least one `Ok`) | `Pass` |
 /// | No resolvers configured | `Inconclusive { reason: "no resolvers configured" }` |
@@ -137,8 +149,8 @@ impl Probe for DohSurveyProbe {
             ProbeVerdict::Inconclusive { reason: "no resolvers configured".to_string() }
         } else if self.results.iter().any(|r| r.status.is_ok()) {
             ProbeVerdict::Pass
-        } else if self.results.iter().all(|r| r.status.is_nxdomain()) {
-            ProbeVerdict::Fail { class: "doh-only-nxdomain".to_string() }
+        } else if self.results.iter().all(|r| r.status.is_dns_result_without_address()) {
+            ProbeVerdict::Inconclusive { reason: "no resolver answered".to_string() }
         } else {
             // HTTP and transport failures alone do not establish blocking.
             ProbeVerdict::Inconclusive { reason: "no resolver answered".to_string() }
@@ -279,10 +291,12 @@ impl<C: DohHttpClient> DohSurveyRunner<C> {
 
 /// Parse a DoH JSON response body and return the appropriate status.
 fn parse_doh_answer(body: &[u8], query_host: &str) -> DohResolverStatus {
-    match parse_doh_json_ip_answer(body, query_host, 1) {
-        Ok(Some(ip)) => DohResolverStatus::Ok { answered_ip: ip.to_string() },
-        Ok(None) => DohResolverStatus::NxDomain,
-        Err(detail) => DohResolverStatus::NetworkError { detail: format!("DoH response error: {detail}") },
+    match parse_doh_json_response(body, query_host, 1) {
+        Ok(DohJsonResponse::Answer(ip)) => DohResolverStatus::Ok { answered_ip: ip.to_string() },
+        Ok(DohJsonResponse::NoData) => DohResolverStatus::NoData,
+        Ok(DohJsonResponse::NxDomain) => DohResolverStatus::NxDomain,
+        Ok(DohJsonResponse::DnsError { rcode }) => DohResolverStatus::DnsError { rcode },
+        Err(detail) => DohResolverStatus::MalformedJson { detail: detail.to_string() },
     }
 }
 
@@ -391,11 +405,11 @@ mod tests {
     }
 
     #[test]
-    fn all_nxdomain_yields_fail_doh_only_nxdomain() {
+    fn all_nxdomain_is_inconclusive_without_a_control() {
         let results = vec![nxdomain_result("cloudflare"), nxdomain_result("google"), nxdomain_result("quad9")];
         match DohSurveyProbe::new(results).run(&ProbeContext::empty()).verdict {
-            ProbeVerdict::Fail { class } => assert_eq!(class, "doh-only-nxdomain"),
-            other => panic!("expected Fail, got {other:?}"),
+            ProbeVerdict::Inconclusive { reason } => assert_eq!(reason, "no resolver answered"),
+            other => panic!("expected Inconclusive, got {other:?}"),
         }
     }
 
@@ -403,6 +417,24 @@ mod tests {
     fn mixed_nxdomain_and_ok_yields_pass() {
         let results = vec![nxdomain_result("cloudflare"), ok_result("google", "8.8.8.8")];
         assert_eq!(DohSurveyProbe::new(results).run(&ProbeContext::empty()).verdict, ProbeVerdict::Pass);
+    }
+
+    #[test]
+    fn preserves_dns_response_kinds_without_claiming_blocking() {
+        for (rcode, expected) in [
+            (0, DohResolverStatus::NoData),
+            (3, DohResolverStatus::NxDomain),
+            (2, DohResolverStatus::DnsError { rcode: 2 }),
+        ] {
+            let body = format!(r#"{{"Status":{rcode},"Question":[{{"name":"example.com.","type":1}}],"Answer":[]}}"#);
+            let status = parse_doh_answer(body.as_bytes());
+            assert_eq!(status, expected);
+            let result = DohResolverResult { resolver_label: "resolver".to_string(), status, round_trip_ms: Some(1) };
+            assert!(matches!(
+                DohSurveyProbe::new(vec![result]).run(&ProbeContext::empty()).verdict,
+                ProbeVerdict::Inconclusive { .. }
+            ));
+        }
     }
 
     #[test]
@@ -448,15 +480,15 @@ mod tests {
             br#"{"Metadata":{"Status":0},"Answer":[{"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#.as_slice(),
             br#"{"Status":0,"Answer":[{"data":"192.0.2.1"}"#.as_slice(),
         ] {
-            assert!(matches!(parse_doh_answer(body), DohResolverStatus::NetworkError { .. }));
+            assert!(matches!(parse_doh_answer(body), DohResolverStatus::MalformedJson { .. }));
         }
         assert_eq!(
             parse_doh_answer(br#"{"Status":0,"Answer":[{"type":5,"data":"alias.example","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#),
-            DohResolverStatus::NxDomain
+            DohResolverStatus::NoData
         );
         assert!(matches!(
             parse_doh_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#),
-            DohResolverStatus::NetworkError { .. }
+            DohResolverStatus::DnsError { rcode: 2 }
         ));
     }
 

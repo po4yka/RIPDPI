@@ -25,13 +25,29 @@ pub fn encode_doh_json_query_name(domain: &str) -> Option<String> {
     Some(encoded)
 }
 
+/// DNS result from a validated vendor JSON response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DohJsonResponse {
+    /// The requested address record was present.
+    Answer(IpAddr),
+    /// NOERROR without an address of the requested type.
+    NoData,
+    /// The queried name does not exist (RCODE 3).
+    NxDomain,
+    /// The resolver returned another DNS error.
+    DnsError {
+        /// DNS response code, including its EDNS extension when present.
+        rcode: u16,
+    },
+}
+
 /// Read a vendor DNS JSON answer for the expected A or AAAA question.
-/// `Ok(None)` covers NXDOMAIN and successful responses without an IP answer.
-pub fn parse_doh_json_ip_answer(
+/// DNS response codes remain distinct from a malformed response.
+pub fn parse_doh_json_response(
     body: &[u8],
     expected_name: &str,
     expected_type: u16,
-) -> Result<Option<IpAddr>, &'static str> {
+) -> Result<DohJsonResponse, &'static str> {
     let value: serde_json::Value = serde_json::from_slice(body).map_err(|_| "malformed DoH JSON")?;
     let object = value.as_object().ok_or("DoH response is not an object")?;
     validate_doh_json_question(object, expected_name, expected_type)?;
@@ -39,18 +55,24 @@ pub fn parse_doh_json_ip_answer(
         .get("Status")
         .or_else(|| object.get("status"))
         .and_then(serde_json::Value::as_u64)
+        .and_then(|value| u16::try_from(value).ok())
+        .filter(|value| *value <= 4095)
         .ok_or("missing or invalid DoH Status")?;
+    let records = match object.get("Answer").or_else(|| object.get("answer")) {
+        Some(answers) => answers
+            .as_array()
+            .ok_or("invalid DoH Answer")?
+            .iter()
+            .map(doh_json_record)
+            .collect::<Result<Vec<_>, _>>()?,
+        None => Vec::new(),
+    };
     if status == 3 {
-        return Ok(None);
+        return Ok(DohJsonResponse::NxDomain);
     }
     if status != 0 {
-        return Err("DoH Status is not successful");
+        return Ok(DohJsonResponse::DnsError { rcode: status });
     }
-    let Some(answers) = object.get("Answer").or_else(|| object.get("answer")) else {
-        return Ok(None);
-    };
-    let answers = answers.as_array().ok_or("invalid DoH Answer")?;
-    let records = answers.iter().map(doh_json_record).collect::<Result<Vec<_>, _>>()?;
     let mut owner = normalized_dns_name(expected_name);
     let mut visited = BTreeSet::new();
     loop {
@@ -58,7 +80,7 @@ pub fn parse_doh_json_ip_answer(
             return Err("cyclic DoH CNAME chain");
         }
         let mut next = None;
-        for (name, record_type, data) in &records {
+        for (name, record_type, data, _) in &records {
             if *record_type == 5 && *name == owner {
                 let target = normalized_dns_name(data);
                 if next.as_ref().is_some_and(|value| *value != target) {
@@ -73,20 +95,14 @@ pub fn parse_doh_json_ip_answer(
         }
     }
     let mut address = None;
-    for (name, record_type, data) in records {
-        if !matches!(record_type, 1 | 28) {
-            continue;
-        }
+    for (name, record_type, _, ip) in records {
+        let Some(ip) = ip else { continue };
         if record_type != expected_type || name != owner {
             return Err("unrelated DoH address record");
         }
-        let ip = data.parse::<IpAddr>().map_err(|_| "invalid DoH address")?;
-        if (record_type == 1) != ip.is_ipv4() {
-            return Err("invalid DoH address family");
-        }
         address.get_or_insert(ip);
     }
-    Ok(address)
+    Ok(address.map_or(DohJsonResponse::NoData, DohJsonResponse::Answer))
 }
 
 fn validate_doh_json_question(
@@ -117,7 +133,7 @@ fn validate_doh_json_question(
     Ok(())
 }
 
-fn doh_json_record(value: &serde_json::Value) -> Result<(String, u16, &str), &'static str> {
+fn doh_json_record(value: &serde_json::Value) -> Result<(String, u16, &str, Option<IpAddr>), &'static str> {
     let name = value.get("name").and_then(serde_json::Value::as_str).ok_or("missing DoH record name")?;
     validate_dns_json_name(name)?;
     let name = normalized_dns_name(name);
@@ -131,7 +147,16 @@ fn doh_json_record(value: &serde_json::Value) -> Result<(String, u16, &str), &'s
     if record_type == 5 {
         validate_dns_json_name(data)?;
     }
-    Ok((name, record_type, data))
+    let address = if matches!(record_type, 1 | 28) {
+        let ip = data.parse::<IpAddr>().map_err(|_| "invalid DoH address")?;
+        if (record_type == 1) != ip.is_ipv4() {
+            return Err("invalid DoH address family");
+        }
+        Some(ip)
+    } else {
+        None
+    };
+    Ok((name, record_type, data, address))
 }
 
 fn validate_dns_json_name(name: &str) -> Result<(), &'static str> {
@@ -255,10 +280,10 @@ pub fn format_socket_result(result: &Result<Vec<SocketAddr>, String>) -> String 
 
 #[cfg(test)]
 mod doh_json_tests {
-    use super::{encode_doh_json_query_name, parse_doh_json_ip_answer};
+    use super::{DohJsonResponse, encode_doh_json_query_name, parse_doh_json_response};
 
-    fn parse_answer(body: &[u8]) -> Result<Option<std::net::IpAddr>, &'static str> {
-        parse_doh_json_ip_answer(body, "example.com", 1)
+    fn parse_answer(body: &[u8]) -> Result<DohJsonResponse, &'static str> {
+        parse_doh_json_response(body, "example.com", 1)
     }
 
     #[test]
@@ -323,37 +348,33 @@ mod doh_json_tests {
                 "Question": [{"name": name, "type": 1}],
                 "Answer": [{"name": name, "type": 1, "data": "192.0.2.7"}]
             });
-            assert!(parse_doh_json_ip_answer(&serde_json::to_vec(&question).unwrap(), &name, 1).is_err());
+            assert!(parse_doh_json_response(&serde_json::to_vec(&question).unwrap(), &name, 1).is_err());
         }
     }
 
     #[test]
     fn follows_out_of_order_cname_chain_with_dns_name_equivalence() {
         let body = br#"{"Status":0,"TC":false,"Question":[{"name":"EXAMPLE.COM.","type":1}],"Answer":[{"name":"final.example.","type":1,"data":"192.0.2.7"},{"name":"Alias_&.Example","type":5,"data":"FINAL.example."},{"name":"example.com","type":5,"data":"alias_&.example."}]}"#;
-        assert_eq!(parse_answer(body), Ok(Some("192.0.2.7".parse().unwrap())));
+        assert_eq!(parse_answer(body), Ok(DohJsonResponse::Answer("192.0.2.7".parse().unwrap())));
     }
 
     #[test]
     fn accepts_top_level_status_and_a_or_aaaa_answer() {
         assert_eq!(
             parse_answer(br#"{"Status":0,"Answer":[{"type":1,"data":"203.0.113.7","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#)
-                .unwrap()
-                .unwrap()
-                .to_string(),
-            "203.0.113.7"
+                .unwrap(),
+            DohJsonResponse::Answer("203.0.113.7".parse().unwrap())
         );
         assert_eq!(
-            parse_doh_json_ip_answer(br#"{"Status":0,"Answer":[{"type":28,"data":"2001:db8::1","name":"example.com."}],"Question":[{"name":"example.com.","type":28}]}"#, "example.com", 28)
-                .unwrap()
-                .unwrap()
-                .to_string(),
-            "2001:db8::1"
+            parse_doh_json_response(br#"{"Status":0,"Answer":[{"type":28,"data":"2001:db8::1","name":"example.com."}],"Question":[{"name":"example.com.","type":28}]}"#, "example.com", 28)
+                .unwrap(),
+            DohJsonResponse::Answer("2001:db8::1".parse().unwrap())
         );
         assert_eq!(
             parse_answer(br#"{"Status":3,"Answer":[],"Question":[{"name":"example.com.","type":1}]}"#),
-            Ok(None)
+            Ok(DohJsonResponse::NxDomain)
         );
-        assert_eq!(parse_answer(br#"{"Status":0,"Answer":[{"type":5,"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#), Ok(None));
+        assert_eq!(parse_answer(br#"{"Status":0,"Answer":[{"type":5,"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#), Ok(DohJsonResponse::NoData));
         assert!(parse_answer(br#"{"Status":0,"Answer":[{"type":1,"data":"2001:db8::1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#).is_err());
     }
 
@@ -363,19 +384,44 @@ mod doh_json_tests {
             parse_answer(
                 br#"{"Status":0,"Meta":{"Status":3,"data":"192.0.2.1"},"Answer":[{"type":1,"data":"203.0.113.7","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#
             ),
-            Ok(Some("203.0.113.7".parse().unwrap()))
+            Ok(DohJsonResponse::Answer("203.0.113.7".parse().unwrap()))
         );
         assert!(parse_answer(br#"{"Meta":{"Status":0},"Answer":[{"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#).is_err());
         assert_eq!(
             parse_answer(br#"{"Status":0,"data":"192.0.2.1","Question":[{"name":"example.com.","type":1}]}"#),
-            Ok(None)
+            Ok(DohJsonResponse::NoData)
         );
     }
 
     #[test]
-    fn rejects_malformed_or_unsuccessful_response() {
+    fn distinguishes_dns_responses_from_malformed_json() {
+        for (status, expected) in [
+            (0, DohJsonResponse::NoData),
+            (3, DohJsonResponse::NxDomain),
+            (2, DohJsonResponse::DnsError { rcode: 2 }),
+            (5, DohJsonResponse::DnsError { rcode: 5 }),
+            (16, DohJsonResponse::DnsError { rcode: 16 }),
+        ] {
+            let body = serde_json::json!({"Status": status, "Question": [{"name": "example.com.", "type": 1}]});
+            assert_eq!(parse_answer(&serde_json::to_vec(&body).unwrap()), Ok(expected));
+        }
+        for status in [0, 2, 3] {
+            let body =
+                serde_json::json!({"Status": status, "Question": [{"name": "example.com.", "type": 1}], "Answer": {}});
+            assert!(parse_answer(&serde_json::to_vec(&body).unwrap()).is_err());
+            for (record_type, data) in [(1, "not-an-IP"), (1, "2001:db8::1"), (28, "192.0.2.7")] {
+                let body = serde_json::json!({
+                    "Status": status,
+                    "Question": [{"name": "example.com.", "type": 1}],
+                    "Answer": [{"name": "example.com.", "type": record_type, "data": data}]
+                });
+                assert!(parse_answer(&serde_json::to_vec(&body).unwrap()).is_err());
+            }
+        }
         assert!(parse_answer(br#"{"Status":0,"Answer":[{"data":"192.0.2.1"}"#).is_err());
-        assert!(parse_answer(br#"{"Status":"0","Answer":[],"Question":[{"name":"example.com.","type":1}]}"#).is_err());
-        assert!(parse_answer(br#"{"Status":2,"Answer":[{"type":1,"data":"192.0.2.1","name":"example.com."}],"Question":[{"name":"example.com.","type":1}]}"#).is_err());
+        for status in [serde_json::json!("0"), serde_json::json!(-1), serde_json::json!(4096)] {
+            let body = serde_json::json!({"Status": status, "Question": [{"name": "example.com.", "type": 1}]});
+            assert!(parse_answer(&serde_json::to_vec(&body).unwrap()).is_err());
+        }
     }
 }

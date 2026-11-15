@@ -10,7 +10,7 @@ use crate::engine::runtime::ExecutionPlan;
 use crate::http::{HttpRequestError, HttpResponse, execute_doh_json_request};
 use crate::transport::TargetAddress;
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult};
-use crate::util::{DEFAULT_DOH_JSON_RESOLVERS, encode_doh_json_query_name, parse_doh_json_ip_answer};
+use crate::util::{DEFAULT_DOH_JSON_RESOLVERS, DohJsonResponse, encode_doh_json_query_name, parse_doh_json_response};
 
 use super::interrupted;
 use super::support::ConnectivityProbeFamily;
@@ -78,25 +78,33 @@ fn survey(
         let started = Instant::now();
         let response = fetch(host, &path);
         let elapsed_ms = started.elapsed().as_millis();
-        let (status, address) = match response {
+        let (status, address, rcode) = match response {
             Ok(response) if (200..300).contains(&response.status_code) => {
-                match parse_doh_json_ip_answer(&response.body, domain, 1) {
-                    Ok(Some(ip)) => {
+                match parse_doh_json_response(&response.body, domain, 1) {
+                    Ok(DohJsonResponse::Answer(ip)) => {
                         answered = true;
-                        ("answered".to_string(), Some(ip.to_string()))
+                        ("answered".to_string(), Some(ip.to_string()), Some(0))
                     }
-                    Ok(None) => {
+                    Ok(DohJsonResponse::NoData) => {
                         no_address += 1;
-                        ("no_address".to_string(), None)
+                        ("nodata".to_string(), None, Some(0))
                     }
-                    Err(_) => ("invalid_response".to_string(), None),
+                    Ok(DohJsonResponse::NxDomain) => {
+                        no_address += 1;
+                        ("nxdomain".to_string(), None, Some(3))
+                    }
+                    Ok(DohJsonResponse::DnsError { rcode }) => ("dns_error".to_string(), None, Some(rcode)),
+                    Err(_) => ("invalid_response".to_string(), None, None),
                 }
             }
-            Ok(response) => (format!("http_{}", response.status_code), None),
-            Err(error) => (error.status().to_string(), None),
+            Ok(response) => (format!("http_{}", response.status_code), None, None),
+            Err(error) => (error.status().to_string(), None, None),
         };
         result.details.push(ProbeDetail { key: format!("{label}.status"), value: status });
         result.details.push(ProbeDetail { key: format!("{label}.roundTripMs"), value: elapsed_ms.to_string() });
+        if let Some(rcode) = rcode {
+            result.details.push(ProbeDetail { key: format!("{label}.dnsRcode"), value: rcode.to_string() });
+        }
         if let Some(address) = address {
             result.details.push(ProbeDetail { key: format!("{label}.answerIp"), value: address });
         }
@@ -222,6 +230,34 @@ mod tests {
         });
         assert_eq!(result.outcome, "inconclusive");
         assert!(result.details.iter().any(|detail| detail.key == "surveyStatus" && detail.value == "no_address"));
+    }
+
+    #[test]
+    fn preserves_dns_response_codes_without_claiming_blocking() {
+        let result = survey("selected.example", &AtomicBool::new(false), |host, _| {
+            let status = match host {
+                "dns.google" => 0,
+                "cloudflare-dns.com" => 3,
+                _ => 2,
+            };
+            let body = serde_json::json!({
+                "Status": status,
+                "Question": [{"name": "selected.example.", "type": 1}],
+                "Answer": []
+            });
+            Ok(response(200, &serde_json::to_vec(&body).unwrap()))
+        });
+        assert_eq!(result.outcome, "inconclusive");
+        for (label, status, rcode) in
+            [("google", "nodata", "0"), ("cloudflare", "nxdomain", "3"), ("adguard", "dns_error", "2")]
+        {
+            assert!(
+                result.details.iter().any(|detail| detail.key == format!("{label}.status") && detail.value == status)
+            );
+            assert!(
+                result.details.iter().any(|detail| detail.key == format!("{label}.dnsRcode") && detail.value == rcode)
+            );
+        }
     }
 
     #[test]

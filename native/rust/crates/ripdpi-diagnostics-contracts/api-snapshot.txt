@@ -1077,6 +1077,12 @@ pub enum ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
 pub ripdpi_diagnostics_contracts::util::DnsAnswerOverlap::CompatibleDivergence
 pub ripdpi_diagnostics_contracts::util::DnsAnswerOverlap::Match
 pub ripdpi_diagnostics_contracts::util::DnsAnswerOverlap::SinkholeSubstitution
+pub enum ripdpi_diagnostics_contracts::util::DohJsonResponse
+pub ripdpi_diagnostics_contracts::util::DohJsonResponse::Answer(core::net::ip_addr::IpAddr)
+pub ripdpi_diagnostics_contracts::util::DohJsonResponse::DnsError
+pub ripdpi_diagnostics_contracts::util::DohJsonResponse::DnsError::rcode: u16
+pub ripdpi_diagnostics_contracts::util::DohJsonResponse::NoData
+pub ripdpi_diagnostics_contracts::util::DohJsonResponse::NxDomain
 pub enum ripdpi_diagnostics_contracts::util::ProbeOutcomeBucket
 pub ripdpi_diagnostics_contracts::util::ProbeOutcomeBucket::Attention
 pub ripdpi_diagnostics_contracts::util::ProbeOutcomeBucket::Failed
@@ -1140,7 +1146,7 @@ pub fn ripdpi_diagnostics_contracts::util::late_stage_cutoff(usize, usize) -> bo
 pub fn ripdpi_diagnostics_contracts::util::looks_like_sinkhole(&str) -> bool
 pub fn ripdpi_diagnostics_contracts::util::now_ms() -> u64
 pub fn ripdpi_diagnostics_contracts::util::parse_content_length(&[u8]) -> core::option::Option<usize>
-pub fn ripdpi_diagnostics_contracts::util::parse_doh_json_ip_answer(&[u8], &str, u16) -> core::result::Result<core::option::Option<core::net::ip_addr::IpAddr>, &'static str>
+pub fn ripdpi_diagnostics_contracts::util::parse_doh_json_response(&[u8], &str, u16) -> core::result::Result<ripdpi_diagnostics_contracts::util::DohJsonResponse, &'static str>
 pub fn ripdpi_diagnostics_contracts::util::probe_session_seed(core::option::Option<&str>, &str) -> u64
 pub fn ripdpi_diagnostics_contracts::util::ranged_probe_delay(u64, &str, &str, u64, u64) -> u64
 pub fn ripdpi_diagnostics_contracts::util::stable_probe_hash(u64, &str) -> u64
