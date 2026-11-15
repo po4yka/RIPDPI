@@ -28,4 +28,5 @@ dependencies {
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.okhttp.tls)
 }

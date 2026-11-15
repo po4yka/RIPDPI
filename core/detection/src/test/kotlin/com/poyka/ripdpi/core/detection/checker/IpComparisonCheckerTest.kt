@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.IpComparisonAddressFamily
@@ -145,6 +146,7 @@ class IpComparisonCheckerTest {
             assertNotNull(result)
             assertEquals(endpoints.size, result.endpoints.size)
             assertEquals(3, result.endpoints.count { it.status == IpComparisonEndpointStatus.ERROR })
+            assertEquals(DetectionCheckStatus.INCONCLUSIVE, result.category.status)
             assertTrue(result.category.findings.any { it.description.contains("[ERROR]") })
         }
 
@@ -177,6 +179,7 @@ class IpComparisonCheckerTest {
                 result.endpoints.count { it.status == IpComparisonEndpointStatus.SKIPPED },
             )
             assertEquals(0, result.endpoints.count { it.status == IpComparisonEndpointStatus.ERROR })
+            assertEquals(DetectionCheckStatus.COMPLETE, result.category.status)
             assertFalse(result.category.findings.any { it.description.contains("[ERROR]") })
             assertFalse(result.category.needsReview)
         }
@@ -222,6 +225,11 @@ class IpComparisonCheckerTest {
                 assertEquals("No reflected IP in response", result.endpoints.single().errorMessage)
             }
         }
+
+    @Test
+    fun `empty endpoint coverage is inconclusive`() {
+        assertEquals(DetectionCheckStatus.INCONCLUSIVE, IpComparisonChecker.evaluate(emptyList()).category.status)
+    }
 
     @Test
     fun `default endpoint client extracts ipv6 from delimited body`() =

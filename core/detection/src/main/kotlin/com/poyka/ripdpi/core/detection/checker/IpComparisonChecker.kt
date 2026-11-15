@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -24,6 +25,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -116,7 +119,7 @@ object IpComparisonChecker {
         dispatchers: AppCoroutineDispatchers,
         resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
         endpointClient: IpComparisonEndpointClient = DefaultIpComparisonEndpointClient(resolverConfig),
-        dnsResolver: IpComparisonDnsResolver = SystemIpComparisonDnsResolver(),
+        dnsResolver: IpComparisonDnsResolver = ConfiguredIpComparisonDnsResolver(resolverConfig),
         endpoints: List<IpComparisonEndpointDescriptor> = DEFAULT_ENDPOINTS,
     ): IpComparisonResult =
         withContext(dispatchers.io) {
@@ -142,6 +145,9 @@ object IpComparisonChecker {
         val nonRuIps = successful.reflectedIps(IpComparisonEndpointGroup.NON_RU)
         val mismatches = mismatchedFamilies(ruIps, nonRuIps)
         val hasMismatch = mismatches.isNotEmpty()
+        val hasComparableFamily = ruIps.keys.any { family -> nonRuIps[family].orEmpty().isNotEmpty() }
+        val incompleteCoverage =
+            !hasComparableFamily || endpointResults.any { it.status == IpComparisonEndpointStatus.ERROR }
         val findings =
             buildList {
                 endpointResults.forEach { result -> add(endpointFinding(result)) }
@@ -156,8 +162,10 @@ object IpComparisonChecker {
                             confidence = EvidenceConfidence.HIGH,
                         ),
                     )
+                } else if (hasComparableFamily) {
+                    add(Finding("RU/non-RU reflected IPs agree within comparable address families"))
                 } else if (successful.isNotEmpty()) {
-                    add(Finding("RU/non-RU reflected IPs agree or lack same-family comparison data"))
+                    add(Finding("No RU/non-RU comparison is available within one address family"))
                 } else {
                     add(Finding("No IP comparison endpoints returned a reflected IP"))
                 }
@@ -182,6 +190,7 @@ object IpComparisonChecker {
                 findings = findings,
                 needsReview = hasMismatch,
                 evidence = evidence,
+                status = if (incompleteCoverage) DetectionCheckStatus.INCONCLUSIVE else DetectionCheckStatus.COMPLETE,
             )
 
         return IpComparisonResult(
@@ -211,6 +220,7 @@ object IpComparisonChecker {
                 )
             }
 
+        currentCoroutineContext().ensureActive()
         if (endpoint.addressFamily == IpComparisonAddressFamily.IPV6 && dnsRecords.aaaaRecords.isEmpty()) {
             return endpointResult(
                 endpoint = endpoint,
@@ -388,13 +398,31 @@ class DefaultIpComparisonEndpointClient(
     }
 }
 
+internal class ConfiguredIpComparisonDnsResolver(
+    private val resolverConfig: DetectionResolverConfig,
+    private val networkStack: DetectionResolverNetworkStack = DetectionResolverNetworkStack(),
+) : IpComparisonDnsResolver {
+    override suspend fun resolve(endpoint: IpComparisonEndpointDescriptor): IpComparisonDnsRecords {
+        val host = URI(endpoint.url).host?.removeSurrounding("[", "]") ?: throw IOException("Endpoint URL has no host")
+        val addresses =
+            networkStack
+                .clientFor(
+                    resolverConfig.copy(addressFamily = DetectionAddressFamily.ANY),
+                ).dns
+                .lookup(host)
+        return addresses.toComparisonRecords()
+    }
+}
+
 class SystemIpComparisonDnsResolver : IpComparisonDnsResolver {
     override suspend fun resolve(endpoint: IpComparisonEndpointDescriptor): IpComparisonDnsRecords {
         val host = URI(endpoint.url).host ?: throw IOException("Endpoint URL has no host")
-        val addresses = InetAddress.getAllByName(host).toList()
-        return IpComparisonDnsRecords(
-            aRecords = addresses.filterIsInstance<Inet4Address>().mapNotNull { it.hostAddress }.distinct(),
-            aaaaRecords = addresses.filterIsInstance<Inet6Address>().mapNotNull { it.hostAddress }.distinct(),
-        )
+        return InetAddress.getAllByName(host).toList().toComparisonRecords()
     }
 }
+
+private fun List<InetAddress>.toComparisonRecords(): IpComparisonDnsRecords =
+    IpComparisonDnsRecords(
+        aRecords = filterIsInstance<Inet4Address>().mapNotNull { it.hostAddress }.distinct(),
+        aaaaRecords = filterIsInstance<Inet6Address>().mapNotNull { it.hostAddress }.distinct(),
+    )
