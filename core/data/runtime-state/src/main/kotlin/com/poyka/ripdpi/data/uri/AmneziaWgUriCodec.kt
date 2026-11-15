@@ -46,6 +46,32 @@ object AmneziaWgUriCodec {
     private const val SCHEME = "amneziawg"
     private const val SCHEME_PREFIX = "$SCHEME://"
 
+    val allowedQueryKeys =
+        setOf(
+            "wire_profile",
+            "public_key",
+            "preshared_key",
+            "allowed_ips",
+            "dns",
+            "mtu",
+            "jc",
+            "jmin",
+            "jmax",
+            "s1",
+            "s2",
+            "s3",
+            "s4",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "i1",
+            "i2",
+            "i3",
+            "i4",
+            "i5",
+        ) + AmneziaWgUriAwg3Keys
+
     /** Encodes [profile] into an `amneziawg://` share URI. */
     fun encode(profile: AmneziaWgProfile): String {
         profile.awg.requireSupportedProfile()
@@ -115,32 +141,7 @@ object AmneziaWgUriCodec {
         extractMandatory(uri)?.let { mandatory ->
             val params = mandatory.params
             if (params["wire_profile"] != AmneziaWgWireProfile.ID) return@let null
-            val allowed =
-                setOf(
-                    "wire_profile",
-                    "public_key",
-                    "preshared_key",
-                    "allowed_ips",
-                    "dns",
-                    "mtu",
-                    "jc",
-                    "jmin",
-                    "jmax",
-                    "s1",
-                    "s2",
-                    "s3",
-                    "s4",
-                    "h1",
-                    "h2",
-                    "h3",
-                    "h4",
-                    "i1",
-                    "i2",
-                    "i3",
-                    "i4",
-                    "i5",
-                ) + AmneziaWgUriAwg3Keys
-            if (params.keys.any { it !in allowed }) return@let null
+            if (params.keys.any { it !in allowedQueryKeys }) return@let null
             val allowedIps = parseAllowedIps(params) ?: return@let null
             if (listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").any { key ->
                     key in params && params[key]?.toIntOrNull()?.let { it >= 0 } != true
