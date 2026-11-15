@@ -69,7 +69,8 @@ class RelayProfileShareMapperRepresentabilityTest {
             RelayCredentialRecord(profileId = reality.id, vlessUuid = "00000000-0000-0000-0000-000000000000")
         assertNotNull(RelayProfileShareMapper.toShareable(reality, realityCredentials))
         assertNull(RelayProfileShareMapper.toShareable(reality.copy(realityPublicKey = "broken"), realityCredentials))
-        assertNull(RelayProfileShareMapper.toShareable(reality, realityCredentials.copy(vlessUuid = "broken")))
+        assertNotNull(RelayProfileShareMapper.toShareable(reality, realityCredentials.copy(vlessUuid = "fixture")))
+        assertNull(RelayProfileShareMapper.toShareable(reality, realityCredentials.copy(vlessUuid = "0".repeat(31))))
     }
 
     @Test
