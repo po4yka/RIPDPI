@@ -238,6 +238,12 @@
     <string name="vpn_pcap_truncated">इस कैप्चर का कुछ हिस्सा दिखाया जा रहा है।</string>
     <string name="vpn_pcap_no_packets">इस कैप्चर में कोई पैकेट नहीं है।</string>
     <string name="vpn_pcap_capture_limit_reached">कैप्चर की आकार सीमा तक पहुँचने पर रिकॉर्डिंग रुक गई।</string>
+    <string name="vpn_pcap_export_redacted">संशोधित PCAP निर्यात करें</string>
+    <string name="vpn_pcap_export_details">IP पते और पैकेट की सामग्री हटा दी जाती है। समय और पोर्ट रखे जाते हैं।</string>
+    <string name="vpn_pcap_export_saved">संशोधित PCAP सहेजा गया।</string>
+    <string name="vpn_pcap_export_incomplete">यह कैप्चर अधूरा है। कोई फ़ाइल नहीं बनाई गई।</string>
+    <string name="vpn_pcap_export_failed">PCAP निर्यात नहीं हो सका।</string>
+    <string name="vpn_pcap_export_cleanup_failed">निर्यात विफल रहा। चुने गए स्थान से अधूरी फ़ाइल हटाएँ।</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">डेवलपर</string>
     <string name="vpn_dev_pcap_toggle_label">पैकेट कैप्चर (डायग्नोस्टिक्स)</string>

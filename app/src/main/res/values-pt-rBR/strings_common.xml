@@ -233,6 +233,12 @@
     <string name="vpn_pcap_truncated">Mostrando parte desta captura.</string>
     <string name="vpn_pcap_no_packets">Esta captura não contém pacotes.</string>
     <string name="vpn_pcap_capture_limit_reached">A gravação parou ao atingir o limite de tamanho da captura.</string>
+    <string name="vpn_pcap_export_redacted">Exportar PCAP com dados removidos</string>
+    <string name="vpn_pcap_export_details">Os endereços IP e o conteúdo dos pacotes são removidos. Os horários e as portas são mantidos.</string>
+    <string name="vpn_pcap_export_saved">PCAP com dados removidos salvo.</string>
+    <string name="vpn_pcap_export_incomplete">Esta captura está incompleta. Nenhum documento foi criado.</string>
+    <string name="vpn_pcap_export_failed">Não foi possível exportar o PCAP.</string>
+    <string name="vpn_pcap_export_cleanup_failed">Falha na exportação. Remova o arquivo incompleto do local selecionado.</string>
     <string name="vpn_dev_pcap_section_title">Desenvolvedor</string>
     <string name="vpn_dev_pcap_toggle_label">Captura de pacotes (diagnóstico)</string>
     <string name="vpn_dev_pcap_toggle_desc">Captura pacotes da VPN localmente para inspeção. Desativado por padrão.</string>

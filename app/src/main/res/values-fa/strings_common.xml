@@ -235,6 +235,12 @@
     <string name="vpn_pcap_truncated">بخشی از این ضبط نمایش داده می‌شود.</string>
     <string name="vpn_pcap_no_packets">این ضبط هیچ بسته‌ای ندارد.</string>
     <string name="vpn_pcap_capture_limit_reached">ضبط پس از رسیدن به حد اندازهٔ مجاز متوقف شد.</string>
+    <string name="vpn_pcap_export_redacted">خروجی گرفتن از PCAP پالایش‌شده</string>
+    <string name="vpn_pcap_export_details">نشانی‌های IP و محتوای بسته‌ها حذف می‌شوند. زمان‌ها و درگاه‌ها باقی می‌مانند.</string>
+    <string name="vpn_pcap_export_saved">فایل PCAP پالایش‌شده ذخیره شد.</string>
+    <string name="vpn_pcap_export_incomplete">این ضبط ناقص است. هیچ سندی ایجاد نشد.</string>
+    <string name="vpn_pcap_export_failed">خروجی گرفتن از فایل PCAP ممکن نبود.</string>
+    <string name="vpn_pcap_export_cleanup_failed">خروجی گرفتن ناموفق بود. فایل ناقص را از محل انتخاب‌شده حذف کنید.</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">توسعه‌دهنده</string>
     <string name="vpn_dev_pcap_toggle_label">ضبط بسته‌ها (تشخیص)</string>

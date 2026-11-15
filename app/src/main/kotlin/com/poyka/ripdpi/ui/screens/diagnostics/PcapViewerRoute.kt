@@ -45,6 +45,7 @@ fun PcapViewerRoute(
         onBack = onBack,
         loading = capture == null && failureReason == null,
         failureReason = failureReason?.let { stringResource(it) },
+        exportAction = rememberPcapViewerExportAction(fileName, controller, capture != null && failureReason == null),
         // Reading again cannot bring back a deleted file.
         onRetry = if (failureReason == R.string.vpn_pcap_read_failed_missing) null else ({ attempt += 1 }),
         message =

@@ -205,6 +205,12 @@
     <string name="vpn_pcap_truncated">يُعرض جزء من هذا الالتقاط.</string>
     <string name="vpn_pcap_no_packets">لا يحتوي هذا التسجيل على حزم.</string>
     <string name="vpn_pcap_capture_limit_reached">توقف التسجيل عند بلوغ الحد الأقصى لحجم الالتقاط.</string>
+    <string name="vpn_pcap_export_redacted">تصدير PCAP بعد التنقيح</string>
+    <string name="vpn_pcap_export_details">تُزال عناوين IP ومحتويات الحزم، وتُحفظ الأوقات والمنافذ.</string>
+    <string name="vpn_pcap_export_saved">تم حفظ ملف PCAP المنقّح.</string>
+    <string name="vpn_pcap_export_incomplete">عملية الالتقاط هذه غير مكتملة. لم يُنشأ أي مستند.</string>
+    <string name="vpn_pcap_export_failed">تعذّر تصدير ملف PCAP.</string>
+    <string name="vpn_pcap_export_cleanup_failed">فشل التصدير. أزِل الملف غير المكتمل من الموقع المحدد.</string>
     <string name="vpn_dev_pcap_section_title">المطوّر</string>
     <string name="vpn_dev_pcap_toggle_label">التقاط الحزم (تشخيص)</string>
     <string name="vpn_dev_pcap_toggle_desc">التقاط حزم VPN محلياً للفحص. معطّل افتراضياً.</string>

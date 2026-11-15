@@ -235,6 +235,12 @@
     <string name="vpn_pcap_truncated">Une partie de la capture est affichée.</string>
     <string name="vpn_pcap_no_packets">Cette capture ne contient aucun paquet.</string>
     <string name="vpn_pcap_capture_limit_reached">L’enregistrement s’est arrêté à la limite de taille de la capture.</string>
+    <string name="vpn_pcap_export_redacted">Exporter le PCAP expurgé</string>
+    <string name="vpn_pcap_export_details">Les adresses IP et le contenu des paquets sont supprimés. Les horodatages et les ports sont conservés.</string>
+    <string name="vpn_pcap_export_saved">PCAP expurgé enregistré.</string>
+    <string name="vpn_pcap_export_incomplete">Cette capture est incomplète. Aucun document n’a été créé.</string>
+    <string name="vpn_pcap_export_failed">Impossible d’exporter le PCAP.</string>
+    <string name="vpn_pcap_export_cleanup_failed">Échec de l’exportation. Supprimez le fichier incomplet de l’emplacement sélectionné.</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Développeur</string>
     <string name="vpn_dev_pcap_toggle_label">Capture de paquets (diagnostic)</string>

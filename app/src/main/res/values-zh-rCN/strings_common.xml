@@ -228,6 +228,12 @@
     <string name="vpn_pcap_truncated">仅显示部分捕获内容。</string>
     <string name="vpn_pcap_no_packets">此捕获没有数据包。</string>
     <string name="vpn_pcap_capture_limit_reached">录制已达到捕获大小上限并停止。</string>
+    <string name="vpn_pcap_export_redacted">导出脱敏 PCAP</string>
+    <string name="vpn_pcap_export_details">会移除 IP 地址和数据包载荷，保留时间和端口。</string>
+    <string name="vpn_pcap_export_saved">脱敏 PCAP 已保存。</string>
+    <string name="vpn_pcap_export_incomplete">此捕获不完整，未创建文件。</string>
+    <string name="vpn_pcap_export_failed">无法导出 PCAP。</string>
+    <string name="vpn_pcap_export_cleanup_failed">导出失败。请从所选位置删除未完成的文件。</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">开发者</string>
     <string name="vpn_dev_pcap_toggle_label">数据包捕获（诊断）</string>

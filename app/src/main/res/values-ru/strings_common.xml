@@ -242,6 +242,12 @@
     <string name="vpn_pcap_truncated">Показана часть захвата.</string>
     <string name="vpn_pcap_no_packets">В этом захвате нет пакетов.</string>
     <string name="vpn_pcap_capture_limit_reached">Запись остановлена по достижении лимита размера захвата.</string>
+    <string name="vpn_pcap_export_redacted">Экспортировать очищенный PCAP</string>
+    <string name="vpn_pcap_export_details">IP-адреса и содержимое пакетов удаляются. Время и порты сохраняются.</string>
+    <string name="vpn_pcap_export_saved">Очищенный PCAP сохранён.</string>
+    <string name="vpn_pcap_export_incomplete">Захват неполный. Файл не создан.</string>
+    <string name="vpn_pcap_export_failed">Не удалось экспортировать PCAP.</string>
+    <string name="vpn_pcap_export_cleanup_failed">Ошибка экспорта. Удалите незавершённый файл из выбранного места.</string>
     <string name="vpn_dev_pcap_section_title">Разработчик</string>
     <string name="vpn_dev_pcap_toggle_label">Захват пакетов (диагностика)</string>
     <string name="vpn_dev_pcap_toggle_desc">Локальный захват пакетов VPN для анализа. По умолчанию отключён.</string>
