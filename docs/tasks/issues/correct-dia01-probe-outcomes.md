@@ -2,7 +2,7 @@
 id: DGN-1794730862541358
 title: Correct TCP, TLS, and WebSocket probe outcomes
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: correct-dia01-probe-outcomes
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Host tests passed. Android acceptance and hosted CI evidence are pending.
 ---
 
 ## Goal
