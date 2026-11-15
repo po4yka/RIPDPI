@@ -1,39 +1,37 @@
 use std::io::{self, Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use ripdpi_tls_profiles::{TlsTemplateFirstFlightPlan, plan_first_flight};
+use rustls::client::EchStatus;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::{ClientConnection, StreamOwned};
 
 use crate::ja3::{self, RecordingStream};
-use crate::transport::{ConnectionStream, RouteExperimentReport, TargetAddress, TransportConfig};
+use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::super::certs::extract_cert_info;
 use super::super::config::{
-    build_ech_client_config, build_ech_client_config_from_list, build_standard_client_config_with_key_log,
-    make_server_name, planned_tls_template_profile,
+    EchLookupFailure, build_ech_client_config_from_list, build_standard_client_config_with_key_log, make_server_name,
+    planned_tls_template_profile, resolve_ech_config,
 };
 use super::super::key_log::TlsKeyLogCallback;
-use super::super::types::{ApplicationProtocolPolicy, ClientHelloCapture, ClientHelloEvidence, TlsClientProfile};
+use super::super::types::{
+    ApplicationProtocolPolicy, ClientHelloCapture, ClientHelloEvidence, EchConfigSource, TlsClientProfile,
+};
 
 pub(crate) struct CapturedTlsHandshake {
     pub(crate) stream: ConnectionStream,
     pub(crate) tls_template_first_flight_plan: Option<TlsTemplateFirstFlightPlan>,
-    pub(crate) reconnect: Option<ReconnectedTransport>,
+    pub(super) ech_config_source: Option<EchConfigSource>,
     pub(crate) tls_handshake_ms: u64,
     pub(crate) negotiated_alpn: Option<String>,
     pub(crate) cert_chain_length: Option<usize>,
     pub(crate) cert_issuer: Option<String>,
     pub(crate) ja3_fingerprint: Option<String>,
     pub(super) client_hello_capture: ClientHelloCapture,
-}
-
-pub(crate) struct ReconnectedTransport {
-    pub(crate) open_ms: u64,
-    pub(crate) route_report: Option<RouteExperimentReport>,
 }
 
 /// A failed handshake and whether the server's ServerHello was processed before it failed.
@@ -45,8 +43,11 @@ pub(crate) struct CaptureTlsError {
     pub(crate) certificate_anomaly: bool,
     pub(crate) handshake_ms: Option<u64>,
     pub(super) client_hello: Option<Box<ClientHelloEvidence>>,
-    pub(crate) reconnect_open_ms: Option<u64>,
-    pub(crate) ech_retry_configs: Option<Vec<u8>>,
+    pub(super) ech_config_source: Option<EchConfigSource>,
+    pub(super) ech_status: Option<EchStatus>,
+    pub(super) ech_lookup_failure: Option<Box<EchLookupFailure>>,
+    pub(super) ech_retry_skipped_reason: Option<&'static str>,
+    pub(crate) ech_retry_configs: Option<Box<[u8]>>,
 }
 
 impl From<String> for CaptureTlsError {
@@ -59,7 +60,10 @@ impl From<String> for CaptureTlsError {
             certificate_anomaly: false,
             handshake_ms: None,
             client_hello: None,
-            reconnect_open_ms: None,
+            ech_config_source: None,
+            ech_status: None,
+            ech_lookup_failure: None,
+            ech_retry_skipped_reason: None,
             ech_retry_configs: None,
         }
     }
@@ -79,6 +83,7 @@ pub(crate) struct CaptureTlsHandshakeOptions<'a> {
 
 pub(crate) fn capture_tls_handshake(
     socket: TcpStream,
+    connected_addr: Option<SocketAddr>,
     options: &CaptureTlsHandshakeOptions<'_>,
 ) -> Result<CapturedTlsHandshake, CaptureTlsError> {
     let should_abort = options.should_abort;
@@ -87,38 +92,35 @@ pub(crate) fn capture_tls_handshake(
     }
     let target = options.targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
     let template_profile = planned_tls_template_profile(options.profile);
-    let config = match options.profile {
-        TlsClientProfile::Tls13WithEch if options.ech_retry_configs.is_some() => build_ech_client_config_from_list(
-            options.ech_retry_configs.unwrap_or_default().to_vec(),
-            options.tls_verifier,
-            options.key_log,
-            options.application_protocol,
-        )?,
-        TlsClientProfile::Tls13WithEch => build_ech_client_config(
-            options.tls_name,
-            target,
-            options.transport,
-            options.tls_verifier,
-            options.key_log,
-            options.application_protocol,
-        )?,
-        _ => match options.key_log {
-            Some(key_log) => build_standard_client_config_with_key_log(
-                options.profile,
-                options.tls_verifier,
-                Some(key_log),
-                options.application_protocol,
-            ),
-            None => build_standard_client_config_with_key_log(
-                options.profile,
-                options.tls_verifier,
-                None,
-                options.application_protocol,
-            ),
-        },
-    };
     let server_name = make_server_name(options.tls_name, target)?;
-    let mut connection = ClientConnection::new(config, server_name).map_err(|err| err.to_string())?;
+    let (config, ech_config_source) = if matches!(options.profile, TlsClientProfile::Tls13WithEch) {
+        let (bytes, source) = if let Some(configs) = options.ech_retry_configs {
+            (configs.to_vec(), EchConfigSource::RetryConfigs)
+        } else {
+            resolve_ech_config(&server_name.to_str(), connected_addr, options.transport)
+                .map_err(|failure| ech_setup_error(failure, None))?
+        };
+        let config = build_ech_client_config_from_list(
+            bytes,
+            options.tls_verifier,
+            options.key_log,
+            options.application_protocol,
+        )
+        .map_err(|error| ech_setup_error(EchLookupFailure::InvalidConfig(error), Some(source)))?;
+        (config, Some(source))
+    } else {
+        (
+            build_standard_client_config_with_key_log(
+                options.profile,
+                options.tls_verifier,
+                options.key_log,
+                options.application_protocol,
+            ),
+            None,
+        )
+    };
+    let mut connection = ClientConnection::new(config, server_name)
+        .map_err(|error| CaptureTlsError { ech_config_source, ..error.to_string().into() })?;
     let mut recording = RecordingStream::new(socket);
 
     let tls_start = Instant::now();
@@ -148,6 +150,9 @@ pub(crate) fn capture_tls_handshake(
             let peer_response_after_client_hello =
                 (peer_replied || client_hello.capture == ClientHelloCapture::Complete).then_some(peer_replied);
             let ech_retry_configs = tls_error.and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+            let ech_status = ech_config_source
+                .filter(|_| client_hello.capture == ClientHelloCapture::Complete)
+                .map(|_| connection.ech_status());
             return Err(CaptureTlsError {
                 message,
                 server_hello_received: Some(server_hello_received),
@@ -156,8 +161,11 @@ pub(crate) fn capture_tls_handshake(
                 certificate_anomaly,
                 handshake_ms,
                 client_hello: Some(Box::new(client_hello)),
-                reconnect_open_ms: None,
-                ech_retry_configs,
+                ech_config_source,
+                ech_status,
+                ech_lookup_failure: None,
+                ech_retry_skipped_reason: None,
+                ech_retry_configs: ech_retry_configs.map(Vec::into_boxed_slice),
             });
         }
     }
@@ -171,6 +179,8 @@ pub(crate) fn capture_tls_handshake(
             peer_response_after_client_hello: Some(true),
             handshake_ms: Some(tls_handshake_ms),
             client_hello: Some(Box::new(client_hello)),
+            ech_config_source,
+            ech_status: ech_config_source.map(|_| connection.ech_status()),
             ..message.into()
         });
     }
@@ -186,7 +196,7 @@ pub(crate) fn capture_tls_handshake(
     Ok(CapturedTlsHandshake {
         stream: ConnectionStream::Tls(Box::new(tls_stream)),
         tls_template_first_flight_plan,
-        reconnect: None,
+        ech_config_source,
         tls_handshake_ms,
         negotiated_alpn,
         cert_chain_length,
@@ -194,6 +204,11 @@ pub(crate) fn capture_tls_handshake(
         ja3_fingerprint: client_hello.ja3_fingerprint,
         client_hello_capture: client_hello.capture,
     })
+}
+
+fn ech_setup_error(failure: EchLookupFailure, ech_config_source: Option<EchConfigSource>) -> CaptureTlsError {
+    let message = failure.to_string();
+    CaptureTlsError { ech_config_source, ech_lookup_failure: Some(Box::new(failure)), ..message.into() }
 }
 
 fn capture_client_hello(recorded: &[u8]) -> ClientHelloEvidence {

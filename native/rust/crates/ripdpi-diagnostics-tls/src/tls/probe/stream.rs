@@ -1,5 +1,6 @@
 use super::super::types::{
-    ClientHelloCapture, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult,
+    ClientHelloCapture, EchErrorEvidence, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions,
+    ProbeStreamResult,
 };
 use super::capture::CaptureTlsHandshakeOptions;
 use super::retry::capture_with_ech_retry;
@@ -58,11 +59,11 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
 
     match tls_name {
         Some(name) => {
-            let transport_open_ms = opened.transport_open_ms;
             let connected_addr = opened.connected_addr;
-            let captured = capture_with_ech_retry(
+            let (captured, retry) = capture_with_ech_retry(
                 opened.stream,
                 connected_addr,
+                opened.transport_open_ms,
                 &CaptureTlsHandshakeOptions {
                     targets,
                     ech_retry_configs: None,
@@ -74,37 +75,80 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                     application_protocol: options.application_protocol,
                     should_abort,
                 },
-            )
-            .map_err(|err| ProbeStreamError {
-                stage: ProbeStreamFailureStage::TlsHandshake,
-                message: err.message,
-                duration_ms: started.elapsed().as_millis().max(1) as u64,
-                transport_open_ms: Some(err.reconnect_open_ms.unwrap_or(transport_open_ms)),
+            );
+            let (
+                transport_open_ms,
                 connected_addr,
-                tls_server_hello_received: err.server_hello_received,
-                peer_response_after_client_hello: err.peer_response_after_client_hello,
-                tls_alert: err.alert,
-                certificate_anomaly: err.certificate_anomaly,
-                tls_handshake_ms: err.handshake_ms,
-                client_hello: err.client_hello,
-            })?;
-            let local_addr = match &captured.stream {
-                ConnectionStream::Tls(stream) => stream.sock.local_addr().ok(),
-                ConnectionStream::Plain(stream) => stream.local_addr().ok(),
+                local_addr,
+                route_report,
+                started,
+                ech_initial_attempt,
+                transport_failure,
+            ) = match retry {
+                Some(retry) => (
+                    retry.transport_open_ms,
+                    retry.connected_addr,
+                    retry.local_addr,
+                    retry.route_report,
+                    retry.started,
+                    Some(Box::new(retry.initial_attempt)),
+                    retry.transport_failure,
+                ),
+                None => (
+                    opened.transport_open_ms,
+                    connected_addr,
+                    opened.local_addr,
+                    opened.route_report,
+                    started,
+                    None,
+                    None,
+                ),
+            };
+            let captured = match captured {
+                Ok(captured) => captured,
+                Err(err) => {
+                    let stage = transport_failure.unwrap_or(if err.ech_lookup_failure.is_some() {
+                        ProbeStreamFailureStage::StreamSetup
+                    } else {
+                        ProbeStreamFailureStage::TlsHandshake
+                    });
+                    let ech =
+                        matches!(options.profile, super::super::types::TlsClientProfile::Tls13WithEch).then(|| {
+                            Box::new(EchErrorEvidence {
+                                config_source: err.ech_config_source,
+                                status: err.ech_status,
+                                lookup_failure: err.ech_lookup_failure.map(|failure| *failure),
+                                initial_attempt: ech_initial_attempt,
+                                retry_skipped_reason: err.ech_retry_skipped_reason,
+                            })
+                        });
+                    return Err(ProbeStreamError {
+                        stage,
+                        message: err.message,
+                        duration_ms: started.elapsed().as_millis().max(1) as u64,
+                        transport_open_ms: transport_failure.is_none().then_some(transport_open_ms),
+                        connected_addr,
+                        tls_server_hello_received: err.server_hello_received,
+                        peer_response_after_client_hello: err.peer_response_after_client_hello,
+                        tls_alert: err.alert,
+                        certificate_anomaly: err.certificate_anomaly,
+                        tls_handshake_ms: err.handshake_ms,
+                        client_hello: err.client_hello,
+                        ech,
+                    });
+                }
             };
             let local_socket_ttl = match &captured.stream {
                 ConnectionStream::Tls(stream) => platform_ttl::get_local_socket_ttl(&stream.sock),
                 ConnectionStream::Plain(_) => unreachable!(),
             };
 
-            let (transport_open_ms, route_report) =
-                captured.reconnect.map_or((opened.transport_open_ms, opened.route_report), |transport| {
-                    (transport.open_ms, transport.route_report)
-                });
             Ok(ProbeStreamResult {
                 stream: captured.stream,
                 negotiated_alpn: captured.negotiated_alpn,
                 tls_template_first_flight_plan: captured.tls_template_first_flight_plan,
+                ech_config_source: captured.ech_config_source,
+                ech_initial_attempt,
                 transport_open_ms,
                 tls_handshake_ms: captured.tls_handshake_ms,
                 cert_chain_length: captured.cert_chain_length,
@@ -112,7 +156,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 local_socket_ttl,
                 ja3_fingerprint: captured.ja3_fingerprint,
                 client_hello_capture: captured.client_hello_capture,
-                connected_addr: opened.connected_addr,
+                connected_addr,
                 local_addr,
                 cdn_provider: opened.cdn_provider,
                 route_report,
@@ -153,6 +197,7 @@ fn open_transport_stream(
                 certificate_anomaly: false,
                 tls_handshake_ms: None,
                 client_hello: None,
+                ech: None,
             }
         })?;
     let transport_open_ms = transport_start.elapsed().as_millis() as u64;
@@ -183,6 +228,8 @@ fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult
         local_socket_ttl,
         ja3_fingerprint: None,
         client_hello_capture: ClientHelloCapture::NotSent,
+        ech_config_source: None,
+        ech_initial_attempt: None,
         connected_addr: opened.connected_addr,
         local_addr: opened.local_addr,
         cdn_provider: opened.cdn_provider,
@@ -208,6 +255,7 @@ fn stream_error(
         certificate_anomaly: false,
         tls_handshake_ms: None,
         client_hello: None,
+        ech: None,
     }
 }
 

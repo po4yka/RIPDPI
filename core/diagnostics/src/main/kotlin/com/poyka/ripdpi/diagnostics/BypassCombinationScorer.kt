@@ -69,11 +69,7 @@ internal object BypassCombinationScorer {
             dnsBootstrapValidatedCount = report.resolverRecommendation?.selectedBootstrapIps?.size ?: 0,
             freshEdgeSuccessScore = preferredEdges.values.flatten().sumOf { it.successCount - it.failureCount },
             echPreserving =
-                report.results.any { result ->
-                    result.details.any { detail ->
-                        detail.key == "tlsEchResolutionDetail" && detail.value == "ech_config_available"
-                    }
-                },
+                report.results.any { it.edgeEchCapable() },
             continuityBonus = continuityBonus,
             resolverPath = resolverPath,
             strategyRecommendation = strategyProbe?.recommendation,

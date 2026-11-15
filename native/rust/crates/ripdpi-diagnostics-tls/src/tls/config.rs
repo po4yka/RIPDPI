@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ripdpi_tls_profiles::{ProfileMetadata, selected_profile_config, selected_profile_metadata};
@@ -7,15 +8,30 @@ use rustls::pki_types::{EchConfigListBytes, ServerName};
 use rustls::{ClientConfig, RootCertStore};
 
 use super::key_log::TlsKeyLogCallback;
-use super::types::{ApplicationProtocolPolicy, TlsClientProfile};
+use super::types::{ApplicationProtocolPolicy, EchConfigSource, TlsClientProfile};
 use crate::transport::{TargetAddress, TransportConfig};
-use ripdpi_diagnostics_dns::cdn_ech::{CdnEchConfig, opportunistic_ech_config_for_ip};
+use ripdpi_diagnostics_dns::cdn_ech::opportunistic_ech_config_for_ip;
 use ripdpi_diagnostics_dns::dns::{
     EchResolutionOutcome, encrypted_dns_endpoint_for_resolver_id,
     resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
 };
 
-pub(super) const ECH_CONFIG_UNAVAILABLE_ERROR: &str = "ech_config_unavailable";
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) enum EchLookupFailure {
+    NotPublished,
+    ResolutionFailed(String),
+    InvalidConfig(String),
+}
+
+impl std::fmt::Display for EchLookupFailure {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotPublished => fmt.write_str("ech_config_unavailable"),
+            Self::ResolutionFailed(error) => write!(fmt, "ech_resolution_failed: {error}"),
+            Self::InvalidConfig(error) => write!(fmt, "ech_config_invalid: {error}"),
+        }
+    }
+}
 
 pub(super) fn build_standard_client_config_with_key_log(
     profile: TlsClientProfile,
@@ -54,42 +70,29 @@ pub(super) fn build_standard_client_config_with_key_log(
     Arc::new(config)
 }
 
-pub(super) fn build_ech_client_config(
+pub(super) fn resolve_ech_config(
     server_name: &str,
-    target: &TargetAddress,
+    connected_addr: Option<SocketAddr>,
     transport: &TransportConfig,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
-    application_protocol: ApplicationProtocolPolicy,
-) -> Result<Arc<ClientConfig>, String> {
+) -> Result<(Vec<u8>, EchConfigSource), EchLookupFailure> {
     let template_metadata = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
-    let bootstrap_endpoint = template_metadata
-        .template
-        .ech_bootstrap_resolver_id
-        .map_or_else(|| encrypted_dns_endpoint_for_resolver_id("adguard"), encrypted_dns_endpoint_for_resolver_id);
-    let ech_config_list =
-        match resolve_https_ech_configs_via_encrypted_dns_with_endpoint(server_name, bootstrap_endpoint, transport) {
-            EchResolutionOutcome::Available(bytes) => bytes,
-            dns_failure => {
-                // Opportunistic fallback: if the target IP belongs to a known CDN
-                // that supports ECH, use a hardcoded config instead of giving up.
-                if let Some(cdn_config) = resolve_opportunistic_ech(target) {
-                    tracing::debug!(
-                        server_name,
-                        cdn = cdn_config.provider,
-                        "ECH DNS resolution unavailable; using opportunistic CDN config"
-                    );
-                    cdn_config.ech_config_list.to_vec()
-                } else {
-                    return match dns_failure {
-                        EchResolutionOutcome::NotPublished => Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string()),
-                        EchResolutionOutcome::ResolutionFailed(err) => Err(format!("ech_resolution_failed: {err}")),
-                        EchResolutionOutcome::Available(_) => unreachable!(),
-                    };
-                }
-            }
-        };
-    build_ech_client_config_from_list(ech_config_list, tls_verifier, key_log, application_protocol)
+    let resolver_id = template_metadata.template.ech_bootstrap_resolver_id.unwrap_or("adguard");
+    let bootstrap_endpoint = encrypted_dns_endpoint_for_resolver_id(resolver_id);
+    let lookup = resolve_https_ech_configs_via_encrypted_dns_with_endpoint(server_name, bootstrap_endpoint, transport);
+    select_ech_config(lookup, connected_addr)
+}
+
+fn select_ech_config(
+    lookup: EchResolutionOutcome,
+    connected_addr: Option<SocketAddr>,
+) -> Result<(Vec<u8>, EchConfigSource), EchLookupFailure> {
+    let failure = match lookup {
+        EchResolutionOutcome::Available(bytes) => return Ok((bytes, EchConfigSource::DnsHttps)),
+        EchResolutionOutcome::NotPublished => EchLookupFailure::NotPublished,
+        EchResolutionOutcome::ResolutionFailed(error) => EchLookupFailure::ResolutionFailed(error),
+    };
+    let config = connected_addr.and_then(|peer| opportunistic_ech_config_for_ip(peer.ip())).ok_or(failure)?;
+    Ok((config.ech_config_list.to_vec(), EchConfigSource::CdnFallback(config.provider)))
 }
 
 pub(super) fn build_ech_client_config_from_list(
@@ -120,15 +123,6 @@ pub(super) fn build_ech_client_config_from_list(
     }
     apply_application_protocol_policy(&mut config, template_profile, application_protocol);
     Ok(Arc::new(config))
-}
-
-/// Attempt to find an opportunistic ECH config by checking if the target IP
-/// belongs to a known CDN provider.
-fn resolve_opportunistic_ech(target: &TargetAddress) -> Option<&'static CdnEchConfig> {
-    match target {
-        TargetAddress::Ip(ip) => opportunistic_ech_config_for_ip(*ip),
-        TargetAddress::Host(_) => None,
-    }
 }
 
 pub fn make_server_name(name: &str, target: &TargetAddress) -> Result<ServerName<'static>, String> {
@@ -172,5 +166,26 @@ fn apply_application_protocol_policy(
     match application_protocol {
         ApplicationProtocolPolicy::TemplateDefault => apply_template_alpn(config, profile_id),
         ApplicationProtocolPolicy::Http11Only => config.alpn_protocols = vec![b"http/1.1".to_vec()],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ech_fallback_requires_the_connected_cdn_peer() {
+        let cloudflare = Some("104.16.0.1:443".parse().unwrap());
+        let other = Some("192.0.2.1:443".parse().unwrap());
+        assert!(matches!(
+            select_ech_config(EchResolutionOutcome::NotPublished, cloudflare),
+            Ok((bytes, EchConfigSource::CdnFallback("Cloudflare"))) if !bytes.is_empty()
+        ));
+        assert_eq!(select_ech_config(EchResolutionOutcome::NotPublished, other), Err(EchLookupFailure::NotPublished));
+        assert_eq!(select_ech_config(EchResolutionOutcome::NotPublished, None), Err(EchLookupFailure::NotPublished));
+        assert_eq!(
+            select_ech_config(EchResolutionOutcome::Available(vec![1]), cloudflare),
+            Ok((vec![1], EchConfigSource::DnsHttps))
+        );
     }
 }

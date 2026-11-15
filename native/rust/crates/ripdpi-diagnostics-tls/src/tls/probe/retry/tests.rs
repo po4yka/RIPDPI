@@ -22,15 +22,27 @@ const BORING_ECH_KEY_2: &[u8] = &[
 
 #[test]
 fn monitor_retries_authenticated_ech_before_application_data() {
-    check_monitor_ech_retry(true);
+    check_monitor_ech_retry(RetryFixture::Accepted);
 }
 
 #[test]
 fn failed_monitor_ech_retry_has_its_own_transport_open_time() {
-    check_monitor_ech_retry(false);
+    check_monitor_ech_retry(RetryFixture::HandshakeFailed);
 }
 
-fn check_monitor_ech_retry(retry_succeeds: bool) {
+#[test]
+fn monitor_preserves_rejected_ech_when_retry_connect_fails() {
+    check_monitor_ech_retry(RetryFixture::ConnectFailed);
+}
+
+#[derive(Clone, Copy)]
+enum RetryFixture {
+    Accepted,
+    HandshakeFailed,
+    ConnectFailed,
+}
+
+fn check_monitor_ech_retry(fixture: RetryFixture) {
     let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "inner.example".into()]).unwrap();
     let mut roots = rustls::RootCertStore::empty();
     roots.add(certificate.cert.der().clone()).unwrap();
@@ -54,10 +66,15 @@ fn check_monitor_ech_retry(retry_succeeds: bool) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
-        for attempt in 0..2 {
-            let (mut socket, _) = listener.accept().unwrap();
+        let mut listener = Some(listener);
+        let reconnect = !matches!(fixture, RetryFixture::ConnectFailed);
+        for attempt in 0..if reconnect { 2 } else { 1 } {
+            let (mut socket, _) = listener.as_ref().unwrap().accept().unwrap();
+            if !reconnect {
+                drop(listener.take());
+            }
             socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
-            if attempt == 1 && !retry_succeeds {
+            if attempt == 1 && matches!(fixture, RetryFixture::HandshakeFailed) {
                 let mut header = [0u8; 5];
                 socket.read_exact(&mut header).unwrap();
                 assert_eq!(header[0], 22);
@@ -94,11 +111,24 @@ fn check_monitor_ech_retry(retry_succeeds: bool) {
         application_protocol: crate::tls::types::ApplicationProtocolPolicy::Http11Only,
         should_abort: &|| None,
     };
-    let result = capture_with_ech_retry(socket, Some(address), &options);
-    if !retry_succeeds {
+    let (result, evidence) = capture_with_ech_retry(socket, Some(address), 7, &options);
+    let evidence = evidence.expect("a new attempt retains the first ECH rejection");
+    assert_eq!(evidence.initial_attempt.connected_addr, address);
+    assert_eq!(evidence.initial_attempt.transport_open_ms, 7);
+    assert!(evidence.initial_attempt.ja3_fingerprint.is_some());
+    if matches!(fixture, RetryFixture::ConnectFailed) {
+        assert!(result.is_err());
+        assert_eq!(evidence.transport_failure, Some(ProbeStreamFailureStage::TcpConnect));
+        assert_eq!(evidence.connected_addr, None);
+        server.join().unwrap();
+        return;
+    }
+    assert_eq!(evidence.connected_addr, Some(address));
+    assert_eq!(evidence.transport_failure, None);
+    if matches!(fixture, RetryFixture::HandshakeFailed) {
         let Err(error) = result else { panic!("stopped TLS peer completed the retry") };
-        assert!(error.reconnect_open_ms.is_some());
         assert!(error.handshake_ms.is_some());
+        assert!(error.client_hello.is_some_and(|hello| hello.ja3_fingerprint.is_some()));
         server.join().unwrap();
         return;
     }

@@ -1,4 +1,4 @@
-use ripdpi_diagnostics_tls::tls::TlsObservation;
+use ripdpi_diagnostics_tls::tls::{EchConfigSource, TlsObservation, ech_status_label};
 use ripdpi_diagnostics_transport::transport::TransportConfig;
 
 use crate::types::*;
@@ -47,12 +47,45 @@ pub fn append_tls_attempt_details(
         ("PeerRole", peer_role.map(str::to_string)),
         ("CdnProvider", attempt.cdn_provider.clone()),
         ("ResolutionDetail", attempt.ech_resolution_detail.clone()),
+        ("Acceptance", attempt.ech_status.map(ech_status_label)),
+        ("ConfigSource", attempt.ech_config_source.map(|source| source.as_str().to_string())),
+        ("RetrySkippedReason", attempt.ech_retry_skipped_reason.map(str::to_string)),
+        ("ConfigCdn", attempt.ech_config_source.and_then(EchConfigSource::cdn_provider).map(str::to_string)),
     ];
     details.extend(
         values
             .into_iter()
             .filter_map(|(suffix, value)| value.map(|value| ProbeDetail { key: format!("{prefix}{suffix}"), value })),
     );
+    if let Some(initial) = &attempt.ech_initial_attempt {
+        let initial_prefix = format!("{prefix}Initial");
+        let values = [
+            ("Status", Some("tls_handshake_failed".to_string())),
+            ("Acceptance", Some("rejected".to_string())),
+            ("ConnectedIp", Some(initial.connected_addr.ip().to_string())),
+            ("ConnectedPort", Some(initial.connected_addr.port().to_string())),
+            (
+                "PeerRole",
+                Some(
+                    match transport {
+                        TransportConfig::Direct { .. } => "direct_peer",
+                        TransportConfig::Socks5 { .. } => "socks_requested_destination",
+                    }
+                    .to_string(),
+                ),
+            ),
+            ("TransportOpenMs", Some(initial.transport_open_ms.to_string())),
+            ("HandshakeMs", initial.tls_handshake_ms.map(|ms| ms.to_string())),
+            ("Ja3Fingerprint", initial.ja3_fingerprint.clone()),
+            ("ClientHelloCapture", Some(initial.client_hello_capture.as_str().to_string())),
+            ("ConfigSource", Some(initial.ech_config_source.as_str().to_string())),
+            ("ConfigCdn", initial.ech_config_source.cdn_provider().map(str::to_string)),
+            ("Error", Some(initial.error.clone())),
+        ];
+        details.extend(values.into_iter().filter_map(|(suffix, value)| {
+            value.map(|value| ProbeDetail { key: format!("{initial_prefix}{suffix}"), value })
+        }));
+    }
 }
 
 pub fn summarize_probe_event(probe: &ProbeResult) -> String {

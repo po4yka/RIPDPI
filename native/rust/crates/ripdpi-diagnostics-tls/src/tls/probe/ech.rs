@@ -3,7 +3,7 @@ use rustls::client::EchStatus;
 use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
 
 use super::super::classification::{ech_status_label, first_flight_plan_label};
-use super::super::config::{ECH_CONFIG_UNAVAILABLE_ERROR, planned_tls_template_metadata};
+use super::super::config::{EchLookupFailure, planned_tls_template_metadata};
 use super::super::types::TlsClientProfile;
 
 pub(crate) struct EchOutcome {
@@ -31,27 +31,21 @@ pub(crate) fn from_accepted_status(ech_status: EchStatus, plan: Option<&TlsTempl
     }
 }
 
-pub(crate) fn from_resolution_error(err: &str, profile: TlsClientProfile) -> Option<EchOutcome> {
-    if !matches!(profile, TlsClientProfile::Tls13WithEch) {
-        return None;
-    }
-    if err != ECH_CONFIG_UNAVAILABLE_ERROR && !err.starts_with("ech_resolution_failed:") {
-        return None;
-    }
-
+pub(crate) fn from_resolution_error(failure: &EchLookupFailure) -> EchOutcome {
     let metadata = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
-    let resolution_detail =
-        if err == ECH_CONFIG_UNAVAILABLE_ERROR { "ech_not_published".to_string() } else { err.to_string() };
-
-    Some(EchOutcome {
+    let resolution_detail = match failure {
+        EchLookupFailure::NotPublished => "ech_not_published".to_string(),
+        _ => failure.to_string(),
+    };
+    EchOutcome {
         status: "not_run".to_string(),
-        error: Some(err.to_string()),
+        error: Some(failure.to_string()),
         resolution_detail: Some(resolution_detail),
         bootstrap_policy: Some(metadata.template.ech_bootstrap_policy.to_string()),
         bootstrap_resolver_id: metadata.template.ech_bootstrap_resolver_id.map(ToString::to_string),
         outer_extension_policy: Some(metadata.template.ech_outer_extension_policy.to_string()),
         first_flight_plan: None,
-    })
+    }
 }
 
 struct EchMetadata {

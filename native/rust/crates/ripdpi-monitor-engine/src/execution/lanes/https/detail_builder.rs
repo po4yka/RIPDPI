@@ -86,7 +86,10 @@ pub(super) fn build_https_probe_details(
     if let Some(provider) = &selected.cdn_provider {
         details.push(ProbeDetail { key: "cdnProvider".to_string(), value: provider.clone() });
     }
-    push_ech_capability_details(&mut details, observations, outcome, tls_ech_template.template.ech_capable);
+    details.push(ProbeDetail {
+        key: "tlsEchTemplateCapable".to_string(),
+        value: tls_ech_template.template.ech_capable.to_string(),
+    });
     append_tls_comparison_details(&mut details, outcome, tls13, tls12, tls_ech);
     details
 }
@@ -131,19 +134,4 @@ fn push_ech_observation_details(details: &mut Vec<ProbeDetail>, tls_ech: &TlsObs
     if let Some(plan) = tls_ech.ech_first_flight_plan.clone() {
         details.push(ProbeDetail { key: "tlsEchFirstFlightPlan".to_string(), value: plan });
     }
-}
-
-fn push_ech_capability_details(
-    details: &mut Vec<ProbeDetail>,
-    observations: &HttpsObservationCollection,
-    outcome: &str,
-    template_ech_capable: bool,
-) {
-    details.push(ProbeDetail {
-        key: "echCapable".to_string(),
-        value: (outcome == "tls_ech_only"
-            || observations.tls_ech.ech_resolution_detail.as_deref() == Some("ech_config_available"))
-        .to_string(),
-    });
-    details.push(ProbeDetail { key: "tlsEchTemplateCapable".to_string(), value: template_ech_capable.to_string() });
 }

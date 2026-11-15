@@ -1,4 +1,5 @@
 use ripdpi_tls_profiles::TlsTemplateFirstFlightPlan;
+use rustls::client::EchStatus;
 use rustls::client::danger::ServerCertVerifier;
 
 use super::key_log::TlsKeyLogCallback;
@@ -13,6 +14,10 @@ pub struct TlsObservation {
     pub failure_duration_ms: Option<u64>,
     pub certificate_anomaly: bool,
     pub ech_resolution_detail: Option<String>,
+    pub ech_config_source: Option<EchConfigSource>,
+    pub ech_status: Option<EchStatus>,
+    pub ech_initial_attempt: Option<EchInitialAttempt>,
+    pub ech_retry_skipped_reason: Option<&'static str>,
     pub ech_bootstrap_policy: Option<String>,
     pub ech_bootstrap_resolver_id: Option<String>,
     pub ech_outer_extension_policy: Option<String>,
@@ -36,6 +41,42 @@ pub struct TlsObservation {
     pub local_addr: Option<std::net::SocketAddr>,
     pub cdn_provider: Option<String>,
     pub route_report: Option<RouteExperimentReport>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EchConfigSource {
+    DnsHttps,
+    CdnFallback(&'static str),
+    RetryConfigs,
+}
+
+impl EchConfigSource {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::DnsHttps => "dns_https",
+            Self::CdnFallback(_) => "cdn_fallback",
+            Self::RetryConfigs => "retry_configs",
+        }
+    }
+
+    pub const fn cdn_provider(self) -> Option<&'static str> {
+        match self {
+            Self::CdnFallback(provider) => Some(provider),
+            _ => None,
+        }
+    }
+}
+
+/// The rejected ECH attempt before starting one retry to the same peer.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EchInitialAttempt {
+    pub connected_addr: std::net::SocketAddr,
+    pub transport_open_ms: u64,
+    pub tls_handshake_ms: Option<u64>,
+    pub ja3_fingerprint: Option<String>,
+    pub client_hello_capture: ClientHelloCapture,
+    pub ech_config_source: EchConfigSource,
+    pub error: String,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -99,6 +140,8 @@ pub struct ProbeStreamResult {
     pub stream: ConnectionStream,
     pub negotiated_alpn: Option<String>,
     pub tls_template_first_flight_plan: Option<TlsTemplateFirstFlightPlan>,
+    pub(super) ech_config_source: Option<EchConfigSource>,
+    pub(super) ech_initial_attempt: Option<Box<EchInitialAttempt>>,
     pub transport_open_ms: u64,
     pub tls_handshake_ms: u64,
     pub cert_chain_length: Option<usize>,
@@ -158,6 +201,16 @@ pub struct ProbeStreamError {
     pub(crate) certificate_anomaly: bool,
     pub(crate) tls_handshake_ms: Option<u64>,
     pub(super) client_hello: Option<Box<ClientHelloEvidence>>,
+    pub(super) ech: Option<Box<EchErrorEvidence>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct EchErrorEvidence {
+    pub(super) config_source: Option<EchConfigSource>,
+    pub(super) status: Option<EchStatus>,
+    pub(super) lookup_failure: Option<super::config::EchLookupFailure>,
+    pub(super) initial_attempt: Option<Box<EchInitialAttempt>>,
+    pub(super) retry_skipped_reason: Option<&'static str>,
 }
 
 impl ProbeStreamError {

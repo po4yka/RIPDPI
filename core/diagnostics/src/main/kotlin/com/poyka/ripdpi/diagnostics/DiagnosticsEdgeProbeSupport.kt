@@ -38,5 +38,4 @@ internal fun ProbeResult.edgeSuccess(): Boolean =
         else -> false
     }
 
-internal fun ProbeResult.edgeEchCapable(): Boolean =
-    detailValue("echCapable") == "true" || detailValue("tlsEchResolutionDetail") == "ech_config_available"
+internal fun ProbeResult.edgeEchCapable(): Boolean = detailValue("tlsEchAcceptance") == "accepted"

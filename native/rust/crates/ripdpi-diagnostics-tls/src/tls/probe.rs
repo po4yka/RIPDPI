@@ -92,7 +92,7 @@ pub fn try_tls_handshake_targets_with_options_and_abort(
         should_abort,
     ) {
         Ok(result) => observation::from_probe_stream_result(result, options.profile),
-        Err(err) => observation::from_probe_error(err, options.profile),
+        Err(err) => observation::from_probe_error(err),
     }
 }
 
