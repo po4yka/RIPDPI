@@ -205,8 +205,7 @@ class DohWireHttpsRrQuery(
 ) : HttpsRrQuery {
     override suspend fun query(host: String): HttpsRrResponse =
         suspendCancellableCoroutine { continuation ->
-            val transactionId = DnsWireBuilder.randomTransactionId()
-            val query = HttpsDnsWireBuilder.buildQuery(host, transactionId)
+            val query = HttpsDnsWireBuilder.buildQuery(host, transactionId = DohTransactionId)
             val request =
                 Request
                     .Builder()

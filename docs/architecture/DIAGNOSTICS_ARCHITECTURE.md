@@ -430,6 +430,10 @@ flags and numeric timing data. Protocol meanings follow
 [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308.html) and
 [RFC 8914](https://www.rfc-editor.org/rfc/rfc8914.html).
 
+Kotlin binary DoH requests use transaction ID zero and check the DNS response
+question and ID. The UDP payload-size probe fills the request with private-use
+EDNS option 65001. RFC 7830 padding is reserved for encrypted DNS.
+
 ### JSON DoH resolver survey
 
 The `doh_json_survey` stage queries each distinct scan DNS target domain once per

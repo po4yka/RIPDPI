@@ -111,7 +111,7 @@ class DohWireAddressProbe(
         domain: String,
         endpoint: String,
     ): DnsProbeAnswer {
-        val query = DnsWireBuilder.buildQuery(domain, edns = true)
+        val query = DnsWireBuilder.buildQuery(domain, transactionId = DohTransactionId, edns = true)
         val post =
             Request
                 .Builder()

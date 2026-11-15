@@ -251,8 +251,7 @@ class OkHttpDohWireAvailabilityProbe(
                     readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                     callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
                 }
-            val transactionId = DnsWireBuilder.randomTransactionId()
-            val query = DnsWireBuilder.buildQuery(domain, transactionId, edns = true)
+            val query = DnsWireBuilder.buildQuery(domain, transactionId = DohTransactionId, edns = true)
             val post = buildPostRequest(server.endpoint, query)
             val startNs = System.nanoTime()
             val postResult =
