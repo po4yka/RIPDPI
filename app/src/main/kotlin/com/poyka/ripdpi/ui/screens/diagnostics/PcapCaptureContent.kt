@@ -48,8 +48,8 @@ internal fun readCapturePackets(
         var firstTimestamp = 0L
         var visibleBytes = 0L
         var hasMore = false
-        while (true) {
-            val record = reader.readOne() ?: break
+        var record = reader.readOne()
+        while (record != null) {
             if (packets.size == MaxVisiblePackets || visibleBytes + record.bytes.size > MaxVisibleBytes) {
                 hasMore = true
                 break
@@ -57,6 +57,7 @@ internal fun readCapturePackets(
             if (packets.isEmpty()) firstTimestamp = record.tsMicros
             packets += record.toPacket(firstTimestamp)
             visibleBytes += record.bytes.size
+            record = reader.readOne()
         }
         CapturePackets(packets.toPersistentList(), hasMore)
     }
