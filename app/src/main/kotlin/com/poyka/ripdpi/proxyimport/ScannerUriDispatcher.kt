@@ -44,9 +44,7 @@ object ImportPayloadClassifier {
         if (trimmed.isEmpty()) return null
         return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
             ?: SubscriptionLinkClassifier.classify(trimmed)?.let(ImportPayload::Subscription)
-            ?: embeddedShareLink(trimmed)
-                ?.let { ProxyUriShareDispatcher.dispatch(it) as? ProxyImportRequest.Profile }
-                ?.let(ImportPayload::Profile)
+            ?: embeddedShareProfile(trimmed)?.let(ImportPayload::Profile)
             ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(ImportPayload::WireGuardConf)
             ?: amneziaWgConf(trimmed)?.let(ImportPayload::WireGuardConf)
             ?: trimmed.takeIf(::looksLikeWireGuardConf)?.let(ImportPayload::WireGuardConf)
@@ -60,13 +58,14 @@ object ImportPayloadClassifier {
         }
 
     /** `v2rayng://install-config?url=vless://…` carries a share link, not a subscription URL. */
-    private fun embeddedShareLink(text: String): String? =
+    internal fun embeddedShareProfile(text: String): ProxyImportRequest.Profile? =
         parseImportDeepLinkUri(text)
             ?.takeIf {
                 it.scheme.equals("v2rayng", ignoreCase = true) &&
                     it.rawAuthority.equals("install-config", ignoreCase = true)
             }?.importQueryParameters()
             ?.get("url")
+            ?.let { ProxyUriShareDispatcher.dispatch(it) as? ProxyImportRequest.Profile }
 
     private fun looksLikeWireGuardConf(text: String): Boolean {
         val sections = text.lineSequence().map { it.trim().lowercase() }.toSet()

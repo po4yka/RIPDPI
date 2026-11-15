@@ -3,6 +3,8 @@ package com.poyka.ripdpi.proxyimport
 import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.ProxyProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -14,6 +16,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.shadows.ShadowActivity
+import org.robolectric.shadows.ShadowToast
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -95,6 +98,27 @@ class ImportHandlerActivityTest {
         )
         assertTrue(activity.isFinishing)
         controller.destroy()
+    }
+
+    @Test
+    fun `v2rayng install config view forwards the embedded proxy profile`() {
+        val proxy = "trojan://p%2Bw%25@example.com:8443?sni=edge.example#Edge"
+        val controller = launch("v2rayng://install-config?url=${enc(proxy)}").create()
+        try {
+            val forwarded = shadowOf(controller.get()).nextStartedActivity
+
+            assertEquals(
+                ImportLaunchRoute.PROFILE_CONFIRM,
+                forwarded.getStringExtra(ImportHandlerActivity.EXTRA_IMPORT_ROUTE),
+            )
+            val token = requireNotNull(forwarded.getStringExtra(ImportHandlerActivity.EXTRA_PROFILE_IMPORT_TOKEN))
+            val profile = PendingProxyImportStore.process.claim(token) as ProxyProfile.Trojan
+            assertEquals("p+w%", profile.password)
+            assertEquals("edge.example", profile.serverName)
+            assertEquals("Edge", profile.displayName)
+        } finally {
+            controller.destroy()
+        }
     }
 
     @Test
@@ -200,15 +224,24 @@ class ImportHandlerActivityTest {
     }
 
     @Test
-    fun `malformed deep link finishes without forwarding and without crashing`() {
-        val controller = launch("singbox://import-remote-profile").create()
+    fun `malformed subscription deep links show the specific input error`() {
+        val cases =
+            mapOf(
+                "singbox://import-remote-profile" to R.string.import_error_missing_url,
+                "singbox://import-remote-profile?url=%ZZ" to R.string.import_error_bad_encoding,
+            )
+        cases.forEach { (link, error) ->
+            val controller = launch(link).create()
+            try {
+                val activity = controller.get()
 
-        val activity = controller.get()
-        val forwarded = shadowOf(activity).nextStartedActivity
-
-        assertNull("No forward intent expected for malformed deep link", forwarded)
-        assertTrue(activity.isFinishing)
-        controller.destroy()
+                assertNull(shadowOf(activity).nextStartedActivity)
+                assertTrue(activity.isFinishing)
+                assertEquals(activity.getString(error), ShadowToast.getTextOfLatestToast())
+            } finally {
+                controller.destroy()
+            }
+        }
     }
 
     @Test

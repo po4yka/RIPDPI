@@ -40,8 +40,8 @@ class ImportHandlerActivity : Activity() {
         super.onCreate(savedInstanceState)
         val readingFile =
             runCatching { handleInboundIntent() }
-                .getOrElse { error ->
-                    Logger.e(error) { "Import handler failed to process inbound intent" }
+                .getOrElse {
+                    Logger.e { "Import handler failed to process inbound intent" }
                     toast(R.string.import_error_unsupported)
                     false
                 }
@@ -73,14 +73,24 @@ class ImportHandlerActivity : Activity() {
         if (tryHandleRipDpiImport(data)) {
             return
         }
-        when (SingBoxDeepLinkParser.parse(data)) {
+        ImportPayloadClassifier.embeddedShareProfile(data)?.let { request ->
+            forwardProfile(request)
+            return
+        }
+        when (val result = SingBoxDeepLinkParser.parse(data)) {
             is SingBoxDeepLinkResult.Success -> {
-                handleSubscriptionDeepLink(data)
+                forwardSubscription(PendingSubscriptionImportRequest(result.url, result.name, result.bootstrap))
             }
 
-            is SingBoxDeepLinkResult.Error -> {
-                // Not a subscription deep link — fall through to single-profile dispatch.
-                // A genuine malformed subscription deep link is reported inside the handler.
+            SingBoxDeepLinkResult.Error.MissingUrl -> {
+                toast(R.string.import_error_missing_url)
+            }
+
+            SingBoxDeepLinkResult.Error.BadEncoding -> {
+                toast(R.string.import_error_bad_encoding)
+            }
+
+            SingBoxDeepLinkResult.Error.Unsupported -> {
                 handleProxyShareLink(data)
             }
         }
@@ -108,28 +118,6 @@ class ImportHandlerActivity : Activity() {
         forwardSubscription(
             PendingSubscriptionImportRequest(result.targetUrl, name = "", bootstrap = bootstrap),
         )
-    }
-
-    private fun handleSubscriptionDeepLink(data: String) {
-        when (val result = SingBoxDeepLinkParser.parse(data)) {
-            is SingBoxDeepLinkResult.Success -> {
-                forwardSubscription(
-                    PendingSubscriptionImportRequest(result.url, result.name, result.bootstrap),
-                )
-            }
-
-            SingBoxDeepLinkResult.Error.MissingUrl -> {
-                toast(R.string.import_error_missing_url)
-            }
-
-            SingBoxDeepLinkResult.Error.BadEncoding -> {
-                toast(R.string.import_error_bad_encoding)
-            }
-
-            SingBoxDeepLinkResult.Error.Unsupported -> {
-                toast(R.string.import_error_unsupported)
-            }
-        }
     }
 
     private fun forwardSubscription(request: PendingSubscriptionImportRequest) {
