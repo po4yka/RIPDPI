@@ -2,7 +2,7 @@
 id: DGN-1794730805168562
 title: Preserve audited TLS probe evidence
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: DIA-02 audit team
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: repair-dia02-tls-evidence
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Local correction verified. Hosted CI is required before closure.
 ---
 
 ## Goal
