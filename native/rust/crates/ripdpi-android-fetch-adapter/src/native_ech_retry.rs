@@ -1,9 +1,11 @@
 use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use rustls::client::EchStatus;
 use rustls::pki_types::ServerName;
+use serde::Serialize;
 use tokio::time::{Instant as Deadline, timeout_at};
 use tokio_rustls::TlsConnector;
 
@@ -14,6 +16,45 @@ pub(crate) struct EchEndpoint<'a> {
     pub require_public_address: bool,
 }
 
+#[derive(Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum EchOutcome {
+    Accepted,
+    Rejected,
+    CertificateError,
+    TlsError,
+    TransportError,
+    Timeout,
+    UnusableConfig,
+    EndpointDenied,
+    Unavailable,
+    Cancelled,
+}
+
+#[derive(Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum EchStage {
+    Setup,
+    Connect,
+    Tls,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct EchHandshakeReport {
+    pub(crate) outcome: EchOutcome,
+    pub(crate) stage: EchStage,
+    pub(crate) peer_address: Option<SocketAddr>,
+    pub(crate) latency_ms: Option<u64>,
+    pub(crate) retry_attempted: bool,
+}
+
+impl EchHandshakeReport {
+    pub(crate) fn setup(outcome: EchOutcome) -> Self {
+        Self { outcome, stage: EchStage::Setup, peer_address: None, latency_ms: None, retry_attempted: false }
+    }
+}
+
 /// # Cancel safety:
 /// cancel-safe: all DNS, TCP and TLS state is owned by this operation; dropping
 /// it closes the active transport and prevents an authenticated retry.
@@ -21,14 +62,17 @@ pub(crate) async fn connect(
     endpoint: EchEndpoint<'_>,
     configs: Vec<u8>,
     phase_budget: Duration,
-    build_config: impl Fn(Vec<u8>) -> io::Result<rustls::ClientConfig>,
-) -> io::Result<u64> {
-    let deadline = Deadline::now()
-        .checked_add(phase_budget.saturating_mul(2))
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "ECH timeout is out of range"))?;
-    timeout_at(deadline, attempts(endpoint, configs, phase_budget, deadline, build_config))
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "ECH operation timed out"))?
+    build_config: impl Fn(Vec<u8>) -> Result<rustls::ClientConfig, EchOutcome>,
+) -> EchHandshakeReport {
+    let mut report = EchHandshakeReport::setup(EchOutcome::Unavailable);
+    let Some(deadline) = Deadline::now().checked_add(phase_budget.saturating_mul(2)) else {
+        return report;
+    };
+    report.outcome =
+        timeout_at(deadline, attempts(endpoint, configs, phase_budget, deadline, build_config, &mut report))
+            .await
+            .unwrap_or(EchOutcome::Timeout);
+    report
 }
 
 /// # Cancel safety:
@@ -38,23 +82,27 @@ async fn attempts(
     mut configs: Vec<u8>,
     phase_budget: Duration,
     deadline: Deadline,
-    build_config: impl Fn(Vec<u8>) -> io::Result<rustls::ClientConfig>,
-) -> io::Result<u64> {
-    let server_name = ServerName::try_from(endpoint.server_name.to_owned())
-        .map_err(|error| io::Error::new(io::ErrorKind::PermissionDenied, format!("invalid ECH origin: {error}")))?;
-    if !matches!(&server_name, ServerName::DnsName(_)) {
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "ECH origin needs a DNS name"));
-    }
-    let mut peer: Option<std::net::SocketAddr> = None;
+    build_config: impl Fn(Vec<u8>) -> Result<rustls::ClientConfig, EchOutcome>,
+    report: &mut EchHandshakeReport,
+) -> EchOutcome {
+    let Ok(server_name @ ServerName::DnsName(_)) = ServerName::try_from(endpoint.server_name.to_owned()) else {
+        return EchOutcome::EndpointDenied;
+    };
     let mut tls_latency = Duration::ZERO;
     for attempt in 0..2 {
-        let config = build_config(configs)?;
+        report.stage = EchStage::Setup;
+        let config = match build_config(configs) {
+            Ok(config) => config,
+            Err(outcome) => return outcome,
+        };
         let remaining = deadline.saturating_duration_since(Deadline::now()).min(phase_budget);
         if remaining.is_zero() {
-            return Err(io::Error::new(io::ErrorKind::TimedOut, "ECH operation timed out"));
+            return EchOutcome::Timeout;
         }
+        report.stage = EchStage::Connect;
+        report.retry_attempted = attempt > 0;
         let connect_ms = u64::try_from(remaining.as_millis()).unwrap_or(u64::MAX);
-        let tcp = match peer {
+        let tcp = match report.peer_address {
             Some(address) => {
                 crate::socket_protection::connect_transport(&address.ip().to_string(), address.port(), connect_ms).await
             }
@@ -62,47 +110,65 @@ async fn attempts(
                 crate::native_ech_endpoint::connect_public_transport(endpoint.host, endpoint.port, connect_ms).await
             }
             None => crate::socket_protection::connect_transport(endpoint.host, endpoint.port, connect_ms).await,
-        }
-        .map_err(transport_error)?;
-        peer = Some(tcp.peer_addr().map_err(transport_error)?);
+        };
+        let tcp = match tcp {
+            Ok(tcp) => tcp,
+            Err(error) => return connect_error(&error),
+        };
+        report.peer_address = match tcp.peer_addr() {
+            Ok(address) => Some(address),
+            Err(_) => return EchOutcome::TransportError,
+        };
+        report.stage = EchStage::Tls;
         let started = Instant::now();
         let connector = TlsConnector::from(Arc::new(config));
         let phase_end = Deadline::now().checked_add(phase_budget).unwrap_or(deadline).min(deadline);
-        let result = timeout_at(phase_end, connector.connect(server_name.clone(), tcp))
-            .await
-            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "ECH TLS handshake timed out"))?;
+        let result = timeout_at(phase_end, connector.connect(server_name.clone(), tcp)).await;
         tls_latency += started.elapsed();
+        report.latency_ms = Some(u64::try_from(tls_latency.as_millis()).unwrap_or(u64::MAX));
         match result {
-            Ok(stream) => {
-                if !matches!(stream.get_ref().1.ech_status(), EchStatus::Accepted) {
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, "ECH was not accepted"));
-                }
-                return Ok(tls_latency.as_millis() as u64);
+            Err(_) => return EchOutcome::Timeout,
+            Ok(Ok(stream)) => {
+                return if matches!(stream.get_ref().1.ech_status(), EchStatus::Accepted) {
+                    EchOutcome::Accepted
+                } else {
+                    EchOutcome::TlsError
+                };
             }
-            Err(error) => {
+            Ok(Err(error)) => {
+                let tls_error = error.get_ref().and_then(|error| error.downcast_ref::<rustls::Error>());
                 if attempt == 0
-                    && let Some(retry) = error
-                        .get_ref()
-                        .and_then(|error| error.downcast_ref::<rustls::Error>())
-                        .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs)
+                    && let Some(retry) = tls_error.and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs)
                 {
                     configs = retry;
                     continue;
                 }
-                return Err(io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    format!("ECH TLS handshake failed: {error}"),
-                ));
+                return tls_outcome(tls_error, error.kind());
             }
         }
     }
-    Err(io::Error::other("ECH retry exhausted"))
+    EchOutcome::TlsError
 }
 
-fn transport_error(error: io::Error) -> io::Error {
-    if error.kind() == io::ErrorKind::PermissionDenied {
-        error
-    } else {
-        io::Error::other(format!("ECH connect transport: {error}"))
+fn connect_error(error: &io::Error) -> EchOutcome {
+    match error.kind() {
+        io::ErrorKind::PermissionDenied => EchOutcome::EndpointDenied,
+        io::ErrorKind::TimedOut => EchOutcome::Timeout,
+        _ => EchOutcome::TransportError,
+    }
+}
+
+fn tls_outcome(error: Option<&rustls::Error>, kind: io::ErrorKind) -> EchOutcome {
+    match error {
+        // rustls reports this only after authenticating the public name and verifying the outer Finished.
+        Some(rustls::Error::PeerIncompatible(rustls::PeerIncompatible::ServerRejectedEncryptedClientHello(_))) => {
+            EchOutcome::Rejected
+        }
+        Some(rustls::Error::InvalidCertificate(_) | rustls::Error::NoCertificatesPresented) => {
+            EchOutcome::CertificateError
+        }
+        Some(_) => EchOutcome::TlsError,
+        None if kind == io::ErrorKind::TimedOut => EchOutcome::Timeout,
+        None => EchOutcome::TransportError,
     }
 }

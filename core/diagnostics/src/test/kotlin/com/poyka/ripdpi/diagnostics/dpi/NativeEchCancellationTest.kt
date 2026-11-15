@@ -135,7 +135,9 @@ class NativeEchCancellationTest {
             started.countDown()
             try {
                 check(cancelled.await(5, TimeUnit.SECONDS)) { "native worker was not cancelled" }
-                return """{"cancelled":true,"error":"ECH handshake cancelled"}"""
+                return """
+                    {"outcome":"cancelled","stage":"setup","peerAddress":null,"latencyMs":null,"retryAttempted":false}
+                    """.trimIndent()
             } finally {
                 running.set(false)
             }

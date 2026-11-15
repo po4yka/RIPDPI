@@ -4,7 +4,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.IOException
 import java.util.Base64
 
 class NativeEchTlsHandshakeTest {
@@ -13,7 +12,8 @@ class NativeEchTlsHandshakeTest {
         runTest {
             val bindings =
                 FakeNativeEchTlsHandshakeBindings(
-                    responseJson = """{"negotiatedEch":true,"latencyMs":42}""",
+                    responseJson =
+                        """{"outcome":"accepted","stage":"tls","peerAddress":"203.0.113.8:8443","latencyMs":42,"retryAttempted":true}""",
                 )
 
             val handshake = NativeEchTlsHandshake(bindings)
@@ -25,6 +25,8 @@ class NativeEchTlsHandshakeTest {
 
             assertEquals(true, result.negotiatedEch)
             assertEquals(42L, result.latencyMs)
+            assertEquals("203.0.113.8:8443", result.peerAddress)
+            assertEquals(true, result.retryAttempted)
             assertTrue(bindings.lastRequestJson.contains(""""origin":"cloudflare.com""""))
             assertTrue(bindings.lastRequestJson.contains(""""connectHost":"edge.example""""))
             assertTrue(bindings.lastRequestJson.contains(""""connectPort":8443"""))
@@ -33,15 +35,16 @@ class NativeEchTlsHandshakeTest {
                     """"echConfigBytesB64":"${Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3))}"""",
                 ),
             )
-            assertTrue(bindings.lastRequestJson.contains(""""connectTimeoutMs":10000"""))
+            assertTrue(bindings.lastRequestJson.contains(""""connectTimeoutMs":5000"""))
         }
 
     @Test
-    fun connectThrowsIoExceptionForNativeErrorPayload() =
+    fun certificateFailurePreservesNativePeerAndStage() =
         runTest {
             val bindings =
                 FakeNativeEchTlsHandshakeBindings(
-                    responseJson = """{"error":"ech_required"}""",
+                    responseJson =
+                        """{"outcome":"certificateError","stage":"tls","peerAddress":"203.0.113.9:8443","latencyMs":31,"retryAttempted":false}""",
                 )
 
             val error =
@@ -52,21 +55,30 @@ class NativeEchTlsHandshakeTest {
                     )
                 }.exceptionOrNull()
 
-            assertTrue(error is IOException)
-            assertEquals("ech_required", error?.message)
+            assertTrue(error is EchTlsException)
+            val failure = error as EchTlsException
+            assertEquals(EchTlsOutcome.CERTIFICATE_ERROR, failure.outcome)
+            assertEquals(EchTlsStage.TLS, failure.stage)
+            assertEquals("203.0.113.9:8443", failure.peerAddress)
+            assertEquals(31L, failure.latencyMs)
+            assertEquals(false, failure.retryAttempted)
         }
 
     @Test
     fun unacceptedConfigIsASetupError() =
         runTest {
             val native =
-                NativeEchTlsHandshake(FakeNativeEchTlsHandshakeBindings("""{"transportSetup":"unusableConfig"}"""))
+                NativeEchTlsHandshake(
+                    FakeNativeEchTlsHandshakeBindings(
+                        """{"outcome":"unusableConfig","stage":"setup","peerAddress":null,"latencyMs":null,"retryAttempted":false}""",
+                    ),
+                )
             val error =
                 runCatching {
                     native.connect(EchTlsEndpoint("origin.example", "edge.example", 8443), TestEchConfigList)
                 }.exceptionOrNull()
-            assertTrue(error is EchTlsSetupException)
-            assertEquals(EchTlsSetupFailure.UNUSABLE_CONFIG, (error as EchTlsSetupException).failure)
+            assertTrue(error is EchTlsException)
+            assertEquals(EchTlsOutcome.UNUSABLE_CONFIG, (error as EchTlsException).outcome)
         }
 
     @Test
@@ -75,10 +87,11 @@ class NativeEchTlsHandshakeTest {
             val invalidPayloads =
                 listOf(
                     "{}",
-                    """{"negotiatedEch":null}""",
                     """{"negotiatedEch":false,"latencyMs":4}""",
-                    """{"negotiatedEch":true}""",
-                    """{"negotiatedEch":true,"latencyMs":-1}""",
+                    """{"outcome":"accepted","stage":"tls","latencyMs":4,"retryAttempted":false}""",
+                    """{"outcome":"accepted","stage":"tls","peerAddress":null,"latencyMs":4,"retryAttempted":false}""",
+                    """{"outcome":"accepted","stage":"setup","peerAddress":"203.0.113.9:8443","latencyMs":4,"retryAttempted":false}""",
+                    """{"outcome":"accepted","stage":"tls","peerAddress":"203.0.113.9:8443","latencyMs":-1,"retryAttempted":false}""",
                 )
             for (payload in invalidPayloads) {
                 val handshake = NativeEchTlsHandshake(FakeNativeEchTlsHandshakeBindings(payload))
@@ -87,8 +100,8 @@ class NativeEchTlsHandshakeTest {
                         handshake.connect(EchTlsEndpoint("origin.example", "edge.example", 8443), TestEchConfigList)
                     }.exceptionOrNull()
 
-                assertTrue(error is EchTlsSetupException)
-                assertEquals(EchTlsSetupFailure.UNAVAILABLE, (error as EchTlsSetupException).failure)
+                assertTrue(error is EchTlsException)
+                assertEquals(EchTlsOutcome.UNAVAILABLE, (error as EchTlsException).outcome)
             }
         }
 

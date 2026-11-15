@@ -10,6 +10,7 @@ import android.system.OsConstants
 import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -89,6 +90,7 @@ data class HttpsRrLookupAttempt(
 
 data class HttpsRrLookup(
     val candidates: List<HttpsRrRecord>,
+    val candidateSource: HttpsRrSource,
     val hasIncompatibleBinding: Boolean,
     val attempts: List<HttpsRrLookupAttempt>,
 ) {
@@ -96,7 +98,15 @@ data class HttpsRrLookup(
         get() = attempts.any { it.outcome == HttpsRrOutcome.ANSWER }
 
     val configurationAbsent: Boolean
-        get() = attempts.groupBy { it.source }.values.any { it.last().outcome in noConfigurationOutcomes }
+        get() {
+            val outcomes =
+                attempts
+                    .groupBy { it.source }
+                    .values
+                    .map { it.last().outcome }
+                    .filterNot { it == HttpsRrOutcome.PLATFORM_UNSUPPORTED }
+            return outcomes.isNotEmpty() && outcomes.all { it in noConfigurationOutcomes }
+        }
 
     private companion object {
         val noConfigurationOutcomes =
@@ -123,12 +133,18 @@ class HttpsRrResolver(
         val primaryBindings = primary.records.echBindings()
         val primaryCandidates = primaryBindings.filter(HttpsRrRecord::supportsTcp)
         if (primaryCandidates.isNotEmpty() || primary.outcome in terminalOutcomes || fallbackQuery == null) {
-            return HttpsRrLookup(primaryCandidates, primaryBindings.any { !it.supportsTcp }, attempts)
+            return HttpsRrLookup(
+                primaryCandidates,
+                HttpsRrSource.DOH,
+                primaryBindings.any { !it.supportsTcp },
+                attempts,
+            )
         }
         val fallback = fallbackQuery.followAliases(host, HttpsRrSource.SYSTEM, attempts)
         val fallbackBindings = fallback.records.echBindings()
         return HttpsRrLookup(
             fallbackBindings.filter(HttpsRrRecord::supportsTcp),
+            HttpsRrSource.SYSTEM,
             (primaryBindings + fallbackBindings).any { !it.supportsTcp },
             attempts,
         )
@@ -165,7 +181,7 @@ class HttpsRrResolver(
 
     private suspend fun HttpsRrQuery.attempt(host: String): HttpsRrResponse =
         try {
-            query(host)
+            withTimeoutOrNull(LookupAttemptTimeoutMs) { query(host) } ?: HttpsRrResponse(HttpsRrOutcome.TIMEOUT)
         } catch (error: CancellationException) {
             throw error
         } catch (error: IOException) {
@@ -187,6 +203,7 @@ class HttpsRrResolver(
 
     private companion object {
         private const val MaxAliasHops = 3
+        private const val LookupAttemptTimeoutMs = 6_000L
         val terminalOutcomes = setOf(HttpsRrOutcome.SERVICE_UNAVAILABLE, HttpsRrOutcome.ALIAS_LIMIT)
     }
 }

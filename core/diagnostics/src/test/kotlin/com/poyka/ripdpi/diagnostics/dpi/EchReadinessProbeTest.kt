@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -47,21 +48,22 @@ class EchReadinessProbeTest {
         }
 
     @Test
-    fun encryptedClientHelloAlertReturnsRejected() =
+    fun authenticatedRejectionIsMeasured() =
         runTest {
             val probe =
                 EchReadinessProbe(
                     resolver = resolverWithConfig(byteArrayOf(1)),
-                    tlsHandshake = FakeEchTlsHandshake(error = IllegalStateException("alert encrypted_client_hello")),
+                    tlsHandshake = FakeEchTlsHandshake(EchTlsHandshakeResult(negotiatedEch = false, latencyMs = 7)),
                 )
 
             val result = probe.check("mozilla.org")
 
             assertEquals(EchProbeVerdict.ECH_REJECTED, result.verdict)
+            assertTrue(result.hasMeasurement)
         }
 
     @Test
-    fun echRequiredAlertReturnsUnknownKey() =
+    fun bridgeErrorTextDoesNotProveRejection() =
         runTest {
             val probe =
                 EchReadinessProbe(
@@ -71,11 +73,12 @@ class EchReadinessProbeTest {
 
             val result = probe.check("fastly.com")
 
-            assertEquals(EchProbeVerdict.ECH_UNKNOWN_KEY, result.verdict)
+            assertEquals(EchProbeVerdict.ECH_BRIDGE_UNAVAILABLE, result.verdict)
+            assertFalse(result.hasMeasurement)
         }
 
     @Test
-    fun tcpLayerFailureReturnsNetworkBlock() =
+    fun socketTimeoutDoesNotProveAPathBlock() =
         runTest {
             val probe =
                 EchReadinessProbe(
@@ -85,7 +88,8 @@ class EchReadinessProbeTest {
 
             val result = probe.check("cloudflare-ech.com")
 
-            assertEquals(EchProbeVerdict.ECH_NETWORK_BLOCK, result.verdict)
+            assertEquals(EchProbeVerdict.ECH_TIMEOUT, result.verdict)
+            assertFalse(result.hasMeasurement)
         }
 
     @Test
@@ -151,7 +155,7 @@ class EchReadinessProbeTest {
         }
 
     @Test
-    fun observedRrsetWithoutEchAndSystemFailureKeepSeparateTargetResults() =
+    fun oneNegativeResolverAndOneFailedResolverAreInconclusive() =
         runTest {
             val probe =
                 EchReadinessProbe(
@@ -175,8 +179,15 @@ class EchReadinessProbeTest {
                         ),
                 )
             val (observed, failed) = probe.checkAll(listOf("records.example", "failed.example"))
-            assertEquals(EchProbeVerdict.ECH_NO_CONFIG, observed.verdict)
+            assertEquals(EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE, observed.verdict)
             assertTrue(observed.httpsRrFetched)
+            assertEquals(
+                listOf(
+                    HttpsRrSource.DOH to HttpsRrOutcome.ANSWER,
+                    HttpsRrSource.SYSTEM to HttpsRrOutcome.TRANSPORT_ERROR,
+                ),
+                observed.httpsLookups.map { it.source to it.outcome },
+            )
             assertEquals(EchProbeVerdict.ECH_LOOKUP_INCONCLUSIVE, failed.verdict)
             assertFalse(failed.httpsRrFetched)
             assertEquals(503, failed.httpsLookups.first().httpStatus)
@@ -205,10 +216,7 @@ class EchReadinessProbeTest {
                                 echConfig: ByteArray,
                             ): EchTlsHandshakeResult {
                                 if (endpoint.host == "unusable.example") {
-                                    throw EchTlsSetupException(
-                                        EchTlsSetupFailure.UNUSABLE_CONFIG,
-                                        "unsupported version",
-                                    )
+                                    throw EchTlsException(EchTlsOutcome.UNUSABLE_CONFIG)
                                 }
                                 assertEquals(EchTlsEndpoint("origin.example", "tcp.example", 8443), endpoint)
                                 assertEquals(3.toByte(), echConfig.single())
@@ -241,11 +249,91 @@ class EchReadinessProbeTest {
                     resolver = resolverWithConfig(byteArrayOf(1)),
                     tlsHandshake =
                         FakeEchTlsHandshake(
-                            error = EchTlsSetupException(EchTlsSetupFailure.UNUSABLE_CONFIG, null),
+                            error = EchTlsException(EchTlsOutcome.UNUSABLE_CONFIG),
                         ),
                 ).check("origin.example")
             assertEquals(EchProbeVerdict.ECH_UNUSABLE_CONFIG, unusable.verdict)
             assertFalse(unusable.hasMeasurement)
+        }
+
+    @Test
+    fun transportFailureRetainsEvidenceAndContinuesToTheNextBinding() =
+        runTest {
+            val first = HttpsRrRecord(1, "first.example", byteArrayOf(1))
+            val second = HttpsRrRecord(2, "second.example", byteArrayOf(2), port = 8443)
+            val resolver =
+                HttpsRrResolver(
+                    query = HttpsRrQuery { HttpsRrResponse(HttpsRrOutcome.TIMEOUT) },
+                    fallbackQuery = HttpsRrQuery { HttpsRrResponse(HttpsRrOutcome.ANSWER, listOf(second, first)) },
+                )
+            val probe =
+                EchReadinessProbe(
+                    resolver = resolver,
+                    tlsHandshake =
+                        object : EchTlsHandshake {
+                            override suspend fun connect(
+                                endpoint: EchTlsEndpoint,
+                                echConfig: ByteArray,
+                            ): EchTlsHandshakeResult {
+                                if (endpoint.host == first.targetName) {
+                                    throw EchTlsException(EchTlsOutcome.TRANSPORT_ERROR, EchTlsStage.CONNECT)
+                                }
+                                return EchTlsHandshakeResult(true, 12L, "203.0.113.9:8443", retryAttempted = true)
+                            }
+                        },
+                )
+
+            val result = probe.check("origin.example")
+
+            assertEquals(EchProbeVerdict.ECH_OK, result.verdict)
+            assertEquals(
+                listOf(
+                    EchBindingAttempt(
+                        HttpsRrSource.SYSTEM,
+                        EchTlsEndpoint("origin.example", "first.example", 443),
+                        EchProbeVerdict.ECH_TRANSPORT_ERROR,
+                        EchTlsStage.CONNECT,
+                        errorDetail = "TRANSPORT_ERROR",
+                    ),
+                    EchBindingAttempt(
+                        HttpsRrSource.SYSTEM,
+                        EchTlsEndpoint("origin.example", "second.example", 8443),
+                        EchProbeVerdict.ECH_OK,
+                        EchTlsStage.TLS,
+                        "203.0.113.9:8443",
+                        12L,
+                        retryAttempted = true,
+                    ),
+                ),
+                result.bindingAttempts,
+            )
+        }
+
+    @Test
+    fun stalledBindingsUseBoundedAttemptsAndDoNotDescribeUntestedBindings() =
+        runTest {
+            val records = (1..5).map { HttpsRrRecord(it, "edge-$it.example", byteArrayOf(1)) }
+            val probe =
+                EchReadinessProbe(
+                    resolver =
+                        HttpsRrResolver(
+                            query = HttpsRrQuery { HttpsRrResponse(HttpsRrOutcome.ANSWER, records) },
+                            fallbackQuery = null,
+                        ),
+                    tlsHandshake =
+                        object : EchTlsHandshake {
+                            override suspend fun connect(
+                                endpoint: EchTlsEndpoint,
+                                echConfig: ByteArray,
+                            ): EchTlsHandshakeResult = awaitCancellation()
+                        },
+                )
+
+            val result = probe.check("origin.example")
+
+            assertEquals(EchProbeVerdict.ECH_HANDSHAKE_INCONCLUSIVE, result.verdict)
+            assertEquals(records.take(4).map { it.targetName }, result.bindingAttempts.map { it.endpoint.host })
+            assertTrue(result.bindingAttempts.all { it.verdict == EchProbeVerdict.ECH_TIMEOUT })
         }
 
     private fun resolverWithConfig(config: ByteArray): HttpsRrResolver =

@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -44,7 +46,7 @@ class HttpsRrAliasResolverTest {
                         fallbackQuery = null,
                     )
 
-                val record = resolver.fetch("origin.example").candidates.single()
+                val record = withContext(Dispatchers.IO) { resolver.fetch("origin.example") }.candidates.single()
                 assertEquals("alias.example", record.ownerName)
                 assertEquals(".", record.targetName)
                 assertArrayEquals(TestEchConfigList, record.echConfig)

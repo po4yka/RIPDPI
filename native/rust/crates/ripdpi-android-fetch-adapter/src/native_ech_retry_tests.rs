@@ -1,7 +1,9 @@
-use std::io;
+use std::net::SocketAddr;
 use std::time::Duration;
 
-use super::native_ech_retry;
+use tokio::io::AsyncReadExt;
+
+use super::native_ech_retry::{EchEndpoint, EchHandshakeReport, EchOutcome, EchStage, connect};
 
 const BORING_ECH_CONFIG_LIST: &[u8] = &[
     0x00, 0x3e, 0xfe, 0x0d, 0x00, 0x3a, 0x00, 0x00, 0x20, 0x00, 0x20, 0xbb, 0x2f, 0x29, 0xe3, 0xe3, 0x05, 0x7e, 0x04,
@@ -25,19 +27,7 @@ const BORING_ECH_KEY_2: &[u8] = &[
 /// teardown closes any pending peer if the test future is dropped.
 #[tokio::test]
 async fn native_ech_retries_a_trusted_stale_key_once() {
-    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "origin.example".into()]).unwrap();
-    let mut roots = rustls::RootCertStore::empty();
-    roots.add(certificate.cert.der().clone()).unwrap();
-    let mut acceptor = boring::ssl::SslAcceptor::mozilla_intermediate_v5(boring::ssl::SslMethod::tls()).unwrap();
-    acceptor.set_certificate(&boring::x509::X509::from_der(certificate.cert.der().as_ref()).unwrap()).unwrap();
-    acceptor
-        .set_private_key(&boring::pkey::PKey::private_key_from_der(&certificate.signing_key.serialize_der()).unwrap())
-        .unwrap();
-    let mut keys = boring::ssl::SslEchKeys::builder().unwrap();
-    keys.add_key(true, BORING_ECH_CONFIG_2, boring::hpke::HpkeKey::dhkem_p256_sha256(BORING_ECH_KEY_2).unwrap())
-        .unwrap();
-    acceptor.set_ech_keys(&keys.build()).unwrap();
-    let acceptor = acceptor.build();
+    let (acceptor, roots) = server_config(true);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move {
@@ -47,7 +37,6 @@ async fn native_ech_retries_a_trusted_stale_key_once() {
             if attempt == 0 {
                 if let Ok(mut tls) = handshake {
                     assert!(!tls.ssl().ech_accepted());
-                    use tokio::io::AsyncReadExt;
                     let mut byte = [0u8; 1];
                     assert!(matches!(tls.read(&mut byte).await, Ok(0) | Err(_)));
                 }
@@ -58,8 +47,65 @@ async fn native_ech_retries_a_trusted_stale_key_once() {
             }
         }
     });
-    let operation = native_ech_retry::connect(
-        native_ech_retry::EchEndpoint {
+    let report = loopback_handshake(address, roots).await;
+    assert_eq!(report.outcome, EchOutcome::Accepted);
+    assert_eq!(report.stage, EchStage::Tls);
+    assert_eq!(report.peer_address, Some(address));
+    assert!(report.latency_ms.is_some());
+    assert!(report.retry_attempted);
+    server.await.unwrap();
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: the fixture transaction must be joined. Test runtime teardown closes pending sockets.
+#[tokio::test]
+async fn native_ech_distinguishes_trust_failure_from_authenticated_rejection() {
+    for (trusted, expected_outcome) in [(true, EchOutcome::Rejected), (false, EchOutcome::CertificateError)] {
+        let (acceptor, roots) = server_config(!trusted);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (tcp, _) = listener.accept().await.unwrap();
+            if let Ok(mut tls) = tokio_boring::accept(&acceptor, tcp).await {
+                assert!(!tls.ssl().ech_accepted());
+                assert!(matches!(tls.read(&mut [0u8; 1]).await, Ok(0) | Err(_)));
+            }
+            assert!(tokio::time::timeout(Duration::from_millis(100), listener.accept()).await.is_err());
+        });
+
+        let roots = if trusted { roots } else { rustls::RootCertStore::empty() };
+        let report = loopback_handshake(address, roots).await;
+        assert_eq!(report.outcome, expected_outcome);
+        assert_eq!(report.stage, EchStage::Tls);
+        assert_eq!(report.peer_address, Some(address));
+        assert!(!report.retry_attempted);
+        server.await.unwrap();
+    }
+}
+
+fn server_config(retry: bool) -> (boring::ssl::SslAcceptor, rustls::RootCertStore) {
+    let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "origin.example".into()]).unwrap();
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(certificate.cert.der().clone()).unwrap();
+    let mut acceptor = boring::ssl::SslAcceptor::mozilla_intermediate_v5(boring::ssl::SslMethod::tls()).unwrap();
+    acceptor.set_certificate(&boring::x509::X509::from_der(certificate.cert.der().as_ref()).unwrap()).unwrap();
+    acceptor
+        .set_private_key(&boring::pkey::PKey::private_key_from_der(&certificate.signing_key.serialize_der()).unwrap())
+        .unwrap();
+    if retry {
+        let mut keys = boring::ssl::SslEchKeys::builder().unwrap();
+        keys.add_key(true, BORING_ECH_CONFIG_2, boring::hpke::HpkeKey::dhkem_p256_sha256(BORING_ECH_KEY_2).unwrap())
+            .unwrap();
+        acceptor.set_ech_keys(&keys.build()).unwrap();
+    }
+    (acceptor.build(), roots)
+}
+
+/// # Cancel safety:
+/// cancel-safe: dropping the future closes its loopback socket.
+async fn loopback_handshake(address: SocketAddr, roots: rustls::RootCertStore) -> EchHandshakeReport {
+    let operation = connect(
+        EchEndpoint {
             server_name: "origin.example",
             host: "127.0.0.1",
             port: address.port(),
@@ -72,16 +118,15 @@ async fn native_ech_retries_a_trusted_stale_key_once() {
                 rustls::pki_types::EchConfigListBytes::from(configs),
                 rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,
             )
-            .map_err(io::Error::other)?;
+            .map_err(|_| EchOutcome::UnusableConfig)?;
             let config =
                 rustls::ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into())
                     .with_ech(rustls::client::EchMode::Enable(ech))
-                    .map_err(io::Error::other)?
+                    .map_err(|_| EchOutcome::UnusableConfig)?
                     .with_root_certificates(roots.clone())
                     .with_no_client_auth();
             Ok(config)
         },
     );
-    tokio::time::timeout(Duration::from_secs(5), operation).await.unwrap().expect("fresh key accepted");
-    server.await.unwrap();
+    tokio::time::timeout(Duration::from_secs(5), operation).await.unwrap()
 }
