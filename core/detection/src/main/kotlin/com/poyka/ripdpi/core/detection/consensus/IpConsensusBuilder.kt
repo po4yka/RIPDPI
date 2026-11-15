@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.IpComparisonResult
 import com.poyka.ripdpi.core.detection.probe.canonicalIpOrNull
+import com.poyka.ripdpi.data.NumericIp
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -290,32 +291,44 @@ object IpConsensusBuilder {
     }
 
     private fun channelConflicts(observedIps: Map<IpConsensusChannel, List<String>>): List<ChannelConflict> =
-        observedIps
-            .filterValues { it.size >= 2 }
-            .map { (channel, ips) ->
-                ChannelConflict(
-                    channel = channel,
-                    ips = ips,
-                    confidence = EvidenceConfidence.HIGH,
-                )
-            }
+        observedIps.flatMap { (channel, ips) ->
+            ipsByFamily(ips)
+                .values
+                .filter { it.size >= 2 }
+                .map { familyIps ->
+                    ChannelConflict(
+                        channel = channel,
+                        ips = familyIps,
+                        confidence = EvidenceConfidence.HIGH,
+                    )
+                }
+        }
 
     private fun crossChannelMismatches(
         observedIps: Map<IpConsensusChannel, List<String>>,
     ): List<CrossChannelMismatch> {
-        val ruIps = observedIps[IpConsensusChannel.IP_COMPARISON_RU].orEmpty()
-        val nonRuIps = observedIps[IpConsensusChannel.IP_COMPARISON_NON_RU].orEmpty()
-        if (ruIps.isEmpty() || nonRuIps.isEmpty() || ruIps.toSet() == nonRuIps.toSet()) return emptyList()
-        return listOf(
-            CrossChannelMismatch(
-                leftChannel = IpConsensusChannel.IP_COMPARISON_RU,
-                leftIps = ruIps,
-                rightChannel = IpConsensusChannel.IP_COMPARISON_NON_RU,
-                rightIps = nonRuIps,
-                confidence = EvidenceConfidence.HIGH,
-            ),
-        )
+        val ruByFamily = ipsByFamily(observedIps[IpConsensusChannel.IP_COMPARISON_RU].orEmpty())
+        val nonRuByFamily = ipsByFamily(observedIps[IpConsensusChannel.IP_COMPARISON_NON_RU].orEmpty())
+        return ruByFamily.mapNotNull { (family, ruIps) ->
+            val nonRuIps = nonRuByFamily[family].orEmpty()
+            if (nonRuIps.isEmpty() || ruIps.toSet() == nonRuIps.toSet()) {
+                null
+            } else {
+                CrossChannelMismatch(
+                    leftChannel = IpConsensusChannel.IP_COMPARISON_RU,
+                    leftIps = ruIps,
+                    rightChannel = IpConsensusChannel.IP_COMPARISON_NON_RU,
+                    rightIps = nonRuIps,
+                    confidence = EvidenceConfidence.HIGH,
+                )
+            }
+        }
     }
+
+    private fun ipsByFamily(ips: List<String>): Map<Boolean, List<String>> =
+        ips
+            .mapNotNull { ip -> NumericIp.parseAddress(ip)?.let { it.isIPv4 to ip } }
+            .groupBy({ it.first }, { it.second })
 
     private fun foreignIps(asnByIp: Map<String, IpAsnInfo>): List<String> =
         asnByIp

@@ -33,6 +33,43 @@ class IpConsensusBuilderTest {
     }
 
     @Test
+    fun `different address families do not imply a cross channel mismatch`() {
+        val result =
+            IpConsensusBuilder.build(
+                observations =
+                    listOf(
+                        IpObservation(IpConsensusChannel.IP_COMPARISON_RU, "8.8.8.8"),
+                        IpObservation(IpConsensusChannel.IP_COMPARISON_NON_RU, "2001:4860:4860::8888"),
+                    ),
+            )
+
+        assertTrue(result.channelConflicts.isEmpty())
+        assertTrue(result.crossChannelMismatches.isEmpty())
+        assertEquals(2, result.observedIps.size)
+        assertEquals(Verdict.NOT_DETECTED, verdictFor(result))
+    }
+
+    @Test
+    fun `matching dual stack observations do not conflict within a channel`() {
+        val result =
+            IpConsensusBuilder.build(
+                observations =
+                    listOf(IpConsensusChannel.IP_COMPARISON_RU, IpConsensusChannel.IP_COMPARISON_NON_RU)
+                        .flatMap { channel ->
+                            listOf(
+                                IpObservation(channel, "8.8.8.8"),
+                                IpObservation(channel, "2001:4860:4860::8888"),
+                            )
+                        },
+            )
+
+        assertTrue(result.channelConflicts.isEmpty())
+        assertTrue(result.crossChannelMismatches.isEmpty())
+        assertEquals(listOf(2, 2), result.observedIps.values.map { it.size })
+        assertEquals(Verdict.NOT_DETECTED, verdictFor(result))
+    }
+
+    @Test
     fun crossChannelMismatchDetectedWhenRuAndNonRuDiffer() {
         val result =
             IpConsensusBuilder.build(
@@ -224,6 +261,20 @@ class IpConsensusBuilderTest {
             assertEquals(IpAsnInfo("2.2.2.2", null, null), result.asnByIp.getValue("2.2.2.2"))
             assertEquals(IpAsnInfo("3.3.3.3", null, null), result.asnByIp.getValue("3.3.3.3"))
         }
+
+    private fun verdictFor(consensus: IpConsensusResult): Verdict {
+        val empty = CategoryResult(name = "empty", detected = false, findings = emptyList())
+        val bypass =
+            BypassResult(
+                proxyEndpoint = null,
+                directIp = null,
+                proxyIp = null,
+                xrayApiScanResult = null,
+                findings = emptyList(),
+                detected = false,
+            )
+        return VerdictEngine.evaluate(empty, empty, empty, empty, bypass, ipConsensus = consensus)
+    }
 
     private fun fakeResolver(vararg entries: Pair<String, IpAsnInfo>): IpAsnResolver {
         val byIp = entries.toMap()
