@@ -75,13 +75,15 @@ object CallTransportLeakChecker {
                     }.mapNotNull { deferred -> deferred.await() }
 
             val mtProtoReachable =
-                if (CallTransportPath.VPN in mtProtoProber.supportedPaths()) {
-                    runBooleanProbe {
-                        mtProtoProber.canReach(CallTransportPath.VPN)
-                    }
-                } else {
-                    false
-                }
+                mtProtoProber
+                    .supportedPaths()
+                    .firstOrNull { path ->
+                        path == CallTransportPath.VPN || path == CallTransportPath.APP_DEFAULT
+                    }?.let { path ->
+                        runBooleanProbe {
+                            mtProtoProber.canReach(path)
+                        }
+                    } ?: false
 
             val proxyStun =
                 if (proxyEndpoint?.type == ProxyType.SOCKS5 && socks5StunClient != null) {
@@ -194,7 +196,7 @@ object CallTransportLeakChecker {
         if (mtProtoReachable) {
             findings +=
                 Finding(
-                    description = "MTProto DC2 reachable from VPN call transport path",
+                    description = "MTProto DC2 reachable on a supported call transport path",
                     detected = true,
                     needsReview = true,
                     source = EvidenceSource.CALL_TRANSPORT,
@@ -259,24 +261,21 @@ object CallTransportLeakChecker {
 }
 
 private fun CallTransportStunClient.supportedPaths(): Set<CallTransportPath> =
-    (this as? CallTransportPathAwareStunClient)?.supportedPaths.orVpnOnly()
+    (this as? CallTransportPathAwareStunClient)?.supportedPaths ?: AppDefaultCallTransportPaths
 
 private fun CallTransportMtProtoProber.supportedPaths(): Set<CallTransportPath> =
-    (this as? CallTransportPathAwareMtProtoProber)?.supportedPaths.orVpnOnly()
+    (this as? CallTransportPathAwareMtProtoProber)?.supportedPaths ?: AppDefaultCallTransportPaths
 
-private fun Set<CallTransportPath>?.orVpnOnly(): Set<CallTransportPath> =
-    takeUnless { paths -> paths.isNullOrEmpty() } ?: VpnOnlyCallTransportPaths
-
-private val VpnOnlyCallTransportPaths = setOf(CallTransportPath.VPN)
+private val AppDefaultCallTransportPaths = setOf(CallTransportPath.APP_DEFAULT)
 
 private class DefaultCallTransportMtProtoProber(
     private val dispatchers: AppCoroutineDispatchers,
 ) : CallTransportPathAwareMtProtoProber {
-    override val supportedPaths: Set<CallTransportPath> = setOf(CallTransportPath.VPN)
+    override val supportedPaths: Set<CallTransportPath> = AppDefaultCallTransportPaths
 
     override suspend fun canReach(path: CallTransportPath): Boolean =
         withContext(dispatchers.io) {
-            if (path != CallTransportPath.VPN) return@withContext false
+            if (path != CallTransportPath.APP_DEFAULT) return@withContext false
             try {
                 java.net.Socket().use { socket ->
                     socket.connect(java.net.InetSocketAddress(TelegramDc2Host, TelegramDcPort), TimeoutMs)
@@ -301,14 +300,14 @@ private class DefaultCallTransportStunClient(
     private val timeoutMs: Int = 3_000,
     private val random: SecureRandom = SecureRandom(),
 ) : CallTransportPathAwareStunClient {
-    override val supportedPaths: Set<CallTransportPath> = setOf(CallTransportPath.VPN)
+    override val supportedPaths: Set<CallTransportPath> = AppDefaultCallTransportPaths
 
     override suspend fun reflexiveAddress(
         path: CallTransportPath,
         server: CallTransportStunServer,
     ): String? =
         withContext(dispatchers.io) {
-            if (path != CallTransportPath.VPN) return@withContext null
+            if (path != CallTransportPath.APP_DEFAULT) return@withContext null
             try {
                 DatagramSocket().use { socket ->
                     socket.soTimeout = timeoutMs

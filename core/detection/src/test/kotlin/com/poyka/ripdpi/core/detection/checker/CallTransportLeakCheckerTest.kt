@@ -107,12 +107,12 @@ class CallTransportLeakCheckerTest {
         }
 
     @Test
-    fun pathBlindStunClientOnlyProbesVpnPath() =
+    fun pathBlindStunClientOnlyProbesAppDefaultPath() =
         runTest {
             val stunClient =
                 RecordingCallTransportStunClient(
                     mapOf(
-                        CallTransportPath.VPN to "1.2.3.4",
+                        CallTransportPath.APP_DEFAULT to "1.2.3.4",
                         CallTransportPath.UNDERLYING to "5.6.7.8",
                     ),
                 )
@@ -125,9 +125,17 @@ class CallTransportLeakCheckerTest {
                     servers = listOf(testStunServer),
                 )
 
-            assertEquals(listOf(CallTransportStunRequest(CallTransportPath.VPN, testStunServer)), stunClient.requests)
+            assertEquals(
+                listOf(CallTransportStunRequest(CallTransportPath.APP_DEFAULT, testStunServer)),
+                stunClient.requests,
+            )
             assertFalse(result.category.detected)
-            assertEquals(listOf(CallTransportPath.VPN), result.stunObservations.map { observation -> observation.path })
+            assertEquals(
+                listOf(CallTransportPath.APP_DEFAULT),
+                result.stunObservations.map { observation ->
+                    observation.path
+                },
+            )
             assertTrue(result.category.findings.any { it.description.contains("not evaluated") })
         }
 
@@ -229,7 +237,7 @@ class CallTransportLeakCheckerTest {
                     enabled = true,
                     stunClient =
                         RecordingCallTransportStunClient(
-                            mapOf(CallTransportPath.VPN to "1.2.3.4"),
+                            mapOf(CallTransportPath.APP_DEFAULT to "1.2.3.4"),
                         ),
                     mtProtoProber = RecordingCallTransportMtProtoProber(),
                 )
@@ -243,6 +251,36 @@ class CallTransportLeakCheckerTest {
                 listOf("1.2.3.4"),
                 result.observedIps[IpConsensusChannel.CALL_TRANSPORT],
             )
+        }
+
+    @Test
+    fun explicitlyUnsupportedClientsDoNotProduceObservations() =
+        runTest {
+            val result =
+                CallTransportLeakChecker.check(
+                    enabled = true,
+                    stunClient =
+                        object : CallTransportPathAwareStunClient {
+                            override val supportedPaths = emptySet<CallTransportPath>()
+
+                            override suspend fun reflexiveAddress(
+                                path: CallTransportPath,
+                                server: CallTransportStunServer,
+                            ): String = throw CancellationException("Unsupported STUN path must not run")
+                        },
+                    mtProtoProber =
+                        object : CallTransportPathAwareMtProtoProber {
+                            override val supportedPaths = emptySet<CallTransportPath>()
+
+                            override suspend fun canReach(path: CallTransportPath): Boolean =
+                                throw CancellationException("Unsupported MTProto path must not run")
+                        },
+                    servers = listOf(testStunServer),
+                )
+
+            assertTrue(result.stunObservations.isEmpty())
+            assertFalse(result.mtProtoReachable)
+            assertTrue(result.category.findings.any { it.description.contains("not evaluated") })
         }
 
     private open class RecordingCallTransportStunClient(

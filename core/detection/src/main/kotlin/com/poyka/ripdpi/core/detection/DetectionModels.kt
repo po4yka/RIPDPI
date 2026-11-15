@@ -230,6 +230,7 @@ data class NativeSignsResult(
 )
 
 enum class CallTransportPath {
+    APP_DEFAULT,
     VPN,
     UNDERLYING,
 }
