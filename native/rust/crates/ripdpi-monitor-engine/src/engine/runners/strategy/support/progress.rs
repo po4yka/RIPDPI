@@ -15,12 +15,14 @@ pub(in crate::engine::runners::strategy) fn record_not_applicable_tcp_candidate(
     log_suffix: &str,
 ) {
     let execution = not_applicable_candidate_execution(spec, plan.request.domain_targets.len() * 2, 3, reason);
+    let outcome = execution.summary.outcome.clone();
+    runtime.strategy.tcp_candidates.push(execution.summary);
     runtime.record_step(
         plan,
         phase,
         format!("Marked {} as not applicable{}", spec.label, log_suffix),
         Some(spec.label.to_string()),
-        Some(execution.summary.outcome.clone()),
+        Some(outcome),
         Some(strategy_probe_live_progress_with_targets(
             StrategyProbeProgressLane::Tcp,
             candidate_index,
@@ -31,13 +33,12 @@ pub(in crate::engine::runners::strategy) fn record_not_applicable_tcp_candidate(
             0,
         )),
         RunnerArtifacts::from_results(
-            execution.results.clone(),
+            execution.results,
             "strategy_probe",
             "debug",
             format!("Skipped execution for {}{}", spec.label, log_suffix),
         ),
     );
-    runtime.strategy.tcp_candidates.push(execution.summary);
 }
 
 pub(in crate::engine::runners::strategy) fn strategy_probe_live_progress_with_targets(

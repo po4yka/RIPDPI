@@ -2,6 +2,8 @@
 mod exhaustive;
 #[path = "runtime_tests/recommendation.rs"]
 mod recommendation;
+#[path = "runtime_tests/strategy_checkpoint.rs"]
+mod strategy_checkpoint;
 #[path = "runtime_tests/telegram_checkpoint.rs"]
 mod telegram_checkpoint;
 

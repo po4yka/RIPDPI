@@ -4,9 +4,9 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::classification::{classified_failure_probe_result, classify_strategy_probe_baseline_observations};
-use crate::execution::{CandidateExecution, StrategyLaneExecutor};
+use crate::execution::StrategyLaneExecutor;
 use crate::observations::observations_for_results;
-use crate::types::{DomainTarget, StrategyProbeProgressLane};
+use crate::types::{DomainTarget, ProbeResult, StrategyProbeProgressLane};
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageRunner, RunnerArtifacts};
 use super::super::support::strategy_probe_live_progress_with_targets;
@@ -14,7 +14,7 @@ use super::StrategyTcpRunner;
 
 pub(super) struct BaselineRun<'a> {
     pub(super) spec: &'a StrategyCandidateSpec,
-    pub(super) execution: CandidateExecution,
+    pub(super) results: Vec<ProbeResult>,
     pub(super) hostfake_family_succeeded: bool,
 }
 
@@ -67,21 +67,26 @@ pub(super) fn run_baseline_candidate<'a>(
             None,
         );
     }
+    let summary = baseline_execution.summary;
+    let hostfake_family_succeeded = summary.family == "hostfake" && summary.succeeded_targets == summary.total_targets;
+    let outcome = summary.outcome.clone();
+    let progress = strategy_probe_live_progress_with_targets(
+        StrategyProbeProgressLane::Tcp,
+        1,
+        tcp_specs.len(),
+        baseline_spec.id,
+        baseline_spec.label,
+        summary.succeeded_targets,
+        summary.total_targets,
+    );
+    runtime.strategy.tcp_candidates.push(summary);
     runtime.record_step(
         plan,
         runner.phase(),
         format!("Tested {}", baseline_spec.label),
         Some(baseline_spec.label.to_string()),
-        Some(baseline_execution.summary.outcome.clone()),
-        Some(strategy_probe_live_progress_with_targets(
-            StrategyProbeProgressLane::Tcp,
-            1,
-            tcp_specs.len(),
-            baseline_spec.id,
-            baseline_spec.label,
-            baseline_execution.summary.succeeded_targets,
-            baseline_execution.summary.total_targets,
-        )),
+        Some(outcome),
+        Some(progress),
         RunnerArtifacts::from_results(
             baseline_results,
             "strategy_probe",
@@ -90,7 +95,5 @@ pub(super) fn run_baseline_candidate<'a>(
         ),
     );
 
-    let hostfake_family_succeeded = baseline_execution.summary.family == "hostfake"
-        && baseline_execution.summary.succeeded_targets == baseline_execution.summary.total_targets;
-    Some(BaselineRun { spec: baseline_spec, execution: baseline_execution, hostfake_family_succeeded })
+    Some(BaselineRun { spec: baseline_spec, results: baseline_execution.results, hostfake_family_succeeded })
 }

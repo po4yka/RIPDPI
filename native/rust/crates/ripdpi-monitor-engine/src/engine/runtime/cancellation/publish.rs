@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::connectivity::{push_event, set_report};
 use crate::engine::report::{ReportBuildContext, build_report};
-use crate::engine::runners::prepare_strategy_probe_report;
+use crate::engine::runners::{checkpoint_strategy_probe_report, prepare_strategy_probe_report};
 use crate::observations::observation_for_probe;
 use crate::types::{
     CandidateRuntimeCleanupReceipt, ProbeResult, ScanCompletionKind, ScanReportDisposition, ScanTerminationReason,
@@ -82,11 +82,8 @@ impl ExecutionRuntime {
 }
 
 fn publish_checkpoint(plan: &ExecutionPlan, runtime: &ExecutionRuntime, probe: Option<ProbeResult>) {
-    if probe.is_none()
-        && runtime.results.is_empty()
-        && runtime.observations.is_empty()
-        && runtime.strategy.strategy_probe_report.is_none()
-    {
+    let strategy_report = checkpoint_strategy_probe_report(plan, runtime);
+    if probe.is_none() && runtime.results.is_empty() && runtime.observations.is_empty() && strategy_report.is_none() {
         return;
     }
 
@@ -106,7 +103,7 @@ fn publish_checkpoint(plan: &ExecutionPlan, runtime: &ExecutionRuntime, probe: O
         cancelled_run_summary(true).to_string(),
         results,
         observations,
-        runtime.strategy.strategy_probe_report.clone(),
+        strategy_report,
         None,
     );
     report.completion_kind = ScanCompletionKind::PartialResults;

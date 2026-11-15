@@ -90,8 +90,7 @@ impl StrategyTcpRunner {
             return RunnerOutcome::Cancelled;
         };
         let mut hostfake_family_succeeded = baseline_run.hostfake_family_succeeded;
-        let baseline_results = baseline_run.execution.results;
-        runtime.strategy.tcp_candidates.push(baseline_run.execution.summary);
+        let baseline_results = baseline_run.results;
 
         if tcp_candidate_total > 1
             && !sleep_within_active_deadline(Duration::from_millis(candidate_pause_ms(

@@ -34,21 +34,24 @@ pub(in crate::engine::runners::strategy::tcp) fn record_executed_candidate(
     annotate_emitter_execution(&mut summary, spec, capabilities.fake_ttl_available, capabilities.ipfrag_caps);
     let hostfake_family_succeeded = summary.family == "hostfake" && summary.succeeded_targets == summary.total_targets;
     let failed = summary.outcome == "failed";
+    let outcome = summary.outcome.clone();
+    let progress = strategy_probe_live_progress_with_targets(
+        StrategyProbeProgressLane::Tcp,
+        candidate_index,
+        tcp_candidate_total,
+        spec.id,
+        spec.label,
+        summary.succeeded_targets,
+        summary.total_targets,
+    );
+    runtime.strategy.tcp_candidates.push(summary);
     runtime.record_step(
         plan,
         phase,
         format!("Tested {}", spec.label),
         Some(spec.label.to_string()),
-        Some(summary.outcome.clone()),
-        Some(strategy_probe_live_progress_with_targets(
-            StrategyProbeProgressLane::Tcp,
-            candidate_index,
-            tcp_candidate_total,
-            spec.id,
-            spec.label,
-            summary.succeeded_targets,
-            summary.total_targets,
-        )),
+        Some(outcome),
+        Some(progress),
         RunnerArtifacts::from_results(
             execution.results,
             "strategy_probe",
@@ -56,6 +59,5 @@ pub(in crate::engine::runners::strategy::tcp) fn record_executed_candidate(
             format!("Testing TCP candidate {}", spec.label),
         ),
     );
-    runtime.strategy.tcp_candidates.push(summary);
     CandidateRecord { failed, hostfake_family_succeeded }
 }
