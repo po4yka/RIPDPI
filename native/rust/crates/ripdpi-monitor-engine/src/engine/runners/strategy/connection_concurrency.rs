@@ -13,8 +13,9 @@ use rustls::client::danger::ServerCertVerifier;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use ripdpi_failure_classifier::{
-    ConnectionConcurrencyCell as ClassifierCell, ConnectionConcurrencyCellStatus as ClassifierStatus,
-    ConnectionConcurrencyVerdict as ClassifierVerdict, classify_connection_concurrency_matrix,
+    ConnectionConcurrencyAssessment as ClassifierAssessment, ConnectionConcurrencyCell as ClassifierCell,
+    ConnectionConcurrencyCellStatus as ClassifierStatus, ConnectionConcurrencyVerdict as ClassifierVerdict,
+    classify_connection_concurrency_matrix,
 };
 
 use crate::types::{
@@ -75,22 +76,22 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
             }) {
                 Ok(address) => address,
                 Err(error) => {
-                    let skipped = skipped_target_cells(
+                    for cell in skipped_target_cells(
                         target,
                         metadata.cohort_id.as_str(),
                         levels,
                         format!("target resolution failed: {error}"),
-                    );
-                    for cell in &skipped {
-                        record_cell(plan, runtime, cell);
+                    ) {
+                        let measurement = MatrixMeasurement::primary(cell);
+                        record_cell(plan, runtime, &measurement);
+                        cells.push(measurement);
                     }
-                    cells.extend(skipped);
                     if error.kind() == io::ErrorKind::Interrupted
                         || runtime.is_cancelled()
                         || runtime.is_past_deadline()
                         || runtime.is_past_stage_deadline()
                     {
-                        finalize_assessment(runtime, &cells, &current_profile);
+                        finalize_assessment(runtime, cells, &current_profile);
                         return RunnerOutcome::Cancelled;
                     }
                     continue;
@@ -121,17 +122,28 @@ impl ExecutionStageRunner for StrategyConnectionConcurrencyRunner {
             }
             cells.extend(target_matrix.cells);
             if target_matrix.cancelled {
-                finalize_assessment(runtime, &cells, &current_profile);
+                finalize_assessment(runtime, cells, &current_profile);
                 return RunnerOutcome::Cancelled;
             }
         }
-        finalize_assessment(runtime, &cells, &current_profile);
+        finalize_assessment(runtime, cells, &current_profile);
         RunnerOutcome::Completed
     }
 }
 
+struct MatrixMeasurement {
+    cell: ClassifierCell,
+    post_check_for: Option<u16>,
+}
+
+impl MatrixMeasurement {
+    fn primary(cell: ClassifierCell) -> Self {
+        Self { cell, post_check_for: None }
+    }
+}
+
 struct TargetMatrixOutcome {
-    cells: Vec<ClassifierCell>,
+    cells: Vec<MatrixMeasurement>,
     cancelled: bool,
 }
 
@@ -150,6 +162,7 @@ where
     let mut cells = Vec::new();
     let mut frozen = false;
     for (profile_index, &profile) in profiles.iter().enumerate() {
+        let mut baseline_healthy = false;
         for (level_index, &level) in levels.iter().enumerate() {
             if should_stop() {
                 skip_remaining_cells(&mut cells, target, metadata, levels, profiles, profile_index, level_index);
@@ -162,48 +175,52 @@ where
             } else {
                 execute(profile, level)
             };
-            if !frozen && level > 1 && !cell.contaminated && cell.status != ClassifierStatus::Skipped {
-                if should_stop() {
-                    // A post-check now would only observe the expired local deadline, not the network.
-                    cells.push(skipped_cell(
-                        target,
-                        &metadata.cohort_id,
-                        profile,
-                        level,
-                        "scan cancelled before post-check",
-                    ));
-                    skip_remaining_cells(
-                        &mut cells,
-                        target,
-                        metadata,
-                        levels,
-                        profiles,
-                        profile_index,
-                        level_index + 1,
-                    );
-                    return TargetMatrixOutcome { cells, cancelled: true };
-                }
-                let mut post_check = execute(profile, 1);
-                // A skipped post-check (local deadline or worker failure) is not network evidence.
-                if !matches!(post_check.status, ClassifierStatus::Healthy | ClassifierStatus::Skipped) {
+            if level == 1 {
+                baseline_healthy = healthy_control(&cell);
+            }
+            if level == 1 || cell.contaminated || cell.status == ClassifierStatus::Skipped {
+                cells.push(MatrixMeasurement::primary(cell));
+                continue;
+            }
+
+            let stopped_before_post_check = should_stop();
+            let mut post_check = if stopped_before_post_check {
+                skipped_cell(target, &metadata.cohort_id, profile, 1, "scan cancelled before post-check")
+            } else {
+                execute(profile, 1)
+            };
+            if !healthy_control(&post_check) {
+                cell.contaminated = true;
+                if post_check.status == ClassifierStatus::Skipped {
+                    cell.skip_reason = Some("same-profile concurrency-1 post-check unavailable".to_string());
+                } else {
                     frozen = true;
-                    cell.contaminated = true;
-                    cell.status = ClassifierStatus::Contaminated;
                     cell.skip_reason = Some("same-profile concurrency-1 post-check failed".to_string());
                     post_check.contaminated = true;
-                    post_check.status = ClassifierStatus::Contaminated;
                     post_check.skip_reason = Some("post-check ran during target freeze".to_string());
                 }
-                cells.push(post_check);
+            } else if !baseline_healthy {
+                cell.contaminated = true;
+                cell.skip_reason = Some("same-profile concurrency-1 pre-check was not healthy".to_string());
             }
-            cells.push(cell);
+
+            cells.push(MatrixMeasurement::primary(cell));
+            cells.push(MatrixMeasurement { cell: post_check, post_check_for: Some(level) });
+            if stopped_before_post_check || should_stop() {
+                skip_remaining_cells(&mut cells, target, metadata, levels, profiles, profile_index, level_index + 1);
+                return TargetMatrixOutcome { cells, cancelled: true };
+            }
         }
     }
     TargetMatrixOutcome { cells, cancelled: false }
 }
 
+fn healthy_control(cell: &ClassifierCell) -> bool {
+    cell.status == ClassifierStatus::Healthy && !cell.contaminated
+}
+
 fn skip_remaining_cells(
-    cells: &mut Vec<ClassifierCell>,
+    cells: &mut Vec<MatrixMeasurement>,
     target: &crate::types::DomainTarget,
     metadata: &crate::types::ConcurrencyProbeTargetMetadata,
     levels: &[u16],
@@ -214,13 +231,13 @@ fn skip_remaining_cells(
     for (remaining_profile_index, &remaining_profile) in profiles.iter().enumerate().skip(profile_index) {
         let first_level = if remaining_profile_index == profile_index { level_index } else { 0 };
         cells.extend(levels.iter().skip(first_level).map(|remaining_level| {
-            skipped_cell(
+            MatrixMeasurement::primary(skipped_cell(
                 target,
                 &metadata.cohort_id,
                 remaining_profile,
                 *remaining_level,
                 "scan cancelled before cell execution",
-            )
+            ))
         }));
     }
 }
@@ -673,7 +690,8 @@ fn skipped_target_cells(
         .collect()
 }
 
-fn record_cell(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime, cell: &ClassifierCell) {
+fn record_cell(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime, measurement: &MatrixMeasurement) {
+    let cell = &measurement.cell;
     let status = contract_status(cell.status);
     let fact = ConnectionConcurrencyObservationFact {
         cohort_id: cell.target_cohort.clone(),
@@ -689,7 +707,8 @@ fn record_cell(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime, cell: &Clas
         contaminated: cell.contaminated,
         skip_reason: cell.skip_reason.clone(),
     };
-    let outcome = format!("{status:?}").to_ascii_lowercase();
+    let effective_status = if cell.contaminated { ConnectionConcurrencyCellStatus::Contaminated } else { status };
+    let outcome = format!("{effective_status:?}").to_ascii_lowercase();
     let observation = ProbeObservation {
         kind: ObservationKind::ConnectionConcurrency,
         target: cell.target_id.clone(),
@@ -705,7 +724,7 @@ fn record_cell(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime, cell: &Clas
         connection_concurrency: Some(fact),
         evidence: cell.block_signals.clone(),
     };
-    let result = ProbeResult {
+    let mut result = ProbeResult {
         probe_type: "connection_concurrency".to_string(),
         target: cell.target_id.clone(),
         outcome: outcome.clone(),
@@ -718,6 +737,15 @@ fn record_cell(plan: &ExecutionPlan, runtime: &mut ExecutionRuntime, cell: &Clas
             },
         ],
     };
+    let role = match (measurement.post_check_for, cell.requested_parallelism) {
+        (Some(level), _) => {
+            result.details.push(ProbeDetail { key: "controlled_parallelism".to_string(), value: level.to_string() });
+            "post_check"
+        }
+        (None, 1) => "pre_check",
+        (None, _) => "burst",
+    };
+    result.details.push(ProbeDetail { key: "measurement_role".to_string(), value: role.to_string() });
     runtime.record_step(
         plan,
         "connection_concurrency",
@@ -739,8 +767,31 @@ fn contract_status(status: ClassifierStatus) -> ConnectionConcurrencyCellStatus 
     }
 }
 
-fn finalize_assessment(runtime: &mut ExecutionRuntime, cells: &[ClassifierCell], current_profile: &str) {
-    let mut assessment = classify_connection_concurrency_matrix(cells, Some(current_profile));
+fn assess_measurements(measurements: Vec<MatrixMeasurement>, current_profile: &str) -> ClassifierAssessment {
+    let planned_cells = u16::try_from(measurements.len()).unwrap_or(u16::MAX);
+    let mut clean_post_checks = 0_u16;
+    let primary: Vec<_> = measurements
+        .into_iter()
+        .filter_map(|measurement| {
+            if measurement.post_check_for.is_some() {
+                if healthy_control(&measurement.cell) {
+                    clean_post_checks = clean_post_checks.saturating_add(1);
+                }
+                // Post-checks validate their own burst; they are not baselines or independent measurements.
+                None
+            } else {
+                Some(measurement.cell)
+            }
+        })
+        .collect();
+    let mut assessment = classify_connection_concurrency_matrix(&primary, Some(current_profile));
+    assessment.planned_cells = planned_cells;
+    assessment.clean_cells = assessment.clean_cells.saturating_add(clean_post_checks);
+    assessment
+}
+
+fn finalize_assessment(runtime: &mut ExecutionRuntime, cells: Vec<MatrixMeasurement>, current_profile: &str) {
+    let mut assessment = assess_measurements(cells, current_profile);
     assessment.warnings.push(
         "The global-platform-control-v1 cohort tests axis M only; it does not establish a domestic-AS condition."
             .to_string(),
@@ -1088,8 +1139,9 @@ mod tests {
         );
 
         assert!(!outcome.cancelled);
-        assert!(outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Contaminated));
-        assert!(outcome.cells.iter().any(|cell| {
+        assert!(outcome.cells.iter().any(|measurement| measurement.cell.contaminated));
+        assert!(outcome.cells.iter().any(|measurement| {
+            let cell = &measurement.cell;
             cell.tls_profile_id == "firefox_stable"
                 && cell.status == ClassifierStatus::Skipped
                 && cell.skip_reason.as_deref() == Some("target frozen by failed post-check")
@@ -1111,9 +1163,9 @@ mod tests {
         );
 
         assert!(outcome.cancelled);
-        assert_eq!(outcome.cells.iter().filter(|cell| cell.status == ClassifierStatus::Healthy).count(), 1);
-        assert!(outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Skipped));
-        let assessment = classify_connection_concurrency_matrix(&outcome.cells, Some("chrome_stable"));
+        assert_eq!(outcome.cells.iter().filter(|measurement| healthy_control(&measurement.cell)).count(), 1);
+        assert!(outcome.cells.iter().any(|measurement| measurement.cell.status == ClassifierStatus::Skipped));
+        let assessment = assess_measurements(outcome.cells, "chrome_stable");
         assert_eq!(assessment.verdict, ClassifierVerdict::Inconclusive);
     }
 
@@ -1157,7 +1209,12 @@ mod tests {
 
         assert_eq!(post_checks, 0);
         assert!(outcome.cancelled);
-        assert!(!outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Contaminated));
+        let burst = outcome.cells.iter().find(|measurement| measurement.cell.requested_parallelism == 4).unwrap();
+        assert_eq!(burst.cell.status, ClassifierStatus::Healthy);
+        assert!(burst.cell.contaminated);
+        assert!(outcome.cells.iter().any(|measurement| {
+            measurement.post_check_for == Some(4) && measurement.cell.status == ClassifierStatus::Skipped
+        }));
     }
 
     #[test]
@@ -1194,8 +1251,53 @@ mod tests {
         );
 
         assert!(!outcome.cancelled);
-        assert!(!outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Contaminated));
         assert_eq!(executed.iter().filter(|(profile, _)| profile == "firefox_stable").count(), 3);
+        let assessment = assess_measurements(outcome.cells, "chrome_stable");
+        assert_eq!(assessment.recommended_max_parallel_handshakes, Some(1));
+        assert_eq!(assessment.planned_cells, 6);
+        assert_eq!(assessment.clean_cells, 2);
+    }
+
+    #[test]
+    fn conjunction_requires_the_original_pre_check_and_matching_post_check() {
+        use ClassifierStatus::{Blocked, Healthy, Skipped};
+
+        for (pre_check, post_check, expected) in [
+            (Healthy, Healthy, ClassifierVerdict::ConjunctionConfirmed),
+            (Healthy, Skipped, ClassifierVerdict::Inconclusive),
+            (Skipped, Healthy, ClassifierVerdict::Inconclusive),
+        ] {
+            let mut cells = Vec::new();
+            for host in ["fixture-a.test", "fixture-b.test"] {
+                let mut target = target();
+                target.host = host.to_string();
+                let metadata = target.concurrency_probe.as_ref().expect("metadata");
+                let mut chrome_control = 0;
+                let outcome = collect_target_matrix(
+                    &target,
+                    metadata,
+                    QUICK_LEVELS,
+                    &["chrome_stable", "firefox_stable"],
+                    || false,
+                    |profile, level| {
+                        let status = match (profile, level) {
+                            ("chrome_stable", 1) => {
+                                chrome_control += 1;
+                                if chrome_control == 1 { pre_check } else { post_check }
+                            }
+                            ("chrome_stable", _) => Blocked,
+                            _ => Healthy,
+                        };
+                        let mut cell = test_cell(profile, level, status);
+                        cell.target_id = host.to_string();
+                        cell
+                    },
+                );
+                cells.extend(outcome.cells);
+            }
+            let assessment = assess_measurements(cells, "chrome_stable");
+            assert_eq!(assessment.verdict, expected, "{pre_check:?}/{post_check:?}");
+        }
     }
 
     fn test_cell(profile: &str, level: u16, status: ClassifierStatus) -> ClassifierCell {

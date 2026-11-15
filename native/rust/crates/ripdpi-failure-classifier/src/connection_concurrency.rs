@@ -87,6 +87,8 @@ pub struct ConnectionConcurrencyAssessment {
     pub warnings: Vec<String>,
 }
 
+/// Classify primary cells from the matrix. The caller marks bursts without healthy paired
+/// controls as contaminated and excludes post-checks from this input.
 pub fn classify_connection_concurrency_matrix(
     cells: &[ConnectionConcurrencyCell],
     current_profile: Option<&str>,
