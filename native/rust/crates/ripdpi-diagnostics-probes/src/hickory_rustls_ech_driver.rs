@@ -69,18 +69,19 @@ impl Default for HickoryRustlsEchHandshakeDriver {
 impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
     /// Resolve the HTTPS RR for `host` and return the raw ECHConfigList bytes.
     ///
-    /// Uses `hickory_resolver::TokioAsyncResolver` with Cloudflare's default
-    /// config (`ResolverConfig::cloudflare()`). Walks every returned HTTPS
-    /// record's `svc_params` and returns the first `EchConfigList` value found.
+    /// Queries HTTPS records through Cloudflare and extracts ECH only from
+    /// compatible ServiceMode bindings for the original host on port 443.
+    /// Alias traversal, other endpoints and mandatory ALPN are unsupported.
     ///
     /// # Return values
     ///
-    /// - `Ok(Some(bytes))` — ECH config bytes extracted from the first matching
+    /// - `Ok(Some(bytes))` — ECH config bytes extracted from the first compatible
     ///   HTTPS RR.
     /// - `Ok(None)` — HTTPS RR(s) present but none carried an `EchConfigList`
     ///   param; also returned for a clean NOERROR/NODATA answer.
     /// - `Err(detail)` — Lookup failed (NXDOMAIN, timeout, network unreachable,
-    ///   malformed response). NXDOMAIN remains distinct from missing HTTPS data.
+    ///   malformed response or unsupported binding). NXDOMAIN and unsupported
+    ///   bindings remain distinct from missing HTTPS data.
     ///
     /// # Cancel safety:
     /// cancel-safe: the lookup owns its resolver state; dropping it prevents
