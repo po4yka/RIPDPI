@@ -109,11 +109,11 @@ fn select_tls_fields(tls13: &TlsObservation, tls12: &TlsObservation, tls_ech: &T
     let preferred = attempts
         .into_iter()
         .find(|attempt| attempt.status == "tls_ok")
-        .or_else(|| attempts.into_iter().find(|attempt| attempt.tcp_connect_ms.is_some()))
+        .or_else(|| attempts.into_iter().find(|attempt| attempt.transport_open_ms.is_some()))
         .unwrap_or(tls13);
 
     SelectedTlsFields {
-        tcp_connect_ms: preferred.tcp_connect_ms,
+        transport_open_ms: preferred.transport_open_ms,
         tls_handshake_ms: preferred.tls_handshake_ms,
         cert_chain_length: preferred.cert_chain_length,
         cert_issuer: preferred.cert_issuer.clone(),
@@ -165,8 +165,8 @@ fn push_selected_endpoint_details(details: &mut Vec<ProbeDetail>, selected: &Sel
 }
 
 fn push_selected_tls_details(details: &mut Vec<ProbeDetail>, selected: &SelectedTlsFields, socket_leg: &str) {
-    if let Some(ms) = selected.tcp_connect_ms {
-        details.push(ProbeDetail { key: "tcpConnectMs".to_string(), value: ms.to_string() });
+    if let Some(ms) = selected.transport_open_ms {
+        details.push(ProbeDetail { key: "transportOpenMs".to_string(), value: ms.to_string() });
     }
     if let Some(ms) = selected.tls_handshake_ms {
         details.push(ProbeDetail { key: "tlsHandshakeMs".to_string(), value: ms.to_string() });
@@ -196,7 +196,7 @@ mod tests {
     #[test]
     fn outbound_socket_ttl_is_not_labeled_as_server_observation() {
         let selected = SelectedTlsFields {
-            tcp_connect_ms: None,
+            transport_open_ms: None,
             tls_handshake_ms: None,
             cert_chain_length: None,
             cert_issuer: None,

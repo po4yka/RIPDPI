@@ -22,7 +22,7 @@ pub(super) struct HttpsObservationCollection {
 }
 
 pub(super) struct SelectedTlsFields {
-    pub(super) tcp_connect_ms: Option<u64>,
+    pub(super) transport_open_ms: Option<u64>,
     pub(super) tls_handshake_ms: Option<u64>,
     pub(super) cert_chain_length: Option<usize>,
     pub(super) cert_issuer: Option<String>,

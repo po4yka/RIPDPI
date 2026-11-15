@@ -179,7 +179,7 @@ class ConnectionStageTransferTest {
                 Json.encodeToString(TransferEvidence.serializer(), TransferEvidence(runs = runs)),
             ),
             ProbeDetail("failureStageReadings", failure),
-            ProbeDetail("tcpConnectMsReadings", tcp),
+            ProbeDetail("transportOpenMsReadings", tcp),
             ProbeDetail("tlsHandshakeMsReadings", tls),
             ProbeDetail("httpStatusCodeReadings", status),
         ),

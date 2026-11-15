@@ -98,7 +98,7 @@ fn throughput_window_attributes_tls_handshake_failure() {
     assert_eq!(sample.failure_stage, "tls_handshake");
     assert_eq!(sample.failure_class, "tls_handshake");
     assert_eq!(sample.address_family.as_deref(), Some("ipv4"));
-    assert!(sample.tcp_connect_ms.is_some());
+    assert!(sample.transport_open_ms.is_some());
     handle.join().expect("fixture thread");
 }
 

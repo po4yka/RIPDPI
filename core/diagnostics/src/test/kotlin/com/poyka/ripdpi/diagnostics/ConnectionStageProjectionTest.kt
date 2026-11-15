@@ -59,7 +59,7 @@ class ConnectionStageProjectionTest {
                     "strategy_https",
                     "tls13Status" to "tls_ok",
                     "tls12Status" to "tls_ok",
-                    "tcpConnectMs" to "10",
+                    "transportOpenMs" to "10",
                     "tlsHandshakeMs" to "20",
                 ).toConnectionStageScale(),
             ).lanes
@@ -161,7 +161,7 @@ class ConnectionStageProjectionTest {
                     "tcp_fat_header",
                     "responsesSeen" to "2",
                     "bytesSent" to "1024",
-                    "synAckLatencyMs" to "10",
+                    "transportOpenMs" to "10",
                 ).toConnectionStageScale(),
             ).lanes.single()
         assertEquals(ConnectionStageState.SUCCEEDED, tcp.at(ConnectionStage.TCP).state)

@@ -1,7 +1,9 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use super::capture::{CaptureTlsError, CaptureTlsHandshakeOptions, CapturedTlsHandshake, capture_tls_handshake};
+use super::capture::{
+    CaptureTlsError, CaptureTlsHandshakeOptions, CapturedTlsHandshake, ReconnectedTransport, capture_tls_handshake,
+};
 use crate::transport::{TargetAddress, connect_transport_observed_with_abort};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, with_scan_io_deadline};
@@ -35,9 +37,11 @@ pub(super) fn capture_with_ech_retry(
         }
         bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
         let target = [TargetAddress::Ip(peer.ip())];
+        let reconnect_started = Instant::now();
         let reconnect =
             connect_transport_observed_with_abort(&target, peer.port(), options.transport, options.should_abort)
                 .map_err(|error| error.message)?;
+        let reconnect_open_ms = reconnect_started.elapsed().as_millis() as u64;
         let retry_options = CaptureTlsHandshakeOptions {
             targets: options.targets,
             ech_retry_configs: Some(configs),
@@ -50,7 +54,8 @@ pub(super) fn capture_with_ech_retry(
             should_abort: options.should_abort,
         };
         let mut handshake = capture_tls_handshake(reconnect.stream, &retry_options)?;
-        handshake.tls_handshake_ms = started.elapsed().as_millis() as u64;
+        handshake.reconnect =
+            Some(ReconnectedTransport { open_ms: reconnect_open_ms, route_report: reconnect.route_report });
         Ok(handshake)
     })
 }

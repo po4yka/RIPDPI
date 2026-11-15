@@ -69,6 +69,9 @@ fn build_telegram_details(
     if let Some(score) = quality_score {
         details.push(ProbeDetail { key: "qualityScore".to_string(), value: score.to_string() });
     }
+    if let Some(open_ms) = ws.open_ms {
+        details.push(ProbeDetail { key: "wsTunnelOpenMs".to_string(), value: open_ms.to_string() });
+    }
     if let Some(status) = ws.http_status {
         details.push(ProbeDetail { key: "wsTunnelHttpStatus".to_string(), value: status.to_string() });
     }
@@ -92,7 +95,6 @@ fn build_telegram_details(
         ProbeDetail { key: "dcTotal".to_string(), value: dc.total.to_string() },
         ProbeDetail { key: "dcResults".to_string(), value: dc.results.join("|") },
         ProbeDetail { key: "wsTunnelStatus".to_string(), value: ws.status },
-        ProbeDetail { key: "wsTunnelRttMs".to_string(), value: ws.rtt_ms.to_string() },
         ProbeDetail { key: "wsTunnelError".to_string(), value: ws.error.unwrap_or_else(|| "none".to_string()) },
     ]);
     details

@@ -12,7 +12,7 @@ pub(crate) fn classify_domain_diagnoses(results: &[ProbeResult], sink: &mut Diag
 fn classify_domain_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
     push_tls_ech_only(result, sink);
     push_ech_resolution_blocked(result, sink);
-    push_tls_cert_mitm(result, sink);
+    push_tls_cert_invalid(result, sink);
     push_tls_clienthello_failure(result, sink);
     push_http_blockpage(result, sink);
 }
@@ -58,13 +58,13 @@ fn push_ech_resolution_blocked(result: &ProbeResult, sink: &mut DiagnosisSink) {
     });
 }
 
-fn push_tls_cert_mitm(result: &ProbeResult, sink: &mut DiagnosisSink) {
+fn push_tls_cert_invalid(result: &ProbeResult, sink: &mut DiagnosisSink) {
     if result.outcome != "tls_cert_invalid" {
         return;
     }
 
     sink.push(Diagnosis {
-        code: "tls_cert_mitm".to_string(),
+        code: "tls_cert_invalid".to_string(),
         summary: format!("TLS certificate anomaly observed for {}", result.target),
         severity: "negative".to_string(),
         target: Some(result.target.clone()),

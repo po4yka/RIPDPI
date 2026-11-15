@@ -40,9 +40,9 @@ pub struct TcpObservationFact {
     /// Time from the last successful I/O to the RST/error, in milliseconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rst_timing_ms: Option<u64>,
-    /// Time from SYN to SYN-ACK in milliseconds (baseline RTT).
+    /// Time to open the transport, including proxy negotiation when used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub syn_ack_latency_ms: Option<u64>,
+    pub transport_open_ms: Option<u64>,
     /// RST origin, only when independently observed; socket errors do not establish it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rst_origin: Option<String>,

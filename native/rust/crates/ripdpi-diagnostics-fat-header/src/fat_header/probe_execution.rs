@@ -59,12 +59,12 @@ fn run_padded_head_sequence(
     target: &TcpTarget,
     host_header: &str,
 ) -> FatHeaderObservation {
-    let syn_ack_latency_ms = Some(probe_result.tcp_connect_ms);
+    let transport_open_ms = Some(probe_result.transport_open_ms);
     let stream = &mut probe_result.stream;
     // Socket timeouts bound one read; the watchdog bounds a peer that drips bytes within each.
     let observation = match probe_socket(stream).try_clone() {
         Ok(socket) => run_with_socket_watchdog(socket, None, || {
-            padded_head_sequence(stream, target, host_header, syn_ack_latency_ms)
+            padded_head_sequence(stream, target, host_header, transport_open_ms)
         }),
         Err(err) => FatHeaderObservation::open_failed(FatHeaderStatus::ConnectFailed, err.to_string()),
     };
@@ -76,7 +76,7 @@ fn padded_head_sequence(
     stream: &mut ConnectionStream,
     target: &TcpTarget,
     host_header: &str,
-    syn_ack_latency_ms: Option<u64>,
+    transport_open_ms: Option<u64>,
 ) -> FatHeaderObservation {
     let requests = target.fat_header_requests.unwrap_or(FAT_HEADER_REQUESTS).max(1);
     let mut counters = FatHeaderCounters::default();
@@ -86,18 +86,18 @@ fn padded_head_sequence(
 
     for index in 0..requests {
         if arm_socket_timeouts(stream).is_err() {
-            return deadline_exceeded(counters, syn_ack_latency_ms);
+            return deadline_exceeded(counters, transport_open_ms);
         }
         if let Err(err) = write_padded_head_request(stream, index, host_header) {
             if scan_deadline_passed() {
-                return deadline_exceeded(counters, syn_ack_latency_ms);
+                return deadline_exceeded(counters, transport_open_ms);
             }
             counters.bytes_sent += padded_head_request_len(index, host_header);
             let status = classify_fat_io_error(err.kind(), counters.bytes_sent, counters.responses_seen);
             return FatHeaderObservation::io_failed(
                 status,
                 err.to_string(),
-                syn_ack_latency_ms,
+                transport_open_ms,
                 Some(timing.elapsed_since_success_ms()),
                 counters.bytes_sent,
                 counters.responses_seen,
@@ -111,28 +111,28 @@ fn padded_head_sequence(
                 counters.responses_seen += 1;
                 timing.mark_io_success();
                 if !head.is_success_class() {
-                    return inconclusive_response(counters, head, syn_ack_latency_ms);
+                    return inconclusive_response(counters, head, transport_open_ms);
                 }
                 if head.closes && index + 1 < requests {
                     if fat_threshold_reached(counters.bytes_sent) {
                         return FatHeaderObservation::success(
                             counters.bytes_sent,
                             counters.responses_seen,
-                            syn_ack_latency_ms,
+                            transport_open_ms,
                         );
                     }
-                    return inconclusive_response(counters, head, syn_ack_latency_ms);
+                    return inconclusive_response(counters, head, transport_open_ms);
                 }
             }
             Err(err) => {
                 if scan_deadline_passed() {
-                    return deadline_exceeded(counters, syn_ack_latency_ms);
+                    return deadline_exceeded(counters, transport_open_ms);
                 }
                 let status = classify_fat_io_error(err.kind(), counters.bytes_sent, counters.responses_seen);
                 return FatHeaderObservation::io_failed(
                     status,
                     err.to_string(),
-                    syn_ack_latency_ms,
+                    transport_open_ms,
                     Some(timing.elapsed_since_success_ms()),
                     counters.bytes_sent,
                     counters.responses_seen,
@@ -141,7 +141,7 @@ fn padded_head_sequence(
         }
     }
 
-    FatHeaderObservation::success(counters.bytes_sent, counters.responses_seen, syn_ack_latency_ms)
+    FatHeaderObservation::success(counters.bytes_sent, counters.responses_seen, transport_open_ms)
 }
 
 fn probe_socket(stream: &ConnectionStream) -> &TcpStream {
@@ -166,11 +166,11 @@ fn scan_deadline_passed() -> bool {
 
 /// The scan deadline ended the sequence, which says nothing about a middlebox cutoff. It is
 /// inconclusive like a deadline during stream setup.
-fn deadline_exceeded(counters: FatHeaderCounters, syn_ack_latency_ms: Option<u64>) -> FatHeaderObservation {
+fn deadline_exceeded(counters: FatHeaderCounters, transport_open_ms: Option<u64>) -> FatHeaderObservation {
     FatHeaderObservation::io_failed(
         FatHeaderStatus::ConnectFailed,
         "scan_deadline_exceeded".to_string(),
-        syn_ack_latency_ms,
+        transport_open_ms,
         None,
         counters.bytes_sent,
         counters.responses_seen,
@@ -185,14 +185,14 @@ fn deadline_exceeded(counters: FatHeaderCounters, syn_ack_latency_ms: Option<u64
 fn inconclusive_response(
     counters: FatHeaderCounters,
     head: ResponseHead,
-    syn_ack_latency_ms: Option<u64>,
+    transport_open_ms: Option<u64>,
 ) -> FatHeaderObservation {
     let answer = format!("HTTP {} answer", head.status);
     let close = if head.closes { ", server closed the connection," } else { "" };
     FatHeaderObservation::io_failed(
         FatHeaderStatus::ConnectFailed,
         format!("{answer}{close} after response {} and {} bytes sent", counters.responses_seen, counters.bytes_sent),
-        syn_ack_latency_ms,
+        transport_open_ms,
         None,
         counters.bytes_sent,
         counters.responses_seen,

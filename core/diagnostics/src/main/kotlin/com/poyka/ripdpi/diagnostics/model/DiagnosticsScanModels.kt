@@ -415,7 +415,7 @@ data class TelegramObservationFact(
     val dcResults: List<String> = emptyList(),
     val wsTunnelStatus: TelegramWsTunnelStatus = TelegramWsTunnelStatus.UNKNOWN,
     val wsTunnelOutcome: TelegramWsProbeOutcome? = null,
-    val wsTunnelRttMs: Long = 0,
+    val wsTunnelOpenMs: Long? = null,
     val wsTunnelError: String? = null,
     val wsTunnelHttpStatus: Int? = null,
 )

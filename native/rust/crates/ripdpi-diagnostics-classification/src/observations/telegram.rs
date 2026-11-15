@@ -43,7 +43,7 @@ pub(crate) fn build_telegram_observation(result: &ProbeResult) -> ProbeObservati
             "upgrade_failed" => Some(TelegramWsProbeOutcome::UpgradeFailed),
             _ => None,
         },
-        ws_tunnel_rtt_ms: detail_u64(result, "wsTunnelRttMs"),
+        ws_tunnel_open_ms: detail_value(result, "wsTunnelOpenMs").and_then(|value| value.parse().ok()),
         ws_tunnel_error: optional_detail(result, "wsTunnelError"),
         ws_tunnel_http_status: detail_value(result, "wsTunnelHttpStatus").and_then(|value| value.parse().ok()),
     });

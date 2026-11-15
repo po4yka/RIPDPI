@@ -43,7 +43,7 @@ private fun dnsConnectionLane(
     )
 
 internal fun tcpConnectionLane(evidence: ConnectionStageEvidence): ConnectionStageLane {
-    val duration = evidence.duration("synAckLatencyMs")
+    val duration = evidence.duration("transportOpenMs")
     val sent = evidence.bytes("bytesSent")
     val state =
         when {

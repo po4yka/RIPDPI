@@ -48,7 +48,7 @@ mod tests {
             ech_bootstrap_resolver_id: None,
             ech_outer_extension_policy: None,
             ech_first_flight_plan: None,
-            tcp_connect_ms: None,
+            transport_open_ms: None,
             tls_handshake_ms: None,
             cert_chain_length: None,
             cert_issuer: None,

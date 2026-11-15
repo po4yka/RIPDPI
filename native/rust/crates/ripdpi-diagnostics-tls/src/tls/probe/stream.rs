@@ -56,7 +56,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
 
     match tls_name {
         Some(name) => {
-            let tcp_connect_ms = opened.tcp_connect_ms;
+            let transport_open_ms = opened.transport_open_ms;
             let connected_addr = opened.connected_addr;
             let captured = capture_with_ech_retry(
                 opened.stream,
@@ -77,7 +77,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 stage: ProbeStreamFailureStage::TlsHandshake,
                 message: err.message,
                 duration_ms: started.elapsed().as_millis().max(1) as u64,
-                tcp_connect_ms: Some(tcp_connect_ms),
+                transport_open_ms: Some(transport_open_ms),
                 connected_addr,
                 tls_server_hello_received: err.server_hello_received,
                 tls_alert: err.alert,
@@ -93,11 +93,15 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 ConnectionStream::Plain(_) => unreachable!(),
             };
 
+            let (transport_open_ms, route_report) =
+                captured.reconnect.map_or((opened.transport_open_ms, opened.route_report), |transport| {
+                    (transport.open_ms, transport.route_report)
+                });
             Ok(ProbeStreamResult {
                 stream: captured.stream,
                 negotiated_alpn: captured.negotiated_alpn,
                 tls_template_first_flight_plan: captured.tls_template_first_flight_plan,
-                tcp_connect_ms: opened.tcp_connect_ms,
+                transport_open_ms,
                 tls_handshake_ms: captured.tls_handshake_ms,
                 cert_chain_length: captured.cert_chain_length,
                 cert_issuer: captured.cert_issuer,
@@ -106,7 +110,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 connected_addr: opened.connected_addr,
                 local_addr,
                 cdn_provider: opened.cdn_provider,
-                route_report: opened.route_report,
+                route_report,
             })
         }
         _ => build_plain_result(opened),
@@ -115,7 +119,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
 
 struct OpenedTransportStream {
     stream: std::net::TcpStream,
-    tcp_connect_ms: u64,
+    transport_open_ms: u64,
     connected_addr: Option<std::net::SocketAddr>,
     local_addr: Option<std::net::SocketAddr>,
     cdn_provider: Option<String>,
@@ -129,14 +133,14 @@ fn open_transport_stream(
     started: Instant,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> Result<OpenedTransportStream, ProbeStreamError> {
-    let tcp_start = Instant::now();
+    let transport_start = Instant::now();
     let transport_result =
         connect_transport_observed_with_abort(targets, port, transport, should_abort).map_err(|err| {
             ProbeStreamError {
                 stage: err.stage.into(),
                 message: err.message,
                 duration_ms: started.elapsed().as_millis().max(1) as u64,
-                tcp_connect_ms: None,
+                transport_open_ms: None,
                 connected_addr: None,
                 tls_server_hello_received: None,
                 tls_alert: None,
@@ -144,13 +148,13 @@ fn open_transport_stream(
                 tls_handshake_ms: None,
             }
         })?;
-    let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
+    let transport_open_ms = transport_start.elapsed().as_millis() as u64;
     let connected_addr = transport_result.connected_addr;
     let cdn_provider = connected_addr.and_then(|addr| opportunistic_ech_provider_for_ip(addr.ip()).map(str::to_string));
 
     Ok(OpenedTransportStream {
         stream: transport_result.stream,
-        tcp_connect_ms,
+        transport_open_ms,
         connected_addr,
         local_addr: transport_result.local_addr,
         cdn_provider,
@@ -165,7 +169,7 @@ fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult
         stream: ConnectionStream::Plain(opened.stream),
         negotiated_alpn: None,
         tls_template_first_flight_plan: None,
-        tcp_connect_ms: opened.tcp_connect_ms,
+        transport_open_ms: opened.transport_open_ms,
         tls_handshake_ms: 0,
         cert_chain_length: None,
         cert_issuer: None,
@@ -188,11 +192,64 @@ fn stream_error(
         stage,
         message: error.to_string(),
         duration_ms: started.elapsed().as_millis().max(1) as u64,
-        tcp_connect_ms: opened.map(|value| value.tcp_connect_ms),
+        transport_open_ms: opened.map(|value| value.transport_open_ms),
         connected_addr: opened.and_then(|value| value.connected_addr),
         tls_server_hello_received: None,
         tls_alert: None,
         certificate_anomaly: false,
         tls_handshake_ms: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::net::{Ipv4Addr, TcpListener};
+    use std::time::Duration;
+
+    #[test]
+    fn transport_open_time_includes_socks_negotiation() {
+        let proxy = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let endpoint = proxy.local_addr().unwrap();
+        proxy.set_nonblocking(true).unwrap();
+        let delay = Duration::from_millis(75);
+        std::thread::scope(|scope| {
+            let server = scope.spawn(|| {
+                let deadline = Instant::now() + Duration::from_secs(2);
+                let mut stream = loop {
+                    match proxy.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(Instant::now() < deadline, "SOCKS connection did not start");
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(err) => panic!("SOCKS accept: {err}"),
+                    }
+                };
+                stream.set_nonblocking(false).unwrap();
+                stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+                let mut methods = [0; 3];
+                stream.read_exact(&mut methods).unwrap();
+                assert_eq!(methods, [5, 1, 0]);
+                stream.write_all(&[5, 0]).unwrap();
+                let mut request = [0; 10];
+                stream.read_exact(&mut request).unwrap();
+                assert_eq!(request, [5, 1, 0, 1, 127, 0, 0, 1, 1, 187]);
+                std::thread::sleep(delay);
+                stream.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, 1, 187]).unwrap();
+            });
+            let result = open_probe_stream_targets_with_options(
+                &[TargetAddress::Ip(Ipv4Addr::LOCALHOST.into())],
+                443,
+                &TransportConfig::Socks5 { host: endpoint.ip().to_string(), port: endpoint.port(), credentials: None },
+                None,
+                &ProbeStreamOptions::default(),
+            )
+            .unwrap();
+            assert!(result.transport_open_ms >= delay.as_millis() as u64);
+            assert!(matches!(result.stream, ConnectionStream::Plain(_)));
+            server.join().unwrap();
+        });
     }
 }

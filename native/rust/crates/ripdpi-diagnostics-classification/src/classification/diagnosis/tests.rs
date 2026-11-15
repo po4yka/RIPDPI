@@ -205,7 +205,7 @@ fn classify_connectivity_diagnoses_detects_tls_timeout_rst_close_and_mitm() {
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_clienthello_timeout"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_clienthello_rst"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_clienthello_close"));
-    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_cert_mitm"));
+    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "tls_cert_invalid"));
 }
 
 #[test]
@@ -472,7 +472,7 @@ fn evidence_unrelated_domain_failure_keeps_measured_throughput_comparison() {
             ),
         ],
     );
-    assert!(diagnoses.iter().any(|d| d.code == "tls_cert_mitm"));
+    assert!(diagnoses.iter().any(|d| d.code == "tls_cert_invalid"));
     assert!(diagnoses.iter().any(|d| d.code == "throughput_degradation"));
 }
 

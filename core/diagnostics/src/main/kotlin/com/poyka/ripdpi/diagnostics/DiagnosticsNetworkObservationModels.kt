@@ -42,6 +42,6 @@ data class TcpObservationFact(
     val tcpBlockMethod: String? = null,
     val observedWindowSize: Int? = null,
     val rstTimingMs: Long? = null,
-    val synAckLatencyMs: Long? = null,
+    val transportOpenMs: Long? = null,
     val rstOrigin: String? = null,
 )

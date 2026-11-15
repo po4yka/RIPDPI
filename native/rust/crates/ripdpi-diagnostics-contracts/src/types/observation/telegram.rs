@@ -79,8 +79,8 @@ pub struct TelegramObservationFact {
     pub ws_tunnel_status: TelegramWsTunnelStatus,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ws_tunnel_outcome: Option<TelegramWsProbeOutcome>,
-    #[serde(default)]
-    pub ws_tunnel_rtt_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ws_tunnel_open_ms: Option<u64>,
     #[serde(default)]
     pub ws_tunnel_error: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

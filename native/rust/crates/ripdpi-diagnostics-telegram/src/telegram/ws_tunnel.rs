@@ -11,7 +11,7 @@ const TELEGRAM_WS_PATH: &str = "/apiws";
 pub(crate) struct TelegramWsProbeResult {
     pub(crate) status: String,
     pub(crate) abort_reason: Option<&'static str>,
-    pub(crate) rtt_ms: u64,
+    pub(crate) open_ms: Option<u64>,
     pub(crate) error: Option<String>,
     pub(crate) http_status: Option<u16>,
 }
@@ -21,7 +21,7 @@ impl TelegramWsProbeResult {
         Self {
             status: if duration_ms.is_some() { reason } else { "not_run" }.into(),
             abort_reason: Some(reason),
-            rtt_ms: duration_ms.unwrap_or_default(),
+            open_ms: duration_ms,
             error: Some(format!("probe_aborted:{reason}")),
             http_status: None,
         }
@@ -92,11 +92,11 @@ where
         }
         match result {
             Ok(()) => {
-                let rtt_ms = start.elapsed().as_millis() as u64;
+                let elapsed_ms = start.elapsed().as_millis() as u64;
                 TelegramWsProbeResult {
                     status: "ok".to_string(),
                     abort_reason: None,
-                    rtt_ms,
+                    open_ms: Some(elapsed_ms),
                     error: None,
                     http_status: None,
                 }
@@ -106,7 +106,7 @@ where
     })) {
         Ok(result) => result,
         Err(payload) => {
-            let rtt_ms = start.elapsed().as_millis() as u64;
+            let elapsed_ms = start.elapsed().as_millis() as u64;
             let message = if let Some(message) = payload.downcast_ref::<&str>() {
                 (*message).to_string()
             } else if let Some(message) = payload.downcast_ref::<String>() {
@@ -118,7 +118,7 @@ where
             TelegramWsProbeResult {
                 status: "unreachable".to_string(),
                 abort_reason: None,
-                rtt_ms,
+                open_ms: Some(elapsed_ms),
                 error: Some(format!("panic during Telegram WS tunnel probe: {message}")),
                 http_status: None,
             }
@@ -127,12 +127,12 @@ where
 }
 
 fn ws_error_result(error: io::Error, start: std::time::Instant) -> TelegramWsProbeResult {
-    let rtt_ms = start.elapsed().as_millis() as u64;
+    let elapsed_ms = start.elapsed().as_millis() as u64;
     let failure = error.get_ref().and_then(|cause| cause.downcast_ref::<WsProbeFailure>());
     let (status, http_status) = match failure {
-        Some(WsProbeFailure::Cancelled) => return TelegramWsProbeResult::aborted("cancelled", Some(rtt_ms)),
+        Some(WsProbeFailure::Cancelled) => return TelegramWsProbeResult::aborted("cancelled", Some(elapsed_ms)),
         Some(WsProbeFailure::DeadlineExceeded) => {
-            return TelegramWsProbeResult::aborted("deadline_exceeded", Some(rtt_ms));
+            return TelegramWsProbeResult::aborted("deadline_exceeded", Some(elapsed_ms));
         }
         Some(WsProbeFailure::SubprotocolNotNegotiated) => ("subprotocol_not_negotiated", Some(101)),
         Some(WsProbeFailure::UpgradeRejected(status)) => ("upgrade_rejected", Some(*status)),
@@ -143,7 +143,7 @@ fn ws_error_result(error: io::Error, start: std::time::Instant) -> TelegramWsPro
     TelegramWsProbeResult {
         status: status.into(),
         abort_reason: None,
-        rtt_ms,
+        open_ms: Some(elapsed_ms),
         error: Some(error.to_string()),
         http_status,
     }

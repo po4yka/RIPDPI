@@ -380,7 +380,7 @@ class DiagnosticsModelsCompatibilityTest {
                                     uploadPeakBps = 96_000,
                                     dcResults = listOf("DC1:ok:42ms", "DC2:fail"),
                                     wsTunnelStatus = TelegramWsTunnelStatus.UNREACHABLE,
-                                    wsTunnelRttMs = 250,
+                                    wsTunnelOpenMs = 250,
                                     wsTunnelError = "tls handshake failed",
                                 ),
                         ),

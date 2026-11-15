@@ -115,8 +115,8 @@ pub fn run_tcp_probe_with_cancel(
             value: tcp_attention_reason(&final_observation.status, tcp_block_method),
         },
         ProbeDetail {
-            key: "synAckLatencyMs".to_string(),
-            value: final_observation.syn_ack_latency_ms.map_or_else(String::new, |v| v.to_string()),
+            key: "transportOpenMs".to_string(),
+            value: final_observation.transport_open_ms.map_or_else(String::new, |v| v.to_string()),
         },
         ProbeDetail {
             key: "rstTimingMs".to_string(),

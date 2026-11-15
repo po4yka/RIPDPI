@@ -24,7 +24,7 @@ pub(crate) fn build_tcp_observation(result: &ProbeResult) -> ProbeObservation {
         tcp_block_method: detail_value(result, "tcpBlockMethod").filter(|v| *v != "none").map(str::to_string),
         observed_window_size: detail_value(result, "observedWindowSize").and_then(|v| v.parse::<u32>().ok()),
         rst_timing_ms: detail_value(result, "rstTimingMs").and_then(|v| v.parse::<u64>().ok()),
-        syn_ack_latency_ms: detail_value(result, "synAckLatencyMs").and_then(|v| v.parse::<u64>().ok()),
+        transport_open_ms: detail_value(result, "transportOpenMs").and_then(|v| v.parse::<u64>().ok()),
         rst_origin: detail_value(result, "rstOrigin").filter(|v| *v != "unknown").map(str::to_string),
     });
     observation.evidence.push(detail_value(result, "attempts").unwrap_or_default().to_string());

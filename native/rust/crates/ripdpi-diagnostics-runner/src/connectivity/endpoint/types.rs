@@ -13,7 +13,7 @@ pub(crate) struct ThroughputSample {
     pub(crate) http_status_code: Option<u16>,
     pub(crate) negotiated_alpn: Option<String>,
     pub(crate) address_family: Option<String>,
-    pub(crate) tcp_connect_ms: Option<u64>,
+    pub(crate) transport_open_ms: Option<u64>,
     pub(crate) tls_handshake_ms: Option<u64>,
     pub(crate) read_completion: String,
     pub(crate) retry_attempt: u8,

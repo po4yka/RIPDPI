@@ -111,7 +111,7 @@ fn execute_https(
     let mut opened = match opened {
         Ok(value) => value,
         Err(error) => {
-            if error.tcp_connect_ms.is_some() {
+            if error.transport_open_ms.is_some() {
                 put(result, "tcpStatus", "ok");
             }
             let stage = if matches!(error.stage, ProbeStreamFailureStage::TlsHandshake) { "tls" } else { "tcp" };

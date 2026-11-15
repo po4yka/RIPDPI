@@ -109,7 +109,7 @@ internal fun transferSetupStages(
     usesTls: Boolean? = null,
 ): List<ConnectionStageMeasurement> {
     val failedStage = failureStage(readings[0])
-    val tcpDuration = readings[1].connectionStageNumber(MaxStageMilliseconds)
+    val transportOpenDuration = readings[1].connectionStageNumber(MaxStageMilliseconds)
     val tlsDuration = readings[2].connectionStageNumber(MaxStageMilliseconds)
     val code = readings[TransferHttpCodeIndex].toIntOrNull()?.takeIf { it in HttpStatusRange }
     val tlsMeasured = tlsDuration?.let { it > 0 || usesTls == true } == true
@@ -118,7 +118,7 @@ internal fun transferSetupStages(
             it == ConnectionStage.BODY || (it == ConnectionStage.HTTP_HEADERS && code != null)
         }
     return buildList {
-        if (tcpDuration != null && failedStage != ConnectionStage.TCP) {
+        if (transportOpenDuration != null && failedStage != ConnectionStage.TCP) {
             add(ConnectionStageMeasurement(ConnectionStage.TCP, ConnectionStageState.SUCCEEDED))
         }
         if (usesTls == false) {
@@ -159,7 +159,7 @@ internal fun transferSetupStages(
 internal val TransferReadingKeys =
     listOf(
         "failureStageReadings",
-        "tcpConnectMsReadings",
+        "transportOpenMsReadings",
         "tlsHandshakeMsReadings",
         "httpStatusCodeReadings",
     )

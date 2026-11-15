@@ -15,9 +15,9 @@ pub struct FatHeaderObservation {
     pub bytes_sent: usize,
     pub responses_seen: usize,
     pub error: Option<String>,
-    /// Time from SYN to SYN-ACK (TCP connect latency), establishing baseline RTT.
-    pub syn_ack_latency_ms: Option<u64>,
-    /// Time from the last successful I/O (SYN-ACK or last response) to the RST/error.
+    /// Time to open the transport, including proxy negotiation when used.
+    pub transport_open_ms: Option<u64>,
+    /// Time since the request sequence started or last made I/O progress, until the error.
     /// Timing alone does not identify the source or mechanism.
     pub rst_timing_ms: Option<u64>,
     /// TCP window size observed from the server, if available (for window-cap detection).
@@ -36,21 +36,21 @@ impl FatHeaderObservation {
     pub(super) fn io_failed(
         status: FatHeaderStatus,
         error: String,
-        syn_ack_latency_ms: Option<u64>,
+        transport_open_ms: Option<u64>,
         rst_timing_ms: Option<u64>,
         bytes_sent: usize,
         responses_seen: usize,
     ) -> Self {
-        Self::failed(status, error, syn_ack_latency_ms, rst_timing_ms, bytes_sent, responses_seen)
+        Self::failed(status, error, transport_open_ms, rst_timing_ms, bytes_sent, responses_seen)
     }
 
-    pub(super) fn success(bytes_sent: usize, responses_seen: usize, syn_ack_latency_ms: Option<u64>) -> Self {
+    pub(super) fn success(bytes_sent: usize, responses_seen: usize, transport_open_ms: Option<u64>) -> Self {
         Self {
             status: FatHeaderStatus::Success,
             bytes_sent,
             responses_seen,
             error: None,
-            syn_ack_latency_ms,
+            transport_open_ms,
             rst_timing_ms: None,
             observed_window_size: None,
         }
@@ -59,7 +59,7 @@ impl FatHeaderObservation {
     fn failed(
         status: FatHeaderStatus,
         error: String,
-        syn_ack_latency_ms: Option<u64>,
+        transport_open_ms: Option<u64>,
         rst_timing_ms: Option<u64>,
         bytes_sent: usize,
         responses_seen: usize,
@@ -69,7 +69,7 @@ impl FatHeaderObservation {
             bytes_sent,
             responses_seen,
             error: Some(error),
-            syn_ack_latency_ms,
+            transport_open_ms,
             rst_timing_ms,
             observed_window_size: None,
         }

@@ -111,7 +111,7 @@ fn measure_run(
         "none".to_string(),
         result.negotiated_alpn,
         address_family,
-        Some(result.tcp_connect_ms),
+        Some(result.transport_open_ms),
         parsed.secure.then_some(result.tls_handshake_ms),
     );
     let mut stream = result.stream;
@@ -284,7 +284,7 @@ fn failed_stream_sample(error: ProbeStreamError, transport: &TransportConfig) ->
         http_status_code: None,
         negotiated_alpn: None,
         address_family,
-        tcp_connect_ms: error.tcp_connect_ms,
+        transport_open_ms: error.transport_open_ms,
         tls_handshake_ms: None,
         read_completion: "not_started".to_string(),
         retry_attempt: 0,
@@ -305,7 +305,7 @@ fn failed_sample(started: std::time::Instant, failure_stage: &str, error: String
         http_status_code: None,
         negotiated_alpn: None,
         address_family: None,
-        tcp_connect_ms: None,
+        transport_open_ms: None,
         tls_handshake_ms: None,
         read_completion: "not_started".to_string(),
         retry_attempt: 0,
@@ -333,13 +333,13 @@ fn failed_sample_with_connection(
     error: String,
     negotiated_alpn: Option<String>,
     address_family: Option<String>,
-    tcp_connect_ms: Option<u64>,
+    transport_open_ms: Option<u64>,
     tls_handshake_ms: Option<u64>,
 ) -> ThroughputSample {
     let mut sample = failed_sample(started, failure_stage, error);
     sample.negotiated_alpn = negotiated_alpn;
     sample.address_family = address_family;
-    sample.tcp_connect_ms = tcp_connect_ms;
+    sample.transport_open_ms = transport_open_ms;
     sample.tls_handshake_ms = tls_handshake_ms;
     sample
 }

@@ -8,7 +8,7 @@ use rustls::client::danger::ServerCertVerifier;
 use rustls::{ClientConnection, StreamOwned};
 
 use crate::ja3::{self, RecordingStream};
-use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
+use crate::transport::{ConnectionStream, RouteExperimentReport, TargetAddress, TransportConfig};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::super::certs::extract_cert_info;
@@ -22,11 +22,17 @@ use super::super::types::{ApplicationProtocolPolicy, TlsClientProfile};
 pub(crate) struct CapturedTlsHandshake {
     pub(crate) stream: ConnectionStream,
     pub(crate) tls_template_first_flight_plan: Option<TlsTemplateFirstFlightPlan>,
+    pub(crate) reconnect: Option<ReconnectedTransport>,
     pub(crate) tls_handshake_ms: u64,
     pub(crate) negotiated_alpn: Option<String>,
     pub(crate) cert_chain_length: Option<usize>,
     pub(crate) cert_issuer: Option<String>,
     pub(crate) ja3_fingerprint: Option<String>,
+}
+
+pub(crate) struct ReconnectedTransport {
+    pub(crate) open_ms: u64,
+    pub(crate) route_report: Option<RouteExperimentReport>,
 }
 
 /// A failed handshake and whether the server's ServerHello was processed before it failed.
@@ -162,6 +168,7 @@ pub(crate) fn capture_tls_handshake(
     Ok(CapturedTlsHandshake {
         stream: ConnectionStream::Tls(Box::new(tls_stream)),
         tls_template_first_flight_plan,
+        reconnect: None,
         tls_handshake_ms,
         negotiated_alpn,
         cert_chain_length,

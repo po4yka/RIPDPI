@@ -119,10 +119,10 @@ pub fn run_throughput_probe_with_progress(
                     .join("|"),
             },
             ProbeDetail {
-                key: "tcpConnectMsReadings".to_string(),
+                key: "transportOpenMsReadings".to_string(),
                 value: samples
                     .iter()
-                    .map(|sample| sample.tcp_connect_ms.map_or_else(|| "none".to_string(), |ms| ms.to_string()))
+                    .map(|sample| sample.transport_open_ms.map_or_else(|| "none".to_string(), |ms| ms.to_string()))
                     .collect::<Vec<_>>()
                     .join("|"),
             },
@@ -207,7 +207,7 @@ mod tests {
         assert_eq!(detail_value(&result, "httpStatusCodeReadings"), "none");
         assert_eq!(detail_value(&result, "negotiatedAlpnReadings"), "none");
         assert_eq!(detail_value(&result, "addressFamilyReadings"), "none");
-        assert_eq!(detail_value(&result, "tcpConnectMsReadings"), "none");
+        assert_eq!(detail_value(&result, "transportOpenMsReadings"), "none");
         assert_eq!(detail_value(&result, "tlsHandshakeMsReadings"), "none");
         assert_eq!(detail_value(&result, "readCompletionReadings"), "not_started");
         assert_eq!(detail_value(&result, "retryAttemptReadings"), "0");

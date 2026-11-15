@@ -17,7 +17,7 @@ pub struct TlsObservation {
     pub ech_bootstrap_resolver_id: Option<String>,
     pub ech_outer_extension_policy: Option<String>,
     pub ech_first_flight_plan: Option<String>,
-    pub tcp_connect_ms: Option<u64>,
+    pub transport_open_ms: Option<u64>,
     pub tls_handshake_ms: Option<u64>,
     pub cert_chain_length: Option<usize>,
     pub cert_issuer: Option<String>,
@@ -72,7 +72,7 @@ pub struct ProbeStreamResult {
     pub stream: ConnectionStream,
     pub negotiated_alpn: Option<String>,
     pub tls_template_first_flight_plan: Option<TlsTemplateFirstFlightPlan>,
-    pub tcp_connect_ms: u64,
+    pub transport_open_ms: u64,
     pub tls_handshake_ms: u64,
     pub cert_chain_length: Option<usize>,
     pub cert_issuer: Option<String>,
@@ -120,7 +120,7 @@ pub struct ProbeStreamError {
     pub stage: ProbeStreamFailureStage,
     pub message: String,
     pub duration_ms: u64,
-    pub tcp_connect_ms: Option<u64>,
+    pub transport_open_ms: Option<u64>,
     pub connected_addr: Option<std::net::SocketAddr>,
     /// For a TLS handshake failure, whether the ServerHello was processed first.
     /// `None` when TLS evidence is unavailable.

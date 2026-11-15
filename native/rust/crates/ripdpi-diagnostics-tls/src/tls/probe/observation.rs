@@ -18,7 +18,7 @@ struct SuccessObservationParts {
 }
 
 pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsClientProfile) -> TlsObservation {
-    let tcp_connect_ms = Some(result.tcp_connect_ms);
+    let transport_open_ms = Some(result.transport_open_ms);
     let tls_handshake_ms = Some(result.tls_handshake_ms);
     let cert_chain_length = result.cert_chain_length;
     let cert_issuer = result.cert_issuer;
@@ -45,7 +45,7 @@ pub(crate) fn from_probe_stream_result(result: ProbeStreamResult, profile: TlsCl
         ech_bootstrap_resolver_id: mapped.ech_bootstrap_resolver_id,
         ech_outer_extension_policy: mapped.ech_outer_extension_policy,
         ech_first_flight_plan: mapped.ech_first_flight_plan,
-        tcp_connect_ms,
+        transport_open_ms,
         tls_handshake_ms,
         cert_chain_length,
         cert_issuer,
@@ -77,7 +77,7 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
             ech_bootstrap_resolver_id: outcome.bootstrap_resolver_id,
             ech_outer_extension_policy: outcome.outer_extension_policy,
             ech_first_flight_plan: outcome.first_flight_plan,
-            tcp_connect_ms: err.tcp_connect_ms,
+            transport_open_ms: err.transport_open_ms,
             tls_handshake_ms: None,
             cert_chain_length: None,
             cert_issuer: None,
@@ -107,7 +107,7 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
         ech_bootstrap_resolver_id: None,
         ech_outer_extension_policy: None,
         ech_first_flight_plan: None,
-        tcp_connect_ms: err.tcp_connect_ms,
+        transport_open_ms: err.transport_open_ms,
         tls_handshake_ms: err.tls_handshake_ms,
         cert_chain_length: None,
         cert_issuer: None,

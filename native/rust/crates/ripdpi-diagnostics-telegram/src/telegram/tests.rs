@@ -47,7 +47,7 @@ fn telegram_ws_probe_recovers_from_probe_panic() {
     let result = telegram_ws_tunnel_probe_with(&direct_transport(), |_target| panic!("provider selection panic"));
 
     assert_eq!(result.status, "unreachable");
-    assert!(result.rtt_ms <= 1_000);
+    assert!(result.open_ms.is_some_and(|value| value <= 1_000));
     assert_eq!(result.error.as_deref(), Some("panic during Telegram WS tunnel probe: provider selection panic"),);
 }
 
@@ -66,8 +66,14 @@ fn make_dc(reachable: usize, total: usize) -> TelegramDcResult {
     TelegramDcResult { reachable, total, results: vec![] }
 }
 
-fn make_ws(status: &str, rtt_ms: u64) -> TelegramWsProbeResult {
-    TelegramWsProbeResult { status: status.to_string(), abort_reason: None, rtt_ms, error: None, http_status: None }
+fn make_ws(status: &str, open_ms: u64) -> TelegramWsProbeResult {
+    TelegramWsProbeResult {
+        status: status.to_string(),
+        abort_reason: None,
+        open_ms: Some(open_ms),
+        error: None,
+        http_status: None,
+    }
 }
 
 #[test]
@@ -219,7 +225,7 @@ fn telegram_report_does_not_score_a_deadline_before_wss_starts() {
 
     assert_eq!(evidence.outcome, "deadline_exceeded");
     assert!(evidence.details.iter().any(|item| item.key == "wsTunnelStatus" && item.value == "not_run"));
-    assert!(evidence.details.iter().all(|item| item.key != "qualityScore"));
+    assert!(evidence.details.iter().all(|item| !matches!(item.key.as_str(), "qualityScore" | "wsTunnelOpenMs")));
 }
 
 #[test]

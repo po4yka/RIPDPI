@@ -425,7 +425,7 @@ fn telegram_observation_builds_from_probe() {
             ("uploadPeakBps", "96000"),
             ("dcResults", "DC1:ok:42ms|DC2:fail|DC3:ok:50ms"),
             ("wsTunnelStatus", "unreachable"),
-            ("wsTunnelRttMs", "250"),
+            ("wsTunnelOpenMs", "250"),
             ("wsTunnelError", "tls handshake failed"),
         ],
     );
@@ -444,7 +444,7 @@ fn telegram_observation_builds_from_probe() {
     assert_eq!(tg.upload_peak_bps, 96000);
     assert_eq!(tg.dc_results, vec!["DC1:ok:42ms", "DC2:fail", "DC3:ok:50ms"]);
     assert_eq!(tg.ws_tunnel_status, TelegramWsTunnelStatus::Unreachable);
-    assert_eq!(tg.ws_tunnel_rtt_ms, 250);
+    assert_eq!(tg.ws_tunnel_open_ms, Some(250));
     assert_eq!(tg.ws_tunnel_error.as_deref(), Some("tls handshake failed"));
 }
 

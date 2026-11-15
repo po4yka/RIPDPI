@@ -67,7 +67,7 @@ pub(crate) fn compute_telegram_quality_score(
     let dc_score = dc_unreachable * FAILURE_PENALTY_MS;
     let dc_weight = dc_total;
 
-    let ws_score = if ws.status == "ok" { ws.rtt_ms } else { FAILURE_PENALTY_MS } * WS_WEIGHT;
+    let ws_score = if ws.status == "ok" { ws.open_ms.unwrap_or_default() } else { FAILURE_PENALTY_MS } * WS_WEIGHT;
 
     let total_weighted = dl_score + ul_score + dc_score + ws_score;
     let total_weight = DL_WEIGHT + UL_WEIGHT + dc_weight + WS_WEIGHT;
