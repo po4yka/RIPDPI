@@ -27,6 +27,17 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `shadowsocks scheme is case insensitive without changing credentials`() {
+        for (userinfo in listOf("aes-128-gcm:Fixture+Password", "YWVzLTEyOC1nY206Rml4dHVyZStQYXNzd29yZA")) {
+            val original = ProxyUriCodec.parse("ss://$userinfo@h.example:8388#Node") as ProxyProfile.Shadowsocks
+            for (scheme in listOf("SS", "Ss", "sS")) {
+                val parsed = ProxyUriCodec.parse("$scheme://$userinfo@h.example:8388#Node") as ProxyProfile.Shadowsocks
+                assertEquals(original, parsed.copy(id = original.id))
+            }
+        }
+    }
+
+    @Test
     fun `ssh userinfo retains literal plus and decodes percent escapes once`() {
         for ((userinfo, username, password) in listOf(
             Triple("al+ice:pass+word", "al+ice", "pass+word"),
