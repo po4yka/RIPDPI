@@ -1,9 +1,9 @@
 ---
 task_id: DGN-1794732423381679
 change: repair-dia06-ech-probe-contracts
-commit_sha: d61e468158df81612ee68f8c83e39e415771e2ec
+commit_sha: e76f12019402e57cb2d466ad6ea7ce3e6400c8ae
 local: passed
-local_evidence: "Rebased combined source: 164 tests passed, 3 existing external tests ignored; all-target Clippy with three await-holding lints, exact just ci-gates, architecture, locked metadata, task contracts and format check passed."
+local_evidence: "Rebased combined source: 163 tests passed, 3 existing external tests ignored; all-target Clippy with three await-holding lints, exact just ci-gates, architecture, locked metadata, task contracts and format check passed."
 remote_ci: not_applicable
 remote_ci_evidence: "Acceptance uses the required local gates for this dormant library. Automatic hosted checks after the authorized push remain separate evidence."
 device: not_applicable
@@ -16,18 +16,18 @@ deployment_evidence: "No deployment or external endpoint probe is owned by this 
 
 # Verification
 
-Source commit: `d61e468158df81612ee68f8c83e39e415771e2ec`, based on origin/main `95543ef95fcc47f211bd0d000da64fa8c6d224b9`. The rebase brought 42 commits after the first implementation base; the complete combined gates ran after that rebase.
+Source commit: `e76f12019402e57cb2d466ad6ea7ce3e6400c8ae`, based on origin/main `d88a1269b5655c59fd696a74f970959d8c8582e0`. The source was rebased twice onto concurrent main changes. Only generated task-board conflicts required resolution. The ECH source, tests and dependency graph stayed identical; the complete combined gates were repeated after the last rebase.
 
 ## Requirement evidence
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-DIA06-NODATA | DGN-1794732651298755 | F1, `406f2ffa96f1a7e12014a11f5e3baf4779ef4dfe`; owning regression and independent reviews | passed |
-| REQ-DIA06-CONTEXT | DGN-1794732662908652 | F2, `fd4b7e0d2eddcb4d973239fe94d56de3a73baa52`; owning regression and independent reviews | passed |
-| REQ-DIA06-REJECTION | DGN-1794732681565638 | F3, `6c21670402304d7d729995c9996a61126a63452a`; owning regression and independent reviews | passed |
-| REQ-DIA06-ADMISSION | DGN-1794732702904779 | F4, `54aca8b0c2ec60b715a39c181dc2510e4966215d`; owning regression and independent reviews | passed |
-| REQ-DIA06-UNCERTAINTY | DGN-1794732709699208 | F5, `d61e468158df81612ee68f8c83e39e415771e2ec`; owning regression and independent reviews | passed |
-| REQ-DIA06-DEADLINE | DGN-1794732712536071 | F6, `ff45062d9da709ce2aa008682691b21e5125b488`; owning regression and independent reviews | passed |
+| REQ-DIA06-NODATA | DGN-1794732651298755 | F1, `2c9d165d13f2a28ebc22550c6e504f7d7adeff66`; owning regression and independent reviews | passed |
+| REQ-DIA06-CONTEXT | DGN-1794732662908652 | F2, `015ed75e8bfdd31adafd53a9ed885f9cdde7050a`; owning regression and independent reviews | passed |
+| REQ-DIA06-REJECTION | DGN-1794732681565638 | F3, `4dc62bfcc5db7d92d0daef22d5a7fe1e997ed1a3`; owning regression and independent reviews | passed |
+| REQ-DIA06-ADMISSION | DGN-1794732702904779 | F4, `4727fb233f9d0624a37a913f2effad4bf86e894f`; owning regression and independent reviews | passed |
+| REQ-DIA06-UNCERTAINTY | DGN-1794732709699208 | F5, `c283e1c2ab9a72b4ba47cdb1116f0871fe51000f`; owning regression and independent reviews | passed |
+| REQ-DIA06-DEADLINE | DGN-1794732712536071 | F6, `92dc8b5e8edc5f363df7936cea564704a62038b8`; owning regression and independent reviews | passed |
 
 Review and combined-gate step: `DGN-1794732715671338`.
 
@@ -40,7 +40,7 @@ Review and combined-gate step: `DGN-1794732715671338`.
 - F5: a silent TLS peer returns Inconclusive and observes EOF at the deadline. Typed certificate and TLS errors remain definite failures. Eleven TLS tests passed, including cancellation, wrong public name and untrusted certificate cases.
 - F6: the complete DNS lookup shares one checked deadline. The RED run took 757.96125 ms for a 250 ms budget with 250 ms scheduler tolerance. The fixed suite passed 22 tests, including zero/MAX durations and no retry after expiry. ResolveHosts::Never removes synchronous hosts-file reads from HTTPS setup.
 
-The final rebased suite passed **164 tests: 115 library and 49 integration tests**. Three existing public-network tests remained ignored. No test was newly ignored or removed to pass.
+The final rebased suite passed **163 tests: 114 library and 49 integration tests**. Three existing public-network tests remained ignored. The earlier base passed 164 tests (115 library and 49 integration); the final upstream base has a different owning suite. The ECH test files stayed identical through rebase. No test was newly ignored or removed by this repair to pass.
 
 ## Commands and retained results
 
@@ -64,7 +64,7 @@ General and async reviewers independently checked every fix before commit. The a
 
 Retained evidence is under `/Users/npochaev/Downloads/RIPDPI_network_audits/`:
 
-- `DIA-06-recovery-root/logs/combined-validation-state.json` records the frozen source SHA, commands, exit codes and timings. Adjacent logs contain tests, Clippy, source gates, architecture and metadata results.
+- `DIA-06-recovery-root/logs/combined-final-validation-state.json` records the frozen source SHA, commands, exit codes and timings. Adjacent combined-final-* logs contain tests, Clippy, source gates, architecture and metadata results. Earlier combined-* logs preserve the preceding base run.
 - `DIA-06-recovery-context/logs/result.json` and commit-hook logs record F2 acceptance.
 - `DIA-06-recovery-dns/validation-state.json` and `commit-state.json` record F1/F4/F6 RED/GREEN, exact intermediate trees, the hosts correction and hooks.
 - `DIA-06-recovery-tls/batch-state.json` and `precommit-state.json` record F3/F5 RED/GREEN, dependency policy and hooks.
