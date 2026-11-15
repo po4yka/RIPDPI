@@ -104,6 +104,10 @@
           "value": "127.0.0.1:9"
         },
         {
+          "key": "tlsReportedAttempt",
+          "value": "tls13"
+        },
+        {
           "key": "tlsStatus",
           "value": "tls_handshake_failed"
         },
@@ -122,46 +126,6 @@
         {
           "key": "tlsSignal",
           "value": "tls_unavailable"
-        },
-        {
-          "key": "tls13Status",
-          "value": "tls_handshake_failed"
-        },
-        {
-          "key": "tls13Version",
-          "value": "unknown"
-        },
-        {
-          "key": "tls13Error",
-          "value": "Connection refused (os error _)"
-        },
-        {
-          "key": "tls12Status",
-          "value": "tls_handshake_failed"
-        },
-        {
-          "key": "tls12Version",
-          "value": "unknown"
-        },
-        {
-          "key": "tls12Error",
-          "value": "Connection refused (os error _)"
-        },
-        {
-          "key": "tlsEchStatus",
-          "value": "tls_handshake_failed"
-        },
-        {
-          "key": "tlsEchVersion",
-          "value": "unknown"
-        },
-        {
-          "key": "tlsEchError",
-          "value": "Connection refused (os error _)"
-        },
-        {
-          "key": "tlsEchResolutionDetail",
-          "value": "none"
         },
         {
           "key": "httpStatus",
@@ -194,6 +158,90 @@
         {
           "key": "probeRetryCount",
           "value": "0"
+        },
+        {
+          "key": "tls13Status",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tls13Version",
+          "value": "unknown"
+        },
+        {
+          "key": "tls13Error",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tls13FailureStage",
+          "value": "tcp_connect"
+        },
+        {
+          "key": "tls13FailureDurationMs",
+          "value": "0"
+        },
+        {
+          "key": "tls13CertificateVerification",
+          "value": "not_completed"
+        },
+        {
+          "key": "tls13ClientHelloCapture",
+          "value": "not_sent"
+        },
+        {
+          "key": "tls12Status",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tls12Version",
+          "value": "unknown"
+        },
+        {
+          "key": "tls12Error",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tls12FailureStage",
+          "value": "tcp_connect"
+        },
+        {
+          "key": "tls12FailureDurationMs",
+          "value": "0"
+        },
+        {
+          "key": "tls12CertificateVerification",
+          "value": "not_completed"
+        },
+        {
+          "key": "tls12ClientHelloCapture",
+          "value": "not_sent"
+        },
+        {
+          "key": "tlsEchStatus",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tlsEchVersion",
+          "value": "unknown"
+        },
+        {
+          "key": "tlsEchError",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tlsEchFailureStage",
+          "value": "tcp_connect"
+        },
+        {
+          "key": "tlsEchFailureDurationMs",
+          "value": "0"
+        },
+        {
+          "key": "tlsEchCertificateVerification",
+          "value": "not_completed"
+        },
+        {
+          "key": "tlsEchClientHelloCapture",
+          "value": "not_sent"
         },
         {
           "key": "httpFuzzBaseline",
