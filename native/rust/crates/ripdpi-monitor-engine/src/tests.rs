@@ -428,6 +428,7 @@ fn tls_signal_reports_version_split_low_confidence() {
         transport_open_ms: None,
         tls_handshake_ms: None,
         cert_chain_length: None,
+        certificate_verification: crate::tls::CertificateVerification::NotCompleted,
         cert_issuer: None,
         local_socket_ttl: None,
         ja3_fingerprint: None,
@@ -460,6 +461,7 @@ fn tls_signal_reports_version_split_low_confidence() {
         transport_open_ms: None,
         tls_handshake_ms: None,
         cert_chain_length: None,
+        certificate_verification: crate::tls::CertificateVerification::NotCompleted,
         cert_issuer: None,
         local_socket_ttl: None,
         ja3_fingerprint: None,
@@ -486,6 +488,7 @@ fn try_tls_handshake_uses_explicit_verifier_on_non_default_https_port() {
         try_tls_handshake(&target, server.port(), &direct_transport(), "localhost", TlsClientProfile::Tls13Only, None);
     assert_eq!(verified.status, "tls_cert_invalid");
     assert!(verified.certificate_anomaly);
+    assert_eq!(verified.certificate_verification, crate::tls::CertificateVerification::RejectedWebPki);
     assert!(verified.ja3_fingerprint.is_some());
 
     let no_verify: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(NoCertificateVerification);
@@ -513,6 +516,22 @@ fn try_tls_handshake_uses_explicit_verifier_on_non_default_https_port() {
     }
 
     assert_eq!(tls.status, "tls_ok");
+    assert_eq!(tls.certificate_verification, crate::tls::CertificateVerification::Custom);
+
+    let options = crate::tls::ProbeStreamOptions {
+        profile: TlsClientProfile::Tls13Only,
+        certificate_policy: crate::tls::ProbeCertificatePolicy::Skip,
+        ..crate::tls::ProbeStreamOptions::default()
+    };
+    let skipped = crate::tls::open_probe_stream_targets_with_options(
+        std::slice::from_ref(&target),
+        server.port(),
+        &direct_transport(),
+        Some("localhost"),
+        &options,
+    )
+    .unwrap_or_else(|error| panic!("explicit skip should complete: {error}"));
+    assert_eq!(skipped.certificate_verification, crate::tls::CertificateVerification::Skipped);
     assert!(tls.version.is_some());
 }
 

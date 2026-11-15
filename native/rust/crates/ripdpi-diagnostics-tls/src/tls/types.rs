@@ -12,6 +12,7 @@ pub struct TlsObservation {
     pub error: Option<String>,
     pub failure_stage: Option<ProbeStreamFailureStage>,
     pub failure_duration_ms: Option<u64>,
+    /// A local verifier reported a rejection. Use certificate_verification for the trust verdict.
     pub certificate_anomaly: bool,
     pub ech_resolution_detail: Option<String>,
     pub ech_config_source: Option<EchConfigSource>,
@@ -25,6 +26,7 @@ pub struct TlsObservation {
     pub transport_open_ms: Option<u64>,
     pub tls_handshake_ms: Option<u64>,
     pub cert_chain_length: Option<usize>,
+    pub certificate_verification: CertificateVerification,
     pub cert_issuer: Option<String>,
     pub local_socket_ttl: Option<u8>,
     pub ja3_fingerprint: Option<String>,
@@ -41,6 +43,29 @@ pub struct TlsObservation {
     pub local_addr: Option<std::net::SocketAddr>,
     pub cdn_provider: Option<String>,
     pub route_report: Option<RouteExperimentReport>,
+}
+
+/// What the TLS probe can assert about certificate verification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CertificateVerification {
+    NotCompleted,
+    VerifiedWebPki,
+    RejectedWebPki,
+    Skipped,
+    /// A caller-supplied policy owns the decision. No WebPKI verdict is inferred.
+    Custom,
+}
+
+impl CertificateVerification {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotCompleted => "not_completed",
+            Self::VerifiedWebPki => "verified_webpki",
+            Self::RejectedWebPki => "rejected_webpki",
+            Self::Custom => "custom",
+            Self::Skipped => "skipped",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -76,6 +101,7 @@ pub struct EchInitialAttempt {
     pub ja3_fingerprint: Option<String>,
     pub client_hello_capture: ClientHelloCapture,
     pub ech_config_source: EchConfigSource,
+    pub certificate_verification: CertificateVerification,
     pub error: String,
 }
 
@@ -117,11 +143,47 @@ pub enum ApplicationProtocolPolicy {
     Http11Only,
 }
 
+/// Overrides are explicit so an unchecked handshake cannot be reported as authenticated.
+#[derive(Clone, Copy)]
+pub enum ProbeCertificatePolicy<'a> {
+    WebPki,
+    Custom(&'a std::sync::Arc<dyn ServerCertVerifier>),
+    Skip,
+}
+
+impl<'a> From<Option<&'a std::sync::Arc<dyn ServerCertVerifier>>> for ProbeCertificatePolicy<'a> {
+    fn from(verifier: Option<&'a std::sync::Arc<dyn ServerCertVerifier>>) -> Self {
+        verifier.map_or(Self::WebPki, Self::Custom)
+    }
+}
+
+impl ProbeCertificatePolicy<'_> {
+    pub(super) fn override_verifier(&self) -> Option<&std::sync::Arc<dyn ServerCertVerifier>> {
+        use std::sync::{Arc, LazyLock};
+
+        static SKIP: LazyLock<Arc<dyn ServerCertVerifier>> =
+            LazyLock::new(|| Arc::new(super::verifier::NoCertificateVerification));
+        match self {
+            Self::WebPki => None,
+            Self::Custom(verifier) => Some(verifier),
+            Self::Skip => Some(&SKIP),
+        }
+    }
+
+    pub(super) const fn verification_after_handshake(self) -> CertificateVerification {
+        match self {
+            Self::WebPki => CertificateVerification::VerifiedWebPki,
+            Self::Custom(_) => CertificateVerification::Custom,
+            Self::Skip => CertificateVerification::Skipped,
+        }
+    }
+}
+
 pub struct ProbeStreamOptions<'a> {
     pub profile: TlsClientProfile,
     pub application_protocol: ApplicationProtocolPolicy,
-    /// Replaces the default CA, server-name, and SPKI verification policy when set.
-    pub tls_verifier: Option<&'a std::sync::Arc<dyn ServerCertVerifier>>,
+    /// Selects the CA, server-name, and SPKI verification policy.
+    pub certificate_policy: ProbeCertificatePolicy<'a>,
     pub key_log: Option<&'a TlsKeyLogCallback>,
 }
 
@@ -130,7 +192,7 @@ impl Default for ProbeStreamOptions<'_> {
         Self {
             profile: TlsClientProfile::Auto,
             application_protocol: ApplicationProtocolPolicy::TemplateDefault,
-            tls_verifier: None,
+            certificate_policy: ProbeCertificatePolicy::WebPki,
             key_log: None,
         }
     }
@@ -145,6 +207,7 @@ pub struct ProbeStreamResult {
     pub transport_open_ms: u64,
     pub tls_handshake_ms: u64,
     pub cert_chain_length: Option<usize>,
+    pub certificate_verification: CertificateVerification,
     pub cert_issuer: Option<String>,
     pub local_socket_ttl: Option<u8>,
     pub ja3_fingerprint: Option<String>,
@@ -188,6 +251,7 @@ impl From<TransportFailureStage> for ProbeStreamFailureStage {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProbeStreamError {
+    pub certificate_verification: CertificateVerification,
     pub stage: ProbeStreamFailureStage,
     pub message: String,
     pub duration_ms: u64,

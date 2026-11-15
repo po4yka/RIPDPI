@@ -1,6 +1,6 @@
 use super::super::types::{
-    ClientHelloCapture, EchErrorEvidence, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions,
-    ProbeStreamResult,
+    CertificateVerification, ClientHelloCapture, EchErrorEvidence, ProbeCertificatePolicy, ProbeStreamError,
+    ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult,
 };
 use super::capture::CaptureTlsHandshakeOptions;
 use super::retry::capture_with_ech_retry;
@@ -70,7 +70,9 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                     transport,
                     tls_name: name,
                     profile: options.profile,
-                    tls_verifier: options.tls_verifier,
+                    tls_verifier: options.certificate_policy.override_verifier(),
+                    #[cfg(test)]
+                    fixture_ech_roots: None,
                     key_log: options.key_log,
                     application_protocol: options.application_protocol,
                     should_abort,
@@ -122,7 +124,18 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                                 retry_skipped_reason: err.ech_retry_skipped_reason,
                             })
                         });
+                    let certificate_verification = match options.certificate_policy {
+                        ProbeCertificatePolicy::WebPki if err.certificate_anomaly => {
+                            CertificateVerification::RejectedWebPki
+                        }
+                        ProbeCertificatePolicy::Custom(_) if err.handshake_ms.is_some() => {
+                            CertificateVerification::Custom
+                        }
+                        ProbeCertificatePolicy::Skip if err.handshake_ms.is_some() => CertificateVerification::Skipped,
+                        _ => CertificateVerification::NotCompleted,
+                    };
                     return Err(ProbeStreamError {
+                        certificate_verification,
                         stage,
                         message: err.message,
                         duration_ms: started.elapsed().as_millis().max(1) as u64,
@@ -152,6 +165,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 transport_open_ms,
                 tls_handshake_ms: captured.tls_handshake_ms,
                 cert_chain_length: captured.cert_chain_length,
+                certificate_verification: options.certificate_policy.verification_after_handshake(),
                 cert_issuer: captured.cert_issuer,
                 local_socket_ttl,
                 ja3_fingerprint: captured.ja3_fingerprint,
@@ -186,6 +200,7 @@ fn open_transport_stream(
     let transport_result =
         connect_transport_observed_with_abort(targets, port, transport, should_abort).map_err(|err| {
             ProbeStreamError {
+                certificate_verification: CertificateVerification::NotCompleted,
                 stage: err.stage.into(),
                 message: err.message,
                 duration_ms: started.elapsed().as_millis().max(1) as u64,
@@ -224,6 +239,7 @@ fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult
         transport_open_ms: opened.transport_open_ms,
         tls_handshake_ms: 0,
         cert_chain_length: None,
+        certificate_verification: CertificateVerification::NotCompleted,
         cert_issuer: None,
         local_socket_ttl,
         ja3_fingerprint: None,
@@ -244,6 +260,7 @@ fn stream_error(
     opened: Option<&OpenedTransportStream>,
 ) -> ProbeStreamError {
     ProbeStreamError {
+        certificate_verification: CertificateVerification::NotCompleted,
         stage,
         message: error.to_string(),
         duration_ms: started.elapsed().as_millis().max(1) as u64,

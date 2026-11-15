@@ -2,16 +2,9 @@ use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, Server
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, Error as TlsError, SignatureScheme};
 
-// SECURITY: This verifier is used ONLY by the diagnostic/monitor probe path to
-// detect censorship-induced TLS interception (MITM middleboxes). It is NOT used
-// for any data-carrying connection. The probe result is observational -- it
-// reports whether a TLS handshake succeeds or fails and captures certificate
-// anomalies, but never trusts the connection for user traffic.
-//
-// Removing this would prevent the monitor from detecting TLS-level censorship
-// on networks that inject forged certificates.
-//
-// Reviewed: 2026-03-25, F-009
+/// An explicit diagnostic override that skips certificate and handshake signature checks.
+/// Use it only with authorized diagnostic payloads. It provides no authentication or
+/// evidence of certificate validity and cannot authorize ECH retry.
 #[derive(Debug)]
 pub struct NoCertificateVerification;
 

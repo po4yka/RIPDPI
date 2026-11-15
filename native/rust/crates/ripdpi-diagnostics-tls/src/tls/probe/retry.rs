@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use super::super::types::{EchInitialAttempt, ProbeStreamFailureStage, TlsClientProfile};
+use super::super::types::{CertificateVerification, EchInitialAttempt, ProbeStreamFailureStage, TlsClientProfile};
 use super::capture::{CaptureTlsError, CaptureTlsHandshakeOptions, CapturedTlsHandshake, capture_tls_handshake};
 use crate::transport::{RouteExperimentReport, TargetAddress, connect_transport_observed_with_abort};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
@@ -61,6 +61,7 @@ pub(super) fn capture_with_ech_retry(
             ja3_fingerprint: client_hello.ja3_fingerprint,
             client_hello_capture: client_hello.capture,
             ech_config_source: source,
+            certificate_verification: CertificateVerification::VerifiedWebPki,
             error: failure.message,
         };
         let started = Instant::now();
@@ -99,6 +100,8 @@ pub(super) fn capture_with_ech_retry(
             tls_name: options.tls_name,
             profile: options.profile,
             tls_verifier: options.tls_verifier,
+            #[cfg(test)]
+            fixture_ech_roots: options.fixture_ech_roots,
             key_log: options.key_log,
             application_protocol: options.application_protocol,
             should_abort: options.should_abort,

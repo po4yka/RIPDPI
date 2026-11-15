@@ -217,7 +217,7 @@ fn execute_http_request_targets_with_accept(
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        tls_verifier: None,
+        certificate_policy: None.into(),
         key_log,
     };
     let mut stream =

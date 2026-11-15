@@ -76,6 +76,8 @@ pub(crate) struct CaptureTlsHandshakeOptions<'a> {
     pub(crate) tls_name: &'a str,
     pub(crate) profile: TlsClientProfile,
     pub(crate) tls_verifier: Option<&'a Arc<dyn ServerCertVerifier>>,
+    #[cfg(test)]
+    pub(crate) fixture_ech_roots: Option<&'a rustls::RootCertStore>,
     pub(crate) key_log: Option<&'a TlsKeyLogCallback>,
     pub(crate) application_protocol: ApplicationProtocolPolicy,
     pub(crate) should_abort: &'a dyn Fn() -> Option<&'static str>,
@@ -105,6 +107,8 @@ pub(crate) fn capture_tls_handshake(
             options.tls_verifier,
             options.key_log,
             options.application_protocol,
+            #[cfg(test)]
+            options.fixture_ech_roots,
         )
         .map_err(|error| ech_setup_error(EchLookupFailure::InvalidConfig(error), Some(source)))?;
         (config, Some(source))
@@ -149,7 +153,17 @@ pub(crate) fn capture_tls_handshake(
             let peer_replied = version.is_some() || alert.is_some();
             let peer_response_after_client_hello =
                 (peer_replied || client_hello.capture == ClientHelloCapture::Complete).then_some(peer_replied);
-            let ech_retry_configs = tls_error.and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+            let ech_retry_configs = tls_error
+                .filter(|_| options.tls_verifier.is_none())
+                .and_then(ripdpi_tls_profiles::ech::retry::rustls_ech_retry_configs);
+            let ech_retry_skipped_reason = (options.tls_verifier.is_some()
+                && matches!(
+                    tls_error,
+                    Some(rustls::Error::PeerIncompatible(
+                        rustls::PeerIncompatible::ServerRejectedEncryptedClientHello(Some(_))
+                    ))
+                ))
+            .then_some("certificate_policy_override");
             let ech_status = ech_config_source
                 .filter(|_| client_hello.capture == ClientHelloCapture::Complete)
                 .map(|_| connection.ech_status());
@@ -164,7 +178,7 @@ pub(crate) fn capture_tls_handshake(
                 ech_config_source,
                 ech_status,
                 ech_lookup_failure: None,
-                ech_retry_skipped_reason: None,
+                ech_retry_skipped_reason,
                 ech_retry_configs: ech_retry_configs.map(Vec::into_boxed_slice),
             });
         }

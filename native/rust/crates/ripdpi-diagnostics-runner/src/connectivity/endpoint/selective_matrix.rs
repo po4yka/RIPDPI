@@ -97,7 +97,7 @@ fn execute_https(
 ) {
     let options = ProbeStreamOptions {
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        tls_verifier: verifier,
+        certificate_policy: verifier.into(),
         ..ProbeStreamOptions::default()
     };
     let opened = open_probe_stream_targets_with_options_and_abort(

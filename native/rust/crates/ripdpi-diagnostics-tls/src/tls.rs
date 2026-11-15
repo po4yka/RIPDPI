@@ -19,8 +19,9 @@ pub use probe::{
     try_tls_handshake_with_key_log,
 };
 pub use types::{
-    ApplicationProtocolPolicy, ClientHelloCapture, EchConfigSource, EchInitialAttempt, ProbeStreamError,
-    ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult, TlsClientProfile, TlsObservation,
+    ApplicationProtocolPolicy, CertificateVerification, ClientHelloCapture, EchConfigSource, EchInitialAttempt,
+    ProbeCertificatePolicy, ProbeStreamError, ProbeStreamFailureStage, ProbeStreamOptions, ProbeStreamResult,
+    TlsClientProfile, TlsObservation,
 };
 pub use verifier::NoCertificateVerification;
 
@@ -55,6 +56,7 @@ mod tests {
             transport_open_ms: None,
             tls_handshake_ms: None,
             cert_chain_length: None,
+            certificate_verification: CertificateVerification::NotCompleted,
             cert_issuer: None,
             local_socket_ttl: None,
             ja3_fingerprint: None,

@@ -101,6 +101,7 @@ fn tls_observation(status: &str, error: Option<&str>) -> TlsObservation {
         transport_open_ms: None,
         tls_handshake_ms: None,
         cert_chain_length: None,
+        certificate_verification: crate::tls::CertificateVerification::NotCompleted,
         cert_issuer: None,
         local_socket_ttl: None,
         ja3_fingerprint: None,

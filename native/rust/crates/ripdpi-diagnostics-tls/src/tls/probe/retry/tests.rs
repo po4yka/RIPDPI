@@ -35,24 +35,24 @@ fn monitor_preserves_rejected_ech_when_retry_connect_fails() {
     check_monitor_ech_retry(RetryFixture::ConnectFailed);
 }
 
+#[test]
+fn monitor_does_not_retry_ech_with_custom_certificate_verification() {
+    check_monitor_ech_retry(RetryFixture::CustomVerifier);
+}
+
 #[derive(Clone, Copy)]
 enum RetryFixture {
     Accepted,
     HandshakeFailed,
     ConnectFailed,
+    CustomVerifier,
 }
 
 fn check_monitor_ech_retry(fixture: RetryFixture) {
     let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "inner.example".into()]).unwrap();
     let mut roots = rustls::RootCertStore::empty();
     roots.add(certificate.cert.der().clone()).unwrap();
-    let verifier: Arc<dyn rustls::client::danger::ServerCertVerifier> =
-        rustls::client::WebPkiServerVerifier::builder_with_provider(
-            Arc::new(roots),
-            Arc::new(rustls::crypto::aws_lc_rs::default_provider()),
-        )
-        .build()
-        .unwrap();
+    let verifier: Arc<dyn rustls::client::danger::ServerCertVerifier> = Arc::new(crate::tls::NoCertificateVerification);
     let mut context = boring::ssl::SslContext::builder(boring::ssl::SslMethod::tls()).unwrap();
     context.set_certificate(&boring::x509::X509::from_der(certificate.cert.der().as_ref()).unwrap()).unwrap();
     context
@@ -67,7 +67,7 @@ fn check_monitor_ech_retry(fixture: RetryFixture) {
     let address = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
         let mut listener = Some(listener);
-        let reconnect = !matches!(fixture, RetryFixture::ConnectFailed);
+        let reconnect = matches!(fixture, RetryFixture::Accepted | RetryFixture::HandshakeFailed);
         for attempt in 0..if reconnect { 2 } else { 1 } {
             let (mut socket, _) = listener.as_ref().unwrap().accept().unwrap();
             if !reconnect {
@@ -106,16 +106,27 @@ fn check_monitor_ech_retry(fixture: RetryFixture) {
         transport: &transport,
         tls_name: "inner.example",
         profile: crate::tls::types::TlsClientProfile::Tls13WithEch,
-        tls_verifier: Some(&verifier),
+        tls_verifier: matches!(fixture, RetryFixture::CustomVerifier).then_some(&verifier),
+        fixture_ech_roots: Some(&roots),
         key_log: None,
         application_protocol: crate::tls::types::ApplicationProtocolPolicy::Http11Only,
         should_abort: &|| None,
     };
     let (result, evidence) = capture_with_ech_retry(socket, Some(address), 7, &options);
+    if matches!(fixture, RetryFixture::CustomVerifier) {
+        let Err(error) = result else { panic!("unchecked ECH rejection authorized a retry") };
+        assert_eq!(error.ech_status, Some(rustls::client::EchStatus::Rejected));
+        assert_eq!(error.ech_retry_skipped_reason, Some("certificate_policy_override"));
+        assert!(error.client_hello.is_some_and(|hello| hello.ja3_fingerprint.is_some()));
+        assert!(evidence.is_none());
+        server.join().unwrap();
+        return;
+    }
     let evidence = evidence.expect("a new attempt retains the first ECH rejection");
     assert_eq!(evidence.initial_attempt.connected_addr, address);
     assert_eq!(evidence.initial_attempt.transport_open_ms, 7);
     assert!(evidence.initial_attempt.ja3_fingerprint.is_some());
+    assert_eq!(evidence.initial_attempt.certificate_verification, CertificateVerification::VerifiedWebPki);
     if matches!(fixture, RetryFixture::ConnectFailed) {
         assert!(result.is_err());
         assert_eq!(evidence.transport_failure, Some(ProbeStreamFailureStage::TcpConnect));

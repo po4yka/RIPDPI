@@ -84,7 +84,7 @@ fn measure_run(
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        tls_verifier,
+        certificate_policy: tls_verifier.into(),
         key_log,
     };
     let result = open_probe_stream_targets_with_options_and_abort(

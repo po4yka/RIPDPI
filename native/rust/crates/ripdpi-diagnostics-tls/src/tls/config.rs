@@ -100,6 +100,7 @@ pub(super) fn build_ech_client_config_from_list(
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
     application_protocol: ApplicationProtocolPolicy,
+    #[cfg(test)] fixture_ech_roots: Option<&RootCertStore>,
 ) -> Result<Arc<ClientConfig>, String> {
     let provider = rustls::crypto::aws_lc_rs::default_provider();
     let ech_config = EchConfig::new(
@@ -114,7 +115,10 @@ pub(super) fn build_ech_client_config_from_list(
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, default_root_store())
+        let roots = default_root_store();
+        #[cfg(test)]
+        let roots = fixture_ech_roots.cloned().unwrap_or(roots);
+        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
             .map_err(|err| err.to_string())?
             .with_no_client_auth()
     };

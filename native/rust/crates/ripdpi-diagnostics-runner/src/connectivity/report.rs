@@ -32,6 +32,7 @@ pub fn append_tls_attempt_details(
         ("TransportOpenMs", attempt.transport_open_ms.map(|ms| ms.to_string())),
         ("HandshakeMs", attempt.tls_handshake_ms.map(|ms| ms.to_string())),
         ("CertChainLength", attempt.cert_chain_length.map(|length| length.to_string())),
+        ("CertificateVerification", Some(attempt.certificate_verification.as_str().to_string())),
         ("CertIssuer", attempt.cert_issuer.clone()),
         ("LocalSocketTtl", attempt.local_socket_ttl.map(|ttl| ttl.to_string())),
         ("LocalSocketTtlLeg", attempt.local_socket_ttl.map(|_| socket_leg.to_string())),
@@ -81,6 +82,7 @@ pub fn append_tls_attempt_details(
             ("ConfigSource", Some(initial.ech_config_source.as_str().to_string())),
             ("ConfigCdn", initial.ech_config_source.cdn_provider().map(str::to_string)),
             ("Error", Some(initial.error.clone())),
+            ("CertificateVerification", Some(initial.certificate_verification.as_str().to_string())),
         ];
         details.extend(values.into_iter().filter_map(|(suffix, value)| {
             value.map(|value| ProbeDetail { key: format!("{initial_prefix}{suffix}"), value })

@@ -1,13 +1,12 @@
 use std::io::{ErrorKind, Read, Write};
 use std::net::IpAddr;
-use std::sync::Arc;
 use std::time::Duration;
 
 use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 
 use crate::http::{HttpResponseDecoder, HttpResponseEvent, extract_host_from_url, extract_path_from_url};
 use crate::tls::{
-    ApplicationProtocolPolicy, NoCertificateVerification, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
+    ApplicationProtocolPolicy, ProbeCertificatePolicy, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
     open_probe_stream_targets_with_options_and_abort,
 };
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
@@ -93,25 +92,10 @@ fn update_peak_bps(peak_bps: &mut u64, sample_bytes: usize, sample_ms: u64) {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TelegramTlsVerifierMode {
-    DefaultRoots,
-    DomainFrontedNoVerify,
-}
-
-impl TelegramTlsVerifierMode {
-    fn custom_verifier(self) -> Option<Arc<dyn rustls::client::danger::ServerCertVerifier>> {
-        match self {
-            Self::DefaultRoots => None,
-            Self::DomainFrontedNoVerify => Some(Arc::new(NoCertificateVerification)),
-        }
-    }
-}
-
-fn verifier_mode_for_target(target: &TargetAddress, tls_name: &str) -> TelegramTlsVerifierMode {
+fn certificate_policy_for_target(target: &TargetAddress, tls_name: &str) -> ProbeCertificatePolicy<'static> {
     match target {
-        TargetAddress::Ip(_) if !tls_name.is_empty() => TelegramTlsVerifierMode::DomainFrontedNoVerify,
-        TargetAddress::Ip(_) | TargetAddress::Host(_) => TelegramTlsVerifierMode::DefaultRoots,
+        TargetAddress::Ip(_) if !tls_name.is_empty() => ProbeCertificatePolicy::Skip,
+        TargetAddress::Ip(_) | TargetAddress::Host(_) => ProbeCertificatePolicy::WebPki,
     }
 }
 
@@ -144,12 +128,10 @@ pub(crate) fn telegram_download_probe_with_abort(
     }
 
     let target_address = TargetAddress::Host(host.clone());
-    let verifier_mode = verifier_mode_for_target(&target_address, &host);
-    let tls_verifier = verifier_mode.custom_verifier();
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        tls_verifier: tls_verifier.as_ref(),
+        certificate_policy: certificate_policy_for_target(&target_address, &host),
         key_log,
     };
     let stream_result = open_probe_stream_targets_with_options_and_abort(
@@ -322,12 +304,10 @@ pub(crate) fn telegram_upload_probe_with_abort(
     }
     let target_address = upload_target_address(&target.upload_ip);
     let upload_host = upload_tls_host(&target_address);
-    let verifier_mode = verifier_mode_for_target(&target_address, &upload_host);
-    let tls_verifier = verifier_mode.custom_verifier();
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        tls_verifier: tls_verifier.as_ref(),
+        certificate_policy: certificate_policy_for_target(&target_address, &upload_host),
         key_log,
     };
     let stream_result = open_probe_stream_targets_with_options_and_abort(
@@ -611,9 +591,8 @@ mod tests {
 
         assert_eq!(target, TargetAddress::Host("api.telegram.org".to_string()));
         assert_eq!(upload_tls_host(&target), "api.telegram.org");
-        let mode = verifier_mode_for_target(&target, &upload_tls_host(&target));
-        assert_eq!(mode, TelegramTlsVerifierMode::DefaultRoots);
-        assert!(mode.custom_verifier().is_none());
+        let mode = certificate_policy_for_target(&target, &upload_tls_host(&target));
+        assert!(matches!(mode, ProbeCertificatePolicy::WebPki));
     }
 
     #[test]
@@ -622,8 +601,7 @@ mod tests {
 
         assert_eq!(target, TargetAddress::Ip("149.154.167.99".parse().unwrap()));
         assert_eq!(upload_tls_host(&target), TELEGRAM_UPLOAD_HOST);
-        let mode = verifier_mode_for_target(&target, &upload_tls_host(&target));
-        assert_eq!(mode, TelegramTlsVerifierMode::DomainFrontedNoVerify);
-        assert!(mode.custom_verifier().is_some());
+        let mode = certificate_policy_for_target(&target, &upload_tls_host(&target));
+        assert!(matches!(mode, ProbeCertificatePolicy::Skip));
     }
 }

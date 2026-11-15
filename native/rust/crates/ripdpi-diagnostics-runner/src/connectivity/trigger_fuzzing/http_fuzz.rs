@@ -54,7 +54,7 @@ fn execute_variant(
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
-        tls_verifier: None,
+        certificate_policy: None.into(),
         key_log: None,
     };
     match open_probe_stream_targets_with_options(connect_targets, port, transport, None, &options) {

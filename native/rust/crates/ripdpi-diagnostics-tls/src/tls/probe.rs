@@ -69,7 +69,7 @@ pub fn try_tls_handshake_targets_with_key_log(
     let options = ProbeStreamOptions {
         profile,
         application_protocol: ApplicationProtocolPolicy::TemplateDefault,
-        tls_verifier,
+        certificate_policy: tls_verifier.into(),
         key_log,
     };
     try_tls_handshake_targets_with_options_and_abort(targets, port, transport, server_name, &options, &|| None)
@@ -104,7 +104,8 @@ pub fn open_probe_stream(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<ProbeStreamResult, String> {
-    let options = ProbeStreamOptions { profile, tls_verifier, ..ProbeStreamOptions::default() };
+    let options =
+        ProbeStreamOptions { profile, certificate_policy: tls_verifier.into(), ..ProbeStreamOptions::default() };
     open_probe_stream_targets_with_options(std::slice::from_ref(target), port, transport, tls_name, &options)
         .map_err(|err| err.to_string())
 }
@@ -176,7 +177,12 @@ pub fn open_probe_stream_targets_with_key_log_and_abort(
     key_log: Option<&TlsKeyLogCallback>,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> Result<ProbeStreamResult, String> {
-    let options = ProbeStreamOptions { profile, tls_verifier, key_log, ..ProbeStreamOptions::default() };
+    let options = ProbeStreamOptions {
+        profile,
+        certificate_policy: tls_verifier.into(),
+        key_log,
+        ..ProbeStreamOptions::default()
+    };
     open_probe_stream_targets_with_options_and_abort(targets, port, transport, tls_name, &options, should_abort)
         .map_err(|err| err.to_string())
 }

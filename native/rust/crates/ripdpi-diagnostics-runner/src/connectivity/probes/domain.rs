@@ -41,7 +41,7 @@ pub fn run_domain_probe_with_key_log(
         let options = ProbeStreamOptions {
             profile,
             application_protocol: ApplicationProtocolPolicy::TemplateDefault,
-            tls_verifier,
+            certificate_policy: tls_verifier.into(),
             key_log: key_log.as_ref(),
         };
         try_tls_handshake_targets_with_options_and_abort(
@@ -281,6 +281,7 @@ mod tests {
             transport_open_ms: None,
             tls_handshake_ms: None,
             cert_chain_length: None,
+            certificate_verification: ripdpi_diagnostics_tls::tls::CertificateVerification::NotCompleted,
             cert_issuer: None,
             local_socket_ttl: None,
             ja3_fingerprint: None,
