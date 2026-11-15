@@ -123,7 +123,8 @@ class BootstrapConsumer(
      * with [groupId].
      *
      * Idempotent per token: once a token has reached a terminal state, every
-     * later call returns the cached terminal state with no network call. Callers that race the *same* in-flight consumption all
+     * later call returns the cached terminal state with no network call.
+     * Callers that race the *same* in-flight consumption all
      * observe the winner's live result only for the same target group; another
      * target group sees AlreadyConsumed instead of foreign-owned members. Never throws.
      */
@@ -321,8 +322,16 @@ class BootstrapConsumer(
         if (singBox is SingBoxParseResult.Error && singBox.recognizedBundle) {
             return BootstrapConsumeResult.ParseError("invalid bootstrap JSON metadata")
         }
+        return parseLinkList(body, groupId)
+    }
+
+    private fun parseLinkList(
+        body: String,
+        groupId: String,
+    ): BootstrapConsumeResult {
         val base64 = Base64SubscriptionParser.parse(body, groupId)
-        if (base64.warnings.isEmpty() && base64.profiles.isNotEmpty() &&
+        val hasCompleteProfiles = base64.warnings.isEmpty() && base64.profiles.isNotEmpty()
+        if (hasCompleteProfiles &&
             base64.profiles.fitsSubscriptionLimits() && base64.profiles.hasOnlyNativeProfiles()
         ) {
             return BootstrapConsumeResult.Consumed(base64.profiles, clockMillis())
