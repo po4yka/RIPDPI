@@ -4,14 +4,21 @@ import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
 import okhttp3.TlsVersion
 import okio.Buffer
+import okio.ForwardingSource
+import okio.GzipSink
+import okio.buffer
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 class SharedPriorsCatalogNetworkTest {
     @Test
@@ -19,8 +26,11 @@ class SharedPriorsCatalogNetworkTest {
         runTest {
             val expected = ByteArray(TestPayloadMaxBytes) { index -> (index % 251).toByte() }
 
-            withService(knownLengthResponse(expected)) { service, url ->
+            val observation = BodyReadObservation()
+            withService(knownLengthResponse(expected), observation) { service, url ->
                 assertArrayEquals(expected, service.downloadPriors(url))
+                assertTrue(observation.closed.get())
+                assertFalse(observation.cancelled.get())
             }
         }
 
@@ -111,15 +121,79 @@ class SharedPriorsCatalogNetworkTest {
             }
         }
 
+    @Test
+    fun `oversized success and error bodies stop reading for both endpoints`() {
+        for (manifest in listOf(true, false)) {
+            for (framing in listOf("known", "chunked", "gzip")) {
+                for (code in listOf(200, 503)) {
+                    verifyBoundedResponse(manifest, framing, code)
+                }
+            }
+        }
+    }
+
+    private fun verifyBoundedResponse(
+        manifest: Boolean,
+        framing: String,
+        code: Int,
+    ) = runTest {
+        val limit = if (manifest) TestManifestMaxBytes else TestPayloadMaxBytes
+        val observation = BodyReadObservation()
+        val response = largeResponse(ByteArray(limit * 8), framing, code)
+
+        withService(response, observation) { service, url ->
+            val error =
+                captureIOException {
+                    if (manifest) service.downloadManifest(url) else service.downloadPriors(url)
+                }
+            val case = "manifest=$manifest framing=$framing code=$code"
+            assertTrue(
+                "$case read ${observation.bytes.get()} bytes",
+                observation.bytes.get() <= limit + TestChunkBytes,
+            )
+            assertTrue("$case did not close body", observation.closed.get())
+            assertTrue("$case did not cancel unread body", observation.cancelled.get())
+            if (code == 503) assertTrue(error.message.orEmpty().contains("HTTP 503"))
+        }
+    }
+
+    private fun largeResponse(
+        payload: ByteArray,
+        framing: String,
+        code: Int,
+    ): MockResponse =
+        MockResponse
+            .Builder()
+            .code(code)
+            .apply {
+                when (framing) {
+                    "chunked" -> {
+                        chunkedBody(Buffer().write(payload), TestChunkBytes)
+                    }
+
+                    "gzip" -> {
+                        val compressed = Buffer()
+                        GzipSink(compressed).buffer().use { it.write(payload) }
+                        addHeader("Content-Encoding", "gzip")
+                        body(compressed)
+                    }
+
+                    else -> {
+                        body(Buffer().write(payload))
+                    }
+                }
+            }.build()
+
     private suspend fun withService(
         response: MockResponse,
+        observation: BodyReadObservation? = null,
         block: suspend (DefaultSharedPriorsCatalogDownloadService, String) -> Unit,
     ) {
         MockWebServer().use { server ->
             server.enqueue(response)
             server.start()
             val url = server.url("/shared-priors").toString()
-            block(DefaultSharedPriorsCatalogDownloadService(TestOwnedTlsClientFactory()), url)
+            block(DefaultSharedPriorsCatalogDownloadService(TestOwnedTlsClientFactory(observation)), url)
         }
     }
 
@@ -159,7 +233,9 @@ class SharedPriorsCatalogNetworkTest {
             .chunkedBody(Buffer().write(payload), TestChunkBytes)
             .build()
 
-    private class TestOwnedTlsClientFactory : OwnedTlsClientFactory {
+    private class TestOwnedTlsClientFactory(
+        private val observation: BodyReadObservation? = null,
+    ) : OwnedTlsClientFactory {
         private val selection = OwnedTlsFingerprintSelection()
 
         override fun currentProfile(): String = selection.profileId
@@ -169,13 +245,63 @@ class SharedPriorsCatalogNetworkTest {
         override fun create(
             forcedTlsVersions: List<TlsVersion>?,
             configure: OkHttpClient.Builder.() -> Unit,
-        ): OkHttpClient = OkHttpClient.Builder().apply(configure).build()
+        ): OkHttpClient = configuredClient(configure)
 
         override fun createForAuthority(
             authority: String?,
             forcedTlsVersions: List<TlsVersion>?,
             configure: OkHttpClient.Builder.() -> Unit,
-        ): OkHttpClient = OkHttpClient.Builder().apply(configure).build()
+        ): OkHttpClient = configuredClient(configure)
+
+        private fun configuredClient(configure: OkHttpClient.Builder.() -> Unit): OkHttpClient =
+            OkHttpClient
+                .Builder()
+                .apply(configure)
+                .apply {
+                    observation?.let { observed ->
+                        addInterceptor { chain ->
+                            val response = chain.proceed(chain.request())
+                            val body = response.body
+                            val source =
+                                object : ForwardingSource(body.source()) {
+                                    override fun read(
+                                        sink: Buffer,
+                                        byteCount: Long,
+                                    ): Long {
+                                        val count = super.read(sink, byteCount)
+                                        if (count > 0L) observed.bytes.addAndGet(count)
+                                        return count
+                                    }
+
+                                    override fun close() {
+                                        try {
+                                            super.close()
+                                        } finally {
+                                            observed.closed.set(true)
+                                            observed.cancelled.set(chain.call().isCanceled())
+                                        }
+                                    }
+                                }.buffer()
+                            response
+                                .newBuilder()
+                                .body(
+                                    object : ResponseBody() {
+                                        override fun contentType() = body.contentType()
+
+                                        override fun contentLength() = body.contentLength()
+
+                                        override fun source() = source
+                                    },
+                                ).build()
+                        }
+                    }
+                }.build()
+    }
+
+    private class BodyReadObservation {
+        val bytes = AtomicLong()
+        val closed = AtomicBoolean()
+        val cancelled = AtomicBoolean()
     }
 
     private companion object {

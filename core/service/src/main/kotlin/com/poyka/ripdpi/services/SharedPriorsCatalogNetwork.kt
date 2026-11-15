@@ -4,8 +4,11 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Call
 import okhttp3.ResponseBody
 import okio.Buffer
+import okio.ForwardingSource
+import okio.buffer
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.GET
@@ -35,6 +38,7 @@ private interface SharedPriorsCatalogDownloadApi {
         @Url url: String,
     ): Response<Void>
 
+    @Streaming
     @GET
     suspend fun downloadManifest(
         @Url url: String,
@@ -92,13 +96,26 @@ class DefaultSharedPriorsCatalogDownloadService
                         readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
                         callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
                         addInterceptor { chain ->
-                            chain.proceed(
-                                chain
-                                    .request()
-                                    .newBuilder()
-                                    .header("User-Agent", sharedPriorsCatalogUserAgent)
-                                    .build(),
-                            )
+                            val response =
+                                chain.proceed(
+                                    chain
+                                        .request()
+                                        .newBuilder()
+                                        .header("User-Agent", sharedPriorsCatalogUserAgent)
+                                        .build(),
+                                )
+                            if (response.request.method == "HEAD") {
+                                response
+                            } else if (!response.isSuccessful) {
+                                // Retrofit buffers error bodies even for @Streaming methods.
+                                chain.call().cancel()
+                                response.close()
+                                throw java.io.IOException(
+                                    "Remote request failed with HTTP ${response.code} for ${response.request.url}",
+                                )
+                            } else {
+                                response.newBuilder().body(response.body.cancelOnEarlyClose(chain.call())).build()
+                            }
                         }
                     },
                 ).build()
@@ -130,6 +147,32 @@ internal const val SharedPriorsPayloadMaxBytes = 256 * 1024
 private const val boundedBodyReadChunkBytes = 8L * 1024L
 
 private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()
+
+private fun ResponseBody.cancelOnEarlyClose(call: Call): ResponseBody {
+    val body = this
+    val source =
+        object : ForwardingSource(body.source()) {
+            private var exhausted = false
+
+            override fun read(
+                sink: Buffer,
+                byteCount: Long,
+            ): Long = super.read(sink, byteCount).also { if (it == -1L) exhausted = true }
+
+            override fun close() {
+                // Cancel before close so OkHttp cannot drain an oversized unread body.
+                if (!exhausted) call.cancel()
+                super.close()
+            }
+        }.buffer()
+    return object : ResponseBody() {
+        override fun contentType() = body.contentType()
+
+        override fun contentLength() = body.contentLength()
+
+        override fun source() = source
+    }
+}
 
 private fun Response<ResponseBody>.requireBodyBytes(
     limit: Int,
