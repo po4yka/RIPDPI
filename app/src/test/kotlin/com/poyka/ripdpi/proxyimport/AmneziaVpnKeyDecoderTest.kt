@@ -9,6 +9,18 @@ class AmneziaVpnKeyDecoderTest {
     private val conf = "[Interface]\nPrivateKey = k==\nDNS = \$PRIMARY_DNS, \$SECONDARY_DNS\n\n[Peer]\nPublicKey = p=="
 
     @Test
+    fun `keys reject malformed JSON UTF-8 instead of replacing bytes`() {
+        val json = AmneziaVpnKeyFixtures.keyJson(conf.replace("k==", "q~=="))
+        val invalid = json.toByteArray()
+        invalid[json.indexOf('~')] = 0xFF.toByte()
+        val compressed = AmneziaVpnKeyFixtures.qCompress(invalid)
+
+        assertNull(AmneziaVpnKeyDecoder.confFromCompressed(compressed))
+        val rawKey = "vpn://" + AmneziaVpnKeyFixtures.base64Url(invalid)
+        assertNull(AmneziaVpnKeyDecoder.confFromKey(rawKey))
+    }
+
+    @Test
     fun `multipart payload must have a verified compressed envelope`() {
         val raw = AmneziaVpnKeyFixtures.keyJson("[Interface]\nPrivateKey = k==").toByteArray()
 

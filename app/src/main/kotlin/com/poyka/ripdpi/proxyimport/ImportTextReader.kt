@@ -96,15 +96,15 @@ private class ImportReadRequest(
 }
 
 /** Decodes a bounded UTF-8 file and strips an optional byte-order mark. */
-internal fun decodeImportText(bytes: ByteArray): String? {
-    if (bytes.size > MaxImportFileBytes) return null
-    return try {
+internal fun decodeImportText(bytes: ByteArray): String? =
+    bytes.takeIf { it.size <= MaxImportFileBytes }?.let(::decodeUtf8OrNull)?.removePrefix(ByteOrderMark)
+
+internal fun decodeUtf8OrNull(bytes: ByteArray): String? =
+    try {
         Charsets.UTF_8
             .newDecoder()
             .decode(ByteBuffer.wrap(bytes))
             .toString()
-            .removePrefix(ByteOrderMark)
     } catch (_: CharacterCodingException) {
         null
     }
-}
