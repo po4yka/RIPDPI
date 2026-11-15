@@ -84,7 +84,7 @@ fn server_announced_close_is_not_reported_as_a_16kb_cutoff() {
     assert_eq!(classify_fat_header_outcome(&observation.status), "inconclusive");
     assert_eq!(observation.failure_stage, Some("http_response"));
     let reason = observation.error.expect("the close reason reaches the probe detail");
-    assert!(reason.contains("server closed") && reason.contains("HTTP 400"), "unexpected reason: {reason}");
+    assert!(reason.contains("announced close") && reason.contains("HTTP 400"), "unexpected reason: {reason}");
 }
 
 #[test]
@@ -98,6 +98,7 @@ fn error_status_with_close_past_the_threshold_stays_inconclusive() {
 
     server.join().expect("fixture thread");
     assert_eq!(observation.responses_seen, 3);
+    assert!(observation.threshold_covered);
     assert!(crate::util::fat_threshold_reached(observation.bytes_sent), "fixture must pass the threshold");
     assert_eq!(classify_fat_header_outcome(&observation.status), "inconclusive");
     assert_eq!(observation.failure_stage, Some("http_response"));
@@ -330,4 +331,41 @@ fn std01_tls_name_on_a_custom_port_sends_client_hello_before_http() {
     assert_eq!(observation.failure_stage, Some("tls_handshake"));
     assert_eq!(observation.responses_seen, 0);
     assert_eq!(observation.bytes_sent, 0, "no HTTP payload may be sent before TLS");
+}
+
+#[test]
+fn valid_responses_count_even_when_coverage_is_incomplete() {
+    let close = &b"HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n"[..];
+    for (replies, planned, covered, error) in [
+        (vec![close], 1, false, "threshold_not_covered"),
+        (vec![OK_KEEP_ALIVE, close], 16, true, "peer_closed_before_series_end"),
+    ] {
+        let seen = replies.len();
+        let (port, server) = serve_responses(replies);
+        let mut target = local_target(port, "Fixture");
+        target.fat_header_requests = Some(planned);
+        let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+        let result = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+        assert_eq!(server.join().unwrap().len(), seen);
+        assert_eq!(result.responses_seen, seen);
+        assert_eq!(result.requests_written, seen);
+        assert_eq!(result.http_status, Some(200));
+        assert_eq!(result.status, FatHeaderStatus::Inconclusive);
+        assert_eq!(result.threshold_covered, covered);
+        assert_eq!(result.error.as_deref(), Some(error));
+    }
+}
+
+#[test]
+fn refusal_at_the_byte_boundary_does_not_confirm_coverage() {
+    let (port, peer) = serve_responses(vec![OK_KEEP_ALIVE, FORBIDDEN_CLOSE]);
+    let target = local_target(port, "Fixture");
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+    let result = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+    assert_eq!(peer.join().unwrap().len(), 2);
+    assert_eq!(result.responses_seen, 2);
+    assert!(result.bytes_at_last_response >= crate::util::FAT_HEADER_THRESHOLD_BYTES);
+    assert_eq!(result.http_status, Some(403));
+    assert!(!result.threshold_covered);
+    assert_eq!(result.status, FatHeaderStatus::Inconclusive);
 }

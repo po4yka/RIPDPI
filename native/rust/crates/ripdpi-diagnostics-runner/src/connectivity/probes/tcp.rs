@@ -52,10 +52,7 @@ pub fn run_tcp_probe_with_cancel(
     }
 
     let mut winner = None;
-    if !initial_candidate.is_empty()
-        && matches!(baseline.failure_stage, Some("tls_handshake" | "request_write" | "response_read" | "http_response"))
-        && !stopped()
-    {
+    if !initial_candidate.is_empty() && comparable_sni_failure(&baseline) && !stopped() {
         for name in distinct_sni_candidates(target, initial_candidate, whitelist_sni) {
             if stopped() {
                 break;
@@ -69,9 +66,9 @@ pub fn run_tcp_probe_with_cancel(
         }
     }
 
-    let (outcome, selected_sni, selected) = match &winner {
-        Some((name, observation)) => ("whitelist_sni_ok", name.as_str(), observation),
-        None => (classify_fat_header_outcome(&baseline.status), initial_candidate, &baseline),
+    let (selected_sni, selected) = match &winner {
+        Some((name, observation)) => (name.as_str(), observation),
+        None => (initial_candidate, &baseline),
     };
     let alt_attempt =
         target.alt_port.filter(|_| baseline.failure_stage == Some("response_read") && !stopped()).map(|port| {
@@ -107,6 +104,16 @@ pub fn run_tcp_probe_with_cancel(
             value: selected.rst_timing_ms.map_or_else(String::new, |v| v.to_string()),
         },
     ];
+    details.extend([
+        ProbeDetail { key: "byteAccounting".to_string(), value: "application_write".to_string() },
+        ProbeDetail { key: "requestsPlanned".to_string(), value: selected.requests_planned.to_string() },
+        ProbeDetail { key: "requestsWritten".to_string(), value: selected.requests_written.to_string() },
+        ProbeDetail { key: "bytesAtLastResponse".to_string(), value: selected.bytes_at_last_response.to_string() },
+        ProbeDetail { key: "thresholdCovered".to_string(), value: selected.threshold_covered.to_string() },
+    ]);
+    if let Some(status) = selected.http_status {
+        details.push(ProbeDetail { key: "httpStatusCode".to_string(), value: status.to_string() });
+    }
     details.push(ProbeDetail { key: "port".to_string(), value: target.port.to_string() });
     if let Some(stage) = selected.failure_stage {
         details.push(ProbeDetail { key: "failureStage".to_string(), value: stage.to_string() });
@@ -125,9 +132,17 @@ pub fn run_tcp_probe_with_cancel(
     ProbeResult {
         probe_type: "tcp_fat_header".to_string(),
         target: format!("{}:{} ({})", target.ip, target.port, target.provider),
-        outcome: outcome.to_string(),
+        outcome: tcp_probe_outcome(&selected.status, winner.is_some()).to_string(),
         details,
     }
+}
+
+fn comparable_sni_failure(observation: &FatHeaderObservation) -> bool {
+    matches!(observation.failure_stage, Some("tls_handshake" | "request_write" | "response_read" | "http_response"))
+}
+
+fn tcp_probe_outcome(status: &FatHeaderStatus, alternate_succeeded: bool) -> &'static str {
+    if alternate_succeeded { "whitelist_sni_ok" } else { classify_fat_header_outcome(status) }
 }
 
 fn distinct_sni_candidates(target: &TcpTarget, initial: &str, candidates: &[String]) -> Vec<String> {
@@ -160,13 +175,21 @@ fn sni_label(sni: &str) -> &str {
 }
 
 fn attempt_detail(sni: &str, attempt: &str, port: u16, observation: &FatHeaderObservation) -> String {
+    let reason = match observation.failure_stage {
+        Some("administrative_stop" | "coverage") => observation.error.as_deref().unwrap_or("unknown"),
+        _ => "none",
+    };
     format!(
-        "{}:{}:{attempt}:port={port},stage={},bytes={},responses={}",
+        "{}:{}:{attempt}:port={port},stage={},reason={reason},bytes={},bytesAtLastResponse={},responses={},written={},planned={},httpStatus={}",
         sni_label(sni),
         fat_status_label(&observation.status),
         observation.failure_stage.unwrap_or("none"),
         observation.bytes_sent,
+        observation.bytes_at_last_response,
         observation.responses_seen,
+        observation.requests_written,
+        observation.requests_planned,
+        observation.http_status.map_or_else(String::new, |status| status.to_string()),
     )
 }
 

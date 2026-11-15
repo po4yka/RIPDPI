@@ -149,10 +149,7 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs",
             "fn run_domain_probe_with_tls_probe",
         ),
-        (
-            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs",
-            "pub fn run_tcp_probe_with_cancel",
-        ),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs", "fn tcp_probe_outcome"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "pub fn run_quic_probe"),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/service.rs", "pub fn run_service_probe"),
         (
@@ -190,12 +187,7 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ("native/rust/crates/ripdpi-diagnostics-telegram/src/telegram/report.rs", "pub fn run_telegram_probe"),
         ("native/rust/crates/ripdpi-diagnostics-fat-header/src/fat_header.rs", "pub fn classify_fat_header_outcome"),
     ] {
-        let outcomes = quoted_outcome_tokens(&function_body(&repo.join(path), signature));
-        if signature == "pub fn run_tcp_probe_with_cancel" {
-            tokens.extend(outcomes.into_iter().filter(|token| token.starts_with("whitelist_sni_")));
-        } else {
-            tokens.extend(outcomes);
-        }
+        tokens.extend(quoted_outcome_tokens(&function_body(&repo.join(path), signature)));
     }
     tokens.extend(quoted_outcome_tokens(&section(
         &repo.join("native/rust/crates/ripdpi-failure-classifier/src/types.rs"),
