@@ -561,6 +561,93 @@ class GeoAssetRepositoryTest {
         assertTrue(blockedDirectory.isFile)
     }
 
+    @Test
+    fun `same tag repairs missing and changed database files`() =
+        runTest {
+            val downloads = TaggedGeoDownloads()
+            val repository = repository(downloads)
+            assertTrue(repository.checkAndUpdate().updatedAny)
+            val target = File(resolveGeoDatabasePaths(application).geoipDbPath)
+            assertTrue(target.delete())
+
+            val missingResult = repository.checkAndUpdate()
+            assertTrue(missingResult.geoipUpdated)
+            assertFalse(missingResult.geositeUpdated)
+            assertArrayEquals(downloads.geoipPayload, target.readBytes())
+
+            target.writeBytes(validPayload(MinGeoAssetBytes))
+            assertTrue(repository.checkAndUpdate().geoipUpdated)
+            assertArrayEquals(downloads.geoipPayload, target.readBytes())
+        }
+
+    @Test
+    fun `same tag from a different provider replaces the previous provider files`() =
+        runTest {
+            val downloads = TaggedGeoDownloads()
+            val repository = repository(downloads)
+            assertTrue(repository.checkAndUpdate().updatedAny)
+            settingsRepository.update { geoAssetProviderId = "soffchen" }
+            downloads.geoipPayload += byteArrayOf(1)
+            downloads.geositePayload += byteArrayOf(1)
+
+            val result = repository.checkAndUpdate()
+            assertTrue(result.geoipUpdated)
+            assertTrue(result.geositeUpdated)
+            val paths = resolveGeoDatabasePaths(application)
+            assertArrayEquals(downloads.geoipPayload, File(paths.geoipDbPath).readBytes())
+            assertArrayEquals(downloads.geositePayload, File(paths.geositeDbPath).readBytes())
+        }
+
+    @Test
+    fun `local import clears remote provenance and only the imported kind version`() =
+        runTest {
+            val downloads = TaggedGeoDownloads()
+            val repository = repository(downloads)
+            repository.checkAndUpdate()
+            val localPayload = validPayload(MinGeoAssetBytes + 16)
+            val document = temporaryFolder.newFile("override.db").apply { writeBytes(localPayload) }
+
+            repository.importLocalAsset(GeoAssetKind.Geoip, Uri.fromFile(document))
+            val paths = resolveGeoDatabasePaths(application)
+            assertArrayEquals(localPayload, File(paths.geoipDbPath).readBytes())
+            assertEquals("", settingsRepository.snapshot().geoAssetGeoipVersionTag)
+            assertEquals("release-1", settingsRepository.snapshot().geoAssetGeositeVersionTag)
+
+            val result = repository.checkAndUpdate()
+            assertTrue(result.geoipUpdated)
+            assertFalse(result.geositeUpdated)
+            assertArrayEquals(downloads.geoipPayload, File(paths.geoipDbPath).readBytes())
+        }
+
+    @Test
+    fun `same provider tag and unchanged database bytes remain up to date`() =
+        runTest {
+            val downloads = TaggedGeoDownloads()
+            val repository = repository(downloads)
+            assertTrue(repository.checkAndUpdate().updatedAny)
+            downloads.downloadFailure = IOException("An unchanged asset must not need another download")
+
+            val result = repository.checkAndUpdate()
+            assertFalse(result.updatedAny)
+            assertTrue(result.anyChecked)
+        }
+
+    private class TaggedGeoDownloads : GeoAssetDownloadService {
+        var geoipPayload =
+            ByteArray(MinGeoAssetBytes) { (it + 1).toByte() } +
+                "\u00ab\u00cd\u00efMaxMind.com".toByteArray(Charsets.ISO_8859_1) +
+                ByteArray(8) { 1 }
+        var geositePayload = byteArrayOf(0) + ByteArray(MinGeoAssetBytes) { (it + 1).toByte() }
+        var downloadFailure: IOException? = null
+
+        override suspend fun fetchLatestReleaseJson(apiUrl: String): String = """{"tag_name":"release-1"}"""
+
+        override suspend fun downloadAsset(downloadUrl: String): ByteArray {
+            downloadFailure?.let { throw it }
+            return if (downloadUrl.endsWith("geoip.db")) geoipPayload else geositePayload
+        }
+    }
+
     private fun repository(
         downloadService: GeoAssetDownloadService =
             object : GeoAssetDownloadService {

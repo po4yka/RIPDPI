@@ -28,6 +28,8 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -68,7 +70,7 @@ class GeoAssetIntegrityException(
 interface GeoAssetRepository {
     /**
      * Checks the active provider's GitHub Releases `latest` tag for geoip and geosite, downloads and
-     * atomically swaps each `.db` only when the remote tag differs from the stored tag, then persists
+     * atomically swaps each `.db` when the remote tag or installed source/content differs, then persists
      * the new tags. The live native swap is deferred to next service start (no reload JNI exists; see
      * the asset-provider follow-up task).
      */
@@ -123,49 +125,58 @@ class DefaultGeoAssetRepository
         private val settingsRepository: AppSettingsRepository,
         private val downloadService: GeoAssetDownloadService,
     ) : GeoAssetRepository {
+        private val operationMutex = Mutex()
+
         override suspend fun checkAndUpdate(): GeoAssetUpdateResult =
-            withContext(Dispatchers.IO) {
-                val settings = settingsRepository.settings.first()
-                val provider = assetProviderById(settings.geoAssetProviderId)
-                val geoipResult =
-                    updateOne(
-                        provider = provider,
-                        kind = GeoAssetKind.Geoip,
-                        repo = provider.geoipRepo,
-                        customBaseUrl = settings.geoAssetCustomBaseUrl,
-                        storedTag = settings.geoAssetGeoipVersionTag,
-                    )
-                val geositeResult =
-                    updateOne(
-                        provider = provider,
-                        kind = GeoAssetKind.Geosite,
-                        repo = provider.geositeRepo,
-                        customBaseUrl = settings.geoAssetCustomBaseUrl,
-                        storedTag = settings.geoAssetGeositeVersionTag,
-                    )
+            operationMutex.withLock {
+                withContext(Dispatchers.IO) {
+                    val settings = settingsRepository.settings.first()
+                    val provider = assetProviderById(settings.geoAssetProviderId)
+                    val geoipResult =
+                        updateOne(
+                            provider = provider,
+                            kind = GeoAssetKind.Geoip,
+                            repo = provider.geoipRepo,
+                            customBaseUrl = settings.geoAssetCustomBaseUrl,
+                            storedTag = settings.geoAssetGeoipVersionTag,
+                        )
+                    val geositeResult =
+                        updateOne(
+                            provider = provider,
+                            kind = GeoAssetKind.Geosite,
+                            repo = provider.geositeRepo,
+                            customBaseUrl = settings.geoAssetCustomBaseUrl,
+                            storedTag = settings.geoAssetGeositeVersionTag,
+                        )
 
-                persistTagsAndTimestamp(geoipResult, geositeResult)
+                    persistTagsAndTimestamp(geoipResult, geositeResult)
 
-                GeoAssetUpdateResult(
-                    providerId = provider.id,
-                    geoipUpdated = geoipResult.updated,
-                    geositeUpdated = geositeResult.updated,
-                    geoipTag = geoipResult.newTag,
-                    geositeTag = geositeResult.newTag,
-                    anyChecked = geoipResult.checked || geositeResult.checked,
-                )
+                    GeoAssetUpdateResult(
+                        providerId = provider.id,
+                        geoipUpdated = geoipResult.updated,
+                        geositeUpdated = geositeResult.updated,
+                        geoipTag = geoipResult.newTag,
+                        geositeTag = geositeResult.newTag,
+                        anyChecked = geoipResult.checked || geositeResult.checked,
+                    )
+                }
             }
 
         override suspend fun importLocalAsset(
             kind: GeoAssetKind,
             uri: Uri,
-        ) {
+        ) = operationMutex.withLock {
             streamGeoAssetUriToTargetInterruptibly(
                 uri = uri,
                 target = targetFile(kind),
                 openInput = context.contentResolver::openInputStream,
                 afterInstall = {
+                    invalidateGeoAssetProvenance(targetFile(kind))
                     persistAssetMetadata {
+                        when (kind) {
+                            GeoAssetKind.Geoip -> geoAssetGeoipVersionTag = ""
+                            GeoAssetKind.Geosite -> geoAssetGeositeVersionTag = ""
+                        }
                         geoAssetLastUpdatedEpochMillis = System.currentTimeMillis()
                     }
                 },
@@ -191,6 +202,7 @@ class DefaultGeoAssetRepository
                 }
                 val bytes = downloadService.downloadAsset(customAssetDownloadUrl(base, kind))
                 applyValidatedAsset(kind, bytes)
+                persistGeoAssetProvenance(targetFile(kind), customAssetDownloadUrl(base, kind), CustomTagSentinel)
                 return SingleAssetOutcome(checked = true, updated = true, newTag = CustomTagSentinel)
             }
 
@@ -199,13 +211,16 @@ class DefaultGeoAssetRepository
                 parseGithubLatestReleaseTag(
                     downloadService.fetchLatestReleaseJson(githubLatestReleaseApiUrl(resolvedRepo)),
                 )
-            if (!isAssetUpdateAvailable(storedTag = storedTag, remoteTag = remoteTag)) {
-                return SingleAssetOutcome(checked = true, updated = false, newTag = storedTag.ifEmpty { remoteTag })
+            val tag = remoteTag ?: throw IOException("Geo asset release has no version tag.")
+            val source = "${provider.id}:${resolvedRepo.ownerRepo}/${resolvedRepo.releaseAssetName}"
+            if (!isAssetUpdateAvailable(storedTag = storedTag, remoteTag = tag) &&
+                hasGeoAssetProvenance(targetFile(kind), source, tag)
+            ) {
+                return SingleAssetOutcome(checked = true, updated = false, newTag = tag)
             }
-
-            val tag = requireNotNull(remoteTag)
             val bytes = downloadService.downloadAsset(githubReleaseAssetDownloadUrl(resolvedRepo, tag))
             applyValidatedAsset(kind, bytes)
+            persistGeoAssetProvenance(targetFile(kind), source, tag)
             return SingleAssetOutcome(checked = true, updated = true, newTag = tag)
         }
 
