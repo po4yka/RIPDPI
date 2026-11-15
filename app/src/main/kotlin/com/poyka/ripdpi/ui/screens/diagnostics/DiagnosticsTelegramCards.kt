@@ -69,46 +69,7 @@ internal fun TelegramResultCard(
             error = details["uploadError"],
         )
 
-        val dcReachable = details["dcReachable"]?.toIntOrNull()
-        val dcAttempted = details["dcTotal"]?.toIntOrNull()
-        val dcPlanned = details["dcPlanned"]?.toIntOrNull()
-        val dcSummary =
-            if (dcReachable != null && dcAttempted != null && dcAttempted > 0) {
-                stringResource(
-                    R.string.diagnostics_telegram_reachable_format,
-                    dcReachable.toString(),
-                    dcAttempted.toString(),
-                )
-            } else {
-                stringResource(R.string.diagnostics_matrix_stage_not_run)
-            }
-        SettingsRow(
-            title =
-                stringResource(
-                    if (dcPlanned !=
-                        null
-                    ) {
-                        R.string.diagnostics_telegram_tcp_endpoints
-                    } else {
-                        R.string.diagnostics_telegram_data_centers
-                    },
-                ),
-            subtitle =
-                if (dcAttempted != null && dcPlanned != null && dcPlanned > dcAttempted && dcAttempted > 0) {
-                    stringResource(R.string.diagnostics_telegram_unmeasured_format, dcPlanned - dcAttempted)
-                } else {
-                    null
-                },
-            value = dcSummary,
-        )
-        details["dcResults"]?.split('|')?.mapNotNull(::parseTelegramDcResult)?.forEach { dc ->
-            val detail = dc.connectMs?.let { stringResource(R.string.diagnostics_metric_dns_latency_format, it) }
-            TelegramStatusRow(
-                label = dc.label,
-                status = dc.status,
-                detail = listOfNotNull(dc.endpointOrPorts, detail).joinToString(" · ").ifEmpty { null },
-            )
-        }
+        TelegramConnectivitySection(details)
         val wsOpenTime =
             details["wsTunnelOpenMs"]?.toLongOrNull()?.let {
                 stringResource(R.string.diagnostics_metric_dns_latency_format, it)
@@ -121,6 +82,54 @@ internal fun TelegramResultCard(
         details["wsTunnelError"]?.takeUnless { it.isEmpty() || it == "none" }?.let { error ->
             SettingsRow(title = stringResource(R.string.diagnostics_telegram_error), value = error)
         }
+    }
+}
+
+@Composable
+private fun TelegramConnectivitySection(details: Map<String, String>) {
+    val dcReachable = details["dcReachable"]?.toIntOrNull()
+    val dcAttempted = details["dcTotal"]?.toIntOrNull()
+    val dcPlanned = details["dcPlanned"]?.toIntOrNull()
+    val dcSummary =
+        if (dcReachable != null && dcAttempted != null && dcAttempted > 0) {
+            stringResource(
+                R.string.diagnostics_telegram_reachable_format,
+                dcReachable.toString(),
+                dcAttempted.toString(),
+            )
+        } else {
+            stringResource(R.string.diagnostics_matrix_stage_not_run)
+        }
+    SettingsRow(
+        title =
+            stringResource(
+                if (dcPlanned !=
+                    null
+                ) {
+                    R.string.diagnostics_telegram_tcp_endpoints
+                } else {
+                    R.string.diagnostics_telegram_data_centers
+                },
+            ),
+        subtitle =
+            if (dcAttempted != null && dcPlanned != null) {
+                if (dcPlanned > dcAttempted && dcAttempted > 0) {
+                    stringResource(R.string.diagnostics_telegram_unmeasured_format, dcPlanned - dcAttempted)
+                } else {
+                    null
+                }
+            } else {
+                null
+            },
+        value = dcSummary,
+    )
+    details["dcResults"]?.split('|')?.mapNotNull(::parseTelegramDcResult)?.forEach { dc ->
+        val detail = dc.connectMs?.let { stringResource(R.string.diagnostics_metric_dns_latency_format, it) }
+        TelegramStatusRow(
+            label = dc.label,
+            status = dc.status,
+            detail = listOfNotNull(dc.endpointOrPorts, detail).joinToString(" · ").ifEmpty { null },
+        )
     }
 }
 

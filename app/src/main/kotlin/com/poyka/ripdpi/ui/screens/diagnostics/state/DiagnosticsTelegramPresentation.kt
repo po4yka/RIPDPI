@@ -65,7 +65,7 @@ internal fun parseTelegramDcResult(value: String): TelegramDcPresentation? {
             ?.removeSuffix("ms")
             ?.toLongOrNull()
     val endpointOrPorts =
-        parts.getOrNull(3)?.let { details ->
+        parts.getOrNull(DcDetailsIndex)?.let { details ->
             if (details.startsWith("address=")) {
                 details.removePrefix("address=").substringBefore(';')
             } else {
@@ -75,6 +75,7 @@ internal fun parseTelegramDcResult(value: String): TelegramDcPresentation? {
     return TelegramDcPresentation(label, status, connectMs, endpointOrPorts)
 }
 
+private const val DcDetailsIndex = 3
 private const val BitsPerByte = 8.0
 private const val DecimalKilo = 1_000.0
 private const val DecimalMega = 1_000_000.0
@@ -128,6 +129,17 @@ internal fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult)
                 ),
             )
         }
+        addAll(telegramConnectivityShareLines(details))
+        details["dcResults"]?.split('|')?.mapNotNull(::parseTelegramDcResult)?.forEach { dc ->
+            val status = telegramStatusLabelRes(dc.status)?.let { context.getString(it) } ?: dc.status
+            val elapsed = dc.connectMs?.let { context.getString(R.string.diagnostics_metric_dns_latency_format, it) }
+            add(listOfNotNull(dc.label, dc.endpointOrPorts, status, elapsed).joinToString(" · "))
+        }
+        add(telegramWebSocketShareLine(details))
+    }
+
+private fun DiagnosticsUiFactorySupport.telegramConnectivityShareLines(details: Map<String, String>): List<String> =
+    buildList {
         val dcReachable = details["dcReachable"]?.toIntOrNull()
         val dcAttempted = details["dcTotal"]?.toIntOrNull()
         val dcPlanned = details["dcPlanned"]?.toIntOrNull()
@@ -165,19 +177,15 @@ internal fun DiagnosticsUiFactorySupport.telegramShareLines(result: ProbeResult)
         } else {
             add(connectivityLabel + " · " + context.getString(R.string.diagnostics_matrix_stage_not_run))
         }
-        details["dcResults"]?.split('|')?.mapNotNull(::parseTelegramDcResult)?.forEach { dc ->
-            val status = telegramStatusLabelRes(dc.status)?.let { context.getString(it) } ?: dc.status
-            val elapsed = dc.connectMs?.let { context.getString(R.string.diagnostics_metric_dns_latency_format, it) }
-            add(listOfNotNull(dc.label, dc.endpointOrPorts, status, elapsed).joinToString(" · "))
-        }
-        val wsStatus = details["wsTunnelStatus"] ?: "not_run"
-        val wsLabel = telegramStatusLabelRes(wsStatus)?.let { context.getString(it) } ?: wsStatus
-        val wsTime =
-            details["wsTunnelOpenMs"]?.toLongOrNull()?.let {
-                context.getString(R.string.diagnostics_metric_dns_latency_format, it)
-            }
-        add(
-            listOfNotNull(context.getString(R.string.diagnostics_telegram_ws_handshake), wsLabel, wsTime)
-                .joinToString(" · "),
-        )
     }
+
+private fun DiagnosticsUiFactorySupport.telegramWebSocketShareLine(details: Map<String, String>): String {
+    val wsStatus = details["wsTunnelStatus"] ?: "not_run"
+    val wsLabel = telegramStatusLabelRes(wsStatus)?.let { context.getString(it) } ?: wsStatus
+    val wsTime =
+        details["wsTunnelOpenMs"]?.toLongOrNull()?.let {
+            context.getString(R.string.diagnostics_metric_dns_latency_format, it)
+        }
+    return listOfNotNull(context.getString(R.string.diagnostics_telegram_ws_handshake), wsLabel, wsTime)
+        .joinToString(" · ")
+}
