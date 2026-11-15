@@ -1,6 +1,7 @@
 use std::io::{self, Write};
 use std::net::IpAddr;
 
+use ripdpi_diagnostics_contracts::util::MAX_ROUTE_EXPERIMENT_ATTEMPTS;
 use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
 
 use crate::types::{ScanKind, ScanPathMode};
@@ -180,6 +181,10 @@ fn validate_resource_limits(request: &EngineScanRequestWire) -> Result<(), Strin
         }
     }
 
+    if let Some(route) = &request.route_probe {
+        validate_count("routeProbe.stableFlowAttempts", route.stable_flow_attempts, MAX_ROUTE_EXPERIMENT_ATTEMPTS)?;
+        validate_count("routeProbe.diversityBuckets", route.diversity_buckets, MAX_ROUTE_EXPERIMENT_ATTEMPTS)?;
+    }
     if let Some(deadline_ms) = request.scan_deadline_ms
         && !(MIN_SCAN_DEADLINE_MS..=MAX_SCAN_DEADLINE_MS).contains(&deadline_ms)
     {

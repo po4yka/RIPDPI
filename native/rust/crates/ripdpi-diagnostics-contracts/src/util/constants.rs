@@ -7,6 +7,7 @@ pub const DEFAULT_DOH_HOST: &str = "dns.adguard-dns.com";
 pub const DEFAULT_DOH_PORT: u16 = 443;
 pub const CONNECT_TIMEOUT: Duration = Duration::from_millis(2500);
 pub const IO_TIMEOUT: Duration = Duration::from_millis(1200);
+pub const MAX_ROUTE_EXPERIMENT_ATTEMPTS: usize = 8;
 pub const MAX_HTTP_BYTES: usize = 64 * 1024;
 pub const FAT_HEADER_MAX_ALTERNATES: usize = 4;
 pub const FAT_HEADER_MAX_REQUESTS: usize = 64;

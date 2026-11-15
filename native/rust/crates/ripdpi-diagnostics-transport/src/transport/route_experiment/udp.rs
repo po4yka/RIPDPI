@@ -1,11 +1,13 @@
+use ripdpi_diagnostics_contracts::util::MAX_ROUTE_EXPERIMENT_ATTEMPTS;
+
 use std::net::{SocketAddr, UdpSocket};
 
 use socket2::{Protocol, SockAddr, Socket, Type};
 
 use crate::util::stable_probe_hash;
 
+use super::RouteAttemptTracker;
 use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
-use super::{MAX_ROUTE_EXPERIMENT_ATTEMPTS, RouteAttemptTracker};
 use crate::transport::types::{RouteExperimentConfig, TransportError, UdpRelayResult};
 use crate::transport::udp::{
     ProbeExchange, UdpProbe, check_udp_attempt, matched_udp_result, recv_udp_matching, remember_udp_failure,

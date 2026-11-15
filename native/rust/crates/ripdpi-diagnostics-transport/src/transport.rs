@@ -16,7 +16,6 @@ pub use address::{
     quic_connect_targets, resolve_addresses, resolve_first_socket_addr, throughput_connect_targets,
 };
 pub use config::{describe_transport, direct_transport, transport_for_request_with_session};
-pub use route_experiment::MAX_ROUTE_EXPERIMENT_ATTEMPTS;
 pub use socks5::{
     decode_socks5_udp_frame, encode_socks5_udp_frame, negotiate_socks5, normalize_udp_relay_addr, relay_udp_via_socks5,
     socks5_noauth_handshake, socks5_udp_associate,

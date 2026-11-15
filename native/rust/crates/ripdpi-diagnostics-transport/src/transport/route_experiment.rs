@@ -1,3 +1,5 @@
+use ripdpi_diagnostics_contracts::util::MAX_ROUTE_EXPERIMENT_ATTEMPTS;
+
 mod common;
 mod tcp;
 mod udp;
@@ -7,8 +9,6 @@ use crate::transport::types::{RouteExperimentConfig, RouteExperimentReport};
 pub(super) use common::route_identity;
 pub(super) use tcp::connect_addresses_with_route_experiment;
 pub(super) use udp::relay_udp_direct_with_route_experiment;
-
-pub const MAX_ROUTE_EXPERIMENT_ATTEMPTS: usize = 8;
 
 struct RouteAttemptTracker {
     stable_attempts: usize,

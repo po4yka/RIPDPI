@@ -223,6 +223,22 @@ mod tests {
     }
 
     #[test]
+    fn bounds_route_experiment_work() {
+        let mut request = request();
+        request.route_probe = Some(crate::types::RouteProbeConfig {
+            stable_flow_attempts: usize::MAX,
+            diversity_buckets: 3,
+            diversity_on_failure_only: true,
+        });
+        assert!(validate_scan_request(&request).unwrap_err().contains("stableFlowAttempts"));
+        request.route_probe.as_mut().unwrap().stable_flow_attempts = 2;
+        request.route_probe.as_mut().unwrap().diversity_buckets = usize::MAX;
+        assert!(validate_scan_request(&request).unwrap_err().contains("diversityBuckets"));
+        request.route_probe.as_mut().unwrap().diversity_buckets = 3;
+        assert!(validate_scan_request(&request).is_ok());
+    }
+
+    #[test]
     fn rejects_oversized_request_strings() {
         let mut request = request();
         request.display_name = "x".repeat(5 * 1024 * 1024);

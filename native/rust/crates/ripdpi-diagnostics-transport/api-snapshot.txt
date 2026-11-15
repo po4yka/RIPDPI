@@ -7,12 +7,13 @@ pub ripdpi_diagnostics_transport::transport::ConnectionStream::Plain(std::net::t
 pub ripdpi_diagnostics_transport::transport::ConnectionStream::Tls(alloc::boxed::Box<rustls::stream::StreamOwned<rustls::client::client_conn::connection::ClientConnection, std::net::tcp::TcpStream>>)
 impl ripdpi_diagnostics_transport::transport::ConnectionStream
 pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::shutdown(&mut self)
-impl std::io::Read for ripdpi_diagnostics_transport::transport::ConnectionStream
+impl alloc::io::read::Read for ripdpi_diagnostics_transport::transport::ConnectionStream
 pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::read(&mut self, &mut [u8]) -> std::io::error::Result<usize>
-impl std::io::Write for ripdpi_diagnostics_transport::transport::ConnectionStream
+impl core::io::write::Write for ripdpi_diagnostics_transport::transport::ConnectionStream
 pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::flush(&mut self) -> std::io::error::Result<()>
 pub fn ripdpi_diagnostics_transport::transport::ConnectionStream::write(&mut self, &[u8]) -> std::io::error::Result<usize>
 pub enum ripdpi_diagnostics_transport::transport::DnsResolveError
+pub ripdpi_diagnostics_transport::transport::DnsResolveError::Aborted(&'static str)
 pub ripdpi_diagnostics_transport::transport::DnsResolveError::Busy
 pub ripdpi_diagnostics_transport::transport::DnsResolveError::Failure
 pub ripdpi_diagnostics_transport::transport::DnsResolveError::Nxdomain
@@ -42,6 +43,7 @@ pub ripdpi_diagnostics_transport::transport::TransportError::ConnectFailed::stag
 pub ripdpi_diagnostics_transport::transport::TransportError::ConnectRacePanicked
 pub ripdpi_diagnostics_transport::transport::TransportError::ConnectRaceSpawnFailed(std::io::error::Error)
 pub ripdpi_diagnostics_transport::transport::TransportError::Dns(ripdpi_diagnostics_transport::transport::DnsResolveError)
+pub ripdpi_diagnostics_transport::transport::TransportError::InvalidProbePayload
 pub ripdpi_diagnostics_transport::transport::TransportError::InvalidSocketHost
 pub ripdpi_diagnostics_transport::transport::TransportError::InvalidSocketPort(core::num::error::ParseIntError)
 pub ripdpi_diagnostics_transport::transport::TransportError::Io(std::io::error::Error)
@@ -51,6 +53,7 @@ pub ripdpi_diagnostics_transport::transport::TransportError::MissingSocketPort
 pub ripdpi_diagnostics_transport::transport::TransportError::NoAddresses
 pub ripdpi_diagnostics_transport::transport::TransportError::NoSocketAddrs
 pub ripdpi_diagnostics_transport::transport::TransportError::NoTargetCandidates
+pub ripdpi_diagnostics_transport::transport::TransportError::ProbeAborted(&'static str)
 pub ripdpi_diagnostics_transport::transport::TransportError::RouteExperiment(alloc::string::String)
 pub ripdpi_diagnostics_transport::transport::TransportError::ScanDeadlineExceeded
 pub ripdpi_diagnostics_transport::transport::TransportError::Socks(ripdpi_socks5_core::SocksError)
@@ -67,15 +70,16 @@ pub ripdpi_diagnostics_transport::transport::TransportError::UdpRecvFailed
 pub ripdpi_diagnostics_transport::transport::TransportError::UdpRecvFailed::kind: std::io::error::ErrorKind
 pub ripdpi_diagnostics_transport::transport::TransportError::UdpRecvFailed::source: std::io::error::Error
 pub ripdpi_diagnostics_transport::transport::TransportError::UdpRecvTimeout
+pub ripdpi_diagnostics_transport::transport::TransportError::UdpRecvUnmatched
 pub ripdpi_diagnostics_transport::transport::TransportError::UdpRecvWouldBlock
+impl core::convert::From<std::io::error::Error> for ripdpi_diagnostics_transport::transport::TransportError
+pub fn ripdpi_diagnostics_transport::transport::TransportError::from(std::io::error::Error) -> Self
 impl core::convert::From<ripdpi_diagnostics_transport::transport::DnsResolveError> for ripdpi_diagnostics_transport::transport::TransportError
 pub fn ripdpi_diagnostics_transport::transport::TransportError::from(ripdpi_diagnostics_transport::transport::DnsResolveError) -> Self
 impl core::convert::From<ripdpi_socks5_core::SocksError> for ripdpi_diagnostics_transport::transport::TransportError
 pub fn ripdpi_diagnostics_transport::transport::TransportError::from(ripdpi_socks5_core::SocksError) -> Self
 impl core::convert::From<ripdpi_socks5_core::UdpHeaderError> for ripdpi_diagnostics_transport::transport::TransportError
 pub fn ripdpi_diagnostics_transport::transport::TransportError::from(ripdpi_socks5_core::UdpHeaderError) -> Self
-impl core::convert::From<std::io::error::Error> for ripdpi_diagnostics_transport::transport::TransportError
-pub fn ripdpi_diagnostics_transport::transport::TransportError::from(std::io::error::Error) -> Self
 impl core::error::Error for ripdpi_diagnostics_transport::transport::TransportError
 pub fn ripdpi_diagnostics_transport::transport::TransportError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
 impl core::fmt::Display for ripdpi_diagnostics_transport::transport::TransportError
@@ -124,23 +128,30 @@ pub ripdpi_diagnostics_transport::transport::UdpRelayResult::payload: alloc::vec
 pub ripdpi_diagnostics_transport::transport::UdpRelayResult::route_report: core::option::Option<ripdpi_diagnostics_transport::transport::RouteExperimentReport>
 pub fn ripdpi_diagnostics_transport::transport::connect_direct(&ripdpi_diagnostics_transport::transport::TargetAddress, u16) -> core::result::Result<std::net::tcp::TcpStream, ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::connect_direct_address(core::net::socket_addr::SocketAddr) -> std::io::error::Result<std::net::tcp::TcpStream>
+pub fn ripdpi_diagnostics_transport::transport::connect_direct_address_with_abort(core::net::socket_addr::SocketAddr, &dyn core::ops::function::Fn() -> core::option::Option<&'static str>) -> std::io::error::Result<std::net::tcp::TcpStream>
 pub fn ripdpi_diagnostics_transport::transport::connect_transport_observed(&[ripdpi_diagnostics_transport::transport::TargetAddress], u16, &ripdpi_diagnostics_transport::transport::TransportConfig) -> core::result::Result<ripdpi_diagnostics_transport::transport::TransportConnectResult, ripdpi_diagnostics_transport::transport::TransportConnectError>
+pub fn ripdpi_diagnostics_transport::transport::connect_transport_observed_with_abort(&[ripdpi_diagnostics_transport::transport::TargetAddress], u16, &ripdpi_diagnostics_transport::transport::TransportConfig, &dyn core::ops::function::Fn() -> core::option::Option<&'static str>) -> core::result::Result<ripdpi_diagnostics_transport::transport::TransportConnectResult, ripdpi_diagnostics_transport::transport::TransportConnectError>
 pub fn ripdpi_diagnostics_transport::transport::decode_socks5_udp_frame(&[u8]) -> core::result::Result<(core::net::socket_addr::SocketAddr, alloc::vec::Vec<u8>), ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::describe_transport(&ripdpi_diagnostics_transport::transport::TransportConfig) -> alloc::string::String
 pub fn ripdpi_diagnostics_transport::transport::direct_transport() -> ripdpi_diagnostics_transport::transport::TransportConfig
 pub fn ripdpi_diagnostics_transport::transport::domain_connect_target(&ripdpi_diagnostics_contracts::types::target::DomainTarget) -> ripdpi_diagnostics_transport::transport::TargetAddress
 pub fn ripdpi_diagnostics_transport::transport::domain_connect_targets(&ripdpi_diagnostics_contracts::types::target::DomainTarget) -> alloc::vec::Vec<ripdpi_diagnostics_transport::transport::TargetAddress>
 pub fn ripdpi_diagnostics_transport::transport::encode_socks5_udp_frame(core::net::socket_addr::SocketAddr, &[u8]) -> alloc::vec::Vec<u8>
+pub fn ripdpi_diagnostics_transport::transport::interface_index(&str) -> core::option::Option<u32>
 pub fn ripdpi_diagnostics_transport::transport::negotiate_socks5(std::net::tcp::TcpStream, &ripdpi_diagnostics_transport::transport::TargetAddress, u16) -> core::result::Result<std::net::tcp::TcpStream, ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::normalize_udp_relay_addr(core::net::socket_addr::SocketAddr, &std::net::tcp::TcpStream) -> core::result::Result<core::net::socket_addr::SocketAddr, ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::protected_udp_bind(core::net::socket_addr::SocketAddr, core::net::socket_addr::SocketAddr) -> std::io::error::Result<std::net::udp::UdpSocket>
 pub fn ripdpi_diagnostics_transport::transport::quic_connect_target(&ripdpi_diagnostics_contracts::types::target::QuicTarget) -> ripdpi_diagnostics_transport::transport::TargetAddress
 pub fn ripdpi_diagnostics_transport::transport::quic_connect_targets(&ripdpi_diagnostics_contracts::types::target::QuicTarget) -> alloc::vec::Vec<ripdpi_diagnostics_transport::transport::TargetAddress>
+pub fn ripdpi_diagnostics_transport::transport::relay_quic_probe_observed(&[ripdpi_diagnostics_transport::transport::TargetAddress], u16, &ripdpi_diagnostics_transport::transport::TransportConfig, &core::sync::atomic::AtomicBool, &mut dyn core::ops::function::FnMut() -> core::option::Option<(alloc::vec::Vec<u8>, alloc::vec::Vec<u8>)>, &dyn core::ops::function::Fn(&[u8], &[u8]) -> bool) -> core::result::Result<(ripdpi_diagnostics_transport::transport::UdpRelayResult, alloc::vec::Vec<u8>), ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::relay_udp_direct(core::net::socket_addr::SocketAddr, &[u8]) -> core::result::Result<(alloc::vec::Vec<u8>, core::net::socket_addr::SocketAddr), ripdpi_diagnostics_transport::transport::TransportError>
+pub fn ripdpi_diagnostics_transport::transport::relay_udp_payload_matching_observed(&[ripdpi_diagnostics_transport::transport::TargetAddress], u16, &ripdpi_diagnostics_transport::transport::TransportConfig, &[u8], &dyn core::ops::function::Fn(&[u8]) -> bool) -> core::result::Result<ripdpi_diagnostics_transport::transport::UdpRelayResult, ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::relay_udp_payload_observed(&[ripdpi_diagnostics_transport::transport::TargetAddress], u16, &ripdpi_diagnostics_transport::transport::TransportConfig, &[u8]) -> core::result::Result<ripdpi_diagnostics_transport::transport::UdpRelayResult, ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::relay_udp_via_socks5(&str, u16, core::net::socket_addr::SocketAddr, &[u8], core::option::Option<&ripdpi_diagnostics_transport::transport::Socks5Credentials>) -> core::result::Result<(alloc::vec::Vec<u8>, core::net::socket_addr::SocketAddr), ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::resolve_addresses(&ripdpi_diagnostics_transport::transport::TargetAddress, u16) -> core::result::Result<alloc::vec::Vec<core::net::socket_addr::SocketAddr>, ripdpi_diagnostics_transport::transport::DnsResolveError>
 pub fn ripdpi_diagnostics_transport::transport::resolve_first_socket_addr(&str) -> core::result::Result<core::net::socket_addr::SocketAddr, ripdpi_diagnostics_transport::transport::TransportError>
+pub fn ripdpi_diagnostics_transport::transport::run_with_socket_abort_watchdog<T, E: core::convert::From<std::io::error::Error>>(std::net::tcp::TcpStream, &(dyn core::ops::function::Fn() -> bool + core::marker::Sync), impl core::ops::function::FnOnce() -> core::result::Result<T, E>) -> core::result::Result<T, E>
+pub fn ripdpi_diagnostics_transport::transport::run_with_socket_watchdog<T>(std::net::tcp::TcpStream, core::option::Option<&core::sync::atomic::AtomicBool>, impl core::ops::function::FnOnce() -> T) -> T
 pub fn ripdpi_diagnostics_transport::transport::socks5_noauth_handshake(&mut std::net::tcp::TcpStream) -> core::result::Result<(), ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::socks5_udp_associate(&mut std::net::tcp::TcpStream) -> core::result::Result<core::net::socket_addr::SocketAddr, ripdpi_diagnostics_transport::transport::TransportError>
 pub fn ripdpi_diagnostics_transport::transport::start_address_resolution(&str, u16, core::time::Duration) -> core::result::Result<std::sync::mpsc::Receiver<core::result::Result<alloc::vec::Vec<core::net::socket_addr::SocketAddr>, ripdpi_diagnostics_transport::transport::DnsResolveError>>, ripdpi_diagnostics_transport::transport::DnsResolveError>
@@ -148,22 +159,35 @@ pub fn ripdpi_diagnostics_transport::transport::throughput_connect_targets(core:
 pub fn ripdpi_diagnostics_transport::transport::transport_for_request_with_session(&ripdpi_diagnostics_contracts::types::request::config::ScanRequest, &str) -> ripdpi_diagnostics_transport::transport::TransportConfig
 pub fn ripdpi_diagnostics_transport::transport::wait_for_listener(core::net::socket_addr::SocketAddr) -> core::result::Result<(), ripdpi_diagnostics_transport::transport::TransportError>
 pub mod ripdpi_diagnostics_transport::ws_tls
+pub enum ripdpi_diagnostics_transport::ws_tls::WsProbeFailure
+pub ripdpi_diagnostics_transport::ws_tls::WsProbeFailure::Cancelled
+pub ripdpi_diagnostics_transport::ws_tls::WsProbeFailure::DeadlineExceeded
+pub ripdpi_diagnostics_transport::ws_tls::WsProbeFailure::OpenTimedOut
+pub ripdpi_diagnostics_transport::ws_tls::WsProbeFailure::SubprotocolNotNegotiated
+pub ripdpi_diagnostics_transport::ws_tls::WsProbeFailure::UpgradeFailed
+pub ripdpi_diagnostics_transport::ws_tls::WsProbeFailure::UpgradeRejected(u16)
+impl core::error::Error for ripdpi_diagnostics_transport::ws_tls::WsProbeFailure
+impl core::fmt::Display for ripdpi_diagnostics_transport::ws_tls::WsProbeFailure
+pub fn ripdpi_diagnostics_transport::ws_tls::WsProbeFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector
 impl ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector
 pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::connect(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget) -> std::io::error::Result<ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream>
 pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::connect_with_key_log(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>) -> std::io::error::Result<ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream>
-pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::connect_with_key_log_and_abort(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>, &dyn core::ops::function::Fn() -> core::option::Option<&'static str>) -> std::io::error::Result<ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream>
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::connect_with_key_log_and_abort(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>, &(dyn core::ops::function::Fn() -> core::option::Option<&'static str> + core::marker::Sync)) -> std::io::error::Result<ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream>
 pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::probe(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget) -> std::io::error::Result<()>
 pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::probe_with_key_log(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>) -> std::io::error::Result<()>
-pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::probe_with_key_log_and_abort(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>, &dyn core::ops::function::Fn() -> core::option::Option<&'static str>) -> std::io::error::Result<()>
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsConnector::probe_with_key_log_and_abort(&self, &ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget, core::option::Option<ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback>, &(dyn core::ops::function::Fn() -> core::option::Option<&'static str> + core::marker::Sync)) -> std::io::error::Result<()>
 pub struct ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget
 pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::connect_timeout: core::option::Option<core::time::Duration>
 pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::host: alloc::string::String
 pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::path: alloc::string::String
 pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::port: u16
 pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::resolved_addr: core::option::Option<core::net::socket_addr::SocketAddr>
+pub ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::transport: ripdpi_diagnostics_transport::transport::TransportConfig
 impl ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget
 pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::with_binary_subprotocol(self) -> Self
 pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::with_resolved_addr(self, core::option::Option<core::net::socket_addr::SocketAddr>) -> Self
+pub fn ripdpi_diagnostics_transport::ws_tls::WsOverTlsTarget::with_transport(self, ripdpi_diagnostics_transport::transport::TransportConfig) -> Self
 pub type ripdpi_diagnostics_transport::ws_tls::WsOverTlsStream = tungstenite::protocol::WebSocket<rustls::stream::StreamOwned<rustls::client::client_conn::connection::ClientConnection, std::net::tcp::TcpStream>>
 pub type ripdpi_diagnostics_transport::ws_tls::WsTlsKeyLogCallback = alloc::sync::Arc<dyn rustls::key_log::KeyLog>
