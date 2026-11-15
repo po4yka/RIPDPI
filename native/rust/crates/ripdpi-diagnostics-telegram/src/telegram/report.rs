@@ -24,91 +24,129 @@ pub fn run_telegram_probe_with_abort(
     key_log: Option<&TlsKeyLogCallback>,
     should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
 ) -> ProbeResult {
-    let dl = match should_abort() {
-        Some(reason) => aborted_transfer(reason),
-        None => telegram_download_probe_with_abort(target, transport, key_log, should_abort),
+    let dl = if should_abort().is_some() {
+        unattempted_transfer()
+    } else {
+        telegram_download_probe_with_abort(target, transport, key_log, should_abort)
     };
-    let ul = match should_abort() {
-        Some(reason) => aborted_transfer(reason),
-        None => telegram_upload_probe_with_abort(target, transport, key_log, should_abort),
+    let ul = if should_abort().is_some() {
+        unattempted_transfer()
+    } else {
+        telegram_upload_probe_with_abort(target, transport, key_log, should_abort)
     };
     let dc = telegram_dc_probe_with_abort(target, transport, should_abort);
-    let ws = match should_abort() {
-        Some(reason) => TelegramWsProbeResult::aborted(reason, None),
-        None => telegram_ws_tunnel_probe_with_abort_callback(transport, key_log, should_abort),
+    let ws = if should_abort().is_some() {
+        unattempted_ws()
+    } else {
+        telegram_ws_tunnel_probe_with_abort_callback(transport, key_log, should_abort)
+    };
+    build_telegram_result(&dl, &ul, &dc, &ws, transport, should_abort())
+}
+
+fn unattempted_transfer() -> TelegramTransferResult {
+    TelegramTransferResult {
+        status: "not_run".into(),
+        avg_bps: 0,
+        peak_bps: 0,
+        bytes_total: 0,
+        duration_ms: 0,
+        error: None,
+        measures_throughput: false,
+    }
+}
+
+fn unattempted_ws() -> TelegramWsProbeResult {
+    TelegramWsProbeResult {
+        status: "not_run".into(),
+        abort_reason: None,
+        open_ms: None,
+        error: None,
+        http_status: None,
+        peer: None,
+    }
+}
+
+fn build_telegram_result(
+    dl: &TelegramTransferResult,
+    ul: &TelegramTransferResult,
+    dc: &TelegramDcResult,
+    ws: &TelegramWsProbeResult,
+    transport: &TransportConfig,
+    abort_reason: Option<&'static str>,
+) -> ProbeResult {
+    let verdict = abort_reason
+        .or(dc.abort_reason)
+        .or(ws.abort_reason)
+        .unwrap_or_else(|| classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.planned, &ws.status));
+    let quality_score = if matches!(verdict, "cancelled" | "deadline_exceeded") {
+        None
+    } else {
+        compute_telegram_quality_score(&dl.status, &ul.status, dc.reachable, dc.total, dc.planned, &ws.status)
     };
 
-    let verdict = classify_telegram_verdict(
-        &dl.status,
-        &ul.status,
-        dc.reachable,
-        dc.total,
-        ws.abort_reason.unwrap_or(&ws.status),
-    );
-    let quality_score = (!matches!(verdict, "cancelled" | "deadline_exceeded"))
-        .then(|| compute_telegram_quality_score(&dl, &ul, &dc, &ws));
-
-    ProbeResult {
-        probe_type: "telegram_availability".to_string(),
-        target: "telegram.org".to_string(),
-        outcome: verdict.to_string(),
-        details: build_telegram_details(verdict, quality_score, dl, ul, dc, ws, transport),
-    }
-}
-
-fn aborted_transfer(reason: &str) -> TelegramTransferResult {
-    TelegramTransferResult::aborted(reason)
-}
-
-fn build_telegram_details(
-    verdict: &str,
-    quality_score: Option<u64>,
-    dl: TelegramTransferResult,
-    ul: TelegramTransferResult,
-    dc: TelegramDcResult,
-    ws: TelegramWsProbeResult,
-    transport: &TransportConfig,
-) -> Vec<ProbeDetail> {
-    let mut details = vec![ProbeDetail { key: "verdict".to_string(), value: verdict.to_string() }];
+    let mut details = vec![detail("verdict", verdict)];
     if let Some(score) = quality_score {
-        details.push(ProbeDetail { key: "qualityScore".to_string(), value: score.to_string() });
+        details.extend([
+            detail("qualityScore", score.to_string()),
+            detail("qualityScoreBasis", "availability_deficit_pct"),
+        ]);
     }
     if let Some(open_ms) = ws.open_ms {
-        details.push(ProbeDetail { key: "wsTunnelOpenMs".to_string(), value: open_ms.to_string() });
+        details.push(detail("wsTunnelOpenMs", open_ms.to_string()));
     }
     if let Some(status) = ws.http_status {
-        details.push(ProbeDetail { key: "wsTunnelHttpStatus".to_string(), value: status.to_string() });
+        details.push(detail("wsTunnelHttpStatus", status.to_string()));
     }
     if let Some(stage) = ws_open_failure_stage(&ws.status) {
-        details.push(ProbeDetail { key: "wsTunnelFailureStage".to_string(), value: stage.to_string() });
+        details.push(detail("wsTunnelFailureStage", stage));
     }
     if let Some(peer) = ws.peer {
-        details.push(ProbeDetail { key: "wsTunnelPeer".to_string(), value: peer.to_string() });
-    }
-    if let Some(reason) = dc.abort_reason {
-        details.push(ProbeDetail { key: "dcAbortReason".to_string(), value: reason.to_string() });
+        details.push(detail("wsTunnelPeer", peer.to_string()));
     }
     details.extend([
-        ProbeDetail { key: "wsTunnelEndpoint".to_string(), value: telegram_ws_endpoint() },
-        ProbeDetail { key: "wsTunnelPath".to_string(), value: telegram_transport_path(transport).to_string() },
-        ProbeDetail { key: "dcPlanned".to_string(), value: dc.planned.to_string() },
-        ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },
-        ProbeDetail { key: "downloadAvgBps".to_string(), value: dl.avg_bps.to_string() },
-        ProbeDetail { key: "downloadPeakBps".to_string(), value: dl.peak_bps.to_string() },
-        ProbeDetail { key: "downloadBytes".to_string(), value: dl.bytes_total.to_string() },
-        ProbeDetail { key: "downloadDurationMs".to_string(), value: dl.duration_ms.to_string() },
-        ProbeDetail { key: "downloadError".to_string(), value: dl.error.unwrap_or_else(|| "none".to_string()) },
-        ProbeDetail { key: "uploadStatus".to_string(), value: ul.status },
-        ProbeDetail { key: "uploadAvgBps".to_string(), value: ul.avg_bps.to_string() },
-        ProbeDetail { key: "uploadPeakBps".to_string(), value: ul.peak_bps.to_string() },
-        ProbeDetail { key: "uploadBytes".to_string(), value: ul.bytes_total.to_string() },
-        ProbeDetail { key: "uploadDurationMs".to_string(), value: ul.duration_ms.to_string() },
-        ProbeDetail { key: "uploadError".to_string(), value: ul.error.unwrap_or_else(|| "none".to_string()) },
-        ProbeDetail { key: "dcReachable".to_string(), value: dc.reachable.to_string() },
-        ProbeDetail { key: "dcTotal".to_string(), value: dc.total.to_string() },
-        ProbeDetail { key: "dcResults".to_string(), value: dc.results.join("|") },
-        ProbeDetail { key: "wsTunnelStatus".to_string(), value: ws.status },
-        ProbeDetail { key: "wsTunnelError".to_string(), value: ws.error.unwrap_or_else(|| "none".to_string()) },
+        detail("wsTunnelEndpoint", telegram_ws_endpoint()),
+        detail("wsTunnelPath", telegram_transport_path(transport)),
+        detail("wsTunnelStatus", &ws.status),
+        detail("dcReachable", dc.reachable.to_string()),
+        detail("dcTotal", dc.total.to_string()),
+        detail("dcPlanned", dc.planned.to_string()),
+        detail("dcResults", dc.results.join("|")),
     ]);
-    details
+    if let Some(error) = &ws.error {
+        details.push(detail("wsTunnelError", error));
+    }
+    if let Some(reason) = dc.abort_reason {
+        details.push(detail("dcAbortReason", reason));
+    }
+    append_transfer_details(&mut details, "download", dl);
+    append_transfer_details(&mut details, "upload", ul);
+    ProbeResult {
+        probe_type: "telegram_availability".into(),
+        target: "telegram.org".into(),
+        outcome: verdict.into(),
+        details,
+    }
+}
+
+fn append_transfer_details(details: &mut Vec<ProbeDetail>, prefix: &str, transfer: &TelegramTransferResult) {
+    details.push(detail(format!("{prefix}Status"), &transfer.status));
+    if transfer.status != "not_run" {
+        details.extend([
+            detail(format!("{prefix}Bytes"), transfer.bytes_total.to_string()),
+            detail(format!("{prefix}DurationMs"), transfer.duration_ms.to_string()),
+        ]);
+    }
+    if transfer.measures_throughput {
+        details.extend([
+            detail(format!("{prefix}AvgBps"), transfer.avg_bps.to_string()),
+            detail(format!("{prefix}PeakBps"), transfer.peak_bps.to_string()),
+        ]);
+    }
+    if let Some(error) = &transfer.error {
+        details.push(detail(format!("{prefix}Error"), error));
+    }
+}
+
+fn detail(key: impl Into<String>, value: impl Into<String>) -> ProbeDetail {
+    ProbeDetail { key: key.into(), value: value.into() }
 }
