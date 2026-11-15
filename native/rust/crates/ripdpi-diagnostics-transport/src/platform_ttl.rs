@@ -2,12 +2,16 @@
 
 /// Read the local outbound IPv4 TTL configured on a TCP stream.
 ///
-/// `getsockopt(IP_TTL)` does not expose the TTL of a received packet. Ingress
-/// TTL requires ancillary metadata from `recvmsg` with `IP_RECVTTL` enabled.
-/// Returns `None` on non-Linux platforms or if the socket option is unavailable.
+/// Linux may return an IPv4 value for an IPv6 socket. Use the IPv4 option
+/// only on an IPv4 connection. Linux does not supply received TTL as
+/// `IP_RECVTTL` ancillary data for TCP sockets.
+/// Returns `None` when the option is unavailable or inapplicable.
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn get_local_socket_ttl(stream: &std::net::TcpStream) -> Option<u8> {
     use std::os::unix::io::AsRawFd;
+    if !stream.peer_addr().ok()?.is_ipv4() {
+        return None;
+    }
     let fd = stream.as_raw_fd();
     let mut ttl: libc::c_int = 0;
     let mut len: libc::socklen_t = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
@@ -34,4 +38,32 @@ pub fn get_local_socket_ttl(stream: &std::net::TcpStream) -> Option<u8> {
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn get_local_socket_ttl(_stream: &std::net::TcpStream) -> Option<u8> {
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
+
+    #[test]
+    fn pure_ipv6_connection_has_no_ipv4_ttl() {
+        let listener = TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).unwrap();
+        let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (_peer, _) = listener.accept().unwrap();
+        assert_eq!(get_local_socket_ttl(&stream), None);
+    }
+
+    #[test]
+    fn ipv4_socket_ttl_uses_the_local_value() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let stream = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (peer, _) = listener.accept().unwrap();
+        stream.set_ttl(33).unwrap();
+        peer.set_ttl(77).unwrap();
+        if cfg!(any(target_os = "linux", target_os = "android")) {
+            assert_eq!(get_local_socket_ttl(&stream), Some(33));
+        } else {
+            assert_eq!(get_local_socket_ttl(&stream), None);
+        }
+    }
 }

@@ -91,7 +91,7 @@ pub(super) fn build_https_probe_details(
     push_ech_observation_details(&mut details, tls_ech);
     push_selected_endpoint_details(&mut details, &selected);
     push_ech_capability_details(&mut details, observations, outcome, tls_ech_template.template.ech_capable);
-    push_selected_tls_details(&mut details, &selected);
+    push_selected_tls_details(&mut details, &selected, observations.socket_leg);
     append_tls_comparison_details(&mut details, outcome, tls13, tls12, tls_ech);
     details
 }
@@ -164,7 +164,7 @@ fn push_selected_endpoint_details(details: &mut Vec<ProbeDetail>, selected: &Sel
     }
 }
 
-fn push_selected_tls_details(details: &mut Vec<ProbeDetail>, selected: &SelectedTlsFields) {
+fn push_selected_tls_details(details: &mut Vec<ProbeDetail>, selected: &SelectedTlsFields, socket_leg: &str) {
     if let Some(ms) = selected.tcp_connect_ms {
         details.push(ProbeDetail { key: "tcpConnectMs".to_string(), value: ms.to_string() });
     }
@@ -179,6 +179,7 @@ fn push_selected_tls_details(details: &mut Vec<ProbeDetail>, selected: &Selected
     }
     if let Some(ttl) = selected.local_socket_ttl {
         details.push(ProbeDetail { key: "localSocketTtl".to_string(), value: ttl.to_string() });
+        details.push(ProbeDetail { key: "localSocketTtlLeg".to_string(), value: socket_leg.to_string() });
     }
     if let Some(ja3) = selected.ja3_fingerprint.clone() {
         details.push(ProbeDetail { key: "ja3Fingerprint".to_string(), value: ja3 });
@@ -207,9 +208,10 @@ mod tests {
         };
         let mut details = Vec::new();
 
-        push_selected_tls_details(&mut details, &selected);
+        push_selected_tls_details(&mut details, &selected, "client_to_proxy");
 
         assert!(details.iter().any(|detail| detail.key == "localSocketTtl" && detail.value == "64"));
+        assert!(details.iter().any(|detail| detail.key == "localSocketTtlLeg" && detail.value == "client_to_proxy"));
         assert!(!details.iter().any(|detail| detail.key == "observedServerTtl"));
         assert!(!details.iter().any(|detail| detail.key == "estimatedHopCount"));
     }

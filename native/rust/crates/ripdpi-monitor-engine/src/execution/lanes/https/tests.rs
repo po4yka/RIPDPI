@@ -15,6 +15,7 @@ fn https_probe_details_export_typed_failure_stage_and_duration() {
         tls_ech: tls_observation("tls_handshake_failed", None),
         latency_ms: 17,
         https_port: 443,
+        socket_leg: "direct",
     };
     let candidate =
         crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
@@ -44,6 +45,7 @@ fn https_report_keeps_alert_facts_from_the_failed_attempt() {
         tls_ech: tls_observation("tls_handshake_failed", None),
         latency_ms: 17,
         https_port: 443,
+        socket_leg: "direct",
     };
     let candidate =
         crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
