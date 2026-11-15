@@ -78,6 +78,13 @@ internal fun DiagnosticsScanWorkflowCard(
                 color = colors.foreground,
             )
         }
+        if (profile.source == "bundled" && profile.id == "ru-throttling") {
+            Text(
+                text = stringResource(R.string.diagnostics_profile_desc_throttling),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
         WorkflowBadgeRow(presentation.badges)
         scan.selectedProfileScopeLabel?.let { label ->
             Text(

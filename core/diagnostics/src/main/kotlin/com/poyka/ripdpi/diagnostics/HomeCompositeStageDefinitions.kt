@@ -107,7 +107,7 @@ internal val HomeCompositeStageSpecs =
         ),
         HomeCompositeStageSpec(
             key = "ru_throttling",
-            label = "Throttling check",
+            label = "Neutral download speed",
             profileId = "ru-throttling",
             pathMode = ScanPathMode.RAW_PATH,
         ),

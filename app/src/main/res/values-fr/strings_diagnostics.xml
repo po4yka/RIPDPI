@@ -457,7 +457,7 @@
     <string name="diagnostics_profile_badge_raw_only">Réseau direct uniquement</string>
     <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
     <string name="diagnostics_profile_connectivity_running_body">Diagnostic valide actuellement le chemin sélectionné. Les derniers résultats de la sonde et le résumé de session seront mis à jour à la fin de l\'exécution.</string>
-    <string name="diagnostics_profile_desc_throttling">Fenêtres de débit manuelles par rapport à des points de terminaison de contrôle neutres.</string>
+    <string name="diagnostics_profile_desc_throttling">Mesure le débit de téléchargement HTTPS sur des serveurs neutres. La comparaison des fournisseurs est indisponible.</string>
     <string name="diagnostics_remediation_browser_relay_step_choose_preset">Choisissez un préréglage de camouflage navigateur tel que NaiveProxy ou ShadowTLS, puis relancez le diagnostic.</string>
     <string name="diagnostics_remediation_command_line_step_disable_setting">Désactivez l\'option Utiliser les paramètres de ligne de commande.</string>
     <string name="diagnostics_remediation_dns_step_retry">Réessayez le flux de travail si l\'accès est toujours bloqué.</string>
@@ -1130,7 +1130,6 @@
     <string name="diagnostics_stages_lane_handshake">Négociation</string>
     <string name="diagnostics_stages_lane_tcp">Test TCP</string>
     <string name="diagnostics_guided_tool_matrix_summary">Compare les sites nationaux et étrangers qui s’ouvrent sur ce réseau.</string>
-    <string name="diagnostics_guided_tool_throttling_summary">Compare la vitesse de téléchargement de YouTube à celle de serveurs neutres pour repérer un bridage.</string>
     <string name="blockcheck_purpose">Vérifie les domaines ci-dessous avec chaque stratégie de contournement, montre ce qui les bloque et classe les stratégies.</string>
     <string name="blockcheck_diagnosis_title_sites">Pourquoi des sites sont bloqués</string>
     <string name="detection_settings_meduza_cohort_disabled_format">Inclure l’ensemble de cibles Meduza. Activez « %1$s » pour le modifier.</string>
@@ -1572,6 +1571,7 @@
         <item quantity="other">%1$s : %2$d compatibles</item>
     </plurals>
     <string name="diagnostics_transfer_title">Progression et point d’arrêt</string>
+    <string name="diagnostics_transfer_comparison_unavailable">Comparaison des fournisseurs indisponible</string>
     <string name="diagnostics_transfer_observation">Ces observations décrivent le transfert. Elles ne prouvent pas une restriction du fournisseur.</string>
     <string name="diagnostics_transfer_scope_unverified">Le réseau n’est pas vérifié. Ne rattachez pas ce résultat à une seule connexion.</string>
     <string name="diagnostics_transfer_run">Essai %1$d sur %2$d</string>
@@ -1702,7 +1702,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">Connectivité web en Russie</string>
     <string name="diagnostics_profile_ru_messaging_title">Services de messagerie en Russie</string>
     <string name="diagnostics_profile_ru_circumvention_title">Accessibilité des services sensibles en Russie</string>
-    <string name="diagnostics_profile_ru_throttling_title">Vérification de la limitation de débit en Russie</string>
+    <string name="diagnostics_profile_ru_throttling_title">Débit de téléchargement sur des serveurs neutres</string>
     <string name="diagnostics_profile_path_comparison_title">Chemin VPN et chemin direct</string>
     <string name="diagnostics_profile_ru_dpi_full_title">Vérification DPI complète en Russie</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">Test des stratégies DPI en Russie</string>

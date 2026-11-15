@@ -78,6 +78,28 @@ class DiagnosticsTransferUiTest {
         )
     }
 
+    @Test
+    fun `neutral controls without an eligible comparison show the limit`() {
+        val neutral =
+            probe(
+                ProbeDetail(
+                    "transferEvidence",
+                    Json.encodeToString(TransferEvidence(runs = listOf(measurement("early_eof")))),
+                ),
+                ProbeDetail("isControl", "true"),
+            )
+        val testEndpoint =
+            ProbeResult("throughput_window", "test", "throughput_measured", listOf(ProbeDetail("isControl", "false")))
+
+        assertTrue(requireNotNull(neutral.toTransferUiModel(listOf(neutral))).comparisonUnavailable)
+        assertTrue(
+            requireNotNull(
+                neutral.toTransferUiModel(listOf(testEndpoint.copy(outcome = "throughput_inconclusive"))),
+            ).comparisonUnavailable,
+        )
+        assertFalse(requireNotNull(neutral.toTransferUiModel(listOf(testEndpoint))).comparisonUnavailable)
+    }
+
     private fun probe(vararg details: ProbeDetail) =
         ProbeResult("throughput", "example.org", "measured", details.toList())
 

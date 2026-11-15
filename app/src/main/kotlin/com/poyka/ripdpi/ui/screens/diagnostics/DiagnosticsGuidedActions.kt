@@ -59,7 +59,7 @@ internal fun DiagnosticsExpertToggle(
 private val guidedToolSummaries =
     mapOf(
         "selective-availability-matrix" to R.string.diagnostics_guided_tool_matrix_summary,
-        "ru-throttling" to R.string.diagnostics_guided_tool_throttling_summary,
+        "ru-throttling" to R.string.diagnostics_profile_desc_throttling,
     )
 
 @Composable

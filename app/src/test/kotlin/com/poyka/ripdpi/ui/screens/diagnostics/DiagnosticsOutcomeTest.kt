@@ -103,7 +103,7 @@ class DiagnosticsOutcomeTest {
         composeRule.onAllNodesWithText("Technical details").assertCountEquals(1)
         composeRule.onAllNodesWithText("Default").assertCountEquals(0)
         composeRule
-            .onNodeWithText("Compares YouTube download speed with neutral servers to spot throttling.")
+            .onNodeWithText("Measures HTTPS download speed from neutral servers. Provider comparison is unavailable.")
             .assertIsDisplayed()
         composeRule.onNodeWithText("Throttling tool").performClick()
         composeRule.runOnIdle {

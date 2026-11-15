@@ -46,6 +46,9 @@ internal fun DiagnosticsTransferCard(
         )
         TransferText(transfer.target)
         TransferText(stringResource(R.string.diagnostics_transfer_observation))
+        if (transfer.comparisonUnavailable) {
+            TransferText(stringResource(R.string.diagnostics_transfer_comparison_unavailable))
+        }
         if (transfer.networkScopeUnverified) {
             TransferText(stringResource(R.string.diagnostics_transfer_scope_unverified))
         }

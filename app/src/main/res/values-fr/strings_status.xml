@@ -485,7 +485,7 @@
     <string name="status_generated_direct_no_fallback">Aucune solution directe : l’application ne s’est pas repliée depuis QUIC</string>
     <string name="status_generated_direct_none">Aucune solution directe pour cette cible</string>
     <string name="status_generated_stage_default">Diagnostic par défaut</string>
-    <string name="status_generated_stage_throttling">Vérification de la limitation de débit</string>
+    <string name="status_generated_stage_throttling">Débit de téléchargement sur des serveurs neutres</string>
     <string name="status_generated_stage_sensitive">Accessibilité des services sensibles</string>
     <string name="status_generated_stage_dpi_full">Détecteur DPI complet</string>
     <string name="status_generated_stage_path">Comparaison des chemins proxy et direct</string>

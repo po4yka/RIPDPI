@@ -147,7 +147,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">क्षेत्र-केंद्रित वेब कनेक्टिविटी, DNS, TLS, और HTTP प्रमाण.</string>
     <string name="diagnostics_profile_desc_messaging">मैसेजिंग बूटस्ट्रैप, मीडिया, और प्रोटोकॉल पहुँच जाँच.</string>
     <string name="diagnostics_profile_desc_adaptation">Tor और VPN बूटस्ट्रैप के साथ हैंडशेक पहुँच.</string>
-    <string name="diagnostics_profile_desc_throttling">तटस्थ नियंत्रण एंडपॉइंट के विरुद्ध मैन्युअल थ्रूपुट विंडो.</string>
+    <string name="diagnostics_profile_desc_throttling">तटस्थ सर्वरों से HTTPS डाउनलोड की गति मापता है। सेवा प्रदाताओं की तुलना उपलब्ध नहीं है।</string>
     <string name="diagnostics_profile_desc_network_full">कई सेवाओं और प्रोटोकॉल में डीप पैकेट इंस्पेक्शन का पता लगाना.</string>
     <string name="diagnostics_family_general">सामान्य</string>
     <string name="diagnostics_family_web_connectivity">वेब कनेक्टिविटी</string>
@@ -1136,7 +1136,6 @@
     <string name="diagnostics_stages_lane_handshake">हैंडशेक</string>
     <string name="diagnostics_stages_lane_tcp">TCP जाँच</string>
     <string name="diagnostics_guided_tool_matrix_summary">तुलना करता है कि इस नेटवर्क पर कौन-सी देसी और विदेशी साइटें खुलती हैं।</string>
-    <string name="diagnostics_guided_tool_throttling_summary">थ्रॉटलिंग पहचानने के लिए YouTube की डाउनलोड गति की तुलना तटस्थ सर्वरों से करता है।</string>
     <string name="blockcheck_purpose">नीचे दिए डोमेन को हर बायपास रणनीति से जाँचता है, दिखाता है कि उन्हें क्या रोकता है, और रणनीतियों को रैंक करता है।</string>
     <string name="blockcheck_diagnosis_title_sites">साइटें क्यों अवरुद्ध हैं</string>
     <string name="detection_settings_meduza_cohort_disabled_format">Meduza टारगेट सेट शामिल करें। इसे बदलने के लिए “%1$s” चालू करें।</string>
@@ -1576,6 +1575,7 @@
         <item quantity="other">%1$s: %2$d संगत</item>
     </plurals>
     <string name="diagnostics_transfer_title">स्थानांतरण की प्रगति और रुकने का बिंदु</string>
+    <string name="diagnostics_transfer_comparison_unavailable">सेवा प्रदाताओं की तुलना उपलब्ध नहीं है</string>
     <string name="diagnostics_transfer_observation">ये स्थानांतरण के अवलोकन हैं। ये प्रदाता द्वारा प्रतिबंध को सिद्ध नहीं करते।</string>
     <string name="diagnostics_transfer_scope_unverified">नेटवर्क की पहचान सत्यापित नहीं है। इस परिणाम को किसी एक कनेक्शन से न जोड़ें।</string>
     <string name="diagnostics_transfer_run">प्रयास %1$d / %2$d</string>
@@ -1706,7 +1706,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">रूस में वेब कनेक्टिविटी</string>
     <string name="diagnostics_profile_ru_messaging_title">रूस में मैसेजिंग सेवाएँ</string>
     <string name="diagnostics_profile_ru_circumvention_title">रूस में संवेदनशील सेवाओं की पहुँच</string>
-    <string name="diagnostics_profile_ru_throttling_title">रूस में गति सीमित करने की जाँच</string>
+    <string name="diagnostics_profile_ru_throttling_title">तटस्थ सर्वरों से डाउनलोड की गति</string>
     <string name="diagnostics_profile_path_comparison_title">VPN और सीधे पथ की तुलना</string>
     <string name="diagnostics_profile_ru_dpi_full_title">रूस में पूर्ण DPI जाँच</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">रूस में DPI रणनीति जाँच</string>

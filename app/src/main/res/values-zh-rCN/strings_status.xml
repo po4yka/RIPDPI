@@ -473,7 +473,7 @@
     <string name="status_generated_direct_no_fallback">没有直连方案：应用未从 QUIC 回退</string>
     <string name="status_generated_direct_none">此目标没有直连方案</string>
     <string name="status_generated_stage_default">默认诊断</string>
-    <string name="status_generated_stage_throttling">限速检查</string>
+    <string name="status_generated_stage_throttling">中立服务器下载速度</string>
     <string name="status_generated_stage_sensitive">敏感服务可达性</string>
     <string name="status_generated_stage_dpi_full">完整 DPI 检测</string>
     <string name="status_generated_stage_path">代理与直连路径对比</string>

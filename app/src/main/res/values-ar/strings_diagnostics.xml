@@ -147,7 +147,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">اتصال الويب المُركَّز على المنطقة وأدلة DNS و TLS و HTTP.</string>
     <string name="diagnostics_profile_desc_messaging">فحوصات إقلاع المراسلة والوسائط وإمكانية الوصول للبروتوكول.</string>
     <string name="diagnostics_profile_desc_adaptation">إقلاع Tor و VPN بالإضافة إلى إمكانية الوصول للمصافحة.</string>
-    <string name="diagnostics_profile_desc_throttling">فترات قياس يدوية لمعدل النقل باستخدام نقاط نهاية مرجعية محايدة.</string>
+    <string name="diagnostics_profile_desc_throttling">يقيس سرعة التنزيل عبر HTTPS من خوادم محايدة. مقارنة مزوّدي الخدمة غير متاحة.</string>
     <string name="diagnostics_profile_desc_network_full">كشف الفحص العميق للحزم عبر خدمات وبروتوكولات متعددة.</string>
     <string name="diagnostics_family_general">عام</string>
     <string name="diagnostics_family_web_connectivity">اتصال الويب</string>
@@ -1240,7 +1240,6 @@
     <string name="diagnostics_stages_lane_handshake">مصافحة</string>
     <string name="diagnostics_stages_lane_tcp">فحص TCP</string>
     <string name="diagnostics_guided_tool_matrix_summary">يقارن بين المواقع المحلية والأجنبية التي تفتح على هذه الشبكة.</string>
-    <string name="diagnostics_guided_tool_throttling_summary">يقارن سرعة التنزيل من YouTube بخوادم محايدة لاكتشاف إبطاء الاتصال.</string>
     <string name="blockcheck_purpose">يفحص النطاقات أدناه بكل استراتيجية تجاوز، ويبيّن ما يحجبها، ويرتّب الاستراتيجيات.</string>
     <string name="blockcheck_diagnosis_title_sites">لماذا المواقع محجوبة</string>
     <string name="detection_settings_meduza_cohort_disabled_format">تضمين مجموعة أهداف Meduza. شغّل «%1$s» لتغيير هذا.</string>
@@ -1688,6 +1687,7 @@
         <item quantity="other">%1$s: %2$d متوافقة</item>
     </plurals>
     <string name="diagnostics_transfer_title">تقدم النقل ونقطة التوقف</string>
+    <string name="diagnostics_transfer_comparison_unavailable">مقارنة مزوّدي الخدمة غير متاحة</string>
     <string name="diagnostics_transfer_observation">هذه ملاحظات عن النقل. لا تثبت وجود تقييد من مزود الخدمة.</string>
     <string name="diagnostics_transfer_scope_unverified">لم يتم التحقق من الشبكة. لا تنسب هذه النتيجة إلى اتصال واحد.</string>
     <string name="diagnostics_transfer_run">المحاولة %1$d من %2$d</string>
@@ -1818,7 +1818,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">اتصال الويب في روسيا</string>
     <string name="diagnostics_profile_ru_messaging_title">خدمات المراسلة في روسيا</string>
     <string name="diagnostics_profile_ru_circumvention_title">إمكانية الوصول إلى الخدمات الحساسة في روسيا</string>
-    <string name="diagnostics_profile_ru_throttling_title">فحص تقييد السرعة في روسيا</string>
+    <string name="diagnostics_profile_ru_throttling_title">سرعة التنزيل من خوادم محايدة</string>
     <string name="diagnostics_profile_path_comparison_title">مقارنة مسار VPN بالمسار المباشر</string>
     <string name="diagnostics_profile_ru_dpi_full_title">فحص DPI شامل لروسيا</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">اختبار استراتيجية DPI في روسيا</string>

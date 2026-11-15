@@ -512,7 +512,7 @@
     <string name="status_generated_direct_no_fallback">لا حل مباشر: لم ينتقل التطبيق من QUIC إلى مسار بديل</string>
     <string name="status_generated_direct_none">لا حل مباشر لهذا الهدف</string>
     <string name="status_generated_stage_default">التشخيص الافتراضي</string>
-    <string name="status_generated_stage_throttling">فحص تقييد السرعة</string>
+    <string name="status_generated_stage_throttling">سرعة التنزيل من خوادم محايدة</string>
     <string name="status_generated_stage_sensitive">إمكانية الوصول إلى الخدمات الحساسة</string>
     <string name="status_generated_stage_dpi_full">كاشف DPI الكامل</string>
     <string name="status_generated_stage_path">مقارنة مسار الوكيل بالمسار المباشر</string>

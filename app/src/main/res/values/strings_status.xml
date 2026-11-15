@@ -486,7 +486,7 @@
     <string name="status_generated_direct_no_fallback">No direct solution: app did not fall back from QUIC</string>
     <string name="status_generated_direct_none">No direct solution for this authority</string>
     <string name="status_generated_stage_default">Default diagnostics</string>
-    <string name="status_generated_stage_throttling">Throttling check</string>
+    <string name="status_generated_stage_throttling">Neutral download speed</string>
     <string name="status_generated_stage_sensitive">Sensitive services reachability</string>
     <string name="status_generated_stage_dpi_full">DPI detector full</string>
     <string name="status_generated_stage_path">Proxy vs direct path</string>

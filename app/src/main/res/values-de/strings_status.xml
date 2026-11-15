@@ -481,7 +481,7 @@
     <string name="status_generated_direct_no_fallback">Keine direkte Lösung: App wechselte nicht von QUIC zum Ersatzpfad</string>
     <string name="status_generated_direct_none">Keine direkte Lösung für dieses Ziel</string>
     <string name="status_generated_stage_default">Standarddiagnose</string>
-    <string name="status_generated_stage_throttling">Prüfung auf Geschwindigkeitsdrosselung</string>
+    <string name="status_generated_stage_throttling">Downloadgeschwindigkeit bei neutralen Servern</string>
     <string name="status_generated_stage_sensitive">Erreichbarkeit sensibler Dienste</string>
     <string name="status_generated_stage_dpi_full">Vollständiger DPI-Detektor</string>
     <string name="status_generated_stage_path">Proxy- und Direktpfad im Vergleich</string>

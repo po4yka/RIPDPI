@@ -1655,7 +1655,6 @@ app:diagnostics_field_winning_tcp_family
 app:diagnostics_guided_recheck
 app:diagnostics_guided_review_recommendation
 app:diagnostics_guided_tool_matrix_summary
-app:diagnostics_guided_tool_throttling_summary
 app:diagnostics_guided_verify_body
 app:diagnostics_guided_verify_confirm
 app:diagnostics_guided_verify_title
@@ -2652,6 +2651,7 @@ app:diagnostics_tool_zstd_codec_label
 app:diagnostics_tools_section
 app:diagnostics_transfer_bytes_known
 app:diagnostics_transfer_bytes_unknown
+app:diagnostics_transfer_comparison_unavailable
 app:diagnostics_transfer_complete
 app:diagnostics_transfer_elapsed
 app:diagnostics_transfer_first

@@ -314,7 +314,7 @@ internal fun DiagnosticsUiCoreSupport.toProbeResultUiModel(
                         )
                 }.map { DiagnosticsFieldUiModel(it.key, it.value) }
                 .toImmutableList(),
-        transferEvidence = result.toTransferUiModel(),
+        transferEvidence = result.toTransferUiModel(reportResults),
         connectionStages = result.toConnectionStageScale()?.toConnectionStageUiModel(networkScopeUnverified),
         dnsResponses = result.toDnsResponseGroups(strings).toImmutableList(),
         ipFamily = result.toIpFamilyGroup(strings, networkScopeUnverified),

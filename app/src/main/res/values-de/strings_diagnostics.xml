@@ -457,7 +457,7 @@
     <string name="diagnostics_profile_badge_raw_only">Nur direktes Netzwerk</string>
     <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
     <string name="diagnostics_profile_connectivity_running_body">Die Diagnose validiert gerade den gewählten Pfad. Die neuesten Probe-Ergebnisse und die Sitzungszusammenfassung werden nach Abschluss des Laufs aktualisiert.</string>
-    <string name="diagnostics_profile_desc_throttling">Manuelle Durchsatzfenster gegen neutrale Kontroll-Endpunkte.</string>
+    <string name="diagnostics_profile_desc_throttling">Misst die HTTPS-Downloadgeschwindigkeit bei neutralen Servern. Ein Anbietervergleich ist nicht verfügbar.</string>
     <string name="diagnostics_remediation_browser_relay_step_choose_preset">Wählen Sie ein Browser-Camouflage-Preset wie NaiveProxy oder ShadowTLS und führen Sie die Diagnose erneut aus.</string>
     <string name="diagnostics_remediation_command_line_step_disable_setting">Deaktivieren Sie „Befehlszeileneinstellungen verwenden“.</string>
     <string name="diagnostics_remediation_dns_step_retry">Wiederholen Sie den Workflow, falls der Zugriff weiterhin blockiert ist.</string>
@@ -1129,7 +1129,6 @@
     <string name="diagnostics_stages_lane_handshake">Handshake</string>
     <string name="diagnostics_stages_lane_tcp">TCP-Prüfung</string>
     <string name="diagnostics_guided_tool_matrix_summary">Vergleicht, welche inländischen und ausländischen Websites in diesem Netz laden.</string>
-    <string name="diagnostics_guided_tool_throttling_summary">Vergleicht die Downloadgeschwindigkeit von YouTube mit neutralen Servern, um Drosselung zu erkennen.</string>
     <string name="blockcheck_purpose">Prüft die Domains unten mit jeder Bypass-Strategie, zeigt, was sie blockiert, und ordnet die Strategien.</string>
     <string name="blockcheck_diagnosis_title_sites">Warum Sites blockiert sind</string>
     <string name="detection_settings_meduza_cohort_disabled_format">Den Meduza-Zielsatz einbeziehen. Schalten Sie „%1$s“ ein, um dies zu ändern.</string>
@@ -1569,6 +1568,7 @@
         <item quantity="other">%1$s: %2$d kompatibel</item>
     </plurals>
     <string name="diagnostics_transfer_title">Übertragungsverlauf und Stopppunkt</string>
+    <string name="diagnostics_transfer_comparison_unavailable">Anbietervergleich nicht verfügbar</string>
     <string name="diagnostics_transfer_observation">Dies sind Beobachtungen der Übertragung. Sie belegen keine Anbietersperre.</string>
     <string name="diagnostics_transfer_scope_unverified">Die Netzwerkzuordnung ist unbestätigt. Das Ergebnis lässt sich keiner einzelnen Verbindung zuordnen.</string>
     <string name="diagnostics_transfer_run">Versuch %1$d von %2$d</string>
@@ -1699,7 +1699,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">Webkonnektivität in Russland</string>
     <string name="diagnostics_profile_ru_messaging_title">Nachrichtendienste in Russland</string>
     <string name="diagnostics_profile_ru_circumvention_title">Erreichbarkeit sensibler Dienste in Russland</string>
-    <string name="diagnostics_profile_ru_throttling_title">Prüfung auf Drosselung in Russland</string>
+    <string name="diagnostics_profile_ru_throttling_title">Downloadgeschwindigkeit bei neutralen Servern</string>
     <string name="diagnostics_profile_path_comparison_title">VPN-Pfad und direkter Pfad</string>
     <string name="diagnostics_profile_ru_dpi_full_title">Vollständige DPI-Prüfung in Russland</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">DPI-Strategietest in Russland</string>

@@ -481,7 +481,7 @@
     <string name="status_generated_direct_no_fallback">راهکار مستقیمی وجود ندارد: برنامه از QUIC به مسیر جایگزین نرفت</string>
     <string name="status_generated_direct_none">برای این مقصد راهکار مستقیمی وجود ندارد</string>
     <string name="status_generated_stage_default">عیب‌یابی پیش‌فرض</string>
-    <string name="status_generated_stage_throttling">بررسی محدودسازی سرعت</string>
+    <string name="status_generated_stage_throttling">سرعت دانلود از سرورهای بی‌طرف</string>
     <string name="status_generated_stage_sensitive">دسترسی‌پذیری سرویس‌های حساس</string>
     <string name="status_generated_stage_dpi_full">شناسایی کامل DPI</string>
     <string name="status_generated_stage_path">مقایسهٔ مسیر پراکسی و مستقیم</string>

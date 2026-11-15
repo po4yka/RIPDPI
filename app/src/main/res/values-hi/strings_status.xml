@@ -482,7 +482,7 @@
     <string name="status_generated_direct_no_fallback">कोई सीधा समाधान नहीं: ऐप ने QUIC से वैकल्पिक मार्ग नहीं अपनाया</string>
     <string name="status_generated_direct_none">इस लक्ष्य के लिए कोई सीधा समाधान नहीं</string>
     <string name="status_generated_stage_default">डिफ़ॉल्ट निदान</string>
-    <string name="status_generated_stage_throttling">गति सीमित होने की जाँच</string>
+    <string name="status_generated_stage_throttling">तटस्थ सर्वरों से डाउनलोड की गति</string>
     <string name="status_generated_stage_sensitive">संवेदनशील सेवाओं की पहुँच</string>
     <string name="status_generated_stage_dpi_full">पूर्ण DPI डिटेक्टर</string>
     <string name="status_generated_stage_path">प्रॉक्सी और सीधे मार्ग की तुलना</string>

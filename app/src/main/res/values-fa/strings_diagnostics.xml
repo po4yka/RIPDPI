@@ -147,7 +147,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">شواهد اتصال وب، DNS، TLS و HTTP متمرکز بر منطقه.</string>
     <string name="diagnostics_profile_desc_messaging">راه‌اندازی پیام‌رسانی، رسانه و بررسی‌های دسترسی به پروتکل.</string>
     <string name="diagnostics_profile_desc_adaptation">راه‌اندازی Tor و VPN به‌علاوهٔ دسترسی دست‌دهی.</string>
-    <string name="diagnostics_profile_desc_throttling">پنجره‌های توان عملیاتی دستی در برابر نقاط پایانی کنترلی خنثی.</string>
+    <string name="diagnostics_profile_desc_throttling">سرعت دانلود با HTTPS از سرورهای بی‌طرف را اندازه می‌گیرد. مقایسهٔ ارائه‌دهندگان در دسترس نیست.</string>
     <string name="diagnostics_profile_desc_network_full">شناسایی بازرسی عمیق بسته در چندین سرویس و پروتکل.</string>
     <string name="diagnostics_family_general">عمومی</string>
     <string name="diagnostics_family_web_connectivity">اتصال وب</string>
@@ -1129,7 +1129,6 @@
     <string name="diagnostics_stages_lane_handshake">دست‌دهی</string>
     <string name="diagnostics_stages_lane_tcp">آزمون TCP</string>
     <string name="diagnostics_guided_tool_matrix_summary">مقایسه می‌کند کدام سایت‌های داخلی و خارجی در این شبکه باز می‌شوند.</string>
-    <string name="diagnostics_guided_tool_throttling_summary">سرعت دانلود از YouTube را با سرورهای بی‌طرف مقایسه می‌کند تا کندسازی را پیدا کند.</string>
     <string name="blockcheck_purpose">دامنه‌های زیر را با هر راهبرد دورزدن بررسی می‌کند، نشان می‌دهد چه چیزی آن‌ها را مسدود می‌کند و راهبردها را رتبه‌بندی می‌کند.</string>
     <string name="blockcheck_diagnosis_title_sites">چرا سایت‌ها مسدود هستند</string>
     <string name="detection_settings_meduza_cohort_disabled_format">مجموعهٔ هدف Meduza را بگنجانید. برای تغییر، «%1$s» را روشن کنید.</string>
@@ -1569,6 +1568,7 @@
         <item quantity="other">%1$s: %2$d سازگار</item>
     </plurals>
     <string name="diagnostics_transfer_title">پیشرفت انتقال و نقطه توقف</string>
+    <string name="diagnostics_transfer_comparison_unavailable">مقایسهٔ ارائه‌دهندگان در دسترس نیست</string>
     <string name="diagnostics_transfer_observation">این‌ها مشاهدات انتقال هستند و محدودیت ارائه‌دهنده را ثابت نمی‌کنند.</string>
     <string name="diagnostics_transfer_scope_unverified">شبکه تأیید نشده است. این نتیجه را به یک اتصال مشخص نسبت ندهید.</string>
     <string name="diagnostics_transfer_run">تلاش %1$d از %2$d</string>
@@ -1699,7 +1699,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">اتصال وب در روسیه</string>
     <string name="diagnostics_profile_ru_messaging_title">سرویس‌های پیام‌رسانی در روسیه</string>
     <string name="diagnostics_profile_ru_circumvention_title">دسترسی‌پذیری سرویس‌های حساس در روسیه</string>
-    <string name="diagnostics_profile_ru_throttling_title">بررسی محدودسازی سرعت در روسیه</string>
+    <string name="diagnostics_profile_ru_throttling_title">سرعت دانلود از سرورهای بی‌طرف</string>
     <string name="diagnostics_profile_path_comparison_title">مقایسه مسیر VPN با مسیر مستقیم</string>
     <string name="diagnostics_profile_ru_dpi_full_title">بررسی جامع DPI در روسیه</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">آزمون راهبرد DPI در روسیه</string>

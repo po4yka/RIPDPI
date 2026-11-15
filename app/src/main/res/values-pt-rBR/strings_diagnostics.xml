@@ -147,7 +147,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">Evidências regionais de conectividade web, DNS, TLS e HTTP.</string>
     <string name="diagnostics_profile_desc_messaging">Verificações de alcance de bootstrap de mensageria, mídia e protocolos.</string>
     <string name="diagnostics_profile_desc_adaptation">Bootstrap de Tor e VPN, além de alcance de handshake.</string>
-    <string name="diagnostics_profile_desc_throttling">Janelas manuais de taxa de transferência contra endpoints neutros de controle.</string>
+    <string name="diagnostics_profile_desc_throttling">Mede a velocidade de download por HTTPS de servidores neutros. A comparação entre provedores não está disponível.</string>
     <string name="diagnostics_profile_desc_network_full">Detecção de inspeção profunda de pacotes (DPI) em vários serviços e protocolos.</string>
     <string name="diagnostics_family_general">Geral</string>
     <string name="diagnostics_family_web_connectivity">Conectividade web</string>
@@ -1128,7 +1128,6 @@
     <string name="diagnostics_stages_lane_handshake">Negociação</string>
     <string name="diagnostics_stages_lane_tcp">Teste TCP</string>
     <string name="diagnostics_guided_tool_matrix_summary">Compara quais sites nacionais e estrangeiros abrem nesta rede.</string>
-    <string name="diagnostics_guided_tool_throttling_summary">Compara a velocidade de download do YouTube com servidores neutros para detectar limitação.</string>
     <string name="blockcheck_purpose">Verifica os domínios abaixo com cada estratégia de contorno, mostra o que os bloqueia e classifica as estratégias.</string>
     <string name="blockcheck_diagnosis_title_sites">Por que os sites estão bloqueados</string>
     <string name="detection_settings_meduza_cohort_disabled_format">Incluir o conjunto de alvos Meduza. Ative “%1$s” para alterar isto.</string>
@@ -1570,6 +1569,7 @@
         <item quantity="other">%1$s: %2$d compatíveis</item>
     </plurals>
     <string name="diagnostics_transfer_title">Progresso e ponto de parada</string>
+    <string name="diagnostics_transfer_comparison_unavailable">Comparação entre provedores indisponível</string>
     <string name="diagnostics_transfer_observation">Estas são observações da transferência. Não comprovam restrição do provedor.</string>
     <string name="diagnostics_transfer_scope_unverified">A rede não foi verificada. Não atribua este resultado a uma única conexão.</string>
     <string name="diagnostics_transfer_run">Tentativa %1$d de %2$d</string>
@@ -1700,7 +1700,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">Conectividade web na Rússia</string>
     <string name="diagnostics_profile_ru_messaging_title">Serviços de mensagens na Rússia</string>
     <string name="diagnostics_profile_ru_circumvention_title">Acessibilidade de serviços sensíveis na Rússia</string>
-    <string name="diagnostics_profile_ru_throttling_title">Verificação de limitação de velocidade na Rússia</string>
+    <string name="diagnostics_profile_ru_throttling_title">Velocidade de download de servidores neutros</string>
     <string name="diagnostics_profile_path_comparison_title">Caminho VPN e caminho direto</string>
     <string name="diagnostics_profile_ru_dpi_full_title">Verificação completa de DPI na Rússia</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">Teste de estratégias DPI na Rússia</string>

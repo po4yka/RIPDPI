@@ -149,7 +149,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">Region-focused web connectivity, DNS, TLS, and HTTP evidence.</string>
     <string name="diagnostics_profile_desc_messaging">Messaging bootstrap, media, and protocol reachability checks.</string>
     <string name="diagnostics_profile_desc_adaptation">Tor and VPN bootstrap plus handshake reachability.</string>
-    <string name="diagnostics_profile_desc_throttling">Manual throughput windows against neutral control endpoints.</string>
+    <string name="diagnostics_profile_desc_throttling">Measures HTTPS download speed from neutral servers. Provider comparison is unavailable.</string>
     <string name="diagnostics_profile_desc_network_full">Deep packet inspection detection across multiple services and protocols.</string>
     <string name="diagnostics_family_general">General</string>
     <string name="diagnostics_family_web_connectivity">Web connectivity</string>
@@ -1156,7 +1156,6 @@
     <string name="diagnostics_stages_lane_handshake">Handshake</string>
     <string name="diagnostics_stages_lane_tcp">TCP check</string>
     <string name="diagnostics_guided_tool_matrix_summary">Compares which domestic and foreign sites open on this network.</string>
-    <string name="diagnostics_guided_tool_throttling_summary">Compares YouTube download speed with neutral servers to spot throttling.</string>
     <string name="blockcheck_purpose">Checks the domains below with each bypass strategy, shows what blocks them and ranks the strategies.</string>
     <string name="blockcheck_diagnosis_title_sites">Why sites are blocked</string>
     <string name="detection_settings_meduza_cohort_disabled_format">Include the Meduza target set. Turn on %1$s to change this.</string>
@@ -1596,6 +1595,7 @@
         <item quantity="other">%1$s: %2$d compatible</item>
     </plurals>
     <string name="diagnostics_transfer_title">Transfer progress and stopping point</string>
+    <string name="diagnostics_transfer_comparison_unavailable">Provider comparison unavailable</string>
     <string name="diagnostics_transfer_observation">These are transfer observations. They do not establish a provider restriction.</string>
     <string name="diagnostics_transfer_scope_unverified">Network scope is unverified. Do not attribute this result to one connection.</string>
     <string name="diagnostics_transfer_run">Run %1$d of %2$d</string>
@@ -1726,7 +1726,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">Russia web connectivity</string>
     <string name="diagnostics_profile_ru_messaging_title">Russia messaging services</string>
     <string name="diagnostics_profile_ru_circumvention_title">Russia sensitive services reachability</string>
-    <string name="diagnostics_profile_ru_throttling_title">Russia throttling check</string>
+    <string name="diagnostics_profile_ru_throttling_title">Neutral download speed</string>
     <string name="diagnostics_profile_path_comparison_title">VPN vs direct path</string>
     <string name="diagnostics_profile_ru_dpi_full_title">Russia DPI Full</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">Russia DPI strategy probe</string>

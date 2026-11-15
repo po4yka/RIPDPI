@@ -485,7 +485,7 @@
     <string name="status_generated_direct_no_fallback">Sin solución directa: la aplicación no cambió de QUIC a una alternativa</string>
     <string name="status_generated_direct_none">Sin solución directa para este destino</string>
     <string name="status_generated_stage_default">Diagnóstico predeterminado</string>
-    <string name="status_generated_stage_throttling">Comprobación de limitación de velocidad</string>
+    <string name="status_generated_stage_throttling">Velocidad de descarga desde servidores neutrales</string>
     <string name="status_generated_stage_sensitive">Accesibilidad de servicios sensibles</string>
     <string name="status_generated_stage_dpi_full">Detector DPI completo</string>
     <string name="status_generated_stage_path">Ruta mediante proxy frente a directa</string>

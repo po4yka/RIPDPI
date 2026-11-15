@@ -16,6 +16,7 @@ data class DiagnosticsTransferUiModel(
     val runs: ImmutableList<DiagnosticsTransferRunUiModel>,
     val networkScopeUnverified: Boolean = false,
     val connectionStages: DiagnosticsConnectionStageUiModel? = null,
+    val comparisonUnavailable: Boolean = false,
 )
 
 @Immutable
@@ -46,12 +47,20 @@ internal fun TransferProgress.toTransferUiModel(): DiagnosticsTransferUiModel =
         connectionStages = toConnectionStageScale().toConnectionStageUiModel(),
     )
 
-internal fun ProbeResult.toTransferUiModel(): DiagnosticsTransferUiModel? =
+internal fun ProbeResult.toTransferUiModel(
+    reportResults: List<ProbeResult> = emptyList(),
+): DiagnosticsTransferUiModel? =
     parseTransferEvidence(details)?.let { evidence ->
         DiagnosticsTransferUiModel(
             target = target,
             runs = evidence.runs.map { it.toTransferRunUiModel() }.toImmutableList(),
             networkScopeUnverified = details.any { it.key == "transferNetworkScope" && it.value == "unverified" },
+            comparisonUnavailable =
+                details.any { it.key == "isControl" && it.value == "true" } &&
+                    reportResults.none { candidate ->
+                        candidate.probeType == "throughput_window" && candidate.outcome == "throughput_measured" &&
+                            candidate.details.any { it.key == "isControl" && it.value == "false" }
+                    },
         )
     }
 

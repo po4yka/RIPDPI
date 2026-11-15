@@ -147,7 +147,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">区域聚焦的网页连接、DNS、TLS 和 HTTP 证据。</string>
     <string name="diagnostics_profile_desc_messaging">消息引导、媒体和协议可达性检查。</string>
     <string name="diagnostics_profile_desc_adaptation">Tor 和 VPN 引导加上握手可达性。</string>
-    <string name="diagnostics_profile_desc_throttling">针对中性对照端点的手动吞吐量测量时段。</string>
+    <string name="diagnostics_profile_desc_throttling">测量从中立服务器进行 HTTPS 下载的速度。无法比较服务提供商。</string>
     <string name="diagnostics_profile_desc_network_full">跨多个服务和协议的深度数据包检测。</string>
     <string name="diagnostics_family_general">通用</string>
     <string name="diagnostics_family_web_connectivity">网页连接</string>
@@ -1101,7 +1101,6 @@
     <string name="diagnostics_stages_lane_handshake">握手</string>
     <string name="diagnostics_stages_lane_tcp">TCP 检查</string>
     <string name="diagnostics_guided_tool_matrix_summary">比较在此网络上可以打开哪些国内和国外网站。</string>
-    <string name="diagnostics_guided_tool_throttling_summary">将 YouTube 的下载速度与中立服务器对比，以发现限速。</string>
     <string name="blockcheck_purpose">用每种绕过策略检查下方域名，显示阻止它们的原因，并对策略排名。</string>
     <string name="blockcheck_diagnosis_title_sites">网站为何被阻止</string>
     <string name="detection_settings_meduza_cohort_disabled_format">包含 Meduza 目标集。开启“%1$s”后才能更改。</string>
@@ -1539,6 +1538,7 @@
         <item quantity="other">%1$s：%2$d 个兼容</item>
     </plurals>
     <string name="diagnostics_transfer_title">传输进度与停止位置</string>
+    <string name="diagnostics_transfer_comparison_unavailable">无法比较服务提供商</string>
     <string name="diagnostics_transfer_observation">这些是传输观测结果，并不能证明运营商实施了限制。</string>
     <string name="diagnostics_transfer_scope_unverified">网络归属未经验证，请勿将此结果归因于单一连接。</string>
     <string name="diagnostics_transfer_run">第 %1$d 次，共 %2$d 次</string>
@@ -1669,7 +1669,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">俄罗斯网页连通性</string>
     <string name="diagnostics_profile_ru_messaging_title">俄罗斯即时通信服务</string>
     <string name="diagnostics_profile_ru_circumvention_title">俄罗斯敏感服务可达性</string>
-    <string name="diagnostics_profile_ru_throttling_title">俄罗斯限速检查</string>
+    <string name="diagnostics_profile_ru_throttling_title">中立服务器下载速度</string>
     <string name="diagnostics_profile_path_comparison_title">VPN 与直连路径比较</string>
     <string name="diagnostics_profile_ru_dpi_full_title">俄罗斯完整 DPI 检测</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">俄罗斯 DPI 策略探测</string>

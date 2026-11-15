@@ -493,7 +493,7 @@
     <string name="status_generated_direct_no_fallback">Прямого решения нет: приложение не перешло с QUIC на запасной путь</string>
     <string name="status_generated_direct_none">Прямого решения для этого узла нет</string>
     <string name="status_generated_stage_default">Стандартная диагностика</string>
-    <string name="status_generated_stage_throttling">Проверка ограничения скорости</string>
+    <string name="status_generated_stage_throttling">Скорость загрузки с нейтральных серверов</string>
     <string name="status_generated_stage_sensitive">Доступность чувствительных сервисов</string>
     <string name="status_generated_stage_dpi_full">Полное обнаружение DPI</string>
     <string name="status_generated_stage_path">Сравнение прокси и прямого пути</string>

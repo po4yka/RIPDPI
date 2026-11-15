@@ -137,7 +137,7 @@
     <string name="diagnostics_profile_desc_web_connectivity">Региональная проверка веб-доступности, DNS, TLS и HTTP-свидетельств.</string>
     <string name="diagnostics_profile_desc_messaging">Загрузка мессенджеров, медиа и проверка доступности протоколов.</string>
     <string name="diagnostics_profile_desc_adaptation">Загрузка Tor и VPN плюс доступность рукопожатия.</string>
-    <string name="diagnostics_profile_desc_throttling">Ручные окна пропускной способности относительно нейтральных контрольных точек.</string>
+    <string name="diagnostics_profile_desc_throttling">Измеряет скорость загрузки по HTTPS с нейтральных серверов. Сравнение провайдеров недоступно.</string>
     <string name="diagnostics_profile_desc_network_full">Обнаружение глубокой инспекции пакетов по нескольким сервисам и протоколам.</string>
     <string name="diagnostics_family_general">Общие</string>
     <string name="diagnostics_family_web_connectivity">Веб-доступность</string>
@@ -1172,7 +1172,6 @@
     <string name="diagnostics_device_gate_rerun">Перезапустить проверку</string>
     <string name="diagnostics_device_gate_share">Поделиться очищенным отчётом</string>
     <string name="diagnostics_guided_tool_matrix_summary">Сравнивает, какие местные и зарубежные сайты открываются в этой сети.</string>
-    <string name="diagnostics_guided_tool_throttling_summary">Сравнивает скорость загрузки с YouTube и с нейтральных серверов, чтобы найти замедление.</string>
     <string name="blockcheck_purpose">Проверяет домены ниже с каждой стратегией обхода, показывает, что их блокирует, и ранжирует стратегии.</string>
     <string name="blockcheck_diagnosis_title_sites">Почему сайты заблокированы</string>
     <string name="detection_settings_meduza_cohort_disabled_format">Включить целевой набор Meduza. Чтобы изменить, включите «%1$s».</string>
@@ -1616,6 +1615,7 @@
         <item quantity="other">%1$s: %2$d совместимых</item>
     </plurals>
     <string name="diagnostics_transfer_title">Прогресс передачи и точка остановки</string>
+    <string name="diagnostics_transfer_comparison_unavailable">Сравнение провайдеров недоступно</string>
     <string name="diagnostics_transfer_observation">Это наблюдения за передачей. Они не доказывают ограничение провайдером.</string>
     <string name="diagnostics_transfer_scope_unverified">Привязка к сети не подтверждена. Нельзя отнести результат к одному подключению.</string>
     <string name="diagnostics_transfer_run">Попытка %1$d из %2$d</string>
@@ -1746,7 +1746,7 @@
     <string name="diagnostics_profile_ru_web_connectivity_title">Веб-соединения в России</string>
     <string name="diagnostics_profile_ru_messaging_title">Сервисы обмена сообщениями в России</string>
     <string name="diagnostics_profile_ru_circumvention_title">Доступность чувствительных сервисов в России</string>
-    <string name="diagnostics_profile_ru_throttling_title">Проверка ограничения скорости в России</string>
+    <string name="diagnostics_profile_ru_throttling_title">Скорость загрузки с нейтральных серверов</string>
     <string name="diagnostics_profile_path_comparison_title">Путь VPN и прямой путь</string>
     <string name="diagnostics_profile_ru_dpi_full_title">Полная проверка DPI в России</string>
     <string name="diagnostics_profile_ru_dpi_strategy_title">Проверка стратегий DPI в России</string>
