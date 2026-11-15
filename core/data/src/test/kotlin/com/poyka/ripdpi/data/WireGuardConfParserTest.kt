@@ -391,6 +391,12 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `a second interface cannot overwrite the first interface settings`() {
+        val conf = vanillaConf + "\n[ iNtErFaCe ] ; duplicate\nPrivateKey = different"
+        assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf) }
+    }
+
+    @Test
     fun `leading BOM and commented headers work for detection and parsing`() {
         val conf = "\uFEFF[ iNtErFaCe ] # comment\r\nPrivateKey = k\r\n[ Peer ]; comment\r\nPublicKey = p"
         assertTrue(WireGuardConfParser.looksLikeConf(conf))

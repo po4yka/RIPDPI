@@ -193,6 +193,7 @@ object WireGuardConfParser {
                 section =
                     when (header) {
                         "interface" -> {
+                            require(!interfaceSeen) { "WireGuard config has a duplicate [Interface] section" }
                             interfaceSeen = true
                             Section.INTERFACE
                         }
