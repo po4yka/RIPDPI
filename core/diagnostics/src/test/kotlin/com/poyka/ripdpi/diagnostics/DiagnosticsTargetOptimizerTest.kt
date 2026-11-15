@@ -170,26 +170,37 @@ class DiagnosticsTargetOptimizerTest {
         fun compacted(
             report: ScanReport,
             intent: DiagnosticsIntent = shipped,
-        ): List<String> {
+        ): DiagnosticsIntent {
             val optimizer = DiagnosticsTargetOptimizer()
             optimizer.record("scope", report, settings)
-            val compact =
-                optimizer.compact(intent, "scope", DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND, defaultPolicy, 10)
-            return selectStrategyProbeTargetsForSession("s", compact, activeProbeSafetyPolicy = defaultPolicy)
+            return optimizer.compact(intent, "scope", DiagnosticsScanOrigin.AUTOMATIC_BACKGROUND, defaultPolicy, 10)
+        }
+
+        fun plannedHosts(intent: DiagnosticsIntent): List<String> =
+            selectStrategyProbeTargetsForSession("s", intent, activeProbeSafetyPolicy = defaultPolicy)
                 .domainTargets
                 .map(DomainTarget::host)
+
+        assertEquals(controls, plannedHosts(compacted(outcomes(concurrency = "healthy"))))
+        val retainedCases =
+            listOf(
+                outcomes(concurrency = null),
+                outcomes(concurrency = "blocked"),
+                outcomes(concurrency = "healthy", youtube = "tls_handshake_failed"),
+                outcomes(concurrency = "healthy", measured = listOf("discord.com")),
+            )
+        retainedCases.forEach { report ->
+            val retained = compacted(report)
+            assertEquals(
+                cohortHosts,
+                retained.domainTargets.filter { it.concurrencyProbe != null }.map(DomainTarget::host),
+            )
+            assertEquals(listOf("www.youtube.com", "discord.com", "speed.cloudflare.com"), plannedHosts(retained))
         }
-        assertEquals(controls, compacted(outcomes(concurrency = "healthy")))
-        // Unknown or unhealthy concurrency, or a cohort host that differs, keeps today's plan: the whole cohort.
-        assertEquals(cohortHosts, compacted(outcomes(concurrency = null)))
-        assertEquals(cohortHosts, compacted(outcomes(concurrency = "blocked")))
-        assertEquals(cohortHosts, compacted(outcomes(concurrency = "healthy", youtube = "tls_handshake_failed")))
-        // Healthy concurrency on one member does not vouch for the others.
-        assertEquals(cohortHosts, compacted(outcomes(concurrency = "healthy", measured = listOf("discord.com"))))
         // A dropped cohort does not shrink the budget for ordinary targets.
         val plain = listOf("a.example", "b.example", "c.example")
         val mixed = shipped.copy(domainTargets = shipped.domainTargets.take(3) + plain.map(::DomainTarget))
-        assertEquals(3, compacted(outcomes("healthy", hosts = cohortHosts + plain), mixed).size)
+        assertEquals(3, plannedHosts(compacted(outcomes("healthy", hosts = cohortHosts + plain), mixed)).size)
     }
 
     @Test
