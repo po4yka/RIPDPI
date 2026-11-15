@@ -144,6 +144,65 @@ fn http_block_detection_classifies_blockpages() {
 }
 
 #[test]
+fn http_body_only_evidence_requires_the_complete_declared_body() {
+    let body = "This site has been blocked";
+    for length in [10_000, body.len() + 1, body.len() - 1] {
+        let response = format!("HTTP/1.1 200 OK\r\nContent-Length: {length}\r\n\r\n{body}");
+        assert!(classify_http_response_block(response.as_bytes()).is_none(), "declared length {length}");
+    }
+}
+
+#[test]
+fn http_body_only_evidence_rejects_invalid_or_conflicting_lengths() {
+    let body = "This site has been blocked";
+    for length in [
+        "",
+        "-1",
+        "+26",
+        "26x",
+        "18446744073709551616000",
+        "26, 27",
+        "26,",
+        "26\r\nContent-Length: 27",
+        "26\r\nTransfer-Encoding: chunked",
+    ] {
+        let response = format!("HTTP/1.1 200 OK\r\nContent-Length: {length}\r\n\r\n{body}");
+        assert!(classify_http_response_block(response.as_bytes()).is_none(), "length field {length:?}");
+    }
+}
+
+#[test]
+fn http_body_only_evidence_accepts_complete_bounded_bodies() {
+    let body = "This site has been blocked";
+    for length in ["26", "00026", "26, 26", "26\r\nContent-Length: 26"] {
+        let response = format!("HTTP/1.1 200 OK\r\ncOnTeNt-LeNgTh: {length}\r\n\r\n{body}");
+        let failure = classify_http_response_block(response.as_bytes()).expect("complete short blockpage");
+        assert!(failure.evidence.tags.iter().any(|tag| tag == "provider=explicit_blockpage_message"));
+    }
+    for (length, detected) in [(8192, true), (8193, false)] {
+        let mut body = body.to_string();
+        body.extend(std::iter::repeat_n(' ', length - body.len()));
+        let response = format!("HTTP/1.1 200 OK\r\nContent-Length: {length}\r\n\r\n{body}");
+        assert_eq!(classify_http_response_block(response.as_bytes()).is_some(), detected, "body length {length}");
+    }
+}
+
+#[test]
+fn http_body_limits_keep_independent_block_evidence() {
+    for (response, provider) in [
+        ("HTTP/1.1 451 Unavailable For Legal Reasons\r\nContent-Length: 10000\r\n\r\n", None),
+        ("HTTP/1.1 200 OK\r\nServer: MTS Proxy/1.0\r\nContent-Length: 10000\r\n\r\n", Some("mts_header")),
+        ("HTTP/1.1 200 OK\r\nContent-Length: 10000\r\n\r\nzapret-info.gov.ru", Some("rkn_standard")),
+    ] {
+        let failure = classify_http_response_block(response.as_bytes()).expect("independent block evidence");
+        assert_eq!(failure.class, FailureClass::HttpBlockpage);
+        if let Some(provider) = provider {
+            assert!(failure.evidence.tags.iter().any(|tag| tag == &format!("provider={provider}")));
+        }
+    }
+}
+
+#[test]
 fn http_response_parser_rejects_header_without_colon() {
     let response = b"HTTP/1.1 200 OK\r\nServer: test\r\nBadHeader\r\n\r\nbody";
 

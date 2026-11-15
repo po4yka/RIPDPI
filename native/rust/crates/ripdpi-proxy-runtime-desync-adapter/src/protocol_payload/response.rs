@@ -7,6 +7,7 @@ const RESPONSE_INSPECTION_BYTES_LIMIT: usize = 16_384;
 pub struct FirstResponseBoundaryTracker {
     tracker: TlsRecordBoundaryTracker,
     tls_request: bool,
+    http: super::http_response::HttpResponseBoundary,
     inspection_timeout: Option<Duration>,
     bytes_limit: usize,
 }
@@ -15,7 +16,9 @@ impl FirstResponseBoundaryTracker {
     pub fn for_request(request: &[u8], settings: crate::model::config::FirstResponseSettings) -> Self {
         let tracker = TlsRecordBoundaryTracker::for_first_response(request, settings);
         let tls_request = is_tls_client_hello_candidate(request);
-        let inspection_timeout = if tls_request {
+        let http_eligible = tls_request || ripdpi_packets::is_http_request_prefix(request);
+        let http = super::http_response::HttpResponseBoundary::new(request, http_eligible);
+        let inspection_timeout = if http_eligible {
             crate::model::config::first_response_timeout(
                 crate::model::config::FirstResponseSettings { fallback_timeout_required: true, ..settings },
                 tracker.active(),
@@ -25,7 +28,7 @@ impl FirstResponseBoundaryTracker {
         };
         let bytes_limit = crate::model::config::first_response_bytes_limit(settings, RESPONSE_INSPECTION_BYTES_LIMIT)
             .clamp(1, RESPONSE_INSPECTION_BYTES_LIMIT);
-        Self { tracker, tls_request, inspection_timeout, bytes_limit }
+        Self { tracker, tls_request, http, inspection_timeout, bytes_limit }
     }
 
     pub fn active(&self) -> bool {
@@ -38,6 +41,7 @@ impl FirstResponseBoundaryTracker {
 
     pub fn observe(&mut self, bytes: &[u8]) {
         self.tracker.observe(bytes);
+        self.http.observe(bytes);
     }
 
     pub fn inspection_timeout(&self) -> Option<Duration> {
@@ -60,11 +64,31 @@ impl FirstResponseBoundaryTracker {
                     | crate::failure::TlsAlertDisposition::WarningPending(_)
             );
         }
-        self.waiting_for_tls_record()
+        self.http.waiting() || self.waiting_for_tls_record()
     }
 
     pub fn inspection_exhausted(&self, response: &[u8]) -> bool {
-        self.inspecting_alert(response) && self.waiting_for_response(response) && response.len() >= self.bytes_limit
+        self.inspecting_response(response) && self.waiting_for_response(response) && response.len() >= self.bytes_limit
+    }
+
+    pub fn inspecting_response(&self, response: &[u8]) -> bool {
+        self.inspecting_alert(response) || self.http.active()
+    }
+
+    pub fn inspecting_http(&self) -> bool {
+        self.http.active()
+    }
+
+    pub fn neutral_http(&self) -> bool {
+        self.http.neutral()
+    }
+
+    pub fn finish_http_on_eof(&mut self) -> bool {
+        self.http.finish_on_eof()
+    }
+
+    pub fn classification_bytes<'a>(&self, response: &'a [u8], body_allowed: bool) -> Option<&'a [u8]> {
+        self.http.classification_bytes(response, body_allowed)
     }
 
     pub fn invalid_alert(&self, response: &[u8]) -> bool {

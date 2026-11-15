@@ -143,7 +143,7 @@ fn pending_response_feedback(delayed_publication: bool) {
 
     let response = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
     origin.write_all(response).expect("response after active attempt");
-    pending.finish(&state, &mut upstream, &mut client, &session, Arc::default()).expect("finish response");
+    pending.finish(&state, &mut upstream, &mut client, &session).expect("finish response");
     let mut received = vec![0; response.len()];
     app.read_exact(&mut received).expect("response forwarded once");
     assert_eq!(received, response);

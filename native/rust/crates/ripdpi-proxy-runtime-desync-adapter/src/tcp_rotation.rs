@@ -192,6 +192,7 @@ impl CircularTcpRotationController {
         }
         observation.request_bytes.extend_from_slice(&request_chunk[..request_chunk.len().min(room)]);
         observation.tls_tracker = FirstResponseBoundaryTracker::for_request(&observation.request_bytes, first_response);
+        observation.tls_tracker.observe(&observation.response_bytes);
     }
 
     pub fn observe_response_chunk(&mut self, chunk: &[u8]) -> bool {
@@ -205,6 +206,10 @@ impl CircularTcpRotationController {
         observation.tls_tracker.observe(bytes);
         !observation.tls_tracker.waiting_for_response(&observation.response_bytes)
             || observation.response_is_inconclusive()
+    }
+
+    pub fn finish_http_response_on_eof(&mut self) -> bool {
+        self.observed_round.as_mut().is_some_and(|observed| observed.tls_tracker.finish_http_on_eof())
     }
 
     pub fn observed_round(&self) -> Option<&RoundObservation> {
@@ -305,6 +310,22 @@ mod tests {
             },
         )
         .expect("rotation controller")
+    }
+
+    #[test]
+    fn dpi38_http_response_framing_survives_outbound_continuation() {
+        let config = RuntimeConfig::default();
+        let mut controller = rotation_controller();
+        controller.start_round(first_response_settings(&config), 1, 0, b"GET / HTTP/1.1\r\n\r\n", None, None, None);
+        assert!(!controller.observe_response_chunk(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nab"));
+        controller.append_request_chunk(first_response_settings(&config), 1, b"continuation");
+        assert!(!controller.observe_response_chunk(b"c"), "three body bytes do not complete Content-Length 4");
+        assert!(controller.observe_response_chunk(b"d"));
+        let observed = controller.observed_round().expect("owned complete response");
+        assert_eq!(
+            observed.tls_tracker.classification_bytes(&observed.response_bytes, true),
+            Some(b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nabcd".as_slice())
+        );
     }
 
     #[test]

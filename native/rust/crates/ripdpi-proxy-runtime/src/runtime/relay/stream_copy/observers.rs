@@ -30,32 +30,43 @@ pub(super) fn observe_rotation_inbound_chunk(
     if !ready {
         return;
     }
-    let (request_bytes, response_bytes, retrans_baseline, stream_start, inconclusive, invalid_alert) =
-        match rotation.lock() {
-            Ok(rotation) => {
-                let Some(observed) = rotation.observed_round() else {
-                    return;
-                };
-                (
-                    observed.request_bytes.clone(),
-                    observed.response_bytes.clone(),
-                    observed.retrans_baseline,
-                    observed.stream_start,
-                    observed.response_is_inconclusive(),
-                    observed.tls_tracker.invalid_alert(&observed.response_bytes),
-                )
-            }
-            Err(_) => return,
-        };
-    if inconclusive {
-        if let Ok(mut rotation) = rotation.lock() {
-            rotation.observe_round_inconclusive();
+    let (
+        request_bytes,
+        response_bytes,
+        classification_bytes,
+        retrans_baseline,
+        stream_start,
+        inconclusive,
+        invalid_alert,
+        neutral_http,
+    ) = match rotation.lock() {
+        Ok(rotation) => {
+            let Some(observed) = rotation.observed_round() else {
+                return;
+            };
+            (
+                observed.request_bytes.clone(),
+                observed.response_bytes.clone(),
+                if !observed.response_is_inconclusive() || observed.tls_tracker.inspecting_http() {
+                    observed
+                        .tls_tracker
+                        .classification_bytes(&observed.response_bytes, !observed.response_is_inconclusive())
+                        .map(<[u8]>::to_vec)
+                } else {
+                    None
+                },
+                observed.retrans_baseline,
+                observed.stream_start,
+                observed.response_is_inconclusive(),
+                observed.tls_tracker.invalid_alert(&observed.response_bytes),
+                observed.tls_tracker.neutral_http(),
+            )
         }
-        return;
-    }
+        Err(_) => return,
+    };
     if let Some(target) = target
-        && let Some(failure) =
-            classify_response_failure(state, target, &request_bytes, &response_bytes, host.as_deref())
+        && let Some(bytes) = classification_bytes.as_deref()
+        && let Some(failure) = classify_response_failure(state, target, &request_bytes, bytes, host.as_deref())
     {
         note_block_signal_for_failure(state, host.as_deref(), &failure, None);
         if let Ok(mut rotation) = rotation.lock() {
@@ -68,7 +79,11 @@ pub(super) fn observe_rotation_inbound_chunk(
         }
         return;
     }
-    if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&response_bytes) || invalid_alert {
+    if inconclusive
+        || neutral_http
+        || ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&response_bytes)
+        || invalid_alert
+    {
         if let Ok(mut rotation) = rotation.lock() {
             rotation.observe_round_inconclusive();
         }
@@ -104,6 +119,16 @@ pub(super) fn observe_rotation_transport_failure(
     let Some(rotation) = rotation else {
         return;
     };
+    if err.kind() == io::ErrorKind::UnexpectedEof {
+        let completed_http = match rotation.lock() {
+            Ok(mut controller) => controller.finish_http_response_on_eof(),
+            Err(_) => false,
+        };
+        if completed_http {
+            observe_rotation_inbound_chunk(state, target, remembered_host, Some(rotation), reader, &[]);
+            return;
+        }
+    }
     let (has_observation, retrans_baseline) = match rotation.lock() {
         Ok(rotation) => (
             rotation.observed_round().is_some(),
@@ -345,6 +370,107 @@ mod tests {
     }
 
     #[test]
+    fn dpi38_rotating_http_observer_uses_complete_bounded_body_and_exact_forwarding() {
+        use crate::runtime::relay::session::{FirstOutboundSession, FirstResponseOutcome};
+        use std::io::{Read, Write};
+        use std::net::Shutdown;
+        use std::sync::atomic::AtomicBool;
+        use std::time::{Duration, Instant};
+
+        for mode in 0..3 {
+            let body = b"This website has been blocked";
+            let head = match mode {
+                0 => format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", body.len()),
+                1 => "HTTP/1.1 200 OK\r\nContent-Length: 10000\r\n\r\n".to_string(),
+                _ => "HTTP/1.0 200 OK\r\n\r\n".to_string(),
+            };
+            let mut response = [head.as_bytes(), body].concat();
+            let mut config = RuntimeConfig::default();
+            config.timeouts.timeout_ms = 1_000;
+            if mode == 1 {
+                config.timeouts.timeout_bytes_limit = (head.len() + body.len() + 3) as i32;
+                response.resize(head.len() + 10_000, b'x');
+            }
+            let state = RuntimeState::test(config.clone());
+            let mut group = DesyncGroup::new(0);
+            group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(1))];
+            let mut controller = CircularTcpRotationController::new(
+                group,
+                RotationPolicy {
+                    candidates: vec![RotationCandidate {
+                        tcp_chain: vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(1))],
+                    }],
+                    fails: 1,
+                    rst: u32::MAX,
+                    retrans: u32::MAX,
+                    ..RotationPolicy::default()
+                },
+            )
+            .expect("one-failure rotation");
+            controller.start_round(first_response_settings(&config), 1, 0, b"GET / HTTP/1.1\r\n\r\n", None, None, None);
+            let rotation = Arc::new(Mutex::new(controller));
+            let (mut upstream, mut origin) = connected_pair();
+            let (mut writer, mut app) = connected_pair();
+            app.set_read_timeout(Some(Duration::from_secs(2))).expect("bounded client");
+            let source = response.clone();
+            let peer_rotation = rotation.clone();
+            let origin_worker = std::thread::spawn(move || {
+                let split = match mode {
+                    0 => head.len() + 8,
+                    1 => head.len() + body.len() + 3,
+                    _ => source.len(),
+                };
+                origin.write_all(&source[..split]).expect("fragmented real HTTP prefix");
+                let limit = Instant::now() + Duration::from_secs(1);
+                loop {
+                    let guard = peer_rotation.lock().expect("rotation lock");
+                    let ready = if mode == 1 {
+                        guard.observed_round().is_none()
+                    } else {
+                        guard.observed_round().is_some_and(|observed| observed.response_bytes.len() == split)
+                    };
+                    drop(guard);
+                    if ready {
+                        break;
+                    }
+                    assert!(Instant::now() < limit, "observer must consume bounded prefix");
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                origin.write_all(&source[split..]).expect("remaining real HTTP bytes");
+                origin.shutdown(Shutdown::Write).expect("graceful source EOF");
+            });
+            let session = FirstOutboundSession::new().into_relay_session().into_shared();
+            session
+                .finish_first_response(FirstResponseOutcome::Accepted { success_recorded: true })
+                .expect("earlier exchange");
+            super::super::copy_halves::copy_inbound_half(
+                &mut upstream,
+                &mut writer,
+                &state,
+                session,
+                Arc::new(Mutex::new(None)),
+                Some(rotation.clone()),
+                Arc::new(AtomicBool::new(false)),
+                super::super::freeze::FreezeDetector::new(0, 0, 0),
+                Arc::new(AtomicBool::new(false)),
+            )
+            .expect("real rotating inbound loop");
+            origin_worker.join().expect("owned fixture");
+            let mut bytes = Vec::new();
+            app.read_to_end(&mut bytes).expect("exact source bytes and FIN");
+            assert_eq!(bytes, response);
+            let mut controller = rotation.lock().expect("rotation lock");
+            assert!(controller.observed_round().is_none());
+            controller.start_round(first_response_settings(&config), 2, 0, b"GET / HTTP/1.1\r\n\r\n", None, None, None);
+            assert_eq!(
+                controller.current_send_group().actions.tcp_chain[0].kind(),
+                if mode == 1 { TcpChainStepKind::Split } else { TcpChainStepKind::Fake },
+                "only complete bounded body evidence advances rotation"
+            );
+        }
+    }
+
+    #[test]
     fn remembered_host_value_returns_present_host_and_handles_poisoning() {
         let remembered_host = Arc::new(Mutex::new(Some("example.com".to_string())));
         assert_eq!(remembered_host_value(&remembered_host).as_deref(), Some("example.com"));
@@ -373,7 +499,7 @@ mod tests {
             &remembered_host,
             Some(&rotation),
             &reader,
-            b"HTTP/1.1 200 OK\r\n\r\n",
+            b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
         );
 
         assert!(rotation.lock().expect("rotation lock").observed_round().is_none());

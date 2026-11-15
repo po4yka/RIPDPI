@@ -1,6 +1,5 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 #[cfg(test)]
@@ -14,8 +13,10 @@ use super::super::failure::RuntimeClassifiedFailure;
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
 use super::platform as relay_platform;
-use crate::sync::Arc;
+use super::session::RelaySharedSession;
 
+#[cfg(test)]
+mod http_response_tests;
 mod readiness;
 #[cfg(test)]
 mod tests;
@@ -39,7 +40,7 @@ pub(super) struct FirstResponseReader {
     timeout_count: i32,
     observed_server_ttl: Option<u8>,
     deadline: Option<Instant>,
-    client_gone: Option<Arc<AtomicBool>>,
+    response_owner: Option<RelaySharedSession>,
 }
 
 impl FirstResponseReader {
@@ -57,13 +58,47 @@ impl FirstResponseReader {
             timeout_count: 0,
             observed_server_ttl: None,
             deadline,
-            client_gone: None,
+            response_owner: None,
         }
     }
 
-    /// After a client leaves, the relay closes the upstream socket itself, so an empty read is not a block.
-    pub(super) fn watch_client_gone(&mut self, client_gone: Arc<AtomicBool>) {
-        self.client_gone = Some(client_gone);
+    /// The relay revokes this owner before it closes upstream after a client read error.
+    /// An ordinary client write FIN does not revoke the response owner.
+    pub(super) fn watch_response_owner(&mut self, owner: RelaySharedSession) {
+        self.response_owner = Some(owner);
+    }
+
+    fn response_owner_revoked(&self) -> io::Result<bool> {
+        self.response_owner.as_ref().map_or(Ok(false), RelaySharedSession::response_owner_revoked)
+    }
+
+    fn finish_collected(
+        self,
+        state: &RuntimeState,
+        target: SocketAddr,
+        request: &[u8],
+        host: Option<&str>,
+        inconclusive: bool,
+    ) -> FirstResponse {
+        // Limits discard body evidence, but complete HTTP headers remain independent evidence.
+        let failure = if !inconclusive || self.tls_partial.inspecting_http() {
+            self.tls_partial
+                .classification_bytes(&self.collected, !inconclusive)
+                .and_then(|bytes| classify_response_failure(state, target, request, bytes, host))
+        } else {
+            None
+        };
+        if let Some(failure) = failure {
+            FirstResponse::Failure { failure, response_bytes: Some(self.collected) }
+        } else if inconclusive
+            || self.tls_partial.neutral_http()
+            || ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&self.collected)
+            || self.tls_partial.invalid_alert(&self.collected)
+        {
+            FirstResponse::Neutral(self.collected)
+        } else {
+            FirstResponse::Forward(self.collected, self.observed_server_ttl)
+        }
     }
 
     fn restart_deadline(&mut self, state: &RuntimeState) {
@@ -87,16 +122,19 @@ pub(super) fn read_first_response(
     let _ = relay_platform::enable_recv_ttl(upstream);
 
     loop {
+        if reader.response_owner_revoked()? {
+            return Ok(FirstResponse::NoData);
+        }
         let readiness = wait_for_readiness(state, client, upstream, reader.deadline)?;
         if readiness == Readiness::Client {
             // The outbound copy remains the only owner of continuation bytes.
             return Ok(FirstResponse::Continuation(Box::new(reader)));
         }
         let inspection_timeout = readiness == Readiness::Timeout
-            && reader.tls_partial.inspecting_alert(&reader.collected)
+            && reader.tls_partial.inspecting_response(&reader.collected)
             && reader.tls_partial.waiting_for_response(&reader.collected);
         let capacity = if reader.tls_partial.inspection_timeout().is_some()
-            && (reader.collected.is_empty() || reader.tls_partial.inspecting_alert(&reader.collected))
+            && (reader.collected.is_empty() || reader.tls_partial.inspecting_response(&reader.collected))
         {
             reader
                 .chunk
@@ -120,9 +158,15 @@ pub(super) fn read_first_response(
         if state.shutdown_requested() {
             return Err(io::Error::new(io::ErrorKind::Interrupted, "proxy stopped during first response"));
         }
-        // Ordering: Acquire -- pairs with the Release store made before the relay shuts this socket down.
-        let client_gone = reader.client_gone.as_ref().is_some_and(|gone| gone.load(Ordering::Acquire));
+        // A local read shutdown can yield EOF. Check causal ownership before HTTP EOF finalization.
+        if reader.response_owner_revoked()? {
+            return Ok(FirstResponse::NoData);
+        }
         let result = match read_result {
+            Ok(0) if reader.tls_partial.finish_http_on_eof() => {
+                let expired = reader.deadline.is_some_and(|deadline| Instant::now() >= deadline);
+                Ok(reader.finish_collected(state, target, request, host, expired))
+            }
             Ok(0) => Ok(FirstResponse::Failure {
                 failure: RuntimeState::classify_first_response_closed_before_response(),
                 response_bytes: None,
@@ -131,37 +175,21 @@ pub(super) fn read_first_response(
                 reader.collected.extend_from_slice(&reader.chunk[..n]);
                 reader.tls_partial.observe(&reader.chunk[..n]);
 
-                if reader.tls_partial.inspecting_alert(&reader.collected)
-                    && reader.deadline.is_some_and(|deadline| Instant::now() >= deadline)
-                {
-                    return Ok(FirstResponse::Neutral(reader.collected));
-                }
-
-                if reader.tls_partial.waiting_for_response(&reader.collected) {
-                    if reader.tls_partial.inspection_exhausted(&reader.collected) {
-                        return Ok(FirstResponse::Neutral(reader.collected));
-                    }
-                    if !reader.tls_partial.inspecting_alert(&reader.collected) {
+                let expired = reader.tls_partial.inspecting_response(&reader.collected)
+                    && reader.deadline.is_some_and(|deadline| Instant::now() >= deadline);
+                let exhausted = reader.tls_partial.inspection_exhausted(&reader.collected);
+                if !expired && !exhausted && reader.tls_partial.waiting_for_response(&reader.collected) {
+                    if !reader.tls_partial.inspecting_response(&reader.collected) {
                         reader.restart_deadline(state);
                     }
                     continue;
                 }
-
-                // A recognized request keeps its generic malformed-response failure before neutral fallback.
-                if let Some(failure) = classify_response_failure(state, target, request, &reader.collected, host) {
-                    Ok(FirstResponse::Failure { failure, response_bytes: Some(reader.collected) })
-                } else if ripdpi_proxy_runtime_adapter::failure::is_tls_closure_response(&reader.collected)
-                    || reader.tls_partial.invalid_alert(&reader.collected)
-                {
-                    Ok(FirstResponse::Neutral(reader.collected))
-                } else {
-                    Ok(FirstResponse::Forward(reader.collected, reader.observed_server_ttl))
-                }
+                Ok(reader.finish_collected(state, target, request, host, expired || exhausted))
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
                 if inspection_timeout {
-                    Ok(FirstResponse::Neutral(reader.collected))
-                } else if reader.tls_partial.inspecting_alert(&reader.collected) {
+                    Ok(reader.finish_collected(state, target, request, host, true))
+                } else if reader.tls_partial.inspecting_response(&reader.collected) {
                     // A socket I/O timeout is a transport source, not an inspection deadline.
                     let failure = RuntimeState::classify_first_response_transport_error(&err);
                     Ok(FirstResponse::Failure { failure, response_bytes: None })
@@ -204,9 +232,6 @@ pub(super) fn read_first_response(
             }
             Err(err) => Err(err),
         };
-        if client_gone && matches!(result, Ok(FirstResponse::Failure { response_bytes: None, .. })) {
-            return Ok(FirstResponse::NoData);
-        }
         if let Ok(FirstResponse::Failure { failure, .. }) = &result {
             // The only block-signal emission for a first-response failure: autolearn confirms a
             // block on two signals, so the failure handlers must not note it again.

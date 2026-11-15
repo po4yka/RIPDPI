@@ -234,6 +234,12 @@ impl RelaySharedSession {
         Ok(())
     }
 
+    /// The active pending reader owns content completion; Neutral revokes that ownership.
+    pub(super) fn response_owner_revoked(&self) -> io::Result<bool> {
+        let outcome = self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))?;
+        Ok(matches!(*outcome, FirstResponseOutcome::Neutral))
+    }
+
     pub(super) fn snapshot(&self) -> io::Result<RelaySession> {
         let first_response = *self.first_response.lock().map_err(|_| io::Error::other("response mutex poisoned"))?;
         let fake_ttl_attempt = self.fake_ttl_attempt()?;

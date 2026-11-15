@@ -1,7 +1,6 @@
 use crate::runtime::relay::session::AdaptiveFeedbackAttempts;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use super::super::failure::{RuntimeFailureAction, RuntimeFailureClass};
@@ -11,7 +10,6 @@ use super::super::types::RuntimeConnectionRoute;
 use super::failure_retry::{record_stream_fake_ttl_success, record_stream_relay_success};
 use super::first_exchange::{FirstResponse, FirstResponseReader, read_first_response};
 use super::session::{FirstResponseOutcome, RelaySharedSession};
-use crate::sync::Arc;
 
 /// One owner retains the bounded response collector across duplex handoff.
 /// This type has no reconnect operation or replay authority.
@@ -33,10 +31,9 @@ impl PendingFirstResponse {
         upstream: &mut TcpStream,
         client: &mut TcpStream,
         session: &RelaySharedSession,
-        client_gone: Arc<AtomicBool>,
     ) -> io::Result<()> {
         let mut reader = self.reader;
-        reader.watch_client_gone(client_gone);
+        reader.watch_response_owner(session.clone());
         match read_first_response(
             state,
             self.target,

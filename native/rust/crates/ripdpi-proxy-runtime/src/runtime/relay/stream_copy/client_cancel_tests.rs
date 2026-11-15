@@ -50,7 +50,7 @@ fn rst(s: TcpStream) {
     drop(s);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Scenario {
     ClientRstOriginSilent,
     ClientFinOriginClosesOnEof,
@@ -130,14 +130,14 @@ fn run(scenario: Scenario) -> Vec<String> {
 }
 
 #[test]
-fn a_client_that_leaves_before_the_first_response_is_not_a_failure() {
-    for scenario in [
-        Scenario::OriginAnswers,
-        Scenario::ClientRstOriginSilent,
-        Scenario::ClientFinOriginClosesOnEof,
-        Scenario::ClientFinOriginAnswers,
+fn first_response_outcomes_distinguish_client_reset_from_origin_eof() {
+    for (scenario, expected) in [
+        (Scenario::OriginAnswers, Vec::<String>::new()),
+        (Scenario::ClientRstOriginSilent, Vec::new()),
+        (Scenario::ClientFinOriginClosesOnEof, vec!["silent_drop: upstream closed before first response".to_owned()]),
+        (Scenario::ClientFinOriginAnswers, Vec::new()),
     ] {
-        assert_eq!(run(scenario), Vec::<String>::new());
+        assert_eq!(run(scenario), expected, "{scenario:?}");
     }
 }
 

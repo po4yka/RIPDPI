@@ -108,7 +108,13 @@ pub fn classify_http_response_block(response: &[u8]) -> Option<ClassifiedFailure
     }
 
     // Try CSV fingerprint first, then fall back to generic keyword matching.
-    let provider = provider.filter(|value| !value.trim().is_empty()).or_else(|| match_body_keyword(&response.body));
+    let provider = provider.filter(|value| !value.trim().is_empty()).or_else(|| {
+        if declared_body_is_complete(&response.headers, response.body.len()) {
+            match_body_keyword(&response.body)
+        } else {
+            None
+        }
+    });
     provider.as_ref()?;
 
     let mut failure = ClassifiedFailure::new(
@@ -122,6 +128,29 @@ pub fn classify_http_response_block(response: &[u8]) -> Option<ClassifiedFailure
         failure = failure.with_tag("provider", provider);
     }
     Some(failure)
+}
+
+fn declared_body_is_complete(headers: &[(String, String)], body_len: usize) -> bool {
+    let mut declared_length = None;
+    for (_, value) in headers.iter().filter(|(name, _)| name.eq_ignore_ascii_case("content-length")) {
+        for value in value.split(',') {
+            let value = value.trim_matches([' ', '\t']);
+            if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+                return false;
+            }
+            let Ok(length) = value.parse::<usize>() else {
+                return false;
+            };
+            if declared_length.is_some_and(|previous| previous != length) {
+                return false;
+            }
+            declared_length = Some(length);
+        }
+    }
+    if declared_length.is_some() && headers.iter().any(|(name, _)| name.eq_ignore_ascii_case("transfer-encoding")) {
+        return false;
+    }
+    declared_length.is_none_or(|length| length == body_len)
 }
 
 /// Check if the redirect Location names a block stub: a bundled fingerprint anywhere in the URL

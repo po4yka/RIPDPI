@@ -94,13 +94,7 @@ pub(super) fn relay_streams(
                 FreezeDetector::new(timeouts.freeze_window_ms, timeouts.freeze_min_bytes, timeouts.freeze_max_stalls);
             let result = (|| {
                 if let Some(pending) = pending_response {
-                    pending.finish(
-                        &inbound_state,
-                        &mut upstream_reader,
-                        &mut client_writer,
-                        &inbound_session,
-                        down_done.clone(),
-                    )?;
+                    pending.finish(&inbound_state, &mut upstream_reader, &mut client_writer, &inbound_session)?;
                 }
                 copy_inbound_half(
                     &mut upstream_reader,
