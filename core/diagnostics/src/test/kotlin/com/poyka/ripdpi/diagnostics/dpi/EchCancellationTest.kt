@@ -1,51 +1,52 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import mockwebserver3.Dispatcher
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
-import mockwebserver3.RecordedRequest
 import okhttp3.Call
 import okhttp3.EventListener
 import okhttp3.OkHttpClient
+import okio.Buffer
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.concurrent.CountDownLatch
+import java.io.IOException
+import java.util.HexFormat
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
 class EchCancellationTest {
     @Test
     fun cancellationStopsDohDuringResponseBody() =
-        runTest(timeout = 20.seconds) {
+        runBlocking {
             MockWebServer().use { server ->
-                val requestStarted = CountDownLatch(1)
+                val bodyStarted = CompletableDeferred<Unit>()
                 val callStopped = CompletableDeferred<Unit>()
-                server.dispatcher =
-                    object : Dispatcher() {
-                        override fun dispatch(request: RecordedRequest): MockResponse {
-                            requestStarted.countDown()
-                            return MockResponse
-                                .Builder()
-                                .body("delayed DNS body")
-                                .bodyDelay(10, TimeUnit.SECONDS)
-                                .build()
-                        }
-                    }
+                val reply = HexFormat.of().parseHex("0000818000010000000000000663616e63656c076578616d706c650000410001")
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .addHeader("Content-Type", "application/dns-message")
+                        .body(Buffer().write(reply))
+                        .throttleBody(1, 5, TimeUnit.SECONDS)
+                        .build(),
+                )
                 server.start()
                 val client =
                     OkHttpClient
                         .Builder()
                         .eventListener(
                             object : EventListener() {
+                                override fun responseBodyStart(call: Call) {
+                                    bodyStarted.complete(Unit)
+                                }
+
                                 override fun callFailed(
                                     call: Call,
-                                    ioe: java.io.IOException,
+                                    ioe: IOException,
                                 ) {
                                     callStopped.complete(Unit)
                                 }
@@ -53,11 +54,11 @@ class EchCancellationTest {
                         ).build()
                 val query = DohWireHttpsRrQuery(client, server.url("/dns-query").toString())
                 val active = launch { query.query("cancel.example") }
-                assertTrue(withContext(Dispatchers.IO) { requestStarted.await(5, TimeUnit.SECONDS) })
 
-                active.cancelAndJoin()
-                withContext(Dispatchers.IO) {
-                    kotlinx.coroutines.withTimeout(2.seconds) { callStopped.await() }
+                withTimeout(3.seconds) { bodyStarted.await() }
+                withTimeout(2.seconds) {
+                    active.cancelAndJoin()
+                    callStopped.await()
                 }
                 assertTrue(active.isCancelled)
             }
