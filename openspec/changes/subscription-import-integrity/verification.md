@@ -54,3 +54,7 @@ deployment_evidence: No deployment is owned by this change.
 - E: no new external server, device, root activation, VPN transport, or native handshake acceptance was run. No external compatibility claim is made by these fixes.
 - Bootstrap single-use receipt persistence prevents replay within the tested consumer and guarded storage paths. Process death before a durable receipt and server-side exactly-once behavior remain unverified (audit H4).
 - Explicit unsupported subsets stay explicit: no detour runtime, arbitrary package predicates, unimplemented TLS wrappers, full external-config round trip, or implicit URL-test host is added. A URL-test policy requires an explicit HTTP(S) URL.
+
+## Inherited integration quality
+
+A fresh source build after synchronization with incoming main found five detekt violations in DiagnosticsTelegramPresentation.kt and DiagnosticsTelegramCards.kt. Both files and detekt configuration were byte-identical to incoming main. A separate two-file extraction preserves share text, order, localization, privacy and Compose structure. Independent review and all ten owning Telegram cases passed; app detekt passed. No test expectations, resources, suppressions or baselines changed. This is an integration quality repair, not a separate diagnostics audit.
