@@ -15,6 +15,7 @@ use super::support::candidate_probe_details;
 
 pub use candidate_execution::execute_quic_candidate;
 use outcome::quic_sample_quality;
+pub(in crate::execution) use outcome::sample_response_stage;
 
 pub(super) fn run_quic_strategy_probe(
     transport: &TransportConfig,
@@ -117,7 +118,7 @@ mod tests {
             crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
         let target =
             QuicTarget { host: "localhost".into(), connect_ip: Some("127.0.0.1".into()), connect_ips: vec![], port };
-        let sample = run_quic_strategy_probe(
+        let mut sample = run_quic_strategy_probe(
             &TransportConfig::Direct { route_experiment: None },
             &target,
             &candidate,
@@ -125,6 +126,8 @@ mod tests {
         );
         worker.join().unwrap();
         assert_eq!(sample.result.outcome, "quic_version_negotiation");
+        assert!(!sample.success);
+        assert_eq!(sample.quality, 0);
         assert!(
             sample
                 .result
@@ -133,5 +136,10 @@ mod tests {
                 .any(|detail| detail.key == "measurementScope" && detail.value == "quic_initial_response")
         );
         assert!(sample.result.details.iter().any(|detail| detail.key == "http3Validated" && detail.value == "false"));
+        sample.attempt_token = crate::CandidateAttemptCorrelationId::evaluated(1, 1);
+        let mut score = crate::execution::scoring::CandidateScore::default();
+        score.add(sample);
+        assert_eq!(score.succeeded_targets, 0);
+        assert_eq!(score.attempts[0].2, crate::types::StrategyProbeResponseStage::ResponseObserved);
     }
 }

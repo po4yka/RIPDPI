@@ -77,7 +77,7 @@ internal fun enrichDirectPathCapabilityObservation(
 private fun ScanReport.hasDefinitiveDirectModeEvidence(): Boolean =
     completionKind == ScanCompletionKind.NORMAL &&
         terminationReason == null &&
-        results.none { it.probeType != ProbeTypeQuicReachability && it.invalidatesDirectModeEvidence() } &&
+        results.none { !it.isQuicInitialProbe() && it.invalidatesDirectModeEvidence() } &&
         (
             strategyProbeReport?.let { strategyProbe ->
                 strategyProbe.completionKind == StrategyProbeCompletionKind.NORMAL &&
@@ -106,40 +106,27 @@ private fun collectDirectModePolicyEvaluations(report: ScanReport): List<DirectM
 
 private data class DirectModeTransportSignals(
     val hasTransparentSuccess: Boolean,
-    val hasQuicBlocked: Boolean,
     val hasTlsFailureWithoutResponse: Boolean,
     val hasTlsPostClientHelloFailure: Boolean,
     val allAttemptsFailed: Boolean,
     val noDirectTlsFailure: Boolean,
-    val noDirectQuicFailure: Boolean,
     val transportClass: DirectTransportClass?,
 )
 
 private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransportSignals {
     val hasTransparentSuccess = results.any(ProbeResult::edgeSuccess)
-    val hasQuicBlocked =
-        results.any { it.probeType == "strategy_quic" && it.outcome == "quic_error" }
     val hasTlsFailureWithoutResponse = results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = false) }
     val hasTlsPostClientHelloFailure =
         results.any { it.hasTlsHandshakeFailureEvidence(peerResponseReceived = true) }
     val allAttemptsFailed = results.isNotEmpty() && results.all(ProbeResult::isDirectModeFailure)
     val noDirectTlsFailure = allAttemptsFailed && hasTlsFailureWithoutResponse
-    val noDirectQuicFailure = allAttemptsFailed && hasQuicBlocked && !noDirectTlsFailure
-    val transportClass =
-        when {
-            hasTlsFailureWithoutResponse -> DirectTransportClass.SNI_TLS_SUSPECT
-            hasQuicBlocked -> DirectTransportClass.QUIC_BLOCK_SUSPECT
-            else -> null
-        }
     return DirectModeTransportSignals(
         hasTransparentSuccess = hasTransparentSuccess,
-        hasQuicBlocked = hasQuicBlocked,
         hasTlsFailureWithoutResponse = hasTlsFailureWithoutResponse,
         hasTlsPostClientHelloFailure = hasTlsPostClientHelloFailure,
         allAttemptsFailed = allAttemptsFailed,
         noDirectTlsFailure = noDirectTlsFailure,
-        noDirectQuicFailure = noDirectQuicFailure,
-        transportClass = transportClass,
+        transportClass = DirectTransportClass.SNI_TLS_SUSPECT.takeIf { hasTlsFailureWithoutResponse },
     )
 }
 
@@ -151,12 +138,7 @@ private fun deriveTransportPolicy(
         when {
             signals.allAttemptsFailed -> {
                 TransportPolicy(
-                    quicMode =
-                        when {
-                            signals.noDirectTlsFailure -> QuicMode.HARD_DISABLE
-                            signals.noDirectQuicFailure -> QuicMode.SOFT_DISABLE
-                            else -> QuicMode.ALLOW
-                        },
+                    quicMode = if (signals.noDirectTlsFailure) QuicMode.HARD_DISABLE else QuicMode.ALLOW,
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
                     tcpFamily =
@@ -179,16 +161,6 @@ private fun deriveTransportPolicy(
                 )
             }
 
-            signals.hasQuicBlocked -> {
-                TransportPolicy(
-                    quicMode = QuicMode.SOFT_DISABLE,
-                    preferredStack = PreferredStack.H2,
-                    dnsMode = DnsMode.SYSTEM,
-                    tcpFamily = TcpFamily.NONE,
-                    outcome = DirectModeOutcome.TRANSPARENT_OK,
-                )
-            }
-
             else -> {
                 TransportPolicy()
             }
@@ -200,9 +172,7 @@ private fun deriveReasonCode(signals: DirectModeTransportSignals): DirectModeRea
     when {
         signals.hasTlsPostClientHelloFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
         signals.noDirectTlsFailure -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
-        signals.noDirectQuicFailure -> DirectModeReasonCode.QUIC_BLOCKED
         signals.hasTlsFailureWithoutResponse -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
-        signals.hasQuicBlocked -> DirectModeReasonCode.QUIC_BLOCKED
         signals.hasTransparentSuccess -> null
         else -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
     }
@@ -216,7 +186,7 @@ private fun buildVerdict(
 ): DirectModeVerdict? =
     when (outcome) {
         DirectModeOutcome.TRANSPARENT_OK -> {
-            if (signals.hasTransparentSuccess || signals.hasQuicBlocked || signals.hasTlsFailureWithoutResponse) {
+            if (signals.hasTransparentSuccess || signals.hasTlsFailureWithoutResponse) {
                 DirectModeVerdict(
                     result = DirectModeVerdictResult.TRANSPARENT_WORKS,
                     reasonCode = reasonCode,
@@ -341,7 +311,7 @@ private fun ProbeResult.directModeAuthority(): String? =
 private fun ProbeResult.isDirectModeFailure(): Boolean =
     when {
         edgeSuccess() -> false
-        outcome in setOf("quic_error", "tls_handshake_failed", "unreachable", "http_unreachable") -> true
+        outcome in setOf("tls_handshake_failed", "unreachable", "http_unreachable") -> true
         outcome.contains("blocked", ignoreCase = true) -> true
         outcome.contains("unreachable", ignoreCase = true) -> true
         else -> false

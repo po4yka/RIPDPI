@@ -283,32 +283,32 @@ class DirectModePolicySupportTest {
     }
 
     @Test
-    fun `ech only reachability cannot confirm a policy from one independent probe`() {
-        val report =
-            reportWithResults(
-                strategyHttpsProbe("baseline_plain_direct", "tls_ech_only"),
-                ProbeResult(
-                    probeType = "strategy_quic",
-                    target = "example.org",
-                    outcome = "quic_response",
-                    details =
-                        listOf(
-                            ProbeDetail("candidateId", "baseline_plain_direct"),
-                            ProbeDetail("targetHost", "example.org"),
-                        ),
-                ),
-            )
+    fun `ECH only and QUIC replies do not confirm a direct policy`() {
+        for (outcome in listOf("quic_response", "quic_initial_response", "quic_retry", "quic_version_negotiation")) {
+            val report =
+                reportWithResults(
+                    strategyHttpsProbe("baseline_plain_direct", "tls_ech_only"),
+                    ProbeResult(
+                        probeType = "strategy_quic",
+                        target = "example.org",
+                        outcome = outcome,
+                        details =
+                            listOf(
+                                ProbeDetail("candidateId", "baseline_plain_direct"),
+                                ProbeDetail("targetHost", "example.org"),
+                            ),
+                    ),
+                )
 
-        val persisted = buildPersistableDirectPathObservations(report, emptyList()).single().second
-
-        assertEquals(DirectModeVerdictResult.TRANSPARENT_WORKS, deriveDirectModeVerdict(report)?.result)
-        assertEquals(true, persisted.quicUsable)
-        assertNull(persisted.transportPolicy)
-        assertNull(persisted.policyConfirmedAt)
+            val persisted = buildPersistableDirectPathObservations(report, emptyList())
+            assertTrue(outcome, persisted.all { (_, observation) -> observation.transportPolicy == null })
+            assertTrue(outcome, persisted.all { (_, observation) -> observation.quicUsable == null })
+            assertNull(outcome, deriveDirectModeVerdict(report))
+        }
     }
 
     @Test
-    fun `all failed quic authority returns honest no direct solution verdict`() {
+    fun `failed strategy QUIC probe does not establish direct transport failure`() {
         val report =
             reportWithResults(
                 ProbeResult(
@@ -323,16 +323,8 @@ class DirectModePolicySupportTest {
                 ),
             )
 
-        val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
-        val verdict = deriveDirectModeVerdict(report)
-
-        assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, observation.transportPolicy?.outcome)
-        assertEquals(DirectTransportClass.QUIC_BLOCK_SUSPECT, observation.transportClass)
-        assertEquals(DirectModeReasonCode.QUIC_BLOCKED, observation.reasonCode)
-        assertNotNull(observation.cooldownUntil)
-        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, verdict?.result)
-        assertEquals(DirectModeReasonCode.QUIC_BLOCKED, verdict?.reasonCode)
-        assertEquals(DirectTransportClass.QUIC_BLOCK_SUSPECT, verdict?.transportClass)
+        assertTrue(collectDirectPathCapabilityObservations(report).isEmpty())
+        assertNull(deriveDirectModeVerdict(report))
     }
 
     @Test

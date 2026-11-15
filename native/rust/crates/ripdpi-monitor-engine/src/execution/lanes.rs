@@ -7,6 +7,8 @@ mod tcp;
 
 use std::sync::Arc;
 
+pub(super) use quic::sample_response_stage;
+
 use super::runtime::{CandidateRuntimeLauncher, CandidateRuntimeSupervisor};
 
 pub(crate) struct DefaultStrategyLaneExecutor {

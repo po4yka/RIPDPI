@@ -43,13 +43,13 @@ fn runtime() -> ExecutionRuntime {
 }
 
 #[test]
-fn exhaustive_audit_runs_tcp_after_confirmed_quic_but_quick_and_capped_keep_pivot() {
+fn strategy_keeps_tcp_measurements_after_quic_initial_evidence() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
-    for (suite_id, cap, exhaustive) in [
-        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, None, true),
-        ("quick_v1", None, false),
-        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, Some(2), false),
+    for (suite_id, cap) in [
+        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, None),
+        ("quick_v1", None),
+        (STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, Some(2)),
     ] {
         let mut plan = bounded_plan(suite_id, cap);
         plan.request.domain_targets = vec![target(server.port())];
@@ -64,7 +64,7 @@ fn exhaustive_audit_runs_tcp_after_confirmed_quic_but_quick_and_capped_keep_pivo
         });
         let mut runtime = runtime();
         let quic = plan.strategy.as_ref().expect("strategy plan").suite.quic_candidates.first().expect("QUIC spec");
-        // Existing successful unmodified QUIC observation is input to the TCP decision.
+        // A scored Initial response can suggest another transport family.
         assert!(quic.config.chains.udp_steps.is_empty());
         let mut summary = candidate_summary(quic.id, quic.family, 1);
         summary.desync_execution_required = false;
@@ -72,8 +72,16 @@ fn exhaustive_audit_runs_tcp_after_confirmed_quic_but_quick_and_capped_keep_pivo
         let (coordinator, _) = execution_coordinator(Arc::new(DirectCandidateRuntimeLauncher));
         assert!(matches!(coordinator.run(&plan, &mut runtime, None), RunnerOutcome::Completed));
         assert_eq!(runtime.strategy.tcp_candidates.len(), 2);
-        assert!(runtime.strategy.tcp_candidates.iter().all(|candidate| candidate.skipped != exhaustive));
-        assert_eq!(runtime.results.iter().any(|result| result.probe_type == "strategy_http"), exhaustive);
+        assert!(runtime.strategy.tcp_candidates.iter().all(|candidate| !candidate.skipped));
+        assert!(runtime.results.iter().any(|result| result.probe_type == "strategy_http"));
+        let pivot = runtime
+            .strategy
+            .strategy_probe_report
+            .as_ref()
+            .and_then(|report| report.recommendation.as_ref())
+            .and_then(|recommendation| recommendation.transport_pivot.as_ref())
+            .expect("a QUIC Initial can suggest a pivot");
+        assert_eq!(pivot.viability, crate::types::TransportPivotViability::Unknown);
     }
 }
 

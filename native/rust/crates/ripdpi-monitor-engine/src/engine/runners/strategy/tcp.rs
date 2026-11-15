@@ -5,7 +5,6 @@ mod candidate_ordering;
 mod capability_gating;
 mod pilot_execution;
 mod pilot_qualification;
-mod quic_pivot;
 mod result_recording;
 mod runner;
 mod worker_join;
@@ -30,7 +29,6 @@ use self::batch_pipeline::{BatchFilterContext, merge_batch_results, select_execu
 use self::candidate_ordering::ordered_pending_tcp_candidates;
 use self::capability_gating::probe_tcp_capabilities;
 use self::pilot_qualification::qualify_pilot_candidates;
-use self::quic_pivot::skip_for_confirmed_quic;
 pub(in crate::engine::runners) use self::runner::StrategyTcpRunner;
 use self::worker_join::execute_candidate_batch;
 
@@ -72,9 +70,6 @@ impl StrategyTcpRunner {
         };
         let tcp_specs = &strategy_plan.suite.tcp_candidates;
         if tcp_specs.is_empty() {
-            return RunnerOutcome::Completed;
-        }
-        if skip_for_confirmed_quic(plan, runtime, tcp_specs) {
             return RunnerOutcome::Completed;
         }
         if execution_should_stop(runtime) {

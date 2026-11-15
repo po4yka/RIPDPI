@@ -93,8 +93,11 @@ internal fun ScanReport.resultsForDirectModePolicy(): List<ProbeResult> =
             }
         }
 
+internal fun ProbeResult.isQuicInitialProbe(): Boolean =
+    probeType == ProbeTypeQuicReachability || probeType == "strategy_quic"
+
 internal fun ProbeResult.isDirectModePolicyEvidence(): Boolean =
-    probeType != ProbeTypeQuicReachability &&
+    !isQuicInitialProbe() &&
         outcome != "tls_ech_only" &&
         (!probeType.startsWith("strategy_") || detailValue("candidateId")?.trim() == "baseline_plain_direct")
 

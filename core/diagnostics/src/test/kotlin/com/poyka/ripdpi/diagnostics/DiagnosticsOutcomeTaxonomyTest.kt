@@ -52,11 +52,13 @@ class DiagnosticsOutcomeTaxonomyTest {
                 "quic_cancelled" to DiagnosticsOutcomeBucket.Inconclusive,
                 "quic_deadline_exceeded" to DiagnosticsOutcomeBucket.Inconclusive,
             )
-        outcomes.forEach { (outcome, bucket) ->
-            val classification =
-                DiagnosticsOutcomeTaxonomy.classifyProbeOutcome("quic_reachability", ScanPathMode.RAW_PATH, outcome)
-            assertEquals(outcome, bucket, classification.bucket)
-            assertEquals(outcome, false, classification.healthyEnoughForSummary)
+        listOf("quic_reachability", "strategy_quic").forEach { probeType ->
+            outcomes.forEach { (outcome, bucket) ->
+                val classification =
+                    DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(probeType, ScanPathMode.RAW_PATH, outcome)
+                assertEquals("$probeType: $outcome", bucket, classification.bucket)
+                assertEquals("$probeType: $outcome", false, classification.healthyEnoughForSummary)
+            }
         }
     }
 

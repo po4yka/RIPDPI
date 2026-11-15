@@ -16,7 +16,9 @@ pub(in crate::engine::runners::strategy) use super::progress::{
     record_not_applicable_tcp_candidate, strategy_probe_live_progress_with_targets,
 };
 #[cfg(test)]
-pub(in crate::engine::runners::strategy) use super::recommendation_config::candidate_execution_matches_spec;
 pub(in crate::engine::runners::strategy) use super::recommendation_config::{
-    resolve_recommended_proxy_config_json, select_promotable_candidate_index, select_safe_or_baseline_candidate_index,
+    candidate_execution_matches_spec, select_promotable_candidate_index,
+};
+pub(in crate::engine::runners::strategy) use super::recommendation_config::{
+    resolve_recommended_proxy_config_json, select_safe_or_baseline_candidate_index,
 };

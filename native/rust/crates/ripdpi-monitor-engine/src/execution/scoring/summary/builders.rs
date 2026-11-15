@@ -23,9 +23,10 @@ pub fn build_candidate_execution(
     let attempts = score
         .attempts
         .iter()
-        .map(|(token, success)| CandidateAttemptExecution {
+        .map(|(token, success, response_stage)| CandidateAttemptExecution {
             token: token.clone(),
             success: *success,
+            response_stage: *response_stage,
             receipts: Vec::new(),
         })
         .collect();

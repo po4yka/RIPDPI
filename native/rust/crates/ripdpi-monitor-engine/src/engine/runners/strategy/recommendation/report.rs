@@ -86,7 +86,7 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
             transport_pivot: confirm_good_corroborated.then(|| TransportPivotRecommendation {
                 reason_code: "confirm_good_dpi_suspected".to_string(),
                 preferred_family: TransportFamily::UdpQuic,
-                viability: TransportPivotViability::Confirmed,
+                viability: TransportPivotViability::Unknown,
                 selected_relay_role: None,
             }),
         })

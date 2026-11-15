@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.TransportPolicyEnvelope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DirectModePolicyPersistenceTest {
@@ -63,7 +64,7 @@ class DirectModePolicyPersistenceTest {
     }
 
     @Test
-    fun `non baseline strategy success does not persist transparent policy`() {
+    fun `candidate QUIC Initial reply does not persist a direct policy`() {
         val persisted =
             buildPersistableDirectPathObservations(
                 report =
@@ -79,7 +80,7 @@ class DirectModePolicyPersistenceTest {
                                 ProbeResult(
                                     probeType = "strategy_quic",
                                     target = "Candidate · example.org",
-                                    outcome = "quic_response",
+                                    outcome = "quic_initial_response",
                                     details =
                                         listOf(
                                             ProbeDetail("candidateId", "quic_sni_split"),
@@ -89,11 +90,9 @@ class DirectModePolicyPersistenceTest {
                             ),
                     ).withAcceptedStrategyEvidence(),
                 existingRecords = emptyList(),
-            ).single()
-                .second
+            )
 
-        assertNull(persisted.transportPolicy)
-        assertNull(persisted.policyConfirmedAt)
+        assertTrue(persisted.isEmpty())
     }
 
     @Test
@@ -226,12 +225,9 @@ class DirectModePolicyPersistenceTest {
                             ),
                     ),
                 existingRecords = emptyList(),
-            ).single()
-                .second
+            )
 
-        assertNull(persisted.transportPolicy)
-        assertNull(persisted.cooldownUntil)
-        assertNull(persisted.policyConfirmedAt)
+        assertTrue(persisted.isEmpty())
     }
 }
 

@@ -47,9 +47,24 @@ class DiagnosticsCapabilityEvidenceTest {
     }
 
     @Test
-    fun `collectDirectPathCapabilityObservations records QUIC success by authority`() {
-        val observations =
-            collectDirectPathCapabilityObservations(
+    fun `strategy QUIC records and observations never update direct capabilities`() {
+        val outcomes =
+            mapOf(
+                "quic_initial_response" to StrategyProbeStatus.SUCCESS,
+                "quic_retry" to StrategyProbeStatus.PARTIAL,
+                "quic_version_negotiation" to StrategyProbeStatus.PARTIAL,
+                "quic_response" to StrategyProbeStatus.PARTIAL,
+                "quic_error" to StrategyProbeStatus.FAILED,
+            )
+        outcomes.forEach { (outcome, status) ->
+            val probe =
+                ProbeResult(
+                    probeType = "strategy_quic",
+                    target = "Strategy · video.example",
+                    outcome = outcome,
+                    details = listOf(ProbeDetail("connectedIp", "192.0.2.1")),
+                )
+            val report =
                 ScanReport(
                     sessionId = "session",
                     profileId = "automatic-audit",
@@ -57,20 +72,23 @@ class DiagnosticsCapabilityEvidenceTest {
                     startedAt = 1L,
                     finishedAt = 2L,
                     summary = "done",
-                    results =
+                    results = listOf(probe),
+                    observations =
                         listOf(
-                            ProbeResult(
-                                probeType = "strategy_quic",
-                                target = "Strategy · video.example",
-                                outcome = "quic_response",
+                            ObservationFact(
+                                kind = ObservationKind.STRATEGY,
+                                target = probe.target,
+                                strategy =
+                                    StrategyObservationFact(
+                                        protocol = StrategyProbeProtocol.QUIC,
+                                        status = status,
+                                    ),
                             ),
                         ),
-                ),
-            )
+                )
 
-        assertEquals(1, observations.size)
-        val record = observations.getValue("video.example")
-        assertTrue(record.quicUsable == true)
-        assertTrue(record.udpUsable == true)
+            assertTrue(outcome, buildPersistableDirectPathObservations(report, emptyList()).isEmpty())
+            assertEquals(outcome, outcome == "quic_initial_response", probe.edgeTransportKind() != null)
+        }
     }
 }

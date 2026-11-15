@@ -17,6 +17,7 @@ pub struct CandidateExecution {
 pub(in crate::execution::scoring) struct CandidateAttemptExecution {
     pub(in crate::execution::scoring) token: CandidateAttemptCorrelationId,
     pub(in crate::execution::scoring) success: bool,
+    pub(in crate::execution::scoring) response_stage: StrategyProbeResponseStage,
     pub(in crate::execution::scoring) receipts: Vec<CandidateDesyncExecutionReceipt>,
 }
 
@@ -85,11 +86,7 @@ impl CandidateExecution {
             .map(|attempt| StrategyProbeAttemptExecutionEvidence {
                 probe_succeeded: attempt.success,
                 complete: !attempt.receipts.is_empty(),
-                response_stage: if attempt.success {
-                    StrategyProbeResponseStage::ResponseObserved
-                } else {
-                    StrategyProbeResponseStage::ResponseNotObserved
-                },
+                response_stage: attempt.response_stage,
                 receipts: attempt.receipts.iter().map(|evidence| evidence.receipt().clone()).collect(),
             })
             .collect();

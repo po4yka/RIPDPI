@@ -17,7 +17,7 @@ internal fun ProbeResult.inferEdgeHost(): String? =
 internal fun ProbeResult.edgeTransportKind(): String? =
     when (probeType) {
         "strategy_quic" -> {
-            PreferredEdgeTransportQuic
+            PreferredEdgeTransportQuic.takeIf { edgeSuccess() }
         }
 
         "strategy_http", "strategy_https", "service_handshake", "service_gateway", "throughput" -> {
@@ -31,7 +31,7 @@ internal fun ProbeResult.edgeTransportKind(): String? =
 
 internal fun ProbeResult.edgeSuccess(): Boolean =
     when (probeType) {
-        "strategy_quic" -> outcome == "quic_initial_response" || outcome == "quic_response"
+        "strategy_quic" -> outcome == "quic_initial_response"
         "strategy_http" -> outcome == "http_ok" || outcome == "http_redirect"
         "strategy_https" -> outcome == "tls_ok" || outcome == "tls_version_split" || outcome == "tls_ech_only"
         "service_handshake", "service_gateway", "throughput" -> !outcome.contains("unreachable", ignoreCase = true)

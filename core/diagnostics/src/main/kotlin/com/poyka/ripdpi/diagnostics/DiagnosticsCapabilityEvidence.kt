@@ -45,7 +45,7 @@ internal fun summarizeCapabilityEvidence(
 
 internal fun collectDirectPathCapabilityObservations(report: ScanReport): Map<String, ServerCapabilityObservation> {
     val aggregated = linkedMapOf<String, ServerCapabilityObservation>()
-    val capabilityResults = report.results.filterNot { it.probeType == ProbeTypeQuicReachability }
+    val capabilityResults = report.results.filterNot(ProbeResult::isQuicInitialProbe)
     capabilityResults.forEach { result ->
         val authority = result.directPathCapabilityAuthority() ?: return@forEach
         val observation = result.directPathCapabilityObservation()
@@ -53,14 +53,6 @@ internal fun collectDirectPathCapabilityObservations(report: ScanReport): Map<St
             return@forEach
         }
         aggregated[authority] = mergeObservation(aggregated[authority], observation)
-    }
-    report.observations.forEach { observation ->
-        val authority = observation.directPathCapabilityAuthority() ?: return@forEach
-        val derived = observation.directPathCapabilityObservation()
-        if (derived.isEmpty()) {
-            return@forEach
-        }
-        aggregated[authority] = mergeObservation(aggregated[authority], derived)
     }
     capabilityResults
         .mapNotNull(ProbeResult::directPathCapabilityAuthority)
@@ -224,14 +216,6 @@ private fun ProbeResult.directPathCapabilityAuthority(): String? =
 
 private fun ProbeResult.directPathCapabilityObservation(): ServerCapabilityObservation =
     when (probeType) {
-        "strategy_quic" -> {
-            val success = edgeSuccess()
-            ServerCapabilityObservation(
-                quicUsable = success,
-                udpUsable = success,
-            )
-        }
-
         "strategy_failure_classification" -> {
             val fallbackDecision = detailValue("fallbackDecision")?.trim()?.lowercase(Locale.US)
             ServerCapabilityObservation(
@@ -256,21 +240,6 @@ private fun ProbeResult.directPathCapabilityObservation(): ServerCapabilityObser
         else -> {
             ServerCapabilityObservation()
         }
-    }
-
-private fun ObservationFact.directPathCapabilityAuthority(): String? =
-    target
-        .substringAfterLast(" · ", missingDelimiterValue = target)
-        .substringBefore(' ')
-        .trim()
-        .takeIf { it.isNotEmpty() }
-
-private fun ObservationFact.directPathCapabilityObservation(): ServerCapabilityObservation =
-    if (strategy?.protocol == StrategyProbeProtocol.QUIC && strategy.status != StrategyProbeStatus.NOT_APPLICABLE) {
-        val usable = strategy.status == StrategyProbeStatus.SUCCESS
-        ServerCapabilityObservation(quicUsable = usable, udpUsable = usable)
-    } else {
-        ServerCapabilityObservation()
     }
 
 private fun List<ServerCapabilityRecord>.reduceCapabilityFlag(

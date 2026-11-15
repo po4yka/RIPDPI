@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
 use crate::CandidateAttemptCorrelationId;
-use crate::types::ProbeResult;
+use crate::execution::lanes::sample_response_stage;
+use crate::types::{ProbeResult, StrategyProbeResponseStage};
 
 use super::ProbeSample;
 
@@ -22,7 +23,7 @@ pub struct CandidateScore {
     pub domain_totals: BTreeMap<String, usize>,
     /// Per-domain control classification copied from the exact scan target.
     pub domain_controls: BTreeMap<String, bool>,
-    pub attempts: Vec<(CandidateAttemptCorrelationId, bool)>,
+    pub attempts: Vec<(CandidateAttemptCorrelationId, bool, StrategyProbeResponseStage)>,
 }
 
 impl CandidateScore {
@@ -32,7 +33,8 @@ impl CandidateScore {
             return;
         }
         if let Some(token) = sample.attempt_token.clone() {
-            self.attempts.push((token, sample.success));
+            let response_stage = sample_response_stage(sample.success, &sample.result.outcome);
+            self.attempts.push((token, sample.success, response_stage));
         }
         if let Some(ref domain) = sample.domain {
             *self.domain_totals.entry(domain.clone()).or_default() += 1;
