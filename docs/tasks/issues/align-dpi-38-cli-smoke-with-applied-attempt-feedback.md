@@ -2,7 +2,7 @@
 id: CIC-1794764263401395
 title: Align DPI-38 CLI smoke with applied-attempt feedback
 kind: bug
-status: review
+status: done
 area: ci
 priority: high
 owner: DPI-38 CLI smoke maintainer
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-11-15
 updated: 2026-11-15
 spec_reason: test-only
+closed_at: "2026-11-15T17:56:30Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Verified source 684dd2f094d9cc73fe82e21efec78842b7e94beb: real CLI loopback no-credit and independent oracle tests 2 passed; existing oracle tests 7 passed; strict CLI Clippy, locked metadata, architecture health, just ci-gates, task contracts, and independent review passed. Positive Linux capture and external warmup remain explicitly unrun locally."
 ---
 
 ## Goal
