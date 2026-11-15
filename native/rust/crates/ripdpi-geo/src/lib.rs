@@ -231,6 +231,11 @@ impl GeositeDomainRule {
             GeositeDomainKind::Plain => ascii_contains_ignore_case(domain, value),
             GeositeDomainKind::Regex => false,
             GeositeDomainKind::Full => domain.eq_ignore_ascii_case(value),
+            GeositeDomainKind::Subdomain => {
+                let value = self.value.as_bytes();
+                domain.len() > value.len()
+                    && domain.as_bytes()[domain.len() - value.len()..].eq_ignore_ascii_case(value)
+            }
             GeositeDomainKind::RootDomain => {
                 domain.eq_ignore_ascii_case(value)
                     || (domain.len() > value.len()
@@ -259,6 +264,7 @@ pub enum GeositeDomainKind {
     Plain,
     Regex,
     RootDomain,
+    Subdomain,
     Full,
 }
 
@@ -411,12 +417,13 @@ fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<Geosit
                 SING_GEOSITE_DOMAIN_REGEX => GeositeDomainKind::Regex,
                 other => return Err(GeositeParseError::UnsupportedSingGeositeRuleType(other)),
             };
-            let mut value = items.string()?;
-            // sing-geosite writes a v2ray root domain as suffix ".value" (plus a full rule when the
-            // value has a dot); the root-domain rule matches the value and its subdomains.
-            if kind == GeositeDomainKind::RootDomain && value.starts_with('.') {
-                value.remove(0);
-            }
+            let value = items.string()?;
+            // A leading-dot sing-box suffix excludes the apex.
+            let kind = if kind == GeositeDomainKind::RootDomain && value.starts_with('.') {
+                GeositeDomainKind::Subdomain
+            } else {
+                kind
+            };
             rules.push(GeositeDomainRule { kind, value });
         }
         categories.insert(code.to_ascii_lowercase(), rules);
@@ -472,6 +479,7 @@ mod protobuf_tests;
 #[cfg(test)]
 mod tests {
     mod regex_tests;
+    mod suffix_tests;
 
     use std::fs;
     use std::net::IpAddr;
@@ -692,7 +700,7 @@ mod tests {
 
         assert!(runtime.geosite_contains("ru", "example.ru"));
         assert!(runtime.geosite_contains("RU", "www.example.ru"));
-        assert!(runtime.geosite_contains("ru", "su"));
+        assert!(!runtime.geosite_contains("ru", "su"));
         assert!(runtime.geosite_contains("ru", "mail.su"));
         assert!(runtime.geosite_contains("ru", "exact.ru"));
         assert!(!runtime.geosite_contains("ru", "notexample.ru"));
