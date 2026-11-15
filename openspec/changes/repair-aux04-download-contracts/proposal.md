@@ -12,7 +12,7 @@ Catalog refresh can buffer an unbounded response before its byte limit. Native f
 - Reject close-delimited HTTPS bodies after an unauthenticated EOF.
 - Stop owned HTTP work when its Kotlin caller is canceled.
 - Preserve Content-Type through native fetch and browser fallback.
-- JNI cancellation uses new request lifecycle methods. Kotlin and Rust ship together; no persisted data changes.
+- JNI cancellation uses create/execute/cancel/release JSON commands on the existing jniExecute entry point. Kotlin and Rust ship together; no persisted data changes.
 
 ## Capabilities
 

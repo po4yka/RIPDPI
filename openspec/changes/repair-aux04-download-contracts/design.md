@@ -14,10 +14,12 @@ The confirmed findings affect two delivery stacks. Retrofit owns host, geo, and 
 - Use the existing request-handle registry and cancellation pattern for HTTP. Keep per-call current-thread Tokio runtime ownership and use a native cancellation receiver that wakes pending I/O. Kotlin cancellation signals the handle; the operation owner releases it.
 - Add nullable Content-Type to the HTTP response DTO and propagate it to the browser decoder. No persistence schema changes.
 
+The existing jniExecute JSON entry point accepts create, execute, cancel, and release commands. Requests without an operation retain legacy execution. No JNI export or ABI is added.
+
 ## Contracts and ownership
 
 - limits-worker: core/service download services, bounded response helper, and owning tests.
-- closure-worker: fetch TLS/completeness helper, request.rs, closure fixtures.
+- closure-worker: tls_profile.rs, TLS transport helper, request.rs, closure fixtures.
 - bridge-worker: fetch executor/DTO/lib, JNI bridge, core/engine fetch wrapper, browser response, cancellation and metadata tests. F3 precedes F4 and has a separate commit.
 - Integration: task and OpenSpec, generated API/JNI snapshots through owning commands, combined review and gates. Shared changes are applied sequentially. No dependency, locale, golden, or baseline modifications.
 
