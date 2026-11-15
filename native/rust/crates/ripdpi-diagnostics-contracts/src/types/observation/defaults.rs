@@ -25,8 +25,8 @@ pub(crate) fn endpoint_probe_status_not_run() -> EndpointProbeStatus {
     EndpointProbeStatus::NotRun
 }
 
-pub(crate) fn telegram_transfer_status_error() -> TelegramTransferStatus {
-    TelegramTransferStatus::Error
+pub(crate) fn telegram_transfer_status_unknown() -> TelegramTransferStatus {
+    TelegramTransferStatus::Unknown
 }
 
 pub(crate) fn telegram_ws_tunnel_status_unknown() -> TelegramWsTunnelStatus {

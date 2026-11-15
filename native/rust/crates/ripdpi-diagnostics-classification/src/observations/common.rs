@@ -136,7 +136,10 @@ pub(crate) fn telegram_verdict(value: &str) -> TelegramVerdict {
         "slow" => TelegramVerdict::Slow,
         "partial" => TelegramVerdict::Partial,
         "blocked" => TelegramVerdict::Blocked,
-        _ => TelegramVerdict::Error,
+        "cancelled" => TelegramVerdict::Cancelled,
+        "deadline_exceeded" => TelegramVerdict::DeadlineExceeded,
+        "error" => TelegramVerdict::Error,
+        _ => TelegramVerdict::Unknown,
     }
 }
 
@@ -146,7 +149,11 @@ pub(crate) fn telegram_transfer_status(value: &str) -> TelegramTransferStatus {
         "slow" => TelegramTransferStatus::Slow,
         "stalled" => TelegramTransferStatus::Stalled,
         "blocked" => TelegramTransferStatus::Blocked,
-        _ => TelegramTransferStatus::Error,
+        "cancelled" => TelegramTransferStatus::Cancelled,
+        "deadline_exceeded" => TelegramTransferStatus::DeadlineExceeded,
+        "error" => TelegramTransferStatus::Error,
+        "not_run" | "capability_skipped" => TelegramTransferStatus::NotRun,
+        _ => TelegramTransferStatus::Unknown,
     }
 }
 

@@ -127,7 +127,7 @@ fn telegram_verdict_maps_all_variants() {
     assert_eq!(telegram_verdict("slow"), TelegramVerdict::Slow);
     assert_eq!(telegram_verdict("partial"), TelegramVerdict::Partial);
     assert_eq!(telegram_verdict("blocked"), TelegramVerdict::Blocked);
-    assert_eq!(telegram_verdict("unknown"), TelegramVerdict::Error);
+    assert_eq!(telegram_verdict("unknown"), TelegramVerdict::Unknown);
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn telegram_transfer_status_maps_all_variants() {
     assert_eq!(telegram_transfer_status("slow"), TelegramTransferStatus::Slow);
     assert_eq!(telegram_transfer_status("stalled"), TelegramTransferStatus::Stalled);
     assert_eq!(telegram_transfer_status("blocked"), TelegramTransferStatus::Blocked);
-    assert_eq!(telegram_transfer_status("unknown"), TelegramTransferStatus::Error);
+    assert_eq!(telegram_transfer_status("unknown"), TelegramTransferStatus::Unknown);
 }
 
 #[test]
@@ -416,6 +416,7 @@ fn telegram_observation_builds_from_probe() {
         &[
             ("verdict", "ok"),
             ("qualityScore", "85"),
+            ("qualityScoreBasis", "availability_deficit_pct"),
             ("downloadStatus", "ok"),
             ("uploadStatus", "slow"),
             ("dcReachable", "3"),
@@ -427,6 +428,8 @@ fn telegram_observation_builds_from_probe() {
             ("dcResults", "DC1:ok:42ms|DC2:fail|DC3:ok:50ms"),
             ("wsTunnelStatus", "unreachable"),
             ("wsTunnelOpenMs", "250"),
+            ("wsTunnelEndpoint", "wss://kws2.web.telegram.org/apiws"),
+            ("wsTunnelPath", "direct_route_experiment"),
             ("wsTunnelError", "tls handshake failed"),
         ],
     );
@@ -435,26 +438,49 @@ fn telegram_observation_builds_from_probe() {
     let tg = obs.telegram.expect("telegram payload");
     assert_eq!(tg.verdict, TelegramVerdict::Ok);
     assert_eq!(tg.quality_score, Some(85));
+    assert_eq!(tg.quality_score_basis.as_deref(), Some("availability_deficit_pct"));
     assert_eq!(tg.download_status, TelegramTransferStatus::Ok);
     assert_eq!(tg.upload_status, TelegramTransferStatus::Slow);
     assert_eq!(tg.dc_reachable, 3);
     assert_eq!(tg.dc_total, 5);
-    assert_eq!(tg.download_avg_bps, 120000);
-    assert_eq!(tg.download_peak_bps, 180000);
-    assert_eq!(tg.upload_avg_bps, 64000);
-    assert_eq!(tg.upload_peak_bps, 96000);
+    assert_eq!(tg.download_avg_bps, Some(120000));
+    assert_eq!(tg.download_peak_bps, Some(180000));
+    assert_eq!(tg.upload_avg_bps, Some(64000));
+    assert_eq!(tg.upload_peak_bps, Some(96000));
     assert_eq!(tg.dc_results, vec!["DC1:ok:42ms", "DC2:fail", "DC3:ok:50ms"]);
     assert_eq!(tg.ws_tunnel_status, TelegramWsTunnelStatus::Unreachable);
     assert_eq!(tg.ws_tunnel_open_ms, Some(250));
     assert_eq!(tg.ws_tunnel_error.as_deref(), Some("tls handshake failed"));
+    assert_eq!(tg.ws_tunnel_endpoint.as_deref(), Some("wss://kws2.web.telegram.org/apiws"));
+    assert_eq!(tg.ws_tunnel_path.as_deref(), Some("direct_route_experiment"));
+    assert_eq!(tg.ws_tunnel_peer, None);
 }
 
 #[test]
 fn telegram_observation_preserves_an_unscored_deadline() {
-    let result = probe("telegram_availability", "Telegram", "deadline_exceeded", &[("wsTunnelStatus", "not_run")]);
+    let result = probe(
+        "telegram_availability",
+        "Telegram",
+        "deadline_exceeded",
+        &[
+            ("downloadStatus", "deadline_exceeded"),
+            ("uploadStatus", "not_run"),
+            ("dcReachable", "0"),
+            ("dcTotal", "0"),
+            ("dcPlanned", "2"),
+            ("wsTunnelStatus", "not_run"),
+        ],
+    );
     let telegram = observation_for_probe(&result).unwrap().telegram.unwrap();
 
+    assert_eq!(telegram.verdict, TelegramVerdict::DeadlineExceeded);
     assert_eq!(telegram.stop_reason, Some(crate::types::TelegramProbeStopReason::DeadlineExceeded));
+    assert_eq!(telegram.download_status, TelegramTransferStatus::DeadlineExceeded);
+    assert_eq!(telegram.upload_status, TelegramTransferStatus::NotRun);
+    assert_eq!(telegram.download_avg_bps, None);
+    assert_eq!(telegram.dc_planned, Some(2));
+    assert_eq!(telegram.dc_total, 0);
+    assert_eq!(telegram.dc_reachable, 0);
     assert_eq!(telegram.ws_tunnel_status, TelegramWsTunnelStatus::Unknown);
     assert_eq!(telegram.ws_tunnel_outcome, Some(crate::types::TelegramWsProbeOutcome::NotRun));
     assert_eq!(telegram.quality_score, None);
@@ -568,4 +594,14 @@ fn dns_injection_pool_not_detected_for_two_domains() {
         assert!(dns.forged_address_pool.is_none());
         assert!(!obs.evidence.contains(&"dns_injection_pool_detected".to_string()));
     }
+}
+
+#[test]
+fn telegram_observation_does_not_turn_a_legacy_failure_sentinel_into_a_score() {
+    let result = probe("telegram_availability", "Telegram", "error", &[("qualityScore", "18446744073709551615")]);
+
+    let telegram = observation_for_probe(&result).unwrap().telegram.unwrap();
+    assert_eq!(telegram.quality_score, None);
+    assert_eq!(telegram.dc_planned, None);
+    assert_eq!(telegram.download_status, TelegramTransferStatus::Unknown);
 }

@@ -295,6 +295,9 @@ enum class TelegramVerdict {
     PARTIAL,
     BLOCKED,
     ERROR,
+    CANCELLED,
+    DEADLINE_EXCEEDED,
+    UNKNOWN,
 }
 
 @Serializable
@@ -304,6 +307,10 @@ enum class TelegramTransferStatus {
     STALLED,
     BLOCKED,
     ERROR,
+    CANCELLED,
+    DEADLINE_EXCEEDED,
+    UNKNOWN,
+    NOT_RUN,
 }
 
 @Serializable
@@ -405,20 +412,25 @@ data class TelegramObservationFact(
     val verdict: TelegramVerdict,
     val stopReason: TelegramProbeStopReason? = null,
     val qualityScore: Int? = null,
-    val downloadStatus: TelegramTransferStatus = TelegramTransferStatus.ERROR,
-    val uploadStatus: TelegramTransferStatus = TelegramTransferStatus.ERROR,
+    val qualityScoreBasis: String? = null,
+    val downloadStatus: TelegramTransferStatus = TelegramTransferStatus.UNKNOWN,
+    val uploadStatus: TelegramTransferStatus = TelegramTransferStatus.UNKNOWN,
     val dcReachable: Int = 0,
     val dcTotal: Int = 0,
-    val downloadAvgBps: Long = 0,
-    val downloadPeakBps: Long = 0,
-    val uploadAvgBps: Long = 0,
-    val uploadPeakBps: Long = 0,
+    val dcPlanned: Int? = null,
+    val downloadAvgBps: Long? = null,
+    val downloadPeakBps: Long? = null,
+    val uploadAvgBps: Long? = null,
+    val uploadPeakBps: Long? = null,
     val dcResults: List<String> = emptyList(),
     val wsTunnelStatus: TelegramWsTunnelStatus = TelegramWsTunnelStatus.UNKNOWN,
     val wsTunnelOutcome: TelegramWsProbeOutcome? = null,
     val wsTunnelOpenMs: Long? = null,
     val wsTunnelError: String? = null,
     val wsTunnelHttpStatus: Int? = null,
+    val wsTunnelEndpoint: String? = null,
+    val wsTunnelPath: String? = null,
+    val wsTunnelPeer: String? = null,
 )
 
 @Serializable

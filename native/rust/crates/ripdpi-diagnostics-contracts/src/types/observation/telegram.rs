@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::defaults::{telegram_transfer_status_error, telegram_ws_tunnel_status_unknown};
+use super::defaults::{telegram_transfer_status_unknown, telegram_ws_tunnel_status_unknown};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -10,6 +10,9 @@ pub enum TelegramVerdict {
     Partial,
     Blocked,
     Error,
+    Cancelled,
+    DeadlineExceeded,
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -20,6 +23,10 @@ pub enum TelegramTransferStatus {
     Stalled,
     Blocked,
     Error,
+    Cancelled,
+    DeadlineExceeded,
+    Unknown,
+    NotRun,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -57,22 +64,26 @@ pub struct TelegramObservationFact {
     pub stop_reason: Option<TelegramProbeStopReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quality_score: Option<i32>,
-    #[serde(default = "telegram_transfer_status_error")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality_score_basis: Option<String>,
+    #[serde(default = "telegram_transfer_status_unknown")]
     pub download_status: TelegramTransferStatus,
-    #[serde(default = "telegram_transfer_status_error")]
+    #[serde(default = "telegram_transfer_status_unknown")]
     pub upload_status: TelegramTransferStatus,
     #[serde(default)]
     pub dc_reachable: usize,
     #[serde(default)]
     pub dc_total: usize,
-    #[serde(default)]
-    pub download_avg_bps: u64,
-    #[serde(default)]
-    pub download_peak_bps: u64,
-    #[serde(default)]
-    pub upload_avg_bps: u64,
-    #[serde(default)]
-    pub upload_peak_bps: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dc_planned: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download_avg_bps: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub download_peak_bps: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_avg_bps: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_peak_bps: Option<u64>,
     #[serde(default)]
     pub dc_results: Vec<String>,
     #[serde(default = "telegram_ws_tunnel_status_unknown")]
@@ -85,4 +96,10 @@ pub struct TelegramObservationFact {
     pub ws_tunnel_error: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ws_tunnel_http_status: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ws_tunnel_endpoint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ws_tunnel_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ws_tunnel_peer: Option<String>,
 }

@@ -327,6 +327,8 @@ class DiagnosticsModelsCompatibilityTest {
         assertEquals(TelegramWsTunnelStatus.UNKNOWN, telegram.wsTunnelStatus)
         assertEquals(TelegramWsProbeOutcome.NOT_RUN, telegram.wsTunnelOutcome)
         assertNull(telegram.qualityScore)
+        assertNull(telegram.downloadAvgBps)
+        assertEquals(TelegramTransferStatus.UNKNOWN, telegram.downloadStatus)
         val encoded = json.encodeToString(TelegramObservationFact.serializer(), telegram)
         assertTrue("\"qualityScore\"" !in encoded)
     }
@@ -391,8 +393,8 @@ class DiagnosticsModelsCompatibilityTest {
         val decoded = json.decodeFromString(EngineScanReportWire.serializer(), encoded)
         val telegram = requireNotNull(decoded.observations.single().telegram)
 
-        assertEquals(120_000, telegram.downloadAvgBps)
-        assertEquals(96_000, telegram.uploadPeakBps)
+        assertEquals(120_000L, telegram.downloadAvgBps)
+        assertEquals(96_000L, telegram.uploadPeakBps)
         assertEquals(listOf("DC1:ok:42ms", "DC2:fail"), telegram.dcResults)
         assertEquals(TelegramWsTunnelStatus.UNREACHABLE, telegram.wsTunnelStatus)
         assertEquals("tls handshake failed", telegram.wsTunnelError)

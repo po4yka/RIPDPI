@@ -23,10 +23,12 @@ pub(crate) fn build_telegram_observation(result: &ProbeResult) -> ProbeObservati
             _ => None,
         },
         quality_score: detail_value(result, "qualityScore").and_then(|value| value.parse().ok()),
-        download_status: telegram_transfer_status(detail_value(result, "downloadStatus").unwrap_or("error")),
-        upload_status: telegram_transfer_status(detail_value(result, "uploadStatus").unwrap_or("error")),
+        quality_score_basis: optional_detail(result, "qualityScoreBasis"),
+        download_status: telegram_transfer_status(detail_value(result, "downloadStatus").unwrap_or("unknown")),
+        upload_status: telegram_transfer_status(detail_value(result, "uploadStatus").unwrap_or("unknown")),
         dc_reachable: detail_value(result, "dcReachable").and_then(|value| value.parse::<usize>().ok()).unwrap_or(0),
         dc_total: detail_value(result, "dcTotal").and_then(|value| value.parse::<usize>().ok()).unwrap_or(0),
+        dc_planned: detail_value(result, "dcPlanned").and_then(|value| value.parse().ok()),
         download_avg_bps: detail_u64(result, "downloadAvgBps"),
         download_peak_bps: detail_u64(result, "downloadPeakBps"),
         upload_avg_bps: detail_u64(result, "uploadAvgBps"),
@@ -46,12 +48,15 @@ pub(crate) fn build_telegram_observation(result: &ProbeResult) -> ProbeObservati
         ws_tunnel_open_ms: detail_value(result, "wsTunnelOpenMs").and_then(|value| value.parse().ok()),
         ws_tunnel_error: optional_detail(result, "wsTunnelError"),
         ws_tunnel_http_status: detail_value(result, "wsTunnelHttpStatus").and_then(|value| value.parse().ok()),
+        ws_tunnel_endpoint: optional_detail(result, "wsTunnelEndpoint"),
+        ws_tunnel_path: optional_detail(result, "wsTunnelPath"),
+        ws_tunnel_peer: optional_detail(result, "wsTunnelPeer"),
     });
     observation
 }
 
-fn detail_u64(result: &ProbeResult, key: &str) -> u64 {
-    detail_value(result, key).and_then(|value| value.parse::<u64>().ok()).unwrap_or(0)
+fn detail_u64(result: &ProbeResult, key: &str) -> Option<u64> {
+    detail_value(result, key).and_then(|value| value.parse().ok())
 }
 
 fn optional_detail(result: &ProbeResult, key: &str) -> Option<String> {
