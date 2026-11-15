@@ -5,7 +5,7 @@ commit_sha: ee25ddb7f6b33d7a6b5508c953720820f4dcda25
 local: passed
 local_evidence: "publication-v4 passed on the published SHA: 471 Kotlin tests, full staticAnalysis and app/service lint, Simple compile, locked workspace check, native wire 18 accepted and 54 rejected, ci-gates, architecture and metadata. Detailed receipts and immutable JUnit are in /Users/npochaev/GitHub/RIPDPI-worktrees/imp01-evidence/integration/publication-v4."
 remote_ci: required
-remote_ci_evidence: "Exact-SHA CI run https://github.com/po4yka/RIPDPI/actions/runs/43729212424 and CodeQL run 43729212391 are in progress; Secret Scan run 43729212320 passed. This is not a claim that the CI aggregate passed."
+remote_ci_evidence: "Kotlin coverage failed in BackupAllowlistCoverageTest for the added Mieru fields; correction is in progress. Exact-SHA CI run https://github.com/po4yka/RIPDPI/actions/runs/43729212424 and CodeQL run 43729212391 are in progress; Secret Scan run 43729212320 passed. This is not a claim that the CI aggregate passed."
 device: not_applicable
 device_evidence: No Android UI layout or physical transport acceptance is claimed; JVM Room and native loopback cover the owned contract changes.
 artifact: not_applicable
@@ -29,6 +29,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-IMP01-F7 | OUT-1794723325992640 | Shadowsocks scheme case variants reach the parser and return the same profile. | passed |
 | REQ-IMP01-TUIC | OUT-1794723329887849 | Typed URI, real Room persistence, explicit selection, native config and lossless share tests pass. No live TUIC peer acceptance is claimed. | passed |
 | REQ-IMP01-MIERU | OUT-1794723333000951 | Presence-aware protobuf and saved share tests pass. Pinned Go vectors and two real Go 1.27.4 loopback cases verify advanced TCP and Off shutdown; 381 native tests and Clippy passed on retained native inputs. | passed |
+| REQ-IMP01-BACKUP | OUT-1794756875357718 | Hosted kotlin-coverage found unclassified new Mieru fields; TUIC registration and FULL/SHARE regression checks are pending. | required |
 
 ## Verified candidate and publication
 

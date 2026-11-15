@@ -84,3 +84,12 @@ The app MUST preserve optional protobuf field presence for pinned Mieru v3.36.0 
 
 - **WHEN** an advanced simple or standard Mieru URI is imported, activated and shared
 - **THEN** typed settings retain presence, native bytes match pinned vectors and a local upstream peer exchanges payload; refusal, timeout and cancellation remain bounded
+
+### Requirement: REQ-IMP01-BACKUP — Classify added URI profile fields
+
+FULL backup MUST retain all TUIC and advanced Mieru settings and credentials. SHARE backup MUST omit TUIC UUID/password and Mieru username/password while retaining their non-secret transport settings. New fields MUST have an explicit allowlist classification. The coverage test MUST detect a ProxyProfile subtype missing from its representative instances.
+
+#### Scenario: Export added URI profile fields safely
+
+- **WHEN** typed TUIC and advanced Mieru profiles enter FULL or SHARE backup
+- **THEN** FULL round-trip retains their values and field presence; SHARE succeeds, preserves public settings and removes credential values
