@@ -202,3 +202,28 @@ fn cancelling_bootstrap_closes_active_connection_and_prevents_followup() {
         assert_eq!(following.accept().unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
     });
 }
+
+#[test]
+fn retry_preserves_both_bootstrap_attempts() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let attempts = Arc::new(AtomicUsize::new(0));
+    let responses = Arc::clone(&attempts);
+    let bootstrap = HttpTextServer::start(move |_| match responses.fetch_add(1, Ordering::Relaxed) {
+        0 => b"HTTP/1.1 503 Unavailable\r\nContent-Length: 0\r\nServer: first\r\n\r\n".to_vec(),
+        _ => b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nServer: retry\r\n\r\nok".to_vec(),
+    });
+    let transport = TransportConfig::Direct { route_experiment: None };
+    let target = CircumventionTarget {
+        bootstrap_url: Some(format!("http://127.0.0.1:{}/", bootstrap.port())),
+        ..circumvention_target()
+    };
+    let row = run_circumvention_probe(&target, &transport, None, None, &AtomicBool::new(false));
+    assert_eq!(attempts.load(Ordering::Relaxed), 2);
+    assert_eq!(row.outcome, "circumvention_ok");
+    assert_eq!(detail(&row, "bootstrapStatus"), "http_ok");
+    assert_eq!(detail(&row, "bootstrapDetail"), "200 OK retry");
+    assert_eq!(detail(&row, "bootstrapInitialStatus"), "http_status_503");
+    assert_eq!(detail(&row, "bootstrapInitialDetail"), "503 Unavailable first");
+    assert_eq!(detail(&row, "probeRetryCount"), "1");
+}

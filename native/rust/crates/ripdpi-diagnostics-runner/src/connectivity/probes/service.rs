@@ -92,8 +92,6 @@ pub fn run_circumvention_probe(
         key_log,
         cancel,
     );
-    let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
-
     // Retry an observed failure once while the scan still allows network work.
     let retry = bootstrap
         .as_ref()
@@ -105,10 +103,11 @@ pub fn run_circumvention_probe(
         .and(target.bootstrap_url.as_deref())
         .map(|url| probe_http_url(url, transport, key_log, cancel));
     let circumvention_retry_count = usize::from(retry.is_some());
-    let bootstrap = retry.or(bootstrap);
+    let final_bootstrap = retry.as_ref().or(bootstrap.as_ref());
     let bootstrap_status =
-        bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
-    let outcome = match endpoint_evidence(&[http_leg(bootstrap.as_ref()), socket_leg(&handshake.status)]) {
+        final_bootstrap.map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
+    let bootstrap_detail = final_bootstrap.map_or_else(|| "not_run".to_string(), describe_http_observation);
+    let outcome = match endpoint_evidence(&[http_leg(final_bootstrap), socket_leg(&handshake.status)]) {
         EndpointEvidence::Reached => "circumvention_ok",
         EndpointEvidence::Partial => "circumvention_degraded",
         EndpointEvidence::Blockpage => "circumvention_blocked",
@@ -128,6 +127,14 @@ pub fn run_circumvention_probe(
             ProbeDetail { key: "probeRetryCount".to_string(), value: circumvention_retry_count.to_string() },
         ],
     };
+    if retry.is_some()
+        && let Some(initial) = bootstrap
+    {
+        result.details.extend([
+            ProbeDetail { key: "bootstrapInitialDetail".into(), value: describe_http_observation(&initial) },
+            ProbeDetail { key: "bootstrapInitialStatus".into(), value: initial.status },
+        ]);
+    }
     append_route_details(&mut result.details, "handshake", handshake.local_addr, handshake.route_report.as_ref());
     result
 }
