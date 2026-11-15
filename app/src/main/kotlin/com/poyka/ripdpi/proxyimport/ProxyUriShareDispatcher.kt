@@ -13,8 +13,8 @@ import com.poyka.ripdpi.data.uri.ProxyUriCodec
 object ProxyUriShareDispatcher {
     /**
      * Parses [uri] via [ProxyUriCodec] and wraps the result. The returned
-     * [ProxyImportRequest.UnsupportedScheme.scheme] is the lower-cased scheme prefix when
-     * one can be extracted, or an empty string for input with no `scheme://` prefix.
+     * [ProxyImportRequest.UnsupportedScheme.scheme] is a known, fixed scheme label when
+     * one matches, or an empty string for input with no `scheme://` prefix.
      */
     fun dispatch(uri: String): ProxyImportRequest {
         val profile = ProxyUriCodec.parse(uri)
@@ -24,11 +24,36 @@ object ProxyUriShareDispatcher {
         return ProxyImportRequest.UnsupportedScheme(schemeOf(uri))
     }
 
-    /** Extracts the lower-cased `scheme` from `scheme://…`, or `""` when absent. */
+    /** Return only a known label. A syntactically plausible prefix can itself contain credentials. */
     internal fun schemeOf(uri: String): String {
         val trimmed = uri.trim()
         val schemeEnd = trimmed.indexOf("://")
-        if (schemeEnd <= 0) return ""
-        return trimmed.substring(0, schemeEnd).lowercase()
+        if (schemeEnd !in 1..MaxSchemeLabelLength) return ""
+        val candidate = trimmed.substring(0, schemeEnd).lowercase()
+        return knownSchemeLabels.firstOrNull { it == candidate }.orEmpty()
     }
+
+    private const val MaxSchemeLabelLength = 11
+    private val knownSchemeLabels =
+        setOf(
+            "amneziawg",
+            "anytls",
+            "http",
+            "https",
+            "hy2",
+            "hysteria2",
+            "mieru",
+            "mierus",
+            "naive+https",
+            "naive+quic",
+            "ripdpi",
+            "singbox",
+            "sing-box",
+            "ss",
+            "ssh",
+            "trojan",
+            "tuic",
+            "vless",
+            "vpn",
+        )
 }

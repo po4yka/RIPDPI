@@ -14,6 +14,13 @@ import org.junit.Test
  */
 class ClipboardImportClassifierTest {
     @Test
+    fun `unknown clipboard prefixes do not enter error results`() {
+        listOf("FixtureKey://node", "private key fixture://node").forEach { text ->
+            assertEquals(ClipboardImportResult.UnknownContent(""), ClipboardImportClassifier.classify(text))
+        }
+    }
+
+    @Test
     fun `vless clipboard content classifies as an importable profile`() {
         val result =
             ClipboardImportClassifier.classify(

@@ -68,7 +68,7 @@ class ProxyUriShareDispatcherTest {
         val request = ProxyUriShareDispatcher.dispatch("gopher://example.com:70")
 
         assertTrue(request is ProxyImportRequest.UnsupportedScheme)
-        assertEquals("gopher", (request as ProxyImportRequest.UnsupportedScheme).scheme)
+        assertEquals("", (request as ProxyImportRequest.UnsupportedScheme).scheme)
     }
 
     @Test
