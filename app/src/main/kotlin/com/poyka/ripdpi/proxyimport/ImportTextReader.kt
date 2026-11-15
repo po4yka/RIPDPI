@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 
-/** U+FEFF, which some editors put at the start of a UTF-8 file and the `.conf` parser does not trim. */
+/** U+FEFF, which some editors put at the start of a UTF-8 file or share text. */
 internal val ByteOrderMark: String = Char(0xFEFF).toString()
 
 /** Largest shared or picked import file RIPDPI reads; real `.conf` files and keys are a few KiB. */
@@ -23,6 +23,10 @@ internal const val MaxImportFileBytes = PendingProxyImportStore.MaxAmneziaWgConf
 private const val ImportReadTimeoutMillis = 3_000L
 private const val ImportReadConcurrency = 2
 private const val ImportWorkerIdleSeconds = 30L
+
+/** Check the UTF-8 size before parsing and bound the encoding allocation for large strings. */
+internal fun isWithinImportTextLimit(text: String): Boolean =
+    text.length <= MaxImportFileBytes && text.toByteArray(Charsets.UTF_8).size <= MaxImportFileBytes
 
 /** Returns null for a failed, timed-out, oversized, or binary import. Admission never queues work. */
 internal suspend fun readImportText(

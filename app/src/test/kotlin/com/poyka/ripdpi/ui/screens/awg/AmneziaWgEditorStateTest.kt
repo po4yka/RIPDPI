@@ -577,6 +577,15 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `conf import applies the UTF-8 byte limit to pasted text`() {
+        val conf = "[Interface]\nPrivateKey = test\n# " + "é".repeat(32 * 1024)
+
+        val result = AmneziaWgEditorState.initial().importConf(conf, catalog)
+
+        assertEquals(AwgConfImport.Failed(AwgConfImportFailure.UNREADABLE), result)
+    }
+
+    @Test
     fun `awg 3x keys and a keepalive range reach the activation request`() {
         val conf =
             """

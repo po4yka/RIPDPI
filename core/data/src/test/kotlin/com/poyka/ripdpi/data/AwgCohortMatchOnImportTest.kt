@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.awg.decodeAwgCohortCatalog
 import com.poyka.ripdpi.data.awg.matchCohortForConf
+import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -42,7 +43,7 @@ class AwgCohortMatchOnImportTest {
 
     @Test
     fun `a conf whose obfuscation params byte-match rtk_south is tagged rtk_south`() {
-        val tag = matchCohortForConf(rtkSouthConf, catalog())
+        val tag = matchCohortForConf(WireGuardConfParser.parse(rtkSouthConf), catalog())
 
         assertEquals("rtk_south", tag)
     }
@@ -52,7 +53,7 @@ class AwgCohortMatchOnImportTest {
         // Jmin 11 instead of 10 — one value off.
         val oneOff = rtkSouthConf.replace("Jmin = 10", "Jmin = 11")
 
-        val tag = matchCohortForConf(oneOff, catalog())
+        val tag = matchCohortForConf(WireGuardConfParser.parse(oneOff), catalog())
 
         assertEquals("Custom", tag)
     }
@@ -61,7 +62,7 @@ class AwgCohortMatchOnImportTest {
     fun `a conf with a different H value is tagged Custom`() {
         val differentH = rtkSouthConf.replace("H4 = 4", "H4 = 5")
 
-        val tag = matchCohortForConf(differentH, catalog())
+        val tag = matchCohortForConf(WireGuardConfParser.parse(differentH), catalog())
 
         assertEquals("Custom", tag)
     }
@@ -80,14 +81,7 @@ class AwgCohortMatchOnImportTest {
             Endpoint = plain.example.com:51820
             """.trimIndent()
 
-        val tag = matchCohortForConf(vanilla, catalog())
-
-        assertEquals("Custom", tag)
-    }
-
-    @Test
-    fun `a structurally malformed conf is tagged Custom, not a crash`() {
-        val tag = matchCohortForConf("[Interface]\nbroken line", catalog())
+        val tag = matchCohortForConf(WireGuardConfParser.parse(vanilla), catalog())
 
         assertEquals("Custom", tag)
     }
@@ -119,6 +113,6 @@ class AwgCohortMatchOnImportTest {
 
         // default and home_isp_broad share numeric params; matching returns the
         // first catalog entry with those params, which is "default".
-        assertEquals("default", matchCohortForConf(defaultConf, cat))
+        assertEquals("default", matchCohortForConf(WireGuardConfParser.parse(defaultConf), cat))
     }
 }

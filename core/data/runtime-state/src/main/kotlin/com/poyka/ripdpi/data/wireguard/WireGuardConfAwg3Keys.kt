@@ -51,7 +51,7 @@ internal fun AmneziaWgV3Parameters.withConfKey(
         }
 
         else -> {
-            throw WireGuardConfUnknownKeyException("Interface", key)
+            throw WireGuardConfUnknownKeyException("Interface")
         }
     }
 
@@ -70,12 +70,9 @@ internal fun parseConfRange(
  * `PersistentKeepalive` as `(low, high)`; `high` is null for a single value or `x-x`. A range must
  * start at 1 or more, because `0` means "keepalive off" and a `0-N` range has no defined meaning.
  */
-internal fun parseKeepaliveRange(
-    key: String,
-    value: String,
-): Pair<Int, Int?> =
+internal fun parseKeepaliveRange(value: String): Pair<Int, Int?> =
     requireNotNull(AmneziaWgV3Parameters.parsePersistentKeepalive(value)) {
-        "WireGuard config key '$key' expects 0 or an ordered positive range up to 65535"
+        "WireGuard PersistentKeepalive expects 0 or an ordered positive range up to 65535"
     }
 
 /** amneziawg-tools `parse_bool`: `on`/`off` or a decimal number (non-zero = on); UAPI `true`/`false`. */

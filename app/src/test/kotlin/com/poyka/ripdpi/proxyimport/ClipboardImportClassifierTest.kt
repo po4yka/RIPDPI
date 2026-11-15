@@ -70,6 +70,13 @@ class ClipboardImportClassifierTest {
     }
 
     @Test
+    fun `malformed conf with an unknown prefix returns no clipboard text`() {
+        val text = "PrivateKey = fixture-key\n# A note links to https://example.com"
+
+        assertEquals(ClipboardImportResult.UnknownContent(""), ClipboardImportClassifier.classify(text))
+    }
+
+    @Test
     fun `content with no scheme yields an empty-scheme error`() {
         val result = ClipboardImportClassifier.classify("just some random clipboard text")
 

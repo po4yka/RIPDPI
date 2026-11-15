@@ -1,8 +1,9 @@
 package com.poyka.ripdpi.data.awg
 
 import android.content.Context
+import com.poyka.ripdpi.data.wireguard.AmneziaWgConfig
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
-import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
+import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.SerialName
@@ -236,28 +237,18 @@ fun AwgCohortCatalogData.handshakeAttemptsFor(obfuscation: AwgActivationObfuscat
  * Tags an imported AmneziaWG `.conf` with a cohort id when its obfuscation
  * params byte-match a catalog preset, otherwise `"Custom"`.
  *
- * The `.conf` is parsed with the existing [WireGuardConfParser]; a vanilla
- * WireGuard config (no AWG keys) or a structurally malformed config is
- * `"Custom"`. When several presets share the same numeric params (e.g.
- * `default` and `home_isp_broad`), the first matching catalog entry wins.
+ * Plain WireGuard selects Custom. When several presets share the same
+ * parameters, the first matching catalog entry wins.
  */
-@Suppress("ReturnCount")
 fun matchCohortForConf(
-    conf: String,
+    parsed: WireGuardConfModel,
     catalog: AwgCohortCatalogData,
 ): String {
-    val parsed =
-        runCatching { WireGuardConfParser.parse(conf) }.getOrNull()
-            ?: return "Custom"
-    val awg =
-        when (parsed) {
-            is com.poyka.ripdpi.data.wireguard.AmneziaWgConfig -> parsed.awg
-            else -> return "Custom"
-        }
+    val awg = (parsed as? AmneziaWgConfig)?.awg ?: return AwgProfileForm.CUSTOM_COHORT_ID
     return catalog.presets
         .firstOrNull { preset -> preset.matches(awg) }
         ?.id
-        ?: "Custom"
+        ?: AwgProfileForm.CUSTOM_COHORT_ID
 }
 
 /**

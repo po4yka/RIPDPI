@@ -376,7 +376,8 @@ class WireGuardConfParserTest {
 
         val error =
             assertThrows(WireGuardConfUnknownKeyException::class.java) { WireGuardConfParser.parse(withUnknownKey) }
-        assertEquals("Interface" to "SomeFutureKey", error.section to error.key)
+        assertEquals("Interface", error.section)
+        assertFalse(error.message.orEmpty().contains("SomeFutureKey"))
         assertFalse(error.message.orEmpty().contains("whatever-value"))
 
         val wgQuick =
@@ -388,6 +389,15 @@ class WireGuardConfParserTest {
         assertTrue(parsed is WireGuardConfig)
         assertEquals("10.0.0.2/32", parsed.interfaceSection.address.single())
         assertEquals(1, parsed.peers.size)
+    }
+
+    @Test
+    fun `malformed config errors omit input lines and values`() {
+        listOf("fixture-text", "= fixture-text", "[fixture-text]", "MTU = fixture-text", "Jc = fixture-text").forEach {
+            val failure =
+                assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(interfaceConf(it)) }
+            assertFalse(failure.message.orEmpty().contains("fixture-text"))
+        }
     }
 
     @Test

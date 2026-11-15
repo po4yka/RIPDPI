@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import com.poyka.ripdpi.data.wireguard.WireGuardConfUnknownKeyException
+import com.poyka.ripdpi.proxyimport.isWithinImportTextLimit
 
 /**
  * Imports a WireGuard or AmneziaWG `.conf` through [WireGuardConfParser]. A plain
@@ -22,26 +23,29 @@ fun AmneziaWgEditorState.importConf(
     conf: String,
     catalog: AwgCohortCatalogData,
 ): AwgConfImport {
-    val result = conf.takeIf { it.isNotBlank() }?.let { runCatching { WireGuardConfParser.parse(it) } }
-    val parsed = result?.getOrNull()
-    val listenPort = parsed?.interfaceSection?.listenPort ?: 0
-    val hasUnknownKey = result?.exceptionOrNull() is WireGuardConfUnknownKeyException
-    return when {
-        conf.isBlank() -> AwgConfImport.Failed(AwgConfImportFailure.UNREADABLE)
-        hasUnknownKey -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION)
-        parsed == null -> AwgConfImport.Failed(AwgConfImportFailure.INVALID)
-        listenPort != 0 -> AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT)
-        else -> imported(conf, parsed, catalog)
+    if (!isWithinImportTextLimit(conf) || conf.isBlank()) {
+        return AwgConfImport.Failed(AwgConfImportFailure.UNREADABLE)
+    }
+    return try {
+        val parsed = WireGuardConfParser.parse(conf)
+        if ((parsed.interfaceSection.listenPort ?: 0) != 0) {
+            AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_LISTEN_PORT)
+        } else {
+            imported(parsed, catalog)
+        }
+    } catch (_: WireGuardConfUnknownKeyException) {
+        AwgConfImport.Failed(AwgConfImportFailure.UNSUPPORTED_OPTION)
+    } catch (_: IllegalArgumentException) {
+        AwgConfImport.Failed(AwgConfImportFailure.INVALID)
     }
 }
 
 private fun AmneziaWgEditorState.imported(
-    conf: String,
     parsed: WireGuardConfModel,
     catalog: AwgCohortCatalogData,
 ): AwgConfImport.Imported {
     val awg = (parsed as? AmneziaWgConfig)?.awg ?: AmneziaWgParameters()
-    val cohortId = matchCohortForConf(conf, catalog)
+    val cohortId = matchCohortForConf(parsed, catalog)
     val nextForm = buildFormFromConf(parsed, awg, cohortId)
     // obfuscationRawText() seeds the S/H/I raw text from the freshly-built
     // form, so the I-fields parsed into the form above are covered here too.

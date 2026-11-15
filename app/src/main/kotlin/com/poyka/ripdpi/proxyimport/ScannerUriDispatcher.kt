@@ -42,15 +42,19 @@ sealed interface ImportPayload {
  */
 object ImportPayloadClassifier {
     fun classify(text: String): ImportPayload? {
+        if (!isWithinImportTextLimit(text)) return null
         val trimmed = text.trim().removePrefix(ByteOrderMark).trim()
         if (trimmed.isEmpty()) return null
         return (ProxyUriShareDispatcher.dispatch(trimmed) as? ProxyImportRequest.Profile)?.let(ImportPayload::Profile)
             ?: SubscriptionLinkClassifier.classify(trimmed)?.let(ImportPayload::Subscription)
             ?: embeddedShareProfile(trimmed)?.let(ImportPayload::Profile)
-            ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(ImportPayload::WireGuardConf)
-            ?: amneziaWgConf(trimmed)?.let(ImportPayload::WireGuardConf)
+            ?: AmneziaVpnKeyDecoder.confFromKey(trimmed)?.let(::boundedConf)
+            ?: amneziaWgConf(trimmed)?.let(::boundedConf)
             ?: trimmed.takeIf(WireGuardConfParser::hasInterfaceAndPeerSections)?.let(ImportPayload::WireGuardConf)
     }
+
+    private fun boundedConf(text: String): ImportPayload.WireGuardConf? =
+        text.takeIf(::isWithinImportTextLimit)?.let(ImportPayload::WireGuardConf)
 
     private fun amneziaWgConf(text: String): String? =
         try {

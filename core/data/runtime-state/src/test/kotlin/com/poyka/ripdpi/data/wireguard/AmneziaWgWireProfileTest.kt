@@ -117,7 +117,8 @@ class AmneziaWgWireProfileTest {
                 assertThrows(key, WireGuardConfUnknownKeyException::class.java) {
                     WireGuardConfParser.parse("$conf\n$key = secret-looking-value")
                 }
-            assertEquals("Interface" to key, inInterface.section to inInterface.key)
+            assertEquals("Interface", inInterface.section)
+            assertFalse(inInterface.message.orEmpty().contains(key))
             assertFalse(inInterface.message.orEmpty().contains("secret-looking-value"))
             val inPeer =
                 assertThrows(key, WireGuardConfUnknownKeyException::class.java) {

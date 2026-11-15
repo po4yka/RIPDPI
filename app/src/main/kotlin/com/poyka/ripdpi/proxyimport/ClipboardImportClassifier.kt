@@ -18,9 +18,7 @@ sealed interface ClipboardImportResult {
     /**
      * The clipboard held content that is not a recognised proxy URI.
      *
-     * @property scheme the lower-cased `scheme` prefix that was found (`"http"`,
-     *   `"vless"` for a structurally broken known scheme, …), or `""` when the content
-     *   had no `scheme://` prefix at all. The payload itself is never retained.
+     * @property scheme a known format label, or `""` if no known format was found.
      */
     data class UnknownContent(
         val scheme: String,
@@ -42,12 +40,38 @@ object ClipboardImportClassifier {
     /**
      * Classifies [clipboardText]. A `null` or blank value is [ClipboardImportResult.Empty];
      * importable text is [ClipboardImportResult.Importable]; anything else is
-     * [ClipboardImportResult.UnknownContent] carrying only the scheme prefix.
+     * [ClipboardImportResult.UnknownContent] carrying at most a known format label.
      */
     fun classify(clipboardText: String?): ClipboardImportResult {
-        val trimmed = clipboardText?.trim().orEmpty()
-        if (trimmed.isEmpty()) return ClipboardImportResult.Empty
-        return ImportPayloadClassifier.classify(trimmed)?.let(ClipboardImportResult::Importable)
-            ?: ClipboardImportResult.UnknownContent(ProxyUriShareDispatcher.schemeOf(trimmed))
+        if (clipboardText == null) return ClipboardImportResult.Empty
+        if (!isWithinImportTextLimit(clipboardText)) return ClipboardImportResult.UnknownContent("")
+        if (clipboardText.isBlank()) return ClipboardImportResult.Empty
+        return ImportPayloadClassifier.classify(clipboardText)?.let(ClipboardImportResult::Importable)
+            ?: ClipboardImportResult.UnknownContent(
+                ProxyUriShareDispatcher.schemeOf(clipboardText).takeIf(ReportedSchemes::contains).orEmpty(),
+            )
     }
+
+    private val ReportedSchemes =
+        setOf(
+            "amneziawg",
+            "anytls",
+            "http",
+            "https",
+            "hy2",
+            "hysteria2",
+            "mieru",
+            "mierus",
+            "naive+https",
+            "naive+quic",
+            "ripdpi",
+            "sing-box",
+            "ss",
+            "ssh",
+            "trojan",
+            "tuic",
+            "v2rayng",
+            "vless",
+            "vpn",
+        )
 }

@@ -62,7 +62,7 @@ internal class PendingProxyImportStore(
      * argument. Empty text is staged so the editor can report an unreadable file.
      */
     fun stageAmneziaWgConf(conf: String): String? {
-        if (conf.toByteArray(Charsets.UTF_8).size > MaxAmneziaWgConfBytes) return null
+        if (!isWithinImportTextLimit(conf)) return null
         return stagePayload(Payload.AmneziaWgConf(conf))
     }
 

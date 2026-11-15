@@ -237,7 +237,7 @@ class AmneziaWgProfileScreenTest {
             [Interface]
             PrivateKey = test-private-key
             Address = 10.8.0.2/32
-            ListenPort = 51821
+            Table = off
             PostUp = ignored-hook-value
             [Peer]
             PublicKey = test-peer-key
@@ -251,7 +251,7 @@ class AmneziaWgProfileScreenTest {
 
         val title = RuntimeEnvironment.getApplication().getString(R.string.awg_conf_ignored_options_title)
         composeRule.onNodeWithText(title).assertExists()
-        composeRule.onNodeWithText("ListenPort", substring = true).assertExists()
+        composeRule.onNodeWithText("Table", substring = true).assertExists()
         composeRule.onNodeWithText("PostUp", substring = true).assertExists()
         composeRule.onNodeWithText("ignored-hook-value", substring = true).assertDoesNotExist()
     }
