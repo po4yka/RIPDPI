@@ -11,7 +11,7 @@ Task ID: `DGN-1794732375813278`. See proposal.md and diagnostics/doh-json-survey
 
 - F1: pass expected name/type to the shared JSON parser; require matching Question and valid records; follow a bounded CNAME chain with case/trailing-dot equivalence. Reject truncation and malformed relevant records.
 - F2: replace ambiguous Option with a typed Answer, NoData, NxDomain or DnsError result. Propagate it to scheduled and library callers. Negative evidence alone is inconclusive.
-- F3: preserve typed I/O kind/stage through the JSON HTTP helper, retaining general HTTP String adapters. Classify socket timeout at the I/O boundary; do not match localized OS text.
+- F3: preserve typed I/O kind/stage through the JSON HTTP helper, retaining general HTTP String adapters. Classify established HTTP socket I/O by ErrorKind; do not match localized OS text there. Connection/TLS setup already erases typed causes in lower crates, so retain its prior timeout-first classification behind an explicit legacy-boundary comment. A typed transport/TLS redesign is outside this regression repair.
 - F4: reuse effective bucket counts with failure > attention > inconclusive > healthy priority; no observations means inconclusive. Preserve healthy contextual variants only for established healthy evidence.
 - F5: use conservative library classification for transport/HTTP failures.
 - F6: reuse existing URL tools or a bounded shared query builder; preserve query parameters and encoded name. Reject unsupported endpoint forms before requests.

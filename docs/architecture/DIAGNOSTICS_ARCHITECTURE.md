@@ -446,6 +446,15 @@ cancelled survey stops starting requests and stays inconclusive. The Kotlin plan
 adds one `DOH_JSON_SURVEY` task per domain, and local-network admission drops it with
 its denied DNS target. A scan without DNS targets sends no JSON DoH requests.
 
+A usable JSON address must answer the requested name and record type, either
+directly or through a valid CNAME chain. Malformed records and truncated
+responses do not establish success. DNS evidence keeps NODATA, NXDOMAIN and
+server response codes separate from JSON syntax and transport failures.
+Negative responses and transport failures alone do not establish blocking.
+Connectivity analytics retains unknown results instead of marking them healthy.
+This JSON GET survey does not implement the binary RFC 8484 exchange used by
+the encrypted DNS resolver.
+
 ## Local device and default-data SIM context
 
 `DiagnosticContextModel.localNetwork` contains optional, identifier-free local

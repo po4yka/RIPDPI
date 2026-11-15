@@ -24,7 +24,7 @@ The scheduled and library surveys MUST distinguish NODATA, NXDOMAIN, DNS server 
 
 ### Requirement: REQ-DGN-1794732375813278-003 — Preserve transport timeout kinds
 
-The JSON HTTP path MUST preserve I/O error kind and stage. A blocking socket read timeout reported as WouldBlock or TimedOut MUST be a timeout. Cancellation and scan deadline MUST retain administrative meaning.
+For request writes and response reads, the JSON HTTP path MUST preserve I/O error kind and stage. Existing setup-timeout classification MUST remain compatible. A blocking socket read timeout reported as WouldBlock or TimedOut MUST be a timeout. Cancellation and scan deadline MUST retain administrative meaning.
 
 #### Scenario: Preserve transport timeout kinds
 
