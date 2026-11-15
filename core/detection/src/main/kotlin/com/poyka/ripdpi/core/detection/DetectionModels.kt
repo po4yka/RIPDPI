@@ -135,6 +135,14 @@ enum class CheckExecutionStatus {
     ERROR,
 }
 
+enum class DetectionCheckStatus {
+    COMPLETE,
+    OBSERVATION_ONLY,
+    INCONCLUSIVE,
+    SKIPPED,
+    ERROR,
+}
+
 data class CategoryResult(
     val name: String,
     val detected: Boolean,
@@ -144,6 +152,7 @@ data class CategoryResult(
     val matchedApps: List<MatchedVpnApp> = emptyList(),
     val activeApps: List<ActiveVpnApp> = emptyList(),
     val executionStatus: CheckExecutionStatus = CheckExecutionStatus.COMPLETED,
+    val status: DetectionCheckStatus = DetectionCheckStatus.COMPLETE,
 )
 
 enum class IpComparisonEndpointGroup {
