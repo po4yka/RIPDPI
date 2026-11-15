@@ -73,7 +73,8 @@ private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionR
     DetectionRunnerConfig(
         ownProxyPort = proxyPort.takeIf { it > 0 },
         ownPackageName = packageName,
-        includeBypassCheck = detectionCheckNetworkRequestsEnabled && detectionCheckIncludeBypass,
+        includeBypassCheck =
+            detectionCheckNetworkRequestsEnabled && (detectionCheckIncludeBypass || detectionCheckXrayApiScanEnabled),
         includeTimingAnalysis = detectionCheckNetworkRequestsEnabled,
         includeWebRtcCheck = detectionCheckNetworkRequestsEnabled,
         includeRttTriangulationCheck =

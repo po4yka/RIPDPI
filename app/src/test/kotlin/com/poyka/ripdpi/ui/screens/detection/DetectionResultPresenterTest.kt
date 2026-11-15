@@ -88,6 +88,23 @@ class DetectionResultPresenterTest {
     }
 
     @Test
+    fun `runnerConfig schedules proxy and API scans independently`() {
+        for ((proxyEnabled, apiEnabled) in listOf(false to false, true to false, false to true, true to true)) {
+            val configured =
+                settings {
+                    detectionCheckNetworkRequestsEnabled = true
+                    detectionCheckIncludeBypass = proxyEnabled
+                    detectionCheckXrayApiScanEnabled = apiEnabled
+                }
+            val config = DetectionResultPresenter.runnerConfig(configured, "pkg")
+
+            assertEquals(proxyEnabled || apiEnabled, config.includeBypassCheck)
+            assertEquals(proxyEnabled, config.bypassScanOptions.proxyScanEnabled)
+            assertEquals(apiEnabled, config.bypassScanOptions.xrayApiScanEnabled)
+        }
+    }
+
+    @Test
     fun `runnerConfig encryptedDnsEnabled when dnsMode encrypted or resolver doh`() {
         assertTrue(DetectionResultPresenter.runnerConfig(settings { dnsMode = "encrypted" }, "pkg").encryptedDnsEnabled)
         assertTrue(
