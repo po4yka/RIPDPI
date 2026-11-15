@@ -35,32 +35,29 @@ internal object StunBindingResponseDecoder {
         var mapped: String? = null
         var offset = HeaderBytes
         var valid = true
-        while (offset < message.size && valid) {
-            if (message.size - offset < AttributeHeaderBytes) {
-                valid = false
-            } else {
-                val attrType = ByteBuffer.wrap(message, offset, 2).short.toInt() and UnsignedShortMask
-                val attrLength = ByteBuffer.wrap(message, offset + 2, 2).short.toInt() and UnsignedShortMask
-                val valueOffset = offset + AttributeHeaderBytes
-                val paddedLength =
-                    attrLength + (AttributeAlignment - attrLength % AttributeAlignment) % AttributeAlignment
-                valid = paddedLength <= message.size - valueOffset &&
-                    validAttribute(message, valueOffset, attrType, attrLength)
-                if (valid) {
-                    when (attrType) {
-                        XorMappedAddress -> {
-                            xorMapped = xorMapped ?: decodeAddress(message, valueOffset, attrLength, xorKey)
-                        }
+        while (offset + AttributeHeaderBytes <= message.size && valid) {
+            val attrType = ByteBuffer.wrap(message, offset, 2).short.toInt() and UnsignedShortMask
+            val attrLength = ByteBuffer.wrap(message, offset + 2, 2).short.toInt() and UnsignedShortMask
+            val valueOffset = offset + AttributeHeaderBytes
+            val paddedLength = attrLength + (AttributeAlignment - attrLength % AttributeAlignment) % AttributeAlignment
+            valid = paddedLength <= message.size - valueOffset &&
+                validAttribute(message, valueOffset, attrType, attrLength)
+            when {
+                !valid -> {
+                    Unit
+                }
 
-                        MappedAddress -> {
-                            mapped = mapped ?: decodeAddress(message, valueOffset, attrLength, null)
-                        }
-                    }
-                    offset = valueOffset + paddedLength
+                attrType == XorMappedAddress -> {
+                    xorMapped = xorMapped ?: decodeAddress(message, valueOffset, attrLength, xorKey)
+                }
+
+                attrType == MappedAddress -> {
+                    mapped = mapped ?: decodeAddress(message, valueOffset, attrLength, null)
                 }
             }
+            offset = valueOffset + paddedLength
         }
-        return (xorMapped ?: mapped.takeUnless { requireXor }).takeIf { valid }
+        return (xorMapped ?: mapped.takeUnless { requireXor }).takeIf { valid && offset == message.size }
     }
 
     private fun isBindingSuccess(
