@@ -19,8 +19,7 @@ import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
  * routing-protection catalog) to the presentation artifacts the UI renders: runner/debug config,
  * report text, debug report text, recommendations.
  *
- * No dependencies; [StringResolver] is passed per-call. Behavior is byte-identical to the original
- * inline VM logic.
+ * No dependencies; [StringResolver] is passed per-call.
  */
 internal object DetectionResultPresenter {
     fun runnerConfig(
@@ -69,7 +68,7 @@ internal object DetectionResultPresenter {
             )
 }
 
-private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionRunnerConfig =
+internal fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionRunnerConfig =
     DetectionRunnerConfig(
         ownProxyPort = proxyPort.takeIf { it > 0 },
         ownPackageName = packageName,
@@ -92,7 +91,7 @@ private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionR
                 portRange = toBypassPortRange(),
             ),
         resolverConfig = toDetectionResolverConfig(),
-        encryptedDnsEnabled = dnsMode == "encrypted" || detectionCheckDnsResolverMode == "doh",
+        encryptedDnsEnabled = dnsMode == "encrypted",
         webRtcProtectionEnabled = webrtcProtectionEnabled,
         tlsFingerprintProfile = tlsFingerprintProfile.ifEmpty { "chrome_stable" },
     )

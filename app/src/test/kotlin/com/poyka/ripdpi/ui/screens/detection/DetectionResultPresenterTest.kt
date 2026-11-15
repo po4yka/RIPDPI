@@ -107,10 +107,10 @@ class DetectionResultPresenterTest {
     }
 
     @Test
-    fun `runnerConfig encryptedDnsEnabled when dnsMode encrypted or resolver doh`() {
+    fun `runnerConfig encryptedDnsEnabled observes the app setting only`() {
         assertTrue(DetectionResultPresenter.runnerConfig(settings { dnsMode = "encrypted" }, "pkg").encryptedDnsEnabled)
         assertTrue(
-            DetectionResultPresenter
+            !DetectionResultPresenter
                 .runnerConfig(settings { detectionCheckDnsResolverMode = "doh" }, "pkg")
                 .encryptedDnsEnabled,
         )

@@ -4,7 +4,6 @@ import android.content.Context
 import com.poyka.ripdpi.core.detection.DecisionSignal
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
-import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -15,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsPreparedFileStore
 import com.poyka.ripdpi.diagnostics.export.PreparedExportClock
 import com.poyka.ripdpi.pcap.PcapController
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
+import com.poyka.ripdpi.ui.screens.detection.toDetectionRunnerConfig
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -42,15 +42,7 @@ class DefaultHomeDetectionStageRunner
             val result =
                 detectionCheckRunner.run(
                     context = context,
-                    config =
-                        DetectionRunnerConfig(
-                            ownProxyPort = settings.proxyPort.takeIf { it > 0 },
-                            ownPackageName = context.packageName,
-                            networkRequestsEnabled = settings.detectionCheckNetworkRequestsEnabled,
-                            encryptedDnsEnabled = settings.dnsMode == "encrypted",
-                            webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
-                            tlsFingerprintProfile = settings.tlsFingerprintProfile.ifEmpty { "chrome_stable" },
-                        ),
+                    config = settings.toDetectionRunnerConfig(context.packageName),
                     onProgress = { progress ->
                         onProgress(progress.label, progress.detail)
                     },

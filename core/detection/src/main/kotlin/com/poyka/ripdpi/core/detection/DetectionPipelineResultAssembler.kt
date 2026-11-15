@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.detection.checker.GeoIpChecker
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusBuilder
 import com.poyka.ripdpi.core.detection.consensus.SuspendingIpAsnResolver
+import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 
 internal data class DetectionPipelineOutputs(
     val geoIp: CategoryResult,
@@ -25,7 +26,10 @@ internal data class DetectionPipelineOutputs(
 
 internal class DetectionPipelineResultAssembler(
     private val verdictEvaluator: DetectionVerdictEvaluator,
-    private val asnResolver: SuspendingIpAsnResolver = DEFAULT_ASN_RESOLVER,
+    private val asnResolverFactory: (DetectionResolverConfig) -> SuspendingIpAsnResolver =
+        { resolverConfig ->
+            SuspendingIpAsnResolver { ip -> GeoIpChecker.resolveAsnInfo(ip, resolverConfig) }
+        },
 ) {
     suspend fun assemble(
         outputs: DetectionPipelineOutputs,
@@ -41,7 +45,7 @@ internal class DetectionPipelineResultAssembler(
                     ipComparison = outputs.ipComparison,
                     cdnPulling = outputs.cdnPulling,
                     callTransport = outputs.callTransport,
-                    asnResolver = asnResolver,
+                    asnResolver = asnResolverFactory(config.resolverConfig),
                 )
             } else {
                 IpConsensusBuilder.build(
@@ -91,11 +95,6 @@ internal class DetectionPipelineResultAssembler(
         return result.copy(verdictNarrative = VerdictEngine.narrative(result))
     }
 }
-
-private val DEFAULT_ASN_RESOLVER =
-    SuspendingIpAsnResolver { ip ->
-        GeoIpChecker.resolveAsnInfo(ip)
-    }
 
 internal object DetectionDisabledResults {
     fun geoIp(): CategoryResult =
