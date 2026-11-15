@@ -246,7 +246,7 @@
     <string name="vpn_dev_pcap_toggle_label">Paketaufzeichnung (Diagnose)</string>
     <string name="vpn_dev_pcap_toggle_desc">VPN-Pakete lokal zur Überprüfung aufzeichnen. Standardmäßig deaktiviert.</string>
     <string name="vpn_dev_pcap_consent_title">Paketaufzeichnung aktivieren?</string>
-    <string name="vpn_dev_pcap_consent_warning">Wenn aktiviert, werden Paket-Header, TLS-SNI-Hostnamen, Ziel-IPs und Strategie-Fingerabdrücke der nächsten VPN-Sitzung in eine rotierende 64-MiB-Aufzeichnungsdatei auf dem Gerät geschrieben. Die Aufzeichnungen bleiben app-intern, bis Sie sie explizit exportieren.</string>
+    <string name="vpn_dev_pcap_consent_warning">Diese Einstellung erlaubt es, eine Aufzeichnung zu starten. Eine Aufzeichnung speichert unverarbeitete VPN-Pakete einschließlich IP-Adressen und Nutzdaten auf diesem Gerät. Das Deaktivieren der Einstellung beendet die Aufzeichnung.</string>
     <!-- OOM recovery surface -->
     <string name="oom_recovery_action_reconnect">Neu verbinden</string>
     <!-- Domain bypass list (routing) -->

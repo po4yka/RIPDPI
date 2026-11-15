@@ -246,7 +246,7 @@
     <string name="vpn_dev_pcap_toggle_label">Captura de paquetes (diagnóstico)</string>
     <string name="vpn_dev_pcap_toggle_desc">Captura paquetes VPN localmente para su inspección. Desactivado por defecto.</string>
     <string name="vpn_dev_pcap_consent_title">¿Activar captura de paquetes?</string>
-    <string name="vpn_dev_pcap_consent_warning">Al activarlo, las cabeceras de paquetes, los nombres SNI de TLS, las IPs de destino y las huellas de estrategia de la próxima sesión VPN se escriben en un archivo de captura rotativo de hasta 64 MiB en disco. Las capturas permanecen privadas hasta que las exporte explícitamente.</string>
+    <string name="vpn_dev_pcap_consent_warning">Este ajuste permite iniciar una grabación. La grabación guarda en este dispositivo los paquetes VPN sin procesar, incluidas las direcciones IP y las cargas útiles. Al desactivar el ajuste, la grabación se detiene.</string>
     <!-- OOM recovery surface -->
     <string name="oom_recovery_action_reconnect">Reconectar</string>
     <!-- Domain bypass list (routing) -->

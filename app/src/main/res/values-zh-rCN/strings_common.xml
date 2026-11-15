@@ -239,7 +239,7 @@
     <string name="vpn_dev_pcap_toggle_label">数据包捕获（诊断）</string>
     <string name="vpn_dev_pcap_toggle_desc">在本地捕获 VPN 数据包以供检查。默认禁用。</string>
     <string name="vpn_dev_pcap_consent_title">启用数据包捕获？</string>
-    <string name="vpn_dev_pcap_consent_warning">启用后，下次 VPN 会话中的数据包头、TLS SNI 主机名、目标 IP 及策略指纹将被写入设备上的最大 64 MiB 循环捕获文件。捕获数据始终为应用私有，直到您主动导出为止。</string>
+    <string name="vpn_dev_pcap_consent_warning">此设置允许您开始录制。录制会在本设备上保存原始 VPN 数据包，包括 IP 地址和有效载荷。关闭此设置会停止录制。</string>
     <!-- OOM recovery surface -->
     <string name="oom_recovery_action_reconnect">重新连接</string>
     <!-- Domain bypass list (routing) -->

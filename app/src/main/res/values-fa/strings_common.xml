@@ -246,7 +246,7 @@
     <string name="vpn_dev_pcap_toggle_label">ضبط بسته‌ها (تشخیص)</string>
     <string name="vpn_dev_pcap_toggle_desc">بسته‌های VPN را برای بررسی به‌صورت محلی ضبط می‌کند. به طور پیش‌فرض غیرفعال است.</string>
     <string name="vpn_dev_pcap_consent_title">ضبط بسته‌ها فعال شود؟</string>
-    <string name="vpn_dev_pcap_consent_warning">پس از فعال‌سازی، سرآیندهای بسته، نام‌های میزبان TLS SNI، نشانی‌های IP نقاط پایانی و اثرانگشت‌های راهبرد از نشست بعدی VPN در یک فایل ضبط چرخشی ۶۴ MiB روی دیسک نوشته می‌شوند. ضبط‌ها تا زمانی که صریحاً آن‌ها را برون‌بری کنید در فضای خصوصی برنامه می‌مانند.</string>
+    <string name="vpn_dev_pcap_consent_warning">این تنظیم به شما اجازه می‌دهد ضبط را آغاز کنید. در زمان ضبط، بسته‌های خام VPN، شامل نشانی‌های IP و بار مفید، در این دستگاه ذخیره می‌شوند. با خاموش کردن تنظیم، ضبط متوقف می‌شود.</string>
     <!-- OOM recovery surface -->
     <string name="oom_recovery_action_reconnect">اتصال مجدد</string>
     <!-- Domain bypass list (routing) -->

@@ -243,7 +243,7 @@
     <string name="vpn_dev_pcap_toggle_label">Captura de pacotes (diagnóstico)</string>
     <string name="vpn_dev_pcap_toggle_desc">Captura pacotes da VPN localmente para inspeção. Desativado por padrão.</string>
     <string name="vpn_dev_pcap_consent_title">Ativar captura de pacotes?</string>
-    <string name="vpn_dev_pcap_consent_warning">Quando ativada, cabeçalhos de pacotes, nomes de host SNI de TLS, IPs de endpoint e impressões digitais de estratégia da próxima sessão de VPN são gravados em uma captura rotativa de 64 MiB em disco. As capturas permanecem privadas do app até você exportá-las explicitamente.</string>
+    <string name="vpn_dev_pcap_consent_warning">Esta configuração permite iniciar uma gravação. A gravação armazena neste dispositivo os pacotes VPN brutos, incluindo endereços IP e cargas úteis. Desativar a configuração interrompe a gravação.</string>
     <string name="oom_recovery_action_reconnect">Reconectar</string>
     <string name="title_domain_bypass_list">Lista de domínios de desvio</string>
     <string name="title_routes">Regras de roteamento</string>

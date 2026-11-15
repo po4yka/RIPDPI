@@ -252,7 +252,7 @@
     <string name="vpn_dev_pcap_toggle_label">Захват пакетов (диагностика)</string>
     <string name="vpn_dev_pcap_toggle_desc">Локальный захват пакетов VPN для анализа. По умолчанию отключён.</string>
     <string name="vpn_dev_pcap_consent_title">Включить захват пакетов?</string>
-    <string name="vpn_dev_pcap_consent_warning">При включении заголовки пакетов, имена SNI TLS, IP-адреса конечных точек и сигнатуры стратегий из следующей VPN-сессии записываются в ротируемый файл захвата размером до 64 МиБ на устройстве. Файлы захвата остаются приватными и доступны только приложению, пока вы не экспортируете их явно.</string>
+    <string name="vpn_dev_pcap_consent_warning">Эта настройка разрешает запуск записи. Во время записи на устройстве сохраняются необработанные пакеты VPN, включая IP-адреса и полезную нагрузку. Выключение настройки останавливает запись.</string>
     <string name="oom_recovery_action_reconnect">Переподключиться</string>
     <string name="title_domain_bypass_list">Список доменов в обход</string>
     <string name="title_routes">Правила маршрутизации</string>

@@ -8,12 +8,15 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -79,7 +82,7 @@ class PcapCaptureRuntimeController
 
         private val mutex = Mutex()
         private val mutableState = MutableStateFlow<PcapCaptureRuntimeState>(PcapCaptureRuntimeState.Idle)
-        private var boundBridge: Tun2SocksBridge? = null
+        private var boundTunnel: CaptureTunnel? = null
         private var activeBridge: Tun2SocksBridge? = null
         private var activeCaptureSetId: Long? = null
         private var terminalCaptureSetId: Long? = null
@@ -90,6 +93,11 @@ class PcapCaptureRuntimeController
         private val ownedReceipts = mutableMapOf<Long, PcapCaptureRuntimeState?>()
         private var completionMonitor: Job? = null
 
+        private data class CaptureTunnel(
+            val bridge: Tun2SocksBridge,
+            val captureAllowed: Flow<Boolean>,
+        )
+
         val state: StateFlow<PcapCaptureRuntimeState> = mutableState
 
         /**
@@ -99,11 +107,14 @@ class PcapCaptureRuntimeController
          * Binding is non-cancellable once entered, so a live bridge is either
          * published under the mutex or the call has not started.
          */
-        suspend fun bindTunnel(bridge: Tun2SocksBridge) {
+        suspend fun bindTunnel(
+            bridge: Tun2SocksBridge,
+            captureAllowed: Flow<Boolean>,
+        ) {
             withContext(NonCancellable) {
                 mutex.withLock {
                     check(activeBridge == null) { "Cannot replace a tunnel while PCAP capture is active" }
-                    boundBridge = bridge
+                    boundTunnel = CaptureTunnel(bridge, captureAllowed)
                 }
             }
         }
@@ -125,8 +136,8 @@ class PcapCaptureRuntimeController
                         // StopFailed keeps the lease for a retry, but this bridge is about to be destroyed.
                         if (stopped is PcapCaptureRuntimeState.StopFailed) retireFailedStopLocked(stopped)
                     }
-                    if (boundBridge === bridge) {
-                        boundBridge = null
+                    if (boundTunnel?.bridge === bridge) {
+                        boundTunnel = null
                     }
                 }
             }
@@ -139,7 +150,7 @@ class PcapCaptureRuntimeController
 
         private suspend fun startLocked(): PcapCaptureRuntimeState =
             activeBridge?.let { mutableState.value }
-                ?: boundBridge?.let { bridge -> startOnBoundBridge(bridge) }
+                ?: boundTunnel?.let { startOnBoundTunnel(it) }
                 ?: failLocked("tunnel_unavailable")
 
         /**
@@ -147,11 +158,23 @@ class PcapCaptureRuntimeController
          * Native start and lease publication run together without cancellation.
          * A cancelled caller can still stop the published capture.
          */
-        private suspend fun startOnBoundBridge(bridge: Tun2SocksBridge): PcapCaptureRuntimeState =
-            withContext(NonCancellable) {
+        private suspend fun startOnBoundTunnel(tunnel: CaptureTunnel): PcapCaptureRuntimeState {
+            val permission =
+                try {
+                    withTimeoutOrNull(CONSENT_READ_TIMEOUT_MS) { tunnel.captureAllowed.firstOrNull() }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
+            if (permission != true) {
+                return failLocked(if (permission == false) "capture_disabled" else "capture_consent_unavailable")
+            }
+
+            return withContext(NonCancellable) {
                 val captureSetId =
                     try {
-                        bridge.withSessionHandle { handle -> startCapture(handle) } ?: 0L
+                        tunnel.bridge.withSessionHandle { handle -> startCapture(handle) } ?: 0L
                     } catch (error: CancellationException) {
                         throw error
                     } catch (_: Exception) {
@@ -160,29 +183,55 @@ class PcapCaptureRuntimeController
                 if (captureSetId <= 0L) {
                     failLocked("start_failed")
                 } else {
-                    activeBridge = bridge
+                    activeBridge = tunnel.bridge
                     activeCaptureSetId = captureSetId
                     terminalCaptureSetId = null
                     terminalState = null
                     PcapCaptureRuntimeState.Recording(captureSetId).also {
                         mutableState.value = it
-                        monitorCompletion(bridge, captureSetId)
+                        monitorCompletion(tunnel, captureSetId)
                     }
                 }
             }
+        }
 
         private fun monitorCompletion(
-            bridge: Tun2SocksBridge,
+            tunnel: CaptureTunnel,
             captureSetId: Long,
         ) {
             val poll = pollCompletion ?: return
             completionMonitor =
                 monitorScope.launch {
+                    launch { stopOnConsentWithdrawal(tunnel, captureSetId) }
                     while (true) {
                         delay(COMPLETION_POLL_INTERVAL_MS)
-                        if (pollLocked(bridge, captureSetId, poll)) break
+                        if (pollLocked(tunnel.bridge, captureSetId, poll)) break
                     }
                 }
+        }
+
+        private suspend fun stopOnConsentWithdrawal(
+            tunnel: CaptureTunnel,
+            captureSetId: Long,
+        ) {
+            try {
+                tunnel.captureAllowed.firstOrNull { !it }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Stop recording if the saved permission becomes unavailable.
+            }
+            while (true) {
+                val retry =
+                    withContext(NonCancellable) {
+                        mutex.withLock {
+                            activeBridge === tunnel.bridge && activeCaptureSetId == captureSetId &&
+                                stopLocked(tunnel.bridge) is PcapCaptureRuntimeState.StopFailed
+                        }
+                    }
+                if (!retry) return
+                delay(COMPLETION_POLL_INTERVAL_MS)
+            }
         }
 
         /**
@@ -304,7 +353,10 @@ class PcapCaptureRuntimeController
             captureSetId: Long,
             code: String,
         ): PcapCaptureRuntimeState.StopFailed =
-            PcapCaptureRuntimeState.StopFailed(captureSetId, code).also { mutableState.value = it }
+            PcapCaptureRuntimeState.StopFailed(captureSetId, code).also {
+                mutableState.value =
+                    it
+            }
 
         private fun retireFailedStopLocked(stopped: PcapCaptureRuntimeState.StopFailed) {
             clearActiveLocked()
@@ -342,5 +394,6 @@ class PcapCaptureRuntimeController
 
         private companion object {
             const val COMPLETION_POLL_INTERVAL_MS = 250L
+            const val CONSENT_READ_TIMEOUT_MS = 2_000L
         }
     }

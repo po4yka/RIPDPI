@@ -249,7 +249,7 @@
     <string name="vpn_dev_pcap_toggle_label">पैकेट कैप्चर (डायग्नोस्टिक्स)</string>
     <string name="vpn_dev_pcap_toggle_desc">निरीक्षण के लिए VPN पैकेट स्थानीय रूप से कैप्चर करें. डिफ़ॉल्ट रूप से अक्षम.</string>
     <string name="vpn_dev_pcap_consent_title">पैकेट कैप्चर सक्षम करें?</string>
-    <string name="vpn_dev_pcap_consent_warning">सक्षम होने पर, अगले VPN सत्र के पैकेट हेडर, TLS SNI होस्टनाम, एंडपॉइंट IP और रणनीति फ़िंगरप्रिंट एक घूर्णनशील 64 MiB ऑन-डिस्क कैप्चर में लिखे जाते हैं. कैप्चर तब तक ऐप-निजी रहते हैं जब तक आप उन्हें स्पष्ट रूप से निर्यात नहीं करते.</string>
+    <string name="vpn_dev_pcap_consent_warning">यह सेटिंग आपको रिकॉर्डिंग शुरू करने देती है। रिकॉर्डिंग इस डिवाइस पर कच्चे VPN पैकेट, उनके IP पते और पेलोड सहित, सहेजती है। सेटिंग बंद करने से रिकॉर्डिंग रुक जाती है।</string>
     <!-- OOM recovery surface -->
     <string name="oom_recovery_action_reconnect">पुनः कनेक्ट करें</string>
     <!-- Domain bypass list (routing) -->
