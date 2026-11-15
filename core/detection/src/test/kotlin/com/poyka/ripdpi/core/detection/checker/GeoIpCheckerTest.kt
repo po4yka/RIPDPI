@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker.GeoIpProvider
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker.GeoIpProviderClient
@@ -10,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -185,6 +187,87 @@ class GeoIpCheckerTest {
     }
 
     @Test
+    fun `anonymous provider leaves missing security traits unknown`() {
+        val result =
+            GeoIpChecker.evaluate(
+                JSONObject(
+                    """{"ip":"8.8.8.8","company":"Google LLC","asn":"AS15169 Google LLC","country":"United States"}""",
+                ),
+            )
+
+        assertTrue(result.findings.any { it.description == "IP in known proxy/VPN database: unknown" })
+        assertTrue(result.findings.any { it.description == "IP belongs to hosting provider: unknown" })
+        assertTrue(result.findings.any { it.description == "ASN: AS15169" })
+    }
+
+    @Test
+    fun `empty or invalid provider identity is rejected`() {
+        listOf("{}", """{"ip":"not-an-address","country_code":"RU"}""").forEach { body ->
+            assertThrows(java.io.IOException::class.java) { GeoIpChecker.evaluate(JSONObject(body)) }
+        }
+    }
+
+    @Test
+    fun `malformed optional fields do not become negative traits or string metadata`() {
+        val result =
+            GeoIpChecker.evaluate(
+                JSONObject(
+                    """{"ip":"8.8.8.8","country":null,"asn":{},"privacy":{"is_proxy":"false","is_hosting":"false"}}""",
+                ),
+            )
+
+        assertTrue(result.findings.any { it.description == "Country: N/A ()" })
+        assertTrue(result.findings.any { it.description == "ASN: N/A" })
+        assertTrue(result.findings.any { it.description == "IP in known proxy/VPN database: unknown" })
+        assertTrue(result.findings.any { it.description == "IP belongs to hosting provider: unknown" })
+    }
+
+    @Test
+    fun `missing traits cannot add negative votes`() {
+        val result =
+            GeoIpChecker.evaluateConsensus(
+                listOf(
+                    snapshot("one", isProxy = true, isHosting = null),
+                    snapshot("two", isProxy = null, isHosting = null),
+                    snapshot("three", isProxy = null, isHosting = null),
+                ),
+            )
+        assertFalse(result.detected)
+        assertEquals(DetectionCheckStatus.INCONCLUSIVE, result.status)
+        assertTrue(result.findings.any { it.description == "IP in known proxy/VPN database: unknown" })
+    }
+
+    @Test
+    fun `a repeated provider cannot supply quorum`() {
+        val result = GeoIpChecker.evaluateConsensus(List(3) { snapshot("one", isProxy = true) })
+        assertFalse(result.detected)
+        assertTrue(result.findings.any { it.description == "Provider count: 1" })
+    }
+
+    @Test
+    fun `responses for another IP are excluded`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val client =
+                object : GeoIpProviderClient {
+                    override suspend fun fetchSeedIp() = "8.8.8.8"
+
+                    override suspend fun fetchProvider(
+                        provider: GeoIpProvider,
+                        ip: String,
+                    ) = snapshot(provider.name, ip = "9.9.9.9")
+                }
+            val result =
+                GeoIpChecker.check(
+                    AppCoroutineDispatchers(dispatcher, dispatcher, dispatcher),
+                    client = client,
+                )
+            assertEquals(DetectionCheckStatus.ERROR, result.status)
+            assertFalse(result.detected)
+            assertTrue(result.findings.none { it.description.startsWith("IP: ") })
+        }
+
+    @Test
     fun `majority proxy flag true when three of five providers agree`() {
         val result =
             GeoIpChecker.evaluateConsensus(
@@ -333,8 +416,8 @@ class GeoIpCheckerTest {
             country: String = if (provider == "ipquery.io" || provider == "iplookup.it") "Germany" else "Russia",
             countryCode: String = if (provider == "ipquery.io" || provider == "iplookup.it") "DE" else "RU",
             asn: String = "AS1234",
-            isProxy: Boolean = false,
-            isHosting: Boolean = false,
+            isProxy: Boolean? = false,
+            isHosting: Boolean? = false,
             fetchedAtIndex: Int = 0,
         ): GeoIpSnapshot =
             GeoIpSnapshot(
