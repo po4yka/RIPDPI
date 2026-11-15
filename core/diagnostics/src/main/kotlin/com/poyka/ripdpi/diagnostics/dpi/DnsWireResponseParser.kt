@@ -46,11 +46,14 @@ internal object DnsWireResponseParser {
                 recursionAvailable = header.getFlag(Flags.RA.toInt()),
                 authenticatedData = header.getFlag(Flags.AD.toInt()),
             )
-        if (initial.truncated == true) {
-            return DnsProbeAnswer(response = initial.copy(outcome = DnsResponseOutcome.TRUNCATED))
-        }
-        if (message.question == null) {
-            return DnsProbeAnswer(response = initial.copy(outcome = dnsOutcome(message.rcode, hasAddresses = false)))
+        val earlyOutcome =
+            when {
+                initial.truncated == true -> DnsResponseOutcome.TRUNCATED
+                message.question == null -> dnsOutcome(message.rcode, hasAddresses = false)
+                else -> null
+            }
+        if (earlyOutcome != null) {
+            return DnsProbeAnswer(response = initial.copy(outcome = earlyOutcome))
         }
         val chain = DnsMessages.answerChain(message)
         val addresses = message.getSection(Section.ANSWER).filter { it.dClass == DClass.IN && it.type == question.type }

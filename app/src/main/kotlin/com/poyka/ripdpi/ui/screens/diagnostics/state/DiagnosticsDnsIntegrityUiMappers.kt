@@ -16,10 +16,11 @@ internal fun DnsIntegrityResult.toUiModel(stringResolver: StringResolver): Diagn
     val flagged = domains.count { result -> result.verdict != DnsIntegrityVerdict.DNS_OK }
     val bootstrapFlagged = dohBootstrapResults.count { result -> result.verdict != BootstrapVerdict.OK }
     val checked = domains.size
+    val dnsAgreement = checked > 0 && flagged == 0
     return DiagnosticsDnsIntegrityToolUiModel(
         state = DiagnosticsDnsIntegrityState.Complete,
         summary =
-            if (flagged == 0 && !doqIncomplete && bootstrapFlagged == 0 && checked > 0) {
+            if (dnsAgreement && !doqIncomplete && bootstrapFlagged == 0) {
                 stringResolver.getQuantityString(R.plurals.diagnostics_dns_complete_agree, checked, checked)
             } else {
                 stringResolver.getString(
@@ -182,8 +183,8 @@ private fun DoqProbeResult.observationDetail(strings: StringResolver): String =
     buildList {
         latencyMs?.let { add(strings.getString(R.string.unit_milliseconds_format, it)) }
         for (observation in baseline) {
-            if (!observation.isUsableForComparison) continue
-            val resolver = observation.answer.resolver ?: continue
+            val resolver = observation.answer.resolver
+            if (!observation.isUsableForComparison || resolver == null) continue
             val label =
                 when (observation.lane) {
                     DoqBaselineLane.JSON -> R.string.diagnostics_dns_source_doh_json

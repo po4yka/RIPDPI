@@ -29,9 +29,10 @@ internal fun compareDoqAnswer(
 ): DoqVerdict {
     val observed = answer.comparableDnsAnswer() ?: return DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE
     val usable = baseline.filter { it.sameResolverPolicy }.mapNotNull { it.answer.comparableDnsAnswer() }.distinct()
-    val reference = usable.firstOrNull() ?: return DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE
-    if (usable.size > 1) return DoqVerdict.DOQ_BASELINE_CONFLICT
+    val reference = usable.firstOrNull()
     return when {
+        reference == null -> DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE
+        usable.size > 1 -> DoqVerdict.DOQ_BASELINE_CONFLICT
         observed == reference && observed.outcome == DnsResponseOutcome.ANSWER -> DoqVerdict.DOQ_OK
         observed == reference -> DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE
         dnsAnswersOverlap(observed.ips, reference.ips) -> DoqVerdict.DOQ_INTEGRITY_PARTIAL
@@ -40,8 +41,7 @@ internal fun compareDoqAnswer(
 }
 
 private fun DnsProbeAnswer.comparableDnsAnswer(): ComparableDnsAnswer? {
-    val semantics = response ?: return null
-    if (semantics.queryType != "A" || semantics.truncated == true) return null
+    val semantics = response?.takeIf { it.queryType == "A" && it.truncated != true } ?: return null
     val ips = addresses.filter(::isDnsIpv4).toSet()
     return when {
         semantics.outcome == DnsResponseOutcome.ANSWER && ips.isNotEmpty() -> {

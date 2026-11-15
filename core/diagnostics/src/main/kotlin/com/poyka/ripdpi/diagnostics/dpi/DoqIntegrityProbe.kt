@@ -67,8 +67,9 @@ object DoqWireCodec {
         query: ByteArray,
     ): DnsProbeAnswer {
         val wireQuery = query.unframeDoqMessage() ?: return dnsFailure(DnsResponseOutcome.MALFORMED)
-        val wireResponse = response.unframeDoqMessage() ?: return dnsFailure(DnsResponseOutcome.MALFORMED)
-        return DnsWireResponseParser.parse(wireResponse, wireQuery, allowQuestionlessError = true)
+        return response.unframeDoqMessage()?.let { wireResponse ->
+            DnsWireResponseParser.parse(wireResponse, wireQuery, allowQuestionlessError = true)
+        } ?: dnsFailure(DnsResponseOutcome.MALFORMED)
     }
 }
 
@@ -131,37 +132,8 @@ class DoqIntegrityProbe(
                             timeoutMs = timeoutMs,
                         )
                     DoqWireCodec.parseResponse(response, query)
-                } ?: return provider.result(
-                    domain,
-                    DoqVerdict.DOQ_TIMEOUT,
-                    emptyList(),
-                    startedAt,
-                    failureKind = DoqFailureKind.TIMEOUT,
-                    baseline = evidence,
-                )
-            val response = answer.response
-            if (response?.outcome == DnsResponseOutcome.MALFORMED || response?.truncated == true) {
-                return provider.result(
-                    domain,
-                    DoqVerdict.DOQ_EXCHANGE_FAILED,
-                    emptyList(),
-                    startedAt,
-                    errorDetail =
-                        if (response.truncated ==
-                            true
-                        ) {
-                            "Truncated DoQ response"
-                        } else {
-                            "Malformed DoQ response"
-                        },
-                    response = response,
-                    failureKind = DoqFailureKind.WIRE,
-                    baseline = evidence,
-                )
-            }
-            val ips = answer.addresses.filter(::isDnsIpv4)
-            val verdict = compareDoqAnswer(answer, evidence)
-            provider.result(domain, verdict, ips, startedAt, response = response, baseline = evidence)
+                }
+            provider.resultFromAnswer(domain, answer, startedAt, evidence)
         } catch (error: DoqExchangeException) {
             val verdict =
                 when (error.kind) {
@@ -189,6 +161,54 @@ class DoqIntegrityProbe(
                 errorDetail = error.message ?: error.javaClass.simpleName,
                 baseline = evidence,
             )
+        }
+    }
+
+    private fun DoqProvider.resultFromAnswer(
+        domain: String,
+        answer: DnsProbeAnswer?,
+        startedAt: TimeMark,
+        evidence: List<DoqBaselineObservation>,
+    ): DoqProbeResult {
+        val response = answer?.response
+        return when {
+            answer == null -> {
+                result(
+                    domain,
+                    DoqVerdict.DOQ_TIMEOUT,
+                    emptyList(),
+                    startedAt,
+                    failureKind = DoqFailureKind.TIMEOUT,
+                    baseline = evidence,
+                )
+            }
+
+            response?.outcome == DnsResponseOutcome.MALFORMED || response?.truncated == true -> {
+                val detail = if (response.truncated == true) "Truncated DoQ response" else "Malformed DoQ response"
+                result(
+                    domain,
+                    DoqVerdict.DOQ_EXCHANGE_FAILED,
+                    emptyList(),
+                    startedAt,
+                    errorDetail = detail,
+                    response = response,
+                    failureKind = DoqFailureKind.WIRE,
+                    baseline = evidence,
+                )
+            }
+
+            else -> {
+                val ips = answer.addresses.filter(::isDnsIpv4)
+                val verdict = compareDoqAnswer(answer, evidence)
+                result(
+                    domain,
+                    verdict,
+                    ips,
+                    startedAt,
+                    response = response,
+                    baseline = evidence,
+                )
+            }
         }
     }
 

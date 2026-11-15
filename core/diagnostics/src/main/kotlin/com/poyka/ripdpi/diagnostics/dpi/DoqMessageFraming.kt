@@ -7,8 +7,11 @@ internal const val MaxDoqBase64Length = (DnsMessages.MAX_MESSAGE_BYTES + 2) / 3 
 internal fun ByteArray.unframeDoqMessage(): ByteArray? {
     if (size < DoqLengthPrefixBytes) return null
     val length = ((this[0].toInt() and ByteMask) shl Byte.SIZE_BITS) or (this[1].toInt() and ByteMask)
-    if (length < DnsHeaderBytes || size != DoqLengthPrefixBytes + length) return null
-    return copyOfRange(DoqLengthPrefixBytes, size)
+    return if (length >= DnsHeaderBytes && size == DoqLengthPrefixBytes + length) {
+        copyOfRange(DoqLengthPrefixBytes, size)
+    } else {
+        null
+    }
 }
 
 internal fun ByteArray.frameDoqMessage(): ByteArray? {

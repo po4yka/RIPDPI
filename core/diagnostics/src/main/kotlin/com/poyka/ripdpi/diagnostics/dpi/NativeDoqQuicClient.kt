@@ -68,16 +68,16 @@ class NativeDoqQuicClient
         private suspend fun exchangeCancellable(request: NativeDoqExchangeRequest): ByteArray =
             suspendCancellableCoroutine { continuation ->
                 continuation.invokeOnCancellation { cause ->
-                    try {
-                        controlRequest("cancel", request.requestHandle)
-                    } catch (error: Exception) {
+                    runCatching { controlRequest("cancel", request.requestHandle) }.onFailure { error ->
+                        if (error !is Exception) throw error
                         cause?.addSuppressed(error)
                     }
                 }
                 if (continuation.isActive) {
-                    try {
+                    runCatching {
                         continuation.resume(exchangeNative(json.encodeToString(request)).decodeBody())
-                    } catch (error: Exception) {
+                    }.onFailure { error ->
+                        if (error !is Exception) throw error
                         continuation.resumeWithException(error)
                     }
                 }
@@ -103,12 +103,7 @@ class NativeDoqQuicClient
         }
 
         private fun exchangeNative(requestJson: String): NativeDoqExchangeResponse {
-            val payload =
-                try {
-                    bindings.exchange(requestJson)
-                } catch (error: UnsatisfiedLinkError) {
-                    throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge is unavailable", error)
-                } ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned no response")
+            val payload = exchangePayload(requestJson)
             val response =
                 try {
                     json.decodeFromString(NativeDoqExchangeResponse.serializer(), payload)
@@ -118,6 +113,13 @@ class NativeDoqQuicClient
             response.checkForFailure()
             return response
         }
+
+        private fun exchangePayload(requestJson: String): String =
+            try {
+                bindings.exchange(requestJson)
+            } catch (error: UnsatisfiedLinkError) {
+                throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge is unavailable", error)
+            } ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned no response")
     }
 
 enum class DoqFailureKind {
@@ -170,10 +172,10 @@ private data class NativeDoqExchangeResponse(
 
 private fun NativeDoqExchangeResponse.checkForFailure() {
     if (errorKind == null && error == null) return
-    if (responseBase64 != null || requestHandle != null || controlOk != null || error.isNullOrBlank()) {
+    val hasSuccessFields = responseBase64 != null || requestHandle != null || controlOk != null
+    if (hasSuccessFields || error.isNullOrBlank()) {
         throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an invalid failure")
     }
-    if (errorKind == "cancelled") throw CancellationException(error)
     val kind =
         when (errorKind) {
             "invalid_request" -> DoqFailureKind.INVALID_REQUEST
@@ -184,20 +186,17 @@ private fun NativeDoqExchangeResponse.checkForFailure() {
             "quic" -> DoqFailureKind.QUIC
             "wire" -> DoqFailureKind.WIRE
             "timeout" -> DoqFailureKind.TIMEOUT
-            else -> throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an unknown failure")
+            else -> null
         }
-    throw DoqExchangeException(kind, error)
+    throw when {
+        errorKind == "cancelled" -> CancellationException(error)
+        kind == null -> DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an unknown failure")
+        else -> DoqExchangeException(kind, error)
+    }
 }
 
 private fun NativeDoqExchangeResponse.decodeBody(): ByteArray {
-    if (requestHandle != null || controlOk != null) {
-        throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge expected a DNS response")
-    }
-    val encoded =
-        responseBase64 ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge missing response body")
-    if (encoded.length > MaxDoqBase64Length) {
-        throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an oversized response")
-    }
+    val encoded = encodedDnsResponse()
     val body =
         try {
             Base64.getDecoder().decode(encoded)
@@ -210,4 +209,15 @@ private fun NativeDoqExchangeResponse.decodeBody(): ByteArray {
         }
     return body.frameDoqMessage()
         ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an invalid DNS message length")
+}
+
+private fun NativeDoqExchangeResponse.encodedDnsResponse(): String {
+    val failure =
+        when {
+            requestHandle != null || controlOk != null -> "native DoQ bridge expected a DNS response"
+            responseBase64 == null -> "native DoQ bridge missing response body"
+            responseBase64.length > MaxDoqBase64Length -> "native DoQ bridge returned an oversized response"
+            else -> return responseBase64
+        }
+    throw DoqExchangeException(DoqFailureKind.JNI, failure)
 }
