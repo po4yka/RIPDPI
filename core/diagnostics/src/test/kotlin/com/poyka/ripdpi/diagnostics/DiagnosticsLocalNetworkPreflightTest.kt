@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -68,6 +69,11 @@ class DiagnosticsLocalNetworkPreflightTest {
                         base.copy(
                             telegramTarget = TelegramTarget(mediaUrl = "https://8.8.4.4/media", uploadIp = localIp),
                         ),
+                    EngineProbeTaskFamily.TELEGRAM to
+                        base.copy(
+                            telegramTarget =
+                                TelegramTarget(mediaUrl = "https://[fd00::1]:8443?image=1", uploadIp = "8.8.4.4"),
+                        ),
                 )
 
             for ((family, localRequest) in cases) {
@@ -108,6 +114,37 @@ class DiagnosticsLocalNetworkPreflightTest {
                 val details = deferred.details.associate { it.key to it.value }
                 assertEquals(LocalNetworkPermission, details["permission"])
                 assertEquals("local_network_permission_required", details["reason"])
+            }
+        }
+
+    @Test
+    fun `malformed Telegram targets fail before local network admission`() =
+        runTest {
+            val context = ApplicationProvider.getApplicationContext<Application>()
+            shadowOf(context).denyPermissions(LocalNetworkPermission)
+            shadowOf(context.getSystemService(ConnectivityManager::class.java)).clearAllNetworks()
+            val valid = TelegramTarget(mediaUrl = "https://192.168.50.2/", uploadIp = "192.168.50.3")
+            val endpoint = TelegramDcEndpoint(ip = "2001:db8::1", label = "DC 1", port = 443)
+            val malformedTargets =
+                listOf(
+                    valid.copy(mediaUrl = "https://[192.0.2.1]:443/"),
+                    valid.copy(mediaUrl = "https://192.168.50.2:0/"),
+                    valid.copy(uploadIp = "192.168.50.3:443"),
+                    valid.copy(uploadSizeBytes = 0),
+                    valid.copy(stallTimeoutMs = 0),
+                    valid.copy(dcEndpoints = listOf(endpoint.copy(label = "DC|1"))),
+                    valid.copy(dcEndpoints = listOf(endpoint, endpoint.copy(ip = "2001:0db8:0:0:0:0:0:1"))),
+                )
+            for (target in malformedTargets) {
+                val request =
+                    EngineScanRequestWire(
+                        profileId = "malformed-telegram",
+                        displayName = "Malformed Telegram",
+                        pathMode = ScanPathMode.RAW_PATH,
+                        telegramTarget = target,
+                    )
+                val result = runCatching { AndroidLocalNetworkAccess(context).prepareScanEndpoints(request) }
+                assertTrue("malformed target must fail before a permission skip", result.isFailure)
             }
         }
 

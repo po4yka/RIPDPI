@@ -49,6 +49,9 @@ pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), Stri
         ));
     }
     validate_resource_limits(request)?;
+    if let Some(target) = &request.telegram_target {
+        crate::telegram::validate_telegram_target(target)?;
+    }
     let matrix_selected =
         request.probe_tasks.iter().any(|task| task.family == crate::types::ProbeTaskFamily::SelectiveAvailability);
     if matrix_selected != request.selective_matrix.is_some() {

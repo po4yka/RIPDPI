@@ -4,9 +4,7 @@ use std::time::Duration;
 
 use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 
-use crate::http::{
-    HttpBodyFraming, HttpResponse, HttpResponseDecoder, HttpResponseEvent, extract_host_from_url, extract_path_from_url,
-};
+use crate::http::{HttpBodyFraming, HttpResponse, HttpResponseDecoder, HttpResponseEvent, parse_https_endpoint};
 use crate::tls::{
     ApplicationProtocolPolicy, ProbeCertificatePolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile,
     TlsKeyLogCallback, open_probe_stream_targets_with_options_and_abort,
@@ -14,6 +12,8 @@ use crate::tls::{
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 use crate::types::TelegramTarget;
 use crate::util::{IO_TIMEOUT, MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_SPEED_SAMPLE_INTERVAL};
+
+use super::target::MAX_UPLOAD_BYTES;
 
 const TELEGRAM_UPLOAD_HOST: &str = "telegram.org";
 const MAX_PAGE_BYTES: usize = 1024 * 1024;
@@ -184,15 +184,10 @@ pub(crate) fn telegram_download_probe_with_abort(
     if let Some(reason) = should_abort() {
         return TelegramTransferResult::aborted(reason);
     }
-    let Some(host) = extract_host_from_url(&target.media_url) else {
-        return TelegramTransferResult::failed("invalid media_url".to_string());
+    let Ok(endpoint) = parse_https_endpoint(&target.media_url) else {
+        return TelegramTransferResult::failed("invalid_media_url".to_string());
     };
-    let path = extract_path_from_url(&target.media_url);
-    if let Some(reason) = should_abort() {
-        return TelegramTransferResult::aborted(reason);
-    }
-
-    let target_address = TargetAddress::Host(host.clone());
+    let target_address = upload_target_address(&endpoint.host);
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
@@ -201,9 +196,9 @@ pub(crate) fn telegram_download_probe_with_abort(
     };
     let stream_result = open_probe_stream_targets_with_options_and_abort(
         std::slice::from_ref(&target_address),
-        443,
+        endpoint.port,
         transport,
-        Some(&host),
+        Some(&endpoint.host),
         &options,
         should_abort,
     );
@@ -216,6 +211,8 @@ pub(crate) fn telegram_download_probe_with_abort(
         return TelegramTransferResult::aborted(reason);
     }
 
+    let path = endpoint.request_target;
+    let host = endpoint.authority;
     let response_kind = TransferResponse::download(&path);
     let accept = response_kind.accept();
     let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: {accept}\r\nConnection: close\r\n\r\n");
@@ -402,8 +399,14 @@ pub(crate) fn telegram_upload_probe_with_abort(
     if target.upload_size_bytes == 0 {
         return TelegramTransferResult::failed("empty_upload".to_string());
     }
+    if target.upload_size_bytes > MAX_UPLOAD_BYTES || target.upload_port == 0 {
+        return TelegramTransferResult::failed("invalid_upload_limits".to_string());
+    }
     let target_address = upload_target_address(&target.upload_ip);
     let upload_host = upload_tls_host(&target_address);
+    if crate::tls::make_server_name(&upload_host, &target_address).is_err() {
+        return TelegramTransferResult::failed("invalid_upload_host".to_string());
+    }
     let options = ProbeStreamOptions {
         profile: TlsClientProfile::Auto,
         application_protocol: ApplicationProtocolPolicy::Http11Only,
@@ -428,8 +431,10 @@ pub(crate) fn telegram_upload_probe_with_abort(
     }
 
     let content_length = target.upload_size_bytes;
+    let authority =
+        if target.upload_port == 443 { upload_host } else { format!("{upload_host}:{}", target.upload_port) };
     let header = format!(
-        "POST /upload HTTP/1.1\r\nHost: {upload_host}\r\nContent-Length: {content_length}\r\n\
+        "POST /upload HTTP/1.1\r\nHost: {authority}\r\nContent-Length: {content_length}\r\n\
          Content-Type: application/octet-stream\r\nConnection: close\r\n\r\n"
     );
     if let Err(err) = stream.write_all(header.as_bytes()).and_then(|_| stream.flush()) {

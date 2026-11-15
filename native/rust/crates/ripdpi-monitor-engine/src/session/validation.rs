@@ -73,6 +73,45 @@ mod tests {
     }
 
     #[test]
+    fn rejects_malformed_or_unbounded_telegram_targets_before_the_scan() {
+        use crate::types::{TelegramDcEndpoint, TelegramTarget};
+
+        let target = TelegramTarget {
+            media_url: "https://[2001:db8::1]:8443?sample=1".into(),
+            upload_ip: "upload.example.test".into(),
+            upload_port: 443,
+            dc_endpoints: vec![TelegramDcEndpoint { ip: "192.0.2.1".into(), label: "DC 1".into(), port: 443 }],
+            stall_timeout_ms: 100,
+            total_timeout_ms: 1000,
+            upload_size_bytes: 1024,
+        };
+        let mut request = request();
+        request.telegram_target = Some(target.clone());
+        assert!(validate_scan_request(&request).is_ok());
+
+        let repeated_dc = target.dc_endpoints[0].clone();
+        for invalid in [
+            TelegramTarget { media_url: "http://example.test/".into(), ..target.clone() },
+            TelegramTarget { media_url: "https://example.test:65536/".into(), ..target.clone() },
+            TelegramTarget { upload_ip: "upload.example.test:443".into(), ..target.clone() },
+            TelegramTarget { upload_port: 0, ..target.clone() },
+            TelegramTarget { upload_size_bytes: 0, ..target.clone() },
+            TelegramTarget { upload_size_bytes: usize::MAX, ..target.clone() },
+            TelegramTarget { total_timeout_ms: u64::MAX, ..target.clone() },
+            TelegramTarget { stall_timeout_ms: target.total_timeout_ms + 1, ..target.clone() },
+            TelegramTarget { dc_endpoints: vec![repeated_dc.clone(); 33], ..target.clone() },
+            TelegramTarget { dc_endpoints: vec![repeated_dc; 2], ..target.clone() },
+            TelegramTarget {
+                dc_endpoints: vec![TelegramDcEndpoint { ip: "192.0.2.1".into(), label: "DC|2".into(), port: 443 }],
+                ..target.clone()
+            },
+        ] {
+            request.telegram_target = Some(invalid);
+            assert!(validate_scan_request(&request).unwrap_err().contains("telegramTarget"));
+        }
+    }
+
+    #[test]
     fn rejects_unbounded_throughput_work() {
         let mut request = request();
         request.throughput_targets.push(ThroughputTarget {

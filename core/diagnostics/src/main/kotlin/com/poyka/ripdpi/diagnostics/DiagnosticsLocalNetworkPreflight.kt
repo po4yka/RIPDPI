@@ -20,13 +20,14 @@ internal data class LocalNetworkScanAdmission(
 internal suspend fun AndroidLocalNetworkAccess.prepareScanEndpoints(
     request: EngineScanRequestWire,
 ): LocalNetworkScanAdmission {
+    val telegramMedia = request.telegramTarget?.validateForScan()
     val granted = hasAccess()
     if (granted || request.pathMode == ScanPathMode.IN_PATH) {
         if (!granted) request.proxyHost?.let { requireDirectEndpoint(it, request.proxyPort ?: ProxyPort) }
         return LocalNetworkScanAdmission(request, emptyList())
     }
     val filter = LocalNetworkScanFilter(this)
-    val admitted = filter.admit(request)
+    val admitted = filter.admit(request, telegramMedia)
     val admittedDnsDomains = admitted.dnsTargets.map { it.domain.lowercase() }.toSet()
     return LocalNetworkScanAdmission(
         admitted.copy(
@@ -49,7 +50,10 @@ private class LocalNetworkScanFilter(
     val deferred = mutableListOf<ProbeResult>()
     val deniedTasks = mutableSetOf<Pair<EngineProbeTaskFamily, String>>()
 
-    suspend fun admit(request: EngineScanRequestWire): EngineScanRequestWire =
+    suspend fun admit(
+        request: EngineScanRequestWire,
+        telegramMedia: URI?,
+    ): EngineScanRequestWire =
         request.copy(
             tcpTargets =
                 allowed(request.tcpTargets, EngineProbeTaskFamily.TCP, "tcp_connect", { it.id }) {
@@ -123,7 +127,8 @@ private class LocalNetworkScanFilter(
                     "telegram_availability",
                     { "telegram" },
                 ) {
-                    requireProbeUrl(it.mediaUrl)
+                    val media = checkNotNull(telegramMedia)
+                    requireDirectEndpoint(media.host, media.networkPort())
                     requireDirectEndpoint(it.uploadIp, it.uploadPort)
                     it.dcEndpoints.forEach { endpoint -> requireDirectEndpoint(endpoint.ip, endpoint.port) }
                 }.singleOrNull(),
