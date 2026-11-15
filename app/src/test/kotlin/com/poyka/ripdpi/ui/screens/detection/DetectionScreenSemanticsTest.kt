@@ -16,7 +16,6 @@ import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -94,14 +93,19 @@ class DetectionScreenSemanticsTest {
 
     @Test
     fun incompleteChecksDoNotShowCleanHeadlineOrPerfectScore() {
-        val result = cleanDetectionResult().let { it.copy(geoIp = it.geoIp.copy(status = DetectionCheckStatus.ERROR)) }
+        val result =
+            cleanDetectionResult().let {
+                it.copy(
+                    geoIp = it.geoIp.copy(executionStatus = CheckExecutionStatus.ERROR),
+                )
+            }
         composeRule.setContent {
             RipDpiTheme {
                 VerdictScoreCard(result = result, score = 100, label = "Excellent")
             }
         }
 
-        composeRule.onNodeWithText("Checks are incomplete").fetchSemanticsNode()
+        composeRule.onNodeWithText("Insufficient evidence").fetchSemanticsNode()
         composeRule.onAllNodesWithText("You look like ordinary HTTPS traffic").assertCountEquals(0)
         composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
         val image = File("build/compose-previews/renders/dia18-incomplete.png")
@@ -121,7 +125,7 @@ class DetectionScreenSemanticsTest {
     fun partialCategoryKeepsConfirmedPositiveInProbeSummary() {
         val result =
             cleanDetectionResult().let {
-                it.copy(geoIp = it.geoIp.copy(detected = true, status = DetectionCheckStatus.INCONCLUSIVE))
+                it.copy(geoIp = it.geoIp.copy(detected = true, executionStatus = CheckExecutionStatus.INCONCLUSIVE))
             }
         composeRule.setContent {
             RipDpiTheme {
@@ -129,7 +133,7 @@ class DetectionScreenSemanticsTest {
             }
         }
 
-        composeRule.onNodeWithText("Probe outcome: 1/5 signals exposed").fetchSemanticsNode()
+        composeRule.onNodeWithText("Probe outcome: 1/4 signals exposed").fetchSemanticsNode()
         composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
     }
 
@@ -216,6 +220,11 @@ class DetectionScreenSemanticsTest {
     fun incompleteNetworkChecksKeepTheirRenderedStatus() {
         val result =
             cleanDetectionResult().copy(
+                geoIp =
+                    emptyCategory(
+                        "GeoIP",
+                    ).copy(detected = true, executionStatus = CheckExecutionStatus.INCONCLUSIVE),
+                dnsLeak = emptyCategory("DNS settings").copy(executionStatus = CheckExecutionStatus.OBSERVATION_ONLY),
                 timingAnalysis = emptyCategory("Timing").copy(executionStatus = CheckExecutionStatus.ERROR),
                 icmpSpoofing =
                     IcmpSpoofingResult(
@@ -243,7 +252,9 @@ class DetectionScreenSemanticsTest {
         composeRule.onAllNodesWithText("Skipped").assertCountEquals(2)
         composeRule.onNodeWithText("Insufficient evidence").fetchSemanticsNode()
         composeRule.onNodeWithText("Error").fetchSemanticsNode()
-        composeRule.onAllNodesWithText("OK").assertCountEquals(4)
+        composeRule.onNodeWithText("Detected").fetchSemanticsNode()
+        composeRule.onNodeWithText("Observation recorded").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("OK").assertCountEquals(3)
         captureStatus("dia17-category-states")
     }
 

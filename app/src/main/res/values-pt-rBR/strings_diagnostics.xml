@@ -1995,7 +1995,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Falha na verificação do certificado</string>
     <string name="detection_exposure_incomplete_reason">Algumas verificações não retornaram resultado.</string>
     <string name="detection_exposure_incomplete_hint">Revise os detalhes e execute a verificação novamente.</string>
-    <string name="detection_exposure_incomplete_headline">As verificações estão incompletas</string>
-    <string name="detection_exposure_incomplete_signal">verificações incompletas</string>
     <string name="detection_exposure_dns_observation_reason">As sondagens concluídas não relataram sinais de detecção. As configurações de DNS foram observadas sem teste de vazamento.</string>
 </resources>

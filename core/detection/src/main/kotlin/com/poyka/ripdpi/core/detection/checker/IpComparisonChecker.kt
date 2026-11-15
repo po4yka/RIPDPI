@@ -3,7 +3,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -32,14 +32,14 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
+import java.net.HttpURLConnection.HTTP_MULT_CHOICE
+import java.net.HttpURLConnection.HTTP_OK
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URI
-import java.util.concurrent.TimeUnit
 
 interface IpComparisonEndpointClient {
     suspend fun fetchReflectedIp(endpoint: IpComparisonEndpointDescriptor): String
@@ -190,7 +190,8 @@ object IpComparisonChecker {
                 findings = findings,
                 needsReview = hasMismatch,
                 evidence = evidence,
-                status = if (incompleteCoverage) DetectionCheckStatus.INCONCLUSIVE else DetectionCheckStatus.COMPLETE,
+                executionStatus =
+                    if (incompleteCoverage) CheckExecutionStatus.INCONCLUSIVE else CheckExecutionStatus.COMPLETED,
             )
 
         return IpComparisonResult(
@@ -321,14 +322,6 @@ class DefaultIpComparisonEndpointClient(
     private val resolverConfig: DetectionResolverConfig = DetectionResolverConfig(),
     private val networkStack: DetectionResolverNetworkStack = DetectionResolverNetworkStack(),
 ) : IpComparisonEndpointClient {
-    private val baseClient =
-        OkHttpClient
-            .Builder()
-            .connectTimeout(TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
-            .readTimeout(TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
-            .callTimeout(TIMEOUT_MS.toLong(), TimeUnit.MILLISECONDS)
-            .build()
-
     override suspend fun fetchReflectedIp(endpoint: IpComparisonEndpointDescriptor): String {
         val request =
             Request
@@ -336,26 +329,20 @@ class DefaultIpComparisonEndpointClient(
                 .url(endpoint.url)
                 .header("Accept", "text/plain, application/json, */*")
                 .build()
-        val client =
-            networkStack
-                .clientFor(
-                    resolverConfig.copy(
-                        addressFamily = endpoint.addressFamily.toDetectionAddressFamily(),
-                        connectTimeoutMillis = TIMEOUT_MS.toLong(),
-                        readTimeoutMillis = TIMEOUT_MS.toLong(),
-                        callTimeoutMillis = TIMEOUT_MS.toLong(),
-                    ),
-                ).newBuilder()
-                .connectionPool(baseClient.connectionPool)
-                .build()
-
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IOException("HTTP ${response.code}")
-            }
-            val body = response.body.string()
-            return extractIp(body) ?: throw IOException("No reflected IP in response")
+        val response =
+            networkStack.executeCancellable(
+                request,
+                resolverConfig.copy(
+                    addressFamily = endpoint.addressFamily.toDetectionAddressFamily(),
+                    connectTimeoutMillis = TIMEOUT_MS.toLong(),
+                    readTimeoutMillis = TIMEOUT_MS.toLong(),
+                    callTimeoutMillis = TIMEOUT_MS.toLong(),
+                ),
+            )
+        if (response.code !in HTTP_OK until HTTP_MULT_CHOICE) {
+            throw IOException("HTTP ${response.code}")
         }
+        return extractIp(response.body) ?: throw IOException("No reflected IP in response")
     }
 
     private fun extractIp(body: String): String? {
@@ -405,11 +392,10 @@ internal class ConfiguredIpComparisonDnsResolver(
     override suspend fun resolve(endpoint: IpComparisonEndpointDescriptor): IpComparisonDnsRecords {
         val host = URI(endpoint.url).host?.removeSurrounding("[", "]") ?: throw IOException("Endpoint URL has no host")
         val addresses =
-            networkStack
-                .clientFor(
-                    resolverConfig.copy(addressFamily = DetectionAddressFamily.ANY),
-                ).dns
-                .lookup(host)
+            networkStack.resolveAddressesCancellable(
+                host,
+                resolverConfig.copy(addressFamily = DetectionAddressFamily.ANY),
+            )
         return addresses.toComparisonRecords()
     }
 }

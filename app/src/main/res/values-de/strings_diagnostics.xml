@@ -1981,7 +1981,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Zertifikatsprüfung fehlgeschlagen</string>
     <string name="detection_exposure_incomplete_reason">Einige Prüfungen lieferten kein Ergebnis.</string>
     <string name="detection_exposure_incomplete_hint">Prüfe die Details und starte die Prüfung erneut.</string>
-    <string name="detection_exposure_incomplete_headline">Prüfungen sind unvollständig</string>
-    <string name="detection_exposure_incomplete_signal">unvollständige Prüfungen</string>
     <string name="detection_exposure_dns_observation_reason">Die abgeschlossenen Prüfungen meldeten keine Erkennungssignale. DNS-Einstellungen wurden ohne Lecktest erfasst.</string>
 </resources>

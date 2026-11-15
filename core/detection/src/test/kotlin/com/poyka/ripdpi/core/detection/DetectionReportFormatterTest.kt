@@ -55,7 +55,7 @@ class DetectionReportFormatterTest {
     fun `unmeasured and failed checks are not reported as successful`() {
         val result =
             DetectionCheckResult(
-                geoIp = emptyCategory("GeoIP").copy(status = DetectionCheckStatus.ERROR),
+                geoIp = emptyCategory("GeoIP").copy(executionStatus = CheckExecutionStatus.ERROR),
                 directSigns = emptyCategory("Direct"),
                 indirectSigns = emptyCategory("Indirect"),
                 locationSignals = emptyCategory("Location"),

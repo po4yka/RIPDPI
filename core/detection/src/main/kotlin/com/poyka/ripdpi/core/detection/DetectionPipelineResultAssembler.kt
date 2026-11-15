@@ -102,7 +102,7 @@ internal object DetectionDisabledResults {
             name = "GeoIP",
             detected = false,
             findings = listOf(Finding("GeoIP check disabled")),
-            status = DetectionCheckStatus.SKIPPED,
+            executionStatus = CheckExecutionStatus.SKIPPED,
         )
 
     fun locationSignals(): CategoryResult =

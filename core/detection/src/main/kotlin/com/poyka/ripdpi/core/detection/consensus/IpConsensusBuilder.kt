@@ -8,7 +8,7 @@ import com.poyka.ripdpi.core.detection.CallTransportResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingEndpointStatus
 import com.poyka.ripdpi.core.detection.CdnPullingResult
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -157,7 +157,8 @@ data class IpConsensusResult(
             findings = findings,
             needsReview = needsReview,
             evidence = evidence,
-            status = if (observedIps.isEmpty()) DetectionCheckStatus.INCONCLUSIVE else DetectionCheckStatus.COMPLETE,
+            executionStatus =
+                if (observedIps.isEmpty()) CheckExecutionStatus.INCONCLUSIVE else CheckExecutionStatus.COMPLETED,
         )
     }
 }

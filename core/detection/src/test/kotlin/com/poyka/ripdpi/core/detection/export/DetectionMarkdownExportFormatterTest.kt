@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.core.detection.export
 
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -17,7 +17,11 @@ class DetectionMarkdownExportFormatterTest {
             DetectionMarkdownExportFormatter.format(
                 result =
                     fixture.copy(
-                        geoIp = fixture.geoIp.copy(detected = true, status = DetectionCheckStatus.INCONCLUSIVE),
+                        geoIp =
+                            fixture.geoIp.copy(
+                                detected = true,
+                                executionStatus = CheckExecutionStatus.INCONCLUSIVE,
+                            ),
                     ),
                 metadata = exportMetadata(),
             )
@@ -26,7 +30,7 @@ class DetectionMarkdownExportFormatterTest {
     }
 
     @Test
-    fun `inconclusive checks and skipped sections are explicit`() {
+    fun `inconclusive checks and unrun sections are explicit`() {
         val fixture = detectionExportFixture()
         val output =
             DetectionMarkdownExportFormatter.format(
@@ -38,7 +42,7 @@ class DetectionMarkdownExportFormatterTest {
                                 needsReview = false,
                                 findings = emptyList(),
                                 evidence = emptyList(),
-                                status = DetectionCheckStatus.INCONCLUSIVE,
+                                executionStatus = CheckExecutionStatus.INCONCLUSIVE,
                             ),
                         ipComparison = null,
                     ),
@@ -46,7 +50,7 @@ class DetectionMarkdownExportFormatterTest {
             )
 
         assertTrue(output.contains("## GeoIp\n\n- status: [INCONCLUSIVE]"))
-        assertTrue(output.contains("| IpComparison | [SKIPPED] |"))
+        assertTrue(output.contains("| IpComparison | [NOT RUN] |"))
     }
 
     @Test

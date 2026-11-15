@@ -5,11 +5,11 @@ package com.poyka.ripdpi.core.detection.checker
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DecisionSignal
 import com.poyka.ripdpi.core.detection.DecisionSignalCategory
 import com.poyka.ripdpi.core.detection.DecisionSignalSemantics
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -98,7 +98,7 @@ object VerdictEngine {
         }
 
         if (ipConsensus?.crossChannelMismatches?.isNotEmpty() == true) {
-            val complete = ipComparison?.category?.status?.let { it == DetectionCheckStatus.COMPLETE } ?: true
+            val complete = ipComparison?.category?.executionStatus?.let { it == CheckExecutionStatus.COMPLETED } ?: true
             return explanation(
                 if (complete) Verdict.DETECTED else Verdict.NEEDS_REVIEW,
                 "R3",

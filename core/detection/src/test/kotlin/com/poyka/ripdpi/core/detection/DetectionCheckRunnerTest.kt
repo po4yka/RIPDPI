@@ -113,7 +113,7 @@ class DetectionCheckRunnerTest {
                 )
 
             assertEquals("GeoIP", result.geoIp.name)
-            assertEquals(DetectionCheckStatus.SKIPPED, result.geoIp.status)
+            assertEquals(CheckExecutionStatus.SKIPPED, result.geoIp.executionStatus)
             assertEquals("direct", result.directSigns.name)
             assertEquals("indirect", result.indirectSigns.name)
             assertEquals("location", result.locationSignals.name)

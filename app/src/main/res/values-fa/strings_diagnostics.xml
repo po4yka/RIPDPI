@@ -1981,7 +1981,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">اعتبارسنجی گواهی ناموفق بود</string>
     <string name="detection_exposure_incomplete_reason">برخی بررسی‌ها نتیجه‌ای برنگرداندند.</string>
     <string name="detection_exposure_incomplete_hint">جزئیات را بررسی کنید و دوباره بررسی را اجرا کنید.</string>
-    <string name="detection_exposure_incomplete_headline">بررسی‌ها کامل نیستند</string>
-    <string name="detection_exposure_incomplete_signal">بررسی‌های ناقص</string>
     <string name="detection_exposure_dns_observation_reason">آزمون‌های کامل‌شده نشانه‌ای از شناسایی گزارش نکردند. تنظیمات DNS بدون آزمایش نشت مشاهده شدند.</string>
 </resources>

@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker.GeoIpProvider
 import com.poyka.ripdpi.core.detection.checker.GeoIpChecker.GeoIpProviderClient
@@ -233,7 +233,7 @@ class GeoIpCheckerTest {
                 ),
             )
         assertFalse(result.detected)
-        assertEquals(DetectionCheckStatus.INCONCLUSIVE, result.status)
+        assertEquals(CheckExecutionStatus.INCONCLUSIVE, result.executionStatus)
         assertTrue(result.findings.any { it.description == "IP in known proxy/VPN database: unknown" })
     }
 
@@ -262,7 +262,7 @@ class GeoIpCheckerTest {
                     AppCoroutineDispatchers(dispatcher, dispatcher, dispatcher),
                     client = client,
                 )
-            assertEquals(DetectionCheckStatus.ERROR, result.status)
+            assertEquals(CheckExecutionStatus.ERROR, result.executionStatus)
             assertFalse(result.detected)
             assertTrue(result.findings.none { it.description.startsWith("IP: ") })
         }
@@ -386,7 +386,7 @@ class GeoIpCheckerTest {
             )
 
         assertTrue(result.findings.any { it.description == "Country: N/A ()" })
-        assertEquals(DetectionCheckStatus.INCONCLUSIVE, result.status)
+        assertEquals(CheckExecutionStatus.INCONCLUSIVE, result.executionStatus)
     }
 
     private class FakeGeoIpProviderClient(

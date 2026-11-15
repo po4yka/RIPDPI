@@ -2008,7 +2008,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Certificate verification failed</string>
     <string name="detection_exposure_incomplete_reason">Some checks did not return a result.</string>
     <string name="detection_exposure_incomplete_hint">Review the details and run the check again.</string>
-    <string name="detection_exposure_incomplete_headline">Checks are incomplete</string>
-    <string name="detection_exposure_incomplete_signal">incomplete checks</string>
     <string name="detection_exposure_dns_observation_reason">Completed probes reported no detection signals. DNS settings were observed without a leak test.</string>
 </resources>

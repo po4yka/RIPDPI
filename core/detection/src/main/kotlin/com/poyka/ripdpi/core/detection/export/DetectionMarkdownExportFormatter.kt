@@ -6,7 +6,6 @@ import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
 import com.poyka.ripdpi.core.detection.ExposureStatus
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.LocalTlsReportTitle
@@ -125,8 +124,8 @@ object DetectionMarkdownExportFormatter {
             return
         }
         appendLine("- status: ${category.statusTag()}")
-        if (category.status != DetectionCheckStatus.COMPLETE) {
-            appendLine("- execution: ${category.status.name}")
+        if (category.executionStatus != CheckExecutionStatus.COMPLETED) {
+            appendLine("- execution: ${category.executionStatus.name}")
         }
         appendRows("findings", category.findings.map(Finding::description))
         appendRows("evidence", category.evidence.map { "[${it.scope}] ${it.description}" })
@@ -275,12 +274,11 @@ object DetectionMarkdownExportFormatter {
     private fun CategoryResult?.statusTag(): String =
         when {
             this == null -> "[NOT RUN]"
-            executionStatus != CheckExecutionStatus.COMPLETED -> "[${executionStatus.name}]"
             detected -> "[DETECTED]"
             needsReview -> "[REVIEW]"
             findings.any { it.detected } || evidence.any { it.detected } -> "[DETECTED]"
             findings.any { it.needsReview } -> "[REVIEW]"
-            status != DetectionCheckStatus.COMPLETE -> "[${status.name}]"
+            executionStatus != CheckExecutionStatus.COMPLETED -> "[${executionStatus.name}]"
             else -> "[OK]"
         }
 

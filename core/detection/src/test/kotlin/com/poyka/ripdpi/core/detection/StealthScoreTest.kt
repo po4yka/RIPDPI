@@ -318,16 +318,16 @@ class StealthScoreTest {
     @Test
     fun `missing measurements do not get a clean exposure verdict`() {
         for (status in listOf(
-            DetectionCheckStatus.ERROR,
-            DetectionCheckStatus.INCONCLUSIVE,
-            DetectionCheckStatus.SKIPPED,
+            CheckExecutionStatus.ERROR,
+            CheckExecutionStatus.INCONCLUSIVE,
+            CheckExecutionStatus.SKIPPED,
         )) {
-            val result = cleanResult().copy(geoIp = emptyCategory("GeoIP").copy(status = status))
+            val result = cleanResult().copy(geoIp = emptyCategory("GeoIP").copy(executionStatus = status))
 
             val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
 
-            assertEquals("Checks are incomplete", verdict.headline)
-            assertEquals("incomplete checks", verdict.dominantSignal)
+            assertEquals("Insufficient evidence", verdict.headline)
+            assertEquals("Insufficient evidence", verdict.dominantSignal)
         }
     }
 
@@ -335,7 +335,10 @@ class StealthScoreTest {
     fun `incomplete execution preserves confirmed positive signals`() {
         val result =
             cleanResult().copy(
-                geoIp = emptyCategory("GeoIP").copy(status = DetectionCheckStatus.INCONCLUSIVE, detected = true),
+                geoIp =
+                    emptyCategory(
+                        "GeoIP",
+                    ).copy(executionStatus = CheckExecutionStatus.INCONCLUSIVE, detected = true),
             )
 
         val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
@@ -352,7 +355,7 @@ class StealthScoreTest {
 
         val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
 
-        assertFalse(result.hasIncompleteChecks)
+        assertFalse(result.hasIncompleteChecks())
         assertEquals("You look like ordinary HTTPS traffic", verdict.headline)
         assertTrue(verdict.reason.contains("without a leak test"))
     }

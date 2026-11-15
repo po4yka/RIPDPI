@@ -254,34 +254,31 @@ private fun VerdictOutcomeHierarchy(
 }
 
 private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
+    val categories =
+        listOfNotNull(
+            geoIp,
+            directSigns,
+            indirectSigns,
+            locationSignals,
+            dnsLeak,
+            timingAnalysis,
+            icmpSpoofing?.category,
+            ipComparison?.category,
+            rttTriangulation?.category,
+            cdnPulling?.category,
+            nativeSigns?.category,
+            ipConsensus?.toCategoryResult(),
+        )
     val probes =
-        buildList {
-            if (bypassResult.executionStatus == CheckExecutionStatus.COMPLETED || bypassResult.detected) {
-                add(bypassResult.detected)
-            }
-            add(geoIp.detected)
-            if (directSigns.executionStatus == CheckExecutionStatus.COMPLETED || directSigns.detected) {
-                add(directSigns.detected)
-            }
-            add(indirectSigns.detected)
-            add(locationSignals.detected)
-            dnsLeak?.let { add(it.detected) }
-            webRtcLeak?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let { add(it.detected) }
-            timingAnalysis?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let { add(it.detected) }
-            icmpSpoofing?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
-                add(it.detected)
-            }
-            ipComparison?.category?.let { add(it.detected) }
-            rttTriangulation?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
-                add(it.detected)
-            }
-            cdnPulling?.category?.let { add(it.detected) }
-            nativeSigns?.category?.let { add(it.detected) }
-            callTransport?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
-                add(it.detected)
-            }
-            ipConsensus?.toCategoryResult()?.let { add(it.detected) }
-        }
+        categories.filter { it.executionStatus == CheckExecutionStatus.COMPLETED || it.detected }.map { it.detected } +
+            listOfNotNull(webRtcLeak, callTransport?.category)
+                .filter { it.executionStatus == CheckExecutionStatus.COMPLETED }
+                .map { it.detected } +
+            listOfNotNull(
+                bypassResult
+                    .takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED || it.detected }
+                    ?.detected,
+            )
     return DetectionProbeSummary(detected = probes.count { it }, total = probes.size)
 }
 
@@ -651,6 +648,23 @@ private fun categoryCardStatus(
     executionStatus: CheckExecutionStatus,
 ): CategoryCardStatus =
     when {
+        detected -> {
+            CategoryCardStatus(
+                R.string.detection_status_detected,
+                StatusIndicatorTone.Error,
+                DetectionVisualState.DETECTED,
+                expand = true,
+            )
+        }
+
+        executionStatus == CheckExecutionStatus.OBSERVATION_ONLY -> {
+            CategoryCardStatus(
+                R.string.diagnostics_probe_result_recorded,
+                StatusIndicatorTone.Idle,
+                DetectionVisualState.NEUTRAL,
+            )
+        }
+
         executionStatus == CheckExecutionStatus.SKIPPED -> {
             CategoryCardStatus(
                 R.string.diagnostics_probe_status_skipped,
@@ -673,15 +687,6 @@ private fun categoryCardStatus(
                 R.string.detection_state_error,
                 StatusIndicatorTone.Error,
                 DetectionVisualState.ERROR,
-                expand = true,
-            )
-        }
-
-        detected -> {
-            CategoryCardStatus(
-                R.string.detection_status_detected,
-                StatusIndicatorTone.Error,
-                DetectionVisualState.DETECTED,
                 expand = true,
             )
         }

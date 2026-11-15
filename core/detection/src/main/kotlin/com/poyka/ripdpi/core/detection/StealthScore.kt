@@ -197,7 +197,7 @@ object ExposureVerdictBuilder {
             return ExposureVerdict(
                 headline = "You look like ordinary HTTPS traffic",
                 reason =
-                    if (result.dnsLeak?.status == DetectionCheckStatus.OBSERVATION_ONLY) {
+                    if (result.dnsLeak?.executionStatus == CheckExecutionStatus.OBSERVATION_ONLY) {
                         "Completed probes reported no detection signals. " +
                             "DNS settings were observed without a leak test."
                     } else {

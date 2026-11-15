@@ -2148,7 +2148,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">تعذّر التحقق من الشهادة</string>
     <string name="detection_exposure_incomplete_reason">لم تُرجع بعض الفحوص نتيجة.</string>
     <string name="detection_exposure_incomplete_hint">راجع التفاصيل وشغّل الفحص مرة أخرى.</string>
-    <string name="detection_exposure_incomplete_headline">الفحوصات غير مكتملة</string>
-    <string name="detection_exposure_incomplete_signal">فحوصات غير مكتملة</string>
     <string name="detection_exposure_dns_observation_reason">لم تسجل الاختبارات المكتملة إشارات كشف. تمت قراءة إعدادات DNS دون اختبار تسرب.</string>
 </resources>

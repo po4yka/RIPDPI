@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.core.detection.export
 
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -17,12 +17,12 @@ import org.junit.Test
 
 class DetectionJsonExportFormatterTest {
     @Test
-    fun `execution state distinguishes errors observations and skipped categories`() {
+    fun `execution state distinguishes errors observations and unrun categories`() {
         val fixture = detectionExportFixture()
         val result =
             fixture.copy(
-                geoIp = fixture.geoIp.copy(status = DetectionCheckStatus.ERROR),
-                dnsLeak = fixture.geoIp.copy(status = DetectionCheckStatus.OBSERVATION_ONLY),
+                geoIp = fixture.geoIp.copy(executionStatus = CheckExecutionStatus.ERROR),
+                dnsLeak = fixture.geoIp.copy(executionStatus = CheckExecutionStatus.OBSERVATION_ONLY),
                 ipComparison = null,
             )
 
@@ -36,7 +36,7 @@ class DetectionJsonExportFormatterTest {
             results
                 .getValue("geoIp")
                 .jsonObject
-                .getValue("status")
+                .getValue("executionStatus")
                 .jsonPrimitive.content,
         )
         assertEquals(
@@ -52,7 +52,7 @@ class DetectionJsonExportFormatterTest {
             results
                 .getValue("dnsLeak")
                 .jsonObject
-                .getValue("status")
+                .getValue("executionStatus")
                 .jsonPrimitive.content,
         )
         assertEquals(
@@ -64,11 +64,11 @@ class DetectionJsonExportFormatterTest {
                 .jsonPrimitive.content,
         )
         assertEquals(
-            "SKIPPED",
+            "NOT_RUN",
             results
                 .getValue("ipComparison")
                 .jsonObject
-                .getValue("status")
+                .getValue("executionStatus")
                 .jsonPrimitive.content,
         )
         assertEquals(

@@ -1988,7 +1988,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">प्रमाणपत्र का सत्यापन विफल हुआ</string>
     <string name="detection_exposure_incomplete_reason">कुछ जाँचों से परिणाम नहीं मिला।</string>
     <string name="detection_exposure_incomplete_hint">विवरण देखें और जाँच फिर से चलाएँ।</string>
-    <string name="detection_exposure_incomplete_headline">जाँच अधूरी हैं</string>
-    <string name="detection_exposure_incomplete_signal">अधूरी जाँच</string>
     <string name="detection_exposure_dns_observation_reason">पूरी हुई जाँच में पहचान के संकेत नहीं मिले। DNS सेटिंग देखी गईं, रिसाव जाँच नहीं हुई।</string>
 </resources>

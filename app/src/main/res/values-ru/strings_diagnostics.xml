@@ -2052,7 +2052,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Не удалось проверить сертификат</string>
     <string name="detection_exposure_incomplete_reason">Некоторые проверки не вернули результат.</string>
     <string name="detection_exposure_incomplete_hint">Посмотрите подробности и запустите проверку снова.</string>
-    <string name="detection_exposure_incomplete_headline">Проверки не завершены</string>
-    <string name="detection_exposure_incomplete_signal">незавершённые проверки</string>
     <string name="detection_exposure_dns_observation_reason">Завершённые пробы не выявили признаков обнаружения. Настройки DNS прочитаны без теста на утечку.</string>
 </resources>

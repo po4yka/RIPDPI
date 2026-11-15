@@ -57,15 +57,28 @@ object DetectionReportFormatter {
         appendLine("--- $title ---")
         val status =
             when {
-                category.executionStatus != CheckExecutionStatus.COMPLETED -> category.executionStatus.name
-                category.detected -> "DETECTED"
-                category.needsReview -> "NEEDS REVIEW"
-                category.status != DetectionCheckStatus.COMPLETE -> category.status.name.replace('_', ' ')
-                else -> "OK"
+                category.detected -> {
+                    "DETECTED"
+                }
+
+                category.needsReview -> {
+                    "NEEDS REVIEW"
+                }
+
+                category.executionStatus != CheckExecutionStatus.COMPLETED -> {
+                    category.executionStatus.name.replace(
+                        '_',
+                        ' ',
+                    )
+                }
+
+                else -> {
+                    "OK"
+                }
             }
         appendLine("Status: $status")
-        if ((category.detected || category.needsReview) && category.status != DetectionCheckStatus.COMPLETE) {
-            appendLine("Execution: ${category.status.name}")
+        if ((category.detected || category.needsReview) && category.executionStatus != CheckExecutionStatus.COMPLETED) {
+            appendLine("Execution: ${category.executionStatus.name}")
         }
         for (finding in category.findings) {
             val prefix =

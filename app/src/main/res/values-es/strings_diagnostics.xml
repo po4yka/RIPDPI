@@ -1997,7 +1997,5 @@
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Falló la verificación del certificado</string>
     <string name="detection_exposure_incomplete_reason">Algunas comprobaciones no devolvieron resultados.</string>
     <string name="detection_exposure_incomplete_hint">Revisa los detalles y vuelve a ejecutar la comprobación.</string>
-    <string name="detection_exposure_incomplete_headline">Las comprobaciones están incompletas</string>
-    <string name="detection_exposure_incomplete_signal">comprobaciones incompletas</string>
     <string name="detection_exposure_dns_observation_reason">Las pruebas completadas no detectaron señales. Se observaron los ajustes de DNS sin una prueba de fugas.</string>
 </resources>

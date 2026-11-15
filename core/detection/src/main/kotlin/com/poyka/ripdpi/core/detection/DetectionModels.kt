@@ -130,16 +130,9 @@ enum class PingProbeFailure {
 
 enum class CheckExecutionStatus {
     COMPLETED,
-    SKIPPED,
-    INCONCLUSIVE,
-    ERROR,
-}
-
-enum class DetectionCheckStatus {
-    COMPLETE,
     OBSERVATION_ONLY,
-    INCONCLUSIVE,
     SKIPPED,
+    INCONCLUSIVE,
     ERROR,
 }
 
@@ -152,7 +145,6 @@ data class CategoryResult(
     val matchedApps: List<MatchedVpnApp> = emptyList(),
     val activeApps: List<ActiveVpnApp> = emptyList(),
     val executionStatus: CheckExecutionStatus = CheckExecutionStatus.COMPLETED,
-    val status: DetectionCheckStatus = DetectionCheckStatus.COMPLETE,
 )
 
 enum class IpComparisonEndpointGroup {
@@ -417,17 +409,3 @@ data class DetectionCheckResult(
     val verdictNarrative: VerdictNarrative? = null,
     val callTransport: CallTransportResult? = null,
 )
-
-fun DetectionCheckResult.hasIncompleteChecks(): Boolean =
-    bypassResult.executionStatus == CheckExecutionStatus.INCONCLUSIVE ||
-        listOfNotNull(
-            directSigns,
-            tlsFingerprint,
-            timingAnalysis,
-            icmpSpoofing?.category,
-            rttTriangulation?.category,
-            webRtcLeak,
-            callTransport?.category,
-        ).any {
-            it.executionStatus == CheckExecutionStatus.INCONCLUSIVE || it.executionStatus == CheckExecutionStatus.ERROR
-        }

@@ -11,7 +11,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
-import com.poyka.ripdpi.core.detection.DetectionCheckStatus
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -228,11 +228,11 @@ object GeoIpChecker {
         return CategoryResult(
             name = "GeoIP",
             detected = snapshot.isHosting == true || snapshot.isProxy == true,
-            status =
+            executionStatus =
                 if (traitsIncomplete || identityIncomplete) {
-                    DetectionCheckStatus.INCONCLUSIVE
+                    CheckExecutionStatus.INCONCLUSIVE
                 } else {
-                    DetectionCheckStatus.COMPLETE
+                    CheckExecutionStatus.COMPLETED
                 },
             findings = findings,
             needsReview = needsReview,
@@ -296,7 +296,7 @@ object GeoIpChecker {
         CategoryResult(
             name = "GeoIP",
             detected = false,
-            status = DetectionCheckStatus.ERROR,
+            executionStatus = CheckExecutionStatus.ERROR,
             findings = listOf(Finding(message)),
         )
 

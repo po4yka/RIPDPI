@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.core.detection
 
-val DetectionCheckResult.hasIncompleteChecks: Boolean
-    get() =
+/** Missing data in selected checks prevents a clean measurement claim. Optional skipped probes stay optional. */
+fun DetectionCheckResult.hasIncompleteChecks(): Boolean =
+    geoIp.executionStatus == CheckExecutionStatus.SKIPPED ||
+        bypassResult.executionStatus in IncompleteStatuses ||
         listOfNotNull(
             geoIp,
             directSigns,
@@ -17,7 +19,7 @@ val DetectionCheckResult.hasIncompleteChecks: Boolean
             cdnPulling?.category,
             nativeSigns?.category,
             callTransport?.category,
-        ).any { it.status in IncompleteStatuses }
+            ipConsensus?.toCategoryResult(),
+        ).any { it.executionStatus in IncompleteStatuses }
 
-private val IncompleteStatuses =
-    setOf(DetectionCheckStatus.ERROR, DetectionCheckStatus.INCONCLUSIVE, DetectionCheckStatus.SKIPPED)
+private val IncompleteStatuses = setOf(CheckExecutionStatus.ERROR, CheckExecutionStatus.INCONCLUSIVE)
