@@ -600,7 +600,7 @@
     <string name="detection_history_title">السجل</string>
     <string name="detection_check_category_dns_leak">تسريب DNS</string>
     <string name="detection_check_category_webrtc">تسريب WebRTC</string>
-    <string name="detection_check_category_tls">بصمة TLS</string>
+    <string name="detection_check_category_tls">إعدادات TLS المحلية</string>
     <string name="detection_check_category_timing">تحليل التوقيت</string>
     <string name="detection_check_category_icmp_spoofing">انتحال ICMP</string>
     <string name="detection_check_category_ip_comparison">مقارنة IP</string>
@@ -1742,8 +1742,8 @@
     <string name="detection_exposure_dns_leak_label">قابلية رصد DNS</string>
     <string name="detection_exposure_dns_leak_reason">يختلف سلوك محلّل DNS عن مسار التشفير أو التوجيه المتوقع.</string>
     <string name="detection_exposure_dns_leak_hint">وحّد إعدادات DNS المباشر والتمهيدي والمشفّر بما يتوافق مع مسار الخروج المحدد.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">تختلف سمات مصافحة TLS عن ملف التعريف المتوقع المشابه للمتصفح.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">استخدم ملف تعريف TLS مشابهًا للمتصفح، ثم أعد الاتصال والاختبار.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">تحتاج الإعدادات المفعّلة في موفّر TLS المحلي إلى مراجعة.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">تحقّق من إصدارات TLS وخوارزميات التشفير المفعّلة أدناه.</string>
     <string name="detection_exposure_network_observability_label">قابلية رصد الشبكة</string>
     <string name="detection_exposure_network_observability_reason">تكشف البيانات الوصفية لواجهة الشبكة أو التوجيه عن مسار ذي سمات نفق.</string>
     <string name="detection_exposure_network_observability_hint">راجع MTU وإعدادات الواجهة والتوجيه بحثًا عن علامات خاصة بالنفق.</string>
@@ -2146,6 +2146,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">بيانات الرفع التي كتبها العميل: %1$d بايت</string>
     <string name="diagnostics_dpi_suite_http_response_wait">انتظار استجابة HTTP: %1$d مللي ثانية</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">تعذّر التحقق من الشهادة</string>
-    <string name="detection_exposure_incomplete_reason">لم تُنتج بعض فحوص الشبكة قياسات كافية.</string>
-    <string name="detection_exposure_incomplete_hint">تحقق من الوصول إلى الشبكة ثم أعد تشغيل الفحص.</string>
+    <string name="detection_exposure_incomplete_reason">لم تُرجع بعض الفحوص نتيجة.</string>
+    <string name="detection_exposure_incomplete_hint">راجع التفاصيل وشغّل الفحص مرة أخرى.</string>
 </resources>

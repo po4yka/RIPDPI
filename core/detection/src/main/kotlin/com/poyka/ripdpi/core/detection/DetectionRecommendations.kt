@@ -98,7 +98,8 @@ object DetectionRecommendations {
                 )
             }
 
-            if (result.verdict == Verdict.NOT_DETECTED && !result.hasIncompleteNetworkMeasurements() && isEmpty()) {
+            val needsMoreChecks = result.hasIncompleteChecks() || result.tlsFingerprint?.hasLocalReview() == true
+            if (result.verdict == Verdict.NOT_DETECTED && !needsMoreChecks && isEmpty()) {
                 add(
                     Recommendation(
                         title = "No issues detected",
@@ -109,4 +110,7 @@ object DetectionRecommendations {
                 )
             }
         }
+
+    private fun CategoryResult.hasLocalReview(): Boolean =
+        executionStatus == CheckExecutionStatus.COMPLETED && (detected || needsReview)
 }

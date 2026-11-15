@@ -50,9 +50,9 @@ private val detectionGeneratedResources =
     mapOf(
         "You look like ordinary HTTPS traffic" to R.string.detection_headline_ordinary_https,
         "Insufficient evidence" to R.string.diagnostics_matrix_inconclusive,
-        "Some network checks did not produce enough measurements." to R.string.detection_exposure_incomplete_reason,
-        "Check network access and run the check again." to R.string.detection_exposure_incomplete_hint,
-        "TLS fingerprint" to R.string.status_generated_tls_fingerprint,
+        "Some checks did not return a result." to R.string.detection_exposure_incomplete_reason,
+        "Review the details and run the check again." to R.string.detection_exposure_incomplete_hint,
+        "Local TLS settings" to R.string.detection_check_category_tls,
         "Excellent" to R.string.status_quality_excellent,
         "Good" to R.string.status_quality_good,
         "split tunnel bypass" to R.string.detection_exposure_split_tunnel_label,
@@ -97,9 +97,9 @@ private val detectionGeneratedResources =
             R.string.detection_exposure_dns_leak_reason,
         "Align direct, bootstrap, and encrypted DNS settings with the selected exit path." to
             R.string.detection_exposure_dns_leak_hint,
-        "TLS handshake traits differ from the expected browser-like profile." to
+        "Enabled settings in the local TLS provider need review." to
             R.string.detection_exposure_tls_fingerprint_reason,
-        "Switch to a browser-like TLS profile and retest after reconnecting." to
+        "Check the enabled TLS versions and ciphers below." to
             R.string.detection_exposure_tls_fingerprint_hint,
         "network observability" to R.string.detection_exposure_network_observability_label,
         "Network interface or routing metadata exposes a tunnel-shaped path." to

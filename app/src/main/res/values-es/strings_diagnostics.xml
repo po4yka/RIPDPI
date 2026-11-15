@@ -5,7 +5,7 @@
     <string name="blockcheck_section_title">Sondeo de estrategia</string>
     <string name="detection_check_category_bypass">Bypass</string>
     <string name="detection_check_category_indirect">Indicios indirectos</string>
-    <string name="detection_check_category_tls">Huella TLS</string>
+    <string name="detection_check_category_tls">Configuración local de TLS</string>
     <string name="detection_check_share">Compartir</string>
     <string name="detection_check_verdict_needs_review">Requiere revisión</string>
     <string name="detection_community_loading">Cargando estadísticas de la comunidad…</string>
@@ -1630,8 +1630,8 @@
     <string name="detection_exposure_dns_leak_label">visibilidad del DNS</string>
     <string name="detection_exposure_dns_leak_reason">El comportamiento del resolvedor DNS difiere de la ruta cifrada o enrutada esperada.</string>
     <string name="detection_exposure_dns_leak_hint">Alinee los ajustes de DNS directo, de arranque y cifrado con la ruta de salida elegida.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">Las características de la negociación TLS difieren del perfil esperado similar al de un navegador.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">Cambie a un perfil TLS similar al de un navegador y repita la prueba tras volver a conectarse.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">Revisa la configuración activa del proveedor local de TLS.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">Comprueba a continuación las versiones de TLS y los cifrados habilitados.</string>
     <string name="detection_exposure_network_observability_label">visibilidad de la red</string>
     <string name="detection_exposure_network_observability_reason">Los metadatos de la interfaz de red o de las rutas revelan un trayecto característico de un túnel.</string>
     <string name="detection_exposure_network_observability_hint">Revise los ajustes de MTU, interfaces y rutas en busca de indicios de túneles.</string>
@@ -1995,6 +1995,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Carga escrita por el cliente: %1$d bytes</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Espera de respuesta HTTP: %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Falló la verificación del certificado</string>
-    <string name="detection_exposure_incomplete_reason">Algunas comprobaciones de red no produjeron suficientes mediciones.</string>
-    <string name="detection_exposure_incomplete_hint">Comprueba el acceso a la red y vuelve a ejecutar la comprobación.</string>
+    <string name="detection_exposure_incomplete_reason">Algunas comprobaciones no devolvieron resultados.</string>
+    <string name="detection_exposure_incomplete_hint">Revisa los detalles y vuelve a ejecutar la comprobación.</string>
 </resources>

@@ -160,6 +160,15 @@ object VerdictNarrativeBuilder {
                 if (result.indirectSigns.hasSignal()) {
                     add(row("Indirect signs", "Installed or active app signals need attention.", exposureStatus))
                 }
+                if (result.tlsFingerprint?.needsReview == true) {
+                    add(
+                        row(
+                            "Local TLS settings",
+                            "Enabled settings in the local TLS provider need review.",
+                            exposureStatus,
+                        ),
+                    )
+                }
                 if (result.nativeSigns?.category.hasSignal()) {
                     add(row("Native signs", "Native runtime checks found technical artifacts.", exposureStatus))
                 }
@@ -223,7 +232,6 @@ object VerdictNarrativeBuilder {
             addAll(bypassResult.evidence)
             dnsLeak?.evidence?.let(::addAll)
             webRtcLeak?.evidence?.let(::addAll)
-            tlsFingerprint?.evidence?.let(::addAll)
             timingAnalysis?.evidence?.let(::addAll)
             icmpSpoofing?.category?.evidence?.let(::addAll)
             ipComparison?.category?.evidence?.let(::addAll)

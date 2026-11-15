@@ -381,7 +381,7 @@ data class DetectionCheckResult(
     val callTransport: CallTransportResult? = null,
 )
 
-fun DetectionCheckResult.hasIncompleteNetworkMeasurements(): Boolean =
-    listOfNotNull(timingAnalysis, icmpSpoofing?.category, rttTriangulation?.category).any {
+fun DetectionCheckResult.hasIncompleteChecks(): Boolean =
+    listOfNotNull(tlsFingerprint, timingAnalysis, icmpSpoofing?.category, rttTriangulation?.category).any {
         it.executionStatus == CheckExecutionStatus.INCONCLUSIVE || it.executionStatus == CheckExecutionStatus.ERROR
     }

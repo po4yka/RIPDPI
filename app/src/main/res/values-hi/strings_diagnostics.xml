@@ -638,7 +638,7 @@
     <string name="detection_history_title">इतिहास</string>
     <string name="detection_check_category_dns_leak">DNS लीक</string>
     <string name="detection_check_category_webrtc">WebRTC लीक</string>
-    <string name="detection_check_category_tls">TLS फ़िंगरप्रिंट</string>
+    <string name="detection_check_category_tls">स्थानीय TLS सेटिंग्स</string>
     <string name="detection_check_category_timing">टाइमिंग विश्लेषण</string>
     <string name="detection_check_category_icmp_spoofing">ICMP स्पूफ़िंग</string>
     <string name="detection_check_category_ip_comparison">IP तुलना</string>
@@ -1634,8 +1634,8 @@
     <string name="detection_exposure_dns_leak_label">DNS से पहचान संभव</string>
     <string name="detection_exposure_dns_leak_reason">DNS रिज़ॉल्वर का व्यवहार अपेक्षित एन्क्रिप्टेड या रूट किए गए पथ से अलग है।</string>
     <string name="detection_exposure_dns_leak_hint">डायरेक्ट, बूटस्ट्रैप और एन्क्रिप्टेड DNS की सेटिंग चुने गए निकास पथ के अनुसार रखें।</string>
-    <string name="detection_exposure_tls_fingerprint_reason">TLS हैंडशेक की विशेषताएँ अपेक्षित ब्राउज़र जैसे प्रोफ़ाइल से अलग हैं।</string>
-    <string name="detection_exposure_tls_fingerprint_hint">ब्राउज़र जैसा TLS प्रोफ़ाइल चुनें और फिर से जुड़ने के बाद जाँच दोहराएँ।</string>
+    <string name="detection_exposure_tls_fingerprint_reason">स्थानीय TLS प्रदाता की सक्रिय सेटिंग्स की समीक्षा करें।</string>
+    <string name="detection_exposure_tls_fingerprint_hint">नीचे सक्रिय TLS संस्करण और साइफ़र देखें।</string>
     <string name="detection_exposure_network_observability_label">नेटवर्क से पहचान संभव</string>
     <string name="detection_exposure_network_observability_reason">नेटवर्क इंटरफ़ेस या रूटिंग के मेटाडेटा से टनल जैसे पथ का पता चलता है।</string>
     <string name="detection_exposure_network_observability_hint">टनल की पहचान कराने वाले संकेतों के लिए MTU, इंटरफ़ेस और रूटिंग सेटिंग की समीक्षा करें।</string>
@@ -1986,6 +1986,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">क्लाइंट ने अपलोड के लिए लिखे: %1$d बाइट</string>
     <string name="diagnostics_dpi_suite_http_response_wait">HTTP जवाब का इंतज़ार: %1$d मिलीसेकंड</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">प्रमाणपत्र का सत्यापन विफल हुआ</string>
-    <string name="detection_exposure_incomplete_reason">कुछ नेटवर्क जाँचों में पर्याप्त माप नहीं मिले।</string>
-    <string name="detection_exposure_incomplete_hint">नेटवर्क एक्सेस जाँचें और जाँच फिर से चलाएँ।</string>
+    <string name="detection_exposure_incomplete_reason">कुछ जाँचों से परिणाम नहीं मिला।</string>
+    <string name="detection_exposure_incomplete_hint">विवरण देखें और जाँच फिर से चलाएँ।</string>
 </resources>

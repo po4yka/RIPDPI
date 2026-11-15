@@ -177,12 +177,21 @@ object ExposureVerdictBuilder {
                     dominantSignal = signal.label,
                 )
             }
-            if (result.hasIncompleteNetworkMeasurements()) {
+            if (result.hasIncompleteChecks()) {
                 return ExposureVerdict(
                     headline = "Insufficient evidence",
-                    reason = "Some network checks did not produce enough measurements.",
-                    adjustmentHint = "Check network access and run the check again.",
+                    reason = "Some checks did not return a result.",
+                    adjustmentHint = "Review the details and run the check again.",
                     dominantSignal = "Insufficient evidence",
+                )
+            }
+            if (result.tlsFingerprint?.needsReview == true) {
+                val tls = ExposureSignal.localTls
+                return ExposureVerdict(
+                    headline = "Additional diagnostic signals need review",
+                    reason = tls.reason,
+                    adjustmentHint = tls.hint,
+                    dominantSignal = tls.label,
                 )
             }
             return ExposureVerdict(
@@ -223,7 +232,6 @@ object ExposureVerdictBuilder {
             addEvidenceSignals(locationSignals.evidence)
             dnsLeak?.evidence?.let { addEvidenceSignals(it) }
             webRtcLeak?.evidence?.let { addEvidenceSignals(it) }
-            tlsFingerprint?.evidence?.let { addEvidenceSignals(it) }
             timingAnalysis?.evidence?.let { addEvidenceSignals(it, ExposureSignal.timing) }
             icmpSpoofing?.category?.evidence?.let { addEvidenceSignals(it) }
             ipComparison?.category?.evidence?.let { addEvidenceSignals(it) }
@@ -260,7 +268,6 @@ object ExposureVerdictBuilder {
         addCategorySignal(result.locationSignals, ExposureSignal.locationSignals)
         addCategorySignal(result.dnsLeak, ExposureSignal.dnsLeak)
         addCategorySignal(result.webRtcLeak, ExposureSignal.webRtc)
-        addCategorySignal(result.tlsFingerprint, ExposureSignal.tlsFingerprint)
         addCategorySignal(result.timingAnalysis, ExposureSignal.timing)
         addCategorySignal(result.icmpSpoofing?.category, ExposureSignal.icmp)
         addCategorySignal(result.ipComparison?.category, ExposureSignal.ipComparison)
@@ -382,11 +389,11 @@ private data class ExposureSignal(
                 priority = 8,
             )
 
-        val tlsFingerprint =
+        val localTls =
             ExposureSignal(
-                label = "TLS fingerprint",
-                reason = "TLS handshake traits differ from the expected browser-like profile.",
-                hint = "Switch to a browser-like TLS profile and retest after reconnecting.",
+                label = "Local TLS settings",
+                reason = "Enabled settings in the local TLS provider need review.",
+                hint = "Check the enabled TLS versions and ciphers below.",
                 priority = 9,
             )
 

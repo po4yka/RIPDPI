@@ -1003,7 +1003,7 @@
     <string name="detection_history_title">История</string>
     <string name="detection_check_category_dns_leak">Утечка DNS</string>
     <string name="detection_check_category_webrtc">Утечка WebRTC</string>
-    <string name="detection_check_category_tls">TLS отпечаток</string>
+    <string name="detection_check_category_tls">Локальные настройки TLS</string>
     <string name="detection_check_category_timing">Анализ таймингов</string>
     <string name="detection_check_category_icmp_spoofing">ICMP-подмена</string>
     <string name="detection_check_category_ip_comparison">Сравнение IP</string>
@@ -1672,8 +1672,8 @@
     <string name="detection_exposure_dns_leak_label">наблюдаемость DNS</string>
     <string name="detection_exposure_dns_leak_reason">Поведение DNS-резолвера отличается от ожидаемого зашифрованного или маршрутизируемого пути.</string>
     <string name="detection_exposure_dns_leak_hint">Согласуйте настройки прямого, начального и зашифрованного DNS с выбранным путём выхода.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">Характеристики рукопожатия TLS отличаются от ожидаемого профиля браузера.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">Переключитесь на профиль TLS, похожий на браузерный, и повторите проверку после переподключения.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">Нужно проверить активные настройки локального провайдера TLS.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">Проверьте включённые версии TLS и шифры ниже.</string>
     <string name="detection_exposure_network_observability_label">наблюдаемость сети</string>
     <string name="detection_exposure_network_observability_reason">Метаданные сетевого интерфейса или маршрутизации раскрывают путь, характерный для туннеля.</string>
     <string name="detection_exposure_network_observability_hint">Проверьте MTU, интерфейсы и маршрутизацию на признаки туннеля.</string>
@@ -2050,6 +2050,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Клиент записал при отправке %1$d байт</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Ожидание ответа HTTP: %1$d мс</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Не удалось проверить сертификат</string>
-    <string name="detection_exposure_incomplete_reason">Некоторые сетевые проверки не дали достаточно измерений.</string>
-    <string name="detection_exposure_incomplete_hint">Проверьте доступ к сети и запустите проверку ещё раз.</string>
+    <string name="detection_exposure_incomplete_reason">Некоторые проверки не вернули результат.</string>
+    <string name="detection_exposure_incomplete_hint">Посмотрите подробности и запустите проверку снова.</string>
 </resources>

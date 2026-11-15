@@ -20,17 +20,67 @@ import javax.net.ssl.TrustManager
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class TlsFingerprintCheckerTest {
     @Test
-    fun `native default input is normalized to chrome stable in findings`() =
+    fun `configured profiles change only the label of the local TLS configuration`() =
         runTest {
-            val result = TlsFingerprintChecker.check(testDispatchers(), "native_default")
+            val chrome = TlsFingerprintChecker.check(testDispatchers(), "native_default")
+            val firefox = TlsFingerprintChecker.check(testDispatchers(), "firefox_stable")
 
-            assertTrue(
-                result.findings.any { finding -> finding.description == "Fingerprint profile: chrome_stable" },
-            )
-            assertTrue(
-                result.findings.any { finding -> finding.description == "Using Chrome-stable TLS profile" },
+            assertEquals(CheckExecutionStatus.COMPLETED, chrome.executionStatus)
+            assertTrue(chrome.findings.any { it.description == "Configured TLS profile: chrome_stable" })
+            assertTrue(firefox.findings.any { it.description == "Configured TLS profile: firefox_stable" })
+            assertEquals(
+                chrome.findings.filterNot { it.description.startsWith("Configured TLS profile:") },
+                firefox.findings.filterNot { it.description.startsWith("Configured TLS profile:") },
             )
         }
+
+    @Test
+    fun `reference cipher coverage counts distinct matches and creates only local review`() {
+        val referenceCiphers =
+            listOf(
+                "TLS_AES_128_GCM_SHA256",
+                "TLS_AES_256_GCM_SHA384",
+                "TLS_CHACHA20_POLY1305_SHA256",
+                "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+                "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+                "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+                "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+                "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            )
+        val testCases = listOf(0 to true, 4 to true, 5 to false, 9 to false)
+
+        for ((coverage, review) in testCases) {
+            val extraCipher = "TLS_RSA_WITH_AES_128_GCM_SHA256"
+            val ciphers = referenceCiphers.take(coverage).let { it + it + extraCipher }
+            val result = TlsFingerprintChecker.summarizeLocalTls("chrome_stable", ciphers, listOf("TLSv1.3"))
+
+            assertEquals(CheckExecutionStatus.COMPLETED, result.executionStatus)
+            assertTrue(result.findings.any { it.description == "Enabled browser reference cipher suites: $coverage/9" })
+            assertEquals(review, result.needsReview)
+            assertFalse(result.detected)
+            assertTrue(result.findings.none { it.detected || it.source != null })
+            assertTrue(result.evidence.isEmpty())
+        }
+    }
+
+    @Test
+    fun `disabled modern TLS is described as local socket configuration`() {
+        val result =
+            TlsFingerprintChecker.summarizeLocalTls(
+                "chrome_stable",
+                listOf("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"),
+                listOf("TLSv1.2"),
+            )
+
+        assertTrue(
+            result.findings.any {
+                it.description == "TLS 1.3 is not enabled in the local TLS socket" && it.needsReview
+            },
+        )
+        assertFalse(result.detected)
+        assertTrue(result.evidence.isEmpty())
+    }
 
     @Test
     fun `provider initialization failure has no TLS hash or positive result`() =

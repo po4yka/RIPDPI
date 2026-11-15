@@ -9,7 +9,7 @@ import com.poyka.ripdpi.core.detection.DetectionHistoryRepository
 import com.poyka.ripdpi.core.detection.DetectionReportFormatter
 import com.poyka.ripdpi.core.detection.community.CommunityStatsRepository
 import com.poyka.ripdpi.core.detection.debug.DetectionDebugFormatter
-import com.poyka.ripdpi.core.detection.hasIncompleteNetworkMeasurements
+import com.poyka.ripdpi.core.detection.hasIncompleteChecks
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
@@ -154,7 +154,7 @@ internal class DetectionAuxStateOwner(
                 timestamp = System.currentTimeMillis(),
                 verdict = result.verdict.name,
                 stealthScore = score,
-                measurementsComplete = !result.hasIncompleteNetworkMeasurements(),
+                measurementsComplete = !result.hasIncompleteChecks(),
                 evidenceCount =
                     result.geoIp.evidence.size +
                         result.directSigns.evidence.size +

@@ -604,7 +604,7 @@
     <string name="detection_history_title">Histórico</string>
     <string name="detection_check_category_dns_leak">Vazamento de DNS</string>
     <string name="detection_check_category_webrtc">Vazamento de WebRTC</string>
-    <string name="detection_check_category_tls">Fingerprint TLS</string>
+    <string name="detection_check_category_tls">Configurações locais de TLS</string>
     <string name="detection_check_category_timing">Análise de temporização</string>
     <string name="detection_check_category_icmp_spoofing">Spoofing de ICMP</string>
     <string name="detection_check_category_ip_comparison">Comparação de IP</string>
@@ -1628,8 +1628,8 @@
     <string name="detection_exposure_dns_leak_label">visibilidade do DNS</string>
     <string name="detection_exposure_dns_leak_reason">O comportamento do resolvedor DNS difere do caminho criptografado ou roteado esperado.</string>
     <string name="detection_exposure_dns_leak_hint">Alinhe as configurações de DNS direto, de bootstrap e criptografado com o caminho de saída escolhido.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">As características do handshake TLS diferem do perfil esperado semelhante ao de um navegador.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">Mude para um perfil TLS semelhante ao de um navegador e repita o teste após reconectar.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">Revise as configurações ativas do provedor local de TLS.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">Verifique abaixo as versões de TLS e as cifras habilitadas.</string>
     <string name="detection_exposure_network_observability_label">visibilidade da rede</string>
     <string name="detection_exposure_network_observability_reason">Os metadados de interfaces de rede ou do roteamento revelam um caminho característico de túnel.</string>
     <string name="detection_exposure_network_observability_hint">Revise as configurações de MTU, interfaces e roteamento em busca de marcadores de túnel.</string>
@@ -1993,6 +1993,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Dados de envio escritos pelo cliente: %1$d bytes</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Espera pela resposta HTTP: %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Falha na verificação do certificado</string>
-    <string name="detection_exposure_incomplete_reason">Algumas verificações de rede não produziram medições suficientes.</string>
-    <string name="detection_exposure_incomplete_hint">Verifique o acesso à rede e execute a verificação novamente.</string>
+    <string name="detection_exposure_incomplete_reason">Algumas verificações não retornaram resultado.</string>
+    <string name="detection_exposure_incomplete_hint">Revise os detalhes e execute a verificação novamente.</string>
 </resources>

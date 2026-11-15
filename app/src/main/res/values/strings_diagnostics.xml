@@ -629,7 +629,7 @@
     <string name="detection_history_title">History</string>
     <string name="detection_check_category_dns_leak">DNS leak</string>
     <string name="detection_check_category_webrtc">WebRTC leak</string>
-    <string name="detection_check_category_tls">TLS fingerprint</string>
+    <string name="detection_check_category_tls">Local TLS settings</string>
     <string name="detection_check_category_timing">Timing analysis</string>
     <string name="detection_check_category_icmp_spoofing">ICMP spoofing</string>
     <string name="detection_check_category_ip_comparison">IP comparison</string>
@@ -1654,8 +1654,8 @@
     <string name="detection_exposure_dns_leak_label">DNS observability</string>
     <string name="detection_exposure_dns_leak_reason">DNS resolver behavior differs from the expected encrypted or routed path.</string>
     <string name="detection_exposure_dns_leak_hint">Align direct, bootstrap, and encrypted DNS settings with the selected exit path.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">TLS handshake traits differ from the expected browser-like profile.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">Switch to a browser-like TLS profile and retest after reconnecting.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">Enabled settings in the local TLS provider need review.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">Check the enabled TLS versions and ciphers below.</string>
     <string name="detection_exposure_network_observability_label">network observability</string>
     <string name="detection_exposure_network_observability_reason">Network interface or routing metadata exposes a tunnel-shaped path.</string>
     <string name="detection_exposure_network_observability_hint">Review MTU, interface, and routing settings for tunnel-specific markers.</string>
@@ -2006,6 +2006,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Upload payload written by client: %1$d bytes</string>
     <string name="diagnostics_dpi_suite_http_response_wait">HTTP response wait: %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Certificate verification failed</string>
-    <string name="detection_exposure_incomplete_reason">Some network checks did not produce enough measurements.</string>
-    <string name="detection_exposure_incomplete_hint">Check network access and run the check again.</string>
+    <string name="detection_exposure_incomplete_reason">Some checks did not return a result.</string>
+    <string name="detection_exposure_incomplete_hint">Review the details and run the check again.</string>
 </resources>

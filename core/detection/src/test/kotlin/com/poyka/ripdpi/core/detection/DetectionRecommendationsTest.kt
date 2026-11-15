@@ -43,6 +43,24 @@ class DetectionRecommendationsTest {
     }
 
     @Test
+    fun `local TLS errors or review suppress clean recommendation while skip is neutral`() {
+        val result = emptyResult()
+        val tls = emptyCategory("TLS Fingerprint")
+        val incompleteOrReview =
+            listOf(
+                tls.copy(executionStatus = CheckExecutionStatus.ERROR),
+                tls.copy(executionStatus = CheckExecutionStatus.INCONCLUSIVE),
+                tls.copy(needsReview = true),
+            )
+
+        for (category in incompleteOrReview) {
+            assertTrue(DetectionRecommendations.generate(result.copy(tlsFingerprint = category)).isEmpty())
+        }
+        val skipped = result.copy(tlsFingerprint = tls.copy(executionStatus = CheckExecutionStatus.SKIPPED))
+        assertEquals("No issues detected", DetectionRecommendations.generate(skipped).single().title)
+    }
+
+    @Test
     fun `transport VPN recommends a mode change instead of TLS changes`() {
         val result =
             emptyResult().copy(

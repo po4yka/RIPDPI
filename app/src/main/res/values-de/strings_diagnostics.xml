@@ -5,7 +5,7 @@
     <string name="blockcheck_section_title">Strategie-Probe</string>
     <string name="detection_check_category_bypass">Bypass</string>
     <string name="detection_check_category_indirect">Indirekte Anzeichen</string>
-    <string name="detection_check_category_tls">TLS-Fingerprint</string>
+    <string name="detection_check_category_tls">Lokale TLS-Einstellungen</string>
     <string name="detection_check_share">Teilen</string>
     <string name="detection_check_verdict_needs_review">Prüfung erforderlich</string>
     <string name="detection_community_loading">Community-Statistiken werden geladen…</string>
@@ -1627,8 +1627,8 @@
     <string name="detection_exposure_dns_leak_label">DNS-Beobachtbarkeit</string>
     <string name="detection_exposure_dns_leak_reason">Das Verhalten des DNS-Resolvers weicht vom erwarteten verschlüsselten oder gerouteten Pfad ab.</string>
     <string name="detection_exposure_dns_leak_hint">Stimmen Sie die Einstellungen für direktes DNS, Bootstrap-DNS und verschlüsseltes DNS auf den gewählten Ausgangspfad ab.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">Die TLS-Handshake-Merkmale weichen vom erwarteten browserähnlichen Profil ab.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">Wechseln Sie zu einem browserähnlichen TLS-Profil und testen Sie nach dem erneuten Verbinden nochmals.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">Die aktiven Einstellungen des lokalen TLS-Anbieters müssen geprüft werden.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">Prüfe unten die aktivierten TLS-Versionen und Cipher Suites.</string>
     <string name="detection_exposure_network_observability_label">Netzwerkbeobachtbarkeit</string>
     <string name="detection_exposure_network_observability_reason">Metadaten von Netzwerkschnittstellen oder Routing machen einen tunneltypischen Pfad sichtbar.</string>
     <string name="detection_exposure_network_observability_hint">Prüfen Sie MTU, Schnittstellen und Routing-Einstellungen auf tunneltypische Merkmale.</string>
@@ -1979,6 +1979,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Vom Client geschriebene Upload-Nutzdaten: %1$d Byte</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Wartezeit auf HTTP-Antwort: %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Zertifikatsprüfung fehlgeschlagen</string>
-    <string name="detection_exposure_incomplete_reason">Einige Netzwerkprüfungen haben nicht genügend Messwerte geliefert.</string>
-    <string name="detection_exposure_incomplete_hint">Prüfe den Netzwerkzugriff und starte die Prüfung erneut.</string>
+    <string name="detection_exposure_incomplete_reason">Einige Prüfungen lieferten kein Ergebnis.</string>
+    <string name="detection_exposure_incomplete_hint">Prüfe die Details und starte die Prüfung erneut.</string>
 </resources>

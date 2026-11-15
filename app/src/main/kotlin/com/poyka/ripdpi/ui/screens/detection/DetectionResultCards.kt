@@ -48,7 +48,7 @@ import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.VerdictExplanation
 import com.poyka.ripdpi.core.detection.VerdictNarrative
 import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
-import com.poyka.ripdpi.core.detection.hasIncompleteNetworkMeasurements
+import com.poyka.ripdpi.core.detection.hasIncompleteChecks
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.core.detection.ui.DetectionVisualState
@@ -116,7 +116,7 @@ internal fun VerdictScoreCard(
 ) {
     val verdict = result.verdict
     val presentationScore = score ?: StealthScore.compute(result)
-    val measurementsComplete = !result.hasIncompleteNetworkMeasurements()
+    val measurementsComplete = !result.hasIncompleteChecks()
     val inconclusive = !measurementsComplete && verdict == Verdict.NOT_DETECTED
     val (verdictLabel, indicatorTone) =
         when (verdict) {
@@ -263,7 +263,6 @@ private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
             add(locationSignals.detected)
             dnsLeak?.let { add(it.detected) }
             webRtcLeak?.let { add(it.detected) }
-            tlsFingerprint?.let { add(it.detected) }
             timingAnalysis?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let { add(it.detected) }
             icmpSpoofing?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
                 add(it.detected)

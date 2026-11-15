@@ -1,16 +1,9 @@
-@file:Suppress("MagicNumber", "LongMethod")
-
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
-import com.poyka.ripdpi.core.detection.DetectionScope
-import com.poyka.ripdpi.core.detection.EvidenceConfidence
-import com.poyka.ripdpi.core.detection.EvidenceItem
-import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
-import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
@@ -20,7 +13,9 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
 
 object TlsFingerprintChecker {
-    private val BROWSER_CIPHER_SUITES =
+    private const val HASH_PREVIEW_LENGTH = 16
+
+    private val BROWSER_REFERENCE_CIPHERS =
         setOf(
             "TLS_AES_128_GCM_SHA256",
             "TLS_AES_256_GCM_SHA384",
@@ -54,92 +49,37 @@ object TlsFingerprintChecker {
     ): CategoryResult {
         if (localCiphers.isEmpty() || localProtocols.isEmpty()) return unavailable(CheckExecutionStatus.INCONCLUSIVE)
 
-        val findings = mutableListOf<Finding>()
-        val evidence = mutableListOf<EvidenceItem>()
-        var detected = false
-        var needsReview = false
-        val normalizedProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile)
-
-        findings.add(Finding("TLS protocols: ${localProtocols.joinToString(", ")}"))
-        findings.add(Finding("Cipher suites: ${localCiphers.size} supported"))
-
-        val fingerprintHash = computeFingerprint(localCiphers, localProtocols)
-        findings.add(Finding("TLS fingerprint hash: ${fingerprintHash.take(16)}..."))
-
-        findings.add(Finding("Fingerprint profile: $normalizedProfile"))
-
-        val hasTls13 = localProtocols.any { it == "TLSv1.3" }
-        if (!hasTls13) {
-            needsReview = true
-            findings.add(
-                Finding(
-                    description = "TLS 1.3 not supported - may be distinguishable from modern browsers",
-                    needsReview = true,
-                    source = EvidenceSource.NETWORK_CAPABILITIES,
-                    confidence = EvidenceConfidence.LOW,
-                ),
-            )
-        }
-
-        val browserOverlap = localCiphers.count { it in BROWSER_CIPHER_SUITES }
-        val overlapRatio = browserOverlap.toFloat() / BROWSER_CIPHER_SUITES.size
-
-        if (overlapRatio < 0.5f) {
-            detected = true
-            findings.add(
-                Finding(
-                    description =
-                        "Low browser cipher overlap (${(overlapRatio * 100).toInt()}%) " +
-                            "- TLS fingerprint distinguishable from browsers",
-                    detected = true,
-                    source = EvidenceSource.NETWORK_CAPABILITIES,
-                    confidence = EvidenceConfidence.MEDIUM,
-                ),
-            )
-            evidence.add(lowBrowserOverlapEvidence())
-        } else {
-            findings.add(
-                Finding("Browser cipher overlap: ${(overlapRatio * 100).toInt()}% (good)"),
-            )
-        }
-
-        if (normalizedProfile == TlsFingerprintProfileChromeStable) {
-            findings.add(Finding("Using Chrome-stable TLS profile"))
-        }
-
-        val hasLegacyCiphers =
-            localCiphers.any {
-                it.contains("RC4") || it.contains("DES") || it.contains("MD5")
+        val coverage = localCiphers.toSet().count { it in BROWSER_REFERENCE_CIPHERS }
+        val referenceSize = BROWSER_REFERENCE_CIPHERS.size
+        val hash = computeFingerprint(localCiphers, localProtocols).take(HASH_PREVIEW_LENGTH)
+        val configuredProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile)
+        val findings =
+            buildList {
+                add(Finding("Enabled TLS protocols: ${localProtocols.joinToString(", ")}"))
+                add(Finding("Enabled cipher suites: ${localCiphers.size}"))
+                add(Finding("Local TLS configuration SHA-256: $hash..."))
+                add(Finding("Configured TLS profile: $configuredProfile"))
+                add(
+                    Finding(
+                        "Enabled browser reference cipher suites: $coverage/$referenceSize",
+                        needsReview = coverage * 2 < referenceSize,
+                    ),
+                )
+                if ("TLSv1.3" !in localProtocols) {
+                    add(Finding("TLS 1.3 is not enabled in the local TLS socket", needsReview = true))
+                }
+                if (localCiphers.any { it.contains("RC4") || it.contains("DES") || it.contains("MD5") }) {
+                    add(Finding("Legacy TLS ciphers enabled (RC4/DES/MD5)", needsReview = true))
+                }
             }
-        if (hasLegacyCiphers) {
-            findings.add(
-                Finding(
-                    description = "Legacy ciphers present (RC4/DES/MD5) - unusual for modern clients",
-                    needsReview = true,
-                    source = EvidenceSource.NETWORK_CAPABILITIES,
-                    confidence = EvidenceConfidence.LOW,
-                ),
-            )
-            needsReview = true
-        }
 
         return CategoryResult(
             name = "TLS Fingerprint",
-            detected = detected,
+            detected = false,
             findings = findings,
-            needsReview = needsReview,
-            evidence = evidence,
+            needsReview = findings.any(Finding::needsReview),
         )
     }
-
-    internal fun lowBrowserOverlapEvidence(): EvidenceItem =
-        EvidenceItem(
-            source = EvidenceSource.NETWORK_CAPABILITIES,
-            scope = DetectionScope.NETWORK_OBSERVATION,
-            detected = true,
-            confidence = EvidenceConfidence.MEDIUM,
-            description = "TLS cipher suite set differs significantly from browsers",
-        )
 
     private fun unavailable(status: CheckExecutionStatus): CategoryResult =
         CategoryResult(

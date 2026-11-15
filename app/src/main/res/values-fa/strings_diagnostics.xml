@@ -424,7 +424,7 @@
     <string name="detection_check_category_direct">نشانه‌های مستقیم</string>
     <string name="detection_check_category_icmp_spoofing">جعل ICMP</string>
     <string name="detection_check_category_location">سیگنال‌های مکان</string>
-    <string name="detection_check_category_tls">اثر انگشت TLS</string>
+    <string name="detection_check_category_tls">تنظیمات محلی TLS</string>
     <string name="detection_check_recommendations">توصیه‌ها</string>
     <string name="detection_check_start">اجرای بررسی</string>
     <string name="detection_check_verdict_detected">شناسایی شد</string>
@@ -1627,8 +1627,8 @@
     <string name="detection_exposure_dns_leak_label">قابلیت مشاهده DNS</string>
     <string name="detection_exposure_dns_leak_reason">رفتار حل‌کننده DNS با مسیر رمزگذاری‌شده یا مسیریابی‌شده مورد انتظار تفاوت دارد.</string>
     <string name="detection_exposure_dns_leak_hint">تنظیمات DNS مستقیم، راه‌انداز و رمزگذاری‌شده را با مسیر خروج انتخاب‌شده هماهنگ کنید.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">ویژگی‌های دست‌دهی TLS با نمایه مورد انتظار شبیه مرورگر متفاوت‌اند.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">به یک نمایه TLS شبیه مرورگر تغییر دهید و پس از اتصال مجدد، دوباره آزمایش کنید.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">تنظیمات فعال ارائه‌دهندهٔ محلی TLS نیاز به بررسی دارد.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">نسخه‌ها و رمزهای فعال TLS را در زیر بررسی کنید.</string>
     <string name="detection_exposure_network_observability_label">قابلیت مشاهده شبکه</string>
     <string name="detection_exposure_network_observability_reason">فراداده رابط شبکه یا مسیریابی، مسیری با ویژگی‌های تونل را آشکار می‌کند.</string>
     <string name="detection_exposure_network_observability_hint">MTU و تنظیمات رابط و مسیریابی را از نظر نشانه‌های مختص تونل بررسی کنید.</string>
@@ -1979,6 +1979,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">دادهٔ بارگذاری نوشته‌شده توسط کارخواه: %1$d بایت</string>
     <string name="diagnostics_dpi_suite_http_response_wait">انتظار پاسخ HTTP: %1$d میلی‌ثانیه</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">اعتبارسنجی گواهی ناموفق بود</string>
-    <string name="detection_exposure_incomplete_reason">برخی بررسی‌های شبکه اندازه‌گیری کافی ارائه نکردند.</string>
-    <string name="detection_exposure_incomplete_hint">دسترسی به شبکه را بررسی کنید و دوباره بررسی را اجرا کنید.</string>
+    <string name="detection_exposure_incomplete_reason">برخی بررسی‌ها نتیجه‌ای برنگرداندند.</string>
+    <string name="detection_exposure_incomplete_hint">جزئیات را بررسی کنید و دوباره بررسی را اجرا کنید.</string>
 </resources>

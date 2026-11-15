@@ -5,7 +5,7 @@
     <string name="blockcheck_section_title">Sonde de stratégie</string>
     <string name="detection_check_category_bypass">Contournement</string>
     <string name="detection_check_category_indirect">Indices indirects</string>
-    <string name="detection_check_category_tls">Empreinte TLS</string>
+    <string name="detection_check_category_tls">Paramètres TLS locaux</string>
     <string name="detection_check_share">Partager</string>
     <string name="detection_check_verdict_needs_review">À examiner</string>
     <string name="detection_community_loading">Chargement des statistiques de la communauté…</string>
@@ -1630,8 +1630,8 @@
     <string name="detection_exposure_dns_leak_label">visibilité du DNS</string>
     <string name="detection_exposure_dns_leak_reason">Le comportement du résolveur DNS diffère du chemin chiffré ou routé attendu.</string>
     <string name="detection_exposure_dns_leak_hint">Alignez les réglages du DNS direct, d’amorçage et chiffré sur le chemin de sortie choisi.</string>
-    <string name="detection_exposure_tls_fingerprint_reason">Les caractéristiques de la négociation TLS diffèrent du profil attendu, semblable à celui d’un navigateur.</string>
-    <string name="detection_exposure_tls_fingerprint_hint">Choisissez un profil TLS semblable à celui d’un navigateur et refaites le test après la reconnexion.</string>
+    <string name="detection_exposure_tls_fingerprint_reason">Les paramètres actifs du fournisseur TLS local doivent être vérifiés.</string>
+    <string name="detection_exposure_tls_fingerprint_hint">Vérifiez les versions de TLS et les suites de chiffrement activées ci-dessous.</string>
     <string name="detection_exposure_network_observability_label">visibilité du réseau</string>
     <string name="detection_exposure_network_observability_reason">Les métadonnées des interfaces réseau ou du routage révèlent un chemin caractéristique d’un tunnel.</string>
     <string name="detection_exposure_network_observability_hint">Vérifiez les réglages de MTU, d’interfaces et de routage pour repérer les marqueurs de tunnel.</string>
@@ -1995,6 +1995,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">Données écrites par le client : %1$d octets</string>
     <string name="diagnostics_dpi_suite_http_response_wait">Attente de la réponse HTTP : %1$d ms</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">Échec de la vérification du certificat</string>
-    <string name="detection_exposure_incomplete_reason">Certaines vérifications réseau n’ont pas fourni assez de mesures.</string>
-    <string name="detection_exposure_incomplete_hint">Vérifiez l’accès au réseau et relancez la vérification.</string>
+    <string name="detection_exposure_incomplete_reason">Certaines vérifications ont échoué à fournir un résultat.</string>
+    <string name="detection_exposure_incomplete_hint">Consultez les détails et relancez la vérification.</string>
 </resources>

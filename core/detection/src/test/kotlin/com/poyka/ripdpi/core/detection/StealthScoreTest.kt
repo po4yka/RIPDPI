@@ -233,8 +233,8 @@ class StealthScoreTest {
                 val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
 
                 assertEquals("Insufficient evidence", verdict.headline)
-                assertEquals("Some network checks did not produce enough measurements.", verdict.reason)
-                assertEquals("Check network access and run the check again.", verdict.adjustmentHint)
+                assertEquals("Some checks did not return a result.", verdict.reason)
+                assertEquals("Review the details and run the check again.", verdict.adjustmentHint)
             }
         }
     }
@@ -293,6 +293,18 @@ class StealthScoreTest {
         val verdict = ExposureVerdictBuilder.build(result, stealthScore = 100)
 
         assertEquals("Additional diagnostic signals need review", verdict.headline)
+        assertEquals("Local TLS settings", verdict.dominantSignal)
+        assertTrue(VerdictNarrativeBuilder.build(result).reasonRows.any { it.label == "Local TLS settings" })
+    }
+
+    @Test
+    fun `failed local TLS read is incomplete without VPN attribution`() {
+        val result =
+            cleanResult().copy(
+                tlsFingerprint = emptyCategory("Local TLS settings").copy(executionStatus = CheckExecutionStatus.ERROR),
+            )
+        assertTrue(result.hasIncompleteChecks())
+        assertEquals("Insufficient evidence", ExposureVerdictBuilder.build(result, 100).headline)
     }
 
     @Test

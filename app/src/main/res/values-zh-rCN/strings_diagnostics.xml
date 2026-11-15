@@ -391,7 +391,7 @@
     <string name="blockcheck_entry_title">策略探测</string>
     <string name="detection_check_category_dns_leak">DNS 泄漏</string>
     <string name="detection_check_category_ip_comparison">IP 比对</string>
-    <string name="detection_check_category_tls">TLS 指纹</string>
+    <string name="detection_check_category_tls">本地 TLS 设置</string>
     <string name="detection_check_subtitle">检查您的 VPN/代理设置的可见性。</string>
     <string name="detection_community_avg_score">平均隐匿评分:%d/100</string>
     <string name="detection_community_local_title">您的统计数据</string>
@@ -1598,8 +1598,8 @@
     <string name="detection_exposure_dns_leak_label">DNS 可观测特征</string>
     <string name="detection_exposure_dns_leak_reason">DNS 解析器的行为与预期的加密路径或路由路径不一致。</string>
     <string name="detection_exposure_dns_leak_hint">使直连、引导和加密 DNS 设置与所选出口路径一致。</string>
-    <string name="detection_exposure_tls_fingerprint_reason">TLS 握手特征与预期的类浏览器配置文件不同。</string>
-    <string name="detection_exposure_tls_fingerprint_hint">切换到类浏览器 TLS 配置文件，重新连接后再次检测。</string>
+    <string name="detection_exposure_tls_fingerprint_reason">需检查本地 TLS 提供程序的已启用设置。</string>
+    <string name="detection_exposure_tls_fingerprint_hint">请查看下方已启用的 TLS 版本和密码套件。</string>
     <string name="detection_exposure_network_observability_label">网络可观测特征</string>
     <string name="detection_exposure_network_observability_reason">网络接口或路由元数据暴露了类似隧道的路径。</string>
     <string name="detection_exposure_network_observability_hint">检查 MTU、接口和路由设置中是否存在隧道特有的标志。</string>
@@ -1937,6 +1937,6 @@
     <string name="diagnostics_dpi_suite_upload_bytes_written">客户端写入的上传数据：%1$d 字节</string>
     <string name="diagnostics_dpi_suite_http_response_wait">HTTP 响应等待时间：%1$d 毫秒</string>
     <string name="diagnostics_dpi_suite_ech_certificate_failure">证书验证失败</string>
-    <string name="detection_exposure_incomplete_reason">部分网络检查未获得足够的测量数据。</string>
-    <string name="detection_exposure_incomplete_hint">检查网络访问权限，然后重新运行检查。</string>
+    <string name="detection_exposure_incomplete_reason">部分检查未返回结果。</string>
+    <string name="detection_exposure_incomplete_hint">查看详情并重新运行检查。</string>
 </resources>
