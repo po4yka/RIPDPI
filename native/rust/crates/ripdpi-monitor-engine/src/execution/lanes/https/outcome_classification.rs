@@ -1,5 +1,3 @@
-use crate::tls::TlsObservation;
-
 use super::observation_collection::HttpsObservationCollection;
 
 pub(super) fn classify_https_outcome(observations: &HttpsObservationCollection) -> String {
@@ -14,19 +12,4 @@ pub(super) fn classify_https_outcome(observations: &HttpsObservationCollection) 
     } else {
         "tls_handshake_failed".to_string()
     }
-}
-
-pub(super) fn https_tls_error_detail(
-    outcome: &str,
-    tls13: &TlsObservation,
-    tls12: &TlsObservation,
-    tls_ech: &TlsObservation,
-) -> String {
-    let include_ech_error = !matches!(outcome, "tls_ok" | "tls_version_split");
-    tls13
-        .error
-        .clone()
-        .or_else(|| tls12.error.clone())
-        .or_else(|| include_ech_error.then(|| tls_ech.error.clone()).flatten())
-        .unwrap_or_else(|| "none".to_string())
 }

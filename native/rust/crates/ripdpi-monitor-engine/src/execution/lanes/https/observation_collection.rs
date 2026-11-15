@@ -1,6 +1,5 @@
 mod tls_attempts;
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
@@ -18,19 +17,6 @@ pub(super) struct HttpsObservationCollection {
     pub(super) tls_ech: TlsObservation,
     pub(super) latency_ms: u64,
     pub(super) https_port: u16,
-    pub(super) socket_leg: &'static str,
-}
-
-pub(super) struct SelectedTlsFields {
-    pub(super) transport_open_ms: Option<u64>,
-    pub(super) tls_handshake_ms: Option<u64>,
-    pub(super) cert_chain_length: Option<usize>,
-    pub(super) cert_issuer: Option<String>,
-    pub(super) local_socket_ttl: Option<u8>,
-    pub(super) ja3_fingerprint: Option<String>,
-    pub(super) tls_negotiated_version: Option<String>,
-    pub(super) connected_addr: Option<SocketAddr>,
-    pub(super) cdn_provider: Option<String>,
 }
 
 pub(super) fn collect_https_observations(
@@ -46,9 +32,5 @@ pub(super) fn collect_https_observations(
         collect_tls_profile_observations(&connect_targets, https_port, transport, &target.host, tls_verifier, key_log);
     let latency_ms = now_ms().saturating_sub(started);
 
-    let socket_leg = match transport {
-        TransportConfig::Direct { .. } => "direct",
-        TransportConfig::Socks5 { .. } => "client_to_proxy",
-    };
-    HttpsObservationCollection { tls13, tls12, tls_ech, latency_ms, https_port, socket_leg }
+    HttpsObservationCollection { tls13, tls12, tls_ech, latency_ms, https_port }
 }

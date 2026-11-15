@@ -1,4 +1,57 @@
+use ripdpi_diagnostics_tls::tls::TlsObservation;
+use ripdpi_diagnostics_transport::transport::TransportConfig;
+
 use crate::types::*;
+
+/// Project measurements from exactly one connection under the given attempt prefix.
+pub fn append_tls_attempt_details(
+    details: &mut Vec<ProbeDetail>,
+    prefix: &str,
+    attempt: &TlsObservation,
+    transport: &TransportConfig,
+) {
+    let peer_role = match (transport, attempt.connected_addr, attempt.transport_open_ms) {
+        (TransportConfig::Direct { .. }, Some(_), _) => Some("direct_peer"),
+        (TransportConfig::Socks5 { .. }, Some(_), _) => Some("socks_requested_destination"),
+        (TransportConfig::Socks5 { .. }, None, Some(_)) => Some("socks_destination_unknown"),
+        _ => None,
+    };
+    let socket_leg = match transport {
+        TransportConfig::Direct { .. } => "direct",
+        TransportConfig::Socks5 { .. } => "client_to_proxy",
+    };
+    let values = [
+        ("Status", Some(attempt.status.clone())),
+        ("Version", Some(attempt.version.clone().unwrap_or_else(|| "unknown".to_string()))),
+        ("Error", Some(attempt.error.clone().unwrap_or_else(|| "none".to_string()))),
+        ("FailureStage", Some(attempt.failure_stage.map_or("none", |stage| stage.as_str()).to_string())),
+        (
+            "FailureDurationMs",
+            Some(attempt.failure_duration_ms.map_or_else(|| "none".to_string(), |ms| ms.to_string())),
+        ),
+        ("TransportOpenMs", attempt.transport_open_ms.map(|ms| ms.to_string())),
+        ("HandshakeMs", attempt.tls_handshake_ms.map(|ms| ms.to_string())),
+        ("CertChainLength", attempt.cert_chain_length.map(|length| length.to_string())),
+        ("CertIssuer", attempt.cert_issuer.clone()),
+        ("LocalSocketTtl", attempt.local_socket_ttl.map(|ttl| ttl.to_string())),
+        ("LocalSocketTtlLeg", attempt.local_socket_ttl.map(|_| socket_leg.to_string())),
+        ("Ja3Fingerprint", attempt.ja3_fingerprint.clone()),
+        ("AlertCode", attempt.tls_alert_code.map(|code| code.to_string())),
+        ("AlertSource", attempt.tls_alert_code.map(|_| "unknown".to_string())),
+        ("AlertDescription", attempt.tls_alert_description.clone()),
+        ("ServerHelloReceived", attempt.tls_server_hello_received.map(|answer| answer.to_string())),
+        ("ConnectedIp", attempt.connected_addr.map(|addr| addr.ip().to_string())),
+        ("ConnectedPort", attempt.connected_addr.map(|addr| addr.port().to_string())),
+        ("PeerRole", peer_role.map(str::to_string)),
+        ("CdnProvider", attempt.cdn_provider.clone()),
+        ("ResolutionDetail", attempt.ech_resolution_detail.clone()),
+    ];
+    details.extend(
+        values
+            .into_iter()
+            .filter_map(|(suffix, value)| value.map(|value| ProbeDetail { key: format!("{prefix}{suffix}"), value })),
+    );
+}
 
 pub fn summarize_probe_event(probe: &ProbeResult) -> String {
     match probe.probe_type.as_str() {

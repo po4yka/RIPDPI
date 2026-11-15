@@ -24,7 +24,7 @@ pub(super) fn build_https_probe_sample(
 ) -> ProbeSample {
     let observations = collect_https_observations(transport, target, tls_verifier, key_log);
     let outcome = classify_https_outcome(&observations);
-    let mut details = build_https_probe_details(candidate, &observations, &outcome);
+    let mut details = build_https_probe_details(candidate, &observations, &outcome, transport);
 
     let retry = apply_https_retry_policy(
         transport,

@@ -380,8 +380,10 @@ def extract_tls_assessment(probe_rows: list[dict[str, Any]]) -> dict[str, Any]:
         error_kind = normalize_error_kind(details.get("tlsError"))
         if error_kind:
             errors[error_kind] += 1
-        if details.get("ja3Fingerprint"):
-            ja3[details["ja3Fingerprint"]] += 1
+        for prefix in ("tls13", "tls12", "tlsEch", "tlsEchInitial", "tlsRetry"):
+            fingerprint = details.get(f"{prefix}Ja3Fingerprint")
+            if fingerprint:
+                ja3[fingerprint] += 1
         for key in ("tls13Status", "tls12Status", "tlsEchStatus"):
             status = details.get(key)
             if status and status != "tls_ok" and status != "not_run":

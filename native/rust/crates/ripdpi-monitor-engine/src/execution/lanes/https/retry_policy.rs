@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
+use crate::connectivity::append_tls_attempt_details;
 use crate::tls::TlsKeyLogCallback;
 use crate::transport::TransportConfig;
 use crate::types::{DomainTarget, ProbeDetail};
@@ -25,14 +26,9 @@ pub(super) fn apply_https_retry_policy(
 ) -> HttpsRetryDecision {
     if outcome == "tls_handshake_failed" {
         let retry = retry_tls13_handshake(transport, target, tls_verifier, key_log, https_port);
-        let retry_outcome = if retry.status == "tls_ok" { "tls_ok" } else { "tls_handshake_failed" };
-        details.push(ProbeDetail { key: "retryOutcome".to_string(), value: retry_outcome.to_string() });
-        details.push(ProbeDetail {
-            key: "retryError".to_string(),
-            value: retry.error.unwrap_or_else(|| "none".to_string()),
-        });
-        details
-            .push(ProbeDetail { key: "retryOnlySuccess".to_string(), value: (retry_outcome == "tls_ok").to_string() });
+        let retry_success = retry.status == "tls_ok";
+        append_tls_attempt_details(details, "tlsRetry", &retry, transport);
+        details.push(ProbeDetail { key: "retryOnlySuccess".to_string(), value: retry_success.to_string() });
         details.push(ProbeDetail { key: "probeRetryCount".to_string(), value: "1".to_string() });
         let final_outcome = outcome.to_string();
 
@@ -86,7 +82,7 @@ mod tests {
         );
 
         assert_eq!(decision.final_outcome, "tls_handshake_failed");
-        assert_eq!(detail_value(&details, "retryOutcome"), "tls_ok");
+        assert_eq!(detail_value(&details, "tlsRetryStatus"), "tls_ok");
         assert_eq!(detail_value(&details, "retryOnlySuccess"), "true");
         assert_eq!(detail_value(&details, "probeRetryCount"), "1");
         server.join();
