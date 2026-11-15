@@ -225,23 +225,23 @@
         },
         {
           "key": "tlsFuzzVariantCount",
-          "value": "1"
+          "value": "2"
         },
         {
           "key": "tlsFuzzOutcomes",
-          "value": "expand_padding=tcp_connect_failed:Connection refused (os error _)"
+          "value": "uppercase_sni=tcp_connect_failed:Connection refused (os error _)|expand_padding=tcp_connect_failed:Connection refused (os error _)"
         },
         {
           "key": "tlsFuzzFieldOutcomes",
-          "value": "padding_extension=expand_padding:tcp_connect_failed"
+          "value": "padding_extension=expand_padding:tcp_connect_failed;sni_name=uppercase_sni:tcp_connect_failed"
         },
         {
           "key": "tlsFuzzChangedFields",
-          "value": "padding_extension"
+          "value": "padding_extension|sni_name"
         },
         {
           "key": "tlsFuzzChangedCount",
-          "value": "1"
+          "value": "2"
         }
       ],
       "outcome": "http_blockpage",
