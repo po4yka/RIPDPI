@@ -55,6 +55,8 @@ pub(in crate::engine::runners::strategy) fn resolve_strategy_probe_audit_assessm
         quic_winner_coverage,
     );
     let no_evasion_needed = !dns_tampered
+        && tcp_counts.executed == tcp_counts.applicable_planned()
+        && quic_counts.executed == quic_counts.applicable_planned()
         && signals.all_tcp_tied
         && signals.all_quic_tied
         && tcp_winner_id == Some("baseline_plain_direct")
@@ -68,7 +70,7 @@ pub(in crate::engine::runners::strategy) fn resolve_strategy_probe_audit_assessm
             confidence: StrategyProbeAuditConfidence {
                 level: StrategyProbeAuditConfidenceLevel::High,
                 score: 100,
-                rationale: "All strategies performed equally — no evasion needed".to_string(),
+                rationale: "The measured candidates tied and the baseline reached the tested targets".to_string(),
                 warnings: Vec::new(),
             },
         });

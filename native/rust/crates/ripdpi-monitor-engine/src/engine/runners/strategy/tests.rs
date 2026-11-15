@@ -1084,8 +1084,21 @@ fn test_audit_assessment_high_when_baseline_tied_high_coverage() {
     .expect("should produce assessment");
     assert_eq!(a.confidence.level, StrategyProbeAuditConfidenceLevel::High);
     assert_eq!(a.confidence.score, 100);
-    assert!(a.confidence.rationale.contains("no evasion needed"));
+    assert!(a.confidence.rationale.contains("the baseline reached the tested targets"));
     assert!(a.confidence.warnings.is_empty());
+
+    let incomplete = resolve_strategy_probe_audit_assessment(
+        STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+        &tcp[..2],
+        &quic,
+        Some(&rec),
+        50,
+        20,
+        false,
+    )
+    .expect("incomplete audit assessment");
+    assert_eq!(incomplete.coverage.matrix_coverage_percent, 6);
+    assert_eq!(incomplete.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
 }
 
 #[test]
