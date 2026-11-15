@@ -703,7 +703,7 @@ Beyond UDP chain steps, the QUIC subsystem exposes:
 | `quic_fake_profile` | `QuicFakeProfile` | disabled | Fake Initial profile: `compat_default` or `realistic_initial` |
 | `quic_fake_host` | `String` | - | Custom SNI for fake QUIC Initial packets |
 | `quic_fake_version` | `u32` | `0x1a2a3a4a` | QUIC version field in fake packets |
-| `quic_bind_low_port` | `bool` | false | Bind to ports < 1024 for realism |
+| `quic_bind_low_port` | `bool` | false | Best-effort source port in 1024–4096; use an OS-assigned port if attempts fail |
 | `quic_migrate_after_handshake` | `bool` | false | Trigger connection migration after handshake |
 | `quic_initial_mode` | enum | `route_and_cache` | `route` / `route_and_cache` / `disabled` -- how QUIC Initial packets are processed |
 | `support_v1` | `bool` | true | Enable QUIC v1 |
