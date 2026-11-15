@@ -1029,6 +1029,7 @@ Fonte: %2$s</string>
     <string name="profile_share_share_sheet_action">Compartilhar guia de configuração</string>
     <string name="profile_share_unshareable_title">O perfil não pode ser compartilhado</string>
     <string name="profile_share_unshareable_body">Este perfil não tem forma de link compartilhável.</string>
+    <string name="profile_share_qr_unavailable">O link não cabe em um código QR. Copie ou compartilhe o link abaixo.</string>
     <string name="profile_share_qr_content_description">Código QR do perfil salvo</string>
     <string name="profile_variants_metric_latency">Latência</string>
     <string name="profile_variants_cta_select">Selecionar</string>

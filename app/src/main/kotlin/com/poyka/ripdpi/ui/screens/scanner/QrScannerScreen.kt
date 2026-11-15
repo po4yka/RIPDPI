@@ -87,7 +87,12 @@ fun QrScannerRoute(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 scope.launch {
-                    QrImageScanner.decode(context, uri)?.let(viewModel::onQrDecoded)
+                    val payload = QrImageScanner.decode(context, uri)
+                    if (payload == null) {
+                        viewModel.onQrImageReadFailed()
+                    } else {
+                        viewModel.onQrDecoded(payload)
+                    }
                 }
             }
         }
@@ -192,10 +197,10 @@ internal fun QrScannerScreen(
             )
         }
 
-        uiState.decodeError?.let { redactedPreview ->
+        if (uiState.decodeError != null) {
             WarningBanner(
                 title = stringResource(R.string.scanner_invalid_qr_title),
-                message = stringResource(R.string.scanner_invalid_qr_body, redactedPreview),
+                message = stringResource(R.string.scanner_invalid_qr_body),
                 tone = WarningBannerTone.Warning,
                 onDismiss = onDismissError,
             )

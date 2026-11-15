@@ -14,6 +14,9 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
  * job (it needs the Android graphics stack, so it stays out of this pure-logic unit).
  */
 object QrCodeEncoder {
+    private const val MaximumContentLength = 5596 // Version 40, level M, numeric mode.
+    private const val MaximumMatrixSize = 2048
+
     private val writer = QRCodeWriter()
 
     private val hints =
@@ -23,28 +26,31 @@ object QrCodeEncoder {
         )
 
     /**
-     * Encodes [content] into a square [BitMatrix] of [size] x [size] modules. Throws
-     * [IllegalArgumentException] for blank content or a non-positive [size]; callers that
-     * want a soft failure should use [encodeMatrixOrNull].
+     * Encodes [content] into a square [BitMatrix] of [size] by [size] pixels. Throws
+     * [IllegalArgumentException] if [encodeMatrixOrNull] cannot make a matrix.
      */
     fun encodeMatrix(
         content: String,
         size: Int,
     ): BitMatrix =
         encodeMatrixOrNull(content, size)
-            ?: throw IllegalArgumentException("Cannot encode blank content or a non-positive size")
+            ?: throw IllegalArgumentException("Content cannot fit in the requested QR matrix")
 
     /**
      * Encodes [content] into a square [BitMatrix], or returns `null` when [content] is
-     * blank, [size] is non-positive, or `zxing-core` rejects the input.
+     * blank, malformed, too long, or does not fit the requested matrix size.
      */
     fun encodeMatrixOrNull(
         content: String,
         size: Int,
     ): BitMatrix? {
-        if (content.isBlank() || size <= 0) return null
+        if (size !in 1..MaximumMatrixSize || content.length > MaximumContentLength ||
+            content.isBlank() || !Charsets.UTF_8.newEncoder().canEncode(content)
+        ) {
+            return null
+        }
         return runCatching {
             writer.encode(content, BarcodeFormat.QR_CODE, size, size, hints)
-        }.getOrNull()
+        }.getOrNull()?.takeIf { it.width == size && it.height == size }
     }
 }

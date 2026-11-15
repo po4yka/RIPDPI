@@ -182,7 +182,7 @@
     <string name="scanner_permission_denied_title">Caméra indisponible</string>
     <string name="scanner_permission_denied_body">L\'accès à la caméra a été refusé. Vous pouvez encore importer un code QR depuis une image enregistrée.</string>
     <string name="scanner_invalid_qr_title">Code QR non reconnu</string>
-    <string name="scanner_invalid_qr_body">Ce code QR n’est pas un lien de proxy, un lien d’abonnement ni une configuration WireGuard pris en charge (commence par : %1$s).</string>
+    <string name="scanner_invalid_qr_body">Aucun code QR compatible n’a pu être lu. Essayez une autre image ou un autre lien.</string>
     <string name="scanner_pick_image_action">Importer depuis une image</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Échec de la relecture</string>

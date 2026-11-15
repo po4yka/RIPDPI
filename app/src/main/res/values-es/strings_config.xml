@@ -1030,6 +1030,7 @@ Origen: %2$s</string>
     <string name="profile_share_share_sheet_action">Compartir hoja de configuración</string>
     <string name="profile_share_unshareable_title">El perfil no se puede compartir</string>
     <string name="profile_share_unshareable_body">Este perfil no tiene una forma de enlace para compartir.</string>
+    <string name="profile_share_qr_unavailable">El enlace no cabe en un código QR. Copia o comparte el enlace de abajo.</string>
     <string name="profile_share_qr_content_description">Código QR del perfil guardado</string>
     <!-- Strategy A/B comparison surface -->
     <!-- Strategy import screen -->

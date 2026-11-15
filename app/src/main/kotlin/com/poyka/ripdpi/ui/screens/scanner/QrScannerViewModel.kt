@@ -174,6 +174,11 @@ class QrScannerViewModel
                 }
             }
 
+        /** Reports a selected image without a readable QR. */
+        fun onQrImageReadFailed() {
+            _uiState.update { if (it.scanResult == null) it.copy(decodeError = "<redacted>") else it }
+        }
+
         /** Clears the pending scan result once the screen has navigated on it. */
         fun consumeScanResult() {
             _uiState.update { it.copy(scanResult = null) }

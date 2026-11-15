@@ -149,6 +149,16 @@ class QrScannerViewModelTest {
     }
 
     @Test
+    fun `an unreadable image reports a safe error`() {
+        val viewModel = QrScannerViewModel()
+
+        viewModel.onQrImageReadFailed()
+
+        assertEquals("<redacted>", viewModel.uiState.value.decodeError)
+        assertNull(viewModel.uiState.value.scanResult)
+    }
+
+    @Test
     fun `consuming the decode error clears it so scanning can resume`() {
         val viewModel = QrScannerViewModel()
         viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)

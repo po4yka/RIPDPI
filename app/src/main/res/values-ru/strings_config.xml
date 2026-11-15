@@ -1027,6 +1027,7 @@ fakeddisorder endhost</string>
     <string name="profile_share_share_sheet_action">Поделиться листом настройки</string>
     <string name="profile_share_unshareable_title">Профилем нельзя поделиться</string>
     <string name="profile_share_unshareable_body">У этого профиля нет формы ссылки для передачи.</string>
+    <string name="profile_share_qr_unavailable">Ссылка не помещается в QR-код. Скопируйте её или поделитесь ей ниже.</string>
     <string name="profile_share_qr_content_description">QR-код сохранённого профиля</string>
     <string name="profile_variants_metric_latency">Задержка</string>
     <string name="profile_variants_cta_select">Выбрать</string>

@@ -1030,6 +1030,7 @@ fakeddisorder endhost</string>
     <string name="profile_share_share_sheet_action">هم‌رسانی برگهٔ راه‌اندازی</string>
     <string name="profile_share_unshareable_title">نمایه قابل هم‌رسانی نیست</string>
     <string name="profile_share_unshareable_body">این نمایه شکل پیوند قابل هم‌رسانی ندارد.</string>
+    <string name="profile_share_qr_unavailable">این پیوند در کد QR جا نمی‌شود. پیوند زیر را کپی یا هم‌رسانی کنید.</string>
     <string name="profile_share_qr_content_description">کد QR نمایهٔ ذخیره‌شده</string>
     <!-- Strategy A/B comparison surface -->
     <!-- Strategy import screen -->

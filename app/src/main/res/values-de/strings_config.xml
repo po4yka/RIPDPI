@@ -1030,6 +1030,7 @@ Quelle: %2$s</string>
     <string name="profile_share_share_sheet_action">Einrichtungsanleitung teilen</string>
     <string name="profile_share_unshareable_title">Profil kann nicht geteilt werden</string>
     <string name="profile_share_unshareable_body">Dieses Profil hat keine teilbare Link-Form.</string>
+    <string name="profile_share_qr_unavailable">Dieser Link passt nicht in einen QR-Code. Kopiere oder teile den Link unten.</string>
     <string name="profile_share_qr_content_description">QR-Code für das gespeicherte Profil</string>
     <!-- Strategy A/B comparison surface -->
     <!-- Strategy import screen -->

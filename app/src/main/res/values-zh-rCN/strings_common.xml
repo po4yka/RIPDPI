@@ -175,7 +175,7 @@
     <string name="scanner_permission_denied_title">摄像头不可用</string>
     <string name="scanner_permission_denied_body">摄像头访问被拒绝。你仍可从已保存的图片中导入二维码。</string>
     <string name="scanner_invalid_qr_title">无法识别的二维码</string>
-    <string name="scanner_invalid_qr_body">此二维码不是受支持的代理链接、订阅链接或 WireGuard 配置（开头为：%1$s）。</string>
+    <string name="scanner_invalid_qr_body">无法读取受支持的二维码。请尝试其他图片或链接。</string>
     <string name="scanner_pick_image_action">从图片导入</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">重放失败</string>

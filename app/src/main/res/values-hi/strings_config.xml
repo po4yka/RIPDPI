@@ -1060,6 +1060,7 @@ fakeddisorder endhost</string>
     <string name="profile_share_share_sheet_action">सेटअप शीट शेयर करें</string>
     <string name="profile_share_unshareable_title">प्रोफ़ाइल शेयर नहीं की जा सकती</string>
     <string name="profile_share_unshareable_body">इस प्रोफ़ाइल का कोई शेयर-योग्य लिंक रूप नहीं है।</string>
+    <string name="profile_share_qr_unavailable">यह लिंक QR कोड में फ़िट नहीं होता। नीचे दिए गए लिंक को कॉपी या शेयर करें।</string>
     <string name="profile_share_qr_content_description">सहेजी गई प्रोफ़ाइल के लिए QR कोड</string>
     <!-- Strategy A/B comparison surface -->
     <!-- Strategy import screen -->

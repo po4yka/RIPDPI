@@ -187,7 +187,7 @@
     <string name="scanner_permission_denied_title">Camera unavailable</string>
     <string name="scanner_permission_denied_body">Camera access was denied. You can still import a QR code from a saved image.</string>
     <string name="scanner_invalid_qr_title">Unrecognized QR code</string>
-    <string name="scanner_invalid_qr_body">This QR code is not a supported proxy link, subscription link, or WireGuard config (starts with: %1$s).</string>
+    <string name="scanner_invalid_qr_body">No supported QR code could be read. Try another image or link.</string>
     <string name="scanner_pick_image_action">Import from image</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Replay failure</string>

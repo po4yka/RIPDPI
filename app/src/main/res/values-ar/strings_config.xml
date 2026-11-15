@@ -1029,6 +1029,7 @@ fakeddisorder endhost</string>
     <string name="profile_share_share_sheet_action">مشاركة ورقة الإعداد</string>
     <string name="profile_share_unshareable_title">لا يمكن مشاركة الملف الشخصي</string>
     <string name="profile_share_unshareable_body">هذا الملف الشخصي لا يمتلك صيغة رابط قابلة للمشاركة.</string>
+    <string name="profile_share_qr_unavailable">هذا الرابط لا يتسع في رمز QR. انسخ الرابط أدناه أو شاركه.</string>
     <string name="profile_share_qr_content_description">رمز QR للملف الشخصي المحفوظ</string>
     <string name="profile_variants_metric_latency">زمن الاستجابة</string>
     <string name="profile_variants_cta_select">اختيار</string>

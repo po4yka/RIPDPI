@@ -73,6 +73,12 @@ class ImportTextReaderTest {
     }
 
     @Test
+    fun `a literal replacement character is valid UTF-8`() {
+        val text = "label \uFFFD"
+        assertEquals(text, decodeImportText(text.toByteArray(Charsets.UTF_8)))
+    }
+
+    @Test
     fun `binary file is rejected`() {
         assertNull(decodeImportText(byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0xFF.toByte())))
     }

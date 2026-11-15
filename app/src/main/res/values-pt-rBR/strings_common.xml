@@ -183,7 +183,7 @@
     <string name="scanner_permission_denied_title">Câmera indisponível</string>
     <string name="scanner_permission_denied_body">O acesso à câmera foi negado. Você ainda pode importar um código QR de uma imagem salva.</string>
     <string name="scanner_invalid_qr_title">Código QR não reconhecido</string>
-    <string name="scanner_invalid_qr_body">Este código QR não é um link de proxy, link de assinatura ou configuração WireGuard compatível (começa com: %1$s).</string>
+    <string name="scanner_invalid_qr_body">Não foi possível ler um código QR compatível. Tente outra imagem ou outro link.</string>
     <string name="scanner_pick_image_action">Importar de imagem</string>
     <string name="title_replay_failure">Falha de repetição</string>
     <string name="title_replay_history">Repetições anteriores</string>

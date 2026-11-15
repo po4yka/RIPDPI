@@ -192,7 +192,7 @@
     <string name="scanner_permission_denied_title">Камера недоступна</string>
     <string name="scanner_permission_denied_body">Доступ к камере запрещён. Вы всё ещё можете импортировать QR-код из сохранённого изображения.</string>
     <string name="scanner_invalid_qr_title">QR-код не распознан</string>
-    <string name="scanner_invalid_qr_body">Этот QR-код не является поддерживаемой ссылкой на прокси, ссылкой на подписку или конфигурацией WireGuard (начинается с: %1$s).</string>
+    <string name="scanner_invalid_qr_body">Не удалось прочитать поддерживаемый QR-код. Попробуйте другое изображение или ссылку.</string>
     <string name="scanner_pick_image_action">Импорт из изображения</string>
     <string name="title_replay_failure">Сбой повтора</string>
     <string name="title_replay_history">Прошлые повторы</string>

@@ -1030,6 +1030,7 @@ fake_burst 3</string>
     <string name="profile_share_share_sheet_action">分享设置说明</string>
     <string name="profile_share_unshareable_title">此配置文件无法分享</string>
     <string name="profile_share_unshareable_body">此配置文件没有可分享的链接形式。</string>
+    <string name="profile_share_qr_unavailable">此链接无法放入二维码。请复制或分享下方的链接。</string>
     <string name="profile_share_qr_content_description">已保存配置文件的二维码</string>
     <!-- Strategy A/B comparison surface -->
     <!-- Strategy import screen -->

@@ -72,4 +72,16 @@ class QrCodeEncoderTest {
         assertNull(QrCodeEncoder.encodeMatrixOrNull("vless://uuid@example.com:443", size = 0))
         assertNull(QrCodeEncoder.encodeMatrixOrNull("vless://uuid@example.com:443", size = -10))
     }
+
+    @Test
+    fun `rejects a malformed Unicode sequence and an undersized matrix`() {
+        assertNull(QrCodeEncoder.encodeMatrixOrNull("test\uD800", size = 512))
+        assertNull(QrCodeEncoder.encodeMatrixOrNull("HELLO", size = 1))
+    }
+
+    @Test
+    fun `byte mode capacity counts UTF-8 bytes and ECI overhead`() {
+        assertTrue(QrCodeEncoder.encodeMatrixOrNull("я".repeat(1165), size = 512) != null)
+        assertNull(QrCodeEncoder.encodeMatrixOrNull("я".repeat(1166), size = 512))
+    }
 }

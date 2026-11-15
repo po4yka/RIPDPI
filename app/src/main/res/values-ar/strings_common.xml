@@ -155,7 +155,7 @@
     <string name="scanner_permission_denied_title">الكاميرا غير متاحة</string>
     <string name="scanner_permission_denied_body">تم رفض الوصول إلى الكاميرا. لا يزال بإمكانك استيراد رمز QR من صورة محفوظة.</string>
     <string name="scanner_invalid_qr_title">رمز QR غير معروف</string>
-    <string name="scanner_invalid_qr_body">رمز QR هذا ليس رابط وكيل أو رابط اشتراك أو إعداد WireGuard مدعومًا (يبدأ بـ: %1$s).</string>
+    <string name="scanner_invalid_qr_body">تعذرت قراءة رمز QR مدعوم. جرّب صورة أو رابطًا آخر.</string>
     <string name="scanner_pick_image_action">استيراد من صورة</string>
     <string name="title_replay_failure">فشل إعادة التشغيل</string>
     <string name="title_replay_history">عمليات الإعادة السابقة</string>

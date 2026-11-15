@@ -174,7 +174,7 @@ private fun ProfileShareQrCard(
 
                 else -> {
                     Text(
-                        text = stringResource(R.string.profile_share_unshareable_body),
+                        text = stringResource(R.string.profile_share_qr_unavailable),
                         style = RipDpiThemeTokens.type.body,
                         color = RipDpiThemeTokens.colors.mutedForeground,
                     )

@@ -3364,6 +3364,7 @@ app:profile_share_link_title
 app:profile_share_loading_body
 app:profile_share_loading_title
 app:profile_share_qr_content_description
+app:profile_share_qr_unavailable
 app:profile_share_setup_sheet_template
 app:profile_share_share_link_action
 app:profile_share_share_sheet_action

@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.CancellationSignal
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.SynchronousQueue
 import java.util.concurrent.ThreadPoolExecutor
@@ -96,6 +98,13 @@ private class ImportReadRequest(
 /** Decodes a bounded UTF-8 file and strips an optional byte-order mark. */
 internal fun decodeImportText(bytes: ByteArray): String? {
     if (bytes.size > MaxImportFileBytes) return null
-    val text = String(bytes, Charsets.UTF_8).removePrefix(ByteOrderMark)
-    return text.takeUnless { '�' in it }
+    return try {
+        Charsets.UTF_8
+            .newDecoder()
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
+            .removePrefix(ByteOrderMark)
+    } catch (_: CharacterCodingException) {
+        null
+    }
 }

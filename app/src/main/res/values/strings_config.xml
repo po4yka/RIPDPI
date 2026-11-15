@@ -1051,6 +1051,7 @@ Source: %2$s</string>
     <string name="profile_share_share_sheet_action">Share setup sheet</string>
     <string name="profile_share_unshareable_title">Profile cannot be shared</string>
     <string name="profile_share_unshareable_body">This profile has no shareable link form.</string>
+    <string name="profile_share_qr_unavailable">This link does not fit in a QR code. Copy or share the link below.</string>
     <string name="profile_share_qr_content_description">QR code for the saved profile</string>
     <!-- Strategy A/B comparison surface -->
     <!-- Strategy import screen -->

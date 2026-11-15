@@ -182,7 +182,7 @@
     <string name="scanner_permission_denied_title">دوربین در دسترس نیست</string>
     <string name="scanner_permission_denied_body">دسترسی به دوربین رد شد. هنوز می‌توانید کد QR را از یک تصویر ذخیره‌شده درون‌ریزی کنید.</string>
     <string name="scanner_invalid_qr_title">کد QR شناخته نشد</string>
-    <string name="scanner_invalid_qr_body">این کد QR پیوند پراکسی، پیوند اشتراک یا پیکربندی WireGuard پشتیبانی‌شده نیست (با این شروع می‌شود: %1$s).</string>
+    <string name="scanner_invalid_qr_body">کد QR پشتیبانی‌شده‌ای خوانده نشد. تصویر یا پیوند دیگری را امتحان کنید.</string>
     <string name="scanner_pick_image_action">درون‌ریزی از تصویر</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">پخش مجدد ناموفق</string>

@@ -185,7 +185,7 @@
     <string name="scanner_permission_denied_title">कैमरा अनुपलब्ध</string>
     <string name="scanner_permission_denied_body">कैमरा एक्सेस अस्वीकृत कर दिया गया। आप अभी भी किसी सहेजी गई छवि से QR कोड आयात कर सकते हैं।</string>
     <string name="scanner_invalid_qr_title">अपरिचित QR कोड</string>
-    <string name="scanner_invalid_qr_body">यह QR कोड समर्थित प्रॉक्सी लिंक, सब्सक्रिप्शन लिंक या WireGuard कॉन्फ़िग नहीं है (शुरुआत: %1$s)।</string>
+    <string name="scanner_invalid_qr_body">कोई समर्थित QR कोड पढ़ा नहीं जा सका। दूसरी छवि या लिंक आज़माएँ।</string>
     <string name="scanner_pick_image_action">छवि से आयात करें</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">रीप्ले विफलता</string>
