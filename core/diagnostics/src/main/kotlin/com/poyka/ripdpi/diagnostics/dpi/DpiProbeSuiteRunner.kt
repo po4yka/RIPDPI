@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-fun interface DpiSuiteDomainsProvider {
-    suspend fun loadDomains(): List<String>
+fun interface DpiSuiteTargetsProvider {
+    suspend fun loadTargets(): DpiSuiteTargets
 }
 
 fun interface DpiSuiteTcp16TargetsProvider {
@@ -61,14 +61,15 @@ interface DpiSuiteProbes {
 }
 
 class DpiProbeSuiteRunner(
-    private val domainsProvider: DpiSuiteDomainsProvider,
+    private val targetsProvider: DpiSuiteTargetsProvider,
     private val tcp16TargetsProvider: DpiSuiteTcp16TargetsProvider,
     private val echTargetsProvider: DpiSuiteEchTargetsProvider,
     private val probes: DpiSuiteProbes,
 ) {
     fun run(config: DpiSuiteConfig): Flow<DpiSuiteEvent> =
         channelFlow {
-            val domains = config.customDomains?.takeIf { it.isNotEmpty() } ?: domainsProvider.loadDomains()
+            val targets = config.customTargets ?: targetsProvider.loadTargets()
+            val domains = targets.domains
             val results = mutableListOf<DpiSuiteProbeResult>()
             val resultsMutex = Mutex()
 
@@ -120,12 +121,16 @@ class DpiProbeSuiteRunner(
                 if (DpiProbeKind.DNS_INTEGRITY in config.selection) {
                     val result =
                         runProbe(DpiProbeKind.DNS_INTEGRITY) {
-                            DpiSuiteProbeResult.DnsIntegrity(probes.checkDnsIntegrity(domains))
+                            if (domains.isEmpty()) {
+                                noValidTargets(DpiProbeKind.DNS_INTEGRITY)
+                            } else {
+                                DpiSuiteProbeResult.DnsIntegrity(probes.checkDnsIntegrity(domains))
+                            }
                         }
                     if (result is DpiSuiteProbeResult.DnsIntegrity) {
                         stubIps = result.result.stubIps
                     }
-                } else if (config.needsStubIps()) {
+                } else if (domains.isNotEmpty() && config.needsStubIps()) {
                     stubIps = collectStubIpsSilently(domains)
                 }
 
@@ -153,16 +158,20 @@ class DpiProbeSuiteRunner(
                             add(
                                 async {
                                     runProbe(DpiProbeKind.QUIC_H3) {
-                                        DpiSuiteProbeResult.QuicH3(
-                                            probes.runQuicH3(
-                                                targets = domains,
-                                                concurrency =
-                                                    config.concurrency.coerceIn(
-                                                        MinProbeConcurrency,
-                                                        QuicH3MaxConcurrency,
-                                                    ),
-                                            ),
-                                        )
+                                        if (targets.quic.isEmpty()) {
+                                            noValidTargets(DpiProbeKind.QUIC_H3)
+                                        } else {
+                                            DpiSuiteProbeResult.QuicH3(
+                                                probes.runQuicH3(
+                                                    targets = targets.quic,
+                                                    concurrency =
+                                                        config.concurrency.coerceIn(
+                                                            MinProbeConcurrency,
+                                                            QuicH3MaxConcurrency,
+                                                        ),
+                                                ),
+                                            )
+                                        }
                                     }
                                 },
                             )
@@ -212,14 +221,18 @@ class DpiProbeSuiteRunner(
         if (DpiProbeKind.DOMAIN_REACHABILITY in selection) {
             val result =
                 runProbe(DpiProbeKind.DOMAIN_REACHABILITY) {
-                    DpiSuiteProbeResult.DomainReachability(
-                        probes.runDomainReachability(
-                            domains = domains,
-                            stubIps = stubIps,
-                            concurrency = concurrency,
-                            randomHostname = randomHostname,
-                        ),
-                    )
+                    if (domains.isEmpty()) {
+                        noValidTargets(DpiProbeKind.DOMAIN_REACHABILITY)
+                    } else {
+                        DpiSuiteProbeResult.DomainReachability(
+                            probes.runDomainReachability(
+                                domains = domains,
+                                stubIps = stubIps,
+                                concurrency = concurrency,
+                                randomHostname = randomHostname,
+                            ),
+                        )
+                    }
                 }
             if (result is DpiSuiteProbeResult.DomainReachability) {
                 domainReachabilityResults = result.results
@@ -270,6 +283,9 @@ class DpiProbeSuiteRunner(
             }
         }
     }
+
+    private fun noValidTargets(kind: DpiProbeKind): DpiSuiteProbeResult.Skipped =
+        DpiSuiteProbeResult.Skipped(kind, DpiSuiteProbeResult.Skipped.NoValidTargetsReason)
 
     private fun DpiSuiteConfig.needsStubIps(): Boolean =
         DpiProbeKind.DOMAIN_REACHABILITY in selection || DpiProbeKind.TCP16 in selection

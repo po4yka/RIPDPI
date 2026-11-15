@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteConfig
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEvent
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTargets
 import com.poyka.ripdpi.diagnostics.dpi.EchTlsHandshake
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
@@ -105,8 +106,8 @@ internal class DiagnosticsDpiSuiteController(
         if (current.state == DiagnosticsDpiSuiteState.Running || current.selectedKinds.isEmpty()) {
             return
         }
-        val customDomains = parseCustomDomains(current.customDomainsInput)
-        if (customDomains?.isEmpty() == true) {
+        val customTargets = parseCustomTargets(current.customDomainsInput)
+        if (customTargets != null && !customTargets.hasTargetsFor(current.selectedKinds)) {
             // An explicit custom run with no valid host must not silently probe the bundled list.
             _tool.value =
                 current.copy(errorMessage = stringResolver.getString(R.string.strategy_tuner_message_add_domain))
@@ -134,7 +135,7 @@ internal class DiagnosticsDpiSuiteController(
                     val config =
                         DpiSuiteConfig(
                             selection = current.selectedKinds.toSet(),
-                            customDomains = customDomains,
+                            customTargets = customTargets,
                             concurrency = current.concurrency,
                             randomHostname = settings.detectionDiagnosticRandomHostnamesEnabled,
                         )
@@ -203,3 +204,10 @@ internal class DiagnosticsDpiSuiteController(
         }
     }
 }
+
+private fun DpiSuiteTargets.hasTargetsFor(selection: Set<DpiProbeKind>): Boolean =
+    when {
+        DpiProbeKind.QUIC_H3 !in selection -> domains.isNotEmpty()
+        selection.size == 1 -> quic.isNotEmpty()
+        else -> quic.isNotEmpty() || domains.isNotEmpty()
+    }

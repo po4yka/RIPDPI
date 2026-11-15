@@ -22,6 +22,7 @@ class DpiAssetLoaderTest {
         assertEquals(108, loader.loadTcp16Targets().size)
         assertEquals(41, loader.loadDomains().size)
         assertEquals("cloudflare.com", loader.loadDomains().first())
+        assertEquals(loader.loadDomains(), loader.loadDpiSuiteTargets().quic)
         assertEquals(188, loader.loadWhitelistSni().size)
         assertEquals(6, loader.loadDohProviderFilters().size)
         assertEquals(10, loader.loadObfs4Bridges().size)
@@ -116,6 +117,20 @@ class DpiAssetLoaderTest {
             )
 
         assertEquals(listOf("x.com", "example.org"), loader.loadDomains())
+    }
+
+    @Test
+    fun quicCatalogNormalizesTheOriginalEntries() {
+        val loader =
+            DpiAssetLoader(
+                fileProvider =
+                    FakeDpiAssetFileProvider(
+                        assets = mapOf("dpi/domains.txt" to "foo_bar.example\nhttps://[::1]:443/path\n192.0.2.1\n"),
+                    ),
+            )
+
+        assertEquals(listOf("foo_bar.example", "192.0.2.1"), loader.loadDomains())
+        assertEquals(listOf("::1", "192.0.2.1"), loader.loadDpiSuiteTargets().quic)
     }
 
     @Test

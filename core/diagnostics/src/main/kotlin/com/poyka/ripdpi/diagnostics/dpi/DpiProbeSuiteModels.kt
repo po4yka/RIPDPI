@@ -13,12 +13,25 @@ enum class DpiProbeKind {
 
 data class DpiSuiteConfig(
     val selection: Set<DpiProbeKind>,
-    val customDomains: List<String>? = null,
+    val customTargets: DpiSuiteTargets? = null,
     val concurrency: Int = DefaultConcurrency,
     val randomHostname: Boolean = false,
 ) {
     companion object {
         const val DefaultConcurrency = 100
+    }
+}
+
+data class DpiSuiteTargets private constructor(
+    val domains: List<String>,
+    val quic: List<String>,
+) {
+    companion object {
+        fun fromEntries(entries: List<String>): DpiSuiteTargets =
+            DpiSuiteTargets(
+                domains = entries.mapNotNull(::dpiTargetHostOrNull).distinct(),
+                quic = entries.mapNotNull(::quicTargetHostOrNull).distinct(),
+            )
     }
 }
 
@@ -97,7 +110,11 @@ sealed interface DpiSuiteProbeResult {
     data class Skipped(
         override val kind: DpiProbeKind,
         val reason: String,
-    ) : DpiSuiteProbeResult
+    ) : DpiSuiteProbeResult {
+        companion object {
+            const val NoValidTargetsReason = "No valid targets"
+        }
+    }
 
     data class Failed(
         override val kind: DpiProbeKind,

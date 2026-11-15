@@ -12,10 +12,10 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeSuiteRunner
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteConfig
-import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteDomainsProvider
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEchTargetsProvider
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteEvent
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbes
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTargets
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteTcp16TargetsProvider
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchReadinessProbe
@@ -26,7 +26,6 @@ import com.poyka.ripdpi.diagnostics.dpi.Tcp16FatHeaderProbe
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16ProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.Tcp16Target
 import com.poyka.ripdpi.diagnostics.dpi.TelegramSpeedTest
-import com.poyka.ripdpi.diagnostics.dpi.dpiTargetHostOrNull
 import com.poyka.ripdpi.diagnostics.dpich.TlsKeylogRunFinalizer
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
@@ -47,7 +46,7 @@ internal class DiagnosticsDpiSuiteRunnerFactory(
 ) {
     fun build(): DpiProbeSuiteRunner =
         DpiProbeSuiteRunner(
-            domainsProvider = DpiSuiteDomainsProvider { loadDomains() },
+            targetsProvider = { withContext(Dispatchers.IO) { assetLoader.loadDpiSuiteTargets() } },
             tcp16TargetsProvider = DpiSuiteTcp16TargetsProvider { loadTcp16Targets() },
             echTargetsProvider = DpiSuiteEchTargetsProvider { loadEchTargets() },
             probes = buildProbes(),
@@ -115,8 +114,6 @@ internal class DiagnosticsDpiSuiteRunnerFactory(
                 ).checkAll(targets, vanillaTlsByTarget)
         }
 
-    private suspend fun loadDomains(): List<String> = withContext(Dispatchers.IO) { assetLoader.loadDomains() }
-
     private suspend fun loadTcp16Targets(): List<Tcp16Target> =
         withContext(Dispatchers.IO) {
             assetLoader.loadTcp16Targets()
@@ -138,18 +135,15 @@ internal class DiagnosticsDpiSuiteTlsRunFinalizer(
     }
 }
 
-/**
- * Returns null for blank input (use the bundled targets). Non-blank input yields its valid host
- * names, possibly none: the caller must then reject the run, not fall back to the bundled list.
- */
-internal fun parseCustomDomains(input: String): List<String>? =
+/** Null selects the bundled targets. An explicit input can yield an empty list for either probe. */
+internal fun parseCustomTargets(input: String): DpiSuiteTargets? =
     input.takeIf(String::isNotBlank)?.let { text ->
-        text
-            .lineSequence()
-            .flatMap { line -> line.split(',', ' ', ';').asSequence() }
-            .mapNotNull(::dpiTargetHostOrNull)
-            .distinct()
-            .toList()
+        val entries =
+            text
+                .lineSequence()
+                .flatMap { line -> line.split(',', ' ', ';').asSequence() }
+                .toList()
+        DpiSuiteTargets.fromEntries(entries)
     }
 
 internal fun MutableList<DiagnosticsDpiSuiteProbeRowUiModel>.upsert(row: DiagnosticsDpiSuiteProbeRowUiModel) {

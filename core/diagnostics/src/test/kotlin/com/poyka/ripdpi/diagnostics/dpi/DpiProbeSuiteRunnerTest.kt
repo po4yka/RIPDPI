@@ -143,7 +143,7 @@ class DpiProbeSuiteRunnerTest {
                 .run(
                     DpiSuiteConfig(
                         selection = setOf(DpiProbeKind.DNS_INTEGRITY),
-                        customDomains = listOf("foo.example"),
+                        customTargets = DpiSuiteTargets.fromEntries(listOf("foo.example")),
                     ),
                 ).toList()
         }
@@ -235,10 +235,63 @@ class DpiProbeSuiteRunnerTest {
                 .run(
                     DpiSuiteConfig(
                         selection = setOf(DpiProbeKind.QUIC_H3),
-                        customDomains = listOf("h3.example"),
+                        customTargets = DpiSuiteTargets.fromEntries(listOf("h3.example")),
                         concurrency = 8,
                     ),
                 ).toList()
+        }
+
+    @Test
+    fun ipv6CustomTargetRunsQuicAndSkipsDnsWithoutBundledFallback() =
+        runTest {
+            val probes =
+                FakeSuiteProbes().copy(
+                    onQuicH3 = { targets, _ ->
+                        assertEquals(listOf("2001:db8::1"), targets)
+                        emptyList()
+                    },
+                )
+            val results =
+                runner(probes = probes)
+                    .run(
+                        DpiSuiteConfig(
+                            selection = setOf(DpiProbeKind.QUIC_H3, DpiProbeKind.DNS_INTEGRITY),
+                            customTargets = DpiSuiteTargets.fromEntries(listOf("2001:db8::1")),
+                        ),
+                    ).toList()
+                    .filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
+                    .map { it.result }
+            assertEquals(
+                listOf(
+                    DpiSuiteProbeResult.Skipped(
+                        DpiProbeKind.DNS_INTEGRITY,
+                        DpiSuiteProbeResult.Skipped.NoValidTargetsReason,
+                    ),
+                    DpiSuiteProbeResult.QuicH3(emptyList()),
+                ),
+                results,
+            )
+        }
+
+    @Test
+    fun explicitInvalidQuicTargetsDoNotFallBackToBundledDomains() =
+        runTest {
+            val results =
+                runner()
+                    .run(
+                        DpiSuiteConfig(
+                            selection = setOf(DpiProbeKind.QUIC_H3),
+                            customTargets = DpiSuiteTargets.fromEntries(listOf("foo_bar.example")),
+                        ),
+                    ).toList()
+                    .filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
+                    .map { it.result }
+            assertEquals(
+                listOf(
+                    DpiSuiteProbeResult.Skipped(DpiProbeKind.QUIC_H3, DpiSuiteProbeResult.Skipped.NoValidTargetsReason),
+                ),
+                results,
+            )
         }
 
     @Test
@@ -332,7 +385,7 @@ class DpiProbeSuiteRunnerTest {
         echTargets: List<String> = listOf("cloudflare.com"),
     ): DpiProbeSuiteRunner =
         DpiProbeSuiteRunner(
-            domainsProvider = { domains },
+            targetsProvider = { DpiSuiteTargets.fromEntries(domains) },
             tcp16TargetsProvider = { tcp16Targets },
             echTargetsProvider = { echTargets },
             probes = probes,

@@ -60,7 +60,7 @@ class DpiAssetLoader(
     constructor(context: Context) : this(AndroidDpiAssetFileProvider(context))
 
     private var cachedTcp16Targets: List<Tcp16Target>? = null
-    private var cachedDomains: List<String>? = null
+    private var cachedDpiSuiteTargets: DpiSuiteTargets? = null
     private var cachedEchTargets: List<String>? = null
     private var cachedWhitelistSni: List<String>? = null
     private var cachedByohSyntheticDomains: List<String>? = null
@@ -79,12 +79,12 @@ class DpiAssetLoader(
             .let(json::parseTcp16Targets)
             .also { cachedTcp16Targets = it }
 
-    fun loadDomains(): List<String> =
-        cachedDomains ?: loadText(DomainsPath)
-            .parseLineList()
-            .mapNotNull(::dpiTargetHostOrNull)
-            .distinct()
-            .also { cachedDomains = it }
+    fun loadDomains(): List<String> = loadDpiSuiteTargets().domains
+
+    fun loadDpiSuiteTargets(): DpiSuiteTargets =
+        cachedDpiSuiteTargets ?: DpiSuiteTargets
+            .fromEntries(loadText(DomainsPath).parseLineList())
+            .also { cachedDpiSuiteTargets = it }
 
     fun loadEchTargets(): List<String> =
         cachedEchTargets ?: loadText(EchTargetsPath)
