@@ -2,7 +2,7 @@
 id: DAT-1794720910687853
 title: Preserve subscription import semantics and selector defaults
 kind: bug
-status: doing
+status: review
 area: data
 priority: high
 owner: Import integrity integrator
