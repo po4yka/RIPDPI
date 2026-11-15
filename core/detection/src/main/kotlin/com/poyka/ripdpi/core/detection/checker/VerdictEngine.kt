@@ -157,7 +157,7 @@ object VerdictEngine {
             evidence.any {
                 it.source == EvidenceSource.ACTIVE_VPN && it.kind == VpnAppKind.GENERIC_VPN
             }
-        val indirectReviewFindings = indirectSigns.findings.filter(Finding::needsReview)
+        val indirectReviewFindings = indirectSigns.findings.filter { it.needsReview }
         val hasProxyInventoryHint = indirectReviewFindings.any { it.source == EvidenceSource.LOCAL_PROXY }
         val hasOtherIndirectReview = indirectReviewFindings.any { it.source != EvidenceSource.LOCAL_PROXY }
         val hasIndirectReview = indirectSigns.needsReview && (!hasProxyInventoryHint || hasOtherIndirectReview)
