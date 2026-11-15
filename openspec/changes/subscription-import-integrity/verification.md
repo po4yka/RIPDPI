@@ -3,7 +3,7 @@ task_id: DAT-1794720910687853
 change: subscription-import-integrity
 commit_sha: null
 local: required
-local_evidence: Pending targeted JVM, affected lint, task and offline CI gates.
+local_evidence: Service/app JVM tests and full staticAnalysis remain pending. Independent source gates, locked metadata and task contracts passed; 1184 library tests passed before the test-class size blocker.
 remote_ci: required
 remote_ci_evidence: Pending exact pushed commit checks.
 device: not_applicable
@@ -32,7 +32,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-IMP03-F10 | DAT-1794721005420338 | SelectorInitialPreferenceImportTest, SelectorInitialPreferenceTest, SubscriptionInitialPreferenceTest, and BackupGroupRedactionTest: nested default remapping, Room persistence, explicit override/clear, SHARE redaction, and FULL retention. | lane passed; combined gates pending |
 | REQ-IMP03-F11 | DAT-1794721005921256 | SubscriptionPayloadEncodingTest, XrayBase64EncodingImportTest, and SubscriptionEncodingRefreshTest: reporting text decoder, terminal bootstrap error, and preservation of saved members/routes. | combined gates pending |
 | REQ-IMP03-H3 | DAT-1794721832362283 | SubscriptionDeclaredPolicyTest: explicit manual selector clears previous automatic policy; absent declarations retain it. | lane passed; combined gates pending |
-| REQ-IMP03-H2 | DAT-1794722137487267 | Real-parser host probe plus XrayImportBudgetTest and XrayProfileImportViewModelTest: byte/node budgets, off-Main validation, stale generations, blank confirmation before validation/provider toggle, and late restore ownership. | targeted 44 tests passed; combined gates pending |
+| REQ-IMP03-H2 | DAT-1794722137487267 | Real-parser host probe plus XrayImportBudgetTest, XrayProfileImportViewModelTest, and XrayProfileImportAdmissionTest: byte/node budgets, off-Main validation, stale generations, blank confirmation before validation/provider toggle, and late restore ownership. | targeted 44 tests passed; combined gates pending |
 
 ## Observed checkpoints
 
@@ -41,6 +41,12 @@ deployment_evidence: No deployment is owned by this change.
 - Locked Cargo metadata passed for 113 workspace members. The final metadata capture uses a target directory owned by this worktree.
 - The first offline CI source checks passed through architecture health, file limits, runtime contracts, route coverage, locale parity, and translation export. Its Rust API phase was stopped after discovery of an ambient shared Cargo target directory. This interrupted run is not a completed `just ci-gates` result.
 - The H2 lane passed 44 final targeted tests (31 ViewModel, 9 activation, 4 parser budget), with zero failures, errors, or skipped tests. Blank confirmation and late restore/persistence regressions failed before the final fix. The frozen applied diff received final independent clearance. Earlier app/service lint and app detekt passed before the last admission/restore delta; final combined staticAnalysis remains pending.
+
+## Combined validation checkpoints
+
+- At `fdda3fcc4b62f5d7cbd8d8ac274a44d4bde59902`, the first combined Gradle run passed 127 runtime-state tests, 1005 core:data tests, and 52 catalog tests. All 1184 had zero failures, errors, and skips. App/service test tasks were not reached. App detekt stopped the run at `LargeClass 694/600` in the expanded VM test class. This is not a completed staticAnalysis result.
+- The test-only correction moves nine unchanged cases to `XrayProfileImportAdmissionTest`, retains 22 cases in the original class, and shares only reused fixtures. Independent review verified all 31 names and test bodies. The 22 original VM cases, 9 moved admission cases, and 9 activation cases passed with zero failures, errors, or skips. App detekt passed. The final combined Gradle run remains pending.
+- Independent `just ci-gates` passed all 11 source gates at the same SHA. Rust API snapshots matched 12 targets, failed zero, and skipped the Linux-owned `ripdpi-runtime-platform` snapshot on Darwin. Locked metadata passed for 113 workspace members with an isolated target directory. Task contracts passed for 222 tasks and 828 steps. Kaspresso route coverage is an informational 31/51; this run did not execute device tests.
 
 ## Evidence boundaries
 
