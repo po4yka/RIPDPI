@@ -6,6 +6,12 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.EntropyModeCombined
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.MieruHandshakeDefault
+import com.poyka.ripdpi.data.MieruHandshakeNoWait
+import com.poyka.ripdpi.data.MieruHandshakeStandard
+import com.poyka.ripdpi.data.MieruPaddingPattern
+import com.poyka.ripdpi.data.MieruTcpFragment
+import com.poyka.ripdpi.data.MieruTrafficPattern
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
@@ -335,6 +341,37 @@ class RipDpiProxyPreferencesTest {
         assertEquals("false", payload.string("udpEnabled"))
         assertEquals("true", payload.string("tcpFallbackEnabled"))
         assertEquals(original.relay, decoded?.relay)
+    }
+
+    @Test
+    fun uiPreferencesRoundTripRawMieruPresenceWithoutResolvingDefaults() {
+        val sparse =
+            MieruTrafficPattern(
+                seed = 0,
+                unlockAll = false,
+                tcpFragment = MieruTcpFragment(enable = false, maxSleepMs = 0),
+                padding = MieruPaddingPattern(maxEndPaddingLen = 0),
+            )
+        for (kind in listOf("mieru", RelayKindHysteria2)) {
+            for (mode in listOf(null, MieruHandshakeDefault, MieruHandshakeStandard, MieruHandshakeNoWait)) {
+                val original =
+                    RipDpiProxyUIPreferences(
+                        relay = RipDpiRelayConfig(kind = kind, mieruHandshakeMode = mode, mieruTrafficPattern = sparse),
+                    )
+                val wire = original.toNativeConfigJson()
+                val relay = wire.parseJsonObject().objectAt("upstreamRelay")
+                val pattern = relay.objectAt("mieruTrafficPattern")
+
+                assertEquals(mode, relay["mieruHandshakeMode"]?.jsonPrimitive?.contentOrNull)
+                assertEquals("false", pattern.string("unlockAll"))
+                assertEquals(0, pattern.int("seed"))
+                assertEquals("false", pattern.objectAt("tcpFragment").string("enable"))
+                assertEquals(0, pattern.objectAt("tcpFragment").int("maxSleepMs"))
+                assertNull(pattern.objectAt("padding")["maxMiddlePaddingLen"]?.jsonPrimitive?.contentOrNull)
+                assertEquals(0, pattern.objectAt("padding").int("maxEndPaddingLen"))
+                assertEquals(original.relay, decodeRipDpiProxyUiPreferences(wire)?.relay)
+            }
+        }
     }
 
     @Test

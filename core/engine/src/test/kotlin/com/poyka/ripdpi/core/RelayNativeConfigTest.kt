@@ -1,6 +1,13 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.core.codec.RelaySectionCodec
 import com.poyka.ripdpi.data.DefaultRelayAppsScriptVerifySsl
+import com.poyka.ripdpi.data.MieruHandshakeDefault
+import com.poyka.ripdpi.data.MieruHandshakeNoWait
+import com.poyka.ripdpi.data.MieruHandshakeStandard
+import com.poyka.ripdpi.data.MieruPaddingPattern
+import com.poyka.ripdpi.data.MieruTcpFragment
+import com.poyka.ripdpi.data.MieruTrafficPattern
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -301,6 +308,47 @@ class RelayNativeConfigTest {
         )
         for (rendered in listOf(resolved, resolved.toSections().common, proxyRelay, native).map(Any::toString)) {
             assertFalse("string form leaked the listener password: $rendered", password in rendered)
+        }
+    }
+
+    @Test
+    fun `UI relay model conversion retains raw Mieru optional presence`() {
+        val patterns =
+            listOf(
+                null,
+                MieruTrafficPattern(),
+                MieruTrafficPattern(
+                    seed = 0,
+                    unlockAll = false,
+                    tcpFragment = MieruTcpFragment(enable = false, maxSleepMs = 0),
+                    padding = MieruPaddingPattern(maxEndPaddingLen = 0),
+                ),
+            )
+        for (kind in listOf("mieru", "hysteria2")) {
+            for (mode in listOf(null, MieruHandshakeDefault, MieruHandshakeStandard, MieruHandshakeNoWait)) {
+                for (pattern in patterns) {
+                    val original =
+                        RipDpiRelayConfig(kind = kind, mieruHandshakeMode = mode, mieruTrafficPattern = pattern)
+                    val native = RelaySectionCodec.toNative(original)
+                    assertEquals(mode, native.mieruHandshakeMode)
+                    assertEquals(pattern, native.mieruTrafficPattern)
+                    assertEquals(original, RelaySectionCodec.toModel(native))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `UI relay model conversion still rejects invalid Mieru advanced settings`() {
+        val invalid =
+            listOf(
+                RipDpiRelayConfig(mieruHandshakeMode = "unsupported"),
+                RipDpiRelayConfig(
+                    mieruTrafficPattern = MieruTrafficPattern(tcpFragment = MieruTcpFragment(maxSleepMs = 101)),
+                ),
+            )
+        invalid.forEach { config ->
+            assertThrows(IllegalArgumentException::class.java) { RelaySectionCodec.toNative(config) }
         }
     }
 

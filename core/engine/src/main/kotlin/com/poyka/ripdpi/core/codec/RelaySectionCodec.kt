@@ -3,9 +3,8 @@ package com.poyka.ripdpi.core.codec
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.core.localSocksCredentialsOrNull
-import com.poyka.ripdpi.data.effective
-import com.poyka.ripdpi.data.nativeMieruHandshakeMode
 import com.poyka.ripdpi.data.normalizeTuicCongestionControl
+import com.poyka.ripdpi.data.validateMieruAdvancedSettings
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
@@ -230,8 +229,8 @@ internal object RelaySectionCodec {
             mieruProtocol = value.mieruProtocol,
             mieruMultiplexing = value.mieruMultiplexing,
             mieruMtu = value.mieruMtu,
-            mieruHandshakeMode = value.mieruHandshakeMode?.let(::nativeMieruHandshakeMode),
-            mieruTrafficPattern = value.mieruTrafficPattern?.effective(),
+            mieruHandshakeMode = value.mieruHandshakeMode,
+            mieruTrafficPattern = value.mieruTrafficPattern,
             sshAuthType = value.sshAuthType,
             sshHostKeyFingerprint = value.sshHostKeyFingerprint,
             sshStrictHostKey = value.sshStrictHostKey,
@@ -259,5 +258,5 @@ internal object RelaySectionCodec {
                     fragmentMinBytes = value.finalmask.fragmentMinBytes,
                     fragmentMaxBytes = value.finalmask.fragmentMaxBytes,
                 ),
-        )
+        ).also { validateMieruAdvancedSettings(it.mieruHandshakeMode, it.mieruTrafficPattern) }
 }
