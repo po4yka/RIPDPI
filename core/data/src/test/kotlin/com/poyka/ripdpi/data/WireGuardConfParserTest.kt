@@ -15,25 +15,10 @@ import org.junit.Test
 class WireGuardConfParserTest {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private val vanillaConf =
-        """
-        [Interface]
-        PrivateKey = aGVsbG8td29ybGQtcHJpdmF0ZS1rZXktZml4dHVyZQ==
-        Address = 10.0.0.2/32
-        DNS = 1.1.1.1
-        MTU = 1420
-
-        [Peer]
-        PublicKey = aGVsbG8td29ybGQtcHVibGljLWtleS1maXh0dXJlMDE=
-        AllowedIPs = 0.0.0.0/0
-        Endpoint = vpn.example.com:51820
-        PersistentKeepalive = 25
-        """.trimIndent()
-
     @Test
     fun `parsed interface and peer never print the private key, PSK or endpoint`() {
         val withPsk =
-            vanillaConf.replace(
+            vanillaWireGuardConf.replace(
                 "[Peer]\n",
                 "[Peer]\nPresharedKey = cHNrLXNlY3JldC1maXh0dXJlLXZhbHVlLTAxMjM0NTY=\n",
             )
@@ -51,7 +36,7 @@ class WireGuardConfParserTest {
 
     @Test
     fun `vanilla conf with no AWG keys parses as WireGuardConfig`() {
-        val parsed = WireGuardConfParser.parse(vanillaConf)
+        val parsed = WireGuardConfParser.parse(vanillaWireGuardConf)
 
         assertTrue(parsed is WireGuardConfig)
         parsed as WireGuardConfig
@@ -67,28 +52,20 @@ class WireGuardConfParserTest {
     }
 
     @Test
-    fun `repeated wg quick lists append entries in source order`() {
-        val conf =
-            vanillaConf
-                .replace("Address =", "Address = fd00::2/128\nAddress =")
-                .replace("DNS =", "DNS = 2001:db8::53\nDNS =")
-                .replace("AllowedIPs =", "AllowedIPs = 2001:db8::/32\nAllowedIPs =")
-        val parsed = WireGuardConfParser.parse(conf)
-        assertEquals(listOf("fd00::2/128", "10.0.0.2/32"), parsed.interfaceSection.address)
-        assertEquals(listOf("2001:db8::53", "1.1.1.1"), parsed.interfaceSection.dns)
-        assertEquals(listOf("2001:db8::/32", "0.0.0.0/0"), parsed.peers.single().allowedIps)
-    }
-
-    @Test
     fun `peer route policy distinguishes omitted and explicitly empty values`() {
-        val omitted = WireGuardConfParser.parse(vanillaConf.replace("AllowedIPs = 0.0.0.0/0", "")).peers.single()
+        val omitted =
+            WireGuardConfParser
+                .parse(
+                    vanillaWireGuardConf.replace("AllowedIPs = 0.0.0.0/0", ""),
+                ).peers
+                .single()
         val empty =
             WireGuardConfParser
                 .parse(
-                    vanillaConf.replace("AllowedIPs = 0.0.0.0/0", "AllowedIPs ="),
+                    vanillaWireGuardConf.replace("AllowedIPs = 0.0.0.0/0", "AllowedIPs ="),
                 ).peers
                 .single()
-        val supplied = WireGuardConfParser.parse(vanillaConf).peers.single()
+        val supplied = WireGuardConfParser.parse(vanillaWireGuardConf).peers.single()
 
         assertFalse(omitted.allowedIpsSpecified)
         assertEquals(emptyList<String>(), omitted.allowedIps)
@@ -392,52 +369,6 @@ class WireGuardConfParserTest {
     }
 
     @Test
-    fun `malformed config errors omit input lines and values`() {
-        listOf("fixture-text", "= fixture-text", "[fixture-text]", "MTU = fixture-text", "Jc = fixture-text").forEach {
-            val failure =
-                assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(interfaceConf(it)) }
-            assertFalse(failure.message.orEmpty().contains("fixture-text"))
-        }
-    }
-
-    @Test
-    fun `ignored interface options keep canonical names and discard their values`() {
-        val conf =
-            interfaceConf(
-                "table = off\nPreUp = fixture-host-option\nTABLE = auto\nListenPort = 51820",
-            )
-        val iface = WireGuardConfParser.parse(conf).interfaceSection
-        assertEquals(listOf("Table", "PreUp", "ListenPort"), iface.ignoredOptions)
-        assertEquals(51820, iface.listenPort)
-        assertFalse(iface.toString().contains("fixture-host-option"))
-        assertThrows(IllegalArgumentException::class.java) {
-            WireGuardConfParser.parse(interfaceConf("ListenPort = 65536"))
-        }
-    }
-
-    @Test
-    fun `a second interface cannot overwrite the first interface settings`() {
-        val conf = vanillaConf + "\n[ iNtErFaCe ] ; duplicate\nPrivateKey = different"
-        assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf) }
-    }
-
-    @Test
-    fun `leading BOM and commented headers work for detection and parsing`() {
-        val conf = "\uFEFF[ iNtErFaCe ] # comment\r\nPrivateKey = k\r\n[ Peer ]; comment\r\nPublicKey = p"
-        assertTrue(WireGuardConfParser.looksLikeConf(conf))
-        assertTrue(WireGuardConfParser.looksLikeConf(conf.substringBefore("[ Peer ]")))
-        assertFalse(WireGuardConfParser.looksLikeConf("# [Interface]\n[Peer]\nPublicKey = p"))
-        assertEquals(
-            "p",
-            WireGuardConfParser
-                .parse(conf)
-                .peers
-                .single()
-                .publicKey,
-        )
-    }
-
-    @Test
     fun `semicolon comments are skipped like hash comments`() {
         val parsed =
             WireGuardConfParser.parse(
@@ -446,11 +377,6 @@ class WireGuardConfParserTest {
         assertEquals("k", parsed.interfaceSection.privateKey)
         assertEquals(3, parsed.awg.jc)
     }
-
-    private fun interfaceConf(
-        interfaceLine: String,
-        peerLine: String = "",
-    ) = "[Interface]\nPrivateKey = k\nAddress = 10.0.0.2/32\n$interfaceLine\n[Peer]\nPublicKey = p\n$peerLine\n"
 
     @Test
     fun `split-tunnel app lists and retired AWG 1_5 keys keep importing`() {
@@ -462,39 +388,20 @@ class WireGuardConfParserTest {
             "J3 = <t>",
             "Itime = 120",
         ).forEach { line ->
-            val parsed = WireGuardConfParser.parse(interfaceConf(line))
+            val parsed = WireGuardConfParser.parse(wireGuardInterfaceConf(line))
             assertTrue(line, parsed is WireGuardConfig)
             assertEquals(line, "10.0.0.2/32", parsed.interfaceSection.address.single())
         }
         // An AWG export with one of these keys still parses as AWG.
-        assertTrue(WireGuardConfParser.parse(interfaceConf("Jc = 3\nItime = 60")) is AmneziaWgConfig)
-    }
-
-    @Test
-    fun `explicit false flags and peer ranges identify AmneziaWG syntax`() {
-        assertTrue(WireGuardConfParser.parse(interfaceConf("RandomTrailers = off")) is AmneziaWgConfig)
-        assertTrue(WireGuardConfParser.parse(interfaceConf("DisableCookies = false")) is AmneziaWgConfig)
-        listOf("0-0", "25-25", "25-35").forEach { interval ->
-            val conf = interfaceConf("", "PersistentKeepalive = $interval")
-            assertTrue(interval, WireGuardConfParser.parse(conf) is AmneziaWgConfig)
-        }
-        assertTrue(WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 25")) is WireGuardConfig)
-    }
-
-    @Test
-    fun `final keepalive off clears both bounds`() {
-        val conf = interfaceConf("", "PersistentKeepalive = 25-35\nPersistentKeepalive = oFf")
-        val peer = WireGuardConfParser.parse(conf).peers.single()
-        assertNull(peer.persistentKeepalive)
-        assertNull(peer.persistentKeepaliveMax)
+        assertTrue(WireGuardConfParser.parse(wireGuardInterfaceConf("Jc = 3\nItime = 60")) is AmneziaWgConfig)
     }
 
     @Test
     fun `persistent keepalive preserves off and rejects malformed ranges`() {
-        val off = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = off")).peers.single()
+        val off = WireGuardConfParser.parse(wireGuardInterfaceConf("", "PersistentKeepalive = off")).peers.single()
         assertNull(off.persistentKeepalive)
         assertNull(off.persistentKeepaliveMax)
-        val zero = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0")).peers.single()
+        val zero = WireGuardConfParser.parse(wireGuardInterfaceConf("", "PersistentKeepalive = 0")).peers.single()
         assertEquals(0, zero.persistentKeepalive)
         listOf(
             "0-0" to (0 to null),
@@ -504,33 +411,21 @@ class WireGuardConfParserTest {
             "65535" to (65535 to null),
             "1-65535" to (1 to 65535),
         ).forEach { (raw, expected) ->
-            val peer = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = $raw")).peers.single()
+            val peer =
+                WireGuardConfParser
+                    .parse(
+                        wireGuardInterfaceConf("", "PersistentKeepalive = $raw"),
+                    ).peers
+                    .single()
             assertEquals(raw, expected, peer.persistentKeepalive to peer.persistentKeepaliveMax)
         }
         javaClass.getResourceAsStream("/awg-keepalive-invalid.txt")!!.bufferedReader().useLines { lines ->
             lines.forEach { raw ->
                 assertThrows(raw, IllegalArgumentException::class.java) {
-                    WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = $raw"))
+                    WireGuardConfParser.parse(wireGuardInterfaceConf("", "PersistentKeepalive = $raw"))
                 }
             }
         }
-    }
-
-    @Test
-    fun `empty optional v3 values clear earlier settings without changing the dialect`() {
-        val interfaceOptions =
-            """
-            RekeyTimeout = 5-7
-            HeaderProtectionKey =
-            ContentPaddingAddition =
-            RekeyAfterTime =
-            RekeyTimeout =
-            RejectAfterTime =
-            KeepaliveTimeout =
-            MaxHandshakeAttempts =
-            """.trimIndent()
-        val conf = WireGuardConfParser.parse(interfaceConf(interfaceOptions)) as AmneziaWgConfig
-        assertFalse(conf.awg.v3.isSet)
     }
 
     @Test
@@ -542,7 +437,10 @@ class WireGuardConfParserTest {
                 "DisableCookies = \u0967",
             )
         nonAsciiDigits.forEach { line ->
-            assertThrows(line, IllegalArgumentException::class.java) { WireGuardConfParser.parse(interfaceConf(line)) }
+            assertThrows(
+                line,
+                IllegalArgumentException::class.java,
+            ) { WireGuardConfParser.parse(wireGuardInterfaceConf(line)) }
         }
     }
 
@@ -689,7 +587,7 @@ class WireGuardConfParserTest {
 
     @Test
     fun `WireGuardConfig serializes round-trip`() {
-        val parsed = WireGuardConfParser.parse(vanillaConf) as WireGuardConfig
+        val parsed = WireGuardConfParser.parse(vanillaWireGuardConf) as WireGuardConfig
 
         val encoded = json.encodeToString(WireGuardConfig.serializer(), parsed)
         val decoded = json.decodeFromString(WireGuardConfig.serializer(), encoded)
@@ -722,3 +620,23 @@ class WireGuardConfParserTest {
         assertEquals(parsed, decoded)
     }
 }
+
+internal val vanillaWireGuardConf =
+    """
+    [Interface]
+    PrivateKey = aGVsbG8td29ybGQtcHJpdmF0ZS1rZXktZml4dHVyZQ==
+    Address = 10.0.0.2/32
+    DNS = 1.1.1.1
+    MTU = 1420
+
+    [Peer]
+    PublicKey = aGVsbG8td29ybGQtcHVibGljLWtleS1maXh0dXJlMDE=
+    AllowedIPs = 0.0.0.0/0
+    Endpoint = vpn.example.com:51820
+    PersistentKeepalive = 25
+    """.trimIndent()
+
+internal fun wireGuardInterfaceConf(
+    interfaceLine: String,
+    peerLine: String = "",
+) = "[Interface]\nPrivateKey = k\nAddress = 10.0.0.2/32\n$interfaceLine\n[Peer]\nPublicKey = p\n$peerLine\n"
