@@ -27,6 +27,74 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `encoded security names retain pins and enforce unsupported options`() {
+        val pin = "ab".repeat(32)
+        val parsed =
+            ProxyUriCodec.parse("hy2://fixture@h.example?insecure=1&pin%53HA256=$pin") as ProxyProfile.Hysteria2
+        assertEquals(pin, parsed.pinSha256)
+        assertEquals(true, parsed.insecure)
+        assertNull(ProxyUriCodec.parse("hy2://fixture@h.example?e%63h=AEn%2BDQ"))
+        assertNull(ProxyUriCodec.parse("ss://aes-128-gcm:fixture@h.example:8388/?pl%75gin=obfs-local"))
+        assertNull(ProxyUriCodec.parse("trojan://fixture@h.example:443?allowIn%73ecure=1"))
+        assertNull(ProxyUriCodec.parse("naive+quic://user:fixture@h.example?pin%53HA256=$pin"))
+        assertNull(
+            ProxyUriCodec.parse("naive+https://user:fixture@h.example?pin%53HA256=$pin&insecure-concurrency=2"),
+        )
+    }
+
+    @Test
+    fun `query normalization refuses repeated scalar names`() {
+        val pin = "ab".repeat(32)
+        val otherPin = "cd".repeat(32)
+        for (query in listOf(
+            "pinSHA256=$pin&pin%53HA256=$otherPin",
+            "pinSHA256=$pin&pinsha256=$otherPin",
+            "insecure=0&in%73ecure=1",
+        )) {
+            assertNull(ProxyUriCodec.parse("hy2://fixture@h.example?$query"))
+        }
+        assertNull(
+            ProxyUriCodec.parse("naive+https://user:fixture@h.example?insecure-concurrency=1&insecure%2Dconcurrency=2"),
+        )
+        assertNull(ProxyUriCodec.parse("hy2://fixture@h.example?pinSHA256=$pin&pin%53HA256=$pin"))
+        assertNull(
+            ProxyUriCodec.parse("naive+https://user:fixture@h.example?insecure-concurrency=1&insecure%2Dconcurrency=1"),
+        )
+    }
+
+    @Test
+    fun `scalar repeats cannot select different plus decoding policies`() {
+        for ((name, encodedName) in listOf("pinSHA256" to "pin%53HA256", "ech" to "e%63h")) {
+            for ((first, second) in listOf("+" to "%2B", "%2B" to "+")) {
+                assertNull(
+                    ProxyUriCodec.parse("hy2://fixture@h.example?insecure=1&$name=$first&$encodedName=$second"),
+                )
+            }
+        }
+        for ((first, second) in listOf("+" to "%2B", "%2B" to "+")) {
+            assertNull(
+                ProxyUriCodec.parse(
+                    "naive+https://user:fixture@h.example?extra-headers=X-Test%3A%20$first" +
+                        "&extra%2Dheaders=X-Test%3A%20$second",
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun `query normalization retains value escaping and repeated Mieru bindings`() {
+        val naive =
+            ProxyUriCodec.parse("naive+https://user:fixture@h.example?extra%2Dheaders=X-Test%3A%20a%252Bb%26c")
+                as ProxyProfile.Naive
+        assertEquals("X-Test: a%2Bb&c", naive.extraHeaders)
+        val mieru =
+            ProxyUriCodec.parse(
+                "mierus://user:fixture@h.example?profile=node&port=9999&port=443&protocol=UDP&protocol=TCP",
+            ) as ProxyProfile.Mieru
+        assertEquals(443, mieru.serverPort)
+    }
+
+    @Test
     fun `shadowsocks scheme is case insensitive without changing credentials`() {
         for (userinfo in listOf("aes-128-gcm:Fixture+Password", "YWVzLTEyOC1nY206Rml4dHVyZStQYXNzd29yZA")) {
             val original = ProxyUriCodec.parse("ss://$userinfo@h.example:8388#Node") as ProxyProfile.Shadowsocks

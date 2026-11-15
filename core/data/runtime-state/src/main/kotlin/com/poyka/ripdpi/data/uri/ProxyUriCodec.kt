@@ -54,16 +54,17 @@ object ProxyUriCodec {
         if (schemeEnd <= 0) return null
         val scheme = trimmed.substring(0, schemeEnd).lowercase()
         return runCatching {
+            val normalized = normalizeProxyUriQuery(trimmed)
             when (scheme) {
-                "vless" -> parseVless(trimmed)
-                "ss" -> parseShadowsocks(trimmed)
-                "mieru", "mierus" -> MieruUriCodec.parse(trimmed)
-                "naive+https", "naive+quic" -> NaiveUriCodec.parse(trimmed)
-                "trojan" -> parseTrojan(trimmed)
-                "hysteria2", "hy2" -> parseHysteria2(trimmed)
-                "anytls" -> parseAnyTls(trimmed)
-                "ssh" -> parseSsh(trimmed)
-                "tuic" -> parseTuic(trimmed)
+                "vless" -> parseVless(normalized)
+                "ss" -> parseShadowsocks(normalized)
+                "mieru", "mierus" -> MieruUriCodec.parse(normalized)
+                "naive+https", "naive+quic" -> NaiveUriCodec.parse(normalized)
+                "trojan" -> parseTrojan(normalized)
+                "hysteria2", "hy2" -> parseHysteria2(normalized)
+                "anytls" -> parseAnyTls(normalized)
+                "ssh" -> parseSsh(normalized)
+                "tuic" -> parseTuic(normalized)
                 else -> null
             }
         }.getOrNull()
