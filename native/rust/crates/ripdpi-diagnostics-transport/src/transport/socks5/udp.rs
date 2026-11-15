@@ -1,7 +1,14 @@
 use super::*;
 use ripdpi_socks5_core::udp_feedback::{self, Frame, Nonce};
 use std::io;
+use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
+
+use crate::transport::udp::{
+    cancellation_reason, matched_udp_result, poll_wait, send_udp_before, udp_exchange_deadline, udp_remaining,
+};
+use crate::transport::watchdog::run_with_socket_abort_watchdog;
+use crate::util::with_scan_io_deadline;
 
 pub fn relay_udp_via_socks5(
     proxy_host: &str,
@@ -10,7 +17,7 @@ pub fn relay_udp_via_socks5(
     payload: &[u8],
     credentials: Option<&Socks5Credentials>,
 ) -> Result<(Vec<u8>, SocketAddr), TransportError> {
-    relay_udp_via_socks5_matching(proxy_host, proxy_port, destination, payload, credentials, &|_| true)
+    relay_udp_via_socks5_matching(proxy_host, proxy_port, destination, payload, credentials, &|_| true, None)
 }
 
 pub(crate) fn relay_udp_via_socks5_matching(
@@ -20,15 +27,16 @@ pub(crate) fn relay_udp_via_socks5_matching(
     payload: &[u8],
     credentials: Option<&Socks5Credentials>,
     accept_response: &dyn Fn(&[u8]) -> bool,
+    cancel: Option<&AtomicBool>,
 ) -> Result<(Vec<u8>, SocketAddr), TransportError> {
-    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-    let deadline = Instant::now() + timeout;
-    let mut control = connect_control(proxy_host, proxy_port, credentials, deadline)?;
+    let deadline = udp_exchange_deadline(cancel)?;
+    let mut control = connect_control(proxy_host, proxy_port, credentials, deadline, cancel)?;
     let mut prebound = None;
     let mut nonce = None;
     let relay = if credentials.is_some() && control.peer_addr()?.ip().is_loopback() {
         let udp = UdpSocket::bind(SocketAddr::new(control.local_addr()?.ip(), 0))?;
-        match private_associate(&mut control, udp.local_addr()?, deadline)? {
+        let source = udp.local_addr()?;
+        match guard_control(&mut control, deadline, cancel, |control| private_associate(control, source, deadline))? {
             Some((relay, session_nonce)) => {
                 prebound = Some(udp);
                 nonce = Some(session_nonce);
@@ -37,12 +45,12 @@ pub(crate) fn relay_udp_via_socks5_matching(
             None => {
                 // An unsupported private request cannot leave a reusable control stream.
                 drop(control);
-                control = connect_control(proxy_host, proxy_port, credentials, deadline)?;
-                normalize_udp_relay_addr(socks5_udp_associate(&mut control)?, &control)?
+                control = connect_control(proxy_host, proxy_port, credentials, deadline, cancel)?;
+                standard_association(&mut control, deadline, cancel)?
             }
         }
     } else {
-        normalize_udp_relay_addr(socks5_udp_associate(&mut control)?, &control)?
+        standard_association(&mut control, deadline, cancel)?
     };
     let udp = match prebound {
         Some(udp) => udp,
@@ -51,7 +59,6 @@ pub(crate) fn relay_udp_via_socks5_matching(
             0,
         ))?,
     };
-    udp.set_write_timeout(Some(remaining(deadline)?))?;
     udp.connect(relay)?;
     let frame = encode_socks5_udp_frame(destination, payload);
     let frame = match nonce {
@@ -62,27 +69,28 @@ pub(crate) fn relay_udp_via_socks5_matching(
         control.set_nonblocking(true)?;
         check_control(&control)?;
     }
-    udp.send(&frame)?;
+    send_udp_before(&udp, &frame, deadline, cancel)?;
     let mut bytes = [0; 65_535];
+    let mut saw_unmatched = false;
     loop {
-        let timeout = remaining(deadline)?;
+        let timeout = matched_udp_result(udp_remaining(deadline, cancel), saw_unmatched)?;
         if nonce.is_some() {
             check_control(&control)?;
         }
-        udp.set_read_timeout(Some(if nonce.is_some() { timeout.min(Duration::from_millis(20)) } else { timeout }))?;
+        udp.set_read_timeout(Some(poll_wait(timeout, nonce.is_some() || cancel.is_some())))?;
         let size = match udp.recv(&mut bytes) {
             Ok(size) => size,
             Err(error)
-                if nonce.is_some()
-                    && matches!(
-                        error.kind(),
-                        io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
-                    ) =>
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                ) =>
             {
                 continue;
             }
-            Err(error) => return Err(error.into()),
+            Err(error) => return Err(TransportError::udp_recv_error(error)),
         };
+        matched_udp_result(udp_remaining(deadline, cancel), saw_unmatched)?;
         let body = match nonce.as_ref().map(|nonce| udp_feedback::decode(&bytes[..size], nonce)) {
             Some(Ok(Frame::Response { payload })) => {
                 check_control(&control)?;
@@ -102,6 +110,7 @@ pub(crate) fn relay_udp_via_socks5_matching(
                 if accept_response(&payload) {
                     return Ok((payload, udp.local_addr()?));
                 }
+                saw_unmatched = true;
                 continue;
             }
             _ if nonce.is_some() => continue,
@@ -118,12 +127,54 @@ fn connect_control(
     port: u16,
     credentials: Option<&Socks5Credentials>,
     deadline: Instant,
+    cancel: Option<&AtomicBool>,
 ) -> Result<TcpStream, TransportError> {
-    let mut control = connect_direct(&TargetAddress::Host(host.to_string()), port)?;
-    control.set_read_timeout(Some(remaining(deadline)?))?;
-    control.set_write_timeout(Some(remaining(deadline)?))?;
-    socks5_handshake(&mut control, credentials)?;
+    control_remaining(deadline, cancel)?;
+    let check_abort = || cancellation_reason(cancel);
+    let result = with_scan_io_deadline(Some(deadline), || {
+        connect_direct_observed(&[TargetAddress::Host(host.to_string())], port, None, Some(&check_abort))
+    });
+    control_remaining(deadline, cancel)?;
+    let mut control =
+        result.map_err(|error| TransportError::ConnectFailed { stage: error.stage, message: error.message })?.stream;
+    guard_control(&mut control, deadline, cancel, |control| socks5_handshake(control, credentials))?;
     Ok(control)
+}
+
+fn standard_association(
+    control: &mut TcpStream,
+    deadline: Instant,
+    cancel: Option<&AtomicBool>,
+) -> Result<SocketAddr, TransportError> {
+    let check_abort = || cancellation_reason(cancel);
+    let relay = guard_control(control, deadline, cancel, |control| {
+        socks5_udp_associate_with_abort(control, Some(&check_abort))
+    })?;
+    normalize_udp_relay_addr(relay, control)
+}
+
+fn guard_control<T>(
+    control: &mut TcpStream,
+    deadline: Instant,
+    cancel: Option<&AtomicBool>,
+    operation: impl FnOnce(&mut TcpStream) -> Result<T, TransportError>,
+) -> Result<T, TransportError> {
+    let wait = poll_wait(control_remaining(deadline, cancel)?, false);
+    control.set_read_timeout(Some(wait))?;
+    control.set_write_timeout(Some(wait))?;
+    let clone = control.try_clone()?;
+    let result = with_scan_io_deadline(Some(deadline), || {
+        run_with_socket_abort_watchdog(clone, &|| cancellation_reason(cancel).is_some(), || operation(control))
+    });
+    control_remaining(deadline, cancel)?;
+    result
+}
+
+fn control_remaining(deadline: Instant, cancel: Option<&AtomicBool>) -> Result<Duration, TransportError> {
+    udp_remaining(deadline, cancel).map_err(|error| match error {
+        TransportError::UdpRecvTimeout => TransportError::SocksNegotiationTimedOut,
+        other => other,
+    })
 }
 
 fn private_associate(

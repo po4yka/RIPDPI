@@ -8,6 +8,8 @@ pub(super) use common::route_identity;
 pub(super) use tcp::connect_addresses_with_route_experiment;
 pub(super) use udp::relay_udp_direct_with_route_experiment;
 
+pub const MAX_ROUTE_EXPERIMENT_ATTEMPTS: usize = 8;
+
 struct RouteAttemptTracker {
     stable_attempts: usize,
     stable_attempts_run: usize,
@@ -20,7 +22,7 @@ struct RouteAttemptTracker {
 impl RouteAttemptTracker {
     fn new(config: &RouteExperimentConfig, fallback_error: &'static str) -> Self {
         Self {
-            stable_attempts: config.stable_flow_attempts.max(1),
+            stable_attempts: config.stable_flow_attempts.clamp(1, MAX_ROUTE_EXPERIMENT_ATTEMPTS),
             stable_attempts_run: 0,
             diversity_attempts_run: 0,
             events: Vec::new(),

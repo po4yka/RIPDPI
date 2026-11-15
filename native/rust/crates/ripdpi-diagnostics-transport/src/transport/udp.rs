@@ -1,9 +1,12 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
+use crate::util::{IO_TIMEOUT, active_scan_io_deadline};
 
+use super::abort::ABORT_POLL_INTERVAL;
+use super::address::resolve_addresses_with_timeout_and_abort;
 use super::route_experiment::{relay_udp_direct_with_route_experiment, route_identity};
 use super::socks5::relay_udp_via_socks5_matching;
 use super::tcp::candidate_address_groups;
@@ -26,12 +29,23 @@ pub fn relay_udp_payload_matching_observed(
     payload: &[u8],
     accept_response: &dyn Fn(&[u8]) -> bool,
 ) -> Result<UdpRelayResult, TransportError> {
-    relay_udp_candidates(
-        candidate_address_groups(targets, port, super::resolve_addresses_with_timeout),
-        transport,
-        payload,
-        accept_response,
-    )
+    relay_udp_with_cancel(targets, port, transport, payload, accept_response, None)
+}
+
+fn relay_udp_with_cancel(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    payload: &[u8],
+    accept_response: &dyn Fn(&[u8]) -> bool,
+    cancel: Option<&AtomicBool>,
+) -> Result<UdpRelayResult, TransportError> {
+    check_udp_attempt(cancel)?;
+    let check_abort = || cancellation_reason(cancel);
+    let groups = candidate_address_groups(targets, port, |target, port, timeout| {
+        resolve_addresses_with_timeout_and_abort(target, port, timeout, Some(&check_abort))
+    });
+    relay_udp_candidates(groups, transport, payload, accept_response, cancel)
 }
 
 fn relay_udp_candidates(
@@ -39,14 +53,16 @@ fn relay_udp_candidates(
     transport: &TransportConfig,
     payload: &[u8],
     accept_response: &dyn Fn(&[u8]) -> bool,
+    cancel: Option<&AtomicBool>,
 ) -> Result<UdpRelayResult, TransportError> {
     let mut last_error = TransportError::NoSocketAddrs;
     let mut attempted = false;
     for group in groups {
+        check_udp_attempt(cancel)?;
         let destinations = match group {
             Ok(destinations) => destinations,
             Err(error) => {
-                if !attempted || matches!(error, TransportError::ScanDeadlineExceeded) {
+                if !attempted {
                     last_error = error;
                 }
                 continue;
@@ -55,18 +71,27 @@ fn relay_udp_candidates(
         attempted = true;
         if let TransportConfig::Direct { route_experiment: Some(config) } = transport {
             let identity = route_identity(&destinations);
-            match relay_udp_direct_with_route_experiment(&destinations, payload, config, &identity, accept_response) {
+            match relay_udp_direct_with_route_experiment(
+                &destinations,
+                payload,
+                config,
+                &identity,
+                accept_response,
+                cancel,
+            ) {
                 Ok(result) => return Ok(result),
                 Err(error) => {
-                    last_error = TransportError::RouteExperiment(error);
+                    check_udp_attempt(cancel)?;
+                    last_error = error;
                     continue;
                 }
             }
         }
         for destination in destinations {
+            check_udp_attempt(cancel)?;
             let result = match transport {
                 TransportConfig::Direct { .. } => {
-                    relay_udp_direct_exchange(destination, payload, true, accept_response)
+                    relay_udp_direct_exchange(destination, payload, true, accept_response, cancel)
                 }
                 TransportConfig::Socks5 { host, port, credentials } => relay_udp_via_socks5_matching(
                     host,
@@ -75,6 +100,7 @@ fn relay_udp_candidates(
                     payload,
                     credentials.as_ref(),
                     accept_response,
+                    cancel,
                 ),
             };
             match result {
@@ -90,62 +116,128 @@ fn relay_udp_candidates(
             }
         }
     }
+    check_udp_attempt(cancel)?;
     Err(last_error)
 }
 
 pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), TransportError> {
-    relay_udp_direct_exchange(server, payload, false, &|_| true)
+    relay_udp_direct_exchange(server, payload, false, &|_| true, None)
 }
 
-/// With `retransmit`, a datagram lost on the first try is sent once more
-/// (RFC 9002 section 6.2.2) within the same receive wait, so a blocked path
-/// still costs one wait per destination.
 fn relay_udp_direct_exchange(
     server: SocketAddr,
     payload: &[u8],
     retransmit: bool,
     accept_response: &dyn Fn(&[u8]) -> bool,
+    cancel: Option<&AtomicBool>,
 ) -> Result<(Vec<u8>, SocketAddr), TransportError> {
-    let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-    let first_wait = if retransmit { timeout / 2 } else { timeout };
+    let started = Instant::now();
+    let deadline = udp_exchange_deadline(cancel)?;
     let bind_addr: SocketAddr =
         if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
     let socket = super::protect::protected_udp_bind(bind_addr, server)?;
-    socket.set_write_timeout(Some(timeout))?;
     socket.connect(server)?;
-    socket.send(payload)?;
-    let started = Instant::now();
-    let deadline = started + timeout;
-    let bytes = match recv_udp_matching(&socket, started + first_wait, accept_response) {
-        Err(error) if retransmit && matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
-            socket.send(payload)?;
-            recv_udp_matching(&socket, deadline, accept_response)
+    let retry_at = if retransmit { started + deadline.saturating_duration_since(started) / 2 } else { deadline };
+    send_udp_before(&socket, payload, deadline, cancel)?;
+    let mut saw_unmatched = false;
+    let result = match recv_udp_matching(&socket, retry_at, accept_response, cancel, &mut saw_unmatched) {
+        Err(TransportError::UdpRecvTimeout) if retransmit => {
+            send_udp_before(&socket, payload, deadline, cancel)?;
+            recv_udp_matching(&socket, deadline, accept_response, cancel, &mut saw_unmatched)
         }
         other => other,
+    };
+    let bytes = matched_udp_result(result, saw_unmatched)?;
+    Ok((bytes, socket.local_addr()?))
+}
+
+pub(super) fn cancellation_reason(cancel: Option<&AtomicBool>) -> Option<&'static str> {
+    // Acquire observes the flag published by the scan owner.
+    cancel.is_some_and(|flag| flag.load(Ordering::Acquire)).then_some("cancelled")
+}
+
+pub(super) fn check_udp_attempt(cancel: Option<&AtomicBool>) -> Result<(), TransportError> {
+    if let Some(reason) = cancellation_reason(cancel) {
+        return Err(TransportError::ProbeAborted(reason));
     }
-    .map_err(TransportError::udp_recv_error)?;
-    let local_addr = socket.local_addr()?;
-    Ok((bytes, local_addr))
+    if active_scan_io_deadline().is_some_and(|end| Instant::now() >= end) {
+        return Err(TransportError::ScanDeadlineExceeded);
+    }
+    Ok(())
+}
+
+pub(super) fn udp_exchange_deadline(cancel: Option<&AtomicBool>) -> Result<Instant, TransportError> {
+    check_udp_attempt(cancel)?;
+    let limit = Instant::now() + IO_TIMEOUT;
+    Ok(active_scan_io_deadline().map_or(limit, |scan| scan.min(limit)))
+}
+
+pub(super) fn udp_remaining(deadline: Instant, cancel: Option<&AtomicBool>) -> Result<Duration, TransportError> {
+    check_udp_attempt(cancel)?;
+    deadline.checked_duration_since(Instant::now()).filter(|wait| !wait.is_zero()).ok_or(TransportError::UdpRecvTimeout)
+}
+
+pub(super) fn send_udp_before(
+    socket: &UdpSocket,
+    payload: &[u8],
+    deadline: Instant,
+    cancel: Option<&AtomicBool>,
+) -> Result<(), TransportError> {
+    let wait = udp_remaining(deadline, cancel).map_err(|error| match error {
+        TransportError::UdpRecvTimeout => {
+            TransportError::Io(io::Error::new(io::ErrorKind::TimedOut, "UDP send deadline exceeded"))
+        }
+        other => other,
+    })?;
+    socket.set_write_timeout(Some(poll_wait(wait, cancel.is_some())))?;
+    check_udp_attempt(cancel)?;
+    socket.send(payload)?;
+    Ok(())
+}
+
+pub(super) fn poll_wait(remaining: Duration, poll: bool) -> Duration {
+    let wait = if poll { remaining.min(ABORT_POLL_INTERVAL) } else { remaining };
+    wait.max(Duration::from_millis(1))
+}
+
+pub(super) fn matched_udp_result<T>(
+    result: Result<T, TransportError>,
+    saw_unmatched: bool,
+) -> Result<T, TransportError> {
+    match result {
+        Err(TransportError::UdpRecvTimeout | TransportError::UdpRecvWouldBlock) if saw_unmatched => {
+            Err(TransportError::UdpRecvUnmatched)
+        }
+        result => result,
+    }
 }
 
 pub(super) fn recv_udp_matching(
     socket: &UdpSocket,
     deadline: Instant,
     accept_response: &dyn Fn(&[u8]) -> bool,
-) -> io::Result<Vec<u8>> {
+    cancel: Option<&AtomicBool>,
+    saw_unmatched: &mut bool,
+) -> Result<Vec<u8>, TransportError> {
     // A valid UDP datagram can exceed the path MTU after IP reassembly.
     let mut bytes = [0; u16::MAX as usize];
     loop {
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            return Err(io::Error::new(io::ErrorKind::TimedOut, "UDP receive deadline exceeded"));
-        }
-        socket.set_read_timeout(Some(remaining.max(Duration::from_millis(1))))?;
+        let remaining = udp_remaining(deadline, cancel)?;
+        socket.set_read_timeout(Some(poll_wait(remaining, cancel.is_some())))?;
         match socket.recv(&mut bytes) {
-            Ok(size) if accept_response(&bytes[..size]) => return Ok(bytes[..size].to_vec()),
-            Ok(_) => continue,
-            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-            Err(error) => return Err(error),
+            Ok(size) => {
+                udp_remaining(deadline, cancel)?;
+                if accept_response(&bytes[..size]) {
+                    return Ok(bytes[..size].to_vec());
+                }
+                *saw_unmatched = true;
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
+                ) => {}
+            Err(error) => return Err(TransportError::udp_recv_error(error)),
         }
     }
 }
@@ -281,6 +373,7 @@ mod tests {
                 },
                 b"quic probe",
                 &|_| true,
+                None,
             )
         });
         server.join().expect("SOCKS fixture thread");
@@ -339,6 +432,7 @@ mod tests {
                     &TransportConfig::Direct { route_experiment: experiment },
                     b"probe",
                     &|_| true,
+                    None,
                 )
             });
             worker.join().unwrap();
@@ -379,6 +473,7 @@ mod tests {
                 &TransportConfig::Direct { route_experiment: experiment },
                 b"probe",
                 &|_| true,
+                None,
             );
             worker.join().unwrap();
             assert_eq!(result.unwrap().payload, b"probe");

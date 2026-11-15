@@ -8,7 +8,7 @@ use ripdpi_socks5_core::{AuthenticationMethod, Socks5Command, SocksError, valida
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::abort::{ABORT_POLL_INTERVAL, AbortCheck};
-use super::tcp::{connect_aborted, connect_direct, connect_direct_observed};
+use super::tcp::{connect_aborted, connect_direct_observed};
 use super::types::{
     Socks5Credentials, TargetAddress, TransportConnectError, TransportConnectResult, TransportError,
     TransportFailureStage,
@@ -158,6 +158,13 @@ fn socks5_handshake(stream: &mut TcpStream, credentials: Option<&Socks5Credentia
 }
 
 pub fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, TransportError> {
+    socks5_udp_associate_with_abort(stream, None)
+}
+
+fn socks5_udp_associate_with_abort(
+    stream: &mut TcpStream,
+    should_abort: Option<AbortCheck<'_>>,
+) -> Result<SocketAddr, TransportError> {
     let request = [0x05, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
     stream.write_all(&request)?;
     let mut header = [0u8; 4];
@@ -206,10 +213,15 @@ pub fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, Transp
                 return Ok(SocketAddr::new(ip, port));
             }
             let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-            super::resolve_addresses_with_timeout(&TargetAddress::Host(host), port, timeout)?
-                .into_iter()
-                .next()
-                .ok_or(TransportError::NoSocketAddrs)
+            super::address::resolve_addresses_with_timeout_and_abort(
+                &TargetAddress::Host(host),
+                port,
+                timeout,
+                should_abort,
+            )?
+            .into_iter()
+            .next()
+            .ok_or(TransportError::NoSocketAddrs)
         }
         atyp => Err(TransportError::SocksUdpAssociateAtypUnsupported(atyp)),
     }

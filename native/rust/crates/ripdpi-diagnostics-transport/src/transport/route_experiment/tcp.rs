@@ -5,8 +5,8 @@ use socket2::{Protocol, SockAddr, Socket, Type};
 
 use crate::util::{CONNECT_TIMEOUT, bounded_scan_io_timeout, stable_probe_hash};
 
-use super::RouteAttemptTracker;
 use super::common::{route_bind_addr, route_bucket_port, socket_domain_for};
+use super::{MAX_ROUTE_EXPERIMENT_ATTEMPTS, RouteAttemptTracker};
 use crate::transport::abort::AbortCheck;
 use crate::transport::protect::{connect_socket_until, protect_for_target};
 use crate::transport::tcp::interleave_address_families;
@@ -23,6 +23,7 @@ pub(crate) fn connect_addresses_with_route_experiment(
 
     for attempt_index in 0..tracker.stable_attempts() {
         check_abort(should_abort)?;
+        bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
         match connect_addresses_with_bucket(addresses, config, route_identity, 0, should_abort) {
             Ok(result) => return Ok((result, tracker.stable_success(attempt_index, 0))),
             Err(err) => tracker.stable_failure(attempt_index, err),
@@ -30,8 +31,9 @@ pub(crate) fn connect_addresses_with_route_experiment(
     }
 
     if config.diversity_on_failure_only {
-        for bucket in 1..config.diversity_buckets.max(1) {
+        for bucket in 1..config.diversity_buckets.min(MAX_ROUTE_EXPERIMENT_ATTEMPTS) {
             check_abort(should_abort)?;
+            bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(str::to_string)?;
             match connect_addresses_with_bucket(addresses, config, route_identity, bucket, should_abort) {
                 Ok(result) => return Ok((result, tracker.diversity_success(bucket))),
                 Err(err) => tracker.diversity_failure(bucket, err),

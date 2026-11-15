@@ -27,11 +27,11 @@ pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool
 
 /// Shut down the socket at cancellation or the scan deadline. Do not start the operation
 /// if the watchdog cannot start. The caller checks its control state after the operation.
-pub fn run_with_socket_abort_watchdog<T>(
+pub fn run_with_socket_abort_watchdog<T, E: From<io::Error>>(
     socket: TcpStream,
     should_abort: &(dyn Fn() -> bool + Sync),
-    operation: impl FnOnce() -> io::Result<T>,
-) -> io::Result<T> {
+    operation: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
     watch_socket(socket, active_scan_io_deadline(), should_abort, |started| {
         started?;
         operation()
