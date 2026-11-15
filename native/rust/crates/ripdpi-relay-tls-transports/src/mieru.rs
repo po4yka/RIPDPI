@@ -14,11 +14,12 @@ pub struct MieruSessionFactory {
     config: ripdpi_mieru::MieruConfig,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
     sessions: Arc<SessionRegistry<MieruCarrier>>,
+    time: Arc<NetworkTimeProvider>,
 }
 
 impl MieruSessionFactory {
     pub fn new(config: MieruConfig, socket_protection: ripdpi_native_protect::SocketProtectionPolicy) -> Self {
-        Self { config, socket_protection, sessions: Arc::default() }
+        Self { config, socket_protection, sessions: Arc::default(), time: Arc::default() }
     }
 }
 
@@ -98,16 +99,10 @@ impl RelaySessionFactory for MieruSessionFactory {
                     // Each segment is one write; Nagle would hold it for the
                     // previous segment's ACK (upstream Go dials with NODELAY).
                     stream.set_nodelay(true)?;
-                    // Mieru's replay clock comes from the shared network-time provider.
-                    // The provider is calibrated only from the first authenticated
-                    // server segment, so calibration happens after a session already
-                    // worked. It cannot rescue a first contact whose clock is outside
-                    // the server's +-1 minute window: the server then drops the
-                    // client silently, which surfaces as `NoAuthenticatedResponse`.
-                    let time = NetworkTimeProvider::shared();
-                    let connection = ripdpi_mieru::MieruMuxConnection::connect_over(stream, &config, time)
-                        .await
-                        .map_err(to_io_error)?;
+                    let connection =
+                        ripdpi_mieru::MieruMuxConnection::connect_over(stream, &config, Arc::clone(&self.time))
+                            .await
+                            .map_err(to_io_error)?;
                     Ok(MieruCarrier { connection })
                 })
                 .await
