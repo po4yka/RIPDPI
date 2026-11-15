@@ -56,8 +56,16 @@ cannot.
   `prepare_socket_for_app`).
 - **Framing (protocol v4):** each JSON object is prefixed by a 4-byte big-endian
   payload length. Generic control frames and nonbulk requests keep the
-  **8192-byte cap** (`MAX_MESSAGE_BYTES`). Only `send_fake_tcp` and
-  `send_ordered_tcp_segments` requests can use the bounded bulk envelope below.
+  **8192-byte cap** (`MAX_MESSAGE_BYTES`). The `recv_icmp_wrapped_udp` response alone
+  permits at most **263164 JSON bytes**: four bytes per u16-sized payload byte
+  plus 1024 bytes for bounded metadata. This holds the full supported 65493-byte
+  payload even when each octet serializes as `255`. Other responses keep the
+  8192-byte cap. The client checks the additive preflight field
+  `icmp_wrapped_udp_receive.max_response_bytes` before it delivers a receive
+  command. A helper without that support is refused before it consumes data;
+  response reads retain the total deadline and descriptor cleanup. Only `send_fake_tcp`,
+  `send_ordered_tcp_segments` and `send_multi_disorder_tcp` requests can use the
+  bounded bulk envelope below.
   Exact-size `recvmsg` loops
   preserve frame boundaries and SCM_RIGHTS data across `SOCK_STREAM` short
   reads; `send_message` completes short writes without resending the fd.
@@ -310,7 +318,7 @@ only when delivery is known not to have occurred, including failed pure
 preflight. An error after command delivery is returned without a blind local
 retry, which could duplicate an operation.
 
-For `v3/send_seqovl_tcp`, a failed response may include additive
+For `v4/send_seqovl_tcp`, a failed response may include additive
 `data.seqovl_safe_refusal` metadata: `invalid_input`, `would_block`,
 `unsupported`, or `permission_denied`. The raw sender reserves these outer
 error kinds for a proven refusal before emission with TCP repair restored.

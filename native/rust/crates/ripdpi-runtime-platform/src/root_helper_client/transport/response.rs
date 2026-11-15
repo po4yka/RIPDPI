@@ -3,7 +3,7 @@ use std::os::fd::OwnedFd;
 use std::os::unix::net::UnixStream;
 use std::time::{Duration, Instant};
 
-use ripdpi_root_helper_protocol::{CMD_SEND_SEQOVL_TCP, HelperResponse, recv_message_with_deadline};
+use ripdpi_root_helper_protocol::{CMD_SEND_SEQOVL_TCP, HelperResponse, recv_response_message_with_deadline};
 
 /// Read a reply only after the request has been delivered to the helper.
 pub(super) fn receive_response(
@@ -12,7 +12,8 @@ pub(super) fn receive_response(
     timeout: Duration,
 ) -> io::Result<(HelperResponse, Option<OwnedFd>)> {
     let result = (|| {
-        let (bytes, fd) = recv_message_with_deadline(stream, "helper closed connection", Instant::now() + timeout)?;
+        let (bytes, fd) =
+            recv_response_message_with_deadline(stream, command, "helper closed connection", Instant::now() + timeout)?;
         let response: HelperResponse = serde_json::from_slice(&bytes)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("invalid response: {error}")))?;
         response.validate_protocol_version().map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;

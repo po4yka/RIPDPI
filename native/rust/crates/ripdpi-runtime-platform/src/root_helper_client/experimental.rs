@@ -104,6 +104,97 @@ mod tests {
         let _ = std::fs::remove_file(nonce_path);
     }
 
+    #[test]
+    fn legacy_helper_is_refused_before_consuming_an_icmp_message() {
+        let socket_path =
+            std::env::temp_dir().join(format!("dpi37-legacy-{}-{}.sock", std::process::id(), unique_suffix()));
+        let nonce_path = format!("{}.nonce", socket_path.to_string_lossy());
+        std::fs::write(&nonce_path, test_session_nonce()).expect("nonce");
+        let listener = UnixListener::bind(&socket_path).expect("listener");
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("preflight");
+            let (bytes, fd) = recv_message(&stream, "closed").expect("request");
+            assert!(fd.is_none());
+            let request: HelperRequest = serde_json::from_slice(&bytes).expect("request JSON");
+            assert_eq!(request.command, CMD_PROTOCOL_PREFLIGHT);
+            let response =
+                HelperResponse::success(serde_json::Value::Null).with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
+            send_message(&stream, &serde_json::to_vec(&response).expect("response"), None).expect("preflight reply");
+            listener
+        });
+        let error = RootHelperClient::new(socket_path.to_string_lossy().into_owned())
+            .recv_icmp_wrapped_udp(crate::experimental::IcmpWrappedUdpRecvFilter {
+                bind_ip: Ipv4Addr::LOCALHOST.into(),
+                session_id: None,
+                expected_code: None,
+                expected_role: None,
+                timeout_ms: 1,
+            })
+            .expect_err("legacy helper must not consume the receive request");
+        assert!(crate::root_helper_client::is_not_delivered(&error));
+        let listener = server.join().expect("preflight server");
+        listener.set_nonblocking(true).expect("nonblocking check");
+        assert_eq!(
+            listener.accept().expect_err("no receive connection was delivered").kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+        drop(listener);
+        std::fs::remove_file(socket_path).expect("remove socket");
+        std::fs::remove_file(nonce_path).expect("remove nonce");
+    }
+
+    #[test]
+    fn icmp_receive_preserves_a_maximum_high_byte_payload() {
+        use crate::experimental::{IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole, ReceivedIcmpWrappedUdp};
+        use ripdpi_root_helper_protocol::{CMD_RECV_ICMP_WRAPPED_UDP, bulk_tcp_preflight_data, send_response_message};
+
+        let socket_path =
+            std::env::temp_dir().join(format!("dpi37-receive-{}-{}.sock", std::process::id(), unique_suffix()));
+        let nonce_path = format!("{}.nonce", socket_path.to_string_lossy());
+        std::fs::write(&nonce_path, test_session_nonce()).expect("nonce");
+        let listener = UnixListener::bind(&socket_path).expect("listener");
+        let expected = ReceivedIcmpWrappedUdp {
+            peer: "[::1]:53".parse().expect("peer"),
+            service_port: 53,
+            payload: vec![255; 65_493],
+            session_id: 17,
+            icmp_code: 0,
+            role: IcmpWrappedUdpRole::ServerReply,
+            xor_payload: false,
+        };
+        let message = expected.clone();
+        let server = thread::spawn(move || {
+            for command in [CMD_PROTOCOL_PREFLIGHT, CMD_RECV_ICMP_WRAPPED_UDP] {
+                let (stream, _) = listener.accept().expect("client connection");
+                let (bytes, fd) = recv_message(&stream, "closed").expect("request");
+                assert!(fd.is_none());
+                let request: HelperRequest = serde_json::from_slice(&bytes).expect("request JSON");
+                assert_eq!(request.command, command);
+                let data = if command == CMD_PROTOCOL_PREFLIGHT {
+                    bulk_tcp_preflight_data()
+                } else {
+                    serde_json::to_value(&message).expect("message")
+                };
+                let response = HelperResponse::success(data).with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
+                send_response_message(&stream, command, &serde_json::to_vec(&response).expect("response"), None)
+                    .expect("reply");
+            }
+        });
+        let received = RootHelperClient::new(socket_path.to_string_lossy().into_owned())
+            .recv_icmp_wrapped_udp(IcmpWrappedUdpRecvFilter {
+                bind_ip: Ipv4Addr::LOCALHOST.into(),
+                session_id: Some(17),
+                expected_code: Some(0),
+                expected_role: Some(IcmpWrappedUdpRole::ServerReply),
+                timeout_ms: 1,
+            })
+            .expect("complete ICMP receive response");
+        assert_eq!(received, expected);
+        server.join().expect("server");
+        std::fs::remove_file(socket_path).expect("remove socket");
+        std::fs::remove_file(nonce_path).expect("remove nonce");
+    }
+
     fn unique_suffix() -> u128 {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos()
     }

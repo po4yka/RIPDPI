@@ -3,6 +3,7 @@ use std::io;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::response_limits::{MAX_ICMP_RESPONSE_BYTES, validate_response_support};
 use crate::scm_rights::MAX_MESSAGE_BYTES;
 use crate::{
     CMD_SEND_FAKE_TCP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, FakeTcpParams, HelperRequest,
@@ -35,13 +36,17 @@ const BULK_TCP_LIMITS: BulkTcpLimits = BulkTcpLimits {
 
 /// Additive preflight metadata; the v4 parameter representation stays unchanged.
 pub fn bulk_tcp_preflight_data() -> Value {
-    serde_json::json!({ "bulk_tcp": BULK_TCP_LIMITS })
+    serde_json::json!({
+        "bulk_tcp": BULK_TCP_LIMITS,
+        "icmp_wrapped_udp_receive": { "max_response_bytes": MAX_ICMP_RESPONSE_BYTES },
+    })
 }
 
 /// Check the peer's advertised bulk limits before connecting to send a command.
 /// A legacy preflight without limits permits control-sized requests only.
 pub fn validate_request_with_peer(request: &HelperRequest, encoded_len: usize, preflight: &Value) -> io::Result<()> {
     validate_frame_limit(request, encoded_len, BULK_TCP_LIMITS)?;
+    validate_response_support(&request.command, preflight)?;
     if !matches!(
         request.command.as_str(),
         CMD_SEND_FAKE_TCP | CMD_SEND_ORDERED_TCP_SEGMENTS | CMD_SEND_MULTI_DISORDER_TCP

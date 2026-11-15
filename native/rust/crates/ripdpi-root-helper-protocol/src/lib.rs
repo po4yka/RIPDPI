@@ -15,6 +15,7 @@ mod commands;
 mod fragment_error;
 mod params;
 mod request_limits;
+mod response_limits;
 mod scm_rights;
 mod seqovl_refusal;
 mod wire;
@@ -36,7 +37,8 @@ pub use params::{
 };
 pub use request_limits::{bulk_tcp_preflight_data, validate_request_with_peer};
 pub use scm_rights::{
-    recv_message, recv_message_with_deadline, recv_request_message, send_message, send_request_message,
+    recv_message, recv_message_with_deadline, recv_request_message, recv_response_message_with_deadline, send_message,
+    send_request_message, send_response_message,
 };
 pub use wire::{
     CAPABILITY_VERSION, HelperRequest, HelperResponse, MAX_SESSION_NONCE_BYTES, MIN_SESSION_NONCE_BYTES,

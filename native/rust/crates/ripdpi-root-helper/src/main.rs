@@ -13,6 +13,8 @@ mod handlers;
 mod nfqws2;
 #[cfg(test)]
 mod request_deadline_tests;
+#[cfg(test)]
+mod response_tests;
 
 use std::ffi::CString;
 use std::fs;
@@ -208,13 +210,13 @@ fn handle_connection_with_backend(
 
     if !session_nonce_matches(session_nonce, request.session_nonce.as_deref()) {
         warn!(command = %request.command, "rejected command with invalid root-helper session nonce");
-        send_response(stream, HelperResponse::error("invalid root-helper session nonce"), None)?;
+        send_response(stream, &request.command, HelperResponse::error("invalid root-helper session nonce"), None)?;
         return Ok(());
     }
 
     if let Err(error) = protocol::validate_request_with_peer(&request, data.len(), &protocol::bulk_tcp_preflight_data())
     {
-        send_response(stream, HelperResponse::error(error.to_string()), None)?;
+        send_response(stream, &request.command, HelperResponse::error(error.to_string()), None)?;
         return Ok(());
     }
 
@@ -239,7 +241,7 @@ fn handle_connection_with_backend(
         unsafe { OwnedFd::from_raw_fd(fd) }
     });
 
-    send_response(stream, response, reply_fd)?;
+    send_response(stream, &request.command, response, reply_fd)?;
 
     Ok(())
 }
@@ -302,7 +304,12 @@ impl RequestDeadline {
     }
 }
 
-fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option<OwnedFd>) -> io::Result<()> {
+fn send_response(
+    stream: &UnixStream,
+    command: &str,
+    response: HelperResponse,
+    reply_fd: Option<OwnedFd>,
+) -> io::Result<()> {
     // Stamp every outbound response with the current protocol / capability
     // version so clients can gate features on a known-recent helper. Pre-
     // versioned clients tolerate the new fields (HelperResponse derives
@@ -310,7 +317,7 @@ fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option
     let response = response.with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
     let json =
         serde_json::to_vec(&response).map_err(|e| io::Error::other(format!("failed to serialize response: {e}")))?;
-    protocol::send_message(stream, &json, reply_fd.as_ref().map(AsFd::as_fd))
+    protocol::send_response_message(stream, command, &json, reply_fd.as_ref().map(AsFd::as_fd))
 }
 
 fn prepare_socket_for_app(socket_path: &Path) -> io::Result<()> {
@@ -419,7 +426,8 @@ mod tests {
     use std::thread;
 
     use ripdpi_root_helper_protocol::{
-        CMD_SHUTDOWN, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
+        CMD_PROTOCOL_PREFLIGHT, CMD_SHUTDOWN, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message,
+        send_message,
     };
 
     use super::{
@@ -489,8 +497,13 @@ mod tests {
         let (reply, mut peer) = UnixStream::pair().expect("descriptor lifetime oracle");
         peer.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("peer timeout");
 
-        send_response(&sender, HelperResponse::success(serde_json::Value::Null), Some(reply.into()))
-            .expect("send response");
+        send_response(
+            &sender,
+            CMD_PROTOCOL_PREFLIGHT,
+            HelperResponse::success(serde_json::Value::Null),
+            Some(reply.into()),
+        )
+        .expect("send response");
 
         let (_payload, received_fd) = recv_message(&receiver, "sender closed").expect("receive response");
         let mut received = UnixStream::from(received_fd.expect("received reply fd"));
@@ -510,8 +523,8 @@ mod tests {
         peer.set_read_timeout(Some(std::time::Duration::from_secs(1))).expect("peer timeout");
         let oversized_response = HelperResponse::success(serde_json::Value::String("x".repeat(8192)));
 
-        let error =
-            send_response(&sender, oversized_response, Some(reply.into())).expect_err("oversized response must fail");
+        let error = send_response(&sender, CMD_PROTOCOL_PREFLIGHT, oversized_response, Some(reply.into()))
+            .expect_err("oversized response must fail");
 
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
         assert_eq!(peer.read(&mut [0_u8]).expect("failed response must close its reply descriptor"), 0);

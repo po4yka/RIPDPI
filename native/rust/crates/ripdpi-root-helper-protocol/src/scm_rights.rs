@@ -7,6 +7,7 @@ use std::time::Instant;
 use nix::sys::socket::{self, ControlMessage, ControlMessageOwned, MsgFlags};
 
 use crate::request_limits::{MAX_BULK_REQUEST_BYTES, validate_request_envelope, validate_request_message};
+use crate::response_limits::response_limit;
 
 pub const MAX_MESSAGE_BYTES: usize = 8192;
 const FRAME_HEADER_BYTES: usize = size_of::<u32>();
@@ -34,6 +35,16 @@ fn recv_flags() -> MsgFlags {
 /// SCM_RIGHTS on the first bytes of the frame.
 pub fn send_message(stream: &UnixStream, json: &[u8], fd: Option<BorrowedFd<'_>>) -> io::Result<()> {
     send_frame(stream, json, fd, MAX_MESSAGE_BYTES)
+}
+
+/// Send a response with the bound for its command; other controls retain their limit.
+pub fn send_response_message(
+    stream: &UnixStream,
+    command: &str,
+    json: &[u8],
+    fd: Option<BorrowedFd<'_>>,
+) -> io::Result<()> {
+    send_frame(stream, json, fd, response_limit(command))
 }
 
 /// Send a command-bounded request; fake, ordered and multidisorder TCP commands admit bulk bytes.
@@ -102,6 +113,16 @@ pub fn recv_message_with_deadline(
     deadline: Instant,
 ) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
     recv_message_inner(stream, eof_message, Some(deadline), MAX_MESSAGE_BYTES)
+}
+
+/// Read a command-bounded response within the existing total deadline.
+pub fn recv_response_message_with_deadline(
+    stream: &UnixStream,
+    command: &str,
+    eof_message: &'static str,
+    deadline: Instant,
+) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
+    recv_message_inner(stream, eof_message, Some(deadline), response_limit(command))
 }
 
 fn recv_message_inner(
