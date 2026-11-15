@@ -33,10 +33,23 @@ fn accept_before(listener: &TcpListener) -> TcpStream {
     }
 }
 
+fn bind_retry_targets() -> (TcpListener, TcpListener) {
+    for _ in 0..64 {
+        let fallback = TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).expect("bind original IPv6 target");
+        let port = fallback.local_addr().expect("original target").port();
+        match TcpListener::bind((Ipv4Addr::LOCALHOST, port)) {
+            Ok(preferred) => return (fallback, preferred),
+            // The IPv6 ephemeral allocation does not reserve the same IPv4 port.
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => continue,
+            Err(error) => panic!("bind preferred IPv4 edge: {error}"),
+        }
+    }
+    panic!("cannot reserve a shared IPv4/IPv6 port after 64 attempts");
+}
+
 fn retry_session(fail_replacement: bool) {
-    let fallback = TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).expect("bind original IPv6 target");
+    let (fallback, preferred) = bind_retry_targets();
     let target = fallback.local_addr().expect("original target");
-    let preferred = TcpListener::bind((Ipv4Addr::LOCALHOST, target.port())).expect("bind preferred IPv4 edge");
     let preferred_ip = preferred.local_addr().expect("preferred edge").ip();
     let host = "fixture.test".to_owned();
     let mut context = ProxyRuntimeContext::default();
