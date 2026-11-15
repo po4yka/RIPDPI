@@ -1,8 +1,6 @@
 use crate::cdn_ech::source::EchSourceError;
 
-/// Sanity-check raw ECHConfigList bytes before accepting them as fresh remote
-/// config. We require a 2-byte length prefix that matches the rest of the
-/// buffer and the first ECHConfig version equal to `0xfe0d`.
+/// Parse the complete ECHConfigList and require at least one supported entry.
 pub fn validate_ech_config_list_bytes(bytes: &[u8]) -> Result<usize, EchSourceError> {
     if bytes.len() < 4 {
         return Err(EchSourceError::InvalidConfig(format!("ECHConfigList too short: {} bytes", bytes.len())));
@@ -14,11 +12,10 @@ pub fn validate_ech_config_list_bytes(bytes: &[u8]) -> Result<usize, EchSourceEr
             bytes.len()
         )));
     }
-    if bytes[2] != 0xfe || bytes[3] != 0x0d {
-        return Err(EchSourceError::InvalidConfig(format!(
-            "unexpected ECHConfig version 0x{:02x}{:02x}, want 0xfe0d",
-            bytes[2], bytes[3]
-        )));
+    let config = ripdpi_dns_resolver::parse_ech_config_list(bytes)
+        .map_err(|error| EchSourceError::InvalidConfig(error.to_string()))?;
+    if config.supported_config_list().is_none() {
+        return Err(EchSourceError::InvalidConfig("ECHConfigList has no supported entry".to_string()));
     }
     Ok(bytes.len())
 }

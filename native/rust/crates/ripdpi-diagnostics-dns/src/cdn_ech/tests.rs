@@ -88,9 +88,27 @@ fn validate_ech_config_list_bytes_rejects_length_prefix_mismatch() {
 }
 
 #[test]
-fn validate_ech_config_list_bytes_rejects_unknown_version() {
-    let err = validate_ech_config_list_bytes(&[0x00, 0x02, 0xfe, 0x0c]).expect_err("wrong version must fail");
-    assert!(matches!(err, EchSourceError::InvalidConfig(msg) if msg.contains("version")));
+fn validate_ech_config_list_bytes_rejects_unsupported_only_list() {
+    let err = validate_ech_config_list_bytes(&[0x00, 0x04, 0xfe, 0x0c, 0x00, 0x00])
+        .expect_err("an unsupported entry cannot make a usable cache entry");
+    assert!(matches!(err, EchSourceError::InvalidConfig(msg) if msg.contains("no supported entry")));
+}
+
+#[test]
+fn validator_rejects_missing_inner_length_and_truncated_contents() {
+    for bytes in [&[0x00, 0x02, 0xfe, 0x0d][..], &[0x00, 0x04, 0xfe, 0x0d, 0x00, 0x41][..]] {
+        assert!(matches!(validate_ech_config_list_bytes(bytes), Err(EchSourceError::InvalidConfig(_))));
+    }
+}
+
+#[test]
+fn validator_accepts_unknown_entry_before_supported_config() {
+    let mut bytes = vec![0, 0, 0xfe, 0x0c, 0, 0];
+    bytes.extend_from_slice(&CLOUDFLARE_ECH_CONFIG_LIST[2..]);
+    let payload_len = u16::try_from(bytes.len() - 2).unwrap();
+    bytes[..2].copy_from_slice(&payload_len.to_be_bytes());
+
+    assert_eq!(validate_ech_config_list_bytes(&bytes).unwrap(), bytes.len());
 }
 
 struct ClosureSource(Box<dyn Fn() -> Result<Vec<u8>, EchSourceError> + Send + Sync>);
@@ -198,8 +216,10 @@ fn seed_rejects_malformed_bytes_and_leaves_cache_untouched() {
     updater.seed_from_persisted(CLOUDFLARE_ECH_CONFIG_LIST.to_vec(), 1).expect("initial seed must succeed");
     let pre_snapshot = updater.snapshot_for_persistence().expect("cache must be populated");
 
-    let err = updater.seed_from_persisted(vec![0u8, 1, 2], 99).expect_err("malformed bytes must be rejected");
-    assert!(matches!(err, EchSourceError::InvalidConfig(_)), "expected InvalidConfig, got {err:?}");
+    for invalid in [vec![0u8, 1, 2], vec![0x00, 0x02, 0xfe, 0x0d]] {
+        let err = updater.seed_from_persisted(invalid, 99).expect_err("malformed bytes must be rejected");
+        assert!(matches!(err, EchSourceError::InvalidConfig(_)), "expected InvalidConfig, got {err:?}");
+    }
 
     let post_snapshot = updater.snapshot_for_persistence().expect("cache must remain populated");
     assert_eq!(post_snapshot.config, pre_snapshot.config);
