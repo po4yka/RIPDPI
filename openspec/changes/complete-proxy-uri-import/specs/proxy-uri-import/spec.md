@@ -93,3 +93,12 @@ FULL backup MUST retain all TUIC and advanced Mieru settings and credentials. SH
 
 - **WHEN** typed TUIC and advanced Mieru profiles enter FULL or SHARE backup
 - **THEN** FULL round-trip retains their values and field presence; SHARE succeeds, preserves public settings and removes credential values
+
+### Requirement: REQ-IMP01-ROUNDTRIP — Preserve raw Mieru preference presence
+
+The preference JSON codec MUST preserve absent, default, standard and no-wait Mieru handshake values and raw traffic-pattern presence through model and JSON round trips. It MUST NOT add Mieru settings to another relay kind. Effective settings MUST be computed at the runtime boundary.
+
+#### Scenario: Round-trip sparse Mieru preferences
+
+- **WHEN** a Mieru or other relay preference model is encoded and decoded
+- **THEN** its raw optional Mieru values remain unchanged and resolved runtime configuration still receives effective settings

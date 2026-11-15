@@ -36,6 +36,7 @@ Fix IMP-01 findings F1-F7. Add a usable TUIC v5 URI import path and pinned Mieru
 - Diagnostics lint worker owns DiagnosticsTransferUiModel.kt, DiagnosticsTelegramPresentation.kt, DiagnosticsTelegramCards.kt and DiagnosticsDpiSuitePresentation.kt in a separate worktree. This scope only clears inherited lint failures and retains behavior, strings and visual content.
 - The approved diagnostics lint changes were already present in upstream commits f4ae72c339, 1b34f1a235 and ef62e2514e at final rebase. The final change keeps those versions, including newer DoQ behavior, and has no production diagnostics diff.
 - Root owns BackupV1.kt, BackupAllowlistCoverageTest.kt and BackupUriProfileTest.kt for the hosted-CI backup policy correction. The existing deny-by-default rule stays in force.
+- Round-trip worker owns RelaySectionCodec.kt and its existing RelayNativeConfigTest.kt, RipDpiProxyPreferencesTest.kt and RipDpiProxyJsonCodecTest.kt suites. It also owns RipDpiProxyJsonCodec.kt for the bounded selected-profile merge check, and SubscriptionReserveRefreshTest.kt for the obsolete unsupported fixture. Its worktree is imp01-roundtrip; it does not edit task artifacts or backup policy.
 - Workers use separate worktrees. Shared files have one active writer. No worker edits task artifacts, baselines, Cargo.lock or version catalogs.
 - Required reviewers: pr-reviewer for the combined behavior/contract change; async-cancel-safety for native async changes; JNI verifier only if an actual JNI signature changes.
 
