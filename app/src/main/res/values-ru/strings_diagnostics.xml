@@ -1118,7 +1118,7 @@
     <string name="detection_settings_port_end_label">Конец</string>
     <string name="detection_settings_port_range_title">Диапазон портов</string>
     <string name="detection_settings_port_start_label">Начало</string>
-    <string name="detection_settings_privacy_mode_subtitle">Маскирует экспортируемые адреса и отключает проверки достижимости PT, которые обращаются к брокерам и мостам obfs4.</string>
+    <string name="detection_settings_privacy_mode_subtitle">Скрывает адреса и сведения о VPN-приложениях в экспорте. Отключает проверки PT, которые обращаются к брокерам и мостам obfs4.</string>
     <string name="detection_settings_protanopia_unlocked">Вариант для протанопии разблокирован</string>
     <string name="detection_settings_proxy_scan_subtitle">Искать прокси-точки на localhost</string>
     <string name="detection_settings_proxy_scan_title">Сканирование прокси</string>

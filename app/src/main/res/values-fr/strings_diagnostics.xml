@@ -699,7 +699,7 @@
     <string name="detection_settings_port_end_label">Fin</string>
     <string name="detection_settings_port_range_title">Plage de ports</string>
     <string name="detection_settings_port_start_label">Début</string>
-    <string name="detection_settings_privacy_mode_subtitle">Masque les adresses exportées et désactive les vérifications d\'accessibilité PT qui contactent les courtiers et les ponts obfs4.</string>
+    <string name="detection_settings_privacy_mode_subtitle">Masque les adresses et les détails des applications VPN dans les exports. Désactive les vérifications PT qui contactent les intermédiaires et les ponts obfs4.</string>
     <string name="detection_settings_protanopia_unlocked">Variante protanopie débloquée</string>
     <string name="detection_settings_proxy_scan_subtitle">Rechercher les points de terminaison proxy sur localhost</string>
     <string name="detection_settings_proxy_scan_title">Analyse de proxy</string>

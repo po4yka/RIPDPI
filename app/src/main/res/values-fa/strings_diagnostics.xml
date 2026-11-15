@@ -699,7 +699,7 @@
     <string name="detection_settings_port_end_label">پایان</string>
     <string name="detection_settings_port_range_title">بازهٔ پورت</string>
     <string name="detection_settings_port_start_label">شروع</string>
-    <string name="detection_settings_privacy_mode_subtitle">نشانی‌های صادرشده را پنهان می‌کند و بررسی‌های دسترس‌پذیری PT را که با کارگزارها و پل‌های obfs4 تماس می‌گیرند غیرفعال می‌کند.</string>
+    <string name="detection_settings_privacy_mode_subtitle">نشانی‌ها و جزئیات برنامه‌های VPN را در خروجی پنهان می‌کند. بررسی‌های PT که با کارگزارها و پل‌های obfs4 تماس می‌گیرند غیرفعال می‌شوند.</string>
     <string name="detection_settings_protanopia_unlocked">گونهٔ پروتانوپیا باز شد</string>
     <string name="detection_settings_proxy_scan_subtitle">جست‌وجوی نقاط پایانی پروکسی روی localhost</string>
     <string name="detection_settings_proxy_scan_title">پویش پروکسی</string>

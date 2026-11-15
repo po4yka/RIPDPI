@@ -726,7 +726,7 @@
     <string name="detection_settings_port_end_label">End</string>
     <string name="detection_settings_port_range_title">Port range</string>
     <string name="detection_settings_port_start_label">Start</string>
-    <string name="detection_settings_privacy_mode_subtitle">Masks exported addresses and disables PT reachability checks that contact brokers and obfs4 bridges.</string>
+    <string name="detection_settings_privacy_mode_subtitle">Hides addresses and VPN app details in exports. Disables PT checks that contact brokers and obfs4 bridges.</string>
     <string name="detection_settings_protanopia_unlocked">Protanopia variant unlocked</string>
     <string name="detection_settings_proxy_scan_subtitle">Search localhost proxy endpoints</string>
     <string name="detection_settings_proxy_scan_title">Proxy scan</string>

@@ -699,7 +699,7 @@
     <string name="detection_settings_port_end_label">Fin</string>
     <string name="detection_settings_port_range_title">Rango de puertos</string>
     <string name="detection_settings_port_start_label">Inicio</string>
-    <string name="detection_settings_privacy_mode_subtitle">Enmascara las direcciones exportadas y desactiva las comprobaciones de accesibilidad PT que contactan con brokers y puentes obfs4.</string>
+    <string name="detection_settings_privacy_mode_subtitle">Oculta las direcciones y los detalles de aplicaciones VPN en las exportaciones. Desactiva las comprobaciones PT que contactan con intermediarios y puentes obfs4.</string>
     <string name="detection_settings_protanopia_unlocked">Variante para protanopía desbloqueada</string>
     <string name="detection_settings_proxy_scan_subtitle">Busca puntos finales de proxy en localhost</string>
     <string name="detection_settings_proxy_scan_title">Escaneo de proxy</string>

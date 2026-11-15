@@ -12,6 +12,7 @@ import com.poyka.ripdpi.core.detection.VerdictNarrative
 import com.poyka.ripdpi.core.detection.VerdictNarrativeBuilder
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
+import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
 import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 
@@ -20,39 +21,40 @@ object DetectionMarkdownExportFormatter {
         result: DetectionCheckResult,
         metadata: DetectionExportMetadata,
     ): String {
+        val report = result.redactAppIdentities(metadata.privacyMode)
         val ipMasked =
             DetectionPrivacyMask.maskIpsInText(
                 buildString {
-                    val narrative = result.verdictNarrative ?: VerdictNarrativeBuilder.build(result)
+                    val narrative = report.verdictNarrative ?: VerdictNarrativeBuilder.build(report)
                     appendLine("# RipDPI Detection Report")
                     appendLine()
-                    appendSummary(result, narrative, metadata)
-                    appendVerdict(result, narrative)
-                    appendSectionSummary(result)
-                    appendCategory("GeoIp", result.geoIp)
-                    appendIpComparison(result)
-                    appendCdnPulling(result)
-                    appendCategory("DirectSigns", result.directSigns)
-                    appendCategory("IndirectSigns", result.indirectSigns)
-                    appendCategory("NativeSigns", result.nativeSigns?.category)
-                    appendCategory("TimingAnalysis", result.timingAnalysis)
-                    appendCategory("IcmpSpoofing", result.icmpSpoofing?.category)
-                    appendCategory("RttTriangulation", result.rttTriangulation?.category)
-                    appendCategory("CallTransport", result.callTransport?.category)
-                    appendCategory("LocationSignals", result.locationSignals)
-                    appendIpChannels(result)
+                    appendSummary(report, narrative, metadata)
+                    appendVerdict(report, narrative)
+                    appendSectionSummary(report)
+                    appendCategory("GeoIp", report.geoIp)
+                    appendIpComparison(report)
+                    appendCdnPulling(report)
+                    appendCategory("DirectSigns", report.directSigns)
+                    appendCategory("IndirectSigns", report.indirectSigns)
+                    appendCategory("NativeSigns", report.nativeSigns?.category)
+                    appendCategory("TimingAnalysis", report.timingAnalysis)
+                    appendCategory("IcmpSpoofing", report.icmpSpoofing?.category)
+                    appendCategory("RttTriangulation", report.rttTriangulation?.category)
+                    appendCategory("CallTransport", report.callTransport?.category)
+                    appendCategory("LocationSignals", report.locationSignals)
+                    appendIpChannels(report)
                     appendLine("## TunProbeDiagnostics")
                     appendLine()
                     appendLine("- not collected")
                     appendLine()
-                    appendBypass(result.bypassResult, metadata.privacyMode)
+                    appendBypass(report.bypassResult, metadata.privacyMode)
                     appendFooter(metadata)
                 },
                 enabled = metadata.privacyMode,
             )
         return DetectionPrivacyMask.maskHostNamesInText(
             ipMasked,
-            result.bypassResult.xrayHostNames(),
+            report.bypassResult.xrayHostNames(),
             enabled = metadata.privacyMode,
         )
     }

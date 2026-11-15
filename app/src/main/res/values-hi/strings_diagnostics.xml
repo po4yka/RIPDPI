@@ -733,7 +733,7 @@
     <string name="detection_settings_port_end_label">अंत</string>
     <string name="detection_settings_port_range_title">पोर्ट रेंज</string>
     <string name="detection_settings_port_start_label">शुरुआत</string>
-    <string name="detection_settings_privacy_mode_subtitle">निर्यात किए गए पते छिपाता है और ब्रोकर तथा obfs4 ब्रिज से संपर्क करने वाली PT पहुँच जाँचों को अक्षम करता है।</string>
+    <string name="detection_settings_privacy_mode_subtitle">निर्यात में पते और VPN ऐप का विवरण छिपाता है। ब्रोकर और obfs4 ब्रिज से संपर्क करने वाली PT जाँचें बंद करता है।</string>
     <string name="detection_settings_protanopia_unlocked">प्रोटानोपिया वैरिएंट अनलॉक हुआ</string>
     <string name="detection_settings_proxy_scan_subtitle">localhost प्रॉक्सी एंडपॉइंट खोजें</string>
     <string name="detection_settings_proxy_scan_title">प्रॉक्सी स्कैन</string>

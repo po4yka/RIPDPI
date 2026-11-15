@@ -702,7 +702,7 @@
     <string name="detection_settings_port_end_label">النهاية</string>
     <string name="detection_settings_port_range_title">نطاق المنافذ</string>
     <string name="detection_settings_port_start_label">البداية</string>
-    <string name="detection_settings_privacy_mode_subtitle">يخفي العناوين المُصدَّرة ويعطّل فحوص وصول PT التي تتصل بالوسطاء وجسور obfs4.</string>
+    <string name="detection_settings_privacy_mode_subtitle">يخفي العناوين وتفاصيل تطبيقات VPN في التقارير المصدّرة. يوقف فحوص PT التي تتصل بالوسطاء وجسور obfs4.</string>
     <string name="detection_settings_protanopia_unlocked">تم فتح متغير عمى الألوان البروتاني</string>
     <string name="detection_settings_proxy_scan_subtitle">ابحث عن نقاط نهاية الوكيل على localhost</string>
     <string name="detection_settings_proxy_scan_title">فحص الوكيل</string>

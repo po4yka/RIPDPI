@@ -1,36 +1,38 @@
 package com.poyka.ripdpi.core.detection
 
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
+import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
 
 object DetectionReportFormatter {
     fun format(
         result: DetectionCheckResult,
         privacyModeEnabled: Boolean = false,
-    ): String =
-        DetectionPrivacyMask.maskIpsInText(
+    ): String {
+        val report = result.redactAppIdentities(privacyModeEnabled)
+        return DetectionPrivacyMask.maskIpsInText(
             buildString {
                 appendLine("=== Detection Check Report ===")
                 appendLine()
-                appendLine("Verdict: ${result.verdict}")
+                appendLine("Verdict: ${report.verdict}")
                 appendLine()
-                appendNarrative(result.verdictNarrative ?: VerdictNarrativeBuilder.build(result))
+                appendNarrative(report.verdictNarrative ?: VerdictNarrativeBuilder.build(report))
 
-                appendCategory("GeoIP", result.geoIp)
-                appendCategory("Direct Signs", result.directSigns)
-                appendCategory("Indirect Signs", result.indirectSigns)
-                appendCategory("Location Signals", result.locationSignals)
-                appendBypass(result.bypassResult)
-                result.dnsLeak?.let { appendCategory("DNS Leak", it) }
-                result.webRtcLeak?.let { appendCategory("WebRTC Leak", it) }
-                result.tlsFingerprint?.let { appendCategory("TLS Fingerprint", it) }
-                result.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
-                result.icmpSpoofing?.let { appendCategory("ICMP Spoofing", it.category) }
-                result.rttTriangulation?.let { appendCategory("RTT Triangulation", it.category) }
-                result.callTransport?.let { appendCategory("Call Transport", it.category) }
+                appendCategory("GeoIP", report.geoIp)
+                appendCategory("Direct Signs", report.directSigns)
+                appendCategory("Indirect Signs", report.indirectSigns)
+                appendCategory("Location Signals", report.locationSignals)
+                appendBypass(report.bypassResult)
+                report.dnsLeak?.let { appendCategory("DNS Leak", it) }
+                report.webRtcLeak?.let { appendCategory("WebRTC Leak", it) }
+                report.tlsFingerprint?.let { appendCategory("TLS Fingerprint", it) }
+                report.timingAnalysis?.let { appendCategory("Timing Analysis", it) }
+                report.icmpSpoofing?.let { appendCategory("ICMP Spoofing", it.category) }
+                report.rttTriangulation?.let { appendCategory("RTT Triangulation", it.category) }
+                report.callTransport?.let { appendCategory("Call Transport", it.category) }
 
-                appendLine("Methodology: ${result.methodologyVersion}")
+                appendLine("Methodology: ${report.methodologyVersion}")
 
-                val recommendations = DetectionRecommendations.generate(result)
+                val recommendations = DetectionRecommendations.generate(report)
                 if (recommendations.isNotEmpty()) {
                     appendLine()
                     appendLine("--- Recommendations ---")
@@ -44,6 +46,7 @@ object DetectionReportFormatter {
             },
             enabled = privacyModeEnabled,
         )
+    }
 
     private fun StringBuilder.appendCategory(
         title: String,

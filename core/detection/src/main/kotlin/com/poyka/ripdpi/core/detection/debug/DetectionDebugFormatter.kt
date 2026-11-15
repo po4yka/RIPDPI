@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.NativeSignsResult
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
+import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
 
 data class DetectionDebugSettings(
     val cdnPullingEnabled: Boolean = false,
@@ -40,7 +41,7 @@ object DetectionDebugFormatter {
         DetectionPrivacyMask.maskIpsInText(
             buildString {
                 appendSettings(settings)
-                appendCategories(result)
+                appendCategories(result.redactAppIdentities(privacyModeEnabled))
                 appendIndirectPerformance(snapshot)
                 appendLocationDebug(snapshot)
                 appendNativeRaw(result.nativeSigns, snapshot.nativeSigns)

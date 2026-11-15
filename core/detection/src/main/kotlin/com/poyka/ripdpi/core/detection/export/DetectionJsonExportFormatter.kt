@@ -13,6 +13,7 @@ import com.poyka.ripdpi.core.detection.VerdictNarrativeBuilder
 import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
+import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
 import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 import com.poyka.ripdpi.serialization.RipDpiPrettyJson
@@ -31,15 +32,16 @@ object DetectionJsonExportFormatter {
         metadata: DetectionExportMetadata,
     ): String {
         val context = JsonExportContext(metadata.privacyMode, result.bypassResult.xrayHostNames())
-        val narrative = result.verdictNarrative ?: VerdictNarrativeBuilder.build(result)
+        val report = result.redactAppIdentities(metadata.privacyMode)
+        val narrative = report.verdictNarrative ?: VerdictNarrativeBuilder.build(report)
         return json.encodeToString(
             JsonObject.serializer(),
             JsonObject(
                 mapOf(
                     "meta" to meta(metadata, context),
-                    "verdict" to verdict(result, narrative, context),
-                    "results" to results(result, context),
-                    "ipConsensus" to ipConsensus(result, context),
+                    "verdict" to verdict(report, narrative, context),
+                    "results" to results(report, context),
+                    "ipConsensus" to ipConsensus(report, context),
                     "tunProbeDiagnostics" to JsonObject(mapOf("available" to JsonPrimitive(false))),
                 ),
             ),
