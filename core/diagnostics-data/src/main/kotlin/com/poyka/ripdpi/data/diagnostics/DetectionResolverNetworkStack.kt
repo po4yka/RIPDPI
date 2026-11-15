@@ -261,6 +261,13 @@ class DetectionResolverNetworkStack(
         proxy: Proxy? = null,
     ): DetectionTransportResponse = executeBufferedCall(clientFor(config), request, maxResponseBytes, proxy)
 
+    /** Cancels owned resolver calls; platform SYSTEM lookups may finish in the OS after cancellation. */
+    suspend fun resolveAddressesCancellable(
+        hostname: String,
+        config: DetectionResolverConfig = DetectionResolverConfig(),
+    ): List<InetAddress> =
+        resolveDnsAddresses(clientFor(config).dns, hostname, config.callTimeoutMillis, config.addressFamily)
+
     internal fun buildClient(config: DetectionResolverConfig): OkHttpClient {
         val dispatcher = Dispatcher()
         val dns = createDns(config, dispatcher)
@@ -347,6 +354,7 @@ class DetectionResolverNetworkStack(
                 .Builder()
                 .client(bootstrapClient)
                 .url(config.dohPreset.dohUrl.toHttpUrl())
+                .includeServiceMetadata(false)
         if (bootstrapHosts.isNotEmpty()) {
             builder.bootstrapDnsHosts(bootstrapHosts)
         }
@@ -369,6 +377,8 @@ internal class FilteringDns(
     private val delegate: Dns,
     private val addressFamily: DetectionAddressFamily,
 ) : Dns {
+    override fun newCall(request: Dns.Request): Dns.Call = FilteringDnsCall(delegate.newCall(request), addressFamily)
+
     override fun lookup(hostname: String): List<InetAddress> {
         val all = delegate.lookup(hostname)
         val filtered =
@@ -393,6 +403,8 @@ internal class CancellableDns(
         if (cancelled) throw UnknownHostException("DNS lookup cancelled")
         return delegate.lookup(hostname)
     }
+
+    override fun newCall(request: Dns.Request): Dns.Call = delegate.newCall(request).also { if (cancelled) it.cancel() }
 
     fun cancel() {
         cancelled = true
