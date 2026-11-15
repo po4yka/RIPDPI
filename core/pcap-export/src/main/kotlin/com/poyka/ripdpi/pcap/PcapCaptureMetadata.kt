@@ -34,6 +34,8 @@ data class PcapStopResult(
     val files: List<PcapCaptureMetadata>,
     @SerialName("totalDrops") val totalDrops: Long = 0L,
     val failure: String? = null,
+    val pending: Boolean = false,
+    @SerialName("limitReached") val limitReached: Boolean = false,
 )
 
 /** Path-free terminal evidence; raw PCAP remains a separate user artifact. */
@@ -42,6 +44,7 @@ data class PcapCaptureCompletionReceipt(
     @SerialName("captureSetId") val captureSetId: Long,
     @SerialName("totalDrops") val totalDrops: Long?,
     val outcome: PcapCaptureOutcome,
+    @SerialName("limitReached") val limitReached: Boolean = false,
 )
 
 @Serializable

@@ -10,10 +10,9 @@ import com.poyka.ripdpi.core.Tun2SocksNativeLoader
  *  - jniPcapStart returns positive capture-set id on success, 0 on
  *    failure. The capture set is bound to the tunnel session handle;
  *    jniDestroy on the session retires the capture-set automatically.
- *  - jniPcapStop returns a typed JSON completion response: whether a
- *    capture was active, only fully finalized capture files, and an
- *    optional stable writer-failure code. Returns null if the native
- *    call panics; callers surface this as a terminal failure.
+ *  - jniPcapStop returns a typed JSON completion response. With
+ *    finishedOnly set, pending=true leaves a running writer untouched.
+ *    A null response means the JNI call failed.
  *  - jniPcapListCaptures returns a JSON array of best-effort metadata
  *    (filesystem size only; packet count NOT computed - call
  *    PcapReader to count packets per file). Returns null if the
@@ -43,7 +42,10 @@ internal object PcapBridge {
         maxFiles: Int,
     ): Long
 
-    external fun jniPcapStop(sessionHandle: Long): String?
+    external fun jniPcapStop(
+        sessionHandle: Long,
+        finishedOnly: Boolean,
+    ): String?
 
     external fun jniPcapListCaptures(captureDir: String): String?
 

@@ -10,7 +10,7 @@
 
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::BufWriter;
+use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 #[cfg(test)]
@@ -146,6 +146,7 @@ pub enum PcapWriterFailure {
     Open,
     Write,
     Finalize,
+    Metadata,
     Panic,
     Timeout,
 }
@@ -153,14 +154,14 @@ pub enum PcapWriterFailure {
 #[derive(Debug, Default)]
 struct WriterResult {
     files: Vec<PcapCaptureMetadata>,
-    oversized_records: u64,
+    total_drops: u64,
+    limit_reached: bool,
     failure: Option<PcapWriterFailure>,
 }
 
 impl PcapCaptureSet {
-    /// Start a capture session. Spawns the writer thread immediately
-    /// and returns. Records pushed via [`Self::submit`] are flushed at
-    /// most every 1 s OR every 1 MiB written, whichever first.
+    /// Open the first segment and flush its header before admitting packets.
+    /// The worker flushes after 1 s or 1 MiB of buffered records.
     ///
     /// `dir` must already exist and be writable. `max_file_bytes` and
     /// `max_files` together cap the on-disk footprint (default per
@@ -178,17 +179,24 @@ impl PcapCaptureSet {
                 format!("pcap dir does not exist: {}", dir.display()),
             ));
         }
+        let first = OpenCapture::create(&dir, set_id, 0)?;
         // 1024 records ~ 1.5 MiB at MTU 1500 ~ 6 s at 200 pkt/s.
-        let queue: Arc<ArrayQueue<PcapCaptureRecord>> = Arc::new(ArrayQueue::new(1024));
+        let queue = Arc::new(ArrayQueue::new(1024));
         let drops = Arc::new(AtomicU64::new(0));
         let admissions = Arc::new(CaptureAdmission::new());
         let stop = Arc::new(AtomicBool::new(false));
-        let q = queue.clone();
-        let s = stop.clone();
-        let d = dir.clone();
-        let writer_thread = thread::Builder::new()
-            .name(format!("ripdpi-pcap-writer-{set_id}"))
-            .spawn(move || writer_loop(set_id, d, q, s, max_file_bytes, max_files))?;
+        let writer = CaptureWriter {
+            set_id,
+            dir: dir.clone(),
+            queue: queue.clone(),
+            drops: drops.clone(),
+            stop: stop.clone(),
+            admission: CloseAdmissionOnExit(admissions.clone()),
+            max_file_bytes,
+            max_files,
+        };
+        let writer_thread =
+            thread::Builder::new().name(format!("ripdpi-pcap-writer-{set_id}")).spawn(move || writer.run(first))?;
         Ok(Self { set_id, dir, queue, drops, admissions, stop, writer_thread: Some(writer_thread) })
     }
 
@@ -209,30 +217,32 @@ impl PcapCaptureSet {
         }
     }
 
-    /// Signal the writer thread to drain the queue, fsync the final
-    /// file, and exit. Returns the metadata of every file written.
+    /// Join a writer that already finished or was explicitly stopped.
     pub fn stop(mut self) -> WriterStopResult {
         self.request_stop();
-        let mut result =
-            WriterStopResult { files: Vec::new(), total_drops: self.drops.load(Ordering::Relaxed), failure: None };
-        if let Some(handle) = self.writer_thread.take() {
-            match join_writer_bounded(handle, WRITER_STOP_TIMEOUT) {
-                Ok(writer_result) => {
-                    result.files = writer_result.files;
-                    result.failure = writer_result.failure;
-                    result.total_drops += writer_result.oversized_records;
-                    // Annotate the drops on the last file (most informative
-                    // location for the UI).
-                    if let Some(last) = result.files.last_mut() {
-                        last.drops = result.total_drops;
-                    }
-                }
-                Err(failure) => {
-                    result.failure = Some(failure);
-                }
-            }
+        let result = self.writer_thread.take().map(|worker| join_writer_bounded(worker, WRITER_STOP_TIMEOUT));
+        match result {
+            Some(Ok(result)) => WriterStopResult {
+                files: result.files,
+                total_drops: result.total_drops,
+                limit_reached: result.limit_reached,
+                failure: result.failure,
+            },
+            other => WriterStopResult {
+                files: Vec::new(),
+                total_drops: self.drops.load(Ordering::Relaxed).saturating_add(self.queue.len() as u64),
+                limit_reached: false,
+                failure: other.and_then(Result::err),
+            },
         }
-        result
+    }
+
+    pub(crate) fn writer_finished(&self) -> bool {
+        self.writer_thread.as_ref().is_none_or(JoinHandle::is_finished)
+    }
+
+    pub(crate) fn wait_finished(&self) -> bool {
+        self.writer_thread.as_ref().is_none_or(|worker| wait_for_writer(worker, WRITER_STOP_TIMEOUT))
     }
 
     pub(crate) fn request_stop(&self) {
@@ -274,12 +284,16 @@ impl Drop for PcapCaptureSet {
     }
 }
 
-fn join_writer_bounded(handle: JoinHandle<WriterResult>, timeout: Duration) -> Result<WriterResult, PcapWriterFailure> {
+fn wait_for_writer(handle: &JoinHandle<WriterResult>, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     while !handle.is_finished() && Instant::now() < deadline {
         thread::sleep(WRITER_JOIN_POLL.min(deadline.saturating_duration_since(Instant::now())));
     }
-    if handle.is_finished() {
+    handle.is_finished()
+}
+
+fn join_writer_bounded(handle: JoinHandle<WriterResult>, timeout: Duration) -> Result<WriterResult, PcapWriterFailure> {
+    if wait_for_writer(&handle, timeout) {
         return handle.join().map_err(|_| {
             tracing::error!("pcap writer panicked during finalization");
             PcapWriterFailure::Panic
@@ -330,129 +344,211 @@ fn now_micros() -> u64 {
 pub struct WriterStopResult {
     pub files: Vec<PcapCaptureMetadata>,
     pub total_drops: u64,
+    pub limit_reached: bool,
     pub failure: Option<PcapWriterFailure>,
 }
 
-fn writer_loop(
+/// Releases admission on allocation or I/O panic before the observer can enqueue again.
+struct CloseAdmissionOnExit(Arc<CaptureAdmission>);
+
+impl Drop for CloseAdmissionOnExit {
+    fn drop(&mut self) {
+        self.0.close_and_wait();
+    }
+}
+
+struct OpenCapture {
+    active_path: PathBuf,
+    completed_path: PathBuf,
+    started_at_ms: u64,
+}
+
+impl OpenCapture {
+    fn create(dir: &Path, set_id: u64, idx: u32) -> io::Result<(Self, PcapWriter<BufWriter<File>>)> {
+        let started_at_ms = now_ms();
+        let completed_path = dir.join(format!("{set_id:016x}-{started_at_ms}-{idx:02}.pcap"));
+        let active_path = completed_path.with_extension("pcap.active");
+        let file = File::create_new(&active_path)?;
+        let capture = Self { active_path, completed_path, started_at_ms };
+        let mut writer = PcapWriter::new(BufWriter::with_capacity(64 * 1024, file), SNAPLEN_DEFAULT)?;
+        writer.flush()?;
+        Ok((capture, writer))
+    }
+
+    fn finish(mut self, writer: PcapWriter<BufWriter<File>>, packets: u64) -> io::Result<PcapCaptureMetadata> {
+        let byte_size = writer.bytes_written();
+        let file = writer.into_inner().into_inner().map_err(std::io::IntoInnerError::into_error)?;
+        file.sync_all()?;
+        fs::rename(&self.active_path, &self.completed_path)?;
+        self.active_path.clear();
+        Ok(PcapCaptureMetadata {
+            path: self.completed_path.display().to_string(),
+            byte_size,
+            packet_count: packets,
+            started_at_ms: self.started_at_ms,
+            ended_at_ms: now_ms(),
+            drops: 0,
+        })
+    }
+}
+
+impl Drop for OpenCapture {
+    fn drop(&mut self) {
+        if !self.active_path.as_os_str().is_empty() {
+            let _ = fs::remove_file(&self.active_path);
+        }
+    }
+}
+
+struct CaptureWriter {
     set_id: u64,
     dir: PathBuf,
     queue: Arc<ArrayQueue<PcapCaptureRecord>>,
+    drops: Arc<AtomicU64>,
     stop: Arc<AtomicBool>,
+    admission: CloseAdmissionOnExit,
     max_file_bytes: u64,
     max_files: u32,
-) -> WriterResult {
-    #[cfg(test)]
-    let _live_writer = LiveWriterGuard::enter();
-    let mut result = WriterResult::default();
-    let mut file_idx: u32 = 0;
-    let mut pending = None;
-    while file_idx < max_files {
-        match open_file(set_id, &dir, file_idx) {
-            Ok((active_path, completed_path, file, started_at_ms)) => {
-                let drain = drain_one_file(&queue, &stop, file, max_file_bytes, &mut pending);
-                match drain {
-                    Ok((bytes, packets, oversized_records)) => {
-                        result.oversized_records += oversized_records;
-                        if let Err(err) = fs::rename(&active_path, &completed_path) {
-                            tracing::warn!(error = %err, "pcap writer failed to finalize capture file");
-                            let _ = fs::remove_file(&active_path);
-                            result.failure = Some(PcapWriterFailure::Finalize);
-                            break;
-                        }
-                        result.files.push(PcapCaptureMetadata {
-                            path: completed_path.display().to_string(),
-                            byte_size: bytes,
-                            packet_count: packets,
-                            started_at_ms,
-                            ended_at_ms: now_ms(),
-                            drops: 0, // populated in stop()
-                        });
-                    }
-                    Err(err) => {
-                        tracing::warn!(error = %err, "pcap writer failed; removing incomplete capture file");
-                        let _ = fs::remove_file(&active_path);
-                        result.failure = Some(PcapWriterFailure::Write);
+}
+
+#[derive(Default)]
+struct CaptureProgress {
+    /// Entries pulled from the queue, including a pending rotation record.
+    taken: u64,
+    pending: Option<PcapCaptureRecord>,
+}
+
+impl CaptureWriter {
+    fn run(self, first: (OpenCapture, PcapWriter<BufWriter<File>>)) -> WriterResult {
+        #[cfg(test)]
+        let _live_writer = LiveWriterGuard::enter();
+        let mut result = WriterResult::default();
+        let mut first = Some(first);
+        let mut progress = CaptureProgress::default();
+        for index in 0..self.max_files {
+            let (segment, mut writer) =
+                match first.take().map_or_else(|| OpenCapture::create(&self.dir, self.set_id, index), Ok) {
+                    Ok(segment) => segment,
+                    Err(error) => {
+                        tracing::warn!(%error, "pcap writer could not open a new segment");
+                        result.failure = Some(PcapWriterFailure::Open);
                         break;
                     }
+                };
+            let packets = match self.drain_segment(&mut writer, &mut progress) {
+                Ok(packets) => packets,
+                Err(error) => {
+                    self.admission.0.close_and_wait();
+                    tracing::warn!(%error, "pcap writer failed; removing incomplete segment");
+                    result.failure = Some(PcapWriterFailure::Write);
+                    break;
                 }
-                file_idx += 1;
-                if stop.load(Ordering::Acquire) && pending.is_none() && queue.is_empty() {
+            };
+            let rotates = progress.pending.is_some() || writer.bytes_written() == self.max_file_bytes;
+            if rotates && index + 1 == self.max_files {
+                result.limit_reached = true;
+                self.admission.0.close_and_wait();
+            }
+            match segment.finish(writer, packets) {
+                Ok(file) => result.files.push(file),
+                Err(error) => {
+                    tracing::warn!(%error, "pcap writer failed to finalize segment");
+                    result.failure = Some(PcapWriterFailure::Finalize);
                     break;
                 }
             }
-            Err(err) => {
-                tracing::warn!(error = %err, "pcap writer failed to create capture file");
-                result.failure = Some(PcapWriterFailure::Open);
+            if !rotates || (self.stop.load(Ordering::Acquire) && progress.pending.is_none() && self.queue.is_empty()) {
                 break;
             }
         }
+
+        self.admission.0.close_and_wait();
+        let written = result.files.iter().map(|file| file.packet_count).sum::<u64>();
+        // Only this writer pops records. Once admission closes, all producers have
+        // published their enqueue or queue-full drop before we read either count.
+        let dropped_after_enqueue = progress.taken - written + self.queue.len() as u64;
+        while self.queue.pop().is_some() {}
+        result.total_drops = self.drops.load(Ordering::Relaxed).saturating_add(dropped_after_enqueue);
+        if let Some(last) = result.files.last_mut().filter(|_| result.total_drops > 0) {
+            last.drops = result.total_drops;
+            if let Err(error) = persist_drops(Path::new(&last.path), last.drops) {
+                tracing::warn!(%error, "pcap writer failed to save drop count");
+                result.failure.get_or_insert(PcapWriterFailure::Metadata);
+            }
+        }
+        result
+    }
+
+    fn drain_segment(
+        &self,
+        writer: &mut PcapWriter<BufWriter<File>>,
+        progress: &mut CaptureProgress,
+    ) -> io::Result<u64> {
+        let mut packets = 0;
+        let mut last_flush = Instant::now();
+        let mut flushed_bytes = writer.bytes_written();
+        loop {
+            match progress.pending.take().or_else(|| {
+                let record = self.queue.pop()?;
+                progress.taken += 1;
+                Some(record)
+            }) {
+                Some(record) => {
+                    let captured_len = record.bytes.len().min(SNAPLEN_DEFAULT as usize);
+                    let record_bytes = (PCAP_PACKET_HEADER_LEN + captured_len) as u64;
+                    if record_bytes <= self.max_file_bytes - PCAP_GLOBAL_HEADER_LEN as u64 {
+                        if record_bytes > self.max_file_bytes - writer.bytes_written() {
+                            progress.pending = Some(record);
+                            break;
+                        }
+                        writer.write_packet(record.ts_micros, &record.bytes)?;
+                        packets += 1;
+                    }
+                    if writer.bytes_written() == self.max_file_bytes {
+                        break;
+                    }
+                }
+                None => {
+                    // The empty pop could precede the last admitted producer.
+                    if self.stop.load(Ordering::Acquire) && self.queue.is_empty() {
+                        break;
+                    }
+                    thread::sleep(Duration::from_millis(50));
+                }
+            }
+            if last_flush.elapsed() >= Duration::from_secs(1) || writer.bytes_written() - flushed_bytes >= 1024 * 1024 {
+                writer.flush()?;
+                last_flush = Instant::now();
+                flushed_bytes = writer.bytes_written();
+            }
+        }
+        Ok(packets)
+    }
+}
+
+fn persist_drops(capture: &Path, drops: u64) -> io::Result<()> {
+    let path = capture.with_extension("pcap.drops");
+    let temporary = capture.with_extension("pcap.drops.tmp");
+    let mut file = File::create_new(&temporary)?;
+    let result = file.write_all(&drops.to_le_bytes()).and_then(|()| file.sync_all());
+    drop(file);
+    let result = result.and_then(|()| fs::rename(&temporary, path));
+    if result.is_err() {
+        let _ = fs::remove_file(temporary);
     }
     result
 }
 
-fn open_file(set_id: u64, dir: &Path, idx: u32) -> std::io::Result<(PathBuf, PathBuf, BufWriter<File>, u64)> {
-    let started = now_ms();
-    let filename = format!("{set_id:016x}-{started}-{idx:02}.pcap");
-    let completed_path = dir.join(filename);
-    let active_path = completed_path.with_extension("pcap.active");
-    let file = File::create(&active_path)?;
-    let writer = BufWriter::with_capacity(64 * 1024, file);
-    Ok((active_path, completed_path, writer, started))
-}
-
-/// Keep a record that fits only in the next segment in `pending`.
-/// A record larger than an empty segment is counted as a capture drop.
-fn drain_one_file(
-    queue: &ArrayQueue<PcapCaptureRecord>,
-    stop: &AtomicBool,
-    file: BufWriter<File>,
-    max_file_bytes: u64,
-    pending: &mut Option<PcapCaptureRecord>,
-) -> std::io::Result<(u64, u64, u64)> {
-    let mut writer = PcapWriter::new(file, SNAPLEN_DEFAULT)?;
-    let mut packets: u64 = 0;
-    let mut oversized_records = 0;
-    let mut last_flush = Instant::now();
-    loop {
-        match pending.take().or_else(|| queue.pop()) {
-            Some(record) => {
-                let captured_len = record.bytes.len().min(SNAPLEN_DEFAULT as usize);
-                let record_bytes = (PCAP_PACKET_HEADER_LEN + captured_len) as u64;
-                if record_bytes > max_file_bytes - PCAP_GLOBAL_HEADER_LEN as u64 {
-                    oversized_records += 1;
-                } else {
-                    if record_bytes > max_file_bytes - writer.bytes_written() {
-                        *pending = Some(record);
-                        break;
-                    }
-                    writer.write_packet(record.ts_micros, &record.bytes)?;
-                    packets += 1;
-                }
-                if writer.bytes_written() == max_file_bytes {
-                    break;
-                }
-            }
-            None => {
-                // The empty pop could precede the last admitted producer.
-                if stop.load(Ordering::Acquire) && queue.is_empty() {
-                    break;
-                }
-                thread::sleep(Duration::from_millis(50));
-            }
+fn read_drops(capture: &Path) -> io::Result<u64> {
+    let mut bytes = [0; 8];
+    match File::open(capture.with_extension("pcap.drops")) {
+        Ok(mut file) => {
+            file.read_exact(&mut bytes)?;
+            Ok(u64::from_le_bytes(bytes))
         }
-        // Flush every 1s OR every 1MiB - whichever first.
-        if last_flush.elapsed() >= Duration::from_secs(1) {
-            writer.flush()?;
-            last_flush = Instant::now();
-        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(0),
+        Err(error) => Err(error),
     }
-    writer.flush()?;
-    let bytes = writer.bytes_written();
-    // PcapWriter -> BufWriter<File> -> File chain for fsync.
-    let buf_writer = writer.into_inner();
-    let inner_file = buf_writer.into_inner().map_err(std::io::IntoInnerError::into_error)?;
-    inner_file.sync_all()?;
-    Ok((bytes, packets, oversized_records))
 }
 
 fn now_ms() -> u64 {
@@ -479,7 +575,7 @@ pub fn list_captures(dir: &Path) -> Vec<PcapCaptureMetadata> {
             packet_count: 0,
             started_at_ms: 0,
             ended_at_ms: 0,
-            drops: 0,
+            drops: read_drops(&path).unwrap_or(0),
         });
     }
     files
@@ -679,20 +775,48 @@ mod tests {
         }
         release.wait();
         callback.join().expect("callback must finish");
-        assert_eq!(stopper.join().expect("stop must finish").total_drops, 1);
+        assert_eq!(stopper.join().expect("stop must finish").total_drops, 2);
     }
 
     #[test]
-    fn writer_open_failure_is_terminal_and_returns_no_capture_file() {
+    fn start_opens_and_flushes_the_header_before_returning() {
+        let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
-        let missing = dir.path().join("missing");
-        let queue = Arc::new(ArrayQueue::new(1));
-        let stop = Arc::new(AtomicBool::new(true));
+        let capture = PcapCaptureSet::start(44, dir.path().to_path_buf(), 1024, 1).unwrap();
+        let marker = fs::read_dir(dir.path()).unwrap().next().unwrap().unwrap().path();
+        assert!(is_active_capture(&marker));
+        assert_eq!(fs::read(marker).unwrap()[..8], [0xd4, 0xc3, 0xb2, 0xa1, 2, 0, 4, 0]);
+        assert_eq!(capture.stop().failure, None);
+    }
 
-        let result = writer_loop(44, missing, queue, stop, 1024, 1);
-
-        assert_eq!(result.failure, Some(PcapWriterFailure::Open));
-        assert!(result.files.is_empty());
+    #[test]
+    fn writer_closes_admission_and_counts_pending_records_at_capacity() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let queue = Arc::new(ArrayQueue::new(4));
+        for marker in 1..=3 {
+            queue.push(fake_packet(marker)).unwrap();
+        }
+        let admissions = Arc::new(CaptureAdmission::new());
+        let writer = CaptureWriter {
+            set_id: 45,
+            dir: dir.path().to_path_buf(),
+            queue: queue.clone(),
+            drops: Arc::new(AtomicU64::new(0)),
+            stop: Arc::new(AtomicBool::new(false)),
+            admission: CloseAdmissionOnExit(admissions.clone()),
+            max_file_bytes: 100,
+            max_files: 1,
+        };
+        let first = OpenCapture::create(dir.path(), 45, 0).unwrap();
+        let result = writer.run(first);
+        assert!(result.limit_reached);
+        assert_eq!(result.failure, None);
+        assert_eq!(result.files[0].packet_count, 1);
+        assert_eq!(result.total_drops, 2);
+        assert!(admissions.try_acquire().is_none());
+        assert!(queue.is_empty());
+        assert_eq!(list_captures(dir.path())[0].drops, 2);
     }
 
     #[test]

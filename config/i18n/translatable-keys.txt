@@ -4988,6 +4988,7 @@ app:vpn_dev_pcap_section_title
 app:vpn_dev_pcap_toggle_desc
 app:vpn_dev_pcap_toggle_label
 app:vpn_disconnected
+app:vpn_pcap_capture_limit_reached
 app:vpn_pcap_capture_list_empty
 app:vpn_pcap_capture_list_empty_title
 app:vpn_pcap_capture_list_read_failed_body

@@ -227,6 +227,7 @@
     <string name="vpn_pcap_read_failed">无法读取 PCAP 数据。</string>
     <string name="vpn_pcap_truncated">仅显示部分捕获内容。</string>
     <string name="vpn_pcap_no_packets">此捕获没有数据包。</string>
+    <string name="vpn_pcap_capture_limit_reached">录制已达到捕获大小上限并停止。</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">开发者</string>
     <string name="vpn_dev_pcap_toggle_label">数据包捕获（诊断）</string>

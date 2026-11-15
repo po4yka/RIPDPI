@@ -62,8 +62,13 @@ class PcapController
 
         suspend fun stop(sessionHandle: Long): PcapStopResult =
             withContext(Dispatchers.IO) {
-                val json = PcapBridge.jniPcapStop(sessionHandle)
-                decodeStopResult(json)
+                decodeStopResult(PcapBridge.jniPcapStop(sessionHandle, finishedOnly = false))
+            }
+
+        suspend fun pollCompletion(sessionHandle: Long): PcapStopResult? =
+            withContext(Dispatchers.IO) {
+                decodeStopResult(PcapBridge.jniPcapStop(sessionHandle, finishedOnly = true))
+                    .takeUnless { it.pending }
             }
 
         suspend fun listCaptures(captureDir: File): List<PcapCaptureMetadata> =
@@ -114,21 +119,11 @@ class PcapController
             }
 
             private fun decodeStopResult(json: String?): PcapStopResult {
-                if (json == null) {
-                    return PcapStopResult(
-                        wasActive = true,
-                        files = emptyList(),
-                        failure = "native_call",
-                    )
-                }
+                if (json == null) throw IOException("Native capture stop failed")
                 return try {
                     JSON.decodeFromString(json)
-                } catch (_: Throwable) {
-                    PcapStopResult(
-                        wasActive = true,
-                        files = emptyList(),
-                        failure = "invalid_native_response",
-                    )
+                } catch (error: SerializationException) {
+                    throw IOException("Invalid capture stop response", error)
                 }
             }
         }

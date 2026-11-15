@@ -10,6 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -19,6 +20,122 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PcapCaptureRuntimeControllerTest {
+    @Test
+    fun `capacity publishes the capture receipt without a user stop`() =
+        runTest {
+            var terminalReady = false
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { error("Poll must not stop an active writer") },
+                    pollCompletion = {
+                        if (terminalReady) {
+                            PcapStopResult(
+                                true,
+                                emptyList(),
+                                totalDrops = 2L,
+                                limitReached = true,
+                            )
+                        } else {
+                            null
+                        }
+                    },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindTunnel(FakeTunnelBridge(41L))
+            controller.start()
+            advanceTimeBy(300L)
+            assertEquals(PcapCaptureRuntimeState.Recording(7L), controller.state.value)
+
+            terminalReady = true
+            advanceTimeBy(300L)
+            val expected =
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 2L, PcapCaptureOutcome.CapturedSeparate, limitReached = true),
+                )
+            assertEquals(expected, controller.state.value)
+            assertEquals(expected, controller.stopIfOwned(7L))
+        }
+
+    @Test
+    fun `owner settles an automatic completion after manual recording starts`() =
+        runTest {
+            var nextId = 7L
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { nextId++ },
+                    stopCapture = { PcapStopResult(true, emptyList()) },
+                    pollCompletion = { PcapStopResult(true, emptyList(), totalDrops = 2L, limitReached = true) },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindTunnel(FakeTunnelBridge(41L))
+            assertEquals(
+                PcapCaptureLeaseAcquisition.Acquired(PcapCaptureRuntimeState.Recording(7L)),
+                controller.startIfIdle(),
+            )
+            advanceTimeBy(300L)
+            assertEquals(PcapCaptureRuntimeState.Recording(8L), controller.start())
+
+            assertEquals(
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 2L, PcapCaptureOutcome.CapturedSeparate, limitReached = true),
+                ),
+                controller.stopIfOwned(7L),
+            )
+            assertEquals(PcapCaptureRuntimeState.Recording(8L), controller.state.value)
+            assertEquals(null, controller.stopIfOwned(7L))
+        }
+
+    @Test
+    fun `monitor finishes with failure after its native handle retires`() =
+        runTest {
+            val bridge = FakeTunnelBridge(41L)
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { error("The retired handle cannot be stopped") },
+                    pollCompletion = { error("The retired handle cannot be polled") },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindTunnel(bridge)
+            controller.start()
+            bridge.handle = null
+            advanceTimeBy(300L)
+
+            assertEquals(
+                PcapCaptureRuntimeState.Failed(
+                    PcapCaptureCompletionReceipt(7L, null, PcapCaptureOutcome.Failed),
+                    "session_unavailable",
+                ),
+                controller.state.value,
+            )
+        }
+
+    @Test
+    fun `native timeout leaves stop retryable until completion is collected`() =
+        runTest {
+            var terminalReady = false
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { PcapStopResult(true, emptyList(), failure = "timeout") },
+                    pollCompletion = { if (terminalReady) PcapStopResult(true, emptyList()) else null },
+                    monitorScope = backgroundScope,
+                )
+            controller.bindTunnel(FakeTunnelBridge(41L))
+            controller.start()
+            assertEquals(PcapCaptureRuntimeState.StopFailed(7L, "timeout"), controller.stop())
+
+            terminalReady = true
+            advanceTimeBy(300L)
+            assertEquals(
+                PcapCaptureRuntimeState.Completed(
+                    PcapCaptureCompletionReceipt(7L, 0L, PcapCaptureOutcome.CapturedSeparate),
+                ),
+                controller.state.value,
+            )
+        }
+
     @Test
     fun `capture cleanup waits for native start and observes its published lease`() =
         runTest {
@@ -231,7 +348,7 @@ class PcapCaptureRuntimeControllerTest {
         }
 
     private class FakeTunnelBridge(
-        private val handle: Long?,
+        var handle: Long?,
     ) : Tun2SocksBridge {
         override suspend fun start(
             config: Tun2SocksConfig,
@@ -247,7 +364,6 @@ class PcapCaptureRuntimeControllerTest {
 
         override suspend fun forwardingEvidence(): TunForwardingEvidence = TunForwardingEvidence()
 
-        override suspend fun <T> withSessionHandle(block: suspend (Long) -> T): T? =
-            if (handle == null) null else block(handle)
+        override suspend fun <T> withSessionHandle(block: suspend (Long) -> T): T? = handle?.let { block(it) }
     }
 }

@@ -234,6 +234,7 @@
     <string name="vpn_pcap_read_failed">No se pudieron leer los datos PCAP.</string>
     <string name="vpn_pcap_truncated">Se muestra una parte de la captura.</string>
     <string name="vpn_pcap_no_packets">Esta captura no contiene paquetes.</string>
+    <string name="vpn_pcap_capture_limit_reached">La grabación se detuvo al alcanzar el límite de tamaño de la captura.</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Desarrollador</string>
     <string name="vpn_dev_pcap_toggle_label">Captura de paquetes (diagnóstico)</string>

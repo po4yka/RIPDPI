@@ -204,8 +204,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_jni_PcapBridge_jniPcapStop(
     env: EnvUnowned<'_>,
     _class: JObject,
     handle: jlong,
+    finished_only: jni::sys::jboolean,
 ) -> jni::sys::jstring {
-    ffi_boundary(core::ptr::null_mut(), move || tunnel_pcap_stop_entry(env, handle))
+    ffi_boundary(core::ptr::null_mut(), move || tunnel_pcap_stop_entry(env, handle, finished_only))
 }
 
 #[unsafe(no_mangle)]
