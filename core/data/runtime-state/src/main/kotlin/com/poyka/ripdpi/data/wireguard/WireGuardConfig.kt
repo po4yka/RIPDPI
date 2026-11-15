@@ -19,8 +19,8 @@ import kotlinx.serialization.Serializable
 /**
  * The `[Interface]` section of a WireGuard `.conf` file.
  *
- * Only the fields RIPDPI needs are modelled; unknown keys are dropped by the
- * parser. `address` and `dns` are comma-separated lists in the source format.
+ * The parser rejects unknown options. The source format allows comma-separated
+ * `address` and `dns` entries.
  */
 @Serializable
 data class WireGuardInterface(
@@ -29,6 +29,8 @@ data class WireGuardInterface(
     val dns: List<String> = emptyList(),
     val mtu: Int? = null,
     val listenPort: Int? = null,
+    /** Canonical names of source options that standalone activation does not apply. */
+    val ignoredOptions: List<String> = emptyList(),
 ) {
     override fun toString(): String =
         "WireGuardInterface(privateKey=${redacted(privateKey)}, address=${redacted(address)}, dns=$dns, " +

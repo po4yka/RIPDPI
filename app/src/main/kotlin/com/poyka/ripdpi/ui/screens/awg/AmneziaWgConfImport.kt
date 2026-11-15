@@ -61,6 +61,7 @@ private fun AmneziaWgEditorState.imported(
     return AwgConfImport.Imported(
         editor = editor,
         ignoredPeerCount = (parsed.peers.size - 1).coerceAtLeast(0),
+        ignoredOptions = parsed.interfaceSection.ignoredOptions,
     )
 }
 
@@ -145,6 +146,7 @@ sealed interface AwgConfImport {
     data class Imported(
         val editor: AmneziaWgEditorState,
         val ignoredPeerCount: Int,
+        val ignoredOptions: List<String>,
     ) : AwgConfImport
 
     data class Failed(

@@ -391,6 +391,21 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `ignored interface options keep canonical names and discard their values`() {
+        val conf =
+            interfaceConf(
+                "table = off\nPreUp = fixture-host-option\nTABLE = auto\nListenPort = 51820",
+            )
+        val iface = WireGuardConfParser.parse(conf).interfaceSection
+        assertEquals(listOf("Table", "PreUp", "ListenPort"), iface.ignoredOptions)
+        assertEquals(51820, iface.listenPort)
+        assertFalse(iface.toString().contains("fixture-host-option"))
+        assertThrows(IllegalArgumentException::class.java) {
+            WireGuardConfParser.parse(interfaceConf("ListenPort = 65536"))
+        }
+    }
+
+    @Test
     fun `a second interface cannot overwrite the first interface settings`() {
         val conf = vanillaConf + "\n[ iNtErFaCe ] ; duplicate\nPrivateKey = different"
         assertThrows(IllegalArgumentException::class.java) { WireGuardConfParser.parse(conf) }

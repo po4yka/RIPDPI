@@ -195,6 +195,13 @@ internal fun AmneziaWgProfileScreen(
                 tone = WarningBannerTone.Info,
             )
         }
+        if (uiState.ignoredConfOptions.isNotEmpty()) {
+            WarningBanner(
+                title = stringResource(R.string.awg_conf_ignored_options_title),
+                message = uiState.ignoredConfOptions.joinToString(),
+                tone = WarningBannerTone.Info,
+            )
+        }
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
         CarrierSection(uiState, onFieldChanged, onCarrierSelected)

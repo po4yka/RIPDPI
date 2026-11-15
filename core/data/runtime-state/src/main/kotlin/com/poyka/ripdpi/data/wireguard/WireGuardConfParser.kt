@@ -41,21 +41,23 @@ object WireGuardConfParser {
      * amneziawg-android, and the retired AWG 1.5 `J1`..`J3`/`Itime` keys.
      */
     private val IgnoredInterfaceKeys =
-        setOf(
-            "table",
-            "preup",
-            "postup",
-            "predown",
-            "postdown",
-            "saveconfig",
-            "fwmark",
-            "includedapplications",
-            "excludedapplications",
-            "j1",
-            "j2",
-            "j3",
-            "itime",
-        )
+        listOf(
+            "Table",
+            "PreUp",
+            "PostUp",
+            "PreDown",
+            "PostDown",
+            "SaveConfig",
+            "FwMark",
+            "IncludedApplications",
+            "ExcludedApplications",
+            "J1",
+            "J2",
+            "J3",
+            "Itime",
+        ).associateBy { it.lowercase() }
+
+    private const val MaxListenPort = 65_535
 
     private enum class Section { NONE, INTERFACE, PEER }
 
@@ -70,6 +72,7 @@ object WireGuardConfParser {
         val dns = mutableListOf<String>()
         var mtu: Int? = null
         var listenPort: Int? = null
+        val ignoredOptions = linkedSetOf<String>()
         val awg = AmneziaWgBuilder()
 
         fun build(): WireGuardInterface =
@@ -79,6 +82,7 @@ object WireGuardConfParser {
                 dns = dns.toList(),
                 mtu = mtu,
                 listenPort = listenPort,
+                ignoredOptions = ignoredOptions.toList(),
             )
     }
 
@@ -254,13 +258,36 @@ object WireGuardConfParser {
         value: String,
     ) {
         when (val normalizedKey = key.lowercase()) {
-            "privatekey" -> builder.privateKey = value
-            "address" -> builder.address += splitList(value)
-            "dns" -> builder.dns += splitList(value)
-            "mtu" -> builder.mtu = parseNonNegativeInt(key, value)
-            "listenport" -> builder.listenPort = parseNonNegativeInt(key, value)
-            in IgnoredInterfaceKeys -> Unit
-            else -> applyAmneziaWgKey(builder.awg, normalizedKey, value)
+            "privatekey" -> {
+                builder.privateKey = value
+            }
+
+            "address" -> {
+                builder.address += splitList(value)
+            }
+
+            "dns" -> {
+                builder.dns += splitList(value)
+            }
+
+            "mtu" -> {
+                builder.mtu = parseNonNegativeInt(key, value)
+            }
+
+            "listenport" -> {
+                val port = parseNonNegativeInt("ListenPort", value)
+                require(port <= MaxListenPort) { "WireGuard ListenPort must be a 16-bit port" }
+                builder.listenPort = port
+                builder.ignoredOptions += "ListenPort"
+            }
+
+            in IgnoredInterfaceKeys -> {
+                builder.ignoredOptions += IgnoredInterfaceKeys.getValue(normalizedKey)
+            }
+
+            else -> {
+                applyAmneziaWgKey(builder.awg, normalizedKey, value)
+            }
         }
     }
 

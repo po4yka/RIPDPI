@@ -230,6 +230,33 @@ class AmneziaWgProfileScreenTest {
     }
 
     @Test
+    fun `conf preview identifies ignored options without showing their values`() {
+        val viewModel = viewModel()
+        viewModel.onConfPasted(
+            """
+            [Interface]
+            PrivateKey = test-private-key
+            Address = 10.8.0.2/32
+            ListenPort = 51821
+            PostUp = ignored-hook-value
+            [Peer]
+            PublicKey = test-peer-key
+            Endpoint = imported.example.com:51820
+            AllowedIPs = 192.0.2.0/24
+            """.trimIndent(),
+        )
+        composeRule.setContent {
+            RipDpiTheme { AmneziaWgProfileRoute(onBack = {}, viewModel = viewModel, appPin = null) }
+        }
+
+        val title = RuntimeEnvironment.getApplication().getString(R.string.awg_conf_ignored_options_title)
+        composeRule.onNodeWithText(title).assertExists()
+        composeRule.onNodeWithText("ListenPort", substring = true).assertExists()
+        composeRule.onNodeWithText("PostUp", substring = true).assertExists()
+        composeRule.onNodeWithText("ignored-hook-value", substring = true).assertDoesNotExist()
+    }
+
+    @Test
     fun `route launches VPN consent and activates only after its result`() {
         permissionBridge.vpnPermissionIntent = Intent("test.awg.vpn.consent")
         val viewModel = viewModel()

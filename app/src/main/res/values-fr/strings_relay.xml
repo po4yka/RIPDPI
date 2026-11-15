@@ -372,6 +372,7 @@
     <string name="awg_conf_import_unreadable_body">RIPDPI n’a pas pu lire le fichier. Il est vide, dépasse 64 Ko ou n’est pas un fichier texte.</string>
     <string name="awg_conf_extra_peers_title">Seul le premier pair est utilisé</string>
     <string name="awg_conf_extra_peers_body">Sections [Peer] supplémentaires ignorées : %1$d. RIPDPI se connecte uniquement via le premier pair.</string>
+    <string name="awg_conf_ignored_options_title">Paramètres ignorés</string>
     <string name="awg_conf_unsupported_option_body">La configuration utilise une option que RIPDPI ne prend pas en charge : %1$s.</string>
     <string name="ssh_host_key_fetch_action">Récupérer la clé de l\'hôte</string>
     <string name="ssh_host_key_fetch_error_invalid">Vérifiez l\'adresse et le port du serveur.</string>

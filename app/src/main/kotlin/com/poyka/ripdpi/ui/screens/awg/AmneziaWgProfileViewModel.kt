@@ -84,6 +84,7 @@ data class AmneziaWgProfileUiState(
     val confImportFailure: AwgConfImport.Failed? = null,
     /** `[Peer]` sections the last imported `.conf` had beyond the first one, which the editor ignores. */
     val ignoredPeerCount: Int = 0,
+    val ignoredConfOptions: List<String> = emptyList(),
 )
 
 /**
@@ -205,6 +206,7 @@ class AmneziaWgProfileViewModel
                     is AwgConfImport.Imported -> {
                         state.withEditor(result.editor).copy(
                             ignoredPeerCount = result.ignoredPeerCount,
+                            ignoredConfOptions = result.ignoredOptions,
                             privateKeyRevealed = false,
                             presharedKeyRevealed = false,
                             headerProtectionKeyRevealed = false,
