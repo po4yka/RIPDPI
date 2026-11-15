@@ -2,7 +2,7 @@
 id: RLY-1794757174777852
 title: Correct AUX-02 relay clock trust and replay handling
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: Relay runtime
