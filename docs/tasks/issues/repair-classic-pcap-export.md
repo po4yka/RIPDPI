@@ -2,7 +2,7 @@
 id: DGN-1794755342253604
 title: Repair classic PCAP capture and export
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: PCAP integration

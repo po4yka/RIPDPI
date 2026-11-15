@@ -10,7 +10,7 @@ Task DGN-1794755342253604 repairs the nine AUX-01 findings with independent comm
 ## Decisions
 
 - Enforce a 262144-byte per-record allocation bound. Decode lengths as unsigned. Reject invalid header fields and distinguish complete EOF from a partial record.
-- Keep original and captured lengths separate in the writer record API. Stage a redacted file in private cache, copy it only to a document the user creates, and delete that document on copy failure when the provider permits deletion.
+- Keep original and captured lengths separate in the writer record API. Stage a redacted file in private cache, copy it only to a document the user creates, and delete that document on copy failure when the provider permits deletion. A later export removes staging directories abandoned by exited processes.
 - Read the existing capture setting at the capture controller boundary. Stop recording on withdrawal, including withdrawal during a diagnostic run. Enabling the setting permits a later explicit start.
 - Report asynchronous writer completion in the existing capture lease. Close admission before counting discarded queue records. Keep drop counts with the finalized capture and include active slots in storage accounting.
 
@@ -24,7 +24,7 @@ Task DGN-1794755342253604 repairs the nine AUX-01 findings with independent comm
 ## Risks / Trade-offs
 
 - Document providers control deletion. Surface incomplete cleanup and close the descriptor.
-- Strict PCAP validation changes malformed-file behavior. Existing valid captures remain readable.
+- Strict PCAP validation changes malformed-file behavior. Existing app captures within the supported format and record bound remain readable.
 - Storage cleanup is periodic for expired inactive captures. Captures beyond the managed boundary need no device or production access for host validation.
 
 ## Migration Plan

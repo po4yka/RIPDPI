@@ -42,7 +42,7 @@ Redaction MUST preserve source snaplen, original packet lengths, captured length
 
 ### Requirement: REQ-AUX01-F5 — Reader validation
 
-Both readers MUST validate classic PCAP 2.4 little-endian raw IP headers, unsigned lengths, and microsecond timestamps before allocating packet storage.
+Both readers MUST validate classic PCAP 2.4 little-endian file and record headers for LINKTYPE_RAW, unsigned lengths, and microsecond timestamps before allocating packet storage.
 
 #### Scenario: Reader validation
 
@@ -83,5 +83,4 @@ Listing MUST distinguish an empty capture directory from filesystem failure.
 #### Scenario: Listing status
 
 - **WHEN** The capture directory cannot be listed
-- **THEN** The viewer displays a recoverable listing error.
-
+- **THEN** The capture list displays a recoverable listing error.
