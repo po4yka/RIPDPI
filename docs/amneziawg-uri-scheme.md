@@ -19,7 +19,7 @@ amneziawg://<private-key>@<host>:<port>
   &dns=<ip,ip>
   &mtu=<n>
   &persistent_keepalive=<range>
-  &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=0&s4=0
+  &jc=<n>&jmin=<n>&jmax=<n>&s1=<n>&s2=<n>&s3=<n>&s4=<n>
   &h1=<range>&h2=<range>&h3=<range>&h4=<range>
   &i1=<program>&i2=<program>&i3=<program>&i4=<program>&i5=<program>
   &header_protection_key=<key>&content_padding_addition=<range>
@@ -35,15 +35,15 @@ amneziawg://<private-key>@<host>:<port>
 - **`public_key`** — the peer public key (base64). **Mandatory.**
 - **`preshared_key`** — optional peer preshared key (base64).
 - **`address`** — optional comma-separated `[Interface] Address` CIDR list.
-- **`allowed_ips`** — comma-separated CIDR list (e.g. `0.0.0.0/0,::/0`).
+- **`allowed_ips`** — optional comma-separated CIDR list (e.g. `0.0.0.0/0,::/0`). If present, it must have at least one nonempty entry. An absent field selects the default routes for the configured interface address families at activation.
 - **`dns`** — comma-separated DNS server list.
 - **`mtu`** — interface MTU.
 - **`persistent_keepalive`** — optional `[Peer] PersistentKeepalive` seconds, `lo` or an AWG 3.x `lo-hi` range. A range starts at 1 or more; `0` alone means no keepalive.
 - **`jc` `jmin` `jmax` `s1` `s2`** — AmneziaWG junk-packet parameters: `jc` is 0–128; sizes are 0–1280. `jmin <= jmax` applies even when `jc` is zero. Initiation and response sizes (`148+s1`, `92+s2`) must differ.
-- **`s3` `s4`** — cookie-reply and transport padding sizes, from 0 to 1280 bytes. AmneziaVPN 5.x servers use 12 for both, which 3.x header protection needs. An absent key means zero.
+- **`s3` `s4`** — cookie-reply and transport padding sizes, from 0 to 1280 bytes. An absent key means zero. A valid nonzero header-protection key requires each of `s1`..`s4` to be at least 12.
 - **`h1`..`h4`** — canonical unsigned decimal strings, either a singleton (`100`) or inclusive range (`100-199`). Ranges are disjoint; custom values exceed 4. Each standard singleton may retain its own message type (1, 2, 3, or 4). Each outbound packet samples its header afresh; receive accepts the full range.
 - **`i1`..`i5`** — optional nonempty programs made from `<b 0x...>`, `<r N>`, `<rd N>`, `<rc N>`, and `<t>`. Hex literals are lowercase and even-length. Counts are 1–1280; each program has at most 64 tags, 4096 characters, and 1280 output bytes. Programs generate fresh random bytes, digits, letters, and a four-byte big-endian Unix timestamp before every initiation, including retries. Slots run before `Jc` packets.
-- **AWG 3.x keys** — optional; each is omitted when unset. `header_protection_key` is a base64 32-byte key and a secret. The range keys (`content_padding_addition`, `rekey_after_time`, `rekey_timeout`, `reject_after_time`, `keepalive_timeout`, `max_handshake_attempts`) are `lo` or `lo-hi` with `lo <= hi <= 65535`. `random_trailers` and `disable_cookies` are `on` or `off`. Header protection needs `s1`..`s4` of at least 12; AmneziaVPN 5.x links use 12 for all four. The wire rules are in [AmneziaWG 3.x wire semantics](native/amneziawg-3x-wire-semantics.md).
+- **AWG 3.x keys** — optional; each is omitted when unset. `header_protection_key` is a base64 32-byte key and a secret. The range keys (`content_padding_addition`, `rekey_after_time`, `rekey_timeout`, `reject_after_time`, `keepalive_timeout`, `max_handshake_attempts`) are `lo` or `lo-hi` with `lo <= hi <= 65535`. `random_trailers` and `disable_cookies` are `on` or `off`. A valid nonzero header-protection key needs `s1`..`s4` of at least 12; an all-zero key disables header protection. The wire rules are in [AmneziaWG 3.x wire semantics](native/amneziawg-3x-wire-semantics.md).
 - **fragment** — the profile display name (percent-encoded). When absent, the host is used as the name.
 
 ## Example
@@ -58,12 +58,23 @@ The codec (`AmneziaWgUriCodec`) never throws on `decode`:
 
 - An unrecognised scheme, a structurally broken URI, or a missing mandatory field (private key, public key, host, port) yields `null`.
 - Unknown options, malformed obfuscation values, overlapping header ranges, and empty signature programs yield `null`. An invalid optional `mtu` is omitted.
-- Non-zero `s3` or `s4` yields `null`; `encode` rejects an unsafe in-memory profile instead of silently changing it.
+- `s3` and `s4` accept values from 0 to 1280. Out-of-range values or insufficient padding for a valid nonzero header-protection key yield `null`; `encode` rejects such a profile.
+- An explicitly empty `allowed_ips` list yields `null`. This includes a list made only of commas or whitespace. An absent field keeps the activation defaults.
 
-`AmneziaWgProfile.toWgQuickConf()` renders a decoded profile as `.conf` text that `WireGuardConfParser` reads back to the same fields.
+`AmneziaWgProfile.toWgQuickConf()` writes the configuration fields as `.conf` text for `WireGuardConfParser`. It does not write the display name. It rejects values with line breaks or comment characters; the import classifier reports a normal import failure for those values.
 
 The bundle contract is version 2. Producers and consumers must roll out together. Old numeric-header bundles and persisted profiles require refresh or reimport. Incompatible saved rows remain in Room and the keystore but cannot activate or terminate profile observation.
 
-For supported profiles, `encode` followed by `decode` round-trips an `AmneziaWgProfile` losslessly.
+For canonical profiles, `encode` followed by `decode` preserves the model fields. A canonical profile uses an unbracketed host, a nonempty name, trimmed nonempty list entries, `null` for absent I slots and the preshared key, and no upper keepalive bound for a fixed interval.
+
+The codec applies these normalizations:
+
+- Empty I slots in a model are omitted on encode and become `null` on decode. An explicit empty `i1`..`i5` query field is rejected.
+- List entries are trimmed and empty entries are removed. An explicitly empty `allowed_ips` list is rejected.
+- An absent or empty fragment uses the host as the name.
+- Equal keepalive bounds become a fixed interval with no upper bound in the model.
+- Brackets around an IPv6 authority host are removed in the model. An empty preshared key becomes `null`.
+
+These normalizations preserve configuration meaning; they do not preserve the original URI text or every noncanonical model value. URI decoding does not check peer authentication or server compatibility.
 
 WARP settings also store header ranges and I1–I5 programs. Their protobuf contract reserves the old numeric header fields. Old active WARP settings require an explicit preset selection or import of the new settings contract; the stored numeric bytes are not reinterpreted as ranges.
