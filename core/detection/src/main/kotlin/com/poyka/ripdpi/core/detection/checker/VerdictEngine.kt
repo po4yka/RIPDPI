@@ -139,7 +139,7 @@ object VerdictEngine {
             }
         val hasDirectHit =
             directSigns.detected ||
-                directSigns.needsReview ||
+                (directSigns.needsReview && directSigns.evidence.any(EvidenceItem::detected)) ||
                 bypassResult.detected ||
                 evidence.any {
                     it.isDetected(
@@ -210,7 +210,7 @@ object VerdictEngine {
             }
 
             hasNeedsReviewFallback(
-                hasDirectHit = hasDirectHit,
+                hasDirectHit = hasDirectHit || directSigns.needsReview,
                 hasIndirectHit = hasIndirectHit,
                 hasGenericActive = hasGenericActive,
                 ipComparison = ipComparison,

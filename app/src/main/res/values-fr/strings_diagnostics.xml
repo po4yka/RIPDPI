@@ -1671,7 +1671,7 @@
     <string name="detection_exposure_clean_reason">Les tests n’ont révélé aucun signal de contournement, de VPN, d’IP, de DNS, de TLS, d’anomalie temporelle ou de visibilité native.</string>
     <string name="detection_exposure_clean_hint">Conservez le profil actuel et refaites le test après un changement de réseau ou de profil.</string>
     <string name="detection_exposure_low_hint">Gardez des résultats sans signal et améliorez le profil de camouflage avant de vous fier à des réseaux plus stricts.</string>
-    <string name="detection_exposure_generic_reason">La détection a trouvé un signal d’exposition, mais aucune cause plus précise n’était disponible.</string>
+    <string name="detection_exposure_generic_reason">Ouvrez les catégories détaillées pour examiner les observations.</string>
     <string name="detection_exposure_generic_hint">Ouvrez les catégories détaillées ci-dessous et ajustez le premier élément détecté ou à vérifier.</string>
     <string name="detection_exposure_generic_review">signal à vérifier</string>
     <string name="detection_exposure_generic_detection">test de détection</string>

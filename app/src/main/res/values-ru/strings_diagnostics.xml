@@ -1713,7 +1713,7 @@
     <string name="detection_exposure_clean_reason">Проверки не выявили признаков обхода, VPN, IP, DNS, TLS, временных аномалий или нативной наблюдаемости.</string>
     <string name="detection_exposure_clean_hint">Сохраните текущий профиль и повторите проверку после смены сети или профиля.</string>
     <string name="detection_exposure_low_hint">Добейтесь отсутствия признаков в проверках и улучшите профиль маскировки перед использованием в более строгих сетях.</string>
-    <string name="detection_exposure_generic_reason">Система обнаружения выявила признак раскрытия, но более точная причина недоступна.</string>
+    <string name="detection_exposure_generic_reason">Откройте подробные категории, чтобы проверить наблюдения.</string>
     <string name="detection_exposure_generic_hint">Откройте подробные категории ниже и скорректируйте первый обнаруженный или требующий проверки пункт.</string>
     <string name="detection_exposure_generic_review">признак, требующий проверки</string>
     <string name="detection_exposure_generic_detection">проверка обнаружения</string>

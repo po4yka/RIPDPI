@@ -1675,7 +1675,7 @@
     <string name="detection_exposure_clean_reason">जाँचों में बायपास, VPN, IP, DNS, TLS, समय या नेटिव स्तर पर पहचान कराने वाले संकेत नहीं मिले।</string>
     <string name="detection_exposure_clean_hint">मौजूदा प्रोफ़ाइल रखें और नेटवर्क या प्रोफ़ाइल बदलने के बाद जाँच दोहराएँ।</string>
     <string name="detection_exposure_low_hint">जाँचों में संकेत न मिलने दें और अधिक प्रतिबंधित नेटवर्क पर निर्भर होने से पहले मास्किंग प्रोफ़ाइल बेहतर करें।</string>
-    <string name="detection_exposure_generic_reason">पहचान जाँच प्रणाली को एक दृश्यता संकेत मिला, लेकिन अधिक विशिष्ट कारण उपलब्ध नहीं था।</string>
+    <string name="detection_exposure_generic_reason">अवलोकनों की समीक्षा के लिए विस्तृत श्रेणियाँ खोलें।</string>
     <string name="detection_exposure_generic_hint">नीचे दी गई विस्तृत श्रेणियाँ खोलें और पहली मिली समस्या या समीक्षा योग्य मद के अनुसार सेटिंग बदलें।</string>
     <string name="detection_exposure_generic_review">समीक्षा योग्य संकेत</string>
     <string name="detection_exposure_generic_detection">पहचान जाँच</string>

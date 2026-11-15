@@ -1639,7 +1639,7 @@
     <string name="detection_exposure_clean_reason">检测未发现绕过、VPN、IP、DNS、TLS、时序或原生可观测信号。</string>
     <string name="detection_exposure_clean_hint">保留当前配置文件，在更换网络或配置文件后重新检测。</string>
     <string name="detection_exposure_low_hint">确保检测不再发现信号，并在依赖限制更严格的网络前改进伪装配置文件。</string>
-    <string name="detection_exposure_generic_reason">检测流程发现了暴露信号，但无法确定更具体的原因。</string>
+    <string name="detection_exposure_generic_reason">打开详细分类以查看观测结果。</string>
     <string name="detection_exposure_generic_hint">打开下方的详细类别，并针对首个检出或待检查的项目调整设置。</string>
     <string name="detection_exposure_generic_review">待检查信号</string>
     <string name="detection_exposure_generic_detection">检测探测</string>

@@ -1669,7 +1669,7 @@
     <string name="detection_exposure_clean_reason">Os testes não revelaram sinais de contorno, VPN, IP, DNS, TLS, anomalias temporais ou visibilidade nativa.</string>
     <string name="detection_exposure_clean_hint">Mantenha o perfil atual e repita o teste após mudar de rede ou perfil.</string>
     <string name="detection_exposure_low_hint">Mantenha os testes sem indícios e melhore o perfil de camuflagem antes de depender de redes mais restritivas.</string>
-    <string name="detection_exposure_generic_reason">O sistema de detecção encontrou um sinal de exposição, mas não havia uma causa mais específica disponível.</string>
+    <string name="detection_exposure_generic_reason">Abra as categorias detalhadas para revisar as observações.</string>
     <string name="detection_exposure_generic_hint">Abra as categorias detalhadas abaixo e ajuste o primeiro item detectado ou que exija revisão.</string>
     <string name="detection_exposure_generic_review">sinal que exige revisão</string>
     <string name="detection_exposure_generic_detection">teste de detecção</string>

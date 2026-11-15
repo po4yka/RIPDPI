@@ -119,6 +119,33 @@ class VerdictDecisionSignalsTest {
         )
     }
 
+    @Test
+    fun `name only match remains review with a geo signal`() {
+        val candidate =
+            EvidenceItem(
+                source = EvidenceSource.INSTALLED_APP,
+                detected = false,
+                confidence = EvidenceConfidence.LOW,
+                description = "Installed app name suggests VPN",
+                packageName = "org.example.candidate",
+                kind = VpnAppKind.GENERIC_VPN,
+            )
+        val direct = emptyCategory("Direct").copy(needsReview = true, evidence = listOf(candidate))
+
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP").copy(needsReview = true),
+                directSigns = direct,
+                indirectSigns = emptyCategory("Indirect"),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(Verdict.NEEDS_REVIEW, explanation.verdict)
+        assertEquals("R6", explanation.ruleApplied)
+        assertEquals(0, explanation.uniqueSignalCount)
+    }
+
     private fun emptyCategory(name: String) =
         CategoryResult(
             name = name,

@@ -39,6 +39,34 @@ class StealthScoreTest {
     }
 
     @Test
+    fun `name only candidate leaves score and traffic claims unchanged`() {
+        val candidate =
+            MatchedVpnApp(
+                packageName = "org.example.candidate",
+                appName = "VPN glossary",
+                family = null,
+                kind = VpnAppKind.GENERIC_VPN,
+                source = EvidenceSource.INSTALLED_APP,
+                active = false,
+                confidence = EvidenceConfidence.LOW,
+                technicalMetadata = VpnAppTechnicalMetadata(matchedByNameHeuristic = true),
+            )
+        val result =
+            cleanResult().copy(
+                directSigns = emptyCategory("Direct").copy(needsReview = true, matchedApps = listOf(candidate)),
+                verdict = Verdict.NEEDS_REVIEW,
+            )
+
+        assertEquals(100, StealthScore.compute(result))
+        assertEquals("Additional diagnostic signals need review", ExposureVerdictBuilder.build(result, 100).headline)
+        val known =
+            result.copy(
+                directSigns = result.directSigns.copy(matchedApps = listOf(candidate.copy(technicalMetadata = null))),
+            )
+        assertEquals(97, StealthScore.compute(known))
+    }
+
+    @Test
     fun `split bypass reduces score significantly`() {
         val result =
             cleanResult().copy(

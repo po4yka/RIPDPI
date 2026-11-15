@@ -74,7 +74,7 @@ object StealthScore {
         ) {
             penalty += TRANSPORT_VPN_PENALTY
         }
-        for (app in result.directSigns.matchedApps) {
+        for (app in result.directSigns.matchedApps.filterNot { it.technicalMetadata?.matchedByNameHeuristic == true }) {
             penalty +=
                 when (app.kind) {
                     VpnAppKind.TARGETED_BYPASS -> INSTALLED_APP_TARGETED_PENALTY
@@ -203,7 +203,12 @@ object ExposureVerdictBuilder {
         }
         val dominant = signal ?: ExposureSignal.generic(result.verdict)
         return ExposureVerdict(
-            headline = "Your traffic is distinguishable by ${dominant.label}",
+            headline =
+                if (result.verdict == Verdict.NEEDS_REVIEW) {
+                    "Additional diagnostic signals need review"
+                } else {
+                    "Your traffic is distinguishable by ${dominant.label}"
+                },
             reason = dominant.reason,
             adjustmentHint = dominant.hint,
             dominantSignal = dominant.label,
@@ -263,7 +268,7 @@ object ExposureVerdictBuilder {
             add(ExposureSignal.bypassProbe)
         }
         addCategorySignal(result.geoIp, ExposureSignal.geoIp)
-        addCategorySignal(result.directSigns, ExposureSignal.directSigns)
+        addCategorySignal(result.directSigns.takeIf { it.detected }, ExposureSignal.directSigns)
         addCategorySignal(result.indirectSigns, ExposureSignal.indirectSigns)
         addCategorySignal(result.locationSignals, ExposureSignal.locationSignals)
         addCategorySignal(result.dnsLeak, ExposureSignal.dnsLeak)
@@ -496,7 +501,7 @@ private data class ExposureSignal(
         fun generic(verdict: Verdict) =
             ExposureSignal(
                 label = if (verdict == Verdict.NEEDS_REVIEW) "review signal" else "detection probe",
-                reason = "The detection pipeline found an exposure signal but no more specific cause was available.",
+                reason = "Open the detailed categories to review the observations.",
                 hint = "Open the detailed categories below and adjust the first detected or review item.",
                 priority = 99,
             )
