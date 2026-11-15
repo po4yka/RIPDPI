@@ -41,7 +41,7 @@ class CallTransportLeakCheckerTest {
         }
 
     @Test
-    fun reflexiveAddressMismatchBetweenVpnAndUnderlyingPathIsHighConfidence() =
+    fun differentVpnAndUnderlyingExitsAreNotProofOfALeak() =
         runTest {
             val result =
                 CallTransportLeakChecker.check(
@@ -56,14 +56,12 @@ class CallTransportLeakCheckerTest {
                     mtProtoProber = RecordingCallTransportMtProtoProber(),
                 )
 
-            assertTrue(result.category.detected)
-            assertTrue(
-                result.category.findings.any { finding ->
-                    finding.detected &&
-                        finding.confidence == EvidenceConfidence.HIGH &&
-                        finding.source == EvidenceSource.CALL_TRANSPORT
-                },
-            )
+            assertFalse(result.category.detected)
+            assertFalse(result.category.evidence.any { it.detected })
+            val consensus = IpConsensusBuilder.build(IpConsensusBuilder.observationsFrom(result))
+            assertTrue(consensus.channelConflicts.isEmpty())
+            assertEquals(listOf("1.2.3.4"), consensus.observedIps[IpConsensusChannel.CALL_TRANSPORT_VPN])
+            assertEquals(listOf("5.6.7.8"), consensus.observedIps[IpConsensusChannel.CALL_TRANSPORT_UNDERLYING])
         }
 
     @Test
@@ -140,7 +138,7 @@ class CallTransportLeakCheckerTest {
         }
 
     @Test
-    fun vpnPathThatAlsoShowsTheUnderlyingAddressIsReportedAsSplitStun() =
+    fun mixedExitObservationsDoNotProveSplitStun() =
         runTest {
             val stunClient =
                 object : CallTransportPathAwareStunClient {
@@ -165,7 +163,7 @@ class CallTransportLeakCheckerTest {
                     servers = listOf(testStunServer, otherStunServer),
                 )
 
-            assertTrue(result.category.detected)
+            assertFalse(result.category.detected)
             assertFalse(result.category.findings.any { it.description.contains("not evaluated") })
         }
 
@@ -281,6 +279,27 @@ class CallTransportLeakCheckerTest {
             assertTrue(result.stunObservations.isEmpty())
             assertFalse(result.mtProtoReachable)
             assertTrue(result.category.findings.any { it.description.contains("not evaluated") })
+        }
+
+    @Test
+    fun equivalentIpv6AddressesAreNormalizedWithoutDns() =
+        runTest {
+            val result =
+                CallTransportLeakChecker.check(
+                    enabled = true,
+                    stunClient =
+                        PathAwareRecordingCallTransportStunClient(
+                            mapOf(
+                                CallTransportPath.VPN to "2001:db8::1",
+                                CallTransportPath.UNDERLYING to "2001:db8:0:0:0:0:0:1",
+                            ),
+                        ),
+                    mtProtoProber = RecordingCallTransportMtProtoProber(),
+                    servers = listOf(testStunServer),
+                )
+
+            assertFalse(result.category.detected)
+            assertEquals(setOf("2001:db8:0:0:0:0:0:1"), result.stunObservations.map { it.reflexiveAddress }.toSet())
         }
 
     private open class RecordingCallTransportStunClient(

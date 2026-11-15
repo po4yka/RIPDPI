@@ -46,7 +46,7 @@ class StunTransportPeerTest {
                         }
                     val result =
                         CallTransportLeakChecker.defaultStunClient(dispatchers).reflexiveAddress(
-                            CallTransportPath.VPN,
+                            CallTransportPath.APP_DEFAULT,
                             CallTransportStunServer("127.0.0.1", server.localPort, CallTransportStunScope.GLOBAL),
                         )
                     response.await()
@@ -76,7 +76,7 @@ class StunTransportPeerTest {
                     }
                 val result =
                     CallTransportLeakChecker.defaultStunClient(dispatchers).reflexiveAddress(
-                        CallTransportPath.VPN,
+                        CallTransportPath.APP_DEFAULT,
                         CallTransportStunServer("127.0.0.1", server.localPort, CallTransportStunScope.GLOBAL),
                     )
                 response.await()

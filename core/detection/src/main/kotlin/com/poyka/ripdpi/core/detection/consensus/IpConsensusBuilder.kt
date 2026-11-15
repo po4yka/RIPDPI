@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.core.detection.consensus
 
 import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.core.detection.CallTransportPath
 import com.poyka.ripdpi.core.detection.CallTransportResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CdnPullingEndpointStatus
@@ -26,6 +27,8 @@ enum class IpConsensusChannel {
     BYPASS_PROXY,
     BYPASS_STUN,
     CALL_TRANSPORT,
+    CALL_TRANSPORT_VPN,
+    CALL_TRANSPORT_UNDERLYING,
     ;
 
     fun label(): String =
@@ -186,7 +189,13 @@ object IpConsensusBuilder {
 
     fun observationsFrom(callTransport: CallTransportResult): List<IpObservation> =
         callTransport.stunObservations.map { observation ->
-            IpObservation(IpConsensusChannel.CALL_TRANSPORT, observation.reflexiveAddress)
+            val channel =
+                when (observation.path) {
+                    CallTransportPath.APP_DEFAULT -> IpConsensusChannel.CALL_TRANSPORT
+                    CallTransportPath.VPN -> IpConsensusChannel.CALL_TRANSPORT_VPN
+                    CallTransportPath.UNDERLYING -> IpConsensusChannel.CALL_TRANSPORT_UNDERLYING
+                }
+            IpObservation(channel, observation.reflexiveAddress)
         }
 
     fun build(

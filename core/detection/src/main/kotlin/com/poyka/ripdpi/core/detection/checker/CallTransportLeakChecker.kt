@@ -15,6 +15,7 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.core.detection.probe.ProxyType
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.NumericIp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -67,6 +68,8 @@ object CallTransportLeakChecker {
                             async {
                                 runNullableProbe {
                                     stunClient.reflexiveAddress(path = path, server = server)
+                                }?.let { address ->
+                                    NumericIp.parseAddress(address)?.toNormalizedString()
                                 }?.let { address ->
                                     CallTransportStunObservation(path, server, address)
                                 }
@@ -155,7 +158,6 @@ object CallTransportLeakChecker {
     ): CallTransportResult {
         val findings = mutableListOf<Finding>()
         val evidence = mutableListOf<EvidenceItem>()
-        val mismatch = observations.pathMismatch()
 
         if (observations.isEmpty()) {
             findings += Finding("STUN reflexive addresses: unavailable")
@@ -172,25 +174,6 @@ object CallTransportLeakChecker {
         if (!underlyingProbed) {
             // Without an underlying-path probe the comparison cannot run; say so instead of reading as clean.
             findings += Finding("Call STUN leak: not evaluated, the underlying network path is not probed")
-        }
-
-        if (mismatch != null) {
-            findings +=
-                Finding(
-                    description =
-                        "Call STUN leak: VPN path ${mismatch.vpnIps} differs from underlying path " +
-                            mismatch.underlyingIps,
-                    detected = true,
-                    source = EvidenceSource.CALL_TRANSPORT,
-                    confidence = EvidenceConfidence.HIGH,
-                )
-            evidence +=
-                EvidenceItem(
-                    source = EvidenceSource.CALL_TRANSPORT,
-                    detected = true,
-                    confidence = EvidenceConfidence.HIGH,
-                    description = "STUN reflexive addresses differ between VPN and underlying call paths",
-                )
         }
 
         if (mtProtoReachable) {
@@ -215,14 +198,13 @@ object CallTransportLeakChecker {
             findings += Finding("SOCKS5 UDP associate STUN reflexive address: $address")
         }
 
-        val detected = evidence.any { it.detected && it.confidence == EvidenceConfidence.HIGH }
         return CallTransportResult(
             category =
                 CategoryResult(
                     name = "Call transport",
-                    detected = detected,
+                    detected = false,
                     findings = findings,
-                    needsReview = !detected && evidence.isNotEmpty(),
+                    needsReview = evidence.isNotEmpty(),
                     evidence = evidence,
                 ),
             stunObservations = observations,
@@ -231,21 +213,6 @@ object CallTransportLeakChecker {
             proxyStunReflexiveAddresses = proxyStunReflexiveAddresses,
         )
     }
-
-    private fun List<CallTransportStunObservation>.pathMismatch(): PathMismatch? {
-        val vpnIps = filter { it.path == CallTransportPath.VPN }.map { it.reflexiveAddress }.distinct().sorted()
-        val underlyingIps =
-            filter { it.path == CallTransportPath.UNDERLYING }.map { it.reflexiveAddress }.distinct().sorted()
-        // Any difference counts: a VPN-path set that also holds the underlying address is split STUN (some
-        // requests bypass the tunnel), so a shared address is evidence of the leak, not proof of one exit.
-        if (vpnIps.isEmpty() || underlyingIps.isEmpty() || vpnIps == underlyingIps) return null
-        return PathMismatch(vpnIps = vpnIps, underlyingIps = underlyingIps)
-    }
-
-    private data class PathMismatch(
-        val vpnIps: List<String>,
-        val underlyingIps: List<String>,
-    )
 
     val DefaultStunServers =
         listOf(
