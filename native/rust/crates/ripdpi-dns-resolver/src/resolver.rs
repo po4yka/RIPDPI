@@ -253,7 +253,7 @@ impl EncryptedDnsResolver {
         let started = std::time::Instant::now();
         let deadline = self.exchange_deadline();
         let response_bytes =
-            tokio::time::timeout(deadline, self.exchange_protocol(query_bytes)).await.map_err(|_| {
+            tokio::time::timeout(deadline, self.exchange_protocol(query_bytes, None)).await.map_err(|_| {
                 EncryptedDnsError::Request(format!("encrypted DNS exchange timed out after {deadline:?}"))
             })??;
 
@@ -276,6 +276,25 @@ impl EncryptedDnsResolver {
 
     pub async fn exchange(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         self.exchange_with_metadata(query_bytes).await.map(|success| success.response_bytes)
+    }
+
+    /// Run a DoQ query within the caller's absolute deadline. Shares the connection
+    /// budget across bootstrap IPs and reserves time for the query.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: dropping the exchange releases its dedicated stream.
+    pub async fn exchange_doq_until(
+        &self,
+        query_bytes: &[u8],
+        deadline: std::time::Instant,
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
+        if self.inner.endpoint.protocol != EncryptedDnsProtocol::Doq {
+            return Err(EncryptedDnsError::InvalidEndpoint("expected a DoQ endpoint".to_string()));
+        }
+        let deadline = deadline.into();
+        tokio::time::timeout_at(deadline, self.exchange_protocol(query_bytes, Some(deadline)))
+            .await
+            .map_err(|_| crate::DoqErrorKind::QueryTimeout.error("DoQ exchange timeout"))?
     }
 
     pub fn exchange_blocking_with_metadata(

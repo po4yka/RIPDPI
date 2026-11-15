@@ -1,7 +1,7 @@
 use std::io;
 use std::net::IpAddr;
 use std::os::fd::AsRawFd;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
@@ -15,7 +15,7 @@ use ripdpi_dns_resolver::{
 use ripdpi_runtime_platform::protect::{has_protect_callback, protect_socket_via_callback};
 use serde::{Deserialize, Serialize};
 use socket2::{Domain, Protocol, Socket, Type};
-use tokio::time::timeout;
+use tokio::time::timeout_at;
 
 pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jstring {
     match env
@@ -45,7 +45,10 @@ fn exchange(request_json: &str) -> String {
         }
     };
     let limit = Duration::from_millis(request.timeout_ms.max(1));
-    match run_bounded(limit, exchange_async(request, query, limit)) {
+    let Some(deadline) = Instant::now().checked_add(limit) else {
+        return response_error(NativeDoqErrorKind::InvalidRequest, "invalid DoQ timeout");
+    };
+    match run_bounded(deadline, exchange_async(request, query, limit, deadline)) {
         Ok(Some(Ok(response))) => response_ok(response),
         Ok(Some(Err(error))) => response_error(error.kind, error.message),
         Ok(None) => response_error(NativeDoqErrorKind::Timeout, "native DoQ exchange timed out"),
@@ -53,14 +56,14 @@ fn exchange(request_json: &str) -> String {
     }
 }
 
-/// Run `future` on a fresh current-thread runtime for at most `limit`;
+/// Run `future` on a fresh current-thread runtime until `deadline`;
 /// `Ok(None)` means it timed out. The runtime shuts down in the background:
 /// dropping it would wait for in-flight blocking tasks such as the
 /// uncancellable `getaddrinfo` behind `lookup_host`, holding the JNI caller far
 /// past `limit`.
-fn run_bounded<F: std::future::Future>(limit: Duration, future: F) -> io::Result<Option<F::Output>> {
+fn run_bounded<F: std::future::Future>(deadline: Instant, future: F) -> io::Result<Option<F::Output>> {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
-    let result = runtime.block_on(async { timeout(limit, future).await }).ok();
+    let result = runtime.block_on(async { timeout_at(deadline.into(), future).await }).ok();
     runtime.shutdown_background();
     Ok(result)
 }
@@ -71,6 +74,7 @@ async fn exchange_async(
     request: NativeDoqExchangeRequest,
     query: Vec<u8>,
     timeout_duration: Duration,
+    deadline: Instant,
 ) -> Result<Vec<u8>, NativeDoqError> {
     let bootstrap_ips = bootstrap_ips(&request.endpoint, request.port).await?;
     let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
@@ -91,7 +95,7 @@ async fn exchange_async(
         doq_connect_hooks(),
     )
     .map_err(NativeDoqError::from)?;
-    resolver.exchange(&query).await.map_err(NativeDoqError::from)
+    resolver.exchange_doq_until(&query, deadline).await.map_err(NativeDoqError::from)
 }
 
 /// # Cancel safety:
@@ -304,7 +308,7 @@ mod tests {
     #[test]
     fn bounded_run_returns_at_the_deadline_while_a_blocking_lookup_runs() {
         let started = std::time::Instant::now();
-        let result = run_bounded(Duration::from_millis(50), async {
+        let result = run_bounded(started + Duration::from_millis(50), async {
             // Stands in for getaddrinfo on a blackholed resolver.
             tokio::task::spawn_blocking(|| std::thread::sleep(Duration::from_secs(3))).await
         })

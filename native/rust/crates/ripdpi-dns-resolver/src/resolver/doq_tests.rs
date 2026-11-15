@@ -1,4 +1,4 @@
-use std::net::Ipv4Addr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, UdpSocket};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -38,6 +38,7 @@ fn loopback_resolver(
     server: &quinn::Endpoint,
     cert: CertificateDer<'static>,
     tls_name: Option<&str>,
+    bootstrap_ips: Vec<IpAddr>,
 ) -> EncryptedDnsResolver {
     EncryptedDnsResolver::with_extra_tls_roots(
         EncryptedDnsEndpoint {
@@ -46,7 +47,7 @@ fn loopback_resolver(
             host: "localhost".into(),
             port: server.local_addr().unwrap().port(),
             tls_server_name: tls_name.map(str::to_owned),
-            bootstrap_ips: vec![Ipv4Addr::LOCALHOST.into()],
+            bootstrap_ips,
             doh_url: None,
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
@@ -67,7 +68,7 @@ async fn exchange(
     trailing: &[u8],
 ) -> (Vec<u8>, Result<Vec<u8>, EncryptedDnsError>) {
     let (server, cert) = loopback_server(b"doq");
-    let resolver = loopback_resolver(&server, cert, None);
+    let resolver = loopback_resolver(&server, cert, None, vec![Ipv4Addr::LOCALHOST.into()]);
     let query = crate::build_dns_query("localhost", hickory_proto::rr::RecordType::A).unwrap();
     let mut query = query;
     query[..2].copy_from_slice(&[0x12, 0x34]);
@@ -143,7 +144,7 @@ async fn doq_handshake_distinguishes_certificate_name_and_alpn_failures() {
         [(b"doq".as_slice(), Some("wrong.test"), DoqErrorKind::Tls), (b"h3".as_slice(), None, DoqErrorKind::Alpn)]
     {
         let (server, cert) = loopback_server(alpn);
-        let resolver = loopback_resolver(&server, cert, tls_name);
+        let resolver = loopback_resolver(&server, cert, tls_name, vec![Ipv4Addr::LOCALHOST.into()]);
         let peer = tokio::spawn(async move {
             if let Some(incoming) = server.accept().await {
                 let _ = incoming.await;
@@ -161,7 +162,7 @@ async fn doq_handshake_distinguishes_certificate_name_and_alpn_failures() {
 #[tokio::test(flavor = "current_thread")]
 async fn doq_peer_stream_reset_leaves_connection_usable() {
     let (server, cert) = loopback_server(b"doq");
-    let resolver = loopback_resolver(&server, cert, None);
+    let resolver = loopback_resolver(&server, cert, None, vec![Ipv4Addr::LOCALHOST.into()]);
     let peer = async {
         let conn = server.accept().await.unwrap().await.unwrap();
         for exchange in 0..2 {
@@ -188,6 +189,78 @@ async fn doq_peer_stream_reset_leaves_connection_usable() {
         assert_eq!(answer, echo_response(&query));
     };
     tokio::time::timeout(Duration::from_secs(5), async { tokio::join!(peer, client) }).await.unwrap();
+}
+
+/// # Cancel safety:
+/// cancel-safe: the test owns both peers and abandons their sockets on deadline.
+#[tokio::test(flavor = "current_thread")]
+async fn doq_deadline_reserves_time_for_the_second_bootstrap_address() {
+    let (server, cert) = loopback_server(b"doq");
+    let port = server.local_addr().unwrap().port();
+    let blackhole = UdpSocket::bind((Ipv6Addr::LOCALHOST, port)).unwrap();
+    blackhole.set_nonblocking(true).unwrap();
+    let resolver = loopback_resolver(&server, cert, None, vec![Ipv6Addr::LOCALHOST.into(), Ipv4Addr::LOCALHOST.into()]);
+    let query = blocking_query();
+    let deadline = std::time::Instant::now() + Duration::from_millis(1_500);
+    let peer = async {
+        let conn = server.accept().await.unwrap().await.unwrap();
+        let (mut send, mut recv) = conn.accept_bi().await.unwrap();
+        let mut frame = recv.read_to_end(65_537).await.unwrap();
+        frame[4] |= 0x80;
+        send.write_all(&frame).await.unwrap();
+        send.finish().unwrap();
+        let _ = send.stopped().await;
+    };
+    let (answer, ()) = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(resolver.exchange_doq_until(&query, deadline), peer)
+    })
+    .await
+    .unwrap();
+    assert_eq!(answer.unwrap(), echo_response(&query));
+    let mut initial = [0; 2048];
+    assert!(blackhole.recv(&mut initial).expect("first address attempted") >= 1200);
+}
+
+/// # Cancel safety:
+/// cancel-safe: the peer connection and pending query are owned by the joined futures.
+#[tokio::test(flavor = "current_thread")]
+async fn doq_only_retries_fresh_closed_connection_without_caller_deadline() {
+    for deadline_mode in [false, true] {
+        let (server, cert) = loopback_server(b"doq");
+        let resolver = loopback_resolver(&server, cert, None, vec![Ipv4Addr::LOCALHOST.into()]);
+        let query = blocking_query();
+        let peer = async {
+            let accepted = if deadline_mode { 1 } else { 2 };
+            for attempt in 0..accepted {
+                let connection = server.accept().await.unwrap().await.unwrap();
+                let (mut send, mut recv) = connection.accept_bi().await.unwrap();
+                let mut frame = recv.read_to_end(65_537).await.unwrap();
+                if attempt == 0 {
+                    connection.close(1u32.into(), b"fixture refuses first query");
+                } else {
+                    frame[4] |= 0x80;
+                    send.write_all(&frame).await.unwrap();
+                    send.finish().unwrap();
+                    let _ = send.stopped().await;
+                }
+            }
+        };
+        let client = async {
+            if deadline_mode {
+                let deadline = std::time::Instant::now() + Duration::from_secs(2);
+                resolver.exchange_doq_until(&query, deadline).await
+            } else {
+                resolver.exchange(&query).await
+            }
+        };
+        let (result, ()) =
+            tokio::time::timeout(Duration::from_secs(4), async { tokio::join!(client, peer) }).await.unwrap();
+        if deadline_mode {
+            assert!(matches!(result, Err(EncryptedDnsError::Doq { kind: DoqErrorKind::Exchange, .. })), "{result:?}");
+        } else {
+            assert_eq!(result.unwrap(), echo_response(&query));
+        }
+    }
 }
 
 /// A DoQ server on its own runtime that answers every stream with an empty response. With

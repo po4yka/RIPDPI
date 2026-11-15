@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tokio::time::timeout;
+use tokio::time::{Instant as Deadline, timeout};
 
 use super::EncryptedDnsResolver;
 use super::state::{DoqState, build_doq_endpoint_for_endpoint};
@@ -38,20 +38,27 @@ impl Drop for DoqQueryStreams {
 impl EncryptedDnsResolver {
     /// # Cancel safety:
     /// cancel-safe: dropping the query releases its dedicated QUIC streams; other queries use separate streams.
-    pub(super) async fn exchange_doq(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+    pub(super) async fn exchange_doq(
+        &self,
+        query_bytes: &[u8],
+        deadline: Option<Deadline>,
+    ) -> Result<Vec<u8>, EncryptedDnsError> {
         let len_prefix = doq_length_prefix(query_bytes.len())?;
         if matches!(self.inner.transport, EncryptedDnsTransport::Socks5 { .. }) {
             return Err(EncryptedDnsError::Request(
                 "DoQ is not supported over SOCKS5 transport (SOCKS5 is TCP-only)".to_string(),
             ));
         }
-        let conn = self.get_or_connect_doq().await?;
-        match self.exchange_doq_on(&conn, query_bytes, len_prefix).await {
+        let (conn, reused) = self.get_or_connect_doq(deadline).await?;
+        match self.exchange_doq_on(&conn, query_bytes, len_prefix, deadline).await {
             // A cached connection can die unnoticed, for example while no runtime drove it between
             // blocking calls. Retry once; the lost connection is closed, so this connects afresh.
-            Err(_) if conn.close_reason().is_some_and(|reason| reason != quinn::ConnectionError::LocallyClosed) => {
-                let conn = self.get_or_connect_doq().await?;
-                self.exchange_doq_on(&conn, query_bytes, len_prefix).await
+            Err(_)
+                if (deadline.is_none() || reused)
+                    && conn.close_reason().is_some_and(|reason| reason != quinn::ConnectionError::LocallyClosed) =>
+            {
+                let (conn, _) = self.get_or_connect_doq(deadline).await?;
+                self.exchange_doq_on(&conn, query_bytes, len_prefix, deadline).await
             }
             result => result,
         }
@@ -64,8 +71,10 @@ impl EncryptedDnsResolver {
         conn: &quinn::Connection,
         query_bytes: &[u8],
         len_prefix: [u8; 2],
+        deadline: Option<Deadline>,
     ) -> Result<Vec<u8>, EncryptedDnsError> {
-        timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes, len_prefix))
+        let budget = deadline.map_or(self.inner.timeout, |end| end.saturating_duration_since(Deadline::now()));
+        timeout(budget, exchange_doq_query(conn.clone(), query_bytes, len_prefix))
             .await
             .map_err(|_| DoqErrorKind::QueryTimeout.error("DoQ query timeout"))?
     }
@@ -73,8 +82,13 @@ impl EncryptedDnsResolver {
     /// Returns the cached connection, or connects on an endpoint driven by the current runtime.
     ///
     /// # Cancel safety:
-    /// cancel-safe: a connection is published only after its handshake completes.
-    async fn get_or_connect_doq(&self) -> Result<quinn::Connection, EncryptedDnsError> {
+    /// cancel-safe except for fairness: a dropped waiter loses its lock queue position.
+    /// A dropped handshake releases the guard and pending handle before publication.
+    /// Outcomes already observed for earlier addresses remain recorded.
+    async fn get_or_connect_doq(
+        &self,
+        deadline: Option<Deadline>,
+    ) -> Result<(quinn::Connection, bool), EncryptedDnsError> {
         let runtime = tokio::runtime::Handle::current().id();
         // Held across the connect, so a burst of queries waits for one handshake instead of starting many.
         let mut guard = self.inner.doq.lock().await;
@@ -95,7 +109,7 @@ impl EncryptedDnsResolver {
         if let Some(conn) = state.connection.as_ref()
             && conn.close_reason().is_none()
         {
-            return Ok(conn.clone());
+            return Ok((conn.clone(), true));
         }
         state.connection = None;
         if state.connect_failed_at.is_some_and(|failed_at| failed_at.elapsed() < DOQ_CONNECT_FAILURE_BACKOFF) {
@@ -118,7 +132,12 @@ impl EncryptedDnsResolver {
         }
 
         let mut last_error = None;
-        for ip in bootstrap_ips {
+        let count = bootstrap_ips.len();
+        for (index, ip) in bootstrap_ips.into_iter().enumerate() {
+            // Socket setup can be synchronous, so check the deadline before starting a dial.
+            if deadline.is_some_and(|end| end <= Deadline::now()) {
+                return Err(DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"));
+            }
             let started = Instant::now();
             let addr = SocketAddr::new(ip, self.inner.endpoint.port);
             // A synchronous connect error is a local setup error, not a network outcome: keep it out of health.
@@ -129,7 +148,12 @@ impl EncryptedDnsResolver {
                     continue;
                 }
             };
-            let result = timeout(self.inner.timeout, connecting)
+            let budget = deadline.map_or(self.inner.timeout, |end| {
+                // Keep a share of the remaining time for each address and one for the query.
+                let shares = u32::try_from(count - index + 1).unwrap_or(u32::MAX);
+                end.saturating_duration_since(Deadline::now()) / shares
+            });
+            let result = timeout(budget, connecting)
                 .await
                 .map_err(|_| DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"))
                 .and_then(|connected| {
@@ -151,7 +175,7 @@ impl EncryptedDnsResolver {
                 Ok(conn) => {
                     state.connection = Some(conn.clone());
                     state.connect_failed_at = None;
-                    return Ok(conn);
+                    return Ok((conn, false));
                 }
                 Err(error) => last_error = Some(error),
             }
