@@ -159,6 +159,61 @@ class QrScannerViewModelTest {
     }
 
     @Test
+    fun `a conflicting qr chunk clears progress and requires the series to be rescanned`() {
+        val viewModel = QrScannerViewModel()
+        val conf = "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p=="
+        val compressed = AmneziaVpnKeyFixtures.qCompress(AmneziaVpnKeyFixtures.keyJson(conf).toByteArray())
+        val half = compressed.size / 2
+        val first = AmneziaVpnKeyFixtures.qrChunk(2, 0, compressed.copyOfRange(0, half))
+        val second = AmneziaVpnKeyFixtures.qrChunk(2, 1, compressed.copyOfRange(half, compressed.size))
+        val conflicting = AmneziaVpnKeyFixtures.qrChunk(2, 0, byteArrayOf(1, 2, 3))
+
+        viewModel.onQrDecoded(first)
+        viewModel.onQrDecoded(conflicting)
+        viewModel.onQrDecoded(second)
+
+        assertNull(viewModel.uiState.value.scanResult)
+        assertNull(viewModel.uiState.value.seriesProgress)
+        assertEquals("<redacted>", viewModel.uiState.value.decodeError)
+
+        viewModel.consumeDecodeError()
+        viewModel.onQrDecoded(second)
+
+        assertEquals(
+            1,
+            viewModel.uiState.value.seriesProgress
+                ?.received,
+        )
+        assertNull(viewModel.uiState.value.scanResult)
+
+        viewModel.onQrDecoded(first)
+
+        assertEquals(ImportPayload.WireGuardConf(conf), viewModel.uiState.value.scanResult)
+    }
+
+    @Test
+    fun `a valid multi-part key can follow a failed complete series`() {
+        val viewModel = QrScannerViewModel()
+        val conf = "[Interface]\nPrivateKey = k==\n\n[Peer]\nPublicKey = p=="
+        val compressed = AmneziaVpnKeyFixtures.qCompress(AmneziaVpnKeyFixtures.keyJson(conf).toByteArray())
+        val half = compressed.size / 2
+        val first = AmneziaVpnKeyFixtures.qrChunk(2, 0, compressed.copyOfRange(0, half))
+        val second = AmneziaVpnKeyFixtures.qrChunk(2, 1, compressed.copyOfRange(half, compressed.size))
+
+        viewModel.onQrDecoded(AmneziaVpnKeyFixtures.qrChunk(2, 0, byteArrayOf(1)))
+        viewModel.onQrDecoded(AmneziaVpnKeyFixtures.qrChunk(2, 1, byteArrayOf(2)))
+
+        assertEquals("vpn://", viewModel.uiState.value.decodeError)
+        assertNull(viewModel.uiState.value.scanResult)
+
+        viewModel.onQrDecoded(first)
+        viewModel.onQrDecoded(second)
+
+        assertEquals(ImportPayload.WireGuardConf(conf), viewModel.uiState.value.scanResult)
+        assertNull(viewModel.uiState.value.decodeError)
+    }
+
+    @Test
     fun `consuming the decode error clears it so scanning can resume`() {
         val viewModel = QrScannerViewModel()
         viewModel.onCameraPermissionResult(granted = true, canRequestAgain = false)

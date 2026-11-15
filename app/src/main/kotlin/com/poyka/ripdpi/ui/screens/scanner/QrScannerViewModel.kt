@@ -57,6 +57,7 @@ class QrScannerViewModel
         private var cameraPermissionRequestSessionId: String? = null
         private var lastImportedPayloadHash: Int? = null
         private val seriesAssembler = AmneziaQrChunkAssembler()
+        private var seriesConflict = false
 
         /**
          * Shows the camera rationale once for each navigation session when the camera is not granted.
@@ -133,6 +134,7 @@ class QrScannerViewModel
          * preview is surfaced as [QrScannerUiState.decodeError].
          */
         fun onQrDecoded(payload: String) {
+            if (seriesConflict) return
             when (val result = classify(payload) ?: return) {
                 is ScannerScanResult.Invalid -> {
                     _uiState.update { it.copy(decodeError = result.redactedPreview, scanResult = null) }
@@ -154,6 +156,12 @@ class QrScannerViewModel
             when (val chunk = seriesAssembler.accept(payload)) {
                 AmneziaQrChunkAssembler.Result.Repeat -> {
                     null
+                }
+
+                AmneziaQrChunkAssembler.Result.Conflict -> {
+                    seriesConflict = true
+                    _uiState.update { it.copy(seriesProgress = null) }
+                    ScannerScanResult.Invalid("<redacted>")
                 }
 
                 is AmneziaQrChunkAssembler.Result.Partial -> {
@@ -186,6 +194,7 @@ class QrScannerViewModel
 
         /** Clears the decode error so the analyzer can resume scanning. */
         fun consumeDecodeError() {
+            seriesConflict = false
             _uiState.update { it.copy(decodeError = null) }
         }
     }

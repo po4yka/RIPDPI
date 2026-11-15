@@ -52,6 +52,21 @@ class AmneziaVpnKeyDecoderTest {
     }
 
     @Test
+    fun `compressed series data must end at the end of its zlib stream`() {
+        val compressed = AmneziaVpnKeyFixtures.qCompress(AmneziaVpnKeyFixtures.keyJson(conf).toByteArray())
+
+        assertNull(AmneziaVpnKeyDecoder.confFromCompressed(compressed + byteArrayOf(1, 2, 3)))
+    }
+
+    @Test
+    fun `oversized and empty chunks are rejected`() {
+        val assembler = AmneziaQrChunkAssembler()
+
+        assertNull(assembler.accept(AmneziaVpnKeyFixtures.qrChunk(2, 0, ByteArray(4096))))
+        assertNull(assembler.accept(AmneziaVpnKeyFixtures.qrChunk(2, 0, ByteArray(0))))
+    }
+
+    @Test
     fun `uncompressed and line-wrapped keys decode too`() {
         val json = AmneziaVpnKeyFixtures.keyJson("[Interface]\nPrivateKey = k==")
         val uncompressed = "vpn://" + AmneziaVpnKeyFixtures.base64Url(json.toByteArray())
@@ -68,7 +83,7 @@ class AmneziaVpnKeyDecoderTest {
         val assembler = AmneziaQrChunkAssembler()
 
         assertTrue(assembler.accept(only) is AmneziaQrChunkAssembler.Result.Complete)
-        assertEquals(AmneziaQrChunkAssembler.Result.Repeat, assembler.accept(only))
+        assertEquals(AmneziaQrChunkAssembler.Result.Repeat, assembler.accept(" $only "))
     }
 
     @Test

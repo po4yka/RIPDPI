@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.security.MessageDigest
 import java.util.Base64
 import java.util.zip.DataFormatException
 import java.util.zip.Inflater
@@ -94,7 +95,7 @@ internal object AmneziaVpnKeyDecoder {
                 if (read == 0) break
                 out.write(buffer, 0, read)
             }
-            out.toByteArray().takeIf { inflater.finished() && it.size == expected }
+            out.toByteArray().takeIf { inflater.finished() && inflater.remaining == 0 && it.size == expected }
         } catch (_: DataFormatException) {
             null
         } finally {
@@ -135,37 +136,40 @@ class AmneziaQrChunkAssembler {
 
         /** A code of the series that was just completed; the camera still sees it. */
         data object Repeat : Result
+
+        /** Two different chunks claim the same index. Discard the incomplete series. */
+        data object Conflict : Result
     }
 
     private val chunks = sortedMapOf<Int, ByteArray>()
     private var total = 0
-
-    /** Chunks of the last completed series: the camera keeps reporting them after the import. */
-    private var completedChunks: Set<String> = emptySet()
-    private val pendingChunks = mutableSetOf<String>()
+    private val digest = MessageDigest.getInstance("SHA-256")
+    private var completedChunks = emptyMap<Int, ByteArray>()
 
     /** Returns `null` when [payload] is not an AmneziaVPN QR chunk. */
-    fun accept(payload: String): Result? {
-        if (payload in completedChunks) return Result.Repeat
-        val result = parse(payload)?.let(::add)
-        if (result != null) pendingChunks += payload
-        if (result is Result.Complete) {
-            completedChunks = pendingChunks.toSet()
-            pendingChunks.clear()
-        }
-        return result
-    }
+    fun accept(payload: String): Result? = parse(payload)?.let(::add)
 
     private fun add(chunk: Chunk): Result {
+        if (chunk.total == completedChunks.size &&
+            completedChunks[chunk.index]?.contentEquals(digest.digest(chunk.data)) == true
+        ) {
+            return Result.Repeat
+        }
+        completedChunks = emptyMap()
         if (chunk.total != total) {
             chunks.clear()
-            pendingChunks.clear()
             total = chunk.total
         }
-        chunks[chunk.index] = chunk.data
+        val accepted = chunks.putIfAbsent(chunk.index, chunk.data)
+        if (accepted != null && !accepted.contentEquals(chunk.data)) {
+            chunks.clear()
+            return Result.Conflict
+        }
         if (chunks.size < total) return Result.Partial(Progress(chunks.size, total))
+
         val assembled = ByteArrayOutputStream()
         chunks.values.forEach(assembled::write)
+        completedChunks = chunks.mapValues { (_, bytes) -> digest.digest(bytes) }
         chunks.clear()
         total = 0
         return Result.Complete(assembled.toByteArray())
@@ -180,6 +184,7 @@ class AmneziaQrChunkAssembler {
     // Early returns read best for a byte-format parser.
     @Suppress("ReturnCount")
     private fun parse(payload: String): Chunk? {
+        if (payload.length > MaxEncodedChunkLength) return null
         val bytes = runCatching { Base64.getUrlDecoder().decode(payload.trim()) }.getOrNull() ?: return null
         if (bytes.size < HeaderBytes) return null
         val buffer = ByteBuffer.wrap(bytes)
@@ -187,7 +192,7 @@ class AmneziaQrChunkAssembler {
         val count = buffer.get().toInt() and UByteMask
         val index = buffer.get().toInt() and UByteMask
         val length = buffer.int
-        val validHeader = index < count && length == buffer.remaining()
+        val validHeader = index < count && length > 0 && length == buffer.remaining()
         return if (validHeader) Chunk(count, index, ByteArray(length).also(buffer::get)) else null
     }
 
@@ -195,5 +200,8 @@ class AmneziaQrChunkAssembler {
         const val MagicCode = 1984
         const val UByteMask = 0xFF
         const val HeaderBytes = 2 + 1 + 1 + 4
+
+        // Upstream uses 850 data bytes per chunk. Cap the input before Base64 allocates.
+        const val MaxEncodedChunkLength = 4096
     }
 }
