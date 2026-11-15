@@ -216,7 +216,7 @@ object ExposureVerdictBuilder {
             dnsLeak?.evidence?.let { addEvidenceSignals(it) }
             webRtcLeak?.evidence?.let { addEvidenceSignals(it) }
             tlsFingerprint?.evidence?.let { addEvidenceSignals(it) }
-            timingAnalysis?.evidence?.let { addEvidenceSignals(it) }
+            timingAnalysis?.evidence?.let { addEvidenceSignals(it, ExposureSignal.timing) }
             icmpSpoofing?.category?.evidence?.let { addEvidenceSignals(it) }
             ipComparison?.category?.evidence?.let { addEvidenceSignals(it) }
             rttTriangulation?.category?.evidence?.let { addEvidenceSignals(it) }
@@ -227,9 +227,18 @@ object ExposureVerdictBuilder {
             addFallbackCategorySignals(this@dominantExposureSignal)
         }.minByOrNull(ExposureSignal::priority)
 
-    private fun MutableList<ExposureSignal>.addEvidenceSignals(evidence: List<EvidenceItem>) {
+    private fun MutableList<ExposureSignal>.addEvidenceSignals(
+        evidence: List<EvidenceItem>,
+        networkSignal: ExposureSignal? = null,
+    ) {
         evidence.filter { it.detected }.forEach { item ->
-            add(item.source.toExposureSignal())
+            add(
+                if (item.scope == DetectionScope.NETWORK_OBSERVATION && networkSignal != null) {
+                    networkSignal
+                } else {
+                    item.source.toExposureSignal()
+                },
+            )
         }
     }
 

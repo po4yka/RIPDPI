@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection
 
+import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -75,6 +76,73 @@ class StealthScoreTest {
                     ),
             )
         assertEquals(80, StealthScore.compute(result))
+        assertEquals(
+            "Android VPN binding",
+            ExposureVerdictBuilder.build(result, stealthScore = 80).dominantSignal,
+        )
+    }
+
+    @Test
+    fun `network timing remains a timing observation at low and medium confidence`() {
+        for (confidence in listOf(EvidenceConfidence.LOW, EvidenceConfidence.MEDIUM)) {
+            val result =
+                cleanResult().copy(
+                    timingAnalysis =
+                        emptyCategory("Timing Analysis").copy(
+                            needsReview = true,
+                            evidence =
+                                listOf(
+                                    TimingAnalysisChecker.networkTimingEvidence(
+                                        confidence = confidence,
+                                        description = "Similar TCP connection latency",
+                                    ),
+                                ),
+                        ),
+                )
+
+            val verdict = ExposureVerdictBuilder.build(result, StealthScore.compute(result))
+
+            assertEquals("Additional diagnostic signals need review", verdict.headline)
+            assertEquals("timing anomaly", verdict.dominantSignal)
+            assertEquals(
+                "Latency or timing patterns differ from ordinary direct HTTPS traffic.",
+                verdict.reason,
+            )
+        }
+    }
+
+    @Test
+    fun `local VPN capability remains distinct from network timing`() {
+        val result =
+            cleanResult().copy(
+                directSigns =
+                    emptyCategory("Direct").copy(
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.HIGH,
+                                    description = "TRANSPORT_VPN",
+                                ),
+                            ),
+                    ),
+                timingAnalysis =
+                    emptyCategory("Timing Analysis").copy(
+                        evidence =
+                            listOf(
+                                TimingAnalysisChecker.networkTimingEvidence(
+                                    confidence = EvidenceConfidence.LOW,
+                                    description = "Similar TCP connection latency",
+                                ),
+                            ),
+                    ),
+            )
+
+        val verdict = ExposureVerdictBuilder.build(result, StealthScore.compute(result))
+
+        assertEquals("Android VPN binding", verdict.dominantSignal)
+        assertEquals("Android network capabilities expose VPN routing to local observers.", verdict.reason)
     }
 
     @Test
