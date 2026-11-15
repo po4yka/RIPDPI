@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-15
+goal: RST-1794723522152914 Repair DPI-34 UDP socket and raw packet contracts
