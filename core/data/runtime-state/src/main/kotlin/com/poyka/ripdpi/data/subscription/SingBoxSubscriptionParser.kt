@@ -279,7 +279,7 @@ private fun unsupportedNode(
 ): SingBoxSkippedNode? {
     val normalizedType = type.lowercase()
     val label = obj.string("tag") ?: "$normalizedType outbound ${index + 1}"
-    return unsupportedMultiplex(obj, index, label)
+    return unsupportedSingBoxConnectionOptions(obj, index, label)
         ?: unsupportedTransport(obj, normalizedType, index, label)
         // SIP003 plugins need an out-of-process transport RIPDPI does not bundle.
         ?: obj.string("plugin")?.takeIf { normalizedType == "shadowsocks" }?.let {
@@ -287,21 +287,6 @@ private fun unsupportedNode(
         }
         ?: unsupportedFingerprint(obj, normalizedType, index, label)
         ?: unsupportedHysteria2Option(obj, normalizedType, index, label)
-}
-
-private fun unsupportedMultiplex(
-    obj: JsonObject,
-    index: Int,
-    label: String,
-): SingBoxSkippedNode? {
-    val multiplex = obj["multiplex"] as? JsonObject
-    val enabled = (multiplex?.get("enabled") as? JsonPrimitive)?.booleanOrNull == true
-    // ProxyProfile cannot retain multiplex framing; never map it to a plain connection.
-    return if (enabled) {
-        SingBoxSkippedNode(index, label, SingBoxSkipReason.UNSUPPORTED_TRANSPORT, "multiplex")
-    } else {
-        null
-    }
 }
 
 private fun unsupportedTransport(
