@@ -1409,7 +1409,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">此探测无法使用 HTTPS 服务绑定</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">没有可用的 ECH 配置</string>
     <string name="diagnostics_dpi_suite_telegram_format">下载：%1$s，上传：%2$s，DC：%3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 未检测到被阻断的 ASN</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">检测到 DPI</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">DNS 干扰</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">混合干扰</string>

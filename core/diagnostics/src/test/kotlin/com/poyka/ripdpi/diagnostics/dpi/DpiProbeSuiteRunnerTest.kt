@@ -98,26 +98,32 @@ class DpiProbeSuiteRunnerTest {
         }
 
     @Test
-    fun whitelistSniAutoSkippedWhenTcp16ZeroBlockedAsns() =
+    fun whitelistSniWithoutTcp16ReportsMissingPrerequisite() =
         runTest {
-            val probes =
-                FakeSuiteProbes().copy(
-                    onTcp16 = { _, _, _ -> emptyList() },
-                )
-
-            val events =
-                runner(probes = probes)
-                    .run(DpiSuiteConfig(selection = setOf(DpiProbeKind.TCP16, DpiProbeKind.WHITELIST_SNI)))
+            val results =
+                runner()
+                    .run(DpiSuiteConfig(selection = setOf(DpiProbeKind.WHITELIST_SNI)))
+                    .filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
                     .toList()
 
-            assertEquals(0, probes.allowlistCalls)
-            assertTrue(
-                events
+            assertEquals(
+                DpiSuiteProbeResult.Skipped(DpiProbeKind.WHITELIST_SNI, DpiSuiteSkipReason.PREREQUISITE_NOT_SELECTED),
+                results.single().result,
+            )
+        }
+
+    @Test
+    fun whitelistSniWithNoTcp16MeasurementsReportsUnavailablePrerequisite() =
+        runTest {
+            val results =
+                runner()
+                    .run(DpiSuiteConfig(selection = setOf(DpiProbeKind.TCP16, DpiProbeKind.WHITELIST_SNI)))
                     .filterIsInstance<DpiSuiteEvent.ProbeCompleted>()
-                    .any { event ->
-                        event.kind == DpiProbeKind.WHITELIST_SNI &&
-                            event.result is DpiSuiteProbeResult.Skipped
-                    },
+                    .toList()
+
+            assertEquals(
+                DpiSuiteProbeResult.Skipped(DpiProbeKind.WHITELIST_SNI, DpiSuiteSkipReason.PREREQUISITE_UNAVAILABLE),
+                results.last().result,
             )
         }
 
@@ -296,7 +302,7 @@ class DpiProbeSuiteRunnerTest {
                 listOf(
                     DpiSuiteProbeResult.Skipped(
                         DpiProbeKind.DNS_INTEGRITY,
-                        DpiSuiteProbeResult.Skipped.NoValidTargetsReason,
+                        DpiSuiteSkipReason.NO_VALID_TARGETS,
                     ),
                     DpiSuiteProbeResult.QuicH3(emptyList()),
                 ),
@@ -319,7 +325,7 @@ class DpiProbeSuiteRunnerTest {
                     .map { it.result }
             assertEquals(
                 listOf(
-                    DpiSuiteProbeResult.Skipped(DpiProbeKind.QUIC_H3, DpiSuiteProbeResult.Skipped.NoValidTargetsReason),
+                    DpiSuiteProbeResult.Skipped(DpiProbeKind.QUIC_H3, DpiSuiteSkipReason.NO_VALID_TARGETS),
                 ),
                 results,
             )

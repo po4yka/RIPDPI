@@ -264,23 +264,25 @@ class DpiProbeSuiteRunner(
         }
 
         if (DpiProbeKind.WHITELIST_SNI in selection) {
-            if (tcp16Results.none { result -> result.verdict == Tcp16Verdict.DETECTED_AT_KB }) {
-                runProbe(DpiProbeKind.WHITELIST_SNI) {
-                    DpiSuiteProbeResult.Skipped(
-                        kind = DpiProbeKind.WHITELIST_SNI,
-                        reason = "TCP16 detected zero blocked ASNs",
-                    )
-                }
-            } else {
-                runProbe(DpiProbeKind.WHITELIST_SNI) {
+            runProbe(DpiProbeKind.WHITELIST_SNI) {
+                val reason =
+                    when {
+                        DpiProbeKind.TCP16 !in selection -> DpiSuiteSkipReason.PREREQUISITE_NOT_SELECTED
+                        tcp16Results.any { it.verdict == Tcp16Verdict.DETECTED_AT_KB } -> null
+                        tcp16Results.any { it.verdict == Tcp16Verdict.OK } -> DpiSuiteSkipReason.NOT_APPLICABLE
+                        else -> DpiSuiteSkipReason.PREREQUISITE_UNAVAILABLE
+                    }
+                if (reason == null) {
                     DpiSuiteProbeResult.AllowlistSni(probes.findAllowlistSni(tcp16Results))
+                } else {
+                    DpiSuiteProbeResult.Skipped(DpiProbeKind.WHITELIST_SNI, reason)
                 }
             }
         }
     }
 
     private fun noValidTargets(kind: DpiProbeKind): DpiSuiteProbeResult.Skipped =
-        DpiSuiteProbeResult.Skipped(kind, DpiSuiteProbeResult.Skipped.NoValidTargetsReason)
+        DpiSuiteProbeResult.Skipped(kind, DpiSuiteSkipReason.NO_VALID_TARGETS)
 
     private fun List<DomainReachabilityResult>.vanillaTlsByTarget(): Map<String, Boolean> =
         associate { result ->

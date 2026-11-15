@@ -1437,7 +1437,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">پیوند HTTPS برای این آزمون در دسترس نیست</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">پیکربندی ECH قابل استفاده‌ای وجود ندارد</string>
     <string name="diagnostics_dpi_suite_telegram_format">دریافت: %1$s، ارسال: %2$s، ⁨DC⁩: %3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 هیچ ASN مسدودی شناسایی نکرد</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI شناسایی شد</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">دخالت در DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">دخالت ترکیبی</string>

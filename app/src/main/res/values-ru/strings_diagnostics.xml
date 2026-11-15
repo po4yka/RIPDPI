@@ -1480,7 +1480,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Привязка HTTPS недоступна для этой пробы</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Нет подходящей конфигурации ECH</string>
     <string name="diagnostics_dpi_suite_telegram_format">скачивание: %1$s, отправка: %2$s, DC: %3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 не выявил заблокированных ASN</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">Обнаружен DPI</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">Вмешательство в DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Смешанное вмешательство</string>

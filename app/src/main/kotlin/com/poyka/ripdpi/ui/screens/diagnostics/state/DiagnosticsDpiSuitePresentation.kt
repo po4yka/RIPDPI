@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.dpi.DnsIntegrityVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DomainVerdict
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
+import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteSkipReason
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.HttpsRrLookupAttempt
@@ -512,13 +513,14 @@ private fun DpiSuiteProbeResult.detailLabel(stringResolver: StringResolver): Str
         }
 
         is DpiSuiteProbeResult.Skipped -> {
-            if (reason == "TCP16 detected zero blocked ASNs") {
-                stringResolver.getString(R.string.diagnostics_dpi_suite_tcp16_no_blocked_asns)
-            } else if (reason == DpiSuiteProbeResult.Skipped.NoValidTargetsReason) {
-                stringResolver.getString(R.string.diagnostics_dpi_suite_no_valid_targets)
-            } else {
-                reason
-            }
+            stringResolver.getString(
+                when (reason) {
+                    DpiSuiteSkipReason.NO_VALID_TARGETS -> R.string.diagnostics_dpi_suite_no_valid_targets
+                    DpiSuiteSkipReason.PREREQUISITE_NOT_SELECTED -> R.string.diagnostics_allowlist_sni_run_after_tcp16
+                    DpiSuiteSkipReason.PREREQUISITE_UNAVAILABLE -> R.string.diagnostics_pmtu_inconclusive
+                    DpiSuiteSkipReason.NOT_APPLICABLE -> R.string.diagnostics_stages_not_applicable
+                },
+            )
         }
 
         is DpiSuiteProbeResult.Failed -> {

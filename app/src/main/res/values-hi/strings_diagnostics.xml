@@ -1444,7 +1444,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">इस जाँच के लिए HTTPS बाइंडिंग उपलब्ध नहीं है</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">उपयोग योग्य ECH कॉन्फ़िगरेशन नहीं है</string>
     <string name="diagnostics_dpi_suite_telegram_format">डाउनलोड: %1$s, अपलोड: %2$s, DC: %3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 को कोई अवरुद्ध ASN नहीं मिला</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI मिला</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">DNS हस्तक्षेप</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">मिश्रित हस्तक्षेप</string>

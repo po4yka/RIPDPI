@@ -7,11 +7,13 @@ object DpiSuiteVerdictAggregator {
                 if (results.any(::hasDnsInterference)) add(SuiteVerdict.DNS_INTERFERENCE)
                 if (results.any(::hasDpiDetection)) add(SuiteVerdict.DPI_DETECTED)
             }
+        val applicableResults =
+            results.filterNot { it is DpiSuiteProbeResult.Skipped && it.reason == DpiSuiteSkipReason.NOT_APPLICABLE }
         val verdict =
             when {
                 categories.size > 1 -> SuiteVerdict.MIXED
                 categories.size == 1 -> categories.single()
-                results.isNotEmpty() && results.all(::isClean) -> SuiteVerdict.CLEAN
+                applicableResults.allMeasured(::isClean) -> SuiteVerdict.CLEAN
                 else -> SuiteVerdict.INCONCLUSIVE
             }
         return DpiSuiteAggregate(

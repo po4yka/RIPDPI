@@ -110,17 +110,20 @@ sealed interface DpiSuiteProbeResult {
 
     data class Skipped(
         override val kind: DpiProbeKind,
-        val reason: String,
-    ) : DpiSuiteProbeResult {
-        companion object {
-            const val NoValidTargetsReason = "No valid targets"
-        }
-    }
+        val reason: DpiSuiteSkipReason,
+    ) : DpiSuiteProbeResult
 
     data class Failed(
         override val kind: DpiProbeKind,
         val error: String,
     ) : DpiSuiteProbeResult
+}
+
+enum class DpiSuiteSkipReason {
+    NO_VALID_TARGETS,
+    PREREQUISITE_NOT_SELECTED,
+    PREREQUISITE_UNAVAILABLE,
+    NOT_APPLICABLE,
 }
 
 enum class SuiteVerdict {

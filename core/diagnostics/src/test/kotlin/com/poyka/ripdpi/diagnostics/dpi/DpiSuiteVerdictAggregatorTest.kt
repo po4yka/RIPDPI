@@ -5,6 +5,16 @@ import org.junit.Test
 
 class DpiSuiteVerdictAggregatorTest {
     @Test
+    fun inapplicableSniDoesNotChangeSuccessfulMeasuredVerdict() {
+        val skipped = DpiSuiteProbeResult.Skipped(DpiProbeKind.WHITELIST_SNI, DpiSuiteSkipReason.NOT_APPLICABLE)
+        assertEquals(
+            SuiteVerdict.CLEAN,
+            DpiSuiteVerdictAggregator.aggregate(listOf(tcp16(Tcp16Verdict.OK), skipped)).verdict,
+        )
+        assertEquals(SuiteVerdict.INCONCLUSIVE, DpiSuiteVerdictAggregator.aggregate(listOf(skipped)).verdict)
+    }
+
+    @Test
     fun cleanWhenAllProbesOk() {
         val aggregate =
             DpiSuiteVerdictAggregator.aggregate(
@@ -123,7 +133,10 @@ class DpiSuiteVerdictAggregatorTest {
                 tcp16(Tcp16Verdict.DEAD),
                 tcp16(Tcp16Verdict.ERROR),
                 tcp16(Tcp16Verdict.INVALID_RECONNECTED),
-                DpiSuiteProbeResult.Skipped(DpiProbeKind.QUIC_H3, "unavailable"),
+                DpiSuiteProbeResult.Skipped(
+                    DpiProbeKind.WHITELIST_SNI,
+                    DpiSuiteSkipReason.PREREQUISITE_UNAVAILABLE,
+                ),
                 DpiSuiteProbeResult.DomainReachability(emptyList()),
                 DpiSuiteProbeResult.DnsAvailability(emptyList()),
                 DpiSuiteProbeResult.DnsAvailability(listOf(DnsServerResult("resolver", DnsServerType.UDP, 0, 2, null))),

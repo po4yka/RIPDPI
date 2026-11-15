@@ -1548,7 +1548,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">ربط HTTPS غير متاح لهذا الفحص</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">لا يوجد إعداد ECH قابل للاستخدام</string>
     <string name="diagnostics_dpi_suite_telegram_format">تنزيل: %1$s، رفع: %2$s، ⁨DC⁩: %3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">لم يكتشف TCP16 أي ASN محظور</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">اكتُشف DPI</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">تدخل في DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">تدخل مختلط</string>

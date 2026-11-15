@@ -1437,7 +1437,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">HTTPS-Dienstbindung für diese Prüfung nicht verfügbar</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Keine verwendbare ECH-Konfiguration</string>
     <string name="diagnostics_dpi_suite_telegram_format">Download: %1$s, Upload: %2$s, DC: %3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 erkannte keine blockierten ASNs</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI erkannt</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">DNS-Eingriff</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Gemischte Eingriffe</string>

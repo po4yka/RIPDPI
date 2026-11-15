@@ -1438,7 +1438,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Vinculación HTTPS no disponible para esta prueba</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">No hay una configuración ECH utilizable</string>
     <string name="diagnostics_dpi_suite_telegram_format">descarga: %1$s, subida: %2$s, DC: %3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 no detectó ASN bloqueados</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI detectado</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">Interferencia DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Interferencia mixta</string>

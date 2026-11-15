@@ -1438,7 +1438,6 @@
     <string name="diagnostics_dpi_suite_ech_endpoint_unsupported">Liaison HTTPS indisponible pour ce test</string>
     <string name="diagnostics_dpi_suite_ech_config_unusable">Aucune configuration ECH utilisable</string>
     <string name="diagnostics_dpi_suite_telegram_format">téléchargement : %1$s, envoi : %2$s, DC : %3$d/%4$d</string>
-    <string name="diagnostics_dpi_suite_tcp16_no_blocked_asns">TCP16 n’a détecté aucun ASN bloqué</string>
     <string name="diagnostics_dpi_suite_verdict_dpi_detected">DPI détecté</string>
     <string name="diagnostics_dpi_suite_verdict_dns_interference">Interférence DNS</string>
     <string name="diagnostics_dpi_suite_verdict_mixed">Interférence mixte</string>
