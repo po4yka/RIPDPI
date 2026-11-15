@@ -239,7 +239,7 @@
     <string name="vpn_pcap_capture_list_empty">Включите захват пакетов в расширенных настройках.</string>
     <string name="vpn_pcap_loading">Загрузка захватов пакетов…</string>
     <string name="vpn_pcap_read_failed">Не удалось прочитать данные PCAP.</string>
-    <string name="vpn_pcap_truncated">Показаны первые 2 000 пакетов.</string>
+    <string name="vpn_pcap_truncated">Показана часть захвата.</string>
     <string name="vpn_pcap_no_packets">В этом захвате нет пакетов.</string>
     <string name="vpn_dev_pcap_section_title">Разработчик</string>
     <string name="vpn_dev_pcap_toggle_label">Захват пакетов (диагностика)</string>

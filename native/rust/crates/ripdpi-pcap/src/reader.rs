@@ -1,6 +1,9 @@
 use std::io::{self, Read};
 
-use crate::constants::{LINKTYPE_RAW, MAGIC, PCAP_GLOBAL_HEADER_LEN, PCAP_PACKET_HEADER_LEN};
+use crate::constants::{
+    LINKTYPE_RAW, MAGIC, MAX_CAPTURED_BYTES, MICROS_PER_SECOND, PCAP_GLOBAL_HEADER_LEN, PCAP_PACKET_HEADER_LEN,
+    PCAP_VERSION,
+};
 
 /// A single record returned by [`PcapReader::next_record`].
 #[derive(Debug, Clone)]
@@ -33,7 +36,13 @@ impl<R: Read> PcapReader<R> {
                 format!("unsupported pcap magic 0x{magic:08x}, expected 0x{MAGIC:08x}"),
             ));
         }
+        if header[4..8] != PCAP_VERSION {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "only pcap version 2.4 is supported"));
+        }
         let snaplen = u32::from_le_bytes([header[16], header[17], header[18], header[19]]);
+        if snaplen == 0 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "pcap snaplen must be nonzero"));
+        }
         let linktype = u32::from_le_bytes([header[20], header[21], header[22], header[23]]);
         if linktype != LINKTYPE_RAW {
             return Err(io::Error::new(
@@ -56,11 +65,17 @@ impl<R: Read> PcapReader<R> {
         let ts_usec = u32::from_le_bytes([header[4], header[5], header[6], header[7]]);
         let incl_len = u32::from_le_bytes([header[8], header[9], header[10], header[11]]);
         let orig_len = u32::from_le_bytes([header[12], header[13], header[14], header[15]]);
+        if ts_usec >= MICROS_PER_SECOND {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid pcap microsecond timestamp fraction"));
+        }
         if incl_len > self.snaplen {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!("packet incl_len {incl_len} exceeds snaplen {}", self.snaplen),
             ));
+        }
+        if incl_len > orig_len || incl_len > MAX_CAPTURED_BYTES {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid pcap captured length"));
         }
         let mut bytes = vec![0u8; incl_len as usize];
         match self.inner.read_exact(&mut bytes) {
@@ -68,7 +83,8 @@ impl<R: Read> PcapReader<R> {
             Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
             Err(e) => return Err(e),
         }
-        Ok(Some(PcapRecord { ts_micros: u64::from(ts_sec) * 1_000_000 + u64::from(ts_usec), orig_len, bytes }))
+        let ts_micros = u64::from(ts_sec) * u64::from(MICROS_PER_SECOND) + u64::from(ts_usec);
+        Ok(Some(PcapRecord { ts_micros, orig_len, bytes }))
     }
 }
 

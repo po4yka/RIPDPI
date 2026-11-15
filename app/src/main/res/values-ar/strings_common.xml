@@ -202,7 +202,7 @@
     <string name="vpn_pcap_capture_list_empty">فعّل التقاط الحزم من الإعدادات المتقدمة.</string>
     <string name="vpn_pcap_loading">جارٍ تحميل تسجيلات الحزم…</string>
     <string name="vpn_pcap_read_failed">تعذّرت قراءة بيانات PCAP.</string>
-    <string name="vpn_pcap_truncated">تُعرض أول ٢٠٠٠ حزمة.</string>
+    <string name="vpn_pcap_truncated">يُعرض جزء من هذا الالتقاط.</string>
     <string name="vpn_pcap_no_packets">لا يحتوي هذا التسجيل على حزم.</string>
     <string name="vpn_dev_pcap_section_title">المطوّر</string>
     <string name="vpn_dev_pcap_toggle_label">التقاط الحزم (تشخيص)</string>

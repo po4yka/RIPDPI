@@ -255,6 +255,38 @@ mod tests {
 
     // -- reader validation -------------------------------------------------
 
+    const RAW_PCAP_HEADER: [u8; 24] =
+        [0xd4, 0xc3, 0xb2, 0xa1, 2, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 101, 0, 0, 0];
+
+    #[test]
+    fn reader_rejects_unsupported_version_and_zero_snaplen() {
+        let mut wrong_version = RAW_PCAP_HEADER;
+        wrong_version[6] = 5;
+        let mut zero_snaplen = RAW_PCAP_HEADER;
+        zero_snaplen[16..20].fill(0);
+        for header in [wrong_version, zero_snaplen] {
+            let error = PcapReader::new(Cursor::new(header)).err().expect("invalid global header");
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        }
+    }
+
+    #[test]
+    fn reader_rejects_invalid_record_metadata_before_reading_payload() {
+        let cases: [(u32, u32, u32, u32); 4] =
+            [(65_535, 1_000_000, 20, 20), (19, 0, 20, 20), (65_535, 0, 21, 20), (u32::MAX, 0, 262_145, 262_145)];
+        for (snaplen, micros, captured, original) in cases {
+            let mut bytes = Vec::from(RAW_PCAP_HEADER);
+            bytes[16..20].copy_from_slice(&snaplen.to_le_bytes());
+            bytes.extend_from_slice(&[0; 4]);
+            bytes.extend_from_slice(&micros.to_le_bytes());
+            bytes.extend_from_slice(&captured.to_le_bytes());
+            bytes.extend_from_slice(&original.to_le_bytes());
+            let mut reader = PcapReader::new(Cursor::new(bytes)).unwrap();
+            let error = reader.next_record().unwrap_err();
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        }
+    }
+
     #[test]
     fn reader_rejects_wrong_magic() {
         let mut header = [0u8; 24];

@@ -232,7 +232,7 @@
     <string name="vpn_pcap_capture_list_empty">Activez la capture de paquets dans les paramètres avancés.</string>
     <string name="vpn_pcap_loading">Chargement des captures de paquets…</string>
     <string name="vpn_pcap_read_failed">Impossible de lire les données PCAP.</string>
-    <string name="vpn_pcap_truncated">Affichage des 2 000 premiers paquets.</string>
+    <string name="vpn_pcap_truncated">Une partie de la capture est affichée.</string>
     <string name="vpn_pcap_no_packets">Cette capture ne contient aucun paquet.</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">Développeur</string>

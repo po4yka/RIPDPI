@@ -235,7 +235,7 @@
     <string name="vpn_pcap_capture_list_empty">उन्नत सेटिंग्स में पैकेट कैप्चर चालू करें।</string>
     <string name="vpn_pcap_loading">पैकेट कैप्चर लोड हो रहे हैं…</string>
     <string name="vpn_pcap_read_failed">PCAP डेटा पढ़ा नहीं जा सका।</string>
-    <string name="vpn_pcap_truncated">पहले 2,000 पैकेट दिखाए जा रहे हैं।</string>
+    <string name="vpn_pcap_truncated">इस कैप्चर का कुछ हिस्सा दिखाया जा रहा है।</string>
     <string name="vpn_pcap_no_packets">इस कैप्चर में कोई पैकेट नहीं है।</string>
     <!-- P3.8: PCAP capture developer toggle -->
     <string name="vpn_dev_pcap_section_title">डेवलपर</string>
