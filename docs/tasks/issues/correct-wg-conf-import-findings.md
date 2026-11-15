@@ -2,7 +2,7 @@
 id: DAT-1794728756596106
 title: Correct WireGuard and AmneziaWG conf import findings
 kind: bug
-status: doing
+status: review
 area: data
 priority: high
 owner: IMP-04 integrator
