@@ -2,7 +2,7 @@
 id: SVC-1794755208139697
 title: Fix signed shared-priors audit defects
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: AUX-05 maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: fix-shared-priors-audit-defects
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Three atomic fixes and focused tests pass; rebased combined validation is pending.
 ---
 
 ## Goal
