@@ -287,6 +287,28 @@ fn answer_overlap_matches_on_shared_v6_slash48() {
 }
 
 #[test]
+fn answer_overlap_does_not_hide_extra_sinkholes_behind_public_overlap() {
+    for (udp, encrypted) in [
+        (vec!["1.1.1.1", "127.0.0.1"], vec!["1.1.1.1"]),
+        (vec!["104.16.132.229", "10.0.0.1"], vec!["104.16.132.12"]),
+        (vec!["2606:4700:4700::1111", "::1"], vec!["2606:4700:4700::1001"]),
+        (vec!["1.1.1.1"], vec!["1.1.1.1", "127.0.0.1"]),
+    ] {
+        let udp = udp.into_iter().map(str::to_string).collect::<Vec<_>>();
+        let encrypted = encrypted.into_iter().map(str::to_string).collect::<Vec<_>>();
+        assert_eq!(classify_dns_answer_overlap(&udp, &encrypted), DnsAnswerOverlap::SinkholeSubstitution);
+    }
+}
+
+#[test]
+fn answer_overlap_preserves_agreed_private_answers() {
+    for answers in [vec!["10.0.0.1"], vec!["1.1.1.1", "127.0.0.1"], vec!["fd00::53"]] {
+        let answers = answers.into_iter().map(str::to_string).collect::<Vec<_>>();
+        assert_eq!(classify_dns_answer_overlap(&answers, &answers), DnsAnswerOverlap::Match);
+    }
+}
+
+#[test]
 fn sinkhole_detects_unspecified_and_private() {
     assert!(looks_like_sinkhole("0.0.0.0"));
     assert!(looks_like_sinkhole("127.0.0.1"));

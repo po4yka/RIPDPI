@@ -105,20 +105,23 @@ pub fn looks_like_sinkhole(value: &str) -> bool {
 
 /// Outcome of comparing UDP and encrypted DNS answer sets. Distinguishes
 /// legitimate anycast divergence (separate public IPs from the same CDN) from
-/// real poisoning (disjoint sets where one side returns a sinkhole/private IP).
+/// unexpected sinkhole/private addresses, including mixed overlapping answer sets.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DnsAnswerOverlap {
     /// Any shared IP or shared /24 (v4) / /48 (v6) prefix.
     Match,
     /// Disjoint answers but both sides are plausibly public.
     CompatibleDivergence,
-    /// Disjoint answers and at least one side returns a sinkhole / private IP.
+    /// An unmatched answer contains a sinkhole / private IP.
     SinkholeSubstitution,
 }
 
 pub fn classify_dns_answer_overlap(udp: &[String], encrypted: &[String]) -> DnsAnswerOverlap {
     let udp_set = ip_set(udp);
     let enc_set = ip_set(encrypted);
+    if udp_set.symmetric_difference(&enc_set).any(|ip| looks_like_sinkhole(ip)) {
+        return DnsAnswerOverlap::SinkholeSubstitution;
+    }
     if !udp_set.is_disjoint(&enc_set) {
         return DnsAnswerOverlap::Match;
     }
@@ -131,9 +134,6 @@ pub fn classify_dns_answer_overlap(udp: &[String], encrypted: &[String]) -> DnsA
     let enc_v6: BTreeSet<[u16; 3]> = enc_set.iter().filter_map(|ip| ipv6_prefix_48(ip)).collect();
     if !udp_v6.is_disjoint(&enc_v6) {
         return DnsAnswerOverlap::Match;
-    }
-    if udp_set.iter().any(|ip| looks_like_sinkhole(ip)) || enc_set.iter().any(|ip| looks_like_sinkhole(ip)) {
-        return DnsAnswerOverlap::SinkholeSubstitution;
     }
     DnsAnswerOverlap::CompatibleDivergence
 }
