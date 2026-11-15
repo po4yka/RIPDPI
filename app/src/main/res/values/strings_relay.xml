@@ -221,6 +221,7 @@
     <string name="xray_import_skipped_title">Skipped nodes</string>
     <string name="xray_import_error_no_supported">No outbounds in this Xray config can run natively.</string>
     <string name="xray_import_error_unparseable">Not a valid Xray config or share link.</string>
+    <string name="xray_import_error_too_large">Xray input exceeds %1$d MiB or %2$d nodes.</string>
     <string name="xray_skip_vmess_removed">VMess is not supported.</string>
     <string name="xray_skip_vless_requires_reality">Plain VLESS is unsupported; REALITY is required.</string>
     <string name="xray_skip_malformed">Malformed or incomplete outbound.</string>

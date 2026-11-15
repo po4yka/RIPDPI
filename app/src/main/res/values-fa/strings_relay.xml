@@ -219,6 +219,7 @@
     <string name="xray_import_skipped_title">گره‌های رد شده</string>
     <string name="xray_import_error_no_supported">هیچ خروجی‌ای در این پیکربندی Xray به‌صورت بومی اجرا نمی‌شود.</string>
     <string name="xray_import_error_unparseable">پیکربندی Xray یا پیوند معتبر نیست.</string>
+    <string name="xray_import_error_too_large">پیکربندی Xray از %1$d MiB یا %2$d گره بیشتر است.</string>
     <string name="xray_skip_vmess_removed">VMess پشتیبانی نمی‌شود.</string>
     <string name="xray_skip_vless_requires_reality">VLESS ساده پشتیبانی نمی‌شود؛ REALITY لازم است.</string>
     <string name="xray_skip_malformed">خروجی ناقص یا نامعتبر.</string>

@@ -216,6 +216,7 @@
     <string name="xray_import_skipped_title">Servidores ignorados</string>
     <string name="xray_import_error_no_supported">Nenhum outbound desta configuração Xray pode ser executado nativamente.</string>
     <string name="xray_import_error_unparseable">Não é uma configuração Xray nem um link de compartilhamento válidos.</string>
+    <string name="xray_import_error_too_large">A configuração do Xray excede %1$d MiB ou %2$d nós.</string>
     <string name="xray_skip_vmess_removed">O VMess não é compatível.</string>
     <string name="xray_skip_vless_requires_reality">VLESS simples não é compatível; o REALITY é obrigatório.</string>
     <string name="xray_skip_malformed">Saída malformada ou incompleta.</string>

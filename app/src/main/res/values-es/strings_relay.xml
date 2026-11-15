@@ -219,6 +219,7 @@
     <string name="xray_import_skipped_title">Nodos omitidos</string>
     <string name="xray_import_error_no_supported">Ningún saliente de esta configuración de Xray puede ejecutarse de forma nativa.</string>
     <string name="xray_import_error_unparseable">No es una configuración de Xray ni un enlace válido.</string>
+    <string name="xray_import_error_too_large">La configuración de Xray supera los %1$d MiB o los %2$d nodos.</string>
     <string name="xray_skip_vmess_removed">VMess no es compatible.</string>
     <string name="xray_skip_vless_requires_reality">VLESS simple no es compatible; se requiere REALITY.</string>
     <string name="xray_skip_malformed">Saliente incompleto o con formato incorrecto.</string>

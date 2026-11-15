@@ -216,6 +216,7 @@
     <string name="xray_import_skipped_title">Пропущенные узлы</string>
     <string name="xray_import_error_no_supported">Ни один исходящий узел этой конфигурации Xray не может работать нативно.</string>
     <string name="xray_import_error_unparseable">Недействительная конфигурация Xray или ссылка.</string>
+    <string name="xray_import_error_too_large">Конфигурация Xray превышает %1$d МиБ или %2$d узлов.</string>
     <string name="xray_skip_vmess_removed">VMess не поддерживается.</string>
     <string name="xray_skip_vless_requires_reality">Обычный VLESS не поддерживается; требуется REALITY.</string>
     <string name="xray_skip_malformed">Некорректный или неполный исходящий узел.</string>

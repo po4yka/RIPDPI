@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.XrayProviderMutationCoordinator
+import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
+import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
 import com.poyka.ripdpi.data.xray.DefaultXrayProfileId
 import com.poyka.ripdpi.data.xray.DurableXrayProfileStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
@@ -119,6 +121,14 @@ class DefaultXrayProfilePersistence
 
         override val unparseableMessage: String
             get() = stringResolver.getString(R.string.xray_import_error_unparseable)
+
+        override val inputTooLargeMessage: String
+            get() =
+                stringResolver.getString(
+                    R.string.xray_import_error_too_large,
+                    MaxSubscriptionPayloadBytes / BytesPerMebibyte,
+                    MaxSubscriptionProfiles,
+                )
 
         override val persistFailedMessage: String
             get() = stringResolver.getString(R.string.xray_import_error_activation_failed)
@@ -266,3 +276,5 @@ abstract class XrayProfilePersistenceModule {
     @Singleton
     abstract fun bindXrayNativeProviderSelection(impl: DefaultXrayProfilePersistence): XrayNativeProviderSelection
 }
+
+private const val BytesPerMebibyte = 1024 * 1024

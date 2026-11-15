@@ -5154,6 +5154,7 @@ app:xray_import_error_activation_failed
 app:xray_import_error_no_supported
 app:xray_import_error_restore_failed
 app:xray_import_error_title
+app:xray_import_error_too_large
 app:xray_import_error_typed_missing_field
 app:xray_import_error_typed_unsafe
 app:xray_import_error_typed_unsupported

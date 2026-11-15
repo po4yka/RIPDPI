@@ -219,6 +219,7 @@
     <string name="xray_import_skipped_title">Nœuds ignorés</string>
     <string name="xray_import_error_no_supported">Aucun sortant de cette configuration Xray ne peut s\'exécuter nativement.</string>
     <string name="xray_import_error_unparseable">Configuration Xray ou lien non valide.</string>
+    <string name="xray_import_error_too_large">La configuration Xray dépasse %1$d Mio ou %2$d nœuds.</string>
     <string name="xray_skip_vmess_removed">VMess n\'est pas pris en charge.</string>
     <string name="xray_skip_vless_requires_reality">Le VLESS simple n\'est pas pris en charge ; REALITY est requis.</string>
     <string name="xray_skip_malformed">Sortant incomplet ou mal formé.</string>

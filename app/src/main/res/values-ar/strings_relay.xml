@@ -217,6 +217,7 @@
     <string name="xray_import_skipped_title">العقد المتخطّاة</string>
     <string name="xray_import_error_no_supported">لا يمكن تشغيل أي وجهة صادرة في إعداد Xray هذا محليًا.</string>
     <string name="xray_import_error_unparseable">إعداد Xray أو رابط غير صالح.</string>
+    <string name="xray_import_error_too_large">يتجاوز إعداد Xray حد %1$d MiB أو %2$d عقدة.</string>
     <string name="xray_skip_vmess_removed">VMess غير مدعوم.</string>
     <string name="xray_skip_vless_requires_reality">VLESS العادي غير مدعوم؛ مطلوب REALITY.</string>
     <string name="xray_skip_malformed">وجهة صادرة غير مكتملة أو تالفة.</string>

@@ -65,6 +65,9 @@ enum class XrayUnparseableReason {
 
     /** Neither JSON nor any recognisable share link. */
     UNRECOGNISED_INPUT,
+
+    /** The byte or node budget for a manual import was exceeded. */
+    PAYLOAD_TOO_LARGE,
 }
 
 /** One Xray outbound/link that was skipped, with a localizable [reason]. */
@@ -127,12 +130,24 @@ object XrayConfigImportParser {
         input: String,
         groupId: String,
     ): XrayConfigImportResult {
-        val trimmed = input.trim()
-        if (trimmed.isEmpty()) return XrayConfigImportResult.Unparseable(XrayUnparseableReason.EMPTY)
-        // A base64-wrapped xray-core JSON config decodes to JSON — route it (and any
-        // direct JSON) to the JSON path rather than treating it as a link list.
-        val json = jsonPayloadOrNull(trimmed)
-        return if (json != null) parseJson(json, groupId) else parseLinks(trimmed, groupId)
+        val oversized =
+            input.length > MaxSubscriptionPayloadBytes ||
+                input.toByteArray(Charsets.UTF_8).size > MaxSubscriptionPayloadBytes
+        val trimmed = if (oversized) "" else input.trim()
+        return when {
+            oversized -> {
+                XrayConfigImportResult.Unparseable(XrayUnparseableReason.PAYLOAD_TOO_LARGE)
+            }
+
+            trimmed.isEmpty() -> {
+                XrayConfigImportResult.Unparseable(XrayUnparseableReason.EMPTY)
+            }
+
+            else -> {
+                val json = jsonPayloadOrNull(trimmed)
+                if (json != null) parseJson(json, groupId) else parseLinks(trimmed, groupId)
+            }
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -146,9 +161,21 @@ object XrayConfigImportParser {
         val root = runCatching { RipDpiLenientJson.parseToJsonElement(text) }.getOrNull()
         val outbounds = root?.let { extractOutbounds(it) }
         return when {
-            root == null -> XrayConfigImportResult.Unparseable(XrayUnparseableReason.MALFORMED_JSON)
-            outbounds == null -> XrayConfigImportResult.Unparseable(XrayUnparseableReason.NO_OUTBOUNDS)
-            else -> translateOutbounds(outbounds, groupId)
+            root == null -> {
+                XrayConfigImportResult.Unparseable(XrayUnparseableReason.MALFORMED_JSON)
+            }
+
+            outbounds == null -> {
+                XrayConfigImportResult.Unparseable(XrayUnparseableReason.NO_OUTBOUNDS)
+            }
+
+            outbounds.size > MaxSubscriptionProfiles -> {
+                XrayConfigImportResult.Unparseable(XrayUnparseableReason.PAYLOAD_TOO_LARGE)
+            }
+
+            else -> {
+                translateOutbounds(outbounds, groupId)
+            }
         }
     }
 
@@ -368,20 +395,19 @@ object XrayConfigImportParser {
         input: String,
         groupId: String,
     ): XrayConfigImportResult {
-        val text = decodeBase64OrPlain(input)
-        if (!text.contains("://")) {
-            return XrayConfigImportResult.Unparseable(XrayUnparseableReason.UNRECOGNISED_INPUT)
+        val lines =
+            decodeBase64OrPlain(input)
+                .lineSequence()
+                .map(String::trim)
+                .filter { it.isNotEmpty() && !it.startsWith("#") && it.contains("://") }
+                .take(MaxSubscriptionProfiles + 1)
+                .toList()
+        if (lines.size > MaxSubscriptionProfiles) {
+            return XrayConfigImportResult.Unparseable(XrayUnparseableReason.PAYLOAD_TOO_LARGE)
         }
         val profiles = mutableListOf<ProxyProfile>()
         val skipped = mutableListOf<XraySkippedNode>()
-        var index = 0
-        text.lineSequence().forEach { rawLine ->
-            val line = rawLine.trim()
-            if (line.isEmpty() || line.startsWith("#") || !line.contains("://")) return@forEach
-            val current = index
-            index += 1
-            classifyLink(line, current, groupId, profiles, skipped)
-        }
+        lines.forEachIndexed { index, line -> classifyLink(line, index, groupId, profiles, skipped) }
         return if (profiles.isEmpty() && skipped.isEmpty()) {
             XrayConfigImportResult.Unparseable(XrayUnparseableReason.UNRECOGNISED_INPUT)
         } else {

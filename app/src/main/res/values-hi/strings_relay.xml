@@ -257,6 +257,7 @@
     <string name="xray_import_skipped_title">छोड़े गए नोड</string>
     <string name="xray_import_error_no_supported">इस Xray कॉन्फ़िग में कोई भी outbound मूल रूप से नहीं चल सकता।</string>
     <string name="xray_import_error_unparseable">मान्य Xray कॉन्फ़िग या शेयर लिंक नहीं है।</string>
+    <string name="xray_import_error_too_large">Xray कॉन्फ़िगरेशन %1$d MiB या %2$d नोड की सीमा से अधिक है।</string>
     <string name="xray_skip_vmess_removed">VMess समर्थित नहीं है।</string>
     <string name="xray_skip_vless_requires_reality">सादा VLESS असमर्थित है; REALITY आवश्यक है।</string>
     <string name="xray_skip_malformed">विकृत या अधूरा outbound।</string>

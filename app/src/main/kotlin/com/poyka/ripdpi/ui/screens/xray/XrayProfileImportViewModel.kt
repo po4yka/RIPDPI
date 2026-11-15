@@ -2,22 +2,28 @@ package com.poyka.ripdpi.ui.screens.xray
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
+import com.poyka.ripdpi.data.subscription.MaxSubscriptionProfiles
 import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
 import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
 import com.poyka.ripdpi.data.subscription.XraySkipReason
 import com.poyka.ripdpi.data.subscription.XraySkippedNode
+import com.poyka.ripdpi.data.subscription.XrayUnparseableReason
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayImportParser
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProviderBuildInfo
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
+import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +32,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import java.util.UUID
 import javax.inject.Inject
 
@@ -48,9 +57,17 @@ enum class XrayImportRestoreStatus {
     Failed,
 }
 
+/** Byte admission for the original manual input, before trimming or parsing. */
+enum class XrayInputByteBudgetStatus {
+    Pending,
+    WithinLimit,
+    Exceeded,
+}
+
 data class XrayImportUiState(
     val selectedOption: XrayServiceModeOption = XrayServiceModeOption.default,
     val rawInput: String = "",
+    val inputByteBudgetStatus: XrayInputByteBudgetStatus = XrayInputByteBudgetStatus.WithinLimit,
     val restoreStatus: XrayImportRestoreStatus = XrayImportRestoreStatus.Loading,
     val restoreErrorMessage: String? = null,
     val validating: Boolean = false,
@@ -71,7 +88,9 @@ data class XrayImportUiState(
     val canFinish: Boolean
         get() =
             restoreStatus == XrayImportRestoreStatus.Ready &&
+                inputByteBudgetStatus == XrayInputByteBudgetStatus.WithinLimit &&
                 !persisting &&
+                !validating &&
                 ((!requiresXrayProfile && rawInput.isBlank()) || acceptedConfigReady)
 }
 
@@ -96,12 +115,15 @@ class XrayProfileImportViewModel
     @Inject
     constructor(
         private val persistence: XrayProfilePersistence,
+        private val dispatchers: AppCoroutineDispatchers,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(XrayImportUiState())
         val uiState: StateFlow<XrayImportUiState> = _uiState.asStateFlow()
         private val importedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
         val importedEvents: Flow<Unit> = importedEventChannel.receiveAsFlow()
         private var completed = false
+        private var validationJob: Job? = null
+        private var inputBudgetJob: Job? = null
 
         /** True after the user edits selection/input; prevents late restore from overwriting fresh UI intent. */
         private var userEdited = false
@@ -147,7 +169,6 @@ class XrayProfileImportViewModel
                 it.copy(
                     restoreStatus = XrayImportRestoreStatus.Loading,
                     restoreErrorMessage = null,
-                    errorMessage = null,
                 )
             }
             viewModelScope.launch {
@@ -159,9 +180,6 @@ class XrayProfileImportViewModel
                                 current.copy(
                                     restoreStatus = XrayImportRestoreStatus.Failed,
                                     restoreErrorMessage = persistence.restoreFailedMessage,
-                                    validating = false,
-                                    persisting = false,
-                                    errorMessage = null,
                                 )
                             }
                             return@launch
@@ -171,8 +189,6 @@ class XrayProfileImportViewModel
                         it.copy(
                             restoreStatus = XrayImportRestoreStatus.Ready,
                             restoreErrorMessage = null,
-                            validating = false,
-                            errorMessage = null,
                         )
                     }
                     return@launch
@@ -190,12 +206,10 @@ class XrayProfileImportViewModel
                         selectedOption = selection.option,
                         restoreStatus = XrayImportRestoreStatus.Ready,
                         restoreErrorMessage = null,
-                        validating = false,
                         acceptedConfigReady = restoredProfile != null,
                         importableCount = if (restoredProfile == null) 0 else 1,
                         capabilities = restoredProfile?.let(::capabilitiesFor)?.toImmutableList() ?: persistentListOf(),
                         skipped = persistentListOf(),
-                        errorMessage = null,
                     )
                 }
             }
@@ -212,14 +226,18 @@ class XrayProfileImportViewModel
             if (!_uiState.value.canEdit) return
             userEdited = true
             interactionGeneration += 1
+            validationJob?.cancel()
             completed = false
             translatedProfiles = emptyList()
             val restoredProfile = storedXrayProfile.takeIf { option.requiresXrayProfile }
+            val input = if (restoredProfile == null) _uiState.value.rawInput else ""
             acceptedXrayProfile = restoredProfile
             _uiState.update {
                 it.copy(
                     selectedOption = option,
-                    rawInput = if (restoredProfile == null) it.rawInput else "",
+                    validating = false,
+                    rawInput = input,
+                    inputByteBudgetStatus = initialByteBudgetStatus(input),
                     acceptedConfigReady = restoredProfile != null,
                     importableCount = if (restoredProfile == null) 0 else 1,
                     capabilities = restoredProfile?.let(::capabilitiesFor)?.toImmutableList() ?: persistentListOf(),
@@ -227,6 +245,7 @@ class XrayProfileImportViewModel
                     errorMessage = null,
                 )
             }
+            checkInputByteBudget(input)
         }
 
         /** Updates the editable import text, clearing the previous outcome. */
@@ -234,12 +253,15 @@ class XrayProfileImportViewModel
             if (!_uiState.value.canEdit) return
             userEdited = true
             interactionGeneration += 1
+            validationJob?.cancel()
             completed = false
             translatedProfiles = emptyList()
             acceptedXrayProfile = null
             _uiState.update {
                 it.copy(
                     rawInput = value,
+                    inputByteBudgetStatus = initialByteBudgetStatus(value),
+                    validating = false,
                     acceptedConfigReady = false,
                     importableCount = 0,
                     capabilities = persistentListOf(),
@@ -247,6 +269,34 @@ class XrayProfileImportViewModel
                     errorMessage = null,
                 )
             }
+            checkInputByteBudget(value)
+        }
+
+        private fun initialByteBudgetStatus(input: String): XrayInputByteBudgetStatus =
+            when {
+                input.isEmpty() -> XrayInputByteBudgetStatus.WithinLimit
+                input.length > MaxSubscriptionPayloadBytes -> XrayInputByteBudgetStatus.Exceeded
+                else -> XrayInputByteBudgetStatus.Pending
+            }
+
+        private fun checkInputByteBudget(input: String) {
+            inputBudgetJob?.cancel()
+            if (_uiState.value.inputByteBudgetStatus != XrayInputByteBudgetStatus.Pending) return
+            val generation = interactionGeneration
+            inputBudgetJob =
+                viewModelScope.launch {
+                    val status =
+                        withContext(dispatchers.default) {
+                            if (input.toByteArray(Charsets.UTF_8).size > MaxSubscriptionPayloadBytes) {
+                                XrayInputByteBudgetStatus.Exceeded
+                            } else {
+                                XrayInputByteBudgetStatus.WithinLimit
+                            }
+                        }
+                    if (generation == interactionGeneration) {
+                        _uiState.update { it.copy(inputByteBudgetStatus = status) }
+                    }
+                }
         }
 
         /**
@@ -259,40 +309,105 @@ class XrayProfileImportViewModel
         fun validate() {
             val state = _uiState.value
             if (!state.canEdit || state.validating) return
-            val input = state.rawInput.trim()
-            if (input.isEmpty()) {
-                _uiState.update { it.copy(errorMessage = persistence.emptyInputMessage) }
+            val input = state.rawInput
+            if (input.length > MaxSubscriptionPayloadBytes) {
+                failUnparseable(persistence.inputTooLargeMessage)
                 return
             }
+            val generation = interactionGeneration
             _uiState.update { it.copy(validating = true, errorMessage = null) }
-            if (state.requiresXrayProfile) {
-                validateXrayProfile(input)
-            } else {
-                validateNativeRelayProfile(input)
-            }
+            validationJob =
+                viewModelScope.launch {
+                    val result = withContext(dispatchers.default) { parseInput(input, state.requiresXrayProfile) }
+                    if (generation != interactionGeneration) return@launch
+                    when (result) {
+                        ValidationResult.Empty -> {
+                            _uiState.update {
+                                it.copy(
+                                    validating = false,
+                                    errorMessage = persistence.emptyInputMessage,
+                                )
+                            }
+                        }
+
+                        ValidationResult.TooLarge -> {
+                            failUnparseable(persistence.inputTooLargeMessage)
+                        }
+
+                        is ValidationResult.Native -> {
+                            applyNativeValidation(result.parsed)
+                        }
+
+                        is ValidationResult.Xray -> {
+                            applyXrayValidation(result.parsed)
+                        }
+                    }
+                }
         }
 
-        private fun validateNativeRelayProfile(input: String) {
-            val groupId = UUID.randomUUID().toString()
-            when (val result = XrayConfigImportParser.parse(input, groupId)) {
+        private fun parseInput(
+            input: String,
+            requiresXrayProfile: Boolean,
+        ): ValidationResult =
+            when {
+                input.toByteArray(Charsets.UTF_8).size > MaxSubscriptionPayloadBytes -> {
+                    ValidationResult.TooLarge
+                }
+
+                input.isBlank() -> {
+                    ValidationResult.Empty
+                }
+
+                requiresXrayProfile && exceedsTypedNodeBudget(input) -> {
+                    ValidationResult.TooLarge
+                }
+
+                requiresXrayProfile -> {
+                    ValidationResult.Xray(
+                        xrayImportParser.parse(
+                            input,
+                            upstreamTag = XrayProviderBuildInfo.upstreamTag,
+                            profileName = IMPORTED_PROFILE_NAME,
+                        ),
+                    )
+                }
+
+                else -> {
+                    ValidationResult.Native(XrayConfigImportParser.parse(input, UUID.randomUUID().toString()))
+                }
+            }
+
+        private fun exceedsTypedNodeBudget(input: String): Boolean {
+            // This preflight only limits work; the typed parser still validates every field.
+            val root =
+                when (input.firstOrNull { !it.isWhitespace() }) {
+                    '{', '[' -> runCatching { RipDpiLenientJson.parseToJsonElement(input) }.getOrNull()
+                    else -> null
+                }
+            val outbounds = (root as? JsonObject)?.get("outbounds") as? JsonArray ?: root as? JsonArray
+            return (outbounds?.size ?: 0) > MaxSubscriptionProfiles
+        }
+
+        private fun applyNativeValidation(result: XrayConfigImportResult) {
+            when (result) {
                 is XrayConfigImportResult.Translated -> {
                     applyTranslation(result)
                 }
 
                 is XrayConfigImportResult.Unparseable -> {
-                    failUnparseable()
+                    failUnparseable(
+                        if (result.reason == XrayUnparseableReason.PAYLOAD_TOO_LARGE) {
+                            persistence.inputTooLargeMessage
+                        } else {
+                            persistence.unparseableMessage
+                        },
+                    )
                 }
             }
         }
 
-        private fun validateXrayProfile(input: String) {
+        private fun applyXrayValidation(parsed: XrayImportParser.Result) {
             translatedProfiles = emptyList()
-            val parsed =
-                xrayImportParser.parse(
-                    input,
-                    upstreamTag = XrayProviderBuildInfo.upstreamTag,
-                    profileName = IMPORTED_PROFILE_NAME,
-                )
             when (parsed) {
                 is XrayImportParser.Result.Accepted -> {
                     val typed = parsed.profile
@@ -316,7 +431,21 @@ class XrayProfileImportViewModel
             }
         }
 
-        private fun failUnparseable() {
+        private sealed interface ValidationResult {
+            data object Empty : ValidationResult
+
+            data object TooLarge : ValidationResult
+
+            data class Native(
+                val parsed: XrayConfigImportResult,
+            ) : ValidationResult
+
+            data class Xray(
+                val parsed: XrayImportParser.Result,
+            ) : ValidationResult
+        }
+
+        private fun failUnparseable(message: String = persistence.unparseableMessage) {
             translatedProfiles = emptyList()
             acceptedXrayProfile = null
             _uiState.update {
@@ -326,7 +455,7 @@ class XrayProfileImportViewModel
                     importableCount = 0,
                     capabilities = persistentListOf(),
                     skipped = persistentListOf(),
-                    errorMessage = persistence.unparseableMessage,
+                    errorMessage = message,
                 )
             }
         }
@@ -495,6 +624,9 @@ interface XrayProfilePersistence {
 
     /** Localized message shown when the input is neither an Xray config nor a share link. */
     val unparseableMessage: String
+
+    /** Localized message shown when manual input exceeds the byte or node budget. */
+    val inputTooLargeMessage: String
 
     /** Localized message shown when activating the translated relay profile fails. */
     val persistFailedMessage: String

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.xray
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
@@ -35,6 +36,7 @@ import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -528,6 +530,7 @@ class XrayProviderPersistenceTest {
             val vm =
                 XrayProfileImportViewModel(
                     persistence(settings, durableProfiles, durableSelection, selection, activator, mutations),
+                    AppCoroutineDispatchers(Dispatchers.Main, Dispatchers.Main, Dispatchers.Main),
                 )
             advanceUntilIdle()
             vm.selectOption(XrayServiceModeOption.NativeProxy)
