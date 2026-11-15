@@ -35,6 +35,7 @@ Preserve the meaning of supported subscription inputs. Reject input that cannot 
 - Selector writer: BootstrapConsumer.kt, SelectorUrltestGroupImport.kt, SelectorTopology.kt, ProxyGroupStores.kt, subscription persistence/selection callers, and owning tests (F6/F8/F9/F10). All saved selector fields have this single writer.
 - Integrator: SubscriptionPayloadLimits.kt and its decoding tests (F11), task/OpenSpec artifacts, combined gates, review, integration, and push.
 - Integration quality writer: only DiagnosticsTelegramPresentation.kt and DiagnosticsTelegramCards.kt for behavior-preserving extraction required by inherited detekt blockers from incoming main; preserve existing Telegram output tests. This is not an audit of the adjacent diagnostics feature.
+- Diagnostics quality writer: only core/diagnostics DiagnosticsLocalNetworkPreflight.kt, application/DiagnosticsPlanningServices.kt, TelegramSummary.kt, DiagnosticsScanRequestFactoryTest.kt, DiagnosticsLocalNetworkPreflightTest.kt, DiagnosticsModelsCompatibilityTest.kt and a test split if needed. Remove ten inherited detekt blockers with behavior-preserving extraction, named constants and formatting. Preserve all existing test assertions.
 - Shared-file lanes: no dependency, golden, protobuf, or Rust registry change is planned. The Xray writer owns the size-error key in all ten locales and its translation export. Any other shared-file change is serialized through the integrator. Each writer uses a separate worktree. No writer edits another lane.
 
 ## Scope

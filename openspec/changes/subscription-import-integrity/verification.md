@@ -58,3 +58,7 @@ deployment_evidence: No deployment is owned by this change.
 ## Inherited integration quality
 
 A fresh source build after synchronization with incoming main found five detekt violations in DiagnosticsTelegramPresentation.kt and DiagnosticsTelegramCards.kt. Both files and detekt configuration were byte-identical to incoming main. A separate two-file extraction preserves share text, order, localization, privacy and Compose structure. Independent review and all ten owning Telegram cases passed; app detekt passed. No test expectations, resources, suppressions or baselines changed. This is an integration quality repair, not a separate diagnostics audit.
+
+## Fresh combined checkpoint at ec4c9ac1
+
+The final source-fresh Gradle run at ec4c9ac1f91e86eafb8b0770986694916509d118 passed 1804 selected JVM tests with zero failures, errors or skips. It executed 1752 tests in runtime-state (171), core:data (1015), diagnostics (65), service (25) and app (476); catalog (52) was unchanged and UP-TO-DATE. App compilation, app detekt and app lintGithubFullDebug passed. Full staticAnalysis stopped on ten core:diagnostics detekt issues. The entire diagnostics module was byte-identical to incoming main at 07626efa72fdab91f062f3acfaea27ef8e558a7a. The source gates after Gradle were not reached. A separate mechanical integration quality repair owns these ten blockers; no full diagnostics audit is included. Archived reports: imp03-combined-evidence/final-fresh-quality.
