@@ -4,18 +4,79 @@ use std::time::Duration;
 
 use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 
-use crate::http::{HttpResponseDecoder, HttpResponseEvent, extract_host_from_url, extract_path_from_url};
+use crate::http::{
+    HttpBodyFraming, HttpResponse, HttpResponseDecoder, HttpResponseEvent, extract_host_from_url, extract_path_from_url,
+};
 use crate::tls::{
-    ApplicationProtocolPolicy, ProbeCertificatePolicy, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
-    open_probe_stream_targets_with_options_and_abort,
+    ApplicationProtocolPolicy, ProbeCertificatePolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile,
+    TlsKeyLogCallback, open_probe_stream_targets_with_options_and_abort,
 };
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 use crate::types::TelegramTarget;
-use crate::util::{
-    IO_TIMEOUT, MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_DOWNLOAD_EXPECTED_BYTES, TELEGRAM_SPEED_SAMPLE_INTERVAL,
-};
+use crate::util::{IO_TIMEOUT, MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_SPEED_SAMPLE_INTERVAL};
 
 const TELEGRAM_UPLOAD_HOST: &str = "telegram.org";
+const MAX_PAGE_BYTES: usize = 1024 * 1024;
+const MAX_MEDIA_BYTES: usize = 64 * 1024 * 1024;
+const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TransferResponse {
+    Page,
+    Png,
+    UploadAck,
+}
+
+impl TransferResponse {
+    fn download(path: &str) -> Self {
+        let path = path.split_once('?').map_or(path, |(path, _)| path);
+        if path.ends_with(".png") { Self::Png } else { Self::Page }
+    }
+
+    fn accept(self) -> &'static str {
+        match self {
+            Self::Png => "image/png",
+            Self::Page | Self::UploadAck => "*/*",
+        }
+    }
+
+    fn method(self) -> &'static str {
+        match self {
+            Self::Page | Self::Png => "GET",
+            Self::UploadAck => "POST",
+        }
+    }
+
+    fn max_body_bytes(self) -> usize {
+        match self {
+            Self::Page => MAX_PAGE_BYTES,
+            Self::Png => MAX_MEDIA_BYTES,
+            Self::UploadAck => MAX_HTTP_BYTES,
+        }
+    }
+
+    fn check_head(self, head: &HttpResponse, framing: HttpBodyFraming) -> Result<(), String> {
+        if head.status_code != 200 && !(self == Self::UploadAck && head.status_code == 204) {
+            return Err(format!("http_status_{}", head.status_code));
+        }
+        if head.status_code == 204
+            && (head.headers.contains_key("content-length") || head.headers.contains_key("transfer-encoding"))
+        {
+            return Err("invalid_framing".to_string());
+        }
+        if self == Self::Png
+            && !head.headers.get("content-type").is_some_and(|ty| {
+                ty.split(';').next().is_some_and(|mime| mime.trim().eq_ignore_ascii_case("image/png"))
+            })
+        {
+            return Err("unexpected_content_type".to_string());
+        }
+        if matches!(framing, HttpBodyFraming::Length(length) if length > self.max_body_bytes() as u64) {
+            return Err("response_too_large".to_string());
+        }
+        Ok(())
+    }
+}
 
 trait TelegramIo: Read + Write {
     fn shutdown(&mut self);
@@ -47,17 +108,19 @@ pub(crate) struct TelegramTransferResult {
     pub(crate) peak_bps: u64,
     pub(crate) bytes_total: usize,
     pub(crate) duration_ms: u64,
+    pub(crate) measures_throughput: bool,
     pub(crate) error: Option<String>,
 }
 
 impl TelegramTransferResult {
-    pub(crate) fn blocked(error: String) -> Self {
+    pub(crate) fn failed(error: String) -> Self {
         Self {
-            status: "blocked".to_string(),
+            status: "error".to_string(),
             avg_bps: 0,
             peak_bps: 0,
             bytes_total: 0,
             duration_ms: 0,
+            measures_throughput: false,
             error: Some(error),
         }
     }
@@ -69,6 +132,7 @@ impl TelegramTransferResult {
             peak_bps: 0,
             bytes_total: 0,
             duration_ms: 0,
+            measures_throughput: false,
             error: Some(format!("probe_aborted:{reason}")),
         }
     }
@@ -82,7 +146,15 @@ impl TelegramTransferResult {
     ) -> Self {
         let duration_ms = start.elapsed().as_millis().max(1) as u64;
         let avg_bps = (bytes_total as u64).saturating_mul(1000) / duration_ms;
-        Self { status: status.to_string(), avg_bps, peak_bps, bytes_total, duration_ms, error }
+        Self {
+            status: status.to_string(),
+            avg_bps,
+            peak_bps: peak_bps.max(avg_bps),
+            bytes_total,
+            duration_ms,
+            measures_throughput: bytes_total > 0,
+            error,
+        }
     }
 }
 
@@ -113,7 +185,7 @@ pub(crate) fn telegram_download_probe_with_abort(
         return TelegramTransferResult::aborted(reason);
     }
     let Some(host) = extract_host_from_url(&target.media_url) else {
-        return TelegramTransferResult::blocked("invalid media_url".to_string());
+        return TelegramTransferResult::failed("invalid media_url".to_string());
     };
     let path = extract_path_from_url(&target.media_url);
     if let Some(reason) = should_abort() {
@@ -137,20 +209,22 @@ pub(crate) fn telegram_download_probe_with_abort(
     );
     let mut stream = match stream_result {
         Ok(result) => result.stream,
-        Err(err) => return transfer_error_result(err.to_string()),
+        Err(err) => return transfer_setup_error(err),
     };
     if let Some(reason) = should_abort() {
         stream.shutdown();
         return TelegramTransferResult::aborted(reason);
     }
 
-    let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: */*\r\nConnection: close\r\n\r\n");
+    let response_kind = TransferResponse::download(&path);
+    let accept = response_kind.accept();
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {host}\r\nAccept: {accept}\r\nConnection: close\r\n\r\n");
     if let Err(err) = stream.write_all(request.as_bytes()).and_then(|_| stream.flush()) {
         stream.shutdown();
         if let Some(result) = transfer_admin_result_after_io(should_abort) {
             return result;
         }
-        return TelegramTransferResult::blocked(err.to_string());
+        return TelegramTransferResult::failed(err.to_string());
     }
     if let Some(reason) = should_abort() {
         stream.shutdown();
@@ -159,6 +233,7 @@ pub(crate) fn telegram_download_probe_with_abort(
 
     telegram_download_transfer_loop(
         &mut stream,
+        response_kind,
         Duration::from_millis(target.stall_timeout_ms),
         Duration::from_millis(target.total_timeout_ms),
         should_abort,
@@ -167,6 +242,7 @@ pub(crate) fn telegram_download_probe_with_abort(
 
 fn telegram_download_transfer_loop(
     stream: &mut dyn TelegramIo,
+    response_kind: TransferResponse,
     stall_timeout: Duration,
     total_timeout: Duration,
     should_abort: &dyn Fn() -> Option<&'static str>,
@@ -176,45 +252,68 @@ fn telegram_download_transfer_loop(
     let mut peak_bps = 0u64;
     let mut sample_bytes = 0usize;
     let mut sample_start = start;
-    let response =
-        read_telegram_response(stream, "GET", start, total_timeout, stall_timeout, should_abort, &mut |bytes| {
+    let is_media = response_kind == TransferResponse::Png;
+    let response = read_telegram_response(
+        stream,
+        response_kind,
+        start,
+        total_timeout,
+        stall_timeout,
+        should_abort,
+        &mut |bytes| {
+            if is_media && bytes_total < PNG_SIGNATURE.len() {
+                let signature = &PNG_SIGNATURE[bytes_total..];
+                let matching = signature.len().min(bytes.len());
+                if signature[..matching] != bytes[..matching] {
+                    return Err("invalid_png_signature".to_string());
+                }
+            }
             bytes_total += bytes.len();
-            sample_bytes += bytes.len();
-            if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
-                update_peak_bps(&mut peak_bps, sample_bytes, sample_start.elapsed().as_millis() as u64);
-                sample_bytes = 0;
-                sample_start = std::time::Instant::now();
+            if is_media {
+                sample_bytes += bytes.len();
+                if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
+                    update_peak_bps(&mut peak_bps, sample_bytes, sample_start.elapsed().as_millis() as u64);
+                    sample_bytes = 0;
+                    sample_start = std::time::Instant::now();
+                }
             }
             Ok(())
-        });
+        },
+    );
     stream.shutdown();
-    if let Err(error) = response {
-        let status = abort_status_from_error(&error).unwrap_or(if bytes_total == 0 { "blocked" } else { "stalled" });
-        return TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, Some(error));
-    }
-    let status = if bytes_total >= TELEGRAM_DOWNLOAD_EXPECTED_BYTES * 98 / 100 {
-        "ok"
-    } else if bytes_total > 0 {
-        "slow"
-    } else {
-        "blocked"
+    let response = response.and_then(|()| match (is_media, bytes_total) {
+        (true, len) if len < PNG_SIGNATURE.len() => Err("invalid_png_signature".to_string()),
+        (false, 0) => Err("empty_response_body".to_string()),
+        _ => Ok(()),
+    });
+    let status = match response.as_ref() {
+        Ok(()) => "ok",
+        Err(error) if error == "stall detected" => "stalled",
+        Err(error) => abort_status_from_error(error).unwrap_or("error"),
     };
-    TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, None)
+    let mut result = TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, response.err());
+    if !is_media {
+        result.measures_throughput = false;
+        result.avg_bps = 0;
+        result.peak_bps = 0;
+    }
+    result
 }
 
 fn read_telegram_response(
     stream: &mut dyn TelegramIo,
-    method: &str,
+    response_kind: TransferResponse,
     start: std::time::Instant,
     total_timeout: Duration,
     stall_timeout: Duration,
     should_abort: &dyn Fn() -> Option<&'static str>,
     on_data: &mut dyn FnMut(&[u8]) -> Result<(), String>,
 ) -> Result<(), String> {
-    let mut decoder = HttpResponseDecoder::new(method, MAX_HTTP_BYTES).map_err(str::to_string)?;
+    let mut decoder = HttpResponseDecoder::new(response_kind.method(), MAX_HTTP_BYTES).map_err(str::to_string)?;
     let mut buffer = [0; 8192];
     let mut last_data = start;
     let mut head_received = false;
+    let mut body_bytes = 0usize;
     loop {
         if let Some(reason) = should_abort() {
             return Err(format!("probe_aborted:{reason}"));
@@ -243,14 +342,16 @@ fn read_telegram_response(
                     }
                 }
             }
-            HttpResponseEvent::Head(head, _) => {
-                if !(200..300).contains(&head.status_code) {
-                    return Err(format!("http_status_{}", head.status_code));
-                }
+            HttpResponseEvent::Head(head, framing) => {
+                response_kind.check_head(&head, framing)?;
                 head_received = true;
                 last_data = std::time::Instant::now();
             }
             HttpResponseEvent::Data(bytes) => {
+                body_bytes += bytes.len();
+                if body_bytes > response_kind.max_body_bytes() {
+                    return Err("response_too_large".to_string());
+                }
                 on_data(&bytes)?;
                 last_data = std::time::Instant::now();
             }
@@ -269,10 +370,13 @@ fn abort_status_from_error(error: &str) -> Option<&'static str> {
     }
 }
 
-fn transfer_error_result(error: String) -> TelegramTransferResult {
-    match abort_status_from_error(&error) {
+fn transfer_setup_error(error: ProbeStreamError) -> TelegramTransferResult {
+    match abort_status_from_error(&error.message) {
         Some(reason) => TelegramTransferResult::aborted(reason),
-        None => TelegramTransferResult::blocked(error),
+        None if error.rejected_server_certificate() => {
+            TelegramTransferResult::failed("certificate_verification_failed".to_string())
+        }
+        None => TelegramTransferResult::failed(error.stage.as_str().to_string()),
     }
 }
 
@@ -296,7 +400,7 @@ pub(crate) fn telegram_upload_probe_with_abort(
         return TelegramTransferResult::aborted(reason);
     }
     if target.upload_size_bytes == 0 {
-        return TelegramTransferResult::blocked("empty_upload".to_string());
+        return TelegramTransferResult::failed("empty_upload".to_string());
     }
     let target_address = upload_target_address(&target.upload_ip);
     let upload_host = upload_tls_host(&target_address);
@@ -316,7 +420,7 @@ pub(crate) fn telegram_upload_probe_with_abort(
     );
     let mut stream = match stream_result {
         Ok(result) => result.stream,
-        Err(err) => return transfer_error_result(err.to_string()),
+        Err(err) => return transfer_setup_error(err),
     };
     if let Some(reason) = should_abort() {
         stream.shutdown();
@@ -333,7 +437,7 @@ pub(crate) fn telegram_upload_probe_with_abort(
         if let Some(result) = transfer_admin_result_after_io(should_abort) {
             return result;
         }
-        return TelegramTransferResult::blocked(err.to_string());
+        return TelegramTransferResult::failed(err.to_string());
     }
     if let Some(reason) = should_abort() {
         stream.shutdown();
@@ -424,15 +528,18 @@ fn telegram_upload_transfer_loop(
     }
 
     if bytes_total == content_length {
-        let mut response_bytes = 0usize;
-        let response =
-            read_telegram_response(stream, "POST", start, total_timeout, stall_timeout, should_abort, &mut |bytes| {
-                response_bytes += bytes.len();
-                if response_bytes > MAX_HTTP_BYTES { Err("response_too_large".to_string()) } else { Ok(()) }
-            });
+        let response = read_telegram_response(
+            stream,
+            TransferResponse::UploadAck,
+            start,
+            total_timeout,
+            stall_timeout,
+            should_abort,
+            &mut |_| Ok(()),
+        );
         if let Err(err) = response {
             stream.shutdown();
-            let status = abort_status_from_error(&err).unwrap_or("blocked");
+            let status = abort_status_from_error(&err).unwrap_or("error");
             return TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, Some(err));
         }
     }
@@ -505,17 +612,22 @@ mod tests {
             write_delay: Duration::ZERO,
         };
 
-        let result =
-            telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_secs(1), &|| None);
-        assert_eq!(result.status, "blocked");
+        let result = telegram_download_transfer_loop(
+            &mut stream,
+            TransferResponse::Page,
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+            &|| None,
+        );
+        assert_eq!(result.status, "error");
         assert_eq!(result.error.as_deref(), Some("http_status_404"));
     }
 
     #[test]
     fn download_counts_chunk_payload_and_rejects_truncation() {
         for (wire, expected_bytes, expected_status) in [
-            (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nok\r\n0\r\n\r\n".as_slice(), 2, "slow"),
-            (b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nok", 2, "stalled"),
+            (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nok\r\n0\r\n\r\n".as_slice(), 2, "ok"),
+            (b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nok", 2, "error"),
         ] {
             let mut stream = TestIo {
                 response: std::io::Cursor::new(wire.to_vec()),
@@ -523,11 +635,48 @@ mod tests {
                 timeout_reads: 0,
                 write_delay: Duration::ZERO,
             };
-            let result =
-                telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_secs(1), &|| None);
+            let result = telegram_download_transfer_loop(
+                &mut stream,
+                TransferResponse::Page,
+                Duration::from_secs(1),
+                Duration::from_secs(1),
+                &|| None,
+            );
             assert_eq!(result.bytes_total, expected_bytes);
             assert_eq!(result.status, expected_status);
+            assert!(!result.measures_throughput);
             assert!(stream.written.is_empty(), "response decoder must not write a second request");
+        }
+    }
+
+    #[test]
+    fn download_measures_a_complete_png_and_rejects_the_wrong_representation() {
+        let signature = PNG_SIGNATURE.as_slice();
+        for (status, content_type, body, expected) in [
+            ("200 OK", "image/png", signature, None),
+            ("206 Partial Content", "image/png", signature, Some("http_status_206")),
+            ("200 OK", "text/html", signature, Some("unexpected_content_type")),
+            ("200 OK", "image/png", b"<html />".as_slice(), Some("invalid_png_signature")),
+        ] {
+            let mut response =
+                format!("HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\n\r\n", body.len())
+                    .into_bytes();
+            response.extend_from_slice(body);
+            let mut stream = TestIo {
+                response: std::io::Cursor::new(response),
+                written: Vec::new(),
+                timeout_reads: 0,
+                write_delay: Duration::ZERO,
+            };
+            let result = telegram_download_transfer_loop(
+                &mut stream,
+                TransferResponse::Png,
+                Duration::from_secs(1),
+                Duration::from_secs(1),
+                &|| None,
+            );
+            assert_eq!(result.error.as_deref(), expected);
+            assert_eq!(result.measures_throughput, expected.is_none());
         }
     }
 
@@ -543,8 +692,28 @@ mod tests {
         let result =
             telegram_upload_transfer_loop(&mut stream, 5, Duration::from_secs(1), Duration::from_secs(1), &|| None);
         assert_eq!(stream.written.len(), 5);
-        assert_eq!(result.status, "blocked");
+        assert_eq!(result.status, "error");
         assert_eq!(result.error.as_deref(), Some("http_status_403"));
+    }
+
+    #[test]
+    fn upload_204_accepts_only_unframed_acknowledgements() {
+        for (headers, expected) in [
+            ("", None),
+            ("Content-Length: 0\r\n", Some("invalid_framing")),
+            ("Transfer-Encoding: chunked\r\n", Some("invalid_framing")),
+        ] {
+            let mut stream = TestIo {
+                response: std::io::Cursor::new(format!("HTTP/1.1 204 No Content\r\n{headers}\r\n").into_bytes()),
+                written: Vec::new(),
+                timeout_reads: 0,
+                write_delay: Duration::ZERO,
+            };
+            let result =
+                telegram_upload_transfer_loop(&mut stream, 5, Duration::from_secs(1), Duration::from_secs(1), &|| None);
+            assert_eq!(result.error.as_deref(), expected);
+            assert_eq!(result.bytes_total, 5);
+        }
     }
 
     #[test]
@@ -556,8 +725,13 @@ mod tests {
             write_delay: Duration::ZERO,
         };
 
-        let result =
-            telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_millis(1), &|| None);
+        let result = telegram_download_transfer_loop(
+            &mut stream,
+            TransferResponse::Page,
+            Duration::from_secs(1),
+            Duration::from_millis(1),
+            &|| None,
+        );
         assert_eq!(result.status, "deadline_exceeded");
     }
 
@@ -632,7 +806,7 @@ mod tests {
         let result = telegram_upload_probe_with_abort(&target, &crate::transport::direct_transport(), None, &|| None);
 
         assert_eq!(result.bytes_total, 0);
-        assert_ne!(result.status, "ok");
+        assert_eq!(result.error.as_deref(), Some("certificate_verification_failed"));
         assert!(server.join().expect("test server").is_err());
     }
 

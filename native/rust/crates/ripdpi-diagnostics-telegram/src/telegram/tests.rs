@@ -58,6 +58,7 @@ fn make_transfer(status: &str, duration_ms: u64) -> TelegramTransferResult {
         peak_bps: 0,
         bytes_total: 0,
         duration_ms,
+        measures_throughput: false,
         error: None,
     }
 }
