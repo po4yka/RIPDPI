@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import org.junit.Assert.assertEquals
@@ -47,6 +48,28 @@ class RelayProfileShareMapperRepresentabilityTest {
             RelayProfileShareMapper.toShareable(record.copy(trojanRootCertificatePem = "custom root"), credentials),
         )
         assertNull(RelayProfileShareMapper.toShareable(record.copy(udpEnabled = false), credentials))
+    }
+
+    @Test
+    fun `syntactically parseable links still require a valid port and REALITY material`() {
+        val trojan =
+            RelayProfileRecord(kind = RelayKindTrojan, server = "proxy.example", serverPort = 65535, udpEnabled = true)
+        val trojanCredentials = RelayCredentialRecord(profileId = trojan.id, trojanPassword = "fixture-pass")
+        assertNotNull(RelayProfileShareMapper.toShareable(trojan, trojanCredentials))
+        assertNull(RelayProfileShareMapper.toShareable(trojan.copy(serverPort = 65536), trojanCredentials))
+
+        val reality =
+            RelayProfileRecord(
+                kind = RelayKindVlessReality,
+                server = "proxy.example",
+                realityPublicKey = "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s=",
+                udpEnabled = true,
+            )
+        val realityCredentials =
+            RelayCredentialRecord(profileId = reality.id, vlessUuid = "00000000-0000-0000-0000-000000000000")
+        assertNotNull(RelayProfileShareMapper.toShareable(reality, realityCredentials))
+        assertNull(RelayProfileShareMapper.toShareable(reality.copy(realityPublicKey = "broken"), realityCredentials))
+        assertNull(RelayProfileShareMapper.toShareable(reality, realityCredentials.copy(vlessUuid = "broken")))
     }
 
     @Test

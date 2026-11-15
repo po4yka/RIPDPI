@@ -17,9 +17,9 @@ import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
-import com.poyka.ripdpi.data.nativeVlessProfileRejection
 import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
+import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import java.util.UUID
 
 data class ShareableRelayProfile(
@@ -38,9 +38,12 @@ object RelayProfileShareMapper {
     ): ShareableRelayProfile? {
         if (!record.canRepresentConnection(credentials)) return null
         val profile = record.toProxyProfile(credentials) ?: return null
-        if (nativeVlessProfileRejection(profile) != null) return null
         val shareUri = ProxyUriCodec.encodeOrNull(profile) ?: return null
-        return ShareableRelayProfile(profile, shareUri).takeIf { ProxyUriCodec.parse(shareUri) != null }
+        val imported = ProxyUriCodec.parse(shareUri) ?: return null
+        // An SSH link without a pin opens the host-key approval editor before activation.
+        val needsHostKeyApproval = imported is ProxyProfile.Ssh && imported.hostKeyFingerprint.isNullOrBlank()
+        if (!needsHostKeyApproval && !validateNativeRelayProfileResult(imported).getOrDefault(false)) return null
+        return ShareableRelayProfile(profile, shareUri)
     }
 
     private fun RelayProfileRecord.canRepresentConnection(credentials: RelayCredentialRecord?): Boolean {
