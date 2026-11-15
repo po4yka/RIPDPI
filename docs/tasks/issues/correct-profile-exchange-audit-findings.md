@@ -2,7 +2,7 @@
 id: AND-1794728744166445
 title: Correct profile and QR exchange audit findings
 kind: bug
-status: doing
+status: review
 area: android
 priority: high
 owner: Profile exchange maintainers
