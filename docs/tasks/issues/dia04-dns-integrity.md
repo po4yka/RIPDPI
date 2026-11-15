@@ -2,7 +2,7 @@
 id: DGN-1794732408586377
 title: Repair DIA-04 DNS integrity and ECH evidence
 kind: bug
-status: doing
+status: blocked
 area: diagnostics
 priority: high
 owner: DNS diagnostics maintainers
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: dia04-dns-integrity
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Explicit user approval is required for the intentional semantic update to native/rust/crates/ripdpi-monitor-engine/tests/golden/final_report.json. All eight fixes are committed; remaining local gates passed. Main integration and push wait for the compatibility gate.
 ---
 
 ## Goal

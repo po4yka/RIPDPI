@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1794732408586377
 change: dia04-dns-integrity
-commit_sha: null
+commit_sha: 38e5b6b63470a5a5dd90e571eb649ff4cf137dfe
 local: required
-local_evidence: Per-fix host evidence is recorded below. The combined rebased gate remains required.
+local_evidence: Rebased source 38e5b6b634: 897 passed, 1 monitor report golden failed, 3 pre-existing ignored. Formatting, all-target Clippy, workspace check, locked metadata and just ci-gates passed. Integration waits for explicit approval to update the exact monitor report golden.
 remote_ci: required
-remote_ci_evidence: No repair commit has been pushed.
+remote_ci_evidence: No repair commit has been pushed. Main integration waits for the local compatibility gate.
 device: not_applicable
 device_evidence: Host callback and loopback tests cover source contracts. Android routing and physical acceptance are not claimed.
 artifact: not_applicable
@@ -18,13 +18,50 @@ deployment_evidence: No deployment is owned by this repair.
 
 ## Requirement evidence
 
-| Requirement | Execution step | Evidence | Result |
+| Requirement | Execution step | Implementation commit | Observed regression evidence |
 |---|---|---|---|
-| REQ-DIA04-ORACLE | DGN-1794732638260356 | Independent review passed; new alias closure cases await the final package gate. | local observed; combined required |
-| REQ-DIA04-OVERLAP | DGN-1794732655554818 | Overlap slice: 9 passed; complete contracts library: 73 passed. Independent review passed. | local observed; combined required |
-| REQ-DIA04-CDN-CONSUMER | DGN-1794732714208860 | CDN tree: DNS library 95 passed, TLS library 62 passed, including restored configuration B and poisoned-cache fallback. Independent review passed. | local observed; combined required |
-| REQ-DIA04-PROTECT | DGN-1794732710855083 | Protected socket slice: 9 passed; full hooks wiring independently reviewed. Combined package gate remains pending. | local observed; combined required |
-| REQ-DIA04-EVIDENCE | DGN-1794732706316070 | Metadata regression: 1 passed. Independent review passed, including typed error-field filtering; final runner/classification gate remains pending. | local observed; combined required |
-| REQ-DIA04-COMPRESSION | DGN-1794732717208585 | Two owning regressions passed; normal hooks and independent review passed. Implementation commit 640463d4b8. | local observed; combined required |
-| REQ-DIA04-EDE | DGN-1794732689288627 | Two real loopback regressions passed; DNS library 96 passed and ECH DNS library 48 passed on the oracle tree. Normal hooks and independent review passed. Implementation commit 1fc1edc715. | local observed; combined required |
-| REQ-DIA04-ECH-ADMISSION | DGN-1794732668757031 | CDN cache/admission slice: 26 passed; normal hooks and independent review passed. Implementation commit cfd22f2c94. | local observed; combined required |
+| REQ-DIA04-ORACLE | DGN-1794732638260356 | 8e8aa77eef | Default canonical identity, provider aliases, and transitive alias bridges in both catalog orders pass. Components are computed before the fallback limit. |
+| REQ-DIA04-OVERLAP | DGN-1794732655554818 | 8085991226 | Extra sinkhole addresses cannot hide behind exact or prefix public overlap. Identical private answers and ordinary CDN subsets remain distinct cases. |
+| REQ-DIA04-CDN-CONSUMER | DGN-1794732714208860 | d54f11cea3 | Restored configuration B reaches the real TLS configuration consumer. Missing, expired, and poisoned caches use bundled bytes without a fetch. Connected-peer binding from DIA-02 remains intact. |
+| REQ-DIA04-PROTECT | DGN-1794732710855083 | 85ecf380c4 | Protected unconnected socket creation runs before connect. Protection failure stops the path; alias and retry hooks remain wired. Deadline and cancellation behavior from DIA-01 remains intact. |
+| REQ-DIA04-EVIDENCE | DGN-1794732706316070 | ee3015be08 | Selected fallback facts, endpoint, and latency share one response owner. Unselected negative observations stay explicit. Typed IP arrays reject error fields and do not revive stale legacy values. |
+| REQ-DIA04-COMPRESSION | DGN-1794732717208585 | b918884351 | An independent four-hop wire vector is accepted. Real repeated-pointer cycles and out-of-bounds data remain rejected. |
+| REQ-DIA04-EDE | DGN-1794732689288627 | 82f0cbd2d6 | Real loopback UDP and binary HTTP DoH exchanges request EDNS and retain numeric EDE for NOERROR and NXDOMAIN. No EXTRATEXT is retained. |
+| REQ-DIA04-ECH-ADMISSION | DGN-1794732668757031 | 3207f35d48 | Full structural parser and supported-entry selection reject malformed persisted data without replacing a valid entry. Unknown-first plus supported-second lists are accepted. |
+
+Each implementation commit received an independent read-only review. Post-rebase review at source SHA 38e5b6b63470a5a5dd90e571eb649ff4cf137dfe found no merge loss or new finding.
+
+## Combined local commands
+
+All Cargo resolution commands use Rust 1.100.0 and --locked. Heavy commands use `build-gate --lane ripdpi`; the target directory belongs only to this integration worktree. Normal commit hooks are enabled.
+
+The combined command selects these packages: ripdpi-diagnostics-contracts, ripdpi-diagnostics-dns, ripdpi-ech-dns, ripdpi-diagnostics-classification, ripdpi-diagnostics-runner, ripdpi-diagnostics-transport, ripdpi-diagnostics-tls, ripdpi-monitor-engine.
+
+- `cargo +1.100.0 fmt -p <each package> -- --check`
+- `cargo +1.100.0 test --locked -p <each package> --lib`
+- `bash scripts/ci/cargo-guarded.sh cargo clippy --locked -p <each package> --no-deps --all-targets -- -D warnings`
+- `cargo +1.100.0 check --locked --workspace`
+- `cargo +1.100.0 metadata --locked --format-version 1`
+- `just ci-gates`
+
+Previous combined source d917bb96ae52743a9ff3bc64798379ed45077dcc: classification 80 passed; contracts 74 passed; DNS 103 passed; runner 138 passed and 2 existing ignored; TLS 52 passed; transport 112 passed and 1 existing ignored; ECH DNS 48 passed. Monitor engine: 277 passed and one failed report golden. Formatting, all-target Clippy, workspace check, metadata, and CI source gates passed. These counts are historical and are not the rebased-tree result.
+
+Rebased source 38e5b6b63470a5a5dd90e571eb649ff4cf137dfe: classification 81 passed; contracts 75 passed; DNS 103 passed; runner 141 passed and 2 pre-existing ignored; TLS 52 passed; transport 112 passed and 1 pre-existing ignored; ECH DNS 48 passed; monitor engine 285 passed and one failed report golden. Total: 897 passed, one failed, three pre-existing ignored. Formatting, all-target Clippy with -D warnings, workspace check, locked metadata, and just ci-gates passed. The validation runner returned exit 1 because the tests phase returned 101; every other phase returned 0. No failed or ignored test was removed or newly skipped.
+
+The ignored cases are runner dns_probe_appends_dns_trigger_fuzzing_details and domain_probe_appends_http_trigger_fuzzing_details, and transport direct_route_experiment_uses_diversity_bucket_when_stable_port_is_busy. They are not acceptance evidence.
+
+Logs and the complete invocation script are preserved outside the repository in `/Users/npochaev/GitHub/RIPDPI-worktrees/dia04-validation-rebased/`. The snapshot source SHA predates documentation-only evidence updates; no production or test input changed during this run.
+
+## Compatibility gate
+
+The old monitor golden lacked intentional TLS detail fields introduced by incoming DIA-02. Numeric-only normalization for the three TLS failure-duration keys is committed as 38e5b6b634; its independent regression passed before rebase. It preserves field presence, detail order, stage, certificate verification, and the value none. No fixture has been changed or blessed.
+
+Fresh rebased expected/actual/diff artifacts were reviewed in full by the golden specialist. No extra DIA-09-visible change appears in this fixture. The intended semantic delta adds tlsReportedAttempt and per-attempt failure stage, certificate-verification, and ClientHello-capture facts; reorders HTTP/TLS details; and removes the synthetic tlsEchResolutionDetail value none. All three duration fields are normalized to 0. No semantic field is masked.
+
+The exact requested approval concerns `native/rust/crates/ripdpi-monitor-engine/tests/golden/final_report.json`, in the Rust monitor-engine JSON family. The owning test is `tests::monitor_json_contracts_match_goldens`. Expected/actual/diff copies are in the log directory under `golden-review/final_report.json.{expected,actual,diff}`. The specialist confirmed that only final_report.json needs an intentional semantic update. The same test checks three other fixtures, which must be inspected after an authorized narrow run.
+
+The fixture remains protected by the explicit approval rule in .claude/rules/golden-bless-discipline.md and .agents/skills/golden-test-management/SKILL.md. No blessing was run. After approval, the isolated golden specialist must run only `RIPDPI_BLESS_GOLDENS=1 cargo +1.100.0 test --locked -p ripdpi-monitor-engine --lib tests::monitor_json_contracts_match_goldens -- --exact`, inspect the full fixture diff, and rerun without blessing. Then the parent can complete the compatibility gate, fetch and rebase if required, fast-forward main, push, and record the remote result.
+
+## Evidence limits
+
+C: implemented source and callers were reviewed. V-local: owning host and loopback regressions were observed. S-fragment from the DIA-04 audit remains limited to the cited requirements; these repairs do not establish full conformance. E: public resolver interoperability and external ECH acceptance were not run. Consensus remains a consistency signal, not DNSSEC validation. Live AAAA, generic SVCB endpoint expansion, negative quorum and the audit hypotheses remain outside these confirmed repairs.
