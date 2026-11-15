@@ -23,7 +23,7 @@ The audit follows each parser through refresh, bootstrap, storage, and explicit 
 
 - Modules: :core:data:runtime-state owns parser and domain output; :core:data owns durable mutations; :app owns dispatch and confirmation; :core:service owns explicit runtime resolution.
 - Parser writer owns route, Clash, and sing-box mapping. Xray writer owns native Xray translation. Selector writer owns bootstrap, selector policies, and optional saved default. Integrator owns payload decoding and planning artifacts.
-- Each writer uses an isolated worktree. Files shared by findings in one lane are serialized by that writer. Dependency versions, locales, protobuf, JNI, golden fixtures, and Rust registries do not change.
+- Each writer uses an isolated worktree. Files shared by findings in one lane are serialized by that writer. Dependency versions, protobuf, JNI, golden fixtures, and Rust registries do not change. The Xray writer owns the size-error key in all ten locales and the generated translation export; no other lane writes resources.
 - An optional saved default is additive with an empty/null default. Old groups continue to load. No generated schema or output is edited by hand.
 
 ## Risks / Trade-offs

@@ -130,3 +130,8 @@ Manual Xray validation MUST apply the existing subscription byte and node budget
 
 - **WHEN** input or provider selection changes before validation completes
 - **THEN** the earlier result is ignored and the current input can be validated again
+
+#### Scenario: Durable restore completes during validation
+
+- **WHEN** an earlier durable restore completes while newer input is being validated
+- **THEN** the restore result cannot clear the current validation status or its current error state
