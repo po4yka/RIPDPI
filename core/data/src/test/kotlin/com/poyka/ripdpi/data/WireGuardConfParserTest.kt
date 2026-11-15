@@ -440,6 +440,14 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `final keepalive off clears both bounds`() {
+        val conf = interfaceConf("", "PersistentKeepalive = 25-35\nPersistentKeepalive = oFf")
+        val peer = WireGuardConfParser.parse(conf).peers.single()
+        assertNull(peer.persistentKeepalive)
+        assertNull(peer.persistentKeepaliveMax)
+    }
+
+    @Test
     fun `persistent keepalive preserves off and rejects malformed ranges`() {
         val off = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = off")).peers.single()
         assertNull(off.persistentKeepalive)

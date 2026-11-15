@@ -302,11 +302,9 @@ object WireGuardConfParser {
 
             "persistentkeepalive" -> {
                 // wg-quick writes `off` for "no persistent keepalive".
-                if (!value.equals("off", ignoreCase = true)) {
-                    val range = parseKeepaliveRange(key, value)
-                    builder.persistentKeepalive = range.first
-                    builder.persistentKeepaliveMax = range.second
-                }
+                val range = if (value.equals("off", ignoreCase = true)) null else parseKeepaliveRange(key, value)
+                builder.persistentKeepalive = range?.first
+                builder.persistentKeepaliveMax = range?.second
             }
 
             else -> {
