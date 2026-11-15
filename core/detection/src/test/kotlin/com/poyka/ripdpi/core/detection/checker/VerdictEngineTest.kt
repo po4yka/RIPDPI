@@ -134,6 +134,33 @@ class VerdictEngineTest {
     }
 
     @Test
+    fun `an indirect local listener cannot also set the direct axis`() {
+        val explanation =
+            VerdictEngine.evaluateDetailed(
+                geoIp = emptyCategory("GeoIP"),
+                directSigns = emptyCategory("Direct"),
+                indirectSigns =
+                    emptyCategory("Indirect").copy(
+                        needsReview = true,
+                        evidence =
+                            listOf(
+                                EvidenceItem(
+                                    source = EvidenceSource.LOCAL_PROXY,
+                                    detected = true,
+                                    confidence = EvidenceConfidence.LOW,
+                                    description = "Known TCP port on a local interface",
+                                ),
+                            ),
+                    ),
+                locationSignals = emptyCategory("Location"),
+                bypassResult = emptyBypass(),
+            )
+
+        assertEquals(Verdict.NEEDS_REVIEW, explanation.verdict)
+        assertEquals("R6", explanation.ruleApplied)
+    }
+
+    @Test
     fun `R1 split tunnel bypass short circuits consensus mismatch`() {
         val explanation =
             VerdictEngine.evaluateDetailed(

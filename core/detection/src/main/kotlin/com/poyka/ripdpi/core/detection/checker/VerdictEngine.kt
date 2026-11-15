@@ -137,10 +137,12 @@ object VerdictEngine {
             evidence.any {
                 it.source == EvidenceSource.NETWORK_CAPABILITIES && it.confidence == EvidenceConfidence.HIGH
             }
+        val directAxisEvidence =
+            directSigns.evidence + bypassResult.evidence.filterNot { it.source == EvidenceSource.XRAY_API }
         val hasDirectHit =
             directSigns.detected ||
                 (directSigns.needsReview && directSigns.evidence.any(EvidenceItem::detected)) ||
-                evidence.any {
+                directAxisEvidence.any {
                     it.isDetected(
                         EvidenceSource.LOCAL_PROXY,
                         EvidenceSource.SYSTEM_PROXY,
@@ -160,7 +162,6 @@ object VerdictEngine {
                 indirectSigns.needsReview ||
                 hasTargetedActive
         val geoAxisEvidence = geoIp.evidence
-        val directAxisEvidence = directSigns.evidence + bypassResult.evidence
         val indirectAxisEvidence = indirectSigns.evidence + evidence.filter { it.source == EvidenceSource.ACTIVE_VPN }
 
         return when {

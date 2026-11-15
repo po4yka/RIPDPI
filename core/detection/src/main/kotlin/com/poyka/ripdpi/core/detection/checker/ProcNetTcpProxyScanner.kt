@@ -4,12 +4,15 @@ package com.poyka.ripdpi.core.detection.checker
 
 import android.content.Context
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
-import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
 import java.io.File
 import java.io.IOException
+import java.net.Inet6Address
+import java.net.InetAddress
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 internal interface ProcNetTcpReader {
     fun readTcp(): String
@@ -24,13 +27,7 @@ internal object FileProcNetTcpReader : ProcNetTcpReader {
 }
 
 internal object ProcNetTcpProxyScanner {
-    data class ScanResult(
-        val outcome: IndirectSignalOutcome,
-        val findings: List<Finding>,
-        val evidence: List<EvidenceItem>,
-    )
-
-    fun scan(context: Context): ScanResult =
+    fun scan(context: Context): List<Finding> =
         scan(
             reader = FileProcNetTcpReader,
             packageResolver = { uid ->
@@ -44,76 +41,40 @@ internal object ProcNetTcpProxyScanner {
     fun scan(
         reader: ProcNetTcpReader,
         packageResolver: (uid: Int) -> List<String>,
-    ): ScanResult {
-        val sockets = readSockets(reader)
-        val proxySockets = sockets.filter { socket -> socket.state == ListenState && socket.port in KnownProxyPorts }
-        if (proxySockets.isEmpty()) {
-            return ScanResult(IndirectSignalOutcome(), findings = emptyList(), evidence = emptyList())
-        }
-
-        val findings = mutableListOf<Finding>()
-        val evidence = mutableListOf<EvidenceItem>()
-        var detected = false
-        var needsReview = false
-
-        proxySockets.forEach { socket ->
-            val packageNames = packageResolver(socket.uid).ifEmpty { listOf("uid:${socket.uid}") }
-            packageNames.forEach { packageName ->
-                val signature = VpnAppCatalog.findByPackageName(packageName)
-                if (signature != null) {
-                    detected = true
-                    val description =
-                        "${signature.appName} listens on local proxy port ${socket.port} " +
-                            "(${socket.table}, uid ${socket.uid})"
-                    findings.add(
-                        Finding(
-                            description = description,
-                            detected = true,
-                            source = EvidenceSource.LOCAL_PROXY,
-                            confidence = EvidenceConfidence.MEDIUM,
-                            family = signature.family,
-                            packageName = signature.packageName,
-                        ),
-                    )
-                    evidence.add(
-                        EvidenceItem(
-                            source = EvidenceSource.LOCAL_PROXY,
-                            detected = true,
-                            confidence = EvidenceConfidence.MEDIUM,
-                            description = description,
-                            family = signature.family,
-                            packageName = signature.packageName,
-                            kind = signature.kind,
-                        ),
-                    )
-                } else {
-                    needsReview = true
-                    findings.add(
-                        Finding(
-                            description =
-                                "$packageName listens on known proxy port ${socket.port} " +
-                                    "(${socket.table}, uid ${socket.uid})",
-                            needsReview = true,
-                            source = EvidenceSource.LOCAL_PROXY,
-                            confidence = EvidenceConfidence.LOW,
-                            packageName = packageName.takeUnless { it.startsWith("uid:") },
-                        ),
-                    )
-                }
+    ): List<Finding> {
+        val packagesByUid = mutableMapOf<Int, List<String>>()
+        return (readTable("tcp", reader::readTcp) + readTable("tcp6", reader::readTcp6))
+            .distinct()
+            .map { socket ->
+                val candidates = packagesByUid.getOrPut(socket.uid) { packageCandidates(socket.uid, packageResolver) }
+                Finding(
+                    description =
+                        "${socket.endpointLabel()} is listening on a known proxy port, " +
+                            "UID ${socket.uid}${candidatesLabel(candidates)}",
+                    needsReview = true,
+                    source = EvidenceSource.LOCAL_PROXY,
+                    confidence = EvidenceConfidence.LOW,
+                )
             }
-        }
-
-        return ScanResult(
-            outcome = IndirectSignalOutcome(detected = detected, needsReview = needsReview),
-            findings = findings,
-            evidence = evidence,
-        )
     }
 
-    private fun readSockets(reader: ProcNetTcpReader): List<ProcNetSocket> =
-        buildList {
-            addAll(readTable("tcp") { reader.readTcp() })
-            addAll(readTable("tcp6") { reader.readTcp6() })
+    private fun packageCandidates(
+        uid: Int,
+        resolve: (Int) -> List<String>,
+    ): List<String> =
+        try {
+            resolve(uid).distinct().sorted()
+        } catch (_: SecurityException) {
+            emptyList()
+        }
+
+    private fun candidatesLabel(candidates: List<String>): String =
+        if (candidates.isEmpty()) {
+            " (package candidates unavailable)"
+        } else {
+            candidates.joinToString(prefix = " (package candidates: ", postfix = ")") { name ->
+                VpnAppCatalog.findByPackageName(name)?.let { "${it.appName} ($name)" } ?: name
+            }
         }
 
     private fun readTable(
@@ -135,26 +96,46 @@ internal object ProcNetTcpProxyScanner {
     private fun String.toProcNetSocket(table: String): ProcNetSocket? {
         val columns = trim().split(Whitespace)
         if (columns.size <= UidColumnIndex) return null
-        val port =
-            columns[LocalAddressColumnIndex]
-                .substringAfter(':', missingDelimiterValue = "")
-                .toIntOrNull(radix = HexRadix)
-                ?: return null
-        val uid = columns[UidColumnIndex].toIntOrNull() ?: return null
-        return ProcNetSocket(
-            table = table,
-            port = port,
-            state = columns[StateColumnIndex],
-            uid = uid,
-        )
+        if (columns[StateColumnIndex] != ListenState) return null
+        val local = columns[LocalAddressColumnIndex]
+        val port = local.substringAfter(':', missingDelimiterValue = "").toIntOrNull(HexRadix) ?: return null
+        if (port !in KnownProxyPorts) return null
+        val address = parseAddress(local.substringBefore(':'), table) ?: return null
+        val uid = columns[UidColumnIndex].toIntOrNull()?.takeIf { it >= 0 } ?: return null
+        return ProcNetSocket(address, port, uid)
+    }
+
+    private fun parseAddress(
+        address: String,
+        table: String,
+    ): InetAddress? {
+        val byteCount = if (table == "tcp") Ipv4Bytes else Ipv6Bytes
+        if (address.length != byteCount * HexDigitsPerByte) return null
+
+        // Linux prints each native-order 32-bit word separately, including in tcp6.
+        val bytes = ByteBuffer.allocate(byteCount).order(ByteOrder.nativeOrder())
+        for (word in address.chunked(HexDigitsPerWord)) {
+            bytes.putInt(word.toUIntOrNull(HexRadix)?.toInt() ?: return null)
+        }
+        return InetAddress.getByAddress(bytes.array())
     }
 
     private data class ProcNetSocket(
-        val table: String,
+        val address: InetAddress,
         val port: Int,
-        val state: String,
         val uid: Int,
-    )
+    ) {
+        fun endpointLabel(): String {
+            val host = if (address is Inet6Address) "[${address.hostAddress}]" else address.hostAddress
+            val bind =
+                when {
+                    address.isAnyLocalAddress -> "wildcard"
+                    address.isLoopbackAddress -> "loopback"
+                    else -> "specific address"
+                }
+            return "$host:$port ($bind bind)"
+        }
+    }
 
     private val Whitespace = Regex("\\s+")
     private val KnownProxyPorts: Set<Int> =
@@ -170,4 +151,8 @@ internal object ProcNetTcpProxyScanner {
     private const val UidColumnIndex = 7
     private const val ListenState = "0A"
     private const val HexRadix = 16
+    private const val HexDigitsPerByte = 2
+    private const val HexDigitsPerWord = 8
+    private const val Ipv4Bytes = 4
+    private const val Ipv6Bytes = 16
 }

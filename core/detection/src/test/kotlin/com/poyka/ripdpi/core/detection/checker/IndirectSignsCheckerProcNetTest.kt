@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,60 +9,50 @@ import java.io.IOException
 
 class IndirectSignsCheckerProcNetTest {
     @Test
-    fun listeningSocketOnKnownProxyPortProducesFinding() {
-        val result =
-            ProcNetTcpProxyScanner.scan(
-                reader = fakeReader(tcp = procNetTcpLine(portHex = "0438", state = "0A", uid = 10_000)),
-                packageResolver = { listOf("com.example.proxy") },
-            )
+    fun listeningSocketPreservesBindAddressAndListsUidCandidatesOnce() {
+        val finding =
+            ProcNetTcpProxyScanner
+                .scan(
+                    reader = reader(tcp = row("020200C0", "0A")),
+                    packageResolver = { listOf("com.v2ray.ang", "com.example.shared", "com.v2ray.ang") },
+                ).single()
 
-        assertTrue(result.findings.any { it.description.contains("1080") })
+        assertEquals(EvidenceConfidence.LOW, finding.confidence)
+        assertTrue(finding.needsReview)
+        assertFalse(finding.detected)
+        assertTrue(finding.description.contains("192.0.2.2:1080 (specific address bind)"))
+        assertTrue(finding.description.contains("package candidates: com.example.shared, v2rayNG (com.v2ray.ang)"))
     }
 
     @Test
-    fun nonListenStateSocketNotReported() {
-        val result =
+    fun ipv6LoopbackAndIpv4WildcardAreDistinguished() {
+        val findings =
             ProcNetTcpProxyScanner.scan(
-                reader = fakeReader(tcp = procNetTcpLine(portHex = "0438", state = "01", uid = 10_000)),
-                packageResolver = { listOf("com.example.proxy") },
+                reader = reader(tcp = row("00000000", "0A"), tcp6 = row("00000000000000000000000001000000", "0A")),
+                packageResolver = { emptyList() },
             )
 
-        assertTrue(result.findings.isEmpty())
-        assertFalse(result.outcome.detected)
+        val descriptions = findings.map { it.description }
+        assertEquals(2, descriptions.size)
+        assertTrue(descriptions.any { it.contains("0.0.0.0:1080 (wildcard bind)") })
+        assertTrue(descriptions.any { it.contains("(loopback bind)") })
+        assertTrue(descriptions.all { it.contains("package candidates unavailable") })
     }
 
     @Test
-    fun catalogMatchUpgradesConfidenceToMedium() {
-        val result =
+    fun nonListeningOrMalformedRowsDoNotProduceCandidates() {
+        val findings =
             ProcNetTcpProxyScanner.scan(
-                reader = fakeReader(tcp = procNetTcpLine(portHex = "0438", state = "0A", uid = 10_000)),
-                packageResolver = { listOf("com.v2ray.ang") },
-            )
-
-        assertTrue(
-            result.findings.any {
-                it.description.contains("v2rayNG") && it.confidence == EvidenceConfidence.MEDIUM
-            },
-        )
-        assertTrue(result.outcome.detected)
-    }
-
-    @Test
-    fun nonCatalogPackageProducesLowConfidenceInformational() {
-        val result =
-            ProcNetTcpProxyScanner.scan(
-                reader = fakeReader(tcp = procNetTcpLine(portHex = "0438", state = "0A", uid = 10_000)),
+                reader = reader(tcp = row("0100007F", "01"), tcp6 = row("broken", "0A")),
                 packageResolver = { listOf("com.example.proxy") },
             )
 
-        assertTrue(result.findings.any { it.confidence == EvidenceConfidence.LOW })
-        assertTrue(result.outcome.needsReview)
-        assertFalse(result.outcome.detected)
+        assertTrue(findings.isEmpty())
     }
 
     @Test
     fun readErrorIsNonFatal() {
-        val result =
+        val findings =
             ProcNetTcpProxyScanner.scan(
                 reader =
                     object : ProcNetTcpReader {
@@ -72,28 +63,26 @@ class IndirectSignsCheckerProcNetTest {
                 packageResolver = { emptyList() },
             )
 
-        assertTrue(result.findings.isEmpty())
-        assertFalse(result.outcome.detected)
-        assertFalse(result.outcome.needsReview)
+        assertTrue(findings.isEmpty())
     }
 
-    private fun fakeReader(
-        tcp: String = "",
+    private fun reader(
+        tcp: String,
         tcp6: String = "",
     ): ProcNetTcpReader =
         object : ProcNetTcpReader {
-            override fun readTcp(): String = tcp
+            override fun readTcp(): String = Header + tcp
 
-            override fun readTcp6(): String = tcp6
+            override fun readTcp6(): String = Header + tcp6
         }
 
-    private fun procNetTcpLine(
-        portHex: String,
+    private fun row(
+        address: String,
         state: String,
-        uid: Int,
-    ): String =
-        """
-        sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
-         0: 0100007F:$portHex 00000000:0000 $state 00000000:00000000 00:00000000 00000000 $uid        0 12345 1 0000000000000000 100 0 0 10 0
-        """.trimIndent()
+    ): String = "0: $address:0438 00000000:0000 $state 00000000:00000000 00:00000000 00000000 10000 0 12345"
+
+    private companion object {
+        const val Header =
+            "sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
+    }
 }

@@ -39,11 +39,9 @@ object IndirectSignsChecker {
 
         IndirectDumpsysSignals.check(findings)
 
-        val proxySocketScan = ProcNetTcpProxyScanner.scan(context)
-        findings.addAll(proxySocketScan.findings)
-        evidence.addAll(proxySocketScan.evidence)
-        detected = detected || proxySocketScan.outcome.detected
-        needsReview = needsReview || proxySocketScan.outcome.needsReview
+        val proxySocketFindings = ProcNetTcpProxyScanner.scan(context)
+        findings.addAll(proxySocketFindings)
+        needsReview = needsReview || proxySocketFindings.any(Finding::needsReview)
 
         return CategoryResult(
             name = "Indirect signs",
