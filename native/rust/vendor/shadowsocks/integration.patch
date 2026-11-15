@@ -98,12 +98,28 @@
 +
 @@ -17,0 +40 @@
 +    timestamp_provider: TimestampProvider,
-@@ -37,0 +61 @@
+@@ -20 +43 @@
+-    replay_protector: ReplayProtector,
++    replay_protector: Arc<ReplayProtector>,
+@@ -38 +61,2 @@
+-            replay_protector: ReplayProtector::new(config_type),
 +            timestamp_provider: TimestampProvider::default(),
-@@ -44,0 +69,14 @@
++            replay_protector: Arc::new(ReplayProtector::new(config_type)),
+@@ -44,0 +69,25 @@
 +    /// Set the clock used to generate and check authenticated timestamps.
 +    pub fn set_timestamp_provider(&mut self, provider: Arc<dyn Fn() -> u64 + Send + Sync>) {
 +        self.timestamp_provider = TimestampProvider(provider);
++    }
++
++    /// Use a different clock while sharing replay protection and DNS configuration.
++    pub fn with_timestamp_provider(&self, provider: Arc<dyn Fn() -> u64 + Send + Sync>) -> SharedContext {
++        Arc::new(Self {
++            timestamp_provider: TimestampProvider(provider),
++            replay_protector: Arc::clone(&self.replay_protector),
++            replay_policy: self.replay_policy,
++            dns_resolver: Arc::clone(&self.dns_resolver),
++            ipv6_first: self.ipv6_first,
++        })
 +    }
 +
 +    /// Current Unix time in seconds from this context's clock.

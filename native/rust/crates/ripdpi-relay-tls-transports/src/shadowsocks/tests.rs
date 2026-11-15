@@ -246,7 +246,7 @@ async fn udp_upstream_exchange_rejects_bad_packets_and_reuses_buffer() {
         let factory = factory("127.0.0.1", port, method, credential);
         let session = factory.create_session().await.unwrap();
         let mut client = session.open_datagram().await.unwrap();
-        let timestamp = Arc::new(std::sync::atomic::AtomicU64::new(factory.config.time.now_unix_u64()));
+        let timestamp = Arc::new(std::sync::atomic::AtomicU64::new(client.context.now_timestamp()));
         let clock = Arc::clone(&timestamp);
         let server_context = Arc::new({
             let mut context = Context::new(ServerType::Server);
@@ -267,10 +267,10 @@ async fn udp_upstream_exchange_rejects_bad_packets_and_reuses_buffer() {
         let mut control = control.unwrap();
         control.server_session_id = 123;
         let allocation = client.receive_buffer.as_ptr();
-        timestamp.store(factory.config.time.now_unix_u64() - 31, std::sync::atomic::Ordering::Relaxed);
+        timestamp.store(client.context.now_timestamp() - 31, std::sync::atomic::Ordering::Relaxed);
         server.send_to_with_ctrl(peer, &address, &control, b"stale timestamp").await.unwrap();
         // This atomic supplies only a scalar test clock, with no associated memory publication.
-        timestamp.store(factory.config.time.now_unix_u64(), std::sync::atomic::Ordering::Relaxed);
+        timestamp.store(client.context.now_timestamp(), std::sync::atomic::Ordering::Relaxed);
         // Wrong recipient must not consume this packet ID or calibrate the clock.
         control.client_session_id ^= 1;
         server.send_to_with_ctrl(peer, &address, &control, b"wrong recipient").await.unwrap();
@@ -289,6 +289,28 @@ async fn udp_upstream_exchange_rejects_bad_packets_and_reuses_buffer() {
         );
         assert_eq!(client.receive_buffer.as_ptr(), allocation);
     }
+}
+
+/// # Cancel safety:
+/// cancel-safe: cancellation drops both local sockets.
+#[tokio::test]
+async fn udp_associations_keep_their_own_timelines_across_a_factory_correction() {
+    let (method, key) = METHODS[3];
+    let raw_server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.unwrap();
+    let mut factory = factory("127.0.0.1", raw_server.local_addr().unwrap().port(), method, key);
+    let config = Arc::get_mut(&mut factory.config).unwrap();
+    let initial_time = 1_700_000_000;
+    config.time = Arc::new(NetworkTimeProvider::fixed(initial_time));
+    config.context = ripdpi_shadowsocks::client_context(Arc::clone(&config.time));
+
+    let session = factory.create_session().await.unwrap();
+    let existing = session.open_datagram().await.unwrap();
+    let source = TimeSource::new("shadowsocks", "127.0.0.1", 443, 1);
+    assert!(factory.config.time.calibrate(initial_time - 20, source));
+    let opened_after_correction = session.open_datagram().await.unwrap();
+
+    assert_eq!(existing.context.now_timestamp(), 1_700_000_000);
+    assert_eq!(opened_after_correction.context.now_timestamp(), 1_699_999_980);
 }
 
 /// # Cancel safety:

@@ -1,7 +1,4 @@
-use std::{
-    io,
-    time::{Duration, Instant},
-};
+use std::io;
 
 use shadowsocks::{packet_window::PacketWindowFilter, relay::udprelay::options::UdpSocketControlData};
 
@@ -16,7 +13,7 @@ pub struct UdpAssociation {
 struct Peer {
     id: u64,
     window: PacketWindowFilter,
-    last_seen: Instant,
+    last_seen: u64,
 }
 
 impl Default for UdpAssociation {
@@ -41,8 +38,8 @@ impl UdpAssociation {
     }
 
     /// Returns the timestamp only for a fresh packet bound to this client.
-    /// Call only with authenticated metadata from upstream decoding.
-    pub fn accept(&mut self, control: &UdpSocketControlData, now: Instant) -> Option<u64> {
+    /// Pass authenticated metadata and the same monotonic Unix clock used to decode it.
+    pub fn accept(&mut self, control: &UdpSocketControlData, now: u64) -> Option<u64> {
         let timestamp = control.authenticated_timestamp?;
         if control.client_session_id != self.client_id {
             return None;
@@ -56,8 +53,8 @@ impl UdpAssociation {
                 return Some(timestamp);
             }
         }
-        // Whole-second timestamps extend the inclusive +/-30s horizon by up to one second.
-        if self.previous.as_ref().is_some_and(|peer| now.duration_since(peer.last_seen) <= Duration::from_secs(61)) {
+        // A packet accepted up to 30 seconds in the future stays fresh through last_seen + 60.
+        if self.previous.as_ref().is_some_and(|peer| now.saturating_sub(peer.last_seen) <= 60) {
             return None;
         }
         let mut window = PacketWindowFilter::new();
@@ -80,17 +77,17 @@ mod tests {
         let mut control = association.next_control().unwrap();
         control.authenticated_timestamp = Some(1_700_000_000);
         control.server_session_id = 1;
-        let start = Instant::now();
+        let start = 1_700_000_000;
         assert!(association.accept(&control, start).is_some());
         assert!(association.accept(&control, start).is_none());
         control.server_session_id = 2;
         assert!(association.accept(&control, start).is_some());
         control.packet_id = 1;
-        assert!(association.accept(&control, start + Duration::from_secs(50)).is_some());
+        assert!(association.accept(&control, start + 50).is_some());
         control.packet_id = 0;
         control.server_session_id = 3;
-        assert!(association.accept(&control, start + Duration::from_secs(61)).is_none());
-        let expired = start + Duration::from_secs(61) + Duration::from_nanos(1);
+        assert!(association.accept(&control, start + 60).is_none());
+        let expired = start + 61;
         control.client_session_id ^= 1;
         assert!(association.accept(&control, expired).is_none());
         control.client_session_id ^= 1;
@@ -110,7 +107,7 @@ mod tests {
         let first = association.next_control().unwrap();
         assert_eq!(first.packet_id, 0);
         assert_eq!(association.next_control().unwrap().packet_id, 1);
-        assert!(association.accept(&first, Instant::now()).is_none());
+        assert!(association.accept(&first, 1_700_000_000).is_none());
         association.next_packet_id = u64::MAX;
         assert!(association.next_control().is_err());
         assert!(association.next_control().is_err());

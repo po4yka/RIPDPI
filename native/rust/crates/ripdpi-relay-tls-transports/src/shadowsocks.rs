@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{self, Poll, ready};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
@@ -134,6 +134,7 @@ pub struct ShadowsocksSession {
 
 pub struct ShadowsocksUdpSession {
     socket: ProxySocket<ProxyUdpSocket>,
+    context: SharedContext,
     config: Arc<ShadowsocksClientConfig>,
     association: Box<UdpAssociation>,
     receive_buffer: Vec<u8>,
@@ -204,14 +205,18 @@ impl RelaySession for ShadowsocksSession {
         })?;
         let socket = bind_udp(config.outbound_bind_ip, server_addr, config.socket_protection)?;
         socket.connect(server_addr).await?;
+        // Keep packet freshness and replay-window retirement on the same stable timeline.
+        let clock = config.time.snapshot();
+        let context = config.context.with_timestamp_provider(Arc::new(move || clock.now_unix_u64()));
         let socket = ProxySocket::from_socket(
             UdpSocketType::Client,
-            Arc::clone(&config.context),
+            Arc::clone(&context),
             &config.server,
             ProxyUdpSocket::from(socket),
         );
         Ok(ShadowsocksUdpSession {
             socket,
+            context,
             config,
             association: Box::default(),
             receive_buffer: vec![0; BUFFER_SIZE],
@@ -271,7 +276,8 @@ impl ShadowsocksUdpSession {
                 }
                 Err(_) => continue,
             };
-            let Some(timestamp) = control.and_then(|control| self.association.accept(&control, Instant::now())) else {
+            let now = self.context.now_timestamp();
+            let Some(timestamp) = control.and_then(|control| self.association.accept(&control, now)) else {
                 continue;
             };
             if !self.calibrated {
