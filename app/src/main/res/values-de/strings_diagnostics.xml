@@ -1452,6 +1452,8 @@
     <string name="diagnostics_matrix_selective">Wiederholte selektive Erreichbarkeit beobachtet</string>
     <string name="diagnostics_matrix_unavailable">Die getesteten Ziele waren nicht erreichbar</string>
     <string name="diagnostics_matrix_mixed">Ergebnisse unterscheiden sich zwischen Versuchen oder Gruppen</string>
+    <string name="diagnostics_matrix_target_unstable">Ergebnisse unterscheiden sich je nach Versuch</string>
+    <string name="diagnostics_matrix_target_coverage">Vollständige Antworten: %1$d · Versuche: %2$d / %3$s</string>
     <string name="diagnostics_matrix_inconclusive">Unzureichende Daten</string>
     <string name="diagnostics_matrix_caution">Diese Beobachtungen belegen keine Anbieterrichtlinie. Serverfehler, unvollständige Antworten, fehlende Kontrollziele und Netzwerkwechsel begrenzen die Aussage.</string>
     <string name="diagnostics_matrix_attempt_count">Abgeschlossene Versuche: %1$s / %2$s</string>

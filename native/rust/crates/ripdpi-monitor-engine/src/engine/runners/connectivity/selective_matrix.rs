@@ -34,7 +34,6 @@ impl ExecutionStageRunner for SelectiveMatrixRunner {
         let deadline = active_scan_io_deadline().map_or(own_deadline, |outer| outer.min(own_deadline));
         with_scan_io_deadline(Some(deadline), || {
             let mut results = Vec::new();
-            let mut steps = Vec::new();
             // Each round visits every cohort before a repeat of the same target.
             let mut targets = Vec::new();
             let cohorts = ["declared_available", "domestic", "global", "user"];
@@ -53,12 +52,12 @@ impl ExecutionStageRunner for SelectiveMatrixRunner {
                         }
                         let result =
                             run_selective_matrix_attempt(config, target, attempt, &plan.transport, cancel, verifier);
-                        steps.push(step(plan, result.clone()));
                         results.push(result);
                     }
                 }
             }
-            steps.push(step(plan, summarize(config, &results)));
+            let summary = summarize(config, &mut results);
+            let steps = results.into_iter().chain([summary]).map(|result| step(plan, result)).collect();
             if super::interrupted(cancel) {
                 CollectedStageOutcome::Cancelled(steps)
             } else {
@@ -79,21 +78,34 @@ fn step(plan: &ExecutionPlan, result: ProbeResult) -> CollectedStep {
 fn detail<'a>(result: &'a ProbeResult, key: &str) -> &'a str {
     result.details.iter().find(|d| d.key == key).map_or("", |d| d.value.as_str())
 }
-fn summarize(config: &SelectiveMatrixConfig, results: &[ProbeResult]) -> ProbeResult {
+fn observed(result: &ProbeResult) -> bool {
+    !matches!(result.outcome.as_str(), "matrix_target_invalid" | "matrix_target_cancelled")
+}
+fn summarize(config: &SelectiveMatrixConfig, results: &mut [ProbeResult]) -> ProbeResult {
     let expected = config.targets.len() * config.repetitions;
-    let complete = config.validate().is_ok()
-        && results.len() == expected
-        && results.iter().all(|r| !matches!(r.outcome.as_str(), "matrix_target_invalid" | "matrix_target_cancelled"));
+    let completed = results.iter().filter(|result| observed(result)).count();
+    let complete = config.validate().is_ok() && completed == expected;
     let mut healthy = BTreeSet::new();
     let mut failed = BTreeSet::new();
     let mut all_healthy = true;
     let mut all_failed = true;
+    let mut unstable_targets = 0;
     for target in &config.targets {
-        let rows: Vec<_> = results.iter().filter(|r| detail(r, "targetId") == target.id).collect();
+        let mut rows: Vec<_> =
+            results.iter_mut().filter(|r| observed(r) && detail(r, "targetId") == target.id).collect();
         let available = rows.len() == config.repetitions && rows.iter().all(|r| r.outcome == "matrix_target_available");
         let transport_failed = rows.len() == config.repetitions
             && rows.iter().all(|r| r.outcome == "matrix_target_transport_failed")
             && rows.windows(2).all(|w| detail(w[0], "failureStage") == detail(w[1], "failureStage"));
+        let unstable = rows
+            .windows(2)
+            .any(|w| w[0].outcome != w[1].outcome || detail(w[0], "failureStage") != detail(w[1], "failureStage"));
+        if unstable {
+            unstable_targets += 1;
+            for row in &mut rows {
+                row.details.push(ProbeDetail { key: "targetStability".into(), value: "unstable".into() });
+            }
+        }
         all_healthy &= available;
         all_failed &= transport_failed;
         if target.cohort == "declared_available" && available {
@@ -126,9 +138,11 @@ fn summarize(config: &SelectiveMatrixConfig, results: &[ProbeResult]) -> ProbeRe
         outcome: outcome.into(),
         details: vec![
             ProbeDetail { key: "catalogVersion".into(), value: config.catalog_version.clone() },
-            ProbeDetail { key: "completedAttempts".into(), value: results.len().to_string() },
+            ProbeDetail { key: "completedAttempts".into(), value: completed.to_string() },
             ProbeDetail { key: "expectedAttempts".into(), value: expected.to_string() },
             ProbeDetail { key: "coverageComplete".into(), value: complete.to_string() },
+            ProbeDetail { key: "repetitionsPerTarget".into(), value: config.repetitions.to_string() },
+            ProbeDetail { key: "unstableTargets".into(), value: unstable_targets.to_string() },
             ProbeDetail { key: "availableDeclaredGroups".into(), value: healthy.len().to_string() },
             ProbeDetail { key: "failedComparisonGroups".into(), value: failed.len().to_string() },
             ProbeDetail { key: "cause".into(), value: "not_established".into() },
@@ -187,18 +201,18 @@ mod tests {
     }
     #[test]
     fn repeated_independent_evidence_supports_selectivity() {
-        let (config, rows) = fixture();
-        assert_eq!(summarize(&config, &rows).outcome, "matrix_selective");
+        let (config, mut rows) = fixture();
+        assert_eq!(summarize(&config, &mut rows).outcome, "matrix_selective");
     }
     #[test]
     fn missing_attempts_server_errors_and_shared_infrastructure_do_not() {
         let (mut config, mut rows) = fixture();
-        assert_eq!(summarize(&config, &rows[..7]).outcome, "matrix_inconclusive");
+        assert_eq!(summarize(&config, &mut rows[..7]).outcome, "matrix_inconclusive");
         rows[7].outcome = "matrix_target_http_error".into();
-        assert_eq!(summarize(&config, &rows).outcome, "matrix_inconclusive");
+        assert_eq!(summarize(&config, &mut rows).outcome, "matrix_inconclusive");
         rows[7].outcome = "matrix_target_transport_failed".into();
         config.targets[3].infrastructure_group = "0".into();
-        assert_eq!(summarize(&config, &rows).outcome, "matrix_mixed");
+        assert_eq!(summarize(&config, &mut rows).outcome, "matrix_mixed");
     }
     #[test]
     fn repeated_tls_blackholes_are_transport_failures_not_cancellation() {
@@ -242,8 +256,42 @@ mod tests {
         }
         assert!(started.elapsed() >= Duration::from_millis(350));
         assert!(started.elapsed() < Duration::from_secs(2));
-        assert_eq!(summarize(&config, &rows).outcome, "matrix_selective");
+        assert_eq!(summarize(&config, &mut rows).outcome, "matrix_selective");
         server.join().unwrap();
+    }
+
+    #[test]
+    fn repeated_contrast_retains_unstable_targets_and_observed_coverage() {
+        let (mut config, mut rows) = fixture();
+        let mut extra = config.targets[3].clone();
+        extra.id = "4".into();
+        extra.url = "https://extra.example.com/".into();
+        config.targets.push(extra);
+        for outcome in ["matrix_target_available", "matrix_target_transport_failed"] {
+            rows.push(ProbeResult {
+                probe_type: "selective_availability".into(),
+                target: "extra".into(),
+                outcome: outcome.into(),
+                details: vec![ProbeDetail { key: "targetId".into(), value: "4".into() }],
+            });
+        }
+
+        let summary = summarize(&config, &mut rows);
+        assert_eq!(summary.outcome, "matrix_selective");
+        assert_eq!(detail(&summary, "unstableTargets"), "1");
+        assert_eq!(detail(&summary, "repetitionsPerTarget"), "2");
+        assert_eq!(detail(&summary, "completedAttempts"), "10");
+        assert!(rows[..8].iter().all(|row| detail(row, "targetStability").is_empty()));
+        assert!(rows[8..].iter().all(|row| detail(row, "targetStability") == "unstable"));
+
+        rows[9].outcome = "matrix_target_cancelled".into();
+        // Rebuild the evidence as it would arrive from the attempt runner.
+        rows[8].details.retain(|detail| detail.key != "targetStability");
+        let partial = summarize(&config, &mut rows);
+        assert_eq!(partial.outcome, "matrix_inconclusive");
+        assert_eq!(detail(&partial, "unstableTargets"), "0");
+        assert_eq!(detail(&partial, "completedAttempts"), "9");
+        assert_eq!(detail(&partial, "expectedAttempts"), "10");
     }
 
     #[test]
@@ -252,6 +300,6 @@ mod tests {
         for row in &mut rows {
             row.outcome = "matrix_target_transport_failed".into();
         }
-        assert_eq!(summarize(&config, &rows).outcome, "matrix_unavailable");
+        assert_eq!(summarize(&config, &mut rows).outcome, "matrix_unavailable");
     }
 }

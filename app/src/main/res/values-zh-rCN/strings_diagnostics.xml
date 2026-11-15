@@ -1424,6 +1424,8 @@
     <string name="diagnostics_matrix_selective">观察到重复的选择性可用性</string>
     <string name="diagnostics_matrix_unavailable">测试目标不可用</string>
     <string name="diagnostics_matrix_mixed">各次尝试或各组的结果不同</string>
+    <string name="diagnostics_matrix_target_unstable">多次尝试的结果不同</string>
+    <string name="diagnostics_matrix_target_coverage">完整响应：%1$d · 尝试次数：%2$d / %3$s</string>
     <string name="diagnostics_matrix_inconclusive">证据不足</string>
     <string name="diagnostics_matrix_caution">这些观察不能证明运营商策略。服务器错误、不完整响应、缺失的对照目标及网络变化会限制结论。</string>
     <string name="diagnostics_matrix_attempt_count">已完成尝试：%1$s / %2$s</string>

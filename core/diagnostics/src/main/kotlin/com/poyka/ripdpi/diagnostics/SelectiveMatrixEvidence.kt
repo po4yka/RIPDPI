@@ -47,5 +47,8 @@ private val MatrixSummaryFields =
         "elapsedMs",
         "completedAttempts",
         "expectedAttempts",
+        "repetitionsPerTarget",
+        "targetStability",
+        "unstableTargets",
         "reason",
     )

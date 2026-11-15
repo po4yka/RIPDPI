@@ -1495,6 +1495,8 @@
     <string name="diagnostics_matrix_selective">Наблюдается устойчивая избирательная доступность</string>
     <string name="diagnostics_matrix_unavailable">Проверенные цели недоступны</string>
     <string name="diagnostics_matrix_mixed">Результаты попыток или групп различаются</string>
+    <string name="diagnostics_matrix_target_unstable">Результаты различались между попытками</string>
+    <string name="diagnostics_matrix_target_coverage">Полных ответов: %1$d · Попыток: %2$d из %3$s</string>
     <string name="diagnostics_matrix_inconclusive">Недостаточно данных</string>
     <string name="diagnostics_matrix_caution">Наблюдения не доказывают политику провайдера. Ошибки серверов, неполные ответы, недоступные контрольные цели и смена сети ограничивают вывод.</string>
     <string name="diagnostics_matrix_attempt_count">Завершено попыток: %1$s / %2$s</string>

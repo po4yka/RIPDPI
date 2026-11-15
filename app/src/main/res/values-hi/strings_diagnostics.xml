@@ -1459,6 +1459,8 @@
     <string name="diagnostics_matrix_selective">बार-बार चुनिंदा उपलब्धता देखी गई</string>
     <string name="diagnostics_matrix_unavailable">जाँचे गए लक्ष्य अनुपलब्ध थे</string>
     <string name="diagnostics_matrix_mixed">प्रयासों या समूहों के परिणाम अलग हैं</string>
+    <string name="diagnostics_matrix_target_unstable">प्रयासों के बीच नतीजे बदले</string>
+    <string name="diagnostics_matrix_target_coverage">पूरे जवाब: %1$d · प्रयास: %2$d / %3$s</string>
     <string name="diagnostics_matrix_inconclusive">अपर्याप्त साक्ष्य</string>
     <string name="diagnostics_matrix_caution">ये अवलोकन प्रदाता की नीति साबित नहीं करते। सर्वर त्रुटियाँ, अधूरे उत्तर, अनुपस्थित नियंत्रण लक्ष्य और नेटवर्क बदलना निष्कर्ष को सीमित करते हैं।</string>
     <string name="diagnostics_matrix_attempt_count">पूर्ण प्रयास: %1$s / %2$s</string>

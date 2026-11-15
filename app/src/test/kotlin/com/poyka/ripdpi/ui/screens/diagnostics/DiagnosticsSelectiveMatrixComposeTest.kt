@@ -142,6 +142,31 @@ class DiagnosticsSelectiveMatrixComposeTest {
         assertResults("selective-matrix-results-rtl-large")
     }
 
+    @Test
+    fun resultKeepsTheObservedContrastAndIdentifiesTheUnstableTarget() {
+        composeRule.setContent {
+            MatrixViewport {
+                SelectiveMatrixResultsCard(
+                    listOf(
+                        attempt(1, true, unstable = true),
+                        attempt(2, false, unstable = true),
+                        result(
+                            type = "selective_availability_summary",
+                            outcome = "matrix_selective",
+                            "completedAttempts" to "10",
+                            "expectedAttempts" to "10",
+                            "repetitionsPerTarget" to "2",
+                        ),
+                    ),
+                )
+            }
+        }
+
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_selective)))
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_target_unstable)))
+        assertComplete(composeRule.onNodeWithText(text(R.string.diagnostics_matrix_target_coverage, 1, 2, "2")))
+    }
+
     private fun showResults(
         fontScale: Float = 1f,
         direction: LayoutDirection = LayoutDirection.Ltr,
@@ -238,11 +263,13 @@ class DiagnosticsSelectiveMatrixComposeTest {
     private fun attempt(
         number: Int,
         success: Boolean,
+        unstable: Boolean = false,
     ) = result(
         type = "selective_availability",
         outcome = if (success) "matrix_target_available" else "matrix_target_transport_failed",
         "cohort" to "user",
         "attempt" to number.toString(),
+        "targetStability" to if (unstable) "unstable" else "",
         "dnsStatus" to "admitted_addresses",
         "tcpStatus" to "ok",
         "tlsStatus" to if (success) "ok" else "failed",

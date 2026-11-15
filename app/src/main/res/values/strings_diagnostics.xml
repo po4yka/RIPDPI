@@ -1479,6 +1479,8 @@
     <string name="diagnostics_matrix_selective">Repeated selective availability observed</string>
     <string name="diagnostics_matrix_unavailable">Tested targets were unavailable</string>
     <string name="diagnostics_matrix_mixed">Results differ between attempts or groups</string>
+    <string name="diagnostics_matrix_target_unstable">Results changed between attempts</string>
+    <string name="diagnostics_matrix_target_coverage">Complete responses: %1$d · Attempts: %2$d / %3$s</string>
     <string name="diagnostics_matrix_inconclusive">Insufficient evidence</string>
     <string name="diagnostics_matrix_caution">These observations do not establish an ISP policy. Server errors, incomplete responses, missing controls and a changed network limit the conclusion.</string>
     <string name="diagnostics_matrix_attempt_count">Completed attempts: %1$s / %2$s</string>

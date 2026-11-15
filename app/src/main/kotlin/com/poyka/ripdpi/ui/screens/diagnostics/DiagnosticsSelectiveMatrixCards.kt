@@ -145,7 +145,7 @@ internal fun SelectiveMatrixResultsCard(results: List<DiagnosticsProbeResultUiMo
         MatrixText(
             stringResource(
                 R.string.diagnostics_matrix_attempt_count,
-                coverage["completedAttempts"] ?: attempts.size.toString(),
+                coverage["completedAttempts"] ?: attempts.count { it.observed }.toString(),
                 coverage["expectedAttempts"] ?: "—",
             ),
         )
@@ -160,31 +160,35 @@ internal fun SelectiveMatrixResultsCard(results: List<DiagnosticsProbeResultUiMo
                     rows.count {
                         it.bodyComplete
                     },
-                    rows.size,
-                    rows.map { it.target }.distinct().size,
+                    rows.count { it.observed },
+                    rows.map { it.targetId }.distinct().size,
                 ),
             )
-            rows.groupBy { it.target }.forEach { (target, attempts) -> MatrixTargetResults(target, attempts) }
+            rows.groupBy { it.targetId }.values.forEach { targetAttempts ->
+                MatrixTargetResults(targetAttempts, coverage["repetitionsPerTarget"])
+            }
         }
     }
 }
 
 @Composable
 private fun MatrixTargetResults(
-    target: String,
     attempts: List<SelectiveMatrixAttemptUiModel>,
+    plannedAttempts: String?,
 ) {
-    var expanded by rememberSaveable(target) { mutableStateOf(false) }
+    val target = attempts.first()
+    var expanded by rememberSaveable(target.targetId) { mutableStateOf(false) }
     RipDpiCard(variant = RipDpiCardVariant.Tonal) {
-        MatrixHeading(target)
+        MatrixHeading(target.target)
+        if (attempts.any { it.unstable }) {
+            MatrixText(stringResource(R.string.diagnostics_matrix_target_unstable))
+        }
         MatrixText(
             stringResource(
-                R.string.diagnostics_matrix_cohort_coverage,
-                attempts.count {
-                    it.bodyComplete
-                },
-                attempts.size,
-                1,
+                R.string.diagnostics_matrix_target_coverage,
+                attempts.count { it.bodyComplete },
+                attempts.count { it.observed },
+                plannedAttempts ?: "—",
             ),
         )
         RipDpiButton(

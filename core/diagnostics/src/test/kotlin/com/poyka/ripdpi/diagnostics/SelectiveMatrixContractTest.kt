@@ -104,6 +104,7 @@ class SelectiveMatrixContractTest {
                     listOf(
                         ProbeDetail("bodyByteCount", "32"),
                         ProbeDetail("bodyComplete", "false"),
+                        ProbeDetail("targetStability", "unstable"),
                         ProbeDetail("sourceDate", "2026-10-09"),
                         ProbeDetail("body", "secret response"),
                     ),
@@ -111,6 +112,7 @@ class SelectiveMatrixContractTest {
             ).selectiveMatrixSummaryLines()
         assertTrue(lines.contains("bodyByteCount=32"))
         assertTrue(lines.contains("sourceDate=2026-10-09"))
+        assertTrue(lines.contains("targetStability=unstable"))
         assertFalse(lines.any { it.contains("secret response") })
         assertEquals(DiagnosticsOutcomeBucket.Inconclusive, bucketSelectiveMatrix("matrix_target_body_incomplete"))
     }

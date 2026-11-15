@@ -18,6 +18,9 @@ data class SelectiveMatrixTargetUiModel(
 @Immutable
 data class SelectiveMatrixAttemptUiModel(
     val target: String,
+    val targetId: String,
+    val observed: Boolean,
+    val unstable: Boolean,
     val cohort: String,
     val attempt: String,
     val stages: ImmutableList<DiagnosticsFieldUiModel>,
@@ -37,6 +40,9 @@ internal fun DiagnosticsProbeResultUiModel.toSelectiveMatrixAttempt(): Selective
     val values = details.associate { it.label to it.value }
     return SelectiveMatrixAttemptUiModel(
         target = target,
+        targetId = values["targetId"] ?: target,
+        observed = outcome != "matrix_target_invalid" && outcome != "matrix_target_cancelled",
+        unstable = values["targetStability"] == "unstable",
         cohort = values["cohort"].orEmpty(),
         attempt = values["attempt"].orEmpty(),
         stages =

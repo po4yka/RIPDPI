@@ -1452,6 +1452,8 @@
     <string name="diagnostics_matrix_selective">دسترسی انتخابی تکرارشونده مشاهده شد</string>
     <string name="diagnostics_matrix_unavailable">هدف‌های آزموده‌شده در دسترس نبودند</string>
     <string name="diagnostics_matrix_mixed">نتایج تلاش‌ها یا گروه‌ها متفاوت است</string>
+    <string name="diagnostics_matrix_target_unstable">نتایج در تلاش‌های مختلف تغییر کرد</string>
+    <string name="diagnostics_matrix_target_coverage">پاسخ‌های کامل: %1$d · تلاش‌ها: %2$d / %3$s</string>
     <string name="diagnostics_matrix_inconclusive">شواهد ناکافی</string>
     <string name="diagnostics_matrix_caution">این مشاهدات سیاست ارائه‌دهنده را ثابت نمی‌کنند. خطاهای سرور، پاسخ‌های ناقص، نبود اهداف کنترل و تغییر شبکه نتیجه‌گیری را محدود می‌کنند.</string>
     <string name="diagnostics_matrix_attempt_count">تلاش‌های کامل‌شده: %1$s / %2$s</string>

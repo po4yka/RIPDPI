@@ -1563,6 +1563,8 @@
     <string name="diagnostics_matrix_selective">لوحظت إتاحة انتقائية متكررة</string>
     <string name="diagnostics_matrix_unavailable">الأهداف المختبرة لم تكن متاحة</string>
     <string name="diagnostics_matrix_mixed">تختلف النتائج بين المحاولات أو المجموعات</string>
+    <string name="diagnostics_matrix_target_unstable">تغيّرت النتائج بين المحاولات</string>
+    <string name="diagnostics_matrix_target_coverage">الردود المكتملة: %1$d · المحاولات: %2$d / %3$s</string>
     <string name="diagnostics_matrix_inconclusive">أدلة غير كافية</string>
     <string name="diagnostics_matrix_caution">لا تثبت هذه الملاحظات سياسة مزود الخدمة. تحد أخطاء الخوادم والردود الناقصة وغياب أهداف المقارنة وتغير الشبكة من الاستنتاج.</string>
     <string name="diagnostics_matrix_attempt_count">المحاولات المكتملة: %1$s / %2$s</string>

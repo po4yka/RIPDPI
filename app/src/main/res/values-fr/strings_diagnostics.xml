@@ -1453,6 +1453,8 @@
     <string name="diagnostics_matrix_selective">Disponibilité sélective répétée observée</string>
     <string name="diagnostics_matrix_unavailable">Les cibles testées étaient indisponibles</string>
     <string name="diagnostics_matrix_mixed">Les résultats varient selon les essais ou les groupes</string>
+    <string name="diagnostics_matrix_target_unstable">Les résultats ont varié entre les tentatives</string>
+    <string name="diagnostics_matrix_target_coverage">Réponses complètes : %1$d · Tentatives : %2$d / %3$s</string>
     <string name="diagnostics_matrix_inconclusive">Données insuffisantes</string>
     <string name="diagnostics_matrix_caution">Ces observations ne prouvent pas une politique du fournisseur. Les erreurs serveur, réponses incomplètes, contrôles absents et changements de réseau limitent la conclusion.</string>
     <string name="diagnostics_matrix_attempt_count">Essais terminés : %1$s / %2$s</string>
