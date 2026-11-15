@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex as StdMutex, PoisonError};
 use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
-use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
+use ripdpi_network_time::NetworkTimeProvider;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{Notify, Semaphore, mpsc, oneshot};
 use tokio::time::timeout;
@@ -386,7 +386,6 @@ pub struct MieruMuxConnection {
 
 struct ReplyClock {
     time: Arc<NetworkTimeProvider>,
-    source: TimeSource,
     authenticated: AtomicBool,
     calibrated: AtomicBool,
 }
@@ -447,7 +446,6 @@ impl MieruMuxConnection {
         let limit = Arc::new(Semaphore::new(config.multiplexing.max_concurrent_streams()));
         let reply_clock = Arc::new(ReplyClock {
             time: Arc::clone(&time),
-            source: config.time_source(),
             authenticated: AtomicBool::new(false),
             calibrated: AtomicBool::new(false),
         });

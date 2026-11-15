@@ -102,7 +102,6 @@ async fn buffered_success_after_registration_removal_does_not_calibrate() {
     let time = Arc::new(NetworkTimeProvider::fixed(NOW));
     let reply_clock = ReplyClock {
         time: Arc::clone(&time),
-        source: config().time_source(),
         authenticated: AtomicBool::new(false),
         calibrated: AtomicBool::new(false),
     };

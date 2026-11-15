@@ -49,7 +49,7 @@ impl ReplyClock {
             self.authenticated.store(true, Ordering::Release);
             if head[1] == 0x00
                 && !self.calibrated.load(Ordering::Relaxed)
-                && self.time.calibrate(reader.leftover.timestamp, self.source)
+                && self.time.calibrate(reader.leftover.timestamp, 30)
             {
                 // The same table lock serializes calibration for this carrier.
                 self.calibrated.store(true, Ordering::Relaxed);

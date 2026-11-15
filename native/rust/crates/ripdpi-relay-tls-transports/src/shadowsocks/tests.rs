@@ -31,7 +31,7 @@ fn each_factory_has_its_own_time_even_when_endpoints_match() {
     let shared = first.clone();
     let fresh = factory("example.test", 443, method, key);
     let server_time = first.config.time.now_unix() + 120;
-    assert!(first.config.time.calibrate(server_time, TimeSource::new("shadowsocks", "example.test", 443, 1)));
+    assert!(first.config.time.calibrate(server_time, 1));
     assert!(shared.config.time.is_calibrated());
     assert!(shared.config.context.now_timestamp().abs_diff(u64::try_from(server_time).unwrap()) <= 1);
     assert!(!fresh.config.time.is_calibrated());
@@ -68,9 +68,7 @@ async fn tcp_calibrates_from_the_first_bound_ss2022_reply() {
         client.read_exact(&mut reply).await.unwrap();
         assert_eq!(&reply, b"reply");
         assert_eq!(factory.config.time.now_unix(), 1_700_000_010);
-
-        let source = TimeSource::new("shadowsocks", "example.test", 443, 1);
-        assert!(factory.config.time.calibrate(1_700_000_020, source));
+        assert!(factory.config.time.calibrate(1_700_000_020, 1));
         server.write_all(b"later").await.unwrap();
         server.flush().await.unwrap();
         client.read_exact(&mut reply).await.unwrap();
@@ -346,8 +344,7 @@ async fn udp_associations_keep_their_own_timelines_across_a_factory_correction()
 
     let session = factory.create_session().await.unwrap();
     let existing = session.open_datagram().await.unwrap();
-    let source = TimeSource::new("shadowsocks", "127.0.0.1", 443, 1);
-    assert!(factory.config.time.calibrate(initial_time - 20, source));
+    assert!(factory.config.time.calibrate(initial_time - 20, 1));
     let opened_after_correction = session.open_datagram().await.unwrap();
 
     assert_eq!(existing.context.now_timestamp(), 1_700_000_000);

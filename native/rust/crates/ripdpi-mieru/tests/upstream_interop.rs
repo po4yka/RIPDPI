@@ -1,6 +1,7 @@
 //! Real upstream interoperability; invoked by scripts/tests/run-outbound-interop.py.
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use ripdpi_mieru::{MieruConfig, MieruMux, MieruMuxConnection, MieruProtocol};
@@ -32,7 +33,7 @@ async fn tcp_stream_exchanges_payload_with_upstream() {
     };
     timeout(Duration::from_secs(12), async {
         let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
-        let client = MieruMuxConnection::connect_over(transport, &config, NetworkTimeProvider::shared())
+        let client = MieruMuxConnection::connect_over(transport, &config, Arc::new(NetworkTimeProvider::system()))
             .await
             .expect("open upstream session");
         let mut stream = client.open_stream("interop.invalid:443").await.expect("upstream SOCKS CONNECT");
@@ -72,9 +73,10 @@ async fn multiplexed_tcp_streams_exchange_without_cross_contamination() {
         };
         timeout(Duration::from_secs(12), async {
             let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
-            let connection = MieruMuxConnection::connect_over(transport, &config, NetworkTimeProvider::shared())
-                .await
-                .expect("open multiplexed upstream carrier");
+            let connection =
+                MieruMuxConnection::connect_over(transport, &config, Arc::new(NetworkTimeProvider::system()))
+                    .await
+                    .expect("open multiplexed upstream carrier");
             let (first, second) = tokio::join!(
                 connection.open_stream("interop.invalid:443"),
                 connection.open_stream("interop.invalid:443"),
@@ -128,9 +130,10 @@ async fn slow_reader_receives_every_byte_with_upstream() {
         };
         timeout(Duration::from_secs(40), async {
             let transport = TcpStream::connect(endpoint).await.expect("connect upstream loopback listener");
-            let connection = MieruMuxConnection::connect_over(transport, &config, NetworkTimeProvider::shared())
-                .await
-                .expect("open upstream carrier");
+            let connection =
+                MieruMuxConnection::connect_over(transport, &config, Arc::new(NetworkTimeProvider::system()))
+                    .await
+                    .expect("open upstream carrier");
             let stream = connection.open_stream("interop.invalid:443").await.expect("upstream CONNECT");
             let (mut read_half, mut write_half) = tokio::io::split(stream);
             let payload: Vec<u8> = (0..8 << 20).map(|index| (index % 251) as u8).collect();
@@ -189,7 +192,7 @@ async fn advanced_tcp_settings_exchange_with_upstream() {
         };
         timeout(Duration::from_secs(20), async {
             let transport = TcpStream::connect(endpoint).await.expect("upstream connect");
-            let carrier = MieruMuxConnection::connect_over(transport, &config, NetworkTimeProvider::shared())
+            let carrier = MieruMuxConnection::connect_over(transport, &config, Arc::new(NetworkTimeProvider::system()))
                 .await
                 .expect("advanced carrier");
             let mut stream = carrier.open_stream("interop.invalid:443").await.expect("advanced CONNECT");

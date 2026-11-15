@@ -212,7 +212,7 @@ mod tests {
 
     #[tokio::test]
     async fn restarting_a_relay_starts_from_device_time() {
-        use ripdpi_network_time::{Clock, SystemClock, TimeSource};
+        use ripdpi_network_time::{Clock, SystemClock};
 
         let config = MieruConfig {
             server: "localhost".into(),
@@ -228,7 +228,7 @@ mod tests {
         let policy = ripdpi_native_protect::SocketProtectionPolicy::Inactive;
         let initial = MieruSessionFactory::new(config.clone(), policy);
         let old_anchor = SystemClock.wall_unix_secs() + 3_600;
-        assert!(initial.time.calibrate(old_anchor, TimeSource::new("mieru", "localhost", 443, 30)));
+        assert!(initial.time.calibrate(old_anchor, 30));
         assert!(initial.clone().time.is_calibrated());
         initial.shutdown().await.expect("stop the original relay");
 

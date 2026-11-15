@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::task::{self, Poll, ready};
 use std::time::Duration;
 
-use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
+use ripdpi_network_time::NetworkTimeProvider;
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use ripdpi_shadowsocks::UdpAssociation;
 use shadowsocks::{
@@ -160,8 +160,7 @@ struct ShadowsocksClientConfig {
 impl ShadowsocksClientConfig {
     fn calibrate_peer_time(&self, timestamp: u64) {
         if let Ok(timestamp) = i64::try_from(timestamp) {
-            let source = TimeSource::new("shadowsocks", &self.server_host, self.server_port, 1);
-            self.time.calibrate(timestamp, source);
+            self.time.calibrate(timestamp, 1);
         }
     }
 }
