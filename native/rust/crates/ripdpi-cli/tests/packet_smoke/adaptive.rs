@@ -38,9 +38,8 @@ pub(super) fn run_capture() {
     run_capture_scenario(
         "cli_packet_smoke_adaptive_family",
         |paths| {
+            // Direct CLI routes are selected before payload, so an L7 filter would select plain fallback.
             let mut args: Vec<String> = [
-                "-K",
-                "h",
                 "-s",
                 "auto(host)",
                 "--strategy-evolution",
