@@ -73,7 +73,7 @@ private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionR
     DetectionRunnerConfig(
         ownProxyPort = proxyPort.takeIf { it > 0 },
         ownPackageName = packageName,
-        includeBypassCheck = detectionCheckIncludeBypass,
+        includeBypassCheck = detectionCheckNetworkRequestsEnabled && detectionCheckIncludeBypass,
         includeTimingAnalysis = detectionCheckNetworkRequestsEnabled,
         includeWebRtcCheck = detectionCheckNetworkRequestsEnabled,
         includeRttTriangulationCheck =
@@ -84,8 +84,8 @@ private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionR
             detectionCheckNetworkRequestsEnabled && detectionCheckCallTransportProbeEnabled,
         bypassScanOptions =
             BypassScanOptions(
-                proxyScanEnabled = detectionCheckIncludeBypass,
-                xrayApiScanEnabled = detectionCheckXrayApiScanEnabled,
+                proxyScanEnabled = detectionCheckNetworkRequestsEnabled && detectionCheckIncludeBypass,
+                xrayApiScanEnabled = detectionCheckNetworkRequestsEnabled && detectionCheckXrayApiScanEnabled,
                 callTransportProbeEnabled = false,
                 portRange = toBypassPortRange(),
             ),

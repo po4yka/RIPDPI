@@ -39,12 +39,17 @@ class DetectionResultPresenterTest {
         val withoutNetwork =
             settings {
                 detectionCheckNetworkRequestsEnabled = false
+                detectionCheckIncludeBypass = true
+                detectionCheckXrayApiScanEnabled = true
                 detectionCheckRttTriangulationEnabled = true
                 detectionCheckCdnPullingEnabled = true
                 detectionCheckCallTransportProbeEnabled = true
             }
         DetectionResultPresenter.runnerConfig(withoutNetwork, "pkg").let {
             assertTrue(!it.includeTimingAnalysis)
+            assertTrue(!it.includeBypassCheck)
+            assertTrue(!it.bypassScanOptions.proxyScanEnabled)
+            assertTrue(!it.bypassScanOptions.xrayApiScanEnabled)
             assertTrue(!it.includeRttTriangulationCheck)
             assertTrue(!it.includeCdnPullingCheck)
             assertTrue(!it.includeCallTransportCheck)
