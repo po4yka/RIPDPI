@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.xray.app.proxyman.command.HandlerServiceGrpc
 import com.xray.app.proxyman.command.ListOutboundsRequest
 import com.xray.app.proxyman.command.ListOutboundsResponse
+import com.xray.core.OutboundHandlerConfig
 import io.grpc.Context
 import io.grpc.InsecureServerCredentials
 import io.grpc.Status
@@ -16,6 +17,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 import java.net.InetAddress
@@ -145,6 +147,29 @@ class XrayApiScannerTest {
                 assertEquals(listOf(0, 1), progress.map(XrayScanProgress::scanned))
                 assertEquals(listOf(4, 4), progress.map(XrayScanProgress::total))
                 assertEquals(port, progress.last().currentPort)
+            }
+        }
+
+    @Test
+    fun `large outbound lists keep bounded summaries`() =
+        runBlocking {
+            val response =
+                ListOutboundsResponse
+                    .newBuilder()
+                    .addAllOutbounds(
+                        List(65) { index ->
+                            OutboundHandlerConfig.newBuilder().setTag("outbound-$index\n${"x".repeat(256)}").build()
+                        },
+                    ).build()
+
+            withServer({
+                it.onNext(response)
+                it.onCompleted()
+            }) { port ->
+                val scan = requireNotNull(scanner(listOf(port)).findXrayApi {})
+                assertEquals(64, scan.outbounds.size)
+                assertTrue(scan.outboundsTruncated)
+                assertTrue(scan.outbounds.all { it.tag.length <= 256 && '\n' !in it.tag })
             }
         }
 

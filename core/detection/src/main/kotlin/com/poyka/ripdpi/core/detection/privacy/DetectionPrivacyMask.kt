@@ -70,7 +70,8 @@ object DetectionPrivacyMask {
         result: BypassResult,
         enabled: Boolean,
     ): List<Finding> {
-        val outbounds = result.xrayApiScanResult?.outbounds.orEmpty()
+        val scan = result.xrayApiScanResult
+        val outbounds = scan?.outbounds.orEmpty()
         return buildList {
             addAll(result.findings)
             outbounds.take(MAX_DISPLAY_OUTBOUNDS).forEach { outbound ->
@@ -79,12 +80,13 @@ object DetectionPrivacyMask {
                     buildString {
                         append("Xray outbound: ")
                         append(visible.tag)
-                        visible.protocolName?.let { append(" [$it]") }
+                        visible.transportName?.let { append(" [$it]") }
                         visible.address?.let { address ->
                             append(" → $address")
                             visible.port?.let { append(":$it") }
                         }
                         visible.sni?.let { append(", SNI $it") }
+                        if (visible.settingsMalformed) append(" (incomplete settings)")
                     }
                 add(
                     Finding(
@@ -97,6 +99,7 @@ object DetectionPrivacyMask {
             }
             val remaining = outbounds.size - MAX_DISPLAY_OUTBOUNDS
             if (remaining > 0) add(Finding("$remaining more Xray outbounds"))
+            if (scan?.outboundsTruncated == true) add(Finding("Additional Xray outbounds were omitted"))
         }
     }
 

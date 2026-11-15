@@ -30,7 +30,7 @@ data class XrayApiEndpoint(
 
 data class XrayOutboundSummary(
     val tag: String,
-    val protocolName: String?,
+    val transportName: String?,
     val address: String?,
     val port: Int?,
     val uuidPresent: Boolean,
@@ -38,11 +38,13 @@ data class XrayOutboundSummary(
     val publicKeyPresent: Boolean,
     val senderSettingsType: String?,
     val proxySettingsType: String?,
+    val settingsMalformed: Boolean = false,
 )
 
 data class XrayApiScanResult(
     val endpoint: XrayApiEndpoint,
     val outbounds: List<XrayOutboundSummary>,
+    val outboundsTruncated: Boolean = false,
 )
 
 data class XrayScanProgress(

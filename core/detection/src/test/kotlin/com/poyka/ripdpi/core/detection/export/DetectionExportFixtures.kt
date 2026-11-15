@@ -63,7 +63,7 @@ internal fun detectionExportFixture(): DetectionCheckResult {
                         listOf(
                             XrayOutboundSummary(
                                 tag = "proxy",
-                                protocolName = "vless",
+                                transportName = "tcp",
                                 address = "203.0.113.20",
                                 port = 443,
                                 uuidPresent = true,

@@ -275,7 +275,7 @@ class VerdictNarrativeTest {
     ): XrayOutboundSummary =
         XrayOutboundSummary(
             tag = "relay",
-            protocolName = null,
+            transportName = null,
             address = address,
             port = port,
             uuidPresent = false,

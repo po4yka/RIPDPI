@@ -17,7 +17,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
 
-private val DetectionLoopbackHosts = listOf("127.0.0.1", "::1")
 private val ValidProxyScanPorts = 1..65535
 
 internal class ProxyScanner(

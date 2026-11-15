@@ -2,15 +2,17 @@
 
 package com.poyka.ripdpi.core.detection.probe
 
+import com.google.protobuf.ByteString
 import com.google.protobuf.InvalidProtocolBufferException
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.xray.app.proxyman.command.HandlerServiceGrpc
 import com.xray.app.proxyman.command.ListOutboundsRequest
 import com.xray.common.net.IPOrDomain
-import com.xray.common.serial.TypedMessage
+import com.xray.core.OutboundHandlerConfig
 import com.xray.transport.internet.StreamConfig
 import io.grpc.okhttp.OkHttpChannelBuilder
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
@@ -40,6 +42,7 @@ class XrayApiClient(
                     .usePlaintext()
                     .proxyDetector { null }
                     .socketFactory(socketFactory)
+                    .maxInboundMessageSize(MaxResponseBytes)
                     .disableRetry()
                     .build()
 
@@ -57,42 +60,21 @@ class XrayApiClient(
                     }
                 val outbounds =
                     response.outboundsList
+                        .asSequence()
                         .filterNot { outbound ->
                             outbound.proxySettings.type == "xray.proxy.freedom.Config" ||
                                 outbound.proxySettings.type == "xray.proxy.blackhole.Config"
-                        }.map { outbound ->
-                            val tag = outbound.tag.takeIf { it.isNotBlank() } ?: "(untagged)"
-                            val senderType = outbound.senderSettings.type.takeIf { it.isNotBlank() }
-                            val proxyType = outbound.proxySettings.type.takeIf { it.isNotBlank() }
-
-                            val senderParsed =
-                                parseSenderSettings(
-                                    outbound.senderSettings.type,
-                                    outbound.senderSettings.value,
-                                )
-                            val vlessParsed =
-                                parseVlessProxySettings(
-                                    outbound.proxySettings.type,
-                                    outbound.proxySettings.value,
-                                )
-
-                            XrayOutboundSummary(
-                                tag = tag,
-                                protocolName = senderParsed.protocolName,
-                                address = vlessParsed.address,
-                                port = vlessParsed.port,
-                                uuidPresent = vlessParsed.uuidPresent,
-                                sni = senderParsed.sni,
-                                publicKeyPresent = senderParsed.publicKeyPresent,
-                                senderSettingsType = senderType,
-                                proxySettingsType = proxyType,
-                            )
-                        }
-
+                        }.take(MaxOutbounds + 1)
+                        .toList()
                 Result.success(
                     XrayApiScanResult(
                         endpoint = XrayApiEndpoint(host = host, port = port),
-                        outbounds = outbounds,
+                        outbounds =
+                            outbounds.take(MaxOutbounds).map { outbound ->
+                                ensureActive()
+                                summarize(outbound)
+                            },
+                        outboundsTruncated = outbounds.size > MaxOutbounds,
                     ),
                 )
             } catch (e: CancellationException) {
@@ -105,110 +87,130 @@ class XrayApiClient(
             }
         }
 
+    private fun summarize(outbound: OutboundHandlerConfig): XrayOutboundSummary {
+        val sender = outbound.senderSettings
+        val proxy = outbound.proxySettings
+        val senderDetails = parseSenderSettings(sender.type, sender.value)
+        val vlessDetails = parseVlessProxySettings(proxy.type, proxy.value)
+        return XrayOutboundSummary(
+            tag = outbound.tag.summaryText() ?: "(untagged)",
+            transportName = senderDetails.transportName,
+            address = vlessDetails.address,
+            port = vlessDetails.port,
+            uuidPresent = vlessDetails.uuidPresent,
+            sni = senderDetails.sni,
+            publicKeyPresent = senderDetails.publicKeyPresent,
+            senderSettingsType = sender.type.summaryText(),
+            proxySettingsType = proxy.type.summaryText(),
+            settingsMalformed = senderDetails.malformed || vlessDetails.malformed,
+        )
+    }
+
     internal data class SenderParsed(
-        val protocolName: String?,
-        val sni: String?,
-        val publicKeyPresent: Boolean,
+        val transportName: String? = null,
+        val sni: String? = null,
+        val publicKeyPresent: Boolean = false,
+        val malformed: Boolean = false,
     )
 
     internal data class VlessParsed(
-        val address: String?,
-        val port: Int?,
-        val uuidPresent: Boolean,
+        val address: String? = null,
+        val port: Int? = null,
+        val uuidPresent: Boolean = false,
+        val malformed: Boolean = false,
     )
 
-    @Suppress("TooGenericExceptionCaught")
     internal fun parseSenderSettings(
         type: String,
-        value: com.google.protobuf.ByteString,
+        value: ByteString,
     ): SenderParsed {
-        if (type != "xray.app.proxyman.SenderConfig") {
-            return SenderParsed(protocolName = null, sni = null, publicKeyPresent = false)
-        }
-
+        if (type != "xray.app.proxyman.SenderConfig") return SenderParsed()
         return try {
-            val sender = ProxymanSenderConfig.parseFrom(value)
-            parseSenderDetails(sender.streamSettings)
-        } catch (_: Exception) {
-            SenderParsed(protocolName = null, sni = null, publicKeyPresent = false)
+            parseSenderDetails(ProxymanSenderConfig.parseFrom(value).streamSettings)
+        } catch (_: InvalidProtocolBufferException) {
+            SenderParsed(malformed = true)
         }
     }
 
     private fun parseSenderDetails(stream: StreamConfig): SenderParsed {
-        var sni: String? = null
-        var publicKeyPresent = false
-        for (security in stream.securitySettingsList) {
-            val reality = parseRealitySettings(security)
-            if (reality != null) {
-                if (sni == null) sni = reality.serverName.takeIf { it.isNotBlank() }
-                publicKeyPresent = publicKeyPresent || reality.publicKey.size() > 0
-            }
-        }
-        return SenderParsed(
-            protocolName = stream.protocolName.takeIf { it.isNotBlank() },
-            sni = sni,
-            publicKeyPresent = publicKeyPresent,
-        )
-    }
+        val transportName = stream.protocolName.summaryText()
+        if (stream.securityType != RealitySettingsType) return SenderParsed(transportName = transportName)
 
-    private fun parseRealitySettings(security: TypedMessage): RealityConfig? {
-        if (security.type != "xray.transport.internet.reality.Config") return null
+        val selected =
+            stream.securitySettingsList.firstOrNull { it.type == stream.securityType }
+                ?: return SenderParsed(transportName = transportName, malformed = true)
         return try {
-            RealityConfig.parseFrom(security.value)
+            val reality = RealityConfig.parseFrom(selected.value)
+            val sni = reality.serverName.endpointName()
+            SenderParsed(
+                transportName = transportName,
+                sni = sni,
+                publicKeyPresent = !reality.publicKey.isEmpty,
+                malformed = reality.serverName.isNotEmpty() && sni == null,
+            )
         } catch (_: InvalidProtocolBufferException) {
-            null
+            SenderParsed(transportName = transportName, malformed = true)
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")
     internal fun parseVlessProxySettings(
         type: String,
-        value: com.google.protobuf.ByteString,
+        value: ByteString,
     ): VlessParsed {
-        if (type != "xray.proxy.vless.outbound.Config") {
-            return VlessParsed(address = null, port = null, uuidPresent = false)
-        }
-
+        if (type != "xray.proxy.vless.outbound.Config") return VlessParsed()
         return try {
-            val config = VlessOutboundConfig.parseFrom(value)
-            val vnext = config.vnext
+            val vnext = VlessOutboundConfig.parseFrom(value).vnext
             val address = ipOrDomainToString(vnext.address)
-            val port = vnext.port
-            val user = vnext.user
-
-            var uuidPresent = false
-            val account = user.account
-            if (account.type == "xray.proxy.vless.Account") {
-                uuidPresent =
+            val port = vnext.port.takeIf { it in 1..65535 }
+            val account = vnext.user.account
+            val uuidPresent =
+                account.type == "xray.proxy.vless.Account" &&
                     try {
                         VlessAccount.parseFrom(account.value).id.isNotBlank()
                     } catch (_: InvalidProtocolBufferException) {
                         false
                     }
-            }
-
-            VlessParsed(address = address, port = port, uuidPresent = uuidPresent)
-        } catch (_: Exception) {
-            VlessParsed(address = null, port = null, uuidPresent = false)
+            VlessParsed(
+                address = address,
+                port = port,
+                uuidPresent = uuidPresent,
+                malformed = address == null || port == null || !uuidPresent,
+            )
+        } catch (_: InvalidProtocolBufferException) {
+            VlessParsed(malformed = true)
         }
     }
 
     private fun ipOrDomainToString(value: IPOrDomain): String? =
         when (value.addressCase) {
             IPOrDomain.AddressCase.DOMAIN -> {
-                value.domain.takeIf { it.isNotBlank() }
+                value.domain.endpointName()
             }
 
             IPOrDomain.AddressCase.IP -> {
-                try {
-                    InetAddress.getByAddress(value.ip.toByteArray()).hostAddress
-                } catch (_: Exception) {
-                    null
-                }
+                val ip = value.ip
+                if (ip.size() == 4 || ip.size() == 16) InetAddress.getByAddress(ip.toByteArray()).hostAddress else null
             }
 
             else -> {
                 null
             }
         }
+
+    private fun String.endpointName(): String? =
+        takeIf {
+            it.length in 1..MaxSummaryText && it.none(Char::isWhitespace) &&
+                !DisplayControlCharacters.containsMatchIn(it)
+        }
+
+    private fun String.summaryText(): String? =
+        take(MaxSummaryText).replace(DisplayControlCharacters, "").trim().takeIf(String::isNotEmpty)
+
+    private companion object {
+        const val MaxResponseBytes = 512 * 1024
+        const val MaxOutbounds = 64
+        const val MaxSummaryText = 256
+        const val RealitySettingsType = "xray.transport.internet.reality.Config"
+        val DisplayControlCharacters = Regex("""[\p{Cc}\p{Cf}]""")
+    }
 }

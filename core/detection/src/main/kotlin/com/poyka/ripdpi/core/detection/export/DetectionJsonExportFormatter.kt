@@ -147,6 +147,7 @@ object DetectionJsonExportFormatter {
                 "stunReflexiveAddresses" to JsonArray(bypass.stunReflexiveAddresses.map(context::string)),
                 "findings" to JsonArray(bypass.findings.map { it.toJson(context) }),
                 "evidence" to JsonArray(bypass.evidence.map { it.toJson(context) }),
+                "xrayOutboundsTruncated" to JsonPrimitive(bypass.xrayApiScanResult?.outboundsTruncated == true),
                 "xrayOutbounds" to
                     JsonArray(
                         bypass.xrayApiScanResult
@@ -222,7 +223,7 @@ object DetectionJsonExportFormatter {
         return JsonObject(
             mapOf(
                 "tag" to context.string(visible.tag),
-                "protocol" to context.string(protocolName),
+                "transport" to context.string(visible.transportName),
                 "address" to context.string(visible.address),
                 "port" to (port?.let(::JsonPrimitive) ?: JsonNull),
                 "sni" to context.string(visible.sni),
@@ -230,6 +231,7 @@ object DetectionJsonExportFormatter {
                 "proxySettingsType" to context.string(proxySettingsType),
                 "uuidPresent" to JsonPrimitive(uuidPresent),
                 "publicKeyPresent" to JsonPrimitive(publicKeyPresent),
+                "settingsMalformed" to JsonPrimitive(settingsMalformed),
             ),
         )
     }

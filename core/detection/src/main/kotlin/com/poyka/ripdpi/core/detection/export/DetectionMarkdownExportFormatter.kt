@@ -178,6 +178,7 @@ object DetectionMarkdownExportFormatter {
         appendRows("findings", bypass.findings.map(Finding::description))
         bypass.xrayApiScanResult?.let { scan ->
             appendLine("### Xray outbounds")
+            if (scan.outboundsTruncated) appendLine("- Additional outbounds were omitted.")
             scan.outbounds.forEach { outbound ->
                 appendXrayOutbound(DetectionPrivacyMask.xrayOutbound(outbound, privacyMode))
             }
@@ -187,12 +188,13 @@ object DetectionMarkdownExportFormatter {
 
     private fun StringBuilder.appendXrayOutbound(outbound: XrayOutboundSummary) {
         appendLine(
-            "- tag: ${outbound.tag}, protocol: ${outbound.protocolName ?: "-"}, " +
+            "- tag: ${outbound.tag}, transport: ${outbound.transportName ?: "-"}, " +
                 "address: ${outbound.address ?: "-"}, port: ${outbound.port ?: "-"}, sni: ${outbound.sni ?: "-"}, " +
                 "senderSettingsType: ${outbound.senderSettingsType ?: "-"}, " +
                 "proxySettingsType: ${outbound.proxySettingsType ?: "-"}, " +
                 "uuidPresent: ${outbound.uuidPresent}, " +
-                "publicKeyPresent: ${outbound.publicKeyPresent}",
+                "publicKeyPresent: ${outbound.publicKeyPresent}, " +
+                "settingsMalformed: ${outbound.settingsMalformed}",
         )
     }
 

@@ -10,6 +10,7 @@ import com.xray.transport.internet.StreamConfig
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.xray.app.proxyman.SenderConfig as ProxymanSenderConfig
@@ -29,7 +30,7 @@ class XrayApiClientParsingTest {
         )
 
     @Test
-    fun malformedRealityDoesNotHideValidTransportOrLaterSecurity() {
+    fun malformedSelectedRealityKeepsTransportAndDoesNotReadLaterSettings() {
         val malformed =
             typedMessage(
                 "xray.transport.internet.reality.Config",
@@ -50,6 +51,7 @@ class XrayApiClientParsingTest {
             StreamConfig
                 .newBuilder()
                 .setProtocolName("tcp")
+                .setSecurityType("xray.transport.internet.reality.Config")
                 .addSecuritySettings(malformed)
                 .addSecuritySettings(valid)
                 .build()
@@ -60,9 +62,27 @@ class XrayApiClientParsingTest {
                 .build()
 
         val parsed = client.parseSenderSettings("xray.app.proxyman.SenderConfig", sender.toByteString())
-        assertEquals("tcp", parsed.protocolName)
-        assertEquals("example.test", parsed.sni)
-        assertTrue(parsed.publicKeyPresent)
+        assertEquals("tcp", parsed.transportName)
+        assertNull(parsed.sni)
+        assertFalse(parsed.publicKeyPresent)
+        assertTrue(parsed.malformed)
+
+        val selected =
+            sender.toBuilder().setStreamSettings(
+                stream.toBuilder().clearSecuritySettings().addSecuritySettings(valid),
+            )
+        val validDetails = client.parseSenderSettings("xray.app.proxyman.SenderConfig", selected.build().toByteString())
+        assertEquals("example.test", validDetails.sni)
+        assertTrue(validDetails.publicKeyPresent)
+        assertFalse(validDetails.malformed)
+
+        val tls =
+            sender.toBuilder().setStreamSettings(
+                stream.toBuilder().setSecurityType("xray.transport.internet.tls.Config"),
+            )
+        val unusedReality = client.parseSenderSettings("xray.app.proxyman.SenderConfig", tls.build().toByteString())
+        assertNull(unusedReality.sni)
+        assertFalse(unusedReality.publicKeyPresent)
     }
 
     @Test
@@ -85,6 +105,23 @@ class XrayApiClientParsingTest {
         assertEquals("example.test", parsed.address)
         assertEquals(443, parsed.port)
         assertFalse(parsed.uuidPresent)
+        assertTrue(parsed.malformed)
+    }
+
+    @Test
+    fun `invalid VLESS ports never become endpoint ports`() {
+        listOf(0, 65536, -1).forEach { port ->
+            val endpoint =
+                ServerEndpoint
+                    .newBuilder()
+                    .setAddress(IPOrDomain.newBuilder().setDomain("example.test"))
+                    .setPort(port)
+            val outbound = VlessOutboundConfig.newBuilder().setVnext(endpoint).build()
+            val parsed = client.parseVlessProxySettings("xray.proxy.vless.outbound.Config", outbound.toByteString())
+            assertEquals("example.test", parsed.address)
+            assertNull(parsed.port)
+            assertTrue(parsed.malformed)
+        }
     }
 
     @Test
