@@ -40,3 +40,5 @@ Fix findings F1–F7 from the DIA-16 STUN audit. Network consent, path labels, w
 ## Rebase integration
 
 The current main branch supplies CheckExecutionStatus. F6 reuses that owner instead of adding a second category state. During conflict resolution the controls writer had exclusive ownership of the integration worktree; other agents read only. Existing DIA-17 status consumers and master-switch behavior were preserved.
+
+The final DIA-20 rebase retains the renamed hasIncompleteChecks helper, its direct-sign/TLS coverage and the upstream probe counter policy. WebRTC and Call Transport extend this shared owner. The controls writer resolved the two shared sections under exclusive ownership; an independent reviewer checked the result.

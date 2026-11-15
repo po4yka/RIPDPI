@@ -1,9 +1,9 @@
 ---
 task_id: DGN-1794747967332880
 change: dia16-stun-integrity
-commit_sha: 45b3460ffcefbeac4c5f08b4130772fecb6d10d4
+commit_sha: 35c4600f61924fd127dc90a31500e59aca939038
 local: passed
-local_evidence: Final rebased revision passed 342 core tests, 92 app detection tests, full staticAnalysis, detection lint/detekt/ktlint, just ci-gates, architecture health and locked Cargo metadata. Independent review has no open findings.
+local_evidence: Final rebased revision passed 364 core tests, 92 app detection tests, full staticAnalysis, detection lint/detekt/ktlint, just ci-gates, architecture health and locked Cargo metadata. Independent review has no open findings.
 remote_ci: required
 remote_ci_evidence: Exact pushed revision has not yet been checked in hosted CI.
 device: not_applicable
@@ -32,23 +32,23 @@ deployment_evidence: No deployment is owned by this change.
 
 | Finding | Commit | Correction |
 |---|---|---|
-| F1 | 0164f7c06e | Honor the network master switch. |
-| F2 | 93a2864487 | Record the actual path and preserve empty capabilities. |
-| F3 | 7358c24078 | Validate the whole STUN response before extraction. |
-| F4 | 4aff67d442 | Correlate UDP peers and validate SOCKS envelopes. |
-| F5 | 407963ebc4 | Keep address observations separate from proof of a leak. |
-| F6 | c03b214fd7 | Preserve incomplete evaluation through the shared execution status. |
-| F7 | 90f39f900a | Close cancelled sockets and bound DNS/network stages. |
+| F1 | 9c8d9b72ab | Honor the network master switch. |
+| F2 | 7e4a24b321 | Record the actual path and preserve empty capabilities. |
+| F3 | c55f4a410a | Validate the whole STUN response before extraction. |
+| F4 | 937784b877 | Correlate UDP peers and validate SOCKS envelopes. |
+| F5 | 6e775354f9 | Keep address observations separate from proof of a leak. |
+| F6 | 81fede34af | Preserve incomplete evaluation through the shared execution status. |
+| F7 | 26846a5909 | Close cancelled sockets and bound DNS/network stages. |
 
 Two following refactor commits simplify validation to meet existing complexity gates. They do not weaken validation. No dependency, locale, golden or quality baseline was changed.
 
 ## Observed local validation
 
-The final code revision is 45b3460ffcefbeac4c5f08b4130772fecb6d10d4, based on origin/main ee25ddb7f6b33d7a6b5508c953720820f4dcda25. Heavy commands use the machine build gate and at most four Gradle workers.
+The final code revision is 35c4600f61924fd127dc90a31500e59aca939038, based on origin/main 4e276953e66692b8f6ae6fa727860b0ff5e6b4de. Heavy commands use the machine build gate and at most four Gradle workers.
 
-- The unfiltered `:core:detection:testDebugUnitTest` run passed: 57 classes, 342 tests, no failures, errors or skipped tests.
+- The unfiltered `:core:detection:testDebugUnitTest` run passed: 61 classes, 364 tests, no failures, errors or skipped tests.
 - The final app detection package run passed: 14 classes, 92 tests, no failures, errors or skipped tests.
-- On the preceding revision e2227ef3b8e76149c2e5a14bfafcc22f6ee8794f, full staticAnalysis, detection detekt/ktlint/lint, just ci-gates, architecture health and locked Cargo metadata passed. The final rebase changed no detection source or detection app source/test file; it added upstream import changes in other modules.
+- The earlier import-only integration also passed its full gates. The final DIA-20 rebase required two shared-section resolutions: retain hasIncompleteChecks with directSigns/TLS coverage, and retain the upstream probe counter rules while adding WebRTC/Call Transport. All listed gates and both suites were then repeated on the final revision.
 - The first final core retry failed because the disk was full. After preserving the app XML evidence, only this worktree's disposable app/build directory was removed. The unfiltered core retry then passed. No source or validation rule was changed to address the environment failure.
 
 The commands below ran under `build-gate -- python3 -u <local driver>`. The driver records each exit code and copies the test XML into this worktree's ignored build/dia16-results directory. It does not filter the core suite. The app filter selects the owning detection package only.
@@ -62,7 +62,7 @@ python3 scripts/ci/check_architecture_health.py
 cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1
 ```
 
-All listed commands passed on the final code revision. Full staticAnalysis completed 827 tasks in 4m 26s and covered GithubFull and GithubSimple lint. Architecture health reported 18 existing indicators, no new or worsened indicators and no stale entries. Rust API snapshots matched; the owning script skipped the Linux-owned runtime-platform snapshot on Darwin. Locked Cargo metadata passed. Cargo.lock, dependency manifests, quality baselines and golden fixtures have no change in the DIA-16 diff.
+All listed commands passed on the final code revision. Full staticAnalysis completed 827 tasks in 3m 56s and covered GithubFull and GithubSimple lint. Architecture health reported 18 existing indicators, no new or worsened indicators and no stale entries. Rust API snapshots matched; the owning script skipped the Linux-owned runtime-platform snapshot on Darwin. Locked Cargo metadata passed. Cargo.lock, dependency manifests, quality baselines and golden fixtures have no change in the DIA-16 diff.
 
 The source gates and tests use disposable outputs. The final command logs and copied XML are under the integration worktree's ignored build directory. Tests use `ripdpi.skipNativeBuild=true`; no native binary, APK or device acceptance is implied.
 
@@ -70,7 +70,7 @@ The source gates and tests use disposable outputs. The final command logs and co
 
 The read-only pr-reviewer checked F1–F7 as separate slices and on the combined tree. Review found two additional P2 gaps: an oversized UDP datagram could be truncated into a valid prefix, and skipped Call Transport could render as OK in Markdown. Both were corrected and reviewed again.
 
-The final seam review on 45b3460ffcefbeac4c5f08b4130772fecb6d10d4 against ee25ddb7f6b33d7a6b5508c953720820f4dcda25 found no open correctness or integration findings. It confirmed the single upstream CheckExecutionStatus owner, path attribution, strict framing, peer checks, cancellation budgets, numeric normalization and path-specific consensus. No conflict markers or unmerged entries remained.
+The final seam review on 35c4600f61924fd127dc90a31500e59aca939038 against 4e276953e66692b8f6ae6fa727860b0ff5e6b4de found no open correctness or integration findings. It confirmed the single upstream CheckExecutionStatus owner, path attribution, strict framing, peer checks, cancellation budgets, numeric normalization and path-specific consensus. The DIA-20 resolution review also confirmed preserved direct/TLS incomplete coverage, the direct-sign completion guard and exclusion of TLS from network probe counts. No conflict markers or unmerged entries remained.
 
 ## Evidence limits and remaining acceptance
 
