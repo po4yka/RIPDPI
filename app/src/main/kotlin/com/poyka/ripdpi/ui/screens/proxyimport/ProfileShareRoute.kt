@@ -34,7 +34,8 @@ fun ProfileShareRoute(
     LaunchedEffect(viewModel, profileId) {
         viewModel.load(profileId)
     }
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val loadedState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState = loadedState.takeIf { it.profileId == profileId } ?: ProfileShareRouteUiState(profileId = profileId)
     val qrState by rememberShareQrBitmap(uiState.shareUri)
     val linkTitle = stringResource(R.string.profile_share_link_title)
     val sheetTitle = stringResource(R.string.profile_share_sheet_title)
