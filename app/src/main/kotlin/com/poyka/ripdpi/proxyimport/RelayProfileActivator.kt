@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.ExpectedRelayProfileState
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
+import com.poyka.ripdpi.data.ProfileMutationOrigin
+import com.poyka.ripdpi.data.ProfileMutationOutcome
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -16,8 +19,7 @@ import javax.inject.Singleton
  * Writes the non-secret [RelayProfileRecord], the secure [RelayCredentialRecord],
  * and the AppSettings relay fields the runtime resolver
  * (`UpstreamRelayRuntimeConfigResolver`) reads to build the native wire config.
- * Shared by the import-confirmation surface and the dedicated profile editors so
- * both reach an identical working tunnel rather than duplicating the mapping.
+ * Dedicated profile editors and the import confirmation flow share the same mapping.
  *
  * [activate] returns `true` when [profile] is a relay-activatable kind and was
  * applied, `false` (a no-op) for kinds that are not relay outbounds. The optional
@@ -34,6 +36,22 @@ class RelayProfileActivator
     ) {
         suspend fun captureMutation(origin: com.poyka.ripdpi.data.ProfileMutationOrigin) =
             profileMutations.captureMutation(origin)
+
+        /** Saves a new share-link import without changing runtime selection. */
+        suspend fun saveImport(profile: ProxyProfile): Boolean {
+            val mapped = mapRelayProfile(profile) ?: return false
+            val preparation = profileMutations.captureMutation(ProfileMutationOrigin.ImportOnly)
+            val outcome =
+                profileMutations.upsertRelay(
+                    preparation,
+                    profile = mapped.profile.copy(operatorName = profile.displayName),
+                    credentials = mapped.credentials.copy(updatedAtEpochMillis = System.currentTimeMillis()),
+                    enabled = false,
+                    select = false,
+                    expectedState = ExpectedRelayProfileState(profile = null, credentials = null),
+                )
+            return outcome !is ProfileMutationOutcome.Superseded
+        }
 
         suspend fun activate(
             preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
@@ -54,6 +72,6 @@ class RelayProfileActivator
                     modeAfterImage = modeAfterImage,
                     xraySelectionAfterImage = xraySelectionAfterImage ?: XrayProviderSelectionRecord(),
                 )
-            return outcome !is com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded
+            return outcome !is ProfileMutationOutcome.Superseded
         }
     }

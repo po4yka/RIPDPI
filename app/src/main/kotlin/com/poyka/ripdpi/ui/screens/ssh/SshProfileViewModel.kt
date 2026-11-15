@@ -257,7 +257,10 @@ class SshProfileViewModel
             saveFlow.save(
                 block = {
                     val original = editingDraft
-                    if (original == null) {
+                    val importId = importedProfileId
+                    if (importId != null) {
+                        relayActivator.saveImport(profile.copy(id = importId))
+                    } else if (original == null) {
                         relayActivator.activateExplicitly(profile)
                     } else {
                         val authChanged = profile.authType != original.relaySshAuthType

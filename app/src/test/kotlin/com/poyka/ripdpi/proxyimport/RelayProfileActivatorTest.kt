@@ -5,6 +5,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.data.testPauseAuthority
 import com.poyka.ripdpi.data.testing.RoomProfileFixture
@@ -16,6 +19,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -85,6 +89,50 @@ class RelayProfileActivatorTest {
 
             assertEquals(selection, storage.xraySelection.current())
             assertNotNull(storage.relayProfiles.load("stored-relay"))
+        }
+
+    @Test
+    fun `confirmed imports keep both profiles without changing the prior selection`() =
+        runTest {
+            val storage = storage()
+            val previous = RelayProfileRecord(DefaultRelayProfileId, RelayKindTrojan, server = "prior.example")
+            val previousCredentials = RelayCredentialRecord(DefaultRelayProfileId, trojanPassword = "fixture-prior")
+            storage.relayProfiles.save(previous)
+            storage.relayCredentials.save(previousCredentials)
+            storage.settings.update {
+                setRelayProfileId(previous.id)
+                setRelayEnabled(true)
+            }
+            val originalSettings = storage.settings.snapshot()
+            val selection = XrayProviderSelectionRecord("xray", "saved-xray")
+            storage.xraySelection.update(selection)
+            val importer = RelayProfileActivator(storage.coordinator)
+            val first = profile().copy(id = "first", displayName = "First relay")
+            val second = profile().copy(id = "second", server = "second.example", password = "fixture-second")
+            assertTrue(importer.saveImport(first))
+            assertTrue(importer.saveImport(second))
+
+            storage.beforeSeal = { namespace, _ ->
+                if (namespace == "relay_credentials") error("fixture write failure")
+            }
+            val failed = profile().copy(id = "failed")
+            assertTrue(runCatching { importer.saveImport(failed) }.isFailure)
+
+            storage.reopen().use { restarted ->
+                restarted.initialize()
+                assertEquals(previous, restarted.relayProfiles.load(previous.id))
+                assertEquals(previousCredentials, restarted.relayCredentials.load(previous.id))
+                assertEquals("First relay", restarted.relayProfiles.load(first.id)?.operatorName)
+                assertEquals(first.server, restarted.relayProfiles.load(first.id)?.server)
+                assertEquals(first.password, restarted.relayCredentials.load(first.id)?.trojanPassword)
+                assertEquals(second.server, restarted.relayProfiles.load(second.id)?.server)
+                assertEquals(second.password, restarted.relayCredentials.load(second.id)?.trojanPassword)
+                assertEquals(originalSettings, restarted.settings.snapshot())
+                assertEquals(selection, restarted.xraySelection.current())
+                assertTrue(restarted.groups.list().isEmpty())
+                assertNull(restarted.relayProfiles.load(failed.id))
+                assertNull(restarted.relayCredentials.load(failed.id))
+            }
         }
 
     @Test

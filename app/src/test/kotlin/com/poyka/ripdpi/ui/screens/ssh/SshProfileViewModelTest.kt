@@ -313,8 +313,9 @@ class SshProfileViewModelTest {
                 advanceUntilIdle()
                 awaitItem()
             }
-            assertTrue(settings.snapshot().relayEnabled)
-            assertEquals(observedFingerprintFixture, profileStore.load(DefaultRelayProfileId)?.sshHostKeyFingerprint)
+            assertFalse(settings.snapshot().relayEnabled)
+            assertEquals(null, profileStore.load(DefaultRelayProfileId))
+            assertEquals(observedFingerprintFixture, profileStore.load("imported")?.sshHostKeyFingerprint)
         }
 
     @Test
@@ -333,7 +334,7 @@ class SshProfileViewModelTest {
             assertEquals("", viewModel.pinnedFingerprint())
             assertEquals(R.string.ssh_host_key_save_untrusted, viewModel.uiState.value.errorMessage)
             assertFalse(settings.snapshot().relayEnabled)
-            assertEquals(null, profileStore.load(DefaultRelayProfileId))
+            assertTrue(profileStore.list().isEmpty())
         }
 
     @Test

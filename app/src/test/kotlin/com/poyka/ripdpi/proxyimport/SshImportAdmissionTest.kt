@@ -14,7 +14,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -43,7 +42,6 @@ class SshImportAdmissionTest {
                 valid.copy(password = null),
                 valid.copy(serverPort = 65536),
             )) {
-                val groups = FakeProxyGroupRepository()
                 val profiles = FakeRelayProfileStore()
                 val credentials = FakeRelayCredentialStore()
                 val settings = FakeAppSettingsRepository()
@@ -61,14 +59,10 @@ class SshImportAdmissionTest {
                 val before = settings.snapshot()
                 val viewModel =
                     ProfileImportConfirmViewModel(
-                        repository = groups,
                         relayActivator =
                             RelayProfileActivator(
                                 TestDirectRelayProfileMutationCoordinator(profiles, credentials, settings),
                             ),
-                        profileMutations =
-                            com.poyka.ripdpi.data
-                                .testMutationPreparationSource(),
                     )
 
                 viewModel.setProfile(profile)
@@ -77,7 +71,7 @@ class SshImportAdmissionTest {
 
                 assertEquals(R.string.import_profile_confirm_error, viewModel.uiState.value.errorRes)
                 assertEquals(before, settings.snapshot())
-                assertTrue(groups.list().isEmpty())
+                assertEquals(listOf(previous), profiles.list())
                 assertEquals(previous, profiles.load(DefaultRelayProfileId))
                 assertEquals(previousCredentials, credentials.load(DefaultRelayProfileId))
             }

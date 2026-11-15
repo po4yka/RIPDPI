@@ -3,7 +3,6 @@ package com.poyka.ripdpi.proxyimport
 import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
@@ -49,8 +48,7 @@ import org.junit.Test
 
 /**
  * Tests for the minimal import-confirmation destinations. Each confirmation screen shows
- * the parsed profile / subscription and an "Add" action that persists it through
- * [ProxyGroupRepository]. These are the import-confirmation surface, not full editors.
+ * the parsed profile or subscription and an Add action that saves it.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ImportConfirmViewModelTest {
@@ -60,12 +58,7 @@ class ImportConfirmViewModelTest {
     @Test
     fun `confirming a plain vless import that activates no relay surfaces an error and persists nothing`() =
         runTest {
-            // P1-4: a plain vless:// link (no REALITY material) is not a native
-            // relay backend, so activate() returns false (a no-op). The import
-            // must NOT report success — it is a silent dead-end otherwise — and
-            // the phantom group must be rolled back so the user accumulates no
-            // non-working entry.
-            val repository = FakeProxyGroupRepository()
+            val profiles = FakeRelayProfileStore()
             val profile =
                 ProxyProfile.Vless(
                     id = "p1",
@@ -77,14 +70,10 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
-                                FakeRelayProfileStore(),
+                                profiles,
                                 FakeRelayCredentialStore(),
                                 FakeAppSettingsRepository(),
                             ),
@@ -98,16 +87,13 @@ class ImportConfirmViewModelTest {
             val state = viewModel.uiState.value
             assertFalse(state.importing)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
-            assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
+            assertTrue(profiles.list().isEmpty())
         }
 
     @Test
     fun `confirming a tuic raw-config import that activates no relay surfaces an error and persists nothing`() =
         runTest {
-            // P1-4: a tuic:// link round-trips as ProxyProfile.RawConfig, which has
-            // no native relay backend, so activate() returns false. Same honest
-            // dead-end rule as plain vless: error, not imported, no phantom group.
-            val repository = FakeProxyGroupRepository()
+            val profiles = FakeRelayProfileStore()
             val profile =
                 ProxyProfile.RawConfig(
                     id = "tuic-node",
@@ -117,14 +103,10 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
-                                FakeRelayProfileStore(),
+                                profiles,
                                 FakeRelayCredentialStore(),
                                 FakeAppSettingsRepository(),
                             ),
@@ -137,13 +119,13 @@ class ImportConfirmViewModelTest {
 
             val state = viewModel.uiState.value
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
-            assertTrue("no phantom group is left for a dead-end import", repository.list().isEmpty())
+            assertTrue(profiles.list().isEmpty())
         }
 
     @Test
     fun `confirming an invalid vless-reality profile surfaces an error instead of importing`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
+            val profiles = FakeRelayProfileStore()
             val profile =
                 ProxyProfile.VlessReality(
                     id = "bad-node",
@@ -159,14 +141,10 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
-                                FakeRelayProfileStore(),
+                                profiles,
                                 FakeRelayCredentialStore(),
                                 FakeAppSettingsRepository(),
                             ),
@@ -180,13 +158,12 @@ class ImportConfirmViewModelTest {
             val state = viewModel.uiState.value
             assertFalse(state.importing)
             assertEquals(R.string.import_profile_confirm_error, state.errorRes)
-            assertTrue("no group is persisted for an invalid import", repository.list().isEmpty())
+            assertTrue(profiles.list().isEmpty())
         }
 
     @Test
-    fun `confirming a trojan profile import activates the native relay profile`() =
+    fun `confirming a trojan profile saves it once under its import id`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
@@ -202,10 +179,6 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
@@ -226,16 +199,10 @@ class ImportConfirmViewModelTest {
                 expectNoEvents()
             }
 
-            val settings = settingsRepository.snapshot()
-            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
-            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
-            // A genuinely relay-activatable kind reports honest success and keeps
-            // the persisted group (the positive counterpart to the P1-4 dead-end).
-            assertEquals(1, repository.list().size)
-            assertEquals(ProxyGroupType.BASIC, repository.list().single().type)
-            assertEquals(RelayKindTrojan, settings.relayKind)
-            assertTrue(settings.relayEnabled)
-            assertEquals(DefaultRelayProfileId, settings.relayProfileId)
+            val relayProfile = relayProfileStore.load(profile.id)
+            val relayCredentials = relayCredentialStore.load(profile.id)
+            assertEquals(listOf(profile.id), relayProfileStore.list().map { it.id })
+            assertEquals(profile.displayName, relayProfile?.operatorName)
             assertEquals(RelayKindTrojan, relayProfile?.kind)
             assertEquals("trojan.example", relayProfile?.server)
             assertEquals("trojan.example", relayProfile?.serverName)
@@ -243,9 +210,8 @@ class ImportConfirmViewModelTest {
         }
 
     @Test
-    fun `confirming a shadowsocks profile import activates the native relay profile`() =
+    fun `confirming a shadowsocks profile import saves the relay profile`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
@@ -262,10 +228,6 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
@@ -280,11 +242,8 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
 
-            val settings = settingsRepository.snapshot()
-            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
-            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
-            assertEquals(RelayKindShadowsocks, settings.relayKind)
-            assertTrue(settings.relayEnabled)
+            val relayProfile = relayProfileStore.load(profile.id)
+            val relayCredentials = relayCredentialStore.load(profile.id)
             assertEquals(RelayKindShadowsocks, relayProfile?.kind)
             assertEquals("ss.example", relayProfile?.server)
             assertEquals("ss.example", relayProfile?.serverName)
@@ -293,9 +252,8 @@ class ImportConfirmViewModelTest {
         }
 
     @Test
-    fun `confirming an anytls profile import activates the native relay profile`() =
+    fun `confirming an anytls profile import saves the relay profile`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
@@ -312,10 +270,6 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
@@ -330,11 +284,8 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
 
-            val settings = settingsRepository.snapshot()
-            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
-            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
-            assertEquals(RelayKindAnyTls, settings.relayKind)
-            assertTrue(settings.relayEnabled)
+            val relayProfile = relayProfileStore.load(profile.id)
+            val relayCredentials = relayCredentialStore.load(profile.id)
             assertEquals(RelayKindAnyTls, relayProfile?.kind)
             assertEquals("anytls.example", relayProfile?.server)
             assertEquals("front.example", relayProfile?.serverName)
@@ -342,9 +293,8 @@ class ImportConfirmViewModelTest {
         }
 
     @Test
-    fun `confirming a vless-reality profile import activates the native relay profile with reality_tcp transport`() =
+    fun `confirming a vless-reality profile import saves the reality_tcp transport`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
@@ -366,10 +316,6 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
@@ -384,19 +330,8 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
 
-            val settings = settingsRepository.snapshot()
-            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
-            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
-            assertEquals(RelayKindVlessReality, settings.relayKind)
-            assertTrue(settings.relayEnabled)
-            assertEquals(DefaultRelayProfileId, settings.relayProfileId)
-            assertEquals("edge.example.com", settings.relayServer)
-            assertEquals(443, settings.relayServerPort)
-            assertEquals("target.example.com", settings.relayServerName)
-            assertEquals(ValidRealityPublicKey, settings.relayRealityPublicKey)
-            assertEquals("abcd1234", settings.relayRealityShortId)
-            assertEquals(RelayVlessTransportRealityTcp, settings.relayVlessTransport)
-            assertTrue(settings.relayUdpEnabled)
+            val relayProfile = relayProfileStore.load(profile.id)
+            val relayCredentials = relayCredentialStore.load(profile.id)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
             assertEquals("edge.example.com", relayProfile?.server)
             assertEquals(443, relayProfile?.serverPort)
@@ -411,7 +346,6 @@ class ImportConfirmViewModelTest {
     @Test
     fun `confirming a vless-reality profile import with xhttp transport sets xhttp transport and path`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
@@ -434,10 +368,6 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
@@ -452,17 +382,8 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
 
-            val settings = settingsRepository.snapshot()
-            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
-            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
-            assertEquals(RelayKindVlessReality, settings.relayKind)
-            assertTrue(settings.relayEnabled)
-            assertEquals(RelayVlessTransportXhttp, settings.relayVlessTransport)
-            assertEquals("/tunnel", settings.relayXhttpPath)
-            assertEquals("cdn.example.com", settings.relayXhttpHost)
-            assertEquals(ValidRealityPublicKey, settings.relayRealityPublicKey)
-            assertEquals("cafe0001", settings.relayRealityShortId)
-            assertTrue(settings.relayUdpEnabled)
+            val relayProfile = relayProfileStore.load(profile.id)
+            val relayCredentials = relayCredentialStore.load(profile.id)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
             assertEquals("", relayProfile?.vlessFlow)
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
@@ -476,7 +397,6 @@ class ImportConfirmViewModelTest {
     @Test
     fun `confirming a vless-reality profile import with host-only xhttp keeps xhttp transport`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
@@ -498,10 +418,6 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
@@ -516,27 +432,20 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
 
-            val settings = settingsRepository.snapshot()
-            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
-            assertEquals(RelayKindVlessReality, settings.relayKind)
-            assertTrue(settings.relayEnabled)
-            assertEquals(RelayVlessTransportXhttp, settings.relayVlessTransport)
-            assertEquals("", settings.relayXhttpPath)
-            assertEquals("carrier.example.com", settings.relayXhttpHost)
+            val relayProfile = relayProfileStore.load(profile.id)
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("", relayProfile?.xhttpPath)
             assertEquals("carrier.example.com", relayProfile?.xhttpHost)
             assertTrue(relayProfile?.udpEnabled == true)
             assertEquals(
                 "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
-                relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid,
+                relayCredentialStore.load(profile.id)?.vlessUuid,
             )
         }
 
     @Test
-    fun `confirming an ssh password profile import activates the native relay with udp disabled`() =
+    fun `confirming an ssh password profile import saves the relay with udp disabled`() =
         runTest {
-            val repository = FakeProxyGroupRepository()
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
@@ -556,10 +465,6 @@ class ImportConfirmViewModelTest {
                 )
             val viewModel =
                 ProfileImportConfirmViewModel(
-                    profileMutations =
-                        com.poyka.ripdpi.data
-                            .testMutationPreparationSource(),
-                    repository = repository,
                     relayActivator =
                         RelayProfileActivator(
                             com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
@@ -574,21 +479,10 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
 
-            val settings = settingsRepository.snapshot()
-            val relayProfile = relayProfileStore.load(DefaultRelayProfileId)
-            val relayCredentials = relayCredentialStore.load(DefaultRelayProfileId)
-            assertEquals(RelayKindSsh, settings.relayKind)
-            assertTrue(settings.relayEnabled)
-            assertEquals("ssh.example", settings.relayServer)
-            assertEquals(22, settings.relayServerPort)
+            val relayProfile = relayProfileStore.load(profile.id)
+            val relayCredentials = relayCredentialStore.load(profile.id)
             // SSH carries only a direct-tcpip TCP channel.
-            assertEquals(false, settings.relayUdpEnabled)
-            assertEquals(RelaySshAuthTypePassword, settings.relaySshAuthType)
-            assertEquals(
-                "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg",
-                settings.relaySshHostKeyFingerprint,
-            )
-            assertTrue(settings.relaySshStrictHostKey)
+            assertEquals(profile.hostKeyFingerprint, relayProfile?.sshHostKeyFingerprint)
             assertEquals(RelayKindSsh, relayProfile?.kind)
             assertEquals("ssh.example", relayProfile?.server)
             assertEquals(false, relayProfile?.udpEnabled)
