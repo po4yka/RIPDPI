@@ -34,6 +34,8 @@ class DetectionResultPresenterTest {
 
     @Test
     fun `runnerConfig network feature flags require network requests and per-feature flag`() {
+        assertTrue(!DetectionResultPresenter.runnerConfig(settings(), "pkg").includeTimingAnalysis)
+
         val withoutNetwork =
             settings {
                 detectionCheckNetworkRequestsEnabled = false
@@ -42,6 +44,7 @@ class DetectionResultPresenterTest {
                 detectionCheckCallTransportProbeEnabled = true
             }
         DetectionResultPresenter.runnerConfig(withoutNetwork, "pkg").let {
+            assertTrue(!it.includeTimingAnalysis)
             assertTrue(!it.includeRttTriangulationCheck)
             assertTrue(!it.includeCdnPullingCheck)
             assertTrue(!it.includeCallTransportCheck)
@@ -55,6 +58,7 @@ class DetectionResultPresenterTest {
                 detectionCheckCallTransportProbeEnabled = true
             }
         DetectionResultPresenter.runnerConfig(withNetwork, "pkg").let {
+            assertTrue(it.includeTimingAnalysis)
             assertTrue(it.includeRttTriangulationCheck)
             assertTrue(it.includeCdnPullingCheck)
             assertTrue(it.includeCallTransportCheck)
@@ -68,6 +72,7 @@ class DetectionResultPresenterTest {
                 detectionCheckCallTransportProbeEnabled = false
             }
         DetectionResultPresenter.runnerConfig(networkOnly, "pkg").let {
+            assertTrue(it.includeTimingAnalysis)
             assertTrue(!it.includeRttTriangulationCheck)
             assertTrue(!it.includeCdnPullingCheck)
             assertTrue(!it.includeCallTransportCheck)
