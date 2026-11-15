@@ -140,6 +140,8 @@ object AmneziaWgUriCodec {
                     "i5",
                 ) + AmneziaWgUriAwg3Keys
             if (params.keys.any { it !in allowed }) return@let null
+            val allowedIps = splitList(params["allowed_ips"])
+            if ("allowed_ips" in params && allowedIps.isEmpty()) return@let null
             if (listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").any { key ->
                     key in params && params[key]?.toIntOrNull()?.let { it >= 0 } != true
                 }
@@ -179,7 +181,7 @@ object AmneziaWgUriCodec {
                     privateKey = mandatory.privateKey,
                     publicKey = mandatory.publicKey,
                     presharedKey = params["preshared_key"]?.takeIf { it.isNotBlank() },
-                    allowedIps = splitList(params["allowed_ips"]),
+                    allowedIps = allowedIps,
                     dns = splitList(params["dns"]),
                     mtu = params["mtu"]?.toIntOrNull(),
                     awg = awg,
