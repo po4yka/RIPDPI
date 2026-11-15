@@ -800,12 +800,12 @@ Findings from earlier audits that were still open at the start of 2026-Q2 and ha
 - **D-1 adaptive strategy residual** -- `ripdpi-runtime-strategy` now includes adaptive timing jitter and OOB byte placement in the evolver combo identity and shared-prior pool; `ripdpi-runtime-adaptive` threads those hints into the morph policy.
 - **A-1 ProbeExecutionContext enforcement** -- `ripdpi-diagnostics-runner::ProbeExecutionContext` now owns approved resolver policy and active transport config, and monitor connectivity/strategy DNS stages receive that context instead of rebuilding ad hoc direct resolver paths.
 - **ECH for TLS outbounds** -- `ripdpi-tls-profiles::OutboundEchConfig` is wired through xHTTP and MASQUE. Boring-backed xHTTP/MASQUE H2 applies `SSL_set1_ech_config_list`; MASQUE H3 uses rustls ECH; Authenticated ECH rejection permits one reconnect with server retry configs to the same numeric peer. The original operation deadline covers both attempts. Injected chain transports fail closed because their owner does not provide a reconnect operation. No consumer retries with cleartext SNI.
-- **Telegram MTProto diagnostic** -- `ripdpi-diagnostics-telegram` reports
-  download/upload status, WS tunnel status, and per-DC direct MTProto
-  reachability using the implementation-independent
-  `ripdpi-ws-transport-port` DC classifier with 443/80 port evidence and
-  median RTT. Default transfer windows are 10s per direction with 3s stall
-  detection.
+- **Telegram access diagnostics** -- `ripdpi-diagnostics-telegram` reports
+  verified HTTPS page or media results, HTTPS upload, TCP connect results for
+  each configured DC address and port, and the WSS opening handshake. The
+  TCP and WSS checks measure the connection and opening handshake. MTProto
+  session evidence requires an application exchange. Default transfer
+  windows are 10s per direction with 3s stall detection.
 
 ### Open but tracked
 
