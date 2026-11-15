@@ -33,6 +33,28 @@ impl EchHandshakeDriver for FakeDriver {
     }
 }
 
+struct FakeUnreachableDriver;
+
+impl EchHandshakeDriver for FakeUnreachableDriver {
+    /// # Cancel safety:
+    /// cancel-safe: this guard panics before it starts any work.
+    async fn lookup_ech_config(&self, _host: &str) -> Result<Option<Vec<u8>>, String> {
+        panic!("unsupported context must not start a lookup")
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: this guard panics before it starts any work.
+    async fn handshake_with_ech(
+        &self,
+        _host: &str,
+        _port: u16,
+        _ech_config: &[u8],
+        _timeout: Duration,
+    ) -> EchHandshakeOutcome {
+        panic!("unsupported context must not start a handshake")
+    }
+}
+
 fn runner_with<D: EchHandshakeDriver>(driver: D) -> EchHandshakeRunner<D> {
     EchHandshakeRunner { driver, target_host: "cloudflare.com".to_string(), timeout: Duration::from_secs(5) }
 }
@@ -75,6 +97,7 @@ fn ech_accepted_yields_pass() {
     };
     let probe = block_on(runner_with(driver).attempt(&ProbeContext::empty()));
     assert_eq!(probe.run(&ProbeContext::empty()).verdict, ProbeVerdict::Pass);
+    assert_eq!(probe.relay_hint_used, None);
 }
 
 #[test]
@@ -102,12 +125,36 @@ fn handshake_failure_yields_fail_with_sanitized_class() {
 }
 
 #[test]
-fn relay_hint_from_context_is_recorded_on_probe() {
+fn unsupported_context_is_rejected_before_io_without_relay_attribution() {
+    let contexts = [
+        ProbeContext { relay_hint: Some("vless-relay-a".to_string()), ..ProbeContext::empty() },
+        ProbeContext { resolver_hint: Some("encrypted-dns".to_string()), ..ProbeContext::empty() },
+        ProbeContext { strategy_signature: Some("active-strategy".to_string()), ..ProbeContext::empty() },
+        ProbeContext {
+            relay_hint: Some(String::new()),
+            resolver_hint: Some(String::new()),
+            strategy_signature: Some(String::new()),
+            ..ProbeContext::empty()
+        },
+    ];
+    for ctx in contexts {
+        let probe = block_on(runner_with(FakeUnreachableDriver).attempt(&ctx));
+        assert_eq!(
+            probe.run(&ctx).verdict,
+            ProbeVerdict::Inconclusive { reason: "ech-runner-context-unsupported".to_string() },
+        );
+        assert_eq!(probe.relay_hint_used, None);
+    }
+}
+
+#[test]
+fn network_scope_metadata_does_not_prevent_a_direct_attempt() {
     let driver =
         FakeDriver { lookup: Ok(Some(vec![1])), handshake: EchHandshakeOutcome::EchAccepted { selected_alpn: None } };
-    let ctx = ProbeContext { relay_hint: Some("vless-relay-a".to_string()), ..ProbeContext::empty() };
+    let ctx = ProbeContext { network_scope_key: Some("network-scope".to_string()), ..ProbeContext::empty() };
     let probe = block_on(runner_with(driver).attempt(&ctx));
-    assert_eq!(probe.relay_hint_used.as_deref(), Some("vless-relay-a"));
+    assert_eq!(probe.run(&ctx).verdict, ProbeVerdict::Pass);
+    assert_eq!(probe.relay_hint_used, None);
 }
 
 #[test]
@@ -121,6 +168,7 @@ fn noop_driver_yields_inconclusive_setup_error() {
         timeout: Duration::from_secs(1),
     };
     let probe = block_on(runner.attempt(&ProbeContext::empty()));
+    assert_eq!(probe.relay_hint_used, None);
     match probe.run(&ProbeContext::empty()).verdict {
         ProbeVerdict::Inconclusive { reason } => {
             assert!(

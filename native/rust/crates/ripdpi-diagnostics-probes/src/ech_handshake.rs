@@ -79,19 +79,17 @@ pub struct EchHandshakeProbe {
     pub target_host: String,
     /// Pre-captured outcome produced by the async runner.
     pub outcome: EchHandshakeOutcome,
-    /// Optional relay identifier that was active when the runner attempted the
-    /// handshake. Surfaces `ctx.relay_hint` so callers can correlate verdicts
-    /// with the user's outbound path. `None` when the runner used the direct
-    /// path.
+    /// Relay identifier verified by the source that captured this outcome.
+    /// `None` means direct transport or no verified relay attribution.
+    /// The generic runner always leaves this unset.
     pub relay_hint_used: Option<String>,
 }
 
 impl EchHandshakeProbe {
     /// Construct from a target hostname and a pre-captured outcome.
     ///
-    /// `relay_hint_used` should be `None` when the runner used the direct
-    /// path, or the relay identifier from [`ProbeContext::relay_hint`] when a
-    /// relay was active.
+    /// Set `relay_hint_used` only when the capture source verified that relay.
+    /// Use `None` for direct, unknown or unattempted transports.
     pub fn new(target_host: impl Into<String>, outcome: EchHandshakeOutcome, relay_hint_used: Option<String>) -> Self {
         Self { target_host: target_host.into(), outcome, relay_hint_used }
     }
@@ -209,6 +207,9 @@ impl EchHandshakeDriver for NoopEchHandshakeDriver {
 /// is pure dispatcher logic and is exercised by the FakeDriver tests
 /// in `tests/ech_handshake_runner_tdd.rs`.
 ///
+/// The driver does not receive active-path policy. Resolver, relay and strategy
+/// hints are unsupported and cause a setup error before I/O starts.
+///
 /// # ⚠️ Dormant — protect landmine (DIAG-3)
 ///
 /// NOT dispatched by `ripdpi-monitor-engine` / `ripdpi-diagnostics-runner`.
@@ -237,13 +238,22 @@ impl<D: EchHandshakeDriver> EchHandshakeRunner<D> {
 
     /// Attempt ECH negotiation and return a probe carrying the
     /// captured [`EchHandshakeOutcome`].
+    ///
+    /// # Cancel safety:
+    /// conditionally cancel-safe: the driver's lookup and handshake futures must
+    /// be cancel-safe. The dispatcher stores no shared state; dropping it drops
+    /// the active driver future and prevents the next phase.
     pub async fn attempt(&self, ctx: &ProbeContext) -> EchHandshakeProbe {
-        let outcome = match self.driver.lookup_ech_config(&self.target_host).await {
-            Err(detail) => EchHandshakeOutcome::SetupError { detail },
-            Ok(None) => EchHandshakeOutcome::NoEchConfig,
-            Ok(Some(config)) => self.driver.handshake_with_ech(&self.target_host, 443, &config, self.timeout).await,
+        let outcome = if ctx.resolver_hint.is_some() || ctx.relay_hint.is_some() || ctx.strategy_signature.is_some() {
+            EchHandshakeOutcome::SetupError { detail: "ech-runner-context-unsupported".to_string() }
+        } else {
+            match self.driver.lookup_ech_config(&self.target_host).await {
+                Err(detail) => EchHandshakeOutcome::SetupError { detail },
+                Ok(None) => EchHandshakeOutcome::NoEchConfig,
+                Ok(Some(config)) => self.driver.handshake_with_ech(&self.target_host, 443, &config, self.timeout).await,
+            }
         };
-        EchHandshakeProbe::new(self.target_host.clone(), outcome, ctx.relay_hint.clone())
+        EchHandshakeProbe::new(self.target_host.clone(), outcome, None)
     }
 }
 
