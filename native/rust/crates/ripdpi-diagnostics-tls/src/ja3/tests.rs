@@ -78,13 +78,13 @@ fn build_test_client_hello(version: u16, cipher_suites: &[u16], extensions: &[(u
     handshake.push(hs_len as u8);
     handshake.extend_from_slice(&hello_body);
 
-    // TLS record header
-    let mut record = Vec::new();
-    record.push(0x16); // handshake
-    record.extend_from_slice(&[0x03, 0x01]); // TLS 1.0 record version
-    record.extend_from_slice(&(handshake.len() as u16).to_be_bytes());
-    record.extend_from_slice(&handshake);
+    handshake_record(&handshake)
+}
 
+fn handshake_record(payload: &[u8]) -> Vec<u8> {
+    let mut record = vec![0x16, 0x03, 0x01];
+    record.extend_from_slice(&(payload.len() as u16).to_be_bytes());
+    record.extend_from_slice(payload);
     record
 }
 
@@ -169,6 +169,69 @@ fn compute_ja3_returns_none_for_invalid_data() {
     assert!(compute_ja3(&[]).is_none());
     assert!(compute_ja3(&[0x17, 0x03, 0x01]).is_none()); // wrong content type
     assert!(compute_ja3(&[0x16]).is_none()); // truncated
+}
+
+#[test]
+fn compute_ja3_uses_the_first_complete_hello_across_records() {
+    let record = build_test_client_hello(
+        0x0303,
+        &[0xc02f, 0x0a0a, 0x009c],
+        &[(10, vec![0, 6, 0, 29, 0x7a, 0x7a, 0, 23]), (0xfafa, vec![]), (11, vec![2, 0, 1])],
+    );
+    // TShark on the DIA-02 GREASE fixture: 771,49199-156,10-11,29-23,0-1.
+    let expected = Some("73de4dd4aeedbdbb4d79f58c07d6934a".to_string());
+    assert_eq!(compute_ja3(&record), expected);
+
+    let handshake = &record[5..];
+    for split in 1..handshake.len() {
+        let mut records = handshake_record(&handshake[..split]);
+        assert_eq!(compute_ja3(&records), None, "incomplete at split {split}");
+        records.extend_from_slice(&handshake_record(&handshake[split..]));
+        assert_eq!(compute_ja3(&records), expected, "split {split}");
+    }
+
+    let mut coalesced = handshake.to_vec();
+    coalesced.extend_from_slice(&[0x02, 0, 0, 0]);
+    let mut records = handshake_record(&coalesced);
+    records.extend_from_slice(&[0x14, 3, 3, 0, 1, 1]);
+    assert_eq!(compute_ja3(&records), expected);
+}
+
+#[test]
+fn compute_ja3_rejects_invalid_record_and_handshake_lengths() {
+    let record = build_test_client_hello(0x0303, &[0xc02f], &[(11, vec![1, 0])]);
+    for offset in [4, 8] {
+        let mut invalid = record.clone();
+        invalid[offset] -= 1;
+        assert_eq!(compute_ja3(&invalid), None, "short declared length at {offset}");
+        invalid[offset] += 2;
+        assert_eq!(compute_ja3(&invalid), None, "long declared length at {offset}");
+    }
+
+    let mut oversized = record[5..].to_vec();
+    oversized.resize(16_385, 0);
+    assert_eq!(compute_ja3(&handshake_record(&oversized)), None);
+
+    let mut interrupted = handshake_record(&record[5..9]);
+    interrupted.extend_from_slice(&[0x14, 3, 3, 0, 1, 1]);
+    interrupted.extend_from_slice(&handshake_record(&record[9..]));
+    assert_eq!(compute_ja3(&interrupted), None);
+}
+
+#[test]
+fn compute_ja3_rejects_invalid_nested_vector_lengths() {
+    for extension in [(10, vec![0, 3, 0, 29, 0]), (11, vec![2, 0])] {
+        let record = build_test_client_hello(0x0303, &[0xc02f], &[extension]);
+        assert_eq!(compute_ja3(&record), None);
+    }
+
+    let mut record = build_test_client_hello(0x0303, &[0xc02f], &[(11, vec![1, 0])]);
+    record[45] = 1; // Odd cipher suite length.
+    assert_eq!(compute_ja3(&record), None);
+
+    let mut record = build_test_client_hello(0x0303, &[0xc02f], &[(11, vec![1, 0])]);
+    record[51] = 5; // Extension header and payload run past the extension list.
+    assert_eq!(compute_ja3(&record), None);
 }
 
 #[test]
