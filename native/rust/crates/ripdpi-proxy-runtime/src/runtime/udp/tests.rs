@@ -1135,14 +1135,15 @@ fn default_fake_burst_covers_only_the_first_datagram_of_a_flow() {
         authoritative_host: None,
     };
     let mut group = DesyncGroup::new(0);
-    group.actions.fake_data = Some(b"decoy".to_vec());
+    group.actions.udp_fake_profile = ripdpi_packets::UdpFakeProfile::DnsQuery;
     group.actions.udp_chain = vec![UdpChainStep::new(UdpChainStepKind::FakeBurst, 2)];
+    let decoy = ripdpi_packets::udp_fake_profile_bytes(ripdpi_packets::UdpFakeProfile::DnsQuery).to_vec();
     let state = test_runtime_state(RuntimeConfig { groups: vec![group], ..Default::default() });
     let mut flow_state = HashMap::new();
     flow_state.insert(key.clone(), flow_entry_for(upstream, target));
     let mut received = Vec::new();
     let drain = |received: &mut Vec<Vec<u8>>| {
-        let mut buf = [0u8; 64];
+        let mut buf = [0u8; 2048];
         while let Ok(n) = peer.recv(&mut buf) {
             received.push(buf[..n].to_vec());
         }
@@ -1154,8 +1155,7 @@ fn default_fake_burst_covers_only_the_first_datagram_of_a_flow() {
     }
     drain(&mut received);
 
-    let expected: Vec<Vec<u8>> =
-        vec![b"decoy".to_vec(), b"decoy".to_vec(), b"\x40first".to_vec(), b"\x40second".to_vec()];
+    let expected: Vec<Vec<u8>> = vec![decoy.clone(), decoy, b"\x40first".to_vec(), b"\x40second".to_vec()];
     assert_eq!(received, expected, "the second datagram of the flow gets no decoys");
 }
 

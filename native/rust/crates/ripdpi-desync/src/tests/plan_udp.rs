@@ -293,7 +293,7 @@ fn plan_udp_adaptive_profiles_tune_burst_count_and_quic_fake_payload() {
 }
 
 #[test]
-fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
+fn plan_udp_falls_back_to_udp_profile_for_non_quic_input() {
     let mut group = DesyncGroup::new(0);
     group.actions.quic_fake_profile = QuicFakeProfile::CompatDefault;
     group.actions.udp_chain = vec![UdpChainStep {
@@ -978,7 +978,7 @@ fn plan_udp_skips_quic_specific_steps_when_payload_is_not_quic() {
 }
 
 #[test]
-fn plan_udp_uses_selected_udp_profile_when_no_raw_fake_is_set() {
+fn plan_udp_uses_selected_udp_profile() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_fake_profile = UdpFakeProfile::DnsQuery;
     group.actions.udp_chain = vec![UdpChainStep {
@@ -1042,7 +1042,7 @@ fn entropy_padding_disabled_leaves_fake_payload_unchanged() {
 fn entropy_padding_popcount_mode_prepends_padding_to_high_popcount_fake() {
     let mut group = DesyncGroup::new(0);
     group.actions.entropy_mode = EntropyMode::Popcount;
-    // Target 3.4 (permil 3400): high_popcount_fake() has popcount 4.0/byte, inside
+    // Target 3.4 (permil 3400): high_popcount_fake() has popcount 3.82/byte, inside
     // the GFW detection window, so padding will be prepended.
     group.actions.entropy_padding_target_permil = Some(3400);
     group.actions.entropy_padding_max = 256;

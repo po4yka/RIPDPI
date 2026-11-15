@@ -94,5 +94,7 @@ fn hostfake_longer_template_keeps_a_valid_host_shape() {
         assert!(out[0].is_ascii_lowercase(), "{out:?}");
         assert_ne!(out.last(), Some(&b'.'));
         assert!(out.split(|byte| *byte == b'.').all(|label| !label.is_empty()), "{out:?}");
+        // The old code copied the template tail ("x.io" + "a-b.example" -> "mple").
+        assert_ne!(out.as_slice(), &template.as_bytes()[template.len() - host.len()..], "{out:?}");
     }
 }

@@ -369,7 +369,7 @@ UDP payload. All fakes are sent at low TTL.
    long-header Initial (a complete ClientHello is not required): crafts a
    realistic QUIC Initial with fake host.
 2. If `QuicFakeProfile::CompatDefault` and QUIC Initial: static fake QUIC bytes.
-3. Otherwise: `fake_data` or `udp_fake_profile` bytes. `fake_offset` is the
+3. Otherwise: `udp_fake_profile` bytes (`fake_data` is TCP-only). `fake_offset` is the
    TCP fake offset and is ignored here.
 
 **Config fields**: `count` (burst size), adjusted by
