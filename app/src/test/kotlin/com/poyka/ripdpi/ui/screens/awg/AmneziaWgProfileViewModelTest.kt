@@ -189,7 +189,7 @@ class AmneziaWgProfileViewModelTest {
 
     @Test
     fun `a fixed listen port is reported without modifying the editor`() {
-        val viewModel = viewModel()
+        val viewModel = fixture.viewModel()
         viewModel.onFieldChanged(AwgEditorField.SERVER, "keep.me")
         val conf =
             "[Interface]\nPrivateKey = k==\nListenPort = 51820\n\n[Peer]\n" +

@@ -59,31 +59,8 @@ object ClipboardImportClassifier {
             else -> {
                 ImportPayloadClassifier.classify(clipboardText)?.let(ClipboardImportResult::Importable)
                     ?: ClipboardImportResult.UnknownContent(
-                        ProxyUriShareDispatcher.schemeOf(clipboardText).takeIf(ReportedSchemes::contains).orEmpty(),
+                        ProxyUriShareDispatcher.schemeOf(clipboardText),
                     )
             }
         }
-
-    private val ReportedSchemes =
-        setOf(
-            "amneziawg",
-            "anytls",
-            "http",
-            "https",
-            "hy2",
-            "hysteria2",
-            "mieru",
-            "mierus",
-            "naive+https",
-            "naive+quic",
-            "ripdpi",
-            "sing-box",
-            "ss",
-            "ssh",
-            "trojan",
-            "tuic",
-            "v2rayng",
-            "vless",
-            "vpn",
-        )
 }
