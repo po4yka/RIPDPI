@@ -3,8 +3,6 @@ package com.poyka.ripdpi.buildlogic
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
-import java.io.StringReader
-import java.util.Properties
 
 /**
  * Single resolver for the shared-priors release public key, used by both the
@@ -23,23 +21,10 @@ object SharedPriorsKey {
 
     private val hexKey = Regex("[0-9a-fA-F]{64}")
 
-    fun resolve(project: Project): Provider<String> {
-        val providers = project.providers
-        val localProperties =
-            providers
-                .fileContents(
-                    project.rootProject.layout.projectDirectory
-                        .file("local.properties"),
-                ).asText
-                .map { text -> Properties().apply { load(StringReader(text)) }.getProperty(PROPERTY).orEmpty() }
-        return providers
-            .gradleProperty(PROPERTY)
-            .nonBlank()
-            .orElse(localProperties.nonBlank())
-            .orElse(providers.environmentVariable(ENV).nonBlank())
-            .map(::validated)
-            .orElse("")
-    }
+    fun resolve(project: Project): Provider<String> =
+        SharedPriorsBuildProperty.resolve(project, PROPERTY, ENV).map { key ->
+            if (key.isEmpty()) key else validated(key)
+        }
 
     internal fun validated(raw: String): String {
         val key = raw.trim()
@@ -51,6 +36,4 @@ object SharedPriorsKey {
         }
         return key
     }
-
-    private fun Provider<String>.nonBlank(): Provider<String> = map(String::trim).filter(String::isNotEmpty)
 }

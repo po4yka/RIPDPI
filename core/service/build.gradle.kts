@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.LibraryExtension
+import com.poyka.ripdpi.buildlogic.SharedPriorsBuildProperty
 import com.poyka.ripdpi.buildlogic.SharedPriorsKey
 import java.util.Properties
 
@@ -43,15 +44,13 @@ val masquePrivacyPassProviderAuthToken =
         "RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_AUTH_TOKEN",
     )
 val sharedPriorsManifestUrl =
-    localOrEnv(
-        "sharedPriors.manifestUrl",
-        "RIPDPI_SHARED_PRIORS_MANIFEST_URL",
-    )
+    SharedPriorsBuildProperty
+        .resolve(project, "sharedPriors.manifestUrl", "RIPDPI_SHARED_PRIORS_MANIFEST_URL")
+        .get()
 val sharedPriorsPriorsUrl =
-    localOrEnv(
-        "sharedPriors.priorsUrl",
-        "RIPDPI_SHARED_PRIORS_PRIORS_URL",
-    )
+    SharedPriorsBuildProperty
+        .resolve(project, "sharedPriors.priorsUrl", "RIPDPI_SHARED_PRIORS_PRIORS_URL")
+        .get()
 // Same resolver as the rust-native convention plugin: native and BuildConfig cannot disagree.
 val sharedPriorsPublicKeyConfigured = SharedPriorsKey.resolve(project).get().isNotEmpty()
 
