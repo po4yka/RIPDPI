@@ -32,7 +32,7 @@ fn cancelling_an_upgrade_closes_the_socket_before_the_deadline() {
         let target = WsOverTlsTarget::new("example.test", "/apiws");
         let socket = client.try_clone().unwrap();
         let result = with_scan_io_deadline(Some(Instant::now() + Duration::from_secs(1)), || {
-            upgrade_websocket(&target, client, socket, &control)
+            upgrade_websocket(build_ws_request(&target).unwrap(), client, socket, &control)
         });
         (result.expect_err("cancelled upgrade"), cancelled_at_rx.recv().unwrap().elapsed())
     });
@@ -70,7 +70,9 @@ fn upgrade_that_runs_out_of_scan_time_returns_a_typed_deadline() {
         let control = WsOverTlsControl::new(&should_abort);
         let target = WsOverTlsTarget::new("example.test", "/apiws");
         let socket = client.try_clone().unwrap();
-        with_scan_io_deadline(Some(deadline), || upgrade_websocket(&target, client, socket, &control))
+        with_scan_io_deadline(Some(deadline), || {
+            upgrade_websocket(build_ws_request(&target).unwrap(), client, socket, &control)
+        })
     });
     let error = result.expect_err("partial Upgrade should time out");
     assert_eq!(error.kind(), io::ErrorKind::TimedOut);
@@ -78,4 +80,49 @@ fn upgrade_that_runs_out_of_scan_time_returns_a_typed_deadline() {
         error.get_ref().and_then(|cause| cause.downcast_ref::<WsProbeFailure>()),
         Some(&WsProbeFailure::DeadlineExceeded)
     );
+}
+
+#[test]
+fn socks5_negotiation_obeys_the_wss_opening_budget() {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let mut target = WsOverTlsTarget::new("example.test", "/apiws").with_transport(TransportConfig::Socks5 {
+        host: listener.local_addr().unwrap().ip().to_string(),
+        port: listener.local_addr().unwrap().port(),
+        credentials: None,
+    });
+    target.connect_timeout = Some(Duration::from_millis(120));
+    let started = Instant::now();
+    let error = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            let (mut proxy, _) = listener.accept().unwrap();
+            proxy.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            let mut greeting = [0; 3];
+            proxy.read_exact(&mut greeting).unwrap();
+            assert_eq!(greeting, [5, 1, 0]);
+            let count = proxy.read(&mut [0]).unwrap();
+            assert_eq!(count, 0, "expired negotiation must close the socket");
+        });
+        let error = WsOverTlsConnector.probe(&target).expect_err("silent proxy must time out");
+        assert!(started.elapsed() < Duration::from_millis(600), "SOCKS used its own longer timeout");
+        error
+    });
+
+    assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+    assert_eq!(
+        error.get_ref().and_then(|cause| cause.downcast_ref::<WsProbeFailure>()),
+        Some(&WsProbeFailure::OpenTimedOut)
+    );
+}
+
+#[test]
+fn wss_upgrade_authority_includes_the_configured_nondefault_port() {
+    for (host, authority) in [("example.test", "example.test:8443"), ("::1", "[::1]:8443")] {
+        let mut target = WsOverTlsTarget::new(host, "/apiws?x=1");
+        target.port = 8443;
+        let request = build_ws_request(&target).unwrap();
+
+        assert_eq!(request.headers().get(tungstenite::http::header::HOST).unwrap(), authority);
+        assert_eq!(request.uri().path_and_query().unwrap().as_str(), "/apiws?x=1");
+        assert_eq!(request.uri().port_u16(), Some(8443));
+    }
 }

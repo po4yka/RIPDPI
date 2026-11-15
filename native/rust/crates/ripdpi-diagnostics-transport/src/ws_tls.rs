@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::net::{Ipv6Addr, SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -8,20 +8,27 @@ use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use tungstenite::WebSocket;
 use tungstenite::client::IntoClientRequest;
+use tungstenite::http::{Request, Uri};
 
 use crate::transport::{
     TargetAddress, TransportConfig, connect_direct_address_with_abort, connect_transport_observed_with_abort,
     direct_transport, run_with_socket_abort_watchdog,
 };
-use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout, with_scan_io_deadline};
+use crate::util::{
+    CONNECT_TIMEOUT, IO_TIMEOUT, active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline,
+};
 
 pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
 pub type WsTlsKeyLogCallback = Arc<dyn KeyLog>;
+
+const OPEN_TIMEOUT: Duration =
+    CONNECT_TIMEOUT.saturating_add(IO_TIMEOUT).saturating_add(IO_TIMEOUT).saturating_add(IO_TIMEOUT);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WsProbeFailure {
     Cancelled,
     DeadlineExceeded,
+    OpenTimedOut,
 }
 
 impl std::fmt::Display for WsProbeFailure {
@@ -29,6 +36,7 @@ impl std::fmt::Display for WsProbeFailure {
         formatter.write_str(match self {
             Self::Cancelled => "probe_aborted:cancelled",
             Self::DeadlineExceeded => "scan_deadline_exceeded",
+            Self::OpenTimedOut => "wss_open_timeout",
         })
     }
 }
@@ -41,6 +49,7 @@ pub struct WsOverTlsTarget {
     pub port: u16,
     pub path: String,
     pub resolved_addr: Option<SocketAddr>,
+    /// Maximum elapsed time from target validation through the Upgrade.
     pub connect_timeout: Option<Duration>,
     /// The scan's path to the host. A SOCKS5 transport sends the host name to the proxy, which
     /// resolves and connects it; a direct transport resolves with the bounded system resolver.
@@ -112,24 +121,47 @@ impl WsOverTlsConnector {
         should_abort: &(dyn Fn() -> Option<&'static str> + Sync),
     ) -> io::Result<WsOverTlsStream> {
         let control =
-            WsOverTlsControl::new(should_abort).with_timeout_cap(target.connect_timeout.unwrap_or(IO_TIMEOUT));
+            WsOverTlsControl::new(should_abort).with_open_timeout(target.connect_timeout.unwrap_or(OPEN_TIMEOUT))?;
         connect_with_steps(target, key_log, &control, &mut ProductionWsHandshakeSteps)
     }
 }
 
 struct WsOverTlsControl<'a> {
     should_abort: &'a (dyn Fn() -> Option<&'static str> + Sync),
-    timeout_cap: Duration,
+    open_deadline: Option<Instant>,
 }
 
 impl<'a> WsOverTlsControl<'a> {
     pub fn new(should_abort: &'a (dyn Fn() -> Option<&'static str> + Sync)) -> Self {
-        Self { should_abort, timeout_cap: IO_TIMEOUT }
+        Self { should_abort, open_deadline: None }
     }
 
-    pub fn with_timeout_cap(mut self, timeout_cap: Duration) -> Self {
-        self.timeout_cap = timeout_cap;
-        self
+    fn with_open_timeout(mut self, timeout: Duration) -> io::Result<Self> {
+        if timeout.is_zero() {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "WSS opening timeout is zero"));
+        }
+        self.open_deadline = Some(
+            Instant::now()
+                .checked_add(timeout)
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "WSS opening timeout out of range"))?,
+        );
+        Ok(self)
+    }
+
+    fn transport_deadline(&self) -> Option<Instant> {
+        match (active_scan_io_deadline(), self.open_deadline) {
+            (Some(scan), Some(open)) => Some(scan.min(open)),
+            (scan, open) => scan.or(open),
+        }
+    }
+
+    fn watch_socket<T>(&self, socket: TcpStream, operation: impl FnOnce() -> io::Result<T>) -> io::Result<T> {
+        self.remaining_timeout()?;
+        let result = with_scan_io_deadline(self.transport_deadline(), || {
+            run_with_socket_abort_watchdog(socket, &|| (self.should_abort)().is_some(), operation)
+        });
+        self.remaining_timeout()?;
+        result
     }
 
     fn remaining_timeout(&self) -> io::Result<Duration> {
@@ -143,8 +175,16 @@ impl<'a> WsOverTlsControl<'a> {
             }
             None => {}
         }
-        bounded_scan_io_timeout(self.timeout_cap)
-            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, WsProbeFailure::DeadlineExceeded))
+        let scan_timeout = bounded_scan_io_timeout(IO_TIMEOUT)
+            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, WsProbeFailure::DeadlineExceeded))?;
+        match self.open_deadline {
+            Some(deadline) => deadline
+                .checked_duration_since(Instant::now())
+                .filter(|remaining| !remaining.is_zero())
+                .map(|remaining| remaining.min(scan_timeout))
+                .ok_or_else(|| io::Error::new(io::ErrorKind::TimedOut, WsProbeFailure::OpenTimedOut)),
+            None => Ok(scan_timeout),
+        }
     }
 
     fn error_after_blocking_io(&self, original: io::Error) -> io::Error {
@@ -157,23 +197,18 @@ trait WsHandshakeSteps {
     type Tls;
     type Ws;
 
-    fn connect_tcp(
-        &mut self,
-        target: &WsOverTlsTarget,
-        timeout: Duration,
-        control: &WsOverTlsControl<'_>,
-    ) -> io::Result<Self::Tcp>;
+    fn connect_tcp(&mut self, target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::Result<Self::Tcp>;
     fn connect_tls(
         &mut self,
         tcp: Self::Tcp,
-        host: &str,
+        server_name: ServerName<'static>,
         key_log: Option<WsTlsKeyLogCallback>,
         timeout: Duration,
         control: &WsOverTlsControl<'_>,
     ) -> io::Result<Self::Tls>;
     fn websocket_handshake(
         &mut self,
-        target: &WsOverTlsTarget,
+        request: Request<()>,
         tls: Self::Tls,
         timeout: Duration,
         control: &WsOverTlsControl<'_>,
@@ -186,14 +221,15 @@ fn connect_with_steps<Steps: WsHandshakeSteps>(
     control: &WsOverTlsControl<'_>,
     steps: &mut Steps,
 ) -> io::Result<Steps::Ws> {
-    let tcp = steps
-        .connect_tcp(target, control.remaining_timeout()?, control)
-        .map_err(|err| control.error_after_blocking_io(err))?;
+    control.remaining_timeout()?;
+    let server_name = validate_target(target)?;
+    let request = build_ws_request(target)?;
+    let tcp = steps.connect_tcp(target, control).map_err(|err| control.error_after_blocking_io(err))?;
     let tls = steps
-        .connect_tls(tcp, target.host.as_str(), key_log, control.remaining_timeout()?, control)
+        .connect_tls(tcp, server_name, key_log, control.remaining_timeout()?, control)
         .map_err(|err| control.error_after_blocking_io(err))?;
     let ws = steps
-        .websocket_handshake(target, tls, control.remaining_timeout()?, control)
+        .websocket_handshake(request, tls, control.remaining_timeout()?, control)
         .map_err(|err| control.error_after_blocking_io(err))?;
     control.remaining_timeout()?;
     Ok(ws)
@@ -206,49 +242,63 @@ impl WsHandshakeSteps for ProductionWsHandshakeSteps {
     type Tls = StreamOwned<ClientConnection, TcpStream>;
     type Ws = WsOverTlsStream;
 
-    fn connect_tcp(
-        &mut self,
-        target: &WsOverTlsTarget,
-        timeout: Duration,
-        control: &WsOverTlsControl<'_>,
-    ) -> io::Result<Self::Tcp> {
-        connect_tcp(target, timeout, control)
+    fn connect_tcp(&mut self, target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::Result<Self::Tcp> {
+        connect_tcp(target, control)
     }
 
     fn connect_tls(
         &mut self,
         tcp: Self::Tcp,
-        host: &str,
+        server_name: ServerName<'static>,
         key_log: Option<WsTlsKeyLogCallback>,
         timeout: Duration,
         control: &WsOverTlsControl<'_>,
     ) -> io::Result<Self::Tls> {
-        connect_tls(tcp, host, key_log, timeout, control)
+        connect_tls(tcp, server_name, key_log, timeout, control)
     }
 
     fn websocket_handshake(
         &mut self,
-        target: &WsOverTlsTarget,
+        request: Request<()>,
         tls: Self::Tls,
         timeout: Duration,
         control: &WsOverTlsControl<'_>,
     ) -> io::Result<Self::Ws> {
-        websocket_handshake(target, tls, timeout, control)
+        websocket_handshake(request, tls, timeout, control)
     }
 }
 
-fn connect_tcp(target: &WsOverTlsTarget, timeout: Duration, control: &WsOverTlsControl<'_>) -> io::Result<TcpStream> {
-    let deadline = Instant::now()
-        .checked_add(timeout)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "TCP timeout out of range"))?;
-    let stream = with_scan_io_deadline(Some(deadline), || {
+fn validate_target(target: &WsOverTlsTarget) -> io::Result<ServerName<'static>> {
+    if target.port == 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "WSS port is zero"));
+    }
+    if let Some(addr) = target.resolved_addr {
+        if addr.port() != target.port {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "WSS pinned address port differs from target port",
+            ));
+        }
+        if !matches!(target.transport, TransportConfig::Direct { route_experiment: None }) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "WSS pinned addresses require ordinary direct transport",
+            ));
+        }
+    }
+    ServerName::try_from(target.host.clone()).map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
+}
+
+fn connect_tcp(target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::Result<TcpStream> {
+    control.remaining_timeout()?;
+    let stream = with_scan_io_deadline(control.transport_deadline(), || {
         if let TransportConfig::Direct { .. } = &target.transport
             && let Some(addr) = target.resolved_addr
         {
             return connect_direct_address_with_abort(addr, control.should_abort);
         }
         connect_transport_observed_with_abort(
-            &[TargetAddress::Host(target.host.clone())],
+            &[target.host.parse().map_or_else(|_| TargetAddress::Host(target.host.clone()), TargetAddress::Ip)],
             target.port,
             &target.transport,
             control.should_abort,
@@ -262,21 +312,18 @@ fn connect_tcp(target: &WsOverTlsTarget, timeout: Duration, control: &WsOverTlsC
 
 fn connect_tls(
     tcp: TcpStream,
-    host: &str,
+    server_name: ServerName<'static>,
     key_log: Option<WsTlsKeyLogCallback>,
     timeout: Duration,
     control: &WsOverTlsControl<'_>,
 ) -> io::Result<StreamOwned<ClientConnection, TcpStream>> {
     tcp.set_read_timeout(Some(timeout))?;
     tcp.set_write_timeout(Some(timeout))?;
-    let server_name = ServerName::try_from(host.to_string())
-        .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err.to_string()))?;
     let connection = ClientConnection::new(default_tls_config(key_log), server_name)
         .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS setup: {err}")))?;
     let mut tls = StreamOwned::new(connection, tcp);
     let socket = tls.sock.try_clone()?;
-    run_with_socket_abort_watchdog(socket, &|| (control.should_abort)().is_some(), || {
-        control.remaining_timeout()?;
+    control.watch_socket(socket, || {
         while tls.conn.is_handshaking() {
             tls.conn
                 .complete_io(&mut tls.sock)
@@ -284,11 +331,10 @@ fn connect_tls(
         }
         Ok(tls)
     })
-    .map_err(|err| control.error_after_blocking_io(err))
 }
 
 fn websocket_handshake(
-    target: &WsOverTlsTarget,
+    request: Request<()>,
     tls: StreamOwned<ClientConnection, TcpStream>,
     timeout: Duration,
     control: &WsOverTlsControl<'_>,
@@ -297,24 +343,20 @@ fn websocket_handshake(
     tls.sock.set_read_timeout(Some(timeout))?;
     tls.sock.set_write_timeout(Some(timeout))?;
     let socket = tls.sock.try_clone()?;
-    upgrade_websocket(target, tls, socket, control)
+    upgrade_websocket(request, tls, socket, control)
 }
 
 fn upgrade_websocket<S: io::Read + io::Write>(
-    target: &WsOverTlsTarget,
+    request: Request<()>,
     stream: S,
     socket: TcpStream,
     control: &WsOverTlsControl<'_>,
 ) -> io::Result<WebSocket<S>> {
-    let request = build_ws_request(target)?;
     // rustls can keep reading while a peer sends part of the Upgrade response.
-    let (ws, _) = run_with_socket_abort_watchdog(socket, &|| (control.should_abort)().is_some(), || {
-        control.remaining_timeout()?;
+    let (ws, _) = control.watch_socket(socket, || {
         tungstenite::client(request, stream)
             .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {err}")))
-    })
-    .map_err(|err| control.error_after_blocking_io(err))?;
-    control.remaining_timeout()?;
+    })?;
     Ok(ws)
 }
 
@@ -334,10 +376,20 @@ fn default_tls_config(key_log: Option<WsTlsKeyLogCallback>) -> Arc<ClientConfig>
     Arc::new(config)
 }
 
-fn build_ws_request(target: &WsOverTlsTarget) -> io::Result<tungstenite::http::Request<()>> {
+fn build_ws_request(target: &WsOverTlsTarget) -> io::Result<Request<()>> {
     let path = if target.path.starts_with('/') { target.path.clone() } else { format!("/{}", target.path) };
-    let url = format!("wss://{}{}", target.host, path);
-    let mut request = url.into_client_request().map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
+    if path.contains('#') {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "WSS path contains a fragment"));
+    }
+    let host = if target.host.parse::<Ipv6Addr>().is_ok() { format!("[{}]", target.host) } else { target.host.clone() };
+    let authority = if target.port == 443 { host } else { format!("{host}:{}", target.port) };
+    let uri = Uri::builder()
+        .scheme("wss")
+        .authority(authority)
+        .path_and_query(path)
+        .build()
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
+    let mut request = uri.into_client_request().map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
     request.headers_mut().insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
     Ok(request)
 }
@@ -401,7 +453,7 @@ mod tests {
         let target = WsOverTlsTarget::new("bad\0name", "/apiws").with_resolved_addr(Some(addr));
         let control = WsOverTlsControl::new(&|| None);
 
-        let stream = connect_tcp(&target, Duration::from_millis(500), &control).unwrap();
+        let stream = connect_tcp(&target, &control).unwrap();
         assert_eq!(stream.peer_addr().unwrap(), addr);
     }
 
@@ -413,7 +465,7 @@ mod tests {
         target.port = addr.port();
         let control = WsOverTlsControl::new(&|| None);
 
-        let stream = connect_tcp(&target, Duration::from_secs(1), &control).unwrap();
+        let stream = connect_tcp(&target, &control).unwrap();
         assert_eq!(stream.peer_addr().unwrap(), addr);
     }
 
@@ -471,7 +523,8 @@ mod tests {
         let started = Instant::now();
 
         let err = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(500)), || {
-            connect_tls(tcp, "localhost", None, Duration::from_millis(1200), &control).expect_err("slow handshake")
+            connect_tls(tcp, ServerName::try_from("localhost").unwrap(), None, Duration::from_millis(1200), &control)
+                .expect_err("slow handshake")
         });
 
         let elapsed = started.elapsed();
@@ -508,9 +561,21 @@ mod tests {
         });
 
         let control = WsOverTlsControl::new(&|| None);
-        let _stream = connect_tcp(&target, Duration::from_secs(2), &control).expect("proxied connect");
+        let _stream = connect_tcp(&target, &control).expect("proxied connect");
 
         assert_eq!(proxy.join().unwrap(), (0x03, "kws2.web.telegram.org".to_string(), 443));
+    }
+
+    #[test]
+    fn conflicting_pinned_port_is_rejected_before_connect() {
+        let mut steps = FakeWsSteps::default();
+        let control = WsOverTlsControl::new(&|| None);
+        let pin = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8443);
+        let target = WsOverTlsTarget::new("example.test", "/apiws").with_resolved_addr(Some(pin));
+
+        let error = connect_with_steps(&target, None, &control, &mut steps).expect_err("pin port conflicts");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        assert!(steps.calls.is_empty());
     }
 
     #[test]
@@ -555,8 +620,7 @@ mod tests {
         let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
         let probe = WsOverTlsTarget::new("example.test", "/apiws").with_resolved_addr(Some(target));
         let control = WsOverTlsControl::new(&|| None);
-        let err = connect_tcp(&probe, Duration::from_millis(200), &control)
-            .expect_err("a protect denial must fail the connect");
+        let err = connect_tcp(&probe, &control).expect_err("a protect denial must fail the connect");
 
         assert!(cb.called.load(Ordering::Acquire), "protect must be attempted before connect");
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
@@ -574,7 +638,7 @@ mod tests {
         let addr = listener.local_addr().expect("listener addr");
         let target = WsOverTlsTarget::new("example.test", "/apiws").with_resolved_addr(Some(addr));
         let control = WsOverTlsControl::new(&|| None);
-        let _stream = connect_tcp(&target, Duration::from_millis(500), &control).expect("loopback connect succeeds");
+        let _stream = connect_tcp(&target, &control).expect("loopback connect succeeds");
 
         assert_eq!(cb.last_fd.load(Ordering::Acquire), -1, "loopback target must not be protected");
         unregister_protect_callback();
@@ -592,14 +656,9 @@ mod tests {
         type Tls = ();
         type Ws = ();
 
-        fn connect_tcp(
-            &mut self,
-            _target: &WsOverTlsTarget,
-            timeout: Duration,
-            _control: &WsOverTlsControl<'_>,
-        ) -> io::Result<Self::Tcp> {
+        fn connect_tcp(&mut self, _target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::Result<Self::Tcp> {
             self.calls.push("tcp");
-            self.timeouts.push(timeout);
+            self.timeouts.push(control.remaining_timeout()?);
             if !self.tcp_delay.is_zero() {
                 std::thread::sleep(self.tcp_delay);
             }
@@ -609,7 +668,7 @@ mod tests {
         fn connect_tls(
             &mut self,
             _tcp: Self::Tcp,
-            _host: &str,
+            _server_name: ServerName<'static>,
             _key_log: Option<WsTlsKeyLogCallback>,
             timeout: Duration,
             _control: &WsOverTlsControl<'_>,
@@ -621,7 +680,7 @@ mod tests {
 
         fn websocket_handshake(
             &mut self,
-            _target: &WsOverTlsTarget,
+            _request: Request<()>,
             _tls: Self::Tls,
             timeout: Duration,
             _control: &WsOverTlsControl<'_>,

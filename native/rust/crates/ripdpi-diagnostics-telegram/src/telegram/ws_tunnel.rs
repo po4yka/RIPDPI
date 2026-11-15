@@ -123,7 +123,7 @@ fn ws_error_result(error: io::Error, start: std::time::Instant) -> TelegramWsPro
     match failure {
         Some(WsProbeFailure::Cancelled) => TelegramWsProbeResult::aborted("cancelled", Some(rtt_ms)),
         Some(WsProbeFailure::DeadlineExceeded) => TelegramWsProbeResult::aborted("deadline_exceeded", Some(rtt_ms)),
-        None => TelegramWsProbeResult {
+        Some(WsProbeFailure::OpenTimedOut) | None => TelegramWsProbeResult {
             status: "unreachable".to_string(),
             abort_reason: None,
             rtt_ms,
