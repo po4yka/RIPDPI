@@ -21,7 +21,7 @@ fn block_on<F: std::future::Future>(future: F) -> F::Output {
 #[test]
 fn clean_https_nodata_is_no_ech_config() {
     block_on(async {
-        let (config, server, received) = dns_fixture(0, Vec::new()).await;
+        let (config, server, received) = dns_fixture(Some(0), Vec::new()).await;
         let result = dns::lookup("nodata.example", Duration::from_millis(100), config).await;
         server.abort();
         assert!(received.try_recv().is_ok(), "the resolver must send a real HTTPS query");
@@ -32,7 +32,7 @@ fn clean_https_nodata_is_no_ech_config() {
 #[test]
 fn nxdomain_remains_distinct_from_clean_nodata() {
     block_on(async {
-        let (config, server, received) = dns_fixture(3, Vec::new()).await;
+        let (config, server, received) = dns_fixture(Some(3), Vec::new()).await;
         let result = dns::lookup("nxdomain.example", Duration::from_millis(100), config).await;
         server.abort();
         assert!(received.try_recv().is_ok());
@@ -43,7 +43,7 @@ fn nxdomain_remains_distinct_from_clean_nodata() {
 #[test]
 fn dns_server_failure_remains_an_error() {
     block_on(async {
-        let (config, server, received) = dns_fixture(2, Vec::new()).await;
+        let (config, server, received) = dns_fixture(Some(2), Vec::new()).await;
         let result = dns::lookup("servfail.example", Duration::from_millis(100), config).await;
         server.abort();
         assert!(received.try_recv().is_ok());
@@ -54,7 +54,7 @@ fn dns_server_failure_remains_an_error() {
 #[test]
 fn https_record_without_ech_is_no_ech_config() {
     block_on(async {
-        let (config, server, received) = dns_fixture(0, vec![vec![0, 1, 0]]).await;
+        let (config, server, received) = dns_fixture(Some(0), vec![vec![0, 1, 0]]).await;
         let result = dns::lookup("no-ech.example", Duration::from_millis(100), config).await;
         server.abort();
         assert!(received.try_recv().is_ok());
@@ -65,7 +65,7 @@ fn https_record_without_ech_is_no_ech_config() {
 /// # Cancel safety:
 /// cancel-safe: no task is spawned before the final await; each completed
 /// fixture returns its task handle, which the test aborts before returning.
-async fn dns_fixture(rcode: u8, records: Vec<Vec<u8>>) -> (ResolverConfig, JoinHandle<()>, Receiver<Vec<u8>>) {
+async fn dns_fixture(rcode: Option<u8>, records: Vec<Vec<u8>>) -> (ResolverConfig, JoinHandle<()>, Receiver<Vec<u8>>) {
     let socket = UdpSocket::bind("127.0.0.1:0").await.expect("loopback DNS bind");
     let address = socket.local_addr().expect("loopback DNS address");
     let (sent, received) = mpsc::channel();
@@ -77,8 +77,10 @@ async fn dns_fixture(rcode: u8, records: Vec<Vec<u8>>) -> (ResolverConfig, JoinH
             if sent.send(packet.to_vec()).is_err() {
                 return;
             }
-            let response = dns_response(packet, rcode, &records);
-            socket.send_to(&response, peer).await.expect("DNS response");
+            if let Some(rcode) = rcode {
+                let response = dns_response(packet, rcode, &records);
+                socket.send_to(&response, peer).await.expect("DNS response");
+            }
         }
     });
     let mut connection = ConnectionConfig::udp();
@@ -182,7 +184,7 @@ fn unknown_optional_parameter_does_not_hide_ech() {
 
 fn lookup_records(records: Vec<Vec<u8>>) -> Result<Option<Vec<u8>>, String> {
     block_on(async {
-        let (config, server, received) = dns_fixture(0, records).await;
+        let (config, server, received) = dns_fixture(Some(0), records).await;
         let result = dns::lookup("binding.example", Duration::from_millis(100), config).await;
         server.abort();
         assert!(received.try_recv().is_ok(), "an actual DNS query must reach the wire fixture");
@@ -250,10 +252,48 @@ fn explicit_origin_target_ignores_case_and_trailing_root() {
     origin.splice(2..3, b"\x07BiNdInG\x07ExAmPlE\x00".iter().copied());
     assert_eq!(lookup_records(vec![origin.clone()]).unwrap(), Some(ECH_CONFIG.to_vec()));
     block_on(async {
-        let (config, server, received) = dns_fixture(0, vec![origin]).await;
+        let (config, server, received) = dns_fixture(Some(0), vec![origin]).await;
         let result = dns::lookup("binding.example.", Duration::from_millis(100), config).await;
         server.abort();
         assert!(received.try_recv().is_ok());
         assert_eq!(result.unwrap(), Some(ECH_CONFIG.to_vec()));
+    });
+}
+
+#[test]
+fn complete_dns_lookup_observes_one_deadline_including_retries() {
+    block_on(async {
+        let (config, server, received) = dns_fixture(None, Vec::new()).await;
+        let budget = Duration::from_millis(250);
+        let started = std::time::Instant::now();
+        let result = dns::lookup("silent.example", budget, config).await;
+        let elapsed = started.elapsed();
+        assert!(received.try_recv().is_ok(), "the DNS server must receive a real query");
+        let _ = received.try_iter().count();
+        tokio::time::sleep(budget).await;
+        server.abort();
+        assert!(elapsed < budget * 2, "250ms scheduler tolerance exceeded: {elapsed:?}");
+        assert_eq!(result.unwrap_err(), "hickory-lookup-timeout");
+        assert!(received.try_recv().is_err(), "the expired operation must not send another retry");
+    });
+}
+
+#[test]
+fn unrepresentable_dns_deadline_fails_without_panic() {
+    block_on(async {
+        let config = ResolverConfig::from_name_servers(Vec::new());
+        let result = dns::lookup("never-queried.example", Duration::MAX, config).await;
+        assert_eq!(result.unwrap_err(), "hickory-lookup-timeout-out-of-range");
+    });
+}
+
+#[test]
+fn zero_dns_budget_does_not_start_discovery() {
+    block_on(async {
+        let (config, server, received) = dns_fixture(Some(0), Vec::new()).await;
+        let result = dns::lookup("never-queried.example", Duration::ZERO, config).await;
+        server.abort();
+        assert_eq!(result.unwrap_err(), "hickory-lookup-timeout");
+        assert!(received.try_recv().is_err());
     });
 }

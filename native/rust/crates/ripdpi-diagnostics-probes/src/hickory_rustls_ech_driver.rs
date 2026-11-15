@@ -48,8 +48,8 @@ use crate::probes::ech_handshake::{EchHandshakeDriver, EchHandshakeOutcome};
 pub struct HickoryRustlsEchHandshakeDriver {
     /// Maximum wall-clock time allowed for each HTTPS RR lookup.
     ///
-    /// Defaults to 5 seconds. The hickory resolver respects this via
-    /// [`hickory_resolver::config::ResolverOpts::timeout`]; DNS retries are bounded accordingly.
+    /// Defaults to 5 seconds. One deadline bounds resolver setup and all
+    /// DNS retries.
     pub lookup_timeout: Duration,
 }
 

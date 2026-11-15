@@ -2,22 +2,39 @@ use std::time::Duration;
 
 use hickory_resolver::{
     TokioResolver,
-    config::{ResolverConfig, ResolverOpts},
+    config::{ResolveHosts, ResolverConfig, ResolverOpts},
     net::runtime::TokioRuntimeProvider,
     proto::rr::rdata::svcb::{SVCB, SvcParamKey, SvcParamValue},
     proto::rr::{Name, RData, RecordType},
 };
 
 /// # Cancel safety:
-/// cancel-safe: the lookup owns its resolver and request state; dropping it
-/// releases that state and prevents another attempt by this operation.
+/// cancel-safe: the deadline future owns the complete resolver operation;
+/// dropping it drops that operation and prevents its next retry.
 pub(super) async fn lookup(
     host: &str,
     lookup_timeout: Duration,
     config: ResolverConfig,
 ) -> Result<Option<Vec<u8>>, String> {
+    let deadline = tokio::time::Instant::now()
+        .checked_add(lookup_timeout)
+        .ok_or_else(|| "hickory-lookup-timeout-out-of-range".to_string())?;
+    if lookup_timeout.is_zero() {
+        return Err("hickory-lookup-timeout".into());
+    }
+    tokio::time::timeout_at(deadline, resolve(host, lookup_timeout, config))
+        .await
+        .map_err(|_| "hickory-lookup-timeout".to_string())?
+}
+
+/// # Cancel safety:
+/// cancel-safe: the lookup owns its resolver and request state; dropping it
+/// releases that state and prevents another attempt by this operation.
+async fn resolve(host: &str, lookup_timeout: Duration, config: ResolverConfig) -> Result<Option<Vec<u8>>, String> {
     let mut opts = ResolverOpts::default();
     opts.timeout = lookup_timeout;
+    // Hosts files have no HTTPS records; avoid their synchronous read during resolver setup.
+    opts.use_hosts_file = ResolveHosts::Never;
     let resolver = TokioResolver::builder_with_config(config, TokioRuntimeProvider::default())
         .with_options(opts)
         .build()
