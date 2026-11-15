@@ -10,17 +10,17 @@ import com.poyka.ripdpi.core.Tun2SocksNativeLoader
  *  - jniPcapStart returns positive capture-set id on success, 0 on
  *    failure. The capture set is bound to the tunnel session handle;
  *    jniDestroy on the session retires the capture-set automatically.
- *  - jniPcapStop returns a typed JSON completion response: whether a
- *    capture was active, only fully finalized capture files, and an
- *    optional stable writer-failure code. Returns null if the native
- *    call panics; callers surface this as a terminal failure.
- *  - jniPcapListCaptures returns a JSON array of best-effort metadata
- *    (filesystem size only; packet count NOT computed - call
- *    PcapReader to count packets per file). Returns null if the
- *    native call panics; callers treat null as an empty result.
- *  - jniPcapRedactToFile takes a SAF-provided fd that has had
- *    ParcelFileDescriptor.detachFd() called - NOT .fd() (which peeks).
- *    The fd is closed by Rust on completion. Returns bytes-written.
+ *  - jniPcapStop returns a typed JSON completion response. With
+ *    finishedOnly set, pending=true leaves a running writer untouched.
+ *    A null response means the JNI call failed.
+ *  - jniPcapListCaptures returns finalized files and saved drop counts.
+ *    Packet count is computed by the packet reader. A missing store
+ *    returns an empty array. With cleanupOnly, the call performs
+ *    retention and returns an empty array instead of listing files.
+ *    A null response means the storage operation failed.
+ *  - jniPcapRedactToFile takes a detached descriptor to a private staging
+ *    file. Rust closes it on completion and returns bytes written, -1 for an
+ *    incomplete source, or 0 for another failure.
  *
  * Symbols expected: Java_com_poyka_ripdpi_jni_PcapBridge_jniPcap*
  * (matches the #[unsafe(no_mangle)] exports in
@@ -28,7 +28,7 @@ import com.poyka.ripdpi.core.Tun2SocksNativeLoader
  *
  * Visibility: `internal` so only the `:core:pcap-export` module can
  * call directly. UI / engine layers must go through
- * [com.poyka.ripdpi.pcap.PcapController] which enforces the SAF
+ * [com.poyka.ripdpi.pcap.PcapController] which enforces the
  * detachFd ownership contract at its single call site.
  */
 internal object PcapBridge {
@@ -43,16 +43,22 @@ internal object PcapBridge {
         maxFiles: Int,
     ): Long
 
-    external fun jniPcapStop(sessionHandle: Long): String?
+    external fun jniPcapStop(
+        sessionHandle: Long,
+        finishedOnly: Boolean,
+    ): String?
 
-    external fun jniPcapListCaptures(captureDir: String): String?
+    external fun jniPcapListCaptures(
+        captureDir: String,
+        cleanupOnly: Boolean,
+    ): String?
 
     /**
      * source  - absolute filesystem path to the .pcap to redact
-     * destFd  - SAF detachFd() integer; Rust takes ownership and closes
-     * returns bytes written to destFd, 0 on failure
+     * destFd  - private staging file detachFd() integer; Rust takes ownership
+     * returns bytes written, -1 for an incomplete source, or 0 on other failure
      *
-     * MUST be called only from [com.poyka.ripdpi.pcap.PcapController.redactToUri]
+     * MUST be called only from [com.poyka.ripdpi.pcap.PcapController.prepareRedactedExport]
      * so the ParcelFileDescriptor.detachFd() ownership contract holds.
      */
     external fun jniPcapRedactToFile(

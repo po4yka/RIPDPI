@@ -14,7 +14,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, ErrorKind};
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -26,16 +26,33 @@ use ripdpi_tunnel_core::PacketObserver;
 use ripdpi_tunnel_core::Stats;
 
 use crate::pcap::{
-    PcapCaptureMetadata, PcapCaptureSet, PcapWriterFailure, WriterStopResult, enforce_global_retention, list_captures,
+    PcapCaptureMetadata, PcapCaptureSet, PcapWriterFailure, WriterStopResult, cleanup_captures, list_captures,
 };
 
 struct ActiveCapture {
     set: PcapCaptureSet,
-    stats: Arc<Stats>,
+    stats: Option<Arc<Stats>>,
+    retired: bool,
+}
+
+impl ActiveCapture {
+    fn request_stop(&mut self) {
+        self.set.request_stop();
+        if let Some(stats) = self.stats.take() {
+            stats.clear_packet_observer();
+        }
+    }
 }
 
 static REGISTRY: LazyLock<Mutex<HashMap<i64, ActiveCapture>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
-static NEXT_SET_ID: AtomicU64 = AtomicU64::new(1);
+static NEXT_SET_ID: LazyLock<AtomicU64> = LazyLock::new(|| {
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .and_then(|elapsed| i64::try_from(elapsed.as_micros()).ok())
+        .unwrap_or(1);
+    AtomicU64::new(seed.max(1) as u64)
+});
 
 /// Inner entry: start a capture set bound to the given session handle.
 /// Returns a positive capture-set ID on success, 0 on failure
@@ -52,13 +69,18 @@ pub(crate) fn pcap_start_entry(
         log::error!("pcap_start_entry: registry mutex poisoned");
         return 0;
     };
-    if reg.contains_key(&session_handle) {
-        log::warn!("pcap_start_entry: session {session_handle} already has an active capture");
+    let capture_dir = match capture_dir.canonicalize() {
+        Ok(capture_dir) => capture_dir,
+        Err(error) => {
+            log::warn!("pcap_start_entry: could not resolve capture directory: {error}");
+            return 0;
+        }
+    };
+    reap_retired(&mut reg);
+    if reg.contains_key(&session_handle) || reg.values().any(|active| active.set.dir() == capture_dir) {
+        log::warn!("pcap_start_entry: capture session or directory already has a writer");
         return 0;
     }
-    let active_set_ids =
-        reg.values().filter(|active| active.set.dir() == capture_dir).map(|active| active.set.set_id()).collect();
-    enforce_global_retention(&capture_dir, &active_set_ids);
     let set_id = NEXT_SET_ID.fetch_add(1, Ordering::Relaxed);
     let set = match PcapCaptureSet::start(set_id, capture_dir, max_file_bytes, max_files) {
         Ok(s) => s,
@@ -68,31 +90,48 @@ pub(crate) fn pcap_start_entry(
         }
     };
     let observer = set.observer_handle();
-    reg.insert(session_handle, ActiveCapture { set, stats: stats.clone() });
+    reg.insert(session_handle, ActiveCapture { set, stats: Some(stats.clone()), retired: false });
     stats.set_packet_observer(observer);
     set_id as i64
 }
 
-fn stop_capture(session_handle: i64) -> Option<WriterStopResult> {
-    let Ok(mut reg) = REGISTRY.lock() else {
-        log::error!("pcap stop: registry mutex poisoned");
-        return None;
+enum CaptureStop {
+    Absent,
+    Pending,
+    TimedOut,
+    Finished(WriterStopResult),
+}
+
+fn stop_capture(session_handle: i64, finished_only: bool) -> CaptureStop {
+    let mut reg = REGISTRY.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let Some(active) = reg.get_mut(&session_handle) else {
+        return CaptureStop::Absent;
     };
-    let active = reg.remove(&session_handle)?;
-    active.set.request_stop();
-    active.stats.clear_packet_observer();
+    if finished_only && !active.set.writer_finished() {
+        return CaptureStop::Pending;
+    }
+    active.request_stop();
+    if !active.set.wait_finished() {
+        // Keep ownership of the files while the writer is in kernel I/O.
+        return CaptureStop::TimedOut;
+    }
+    let Some(active) = reg.remove(&session_handle) else {
+        return CaptureStop::Absent;
+    };
     let capture_dir = active.set.dir().to_path_buf();
     let result = active.set.stop();
     let active_set_ids =
         reg.values().filter(|other| other.set.dir() == capture_dir).map(|other| other.set.set_id()).collect();
-    enforce_global_retention(&capture_dir, &active_set_ids);
-    Some(result)
+    if let Err(error) = cleanup_captures(&capture_dir, &active_set_ids) {
+        log::warn!("pcap stop: capture storage cleanup failed: {error}");
+    }
+    CaptureStop::Finished(result)
 }
 
 /// JSON contract returned from PCAP stop. `files` contains only files which
 /// were flushed, fsynced and atomically renamed from `.pcap.active`; a writer
 /// failure never turns an incomplete raw file into a completed capture.
-#[derive(serde::Serialize)]
+#[derive(Default, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PcapStopResponse {
     was_active: bool,
@@ -100,40 +139,75 @@ struct PcapStopResponse {
     /// Packets the capture queue dropped over the whole set, also when no file was finalized.
     total_drops: u64,
     failure: Option<PcapWriterFailure>,
+    pending: bool,
+    limit_reached: bool,
 }
 
 /// Inner entry: stop the capture-set bound to the session and return a typed
 /// completion response. `wasActive` distinguishes an idle session from a
 /// completed capture with no packets. `failure` is a stable, non-sensitive
 /// writer code for UI and support diagnostics.
-pub(crate) fn pcap_stop_entry(session_handle: i64) -> String {
-    let response = match stop_capture(session_handle) {
-        Some(result) => PcapStopResponse {
+pub(crate) fn pcap_stop_entry(session_handle: i64, finished_only: bool) -> Option<String> {
+    let response = match stop_capture(session_handle, finished_only) {
+        CaptureStop::Finished(result) => PcapStopResponse {
             was_active: true,
             files: result.files,
             total_drops: result.total_drops,
             failure: result.failure,
+            limit_reached: result.limit_reached,
+            pending: false,
         },
-        None => PcapStopResponse { was_active: false, files: Vec::new(), total_drops: 0, failure: None },
+        CaptureStop::Pending => PcapStopResponse { was_active: true, pending: true, ..PcapStopResponse::default() },
+        CaptureStop::TimedOut => PcapStopResponse {
+            was_active: true,
+            failure: Some(PcapWriterFailure::Timeout),
+            ..PcapStopResponse::default()
+        },
+        CaptureStop::Absent => PcapStopResponse::default(),
     };
-    serde_json::to_string(&response).unwrap_or_else(|err| {
-        log::error!("pcap_stop_entry: serialize completion response: {err}");
-        r#"{"wasActive":false,"files":[],"totalDrops":0,"failure":"serialization"}"#.to_string()
-    })
+    serde_json::to_string(&response)
+        .map_err(|err| log::error!("pcap_stop_entry: serialize completion response: {err}"))
+        .ok()
 }
 
 pub(crate) fn pcap_retire_entry(session_handle: i64) {
-    let _ = stop_capture(session_handle);
+    let mut registry = REGISTRY.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(active) = registry.get_mut(&session_handle) {
+        active.request_stop();
+        active.retired = true;
+        if active.set.writer_finished() {
+            registry.remove(&session_handle);
+        }
+    }
 }
 
 /// Inner entry: list captures on disk for the given directory. Used by
 /// the capture-list UI to enumerate previously-captured files.
-pub(crate) fn pcap_list_captures_entry(capture_dir: PathBuf) -> String {
-    let files = list_captures(&capture_dir);
-    serde_json::to_string(&files).unwrap_or_else(|err| {
-        log::error!("pcap_list_captures_entry: serialize files: {err}");
-        "[]".to_string()
-    })
+pub(crate) fn pcap_list_captures_entry(capture_dir: PathBuf, cleanup_only: bool) -> Option<String> {
+    let result = if cleanup_only {
+        cleanup_capture_store(&capture_dir).map(|()| Vec::new())
+    } else {
+        list_captures(&capture_dir)
+    };
+    let files = result.map_err(|err| log::warn!("pcap_list_captures_entry: capture store: {err}")).ok()?;
+    serde_json::to_string(&files).map_err(|err| log::error!("pcap_list_captures_entry: serialize files: {err}")).ok()
+}
+
+fn reap_retired(registry: &mut HashMap<i64, ActiveCapture>) {
+    registry.retain(|_, active| !active.retired || !active.set.writer_finished());
+}
+
+fn cleanup_capture_store(capture_dir: &std::path::Path) -> std::io::Result<()> {
+    let capture_dir = match capture_dir.canonicalize() {
+        Ok(dir) => dir,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    let mut registry = REGISTRY.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    reap_retired(&mut registry);
+    let active_set_ids =
+        registry.values().filter(|active| active.set.dir() == capture_dir).map(|active| active.set.set_id()).collect();
+    cleanup_captures(&capture_dir, &active_set_ids)
 }
 
 /// Adopt the destination fd transferred by `ParcelFileDescriptor.detachFd()`.
@@ -151,23 +225,26 @@ pub(crate) fn adopt_pcap_dest_fd(dest_fd: i32) -> Option<OwnedFd> {
 
 /// Inner entry: read `source_path`, clear endpoint addresses, unknown options,
 /// and packet payloads, then write the rewritten pcap stream to `dest_fd`.
-/// Returns bytes-written on success or 0 on any failure (source open
-/// failure, invalid fd, IO error during rewrite).
+/// Returns bytes written, -1 for an incomplete source, or 0 for another failure.
 ///
-pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_owned: OwnedFd) -> u64 {
+pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_owned: OwnedFd) -> i64 {
     let source = match File::open(&source_path) {
         Ok(f) => BufReader::new(f),
         Err(err) => {
-            log::warn!("pcap_redact_entry: open source {}: {err}", source_path.display());
+            log::warn!("pcap_redact_entry: open source: {err}");
             return 0;
         }
     };
     let dest_file = File::from(dest_owned);
     let dest = BufWriter::new(dest_file);
-    rewrite_endpoints(source, dest).unwrap_or_else(|err| {
-        log::warn!("pcap_redact_entry: rewrite_endpoints: {err}");
-        0
-    })
+    match rewrite_endpoints(source, dest) {
+        Ok(written) => i64::try_from(written).unwrap_or(0),
+        Err(err) if err.kind() == ErrorKind::UnexpectedEof => -1,
+        Err(err) => {
+            log::warn!("pcap_redact_entry: rewrite_endpoints: {err}");
+            0
+        }
+    }
 }
 
 /// Return a `PacketObserver` view of the active capture-set for the
@@ -176,7 +253,8 @@ pub(crate) fn pcap_redact_entry(source_path: PathBuf, dest_owned: OwnedFd) -> u6
 #[cfg(test)]
 pub(crate) fn observer_for_session(session_handle: i64) -> Option<Arc<dyn PacketObserver>> {
     let reg = REGISTRY.lock().ok()?;
-    Some(reg.get(&session_handle)?.set.observer_handle())
+    let active = reg.get(&session_handle)?;
+    (!active.retired && active.stats.is_some()).then(|| active.set.observer_handle() as Arc<dyn PacketObserver>)
 }
 
 #[cfg(test)]
@@ -219,9 +297,9 @@ mod tests {
         let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let handle = next_test_handle();
-        let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024 * 1024, 4);
+        let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024 * 1024, 3);
         assert!(set_id > 0, "expected positive set id, got {set_id}");
-        let json = pcap_stop_entry(handle);
+        let json = pcap_stop_entry(handle, false).unwrap();
         // Must be parseable typed completion JSON.
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("metadata must be valid json");
         assert!(parsed.is_object(), "stop should return a JSON object, got {parsed}");
@@ -232,9 +310,42 @@ mod tests {
     }
 
     #[test]
+    fn completion_poll_leaves_running_writer_alone_and_collects_capacity_result() {
+        let _serial = serial_pcap_test();
+        let dir = TempDir::new().unwrap();
+        let handle = next_test_handle();
+        let stats = test_stats();
+        assert!(pcap_start_entry(handle, stats.clone(), dir.path().to_path_buf(), 68, 1) > 0);
+        let read = || {
+            let json = pcap_stop_entry(handle, true).unwrap();
+            serde_json::from_str::<serde_json::Value>(&json).unwrap()
+        };
+        assert_eq!(read()["pending"], true);
+
+        let packet = [0x45; 28];
+        observer_for_session(handle).unwrap().on_inbound(&packet);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        let terminal = loop {
+            let result = read();
+            if result["pending"] == false {
+                break result;
+            }
+            assert!(std::time::Instant::now() < deadline, "capacity did not finalize");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+
+        assert_eq!(terminal["limitReached"], true);
+        assert_eq!(terminal["files"][0]["byteSize"], 68);
+        assert_eq!(terminal["files"][0]["packetCount"], 1);
+        assert_eq!(terminal["failure"], serde_json::Value::Null);
+        assert!(!stats.packet_observer_present.load(TestOrdering::Relaxed));
+        assert_eq!(read()["wasActive"], false);
+    }
+
+    #[test]
     fn pcap_stop_entry_unknown_session_reports_inactive_capture() {
         let handle = next_test_handle();
-        let parsed: serde_json::Value = serde_json::from_str(&pcap_stop_entry(handle)).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&pcap_stop_entry(handle, false).unwrap()).unwrap();
         assert_eq!(parsed["wasActive"], false);
         assert_eq!(parsed["totalDrops"], 0);
         assert_eq!(parsed["failure"], serde_json::Value::Null);
@@ -249,7 +360,7 @@ mod tests {
         let set_id = pcap_start_entry(handle, test_stats(), missing, 1024, 1);
         assert_eq!(set_id, 0, "expected 0 (failure) for missing dir, got {set_id}");
         // Nothing should be left in the registry.
-        let parsed: serde_json::Value = serde_json::from_str(&pcap_stop_entry(handle)).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&pcap_stop_entry(handle, false).unwrap()).unwrap();
         assert_eq!(parsed["wasActive"], false);
     }
 
@@ -264,17 +375,17 @@ mod tests {
 
         assert!(pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024, 1) > 0);
         assert!(
-            list_captures(dir.path()).len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
+            list_captures(dir.path()).unwrap().len() <= 2,
             "start must prune completed captures before creating a new set",
         );
 
         for set_id in 20..=24u64 {
             std::fs::write(dir.path().join(format!("{set_id:016x}-1-00.pcap")), b"old").unwrap();
         }
-        let _ = pcap_stop_entry(handle);
+        let _ = pcap_stop_entry(handle, false).unwrap();
 
         assert!(
-            list_captures(dir.path()).len() <= crate::pcap::GLOBAL_MAX_CAPTURE_FILES as usize,
+            list_captures(dir.path()).unwrap().len() <= 3,
             "stop must prune completed captures after finalizing the set",
         );
     }
@@ -289,19 +400,32 @@ mod tests {
         let second = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024, 1);
         assert_eq!(second, 0, "second start for same session must return 0");
         let other_handle = next_test_handle();
-        let next = pcap_start_entry(other_handle, test_stats(), dir.path().to_path_buf(), 1024, 1);
+        assert_eq!(pcap_start_entry(other_handle, test_stats(), dir.path().to_path_buf(), 1024, 1), 0);
+        let other_dir = TempDir::new().unwrap();
+        let next = pcap_start_entry(other_handle, test_stats(), other_dir.path().to_path_buf(), 1024, 1);
         assert_eq!(next, first + 1, "rejected double-start must not allocate or spawn a capture");
-        let _ = pcap_stop_entry(handle);
-        let _ = pcap_stop_entry(other_handle);
+        let _ = pcap_stop_entry(handle, false).unwrap();
+        let _ = pcap_stop_entry(other_handle, false).unwrap();
     }
 
     #[test]
     fn pcap_list_captures_entry_empty_dir_returns_empty_array() {
         let dir = TempDir::new().unwrap();
-        let json = pcap_list_captures_entry(dir.path().to_path_buf());
+        let json = pcap_list_captures_entry(dir.path().to_path_buf(), false).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("must parse");
         assert!(parsed.is_array());
         assert_eq!(parsed.as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn pcap_list_reports_an_inaccessible_store_separately_from_a_missing_store() {
+        let dir = TempDir::new().unwrap();
+        let missing = dir.path().join("absent");
+        assert_eq!(pcap_list_captures_entry(missing, false).as_deref(), Some("[]"));
+
+        let not_a_dir = dir.path().join("regular_file");
+        std::fs::write(&not_a_dir, b"not a directory").unwrap();
+        assert_eq!(pcap_list_captures_entry(not_a_dir, false), None);
     }
 
     #[test]
@@ -309,7 +433,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("foo.txt"), b"hi").unwrap();
         std::fs::write(dir.path().join("real.pcap"), b"\xa1\xb2\xc3\xd4").unwrap();
-        let json = pcap_list_captures_entry(dir.path().to_path_buf());
+        let json = pcap_list_captures_entry(dir.path().to_path_buf(), false).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("must parse");
         let arr = parsed.as_array().expect("must be array");
         assert_eq!(arr.len(), 1, "should only list .pcap files");
@@ -335,6 +459,15 @@ mod tests {
     #[test]
     fn pcap_redact_entry_negative_fd_returns_zero() {
         assert!(adopt_pcap_dest_fd(-1).is_none());
+    }
+
+    #[test]
+    fn pcap_redact_entry_distinguishes_an_incomplete_source() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("incomplete.pcap");
+        std::fs::write(&src, b"\xd4\xc3\xb2\xa1").unwrap();
+        let dest = File::create(dir.path().join("draft.pcap")).unwrap();
+        assert_eq!(pcap_redact_entry(src, dest.into()), -1);
     }
 
     #[test]
@@ -377,7 +510,7 @@ mod tests {
         // Drop the observer Arc explicitly so the stop path can
         // try_unwrap the set without contention.
         drop(observer);
-        let _ = pcap_stop_entry(handle);
+        let _ = pcap_stop_entry(handle, false).unwrap();
     }
 
     #[test]
@@ -385,7 +518,7 @@ mod tests {
         let _serial = serial_pcap_test();
         let dir = TempDir::new().unwrap();
         let handle = next_test_handle();
-        let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024 * 1024, 4);
+        let set_id = pcap_start_entry(handle, test_stats(), dir.path().to_path_buf(), 1024 * 1024, 3);
         assert!(set_id > 0);
         // Build a tiny IPv4 packet (header only).
         let mut pkt = vec![0u8; 28];
@@ -400,7 +533,7 @@ mod tests {
         // Give the writer thread time to drain.
         std::thread::sleep(std::time::Duration::from_millis(150));
         drop(observer);
-        let json = pcap_stop_entry(handle);
+        let json = pcap_stop_entry(handle, false).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).expect("metadata json");
         let arr = parsed["files"].as_array().expect("files array");
         let total_packets: u64 =

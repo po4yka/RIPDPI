@@ -14,7 +14,7 @@ mod reader;
 mod redact;
 mod writer;
 
-pub use constants::{LINKTYPE_RAW, MAGIC, SNAPLEN_DEFAULT};
+pub use constants::{LINKTYPE_RAW, MAGIC, PCAP_GLOBAL_HEADER_LEN, PCAP_PACKET_HEADER_LEN, SNAPLEN_DEFAULT};
 pub use reader::{PcapReader, PcapRecord};
 pub use redact::{redact_in_place, rewrite_endpoints};
 pub use writer::PcapWriter;
@@ -185,6 +185,30 @@ mod tests {
         assert_eq!(&buf[20..24], &LINKTYPE_RAW.to_le_bytes());
     }
 
+    #[test]
+    fn writer_rejects_zero_snaplen_without_writing() {
+        let mut output = Vec::new();
+        let error = PcapWriter::new(&mut output, 0).err().expect("zero snaplen");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn writer_rejects_unrepresentable_records_without_writing() {
+        let mut output = Vec::new();
+        let latest = 4_294_967_295_999_999;
+        {
+            let mut writer = PcapWriter::new(&mut output, u32::MAX).unwrap();
+            let timestamp = writer.write_packet(latest + 1, &[]).unwrap_err();
+            assert_eq!(timestamp.kind(), std::io::ErrorKind::InvalidInput);
+            let length = writer.write_packet(latest, &vec![0; 262_145]).unwrap_err();
+            assert_eq!(length.kind(), std::io::ErrorKind::InvalidInput);
+            assert_eq!(writer.bytes_written(), 24);
+            writer.write_packet(latest, &[]).unwrap();
+        }
+        assert_eq!(&output[24..40], &[255, 255, 255, 255, 63, 66, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
     // -- roundtrip ---------------------------------------------------------
 
     #[test]
@@ -231,6 +255,38 @@ mod tests {
 
     // -- reader validation -------------------------------------------------
 
+    const RAW_PCAP_HEADER: [u8; 24] =
+        [0xd4, 0xc3, 0xb2, 0xa1, 2, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 0, 0, 101, 0, 0, 0];
+
+    #[test]
+    fn reader_rejects_unsupported_version_and_zero_snaplen() {
+        let mut wrong_version = RAW_PCAP_HEADER;
+        wrong_version[6] = 5;
+        let mut zero_snaplen = RAW_PCAP_HEADER;
+        zero_snaplen[16..20].fill(0);
+        for header in [wrong_version, zero_snaplen] {
+            let error = PcapReader::new(Cursor::new(header)).err().expect("invalid global header");
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        }
+    }
+
+    #[test]
+    fn reader_rejects_invalid_record_metadata_before_reading_payload() {
+        let cases: [(u32, u32, u32, u32); 4] =
+            [(65_535, 1_000_000, 20, 20), (19, 0, 20, 20), (65_535, 0, 21, 20), (u32::MAX, 0, 262_145, 262_145)];
+        for (snaplen, micros, captured, original) in cases {
+            let mut bytes = Vec::from(RAW_PCAP_HEADER);
+            bytes[16..20].copy_from_slice(&snaplen.to_le_bytes());
+            bytes.extend_from_slice(&[0; 4]);
+            bytes.extend_from_slice(&micros.to_le_bytes());
+            bytes.extend_from_slice(&captured.to_le_bytes());
+            bytes.extend_from_slice(&original.to_le_bytes());
+            let mut reader = PcapReader::new(Cursor::new(bytes)).unwrap();
+            let error = reader.next_record().unwrap_err();
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidData);
+        }
+    }
+
     #[test]
     fn reader_rejects_wrong_magic() {
         let mut header = [0u8; 24];
@@ -258,7 +314,7 @@ mod tests {
     }
 
     #[test]
-    fn reader_tolerates_truncated_tail() {
+    fn reader_and_rewrite_report_a_partial_record() {
         let p1 = make_ipv4_tcp([10, 0, 0, 1], [10, 0, 0, 2], b"first");
         let p2 = make_ipv4_tcp([10, 0, 0, 3], [10, 0, 0, 4], b"second");
         let mut buf = Vec::new();
@@ -267,17 +323,21 @@ mod tests {
             writer.write_packet(1_000_000, &p1).unwrap();
             writer.write_packet(2_000_000, &p2).unwrap();
         }
-        // Truncate mid second record: keep first packet entirely + the
-        // 16-byte header of p2 + half of p2's body.
-        let p1_total = 16 + p1.len();
-        let truncate_at = 24 + p1_total + 16 + (p2.len() / 2);
-        buf.truncate(truncate_at);
-        let mut reader = PcapReader::new(Cursor::new(&buf)).unwrap();
-        let r1 = reader.next_record().unwrap().expect("first record present");
-        assert_eq!(r1.bytes, p1);
-        // Second record body is truncated -> read_exact returns
-        // UnexpectedEof -> we return Ok(None).
+        let first_record_end = 24 + 16 + p1.len();
+        let mut reader = PcapReader::new(Cursor::new(&buf[..first_record_end])).unwrap();
+        assert!(reader.next_record().unwrap().is_some());
         assert!(reader.next_record().unwrap().is_none());
+
+        for incomplete_len in [1, 16 + p2.len() / 2] {
+            let source = &buf[..first_record_end + incomplete_len];
+            let mut reader = PcapReader::new(Cursor::new(source)).unwrap();
+            assert_eq!(reader.next_record().unwrap().unwrap().bytes, p1);
+            assert_eq!(reader.next_record().unwrap_err().kind(), std::io::ErrorKind::UnexpectedEof);
+            assert_eq!(
+                rewrite_endpoints(Cursor::new(source), Vec::new()).unwrap_err().kind(),
+                std::io::ErrorKind::UnexpectedEof,
+            );
+        }
     }
 
     // -- redaction ---------------------------------------------------------
@@ -574,6 +634,23 @@ mod tests {
         assert_eq!(&redacted[8..40], &[0; 32]);
         assert_eq!(redacted[6], 59);
         assert_eq!(&redacted[40..], &[0; 8]);
+    }
+
+    #[test]
+    fn rewrite_preserves_snaplen_and_truncated_record_lengths() {
+        for (snaplen, captured, original) in [(40_u32, 40_u32, 55_u32), (70_000, 65_536, 65_600)] {
+            let mut source = Vec::from(RAW_PCAP_HEADER);
+            source[16..20].copy_from_slice(&snaplen.to_le_bytes());
+            source.extend_from_slice(&[42, 0, 0, 0, 63, 66, 15, 0]);
+            source.extend_from_slice(&captured.to_le_bytes());
+            source.extend_from_slice(&original.to_le_bytes());
+            source.resize(40 + captured as usize, 0);
+
+            let mut destination = Vec::new();
+            let written = rewrite_endpoints(Cursor::new(&source), &mut destination).unwrap();
+            assert_eq!(written, 40 + u64::from(captured));
+            assert_eq!(&destination[..40], &source[..40]);
+        }
     }
 
     #[test]

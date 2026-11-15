@@ -32,6 +32,7 @@ class PcapViewerRouteTest {
 
         awaitText("The capture file no longer exists. It may have been deleted.")
         composeRule.onNodeWithText("Packets: 0").assertDoesNotExist()
+        composeRule.onNodeWithText("Export redacted PCAP").assertDoesNotExist()
         composeRule.onNodeWithText("Try again").assertDoesNotExist()
         composeRule.onNodeWithText("Back").performClick()
         composeRule.runOnIdle { assertEquals(1, backs) }
@@ -56,6 +57,7 @@ class PcapViewerRouteTest {
         composeRule.onNodeWithText("Try again").performClick()
         awaitText("Packets: 0")
         composeRule.onNodeWithText("This capture has no packets.").assertIsDisplayed()
+        composeRule.onNodeWithText("Export redacted PCAP").assertIsDisplayed()
     }
 
     private fun awaitText(text: String) {

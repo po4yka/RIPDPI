@@ -3,11 +3,11 @@ package com.poyka.ripdpi.pcap
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
+import java.io.EOFException
 import java.io.IOException
 
 class PcapReaderTest {
@@ -46,6 +46,13 @@ class PcapReaderTest {
         // Right magic, wrong linktype (1 = Ethernet, we require 101 = RAW).
         val wrongLinktype = headerBytes(linktype = 1)
         assertThrows(IOException::class.java) { PcapReader(ByteArrayInputStream(wrongLinktype)) }
+    }
+
+    @Test
+    fun globalHeader_rejectsInvalidVersionAndZeroSnaplen() {
+        val wrongVersion = headerBytes().also { it[6] = 9 }
+        assertThrows(IOException::class.java) { PcapReader(ByteArrayInputStream(wrongVersion)) }
+        assertThrows(IOException::class.java) { PcapReader(ByteArrayInputStream(headerBytes(snaplen = 0))) }
     }
 
     @Test
@@ -98,12 +105,12 @@ class PcapReaderTest {
         val r = records[0]
         assertEquals(1, r.index)
         assertEquals(tsSec * 1_000_000L + tsUsec, r.tsMicros)
-        assertEquals(payload.size, r.origLen)
+        assertEquals(payload.size.toLong(), r.origLen)
         assertArrayEquals(payload, r.bytes)
     }
 
     @Test
-    fun tolerates_truncatedTail() {
+    fun distinguishesTruncatedHeaderFromCleanEof() {
         // Full header + one good packet + a partial packet header (8 bytes).
         val payload = byteArrayOfInts(0x45, 0x00, 0x00, 0x14)
         val full =
@@ -120,13 +127,11 @@ class PcapReaderTest {
         val reader = PcapReader(ByteArrayInputStream(bytes))
         val first = reader.readOne()
         assertNotNull("expected first record to parse", first)
-        // Second call hits truncated tail -> null, no throw.
-        val second = reader.readOne()
-        assertNull("expected null on truncated tail, got $second", second)
+        assertThrows(EOFException::class.java) { reader.readOne() }
     }
 
     @Test
-    fun tolerates_truncatedPayload() {
+    fun rejectsTruncatedPayload() {
         // Valid 16-byte record header claiming a 4-byte payload, but the
         // payload bytes are missing.
         val recordHeaderOnly =
@@ -150,12 +155,43 @@ class PcapReaderTest {
             )
         val bytes = headerBytes() + recordHeaderOnly
         val reader = PcapReader(ByteArrayInputStream(bytes))
-        assertNull(reader.readOne())
+        assertThrows(EOFException::class.java) { reader.readOne() }
+    }
+
+    @Test
+    fun rejectsInvalidRecordFieldsBeforeReadingItsBody() {
+        val capturedBytes = 262_145
+        val cases =
+            listOf(
+                headerBytes() + packetRecord(1, 1_000_000, 0, 0, byteArrayOf()),
+                headerBytes(snaplen = 1) + packetRecord(1, 0, 2, 2, byteArrayOf()),
+                headerBytes() + packetRecord(1, 0, 2, 1, byteArrayOf()),
+                headerBytes(snaplen = -1) + packetRecord(1, 0, capturedBytes, capturedBytes, byteArrayOf()),
+            )
+        cases.forEach { capture ->
+            PcapReader(ByteArrayInputStream(capture)).use { reader ->
+                val failure = assertThrows(IOException::class.java) { reader.readOne() }
+                assertEquals(IOException::class.java, failure.javaClass)
+            }
+        }
+    }
+
+    @Test
+    fun interpretsUnsignedSnaplenAndOriginalLength() {
+        val capture = headerBytes(snaplen = -1) + packetRecord(1, 999_999, 1, -1, byteArrayOf(0x45))
+        PcapReader(ByteArrayInputStream(capture)).use { reader ->
+            val record = checkNotNull(reader.readOne())
+            assertEquals(4_294_967_295L, record.origLen)
+            assertEquals(1_999_999L, record.tsMicros)
+        }
     }
 
     // -- helpers --------------------------------------------------------
 
-    private fun headerBytes(linktype: Int = PcapReader.LINKTYPE_RAW): ByteArray =
+    private fun headerBytes(
+        linktype: Int = PcapReader.LINKTYPE_RAW,
+        snaplen: Int = 65_535,
+    ): ByteArray =
         byteArrayOfInts(
             // magic (LE 0xa1b2c3d4)
             0xd4,
@@ -176,12 +212,7 @@ class PcapReaderTest {
             0x00,
             0x00,
             0x00,
-            // snaplen = 65535 (0xffff)
-            0xff,
-            0xff,
-            0x00,
-            0x00,
-        ) + leU32(linktype)
+        ) + leU32(snaplen) + leU32(linktype)
 
     private class CloseTrackingInputStream(
         bytes: ByteArray,

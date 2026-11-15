@@ -13,8 +13,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.pcap.PcapCaptureRuntimeState
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -40,6 +43,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTcp16FatHeaderTo
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsViewModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.PcapCaptureViewModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.canStopCapture
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -69,16 +73,15 @@ fun DiagnosticsRoute(
     val uiState by viewModel.screenUiState.collectAsStateWithLifecycle()
     val toolsStateFlow = remember(viewModel) { viewModel.toolsRouteStateFlow() }
     val toolsState by toolsStateFlow.collectAsStateWithLifecycle(DiagnosticsToolsRouteState())
-    val pcapRecording =
-        pcapCaptureViewModel?.let { captureViewModel ->
-            captureViewModel.recording.collectAsStateWithLifecycle().value
-        } ?: toolsState.pcapRecording
+    val pcapState = pcapCaptureViewModel?.state?.collectAsStateWithLifecycle()?.value
+    val pcapRecording = pcapState?.canStopCapture() ?: toolsState.pcapRecording
     val pagerState =
         rememberPagerState(initialPage = uiState.selectedSection.ordinal) { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
     DiagnosticsRoutePagerSync(uiState.selectedSection, pagerState, viewModel)
     DiagnosticsRouteEffects(viewModel, snackbarHostState, callbacks, initialSection)
+    PcapStatusEffect(pcapState, snackbarHostState)
 
     DiagnosticsScreen(
         uiState = uiState.copy(homeDiagnostics = homeDiagnostics),
@@ -96,6 +99,42 @@ fun DiagnosticsRoute(
         topBarExtraActions = topBarExtraActions,
         modifier = modifier,
     )
+}
+
+@Composable
+private fun PcapStatusEffect(
+    state: PcapCaptureRuntimeState?,
+    snackbarHostState: SnackbarHostState,
+) {
+    val messageResource =
+        when (state) {
+            is PcapCaptureRuntimeState.Failed -> {
+                if (state.code ==
+                    "capture_disabled"
+                ) {
+                    R.string.vpn_pcap_capture_list_empty
+                } else {
+                    R.string.error_user_generic
+                }
+            }
+
+            is PcapCaptureRuntimeState.StopFailed -> {
+                R.string.error_user_generic
+            }
+
+            is PcapCaptureRuntimeState.Completed -> {
+                if (!state.receipt.limitReached) return
+                R.string.vpn_pcap_capture_limit_reached
+            }
+
+            else -> {
+                return
+            }
+        }
+    val message = stringResource(messageResource)
+    LaunchedEffect(state, message) {
+        snackbarHostState.showRipDpiSnackbar(message, RipDpiSnackbarTone.Error)
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
