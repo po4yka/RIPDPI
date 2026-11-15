@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.data.testPauseAuthority
 import com.poyka.ripdpi.data.testing.RoomProfileFixture
+import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
@@ -30,6 +31,28 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35], application = android.app.Application::class)
 class RelayProfileActivatorTest {
     private val databases = mutableListOf<RoomProfileFixture>()
+
+    @Test
+    fun `typed TUIC activates and retains stored credentials and settings`() =
+        runTest {
+            val storage = storage()
+            val profile =
+                ProxyUriCodec.parse(
+                    "tuic://11111111-2222-3333-4444-555555555555:fixture@203.0.113.7:8443/" +
+                        "?sni=tls.example&alpn=tuic%2Ch3&congestion_control=cubic#Node",
+                ) as ProxyProfile.Tuic
+            val activator = RelayProfileActivator(storage.coordinator)
+            assertTrue(activator.activate(activator.captureMutation(ProfileMutationOrigin.ExplicitActivation), profile))
+            val saved = requireNotNull(storage.relayProfiles.load(DefaultRelayProfileId))
+            val credentials = requireNotNull(storage.relayCredentials.load(DefaultRelayProfileId))
+
+            assertEquals("tuic_v5", saved.kind)
+            assertEquals("tls.example", saved.serverName)
+            assertEquals("cubic", saved.tuicCongestionControl)
+            assertEquals("tuic,h3", saved.tuicAlpn)
+            assertEquals(profile.uuid, credentials.tuicUuid)
+            assertEquals("fixture", credentials.tuicPassword)
+        }
 
     @After
     fun closeStorage() = databases.forEach { it.close() }

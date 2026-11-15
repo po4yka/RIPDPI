@@ -284,6 +284,8 @@ object FleetCompatHarness {
 
             is ProxyProfile.Trojan -> "trojan|$server|$serverPort"
 
+            is ProxyProfile.Tuic -> "tuic|$server|$serverPort"
+
             is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
 
             is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
@@ -324,6 +326,10 @@ object FleetCompatHarness {
 
             is ProxyProfile.Trojan -> {
                 mapOf("type" to "trojan", "name" to displayName, "server" to server, "port" to serverPort.toString())
+            }
+
+            is ProxyProfile.Tuic -> {
+                mapOf("type" to "tuic", "name" to displayName, "server" to server, "port" to serverPort.toString())
             }
 
             is ProxyProfile.Hysteria2 -> {

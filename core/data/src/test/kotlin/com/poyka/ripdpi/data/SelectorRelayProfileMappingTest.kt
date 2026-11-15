@@ -12,6 +12,27 @@ import org.junit.Test
 
 class SelectorRelayProfileMappingTest {
     @Test
+    fun `typed TUIC survives profile storage and maps all native options`() {
+        val imported =
+            com.poyka.ripdpi.data.uri.ProxyUriCodec.parse(
+                "tuic://11111111-2222-3333-4444-555555555555:fixture@203.0.113.7:8443/" +
+                    "?sni=tls.example&alpn=tuic%2Ch3&congestion_control=cubic#Node",
+            ) as ProxyProfile.Tuic
+        val mapped = checkNotNull(mapRelayProfile(storedProfile(imported)))
+
+        assertEquals(RelayKindTuicV5, mapped.profile.kind)
+        assertEquals("203.0.113.7", mapped.profile.server)
+        assertEquals(8443, mapped.profile.serverPort)
+        assertEquals("tls.example", mapped.profile.serverName)
+        assertEquals("cubic", mapped.profile.tuicCongestionControl)
+        assertEquals("tuic,h3", mapped.profile.tuicAlpn)
+        assertTrue(mapped.profile.udpEnabled)
+        assertFalse(mapped.profile.tuicZeroRtt)
+        assertEquals(imported.uuid, mapped.credentials.tuicUuid)
+        assertEquals("fixture", mapped.credentials.tuicPassword)
+    }
+
+    @Test
     fun `imported bounded XHTTP survives profile and relay storage`() {
         val payload = """{"outbounds":[{"type":"vless","tag":"p1","server":"relay.example",
             "server_port":443,"uuid":"55555555-5555-5555-5555-555555555555",

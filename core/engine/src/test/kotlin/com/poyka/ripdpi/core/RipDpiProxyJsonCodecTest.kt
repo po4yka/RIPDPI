@@ -33,6 +33,32 @@ private const val TestLocalProxyAuth = "alpha-123"
 
 class RipDpiProxyJsonCodecTest {
     @Test
+    fun `TUIC native JSON retains both NewReno spellings`() {
+        for (congestion in listOf("new_reno", "newreno")) {
+            val config =
+                RipDpiRelayConfig(
+                    enabled = true,
+                    kind = "tuic_v5",
+                    server = "h.example",
+                    serverName = "h.example",
+                    tuicCongestionControl = congestion,
+                )
+            val payload = RipDpiProxyJsonCodec.encodeUiPreferences(RipDpiProxyUIPreferences(relay = config))
+            val relay =
+                Json
+                    .parseToJsonElement(payload)
+                    .jsonObject
+                    .getValue("upstreamRelay")
+                    .jsonObject
+            val restored = requireNotNull(RipDpiProxyJsonCodec.decodeUiPreferences(payload))
+
+            assertEquals(congestion, relay.getValue("tuicCongestionControl").jsonPrimitive.content)
+            assertEquals(congestion, restored.relay.tuicCongestionControl)
+            assertEquals(congestion, normalizeRelayConfig(config).tuicCongestionControl)
+        }
+    }
+
+    @Test
     fun `native OOB encoding preserves byte values`() {
         for (code in listOf(0, 127, 128, 255)) {
             val preferences = RipDpiProxyUIPreferences(fakePackets = RipDpiFakePacketConfig(oobChar = code.toChar()))

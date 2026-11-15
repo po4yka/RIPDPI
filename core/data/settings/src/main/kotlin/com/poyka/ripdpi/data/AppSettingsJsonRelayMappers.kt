@@ -43,7 +43,7 @@ internal fun AppSettingsSnapshot.withRelaySnapshot(relaySection: RelaySettingsSe
                 relayMasqueUseHttp2Fallback = relaySection.relayMasqueUseHttp2Fallback,
                 relayMasqueCloudflareGeohashEnabled = relaySection.relayMasqueCloudflareGeohashEnabled,
                 relayTuicZeroRtt = relaySection.relayTuicZeroRtt,
-                relayTuicCongestionControl = normalizeRelayCongestionControl(relaySection.relayTuicCongestionControl),
+                relayTuicCongestionControl = normalizeTuicCongestionControl(relaySection.relayTuicCongestionControl),
                 relayTuicRootCertificatePem = relaySection.relayTuicRootCertificatePem,
                 relayTrojanRootCertificatePem = relaySection.relayTrojanRootCertificatePem,
                 relayMasqueRootCertificatePem = relaySection.relayMasqueRootCertificatePem,
@@ -113,7 +113,7 @@ private fun AppSettings.Builder.applyRelaySnapshot(snapshot: AppSettingsRelaySna
         .setRelayMasqueUseHttp2Fallback(snapshot.relayMasqueUseHttp2Fallback)
         .setRelayMasqueCloudflareGeohashEnabled(snapshot.relayMasqueCloudflareGeohashEnabled)
         .setRelayTuicZeroRtt(snapshot.relayTuicZeroRtt)
-        .setRelayTuicCongestionControl(normalizeRelayCongestionControl(snapshot.relayTuicCongestionControl))
+        .setRelayTuicCongestionControl(normalizeTuicCongestionControl(snapshot.relayTuicCongestionControl))
         .setRelayTuicRootCertificatePem(snapshot.relayTuicRootCertificatePem)
         .setRelayTrojanRootCertificatePem(snapshot.relayTrojanRootCertificatePem)
         .setRelayMasqueRootCertificatePem(snapshot.relayMasqueRootCertificatePem)

@@ -135,6 +135,7 @@ class Base64SubscriptionParserTest {
             is ProxyProfile.VlessReality -> profile.server
             is ProxyProfile.Shadowsocks -> profile.server
             is ProxyProfile.Trojan -> profile.server
+            is ProxyProfile.Tuic -> profile.server
             is ProxyProfile.Hysteria2 -> profile.server
             is ProxyProfile.AnyTls -> profile.server
             is ProxyProfile.Mieru -> profile.server

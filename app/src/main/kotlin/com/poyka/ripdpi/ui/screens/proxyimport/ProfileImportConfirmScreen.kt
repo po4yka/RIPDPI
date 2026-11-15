@@ -142,6 +142,10 @@ private fun profileSummary(profile: ProxyProfile): String =
             stringResource(R.string.import_profile_summary_endpoint, "Trojan", profile.server, profile.serverPort)
         }
 
+        is ProxyProfile.Tuic -> {
+            stringResource(R.string.import_profile_summary_endpoint, "TUIC", profile.server, profile.serverPort)
+        }
+
         is ProxyProfile.Hysteria2 -> {
             stringResource(
                 R.string.import_profile_summary_endpoint,

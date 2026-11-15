@@ -135,6 +135,10 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             validatePasswordRelayFields("Trojan", profile.server, profile.serverPort, profile.password)
         }
 
+        is ProxyProfile.Tuic -> {
+            validateTuicProfile(profile)
+        }
+
         else -> {
             false
         }

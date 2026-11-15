@@ -60,6 +60,8 @@ fun mapRelayProfile(
             mieruProtocol = if (profile is ProxyProfile.Mieru) profile.protocol else "tcp",
             mieruMultiplexing = if (profile is ProxyProfile.Mieru) profile.multiplexing else "middle",
             mieruMtu = if (profile is ProxyProfile.Mieru) profile.mtu else 1400,
+            tuicCongestionControl = (profile as? ProxyProfile.Tuic)?.congestionControl ?: RelayCongestionControlBbr,
+            tuicAlpn = (profile as? ProxyProfile.Tuic)?.alpn.orEmpty(),
             sshAuthType = if (profile is ProxyProfile.Ssh) profile.authType else RelaySshAuthTypePassword,
             sshHostKeyFingerprint =
                 if (profile is ProxyProfile.Ssh) profile.hostKeyFingerprint.orEmpty() else "",
@@ -73,6 +75,7 @@ fun mapRelayProfile(
 private fun relayKindFor(profile: ProxyProfile): String? =
     when (profile) {
         is ProxyProfile.Trojan -> RelayKindTrojan
+        is ProxyProfile.Tuic -> RelayKindTuicV5
         is ProxyProfile.Shadowsocks -> RelayKindShadowsocks
         is ProxyProfile.AnyTls -> RelayKindAnyTls
         is ProxyProfile.VlessReality -> RelayKindVlessReality
@@ -132,6 +135,10 @@ private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =
             RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName ?: profile.server)
         }
 
+        is ProxyProfile.Tuic -> {
+            RelayActivationEndpoint(profile.server, profile.serverPort, profile.serverName ?: profile.server)
+        }
+
         is ProxyProfile.Shadowsocks -> {
             RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
         }
@@ -176,6 +183,15 @@ private fun relayCredentials(
     when (profile) {
         is ProxyProfile.Trojan -> {
             RelayCredentialRecord(updatedAtEpochMillis = 0L, profileId = profileId, trojanPassword = profile.password)
+        }
+
+        is ProxyProfile.Tuic -> {
+            RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
+                profileId = profileId,
+                tuicUuid = profile.uuid,
+                tuicPassword = profile.password,
+            )
         }
 
         is ProxyProfile.Shadowsocks -> {

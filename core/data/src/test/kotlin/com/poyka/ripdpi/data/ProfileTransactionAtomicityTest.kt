@@ -201,29 +201,38 @@ class ProfileTransactionAtomicityTest : RoomProfileTest() {
             val member = ProxyProfile.Trojan("saved", "Saved", "saved-group", "saved.example", 443, "fixture")
             val mapped = requireNotNull(mapRelayProfile(member))
 
-            val outcome = coordinator.upsertRelay(
-                preparation,
-                mapped.profile,
-                mapped.credentials,
-                enabled = false,
-                select = false,
-                expectedState = ExpectedRelayProfileState(null, null),
-                importedGroup = ProxyGroup(
-                    id = member.groupId,
-                    name = member.displayName,
-                    type = ProxyGroupType.BASIC,
-                    order = 0,
-                    isSelector = false,
-                    members = listOf(member),
-                ),
-            )
+            val outcome =
+                coordinator.upsertRelay(
+                    preparation,
+                    mapped.profile,
+                    mapped.credentials,
+                    enabled = false,
+                    select = false,
+                    expectedState = ExpectedRelayProfileState(null, null),
+                    importedGroup =
+                        ProxyGroup(
+                            id = member.groupId,
+                            name = member.displayName,
+                            type = ProxyGroupType.BASIC,
+                            order = 0,
+                            isSelector = false,
+                            members = listOf(member),
+                        ),
+                )
 
             assertEquals(ProfileMutationOutcome.NonSuperseding, outcome)
             fixture.reopen()
             assertEquals(settings, fixture.settings.snapshot())
             assertEquals(provider, fixture.xraySelection.current())
             assertEquals(authority, fixture.pauseAuthority.snapshotAuthority())
-            assertEquals(member, fixture.groups.list().single().members.single())
+            assertEquals(
+                member,
+                fixture.groups
+                    .list()
+                    .single()
+                    .members
+                    .single(),
+            )
             assertEquals(mapped.profile, fixture.relayProfiles.load(member.id))
             assertEquals(mapped.credentials, fixture.relayCredentials.load(member.id))
         }

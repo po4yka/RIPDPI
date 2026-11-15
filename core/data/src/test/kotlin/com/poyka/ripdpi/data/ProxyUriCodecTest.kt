@@ -480,17 +480,19 @@ class ProxyUriCodecTest {
     }
 
     @Test
-    fun `parses tuic uri into a raw config profile`() {
+    fun `parses tuic uri into a typed native profile`() {
         val uri =
             "tuic://22222222-2222-2222-2222-222222222222:tuic-pass" +
                 "@tuic.example.com:443?congestion_control=bbr#tuic-node"
 
         val profile = ProxyUriCodec.parse(uri)
 
-        assertTrue(profile is ProxyProfile.RawConfig)
-        profile as ProxyProfile.RawConfig
+        assertTrue(profile is ProxyProfile.Tuic)
+        profile as ProxyProfile.Tuic
         assertEquals("tuic-node", profile.displayName)
-        assertTrue(profile.config.contains("tuic.example.com"))
+        assertEquals("tuic.example.com", profile.server)
+        assertEquals("22222222-2222-2222-2222-222222222222", profile.uuid)
+        assertEquals("tuic-pass", profile.password)
     }
 
     @Test

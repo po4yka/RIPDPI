@@ -118,6 +118,7 @@ object Base64SubscriptionParser {
             is ProxyProfile.VlessReality -> profile.copy(groupId = groupId)
             is ProxyProfile.Shadowsocks -> profile.copy(groupId = groupId)
             is ProxyProfile.Trojan -> profile.copy(groupId = groupId)
+            is ProxyProfile.Tuic -> profile.copy(groupId = groupId)
             is ProxyProfile.Hysteria2 -> profile.copy(groupId = groupId)
             is ProxyProfile.AnyTls -> profile.copy(groupId = groupId)
             is ProxyProfile.Mieru -> profile.copy(groupId = groupId)

@@ -92,4 +92,58 @@ class ProfileImportPersistenceTest {
             }
             assertTrue(storage.settings.snapshot().relayEnabled)
         }
+
+    @Test
+    fun `confirmed TUIC profile retains group and native settings after reopen`() =
+        runTest {
+            var storage =
+                RoomProfileFixture(
+                    ApplicationProvider.getApplicationContext<Context>(),
+                    testPauseAuthority(),
+                ).also {
+                    room = it
+                    it.initialize()
+                }
+            val beforeSettings = storage.settings.snapshot()
+            val uuid = "00000000-0000-4000-8000-000000000001"
+            val profile =
+                requireNotNull(
+                    ProxyUriCodec.parse(
+                        "tuic://$uuid:fixture%2Bpassword@[2001:db8::1]:8443" +
+                            "?sni=mask.example&alpn=h3&congestion_control=new_reno#TUIC%20fixture",
+                    ),
+                ) as ProxyProfile.Tuic
+            val viewModel =
+                ProfileImportConfirmViewModel(
+                    RelayProfileActivator(storage.coordinator),
+                )
+            viewModel.setProfile(profile)
+            viewModel.confirm()
+            assertNull(viewModel.uiState.first { !it.importing }.errorRes)
+            storage =
+                storage.reopen().also {
+                    room = it
+                    it.initialize()
+                }
+            val group = storage.groups.list().single()
+            val member = group.members.single() as ProxyProfile.Tuic
+            assertEquals(profile.id, member.id)
+            assertEquals(group.id, member.groupId)
+            val record = requireNotNull(storage.relayProfiles.load(profile.id))
+            val credentials = requireNotNull(storage.relayCredentials.load(profile.id))
+            assertEquals(beforeSettings, storage.settings.snapshot())
+            assertEquals("new_reno", record.tuicCongestionControl)
+            assertEquals(uuid, credentials.tuicUuid)
+            assertEquals("fixture+password", credentials.tuicPassword)
+            val share = requireNotNull(RelayProfileShareMapper.toShareable(record, credentials))
+            val reimported = ProxyUriCodec.parse(share.shareUri) as ProxyProfile.Tuic
+            assertEquals("TUIC fixture", reimported.displayName)
+            assertEquals("2001:db8::1", reimported.server)
+            assertEquals(8443, reimported.serverPort)
+            assertEquals("mask.example", reimported.serverName)
+            assertEquals("h3", reimported.alpn)
+            assertEquals("new_reno", reimported.congestionControl)
+            assertEquals(uuid, reimported.uuid)
+            assertEquals("fixture+password", reimported.password)
+        }
 }

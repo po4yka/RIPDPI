@@ -237,6 +237,13 @@ fun normalizeRelayCongestionControl(value: String?): String =
         else -> RelayCongestionControlBbr
     }
 
+/** Retain both NewReno spellings accepted by the native TUIC backend. */
+fun normalizeTuicCongestionControl(value: String?): String =
+    when (val normalized = value?.trim()?.lowercase()) {
+        RelayCongestionControlCubic, "new_reno", "newreno" -> normalized
+        else -> RelayCongestionControlBbr
+    }
+
 fun normalizeRelayCloudflareTunnelMode(value: String?): String =
     when (value?.trim()?.lowercase()) {
         RelayCloudflareTunnelModePublishLocalOrigin -> RelayCloudflareTunnelModePublishLocalOrigin
@@ -392,7 +399,7 @@ private fun AppSettings.toRelayProfileModel(
         masqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
         masqueCloudflareGeohashEnabled = relayMasqueCloudflareGeohashEnabled,
         tuicZeroRtt = relayTuicZeroRtt,
-        tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
+        tuicCongestionControl = normalizeTuicCongestionControl(relayTuicCongestionControl),
         tuicRootCertificatePem = relayTuicRootCertificatePem,
         trojanRootCertificatePem = relayTrojanRootCertificatePem,
         masqueRootCertificatePem = relayMasqueRootCertificatePem,

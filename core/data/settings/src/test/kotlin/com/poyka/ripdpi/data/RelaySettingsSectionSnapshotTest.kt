@@ -17,6 +17,16 @@ import org.junit.Test
  */
 class RelaySettingsSectionSnapshotTest {
     @Test
+    fun `TUIC snapshots retain NewReno without changing generic congestion policy`() {
+        for (congestion in listOf("new_reno", "newreno")) {
+            val settings = AppSettings.newBuilder().setRelayTuicCongestionControl(congestion).build()
+            assertEquals(congestion, settings.toRelaySettingsModel().profile.tuicCongestionControl)
+            assertEquals(congestion, settings.toSnapshot().relay.relayTuicCongestionControl)
+            assertEquals("bbr", normalizeRelayCongestionControl(congestion))
+        }
+    }
+
+    @Test
     fun `relay snapshot is derived through the relay section unchanged`() {
         val settings =
             AppSettings

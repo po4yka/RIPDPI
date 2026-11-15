@@ -34,6 +34,7 @@ class NativeRelayProfileActivator
         fun supports(profile: ProxyProfile): Boolean =
             when (profile) {
                 is ProxyProfile.Trojan,
+                is ProxyProfile.Tuic,
                 is ProxyProfile.Shadowsocks,
                 is ProxyProfile.AnyTls,
                 is ProxyProfile.VlessReality,

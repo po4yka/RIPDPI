@@ -3,7 +3,7 @@ package com.poyka.ripdpi.core.codec
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.core.localSocksCredentialsOrNull
-import com.poyka.ripdpi.data.normalizeRelayCongestionControl
+import com.poyka.ripdpi.data.normalizeTuicCongestionControl
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
@@ -136,7 +136,7 @@ internal object RelaySectionCodec {
             masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
             masqueCloudflareGeohashEnabled = value.masqueCloudflareGeohashEnabled,
             tuicZeroRtt = value.tuicZeroRtt,
-            tuicCongestionControl = normalizeRelayCongestionControl(value.tuicCongestionControl),
+            tuicCongestionControl = normalizeTuicCongestionControl(value.tuicCongestionControl),
             tuicRootCertificatePem = value.tuicRootCertificatePem,
             trojanRootCertificatePem = value.trojanRootCertificatePem,
             masqueRootCertificatePem = value.masqueRootCertificatePem,
@@ -212,7 +212,7 @@ internal object RelaySectionCodec {
             masqueUseHttp2Fallback = value.masqueUseHttp2Fallback,
             masqueCloudflareGeohashEnabled = value.masqueCloudflareGeohashEnabled,
             tuicZeroRtt = value.tuicZeroRtt,
-            tuicCongestionControl = normalizeRelayCongestionControl(value.tuicCongestionControl),
+            tuicCongestionControl = normalizeTuicCongestionControl(value.tuicCongestionControl),
             tuicRootCertificatePem = value.tuicRootCertificatePem,
             trojanRootCertificatePem = value.trojanRootCertificatePem,
             masqueRootCertificatePem = value.masqueRootCertificatePem,

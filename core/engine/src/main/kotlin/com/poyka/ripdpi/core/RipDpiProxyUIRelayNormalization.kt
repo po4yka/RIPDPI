@@ -7,10 +7,10 @@ import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
-import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayKind
 import com.poyka.ripdpi.data.normalizeRelayStringList
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
+import com.poyka.ripdpi.data.normalizeTuicCongestionControl
 import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
 
 internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
@@ -45,7 +45,7 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         chainExitProfileId = config.chainExitProfileId.trim(),
         chainMiddleProfileIds = normalizeRelayStringList(config.chainMiddleProfileIds),
         masqueUrl = config.masqueUrl.trim(),
-        tuicCongestionControl = normalizeRelayCongestionControl(config.tuicCongestionControl),
+        tuicCongestionControl = normalizeTuicCongestionControl(config.tuicCongestionControl),
         tuicRootCertificatePem = config.tuicRootCertificatePem?.trim()?.ifBlank { null },
         trojanRootCertificatePem = config.trojanRootCertificatePem?.trim()?.ifBlank { null },
         masqueRootCertificatePem = config.masqueRootCertificatePem?.trim()?.ifBlank { null },

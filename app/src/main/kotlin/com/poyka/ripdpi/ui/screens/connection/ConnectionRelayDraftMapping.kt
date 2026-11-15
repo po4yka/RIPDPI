@@ -11,9 +11,9 @@ import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelaySettingsModel
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
-import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.data.normalizeRelayXhttpMode
+import com.poyka.ripdpi.data.normalizeTuicCongestionControl
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.toImmutableList
@@ -168,7 +168,7 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConnectionDraft): AppSett
         setRelayMasqueUseHttp2Fallback(draft.relayMasqueUseHttp2Fallback)
         setRelayMasqueCloudflareGeohashEnabled(draft.relayMasqueCloudflareGeohashEnabled)
         setRelayTuicZeroRtt(false)
-        setRelayTuicCongestionControl(normalizeRelayCongestionControl(draft.relayTuicCongestionControl))
+        setRelayTuicCongestionControl(normalizeTuicCongestionControl(draft.relayTuicCongestionControl))
         setRelayTuicRootCertificatePem(draft.relayTuicRootCertificatePem.trim())
         setRelayTrojanRootCertificatePem(draft.relayTrojanRootCertificatePem.trim())
         setRelayMasqueRootCertificatePem(draft.relayMasqueRootCertificatePem.trim())

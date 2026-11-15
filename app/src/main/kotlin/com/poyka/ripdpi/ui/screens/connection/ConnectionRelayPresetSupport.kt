@@ -5,7 +5,7 @@ import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayPresetDefinition
-import com.poyka.ripdpi.data.normalizeRelayCongestionControl
+import com.poyka.ripdpi.data.normalizeTuicCongestionControl
 import com.poyka.ripdpi.services.relayTransportCapabilities
 
 internal fun ConnectionDraft.applyRelayPresetDefinition(preset: RelayPresetDefinition): ConnectionDraft =
@@ -45,7 +45,7 @@ internal fun ConnectionDraft.applyRelayPresetDefinition(preset: RelayPresetDefin
             },
         relayTuicCongestionControl =
             if (preset.relayKind == RelayKindTuicV5) {
-                normalizeRelayCongestionControl(preset.tuicCongestionControl)
+                normalizeTuicCongestionControl(preset.tuicCongestionControl)
             } else {
                 relayTuicCongestionControl
             },

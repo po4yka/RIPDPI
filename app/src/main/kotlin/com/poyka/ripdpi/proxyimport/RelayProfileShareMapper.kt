@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -50,6 +51,7 @@ object RelayProfileShareMapper {
             RelayKindVlessReality -> toVlessReality(credentials)
             RelayKindVless -> toVless(credentials)
             RelayKindTrojan -> toTrojan(credentials)
+            RelayKindTuicV5 -> toTuic(credentials)
             RelayKindHysteria2 -> toHysteria2(credentials)
             RelayKindAnyTls -> toAnyTls(credentials)
             RelayKindShadowsocks -> toShadowsocks(credentials)
@@ -230,6 +232,25 @@ object RelayProfileShareMapper {
                         ).takeIf { server.isNotBlank() && serverPort > 0 }
                 }
             }
+
+    private fun RelayProfileRecord.toTuic(credentials: RelayCredentialRecord?): ProxyProfile? {
+        if (tuicZeroRtt || tuicRootCertificatePem.isNotBlank()) return null
+        val uuid = credentials?.tuicUuid ?: return null
+        val password = credentials.tuicPassword ?: return null
+        return ProxyProfile
+            .Tuic(
+                id = UUID.randomUUID().toString(),
+                displayName = shareName(),
+                groupId = "",
+                server = server,
+                serverPort = serverPort,
+                uuid = uuid,
+                password = password,
+                serverName = serverName.ifBlank { server },
+                congestionControl = tuicCongestionControl,
+                alpn = tuicAlpn,
+            ).takeIf { validateNativeRelayProfileResult(it).getOrDefault(false) }
+    }
 
     private fun RelayProfileRecord.toSsh(credentials: RelayCredentialRecord?): ProxyProfile? {
         val username = credentials?.sshUsername?.takeIf { it.isNotBlank() } ?: return null

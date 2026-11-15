@@ -24,9 +24,9 @@ import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RelayXhttpModeStreamUp
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
-import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.normalizeTuicCongestionControl
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 
 internal fun ConnectionDraft.withRelayArtifacts(
@@ -179,7 +179,7 @@ internal fun ConnectionDraft.toRelayProfileRecord(profileId: String): RelayProfi
         masqueCloudflareGeohashEnabled = relayMasqueCloudflareGeohashEnabled,
         // Native TUIC rejects 0-RTT, so a saved profile never enables it.
         tuicZeroRtt = false,
-        tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
+        tuicCongestionControl = normalizeTuicCongestionControl(relayTuicCongestionControl),
         tuicRootCertificatePem = relayTuicRootCertificatePem.trim(),
         trojanRootCertificatePem = relayTrojanRootCertificatePem.trim(),
         masqueRootCertificatePem = relayMasqueRootCertificatePem.trim(),

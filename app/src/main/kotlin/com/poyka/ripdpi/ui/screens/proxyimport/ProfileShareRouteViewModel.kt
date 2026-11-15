@@ -81,6 +81,7 @@ internal fun profileKindLabel(profile: ProxyProfile): String =
         is ProxyProfile.VlessReality -> "VLESS + REALITY"
         is ProxyProfile.Shadowsocks -> "Shadowsocks"
         is ProxyProfile.Trojan -> "Trojan"
+        is ProxyProfile.Tuic -> "TUIC"
         is ProxyProfile.Hysteria2 -> "Hysteria2"
         is ProxyProfile.AnyTls -> "AnyTLS"
         is ProxyProfile.Mieru -> "Mieru"

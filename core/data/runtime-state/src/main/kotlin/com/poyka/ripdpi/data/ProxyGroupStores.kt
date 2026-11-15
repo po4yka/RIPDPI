@@ -291,6 +291,26 @@ sealed interface ProxyProfile {
     ) : ProxyProfile
 
     @Serializable
+    @SerialName("tuic")
+    data class Tuic(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val uuid: String,
+        val password: String,
+        val serverName: String? = null,
+        val congestionControl: String = RelayCongestionControlBbr,
+        val alpn: String = "",
+    ) : ProxyProfile {
+        override fun toString(): String =
+            "Tuic(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +
+                "serverPort=$serverPort, serverName=$serverName, uuid=<redacted>, password=<redacted>, " +
+                "congestionControl=$congestionControl, alpn=$alpn)"
+    }
+
+    @Serializable
     @SerialName("anytls")
     data class AnyTls(
         override val id: String,

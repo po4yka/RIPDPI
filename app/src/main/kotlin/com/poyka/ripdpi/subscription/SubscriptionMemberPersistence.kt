@@ -86,6 +86,7 @@ private fun ProxyProfile.endpointKey(): String =
         is ProxyProfile.VlessReality -> "vless-reality|$server|$serverPort"
         is ProxyProfile.Shadowsocks -> "ss|$server|$serverPort"
         is ProxyProfile.Trojan -> "trojan|$server|$serverPort"
+        is ProxyProfile.Tuic -> "tuic|$server|$serverPort"
         is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
         is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
         is ProxyProfile.Mieru -> "mieru|$server|$serverPort"
@@ -101,6 +102,7 @@ private fun ProxyProfile.withId(newId: String): ProxyProfile =
         is ProxyProfile.VlessReality -> copy(id = newId)
         is ProxyProfile.Shadowsocks -> copy(id = newId)
         is ProxyProfile.Trojan -> copy(id = newId)
+        is ProxyProfile.Tuic -> copy(id = newId)
         is ProxyProfile.Hysteria2 -> copy(id = newId)
         is ProxyProfile.AnyTls -> copy(id = newId)
         is ProxyProfile.Mieru -> copy(id = newId)

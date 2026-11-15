@@ -64,7 +64,7 @@ object ProxyUriCodec {
                 "hysteria2", "hy2" -> parseHysteria2(normalized)
                 "anytls" -> parseAnyTls(normalized)
                 "ssh" -> parseSsh(normalized)
-                "tuic" -> parseTuic(normalized)
+                "tuic" -> TuicUriCodec.parse(normalized)
                 else -> null
             }
         }.getOrNull()
@@ -95,6 +95,10 @@ object ProxyUriCodec {
 
                 is ProxyProfile.Trojan -> {
                     encodeTrojan(profile)
+                }
+
+                is ProxyProfile.Tuic -> {
+                    TuicUriCodec.encode(profile)
                 }
 
                 is ProxyProfile.Hysteria2 -> {
@@ -578,22 +582,6 @@ object ProxyUriCodec {
             serverName = queryValue(parsed.rawQuery, "sni") ?: queryValue(parsed.rawQuery, "serverName") ?: host,
             password = password,
             pinSha256 = pinSha256,
-        )
-    }
-
-    @Suppress("ReturnCount")
-    private fun parseTuic(uri: String): ProxyProfile? {
-        // TUIC has no first-class ProxyProfile subtype; round-trip as RawConfig
-        // while still validating it is a structurally usable node URI.
-        val parsed = URI(uri)
-        val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
-        val port = parsed.port.takeIf { it > 0 } ?: return null
-        if (parsed.userInfo.isNullOrBlank()) return null
-        return ProxyProfile.RawConfig(
-            id = newId(),
-            displayName = displayName(parsed.fragment, host),
-            groupId = "",
-            config = uri,
         )
     }
 
