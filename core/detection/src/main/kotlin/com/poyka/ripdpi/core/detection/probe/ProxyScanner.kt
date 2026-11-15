@@ -4,17 +4,17 @@ package com.poyka.ripdpi.core.detection.probe
 
 import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
-import kotlin.math.max
 
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProxyScanner(
     private val dispatchers: AppCoroutineDispatchers,
     private val loopbackHosts: List<String> = listOf("127.0.0.1", "::1"),
@@ -26,28 +26,29 @@ class ProxyScanner(
     private val fullRangeEnabled: Boolean = true,
     private val connectTimeoutMs: Int = 15,
     private val readTimeoutMs: Int = 30,
-    private val maxConcurrency: Int = 512,
+    private val maxConcurrency: Int = 64,
     private val progressUpdateEvery: Int = 256,
     private val excludePorts: Set<Int> = KnownLocalServices.excludedPorts,
+    private val scanDeadlineMs: Long = LocalScanDeadlineMs,
 ) {
-    suspend fun findOpenProxyEndpoint(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? {
-        val foundOnPopular = scanPopularPorts(onProgress)
-        if (foundOnPopular != null || !fullRangeEnabled) return foundOnPopular
-        return scanFullRange(onProgress)
+    init {
+        require(maxConcurrency > 0)
     }
+
+    suspend fun findOpenProxyEndpoint(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? =
+        withTimeoutOrNull(scanDeadlineMs) {
+            withContext(dispatchers.io) {
+                val foundOnPopular = scanPopularPorts(onProgress)
+                if (foundOnPopular != null || !fullRangeEnabled) return@withContext foundOnPopular
+                scanFullRange(onProgress)
+            }
+        }
 
     private suspend fun scanPopularPorts(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? {
         val eligible = popularPorts.filter { it in scanRange && it !in excludePorts }
         for ((index, port) in eligible.withIndex()) {
             coroutineContext.ensureActive()
-            onProgress(
-                ScanProgress(
-                    phase = ScanPhase.POPULAR_PORTS,
-                    scanned = index + 1,
-                    total = eligible.size,
-                    currentPort = port,
-                ),
-            )
+            onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, index + 1, eligible.size, port))
             val found = tryPort(port)
             if (found != null) return found
         }
@@ -56,75 +57,58 @@ class ProxyScanner(
 
     @Suppress("NestedBlockDepth")
     private suspend fun scanFullRange(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? =
-        withContext(dispatchers.io) {
-            coroutineScope {
-                val popularSet = popularPorts.toHashSet()
-                val skipSet = popularSet + excludePorts
-                val firstPort = scanRange.firstOrNull { it !in skipSet } ?: return@coroutineScope null
-                val total = scanRange.count { it !in skipSet }
-                val scanned = AtomicInteger(0)
-                val found = AtomicReference<ProxyEndpoint?>(null)
+        coroutineScope {
+            val skipSet = popularPorts.toHashSet() + excludePorts
+            val ports = scanRange.filterNot(skipSet::contains)
+            if (ports.isEmpty()) return@coroutineScope null
+            val scanned = AtomicInteger(0)
+            val found = CompletableDeferred<ProxyEndpoint>()
 
-                val dispatcher = dispatchers.io.limitedParallelism(max(1, maxConcurrency))
-
-                onProgress(
-                    ScanProgress(
-                        phase = ScanPhase.FULL_RANGE,
-                        scanned = 0,
-                        total = total,
-                        currentPort = firstPort,
-                    ),
-                )
-
-                val jobs =
-                    (0 until maxConcurrency).map { workerIndex ->
-                        launch(dispatcher) {
-                            var port = scanRange.first + workerIndex
-                            while (port <= scanRange.last) {
+            onProgress(ScanProgress(ScanPhase.FULL_RANGE, 0, ports.size, ports.first()))
+            val workerCount = minOf(maxConcurrency, ports.size)
+            val workers =
+                launch {
+                    repeat(workerCount) { workerIndex ->
+                        launch worker@{
+                            for (index in workerIndex until ports.size step workerCount) {
                                 coroutineContext.ensureActive()
-                                if (found.get() != null) return@launch
-                                if (port !in skipSet) {
-                                    val count = scanned.incrementAndGet()
-                                    if (count % progressUpdateEvery == 0) {
-                                        onProgress(
-                                            ScanProgress(
-                                                phase = ScanPhase.FULL_RANGE,
-                                                scanned = count,
-                                                total = total,
-                                                currentPort = port,
-                                            ),
-                                        )
-                                    }
-
-                                    val candidate = tryPort(port)
-                                    if (candidate != null) {
-                                        found.compareAndSet(null, candidate)
-                                        return@launch
-                                    }
+                                if (found.isCompleted) return@worker
+                                val port = ports[index]
+                                val count = scanned.incrementAndGet()
+                                if (count % progressUpdateEvery == 0) {
+                                    onProgress(ScanProgress(ScanPhase.FULL_RANGE, count, ports.size, port))
                                 }
-                                port += maxConcurrency
+                                val candidate = tryPort(port)
+                                if (candidate != null) {
+                                    found.complete(candidate)
+                                    return@worker
+                                }
                             }
                         }
                     }
-                jobs.joinAll()
+                }
 
-                found.get()
+            select<ProxyEndpoint?> {
+                found.onAwait { it }
+                workers.onJoin { null }
+            }.also {
+                workers.cancelAndJoin()
             }
         }
 
-    private suspend fun tryPort(port: Int): ProxyEndpoint? =
-        withContext(dispatchers.io) {
-            for (host in loopbackHosts) {
-                val type =
-                    ProxyProber.probeNoAuthProxyType(
-                        host = host,
-                        port = port,
-                        connectTimeoutMs = connectTimeoutMs,
-                        readTimeoutMs = readTimeoutMs,
-                    ) ?: continue
+    private suspend fun tryPort(port: Int): ProxyEndpoint? {
+        for (host in loopbackHosts) {
+            coroutineContext.ensureActive()
+            val type =
+                ProxyProber.probeNoAuthProxyType(
+                    host = host,
+                    port = port,
+                    connectTimeoutMs = connectTimeoutMs,
+                    readTimeoutMs = readTimeoutMs,
+                ) ?: continue
 
-                return@withContext ProxyEndpoint(host, port, type)
-            }
-            null
+            return ProxyEndpoint(host, port, type)
         }
+        return null
+    }
 }

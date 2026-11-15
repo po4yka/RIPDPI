@@ -11,6 +11,7 @@ import com.xray.common.serial.TypedMessage
 import com.xray.transport.internet.StreamConfig
 import io.grpc.okhttp.OkHttpChannelBuilder
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
@@ -32,15 +33,21 @@ class XrayApiClient(
                 OkHttpChannelBuilder
                     .forAddress(host, port)
                     .usePlaintext()
+                    .disableRetry()
                     .build()
 
             try {
                 val stub =
                     HandlerServiceGrpc
-                        .newBlockingStub(channel)
+                        .newFutureStub(channel)
                         .withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
 
-                val response = stub.listOutbounds(ListOutboundsRequest.getDefaultInstance())
+                val response =
+                    suspendCancellableCoroutine { continuation ->
+                        val call = stub.listOutbounds(ListOutboundsRequest.getDefaultInstance())
+                        continuation.invokeOnCancellation { call.cancel(false) }
+                        call.addListener({ continuation.resumeWith(runCatching(call::get)) }, Runnable::run)
+                    }
                 val outbounds =
                     response.outboundsList
                         .filterNot { outbound ->
@@ -87,7 +94,6 @@ class XrayApiClient(
                 Result.failure(e)
             } finally {
                 channel.shutdownNow()
-                channel.awaitTermination(100, TimeUnit.MILLISECONDS)
             }
         }
 

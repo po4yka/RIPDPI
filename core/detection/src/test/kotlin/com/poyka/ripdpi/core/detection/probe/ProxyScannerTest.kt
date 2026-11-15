@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core.detection.probe
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -39,6 +40,28 @@ class ProxyScannerTest {
                 popular.soTimeout = 100
                 assertThrows(SocketTimeoutException::class.java) { popular.accept().close() }
             }
+        }
+    }
+
+    @Test(timeout = 5_000)
+    fun scanBudgetCancelsBeforeADeferredPortAttempt() {
+        ServerSocket(0, 1, loopback).use { listener ->
+            val result =
+                runBlocking {
+                    ProxyScanner(
+                        dispatchers = dispatchers,
+                        loopbackHosts = listOf(loopback.hostAddress),
+                        popularPorts = emptyList(),
+                        scanRange = listener.localPort..listener.localPort,
+                        scanDeadlineMs = 100,
+                    ).findOpenProxyEndpoint {
+                        delay(1_000)
+                    }
+                }
+
+            assertNull(result)
+            listener.soTimeout = 100
+            assertThrows(SocketTimeoutException::class.java) { listener.accept().close() }
         }
     }
 }

@@ -177,21 +177,30 @@ class DetectionRunCoordinatorTest {
         val effects = mutableListOf<DetectionCheckEffect>()
         val flow = MutableStateFlow(DetectionCheckUiState())
         val gate = CompletableDeferred<Unit>()
+        val probe = FakeProbeRunner(gate = gate, nonCancellable = true)
         var saves = 0
         val coordinator =
             coordinator(
                 flow,
-                FakeProbeRunner(gate = gate, nonCancellable = true),
+                probe,
                 onSaveHistory = { _, _ -> saves += 1 },
                 onTerminalResult = { effects += it },
             )
         coordinator.startCheck()
         coordinator.stopCheck()
+        coordinator.startCheck()
+        assertTrue(flow.value.isRunning)
+        assertEquals(1, probe.runCount)
+
         gate.complete(Unit)
         assertFalse(flow.value.isRunning)
         assertNull(flow.value.result)
         assertTrue(effects.isEmpty())
         assertEquals(0, saves)
+
+        coordinator.startCheck()
+        assertEquals(2, probe.runCount)
+        assertEquals(1, saves)
     }
 
     @Test

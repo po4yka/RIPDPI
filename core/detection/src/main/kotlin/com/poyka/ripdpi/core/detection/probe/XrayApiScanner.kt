@@ -3,17 +3,19 @@
 package com.poyka.ripdpi.core.detection.probe
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import io.grpc.Status
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
-import kotlin.coroutines.coroutineContext
-import kotlin.math.max
+import kotlin.coroutines.resume
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class XrayApiScanner(
@@ -25,11 +27,12 @@ class XrayApiScanner(
     private val grpcDeadlineMs: Long = 2000,
     private val maxConcurrency: Int = 100,
     private val progressUpdateEvery: Int = 512,
+    private val scanDeadlineMs: Long = 30_000,
 ) {
     private val clients = loopbackHosts.associateWith { XrayApiClient(host = it, dispatchers = dispatchers) }
 
     suspend fun findXrayApi(onProgress: suspend (XrayScanProgress) -> Unit): XrayApiScanResult? =
-        withContext(dispatchers.io) {
+        withTimeoutOrNull(scanDeadlineMs) {
             val portsTotal = scanPorts?.size ?: (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
             val total = portsTotal * loopbackHosts.size
 
@@ -42,7 +45,7 @@ class XrayApiScanner(
                         total = total,
                         onProgress = onProgress,
                     )
-                if (result != null) return@withContext result
+                if (result != null) return@withTimeoutOrNull result
                 scannedOffset += portsTotal
             }
 
@@ -61,9 +64,10 @@ class XrayApiScanner(
             if (portsTotal <= 0) return@coroutineScope null
 
             val scanned = AtomicInteger(0)
-            val found = AtomicReference<XrayApiScanResult?>(null)
-
-            val dispatcher = dispatchers.io.limitedParallelism(max(1, maxConcurrency))
+            val result = CompletableDeferred<XrayApiScanResult?>()
+            val workerCount = maxConcurrency.coerceIn(1, portsTotal)
+            val running = AtomicInteger(workerCount)
+            val dispatcher = dispatchers.io.limitedParallelism(workerCount)
 
             onProgress(
                 XrayScanProgress(
@@ -75,39 +79,39 @@ class XrayApiScanner(
             )
 
             val jobs =
-                (0 until maxConcurrency).map { workerIndex ->
+                List(workerCount) { workerIndex ->
                     launch(dispatcher) {
-                        var portIndex = workerIndex
-                        while (portIndex < portsTotal) {
-                            val port = scanPorts?.get(portIndex) ?: scanRange.first + portIndex
-                            coroutineContext.ensureActive()
-                            if (found.get() != null) return@launch
-
-                            val count = scanned.incrementAndGet()
-                            if (count % progressUpdateEvery == 0) {
-                                onProgress(
-                                    XrayScanProgress(
-                                        host = host,
-                                        scanned = scannedOffset + count,
-                                        total = total,
-                                        currentPort = port,
-                                    ),
-                                )
-                            }
-
-                            if (isTcpPortOpen(host, port)) {
-                                val result = tryListOutbounds(host, port)
-                                if (result != null) {
-                                    found.compareAndSet(null, result)
-                                    return@launch
+                        try {
+                            var portIndex = workerIndex
+                            while (portIndex < portsTotal) {
+                                ensureActive()
+                                val port = scanPorts?.get(portIndex) ?: scanRange.first + portIndex
+                                val count = scanned.incrementAndGet()
+                                if (count % progressUpdateEvery == 0) {
+                                    onProgress(XrayScanProgress(host, scannedOffset + count, total, port))
                                 }
-                            }
 
-                            portIndex += maxConcurrency
+                                if (isTcpPortOpen(host, port)) {
+                                    val match = tryListOutbounds(host, port)
+                                    if (match != null) {
+                                        result.complete(match)
+                                        return@launch
+                                    }
+                                }
+                                portIndex += workerCount
+                            }
+                        } finally {
+                            if (running.decrementAndGet() == 0) result.complete(null)
                         }
                     }
                 }
 
+            val match =
+                try {
+                    result.await()
+                } finally {
+                    jobs.forEach { it.cancel() }
+                }
             jobs.joinAll()
 
             onProgress(
@@ -119,7 +123,7 @@ class XrayApiScanner(
                 ),
             )
 
-            found.get()
+            match
         }
 
     private suspend fun tryListOutbounds(
@@ -127,22 +131,33 @@ class XrayApiScanner(
         port: Int,
     ): XrayApiScanResult? {
         val client = clients.getValue(host)
-        client.listOutbounds(port, deadlineMs = grpcDeadlineMs).getOrNull()?.let { return it }
-        val retryDeadline = (grpcDeadlineMs * 3).coerceAtLeast(2000)
-        return client.listOutbounds(port, deadlineMs = retryDeadline).getOrNull()
+        val attempt = client.listOutbounds(port, deadlineMs = grpcDeadlineMs)
+        val error = attempt.exceptionOrNull() ?: return attempt.getOrThrow()
+        if (Status.fromThrowable(error).code != Status.Code.UNAVAILABLE) return null
+        return client.listOutbounds(port, deadlineMs = grpcDeadlineMs).getOrNull()
     }
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun isTcpPortOpen(
+    private suspend fun isTcpPortOpen(
         host: String,
         port: Int,
     ): Boolean =
-        try {
-            Socket().use { socket ->
-                socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+        Socket().use { socket ->
+            suspendCancellableCoroutine { continuation ->
+                continuation.invokeOnCancellation { runCatching { socket.close() } }
+                if (continuation.isActive) {
+                    val opened =
+                        try {
+                            socket.connect(InetSocketAddress(host, port), connectTimeoutMs)
+                            true
+                        } catch (_: IOException) {
+                            false
+                        } catch (_: IllegalArgumentException) {
+                            false
+                        } catch (_: SecurityException) {
+                            false
+                        }
+                    continuation.resume(opened)
+                }
             }
-            true
-        } catch (_: Exception) {
-            false
         }
 }

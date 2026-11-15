@@ -43,36 +43,35 @@ internal class DetectionRunCoordinator(
     private var runJob: Job? = null
 
     fun startCheck() {
-        if (reducer.value.isRunning || runJob?.isActive == true) return
+        if (reducer.value.isRunning || runJob?.isCompleted == false) return
         runJob =
             scope.launch {
                 reducer.mutate { it.resetForCheckRun() }
-                val outcome = runCatching { runOnce() }
-
-                outcome.onSuccess { result ->
-                    deliverFeedback(DetectionCheckEffect.CheckCompleted(result.verdict))
-                }
-                outcome.onFailure { error ->
-                    if (error is CancellationException) {
-                        throw error
+                try {
+                    val outcome = runCatching { runOnce() }
+                    outcome.onSuccess { result ->
+                        deliverFeedback(DetectionCheckEffect.CheckCompleted(result.verdict))
                     }
-                    currentCoroutineContext().ensureActive()
-                    reducer.mutate {
-                        it.copy(
-                            isRunning = false,
-                            progress = null,
-                            error = stringResolver.userMessage(error),
-                        )
+                    outcome.onFailure { error ->
+                        if (error is CancellationException) throw error
+                        currentCoroutineContext().ensureActive()
+                        reducer.mutate {
+                            it.copy(
+                                isRunning = false,
+                                progress = null,
+                                error = stringResolver.userMessage(error),
+                            )
+                        }
+                        deliverFeedback(DetectionCheckEffect.CheckFailed)
                     }
-                    deliverFeedback(DetectionCheckEffect.CheckFailed)
+                } finally {
+                    reducer.mutate { it.copy(isRunning = false, progress = null) }
                 }
             }
     }
 
     fun stopCheck() {
         runJob?.cancel()
-        runJob = null
-        reducer.mutate { it.copy(isRunning = false, progress = null) }
     }
 
     private suspend fun runOnce(): DetectionCheckResult {
