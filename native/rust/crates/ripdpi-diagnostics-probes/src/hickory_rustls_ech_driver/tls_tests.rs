@@ -197,3 +197,74 @@ fn untrusted_certificate_cannot_authorize_retry() {
         matches!(outcome, EchHandshakeOutcome::HandshakeFailure { detail } if detail.starts_with("tls-handshake-error:"))
     );
 }
+
+fn silent_peer() -> (std::net::SocketAddr, std::thread::JoinHandle<usize>) {
+    use std::io::Read;
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+    let peer = std::thread::spawn(move || {
+        let mut socket = accept(&listener);
+        let mut buffer = [0u8; 8192];
+        let mut received = 0;
+        loop {
+            match socket.read(&mut buffer) {
+                Ok(0) => return received,
+                Ok(count) => received += count,
+                Err(error) => panic!("client did not close its TLS stream: {error}"),
+            }
+        }
+    });
+    (address, peer)
+}
+
+#[test]
+fn silent_tls_peer_is_inconclusive_and_closed_at_deadline() {
+    let (address, peer) = silent_peer();
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    let outcome = runtime.block_on(HickoryRustlsEchHandshakeDriver::new().handshake_with_ech(
+        "localhost",
+        address.port(),
+        BORING_ECH_CONFIG_LIST,
+        Duration::from_millis(200),
+    ));
+    assert!(peer.join().unwrap() > 0, "the server must receive the encrypted ClientHello");
+    assert_eq!(
+        EchHandshakeProbe::new("localhost", outcome, None).run(&ProbeContext::empty()).verdict,
+        ProbeVerdict::Inconclusive { reason: "tls-handshake-timeout".into() },
+    );
+}
+#[test]
+fn dropping_tls_future_closes_its_stream() {
+    let (address, peer) = silent_peer();
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    runtime.block_on(async {
+        let driver = HickoryRustlsEchHandshakeDriver::new();
+        let outcome = tokio::time::timeout(
+            Duration::from_millis(200),
+            driver.handshake_with_ech("localhost", address.port(), BORING_ECH_CONFIG_LIST, Duration::from_secs(3)),
+        )
+        .await;
+        assert!(outcome.is_err());
+    });
+    assert!(peer.join().unwrap() > 0);
+}
+
+#[test]
+fn untyped_transport_errors_are_inconclusive() {
+    for kind in [std::io::ErrorKind::TimedOut, std::io::ErrorKind::UnexpectedEof, std::io::ErrorKind::ConnectionReset] {
+        let outcome = classify_handshake_error(std::io::Error::from(kind));
+        assert!(matches!(outcome, EchHandshakeOutcome::HandshakeInconclusive { .. }));
+    }
+}
+
+#[test]
+fn typed_tls_and_certificate_errors_remain_failures() {
+    for error in [
+        rustls::Error::AlertReceived(rustls::AlertDescription::HandshakeFailure),
+        rustls::Error::InvalidCertificate(rustls::CertificateError::BadSignature),
+    ] {
+        let outcome = classify_handshake_error(std::io::Error::new(std::io::ErrorKind::InvalidData, error));
+        assert!(matches!(outcome, EchHandshakeOutcome::HandshakeFailure { .. }));
+    }
+}

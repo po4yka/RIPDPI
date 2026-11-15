@@ -141,14 +141,14 @@ async fn handshake_with_config(
         let tcp = match tokio::time::timeout_at(deadline, connect).await {
             Ok(Ok(tcp)) => tcp,
             Ok(Err(error)) => {
-                return EchHandshakeOutcome::HandshakeFailure { detail: format!("tcp-connect-error: {error}") };
+                return EchHandshakeOutcome::HandshakeInconclusive { detail: format!("tcp-connect-error: {error}") };
             }
-            Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tcp-connect-timeout".into() },
+            Err(_) => return EchHandshakeOutcome::HandshakeInconclusive { detail: "tcp-connect-timeout".into() },
         };
         peer = tcp.peer_addr().ok();
         let connector = TlsConnector::from(config);
         match tokio::time::timeout_at(deadline, connector.connect(server_name, tcp)).await {
-            Err(_) => return EchHandshakeOutcome::HandshakeFailure { detail: "tls-handshake-timeout".into() },
+            Err(_) => return EchHandshakeOutcome::HandshakeInconclusive { detail: "tls-handshake-timeout".into() },
             Ok(Err(error)) => {
                 let retry = error
                     .get_ref()
@@ -191,7 +191,12 @@ fn classify_handshake_error(error: std::io::Error) -> EchHandshakeOutcome {
             EchHandshakeOutcome::EchRejectedWithoutUsableRetryConfig
         };
     }
-    EchHandshakeOutcome::HandshakeFailure { detail: format!("tls-handshake-error: {error}") }
+    let detail = format!("tls-handshake-error: {error}");
+    if error.get_ref().and_then(|error| error.downcast_ref::<rustls::Error>()).is_some() {
+        EchHandshakeOutcome::HandshakeFailure { detail }
+    } else {
+        EchHandshakeOutcome::HandshakeInconclusive { detail }
+    }
 }
 
 fn ech_client_config(configs: Vec<u8>) -> Result<Arc<rustls::ClientConfig>, String> {

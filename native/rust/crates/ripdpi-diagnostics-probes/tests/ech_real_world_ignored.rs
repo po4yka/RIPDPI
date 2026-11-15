@@ -93,6 +93,9 @@ fn real_world_cloudflare_runner_attempt_produces_documented_outcome() {
             // TLS-layer failure unrelated to ECH config retrieval — documented outcome.
             eprintln!("real-world handshake failure (documented): {detail}");
         }
+        EchHandshakeOutcome::HandshakeInconclusive { detail } => {
+            eprintln!("real-world handshake inconclusive: {detail}");
+        }
         EchHandshakeOutcome::SetupError { detail } => {
             let detail_lower = detail.to_lowercase();
             let is_documented = documented_setup_error_fragments.iter().any(|fragment| detail_lower.contains(fragment));

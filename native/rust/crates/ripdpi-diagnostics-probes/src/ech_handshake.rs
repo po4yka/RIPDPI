@@ -51,11 +51,17 @@ pub enum EchHandshakeOutcome {
     /// No HTTPS resource record was found for the target host, or the record
     /// contained no `ech=` parameter — ECH cannot be attempted.
     NoEchConfig,
-    /// TLS handshake failed for a reason unrelated to ECH (timeout, TCP RST,
-    /// certificate mismatch, etc.).
+    /// The handshake returned a definite failure unrelated to ECH, such as a
+    /// TLS alert or certificate mismatch.
     HandshakeFailure {
         /// Short description of the failure, sanitized before embedding in the
         /// `ProbeVerdict` class string.
+        detail: String,
+    },
+    /// The TCP or TLS operation ended without authenticated TLS evidence.
+    /// A timeout or transient transport error does not establish ECH rejection.
+    HandshakeInconclusive {
+        /// Short description of the uncertainty, not a stable failure class.
         detail: String,
     },
     /// The probe could not run at all (resolver unavailable, internal error,
@@ -125,7 +131,9 @@ impl Probe for EchHandshakeProbe {
                 ProbeVerdict::Fail { class: format!("ech-handshake-failure::{sanitized}") }
             }
 
-            EchHandshakeOutcome::SetupError { detail } => ProbeVerdict::Inconclusive { reason: detail.clone() },
+            EchHandshakeOutcome::HandshakeInconclusive { detail } | EchHandshakeOutcome::SetupError { detail } => {
+                ProbeVerdict::Inconclusive { reason: detail.clone() }
+            }
         };
 
         ProbeOutcome { probe_id: self.id(), family: self.family(), verdict }
