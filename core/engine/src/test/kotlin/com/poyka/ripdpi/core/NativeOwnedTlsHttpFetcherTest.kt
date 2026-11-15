@@ -148,9 +148,18 @@ class NativeOwnedTlsHttpFetcherTest {
         }
 
     private class FakeNativeOwnedTlsHttpFetcherBindings(
-        private val payload: String?,
+        private val payload: String,
     ) : NativeOwnedTlsHttpFetcherBindings {
-        override fun execute(requestJson: String): String? = payload
+        override fun createRequest(): Long = 1L
+
+        override fun execute(
+            requestHandle: Long,
+            requestJson: String,
+        ): String = payload
+
+        override fun cancelRequest(requestHandle: Long) = Unit
+
+        override fun releaseRequest(requestHandle: Long) = Unit
     }
 
     @Serializable

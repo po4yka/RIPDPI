@@ -5,7 +5,9 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -15,6 +17,8 @@ import java.io.IOException
 import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 data class NativeOwnedTlsHttpResult(
     val statusCode: Int,
@@ -56,15 +60,46 @@ interface NativeOwnedTlsHttpFetcher {
 }
 
 interface NativeOwnedTlsHttpFetcherBindings {
-    fun execute(requestJson: String): String?
+    fun createRequest(): Long
+
+    fun execute(
+        requestHandle: Long,
+        requestJson: String,
+    ): String
+
+    fun cancelRequest(requestHandle: Long)
+
+    fun releaseRequest(requestHandle: Long)
 }
 
 class NativeOwnedTlsHttpFetcherNativeBindings
     @Inject
     constructor() : NativeOwnedTlsHttpFetcherBindings {
-        override fun execute(requestJson: String): String? {
+        override fun createRequest(): Long {
+            val payload =
+                dispatch(NativeOwnedTlsHttpCommand(operation = "create"))
+                    ?: throw IOException("native TLS fetch bridge returned no request handle")
+            return RipDpiJson.decodeFromString(NativeOwnedTlsHttpReservation.serializer(), payload).requestHandle
+        }
+
+        override fun execute(
+            requestHandle: Long,
+            requestJson: String,
+        ): String =
+            dispatch(NativeOwnedTlsHttpCommand("execute", requestHandle, requestJson))
+                ?: throw IOException("native TLS fetch bridge returned no response")
+
+        override fun cancelRequest(requestHandle: Long) {
+            dispatch(NativeOwnedTlsHttpCommand("cancel", requestHandle))
+        }
+
+        override fun releaseRequest(requestHandle: Long) {
+            dispatch(NativeOwnedTlsHttpCommand("release", requestHandle))
+        }
+
+        private fun dispatch(command: NativeOwnedTlsHttpCommand): String? {
             RipDpiNativeLoader.ensureLoaded()
-            return jniExecute(requestJson)
+            return jniExecute(RipDpiJson.encodeToString(command))
         }
 
         private external fun jniExecute(requestJson: String): String?
@@ -80,15 +115,14 @@ class DefaultNativeOwnedTlsHttpFetcher
 
         override suspend fun execute(request: NativeOwnedTlsHttpRequest): NativeOwnedTlsHttpResult =
             withContext(Dispatchers.IO) {
-                val payload =
-                    bindings.execute(json.encodeToString(request.toNative()))
-                        ?: throw IOException("native TLS fetch bridge returned no response")
+                val payload = exchange(json.encodeToString(request.toNative()))
                 val response =
                     try {
                         json.decodeFromString(NativeOwnedTlsHttpResponse.serializer(), payload)
                     } catch (error: SerializationException) {
                         throw IOException("native TLS fetch bridge returned malformed response", error)
                     }
+                if (response.cancelled) throw CancellationException("native TLS fetch cancelled")
                 response.error?.takeIf(String::isNotBlank)?.let { message ->
                     throw IOException(message)
                 }
@@ -125,7 +159,40 @@ class DefaultNativeOwnedTlsHttpFetcher
                     clientHelloInvariantStatus = response.clientHelloInvariantStatus,
                 )
             }
+
+        private suspend fun exchange(requestJson: String): String {
+            val handle =
+                bindings.createRequest().takeUnless { it == 0L }
+                    ?: throw IOException("native TLS fetch request limit reached")
+            try {
+                return suspendCancellableCoroutine { continuation ->
+                    continuation.invokeOnCancellation { bindings.cancelRequest(handle) }
+                    if (continuation.isActive) {
+                        runCatching {
+                            continuation.resume(bindings.execute(handle, requestJson))
+                        }.exceptionOrNull()?.let { error ->
+                            if (error !is Exception) throw error
+                            continuation.resumeWithException(error)
+                        }
+                    }
+                }
+            } finally {
+                bindings.releaseRequest(handle)
+            }
+        }
     }
+
+@Serializable
+private data class NativeOwnedTlsHttpCommand(
+    val operation: String,
+    val requestHandle: Long? = null,
+    val requestJson: String? = null,
+)
+
+@Serializable
+private data class NativeOwnedTlsHttpReservation(
+    val requestHandle: Long,
+)
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -202,6 +269,7 @@ private data class NativeOwnedTlsHttpResponse(
     val clientHelloSizeHint: Int? = null,
     @SerialName("clientHelloInvariantStatus")
     val clientHelloInvariantStatus: String? = null,
+    val cancelled: Boolean = false,
     val error: String? = null,
 )
 

@@ -26,7 +26,7 @@ pub(crate) struct NativeOwnedTlsHttpRequest {
     pub(crate) max_redirects: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Serialize)]
 pub(crate) struct NativeOwnedTlsHttpResponse {
     #[serde(rename = "statusCode")]
     pub(crate) status_code: Option<u16>,
@@ -70,34 +70,16 @@ pub(crate) struct NativeOwnedTlsHttpResponse {
     pub(crate) client_hello_size_hint: Option<usize>,
     #[serde(rename = "clientHelloInvariantStatus")]
     pub(crate) client_hello_invariant_status: Option<String>,
+    pub(crate) cancelled: bool,
     pub(crate) error: Option<String>,
 }
 
 impl NativeOwnedTlsHttpResponse {
     pub(crate) fn error(error: io::Error) -> Self {
         Self {
-            status_code: None,
-            body_base64: None,
-            final_url: None,
-            tls_profile_id: None,
-            tls_profile_catalog_version: None,
-            tls_ja3_parity_target: None,
-            tls_ja4_parity_target: None,
-            tls_browser_family: None,
-            tls_browser_track: None,
-            tls_template_alpn: None,
-            tls_template_extension_order_family: None,
-            tls_template_grease_style: None,
-            tls_template_supported_groups_profile: None,
-            tls_template_key_share_profile: None,
-            tls_template_record_choreography: None,
-            tls_template_ech_capable: None,
-            tls_template_ech_bootstrap_policy: None,
-            tls_template_ech_bootstrap_resolver_id: None,
-            tls_template_ech_outer_extension_policy: None,
-            client_hello_size_hint: None,
-            client_hello_invariant_status: None,
+            cancelled: error.kind() == io::ErrorKind::Interrupted,
             error: Some(error.to_string()),
+            ..Self::default()
         }
     }
 }
