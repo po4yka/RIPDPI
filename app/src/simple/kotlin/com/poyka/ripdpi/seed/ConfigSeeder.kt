@@ -74,6 +74,7 @@ internal fun seedRelayProfileStableName(profile: ProxyProfile): String =
         is ProxyProfile.VlessReality -> "VlessReality"
         is ProxyProfile.Shadowsocks -> "Shadowsocks"
         is ProxyProfile.Trojan -> "Trojan"
+        is ProxyProfile.Tuic -> "Tuic"
         is ProxyProfile.Hysteria2 -> "Hysteria2"
         is ProxyProfile.AnyTls -> "AnyTls"
         is ProxyProfile.Mieru -> "Mieru"
