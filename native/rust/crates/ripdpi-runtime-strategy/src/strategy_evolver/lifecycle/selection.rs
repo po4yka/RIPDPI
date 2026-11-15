@@ -3,9 +3,9 @@ use ripdpi_desync::AdaptivePlannerHints;
 use crate::strategy_evolver::{StrategyCombo, StrategyEvolver};
 
 impl StrategyEvolver {
-    /// Returns the currently pending experiment hints without mutating state.
+    /// Returns unexpired pending experiment hints without mutating state.
     pub fn peek_hints(&self) -> Option<AdaptivePlannerHints> {
-        if !self.enabled {
+        if !self.enabled || super::experiment::expired_experiment_age_ms(self, self.monotonic_now_ms()).is_some() {
             return None;
         }
         self.current_experiment.as_ref().map(StrategyCombo::to_hints)

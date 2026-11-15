@@ -1177,13 +1177,17 @@ fn experiment_ttl_drops_stale_pending_experiment_without_recording() {
     let pending_before = evolver.current_experiment.clone();
     assert!(pending_before.is_some());
 
-    evolver.set_test_clock_ms(60_000);
-    let _hints_after = evolver.suggest_hints().expect("post-TTL roll");
+    evolver.set_test_clock_ms(29_999);
+    let _ = evolver.peek_hints().or_else(|| evolver.suggest_hints()).expect("pending runtime hints");
+    assert_eq!(evolver.current_experiment_started_ms, Some(0));
+
+    evolver.set_test_clock_ms(30_000);
+    let _hints_after = evolver.peek_hints().or_else(|| evolver.suggest_hints()).expect("post-TTL runtime hints");
     // The stats map must remain empty: TTL expiry never records an attempt.
     assert!(evolver.combos.is_empty(), "TTL expiry must not record stats, got {} combo(s)", evolver.combos.len());
     // A new experiment was rolled.
     assert!(evolver.current_experiment.is_some());
-    assert_eq!(evolver.current_experiment_started_ms, Some(60_000));
+    assert_eq!(evolver.current_experiment_started_ms, Some(30_000));
 }
 
 #[test]
@@ -1195,8 +1199,9 @@ fn experiment_ttl_zero_disables_drop() {
     let pending = evolver.current_experiment.clone();
 
     evolver.set_test_clock_ms(10_000_000);
-    let _ = evolver.suggest_hints().expect("still rolling");
+    let _ = evolver.peek_hints().or_else(|| evolver.suggest_hints()).expect("still rolling");
     assert_eq!(evolver.current_experiment, pending, "TTL=0 must not drop the pending experiment");
+    assert_eq!(evolver.current_experiment_started_ms, Some(0));
 }
 
 #[test]

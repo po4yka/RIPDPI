@@ -1,17 +1,19 @@
 use super::initialization::clear_pending_experiment;
 use crate::strategy_evolver::StrategyEvolver;
 
-pub(in crate::strategy_evolver) fn drop_expired_experiment(evolver: &mut StrategyEvolver, now_ms: u64) {
+pub(in crate::strategy_evolver) fn expired_experiment_age_ms(evolver: &StrategyEvolver, now_ms: u64) -> Option<u64> {
     if evolver.experiment_ttl_ms == 0 {
-        return;
+        return None;
     }
-    let Some(started_ms) = evolver.current_experiment_started_ms else {
+    let started_ms = evolver.current_experiment_started_ms?;
+    let elapsed_ms = now_ms.saturating_sub(started_ms);
+    (elapsed_ms >= evolver.experiment_ttl_ms).then_some(elapsed_ms)
+}
+
+pub(in crate::strategy_evolver) fn drop_expired_experiment(evolver: &mut StrategyEvolver, now_ms: u64) {
+    let Some(elapsed_ms) = expired_experiment_age_ms(evolver, now_ms) else {
         return;
     };
-    let elapsed_ms = now_ms.saturating_sub(started_ms);
-    if elapsed_ms < evolver.experiment_ttl_ms {
-        return;
-    }
 
     let dropped = evolver.current_experiment.take();
     evolver.current_experiment_context = None;
