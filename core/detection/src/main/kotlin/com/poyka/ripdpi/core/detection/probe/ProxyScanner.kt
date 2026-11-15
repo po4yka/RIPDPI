@@ -10,9 +10,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.coroutineContext
 
 private val DetectionLoopbackHosts = listOf("127.0.0.1", "::1")
@@ -41,6 +43,7 @@ internal class ProxyScanner(
             scanRange.isEmpty() || (scanRange.first in ValidProxyScanPorts && scanRange.last in ValidProxyScanPorts),
         )
         require(maxConcurrency > 0)
+        require(progressUpdateEvery > 0)
     }
 
     suspend fun findOpenProxyEndpoint(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? =
@@ -54,10 +57,12 @@ internal class ProxyScanner(
 
     private suspend fun scanPopularPorts(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? {
         val eligible = popularPorts.filter { it in scanRange && it !in excludePorts }
+        if (eligible.isEmpty()) return null
+        onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, 0, eligible.size, eligible.first()))
         for ((index, port) in eligible.withIndex()) {
             coroutineContext.ensureActive()
-            onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, index + 1, eligible.size, port))
             val found = tryPort(port)
+            onProgress(ScanProgress(ScanPhase.POPULAR_PORTS, index + 1, eligible.size, port))
             if (found != null) return found
         }
         return null
@@ -69,10 +74,12 @@ internal class ProxyScanner(
             val skipSet = popularPorts.toHashSet() + excludePorts
             val ports = scanRange.filterNot(skipSet::contains)
             if (ports.isEmpty()) return@coroutineScope null
-            val scanned = AtomicInteger(0)
+            val completed = AtomicReference(ScanProgress(ScanPhase.FULL_RANGE, 0, ports.size, ports.first()))
             val found = CompletableDeferred<ProxyEndpoint>()
+            val publishLock = Mutex()
+            var publishedCount = 0
 
-            onProgress(ScanProgress(ScanPhase.FULL_RANGE, 0, ports.size, ports.first()))
+            onProgress(completed.get())
             val workerCount = minOf(maxConcurrency, ports.size)
             val workers =
                 launch {
@@ -82,14 +89,25 @@ internal class ProxyScanner(
                                 coroutineContext.ensureActive()
                                 if (found.isCompleted) return@worker
                                 val port = ports[index]
-                                val count = scanned.incrementAndGet()
-                                if (count % progressUpdateEvery == 0) {
-                                    onProgress(ScanProgress(ScanPhase.FULL_RANGE, count, ports.size, port))
-                                }
                                 val candidate = tryPort(port)
+                                val progress =
+                                    completed.updateAndGet {
+                                        it.copy(
+                                            scanned = it.scanned + 1,
+                                            currentPort = port,
+                                        )
+                                    }
                                 if (candidate != null) {
                                     found.complete(candidate)
                                     return@worker
+                                }
+                                if (progress.scanned % progressUpdateEvery == 0) {
+                                    publishLock.withLock {
+                                        if (progress.scanned > publishedCount) {
+                                            onProgress(progress)
+                                            publishedCount = progress.scanned
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -101,6 +119,8 @@ internal class ProxyScanner(
                 workers.onJoin { null }
             }.also {
                 workers.cancelAndJoin()
+                val finalProgress = completed.get()
+                if (finalProgress.scanned > publishedCount) onProgress(finalProgress)
             }
         }
 

@@ -128,6 +128,26 @@ class XrayApiScannerTest {
         }
     }
 
+    @Test
+    fun `early match reports only completed probes`() =
+        runBlocking {
+            withServer({ it.succeed() }) { port ->
+                val progress = mutableListOf<XrayScanProgress>()
+                val scan =
+                    XrayApiScanner(
+                        dispatchers = dispatchers,
+                        loopbackHosts = listOf("127.0.0.1"),
+                        scanPorts = listOf(port, 1, 2, 3),
+                        maxConcurrency = 1,
+                        progressUpdateEvery = 1,
+                    )
+                assertEquals(port, scan.findXrayApi { progress += it }?.endpoint?.port)
+                assertEquals(listOf(0, 1), progress.map(XrayScanProgress::scanned))
+                assertEquals(listOf(4, 4), progress.map(XrayScanProgress::total))
+                assertEquals(port, progress.last().currentPort)
+            }
+        }
+
     private fun scanner(
         ports: List<Int>,
         scanDeadlineMs: Long = 10_000,

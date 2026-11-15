@@ -10,6 +10,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.net.InetSocketAddress
@@ -64,7 +66,7 @@ class XrayApiScanner(
             val portsTotal = scanPorts?.size ?: (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
             if (portsTotal <= 0) return@coroutineScope null
 
-            val scanned = AtomicInteger(0)
+            val progress = HostProgress(host, scannedOffset, total, progressUpdateEvery, onProgress)
             val result = CompletableDeferred<XrayApiScanResult?>()
             val workerCount = maxConcurrency.coerceIn(1, portsTotal)
             val running = AtomicInteger(workerCount)
@@ -84,20 +86,14 @@ class XrayApiScanner(
                     launch(dispatcher) {
                         try {
                             var portIndex = workerIndex
-                            while (portIndex < portsTotal) {
+                            while (portIndex < portsTotal && !result.isCompleted) {
                                 ensureActive()
                                 val port = scanPorts?.get(portIndex) ?: scanRange.first + portIndex
-                                val count = scanned.incrementAndGet()
-                                if (count % progressUpdateEvery == 0) {
-                                    onProgress(XrayScanProgress(host, scannedOffset + count, total, port))
-                                }
-
-                                if (isTcpPortOpen(host, port)) {
-                                    val match = tryListOutbounds(host, port)
-                                    if (match != null) {
-                                        result.complete(match)
-                                        return@launch
-                                    }
+                                val match = if (isTcpPortOpen(host, port)) tryListOutbounds(host, port) else null
+                                progress.completedAttempt(port)
+                                if (match != null) {
+                                    result.complete(match)
+                                    return@launch
                                 }
                                 portIndex += workerCount
                             }
@@ -115,17 +111,35 @@ class XrayApiScanner(
                 }
             jobs.joinAll()
 
-            onProgress(
-                XrayScanProgress(
-                    host = host,
-                    scanned = scannedOffset + portsTotal,
-                    total = total,
-                    currentPort = scanPorts?.last() ?: scanRange.last,
-                ),
-            )
-
+            progress.flush()
             match
         }
+
+    private class HostProgress(
+        private val host: String,
+        private val offset: Int,
+        private val total: Int,
+        private val updateEvery: Int,
+        private val onProgress: suspend (XrayScanProgress) -> Unit,
+    ) {
+        private val lock = Mutex()
+        private var completed = 0
+        private var reported = 0
+        private var lastPort = 0
+
+        suspend fun completedAttempt(port: Int) =
+            lock.withLock {
+                completed++
+                lastPort = port
+                if (completed % updateEvery == 0) flush()
+            }
+
+        suspend fun flush() {
+            if (completed == reported) return
+            onProgress(XrayScanProgress(host, offset + completed, total, lastPort))
+            reported = completed
+        }
+    }
 
     private suspend fun tryListOutbounds(
         host: String,

@@ -2,8 +2,11 @@ package com.poyka.ripdpi.core.detection.probe
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -80,4 +83,41 @@ class ProxyScannerTest {
             assertThrows(SocketTimeoutException::class.java) { listener.accept().close() }
         }
     }
+
+    @Test(timeout = 5_000)
+    fun fullRangeReportsCompletedAttemptsWhenItFindsAnEarlyMatch() =
+        runBlocking {
+            ServerSocket(0, 1, loopback).use { listener ->
+                val port = listener.localPort
+                val peer =
+                    async(Dispatchers.IO) {
+                        listener.soTimeout = 2_000
+                        listener.accept().use { socket ->
+                            socket.soTimeout = 2_000
+                            assertArrayEquals(byteArrayOf(5, 1, 0), socket.getInputStream().readNBytes(3))
+                            socket.getOutputStream().write(byteArrayOf(5, 0))
+                        }
+                    }
+                val progress = mutableListOf<ScanProgress>()
+                val result =
+                    ProxyScanner(
+                        dispatchers = dispatchers,
+                        loopbackHosts = listOf(loopback.hostAddress),
+                        popularPorts = emptyList(),
+                        scanRange = port..65535,
+                        readTimeoutMs = 500,
+                        maxConcurrency = 1,
+                    ).findOpenProxyEndpoint { progress += it }
+                peer.await()
+
+                assertEquals(ProxyEndpoint(loopback.hostAddress, port, ProxyType.SOCKS5), result)
+                assertEquals(
+                    listOf(
+                        ScanProgress(ScanPhase.FULL_RANGE, 0, 65535 - port + 1, port),
+                        ScanProgress(ScanPhase.FULL_RANGE, 1, 65535 - port + 1, port),
+                    ),
+                    progress,
+                )
+            }
+        }
 }
