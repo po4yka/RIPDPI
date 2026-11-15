@@ -116,7 +116,7 @@ fun AwgActivationRequest.requireRuntimeReady() {
     AwgActivationField.PresharedKey.requireValid(presharedKey.isEmpty() || presharedKey.isWireGuardKey())
     AwgActivationField.EndpointHost.requireValid(endpointHost.isAwgEndpointHost())
     AwgActivationField.EndpointPort.requireValid(endpointPort in ValidEndpointPorts)
-    AwgActivationField.Mtu.requireValid(mtu in ValidAmneziaWgMtu)
+    AwgActivationField.Mtu.requireValid(isValidAwgMtu(mtu))
     AwgActivationField.PersistentKeepalive.requireValid(
         persistentKeepalive in ValidKeepalive && persistentKeepaliveMax in ValidKeepalive &&
             (persistentKeepaliveMax == 0 || (persistentKeepalive > 0 && persistentKeepaliveMax >= persistentKeepalive)),
@@ -164,6 +164,9 @@ private fun String.isAwgEndpointHost(): Boolean =
             }
         }
     }
+
+/** Checks the packet size supported by the standalone runtime. */
+fun isValidAwgMtu(mtu: Int): Boolean = mtu in ValidAmneziaWgMtu
 
 /** Validates the WSS authority and request target without DNS or network access. */
 fun isValidAwgWssUrl(value: String): Boolean {

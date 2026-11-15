@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.awg
 import com.poyka.ripdpi.data.awg.AwgActivationField
 import com.poyka.ripdpi.data.awg.AwgActivationInputException
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.isValidAwgMtu
 import com.poyka.ripdpi.data.awg.toActivationRequest
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 
@@ -16,15 +17,19 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
  * An untouched manual route field selects routes for the configured address families.
  */
 fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRequest {
-    require(obfuscationConsistent()) { "AmneziaWG obfuscation parameters are invalid" }
     val addresses = rawText(AwgEditorField.ADDRESS).split(',').map(String::trim).filter(String::isNotEmpty)
     val (ipv6, ipv4) = addresses.partition { ':' in it }
     if (ipv4.size != 1 || ipv6.size > 1) {
         throw AwgActivationInputException(AwgActivationField.Address)
     }
     val mtu =
-        rawText(AwgEditorField.MTU).trim().ifEmpty { AwgActivationRequest.DEFAULT_MTU.toString() }.toIntOrNull()
+        rawText(AwgEditorField.MTU)
+            .trim()
+            .ifEmpty { AwgActivationRequest.DEFAULT_MTU.toString() }
+            .toIntOrNull()
+            ?.takeIf(::isValidAwgMtu)
             ?: throw AwgActivationInputException(AwgActivationField.Mtu)
+    require(obfuscationConsistent()) { "AmneziaWG obfuscation parameters are invalid" }
     val keepaliveText = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().ifEmpty { "0" }
     val (keepalive, keepaliveMax) =
         AmneziaWgV3Parameters.parsePersistentKeepalive(keepaliveText)
