@@ -7,7 +7,7 @@ use ripdpi_failure_classifier::BlockSignal;
 use crate::runtime_policy::test_support::{autolearn_config, config_with_groups, sample_dest};
 use crate::runtime_policy::types::LearnedGroupStats;
 use crate::runtime_policy::{
-    ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RuntimePolicy, TransportProtocol, now_millis,
+    ConnectionRoute, GeoMatcher, RetrySelectionPenalty, RouteAdvance, RuntimePolicy, TransportProtocol, now_millis,
 };
 
 #[test]
@@ -33,7 +33,7 @@ fn select_next_group_advances_to_matching_trigger_group() {
     second.matches.detect = DETECT_RECONN;
     let config = config_with_groups(vec![first, second]);
     let policy = RuntimePolicy::load(&config);
-    let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+    let route = ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 };
 
     let next = policy
         .select_next(&config, &route, sample_dest(443), None, None, TransportProtocol::Tcp, DETECT_RECONN, true, None)
@@ -41,6 +41,7 @@ fn select_next_group_advances_to_matching_trigger_group() {
 
     assert_eq!(next.group_index, 1);
     assert_eq!(next.attempted_mask, config.groups[0].bit);
+    assert_eq!(next.route_advances, 0, "payload-only selection does not spend a retry");
 }
 
 #[test]
@@ -52,7 +53,7 @@ fn select_next_group_prefers_non_cooled_candidate_when_retry_penalties_exist() {
     third.matches.detect = DETECT_RECONN;
     let config = config_with_groups(vec![first, second, third]);
     let policy = RuntimePolicy::load(&config);
-    let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+    let route = ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 };
     let penalties = BTreeMap::from([
         (
             1usize,
@@ -94,7 +95,7 @@ fn select_next_group_uses_diversification_rank_as_tiebreaker() {
     third.matches.detect = DETECT_RECONN;
     let config = config_with_groups(vec![first, second, third]);
     let policy = RuntimePolicy::load(&config);
-    let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+    let route = ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 };
     let penalties = BTreeMap::from([
         (
             1usize,
@@ -171,7 +172,12 @@ fn host_preference_outranks_destination_cache() {
 
     policy.store(&config, dest, 0, 0, None);
     policy
-        .note_route_success(&config, dest, &ConnectionRoute { group_index: 1, attempted_mask: 0 }, Some("Example.org"))
+        .note_route_success(
+            &config,
+            dest,
+            &ConnectionRoute { group_index: 1, attempted_mask: 0, route_advances: 0 },
+            Some("Example.org"),
+        )
         .expect("learn host route");
 
     let route = policy
@@ -221,4 +227,69 @@ fn blocked_host_without_learned_winner_prefers_non_penalized_group() {
         .expect("route for blocked host");
 
     assert_eq!(route.group_index, 1);
+}
+
+#[test]
+fn cached_winner_starts_with_a_new_connection_retry_budget() {
+    let mut config = autolearn_config(3, 32);
+    config.max_route_retries = 1;
+    for group in &mut config.groups[1..] {
+        group.matches.detect = DETECT_RECONN;
+    }
+    let dest = sample_dest(443);
+    let mut policy = RuntimePolicy::load(&config);
+    let initial = policy
+        .select_initial(dest, None, Some("example.test"), true, TransportProtocol::Tcp, &config)
+        .expect("initial route");
+    let winner = policy
+        .advance_route(
+            &config,
+            &initial,
+            RouteAdvance {
+                dest,
+                payload: None,
+                host: Some("example.test".to_string()),
+                transport: TransportProtocol::Tcp,
+                trigger: DETECT_RECONN,
+                can_reconnect: true,
+                retry_penalties: None,
+                penalize_strategy_failure: true,
+            },
+        )
+        .expect("advance policy")
+        .expect("one advance");
+    assert_eq!(winner.route_advances, 1);
+    policy.note_route_success(&config, dest, &winner, Some("example.test")).expect("cache winner");
+    let next_connection = policy
+        .select_initial(dest, None, Some("example.test"), true, TransportProtocol::Tcp, &config)
+        .expect("cached winner");
+    assert_eq!(next_connection.group_index, winner.group_index);
+    assert_eq!(next_connection.route_advances, 0);
+    assert!(
+        policy
+            .select_next(
+                &config,
+                &next_connection,
+                dest,
+                None,
+                Some("example.test"),
+                TransportProtocol::Tcp,
+                DETECT_RECONN,
+                true,
+                None
+            )
+            .is_some()
+    );
+}
+
+#[test]
+fn payload_route_selection_preserves_budget_without_consuming_it() {
+    let mut config = config_with_groups(vec![DesyncGroup::new(0), DesyncGroup::new(1)]);
+    config.max_route_retries = 0;
+    let policy = RuntimePolicy::load(&config);
+    let route = ConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
+    let next = policy
+        .select_next(&config, &route, sample_dest(443), None, None, TransportProtocol::Tcp, DETECT_RECONN, true, None)
+        .expect("payload selection is not a failure retry");
+    assert_eq!(next.route_advances, 0);
 }

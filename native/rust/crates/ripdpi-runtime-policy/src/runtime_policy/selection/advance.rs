@@ -19,17 +19,25 @@ impl RuntimePolicy {
 
         apply_strategy_failure_penalty(self, config, route, &request);
 
-        let next = self.select_next(
-            config,
-            route,
-            request.dest,
-            request.payload,
-            request.host.as_deref(),
-            request.transport,
-            request.trigger,
-            request.can_reconnect,
-            request.retry_penalties,
-        );
+        let next = if route.route_advances < config.max_route_retries {
+            self.select_next(
+                config,
+                route,
+                request.dest,
+                request.payload,
+                request.host.as_deref(),
+                request.transport,
+                request.trigger,
+                request.can_reconnect,
+                request.retry_penalties,
+            )
+            .map(|mut next| {
+                next.route_advances = route.route_advances + 1;
+                next
+            })
+        } else {
+            None
+        };
 
         apply_auto_sort(self, config, route, next.as_ref());
         persist_advance_result(self, config, request.dest, request.host, next)

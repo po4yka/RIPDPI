@@ -104,7 +104,7 @@ fn run(scenario: Scenario) -> Vec<String> {
     config.host_autolearn.enabled = true;
     let telemetry = std::sync::Arc::new(Recorder::default());
     let state = RuntimeState::test_with_telemetry(config, Some(telemetry.clone()));
-    let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+    let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
     match prepare_relay(
         &mut client,
         upstream,

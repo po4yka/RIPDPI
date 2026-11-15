@@ -7,6 +7,8 @@ use ripdpi_failure_classifier::BlockSignal;
 pub struct ConnectionRoute {
     pub group_index: usize,
     pub attempted_mask: u64,
+    /// Failure-driven group advances consumed by this connection.
+    pub route_advances: usize,
 }
 
 #[derive(Debug, Clone)]

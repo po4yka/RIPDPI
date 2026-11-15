@@ -14,13 +14,18 @@ fn successful_fallback_promotes_final_group_for_host() {
     let mut policy = RuntimePolicy::load(&config);
 
     policy
-        .note_route_success(&config, dest, &ConnectionRoute { group_index: 0, attempted_mask: 0 }, Some("example.org"))
+        .note_route_success(
+            &config,
+            dest,
+            &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
+            Some("example.org"),
+        )
         .expect("learn first group");
     policy
         .note_route_success(
             &config,
             dest,
-            &ConnectionRoute { group_index: 2, attempted_mask: config.groups[0].bit },
+            &ConnectionRoute { group_index: 2, attempted_mask: config.groups[0].bit, route_advances: 0 },
             Some("example.org"),
         )
         .expect("promote fallback winner");
@@ -36,7 +41,12 @@ fn penalties_suppress_group_until_ttl_expiry() {
     let mut policy = RuntimePolicy::load(&config);
 
     policy
-        .note_route_success(&config, dest, &ConnectionRoute { group_index: 1, attempted_mask: 0 }, Some("example.org"))
+        .note_route_success(
+            &config,
+            dest,
+            &ConnectionRoute { group_index: 1, attempted_mask: 0, route_advances: 0 },
+            Some("example.org"),
+        )
         .expect("learn preferred group");
     policy.note_host_failure(&config, "example.org", 1);
 
@@ -68,7 +78,7 @@ fn fingerprint_mismatch_invalidates_learned_state() {
             .note_route_success(
                 &config,
                 dest,
-                &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+                &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
                 Some("example.org"),
             )
             .expect("persist learned host");
@@ -92,7 +102,7 @@ fn max_host_eviction_removes_oldest_records() {
         .note_route_success(
             &config,
             dest,
-            &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+            &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
             Some("first.example"),
         )
         .expect("learn first host");
@@ -101,7 +111,7 @@ fn max_host_eviction_removes_oldest_records() {
         .note_route_success(
             &config,
             dest,
-            &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+            &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
             Some("second.example"),
         )
         .expect("learn second host");
@@ -122,7 +132,7 @@ fn host_autolearn_is_scoped_by_network_scope_key() {
         .note_route_success(
             &config_a,
             dest,
-            &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+            &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
             Some("alpha.example"),
         )
         .expect("learn scope a host");
@@ -136,7 +146,7 @@ fn host_autolearn_is_scoped_by_network_scope_key() {
         .note_route_success(
             &config_b,
             dest,
-            &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+            &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
             Some("beta.example"),
         )
         .expect("learn scope b host");
@@ -237,7 +247,12 @@ fn block_expiry_clears_block_metadata_but_keeps_learned_hosts() {
     let mut policy = RuntimePolicy::load(&config);
 
     policy
-        .note_route_success(&config, dest, &ConnectionRoute { group_index: 0, attempted_mask: 0 }, Some("example.org"))
+        .note_route_success(
+            &config,
+            dest,
+            &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
+            Some("example.org"),
+        )
         .expect("learn host");
     policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
     policy.note_block_signal(&config, "example.org", BlockSignal::TcpReset, Some("rkn"), true);
@@ -477,7 +492,7 @@ fn persist_debounce_skips_rapid_second_write() {
         .note_route_success(
             &config,
             dest,
-            &ConnectionRoute { group_index: 0, attempted_mask: 0 },
+            &ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 },
             Some("first.example"),
         )
         .expect("first success persists");

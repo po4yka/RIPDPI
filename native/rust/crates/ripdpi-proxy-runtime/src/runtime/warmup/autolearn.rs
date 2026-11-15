@@ -55,7 +55,7 @@ mod tests {
     fn autolearn_helpers_forward_success_failure_and_flush_events() {
         let state = RuntimeState::test(RuntimeConfig::default());
         let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443);
-        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
         let failure = RuntimeClassifiedFailure::new(
             RuntimeFailureClass::TcpReset,
             RuntimeFailureStage::FirstResponse,

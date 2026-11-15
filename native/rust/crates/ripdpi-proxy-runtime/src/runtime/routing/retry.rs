@@ -75,7 +75,6 @@ fn connect_target_with_route_and_egress_mode(
     egress: DestinationEgress,
     provisional_syn_data: bool,
 ) -> io::Result<(TcpStream, RuntimeConnectionRoute, Option<ExitIpSessionGuard>)> {
-    let mut retries: usize = 0;
     loop {
         refuse_after_shutdown(state)?;
         let attempt_targets =
@@ -110,7 +109,6 @@ fn connect_target_with_route_and_egress_mode(
                 if err.is_shutdown_cancelled(state.shutdown_requested()) {
                     return Err(err.into_io_error());
                 }
-                retries += 1;
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
                 if RuntimeState::connect_failure_retries_without_tfo(err.tcp_fast_open_enabled, &failure) {
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying connect without TCP Fast Open");
@@ -135,10 +133,6 @@ fn connect_target_with_route_and_egress_mode(
                     }
                 }
                 note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
-                if retries > state.max_route_retries() {
-                    note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets)?;
-                    return Err(err.into_io_error());
-                }
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure, None)?;
                 let Some(next) = next else {
@@ -183,7 +177,6 @@ fn reconnect_target_with_tfo_mode(
     if egress == DestinationEgress::Block {
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "destination blocked by routing policy"));
     }
-    let mut retries: usize = 0;
     loop {
         refuse_after_shutdown(state)?;
         crate::runtime::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
@@ -202,10 +195,6 @@ fn reconnect_target_with_tfo_mode(
             Ok((stream, guard)) => return Ok((stream, route, guard)),
             Err(mut err) => {
                 if err.is_shutdown_cancelled(state.shutdown_requested()) {
-                    return Err(err.into_io_error());
-                }
-                retries += 1;
-                if retries > state.max_route_retries() {
                     return Err(err.into_io_error());
                 }
                 let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
@@ -395,7 +384,7 @@ mod tests {
         });
         let config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
         let state = RuntimeState::test(config);
-        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
 
         let (stream, actual_route, cap_guard) =
             reconnect_target_without_tfo(target, &state, route, Some("example.com".to_string()), None)
@@ -440,7 +429,7 @@ mod tests {
             ..Default::default()
         };
         let state = RuntimeState::test(config);
-        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
 
         let err =
             reconnect_target_without_tfo(target, &state, route.clone(), Some("blocked.example".to_string()), None)
@@ -456,7 +445,7 @@ mod tests {
         drop(closed_listener);
         let config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], max_route_retries: 0, ..Default::default() };
         let state = RuntimeState::test(config);
-        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
 
         let err = reconnect_target(target, &state, route, Some("example.com".to_string()), None)
             .expect_err("closed listener should fail");
@@ -553,7 +542,7 @@ mod tests {
         control.request_shutdown();
 
         let connect = connect_target(target, &state, None, true, None).expect_err("connect after stop");
-        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 };
+        let route = RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 };
         let reconnect = reconnect_target(target, &state, route, None, None).expect_err("reconnect after stop");
 
         assert_eq!(connect.kind(), io::ErrorKind::ConnectionAborted);

@@ -127,7 +127,7 @@ mod tests {
             lua_flow: None,
             session: UdpFlowSession::new(),
             last_used: Instant::now(),
-            route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+            route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 },
             destination_egress: DestinationEgress::Tunneled,
             socket_settings: RuntimeUdpSocketSettings { bind_low_port: false },
             packet_settings: RuntimeUdpPacketSettings { default_ttl: 64, ip_id_mode: None },

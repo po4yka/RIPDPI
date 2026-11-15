@@ -249,5 +249,5 @@ fn select_best_candidate_for_blocked_host(
             *index,
         )
     });
-    ranked.into_iter().next().map(|group_index| ConnectionRoute { group_index, attempted_mask })
+    ranked.into_iter().next().map(|group_index| ConnectionRoute { group_index, attempted_mask, route_advances: 0 })
 }

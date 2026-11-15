@@ -213,7 +213,7 @@ mod tests {
             assert!(!group_requests_direct_syn_data_tfo(&group, Some(payload)), "{payload:?}");
         }
         let settings = tcp_route_syn_data_settings(&RuntimeConfig { groups: vec![group], ..Default::default() });
-        let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+        let route = ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 };
         assert!(!connection_route_requests_direct_syn_data_tfo_with(&settings, &route, Some(b"POST / HTTP/1.1\r\n")));
     }
 
@@ -236,8 +236,8 @@ mod tests {
         let plain = DesyncGroup::new(1);
         let config = RuntimeConfig { groups: vec![direct, plain], ..Default::default() };
 
-        let direct_route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
-        let plain_route = ConnectionRoute { group_index: 1, attempted_mask: 0 };
+        let direct_route = ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 };
+        let plain_route = ConnectionRoute { group_index: 1, attempted_mask: 0, route_advances: 0 };
 
         assert!(
             connection_route_requests_direct_syn_data_tfo(&config, &direct_route, Some(b"GET / HTTP/1.1\r\n\r\n"),)
@@ -255,8 +255,8 @@ mod tests {
         let config = RuntimeConfig { groups: vec![direct, plain], ..Default::default() };
         let settings = tcp_route_syn_data_settings(&config);
 
-        let direct_route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
-        let plain_route = ConnectionRoute { group_index: 1, attempted_mask: 0 };
+        let direct_route = ConnectionRoute { group_index: 0, attempted_mask: 0, route_advances: 0 };
+        let plain_route = ConnectionRoute { group_index: 1, attempted_mask: 0, route_advances: 0 };
 
         assert!(connection_route_requests_direct_syn_data_tfo_with(
             &settings,

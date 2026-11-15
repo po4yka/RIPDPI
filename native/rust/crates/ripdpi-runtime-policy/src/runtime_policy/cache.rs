@@ -98,7 +98,7 @@ impl RuntimePolicy {
 }
 
 fn route_from_record(record: &CacheRecord) -> ConnectionRoute {
-    ConnectionRoute { group_index: record.group_index, attempted_mask: record.attempted_mask }
+    ConnectionRoute { group_index: record.group_index, attempted_mask: record.attempted_mask, route_advances: 0 }
 }
 
 fn store_reset_event() -> HostAutolearnEvent {

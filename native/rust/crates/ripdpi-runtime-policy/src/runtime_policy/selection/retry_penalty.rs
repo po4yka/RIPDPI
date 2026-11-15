@@ -21,7 +21,7 @@ pub(crate) fn select_best_candidate(
             *index,
         )
     });
-    ranked.into_iter().next().map(|group_index| ConnectionRoute { group_index, attempted_mask })
+    ranked.into_iter().next().map(|group_index| ConnectionRoute { group_index, attempted_mask, route_advances: 0 })
 }
 
 fn retry_penalty(

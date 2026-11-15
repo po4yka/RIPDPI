@@ -51,9 +51,10 @@ impl RuntimePolicy {
         retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
         geo: Option<&dyn GeoMatcher>,
     ) -> Option<ConnectionRoute> {
+        let route_advances = route.route_advances;
         if let Some(normalized_host) =
             host.filter(|_| transport == TransportProtocol::Tcp).and_then(normalize_learned_host)
-            && let Some(next) = select_host_route_after(
+            && let Some(mut next) = select_host_route_after(
                 self,
                 config,
                 route,
@@ -67,6 +68,7 @@ impl RuntimePolicy {
                 geo,
             )
         {
+            next.route_advances = route_advances;
             return Some(next);
         }
 
@@ -92,6 +94,9 @@ impl RuntimePolicy {
                 attempted_mask |= group.bit;
             }
         }
-        select_best_candidate(self, &eligible, attempted_mask, retry_penalties)
+        select_best_candidate(self, &eligible, attempted_mask, retry_penalties).map(|mut next| {
+            next.route_advances = route_advances;
+            next
+        })
     }
 }

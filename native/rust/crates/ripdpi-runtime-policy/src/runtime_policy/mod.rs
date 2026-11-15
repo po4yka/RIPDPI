@@ -158,7 +158,7 @@ mod tests {
         config.groups[1].policy.cache_file = Some(cache_path.to_string_lossy().into_owned());
         let dest = sample_dest(443);
         let mut policy = RuntimePolicy::load(&config);
-        let route = ConnectionRoute { group_index: 1, attempted_mask: 0 };
+        let route = ConnectionRoute { group_index: 1, attempted_mask: 0, route_advances: 0 };
 
         policy.note_route_success(&config, dest, &route, Some("docs.example.test")).expect("persist success");
 

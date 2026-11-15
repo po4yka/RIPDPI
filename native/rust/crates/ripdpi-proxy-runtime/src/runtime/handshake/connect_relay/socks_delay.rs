@@ -130,6 +130,8 @@ pub(super) fn connect_with(
         err.mark_success_reply_sent();
         return Err(err);
     }
+    let mut route = route;
+    route.route_advances = connected.route.route_advances;
     let route = if state.delayed_route_matches_payload(route.group_index, target, &payload, host.as_deref()) {
         route
     } else {

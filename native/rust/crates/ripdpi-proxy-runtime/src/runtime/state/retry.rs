@@ -55,9 +55,6 @@ impl RuntimeState {
             },
         )
     }
-    pub(in crate::runtime) fn max_route_retries(&self) -> usize {
-        self.route_retry_settings.max_route_retries
-    }
     /// One retry without TCP Fast Open is allowed only when the failed socket used it.
     /// RFC 7413 section 4.1.3.1: no SYN-ACK is the main negative response, so a silent
     /// drop after a TFO attempt retries too.

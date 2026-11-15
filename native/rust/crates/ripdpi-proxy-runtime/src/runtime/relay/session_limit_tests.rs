@@ -48,7 +48,7 @@ fn retry_session(fail_replacement: bool) {
     blockpage_group.matches.detect = DETECT_HTTP_BLOCKPAGE;
     let config = RuntimeConfig {
         groups: vec![DesyncGroup::new(0), blockpage_group],
-        max_route_retries: 0,
+        max_route_retries: 1,
         ..Default::default()
     };
     let state = RuntimeState::test_with_context(config, Some(context));

@@ -98,7 +98,7 @@ fn pending_response_feedback(delayed_publication: bool) {
     let pending = PendingFirstResponse {
         reader: *reader,
         target,
-        route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+        route: RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 },
         host: HOST.map(str::to_owned),
         original_request: request.to_vec(),
         success_strategy_family: Some("fake"),

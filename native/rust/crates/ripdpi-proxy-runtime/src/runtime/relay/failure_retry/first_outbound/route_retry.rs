@@ -198,7 +198,7 @@ mod tests {
     }
 
     fn route() -> RuntimeConnectionRoute {
-        RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 }
+        RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 }
     }
 
     fn failure(
@@ -345,5 +345,64 @@ mod tests {
         .expect("silent drop should not force reconnect");
 
         assert!(reconnected.is_none());
+    }
+    fn assert_response_retry_budget(budget: usize, group_count: usize) {
+        use ripdpi_proxy_runtime_adapter::model::config::{DETECT_TCP_RESET, DesyncGroup};
+        let mut config = RuntimeConfig {
+            max_route_retries: budget,
+            groups: (0..group_count).map(DesyncGroup::new).collect(),
+            ..RuntimeConfig::default()
+        };
+        for group in &mut config.groups[1..] {
+            group.matches.detect = DETECT_TCP_RESET;
+        }
+        let state = RuntimeState::test(config);
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind retry target");
+        listener.set_nonblocking(true).expect("nonblocking target");
+        let (mut client, _peer) = connected_pair();
+        let mut session = FirstOutboundSession::new();
+        let mut retry = RouteRetryState::default();
+        let failure = failure(RuntimeFailureClass::TcpReset, RuntimeFailureAction::RetryWithMatchingGroup, "reset");
+        let mut current_route = route();
+        for index in 0..=budget {
+            let result = handle_first_response_failure(
+                &mut client,
+                &mut session,
+                &mut retry,
+                FirstResponseFailureContext {
+                    state: &state,
+                    target: listener.local_addr().expect("target"),
+                    route: &current_route,
+                    host: None,
+                    original_request: b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n",
+                    socket_used_tfo: false,
+                    failure: &failure,
+                    response_bytes: None,
+                },
+            );
+            if index < budget {
+                let next = result.expect("retry is within budget").expect("new route");
+                current_route = next.route;
+                listener.accept().expect("one alternate connection");
+            } else {
+                assert!(result.is_err(), "successful reconnect must not replenish the route retry budget");
+                assert_eq!(listener.accept().expect_err("no excess retry").kind(), io::ErrorKind::WouldBlock);
+            }
+        }
+    }
+
+    #[test]
+    fn zero_route_retry_budget_opens_no_alternate_connection() {
+        assert_response_retry_budget(0, 2);
+    }
+
+    #[test]
+    fn route_retry_budget_survives_successful_reconnect() {
+        assert_response_retry_budget(1, 3);
+    }
+
+    #[test]
+    fn route_retry_budget_limits_ten_failing_groups() {
+        assert_response_retry_budget(8, 10);
     }
 }

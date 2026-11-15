@@ -91,7 +91,7 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
         upstream,
         &state,
         target,
-        RuntimeConnectionRoute { group_index: 0, attempted_mask: 1 },
+        RuntimeConnectionRoute { group_index: 0, attempted_mask: 1, route_advances: 0 },
         None,
         crate::runtime::relay::RelayFlow::default(),
         None,

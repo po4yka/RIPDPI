@@ -52,7 +52,7 @@ impl RuntimePolicy {
                 continue;
             }
             if group_matches_with_geo(config, group, dest, payload, allow_unknown_payload, transport, geo) {
-                return Some(ConnectionRoute { group_index: idx, attempted_mask });
+                return Some(ConnectionRoute { group_index: idx, attempted_mask, route_advances: 0 });
             }
             attempted_mask |= group.bit;
         }
