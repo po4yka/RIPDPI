@@ -272,26 +272,6 @@ enum class TcpProbeStatus {
 }
 
 @Serializable
-enum class QuicProbeStatus {
-    INITIAL_RESPONSE,
-    INITIAL_ACK,
-    INITIAL_OTHER,
-    INITIAL_CLOSE,
-    RETRY,
-    VERSION_NEGOTIATION,
-    TIMEOUT,
-    INVALID_RESPONSE,
-    SETUP_ERROR,
-    CANCELLED,
-    DEADLINE_EXCEEDED,
-    RESPONSE,
-    EMPTY,
-    ERROR,
-    NOT_RUN,
-    UNKNOWN,
-}
-
-@Serializable
 enum class EndpointProbeStatus {
     OK,
     FAILED,
@@ -390,13 +370,6 @@ data class DomainObservationFact(
     val isControl: Boolean = false,
     val h3Advertised: Boolean = false,
     val altSvc: String? = null,
-)
-
-@Serializable
-data class QuicObservationFact(
-    val host: String,
-    val status: QuicProbeStatus,
-    val transportFailure: TransportFailureKind = TransportFailureKind.NONE,
 )
 
 @Serializable
