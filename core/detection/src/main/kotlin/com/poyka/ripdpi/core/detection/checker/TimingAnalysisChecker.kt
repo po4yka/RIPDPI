@@ -11,9 +11,14 @@ import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.math.sqrt
 
 object TimingAnalysisChecker {
@@ -32,122 +37,122 @@ object TimingAnalysisChecker {
     data class TimingSnapshot(
         val target: String,
         val rttMs: List<Long>,
+        val resolvedAddress: String? = null,
     )
 
-    suspend fun check(dispatchers: AppCoroutineDispatchers): CategoryResult =
-        coroutineScope {
-            val findings = mutableListOf<Finding>()
-            val evidence = mutableListOf<EvidenceItem>()
-            var detected = false
-            var needsReview = false
+    suspend fun check(dispatchers: AppCoroutineDispatchers): CategoryResult = analyze(collectTimingSamples(dispatchers))
 
-            val snapshots = collectTimingSamples(dispatchers)
+    internal fun analyze(snapshots: List<TimingSnapshot>): CategoryResult {
+        val findings = mutableListOf<Finding>()
+        val evidence = mutableListOf<EvidenceItem>()
+        var needsReview = false
 
-            if (snapshots.isEmpty()) {
-                findings.add(Finding("Timing analysis: no targets reachable"))
-                return@coroutineScope CategoryResult(
-                    name = "Timing Analysis",
-                    detected = false,
-                    findings = findings,
-                )
-            }
-
-            val allRtts = snapshots.flatMap { it.rttMs }
-            if (allRtts.size < MIN_SAMPLES_REQUIRED) {
-                findings.add(Finding("Timing analysis: insufficient samples (${allRtts.size})"))
-                return@coroutineScope CategoryResult(
-                    name = "Timing Analysis",
-                    detected = false,
-                    findings = findings,
-                )
-            }
-
-            val mean = allRtts.average()
-            val stdDev = standardDeviation(allRtts)
-            val cv = if (mean > 0) stdDev / mean else 0.0
-
-            findings.add(Finding("RTT mean: ${"%.1f".format(mean)}ms across ${allRtts.size} samples"))
-            findings.add(Finding("RTT std dev: ${"%.1f".format(stdDev)}ms (CV: ${"%.2f".format(cv)})"))
-
-            for (snapshot in snapshots) {
-                val targetMean = snapshot.rttMs.average()
-                findings.add(
-                    Finding(
-                        "  ${snapshot.target}: ${"%.0f".format(targetMean)}ms avg " +
-                            "(${snapshot.rttMs.joinToString(", ")}ms)",
-                    ),
-                )
-            }
-
-            if (cv < LOW_VARIANCE_THRESHOLD && mean > CONSISTENT_OFFSET_THRESHOLD_MS) {
-                detected = true
-                findings.add(
-                    Finding(
-                        description =
-                            "Low RTT variance (CV=${"%.2f".format(cv)}) with elevated baseline " +
-                                "(${"%.0f".format(mean)}ms) - consistent with VPN tunnel overhead",
-                        detected = true,
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        confidence = EvidenceConfidence.MEDIUM,
-                    ),
-                )
-                evidence.add(
-                    networkTimingEvidence(
-                        confidence = EvidenceConfidence.MEDIUM,
-                        description =
-                            "Connection timing shows consistent tunnel overhead pattern " +
-                                "(CV=${"%.2f".format(cv)}, mean=${"%.0f".format(mean)}ms)",
-                    ),
-                )
-            }
-
-            val crossTargetVariance = analyzeInterTargetConsistency(snapshots)
-            if (crossTargetVariance != null && crossTargetVariance < LOW_VARIANCE_THRESHOLD) {
-                needsReview = true
-                findings.add(
-                    Finding(
-                        description =
-                            "Cross-target RTT consistency (${"%.2f".format(crossTargetVariance)}) " +
-                                "- targets show similar latency (tunnel routing)",
-                        needsReview = true,
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        confidence = EvidenceConfidence.LOW,
-                    ),
-                )
-                evidence.add(
-                    networkTimingEvidence(
-                        confidence = EvidenceConfidence.LOW,
-                        description = "Multiple targets show unusually consistent latency",
-                    ),
-                )
-            }
-
-            if (mean > 200) {
-                needsReview = true
-                findings.add(
-                    Finding(
-                        description =
-                            "High baseline RTT (${"%.0f".format(mean)}ms) - may indicate " +
-                                "multi-hop tunneling",
-                        needsReview = true,
-                        source = EvidenceSource.NETWORK_CAPABILITIES,
-                        confidence = EvidenceConfidence.LOW,
-                    ),
-                )
-            }
-
-            if (!detected && !needsReview) {
-                findings.add(Finding("Timing pattern: normal variance, no tunnel signature detected"))
-            }
-
-            CategoryResult(
+        if (snapshots.isEmpty()) {
+            findings.add(Finding("Timing analysis: no targets reachable"))
+            return CategoryResult(
                 name = "Timing Analysis",
-                detected = detected,
+                detected = false,
                 findings = findings,
-                needsReview = needsReview,
-                evidence = evidence,
             )
         }
+
+        val allRtts = snapshots.flatMap { it.rttMs }
+        if (allRtts.size < MIN_SAMPLES_REQUIRED) {
+            findings.add(Finding("Timing analysis: insufficient samples (${allRtts.size})"))
+            return CategoryResult(
+                name = "Timing Analysis",
+                detected = false,
+                findings = findings,
+            )
+        }
+
+        val mean = allRtts.average()
+        val stdDev = standardDeviation(allRtts)
+        val cv = if (mean > 0) stdDev / mean else 0.0
+
+        findings.add(Finding("TCP connect latency mean: ${"%.1f".format(mean)}ms across ${allRtts.size} samples"))
+        findings.add(Finding("TCP connect latency std dev: ${"%.1f".format(stdDev)}ms (CV: ${"%.2f".format(cv)})"))
+
+        for (snapshot in snapshots) {
+            val targetMean = snapshot.rttMs.average()
+            val endpoint = snapshot.resolvedAddress?.let { "${snapshot.target} [$it]" } ?: snapshot.target
+            findings.add(
+                Finding(
+                    "  $endpoint: ${"%.0f".format(targetMean)}ms avg " +
+                        "(${snapshot.rttMs.joinToString(", ")}ms)",
+                ),
+            )
+        }
+
+        if (cv < LOW_VARIANCE_THRESHOLD && mean > CONSISTENT_OFFSET_THRESHOLD_MS) {
+            needsReview = true
+            findings.add(
+                Finding(
+                    description =
+                        "Low TCP connect latency variation (CV=${"%.2f".format(cv)}) with elevated baseline " +
+                            "(${"%.0f".format(mean)}ms); the cause is not established",
+                    needsReview = true,
+                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                    confidence = EvidenceConfidence.LOW,
+                ),
+            )
+            evidence.add(
+                networkTimingEvidence(
+                    confidence = EvidenceConfidence.LOW,
+                    description =
+                        "TCP connect latency needs review " +
+                            "(CV=${"%.2f".format(cv)}, mean=${"%.0f".format(mean)}ms)",
+                ),
+            )
+        }
+
+        val crossTargetVariance = analyzeInterTargetConsistency(snapshots)
+        if (crossTargetVariance != null && crossTargetVariance < LOW_VARIANCE_THRESHOLD) {
+            needsReview = true
+            findings.add(
+                Finding(
+                    description =
+                        "Cross-target TCP connect latency consistency (${"%.2f".format(crossTargetVariance)}); " +
+                            "the cause is not established",
+                    needsReview = true,
+                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                    confidence = EvidenceConfidence.LOW,
+                ),
+            )
+            evidence.add(
+                networkTimingEvidence(
+                    confidence = EvidenceConfidence.LOW,
+                    description = "Multiple targets show similar TCP connect latency",
+                ),
+            )
+        }
+
+        if (mean > 200) {
+            needsReview = true
+            findings.add(
+                Finding(
+                    description =
+                        "High TCP connect latency (${"%.0f".format(mean)}ms); " +
+                            "distance or congestion may affect this measurement",
+                    needsReview = true,
+                    source = EvidenceSource.NETWORK_CAPABILITIES,
+                    confidence = EvidenceConfidence.LOW,
+                ),
+            )
+        }
+
+        if (!needsReview) {
+            findings.add(Finding("TCP connect latency: no timing anomaly observed"))
+        }
+
+        return CategoryResult(
+            name = "Timing Analysis",
+            detected = false,
+            findings = findings,
+            needsReview = needsReview,
+            evidence = evidence,
+        )
+    }
 
     internal fun networkTimingEvidence(
         confidence: EvidenceConfidence,
@@ -166,30 +171,53 @@ object TimingAnalysisChecker {
             PROBE_TARGETS
                 .map { (host, port) ->
                     async {
-                        val rtts = mutableListOf<Long>()
-                        repeat(SAMPLES_PER_TARGET) {
-                            measureConnectRtt(dispatchers, host, port)?.let { rtts.add(it) }
-                        }
-                        if (rtts.isNotEmpty()) TimingSnapshot(host, rtts) else null
+                        collectTargetTiming(dispatchers, host, port)
                     }
                 }.mapNotNull { it.await() }
         }
 
-    @Suppress("TooGenericExceptionCaught")
-    private suspend fun measureConnectRtt(
+    internal suspend fun collectTargetTiming(
         dispatchers: AppCoroutineDispatchers,
         host: String,
+        port: Int,
+        resolveAddresses: suspend (String) -> List<InetAddress>? = { resolveDetectionAddresses(it) },
+    ): TimingSnapshot? {
+        return try {
+            val address = resolveAddresses(host)?.firstOrNull() ?: return null
+            val rtts = mutableListOf<Long>()
+            repeat(SAMPLES_PER_TARGET) {
+                measureConnectLatency(dispatchers, address, port)?.let { rtts.add(it) }
+            }
+            if (rtts.isEmpty()) null else TimingSnapshot(host, rtts, address.hostAddress)
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    private suspend fun measureConnectLatency(
+        dispatchers: AppCoroutineDispatchers,
+        address: InetAddress,
         port: Int,
     ): Long? =
         withContext(dispatchers.io) {
             try {
-                val start = System.nanoTime()
                 Socket().use { socket ->
-                    socket.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
+                    suspendCancellableCoroutine { continuation ->
+                        continuation.invokeOnCancellation { runCatching { socket.close() } }
+                        if (continuation.isActive) {
+                            try {
+                                val endpoint = InetSocketAddress(address, port)
+                                val start = System.nanoTime()
+                                socket.connect(endpoint, CONNECT_TIMEOUT_MS)
+                                val elapsed = (System.nanoTime() - start) / 1_000_000
+                                continuation.resume(elapsed)
+                            } catch (error: IOException) {
+                                continuation.resumeWithException(error)
+                            }
+                        }
+                    }
                 }
-                val elapsed = (System.nanoTime() - start) / 1_000_000
-                elapsed
-            } catch (_: Exception) {
+            } catch (_: IOException) {
                 null
             }
         }
