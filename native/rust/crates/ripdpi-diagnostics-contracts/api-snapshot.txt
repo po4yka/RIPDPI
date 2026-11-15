@@ -244,6 +244,9 @@ pub ripdpi_diagnostics_contracts::types::TcpProbeStatus::Error
 pub ripdpi_diagnostics_contracts::types::TcpProbeStatus::FreezeAfterThreshold
 pub ripdpi_diagnostics_contracts::types::TcpProbeStatus::Ok
 pub ripdpi_diagnostics_contracts::types::TcpProbeStatus::WhitelistSniOk
+pub enum ripdpi_diagnostics_contracts::types::TelegramProbeStopReason
+pub ripdpi_diagnostics_contracts::types::TelegramProbeStopReason::Cancelled
+pub ripdpi_diagnostics_contracts::types::TelegramProbeStopReason::DeadlineExceeded
 pub enum ripdpi_diagnostics_contracts::types::TelegramTransferStatus
 pub ripdpi_diagnostics_contracts::types::TelegramTransferStatus::Blocked
 pub ripdpi_diagnostics_contracts::types::TelegramTransferStatus::Error
@@ -256,6 +259,14 @@ pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Error
 pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Ok
 pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Partial
 pub ripdpi_diagnostics_contracts::types::TelegramVerdict::Slow
+pub enum ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome
+pub ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome::Cancelled
+pub ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome::DeadlineExceeded
+pub ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome::NotRun
+pub ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome::OpenTimedOut
+pub ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome::SubprotocolNotNegotiated
+pub ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome::UpgradeFailed
+pub ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome::UpgradeRejected
 pub enum ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus
 pub ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus::Ok
 pub ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus::Unknown
@@ -947,8 +958,8 @@ pub ripdpi_diagnostics_contracts::types::TcpObservationFact::rst_origin: core::o
 pub ripdpi_diagnostics_contracts::types::TcpObservationFact::rst_timing_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::types::TcpObservationFact::selected_sni: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::TcpObservationFact::status: ripdpi_diagnostics_contracts::TcpProbeStatus
-pub ripdpi_diagnostics_contracts::types::TcpObservationFact::syn_ack_latency_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::types::TcpObservationFact::tcp_block_method: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::TcpObservationFact::transport_open_ms: core::option::Option<u64>
 pub struct ripdpi_diagnostics_contracts::types::TcpTarget
 pub ripdpi_diagnostics_contracts::types::TcpTarget::alt_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::TcpTarget::asn: core::option::Option<alloc::string::String>
@@ -970,13 +981,16 @@ pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::dc_total: usiz
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::download_avg_bps: u64
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::download_peak_bps: u64
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::download_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
-pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::quality_score: i32
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::quality_score: core::option::Option<i32>
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::stop_reason: core::option::Option<ripdpi_diagnostics_contracts::types::TelegramProbeStopReason>
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::upload_avg_bps: u64
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::upload_peak_bps: u64
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::upload_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::verdict: ripdpi_diagnostics_contracts::TelegramVerdict
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_error: core::option::Option<alloc::string::String>
-pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_rtt_ms: u64
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_http_status: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_open_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_outcome: core::option::Option<ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome>
 pub ripdpi_diagnostics_contracts::types::TelegramObservationFact::ws_tunnel_status: ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus
 pub struct ripdpi_diagnostics_contracts::types::TelegramTarget
 pub ripdpi_diagnostics_contracts::types::TelegramTarget::dc_endpoints: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::TelegramDcEndpoint>
@@ -1936,8 +1950,8 @@ pub ripdpi_diagnostics_contracts::TcpObservationFact::rst_origin: core::option::
 pub ripdpi_diagnostics_contracts::TcpObservationFact::rst_timing_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::TcpObservationFact::selected_sni: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::TcpObservationFact::status: ripdpi_diagnostics_contracts::TcpProbeStatus
-pub ripdpi_diagnostics_contracts::TcpObservationFact::syn_ack_latency_ms: core::option::Option<u64>
 pub ripdpi_diagnostics_contracts::TcpObservationFact::tcp_block_method: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::TcpObservationFact::transport_open_ms: core::option::Option<u64>
 pub struct ripdpi_diagnostics_contracts::TcpTarget
 pub ripdpi_diagnostics_contracts::TcpTarget::alt_port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::TcpTarget::asn: core::option::Option<alloc::string::String>
@@ -1959,13 +1973,16 @@ pub ripdpi_diagnostics_contracts::TelegramObservationFact::dc_total: usize
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::download_avg_bps: u64
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::download_peak_bps: u64
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::download_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
-pub ripdpi_diagnostics_contracts::TelegramObservationFact::quality_score: i32
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::quality_score: core::option::Option<i32>
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::stop_reason: core::option::Option<ripdpi_diagnostics_contracts::types::TelegramProbeStopReason>
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::upload_avg_bps: u64
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::upload_peak_bps: u64
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::upload_status: ripdpi_diagnostics_contracts::TelegramTransferStatus
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::verdict: ripdpi_diagnostics_contracts::TelegramVerdict
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_error: core::option::Option<alloc::string::String>
-pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_rtt_ms: u64
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_http_status: core::option::Option<u16>
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_open_ms: core::option::Option<u64>
+pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_outcome: core::option::Option<ripdpi_diagnostics_contracts::types::TelegramWsProbeOutcome>
 pub ripdpi_diagnostics_contracts::TelegramObservationFact::ws_tunnel_status: ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus
 pub struct ripdpi_diagnostics_contracts::TelegramTarget
 pub ripdpi_diagnostics_contracts::TelegramTarget::dc_endpoints: alloc::vec::Vec<ripdpi_diagnostics_contracts::types::TelegramDcEndpoint>
