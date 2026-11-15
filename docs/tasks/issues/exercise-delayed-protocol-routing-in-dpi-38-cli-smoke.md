@@ -2,7 +2,7 @@
 id: CIC-1794766240119737
 title: Verify protocol selection in DPI-38 CLI smoke
 kind: bug
-status: review
+status: done
 area: ci
 priority: high
 owner: DPI-38 CLI smoke maintainer
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-11-15
 updated: 2026-11-15
 spec_reason: test-only
+closed_at: "2026-11-15T18:27:39Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source57d2a69185eea313671c240955659e1f8d153806: local2 adaptive and7 existing oracle tests, strict CLI Clippy/fmt, architecture, locked metadata, just ci-gates, task contracts, independent review passed. Hosted Linux CI run43746016759 job132910064186 passed all16CLI selectors. OriginalPCAP independently decoded by tshark: two exact67byte HTTP requests split32+35 atHoststart, exactly2evolution successes, negative0success0failure. External compatibility E not established; separate relay dependency fetch HTTP429 is reported."
 ---
 
 ## Goal
