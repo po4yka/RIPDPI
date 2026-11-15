@@ -460,6 +460,21 @@ fn telegram_observation_preserves_an_unscored_deadline() {
 }
 
 #[test]
+fn telegram_observation_does_not_call_subprotocol_negotiation_a_network_failure() {
+    let result = probe(
+        "telegram_availability",
+        "Telegram",
+        "partial",
+        &[("wsTunnelStatus", "subprotocol_not_negotiated"), ("wsTunnelHttpStatus", "101")],
+    );
+    let telegram = observation_for_probe(&result).unwrap().telegram.unwrap();
+
+    assert_eq!(telegram.ws_tunnel_status, TelegramWsTunnelStatus::Unknown);
+    assert_eq!(telegram.ws_tunnel_outcome, Some(crate::types::TelegramWsProbeOutcome::SubprotocolNotNegotiated));
+    assert_eq!(telegram.ws_tunnel_http_status, Some(101));
+}
+
+#[test]
 fn strategy_http_observation_builds_from_probe() {
     let result = probe(
         "strategy_http",

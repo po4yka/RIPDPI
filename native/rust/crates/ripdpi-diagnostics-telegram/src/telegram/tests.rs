@@ -67,7 +67,7 @@ fn make_dc(reachable: usize, total: usize) -> TelegramDcResult {
 }
 
 fn make_ws(status: &str, rtt_ms: u64) -> TelegramWsProbeResult {
-    TelegramWsProbeResult { status: status.to_string(), abort_reason: None, rtt_ms, error: None }
+    TelegramWsProbeResult { status: status.to_string(), abort_reason: None, rtt_ms, error: None, http_status: None }
 }
 
 #[test]
@@ -220,4 +220,17 @@ fn telegram_report_does_not_score_a_deadline_before_wss_starts() {
     assert_eq!(evidence.outcome, "deadline_exceeded");
     assert!(evidence.details.iter().any(|item| item.key == "wsTunnelStatus" && item.value == "not_run"));
     assert!(evidence.details.iter().all(|item| item.key != "qualityScore"));
+}
+
+#[test]
+fn telegram_records_missing_binary_as_profile_negotiation_after_http_101() {
+    use ripdpi_diagnostics_transport::ws_tls::WsProbeFailure;
+
+    let result = telegram_ws_tunnel_probe_with(&direct_transport(), |_| {
+        Err(std::io::Error::new(std::io::ErrorKind::InvalidData, WsProbeFailure::SubprotocolNotNegotiated))
+    });
+
+    assert_eq!(result.status, "subprotocol_not_negotiated");
+    assert_eq!(result.http_status, Some(101));
+    assert_eq!(classify_telegram_verdict("ok", "ok", 3, 3, &result.status), "partial");
 }

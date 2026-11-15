@@ -332,6 +332,26 @@ class DiagnosticsModelsCompatibilityTest {
     }
 
     @Test
+    fun `telegram observation decodes upgrade negotiation apart from reachability`() {
+        val telegram =
+            json.decodeFromString(
+                TelegramObservationFact.serializer(),
+                """
+                {
+                  "verdict": "PARTIAL",
+                  "wsTunnelStatus": "UNKNOWN",
+                  "wsTunnelOutcome": "SUBPROTOCOL_NOT_NEGOTIATED",
+                  "wsTunnelHttpStatus": 101
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(TelegramWsTunnelStatus.UNKNOWN, telegram.wsTunnelStatus)
+        assertEquals(TelegramWsProbeOutcome.SUBPROTOCOL_NOT_NEGOTIATED, telegram.wsTunnelOutcome)
+        assertEquals(101, telegram.wsTunnelHttpStatus)
+    }
+
+    @Test
     fun `engine scan report round trips telegram throughput and ws tunnel observation`() {
         val report =
             EngineScanReportWire(

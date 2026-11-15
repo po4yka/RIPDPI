@@ -43,6 +43,10 @@ pub enum TelegramWsProbeOutcome {
     Cancelled,
     DeadlineExceeded,
     NotRun,
+    OpenTimedOut,
+    SubprotocolNotNegotiated,
+    UpgradeRejected,
+    UpgradeFailed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -79,4 +83,6 @@ pub struct TelegramObservationFact {
     pub ws_tunnel_rtt_ms: u64,
     #[serde(default)]
     pub ws_tunnel_error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ws_tunnel_http_status: Option<u16>,
 }

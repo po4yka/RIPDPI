@@ -69,6 +69,12 @@ fn build_telegram_details(
     if let Some(score) = quality_score {
         details.push(ProbeDetail { key: "qualityScore".to_string(), value: score.to_string() });
     }
+    if let Some(status) = ws.http_status {
+        details.push(ProbeDetail { key: "wsTunnelHttpStatus".to_string(), value: status.to_string() });
+    }
+    if matches!(ws.status.as_str(), "subprotocol_not_negotiated" | "upgrade_rejected" | "upgrade_failed") {
+        details.push(ProbeDetail { key: "wsTunnelFailureStage".to_string(), value: "upgrade".to_string() });
+    }
     details.extend([
         ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },
         ProbeDetail { key: "downloadAvgBps".to_string(), value: dl.avg_bps.to_string() },

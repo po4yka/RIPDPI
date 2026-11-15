@@ -21,6 +21,11 @@ pub(crate) fn classify_telegram_verdict(
         "partial"
     } else if dl_status == "ok" && ul_status == "ok" && ws_status == "ok" {
         "ok"
+    } else if dl_status == "ok"
+        && ul_status == "ok"
+        && matches!(ws_status, "open_timed_out" | "subprotocol_not_negotiated" | "upgrade_rejected" | "upgrade_failed")
+    {
+        "partial"
     } else {
         "error"
     }

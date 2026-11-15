@@ -126,3 +126,80 @@ fn wss_upgrade_authority_includes_the_configured_nondefault_port() {
         assert_eq!(request.uri().port_u16(), Some(8443));
     }
 }
+
+#[test]
+fn generic_upgrade_accepts_no_subprotocol_but_required_binary_is_reported() {
+    const UPGRADE: &[u8] = b"HTTP/1.1 101 Switching Protocols\r\n\
+        Upgrade: websocket\r\nConnection: Upgrade\r\n\
+        Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n";
+    let target = WsOverTlsTarget::new("example.test", "/apiws");
+
+    assert!(run_fixture_upgrade(&target, UPGRADE).is_ok());
+    let error = run_fixture_upgrade(&target.with_binary_subprotocol(), UPGRADE).unwrap_err();
+    assert_eq!(
+        error.get_ref().and_then(|cause| cause.downcast_ref::<WsProbeFailure>()),
+        Some(&WsProbeFailure::SubprotocolNotNegotiated)
+    );
+}
+
+#[test]
+fn upgrade_reports_http_status_without_response_headers() {
+    let target = WsOverTlsTarget::new("example.test", "/apiws");
+    let response = b"HTTP/1.1 403 Forbidden\r\nX-Private: local-fixture-value\r\nContent-Length: 0\r\n\r\n";
+    let error = run_fixture_upgrade(&target, response).unwrap_err();
+
+    assert_eq!(
+        error.get_ref().and_then(|cause| cause.downcast_ref::<WsProbeFailure>()),
+        Some(&WsProbeFailure::UpgradeRejected(403))
+    );
+    assert!(!error.to_string().contains("local-fixture-value"));
+}
+
+fn run_fixture_upgrade(target: &WsOverTlsTarget, response: &[u8]) -> io::Result<WebSocket<TcpStream>> {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    client.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+    let mut request = build_ws_request(target)?;
+    // RFC 6455 section 1.3 example, paired with the fixed Accept value above.
+    request.headers_mut().insert(
+        tungstenite::http::header::SEC_WEBSOCKET_KEY,
+        tungstenite::http::HeaderValue::from_static("dGhlIHNhbXBsZSBub25jZQ=="),
+    );
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            let (mut peer, _) = listener.accept().unwrap();
+            peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+            read_upgrade_request(&mut peer);
+            peer.write_all(response).unwrap();
+        });
+        let control = WsOverTlsControl::new(&|| None);
+        let socket = client.try_clone()?;
+        upgrade_websocket(request, client, socket, &control)
+    })
+}
+
+#[test]
+fn idle_upgrade_keeps_the_socket_error_kind() {
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    client.set_read_timeout(Some(Duration::from_millis(150))).unwrap();
+    let target = WsOverTlsTarget::new("example.test", "/apiws");
+    let request = build_ws_request(&target).unwrap();
+    let error = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            let (mut peer, _) = listener.accept().unwrap();
+            peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+            read_upgrade_request(&mut peer);
+            assert_eq!(peer.read(&mut [0]).unwrap(), 0);
+        });
+        let socket = client.try_clone().unwrap();
+        let control = WsOverTlsControl::new(&|| None);
+        upgrade_websocket(request, client, socket, &control).unwrap_err()
+    });
+
+    assert!(matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut), "{error:?}");
+    assert_eq!(
+        error.get_ref().and_then(|cause| cause.downcast_ref::<WsProbeFailure>()),
+        Some(&WsProbeFailure::UpgradeFailed)
+    );
+}

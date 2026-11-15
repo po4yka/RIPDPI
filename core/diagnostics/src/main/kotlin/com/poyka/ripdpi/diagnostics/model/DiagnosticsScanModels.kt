@@ -323,6 +323,10 @@ enum class TelegramWsProbeOutcome {
     CANCELLED,
     DEADLINE_EXCEEDED,
     NOT_RUN,
+    OPEN_TIMED_OUT,
+    SUBPROTOCOL_NOT_NEGOTIATED,
+    UPGRADE_REJECTED,
+    UPGRADE_FAILED,
 }
 
 @Serializable
@@ -413,6 +417,7 @@ data class TelegramObservationFact(
     val wsTunnelOutcome: TelegramWsProbeOutcome? = null,
     val wsTunnelRttMs: Long = 0,
     val wsTunnelError: String? = null,
+    val wsTunnelHttpStatus: Int? = null,
 )
 
 @Serializable

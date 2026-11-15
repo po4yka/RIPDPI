@@ -37,10 +37,15 @@ pub(crate) fn build_telegram_observation(result: &ProbeResult) -> ProbeObservati
             "cancelled" => Some(TelegramWsProbeOutcome::Cancelled),
             "deadline_exceeded" => Some(TelegramWsProbeOutcome::DeadlineExceeded),
             "not_run" => Some(TelegramWsProbeOutcome::NotRun),
+            "open_timed_out" => Some(TelegramWsProbeOutcome::OpenTimedOut),
+            "subprotocol_not_negotiated" => Some(TelegramWsProbeOutcome::SubprotocolNotNegotiated),
+            "upgrade_rejected" => Some(TelegramWsProbeOutcome::UpgradeRejected),
+            "upgrade_failed" => Some(TelegramWsProbeOutcome::UpgradeFailed),
             _ => None,
         },
         ws_tunnel_rtt_ms: detail_u64(result, "wsTunnelRttMs"),
         ws_tunnel_error: optional_detail(result, "wsTunnelError"),
+        ws_tunnel_http_status: detail_value(result, "wsTunnelHttpStatus").and_then(|value| value.parse().ok()),
     });
     observation
 }

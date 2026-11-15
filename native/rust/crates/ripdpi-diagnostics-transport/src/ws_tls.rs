@@ -6,9 +6,10 @@ use std::time::{Duration, Instant};
 use rustls::KeyLog;
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
-use tungstenite::WebSocket;
 use tungstenite::client::IntoClientRequest;
+use tungstenite::error::{ProtocolError, SubProtocolError};
 use tungstenite::http::{Request, Uri};
+use tungstenite::{Error as WebSocketError, HandshakeError, WebSocket};
 
 use crate::transport::{
     TargetAddress, TransportConfig, connect_direct_address_with_abort, connect_transport_observed_with_abort,
@@ -29,6 +30,9 @@ pub enum WsProbeFailure {
     Cancelled,
     DeadlineExceeded,
     OpenTimedOut,
+    SubprotocolNotNegotiated,
+    UpgradeRejected(u16),
+    UpgradeFailed,
 }
 
 impl std::fmt::Display for WsProbeFailure {
@@ -37,6 +41,9 @@ impl std::fmt::Display for WsProbeFailure {
             Self::Cancelled => "probe_aborted:cancelled",
             Self::DeadlineExceeded => "scan_deadline_exceeded",
             Self::OpenTimedOut => "wss_open_timeout",
+            Self::SubprotocolNotNegotiated => "subprotocol_not_negotiated",
+            Self::UpgradeRejected(status) => return write!(formatter, "WS Upgrade rejected with HTTP {status}"),
+            Self::UpgradeFailed => "ws_upgrade_failed",
         })
     }
 }
@@ -54,6 +61,7 @@ pub struct WsOverTlsTarget {
     /// The scan's path to the host. A SOCKS5 transport sends the host name to the proxy, which
     /// resolves and connects it; a direct transport resolves with the bounded system resolver.
     pub transport: TransportConfig,
+    require_binary_subprotocol: bool,
 }
 
 impl WsOverTlsTarget {
@@ -65,11 +73,17 @@ impl WsOverTlsTarget {
             resolved_addr: None,
             connect_timeout: None,
             transport: direct_transport(),
+            require_binary_subprotocol: false,
         }
     }
 
     pub fn with_resolved_addr(mut self, resolved_addr: Option<SocketAddr>) -> Self {
         self.resolved_addr = resolved_addr;
+        self
+    }
+
+    pub fn with_binary_subprotocol(mut self) -> Self {
+        self.require_binary_subprotocol = true;
         self
     }
 
@@ -354,8 +368,20 @@ fn upgrade_websocket<S: io::Read + io::Write>(
 ) -> io::Result<WebSocket<S>> {
     // rustls can keep reading while a peer sends part of the Upgrade response.
     let (ws, _) = control.watch_socket(socket, || {
-        tungstenite::client(request, stream)
-            .map_err(|err| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {err}")))
+        tungstenite::client(request, stream).map_err(|error| {
+            let (kind, failure) = match error {
+                HandshakeError::Interrupted(_) => (io::ErrorKind::WouldBlock, WsProbeFailure::UpgradeFailed),
+                HandshakeError::Failure(WebSocketError::Io(error)) => (error.kind(), WsProbeFailure::UpgradeFailed),
+                HandshakeError::Failure(WebSocketError::Http(response)) => {
+                    (io::ErrorKind::InvalidData, WsProbeFailure::UpgradeRejected(response.status().as_u16()))
+                }
+                HandshakeError::Failure(WebSocketError::Protocol(ProtocolError::SecWebSocketSubProtocolError(
+                    SubProtocolError::NoSubProtocol,
+                ))) => (io::ErrorKind::InvalidData, WsProbeFailure::SubprotocolNotNegotiated),
+                HandshakeError::Failure(_) => (io::ErrorKind::InvalidData, WsProbeFailure::UpgradeFailed),
+            };
+            io::Error::new(kind, failure)
+        })
     })?;
     Ok(ws)
 }
@@ -390,7 +416,9 @@ fn build_ws_request(target: &WsOverTlsTarget) -> io::Result<Request<()>> {
         .build()
         .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
     let mut request = uri.into_client_request().map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
-    request.headers_mut().insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
+    if target.require_binary_subprotocol {
+        request.headers_mut().insert("Sec-WebSocket-Protocol", tungstenite::http::HeaderValue::from_static("binary"));
+    }
     Ok(request)
 }
 
@@ -471,7 +499,7 @@ mod tests {
 
     #[test]
     fn ws_request_uses_binary_subprotocol() {
-        let target = WsOverTlsTarget::new("kws2.web.telegram.org", "apiws");
+        let target = WsOverTlsTarget::new("kws2.web.telegram.org", "apiws").with_binary_subprotocol();
         let request = build_ws_request(&target).expect("request");
 
         assert_eq!(request.uri().to_string(), "wss://kws2.web.telegram.org/apiws");
