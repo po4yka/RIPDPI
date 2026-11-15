@@ -2,7 +2,7 @@
 id: ENG-1794722736729815
 title: Correct DPI-38 failure decisions and feedback
 kind: bug
-status: review
+status: done
 area: engine
 priority: high
 owner: DPI-38 integration
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: dpi38-failure-contracts
 created: 2026-11-15
 updated: 2026-11-15
+closed_at: "2026-11-15T16:24:18Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: DPI-38 F1-F10 passed local regressions and review; 1402 Rust units and 20 local contracts passed; strict Clippy, workspace and ci-gates passed. Main source push and remote SHA 44c5b4bcbddb8d7fb61313e37395c9cf380c2afd confirmed. Device and external compatibility remain unverified.
 ---
 
 ## Goal

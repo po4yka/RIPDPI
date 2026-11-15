@@ -1,0 +1,11 @@
+{
+  "change": "dpi38-failure-contracts",
+  "evidence_summary": "DPI-38 F1-F10 passed local regressions and review; 1402 Rust units and 20 local contracts passed; strict Clippy, workspace and ci-gates passed. Main source push and remote SHA 44c5b4bcbddb8d7fb61313e37395c9cf380c2afd confirmed. Device and external compatibility remain unverified.",
+  "execution_sha256": "f77bb74ec6c3a0999513258ea235456dc87e55a587b7eb75e4914d197c8c86b4",
+  "issue_sha256": "58fe2b4e50bbefdae44ed4084da74d37a2c2ab2307081f74dca147e6d7ec9053",
+  "outcome": "done",
+  "prepared_at": "2026-11-15T16:24:18Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1794722736729815"
+}
