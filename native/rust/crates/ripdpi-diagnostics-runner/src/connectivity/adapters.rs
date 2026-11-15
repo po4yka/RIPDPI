@@ -46,13 +46,13 @@ pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::{
         RouteExperimentReport, TargetAddress, TransportConfig, connect_transport_observed, domain_connect_targets,
         quic_connect_targets, relay_udp_direct, relay_udp_payload_matching_observed, relay_udp_via_socks5,
-        resolve_addresses, resolve_first_socket_addr, throughput_connect_targets,
+        resolve_first_socket_addr, throughput_connect_targets,
     };
 }
 
 pub(crate) mod util {
     pub use ripdpi_diagnostics_contracts::util::{
         DEFAULT_DNS_SERVER, DnsAnswerOverlap, IO_TIMEOUT, MAX_HTTP_BYTES, classify_dns_answer_overlap,
-        format_result_set, format_socket_result, ip_set, is_suspected_dns_tampering_outcome, now_ms,
+        format_result_set, ip_set, is_suspected_dns_tampering_outcome, now_ms,
     };
 }
