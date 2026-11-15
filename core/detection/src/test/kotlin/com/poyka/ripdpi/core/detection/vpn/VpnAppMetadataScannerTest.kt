@@ -13,16 +13,13 @@ class VpnAppMetadataScannerTest {
                 VpnAppTechnicalMetadata(
                     versionName = "1.2.3",
                     serviceNames = listOf("VpnService", "OtherService", "ExtraService", "IgnoredService"),
-                    appType = "native",
-                    coreType = "xray",
-                    corePath = "lib/arm64-v8a/libxray.so",
-                    goVersion = "go1.22.4",
+                    apkLibraryNameHint = "split APK: lib/arm64-v8a/libxray.so",
                     matchedByNameHeuristic = true,
                 ),
             )
 
         assertTrue(suffix.contains("version=1.2.3"))
-        assertTrue(suffix.contains("core=xray"))
+        assertTrue(suffix.contains("APK library name hint: split APK: lib/arm64-v8a/libxray.so"))
         assertTrue(suffix.contains("services=VpnService, OtherService, ExtraService"))
         assertTrue(suffix.contains("nameHeuristic=true"))
     }

@@ -138,7 +138,7 @@ class DetectionAppExportPrivacyTest {
             source = EvidenceSource.INSTALLED_APP,
             active = false,
             confidence = EvidenceConfidence.MEDIUM,
-            technicalMetadata = VpnAppTechnicalMetadata(versionName = InstalledVersion, corePath = ApkEntry),
+            technicalMetadata = VpnAppTechnicalMetadata(versionName = InstalledVersion, apkLibraryNameHint = ApkEntry),
         )
 
     private companion object {

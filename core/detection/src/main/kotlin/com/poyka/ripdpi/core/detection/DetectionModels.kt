@@ -110,10 +110,7 @@ data class ActiveVpnApp(
 data class VpnAppTechnicalMetadata(
     val versionName: String? = null,
     val serviceNames: List<String> = emptyList(),
-    val appType: String? = null,
-    val coreType: String? = null,
-    val corePath: String? = null,
-    val goVersion: String? = null,
+    val apkLibraryNameHint: String? = null,
     val systemApp: Boolean = false,
     val matchedByNameHeuristic: Boolean = false,
 )
