@@ -2,7 +2,7 @@
 id: DGN-1794755310955921
 title: Correct DIA-19 local proxy and Xray diagnostics
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics integration
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: correct-dia19-diagnostics
 created: 2026-11-15
 updated: 2026-11-15
+status_detail: Host regressions, source gates and independent review complete.
 ---
 
 ## Goal
