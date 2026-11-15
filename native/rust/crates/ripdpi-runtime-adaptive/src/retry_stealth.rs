@@ -68,11 +68,12 @@ mod tests {
         let failed = sample_signature(0);
         let sibling = RetrySignature::new("scope-a", RetryLane::TcpTls, "example.org", 0, 18);
 
-        pacer.record_failure(&failed, 1_000);
+        let failure = pacer.record_failure(&failed, 1_000);
+        assert!((1_080..=1_200).contains(&failure.family_cooldown_until_ms));
         let decision = pacer.retry_delay_for(&sibling, 1_001).expect("family retry decision");
 
         assert_eq!(decision.reason, "same_family_retry");
-        assert!((80..=200).contains(&decision.backoff_ms));
+        assert_eq!(decision.backoff_ms, failure.family_cooldown_until_ms - 1_001);
         assert_eq!(decision.suppress_same_signature_until_ms, 0);
     }
 
