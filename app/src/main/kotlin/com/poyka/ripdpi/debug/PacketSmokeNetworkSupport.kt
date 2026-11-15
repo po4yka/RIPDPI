@@ -346,7 +346,7 @@ object DebugDnsPacketCodec {
                 .mapNotNull { record ->
                     when (record) {
                         is ARecord -> record.address.hostAddress
-                        is AAAARecord -> record.address.hostAddress
+                        is AAAARecord -> DnsMessages.ipv6Address(record).hostAddress
                         is CNAMERecord -> record.target.toString(true)
                         is PTRRecord -> record.target.toString(true)
                         else -> null

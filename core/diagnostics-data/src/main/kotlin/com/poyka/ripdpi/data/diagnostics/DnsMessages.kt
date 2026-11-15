@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.data.diagnostics
 
+import org.xbill.DNS.AAAARecord
 import org.xbill.DNS.CNAMERecord
 import org.xbill.DNS.DClass
 import org.xbill.DNS.Flags
@@ -14,6 +15,7 @@ import org.xbill.DNS.Record
 import org.xbill.DNS.Section
 import org.xbill.DNS.Type
 import java.io.IOException
+import java.net.Inet6Address
 import java.security.SecureRandom
 
 /** DNS wire parsing belongs to dnsjava; network selection belongs to the caller. */
@@ -32,6 +34,10 @@ object DnsMessages {
 
     fun httpsRecord(rdata: ByteArray): HTTPSRecord? =
         Record.newRecord(Name.root, Type.HTTPS, DClass.IN, 0, rdata) as? HTTPSRecord
+
+    /** Preserve the AAAA family when the RDATA contains an IPv4-mapped address. */
+    fun ipv6Address(record: AAAARecord): Inet6Address =
+        Inet6Address.getByAddress(record.name.toString(), record.rdataToWireCanonical(), -1)
 
     fun randomTransactionId(): Int = random.nextInt(MAX_MESSAGE_BYTES + 1)
 

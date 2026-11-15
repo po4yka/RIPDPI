@@ -87,8 +87,25 @@ class DirectDnsTransportTest {
             udp.send(DatagramPacket(response, response.size, peer.socketAddress))
         }
 
+    @Test
+    fun `mapped AAAA remains IPv6 in an IPv6-only lookup`() =
+        withFixture(
+            addressFamily = DetectionAddressFamily.IPV6,
+            expectedAddress = "0:0:0:0:0:ffff:c000:201",
+        ) { udp, _ ->
+            val peer = receiveQuery(udp)
+            val query = peer.data.copyOf(peer.length)
+            assertEquals(28, query[query.lastIndex - 2].toInt())
+            val response =
+                answerHeader(query) +
+                    hex("c00c001c00010000003c001000000000000000000000ffffc0000201")
+            udp.send(DatagramPacket(response, response.size, peer.socketAddress))
+        }
+
     private fun withFixture(
         expectFailure: Boolean = false,
+        addressFamily: DetectionAddressFamily = DetectionAddressFamily.IPV4,
+        expectedAddress: String = "192.0.2.1",
         serve: (DatagramSocket, ServerSocket) -> Unit,
     ) {
         ServerSocket(0, 1, loopback).use { tcp ->
@@ -98,8 +115,8 @@ class DirectDnsTransportTest {
                 val executor = Executors.newSingleThreadExecutor()
                 try {
                     val served = executor.submit { serve(udp, tcp) }
-                    val resolver = DirectDns(listOf("127.0.0.1"), DetectionAddressFamily.IPV4, tcp.localPort, 2_000)
-                    assertResolution(resolver, expectFailure)
+                    val resolver = DirectDns(listOf("127.0.0.1"), addressFamily, tcp.localPort, 2_000)
+                    assertResolution(resolver, expectFailure, expectedAddress)
                     served.get(3, TimeUnit.SECONDS)
                 } finally {
                     executor.shutdownNow()
@@ -111,24 +128,26 @@ class DirectDnsTransportTest {
     private fun assertResolution(
         resolver: DirectDns,
         expectFailure: Boolean,
+        expectedAddress: String,
     ) {
         if (expectFailure) {
             assertThrows(UnknownHostException::class.java) { resolver.lookup("example.com") }
         } else {
-            assertEquals(listOf("192.0.2.1"), resolver.lookup("example.com").map { it.hostAddress })
+            assertEquals(listOf(expectedAddress), resolver.lookup("example.com").map { it.hostAddress })
         }
     }
 
     private fun receiveQuery(socket: DatagramSocket): DatagramPacket =
         DatagramPacket(ByteArray(1024), 1024).also(socket::receive)
 
-    private fun answer(query: ByteArray): ByteArray =
+    private fun answer(query: ByteArray): ByteArray = answerHeader(query) + hex("c00c000100010000003c0004c0000201")
+
+    private fun answerHeader(query: ByteArray): ByteArray =
         query.copyOf().also {
             it[2] = 0x81.toByte()
             it[3] = 0x80.toByte()
             it[7] = 1
-        } +
-            hex("c00c000100010000003c0004c0000201")
+        }
 
     private fun hex(value: String): ByteArray = value.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 }

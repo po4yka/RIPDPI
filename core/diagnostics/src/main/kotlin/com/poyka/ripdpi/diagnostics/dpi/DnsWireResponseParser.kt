@@ -51,7 +51,7 @@ internal object DnsWireResponseParser {
                 .map { record ->
                     when (record) {
                         is ARecord -> record.address.hostAddress.orEmpty()
-                        is AAAARecord -> record.address.hostAddress.orEmpty()
+                        is AAAARecord -> DnsMessages.ipv6Address(record).hostAddress.orEmpty()
                         else -> error("Unexpected address record")
                     }
                 }.distinct()

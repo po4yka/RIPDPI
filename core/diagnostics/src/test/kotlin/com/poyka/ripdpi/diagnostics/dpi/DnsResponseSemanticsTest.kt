@@ -197,6 +197,20 @@ class DnsResponseSemanticsTest {
     }
 
     @Test
+    fun mappedIpv6AnswerRetainsItsAaaaFamily() {
+        val ipv6Query = query.copyOf().also { it[it.lastIndex - 2] = 28 }
+        val mapped = byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -64, 0, 2, 1)
+        val response =
+            packet(answers = listOf(record("example.com", 28, mapped)))
+                .also { it[query.lastIndex - 2] = 28 }
+        val answer = DnsWireBuilder.parseResponse(response, ipv6Query)
+
+        assertEquals("AAAA", answer.response?.queryType)
+        assertEquals(DnsResponseOutcome.ANSWER, answer.response?.outcome)
+        assertEquals(listOf("0:0:0:0:0:ffff:c000:201"), answer.addresses)
+    }
+
+    @Test
     fun jsonPreservesNegativeAndAliasFactsWithNullableAbsentFlags() {
         val result =
             DnsJsonResponseParser.parse(
