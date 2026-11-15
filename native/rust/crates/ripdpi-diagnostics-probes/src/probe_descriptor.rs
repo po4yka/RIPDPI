@@ -1,11 +1,6 @@
 //! `ProbeDescriptor` — static metadata for the scheduled connectivity probes.
 //!
-//! With the Probe-trait migration complete (every row of
-//! [`crate::scheduled_inventory::SCHEDULED_PROBE_INVENTORY`] is
-//! [`crate::scheduled_inventory::ProbeTraitBacking::Backed`]), this module
-//! adds the unified descriptor table the migration was building toward — one
-//! [`ProbeDescriptor`] row per scheduled connectivity stage, analogous to the
-//! `RELAY_TRANSPORT_REGISTRATIONS` table in `ripdpi-relay-core`.
+//! One [`ProbeDescriptor`] row per scheduled connectivity stage.
 //!
 //! ## Scope
 //!
@@ -28,7 +23,6 @@ use crate::probes::doh_json_survey::DOH_JSON_SURVEY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
 use crate::probes::http3::HTTP3_PROBE_ID;
 use crate::probes::ip_family::IP_FAMILY_PROBE_ID;
-use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
 use crate::probes::pmtu::PMTU_PROBE_ID;
 use crate::probes::quic_probe::QUIC_PROBE_OFFLINE_PROBE_ID;
@@ -62,10 +56,9 @@ pub enum ProbePathRequirement {
 /// presentation metadata. It drives no scheduling or execution.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProbeDescriptor {
-    /// The backing probe's [`crate::Probe::id`] — a stable telemetry / golden
-    /// contract. May differ from [`Self::scheduled_probe_type`].
+    /// Stable stage identifier. For a Probe-backed stage, this is its [`crate::Probe::id`].
     pub id: &'static str,
-    /// The probe family the backing [`crate::Probe`] reports.
+    /// The stage family.
     pub family: ProbeTaskFamily,
     /// The `ProbeResult.probe_type` the monitor-engine stage emits — the key
     /// used by [`crate::scheduled_inventory::SCHEDULED_PROBE_INVENTORY`].
@@ -141,12 +134,12 @@ pub const PROBE_DESCRIPTORS: &[ProbeDescriptor] = &[
         label: "Circumvention reachability",
     },
     ProbeDescriptor {
-        id: MTPROTO_REACHABILITY_PROBE_ID,
+        id: "telegram_availability",
         family: ProbeTaskFamily::Telegram,
         scheduled_probe_type: "telegram",
         runner: "TelegramRunner",
         path_requirement: ProbePathRequirement::Either,
-        label: "Telegram reachability",
+        label: "Telegram HTTP, DC TCP and WSS opening",
     },
     ProbeDescriptor {
         id: THROUGHPUT_PROBE_ID,
@@ -208,7 +201,7 @@ pub fn descriptor_by_probe_type(probe_type: &str) -> Option<&'static ProbeDescri
     PROBE_DESCRIPTORS.iter().find(|descriptor| descriptor.scheduled_probe_type == probe_type)
 }
 
-/// Every descriptor whose backing probe reports `family`.
+/// Every stage descriptor for `family`.
 pub fn descriptors_for_family(family: ProbeTaskFamily) -> Vec<&'static ProbeDescriptor> {
     PROBE_DESCRIPTORS.iter().filter(|descriptor| descriptor.family == family).collect()
 }
@@ -245,13 +238,18 @@ mod tests {
             assert_eq!(rows.len(), 1, "expected one inventory row for descriptor {}", descriptor.id);
             let row = rows[0];
             assert_eq!(row.runner, descriptor.runner, "runner drift for {}", descriptor.scheduled_probe_type);
-            assert_eq!(
-                row.backing,
-                ProbeTraitBacking::Backed(descriptor.id),
-                "backing-id drift for {}",
-                descriptor.scheduled_probe_type,
-            );
+            if let ProbeTraitBacking::Backed(id) = row.backing {
+                assert_eq!(id, descriptor.id, "backing-id drift for {}", descriptor.scheduled_probe_type);
+            }
         }
+    }
+
+    #[test]
+    fn telegram_stage_descriptor_identifies_the_native_availability_result() {
+        let native = descriptor_by_probe_type("telegram").unwrap();
+        assert_eq!(native.id, "telegram_availability");
+        assert_eq!(native.family, ProbeTaskFamily::Telegram);
+        assert!(descriptor_by_id(crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID).is_none());
     }
 
     #[test]

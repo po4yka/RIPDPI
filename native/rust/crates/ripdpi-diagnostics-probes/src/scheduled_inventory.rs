@@ -4,16 +4,10 @@
 //! stage the `ripdpi-monitor-engine` runs, paired with whether that stage has
 //! a backing [`crate::Probe`] implementation in this crate.
 //!
-//! ## What is in scope
-//!
-//! [`SCHEDULED_PROBE_INVENTORY`] enumerates the 9 connectivity stage
-//! runners. Each [`ScheduledProbeStage::backing`] names the backing probe's
-//! [`crate::Probe::id`] via [`ProbeTraitBacking::Backed`]. The
-//! [`ProbeTraitBacking::NotBacked`] variant remains available only to make a
-//! future newly scheduled, not-yet-ported stage explicit instead of silent.
-//! The `Backed(...)` rows reference the real `*_PROBE_ID` consts from the
-//! probe modules, so this list is compile-time-coupled to the probe
-//! implementations — deleting or renaming a probe const breaks this file.
+//! Every connectivity runner has an inventory row. The scheduled Telegram
+//! stage uses its native HTTP, TCP and WebSocket probes; it does not dispatch
+//! the standalone offline TCP probe. Backed rows reference the actual
+//! production probe identifier.
 //!
 //! ## What is intentionally out of scope
 //!
@@ -24,22 +18,12 @@
 //! [`crate::Probe`] trait, so they are not part of this migration and must
 //! not be added to the inventory.
 //!
-//! ## Probe-trait migration: complete
-//!
-//! Every connectivity stage is [`ProbeTraitBacking::Backed`], so
-//! [`unbacked_stages`] returns an empty list. The unified descriptor table the
-//! migration was building toward now exists in [`crate::probe_descriptor`];
-//! [`ScheduledProbeStage::descriptor`] resolves a row to its
-//! [`crate::probe_descriptor::ProbeDescriptor`], and drift tests pin the two
-//! tables together.
-
 use crate::probes::circumvention_reachability::CIRCUMVENTION_REACHABILITY_PROBE_ID;
 use crate::probes::dns_integrity::DNS_INTEGRITY_PROBE_ID;
 use crate::probes::doh_json_survey::DOH_JSON_SURVEY_PROBE_ID;
 use crate::probes::domain_reachability::DOMAIN_REACHABILITY_PROBE_ID;
 use crate::probes::http3::HTTP3_PROBE_ID;
 use crate::probes::ip_family::IP_FAMILY_PROBE_ID;
-use crate::probes::mtproto_reachability::MTPROTO_REACHABILITY_PROBE_ID;
 use crate::probes::network_environment::NETWORK_ENVIRONMENT_PROBE_ID;
 use crate::probes::pmtu::PMTU_PROBE_ID;
 use crate::probes::quic_probe::QUIC_PROBE_OFFLINE_PROBE_ID;
@@ -54,8 +38,7 @@ pub enum ProbeTraitBacking {
     /// The stage is backed by a [`crate::Probe`]. Carries the backing
     /// probe's [`crate::Probe::id`].
     Backed(&'static str),
-    /// A future newly scheduled stage has not yet been migrated to the
-    /// [`crate::Probe`] trait.
+    /// The native stage runs without the [`crate::Probe`] trait.
     NotBacked,
 }
 
@@ -124,11 +107,7 @@ pub const SCHEDULED_PROBE_INVENTORY: &[ScheduledProbeStage] = &[
         runner: "CircumventionRunner",
         backing: ProbeTraitBacking::Backed(CIRCUMVENTION_REACHABILITY_PROBE_ID),
     },
-    ScheduledProbeStage {
-        probe_type: "telegram",
-        runner: "TelegramRunner",
-        backing: ProbeTraitBacking::Backed(MTPROTO_REACHABILITY_PROBE_ID),
-    },
+    ScheduledProbeStage { probe_type: "telegram", runner: "TelegramRunner", backing: ProbeTraitBacking::NotBacked },
     ScheduledProbeStage {
         probe_type: "throughput_window",
         runner: "ThroughputRunner",
@@ -181,22 +160,8 @@ mod tests {
     }
 
     #[test]
-    fn unbacked_stages_is_frozen_expectation() {
-        // Every scheduled connectivity stage is now Probe-backed, so this is
-        // empty. It changes ONLY when a new un-backed stage is added; any
-        // other diff here is a regression.
-        assert_eq!(unbacked_stages(), Vec::<&'static str>::new());
-    }
-
-    #[test]
-    fn every_scheduled_stage_is_backed() {
-        for stage in SCHEDULED_PROBE_INVENTORY {
-            assert!(
-                matches!(stage.backing, ProbeTraitBacking::Backed(_)),
-                "scheduled stage {} is not Probe-backed",
-                stage.probe_type,
-            );
-        }
+    fn scheduled_telegram_has_no_offline_probe_backing() {
+        assert_eq!(unbacked_stages(), ["telegram"]);
     }
 
     #[test]

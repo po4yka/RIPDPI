@@ -64,9 +64,7 @@ pub(in crate::engine) struct ProbeStageRegistration {
     /// `parity.rs` table pins this byte-identical to each runner's
     /// `ARTIFACT_SOURCE` const.
     pub probe_type: &'static str,
-    /// The `Probe::id` of the backing [`ripdpi_diagnostics_probes::Probe`]
-    /// implementation. Stable telemetry / golden contract; may differ from
-    /// `probe_type` (e.g. `quic_probe_offline` vs `quic_reachability`).
+    /// Stable stage or backing probe identifier. It may differ from `probe_type`.
     pub probe_id: &'static str,
     /// The engine stage id used in `plan.stage_order` and the coordinator's
     /// runner map.
@@ -157,11 +155,11 @@ pub(in crate::engine) const PROBE_STAGE_REGISTRATIONS: &[ProbeStageRegistration]
     },
     ProbeStageRegistration {
         probe_type: "telegram",
-        probe_id: "mtproto_reachability_probe",
+        probe_id: "telegram_availability",
         stage_id: ExecutionStageId::Telegram,
         task_family_selector: Some(ProbeTaskFamily::Telegram),
         runner_name: "TelegramRunner",
-        label: "Telegram reachability",
+        label: "Telegram HTTP, DC TCP and WSS opening",
         make_runner: || Box::new(TelegramRunner),
     },
     ProbeStageRegistration {
@@ -298,7 +296,7 @@ mod tests {
         ("tcp_fat_header", "TcpRunner", "tcp_fat_header_probe"),
         ("service_reachability", "ServiceRunner", "service_reachability_probe"),
         ("circumvention_reachability", "CircumventionRunner", "circumvention_reachability_probe"),
-        ("telegram", "TelegramRunner", "mtproto_reachability_probe"),
+        ("telegram", "TelegramRunner", "telegram_availability"),
         ("throughput_window", "ThroughputRunner", "throughput_probe"),
         ("selective_availability", "SelectiveMatrixRunner", "selective_availability_probe"),
         ("ip_family", "IpFamilyRunner", "ip_family_probe"),
