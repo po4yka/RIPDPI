@@ -20,6 +20,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -285,7 +286,7 @@ class OkHttpDohWireAvailabilityProbe(
                             response = dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR).response,
                         )
                     }
-                    return@withContext decodeDohResponse(response.body.bytes(), query, startNs)
+                    return@withContext decodeDohResponse(response, query, startNs)
                 }
             }
             val get = buildGetRequest(server.endpoint, query)
@@ -296,16 +297,21 @@ class OkHttpDohWireAvailabilityProbe(
                         response = dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR).response,
                     )
                 }
-                decodeDohResponse(response.body.bytes(), query, startNs)
+                decodeDohResponse(response, query, startNs)
             }
         }
 
     private fun decodeDohResponse(
-        bytes: ByteArray,
+        response: Response,
         query: ByteArray,
         startNs: Long,
     ): DnsProbeSample {
-        val answer = DnsWireBuilder.parseResponse(bytes, query)
+        val answer =
+            try {
+                DnsWireBuilder.parseResponse(response.readDnsWireBody(), query)
+            } catch (_: MalformedDnsHttpResponse) {
+                dnsFailure(DnsResponseOutcome.MALFORMED)
+            }
         return if (answer.addresses.isNotEmpty()) {
             DnsProbeSample(
                 status = DnsProbeStatus.OK,

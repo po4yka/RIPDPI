@@ -4,6 +4,7 @@ import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Request
@@ -86,7 +87,7 @@ class DnsSemanticProbesTest {
     fun jsonNodataIsAResponseAndMissingQuestionIsMalformed() =
         runTest {
             val negative = """{"Status":0,"Question":[{"name":"example.com.","type":1}]}"""
-            val client = client { reply(it, negative.toByteArray()) }
+            val client = client { reply(it, negative.toByteArray(), mediaType = "application/dns-json") }
             val probe = DohJsonAddressProbe(client, listOf(Endpoint), StandardTestDispatcher(testScheduler))
             assertEquals(DnsResponseOutcome.NODATA, probe.resolveResponse("example.com").response?.outcome)
             assertEquals(DnsResponseOutcome.MALFORMED, probe.resolveResponse("other.example").response?.outcome)
@@ -112,6 +113,7 @@ class DnsSemanticProbesTest {
         request: Request,
         bytes: ByteArray,
         code: Int = 200,
+        mediaType: String = "application/dns-message",
     ): Response =
         Response
             .Builder()
@@ -119,7 +121,7 @@ class DnsSemanticProbesTest {
             .protocol(Protocol.HTTP_1_1)
             .code(code)
             .message("test")
-            .body(bytes.toResponseBody())
+            .body(bytes.toResponseBody(mediaType.toMediaType()))
             .build()
 
     private fun query(request: Request): ByteArray =

@@ -212,12 +212,14 @@ class DohWireHttpsRrQuery(
                             val result =
                                 response.use {
                                     if (it.isSuccessful) {
-                                        HttpsDnsWireParser.parseResponse(it.body.bytes(), query)
+                                        HttpsDnsWireParser.parseResponse(it.readDnsWireBody(), query)
                                     } else {
                                         HttpsRrResponse(HttpsRrOutcome.HTTP_ERROR, httpStatus = it.code)
                                     }
                                 }
                             continuation.resume(result)
+                        } catch (_: MalformedDnsHttpResponse) {
+                            continuation.resume(HttpsRrResponse(HttpsRrOutcome.MALFORMED))
                         } catch (error: IOException) {
                             continuation.resume(error.toHttpsRrFailure())
                         }

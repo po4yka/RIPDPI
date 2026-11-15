@@ -18,6 +18,8 @@ internal object DnsJsonResponseParser {
         domain: String,
         json: Json,
     ): DnsProbeAnswer {
+        require(payload.length <= MaxDnsJsonBodyBytes)
+        checkDepth(payload)
         val root = json.parseToJsonElement(payload).jsonObject
         val question = requireNotNull(root["Question"]?.jsonArray?.singleOrNull()?.jsonObject)
         require(
@@ -44,7 +46,7 @@ internal object DnsJsonResponseParser {
         ) {
             return DnsProbeAnswer(response = initial.copy(outcome = DnsResponseOutcome.TRUNCATED))
         }
-        val records = root["Answer"]?.jsonArray?.map { it.jsonObject }.orEmpty()
+        val records = root.records("Answer").orEmpty()
         val chain = aliasChain(domain, records)
         val addressRecords = records.filter { it["type"]?.jsonPrimitive?.intOrNull == AType }
         require(addressRecords.all { it.name() == chain.last() })
@@ -60,7 +62,7 @@ internal object DnsJsonResponseParser {
                     ttl in 0..MaxTtl
                 }
             }
-        val authorities = root["Authority"]?.jsonArray?.map { it.jsonObject }
+        val authorities = root.records("Authority")
         val soa =
             authorities
                 ?.filter { it["type"]?.jsonPrimitive?.intOrNull == SoaType }
@@ -91,6 +93,27 @@ internal object DnsJsonResponseParser {
         val usableAddresses = addresses.takeIf { outcome == DnsResponseOutcome.ANSWER }.orEmpty().distinct()
         return DnsProbeAnswer(usableAddresses, semantics)
     }
+
+    private fun checkDepth(payload: String) {
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (character in payload) {
+            when {
+                escaped -> escaped = false
+                inString && character == '\\' -> escaped = true
+                character == '"' -> inString = !inString
+                !inString && (character == '{' || character == '[') -> require(++depth <= MaxDepth)
+                !inString && (character == '}' || character == ']') -> depth--
+            }
+        }
+    }
+
+    private fun JsonObject.records(key: String): List<JsonObject>? =
+        get(key)?.jsonArray?.let { records ->
+            require(records.size <= MaxRecordsPerSection)
+            records.map { it.jsonObject }
+        }
 
     private fun aliasChain(
         domain: String,
@@ -150,6 +173,8 @@ internal object DnsJsonResponseParser {
         return if (ttl != null && minimum != null) minOf(ttl, minimum) else null
     }
 
+    private const val MaxDepth = 32
+    private const val MaxRecordsPerSection = 512
     private const val AType = 1
     private const val CnameType = 5
     private const val SoaType = 6

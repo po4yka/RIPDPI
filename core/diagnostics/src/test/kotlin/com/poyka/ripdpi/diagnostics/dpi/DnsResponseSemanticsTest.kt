@@ -4,6 +4,7 @@ import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -247,6 +248,22 @@ class DnsResponseSemanticsTest {
             )
         assertEquals(listOf("alias.example.com"), answer.response?.cnameTargets)
         assertEquals(30L, answer.response?.ttlMaxSeconds)
+    }
+
+    @Test
+    fun jsonLimitsNestingAndRecordCount() {
+        val question = """"Status":0,"Question":[{"name":"example.com","type":1}]"""
+        val nested = "{$question,\"Extension\":${"[".repeat(33)}0${"]".repeat(33)}}"
+        val record = """{"name":"example.com","type":1,"TTL":60,"data":"192.0.2.10"}"""
+        val tooMany = List(513) { record }.joinToString(",")
+        val atLimit = List(512) { record }.joinToString(",")
+        val answer = DnsJsonResponseParser.parse("{$question,\"Answer\":[$atLimit]}", "example.com", Json)
+        assertEquals(listOf("192.0.2.10"), answer.addresses)
+        listOf(nested, "{$question,\"Answer\":[$tooMany]}").forEach {
+            assertThrows(IllegalArgumentException::class.java) {
+                DnsJsonResponseParser.parse(it, "example.com", Json)
+            }
+        }
     }
 
     @Test(expected = IllegalArgumentException::class)

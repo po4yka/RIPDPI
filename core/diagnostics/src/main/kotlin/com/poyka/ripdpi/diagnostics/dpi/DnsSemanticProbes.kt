@@ -95,7 +95,7 @@ class DohJsonAddressProbe(
                         .build()
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        DnsJsonResponseParser.parse(response.body.string(), domain, json)
+                        DnsJsonResponseParser.parse(response.readDnsJsonBody(), domain, json)
                     } else {
                         dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
                     }
@@ -135,7 +135,7 @@ class DohWireAddressProbe(
         val postResult =
             client.newCall(post).execute().use { response ->
                 when {
-                    response.isSuccessful -> DnsWireBuilder.parseResponse(response.body.bytes(), query)
+                    response.isSuccessful -> DnsWireBuilder.parseResponse(response.readDnsWireBody(), query)
                     response.code == MethodNotAllowed -> null
                     else -> dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
                 }
@@ -151,7 +151,7 @@ class DohWireAddressProbe(
                 .build()
         return client.newCall(get).execute().use { response ->
             if (response.isSuccessful) {
-                DnsWireBuilder.parseResponse(response.body.bytes(), query)
+                DnsWireBuilder.parseResponse(response.readDnsWireBody(), query)
             } else {
                 dnsFailure(DnsResponseOutcome.TRANSPORT_ERROR)
             }
