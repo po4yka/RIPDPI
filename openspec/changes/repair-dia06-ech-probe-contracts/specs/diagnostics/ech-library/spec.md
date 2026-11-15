@@ -33,7 +33,7 @@ The driver MUST preserve authenticated ECH rejection with absent, empty or unusa
 
 ### Requirement: REQ-DIA06-ADMISSION — Exclude unusable HTTPS records
 
-Discovery MUST ignore AliasMode parameters and ServiceMode records whose mandatory parameters it cannot use. It MUST NOT use ECH from an incompatible record or a ServiceMode record in an AliasMode RRset.
+Discovery MUST ignore AliasMode parameters and ServiceMode records whose mandatory parameters it cannot use. It MUST NOT use ECH from an incompatible record or a ServiceMode record in an AliasMode RRset. When only unsupported alternatives exist, it MUST report an inconclusive setup result instead of claiming that ECH is not published.
 
 #### Scenario: Incompatible service record
 

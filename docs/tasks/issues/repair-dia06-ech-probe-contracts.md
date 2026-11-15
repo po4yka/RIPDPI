@@ -2,7 +2,7 @@
 id: DGN-1794732423381679
 title: Repair DIA-06 ECH probe contracts
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: dia06-integration

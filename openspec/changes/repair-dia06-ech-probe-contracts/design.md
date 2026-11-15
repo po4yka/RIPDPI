@@ -11,7 +11,7 @@ Task DGN-1794732423381679 repairs DIA-06 F1-F6. The generic runner is dormant. U
 
 - Keep NXDOMAIN distinct. Only clean missing HTTPS data becomes NoEchConfig.
 - Extract private DNS code under the driver feature directory. A private resolver-config seam tests the real lookup path on loopback.
-- Check mode and mandatory compatibility before ech extraction. Reject no-default-alpn because this driver does not offer ALPN. Unknown optional parameters can be ignored.
+- Check mode and mandatory compatibility before ech extraction. HTTPS port and no-default-alpn are automatically mandatory under [RFC 9460 section 9](https://www.rfc-editor.org/rfc/rfc9460.html#section-9). Accept an explicit port only when it is 443; reject no-default-alpn because the driver does not offer ALPN. TargetName must be the default root or the original target hostname, compared as normalized DNS names. Other endpoints are unsupported, not silently rewritten to host:443. Unknown optional parameters can be ignored. Distinguish an unsupported-only RRset from a compatible record without ech; full alias traversal remains outside this repair.
 - Reject unsupported active-path hints before I/O. Allow network_scope_key as opaque metadata.
 - Preserve existing enum variants and add explicit rejection and uncertain-handshake variants. Update exhaustive matches.
 - Preserve authenticated retry, certificate checks and peer pinning. Use a private config-builder seam for the test CA, without a public trust bypass.
