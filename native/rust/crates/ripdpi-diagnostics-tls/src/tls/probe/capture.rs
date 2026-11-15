@@ -42,6 +42,7 @@ pub(crate) struct CaptureTlsError {
     pub(crate) alert: Option<rustls::AlertDescription>,
     pub(crate) certificate_anomaly: bool,
     pub(crate) handshake_ms: Option<u64>,
+    pub(crate) reconnect_open_ms: Option<u64>,
     pub(crate) ech_retry_configs: Option<Vec<u8>>,
 }
 
@@ -53,6 +54,7 @@ impl From<String> for CaptureTlsError {
             alert: None,
             certificate_anomaly: false,
             handshake_ms: None,
+            reconnect_open_ms: None,
             ech_retry_configs: None,
         }
     }
@@ -146,6 +148,7 @@ pub(crate) fn capture_tls_handshake(
                 alert,
                 certificate_anomaly,
                 handshake_ms,
+                reconnect_open_ms: None,
                 ech_retry_configs,
             });
         }

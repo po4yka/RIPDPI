@@ -22,6 +22,15 @@ const BORING_ECH_KEY_2: &[u8] = &[
 
 #[test]
 fn monitor_retries_authenticated_ech_before_application_data() {
+    check_monitor_ech_retry(true);
+}
+
+#[test]
+fn failed_monitor_ech_retry_has_its_own_transport_open_time() {
+    check_monitor_ech_retry(false);
+}
+
+fn check_monitor_ech_retry(retry_succeeds: bool) {
     let certificate = rcgen::generate_simple_self_signed(vec!["ech.com".into(), "inner.example".into()]).unwrap();
     let mut roots = rustls::RootCertStore::empty();
     roots.add(certificate.cert.der().clone()).unwrap();
@@ -46,8 +55,16 @@ fn monitor_retries_authenticated_ech_before_application_data() {
     let address = listener.local_addr().unwrap();
     let server = std::thread::spawn(move || {
         for attempt in 0..2 {
-            let (socket, _) = listener.accept().unwrap();
+            let (mut socket, _) = listener.accept().unwrap();
             socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            if attempt == 1 && !retry_succeeds {
+                let mut header = [0u8; 5];
+                socket.read_exact(&mut header).unwrap();
+                assert_eq!(header[0], 22);
+                let mut payload = vec![0u8; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+                socket.read_exact(&mut payload).unwrap();
+                return;
+            }
             let result = boring::ssl::Ssl::new(&context).unwrap().accept(socket);
             if attempt == 0 {
                 if let Ok(mut tls) = result {
@@ -77,8 +94,15 @@ fn monitor_retries_authenticated_ech_before_application_data() {
         application_protocol: crate::tls::types::ApplicationProtocolPolicy::Http11Only,
         should_abort: &|| None,
     };
-    let mut handshake = capture_with_ech_retry(socket, Some(address), &options)
-        .unwrap_or_else(|error| panic!("retry failed: {}", error.message));
+    let result = capture_with_ech_retry(socket, Some(address), &options);
+    if !retry_succeeds {
+        let Err(error) = result else { panic!("stopped TLS peer completed the retry") };
+        assert!(error.reconnect_open_ms.is_some());
+        assert!(error.handshake_ms.is_some());
+        server.join().unwrap();
+        return;
+    }
+    let mut handshake = result.unwrap_or_else(|error| panic!("retry failed: {}", error.message));
     match &handshake.stream {
         crate::transport::ConnectionStream::Tls(stream) => {
             assert_eq!(stream.conn.ech_status(), rustls::client::EchStatus::Accepted);

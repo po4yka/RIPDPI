@@ -77,7 +77,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 stage: ProbeStreamFailureStage::TlsHandshake,
                 message: err.message,
                 duration_ms: started.elapsed().as_millis().max(1) as u64,
-                transport_open_ms: Some(transport_open_ms),
+                transport_open_ms: Some(err.reconnect_open_ms.unwrap_or(transport_open_ms)),
                 connected_addr,
                 tls_server_hello_received: err.server_hello_received,
                 tls_alert: err.alert,

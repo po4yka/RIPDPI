@@ -53,7 +53,10 @@ pub(super) fn capture_with_ech_retry(
             application_protocol: options.application_protocol,
             should_abort: options.should_abort,
         };
-        let mut handshake = capture_tls_handshake(reconnect.stream, &retry_options)?;
+        let mut handshake = capture_tls_handshake(reconnect.stream, &retry_options).map_err(|mut failure| {
+            failure.reconnect_open_ms = Some(reconnect_open_ms);
+            failure
+        })?;
         handshake.reconnect =
             Some(ReconnectedTransport { open_ms: reconnect_open_ms, route_report: reconnect.route_report });
         Ok(handshake)
