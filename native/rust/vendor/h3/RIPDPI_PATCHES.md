@@ -8,3 +8,5 @@ Source: https://github.com/hyperium/h3/tree/22c1aa3f44d1463cd7644c8f654fffc9a6da
 This copy preserves the published package and LICENSE. Local patches expose received peer settings and reject invalid boolean settings before storing them. They support the existing MASQUE client's capability checks. No package version changes.
 
 The receive path also rejects connection-specific fields, duplicate or late pseudo-fields, and pseudo-fields in the wrong message section. Malformed responses use H3_MESSAGE_ERROR. These checks apply to response headers and trailers.
+
+Known non-DATA frame payloads have a local 64 KiB storage limit, checked from the frame header. Unknown frames are discarded as chunks arrive; DATA remains streamed, with checked platform-size conversion. Incomplete frames at FIN return a protocol error, including DATA with no received payload. WebTransport keeps its separate unbounded stream behavior. This bounds retained frame input, not total process memory.

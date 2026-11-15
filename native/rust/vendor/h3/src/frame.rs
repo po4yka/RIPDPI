@@ -6,7 +6,8 @@ use bytes::Buf;
 use tracing::trace;
 
 use crate::error::Code;
-use crate::proto::frame::SettingsError;
+use crate::proto::coding::BufExt;
+use crate::proto::frame::{FrameType, SettingsError};
 use crate::proto::push::InvalidPushId;
 use crate::quic::{InvalidStreamId, StreamErrorIncoming};
 use crate::stream::{BufRecvStream, WriteBuf};
@@ -25,6 +26,7 @@ pub struct FrameStream<S, B> {
     // Already read data from the stream
     decoder: FrameDecoder,
     remaining_data: usize,
+    unbounded_data: bool,
 }
 
 impl<S, B> FrameStream<S, B> {
@@ -33,6 +35,7 @@ impl<S, B> FrameStream<S, B> {
             stream,
             decoder: FrameDecoder::default(),
             remaining_data: 0,
+            unbounded_data: false,
         }
     }
 
@@ -65,10 +68,12 @@ where
             return match self.decoder.decode(self.stream.buf_mut())? {
                 Some(Frame::Data(PayloadLen(len))) => {
                     self.remaining_data = len;
+                    self.unbounded_data = false;
                     Poll::Ready(Ok(Some(Frame::Data(PayloadLen(len)))))
                 }
                 frame @ Some(Frame::WebTransportStream(_)) => {
                     self.remaining_data = usize::MAX;
+                    self.unbounded_data = true;
                     Poll::Ready(Ok(frame))
                 }
                 Some(frame) => Poll::Ready(Ok(Some(frame))),
@@ -77,7 +82,7 @@ where
                     Poll::Ready(false) => continue,
                     Poll::Pending => Poll::Pending,
                     Poll::Ready(true) => {
-                        if self.stream.buf_mut().has_remaining() {
+                        if self.stream.buf_mut().has_remaining() || self.decoder.is_incomplete() {
                             // Reached the end of receive stream, but there is still some data:
                             // The frame is incomplete.
                             Poll::Ready(Err(FrameStreamError::UnexpectedEnd))
@@ -110,7 +115,8 @@ where
         let data = self.stream.buf_mut().take_chunk(self.remaining_data);
 
         match (data, end) {
-            (None, true) => Poll::Ready(Ok(None)),
+            (None, true) if self.unbounded_data => Poll::Ready(Ok(None)),
+            (None, true) => Poll::Ready(Err(FrameStreamError::UnexpectedEnd)),
             (None, false) => Poll::Pending,
             (Some(d), true)
                 if d.remaining() < self.remaining_data
@@ -135,7 +141,7 @@ where
     }
 
     pub(crate) fn is_eos(&self) -> bool {
-        self.stream.is_eos() && !self.stream.buf().has_remaining()
+        self.stream.is_eos() && !self.stream.buf().has_remaining() && !self.decoder.is_incomplete()
     }
 
     fn try_recv(&mut self, cx: &mut Context<'_>) -> Poll<Result<bool, FrameStreamError>> {
@@ -192,11 +198,13 @@ where
                 stream: send,
                 decoder: FrameDecoder::default(),
                 remaining_data: 0,
+                unbounded_data: false,
             },
             FrameStream {
                 stream: recv,
                 decoder: self.decoder,
                 remaining_data: self.remaining_data,
+                unbounded_data: self.unbounded_data,
             },
         )
     }
@@ -205,9 +213,17 @@ where
 #[derive(Default)]
 pub struct FrameDecoder {
     expected: Option<usize>,
+    ignored_remaining: u64,
 }
 
+// Local storage policy; DATA is streamed and unknown frame payloads are discarded.
+const MAX_BUFFERED_FRAME_PAYLOAD: u64 = 64 * 1024;
+
 impl FrameDecoder {
+    fn is_incomplete(&self) -> bool {
+        self.expected.is_some() || self.ignored_remaining != 0
+    }
+
     fn decode<B: Buf>(
         &mut self,
         src: &mut BufList<B>,
@@ -215,6 +231,14 @@ impl FrameDecoder {
         // Decode in a loop since we ignore unknown frames, and there may be
         // other frames already in our BufList.
         loop {
+            if self.ignored_remaining != 0 {
+                let consumed = self.ignored_remaining.min(src.remaining() as u64) as usize;
+                src.advance(consumed);
+                self.ignored_remaining -= consumed as u64;
+                if self.ignored_remaining != 0 {
+                    return Ok(None);
+                }
+            }
             if !src.has_remaining() {
                 return Ok(None);
             }
@@ -222,6 +246,54 @@ impl FrameDecoder {
             if let Some(min) = self.expected {
                 if src.remaining() < min {
                     return Ok(None);
+                }
+            }
+
+            let header = {
+                let mut cur = src.cursor();
+                let Ok(ty) = FrameType::decode(&mut cur) else {
+                    return Ok(None);
+                };
+                if ty == FrameType::WEBTRANSPORT_BI_STREAM {
+                    None
+                } else {
+                    let Ok(len) = cur.get_var() else {
+                        return Ok(None);
+                    };
+                    Some((ty, len, cur.position()))
+                }
+            };
+            if let Some((ty, len, header_len)) = header {
+                match ty {
+                    FrameType::DATA => {
+                        if usize::try_from(len).is_err() {
+                            return Err(FrameStreamError::Proto(FrameProtocolError::ExcessiveLoad));
+                        }
+                    }
+                    FrameType::H2_PRIORITY
+                    | FrameType::H2_PING
+                    | FrameType::H2_WINDOW_UPDATE
+                    | FrameType::H2_CONTINUATION => {
+                        return Err(FrameStreamError::Proto(FrameProtocolError::ForbiddenFrame(
+                            ty.0,
+                        )));
+                    }
+                    FrameType::HEADERS
+                    | FrameType::SETTINGS
+                    | FrameType::CANCEL_PUSH
+                    | FrameType::PUSH_PROMISE
+                    | FrameType::GOAWAY
+                    | FrameType::MAX_PUSH_ID => {
+                        if len > MAX_BUFFERED_FRAME_PAYLOAD {
+                            return Err(FrameStreamError::Proto(FrameProtocolError::ExcessiveLoad));
+                        }
+                    }
+                    _ => {
+                        src.advance(header_len);
+                        self.expected = None;
+                        self.ignored_remaining = len;
+                        continue;
+                    }
                 }
             }
 
@@ -296,6 +368,7 @@ pub enum FrameStreamError {
 /// Protocol specific errors that can occur while decoding frames in a stream
 pub enum FrameProtocolError {
     Malformed,
+    ExcessiveLoad,
     ForbiddenFrame(u64), // Known (http2) frames that should generate an error
     InvalidFrameValue,
     Settings(SettingsError),

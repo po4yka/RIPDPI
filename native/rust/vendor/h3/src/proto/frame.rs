@@ -320,10 +320,10 @@ impl FrameType {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub struct FrameType(u64);
+pub struct FrameType(pub(crate) u64);
 
 impl FrameType {
-    fn decode<B: Buf>(buf: &mut B) -> Result<Self, UnexpectedEnd> {
+    pub(crate) fn decode<B: Buf>(buf: &mut B) -> Result<Self, UnexpectedEnd> {
         Ok(FrameType(buf.get_var()?))
     }
     pub fn encode<B: BufMut>(&self, buf: &mut B) {
@@ -541,8 +541,10 @@ impl Settings {
                 return Err(SettingsError::InvalidSettingId(identifier.0));
             }
 
-            if matches!(identifier, SettingId::ENABLE_CONNECT_PROTOCOL | SettingId::H3_DATAGRAM)
-                && value > 1
+            if matches!(
+                identifier,
+                SettingId::ENABLE_CONNECT_PROTOCOL | SettingId::H3_DATAGRAM
+            ) && value > 1
             {
                 return Err(SettingsError::InvalidSettingValue(identifier, value));
             }

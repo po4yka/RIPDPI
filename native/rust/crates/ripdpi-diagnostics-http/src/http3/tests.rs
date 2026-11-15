@@ -12,6 +12,7 @@ enum Reply {
     ForbiddenField(&'static str),
     ForbiddenTrailer(&'static str),
     Raw(&'static [u8]),
+    RawOpen(&'static [u8]),
 }
 struct Server {
     address: SocketAddr,
@@ -80,8 +81,8 @@ async fn serve(endpoint: &quinn::Endpoint, reply: Reply) {
     let Ok(connection) = incoming.await else {
         return;
     };
-    if let Reply::Raw(bytes) = reply {
-        serve_raw(&connection, bytes).await;
+    if let Reply::Raw(bytes) | Reply::RawOpen(bytes) = reply {
+        serve_raw(&connection, bytes, matches!(reply, Reply::Raw(_))).await;
         return;
     }
     let mut server = h3::server::Connection::new(h3_quinn::Connection::new(connection.clone())).await.unwrap();
@@ -377,16 +378,21 @@ fn only_the_last_attempt_gets_the_whole_deadline() {
 
 /// # Cancel safety:
 /// cancel-safe: all stream handles are local and the test owner drops the runtime.
-async fn serve_raw(connection: &quinn::Connection, response: &[u8]) {
+async fn serve_raw(connection: &quinn::Connection, response: &[u8], finish: bool) {
     let mut control = connection.open_uni().await.unwrap();
     // Control stream type, followed by an empty SETTINGS frame (RFC 9114).
     control.write_all(&[0, 4, 0]).await.unwrap();
     let (mut send, mut recv) = connection.accept_bi().await.unwrap();
     recv.read_to_end(4096).await.unwrap();
     let _ = send.write_all(response).await;
-    let _ = send.finish();
+    if finish {
+        let _ = send.finish();
+    }
     connection.closed().await;
 }
 
 #[path = "validation_tests.rs"]
 mod validation;
+
+#[path = "frame_limit_tests.rs"]
+mod frame_limits;

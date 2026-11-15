@@ -10,6 +10,9 @@ struct Server {
 }
 impl Server {
     fn start(ipv6: bool, alpn: &[u8]) -> Self {
+        Self::start_with_control(ipv6, alpn, None)
+    }
+    fn start_with_control(ipv6: bool, alpn: &[u8], control: Option<&'static [u8]>) -> Self {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()]).unwrap();
         let mut roots = rustls::RootCertStore::empty();
         roots.add(cert.cert.der().clone()).unwrap();
@@ -37,7 +40,7 @@ impl Server {
                     quinn::Endpoint::server(config, if ipv6 { "[::1]:0" } else { "127.0.0.1:0" }.parse().unwrap())
                         .unwrap();
                 send.send(endpoint.local_addr().unwrap()).unwrap();
-                tokio::select! { _ = stopped => (), _ = serve(&endpoint) => () }
+                tokio::select! { _ = stopped => (), _ = serve(&endpoint, control) => () }
                 endpoint.close(0u32.into(), b"test done");
             });
         });
@@ -60,17 +63,26 @@ impl Server {
     }
 }
 /// # Cancel safety:
-/// conditionally cancel-safe: accept, handshake, H3 setup and accept waits own local resources;
+/// cancel-safe: accept, handshake, H3 setup and stream waits own local resources;
 /// the fixture closes its endpoint and drops its dedicated runtime on cancellation.
-async fn serve(endpoint: &quinn::Endpoint) {
+async fn serve(endpoint: &quinn::Endpoint, control: Option<&[u8]>) {
     if let Some(incoming) = endpoint.accept().await
         && let Ok(connection) = incoming.await
     {
+        if let Some(prefix) = control {
+            let mut stream = connection.open_uni().await.unwrap();
+            stream.write_all(prefix).await.unwrap();
+            connection.closed().await;
+            return;
+        }
         let mut h3: h3::server::Connection<_, bytes::Bytes> =
             h3::server::Connection::new(h3_quinn::Connection::new(connection)).await.unwrap();
         let _ = h3.accept().await;
     }
 }
+
+#[path = "resource_tests.rs"]
+mod resources;
 fn run(server: &Server, config: &PmtuProbeConfig) -> PmtuEvidence {
     probe_pmtu(
         config,
