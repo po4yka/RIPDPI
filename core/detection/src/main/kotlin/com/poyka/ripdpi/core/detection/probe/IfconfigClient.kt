@@ -23,6 +23,7 @@ object IfconfigClient {
     private val endpoint = "https://ifconfig.me/ip".toHttpUrl()
     private val httpClient = OkHttpClient()
 
+    /** Measures the process default path, including its system proxy policy; this does not attest an underlay. */
     suspend fun fetchDirectIp(
         dispatchers: AppCoroutineDispatchers,
         timeoutMs: Int = DefaultTimeoutMs,
@@ -54,7 +55,9 @@ object IfconfigClient {
         client: OkHttpClient = httpClient,
     ): Result<String> =
         withContext(dispatchers.io) {
-            require(timeoutMs > 0)
+            if (timeoutMs <= 0) {
+                return@withContext Result.failure(IllegalArgumentException("timeoutMs must be positive"))
+            }
             val builder = client.newBuilder().proxy(proxy)
             if (proxy == null) {
                 val systemSelector = ProxySelector.getDefault()
@@ -103,8 +106,7 @@ object IfconfigClient {
                 if (!it.isSuccessful) throw IOException("HTTP ${it.code}")
                 val source = it.body.source()
                 if (source.request(MaxResponseBytes + 1)) throw IOException("IP response too large")
-                val ip = source.readUtf8().trim()
-                if (ip.isEmpty()) throw IOException("Empty response body")
+                val ip = publicIpOrNull(source.readUtf8().trim()) ?: throw IOException("Invalid reflected public IP")
                 Result.success(ip)
             }
         } catch (error: IOException) {

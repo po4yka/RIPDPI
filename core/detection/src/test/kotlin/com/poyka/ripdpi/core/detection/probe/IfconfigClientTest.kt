@@ -126,4 +126,13 @@ class IfconfigClientTest {
                 assertTrue(request.isCancelled)
             }
         }
+    @Test
+    fun `unbounded and negative timeouts are rejected before a request`() =
+        runBlocking<Unit> {
+            for (timeout in listOf(0, -1)) {
+                val result = IfconfigClient.fetchDirectIp(dispatchers, timeoutMs = timeout)
+                assertTrue(result.isFailure)
+                assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+            }
+        }
 }
