@@ -4,7 +4,6 @@ import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
-import com.poyka.ripdpi.core.detection.Finding
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -139,27 +138,23 @@ class DetectionMarkdownExportFormatterTest {
         val fixture = detectionExportFixture()
         val scan = fixture.bypassResult.xrayApiScanResult!!
         val outbound =
-            scan.outbounds.single().copy(tag = "de-vless-main", address = "vpn.example.org", sni = "edge.example.net")
+            scan.outbounds.single().copy(tag = "private-relay-tag", address = "vpn.example.org", sni = "private-sni")
         val result =
             fixture.copy(
                 bypassResult =
                     fixture.bypassResult.copy(
                         xrayApiScanResult = scan.copy(outbounds = listOf(outbound)),
-                        findings =
-                            fixture.bypassResult.findings +
-                                Finding("  de-vless-main [vless] -> vpn.example.org:443, sni=edge.example.net"),
                     ),
+                verdictNarrative = null,
             )
 
         val masked = DetectionMarkdownExportFormatter.format(result, exportMetadata(privacyMode = true))
         val plain = DetectionMarkdownExportFormatter.format(result, exportMetadata(privacyMode = false))
 
-        listOf("vpn.example.org", "edge.example.net").forEach { name ->
+        listOf("vpn.example.org", "private-sni", "private-relay-tag").forEach { name ->
             assertFalse(name, masked.contains(name))
             assertTrue(name, plain.contains(name))
         }
-        assertTrue(plain.contains("de-vless-main"))
-        assertFalse(masked.contains("tag: de-vless-main") || masked.contains("\"tag\": \"de-vless-main\""))
     }
 
     private fun exportMetadata(privacyMode: Boolean = false): DetectionExportMetadata =

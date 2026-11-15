@@ -19,6 +19,7 @@ data class VerdictNarrativeRow(
     val label: String,
     val value: String,
     val exposureStatus: ExposureStatus,
+    val privateXrayEndpoint: Boolean = false,
 )
 
 data class VerdictNarrative(
@@ -76,10 +77,11 @@ object VerdictNarrativeBuilder {
                 .take(REMOTE_ENDPOINT_LIMIT)
                 .forEachIndexed { index, endpoint ->
                     add(
-                        row(
-                            "Configured remote endpoint ${index + 1}",
-                            endpoint,
-                            ExposureStatus.REMOTE_ENDPOINT_DISCOVERED,
+                        VerdictNarrativeRow(
+                            label = "Configured remote endpoint ${index + 1}",
+                            value = endpoint,
+                            exposureStatus = ExposureStatus.REMOTE_ENDPOINT_DISCOVERED,
+                            privateXrayEndpoint = true,
                         ),
                     )
                 }

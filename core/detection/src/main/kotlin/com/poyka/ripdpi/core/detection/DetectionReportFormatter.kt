@@ -15,13 +15,13 @@ object DetectionReportFormatter {
                 appendLine()
                 appendLine("Verdict: ${report.verdict}")
                 appendLine()
-                appendNarrative(report.verdictNarrative ?: VerdictNarrativeBuilder.build(report))
+                appendNarrative(report.verdictNarrative ?: VerdictNarrativeBuilder.build(report), privacyModeEnabled)
 
                 appendCategory("GeoIP", report.geoIp)
                 appendCategory("Direct Signs", report.directSigns)
                 appendCategory("Indirect Signs", report.indirectSigns)
                 appendCategory("Location Signals", report.locationSignals)
-                appendBypass(report.bypassResult)
+                appendBypass(report.bypassResult, privacyModeEnabled)
                 report.dnsLeak?.let { appendCategory("DNS Leak", it) }
                 report.webRtcLeak?.let { appendCategory("WebRTC Leak", it) }
                 appendCategory(LocalTlsReportTitle, report.tlsFingerprintForReport())
@@ -73,12 +73,15 @@ object DetectionReportFormatter {
         appendLine()
     }
 
-    private fun StringBuilder.appendNarrative(narrative: VerdictNarrative) {
+    private fun StringBuilder.appendNarrative(
+        narrative: VerdictNarrative,
+        privacyMode: Boolean,
+    ) {
         appendLine("--- Verdict Narrative ---")
         appendLine("Exposure: ${narrative.exposureStatus.reportLabel()}")
         appendLine("Discovered:")
         for (row in narrative.discoveredRows) {
-            appendLine("  - ${row.label}: ${row.value}")
+            appendLine("  - ${row.label}: ${DetectionPrivacyMask.narrativeValue(row, privacyMode)}")
         }
         appendLine("Reasons:")
         for (row in narrative.reasonRows) {
@@ -90,7 +93,10 @@ object DetectionReportFormatter {
         appendLine()
     }
 
-    private fun StringBuilder.appendBypass(bypass: BypassResult) {
+    private fun StringBuilder.appendBypass(
+        bypass: BypassResult,
+        privacyMode: Boolean,
+    ) {
         appendLine("--- Bypass ---")
         val status =
             when {
@@ -99,7 +105,7 @@ object DetectionReportFormatter {
                 else -> "OK"
             }
         appendLine("Status: $status")
-        for (finding in bypass.findings) {
+        for (finding in DetectionPrivacyMask.bypassFindings(bypass, privacyMode)) {
             val prefix =
                 when {
                     finding.detected -> "!"

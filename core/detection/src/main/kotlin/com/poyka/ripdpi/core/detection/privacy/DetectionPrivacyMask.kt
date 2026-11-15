@@ -3,6 +3,11 @@
 package com.poyka.ripdpi.core.detection.privacy
 
 import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.core.detection.EvidenceConfidence
+import com.poyka.ripdpi.core.detection.EvidenceSource
+import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
+import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 import com.poyka.ripdpi.data.NumericIp
 import java.net.Inet4Address
 import java.net.Inet6Address
@@ -37,27 +42,66 @@ object DetectionPrivacyMask {
         return ipv6Regex.replace(ipv4Masked) { match -> maskIp(match.value, enabled = true) }
     }
 
-    /**
-     * Hides another app's proxy server names (outbound address, SNI, tag) in privacy mode. IP literals
-     * are left to [maskIpsInText]. Names are matched as plain text, so they are hidden in free-text
-     * findings too.
-     */
-    fun maskHostNamesInText(
-        text: String,
-        hostNames: Collection<String?>,
+    fun narrativeValue(
+        row: VerdictNarrativeRow,
         enabled: Boolean,
-    ): String {
-        if (!enabled) return text
-        return hostNames
-            .filterNotNull()
-            .map(String::trim)
-            .filter { name -> name.contains('.') && !ipv4Regex.matches(name) && !name.contains(':') }
-            .distinct()
-            .sortedByDescending(String::length)
-            .fold(text) { masked, name -> masked.replace(name, HIDDEN_VALUE, ignoreCase = true) }
+    ): String =
+        if (enabled && row.privateXrayEndpoint) {
+            HIDDEN_VALUE
+        } else {
+            maskIpsInText(row.value, enabled)
+        }
+
+    internal fun xrayOutbound(
+        outbound: XrayOutboundSummary,
+        enabled: Boolean,
+    ): XrayOutboundSummary =
+        if (enabled) {
+            outbound.copy(
+                tag = HIDDEN_VALUE,
+                address = outbound.address?.let { HIDDEN_VALUE },
+                sni = outbound.sni?.let { HIDDEN_VALUE },
+            )
+        } else {
+            outbound
+        }
+
+    fun bypassFindings(
+        result: BypassResult,
+        enabled: Boolean,
+    ): List<Finding> {
+        val outbounds = result.xrayApiScanResult?.outbounds.orEmpty()
+        return buildList {
+            addAll(result.findings)
+            outbounds.take(MAX_DISPLAY_OUTBOUNDS).forEach { outbound ->
+                val visible = xrayOutbound(outbound, enabled)
+                val description =
+                    buildString {
+                        append("Xray outbound: ")
+                        append(visible.tag)
+                        visible.protocolName?.let { append(" [$it]") }
+                        visible.address?.let { address ->
+                            append(" → $address")
+                            visible.port?.let { append(":$it") }
+                        }
+                        visible.sni?.let { append(", SNI $it") }
+                    }
+                add(
+                    Finding(
+                        description = description,
+                        needsReview = true,
+                        source = EvidenceSource.XRAY_API,
+                        confidence = EvidenceConfidence.HIGH,
+                    ),
+                )
+            }
+            val remaining = outbounds.size - MAX_DISPLAY_OUTBOUNDS
+            if (remaining > 0) add(Finding("$remaining more Xray outbounds"))
+        }
     }
 
-    const val HIDDEN_VALUE = "***"
+    private const val MAX_DISPLAY_OUTBOUNDS = 10
+    private const val HIDDEN_VALUE = "***"
 
     private fun maskIpv4(ip: String): String {
         val parts = ip.split(".")
@@ -85,10 +129,3 @@ object DetectionPrivacyMask {
     private const val IPV6_VISIBLE_GROUPS = 4
     private const val IPV6_RADIX = 16
 }
-
-/** Server names of the outbounds a local Xray API reported; exports hide them in privacy mode. */
-internal fun BypassResult.xrayHostNames(): List<String?> =
-    xrayApiScanResult
-        ?.outbounds
-        .orEmpty()
-        .flatMap { outbound -> listOf(outbound.address, outbound.sni, outbound.tag) }

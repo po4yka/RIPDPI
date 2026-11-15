@@ -14,7 +14,6 @@ import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
-import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 import com.poyka.ripdpi.core.detection.tlsFingerprintForReport
 import com.poyka.ripdpi.serialization.RipDpiPrettyJson
@@ -32,7 +31,7 @@ object DetectionJsonExportFormatter {
         result: DetectionCheckResult,
         metadata: DetectionExportMetadata,
     ): String {
-        val context = JsonExportContext(metadata.privacyMode, result.bypassResult.xrayHostNames())
+        val context = JsonExportContext(metadata.privacyMode)
         val report = result.redactAppIdentities(metadata.privacyMode)
         val narrative = report.verdictNarrative ?: VerdictNarrativeBuilder.build(report)
         return json.encodeToString(
@@ -213,38 +212,35 @@ object DetectionJsonExportFormatter {
         JsonObject(
             mapOf(
                 "label" to context.string(label),
-                "value" to context.string(value),
+                "value" to JsonPrimitive(DetectionPrivacyMask.narrativeValue(this, context.privacyMode)),
                 "exposureStatus" to JsonPrimitive(exposureStatus.name),
             ),
         )
 
-    private fun XrayOutboundSummary.toJson(context: JsonExportContext): JsonObject =
-        JsonObject(
+    private fun XrayOutboundSummary.toJson(context: JsonExportContext): JsonObject {
+        val visible = DetectionPrivacyMask.xrayOutbound(this, context.privacyMode)
+        return JsonObject(
             mapOf(
-                "tag" to context.hidden(tag),
+                "tag" to context.string(visible.tag),
                 "protocol" to context.string(protocolName),
-                "address" to context.string(address),
+                "address" to context.string(visible.address),
                 "port" to (port?.let(::JsonPrimitive) ?: JsonNull),
-                "sni" to context.string(sni),
+                "sni" to context.string(visible.sni),
                 "senderSettingsType" to context.string(senderSettingsType),
                 "proxySettingsType" to context.string(proxySettingsType),
                 "uuidPresent" to JsonPrimitive(uuidPresent),
                 "publicKeyPresent" to JsonPrimitive(publicKeyPresent),
             ),
         )
+    }
 
     private class JsonExportContext(
-        private val privacyMode: Boolean,
-        private val hiddenHostNames: List<String?>,
+        val privacyMode: Boolean,
     ) {
         fun string(value: String?): JsonElement =
             value
                 ?.let { DetectionPrivacyMask.maskIpsInText(it, enabled = privacyMode) }
-                ?.let { DetectionPrivacyMask.maskHostNamesInText(it, hiddenHostNames, enabled = privacyMode) }
                 ?.let(::JsonPrimitive)
                 ?: JsonNull
-
-        fun hidden(value: String?): JsonElement =
-            if (privacyMode) JsonPrimitive(DetectionPrivacyMask.HIDDEN_VALUE) else string(value)
     }
 }

@@ -424,7 +424,7 @@ private fun NarrativeRow(
         Column {
             Text(text = row.label, style = type.caption, color = colors.mutedForeground)
             Text(
-                text = DetectionPrivacyMask.maskIpsInText(row.value, enabled = privacyModeEnabled),
+                text = DetectionPrivacyMask.narrativeValue(row, enabled = privacyModeEnabled),
                 style = type.body,
                 color = row.exposureStatus.contentColor(),
             )
@@ -486,7 +486,7 @@ internal fun DetectionCategoryCards(
         key = "bypass",
         expandedCategories = expandedCategories,
         onToggle = { expandedCategories = it },
-        findings = result.bypassResult.findings,
+        findings = DetectionPrivacyMask.bypassFindings(result.bypassResult, enabled = privacyModeEnabled),
         privacyModeEnabled = privacyModeEnabled,
         colorVisionMode = colorVisionMode,
     )

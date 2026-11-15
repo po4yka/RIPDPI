@@ -14,7 +14,6 @@ import com.poyka.ripdpi.core.detection.VerdictNarrativeBuilder
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
 import com.poyka.ripdpi.core.detection.privacy.redactAppIdentities
-import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 import com.poyka.ripdpi.core.detection.tlsFingerprintForReport
 
@@ -24,42 +23,37 @@ object DetectionMarkdownExportFormatter {
         metadata: DetectionExportMetadata,
     ): String {
         val report = result.redactAppIdentities(metadata.privacyMode)
-        val ipMasked =
-            DetectionPrivacyMask.maskIpsInText(
-                buildString {
-                    val narrative = report.verdictNarrative ?: VerdictNarrativeBuilder.build(report)
-                    appendLine("# RipDPI Detection Report")
-                    appendLine()
-                    appendSummary(report, narrative, metadata)
-                    appendVerdict(report, narrative)
-                    appendSectionSummary(report)
-                    appendCategory("GeoIp", report.geoIp)
-                    appendIpComparison(report)
-                    appendCdnPulling(report)
-                    appendCategory("DirectSigns", report.directSigns)
-                    appendCategory("IndirectSigns", report.indirectSigns)
-                    appendCategory("NativeSigns", report.nativeSigns?.category)
-                    appendCategory(LocalTlsReportTitle, report.tlsFingerprintForReport())
-                    appendCategory("TimingAnalysis", report.timingAnalysis)
-                    appendCategory("IcmpSpoofing", report.icmpSpoofing?.category)
-                    appendCategory("RttTriangulation", report.rttTriangulation?.category)
-                    appendCategory("CallTransport", report.callTransport?.category)
-                    appendCategory("LocationSignals", report.locationSignals)
-                    appendIpChannels(report)
-                    appendLine("## TunProbeDiagnostics")
-                    appendLine()
-                    appendLine("- not collected")
-                    appendLine()
-                    appendBypass(report.bypassResult, metadata.privacyMode)
-                    appendFooter(metadata)
-                },
-                enabled = metadata.privacyMode,
-            )
-        return DetectionPrivacyMask.maskHostNamesInText(
-            ipMasked,
-            report.bypassResult.xrayHostNames(),
+        return DetectionPrivacyMask.maskIpsInText(
+            buildString {
+                val narrative = report.verdictNarrative ?: VerdictNarrativeBuilder.build(report)
+                appendLine("# RipDPI Detection Report")
+                appendLine()
+                appendSummary(report, narrative, metadata)
+                appendVerdict(report, narrative, metadata.privacyMode)
+                appendSectionSummary(report)
+                appendCategory("GeoIp", report.geoIp)
+                appendIpComparison(report)
+                appendCdnPulling(report)
+                appendCategory("DirectSigns", report.directSigns)
+                appendCategory("IndirectSigns", report.indirectSigns)
+                appendCategory("NativeSigns", report.nativeSigns?.category)
+                appendCategory(LocalTlsReportTitle, report.tlsFingerprintForReport())
+                appendCategory("TimingAnalysis", report.timingAnalysis)
+                appendCategory("IcmpSpoofing", report.icmpSpoofing?.category)
+                appendCategory("RttTriangulation", report.rttTriangulation?.category)
+                appendCategory("CallTransport", report.callTransport?.category)
+                appendCategory("LocationSignals", report.locationSignals)
+                appendIpChannels(report)
+                appendLine("## TunProbeDiagnostics")
+                appendLine()
+                appendLine("- not collected")
+                appendLine()
+                appendBypass(report.bypassResult, metadata.privacyMode)
+                appendFooter(metadata)
+            },
             enabled = metadata.privacyMode,
         )
+
     }
 
     private fun StringBuilder.appendSummary(
@@ -79,6 +73,7 @@ object DetectionMarkdownExportFormatter {
     private fun StringBuilder.appendVerdict(
         result: DetectionCheckResult,
         narrative: VerdictNarrative,
+        privacyMode: Boolean,
     ) {
         appendLine("## Verdict")
         appendLine()
@@ -94,7 +89,10 @@ object DetectionMarkdownExportFormatter {
         appendLine("### What this means")
         appendLine()
         appendLine("- ${narrative.exposureStatus.meaning()}")
-        appendNarrativeRows("### What was discovered", narrative.discoveredRows.map { it.label to it.value })
+        appendNarrativeRows(
+            "### What was discovered",
+            narrative.discoveredRows.map { it.label to DetectionPrivacyMask.narrativeValue(it, privacyMode) },
+        )
         appendNarrativeRows("### Why this verdict", narrative.reasonRows.map { it.label to it.value })
         narrative.homeRoutedRoamingNote?.let {
             appendLine("### Home-routed roaming")
@@ -181,19 +179,15 @@ object DetectionMarkdownExportFormatter {
         bypass.xrayApiScanResult?.let { scan ->
             appendLine("### Xray outbounds")
             scan.outbounds.forEach { outbound ->
-                appendXrayOutbound(outbound, privacyMode)
+                appendXrayOutbound(DetectionPrivacyMask.xrayOutbound(outbound, privacyMode))
             }
             appendLine()
         }
     }
 
-    private fun StringBuilder.appendXrayOutbound(
-        outbound: XrayOutboundSummary,
-        privacyMode: Boolean,
-    ) {
-        val tag = if (privacyMode) DetectionPrivacyMask.HIDDEN_VALUE else outbound.tag
+    private fun StringBuilder.appendXrayOutbound(outbound: XrayOutboundSummary) {
         appendLine(
-            "- tag: $tag, protocol: ${outbound.protocolName ?: "-"}, " +
+            "- tag: ${outbound.tag}, protocol: ${outbound.protocolName ?: "-"}, " +
                 "address: ${outbound.address ?: "-"}, port: ${outbound.port ?: "-"}, sni: ${outbound.sni ?: "-"}, " +
                 "senderSettingsType: ${outbound.senderSettingsType ?: "-"}, " +
                 "proxySettingsType: ${outbound.proxySettingsType ?: "-"}, " +
@@ -296,7 +290,7 @@ object DetectionMarkdownExportFormatter {
 
     private fun ExposureStatus.meaning(): String =
         when (this) {
-            ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> "Remote proxy or API endpoint data was exposed."
+            ExposureStatus.REMOTE_ENDPOINT_DISCOVERED -> "A local API returned a configured remote endpoint."
             ExposureStatus.PUBLIC_IP_ONLY -> "Public IP observations were visible without endpoint credentials."
             ExposureStatus.LOCAL_PROXY_OR_API_ONLY -> "Only local proxy or local API artifacts were visible."
             ExposureStatus.TECHNICAL_SIGNAL_ONLY -> "Only local technical signals were visible."

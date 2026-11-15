@@ -29,7 +29,7 @@ private fun CategoryResult.redactAppIdentities(): CategoryResult =
     )
 
 private fun Finding.redactAppIdentity(): Finding =
-    if (packageName != null || source.hasAppIdentity()) {
+    if (packageName != null || source.hasAppIdentity() || source == EvidenceSource.LOCAL_PROXY) {
         copy(description = AppDetailsHidden, family = null, packageName = null)
     } else {
         this

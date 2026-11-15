@@ -42,7 +42,7 @@ object DetectionDebugFormatter {
         DetectionPrivacyMask.maskIpsInText(
             buildString {
                 appendSettings(settings)
-                appendCategories(result.redactAppIdentities(privacyModeEnabled))
+                appendCategories(result.redactAppIdentities(privacyModeEnabled), privacyModeEnabled)
                 appendIndirectPerformance(snapshot)
                 appendLocationDebug(snapshot)
                 appendNativeRaw(result.nativeSigns, snapshot.nativeSigns)
@@ -60,7 +60,10 @@ object DetectionDebugFormatter {
         appendLine()
     }
 
-    private fun StringBuilder.appendCategories(result: DetectionCheckResult) {
+    private fun StringBuilder.appendCategories(
+        result: DetectionCheckResult,
+        privacyMode: Boolean,
+    ) {
         appendCategory("geoIp", result.geoIp)
         appendCategory("directSigns", result.directSigns)
         appendCategory("indirectSigns", result.indirectSigns)
@@ -72,7 +75,7 @@ object DetectionDebugFormatter {
                     name = "Bypass",
                     detected = it.detected,
                     needsReview = it.needsReview,
-                    findings = it.findings,
+                    findings = DetectionPrivacyMask.bypassFindings(it, privacyMode),
                     evidence = it.evidence,
                 )
             },
