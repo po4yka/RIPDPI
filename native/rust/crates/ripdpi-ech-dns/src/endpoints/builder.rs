@@ -36,7 +36,10 @@ pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(Encrypte
     Ok((
         EncryptedDnsEndpoint {
             protocol,
-            resolver_id: target.encrypted_resolver_id.clone().or_else(|| Some(protocol.as_str().to_string())),
+            resolver_id: target
+                .encrypted_resolver_id
+                .clone()
+                .or_else(|| Some(if catalog_matches { catalog.resolver_id } else { protocol.as_str() }.to_string())),
             host,
             port,
             tls_server_name: target.encrypted_tls_server_name.clone(),

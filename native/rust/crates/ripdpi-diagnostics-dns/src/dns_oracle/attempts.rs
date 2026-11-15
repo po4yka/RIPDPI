@@ -5,6 +5,7 @@ use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, with_scan_io_d
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
 use super::contracts::{DnsOracleAttempt, DnsOracleCandidate, DnsOracleConfig, DnsOracleTermination};
+use super::independence::independent_endpoints;
 use super::normalization::normalize_answers;
 use super::resolver_label::resolver_label;
 
@@ -29,9 +30,7 @@ where
 {
     let mut attempts = Vec::new();
     let mut successes = Vec::new();
-    let endpoints = std::iter::once(primary_endpoint)
-        .chain(fallback_endpoints.iter().take(max_fallbacks).cloned())
-        .collect::<Vec<_>>();
+    let endpoints = independent_endpoints(primary_endpoint, fallback_endpoints, max_fallbacks);
     let deadline = Instant::now() + config.total_budget;
     let mut termination = DnsOracleTermination::FallbackLimitReached;
 

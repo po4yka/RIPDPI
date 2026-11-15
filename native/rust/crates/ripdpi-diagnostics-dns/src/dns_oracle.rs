@@ -2,6 +2,7 @@ mod attempts;
 mod consensus;
 mod contracts;
 mod details;
+mod independence;
 mod normalization;
 mod resolver_label;
 

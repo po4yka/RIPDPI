@@ -192,6 +192,14 @@ mod tests {
     }
 
     #[test]
+    fn default_dns_target_does_not_repeat_the_primary_service_as_a_fallback() {
+        let context = ProbeExecutionContext::new(direct_transport());
+        let resolvers = context.resolvers_for_dns_target(&target()).unwrap();
+        assert_eq!(resolvers.primary.resolver_id.as_deref(), Some("adguard"));
+        assert!(resolvers.fallback.iter().all(|fallback| fallback.host != resolvers.primary.host));
+    }
+
+    #[test]
     fn runtime_context_resolver_overrides_catalog_default() {
         let context = ProbeExecutionContext::from_runtime_context(
             direct_transport(),
