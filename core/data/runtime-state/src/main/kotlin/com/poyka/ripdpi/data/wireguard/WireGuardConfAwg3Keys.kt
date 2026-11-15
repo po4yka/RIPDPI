@@ -12,7 +12,7 @@ internal fun AmneziaWgV3Parameters.withConfKey(
 ): AmneziaWgV3Parameters =
     when (key.lowercase()) {
         "headerprotectionkey" -> {
-            require(AmneziaWgV3Parameters.isHeaderProtectionKey(value)) {
+            require(value.isEmpty() || AmneziaWgV3Parameters.isHeaderProtectionKey(value)) {
                 "Invalid AmneziaWG HeaderProtectionKey: expected a base64 32-byte key"
             }
             copy(headerProtectionKey = AwgHeaderProtectionKey(value))
@@ -55,12 +55,12 @@ internal fun AmneziaWgV3Parameters.withConfKey(
         }
     }
 
-/** A `lo` or `lo-hi` range with `lo <= hi <= 65535`, returned unchanged. */
+/** An unset value or a `lo` or `lo-hi` range with `lo <= hi <= 65535`. */
 internal fun parseConfRange(
     key: String,
     value: String,
 ): String {
-    require(AmneziaWgV3Parameters.rangeIsValid(value)) {
+    require(value.isEmpty() || AmneziaWgV3Parameters.rangeIsValid(value)) {
         "WireGuard config key '$key' expects a decimal value or lo-hi range up to 65535"
     }
     return value

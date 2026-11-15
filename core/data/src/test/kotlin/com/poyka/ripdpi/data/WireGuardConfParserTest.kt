@@ -492,6 +492,23 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `empty optional v3 values clear earlier settings without changing the dialect`() {
+        val interfaceOptions =
+            """
+            RekeyTimeout = 5-7
+            HeaderProtectionKey =
+            ContentPaddingAddition =
+            RekeyAfterTime =
+            RekeyTimeout =
+            RejectAfterTime =
+            KeepaliveTimeout =
+            MaxHandshakeAttempts =
+            """.trimIndent()
+        val conf = WireGuardConfParser.parse(interfaceConf(interfaceOptions)) as AmneziaWgConfig
+        assertFalse(conf.awg.v3.isSet)
+    }
+
+    @Test
     fun `numeric booleans and ranges accept only ASCII digits`() {
         val nonAsciiDigits =
             listOf(
