@@ -17,8 +17,8 @@ use crate::transport::{
     build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config, normalize_endpoint,
 };
 use crate::types::{
-    DnsCryptCachedCertificate, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol,
-    EncryptedDnsTransport, ResolverNetworkScope,
+    DnsCryptCachedCertificate, DoqErrorKind, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError,
+    EncryptedDnsProtocol, EncryptedDnsTransport, ResolverNetworkScope,
 };
 
 /// A DNSCrypt certificate and its fetch time as (monotonic, Unix seconds).
@@ -218,7 +218,7 @@ pub(crate) fn build_doq_endpoint_for_endpoint(
     doq_tls.alpn_protocols = vec![b"doq".to_vec()];
     let mut client_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(doq_tls)
-            .map_err(|err| EncryptedDnsError::Tls(format!("DoQ TLS config: {err}")))?,
+            .map_err(|err| DoqErrorKind::Setup.error(format!("DoQ TLS config: {err}")))?,
     ));
     let mut transport = quinn::TransportConfig::default();
     // RFC 9250 5.4: queries carry no EDNS(0) padding, so pad at the QUIC level
@@ -234,7 +234,7 @@ pub(crate) fn build_doq_endpoint_for_endpoint(
     transport.receive_window((DOQ_STREAM_RECEIVE_WINDOW * 16).into());
     client_config.transport_config(Arc::new(transport));
     let mut endpoint = doq::build_doq_endpoint(endpoint, connect_hooks)
-        .map_err(|err| EncryptedDnsError::Request(format!("DoQ endpoint: {err}")))?;
+        .map_err(|err| DoqErrorKind::Setup.error(format!("DoQ endpoint: {err}")))?;
     endpoint.set_default_client_config(client_config);
     Ok(endpoint)
 }

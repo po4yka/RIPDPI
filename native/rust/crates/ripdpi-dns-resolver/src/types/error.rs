@@ -13,8 +13,29 @@ pub enum EncryptedDnsErrorKind {
     NoAnswer,
 }
 
+/// Classified DoQ failures. Connect failures can affect resolver reachability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DoqErrorKind {
+    Setup,
+    Connect,
+    Exchange,
+    Tls,
+    Alpn,
+    ConnectTimeout,
+    QueryTimeout,
+}
+
+impl DoqErrorKind {
+    pub(crate) fn error(self, message: impl Into<String>) -> EncryptedDnsError {
+        EncryptedDnsError::Doq { kind: self, message: message.into() }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum EncryptedDnsError {
+    #[error("{message}")]
+    Doq { kind: DoqErrorKind, message: String },
+
     #[error("invalid encrypted DNS endpoint: {0}")]
     InvalidEndpoint(String),
     #[error("encrypted DNS endpoint must include a host")]
@@ -58,6 +79,11 @@ pub enum EncryptedDnsError {
 impl EncryptedDnsError {
     pub fn kind(&self) -> EncryptedDnsErrorKind {
         match self {
+            EncryptedDnsError::Doq { kind, .. } => match kind {
+                DoqErrorKind::Setup | DoqErrorKind::Connect | DoqErrorKind::Exchange => EncryptedDnsErrorKind::Connect,
+                DoqErrorKind::Tls | DoqErrorKind::Alpn => EncryptedDnsErrorKind::Tls,
+                DoqErrorKind::ConnectTimeout | DoqErrorKind::QueryTimeout => EncryptedDnsErrorKind::Timeout,
+            },
             EncryptedDnsError::MissingBootstrapIps => EncryptedDnsErrorKind::Bootstrap,
             EncryptedDnsError::InvalidEndpoint(_)
             | EncryptedDnsError::MissingHost

@@ -208,7 +208,7 @@ async fn doq_connect_failure_demotes_only_that_resolver_until_ttl_expires() {
     let pool = doh_and_doq_pool();
     assert!(pool.try_order().contains(&1), "fresh DoQ resolver is offered");
 
-    pool.record_failure(1, &EncryptedDnsError::Request("DoQ connect timeout".into()), 10);
+    pool.record_failure(1, &crate::DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"), 10);
     for _ in 0..4 {
         assert!(!pool.try_order().contains(&1), "demoted DoQ resolver must not be offered");
     }
@@ -221,16 +221,14 @@ async fn doq_connect_failure_demotes_only_that_resolver_until_ttl_expires() {
 #[tokio::test]
 async fn doq_query_level_failures_do_not_demote() {
     let pool = doh_and_doq_pool();
-    for message in
-        ["DoQ query timeout", "DoQ open_bi: closed", "DoQ write: reset", "DoQ query is shorter than a DNS header"]
-    {
-        pool.record_failure(1, &EncryptedDnsError::Request(message.into()), 10);
+    for kind in [crate::DoqErrorKind::QueryTimeout, crate::DoqErrorKind::Exchange, crate::DoqErrorKind::Setup] {
+        pool.record_failure(1, &kind.error("failure"), 10);
     }
     for _ in 0..4 {
         assert!(pool.try_order().contains(&1));
     }
     // A handshake failure does demote.
-    pool.record_failure(1, &EncryptedDnsError::Tls("DoQ handshake: closed".into()), 10);
+    pool.record_failure(1, &crate::DoqErrorKind::Connect.error("DoQ handshake: closed"), 10);
     assert!(!pool.try_order().contains(&1));
 }
 
@@ -267,7 +265,7 @@ async fn doq_decode_failure_does_not_demote() {
 #[tokio::test]
 async fn doq_demotion_does_not_cross_pools() {
     let session_a = doh_and_doq_pool();
-    session_a.record_failure(1, &EncryptedDnsError::Request("DoQ connect timeout".into()), 10);
+    session_a.record_failure(1, &crate::DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"), 10);
     assert!(!session_a.try_order().contains(&1));
     assert!(doh_and_doq_pool().try_order().contains(&1));
 }
@@ -286,7 +284,7 @@ async fn cached_success_for_demoted_doq_is_not_promoted() {
         .lock()
         .unwrap()
         .put(fallback_key(pool.network_scope(), &doq_key), FallbackEntry { last_success: Instant::now() });
-    pool.record_failure(1, &EncryptedDnsError::Request("DoQ connect timeout".into()), 10);
+    pool.record_failure(1, &crate::DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"), 10);
     for _ in 0..4 {
         let order = pool.try_order();
         assert_ne!(order[0], 1);
@@ -302,7 +300,7 @@ async fn exchange_without_eligible_resolver_reports_it() {
         .build()
         .unwrap();
     for idx in 0..2 {
-        pool.record_failure(idx, &EncryptedDnsError::Request("DoQ connect timeout".into()), 10);
+        pool.record_failure(idx, &crate::DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"), 10);
     }
     let query = b"\x12\x34\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x07example\x03com\x00\x00\x01\x00\x01";
     let err = pool.exchange(query).await.unwrap_err();
@@ -322,7 +320,7 @@ async fn dot_and_doq_on_one_host_port_keep_separate_health() {
     assert_ne!(pool.inner.keys[0], pool.inner.keys[1]);
     assert_eq!(pool.inner.labels[0], pool.inner.labels[1], "the public label stays shared");
 
-    pool.record_failure(1, &EncryptedDnsError::Request("DoQ connect timeout".into()), 10);
+    pool.record_failure(1, &crate::DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"), 10);
     let health = pool.health_registry();
     assert_eq!(health.observation_count_in_scope(pool.network_scope(), &pool.inner.keys[0]), 0);
     assert_eq!(health.observation_count_in_scope(pool.network_scope(), &pool.inner.keys[1]), 1);

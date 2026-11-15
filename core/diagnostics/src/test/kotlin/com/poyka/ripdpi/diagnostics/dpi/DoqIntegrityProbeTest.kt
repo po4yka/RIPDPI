@@ -8,7 +8,6 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import java.io.IOException
 
 class DoqIntegrityProbeTest {
     @Test
@@ -63,6 +62,17 @@ class DoqIntegrityProbeTest {
         }
 
     @Test
+    fun questionlessRefusedReplyKeepsTheDnsOutcome() {
+        val (_, query) = DoqWireCodec.buildQuery(TestDomain)
+        val response = byteArrayOf(0, 12, query[2], query[3], 0x81.toByte(), 0x85.toByte()) + ByteArray(8)
+        val answer = DoqWireCodec.parseResponse(response, query)
+
+        assertEquals(DnsResponseOutcome.REFUSED, answer.response?.outcome)
+        assertEquals(5, answer.response?.rcode)
+        assertEquals(emptyList<String>(), answer.addresses)
+    }
+
+    @Test
     fun invalidDomainIsSkippedWithoutAbortingTheOtherDomains() =
         runTest {
             val probe = probeWithResponse("1.2.3.4")
@@ -74,30 +84,32 @@ class DoqIntegrityProbeTest {
         }
 
     @Test
-    fun quicHandshakeFailureReturnsBlockedQuic() =
+    fun quicHandshakeFailureKeepsItsTransportKind() =
         runTest {
             val probe =
                 probe(
-                    client = ThrowingDoqClient(IOException("no Initial ACK")),
+                    client = ThrowingDoqClient(DoqExchangeException(DoqFailureKind.QUIC, "no Initial ACK")),
                 )
 
             val result = probe.run(listOf(TestDomain), emptyMap()).single()
 
-            assertEquals(DoqVerdict.DOQ_BLOCKED_QUIC, result.verdict)
+            assertEquals(DoqVerdict.DOQ_EXCHANGE_FAILED, result.verdict)
+            assertEquals(DoqFailureKind.QUIC, result.failureKind)
             assertEquals("no Initial ACK", result.errorDetail)
         }
 
     @Test
-    fun tlsAlertReturnsDpiReject() =
+    fun tlsAlertRetainsTlsFailureWithoutAttribution() =
         runTest {
             val probe =
                 probe(
-                    client = ThrowingDoqClient(DoqTlsRejectException("handshake_failure")),
+                    client = ThrowingDoqClient(DoqExchangeException(DoqFailureKind.TLS, "handshake_failure")),
                 )
 
             val result = probe.run(listOf(TestDomain), emptyMap()).single()
 
-            assertEquals(DoqVerdict.DOQ_DPI_REJECT, result.verdict)
+            assertEquals(DoqVerdict.DOQ_TLS_FAILED, result.verdict)
+            assertEquals(DoqFailureKind.TLS, result.failureKind)
             assertEquals("handshake_failure", result.errorDetail)
         }
 
@@ -303,7 +315,7 @@ class DoqIntegrityProbeTest {
                     ): ByteArray = byteArrayOf(0, 1, 0)
                 }
             val result = probe(client).run(listOf(TestDomain), emptyMap()).single()
-            assertEquals(DoqVerdict.DOQ_BLOCKED_QUIC, result.verdict)
+            assertEquals(DoqVerdict.DOQ_EXCHANGE_FAILED, result.verdict)
             assertEquals("Malformed DoQ response", result.errorDetail)
         }
 

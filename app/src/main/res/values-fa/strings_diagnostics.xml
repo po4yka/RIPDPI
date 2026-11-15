@@ -1535,8 +1535,8 @@
     <string name="diagnostics_ipv4_whitelist_alive_format">دسترس‌پذیر %1$s · %2$s</string>
     <string name="diagnostics_doq_ok">DoQ موفق</string>
     <string name="diagnostics_doq_timeout">پایان زمان انتظار DoQ</string>
-    <string name="diagnostics_doq_blocked_quic">QUIC برای DoQ مسدود است</string>
-    <string name="diagnostics_doq_dpi_reject">DoQ توسط DPI رد شد</string>
+    <string name="diagnostics_doq_exchange_failed">تبادل DoQ ناموفق بود</string>
+    <string name="diagnostics_doq_tls_failed">TLS برای DoQ ناموفق بود</string>
     <string name="diagnostics_doq_integrity_divergent">پاسخ‌های DoQ متفاوت هستند</string>
     <string name="diagnostics_bootstrap_ok">موفق</string>
     <string name="diagnostics_bootstrap_spoofed">جعل‌شده</string>

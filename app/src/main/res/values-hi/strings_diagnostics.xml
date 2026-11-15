@@ -1542,8 +1542,8 @@
     <string name="diagnostics_ipv4_whitelist_alive_format">पहुँच योग्य %1$s · %2$s</string>
     <string name="diagnostics_doq_ok">DoQ सफल</string>
     <string name="diagnostics_doq_timeout">DoQ का समय समाप्त</string>
-    <string name="diagnostics_doq_blocked_quic">DoQ के लिए QUIC अवरुद्ध</string>
-    <string name="diagnostics_doq_dpi_reject">DPI ने DoQ अस्वीकार किया</string>
+    <string name="diagnostics_doq_exchange_failed">DoQ एक्सचेंज विफल</string>
+    <string name="diagnostics_doq_tls_failed">DoQ के लिए TLS विफल</string>
     <string name="diagnostics_doq_integrity_divergent">DoQ के उत्तर भिन्न हैं</string>
     <string name="diagnostics_bootstrap_ok">सफल</string>
     <string name="diagnostics_bootstrap_spoofed">जाली</string>

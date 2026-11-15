@@ -3,20 +3,19 @@ package com.poyka.ripdpi.diagnostics.dpi
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 
 enum class DoqVerdict {
     DOQ_OK,
-    DOQ_BLOCKED_QUIC,
-    DOQ_DPI_REJECT,
+    DOQ_EXCHANGE_FAILED,
+    DOQ_TLS_FAILED,
     DOQ_INTEGRITY_DIVERGENT,
     DOQ_TIMEOUT,
     DOQ_INTEGRITY_INCONCLUSIVE,
@@ -41,6 +40,7 @@ data class DoqProbeResult(
     val latencyMs: Long?,
     val errorDetail: String? = null,
     val response: DnsResponseSemantics? = null,
+    val failureKind: DoqFailureKind? = null,
     val baseline: List<DoqBaselineObservation> = emptyList(),
 )
 
@@ -53,16 +53,6 @@ interface DoqQuicClient {
         timeoutMs: Long,
     ): ByteArray
 }
-
-class DoqQuicUnavailableException(
-    message: String,
-    cause: Throwable? = null,
-) : IOException(message, cause)
-
-class DoqTlsRejectException(
-    message: String,
-    cause: Throwable? = null,
-) : IOException(message, cause)
 
 object DoqWireCodec {
     fun buildQuery(domain: String): Pair<Int, ByteArray> {
@@ -86,9 +76,10 @@ object DoqWireCodec {
         if (length == null || query.doqPayloadLengthOrNull() == null) {
             return dnsFailure(DnsResponseOutcome.MALFORMED)
         }
-        return DnsWireBuilder.parseResponse(
+        return DnsWireResponseParser.parse(
             response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
             query.copyOfRange(DoqLengthPrefixBytes, query.size),
+            allowQuestionlessError = true,
         )
     }
 
@@ -141,9 +132,10 @@ class DoqIntegrityProbe(
             } catch (_: IllegalArgumentException) {
                 return null
             }
+        val evidence = baseline.map { it.forProvider(provider) }
         return try {
             val answer =
-                withTimeout(timeoutMs) {
+                withTimeoutOrNull(timeoutMs) {
                     val response =
                         client.exchange(
                             endpoint = provider.endpoint,
@@ -153,30 +145,63 @@ class DoqIntegrityProbe(
                             timeoutMs = timeoutMs,
                         )
                     DoqWireCodec.parseResponse(response, query)
-                }
+                } ?: return provider.result(
+                    domain,
+                    DoqVerdict.DOQ_TIMEOUT,
+                    emptyList(),
+                    startedAt,
+                    failureKind = DoqFailureKind.TIMEOUT,
+                    baseline = evidence,
+                )
             val response = answer.response
             if (response?.outcome == DnsResponseOutcome.MALFORMED || response?.truncated == true) {
-                throw IOException("Malformed DoQ response")
+                return provider.result(
+                    domain,
+                    DoqVerdict.DOQ_EXCHANGE_FAILED,
+                    emptyList(),
+                    startedAt,
+                    errorDetail =
+                        if (response?.truncated ==
+                            true
+                        ) {
+                            "Truncated DoQ response"
+                        } else {
+                            "Malformed DoQ response"
+                        },
+                    response = response,
+                    failureKind = DoqFailureKind.WIRE,
+                    baseline = evidence,
+                )
             }
             val ips = answer.addresses.filter(::isDnsIpv4)
-            val evidence = baseline.map { it.forProvider(provider) }
             val verdict = compareDoqAnswer(answer, evidence)
             provider.result(domain, verdict, ips, startedAt, response = response, baseline = evidence)
-        } catch (error: TimeoutCancellationException) {
-            provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, error.message ?: "timeout")
-        } catch (error: DoqTimeoutException) {
-            provider.result(domain, DoqVerdict.DOQ_TIMEOUT, emptyList(), startedAt, error.message)
-        } catch (error: DoqTlsRejectException) {
-            provider.result(domain, DoqVerdict.DOQ_DPI_REJECT, emptyList(), startedAt, error.message)
+        } catch (error: DoqExchangeException) {
+            val verdict =
+                when (error.kind) {
+                    DoqFailureKind.TIMEOUT -> DoqVerdict.DOQ_TIMEOUT
+                    DoqFailureKind.TLS -> DoqVerdict.DOQ_TLS_FAILED
+                    else -> DoqVerdict.DOQ_EXCHANGE_FAILED
+                }
+            provider.result(
+                domain,
+                verdict,
+                emptyList(),
+                startedAt,
+                errorDetail = error.message,
+                failureKind = error.kind,
+                baseline = evidence,
+            )
         } catch (error: CancellationException) {
             throw error
         } catch (error: IOException) {
             provider.result(
                 domain = domain,
-                verdict = DoqVerdict.DOQ_BLOCKED_QUIC,
+                verdict = DoqVerdict.DOQ_EXCHANGE_FAILED,
                 resolvedIps = emptyList(),
                 startedAt = startedAt,
                 errorDetail = error.message ?: error.javaClass.simpleName,
+                baseline = evidence,
             )
         }
     }
@@ -188,6 +213,7 @@ class DoqIntegrityProbe(
         startedAt: Long,
         errorDetail: String? = null,
         response: DnsResponseSemantics? = null,
+        failureKind: DoqFailureKind? = null,
         baseline: List<DoqBaselineObservation> = emptyList(),
     ): DoqProbeResult =
         DoqProbeResult(
@@ -199,6 +225,7 @@ class DoqIntegrityProbe(
             latencyMs = System.currentTimeMillis() - startedAt,
             errorDetail = errorDetail,
             response = response,
+            failureKind = failureKind,
             baseline = baseline,
         )
 

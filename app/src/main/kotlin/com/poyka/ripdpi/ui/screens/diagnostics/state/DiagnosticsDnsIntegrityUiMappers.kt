@@ -224,8 +224,8 @@ internal fun DoqVerdict.displayLabel(strings: StringResolver): String =
         when (this) {
             DoqVerdict.DOQ_OK -> R.string.diagnostics_doq_ok
             DoqVerdict.DOQ_TIMEOUT -> R.string.diagnostics_doq_timeout
-            DoqVerdict.DOQ_BLOCKED_QUIC -> R.string.diagnostics_doq_blocked_quic
-            DoqVerdict.DOQ_DPI_REJECT -> R.string.diagnostics_doq_dpi_reject
+            DoqVerdict.DOQ_EXCHANGE_FAILED -> R.string.diagnostics_doq_exchange_failed
+            DoqVerdict.DOQ_TLS_FAILED -> R.string.diagnostics_doq_tls_failed
             DoqVerdict.DOQ_INTEGRITY_DIVERGENT -> R.string.diagnostics_doq_integrity_divergent
             DoqVerdict.DOQ_INTEGRITY_INCONCLUSIVE -> R.string.diagnostics_dns_unknown
             DoqVerdict.DOQ_INTEGRITY_PARTIAL -> R.string.diagnostics_dns_partial_agreement
@@ -280,8 +280,8 @@ internal fun DoqVerdict.tone(): DiagnosticsTone =
         DoqVerdict.DOQ_INTEGRITY_PARTIAL,
         -> DiagnosticsTone.Neutral
 
-        DoqVerdict.DOQ_BLOCKED_QUIC,
-        DoqVerdict.DOQ_DPI_REJECT,
+        DoqVerdict.DOQ_EXCHANGE_FAILED,
+        DoqVerdict.DOQ_TLS_FAILED,
         DoqVerdict.DOQ_INTEGRITY_DIVERGENT,
         DoqVerdict.DOQ_BASELINE_CONFLICT,
         -> DiagnosticsTone.Warning

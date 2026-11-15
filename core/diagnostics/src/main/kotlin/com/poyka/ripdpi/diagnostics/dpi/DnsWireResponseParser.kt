@@ -19,9 +19,10 @@ internal object DnsWireResponseParser {
     fun parse(
         bytes: ByteArray,
         query: ByteArray,
+        allowQuestionlessError: Boolean = false,
     ): DnsProbeAnswer =
         try {
-            responseFacts(DnsMessages.response(bytes, query), query)
+            responseFacts(DnsMessages.response(bytes, query, allowQuestionlessError), query)
         } catch (_: IOException) {
             dnsFailure(DnsResponseOutcome.MALFORMED)
         } catch (_: IllegalArgumentException) {
@@ -32,7 +33,7 @@ internal object DnsWireResponseParser {
         message: Message,
         query: ByteArray,
     ): DnsProbeAnswer {
-        val question = message.question
+        val question = message.question ?: DnsMessages.parseQuery(query).question
         require(question.type == Type.A || question.type == Type.AAAA)
         val header = message.header
         val initial =
@@ -47,6 +48,9 @@ internal object DnsWireResponseParser {
             )
         if (initial.truncated == true) {
             return DnsProbeAnswer(response = initial.copy(outcome = DnsResponseOutcome.TRUNCATED))
+        }
+        if (message.question == null) {
+            return DnsProbeAnswer(response = initial.copy(outcome = dnsOutcome(message.rcode, hasAddresses = false)))
         }
         val chain = DnsMessages.answerChain(message)
         val addresses = message.getSection(Section.ANSWER).filter { it.dClass == DClass.IN && it.type == question.type }

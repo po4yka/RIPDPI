@@ -1536,8 +1536,8 @@
     <string name="diagnostics_ipv4_whitelist_alive_format">accesibles %1$s · %2$s</string>
     <string name="diagnostics_doq_ok">DoQ correcto</string>
     <string name="diagnostics_doq_timeout">Tiempo de espera de DoQ agotado</string>
-    <string name="diagnostics_doq_blocked_quic">QUIC bloqueado para DoQ</string>
-    <string name="diagnostics_doq_dpi_reject">DoQ rechazado por DPI</string>
+    <string name="diagnostics_doq_exchange_failed">Falló el intercambio DoQ</string>
+    <string name="diagnostics_doq_tls_failed">Falló TLS para DoQ</string>
     <string name="diagnostics_doq_integrity_divergent">Respuestas de DoQ divergentes</string>
     <string name="diagnostics_bootstrap_ok">correcto</string>
     <string name="diagnostics_bootstrap_spoofed">suplantado</string>

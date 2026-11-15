@@ -9,7 +9,7 @@ use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};
 use ripdpi_dns_resolver::{
-    EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsProtocol,
+    DoqErrorKind, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol,
     EncryptedDnsResolver, EncryptedDnsTransport,
 };
 use ripdpi_runtime_platform::protect::{has_protect_callback, protect_socket_via_callback};
@@ -34,18 +34,22 @@ pub fn exchange_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jst
 fn exchange(request_json: &str) -> String {
     let request = match serde_json::from_str::<NativeDoqExchangeRequest>(request_json) {
         Ok(request) => request,
-        Err(error) => return response_error("quic", format!("invalid native DoQ request: {error}")),
+        Err(error) => {
+            return response_error(NativeDoqErrorKind::InvalidRequest, format!("invalid native DoQ request: {error}"));
+        }
     };
     let query = match STANDARD.decode(request.query_base64.trim()) {
         Ok(query) => query,
-        Err(error) => return response_error("quic", format!("invalid DoQ query encoding: {error}")),
+        Err(error) => {
+            return response_error(NativeDoqErrorKind::InvalidRequest, format!("invalid DoQ query encoding: {error}"));
+        }
     };
     let limit = Duration::from_millis(request.timeout_ms.max(1));
     match run_bounded(limit, exchange_async(request, query, limit)) {
         Ok(Some(Ok(response))) => response_ok(response),
         Ok(Some(Err(error))) => response_error(error.kind, error.message),
-        Ok(None) => response_error("timeout", "native DoQ exchange timed out"),
-        Err(error) => response_error("quic", format!("build native DoQ runtime: {error}")),
+        Ok(None) => response_error(NativeDoqErrorKind::Timeout, "native DoQ exchange timed out"),
+        Err(error) => response_error(NativeDoqErrorKind::Setup, format!("build native DoQ runtime: {error}")),
     }
 }
 
@@ -61,6 +65,8 @@ fn run_bounded<F: std::future::Future>(limit: Duration, future: F) -> io::Result
     Ok(result)
 }
 
+/// # Cancel safety:
+/// cancel-safe: dropping the exchange releases its resolver and any owned streams.
 async fn exchange_async(
     request: NativeDoqExchangeRequest,
     query: Vec<u8>,
@@ -88,10 +94,8 @@ async fn exchange_async(
     resolver.exchange(&query).await.map_err(NativeDoqError::from)
 }
 
-// Cancel safety: cancel-safe. `tokio::net::lookup_host` is implemented via
-// `spawn_blocking`; dropping this future does not leave runtime state behind
-// other than the in-flight blocking task, which finishes on its own and is
-// observed by no one. No mutation of caller-visible state spans the `.await`.
+/// # Cancel safety:
+/// cancel-safe: cancelling the wait does not cancel an in-flight platform lookup.
 async fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeDoqError> {
     if let Ok(ip) = endpoint.parse::<IpAddr>() {
         return Ok(vec![ip]);
@@ -100,12 +104,15 @@ async fn bootstrap_ips(endpoint: &str, port: u16) -> Result<Vec<IpAddr>, NativeD
     // runtime worker (which is the only worker on this JNI-spawned runtime, so
     // a sync `to_socket_addrs` would defeat the outer `tokio::time::timeout`
     // because the timer cannot fire while the worker is parked in libc resolve).
-    let addresses = tokio::net::lookup_host((endpoint, port))
-        .await
-        .map_err(|error| NativeDoqError::new("quic", format!("resolve DoQ bootstrap {endpoint}: {error}")))?;
+    let addresses = tokio::net::lookup_host((endpoint, port)).await.map_err(|error| {
+        NativeDoqError::new(NativeDoqErrorKind::Bootstrap, format!("resolve DoQ bootstrap {endpoint}: {error}"))
+    })?;
     let ips: Vec<IpAddr> = addresses.map(|addr| addr.ip()).collect();
     if ips.is_empty() {
-        return Err(NativeDoqError::new("quic", format!("resolve DoQ bootstrap {endpoint}: no addresses")));
+        return Err(NativeDoqError::new(
+            NativeDoqErrorKind::Bootstrap,
+            format!("resolve DoQ bootstrap {endpoint}: no addresses"),
+        ));
     }
     Ok(ips)
 }
@@ -131,16 +138,18 @@ fn response_ok(response: Vec<u8>) -> String {
         error_kind: None,
         error: None,
     })
-    .unwrap_or_else(|error| response_error("quic", format!("serialize native DoQ response: {error}")))
+    .unwrap_or_else(|error| {
+        response_error(NativeDoqErrorKind::Setup, format!("serialize native DoQ response: {error}"))
+    })
 }
 
-fn response_error(error_kind: impl Into<String>, error: impl Into<String>) -> String {
+fn response_error(error_kind: NativeDoqErrorKind, error: impl Into<String>) -> String {
     serde_json::to_string(&NativeDoqExchangeResponse {
         response_base64: None,
-        error_kind: Some(error_kind.into()),
+        error_kind: Some(error_kind),
         error: Some(error.into()),
     })
-    .unwrap_or_else(|_| "{\"errorKind\":\"quic\",\"error\":\"serialize native DoQ error\"}".to_string())
+    .unwrap_or_else(|_| "{\"errorKind\":\"setup\",\"error\":\"serialize native DoQ error\"}".to_string())
 }
 
 #[derive(Debug, Deserialize)]
@@ -160,27 +169,50 @@ struct NativeDoqExchangeResponse {
     #[serde(rename = "responseBase64")]
     response_base64: Option<String>,
     #[serde(rename = "errorKind")]
-    error_kind: Option<String>,
+    error_kind: Option<NativeDoqErrorKind>,
     error: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum NativeDoqErrorKind {
+    InvalidRequest,
+    Setup,
+    Bootstrap,
+    Tls,
+    Alpn,
+    Quic,
+    Wire,
+    Timeout,
+}
+
 struct NativeDoqError {
-    kind: &'static str,
+    kind: NativeDoqErrorKind,
     message: String,
 }
 
 impl NativeDoqError {
-    fn new(kind: &'static str, message: String) -> Self {
+    fn new(kind: NativeDoqErrorKind, message: String) -> Self {
         Self { kind, message }
     }
 }
 
 impl From<EncryptedDnsError> for NativeDoqError {
     fn from(error: EncryptedDnsError) -> Self {
-        let kind = match error.kind() {
-            EncryptedDnsErrorKind::Timeout => "timeout",
-            EncryptedDnsErrorKind::Tls | EncryptedDnsErrorKind::SniBlocked => "tls",
-            _ => "quic",
+        let kind = match &error {
+            EncryptedDnsError::Doq { kind, .. } => match kind {
+                DoqErrorKind::Setup => NativeDoqErrorKind::Setup,
+                DoqErrorKind::Connect | DoqErrorKind::Exchange => NativeDoqErrorKind::Quic,
+                DoqErrorKind::Tls => NativeDoqErrorKind::Tls,
+                DoqErrorKind::Alpn => NativeDoqErrorKind::Alpn,
+                DoqErrorKind::ConnectTimeout | DoqErrorKind::QueryTimeout => NativeDoqErrorKind::Timeout,
+            },
+            EncryptedDnsError::MissingBootstrapIps => NativeDoqErrorKind::Bootstrap,
+            EncryptedDnsError::InvalidEndpoint(_) | EncryptedDnsError::MissingHost => {
+                NativeDoqErrorKind::InvalidRequest
+            }
+            EncryptedDnsError::DnsParse(_) | EncryptedDnsError::DnsMessageTooLarge { .. } => NativeDoqErrorKind::Wire,
+            _ => NativeDoqErrorKind::Setup,
         };
         Self::new(kind, error.to_string())
     }
@@ -191,6 +223,27 @@ mod tests {
     use serde_json::Value;
 
     use super::*;
+
+    #[test]
+    fn doq_bridge_preserves_native_error_kinds() {
+        let native_errors = [
+            (DoqErrorKind::Setup, "setup"),
+            (DoqErrorKind::Connect, "quic"),
+            (DoqErrorKind::Exchange, "quic"),
+            (DoqErrorKind::Tls, "tls"),
+            (DoqErrorKind::Alpn, "alpn"),
+            (DoqErrorKind::ConnectTimeout, "timeout"),
+            (DoqErrorKind::QueryTimeout, "timeout"),
+        ];
+        for (kind, expected) in native_errors {
+            let error = NativeDoqError::from(EncryptedDnsError::Doq { kind, message: "failure".into() });
+            let result: Value = serde_json::from_str(&response_error(error.kind, error.message)).unwrap();
+            assert_eq!(result["errorKind"], expected);
+        }
+        let wire_error = NativeDoqError::from(EncryptedDnsError::DnsParse("short response".into()));
+        let result: Value = serde_json::from_str(&response_error(wire_error.kind, wire_error.message)).unwrap();
+        assert_eq!(result["errorKind"], "wire");
+    }
 
     #[test]
     fn doq_udp_is_protected_before_bind() {

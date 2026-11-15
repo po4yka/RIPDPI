@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.serialization.RipDpiJson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -53,37 +54,41 @@ class NativeDoqQuicClient
                         queryBase64 = Base64.getEncoder().encodeToString(wireQuery),
                         timeoutMs = timeoutMs,
                     )
-                val payload =
-                    bindings.exchange(json.encodeToString(request))
-                        ?: throw DoqQuicUnavailableException("native DoQ bridge returned no response")
-                val response =
-                    try {
-                        json.decodeFromString(NativeDoqExchangeResponse.serializer(), payload)
-                    } catch (error: SerializationException) {
-                        throw DoqQuicUnavailableException(
-                            "native DoQ bridge returned malformed response: ${error.message}",
-                            error,
-                        )
-                    }
-                response.error?.takeIf(String::isNotBlank)?.let { message ->
-                    throw response.toException(message)
-                }
-                val body =
-                    response.responseBase64?.let { encoded ->
-                        try {
-                            Base64.getDecoder().decode(encoded)
-                        } catch (error: IllegalArgumentException) {
-                            throw DoqQuicUnavailableException(
-                                "native DoQ bridge returned invalid response encoding",
-                                error,
-                            )
-                        }
-                    } ?: throw DoqQuicUnavailableException("native DoQ bridge missing response body")
-                body.frameDoqMessage()
+                exchangeNative(json.encodeToString(request)).decodeBody()
             }
+
+        private fun exchangeNative(requestJson: String): NativeDoqExchangeResponse {
+            val payload =
+                try {
+                    bindings.exchange(requestJson)
+                } catch (error: UnsatisfiedLinkError) {
+                    throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge is unavailable", error)
+                } ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned no response")
+            val response =
+                try {
+                    json.decodeFromString(NativeDoqExchangeResponse.serializer(), payload)
+                } catch (error: SerializationException) {
+                    throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned malformed JSON", error)
+                }
+            response.checkForFailure()
+            return response
+        }
     }
 
-class DoqTimeoutException(
+enum class DoqFailureKind {
+    INVALID_REQUEST,
+    SETUP,
+    BOOTSTRAP,
+    TLS,
+    ALPN,
+    QUIC,
+    WIRE,
+    TIMEOUT,
+    JNI,
+}
+
+class DoqExchangeException(
+    val kind: DoqFailureKind,
     message: String,
     cause: Throwable? = null,
 ) : IOException(message, cause)
@@ -109,20 +114,50 @@ private data class NativeDoqExchangeResponse(
     val error: String? = null,
 )
 
-private fun NativeDoqExchangeResponse.toException(message: String): IOException =
-    when (errorKind) {
-        "tls" -> DoqTlsRejectException(message)
-        "timeout" -> DoqTimeoutException(message)
-        else -> DoqQuicUnavailableException(message)
+private fun NativeDoqExchangeResponse.checkForFailure() {
+    if (errorKind == null && error == null) return
+    if (responseBase64 != null || error.isNullOrBlank()) {
+        throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an invalid failure")
     }
+    if (errorKind == "cancelled") throw CancellationException(error)
+    val kind =
+        when (errorKind) {
+            "invalid_request" -> DoqFailureKind.INVALID_REQUEST
+            "setup" -> DoqFailureKind.SETUP
+            "bootstrap" -> DoqFailureKind.BOOTSTRAP
+            "tls" -> DoqFailureKind.TLS
+            "alpn" -> DoqFailureKind.ALPN
+            "quic" -> DoqFailureKind.QUIC
+            "wire" -> DoqFailureKind.WIRE
+            "timeout" -> DoqFailureKind.TIMEOUT
+            else -> throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge returned an unknown failure")
+        }
+    throw DoqExchangeException(kind, error)
+}
+
+private fun NativeDoqExchangeResponse.decodeBody(): ByteArray {
+    val encoded =
+        responseBase64 ?: throw DoqExchangeException(DoqFailureKind.JNI, "native DoQ bridge missing response body")
+    val body =
+        try {
+            Base64.getDecoder().decode(encoded)
+        } catch (error: IllegalArgumentException) {
+            throw DoqExchangeException(
+                DoqFailureKind.JNI,
+                "native DoQ bridge returned invalid response encoding",
+                error,
+            )
+        }
+    return body.frameDoqMessage()
+}
 
 private fun ByteArray.unframeDoqMessage(): ByteArray {
     if (size < DoqLengthPrefixBytes) {
-        throw DoqQuicUnavailableException("DoQ query missing length prefix")
+        throw DoqExchangeException(DoqFailureKind.INVALID_REQUEST, "DoQ query missing length prefix")
     }
     val length = ((this[0].toInt() and ByteMask) shl Byte.SIZE_BITS) or (this[1].toInt() and ByteMask)
     if (length <= 0 || size < DoqLengthPrefixBytes + length) {
-        throw DoqQuicUnavailableException("DoQ query length prefix is invalid")
+        throw DoqExchangeException(DoqFailureKind.INVALID_REQUEST, "DoQ query length prefix is invalid")
     }
     return copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length)
 }

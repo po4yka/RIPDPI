@@ -2,30 +2,19 @@ use std::time::Instant;
 
 use super::fallback_order;
 use super::{DOQ_DEMOTION_TTL, ResolverPool};
-use crate::types::{EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol};
+use crate::types::{DoqErrorKind, EncryptedDnsError, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol};
 
 /// Whether a failed DoQ attempt shows that the server cannot be reached: a missing
-/// bootstrap address, or a failure while connecting or in the QUIC/TLS handshake.
-/// Per-query failures on an open connection (query timeout, stream open/write/finish,
-/// malformed query) also map to `Connect` through `EncryptedDnsError::Request`, and
-/// they must not demote; `resolver/doq.rs` prefixes the connect-stage messages with
-/// "DoQ connect" or "DoQ handshake", which the `Connect`, `Tls` and `SniBlocked` arms check.
+/// bootstrap address or a connection failure. Local setup and stream failures do not demote.
 fn is_doq_unreachable(error: &EncryptedDnsError) -> bool {
-    let connect_stage = || {
-        let message = error.to_string();
-        message.contains("DoQ connect") || message.contains("DoQ handshake")
-    };
-    match error.kind() {
-        EncryptedDnsErrorKind::Bootstrap => true,
-        EncryptedDnsErrorKind::Connect | EncryptedDnsErrorKind::Tls | EncryptedDnsErrorKind::SniBlocked => {
-            connect_stage()
-        }
-        EncryptedDnsErrorKind::Timeout
-        | EncryptedDnsErrorKind::Http
-        | EncryptedDnsErrorKind::DnsCrypt
-        | EncryptedDnsErrorKind::Decode
-        | EncryptedDnsErrorKind::NoAnswer => false,
-    }
+    matches!(
+        error,
+        EncryptedDnsError::MissingBootstrapIps
+            | EncryptedDnsError::Doq {
+                kind: DoqErrorKind::Connect | DoqErrorKind::ConnectTimeout | DoqErrorKind::Tls | DoqErrorKind::Alpn,
+                ..
+            }
+    )
 }
 
 pub(super) fn elapsed_ms(started: Instant) -> u64 {

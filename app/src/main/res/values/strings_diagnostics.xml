@@ -1562,8 +1562,8 @@
     <string name="diagnostics_ipv4_whitelist_alive_format">alive %1$s · %2$s</string>
     <string name="diagnostics_doq_ok">doq ok</string>
     <string name="diagnostics_doq_timeout">doq timeout</string>
-    <string name="diagnostics_doq_blocked_quic">doq blocked quic</string>
-    <string name="diagnostics_doq_dpi_reject">doq dpi reject</string>
+    <string name="diagnostics_doq_exchange_failed">DoQ exchange failed</string>
+    <string name="diagnostics_doq_tls_failed">DoQ TLS failed</string>
     <string name="diagnostics_doq_integrity_divergent">doq integrity divergent</string>
     <string name="diagnostics_bootstrap_ok">ok</string>
     <string name="diagnostics_bootstrap_spoofed">spoofed</string>

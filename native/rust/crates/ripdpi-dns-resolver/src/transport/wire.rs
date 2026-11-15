@@ -37,6 +37,14 @@ pub(crate) fn build_dns_query(name: &str, record_type: RecordType) -> Result<Vec
 /// reply is forwarded as received, so records this parser rejects stay the
 /// client's concern.
 pub fn ensure_response_matches_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
+    check_response_question(query, response, false)
+}
+
+pub(crate) fn ensure_doq_response_matches_query(query: &[u8], response: &[u8]) -> Result<(), EncryptedDnsError> {
+    check_response_question(query, response, true)
+}
+
+fn check_response_question(query: &[u8], response: &[u8], allow_extended_rcode: bool) -> Result<(), EncryptedDnsError> {
     let mismatch = || EncryptedDnsError::DnsParse("DNS response does not match the query sent".to_string());
     if query.len() < 2 || response.len() < 3 || response[..2] != query[..2] || response[2] & 0x80 == 0 {
         return Err(mismatch());
@@ -46,9 +54,20 @@ pub fn ensure_response_matches_query(query: &[u8], response: &[u8]) -> Result<()
     };
     let (reply_header, reply_queries) =
         read_header_and_questions(response).map_err(|err| EncryptedDnsError::DnsParse(err.to_string()))?;
-    let error_without_question = reply_queries.is_empty()
-        && !matches!(reply_header.metadata.response_code, ResponseCode::NoError | ResponseCode::NXDomain);
-    if reply_queries != request_queries && !error_without_question {
+    if reply_queries == request_queries {
+        return Ok(());
+    }
+    if !reply_queries.is_empty() {
+        return Err(mismatch());
+    }
+    // A valid OPT can carry an error such as BADVERS while the DNS header says NOERROR.
+    let header_code = reply_header.metadata.response_code;
+    let code = if allow_extended_rcode {
+        Message::from_vec(response).map_or(header_code, |message| message.metadata.response_code)
+    } else {
+        header_code
+    };
+    if matches!(code, ResponseCode::NoError | ResponseCode::NXDomain) {
         return Err(mismatch());
     }
     Ok(())

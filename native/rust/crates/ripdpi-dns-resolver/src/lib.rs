@@ -34,10 +34,10 @@ pub use transport::{
     extract_ip_answers_for_query, validate_dns_response_for_query,
 };
 pub use types::{
-    BoxedDnsTcpStream, DirectTcpConnection, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError,
-    EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol, EncryptedDnsSocks5Credentials,
-    EncryptedDnsTransport, OdohEndpointConfig, ResolverNetworkScope, ResolverOracleObservation, TlsPinVerifier,
-    sha256_array,
+    BoxedDnsTcpStream, DirectTcpConnection, DoqErrorKind, EncryptedDnsConnectHooks, EncryptedDnsEndpoint,
+    EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol,
+    EncryptedDnsSocks5Credentials, EncryptedDnsTransport, OdohEndpointConfig, ResolverNetworkScope,
+    ResolverOracleObservation, TlsPinVerifier, sha256_array,
 };
 
 // Internal re-exports for test access

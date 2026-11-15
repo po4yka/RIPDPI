@@ -29,6 +29,23 @@ class DnsMessagesTest {
     }
 
     @Test
+    fun `questionless stream errors preserve extended rcode without relaxing other callers`() {
+        val refused = hex("123481850000000000000000")
+        val extendedError = hex("12348180000000000000000100002904d0010000000000")
+
+        assertThrows(IOException::class.java) { DnsMessages.response(refused, query) }
+        assertEquals(5, DnsMessages.response(refused, query, allowQuestionlessError = true).rcode)
+        assertEquals(16, DnsMessages.response(extendedError, query, allowQuestionlessError = true).rcode)
+
+        val noError = refused.copyOf().also { it[3] = 0x80.toByte() }
+        assertThrows(IOException::class.java) { DnsMessages.response(noError, query, allowQuestionlessError = true) }
+        val mismatchedId = refused.copyOf().also { it[0] = 0 }
+        assertThrows(
+            IOException::class.java,
+        ) { DnsMessages.response(mismatchedId, query, allowQuestionlessError = true) }
+    }
+
+    @Test
     fun `name comparison follows DNS case rules`() {
         val changed = response.copyOf().also { it[13] = 'E'.code.toByte() }
         assertTrue(DnsMessages.matchesResponse(query, changed))

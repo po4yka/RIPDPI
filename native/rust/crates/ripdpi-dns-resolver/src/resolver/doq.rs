@@ -7,7 +7,13 @@ use tokio::time::timeout;
 
 use super::EncryptedDnsResolver;
 use super::state::{DoqState, build_doq_endpoint_for_endpoint};
-use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport};
+use crate::types::{
+    DoqErrorKind, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport,
+};
+
+#[path = "doq_errors.rs"]
+mod errors;
+use errors::{connection_error, read_error, read_exact_error, write_error};
 
 /// How long after a failed connect (every bootstrap IP) further queries fail without retrying.
 /// Short, so a recovered upstream is retried soon, but long enough to cover a queued burst.
@@ -31,7 +37,7 @@ impl Drop for DoqQueryStreams {
 
 impl EncryptedDnsResolver {
     /// # Cancel safety:
-    /// Dropping the query releases its dedicated QUIC streams; other queries use separate streams.
+    /// cancel-safe: dropping the query releases its dedicated QUIC streams; other queries use separate streams.
     pub(super) async fn exchange_doq(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         let len_prefix = doq_length_prefix(query_bytes.len())?;
         if matches!(self.inner.transport, EncryptedDnsTransport::Socks5 { .. }) {
@@ -61,13 +67,13 @@ impl EncryptedDnsResolver {
     ) -> Result<Vec<u8>, EncryptedDnsError> {
         timeout(self.inner.timeout, exchange_doq_query(conn.clone(), query_bytes, len_prefix))
             .await
-            .map_err(|_| EncryptedDnsError::Request("DoQ query timeout".to_string()))?
+            .map_err(|_| DoqErrorKind::QueryTimeout.error("DoQ query timeout"))?
     }
 
     /// Returns the cached connection, or connects on an endpoint driven by the current runtime.
     ///
     /// # Cancel safety:
-    /// A connection is published only after its handshake completes; cancellation releases the pending handle.
+    /// cancel-safe: a connection is published only after its handshake completes.
     async fn get_or_connect_doq(&self) -> Result<quinn::Connection, EncryptedDnsError> {
         let runtime = tokio::runtime::Handle::current().id();
         // Held across the connect, so a burst of queries waits for one handshake instead of starting many.
@@ -93,7 +99,7 @@ impl EncryptedDnsResolver {
         }
         state.connection = None;
         if state.connect_failed_at.is_some_and(|failed_at| failed_at.elapsed() < DOQ_CONNECT_FAILURE_BACKOFF) {
-            return Err(EncryptedDnsError::Request("DoQ connect failed moments ago; backing off".to_string()));
+            return Err(DoqErrorKind::Connect.error("DoQ connect failed moments ago; backing off"));
         }
         let server_name = self.inner.endpoint.tls_server_name.as_deref().unwrap_or(&self.inner.endpoint.host);
         let bootstrap_ips = self.inner.health.as_ref().map_or_else(
@@ -119,15 +125,15 @@ impl EncryptedDnsResolver {
             let connecting = match state.endpoint.connect(addr, server_name) {
                 Ok(connecting) => connecting,
                 Err(error) => {
-                    last_error = Some(EncryptedDnsError::Tls(format!("DoQ connect: {error}")));
+                    last_error = Some(DoqErrorKind::Setup.error(format!("DoQ connect: {error}")));
                     continue;
                 }
             };
             let result = timeout(self.inner.timeout, connecting)
                 .await
-                .map_err(|_| EncryptedDnsError::Request("DoQ connect timeout".to_string()))
+                .map_err(|_| DoqErrorKind::ConnectTimeout.error("DoQ connect timeout"))
                 .and_then(|connected| {
-                    connected.map_err(|error| EncryptedDnsError::Tls(format!("DoQ handshake: {error}")))
+                    connected.map_err(|error| connection_error(DoqErrorKind::Connect, "DoQ handshake", error))
                 });
             let success = result.is_ok();
             if let Some(health) = &self.inner.health {
@@ -158,7 +164,7 @@ impl EncryptedDnsResolver {
 
 fn doq_length_prefix(message_len: usize) -> Result<[u8; 2], EncryptedDnsError> {
     if message_len < 12 {
-        return Err(EncryptedDnsError::Request("DoQ query is shorter than a DNS header".to_string()));
+        return Err(EncryptedDnsError::DnsParse("DoQ query is shorter than a DNS header".to_string()));
     }
     let length = u16::try_from(message_len).map_err(|_| EncryptedDnsError::DnsMessageTooLarge {
         transport: "DoQ",
@@ -175,35 +181,39 @@ async fn exchange_doq_query(
     query_bytes: &[u8],
     len_prefix: [u8; 2],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
-    let (send, recv) = conn.open_bi().await.map_err(|e| EncryptedDnsError::Request(format!("DoQ open_bi: {e}")))?;
+    let (send, recv) = conn.open_bi().await.map_err(|e| connection_error(DoqErrorKind::Exchange, "DoQ open_bi", e))?;
     let mut streams = DoqQueryStreams { send, recv, complete: false };
     let send = &mut streams.send;
 
     // RFC 9250: DNS wire format with 2-byte length prefix (same as DNS-over-TCP).
-    send.write_all(&len_prefix).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
+    send.write_all(&len_prefix).await.map_err(write_error)?;
     // RFC 9250 section 4.2.1 uses the stream ID to correlate queries, so the DNS ID is zero on the wire.
-    send.write_all(&[0, 0]).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write ID: {e}")))?;
-    send.write_all(&query_bytes[2..]).await.map_err(|e| EncryptedDnsError::Request(format!("DoQ write: {e}")))?;
-    send.finish().map_err(|e| EncryptedDnsError::Request(format!("DoQ finish: {e}")))?;
+    send.write_all(&[0, 0]).await.map_err(write_error)?;
+    send.write_all(&query_bytes[2..]).await.map_err(write_error)?;
+    send.finish().map_err(|e| DoqErrorKind::Exchange.error(format!("DoQ finish: {e}")))?;
 
     let recv = &mut streams.recv;
     let mut len_buf = [0u8; 2];
-    recv.read_exact(&mut len_buf).await.map_err(|e| doq_read_error(&conn, "DoQ read len", e))?;
+    recv.read_exact(&mut len_buf).await.map_err(|e| read_exact_error(&conn, "DoQ read length", e))?;
     let resp_len = u16::from_be_bytes(len_buf) as usize;
     if resp_len < 12 {
         conn.close(2u32.into(), b"DoQ short DNS header");
         return Err(EncryptedDnsError::DnsParse(format!("invalid DoQ response length: {resp_len}")));
     }
     let mut response = vec![0u8; resp_len];
-    recv.read_exact(&mut response).await.map_err(|e| doq_read_error(&conn, "DoQ read body", e))?;
+    recv.read_exact(&mut response).await.map_err(|e| read_exact_error(&conn, "DoQ read body", e))?;
 
     if response[..2] != [0, 0] {
         conn.close(2u32.into(), b"DoQ nonzero DNS ID");
         return Err(EncryptedDnsError::DnsParse("DoQ response has a nonzero DNS ID".to_string()));
     }
-    if recv.read_to_end(0).await.is_err() {
-        conn.close(2u32.into(), b"DoQ trailing response data");
-        return Err(EncryptedDnsError::DnsParse("DoQ response stream has trailing data or was reset".to_string()));
+    match recv.read_to_end(0).await {
+        Ok(_) => {}
+        Err(quinn::ReadToEndError::TooLong) => {
+            conn.close(2u32.into(), b"DoQ trailing response data");
+            return Err(EncryptedDnsError::DnsParse("DoQ response stream has trailing data".to_string()));
+        }
+        Err(quinn::ReadToEndError::Read(error)) => return Err(read_error("DoQ read FIN", error)),
     }
     response[..2].copy_from_slice(&query_bytes[..2]);
     streams.complete = true;
@@ -212,7 +222,7 @@ async fn exchange_doq_query(
         conn.close(2u32.into(), b"DoQ edns-tcp-keepalive");
         return Err(EncryptedDnsError::DnsParse("DoQ response carries edns-tcp-keepalive".to_string()));
     }
-    crate::transport::ensure_response_matches_query(query_bytes, &response)?;
+    crate::transport::ensure_doq_response_matches_query(query_bytes, &response)?;
     Ok(response)
 }
 
@@ -223,15 +233,6 @@ fn has_edns_tcp_keepalive(message: &[u8]) -> bool {
         .ok()
         .and_then(|parsed| parsed.edns)
         .is_some_and(|edns| edns.option(hickory_proto::rr::rdata::opt::EdnsCode::Keepalive).is_some())
-}
-
-/// A response stream that ends before the whole message is a protocol error
-/// (RFC 9250 4.3.3): close the connection with DOQ_PROTOCOL_ERROR.
-fn doq_read_error(conn: &quinn::Connection, stage: &str, error: quinn::ReadExactError) -> EncryptedDnsError {
-    if matches!(error, quinn::ReadExactError::FinishedEarly(_)) {
-        conn.close(2u32.into(), b"DoQ response ended early");
-    }
-    EncryptedDnsError::DnsParse(format!("{stage}: {error}"))
 }
 
 pub(super) fn build_doq_endpoint(

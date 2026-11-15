@@ -12,6 +12,7 @@ import org.xbill.DNS.Message
 import org.xbill.DNS.Name
 import org.xbill.DNS.OPTRecord
 import org.xbill.DNS.Opcode
+import org.xbill.DNS.Rcode
 import org.xbill.DNS.Record
 import org.xbill.DNS.Section
 import org.xbill.DNS.Type
@@ -83,11 +84,16 @@ object DnsMessages {
     fun response(
         bytes: ByteArray,
         query: ByteArray,
+        allowQuestionlessError: Boolean = false,
     ): Message {
         val expected = parseQuery(query)
-        return parseResponse(bytes).also { message ->
+        return parseResponse(bytes, allowQuestionlessError).also { message ->
             checkWire(message.header.id == expected.header.id, "Unexpected DNS response id")
-            checkWire(message.question == expected.question, "Unexpected DNS response question")
+            val questionlessError =
+                allowQuestionlessError && message.question == null &&
+                    message.rcode != Rcode.NOERROR && message.rcode != Rcode.NXDOMAIN &&
+                    message.header.getCount(Section.ANSWER) == 0
+            checkWire(message.question == expected.question || questionlessError, "Unexpected DNS response question")
         }
     }
 
@@ -141,21 +147,34 @@ object DnsMessages {
         return chain
     }
 
-    private fun parseResponse(bytes: ByteArray): Message =
-        parse(bytes).also { checkWire(it.header.getFlag(Flags.QR.toInt()), "Expected a DNS response") }
+    private fun parseResponse(
+        bytes: ByteArray,
+        allowQuestionlessError: Boolean = false,
+    ): Message =
+        parse(
+            bytes,
+            allowQuestionlessError,
+        ).also { checkWire(it.header.getFlag(Flags.QR.toInt()), "Expected a DNS response") }
 
-    private fun parse(bytes: ByteArray): Message {
+    private fun parse(
+        bytes: ByteArray,
+        allowQuestionlessError: Boolean = false,
+    ): Message {
         checkWire(bytes.size in Header.LENGTH..MAX_MESSAGE_BYTES, "Invalid DNS message size")
         val header = Header(bytes)
+        val questionCount = header.getCount(Section.QUESTION)
+        val minimumQuestionCount = if (allowQuestionlessError) 0 else 1
         checkWire(
-            header.opcode == Opcode.QUERY && header.getCount(Section.QUESTION) == 1,
+            header.opcode == Opcode.QUERY && questionCount in minimumQuestionCount..1,
             "Invalid DNS question count or opcode",
         )
         val message = Message(bytes)
-        checkWire(
-            message.question != null && message.question.dClass == DClass.IN && message.question.type != 0,
-            "Invalid DNS question",
-        )
+        if (questionCount == 1) {
+            checkWire(
+                message.question != null && message.question.dClass == DClass.IN && message.question.type != 0,
+                "Invalid DNS question",
+            )
+        }
         if (!header.getFlag(Flags.TC.toInt())) {
             checkWire(message.numBytes() == bytes.size, "Trailing DNS data")
             for (section in Section.QUESTION..Section.ADDITIONAL) {

@@ -27,9 +27,11 @@ internal fun validateDnsRecordWire(
     val buffer = ByteBuffer.wrap(bytes)
     val input = DNSInput(buffer)
     input.jump(Header.LENGTH)
-    Name(input)
-    input.readU16()
-    input.readU16()
+    if (message.question != null) {
+        Name(input)
+        input.readU16()
+        input.readU16()
+    }
 
     var restoredOpt: OPTRecord? = null
     for (section in Section.ANSWER..Section.ADDITIONAL) {

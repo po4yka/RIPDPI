@@ -42,8 +42,8 @@ class DiagnosticsSpanishPresentationTest {
         assertEquals(
             listOf(
                 "DoQ correcto",
-                "QUIC bloqueado para DoQ",
-                "DoQ rechazado por DPI",
+                "Falló el intercambio DoQ",
+                "Falló TLS para DoQ",
                 "Respuestas de DoQ divergentes",
                 "Tiempo de espera de DoQ agotado",
                 "Desconocido",
@@ -129,8 +129,8 @@ class DiagnosticsSpanishPresentationTest {
         assertEquals(
             listOf(
                 "doq ok",
-                "doq blocked quic",
-                "doq dpi reject",
+                "DoQ exchange failed",
+                "DoQ TLS failed",
                 "doq integrity divergent",
                 "doq timeout",
                 "Unknown",

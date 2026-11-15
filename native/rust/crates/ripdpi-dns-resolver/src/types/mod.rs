@@ -12,7 +12,7 @@ pub use endpoint::{
     DOQ_DEFAULT_PORT, DOT_DEFAULT_PORT, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsSocks5Credentials,
     EncryptedDnsTransport, OdohEndpointConfig,
 };
-pub use error::{EncryptedDnsError, EncryptedDnsErrorKind};
+pub use error::{DoqErrorKind, EncryptedDnsError, EncryptedDnsErrorKind};
 pub use exchange::EncryptedDnsExchangeSuccess;
 #[allow(unused_imports)]
 pub use hooks::{

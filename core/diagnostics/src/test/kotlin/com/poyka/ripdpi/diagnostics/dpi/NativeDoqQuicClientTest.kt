@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -47,56 +48,68 @@ class NativeDoqQuicClientTest {
         }
 
     @Test
-    fun tlsNativeErrorMapsToDpiReject() =
+    fun nativeFailureKindsArePreserved() =
         runTest {
             val (_, framedQuery) = DoqWireCodec.buildQuery(TestDomain)
-            val client =
-                NativeDoqQuicClient(
-                    CapturingBindings {
-                        """{"errorKind":"tls","error":"handshake_failure"}"""
-                    },
+            val failures =
+                mapOf(
+                    "invalid_request" to DoqFailureKind.INVALID_REQUEST,
+                    "setup" to DoqFailureKind.SETUP,
+                    "bootstrap" to DoqFailureKind.BOOTSTRAP,
+                    "tls" to DoqFailureKind.TLS,
+                    "alpn" to DoqFailureKind.ALPN,
+                    "quic" to DoqFailureKind.QUIC,
+                    "wire" to DoqFailureKind.WIRE,
+                    "timeout" to DoqFailureKind.TIMEOUT,
                 )
 
-            val error =
-                runCatching {
-                    client.exchange(
-                        endpoint = "1.1.1.1",
-                        port = 853,
-                        tlsServerName = "cloudflare-dns.com",
-                        query = framedQuery,
-                        timeoutMs = 1_000,
+            for ((wireKind, expected) in failures) {
+                val client =
+                    NativeDoqQuicClient(
+                        CapturingBindings { """{"errorKind":"$wireKind","error":"reported failure"}""" },
                     )
-                }.exceptionOrNull()
-
-            assertEquals(DoqTlsRejectException::class, error?.javaClass?.kotlin)
-            assertEquals("handshake_failure", error?.message)
+                val error = runCatching { client.exchange(framedQuery) }.exceptionOrNull()
+                assertEquals(expected, (error as? DoqExchangeException)?.kind)
+                assertEquals("reported failure", error?.message)
+            }
         }
 
     @Test
-    fun timeoutNativeErrorMapsToDoqTimeout() =
+    fun bridgeFailuresAreSeparateFromNetworkFailures() =
         runTest {
-            val (_, framedQuery) = DoqWireCodec.buildQuery(TestDomain)
-            val client =
-                NativeDoqQuicClient(
-                    CapturingBindings {
-                        """{"errorKind":"timeout","error":"DoQ timed out"}"""
-                    },
+            val query = byteArrayOf(0, 12) + ByteArray(12)
+            val invalidReplies =
+                listOf(
+                    null,
+                    "{",
+                    """{"errorKind":"unexpected","error":"unexpected failure"}""",
+                    """{"errorKind":"tls","responseBase64":"AAAAAAAAAAAAAAAA"}""",
+                    """{"errorKind":"tls","error":"certificate","responseBase64":"AAAAAAAAAAAAAAAA"}""",
                 )
 
-            val error =
-                runCatching {
-                    client.exchange(
-                        endpoint = "1.1.1.1",
-                        port = 853,
-                        tlsServerName = "cloudflare-dns.com",
-                        query = framedQuery,
-                        timeoutMs = 1_000,
-                    )
-                }.exceptionOrNull()
+            for (reply in invalidReplies) {
+                val client = NativeDoqQuicClient(CapturingBindings { reply })
+                val error = runCatching { client.exchange(query) }.exceptionOrNull()
+                assertEquals(DoqFailureKind.JNI, (error as? DoqExchangeException)?.kind)
+            }
 
-            assertEquals(DoqTimeoutException::class, error?.javaClass?.kotlin)
-            assertEquals("DoQ timed out", error?.message)
+            val missingLibrary = NativeDoqQuicClient(CapturingBindings { throw UnsatisfiedLinkError() })
+            val error = runCatching { missingLibrary.exchange(query) }.exceptionOrNull()
+            assertEquals(DoqFailureKind.JNI, (error as? DoqExchangeException)?.kind)
         }
+
+    @Test
+    fun nativeCancellationIsACoroutineCancellation() =
+        runTest {
+            val (_, framedQuery) = DoqWireCodec.buildQuery(TestDomain)
+            val client = NativeDoqQuicClient(CapturingBindings { """{"errorKind":"cancelled","error":"cancelled"}""" })
+
+            val error = runCatching { client.exchange(framedQuery) }.exceptionOrNull()
+            assertEquals(CancellationException::class.java, error?.javaClass)
+        }
+
+    private suspend fun NativeDoqQuicClient.exchange(query: ByteArray): ByteArray =
+        exchange("1.1.1.1", 853, "cloudflare-dns.com", query, 1_000)
 
     private class CapturingBindings(
         private val response: () -> String?,
