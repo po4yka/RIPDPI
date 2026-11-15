@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,17 +29,18 @@ class WebRtcLeakCheckerTest {
     }
 
     @Test
-    fun `a missing response from the first server tries the second`() {
-        val hosts = mutableListOf<String>()
-        val reachable =
-            WebRtcLeakChecker.probeStunReachability { host, _ ->
-                hosts += host
-                hosts.size == 2
-            }
+    fun `a missing response from the first server tries the second`() =
+        runTest {
+            val hosts = mutableListOf<String>()
+            val reachable =
+                WebRtcLeakChecker.probeStunReachability { host, _ ->
+                    hosts += host
+                    hosts.size == 2
+                }
 
-        assertTrue(reachable)
-        assertEquals(listOf("stun.l.google.com", "stun1.l.google.com"), hosts)
-    }
+            assertTrue(reachable)
+            assertEquals(listOf("stun.l.google.com", "stun1.l.google.com"), hosts)
+        }
 
     @Test
     fun `binding response must match cookie transaction and advertised length`() {

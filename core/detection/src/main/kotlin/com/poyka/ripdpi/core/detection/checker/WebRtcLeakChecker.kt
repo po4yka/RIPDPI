@@ -8,10 +8,13 @@ import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.security.SecureRandom
 
@@ -58,41 +61,48 @@ object WebRtcLeakChecker {
             description = description,
         )
 
-    internal fun probeStunReachability(probe: (String, Int) -> Boolean = ::sendStunBinding): Boolean =
-        STUN_SERVERS.any { (host, port) -> probe(host, port) }
+    internal suspend fun probeStunReachability(): Boolean =
+        probeStunReachability { host, port -> sendStunBinding(host, port) }
+
+    internal suspend fun probeStunReachability(probe: suspend (String, Int) -> Boolean): Boolean =
+        STUN_SERVERS.any { (host, port) ->
+            currentCoroutineContext().ensureActive()
+            probe(host, port)
+        }
 
     @Suppress("MagicNumber", "TooGenericExceptionCaught")
-    private fun sendStunBinding(
+    internal suspend fun sendStunBinding(
         host: String,
         port: Int,
     ): Boolean =
         try {
-            val address = InetAddress.getByName(host)
-            DatagramSocket().use { socket ->
-                socket.soTimeout = 3000
-                socket.connect(InetSocketAddress(address, port))
+            withTimeoutOrNull(3000) {
+                val address = resolveStunAddress(host)
+                DatagramSocket().use { socket ->
+                    socket.withStunCancellation {
+                        socket.connect(InetSocketAddress(address, port))
 
-                // STUN Binding Request: type=0x0001, length=0, magic=0x2112A442, txn=random
-                val request = ByteArray(20)
-                random.nextBytes(request)
-                request[0] = 0x00
-                request[1] = 0x01
-                request[2] = 0x00
-                request[3] = 0x00
-                request[4] = 0x21
-                request[5] = 0x12
-                request[6] = 0xA4.toByte()
-                request[7] = 0x42
+                        // STUN Binding Request: type=0x0001, length=0, magic=0x2112A442, txn=random
+                        val request = ByteArray(20)
+                        random.nextBytes(request)
+                        request[0] = 0x00
+                        request[1] = 0x01
+                        request[2] = 0x00
+                        request[3] = 0x00
+                        request[4] = 0x21
+                        request[5] = 0x12
+                        request[6] = 0xA4.toByte()
+                        request[7] = 0x42
 
-                val sendPacket = DatagramPacket(request, request.size, address, port)
-                socket.send(sendPacket)
-
-                socket.receiveStunResponse(3000) { response ->
-                    true.takeIf { validBindingResponse(response, response.size, request) }
-                } == true
-            }
-        } catch (_: java.net.SocketTimeoutException) {
-            false
+                        socket.send(DatagramPacket(request, request.size))
+                        socket.receiveStunResponse(3000) { response ->
+                            true.takeIf { validBindingResponse(response, response.size, request) }
+                        } == true
+                    }
+                }
+            } == true
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Exception) {
             false
         }

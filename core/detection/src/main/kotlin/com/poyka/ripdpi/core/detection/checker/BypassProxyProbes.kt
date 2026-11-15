@@ -4,7 +4,9 @@ package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.probe.ProxyEndpoint
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.DatagramPacket
@@ -32,17 +34,26 @@ class Socks5MtProtoProber(
 ) : MtProtoProber {
     override suspend fun canReach(proxyEndpoint: ProxyEndpoint): Boolean =
         withContext(dispatchers.io) {
-            runCatching {
-                Socket().use { socket ->
-                    socket.connect(InetSocketAddress(proxyEndpoint.host, proxyEndpoint.port), connectTimeoutMs)
-                    socket.soTimeout = readTimeoutMs
-                    socket.tcpNoDelay = true
-                    socket.outputStream.writeSocks5Greeting()
-                    socket.inputStream.expectSocks5NoAuth()
-                    socket.outputStream.writeSocks5Connect(TelegramDc2Host, TelegramDcPort)
-                    socket.inputStream.readSocks5Reply()
-                }
-            }.getOrDefault(false)
+            try {
+                withTimeoutOrNull(connectTimeoutMs.toLong() + readTimeoutMs) {
+                    val proxyAddress = resolveStunAddress(proxyEndpoint.host)
+                    Socket().use { socket ->
+                        socket.withStunCancellation {
+                            socket.connect(InetSocketAddress(proxyAddress, proxyEndpoint.port), connectTimeoutMs)
+                            socket.soTimeout = readTimeoutMs
+                            socket.tcpNoDelay = true
+                            socket.outputStream.writeSocks5Greeting()
+                            socket.inputStream.expectSocks5NoAuth()
+                            socket.outputStream.writeSocks5Connect(TelegramDc2Host, TelegramDcPort)
+                            socket.inputStream.readSocks5Reply()
+                        }
+                    }
+                } == true
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                false
+            }
         }
 
     private companion object {
@@ -60,29 +71,41 @@ class Socks5UdpAssociateStunClient(
 ) : Socks5StunClient {
     override suspend fun reflexiveAddress(proxyEndpoint: ProxyEndpoint): String? =
         withContext(dispatchers.io) {
-            runCatching {
-                Socket().use { controlSocket ->
-                    controlSocket.connect(InetSocketAddress(proxyEndpoint.host, proxyEndpoint.port), timeoutMs)
-                    controlSocket.soTimeout = timeoutMs
-                    controlSocket.outputStream.writeSocks5Greeting()
-                    controlSocket.inputStream.expectSocks5NoAuth()
-                    controlSocket.outputStream.writeSocks5UdpAssociate()
-                    val relay = controlSocket.inputStream.readSocks5UdpRelay(proxyEndpoint.host)
-                    sendStunRequest(relay)
+            try {
+                withTimeoutOrNull(timeoutMs.toLong()) {
+                    val proxyAddress = resolveStunAddress(proxyEndpoint.host)
+                    Socket().use { controlSocket ->
+                        val relay =
+                            controlSocket.withStunCancellation {
+                                controlSocket.connect(InetSocketAddress(proxyAddress, proxyEndpoint.port), timeoutMs)
+                                controlSocket.soTimeout = timeoutMs
+                                controlSocket.outputStream.writeSocks5Greeting()
+                                controlSocket.inputStream.expectSocks5NoAuth()
+                                controlSocket.outputStream.writeSocks5UdpAssociate()
+                                controlSocket.inputStream.readSocks5UdpRelay(proxyAddress.hostAddress.orEmpty())
+                            }
+                        val relayAddress = resolveStunAddress(relay.hostString)
+                        sendStunRequest(InetSocketAddress(relayAddress, relay.port))
+                    }
                 }
-            }.getOrNull()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                null
+            }
         }
 
-    private fun sendStunRequest(relay: InetSocketAddress): String? =
+    private suspend fun sendStunRequest(relay: InetSocketAddress): String? =
         DatagramSocket().use { socket ->
-            socket.soTimeout = timeoutMs
-            val transactionId = ByteArray(StunTransactionIdBytes).also(random::nextBytes)
-            val request = buildStunBindingRequest(transactionId)
-            val payload = buildSocks5UdpDatagram(StunHost, StunPort, request)
-            socket.connect(relay)
-            socket.send(DatagramPacket(payload, payload.size))
-            socket.receiveStunResponse(timeoutMs) { response ->
-                parseSocks5UdpStunResponse(response, transactionId, StunHost, StunPort)
+            socket.withStunCancellation {
+                val transactionId = ByteArray(StunTransactionIdBytes).also(random::nextBytes)
+                val request = buildStunBindingRequest(transactionId)
+                val payload = buildSocks5UdpDatagram(StunHost, StunPort, request)
+                socket.connect(relay)
+                socket.send(DatagramPacket(payload, payload.size))
+                socket.receiveStunResponse(timeoutMs) { response ->
+                    parseSocks5UdpStunResponse(response, transactionId, StunHost, StunPort)
+                }
             }
         }
 
@@ -186,7 +209,7 @@ private fun InputStream.readSocks5UdpRelay(proxyHost: String): InetSocketAddress
         } ?: proxyHost
     val port = readFully(SocksPortBytes).toUShortInt()
     check(port != 0)
-    return InetSocketAddress(address, port)
+    return InetSocketAddress.createUnresolved(address, port)
 }
 
 // A wildcard (0.0.0.0 or ::) relay address means "the proxy's own address" (RFC 1928 s6).

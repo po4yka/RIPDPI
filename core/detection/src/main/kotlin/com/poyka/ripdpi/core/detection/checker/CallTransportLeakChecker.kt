@@ -21,9 +21,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.InetAddress
 import java.nio.ByteBuffer
 import java.security.SecureRandom
 
@@ -261,10 +261,14 @@ private class DefaultCallTransportMtProtoProber(
         withContext(dispatchers.io) {
             if (path != CallTransportPath.APP_DEFAULT) return@withContext false
             try {
-                java.net.Socket().use { socket ->
-                    socket.connect(java.net.InetSocketAddress(TelegramDc2Host, TelegramDcPort), TimeoutMs)
-                    true
-                }
+                withTimeoutOrNull(TimeoutMs.toLong()) {
+                    java.net.Socket().use { socket ->
+                        socket.withStunCancellation {
+                            socket.connect(java.net.InetSocketAddress(TelegramDc2Host, TelegramDcPort), TimeoutMs)
+                            true
+                        }
+                    }
+                } == true
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
@@ -293,15 +297,18 @@ private class DefaultCallTransportStunClient(
         withContext(dispatchers.io) {
             if (path != CallTransportPath.APP_DEFAULT) return@withContext null
             try {
-                DatagramSocket().use { socket ->
-                    socket.soTimeout = timeoutMs
-                    val transactionId = ByteArray(StunTransactionIdBytes).also(random::nextBytes)
-                    val request = buildStunBindingRequest(transactionId)
-                    val target = InetAddress.getByName(server.host)
-                    socket.connect(java.net.InetSocketAddress(target, server.port))
-                    socket.send(DatagramPacket(request, request.size))
-                    socket.receiveStunResponse(timeoutMs) { response ->
-                        StunBindingResponseDecoder.reflexiveAddress(response, transactionId)
+                withTimeoutOrNull(timeoutMs.toLong()) {
+                    val target = resolveStunAddress(server.host)
+                    DatagramSocket().use { socket ->
+                        socket.withStunCancellation {
+                            val transactionId = ByteArray(StunTransactionIdBytes).also(random::nextBytes)
+                            val request = buildStunBindingRequest(transactionId)
+                            socket.connect(java.net.InetSocketAddress(target, server.port))
+                            socket.send(DatagramPacket(request, request.size))
+                            socket.receiveStunResponse(timeoutMs) { response ->
+                                StunBindingResponseDecoder.reflexiveAddress(response, transactionId)
+                            }
+                        }
                     }
                 }
             } catch (cancellation: CancellationException) {
