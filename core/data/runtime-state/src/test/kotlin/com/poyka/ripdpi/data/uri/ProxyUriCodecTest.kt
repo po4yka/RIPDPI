@@ -27,6 +27,22 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `ssh userinfo retains literal plus and decodes percent escapes once`() {
+        for ((userinfo, username, password) in listOf(
+            Triple("al+ice:pass+word", "al+ice", "pass+word"),
+            Triple("al%2Bice:pass%2Bword", "al+ice", "pass+word"),
+            Triple("al%20ice:pass%20word", "al ice", "pass word"),
+            Triple("al%252Bice:pass%252Bword", "al%2Bice", "pass%2Bword"),
+            Triple("%D0%B8%D0%BC%D1%8F:%D0%BA%D0%BB%D1%8E%D1%87", "имя", "ключ"),
+        )) {
+            val profile = ProxyUriCodec.parse("ssh://$userinfo@h.example:22") as ProxyProfile.Ssh
+            assertEquals(username, profile.username)
+            assertEquals(password, profile.password)
+        }
+        assertNull(ProxyUriCodec.parse("ssh://al%ZZice:fixture@h.example:22"))
+    }
+
+    @Test
     fun `shadowsocks 2022 export uses SIP002 plain escaped userinfo`() {
         val key128 = "AAECAwQFBgcICQoLDA0ODw=="
         val key256 = "YctPZ6U7xPPcU+gp3u+0tx/tRizJN9K8y+uKlW2qjlI="

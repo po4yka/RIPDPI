@@ -379,7 +379,7 @@ object ProxyUriCodec {
             username =
                 rfc3986PercentDecode(rawUserInfo.substring(0, separator))?.takeIf { it.isNotBlank() } ?: return null
             passwordFromUserInfo =
-                rfc3986PercentDecode(rawUserInfo.substring(separator + 1))?.takeIf { it.isNotBlank() }
+                (rfc3986PercentDecode(rawUserInfo.substring(separator + 1)) ?: return null).takeIf { it.isNotBlank() }
         }
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it in SSH_PORT_RANGE } ?: return null
