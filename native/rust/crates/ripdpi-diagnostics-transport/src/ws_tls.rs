@@ -1,9 +1,7 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
-use std::time::Duration;
-
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use std::time::{Duration, Instant};
 
 use rustls::KeyLog;
 use rustls::pki_types::ServerName;
@@ -11,9 +9,11 @@ use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use tungstenite::WebSocket;
 use tungstenite::client::IntoClientRequest;
 
-use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed, direct_transport};
-use crate::transport::{resolve_addresses_with_timeout, run_with_socket_abort_watchdog};
-use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
+use crate::transport::{
+    TargetAddress, TransportConfig, connect_direct_address_with_abort, connect_transport_observed_with_abort,
+    direct_transport, run_with_socket_abort_watchdog,
+};
+use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout, with_scan_io_deadline};
 
 pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
 pub type WsTlsKeyLogCallback = Arc<dyn KeyLog>;
@@ -157,9 +157,12 @@ trait WsHandshakeSteps {
     type Tls;
     type Ws;
 
-    fn resolve(&mut self, target: &WsOverTlsTarget, timeout: Duration) -> io::Result<SocketAddr>;
-    fn connect_tcp(&mut self, addr: SocketAddr, timeout: Duration) -> io::Result<Self::Tcp>;
-    fn connect_proxied(&mut self, target: &WsOverTlsTarget, timeout: Duration) -> io::Result<Self::Tcp>;
+    fn connect_tcp(
+        &mut self,
+        target: &WsOverTlsTarget,
+        timeout: Duration,
+        control: &WsOverTlsControl<'_>,
+    ) -> io::Result<Self::Tcp>;
     fn connect_tls(
         &mut self,
         tcp: Self::Tcp,
@@ -183,19 +186,9 @@ fn connect_with_steps<Steps: WsHandshakeSteps>(
     control: &WsOverTlsControl<'_>,
     steps: &mut Steps,
 ) -> io::Result<Steps::Ws> {
-    let tcp = match target.transport {
-        TransportConfig::Socks5 { .. } => steps
-            .connect_proxied(target, control.remaining_timeout()?)
-            .map_err(|err| control.error_after_blocking_io(err))?,
-        TransportConfig::Direct { .. } => {
-            let socket_addr = steps
-                .resolve(target, control.remaining_timeout()?)
-                .map_err(|err| control.error_after_blocking_io(err))?;
-            steps
-                .connect_tcp(socket_addr, control.remaining_timeout()?)
-                .map_err(|err| control.error_after_blocking_io(err))?
-        }
-    };
+    let tcp = steps
+        .connect_tcp(target, control.remaining_timeout()?, control)
+        .map_err(|err| control.error_after_blocking_io(err))?;
     let tls = steps
         .connect_tls(tcp, target.host.as_str(), key_log, control.remaining_timeout()?, control)
         .map_err(|err| control.error_after_blocking_io(err))?;
@@ -213,16 +206,13 @@ impl WsHandshakeSteps for ProductionWsHandshakeSteps {
     type Tls = StreamOwned<ClientConnection, TcpStream>;
     type Ws = WsOverTlsStream;
 
-    fn resolve(&mut self, target: &WsOverTlsTarget, timeout: Duration) -> io::Result<SocketAddr> {
-        resolve_target_addr(target, timeout)
-    }
-
-    fn connect_tcp(&mut self, addr: SocketAddr, timeout: Duration) -> io::Result<Self::Tcp> {
-        connect_tcp(addr, timeout)
-    }
-
-    fn connect_proxied(&mut self, target: &WsOverTlsTarget, timeout: Duration) -> io::Result<Self::Tcp> {
-        connect_proxied(target, timeout)
+    fn connect_tcp(
+        &mut self,
+        target: &WsOverTlsTarget,
+        timeout: Duration,
+        control: &WsOverTlsControl<'_>,
+    ) -> io::Result<Self::Tcp> {
+        connect_tcp(target, timeout, control)
     }
 
     fn connect_tls(
@@ -247,48 +237,26 @@ impl WsHandshakeSteps for ProductionWsHandshakeSteps {
     }
 }
 
-fn resolve_target_addr(target: &WsOverTlsTarget, timeout: Duration) -> io::Result<SocketAddr> {
-    if let Some(addr) = target.resolved_addr {
-        return Ok(addr);
-    }
-    resolve_addresses_with_timeout(&TargetAddress::Host(target.host.clone()), target.port, timeout)
-        .map_err(|err| io::Error::new(io::ErrorKind::TimedOut, err))?
-        .into_iter()
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "WS over TLS target resolved no addresses"))
-}
-
-fn connect_tcp(addr: SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
-    let socket =
-        Socket::new(if addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 }, Type::STREAM, Some(Protocol::TCP))?;
-    // Protect the fd before connect when the VPN is up, so this Telegram WS
-    // probe socket is not captured by the app's own TUN route. The shared
-    // transport helper handles loopback-skip, the no-op when no protect
-    // callback is registered (desktop / VPN down), and fail-closed when a
-    // registered protect fails. DIAG-1.
-    crate::transport::protect::protect_for_target(&socket, addr)?;
-    socket
-        .connect_timeout(&SockAddr::from(addr), timeout)
-        .map_err(|err| io::Error::new(err.kind(), format!("WS over TLS TCP connect to {addr}: {err}")))?;
-    let stream: TcpStream = socket.into();
+fn connect_tcp(target: &WsOverTlsTarget, timeout: Duration, control: &WsOverTlsControl<'_>) -> io::Result<TcpStream> {
+    let deadline = Instant::now()
+        .checked_add(timeout)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "TCP timeout out of range"))?;
+    let stream = with_scan_io_deadline(Some(deadline), || {
+        if let TransportConfig::Direct { .. } = &target.transport
+            && let Some(addr) = target.resolved_addr
+        {
+            return connect_direct_address_with_abort(addr, control.should_abort);
+        }
+        connect_transport_observed_with_abort(
+            &[TargetAddress::Host(target.host.clone())],
+            target.port,
+            &target.transport,
+            control.should_abort,
+        )
+        .map(|result| result.stream)
+        .map_err(|err| io::Error::other(format!("WSS {}: {err}", err.stage.as_str())))
+    })?;
     stream.set_nodelay(true)?;
-    stream.set_read_timeout(Some(timeout))?;
-    stream.set_write_timeout(Some(timeout))?;
-    Ok(stream)
-}
-
-/// Connect through the scan's SOCKS5 proxy (the shared transport protects the proxy socket when
-/// it is not loopback). The proxy resolves the host, so no local DNS lookup runs.
-fn connect_proxied(target: &WsOverTlsTarget, timeout: Duration) -> io::Result<TcpStream> {
-    let stream =
-        connect_transport_observed(&[TargetAddress::Host(target.host.clone())], target.port, &target.transport)
-            .map_err(|err| {
-                io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS over TLS proxy connect: {}", err.message))
-            })?
-            .stream;
-    stream.set_nodelay(true)?;
-    stream.set_read_timeout(Some(timeout))?;
-    stream.set_write_timeout(Some(timeout))?;
     Ok(stream)
 }
 
@@ -386,7 +354,6 @@ mod tests {
     use std::os::fd::RawFd;
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
-    use std::time::Instant;
 
     use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
     use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
@@ -428,11 +395,26 @@ mod tests {
     }
 
     #[test]
-    fn target_accepts_pre_resolved_addr() {
-        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
-        let target = WsOverTlsTarget::new("kws2.web.telegram.org", "/apiws").with_resolved_addr(Some(addr));
+    fn pinned_peer_is_used_without_resolving_the_tls_name() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let target = WsOverTlsTarget::new("bad\0name", "/apiws").with_resolved_addr(Some(addr));
+        let control = WsOverTlsControl::new(&|| None);
 
-        assert_eq!(resolve_target_addr(&target, Duration::from_millis(500)).expect("resolved addr"), addr);
+        let stream = connect_tcp(&target, Duration::from_millis(500), &control).unwrap();
+        assert_eq!(stream.peer_addr().unwrap(), addr);
+    }
+
+    #[test]
+    fn direct_wss_finds_a_listening_peer_after_first_family_refuses() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let mut target = WsOverTlsTarget::new("localhost", "/apiws");
+        target.port = addr.port();
+        let control = WsOverTlsControl::new(&|| None);
+
+        let stream = connect_tcp(&target, Duration::from_secs(1), &control).unwrap();
+        assert_eq!(stream.peer_addr().unwrap(), addr);
     }
 
     #[test]
@@ -449,7 +431,7 @@ mod tests {
 
     #[test]
     fn controlled_handshake_recomputes_timeout_before_each_blocking_step() {
-        let mut steps = FakeWsSteps::default();
+        let mut steps = FakeWsSteps { tcp_delay: Duration::from_millis(10), ..FakeWsSteps::default() };
         let control = WsOverTlsControl::new(&|| None);
         let target = WsOverTlsTarget::new("kws2.web.telegram.org", "/apiws");
 
@@ -457,11 +439,11 @@ mod tests {
             connect_with_steps(&target, None, &control, &mut steps).expect("fake handshake");
         });
 
-        assert_eq!(steps.calls, ["resolve", "tcp", "tls", "ws"]);
-        assert_eq!(steps.timeouts.len(), 4);
+        assert_eq!(steps.calls, ["tcp", "tls", "ws"]);
+        assert_eq!(steps.timeouts.len(), 3);
         assert!(
             steps.timeouts[1] < steps.timeouts[0],
-            "timeout must be recomputed after DNS rather than reusing a stale value"
+            "timeout must be recomputed after TCP rather than reusing a stale value"
         );
     }
 
@@ -499,21 +481,6 @@ mod tests {
     }
 
     #[test]
-    fn socks5_target_connects_through_the_proxy_without_local_dns() {
-        let mut steps = FakeWsSteps::default();
-        let control = WsOverTlsControl::new(&|| None);
-        let target = WsOverTlsTarget::new("kws2.web.telegram.org", "/apiws").with_transport(TransportConfig::Socks5 {
-            host: "127.0.0.1".to_string(),
-            port: 1080,
-            credentials: None,
-        });
-
-        connect_with_steps(&target, None, &control, &mut steps).expect("fake handshake");
-
-        assert_eq!(steps.calls, ["proxy", "tls", "ws"]);
-    }
-
-    #[test]
     fn proxied_connect_sends_the_host_name_to_the_socks5_proxy() {
         use std::io::{Read, Write};
 
@@ -540,13 +507,14 @@ mod tests {
             credentials: None,
         });
 
-        let _stream = connect_proxied(&target, Duration::from_secs(2)).expect("proxied connect");
+        let control = WsOverTlsControl::new(&|| None);
+        let _stream = connect_tcp(&target, Duration::from_secs(2), &control).expect("proxied connect");
 
         assert_eq!(proxy.join().unwrap(), (0x03, "kws2.web.telegram.org".to_string(), 443));
     }
 
     #[test]
-    fn controlled_handshake_checks_abort_before_dns_resolution() {
+    fn controlled_handshake_checks_abort_before_opening_transport() {
         let mut steps = FakeWsSteps::default();
         let control = WsOverTlsControl::new(&|| Some("cancelled"));
         let target = WsOverTlsTarget::new("kws2.web.telegram.org", "/apiws");
@@ -559,21 +527,21 @@ mod tests {
     }
 
     #[test]
-    fn controlled_handshake_rejects_tcp_after_dns_consumes_scan_deadline() {
-        let mut steps = FakeWsSteps { resolve_delay: Duration::from_millis(30), ..FakeWsSteps::default() };
+    fn controlled_handshake_rejects_tls_after_tcp_consumes_scan_deadline() {
+        let mut steps = FakeWsSteps { tcp_delay: Duration::from_millis(30), ..FakeWsSteps::default() };
         let control = WsOverTlsControl::new(&|| None);
         let target = WsOverTlsTarget::new("kws2.web.telegram.org", "/apiws");
 
         let err = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(10)), || {
-            connect_with_steps(&target, None, &control, &mut steps).expect_err("deadline before TCP")
+            connect_with_steps(&target, None, &control, &mut steps).expect_err("deadline before TLS")
         });
 
         assert_eq!(err.kind(), io::ErrorKind::TimedOut);
         assert_eq!(err.to_string(), "scan_deadline_exceeded");
-        assert_eq!(steps.calls, ["resolve"]);
+        assert_eq!(steps.calls, ["tcp"]);
     }
 
-    // DIAG-1 regression: pre-fix `connect_tcp` connected without protecting the
+    // DIAG-1 regression: pre-fix WSS connected without protecting the
     // fd. A registered protect callback must be invoked BEFORE connect, and a
     // protect denial must fail the connect (fail-closed) — not proceed
     // unprotected into the TUN.
@@ -585,7 +553,10 @@ mod tests {
         register_protect_callback(Arc::clone(&cb) as Arc<dyn ProtectCallback>);
 
         let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(203, 0, 113, 7)), 443);
-        let err = connect_tcp(target, Duration::from_millis(200)).expect_err("a protect denial must fail the connect");
+        let probe = WsOverTlsTarget::new("example.test", "/apiws").with_resolved_addr(Some(target));
+        let control = WsOverTlsControl::new(&|| None);
+        let err = connect_tcp(&probe, Duration::from_millis(200), &control)
+            .expect_err("a protect denial must fail the connect");
 
         assert!(cb.called.load(Ordering::Acquire), "protect must be attempted before connect");
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
@@ -601,7 +572,9 @@ mod tests {
 
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind loopback listener");
         let addr = listener.local_addr().expect("listener addr");
-        let _stream = connect_tcp(addr, Duration::from_millis(500)).expect("loopback connect succeeds");
+        let target = WsOverTlsTarget::new("example.test", "/apiws").with_resolved_addr(Some(addr));
+        let control = WsOverTlsControl::new(&|| None);
+        let _stream = connect_tcp(&target, Duration::from_millis(500), &control).expect("loopback connect succeeds");
 
         assert_eq!(cb.last_fd.load(Ordering::Acquire), -1, "loopback target must not be protected");
         unregister_protect_callback();
@@ -611,7 +584,7 @@ mod tests {
     struct FakeWsSteps {
         calls: Vec<&'static str>,
         timeouts: Vec<Duration>,
-        resolve_delay: Duration,
+        tcp_delay: Duration,
     }
 
     impl WsHandshakeSteps for FakeWsSteps {
@@ -619,24 +592,17 @@ mod tests {
         type Tls = ();
         type Ws = ();
 
-        fn resolve(&mut self, _target: &WsOverTlsTarget, timeout: Duration) -> io::Result<SocketAddr> {
-            self.calls.push("resolve");
-            self.timeouts.push(timeout);
-            if !self.resolve_delay.is_zero() {
-                std::thread::sleep(self.resolve_delay);
-            }
-            Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443))
-        }
-
-        fn connect_tcp(&mut self, _addr: SocketAddr, timeout: Duration) -> io::Result<Self::Tcp> {
+        fn connect_tcp(
+            &mut self,
+            _target: &WsOverTlsTarget,
+            timeout: Duration,
+            _control: &WsOverTlsControl<'_>,
+        ) -> io::Result<Self::Tcp> {
             self.calls.push("tcp");
             self.timeouts.push(timeout);
-            Ok(())
-        }
-
-        fn connect_proxied(&mut self, _target: &WsOverTlsTarget, timeout: Duration) -> io::Result<Self::Tcp> {
-            self.calls.push("proxy");
-            self.timeouts.push(timeout);
+            if !self.tcp_delay.is_zero() {
+                std::thread::sleep(self.tcp_delay);
+            }
             Ok(())
         }
 
