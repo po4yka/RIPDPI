@@ -14,6 +14,7 @@ import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -85,7 +86,7 @@ data class AmneziaWgProfileUiState(
     val confImportFailure: AwgConfImport.Failed? = null,
     /** `[Peer]` sections the last imported `.conf` had beyond the first one, which the editor ignores. */
     val ignoredPeerCount: Int = 0,
-    val ignoredConfOptions: List<String> = emptyList(),
+    val ignoredConfOptions: ImmutableList<String> = persistentListOf(),
 )
 
 /**
@@ -207,7 +208,7 @@ class AmneziaWgProfileViewModel
                     is AwgConfImport.Imported -> {
                         state.withEditor(result.editor).copy(
                             ignoredPeerCount = result.ignoredPeerCount,
-                            ignoredConfOptions = result.ignoredOptions,
+                            ignoredConfOptions = result.ignoredOptions.toImmutableList(),
                             privateKeyRevealed = false,
                             presharedKeyRevealed = false,
                             headerProtectionKeyRevealed = false,
