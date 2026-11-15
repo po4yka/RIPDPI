@@ -3,19 +3,10 @@ use std::sync::atomic::Ordering;
 use std::time::Instant;
 
 use super::*;
-use crate::classification::interleave_candidate_families;
 use crate::types::QuicTarget;
-use crate::util::stable_probe_hash;
 
 fn blackhole_plan(port: u16, following_stage: bool) -> ExecutionPlan {
     let mut plan = bounded_plan("quick_v1", Some(1));
-    let strategy = plan.strategy.as_mut().unwrap();
-    let candidates = build_strategy_probe_suite(&strategy.suite_id, &ProxyUiConfig::default()).unwrap().quic_candidates;
-    strategy.probe_seed = (0..1000)
-        .find(|seed| {
-            interleave_candidate_families(candidates.clone(), stable_probe_hash(*seed, "quic"))[0].id == "quic_disabled"
-        })
-        .expect("the unmodified QUIC control must be selectable");
     plan.request.quic_targets = vec![
         QuicTarget {
             host: "127.0.0.1".to_string(),
@@ -52,7 +43,13 @@ fn quic_blackhole_stops_at_stage_or_global_deadline() {
         assert!(listener.recv(&mut initial).unwrap() >= 1200);
         let stages = runtime.stage_executions();
         let stage = &stages[0];
+        assert_eq!(stage.planned_steps, 1);
         assert_eq!(stage.executed_steps, 0);
+        let inventory = &plan.strategy.as_ref().unwrap().suite.quic_candidates;
+        assert_eq!(
+            stage.candidate_ids_omitted_by_cap.iter().map(String::as_str).collect::<std::collections::BTreeSet<_>>(),
+            inventory.iter().filter(|spec| spec.id != "quic_disabled").map(|spec| spec.id).collect()
+        );
         if following_stage {
             assert!(matches!(outcome, RunnerOutcome::Completed));
             assert_eq!(stage.skipped_by_stage_budget_steps, stage.planned_steps);

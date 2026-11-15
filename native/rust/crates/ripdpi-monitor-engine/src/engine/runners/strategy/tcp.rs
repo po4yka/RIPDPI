@@ -98,7 +98,7 @@ impl StrategyTcpRunner {
         }
 
         let capabilities = probe_tcp_capabilities(&baseline_results, runtime.strategy.baseline_failure.as_ref());
-        let mut pending_tcp_specs = ordered_pending_tcp_candidates(
+        let (mut pending_tcp_specs, omitted) = ordered_pending_tcp_candidates(
             tcp_specs,
             &baseline_results,
             runtime.strategy.baseline_failure.as_ref(),
@@ -106,6 +106,7 @@ impl StrategyTcpRunner {
             strategy_plan.max_candidates,
             capabilities,
         );
+        runtime.record_candidate_cap_omissions(omitted);
         pending_tcp_specs = qualify_pilot_candidates(
             self,
             plan,

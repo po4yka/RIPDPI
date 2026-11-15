@@ -34,6 +34,8 @@ pub struct ExecutionStageSnapshot {
     pub executed_steps: usize,
     pub skipped_by_stage_budget_steps: usize,
     pub skipped_by_global_deadline_steps: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub candidate_ids_omitted_by_cap: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]

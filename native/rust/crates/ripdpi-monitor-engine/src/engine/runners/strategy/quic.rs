@@ -65,8 +65,13 @@ impl ExecutionStageRunner for StrategyQuicRunner {
             else {
                 return RunnerOutcome::Completed;
             };
-            let selection::PreparedQuicCandidates { mut pending_quic_specs, quic_targets, quic_candidate_total } =
-                prepared;
+            let selection::PreparedQuicCandidates {
+                mut pending_quic_specs,
+                quic_targets,
+                quic_candidate_total,
+                candidate_ids_omitted_by_cap,
+            } = prepared;
+            runtime.record_candidate_cap_omissions(candidate_ids_omitted_by_cap);
             if quic_candidate_total == 0 {
                 return RunnerOutcome::Completed;
             }

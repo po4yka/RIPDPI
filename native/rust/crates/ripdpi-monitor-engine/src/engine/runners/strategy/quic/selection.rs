@@ -10,6 +10,7 @@ pub(super) struct PreparedQuicCandidates {
     pub(super) pending_quic_specs: Vec<StrategyCandidateSpec>,
     pub(super) quic_targets: Vec<QuicTarget>,
     pub(super) quic_candidate_total: usize,
+    pub(super) candidate_ids_omitted_by_cap: Vec<String>,
 }
 
 pub(super) fn prepare_quic_candidates(
@@ -38,6 +39,7 @@ pub(super) fn prepare_quic_candidates(
     );
     let mut pending_quic_specs =
         interleave_candidate_families(quic_specs, stable_probe_hash(strategy_plan.probe_seed, "quic"));
+    let mut candidate_ids_omitted_by_cap = Vec::new();
     if let Some(max) = strategy_plan.max_candidates {
         pending_quic_specs.sort_by_key(|spec| {
             let unavailable = spec
@@ -46,10 +48,16 @@ pub(super) fn prepare_quic_candidates(
                 .any(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps));
             (unavailable, spec.id != "quic_disabled")
         });
-        pending_quic_specs.truncate(max);
+        let cap = max.min(pending_quic_specs.len());
+        candidate_ids_omitted_by_cap.extend(pending_quic_specs.drain(cap..).map(|spec| spec.id.to_string()));
     }
     let quic_candidate_total = pending_quic_specs.len();
     let quic_targets =
         runtime.strategy.dns_override_quic_targets.clone().unwrap_or_else(|| plan.request.quic_targets.clone());
-    Some(PreparedQuicCandidates { pending_quic_specs, quic_targets, quic_candidate_total })
+    Some(PreparedQuicCandidates {
+        pending_quic_specs,
+        quic_targets,
+        quic_candidate_total,
+        candidate_ids_omitted_by_cap,
+    })
 }

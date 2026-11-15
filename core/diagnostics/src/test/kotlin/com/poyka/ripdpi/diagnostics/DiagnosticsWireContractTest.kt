@@ -31,6 +31,19 @@ class DiagnosticsWireContractTest {
         }
 
     @Test
+    fun `candidate cap omissions are optional and distinct from deadline skips`() {
+        val stage = ExecutionStageSnapshot("strategy_tcp_candidates", 1, 1, 0, 0)
+        val legacy = contractJson.encodeToJsonElement(stage).jsonObject
+        assertFalse(legacy.containsKey("candidateIdsOmittedByCap"))
+        assertEquals(stage, contractJson.decodeFromJsonElement<ExecutionStageSnapshot>(legacy))
+
+        val capped = stage.copy(candidateIdsOmittedByCap = listOf("other-candidate"))
+        val encoded = contractJson.encodeToJsonElement(capped).jsonObject
+        assertEquals(JsonArray(listOf(JsonPrimitive("other-candidate"))), encoded["candidateIdsOmittedByCap"])
+        assertEquals(capped, contractJson.decodeFromJsonElement<ExecutionStageSnapshot>(encoded))
+    }
+
+    @Test
     fun `http mutation receipt evidence keeps absence false and true distinct`() {
         val legacy =
             StrategyDesyncExecutionReceipt(

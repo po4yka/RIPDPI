@@ -2,6 +2,8 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -28,6 +30,9 @@ data class ExecutionStageSnapshot(
     val executedSteps: Int,
     val skippedByStageBudgetSteps: Int,
     val skippedByGlobalDeadlineSteps: Int,
+    @OptIn(ExperimentalSerializationApi::class)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val candidateIdsOmittedByCap: List<String> = emptyList(),
 )
 
 @Serializable

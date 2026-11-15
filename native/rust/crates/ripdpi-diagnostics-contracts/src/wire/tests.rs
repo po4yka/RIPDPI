@@ -462,6 +462,7 @@ fn execution_plan_fixture() -> ExecutionPlanSnapshot {
             executed_steps: 1,
             skipped_by_stage_budget_steps: 0,
             skipped_by_global_deadline_steps: 1,
+            candidate_ids_omitted_by_cap: Vec::new(),
         }],
     }
 }

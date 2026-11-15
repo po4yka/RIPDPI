@@ -10,6 +10,7 @@ impl ExecutionRuntime {
             executed_steps: 0,
             skipped_by_stage_budget_steps: 0,
             skipped_by_global_deadline_steps: 0,
+            candidate_ids_omitted_by_cap: Vec::new(),
         });
         self.active_stage = Some(self.stage_executions.len() - 1);
     }
@@ -25,6 +26,7 @@ impl ExecutionRuntime {
             executed_steps: 0,
             skipped_by_stage_budget_steps: 0,
             skipped_by_global_deadline_steps: planned_steps,
+            candidate_ids_omitted_by_cap: Vec::new(),
         });
     }
 
@@ -45,6 +47,14 @@ impl ExecutionRuntime {
             } else {
                 stage.executed_steps += 1;
             }
+        }
+    }
+
+    pub(in crate::engine) fn record_candidate_cap_omissions(&mut self, candidate_ids: Vec<String>) {
+        if let Some(index) = self.active_stage
+            && let Some(stage) = self.stage_executions.get_mut(index)
+        {
+            stage.candidate_ids_omitted_by_cap = candidate_ids;
         }
     }
 

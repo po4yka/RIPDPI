@@ -165,6 +165,15 @@ fn capped_quick_and_full_suites_keep_the_candidate_limit() {
         assert_eq!(runtime.completed_steps, 2);
         let stages = runtime.stage_executions();
         assert_eq!(stages.iter().map(|stage| stage.executed_steps).collect::<Vec<_>>(), [1, 1]);
+        let tcp = &stages[0];
+        let tcp_inventory = &plan.strategy.as_ref().unwrap().suite.tcp_candidates;
+        let omitted_ids = tcp_inventory.iter().filter(|candidate| candidate.id != "baseline_plain_direct");
+        assert_eq!(
+            tcp.candidate_ids_omitted_by_cap.iter().map(String::as_str).collect::<std::collections::BTreeSet<_>>(),
+            omitted_ids.map(|candidate| candidate.id).collect()
+        );
+        assert_eq!(tcp.skipped_by_stage_budget_steps, 0);
+        assert_eq!(tcp.skipped_by_global_deadline_steps, 0);
         let report = runtime.strategy.strategy_probe_report.as_ref().expect("strategy report");
         assert_eq!(report.completion_kind, StrategyProbeCompletionKind::Normal);
         assert_eq!(runtime.strategy.tcp_candidates.len(), 1);

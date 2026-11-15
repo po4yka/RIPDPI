@@ -13,24 +13,21 @@ pub(super) fn ordered_pending_tcp_candidates(
     probe_seed: u64,
     max_candidates: Option<usize>,
     capabilities: TcpCapabilities,
-) -> Vec<StrategyCandidateSpec> {
-    let mut pending_tcp_specs = ordered_follow_up_tcp_candidates(
+) -> (Vec<StrategyCandidateSpec>, Vec<String>) {
+    let mut pending = ordered_follow_up_tcp_candidates(
         tcp_specs,
         baseline_failure.map(|value| value.class),
         baseline_results,
         probe_seed,
         capabilities.fake_ttl_available,
     );
-    // Quick scan: truncate candidate list when max_candidates is set.
-    if let Some(max) = max_candidates {
-        // The batch gate skips these, so they must not take a slot from a runnable candidate.
-        // The current strategy keeps its place: the report needs its record.
-        pending_tcp_specs.sort_by_key(|spec| {
-            spec.id != "baseline_current" && candidate_not_applicable(spec, capabilities).is_some()
-        });
-        pending_tcp_specs.truncate(max.saturating_sub(1)); // baseline already counted
-    }
-    pending_tcp_specs
+    let Some(max) = max_candidates else {
+        return (pending, Vec::new());
+    };
+    // Keep the current strategy and give runnable candidates priority over capability skips.
+    pending.sort_by_key(|spec| spec.id != "baseline_current" && candidate_not_applicable(spec, capabilities).is_some());
+    let omitted = pending.drain(max.saturating_sub(1).min(pending.len())..).map(|spec| spec.id.to_string()).collect();
+    (pending, omitted)
 }
 
 #[cfg(test)]
@@ -57,7 +54,7 @@ mod tests {
         let hostfake = specs.iter().find(|spec| spec.id == "tlsrec_hostfake_split").expect("hostfake candidate");
         base.chains.tcp_steps = hostfake.config.chains.tcp_steps.clone();
         let specs = build_tcp_candidates(&base);
-        let pending = |budget| ordered_pending_tcp_candidates(&specs, &[], None, 1, budget, without_root());
+        let pending = |budget| ordered_pending_tcp_candidates(&specs, &[], None, 1, budget, without_root()).0;
         let position = pending(None).iter().position(|spec| spec.id == "baseline_current").expect("current strategy");
 
         assert!(pending(Some(position + 2)).iter().any(|spec| spec.id == "baseline_current"));
@@ -69,9 +66,12 @@ mod tests {
         let without_root = without_root();
 
         for probe_seed in 0..16 {
-            let pending = ordered_pending_tcp_candidates(&specs, &[], None, probe_seed, Some(5), without_root);
+            let (pending, omitted) =
+                ordered_pending_tcp_candidates(&specs, &[], None, probe_seed, Some(5), without_root);
 
             assert_eq!(pending.len(), 4);
+            assert_eq!(omitted.len(), specs.len() - 5);
+            assert!(pending.iter().all(|spec| !omitted.iter().any(|id| id == spec.id)));
             let skipped: Vec<_> = pending
                 .iter()
                 .filter(|spec| candidate_not_applicable(spec, without_root).is_some())

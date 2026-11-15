@@ -1,6 +1,7 @@
 mod checkpoint;
 mod connection_concurrency;
 mod dns_baseline;
+mod dns_baseline_status;
 mod quic;
 mod recommendation;
 mod support;

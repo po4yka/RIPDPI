@@ -1,8 +1,12 @@
 use crate::candidates::StrategyCandidateSpec;
 use crate::execution::not_applicable_candidate_execution;
-use crate::types::{StrategyProbeLiveProgress, StrategyProbeProgressLane};
+use crate::types::StrategyProbeProgressLane;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, RunnerArtifacts};
+
+mod live;
+
+pub(in crate::engine::runners::strategy) use self::live::strategy_probe_live_progress_with_targets;
 
 pub(in crate::engine::runners::strategy) fn record_not_applicable_tcp_candidate(
     runtime: &mut ExecutionRuntime,
@@ -39,24 +43,4 @@ pub(in crate::engine::runners::strategy) fn record_not_applicable_tcp_candidate(
             format!("Skipped execution for {}{}", spec.label, log_suffix),
         ),
     );
-}
-
-pub(in crate::engine::runners::strategy) fn strategy_probe_live_progress_with_targets(
-    lane: StrategyProbeProgressLane,
-    candidate_index: usize,
-    candidate_total: usize,
-    candidate_id: &str,
-    candidate_label: &str,
-    succeeded_targets: usize,
-    total_targets: usize,
-) -> StrategyProbeLiveProgress {
-    StrategyProbeLiveProgress {
-        lane,
-        candidate_index,
-        candidate_total,
-        candidate_id: candidate_id.to_string(),
-        candidate_label: candidate_label.to_string(),
-        succeeded_targets,
-        total_targets,
-    }
 }

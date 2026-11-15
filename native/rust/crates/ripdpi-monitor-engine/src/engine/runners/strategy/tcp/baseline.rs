@@ -1,11 +1,11 @@
+mod failure;
+
 use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::classification::{classified_failure_probe_result, classify_strategy_probe_baseline_observations};
 use crate::execution::StrategyLaneExecutor;
-use crate::observations::observations_for_results;
 use crate::types::{DomainTarget, ProbeResult, StrategyProbeProgressLane};
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime, ExecutionStageRunner, RunnerArtifacts};
@@ -51,22 +51,13 @@ pub(super) fn run_baseline_candidate<'a>(
         return None;
     }
 
-    let baseline_observations = observations_for_results(&baseline_execution.results);
-    runtime.strategy.baseline_failure = classify_strategy_probe_baseline_observations(&baseline_observations);
-    let mut baseline_results = baseline_execution.results.clone();
-    if let Some(failure) = &runtime.strategy.baseline_failure {
-        baseline_results.push(classified_failure_probe_result(baseline_spec.label, failure));
-        // Publish the DPI failure class so the UI can show it as a badge.
-        runtime.publish_progress(
-            plan,
-            runner.phase(),
-            runtime.completed_steps,
-            format!("DPI: {}", failure.class.as_str()),
-            Some("baseline_failure_class".to_string()),
-            Some(failure.class.as_str().to_string()),
-            None,
-        );
-    }
+    let baseline_results = failure::classify_baseline(
+        plan,
+        runtime,
+        runner.phase(),
+        baseline_spec.label,
+        baseline_execution.results.clone(),
+    );
     let summary = baseline_execution.summary;
     let hostfake_family_succeeded = summary.family == "hostfake" && summary.succeeded_targets == summary.total_targets;
     let outcome = summary.outcome.clone();

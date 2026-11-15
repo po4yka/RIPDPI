@@ -72,7 +72,7 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
                 details: Vec::new(),
             });
         }
-        let (outcome, message, level) = baseline_status(runtime, &results);
+        let (outcome, message, level) = super::dns_baseline_status::baseline_status(runtime, &results);
         runtime.record_step(
             plan,
             self.phase(),
@@ -83,22 +83,5 @@ impl ExecutionStageRunner for StrategyDnsBaselineRunner {
             RunnerArtifacts::from_results(results, "strategy_probe", level, message.to_string()),
         );
         RunnerOutcome::Completed
-    }
-}
-
-fn baseline_status(runtime: &ExecutionRuntime, results: &[ProbeResult]) -> (&'static str, &'static str, &'static str) {
-    if let Some(failure) = &runtime.strategy.baseline_failure {
-        return (failure.class.as_str(), "Strategy DNS baseline classified a resolver failure", "warn");
-    }
-
-    let mut outcomes = results.iter().map(|result| result.outcome.as_str());
-    if outcomes.clone().all(|outcome| outcome == "not_applicable") {
-        ("not_applicable", "Strategy DNS baseline has no applicable targets", "info")
-    } else if outcomes.clone().all(|outcome| outcome == "dns_match") {
-        ("dns_match", "Strategy DNS baseline answers matched", "info")
-    } else if outcomes.any(|outcome| matches!(outcome, "dns_match" | "dns_compatible_divergence")) {
-        ("partial", "Strategy DNS baseline has limited comparison evidence", "info")
-    } else {
-        ("dns_oracle_unavailable", "Strategy DNS baseline could not compare resolver answers", "info")
     }
 }
