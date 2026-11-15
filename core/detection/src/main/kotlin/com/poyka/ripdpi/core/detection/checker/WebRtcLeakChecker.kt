@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionScope
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
@@ -44,6 +45,7 @@ object WebRtcLeakChecker {
                     Finding(if (stunReachable) observation else "STUN server: no valid binding response"),
                 ),
             evidence = if (stunReachable) listOf(reachableStunEvidence(observation)) else emptyList(),
+            executionStatus = if (stunReachable) CheckExecutionStatus.COMPLETED else CheckExecutionStatus.INCONCLUSIVE,
         )
     }
 

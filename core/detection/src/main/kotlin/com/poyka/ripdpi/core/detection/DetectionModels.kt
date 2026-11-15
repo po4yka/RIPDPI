@@ -380,6 +380,14 @@ data class DetectionCheckResult(
 )
 
 fun DetectionCheckResult.hasIncompleteChecks(): Boolean =
-    listOfNotNull(directSigns, tlsFingerprint, timingAnalysis, icmpSpoofing?.category, rttTriangulation?.category).any {
+    listOfNotNull(
+        directSigns,
+        tlsFingerprint,
+        timingAnalysis,
+        icmpSpoofing?.category,
+        rttTriangulation?.category,
+        webRtcLeak,
+        callTransport?.category,
+    ).any {
         it.executionStatus == CheckExecutionStatus.INCONCLUSIVE || it.executionStatus == CheckExecutionStatus.ERROR
     }

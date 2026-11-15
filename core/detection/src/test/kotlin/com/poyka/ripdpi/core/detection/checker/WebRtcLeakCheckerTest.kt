@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -7,12 +8,22 @@ import org.junit.Test
 
 class WebRtcLeakCheckerTest {
     @Test
+    fun `a missing binding response is unavailable not a clean measurement`() {
+        val result = WebRtcLeakChecker.resultFrom(webRtcProtectionEnabled = true, stunReachable = false)
+
+        assertEquals(CheckExecutionStatus.INCONCLUSIVE, result.executionStatus)
+        assertFalse(result.detected)
+        assertTrue(result.evidence.isEmpty())
+    }
+
+    @Test
     fun `STUN reachability is an observation not a WebRTC leak`() {
         val result = WebRtcLeakChecker.resultFrom(webRtcProtectionEnabled = true, stunReachable = true)
 
         assertFalse(result.detected)
         assertFalse(result.needsReview)
         assertEquals(1, result.evidence.size)
+        assertEquals(CheckExecutionStatus.COMPLETED, result.executionStatus)
         assertFalse(result.evidence.single().detected)
     }
 

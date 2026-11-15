@@ -256,6 +256,8 @@ class StealthScoreTest {
                     cleanResult().copy(
                         rttTriangulation = RttTriangulationResult(RttTriangulationState.INCONCLUSIVE, unavailable),
                     ),
+                    cleanResult().copy(webRtcLeak = unavailable),
+                    cleanResult().copy(callTransport = CallTransportResult(unavailable)),
                 )
 
             for (result in results) {

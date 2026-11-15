@@ -264,7 +264,7 @@ private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
             add(indirectSigns.detected)
             add(locationSignals.detected)
             dnsLeak?.let { add(it.detected) }
-            webRtcLeak?.let { add(it.detected) }
+            webRtcLeak?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let { add(it.detected) }
             timingAnalysis?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let { add(it.detected) }
             icmpSpoofing?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
                 add(it.detected)
@@ -275,7 +275,9 @@ private fun DetectionCheckResult.probeSummary(): DetectionProbeSummary {
             }
             cdnPulling?.category?.let { add(it.detected) }
             nativeSigns?.category?.let { add(it.detected) }
-            callTransport?.category?.let { add(it.detected) }
+            callTransport?.category?.takeIf { it.executionStatus == CheckExecutionStatus.COMPLETED }?.let {
+                add(it.detected)
+            }
             ipConsensus?.toCategoryResult()?.let { add(it.detected) }
         }
     return DetectionProbeSummary(detected = probes.count { it }, total = probes.size)

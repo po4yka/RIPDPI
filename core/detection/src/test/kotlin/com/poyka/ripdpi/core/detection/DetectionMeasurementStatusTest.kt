@@ -11,6 +11,9 @@ import com.poyka.ripdpi.core.detection.export.DetectionJsonExportFormatter
 import com.poyka.ripdpi.core.detection.export.DetectionMarkdownExportFormatter
 import com.poyka.ripdpi.core.detection.export.detectionExportFixture
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -77,25 +80,45 @@ class DetectionMeasurementStatusTest {
                     timingAnalysis = category,
                     icmpSpoofing = IcmpSpoofingResult(IcmpSpoofingState.INCONCLUSIVE, category),
                     rttTriangulation = RttTriangulationResult(RttTriangulationState.INCONCLUSIVE, category),
+                    webRtcLeak = category,
+                    callTransport = CallTransportResult(category),
                 )
-            assertTrue(DetectionReportFormatter.format(result).contains("--- ICMP Spoofing ---\nStatus: $state"))
+            val report = DetectionReportFormatter.format(result)
+            for (section in listOf("ICMP Spoofing", "WebRTC Leak", "Call Transport")) {
+                assertTrue(report.contains("--- $section ---\nStatus: $state"))
+            }
             val json =
                 DetectionJsonExportFormatter.format(
                     result,
                     DetectionExportMetadata("2026-11-15T00:00:00Z", "test", "debug", false),
                 )
-            assertTrue(json.contains("\"executionStatus\": \"$state\""))
+            val categories =
+                Json
+                    .parseToJsonElement(json)
+                    .jsonObject
+                    .getValue("results")
+                    .jsonObject
+            for (name in listOf("timingAnalysis", "icmpSpoofing", "rttTriangulation", "webRtcLeak", "callTransport")) {
+                assertEquals(
+                    state.name,
+                    categories
+                        .getValue(name)
+                        .jsonObject
+                        .getValue("executionStatus")
+                        .jsonPrimitive.content,
+                )
+            }
             val markdown =
                 DetectionMarkdownExportFormatter.format(
                     result,
                     DetectionExportMetadata("2026-11-15T00:00:00Z", "test", "debug", false),
                 )
-            for (section in listOf("TimingAnalysis", "IcmpSpoofing", "RttTriangulation")) {
+            for (section in listOf("TimingAnalysis", "IcmpSpoofing", "RttTriangulation", "CallTransport")) {
                 assertTrue(markdown.contains("## $section"))
                 assertTrue(markdown.contains("| $section | [$state] |"))
             }
             val debug = DetectionDebugFormatter.format(result)
-            for (section in listOf("timingAnalysis", "icmpSpoofing", "rttTriangulation")) {
+            for (section in listOf("timingAnalysis", "icmpSpoofing", "rttTriangulation", "callTransport")) {
                 assertTrue(debug.contains("[$section]"))
             }
             assertTrue(debug.contains("executionStatus=$state"))
@@ -120,6 +143,8 @@ class DetectionMeasurementStatusTest {
             base.copy(timingAnalysis = missing),
             base.copy(icmpSpoofing = IcmpSpoofingResult(IcmpSpoofingState.INCONCLUSIVE, missing)),
             base.copy(rttTriangulation = RttTriangulationResult(RttTriangulationState.INCONCLUSIVE, missing)),
+            base.copy(webRtcLeak = missing),
+            base.copy(callTransport = CallTransportResult(missing)),
         )) {
             assertFalse(DetectionRecommendations.generate(result).any { it.title == "No issues detected" })
             assertFalse(DetectionReportFormatter.format(result).contains("No issues detected"))

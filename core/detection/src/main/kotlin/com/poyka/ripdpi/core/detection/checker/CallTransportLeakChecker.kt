@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.detection.CallTransportStunObservation
 import com.poyka.ripdpi.core.detection.CallTransportStunScope
 import com.poyka.ripdpi.core.detection.CallTransportStunServer
 import com.poyka.ripdpi.core.detection.CategoryResult
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
@@ -109,6 +110,9 @@ object CallTransportLeakChecker {
             resultFrom(
                 observations = stunObservations,
                 underlyingProbed = CallTransportPath.UNDERLYING in stunPaths,
+                stunSupported =
+                    stunPaths.isNotEmpty() ||
+                        (proxyEndpoint?.type == ProxyType.SOCKS5 && socks5StunClient != null),
                 mtProtoReachable = mtProtoReachable || proxyMtProtoReachable,
                 proxyEndpoint = proxyEndpoint,
                 proxyStunReflexiveAddresses = proxyStun,
@@ -146,12 +150,14 @@ object CallTransportLeakChecker {
                     name = "Call transport",
                     detected = false,
                     findings = listOf(Finding("Call transport leak check disabled")),
+                    executionStatus = CheckExecutionStatus.SKIPPED,
                 ),
         )
 
     private fun resultFrom(
         observations: List<CallTransportStunObservation>,
         underlyingProbed: Boolean,
+        stunSupported: Boolean,
         mtProtoReachable: Boolean,
         proxyEndpoint: ProxyEndpoint?,
         proxyStunReflexiveAddresses: List<String>,
@@ -171,9 +177,18 @@ object CallTransportLeakChecker {
             }
         }
 
-        if (!underlyingProbed) {
-            // Without an underlying-path probe the comparison cannot run; say so instead of reading as clean.
-            findings += Finding("Call STUN leak: not evaluated, the underlying network path is not probed")
+        when {
+            !stunSupported -> {
+                findings += Finding("Call STUN leak: not evaluated, no STUN path is supported")
+            }
+
+            !underlyingProbed -> {
+                findings += Finding("Call STUN leak: not evaluated, the underlying network path is not probed")
+            }
+
+            observations.isNotEmpty() -> {
+                findings += Finding("Call STUN leak: not evaluated, STUN addresses do not establish the call path")
+            }
         }
 
         if (mtProtoReachable) {
@@ -206,6 +221,8 @@ object CallTransportLeakChecker {
                     findings = findings,
                     needsReview = evidence.isNotEmpty(),
                     evidence = evidence,
+                    executionStatus =
+                        if (stunSupported) CheckExecutionStatus.INCONCLUSIVE else CheckExecutionStatus.SKIPPED,
                 ),
             stunObservations = observations,
             mtProtoReachable = mtProtoReachable,

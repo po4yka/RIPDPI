@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.detection
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.core.detection.CallTransportResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.Verdict
@@ -332,22 +333,25 @@ class DetectionAuxStateOwnerTest {
                     communityStatsRepository = FakeCommunityStatsRepository(),
                     detectionCheckPreferences = FakeDetectionCheckPreferenceStore(),
                 )
-            val result =
-                detectionResult(Verdict.DETECTED).copy(
-                    timingAnalysis =
-                        CategoryResult(
-                            name = "Timing",
-                            detected = false,
-                            findings = emptyList(),
-                            executionStatus = CheckExecutionStatus.INCONCLUSIVE,
-                        ),
+            val missing =
+                CategoryResult(
+                    name = "Network check",
+                    detected = false,
+                    findings = emptyList(),
+                    executionStatus = CheckExecutionStatus.INCONCLUSIVE,
                 )
+            val base = detectionResult(Verdict.DETECTED)
+            for (result in listOf(
+                base.copy(timingAnalysis = missing),
+                base.copy(webRtcLeak = missing),
+                base.copy(callTransport = CallTransportResult(missing)),
+            )) {
+                owner.saveToHistory(result, score = 100)
+                advanceUntilIdle()
+            }
 
-            owner.saveToHistory(result, score = 100)
-            advanceUntilIdle()
-
-            val entry = history.saved.single()
-            assertFalse(entry.measurementsComplete)
-            assertEquals(Verdict.DETECTED.name, entry.verdict)
+            assertEquals(3, history.saved.size)
+            assertTrue(history.saved.none { it.measurementsComplete })
+            assertTrue(history.saved.all { it.verdict == Verdict.DETECTED.name })
         }
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.core.detection.CallTransportResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
@@ -43,6 +44,51 @@ import java.io.File
 class DetectionScreenSemanticsTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    @Config(qualifiers = "w480dp-h1200dp")
+    fun incompleteStunChecksUseTheSharedExecutionStatus() {
+        val missing = emptyCategory("STUN").copy(executionStatus = CheckExecutionStatus.INCONCLUSIVE)
+        val result = cleanDetectionResult().copy(webRtcLeak = missing, callTransport = CallTransportResult(missing))
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    DetectionCategoryCards(
+                        result = result,
+                        privacyModeEnabled = false,
+                        colorVisionMode = DetectionColorVisionMode.OFF,
+                    )
+                }
+            }
+        }
+
+        composeRule.onAllNodesWithText("Insufficient evidence").assertCountEquals(2)
+        composeRule.onAllNodesWithText("OK").assertCountEquals(5)
+    }
+
+    @Test
+    fun incompleteStunChecksDoNotCountAsCompletedOrShowACleanHeadline() {
+        val missing = emptyCategory("STUN").copy(executionStatus = CheckExecutionStatus.INCONCLUSIVE)
+        val result = cleanDetectionResult().copy(webRtcLeak = missing, callTransport = CallTransportResult(missing))
+        composeRule.setContent {
+            RipDpiTheme {
+                DetectionCheckScreen(
+                    uiState = DetectionCheckUiState(result = result, stealthScore = 100, stealthLabel = "Excellent"),
+                    onStart = {},
+                    onStop = {},
+                    onBack = {},
+                    onDismissOnboarding = {},
+                    onReloadCommunityStats = {},
+                    onRequestPermissions = {},
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithText("You look like ordinary HTTPS traffic").assertCountEquals(0)
+        composeRule.onNodeWithText("Probe outcome: 0/5 signals exposed").fetchSemanticsNode()
+        composeRule.onAllNodesWithText("100/100").assertCountEquals(0)
+        composeRule.onAllNodesWithText("Excellent").assertCountEquals(0)
+    }
 
     @Test
     fun detectionCheckScreenExposesRouteTag() {

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core.detection.checker
 import com.poyka.ripdpi.core.detection.CallTransportPath
 import com.poyka.ripdpi.core.detection.CallTransportStunScope
 import com.poyka.ripdpi.core.detection.CallTransportStunServer
+import com.poyka.ripdpi.core.detection.CheckExecutionStatus
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusBuilder
@@ -36,6 +37,7 @@ class CallTransportLeakCheckerTest {
                 )
 
             assertFalse(result.category.detected)
+            assertEquals(CheckExecutionStatus.SKIPPED, result.category.executionStatus)
             assertEquals(emptyList<CallTransportStunRequest>(), stunClient.requests)
             assertEquals(emptyList<CallTransportPath>(), mtProtoProber.paths)
         }
@@ -58,6 +60,7 @@ class CallTransportLeakCheckerTest {
 
             assertFalse(result.category.detected)
             assertFalse(result.category.evidence.any { it.detected })
+            assertEquals(CheckExecutionStatus.INCONCLUSIVE, result.category.executionStatus)
             val consensus = IpConsensusBuilder.build(IpConsensusBuilder.observationsFrom(result))
             assertTrue(consensus.channelConflicts.isEmpty())
             assertEquals(listOf("1.2.3.4"), consensus.observedIps[IpConsensusChannel.CALL_TRANSPORT_VPN])
@@ -164,7 +167,8 @@ class CallTransportLeakCheckerTest {
                 )
 
             assertFalse(result.category.detected)
-            assertFalse(result.category.findings.any { it.description.contains("not evaluated") })
+            assertTrue(result.category.findings.any { it.description.contains("not evaluated") })
+            assertEquals(CheckExecutionStatus.INCONCLUSIVE, result.category.executionStatus)
         }
 
     @Test
@@ -277,6 +281,7 @@ class CallTransportLeakCheckerTest {
                 )
 
             assertTrue(result.stunObservations.isEmpty())
+            assertEquals(CheckExecutionStatus.SKIPPED, result.category.executionStatus)
             assertFalse(result.mtProtoReachable)
             assertTrue(result.category.findings.any { it.description.contains("not evaluated") })
         }
@@ -300,6 +305,21 @@ class CallTransportLeakCheckerTest {
 
             assertFalse(result.category.detected)
             assertEquals(setOf("2001:db8:0:0:0:0:0:1"), result.stunObservations.map { it.reflexiveAddress }.toSet())
+        }
+
+    @Test
+    fun missingBindingResponsesRemainUnavailable() =
+        runTest {
+            val result =
+                CallTransportLeakChecker.check(
+                    enabled = true,
+                    stunClient = RecordingCallTransportStunClient(),
+                    mtProtoProber = RecordingCallTransportMtProtoProber(),
+                    servers = listOf(testStunServer),
+                )
+
+            assertFalse(result.category.detected)
+            assertEquals(CheckExecutionStatus.INCONCLUSIVE, result.category.executionStatus)
         }
 
     private open class RecordingCallTransportStunClient(
