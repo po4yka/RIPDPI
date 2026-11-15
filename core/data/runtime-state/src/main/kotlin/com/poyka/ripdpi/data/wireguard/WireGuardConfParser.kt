@@ -59,8 +59,7 @@ object WireGuardConfParser {
     private enum class Section { NONE, INTERFACE, PEER }
 
     /** Recognizes the interface header so incomplete configurations reach the editor. */
-    fun looksLikeConf(conf: String): Boolean =
-        configLines(conf).any { sectionName(it) == "interface" }
+    fun looksLikeConf(conf: String): Boolean = configLines(conf).any { sectionName(it) == "interface" }
 
     /** Mutable accumulator for the `[Interface]` block while scanning lines. */
     private class InterfaceBuilder {
@@ -352,19 +351,6 @@ object WireGuardConfParser {
         }
     }
 
-    private fun sectionName(line: String): String? =
-        line
-            .takeIf { it.startsWith('[') && it.endsWith(']') }
-            ?.substring(1, line.lastIndex)
-            ?.trim()
-            ?.lowercase()
-
-    private fun configLines(conf: String): Sequence<String> =
-        conf.trimStart().removePrefix("\uFEFF").lineSequence().map { line ->
-            val comment = line.indexOfFirst { it == '#' || it == ';' }
-            (if (comment >= 0) line.substring(0, comment) else line).trim()
-        }
-
     private fun splitList(value: String): List<String> = value.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
     private fun parseNonNegativeInt(
@@ -394,3 +380,16 @@ object WireGuardConfParser {
         return value
     }
 }
+
+private fun sectionName(line: String): String? =
+    line
+        .takeIf { it.startsWith('[') && it.endsWith(']') }
+        ?.substring(1, line.lastIndex)
+        ?.trim()
+        ?.lowercase()
+
+private fun configLines(conf: String): Sequence<String> =
+    conf.trimStart().removePrefix("\uFEFF").lineSequence().map { line ->
+        val comment = line.indexOfFirst { it == '#' || it == ';' }
+        (if (comment >= 0) line.substring(0, comment) else line).trim()
+    }
