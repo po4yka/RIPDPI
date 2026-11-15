@@ -286,23 +286,7 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
     val resource =
         when (this) {
             is DpiSuiteProbeResult.DnsIntegrity -> {
-                when {
-                    result.domains.isNotEmpty() && result.domains.all { it.verdict == DnsIntegrityVerdict.DNS_OK } -> {
-                        R.string.diagnostics_cidr_whitelist_status_ok
-                    }
-
-                    result.domains.any {
-                        it.verdict == DnsIntegrityVerdict.DNS_DISAGREEMENT ||
-                            it.verdict == DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT ||
-                            it.verdict == DnsIntegrityVerdict.FAKE_IP
-                    } -> {
-                        R.string.diagnostics_dns_integrity_metric_flagged
-                    }
-
-                    else -> {
-                        R.string.diagnostics_dpi_suite_partial
-                    }
-                }
+                statusResource()
             }
 
             is DpiSuiteProbeResult.DnsAvailability -> {
@@ -346,23 +330,7 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
             }
 
             is DpiSuiteProbeResult.EchReadiness -> {
-                when {
-                    results.none { it.hasMeasurement } -> {
-                        R.string.diagnostics_pmtu_inconclusive
-                    }
-
-                    results.any { it.hasMeasurement && it.verdict != EchProbeVerdict.ECH_OK } -> {
-                        R.string.diagnostics_dns_integrity_metric_flagged
-                    }
-
-                    results.any { !it.hasMeasurement } -> {
-                        R.string.diagnostics_dpi_suite_partial
-                    }
-
-                    else -> {
-                        R.string.diagnostics_cidr_whitelist_status_ok
-                    }
-                }
+                statusResource()
             }
 
             is DpiSuiteProbeResult.Skipped -> {
@@ -375,6 +343,44 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
         }
     return stringResolver.getString(resource)
 }
+
+private fun DpiSuiteProbeResult.DnsIntegrity.statusResource(): Int =
+    when {
+        result.domains.isNotEmpty() && result.domains.all { it.verdict == DnsIntegrityVerdict.DNS_OK } -> {
+            R.string.diagnostics_cidr_whitelist_status_ok
+        }
+
+        result.domains.any {
+            it.verdict == DnsIntegrityVerdict.DNS_DISAGREEMENT ||
+                it.verdict == DnsIntegrityVerdict.DNS_FAILURE_AGREEMENT ||
+                it.verdict == DnsIntegrityVerdict.FAKE_IP
+        } -> {
+            R.string.diagnostics_dns_integrity_metric_flagged
+        }
+
+        else -> {
+            R.string.diagnostics_dpi_suite_partial
+        }
+    }
+
+private fun DpiSuiteProbeResult.EchReadiness.statusResource(): Int =
+    when {
+        results.none { it.hasMeasurement } -> {
+            R.string.diagnostics_pmtu_inconclusive
+        }
+
+        results.any { it.hasMeasurement && it.verdict != EchProbeVerdict.ECH_OK } -> {
+            R.string.diagnostics_dns_integrity_metric_flagged
+        }
+
+        results.any { !it.hasMeasurement } -> {
+            R.string.diagnostics_dpi_suite_partial
+        }
+
+        else -> {
+            R.string.diagnostics_cidr_whitelist_status_ok
+        }
+    }
 
 private fun flaggedStatusResource(flagged: Boolean): Int =
     if (flagged) R.string.diagnostics_dns_integrity_metric_flagged else R.string.diagnostics_cidr_whitelist_status_ok
