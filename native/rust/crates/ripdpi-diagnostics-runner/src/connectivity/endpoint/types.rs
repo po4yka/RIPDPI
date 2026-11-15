@@ -38,6 +38,12 @@ pub(crate) struct EndpointProbeObservation {
     pub(crate) route_report: Option<RouteExperimentReport>,
 }
 
+impl EndpointProbeObservation {
+    pub(super) fn without_connection(status: &str, error: &str) -> Self {
+        Self { status: status.into(), error: error.into(), local_addr: None, route_report: None }
+    }
+}
+
 pub(super) struct ParsedHttpTarget {
     pub(super) host: String,
     pub(super) path: String,

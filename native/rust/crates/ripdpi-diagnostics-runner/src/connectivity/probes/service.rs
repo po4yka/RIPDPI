@@ -1,15 +1,14 @@
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::adapters::http::describe_http_observation;
+use crate::connectivity::adapters::http::{HttpObservation, describe_http_observation, is_blockpage};
 use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{CircumventionTarget, ProbeDetail, ProbeResult, ServiceTarget};
 
-use super::super::endpoint::{
-    is_probe_failure, is_server_error, probe_http_url, run_endpoint_probe, run_quic_endpoint_probe,
-};
+use super::super::endpoint::{endpoint_stop_reason, probe_http_url, run_endpoint_probe, run_quic_endpoint_probe};
 use super::support::append_route_details;
 
 pub fn run_service_probe(
@@ -17,9 +16,10 @@ pub fn run_service_probe(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
+    cancel: &AtomicBool,
 ) -> ProbeResult {
-    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
-    let media = target.media_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, transport, key_log, cancel));
+    let media = target.media_url.as_ref().map(|url| probe_http_url(url, transport, key_log, cancel));
     let gateway = run_endpoint_probe(
         target.tcp_endpoint_host.as_deref(),
         target.tcp_endpoint_ip.as_deref(),
@@ -28,12 +28,14 @@ pub fn run_service_probe(
         transport,
         tls_verifier,
         key_log,
+        cancel,
     );
     let quic = run_quic_endpoint_probe(
         target.quic_host.as_deref(),
         target.quic_connect_ip.as_deref(),
         target.quic_port,
         transport,
+        cancel,
     );
 
     let bootstrap_status =
@@ -41,18 +43,13 @@ pub fn run_service_probe(
     let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
     let media_status = media.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
     let media_detail = media.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
-    // A failed leg makes the service partial; it is blocked only when the
-    // bootstrap itself failed without a server answer. A 3xx or a 4xx/5xx
-    // bootstrap means the server responded, which is not censorship, but it
-    // is not a healthy bootstrap either, so it is partial.
-    let outcome = if is_probe_failure(&bootstrap_status) && !is_server_error(&bootstrap_status) {
-        "service_blocked"
-    } else if !matches!(bootstrap_status.as_str(), "http_ok" | "not_run")
-        || [&media_status, &gateway.status, &quic.status].into_iter().any(|status| is_probe_failure(status))
-    {
-        "service_partial"
-    } else {
-        "service_ok"
+    let legs =
+        [http_leg(bootstrap.as_ref()), http_leg(media.as_ref()), socket_leg(&gateway.status), socket_leg(&quic.status)];
+    let outcome = match endpoint_evidence(&legs) {
+        EndpointEvidence::Reached => "service_ok",
+        EndpointEvidence::Partial => "service_partial",
+        EndpointEvidence::Blockpage => "service_blocked",
+        EndpointEvidence::Inconclusive => "inconclusive",
     };
 
     let mut result = ProbeResult {
@@ -82,8 +79,9 @@ pub fn run_circumvention_probe(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     key_log: Option<&TlsKeyLogCallback>,
+    cancel: &AtomicBool,
 ) -> ProbeResult {
-    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
+    let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, transport, key_log, cancel));
     let handshake = run_endpoint_probe(
         target.handshake_host.as_deref(),
         target.handshake_ip.as_deref(),
@@ -92,28 +90,29 @@ pub fn run_circumvention_probe(
         transport,
         tls_verifier,
         key_log,
+        cancel,
     );
-    let initial_bootstrap_status =
-        bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
     let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
 
-    // Retry bootstrap once if it failed, to distinguish transient from consistent
-    let (bootstrap_status, circumvention_retry_count) = if is_probe_failure(&initial_bootstrap_status)
-        && initial_bootstrap_status != "not_run"
-    {
-        let retry = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport, key_log));
-        let retry_status = retry.as_ref().map_or_else(|| initial_bootstrap_status.clone(), |obs| obs.status.clone());
-        (retry_status, 1usize)
-    } else {
-        (initial_bootstrap_status, 0usize)
-    };
-
-    let outcome = if is_probe_failure(&handshake.status) {
-        "circumvention_blocked"
-    } else if is_probe_failure(&bootstrap_status) {
-        if is_server_error(&bootstrap_status) { "circumvention_degraded" } else { "circumvention_blocked" }
-    } else {
-        "circumvention_ok"
+    // Retry an observed failure once while the scan still allows network work.
+    let retry = bootstrap
+        .as_ref()
+        .filter(|first| {
+            matches!(http_leg(Some(first)), EndpointLeg::Failed | EndpointLeg::Blockpage)
+                || first.response.as_ref().is_some_and(|response| response.status_code >= 400)
+        })
+        .filter(|_| endpoint_stop_reason(cancel).is_none())
+        .and(target.bootstrap_url.as_deref())
+        .map(|url| probe_http_url(url, transport, key_log, cancel));
+    let circumvention_retry_count = usize::from(retry.is_some());
+    let bootstrap = retry.or(bootstrap);
+    let bootstrap_status =
+        bootstrap.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
+    let outcome = match endpoint_evidence(&[http_leg(bootstrap.as_ref()), socket_leg(&handshake.status)]) {
+        EndpointEvidence::Reached => "circumvention_ok",
+        EndpointEvidence::Partial => "circumvention_degraded",
+        EndpointEvidence::Blockpage => "circumvention_blocked",
+        EndpointEvidence::Inconclusive => "inconclusive",
     };
     let mut result = ProbeResult {
         probe_type: "circumvention_reachability".to_string(),
@@ -133,66 +132,63 @@ pub fn run_circumvention_probe(
     result
 }
 
-#[cfg(test)]
-mod tests {
-    use std::net::UdpSocket;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EndpointLeg {
+    Skipped,
+    Incomplete,
+    Failed,
+    Responded,
+    Reached,
+    Blockpage,
+}
 
-    use super::*;
-    use crate::test_fixtures::HttpTextServer;
+enum EndpointEvidence {
+    Inconclusive,
+    Partial,
+    Reached,
+    Blockpage,
+}
 
-    fn detail<'a>(result: &'a ProbeResult, key: &str) -> &'a str {
-        result.details.iter().find(|detail| detail.key == key).map_or("", |detail| detail.value.as_str())
-    }
-
-    // The bootstrap server answered 503 while the QUIC leg failed: the server
-    // responded, so the service is partial, not blocked.
-    #[test]
-    fn server_error_bootstrap_with_a_failed_leg_is_partial() {
-        let bootstrap = HttpTextServer::start_text("HTTP/1.1 503 Service Unavailable", "busy");
-        let closed_udp_port = UdpSocket::bind("127.0.0.1:0").expect("bind").local_addr().expect("addr").port();
-        let target = ServiceTarget {
-            id: "svc".to_string(),
-            service: "svc".to_string(),
-            bootstrap_url: Some(format!("http://127.0.0.1:{}/", bootstrap.port())),
-            media_url: None,
-            tcp_endpoint_host: None,
-            tcp_endpoint_ip: None,
-            tcp_endpoint_port: 443,
-            tls_server_name: None,
-            quic_host: Some("localhost".to_string()),
-            quic_connect_ip: Some("127.0.0.1".to_string()),
-            quic_port: closed_udp_port,
-        };
-
-        let result = run_service_probe(&target, &TransportConfig::Direct { route_experiment: None }, None, None);
-
-        assert_eq!(detail(&result, "bootstrapStatus"), "http_status_503");
-        assert_ne!(detail(&result, "quicStatus"), "quic_response");
-        assert_eq!(result.outcome, "service_partial");
-    }
-
-    // A redirect answer (for example a 302 to an ISP stub page) is not a
-    // healthy bootstrap: the service is partial, not ok.
-    #[test]
-    fn redirect_bootstrap_is_partial() {
-        let bootstrap = HttpTextServer::start_text("HTTP/1.1 302 Found", "moved");
-        let target = ServiceTarget {
-            id: "svc".to_string(),
-            service: "svc".to_string(),
-            bootstrap_url: Some(format!("http://127.0.0.1:{}/", bootstrap.port())),
-            media_url: None,
-            tcp_endpoint_host: None,
-            tcp_endpoint_ip: None,
-            tcp_endpoint_port: 443,
-            tls_server_name: None,
-            quic_host: None,
-            quic_connect_ip: None,
-            quic_port: 443,
-        };
-
-        let result = run_service_probe(&target, &TransportConfig::Direct { route_experiment: None }, None, None);
-
-        assert_eq!(detail(&result, "bootstrapStatus"), "http_status_302");
-        assert_eq!(result.outcome, "service_partial");
+fn http_leg(observation: Option<&HttpObservation>) -> EndpointLeg {
+    match observation {
+        None => EndpointLeg::Skipped,
+        Some(observation) if is_blockpage(observation) => EndpointLeg::Blockpage,
+        Some(observation) => match &observation.response {
+            Some(response) if (200..300).contains(&response.status_code) => EndpointLeg::Reached,
+            Some(_) => EndpointLeg::Responded,
+            None if matches!(observation.status.as_str(), "interrupted" | "invalid_target") => EndpointLeg::Incomplete,
+            None => EndpointLeg::Failed,
+        },
     }
 }
+
+fn socket_leg(status: &str) -> EndpointLeg {
+    match status {
+        "not_run" => EndpointLeg::Skipped,
+        "interrupted" | "invalid_target" => EndpointLeg::Incomplete,
+        "tls_ok" | "tcp_connect_ok" | "quic_initial_response" => EndpointLeg::Reached,
+        "quic_initial_ack"
+        | "quic_initial_other"
+        | "quic_initial_close"
+        | "quic_retry"
+        | "quic_version_negotiation" => EndpointLeg::Responded,
+        _ => EndpointLeg::Failed,
+    }
+}
+
+fn endpoint_evidence(legs: &[EndpointLeg]) -> EndpointEvidence {
+    if legs.contains(&EndpointLeg::Blockpage) {
+        EndpointEvidence::Blockpage
+    } else if legs.contains(&EndpointLeg::Reached)
+        && legs.iter().all(|leg| matches!(leg, EndpointLeg::Reached | EndpointLeg::Skipped))
+    {
+        EndpointEvidence::Reached
+    } else if legs.iter().any(|leg| matches!(leg, EndpointLeg::Reached | EndpointLeg::Responded)) {
+        EndpointEvidence::Partial
+    } else {
+        EndpointEvidence::Inconclusive
+    }
+}
+
+#[cfg(test)]
+mod tests;

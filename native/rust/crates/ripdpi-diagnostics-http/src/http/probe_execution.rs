@@ -83,6 +83,8 @@ pub fn try_http_request_targets_with_cancel(
     transport: &TransportConfig,
     host_header: &str,
     path: &str,
+    secure: bool,
+    key_log: Option<&TlsKeyLogCallback>,
     cancel: Option<&AtomicBool>,
 ) -> HttpObservation {
     observe_http_result(execute_http_request_targets_with_accept(
@@ -91,8 +93,8 @@ pub fn try_http_request_targets_with_cancel(
         transport,
         host_header,
         path,
-        false,
-        None,
+        secure,
+        key_log,
         HttpRequestOptions { accept: "*/*", cancel },
     ))
 }

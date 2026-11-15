@@ -1,6 +1,6 @@
 use crate::types::{Diagnosis, ProbeResult};
 
-use super::common::{DiagnosisSink, diagnosis_evidence, is_http_failure, is_quic_failure};
+use super::common::{DiagnosisSink, diagnosis_evidence};
 use super::failure_detail_value;
 
 pub(crate) fn classify_service_diagnoses(results: &[ProbeResult], sink: &mut DiagnosisSink) {
@@ -15,7 +15,7 @@ fn classify_service_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
     let media_status = failure_detail_value(result, "mediaStatus").unwrap_or("not_run");
     let quic_status = failure_detail_value(result, "quicStatus").unwrap_or("not_run");
 
-    if is_http_failure(bootstrap_status) {
+    if bootstrap_status == "http_blockpage" {
         sink.push(Diagnosis {
             code: "service_bootstrap_blocked".to_string(),
             summary: format!("{service_name} bootstrap request failed"),
@@ -26,7 +26,7 @@ fn classify_service_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
             control_validated: None,
         });
     }
-    if is_http_failure(media_status) {
+    if media_status == "http_blockpage" {
         sink.push(Diagnosis {
             code: "service_media_blocked".to_string(),
             summary: format!("{service_name} media request failed"),
@@ -37,9 +37,9 @@ fn classify_service_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
             control_validated: None,
         });
     }
-    if is_quic_failure(quic_status) {
+    if quic_status == "quic_error" {
         sink.push(Diagnosis {
-            code: "quic_blocked".to_string(),
+            code: "service_quic_probe_failed".to_string(),
             summary: format!("QUIC Initial probe did not receive a valid response from {service_name}"),
             severity: "warning".to_string(),
             target: Some(service_name),

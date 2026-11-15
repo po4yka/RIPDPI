@@ -51,7 +51,7 @@ pub fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig, cancel: 
     }
 }
 
-fn build_probe_flight(host: &str) -> Option<(Vec<u8>, Vec<u8>)> {
+pub(in crate::connectivity) fn build_probe_flight(host: &str) -> Option<(Vec<u8>, Vec<u8>)> {
     let initial = build_probe_quic_initial(QUIC_V1_VERSION, Some(host))?;
     let seed = parse_quic_initial_seed(&initial)?;
     let mut layout = QuicInitialPacketLayout::contiguous(initial.len());
@@ -60,21 +60,26 @@ fn build_probe_flight(host: &str) -> Option<(Vec<u8>, Vec<u8>)> {
     Some((initial, repeat))
 }
 
+pub(in crate::connectivity) fn quic_reply_status(kind: QuicProbeResponseKind) -> &'static str {
+    match kind {
+        QuicProbeResponseKind::InitialCrypto => "quic_initial_response",
+        QuicProbeResponseKind::InitialAck => "quic_initial_ack",
+        QuicProbeResponseKind::InitialOther => "quic_initial_other",
+        QuicProbeResponseKind::InitialClose => "quic_initial_close",
+        QuicProbeResponseKind::Retry => "quic_retry",
+        QuicProbeResponseKind::VersionNegotiation => "quic_version_negotiation",
+    }
+}
+
 fn record_reply(details: &mut Vec<ProbeDetail>, request: &[u8], observation: UdpRelayResult) -> (&'static str, String) {
-    let outcome = match validate_quic_probe_response(request, &observation.payload) {
-        Some(QuicProbeResponseKind::InitialCrypto) => "quic_initial_response",
-        Some(QuicProbeResponseKind::InitialAck) => "quic_initial_ack",
-        Some(QuicProbeResponseKind::InitialOther) => "quic_initial_other",
-        Some(QuicProbeResponseKind::InitialClose) => "quic_initial_close",
-        Some(QuicProbeResponseKind::Retry) => "quic_retry",
-        Some(QuicProbeResponseKind::VersionNegotiation) => "quic_version_negotiation",
-        None => return ("quic_invalid_response", "invalid QUIC response".to_string()),
+    let Some(kind) = validate_quic_probe_response(request, &observation.payload) else {
+        return ("quic_invalid_response", "invalid QUIC response".to_string());
     };
     if let Some(addr) = observation.connected_addr {
         details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
     }
     append_route_details(details, "", observation.local_addr, observation.route_report.as_ref());
-    (outcome, "none".to_string())
+    (quic_reply_status(kind), "none".to_string())
 }
 
 fn transport_outcome(error: &TransportError) -> &'static str {

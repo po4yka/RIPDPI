@@ -95,6 +95,8 @@ fn run_domain_probe_with_tls_probe(
         transport,
         &target.host,
         &target.http_path,
+        false,
+        None,
         cancel,
     );
     if http.error.as_deref().is_some_and(is_administrative_stop) {

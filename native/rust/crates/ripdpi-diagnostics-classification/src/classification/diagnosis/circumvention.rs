@@ -1,6 +1,6 @@
 use crate::types::{Diagnosis, ProbeResult};
 
-use super::common::{DiagnosisSink, diagnosis_evidence, is_http_failure, is_tls_failure};
+use super::common::{DiagnosisSink, diagnosis_evidence};
 use super::failure_detail_value;
 
 pub(crate) fn classify_circumvention_diagnoses(results: &[ProbeResult], sink: &mut DiagnosisSink) {
@@ -14,7 +14,7 @@ fn classify_circumvention_result(result: &ProbeResult, sink: &mut DiagnosisSink)
     let bootstrap_status = failure_detail_value(result, "bootstrapStatus").unwrap_or("not_run");
     let handshake_status = failure_detail_value(result, "handshakeStatus").unwrap_or("not_run");
 
-    if is_http_failure(bootstrap_status) {
+    if bootstrap_status == "http_blockpage" {
         sink.push(Diagnosis {
             code: "circumvention_bootstrap_blocked".to_string(),
             summary: format!("{tool_name} bootstrap request failed"),
@@ -25,9 +25,9 @@ fn classify_circumvention_result(result: &ProbeResult, sink: &mut DiagnosisSink)
             control_validated: None,
         });
     }
-    if is_tls_failure(handshake_status) {
+    if matches!(handshake_status, "tls_handshake_failed" | "tls_cert_invalid" | "tcp_connect_failed") {
         sink.push(Diagnosis {
-            code: "circumvention_handshake_blocked".to_string(),
+            code: "circumvention_handshake_failed".to_string(),
             summary: format!("{tool_name} handshake failed"),
             severity: "negative".to_string(),
             target: Some(tool_name),

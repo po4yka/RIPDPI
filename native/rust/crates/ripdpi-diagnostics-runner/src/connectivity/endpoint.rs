@@ -8,72 +8,62 @@ mod throughput;
 mod transfer;
 mod types;
 
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Instant;
 
-use rustls::client::danger::ServerCertVerifier;
+use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
 
-use crate::connectivity::adapters::http::HttpObservation;
+use crate::connectivity::adapters::http::{HttpObservation, try_http_request_targets_with_cancel};
 use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
 
-pub(super) use types::EndpointProbeObservation;
-
+pub(super) use quic_endpoint::run_quic_endpoint_probe;
+pub(super) use tcp_tls_endpoint::run_endpoint_probe;
 pub(super) use throughput::measure_throughput_run;
 
 pub(super) fn probe_http_url(
     url: &str,
-    connect_ip: Option<&str>,
-    connect_ips: &[String],
-    port_override: Option<u16>,
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
+    cancel: &AtomicBool,
 ) -> HttpObservation {
-    throughput::probe_http_url(url, connect_ip, connect_ips, port_override, transport, key_log)
-}
-
-pub(super) fn run_endpoint_probe(
-    host: Option<&str>,
-    connect_ip: Option<&str>,
-    port: u16,
-    tls_name: Option<&str>,
-    transport: &TransportConfig,
-    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> EndpointProbeObservation {
-    tcp_tls_endpoint::run_endpoint_probe(host, connect_ip, port, tls_name, transport, tls_verifier, key_log)
-}
-
-pub(super) fn run_quic_endpoint_probe(
-    host: Option<&str>,
-    connect_ip: Option<&str>,
-    port: u16,
-    transport: &TransportConfig,
-) -> EndpointProbeObservation {
-    quic_endpoint::run_quic_endpoint_probe(host, connect_ip, port, transport)
-}
-
-pub(super) fn is_probe_failure(status: &str) -> bool {
-    if status.starts_with("http_status_3") {
-        return false; // 3xx redirects are not probe failures
+    if let Some(reason) = endpoint_stop_reason(cancel) {
+        return HttpObservation { status: "interrupted".into(), response: None, error: Some(reason.into()) };
     }
-    !matches!(
-        status,
-        "not_run"
-            | "http_ok"
-            | "http_redirect"
-            | "tls_ok"
-            | "tcp_connect_ok"
-            | "quic_initial_response"
-            | "quic_response"
-    )
+    let parsed = match target_parse::parse_http_target(url, None, &[], None) {
+        Ok(parsed) => parsed,
+        Err(error) => return HttpObservation { status: "invalid_target".into(), response: None, error: Some(error) },
+    };
+    let mut observation = try_http_request_targets_with_cancel(
+        &parsed.connect_targets,
+        parsed.port,
+        transport,
+        &parsed.host,
+        &parsed.path,
+        parsed.secure,
+        key_log,
+        Some(cancel),
+    );
+    if observation.response.is_none()
+        && let Some(reason) = endpoint_stop_reason(cancel)
+    {
+        observation.status = "interrupted".into();
+        observation.error = Some(reason.into());
+    }
+    // A legal refusal still came from an HTTP peer. It says nothing about where the restriction originated.
+    if observation.response.as_ref().is_some_and(|response| response.status_code == 451) {
+        observation.status = "http_status_451".into();
+    }
+    observation
 }
 
-/// Returns true for HTTP status codes that indicate the server is reachable
-/// but returned a non-success response (rate limits, server errors, etc.).
-/// These should NOT be classified as censorship blocking since the server responded.
-pub(super) fn is_server_error(status: &str) -> bool {
-    status.starts_with("http_status_4") || status.starts_with("http_status_5")
+pub(super) fn endpoint_stop_reason(cancel: &AtomicBool) -> Option<&'static str> {
+    // Acquire observes the cancellation flag from the scan owner.
+    if cancel.load(Ordering::Acquire) {
+        Some("scan_cancelled")
+    } else if active_scan_io_deadline().is_some_and(|deadline| Instant::now() >= deadline) {
+        Some("scan_deadline_exceeded")
+    } else {
+        None
+    }
 }
-
-#[cfg(test)]
-mod tests;

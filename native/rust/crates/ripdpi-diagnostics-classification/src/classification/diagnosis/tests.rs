@@ -354,14 +354,24 @@ fn classify_connectivity_diagnoses_detects_service_and_circumvention_blocking() 
         ],
     );
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "service_bootstrap_blocked"));
-    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "quic_blocked"));
+    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "service_quic_probe_failed"));
     assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "circumvention_bootstrap_blocked"));
-    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "circumvention_handshake_blocked"));
+    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "circumvention_handshake_failed"));
 }
 
 #[test]
-fn responses_that_prove_the_server_was_reached_are_not_blocked_diagnoses() {
-    for status in ["http_redirect", "http_status_302", "http_status_404", "http_status_429", "http_status_503"] {
+fn no_blockpage_signal_does_not_yield_a_blocked_diagnosis() {
+    for status in [
+        "http_redirect",
+        "http_status_204",
+        "http_status_302",
+        "http_status_404",
+        "http_status_429",
+        "http_status_503",
+        "http_unreachable",
+        "invalid_target",
+        "interrupted",
+    ] {
         let diagnoses = classify_connectivity_diagnoses(
             &connectivity_request(),
             &[
@@ -380,7 +390,7 @@ fn responses_that_prove_the_server_was_reached_are_not_blocked_diagnoses() {
             ],
         );
         let blocked = ["service_bootstrap_blocked", "service_media_blocked", "circumvention_bootstrap_blocked"];
-        assert!(!diagnoses.iter().any(|d| blocked.contains(&d.code.as_str())), "{status} reached the server");
+        assert!(!diagnoses.iter().any(|d| blocked.contains(&d.code.as_str())), "no blockpage in {status}");
     }
 }
 

@@ -27,15 +27,15 @@ pub(crate) mod fat_header {
 pub(crate) mod http {
     pub use ripdpi_diagnostics_http::http::{
         HttpObservation, classify_http_response, describe_http_observation, is_blockpage, parse_http_response,
-        read_http_response, try_http_request_targets_with_cancel, try_http_request_targets_with_key_log,
+        read_http_response, try_http_request_targets_with_cancel,
     };
 }
 
 pub(crate) mod tls {
     pub use ripdpi_diagnostics_tls::tls::{
         ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
-        classify_tls_signal, open_probe_stream_targets_with_options, tls_key_log_callback_for_path, try_tls_handshake,
-        try_tls_handshake_targets_with_options_and_abort, try_tls_handshake_with_key_log,
+        classify_tls_signal, open_probe_stream_targets_with_options, tls_key_log_callback_for_path,
+        try_tls_handshake_targets_with_options_and_abort,
     };
 }
 
@@ -45,8 +45,7 @@ pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::{
         RouteExperimentReport, TargetAddress, TransportConfig, TransportError, UdpRelayResult,
         connect_transport_observed, domain_connect_targets, quic_connect_targets, relay_quic_probe_observed,
-        relay_udp_direct, relay_udp_payload_matching_observed, relay_udp_via_socks5, resolve_first_socket_addr,
-        throughput_connect_targets,
+        relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, throughput_connect_targets,
     };
 }
 

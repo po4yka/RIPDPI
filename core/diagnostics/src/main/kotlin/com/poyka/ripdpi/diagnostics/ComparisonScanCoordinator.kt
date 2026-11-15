@@ -335,12 +335,8 @@ class ComparisonScanCoordinator
                         }
                     }
 
-                    ObservationKind.SERVICE -> {
-                        service?.let { serviceTargetOutcome(target, it) }
-                    }
-
-                    ObservationKind.CIRCUMVENTION -> {
-                        circumvention?.let { circumventionTargetOutcome(target, it) }
+                    ObservationKind.SERVICE, ObservationKind.CIRCUMVENTION -> {
+                        endpointTargetOutcome(report)
                     }
 
                     else -> {
@@ -424,62 +420,90 @@ private fun domainTargetOutcome(
     return TargetOutcome(fact.host, fact.isControl, bucket, components)
 }
 
-private fun serviceTargetOutcome(
-    target: String,
-    fact: ServiceObservationFact,
-): TargetOutcome =
-    componentTargetOutcome(
-        target,
-        mapOf(
-            "endpoint" to fact.endpointStatus.bucket(),
-            "bootstrap" to fact.bootstrapStatus.bucket(),
-            "media" to fact.mediaStatus.bucket(),
-            "quic" to
-                when (fact.quicStatus) {
-                    QuicProbeStatus.INITIAL_RESPONSE, QuicProbeStatus.RESPONSE -> DiagnosticsOutcomeBucket.Healthy
-
-                    QuicProbeStatus.EMPTY, QuicProbeStatus.ERROR -> DiagnosticsOutcomeBucket.Failed
-
-                    QuicProbeStatus.INITIAL_ACK,
-                    QuicProbeStatus.INITIAL_OTHER,
-                    QuicProbeStatus.INITIAL_CLOSE,
-                    QuicProbeStatus.RETRY,
-                    QuicProbeStatus.VERSION_NEGOTIATION,
-                    QuicProbeStatus.INVALID_RESPONSE,
-                    QuicProbeStatus.TIMEOUT,
-                    -> DiagnosticsOutcomeBucket.Attention
-
-                    QuicProbeStatus.NOT_RUN,
-                    QuicProbeStatus.SETUP_ERROR,
-                    QuicProbeStatus.CANCELLED,
-                    QuicProbeStatus.DEADLINE_EXCEEDED,
-                    QuicProbeStatus.UNKNOWN,
-                    -> DiagnosticsOutcomeBucket.Inconclusive
-                },
-        ),
-    )
-
-private fun circumventionTargetOutcome(
-    target: String,
-    fact: CircumventionObservationFact,
-): TargetOutcome =
-    componentTargetOutcome(
-        target,
-        mapOf("handshake" to fact.handshakeStatus.bucket(), "bootstrap" to fact.bootstrapStatus.bucket()),
-    )
-
-private fun componentTargetOutcome(
-    target: String,
-    components: Map<String, DiagnosticsOutcomeBucket>,
-): TargetOutcome {
-    val measured = components.measuredComponents()
+private fun ObservationFact.endpointTargetOutcome(report: ScanReport): TargetOutcome? {
+    val isService = kind == ObservationKind.SERVICE
+    val probeType = if (isService) "service_reachability" else "circumvention_reachability"
+    val recordedOutcome =
+        evidence.singleOrNull()?.takeIf {
+            it == "inconclusive" ||
+                it.startsWith(if (isService) "service_" else "circumvention_")
+        }
+    val result =
+        report.results.singleOrNull {
+            it.probeType == probeType && it.target == target &&
+                (recordedOutcome == null || it.outcome == recordedOutcome)
+        }
+    val nativeBucket =
+        (recordedOutcome ?: result?.outcome)?.let {
+            DiagnosticsOutcomeTaxonomy.classifyProbeOutcome(probeType, report.pathMode, it).bucket
+        }
+    val components =
+        if (isService) {
+            service?.componentBuckets(result, nativeBucket)
+        } else {
+            circumvention?.let {
+                mapOf(
+                    "handshake" to it.handshakeStatus.bucket(),
+                    "bootstrap" to
+                        it.bootstrapStatus.endpointBucket(result?.detailValue("bootstrapStatus"), nativeBucket),
+                )
+            }
+        }?.measuredComponents() ?: return null
     val bucket =
-        when {
-            DiagnosticsOutcomeBucket.Failed in measured.values -> DiagnosticsOutcomeBucket.Failed
-            measured.isNotEmpty() -> DiagnosticsOutcomeBucket.Healthy
+        nativeBucket ?: when {
+            DiagnosticsOutcomeBucket.Failed in components.values -> DiagnosticsOutcomeBucket.Failed
+            DiagnosticsOutcomeBucket.Attention in components.values -> DiagnosticsOutcomeBucket.Attention
+            DiagnosticsOutcomeBucket.Healthy in components.values -> DiagnosticsOutcomeBucket.Healthy
             else -> DiagnosticsOutcomeBucket.Inconclusive
         }
-    return TargetOutcome(target, bucket = bucket, components = measured)
+    return TargetOutcome(target, bucket = bucket, components = components)
+}
+
+private fun ServiceObservationFact.componentBuckets(
+    result: ProbeResult?,
+    nativeBucket: DiagnosticsOutcomeBucket?,
+): Map<String, DiagnosticsOutcomeBucket> =
+    mapOf(
+        "endpoint" to endpointStatus.bucket(),
+        "bootstrap" to bootstrapStatus.endpointBucket(result?.detailValue("bootstrapStatus"), nativeBucket),
+        "media" to mediaStatus.endpointBucket(result?.detailValue("mediaStatus"), nativeBucket),
+        "quic" to
+            when (quicStatus) {
+                QuicProbeStatus.INITIAL_RESPONSE -> DiagnosticsOutcomeBucket.Healthy
+
+                QuicProbeStatus.EMPTY, QuicProbeStatus.ERROR -> DiagnosticsOutcomeBucket.Failed
+
+                QuicProbeStatus.RESPONSE,
+                QuicProbeStatus.INITIAL_ACK,
+                QuicProbeStatus.INITIAL_OTHER,
+                QuicProbeStatus.INITIAL_CLOSE,
+                QuicProbeStatus.RETRY,
+                QuicProbeStatus.VERSION_NEGOTIATION,
+                QuicProbeStatus.INVALID_RESPONSE,
+                QuicProbeStatus.TIMEOUT,
+                -> DiagnosticsOutcomeBucket.Attention
+
+                QuicProbeStatus.NOT_RUN,
+                QuicProbeStatus.SETUP_ERROR,
+                QuicProbeStatus.CANCELLED,
+                QuicProbeStatus.DEADLINE_EXCEEDED,
+                QuicProbeStatus.UNKNOWN,
+                -> DiagnosticsOutcomeBucket.Inconclusive
+            },
+    )
+
+private fun HttpProbeStatus.endpointBucket(
+    status: String?,
+    nativeBucket: DiagnosticsOutcomeBucket?,
+): DiagnosticsOutcomeBucket {
+    val code = status?.removePrefix("http_status_")?.toIntOrNull()
+    val missingStatusInNonHealthyResult =
+        status == null && nativeBucket != null && nativeBucket != DiagnosticsOutcomeBucket.Healthy
+    return when {
+        code != null && code in 300..599 -> DiagnosticsOutcomeBucket.Attention
+        missingStatusInNonHealthyResult && this == HttpProbeStatus.OK -> DiagnosticsOutcomeBucket.Inconclusive
+        else -> bucket()
+    }
 }
 
 private fun Map<String, DiagnosticsOutcomeBucket>.measuredComponents(): Map<String, DiagnosticsOutcomeBucket> =

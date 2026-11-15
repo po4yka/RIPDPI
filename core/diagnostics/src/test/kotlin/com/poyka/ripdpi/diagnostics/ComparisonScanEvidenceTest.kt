@@ -63,6 +63,75 @@ class ComparisonScanEvidenceTest {
     }
 
     @Test
+    fun `HTTP refusal and a generic QUIC reply do not prove that the direct path works`() {
+        val raw =
+            minimalReport(
+                results =
+                    listOf(
+                        ProbeResult(
+                            "service_reachability",
+                            "messaging",
+                            "service_partial",
+                            listOf(ProbeDetail("bootstrapStatus", "http_status_503")),
+                        ),
+                        ProbeResult(
+                            "circumvention_reachability",
+                            "tunnel",
+                            "circumvention_degraded",
+                            listOf(ProbeDetail("bootstrapStatus", "http_status_503")),
+                        ),
+                    ),
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.SERVICE,
+                            target = "messaging",
+                            service =
+                                ServiceObservationFact(
+                                    "messaging",
+                                    HttpProbeStatus.OK,
+                                    quicStatus = QuicProbeStatus.RESPONSE,
+                                ),
+                            evidence = listOf("service_partial"),
+                        ),
+                        ObservationFact(
+                            kind = ObservationKind.CIRCUMVENTION,
+                            target = "tunnel",
+                            circumvention = CircumventionObservationFact("tunnel", HttpProbeStatus.OK),
+                            evidence = listOf("circumvention_degraded"),
+                        ),
+                    ),
+            )
+        val failedPair =
+            minimalReport(
+                observations =
+                    listOf(
+                        ObservationFact(
+                            kind = ObservationKind.SERVICE,
+                            target = "messaging",
+                            service =
+                                ServiceObservationFact(
+                                    "messaging",
+                                    HttpProbeStatus.UNREACHABLE,
+                                    quicStatus = QuicProbeStatus.ERROR,
+                                ),
+                            evidence = listOf("service_blocked"),
+                        ),
+                        ObservationFact(
+                            kind = ObservationKind.CIRCUMVENTION,
+                            target = "tunnel",
+                            circumvention = CircumventionObservationFact("tunnel", HttpProbeStatus.UNREACHABLE),
+                            evidence = listOf("circumvention_blocked"),
+                        ),
+                    ),
+            )
+        val assessment = assessmentFor(raw, failedPair)
+        assertEquals(ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE, assessment.assessmentCode)
+        assertEquals(0, assessment.rawPathEvidence.affectedTargetSuccessCount)
+        assertEquals(2, assessment.inPathEvidence.affectedTargetFailureCount)
+    }
+
+    @Test
     fun `path regression requires the same measured protocol`() {
         val assessment =
             assessmentFor(

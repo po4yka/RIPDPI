@@ -32,11 +32,11 @@ impl ConnectivityProbeFamily for ServiceFamily {
         target: &Self::Target,
         plan: &ExecutionPlan,
         _probe_context: &ProbeExecutionContext,
-        _cancel: &std::sync::atomic::AtomicBool,
+        cancel: &std::sync::atomic::AtomicBool,
         tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);
-        run_service_probe(target, &plan.transport, tls_verifier, key_log.as_ref())
+        run_service_probe(target, &plan.transport, tls_verifier, key_log.as_ref(), cancel)
     }
 }
 

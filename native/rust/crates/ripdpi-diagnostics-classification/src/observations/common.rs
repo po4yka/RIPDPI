@@ -89,6 +89,16 @@ pub(crate) fn http_status(status: Option<&str>) -> HttpProbeStatus {
     }
 }
 
+/// The endpoint experiment records whether an HTTP peer responded. Its result
+/// and details keep the status code and any application-level degradation.
+pub(crate) fn endpoint_http_status(status: Option<&str>) -> HttpProbeStatus {
+    match status {
+        Some("invalid_target" | "interrupted") => HttpProbeStatus::NotRun,
+        Some(status) if http_status_code(status).is_some_and(|code| (200..600).contains(&code)) => HttpProbeStatus::Ok,
+        _ => http_status(status),
+    }
+}
+
 fn http_status_code(value: &str) -> Option<u16> {
     value.strip_prefix("http_status_")?.parse().ok()
 }
@@ -139,7 +149,7 @@ pub(crate) fn quic_status(status: &str) -> QuicProbeStatus {
 pub(crate) fn endpoint_status(status: Option<&str>) -> EndpointProbeStatus {
     match status.unwrap_or("not_run") {
         "tls_ok" | "tcp_connect_ok" => EndpointProbeStatus::Ok,
-        "not_run" => EndpointProbeStatus::NotRun,
+        "not_run" | "invalid_target" | "interrupted" => EndpointProbeStatus::NotRun,
         value if value.contains("blocked") => EndpointProbeStatus::Blocked,
         _ => EndpointProbeStatus::Failed,
     }

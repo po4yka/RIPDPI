@@ -7,9 +7,7 @@ use ripdpi_diagnostics_contracts::util::{IO_TIMEOUT, active_scan_io_deadline, wi
 use ripdpi_diagnostics_transport::transport::ConnectionStream;
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::connectivity::adapters::http::{
-    HttpObservation, classify_http_response, parse_http_response, try_http_request_targets_with_key_log,
-};
+use crate::connectivity::adapters::http::{classify_http_response, parse_http_response};
 use crate::connectivity::adapters::tls::{
     ApplicationProtocolPolicy, ProbeStreamError, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
 };
@@ -345,28 +343,6 @@ fn failed_sample_with_connection(
     sample.transport_open_ms = transport_open_ms;
     sample.tls_handshake_ms = tls_handshake_ms;
     sample
-}
-
-pub(super) fn probe_http_url(
-    url: &str,
-    connect_ip: Option<&str>,
-    connect_ips: &[String],
-    port_override: Option<u16>,
-    transport: &TransportConfig,
-    key_log: Option<&TlsKeyLogCallback>,
-) -> HttpObservation {
-    match parse_http_target(url, connect_ip, connect_ips, port_override) {
-        Ok(parsed) => try_http_request_targets_with_key_log(
-            &parsed.connect_targets,
-            parsed.port,
-            transport,
-            &parsed.host,
-            &parsed.path,
-            parsed.secure,
-            key_log,
-        ),
-        Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
-    }
 }
 
 #[cfg(test)]
